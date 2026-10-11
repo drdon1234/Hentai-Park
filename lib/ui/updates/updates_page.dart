@@ -1,0 +1,247 @@
+import 'dart:async';
+
+import 'package:flutter/material.dart';
+
+import '../../core/models.dart';
+import '../../core/settings.dart';
+import '../../library/downloads.dart';
+import '../../library/library.dart';
+import '../../library/updater.dart';
+import '../nav.dart';
+import '../theme.dart';
+import '../widgets/common.dart';
+
+/// Mihon's Updates tab: new chapters of favorites, newest first, grouped by day.
+class UpdatesPage extends StatefulWidget {
+  const UpdatesPage({super.key});
+
+  @override
+  State<UpdatesPage> createState() => _UpdatesPageState();
+}
+
+class _UpdatesPageState extends State<UpdatesPage> {
+  List<UpdateEntry>? _entries;
+  final Set<String> _selected = {};
+  Timer? _debounce;
+
+  static String _keyOf(UpdateEntry e) => '${e.item.uid}\u0000${e.chapter.chapterId}';
+
+  @override
+  void initState() {
+    super.initState();
+    _reload();
+    Library.instance.addListener(_scheduleReload);
+    LibraryUpdater.instance.addListener(_scheduleReload);
+  }
+
+  @override
+  void dispose() {
+    Library.instance.removeListener(_scheduleReload);
+    LibraryUpdater.instance.removeListener(_scheduleReload);
+    _debounce?.cancel();
+    super.dispose();
+  }
+
+  void _scheduleReload() {
+    _debounce?.cancel();
+    _debounce = Timer(const Duration(milliseconds: 400), _reload);
+  }
+
+  Future<void> _reload() async {
+    final list = await Library.instance.recentUpdates();
+    if (mounted) setState(() => _entries = list);
+  }
+
+  Future<void> _refresh() async {
+    final updater = LibraryUpdater.instance;
+    if (updater.running) return;
+    final result = await updater.run();
+    if (!mounted || result == null) return;
+    context.toast(
+      result.newChapters > 0
+          ? '${result.updated.length} 部作品有 ${result.newChapters} 个新章节'
+          : '没有新章节${result.errors.isNotEmpty ? '（${result.errors.length} 部检查失败）' : ''}',
+    );
+  }
+
+  void _toggle(UpdateEntry e) => setState(() {
+    final k = _keyOf(e);
+    _selected.contains(k) ? _selected.remove(k) : _selected.add(k);
+  });
+
+  List<UpdateEntry> get _selectedEntries => (_entries ?? const []).where((e) => _selected.contains(_keyOf(e))).toList();
+
+  void _markSelected(bool read) {
+    final byWork = <String, List<String>>{};
+    for (final e in _selectedEntries) {
+      byWork.putIfAbsent(e.item.uid, () => []).add(e.chapter.chapterId);
+    }
+    for (final w in byWork.entries) {
+      Library.instance.markRead(w.key, w.value, read);
+    }
+    setState(_selected.clear);
+  }
+
+  void _download(Iterable<UpdateEntry> entries) {
+    final byWork = <String, (WorkItem, List<Chapter>)>{};
+    for (final e in entries) {
+      byWork.putIfAbsent(e.item.uid, () => (e.item, <Chapter>[])).$2.add(Chapter(e.chapter.chapterId, e.chapter.title));
+    }
+    for (final w in byWork.values) {
+      DownloadManager.instance.enqueue(w.$1, w.$2);
+    }
+    context.toast('已加入下载队列');
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final updater = LibraryUpdater.instance;
+    return ListenableBuilder(
+      listenable: Listenable.merge([updater, DownloadManager.instance]),
+      builder: (context, _) {
+        final selecting = _selected.isNotEmpty;
+        final last = AppSettings.instance.lastLibraryUpdate;
+        return Scaffold(
+          appBar: selecting
+              ? AppBar(
+                  leading: IconButton(icon: const Icon(Icons.close_rounded), onPressed: () => setState(_selected.clear)),
+                  title: Text('已选 ${_selected.length}'),
+                  actions: [
+                    TextButton(onPressed: () => _markSelected(true), child: const Text('标为已读')),
+                    TextButton(onPressed: () => _markSelected(false), child: const Text('标为未读')),
+                    IconButton(
+                      tooltip: '下载',
+                      icon: const Icon(Icons.download_rounded),
+                      onPressed: () {
+                        _download(_selectedEntries);
+                        setState(_selected.clear);
+                      },
+                    ),
+                  ],
+                )
+              : AppBar(
+                  title: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text('更新'),
+                      Text(
+                        updater.running ? '正在检查 ${updater.done}/${updater.total}' : (last == 0 ? '尚未检查过更新' : '上次检查：${timeAgo(DateTime.fromMillisecondsSinceEpoch(last))}'),
+                        style: context.text.labelSmall?.copyWith(color: context.colors.onSurfaceVariant),
+                      ),
+                    ],
+                  ),
+                  actions: [
+                    if (updater.running)
+                      IconButton(tooltip: '停止', icon: const Icon(Icons.stop_circle_outlined), onPressed: updater.cancel)
+                    else
+                      IconButton(tooltip: '检查更新', icon: const Icon(Icons.refresh_rounded), onPressed: _refresh),
+                  ],
+                  bottom: updater.running
+                      ? PreferredSize(
+                          preferredSize: const Size.fromHeight(3),
+                          child: LinearProgressIndicator(value: updater.total > 0 ? updater.done / updater.total : null, minHeight: 3),
+                        )
+                      : null,
+                ),
+          body: RefreshIndicator(onRefresh: _refresh, child: _body(context)),
+        );
+      },
+    );
+  }
+
+  Widget _body(BuildContext context) {
+    final entries = _entries;
+    if (entries == null) return const Center(child: CircularProgressIndicator());
+    if (entries.isEmpty) {
+      return ListView(
+        children: const [
+          SizedBox(height: 120),
+          MessageView(icon: Icons.new_releases_outlined, title: '暂无更新', message: '下拉检查书架中连载作品的新章节\n可以在「我的 → 书库」中设置自动检查'),
+        ],
+      );
+    }
+    final rows = <Widget>[];
+    String? day;
+    for (final e in entries) {
+      final label = dayLabel(e.chapter.dateFetch);
+      if (label != day) {
+        day = label;
+        rows.add(SectionHeader(label, padding: const EdgeInsets.fromLTRB(16, 16, 8, 4)));
+      }
+      rows.add(_tile(context, e));
+    }
+    return ListView(padding: const EdgeInsets.only(bottom: 24), children: rows);
+  }
+
+  Widget _tile(BuildContext context, UpdateEntry e) {
+    final c = context.colors;
+    final read = e.chapter.read;
+    final selected = _selected.contains(_keyOf(e));
+    final downloaded = DownloadManager.instance.isChapterDownloaded(e.item.uid, e.chapter.chapterId);
+    final muted = read ? c.onSurface.withValues(alpha: 0.45) : null;
+    return Material(
+      color: selected ? c.primary.withValues(alpha: 0.18) : Colors.transparent,
+      child: InkWell(
+        onTap: () => _selected.isNotEmpty ? _toggle(e) : Nav.openChapter(context, e.item, e.chapter.chapterId),
+        onLongPress: () => _toggle(e),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+          child: Row(
+            children: [
+              GestureDetector(
+                onTap: () => Nav.openWork(context, e.item),
+                child: SizedBox(
+                  width: 46,
+                  height: 62,
+                  child: CoverImage(source: e.item.source, url: e.item.cover, radius: 8),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      e.item.title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: context.text.bodyMedium?.copyWith(fontWeight: read ? FontWeight.w500 : FontWeight.w700, color: muted),
+                    ),
+                    const SizedBox(height: 3),
+                    Row(
+                      children: [
+                        if (!read)
+                          Padding(
+                            padding: const EdgeInsets.only(right: 6),
+                            child: Icon(Icons.circle, size: 8, color: c.primary),
+                          ),
+                        Expanded(
+                          child: Text(
+                            [
+                              e.chapter.title,
+                              if (!read && e.chapter.lastPage > 0 && e.chapter.pageCount > 0) '读到 ${e.chapter.lastPage + 1}/${e.chapter.pageCount}',
+                            ].join(' · '),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: context.text.labelMedium?.copyWith(color: muted ?? c.onSurfaceVariant),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              if (downloaded)
+                Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Icon(Icons.download_done_rounded, color: c.primary, size: 20),
+                )
+              else
+                IconButton(tooltip: '下载', icon: const Icon(Icons.download_outlined, size: 20), onPressed: () => _download([e])),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}

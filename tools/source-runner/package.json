@@ -1,0 +1,12 @@
+{
+  "name": "park-source-runner",
+  "private": true,
+  "type": "module",
+  "description": "Develop and smoke-test HentaiPark source scripts against live sites",
+  "scripts": {
+    "smoke": "node smoke.mjs"
+  },
+  "dependencies": {
+    "linkedom": "^0.18.12"
+  }
+}

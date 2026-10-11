@@ -1,0 +1,460 @@
+// Data contracts shared between the JS source runtime and the UI.
+// Everything crossing the bridge is plain JSON; these classes are thin typed views over it.
+
+import 'dart:ui' show Color;
+
+Map<String, dynamic> _map(Object? v) => v is Map ? v.cast<String, dynamic>() : <String, dynamic>{};
+List<Map<String, dynamic>> _maps(Object? v) => v is List ? v.whereType<Map>().map((e) => e.cast<String, dynamic>()).toList() : const [];
+List<String> _strings(Object? v) => v is List ? v.where((e) => e != null).map((e) => e.toString()).toList() : const [];
+String _str(Object? v) => v == null ? '' : v.toString();
+int? _int(Object? v) => v is num ? v.toInt() : int.tryParse(_str(v));
+double? _double(Object? v) => v is num ? v.toDouble() : double.tryParse(_str(v));
+
+Color parseHexColor(String hex, [Color fallback = const Color(0xFF7C4DFF)]) {
+  var h = hex.replaceFirst('#', '');
+  if (h.length == 6) h = 'FF$h';
+  final value = int.tryParse(h, radix: 16);
+  return value == null ? fallback : Color(value);
+}
+
+enum MediaKind { comic, video }
+
+/// One selectable value of a feed option, search filter or setting.
+class Choice {
+  Choice(this.value, this.label, {this.color});
+  final Object? value;
+  final String label;
+  final String? color;
+
+  factory Choice.fromJson(Object? json) {
+    if (json is Map) return Choice(json['value'], _str(json['label'] ?? json['value']), color: json['color']?.toString());
+    return Choice(json, _str(json));
+  }
+}
+
+/// A feed option, search filter or setting definition. `type` is select | multi | number | text | password | switch.
+class OptionDef {
+  OptionDef({required this.key, required this.label, required this.type, required this.values, this.defaultValue, this.description = ''});
+  final String key;
+  final String label;
+  final String type;
+  final List<Choice> values;
+  final Object? defaultValue;
+  final String description;
+
+  factory OptionDef.fromJson(Map<String, dynamic> j) {
+    final values = (j['values'] ?? j['options']) as List? ?? const [];
+    return OptionDef(
+      key: _str(j['key']),
+      label: _str(j['label']),
+      type: _str(j['type']).isEmpty ? (values.isEmpty ? 'text' : 'select') : _str(j['type']),
+      values: values.map(Choice.fromJson).toList(),
+      defaultValue: j['default'],
+      description: _str(j['description']),
+    );
+  }
+
+  String labelOf(Object? value) {
+    for (final c in values) {
+      if (c.value == value) return c.label;
+    }
+    return _str(value);
+  }
+}
+
+class FeedDef {
+  FeedDef({required this.key, required this.label, required this.options, required this.layout});
+  final String key;
+  final String label;
+  final List<OptionDef> options;
+  final String layout; // grid | sections
+
+  factory FeedDef.fromJson(Map<String, dynamic> j) => FeedDef(
+    key: _str(j['key']),
+    label: _str(j['label']),
+    options: _maps(j['options']).map(OptionDef.fromJson).toList(),
+    layout: _str(j['layout']).isEmpty ? 'grid' : _str(j['layout']),
+  );
+
+  Map<String, Object?> defaultOptions() => {for (final o in options) o.key: o.defaultValue};
+}
+
+class AccountDef {
+  AccountDef({
+    required this.type,
+    required this.title,
+    required this.hint,
+    required this.fields,
+    required this.loginUrl,
+    required this.cookieUrl,
+    required this.requiredCookies,
+    required this.required,
+  });
+  final String type; // password | cookies
+  final String title;
+  final String hint;
+  final List<Map<String, dynamic>> fields;
+  final String loginUrl;
+  final String cookieUrl;
+  final List<String> requiredCookies;
+  final bool required;
+
+  static AccountDef? fromJson(Object? json) {
+    if (json is! Map) return null;
+    final j = json.cast<String, dynamic>();
+    return AccountDef(
+      type: _str(j['type']),
+      title: _str(j['title']),
+      hint: _str(j['hint']),
+      fields: _maps(j['fields']),
+      loginUrl: _str(j['loginUrl']),
+      cookieUrl: _str(j['cookieUrl']),
+      requiredCookies: _strings(j['requiredCookies']),
+      required: j['required'] == true,
+    );
+  }
+}
+
+class SourceManifest {
+  SourceManifest(this.json)
+    : key = _str(json['key']),
+      name = _str(json['name']),
+      version = _str(json['version']),
+      kind = _str(json['type']) == 'video' ? MediaKind.video : MediaKind.comic,
+      color = parseHexColor(_str(json['color'])),
+      icon = _str(json['icon']),
+      description = _str(json['description']),
+      homepage = _str(json['homepage']),
+      language = _str(json['language']),
+      linkPatterns = _strings(json['linkPatterns']).map((p) => RegExp(p)).toList(),
+      idPattern = _str(json['idPattern']).isEmpty ? null : RegExp(_str(json['idPattern'])),
+      idExample = _str(json['idExample']),
+      imageHeaders = _map(json['imageHeaders']).map((k, v) => MapEntry(k, v.toString())),
+      network = _map(json['network']),
+      settings = _maps(json['settings']).map(OptionDef.fromJson).toList(),
+      account = AccountDef.fromJson(json['account']),
+      feeds = _maps(json['feeds']).map(FeedDef.fromJson).toList(),
+      defaultFeed = _str(json['defaultFeed']),
+      searchFilters = _maps(json['searchFilters']).map(OptionDef.fromJson).toList(),
+      searchHint = _str(json['searchHint']),
+      capabilities = _map(json['capabilities']);
+
+  final Map<String, dynamic> json;
+  final String key;
+  final String name;
+  final String version;
+  final MediaKind kind;
+  final Color color;
+  final String icon;
+  final String description;
+  final String homepage;
+  final String language;
+  final List<RegExp> linkPatterns;
+  final RegExp? idPattern;
+  final String idExample;
+  final Map<String, String> imageHeaders;
+  final Map<String, dynamic> network;
+  final List<OptionDef> settings;
+  final AccountDef? account;
+  final List<FeedDef> feeds;
+
+  /// Key of the feed the source page opens on (manifest `defaultFeed`).
+  final String defaultFeed;
+
+  /// The feed to open first: the manifest's `defaultFeed`, otherwise recommended > ranking > popular.
+  int get defaultFeedIndex {
+    if (defaultFeed.isNotEmpty) {
+      final i = feeds.indexWhere((f) => f.key == defaultFeed);
+      if (i >= 0) return i;
+    }
+    for (final keys in const [
+      ['promote', 'recommend', 'featured'],
+      ['rank', 'toplist'],
+      ['popular', 'hot', 'trending'],
+    ]) {
+      final i = feeds.indexWhere((f) => keys.any((k) => f.key.toLowerCase().contains(k)));
+      if (i >= 0) return i;
+    }
+    return 0;
+  }
+  final List<OptionDef> searchFilters;
+  final String searchHint;
+  final Map<String, dynamic> capabilities;
+
+  bool can(String capability) => capabilities[capability] == true;
+  bool get isVideo => kind == MediaKind.video;
+  bool get usesBrowserNetwork => network['mode'] == 'browser';
+  String get origin => _str(network['origin']).isNotEmpty ? _str(network['origin']) : homepage;
+
+  Map<String, Object?> defaultFilters() => {for (final f in searchFilters) f.key: f.defaultValue};
+
+  /// Extracts work ids from free text (links or explicit ids).
+  List<String> extractIds(String text) {
+    final found = <(int, String)>[];
+    for (final p in linkPatterns) {
+      for (final m in p.allMatches(text)) {
+        final id = m.groupCount >= 1 ? m.group(1) : m.group(0);
+        if (id != null) found.add((m.start, id));
+      }
+    }
+    found.sort((a, b) => a.$1.compareTo(b.$1));
+    return {for (final f in found) f.$2}.toList();
+  }
+
+  String? matchExplicitId(String text) {
+    final m = idPattern?.firstMatch(text.trim());
+    if (m == null) return null;
+    if (m.groupCount >= 2 && m.group(2) != null) return '${m.group(1)}/${m.group(2)}';
+    return m.groupCount >= 1 ? m.group(1) : m.group(0);
+  }
+}
+
+class WorkItem {
+  WorkItem(this.json, this.source)
+    : id = _str(json['id']),
+      title = _str(json['title']),
+      subtitle = _str(json['subtitle']),
+      cover = _str(json['cover']),
+      coverAspect = _double(json['coverAspect']),
+      pages = _int(json['pages']),
+      rating = _double(json['rating']),
+      likes = _int(json['likes']),
+      views = _int(json['views']),
+      language = _str(json['language']),
+      category = _str(json['category']),
+      badge = _str(json['badge']),
+      badgeColor = _str(json['badgeColor']),
+      duration = _str(json['duration']),
+      uploaded = _str(json['uploaded']),
+      tags = _strings(json['tags']);
+
+  final Map<String, dynamic> json;
+  final String source;
+  final String id;
+  final String title;
+  final String subtitle;
+  final String cover;
+  final double? coverAspect;
+  final int? pages;
+  final double? rating;
+  final int? likes;
+  final int? views;
+  final String language;
+  final String category;
+  final String badge;
+  final String badgeColor;
+  final String duration;
+  final String uploaded;
+  final List<String> tags;
+
+  String get uid => '$source:$id';
+
+  Map<String, dynamic> toJson() => {...json, 'id': id, 'source': source};
+
+  factory WorkItem.fromStored(Map<String, dynamic> j) => WorkItem(j, _str(j['source']));
+}
+
+class WorkPage {
+  WorkPage({required this.items, required this.page, this.totalPages, this.hasNext = false, this.cursor, this.total, this.sections});
+  final List<WorkItem> items;
+  final int page;
+  final int? totalPages;
+  final bool hasNext;
+  final String? cursor;
+  final int? total;
+  final List<WorkSection>? sections;
+
+  factory WorkPage.fromJson(Map<String, dynamic> j, String source) => WorkPage(
+    items: _maps(j['items']).map((e) => WorkItem(e, source)).toList(),
+    page: _int(j['page']) ?? 1,
+    totalPages: _int(j['totalPages']),
+    hasNext: j['hasNext'] == true,
+    cursor: j['cursor']?.toString(),
+    total: _int(j['total']),
+    sections: j['sections'] is List
+        ? _maps(j['sections']).map((s) => WorkSection(_str(s['title']), _maps(s['items']).map((e) => WorkItem(e, source)).toList())).toList()
+        : null,
+  );
+}
+
+class WorkSection {
+  WorkSection(this.title, this.items);
+  final String title;
+  final List<WorkItem> items;
+}
+
+class TagRef {
+  TagRef(this.name, this.keyword, this.filters, this.count);
+  final String name;
+  final String keyword;
+  final Map<String, dynamic> filters;
+  final int? count;
+}
+
+class TagGroup {
+  TagGroup(this.namespace, this.label, this.tags);
+  final String namespace;
+  final String label;
+  final List<TagRef> tags;
+}
+
+class Chapter {
+  Chapter(this.id, this.title);
+  final String id;
+  final String title;
+}
+
+/// Sprite-aware thumbnail (E-Hentai packs several thumbnails into one image).
+class PreviewThumb {
+  PreviewThumb(this.json)
+    : url = _str(json['url']),
+      index = _int(json['index']),
+      width = _double(json['width']),
+      height = _double(json['height']),
+      offsetX = _double(json['offsetX']) ?? 0,
+      offsetY = _double(json['offsetY']) ?? 0;
+  final Map<String, dynamic> json;
+  final String url;
+  final int? index;
+  final double? width;
+  final double? height;
+  final double offsetX;
+  final double offsetY;
+  bool get isSprite => width != null && height != null && (offsetX != 0 || offsetY != 0 || json.containsKey('offsetX'));
+}
+
+class WorkDetail extends WorkItem {
+  WorkDetail(Map<String, dynamic> json, String source)
+    : url = _str(json['url']),
+      authors = _strings(json['authors']),
+      description = _str(json['description']),
+      uploader = _str(json['uploader']),
+      size = _str(json['size']),
+      comments = _int(json['comments']),
+      tagGroups = _maps(json['tags'])
+          .map(
+            (g) => TagGroup(
+              _str(g['namespace']),
+              _str(g['label']).isEmpty ? _str(g['namespace']) : _str(g['label']),
+              _maps(g['tags']).map((t) => TagRef(_str(t['name']), _str(t['keyword']), _map(t['filters']), _int(t['count']))).toList(),
+            ),
+          )
+          .toList(),
+      chapters = json['chapters'] is List ? _maps(json['chapters']).map((c) => Chapter(_str(c['id']), _str(c['title']))).toList() : null,
+      singleChapterId = json['singleChapterId']?.toString(),
+      related = _maps(json['related']).map((e) => WorkItem(e, source)).toList(),
+      series = _maps(json['series']).map((e) => WorkItem(e, source)).toList(),
+      thumbnails = (json['thumbnails'] as List? ?? const [])
+          .map((t) => t is Map ? PreviewThumb(t.cast<String, dynamic>()) : PreviewThumb({'url': _str(t)}))
+          .where((t) => t.url.isNotEmpty)
+          .toList(),
+      thumbnailsTotal = _int(json['thumbnailsTotal']),
+      authorSearch = json['authorSearch'] is Map ? _map(json['authorSearch']) : null,
+      super(json, source);
+
+  final String url;
+  final List<String> authors;
+  final String description;
+  final String uploader;
+  final String size;
+  final int? comments;
+  final List<TagGroup> tagGroups;
+  final List<Chapter>? chapters;
+  final String? singleChapterId;
+  final List<WorkItem> related;
+  final List<WorkItem> series;
+  final List<PreviewThumb> thumbnails;
+  final int? thumbnailsTotal;
+  final Map<String, dynamic>? authorSearch;
+
+  WorkItem toItem() => WorkItem.fromStored({...json, 'source': source, 'tags': tagGroups.expand((g) => g.tags.map((t) => t.name)).take(8).toList()});
+}
+
+/// One page of a chapter. Either a direct [url] or a [token] resolved lazily through `resolveImage`.
+class PageImage {
+  PageImage(this.json)
+    : url = _str(json['url']),
+      token = json['token']?.toString(),
+      fallbacks = _strings(json['fallbacks']),
+      headers = _map(json['headers']).map((k, v) => MapEntry(k, v.toString())),
+      width = _double(json['width']),
+      height = _double(json['height']),
+      transform = json['transform'] is Map ? _map(json['transform']) : null,
+      cacheKey = json['cacheKey']?.toString();
+
+  final Map<String, dynamic> json;
+  final String url;
+  final String? token;
+  final List<String> fallbacks;
+  final Map<String, String> headers;
+  final double? width;
+  final double? height;
+  final Map<String, dynamic>? transform;
+  final String? cacheKey;
+
+  bool get needsResolve => url.isEmpty;
+  double? get aspect => width != null && height != null && height! > 0 ? width! / height! : null;
+}
+
+class ChapterImages {
+  ChapterImages(this.pages, this.cacheKey);
+  final List<PageImage> pages;
+  final String? cacheKey;
+
+  factory ChapterImages.fromJson(Map<String, dynamic> j) => ChapterImages(_maps(j['pages']).map(PageImage.new).toList(), j['cacheKey']?.toString());
+}
+
+class VideoSource {
+  VideoSource(Map<String, dynamic> j)
+    : quality = _int(j['quality']) ?? 0,
+      label = _str(j['label']).isEmpty ? '${_int(j['quality']) ?? ''}P' : _str(j['label']),
+      url = _str(j['url']),
+      headers = _map(j['headers']).map((k, v) => MapEntry(k, v.toString())),
+      preferred = j['preferred'] == true;
+  final int quality;
+  final String label;
+  final String url;
+  final Map<String, String> headers;
+  final bool preferred;
+}
+
+class AccountStatus {
+  AccountStatus(this.loggedIn, this.name);
+  final bool loggedIn;
+  final String name;
+}
+
+/// Error codes produced by sources (see park_runtime.js).
+class SourceError implements Exception {
+  SourceError(this.code, this.message, {this.status, this.url});
+  final String code;
+  final String message;
+  final int? status;
+  final String? url;
+
+  bool get isCloudflare => code == 'CLOUDFLARE';
+  bool get needsLogin => code == 'LOGIN_REQUIRED';
+  bool get isNotFound => code == 'NOT_FOUND';
+  bool get isNetwork => code == 'NETWORK';
+
+  factory SourceError.fromJson(Object? j) {
+    final m = _map(j);
+    return SourceError(_str(m['code']).isEmpty ? 'UNKNOWN' : _str(m['code']), _str(m['message']), status: _int(m['status']), url: m['url']?.toString());
+  }
+
+  String get friendly {
+    switch (code) {
+      case 'CLOUDFLARE':
+        return '站点开启了人机验证，需要在内置浏览器中通过一次';
+      case 'LOGIN_REQUIRED':
+        return message.isEmpty ? '需要登录' : message;
+      case 'NETWORK':
+        return '网络连接失败，请检查网络或代理设置\n$message';
+      default:
+        return message.isEmpty ? code : message;
+    }
+  }
+
+  @override
+  String toString() => '$code: $message';
+}
