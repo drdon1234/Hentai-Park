@@ -1,0 +1,203 @@
+import 'dart:async';
+import 'dart:convert';
+import 'dart:io';
+
+import 'package:crypto/crypto.dart';
+import 'package:dio/dio.dart';
+import 'package:flutter/services.dart';
+import 'package:path/path.dart' as p;
+import 'package:uuid/uuid.dart';
+
+import '../core/models.dart';
+import '../engine/browser_media.dart';
+import 'hls.dart';
+
+typedef MediaRemux = Future<void> Function(
+  File input,
+  File output,
+  CancelToken token,
+);
+
+Future<void> remuxTransportStream(
+  File input,
+  File output,
+  CancelToken token,
+) async {
+  if (!Platform.isAndroid) throw SourceError('UNSUPPORTED', 'HLS 下载封装目前仅支持安卓');
+  const channel = MethodChannel('hentai_park/media');
+  final id = const Uuid().v4();
+  if (token.cancelError case final error?) throw error;
+  var finished = false;
+  final operation = channel.invokeMethod<void>('remux', {
+    'id': id,
+    'input': input.path,
+    'output': output.path,
+  });
+  final cancelled = token.whenCancel.then((error) async {
+    if (!finished) await channel.invokeMethod<void>('cancel', {'id': id});
+    throw error;
+  });
+  try {
+    await Future.any([operation, cancelled]);
+  } finally {
+    // A cancelled task must finish releasing its files before a retry/delete.
+    if (token.isCancelled && !finished) {
+      try {
+        await channel.invokeMethod<void>('cancel', {'id': id});
+      } catch (_) {}
+      try {
+        await operation;
+      } catch (_) {}
+    }
+    finished = true;
+  }
+  if (token.cancelError case final error?) throw error;
+}
+
+/// Validated per-segment state survives pause/restart; no partial MP4 is published.
+class HlsDownload {
+  HlsDownload(this.transport, {this.remux = remuxTransportStream});
+  final MediaTransport transport;
+  final MediaRemux remux;
+
+  static void _check(CancelToken token) {
+    if (token.cancelError case final error?) throw error;
+  }
+
+  Future<void> run(
+    Uri url, {
+    required File output,
+    required CancelToken cancelToken,
+    required void Function(int done, int total, int bytes) onProgress,
+  }) async {
+    final work = Directory('${output.path}.hls');
+    final input = File(p.join(work.path, 'input.ts'));
+    final temporary = File('${output.path}.${const Uuid().v4()}.mux');
+    var published = false;
+    try {
+      _check(cancelToken);
+      transport.validate(url);
+      final playlist = HlsPlaylist.parse(
+        utf8.decode(
+          await transport.fetch(
+            url,
+            maxBytes: 2 * 1024 * 1024,
+            cancelToken: cancelToken,
+          ),
+        ),
+        url,
+      );
+      for (final segment in playlist.segments) {
+        transport.validate(segment.url);
+      }
+      _check(cancelToken);
+      await work.create(recursive: true);
+      // Reuse only the exact manifest and segment addresses, order and durations.
+      final signature = sha256
+          .convert(
+            utf8.encode(
+              jsonEncode([
+                url.toString(),
+                for (final s in playlist.segments)
+                  [s.url.toString(), s.duration],
+              ]),
+            ),
+          )
+          .toString();
+      final stateFile = File(p.join(work.path, 'state.json'));
+      var saved = <String, dynamic>{};
+      if (await stateFile.exists()) {
+        try {
+          saved = (jsonDecode(await stateFile.readAsString()) as Map)
+              .cast<String, dynamic>();
+        } catch (_) {}
+      }
+      final hashes = saved['signature'] == signature && saved['segments'] is Map
+          ? (saved['segments'] as Map).cast<String, dynamic>()
+          : <String, dynamic>{};
+      final total =
+          playlist.segments.length + 1; // The last step is local remux.
+      var bytes = 0;
+      onProgress(0, total, 0);
+      for (var i = 0; i < playlist.segments.length; i++) {
+        _check(cancelToken);
+        final segment = File(p.join(work.path, '$i.ts'));
+        var valid = false;
+        if (hashes['$i'] is String &&
+            await segment.exists() &&
+            await segment.length() <= 32 * 1024 * 1024) {
+          try {
+            final data = await segment.readAsBytes();
+            validateTransportStream(data);
+            valid = sha256.convert(data).toString() == hashes['$i'];
+          } on SourceError {
+            valid = false;
+          }
+        }
+        if (!valid) {
+          final data = await transport.fetch(
+            playlist.segments[i].url,
+            maxBytes: 32 * 1024 * 1024,
+            cancelToken: cancelToken,
+          );
+          _check(cancelToken);
+          validateTransportStream(data);
+          final part = File('${segment.path}.part');
+          await part.writeAsBytes(data, flush: true);
+          _check(cancelToken);
+          if (await segment.exists()) await segment.delete();
+          await part.rename(segment.path);
+          hashes['$i'] = sha256.convert(data).toString();
+          final statePart = File('${stateFile.path}.part');
+          await statePart.writeAsString(
+            jsonEncode({'signature': signature, 'segments': hashes}),
+            flush: true,
+          );
+          _check(cancelToken);
+          if (await stateFile.exists()) await stateFile.delete();
+          await statePart.rename(stateFile.path);
+        }
+        bytes += await segment.length();
+        _check(cancelToken);
+        onProgress(i + 1, total, bytes);
+      }
+      final sink = await input.open(mode: FileMode.write);
+      try {
+        for (var i = 0; i < playlist.segments.length; i++) {
+          await for (final chunk in File(
+            p.join(work.path, '$i.ts'),
+          ).openRead()) {
+            _check(cancelToken);
+            await sink.writeFrom(chunk);
+          }
+        }
+        await sink.flush();
+      } finally {
+        await sink.close();
+      }
+      _check(cancelToken);
+      await remux(input, temporary, cancelToken);
+      _check(cancelToken);
+      if (!await temporary.exists() || await temporary.length() == 0) {
+        throw SourceError('NETWORK', '视频封装未生成有效文件');
+      }
+      if (await output.exists()) await output.delete();
+      await temporary.rename(output.path);
+      published = true;
+      onProgress(total, total, bytes);
+    } finally {
+      try {
+        await transport.close();
+      } finally {
+        try {
+          if (await temporary.exists()) await temporary.delete();
+        } finally {
+          if (await input.exists()) await input.delete();
+          if (published && await work.exists()) {
+            await work.delete(recursive: true);
+          }
+        }
+      }
+    }
+  }
+}

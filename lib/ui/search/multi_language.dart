@@ -49,17 +49,24 @@ Future<MultiKeyword?> translateKeyword(
     map.removeWhere((_, v) => v.toLowerCase() == k.toLowerCase());
     return MultiKeyword(k, map, sourceLanguage: result.sourceLanguage);
   } catch (e) {
-    if (context.mounted)
+    if (context.mounted) {
       context.toast(
         tr('翻译失败：{error}', {'error': e is SourceError ? e.message : e}),
       );
+    }
     return null;
   }
 }
 
 /// Pages through one source for several keywords at once, interleaving and merging the results.
 class MultiKeywordSearch {
-  MultiKeywordSearch(this.source, this.keywords, this.filters);
+  MultiKeywordSearch(
+    this.source,
+    this.keywords,
+    this.filters, {
+    SourceManager? sourceManager,
+  }) : _sources = sourceManager ?? SourceManager.instance;
+  final SourceManager _sources;
   final String source;
   final List<String> keywords;
   final Map<String, Object?> filters;
@@ -74,7 +81,7 @@ class MultiKeywordSearch {
         final st = _state[k];
         final prev = st?.page ?? 0;
         try {
-          final r = await SourceManager.instance.search(
+          final r = await _sources.search(
             source,
             keyword: k,
             page: prev + 1,
@@ -89,13 +96,15 @@ class MultiKeywordSearch {
           return r.items;
         } catch (e) {
           firstError ??= e;
-          _state[k] = (page: prev, cursor: st?.cursor, hasNext: false);
+          // Failed requests did not consume a page. Keep them active for the next retry.
+          _state[k] = (page: prev, cursor: st?.cursor, hasNext: true);
           return null;
         }
       }),
     );
-    if (results.every((r) => r == null) && firstError != null)
+    if (results.every((r) => r == null) && firstError != null) {
       throw firstError!;
+    }
     final lists = results.whereType<List<WorkItem>>().toList();
     final merged = <WorkItem>[];
     final seen = <String>{};

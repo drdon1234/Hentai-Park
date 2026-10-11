@@ -120,6 +120,7 @@ class Library extends ChangeNotifier {
   bool get _incognito => AppSettings.instance.incognito;
 
   Future<void> open(AppDatabase db) async {
+    await flush();
     _db = db;
     _favorites.clear();
     _history.clear();
@@ -201,16 +202,14 @@ class Library extends ChangeNotifier {
   /// Whether the site lists no chapters for this favorite (known after its first sync).
   bool isOneShot(String uid) => _oneShots.contains(uid);
 
-  final Set<Future<void>> _pending = {};
+  Future<void> _writes = Future<void>.value();
+  (Object, StackTrace)? _writeFailure;
 
   void _run(Future<void> Function() write) {
-    late final Future<void> f;
-    f = write()
-        .catchError((Object e, StackTrace st) {
-          debugPrint('library write failed: $e\n$st');
-        })
-        .whenComplete(() => _pending.remove(f));
-    _pending.add(f);
+    _writes = _writes.then((_) => write()).catchError((Object e, StackTrace st) {
+      _writeFailure ??= (e, st);
+      debugPrint('library write failed: $e\n$st');
+    });
   }
 
   /// Inserts or refreshes the stored snapshot of a work without touching its library flags.
@@ -335,8 +334,9 @@ class Library extends ChangeNotifier {
   void setCategories(String uid, Set<int> ids) {
     final f = _favorites[uid];
     if (f == null) return;
-    f.categories = ids.where((id) => category(id) != null).toSet();
-    _run(() => _writeCategories(uid, f.categories));
+    final valid = ids.where((id) => category(id) != null).toSet();
+    f.categories = valid;
+    _run(() => _db.transaction(() => _writeCategories(uid, valid)));
     notifyListeners();
   }
 
@@ -542,22 +542,22 @@ class Library extends ChangeNotifier {
   }
 
   void _saveHistory(HistoryEntry h) {
+    final item = h.item;
+    final snapshot = HistoryCompanion.insert(
+      source: item.source,
+      workId: item.id,
+      time: h.time.millisecondsSinceEpoch,
+      chapterId: Value(h.chapterId),
+      chapterTitle: Value(h.chapterTitle),
+      page: Value(h.page),
+      pageCount: Value(h.pageCount),
+      position: Value(h.position),
+    );
     _run(() async {
-      await _saveWork(h.item);
-      await _db
-          .into(_db.history)
-          .insertOnConflictUpdate(
-            HistoryCompanion.insert(
-              source: h.item.source,
-              workId: h.item.id,
-              time: h.time.millisecondsSinceEpoch,
-              chapterId: Value(h.chapterId),
-              chapterTitle: Value(h.chapterTitle),
-              page: Value(h.page),
-              pageCount: Value(h.pageCount),
-              position: Value(h.position),
-            ),
-          );
+      await _db.transaction(() async {
+        await _saveWork(item);
+        await _db.into(_db.history).insertOnConflictUpdate(snapshot);
+      });
     });
     if (_history.length > historyLimit + 100) _trimHistory();
   }
@@ -636,8 +636,15 @@ class Library extends ChangeNotifier {
 
   /// Waits for queued writes (used before backups and in tests).
   Future<void> flush() async {
-    while (_pending.isNotEmpty) {
-      await Future.wait(_pending.toList());
+    while (true) {
+      final pending = _writes;
+      await pending;
+      if (identical(pending, _writes)) break;
+    }
+    final failure = _writeFailure;
+    _writeFailure = null;
+    if (failure != null) {
+      Error.throwWithStackTrace(failure.$1, failure.$2);
     }
   }
 }

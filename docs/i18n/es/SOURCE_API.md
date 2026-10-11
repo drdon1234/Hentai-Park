@@ -7,7 +7,7 @@ La fuente incorporada se encuentra en [`assets/sources/`](../../../assets/source
 
 ## Entorno de ejecución
 
-- El script fuente se ejecuta en un WebView sin cabeza dentro de la aplicación (JS moderno completo con `DOMParser`). La capa nativa proporciona la red, el cifrado y las cookies, por lo que no hay restricciones de CORS.
+- Los scripts fuente se ejecutan en un WebView sin interfaz dentro de la aplicación (JS moderno completo con `DOMParser`). La capa nativa proporciona criptografía, Cookie y solicitudes HTTP nativas. HTTP nativo no tiene restricciones CORS; las solicitudes de red y medios del navegador siguen las reglas independientes descritas abajo.
 - El mismo tiempo de ejecución ([`assets/runtime/park_runtime.js`](../../../assets/runtime/park_runtime.js)) también se puede ejecutar en Node, y puedes realizar pruebas de humo directamente en el sitio real durante el desarrollo:
 
   ```bash
@@ -33,6 +33,7 @@ Park.register({
   idPattern: '^(\\d+)$',                      // Se utiliza para acceso directo al ingresar el número directamente
   imageHeaders: { Referer: 'https://example.com/' },  // Se lleva por defecto al cargar portadas e imágenes.
   network: { mode: 'native' },                // Ver la sección "Red"
+  media: { mode: 'browser', origin: 'https://example.com', domains: ['media.example.com'] },  // Permiso HLS opcional; ver abajo
 
   settings: [ /* option definitions */ ],
   account: { /* optional account */ },
@@ -89,7 +90,7 @@ await this.http.request({
 // → { status, headers, body, url, ok, json() }
 ```
 
-`text()`/`json()` generará automáticamente un error (404 → `NOT_FOUND`) cuando encuentre una respuesta que no sea 2xx. La cookie se guarda automáticamente y persiste cuando se siguen las redirecciones.
+`text()` / `json()` lanzan un error automáticamente ante respuestas que no sean 2xx (404 → `NOT_FOUND`). Las cookies se guardan automáticamente y se seleccionan de nuevo para cada destino de redirección. Las redirecciones entre orígenes no envían las cabeceras de autenticación originales; se rechazan si mantienen el cuerpo de la solicitud.
 
 ## Estructura de datos
 
@@ -138,7 +139,12 @@ Cuando se hace clic en una etiqueta, la aplicación busca `keyword` y `filters` 
 - `transform: { type: 'unscramble-strips', segments: N }`: cuando la imagen se corta en N tiras horizontalmente y se almacena en orden inverso (JMComic), la aplicación se restaurará de forma nativa en la GPU. El archivo descargado sin conexión guarda la imagen original y la restaura cuando se muestra.
 - `resolveImage` devuelve `{ url, headers?, width?, height?, cacheKey? }`. Cuando falla, la aplicación incrementará `retry` y volverá a llamar, y la fuente puede usar esto para cambiar un servidor (parámetro `nl` de E-Hentai).
 
-**Video** (`videos`): `[{ quality: 1080, label: '1080P', url, headers?, preferred? }]`. Los enlaces directos de video generalmente tienen un límite de tiempo y la aplicación los volverá a obtener cada vez antes de reproducirlos o descargarlos.
+**Video** (`videos`): `[{ quality: 1080, label: '1080P', url, headers?, format?, preferred? }]`. Los enlaces directos de video generalmente tienen un límite de tiempo y la aplicación los volverá a obtener cada vez antes de reproducirlos o descargarlos.
+
+- Si se omite `format`, se conserva la ruta de reproducción y descarga directa de MP4. Las entradas HLS deben devolver explícitamente `format: 'hls'` y declarar en el manifest el permiso `media` descrito a continuación.
+- La aplicación primero expande la lista maestra HLS (`#EXT-X-STREAM-INF`) en listas de segmentos independientes por variante, obtiene las resoluciones reales de `RESOLUTION` y entrega esas variantes al reproductor o al gestor de descargas. En una lista maestra, `quality` indica la resolución deseada: se prefiere la mayor resolución disponible que no supere ese valor, o la máxima si ninguna cumple. Cada variante debe contener audio y video multiplexados en MPEG-TS. Se rechazan las rendiciones separadas `AUDIO`, `VIDEO` o `SUBTITLES` y las URL fuera de `media.domains`.
+- Las variantes HLS expandidas solo admiten listas completas y continuas de MPEG-TS bajo demanda que contengan `#EXT-X-ENDLIST`. No se admiten emisiones en directo, cifrado, rangos de bytes, fMP4, discontinuidades ni huecos. La etiqueta no estándar `#EXT-X-TOKEN` de MissAV se elimina antes de enviar la lista al reproductor.
+- La reproducción usa un puerto aleatorio vinculado solo a `127.0.0.1` y un token aleatorio, con un registro finito de URL que obtiene segmentos validados bajo demanda. Al cerrar la sesión, se cancelan sus solicitudes. Las descargas HLS sin conexión solo se admiten en Android: se valida cada segmento, se guarda su SHA-256 y se comprueba al reanudar, con posibilidad de cancelar. Media3 convierte el contenido a MP4 en el dispositivo y solo el archivo completo se publica en la biblioteca sin conexión. La reproducción HLS en iOS/macOS no se ha verificado en esta ronda y no debe presentarse como verificada.
 
 ## Definición de opción
 
@@ -158,7 +164,21 @@ Cada elemento de `feeds` es una pestaña en la página de origen: `{ key, label,
 ## red
 
 - `network.mode: 'native'` (predeterminado): la solicitud HTTP nativa, que utiliza cookies persistentes, puede pasar por el proxy configurado por el usuario. Si se detecta la consulta Cloudflare, se generará `CLOUDFLARE`. La aplicación guiará al usuario para completar la verificación en el navegador integrado y sincronizar la cookie común con la solicitud nativa.
-- `network.mode: 'browser'` + `network.origin`: La solicitud se realizó con origen `fetch()` en una página oculta del navegador abierta en `origin`, con una huella digital real del navegador. Se aplica a Cloudflare sitios que están más protegidos (por ejemplo, Hanime1).
+- `network.mode: 'browser'` + `network.origin`: La solicitud se realizó con origen `fetch()` en una página oculta del navegador abierta en `origin`, con una huella digital real del navegador. Se aplica a Cloudflare sitios que están más protegidos (por ejemplo, Hanime1). Si una solicitud GET del mismo origen recibe un desafío Cloudflare, el navegador oculto abre ese documento para completar la verificación automática y reintenta la solicitud original una sola vez. Si falla, se genera `CLOUDFLARE` y se utiliza el flujo de verificación existente.
+
+## Medios en el navegador (HLS)
+
+El permiso de medios en el navegador es independiente de `this.http`, `network` y la sincronización de Cookie del sitio. Ejemplo de MissAV:
+
+```js
+domains: ['missav.ai'],
+network: { mode: 'browser', origin: 'https://missav.ai' },
+media: { mode: 'browser', origin: 'https://missav.ai', domains: ['surrit.com'] },
+```
+
+- `media.origin` debe pertenecer a un sitio declarado por la fuente, usar HTTPS en el puerto predeterminado 443 y no contener credenciales en la URL. Un navegador oculto establece la sesión de medios en esa página del mismo origen.
+- `media.domains` es una lista independiente de dominios multimedia permitidos, incluidos sus subdominios; no concede acceso a las Cookie del sitio fuente. Las listas y los segmentos requieren HTTPS en el puerto 443. Se rechazan credenciales en la URL, fragmentos, direcciones IP, localhost (incluidos subdominios) y `.local`. Las solicitudes usan `credentials: 'omit'`, `mode: 'cors'` y `redirect: 'error'`, respetan las reglas CORS del CDN y no siguen redirecciones.
+- El tamaño de la respuesta se limita durante la lectura en streaming y se vuelve a validar su URL. Las listas tienen un límite de 2 MiB y cada segmento de 32 MiB; se rechazan respuestas demasiado grandes o vacías y cambios de URL. Se mantienen las reglas de pertenencia del sitio en `domains` y las solicitudes `network` del mismo origen con Cookie; los dominios multimedia no comparten la sesión del sitio.
 
 ## Aislamiento y seguridad
 
@@ -207,14 +227,60 @@ Utilice `throw Park.error(code, message)` para generar un error y la aplicación
 
 ## Almacén de origen
 
-Un almacén es `index.json`, que se puede colocar en cualquier hosting estático (como GitHub raw):
+Un repositorio es un `index.json` que se puede colocar en un alojamiento estático (por ejemplo, GitHub sin formato). Los usuarios pueden explorar, instalar y actualizar ingresando la dirección del almacén en "Administración del sitio de origen → Agregar origen":
 
 ```json
-{ "name": "Example source repository", "sources": [
-  { "key": "mysite", "name": "Example Source", "version": "0.0.1", "type": "comic", "file": "mysite.js", "description": "…" }
-] }
+{
+  "name": "我的源仓库",
+  "apiVersion": 1,
+  "sources": [
+    {
+      "key": "mysite",
+      "name": "我的站点",
+      "version": "0.0.1",
+      "description": "一句话介绍",
+      "url": "https://example.com/sources/mysite.js",
+      "sha256": "脚本 UTF-8 原文的 64 位十六进制 SHA-256",
+      "apiVersion": 1
+    }
+  ]
+}
 ```
 
-`file` es la ruta relativa a `index.json` (también puedes escribir el `url` completo). Los usuarios pueden navegar, instalar y actualizar ingresando la dirección del almacén en "Administración del sitio de origen → Agregar origen".
+`url` es la dirección completa del script; también puede utilizar `file` en relación con `index.json`. El almacén de terceros se instala manualmente después de la confirmación del usuario. `sha256` es opcional. El contenido descargado se verificará cuando se proporcione.
 
-Cuando la cuenta de mantenimiento automático encuentra una falla, la cantidad de fallas y el siguiente tiempo de reintento deben guardarse y volverse a intentar en el intervalo de retroceso; No se permite el registro o inicio de sesión repetidos durante el período límite actual. Los usuarios que reintenten activamente seguirán reutilizando la cuenta original y no podrán saltarse el límite actual del lado del servidor.
+Las actualizaciones automáticas oficiales adoptan reglas estrictas: la versión debe ser un entero no negativo de tres segmentos separados por puntos y sin ceros a la izquierda (por ejemplo, `0.0.1`, `0.1.0`), que se compara segmento por segmento por número; No se aceptan segmentos faltantes, segmentos múltiples o sufijos previos al lanzamiento. El texto UTF-8 original del script `sha256` debe proporcionarse sin recortar espacios en blanco ni convertir nuevas líneas; los `key` y `version` declarados por el script deben ser coherentes con el índice. `apiVersion` debe coincidir completamente con el tiempo de ejecución actual de la aplicación. Si no coincide, se rechazará la actualización automática. Primero debe utilizar una aplicación que admita esta API; no se proporciona ninguna rama compatible.
+
+### Actualizaciones oficiales en la aplicación
+
+"Administración del sitio de origen" activa "Actualizar automáticamente las fuentes oficiales" de forma predeterminada y verifica cada 12 horas al iniciar o regresar al primer plano; si falla, el tiempo de verificación también se registra para evitar reintentos frecuentes. Buscar actualizaciones ahora todavía está disponible después de desactivar las actualizaciones automáticas. Solo actualiza las fuentes integradas instaladas y las fuentes oficiales en línea. No instala automáticamente nuevas fuentes ni se hace cargo de fuentes de terceros con el mismo nombre instaladas por los usuarios.
+
+La instalación valida la identidad, la versión, la API y el resumen, y solo termina tras inicializar y guardar el estado correctamente. Si falla, conserva el script anterior y el estado del usuario; una instalación interrumpida se recupera al iniciar de nuevo. La versión en línea tiene prioridad sobre una versión integrada anterior o igual, y un paquete con una versión más nueva puede actualizarla. Restaurar las fuentes integradas vuelve a la versión del paquete actual. Las actualizaciones automáticas pueden obtener de nuevo la última versión oficial.
+
+### Publicación de fuentes oficiales
+
+La fuente oficial sigue al almacén principal público [drdon1234/Hentai-Park](https://github.com/drdon1234/Hentai-Park), y la entrada fija al cliente es:
+
+```text
+https://raw.githubusercontent.com/drdon1234/Hentai-Park/sources/index.json
+```
+
+`assets/sources/index.json` es la única lista de fuentes mantenida y `file` apunta al único código fuente del script en el mismo directorio. El nombre del archivo debe cumplir con `[A-Za-z0-9_-]+.js`. No se aceptan subdirectorios, enlaces simbólicos o puntos en el cuerpo del nombre del archivo y deben ser coherentes con la verificación de la dirección de origen oficial del cliente. `tools/publish_sources.mjs` Generar índice de publicación: cada registro contiene `key`, `name`, `version`, `description`, `url`, `sha256` y `apiVersion`. La URL del script se fija en el número de confirmación completo de 40 dígitos de este código fuente:
+
+```text
+https://raw.githubusercontent.com/drdon1234/Hentai-Park/<源码提交 SHA>/assets/sources/<file>
+```
+
+La rama `sources` solo guarda el directorio raíz generado `index.json`, sin copiar el script ni mantener manualmente una segunda lista de fuentes. Al actualizar un script, la versión del script y el manifiesto deben actualizarse al mismo tiempo; el editor se niega a degradar la versión y también rechaza que la misma versión corresponda a un contenido de guión diferente. La misma versión se puede publicar repetidamente sin cambios y las actualizaciones normales no se verán afectadas por la versión anterior del índice.
+
+El editor depende únicamente del módulo integrado Node.js y puede ejecutarse sin conexión en Node.js 22 o posterior. Comprueba los manifiestos, la existencia de archivos y los límites de los directorios, carga el tiempo de ejecución compartido y los scripts en un contexto separado que no proporciona interfaces de red o almacenamiento, y realiza las comprobaciones utilizando las mismas sondas `Park.__pending`/`Park.manifest` que la vista previa de instalación de la aplicación `key`. `version` y API. La detección no llama a `setup`, `init`, a los métodos de inicio de sesión o de negocio del sitio, y no puede reemplazar la prueba de usabilidad de la red del sitio de origen.
+
+Ejemplo de vista previa local (el resultado está en `test/`, que se ha ignorado y no se publicará; el número de confirmación debe usar el SHA real del código fuente correspondiente):
+
+```powershell
+node tools/publish_sources.mjs --commit '<完整 40 位源码提交 SHA>' --output 'test/official-source-index.json'
+```
+
+Cuando necesite verificar las versiones existentes, ingrese `--previous '旧索引本地路径'`. Si la verificación falla cuando el índice anterior no es válido, la protección de versiones no se omitirá silenciosamente. Cuando hay modificaciones no confirmadas en el espacio de trabajo, los resultados locales solo se utilizan para la vista previa; el lanzamiento oficial se genera enviando el código fuente extraído por el flujo de trabajo.
+
+`.github/workflows/publish-sources.yml` Solo se ejecuta cuando los archivos relacionados con la rama predeterminada `main` del repositorio principal se envían o se activan manualmente desde `main`. El flujo de trabajo se ejecuta en serie y se comprueba el último `main`. al comienzo de cada tarea, y la dirección del script y el registro de liberación se fijan con el número de confirmación desprotegido real. Los envíos posteriores de documentos mientras se ejecuta la tarea no impedirán la publicación; Los envíos posteriores de archivos fuente activarán la siguiente tarea en serie. El flujo de trabajo primero descarga el índice estable existente y completa toda la verificación fuera de línea, y luego usa Git normal para enviar la actualización atómica a la rama `sources`; el índice en línea no se sobrescribirá cuando falle la verificación o se produzcan cambios simultáneos en la rama `sources`. Se puede crear una publicación por primera vez sin un índice estable. El comunicado solo indica que el script y el índice han pasado la verificación anterior. El acceso al sitio, el inicio de sesión de la cuenta y la carga de imágenes o videos aún deben verificarse por separado.

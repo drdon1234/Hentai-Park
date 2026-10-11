@@ -67,7 +67,7 @@
     return url + (url.includes('?') ? '&' : '?') + query;
   }
 
-  function createHttp(source) {
+  function createHttp(source, invocation) {
     const defaults = source.network || {};
 
     async function request(opts) {
@@ -87,6 +87,7 @@
       o.mode = o.mode || defaults.mode || 'native';
       o.origin = o.origin || defaults.origin || '';
       o.source = source.key;
+      if (invocation !== undefined) o.invocation = invocation;
       let res;
       try {
         res = await native().request(o);
@@ -112,6 +113,7 @@
     }
 
     return {
+      invocation,
       request,
       async get(url, opts) {
         return request(Object.assign({}, opts, { url, method: 'GET' }));
@@ -322,6 +324,7 @@
       idExample: def.idExample || '',
       imageHeaders: def.imageHeaders || {},
       network: pick(def.network || {}),
+      media: pick(def.media || {}),
       settings: pick(def.settings || []),
       account: def.account
         ? {
@@ -337,6 +340,7 @@
           }
         : null,
       feeds: pick(def.feeds || []),
+      defaultFeed: def.defaultFeed || '',
       searchFilters: pick(def.searchFilters || []),
       searchHint: def.searchHint || '',
       capabilities: {
@@ -374,7 +378,7 @@
     },
 
     /** Host: attach settings/store and run `init`. Returns the manifest. */
-    async setup(key, state) {
+    async setup(key, state, { waitForInit = false } = {}) {
       const entry = sources[key];
       if (!entry) throw new ParkError(ErrorCode.CONFIG, `source ${key} not loaded`);
       const def = entry.def;
@@ -390,7 +394,13 @@
         }
       };
       Object.defineProperty(def, 'config', { get: () => def.settings_, configurable: true });
-      entry.ready = typeof def.init === 'function' ? Promise.resolve(def.init()).catch(() => {}) : Promise.resolve();
+      const initialized = Promise.resolve().then(() => typeof def.init === 'function' ? def.init() : undefined);
+      entry.ready = waitForInit ? initialized : initialized.catch(() => {});
+      if (waitForInit) {
+        await entry.ready;
+        // Installation may commit only after init and all its private-state writes succeed.
+        await def.store.flush();
+      }
       return manifestOf(def);
     },
 
@@ -412,7 +422,8 @@
      * Host entry point. `path` is a method name, optionally namespaced ("account.login").
      * Resolves to {ok: true, value} or {ok: false, error: {code, message}} so errors survive the bridge.
      */
-    async invoke(key, path, args) {
+    async invoke(key, path, args, invocation) {
+      if (invocation === null) invocation = undefined;
       const entry = sources[key];
       if (!entry) return { ok: false, error: { code: ErrorCode.CONFIG, message: `源 ${key} 未加载` } };
       try {
@@ -423,7 +434,14 @@
         if (typeof target !== 'function') {
           throw new ParkError(ErrorCode.UNSUPPORTED, `${entry.def.name} 不支持 ${path}`);
         }
-        const value = await target.apply(entry.def, args || []);
+        // Keep the source state shared, but bind HTTP to this invocation even
+        // across awaits and nested source methods. Never use a global active ID.
+        const http = invocation === undefined ? entry.def.http : createHttp(entry.def, invocation);
+        const receiver = invocation === undefined ? entry.def : new Proxy(entry.def, {
+          get: (def, property, receiver) => property === 'http' ? http : Reflect.get(def, property, receiver),
+          set: (def, property, value) => Reflect.set(def, property, value),
+        });
+        const value = await target.apply(receiver, args || []);
         return { ok: true, value: value === undefined ? null : JSON.parse(JSON.stringify(value)) };
       } catch (err) {
         const code = (err && err.code) || ErrorCode.PARSE;

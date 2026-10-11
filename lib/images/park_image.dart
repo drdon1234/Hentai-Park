@@ -5,6 +5,7 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/painting.dart';
+import 'package:dio/dio.dart';
 
 import '../core/models.dart';
 import '../engine/source_manager.dart';
@@ -29,26 +30,54 @@ class ParkImage extends ImageProvider<ParkImage> {
   });
 
   /// A direct image (cover, thumbnail or page with a known URL).
-  factory ParkImage.url(String source, String url, {Map<String, String>? headers}) {
-    if (url.startsWith('file://')) return ParkImage(source: source, localPath: url.substring(7));
+  factory ParkImage.url(
+    String source,
+    String url, {
+    Map<String, String>? headers,
+  }) {
+    if (url.startsWith('file://')) {
+      return ParkImage(source: source, localPath: Uri.parse(url).toFilePath());
+    }
     final m = SourceManager.instance.manifest(source);
-    return ParkImage(source: source, url: url, headers: {...?m?.imageHeaders, ...?headers});
+    return ParkImage(
+      source: source,
+      url: url,
+      headers: {...?m?.imageHeaders, ...?headers},
+    );
   }
 
   /// A reader page. Pages without a URL are resolved through the source on first load.
-  factory ParkImage.page(String source, String workId, String? chapterId, int index, PageImage page, {bool crop = false}) {
+  factory ParkImage.page(
+    String source,
+    String workId,
+    String? chapterId,
+    int index,
+    PageImage page, {
+    bool crop = false,
+  }) {
     final m = SourceManager.instance.manifest(source);
     if (page.url.startsWith('file://')) {
-      return ParkImage(source: source, localPath: page.url.substring(7), transform: page.transform, crop: crop);
+      return ParkImage(
+        source: source,
+        localPath: Uri.parse(page.url).toFilePath(),
+        transform: page.transform,
+        crop: crop,
+      );
     }
     return ParkImage(
       source: source,
       url: page.url,
       headers: {...?m?.imageHeaders, ...page.headers},
-      cacheKey: page.cacheKey ?? (page.needsResolve ? '$source:$workId:${chapterId ?? ''}:$index' : null),
+      cacheKey:
+          page.cacheKey ??
+          (page.needsResolve
+              ? '$source:$workId:${chapterId ?? ''}:$index'
+              : null),
       fallbacks: page.fallbacks,
       transform: page.transform,
-      lazy: page.needsResolve ? LazyPage(workId, chapterId, index, page.token) : null,
+      lazy: page.needsResolve
+          ? LazyPage(workId, chapterId, index, page.token)
+          : null,
       highPriority: true,
       crop: crop,
     );
@@ -70,22 +99,40 @@ class ParkImage extends ImageProvider<ParkImage> {
   String get identity => localPath ?? cacheKey ?? url;
 
   @override
-  Future<ParkImage> obtainKey(ImageConfiguration configuration) => SynchronousFuture(this);
+  Future<ParkImage> obtainKey(ImageConfiguration configuration) =>
+      SynchronousFuture(this);
 
   @override
   ImageStreamCompleter loadImage(ParkImage key, ImageDecoderCallback decode) {
-    return MultiFrameImageStreamCompleter(codec: _loadCodec(decode), scale: 1, debugLabel: identity);
+    return MultiFrameImageStreamCompleter(
+      codec: _loadCodec(decode),
+      scale: 1,
+      debugLabel: identity,
+    );
   }
 
   Future<ui.Codec> _loadCodec(ImageDecoderCallback decode) async {
-    final bytes = await loadBytes();
-    final buffer = await ui.ImmutableBuffer.fromUint8List(bytes);
-    final codec = await decode(buffer);
+    ui.Codec? codec;
+    for (var attempt = 0; attempt < 2; attempt++) {
+      final bytes = await loadBytes();
+      try {
+        codec = await decode(await ui.ImmutableBuffer.fromUint8List(bytes));
+        // Some decoders accept the header and fail only on the first frame.
+        codec = _ReadyCodec(codec, await codec.getNextFrame());
+        break;
+      } catch (_) {
+        codec?.dispose();
+        codec = null;
+        if (localPath != null || attempt > 0) rethrow;
+        await ImageStore.instance.invalidate(cacheKey ?? url);
+      }
+    }
+    final decoded = codec!;
     final segments = _segments;
-    if (segments <= 1 && !crop) return codec;
-    if (codec.frameCount > 1) return codec; // animated: leave untouched
-    final frame = await codec.getNextFrame();
-    codec.dispose();
+    if (segments <= 1 && !crop) return decoded;
+    if (decoded.frameCount > 1) return decoded; // animated: leave untouched
+    final frame = await decoded.getNextFrame();
+    decoded.dispose();
     var image = frame.image;
     if (segments > 1) image = await unscrambleStrips(image, segments);
     if (crop) image = await cropBorders(image);
@@ -101,9 +148,10 @@ class ParkImage extends ImageProvider<ParkImage> {
   /// The bytes of the image as displayed: raw file bytes when no processing applies, otherwise
   /// the restored / cropped image encoded as PNG (used for saving and sharing pages).
   Future<Uint8List> displayBytes() async {
-    final bytes = await loadBytes();
-    if (_segments <= 1 && !crop) return bytes;
-    final codec = await _loadCodec((buffer, {getTargetSize}) => ui.instantiateImageCodecFromBuffer(buffer));
+    if (_segments <= 1 && !crop) return loadBytes();
+    final codec = await _loadCodec(
+      (buffer, {getTargetSize}) => ui.instantiateImageCodecFromBuffer(buffer),
+    );
     final frame = await codec.getNextFrame();
     codec.dispose();
     final data = await frame.image.toByteData(format: ui.ImageByteFormat.png);
@@ -112,25 +160,46 @@ class ParkImage extends ImageProvider<ParkImage> {
   }
 
   /// Raw (still scrambled) bytes; also used by the downloader.
-  Future<Uint8List> loadBytes() async {
-    if (localPath != null) return await File(localPath!).readAsBytes();
+  Future<Uint8List> loadBytes({CancelToken? cancelToken}) async {
+    if (cancelToken?.cancelError case final error?) throw error;
+    if (localPath != null) {
+      final bytes = await File(localPath!).readAsBytes();
+      if (cancelToken?.cancelError case final error?) throw error;
+      return bytes;
+    }
     final lazyPage = lazy;
     if (lazyPage == null) {
-      return ImageStore.instance.load(url: url, headers: headers, cacheKey: cacheKey, fallbacks: fallbacks, highPriority: highPriority, partition: source);
+      return ImageStore.instance.load(
+        url: url,
+        headers: headers,
+        cacheKey: cacheKey,
+        fallbacks: fallbacks,
+        highPriority: highPriority,
+        partition: source,
+        cancelToken: cancelToken,
+      );
     }
     final hit = await ImageStore.instance.cached(cacheKey!);
+    if (cancelToken?.cancelError case final error?) throw error;
     if (hit != null) return hit;
     Object? lastError;
     for (var retry = 0; retry < 3; retry++) {
+      if (cancelToken?.cancelError case final error?) throw error;
       try {
-        final page = await SourceManager.instance.resolveImage(
+        final resolving = SourceManager.instance.resolveImage(
           source,
           id: lazyPage.workId,
           chapterId: lazyPage.chapterId,
           index: lazyPage.index,
           token: lazyPage.token,
           retry: retry,
+          cancelToken: cancelToken,
         );
+        final page = await Future.any([
+          resolving,
+          if (cancelToken != null)
+            cancelToken.whenCancel.then<PageImage>((error) => throw error),
+        ]);
         return await ImageStore.instance.load(
           url: page.url,
           headers: {...headers, ...page.headers},
@@ -138,10 +207,15 @@ class ParkImage extends ImageProvider<ParkImage> {
           fallbacks: page.fallbacks,
           highPriority: true,
           partition: source,
+          cancelToken: cancelToken,
         );
       } on SourceError catch (e) {
         lastError = e;
-        if (e.code == 'BLOCKED' || e.code == 'LOGIN_REQUIRED' || e.code == 'NOT_FOUND') rethrow;
+        if (e.code == 'BLOCKED' ||
+            e.code == 'LOGIN_REQUIRED' ||
+            e.code == 'NOT_FOUND') {
+          rethrow;
+        }
       }
     }
     throw lastError ?? SourceError('NETWORK', '图片加载失败');
@@ -149,7 +223,11 @@ class ParkImage extends ImageProvider<ParkImage> {
 
   @override
   bool operator ==(Object other) =>
-      other is ParkImage && other.source == source && other.identity == identity && other.crop == crop && mapEquals(other.transform, transform);
+      other is ParkImage &&
+      other.source == source &&
+      other.identity == identity &&
+      other.crop == crop &&
+      mapEquals(other.transform, transform);
 
   @override
   int get hashCode => Object.hash(source, identity, crop);
@@ -186,7 +264,12 @@ Future<ui.Image> unscrambleStrips(ui.Image src, int segments) async {
     } else {
       yDst += over;
     }
-    canvas.drawImageRect(src, ui.Rect.fromLTWH(0, ySrc.toDouble(), w, move.toDouble()), ui.Rect.fromLTWH(0, yDst.toDouble(), w, move.toDouble()), paint);
+    canvas.drawImageRect(
+      src,
+      ui.Rect.fromLTWH(0, ySrc.toDouble(), w, move.toDouble()),
+      ui.Rect.fromLTWH(0, yDst.toDouble(), w, move.toDouble()),
+      paint,
+    );
   }
   final picture = recorder.endRecording();
   final out = await picture.toImage(src.width, h);
@@ -201,13 +284,22 @@ Future<ui.Image> cropBorders(ui.Image src) async {
   final data = await src.toByteData(format: ui.ImageByteFormat.rawRgba);
   if (data == null) return src;
   final w = src.width, h = src.height;
-  final rect = await compute(_detect, (TransferableTypedData.fromList([data.buffer.asUint8List()]), w, h));
+  final rect = await compute(_detect, (
+    TransferableTypedData.fromList([data.buffer.asUint8List()]),
+    w,
+    h,
+  ));
   if (rect == null) return src;
   final recorder = ui.PictureRecorder();
   final canvas = ui.Canvas(recorder);
   canvas.drawImageRect(
     src,
-    ui.Rect.fromLTRB(rect.left.toDouble(), rect.top.toDouble(), rect.right.toDouble(), rect.bottom.toDouble()),
+    ui.Rect.fromLTRB(
+      rect.left.toDouble(),
+      rect.top.toDouble(),
+      rect.right.toDouble(),
+      rect.bottom.toDouble(),
+    ),
     ui.Rect.fromLTWH(0, 0, rect.width.toDouble(), rect.height.toDouble()),
     ui.Paint()..filterQuality = ui.FilterQuality.none,
   );
@@ -218,7 +310,8 @@ Future<ui.Image> cropBorders(ui.Image src) async {
   return out;
 }
 
-CropRect? _detect((TransferableTypedData, int, int) args) => detectContentRect(args.$1.materialize().asUint8List(), args.$2, args.$3);
+CropRect? _detect((TransferableTypedData, int, int) args) =>
+    detectContentRect(args.$1.materialize().asUint8List(), args.$2, args.$3);
 
 class _SingleFrameCodec implements ui.Codec {
   _SingleFrameCodec(this._image);
@@ -232,6 +325,29 @@ class _SingleFrameCodec implements ui.Codec {
   Future<ui.FrameInfo> getNextFrame() async => _Frame(_image.clone());
   @override
   void dispose() => _image.dispose();
+}
+
+class _ReadyCodec implements ui.Codec {
+  _ReadyCodec(this._codec, this._first);
+  final ui.Codec _codec;
+  ui.FrameInfo? _first;
+  @override
+  int get frameCount => _codec.frameCount;
+  @override
+  int get repetitionCount => _codec.repetitionCount;
+  @override
+  Future<ui.FrameInfo> getNextFrame() async {
+    final first = _first;
+    _first = null;
+    return first ?? await _codec.getNextFrame();
+  }
+
+  @override
+  void dispose() {
+    _first?.image.dispose();
+    _first = null;
+    _codec.dispose();
+  }
 }
 
 class _Frame implements ui.FrameInfo {

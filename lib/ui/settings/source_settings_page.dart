@@ -84,6 +84,8 @@ class _SourceSettingsPageState extends State<SourceSettingsPage> {
             ),
           );
         }
+        final managed = s.origin == 'builtin' || s.origin == 'official';
+        final canRestore = managed && sm.isBuiltin(s.key);
         return Theme(
           data: ParkTheme.build(Theme.of(context).brightness, m.color),
           child: Builder(
@@ -105,7 +107,7 @@ class _SourceSettingsPageState extends State<SourceSettingsPage> {
                       child: ListTile(
                         title: Text(m.description),
                         subtitle: Text(
-                          'v${m.version} · ${context.tr(s.origin == 'builtin' ? '内置源' : '第三方源')}${m.homepage.isNotEmpty ? ' · ${Uri.parse(m.homepage).host}' : ''}',
+                          'v${m.version} · ${context.tr(s.origin == 'official' ? '官方' : s.origin == 'builtin' ? '内置源' : '第三方源')}${m.homepage.isNotEmpty ? ' · ${Uri.parse(m.homepage).host}' : ''}',
                         ),
                         trailing: m.homepage.isEmpty
                             ? null
@@ -159,11 +161,13 @@ class _SourceSettingsPageState extends State<SourceSettingsPage> {
                         ],
                       ),
                     ),
-                    _header(context, context.tr('维护')),
+                    if (canRestore || !managed)
+                      _header(context, context.tr('维护')),
+                    if (canRestore || !managed)
                     Card(
                       child: Column(
                         children: [
-                          if (s.origin == 'builtin')
+                          if (canRestore)
                             ListTile(
                               leading: const Icon(Icons.restore_rounded),
                               title: Text(context.tr('恢复内置版本')),
@@ -174,7 +178,7 @@ class _SourceSettingsPageState extends State<SourceSettingsPage> {
                                 }
                               },
                             ),
-                          if (s.origin != 'builtin' && s.url.isNotEmpty)
+                          if (!managed && s.url.isNotEmpty)
                             ListTile(
                               leading: const Icon(
                                 Icons.system_update_alt_rounded,
@@ -187,7 +191,7 @@ class _SourceSettingsPageState extends State<SourceSettingsPage> {
                               ),
                               onTap: () => installSourceFromUrl(context, s.url),
                             ),
-                          if (s.origin != 'builtin')
+                          if (!managed)
                             ListTile(
                               leading: Icon(
                                 Icons.delete_outline_rounded,

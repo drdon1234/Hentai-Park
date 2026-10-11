@@ -34,8 +34,9 @@
 | WNACG (绅士漫画) | Cómics | Lectura sin cuenta, capítulos de colecciones y cambio automático de servidor |
 | PicACG | Cómics | Configure su propia cuenta o registre automáticamente una cuenta dedicada después de la confirmación |
 | Hanime1 | Vídeo | El uso por primera vez puede requerir verificación Cloudflare |
+| MissAV | Vídeo | Reproducción con distintas calidades y descarga sin conexión en Android |
 
-El sitio de origen se carga como un complemento y se pueden agregar fuentes de terceros en la configuración.
+El sitio de origen se carga como un complemento y se pueden agregar fuentes de terceros en la configuración. Las fuentes oficiales admiten actualizaciones automáticas; también puedes buscar actualizaciones manualmente en «Administrar fuentes».
 
 ## Función
 

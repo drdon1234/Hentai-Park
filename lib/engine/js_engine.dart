@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
@@ -32,9 +33,10 @@ class JsEngine {
   static final JsEngine instance = JsEngine._();
 
   final Map<String, SourceRuntime> _runtimes = {};
+  final Map<String, Future<void>> _closingRuntimes = {};
   PersistCallback? onPersist;
 
-  /// Called after a runtime was recreated (renderer crash) so the source can be loaded again.
+  /// Enqueues a source reload after its runtime is invalidated by a crash or timeout.
   void Function(String key)? onRestarted;
   final List<String> logs = [];
   String? _runtimeCode;
@@ -56,8 +58,10 @@ class JsEngine {
     }
   }
 
-  Future<void> disposeRuntime(String key) async =>
-      _runtimes.remove(key)?.dispose();
+  Future<void> disposeRuntime(String key) async {
+    await _runtimes.remove(key)?.dispose();
+    await _closingRuntimes[key];
+  }
 
   void log(String tag, String message) {
     final line =
@@ -76,7 +80,10 @@ class JsEngine {
     String method,
     List<Object?> args, {
     Duration timeout = const Duration(seconds: 90),
-  }) => runtime(key).invoke(method, args, timeout: timeout);
+    CancelToken? cancelToken,
+  }) =>
+      runtime(key)
+          .invoke(method, args, timeout: timeout, cancelToken: cancelToken);
 }
 
 class SourceRuntime {
@@ -98,6 +105,17 @@ class SourceRuntime {
   Completer<void>? _ready;
   String? _code;
   bool _disposed = false;
+  bool _configured = false;
+  Future<void>? _closing;
+  final _requests = CancelToken();
+  final Map<String, CancelToken> _invocations = {};
+  int _nextInvocation = 0;
+  final Set<Future<void>> _bridgeCalls = {};
+  final _rendererGone = Completer<void>();
+  static const _platform = MethodChannel('hentai_park/platform');
+
+  String get _origin =>
+      'https://${key.isEmpty ? 'probe' : safeHostLabel(key)}.source.park.invalid/';
 
   static const _bootstrap = r'''
 (function () {
@@ -124,21 +142,39 @@ class SourceRuntime {
 
   String get _tag => key.isEmpty ? 'probe' : key;
 
+  Future<T> _bounded<T>(
+    Future<T> operation,
+    Duration timeout,
+    String code,
+    String message,
+  ) => operation.timeout(
+    timeout,
+    onTimeout: () {
+      _invalidate(timedOut: true);
+      throw SourceError(code, message);
+    },
+  );
+
   Future<void> start() async {
+    if (_disposed) throw SourceError('CONFIG', '源运行时已关闭');
     if (_ready != null) return _ready!.future;
     final ready = _ready = Completer<void>();
+    await engine._closingRuntimes[key];
     final runtime = await engine._runtimeSource();
+    if (_disposed) throw SourceError('CONFIG', '源运行时已关闭');
     // Each runtime gets its own origin so storage APIs are not shared between sources either.
-    final host = key.isEmpty ? 'probe' : safeHostLabel(key);
     _view = HeadlessInAppWebView(
       initialData: InAppWebViewInitialData(
-        data: '<!doctype html><html><head><meta charset="utf-8"></head><body></body></html>',
-        baseUrl: WebUri('https://$host.source.park.invalid/'),
+        data: '<!doctype html><html><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="default-src \'none\'; script-src \'unsafe-inline\' \'unsafe-eval\'; connect-src \'none\'; img-src \'none\'; frame-src \'none\'; object-src \'none\'; worker-src \'none\'; form-action \'none\'; base-uri \'none\'"></head><body></body></html>',
+        baseUrl: WebUri(_origin),
       ),
       initialSettings: InAppWebViewSettings(
         javaScriptEnabled: true,
         blockNetworkImage: true,
         blockNetworkLoads: true,
+        useShouldOverrideUrlLoading: true,
+        javaScriptHandlersForMainFrameOnly: true,
+        javaScriptBridgeForMainFrameOnly: true,
       ),
       onWebViewCreated: (c) {
         _c = c;
@@ -147,38 +183,109 @@ class SourceRuntime {
       onLoadStop: (c, _) async {
         if (ready.isCompleted) return;
         try {
-          await c.evaluateJavascript(source: _bootstrap);
-          final res = await c.callAsyncJavaScript(
-            functionBody: '(0, eval)(code); return typeof Park.invoke;',
-            arguments: {'code': runtime},
+          await _bounded(
+            c.evaluateJavascript(source: _bootstrap),
+            const Duration(seconds: 30),
+            'CONFIG',
+            '源初始化超时',
+          );
+          final res = await _bounded(
+            c.callAsyncJavaScript(
+              functionBody: '(0, eval)(code); return typeof Park.invoke;',
+              arguments: {'code': runtime},
+            ),
+            const Duration(seconds: 30),
+            'CONFIG',
+            '源初始化超时',
           );
           if (res?.error != null || res?.value != 'function') {
             throw StateError('runtime failed: ${res?.error}');
           }
-          ready.complete();
+          if (!ready.isCompleted) ready.complete();
         } catch (e) {
-          ready.completeError(e);
+          if (!ready.isCompleted) ready.completeError(e);
         }
       },
       onConsoleMessage: (c, m) => engine.log(_tag, m.message),
-      onRenderProcessGone: (c, detail) => _restart(),
+      // Source code stays in the initial document, including on Windows where
+      // loadData uses about:blank instead of honoring baseUrl.
+      shouldOverrideUrlLoading: (c, action) => NavigationActionPolicy.CANCEL,
+      onRenderProcessGone: (c, detail) {
+        if (!_rendererGone.isCompleted) _rendererGone.complete();
+        _restart();
+      },
+      onRenderProcessUnresponsive: (c, url) =>
+          WebViewRenderProcessAction.TERMINATE,
     );
     await _view!.run();
     return ready.future;
   }
 
-  Future<void> _restart() async {
+  void _invalidate({bool timedOut = false}) {
     if (_disposed) return;
-    engine.log(_tag, 'runtime crashed, restarting');
-    await _teardown();
-    if (key.isNotEmpty && _code != null) engine.onRestarted?.call(key);
+    _disposed = true;
+    _requests.cancel('runtime invalidated');
+    for (final token in _invocations.values) {
+      token.cancel('runtime invalidated');
+    }
+    final closing = _closing ??= _teardown(timedOut: timedOut);
+    engine._closingRuntimes[key] = closing;
+    unawaited(
+      closing.whenComplete(() {
+        if (identical(engine._closingRuntimes[key], closing)) {
+          engine._closingRuntimes.remove(key);
+        }
+      }),
+    );
+    if (!identical(engine._runtimes[key], this)) return;
+    if (key.isNotEmpty &&
+        _code != null &&
+        _configured &&
+        engine.onRestarted != null) {
+      // Enqueue synchronously so SourceManager calls wait for the reload. Its loader
+      // disposes this instance and drains accepted persistence before reading state.
+      engine.onRestarted!(key);
+    } else {
+      engine._runtimes.remove(key);
+    }
   }
 
-  Future<void> _teardown() async {
+  Future<void> _restart() async {
+    engine.log(_tag, 'runtime crashed, restarting');
+    _invalidate();
+  }
+
+  Future<void> _teardown({bool timedOut = false}) async {
     final old = _view;
+    final controller = _c;
     _view = null;
     _c = null;
     _ready = null;
+    if (timedOut &&
+        defaultTargetPlatform == TargetPlatform.android &&
+        controller != null &&
+        !_rendererGone.isCompleted) {
+      try {
+        // Network timeouts leave JS responsive; only kill a blocked renderer.
+        await controller
+            .evaluateJavascript(source: 'void 0')
+            .timeout(const Duration(milliseconds: 250));
+      } on TimeoutException {
+        try {
+          final terminated = await _platform.invokeMethod<bool>(
+            'terminateSourceRenderer',
+            old?.id,
+          );
+          if (terminated == true) {
+            await _rendererGone.future.timeout(const Duration(seconds: 2));
+          } else {
+            engine.log(_tag, 'renderer termination unavailable');
+          }
+        } catch (e) {
+          engine.log(_tag, 'renderer termination failed: $e');
+        }
+      } catch (_) {}
+    }
     try {
       await old?.dispose();
     } catch (_) {}
@@ -186,12 +293,21 @@ class SourceRuntime {
 
   Future<void> dispose() async {
     _disposed = true;
-    await _teardown();
+    _requests.cancel('runtime disposed');
+    for (final token in _invocations.values) {
+      token.cancel('runtime disposed');
+    }
+    await (_closing ??= _teardown());
+    // Native persistence already accepted by the bridge must settle before rollback.
+    await Future.wait(_bridgeCalls.toList());
   }
 
   void _registerHandlers(InAppWebViewController c) {
     Future<Map<String, Object?>> guard(Future<Object?> Function() body) async {
+      final finished = Completer<void>();
+      _bridgeCalls.add(finished.future);
       try {
+        if (_disposed) throw SourceError('CONFIG', '源运行时已关闭');
         if (sandboxed) throw SourceError('CONFIG', '安装前预览时不允许访问网络与存储');
         return {'__value': await body()};
       } on SourceError catch (e) {
@@ -207,6 +323,9 @@ class SourceRuntime {
         return {
           '__error': {'code': 'NETWORK', 'message': e.toString()},
         };
+      } finally {
+        _bridgeCalls.remove(finished.future);
+        finished.complete();
       }
     }
 
@@ -214,10 +333,14 @@ class SourceRuntime {
       handlerName: 'park_request',
       callback: (args) => guard(() {
         final o = (args.first as Map).cast<String, dynamic>();
+        final invocation = o['invocation'];
+        final token = invocation == null ? _requests : _invocations[invocation];
+        if (token == null) throw SourceError('NETWORK', '请求已取消');
         return HttpService.instance.sourceRequest(
           o,
           partition: key,
           domains: domains,
+          cancelToken: token,
         );
       }),
     );
@@ -289,21 +412,23 @@ class SourceRuntime {
 
   /// Evaluates a source script and returns the key it registered with its static manifest.
   Future<ScriptInfo> loadScript(String code) async {
-    await start();
-    final res = await _c!.callAsyncJavaScript(
-      functionBody: '''
+    await _bounded(start(), const Duration(seconds: 30), 'CONFIG', '源初始化超时');
+    final res = await _bounded(
+      _c!.callAsyncJavaScript(
+        functionBody: '''
         Park.__pending = null;
         (0, eval)(code);
         const def = Park.__pending;
         return def ? { key: def.key, manifest: Park.manifest(def.key) } : null;
       ''',
-      arguments: {'code': code},
+        arguments: {'code': code},
+      ),
+      const Duration(seconds: 30),
+      'CONFIG',
+      '源脚本求值超时',
     );
     if (res?.error != null) {
-      throw SourceError(
-        'CONFIG',
-        '脚本加载失败：${res!.error}',
-      );
+      throw SourceError('CONFIG', '脚本加载失败：${res!.error}');
     }
     final value = res?.value;
     if (value is! Map ||
@@ -316,37 +441,45 @@ class SourceRuntime {
       (value['manifest'] as Map? ?? {}).cast<String, dynamic>(),
     );
     if (key.isNotEmpty && info.key != key) {
-      throw SourceError(
-        'CONFIG',
-        '脚本注册的 key（${info.key}）与安装记录（$key）不一致',
-      );
+      throw SourceError('CONFIG', '脚本注册的 key（${info.key}）与安装记录（$key）不一致');
     }
     domains = declaredDomains(info.manifest);
     _code = code;
     return info;
   }
 
-  Future<Map<String, dynamic>> setup(Map<String, dynamic> state) async {
-    final res = await _c!.callAsyncJavaScript(
-      functionBody: 'return await Park.setup(key, state);',
-      arguments: {'key': key, 'state': state},
+  Future<Map<String, dynamic>> setup(
+    Map<String, dynamic> state, {
+    bool waitForInit = false,
+  }) async {
+    final res = await _bounded(
+      _c!.callAsyncJavaScript(
+        functionBody: 'return await Park.setup(key, state, {waitForInit});',
+        arguments: {'key': key, 'state': state, 'waitForInit': waitForInit},
+      ),
+      const Duration(seconds: 30),
+      'CONFIG',
+      '源初始化超时',
     );
     if (res?.error != null) {
-      throw SourceError(
-        'CONFIG',
-        '源初始化失败：${res!.error}',
-      );
+      throw SourceError('CONFIG', '源初始化失败：${res!.error}');
     }
     final manifest = (res!.value as Map).cast<String, dynamic>();
     domains = declaredDomains(manifest);
+    _configured = true;
     return manifest;
   }
 
   Future<void> updateSettings(Map<String, dynamic> settings) async {
-    await start();
-    await _c!.callAsyncJavaScript(
-      functionBody: 'Park.updateSettings(key, settings);',
-      arguments: {'key': key, 'settings': settings},
+    await _bounded(start(), const Duration(seconds: 30), 'CONFIG', '源初始化超时');
+    await _bounded(
+      _c!.callAsyncJavaScript(
+        functionBody: 'Park.updateSettings(key, settings);',
+        arguments: {'key': key, 'settings': settings},
+      ),
+      const Duration(seconds: 30),
+      'CONFIG',
+      '源脚本求值超时',
     );
   }
 
@@ -355,26 +488,63 @@ class SourceRuntime {
     String method,
     List<Object?> args, {
     Duration timeout = const Duration(seconds: 90),
+    CancelToken? cancelToken,
   }) async {
-    await start();
-    final res = await _c!
-        .callAsyncJavaScript(
-          functionBody: 'return await Park.invoke(key, method, args);',
-          arguments: {
-            'key': key,
-            'method': method,
-            'args': jsonDecode(jsonEncode(args)),
-          },
-        )
-        .timeout(
-          timeout,
-          onTimeout: () => throw SourceError('NETWORK', '请求超时'),
-        );
-    if (res?.error != null) throw SourceError('PARSE', res!.error!);
-    final value = res?.value;
-    if (value is! Map) throw SourceError('PARSE', '源返回了无效结果');
-    if (value['ok'] == true) return value['value'];
-    throw SourceError.fromJson(value['error']);
+    if (cancelToken?.cancelError case final error?) throw error;
+    await _bounded(start(), const Duration(seconds: 30), 'CONFIG', '源初始化超时');
+    if (cancelToken?.cancelError case final error?) throw error;
+    final invocation = cancelToken == null ? null : '${++_nextInvocation}';
+    final token = invocation == null ? null : CancelToken();
+    final settled = Completer<void>();
+    if (token != null) {
+      _invocations[invocation!] = token;
+      unawaited(
+        Future.any<DioException?>([
+          cancelToken!.whenCancel,
+          settled.future.then<DioException?>((_) => null),
+        ]).then((error) {
+          if (error != null) token.cancel(error);
+        }),
+      );
+    }
+    try {
+      final operation = _c!.callAsyncJavaScript(
+        functionBody:
+            'return await Park.invoke(key, method, args, invocation);',
+        arguments: {
+          'key': key,
+          'method': method,
+          'args': jsonDecode(jsonEncode(args)),
+          'invocation': invocation,
+        },
+      );
+      // Cancellation releases the caller immediately, but stuck JavaScript must
+      // retain its own deadline until the native evaluation actually settles.
+      final bounded = _bounded(
+        operation,
+        timeout,
+        'NETWORK',
+        '请求超时',
+      );
+      final res = await Future.any([
+        bounded,
+        if (token != null)
+          token.whenCancel.then<CallAsyncJavaScriptResult?>(
+            (error) => throw error,
+          ),
+      ]);
+      if (res?.error != null) throw SourceError('PARSE', res!.error!);
+      final value = res?.value;
+      if (value is! Map) throw SourceError('PARSE', '源返回了无效结果');
+      if (value['ok'] == true) return value['value'];
+      throw SourceError.fromJson(value['error']);
+    } finally {
+      settled.complete();
+      if (invocation != null) {
+        _invocations.remove(invocation);
+        token!.cancel('invocation finished');
+      }
+    }
   }
 }
 

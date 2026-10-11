@@ -8,7 +8,7 @@
 Park.register({
   key: 'pica',
   name: '哔咔漫画',
-  version: '0.0.1',
+  version: '0.0.2',
   type: 'comic',
   color: '#EC97B6',
   icon: 'https://manhuabika.com/favicon.ico',
@@ -330,7 +330,7 @@ Park.register({
     throw Park.error('LOGIN_REQUIRED', '哔咔登录状态失效');
   },
 
-  media(m) {
+  imageUrl(m) {
     if (!m || !m.path) return '';
     const server = String(m.fileServer || 'https://storage1.picacomic.com').replace(/\/$/, '');
     return m.path.startsWith('http') ? m.path : `${server}/static/${m.path}`;
@@ -341,7 +341,7 @@ Park.register({
       id: String(c._id),
       title: String(c.title || '').trim(),
       subtitle: String(c.author || '').trim(),
-      cover: this.media(c.thumb),
+      cover: this.imageUrl(c.thumb),
       coverAspect: 0.72,
       pages: Number(c.pagesCount) || 0,
       likes: Number(c.totalLikes !== undefined ? c.totalLikes : c.likesCount) || 0,
@@ -442,6 +442,6 @@ Park.register({
       (p) => this.request(`comics/${id}/order/${order}/pages?page=${p}`)
     );
     const docs = (first.docs || []).concat(...rest.map((r) => (r.pages && r.pages.docs) || []));
-    return { pages: docs.map((d) => ({ url: this.media(d.media) })).filter((p) => p.url) };
+    return { pages: docs.map((d) => ({ url: this.imageUrl(d.media) })).filter((p) => p.url) };
   },
 });

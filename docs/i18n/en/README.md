@@ -34,8 +34,9 @@
 | WNACG (绅士漫画) | Comics | Read without an account; supports multi-chapter collections and automatic server switching |
 | PicACG | Comics | Configure your own account, or automatically register a dedicated account after confirmation |
 | Hanime1 | Video | First time use may require Cloudflare verification |
+| MissAV | Video | Multiple playback qualities and offline downloads on Android |
 
-The source site is loaded as a plug-in, and third-party sources can be added in the settings.
+The source site is loaded as a plug-in, and third-party sources can be added in the settings. Official sources support automatic updates, or you can check for updates manually in “Manage sources”.
 
 ## Features
 

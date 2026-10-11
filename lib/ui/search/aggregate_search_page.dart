@@ -70,10 +70,13 @@ class _AggregateSearchPageState extends State<AggregateSearchPage> {
     if (k.isEmpty || _translating) return;
     _focus.unfocus();
     setState(() => _translating = true);
+    final generation = _generation;
     final multi = await translateKeyword(context, k);
     if (!mounted) return;
     setState(() => _translating = false);
-    if (multi == null) return;
+    if (multi == null || generation != _generation || _text.text.trim() != k) {
+      return;
+    }
     AppSettings.instance.addSearchHistory(k);
     setState(() {
       _submitted = k;
@@ -360,12 +363,13 @@ class _SourceResultsState extends State<_SourceResults>
   Future<WorkPage> _load() {
     final m = SourceManager.instance.manifest(widget.source)!;
     final multi = widget.multi;
-    if (multi != null && multi.all.length > 1)
+    if (multi != null && multi.all.length > 1) {
       return MultiKeywordSearch(
         widget.source,
         multi.all,
         m.defaultFilters(),
       ).next();
+    }
     return SourceManager.instance.search(
       widget.source,
       keyword: widget.keyword,
@@ -436,8 +440,8 @@ class _SourceResultsState extends State<_SourceResults>
               padding: const EdgeInsets.symmetric(horizontal: 16),
               itemCount: 5,
               physics: const NeverScrollableScrollPhysics(),
-              separatorBuilder: (_, __) => const SizedBox(width: 10),
-              itemBuilder: (_, __) => SizedBox(
+              separatorBuilder: (_, _) => const SizedBox(width: 10),
+              itemBuilder: (_, _) => SizedBox(
                 width: cardWidth,
                 child: WorkCardSkeleton(aspect: aspect),
               ),
@@ -478,7 +482,7 @@ class _SourceResultsState extends State<_SourceResults>
               scrollDirection: Axis.horizontal,
               padding: const EdgeInsets.symmetric(horizontal: 16),
               itemCount: items.length,
-              separatorBuilder: (_, __) => const SizedBox(width: 10),
+              separatorBuilder: (_, _) => const SizedBox(width: 10),
               itemBuilder: (context, i) => SizedBox(
                 width: w,
                 child: WorkCard(item: items[i], aspect: a),

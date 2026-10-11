@@ -41,11 +41,18 @@ class _SettingsPageState extends State<SettingsPage> {
   @override
   void initState() {
     super.initState();
-    ImageStore.instance.cacheSize().then((v) => mounted ? setState(() => _cacheBytes = v) : null);
+    ImageStore.instance.cacheSize().then(
+      (v) => mounted ? setState(() => _cacheBytes = v) : null,
+    );
     if (widget.initialSection == 'network') {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         final ctx = _networkKey.currentContext;
-        if (ctx != null) Scrollable.ensureVisible(ctx, duration: const Duration(milliseconds: 300));
+        if (ctx != null) {
+          Scrollable.ensureVisible(
+            ctx,
+            duration: const Duration(milliseconds: 300),
+          );
+        }
       });
     }
   }
@@ -62,12 +69,19 @@ class _SettingsPageState extends State<SettingsPage> {
           if (current != null)
             Padding(
               padding: const EdgeInsets.fromLTRB(24, 0, 24, 8),
-              child: Text(tr('当前 {value0} Hz', {'value0': current.round()}), style: ctx.text.bodySmall?.copyWith(color: ctx.colors.onSurfaceVariant)),
+              child: Text(
+                tr('当前 {value0} Hz', {'value0': current.round()}),
+                style: ctx.text.bodySmall?.copyWith(
+                  color: ctx.colors.onSurfaceVariant,
+                ),
+              ),
             ),
           for (final hz in [0, ...rates])
             ListTile(
               title: Text(hz == 0 ? tr('自动（最高刷新率）') : '$hz Hz'),
-              trailing: hz == s.refreshRate ? const Icon(Icons.check_rounded) : null,
+              trailing: hz == s.refreshRate
+                  ? const Icon(Icons.check_rounded)
+                  : null,
               onTap: () => Navigator.pop(ctx, hz),
             ),
           if (rates.length <= 1)
@@ -80,7 +94,6 @@ class _SettingsPageState extends State<SettingsPage> {
     );
     if (v == null) return;
     s.refreshRate = v;
-    await PlatformBridge.applyRefreshRate(v);
   }
 
   @override
@@ -89,7 +102,9 @@ class _SettingsPageState extends State<SettingsPage> {
     return ListenableBuilder(
       listenable: s,
       builder: (context, _) => Scaffold(
-        appBar: AppBar(title: Text(widget.initialSection == null ? tr('我的') : tr('设置'))),
+        appBar: AppBar(
+          title: Text(widget.initialSection == null ? tr('我的') : tr('设置')),
+        ),
         body: ListView(
           padding: const EdgeInsets.only(bottom: 32),
           children: [
@@ -110,13 +125,26 @@ class _SettingsPageState extends State<SettingsPage> {
                         listenable: DownloadManager.instance,
                         builder: (context, _) {
                           final tasks = DownloadManager.instance.tasks;
-                          final active = tasks.where((t) => t.status == DownloadStatus.running || t.status == DownloadStatus.queued).length;
+                          final active = tasks
+                              .where(
+                                (t) =>
+                                    t.status == DownloadStatus.running ||
+                                    t.status == DownloadStatus.queued,
+                              )
+                              .length;
                           return ListTile(
                             leading: const Icon(Icons.download_rounded),
                             title: Text(tr('下载队列')),
-                            subtitle: Text(active > 0 ? tr('{value0} 个任务进行中', {'value0': active}) : tr('{value0} 个下载', {'value0': tasks.length})),
+                            subtitle: Text(
+                              active > 0
+                                  ? tr('{value0} 个任务进行中', {'value0': active})
+                                  : tr('{value0} 个下载', {
+                                      'value0': tasks.length,
+                                    }),
+                            ),
                             trailing: const Icon(Icons.chevron_right_rounded),
-                            onTap: () => Nav.push(context, const DownloadsPage()),
+                            onTap: () =>
+                                Nav.push(context, const DownloadsPage()),
                           );
                         },
                       ),
@@ -128,7 +156,9 @@ class _SettingsPageState extends State<SettingsPage> {
               ListTile(
                 leading: Icon(Icons.language_rounded),
                 title: Text(tr('界面语言')),
-                subtitle: Text(AppLocalizations.languageNames[s.language] ?? tr('跟随系统')),
+                subtitle: Text(
+                  AppLocalizations.languageNames[s.language] ?? tr('跟随系统'),
+                ),
                 trailing: Icon(Icons.chevron_right_rounded),
                 onTap: () async {
                   final language = await showDialog<String>(
@@ -136,10 +166,17 @@ class _SettingsPageState extends State<SettingsPage> {
                     builder: (ctx) => SimpleDialog(
                       title: Text(tr('界面语言')),
                       children: [
-                        for (final entry in {'': tr('跟随系统'), ...AppLocalizations.languageNames}.entries)
+                        for (final entry in {
+                          '': tr('跟随系统'),
+                          ...AppLocalizations.languageNames,
+                        }.entries)
                           ListTile(
-                            title: Text(entry.key.isEmpty ? tr(entry.value) : entry.value),
-                            trailing: s.language == entry.key ? Icon(Icons.check_rounded) : null,
+                            title: Text(
+                              entry.key.isEmpty ? tr(entry.value) : entry.value,
+                            ),
+                            trailing: s.language == entry.key
+                                ? Icon(Icons.check_rounded)
+                                : null,
                             onTap: () => Navigator.pop(ctx, entry.key),
                           ),
                       ],
@@ -166,17 +203,27 @@ class _SettingsPageState extends State<SettingsPage> {
                 trailing: DropdownButton<int>(
                   value: s.libraryUpdateHours,
                   underline: const SizedBox.shrink(),
-                  items: [
-                    (0, tr('关闭')),
-                    (6, tr('6 小时')),
-                    (12, tr('12 小时')),
-                    (24, tr('每天')),
-                    (48, tr('2 天')),
-                    (168, tr('每周')),
-                  ].map((e) => DropdownMenuItem(value: e.$1, child: Text(e.$2))).toList(),
+                  items:
+                      [
+                            (0, tr('关闭')),
+                            (6, tr('6 小时')),
+                            (12, tr('12 小时')),
+                            (24, tr('每天')),
+                            (48, tr('2 天')),
+                            (168, tr('每周')),
+                          ]
+                          .map(
+                            (e) => DropdownMenuItem(
+                              value: e.$1,
+                              child: Text(e.$2),
+                            ),
+                          )
+                          .toList(),
                   onChanged: (v) {
                     s.libraryUpdateHours = v ?? 0;
-                    if ((v ?? 0) > 0) PlatformBridge.requestNotificationPermission();
+                    if ((v ?? 0) > 0) {
+                      PlatformBridge.requestNotificationPermission();
+                    }
                   },
                 ),
               ),
@@ -237,7 +284,10 @@ class _SettingsPageState extends State<SettingsPage> {
               ListTile(
                 leading: const Icon(Icons.folder_outlined),
                 title: Text(tr('下载位置')),
-                subtitle: SelectableText(AppPaths.downloadRoot.path, style: context.text.bodySmall),
+                subtitle: SelectableText(
+                  AppPaths.downloadRoot.path,
+                  style: context.text.bodySmall,
+                ),
               ),
             ]),
             _Group(tr('数据'), [
@@ -256,8 +306,14 @@ class _SettingsPageState extends State<SettingsPage> {
                 trailing: SegmentedButton<ThemeMode>(
                   showSelectedIcon: false,
                   segments: [
-                    ButtonSegment(value: ThemeMode.system, label: Text(tr('跟随'))),
-                    ButtonSegment(value: ThemeMode.light, label: Text(tr('浅色'))),
+                    ButtonSegment(
+                      value: ThemeMode.system,
+                      label: Text(tr('跟随')),
+                    ),
+                    ButtonSegment(
+                      value: ThemeMode.light,
+                      label: Text(tr('浅色')),
+                    ),
                     ButtonSegment(value: ThemeMode.dark, label: Text(tr('深色'))),
                   ],
                   selected: {s.themeMode},
@@ -282,7 +338,13 @@ class _SettingsPageState extends State<SettingsPage> {
                             child: CircleAvatar(
                               radius: 16,
                               backgroundColor: Color(e.key),
-                              child: s.seedColor == e.key ? const Icon(Icons.check_rounded, color: Colors.white, size: 18) : null,
+                              child: s.seedColor == e.key
+                                  ? const Icon(
+                                      Icons.check_rounded,
+                                      color: Colors.white,
+                                      size: 18,
+                                    )
+                                  : null,
                             ),
                           ),
                         ),
@@ -309,7 +371,11 @@ class _SettingsPageState extends State<SettingsPage> {
                 ListTile(
                   leading: const Icon(Icons.speed_outlined),
                   title: Text(tr('屏幕刷新率')),
-                  subtitle: Text(s.refreshRate == 0 ? tr('自动（跟随屏幕最高刷新率）') : '${s.refreshRate} Hz'),
+                  subtitle: Text(
+                    s.refreshRate == 0
+                        ? tr('自动（跟随屏幕最高刷新率）')
+                        : '${s.refreshRate} Hz',
+                  ),
                   onTap: _pickRefreshRate,
                 ),
             ]),
@@ -329,7 +395,6 @@ class _SettingsPageState extends State<SettingsPage> {
                 value: s.secureScreen,
                 onChanged: (v) {
                   s.secureScreen = v;
-                  PlatformBridge.applySecureScreen(v || s.appLock);
                 },
               ),
             ]),
@@ -349,7 +414,9 @@ class _SettingsPageState extends State<SettingsPage> {
                             ListTile(
                               leading: Icon(m.icon),
                               title: Text(m.label),
-                              trailing: m == s.readerMode ? const Icon(Icons.check_rounded) : null,
+                              trailing: m == s.readerMode
+                                  ? const Icon(Icons.check_rounded)
+                                  : null,
                               onTap: () => Navigator.pop(ctx, m),
                             ),
                         ],
@@ -395,9 +462,16 @@ class _SettingsPageState extends State<SettingsPage> {
               ListTile(
                 leading: const Icon(Icons.vpn_lock_outlined),
                 title: Text(tr('HTTP 代理')),
-                subtitle: Text(s.proxy.isEmpty ? tr('未设置（使用系统网络 / VPN）') : s.proxy),
+                subtitle: Text(
+                  s.proxy.isEmpty ? tr('未设置（使用系统网络 / VPN）') : s.proxy,
+                ),
                 onTap: () async {
-                  final v = await _input(context, tr('HTTP 代理'), s.proxy, hint: tr('例如 127.0.0.1:7890，留空表示不使用'));
+                  final v = await _input(
+                    context,
+                    tr('HTTP 代理'),
+                    s.proxy,
+                    hint: tr('例如 127.0.0.1:7890，留空表示不使用'),
+                  );
                   if (v != null) s.proxy = v;
                 },
               ),
@@ -432,7 +506,9 @@ class _SettingsPageState extends State<SettingsPage> {
               ListTile(
                 leading: const Icon(Icons.g_translate_rounded),
                 title: Text(tr('翻译服务')),
-                subtitle: Text(tr(translateEngines[s.translateEngine] ?? s.translateEngine)),
+                subtitle: Text(
+                  tr(translateEngines[s.translateEngine] ?? s.translateEngine),
+                ),
                 onTap: () async {
                   final v = await showDialog<String>(
                     context: context,
@@ -442,7 +518,9 @@ class _SettingsPageState extends State<SettingsPage> {
                         for (final e in translateEngines.entries)
                           ListTile(
                             title: Text(tr(e.value)),
-                            trailing: e.key == s.translateEngine ? const Icon(Icons.check_rounded) : null,
+                            trailing: e.key == s.translateEngine
+                                ? const Icon(Icons.check_rounded)
+                                : null,
                             onTap: () => Navigator.pop(ctx, e.key),
                           ),
                       ],
@@ -481,9 +559,17 @@ class _SettingsPageState extends State<SettingsPage> {
                 leading: const Icon(Icons.block_rounded),
                 title: Text(tr('屏蔽标签')),
                 subtitle: Text(() {
-                  final presets = BlockPresetConfig.current().where((c) => c.on).length;
-                  final parts = [if (s.blockedTags.isNotEmpty) tr('已屏蔽 {value0} 项', {'value0': s.blockedTags.length}), if (presets > 0) tr('{value0} 组预设', {'value0': presets})];
-                  return parts.isEmpty ? tr('隐藏带有指定标签的作品，可启用预设分组') : parts.join(' · ');
+                  final presets = BlockPresetConfig.current()
+                      .where((c) => c.on)
+                      .length;
+                  final parts = [
+                    if (s.blockedTags.isNotEmpty)
+                      tr('已屏蔽 {value0} 项', {'value0': s.blockedTags.length}),
+                    if (presets > 0) tr('{value0} 组预设', {'value0': presets}),
+                  ];
+                  return parts.isEmpty
+                      ? tr('隐藏带有指定标签的作品，可启用预设分组')
+                      : parts.join(' · ');
                 }()),
                 trailing: const Icon(Icons.chevron_right_rounded),
                 onTap: () => Nav.push(context, const BlocklistPage()),
@@ -500,7 +586,14 @@ class _SettingsPageState extends State<SettingsPage> {
               ListTile(
                 leading: const Icon(Icons.cleaning_services_outlined),
                 title: Text(tr('清除图片缓存')),
-                subtitle: Text(_cacheBytes == null ? tr('计算中…') : tr('已用 {value0}，上限 {value1} MB', {'value0': formatBytes(_cacheBytes!), 'value1': s.cacheLimitMb})),
+                subtitle: Text(
+                  _cacheBytes == null
+                      ? tr('计算中…')
+                      : tr('已用 {value0}，上限 {value1} MB', {
+                          'value0': formatBytes(_cacheBytes!),
+                          'value1': s.cacheLimitMb,
+                        }),
+                ),
                 onTap: () async {
                   await ImageStore.instance.clear();
                   imageCache.clear();
@@ -514,12 +607,16 @@ class _SettingsPageState extends State<SettingsPage> {
                 trailing: DropdownButton<int>(
                   value: s.cacheLimitMb,
                   underline: const SizedBox.shrink(),
-                  items: const [
-                    512,
-                    1024,
-                    2048,
-                    4096,
-                  ].map((v) => DropdownMenuItem(value: v, child: Text('${v ~/ 1024 > 0 ? '${v ~/ 1024} GB' : '$v MB'}'))).toList(),
+                  items: const [512, 1024, 2048, 4096]
+                      .map(
+                        (v) => DropdownMenuItem(
+                          value: v,
+                          child: Text(
+                            v ~/ 1024 > 0 ? '${v ~/ 1024} GB' : '$v MB',
+                          ),
+                        ),
+                      )
+                      .toList(),
                   onChanged: (v) => s.cacheLimitMb = v ?? 1024,
                 ),
               ),
@@ -530,7 +627,11 @@ class _SettingsPageState extends State<SettingsPage> {
                 title: const Text('HentaiPark'),
                 subtitle: Text(tr('可插拔的多源站本子 / 里番客户端。内容来自第三方站点，仅限成年人在合法地区使用。')),
               ),
-              ListTile(leading: const Icon(Icons.terminal_rounded), title: Text(tr('运行日志')), onTap: () => Nav.push(context, const _LogsPage())),
+              ListTile(
+                leading: const Icon(Icons.terminal_rounded),
+                title: Text(tr('运行日志')),
+                onTap: () => Nav.push(context, const _LogsPage()),
+              ),
             ]),
           ],
         ),
@@ -558,14 +659,15 @@ class _AppLockTile extends StatelessWidget {
               ? (v) async {
                   if (!v) {
                     AppLock.instance.disable();
-                    PlatformBridge.applySecureScreen(s.secureScreen);
                     return;
                   }
                   if (!await AppLock.instance.available()) {
-                    if (context.mounted) context.toast(tr('设备没有设置锁屏或生物识别，无法开启'));
+                    if (context.mounted) {
+                      context.toast(tr('设备没有设置锁屏或生物识别，无法开启'));
+                    }
                     return;
                   }
-                  if (await AppLock.instance.enable()) PlatformBridge.applySecureScreen(true);
+                  await AppLock.instance.enable();
                 }
               : null,
         ),
@@ -576,12 +678,17 @@ class _AppLockTile extends StatelessWidget {
             trailing: DropdownButton<int>(
               value: s.appLockAfter,
               underline: const SizedBox.shrink(),
-              items: [
-                (0, tr('立即')),
-                (60, tr('1 分钟')),
-                (300, tr('5 分钟')),
-                (900, tr('15 分钟')),
-              ].map((e) => DropdownMenuItem(value: e.$1, child: Text(e.$2))).toList(),
+              items:
+                  [
+                        (0, tr('立即')),
+                        (60, tr('1 分钟')),
+                        (300, tr('5 分钟')),
+                        (900, tr('15 分钟')),
+                      ]
+                      .map(
+                        (e) => DropdownMenuItem(value: e.$1, child: Text(e.$2)),
+                      )
+                      .toList(),
               onChanged: (v) => s.appLockAfter = v ?? 0,
             ),
           ),
@@ -605,7 +712,10 @@ class _Group extends StatelessWidget {
           padding: const EdgeInsets.fromLTRB(20, 20, 20, 6),
           child: Text(
             title,
-            style: context.text.labelLarge?.copyWith(color: context.colors.primary, fontWeight: FontWeight.w700),
+            style: context.text.labelLarge?.copyWith(
+              color: context.colors.primary,
+              fontWeight: FontWeight.w700,
+            ),
           ),
         ),
         Padding(
@@ -633,9 +743,13 @@ class _LogsPage extends StatelessWidget {
             icon: const Icon(Icons.ios_share_rounded),
             onPressed: () async {
               final text = await CrashLog.report(JsEngine.instance.logs);
-              final file = File(p.join(AppPaths.cache.path, 'hentaipark_log.txt'));
+              final file = File(
+                p.join(AppPaths.cache.path, 'hentaipark_log.txt'),
+              );
               await file.writeAsString(text);
-              await SharePlus.instance.share(ShareParams(files: [XFile(file.path)]));
+              await SharePlus.instance.share(
+                ShareParams(files: [XFile(file.path)]),
+              );
             },
           ),
         ],
@@ -647,14 +761,22 @@ class _LogsPage extends StatelessWidget {
               itemCount: logs.length,
               itemBuilder: (_, i) => Padding(
                 padding: const EdgeInsets.symmetric(vertical: 2),
-                child: SelectableText(logs[i], style: const TextStyle(fontFamily: 'monospace', fontSize: 12)),
+                child: SelectableText(
+                  logs[i],
+                  style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
+                ),
               ),
             ),
     );
   }
 }
 
-Future<String?> _input(BuildContext context, String title, String initial, {String? hint}) {
+Future<String?> _input(
+  BuildContext context,
+  String title,
+  String initial, {
+  String? hint,
+}) {
   final c = TextEditingController(text: initial);
   return showDialog<String>(
     context: context,
@@ -667,7 +789,10 @@ Future<String?> _input(BuildContext context, String title, String initial, {Stri
       ),
       actions: [
         TextButton(onPressed: () => Navigator.pop(ctx), child: Text(tr('取消'))),
-        FilledButton(onPressed: () => Navigator.pop(ctx, c.text.trim()), child: Text(tr('保存'))),
+        FilledButton(
+          onPressed: () => Navigator.pop(ctx, c.text.trim()),
+          child: Text(tr('保存')),
+        ),
       ],
     ),
   );

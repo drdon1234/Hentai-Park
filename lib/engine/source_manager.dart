@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:crypto/crypto.dart' as crypto;
+import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:path/path.dart' as p;
@@ -13,7 +14,9 @@ import '../core/storage.dart';
 import 'cookie_store.dart';
 import 'domains.dart';
 import 'http_service.dart';
+import 'browser_media.dart';
 import 'js_engine.dart';
+import '../video/hls_sources.dart';
 
 /// Installed source plugin and its runtime state.
 class InstalledSource {
@@ -28,7 +31,7 @@ class InstalledSource {
   });
 
   final String key;
-  String origin; // builtin | url
+  String origin; // builtin | official | url
   String version;
   String url;
   bool enabled;
@@ -86,6 +89,17 @@ class RepoEntry {
 String sha256Hex(String text) =>
     crypto.sha256.convert(utf8.encode(text)).toString();
 
+/// UTF-8 decoding normally drops a BOM; scripts must round-trip to their published bytes.
+String decodeSourceScript(List<int> bytes) {
+  final text = utf8.decode(bytes);
+  final hasBom =
+      bytes.length >= 3 &&
+      bytes[0] == 0xef &&
+      bytes[1] == 0xbb &&
+      bytes[2] == 0xbf;
+  return hasBom ? '\uFEFF$text' : text;
+}
+
 /// What installing a script would do, shown to the user before anything is written.
 class InstallPreview {
   InstallPreview({
@@ -109,9 +123,19 @@ class InstallPreview {
 }
 
 /// Installs, updates, orders and loads source plugins, and exposes a typed API over them.
+typedef SourceLoader = Future<SourceManifest> Function(
+  String key,
+  String code,
+  Map<String, dynamic> state,
+);
+
 class SourceManager extends ChangeNotifier {
-  SourceManager._();
-  static final SourceManager instance = SourceManager._();
+  SourceManager({this.loader});
+  static final SourceManager instance = SourceManager();
+
+  final SourceLoader? loader;
+  Future<void> _mutations = Future<void>.value();
+  final Set<Future<void>> _activeCalls = {};
 
   final _registry = JsonStore('sources.json');
   final Map<String, InstalledSource> _sources = {};
@@ -134,6 +158,7 @@ class SourceManager extends ChangeNotifier {
       all.where((s) => s.enabled && s.ready).toList();
   InstalledSource? operator [](String key) => _sources[key];
   SourceManifest? manifest(String key) => _sources[key]?.manifest;
+  bool isBuiltin(String key) => _builtinKeys.contains(key);
 
   Future<void> init() async {
     await _dir.create(recursive: true);
@@ -144,15 +169,18 @@ class SourceManager extends ChangeNotifier {
         _sources[s.key] = s;
       }
     }
+    await _recoverInstall();
     await _syncBuiltins();
     await CookieStore.instance.migrateLegacy(_sources.keys);
     JsEngine.instance.onPersist = _persistData;
-    JsEngine.instance.onRestarted = (key) async {
-      final s = _sources[key];
-      if (s == null) return;
-      await _load(s);
-      notifyListeners();
-    };
+    JsEngine.instance.onRestarted = (key) => unawaited(
+      _mutate(() async {
+        final s = _sources[key];
+        if (s == null) return;
+        await _load(s);
+        notifyListeners();
+      }),
+    );
     try {
       await loadAll();
     } finally {
@@ -172,8 +200,15 @@ class SourceManager extends ChangeNotifier {
       final version = e['version'].toString();
       _builtinKeys.add(key);
       final existing = _sources[key];
-      // User-installed sources remain independent; built-ins always follow this app's bundle.
-      if (existing != null && existing.origin != 'builtin') continue;
+      // User-installed sources remain independent. An online official update wins over
+      // an equal/older bundle, but a newer app bundle can upgrade it again.
+      if (existing != null && existing.origin == 'url') continue;
+      if (existing != null &&
+          existing.origin == 'official' &&
+          !isNewer(version, existing.version) &&
+          await _scriptFile(key).exists()) {
+        continue;
+      }
       // Built-in sources follow the bundled script exactly, so fixes shipped with an app update apply
       // even when the script's version string was not bumped.
       final code = await rootBundle.loadString('assets/sources/${e['file']}');
@@ -181,7 +216,7 @@ class SourceManager extends ChangeNotifier {
       final hash = sha256Hex(code);
       if (existing != null &&
           await file.exists() &&
-          await file.readAsString() == code) {
+          decodeSourceScript(await file.readAsBytes()) == code) {
         existing.version = version;
         existing.sha256 = hash;
         continue;
@@ -216,14 +251,20 @@ class SourceManager extends ChangeNotifier {
   }
 
   /// Loads a source into a fresh runtime of its own (any previous runtime for the key is discarded).
-  Future<void> _load(InstalledSource s) async {
+  Future<void> _load(InstalledSource s, {bool waitForInit = false}) async {
     try {
-      final code = await _scriptFile(s.key).readAsString();
-      await JsEngine.instance.disposeRuntime(s.key);
-      final runtime = JsEngine.instance.runtime(s.key);
-      await runtime.loadScript(code);
+      final code = decodeSourceScript(await _scriptFile(s.key).readAsBytes());
       final state = await _loadState(s.key);
-      s.manifest = SourceManifest(await runtime.setup(state));
+      if (loader != null) {
+        s.manifest = await loader!(s.key, code, state);
+      } else {
+        await JsEngine.instance.disposeRuntime(s.key);
+        final runtime = JsEngine.instance.runtime(s.key);
+        await runtime.loadScript(code);
+        s.manifest = SourceManifest(
+          await runtime.setup(state, waitForInit: waitForInit),
+        );
+      }
       s.version = s.manifest!.version;
       s.loadError = null;
     } catch (e) {
@@ -265,37 +306,40 @@ class SourceManager extends ChangeNotifier {
   Object? settingValue(String key, OptionDef def) =>
       settingsOf(key)[def.key] ?? def.defaultValue;
 
-  Future<void> setSetting(String key, String settingKey, Object? value) async {
-    final state = await _loadState(key);
-    final settings = (state['settings'] as Map).cast<String, dynamic>()
-      ..[settingKey] = value;
-    state['settings'] = settings;
-    (_stateStores[key] ??= JsonStore('source_state_$key.json')).save(state);
-    await JsEngine.instance.updateSettings(key, settings);
-    notifyListeners();
-  }
+  Future<void> setSetting(String key, String settingKey, Object? value) =>
+      _mutate(() async {
+        final state = await _loadState(key);
+        final settings = (state['settings'] as Map).cast<String, dynamic>()
+          ..[settingKey] = value;
+        state['settings'] = settings;
+        (_stateStores[key] ??= JsonStore('source_state_$key.json')).save(state);
+        await JsEngine.instance.updateSettings(key, settings);
+        notifyListeners();
+      });
 
   /// Only called after the user confirmed registration. The preference is durable before JS runs.
   Future<void> setManagedAccount(String key, bool enabled) async {
     await ready;
-    if (manifest(key)?.account?.managedAccount != true) {
-      throw SourceError('UNSUPPORTED', '该源不支持专用自动维护账号');
-    }
-    final state = await _loadState(key);
-    if (enabled && (state['data'] as Map?)?['credentials'] != null) {
-      throw SourceError('CONFIG', '已有手动账号，请先退出登录再启用专用账号');
-    }
-    final settings = {
-      ...(state['settings'] as Map).cast<String, dynamic>(),
-      'managedAccount': enabled,
-    };
-    final next = {...state, 'settings': settings};
-    final store = _stateStores[key] ??= JsonStore('source_state_$key.json');
-    store.save(next);
-    await store.flush();
-    _state[key] = next;
-    await JsEngine.instance.updateSettings(key, settings);
-    notifyListeners();
+    await _mutate(() async {
+      if (manifest(key)?.account?.managedAccount != true) {
+        throw SourceError('UNSUPPORTED', '该源不支持专用自动维护账号');
+      }
+      final state = await _loadState(key);
+      if (enabled && (state['data'] as Map?)?['credentials'] != null) {
+        throw SourceError('CONFIG', '已有手动账号，请先退出登录再启用专用账号');
+      }
+      final settings = {
+        ...(state['settings'] as Map).cast<String, dynamic>(),
+        'managedAccount': enabled,
+      };
+      final next = {...state, 'settings': settings};
+      final store = _stateStores[key] ??= JsonStore('source_state_$key.json');
+      store.save(next);
+      await store.flush();
+      _state[key] = next;
+      await JsEngine.instance.updateSettings(key, settings);
+      notifyListeners();
+    });
     try {
       if (enabled) await _call(key, 'account.enableManaged', []);
     } finally {
@@ -315,31 +359,36 @@ class SourceManager extends ChangeNotifier {
 
   /// Installed sources and their settings; [credentials] also includes each source's private
   /// store (tokens, account ids), which may contain secrets.
-  Map<String, dynamic> exportJson({bool credentials = false}) => {
-    'sources': [
-      for (final s in all)
-        {
-          'key': s.key,
-          'origin': s.origin,
-          'url': s.url,
-          'enabled': s.enabled,
-          'order': s.order,
-        },
-    ],
-    'settings': {for (final s in all) s.key: settingsOf(s.key)},
-    if (credentials)
-      'data': {
-        for (final s in all)
-          s.key: ((_state[s.key]?['data'] as Map?) ?? {})
-              .cast<String, dynamic>(),
-      },
-  };
+  Future<Map<String, dynamic>> exportJson({bool credentials = false}) =>
+      _mutate(
+        () async => (jsonDecode(
+          jsonEncode({
+            'sources': [
+              for (final s in all)
+                {
+                  'key': s.key,
+                  'origin': s.origin,
+                  'url': s.url,
+                  'enabled': s.enabled,
+                  'order': s.order,
+                },
+            ],
+            'settings': {for (final s in all) s.key: settingsOf(s.key)},
+            if (credentials)
+              'data': {
+                for (final s in all)
+                  s.key: ((_state[s.key]?['data'] as Map?) ?? {})
+                      .cast<String, dynamic>(),
+              },
+          }),
+        ) as Map).cast<String, dynamic>(),
+      );
 
   /// Applies settings (and private stores, when present) to sources that are installed, reloading
   /// them so the runtime sees the restored values. Returns URL-installed sources that are missing here.
   Future<List<({String key, String url})>> importJson(
     Map<String, dynamic> json,
-  ) async {
+  ) => _mutate(() async {
     final missing = <({String key, String url})>[];
     final settings = (json['settings'] as Map?)?.cast<String, dynamic>() ?? {};
     final data = (json['data'] as Map?)?.cast<String, dynamic>() ?? {};
@@ -384,7 +433,7 @@ class SourceManager extends ChangeNotifier {
     _saveRegistry();
     notifyListeners();
     return missing;
-  }
+  });
 
   void setEnabled(String key, bool enabled) {
     _sources[key]?.enabled = enabled;
@@ -428,7 +477,11 @@ class SourceManager extends ChangeNotifier {
   }) async {
     final res = await HttpService.instance.send(method: 'GET', url: url);
     if (!res.ok) throw SourceError('HTTP', '下载失败：HTTP ${res.status}');
-    return previewScript(res.text, url: url, expectedSha256: expectedSha256);
+    return previewScript(
+      decodeSourceScript(res.bytes),
+      url: url,
+      expectedSha256: expectedSha256,
+    );
   }
 
   Future<InstallPreview> previewScript(
@@ -483,32 +536,159 @@ class SourceManager extends ChangeNotifier {
   }
 
   /// Installs a previewed script (after the user confirmed it); returns its key.
-  Future<String> install(InstallPreview preview) async {
+  Future<String> install(InstallPreview preview, {bool official = false}) =>
+      _mutate(() => _install(preview, official: official));
+
+  Future<String> _install(
+    InstallPreview preview, {
+    required bool official,
+  }) async {
+    final journalFile = AppPaths.dataFile('source_install.json');
+    if (await journalFile.exists()) {
+      throw SourceError('CONFIG', '上次源更新尚未恢复，请重启应用后重试');
+    }
     final key = preview.key;
-    await _scriptFile(key).writeAsString(preview.code);
-    final s =
-        _sources[key] ??
-        InstalledSource(
-          key: key,
-          origin: 'url',
-          version: '0.0.0',
-          url: preview.url,
-          order: _sources.length,
-        );
-    s
-      ..origin = 'url'
-      ..url = preview.url
-      ..sha256 = preview.sha256;
-    _sources[key] = s;
-    await _load(s);
+    if (!RegExp(r'^[A-Za-z0-9_-]+$').hasMatch(key) ||
+        sha256Hex(preview.code) != preview.sha256) {
+      throw SourceError('CONFIG', '源脚本身份或校验值无效');
+    }
+    final existing = _sources[key];
+    if (official &&
+        (existing == null ||
+            !{'builtin', 'official'}.contains(existing.origin) ||
+            !isNewer(preview.manifest.version, existing.version))) {
+      throw SourceError('CONFIG', '源已发生变化，请重新检查更新');
+    }
+    final file = _scriptFile(key);
+    Map<String, dynamic>? journal;
+    try {
+      // Stop old initialization and bridge requests before taking a consistent snapshot.
+      if (loader == null) await JsEngine.instance.disposeRuntime(key);
+      final state = await _loadState(key);
+      journal = {
+        'key': key,
+        'source': existing?.toJson(),
+        'code': await file.exists()
+            ? decodeSourceScript(await file.readAsBytes())
+            : null,
+        'state': jsonDecode(jsonEncode(state)),
+        'cookies': await CookieStore.instance.snapshotPartition(key),
+        'domains': <String>{
+          if (existing?.manifest != null)
+            ...declaredDomains(existing!.manifest!.json),
+          ...preview.domains,
+        }.toList(),
+      };
+      // One temporary recovery record covers only the source being changed. A crash
+      // before the commit point restores its script, registry and private state on launch.
+      await _writeAtomic(journalFile, jsonEncode(journal));
+      await _writeAtomic(file, preview.code);
+      final s =
+          existing ??
+          InstalledSource(
+            key: key,
+            origin: 'url',
+            version: '0.0.0',
+            order: _sources.length,
+          );
+      await _load(s, waitForInit: true);
+      if (s._loadError != null) throw SourceError('CONFIG', s._loadError!);
+      if (s.manifest?.json['key'] != key ||
+          s.version != preview.manifest.version ||
+          s.manifest?.json['apiVersion'] !=
+              preview.manifest.json['apiVersion']) {
+        throw SourceError('CONFIG', '源加载结果与更新信息不一致');
+      }
+      s
+        ..origin = official ? 'official' : 'url'
+        ..url = preview.url
+        ..sha256 = preview.sha256;
+      _sources[key] = s;
+      await _stateStores[key]?.flush();
+      _saveRegistry();
+      await _registry.flush();
+      await journalFile.delete();
+      notifyListeners();
+      return key;
+    } catch (error) {
+      if (loader == null) await JsEngine.instance.disposeRuntime(key);
+      if (journal != null && await journalFile.exists()) {
+        await _restoreInstall(journal);
+        await journalFile.delete();
+      }
+      final restored = _sources[key];
+      if (restored != null) await _load(restored);
+      notifyListeners();
+      if (error is SourceError) rethrow;
+      throw SourceError('CONFIG', error.toString());
+    }
+  }
+
+  static Future<void> _writeAtomic(File file, String content) async {
+    final temporary = File('${file.path}.pending');
+    await temporary.writeAsString(content, flush: true);
+    await temporary.rename(file.path);
+  }
+
+  Future<void> _restoreInstall(Map<String, dynamic> journal) async {
+    final key = journal['key'] as String;
+    if (!RegExp(r'^[A-Za-z0-9_-]+$').hasMatch(key)) {
+      throw SourceError('CONFIG', '源脚本身份或校验值无效');
+    }
+    final file = _scriptFile(key);
+    final code = journal['code'] as String?;
+    if (code != null) {
+      await _writeAtomic(file, code);
+    } else if (await file.exists()) {
+      await file.delete();
+    }
+    final old = journal['source'];
+    if (old is Map) {
+      final current = _sources[key];
+      _sources[key] = InstalledSource.fromJson(old.cast<String, dynamic>())
+        ..enabled = current?.enabled ?? old['enabled'] != false
+        ..order = current?.order ?? (old['order'] as num?)?.toInt() ?? 0;
+    } else {
+      _sources.remove(key);
+    }
+    final state = (journal['state'] as Map).cast<String, dynamic>();
+    _state[key] = state;
+    final store = _stateStores[key] ??= JsonStore('source_state_$key.json');
+    store.save(state);
+    await store.flush();
+    await CookieStore.instance.restorePartition(
+      key,
+      (journal['cookies'] as Map).cast<String, String>(),
+      domains: (journal['domains'] as List).cast<String>(),
+    );
     _saveRegistry();
-    notifyListeners();
-    if (s._loadError != null) throw SourceError('CONFIG', s._loadError!);
-    return key;
+    await _registry.flush();
+  }
+
+  Future<void> _recoverInstall() async {
+    final file = AppPaths.dataFile('source_install.json');
+    if (!await file.exists()) return;
+    final journal = (jsonDecode(await file.readAsString()) as Map)
+        .cast<String, dynamic>();
+    await _restoreInstall(journal);
+    await file.delete();
+  }
+
+  /// Mutations wait for existing calls; new calls wait for the queued mutations.
+  Future<T> _mutate<T>(Future<T> Function() action) {
+    final result = _mutations.then((_) async {
+      await Future.wait(_activeCalls.toList());
+      return action();
+    });
+    _mutations = result.then<void>(
+      (_) {},
+      onError: (Object _, StackTrace _) {},
+    );
+    return result;
   }
 
   /// Removes a source together with everything it stored: runtime, settings, private store and cookies.
-  Future<void> uninstall(String key) async {
+  Future<void> uninstall(String key) => _mutate(() async {
     _sources.remove(key);
     await JsEngine.instance.disposeRuntime(key);
     try {
@@ -522,17 +702,17 @@ class SourceManager extends ChangeNotifier {
     await CookieStore.instance.clearPartition(key);
     _saveRegistry();
     notifyListeners();
-  }
+  });
 
   /// Restores a built-in source to the bundled version.
-  Future<void> resetBuiltin(String key) async {
+  Future<void> resetBuiltin(String key) => _mutate(() async {
     final s = _sources[key];
     if (s == null) return;
     s.origin = 'builtin';
     await _syncBuiltins();
     await _load(s);
     notifyListeners();
-  }
+  });
 
   static int _compareVersion(String a, String b) {
     final pa = a.split('.').map((e) => int.tryParse(e) ?? 0).toList();
@@ -550,12 +730,34 @@ class SourceManager extends ChangeNotifier {
 
   // ── Typed source API ────────────────────────────────────
 
-  Future<Object?> _call(String key, String method, List<Object?> args) async {
+  Future<Object?> _call(
+    String key,
+    String method,
+    List<Object?> args, {
+    CancelToken? cancelToken,
+  }) async {
+    if (cancelToken?.cancelError case final error?) throw error;
     await ready;
+    while (true) {
+      final pending = _mutations;
+      await pending;
+      if (identical(pending, _mutations)) break;
+    }
+    final finished = Completer<void>();
+    if (cancelToken?.cancelError case final error?) throw error;
+    _activeCalls.add(finished.future);
     try {
-      return await JsEngine.instance.invoke(key, method, args);
+      return await JsEngine.instance.invoke(
+        key,
+        method,
+        args,
+        cancelToken: cancelToken,
+      );
     } finally {
-      if (!method.startsWith('account.') &&
+      _activeCalls.remove(finished.future);
+      finished.complete();
+      if (cancelToken?.isCancelled != true &&
+          !method.startsWith('account.') &&
           manifest(key)?.can('status') == true) {
         await refreshAccount(key);
       }
@@ -600,9 +802,13 @@ class SourceManager extends ChangeNotifier {
   Future<ChapterImages> chapter(
     String key,
     String id,
-    String? chapterId,
-  ) async {
-    final res = await _call(key, 'chapter', [id, chapterId]);
+    String? chapterId, {
+    CancelToken? cancelToken,
+  }) async {
+    final res = await _call(key, 'chapter', [
+      id,
+      chapterId,
+    ], cancelToken: cancelToken);
     return ChapterImages.fromJson((res as Map).cast<String, dynamic>());
   }
 
@@ -613,6 +819,7 @@ class SourceManager extends ChangeNotifier {
     required int index,
     String? token,
     int retry = 0,
+    CancelToken? cancelToken,
   }) async {
     final res = await _call(key, 'resolveImage', [
       {
@@ -622,7 +829,7 @@ class SourceManager extends ChangeNotifier {
         'token': token,
         'retry': retry,
       },
-    ]);
+    ], cancelToken: cancelToken);
     return PageImage((res as Map).cast<String, dynamic>());
   }
 
@@ -642,12 +849,21 @@ class SourceManager extends ChangeNotifier {
     );
   }
 
-  Future<List<VideoSource>> videos(String key, String id) async {
-    final res = await _call(key, 'videos', [id]);
-    return (res as List)
+  Future<List<VideoSource>> videos(
+    String key,
+    String id, {
+    CancelToken? cancelToken,
+  }) async {
+    final res = await _call(key, 'videos', [id], cancelToken: cancelToken);
+    final sources = (res as List)
         .whereType<Map>()
         .map((e) => VideoSource(e.cast<String, dynamic>()))
         .toList();
+    if (!sources.any((s) => s.format == 'hls')) return sources;
+    final sourceManifest = manifest(key);
+    if (sourceManifest == null) throw SourceError('CONFIG', '视频源未加载');
+    return HlsSources(BrowserMedia(BrowserMediaPolicy.fromManifest(sourceManifest)))
+      .resolve(sources, cancelToken: cancelToken);
   }
 
   Future<String> login(String key, Map<String, String> values) async {

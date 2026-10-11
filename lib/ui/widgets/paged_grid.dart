@@ -45,20 +45,21 @@ class PagedController extends ChangeNotifier {
     page = 0;
     _cursor = null;
     totalPages = null;
+    total = null;
     loading = false;
     _notify();
     await loadMore();
   }
 
   Future<void> loadMore() async {
-    if (loading || !hasNext) return;
+    if (_disposed || loading || !hasNext) return;
     final gen = _generation;
     loading = true;
     error = null;
     _notify();
     try {
       final result = await loader(page + 1, _cursor);
-      if (gen != _generation) return;
+      if (_disposed || gen != _generation) return;
       page = result.page > page ? result.page : page + 1;
       _cursor = result.cursor;
       totalPages = result.totalPages ?? totalPages;
@@ -67,7 +68,13 @@ class PagedController extends ChangeNotifier {
       var shown = 0;
       final blocklist = TagBlocklist.current();
       if (result.sections != null) {
-        sections = [for (final s in result.sections!) WorkSection(s.title, s.items.where((e) => blocklist.matchItem(e) == null).toList())];
+        sections = [
+          for (final s in result.sections!)
+            WorkSection(
+              s.title,
+              s.items.where((e) => blocklist.matchItem(e) == null).toList(),
+            ),
+        ];
       }
       for (final item in result.items) {
         if (_seen.add(item.id)) {
@@ -80,7 +87,10 @@ class PagedController extends ChangeNotifier {
           shown++;
         }
       }
-      hasNext = result.hasNext && (result.items.isEmpty ? false : true) && (added > 0 || result.cursor != null);
+      hasNext =
+          result.hasNext &&
+          (result.items.isNotEmpty || result.cursor != null) &&
+          (added > 0 || result.cursor != null);
       // A page where everything was filtered would leave nothing to scroll to; fetch on (a few times).
       _emptyPages = shown == 0 ? _emptyPages + 1 : 0;
       if (shown == 0 && hasNext && _emptyPages <= 3) {
@@ -137,13 +147,43 @@ class PagedSliverGrid extends StatelessWidget {
           if (c.error != null) {
             return SliverFillRemaining(
               hasScrollBody: false,
-              child: SourceErrorView(error: c.error!, source: c.source, onRetry: c.refresh),
+              child: SourceErrorView(
+                error: c.error!,
+                source: c.source,
+                onRetry: c.refresh,
+              ),
             );
           }
           if (!c.loading && !c.hasNext) {
             return SliverFillRemaining(
               hasScrollBody: false,
-              child: MessageView(icon: Icons.search_off_rounded, title: tr('这里什么都没有'), message: tr('换个关键词或筛选条件试试')),
+              child: MessageView(
+                icon: Icons.search_off_rounded,
+                title: tr('这里什么都没有'),
+                message: tr('换个关键词或筛选条件试试'),
+              ),
+            );
+          }
+          if (!c.loading && c.hasNext) {
+            return SliverFillRemaining(
+              hasScrollBody: false,
+              child: MessageView(
+                icon: Icons.filter_alt_outlined,
+                title: tr('这里什么都没有'),
+                message: c.hidden > 0
+                    ? tr('（已屏蔽 {value0} 部）', {'value0': c.hidden})
+                    : null,
+                actions: [
+                  FilledButton.tonalIcon(
+                    onPressed: () {
+                      c._emptyPages = 0;
+                      c.loadMore();
+                    },
+                    icon: const Icon(Icons.expand_more_rounded),
+                    label: Text(tr('继续加载')),
+                  ),
+                ],
+              ),
             );
           }
           return _skeletonGrid(context);
@@ -152,7 +192,11 @@ class PagedSliverGrid extends StatelessWidget {
         return SliverLayoutBuilder(
           builder: (context, constraints) {
             final cols = gridColumnsFor(constraints.crossAxisExtent);
-            final cardWidth = (constraints.crossAxisExtent - padding.horizontal - (cols - 1) * 10) / cols;
+            final cardWidth =
+                (constraints.crossAxisExtent -
+                    padding.horizontal -
+                    (cols - 1) * 10) /
+                cols;
             final extraText = cardTextExtent(context);
             return SliverMainAxisGroup(
               slivers: [
@@ -166,10 +210,19 @@ class PagedSliverGrid extends StatelessWidget {
                       mainAxisExtent: cardWidth / aspect + extraText,
                     ),
                     delegate: SliverChildBuilderDelegate((context, i) {
-                      if (i >= c.items.length - cols * 3 && c.hasNext && !c.loading && c.error == null) {
-                        WidgetsBinding.instance.addPostFrameCallback((_) => c.loadMore());
+                      if (i >= c.items.length - cols * 3 &&
+                          c.hasNext &&
+                          !c.loading &&
+                          c.error == null) {
+                        WidgetsBinding.instance.addPostFrameCallback(
+                          (_) => c.loadMore(),
+                        );
                       }
-                      return WorkCard(item: c.items[i], aspect: aspect, showSource: showSource);
+                      return WorkCard(
+                        item: c.items[i],
+                        aspect: aspect,
+                        showSource: showSource,
+                      );
                     }, childCount: c.items.length),
                   ),
                 ),
@@ -196,23 +249,41 @@ class PagedSliverGrid extends StatelessWidget {
           child: FilledButton.tonalIcon(
             onPressed: c.loadMore,
             icon: const Icon(Icons.refresh_rounded),
-            label: Text(tr('加载失败，点击重试  {value0}', {'value0': c.error!.asSourceError.code})),
+            label: Text(
+              tr('加载失败，点击重试  {value0}', {
+                'value0': c.error!.asSourceError.code,
+              }),
+            ),
           ),
         ),
       );
     }
-    if (c.loading)
+    if (c.loading) {
       return const Padding(
         padding: EdgeInsets.all(20),
-        child: Center(child: SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2.4))),
+        child: Center(
+          child: SizedBox(
+            width: 22,
+            height: 22,
+            child: CircularProgressIndicator(strokeWidth: 2.4),
+          ),
+        ),
       );
+    }
     if (!c.hasNext) {
       return Padding(
         padding: const EdgeInsets.all(20),
         child: Center(
           child: Text(
-            tr('· 已经到底了 · 共 {value0} 部{value1} ·', {'value0': c.items.length, 'value1': c.hidden > 0 ? tr('（已屏蔽 {value0} 部）', {'value0': c.hidden}) : ''}),
-            style: context.text.labelMedium?.copyWith(color: context.colors.onSurfaceVariant),
+            tr('· 已经到底了 · 共 {value0} 部{value1} ·', {
+              'value0': c.items.length,
+              'value1': c.hidden > 0
+                  ? tr('（已屏蔽 {value0} 部）', {'value0': c.hidden})
+                  : '',
+            }),
+            style: context.text.labelMedium?.copyWith(
+              color: context.colors.onSurfaceVariant,
+            ),
           ),
         ),
       );
@@ -225,10 +296,18 @@ class PagedSliverGrid extends StatelessWidget {
     return SliverLayoutBuilder(
       builder: (context, constraints) {
         final cols = gridColumnsFor(constraints.crossAxisExtent);
-        final cardWidth = (constraints.crossAxisExtent - padding.horizontal - (cols - 1) * 10) / cols;
+        final cardWidth =
+            (constraints.crossAxisExtent -
+                padding.horizontal -
+                (cols - 1) * 10) /
+            cols;
         return SliverMainAxisGroup(
           slivers: [
-            const SliverToBoxAdapter(child: LoadingIndicator(padding: EdgeInsets.fromLTRB(16, 16, 16, 4))),
+            const SliverToBoxAdapter(
+              child: LoadingIndicator(
+                padding: EdgeInsets.fromLTRB(16, 16, 16, 4),
+              ),
+            ),
             SliverPadding(
               padding: padding,
               sliver: SliverGrid(
@@ -238,7 +317,10 @@ class PagedSliverGrid extends StatelessWidget {
                   mainAxisSpacing: 14,
                   mainAxisExtent: cardWidth / aspect + cardTextExtent(context),
                 ),
-                delegate: SliverChildBuilderDelegate((_, __) => WorkCardSkeleton(aspect: aspect), childCount: cols * 4),
+                delegate: SliverChildBuilderDelegate(
+                  (_, _) => WorkCardSkeleton(aspect: aspect),
+                  childCount: cols * 4,
+                ),
               ),
             ),
           ],
@@ -258,14 +340,23 @@ class _SectionsSliver extends StatelessWidget {
     final sections = controller.sections!;
     return SliverList.builder(
       itemCount: sections.length,
-      itemBuilder: (context, i) => WorkCarousel(title: sections[i].title, items: sections[i].items),
+      itemBuilder: (context, i) =>
+          WorkCarousel(title: sections[i].title, items: sections[i].items),
     );
   }
 }
 
 /// Horizontal strip of cards with a header.
 class WorkCarousel extends StatelessWidget {
-  const WorkCarousel({super.key, required this.title, required this.items, this.leading, this.trailing, this.showSource = false, this.height});
+  const WorkCarousel({
+    super.key,
+    required this.title,
+    required this.items,
+    this.leading,
+    this.trailing,
+    this.showSource = false,
+    this.height,
+  });
   final String title;
   final List<WorkItem> items;
   final Widget? leading;
@@ -289,10 +380,14 @@ class WorkCarousel extends StatelessWidget {
             scrollDirection: Axis.horizontal,
             padding: const EdgeInsets.symmetric(horizontal: 16),
             itemCount: items.length,
-            separatorBuilder: (_, __) => const SizedBox(width: 10),
+            separatorBuilder: (_, _) => const SizedBox(width: 10),
             itemBuilder: (context, i) => SizedBox(
               width: cardWidth,
-              child: WorkCard(item: items[i], aspect: aspect, showSource: showSource),
+              child: WorkCard(
+                item: items[i],
+                aspect: aspect,
+                showSource: showSource,
+              ),
             ),
           ),
         ),

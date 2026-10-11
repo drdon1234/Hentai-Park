@@ -68,9 +68,8 @@ class BlockPresetConfig {
 /// - `namespace:tag` matches only within the namespace ("female:guro")
 /// - `title:word` matches works whose title contains the word
 class TagBlocklist {
-  TagBlocklist(Iterable<String> entries, {List<(String, RegExp)> titlePatterns = const []})
-    : _entries = [for (final e in entries) e.trim().toLowerCase()].where((e) => e.isNotEmpty).toList(),
-      _titlePatterns = titlePatterns;
+  TagBlocklist(Iterable<String> entries, {this._titlePatterns = const []})
+    : _entries = [for (final e in entries) e.trim().toLowerCase()].where((e) => e.isNotEmpty).toList();
 
   factory TagBlocklist.current() {
     final entries = [...AppSettings.instance.blockedTags];

@@ -1086,8 +1086,9 @@ class _Tags extends StatelessWidget {
     switch (action) {
       case 'copy':
         await Clipboard.setData(ClipboardData(text: label));
-        if (context.mounted)
+        if (context.mounted) {
           context.toast(tr('已复制「{label}」', {'label': label}));
+        }
       case 'block':
       case 'blockScoped':
         final entry = action == 'block' ? label : scoped!;

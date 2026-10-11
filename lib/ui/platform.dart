@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
 import '../core/localization.dart';
+import '../core/settings.dart';
 
 /// Small Android-only native hooks (MainActivity): screenshot protection, volume-key paging and
 /// plain system notifications.
@@ -15,6 +16,29 @@ class PlatformBridge {
   static final _mediaVolume = StreamController<double>.broadcast();
   static Future<void> _videoBrightnessUpdates = Future.value();
   static bool _listening = false;
+  static bool _settingsBound = false;
+  static bool? _secureScreen;
+  static int? _refreshRate;
+  static Future<void> _settingsUpdates = Future.value();
+
+  /// Apply device preferences at startup and after every change, including backup restore.
+  static Future<void> bindSettings() {
+    if (!_settingsBound) {
+      _settingsBound = true;
+      AppSettings.instance.addListener(() => unawaited(bindSettings()));
+    }
+    final settings = AppSettings.instance;
+    final secure = settings.secureScreen || settings.appLock;
+    final rate = settings.refreshRate;
+    final updateSecure = secure != _secureScreen;
+    final updateRate = rate != _refreshRate;
+    _secureScreen = secure;
+    _refreshRate = rate;
+    return _settingsUpdates = _settingsUpdates.then((_) async {
+      if (updateSecure) await applySecureScreen(secure);
+      if (updateRate) await applyRefreshRate(rate);
+    });
+  }
 
   static void _listen() {
     if (_listening) return;
@@ -33,7 +57,7 @@ class PlatformBridge {
 
   /// Hides content in the recent-apps switcher and blocks screenshots (FLAG_SECURE).
   static Future<void> applySecureScreen(bool enabled) async {
-    if (!Platform.isAndroid) return;
+    if (defaultTargetPlatform != TargetPlatform.android) return;
     try {
       await _channel.invokeMethod('setSecure', enabled);
     } catch (_) {}
@@ -45,7 +69,9 @@ class PlatformBridge {
   static Future<List<int>> refreshRates() async {
     if (!Platform.isAndroid) return const [];
     try {
-      return ((await _channel.invokeMethod<List>('refreshRates')) ?? const []).map((e) => (e as num).toInt()).toList();
+      return ((await _channel.invokeMethod<List>('refreshRates')) ?? const [])
+          .map((e) => (e as num).toInt())
+          .toList();
     } catch (_) {
       return const [];
     }
@@ -54,7 +80,8 @@ class PlatformBridge {
   static Future<double?> currentRefreshRate() async {
     if (!Platform.isAndroid) return null;
     try {
-      return (await _channel.invokeMethod<num>('currentRefreshRate'))?.toDouble();
+      return (await _channel.invokeMethod<num>('currentRefreshRate'))
+          ?.toDouble();
     } catch (_) {
       return null;
     }
@@ -62,7 +89,7 @@ class PlatformBridge {
 
   /// Asks for [hz] (0 = the highest available). Many high-refresh phones keep apps at 60 Hz otherwise.
   static Future<void> applyRefreshRate(int hz) async {
-    if (!Platform.isAndroid) return;
+    if (defaultTargetPlatform != TargetPlatform.android) return;
     try {
       await _channel.invokeMethod('setRefreshRate', hz);
     } catch (_) {}
@@ -92,7 +119,9 @@ class PlatformBridge {
         return;
       } catch (_) {}
     }
-    await SystemChrome.setEnabledSystemUIMode(enabled ? SystemUiMode.immersiveSticky : SystemUiMode.edgeToEdge);
+    await SystemChrome.setEnabledSystemUIMode(
+      enabled ? SystemUiMode.immersiveSticky : SystemUiMode.edgeToEdge,
+    );
   }
 
   /// Window-local brightness and the media stream's volume, both normalized.
@@ -116,7 +145,10 @@ class PlatformBridge {
     return _videoBrightnessUpdates = _videoBrightnessUpdates.then((_) async {
       if (!Platform.isAndroid) return;
       try {
-        await _channel.invokeMethod('setVideoBrightness', value.clamp(0.0, 1.0));
+        await _channel.invokeMethod(
+          'setVideoBrightness',
+          value.clamp(0.0, 1.0),
+        );
       } catch (_) {}
     });
   }
@@ -167,7 +199,10 @@ class PlatformBridge {
   static Future<bool> requestNotificationPermission() async {
     if (!Platform.isAndroid) return false;
     try {
-      return await _channel.invokeMethod<bool>('requestNotificationPermission') ?? false;
+      return await _channel.invokeMethod<bool>(
+            'requestNotificationPermission',
+          ) ??
+          false;
     } catch (_) {
       return false;
     }

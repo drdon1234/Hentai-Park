@@ -97,12 +97,13 @@ class Translator {
       timeout: const Duration(seconds: 12),
       detectCloudflare: false,
     );
-    if (!res.ok)
+    if (!res.ok) {
       throw SourceError(
         'NETWORK',
         '谷歌翻译请求失败（HTTP ${res.status}）',
         status: res.status,
       );
+    }
     final data = jsonDecode(res.text);
     final parts = (data is List && data.isNotEmpty && data[0] is List)
         ? data[0] as List
@@ -129,12 +130,13 @@ class Translator {
         timeout: const Duration(seconds: 12),
         detectCloudflare: false,
       );
-      if (!auth.ok)
+      if (!auth.ok) {
         throw SourceError(
           'NETWORK',
           '微软翻译授权失败（HTTP ${auth.status}）',
           status: auth.status,
         );
+      }
       _msToken = auth.text.trim();
       _msTokenTime = DateTime.now();
     }

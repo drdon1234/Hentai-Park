@@ -36,12 +36,13 @@ class Choice {
   final String? color;
 
   factory Choice.fromJson(Object? json) {
-    if (json is Map)
+    if (json is Map) {
       return Choice(
         json['value'],
         _str(json['label'] ?? json['value']),
         color: json['color']?.toString(),
       );
+    }
     return Choice(json, _str(json));
   }
 }
@@ -50,13 +51,12 @@ class Choice {
 class OptionDef {
   OptionDef({
     required this.key,
-    required String label,
+    required this._label,
     required this.type,
     required this.values,
     this.defaultValue,
-    String description = '',
-  }) : _label = label,
-       _description = description;
+    this._description = '',
+  });
   final String key;
   final String _label;
   String get label => tr(_label);
@@ -91,10 +91,10 @@ class OptionDef {
 class FeedDef {
   FeedDef({
     required this.key,
-    required String label,
+    required this._label,
     required this.options,
     required this.layout,
-  }) : _label = label;
+  });
   final String key;
   final String _label;
   String get label => tr(_label);
@@ -116,16 +116,15 @@ class FeedDef {
 class AccountDef {
   AccountDef({
     required this.type,
-    required String title,
-    required String hint,
+    required this._title,
+    required this._hint,
     required this.fields,
     required this.loginUrl,
     required this.cookieUrl,
     required this.requiredCookies,
     required this.required,
     this.managedAccount = false,
-  }) : _title = title,
-       _hint = hint;
+  });
   final String type; // password | cookies
   final String _title;
   final String _hint;
@@ -176,6 +175,7 @@ class SourceManifest {
       imageHeaders = _map(json['imageHeaders'])
           .map((k, v) => MapEntry(k, v.toString())),
       network = _map(json['network']),
+      media = _map(json['media']),
       settings = _maps(json['settings']).map(OptionDef.fromJson).toList(),
       account = AccountDef.fromJson(json['account']),
       feeds = _maps(json['feeds']).map(FeedDef.fromJson).toList(),
@@ -203,6 +203,7 @@ class SourceManifest {
   final String idExample;
   final Map<String, String> imageHeaders;
   final Map<String, dynamic> network;
+  final Map<String, dynamic> media;
   final List<OptionDef> settings;
   final AccountDef? account;
   final List<FeedDef> feeds;
@@ -260,8 +261,9 @@ class SourceManifest {
   String? matchExplicitId(String text) {
     final m = idPattern?.firstMatch(text.trim());
     if (m == null) return null;
-    if (m.groupCount >= 2 && m.group(2) != null)
+    if (m.groupCount >= 2 && m.group(2) != null) {
       return '${m.group(1)}/${m.group(2)}';
+    }
     return m.groupCount >= 1 ? m.group(1) : m.group(0);
   }
 }
@@ -400,7 +402,7 @@ class PreviewThumb {
 }
 
 class WorkDetail extends WorkItem {
-  WorkDetail(Map<String, dynamic> json, String source)
+  WorkDetail(super.json, super.source)
     : url = _str(json['url']),
       authors = _strings(json['authors']),
       description = _str(json['description']),
@@ -446,8 +448,7 @@ class WorkDetail extends WorkItem {
       thumbnailsTotal = _int(json['thumbnailsTotal']),
       authorSearch = json['authorSearch'] is Map
           ? _map(json['authorSearch'])
-          : null,
-      super(json, source);
+          : null;
 
   final String url;
   final List<String> authors;
@@ -517,11 +518,13 @@ class VideoSource {
           : _str(j['label']),
       url = _str(j['url']),
       headers = _map(j['headers']).map((k, v) => MapEntry(k, v.toString())),
+      format = _str(j['format']),
       preferred = j['preferred'] == true;
   final int quality;
   final String label;
   final String url;
   final Map<String, String> headers;
+  final String format;
   final bool preferred;
 }
 
@@ -534,7 +537,8 @@ class AccountStatus {
 
 /// Error codes produced by sources (see park_runtime.js).
 class SourceError implements Exception {
-  SourceError(this.code, String message, {this.status, this.url}) : _message = message;
+  SourceError(this.code, String message, {this.status, this.url})
+    : _message = message;
   final String code;
   final String _message;
   String get rawMessage => _message;

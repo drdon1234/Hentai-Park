@@ -67,6 +67,9 @@ flutter {
 }
 
 dependencies {
+    implementation("androidx.webkit:webkit:1.14.0")
+    implementation("androidx.media3:media3-extractor:1.9.2")
+    implementation("androidx.media3:media3-muxer:1.9.2")
     // AppCompat themes are required by local_auth's biometric prompt (FlutterFragmentActivity).
     implementation("androidx.appcompat:appcompat:1.7.0")
 }

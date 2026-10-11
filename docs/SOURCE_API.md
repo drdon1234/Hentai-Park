@@ -7,7 +7,7 @@ HentaiPark 的每个源站都是一个独立的 JavaScript 文件。App 在运�
 
 ## 运行环境
 
-- 源脚本运行在 App 内的无界面 WebView 中（完整的现代 JS 与 `DOMParser`）。网络、加解密与 Cookie 都由原生层提供，因此**没有 CORS 限制**。
+- 源脚本运行在 App 内的无界面 WebView 中（完整的现代 JS 与 `DOMParser`）。原生层提供加解密、Cookie 和原生 HTTP 请求；原生 HTTP 没有 CORS 限制，浏览器网络与媒体请求遵循下文的独立规则。
 - 同一份运行时（[`assets/runtime/park_runtime.js`](../assets/runtime/park_runtime.js)）也能在 Node 中运行，开发时可以直接对真实站点做冒烟测试：
 
   ```bash
@@ -33,6 +33,7 @@ Park.register({
   idPattern: '^(\\d+)$',                      // 直接输入编号时用于直达
   imageHeaders: { Referer: 'https://example.com/' },  // 加载封面与图片时默认携带
   network: { mode: 'native' },                // 见“网络”一节
+  media: { mode: 'browser', origin: 'https://example.com', domains: ['media.example.com'] },  // 可选 HLS 媒体权限，见下文
 
   settings: [ /* 选项定义，见下文 */ ],
   account: { /* 可选，见“账号” */ },
@@ -89,7 +90,7 @@ await this.http.request({
 // → { status, headers, body, url, ok, json() }
 ```
 
-`text()` / `json()` 遇到非 2xx 响应会自动抛错（404 → `NOT_FOUND`）。Cookie 会自动保存，并在跟随重定向时保留。
+`text()` / `json()` 遇到非 2xx 响应会自动抛错（404 → `NOT_FOUND`）。Cookie 会自动保存，并按每次重定向的目标地址重新选择。跨来源重定向不会携带原来源的认证头；保留请求体的跨来源重定向会被拒绝。
 
 ## 数据结构
 
@@ -138,7 +139,12 @@ await this.http.request({
 - `transform: { type: 'unscramble-strips', segments: N }`：图片被横向切成 N 条并倒序存放时（禁漫），App 会在 GPU 上原生还原。下载的离线文件保存原图，显示时再还原。
 - `resolveImage` 返回 `{ url, headers?, width?, height?, cacheKey? }`。失败时 App 会递增 `retry` 重新调用，源可以借此换一个服务器（E-Hentai 的 `nl` 参数）。
 
-**视频**（`videos`）：`[{ quality: 1080, label: '1080P', url, headers?, preferred? }]`。视频直链通常有时效，App 每次播放 / 下载前都会重新获取。
+**视频**（`videos`）：`[{ quality: 1080, label: '1080P', url, headers?, format?, preferred? }]`。视频直链通常有时效，App 每次播放 / 下载前都会重新获取。
+
+- 省略 `format` 时沿用直 MP4 播放与下载路径。HLS 必须显式返回 `format: 'hls'`，并在 manifest 中声明下文的 `media` 权限。
+- HLS 主清单（`#EXT-X-STREAM-INF`）会先由宿主展开为各路独立的分段清单，根据 `RESOLUTION` 得到真实清晰度，再交给播放器或下载器。返回主清单时，`quality` 表示期望清晰度：默认选择不高于该值的最高实际清晰度，没有符合项时选择最高档。每路必须包含音视频复用的 MPEG-TS；独立的 `AUDIO`、`VIDEO` 或 `SUBTITLES` renditions 以及超出 `media.domains` 的地址均拒绝。
+- 展开后的 HLS 只支持含 `#EXT-X-ENDLIST` 的完整、连续 MPEG-TS 点播清单。不支持直播、加密、字节范围、fMP4、discontinuity 或 gap；MissAV 的非标准 `#EXT-X-TOKEN` 会被移除，不传给播放器。
+- 播放时使用仅绑定 `127.0.0.1` 的随机端口和随机令牌，通过有限 URL 注册表按需读取已验证的分段；关闭会话会取消请求。HLS 离线下载目前仅支持 Android：逐段验证、保存 SHA-256 并校验恢复，支持取消，最后由本机 Media3 封装为 MP4，只有完整成品才发布到离线库。iOS/macOS 的 HLS 播放未经本轮验证，不能据此声称已验证可用。
 
 ## 选项定义
 
@@ -158,7 +164,21 @@ await this.http.request({
 ## 网络
 
 - `network.mode: 'native'`（默认）：原生 HTTP 请求，使用持久化 Cookie，可以走用户设置的代理。若检测到 Cloudflare 质询，会抛出 `CLOUDFLARE`，App 会引导用户在内置浏览器中完成验证，并把通行 Cookie 同步回原生请求。
-- `network.mode: 'browser'` + `network.origin`：请求在一个打开于 `origin` 的隐藏浏览器页面中以同源 `fetch()` 发出，带有真实浏览器指纹。适用于 Cloudflare 防护较严的站点（例如 Hanime1）。
+- `network.mode: 'browser'` + `network.origin`：请求在一个打开于 `origin` 的隐藏浏览器页面中以同源 `fetch()` 发出，带有真实浏览器指纹。适用于 Cloudflare 防护较严的站点（例如 Hanime1）。 同源 GET 请求收到 Cloudflare 质询响应时，隐藏浏览器会导航到该文档完成自动验证，并重试一次原请求；未通过时仍抛出 `CLOUDFLARE`，沿用“去验证”流程。
+
+## 浏览器媒体（HLS）
+
+浏览器媒体权限独立于 `this.http`、`network` 和站点 Cookie 同步。MissAV 示例：
+
+```js
+domains: ['missav.ai'],
+network: { mode: 'browser', origin: 'https://missav.ai' },
+media: { mode: 'browser', origin: 'https://missav.ai', domains: ['surrit.com'] },
+```
+
+- `media.origin` 必须属于源声明的站点，并使用 HTTPS 默认端口 443，不得包含用户凭据。隐藏浏览器在该同源页面建立媒体会话。
+- `media.domains` 是独立的媒体允许域名列表，包含其子域名，不授予源站 Cookie 权限。清单和分段均只允许 HTTPS 443，拒绝 URL 用户凭据、片段标识、IP 地址、localhost（含子域）和 `.local`。媒体请求使用 `credentials: 'omit'`、`mode: 'cors'`、`redirect: 'error'`，遵循 CDN 的 CORS 规则，不跟随重定向。
+- 响应采用流式大小限制，并重新校验响应地址。清单最多 2 MiB，单个分段最多 32 MiB；超限、空响应或地址变化均拒绝。源所属的 `domains` 与 `network` 同源、带 Cookie 规则保持不变，不能通过媒体域名共享站点登录状态。
 
 ## 隔离与安全
 
@@ -207,12 +227,60 @@ Flutter 界面统一调用 `tr('已选 {count}', {'count': count})`，或 `conte
 
 ## 源仓库
 
-一个仓库就是一个 `index.json`，可以放在任意静态托管上（例如 GitHub raw）：
+一个仓库就是一个 `index.json`，可以放在静态托管上（例如 GitHub raw）。用户在“源站管理 → 添加源”中输入仓库地址即可浏览、安装和更新：
 
 ```json
-{ "name": "我的源仓库", "sources": [
-  { "key": "mysite", "name": "我的站点", "version": "0.0.1", "type": "comic", "file": "mysite.js", "description": "…" }
-] }
+{
+  "name": "我的源仓库",
+  "apiVersion": 1,
+  "sources": [
+    {
+      "key": "mysite",
+      "name": "我的站点",
+      "version": "0.0.1",
+      "description": "一句话介绍",
+      "url": "https://example.com/sources/mysite.js",
+      "sha256": "脚本 UTF-8 原文的 64 位十六进制 SHA-256",
+      "apiVersion": 1
+    }
+  ]
+}
 ```
 
-`file` 是相对于 `index.json` 的路径（也可以写完整的 `url`）。用户在“源站管理 → 添加源”中输入仓库地址即可浏览、安装和更新。
+`url` 是脚本完整地址；也可以用相对于 `index.json` 的 `file`。第三方仓库通过用户确认后手动安装，`sha256` 可选，提供时会校验下载内容。
+
+官方自动更新采用严格规则：版本必须是由点分隔、无前导零的三段非负整数（例如 `0.0.1`、`0.1.0`），逐段按数字比较；不接受缺段、多段或预发布后缀。必须提供脚本 UTF-8 原文的 `sha256`，不修剪空白、不转换换行；脚本声明的 `key`、`version` 必须与索引一致。`apiVersion` 必须与当前 App 运行时完全匹配，不匹配时拒绝自动更新，需要先使用支持该 API 的 App；不提供兼容分支。
+
+### App 中的官方更新
+
+“源站管理”默认开启“自动更新官方源”，启动或回到前台时每隔 12 小时检查一次；失败也记录检查时间，避免频繁重试。关闭自动更新后仍可使用“立即检查更新”。只升级已安装的内置源和官方在线源，不自动安装新源，也不接管用户自行安装的同名第三方源。
+
+安装时验证身份、版本、API 和摘要，等待初始化及状态持久化成功才完成更新。失败保留旧脚本与用户状态；应用在安装期间中断时，下次启动先恢复。在线新版优先于较旧或相同版本的内置脚本，新安装包携带更高版本时可正常升级。“恢复内置源”可以主动回退到当前安装包版本；后续开启自动更新时仍会继续获取官方新版。
+
+### 官方源的发布
+
+官方源沿用公开主仓库 [drdon1234/Hentai-Park](https://github.com/drdon1234/Hentai-Park)，客户端固定入口为：
+
+```text
+https://raw.githubusercontent.com/drdon1234/Hentai-Park/sources/index.json
+```
+
+`assets/sources/index.json` 是唯一维护的源清单，其中的 `file` 指向同目录下的唯一脚本源码。文件名必须符合 `[A-Za-z0-9_-]+.js`，不接受子目录、符号链接或文件名主体中的点号，与客户端官方源地址校验保持一致。`tools/publish_sources.mjs` 生成发布索引：每条记录包含 `key`、`name`、`version`、`description`、`url`、`sha256` 和 `apiVersion`。脚本 URL 固定到本次源码的完整 40 位提交号：
+
+```text
+https://raw.githubusercontent.com/drdon1234/Hentai-Park/<源码提交 SHA>/assets/sources/<file>
+```
+
+`sources` 分支只保存生成的根目录 `index.json`，不复制脚本，也不手工维护第二份源清单。更新脚本时必须同时提升脚本和清单中的版本；发布器拒绝降版，也拒绝相同版本对应不同脚本内容。相同版本且内容未变可以重复发布，正常升版不受旧索引版本影响。
+
+发布器只依赖 Node.js 内置模块，可在 Node.js 22 或更新版本中离线运行。它检查清单、文件存在性与目录边界，在不提供网络和存储接口的独立上下文中加载共享运行时及脚本，然后采用 App 安装预览相同的 `Park.__pending` / `Park.manifest` 探测方式核对 `key`、`version` 和 API。探测不调用 `setup`、`init`、登录或站点业务方法，不能代替源站联网可用性测试。
+
+本地预览示例（输出位于已忽略的 `test/`，不会发布；提交号应使用对应源码的真实 SHA）：
+
+```powershell
+node tools/publish_sources.mjs --commit '<完整 40 位源码提交 SHA>' --output 'test/official-source-index.json'
+```
+
+需要检查已有发布时，再传入 `--previous '旧索引本地路径'`。旧索引无效时校验失败，不会静默跳过版本保护。工作区存在未提交修改时，本地结果只用于预览；正式发布由工作流检出的源码提交生成。
+
+`.github/workflows/publish-sources.yml` 仅在主仓库默认 `main` 分支相关文件推送，或从 `main` 手动触发时运行。工作流串行执行，每个任务开始时检出最新 `main`，以实际检出的提交号固定脚本地址和发布记录。任务运行中后续文档提交不会阻止发布；后续源文件提交会触发下一个串行任务。工作流先下载现有稳定索引并完成所有离线校验，再用一次普通 Git 推送原子更新 `sources` 分支；校验失败或 `sources` 分支发生并发变更时不会覆盖线上索引。首次没有稳定索引时可以创建发布。发布只说明脚本与索引通过上述校验，站点访问、账号登录和图片或视频加载仍需单独验证。

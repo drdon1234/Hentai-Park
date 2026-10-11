@@ -33,12 +33,21 @@ Future<void> main() async {
   CrashLog.install();
   await AppSettings.instance.load();
   await AppLocalizations.instance.load();
-  AppLocalizations.instance.setLocale(AppSettings.instance.locale ?? AppLocalizations.resolveLocales(WidgetsBinding.instance.platformDispatcher.locales));
+  AppLocalizations.instance.setLocale(
+    AppSettings.instance.locale ??
+        AppLocalizations.resolveLocales(
+          WidgetsBinding.instance.platformDispatcher.locales,
+        ),
+  );
   await CookieStore.instance.init();
   HttpService.instance.init();
   final db = AppDatabase.file(File(p.join(AppPaths.data.path, 'park.db')));
   try {
-    await LegacyImport.run(db, dataDir: AppPaths.data, downloadsDir: AppPaths.downloads);
+    await LegacyImport.run(
+      db,
+      dataDir: AppPaths.data,
+      downloadsDir: AppPaths.downloads,
+    );
   } catch (e) {
     debugPrint('legacy import failed, old files kept: $e');
   }
@@ -53,14 +62,19 @@ Future<void> main() async {
   // Use the system WebView UA everywhere so Cloudflare clearance stays valid for native requests.
   try {
     final ua = await InAppWebViewController.getDefaultUserAgent();
-    if (ua.isNotEmpty) HttpService.instance.userAgent = ua.replaceAll('; wv)', ')');
+    if (ua.isNotEmpty) {
+      HttpService.instance.userAgent = ua.replaceAll('; wv)', ')');
+    }
   } catch (_) {}
   // App lock also hides content in the recent-apps switcher.
-  PlatformBridge.applySecureScreen(AppSettings.instance.secureScreen || AppSettings.instance.appLock);
-  PlatformBridge.applyRefreshRate(AppSettings.instance.refreshRate);
+  await PlatformBridge.bindSettings();
   runApp(const ParkApp());
   // Sources load after the first frame; the UI shows skeletons meanwhile.
-  unawaited(SourceManager.instance.init().then((_) => BackupService.instance.autoBackupIfDue()));
+  unawaited(
+    SourceManager.instance.init().then(
+      (_) => BackupService.instance.autoBackupIfDue(),
+    ),
+  );
   unawaited(ImageStore.instance.trim());
 }
 
@@ -68,7 +82,10 @@ Future<void> main() async {
 void _autoDownload(UpdateResult result) {
   if (!AppSettings.instance.autoDownloadNew) return;
   for (final u in result.updated) {
-    DownloadManager.instance.enqueueNewChapters(u.item, [for (var i = 0; i < u.chapterIds.length; i++) Chapter(u.chapterIds[i], u.chapterTitles[i])]);
+    DownloadManager.instance.enqueueNewChapters(u.item, [
+      for (var i = 0; i < u.chapterIds.length; i++)
+        Chapter(u.chapterIds[i], u.chapterTitles[i]),
+    ]);
   }
 }
 
@@ -97,7 +114,9 @@ class ParkApp extends StatelessWidget {
           theme: ParkTheme.build(Brightness.light, seed),
           darkTheme: ParkTheme.build(Brightness.dark, seed),
           home: const Shell(),
-          builder: (context, child) => _SystemNavInset(child: LockGate(child: child ?? const SizedBox.shrink())),
+          builder: (context, child) => _SystemNavInset(
+            child: LockGate(child: child ?? const SizedBox.shrink()),
+          ),
         );
       },
     );
@@ -121,7 +140,9 @@ class _SystemNavInset extends StatelessWidget {
         systemNavigationBarColor: Colors.transparent,
         systemNavigationBarDividerColor: Colors.transparent,
         systemNavigationBarContrastEnforced: false,
-        systemNavigationBarIconBrightness: dark ? Brightness.light : Brightness.dark,
+        systemNavigationBarIconBrightness: dark
+            ? Brightness.light
+            : Brightness.dark,
       ),
     );
     final bottom = mq.viewPadding.bottom;
@@ -134,7 +155,9 @@ class _SystemNavInset extends StatelessWidget {
           data: mq.copyWith(
             padding: mq.padding.copyWith(bottom: 0),
             viewPadding: mq.viewPadding.copyWith(bottom: 0),
-            viewInsets: mq.viewInsets.copyWith(bottom: (mq.viewInsets.bottom - bottom).clamp(0, double.infinity)),
+            viewInsets: mq.viewInsets.copyWith(
+              bottom: (mq.viewInsets.bottom - bottom).clamp(0, double.infinity),
+            ),
           ),
           child: child,
         ),

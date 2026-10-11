@@ -17,10 +17,12 @@ class SourceSearchPage extends StatefulWidget {
     this.initialKeyword = '',
     this.initialFilters,
     this.initialMulti,
+    this.sourceManager,
   });
   final String sourceKey;
   final String initialKeyword;
   final Map<String, Object?>? initialFilters;
+  final SourceManager? sourceManager;
 
   /// A keyword and its translations, searched together.
   final MultiKeyword? initialMulti;
@@ -30,9 +32,8 @@ class SourceSearchPage extends StatefulWidget {
 }
 
 class _SourceSearchPageState extends State<SourceSearchPage> {
-  late final SourceManifest _m = SourceManager.instance.manifest(
-    widget.sourceKey,
-  )!;
+  SourceManager get _sources => widget.sourceManager ?? SourceManager.instance;
+  late final SourceManifest _m = _sources.manifest(widget.sourceKey)!;
   late final _text = TextEditingController(text: widget.initialKeyword);
   late Map<String, Object?> _filters = {
     ..._m.defaultFilters(),
@@ -44,6 +45,9 @@ class _SourceSearchPageState extends State<SourceSearchPage> {
   );
   bool _started = false;
   bool _translating = false;
+  String _submitted = '';
+  Map<String, Object?> _submittedFilters = const {};
+  int _searchGeneration = 0;
   MultiKeyword? _multi;
   MultiKeywordSearch? _multiSearch;
 
@@ -52,12 +56,14 @@ class _SourceSearchPageState extends State<SourceSearchPage> {
     super.initState();
     if (widget.initialMulti != null) {
       _multi = widget.initialMulti;
-      WidgetsBinding.instance.addPostFrameCallback(
-        (_) => _search(keepMulti: true),
-      );
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _search(keepMulti: true);
+      });
     } else if (widget.initialKeyword.isNotEmpty ||
         (widget.initialFilters?.isNotEmpty ?? false)) {
-      _search();
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _search();
+      });
     }
   }
 
@@ -69,25 +75,46 @@ class _SourceSearchPageState extends State<SourceSearchPage> {
   }
 
   Future<WorkPage> _load(int page, String? cursor) {
+    if (page == 1 && _multi != null) {
+      _multiSearch = MultiKeywordSearch(
+        widget.sourceKey,
+        _multi!.all,
+        _submittedFilters,
+        sourceManager: _sources,
+      );
+    }
     final multi = _multiSearch;
     if (multi != null) return multi.next();
-    return SourceManager.instance.search(
+    return _sources.search(
       widget.sourceKey,
-      keyword: _text.text.trim(),
+      keyword: _submitted,
       page: page,
       cursor: cursor,
-      filters: _filters,
+      filters: _submittedFilters,
     );
   }
 
   void _search({bool keepMulti = false}) {
     final k = _text.text.trim();
+    _searchGeneration++;
+    _submitted = k;
+    _submittedFilters = Map.unmodifiable({
+      for (final entry in _filters.entries)
+        entry.key: entry.value is List
+            ? List.unmodifiable(entry.value as List)
+            : entry.value,
+    });
     if (k.isNotEmpty) AppSettings.instance.addSearchHistory(k);
     FocusScope.of(context).unfocus();
     if (!keepMulti || _multi?.original != k) _multi = null;
     _multiSearch = _multi == null
         ? null
-        : MultiKeywordSearch(widget.sourceKey, _multi!.all, _filters);
+        : MultiKeywordSearch(
+            widget.sourceKey,
+            _multi!.all,
+            _submittedFilters,
+            sourceManager: _sources,
+          );
     setState(() => _started = true);
     _controller.refresh();
   }
@@ -98,10 +125,15 @@ class _SourceSearchPageState extends State<SourceSearchPage> {
     if (k.isEmpty || _translating) return;
     FocusScope.of(context).unfocus();
     setState(() => _translating = true);
+    final generation = _searchGeneration;
     final multi = await translateKeyword(context, k);
     if (!mounted) return;
     setState(() => _translating = false);
-    if (multi == null) return;
+    if (multi == null ||
+        generation != _searchGeneration ||
+        _text.text.trim() != k) {
+      return;
+    }
     _multi = multi;
     _search(keepMulti: true);
   }
@@ -121,7 +153,7 @@ class _SourceSearchPageState extends State<SourceSearchPage> {
       isScrollControlled: true,
       builder: (_) => FilterSheet(manifest: _m, values: _filters),
     );
-    if (result != null) {
+    if (mounted && result != null) {
       setState(() => _filters = result);
       _search(keepMulti: true);
     }

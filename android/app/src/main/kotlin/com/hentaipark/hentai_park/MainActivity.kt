@@ -19,6 +19,9 @@ import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
+import androidx.webkit.WebViewCompat
+import androidx.webkit.WebViewFeature
+import com.pichillilorenzo.flutter_inappwebview_android.InAppWebViewFlutterPlugin
 import io.flutter.embedding.android.FlutterFragmentActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
@@ -30,6 +33,7 @@ import io.flutter.plugin.common.MethodChannel
  */
 class MainActivity : FlutterFragmentActivity() {
     private var channel: MethodChannel? = null
+    private var mediaRemuxer: MediaRemuxer? = null
     private var interceptVolume = false
     private var launchPayload: String? = null
     private var videoBrightness: Float? = null
@@ -95,10 +99,21 @@ class MainActivity : FlutterFragmentActivity() {
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
+        mediaRemuxer?.shutdown()
+        mediaRemuxer = MediaRemuxer(applicationContext, flutterEngine.dartExecutor.binaryMessenger)
         launchPayload = intent?.getStringExtra(EXTRA_PAYLOAD)
         channel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "hentai_park/platform").also {
             it.setMethodCallHandler { call, result ->
                 when (call.method) {
+                    "terminateSourceRenderer" -> {
+                        val id = call.arguments as? String
+                        val plugin = flutterEngine.plugins.get(InAppWebViewFlutterPlugin::class.java) as? InAppWebViewFlutterPlugin
+                        val view = plugin?.headlessInAppWebViewManager?.webViews?.get(id)?.flutterWebView?.webView
+                        val terminated = view != null &&
+                            WebViewFeature.isFeatureSupported(WebViewFeature.WEB_VIEW_RENDERER_TERMINATE) &&
+                            WebViewCompat.getWebViewRenderProcess(view)?.terminate() == true
+                        result.success(terminated)
+                    }
                     "setSecure" -> {
                         if (call.arguments == true) window.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
                         else window.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
@@ -175,6 +190,12 @@ class MainActivity : FlutterFragmentActivity() {
                 }
             }
         }
+    }
+
+    override fun cleanUpFlutterEngine(flutterEngine: FlutterEngine) {
+        mediaRemuxer?.shutdown()
+        mediaRemuxer = null
+        super.cleanUpFlutterEngine(flutterEngine)
     }
 
     override fun onNewIntent(intent: Intent) {

@@ -47,13 +47,20 @@ class AppSettings extends ChangeNotifier {
   String get language => _get('language', '');
   set language(String value) {
     final selected = AppLocalizations.localeFromKey(value);
-    AppLocalizations.instance.setLocale(selected ?? AppLocalizations.resolveLocales(WidgetsBinding.instance.platformDispatcher.locales));
+    AppLocalizations.instance.setLocale(
+      selected ??
+          AppLocalizations.resolveLocales(
+            WidgetsBinding.instance.platformDispatcher.locales,
+          ),
+    );
     _set('language', selected == null ? '' : value);
   }
+
   Locale? get locale => AppLocalizations.localeFromKey(language);
 
   // ── Appearance ──
-  ThemeMode get themeMode => ThemeMode.values[_get('themeMode', ThemeMode.dark.index).clamp(0, 2)];
+  ThemeMode get themeMode =>
+      ThemeMode.values[_get('themeMode', ThemeMode.dark.index).clamp(0, 2)];
   set themeMode(ThemeMode m) => _set('themeMode', m.index);
 
   int get seedColor => _get('seedColor', 0xFFE5355F);
@@ -73,7 +80,11 @@ class AppSettings extends ChangeNotifier {
   set gridColumns(int v) => _set('gridColumns', v);
 
   // ── Reader ──
-  ReaderMode get readerMode => ReaderMode.values[_get('readerMode', 0).clamp(0, ReaderMode.values.length - 1)];
+  ReaderMode get readerMode =>
+      ReaderMode.values[_get(
+        'readerMode',
+        0,
+      ).clamp(0, ReaderMode.values.length - 1)];
   set readerMode(ReaderMode m) => _set('readerMode', m.index);
 
   int get preloadPages => _get('preloadPages', 4);
@@ -88,7 +99,8 @@ class AppSettings extends ChangeNotifier {
   bool get tapToPage => _get('tapToPage', true);
   set tapToPage(bool v) => _set('tapToPage', v);
 
-  double _getDouble(String key, double fallback) => (_v[key] as num?)?.toDouble() ?? fallback;
+  double _getDouble(String key, double fallback) =>
+      (_v[key] as num?)?.toDouble() ?? fallback;
 
   /// Two pages side by side in paged modes: off | landscape | always.
   String get readerDual => _get('readerDual', 'off');
@@ -163,6 +175,13 @@ class AppSettings extends ChangeNotifier {
   bool get downloadWifiOnly => _get('downloadWifiOnly', false);
   set downloadWifiOnly(bool v) => _set('downloadWifiOnly', v);
 
+  /// Check official source plugins at launch and when the app resumes.
+  bool get autoSourceUpdates => _get('autoSourceUpdates', true);
+  set autoSourceUpdates(bool v) => _set('autoSourceUpdates', v);
+
+  int get lastSourceUpdate => _get('lastSourceUpdate', 0);
+  set lastSourceUpdate(int v) => _set('lastSourceUpdate', v);
+
   /// Queue new chapters found by library updates.
   bool get autoDownloadNew => _get('autoDownloadNew', false);
   set autoDownloadNew(bool v) => _set('autoDownloadNew', v);
@@ -173,7 +192,8 @@ class AppSettings extends ChangeNotifier {
 
   // ── Content filter ──
   /// Tag blocklist entries (see core/tag_blocklist.dart for the syntax).
-  List<String> get blockedTags => ((_v['blockedTags'] as List?) ?? []).map((e) => e.toString()).toList();
+  List<String> get blockedTags =>
+      ((_v['blockedTags'] as List?) ?? []).map((e) => e.toString()).toList();
   set blockedTags(List<String> v) => _set('blockedTags', v);
 
   void addBlockedTag(String entry) {
@@ -186,11 +206,20 @@ class AppSettings extends ChangeNotifier {
 
   /// Preset block groups (core/tag_blocklist.dart: blockPresets), keyed by preset id:
   /// {on: bool, title: bool, entries: [String]}. Missing values fall back to the preset's defaults.
-  Map<String, dynamic> get blockPresetState => ((_v['blockPresets'] as Map?) ?? {}).cast<String, dynamic>();
+  Map<String, dynamic> get blockPresetState =>
+      ((_v['blockPresets'] as Map?) ?? {}).cast<String, dynamic>();
 
-  void setBlockPreset(String id, {bool? on, bool? title, List<String>? entries, bool reset = false}) {
+  void setBlockPreset(
+    String id, {
+    bool? on,
+    bool? title,
+    List<String>? entries,
+    bool reset = false,
+  }) {
     final all = {...blockPresetState};
-    final cur = reset ? <String, dynamic>{} : {...((all[id] as Map?) ?? {}).cast<String, dynamic>()};
+    final cur = reset
+        ? <String, dynamic>{}
+        : {...((all[id] as Map?) ?? {}).cast<String, dynamic>()};
     if (on != null) cur['on'] = on;
     if (title != null) cur['title'] = title;
     if (entries != null) cur['entries'] = entries;
@@ -204,7 +233,8 @@ class AppSettings extends ChangeNotifier {
   }
 
   // ── Search ──
-  List<String> get searchHistory => (_v['searchHistory'] as List?)?.map((e) => e.toString()).toList() ?? [];
+  List<String> get searchHistory =>
+      (_v['searchHistory'] as List?)?.map((e) => e.toString()).toList() ?? [];
   void addSearchHistory(String keyword) {
     final k = keyword.trim();
     if (k.isEmpty) return;
@@ -213,11 +243,15 @@ class AppSettings extends ChangeNotifier {
     _set('searchHistory', list.take(30).toList());
   }
 
-  void removeSearchHistory(String keyword) => _set('searchHistory', searchHistory..remove(keyword));
+  void removeSearchHistory(String keyword) =>
+      _set('searchHistory', searchHistory..remove(keyword));
   void clearSearchHistory() => _set('searchHistory', <String>[]);
 
   /// Sources excluded from aggregated search (enabled sources are included by default).
-  Set<String> get aggregateExcluded => ((_v['aggregateExcluded'] as List?) ?? []).map((e) => e.toString()).toSet();
+  Set<String> get aggregateExcluded =>
+      ((_v['aggregateExcluded'] as List?) ?? [])
+          .map((e) => e.toString())
+          .toSet();
   void setAggregateIncluded(String key, bool included) {
     final s = aggregateExcluded;
     included ? s.remove(key) : s.add(key);
@@ -277,8 +311,12 @@ class AppSettings extends ChangeNotifier {
   set libraryFilterUnread(bool v) => _set('libraryFilterUnread', v);
 
   /// Sources to show; empty = all.
-  Set<String> get libraryFilterSources => ((_v['libraryFilterSources'] as List?) ?? []).map((e) => e.toString()).toSet();
-  set libraryFilterSources(Set<String> v) => _set('libraryFilterSources', v.toList());
+  Set<String> get libraryFilterSources =>
+      ((_v['libraryFilterSources'] as List?) ?? [])
+          .map((e) => e.toString())
+          .toSet();
+  set libraryFilterSources(Set<String> v) =>
+      _set('libraryFilterSources', v.toList());
 
   bool get badgeUnread => _get('badgeUnread', true);
   set badgeUnread(bool v) => _set('badgeUnread', v);
@@ -319,7 +357,14 @@ class AppSettings extends ChangeNotifier {
   set lastAutoBackup(int v) => _set('lastAutoBackup', v);
 
   /// Keys that describe this device or transient state and are never exported in backups.
-  static const _localOnly = {'lastAutoBackup', 'lastLibraryUpdate', 'onboarded'};
+  static const _localOnly = {
+    'appLock',
+    'appLockAfter',
+    'lastAutoBackup',
+    'lastLibraryUpdate',
+    'lastSourceUpdate',
+    'onboarded',
+  };
 
   Map<String, dynamic> exportJson() => {
     for (final e in _v.entries)

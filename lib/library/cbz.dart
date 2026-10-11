@@ -1,9 +1,10 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:isolate';
 import 'dart:typed_data';
 import 'dart:ui' as ui;
 
-import 'package:archive/archive.dart';
+import 'package:archive/archive_io.dart';
 import 'package:crypto/crypto.dart';
 import 'package:path/path.dart' as p;
 
@@ -94,6 +95,19 @@ String _fileSafe(String s) {
 }
 
 class Cbz {
+  static Future<void> _publishing = Future<void>.value();
+
+  static Future<File> _publish(String staged, Directory outDir, String name) {
+    final result = _publishing.then((_) async {
+      var file = File(p.join(outDir.path, name));
+      for (var suffix = 2; await file.exists(); suffix++) {
+        file = File(p.join(outDir.path, '${p.basenameWithoutExtension(name)} ($suffix).cbz'));
+      }
+      return File(staged).rename(file.path);
+    });
+    _publishing = result.then<void>((_) {}).catchError((Object _) {});
+    return result;
+  }
   /// Writes one .cbz per completed chapter of a downloaded comic into [outDir]. Pages that need a
   /// transform (JM strip scrambling) are restored and re-encoded as PNG.
   static Future<List<File>> exportTask(DownloadTask t, Directory outDir, {void Function(int done, int total)? onProgress}) async {
@@ -106,18 +120,6 @@ class Cbz {
       final manifest = File(p.join(t.dir.path, DownloadTask.safeName(ch.id), 'pages.json'));
       if (!await manifest.exists()) continue;
       final pages = ((jsonDecode(await manifest.readAsString()) as Map)['pages'] as List).cast<Map>();
-      final archive = Archive();
-      for (var i = 0; i < pages.length; i++) {
-        final page = pages[i].cast<String, dynamic>();
-        var bytes = await File(p.join(manifest.parent.path, page['file'] as String)).readAsBytes();
-        final transform = page['transform'];
-        if (transform is Map && transform['type'] == 'unscramble-strips' && ((transform['segments'] as num?) ?? 0) > 1) {
-          bytes = await _unscrambleToPng(bytes, (transform['segments'] as num).toInt());
-        }
-        final file = ArchiveFile.bytes('${(i + 1).toString().padLeft(4, '0')}${imageExtension(bytes)}', bytes)..compression = CompressionType.none;
-        archive.addFile(file);
-        onProgress?.call(i + 1, pages.length);
-      }
       final info = ComicInfo(
         title: chapters.length > 1 ? ch.title : t.item.title,
         series: t.item.title,
@@ -126,13 +128,59 @@ class Cbz {
         web: (t.item.json['url'] ?? '').toString(),
         pageCount: pages.length,
       );
-      archive.addFile(ArchiveFile.string('ComicInfo.xml', info.toXml()));
       final name = chapters.length > 1 ? '$base - ${_fileSafe(ch.title)}.cbz' : '$base.cbz';
-      final file = File(p.join(outDir.path, name));
-      await file.writeAsBytes(ZipEncoder().encodeBytes(archive));
-      out.add(file);
+      final staging = await outDir.createTemp('.park-export-');
+      final entries = <(String path, String name)>[];
+      try {
+        for (var i = 0; i < pages.length; i++) {
+          final page = pages[i].cast<String, dynamic>();
+          var file = File(p.join(manifest.parent.path, page['file'] as String));
+          var extension = '';
+          final transform = page['transform'];
+          if (transform is Map && transform['type'] == 'unscramble-strips' && ((transform['segments'] as num?) ?? 0) > 1) {
+            final bytes = await _unscrambleToPng(await file.readAsBytes(), (transform['segments'] as num).toInt());
+            file = File(p.join(staging.path, '$i.png'));
+            await file.writeAsBytes(bytes);
+            extension = '.png';
+          } else {
+            final input = await file.open();
+            try {
+              extension = imageExtension(await input.read(16));
+            } finally {
+              await input.close();
+            }
+          }
+          entries.add((file.path, '${(i + 1).toString().padLeft(4, '0')}$extension'));
+          onProgress?.call(i + 1, pages.length);
+        }
+        final staged = p.join(staging.path, 'chapter.cbz');
+        final xml = info.toXml();
+        await Isolate.run(() => _encodeChapter(staged, entries, xml));
+        out.add(await _publish(staged, outDir, name));
+      } finally {
+        await staging.delete(recursive: true);
+      }
     }
     return out;
+  }
+
+  static void _encodeChapter(String path, List<(String path, String name)> entries, String xml) {
+    final output = OutputFileStream(path);
+    final encoder = ZipEncoder()..startEncode(output);
+    try {
+      for (final entry in entries) {
+        final file = ArchiveFile.stream(entry.$2, InputFileStream(entry.$1))..compression = CompressionType.none;
+        try {
+          encoder.add(file, autoClose: false);
+        } finally {
+          file.closeSync();
+        }
+      }
+      encoder.add(ArchiveFile.string('ComicInfo.xml', xml));
+      encoder.endEncode();
+    } finally {
+      output.closeSync();
+    }
   }
 
   static Future<Uint8List> _unscrambleToPng(Uint8List bytes, int segments) async {
@@ -169,7 +217,7 @@ class Cbz {
     final item = WorkItem({
       'id': id,
       'title': title,
-      'cover': 'file://${p.join(chapterDir.path, '0001.img')}',
+      'cover': File(p.join(chapterDir.path, '0001.img')).uri.toString(),
       'pages': images.length,
       'tags': info.tags,
       if (info.writer.isNotEmpty) 'authors': info.writer.split(RegExp(r'\s*,\s*')),

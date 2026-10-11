@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../core/settings.dart';
+import '../engine/source_updater.dart';
 import '../library/backup.dart';
 import '../library/updater.dart';
 import 'history/history_page.dart';
@@ -49,6 +50,7 @@ class _ShellState extends State<Shell> {
       if (p != null) _onNotificationTap(p);
     });
     unawaited(updater.autoUpdateIfDue());
+    unawaited(SourceUpdater.instance.autoUpdateIfDue());
   }
 
   @override
@@ -63,6 +65,7 @@ class _ShellState extends State<Shell> {
   void _onResume() {
     BackupService.instance.autoBackupIfDue();
     LibraryUpdater.instance.autoUpdateIfDue();
+    unawaited(SourceUpdater.instance.autoUpdateIfDue());
   }
 
   void _onNotificationTap(String payload) {
@@ -85,10 +88,25 @@ class _ShellState extends State<Shell> {
   void _onUpdateFinished(UpdateResult r) {
     PlatformBridge.cancelNotification(_progressNotification);
     if (r.updated.isEmpty) return;
-    if (mounted && _index != _updatesTab) setState(() => _unseenUpdates += r.newChapters);
-    final lines = [for (final u in r.updated.take(5)) '${u.item.title}：${u.chapterTitles.join('、')}'];
-    if (r.updated.length > 5) lines.add(tr('等 {value0} 部作品', {'value0': r.updated.length}));
-    PlatformBridge.notify(id: _resultNotification, title: tr('{value0} 部作品有 {value1} 个新章节', {'value0': r.updated.length, 'value1': r.newChapters}), text: lines.join('\n'), payload: 'updates');
+    if (mounted && _index != _updatesTab) {
+      setState(() => _unseenUpdates += r.newChapters);
+    }
+    final lines = [
+      for (final u in r.updated.take(5))
+        '${u.item.title}：${u.chapterTitles.join('、')}',
+    ];
+    if (r.updated.length > 5) {
+      lines.add(tr('等 {value0} 部作品', {'value0': r.updated.length}));
+    }
+    PlatformBridge.notify(
+      id: _resultNotification,
+      title: tr('{value0} 部作品有 {value1} 个新章节', {
+        'value0': r.updated.length,
+        'value1': r.newChapters,
+      }),
+      text: lines.join('\n'),
+      payload: 'updates',
+    );
   }
 
   /// Back on another tab returns to 发现; on 发现 it needs a second press within 2 s to leave,
@@ -99,7 +117,8 @@ class _ShellState extends State<Shell> {
       return;
     }
     final now = DateTime.now();
-    if (_lastBack != null && now.difference(_lastBack!) < const Duration(seconds: 2)) {
+    if (_lastBack != null &&
+        now.difference(_lastBack!) < const Duration(seconds: 2)) {
       SystemNavigator.pop();
       return;
     }
@@ -115,13 +134,37 @@ class _ShellState extends State<Shell> {
 
   List<NavigationDestination> get _destinations {
     final badge = _unseenUpdates > 0;
-    Widget updatesIcon(IconData icon) => Badge(isLabelVisible: badge, label: Text('$_unseenUpdates'), child: Icon(icon));
+    Widget updatesIcon(IconData icon) => Badge(
+      isLabelVisible: badge,
+      label: Text('$_unseenUpdates'),
+      child: Icon(icon),
+    );
     return [
-      NavigationDestination(icon: Icon(Icons.explore_outlined), selectedIcon: Icon(Icons.explore_rounded), label: tr('发现')),
-      NavigationDestination(icon: Icon(Icons.collections_bookmark_outlined), selectedIcon: Icon(Icons.collections_bookmark_rounded), label: tr('书架')),
-      NavigationDestination(icon: updatesIcon(Icons.new_releases_outlined), selectedIcon: updatesIcon(Icons.new_releases_rounded), label: tr('更新')),
-      NavigationDestination(icon: Icon(Icons.history_outlined), selectedIcon: Icon(Icons.history_rounded), label: tr('历史')),
-      NavigationDestination(icon: Icon(Icons.person_outline_rounded), selectedIcon: Icon(Icons.person_rounded), label: tr('我的')),
+      NavigationDestination(
+        icon: Icon(Icons.explore_outlined),
+        selectedIcon: Icon(Icons.explore_rounded),
+        label: tr('发现'),
+      ),
+      NavigationDestination(
+        icon: Icon(Icons.collections_bookmark_outlined),
+        selectedIcon: Icon(Icons.collections_bookmark_rounded),
+        label: tr('书架'),
+      ),
+      NavigationDestination(
+        icon: updatesIcon(Icons.new_releases_outlined),
+        selectedIcon: updatesIcon(Icons.new_releases_rounded),
+        label: tr('更新'),
+      ),
+      NavigationDestination(
+        icon: Icon(Icons.history_outlined),
+        selectedIcon: Icon(Icons.history_rounded),
+        label: tr('历史'),
+      ),
+      NavigationDestination(
+        icon: Icon(Icons.person_outline_rounded),
+        selectedIcon: Icon(Icons.person_rounded),
+        label: tr('我的'),
+      ),
     ];
   }
 
@@ -138,7 +181,13 @@ class _ShellState extends State<Shell> {
     AppLocalizations.of(context);
     final wide = MediaQuery.sizeOf(context).width >= 840;
     // Tabs are built lazily on first visit and then kept alive.
-    final body = IndexedStack(index: _index, children: [for (var i = 0; i < 5; i++) _visited.contains(i) ? _page(i) : const SizedBox.shrink()]);
+    final body = IndexedStack(
+      index: _index,
+      children: [
+        for (var i = 0; i < 5; i++)
+          _visited.contains(i) ? _page(i) : const SizedBox.shrink(),
+      ],
+    );
     final destinations = _destinations;
     final content = ListenableBuilder(
       listenable: AppSettings.instance,
@@ -148,7 +197,13 @@ class _ShellState extends State<Shell> {
         return Column(
           children: [
             const _IncognitoBanner(),
-            Expanded(child: MediaQuery.removePadding(context: context, removeTop: true, child: body)),
+            Expanded(
+              child: MediaQuery.removePadding(
+                context: context,
+                removeTop: true,
+                child: body,
+              ),
+            ),
           ],
         );
       },
@@ -161,7 +216,14 @@ class _ShellState extends State<Shell> {
                   selectedIndex: _index,
                   onDestinationSelected: _select,
                   labelType: NavigationRailLabelType.all,
-                  destinations: [for (final d in destinations) NavigationRailDestination(icon: d.icon, selectedIcon: d.selectedIcon, label: Text(d.label))],
+                  destinations: [
+                    for (final d in destinations)
+                      NavigationRailDestination(
+                        icon: d.icon,
+                        selectedIcon: d.selectedIcon,
+                        label: Text(d.label),
+                      ),
+                  ],
                 ),
                 const VerticalDivider(width: 1),
                 Expanded(child: content),
@@ -170,7 +232,11 @@ class _ShellState extends State<Shell> {
           )
         : Scaffold(
             body: content,
-            bottomNavigationBar: NavigationBar(selectedIndex: _index, onDestinationSelected: _select, destinations: destinations),
+            bottomNavigationBar: NavigationBar(
+              selectedIndex: _index,
+              onDestinationSelected: _select,
+              destinations: destinations,
+            ),
           );
     return PopScope(
       canPop: false,
@@ -204,7 +270,14 @@ class _IncognitoBanner extends StatelessWidget {
               child: SizedBox(
                 height: 22,
                 child: Center(
-                  child: Text(tr('无痕模式 · 点击关闭'), style: TextStyle(color: c.onTertiary, fontSize: 12, fontWeight: FontWeight.w600)),
+                  child: Text(
+                    tr('无痕模式 · 点击关闭'),
+                    style: TextStyle(
+                      color: c.onTertiary,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
                 ),
               ),
             ),

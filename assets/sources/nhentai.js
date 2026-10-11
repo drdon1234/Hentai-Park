@@ -7,7 +7,7 @@
 Park.register({
   key: 'nhentai',
   name: 'nhentai',
-  version: '0.0.1',
+  version: '0.0.2',
   type: 'comic',
   color: '#ED2553',
   icon: 'https://nhentai.net/favicon.ico',
@@ -102,6 +102,8 @@ Park.register({
   servers: null,
 
   async init() {
+    this.pageCache = Park.utils.lruMap(8);
+    this.pageRequests = new Map();
     await this.cdn().catch(() => {});
   },
 
@@ -200,6 +202,24 @@ Park.register({
   ],
 
   async detail(id) {
+    return (await this.fetchDetail(id)).detail;
+  },
+
+  async fetchDetail(id) {
+    const key = String(id);
+    const owner = this.http.invocation;
+    let requests = this.pageRequests.get(owner);
+    if (!requests) this.pageRequests.set(owner, requests = new Map());
+    if (requests.has(key)) return requests.get(key);
+    const pending = this.loadDetail(key);
+    requests.set(key, pending);
+    try { return await pending; } finally {
+      requests.delete(key);
+      if (!requests.size) this.pageRequests.delete(owner);
+    }
+  },
+
+  async loadDetail(id) {
     const d = await this.http.json(`${this.API}/galleries/${encodeURIComponent(id)}`);
     if (!d || !d.id) throw Park.error('NOT_FOUND', `nhentai ${id} 不存在`);
     const byType = {};
@@ -219,10 +239,11 @@ Park.register({
       height: p.height,
       thumb: p.thumbnail ? `${this.servers.thumbs[0]}/${this.fixPath(p.thumbnail)}` : '',
     }));
-    this.pageCache = { id: String(d.id), pages };
+    if (String(d.id) !== String(id)) throw Park.error('PARSE', '源返回了不一致的作品标识');
+    this.pageCache.set(String(id), pages);
     const authors = [...(byType.artist || []), ...(byType.group || [])].map((t) => t.name);
     const languages = (byType.language || []).map((t) => t.name).filter((n) => n !== 'translated');
-    return {
+    return { pages, detail: {
       id: String(d.id),
       title: (d.title && (d.title.english || d.title.pretty)) || String(d.id),
       subtitle: (d.title && d.title.japanese) || '',
@@ -237,11 +258,17 @@ Park.register({
       tags,
       chapters: null,
       thumbnails: pages.map((p) => p.thumb),
-    };
+    } };
   },
 
   async chapter(id) {
-    if (!this.pageCache || this.pageCache.id !== String(id)) await this.detail(id);
-    return { pages: this.pageCache.pages.map(({ url, fallbacks, width, height }) => ({ url, fallbacks, width, height })) };
+    const key = String(id);
+    let pages = this.pageCache.get(key);
+    if (!pages) {
+      // Keep the pages on this request's result too: a bounded cache may evict
+      // this ID while many other requests finish concurrently.
+      pages = (await this.fetchDetail(key)).pages;
+    }
+    return { pages: pages.map(({ url, fallbacks, width, height }) => ({ url, fallbacks, width, height })) };
   },
 });

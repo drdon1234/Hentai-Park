@@ -1,0 +1,88 @@
+name: Publish official sources
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'assets/sources/**'
+      - 'assets/runtime/park_runtime.js'
+      - 'tools/publish_sources.mjs'
+      - '.github/workflows/publish-sources.yml'
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: official-sources
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    if: github.repository == 'drdon1234/Hentai-Park' && github.ref == 'refs/heads/main' && github.event.repository.default_branch == 'main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 1
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Validate and generate index
+        id: generate
+        shell: bash
+        run: |
+          set -euo pipefail
+          SOURCE_COMMIT="$(git rev-parse HEAD)"
+
+          previous_args=()
+          published_commit=''
+          if git ls-remote --exit-code origin refs/heads/sources > "$RUNNER_TEMP/sources-ref"; then
+            git fetch --no-tags origin refs/heads/sources:refs/remotes/origin/sources
+            published_commit="$(git rev-parse refs/remotes/origin/sources)"
+            if git cat-file -e "$published_commit:index.json"; then
+              git show "$published_commit:index.json" > "$RUNNER_TEMP/published-index.json"
+              previous_args=(--previous "$RUNNER_TEMP/published-index.json")
+            fi
+          else
+            status=$?
+            if [ "$status" -ne 2 ]; then exit "$status"; fi
+          fi
+
+          node tools/publish_sources.mjs --commit "$SOURCE_COMMIT" \
+            --output "$RUNNER_TEMP/source-index.json" "${previous_args[@]}"
+          echo "source_commit=$SOURCE_COMMIT" >> "$GITHUB_OUTPUT"
+          echo "published_commit=$published_commit" >> "$GITHUB_OUTPUT"
+          echo 'ready=true' >> "$GITHUB_OUTPUT"
+
+      - name: Atomically update sources branch
+        if: steps.generate.outputs.ready == 'true'
+        shell: bash
+        env:
+          SOURCE_COMMIT: ${{ steps.generate.outputs.source_commit }}
+          PUBLISHED_COMMIT: ${{ steps.generate.outputs.published_commit }}
+          GIT_AUTHOR_NAME: github-actions[bot]
+          GIT_AUTHOR_EMAIL: 41898282+github-actions[bot]@users.noreply.github.com
+          GIT_COMMITTER_NAME: github-actions[bot]
+          GIT_COMMITTER_EMAIL: 41898282+github-actions[bot]@users.noreply.github.com
+        run: |
+          set -euo pipefail
+          # The branch contains one generated index; scripts stay in their source commits.
+          blob="$(git hash-object -w "$RUNNER_TEMP/source-index.json")"
+          tree="$(printf '100644 blob %s\tindex.json\n' "$blob" | git mktree)"
+          parent_args=()
+          if [ -n "$PUBLISHED_COMMIT" ]; then
+            if [ "$tree" = "$(git rev-parse "$PUBLISHED_COMMIT^{tree}")" ]; then
+              echo '官方索引未变化。'
+              exit 0
+            fi
+            parent_args=(-p "$PUBLISHED_COMMIT")
+          fi
+          publication="$(git commit-tree "$tree" "${parent_args[@]}" -m "Publish sources from $SOURCE_COMMIT")"
+          # A normal fast-forward push refuses a concurrent branch change; never force-push.
+          git push origin "$publication:refs/heads/sources"
