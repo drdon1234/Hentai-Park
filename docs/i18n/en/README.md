@@ -31,6 +31,7 @@
 | E-Hentai / ExHentai | Comics | You can switch sites after logging in to the web page |
 | nhentai | Comics | |
 | JMComic | Comics | Open works by ID; switch API routes automatically |
+| WNACG (绅士漫画) | Comics | Read without an account; supports multi-chapter collections and automatic server switching |
 | PicACG | Comics | Configure your own account, or automatically register a dedicated account after confirmation |
 | Hanime1 | Video | First time use may require Cloudflare verification |
 

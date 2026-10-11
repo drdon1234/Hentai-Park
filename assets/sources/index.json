@@ -5,6 +5,7 @@
     { "key": "ehentai", "name": "E-Hentai", "version": "0.0.1", "type": "comic", "file": "ehentai.js", "description": "历史最悠久的画廊站，标签体系完善；登录后可切换里站 ExHentai" },
     { "key": "nhentai", "name": "nhentai", "version": "0.0.1", "type": "comic", "file": "nhentai.js", "description": "海量同人志，官方 API，支持标签语法与语言过滤" },
     { "key": "jm", "name": "禁漫天堂", "version": "0.0.1", "type": "comic", "file": "jm.js", "description": "中文本子与韩漫资源丰富，支持连载分话、自动切换线路与图片还原" },
+    { "key": "wnacg", "name": "绅士漫画", "version": "0.0.1", "type": "comic", "file": "wnacg.js", "description": "汉化漫画与图集，支持多话合集和自动切换线路" },
     { "key": "pica", "name": "哔咔漫画", "version": "0.0.1", "type": "comic", "file": "pica.js", "description": "分区丰富的老牌漫画社区，支持多话连载（需要账号）" },
     { "key": "hanime1", "name": "Hanime1", "version": "0.0.1", "type": "video", "file": "hanime1.js", "description": "里番、泡面番与 3D 动画，支持多清晰度在线播放与下载" }
   ]

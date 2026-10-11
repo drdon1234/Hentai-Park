@@ -31,6 +31,7 @@
 | E-Hentai / ExHentai | Cómics | Puede cambiar de sitio después de iniciar sesión en la página web |
 | nhentai | Cómics | |
 | JMComic | Cómics | Abrir por ID de obra y cambiar automáticamente de servidor API |
+| WNACG (绅士漫画) | Cómics | Lectura sin cuenta, capítulos de colecciones y cambio automático de servidor |
 | PicACG | Cómics | Configure su propia cuenta o registre automáticamente una cuenta dedicada después de la confirmación |
 | Hanime1 | Vídeo | El uso por primera vez puede requerir verificación Cloudflare |
 
