@@ -1,15 +1,16 @@
 import 'package:flutter/material.dart';
 
 import 'storage.dart';
+import 'localization.dart';
 import 'translator.dart';
 
 enum ReaderMode { vertical, leftToRight, rightToLeft }
 
 extension ReaderModeLabel on ReaderMode {
   String get label => switch (this) {
-    ReaderMode.vertical => '上下滚动（条漫）',
-    ReaderMode.leftToRight => '左右翻页（从左到右）',
-    ReaderMode.rightToLeft => '左右翻页（日漫，从右到左）',
+    ReaderMode.vertical => tr('上下滚动（条漫）'),
+    ReaderMode.leftToRight => tr('左右翻页（从左到右）'),
+    ReaderMode.rightToLeft => tr('左右翻页（日漫，从右到左）'),
   };
   IconData get icon => switch (this) {
     ReaderMode.vertical => Icons.swap_vert_rounded,
@@ -41,6 +42,15 @@ class AppSettings extends ChangeNotifier {
     _store.save(_v);
     notifyListeners();
   }
+
+  /// Empty language code follows the system language.
+  String get language => _get('language', '');
+  set language(String value) {
+    final selected = AppLocalizations.localeFromKey(value);
+    AppLocalizations.instance.setLocale(selected ?? AppLocalizations.resolveLocales(WidgetsBinding.instance.platformDispatcher.locales));
+    _set('language', selected == null ? '' : value);
+  }
+  Locale? get locale => AppLocalizations.localeFromKey(language);
 
   // ── Appearance ──
   ThemeMode get themeMode => ThemeMode.values[_get('themeMode', ThemeMode.dark.index).clamp(0, 2)];
@@ -163,7 +173,7 @@ class AppSettings extends ChangeNotifier {
 
   // ── Content filter ──
   /// Tag blocklist entries (see core/tag_blocklist.dart for the syntax).
-  List<String> get blockedTags => ((_v['blockedTags'] as List?) ?? const []).map((e) => e.toString()).toList();
+  List<String> get blockedTags => ((_v['blockedTags'] as List?) ?? []).map((e) => e.toString()).toList();
   set blockedTags(List<String> v) => _set('blockedTags', v);
 
   void addBlockedTag(String entry) {
@@ -176,16 +186,16 @@ class AppSettings extends ChangeNotifier {
 
   /// Preset block groups (core/tag_blocklist.dart: blockPresets), keyed by preset id:
   /// {on: bool, title: bool, entries: [String]}. Missing values fall back to the preset's defaults.
-  Map<String, dynamic> get blockPresetState => ((_v['blockPresets'] as Map?) ?? const {}).cast<String, dynamic>();
+  Map<String, dynamic> get blockPresetState => ((_v['blockPresets'] as Map?) ?? {}).cast<String, dynamic>();
 
   void setBlockPreset(String id, {bool? on, bool? title, List<String>? entries, bool reset = false}) {
     final all = {...blockPresetState};
-    final cur = reset ? <String, dynamic>{} : {...((all[id] as Map?) ?? const {}).cast<String, dynamic>()};
+    final cur = reset ? <String, dynamic>{} : {...((all[id] as Map?) ?? {}).cast<String, dynamic>()};
     if (on != null) cur['on'] = on;
     if (title != null) cur['title'] = title;
     if (entries != null) cur['entries'] = entries;
     if (reset) {
-      final old = (all[id] as Map?) ?? const {};
+      final old = (all[id] as Map?) ?? {};
       cur['on'] = old['on'] ?? false;
       cur['title'] = old['title'] ?? false;
     }
@@ -207,7 +217,7 @@ class AppSettings extends ChangeNotifier {
   void clearSearchHistory() => _set('searchHistory', <String>[]);
 
   /// Sources excluded from aggregated search (enabled sources are included by default).
-  Set<String> get aggregateExcluded => ((_v['aggregateExcluded'] as List?) ?? const []).map((e) => e.toString()).toSet();
+  Set<String> get aggregateExcluded => ((_v['aggregateExcluded'] as List?) ?? []).map((e) => e.toString()).toSet();
   void setAggregateIncluded(String key, bool included) {
     final s = aggregateExcluded;
     included ? s.remove(key) : s.add(key);
@@ -267,7 +277,7 @@ class AppSettings extends ChangeNotifier {
   set libraryFilterUnread(bool v) => _set('libraryFilterUnread', v);
 
   /// Sources to show; empty = all.
-  Set<String> get libraryFilterSources => ((_v['libraryFilterSources'] as List?) ?? const []).map((e) => e.toString()).toSet();
+  Set<String> get libraryFilterSources => ((_v['libraryFilterSources'] as List?) ?? []).map((e) => e.toString()).toSet();
   set libraryFilterSources(Set<String> v) => _set('libraryFilterSources', v.toList());
 
   bool get badgeUnread => _get('badgeUnread', true);

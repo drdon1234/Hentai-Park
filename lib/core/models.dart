@@ -3,12 +3,20 @@
 
 import 'dart:ui' show Color;
 
-Map<String, dynamic> _map(Object? v) => v is Map ? v.cast<String, dynamic>() : <String, dynamic>{};
-List<Map<String, dynamic>> _maps(Object? v) => v is List ? v.whereType<Map>().map((e) => e.cast<String, dynamic>()).toList() : const [];
-List<String> _strings(Object? v) => v is List ? v.where((e) => e != null).map((e) => e.toString()).toList() : const [];
+import 'localization.dart';
+
+Map<String, dynamic> _map(Object? v) =>
+    v is Map ? v.cast<String, dynamic>() : <String, dynamic>{};
+List<Map<String, dynamic>> _maps(Object? v) => v is List
+    ? v.whereType<Map>().map((e) => e.cast<String, dynamic>()).toList()
+    : const [];
+List<String> _strings(Object? v) => v is List
+    ? v.where((e) => e != null).map((e) => e.toString()).toList()
+    : const [];
 String _str(Object? v) => v == null ? '' : v.toString();
 int? _int(Object? v) => v is num ? v.toInt() : int.tryParse(_str(v));
-double? _double(Object? v) => v is num ? v.toDouble() : double.tryParse(_str(v));
+double? _double(Object? v) =>
+    v is num ? v.toDouble() : double.tryParse(_str(v));
 
 Color parseHexColor(String hex, [Color fallback = const Color(0xFF7C4DFF)]) {
   var h = hex.replaceFirst('#', '');
@@ -21,33 +29,51 @@ enum MediaKind { comic, video }
 
 /// One selectable value of a feed option, search filter or setting.
 class Choice {
-  Choice(this.value, this.label, {this.color});
+  Choice(this.value, String label, {this.color}) : _label = label;
   final Object? value;
-  final String label;
+  final String _label;
+  String get label => tr(_label);
   final String? color;
 
   factory Choice.fromJson(Object? json) {
-    if (json is Map) return Choice(json['value'], _str(json['label'] ?? json['value']), color: json['color']?.toString());
+    if (json is Map)
+      return Choice(
+        json['value'],
+        _str(json['label'] ?? json['value']),
+        color: json['color']?.toString(),
+      );
     return Choice(json, _str(json));
   }
 }
 
 /// A feed option, search filter or setting definition. `type` is select | multi | number | text | password | switch.
 class OptionDef {
-  OptionDef({required this.key, required this.label, required this.type, required this.values, this.defaultValue, this.description = ''});
+  OptionDef({
+    required this.key,
+    required String label,
+    required this.type,
+    required this.values,
+    this.defaultValue,
+    String description = '',
+  }) : _label = label,
+       _description = description;
   final String key;
-  final String label;
+  final String _label;
+  String get label => tr(_label);
   final String type;
   final List<Choice> values;
   final Object? defaultValue;
-  final String description;
+  final String _description;
+  String get description => tr(_description);
 
   factory OptionDef.fromJson(Map<String, dynamic> j) {
     final values = (j['values'] ?? j['options']) as List? ?? const [];
     return OptionDef(
       key: _str(j['key']),
       label: _str(j['label']),
-      type: _str(j['type']).isEmpty ? (values.isEmpty ? 'text' : 'select') : _str(j['type']),
+      type: _str(j['type']).isEmpty
+          ? (values.isEmpty ? 'text' : 'select')
+          : _str(j['type']),
       values: values.map(Choice.fromJson).toList(),
       defaultValue: j['default'],
       description: _str(j['description']),
@@ -63,9 +89,15 @@ class OptionDef {
 }
 
 class FeedDef {
-  FeedDef({required this.key, required this.label, required this.options, required this.layout});
+  FeedDef({
+    required this.key,
+    required String label,
+    required this.options,
+    required this.layout,
+  }) : _label = label;
   final String key;
-  final String label;
+  final String _label;
+  String get label => tr(_label);
   final List<OptionDef> options;
   final String layout; // grid | sections
 
@@ -76,28 +108,35 @@ class FeedDef {
     layout: _str(j['layout']).isEmpty ? 'grid' : _str(j['layout']),
   );
 
-  Map<String, Object?> defaultOptions() => {for (final o in options) o.key: o.defaultValue};
+  Map<String, Object?> defaultOptions() => {
+    for (final o in options) o.key: o.defaultValue,
+  };
 }
 
 class AccountDef {
   AccountDef({
     required this.type,
-    required this.title,
-    required this.hint,
+    required String title,
+    required String hint,
     required this.fields,
     required this.loginUrl,
     required this.cookieUrl,
     required this.requiredCookies,
     required this.required,
-  });
+    this.managedAccount = false,
+  }) : _title = title,
+       _hint = hint;
   final String type; // password | cookies
-  final String title;
-  final String hint;
+  final String _title;
+  final String _hint;
+  String get title => tr(_title);
+  String get hint => tr(_hint);
   final List<Map<String, dynamic>> fields;
   final String loginUrl;
   final String cookieUrl;
   final List<String> requiredCookies;
   final bool required;
+  final bool managedAccount;
 
   static AccountDef? fromJson(Object? json) {
     if (json is! Map) return null;
@@ -111,6 +150,7 @@ class AccountDef {
       cookieUrl: _str(j['cookieUrl']),
       requiredCookies: _strings(j['requiredCookies']),
       required: j['required'] == true,
+      managedAccount: j['managedAccount'] == true,
     );
   }
 }
@@ -118,35 +158,44 @@ class AccountDef {
 class SourceManifest {
   SourceManifest(this.json)
     : key = _str(json['key']),
-      name = _str(json['name']),
+      _name = _str(json['name']),
       version = _str(json['version']),
       kind = _str(json['type']) == 'video' ? MediaKind.video : MediaKind.comic,
       color = parseHexColor(_str(json['color'])),
       icon = _str(json['icon']),
-      description = _str(json['description']),
+      _description = _str(json['description']),
       homepage = _str(json['homepage']),
       language = _str(json['language']),
-      linkPatterns = _strings(json['linkPatterns']).map((p) => RegExp(p)).toList(),
-      idPattern = _str(json['idPattern']).isEmpty ? null : RegExp(_str(json['idPattern'])),
+      linkPatterns = _strings(json['linkPatterns'])
+          .map((p) => RegExp(p))
+          .toList(),
+      idPattern = _str(json['idPattern']).isEmpty
+          ? null
+          : RegExp(_str(json['idPattern'])),
       idExample = _str(json['idExample']),
-      imageHeaders = _map(json['imageHeaders']).map((k, v) => MapEntry(k, v.toString())),
+      imageHeaders = _map(json['imageHeaders'])
+          .map((k, v) => MapEntry(k, v.toString())),
       network = _map(json['network']),
       settings = _maps(json['settings']).map(OptionDef.fromJson).toList(),
       account = AccountDef.fromJson(json['account']),
       feeds = _maps(json['feeds']).map(FeedDef.fromJson).toList(),
       defaultFeed = _str(json['defaultFeed']),
-      searchFilters = _maps(json['searchFilters']).map(OptionDef.fromJson).toList(),
-      searchHint = _str(json['searchHint']),
+      searchFilters = _maps(json['searchFilters'])
+          .map(OptionDef.fromJson)
+          .toList(),
+      _searchHint = _str(json['searchHint']),
       capabilities = _map(json['capabilities']);
 
   final Map<String, dynamic> json;
   final String key;
-  final String name;
+  final String _name;
+  String get name => tr(_name);
   final String version;
   final MediaKind kind;
   final Color color;
   final String icon;
-  final String description;
+  final String _description;
+  String get description => tr(_description);
   final String homepage;
   final String language;
   final List<RegExp> linkPatterns;
@@ -172,21 +221,28 @@ class SourceManifest {
       ['rank', 'toplist'],
       ['popular', 'hot', 'trending'],
     ]) {
-      final i = feeds.indexWhere((f) => keys.any((k) => f.key.toLowerCase().contains(k)));
+      final i = feeds.indexWhere(
+        (f) => keys.any((k) => f.key.toLowerCase().contains(k)),
+      );
       if (i >= 0) return i;
     }
     return 0;
   }
+
   final List<OptionDef> searchFilters;
-  final String searchHint;
+  final String _searchHint;
+  String get searchHint => tr(_searchHint);
   final Map<String, dynamic> capabilities;
 
   bool can(String capability) => capabilities[capability] == true;
   bool get isVideo => kind == MediaKind.video;
   bool get usesBrowserNetwork => network['mode'] == 'browser';
-  String get origin => _str(network['origin']).isNotEmpty ? _str(network['origin']) : homepage;
+  String get origin =>
+      _str(network['origin']).isNotEmpty ? _str(network['origin']) : homepage;
 
-  Map<String, Object?> defaultFilters() => {for (final f in searchFilters) f.key: f.defaultValue};
+  Map<String, Object?> defaultFilters() => {
+    for (final f in searchFilters) f.key: f.defaultValue,
+  };
 
   /// Extracts work ids from free text (links or explicit ids).
   List<String> extractIds(String text) {
@@ -204,7 +260,8 @@ class SourceManifest {
   String? matchExplicitId(String text) {
     final m = idPattern?.firstMatch(text.trim());
     if (m == null) return null;
-    if (m.groupCount >= 2 && m.group(2) != null) return '${m.group(1)}/${m.group(2)}';
+    if (m.groupCount >= 2 && m.group(2) != null)
+      return '${m.group(1)}/${m.group(2)}';
     return m.groupCount >= 1 ? m.group(1) : m.group(0);
   }
 }
@@ -251,11 +308,20 @@ class WorkItem {
 
   Map<String, dynamic> toJson() => {...json, 'id': id, 'source': source};
 
-  factory WorkItem.fromStored(Map<String, dynamic> j) => WorkItem(j, _str(j['source']));
+  factory WorkItem.fromStored(Map<String, dynamic> j) =>
+      WorkItem(j, _str(j['source']));
 }
 
 class WorkPage {
-  WorkPage({required this.items, required this.page, this.totalPages, this.hasNext = false, this.cursor, this.total, this.sections});
+  WorkPage({
+    required this.items,
+    required this.page,
+    this.totalPages,
+    this.hasNext = false,
+    this.cursor,
+    this.total,
+    this.sections,
+  });
   final List<WorkItem> items;
   final int page;
   final int? totalPages;
@@ -272,7 +338,14 @@ class WorkPage {
     cursor: j['cursor']?.toString(),
     total: _int(j['total']),
     sections: j['sections'] is List
-        ? _maps(j['sections']).map((s) => WorkSection(_str(s['title']), _maps(s['items']).map((e) => WorkItem(e, source)).toList())).toList()
+        ? _maps(j['sections'])
+              .map(
+                (s) => WorkSection(
+                  _str(s['title']),
+                  _maps(s['items']).map((e) => WorkItem(e, source)).toList(),
+                ),
+              )
+              .toList()
         : null,
   );
 }
@@ -320,7 +393,10 @@ class PreviewThumb {
   final double? height;
   final double offsetX;
   final double offsetY;
-  bool get isSprite => width != null && height != null && (offsetX != 0 || offsetY != 0 || json.containsKey('offsetX'));
+  bool get isSprite =>
+      width != null &&
+      height != null &&
+      (offsetX != 0 || offsetY != 0 || json.containsKey('offsetX'));
 }
 
 class WorkDetail extends WorkItem {
@@ -335,21 +411,42 @@ class WorkDetail extends WorkItem {
           .map(
             (g) => TagGroup(
               _str(g['namespace']),
-              _str(g['label']).isEmpty ? _str(g['namespace']) : _str(g['label']),
-              _maps(g['tags']).map((t) => TagRef(_str(t['name']), _str(t['keyword']), _map(t['filters']), _int(t['count']))).toList(),
+              _str(g['label']).isEmpty
+                  ? _str(g['namespace'])
+                  : _str(g['label']),
+              _maps(g['tags'])
+                  .map(
+                    (t) => TagRef(
+                      _str(t['name']),
+                      _str(t['keyword']),
+                      _map(t['filters']),
+                      _int(t['count']),
+                    ),
+                  )
+                  .toList(),
             ),
           )
           .toList(),
-      chapters = json['chapters'] is List ? _maps(json['chapters']).map((c) => Chapter(_str(c['id']), _str(c['title']))).toList() : null,
+      chapters = json['chapters'] is List
+          ? _maps(json['chapters'])
+                .map((c) => Chapter(_str(c['id']), _str(c['title'])))
+                .toList()
+          : null,
       singleChapterId = json['singleChapterId']?.toString(),
       related = _maps(json['related']).map((e) => WorkItem(e, source)).toList(),
       series = _maps(json['series']).map((e) => WorkItem(e, source)).toList(),
       thumbnails = (json['thumbnails'] as List? ?? const [])
-          .map((t) => t is Map ? PreviewThumb(t.cast<String, dynamic>()) : PreviewThumb({'url': _str(t)}))
+          .map(
+            (t) => t is Map
+                ? PreviewThumb(t.cast<String, dynamic>())
+                : PreviewThumb({'url': _str(t)}),
+          )
           .where((t) => t.url.isNotEmpty)
           .toList(),
       thumbnailsTotal = _int(json['thumbnailsTotal']),
-      authorSearch = json['authorSearch'] is Map ? _map(json['authorSearch']) : null,
+      authorSearch = json['authorSearch'] is Map
+          ? _map(json['authorSearch'])
+          : null,
       super(json, source);
 
   final String url;
@@ -367,7 +464,11 @@ class WorkDetail extends WorkItem {
   final int? thumbnailsTotal;
   final Map<String, dynamic>? authorSearch;
 
-  WorkItem toItem() => WorkItem.fromStored({...json, 'source': source, 'tags': tagGroups.expand((g) => g.tags.map((t) => t.name)).take(8).toList()});
+  WorkItem toItem() => WorkItem.fromStored({
+    ...json,
+    'source': source,
+    'tags': tagGroups.expand((g) => g.tags.map((t) => t.name)).take(8).toList(),
+  });
 }
 
 /// One page of a chapter. Either a direct [url] or a [token] resolved lazily through `resolveImage`.
@@ -393,7 +494,8 @@ class PageImage {
   final String? cacheKey;
 
   bool get needsResolve => url.isEmpty;
-  double? get aspect => width != null && height != null && height! > 0 ? width! / height! : null;
+  double? get aspect =>
+      width != null && height != null && height! > 0 ? width! / height! : null;
 }
 
 class ChapterImages {
@@ -401,13 +503,18 @@ class ChapterImages {
   final List<PageImage> pages;
   final String? cacheKey;
 
-  factory ChapterImages.fromJson(Map<String, dynamic> j) => ChapterImages(_maps(j['pages']).map(PageImage.new).toList(), j['cacheKey']?.toString());
+  factory ChapterImages.fromJson(Map<String, dynamic> j) => ChapterImages(
+    _maps(j['pages']).map(PageImage.new).toList(),
+    j['cacheKey']?.toString(),
+  );
 }
 
 class VideoSource {
   VideoSource(Map<String, dynamic> j)
     : quality = _int(j['quality']) ?? 0,
-      label = _str(j['label']).isEmpty ? '${_int(j['quality']) ?? ''}P' : _str(j['label']),
+      label = _str(j['label']).isEmpty
+          ? '${_int(j['quality']) ?? ''}P'
+          : _str(j['label']),
       url = _str(j['url']),
       headers = _map(j['headers']).map((k, v) => MapEntry(k, v.toString())),
       preferred = j['preferred'] == true;
@@ -419,16 +526,19 @@ class VideoSource {
 }
 
 class AccountStatus {
-  AccountStatus(this.loggedIn, this.name);
+  AccountStatus(this.loggedIn, this.name, {this.configured = false});
   final bool loggedIn;
   final String name;
+  final bool configured;
 }
 
 /// Error codes produced by sources (see park_runtime.js).
 class SourceError implements Exception {
-  SourceError(this.code, this.message, {this.status, this.url});
+  SourceError(this.code, String message, {this.status, this.url}) : _message = message;
   final String code;
-  final String message;
+  final String _message;
+  String get rawMessage => _message;
+  String get message => tr(_message);
   final int? status;
   final String? url;
 
@@ -439,17 +549,22 @@ class SourceError implements Exception {
 
   factory SourceError.fromJson(Object? j) {
     final m = _map(j);
-    return SourceError(_str(m['code']).isEmpty ? 'UNKNOWN' : _str(m['code']), _str(m['message']), status: _int(m['status']), url: m['url']?.toString());
+    return SourceError(
+      _str(m['code']).isEmpty ? 'UNKNOWN' : _str(m['code']),
+      _str(m['message']),
+      status: _int(m['status']),
+      url: m['url']?.toString(),
+    );
   }
 
   String get friendly {
     switch (code) {
       case 'CLOUDFLARE':
-        return '站点开启了人机验证，需要在内置浏览器中通过一次';
+        return tr('站点开启了人机验证，需要在内置浏览器中通过一次');
       case 'LOGIN_REQUIRED':
-        return message.isEmpty ? '需要登录' : message;
+        return message.isEmpty ? tr('需要登录') : message;
       case 'NETWORK':
-        return '网络连接失败，请检查网络或代理设置\n$message';
+        return tr('网络连接失败，请检查网络或代理设置\n{error}', {'error': message});
       default:
         return message.isEmpty ? code : message;
     }

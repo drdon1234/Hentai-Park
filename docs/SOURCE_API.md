@@ -1,3 +1,5 @@
+[简体中文](SOURCE_API.md) · [繁體中文](i18n/zh-Hant/SOURCE_API.md) · [日本語](i18n/ja/SOURCE_API.md) · [한국어](i18n/ko/SOURCE_API.md) · [English](i18n/en/SOURCE_API.md) · [Español](i18n/es/SOURCE_API.md) · [Русский](i18n/ru/SOURCE_API.md) · [العربية](i18n/ar/SOURCE_API.md)
+
 # 源插件开发指南
 
 HentaiPark 的每个源站都是一个独立的 JavaScript 文件。App 在运行时加载它们：可以从源仓库安装、更新、启用 / 停用，**不需要重新编译 App**。
@@ -10,10 +12,10 @@ HentaiPark 的每个源站都是一个独立的 JavaScript 文件。App 在运�
 
   ```bash
   cd tools/source-runner && npm install
-  node smoke.mjs nhentai.js --keyword "tag:\"full color\""
+  node ../../test/source-runner/smoke.mjs nhentai.js --keyword "tag:\"full color\""
   ```
 
-  `smoke.mjs` 会依次测试：每个 feed（含第 2 页）→ 搜索 → 随机 → 详情 → 封面 → 章节 → 首页与末页图片的实际下载。
+  `smoke.mjs` 是位于 `test/source-runner/` 的本地测试文件，不随仓库分发。它会依次测试：每个 feed（含第 2 页）→ 搜索 → 随机 → 详情 → 封面 → 章节 → 首页与末页图片的实际下载。
 
 ## 注册一个源
 
@@ -21,7 +23,7 @@ HentaiPark 的每个源站都是一个独立的 JavaScript 文件。App 在运�
 Park.register({
   key: 'mysite',              // 唯一标识，安装后不可更改
   name: '我的站点',
-  version: '1.0.0',           // 仓库里版本号更高时 App 会提示更新
+  version: '0.0.1',           // 仓库里版本号更高时 App 会提示更新
   type: 'comic',              // comic | video
   color: '#E5355F',           // 品牌色：用于源入口卡片、源页面主题色
   description: '一句话介绍',
@@ -59,7 +61,7 @@ Park.register({
 |------|------|
 | `this.http` | `request(opts)`、`get(url, opts)`、`post(url, opts)`、`text(url, opts)`、`json(url, opts)` |
 | `this.config` | 用户在源设置中选择的值（未设置时为 `default`） |
-| `this.store` | 持久化键值存储：`get(key, fallback)` / `set(key, value)`，用于保存 Token、域名列表等 |
+| `this.store` | 持久化键值存储：`get(key, fallback)` / `set(key, value)`，用于保存 Token、域名列表等；`await flush()` 确认写盘成功，失败抛错 |
 | `this.cookies` | `get(url)` / `set(url, {name: value})` / `clear(url)` |
 | `this.log(...)` | 写入 App 的“运行日志” |
 
@@ -175,9 +177,21 @@ account: {
   loginUrl?, cookieUrl?, requiredCookies?: ['ipb_member_id'],   // 提供后可以在网页中登录，App 自动获取 Cookie
   async login(values) { return { name } },
   async logout() {},
-  async status() { return { loggedIn, name } },
+  async status() { return { loggedIn, name, configured } },
+  managedAccount: true,                 // 可选：提供专用自动维护账号
+  async enableManaged() {},             // 仅在用户确认注册后调用
 }
 ```
+
+`configured` 表示已有账号配置，独立于当前是否成功登录。`managedAccount: true` 声明源支持专用自动维护账号；源设置使用同名 `managedAccount` 开关。宿主必须先展示自动注册说明并取得用户确认，再保存启用设置并调用 `account.enableManaged()`。注册前应保存候选凭据并 `await this.store.flush()`，确保失败或应用重启后仍可恢复同一账号。
+
+哔咔示例将手动凭据与专用账号分开保存，现有手动账号不得被专用账号覆盖。关闭开关保留专用账号，重新开启复用；Token 过期只重新登录，不重复注册。注册失败或响应丢失后重试原候选账号，避免产生多余账号。账号密码、Token 和源状态都是用户本机数据，文档和日志中不要输出真实凭据。
+
+## 国际化
+
+应用界面支持 `zh-Hans`、`zh-Hant`、`ja`、`ko`、`en`、`es`、`ru`、`ar`。Material、Cupertino 以及系统控件使用对应语言；阿拉伯语界面从右到左。界面语言设置立即生效并持久保存，默认跟随系统；中文的脚本和地区决定使用简体或繁体。
+
+Flutter 界面统一调用 `tr('已选 {count}', {'count': count})`，或 `context.tr`。消息使用中文原文作资源键，参数采用 `{name}`，八语言资源位于 `assets/i18n/`。新增或修改可见文案时必须同步更新全部资源并保持占位符一致。插件静态名称、说明、浏览标签、选项和错误提示在应用展示时进行资源映射；远端作品标题、作者、标签、用户输入和持久化协议键保持原文。
 
 ## 错误码
 
@@ -197,7 +211,7 @@ account: {
 
 ```json
 { "name": "我的源仓库", "sources": [
-  { "key": "mysite", "name": "我的站点", "version": "1.0.0", "type": "comic", "file": "mysite.js", "description": "…" }
+  { "key": "mysite", "name": "我的站点", "version": "0.0.1", "type": "comic", "file": "mysite.js", "description": "…" }
 ] }
 ```
 

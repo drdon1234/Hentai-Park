@@ -6,6 +6,7 @@ import '../library/favorite_actions.dart';
 import '../nav.dart';
 import '../theme.dart';
 import 'common.dart';
+import '../../core/localization.dart';
 
 /// Cover-first card used in every grid and carousel.
 class WorkCard extends StatelessWidget {
@@ -31,6 +32,7 @@ class WorkCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    AppLocalizations.of(context);
     final c = context.colors;
     final history = Library.instance.historyOf(item.uid);
     final badgeColor = item.badgeColor.isNotEmpty ? parseHexColor(item.badgeColor) : null;
@@ -85,7 +87,7 @@ class WorkCard extends StatelessWidget {
                             child: item.category.isEmpty ? const SizedBox.shrink() : Pill(item.category, color: badgeColor ?? Colors.black54, solid: true),
                           ),
                         ),
-                        if (item.badge.isNotEmpty) Pill(item.badge, color: c.primary, solid: true),
+                        if (item.badge.isNotEmpty) Pill(tr(item.badge), color: c.primary, solid: true),
                       ],
                     ),
                   ),
@@ -184,7 +186,7 @@ Future<void> showWorkActions(BuildContext context, WorkItem item) async {
           const Divider(height: 1),
           ListTile(
             leading: Icon(lib.isFavorite(item.uid) ? Icons.bookmark_remove_outlined : Icons.bookmark_add_outlined),
-            title: Text(lib.isFavorite(item.uid) ? '取消收藏' : '加入收藏'),
+            title: Text(lib.isFavorite(item.uid) ? tr('取消收藏') : tr('加入收藏')),
             onTap: () {
               Navigator.pop(ctx);
               toggleFavorite(context, item);
@@ -193,7 +195,7 @@ Future<void> showWorkActions(BuildContext context, WorkItem item) async {
           if (lib.isFavorite(item.uid))
             ListTile(
               leading: const Icon(Icons.label_outline_rounded),
-              title: const Text('设置分类'),
+              title: Text(tr('设置分类')),
               onTap: () {
                 Navigator.pop(ctx);
                 editFavoriteCategories(context, item.uid);
@@ -201,7 +203,7 @@ Future<void> showWorkActions(BuildContext context, WorkItem item) async {
           ),
           ListTile(
             leading: const Icon(Icons.open_in_new_rounded),
-            title: const Text('打开详情'),
+            title: Text(tr('打开详情')),
             onTap: () {
               Navigator.pop(ctx);
               Nav.openWork(context, item);
@@ -210,7 +212,7 @@ Future<void> showWorkActions(BuildContext context, WorkItem item) async {
           if (lib.historyOf(item.uid) != null)
             ListTile(
               leading: const Icon(Icons.history_toggle_off_rounded),
-              title: const Text('删除阅读记录'),
+              title: Text(tr('删除阅读记录')),
               onTap: () {
                 lib.removeHistory(item.uid);
                 Navigator.pop(ctx);

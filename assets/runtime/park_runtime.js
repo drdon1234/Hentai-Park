@@ -7,7 +7,7 @@
  *   request(opts)            -> Promise<{status, headers, body, url}>
  *   crypto(op, args)         -> Promise<any>
  *   cookies(op, args)        -> Promise<any>
- *   persist(sourceKey, data) -> void   (fire-and-forget)
+ *   persist(sourceKey, data, flush) -> Promise<void> (flush waits for durable storage)
  *   log(sourceKey, level, message)
  *
  * Source scripts call `Park.register(definition)`; see docs/SOURCE_API.md.
@@ -274,6 +274,8 @@
 
   function createStore(source, initial) {
     const data = Object.assign({}, initial || {});
+    let pending = Promise.resolve();
+    const snapshot = () => JSON.parse(JSON.stringify(data));
     return {
       get(key, fallback) {
         return Object.prototype.hasOwnProperty.call(data, key) ? data[key] : fallback;
@@ -281,11 +283,14 @@
       set(key, value) {
         if (value === undefined || value === null) delete data[key];
         else data[key] = value;
-        try {
-          native().persist(source.key, data);
-        } catch (e) {
-          /* host without persistence */
-        }
+        const next = snapshot();
+        pending = pending.then(() => native().persist(source.key, next, false)).catch(() => {});
+      },
+      /** Flush must succeed before externally creating an account whose credentials cannot be lost. */
+      async flush() {
+        const next = snapshot();
+        pending = pending.catch(() => {}).then(() => native().persist(source.key, next, true));
+        return pending;
       },
       all: () => Object.assign({}, data),
     };
@@ -328,6 +333,7 @@
             cookieUrl: def.account.cookieUrl || '',
             requiredCookies: def.account.requiredCookies || [],
             required: !!def.account.required,
+            managedAccount: !!def.account.managedAccount,
           }
         : null,
       feeds: pick(def.feeds || []),

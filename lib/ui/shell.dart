@@ -13,6 +13,7 @@ import 'platform.dart';
 import 'settings/settings_page.dart';
 import 'theme.dart';
 import 'updates/updates_page.dart';
+import '../core/localization.dart';
 
 /// Root navigation: 发现 / 书架 / 更新 / 历史 / 我的 (Mihon's Browse / Library / Updates / History / More).
 class Shell extends StatefulWidget {
@@ -71,13 +72,13 @@ class _ShellState extends State<Shell> {
   void _notifyProgress(LibraryUpdater u) {
     PlatformBridge.notify(
       id: _progressNotification,
-      title: '正在检查书库更新',
+      title: tr('正在检查书库更新'),
       text: '${u.done}/${u.total}${u.current != null ? ' · ${u.current}' : ''}',
       ongoing: true,
       progress: u.done,
       max: u.total,
       channel: 'library_progress',
-      channelName: '书库更新进度',
+      channelName: tr('书库更新进度'),
     );
   }
 
@@ -86,8 +87,8 @@ class _ShellState extends State<Shell> {
     if (r.updated.isEmpty) return;
     if (mounted && _index != _updatesTab) setState(() => _unseenUpdates += r.newChapters);
     final lines = [for (final u in r.updated.take(5)) '${u.item.title}：${u.chapterTitles.join('、')}'];
-    if (r.updated.length > 5) lines.add('等 ${r.updated.length} 部作品');
-    PlatformBridge.notify(id: _resultNotification, title: '${r.updated.length} 部作品有 ${r.newChapters} 个新章节', text: lines.join('\n'), payload: 'updates');
+    if (r.updated.length > 5) lines.add(tr('等 {value0} 部作品', {'value0': r.updated.length}));
+    PlatformBridge.notify(id: _resultNotification, title: tr('{value0} 部作品有 {value1} 个新章节', {'value0': r.updated.length, 'value1': r.newChapters}), text: lines.join('\n'), payload: 'updates');
   }
 
   /// Back on another tab returns to 发现; on 发现 it needs a second press within 2 s to leave,
@@ -103,7 +104,7 @@ class _ShellState extends State<Shell> {
       return;
     }
     _lastBack = now;
-    context.toast('再按一次返回键退出');
+    context.toast(tr('再按一次返回键退出'));
   }
 
   void _select(int i) => setState(() {
@@ -116,11 +117,11 @@ class _ShellState extends State<Shell> {
     final badge = _unseenUpdates > 0;
     Widget updatesIcon(IconData icon) => Badge(isLabelVisible: badge, label: Text('$_unseenUpdates'), child: Icon(icon));
     return [
-      const NavigationDestination(icon: Icon(Icons.explore_outlined), selectedIcon: Icon(Icons.explore_rounded), label: '发现'),
-      const NavigationDestination(icon: Icon(Icons.collections_bookmark_outlined), selectedIcon: Icon(Icons.collections_bookmark_rounded), label: '书架'),
-      NavigationDestination(icon: updatesIcon(Icons.new_releases_outlined), selectedIcon: updatesIcon(Icons.new_releases_rounded), label: '更新'),
-      const NavigationDestination(icon: Icon(Icons.history_outlined), selectedIcon: Icon(Icons.history_rounded), label: '历史'),
-      const NavigationDestination(icon: Icon(Icons.person_outline_rounded), selectedIcon: Icon(Icons.person_rounded), label: '我的'),
+      NavigationDestination(icon: Icon(Icons.explore_outlined), selectedIcon: Icon(Icons.explore_rounded), label: tr('发现')),
+      NavigationDestination(icon: Icon(Icons.collections_bookmark_outlined), selectedIcon: Icon(Icons.collections_bookmark_rounded), label: tr('书架')),
+      NavigationDestination(icon: updatesIcon(Icons.new_releases_outlined), selectedIcon: updatesIcon(Icons.new_releases_rounded), label: tr('更新')),
+      NavigationDestination(icon: Icon(Icons.history_outlined), selectedIcon: Icon(Icons.history_rounded), label: tr('历史')),
+      NavigationDestination(icon: Icon(Icons.person_outline_rounded), selectedIcon: Icon(Icons.person_rounded), label: tr('我的')),
     ];
   }
 
@@ -134,6 +135,7 @@ class _ShellState extends State<Shell> {
 
   @override
   Widget build(BuildContext context) {
+    AppLocalizations.of(context);
     final wide = MediaQuery.sizeOf(context).width >= 840;
     // Tabs are built lazily on first visit and then kept alive.
     final body = IndexedStack(index: _index, children: [for (var i = 0; i < 5; i++) _visited.contains(i) ? _page(i) : const SizedBox.shrink()]);
@@ -186,6 +188,7 @@ class _IncognitoBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    AppLocalizations.of(context);
     final s = AppSettings.instance;
     return ListenableBuilder(
       listenable: s,
@@ -201,7 +204,7 @@ class _IncognitoBanner extends StatelessWidget {
               child: SizedBox(
                 height: 22,
                 child: Center(
-                  child: Text('无痕模式 · 点击关闭', style: TextStyle(color: c.onTertiary, fontSize: 12, fontWeight: FontWeight.w600)),
+                  child: Text(tr('无痕模式 · 点击关闭'), style: TextStyle(color: c.onTertiary, fontSize: 12, fontWeight: FontWeight.w600)),
                 ),
               ),
             ),

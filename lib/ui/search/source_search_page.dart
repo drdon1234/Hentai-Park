@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../core/models.dart';
+import '../../core/localization.dart';
 import '../../core/settings.dart';
 import '../../engine/source_manager.dart';
 import '../theme.dart';
@@ -10,7 +11,13 @@ import 'multi_language.dart';
 
 /// Search inside one source with that source's native filters (sort, category, language, rating…).
 class SourceSearchPage extends StatefulWidget {
-  const SourceSearchPage({super.key, required this.sourceKey, this.initialKeyword = '', this.initialFilters, this.initialMulti});
+  const SourceSearchPage({
+    super.key,
+    required this.sourceKey,
+    this.initialKeyword = '',
+    this.initialFilters,
+    this.initialMulti,
+  });
   final String sourceKey;
   final String initialKeyword;
   final Map<String, Object?>? initialFilters;
@@ -23,10 +30,18 @@ class SourceSearchPage extends StatefulWidget {
 }
 
 class _SourceSearchPageState extends State<SourceSearchPage> {
-  late final SourceManifest _m = SourceManager.instance.manifest(widget.sourceKey)!;
+  late final SourceManifest _m = SourceManager.instance.manifest(
+    widget.sourceKey,
+  )!;
   late final _text = TextEditingController(text: widget.initialKeyword);
-  late Map<String, Object?> _filters = {..._m.defaultFilters(), ...?widget.initialFilters};
-  late final PagedController _controller = PagedController(_load, source: widget.sourceKey);
+  late Map<String, Object?> _filters = {
+    ..._m.defaultFilters(),
+    ...?widget.initialFilters,
+  };
+  late final PagedController _controller = PagedController(
+    _load,
+    source: widget.sourceKey,
+  );
   bool _started = false;
   bool _translating = false;
   MultiKeyword? _multi;
@@ -37,8 +52,11 @@ class _SourceSearchPageState extends State<SourceSearchPage> {
     super.initState();
     if (widget.initialMulti != null) {
       _multi = widget.initialMulti;
-      WidgetsBinding.instance.addPostFrameCallback((_) => _search(keepMulti: true));
-    } else if (widget.initialKeyword.isNotEmpty || (widget.initialFilters?.isNotEmpty ?? false)) {
+      WidgetsBinding.instance.addPostFrameCallback(
+        (_) => _search(keepMulti: true),
+      );
+    } else if (widget.initialKeyword.isNotEmpty ||
+        (widget.initialFilters?.isNotEmpty ?? false)) {
       _search();
     }
   }
@@ -53,7 +71,13 @@ class _SourceSearchPageState extends State<SourceSearchPage> {
   Future<WorkPage> _load(int page, String? cursor) {
     final multi = _multiSearch;
     if (multi != null) return multi.next();
-    return SourceManager.instance.search(widget.sourceKey, keyword: _text.text.trim(), page: page, cursor: cursor, filters: _filters);
+    return SourceManager.instance.search(
+      widget.sourceKey,
+      keyword: _text.text.trim(),
+      page: page,
+      cursor: cursor,
+      filters: _filters,
+    );
   }
 
   void _search({bool keepMulti = false}) {
@@ -61,7 +85,9 @@ class _SourceSearchPageState extends State<SourceSearchPage> {
     if (k.isNotEmpty) AppSettings.instance.addSearchHistory(k);
     FocusScope.of(context).unfocus();
     if (!keepMulti || _multi?.original != k) _multi = null;
-    _multiSearch = _multi == null ? null : MultiKeywordSearch(widget.sourceKey, _multi!.all, _filters);
+    _multiSearch = _multi == null
+        ? null
+        : MultiKeywordSearch(widget.sourceKey, _multi!.all, _filters);
     setState(() => _started = true);
     _controller.refresh();
   }
@@ -103,6 +129,7 @@ class _SourceSearchPageState extends State<SourceSearchPage> {
 
   @override
   Widget build(BuildContext context) {
+    AppLocalizations.of(context);
     return Theme(
       data: ParkTheme.build(Theme.of(context).brightness, _m.color),
       child: Builder(
@@ -112,30 +139,53 @@ class _SourceSearchPageState extends State<SourceSearchPage> {
               titleSpacing: 0,
               title: TextField(
                 controller: _text,
-                autofocus: widget.initialKeyword.isEmpty && widget.initialFilters == null,
+                autofocus:
+                    widget.initialKeyword.isEmpty &&
+                    widget.initialFilters == null,
                 textInputAction: TextInputAction.search,
                 onSubmitted: (_) => _search(),
                 decoration: InputDecoration(
-                  hintText: '在 ${_m.name} 中搜索',
-                  prefixIcon: Padding(padding: const EdgeInsets.all(10), child: SourceAvatar(_m.key, size: 24)),
-                  suffixIcon: IconButton(icon: const Icon(Icons.close_rounded), onPressed: _text.clear),
+                  hintText: tr('在 {source} 中搜索', {'source': _m.name}),
+                  prefixIcon: Padding(
+                    padding: const EdgeInsets.all(10),
+                    child: SourceAvatar(_m.key, size: 24),
+                  ),
+                  suffixIcon: IconButton(
+                    icon: const Icon(Icons.close_rounded),
+                    onPressed: _text.clear,
+                  ),
                   contentPadding: const EdgeInsets.symmetric(vertical: 10),
                 ),
               ),
               actions: [
                 if (_m.searchFilters.isNotEmpty)
                   IconButton(
-                    tooltip: '筛选',
-                    icon: Badge(isLabelVisible: _activeFilters > 0, label: Text('$_activeFilters'), child: const Icon(Icons.filter_list_rounded)),
+                    tooltip: tr('筛选'),
+                    icon: Badge(
+                      isLabelVisible: _activeFilters > 0,
+                      label: Text('$_activeFilters'),
+                      child: const Icon(Icons.filter_list_rounded),
+                    ),
                     onPressed: _openFilters,
                   ),
                 _translating
                     ? const Padding(
                         padding: EdgeInsets.all(14),
-                        child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2.2)),
+                        child: SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2.2),
+                        ),
                       )
-                    : TextButton(onPressed: _searchMulti, child: const Text('多语言')),
-                IconButton(tooltip: '搜索', icon: const Icon(Icons.search_rounded), onPressed: _search),
+                    : TextButton(
+                        onPressed: _searchMulti,
+                        child: Text(tr('多语言')),
+                      ),
+                IconButton(
+                  tooltip: tr('搜索'),
+                  icon: const Icon(Icons.search_rounded),
+                  onPressed: _search,
+                ),
               ],
             ),
             body: !_started
@@ -150,7 +200,7 @@ class _SourceSearchPageState extends State<SourceSearchPage> {
                     onRefresh: _controller.refresh,
                     child: CustomScrollView(
                       slivers: [
-                        if (_multi != null && _multi!.translations.isNotEmpty)
+                        if (_multi != null)
                           SliverToBoxAdapter(
                             child: TranslationsBar(
                               keyword: _multi!,
@@ -162,7 +212,11 @@ class _SourceSearchPageState extends State<SourceSearchPage> {
                           ),
                         if (_activeFilters > 0)
                           SliverToBoxAdapter(
-                            child: _ActiveFilters(manifest: _m, values: _filters, onTap: _openFilters),
+                            child: _ActiveFilters(
+                              manifest: _m,
+                              values: _filters,
+                              onTap: _openFilters,
+                            ),
                           ),
                         PagedSliverGrid(controller: _controller, kind: _m.kind),
                       ],
@@ -182,6 +236,7 @@ class _Intro extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    AppLocalizations.of(context);
     final history = AppSettings.instance.searchHistory.take(12).toList();
     return ListView(
       padding: const EdgeInsets.all(16),
@@ -189,17 +244,26 @@ class _Intro extends StatelessWidget {
         if (manifest.searchHint.isNotEmpty)
           Card(
             child: ListTile(
-              leading: Icon(Icons.lightbulb_outline_rounded, color: context.colors.primary),
-              title: const Text('搜索技巧'),
+              leading: Icon(
+                Icons.lightbulb_outline_rounded,
+                color: context.colors.primary,
+              ),
+              title: Text(tr('搜索技巧')),
               subtitle: Text(manifest.searchHint),
             ),
           ),
         if (history.isNotEmpty) ...[
-          const SectionHeader('最近搜索', padding: EdgeInsets.fromLTRB(4, 20, 4, 8)),
+          SectionHeader(
+            tr('最近搜索'),
+            padding: const EdgeInsets.fromLTRB(4, 20, 4, 8),
+          ),
           Wrap(
             spacing: 8,
             runSpacing: 8,
-            children: [for (final k in history) ActionChip(label: Text(k), onPressed: () => onPick(k))],
+            children: [
+              for (final k in history)
+                ActionChip(label: Text(k), onPressed: () => onPick(k)),
+            ],
           ),
         ],
       ],
@@ -208,26 +272,36 @@ class _Intro extends StatelessWidget {
 }
 
 class _ActiveFilters extends StatelessWidget {
-  const _ActiveFilters({required this.manifest, required this.values, required this.onTap});
+  const _ActiveFilters({
+    required this.manifest,
+    required this.values,
+    required this.onTap,
+  });
   final SourceManifest manifest;
   final Map<String, Object?> values;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
+    AppLocalizations.of(context);
     final defaults = manifest.defaultFilters();
     final chips = <String>[];
     for (final f in manifest.searchFilters) {
       final v = values[f.key];
       if (v is List) {
         if (v.isNotEmpty) chips.add('${f.label}：${v.map(f.labelOf).join('、')}');
-      } else if (v != defaults[f.key] && v != null && '$v' != '' && '$v' != '0') {
+      } else if (v != defaults[f.key] &&
+          v != null &&
+          '$v' != '' &&
+          '$v' != '0') {
         chips.add('${f.label}：${f.values.isEmpty ? v : f.labelOf(v)}');
       }
     }
     for (final e in values.entries) {
-      if (!manifest.searchFilters.any((f) => f.key == e.key) && e.value is List && (e.value as List).isNotEmpty) {
-        chips.add('标签：${(e.value as List).join('、')}');
+      if (!manifest.searchFilters.any((f) => f.key == e.key) &&
+          e.value is List &&
+          (e.value as List).isNotEmpty) {
+        chips.add(tr('标签：{tags}', {'tags': (e.value as List).join(tr('、'))}));
       }
     }
     return SizedBox(
@@ -239,7 +313,11 @@ class _ActiveFilters extends StatelessWidget {
           for (final c in chips)
             Padding(
               padding: const EdgeInsets.only(right: 6),
-              child: ActionChip(label: Text(c), onPressed: onTap, visualDensity: VisualDensity.compact),
+              child: ActionChip(
+                label: Text(c),
+                onPressed: onTap,
+                visualDensity: VisualDensity.compact,
+              ),
             ),
         ],
       ),
@@ -262,6 +340,7 @@ class _FilterSheetState extends State<FilterSheet> {
 
   @override
   Widget build(BuildContext context) {
+    AppLocalizations.of(context);
     return DraggableScrollableSheet(
       expand: false,
       initialChildSize: 0.6,
@@ -272,7 +351,12 @@ class _FilterSheetState extends State<FilterSheet> {
             padding: const EdgeInsets.fromLTRB(20, 0, 12, 4),
             child: Row(
               children: [
-                Text('筛选', style: context.text.titleLarge?.copyWith(fontWeight: FontWeight.w800)),
+                Text(
+                  tr('筛选'),
+                  style: context.text.titleLarge?.copyWith(
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
                 const Spacer(),
                 TextButton(
                   onPressed: () => setState(
@@ -280,7 +364,7 @@ class _FilterSheetState extends State<FilterSheet> {
                       ..clear()
                       ..addAll(widget.manifest.defaultFilters()),
                   ),
-                  child: const Text('重置'),
+                  child: Text(tr('重置')),
                 ),
               ],
             ),
@@ -293,10 +377,18 @@ class _FilterSheetState extends State<FilterSheet> {
                 for (final f in widget.manifest.searchFilters) ...[
                   Padding(
                     padding: const EdgeInsets.only(top: 14, bottom: 8),
-                    child: Text(f.label, style: context.text.titleSmall?.copyWith(fontWeight: FontWeight.w700)),
+                    child: Text(
+                      f.label,
+                      style: context.text.titleSmall?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
                   ),
                   if (f.type == 'number')
-                    _NumberField(value: (_v[f.key] as num?)?.toInt() ?? 0, onChanged: (n) => setState(() => _v[f.key] = n))
+                    _NumberField(
+                      value: (_v[f.key] as num?)?.toInt() ?? 0,
+                      onChanged: (n) => setState(() => _v[f.key] = n),
+                    )
                   else
                     Wrap(
                       spacing: 8,
@@ -306,8 +398,15 @@ class _FilterSheetState extends State<FilterSheet> {
                           if (f.type == 'multi')
                             FilterChip(
                               label: Text(c.label),
-                              selected: ((_v[f.key] as List?) ?? []).contains(c.value),
-                              avatar: c.color != null ? CircleAvatar(backgroundColor: parseHexColor(c.color!), radius: 5) : null,
+                              selected: ((_v[f.key] as List?) ?? []).contains(
+                                c.value,
+                              ),
+                              avatar: c.color != null
+                                  ? CircleAvatar(
+                                      backgroundColor: parseHexColor(c.color!),
+                                      radius: 5,
+                                    )
+                                  : null,
                               showCheckmark: false,
                               onSelected: (on) => setState(() {
                                 final list = [...((_v[f.key] as List?) ?? [])];
@@ -320,7 +419,8 @@ class _FilterSheetState extends State<FilterSheet> {
                               label: Text(c.label),
                               selected: _v[f.key] == c.value,
                               showCheckmark: false,
-                              onSelected: (_) => setState(() => _v[f.key] = c.value),
+                              onSelected: (_) =>
+                                  setState(() => _v[f.key] = c.value),
                             ),
                       ],
                     ),
@@ -335,7 +435,10 @@ class _FilterSheetState extends State<FilterSheet> {
               padding: const EdgeInsets.fromLTRB(20, 8, 20, 12),
               child: SizedBox(
                 width: double.infinity,
-                child: FilledButton(onPressed: () => Navigator.pop(context, _v), child: const Text('应用筛选')),
+                child: FilledButton(
+                  onPressed: () => Navigator.pop(context, _v),
+                  child: Text(tr('应用筛选')),
+                ),
               ),
             ),
           ),
@@ -352,14 +455,27 @@ class _NumberField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    AppLocalizations.of(context);
     return Row(
       children: [
-        IconButton.filledTonal(onPressed: value > 0 ? () => onChanged((value - 10).clamp(0, 9999)) : null, icon: const Icon(Icons.remove_rounded)),
+        IconButton.filledTonal(
+          onPressed: value > 0
+              ? () => onChanged((value - 10).clamp(0, 9999))
+              : null,
+          icon: const Icon(Icons.remove_rounded),
+        ),
         SizedBox(
           width: 72,
-          child: Text(value == 0 ? '不限' : '≥ $value', textAlign: TextAlign.center, style: context.text.titleMedium),
+          child: Text(
+            value == 0 ? tr('不限') : '≥ $value',
+            textAlign: TextAlign.center,
+            style: context.text.titleMedium,
+          ),
         ),
-        IconButton.filledTonal(onPressed: () => onChanged(value + 10), icon: const Icon(Icons.add_rounded)),
+        IconButton.filledTonal(
+          onPressed: () => onChanged(value + 10),
+          icon: const Icon(Icons.add_rounded),
+        ),
       ],
     );
   }

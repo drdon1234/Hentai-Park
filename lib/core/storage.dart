@@ -7,11 +7,14 @@ import 'package:path_provider/path_provider.dart';
 
 /// Well-known app directories, resolved once at startup.
 class AppPaths {
-  static late Directory data; // persistent app data (sources, library, settings)
+  static late Directory
+  data; // persistent app data (sources, library, settings)
   static late Directory cache; // image cache, can be cleared
   static late Directory downloads; // offline downloads
-  static late Directory backups; // automatic and manual backups (user-visible on Android)
-  static late Directory downloadRoot; // new downloads and exports (user-visible on Android)
+  static late Directory
+  backups; // automatic and manual backups (user-visible on Android)
+  static late Directory
+  downloadRoot; // new downloads and exports (user-visible on Android)
 
   static Future<void> init() async {
     final support = await getApplicationSupportDirectory();
@@ -21,7 +24,9 @@ class AppPaths {
     downloads = Directory(p.join(support.path, 'downloads'));
     final external = await _external();
     backups = Directory(p.join(external?.path ?? support.path, 'backups'));
-    downloadRoot = external == null ? downloads : Directory(p.join(external.path, 'downloads'));
+    downloadRoot = external == null
+        ? downloads
+        : Directory(p.join(external.path, 'downloads'));
     for (final d in [data, cache, downloads, backups, downloadRoot]) {
       await d.create(recursive: true);
     }
@@ -68,20 +73,26 @@ class JsonStore {
   void save(Object? data) {
     _data = data;
     _timer?.cancel();
-    _timer = Timer(debounce, flush);
+    _timer = Timer(debounce, () {
+      // Deferred writes retain _data for a later retry; explicit flush callers still receive errors.
+      unawaited(flush().catchError((Object _) {}));
+    });
   }
 
-  Future<void> flush() async {
+  Future<void> flush() {
     _timer?.cancel();
     _timer = null;
-    await _writing;
     final text = jsonEncode(_data);
-    final tmp = File('${_file.path}.tmp');
-    _writing = () async {
+    final file = _file;
+    final tmp = File('${file.path}.tmp');
+    final write = (_writing ?? Future<void>.value()).then((_) async {
       await tmp.writeAsString(text, flush: true);
-      await tmp.rename(_file.path);
-    }();
-    await _writing;
+      await tmp.rename(file.path);
+    });
+    // Set the queue synchronously: simultaneous flushes cannot all race past the same await.
+    // This tail recovers from an earlier failure; the returned write preserves this call's failure.
+    _writing = write.catchError((Object _) {});
+    return write;
   }
 }
 

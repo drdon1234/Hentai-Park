@@ -6,6 +6,7 @@ import '../core/models.dart';
 import '../core/settings.dart';
 import '../engine/source_manager.dart';
 import 'library.dart';
+import '../core/localization.dart';
 
 typedef DetailFetcher = Future<WorkDetail> Function(String source, String id);
 
@@ -122,7 +123,7 @@ class LibraryUpdater extends ChangeNotifier {
       try {
         final d = await _fetch(f.item.source, f.item.id);
         final item = d.toItem();
-        final chapters = d.chapters ?? [Chapter(chapterKeyOf(d.singleChapterId), '全本')];
+        final chapters = d.chapters ?? [Chapter(chapterKeyOf(d.singleChapterId), tr('全本'))];
         final fresh = await _lib.syncChapters(item, chapters, oneShot: d.chapters == null);
         _lib.updateSnapshot(item);
         await _lib.markChecked(item.uid);

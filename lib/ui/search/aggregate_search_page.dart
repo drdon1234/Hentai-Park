@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../core/models.dart';
+import '../../core/localization.dart';
 import '../../core/settings.dart';
 import '../../core/tag_blocklist.dart';
 import '../../engine/source_manager.dart';
@@ -37,7 +38,9 @@ class _AggregateSearchPageState extends State<AggregateSearchPage> {
     if (widget.initialKeyword.isNotEmpty) {
       _submit(widget.initialKeyword);
     } else {
-      WidgetsBinding.instance.addPostFrameCallback((_) => _focus.requestFocus());
+      WidgetsBinding.instance.addPostFrameCallback(
+        (_) => _focus.requestFocus(),
+      );
     }
     _text.addListener(() => setState(() {}));
   }
@@ -81,13 +84,18 @@ class _AggregateSearchPageState extends State<AggregateSearchPage> {
 
   List<InstalledSource> get _scope {
     final excluded = AppSettings.instance.aggregateExcluded;
-    return SourceManager.instance.enabled.where((s) => s.manifest!.can('search') && !excluded.contains(s.key)).toList();
+    return SourceManager.instance.enabled
+        .where((s) => s.manifest!.can('search') && !excluded.contains(s.key))
+        .toList();
   }
 
   @override
   Widget build(BuildContext context) {
+    AppLocalizations.of(context);
     final typed = _text.text.trim();
-    final refs = typed.isEmpty ? const <({String source, String id})>[] : _directRefs(typed);
+    final refs = typed.isEmpty
+        ? const <({String source, String id})>[]
+        : _directRefs(typed);
     return Scaffold(
       appBar: AppBar(
         titleSpacing: 0,
@@ -97,18 +105,21 @@ class _AggregateSearchPageState extends State<AggregateSearchPage> {
           textInputAction: TextInputAction.search,
           onSubmitted: _submit,
           decoration: InputDecoration(
-            hintText: '搜索全部源站，或粘贴链接 / 车号',
+            hintText: tr('搜索全部源站，或粘贴链接 / 车号'),
             prefixIcon: const Icon(Icons.search_rounded),
             suffixIcon: typed.isEmpty
                 ? IconButton(
-                    tooltip: '粘贴',
+                    tooltip: tr('粘贴'),
                     icon: const Icon(Icons.content_paste_rounded),
                     onPressed: () async {
                       final data = await Clipboard.getData('text/plain');
                       if (data?.text != null) _text.text = data!.text!.trim();
                     },
                   )
-                : IconButton(icon: const Icon(Icons.close_rounded), onPressed: () => _text.clear()),
+                : IconButton(
+                    icon: const Icon(Icons.close_rounded),
+                    onPressed: () => _text.clear(),
+                  ),
             contentPadding: const EdgeInsets.symmetric(vertical: 10),
           ),
         ),
@@ -116,20 +127,36 @@ class _AggregateSearchPageState extends State<AggregateSearchPage> {
           _translating
               ? const Padding(
                   padding: EdgeInsets.all(14),
-                  child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2.2)),
+                  child: SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2.2),
+                  ),
                 )
-              : TextButton(onPressed: typed.isEmpty ? null : _submitMulti, child: const Text('多语言')),
-          TextButton(onPressed: () => _submit(_text.text), child: const Text('搜索')),
+              : TextButton(
+                  onPressed: typed.isEmpty ? null : _submitMulti,
+                  child: Text(tr('多语言')),
+                ),
+          TextButton(
+            onPressed: () => _submit(_text.text),
+            child: Text(tr('搜索')),
+          ),
           const SizedBox(width: 4),
         ],
       ),
       body: ListenableBuilder(
-        listenable: Listenable.merge([SourceManager.instance, AppSettings.instance]),
+        listenable: Listenable.merge([
+          SourceManager.instance,
+          AppSettings.instance,
+        ]),
         builder: (context, _) => CustomScrollView(
           slivers: [
-            if (refs.isNotEmpty) SliverToBoxAdapter(child: _DirectJump(refs: refs)),
+            if (refs.isNotEmpty)
+              SliverToBoxAdapter(child: _DirectJump(refs: refs)),
             if (_submitted.isEmpty || typed != _submitted) ...[
-              SliverToBoxAdapter(child: _ScopeBar(scope: _scope.map((s) => s.key).toSet())),
+              SliverToBoxAdapter(
+                child: _ScopeBar(scope: _scope.map((s) => s.key).toSet()),
+              ),
               SliverToBoxAdapter(
                 child: _History(
                   onPick: (k) {
@@ -139,7 +166,7 @@ class _AggregateSearchPageState extends State<AggregateSearchPage> {
                 ),
               ),
             ],
-            if (_submitted.isNotEmpty && typed == _submitted && _multi != null && _multi!.translations.isNotEmpty)
+            if (_submitted.isNotEmpty && typed == _submitted && _multi != null)
               SliverToBoxAdapter(
                 child: TranslationsBar(
                   keyword: _multi!,
@@ -187,10 +214,18 @@ class _DirectJump extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    AppLocalizations.of(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        SectionHeader('直达作品', leading: Icon(Icons.bolt_rounded, color: context.colors.primary, size: 20)),
+        SectionHeader(
+          tr('直达作品'),
+          leading: Icon(
+            Icons.bolt_rounded,
+            color: context.colors.primary,
+            size: 20,
+          ),
+        ),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16),
           child: Wrap(
@@ -200,7 +235,9 @@ class _DirectJump extends StatelessWidget {
               for (final r in refs)
                 ActionChip(
                   avatar: SourceAvatar(r.source, size: 22),
-                  label: Text('${SourceManager.instance.manifest(r.source)?.name ?? r.source}  ${r.id}'),
+                  label: Text(
+                    '${SourceManager.instance.manifest(r.source)?.name ?? r.source}  ${r.id}',
+                  ),
                   onPressed: () => Nav.openRef(context, r.source, r.id),
                 ),
             ],
@@ -217,11 +254,21 @@ class _ScopeBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final sources = SourceManager.instance.enabled.where((s) => s.manifest!.can('search')).toList();
+    AppLocalizations.of(context);
+    final sources = SourceManager.instance.enabled
+        .where((s) => s.manifest!.can('search'))
+        .toList();
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        SectionHeader('搜索范围', leading: Icon(Icons.hub_outlined, color: context.colors.primary, size: 20)),
+        SectionHeader(
+          tr('搜索范围'),
+          leading: Icon(
+            Icons.hub_outlined,
+            color: context.colors.primary,
+            size: 20,
+          ),
+        ),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16),
           child: Wrap(
@@ -234,7 +281,8 @@ class _ScopeBar extends StatelessWidget {
                   label: Text(s.name),
                   selected: scope.contains(s.key),
                   showCheckmark: false,
-                  onSelected: (on) => AppSettings.instance.setAggregateIncluded(s.key, on),
+                  onSelected: (on) =>
+                      AppSettings.instance.setAggregateIncluded(s.key, on),
                 ),
             ],
           ),
@@ -250,15 +298,24 @@ class _History extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    AppLocalizations.of(context);
     final history = AppSettings.instance.searchHistory;
     if (history.isEmpty) return const SizedBox.shrink();
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         SectionHeader(
-          '最近搜索',
-          leading: Icon(Icons.history_rounded, color: context.colors.primary, size: 20),
-          trailing: IconButton(tooltip: '清空', icon: const Icon(Icons.delete_sweep_outlined), onPressed: AppSettings.instance.clearSearchHistory),
+          tr('最近搜索'),
+          leading: Icon(
+            Icons.history_rounded,
+            color: context.colors.primary,
+            size: 20,
+          ),
+          trailing: IconButton(
+            tooltip: tr('清空'),
+            icon: const Icon(Icons.delete_sweep_outlined),
+            onPressed: AppSettings.instance.clearSearchHistory,
+          ),
         ),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -282,7 +339,12 @@ class _History extends StatelessWidget {
 }
 
 class _SourceResults extends StatefulWidget {
-  const _SourceResults({super.key, required this.source, required this.keyword, this.multi});
+  const _SourceResults({
+    super.key,
+    required this.source,
+    required this.keyword,
+    this.multi,
+  });
   final String source;
   final String keyword;
   final MultiKeyword? multi;
@@ -291,14 +353,24 @@ class _SourceResults extends StatefulWidget {
   State<_SourceResults> createState() => _SourceResultsState();
 }
 
-class _SourceResultsState extends State<_SourceResults> with AutomaticKeepAliveClientMixin {
+class _SourceResultsState extends State<_SourceResults>
+    with AutomaticKeepAliveClientMixin {
   late Future<WorkPage> _future = _load();
 
   Future<WorkPage> _load() {
     final m = SourceManager.instance.manifest(widget.source)!;
     final multi = widget.multi;
-    if (multi != null && multi.all.length > 1) return MultiKeywordSearch(widget.source, multi.all, m.defaultFilters()).next();
-    return SourceManager.instance.search(widget.source, keyword: widget.keyword, filters: m.defaultFilters());
+    if (multi != null && multi.all.length > 1)
+      return MultiKeywordSearch(
+        widget.source,
+        multi.all,
+        m.defaultFilters(),
+      ).next();
+    return SourceManager.instance.search(
+      widget.source,
+      keyword: widget.keyword,
+      filters: m.defaultFilters(),
+    );
   }
 
   @override
@@ -306,6 +378,7 @@ class _SourceResultsState extends State<_SourceResults> with AutomaticKeepAliveC
 
   @override
   Widget build(BuildContext context) {
+    AppLocalizations.of(context);
     super.build(context);
     final m = SourceManager.instance.manifest(widget.source)!;
     return FutureBuilder<WorkPage>(
@@ -316,17 +389,36 @@ class _SourceResultsState extends State<_SourceResults> with AutomaticKeepAliveC
           leading: SourceAvatar(widget.source, size: 26),
           trailing: TextButton(
             onPressed: () => widget.multi != null
-                ? Nav.push(context, SourceSearchPage(sourceKey: widget.source, initialKeyword: widget.keyword, initialMulti: widget.multi))
-                : Nav.openSourceSearch(context, widget.source, keyword: widget.keyword),
+                ? Nav.push(
+                    context,
+                    SourceSearchPage(
+                      sourceKey: widget.source,
+                      initialKeyword: widget.keyword,
+                      initialMulti: widget.multi,
+                    ),
+                  )
+                : Nav.openSourceSearch(
+                    context,
+                    widget.source,
+                    keyword: widget.keyword,
+                  ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
                 if (snap.connectionState != ConnectionState.done) ...[
-                  const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2)),
+                  const SizedBox(
+                    width: 14,
+                    height: 14,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
                   const SizedBox(width: 8),
                 ],
-                if (snap.hasData && (snap.data!.total ?? 0) > 0) Text('${formatCount(snap.data!.total)} 部 ', style: context.text.labelMedium),
-                const Text('全部'),
+                if (snap.hasData && (snap.data!.total ?? 0) > 0)
+                  Text(
+                    tr('{count} 部 ', {'count': formatCount(snap.data!.total)}),
+                    style: context.text.labelMedium,
+                  ),
+                Text(tr('全部')),
                 const Icon(Icons.chevron_right_rounded, size: 18),
               ],
             ),
@@ -355,17 +447,29 @@ class _SourceResultsState extends State<_SourceResults> with AutomaticKeepAliveC
           body = Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: Card(
-              child: SourceErrorView(error: snap.error!, source: widget.source, compact: true, onRetry: () => setState(() => _future = _load())),
+              child: SourceErrorView(
+                error: snap.error!,
+                source: widget.source,
+                compact: true,
+                onRetry: () => setState(() => _future = _load()),
+              ),
             ),
           );
         } else if (snap.data!.items.isEmpty) {
           body = Padding(
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-            child: Text('没有找到相关作品', style: context.text.bodySmall?.copyWith(color: context.colors.onSurfaceVariant)),
+            child: Text(
+              tr('没有找到相关作品'),
+              style: context.text.bodySmall?.copyWith(
+                color: context.colors.onSurfaceVariant,
+              ),
+            ),
           );
         } else {
           final blocklist = TagBlocklist.current();
-          final items = snap.data!.items.where((e) => blocklist.matchItem(e) == null).toList();
+          final items = snap.data!.items
+              .where((e) => blocklist.matchItem(e) == null)
+              .toList();
           final a = gridAspectFor(items, kind);
           final w = a > 1 ? 200.0 : 118.0;
           body = SizedBox(
@@ -382,7 +486,10 @@ class _SourceResultsState extends State<_SourceResults> with AutomaticKeepAliveC
             ),
           );
         }
-        return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [header, body]);
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [header, body],
+        );
       },
     );
   }

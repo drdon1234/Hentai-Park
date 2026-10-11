@@ -4,6 +4,7 @@ import 'package:flutter/widgets.dart';
 import 'package:local_auth/local_auth.dart';
 
 import 'settings.dart';
+import 'localization.dart';
 
 /// Mihon's app lock: biometrics / device credential on launch and after the app was in the
 /// background longer than the configured delay.
@@ -38,7 +39,7 @@ class AppLock extends ChangeNotifier with WidgetsBindingObserver {
     if (_authenticating) return false;
     _authenticating = true;
     try {
-      return await _auth.authenticate(localizedReason: reason, persistAcrossBackgrounding: true);
+      return await _auth.authenticate(localizedReason: tr(reason), persistAcrossBackgrounding: true);
     } catch (e) {
       debugPrint('authenticate failed: $e');
       return false;
@@ -58,7 +59,7 @@ class AppLock extends ChangeNotifier with WidgetsBindingObserver {
   /// Turning the lock on requires a successful authentication first, so users cannot lock themselves out.
   Future<bool> enable() async {
     if (!await available()) return false;
-    if (!await authenticate(reason: '验证身份以开启应用锁')) return false;
+    if (!await authenticate(reason: tr('验证身份以开启应用锁'))) return false;
     AppSettings.instance.appLock = true;
     return true;
   }

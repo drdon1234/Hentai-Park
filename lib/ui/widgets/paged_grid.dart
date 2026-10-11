@@ -6,6 +6,7 @@ import '../theme.dart';
 import 'common.dart';
 import 'error_view.dart';
 import 'work_card.dart';
+import '../../core/localization.dart';
 
 typedef PageLoader = Future<WorkPage> Function(int page, String? cursor);
 
@@ -126,6 +127,7 @@ class PagedSliverGrid extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    AppLocalizations.of(context);
     return ListenableBuilder(
       listenable: controller,
       builder: (context, _) {
@@ -139,9 +141,9 @@ class PagedSliverGrid extends StatelessWidget {
             );
           }
           if (!c.loading && !c.hasNext) {
-            return const SliverFillRemaining(
+            return SliverFillRemaining(
               hasScrollBody: false,
-              child: MessageView(icon: Icons.search_off_rounded, title: '这里什么都没有', message: '换个关键词或筛选条件试试'),
+              child: MessageView(icon: Icons.search_off_rounded, title: tr('这里什么都没有'), message: tr('换个关键词或筛选条件试试')),
             );
           }
           return _skeletonGrid(context);
@@ -194,7 +196,7 @@ class PagedSliverGrid extends StatelessWidget {
           child: FilledButton.tonalIcon(
             onPressed: c.loadMore,
             icon: const Icon(Icons.refresh_rounded),
-            label: Text('加载失败，点击重试  ${c.error!.asSourceError.code}'),
+            label: Text(tr('加载失败，点击重试  {value0}', {'value0': c.error!.asSourceError.code})),
           ),
         ),
       );
@@ -209,7 +211,7 @@ class PagedSliverGrid extends StatelessWidget {
         padding: const EdgeInsets.all(20),
         child: Center(
           child: Text(
-            '· 已经到底了 · 共 ${c.items.length} 部${c.hidden > 0 ? '（已屏蔽 ${c.hidden} 部）' : ''} ·',
+            tr('· 已经到底了 · 共 {value0} 部{value1} ·', {'value0': c.items.length, 'value1': c.hidden > 0 ? tr('（已屏蔽 {value0} 部）', {'value0': c.hidden}) : ''}),
             style: context.text.labelMedium?.copyWith(color: context.colors.onSurfaceVariant),
           ),
         ),
@@ -252,6 +254,7 @@ class _SectionsSliver extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    AppLocalizations.of(context);
     final sections = controller.sections!;
     return SliverList.builder(
       itemCount: sections.length,
@@ -272,6 +275,7 @@ class WorkCarousel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    AppLocalizations.of(context);
     if (items.isEmpty) return const SizedBox.shrink();
     final aspect = gridAspectFor(items, kindOf(items.first.source));
     final cardWidth = aspect > 1 ? 200.0 : 118.0;

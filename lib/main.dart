@@ -9,6 +9,7 @@ import 'package:path/path.dart' as p;
 import 'core/app_lock.dart';
 import 'core/crash_log.dart';
 import 'core/models.dart';
+import 'core/localization.dart';
 import 'core/settings.dart';
 import 'core/storage.dart';
 import 'data/database.dart';
@@ -31,6 +32,8 @@ Future<void> main() async {
   await AppPaths.init();
   CrashLog.install();
   await AppSettings.instance.load();
+  await AppLocalizations.instance.load();
+  AppLocalizations.instance.setLocale(AppSettings.instance.locale ?? AppLocalizations.resolveLocales(WidgetsBinding.instance.platformDispatcher.locales));
   await CookieStore.instance.init();
   HttpService.instance.init();
   final db = AppDatabase.file(File(p.join(AppPaths.data.path, 'park.db')));
@@ -81,6 +84,14 @@ class ParkApp extends StatelessWidget {
         final seed = Color(settings.seedColor);
         return MaterialApp(
           title: 'HentaiPark',
+          locale: settings.locale,
+          supportedLocales: AppLocalizations.supportedLocales,
+          localizationsDelegates: AppLocalizations.delegates,
+          localeListResolutionCallback: (locales, supported) {
+            final resolved = AppLocalizations.resolveLocales(locales);
+            AppLocalizations.instance.setLocale(resolved);
+            return resolved;
+          },
           debugShowCheckedModeBanner: false,
           themeMode: settings.themeMode,
           theme: ParkTheme.build(Brightness.light, seed),

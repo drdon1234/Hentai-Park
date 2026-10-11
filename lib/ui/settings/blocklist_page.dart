@@ -4,6 +4,7 @@ import '../../core/settings.dart';
 import '../../core/tag_blocklist.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
+import '../../core/localization.dart';
 
 /// Tag / title blocklist (see core/tag_blocklist.dart for matching rules).
 class BlocklistPage extends StatefulWidget {
@@ -31,9 +32,10 @@ class _BlocklistPageState extends State<BlocklistPage> {
 
   @override
   Widget build(BuildContext context) {
+    AppLocalizations.of(context);
     final s = AppSettings.instance;
     return Scaffold(
-      appBar: AppBar(title: const Text('屏蔽标签')),
+      appBar: AppBar(title: Text(tr('屏蔽标签'))),
       body: ListenableBuilder(
         listenable: s,
         builder: (context, _) {
@@ -42,11 +44,7 @@ class _BlocklistPageState extends State<BlocklistPage> {
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
             children: [
               Text(
-                '带有这些标签的作品会从浏览、搜索与聚合搜索结果中隐藏；打开详情页时会给出提示。\n'
-                '· 标签名（如 guro）匹配任意分类下的同名标签\n'
-                '· 分类:标签（如 female:scat）只匹配该分类\n'
-                '· title:关键词 匹配标题\n'
-                '也可以在作品详情页长按标签直接屏蔽。',
+                tr('带有这些标签的作品会从浏览、搜索与聚合搜索结果中隐藏；打开详情页时会给出提示。\n· 标签名（如 guro）匹配任意分类下的同名标签\n· 分类:标签（如 female:scat）只匹配该分类\n· title:关键词 匹配标题\n也可以在作品详情页长按标签直接屏蔽。'),
                 style: context.text.bodySmall?.copyWith(color: context.colors.onSurfaceVariant),
               ),
               const SizedBox(height: 12),
@@ -54,14 +52,14 @@ class _BlocklistPageState extends State<BlocklistPage> {
                 controller: _input,
                 onSubmitted: (_) => _add(),
                 decoration: InputDecoration(
-                  hintText: '输入要屏蔽的标签',
+                  hintText: tr('输入要屏蔽的标签'),
                   border: const OutlineInputBorder(),
                   suffixIcon: IconButton(icon: const Icon(Icons.add_rounded), onPressed: _add),
                 ),
               ),
               const SizedBox(height: 12),
               if (list.isEmpty)
-                const MessageView(icon: Icons.block_rounded, title: '没有屏蔽任何标签', compact: true)
+                MessageView(icon: Icons.block_rounded, title: tr('没有屏蔽任何标签'), compact: true)
               else
                 Wrap(
                   spacing: 8,
@@ -75,10 +73,10 @@ class _BlocklistPageState extends State<BlocklistPage> {
                   ],
                 ),
               const SizedBox(height: 24),
-              Text('预设屏蔽', style: context.text.titleMedium?.copyWith(fontWeight: FontWeight.w800)),
+              Text(tr('预设屏蔽'), style: context.text.titleMedium?.copyWith(fontWeight: FontWeight.w800)),
               const SizedBox(height: 4),
               Text(
-                '默认都不启用，按需开启。每组的标签可以增删改；开启「标题正则匹配」后，每一项也会作为正则表达式匹配标题（纯英文单词按整词匹配）。',
+                tr('默认都不启用，按需开启。每组的标签可以增删改；开启「标题正则匹配」后，每一项也会作为正则表达式匹配标题（纯英文单词按整词匹配）。'),
                 style: context.text.bodySmall?.copyWith(color: context.colors.onSurfaceVariant),
               ),
               const SizedBox(height: 8),
@@ -102,16 +100,16 @@ class _PresetCard extends StatelessWidget {
     return showDialog<String>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: Text(initial.isEmpty ? '添加到「${config.preset.name}」' : '修改'),
+        title: Text(initial.isEmpty ? tr('添加到「{value0}」', {'value0': config.preset.name}) : tr('修改')),
         content: TextField(
           controller: text,
           autofocus: true,
-          decoration: const InputDecoration(hintText: '标签或标题正则'),
+          decoration: InputDecoration(hintText: tr('标签或标题正则')),
           onSubmitted: (v) => Navigator.pop(ctx, v),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('取消')),
-          FilledButton(onPressed: () => Navigator.pop(ctx, text.text), child: const Text('确定')),
+          TextButton(onPressed: () => Navigator.pop(ctx), child: Text(tr('取消'))),
+          FilledButton(onPressed: () => Navigator.pop(ctx, text.text), child: Text(tr('确定'))),
         ],
       ),
     );
@@ -119,6 +117,7 @@ class _PresetCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    AppLocalizations.of(context);
     final s = AppSettings.instance;
     final c = config;
     return Card(
@@ -129,7 +128,7 @@ class _PresetCard extends StatelessWidget {
         leading: Switch(value: c.on, onChanged: (v) => s.setBlockPreset(_id, on: v)),
         title: Text(c.preset.name, style: const TextStyle(fontWeight: FontWeight.w700)),
         subtitle: Text(
-          '${c.on ? '已启用' : '未启用'} · ${c.entries.length} 项${c.title ? ' · 匹配标题' : ''}',
+          tr('{value0} · {value1} 项{value2}', {'value0': c.on ? tr('已启用') : tr('未启用'), 'value1': c.entries.length, 'value2': c.title ? tr(' · 匹配标题') : ''}),
           style: context.text.bodySmall?.copyWith(color: context.colors.onSurfaceVariant),
         ),
         childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
@@ -139,8 +138,8 @@ class _PresetCard extends StatelessWidget {
             contentPadding: EdgeInsets.zero,
             value: c.title,
             onChanged: (v) => s.setBlockPreset(_id, title: v ?? false),
-            title: const Text('标题正则匹配'),
-            subtitle: const Text('标题命中任意一项也会被屏蔽'),
+            title: Text(tr('标题正则匹配')),
+            subtitle: Text(tr('标题命中任意一项也会被屏蔽')),
           ),
           Wrap(
             spacing: 6,
@@ -159,7 +158,7 @@ class _PresetCard extends StatelessWidget {
                 ),
               ActionChip(
                 avatar: const Icon(Icons.add_rounded, size: 18),
-                label: const Text('添加'),
+                label: Text(tr('添加')),
                 visualDensity: VisualDensity.compact,
                 onPressed: () async {
                   final v = (await _edit(context))?.trim();
@@ -174,7 +173,7 @@ class _PresetCard extends StatelessWidget {
             child: TextButton.icon(
               onPressed: () => s.setBlockPreset(_id, reset: true),
               icon: const Icon(Icons.restart_alt_rounded, size: 18),
-              label: const Text('恢复默认标签'),
+              label: Text(tr('恢复默认标签')),
             ),
           ),
         ],

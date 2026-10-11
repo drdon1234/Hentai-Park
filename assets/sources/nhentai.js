@@ -7,7 +7,7 @@
 Park.register({
   key: 'nhentai',
   name: 'nhentai',
-  version: '1.0.2',
+  version: '0.0.1',
   type: 'comic',
   color: '#ED2553',
   icon: 'https://nhentai.net/favicon.ico',

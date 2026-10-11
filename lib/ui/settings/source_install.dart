@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../engine/source_manager.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
+import '../../core/localization.dart';
 
 /// Downloads a script, shows what it is and what it would be allowed to touch, and installs it only
 /// after the user confirms (Mihon's "untrusted extension" prompt). Returns the key, or null.
@@ -10,20 +11,20 @@ Future<String?> installSourceFromUrl(BuildContext context, String url, {String? 
   final sm = SourceManager.instance;
   final InstallPreview preview;
   try {
-    preview = await _withProgress(context, '正在下载并检查源脚本…', () => sm.previewFromUrl(url, expectedSha256: expectedSha256));
+    preview = await _withProgress(context, tr('正在下载并检查源脚本…'), () => sm.previewFromUrl(url, expectedSha256: expectedSha256));
   } catch (e) {
-    if (context.mounted) context.toast('无法安装：${e.asSourceError.message}');
+    if (context.mounted) context.toast(tr('无法安装：{value0}', {'value0': e.asSourceError.message}));
     return null;
   }
   if (!context.mounted) return null;
   final ok = await showDialog<bool>(context: context, builder: (_) => _TrustDialog(preview: preview));
   if (ok != true || !context.mounted) return null;
   try {
-    final key = await _withProgress(context, '正在安装…', () => sm.install(preview));
-    if (context.mounted) context.toast('${preview.existing != null ? '已更新' : '已安装'} ${preview.manifest.name}');
+    final key = await _withProgress(context, tr('正在安装…'), () => sm.install(preview));
+    if (context.mounted) context.toast('${tr(preview.existing != null ? '已更新' : '已安装')} ${preview.manifest.name}');
     return key;
   } catch (e) {
-    if (context.mounted) context.toast('安装失败：${e.asSourceError.message}');
+    if (context.mounted) context.toast(tr('安装失败：{value0}', {'value0': e.asSourceError.message}));
     return null;
   }
 }
@@ -59,6 +60,7 @@ class _TrustDialog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    AppLocalizations.of(context);
     final m = preview.manifest;
     final c = context.colors;
     Widget row(String label, String value, {bool mono = false}) => Padding(
@@ -78,17 +80,17 @@ class _TrustDialog extends StatelessWidget {
     );
     return AlertDialog(
       icon: Icon(Icons.verified_user_outlined, color: c.primary),
-      title: Text(preview.existing != null ? '更新源「${m.name}」？' : '安装源「${m.name}」？'),
+      title: Text(preview.existing != null ? tr('更新源「{value0}」？', {'value0': m.name}) : tr('安装源「{value0}」？', {'value0': m.name})),
       content: SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            row('标识', preview.key),
-            row('版本', 'v${m.version} · ${m.isVideo ? '视频' : '漫画'}'),
-            if (preview.url.isNotEmpty) row('来源', preview.url),
+            row(tr('标识'), preview.key),
+            row(tr('版本'), 'v${m.version} · ${tr(m.isVideo ? '视频' : '漫画')}'),
+            if (preview.url.isNotEmpty) row(tr('来源'), preview.url),
             row('SHA-256', preview.sha256.substring(0, 16), mono: true),
-            row('所属站点', preview.domains.isEmpty ? '（未声明）' : preview.domains.join('\n')),
+            row(tr('所属站点'), preview.domains.isEmpty ? tr('（未声明）') : preview.domains.join('\n')),
             if (preview.warnings.isNotEmpty) ...[
               const SizedBox(height: 12),
               for (final w in preview.warnings)
@@ -100,7 +102,7 @@ class _TrustDialog extends StatelessWidget {
                       Icon(Icons.warning_amber_rounded, size: 18, color: c.error),
                       const SizedBox(width: 8),
                       Expanded(
-                        child: Text(w, style: TextStyle(color: c.error)),
+                        child: Text(tr(w), style: TextStyle(color: c.error)),
                       ),
                     ],
                   ),
@@ -108,15 +110,15 @@ class _TrustDialog extends StatelessWidget {
             ],
             const SizedBox(height: 8),
             Text(
-              '源脚本会以你的身份访问上述站点。只安装你信任的来源。',
+              tr('源脚本会以你的身份访问上述站点。只安装你信任的来源。'),
               style: context.text.bodySmall?.copyWith(color: c.onSurfaceVariant),
             ),
           ],
         ),
       ),
       actions: [
-        TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('取消')),
-        FilledButton(onPressed: () => Navigator.pop(context, true), child: Text(preview.existing != null ? '信任并更新' : '信任并安装')),
+        TextButton(onPressed: () => Navigator.pop(context, false), child: Text(tr('取消'))),
+        FilledButton(onPressed: () => Navigator.pop(context, true), child: Text(preview.existing != null ? tr('信任并更新') : tr('信任并安装'))),
       ],
     );
   }

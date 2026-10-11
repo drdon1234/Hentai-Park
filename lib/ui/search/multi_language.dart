@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../core/models.dart';
+import '../../core/localization.dart';
 import '../../core/settings.dart';
 import '../../core/translator.dart';
 import '../../engine/source_manager.dart';
@@ -8,8 +9,9 @@ import '../theme.dart';
 
 /// A keyword plus its translations, searched together.
 class MultiKeyword {
-  const MultiKeyword(this.original, this.translations);
+  const MultiKeyword(this.original, this.translations, {this.sourceLanguage});
   final String original;
+  final String? sourceLanguage;
 
   /// Language code → translated keyword (only the ones that differ from [original]).
   final Map<String, String> translations;
@@ -17,26 +19,40 @@ class MultiKeyword {
   /// Original first, then distinct translations.
   List<String> get all {
     final seen = <String>{original.toLowerCase()};
-    return [original, ...translations.values.where((t) => seen.add(t.toLowerCase()))];
+    return [
+      original,
+      ...translations.values.where((t) => seen.add(t.toLowerCase())),
+    ];
   }
 }
 
 /// Translates [keyword] into the languages picked in settings. Shows a toast and returns null on failure.
-Future<MultiKeyword?> translateKeyword(BuildContext context, String keyword) async {
+Future<MultiKeyword?> translateKeyword(
+  BuildContext context,
+  String keyword,
+) async {
   final k = keyword.trim();
   if (k.isEmpty) return null;
   final s = AppSettings.instance;
   final targets = s.translateTargets;
   if (targets.isEmpty) {
-    context.toast('请先在设置 › 多语言搜索中选择目标语言');
+    context.toast(tr('请先在设置 › 多语言搜索中选择目标语言'));
     return null;
   }
   try {
-    final map = await Translator.instance.translateAll(k, targets, engine: s.translateEngine);
+    final result = await Translator.instance.translateAll(
+      k,
+      targets,
+      engine: s.translateEngine,
+    );
+    final map = result.translations;
     map.removeWhere((_, v) => v.toLowerCase() == k.toLowerCase());
-    return MultiKeyword(k, map);
+    return MultiKeyword(k, map, sourceLanguage: result.sourceLanguage);
   } catch (e) {
-    if (context.mounted) context.toast('翻译失败：${e is SourceError ? e.message : e}');
+    if (context.mounted)
+      context.toast(
+        tr('翻译失败：{error}', {'error': e is SourceError ? e.message : e}),
+      );
     return null;
   }
 }
@@ -58,8 +74,18 @@ class MultiKeywordSearch {
         final st = _state[k];
         final prev = st?.page ?? 0;
         try {
-          final r = await SourceManager.instance.search(source, keyword: k, page: prev + 1, cursor: st?.cursor, filters: filters);
-          _state[k] = (page: r.page > prev ? r.page : prev + 1, cursor: r.cursor, hasNext: r.hasNext && r.items.isNotEmpty);
+          final r = await SourceManager.instance.search(
+            source,
+            keyword: k,
+            page: prev + 1,
+            cursor: st?.cursor,
+            filters: filters,
+          );
+          _state[k] = (
+            page: r.page > prev ? r.page : prev + 1,
+            cursor: r.cursor,
+            hasNext: r.hasNext && r.items.isNotEmpty,
+          );
           return r.items;
         } catch (e) {
           firstError ??= e;
@@ -68,7 +94,8 @@ class MultiKeywordSearch {
         }
       }),
     );
-    if (results.every((r) => r == null) && firstError != null) throw firstError!;
+    if (results.every((r) => r == null) && firstError != null)
+      throw firstError!;
     final lists = results.whereType<List<WorkItem>>().toList();
     final merged = <WorkItem>[];
     final seen = <String>{};
@@ -78,21 +105,36 @@ class MultiKeywordSearch {
       }
     }
     final more = _state.values.any((s) => s.hasNext);
-    return WorkPage(items: merged, page: ++_page, hasNext: more, cursor: more ? 'multi' : null);
+    return WorkPage(
+      items: merged,
+      page: ++_page,
+      hasNext: more,
+      cursor: more ? 'multi' : null,
+    );
   }
 }
 
 /// Strip listing the translated keywords; tapping one searches only that keyword.
 class TranslationsBar extends StatelessWidget {
-  const TranslationsBar({super.key, required this.keyword, required this.onPick});
+  const TranslationsBar({
+    super.key,
+    required this.keyword,
+    required this.onPick,
+  });
   final MultiKeyword keyword;
   final ValueChanged<String> onPick;
 
   @override
   Widget build(BuildContext context) {
+    AppLocalizations.of(context);
     final entries = keyword.translations.entries.toList();
     return SizedBox(
-      height: 48,
+      height:
+          48 +
+          (MediaQuery.textScalerOf(context).scale(14) - 14).clamp(
+            0,
+            double.infinity,
+          ),
       child: ListView(
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
@@ -100,16 +142,43 @@ class TranslationsBar extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.only(right: 6),
             child: Chip(
-              avatar: Icon(Icons.translate_rounded, size: 16, color: context.colors.primary),
-              label: Text('多语言 · ${keyword.all.length} 个关键词'),
+              avatar: Icon(
+                Icons.translate_rounded,
+                size: 16,
+                color: context.colors.primary,
+              ),
+              label: Text(
+                tr('多语言 · {count} 个关键词', {'count': keyword.all.length}),
+              ),
               visualDensity: VisualDensity.compact,
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsetsDirectional.only(end: 6),
+            child: ActionChip(
+              avatar: const Icon(Icons.edit_note_rounded, size: 16),
+              label: Text(
+                keyword.sourceLanguage == null
+                    ? tr('原文：{keyword}', {'keyword': keyword.original})
+                    : tr('原文 · {language}：{keyword}', {
+                        'language': tr(
+                          translateLanguages[keyword.sourceLanguage] ??
+                              keyword.sourceLanguage!,
+                        ),
+                        'keyword': keyword.original,
+                      }),
+              ),
+              visualDensity: VisualDensity.compact,
+              onPressed: () => onPick(keyword.original),
             ),
           ),
           for (final e in entries)
             Padding(
               padding: const EdgeInsets.only(right: 6),
               child: ActionChip(
-                label: Text('${translateLanguages[e.key] ?? e.key}：${e.value}'),
+                label: Text(
+                  '${tr(translateLanguages[e.key] ?? e.key)}：${e.value}',
+                ),
                 visualDensity: VisualDensity.compact,
                 onPressed: () => onPick(e.value),
               ),

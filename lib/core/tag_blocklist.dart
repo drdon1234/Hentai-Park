@@ -1,11 +1,13 @@
 import 'models.dart';
+import 'localization.dart';
 import 'settings.dart';
 
 /// A ready-made group of tags users can switch on; all are off by default.
 class BlockPreset {
-  const BlockPreset(this.id, this.name, this.entries);
+  const BlockPreset(this.id, this._name, this.entries);
   final String id;
-  final String name;
+  final String _name;
+  String get name => tr(_name);
 
   /// Matched against tags like ordinary blocklist entries; with title matching on, each entry is
   /// also a case-insensitive regular expression tested on the title (plain words match whole words).

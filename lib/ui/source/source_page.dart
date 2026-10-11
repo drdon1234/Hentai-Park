@@ -7,6 +7,7 @@ import '../theme.dart';
 import '../widgets/common.dart';
 import '../widgets/option_bar.dart';
 import '../widgets/paged_grid.dart';
+import '../../core/localization.dart';
 
 /// A single source's own entry: one tab per feed (latest, ranking, categories…), each with the
 /// source's native options (periods, categories, sort) as chips.
@@ -23,11 +24,12 @@ class SourcePage extends StatefulWidget {
 class _SourcePageState extends State<SourcePage> {
   @override
   Widget build(BuildContext context) {
+    AppLocalizations.of(context);
     final m = SourceManager.instance.manifest(widget.sourceKey);
     if (m == null) {
       return Scaffold(
         appBar: AppBar(),
-        body: const MessageView(icon: Icons.extension_off_outlined, title: '源未加载'),
+        body: MessageView(icon: Icons.extension_off_outlined, title: tr('源未加载')),
       );
     }
     final account = SourceManager.instance[widget.sourceKey]?.account;
@@ -59,11 +61,11 @@ class _SourcePageState extends State<SourcePage> {
                       ),
                       actions: [
                         if (m.can('search'))
-                          IconButton(tooltip: '搜索', icon: const Icon(Icons.search_rounded), onPressed: () => Nav.openSourceSearch(context, widget.sourceKey)),
+                          IconButton(tooltip: tr('搜索'), icon: const Icon(Icons.search_rounded), onPressed: () => Nav.openSourceSearch(context, widget.sourceKey)),
                         if (m.can('random'))
-                          TextButton(onPressed: () => Nav.random(context, widget.sourceKey), child: const Text('随机')),
+                          TextButton(onPressed: () => Nav.random(context, widget.sourceKey), child: Text(tr('随机'))),
                         IconButton(
-                          tooltip: '源设置',
+                          tooltip: tr('源设置'),
                           icon: Badge(isLabelVisible: needsLogin, smallSize: 8, child: const Icon(Icons.settings_outlined)),
                           onPressed: () async {
                             await Nav.openSourceSettings(context, widget.sourceKey);
@@ -76,7 +78,7 @@ class _SourcePageState extends State<SourcePage> {
                   ),
                 ],
                 body: m.feeds.isEmpty
-                    ? const MessageView(icon: Icons.dashboard_customize_outlined, title: '该源没有提供浏览页', message: '请使用搜索')
+                    ? MessageView(icon: Icons.dashboard_customize_outlined, title: tr('该源没有提供浏览页'), message: tr('请使用搜索'))
                     : TabBarView(
                         children: [for (final f in m.feeds) FeedTab(key: PageStorageKey('${m.key}-${f.key}'), source: m, feed: f)],
                       ),
@@ -116,6 +118,7 @@ class _FeedTabState extends State<FeedTab> with AutomaticKeepAliveClientMixin {
 
   @override
   Widget build(BuildContext context) {
+    AppLocalizations.of(context);
     super.build(context);
     return RefreshIndicator(
       onRefresh: _controller.refresh,
@@ -140,7 +143,7 @@ class _FeedTabState extends State<FeedTab> with AutomaticKeepAliveClientMixin {
                 ? SliverToBoxAdapter(
                     child: Padding(
                       padding: const EdgeInsets.fromLTRB(16, 6, 16, 0),
-                      child: Text('约 ${formatCount(_controller.total)} 部作品', style: context.text.labelMedium?.copyWith(color: context.colors.onSurfaceVariant)),
+                      child: Text(tr('约 {value0} 部作品', {'value0': formatCount(_controller.total)}), style: context.text.labelMedium?.copyWith(color: context.colors.onSurfaceVariant)),
                     ),
                   )
                 : const SliverToBoxAdapter(),

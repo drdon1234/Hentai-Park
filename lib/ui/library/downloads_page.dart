@@ -11,12 +11,13 @@ import '../../library/downloads.dart';
 import '../nav.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
+import '../../core/localization.dart';
 
 class DownloadsPage extends StatelessWidget {
   const DownloadsPage({super.key});
 
   Future<void> _import(BuildContext context) async {
-    final files = await FilePicker.pickFiles(dialogTitle: '导入 CBZ / ZIP', type: FileType.custom, allowedExtensions: const ['cbz', 'zip']);
+    final files = await FilePicker.pickFiles(dialogTitle: tr('导入 CBZ / ZIP'), type: FileType.custom, allowedExtensions: const ['cbz', 'zip']);
     if (files.isEmpty || !context.mounted) return;
     var ok = 0;
     final errors = <String>[];
@@ -30,24 +31,25 @@ class DownloadsPage extends StatelessWidget {
       }
     }
     if (!context.mounted) return;
-    context.toast(['已导入 $ok 个文件', ...errors].join('\n'));
+    context.toast([tr('已导入 {value0} 个文件', {'value0': ok}), ...errors].join('\n'));
   }
 
   @override
   Widget build(BuildContext context) {
+    AppLocalizations.of(context);
     final dm = DownloadManager.instance;
     return Scaffold(
       appBar: AppBar(
-        title: const Text('下载'),
+        title: Text(tr('下载')),
         actions: [
-          IconButton(tooltip: '全部暂停', icon: const Icon(Icons.pause_circle_outline_rounded), onPressed: dm.pauseAll),
-          IconButton(tooltip: '全部继续', icon: const Icon(Icons.play_circle_outline_rounded), onPressed: dm.resumeAll),
+          IconButton(tooltip: tr('全部暂停'), icon: const Icon(Icons.pause_circle_outline_rounded), onPressed: dm.pauseAll),
+          IconButton(tooltip: tr('全部继续'), icon: const Icon(Icons.play_circle_outline_rounded), onPressed: dm.resumeAll),
         ],
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => _import(context),
         icon: const Icon(Icons.file_open_outlined),
-        label: const Text('导入本地漫画'),
+        label: Text(tr('导入本地漫画')),
       ),
       body: ListenableBuilder(
         listenable: Listenable.merge([dm, AppSettings.instance]),
@@ -56,17 +58,17 @@ class DownloadsPage extends StatelessWidget {
           return Column(
             children: [
               if (!dm.networkAllowed)
-                const MaterialBanner(
+                MaterialBanner(
                   leading: Icon(Icons.wifi_off_rounded),
-                  content: Text('已开启"仅在 Wi-Fi 下下载"，连接 Wi-Fi 后自动继续'),
+                  content: Text(tr('已开启"仅在 Wi-Fi 下下载"，连接 Wi-Fi 后自动继续')),
                   actions: [SizedBox.shrink()],
                 ),
               Expanded(
                 child: tasks.isEmpty
-                    ? const MessageView(
+                    ? MessageView(
                         icon: Icons.download_for_offline_outlined,
-                        title: '没有下载任务',
-                        message: '在作品详情页点击下载按钮，下载后可离线阅读或观看\n也可以导入本地的 CBZ / ZIP 漫画',
+                        title: tr('没有下载任务'),
+                        message: tr('在作品详情页点击下载按钮，下载后可离线阅读或观看\n也可以导入本地的 CBZ / ZIP 漫画'),
                       )
                     : ListView.separated(
                         padding: const EdgeInsets.fromLTRB(12, 8, 12, 96),
@@ -97,11 +99,11 @@ class _TaskTile extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             ListTile(title: Text(t.item.title, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w700))),
-            if (t.chapters.length > 1) ListTile(leading: const Icon(Icons.list_rounded), title: const Text('管理章节'), onTap: () => Navigator.pop(ctx, 'chapters')),
-            if (canExport) ListTile(leading: const Icon(Icons.archive_outlined), title: const Text('导出为 CBZ'), onTap: () => Navigator.pop(ctx, 'cbz')),
+            if (t.chapters.length > 1) ListTile(leading: const Icon(Icons.list_rounded), title: Text(tr('管理章节')), onTap: () => Navigator.pop(ctx, 'chapters')),
+            if (canExport) ListTile(leading: const Icon(Icons.archive_outlined), title: Text(tr('导出为 CBZ')), onTap: () => Navigator.pop(ctx, 'cbz')),
             if (t.isVideo && t.status == DownloadStatus.done)
-              ListTile(leading: const Icon(Icons.ios_share_rounded), title: const Text('导出视频文件'), onTap: () => Navigator.pop(ctx, 'video')),
-            ListTile(leading: const Icon(Icons.delete_outline_rounded), title: const Text('删除'), onTap: () => Navigator.pop(ctx, 'delete')),
+              ListTile(leading: const Icon(Icons.ios_share_rounded), title: Text(tr('导出视频文件')), onTap: () => Navigator.pop(ctx, 'video')),
+            ListTile(leading: const Icon(Icons.delete_outline_rounded), title: Text(tr('删除')), onTap: () => Navigator.pop(ctx, 'delete')),
           ],
         ),
       ),
@@ -121,7 +123,7 @@ class _TaskTile extends StatelessWidget {
   }
 
   Future<void> _exportCbz(BuildContext context) async {
-    final progress = ValueNotifier<String>('正在打包…');
+    final progress = ValueNotifier<String>(tr('正在打包…'));
     showDialog<void>(
       context: context,
       barrierDismissible: false,
@@ -140,14 +142,14 @@ class _TaskTile extends StatelessWidget {
     final nav = Navigator.of(context, rootNavigator: true);
     try {
       final out = Directory(p.join(DownloadManager.instance.root.path, 'exports'));
-      final files = await Cbz.exportTask(task, out, onProgress: (d, n) => progress.value = '正在打包 $d/$n…');
+      final files = await Cbz.exportTask(task, out, onProgress: (d, n) => progress.value = tr('正在打包 {value0}/{value1}…', {'value0': d, 'value1': n}));
       nav.pop();
       if (!context.mounted) return;
-      context.toast('已导出到 ${out.path}');
+      context.toast(tr('已导出到 {value0}', {'value0': out.path}));
       await SharePlus.instance.share(ShareParams(files: [for (final f in files) XFile(f.path)]));
     } catch (e) {
       nav.pop();
-      if (context.mounted) context.toast('导出失败：$e');
+      if (context.mounted) context.toast(tr('导出失败：{value0}', {'value0': e}));
     }
   }
 
@@ -155,11 +157,11 @@ class _TaskTile extends StatelessWidget {
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('删除下载？'),
-        content: Text(task.item.source == localSource ? '导入的本地文件会被删除。' : '已下载的文件也会一并删除。'),
+        title: Text(tr('删除下载？')),
+        content: Text(task.item.source == localSource ? tr('导入的本地文件会被删除。') : tr('已下载的文件也会一并删除。')),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('取消')),
-          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('删除')),
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(tr('取消'))),
+          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: Text(tr('删除'))),
         ],
       ),
     );
@@ -168,16 +170,17 @@ class _TaskTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    AppLocalizations.of(context);
     final c = context.colors;
     final t = task;
     final waitingWifi = t.status == DownloadStatus.queued && !DownloadManager.instance.networkAllowed;
     final (statusText, statusColor) = switch (t.status) {
-      _ when waitingWifi => ('等待 Wi-Fi', c.onSurfaceVariant),
-      DownloadStatus.queued => ('等待中', c.onSurfaceVariant),
-      DownloadStatus.running => (t.total > 0 ? (t.isVideo ? '${t.done}% · ${formatBytes(t.bytes)}' : '${t.done}/${t.total} 页') : '准备中…', c.primary),
-      DownloadStatus.paused => ('已暂停 ${t.total > 0 ? '${t.done}/${t.total}' : ''}', c.onSurfaceVariant),
-      DownloadStatus.done => (t.item.source == localSource ? '本地导入${t.bytes > 0 ? ' · ${formatBytes(t.bytes)}' : ''}' : '已完成${t.bytes > 0 ? ' · ${formatBytes(t.bytes)}' : ''}', Colors.green),
-      DownloadStatus.failed => ('失败：${t.error ?? ''}', c.error),
+      _ when waitingWifi => (tr('等待 Wi-Fi'), c.onSurfaceVariant),
+      DownloadStatus.queued => (tr('等待中'), c.onSurfaceVariant),
+      DownloadStatus.running => (t.total > 0 ? (t.isVideo ? '${t.done}% · ${formatBytes(t.bytes)}' : tr('{value0}/{value1} 页', {'value0': t.done, 'value1': t.total})) : tr('准备中…'), c.primary),
+      DownloadStatus.paused => (tr('已暂停 {value0}', {'value0': t.total > 0 ? '${t.done}/${t.total}' : ''}), c.onSurfaceVariant),
+      DownloadStatus.done => (t.item.source == localSource ? tr('本地导入{value0}', {'value0': t.bytes > 0 ? ' · ${formatBytes(t.bytes)}' : ''}) : tr('已完成{value0}', {'value0': t.bytes > 0 ? ' · ${formatBytes(t.bytes)}' : ''}), Colors.green),
+      DownloadStatus.failed => (tr('失败：{value0}', {'value0': t.error ?? ''}), c.error),
     };
     return Card(
       child: InkWell(
@@ -216,7 +219,7 @@ class _TaskTile extends StatelessWidget {
                             style: context.text.labelMedium?.copyWith(color: statusColor),
                           ),
                         ),
-                        if (t.chapters.length > 1) Text('${t.completed.length}/${t.chapters.length} 章', style: context.text.labelSmall),
+                        if (t.chapters.length > 1) Text(tr('{value0}/{value1} 章', {'value0': t.completed.length, 'value1': t.chapters.length}), style: context.text.labelSmall),
                       ],
                     ),
                     if (t.status == DownloadStatus.running || t.status == DownloadStatus.paused) ...[
@@ -231,10 +234,10 @@ class _TaskTile extends StatelessWidget {
               ),
               const SizedBox(width: 4),
               if (t.status == DownloadStatus.running)
-                IconButton(tooltip: '暂停', icon: const Icon(Icons.pause_rounded), onPressed: () => DownloadManager.instance.pause(t.uid))
+                IconButton(tooltip: tr('暂停'), icon: const Icon(Icons.pause_rounded), onPressed: () => DownloadManager.instance.pause(t.uid))
               else if (t.status == DownloadStatus.paused || t.status == DownloadStatus.failed)
-                IconButton(tooltip: '继续', icon: const Icon(Icons.play_arrow_rounded), onPressed: () => DownloadManager.instance.resume(t.uid)),
-              IconButton(tooltip: '更多', icon: const Icon(Icons.more_vert_rounded), onPressed: () => _menu(context)),
+                IconButton(tooltip: tr('继续'), icon: const Icon(Icons.play_arrow_rounded), onPressed: () => DownloadManager.instance.resume(t.uid)),
+              IconButton(tooltip: tr('更多'), icon: const Icon(Icons.more_vert_rounded), onPressed: () => _menu(context)),
             ],
           ),
         ),
@@ -256,6 +259,7 @@ class _ChapterSheetState extends State<_ChapterSheet> {
 
   @override
   Widget build(BuildContext context) {
+    AppLocalizations.of(context);
     final t = widget.task;
     return SafeArea(
       child: ConstrainedBox(
@@ -264,7 +268,7 @@ class _ChapterSheetState extends State<_ChapterSheet> {
           mainAxisSize: MainAxisSize.min,
           children: [
             ListTile(
-              title: const Text('下载的章节', style: TextStyle(fontWeight: FontWeight.w700)),
+              title: Text(tr('下载的章节'), style: TextStyle(fontWeight: FontWeight.w700)),
               trailing: FilledButton.tonalIcon(
                 onPressed: _selected.isEmpty
                     ? null
@@ -273,7 +277,7 @@ class _ChapterSheetState extends State<_ChapterSheet> {
                         if (context.mounted) Navigator.pop(context);
                       },
                 icon: const Icon(Icons.delete_outline_rounded),
-                label: Text('删除 ${_selected.length}'),
+                label: Text(tr('删除 {value0}', {'value0': _selected.length})),
               ),
             ),
             Flexible(
@@ -284,7 +288,7 @@ class _ChapterSheetState extends State<_ChapterSheet> {
                     CheckboxListTile(
                       value: _selected.contains(ch.id),
                       title: Text(ch.title),
-                      subtitle: Text(t.completed.contains(ch.id) ? '已下载' : '未完成'),
+                      subtitle: Text(t.completed.contains(ch.id) ? tr('已下载') : tr('未完成')),
                       onChanged: (v) => setState(() => v == true ? _selected.add(ch.id) : _selected.remove(ch.id)),
                     ),
                 ],

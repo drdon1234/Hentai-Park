@@ -10,7 +10,7 @@
 Park.register({
   key: 'jm',
   name: '禁漫天堂',
-  version: '1.0.2',
+  version: '0.0.1',
   type: 'comic',
   color: '#F7841E',
   icon: 'https://18comic.vip/favicon.ico',

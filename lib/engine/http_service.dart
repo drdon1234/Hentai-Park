@@ -118,7 +118,7 @@ class HttpService {
         );
       } on DioException catch (e) {
         if (CancelToken.isCancel(e)) rethrow;
-        throw SourceError('NETWORK', '${uri.host}: ${_describe(e)}', url: url);
+        throw SourceError('NETWORK', _describe(e, uri.host), url: url);
       }
       final setCookies = res.headers.map['set-cookie'] ?? const [];
       if (setCookies.isNotEmpty) await CookieStore.instance.saveFromResponse(uri, setCookies, partition: partition);
@@ -171,21 +171,21 @@ class HttpService {
       if (status < 200 || status >= 300) throw SourceError('HTTP', '下载失败：HTTP $status', status: status, url: url);
     } on DioException catch (e) {
       if (CancelToken.isCancel(e)) rethrow;
-      throw SourceError('NETWORK', '${uri.host}: ${_describe(e)}', url: url);
+      throw SourceError('NETWORK', _describe(e, uri.host), url: url);
     }
   }
 
-  static String _describe(DioException e) {
+  static String _describe(DioException e, String host) {
     switch (e.type) {
       case DioExceptionType.connectionTimeout:
-        return '连接超时';
+        return '$host: 连接超时';
       case DioExceptionType.receiveTimeout:
       case DioExceptionType.sendTimeout:
-        return '响应超时';
+        return '$host: 响应超时';
       case DioExceptionType.connectionError:
-        return '无法连接（${e.error ?? e.message}）';
+        return '$host: 无法连接（${e.error ?? e.message}）';
       default:
-        return e.message ?? e.error?.toString() ?? e.type.name;
+        return '$host: ${e.message ?? e.error?.toString() ?? e.type.name}';
     }
   }
 }

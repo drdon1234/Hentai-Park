@@ -9,6 +9,7 @@ import '../theme.dart';
 import '../widgets/common.dart';
 import '../widgets/error_view.dart';
 import '../widgets/work_card.dart';
+import '../../core/localization.dart';
 
 /// Moves favorites to another source (Mihon's migration): search every other source for the title,
 /// pick the matching work, then copy categories / read marks and optionally drop the old favorite.
@@ -76,10 +77,10 @@ class _MigrationPageState extends State<MigrationPage> {
       final detail = await SourceManager.instance.detail(target.source, target.id);
       await Migrator.migrate(Library.instance, from: _current, to: detail, options: options);
       if (!mounted) return;
-      context.toast(options.removeOld ? '已迁移到 ${SourceManager.instance.manifest(target.source)?.name ?? target.source}' : '已复制到新的源');
+      context.toast(options.removeOld ? tr('已迁移到 {value0}', {'value0': SourceManager.instance.manifest(target.source)?.name ?? target.source}) : tr('已复制到新的源'));
       _next();
     } catch (e) {
-      if (mounted) context.toast('迁移失败：${e.asSourceError.friendly}');
+      if (mounted) context.toast(tr('迁移失败：{value0}', {'value0': e.asSourceError.friendly}));
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -87,11 +88,12 @@ class _MigrationPageState extends State<MigrationPage> {
 
   @override
   Widget build(BuildContext context) {
+    AppLocalizations.of(context);
     final from = SourceManager.instance.manifest(_current.source)?.name ?? _current.source;
     return Scaffold(
       appBar: AppBar(
-        title: Text(widget.items.length > 1 ? '迁移（${_index + 1}/${widget.items.length}）' : '迁移到其他源'),
-        actions: [if (widget.items.length > 1) TextButton(onPressed: _busy ? null : _next, child: const Text('跳过'))],
+        title: Text(widget.items.length > 1 ? tr('迁移（{value0}/{value1}）', {'value0': _index + 1, 'value1': widget.items.length}) : tr('迁移到其他源')),
+        actions: [if (widget.items.length > 1) TextButton(onPressed: _busy ? null : _next, child: Text(tr('跳过')))],
         bottom: _busy ? const PreferredSize(preferredSize: Size.fromHeight(2), child: LinearProgressIndicator(minHeight: 2)) : null,
       ),
       body: AbsorbPointer(
@@ -106,7 +108,7 @@ class _MigrationPageState extends State<MigrationPage> {
                   child: CoverImage(source: _current.source, url: _current.cover, radius: 6),
                 ),
                 title: Text(_current.title, maxLines: 2, overflow: TextOverflow.ellipsis),
-                subtitle: Text('当前来源：$from'),
+                subtitle: Text(tr('当前来源：{value0}', {'value0': from})),
               ),
             ),
             SliverToBoxAdapter(
@@ -117,7 +119,7 @@ class _MigrationPageState extends State<MigrationPage> {
                   textInputAction: TextInputAction.search,
                   onSubmitted: (_) => _search(),
                   decoration: InputDecoration(
-                    labelText: '搜索标题',
+                    labelText: tr('搜索标题'),
                     border: const OutlineInputBorder(),
                     suffixIcon: IconButton(icon: const Icon(Icons.search_rounded), onPressed: _search),
                   ),
@@ -125,9 +127,9 @@ class _MigrationPageState extends State<MigrationPage> {
               ),
             ),
             if (_targets.isEmpty)
-              const SliverFillRemaining(
+              SliverFillRemaining(
                 hasScrollBody: false,
-                child: MessageView(icon: Icons.swap_horiz_rounded, title: '没有可迁移的目标源', message: '需要至少一个其他已启用、支持搜索的同类型源'),
+                child: MessageView(icon: Icons.swap_horiz_rounded, title: tr('没有可迁移的目标源'), message: tr('需要至少一个其他已启用、支持搜索的同类型源')),
               )
             else
               SliverList.builder(
@@ -167,6 +169,7 @@ class _TargetResultsState extends State<_TargetResults> {
 
   @override
   Widget build(BuildContext context) {
+    AppLocalizations.of(context);
     final m = SourceManager.instance.manifest(widget.source)!;
     return FutureBuilder<WorkPage>(
       future: _future,
@@ -184,7 +187,7 @@ class _TargetResultsState extends State<_TargetResults> {
         } else if (snap.data!.items.isEmpty) {
           body = Padding(
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-            child: Text('没有找到', style: context.text.bodySmall?.copyWith(color: context.colors.onSurfaceVariant)),
+            child: Text(tr('没有找到'), style: context.text.bodySmall?.copyWith(color: context.colors.onSurfaceVariant)),
           );
         } else {
           final items = snap.data!.items;
@@ -230,9 +233,10 @@ class _OptionsDialogState extends State<_OptionsDialog> {
 
   @override
   Widget build(BuildContext context) {
+    AppLocalizations.of(context);
     final target = SourceManager.instance.manifest(widget.to.source)?.name ?? widget.to.source;
     return AlertDialog(
-      title: const Text('迁移选项'),
+      title: Text(tr('迁移选项')),
       contentPadding: const EdgeInsets.fromLTRB(8, 16, 8, 0),
       content: Column(
         mainAxisSize: MainAxisSize.min,
@@ -240,21 +244,21 @@ class _OptionsDialogState extends State<_OptionsDialog> {
         children: [
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Text('目标：$target ·「${widget.to.title}」', maxLines: 3, overflow: TextOverflow.ellipsis),
+            child: Text(tr('目标：{value0} ·「{value1}」', {'value0': target, 'value1': widget.to.title}), maxLines: 3, overflow: TextOverflow.ellipsis),
           ),
-          CheckboxListTile(value: categories, title: const Text('复制分类'), onChanged: (v) => setState(() => categories = v!)),
-          CheckboxListTile(value: readState, title: const Text('复制已读章节'), subtitle: const Text('按章节号匹配'), onChanged: (v) => setState(() => readState = v!)),
+          CheckboxListTile(value: categories, title: Text(tr('复制分类')), onChanged: (v) => setState(() => categories = v!)),
+          CheckboxListTile(value: readState, title: Text(tr('复制已读章节')), subtitle: Text(tr('按章节号匹配')), onChanged: (v) => setState(() => readState = v!)),
         ],
       ),
       actions: [
-        TextButton(onPressed: () => Navigator.pop(context), child: const Text('取消')),
+        TextButton(onPressed: () => Navigator.pop(context), child: Text(tr('取消'))),
         TextButton(
           onPressed: () => Navigator.pop(context, MigrationOptions(categories: categories, readState: readState, removeOld: false)),
-          child: const Text('复制'),
+          child: Text(tr('复制')),
         ),
         FilledButton(
           onPressed: () => Navigator.pop(context, MigrationOptions(categories: categories, readState: readState)),
-          child: const Text('迁移'),
+          child: Text(tr('迁移')),
         ),
       ],
     );

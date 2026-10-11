@@ -1,6 +1,8 @@
 /// Pure reader geometry: tap zones and how pages are grouped into screens (spreads).
 library;
 
+import '../../core/localization.dart';
+
 enum TapAction { prev, next, menu }
 
 /// Tap zone layouts (Mihon's navigation layouts).
@@ -8,12 +10,12 @@ enum TapLayout { auto, leftRight, lShaped, kindle, edge, off }
 
 extension TapLayoutLabel on TapLayout {
   String get label => switch (this) {
-    TapLayout.auto => '自动（随阅读模式）',
-    TapLayout.leftRight => '左右分区',
-    TapLayout.lShaped => 'L 形',
-    TapLayout.kindle => 'Kindle 式',
-    TapLayout.edge => '边缘',
-    TapLayout.off => '关闭',
+    TapLayout.auto => tr('自动（随阅读模式）'),
+    TapLayout.leftRight => tr('左右分区'),
+    TapLayout.lShaped => tr('L 形'),
+    TapLayout.kindle => tr('Kindle 式'),
+    TapLayout.edge => tr('边缘'),
+    TapLayout.off => tr('关闭'),
   };
 }
 

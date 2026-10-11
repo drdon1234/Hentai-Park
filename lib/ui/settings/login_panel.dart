@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../core/credential_paste.dart';
+import '../../core/localization.dart';
 import '../../core/models.dart';
 import '../../engine/source_manager.dart';
 import '../nav.dart';
@@ -22,7 +23,10 @@ class LoginPanel extends StatefulWidget {
 }
 
 class _LoginPanelState extends State<LoginPanel> {
-  late final Map<String, TextEditingController> _fields = {for (final f in widget.account.fields) f['key'].toString(): TextEditingController()};
+  late final Map<String, TextEditingController> _fields = {
+    for (final f in widget.account.fields)
+      f['key'].toString(): TextEditingController(),
+  };
   final Set<String> _revealed = {};
   bool _busy = false;
   late bool _web = widget.account.loginUrl.isNotEmpty;
@@ -40,21 +44,36 @@ class _LoginPanelState extends State<LoginPanel> {
 
   List<String> get _missing => [
     for (final f in a.fields)
-      if (f['optional'] != true && _fields[f['key']]!.text.trim().isEmpty) f['label'].toString(),
+      if (f['optional'] != true && _fields[f['key']]!.text.trim().isEmpty)
+        tr(f['label'].toString()),
   ];
 
   Future<void> _submit() async {
     final missing = _missing;
     if (missing.isNotEmpty) {
-      context.toast('请填写：${missing.join('、')}');
+      context.toast(
+        context.tr('请填写：{fields}', {'fields': missing.join(context.tr('、'))}),
+      );
       return;
     }
     setState(() => _busy = true);
     try {
-      final name = await SourceManager.instance.login(widget.source, {for (final e in _fields.entries) e.key: e.value.text.trim()});
-      if (mounted) context.toast(name.isEmpty ? '登录成功' : '登录成功：$name');
+      final name = await SourceManager.instance.login(widget.source, {
+        for (final e in _fields.entries) e.key: e.value.text.trim(),
+      });
+      if (mounted) {
+        context.toast(
+          name.isEmpty
+              ? context.tr('登录成功')
+              : context.tr('登录成功：{name}', {'name': name}),
+        );
+      }
     } catch (e) {
-      if (mounted) context.toast('登录失败：${e.asSourceError.message}');
+      if (mounted) {
+        context.toast(
+          context.tr('登录失败：{error}', {'error': e.asSourceError.message}),
+        );
+      }
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -64,12 +83,20 @@ class _LoginPanelState extends State<LoginPanel> {
     final text = (await Clipboard.getData(Clipboard.kTextPlain))?.text ?? '';
     if (!mounted) return;
     if (text.trim().isEmpty) {
-      context.toast(_cookies ? '剪贴板是空的，请先复制 Cookie' : '剪贴板是空的，请先复制账号和密码');
+      context.toast(
+        context.tr(_cookies ? '剪贴板是空的，请先复制 Cookie' : '剪贴板是空的，请先复制账号和密码'),
+      );
       return;
     }
-    final values = parsePastedCredentials(text, _fields.keys.toList(), cookies: _cookies);
+    final values = parsePastedCredentials(
+      text,
+      _fields.keys.toList(),
+      cookies: _cookies,
+    );
     if (values.isEmpty) {
-      context.toast(_cookies ? '没有在剪贴板里识别到 Cookie' : '没有在剪贴板里识别到账号和密码');
+      context.toast(
+        context.tr(_cookies ? '没有在剪贴板里识别到 Cookie' : '没有在剪贴板里识别到账号和密码'),
+      );
       return;
     }
     setState(() {
@@ -80,13 +107,20 @@ class _LoginPanelState extends State<LoginPanel> {
     if (_missing.isEmpty) {
       await _submit();
     } else {
-      context.toast('已识别部分内容，还缺少：${_missing.join('、')}');
+      context.toast(
+        context.tr('已识别部分内容，还缺少：{fields}', {
+          'fields': _missing.join(context.tr('、')),
+        }),
+      );
     }
   }
 
   Future<void> _webLogin() async {
-    final ok = await Nav.push<bool>(context, WebVerifyPage.login(source: widget.source, url: a.loginUrl));
-    if (ok == true && mounted) context.toast('登录成功');
+    final ok = await Nav.push<bool>(
+      context,
+      WebVerifyPage.login(source: widget.source, url: a.loginUrl),
+    );
+    if (ok == true && mounted) context.toast(context.tr('登录成功'));
   }
 
   @override
@@ -99,17 +133,31 @@ class _LoginPanelState extends State<LoginPanel> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            if (a.hint.isNotEmpty) Text(a.hint, style: context.text.bodySmall?.copyWith(color: c.onSurfaceVariant, height: 1.45)),
+            if (a.hint.isNotEmpty)
+              Text(
+                a.hint,
+                style: context.text.bodySmall?.copyWith(
+                  color: c.onSurfaceVariant,
+                  height: 1.45,
+                ),
+              ),
             if (hasWeb) ...[
               const SizedBox(height: 14),
               SegmentedButton<bool>(
                 showSelectedIcon: false,
                 segments: [
-                  const ButtonSegment(value: true, icon: Icon(Icons.public_rounded, size: 18), label: Text('网页登录')),
+                  ButtonSegment(
+                    value: true,
+                    icon: const Icon(Icons.public_rounded, size: 18),
+                    label: Text(context.tr('网页登录')),
+                  ),
                   ButtonSegment(
                     value: false,
-                    icon: Icon(_cookies ? Icons.cookie_outlined : Icons.password_rounded, size: 18),
-                    label: Text(_cookies ? '填写 Cookie' : '账号密码'),
+                    icon: Icon(
+                      _cookies ? Icons.cookie_outlined : Icons.password_rounded,
+                      size: 18,
+                    ),
+                    label: Text(context.tr(_cookies ? '填写 Cookie' : '账号密码')),
                   ),
                 ],
                 selected: {_web},
@@ -132,10 +180,17 @@ class _LoginPanelState extends State<LoginPanel> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const _Step(icon: Icons.login_rounded, text: '在打开的页面中正常登录'),
-        const _Step(icon: Icons.auto_awesome_rounded, text: '登录成功后自动返回，不需要复制任何内容'),
+        _Step(icon: Icons.login_rounded, text: context.tr('在打开的页面中正常登录')),
+        _Step(
+          icon: Icons.auto_awesome_rounded,
+          text: context.tr('登录成功后自动返回，不需要复制任何内容'),
+        ),
         const SizedBox(height: 12),
-        FilledButton.icon(onPressed: _webLogin, icon: const Icon(Icons.open_in_browser_rounded), label: const Text('打开登录页')),
+        FilledButton.icon(
+          onPressed: _webLogin,
+          icon: const Icon(Icons.open_in_browser_rounded),
+          label: Text(context.tr('打开登录页')),
+        ),
       ],
     );
   }
@@ -149,30 +204,91 @@ class _LoginPanelState extends State<LoginPanel> {
           Padding(
             padding: const EdgeInsets.only(bottom: 14),
             child: Text(
-              '在浏览器登录后，从 Cookie 中复制下面几项。也可以复制整段 Cookie，点「从剪贴板识别」自动填好并登录。',
-              style: context.text.bodySmall?.copyWith(color: c.onSurfaceVariant, height: 1.45),
+              context.tr(
+                '在浏览器登录后，从 Cookie 中复制下面几项。也可以复制整段 Cookie，点「从剪贴板识别」自动填好并登录。',
+              ),
+              style: context.text.bodySmall?.copyWith(
+                color: c.onSurfaceVariant,
+                height: 1.45,
+              ),
             ),
           ),
-        for (final f in a.fields) ...[_field(context, f), const SizedBox(height: 12)],
-        Row(
-          children: [
-            Expanded(
-              child: OutlinedButton.icon(
-                onPressed: _busy ? null : _paste,
-                icon: const Icon(Icons.content_paste_rounded, size: 18),
-                label: const Text('从剪贴板识别'),
-              ),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: FilledButton(
-                onPressed: _busy ? null : _submit,
-                child: _busy ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)) : const Text('登录'),
-              ),
-            ),
-          ],
-        ),
+        for (final f in a.fields) ...[
+          _field(context, f),
+          const SizedBox(height: 12),
+        ],
+        _actions(context),
       ],
+    );
+  }
+
+  Widget _actions(BuildContext context) {
+    final pasteLabel = context.tr('从剪贴板识别');
+    final loginLabel = context.tr('登录');
+    final textStyle = context.text.labelLarge ?? const TextStyle(fontSize: 14);
+    double measure(String label) {
+      final painter = TextPainter(
+        text: TextSpan(text: label, style: textStyle),
+        textDirection: Directionality.of(context),
+        textScaler: MediaQuery.textScalerOf(context),
+      )..layout();
+      return painter.width;
+    }
+
+    final style = ButtonStyle(
+      padding: const WidgetStatePropertyAll(
+        EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+      ),
+      textStyle: WidgetStatePropertyAll(textStyle),
+    );
+    final paste = Tooltip(
+      message: pasteLabel,
+      child: OutlinedButton.icon(
+        style: style,
+        onPressed: _busy ? null : _paste,
+        icon: const Icon(Icons.content_paste_rounded, size: 18),
+        label: Text(
+          pasteLabel,
+          maxLines: 1,
+          softWrap: false,
+          overflow: TextOverflow.ellipsis,
+        ),
+      ),
+    );
+    final submit = FilledButton(
+      style: style,
+      onPressed: _busy ? null : _submit,
+      child: _busy
+          ? const SizedBox(
+              width: 18,
+              height: 18,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            )
+          : Text(
+              loginLabel,
+              maxLines: 1,
+              softWrap: false,
+              overflow: TextOverflow.ellipsis,
+            ),
+    );
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final pasteWidth = measure(pasteLabel) + 18 + 8 + 40;
+        final loginWidth = measure(loginLabel) + 40;
+        if (constraints.maxWidth >= pasteWidth + loginWidth + 10) {
+          return Row(
+            children: [
+              SizedBox(width: pasteWidth, child: paste),
+              const SizedBox(width: 10),
+              Expanded(child: submit),
+            ],
+          );
+        }
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [paste, const SizedBox(height: 10), submit],
+        );
+      },
     );
   }
 
@@ -187,16 +303,34 @@ class _LoginPanelState extends State<LoginPanel> {
       obscureText: secret && !_revealed.contains(key),
       autocorrect: false,
       enableSuggestions: false,
-      autofillHints: _cookies ? null : (secret ? const [AutofillHints.password] : const [AutofillHints.username]),
-      style: _cookies ? const TextStyle(fontFamily: 'monospace', fontSize: 14) : null,
+      autofillHints: _cookies
+          ? null
+          : (secret
+                ? const [AutofillHints.password]
+                : const [AutofillHints.username]),
+      style: _cookies
+          ? const TextStyle(fontFamily: 'monospace', fontSize: 14)
+          : null,
       textInputAction: TextInputAction.next,
       decoration: InputDecoration(
-        labelText: optional ? '${f['label']}（可选）' : f['label']?.toString(),
-        helperText: hint.isEmpty ? null : hint,
+        labelText: optional
+            ? context.tr('{label}（可选）', {
+                'label': tr(f['label']?.toString() ?? ''),
+              })
+            : tr(f['label']?.toString() ?? ''),
+        helperText: hint.isEmpty ? null : tr(hint),
         suffixIcon: secret
             ? IconButton(
-                icon: Icon(_revealed.contains(key) ? Icons.visibility_off_outlined : Icons.visibility_outlined),
-                onPressed: () => setState(() => _revealed.contains(key) ? _revealed.remove(key) : _revealed.add(key)),
+                icon: Icon(
+                  _revealed.contains(key)
+                      ? Icons.visibility_off_outlined
+                      : Icons.visibility_outlined,
+                ),
+                onPressed: () => setState(
+                  () => _revealed.contains(key)
+                      ? _revealed.remove(key)
+                      : _revealed.add(key),
+                ),
               )
             : null,
       ),

@@ -11,7 +11,7 @@
 Park.register({
   key: 'ehentai',
   name: 'E-Hentai',
-  version: '1.0.2',
+  version: '0.0.1',
   type: 'comic',
   color: '#9C2A2A',
   icon: 'https://e-hentai.org/favicon.ico',

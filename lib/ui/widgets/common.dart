@@ -7,6 +7,7 @@ import '../../core/settings.dart';
 import '../../engine/source_manager.dart';
 import '../../images/park_image.dart';
 import '../theme.dart';
+import '../../core/localization.dart';
 
 /// Brand monogram for a source (favicons are .ico, which Flutter cannot decode; a monogram in the
 /// brand color is crisper and more consistent anyway).
@@ -25,6 +26,7 @@ class SourceAvatar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    AppLocalizations.of(context);
     final m = SourceManager.instance.manifest(sourceKey);
     final local = sourceKey == 'local';
     final color = local ? Colors.blueGrey : (m?.color ?? context.colors.primary);
@@ -36,10 +38,12 @@ class SourceAvatar extends StatelessWidget {
         borderRadius: BorderRadius.circular(size * 0.3),
         gradient: LinearGradient(colors: [color, Color.lerp(color, Colors.black, 0.35)!], begin: Alignment.topLeft, end: Alignment.bottomRight),
       ),
-      child: Text(
-        local ? '本' : monogram(m?.name ?? sourceKey),
-        style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: size * 0.38, height: 1),
-      ),
+      child: local
+          ? Icon(Icons.book_rounded, color: Colors.white, size: size * 0.5)
+          : Text(
+              monogram(m?.name ?? sourceKey),
+              style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: size * 0.38, height: 1),
+            ),
     );
   }
 }
@@ -55,6 +59,7 @@ class CoverImage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    AppLocalizations.of(context);
     final colors = context.colors;
     Widget child;
     if (url.isEmpty) {
@@ -94,6 +99,7 @@ class LoadingIndicator extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    AppLocalizations.of(context);
     final fg = color ?? context.colors.onSurfaceVariant;
     return Padding(
       padding: padding,
@@ -102,7 +108,7 @@ class LoadingIndicator extends StatelessWidget {
         children: [
           SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2.4, color: color)),
           const SizedBox(width: 12),
-          Text(label, style: context.text.labelLarge?.copyWith(color: fg)),
+          Text(tr(label), style: context.text.labelLarge?.copyWith(color: fg)),
         ],
       ),
     );
@@ -130,6 +136,7 @@ class _SkeletonState extends State<Skeleton> with SingleTickerProviderStateMixin
 
   @override
   Widget build(BuildContext context) {
+    AppLocalizations.of(context);
     final base = context.colors.surfaceContainerHigh;
     final hi = context.colors.surfaceContainerHighest;
     return AnimatedBuilder(
@@ -162,6 +169,7 @@ class MessageView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    AppLocalizations.of(context);
     final c = context.colors;
     return Center(
       child: Padding(
@@ -210,6 +218,7 @@ class Pill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    AppLocalizations.of(context);
     final c = color ?? context.colors.secondary;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
@@ -241,6 +250,7 @@ class SectionHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    AppLocalizations.of(context);
     return Padding(
       padding: padding,
       child: Row(

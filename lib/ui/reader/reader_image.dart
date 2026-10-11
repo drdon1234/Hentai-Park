@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/models.dart';
 import '../../images/park_image.dart';
+import '../../core/localization.dart';
 
 /// Resolves a page image manually so the reader knows its real size (stable layout), can show a
 /// numbered placeholder while loading, and can retry failed pages in place.
@@ -94,6 +95,7 @@ class _ReaderImageState extends State<ReaderImage> {
 
   @override
   Widget build(BuildContext context) {
+    AppLocalizations.of(context);
     final info = _info;
     if (info != null) {
       final img = RawImage(
@@ -118,7 +120,7 @@ class _ReaderImageState extends State<ReaderImage> {
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 24),
                   child: Text(
-                    '第 ${widget.index + 1} 页加载失败\n${_error is SourceError ? (_error as SourceError).message : _error}',
+                    tr('第 {value0} 页加载失败\n{value1}', {'value0': widget.index + 1, 'value1': _error is SourceError ? (_error as SourceError).message : _error}),
                     textAlign: TextAlign.center,
                     maxLines: 4,
                     overflow: TextOverflow.ellipsis,
@@ -126,7 +128,7 @@ class _ReaderImageState extends State<ReaderImage> {
                   ),
                 ),
                 const SizedBox(height: 10),
-                FilledButton.tonalIcon(onPressed: _retry, icon: const Icon(Icons.refresh_rounded), label: Text(_attempt > 0 ? '再试一次' : '重试')),
+                FilledButton.tonalIcon(onPressed: _retry, icon: const Icon(Icons.refresh_rounded), label: Text(_attempt > 0 ? tr('再试一次') : tr('重试'))),
               ],
             )
           : Column(

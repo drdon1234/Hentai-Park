@@ -22,6 +22,7 @@ import '../widgets/error_view.dart';
 import 'reader_image.dart';
 import 'reader_layout.dart';
 import 'reader_settings_sheet.dart';
+import '../../core/localization.dart';
 
 class ReaderPage extends StatefulWidget {
   const ReaderPage({super.key, required this.work, this.chapter, this.startPage = 0});
@@ -304,7 +305,7 @@ class _ReaderPageState extends State<ReaderPage> {
 
   void _nextChapter() {
     if (!_hasNextChapter) {
-      context.toast('已经是最后一页了');
+      context.toast(tr('已经是最后一页了'));
       return;
     }
     _saveProgress();
@@ -429,9 +430,9 @@ class _ReaderPageState extends State<ReaderPage> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            ListTile(title: Text('第 ${index + 1} 页', style: const TextStyle(fontWeight: FontWeight.w700))),
-            ListTile(leading: const Icon(Icons.share_rounded), title: const Text('分享图片'), onTap: () => Navigator.pop(ctx, 'share')),
-            ListTile(leading: const Icon(Icons.save_alt_rounded), title: const Text('保存到相册'), onTap: () => Navigator.pop(ctx, 'save')),
+            ListTile(title: Text(tr('第 {value0} 页', {'value0': index + 1}), style: const TextStyle(fontWeight: FontWeight.w700))),
+            ListTile(leading: const Icon(Icons.share_rounded), title: Text(tr('分享图片')), onTap: () => Navigator.pop(ctx, 'share')),
+            ListTile(leading: const Icon(Icons.save_alt_rounded), title: Text(tr('保存到相册')), onTap: () => Navigator.pop(ctx, 'save')),
           ],
         ),
       ),
@@ -443,14 +444,14 @@ class _ReaderPageState extends State<ReaderPage> {
       if (action == 'save') {
         if (!await Gal.hasAccess(toAlbum: true)) await Gal.requestAccess(toAlbum: true);
         await Gal.putImageBytes(bytes, album: 'HentaiPark', name: name);
-        if (mounted) context.toast('已保存到相册');
+        if (mounted) context.toast(tr('已保存到相册'));
       } else {
         final file = File(p.join(AppPaths.cache.path, '$name.png'));
         await file.writeAsBytes(bytes);
         await SharePlus.instance.share(ShareParams(files: [XFile(file.path)]));
       }
     } catch (e) {
-      if (mounted) context.toast('操作失败：$e');
+      if (mounted) context.toast(tr('操作失败：{value0}', {'value0': e}));
     }
   }
 
@@ -464,6 +465,7 @@ class _ReaderPageState extends State<ReaderPage> {
 
   @override
   Widget build(BuildContext context) {
+    AppLocalizations.of(context);
     if (_pages != null && _paged) _relayout();
     final s = _settings;
     return Theme(
@@ -565,8 +567,8 @@ class _ReaderPageState extends State<ReaderPage> {
       return const Center(child: CircularProgressIndicator(color: Colors.white54));
     }
     if (pages.isEmpty) {
-      return const Center(
-        child: Text('这一章没有图片', style: TextStyle(color: Colors.white54)),
+      return Center(
+        child: Text(tr('这一章没有图片'), style: TextStyle(color: Colors.white54)),
       );
     }
     return LayoutBuilder(
@@ -630,6 +632,7 @@ class _ReaderPageState extends State<ReaderPage> {
       final first = _pageImage(spread.pages[0], alignment: _rtl ? Alignment.centerLeft : Alignment.centerRight);
       final second = _pageImage(spread.pages[1], alignment: _rtl ? Alignment.centerRight : Alignment.centerLeft);
       return Row(
+        textDirection: TextDirection.ltr,
         children: [
           Expanded(child: _rtl ? second : first),
           Expanded(child: _rtl ? first : second),
@@ -642,7 +645,10 @@ class _ReaderPageState extends State<ReaderPage> {
   }
 
   Widget _pagedView(List<PageImage> pages) {
-    return PageView.builder(
+    return Directionality(
+      // The UI language must not invert the selected manga reading direction.
+      textDirection: TextDirection.ltr,
+      child: PageView.builder(
       controller: _pager,
       reverse: _rtl,
       itemCount: _spreads.length + (_hasNextChapter ? 1 : 0),
@@ -653,6 +659,7 @@ class _ReaderPageState extends State<ReaderPage> {
         if (i >= _spreads.length) return _ChapterEnd(hasNext: true, onNext: _nextChapter);
         return _ZoomablePage(child: _spreadView(_spreads[i]));
       },
+      ),
     );
   }
 }
@@ -669,6 +676,7 @@ class _HalfPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    AppLocalizations.of(context);
     return LayoutBuilder(
       builder: (context, c) => ClipRect(
         child: OverflowBox(
@@ -724,6 +732,7 @@ class _ZoomablePageState extends State<_ZoomablePage> with SingleTickerProviderS
 
   @override
   Widget build(BuildContext context) {
+    AppLocalizations.of(context);
     return GestureDetector(
       onDoubleTapDown: (d) => _down = d,
       onDoubleTap: _toggle,
@@ -744,6 +753,7 @@ class _ChapterEnd extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    AppLocalizations.of(context);
     return SizedBox(
       height: 240,
       child: Center(
@@ -751,12 +761,12 @@ class _ChapterEnd extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(
-              hasNext ? '本章完' : '全部读完啦',
+              hasNext ? tr('本章完') : tr('全部读完啦'),
               style: const TextStyle(color: Colors.white70, fontSize: 16, fontWeight: FontWeight.w700),
             ),
             const SizedBox(height: 14),
-            if (hasNext) FilledButton.icon(onPressed: onNext, icon: const Icon(Icons.skip_next_rounded), label: const Text('下一章')),
-            if (!hasNext) OutlinedButton(onPressed: () => Navigator.maybePop(context), child: const Text('返回详情')),
+            if (hasNext) FilledButton.icon(onPressed: onNext, icon: const Icon(Icons.skip_next_rounded), label: Text(tr('下一章'))),
+            if (!hasNext) OutlinedButton(onPressed: () => Navigator.maybePop(context), child: Text(tr('返回详情'))),
           ],
         ),
       ),
@@ -784,6 +794,7 @@ class _TopBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    AppLocalizations.of(context);
     return AnimatedPositioned(
       duration: const Duration(milliseconds: 200),
       curve: Curves.easeOut,
@@ -811,12 +822,12 @@ class _TopBar extends StatelessWidget {
                         style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700),
                       ),
                       if (subtitle != null || offline)
-                        Text([?subtitle, if (offline) '离线阅读'].join(' · '), style: const TextStyle(color: Colors.white60, fontSize: 12)),
+                        Text([?subtitle, if (offline) tr('离线阅读')].join(' · '), style: const TextStyle(color: Colors.white60, fontSize: 12)),
                     ],
                   ),
                 ),
                 PopupMenuButton<ReaderMode>(
-                  tooltip: '阅读模式（仅本作）',
+                  tooltip: tr('阅读模式（仅本作）'),
                   icon: Icon(mode.icon, color: Colors.white),
                   initialValue: mode,
                   onSelected: onMode,
@@ -828,7 +839,7 @@ class _TopBar extends StatelessWidget {
                       ),
                   ],
                 ),
-                IconButton(tooltip: '阅读设置', icon: const Icon(Icons.settings_outlined, color: Colors.white), onPressed: onSettings),
+                IconButton(tooltip: tr('阅读设置'), icon: const Icon(Icons.settings_outlined, color: Colors.white), onPressed: onSettings),
                 const SizedBox(width: 4),
               ],
             ),
@@ -857,6 +868,7 @@ class _BottomBarState extends State<_BottomBar> {
 
   @override
   Widget build(BuildContext context) {
+    AppLocalizations.of(context);
     final value = _drag ?? widget.page.toDouble();
     return AnimatedPositioned(
       duration: const Duration(milliseconds: 200),
@@ -873,7 +885,7 @@ class _BottomBarState extends State<_BottomBar> {
             child: Row(
               children: [
                 IconButton(
-                  tooltip: '上一章',
+                  tooltip: tr('上一章'),
                   onPressed: widget.onPrevChapter,
                   icon: const Icon(Icons.skip_previous_rounded),
                   color: Colors.white,
@@ -899,7 +911,7 @@ class _BottomBarState extends State<_BottomBar> {
                 ),
                 Text('${widget.count}', style: const TextStyle(color: Colors.white60)),
                 IconButton(
-                  tooltip: '下一章',
+                  tooltip: tr('下一章'),
                   onPressed: widget.onNextChapter,
                   icon: const Icon(Icons.skip_next_rounded),
                   color: Colors.white,

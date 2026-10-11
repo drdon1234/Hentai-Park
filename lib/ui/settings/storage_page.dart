@@ -11,6 +11,7 @@ import '../../library/downloads.dart';
 import '../../library/library.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
+import '../../core/localization.dart';
 
 /// Where the space goes, and ways to get it back.
 class StoragePage extends StatefulWidget {
@@ -73,7 +74,7 @@ class _StoragePageState extends State<StoragePage> {
       await body();
       if (mounted && done.isNotEmpty) context.toast(done);
     } catch (e) {
-      if (mounted) context.toast('操作失败：$e');
+      if (mounted) context.toast(tr('操作失败：{value0}', {'value0': e}));
     } finally {
       if (mounted) setState(() => _busy = false);
       await _measure();
@@ -103,9 +104,9 @@ class _StoragePageState extends State<StoragePage> {
         child: ListView(
           shrinkWrap: true,
           children: [
-            const ListTile(
-              title: Text('清除哪个源的 Cookie？', style: TextStyle(fontWeight: FontWeight.w700)),
-              subtitle: Text('会退出该源基于 Cookie 的登录，Cloudflare 验证也需要重新通过'),
+            ListTile(
+              title: Text(tr('清除哪个源的 Cookie？'), style: TextStyle(fontWeight: FontWeight.w700)),
+              subtitle: Text(tr('会退出该源基于 Cookie 的登录，Cloudflare 验证也需要重新通过')),
             ),
             for (final s in sources)
               ListTile(leading: SourceAvatar(s.key, size: 28), title: Text(s.name), onTap: () => Navigator.pop(ctx, s.key)),
@@ -117,17 +118,18 @@ class _StoragePageState extends State<StoragePage> {
     await _run(() async {
       await CookieStore.instance.clearPartition(key);
       await SourceManager.instance.refreshAccount(key);
-    }, '已清除 ${SourceManager.instance.manifest(key)?.name ?? key} 的 Cookie');
+    }, tr('已清除 {value0} 的 Cookie', {'value0': SourceManager.instance.manifest(key)?.name ?? key}));
   }
 
   @override
   Widget build(BuildContext context) {
-    String size(int? v) => v == null ? '计算中…' : formatBytes(v);
+    AppLocalizations.of(context);
+    String size(int? v) => v == null ? tr('计算中…') : formatBytes(v);
     final downloads = _downloads;
     final dlTotal = downloads?.values.fold(0, (a, b) => a + b);
     return Scaffold(
       appBar: AppBar(
-        title: const Text('存储空间'),
+        title: Text(tr('存储空间')),
         bottom: _busy ? const PreferredSize(preferredSize: Size.fromHeight(2), child: LinearProgressIndicator(minHeight: 2)) : null,
       ),
       body: AbsorbPointer(
@@ -140,55 +142,55 @@ class _StoragePageState extends State<StoragePage> {
                 children: [
                   ListTile(
                     leading: const Icon(Icons.image_outlined),
-                    title: const Text('图片缓存'),
+                    title: Text(tr('图片缓存')),
                     subtitle: Text(size(_cache)),
                     trailing: TextButton(
                       onPressed: () => _run(() async {
                         await ImageStore.instance.clear();
                         imageCache.clear();
-                      }, '缓存已清除'),
-                      child: const Text('清除'),
+                      }, tr('缓存已清除')),
+                      child: Text(tr('清除')),
                     ),
                   ),
-                  ListTile(leading: const Icon(Icons.storage_rounded), title: const Text('书库数据库'), subtitle: Text(size(_database))),
-                  ListTile(leading: const Icon(Icons.backup_outlined), title: const Text('备份文件'), subtitle: Text(size(_backups))),
+                  ListTile(leading: const Icon(Icons.storage_rounded), title: Text(tr('书库数据库')), subtitle: Text(size(_database))),
+                  ListTile(leading: const Icon(Icons.backup_outlined), title: Text(tr('备份文件')), subtitle: Text(size(_backups))),
                 ],
               ),
             ),
-            const SectionHeader('下载'),
+            SectionHeader(tr('下载')),
             Card(
               child: Column(
                 children: [
-                  ListTile(leading: const Icon(Icons.download_done_rounded), title: const Text('全部下载'), subtitle: Text(size(dlTotal))),
+                  ListTile(leading: const Icon(Icons.download_done_rounded), title: Text(tr('全部下载')), subtitle: Text(size(dlTotal))),
                   if (downloads != null)
                     for (final e in downloads.entries.toList()..sort((a, b) => b.value.compareTo(a.value)))
                       ListTile(
                         dense: true,
                         leading: SourceAvatar(e.key, size: 24),
-                        title: Text(e.key == localSource ? '本地导入' : SourceManager.instance.manifest(e.key)?.name ?? e.key),
+                        title: Text(e.key == localSource ? tr('本地导入') : SourceManager.instance.manifest(e.key)?.name ?? e.key),
                         trailing: Text(formatBytes(e.value)),
                       ),
                   ListTile(
                     leading: const Icon(Icons.auto_delete_outlined),
-                    title: const Text('删除已读章节的下载'),
-                    subtitle: const Text('只删除标记为已读的漫画章节，本地导入不受影响'),
+                    title: Text(tr('删除已读章节的下载')),
+                    subtitle: Text(tr('只删除标记为已读的漫画章节，本地导入不受影响')),
                     onTap: () async {
                       var n = 0;
                       await _run(() async => n = await _deleteRead(), '');
-                      if (context.mounted) context.toast('已删除 $n 个章节');
+                      if (context.mounted) context.toast(tr('已删除 {value0} 个章节', {'value0': n}));
                     },
                   ),
                   ListTile(
                     leading: const Icon(Icons.folder_outlined),
-                    title: const Text('下载位置'),
+                    title: Text(tr('下载位置')),
                     subtitle: SelectableText(p.normalize(DownloadManager.instance.root.path), style: context.text.bodySmall),
                   ),
                 ],
               ),
             ),
-            const SectionHeader('站点数据'),
+            SectionHeader(tr('站点数据')),
             Card(
-              child: ListTile(leading: const Icon(Icons.cookie_outlined), title: const Text('清除某个源的 Cookie'), onTap: _clearCookies),
+              child: ListTile(leading: const Icon(Icons.cookie_outlined), title: Text(tr('清除某个源的 Cookie')), onTap: _clearCookies),
             ),
           ],
         ),

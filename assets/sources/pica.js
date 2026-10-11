@@ -8,7 +8,7 @@
 Park.register({
   key: 'pica',
   name: '哔咔漫画',
-  version: '1.0.2',
+  version: '0.0.1',
   type: 'comic',
   color: '#EC97B6',
   icon: 'https://manhuabika.com/favicon.ico',
@@ -22,10 +22,17 @@ Park.register({
 
   settings: [
     {
+      key: 'managedAccount',
+      type: 'switch',
+      label: '使用专用自动维护账号',
+      description: '确认后自动注册专用账号，凭据保存在本机并自动重新登录。',
+      default: false,
+    },
+    {
       key: 'channel',
       type: 'select',
       label: '分流',
-      default: '3',
+      default: '1',
       options: [
         { value: '1', label: '分流 1' },
         { value: '2', label: '分流 2' },
@@ -51,6 +58,7 @@ Park.register({
     title: '哔咔账号',
     hint: '哔咔所有内容都需要登录；密码只保存在本机，用于 Token 过期后自动重新登录。',
     required: true,
+    managedAccount: true,
     registerUrl: 'https://manhuabika.com/pregister/?',
     fields: [
       { key: 'email', label: '用户名 / 邮箱' },
@@ -60,21 +68,37 @@ Park.register({
       const email = String(values.email || '').trim();
       const password = String(values.password || '');
       if (!email || !password) throw Park.error('LOGIN_REQUIRED', '请输入账号和密码');
+      if (this.config.managedAccount) throw Park.error('CONFIG', '请先关闭专用自动维护账号，再配置自己的账号');
       const token = await this.signIn(email, password);
       this.store.set('credentials', { email, password });
       this.store.set('token', token);
       const profile = await this.request('users/profile').catch(() => null);
       const name = (profile && profile.user && profile.user.name) || email;
       this.store.set('name', name);
+      await this.store.flush();
       return { name };
     },
+    async enableManaged() {
+      if (!this.config.managedAccount) throw Park.error('CONFIG', '请先确认启用专用自动维护账号');
+      if (this.store.get('credentials')) throw Park.error('CONFIG', '已有手动账号，请先退出登录再启用专用账号');
+      await this.ensureSession(undefined, true);
+      return { name: this.activeAccount().name || this.activeAccount().email };
+    },
     async logout() {
+      if (this.config.managedAccount) {
+        const account = this.store.get('managedAccount');
+        if (account) this.store.set('managedAccount', { ...account, token: null });
+        await this.store.flush();
+        return;
+      }
       this.store.set('token', null);
       this.store.set('credentials', null);
       this.store.set('name', null);
+      await this.store.flush();
     },
     async status() {
-      return this.store.get('token') ? { loggedIn: true, name: this.store.get('name', '') } : { loggedIn: false };
+      const account = this.activeAccount();
+      return { loggedIn: !!(account && account.token), configured: !!(account && account.email && account.password), name: account && (account.name || account.email) || '' };
     },
   },
 
@@ -154,7 +178,8 @@ Park.register({
     const headers = {
       'api-key': this.API_KEY,
       accept: 'application/vnd.picacomic.com.v1+json',
-      'app-channel': this.config.channel || '3',
+      // Authentication goes directly to the API hostname: app-channel 2/3 can return 1023.
+      'app-channel': path.startsWith('auth/') ? '1' : this.config.channel || '1',
       time,
       nonce,
       signature: await Park.crypto.hmacSha256Hex(this.SECRET, raw),
@@ -166,7 +191,8 @@ Park.register({
       'User-Agent': 'okhttp/3.8.1',
       'Content-Type': 'application/json; charset=UTF-8',
     };
-    const token = this.store.get('token');
+    const account = this.activeAccount();
+    const token = account && account.token;
     if (token) headers.authorization = token;
     return headers;
   },
@@ -188,33 +214,114 @@ Park.register({
   },
 
   async signIn(email, password) {
-    this.store.set('token', null);
     const { status, json } = await this.send('POST', 'auth/sign-in', { email, password });
     const token = json && json.data && json.data.token;
     if (status !== 200 || !token) {
-      throw Park.error('LOGIN_REQUIRED', `哔咔登录失败：${(json && (json.message || json.error)) || 'HTTP ' + status}`);
+      throw Park.error('LOGIN_REQUIRED', `哔咔登录失败：${(json && (json.message || json.error)) || 'HTTP ' + status}`, { status, rateLimited: status === 429 || String(json.error) === '1023' });
     }
     return token;
+  },
+
+  activeAccount() {
+    if (this.config.managedAccount && !this.store.get('credentials')) return this.store.get('managedAccount');
+    const credentials = this.store.get('credentials');
+    return credentials ? { ...credentials, token: this.store.get('token'), name: this.store.get('name', '') } : null;
+  },
+
+  /** Shared login promise prevents concurrent feed/detail requests from repeatedly refreshing. */
+  async ensureSession(staleToken, force = false) {
+    const current = this.activeAccount();
+    if (current && current.token && (staleToken === undefined || current.token !== staleToken)) return;
+    if (this._sessionPending) return this._sessionPending;
+    const run = this.restoreSession(force);
+    this._sessionPending = run;
+    try { await run; } finally { this._sessionPending = null; }
+  },
+
+  async restoreSession(force) {
+    const managed = this.config.managedAccount && !this.store.get('credentials');
+    const account = managed && this.store.get('managedAccount');
+    if (account && account.retryAt > Date.now() && (!force || account.rateLimited)) {
+      const minutes = Math.max(1, Math.ceil((account.retryAt - Date.now()) / 60000));
+      throw Park.error('LOGIN_REQUIRED', `哔咔账号正在冷却，请在 ${minutes} 分钟后重试`);
+    }
+    try {
+      await this.loginSession();
+    } catch (error) {
+      if (managed) {
+        const saved = this.store.get('managedAccount');
+        if (saved) {
+          const failures = (Number(saved.failures) || 0) + 1;
+          const delay = Math.min(24 * 3600000, (error.rateLimited ? 6 * 3600000 : 600000) * Math.pow(2, failures - 1));
+          this.store.set('managedAccount', { ...saved, failures, retryAt: Date.now() + delay, rateLimited: !!error.rateLimited });
+          // Preserve the original failure; persistence failure still prohibits external requests.
+          await this.store.flush().catch(() => {});
+        }
+      }
+      throw error;
+    }
+  },
+
+  async loginSession() {
+    const manual = this.store.get('credentials');
+    const managed = this.config.managedAccount && !manual;
+    let account = managed ? this.store.get('managedAccount') : manual;
+    if (!account && !managed) throw Park.error('LOGIN_REQUIRED', '哔咔需要登录后才能使用');
+    if (managed && !account) {
+      const id = (await Park.crypto.uuid()).replace(/-/g, '');
+      const password = (await Park.crypto.uuid()).replace(/-/g, '');
+      account = { email: 'hp' + id.slice(0, 20), password, registered: false, token: null, name: '' };
+      this.store.set('managedAccount', account);
+      // Registration must never run unless this account is already recoverable from disk.
+      await this.store.flush();
+    }
+    if (managed && !account.registered) {
+      await this.store.flush();
+      const { status, json } = await this.send('POST', 'auth/register', {
+        email: account.email, password: account.password, name: account.email,
+        birthday: '2000-01-01', gender: 'm',
+        question1: '1', question2: '2', question3: '3',
+        answer1: '1', answer2: '2', answer3: '3',
+      });
+      if (status !== 200 && !/already exist/i.test(String(json.message || ''))) {
+        throw Park.error('HTTP', `哔咔注册失败：${json.message || 'HTTP ' + status}`, { status, rateLimited: status === 429 || String(json.error) === '1023' });
+      }
+      account = { ...account, registered: true };
+      this.store.set('managedAccount', account);
+      await this.store.flush();
+    }
+    if (managed) this.store.set('managedAccount', { ...account, token: null });
+    else this.store.set('token', null);
+    const token = await this.signIn(account.email, account.password);
+    if (managed) this.store.set('managedAccount', { ...account, token, failures: 0, retryAt: 0, rateLimited: false });
+    else this.store.set('token', token);
+    await this.store.flush();
+    const profile = await this.send('GET', 'users/profile').catch(() => null);
+    const name = profile && profile.json && profile.json.data && profile.json.data.user && profile.json.data.user.name || account.email;
+    if (managed) this.store.set('managedAccount', { ...account, token, name, failures: 0, retryAt: 0, rateLimited: false });
+    else this.store.set('name', name);
+    await this.store.flush();
   },
 
   /** Authenticated request; returns `data`. Re-logs in once on 401. */
   async request(path, body) {
     const method = body === undefined ? 'GET' : 'POST';
-    if (!this.store.get('token')) {
-      const cred = this.store.get('credentials');
-      if (!cred) throw Park.error('LOGIN_REQUIRED', '哔咔需要登录后才能使用');
-      this.store.set('token', await this.signIn(cred.email, cred.password));
-    }
+    await this.ensureSession();
     for (let attempt = 0; attempt < 2; attempt++) {
+      const token = this.activeAccount() && this.activeAccount().token;
       const { status, json } = await this.send(method, path, body);
       if (status === 401 && attempt === 0) {
-        const cred = this.store.get('credentials');
-        if (!cred) {
-          this.store.set('token', null);
-          throw Park.error('LOGIN_REQUIRED', '哔咔登录已过期，请重新登录');
-        }
-        this.store.set('token', await this.signIn(cred.email, cred.password));
+        await this.ensureSession(token);
         continue;
+      }
+      if (status === 401) {
+        const active = this.activeAccount();
+        if (active && active.token === token) {
+          if (this.config.managedAccount && !this.store.get('credentials')) this.store.set('managedAccount', { ...active, token: null });
+          else this.store.set('token', null);
+          await this.store.flush();
+        }
+        throw Park.error('LOGIN_REQUIRED', '哔咔登录状态失效');
       }
       if (status === 400 || status === 404) throw Park.error('NOT_FOUND', `哔咔：${json.message || '内容不存在'}`);
       if (status !== 200) throw Park.error('HTTP', `哔咔请求失败：HTTP ${status} ${json.message || ''}`, { status });

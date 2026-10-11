@@ -9,7 +9,7 @@
 Park.register({
   key: 'hanime1',
   name: 'Hanime1',
-  version: '1.0.2',
+  version: '0.0.1',
   type: 'video',
   color: '#E5355F',
   icon: 'https://hanime1.me/favicon.ico',

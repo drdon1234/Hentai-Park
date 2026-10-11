@@ -10,6 +10,7 @@ import '../../library/updater.dart';
 import '../nav.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
+import '../../core/localization.dart';
 
 /// Mihon's Updates tab: new chapters of favorites, newest first, grouped by day.
 class UpdatesPage extends StatefulWidget {
@@ -59,8 +60,8 @@ class _UpdatesPageState extends State<UpdatesPage> {
     if (!mounted || result == null) return;
     context.toast(
       result.newChapters > 0
-          ? '${result.updated.length} 部作品有 ${result.newChapters} 个新章节'
-          : '没有新章节${result.errors.isNotEmpty ? '（${result.errors.length} 部检查失败）' : ''}',
+          ? tr('{value0} 部作品有 {value1} 个新章节', {'value0': result.updated.length, 'value1': result.newChapters})
+          : tr('没有新章节{value0}', {'value0': result.errors.isNotEmpty ? tr('（{value0} 部检查失败）', {'value0': result.errors.length}) : ''}),
     );
   }
 
@@ -90,11 +91,12 @@ class _UpdatesPageState extends State<UpdatesPage> {
     for (final w in byWork.values) {
       DownloadManager.instance.enqueue(w.$1, w.$2);
     }
-    context.toast('已加入下载队列');
+    context.toast(tr('已加入下载队列'));
   }
 
   @override
   Widget build(BuildContext context) {
+    AppLocalizations.of(context);
     final updater = LibraryUpdater.instance;
     return ListenableBuilder(
       listenable: Listenable.merge([updater, DownloadManager.instance]),
@@ -105,12 +107,12 @@ class _UpdatesPageState extends State<UpdatesPage> {
           appBar: selecting
               ? AppBar(
                   leading: IconButton(icon: const Icon(Icons.close_rounded), onPressed: () => setState(_selected.clear)),
-                  title: Text('已选 ${_selected.length}'),
+                  title: Text(tr('已选 {value0}', {'value0': _selected.length})),
                   actions: [
-                    TextButton(onPressed: () => _markSelected(true), child: const Text('标为已读')),
-                    TextButton(onPressed: () => _markSelected(false), child: const Text('标为未读')),
+                    TextButton(onPressed: () => _markSelected(true), child: Text(tr('标为已读'))),
+                    TextButton(onPressed: () => _markSelected(false), child: Text(tr('标为未读'))),
                     IconButton(
-                      tooltip: '下载',
+                      tooltip: tr('下载'),
                       icon: const Icon(Icons.download_rounded),
                       onPressed: () {
                         _download(_selectedEntries);
@@ -123,18 +125,18 @@ class _UpdatesPageState extends State<UpdatesPage> {
                   title: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text('更新'),
+                      Text(tr('更新')),
                       Text(
-                        updater.running ? '正在检查 ${updater.done}/${updater.total}' : (last == 0 ? '尚未检查过更新' : '上次检查：${timeAgo(DateTime.fromMillisecondsSinceEpoch(last))}'),
+                        updater.running ? tr('正在检查 {value0}/{value1}', {'value0': updater.done, 'value1': updater.total}) : (last == 0 ? tr('尚未检查过更新') : tr('上次检查：{value0}', {'value0': timeAgo(DateTime.fromMillisecondsSinceEpoch(last))})),
                         style: context.text.labelSmall?.copyWith(color: context.colors.onSurfaceVariant),
                       ),
                     ],
                   ),
                   actions: [
                     if (updater.running)
-                      IconButton(tooltip: '停止', icon: const Icon(Icons.stop_circle_outlined), onPressed: updater.cancel)
+                      IconButton(tooltip: tr('停止'), icon: const Icon(Icons.stop_circle_outlined), onPressed: updater.cancel)
                     else
-                      IconButton(tooltip: '检查更新', icon: const Icon(Icons.refresh_rounded), onPressed: _refresh),
+                      IconButton(tooltip: tr('检查更新'), icon: const Icon(Icons.refresh_rounded), onPressed: _refresh),
                   ],
                   bottom: updater.running
                       ? PreferredSize(
@@ -154,9 +156,9 @@ class _UpdatesPageState extends State<UpdatesPage> {
     if (entries == null) return const Center(child: CircularProgressIndicator());
     if (entries.isEmpty) {
       return ListView(
-        children: const [
+        children: [
           SizedBox(height: 120),
-          MessageView(icon: Icons.new_releases_outlined, title: '暂无更新', message: '下拉检查书架中连载作品的新章节\n可以在「我的 → 书库」中设置自动检查'),
+          MessageView(icon: Icons.new_releases_outlined, title: tr('暂无更新'), message: tr('下拉检查书架中连载作品的新章节\n可以在「我的 → 书库」中设置自动检查')),
         ],
       );
     }
@@ -219,7 +221,7 @@ class _UpdatesPageState extends State<UpdatesPage> {
                           child: Text(
                             [
                               e.chapter.title,
-                              if (!read && e.chapter.lastPage > 0 && e.chapter.pageCount > 0) '读到 ${e.chapter.lastPage + 1}/${e.chapter.pageCount}',
+                              if (!read && e.chapter.lastPage > 0 && e.chapter.pageCount > 0) tr('读到 {value0}/{value1}', {'value0': e.chapter.lastPage + 1, 'value1': e.chapter.pageCount}),
                             ].join(' · '),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
@@ -237,7 +239,7 @@ class _UpdatesPageState extends State<UpdatesPage> {
                   child: Icon(Icons.download_done_rounded, color: c.primary, size: 20),
                 )
               else
-                IconButton(tooltip: '下载', icon: const Icon(Icons.download_outlined, size: 20), onPressed: () => _download([e])),
+                IconButton(tooltip: tr('下载'), icon: const Icon(Icons.download_outlined, size: 20), onPressed: () => _download([e])),
             ],
           ),
         ),

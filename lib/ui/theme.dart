@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import '../core/localization.dart';
 
 /// Material 3 theme tuned for an image-heavy reader: deep neutral surfaces in dark mode so covers
 /// pop, a single accent color (user selectable), rounded geometry and calm motion.
 class ParkTheme {
-  static const accents = <int, String>{0xFFE5355F: '樱桃红', 0xFFF7841E: '琥珀橙', 0xFF7C4DFF: '暮光紫', 0xFF2D9CDB: '天青蓝', 0xFF1DB954: '薄荷绿', 0xFFEC97B6: '樱花粉'};
+  static Map<int, String> get accents => <int, String>{0xFFE5355F: tr('樱桃红'), 0xFFF7841E: tr('琥珀橙'), 0xFF7C4DFF: tr('暮光紫'), 0xFF2D9CDB: tr('天青蓝'), 0xFF1DB954: tr('薄荷绿'), 0xFFEC97B6: tr('樱花粉')};
 
   static ThemeData build(Brightness brightness, Color seed) {
     final dark = brightness == Brightness.dark;
@@ -92,8 +93,12 @@ extension ContextX on BuildContext {
 
 String formatCount(int? n) {
   if (n == null) return '';
-  if (n >= 100000000) return '${(n / 100000000).toStringAsFixed(1)}亿';
-  if (n >= 10000) return '${(n / 10000).toStringAsFixed(n >= 100000 ? 0 : 1)}万';
+  final language = AppLocalizations.instance.locale.languageCode;
+  if (const {'zh', 'ja', 'ko'}.contains(language)) {
+    if (n >= 100000000) return tr('{value0}亿', {'value0': (n / 100000000).toStringAsFixed(1)});
+    if (n >= 10000) return tr('{value0}万', {'value0': (n / 10000).toStringAsFixed(n >= 100000 ? 0 : 1)});
+  }
+  if (n >= 1000000) return '${(n / 1000000).toStringAsFixed(1)}M';
   if (n >= 1000) return '${(n / 1000).toStringAsFixed(1)}k';
   return '$n';
 }
@@ -107,10 +112,10 @@ String formatBytes(int bytes) {
 
 String timeAgo(DateTime t) {
   final d = DateTime.now().difference(t);
-  if (d.inMinutes < 1) return '刚刚';
-  if (d.inHours < 1) return '${d.inMinutes} 分钟前';
-  if (d.inDays < 1) return '${d.inHours} 小时前';
-  if (d.inDays < 30) return '${d.inDays} 天前';
+  if (d.inMinutes < 1) return tr('刚刚');
+  if (d.inHours < 1) return tr('{value0} 分钟前', {'value0': d.inMinutes});
+  if (d.inDays < 1) return tr('{value0} 小时前', {'value0': d.inHours});
+  if (d.inDays < 30) return tr('{value0} 天前', {'value0': d.inDays});
   return '${t.year}-${t.month.toString().padLeft(2, '0')}-${t.day.toString().padLeft(2, '0')}';
 }
 
@@ -120,8 +125,8 @@ String dayLabel(DateTime t) {
   final today = DateTime(now.year, now.month, now.day);
   final day = DateTime(t.year, t.month, t.day);
   final diff = today.difference(day).inDays;
-  if (diff == 0) return '今天';
-  if (diff == 1) return '昨天';
-  if (diff < 7 && diff > 1) return '$diff 天前';
+  if (diff == 0) return tr('今天');
+  if (diff == 1) return tr('昨天');
+  if (diff < 7 && diff > 1) return tr('{value0} 天前', {'value0': diff});
   return '${t.year}-${t.month.toString().padLeft(2, '0')}-${t.day.toString().padLeft(2, '0')}';
 }

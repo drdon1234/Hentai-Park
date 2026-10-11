@@ -10,6 +10,7 @@ import 'package:path/path.dart' as p;
 import '../core/models.dart';
 import '../images/park_image.dart';
 import 'downloads.dart';
+import '../core/localization.dart';
 
 /// Comic metadata written to / read from ComicInfo.xml (the de-facto CBZ metadata format).
 class ComicInfo {
@@ -150,7 +151,7 @@ class Cbz {
     final archive = ZipDecoder().decodeBytes(bytes);
     final images = archive.files.where((f) => f.isFile && _imageExtensions.contains(p.extension(f.name).toLowerCase()) && !p.basename(f.name).startsWith('.')).toList()
       ..sort((a, b) => naturalCompare(a.name, b.name));
-    if (images.isEmpty) throw const FormatException('压缩包里没有图片');
+    if (images.isEmpty) throw FormatException(tr('压缩包里没有图片'));
     final infoFile = archive.files.where((f) => f.isFile && p.basename(f.name).toLowerCase() == 'comicinfo.xml').firstOrNull;
     final info = infoFile == null ? ComicInfo() : ComicInfo.parse(utf8.decode(infoFile.content, allowMalformed: true));
     final id = sha1.convert(bytes).toString().substring(0, 16);
@@ -178,7 +179,7 @@ class Cbz {
     await File(p.join(dir.path, 'work.json')).writeAsString(jsonEncode(item.toJson()));
     return DownloadTask(
       item: item,
-      chapters: [Chapter('_', '全本')],
+      chapters: [Chapter('_', tr('全本'))],
       dir: dir.path,
       status: DownloadStatus.done,
       done: images.length,

@@ -11,6 +11,7 @@ import '../../library/backup.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
 import 'source_install.dart';
+import '../../core/localization.dart';
 
 class BackupPage extends StatefulWidget {
   const BackupPage({super.key});
@@ -42,7 +43,7 @@ class _BackupPageState extends State<BackupPage> {
       final file = await BackupService.instance.writeTo(AppPaths.backups, options);
       await _refresh();
       if (!mounted) return;
-      context.toast('备份已保存');
+      context.toast(tr('备份已保存'));
       await SharePlus.instance.share(ShareParams(files: [XFile(file.path)], subject: p.basename(file.path)));
     });
   }
@@ -51,11 +52,11 @@ class _BackupPageState extends State<BackupPage> {
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('恢复备份？'),
-        content: const Text('备份会与当前数据合并：收藏取并集，已读进度保留较新的一方，设置会被备份中的值覆盖。'),
+        title: Text(tr('恢复备份？')),
+        content: Text(tr('备份会与当前数据合并：收藏取并集，已读进度保留较新的一方，设置会被备份中的值覆盖。')),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('取消')),
-          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('恢复')),
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(tr('取消'))),
+          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: Text(tr('恢复'))),
         ],
       ),
     );
@@ -66,9 +67,9 @@ class _BackupPageState extends State<BackupPage> {
       await showDialog<void>(
         context: context,
         builder: (ctx) => AlertDialog(
-          title: const Text('恢复完成'),
-          content: Text(report.summary.isEmpty ? '没有需要合并的新数据' : '已合并：${report.summary}'),
-          actions: [FilledButton(onPressed: () => Navigator.pop(ctx), child: const Text('好'))],
+          title: Text(tr('恢复完成')),
+          content: Text(report.summary.isEmpty ? tr('没有需要合并的新数据') : tr('已合并：{value0}', {'value0': report.summary})),
+          actions: [FilledButton(onPressed: () => Navigator.pop(ctx), child: Text(tr('好')))],
         ),
       );
       if (!mounted) return;
@@ -80,10 +81,10 @@ class _BackupPageState extends State<BackupPage> {
   }
 
   Future<void> _pickAndRestore() async {
-    final file = await FilePicker.pickFile(dialogTitle: '选择备份文件');
+    final file = await FilePicker.pickFile(dialogTitle: tr('选择备份文件'));
     if (file == null) return;
     if (!file.name.endsWith(BackupService.extension) && mounted) {
-      context.toast('请选择 ${BackupService.extension} 文件');
+      context.toast(tr('请选择 {value0} 文件', {'value0': BackupService.extension}));
       return;
     }
     await _restoreBytes(await file.xFile.readAsBytes());
@@ -96,7 +97,7 @@ class _BackupPageState extends State<BackupPage> {
     } on FormatException catch (e) {
       if (mounted) context.toast(e.message);
     } catch (e) {
-      if (mounted) context.toast('操作失败：$e');
+      if (mounted) context.toast(tr('操作失败：{value0}', {'value0': e}));
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -110,9 +111,9 @@ class _BackupPageState extends State<BackupPage> {
           mainAxisSize: MainAxisSize.min,
           children: [
             ListTile(title: Text(p.basename(f.path), style: const TextStyle(fontWeight: FontWeight.w700))),
-            ListTile(leading: const Icon(Icons.restore_rounded), title: const Text('从此备份恢复'), onTap: () => Navigator.pop(ctx, 'restore')),
-            ListTile(leading: const Icon(Icons.share_rounded), title: const Text('分享 / 另存'), onTap: () => Navigator.pop(ctx, 'share')),
-            ListTile(leading: const Icon(Icons.delete_outline_rounded), title: const Text('删除'), onTap: () => Navigator.pop(ctx, 'delete')),
+            ListTile(leading: const Icon(Icons.restore_rounded), title: Text(tr('从此备份恢复')), onTap: () => Navigator.pop(ctx, 'restore')),
+            ListTile(leading: const Icon(Icons.share_rounded), title: Text(tr('分享 / 另存')), onTap: () => Navigator.pop(ctx, 'share')),
+            ListTile(leading: const Icon(Icons.delete_outline_rounded), title: Text(tr('删除')), onTap: () => Navigator.pop(ctx, 'delete')),
           ],
         ),
       ),
@@ -131,12 +132,13 @@ class _BackupPageState extends State<BackupPage> {
 
   @override
   Widget build(BuildContext context) {
+    AppLocalizations.of(context);
     final last = s.lastAutoBackup;
     return ListenableBuilder(
       listenable: s,
       builder: (context, _) => Scaffold(
         appBar: AppBar(
-          title: const Text('备份与恢复'),
+          title: Text(tr('备份与恢复')),
           bottom: _busy ? const PreferredSize(preferredSize: Size.fromHeight(2), child: LinearProgressIndicator(minHeight: 2)) : null,
         ),
         body: ListView(
@@ -147,14 +149,14 @@ class _BackupPageState extends State<BackupPage> {
                 children: [
                   ListTile(
                     leading: const Icon(Icons.backup_outlined),
-                    title: const Text('创建备份'),
-                    subtitle: const Text('收藏、分类、阅读进度、历史、设置与源列表'),
+                    title: Text(tr('创建备份')),
+                    subtitle: Text(tr('收藏、分类、阅读进度、历史、设置与源列表')),
                     onTap: _busy ? null : _create,
                   ),
                   ListTile(
                     leading: const Icon(Icons.settings_backup_restore_rounded),
-                    title: const Text('从文件恢复'),
-                    subtitle: const Text('选择 .parkbak 文件，与当前数据合并'),
+                    title: Text(tr('从文件恢复')),
+                    subtitle: Text(tr('选择 .parkbak 文件，与当前数据合并')),
                     onTap: _busy ? null : _pickAndRestore,
                   ),
                 ],
@@ -166,24 +168,24 @@ class _BackupPageState extends State<BackupPage> {
                 children: [
                   ListTile(
                     leading: const Icon(Icons.schedule_rounded),
-                    title: const Text('自动备份'),
-                    subtitle: Text(last == 0 ? '尚未自动备份过' : '上次：${timeAgo(DateTime.fromMillisecondsSinceEpoch(last))}'),
+                    title: Text(tr('自动备份')),
+                    subtitle: Text(last == 0 ? tr('尚未自动备份过') : tr('上次：{value0}', {'value0': timeAgo(DateTime.fromMillisecondsSinceEpoch(last))})),
                     trailing: DropdownButton<int>(
                       value: s.autoBackupHours,
                       underline: const SizedBox.shrink(),
-                      items: const [
-                        (0, '关闭'),
-                        (12, '每 12 小时'),
-                        (24, '每天'),
-                        (72, '每 3 天'),
-                        (168, '每周'),
+                      items: [
+                        (0, tr('关闭')),
+                        (12, tr('每 12 小时')),
+                        (24, tr('每天')),
+                        (72, tr('每 3 天')),
+                        (168, tr('每周')),
                       ].map((e) => DropdownMenuItem(value: e.$1, child: Text(e.$2))).toList(),
                       onChanged: (v) => s.autoBackupHours = v ?? 24,
                     ),
                   ),
                   ListTile(
                     leading: const Icon(Icons.layers_outlined),
-                    title: const Text('保留份数'),
+                    title: Text(tr('保留份数')),
                     trailing: DropdownButton<int>(
                       value: s.autoBackupKeep,
                       underline: const SizedBox.shrink(),
@@ -193,14 +195,14 @@ class _BackupPageState extends State<BackupPage> {
                   ),
                   ListTile(
                     leading: const Icon(Icons.folder_outlined),
-                    title: const Text('备份目录'),
+                    title: Text(tr('备份目录')),
                     subtitle: SelectableText(AppPaths.backups.path, style: context.text.bodySmall),
                   ),
                 ],
               ),
             ),
             if (_files.isNotEmpty) ...[
-              const SectionHeader('本机备份'),
+              SectionHeader(tr('本机备份')),
               Card(
                 child: Column(
                   children: [
@@ -234,28 +236,29 @@ class _OptionsDialogState extends State<_OptionsDialog> {
 
   @override
   Widget build(BuildContext context) {
+    AppLocalizations.of(context);
     return AlertDialog(
-      title: const Text('备份内容'),
+      title: Text(tr('备份内容')),
       contentPadding: const EdgeInsets.fromLTRB(8, 16, 8, 0),
       content: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          CheckboxListTile(value: library, title: const Text('书库'), subtitle: const Text('收藏、分类、阅读进度、历史'), onChanged: (v) => setState(() => library = v!)),
-          CheckboxListTile(value: settings, title: const Text('应用设置'), onChanged: (v) => setState(() => settings = v!)),
-          CheckboxListTile(value: sources, title: const Text('源列表与源设置'), onChanged: (v) => setState(() => sources = v!)),
+          CheckboxListTile(value: library, title: Text(tr('书库')), subtitle: Text(tr('收藏、分类、阅读进度、历史')), onChanged: (v) => setState(() => library = v!)),
+          CheckboxListTile(value: settings, title: Text(tr('应用设置')), onChanged: (v) => setState(() => settings = v!)),
+          CheckboxListTile(value: sources, title: Text(tr('源列表与源设置')), onChanged: (v) => setState(() => sources = v!)),
           CheckboxListTile(
             value: credentials,
-            title: const Text('源登录数据'),
-            subtitle: const Text('包含 Token 等凭据，请妥善保管备份文件；基于 Cookie 的登录（如 E-Hentai）需要重新登录'),
+            title: Text(tr('源登录数据')),
+            subtitle: Text(tr('包含 Token 等凭据，请妥善保管备份文件；基于 Cookie 的登录（如 E-Hentai）需要重新登录')),
             onChanged: sources ? (v) => setState(() => credentials = v!) : null,
           ),
         ],
       ),
       actions: [
-        TextButton(onPressed: () => Navigator.pop(context), child: const Text('取消')),
+        TextButton(onPressed: () => Navigator.pop(context), child: Text(tr('取消'))),
         FilledButton(
           onPressed: () => Navigator.pop(context, BackupOptions(library: library, settings: settings, sources: sources, credentials: sources && credentials)),
-          child: const Text('创建'),
+          child: Text(tr('创建')),
         ),
       ],
     );

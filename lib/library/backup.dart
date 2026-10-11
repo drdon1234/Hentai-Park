@@ -10,6 +10,7 @@ import '../core/storage.dart';
 import '../data/database.dart';
 import '../engine/source_manager.dart';
 import 'library.dart';
+import '../core/localization.dart';
 
 class BackupOptions {
   const BackupOptions({this.library = true, this.settings = true, this.sources = true, this.credentials = false});
@@ -31,12 +32,12 @@ class RestoreReport {
   List<({String key, String url})> sourcesToInstall = [];
 
   String get summary => [
-    if (favorites > 0) '收藏 $favorites',
-    if (categories > 0) '分类 $categories',
-    if (chapters > 0) '章节进度 $chapters',
-    if (history > 0) '历史 $history',
-    if (settings) '设置',
-    if (sources > 0) '源设置 $sources',
+    if (favorites > 0) tr('收藏 {value0}', {'value0': favorites}),
+    if (categories > 0) tr('分类 {value0}', {'value0': categories}),
+    if (chapters > 0) tr('章节进度 {value0}', {'value0': chapters}),
+    if (history > 0) tr('历史 {value0}', {'value0': history}),
+    if (settings) tr('设置'),
+    if (sources > 0) tr('源设置 {value0}', {'value0': sources}),
   ].join('、');
 }
 
@@ -72,10 +73,10 @@ class BackupService {
     try {
       data = jsonDecode(utf8.decode(gzip.decode(bytes)));
     } catch (_) {
-      throw const FormatException('不是有效的备份文件');
+      throw FormatException(tr('不是有效的备份文件'));
     }
-    if (data is! Map || data['format'] != format) throw const FormatException('不是 HentaiPark 备份文件');
-    if ((data['version'] as num? ?? 0) > version) throw const FormatException('备份来自更新版本的应用，请先升级');
+    if (data is! Map || data['format'] != format) throw FormatException(tr('不是 HentaiPark 备份文件'));
+    if ((data['version'] as num? ?? 0) > version) throw FormatException(tr('备份来自更新版本的应用，请先升级'));
     return data.cast<String, dynamic>();
   }
 

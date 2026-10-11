@@ -7,6 +7,7 @@ import '../../engine/source_manager.dart';
 import '../../library/library.dart';
 import '../nav.dart';
 import '../theme.dart';
+import '../../core/localization.dart';
 
 /// Adds or removes a favorite the same way from every entry point (detail page, long-press menus).
 Future<void> toggleFavorite(BuildContext context, WorkItem item) async {
@@ -23,12 +24,12 @@ Future<void> toggleFavorite(BuildContext context, WorkItem item) async {
     final choice = await showDialog<String>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('书库中已有相似作品'),
+        title: Text(tr('书库中已有相似作品')),
         content: Text('「${existing.title}」（${SourceManager.instance.manifest(existing.source)?.name ?? existing.source}）'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('取消')),
-          TextButton(onPressed: () => Navigator.pop(ctx, 'open'), child: const Text('打开已有')),
-          FilledButton(onPressed: () => Navigator.pop(ctx, 'add'), child: const Text('仍然收藏')),
+          TextButton(onPressed: () => Navigator.pop(ctx), child: Text(tr('取消'))),
+          TextButton(onPressed: () => Navigator.pop(ctx, 'open'), child: Text(tr('打开已有'))),
+          FilledButton(onPressed: () => Navigator.pop(ctx, 'add'), child: Text(tr('仍然收藏'))),
         ],
       ),
     );
@@ -41,7 +42,7 @@ Future<void> toggleFavorite(BuildContext context, WorkItem item) async {
   }
   var categories = <int>{};
   if (AppSettings.instance.askCategoryOnFavorite && lib.categories.isNotEmpty) {
-    final picked = await pickCategories(context, title: '收藏到');
+    final picked = await pickCategories(context, title: tr('收藏到'));
     if (picked == null) return;
     categories = picked;
   }
@@ -76,11 +77,11 @@ class _CategoryPickerState extends State<_CategoryPicker> {
   late final Set<int> _selected = {...widget.selected};
 
   Future<void> _create() async {
-    final name = await promptText(context, '新建分类', '');
+    final name = await promptText(context, tr('新建分类'), '');
     if (name == null) return;
     final c = await Library.instance.createCategory(name);
     if (c == null) {
-      if (mounted) context.toast('分类名称为空或已存在');
+      if (mounted) context.toast(tr('分类名称为空或已存在'));
       return;
     }
     setState(() => _selected.add(c.id));
@@ -88,6 +89,7 @@ class _CategoryPickerState extends State<_CategoryPicker> {
 
   @override
   Widget build(BuildContext context) {
+    AppLocalizations.of(context);
     return ListenableBuilder(
       listenable: Library.instance,
       builder: (context, _) {
@@ -99,13 +101,13 @@ class _CategoryPickerState extends State<_CategoryPicker> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 ListTile(
-                  title: Text(widget.title, style: const TextStyle(fontWeight: FontWeight.w700)),
-                  trailing: TextButton.icon(onPressed: _create, icon: const Icon(Icons.add_rounded), label: const Text('新建')),
+                  title: Text(tr(widget.title), style: const TextStyle(fontWeight: FontWeight.w700)),
+                  trailing: TextButton.icon(onPressed: _create, icon: const Icon(Icons.add_rounded), label: Text(tr('新建'))),
                 ),
                 if (cats.isEmpty)
-                  const Padding(
+                  Padding(
                     padding: EdgeInsets.fromLTRB(24, 0, 24, 16),
-                    child: Text('还没有分类。不选择任何分类时作品会放在"默认"里。'),
+                    child: Text(tr('还没有分类。不选择任何分类时作品会放在"默认"里。')),
                   ),
                 Flexible(
                   child: ListView(
@@ -125,11 +127,11 @@ class _CategoryPickerState extends State<_CategoryPicker> {
                   child: Row(
                     children: [
                       Expanded(
-                        child: OutlinedButton(onPressed: () => Navigator.pop(context), child: const Text('取消')),
+                        child: OutlinedButton(onPressed: () => Navigator.pop(context), child: Text(tr('取消'))),
                       ),
                       const SizedBox(width: 12),
                       Expanded(
-                        child: FilledButton(onPressed: () => Navigator.pop(context, _selected), child: const Text('确定')),
+                        child: FilledButton(onPressed: () => Navigator.pop(context, _selected), child: Text(tr('确定'))),
                       ),
                     ],
                   ),
@@ -156,8 +158,8 @@ Future<String?> promptText(BuildContext context, String title, String initial, {
         onSubmitted: (v) => Navigator.pop(ctx, v.trim().isEmpty ? null : v.trim()),
       ),
       actions: [
-        TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('取消')),
-        FilledButton(onPressed: () => Navigator.pop(ctx, c.text.trim().isEmpty ? null : c.text.trim()), child: const Text('确定')),
+        TextButton(onPressed: () => Navigator.pop(ctx), child: Text(tr('取消'))),
+        FilledButton(onPressed: () => Navigator.pop(ctx, c.text.trim().isEmpty ? null : c.text.trim()), child: Text(tr('确定'))),
       ],
     ),
   );

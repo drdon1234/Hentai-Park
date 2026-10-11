@@ -14,6 +14,7 @@ import '../widgets/work_card.dart';
 import 'category_manage_page.dart';
 import 'favorite_actions.dart';
 import 'library_options_sheet.dart';
+import '../../core/localization.dart';
 
 /// The library (Mihon style): one tab per category, filter / sort / display options, search,
 /// pull-to-refresh library updates and multi-select actions.
@@ -47,20 +48,20 @@ class _LibraryPageState extends State<LibraryPage> {
 
   String _tabLabel(Library lib, int? id) {
     final n = lib.favorites(category: id).length;
-    if (id == null) return '全部 $n';
-    if (id == Library.defaultCategory) return '默认 $n';
+    if (id == null) return tr('全部 {value0}', {'value0': n});
+    if (id == Library.defaultCategory) return tr('默认 {value0}', {'value0': n});
     return '${lib.category(id)?.name ?? ''} $n';
   }
 
   Future<void> _update(int? category) async {
     final updater = LibraryUpdater.instance;
     if (updater.running) {
-      context.toast('正在检查更新…');
+      context.toast(tr('正在检查更新…'));
       return;
     }
     final r = await updater.run(category: category);
     if (!mounted || r == null) return;
-    context.toast(r.newChapters > 0 ? '${r.updated.length} 部作品有新章节，详见「更新」' : '没有新章节${r.errors.isNotEmpty ? '（${r.errors.length} 部检查失败）' : ''}');
+    context.toast(r.newChapters > 0 ? tr('{value0} 部作品有新章节，详见「更新」', {'value0': r.updated.length}) : tr('没有新章节{value0}', {'value0': r.errors.isNotEmpty ? tr('（{value0} 部检查失败）', {'value0': r.errors.length}) : ''}));
   }
 
   void _toggle(String uid) => setState(() => _selected.contains(uid) ? _selected.remove(uid) : _selected.add(uid));
@@ -85,10 +86,10 @@ class _LibraryPageState extends State<LibraryPage> {
         final ok = await showDialog<bool>(
           context: context,
           builder: (ctx) => AlertDialog(
-            title: Text('取消收藏 ${uids.length} 部作品？'),
+            title: Text(tr('取消收藏 {value0} 部作品？', {'value0': uids.length})),
             actions: [
-              TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('取消')),
-              FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('取消收藏')),
+              TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(tr('取消'))),
+              FilledButton(onPressed: () => Navigator.pop(ctx, true), child: Text(tr('取消收藏'))),
             ],
           ),
         );
@@ -105,6 +106,7 @@ class _LibraryPageState extends State<LibraryPage> {
 
   @override
   Widget build(BuildContext context) {
+    AppLocalizations.of(context);
     return ListenableBuilder(
       listenable: Library.instance,
       builder: (context, _) {
@@ -134,16 +136,16 @@ class _LibraryPageState extends State<LibraryPage> {
 
   PreferredSizeWidget _selectionBar() => AppBar(
     leading: IconButton(icon: const Icon(Icons.close_rounded), onPressed: () => setState(_selected.clear)),
-    title: Text('已选 ${_selected.length}'),
+    title: Text(tr('已选 {value0}', {'value0': _selected.length})),
     actions: [
-      TextButton(onPressed: () => _selectionAction('categories'), child: const Text('分类')),
-      TextButton(onPressed: () => _selectionAction('read'), child: const Text('标为已读')),
+      TextButton(onPressed: () => _selectionAction('categories'), child: Text(tr('分类'))),
+      TextButton(onPressed: () => _selectionAction('read'), child: Text(tr('标为已读'))),
       PopupMenuButton<String>(
-        tooltip: '更多',
+        tooltip: tr('更多'),
         onSelected: _selectionAction,
-        itemBuilder: (_) => const [
-          PopupMenuItem(value: 'migrate', child: Text('迁移到其他源')),
-          PopupMenuItem(value: 'remove', child: Text('取消收藏')),
+        itemBuilder: (_) => [
+          PopupMenuItem(value: 'migrate', child: Text(tr('迁移到其他源'))),
+          PopupMenuItem(value: 'remove', child: Text(tr('取消收藏'))),
         ],
       ),
     ],
@@ -156,20 +158,20 @@ class _LibraryPageState extends State<LibraryPage> {
           ? TextField(
               controller: _query,
               autofocus: true,
-              decoration: const InputDecoration(hintText: '搜索书架', border: InputBorder.none),
+              decoration: InputDecoration(hintText: tr('搜索书架'), border: InputBorder.none),
               onChanged: (_) => setState(() {}),
             )
-          : const Text('书架'),
+          : Text(tr('书架')),
       actions: [
         IconButton(
-          tooltip: _searching ? '关闭搜索' : '搜索',
+          tooltip: _searching ? tr('关闭搜索') : tr('搜索'),
           icon: Icon(_searching ? Icons.close_rounded : Icons.search_rounded),
           onPressed: () => setState(() {
             _searching = !_searching;
             if (!_searching) _query.clear();
           }),
         ),
-        IconButton(tooltip: '筛选与排序', icon: const Icon(Icons.filter_list_rounded), onPressed: () => showLibraryOptions(context)),
+        IconButton(tooltip: tr('筛选与排序'), icon: const Icon(Icons.filter_list_rounded), onPressed: () => showLibraryOptions(context)),
         PopupMenuButton<String>(
           onSelected: (v) {
             switch (v) {
@@ -182,9 +184,9 @@ class _LibraryPageState extends State<LibraryPage> {
             }
           },
           itemBuilder: (_) => [
-            if (tabs.length > 1) const PopupMenuItem(value: 'update', child: Text('检查当前分类的更新')),
-            const PopupMenuItem(value: 'updateAll', child: Text('检查全部更新')),
-            const PopupMenuItem(value: 'categories', child: Text('管理分类')),
+            if (tabs.length > 1) PopupMenuItem(value: 'update', child: Text(tr('检查当前分类的更新'))),
+            PopupMenuItem(value: 'updateAll', child: Text(tr('检查全部更新'))),
+            PopupMenuItem(value: 'categories', child: Text(tr('管理分类'))),
           ],
         ),
       ],
@@ -251,6 +253,7 @@ class _LibraryTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    AppLocalizations.of(context);
     return ListenableBuilder(
       listenable: Listenable.merge([AppSettings.instance, DownloadManager.instance, SourceManager.instance]),
       builder: (context, _) {
@@ -263,8 +266,8 @@ class _LibraryTab extends StatelessWidget {
             hasScrollBody: false,
             child: MessageView(
               icon: Icons.bookmark_border_rounded,
-              title: filtered ? '没有符合条件的作品' : '还没有收藏',
-              message: filtered ? '调整搜索或筛选条件试试' : '在作品详情页点击书签按钮即可收藏\n长按收藏按钮可以设置分类',
+              title: filtered ? tr('没有符合条件的作品') : tr('还没有收藏'),
+              message: filtered ? tr('调整搜索或筛选条件试试') : tr('在作品详情页点击书签按钮即可收藏\n长按收藏按钮可以设置分类'),
             ),
           );
         } else if (s.libraryDisplay == 'list') {
@@ -364,7 +367,7 @@ class _LibraryTab extends StatelessWidget {
                         if (AppSettings.instance.badgeSource) ...[SourceAvatar(f.item.source, size: 16), const SizedBox(width: 6)],
                         Expanded(
                           child: Text(
-                            h == null ? '未读' : '上次阅读 ${timeAgo(h.time)}',
+                            h == null ? tr('未读') : tr('上次阅读 {value0}', {'value0': timeAgo(h.time)}),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: context.text.labelMedium?.copyWith(color: c.onSurfaceVariant),

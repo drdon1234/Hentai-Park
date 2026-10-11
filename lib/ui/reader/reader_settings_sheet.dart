@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/settings.dart';
 import 'reader_layout.dart';
+import '../../core/localization.dart';
 
 /// Reader options in three tabs (Mihon's reader settings sheet). Changes apply live: the reader
 /// listens to [AppSettings]. The reading mode is per work; [onMode] receives the user's choice.
@@ -37,6 +38,7 @@ class _ReaderSettingsState extends State<_ReaderSettings> {
 
   @override
   Widget build(BuildContext context) {
+    AppLocalizations.of(context);
     final s = AppSettings.instance;
     return DefaultTabController(
       length: 3,
@@ -46,11 +48,11 @@ class _ReaderSettingsState extends State<_ReaderSettings> {
           listenable: s,
           builder: (context, _) => Column(
             children: [
-              const TabBar(
+              TabBar(
                 tabs: [
-                  Tab(text: '阅读模式'),
-                  Tab(text: '通用'),
-                  Tab(text: '滤镜'),
+                  Tab(text: tr('阅读模式')),
+                  Tab(text: tr('通用')),
+                  Tab(text: tr('滤镜')),
                 ],
               ),
               Expanded(
@@ -97,11 +99,11 @@ class _ReaderSettingsState extends State<_ReaderSettings> {
             children: [
               Expanded(
                 child: Text(
-                  _override ? '仅对本作生效（默认：${s.readerMode.label}）' : '使用默认阅读模式',
+                  _override ? tr('仅对本作生效（默认：{value0}）', {'value0': s.readerMode.label}) : tr('使用默认阅读模式'),
                   style: Theme.of(context).textTheme.bodySmall,
                 ),
               ),
-              if (_override && s.readerMode != _mode) TextButton(onPressed: () => s.readerMode = _mode, child: const Text('设为默认')),
+              if (_override && s.readerMode != _mode) TextButton(onPressed: () => s.readerMode = _mode, child: Text(tr('设为默认'))),
               if (_override)
                 TextButton(
                   onPressed: () {
@@ -111,7 +113,7 @@ class _ReaderSettingsState extends State<_ReaderSettings> {
                       _mode = s.readerMode;
                     });
                   },
-                  child: const Text('跟随默认'),
+                  child: Text(tr('跟随默认')),
                 ),
             ],
           ),
@@ -119,31 +121,31 @@ class _ReaderSettingsState extends State<_ReaderSettings> {
         const Divider(),
         if (paged) ...[
           ListTile(
-            title: const Text('双页显示'),
+            title: Text(tr('双页显示')),
             subtitle: Padding(
               padding: const EdgeInsets.only(top: 8),
-              child: _segmented(s.readerDual, const [('off', '关闭'), ('landscape', '横屏时'), ('always', '总是')], (v) => s.readerDual = v),
+              child: _segmented(s.readerDual, [('off', tr('关闭')), ('landscape', tr('横屏时')), ('always', tr('总是'))], (v) => s.readerDual = v),
             ),
           ),
           SwitchListTile(
-            title: const Text('首页单独显示'),
-            subtitle: const Text('双页时让封面独占一屏，使后续页面正确配对'),
+            title: Text(tr('首页单独显示')),
+            subtitle: Text(tr('双页时让封面独占一屏，使后续页面正确配对')),
             value: s.readerCoverSingle,
             onChanged: s.readerDual == 'off' ? null : (v) => s.readerCoverSingle = v,
           ),
           SwitchListTile(
-            title: const Text('拆分宽页'),
-            subtitle: const Text('单页显示时把跨页大图拆成两屏'),
+            title: Text(tr('拆分宽页')),
+            subtitle: Text(tr('单页显示时把跨页大图拆成两屏')),
             value: s.readerSplitWide,
             onChanged: (v) => s.readerSplitWide = v,
           ),
-          SwitchListTile(title: const Text('翻页动画'), value: s.readerAnimate, onChanged: (v) => s.readerAnimate = v),
+          SwitchListTile(title: Text(tr('翻页动画')), value: s.readerAnimate, onChanged: (v) => s.readerAnimate = v),
         ] else
           ListTile(
-            title: const Text('页间距'),
+            title: Text(tr('页间距')),
             subtitle: Slider(value: s.readerGap.clamp(0, 32), min: 0, max: 32, divisions: 8, label: '${s.readerGap.round()}', onChanged: (v) => s.readerGap = v),
           ),
-        SwitchListTile(title: const Text('裁剪白边'), subtitle: const Text('去掉页面四周的纯色空白'), value: s.readerCrop, onChanged: (v) => s.readerCrop = v),
+        SwitchListTile(title: Text(tr('裁剪白边')), subtitle: Text(tr('去掉页面四周的纯色空白')), value: s.readerCrop, onChanged: (v) => s.readerCrop = v),
       ],
     );
   }
@@ -153,9 +155,9 @@ class _ReaderSettingsState extends State<_ReaderSettings> {
     return ListView(
       padding: const EdgeInsets.only(bottom: 16),
       children: [
-        SwitchListTile(title: const Text('点击翻页'), value: s.tapToPage, onChanged: (v) => s.tapToPage = v),
+        SwitchListTile(title: Text(tr('点击翻页')), value: s.tapToPage, onChanged: (v) => s.tapToPage = v),
         ListTile(
-          title: const Text('点击区域'),
+          title: Text(tr('点击区域')),
           enabled: s.tapToPage,
           trailing: DropdownButton<TapLayout>(
             value: layout,
@@ -164,25 +166,25 @@ class _ReaderSettingsState extends State<_ReaderSettings> {
             onChanged: s.tapToPage ? (v) => s.readerTapLayout = (v ?? TapLayout.auto).index : null,
           ),
         ),
-        SwitchListTile(title: const Text('左右反转点击区域'), value: s.readerTapInvertH, onChanged: s.tapToPage ? (v) => s.readerTapInvertH = v : null),
-        SwitchListTile(title: const Text('上下反转点击区域'), value: s.readerTapInvertV, onChanged: s.tapToPage ? (v) => s.readerTapInvertV = v : null),
-        SwitchListTile(title: const Text('音量键翻页'), value: s.volumeKeyPaging, onChanged: (v) => s.volumeKeyPaging = v),
+        SwitchListTile(title: Text(tr('左右反转点击区域')), value: s.readerTapInvertH, onChanged: s.tapToPage ? (v) => s.readerTapInvertH = v : null),
+        SwitchListTile(title: Text(tr('上下反转点击区域')), value: s.readerTapInvertV, onChanged: s.tapToPage ? (v) => s.readerTapInvertV = v : null),
+        SwitchListTile(title: Text(tr('音量键翻页')), value: s.volumeKeyPaging, onChanged: (v) => s.volumeKeyPaging = v),
         ListTile(
-          title: const Text('背景颜色'),
+          title: Text(tr('背景颜色')),
           subtitle: Padding(
             padding: const EdgeInsets.only(top: 8),
-            child: _segmented(s.readerBackground, const [('black', '黑'), ('gray', '灰'), ('white', '白')], (v) => s.readerBackground = v),
+            child: _segmented(s.readerBackground, [('black', tr('黑')), ('gray', tr('灰')), ('white', tr('白'))], (v) => s.readerBackground = v),
           ),
         ),
         ListTile(
-          title: const Text('屏幕方向'),
+          title: Text(tr('屏幕方向')),
           subtitle: Padding(
             padding: const EdgeInsets.only(top: 8),
-            child: _segmented(s.readerOrientation, const [('auto', '跟随系统'), ('portrait', '竖屏'), ('landscape', '横屏')], (v) => s.readerOrientation = v),
+            child: _segmented(s.readerOrientation, [('auto', tr('跟随系统')), ('portrait', tr('竖屏')), ('landscape', tr('横屏'))], (v) => s.readerOrientation = v),
           ),
         ),
-        SwitchListTile(title: const Text('显示页码'), value: s.readerShowPageNumber, onChanged: (v) => s.readerShowPageNumber = v),
-        SwitchListTile(title: const Text('保持屏幕常亮'), value: s.keepScreenOn, onChanged: (v) => s.keepScreenOn = v),
+        SwitchListTile(title: Text(tr('显示页码')), value: s.readerShowPageNumber, onChanged: (v) => s.readerShowPageNumber = v),
+        SwitchListTile(title: Text(tr('保持屏幕常亮')), value: s.keepScreenOn, onChanged: (v) => s.keepScreenOn = v),
       ],
     );
   }
@@ -192,15 +194,15 @@ class _ReaderSettingsState extends State<_ReaderSettings> {
       padding: const EdgeInsets.only(bottom: 16),
       children: [
         ListTile(
-          title: const Text('调暗'),
+          title: Text(tr('调暗')),
           subtitle: Slider(value: s.readerDim.clamp(0, 0.8), max: 0.8, divisions: 16, label: '${(s.readerDim * 100).round()}%', onChanged: (v) => s.readerDim = v),
         ),
         ListTile(
-          title: const Text('护眼（暖色）'),
+          title: Text(tr('护眼（暖色）')),
           subtitle: Slider(value: s.readerWarm.clamp(0, 0.5), max: 0.5, divisions: 10, label: '${(s.readerWarm * 200).round()}%', onChanged: (v) => s.readerWarm = v),
         ),
-        SwitchListTile(title: const Text('灰度'), value: s.readerGrayscale, onChanged: (v) => s.readerGrayscale = v),
-        SwitchListTile(title: const Text('反色'), value: s.readerInvert, onChanged: (v) => s.readerInvert = v),
+        SwitchListTile(title: Text(tr('灰度')), value: s.readerGrayscale, onChanged: (v) => s.readerGrayscale = v),
+        SwitchListTile(title: Text(tr('反色')), value: s.readerInvert, onChanged: (v) => s.readerInvert = v),
         Center(
           child: TextButton(
             onPressed: () {
@@ -209,7 +211,7 @@ class _ReaderSettingsState extends State<_ReaderSettings> {
               s.readerGrayscale = false;
               s.readerInvert = false;
             },
-            child: const Text('重置滤镜'),
+            child: Text(tr('重置滤镜')),
           ),
         ),
       ],

@@ -8,11 +8,17 @@ import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.media.AudioManager
 import android.os.Build
 import android.os.Bundle
+import android.provider.Settings
 import android.view.Display
 import android.view.KeyEvent
 import android.view.WindowManager
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
 import io.flutter.embedding.android.FlutterFragmentActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
@@ -26,6 +32,11 @@ class MainActivity : FlutterFragmentActivity() {
     private var channel: MethodChannel? = null
     private var interceptVolume = false
     private var launchPayload: String? = null
+    private var videoBrightness: Float? = null
+    private var videoFullscreen = false
+    private var videoSystemUi: VideoSystemUi? = null
+
+    private data class VideoSystemUi(val visibleTypes: Int, val behavior: Int)
 
     /** Requested refresh rate in Hz; 0 = the highest the display offers at the current resolution. */
     private var refreshRate = 0.0
@@ -38,6 +49,23 @@ class MainActivity : FlutterFragmentActivity() {
     override fun onResume() {
         super.onResume()
         applyRefreshRate()
+    }
+
+    override fun onPostResume() {
+        super.onPostResume()
+        if (videoFullscreen) hideVideoSystemBars()
+    }
+
+    override fun onPause() {
+        // Keep the fullscreen preference, but release the window while backgrounded.
+        restoreVideoSystemBars(clear = false)
+        resetVideoBrightness()
+        super.onPause()
+    }
+
+    override fun onWindowFocusChanged(hasFocus: Boolean) {
+        super.onWindowFocusChanged(hasFocus)
+        if (hasFocus && videoFullscreen) hideVideoSystemBars()
     }
 
     @Suppress("DEPRECATION")
@@ -80,6 +108,47 @@ class MainActivity : FlutterFragmentActivity() {
                         interceptVolume = call.arguments == true
                         result.success(null)
                     }
+                    "videoLevels" -> {
+                        val override = window.attributes.screenBrightness
+                        val brightness = if (override >= 0) override.toDouble() else
+                            Settings.System.getInt(contentResolver, Settings.System.SCREEN_BRIGHTNESS, 128) / 255.0
+                        val audio = getSystemService(Context.AUDIO_SERVICE) as AudioManager
+                        val max = audio.getStreamMaxVolume(AudioManager.STREAM_MUSIC).coerceAtLeast(1)
+                        result.success(mapOf(
+                            "brightness" to brightness.coerceIn(0.0, 1.0),
+                            "volume" to audio.getStreamVolume(AudioManager.STREAM_MUSIC).toDouble() / max
+                        ))
+                    }
+                    "setVideoBrightness" -> {
+                        val attrs = window.attributes
+                        if (videoBrightness == null) videoBrightness = attrs.screenBrightness
+                        attrs.screenBrightness = (call.arguments as Number).toFloat().coerceIn(0f, 1f)
+                        window.attributes = attrs
+                        result.success(null)
+                    }
+                    "setVideoVolume" -> {
+                        val audio = getSystemService(Context.AUDIO_SERVICE) as AudioManager
+                        val level = (call.arguments as Number).toDouble().coerceIn(0.0, 1.0)
+                        val target = Math.round(level * audio.getStreamMaxVolume(AudioManager.STREAM_MUSIC)).toInt()
+                        audio.setStreamVolume(AudioManager.STREAM_MUSIC, target, 0)
+                        result.success(null)
+                    }
+                    "resetVideoBrightness" -> {
+                        resetVideoBrightness()
+                        result.success(null)
+                    }
+                    "setVideoFullscreen" -> {
+                        try {
+                            videoFullscreen = call.arguments == true
+                            if (videoFullscreen) hideVideoSystemBars()
+                            else restoreVideoSystemBars(clear = true)
+                            result.success(null)
+                        } catch (error: Exception) {
+                            videoFullscreen = false
+                            runCatching { restoreVideoSystemBars(clear = true) }
+                            result.error("SYSTEM_UI", error.message, null)
+                        }
+                    }
                     "notify" -> {
                         notify(call.arguments as Map<*, *>)
                         result.success(null)
@@ -111,6 +180,45 @@ class MainActivity : FlutterFragmentActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         intent.getStringExtra(EXTRA_PAYLOAD)?.let { channel?.invokeMethod("notificationTap", it) }
+    }
+
+    private fun resetVideoBrightness() {
+        val original = videoBrightness ?: return
+        val attrs = window.attributes
+        attrs.screenBrightness = original
+        window.attributes = attrs
+        videoBrightness = null
+    }
+
+    private fun hideVideoSystemBars() {
+        val controller = WindowCompat.getInsetsController(window, window.decorView)
+        if (videoSystemUi == null) {
+            val insets = ViewCompat.getRootWindowInsets(window.decorView)
+            var visibleTypes = 0
+            if (insets?.isVisible(WindowInsetsCompat.Type.statusBars()) != false) visibleTypes = visibleTypes or WindowInsetsCompat.Type.statusBars()
+            if (insets?.isVisible(WindowInsetsCompat.Type.navigationBars()) != false) visibleTypes = visibleTypes or WindowInsetsCompat.Type.navigationBars()
+            if (insets?.isVisible(WindowInsetsCompat.Type.captionBar()) == true) visibleTypes = visibleTypes or WindowInsetsCompat.Type.captionBar()
+            videoSystemUi = VideoSystemUi(visibleTypes, controller.systemBarsBehavior)
+        }
+        controller.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+        controller.hide(WindowInsetsCompat.Type.systemBars())
+    }
+
+    private fun restoreVideoSystemBars(clear: Boolean) {
+        val original = videoSystemUi ?: return
+        val controller = WindowCompat.getInsetsController(window, window.decorView)
+        val hiddenTypes = WindowInsetsCompat.Type.systemBars() and original.visibleTypes.inv()
+        controller.systemBarsBehavior = original.behavior
+        if (original.visibleTypes != 0) controller.show(original.visibleTypes)
+        if (hiddenTypes != 0) controller.hide(hiddenTypes)
+        if (clear) videoSystemUi = null
+    }
+
+    override fun onDestroy() {
+        videoFullscreen = false
+        restoreVideoSystemBars(clear = true)
+        resetVideoBrightness()
+        super.onDestroy()
     }
 
     private fun manager() = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
@@ -161,7 +269,13 @@ class MainActivity : FlutterFragmentActivity() {
 
     override fun onKeyUp(keyCode: Int, event: KeyEvent?): Boolean {
         if (interceptVolume && (keyCode == KeyEvent.KEYCODE_VOLUME_DOWN || keyCode == KeyEvent.KEYCODE_VOLUME_UP)) return true
-        return super.onKeyUp(keyCode, event)
+        val handled = super.onKeyUp(keyCode, event)
+        if (keyCode == KeyEvent.KEYCODE_VOLUME_DOWN || keyCode == KeyEvent.KEYCODE_VOLUME_UP) {
+            val audio = getSystemService(Context.AUDIO_SERVICE) as AudioManager
+            val max = audio.getStreamMaxVolume(AudioManager.STREAM_MUSIC).coerceAtLeast(1)
+            channel?.invokeMethod("mediaVolume", audio.getStreamVolume(AudioManager.STREAM_MUSIC).toDouble() / max)
+        }
+        return handled
     }
 
     companion object {

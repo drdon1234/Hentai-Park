@@ -6,6 +6,7 @@ import '../../engine/source_manager.dart';
 import '../../images/park_image.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
+import '../../core/localization.dart';
 
 /// Page preview grid. Supports plain thumbnails (nhentai) and sprite sheets (E-Hentai packs
 /// up to 20 thumbnails into one image; each cell shows its own offset window).
@@ -50,7 +51,7 @@ class _ThumbnailSectionState extends State<ThumbnailSection> {
       });
     } catch (e) {
       _page--;
-      if (mounted) context.toast('预览加载失败：${e.asSourceError.message}');
+      if (mounted) context.toast(tr('预览加载失败：{value0}', {'value0': e.asSourceError.message}));
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -58,12 +59,13 @@ class _ThumbnailSectionState extends State<ThumbnailSection> {
 
   @override
   Widget build(BuildContext context) {
+    AppLocalizations.of(context);
     if (_thumbs.isEmpty) return const SizedBox.shrink();
     final blur = AppSettings.instance.blurCovers;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        SectionHeader('预览', leading: Icon(Icons.grid_view_rounded, color: context.colors.primary, size: 20)),
+        SectionHeader(tr('预览'), leading: Icon(Icons.grid_view_rounded, color: context.colors.primary, size: 20)),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16),
           child: GridView.builder(
@@ -113,7 +115,7 @@ class _ThumbnailSectionState extends State<ThumbnailSection> {
                       padding: EdgeInsets.all(8),
                       child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)),
                     )
-                  : TextButton.icon(onPressed: _more, icon: const Icon(Icons.expand_more_rounded), label: const Text('加载更多预览')),
+                  : TextButton.icon(onPressed: _more, icon: const Icon(Icons.expand_more_rounded), label: Text(tr('加载更多预览'))),
             ),
           ),
       ],
@@ -128,6 +130,7 @@ class _Sprite extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    AppLocalizations.of(context);
     final w = thumb.width!;
     final h = thumb.height!;
     return FittedBox(

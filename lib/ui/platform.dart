@@ -1,7 +1,10 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
+
+import '../core/localization.dart';
 
 /// Small Android-only native hooks (MainActivity): screenshot protection, volume-key paging and
 /// plain system notifications.
@@ -9,6 +12,8 @@ class PlatformBridge {
   static const _channel = MethodChannel('hentai_park/platform');
   static final _volume = StreamController<int>.broadcast();
   static final _taps = StreamController<String>.broadcast();
+  static final _mediaVolume = StreamController<double>.broadcast();
+  static Future<void> _videoBrightnessUpdates = Future.value();
   static bool _listening = false;
 
   static void _listen() {
@@ -20,6 +25,8 @@ class PlatformBridge {
           _volume.add(call.arguments as int);
         case 'notificationTap':
           _taps.add(call.arguments.toString());
+        case 'mediaVolume':
+          _mediaVolume.add((call.arguments as num).toDouble().clamp(0.0, 1.0));
       }
     });
   }
@@ -74,6 +81,70 @@ class PlatformBridge {
     } catch (_) {}
   }
 
+  // ── Video controls ──
+
+  /// Android uses its current insets API: Flutter's immersiveSticky request is
+  /// ignored on target SDK 36. The same native session restores prior bar state.
+  static Future<void> applyVideoFullscreen(bool enabled) async {
+    if (defaultTargetPlatform == TargetPlatform.android) {
+      try {
+        await _channel.invokeMethod('setVideoFullscreen', enabled);
+        return;
+      } catch (_) {}
+    }
+    await SystemChrome.setEnabledSystemUIMode(enabled ? SystemUiMode.immersiveSticky : SystemUiMode.edgeToEdge);
+  }
+
+  /// Window-local brightness and the media stream's volume, both normalized.
+  /// The native side remembers the original window brightness until reset.
+  static Future<({double brightness, double volume})?> videoLevels() async {
+    if (!Platform.isAndroid) return null;
+    await _videoBrightnessUpdates;
+    try {
+      final levels = await _channel.invokeMapMethod<String, num>('videoLevels');
+      if (levels == null) return null;
+      return (
+        brightness: (levels['brightness'] ?? 0.5).toDouble().clamp(0.0, 1.0),
+        volume: (levels['volume'] ?? 1).toDouble().clamp(0.0, 1.0),
+      );
+    } catch (_) {
+      return null;
+    }
+  }
+
+  static Future<void> setVideoBrightness(double value) {
+    return _videoBrightnessUpdates = _videoBrightnessUpdates.then((_) async {
+      if (!Platform.isAndroid) return;
+      try {
+        await _channel.invokeMethod('setVideoBrightness', value.clamp(0.0, 1.0));
+      } catch (_) {}
+    });
+  }
+
+  /// Physical volume buttons update the gesture's starting volume as well.
+  static Stream<double> get mediaVolumeChanges {
+    _listen();
+    return _mediaVolume.stream;
+  }
+
+  static Future<void> setVideoVolume(double value) async {
+    if (!Platform.isAndroid) return;
+    try {
+      await _channel.invokeMethod('setVideoVolume', value.clamp(0.0, 1.0));
+    } catch (_) {}
+  }
+
+  /// Restores the brightness override, including -1 (follow system brightness).
+  /// Media volume remains the user's chosen system volume.
+  static Future<void> resetVideoBrightness() {
+    return _videoBrightnessUpdates = _videoBrightnessUpdates.then((_) async {
+      if (!Platform.isAndroid) return;
+      try {
+        await _channel.invokeMethod('resetVideoBrightness');
+      } catch (_) {}
+    });
+  }
+
   // ── Notifications ──
 
   /// Payloads of tapped notifications while the app is running.
@@ -124,7 +195,7 @@ class PlatformBridge {
         'max': max,
         'payload': payload,
         'channel': channel,
-        'channelName': channelName,
+        'channelName': tr(channelName),
       });
     } catch (_) {}
   }

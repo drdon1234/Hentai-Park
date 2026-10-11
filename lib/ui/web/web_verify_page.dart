@@ -8,6 +8,7 @@ import '../../engine/cookie_store.dart';
 import '../../engine/http_service.dart';
 import '../../engine/source_manager.dart';
 import '../theme.dart';
+import '../../core/localization.dart';
 
 /// Built-in browser used for two flows:
 /// - Cloudflare: load the site, wait until the challenge is gone, import clearance cookies.
@@ -92,13 +93,14 @@ class _WebVerifyPageState extends State<WebVerifyPage> {
 
   @override
   Widget build(BuildContext context) {
+    AppLocalizations.of(context);
     final name = SourceManager.instance.manifest(widget.source)?.name ?? widget.source;
     return Scaffold(
       appBar: AppBar(
-        title: Text(widget.mode == _Mode.cloudflare ? '验证 $name' : '登录 $name'),
+        title: Text(widget.mode == _Mode.cloudflare ? tr('验证 {value0}', {'value0': name}) : tr('登录 {value0}', {'value0': name})),
         actions: [
-          IconButton(tooltip: '刷新', icon: const Icon(Icons.refresh_rounded), onPressed: () => _c?.reload()),
-          if (widget.mode == _Mode.cloudflare) TextButton(onPressed: _finish, child: const Text('完成')),
+          IconButton(tooltip: tr('刷新'), icon: const Icon(Icons.refresh_rounded), onPressed: () => _c?.reload()),
+          if (widget.mode == _Mode.cloudflare) TextButton(onPressed: _finish, child: Text(tr('完成'))),
         ],
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(3),
@@ -115,7 +117,7 @@ class _WebVerifyPageState extends State<WebVerifyPage> {
               children: [
                 Icon(widget.mode == _Mode.cloudflare ? Icons.verified_user_outlined : Icons.login_rounded, size: 18, color: context.colors.primary),
                 const SizedBox(width: 10),
-                Expanded(child: Text(_status, style: context.text.bodySmall)),
+                Expanded(child: Text(tr(_status), style: context.text.bodySmall)),
               ],
             ),
           ),

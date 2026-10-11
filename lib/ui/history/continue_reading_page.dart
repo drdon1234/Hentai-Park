@@ -6,6 +6,7 @@ import '../../library/library.dart';
 import '../nav.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
+import '../../core/localization.dart';
 
 /// Full "continue reading" list with multi-select: remove many entries at once.
 class ContinueReadingPage extends StatefulWidget {
@@ -32,22 +33,23 @@ class _ContinueReadingPageState extends State<ContinueReadingPage> {
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: Text('移除 $n 项？'),
-        content: const Text('从继续阅读与历史中移除，章节的已读状态会保留。'),
+        title: Text(tr('移除 {value0} 项？', {'value0': n})),
+        content: Text(tr('从继续阅读与历史中移除，章节的已读状态会保留。')),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('取消')),
-          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('移除')),
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(tr('取消'))),
+          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: Text(tr('移除'))),
         ],
       ),
     );
     if (ok != true) return;
     Library.instance.removeHistoryMany(_selected);
     setState(_selected.clear);
-    if (mounted) context.toast('已移除 $n 项');
+    if (mounted) context.toast(tr('已移除 {value0} 项', {'value0': n}));
   }
 
   @override
   Widget build(BuildContext context) {
+    AppLocalizations.of(context);
     return ListenableBuilder(
       listenable: Library.instance,
       builder: (context, _) {
@@ -59,7 +61,7 @@ class _ContinueReadingPageState extends State<ContinueReadingPage> {
         final partlySelected = !allSelected && list.any((h) => _selected.contains(h.uid));
         return Scaffold(
           appBar: AppBar(
-            title: Text(_selected.isEmpty ? '继续阅读' : '已选择 ${_selected.length} 项'),
+            title: Text(_selected.isEmpty ? tr('继续阅读') : tr('已选择 {value0} 项', {'value0': _selected.length})),
             actions: [
               // "反选" only differs from "全选" once part of the list is selected.
               if (partlySelected)
@@ -69,7 +71,7 @@ class _ContinueReadingPageState extends State<ContinueReadingPage> {
                       if (!_selected.remove(h.uid)) _selected.add(h.uid);
                     }
                   }),
-                  child: const Text('反选'),
+                  child: Text(tr('反选')),
                 ),
               TextButton(
                 onPressed: list.isEmpty
@@ -81,7 +83,7 @@ class _ContinueReadingPageState extends State<ContinueReadingPage> {
                           _selected.addAll(list.map((h) => h.uid));
                         }
                       }),
-                child: Text(allSelected ? '取消全选' : '全选'),
+                child: Text(allSelected ? tr('取消全选') : tr('全选')),
               ),
               const SizedBox(width: 4),
             ],
@@ -97,7 +99,7 @@ class _ContinueReadingPageState extends State<ContinueReadingPage> {
                     children: [
                       Padding(
                         padding: const EdgeInsets.only(right: 6),
-                        child: ChoiceChip(label: const Text('全部'), selected: _source == null, showCheckmark: false, onSelected: (_) => setState(() => _source = null)),
+                        child: ChoiceChip(label: Text(tr('全部')), selected: _source == null, showCheckmark: false, onSelected: (_) => setState(() => _source = null)),
                       ),
                       for (final s in sources)
                         Padding(
@@ -115,7 +117,7 @@ class _ContinueReadingPageState extends State<ContinueReadingPage> {
                 ),
               Expanded(
                 child: list.isEmpty
-                    ? const MessageView(icon: Icons.history_rounded, title: '没有继续阅读的作品')
+                    ? MessageView(icon: Icons.history_rounded, title: tr('没有继续阅读的作品'))
                     : ListView.builder(
                         padding: const EdgeInsets.only(bottom: 24),
                         itemCount: list.length,
@@ -132,7 +134,7 @@ class _ContinueReadingPageState extends State<ContinueReadingPage> {
                     child: Row(
                       children: [
                         Expanded(
-                          child: OutlinedButton(onPressed: () => setState(_selected.clear), child: const Text('取消选择')),
+                          child: OutlinedButton(onPressed: () => setState(_selected.clear), child: Text(tr('取消选择'))),
                         ),
                         const SizedBox(width: 12),
                         Expanded(
@@ -140,7 +142,7 @@ class _ContinueReadingPageState extends State<ContinueReadingPage> {
                             style: FilledButton.styleFrom(backgroundColor: context.colors.error, foregroundColor: context.colors.onError),
                             onPressed: _delete,
                             icon: const Icon(Icons.delete_outline_rounded),
-                            label: Text('移除 ${_selected.length} 项'),
+                            label: Text(tr('移除 {value0} 项', {'value0': _selected.length})),
                           ),
                         ),
                       ],
@@ -208,7 +210,7 @@ class _ContinueReadingPageState extends State<ContinueReadingPage> {
                   ],
                 ),
               ),
-              IconButton(tooltip: '继续', icon: const Icon(Icons.play_circle_outline_rounded), onPressed: () => _resume(h)),
+              IconButton(tooltip: tr('继续'), icon: const Icon(Icons.play_circle_outline_rounded), onPressed: () => _resume(h)),
             ],
           ),
         ),

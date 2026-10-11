@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../core/settings.dart';
 import '../../engine/source_manager.dart';
 import '../widgets/common.dart';
+import '../../core/localization.dart';
 
 /// Filter / sort / display options for the library (Mihon's three-tab sheet).
 Future<void> showLibraryOptions(BuildContext context) => showModalBottomSheet<void>(
@@ -15,16 +16,17 @@ Future<void> showLibraryOptions(BuildContext context) => showModalBottomSheet<vo
 class _LibraryOptions extends StatelessWidget {
   const _LibraryOptions();
 
-  static const sorts = [
-    ('added', '添加时间', Icons.bookmark_added_outlined),
-    ('read', '最近阅读', Icons.history_rounded),
-    ('updated', '最近更新', Icons.new_releases_outlined),
-    ('unread', '未读数', Icons.mark_email_unread_outlined),
-    ('title', '标题', Icons.sort_by_alpha_rounded),
+  static List<(String, String, IconData)> get sorts => [
+    ('added', tr('添加时间'), Icons.bookmark_added_outlined),
+    ('read', tr('最近阅读'), Icons.history_rounded),
+    ('updated', tr('最近更新'), Icons.new_releases_outlined),
+    ('unread', tr('未读数'), Icons.mark_email_unread_outlined),
+    ('title', tr('标题'), Icons.sort_by_alpha_rounded),
   ];
 
   @override
   Widget build(BuildContext context) {
+    AppLocalizations.of(context);
     final s = AppSettings.instance;
     return DefaultTabController(
       length: 3,
@@ -34,11 +36,11 @@ class _LibraryOptions extends StatelessWidget {
           listenable: s,
           builder: (context, _) => Column(
             children: [
-              const TabBar(
+              TabBar(
                 tabs: [
-                  Tab(text: '筛选'),
-                  Tab(text: '排序'),
-                  Tab(text: '显示'),
+                  Tab(text: tr('筛选')),
+                  Tab(text: tr('排序')),
+                  Tab(text: tr('显示')),
                 ],
               ),
               Expanded(
@@ -48,11 +50,11 @@ class _LibraryOptions extends StatelessWidget {
                       children: [
                         CheckboxListTile(
                           value: s.libraryFilterDownloaded,
-                          title: const Text('已下载'),
+                          title: Text(tr('已下载')),
                           onChanged: (v) => s.libraryFilterDownloaded = v ?? false,
                         ),
-                        CheckboxListTile(value: s.libraryFilterUnread, title: const Text('有未读'), onChanged: (v) => s.libraryFilterUnread = v ?? false),
-                        const SectionHeader('源站', padding: EdgeInsets.fromLTRB(16, 12, 8, 4)),
+                        CheckboxListTile(value: s.libraryFilterUnread, title: Text(tr('有未读')), onChanged: (v) => s.libraryFilterUnread = v ?? false),
+                        SectionHeader(tr('源站'), padding: EdgeInsets.fromLTRB(16, 12, 8, 4)),
                         Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 16),
                           child: Wrap(
@@ -71,7 +73,7 @@ class _LibraryOptions extends StatelessWidget {
                                   },
                                 ),
                               FilterChip(
-                                label: const Text('本地'),
+                                label: Text(tr('本地')),
                                 selected: s.libraryFilterSources.contains('local'),
                                 onSelected: (on) {
                                   final set = s.libraryFilterSources;
@@ -108,17 +110,17 @@ class _LibraryOptions extends StatelessWidget {
                         Padding(
                           padding: const EdgeInsets.all(16),
                           child: SegmentedButton<String>(
-                            segments: const [
-                              ButtonSegment(value: 'grid', icon: Icon(Icons.grid_view_rounded), label: Text('网格')),
-                              ButtonSegment(value: 'list', icon: Icon(Icons.view_list_rounded), label: Text('列表')),
+                            segments: [
+                              ButtonSegment(value: 'grid', icon: Icon(Icons.grid_view_rounded), label: Text(tr('网格'))),
+                              ButtonSegment(value: 'list', icon: Icon(Icons.view_list_rounded), label: Text(tr('列表'))),
                             ],
                             selected: {s.libraryDisplay},
                             onSelectionChanged: (v) => s.libraryDisplay = v.first,
                           ),
                         ),
-                        CheckboxListTile(value: s.badgeUnread, title: const Text('未读数徽标'), onChanged: (v) => s.badgeUnread = v ?? true),
-                        CheckboxListTile(value: s.badgeDownloaded, title: const Text('已下载徽标'), onChanged: (v) => s.badgeDownloaded = v ?? true),
-                        CheckboxListTile(value: s.badgeSource, title: const Text('源站图标'), onChanged: (v) => s.badgeSource = v ?? true),
+                        CheckboxListTile(value: s.badgeUnread, title: Text(tr('未读数徽标')), onChanged: (v) => s.badgeUnread = v ?? true),
+                        CheckboxListTile(value: s.badgeDownloaded, title: Text(tr('已下载徽标')), onChanged: (v) => s.badgeDownloaded = v ?? true),
+                        CheckboxListTile(value: s.badgeSource, title: Text(tr('源站图标')), onChanged: (v) => s.badgeSource = v ?? true),
                       ],
                     ),
                   ],

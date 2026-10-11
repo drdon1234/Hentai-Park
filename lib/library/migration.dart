@@ -1,6 +1,7 @@
 import '../core/models.dart';
 import '../core/titles.dart';
 import 'library.dart';
+import '../core/localization.dart';
 
 class MigrationOptions {
   const MigrationOptions({this.categories = true, this.readState = true, this.removeOld = true});
@@ -47,7 +48,7 @@ class Migrator {
     } else if (options.categories) {
       lib.setCategories(target.uid, {...lib.categoriesOf(target.uid), ...categories});
     }
-    final chapters = to.chapters ?? [Chapter(chapterKeyOf(to.singleChapterId), '全本')];
+    final chapters = to.chapters ?? [Chapter(chapterKeyOf(to.singleChapterId), tr('全本'))];
     await lib.syncChapters(target, chapters, oneShot: to.chapters == null);
     if (options.readState) {
       final old = lib.chaptersCached(from.uid) ?? await lib.loadChapters(from.uid);
