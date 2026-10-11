@@ -1,0 +1,69 @@
+{
+  "name": "HentaiPark 官方源",
+  "apiVersion": 1,
+  "sources": [
+    {
+      "key": "ehentai",
+      "name": "E-Hentai",
+      "version": "0.0.1",
+      "description": "历史最悠久的画廊站，标签体系完善；登录后可切换里站 ExHentai",
+      "url": "https://raw.githubusercontent.com/drdon1234/Hentai-Park/d990b3f4940d1db9247dc7b5745531de55005657/assets/sources/ehentai.js",
+      "sha256": "5d83cba0468bcbcd4ed807c16dbb7796829dfa297c41a45420371fac3f80b5d4",
+      "apiVersion": 1
+    },
+    {
+      "key": "nhentai",
+      "name": "nhentai",
+      "version": "0.0.2",
+      "description": "海量同人志，官方 API，支持标签语法与语言过滤",
+      "url": "https://raw.githubusercontent.com/drdon1234/Hentai-Park/d990b3f4940d1db9247dc7b5745531de55005657/assets/sources/nhentai.js",
+      "sha256": "3a6e7a06accf399053a19d3cf93267d1ca53a0bdec40b8db2022fa68894b340d",
+      "apiVersion": 1
+    },
+    {
+      "key": "jm",
+      "name": "禁漫天堂",
+      "version": "0.0.1",
+      "description": "中文本子与韩漫资源丰富，支持连载分话、自动切换线路与图片还原",
+      "url": "https://raw.githubusercontent.com/drdon1234/Hentai-Park/d990b3f4940d1db9247dc7b5745531de55005657/assets/sources/jm.js",
+      "sha256": "016c1f095a9f920df729a82414cc2003d8cd593c9af36ed3bfb134c5817ec8a6",
+      "apiVersion": 1
+    },
+    {
+      "key": "wnacg",
+      "name": "绅士漫画",
+      "version": "0.0.1",
+      "description": "汉化漫画与图集，支持多话合集和自动切换线路",
+      "url": "https://raw.githubusercontent.com/drdon1234/Hentai-Park/d990b3f4940d1db9247dc7b5745531de55005657/assets/sources/wnacg.js",
+      "sha256": "a0b7b0704f48a33d7a2600d813e436ac7766de8ee9a6182194586cdf05555848",
+      "apiVersion": 1
+    },
+    {
+      "key": "pica",
+      "name": "哔咔漫画",
+      "version": "0.0.2",
+      "description": "分区丰富的老牌漫画社区，支持多话连载（需要账号）",
+      "url": "https://raw.githubusercontent.com/drdon1234/Hentai-Park/d990b3f4940d1db9247dc7b5745531de55005657/assets/sources/pica.js",
+      "sha256": "ea39c404bfbbf9f730ece487971c04424383ef10a91473a5cc08a4b2cc2cde7f",
+      "apiVersion": 1
+    },
+    {
+      "key": "hanime1",
+      "name": "Hanime1",
+      "version": "0.0.1",
+      "description": "里番、泡面番与 3D 动画，支持多清晰度在线播放与下载",
+      "url": "https://raw.githubusercontent.com/drdon1234/Hentai-Park/d990b3f4940d1db9247dc7b5745531de55005657/assets/sources/hanime1.js",
+      "sha256": "2d18bc248b93c0f53380d220563a13bd999a04dc8de8a947d41cef202f0a26cb",
+      "apiVersion": 1
+    },
+    {
+      "key": "missav",
+      "name": "MissAV",
+      "version": "0.0.1",
+      "description": "真人成人视频，支持多清晰度播放与安卓离线下载",
+      "url": "https://raw.githubusercontent.com/drdon1234/Hentai-Park/d990b3f4940d1db9247dc7b5745531de55005657/assets/sources/missav.js",
+      "sha256": "baaea55ac237762a6397fe23d8824c9c3e6f00407f827a3756c459ec3488d794",
+      "apiVersion": 1
+    }
+  ]
+}
