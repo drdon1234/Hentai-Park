@@ -52,7 +52,7 @@ Park.register({
   async chapter(id, chapterId) {},            // historietas
   async resolveImage({ id, chapterId, index, token, retry }) {},  // Opcional: análisis retrasado de imágenes
   async thumbnails(id, page) {},              // Opcional: cargar miniaturas de vista previa en páginas
-  async videos(id) {},                        // video
+  async videos(id, episodeId = '_') {},                        // video
 });
 ```
 
@@ -141,9 +141,10 @@ Cuando se hace clic en una etiqueta, la aplicación busca `keyword` y `filters` 
 
 **Video** (`videos`): `[{ quality: 1080, label: '1080P', url, headers?, format?, preferred? }]`. Los enlaces directos de video generalmente tienen un límite de tiempo y la aplicación los volverá a obtener cada vez antes de reproducirlos o descargarlos.
 
+- Las fuentes de vídeo devuelven `[{id, title}]` en orden de reproducción mediante `detail(id).chapters`. Cada `id` debe ser estable; no uses una etiqueta de calidad ni una URL temporal. La aplicación usa el mismo ID para seleccionar, guardar el progreso independiente, descargar y reanudar, y llama a `videos(id, episodeId = '_')` para obtener ese episodio. Un vídeo único usa `singleChapterId`, o `'_'` si se omite.
 - Si se omite `format`, se conserva la ruta de reproducción y descarga directa de MP4. Las entradas HLS deben devolver explícitamente `format: 'hls'` y declarar en el manifest el permiso `media` descrito a continuación.
 - La aplicación primero expande la lista maestra HLS (`#EXT-X-STREAM-INF`) en listas de segmentos independientes por variante, obtiene las resoluciones reales de `RESOLUTION` y entrega esas variantes al reproductor o al gestor de descargas. En una lista maestra, `quality` indica la resolución deseada: se prefiere la mayor resolución disponible que no supere ese valor, o la máxima si ninguna cumple. Cada variante debe contener audio y video multiplexados en MPEG-TS. Se rechazan las rendiciones separadas `AUDIO`, `VIDEO` o `SUBTITLES` y las URL fuera de `media.domains`.
-- Las variantes HLS expandidas solo admiten listas completas y continuas de MPEG-TS bajo demanda que contengan `#EXT-X-ENDLIST`. No se admiten emisiones en directo, cifrado, rangos de bytes, fMP4, discontinuidades ni huecos. La etiqueta no estándar `#EXT-X-TOKEN` de MissAV se elimina antes de enviar la lista al reproductor.
+- Las variantes HLS solo admiten listas MPEG-TS VOD completas y continuas con `#EXT-X-ENDLIST`. Se admite descifrado CBC/PKCS7 de `METHOD=AES-128` con `KEYFORMAT=identity` (también el valor predeterminado), claves de exactamente 16 bytes e IV explícito de 128 bits o derivado de la secuencia del segmento. Las claves permanecen en la memoria de la sesión; el TS descifrado se valida en el mismo proceso de reproducción y descarga. No se admiten directo, SAMPLE-AES, otros KEYFORMAT, `EXT-X-MAP`, `EXT-X-BYTERANGE`, fMP4, discontinuidades ni huecos. Se elimina el `#EXT-X-TOKEN` no estándar de MissAV.
 - La reproducción usa un puerto aleatorio vinculado solo a `127.0.0.1` y un token aleatorio, con un registro finito de URL que obtiene segmentos validados bajo demanda. Al cerrar la sesión, se cancelan sus solicitudes. Las descargas HLS sin conexión solo se admiten en Android: se valida cada segmento, se guarda su SHA-256 y se comprueba al reanudar, con posibilidad de cancelar. Media3 convierte el contenido a MP4 en el dispositivo y solo el archivo completo se publica en la biblioteca sin conexión. La reproducción HLS en iOS/macOS no se ha verificado en esta ronda y no debe presentarse como verificada.
 
 ## Definición de opción
@@ -166,19 +167,21 @@ Cada elemento de `feeds` es una pestaña en la página de origen: `{ key, label,
 - `network.mode: 'native'` (predeterminado): la solicitud HTTP nativa, que utiliza cookies persistentes, puede pasar por el proxy configurado por el usuario. Si se detecta la consulta Cloudflare, se generará `CLOUDFLARE`. La aplicación guiará al usuario para completar la verificación en el navegador integrado y sincronizar la cookie común con la solicitud nativa.
 - `network.mode: 'browser'` + `network.origin`: La solicitud se realizó con origen `fetch()` en una página oculta del navegador abierta en `origin`, con una huella digital real del navegador. Se aplica a Cloudflare sitios que están más protegidos (por ejemplo, Hanime1). Si una solicitud GET del mismo origen recibe un desafío Cloudflare, el navegador oculto abre ese documento para completar la verificación automática y reintenta la solicitud original una sola vez. Si falla, se genera `CLOUDFLARE` y se utiliza el flujo de verificación existente.
 
-## Medios en el navegador (HLS)
+## Permisos de medios (HLS)
 
-El permiso de medios en el navegador es independiente de `this.http`, `network` y la sincronización de Cookie del sitio. Ejemplo de MissAV:
+El permiso `media` es independiente de `this.http`, `network` y la sincronización de Cookie del sitio. Ambos transportes aplican las mismas reglas de dominio:
 
 ```js
-domains: ['missav.ai'],
-network: { mode: 'browser', origin: 'https://missav.ai' },
-media: { mode: 'browser', origin: 'https://missav.ai', domains: ['surrit.com'] },
+domains: ['example.com'],
+network: { mode: 'native' },
+media: { mode: 'native', origin: 'https://example.com', domains: ['media.example.com'] },
 ```
 
-- `media.origin` debe pertenecer a un sitio declarado por la fuente, usar HTTPS en el puerto predeterminado 443 y no contener credenciales en la URL. Un navegador oculto establece la sesión de medios en esa página del mismo origen.
-- `media.domains` es una lista independiente de dominios multimedia permitidos, incluidos sus subdominios; no concede acceso a las Cookie del sitio fuente. Las listas y los segmentos requieren HTTPS en el puerto 443. Se rechazan credenciales en la URL, fragmentos, direcciones IP, localhost (incluidos subdominios) y `.local`. Las solicitudes usan `credentials: 'omit'`, `mode: 'cors'` y `redirect: 'error'`, respetan las reglas CORS del CDN y no siguen redirecciones.
-- El tamaño de la respuesta se limita durante la lectura en streaming y se vuelve a validar su URL. Las listas tienen un límite de 2 MiB y cada segmento de 32 MiB; se rechazan respuestas demasiado grandes o vacías y cambios de URL. Se mantienen las reglas de pertenencia del sitio en `domains` y las solicitudes `network` del mismo origen con Cookie; los dominios multimedia no comparten la sesión del sitio.
+- `media.mode` admite `'native'` y `'browser'`. Ambos requieren que `media.origin` pertenezca a un sitio declarado por la fuente y use HTTPS en el puerto 443, sin credenciales, consulta ni fragmento en la URL.
+- `media.domains` es una lista independiente de dominios permitidos, incluidos los subdominios; no concede acceso a las Cookie del sitio. Listas, segmentos y claves requieren HTTPS 443. Se rechazan credenciales, fragmentos, direcciones IP, localhost (incluidos sus subdominios) y `.local`.
+- `media.mode: 'native'` usa un cliente nativo independiente sin credenciales, Cookie del sitio, Authorization ni autenticación de proxy. Se valida cada destino de redirección antes de seguirlo. Solo se permiten las cabeceras `Referer`, `Origin`, `Accept` y `Accept-Language`; las dos primeras deben coincidir con `media.origin`.
+- `media.mode: 'browser'` crea una sesión en un navegador oculto en `media.origin` con `credentials: 'omit'`, `mode: 'cors'` y `redirect: 'error'`. Respeta el CORS del CDN y no sigue redirecciones.
+- Se limita el tamaño al recibir la respuesta y se vuelve a validar su URL. Las listas tienen un máximo de 2 MiB, los segmentos de 32 MiB y las claves AES-128 deben tener 16 bytes exactos. Se rechazan respuestas vacías, demasiado grandes o URL no permitidas. Las reglas de `domains` y de `network` con Cookie siguen siendo independientes.
 
 ## Aislamiento y seguridad
 

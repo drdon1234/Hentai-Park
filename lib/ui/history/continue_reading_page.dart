@@ -21,7 +21,7 @@ class _ContinueReadingPageState extends State<ContinueReadingPage> {
   String? _source; // null = all sources
 
   void _resume(HistoryEntry h) {
-    if (kindOf(h.item.source) == MediaKind.video || h.pageCount == 0) {
+    if (kindOf(h.item.source) != MediaKind.video && h.position == null && h.pageCount == 0) {
       Nav.openWork(context, h.item);
     } else {
       Nav.openChapter(context, h.item, h.chapterId, page: h.page);
@@ -192,6 +192,8 @@ class _ContinueReadingPageState extends State<ContinueReadingPage> {
                             [
                               dayLabel(h.time),
                               if (h.pageCount > 0) '${h.chapterTitle != null ? '${h.chapterTitle} ' : ''}${h.page + 1}/${h.pageCount}',
+                              if (h.position != null && h.chapterTitle != null) h.chapterTitle!,
+                              if (h.position != null && h.position! > 0) tr('看到 {value0}:{value1}', {'value0': h.position! ~/ 60, 'value1': (h.position! % 60).toString().padLeft(2, '0')}),
                             ].join(' · '),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,

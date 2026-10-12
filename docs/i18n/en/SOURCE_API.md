@@ -52,7 +52,7 @@ Park.register({
   async chapter(id, chapterId) {},            // comics
   async resolveImage({ id, chapterId, index, token, retry }) {},  // Optional: Delayed parsing of images
   async thumbnails(id, page) {},              // Optional: Load preview thumbnails in pages
-  async videos(id) {},                        // video
+  async videos(id, episodeId = '_') {},                        // video
 });
 ```
 
@@ -141,9 +141,10 @@ When a tag is clicked, the app searches for `keyword` and `filters` in the sourc
 
 **Video** (`videos`): `[{ quality: 1080, label: '1080P', url, headers?, format?, preferred? }]`. Video direct links usually have a time limit, and the App will re-obtain it every time before playing/downloading.
 
+- Video sources return `[{id, title}]` in playback order through `detail(id).chapters`. Each `id` must be stable, never a quality label or temporary media URL. The host uses the same ID for selection, independent progress, downloads and resume, and calls `videos(id, episodeId = '_')` for that episode. Single videos use `singleChapterId`, or `'_'` when omitted.
 - Omitting `format` keeps the direct MP4 playback and download path. HLS entries must explicitly return `format: 'hls'` and declare the `media` permission described below in the manifest.
 - The host first expands an HLS master playlist (`#EXT-X-STREAM-INF`) into its separate variant playlists, obtains actual resolutions from `RESOLUTION`, and passes those variants to the player or downloader. For a master playlist, `quality` is the desired resolution: the highest available resolution not exceeding it is preferred, or the highest available resolution if none qualifies. Each variant must contain muxed audio and video in MPEG-TS. Separate `AUDIO`, `VIDEO`, or `SUBTITLES` renditions and URLs outside `media.domains` are rejected.
-- Expanded HLS variants support only complete, continuous MPEG-TS VOD playlists containing `#EXT-X-ENDLIST`. Live streams, encryption, byte ranges, fMP4, discontinuities, and gaps are unsupported. MissAV's nonstandard `#EXT-X-TOKEN` is removed before the playlist reaches the player.
+- Expanded HLS variants support only complete, continuous MPEG-TS VOD playlists containing `#EXT-X-ENDLIST`. CBC/PKCS7 decryption supports `METHOD=AES-128` with `KEYFORMAT=identity` (also the default when omitted), exactly 16-byte keys, and either an explicit 128-bit IV or an IV derived from the segment media sequence. Keys stay in session memory; decrypted TS is validated through the same playback/download pipeline. Live streams, SAMPLE-AES, other KEYFORMAT values, `EXT-X-MAP`, `EXT-X-BYTERANGE`, fMP4, discontinuities and gaps remain unsupported. MissAV's nonstandard `#EXT-X-TOKEN` is removed.
 - Playback uses a random port bound only to `127.0.0.1` and a random token, with a finite URL registry fetching validated segments on demand; closing the session cancels its requests. HLS offline downloads currently support Android only: each segment is validated, saved with a SHA-256 hash, and rechecked on resume, with cancellation support. Local Media3 remuxing produces MP4, and only a complete file is published to the offline library. HLS playback on iOS/macOS has not been verified in this round and must not be described as verified.
 
 ## Option definition
@@ -166,19 +167,21 @@ Each item in `feeds` is a tab in the source page: `{ key, label, layout?: 'grid'
 - `network.mode: 'native'` (default): Native HTTP request, using persistent cookies, can go through the proxy set by the user. If the Cloudflare query is detected, `CLOUDFLARE` will be thrown. The App will guide the user to complete the verification in the built-in browser and synchronize the common cookie back to the native request.
 - `network.mode: 'browser'` + `network.origin`: The request was made with origin `fetch()` in a hidden browser page opened at `origin`, with a real browser fingerprint. Applies to Cloudflare sites that are more heavily protected (e.g. Hanime1). When a same-origin GET receives a Cloudflare challenge response, the hidden browser navigates to that document to perform automatic verification and retries the original request once. Failure still raises `CLOUDFLARE` and uses the existing verification flow.
 
-## Browser media (HLS)
+## Media permissions (HLS)
 
-Browser media permission is separate from `this.http`, `network`, and site Cookie synchronization. MissAV example:
+`media` permission is separate from `this.http`, `network` and site Cookie synchronization. Both transports apply the same domain rules:
 
 ```js
-domains: ['missav.ai'],
-network: { mode: 'browser', origin: 'https://missav.ai' },
-media: { mode: 'browser', origin: 'https://missav.ai', domains: ['surrit.com'] },
+domains: ['example.com'],
+network: { mode: 'native' },
+media: { mode: 'native', origin: 'https://example.com', domains: ['media.example.com'] },
 ```
 
-- `media.origin` must belong to a site declared by the source, use HTTPS on the default port 443, and contain no URL credentials. A hidden browser establishes the media session on that same-origin page.
-- `media.domains` is a separate allowlist of media domains, including their subdomains; it grants no source-site Cookie access. Playlists and segments require HTTPS on port 443. URL credentials, fragments, IP addresses, localhost (including subdomains), and `.local` are rejected. Requests use `credentials: 'omit'`, `mode: 'cors'`, and `redirect: 'error'`, obey the CDN's CORS rules, and do not follow redirects.
-- Response size is limited while streaming, and the response URL is validated again. Playlists are limited to 2 MiB and each segment to 32 MiB; oversized or empty responses and changed URLs are rejected. Source ownership through `domains` and the same-origin, Cookie-bearing `network` rules remain unchanged; media domains cannot share site login state.
+- `media.mode` supports `'native'` and `'browser'`. Both require `media.origin` to belong to a source-declared site, use HTTPS on the default port 443, and contain no URL credentials, query or fragment.
+- `media.domains` is an independent media allowlist including subdomains; it grants no source-site Cookie access. Playlists, segments and keys require HTTPS 443. URL credentials, fragments, IP addresses, localhost (including subdomains) and `.local` are rejected.
+- `media.mode: 'native'` uses a separate credential-free native client, without site Cookies, Authorization or proxy authentication. Every redirect target is checked against the allowlist before following that hop. Only `Referer`, `Origin`, `Accept` and `Accept-Language` headers are allowed; the first two must match `media.origin`.
+- `media.mode: 'browser'` opens a media session in a hidden browser at `media.origin` using `credentials: 'omit'`, `mode: 'cors'` and `redirect: 'error'`. It follows the CDN's CORS rules and does not follow redirects.
+- Response sizes are limited during streaming and response URLs are checked again. Playlists are limited to 2 MiB, segments to 32 MiB, and AES-128 keys must be exactly 16 bytes. Oversized or empty responses and disallowed URLs are rejected. Source `domains` and Cookie-bearing `network` rules remain separate.
 
 ## Isolation and security
 

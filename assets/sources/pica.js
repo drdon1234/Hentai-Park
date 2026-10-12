@@ -8,7 +8,7 @@
 Park.register({
   key: 'pica',
   name: '哔咔漫画',
-  version: '0.0.2',
+  version: '0.0.3',
   type: 'comic',
   color: '#EC97B6',
   icon: 'https://manhuabika.com/favicon.ico',
@@ -210,6 +210,13 @@ Park.register({
     } catch (e) {
       /* non-JSON error page */
     }
+    if (!json || typeof json !== 'object' || Array.isArray(json)) json = {};
+    if (path === 'auth/register' || path === 'auth/sign-in') {
+      const stage = path === 'auth/register' ? '注册' : '登录';
+      const code = Number.isInteger(json.code) ? json.code : '未知';
+      const error = /^\d{1,6}$/.test(String(json.error || '')) ? String(json.error) : '无';
+      this.log(`哔咔${stage}响应：HTTP ${res.status}，业务码 ${code}，错误码 ${error}`);
+    }
     return { status: res.status, json };
   },
 
@@ -217,7 +224,11 @@ Park.register({
     const { status, json } = await this.send('POST', 'auth/sign-in', { email, password });
     const token = json && json.data && json.data.token;
     if (status !== 200 || !token) {
-      throw Park.error('LOGIN_REQUIRED', `哔咔登录失败：${(json && (json.message || json.error)) || 'HTTP ' + status}`, { status, rateLimited: status === 429 || String(json.error) === '1023' });
+      throw Park.error('LOGIN_REQUIRED', `哔咔登录失败：${(json && (json.message || json.error)) || 'HTTP ' + status}`, {
+        status,
+        rateLimited: status === 429 || String(json.error) === '1023',
+        invalidCredentials: status === 400 && (String(json.error) === '1004' || /invalid (?:email|account) or password/i.test(String(json.message || ''))),
+      });
     }
     return token;
   },
@@ -275,26 +286,49 @@ Park.register({
       // Registration must never run unless this account is already recoverable from disk.
       await this.store.flush();
     }
-    if (managed && !account.registered) {
-      await this.store.flush();
-      const { status, json } = await this.send('POST', 'auth/register', {
-        email: account.email, password: account.password, name: account.email,
-        birthday: '2000-01-01', gender: 'm',
-        question1: '1', question2: '2', question3: '3',
-        answer1: '1', answer2: '2', answer3: '3',
-      });
-      if (status !== 200 && !/already exist/i.test(String(json.message || ''))) {
-        throw Park.error('HTTP', `哔咔注册失败：${json.message || 'HTTP ' + status}`, { status, rateLimited: status === 429 || String(json.error) === '1023' });
+    let token;
+    for (let attempt = 0; attempt < 2; attempt++) {
+      const registering = managed && !account.registered;
+      if (registering) {
+        await this.store.flush();
+        const { status, json } = await this.send('POST', 'auth/register', {
+          // Keep the display name short; the API rejects a 22-character name with error 1009.
+          email: account.email, password: account.password, name: account.email.slice(0, 12),
+          birthday: '2000-01-01', gender: 'm',
+          question1: '1', question2: '2', question3: '3',
+          answer1: '1', answer2: '2', answer3: '3',
+        });
+        const success = status === 200 && json.code === 200 && json.message === 'success' && !json.error;
+        const exists = status === 400 && (String(json.error) === '1008' || /(?:email|account) is already exist/i.test(String(json.message || '')));
+        if (!success && !exists) {
+          throw Park.error('HTTP', `哔咔注册失败：${json.message || json.error || 'HTTP ' + status}`, { status, rateLimited: status === 429 || String(json.error) === '1023' });
+        }
+        // An existing username alone does not prove these saved credentials belong to it.
+        if (success) {
+          account = { ...account, registered: true };
+          this.store.set('managedAccount', account);
+          await this.store.flush();
+        }
       }
-      account = { ...account, registered: true };
-      this.store.set('managedAccount', account);
-      await this.store.flush();
+      if (managed) this.store.set('managedAccount', { ...account, token: null });
+      else this.store.set('token', null);
+      try {
+        token = await this.signIn(account.email, account.password);
+        break;
+      } catch (error) {
+        if (!managed || !error.invalidCredentials) throw error;
+        account = { ...account, registered: false, token: null };
+        this.store.set('managedAccount', account);
+        await this.store.flush();
+        // Recover a rejected registration marker once, preserving the same identity.
+        // A newly registered account must not cause an immediate registration loop.
+        if (registering || attempt > 0) throw error;
+      }
     }
-    if (managed) this.store.set('managedAccount', { ...account, token: null });
-    else this.store.set('token', null);
-    const token = await this.signIn(account.email, account.password);
-    if (managed) this.store.set('managedAccount', { ...account, token, failures: 0, retryAt: 0, rateLimited: false });
-    else this.store.set('token', token);
+    if (managed) {
+      account = { ...account, registered: true };
+      this.store.set('managedAccount', { ...account, token, failures: 0, retryAt: 0, rateLimited: false });
+    } else this.store.set('token', token);
     await this.store.flush();
     const profile = await this.send('GET', 'users/profile').catch(() => null);
     const name = profile && profile.json && profile.json.data && profile.json.data.user && profile.json.data.user.name || account.email;

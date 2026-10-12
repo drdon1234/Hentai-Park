@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../core/models.dart';
 import '../engine/source_manager.dart';
 import '../library/library.dart';
+import '../library/downloads.dart';
 import 'detail/detail_page.dart';
 import 'reader/reader_page.dart';
 import 'search/aggregate_search_page.dart';
@@ -33,22 +34,78 @@ class Nav {
   static Future<void> openReader(BuildContext context, WorkDetail work, {Chapter? chapter, int startPage = 0}) =>
       push(context, ReaderPage(work: work, chapter: chapter, startPage: startPage));
 
-  static Future<void> openVideo(BuildContext context, WorkDetail work) => push(context, VideoPage(work: work));
+  static Future<void> openVideo(
+    BuildContext context,
+    WorkDetail work, {
+    String? episodeId,
+  }) => push(context, VideoPage(work: work, episodeId: episodeId));
 
-  /// Opens the reader at [chapterId] using the locally stored chapter list (updates feed, history),
-  /// without loading the detail page first. Videos and unknown works open their detail page instead.
-  static Future<void> openChapter(BuildContext context, WorkItem item, String? chapterId, {int? page}) async {
-    if (kindOf(item.source) == MediaKind.video) return openWork(context, item);
+  /// Opens the reader or player at [chapterId] from a stored chapter list.
+  static Future<void> openChapter(
+    BuildContext context,
+    WorkItem item,
+    String? chapterId, {
+    int? page,
+  }) async {
     final lib = Library.instance;
-    final chapters = lib.chaptersCached(item.uid) ?? await lib.loadChapters(item.uid);
+    final chapters =
+        lib.chaptersCached(item.uid) ?? await lib.loadChapters(item.uid);
+    final task = await DownloadManager.instance.normalizeTask(item.uid);
     if (!context.mounted) return;
+    if (kindOf(item.source) == MediaKind.video ||
+        task?.isVideo == true ||
+        lib.historyOf(item.uid)?.position != null) {
+      final episodes = [
+        for (final chapter in chapters)
+          Chapter(chapter.chapterId, chapter.title),
+      ];
+      final known = episodes.map((episode) => episode.id).toSet();
+      for (final episode in task?.chapters ?? const <Chapter>[]) {
+        if (known.add(episode.id)) episodes.add(episode);
+      }
+      if (episodes.isNotEmpty) {
+        return openVideo(
+          context,
+          WorkDetail({
+            ...item.json,
+            'chaptersComplete': false,
+            'chapters': [
+              for (final episode in episodes)
+                {'id': episode.id, 'title': episode.title},
+            ],
+          }, item.source),
+          episodeId: chapterId,
+        );
+      }
+      final offline = DownloadManager.instance.offlineDetail(
+        item.source,
+        item.id,
+      );
+      if (offline != null) {
+        return openVideo(context, offline, episodeId: chapterId);
+      }
+      final detail = await guarded(
+        context,
+        item.source,
+        () => SourceManager.instance.detail(item.source, item.id),
+      );
+      if (detail != null && context.mounted) {
+        await openVideo(context, detail, episodeId: chapterId);
+      }
+      return;
+    }
     if (chapters.isEmpty) return openWork(context, item);
     final key = chapterKeyOf(chapterId);
-    final state = chapters.where((c) => c.chapterId == key).firstOrNull ?? chapters.first;
+    final state =
+        chapters.where((c) => c.chapterId == key).firstOrNull ?? chapters.first;
     final start = page ?? (state.read ? 0 : state.lastPage);
     if (chapters.length == 1) {
       final only = chapters.first.chapterId;
-      final detail = WorkDetail({...item.json, 'id': item.id, 'singleChapterId': only == '_' ? null : only}, item.source);
+      final detail = WorkDetail({
+        ...item.json,
+        'id': item.id,
+        'singleChapterId': only == '_' ? null : only,
+      }, item.source);
       return openReader(context, detail, startPage: start);
     }
     final detail = WorkDetail({
@@ -58,7 +115,12 @@ class Nav {
         for (final c in chapters) {'id': c.chapterId, 'title': c.title},
       ],
     }, item.source);
-    return openReader(context, detail, chapter: Chapter(state.chapterId, state.title), startPage: start);
+    return openReader(
+      context,
+      detail,
+      chapter: Chapter(state.chapterId, state.title),
+      startPage: start,
+    );
   }
 
   static Future<void> openSourceSettings(BuildContext context, String source) => push(context, SourceSettingsPage(sourceKey: source));

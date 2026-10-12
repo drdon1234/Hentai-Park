@@ -12,7 +12,7 @@ import '../../core/localization.dart';
 import '../../core/app_lock.dart';
 import '../../core/models.dart';
 import '../../engine/source_manager.dart';
-import '../../engine/browser_media.dart';
+import '../../engine/media_transport.dart';
 import '../../library/downloads.dart';
 import '../../library/library.dart';
 import '../../video/hls_playback.dart';
@@ -23,10 +23,12 @@ import '../widgets/error_view.dart';
 import '../widgets/paged_grid.dart';
 import 'video_gesture_surface.dart';
 import 'video_gestures.dart';
+import 'video_episode_sheet.dart';
 
 class VideoPage extends StatefulWidget {
-  const VideoPage({super.key, required this.work});
+  const VideoPage({super.key, required this.work, this.episodeId});
   final WorkDetail work;
+  final String? episodeId;
 
   @override
   State<VideoPage> createState() => _VideoPageState();
@@ -60,6 +62,10 @@ class _VideoPageState extends State<VideoPage> with WidgetsBindingObserver {
   Future<void> _screenUpdates = Future.value();
   int _openRequest = 0;
   CancelToken? _sourceRequest;
+  late final List<Chapter> _episodes;
+  late Chapter _episode;
+
+  int get _episodeIndex => _episodes.indexOf(_episode);
 
   bool get _fullscreen => _displayMode != VideoDisplayMode.inline;
 
@@ -73,6 +79,14 @@ class _VideoPageState extends State<VideoPage> with WidgetsBindingObserver {
   @override
   void initState() {
     super.initState();
+    _episodes = widget.work.videoEpisodes;
+    final selected =
+        widget.episodeId ??
+        Library.instance.historyOf(widget.work.uid)?.chapterId;
+    _episode = _episodes.firstWhere(
+      (episode) => episode.id == chapterKeyOf(selected),
+      orElse: () => _episodes.first,
+    );
     final lifecycle = WidgetsBinding.instance.lifecycleState;
     _foreground = lifecycle == null || lifecycle == AppLifecycleState.resumed;
     WidgetsBinding.instance.addObserver(this);
@@ -163,15 +177,65 @@ class _VideoPageState extends State<VideoPage> with WidgetsBindingObserver {
   }
 
   Future<void> _init() async {
+    final request = ++_openRequest;
+    try {
+      if (widget.work.hasVideoEpisodes) {
+        await Library.instance.loadChapters(widget.work.uid);
+        if (!mounted || request != _openRequest) return;
+        await Library.instance.syncChapters(
+          widget.work.toItem(),
+          _episodes,
+          complete: widget.work.chaptersComplete,
+        );
+      }
+      if (!mounted || request != _openRequest) return;
+      await _selectEpisode(_episode);
+    } catch (error) {
+      if (mounted && request == _openRequest) setState(() => _error = error);
+    }
+  }
+
+  Future<void> _selectEpisode(Chapter episode) async {
+    _savePosition();
     _sourceRequest?.cancel('video source reloaded');
     final request = _sourceRequest = CancelToken();
-    setState(() => _error = null);
+    final openRequest = ++_openRequest;
+    _savePos?.cancel();
+    _hide?.cancel();
+    _cancelGesture();
+    final old = _c;
+    final oldMedia = _media;
+    final preparing = _preparingMedia;
+    old?.removeListener(_onTick);
+    setState(() {
+      _episode = episode;
+      _c = null;
+      _media = null;
+      _preparingMedia = null;
+      _sources = [];
+      _current = null;
+      _offline = false;
+      _error = null;
+      _controls = true;
+      _completed = false;
+      _wantsPlayback = true;
+    });
     try {
+      await preparing?.close();
+      await (old?.dispose() ?? Future<void>.value()).whenComplete(
+        () async => oldMedia?.close(),
+      );
+      if (!mounted || request.isCancelled || openRequest != _openRequest) {
+        return;
+      }
       final local = await DownloadManager.instance.localVideo(
         widget.work.source,
         widget.work.id,
+        episodeId: episode.id,
       );
-      if (!mounted || request.isCancelled) return;
+      if (!mounted || request.isCancelled || openRequest != _openRequest) {
+        return;
+      }
       if (local != null) {
         _offline = true;
         await _open(
@@ -181,28 +245,35 @@ class _VideoPageState extends State<VideoPage> with WidgetsBindingObserver {
               allowBackgroundPlayback: true,
             ),
           ),
+          requestId: openRequest,
         );
         return;
       }
       final sources = await SourceManager.instance.videos(
         widget.work.source,
         widget.work.id,
+        episodeId: episode.id,
         cancelToken: request,
       );
-      if (!mounted || request.isCancelled) return;
+      if (!mounted || request.isCancelled || openRequest != _openRequest) {
+        return;
+      }
       _sources = sources;
       await _play(
         sources.firstWhere((s) => s.preferred, orElse: () => sources.first),
+        requestId: openRequest,
       );
     } catch (e) {
-      if (mounted && !request.isCancelled) setState(() => _error = e);
+      if (mounted && !request.isCancelled && openRequest == _openRequest) {
+        setState(() => _error = e);
+      }
     } finally {
       if (identical(_sourceRequest, request)) _sourceRequest = null;
     }
   }
 
-  Future<void> _play(VideoSource s, {Duration? at}) async {
-    final request = ++_openRequest;
+  Future<void> _play(VideoSource s, {Duration? at, int? requestId}) async {
+    final request = requestId ?? ++_openRequest;
     final preparing = _preparingMedia;
     _preparingMedia = null;
     await preparing?.close();
@@ -218,9 +289,7 @@ class _VideoPageState extends State<VideoPage> with WidgetsBindingObserver {
       if (s.format == 'hls') {
         final manifest = SourceManager.instance.manifest(widget.work.source);
         if (manifest == null) throw SourceError('CONFIG', '视频源未加载');
-        media = HlsPlayback(
-          BrowserMedia(BrowserMediaPolicy.fromManifest(manifest)),
-        );
+        media = HlsPlayback(createMediaTransport(manifest, headers: s.headers));
         _preparingMedia = media;
         url = await media.open(url);
       }
@@ -313,7 +382,13 @@ class _VideoPageState extends State<VideoPage> with WidgetsBindingObserver {
   }
 
   Duration? _resumePoint(Duration total) {
-    final pos = Library.instance.historyOf(widget.work.uid)?.position;
+    final state = Library.instance.chapterState(widget.work.uid, _episode.id);
+    final history = Library.instance.historyOf(widget.work.uid);
+    final pos =
+        state?.position ??
+        (chapterKeyOf(history?.chapterId) == _episode.id
+            ? history?.position
+            : null);
     if (pos == null || pos < 5 || pos > total.inSeconds - 10) return null;
     return Duration(seconds: pos);
   }
@@ -322,9 +397,17 @@ class _VideoPageState extends State<VideoPage> with WidgetsBindingObserver {
     final completed = _c?.value.isCompleted ?? false;
     // Completion ends playback once. Repeated notifications during a replay
     // seek must not overwrite the user's new play request.
-    if (completed && !_completed) _wantsPlayback = false;
+    final newlyCompleted = completed && !_completed;
     _completed = completed;
     if (mounted) setState(() {});
+    if (newlyCompleted) {
+      _savePosition();
+      if (_wantsPlayback && _episodeIndex < _episodes.length - 1) {
+        unawaited(_selectEpisode(_episodes[_episodeIndex + 1]));
+      } else {
+        _wantsPlayback = false;
+      }
+    }
   }
 
   void _savePosition() {
@@ -332,7 +415,10 @@ class _VideoPageState extends State<VideoPage> with WidgetsBindingObserver {
     if (c == null || !c.value.isInitialized) return;
     Library.instance.recordVideoPosition(
       widget.work.toItem(),
-      c.value.position.inSeconds,
+      (c.value.isCompleted ? c.value.duration : c.value.position).inSeconds,
+      episodeId: _episode.id,
+      episodeTitle: _episode.title,
+      duration: c.value.duration.inSeconds,
     );
   }
 
@@ -480,6 +566,8 @@ class _VideoPageState extends State<VideoPage> with WidgetsBindingObserver {
 
   Future<void> _switchQuality() async {
     if (_sources.length < 2) return;
+    final episode = _episode;
+    final request = _openRequest;
     final picked = await showModalBottomSheet<VideoSource>(
       context: context,
       builder: (ctx) => SafeArea(
@@ -506,11 +594,68 @@ class _VideoPageState extends State<VideoPage> with WidgetsBindingObserver {
         ),
       ),
     );
-    if (mounted && picked != null && picked != _current) {
+    if (mounted &&
+        episode == _episode &&
+        request == _openRequest &&
+        picked != null &&
+        picked != _current) {
       final pos = _c?.value.position;
+      _savePosition();
       await _play(picked, at: pos);
     }
   }
+
+  Future<void> _pickEpisode() async {
+    _hide?.cancel();
+    final picked = await showModalBottomSheet<Chapter>(
+      context: context,
+      isScrollControlled: true,
+      builder: (_) =>
+          VideoEpisodeSheet(work: widget.work, currentId: _episode.id),
+    );
+    if (!mounted) return;
+    if (picked != null && picked.id != _episode.id) {
+      await _selectEpisode(picked);
+    }
+    _scheduleHide();
+  }
+
+  Widget _episodeControls({bool overlay = false}) => Row(
+    children: [
+      IconButton(
+        tooltip: tr('上一集'),
+        color: overlay ? Colors.white : null,
+        disabledColor: overlay ? Colors.white38 : null,
+        onPressed: _episodeIndex > 0
+            ? () => _selectEpisode(_episodes[_episodeIndex - 1])
+            : null,
+        icon: const Icon(Icons.skip_previous_rounded),
+      ),
+      Expanded(
+        child: Text(
+          _episode.title,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(color: overlay ? Colors.white : null),
+        ),
+      ),
+      IconButton(
+        tooltip: tr('下一集'),
+        color: overlay ? Colors.white : null,
+        disabledColor: overlay ? Colors.white38 : null,
+        onPressed: _episodeIndex < _episodes.length - 1
+            ? () => _selectEpisode(_episodes[_episodeIndex + 1])
+            : null,
+        icon: const Icon(Icons.skip_next_rounded),
+      ),
+      IconButton(
+        tooltip: tr('选集'),
+        color: overlay ? Colors.white : null,
+        onPressed: _pickEpisode,
+        icon: const Icon(Icons.playlist_play_rounded),
+      ),
+    ],
+  );
 
   Future<void> _pickSpeed() async {
     const speeds = [0.5, 0.75, 1.0, 1.25, 1.5, 2.0];
@@ -570,6 +715,7 @@ class _VideoPageState extends State<VideoPage> with WidgetsBindingObserver {
         child: Column(
           children: [
             player,
+            if (_episodes.length > 1) _episodeControls(),
             Expanded(
               child: CustomScrollView(
                 slivers: [
@@ -826,6 +972,8 @@ class _VideoPageState extends State<VideoPage> with WidgetsBindingObserver {
                   ),
                 ],
               ),
+              if (_fullscreen && _episodes.length > 1)
+                _episodeControls(overlay: true),
               const Spacer(),
               IconButton(
                 tooltip: tr(v.isPlaying ? '暂停' : '播放'),

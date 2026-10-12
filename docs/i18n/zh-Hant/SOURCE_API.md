@@ -52,7 +52,7 @@ Park.register({
   async chapter(id, chapterId) {},            // 漫畫
   async resolveImage({ id, chapterId, index, token, retry }) {},  // 可選：延遲解析圖片
   async thumbnails(id, page) {},              // 可選：分頁載入預覽縮圖
-  async videos(id) {},                        // 影片
+  async videos(id, episodeId = '_') {},                        // 影片
 });
 ```
 
@@ -141,9 +141,10 @@ await this.http.request({
 
 **影片**（`videos`）：`[{ quality: 1080, label: '1080P', url, headers?, format?, preferred? }]`。影片直鏈通常有時效，App 每次播放 / 下載前都會重新獲取。
 
+- 影片源在 `detail(id).chapters` 傳回依播放順序排列的 `[{id, title}]`；每個 `id` 必須穩定，不能用畫質或臨時媒體 URL 代替。宿主以同一 ID 選集、記錄獨立進度、下載及續播，並呼叫 `videos(id, episodeId = '_')` 取得該集資源。單集使用 `singleChapterId`，未提供時使用 `'_'`。
 - 省略 `format` 時沿用直 MP4 播放與下載路徑。HLS 必須明確傳回 `format: 'hls'`，並在 manifest 中宣告下文的 `media` 權限。
 - HLS 主清單（`#EXT-X-STREAM-INF`）會先由宿主展開為各路獨立的分段清單，依 `RESOLUTION` 取得實際畫質，再交給播放器或下載器。傳回主清單時，`quality` 表示期望畫質：預設選擇不高於該值的最高實際畫質，沒有符合項目時選擇最高檔。每路必須包含音訊與視訊多工封裝的 MPEG-TS；獨立的 `AUDIO`、`VIDEO` 或 `SUBTITLES` renditions，以及超出 `media.domains` 的網址均拒絕。
-- 展開後的 HLS 僅支援含 `#EXT-X-ENDLIST` 的完整、連續 MPEG-TS 隨選播放清單。不支援直播、加密、位元組範圍、fMP4、discontinuity 或 gap；MissAV 的非標準 `#EXT-X-TOKEN` 會被移除，不傳給播放器。
+- 展開後的 HLS 僅支援含 `#EXT-X-ENDLIST` 的完整、連續 MPEG-TS 隨選清單。支援 `METHOD=AES-128`、`KEYFORMAT=identity`（省略時亦為 identity）的 CBC/PKCS7 解密，金鑰必須恰好 16 位元組；IV 可明確提供 128 位元值，或由分段的媒體序號推導。金鑰僅存於目前工作階段的記憶體，解密後驗證 TS，播放與下載共用處理流程。不支援直播、SAMPLE-AES、其他 KEYFORMAT、`EXT-X-MAP`、`EXT-X-BYTERANGE`、fMP4、discontinuity 或 gap；MissAV 的非標準 `#EXT-X-TOKEN` 會被移除。
 - 播放時使用僅綁定 `127.0.0.1` 的隨機連接埠和隨機權杖，透過有限 URL 註冊表按需讀取已驗證的分段；關閉工作階段會取消請求。HLS 離線下載目前僅支援 Android：逐段驗證、儲存 SHA-256 並驗證續傳資料，支援取消，最後由本機 Media3 封裝為 MP4，只有完整成品才加入離線資料庫。iOS/macOS 的 HLS 播放未經本輪驗證，不能據此宣稱已驗證可用。
 
 ## 選項定義
@@ -166,19 +167,21 @@ await this.http.request({
 - `network.mode: 'native'`（預設）：原生 HTTP 請求，使用持久化 Cookie，可以走使用者設定的代理。若檢測到 Cloudflare 質詢，會丟擲 `CLOUDFLARE`，App 會引導使用者在內建瀏覽器中完成驗證，並把通行 Cookie 同步回原生請求。
 - `network.mode: 'browser'` + `network.origin`：請求在一個開啟於 `origin` 的隱藏瀏覽器頁面中以同源 `fetch()` 發出，帶有真實瀏覽器指紋。適用於 Cloudflare 防護較嚴的站點（例如 Hanime1）。 同源 GET 請求收到 Cloudflare 質詢回應時，隱藏瀏覽器會導向該文件完成自動驗證，並重試一次原請求；未通過時仍丟出 `CLOUDFLARE`，沿用「去驗證」流程。
 
-## 瀏覽器媒體（HLS）
+## 媒體權限（HLS）
 
-瀏覽器媒體權限獨立於 `this.http`、`network` 和站點 Cookie 同步。MissAV 範例：
+`media` 權限獨立於 `this.http`、`network` 和站點 Cookie 同步，兩種傳輸方式採用相同網域規則：
 
 ```js
-domains: ['missav.ai'],
-network: { mode: 'browser', origin: 'https://missav.ai' },
-media: { mode: 'browser', origin: 'https://missav.ai', domains: ['surrit.com'] },
+domains: ['example.com'],
+network: { mode: 'native' },
+media: { mode: 'native', origin: 'https://example.com', domains: ['media.example.com'] },
 ```
 
-- `media.origin` 必須屬於來源宣告的站點，並使用 HTTPS 預設連接埠 443，不得包含使用者憑據。隱藏瀏覽器在該同源頁面建立媒體工作階段。
-- `media.domains` 是獨立的媒體允許網域清單，包含其子網域，不授予來源站點 Cookie 權限。清單和分段均僅允許 HTTPS 443，拒絕 URL 使用者憑據、片段識別碼、IP 位址、localhost（含子網域）和 `.local`。媒體請求使用 `credentials: 'omit'`、`mode: 'cors'`、`redirect: 'error'`，遵循 CDN 的 CORS 規則，不跟隨重新導向。
-- 回應採用串流大小限制，並重新驗證回應網址。清單最多 2 MiB，單個分段最多 32 MiB；超限、空回應或網址變化均拒絕。來源所屬的 `domains` 與 `network` 同源、帶 Cookie 規則保持不變，不能透過媒體網域共享站點登入狀態。
+- `media.mode` 支援 `'native'` 與 `'browser'`。兩者的 `media.origin` 都必須屬於來源宣告的站點，使用 HTTPS 預設連接埠 443，不得包含使用者憑據、查詢或片段。
+- `media.domains` 是獨立的媒體允許網域清單，包含子網域，不授予來源站點 Cookie 權限。清單、分段和金鑰僅允許 HTTPS 443，拒絕 URL 憑據、片段、IP 位址、localhost（含子網域）和 `.local`。
+- `media.mode: 'native'` 使用獨立且無憑據的原生用戶端，不讀取或傳送站點 Cookie、Authorization 或代理認證；重新導向每一跳均先驗證目標網域。僅允許 `Referer`、`Origin`、`Accept`、`Accept-Language` 標頭，前兩者必須符合 `media.origin`。
+- `media.mode: 'browser'` 在 `media.origin` 的隱藏瀏覽器建立媒體工作階段，使用 `credentials: 'omit'`、`mode: 'cors'`、`redirect: 'error'`；遵循 CDN 的 CORS 規則，不跟隨重新導向。
+- 回應採用串流大小限制，並重新驗證回應網址。清單最多 2 MiB，單一分段最多 32 MiB，AES-128 金鑰必須為 16 位元組；超限、空回應或不允許的網址均拒絕。來源 `domains` 與帶 Cookie 的 `network` 規則保持獨立。
 
 ## 隔離與安全
 

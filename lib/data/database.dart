@@ -58,6 +58,12 @@ class Chapters extends Table {
   IntColumn get dateFetch => integer().withDefault(const Constant(0))();
   IntColumn get dateRead => integer().nullable()();
 
+  /// Video playback state for this chapter. Values are media seconds; the timestamp
+  /// below is the wall-clock time at which the position was written.
+  IntColumn get position => integer().withDefault(const Constant(0))();
+  IntColumn get duration => integer().withDefault(const Constant(0))();
+  IntColumn get positionUpdatedAt => integer().nullable()();
+
   @override
   Set<Column> get primaryKey => {source, workId, chapterId};
 }
@@ -98,7 +104,7 @@ class AppDatabase extends _$AppDatabase {
   factory AppDatabase.memory() => AppDatabase(NativeDatabase.memory());
 
   @override
-  int get schemaVersion => 2;
+  int get schemaVersion => 3;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -110,11 +116,45 @@ class AppDatabase extends _$AppDatabase {
     // Future schema changes go here, keyed on `from`; each step must be idempotent.
     onUpgrade: (m, from, to) async {
       if (from < 2) await m.addColumn(works, works.oneShot);
+      if (from < 3) {
+        await m.addColumn(chapters, chapters.position);
+        await m.addColumn(chapters, chapters.duration);
+        await m.addColumn(chapters, chapters.positionUpdatedAt);
+        await normalizeVideoRecords();
+      }
     },
     beforeOpen: (details) async {
       await customStatement('PRAGMA foreign_keys = ON');
     },
   );
+
+  /// Copies the legacy work-level video position into its chapter row once.
+  /// Explicit per-episode progress always wins over the old history snapshot.
+  Future<void> normalizeVideoRecords() async {
+    // Match WorkDetail.videoEpisodes: a source's singleChapterId is the stable
+    // identity when the legacy history did not record an episode.
+    await customStatement(r'''
+      UPDATE history SET chapter_id = COALESCE((
+        SELECT NULLIF(CAST(json_extract(w.json, '$.singleChapterId') AS TEXT), '')
+        FROM works w WHERE w.source = history.source AND w.id = history.work_id
+          AND json_valid(w.json)
+      ), '_')
+      WHERE position IS NOT NULL AND (chapter_id IS NULL OR chapter_id = '')
+    ''');
+    await customStatement('''
+      INSERT INTO chapters (source, work_id, chapter_id, title, position, position_updated_at)
+      SELECT h.source, h.work_id, COALESCE(NULLIF(h.chapter_id, ''), '_'),
+             COALESCE(h.chapter_title, ''), MAX(h.position, 0), h.time
+      FROM history h LEFT JOIN chapters c
+        ON c.source = h.source AND c.work_id = h.work_id
+        AND c.chapter_id = COALESCE(NULLIF(h.chapter_id, ''), '_')
+      WHERE h.position IS NOT NULL
+        AND c.position_updated_at IS NULL
+      ON CONFLICT(source, work_id, chapter_id) DO UPDATE SET
+        position = excluded.position, position_updated_at = excluded.position_updated_at
+      WHERE chapters.position_updated_at IS NULL
+    ''');
+  }
 
   Future<bool> get isEmpty async {
     final works = await (select(this.works)..limit(1)).get();

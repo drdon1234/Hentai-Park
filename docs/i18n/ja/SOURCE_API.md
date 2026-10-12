@@ -52,7 +52,7 @@ Park.register({
   async chapter(id, chapterId) {},            // 漫画
   async resolveImage({ id, chapterId, index, token, retry }) {},  // オプション: 画像の遅延解析
   async thumbnails(id, page) {},              // オプション: プレビューのサムネイルをページにロードします
-  async videos(id) {},                        // ビデオ
+  async videos(id, episodeId = '_') {},                        // ビデオ
 });
 ```
 
@@ -141,9 +141,10 @@ await this.http.request({
 
 **ビデオ** (`videos`): `[{ quality: 1080, label: '1080P', url, headers?, format?, preferred? }]`。通常、ビデオの直接リンクには時間制限があり、アプリは再生/ダウンロードする前に毎回リンクを再取得します。
 
+- ビデオソースは `detail(id).chapters` に再生順の `[{id, title}]` を返します。各 `id` は安定した識別子とし、画質名や一時的なメディア URL を使わないでください。ホストは同じ ID で選択、個別進捗、ダウンロード、再開を管理し、`videos(id, episodeId = '_')` でそのエピソードのリソースを取得します。単一ビデオには `singleChapterId` を使い、省略時は `'_'` とします。
 - `format` を省略すると、直接 MP4 を再生・ダウンロードする経路を使います。HLS は `format: 'hls'` を明示し、manifest に下記の `media` 権限を宣言する必要があります。
 - HLS マスター再生リスト（`#EXT-X-STREAM-INF`）は、まずホストが各画質の独立したセグメント再生リストに展開し、`RESOLUTION` から実際の画質を取得してプレーヤーやダウンローダーに渡します。マスターを返す場合、`quality` は希望画質を示し、それ以下で利用できる最高画質を既定で選びます。該当しなければ最も高い画質を選びます。各バリアントは音声と映像を多重化した MPEG-TS である必要があります。別ストリームの `AUDIO`、`VIDEO`、`SUBTITLES` renditions と `media.domains` 外の URL は拒否します。
-- 展開後の HLS は `#EXT-X-ENDLIST` を含む完全で連続した MPEG-TS オンデマンド再生リストのみ対応しています。ライブ、暗号化、バイト範囲、fMP4、discontinuity、gap には対応していません。MissAV の非標準タグ `#EXT-X-TOKEN` は削除され、プレーヤーには渡されません。
+- 展開後の HLS は `#EXT-X-ENDLIST` を含む完全で連続した MPEG-TS VOD のみ対応します。`METHOD=AES-128` と `KEYFORMAT=identity`（省略時も identity）の CBC/PKCS7 復号に対応し、鍵は正確に 16 バイト、IV は明示的な 128 ビット値またはセグメントのメディアシーケンスから導出します。鍵はセッションのメモリだけに保持し、復号した TS を再生・ダウンロード共通の処理で検証します。ライブ、SAMPLE-AES、他の KEYFORMAT、`EXT-X-MAP`、`EXT-X-BYTERANGE`、fMP4、discontinuity、gap は未対応です。MissAV の非標準 `#EXT-X-TOKEN` は削除します。
 - 再生には `127.0.0.1` のみにバインドしたランダムなポートとトークンを使い、有限の URL 登録表から検証済みセグメントを必要に応じて取得します。セッション終了時にリクエストをキャンセルします。HLS のオフラインダウンロードは現在 Android のみ対応し、各セグメントを検証して SHA-256 を保存し、再開時に再検証します。キャンセルにも対応し、最後に端末上の Media3 で MP4 に再多重化して、完成したファイルのみをオフラインライブラリに公開します。iOS/macOS の HLS 再生は今回検証していないため、検証済みとは表記できません。
 
 ## オプションの定義
@@ -166,19 +167,21 @@ await this.http.request({
 - `network.mode: 'native'` (デフォルト): 永続的な Cookie を使用するネイティブ HTTP リクエストは、ユーザーが設定したプロキシを通過できます。 Cloudflare クエリが検出された場合、`CLOUDFLARE` がスローされます。このアプリは、ユーザーが組み込みブラウザで検証を完了し、共通 Cookie をネイティブ リクエストに同期するようにガイドします。
 - `network.mode: 'browser'` + `network.origin`: リクエストは、`origin` で開かれた非表示のブラウザ ページで、発信元 `fetch()` を使用して、実際のブラウザのフィンガープリントを使用して行われました。より厳重に保護されている Cloudflare サイトに適用されます (例: Hanime1)。 同一オリジンの GET が Cloudflare 認証ページを返した場合、非表示ブラウザでその文書を開いて自動認証を行い、元のリクエストを一度だけ再試行します。認証に失敗すると `CLOUDFLARE` を返し、既存の手動認証フローに進みます。
 
-## ブラウザメディア（HLS）
+## メディア権限（HLS）
 
-ブラウザメディア権限は `this.http`、`network`、サイトの Cookie 同期とは独立しています。MissAV の例：
+`media` 権限は `this.http`、`network`、サイトの Cookie 同期と独立し、どちらの転送方式も同じドメイン規則を使います。
 
 ```js
-domains: ['missav.ai'],
-network: { mode: 'browser', origin: 'https://missav.ai' },
-media: { mode: 'browser', origin: 'https://missav.ai', domains: ['surrit.com'] },
+domains: ['example.com'],
+network: { mode: 'native' },
+media: { mode: 'native', origin: 'https://example.com', domains: ['media.example.com'] },
 ```
 
-- `media.origin` はソースが宣言したサイトに属し、HTTPS の既定ポート 443 を使用する必要があります。URL に認証情報を含めてはいけません。非表示ブラウザがその同一オリジンのページでメディアセッションを開始します。
-- `media.domains` はサブドメインを含む独立したメディア許可リストで、ソースサイトの Cookie 権限は付与しません。再生リストとセグメントは HTTPS 443 のみ許可し、URL の認証情報、フラグメント、IP アドレス、localhost（サブドメインを含む）、`.local` を拒否します。リクエストは `credentials: 'omit'`、`mode: 'cors'`、`redirect: 'error'` を使い、CDN の CORS 規則に従い、リダイレクトしません。
-- 応答はストリーミング中にサイズを制限し、応答 URL を再検証します。再生リストは最大 2 MiB、各セグメントは最大 32 MiB です。上限超過、空の応答、URL の変更を拒否します。所属サイトを指定する `domains` と、同一オリジンで Cookie を送る `network` の規則は変わりません。メディアドメインとサイトのログイン状態は共有できません。
+- `media.mode` は `'native'` と `'browser'` に対応します。両方とも `media.origin` はソースが宣言したサイトに属し、HTTPS の既定ポート 443 を使い、URL の認証情報、クエリ、フラグメントを含めてはいけません。
+- `media.domains` はサブドメインを含む独立したメディア許可リストで、サイト Cookie の権限を与えません。再生リスト、セグメント、鍵は HTTPS 443 のみ許可し、URL 認証情報、フラグメント、IP アドレス、localhost（サブドメイン含む）、`.local` を拒否します。
+- `media.mode: 'native'` は独立した認証情報なしのネイティブクライアントを使い、サイト Cookie、Authorization、プロキシ認証を送信しません。リダイレクトは各転送先を許可リストで検証してから追跡します。許可するヘッダーは `Referer`、`Origin`、`Accept`、`Accept-Language` のみで、前の二つは `media.origin` に一致する必要があります。
+- `media.mode: 'browser'` は `media.origin` の非表示ブラウザでセッションを開き、`credentials: 'omit'`、`mode: 'cors'`、`redirect: 'error'` を使います。CDN の CORS 規則に従い、リダイレクトしません。
+- ストリーミング中に応答サイズを制限し、応答 URL を再検証します。再生リストは 2 MiB、セグメントは 32 MiB が上限で、AES-128 鍵は正確に 16 バイトです。超過、空の応答、許可外 URL を拒否し、ソース `domains` と Cookie 付き `network` の規則は独立したままです。
 
 ## 分離とセキュリティ
 

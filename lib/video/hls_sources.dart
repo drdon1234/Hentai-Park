@@ -3,7 +3,7 @@ import 'dart:convert';
 import 'package:dio/dio.dart';
 
 import '../core/models.dart';
-import '../engine/browser_media.dart';
+import '../engine/media_transport.dart';
 
 /// Expand a muxed HLS master into the actual qualities offered by the CDN.
 class HlsSources {
@@ -23,14 +23,12 @@ class HlsSources {
         }
         final url = Uri.parse(source.url);
         transport.validate(url);
-        final text = utf8.decode(
-          await transport.fetch(
-            url,
-            maxBytes: 2 * 1024 * 1024,
-            cancelToken: cancelToken,
-          ),
+        final response = await transport.fetch(
+          url,
+          maxBytes: 2 * 1024 * 1024,
+          cancelToken: cancelToken,
         );
-        final variants = _variants(text, url);
+        final variants = _variants(utf8.decode(response.bytes), response.url);
         if (variants.isEmpty) {
           resolved.add(source);
           continue;
@@ -50,6 +48,7 @@ class HlsSources {
               'url': variant.url,
               'quality': variant.quality,
               'format': 'hls',
+              'headers': source.headers,
               'preferred': source.preferred && variant.quality == preferred,
             }),
           ),

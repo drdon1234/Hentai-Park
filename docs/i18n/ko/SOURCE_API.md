@@ -52,7 +52,7 @@ Park.register({
   async chapter(id, chapterId) {},            // 만화
   async resolveImage({ id, chapterId, index, token, retry }) {},  // 선택 사항: 이미지 구문 분석 지연
   async thumbnails(id, page) {},              // 선택 사항: 페이지에 미리보기 축소판 로드
-  async videos(id) {},                        // 동영상
+  async videos(id, episodeId = '_') {},                        // 동영상
 });
 ```
 
@@ -141,9 +141,10 @@ await this.http.request({
 
 **동영상**(`videos`): `[{ quality: 1080, label: '1080P', url, headers?, format?, preferred? }]`. 동영상 직접 링크에는 일반적으로 시간 제한이 있으며 앱은 재생/다운로드하기 전에 매번 이를 다시 얻습니다.
 
+- 영상 소스는 `detail(id).chapters`에 재생 순서의 `[{id, title}]`을 반환합니다. 각 `id`는 안정적인 식별자여야 하며 화질명이나 임시 미디어 URL을 사용하면 안 됩니다. 앱은 같은 ID로 회차 선택, 개별 진행 상황, 다운로드와 이어보기를 관리하고 `videos(id, episodeId = '_')`로 해당 회차를 가져옵니다. 단일 영상은 `singleChapterId`를 사용하며 생략하면 `'_'`입니다.
 - `format`을 생략하면 기존의 직접 MP4 재생 및 다운로드 경로를 사용합니다. HLS 항목은 `format: 'hls'`를 명시하고 manifest에 아래의 `media` 권한을 선언해야 합니다.
 - HLS 마스터 재생목록(`#EXT-X-STREAM-INF`)은 먼저 호스트가 각 화질의 독립적인 세그먼트 재생목록으로 펼치고 `RESOLUTION`에서 실제 화질을 얻은 뒤 플레이어나 다운로더에 전달합니다. 마스터를 반환할 때 `quality`는 원하는 화질을 뜻하며, 기본적으로 해당 값 이하에서 가능한 가장 높은 화질을 선택합니다. 해당 항목이 없으면 최고 화질을 선택합니다. 각 변형은 오디오와 비디오가 함께 다중화된 MPEG-TS여야 합니다. 별도 `AUDIO`, `VIDEO`, `SUBTITLES` renditions와 `media.domains` 밖의 주소는 거부합니다.
-- 펼친 HLS 변형은 `#EXT-X-ENDLIST`가 있는 완전하고 연속적인 MPEG-TS 주문형 재생목록만 지원합니다. 라이브 스트림, 암호화, 바이트 범위, fMP4, discontinuity, gap은 지원하지 않습니다. MissAV의 비표준 `#EXT-X-TOKEN`은 제거하여 플레이어에 전달하지 않습니다.
+- 확장된 HLS는 `#EXT-X-ENDLIST`가 있는 완전하고 연속적인 MPEG-TS VOD만 지원합니다. `METHOD=AES-128`, `KEYFORMAT=identity`(생략 시에도 identity)의 CBC/PKCS7 복호화를 지원합니다. 키는 정확히 16바이트이고 IV는 명시적인 128비트 값 또는 세그먼트 미디어 시퀀스에서 생성합니다. 키는 세션 메모리에만 보관하며 복호화한 TS는 재생과 다운로드의 공통 처리 과정에서 검증합니다. 라이브, SAMPLE-AES, 다른 KEYFORMAT, `EXT-X-MAP`, `EXT-X-BYTERANGE`, fMP4, discontinuity와 gap은 지원하지 않습니다. MissAV의 비표준 `#EXT-X-TOKEN`은 제거합니다.
 - 재생 시 `127.0.0.1`에만 바인딩한 무작위 포트와 토큰을 사용하며, 유한한 URL 등록 목록에서 검증된 세그먼트를 필요할 때 가져옵니다. 세션을 닫으면 요청을 취소합니다. HLS 오프라인 다운로드는 현재 Android에서만 지원합니다. 각 세그먼트를 검증하고 SHA-256을 저장하며 재개 시 다시 검증합니다. 취소를 지원하며, 마지막에 기기의 Media3로 MP4를 리먹싱한 후 완성된 파일만 오프라인 라이브러리에 등록합니다. iOS/macOS의 HLS 재생은 이번에 검증하지 않았으므로 검증된 기능으로 표기할 수 없습니다.
 
 ## 옵션 정의
@@ -166,19 +167,21 @@ await this.http.request({
 - `network.mode: 'native'`(기본값): 영구 쿠키를 사용하는 기본 HTTP 요청은 사용자가 설정한 프록시를 통과할 수 있습니다. Cloudflare 쿼리가 감지되면 `CLOUDFLARE`가 발생합니다. 앱은 사용자에게 내장된 브라우저에서 확인을 완료하고 공통 쿠키를 기본 요청과 다시 동기화하도록 안내합니다.
 - `network.mode: 'browser'` + `network.origin`: 실제 브라우저 지문을 사용하여 `origin`에서 열린 숨겨진 브라우저 페이지에서 원본 `fetch()`로 요청이 이루어졌습니다. 더욱 강력하게 보호되는 Cloudflare 사이트에 적용됩니다(예: Hanime1). 동일 출처 GET 요청에서 Cloudflare 인증 응답을 받으면 숨겨진 브라우저가 해당 문서로 이동하여 자동 인증한 뒤 원래 요청을 한 번 재시도합니다. 인증에 실패하면 `CLOUDFLARE`를 반환하고 기존 인증 절차를 사용합니다.
 
-## 브라우저 미디어 (HLS)
+## 미디어 권한 (HLS)
 
-브라우저 미디어 권한은 `this.http`, `network`, 사이트 Cookie 동기화와 별개입니다. MissAV 예시:
+`media` 권한은 `this.http`, `network`, 사이트 Cookie 동기화와 별개이며 두 전송 방식은 같은 도메인 규칙을 적용합니다.
 
 ```js
-domains: ['missav.ai'],
-network: { mode: 'browser', origin: 'https://missav.ai' },
-media: { mode: 'browser', origin: 'https://missav.ai', domains: ['surrit.com'] },
+domains: ['example.com'],
+network: { mode: 'native' },
+media: { mode: 'native', origin: 'https://example.com', domains: ['media.example.com'] },
 ```
 
-- `media.origin`은 소스가 선언한 사이트에 속하고 HTTPS 기본 포트 443을 사용해야 하며 URL에 인증 정보를 포함할 수 없습니다. 숨겨진 브라우저가 해당 동일 출처 페이지에서 미디어 세션을 시작합니다.
-- `media.domains`는 하위 도메인을 포함하는 별도의 미디어 허용 목록이며 소스 사이트 Cookie 권한을 부여하지 않습니다. 재생목록과 세그먼트는 HTTPS 443만 허용합니다. URL 인증 정보, 프래그먼트, IP 주소, localhost(하위 도메인 포함), `.local`은 거부합니다. 요청은 `credentials: 'omit'`, `mode: 'cors'`, `redirect: 'error'`를 사용하여 CDN의 CORS 규칙을 따르고 리디렉션하지 않습니다.
-- 응답을 스트리밍하는 동안 크기를 제한하고 응답 주소를 다시 검증합니다. 재생목록은 최대 2 MiB, 각 세그먼트는 최대 32 MiB입니다. 크기 초과, 빈 응답, 주소 변경은 거부합니다. 사이트 소유 관계를 선언하는 `domains`와 Cookie를 전송하는 동일 출처 `network` 규칙은 그대로 유지되며, 미디어 도메인으로 사이트 로그인 상태를 공유할 수 없습니다.
+- `media.mode`는 `'native'`와 `'browser'`를 지원합니다. 둘 다 `media.origin`이 소스가 선언한 사이트에 속하고 HTTPS 기본 포트 443을 사용해야 하며 URL 인증 정보, 쿼리나 프래그먼트를 포함할 수 없습니다.
+- `media.domains`는 하위 도메인을 포함하는 독립적인 미디어 허용 목록이며 사이트 Cookie 접근 권한을 부여하지 않습니다. 재생목록, 세그먼트와 키는 HTTPS 443만 허용합니다. URL 인증 정보, 프래그먼트, IP 주소, localhost(하위 도메인 포함)와 `.local`은 거부합니다.
+- `media.mode: 'native'`는 인증 정보 없는 별도 네이티브 클라이언트를 사용하며 사이트 Cookie, Authorization과 프록시 인증을 전송하지 않습니다. 리디렉션은 각 대상 주소를 허용 목록으로 검증한 뒤 따라갑니다. `Referer`, `Origin`, `Accept`, `Accept-Language` 헤더만 허용하며 앞의 두 헤더는 `media.origin`과 일치해야 합니다.
+- `media.mode: 'browser'`는 `media.origin`의 숨겨진 브라우저에서 세션을 만들고 `credentials: 'omit'`, `mode: 'cors'`, `redirect: 'error'`를 사용합니다. CDN의 CORS 규칙을 따르며 리디렉션하지 않습니다.
+- 스트리밍 중 응답 크기를 제한하고 응답 URL을 다시 검증합니다. 재생목록은 최대 2 MiB, 세그먼트는 최대 32 MiB이며 AES-128 키는 정확히 16바이트여야 합니다. 초과, 빈 응답과 허용되지 않은 URL은 거부합니다. 소스 `domains`와 Cookie를 사용하는 `network` 규칙은 별개로 유지됩니다.
 
 ## 격리 및 보안
 

@@ -35,6 +35,7 @@
 | PicACG | Cómics | Configure su propia cuenta o registre automáticamente una cuenta dedicada después de la confirmación |
 | Hanime1 | Vídeo | El uso por primera vez puede requerir verificación Cloudflare |
 | MissAV | Vídeo | Reproducción con distintas calidades y descarga sin conexión en Android |
+| Dramas cortos Huangguo | Vídeo | Selección de episodios, progreso independiente y descarga por episodio en MP4 para Android |
 
 El sitio de origen se carga como un complemento y se pueden agregar fuentes de terceros en la configuración. Las fuentes oficiales admiten actualizaciones automáticas; también puedes buscar actualizaciones manualmente en «Administrar fuentes».
 
@@ -44,8 +45,8 @@ El sitio de origen se carga como un complemento y se pueden agregar fuentes de t
 - **Búsqueda en varios idiomas**: traduce automáticamente palabras clave al chino/japonés/coreano/inglés y otros idiomas para búsqueda simultánea
 - **Estantería y actualizaciones**: colección de múltiples categorías, busca automáticamente actualizaciones en serie y envía notificaciones automáticas, y puede descargar automáticamente nuevos capítulos.
 - **Lector**: desplazamiento vertical, lectura de izquierda a derecha o de derecha a izquierda, doble página, recorte de márgenes blancos, filtro de descanso visual y cambio de página con las teclas de volumen
-- **Reproducción de vídeo**: selección de calidad y velocidad, y posición de reproducción guardada. Deslice verticalmente a la izquierda para ajustar el brillo y a la derecha para el volumen; arrastre en horizontal para cambiar la posición. Admite pantalla completa vertical y horizontal, también con el dispositivo invertido.
-- **Descargar**: descarga cómics por capítulo, descarga vídeos por calidad; admite importación y exportación CBZ
+- **Reproducción de vídeo**: selección de episodios, siguiente episodio automático y progreso independiente; selección de calidad y velocidad, y posición de reproducción guardada. Deslice verticalmente a la izquierda para ajustar el brillo y a la derecha para el volumen; arrastre en horizontal para cambiar la posición. Admite pantalla completa vertical y horizontal, también con el dispositivo invertido.
+- **Descargar**: descarga cómics por capítulo y vídeos por episodio con la calidad elegida en MP4; los episodios completados se reproducen sin conexión por separado. Admite importación y exportación CBZ
 - **Migración de cambio de fuente**: migre colecciones a otra fuente y conserve el progreso de lectura
 - **Etiquetas de bloqueo**: personalice el bloqueo y proporcione agrupaciones preestablecidas que se pueden habilitar a pedido
 - **Protección de privacidad**: bloqueo de aplicaciones, modo incógnito, desenfoque de portada, anti-captura de pantalla

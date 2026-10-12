@@ -3,23 +3,26 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:crypto/crypto.dart' as crypto;
 import 'package:dio/dio.dart';
 import 'package:drift/drift.dart' show InsertMode;
 import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
 
 import '../core/models.dart';
+import '../core/localization.dart';
 import '../core/settings.dart';
 import '../core/storage.dart';
 import '../data/database.dart';
 import '../engine/http_service.dart';
 import '../engine/source_manager.dart';
-import '../engine/browser_media.dart';
+import '../engine/media_transport.dart';
 import '../images/park_image.dart';
 import '../video/hls_download.dart';
 import 'library.dart';
 
 enum DownloadStatus { queued, running, paused, done, failed }
+enum DownloadMedia { comic, video }
 
 /// Pseudo source key of works imported from local CBZ / ZIP files.
 const localSource = 'local';
@@ -27,7 +30,7 @@ const localSource = 'local';
 class DownloadTask {
   DownloadTask({
     required this.item,
-    required this.chapters,
+    required List<Chapter> chapters,
     String? dir,
     this.status = DownloadStatus.queued,
     this.done = 0,
@@ -36,6 +39,9 @@ class DownloadTask {
     this.bytes = 0,
     DateTime? createdAt,
     Set<String>? completed,
+    DownloadMedia? media,
+    this.videoQuality,
+    Map<String, String>? videoFiles,
   }) : dir = Directory(
          dir ??
              p.join(
@@ -45,10 +51,17 @@ class DownloadTask {
              ),
        ),
        createdAt = createdAt ?? DateTime.now(),
-       completed = completed ?? {};
+       chapters = List.of(chapters),
+       completed = completed ?? {},
+       media = media ?? (videoQuality == null ? null : DownloadMedia.video),
+       videoFiles = videoFiles ?? {};
 
   final WorkItem item;
-  final List<Chapter> chapters; // a single pseudo-chapter for one-shot works; videos use the quality label
+  final List<Chapter> chapters;
+  DownloadMedia? media;
+  int? videoQuality; // 0 selects the source's preferred quality.
+  final Map<String, String> videoFiles; // episode id -> MP4 path relative to dir.
+  Future<bool>? _normalization;
   DownloadStatus status;
   int done;
   int total;
@@ -66,8 +79,10 @@ class DownloadTask {
 
   String get uid => item.uid;
   bool get isVideo =>
-      SourceManager.instance.manifest(item.source)?.isVideo ??
-      item.duration.isNotEmpty;
+      media == DownloadMedia.video ||
+      (media == null &&
+          (SourceManager.instance.manifest(item.source)?.isVideo ??
+              item.duration.isNotEmpty));
   double get progress => total > 0 ? done / total : 0;
 
   Map<String, dynamic> toJson() => {
@@ -83,6 +98,9 @@ class DownloadTask {
     'bytes': bytes,
     'error': error,
     'completed': completed.toList(),
+    if (media != null) 'media': media!.name,
+    if (videoQuality != null) 'videoQuality': videoQuality,
+    if (videoFiles.isNotEmpty) 'videoFiles': videoFiles,
   };
 
   factory DownloadTask.fromJson(
@@ -105,9 +123,71 @@ class DownloadTask {
     completed: ((j['completed'] as List?) ?? const [])
         .map((e) => e.toString())
         .toSet(),
+    media: DownloadMedia.values.where((v) => v.name == j['media']).firstOrNull,
+    videoQuality: (j['videoQuality'] as num?)?.toInt(),
+    videoFiles: (j['videoFiles'] as Map? ?? const {}).map(
+      (k, v) => MapEntry(k.toString(), v.toString()),
+    ),
   );
 
+  /// One-time normalization after installed source types are available. Files stay in place.
+  Future<bool> normalizeMedia(SourceManifest? manifest) {
+    final pending = _normalization;
+    if (pending != null) return pending;
+    if (media != null) return Future.value(false);
+    return _normalization = _normalizeMedia(manifest).whenComplete(() {
+      _normalization = null;
+    });
+  }
+
+  Future<bool> _normalizeMedia(SourceManifest? manifest) async {
+    if (media != null) return false;
+    final files = <File>[];
+    if (await dir.exists()) {
+      await for (final entry in dir.list(followLinks: false)) {
+        if (entry is File && p.extension(entry.path).toLowerCase() == '.mp4') {
+          files.add(entry);
+        }
+      }
+    }
+    if (manifest == null && item.duration.isEmpty && files.isEmpty && item.source != localSource) {
+      return false; // Preserve unidentifiable tasks until their source is installed.
+    }
+    final video = manifest?.isVideo ?? (item.duration.isNotEmpty || files.isNotEmpty);
+    if (!video) {
+      media = DownloadMedia.comic;
+      return true;
+    }
+    final quality = chapters.isEmpty ? 0 : int.tryParse(chapters.first.id) ?? 0;
+    final key = chapterKeyOf(item.json['singleChapterId']?.toString());
+    files.sort((a, b) => a.path.compareTo(b.path));
+    final wanted = 'video_${quality}p.mp4';
+    final file = files.where((f) => p.basename(f.path) == wanted).firstOrNull ?? files.firstOrNull;
+    final complete = file != null && await file.length() > 0;
+    // Publish the normalized identity and mapping together after all file I/O.
+    media = DownloadMedia.video;
+    videoQuality = quality;
+    chapters
+      ..clear()
+      ..add(Chapter(key, tr('正片')));
+    completed.clear();
+    if (complete) {
+      videoFiles[key] = p.relative(file.path, from: dir.path);
+      completed.add(key);
+    }
+    return true;
+  }
+
   static String _safe(String s) => safeFileName(s);
+
+  /// Single videos retain their root output; explicit episode catalogs use isolated directories.
+  Directory videoDirectory(String episodeId) {
+    final detail = WorkDetail(item.json, item.source);
+    if (!detail.hasVideoEpisodes && episodeId == detail.videoEpisodes.single.id) {
+      return dir;
+    }
+    return Directory(p.join(dir.path, 'episode_${crypto.sha256.convert(utf8.encode(episodeId))}'));
+  }
 
   /// Directory name used for a chapter inside the task directory.
   static String safeName(String chapterId) => safeFileName(chapterId);
@@ -141,6 +221,16 @@ class DownloadManager extends ChangeNotifier {
         ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
   DownloadTask? task(String uid) => _tasks[uid];
 
+  /// Resolve stored media identities before exposing a task's directory to navigation.
+  Future<DownloadTask?> normalizeTask(String uid) async {
+    final t = _tasks[uid];
+    if (t == null || _disposed) return null;
+    if (await t.normalizeMedia(SourceManager.instance.manifest(t.item.source))) {
+      if (identical(_tasks[uid], t)) _save([t]);
+    }
+    return !_disposed && identical(_tasks[uid], t) ? t : null;
+  }
+
   Future<void> load(AppDatabase db) async {
     _db = db;
     for (final r in await db.select(db.downloadTasks).get()) {
@@ -163,6 +253,14 @@ class DownloadManager extends ChangeNotifier {
     AppSettings.instance.addListener(_settingsChanged);
     await _watchNetwork();
     _pump();
+    unawaited(SourceManager.instance.ready.then((_) async {
+      for (final t in _tasks.values.toList()) {
+        if (_disposed || !identical(_tasks[t.uid], t)) continue;
+        if (await t.normalizeMedia(SourceManager.instance.manifest(t.item.source))) {
+          if (identical(_tasks[t.uid], t)) _save([t]);
+        }
+      }
+    }).catchError((Object e) => debugPrint('normalize downloads failed: $e')));
   }
 
   Future<void> _watchNetwork() async {
@@ -254,29 +352,77 @@ class DownloadManager extends ChangeNotifier {
     notifyListeners();
   }
 
-  void enqueue(WorkItem item, List<Chapter> chapters) {
-    if (_disposed) return;
+  void enqueue(WorkItem item, List<Chapter> chapters, {int? videoQuality}) {
+    if (_disposed || chapters.isEmpty) return;
     if (item.source == localSource) {
       return; // imported files are already complete
     }
     final deleting = _deletions[item.uid];
     if (deleting != null) {
-      unawaited(deleting.then((_) => enqueue(item, chapters)));
+      final existing = _tasks[item.uid];
+      final requested = List<Chapter>.of(chapters);
+      if (existing != null) {
+        existing.status = DownloadStatus.queued;
+        _save([existing]);
+      }
+      unawaited(deleting.then((_) {
+        if (existing == null) {
+          enqueue(item, requested, videoQuality: videoQuality);
+        } else if (!_disposed && identical(_tasks[item.uid], existing)) {
+          _addChapters(existing, requested, videoQuality: videoQuality);
+          _save([existing]);
+          _pump();
+        }
+      }));
       return;
     }
     final existing = _tasks[item.uid];
     if (existing != null) {
-      final known = existing.chapters.map((c) => c.id).toSet();
-      existing.chapters.addAll(chapters.where((c) => !known.contains(c.id)));
+      if (videoQuality != null && existing.media == null) {
+        final requested = List<Chapter>.of(chapters);
+        if (existing.status != DownloadStatus.running) {
+          existing.status = DownloadStatus.queued;
+        }
+        _save([existing]);
+        unawaited(existing.normalizeMedia(
+          SourceManager.instance.manifest(item.source) ??
+              SourceManifest({'key': item.source, 'type': 'video'}),
+        ).then((_) {
+          if (!_disposed && identical(_tasks[item.uid], existing)) {
+            _addChapters(existing, requested, videoQuality: videoQuality);
+            _save([existing]);
+            _pump();
+          }
+        }).catchError((Object e) => debugPrint('normalize video download failed: $e')));
+        return;
+      }
+      _addChapters(existing, chapters, videoQuality: videoQuality);
       if (existing.status != DownloadStatus.running) {
         existing.status = DownloadStatus.queued;
       }
     } else {
-      _tasks[item.uid] = DownloadTask(item: item, chapters: chapters);
+      _tasks[item.uid] = DownloadTask(
+        item: item,
+        chapters: chapters,
+        media: videoQuality == null ? DownloadMedia.comic : DownloadMedia.video,
+        videoQuality: videoQuality,
+      );
     }
     _save([_tasks[item.uid]!]);
     _pump();
   }
+
+  static void _addChapters(DownloadTask task, List<Chapter> chapters, {int? videoQuality}) {
+    final known = task.chapters.map((c) => c.id).toSet();
+    task.chapters.addAll(chapters.where((c) => known.add(c.id)));
+    if (videoQuality != null) {
+      task.media = DownloadMedia.video;
+      task.videoQuality = videoQuality;
+    }
+  }
+
+  void enqueueVideo(WorkItem item, List<Chapter> episodes, {int quality = 0}) =>
+      enqueue(item, episodes, videoQuality: quality);
 
   void pause(String uid) {
     final t = _tasks[uid];
@@ -323,27 +469,52 @@ class DownloadManager extends ChangeNotifier {
   }
 
   /// Deletes some chapters of a task; the task itself goes when nothing is left.
-  Future<void> deleteChapters(String uid, List<String> chapterIds) async {
+  Future<void> deleteChapters(String uid, List<String> chapterIds) {
+    final deleting = _deletions[uid];
+    if (deleting != null) {
+      return deleting.then((_) => deleteChapters(uid, chapterIds));
+    }
     final t = _tasks[uid];
-    if (t == null || chapterIds.isEmpty) return;
+    if (t == null || chapterIds.isEmpty) return Future.value();
     if (t.chapters.every((c) => chapterIds.contains(c.id))) return delete(uid);
-    final restart =
-        t.status == DownloadStatus.running || t.status == DownloadStatus.queued;
-    if (restart) pause(uid);
+    // Stop the current writer while retaining the latest queued/paused intent.
+    if (t.status == DownloadStatus.running) {
+      t.status = DownloadStatus.queued;
+      t.cancel?.cancel('chapters deleted');
+    }
+    late final Future<void> deletion;
+    deletion = _deleteChapters(t, List.of(chapterIds)).whenComplete(() {
+      if (identical(_deletions[uid], deletion)) _deletions.remove(uid);
+      _pump();
+    });
+    _deletions[uid] = deletion;
+    return deletion;
+  }
+
+  Future<void> _deleteChapters(DownloadTask t, List<String> chapterIds) async {
     final pending = _runs[t];
     if (pending != null) await pending;
-    if (!identical(_tasks[uid], t)) return;
+    if (!identical(_tasks[t.uid], t)) return;
     for (final id in chapterIds) {
-      final dir = Directory(p.join(t.dir.path, DownloadTask._safe(id)));
-      if (await dir.exists()) await dir.delete(recursive: true);
+      final relative = t.videoFiles.remove(id);
+      if (relative != null) {
+        final file = await _videoFile(t, relative);
+        if (file != null) await file.delete();
+      }
+      final dir = t.isVideo
+          ? t.videoDirectory(id)
+          : Directory(p.join(t.dir.path, DownloadTask._safe(id)));
+      final root = p.normalize(p.absolute(t.dir.path));
+      final target = p.normalize(p.absolute(dir.path));
+      if (p.isWithin(root, target) && await dir.exists()) {
+        final actualRoot = await t.dir.resolveSymbolicLinks();
+        final actual = await dir.resolveSymbolicLinks();
+        if (p.isWithin(actualRoot, actual)) await dir.delete(recursive: true);
+      }
       t.completed.remove(id);
     }
     t.chapters.removeWhere((c) => chapterIds.contains(c.id));
-    if (restart) {
-      resume(uid);
-    } else {
-      _save([t]);
-    }
+    _save([t]);
   }
 
   /// Registers an already complete task (local imports).
@@ -354,14 +525,16 @@ class DownloadManager extends ChangeNotifier {
 
   Future<void> delete(String uid) {
     final pending = _deletions[uid];
-    if (pending != null) return pending;
+    if (pending != null && !_tasks.containsKey(uid)) return pending;
     final t = _tasks.remove(uid);
     if (t != null) {
       t.status = DownloadStatus.paused;
       t.cancel?.cancel('download deleted');
     }
-    final deletion = _delete(uid, t).whenComplete(() {
-      _deletions.remove(uid);
+    late final Future<void> deletion;
+    deletion = (pending == null ? _delete(uid, t) : pending.then((_) => _delete(uid, t))).whenComplete(() {
+      if (identical(_deletions[uid], deletion)) _deletions.remove(uid);
+      _pump();
     });
     _deletions[uid] = deletion;
     return deletion;
@@ -390,7 +563,7 @@ class DownloadManager extends ChangeNotifier {
             .where((t) => t.status == DownloadStatus.queued)
             .toList()) {
       final source = next.item.source;
-      if (_active.containsKey(source)) continue;
+      if (_active.containsKey(source) || _deletions.containsKey(next.uid)) continue;
       _active[source] = next;
       final run = _run(next).whenComplete(() {
         if (identical(_active[source], next)) _active.remove(source);
@@ -414,6 +587,10 @@ class DownloadManager extends ChangeNotifier {
       // Tasks resumed at launch must not decide comic-vs-video before the source manifests exist.
       await _cancellable(SourceManager.instance.ready, token);
       _checkRunning(t, token);
+      await t.normalizeMedia(SourceManager.instance.manifest(t.item.source));
+      _checkRunning(t, token);
+      if (t.media == null) throw SourceError('CONFIG', '视频源未加载');
+      _save([t]);
       await t.dir.create(recursive: true);
       _checkRunning(t, token);
       await File(p.join(t.dir.path, 'work.json'))
@@ -548,71 +725,95 @@ class DownloadManager extends ChangeNotifier {
   }
 
   Future<void> _runVideo(DownloadTask t, CancelToken token) async {
-    final sources = await _cancellable(
-      SourceManager.instance.videos(
-        t.item.source,
-        t.item.id,
-        cancelToken: token,
-      ),
-      token,
-    );
-    _checkRunning(t, token);
-    final wanted = t.chapters.first.id;
-    final src = sources.firstWhere(
-      (s) => '${s.quality}' == wanted,
-      orElse: () =>
-          sources.firstWhere((s) => s.preferred, orElse: () => sources.first),
-    );
-    final file = File(p.join(t.dir.path, 'video_${src.quality}p.mp4'));
-    final part = File('${file.path}.part');
-    t
-      ..total = 100
-      ..done = 0;
-    var lastNotify = DateTime.now();
-    if (src.format == 'hls') {
-      final manifest = SourceManager.instance.manifest(t.item.source);
-      if (manifest == null) throw SourceError('CONFIG', '视频源未加载');
-      if (!Platform.isAndroid) {
-        throw SourceError('UNSUPPORTED', 'HLS 下载封装目前仅支持安卓');
+    t.total = t.chapters.length * 1000;
+    t.done = 0;
+    t.bytes = 0;
+    for (var index = 0; index < t.chapters.length; index++) {
+      _checkRunning(t, token);
+      final episode = t.chapters[index];
+      final local = await localVideo(t.item.source, t.item.id, episodeId: episode.id);
+      _checkRunning(t, token);
+      if (local != null) {
+        t.done += 1000;
+        t.bytes += await local.length();
+        continue;
       }
-      await HlsDownload(BrowserMedia(BrowserMediaPolicy.fromManifest(manifest)))
-          .run(
-            Uri.parse(src.url),
-            output: part,
-            cancelToken: token,
-            onProgress: (done, total, bytes) {
-              t
-                ..done = done
-                ..total = total
-                ..bytes = bytes;
-              if (DateTime.now().difference(lastNotify).inMilliseconds > 300 ||
-                  done == total) {
-                lastNotify = DateTime.now();
-                notifyListeners();
-              }
-            },
-          );
-    } else {
-      await HttpService.instance.download(
-        url: src.url,
-        savePath: part.path,
-        headers: src.headers,
-        partition: t.item.source,
-        cancelToken: token,
-        onProgress: (received, total) {
-          t.bytes = received;
-          if (total > 0) t.done = (received * 100 ~/ total);
-          if (DateTime.now().difference(lastNotify).inMilliseconds > 300) {
-            lastNotify = DateTime.now();
-            notifyListeners();
-          }
-        },
+      t.completed.remove(episode.id);
+      t.videoFiles.remove(episode.id);
+      final sources = await _cancellable(
+        SourceManager.instance.videos(
+          t.item.source, t.item.id, episodeId: episode.id, cancelToken: token,
+        ), token,
       );
+      _checkRunning(t, token);
+      if (sources.isEmpty) throw SourceError('NOT_FOUND', '视频源未加载');
+      final src = sources.firstWhere(
+        (s) => t.videoQuality != 0 && s.quality == t.videoQuality,
+        orElse: () => sources.firstWhere((s) => s.preferred, orElse: () => sources.first),
+      );
+      // Preserve the single-video output location so existing validated HLS parts remain reusable.
+      final directory = t.videoDirectory(episode.id);
+      await directory.create(recursive: true);
+      _checkRunning(t, token);
+      final file = File(p.join(directory.path, 'video_${src.quality}p.mp4'));
+      final part = File('${file.path}.part');
+      final beforeDone = t.done;
+      final beforeBytes = t.bytes;
+      var lastNotify = DateTime.now();
+      void progress(int done, int total, int bytes) {
+        if (token.isCancelled || !identical(_tasks[t.uid], t)) return;
+        t.total = t.chapters.length * 1000;
+        t.done = beforeDone + (total > 0 ? (done * 1000 ~/ total).clamp(0, 999) : 0);
+        t.bytes = beforeBytes + bytes;
+        if (DateTime.now().difference(lastNotify).inMilliseconds > 300) {
+          lastNotify = DateTime.now();
+          notifyListeners();
+        }
+      }
+      if (src.format == 'hls') {
+        final manifest = SourceManager.instance.manifest(t.item.source);
+        if (manifest == null) throw SourceError('CONFIG', '视频源未加载');
+        if (!Platform.isAndroid) {
+          throw SourceError('UNSUPPORTED', 'HLS 下载封装目前仅支持安卓');
+        }
+        await HlsDownload(createMediaTransport(manifest, headers: src.headers)).run(
+          Uri.parse(src.url), output: part, cancelToken: token, onProgress: progress,
+        );
+      } else {
+        await HttpService.instance.download(
+          url: src.url, savePath: part.path, headers: src.headers,
+          partition: t.item.source, cancelToken: token,
+          onProgress: (received, total) => progress(received, total, received),
+        );
+        _checkRunning(t, token);
+        final prefix = await part.openRead(0, 64).fold<List<int>>([], (a, b) => a..addAll(b));
+        final text = utf8.decode(prefix, allowMalformed: true).trimLeft();
+        if (prefix.isEmpty || text.startsWith('<') || text.startsWith('{') || text.startsWith('#EXTM3U')) {
+          throw SourceError('PARSE', '视频响应不是可下载的媒体文件');
+        }
+      }
+      _checkRunning(t, token);
+      await part.rename(file.path);
+      _checkRunning(t, token);
+      t.videoFiles[episode.id] = p.relative(file.path, from: t.dir.path);
+      t.completed.add(episode.id);
+      t.bytes = beforeBytes + await file.length();
+      t.done = beforeDone + 1000;
+      _save([t]);
     }
-    _checkRunning(t, token);
-    await part.rename(file.path);
-    t.done = t.total;
-    t.completed.add(wanted);
+    t.total = t.chapters.length * 1000;
+  }
+
+  static Future<File?> _videoFile(DownloadTask task, String relative) async {
+    if (p.isAbsolute(relative)) return null;
+    final root = p.normalize(p.absolute(task.dir.path));
+    final target = p.normalize(p.join(root, relative));
+    if (!p.isWithin(root, target) || p.extension(target).toLowerCase() != '.mp4') return null;
+    final file = File(target);
+    if (!await file.exists() || await file.length() == 0) return null;
+    final actualRoot = await task.dir.resolveSymbolicLinks();
+    final actual = await file.resolveSymbolicLinks();
+    return p.isWithin(actualRoot, actual) ? file : null;
   }
 
   /// Locally downloaded pages for a chapter, or null when not (fully) downloaded.
@@ -637,15 +838,13 @@ class DownloadManager extends ChangeNotifier {
     }).toList();
   }
 
-  Future<File?> localVideo(String source, String id) async {
-    final t = _tasks['$source:$id'];
-    if (t == null || t.status != DownloadStatus.done || !await t.dir.exists()) {
-      return null;
-    }
-    await for (final e in t.dir.list()) {
-      if (e is File && e.path.endsWith('.mp4')) return e;
-    }
-    return null;
+  Future<File?> localVideo(String source, String id, {String? episodeId}) async {
+    final t = await normalizeTask('$source:$id');
+    if (t == null) return null;
+    final key = chapterKeyOf(episodeId);
+    if (!t.completed.contains(key)) return null;
+    final relative = t.videoFiles[key];
+    return relative == null ? null : _videoFile(t, relative);
   }
 
   /// A detail built from what was downloaded, so offline users can still open and read a work.
@@ -658,7 +857,8 @@ class DownloadManager extends ChangeNotifier {
     return WorkDetail({
       ...t.item.json,
       'id': t.item.id,
-      'chapters': single || t.isVideo
+      'chaptersComplete': false,
+      'chapters': single && !t.isVideo
           ? null
           : [
               for (final c in t.chapters) {'id': c.id, 'title': c.title},
@@ -674,6 +874,11 @@ class DownloadManager extends ChangeNotifier {
 
   /// Queues new chapters found by a library update (auto-download).
   void enqueueNewChapters(WorkItem item, List<Chapter> chapters) {
-    if (chapters.isNotEmpty) enqueue(item, chapters);
+    if (chapters.isEmpty) return;
+    if (SourceManager.instance.manifest(item.source)?.isVideo == true) {
+      enqueueVideo(item, chapters, quality: _tasks[item.uid]?.videoQuality ?? 0);
+    } else {
+      enqueue(item, chapters);
+    }
   }
 }

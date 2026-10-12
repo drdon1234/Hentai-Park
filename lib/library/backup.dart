@@ -199,10 +199,12 @@ class BackupService {
     );
     yield (
       'chapters',
-      _rows(db, '''
+      _rows(db,
+        '''
       SELECT rowid AS cursor, * FROM chapters
-      WHERE rowid > ? AND ("read" = 1 OR last_page > 0) ORDER BY rowid LIMIT 512
-    ''').map(
+      WHERE rowid > ? AND ("read" = 1 OR last_page > 0 OR position_updated_at IS NOT NULL) ORDER BY rowid LIMIT 512
+    ''',
+      ).map(
         (r) => {
           'source': r['source'],
           'workId': r['work_id'],
@@ -213,6 +215,9 @@ class BackupService {
           'lastPage': r['last_page'],
           'pageCount': r['page_count'],
           'dateRead': r['date_read'],
+          'position': r['position'],
+          'duration': r['duration'],
+          'positionUpdatedAt': r['position_updated_at'],
         },
       ),
     );
@@ -360,6 +365,9 @@ class BackupService {
         final lastPage = (c['lastPage'] as num?)?.toInt() ?? 0;
         final pageCount = (c['pageCount'] as num?)?.toInt() ?? 0;
         final dateRead = (c['dateRead'] as num?)?.toInt();
+        final position = (c['position'] as num?)?.toInt() ?? 0;
+        final duration = (c['duration'] as num?)?.toInt() ?? 0;
+        final positionUpdatedAt = (c['positionUpdatedAt'] as num?)?.toInt();
         final current =
             await (db.select(db.chapters)..where(
                   (t) =>
@@ -381,22 +389,51 @@ class BackupService {
                   read: Value(read),
                   lastPage: Value(lastPage),
                   pageCount: Value(pageCount),
-                  dateRead: Value(dateRead),
+                  dateRead: Value(
+                    positionUpdatedAt != null && !read ? null : dateRead,
+                  ),
+                  position: Value(position < 0 ? 0 : position),
+                  duration: Value(duration < 0 ? 0 : duration),
+                  positionUpdatedAt: Value(positionUpdatedAt),
                 ),
               );
         } else {
+          final newerPosition =
+              positionUpdatedAt != null &&
+              positionUpdatedAt > (current.positionUpdatedAt ?? -1);
+          final videoProgress =
+              positionUpdatedAt != null || current.positionUpdatedAt != null;
           await db
               .update(db.chapters)
               .replace(
                 current.copyWith(
-                  read: current.read || read,
+                  read: videoProgress
+                      ? (newerPosition ? read : current.read)
+                      : current.read || read,
                   lastPage: current.lastPage > lastPage
                       ? current.lastPage
                       : lastPage,
                   pageCount: current.pageCount > pageCount
                       ? current.pageCount
                       : pageCount,
-                  dateRead: Value(current.dateRead ?? dateRead),
+                  dateRead: Value(
+                    videoProgress
+                        ? (newerPosition
+                              ? (read ? dateRead : null)
+                              : current.dateRead)
+                        : current.dateRead ?? dateRead,
+                  ),
+                  position: newerPosition
+                      ? (position < 0 ? 0 : position)
+                      : current.position,
+                  duration: newerPosition && duration > 0
+                      ? duration
+                      : current.duration,
+                  positionUpdatedAt: Value(
+                    newerPosition
+                        ? positionUpdatedAt
+                        : current.positionUpdatedAt,
+                  ),
                 ),
               );
         }
@@ -435,6 +472,7 @@ class BackupService {
             );
         report.history++;
       }
+      await db.normalizeVideoRecords();
     });
   }
 

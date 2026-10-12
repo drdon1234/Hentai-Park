@@ -14,7 +14,7 @@ import '../core/storage.dart';
 import 'cookie_store.dart';
 import 'domains.dart';
 import 'http_service.dart';
-import 'browser_media.dart';
+import 'media_transport.dart';
 import 'js_engine.dart';
 import '../video/hls_sources.dart';
 
@@ -852,9 +852,13 @@ class SourceManager extends ChangeNotifier {
   Future<List<VideoSource>> videos(
     String key,
     String id, {
+    String? episodeId,
     CancelToken? cancelToken,
   }) async {
-    final res = await _call(key, 'videos', [id], cancelToken: cancelToken);
+    final res = await _call(key, 'videos', [
+      id,
+      episodeId ?? '_',
+    ], cancelToken: cancelToken);
     final sources = (res as List)
         .whereType<Map>()
         .map((e) => VideoSource(e.cast<String, dynamic>()))
@@ -862,8 +866,17 @@ class SourceManager extends ChangeNotifier {
     if (!sources.any((s) => s.format == 'hls')) return sources;
     final sourceManifest = manifest(key);
     if (sourceManifest == null) throw SourceError('CONFIG', '视频源未加载');
-    return HlsSources(BrowserMedia(BrowserMediaPolicy.fromManifest(sourceManifest)))
-      .resolve(sources, cancelToken: cancelToken);
+    final resolved = <VideoSource>[];
+    for (final source in sources) {
+      if (source.format != 'hls') {
+        resolved.add(source);
+        continue;
+      }
+      resolved.addAll(await HlsSources(
+        createMediaTransport(sourceManifest, headers: source.headers),
+      ).resolve([source], cancelToken: cancelToken));
+    }
+    return resolved;
   }
 
   Future<String> login(String key, Map<String, String> values) async {

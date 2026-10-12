@@ -35,6 +35,7 @@
 | PicACG | Comics | Configure your own account, or automatically register a dedicated account after confirmation |
 | Hanime1 | Video | First time use may require Cloudflare verification |
 | MissAV | Video | Multiple playback qualities and offline downloads on Android |
+| Huangguo short dramas | Video | Episode selection, independent resume positions and per-episode MP4 downloads on Android |
 
 The source site is loaded as a plug-in, and third-party sources can be added in the settings. Official sources support automatic updates, or you can check for updates manually in “Manage sources”.
 
@@ -44,8 +45,8 @@ The source site is loaded as a plug-in, and third-party sources can be added in 
 - **Multi-language search**: Automatically translate keywords into Chinese/Japanese/Korean/English and other languages for simultaneous search
 - **Library and updates**: Multi-category collection, automatically checks for serial updates and sends push notifications, and can automatically download new chapters
 - **Reader**: Vertical scrolling, left-to-right and right-to-left reading, double page, white margin cropping, eye protection filter, volume key to turn pages
-- **Video playback**: quality selection, playback speed and saved playback position; slide up and down on the left and right sides to adjust brightness and volume, drag horizontally to adjust progress; supports landscape and portrait fullscreen, including upside-down orientations
-- **Download**: Download comics by chapter, download videos by quality; supports import and export CBZ
+- **Video playback**: episode selection, automatic next episode and independent resume positions; quality selection, playback speed and saved playback position; slide up and down on the left and right sides to adjust brightness and volume, drag horizontally to adjust progress; supports landscape and portrait fullscreen, including upside-down orientations
+- **Download**: Download comics by chapter and videos by episode at the selected quality as MP4; completed episodes play offline independently. Supports CBZ import and export
 - **Source change migration**: Migrate collections to another source and retain reading progress
 - **Blocking Tags**: Customize blocking and provide preset groupings that can be enabled on demand
 - **Privacy Protection**: App lock, incognito mode, cover blur, anti-screenshot

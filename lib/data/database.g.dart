@@ -1240,6 +1240,41 @@ class $ChaptersTable extends Chapters
     type: DriftSqlType.int,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _positionMeta = const VerificationMeta(
+    'position',
+  );
+  @override
+  late final GeneratedColumn<int> position = GeneratedColumn<int>(
+    'position',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _durationMeta = const VerificationMeta(
+    'duration',
+  );
+  @override
+  late final GeneratedColumn<int> duration = GeneratedColumn<int>(
+    'duration',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _positionUpdatedAtMeta = const VerificationMeta(
+    'positionUpdatedAt',
+  );
+  @override
+  late final GeneratedColumn<int> positionUpdatedAt = GeneratedColumn<int>(
+    'position_updated_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
   @override
   List<GeneratedColumn> get $columns => [
     source,
@@ -1252,6 +1287,9 @@ class $ChaptersTable extends Chapters
     pageCount,
     dateFetch,
     dateRead,
+    position,
+    duration,
+    positionUpdatedAt,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -1331,6 +1369,27 @@ class $ChaptersTable extends Chapters
         dateRead.isAcceptableOrUnknown(data['date_read']!, _dateReadMeta),
       );
     }
+    if (data.containsKey('position')) {
+      context.handle(
+        _positionMeta,
+        position.isAcceptableOrUnknown(data['position']!, _positionMeta),
+      );
+    }
+    if (data.containsKey('duration')) {
+      context.handle(
+        _durationMeta,
+        duration.isAcceptableOrUnknown(data['duration']!, _durationMeta),
+      );
+    }
+    if (data.containsKey('position_updated_at')) {
+      context.handle(
+        _positionUpdatedAtMeta,
+        positionUpdatedAt.isAcceptableOrUnknown(
+          data['position_updated_at']!,
+          _positionUpdatedAtMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -1380,6 +1439,18 @@ class $ChaptersTable extends Chapters
         DriftSqlType.int,
         data['${effectivePrefix}date_read'],
       ),
+      position: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}position'],
+      )!,
+      duration: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}duration'],
+      )!,
+      positionUpdatedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}position_updated_at'],
+      ),
     );
   }
 
@@ -1400,6 +1471,12 @@ class ChapterRow extends DataClass implements Insertable<ChapterRow> {
   final int pageCount;
   final int dateFetch;
   final int? dateRead;
+
+  /// Video playback state for this chapter. Values are media seconds; the timestamp
+  /// below is the wall-clock time at which the position was written.
+  final int position;
+  final int duration;
+  final int? positionUpdatedAt;
   const ChapterRow({
     required this.source,
     required this.workId,
@@ -1411,6 +1488,9 @@ class ChapterRow extends DataClass implements Insertable<ChapterRow> {
     required this.pageCount,
     required this.dateFetch,
     this.dateRead,
+    required this.position,
+    required this.duration,
+    this.positionUpdatedAt,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -1426,6 +1506,11 @@ class ChapterRow extends DataClass implements Insertable<ChapterRow> {
     map['date_fetch'] = Variable<int>(dateFetch);
     if (!nullToAbsent || dateRead != null) {
       map['date_read'] = Variable<int>(dateRead);
+    }
+    map['position'] = Variable<int>(position);
+    map['duration'] = Variable<int>(duration);
+    if (!nullToAbsent || positionUpdatedAt != null) {
+      map['position_updated_at'] = Variable<int>(positionUpdatedAt);
     }
     return map;
   }
@@ -1444,6 +1529,11 @@ class ChapterRow extends DataClass implements Insertable<ChapterRow> {
       dateRead: dateRead == null && nullToAbsent
           ? const Value.absent()
           : Value(dateRead),
+      position: Value(position),
+      duration: Value(duration),
+      positionUpdatedAt: positionUpdatedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(positionUpdatedAt),
     );
   }
 
@@ -1463,6 +1553,9 @@ class ChapterRow extends DataClass implements Insertable<ChapterRow> {
       pageCount: serializer.fromJson<int>(json['pageCount']),
       dateFetch: serializer.fromJson<int>(json['dateFetch']),
       dateRead: serializer.fromJson<int?>(json['dateRead']),
+      position: serializer.fromJson<int>(json['position']),
+      duration: serializer.fromJson<int>(json['duration']),
+      positionUpdatedAt: serializer.fromJson<int?>(json['positionUpdatedAt']),
     );
   }
   @override
@@ -1479,6 +1572,9 @@ class ChapterRow extends DataClass implements Insertable<ChapterRow> {
       'pageCount': serializer.toJson<int>(pageCount),
       'dateFetch': serializer.toJson<int>(dateFetch),
       'dateRead': serializer.toJson<int?>(dateRead),
+      'position': serializer.toJson<int>(position),
+      'duration': serializer.toJson<int>(duration),
+      'positionUpdatedAt': serializer.toJson<int?>(positionUpdatedAt),
     };
   }
 
@@ -1493,6 +1589,9 @@ class ChapterRow extends DataClass implements Insertable<ChapterRow> {
     int? pageCount,
     int? dateFetch,
     Value<int?> dateRead = const Value.absent(),
+    int? position,
+    int? duration,
+    Value<int?> positionUpdatedAt = const Value.absent(),
   }) => ChapterRow(
     source: source ?? this.source,
     workId: workId ?? this.workId,
@@ -1504,6 +1603,11 @@ class ChapterRow extends DataClass implements Insertable<ChapterRow> {
     pageCount: pageCount ?? this.pageCount,
     dateFetch: dateFetch ?? this.dateFetch,
     dateRead: dateRead.present ? dateRead.value : this.dateRead,
+    position: position ?? this.position,
+    duration: duration ?? this.duration,
+    positionUpdatedAt: positionUpdatedAt.present
+        ? positionUpdatedAt.value
+        : this.positionUpdatedAt,
   );
   ChapterRow copyWithCompanion(ChaptersCompanion data) {
     return ChapterRow(
@@ -1517,6 +1621,11 @@ class ChapterRow extends DataClass implements Insertable<ChapterRow> {
       pageCount: data.pageCount.present ? data.pageCount.value : this.pageCount,
       dateFetch: data.dateFetch.present ? data.dateFetch.value : this.dateFetch,
       dateRead: data.dateRead.present ? data.dateRead.value : this.dateRead,
+      position: data.position.present ? data.position.value : this.position,
+      duration: data.duration.present ? data.duration.value : this.duration,
+      positionUpdatedAt: data.positionUpdatedAt.present
+          ? data.positionUpdatedAt.value
+          : this.positionUpdatedAt,
     );
   }
 
@@ -1532,7 +1641,10 @@ class ChapterRow extends DataClass implements Insertable<ChapterRow> {
           ..write('lastPage: $lastPage, ')
           ..write('pageCount: $pageCount, ')
           ..write('dateFetch: $dateFetch, ')
-          ..write('dateRead: $dateRead')
+          ..write('dateRead: $dateRead, ')
+          ..write('position: $position, ')
+          ..write('duration: $duration, ')
+          ..write('positionUpdatedAt: $positionUpdatedAt')
           ..write(')'))
         .toString();
   }
@@ -1549,6 +1661,9 @@ class ChapterRow extends DataClass implements Insertable<ChapterRow> {
     pageCount,
     dateFetch,
     dateRead,
+    position,
+    duration,
+    positionUpdatedAt,
   );
   @override
   bool operator ==(Object other) =>
@@ -1563,7 +1678,10 @@ class ChapterRow extends DataClass implements Insertable<ChapterRow> {
           other.lastPage == this.lastPage &&
           other.pageCount == this.pageCount &&
           other.dateFetch == this.dateFetch &&
-          other.dateRead == this.dateRead);
+          other.dateRead == this.dateRead &&
+          other.position == this.position &&
+          other.duration == this.duration &&
+          other.positionUpdatedAt == this.positionUpdatedAt);
 }
 
 class ChaptersCompanion extends UpdateCompanion<ChapterRow> {
@@ -1577,6 +1695,9 @@ class ChaptersCompanion extends UpdateCompanion<ChapterRow> {
   final Value<int> pageCount;
   final Value<int> dateFetch;
   final Value<int?> dateRead;
+  final Value<int> position;
+  final Value<int> duration;
+  final Value<int?> positionUpdatedAt;
   final Value<int> rowid;
   const ChaptersCompanion({
     this.source = const Value.absent(),
@@ -1589,6 +1710,9 @@ class ChaptersCompanion extends UpdateCompanion<ChapterRow> {
     this.pageCount = const Value.absent(),
     this.dateFetch = const Value.absent(),
     this.dateRead = const Value.absent(),
+    this.position = const Value.absent(),
+    this.duration = const Value.absent(),
+    this.positionUpdatedAt = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   ChaptersCompanion.insert({
@@ -1602,6 +1726,9 @@ class ChaptersCompanion extends UpdateCompanion<ChapterRow> {
     this.pageCount = const Value.absent(),
     this.dateFetch = const Value.absent(),
     this.dateRead = const Value.absent(),
+    this.position = const Value.absent(),
+    this.duration = const Value.absent(),
+    this.positionUpdatedAt = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : source = Value(source),
        workId = Value(workId),
@@ -1617,6 +1744,9 @@ class ChaptersCompanion extends UpdateCompanion<ChapterRow> {
     Expression<int>? pageCount,
     Expression<int>? dateFetch,
     Expression<int>? dateRead,
+    Expression<int>? position,
+    Expression<int>? duration,
+    Expression<int>? positionUpdatedAt,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -1630,6 +1760,9 @@ class ChaptersCompanion extends UpdateCompanion<ChapterRow> {
       if (pageCount != null) 'page_count': pageCount,
       if (dateFetch != null) 'date_fetch': dateFetch,
       if (dateRead != null) 'date_read': dateRead,
+      if (position != null) 'position': position,
+      if (duration != null) 'duration': duration,
+      if (positionUpdatedAt != null) 'position_updated_at': positionUpdatedAt,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -1645,6 +1778,9 @@ class ChaptersCompanion extends UpdateCompanion<ChapterRow> {
     Value<int>? pageCount,
     Value<int>? dateFetch,
     Value<int?>? dateRead,
+    Value<int>? position,
+    Value<int>? duration,
+    Value<int?>? positionUpdatedAt,
     Value<int>? rowid,
   }) {
     return ChaptersCompanion(
@@ -1658,6 +1794,9 @@ class ChaptersCompanion extends UpdateCompanion<ChapterRow> {
       pageCount: pageCount ?? this.pageCount,
       dateFetch: dateFetch ?? this.dateFetch,
       dateRead: dateRead ?? this.dateRead,
+      position: position ?? this.position,
+      duration: duration ?? this.duration,
+      positionUpdatedAt: positionUpdatedAt ?? this.positionUpdatedAt,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -1695,6 +1834,15 @@ class ChaptersCompanion extends UpdateCompanion<ChapterRow> {
     if (dateRead.present) {
       map['date_read'] = Variable<int>(dateRead.value);
     }
+    if (position.present) {
+      map['position'] = Variable<int>(position.value);
+    }
+    if (duration.present) {
+      map['duration'] = Variable<int>(duration.value);
+    }
+    if (positionUpdatedAt.present) {
+      map['position_updated_at'] = Variable<int>(positionUpdatedAt.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -1714,6 +1862,9 @@ class ChaptersCompanion extends UpdateCompanion<ChapterRow> {
           ..write('pageCount: $pageCount, ')
           ..write('dateFetch: $dateFetch, ')
           ..write('dateRead: $dateRead, ')
+          ..write('position: $position, ')
+          ..write('duration: $duration, ')
+          ..write('positionUpdatedAt: $positionUpdatedAt, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -3461,6 +3612,9 @@ typedef $$ChaptersTableCreateCompanionBuilder = ChaptersCompanion Function({
   Value<int> pageCount,
   Value<int> dateFetch,
   Value<int?> dateRead,
+  Value<int> position,
+  Value<int> duration,
+  Value<int?> positionUpdatedAt,
   Value<int> rowid,
 });
 typedef $$ChaptersTableUpdateCompanionBuilder = ChaptersCompanion Function({
@@ -3474,6 +3628,9 @@ typedef $$ChaptersTableUpdateCompanionBuilder = ChaptersCompanion Function({
   Value<int> pageCount,
   Value<int> dateFetch,
   Value<int?> dateRead,
+  Value<int> position,
+  Value<int> duration,
+  Value<int?> positionUpdatedAt,
   Value<int> rowid,
 });
 
@@ -3533,6 +3690,21 @@ class $$ChaptersTableFilterComposer
 
   ColumnFilters<int> get dateRead => $composableBuilder(
     column: $table.dateRead,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get position => $composableBuilder(
+    column: $table.position,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get duration => $composableBuilder(
+    column: $table.duration,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get positionUpdatedAt => $composableBuilder(
+    column: $table.positionUpdatedAt,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -3595,6 +3767,21 @@ class $$ChaptersTableOrderingComposer
     column: $table.dateRead,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<int> get position => $composableBuilder(
+    column: $table.position,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get duration => $composableBuilder(
+    column: $table.duration,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get positionUpdatedAt => $composableBuilder(
+    column: $table.positionUpdatedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$ChaptersTableAnnotationComposer
@@ -3635,6 +3822,17 @@ class $$ChaptersTableAnnotationComposer
 
   GeneratedColumn<int> get dateRead =>
       $composableBuilder(column: $table.dateRead, builder: (column) => column);
+
+  GeneratedColumn<int> get position =>
+      $composableBuilder(column: $table.position, builder: (column) => column);
+
+  GeneratedColumn<int> get duration =>
+      $composableBuilder(column: $table.duration, builder: (column) => column);
+
+  GeneratedColumn<int> get positionUpdatedAt => $composableBuilder(
+    column: $table.positionUpdatedAt,
+    builder: (column) => column,
+  );
 }
 
 class $$ChaptersTableTableManager
@@ -3678,6 +3876,9 @@ class $$ChaptersTableTableManager
                 Value<int> pageCount = const Value.absent(),
                 Value<int> dateFetch = const Value.absent(),
                 Value<int?> dateRead = const Value.absent(),
+                Value<int> position = const Value.absent(),
+                Value<int> duration = const Value.absent(),
+                Value<int?> positionUpdatedAt = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => ChaptersCompanion(
                 source: source,
@@ -3690,6 +3891,9 @@ class $$ChaptersTableTableManager
                 pageCount: pageCount,
                 dateFetch: dateFetch,
                 dateRead: dateRead,
+                position: position,
+                duration: duration,
+                positionUpdatedAt: positionUpdatedAt,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -3704,6 +3908,9 @@ class $$ChaptersTableTableManager
                 Value<int> pageCount = const Value.absent(),
                 Value<int> dateFetch = const Value.absent(),
                 Value<int?> dateRead = const Value.absent(),
+                Value<int> position = const Value.absent(),
+                Value<int> duration = const Value.absent(),
+                Value<int?> positionUpdatedAt = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => ChaptersCompanion.insert(
                 source: source,
@@ -3716,6 +3923,9 @@ class $$ChaptersTableTableManager
                 pageCount: pageCount,
                 dateFetch: dateFetch,
                 dateRead: dateRead,
+                position: position,
+                duration: duration,
+                positionUpdatedAt: positionUpdatedAt,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0

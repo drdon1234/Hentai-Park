@@ -45,6 +45,8 @@ class _DetailPageState extends State<DetailPage> {
 
   SourceManifest? get _m => SourceManager.instance.manifest(widget.source);
   String get _uid => '${widget.source}:${widget.id}';
+  bool get _isVideo =>
+      _m?.isVideo ?? DownloadManager.instance.task(_uid)?.isVideo ?? false;
 
   @override
   void initState() {
@@ -55,14 +57,15 @@ class _DetailPageState extends State<DetailPage> {
 
   /// Keeps the stored chapter list (and with it read state and library updates) in step with the site.
   Future<void> _syncChapters(WorkDetail d) async {
-    if (_m?.isVideo == true) return;
-    final chapters =
-        d.chapters ?? [Chapter(chapterKeyOf(d.singleChapterId), tr('全本'))];
+    final chapters = _isVideo
+        ? d.videoEpisodes
+        : d.chapters ?? [Chapter(chapterKeyOf(d.singleChapterId), tr('全本'))];
     try {
       await Library.instance.syncChapters(
         d.toItem(),
         chapters,
-        oneShot: d.chapters == null,
+        oneShot: _isVideo ? !d.hasVideoEpisodes : d.chapters == null,
+        complete: d.chaptersComplete,
       );
     } catch (e) {
       debugPrint('sync chapters failed: $e');
@@ -73,6 +76,8 @@ class _DetailPageState extends State<DetailPage> {
     setState(() => _error = null);
     if (widget.source == localSource) {
       // Imported files: everything is on disk, there is no site to ask.
+      await DownloadManager.instance.normalizeTask(_uid);
+      if (!mounted) return;
       final d = DownloadManager.instance.offlineDetail(
         widget.source,
         widget.id,
@@ -97,6 +102,8 @@ class _DetailPageState extends State<DetailPage> {
     } catch (e) {
       if (!mounted) return;
       // Offline (or the site is down): fall back to the downloaded copy when there is one.
+      await DownloadManager.instance.normalizeTask(_uid);
+      if (!mounted) return;
       final offline = DownloadManager.instance.offlineDetail(
         widget.source,
         widget.id,
@@ -120,6 +127,10 @@ class _DetailPageState extends State<DetailPage> {
   void _read({Chapter? chapter, int page = 0}) {
     final d = _detail;
     if (d == null) return;
+    if (_isVideo) {
+      Nav.openVideo(context, d, episodeId: chapter?.id);
+      return;
+    }
     if (d.chapters != null && chapter == null) {
       final h = Library.instance.historyOf(d.uid);
       chapter = d.chapters!.firstWhere(
@@ -133,7 +144,7 @@ class _DetailPageState extends State<DetailPage> {
   void _continue() {
     final d = _detail;
     if (d == null) return;
-    if (_m?.isVideo == true) {
+    if (_isVideo) {
       Nav.openVideo(context, d);
       return;
     }
@@ -152,52 +163,80 @@ class _DetailPageState extends State<DetailPage> {
   Future<void> _download() async {
     final d = _detail;
     if (d == null) return;
-    if (_m?.isVideo == true) {
-      final sources = await guarded(
-        context,
-        widget.source,
-        () => SourceManager.instance.videos(widget.source, d.id),
-      );
-      if (sources == null || !mounted) return;
-      final picked = await showModalBottomSheet<VideoSource>(
-        context: context,
-        builder: (ctx) => SafeArea(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              ListTile(
-                title: Text(
-                  tr('选择下载清晰度'),
-                  style: const TextStyle(fontWeight: FontWeight.w700),
-                ),
-              ),
-              for (final s in sources)
-                ListTile(
-                  leading: const Icon(Icons.high_quality_outlined),
-                  title: Text(s.label),
-                  trailing: s.preferred ? Pill(tr('推荐')) : null,
-                  onTap: () => Navigator.pop(ctx, s),
-                ),
-            ],
+    if (_isVideo) {
+      var episodes = d.videoEpisodes;
+      if (episodes.length > 1) {
+        final picked = await showModalBottomSheet<List<Chapter>>(
+          context: context,
+          isScrollControlled: true,
+          builder: (_) => _ChapterPicker(
+            chapters: episodes,
+            isVideo: true,
+            completed: DownloadManager.instance.task(_uid)?.completed ?? {},
           ),
-        ),
-      );
-      if (picked == null) return;
-      DownloadManager.instance.enqueue(_item, [
-        Chapter('${picked.quality}', picked.label),
-      ]);
+        );
+        if (picked == null || picked.isEmpty || !mounted) return;
+        episodes = picked;
+      }
+      await _downloadVideo(episodes);
+      return;
     } else if (d.chapters != null && d.chapters!.length > 1) {
       final picked = await showModalBottomSheet<List<Chapter>>(
         context: context,
         isScrollControlled: true,
         builder: (_) => _ChapterPicker(chapters: d.chapters!),
       );
-      if (picked == null || picked.isEmpty) return;
+      if (picked == null || picked.isEmpty || !mounted) return;
       DownloadManager.instance.enqueue(_item, picked);
     } else {
       final id = d.chapters?.first.id ?? d.singleChapterId ?? '_';
       DownloadManager.instance.enqueue(_item, [Chapter(id, tr('全本'))]);
     }
+    if (mounted) context.toast(tr('已加入下载队列'));
+  }
+
+  Future<void> _downloadVideo(List<Chapter> episodes) async {
+    final d = _detail;
+    if (d == null || episodes.isEmpty) return;
+    final sources = await guarded(
+      context,
+      widget.source,
+      () => SourceManager.instance.videos(
+        widget.source,
+        d.id,
+        episodeId: episodes.first.id,
+      ),
+    );
+    if (sources == null || !mounted) return;
+    final picked = await showModalBottomSheet<VideoSource>(
+      context: context,
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              title: Text(
+                tr('选择下载清晰度'),
+                style: const TextStyle(fontWeight: FontWeight.w700),
+              ),
+            ),
+            for (final s in sources)
+              ListTile(
+                leading: const Icon(Icons.high_quality_outlined),
+                title: Text(s.label),
+                trailing: s.preferred ? Pill(tr('推荐')) : null,
+                onTap: () => Navigator.pop(ctx, s),
+              ),
+          ],
+        ),
+      ),
+    );
+    if (picked == null || !mounted) return;
+    DownloadManager.instance.enqueueVideo(
+      _item,
+      episodes,
+      quality: picked.quality,
+    );
     if (mounted) context.toast(tr('已加入下载队列'));
   }
 
@@ -245,7 +284,7 @@ class _DetailPageState extends State<DetailPage> {
 
   Widget _actions(BuildContext context) {
     final d = _detail;
-    final isVideo = _m?.isVideo == true;
+    final isVideo = _isVideo;
     final h = Library.instance.historyOf(_item.uid);
     final fav = Library.instance.isFavorite(_item.uid);
     final dl = DownloadManager.instance.task(_item.uid);
@@ -421,11 +460,16 @@ class _DetailPageState extends State<DetailPage> {
               ),
               IconButton(
                 tooltip: tr('下载所选'),
-                onPressed: () {
-                  DownloadManager.instance.enqueue(
-                    _item,
-                    chapters.where((c) => _selected.contains(c.id)).toList(),
-                  );
+                onPressed: () async {
+                  final selected = chapters
+                      .where((c) => _selected.contains(c.id))
+                      .toList();
+                  if (_isVideo) {
+                    await _downloadVideo(selected);
+                    if (mounted) done();
+                    return;
+                  }
+                  DownloadManager.instance.enqueue(_item, selected);
                   context.toast(tr('已加入下载队列'));
                   done();
                 },
@@ -433,40 +477,41 @@ class _DetailPageState extends State<DetailPage> {
               ),
             ],
           ),
-          Wrap(
-            spacing: 4,
-            children: [
-              TextButton(
-                onPressed: () {
-                  Library.instance.markRead(_uid, _selected.toList(), true);
-                  done();
-                },
-                child: Text(tr('标为已读')),
-              ),
-              TextButton(
-                onPressed: () {
-                  Library.instance.markRead(_uid, _selected.toList(), false);
-                  done();
-                },
-                child: Text(tr('标为未读')),
-              ),
-              if (_selected.length == 1)
+          if (!_isVideo)
+            Wrap(
+              spacing: 4,
+              children: [
                 TextButton(
                   onPressed: () {
-                    final i = chapters.indexWhere(
-                      (c) => c.id == _selected.first,
-                    );
-                    Library.instance.markRead(
-                      _uid,
-                      chapters.take(i).map((c) => c.id).toList(),
-                      true,
-                    );
+                    Library.instance.markRead(_uid, _selected.toList(), true);
                     done();
                   },
-                  child: Text(tr('之前的章节标为已读')),
+                  child: Text(tr('标为已读')),
                 ),
-            ],
-          ),
+                TextButton(
+                  onPressed: () {
+                    Library.instance.markRead(_uid, _selected.toList(), false);
+                    done();
+                  },
+                  child: Text(tr('标为未读')),
+                ),
+                if (_selected.length == 1)
+                  TextButton(
+                    onPressed: () {
+                      final i = chapters.indexWhere(
+                        (c) => c.id == _selected.first,
+                      );
+                      Library.instance.markRead(
+                        _uid,
+                        chapters.take(i).map((c) => c.id).toList(),
+                        true,
+                      );
+                      done();
+                    },
+                    child: Text(tr('之前的章节标为已读')),
+                  ),
+              ],
+            ),
         ],
       ),
     );
@@ -474,8 +519,10 @@ class _DetailPageState extends State<DetailPage> {
 
   List<Widget> _body(BuildContext context, WorkDetail d) {
     final c = context.colors;
-    final isVideo = _m?.isVideo == true;
-    final chapters = d.chapters;
+    final isVideo = _isVideo;
+    final chapters = isVideo && d.hasVideoEpisodes
+        ? d.videoEpisodes
+        : d.chapters;
     final blocked = TagBlocklist.current().matchDetail(d);
     return [
       if (blocked.isNotEmpty)
@@ -517,12 +564,14 @@ class _DetailPageState extends State<DetailPage> {
         SliverToBoxAdapter(
           child: _selected.isEmpty
               ? SectionHeader(
-                  tr('章节 · {count}{unread}', {
-                    'count': chapters.length,
-                    'unread': _unread(chapters) > 0
-                        ? tr('（未读 {count}）', {'count': _unread(chapters)})
-                        : '',
-                  }),
+                  isVideo
+                      ? tr('选集 · {count}', {'count': chapters.length})
+                      : tr('章节 · {count}{unread}', {
+                          'count': chapters.length,
+                          'unread': _unread(chapters) > 0
+                              ? tr('（未读 {count}）', {'count': _unread(chapters)})
+                              : '',
+                        }),
                   leading: Icon(
                     Icons.format_list_numbered_rounded,
                     color: c.primary,
@@ -595,7 +644,16 @@ class _DetailPageState extends State<DetailPage> {
                             ),
                           ),
                         ),
-                        if (!read &&
+                        if (isVideo && state != null && state.position > 0)
+                          Text(
+                            '${state.position ~/ 60}:${(state.position % 60).toString().padLeft(2, '0')}',
+                            style: TextStyle(
+                              fontSize: 10,
+                              color: c.onSurfaceVariant,
+                            ),
+                          ),
+                        if (!isVideo &&
+                            !read &&
                             state != null &&
                             state.lastPage > 0 &&
                             state.pageCount > 0)
@@ -714,7 +772,10 @@ class _Header extends StatelessWidget {
   Widget build(BuildContext context) {
     AppLocalizations.of(context);
     final c = context.colors;
-    final isVideo = manifest?.isVideo == true;
+    final isVideo =
+        manifest?.isVideo ??
+        DownloadManager.instance.task(item.uid)?.isVideo ??
+        false;
     final d = detail;
     final top = MediaQuery.paddingOf(context).top;
     final coverAspect = item.coverAspect ?? (isVideo ? 16 / 9 : 0.7);
@@ -1167,8 +1228,14 @@ class _BodySkeleton extends StatelessWidget {
 }
 
 class _ChapterPicker extends StatefulWidget {
-  const _ChapterPicker({required this.chapters});
+  const _ChapterPicker({
+    required this.chapters,
+    this.isVideo = false,
+    this.completed = const {},
+  });
   final List<Chapter> chapters;
+  final bool isVideo;
+  final Set<String> completed;
 
   @override
   State<_ChapterPicker> createState() => _ChapterPickerState();
@@ -1188,7 +1255,9 @@ class _ChapterPickerState extends State<_ChapterPicker> {
         children: [
           ListTile(
             title: Text(
-              tr('选择要下载的章节（{count}）', {'count': _selected.length}),
+              tr(widget.isVideo ? '选择要下载的分集（{count}）' : '选择要下载的章节（{count}）', {
+                'count': _selected.length,
+              }),
               style: const TextStyle(fontWeight: FontWeight.w700),
             ),
             trailing: TextButton(
@@ -1209,6 +1278,9 @@ class _ChapterPickerState extends State<_ChapterPicker> {
                 return CheckboxListTile(
                   value: _selected.contains(ch.id),
                   title: Text(ch.title),
+                  subtitle: widget.completed.contains(ch.id)
+                      ? Text(tr('已下载'))
+                      : null,
                   onChanged: (v) => setState(
                     () => v == true
                         ? _selected.add(ch.id)

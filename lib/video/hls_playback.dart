@@ -7,16 +7,18 @@ import 'dart:typed_data';
 import 'package:dio/dio.dart';
 
 import '../core/models.dart';
-import '../engine/browser_media.dart';
+import '../engine/media_transport.dart';
 import 'hls.dart';
+import 'hls_resources.dart';
 
 /// A private, finite URL registry. The player never supplies an upstream URL.
 class HlsPlayback {
   HlsPlayback(this.transport);
   final MediaTransport transport;
   final _cancel = CancelToken();
-  final _routes = <String, Uri>{};
-  final _paths = <Uri, String>{};
+  final _routes = <String, HlsSegment>{};
+  String? _playlistPath;
+  late final _resources = HlsResources(transport, _cancel);
   final Map<String, Uint8List> _cache = {};
   final _pending = <String, Future<Uint8List>>{};
   final _token = List.generate(
@@ -33,15 +35,13 @@ class HlsPlayback {
     if (_closed || _server != null) throw StateError('媒体会话不可重复打开');
     try {
       transport.validate(url);
-      final data = await transport.fetch(
+      final response = await transport.fetch(
         url,
         maxBytes: 2 * 1024 * 1024,
         cancelToken: _cancel,
       );
-      final list = HlsPlaylist.parse(utf8.decode(data), url);
-      for (final segment in list.segments) {
-        transport.validate(segment.url);
-      }
+      final list = HlsPlaylist.parse(utf8.decode(response.bytes), response.url);
+      _resources.validate(list);
       if (_closed) throw SourceError('CANCELLED', '媒体会话已关闭');
       final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
       if (_closed) {
@@ -49,9 +49,10 @@ class HlsPlayback {
         throw SourceError('CANCELLED', '媒体会话已关闭');
       }
       _server = server;
-      final root = _register(url, playlist: true);
+      _playlistPath = '/$_token/index.m3u8';
+      final root = Uri.parse('http://127.0.0.1:${server.port}$_playlistPath');
       final rewritten = Uint8List.fromList(
-        utf8.encode(list.rewrite((u) => _register(u).toString())),
+        utf8.encode(list.rewrite((segment) => _register(segment).toString())),
       );
       _cache[root.path] = rewritten;
       _cacheBytes += rewritten.length;
@@ -63,12 +64,11 @@ class HlsPlayback {
     }
   }
 
-  Uri _register(Uri url, {bool playlist = false}) {
-    final path = _paths.putIfAbsent(url, () {
-      final path = '/$_token/r${_routes.length}.${playlist ? 'm3u8' : 'ts'}';
-      _routes[path] = url;
-      return path;
-    });
+  Uri _register(HlsSegment segment) {
+    // An upstream URL can be repeated with a different IV or key. Register
+    // the segment occurrence so these resources can never share plaintext.
+    final path = '/$_token/r${_routes.length}.ts';
+    _routes[path] = segment;
     return Uri.parse('http://127.0.0.1:${_server!.port}$path');
   }
 
@@ -81,12 +81,7 @@ class HlsPlayback {
     if (_pending[path] case final future?) return future;
     if (_pending.length >= 8) throw SourceError('NETWORK', '播放器请求过多');
     final operation = () async {
-      final bytes = await transport.fetch(
-        _routes[path]!,
-        maxBytes: 32 * 1024 * 1024,
-        cancelToken: _cancel,
-      );
-      validateTransportStream(bytes);
+      final bytes = await _resources.read(_routes[path]!);
       if (_closed) throw SourceError('CANCELLED', '媒体会话已关闭');
       if (bytes.length <= _cacheLimit) {
         while (_cacheBytes + bytes.length > _cacheLimit && _cache.length > 1) {
@@ -115,7 +110,9 @@ class HlsPlayback {
     final response = request.response;
     try {
       final path = request.uri.path;
-      if (_closed || request.uri.hasQuery || !_routes.containsKey(path)) {
+      if (_closed ||
+          request.uri.hasQuery ||
+          (path != _playlistPath && !_routes.containsKey(path))) {
         response.statusCode = HttpStatus.notFound;
       } else if (request.method != 'GET' && request.method != 'HEAD') {
         response.statusCode = HttpStatus.methodNotAllowed;
@@ -188,7 +185,8 @@ class HlsPlayback {
       } finally {
         _cache.clear();
         _routes.clear();
-        _paths.clear();
+        _playlistPath = null;
+        _resources.clear();
         _pending.clear();
         _cacheBytes = 0;
       }

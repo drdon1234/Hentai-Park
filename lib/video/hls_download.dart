@@ -9,8 +9,9 @@ import 'package:path/path.dart' as p;
 import 'package:uuid/uuid.dart';
 
 import '../core/models.dart';
-import '../engine/browser_media.dart';
+import '../engine/media_transport.dart';
 import 'hls.dart';
+import 'hls_resources.dart';
 
 typedef MediaRemux = Future<void> Function(
   File input,
@@ -70,6 +71,7 @@ class HlsDownload {
     required CancelToken cancelToken,
     required void Function(int done, int total, int bytes) onProgress,
   }) async {
+    final resources = HlsResources(transport, cancelToken);
     final work = Directory('${output.path}.hls');
     final input = File(p.join(work.path, 'input.ts'));
     final temporary = File('${output.path}.${const Uuid().v4()}.mux');
@@ -77,19 +79,16 @@ class HlsDownload {
     try {
       _check(cancelToken);
       transport.validate(url);
-      final playlist = HlsPlaylist.parse(
-        utf8.decode(
-          await transport.fetch(
-            url,
-            maxBytes: 2 * 1024 * 1024,
-            cancelToken: cancelToken,
-          ),
-        ),
+      final response = await transport.fetch(
         url,
+        maxBytes: 2 * 1024 * 1024,
+        cancelToken: cancelToken,
       );
-      for (final segment in playlist.segments) {
-        transport.validate(segment.url);
-      }
+      final playlist = HlsPlaylist.parse(
+        utf8.decode(response.bytes),
+        response.url,
+      );
+      resources.validate(playlist);
       _check(cancelToken);
       await work.create(recursive: true);
       // Reuse only the exact manifest and segment addresses, order and durations.
@@ -99,7 +98,15 @@ class HlsDownload {
               jsonEncode([
                 url.toString(),
                 for (final s in playlist.segments)
-                  [s.url.toString(), s.duration],
+                  [
+                    s.url.toString(),
+                    s.duration,
+                    if (s.key != null) ...[
+                      s.key.toString(),
+                      s.iv!.toList(),
+                      s.sequence.toString(),
+                    ],
+                  ],
               ]),
             ),
           )
@@ -135,11 +142,7 @@ class HlsDownload {
           }
         }
         if (!valid) {
-          final data = await transport.fetch(
-            playlist.segments[i].url,
-            maxBytes: 32 * 1024 * 1024,
-            cancelToken: cancelToken,
-          );
+          final data = await resources.read(playlist.segments[i]);
           _check(cancelToken);
           validateTransportStream(data);
           final part = File('${segment.path}.part');
@@ -186,6 +189,7 @@ class HlsDownload {
       published = true;
       onProgress(total, total, bytes);
     } finally {
+      resources.clear();
       try {
         await transport.close();
       } finally {

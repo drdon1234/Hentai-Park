@@ -46,12 +46,15 @@ class _OriginPage {
   Timer? _idle;
   int _nextRequest = 0;
   Completer<void>? _navigation;
+  int _documentGeneration = 0;
+  Uri? _documentUri;
   Future<void> _requestQueue = Future.value();
   CancelToken _session = CancelToken();
 
   Future<void> _ensure() async {
     if (_ready != null) return _ready!.future;
     _session = CancelToken();
+    _documentUri = Uri.parse('$origin/robots.txt');
     final ready = _ready = Completer<void>();
     Timer? timeout;
     var settled = false;
@@ -71,36 +74,67 @@ class _OriginPage {
         mediaPlaybackRequiresUserGesture: true,
         useShouldOverrideUrlLoading: true,
       ),
-      onWebViewCreated: (c) => _controller = c,
+      onWebViewCreated: (c) {
+        if (identical(_ready, ready)) _controller = c;
+      },
+      onLoadStart: (c, url) {
+        if (identical(_ready, ready)) {
+          _documentGeneration++;
+          _documentUri = url == null ? null : Uri.tryParse(url.toString());
+        }
+      },
       onRenderProcessGone: (c, detail) {
+        if (!identical(_ready, ready)) return;
         final error = SourceError('NETWORK', '浏览器请求失败');
         finish(error);
+        _finishNavigation(error);
         _session.cancel(error);
         unawaited(dispose());
       },
       onLoadStop: (c, url) async {
+        final generation = _documentGeneration;
+        final navigation = _navigation;
+        final document = url == null ? null : Uri.tryParse(url.toString());
+        bool current() =>
+            identical(_ready, ready) &&
+            generation == _documentGeneration &&
+            document == _documentUri &&
+            identical(navigation, _navigation);
+        if (!identical(_ready, ready)) return;
         if (url == null || Uri.parse(url.toString()).origin != origin) {
           finish(SourceError('CONFIG', '浏览器页面已离开源声明的同源地址'));
           _finishNavigation(SourceError('CONFIG', '浏览器页面已离开源声明的同源地址'));
           return;
         }
-        // A challenge page reloads itself once solved; only settle on a real document.
-        final title = await c.getTitle() ?? '';
-        final html =
-            await c.evaluateJavascript(
-              source: 'document.documentElement.outerHTML.slice(0, 3000)',
-            ) ??
-            '';
-        final challenged =
-            title.contains('Just a moment') ||
-            '$html'.contains('challenge-platform') ||
-            title.contains('Attention Required');
-        if (!challenged) {
-          finish();
-          _finishNavigation();
+        if (!current()) return;
+        try {
+          // A challenge page reloads itself once solved. Ignore an old
+          // document's async inspection after another navigation has begun.
+          final title = await c.getTitle() ?? '';
+          if (!current()) return;
+          final html =
+              await c.evaluateJavascript(
+                source: 'document.documentElement.outerHTML.slice(0, 3000)',
+              ) ??
+              '';
+          if (!current()) return;
+          final challenged =
+              title.contains('Just a moment') ||
+              '$html'.contains('challenge-platform') ||
+              title.contains('Attention Required');
+          if (!challenged) {
+            finish();
+            _finishNavigation();
+          }
+        } catch (error) {
+          if (!current()) return;
+          final failure = SourceError('NETWORK', '浏览器请求失败：$error');
+          finish(failure);
+          _finishNavigation(failure);
         }
       },
       onReceivedError: (c, req, err) {
+        if (!identical(_ready, ready)) return;
         if (req.isForMainFrame ?? true) {
           finish(
             SourceError(
@@ -118,24 +152,29 @@ class _OriginPage {
           ? NavigationActionPolicy.ALLOW
           : NavigationActionPolicy.CANCEL,
     );
-    await _view!.run();
-    // Managed challenges usually pass on their own within a few seconds.
-    if (!settled) {
-      timeout = Timer(
-        const Duration(seconds: 15),
-        () => finish(
-          SourceError(
-            'CLOUDFLARE',
-            'Cloudflare 验证未自动通过：${Uri.parse(origin).host}',
-            url: origin,
-          ),
-        ),
-      );
-    }
+    // The platform may call a failing load callback before run() returns.
+    ready.future.ignore();
     try {
+      await _view!.run();
+      // Managed challenges usually pass on their own within a few seconds.
+      if (!settled) {
+        timeout = Timer(
+          const Duration(seconds: 15),
+          () => finish(
+            SourceError(
+              'CLOUDFLARE',
+              'Cloudflare 验证未自动通过：${Uri.parse(origin).host}',
+              url: origin,
+            ),
+          ),
+        );
+      }
       await ready.future;
     } catch (e) {
       await dispose();
+      if (e is! SourceError && e is! DioException) {
+        throw SourceError('NETWORK', '浏览器请求失败：$e');
+      }
       rethrow;
     }
   }
@@ -145,7 +184,7 @@ class _OriginPage {
     CancelToken? cancelToken,
   }) {
     final operation = _requestQueue.then(
-      (_) => _fetch(request, cancelToken: cancelToken),
+      (_) => _fetchWithRecovery(request, cancelToken),
     );
     _requestQueue = operation.then<void>(
       (_) {},
@@ -156,6 +195,46 @@ class _OriginPage {
       operation,
       cancelToken.whenCancel.then<Map<String, Object?>>((error) => throw error),
     ]);
+  }
+
+  Future<Map<String, Object?>> _fetchWithRecovery(
+    Map<String, dynamic> request,
+    CancelToken? token,
+  ) async {
+    final canRetry =
+        (request['method'] ?? 'GET').toString().toUpperCase() == 'GET';
+    _idle?.cancel();
+    try {
+      for (var attempt = 0; ; attempt++) {
+        if (token?.cancelError case final error?) throw error;
+        try {
+          final result = await _fetch(request, cancelToken: token);
+          final status = result['status'];
+          if (!canRetry ||
+              attempt >= 2 ||
+              !{408, 429, 500, 502, 503, 504}.contains(status)) {
+            return result;
+          }
+        } on SourceError catch (error) {
+          if (token?.cancelError case final cancelled?) throw cancelled;
+          if (!canRetry || attempt >= 2 || error.code != 'NETWORK') rethrow;
+          // A failed browser context must not poison the next read. Cookies
+          // remain in the WebView store when the hidden page is recreated.
+          await dispose();
+        }
+        final delay = Future<void>.delayed(
+          Duration(milliseconds: 500 * (attempt + 1)),
+        );
+        await Future.any([
+          delay,
+          if (token != null)
+            token.whenCancel.then<void>((error) => throw error),
+        ]);
+      }
+    } finally {
+      _idle?.cancel();
+      _idle = Timer(const Duration(minutes: 3), dispose);
+    }
   }
 
   void _finishNavigation([Object? error]) {
@@ -172,6 +251,8 @@ class _OriginPage {
     if (Uri.tryParse(url)?.origin != origin) {
       throw SourceError('CONFIG', '浏览器验证地址必须同源');
     }
+    _documentGeneration++;
+    _documentUri = Uri.parse(url);
     final ready = _navigation = Completer<void>();
     final timeout = Timer(
       const Duration(seconds: 25),
@@ -187,12 +268,19 @@ class _OriginPage {
       ready.future,
       if (token != null) token.whenCancel.then<void>((error) => throw error),
     ]);
+    // A native load callback may fail before loadUrl's future completes.
+    waiting.ignore();
     try {
       await _controller!.loadUrl(urlRequest: URLRequest(url: WebUri(url)));
       await waiting;
+    } catch (_) {
+      // A cancelled/failed navigation must not leave the next request using
+      // a context that is still replacing its document.
+      await dispose();
+      rethrow;
     } finally {
       timeout.cancel();
-      _navigation = null;
+      if (identical(_navigation, ready)) _navigation = null;
     }
   }
 
@@ -269,7 +357,10 @@ class _OriginPage {
           session.whenCancel,
           settled.future.then<DioException?>((_) => null),
         ]).then<CallAsyncJavaScriptResult?>((error) {
-          if (error != null) throw error;
+          if (error != null) {
+            if (error.error case final SourceError cause) throw cause;
+            throw error;
+          }
           return null;
         }),
       ]);
@@ -292,7 +383,8 @@ class _OriginPage {
               body.contains('challenge-platform'))) {
         // A fetch response cannot execute a managed challenge. Load it as a
         // same-origin document, then retry the read once after it has cleared.
-        if (!retried && (request['method'] ?? 'GET') == 'GET') {
+        if (!retried &&
+            (request['method'] ?? 'GET').toString().toUpperCase() == 'GET') {
           await _verifyDocument(request['url'].toString(), cancelToken);
           return await _fetch(request, cancelToken: cancelToken, retried: true);
         }
@@ -310,12 +402,11 @@ class _OriginPage {
       };
     } finally {
       settled.complete();
-      _idle?.cancel();
-      _idle = Timer(const Duration(minutes: 3), dispose);
     }
   }
 
   Future<void> dispose() async {
+    _documentGeneration++;
     _idle?.cancel();
     _session.cancel('browser session closed');
     _finishNavigation(SourceError('CANCELLED', '浏览器会话已关闭'));

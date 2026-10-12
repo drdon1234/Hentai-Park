@@ -89,7 +89,7 @@ class _UpdatesPageState extends State<UpdatesPage> {
       byWork.putIfAbsent(e.item.uid, () => (e.item, <Chapter>[])).$2.add(Chapter(e.chapter.chapterId, e.chapter.title));
     }
     for (final w in byWork.values) {
-      DownloadManager.instance.enqueue(w.$1, w.$2);
+      DownloadManager.instance.enqueueNewChapters(w.$1, w.$2);
     }
     context.toast(tr('已加入下载队列'));
   }

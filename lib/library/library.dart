@@ -7,6 +7,7 @@ import 'package:flutter/foundation.dart';
 import '../core/models.dart';
 import '../core/settings.dart';
 import '../data/database.dart';
+import '../engine/source_manager.dart';
 
 /// Splits a `source:id` uid (ids may themselves contain ':' or '/').
 (String, String) splitUid(String uid) {
@@ -55,6 +56,9 @@ class ChapterState {
     this.read = false,
     this.lastPage = 0,
     this.pageCount = 0,
+    this.position = 0,
+    this.duration = 0,
+    this.positionUpdatedAt,
     required this.dateFetch,
     this.dateRead,
   });
@@ -65,10 +69,13 @@ class ChapterState {
   bool read;
   int lastPage;
   int pageCount;
+  int position;
+  int duration;
+  DateTime? positionUpdatedAt;
   DateTime dateFetch;
   DateTime? dateRead;
 
-  bool get started => read || lastPage > 0;
+  bool get started => read || lastPage > 0 || position > 0;
 
   factory ChapterState.fromRow(ChapterRow r) => ChapterState(
     chapterId: r.chapterId,
@@ -77,6 +84,11 @@ class ChapterState {
     read: r.read,
     lastPage: r.lastPage,
     pageCount: r.pageCount,
+    position: r.position,
+    duration: r.duration,
+    positionUpdatedAt: r.positionUpdatedAt == null
+        ? null
+        : DateTime.fromMillisecondsSinceEpoch(r.positionUpdatedAt!),
     dateFetch: DateTime.fromMillisecondsSinceEpoch(r.dateFetch),
     dateRead: r.dateRead == null ? null : DateTime.fromMillisecondsSinceEpoch(r.dateRead!),
   );
@@ -373,41 +385,58 @@ class Library extends ChangeNotifier {
   /// Reconciles the stored chapter list with what the site returned. New chapters get
   /// `dateFetch = now`; chapters that vanished are dropped unless they carry reading state.
   /// Returns the ids of chapters that are new compared with a previous non-empty sync.
-  Future<List<String>> syncChapters(WorkItem item, List<Chapter> chapters, {bool oneShot = false, DateTime? now}) async {
+  Future<List<String>> syncChapters(WorkItem item, List<Chapter> chapters, {bool oneShot = false,
+    bool complete = true,
+    DateTime? now}) async {
     final uid = item.uid;
-    oneShot ? _oneShots.add(uid) : _oneShots.remove(uid);
+    if (complete) {
+      oneShot ? _oneShots.add(uid) : _oneShots.remove(uid);
+    }
     final time = (now ?? DateTime.now()).millisecondsSinceEpoch;
     final fresh = <String>[];
     await _db.transaction(() async {
       await _saveWork(item);
-      await (_db.update(_db.works)..where((w) => w.source.equals(item.source) & w.id.equals(item.id))).write(WorksCompanion(oneShot: Value(oneShot)));
+      if (complete) {
+        await (_db.update(_db.works)..where((w) => w.source.equals(item.source) & w.id.equals(item.id))).write(WorksCompanion(oneShot: Value(oneShot)));
+      }
       final existing = {
         for (final r in await (_db.select(_db.chapters)..where((c) => c.source.equals(item.source) & c.workId.equals(item.id))).get()) r.chapterId: r,
       };
       final seen = <String>{};
+      var nextSort =
+          existing.values.fold<int>(
+            -1,
+            (highest, row) => row.sort > highest ? row.sort : highest,
+          ) +
+          1;
       for (var i = 0; i < chapters.length; i++) {
         final ch = chapters[i];
         final key = chapterKeyOf(ch.id);
         if (!seen.add(key)) continue;
         final old = existing[key];
         if (old == null) {
-          if (existing.isNotEmpty) fresh.add(key);
+          if (complete && existing.isNotEmpty) fresh.add(key);
           // The first sync is not an "update" (fetch time ~0); later chapters get a slightly later
           // fetch time so the updates feed keeps site order.
-          final fetched = existing.isEmpty ? i : time + i;
+          final fetched = !complete
+              ? 0
+              : existing.isEmpty ? i : time + i;
+          final sort = complete ? i : nextSort++;
           await _db
               .into(_db.chapters)
               .insert(
-                ChaptersCompanion.insert(source: item.source, workId: item.id, chapterId: key, title: Value(ch.title), sort: Value(i), dateFetch: Value(fetched)),
+                ChaptersCompanion.insert(source: item.source, workId: item.id, chapterId: key, title: Value(ch.title), sort: Value(sort), dateFetch: Value(fetched)),
               );
-        } else if (old.title != ch.title || old.sort != i) {
+        } else if (old.title != ch.title || (complete && old.sort != i)) {
           await (_db.update(_db.chapters)..where((c) => c.source.equals(item.source) & c.workId.equals(item.id) & c.chapterId.equals(key))).write(
-            ChaptersCompanion(title: Value(ch.title), sort: Value(i)),
+            ChaptersCompanion(title: Value(ch.title), sort: complete ? Value(i) : const Value.absent()),
           );
         }
       }
-      for (final old in existing.values) {
-        if (seen.contains(old.chapterId) || old.read || old.lastPage > 0) continue;
+      for (final old in complete ? existing.values : const <ChapterRow>[]) {
+        if (seen.contains(old.chapterId) || old.read || old.lastPage > 0 || old.positionUpdatedAt != null) {
+          continue;
+        }
         await (_db.delete(_db.chapters)..where((c) => c.source.equals(item.source) & c.workId.equals(item.id) & c.chapterId.equals(old.chapterId))).go();
       }
     });
@@ -421,16 +450,34 @@ class Library extends ChangeNotifier {
     final ids = chapterIds.toSet();
     if (ids.isEmpty) return;
     final now = DateTime.now();
+    final (source, id) = splitUid(uid);
+    final video = SourceManager.instance.manifest(source)?.isVideo == true;
     for (final c in _chapters[uid] ?? const <ChapterState>[]) {
       if (!ids.contains(c.chapterId)) continue;
       c.read = read;
       c.dateRead = read ? now : null;
-      if (!read) c.lastPage = 0;
+      if (video || c.positionUpdatedAt != null) c.positionUpdatedAt = now;
+      if (!read) {
+        c.lastPage = 0;
+        c.position = 0;
+      }
     }
-    final (source, id) = splitUid(uid);
     _run(() async {
       await (_db.update(_db.chapters)..where((c) => c.source.equals(source) & c.workId.equals(id) & c.chapterId.isIn(ids))).write(
-        ChaptersCompanion(read: Value(read), dateRead: Value(read ? now.millisecondsSinceEpoch : null), lastPage: read ? const Value.absent() : const Value(0)),
+        ChaptersCompanion(read: Value(read), dateRead: Value(read ? now.millisecondsSinceEpoch : null), lastPage: read ? const Value.absent() : const Value(0),
+              position: read ? const Value.absent() : const Value(0),
+            ),
+          );
+      await (_db.update(_db.chapters)..where(
+            (c) =>
+                c.source.equals(source) &
+                c.workId.equals(id) &
+                c.chapterId.isIn(ids) &
+                (video ? const Constant(true) : c.positionUpdatedAt.isNotNull()),
+          ))
+          .write(
+            ChaptersCompanion(
+              positionUpdatedAt: Value(now.millisecondsSinceEpoch)),
       );
       await _loadStats(uid);
       if (read) {
@@ -531,28 +578,93 @@ class Library extends ChangeNotifier {
     });
   }
 
-  void recordVideoPosition(WorkItem item, int seconds) {
+  void recordVideoPosition(WorkItem item, int seconds, {
+    String? episodeId,
+    String? episodeTitle,
+    int? duration,
+  }) {
     if (_incognito) return;
-    final h = _history[item.uid] ?? HistoryEntry(item: item, time: DateTime.now());
+    final key = chapterKeyOf(episodeId);
+    final now = DateTime.now();
+    final position = seconds < 0 ? 0 : seconds;
+    final length = duration != null && duration > 0 ? duration : 0;
+    final finished = length > 0 && position >= length;
+    final cached = chapterState(item.uid, key);
+    if (cached != null) {
+      cached.position = position;
+      if (length > 0) cached.duration = length;
+      cached.positionUpdatedAt = now;
+      if (finished) {
+        cached.read = true;
+        cached.dateRead ??= now;
+      }
+    }
+    final h = _history[item.uid] ?? HistoryEntry(item: item, time: now);
     h
-      ..time = DateTime.now()
-      ..position = seconds;
+      ..item = item
+      ..time = now
+      ..chapterId = key
+      ..chapterTitle = episodeTitle
+      ..page = 0
+      ..pageCount = 0
+      ..position = position;
     _history[item.uid] = h;
-    _saveHistory(h);
+    final history = _historySnapshot(h);
+    _run(() async {
+      await _db.transaction(() async {
+        await _saveWork(item);
+        await _db.into(_db.history).insertOnConflictUpdate(history);
+        await _db
+            .into(_db.chapters)
+            .insert(
+              ChaptersCompanion.insert(
+                source: item.source,
+                workId: item.id,
+                chapterId: key,
+                title: Value(episodeTitle ?? ''),
+                position: Value(position),
+                duration: Value(length),
+                positionUpdatedAt: Value(now.millisecondsSinceEpoch),
+                read: Value(finished),
+                dateRead: Value(finished ? now.millisecondsSinceEpoch : null),
+              ),
+              onConflict: DoUpdate(
+                (old) => ChaptersCompanion.custom(
+                  position: Constant(position),
+                  duration: length > 0 ? Constant(length) : old.duration,
+                  positionUpdatedAt: Constant(now.millisecondsSinceEpoch),
+                  read: finished ? const Constant(true) : old.read,
+                  dateRead: finished
+                      ? coalesce([
+                          old.dateRead,
+                          Constant(now.millisecondsSinceEpoch),
+                        ])
+                      : old.dateRead,
+                ),
+              ),
+            );
+      });
+      await _loadStats(item.uid);
+      notifyListeners();
+    });
+    if (_history.length > historyLimit + 100) _trimHistory();
   }
+
+  static HistoryCompanion _historySnapshot(HistoryEntry h) =>
+      HistoryCompanion.insert(
+        source: h.item.source,
+        workId: h.item.id,
+        time: h.time.millisecondsSinceEpoch,
+        chapterId: Value(h.chapterId),
+        chapterTitle: Value(h.chapterTitle),
+        page: Value(h.page),
+        pageCount: Value(h.pageCount),
+        position: Value(h.position),
+      );
 
   void _saveHistory(HistoryEntry h) {
     final item = h.item;
-    final snapshot = HistoryCompanion.insert(
-      source: item.source,
-      workId: item.id,
-      time: h.time.millisecondsSinceEpoch,
-      chapterId: Value(h.chapterId),
-      chapterTitle: Value(h.chapterTitle),
-      page: Value(h.page),
-      pageCount: Value(h.pageCount),
-      position: Value(h.position),
-    );
+    final snapshot = _historySnapshot(h);
     _run(() async {
       await _db.transaction(() async {
         await _saveWork(item);

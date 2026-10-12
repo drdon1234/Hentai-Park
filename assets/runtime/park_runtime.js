@@ -446,6 +446,14 @@
       } catch (err) {
         const code = (err && err.code) || ErrorCode.PARSE;
         const message = (err && err.message) || String(err);
+        if (code !== 'CANCELLED') {
+          try {
+            const status = Number.isInteger(err && err.status) ? `（HTTP ${err.status}）` : '';
+            await native().log(key, 'error', `${path} 失败：${code}${status}`);
+          } catch (e) {
+            /* Diagnostics must not replace the original source error. */
+          }
+        }
         return { ok: false, error: { code, message, status: err && err.status, url: err && err.url } };
       }
     },

@@ -1,0 +1,278 @@
+/*
+ * 黄果短剧：列表采用站点当前分类 API 与服务端渲染页面。
+ * 分集目录来自真实的 data-ep-id 链接；epPlaySrcs 只预载邻集，不是完整目录。
+ * 播放地址带时效签名，每次播放重新读取指定分集页面，不缓存媒体地址。
+ */
+Park.register({
+  key: 'huangguo',
+  name: '黄果短剧',
+  version: '0.0.1',
+  type: 'video',
+  color: '#F2AD24',
+  description: 'AI 短剧与漫剧，支持分类、排行、搜索和分集播放',
+  homepage: 'https://huangguoai.com',
+  domains: ['huangguoai.com'],
+  language: 'zh',
+  linkPatterns: ['huangguoai\\.com/(?:video|detail)/(\\d+)(?:/|[?#]|$)'],
+  idPattern: '^(\\d+)$',
+  imageHeaders: { Referer: 'https://huangguoai.com/' },
+  network: { mode: 'native' },
+  media: {
+    mode: 'native', origin: 'https://huangguoai.com',
+    domains: [
+      'yd-hls.tktjpm.cn', 'tp1.wirqed.cn', 'tp2.wirqed.cn', 'tp3.wirqed.cn',
+      'tp4.wirqed.cn', 'tp5.wirqed.cn', 'tp6.wirqed.cn', 'tp7.wirqed.cn', 'tp8.wirqed.cn',
+    ],
+  },
+  defaultFeed: 'recommend',
+  feeds: [
+    { key: 'recommend', label: '推荐' },
+    { key: 'latest', label: '最新' },
+    {
+      key: 'category', label: '分类', options: [
+        {
+          key: 'category', label: '类型', type: 'select', default: 'ai-duanju',
+          values: [
+            { value: 'ai-duanju', label: 'AI 短剧' },
+            { value: 'ai-manju', label: 'AI 漫剧' },
+            { value: 'ai-huanlian', label: 'AI 换脸' },
+            { value: 'ai-mogai', label: 'AI 魔改' },
+          ],
+        },
+      ],
+    },
+    {
+      key: 'ranking', label: '排行榜', options: [
+        {
+          key: 'ranking', label: '榜单', type: 'select', default: 'hot',
+          values: [
+            { value: 'hot', label: '热门榜' },
+            { value: 'recommend', label: '推荐榜' },
+            { value: 'potential', label: '潜力榜' },
+          ],
+        },
+      ],
+    },
+  ],
+  searchHint: '搜索作品名、标签或作者',
+
+  BASE: 'https://huangguoai.com',
+  COVER_ASPECT: 374 / 420,
+
+  absolute(value) {
+    if (!value || typeof value !== 'string') return '';
+    try {
+      const url = new URL(value, this.BASE);
+      return /^https?:$/.test(url.protocol) ? url.href : '';
+    } catch (_) {
+      return '';
+    }
+  },
+
+  cleanText(node) {
+    if (!node) return '';
+    const copy = node.cloneNode(true);
+    for (const hidden of copy.querySelectorAll('.sr-only')) hidden.remove();
+    return Park.html.text(copy);
+  },
+
+  pageNumber(value) {
+    const page = Number(value);
+    return Number.isSafeInteger(page) && page > 0 ? page : 1;
+  },
+
+  workId(value) {
+    const id = String(value || '');
+    if (!/^[1-9]\d*$/.test(id)) throw Park.error('NOT_FOUND', '黄果短剧作品不存在');
+    return id;
+  },
+
+  async request(path, params) {
+    const res = await this.http.get(this.BASE + path, {
+      params, headers: { Referer: this.BASE + '/', 'Cache-Control': 'no-cache' },
+    });
+    if (res.status === 401) throw Park.error('LOGIN_REQUIRED', '黄果短剧需要登录后访问');
+    if (res.status === 403) throw Park.error('BLOCKED', '黄果短剧访问受限');
+    if (res.status === 404) throw Park.error('NOT_FOUND', '黄果短剧作品或分集不存在');
+    if (!res.ok) throw Park.error('HTTP', '黄果短剧请求失败', { status: res.status });
+    return res;
+  },
+
+  async document(path, params) {
+    const res = await this.request(path, params);
+    return Park.html.parse(res.body);
+  },
+
+  parseCards(root, ranking = false) {
+    if (!root) return [];
+    const seen = new Set();
+    const items = [];
+    for (const card of root.querySelectorAll(ranking ? '.hg-rank-item' : '.hg-drama-card')) {
+      const anchor = card.querySelector(ranking ? '.hg-rank-item__cover' : '.hg-drama-card__cover-link');
+      const match = /\/(?:video|detail)\/(\d+)(?:\/|$)/.exec(anchor && anchor.getAttribute('href') || '');
+      const img = anchor && anchor.querySelector('img');
+      if (!match || !img || seen.has(match[1])) continue;
+      const title = this.cleanText(card.querySelector(ranking ? '.hg-rank-item__title' : '.hg-drama-card__title')) || img.getAttribute('alt') || '';
+      if (!title) continue;
+      seen.add(match[1]);
+      const width = Number(img.getAttribute('width'));
+      const height = Number(img.getAttribute('height'));
+      const item = {
+        id: match[1], title,
+        cover: this.absolute(img.getAttribute('data-src') || img.getAttribute('src')),
+        coverAspect: width > 0 && height > 0 ? width / height : this.COVER_ASPECT,
+        subtitle: this.cleanText(card.querySelector('.hg-drama-card__episode')),
+      };
+      const rating = parseFloat(this.cleanText(card.querySelector('.hg-drama-card__score')));
+      if (rating > 0) item.rating = rating;
+      items.push(item);
+    }
+    return items;
+  },
+
+  parseList(doc, page, ranking = false) {
+    // 页头的搜索建议也有卡片，必须限定到主内容，空搜索才不会返回推荐作品。
+    const main = doc.querySelector('main');
+    if (!main || !main.querySelector('.hg-list-page, .hg-card-grid, .hg-rank-list')) {
+      throw Park.error('PARSE', '黄果短剧列表解析失败');
+    }
+    const items = this.parseCards(main, ranking);
+    let totalPages = page;
+    let hasNext = false;
+    for (const a of main.querySelectorAll('.hg-pager a[href]')) {
+      const href = a.getAttribute('href') || '';
+      const match = /\/(\d+)\/?(?:[?#].*)?$/.exec(href) || /[?&]page=(\d+)/.exec(href);
+      if (match) {
+        const target = Number(match[1]);
+        totalPages = Math.max(totalPages, target);
+        if (target > page) hasNext = true;
+      }
+      if (a.getAttribute('rel') === 'next') hasNext = true;
+    }
+    return { items, page, totalPages, hasNext: items.length > 0 && hasNext };
+  },
+
+  async categoryPage(category, page) {
+    if (!['ai-duanju', 'ai-manju', 'ai-huanlian', 'ai-mogai'].includes(category)) {
+      throw Park.error('CONFIG', '黄果短剧分类无效');
+    }
+    const res = await this.request('/api/videos/category/' + category, { sort: 'hot', page, size: 20 });
+    let payload;
+    try { payload = JSON.parse(res.body); } catch (_) {
+      throw Park.error('PARSE', '黄果短剧列表解析失败');
+    }
+    if (Number(payload.status) !== 1) {
+      const message = String(payload.msg || '');
+      if (/登录|登入|login|unauthorized/i.test(message)) throw Park.error('LOGIN_REQUIRED', '黄果短剧需要登录后访问');
+      if (/权限|会员|付费|受限|forbidden/i.test(message)) throw Park.error('BLOCKED', '黄果短剧访问受限');
+      throw Park.error('PARSE', '黄果短剧列表请求失败');
+    }
+    const data = payload.data;
+    if (!data || !Array.isArray(data.items) || !data.pagination || Number(data.pagination.page) !== page) {
+      throw Park.error('PARSE', '黄果短剧列表解析失败');
+    }
+    const items = data.items.filter(it => it && /^\d+$/.test(String(it.id)) && it.title).map(it => ({
+      id: String(it.id), title: String(it.title), cover: this.absolute(it.cover),
+      coverAspect: this.COVER_ASPECT,
+      duration: typeof it.duration === 'string' ? it.duration : '',
+      rating: Number(it.score) || null,
+      likes: Number(it.like_count) || null,
+      uploaded: it.created_at || '',
+    }));
+    const totalPages = Math.max(0, Number(data.pagination.pages) || 0);
+    return { items, page, totalPages, total: Number(data.pagination.total) || 0, hasNext: page < totalPages };
+  },
+
+  async feed(key, req = {}) {
+    const page = this.pageNumber(req.page);
+    const options = req.options || {};
+    if (key === 'category') return this.categoryPage(options.category || 'ai-duanju', page);
+    if (key === 'ranking') {
+      // 当前站点榜单为固定条目，没有下一页；不能反复把第一页当作下一页返回。
+      if (page > 1) return { items: [], page, totalPages: 1, hasNext: false };
+      const ranking = options.ranking || 'hot';
+      if (!['hot', 'recommend', 'potential'].includes(ranking)) throw Park.error('CONFIG', '黄果短剧榜单无效');
+      return this.parseList(await this.document('/ranks/' + ranking + '/'), page, true);
+    }
+    const route = { recommend: 'recommend', latest: 'newest' }[key];
+    if (!route) throw Park.error('CONFIG', '黄果短剧列表无效');
+    return this.parseList(await this.document('/' + route + (page > 1 ? '/' + page : '') + '/'), page);
+  },
+
+  async search(req = {}) {
+    const page = this.pageNumber(req.page);
+    const keyword = String(req.keyword || '').trim();
+    if (!keyword) return { items: [], page, totalPages: 0, hasNext: false };
+    return this.parseList(await this.document('/search/', { keyword, page }), page);
+  },
+
+  initialData(doc, id) {
+    const node = doc.querySelector('#videoInitialData');
+    if (!node) throw Park.error('PARSE', '黄果短剧详情解析失败');
+    let data;
+    try { data = JSON.parse(node.textContent || ''); } catch (_) {
+      throw Park.error('PARSE', '黄果短剧详情解析失败');
+    }
+    if (!data || String(data.id) !== id || !data.title) throw Park.error('NOT_FOUND', '黄果短剧作品不存在');
+    return data;
+  },
+
+  episodes(doc, id) {
+    const chapters = [];
+    const seen = new Set();
+    for (const a of doc.querySelectorAll('a[data-ep-id]')) {
+      const ep = a.getAttribute('data-ep-id') || '';
+      const match = /\/video\/(\d+)\/(?:ep-(\d+)\/?)?(?:[?#].*)?$/.exec(a.getAttribute('href') || '');
+      if (!/^[1-9]\d*$/.test(ep) || !match || match[1] !== id || (match[2] || '1') !== ep || seen.has(ep)) continue;
+      seen.add(ep);
+      chapters.push({ id: ep, title: '第' + ep + '集' });
+    }
+    if (!chapters.length && doc.querySelector('[data-ep-id]')) {
+      throw Park.error('PARSE', '黄果短剧详情解析失败');
+    }
+    return chapters.length ? chapters : null;
+  },
+
+  async detail(value) {
+    const id = this.workId(value);
+    const url = this.BASE + '/video/' + id + '/';
+    const doc = await this.document('/video/' + id + '/');
+    const data = this.initialData(doc, id);
+    const names = Array.isArray(data.tags) ? data.tags : [];
+    const tags = [...new Set(names.filter(name => typeof name === 'string' && name.trim()))].map(name => ({ name, keyword: name }));
+    return {
+      id, title: data.title, url,
+      cover: this.absolute(data.coverSrc || data.posterSrc), coverAspect: this.COVER_ASPECT,
+      authors: data.author ? [String(data.author)] : [],
+      description: typeof data.description === 'string' ? data.description : '',
+      views: Park.utils.parseCount(data.views || ''),
+      likes: Number(data.likesNum) || null,
+      uploaded: data.time || '',
+      tags: tags.length ? [{ namespace: 'tag', label: '标签', tags }] : [],
+      chapters: this.episodes(doc, id),
+      related: this.parseCards(doc.querySelector('#related-grid, .hg-play__related')).filter(it => it.id !== id),
+    };
+  },
+
+  async videos(value, episodeId = '_') {
+    const id = this.workId(value);
+    const ep = String(episodeId);
+    if (ep !== '_' && !/^[1-9]\d*$/.test(ep)) throw Park.error('NOT_FOUND', '黄果短剧分集不存在');
+    const path = '/video/' + id + '/' + (ep !== '_' && ep !== '1' ? 'ep-' + ep + '/' : '');
+    const doc = await this.document(path);
+    const data = this.initialData(doc, id);
+    if (ep !== '_' && String(data.ep) !== ep) throw Park.error('NOT_FOUND', '黄果短剧分集不存在');
+    // 只读取当前集地址，不从其他集或预览视频回退，避免播错集或把预告当正片。
+    if (!data.videoSrc) throw Park.error('NOT_FOUND', '黄果短剧该分集暂无可用播放地址');
+    const url = this.absolute(data.videoSrc);
+    if (!url) throw Park.error('PARSE', '黄果短剧播放地址无效');
+    if (data.videoApi || data.videoKey || data.videoIv) {
+      throw Park.error('UNSUPPORTED', '黄果短剧该分集使用暂不支持的播放方式');
+    }
+    return [{
+      quality: 0, label: '原画', url,
+      headers: { Referer: this.BASE + path }, preferred: true,
+      ...(/\.m3u8(?:[?#]|$)/i.test(url) ? { format: 'hls' } : {}),
+    }];
+  },
+});

@@ -465,6 +465,20 @@ class WorkDetail extends WorkItem {
   final int? thumbnailsTotal;
   final Map<String, dynamic>? authorSearch;
 
+  /// Offline and stored chapter subsets must not replace a complete source directory.
+  bool get chaptersComplete => json['chaptersComplete'] != false;
+  bool get hasVideoEpisodes => chapters?.isNotEmpty == true;
+
+  /// Video episodes share the library's stable chapter identities.
+  List<Chapter> get videoEpisodes => hasVideoEpisodes
+      ? chapters!
+      : [
+          Chapter(
+            singleChapterId?.isNotEmpty == true ? singleChapterId! : '_',
+            tr('正片'),
+          ),
+        ];
+
   WorkItem toItem() => WorkItem.fromStored({
     ...json,
     'source': source,

@@ -63,7 +63,7 @@ class LibraryUpdater extends ChangeNotifier {
   static bool _defaultCanUpdate(String source) {
     final s = SourceManager.instance[source];
     final m = s?.manifest;
-    return s != null && s.enabled && s.ready && m != null && !m.isVideo;
+    return s != null && s.enabled && s.ready && m != null;
   }
 
   /// Whether a favorite is checked under the current restrictions.
@@ -123,8 +123,13 @@ class LibraryUpdater extends ChangeNotifier {
       try {
         final d = await _fetch(f.item.source, f.item.id);
         final item = d.toItem();
-        final chapters = d.chapters ?? [Chapter(chapterKeyOf(d.singleChapterId), tr('全本'))];
-        final fresh = await _lib.syncChapters(item, chapters, oneShot: d.chapters == null);
+        final isVideo = SourceManager.instance.manifest(f.item.source)?.isVideo == true;
+        final chapters = isVideo
+            ? d.videoEpisodes
+            : d.chapters ?? [Chapter(chapterKeyOf(d.singleChapterId), tr('全本'))];
+        final fresh = await _lib.syncChapters(item, chapters, oneShot: isVideo ? !d.hasVideoEpisodes : d.chapters == null,
+          complete: d.chaptersComplete,
+        );
         _lib.updateSnapshot(item);
         await _lib.markChecked(item.uid);
         if (fresh.isNotEmpty) {

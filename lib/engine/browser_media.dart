@@ -1,71 +1,19 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 
 import '../core/models.dart';
-import 'domains.dart';
 import 'http_service.dart';
-
-/// Separate from source HTTP: media requests never carry cross-site credentials.
-class BrowserMediaPolicy {
-  BrowserMediaPolicy._(this.origin, this.domains);
-  final String origin;
-  final List<String> domains;
-
-  factory BrowserMediaPolicy.fromManifest(SourceManifest manifest) {
-    final media = manifest.media;
-    final page = Uri.tryParse('${media['origin'] ?? ''}');
-    final domains = (media['domains'] as List? ?? const [])
-        .map((d) => '$d'.toLowerCase())
-        .toList();
-    if (media['mode'] != 'browser' ||
-        page == null ||
-        page.scheme != 'https' ||
-        page.port != 443 ||
-        page.userInfo.isNotEmpty ||
-        !hostInDomains(page.host, declaredDomains(manifest.json)) ||
-        domains.isEmpty ||
-        domains.any((d) => !_publicHost(d))) {
-      throw SourceError('CONFIG', '源没有声明有效的浏览器媒体权限');
-    }
-    return BrowserMediaPolicy._(page.origin, List.unmodifiable(domains));
-  }
-
-  static bool _publicHost(String host) =>
-      RegExp(r'^[a-z0-9](?:[a-z0-9.-]*[a-z0-9])?\.[a-z]{2,}$').hasMatch(host) &&
-      host != 'localhost' &&
-      !host.endsWith('.localhost') &&
-      !host.endsWith('.local');
-
-  void validate(Uri url) {
-    if (url.scheme != 'https' ||
-        url.port != 443 ||
-        url.userInfo.isNotEmpty ||
-        !_publicHost(url.host) ||
-        !hostInDomains(url.host, domains) ||
-        url.fragment.isNotEmpty) {
-      throw SourceError('CONFIG', '媒体地址不在源声明的 HTTPS 域名内');
-    }
-  }
-}
-
-abstract interface class MediaTransport {
-  void validate(Uri url);
-  Future<Uint8List> fetch(
-    Uri url, {
-    required int maxBytes,
-    CancelToken? cancelToken,
-  });
-  Future<void> close();
-}
+import 'media_transport.dart';
 
 /// One hidden page per playback/download. Closing it aborts and releases all requests.
 class BrowserMedia implements MediaTransport {
-  BrowserMedia(this.policy);
-  final BrowserMediaPolicy policy;
+  BrowserMedia(this.policy, {Map<String, String> headers = const {}})
+    : headers = policy.requestHeaders(headers);
+  final MediaPolicy policy;
+  final Map<String, String> headers;
   final _closed = Completer<void>();
   final _closingEvents = StreamController<void>.broadcast(sync: true);
   HeadlessInAppWebView? _view;
@@ -214,7 +162,7 @@ class BrowserMedia implements MediaTransport {
   }();
 
   @override
-  Future<Uint8List> fetch(
+  Future<MediaResponse> fetch(
     Uri url, {
     required int maxBytes,
     CancelToken? cancelToken,
@@ -255,7 +203,7 @@ if (jobs.has(id)) jobs.get(id)?.abort(); else jobs.set(id, null);''',
             jobs.set(id, controller);
             const timer = setTimeout(() => controller.abort(), 40000);
             try {
-              const response = await fetch(url, {credentials: 'omit', mode: 'cors', redirect: 'error', signal: controller.signal});
+              const response = await fetch(url, {credentials: 'omit', mode: 'cors', redirect: 'error', headers, signal: controller.signal});
               if (response.status !== 200) return {status: response.status};
               const size = Number(response.headers.get('content-length'));
               if (size > limit) throw new Error('媒体资源过大');
@@ -278,7 +226,18 @@ if (jobs.has(id)) jobs.get(id)?.abort(); else jobs.set(id, null);''',
             } catch (error) { return {error: String(error && error.message || error)}; }
             finally { clearTimeout(timer); controller.abort(); jobs.delete(id); }
           ''',
-                arguments: {'id': id, 'url': url.toString(), 'limit': maxBytes},
+                arguments: {
+                  'id': id,
+                  'url': url.toString(),
+                  'limit': maxBytes,
+                  'headers': Map.of(headers)
+                    ..removeWhere(
+                      (name, _) => const {
+                        'referer',
+                        'origin',
+                      }.contains(name.toLowerCase()),
+                    ),
+                },
               )
               .timeout(const Duration(seconds: 45)),
           cancelToken,
@@ -306,7 +265,7 @@ if (jobs.has(id)) jobs.get(id)?.abort(); else jobs.set(id, null);''',
         if (bytes.isEmpty || bytes.length > maxBytes) {
           throw SourceError('NETWORK', '媒体资源为空或过大');
         }
-        return bytes;
+        return MediaResponse(bytes, finalUrl);
       } finally {
         finished = true;
         await cancellation?.cancel();

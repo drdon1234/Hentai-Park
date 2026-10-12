@@ -40,6 +40,7 @@ class LegacyImport {
       if (favorites is Map) await _favorites(db, favorites);
       if (history is List) await _history(db, history);
       if (downloads is List) await _downloads(db, downloads, downloadsDir);
+      await db.normalizeVideoRecords();
     });
     for (final f in present.values) {
       try {

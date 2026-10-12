@@ -6,6 +6,7 @@ import 'package:path/path.dart' as p;
 import 'package:share_plus/share_plus.dart';
 
 import '../../core/settings.dart';
+import '../../core/models.dart';
 import '../../library/cbz.dart';
 import '../../library/downloads.dart';
 import '../nav.dart';
@@ -89,8 +90,34 @@ class _TaskTile extends StatelessWidget {
   const _TaskTile({required this.task});
   final DownloadTask task;
 
+  Future<void> _chapters(BuildContext context) async {
+    final t = await DownloadManager.instance.normalizeTask(task.uid);
+    if (!context.mounted || t == null) return;
+    return showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      builder: (_) => _ChapterSheet(
+        task: t,
+        onOpen: (chapter) => Nav.openChapter(context, t.item, chapter.id),
+      ),
+    );
+  }
+
+  Future<void> _open(BuildContext context) async {
+    final t = await DownloadManager.instance.normalizeTask(task.uid);
+    if (!context.mounted || t == null) return;
+    if (!t.isVideo) return Nav.openWork(context, t.item);
+    if (t.chapters.length > 1) return _chapters(context);
+    if (t.chapters.isNotEmpty &&
+        t.completed.contains(t.chapters.first.id)) {
+      return Nav.openChapter(context, t.item, t.chapters.first.id);
+    }
+    return Nav.openWork(context, t.item);
+  }
+
   Future<void> _menu(BuildContext context) async {
-    final t = task;
+    final t = await DownloadManager.instance.normalizeTask(task.uid);
+    if (!context.mounted || t == null) return;
     final canExport = !t.isVideo && t.completed.isNotEmpty;
     final action = await showModalBottomSheet<String>(
       context: context,
@@ -99,9 +126,9 @@ class _TaskTile extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             ListTile(title: Text(t.item.title, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w700))),
-            if (t.chapters.length > 1) ListTile(leading: const Icon(Icons.list_rounded), title: Text(tr('管理章节')), onTap: () => Navigator.pop(ctx, 'chapters')),
+            if (t.chapters.length > 1) ListTile(leading: const Icon(Icons.list_rounded), title: Text(tr(t.isVideo ? '管理分集' : '管理章节')), onTap: () => Navigator.pop(ctx, 'chapters')),
             if (canExport) ListTile(leading: const Icon(Icons.archive_outlined), title: Text(tr('导出为 CBZ')), onTap: () => Navigator.pop(ctx, 'cbz')),
-            if (t.isVideo && t.status == DownloadStatus.done)
+            if (t.isVideo && t.chapters.length == 1 && t.completed.contains(t.chapters.first.id))
               ListTile(leading: const Icon(Icons.ios_share_rounded), title: Text(tr('导出视频文件')), onTap: () => Navigator.pop(ctx, 'video')),
             ListTile(leading: const Icon(Icons.delete_outline_rounded), title: Text(tr('删除')), onTap: () => Navigator.pop(ctx, 'delete')),
           ],
@@ -111,11 +138,11 @@ class _TaskTile extends StatelessWidget {
     if (!context.mounted) return;
     switch (action) {
       case 'chapters':
-        await showModalBottomSheet<void>(context: context, isScrollControlled: true, builder: (_) => _ChapterSheet(task: t));
+        await _chapters(context);
       case 'cbz':
         await _exportCbz(context);
       case 'video':
-        final file = await DownloadManager.instance.localVideo(t.item.source, t.item.id);
+        final file = await DownloadManager.instance.localVideo(t.item.source, t.item.id, episodeId: t.chapters.first.id);
         if (file != null) await SharePlus.instance.share(ShareParams(files: [XFile(file.path)]));
       case 'delete':
         await _confirmDelete(context);
@@ -177,14 +204,14 @@ class _TaskTile extends StatelessWidget {
     final (statusText, statusColor) = switch (t.status) {
       _ when waitingWifi => (tr('等待 Wi-Fi'), c.onSurfaceVariant),
       DownloadStatus.queued => (tr('等待中'), c.onSurfaceVariant),
-      DownloadStatus.running => (t.total > 0 ? (t.isVideo ? '${t.done}% · ${formatBytes(t.bytes)}' : tr('{value0}/{value1} 页', {'value0': t.done, 'value1': t.total})) : tr('准备中…'), c.primary),
-      DownloadStatus.paused => (tr('已暂停 {value0}', {'value0': t.total > 0 ? '${t.done}/${t.total}' : ''}), c.onSurfaceVariant),
+      DownloadStatus.running => (t.total > 0 ? (t.isVideo ? '${(t.progress * 100).clamp(0, 100).round()}% · ${formatBytes(t.bytes)}' : tr('{value0}/{value1} 页', {'value0': t.done, 'value1': t.total})) : tr('准备中…'), c.primary),
+      DownloadStatus.paused => (tr('已暂停 {value0}', {'value0': t.total > 0 ? (t.isVideo ? '${(t.progress * 100).clamp(0, 100).round()}%' : '${t.done}/${t.total}') : ''}), c.onSurfaceVariant),
       DownloadStatus.done => (t.item.source == localSource ? tr('本地导入{value0}', {'value0': t.bytes > 0 ? ' · ${formatBytes(t.bytes)}' : ''}) : tr('已完成{value0}', {'value0': t.bytes > 0 ? ' · ${formatBytes(t.bytes)}' : ''}), Colors.green),
       DownloadStatus.failed => (tr('失败：{value0}', {'value0': t.error ?? ''}), c.error),
     };
     return Card(
       child: InkWell(
-        onTap: () => Nav.openWork(context, t.item),
+        onTap: () => _open(context),
         onLongPress: () => _menu(context),
         child: Padding(
           padding: const EdgeInsets.all(10),
@@ -219,7 +246,7 @@ class _TaskTile extends StatelessWidget {
                             style: context.text.labelMedium?.copyWith(color: statusColor),
                           ),
                         ),
-                        if (t.chapters.length > 1) Text(tr('{value0}/{value1} 章', {'value0': t.completed.length, 'value1': t.chapters.length}), style: context.text.labelSmall),
+                        if (t.chapters.length > 1) Text(tr(t.isVideo ? '{value0}/{value1} 集' : '{value0}/{value1} 章', {'value0': t.completed.length, 'value1': t.chapters.length}), style: context.text.labelSmall),
                       ],
                     ),
                     if (t.status == DownloadStatus.running || t.status == DownloadStatus.paused) ...[
@@ -247,8 +274,9 @@ class _TaskTile extends StatelessWidget {
 }
 
 class _ChapterSheet extends StatefulWidget {
-  const _ChapterSheet({required this.task});
+  const _ChapterSheet({required this.task, required this.onOpen});
   final DownloadTask task;
+  final ValueChanged<Chapter> onOpen;
 
   @override
   State<_ChapterSheet> createState() => _ChapterSheetState();
@@ -261,40 +289,71 @@ class _ChapterSheetState extends State<_ChapterSheet> {
   Widget build(BuildContext context) {
     AppLocalizations.of(context);
     final t = widget.task;
-    return SafeArea(
-      child: ConstrainedBox(
-        constraints: BoxConstraints(maxHeight: MediaQuery.sizeOf(context).height * 0.75),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(
-              title: Text(tr('下载的章节'), style: TextStyle(fontWeight: FontWeight.w700)),
-              trailing: FilledButton.tonalIcon(
-                onPressed: _selected.isEmpty
-                    ? null
-                    : () async {
-                        await DownloadManager.instance.deleteChapters(t.uid, _selected.toList());
-                        if (context.mounted) Navigator.pop(context);
-                      },
-                icon: const Icon(Icons.delete_outline_rounded),
-                label: Text(tr('删除 {value0}', {'value0': _selected.length})),
+    return ListenableBuilder(
+      listenable: DownloadManager.instance,
+      builder: (context, _) => SafeArea(
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            maxHeight: MediaQuery.sizeOf(context).height * 0.75,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                title: Text(
+                  tr(t.isVideo ? '下载的分集' : '下载的章节'),
+                  style: TextStyle(fontWeight: FontWeight.w700),
+                ),
+                trailing: FilledButton.tonalIcon(
+                  onPressed: _selected.isEmpty
+                      ? null
+                      : () async {
+                          await DownloadManager.instance.deleteChapters(
+                            t.uid,
+                            _selected.toList(),
+                          );
+                          if (context.mounted) Navigator.pop(context);
+                        },
+                  icon: const Icon(Icons.delete_outline_rounded),
+                  label: Text(tr('删除 {value0}', {'value0': _selected.length})),
+                ),
               ),
-            ),
-            Flexible(
-              child: ListView(
-                shrinkWrap: true,
-                children: [
-                  for (final ch in t.chapters)
-                    CheckboxListTile(
-                      value: _selected.contains(ch.id),
-                      title: Text(ch.title),
-                      subtitle: Text(t.completed.contains(ch.id) ? tr('已下载') : tr('未完成')),
-                      onChanged: (v) => setState(() => v == true ? _selected.add(ch.id) : _selected.remove(ch.id)),
-                    ),
-                ],
+              Flexible(
+                child: ListView(
+                  shrinkWrap: true,
+                  children: [
+                    for (final ch in t.chapters)
+                      CheckboxListTile(
+                        value: _selected.contains(ch.id),
+                        title: Text(ch.title),
+                        subtitle: Text(
+                          t.completed.contains(ch.id) ? tr('已下载') : tr('未完成'),
+                        ),
+                        secondary: t.isVideo
+                            ? IconButton(
+                                tooltip: tr('播放'),
+                                icon: const Icon(
+                                  Icons.play_circle_outline_rounded,
+                                ),
+                                onPressed: t.completed.contains(ch.id)
+                                    ? () {
+                                        Navigator.pop(context);
+                                        widget.onOpen(ch);
+                                      }
+                                    : null,
+                              )
+                            : null,
+                        onChanged: (v) => setState(
+                          () => v == true
+                              ? _selected.add(ch.id)
+                              : _selected.remove(ch.id),
+                        ),
+                      ),
+                  ],
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
