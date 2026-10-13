@@ -4,85 +4,114 @@
   <img src="../../images/banner.svg" alt="HentaiPark" width="100%">
 </p>
 
-<div align="center">
-
-[![Release](https://img.shields.io/github/v/release/drdon1234/Hentai-Park?label=Download)](https://github.com/drdon1234/Hentai-Park/releases/latest)
-![Android](https://img.shields.io/badge/Android-7.0%2B-3DDC84?logo=android&logoColor=white)
-![Flutter](https://img.shields.io/badge/Flutter-02569B?logo=flutter&logoColor=white)
-
-</div>
-
-> [!WARNING]
-> This application involves adult content and can only be used by adults within the scope permitted by local laws. All content comes from third-party sites, and the App itself does not store or serve any content.
-
-## Screenshots
+<p align="center"><strong>Comics, galleries, videos, novels and games — all in one app.</strong></p>
 
 <p align="center">
-  <img src="../../screenshots/home.jpg" width="24%">
-  <img src="../../screenshots/multi_language_search.jpg" width="24%">
-  <img src="../../screenshots/continue_reading.jpg" width="24%">
-  <img src="../../screenshots/blocklist_presets.jpg" width="24%">
+  <a href="https://github.com/drdon1234/Hentai-Park/releases/latest"><img src="https://img.shields.io/github/v/release/drdon1234/Hentai-Park?label=Download&color=e5355f" alt="Download"></a>
+  <img src="https://img.shields.io/badge/Android-7.0%2B-3DDC84?logo=android&logoColor=white" alt="Android 7.0+">
 </p>
 
-## Supported sources
+<p align="center">
+  <a href="https://github.com/drdon1234/Hentai-Park/releases/latest">Download</a> ·
+  <a href="#screenshots">Screenshots</a> ·
+  <a href="#faq">FAQ</a> ·
+  <a href="https://github.com/drdon1234/Hentai-Park/issues">Report an issue</a>
+</p>
 
-| Source | Type | Description |
-|------|------|------|
-| E-Hentai / ExHentai | Comics | You can switch sites after logging in to the web page |
-| nhentai | Comics | |
-| JMComic | Comics | Open works by ID; switch API routes automatically |
-| WNACG (绅士漫画) | Comics | Read without an account; supports multi-chapter collections and automatic server switching |
-| PicACG | Comics | Configure your own account, or automatically register a dedicated account after confirmation |
-| Hanime1 | Video | First time use may require Cloudflare verification |
-| MissAV | Video | Multiple playback qualities and offline downloads on Android |
-| Huangguo short dramas | Video | Episode selection, independent resume positions and per-episode MP4 downloads on Android |
-
-The source site is loaded as a plug-in, and third-party sources can be added in the settings. Official sources support automatic updates, or you can check for updates manually in “Manage sources”.
-
-## Features
-
-- **Aggregation Search**: Search all source sites at once; paste the link or enter a work ID (such as `JM350234`) to directly open the work
-- **Multi-language search**: Automatically translate keywords into Chinese/Japanese/Korean/English and other languages for simultaneous search
-- **Library and updates**: Multi-category collection, automatically checks for serial updates and sends push notifications, and can automatically download new chapters
-- **Reader**: Vertical scrolling, left-to-right and right-to-left reading, double page, white margin cropping, eye protection filter, volume key to turn pages
-- **Video playback**: episode selection, automatic next episode and independent resume positions; quality selection, playback speed and saved playback position; slide up and down on the left and right sides to adjust brightness and volume, drag horizontally to adjust progress; supports landscape and portrait fullscreen, including upside-down orientations
-- **Download**: Download comics by chapter and videos by episode at the selected quality as MP4; completed episodes play offline independently. Supports CBZ import and export
-- **Source change migration**: Migrate collections to another source and retain reading progress
-- **Blocking Tags**: Customize blocking and provide preset groupings that can be enabled on demand
-- **Privacy Protection**: App lock, incognito mode, cover blur, anti-screenshot
-- **Backup and Recovery**: One-click backup of library, progress and settings, supports scheduled automatic backup
-- **Eight-language interface**: Simplified Chinese, Traditional Chinese, Japanese, Korean, English, Spanish, Russian, Arabic; supports following the system and instant switching, Arabic adopts a right-to-left layout
-
-## Download
-
-Go to [Releases](https://github.com/drdon1234/Hentai-Park/releases/latest) to download the latest version. When not sure which to choose, choose version `arm64-v8a` for most phones.
+> For adults only, where permitted by local law. Content comes from third-party sites.
 
 ## Get started
 
-1. Select the source site in "Discover", or use the search bar to search for the work, paste the link to the work, and enter a work ID. Multilingual search retains original keywords and detected source languages, while displaying translated keywords.
-2. Select the language in "More → Language → App language". Follow the system by default; modifications will take effect immediately and be saved locally, without affecting the original title, tags or saved user data of the work.
-3. Enable, sort and configure origin sites in "More → Manage sources". When no PicACG account is configured, "Discover" will display a prompt, and you can enter self-configuration or enable a dedicated automatic maintenance account.
-4. When turning on PicACG "Use dedicated automatic maintenance account", a registration confirmation will pop up. After confirmation, create a dedicated account and log in immediately. Subsequent login status will be maintained by the application. Turning off the switch will retain the dedicated account; turning it on again can be reused, and existing manual accounts will not be overwritten. If registration fails, you can try again with the same account.
-5. On the comic details page, you can collect, select categories and download chapters; "Bookshelf" organizes collections, "Update" checks new chapters, and "History" and continue reading restore progress. "More → Backup and Restore" can export data and merge it with the current data during restore.
+Download and install an Android APK from the **[latest release](https://github.com/drdon1234/Hentai-Park/releases/latest)**. Choose `arm64-v8a` for most phones and tablets, or `x86_64` for most emulators.
 
-Swipe up and down on the left side of the video page to adjust the brightness, slide up and down on the right side to adjust the volume, slide horizontally to preview the progress, and jump after letting go. The playback control provides horizontal and vertical screen expansion, and the operating area adjusts with the display direction when the screen is rotated. The reader supports scrolling up and down, turning pages from left to right or right to left, and the reading direction is determined by the reader settings.
+1. **Find something**: Open Discover, choose a category and site, or search directly.
+2. **Read or watch**: Open a title and save your favorites to Library.
+3. **Pick up where you left off**: Return through recent activity, or check Library and Updates.
+
+Manage site logins in Me → Source management. Some sites may require a VPN or proxy.
+
+<a id="screenshots"></a>
+
+## Screenshots
+
+Phone and landscape tablet screenshots from MuMu, shown in light mode with blurred covers.
+
+<p align="center">
+  <img src="../../screenshots/home.jpg" alt="Phone, light mode: Discover" width="32%">
+  <img src="../../screenshots/search.jpg" alt="Phone, light mode: multi-site search" width="32%">
+  <img src="../../screenshots/blocklist_presets.jpg" alt="Phone, light mode: content blocking" width="32%">
+</p>
+<p align="center"><sub>Discover · Search · Content blocking</sub></p>
+
+<p align="center">
+  <img src="../../screenshots/tablet_home.jpg" alt="Tablet, light mode: sidebar navigation and browsing" width="49%">
+  <img src="../../screenshots/tablet_search.jpg" alt="Tablet, light mode: multi-column search results" width="49%">
+</p>
+<p align="center"><sub>Landscape tablet: more room to browse and search</sub></p>
+
+<details>
+<summary>Compare dark mode</summary>
+
+<p align="center">
+  <img src="../../screenshots/home_dark.jpg" alt="Phone, dark mode: Discover" width="32%">
+</p>
+
+</details>
+
+## Features
+
+| Feature | What you can do |
+| --- | --- |
+| **Browse and search** | Explore by category, search multiple sites and try keywords in other languages |
+| **Read and watch** | Scroll, turn pages or read two pages at once; choose episodes, playback speed and resume; adjust novel layout or listen aloud |
+| **Save and follow** | Group favorites, keep your progress and follow titles, keywords, creators or channels |
+| **Use offline** | Download supported comics, videos and novels; import and export CBZ comics |
+| **Game resources** | Browse descriptions, versions and download links; save or export downloaded files |
+| **Translate and filter** | Translate titles, descriptions and tags; block unwanted content |
+| **Privacy and backup** | App lock, incognito mode, blurred covers and screenshot protection; back up favorites, progress and settings |
+
+Light and dark themes, with eight interface languages. Available features vary by site; check the controls shown in the app.
+
+## Supported sites
+
+Browse doujinshi, comics, galleries, adult animation, JAV, adult videos, short videos, AI dramas, novels and games, plus creators and channels you follow.
+
+<details>
+<summary>Show the site list</summary>
+
+| Category | Sites |
+| --- | --- |
+| Doujinshi / comics | E-Hentai / ExHentai, Pixiv, nhentai, 禁漫天堂, WNACG, 哔咔漫画 |
+| Galleries | CosplayTele, NudeCosplay, XiuRen, PixiBB, PornPics |
+| Adult animation | Hanime1, Hanime.tv, Rule34Video |
+| JAV | MissAV, JableTV, SupJav, 123AV |
+| Adult videos | Pornhub, XVideos, 91porn, iXXX, Thumbzilla, TubeSafari, SpankBang |
+| Short videos | Pornhub Shorties, Fyptt, Tik.porn |
+| AI dramas | 黄果短剧, 黄豆短剧, 91短剧 |
+| Novels | Book18, Cool18, Canovel, Literotica, Lush Stories, StoriesOnline, 69story |
+| Games | GalgameX, KUN Galgame, 次元茶馆 |
+| Creators / channels | X / Twitter, Telegram, myfans.jp, pixivFANBOX |
+
+Some Tea House resources require login and a reply to unlock. The unlock button posts “感谢分享，好人一生平安” on the original thread.
+
+</details>
+
+Enable, reorder or add sites in Me → Source management. Follow the app prompts to install app and official source updates.
+
+<a id="faq"></a>
 
 ## FAQ
 
-**PicACG / ExHentai cannot be used?**
-PicACG needs to configure the account by itself or confirm the registration of a dedicated automatic maintenance account; ExHentai requires web login, and the account itself must have site permissions.
+**A site, image or video will not load?** Check your connection. Try a VPN or configure a proxy in network settings if needed. If a verification page appears, complete it and retry.
 
-**Images loading slowly or failing?**
-You can configure the HTTP proxy in the settings; JMComic / PicACG can try to switch image server.
+**Do I need a site account?** Some sites require a login or access permission. The app will let you know; open that site’s settings in Me → Source management.
 
-**Hanime1 Keep spinning in circles?**
-Follow the prompts to complete the Cloudflare verification in the built-in browser.
+**How do I get update notifications?** Add a subscription from a title’s details or Discover → Subscriptions, then enable notifications in Me → Subscription and notification settings and allow them in Android.
 
-## Development
+**How do I keep favorites and progress on a new device?** Export a backup in Me → Backup and restore, then restore it on the new device. Save offline downloads separately; site accounts may need another login.
 
-```bash
-flutter pub get
-flutter build apk --release --split-per-abi
-```
+**How do I report a problem?** Open an [issue](https://github.com/drdon1234/Hentai-Park/issues) with the app version, site name and steps to reproduce. Hide account details and private content in screenshots.
 
-To write a source plugin for a new site, please refer to [Source plugin development guide](SOURCE_API.md). The built-in source plug-in version starts from `0.0.1`; the application version and plug-in version are managed separately.
+---
+
+[AGPL-3.0 license](../../../LICENSE) · [Third-party notices](../../licenses/README.md) · [Development](../../DEVELOPMENT.md)

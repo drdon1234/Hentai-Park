@@ -4,85 +4,114 @@
   <img src="docs/images/banner.svg" alt="HentaiPark" width="100%">
 </p>
 
-<div align="center">
-
-[![Release](https://img.shields.io/github/v/release/drdon1234/Hentai-Park?label=下载)](https://github.com/drdon1234/Hentai-Park/releases/latest)
-![Android](https://img.shields.io/badge/Android-7.0%2B-3DDC84?logo=android&logoColor=white)
-![Flutter](https://img.shields.io/badge/Flutter-02569B?logo=flutter&logoColor=white)
-
-</div>
-
-> [!WARNING]
-> 本应用涉及成人内容，仅限成年人在当地法律允许的范围内使用。所有内容均来自第三方站点，App 本身不存储也不提供任何内容。
-
-## 截图
+<p align="center"><strong>漫画、图集、视频、小说与游戏，一个应用轻松浏览。</strong></p>
 
 <p align="center">
-  <img src="docs/screenshots/home.jpg" width="24%">
-  <img src="docs/screenshots/multi_language_search.jpg" width="24%">
-  <img src="docs/screenshots/continue_reading.jpg" width="24%">
-  <img src="docs/screenshots/blocklist_presets.jpg" width="24%">
+  <a href="https://github.com/drdon1234/Hentai-Park/releases/latest"><img src="https://img.shields.io/github/v/release/drdon1234/Hentai-Park?label=Download&color=e5355f" alt="下载应用"></a>
+  <img src="https://img.shields.io/badge/Android-7.0%2B-3DDC84?logo=android&logoColor=white" alt="Android 7.0+">
 </p>
 
-## 支持的源站
+<p align="center">
+  <a href="https://github.com/drdon1234/Hentai-Park/releases/latest">下载应用</a> ·
+  <a href="#screenshots">界面预览</a> ·
+  <a href="#faq">常见问题</a> ·
+  <a href="https://github.com/drdon1234/Hentai-Park/issues">反馈问题</a>
+</p>
 
-| 源站 | 类型 | 说明 |
-|------|------|------|
-| E-Hentai / ExHentai | 漫画 | 网页登录后可切换里站 |
-| nhentai | 漫画 | |
-| 禁漫天堂 | 漫画 | 支持车号直达，线路自动切换 |
-| WNACG（绅士漫画） | 漫画 | 匿名阅读，支持合集章节与自动换线 |
-| 哔咔漫画 | 漫画 | 自行配置账号，或确认后自动注册专用账号 |
-| Hanime1 | 视频 | 首次使用可能需要通过 Cloudflare 验证 |
-| MissAV | 视频 | 支持多清晰度播放与 Android 离线下载 |
-| 黄果短剧 | 视频 | 分集播放、独立续播进度与 Android 逐集 MP4 下载 |
+> 仅限成年人在当地法律允许的范围内使用。内容来自第三方站点。
 
-源站以插件形式加载，可在设置中添加第三方源。官方源支持自动更新，也可在「源站管理」中手动检查更新。
+## 下载与开始使用
 
-## 功能
+在 **[最新版本](https://github.com/drdon1234/Hentai-Park/releases/latest)** 下载并安装 Android APK。大多数手机和平板选择 `arm64-v8a`；模拟器通常选择 `x86_64`。
 
-- **聚合搜索**：一次搜索所有源站；粘贴链接或输入车号（如 `JM350234`）直接打开作品
-- **多语言搜索**：自动把关键词翻译成中 / 日 / 韩 / 英等多种语言一起搜索
-- **书架与更新**：多分类收藏，自动检查连载更新并推送通知，可自动下载新章节
-- **阅读器**：条漫 / 翻页 / 日漫模式，双页、裁白边、护眼滤镜，音量键翻页
-- **视频播放**：选集、自动下一集与每集独立续播；清晰度切换、倍速、记忆播放进度；左右侧上下滑动调整亮度与音量，横向拖动调整进度；支持横屏及竖屏全屏、正反方向旋转
-- **下载**：按章节下载漫画，选择画质逐集下载视频并保存为 MP4；完成的集可单独离线播放，支持导入导出 CBZ
-- **换源迁移**：把收藏迁移到另一个源，保留阅读进度
-- **屏蔽标签**：自定义屏蔽，并提供可按需启用的预设分组
-- **隐私保护**：应用锁、无痕模式、封面模糊、防截屏
-- **备份恢复**：一键备份书库、进度与设置，支持定时自动备份
-- **八语言界面**：简体中文、繁体中文、日语、韩语、英语、西班牙语、俄语、阿拉伯语；支持跟随系统和即时切换，阿拉伯语采用从右到左布局
+1. **找内容**：打开「发现」，选择分类和站点，或直接搜索。
+2. **开始看**：打开作品阅读或播放，喜欢的内容加入「书架」。
+3. **接着看**：从最近浏览继续，或在「书架」「更新」中查看收藏与追更。
 
-## 下载
+需要登录的站点在「我的 → 源站管理」设置；部分站点可能需要 VPN 或代理。
 
-前往 [Releases](https://github.com/drdon1234/Hentai-Park/releases/latest) 下载最新版本。不确定选哪个时，大多数手机请选择 `arm64-v8a` 版本。
+<a id="screenshots"></a>
 
-## 开始使用
+## 界面预览
 
-1. 在「发现」选择源站，或使用搜索栏搜索作品、粘贴作品链接、输入车号。多语言搜索保留原始关键词和检测到的源语言，同时显示翻译关键词。
-2. 在「我的 → 语言 → 界面语言」选择语言。默认跟随系统；修改会立即生效并保存在本机，不影响作品原始标题、标签或已保存的用户数据。
-3. 在「我的 → 源站管理」启用、排序及配置源站。哔咔未配置账号时，「发现」会显示提示，可进入自行配置或启用专用自动维护账号。
-4. 开启哔咔「使用专用自动维护账号」时会弹出注册确认。确认后马上创建专用账号并登录，后续登录状态由应用维护。关闭开关会保留专用账号；重新开启可复用，已有手动账号不会被覆盖。注册失败可重试同一账号。
-5. 漫画详情页可以收藏、选择分类及下载章节；「书架」整理收藏，「更新」检查新章节，「历史」和继续阅读恢复进度。「我的 → 备份与恢复」可以导出数据，恢复时与当前数据合并。
+手机竖屏与平板横屏截图来自 MuMu 模拟器，以亮色模式展示；封面已模糊处理。
 
-视频页左侧上下滑动调亮度、右侧上下滑动调音量，横向滑动预览进度，松手后跳转。播放控制提供横屏和竖屏展开，旋转屏幕时操作区随显示方向调整。阅读器支持上下滚动、从左到右或从右到左翻页，阅读方向由阅读器设置决定。
+<p align="center">
+  <img src="docs/screenshots/home.jpg" alt="手机亮色：发现与分类浏览" width="32%">
+  <img src="docs/screenshots/search.jpg" alt="手机亮色：多站搜索" width="32%">
+  <img src="docs/screenshots/blocklist_presets.jpg" alt="手机亮色：内容屏蔽" width="32%">
+</p>
+<p align="center"><sub>发现 · 搜索 · 内容屏蔽</sub></p>
+
+<p align="center">
+  <img src="docs/screenshots/tablet_home.jpg" alt="平板亮色：侧栏导航与分类浏览" width="49%">
+  <img src="docs/screenshots/tablet_search.jpg" alt="平板亮色：多列搜索结果" width="49%">
+</p>
+<p align="center"><sub>平板横屏：更宽的浏览与搜索空间</sub></p>
+
+<details>
+<summary>暗色模式对比</summary>
+
+<p align="center">
+  <img src="docs/screenshots/home_dark.jpg" alt="手机暗色：发现与分类浏览" width="32%">
+</p>
+
+</details>
+
+## 主要功能
+
+| 功能 | 你可以做什么 |
+| --- | --- |
+| **浏览与搜索** | 按分类发现内容，同时搜索多个站点；用多语言关键词扩大搜索范围 |
+| **阅读与观看** | 漫画滚动、翻页或双页阅读；视频选集、倍速与续播；小说调整排版或朗读 |
+| **收藏与追更** | 收藏分组、保存进度，订阅作品、关键词、作者或频道的更新 |
+| **离线使用** | 下载支持的漫画、视频与小说；导入、导出 CBZ 漫画 |
+| **游戏资源** | 浏览游戏介绍、版本与下载链接，保存或导出下载文件 |
+| **翻译与筛选** | 翻译标题、简介和标签，屏蔽不想看的内容 |
+| **隐私与备份** | 应用锁、无痕模式、封面模糊、防截屏；备份收藏、进度与设置 |
+
+支持亮色、暗色主题及八种界面语言。各站点可用功能以应用内入口为准。
+
+## 支持的站点
+
+覆盖本子、漫画、美图、里番、JAV、成人视频、短视频、AI 短剧、小说和游戏，也可集中浏览订阅的创作者与频道。
+
+<details>
+<summary>展开站点列表</summary>
+
+| 分类 | 站点 |
+| --- | --- |
+| 本子 / 漫画 | E-Hentai / ExHentai、Pixiv、nhentai、禁漫天堂、WNACG、哔咔漫画 |
+| 美图 | CosplayTele、NudeCosplay、XiuRen、PixiBB、PornPics |
+| 里番 | Hanime1、Hanime.tv、Rule34Video |
+| JAV | MissAV、JableTV、SupJav、123AV |
+| 成人视频 | Pornhub、XVideos、91porn、iXXX、Thumbzilla、TubeSafari、SpankBang |
+| 短视频 | Pornhub Shorties、Fyptt、Tik.porn |
+| AI 短剧 | 黄果短剧、黄豆短剧、91短剧 |
+| 小说 | Book18、Cool18、Canovel、Literotica、Lush Stories、StoriesOnline、69story |
+| 游戏 | GalgameX、KUN Galgame、次元茶馆 |
+| 用户 / 频道订阅 | X / Twitter、Telegram、myfans.jp、pixivFANBOX |
+
+次元茶馆部分资源需要登录并回复解锁；点击解锁按钮会在原帖发送「感谢分享，好人一生平安」。
+
+</details>
+
+在「我的 → 源站管理」启用、排序或添加站点。软件与官方源站更新可按应用提示安装。
+
+<a id="faq"></a>
 
 ## 常见问题
 
-**哔咔 / ExHentai 无法使用？**
-哔咔需要自行配置账号或确认注册专用自动维护账号；ExHentai 需要网页登录，而且账号本身必须具备里站权限。
+**站点打不开，或图片、视频加载失败？** 先检查网络，必要时尝试 VPN 或在网络设置中配置代理。出现网页验证时，按提示完成后重试。
 
-**图片加载慢或失败？**
-可在设置中配置 HTTP 代理；禁漫 / 哔咔可尝试切换图片分流。
+**需要站点账号吗？** 部分站点需要登录或相应访问权限，应用会提示。可在「我的 → 源站管理」打开对应站点设置。
 
-**Hanime1 一直转圈？**
-按提示在内置浏览器中完成 Cloudflare 验证即可。
+**怎样接收更新提醒？** 在作品详情或「发现 → 订阅」添加订阅，再到「我的 → 订阅与通知设置」开启通知并授予系统权限。
 
-## 开发
+**换设备如何保留收藏和进度？** 在「我的 → 备份与恢复」导出备份，在新设备恢复。离线下载另行保存，站点账号可能需要重新登录。
 
-```bash
-flutter pub get
-flutter build apk --release --split-per-abi
-```
+**怎样反馈问题？** 在 [Issues](https://github.com/drdon1234/Hentai-Park/issues) 提供应用版本、站点名称和复现步骤；截图前隐藏账号与私人内容。
 
-想为新站点编写源插件，请参考 [源插件开发指南](docs/SOURCE_API.md)。内置源插件版本从 `0.0.1` 开始；应用版本与插件版本分别管理。
+---
+
+[AGPL-3.0 许可证](LICENSE) · [第三方声明](docs/licenses/README.md) · [开发说明](docs/DEVELOPMENT.md)

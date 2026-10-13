@@ -10,12 +10,18 @@ HentaiPark의 각 출처는 별도의 JavaScript 파일입니다. 앱은 런타�
 - 소스 스크립트는 앱의 헤드리스 WebView에서 실행됩니다(`DOMParser`를 포함한 최신 JS). 네이티브 계층이 암호화, Cookie 처리, 네이티브 HTTP 요청을 제공합니다. 네이티브 HTTP에는 CORS 제한이 없으며 브라우저 네트워크와 미디어 요청은 아래의 별도 규칙을 따릅니다.
 - 동일한 런타임([`assets/runtime/park_runtime.js`](../../../assets/runtime/park_runtime.js))을 Node에서도 실행할 수 있으며, 개발 중에 실제 사이트에서 직접 스모크 테스트를 수행할 수 있습니다.
 
-  ```bash
-  cd tools/source-runner && npm install
-  node ../../test/source-runner/smoke.mjs nhentai.js --keyword "tag:\"full color\""
-  ```
+루트에서 공유 runner 의존성을 설치한 뒤 무시되는 `test/source-smoke.mjs`를 아래 예제로 만드세요. 예제는 manifest만 로드합니다. 변경 소스의 홈·2페이지·검색·상세·표지 디코딩·챕터·미디어를 실제 검증하세요. Node 호스트는 개발 도구이며 신뢰하지 않는 스크립트용 보안 격리가 아닙니다.
 
-  `smoke.mjs`는 `test/source-runner/`에 있는 로컬 테스트 파일이며 저장소에 포함되지 않습니다. 각 feed(2페이지 포함), 검색, 무작위 작품, 상세 정보, 표지, 챕터, 첫 페이지와 마지막 페이지 이미지 다운로드를 순서대로 확인합니다.
+```js
+import { loadSource } from '../tools/source-runner/host.mjs';
+const { manifest } = await loadSource('nhentai.js');
+console.log(manifest.key, manifest.version);
+```
+
+```powershell
+npm ci --prefix 'tools/source-runner'
+node 'test/source-smoke.mjs'
+```
 
 ## 소스 등록
 
@@ -24,7 +30,8 @@ Park.register({
   key: 'mysite',              // 고유 식별자, 설치 후에는 변경할 수 없습니다.
   name: 'Example Source',
   version: '0.0.1',           // 창고의 버전 번호가 더 높으면 앱에 업데이트 메시지가 표시됩니다.
-  type: 'comic',              // comic | video
+  type: 'comic',              // comic | video | novel | game
+  category: 'doujin',         // doujin | anime | aiDrama | jav | adult | shortvideo | gallery | novel | game | other
   color: '#E5355F',           // 브랜드 색상: 소스 입구 카드 및 소스 페이지 테마 색상에 사용됩니다.
   description: 'Example source description',
   homepage: 'https://example.com',
@@ -32,7 +39,7 @@ Park.register({
   linkPatterns: ['example\\.com/g/(\\d+)'],   // 집계 검색에 링크를 붙여넣을 때 직접 액세스에 사용됩니다. 첫 번째 그룹은 작업 ID입니다.
   idPattern: '^(\\d+)$',                      // 번호를 직접 입력할 때 바로 접속을 위해 사용됩니다.
   imageHeaders: { Referer: 'https://example.com/' },  // 표지와 사진을 로드할 때 기본적으로 수행됨
-  network: { mode: 'native' },                // "네트워크" 섹션을 참조하세요.
+  network: { mode: 'native', vpnHint: true },                // "네트워크" 섹션을 참조하세요.
   media: { mode: 'browser', origin: 'https://example.com', domains: ['media.example.com'] },  // 선택적 HLS 미디어 권한, 아래 참고
 
   settings: [ /* option definitions */ ],
@@ -48,13 +55,38 @@ Park.register({
   async feed(key, { page, cursor, options }) {},
   async search({ keyword, page, cursor, filters }) {},
   async random() {},                          // 작업 ID를 반환합니다.
-  async detail(id) {},
+  async detail(id, preview) {},
   async chapter(id, chapterId) {},            // 만화
   async resolveImage({ id, chapterId, index, token, retry }) {},  // 선택 사항: 이미지 구문 분석 지연
   async thumbnails(id, page) {},              // 선택 사항: 페이지에 미리보기 축소판 로드
   async videos(id, episodeId = '_') {},                        // 동영상
 });
 ```
+
+`type`은 읽기 또는 재생을 결정하고 `category`는 홈, 소스 관리, 검색 분류를 결정합니다. 알 수 없거나 선언하지 않은 분류는 기타입니다. 기본 피드는 추천, 순위, 인기 순서로 선택하며 모두 없을 때만 최신을 사용합니다.
+
+AI 숏드라마는 `category: 'aiDrama'`를 사용하며 이전 `drama` 식별자는 허용하지 않습니다. 사이트 채널 이름은 앱 분류와 독립적이며 원래 이름을 유지합니다. 앱 분류는 사이트 채널을 자동으로 제외하지 않습니다.
+
+`adult`는 Pornhub, XVideos, 91porn 같은 종합 성인 동영상 사이트의 분류이며 `type: 'video'`를 선언합니다. JAV 전문 사이트는 `jav`를 사용합니다. 분류는 사이트 태그나 사용자 필터를 대체하지 않습니다.
+
+통합 동영상 소스도 `type: 'video', category: 'adult'`를 선언합니다. 검증된 미디어 API가 없으면 `videos`를 구현하지 않으며 `capabilities.videos: false`가 됩니다. 상세 화면은 `detail.url`을 시스템 브라우저로 열고 재생·다운로드·회차를 숨기며 가상 장 동기화와 업데이트 확인을 건너뜁니다. 즐겨찾기와 기록은 유지합니다. 선택적 `detail(id, preview)`는 소스와 ID가 일치하는 공개 메타데이터만 받으며 소스가 ID와 URL을 다시 검증합니다. iXXX는 알려진 추적 매개변수를 제거한 상위 URL, TubeSafari는 상위 key를 안정 ID로 사용하며 소스 Cookie로 외부 작품을 요청하지 않습니다. 미리 보기 없는 직접 참조도 열 수 있으나 제목과 표지가 없을 수 있습니다. Thumbzilla는 MP4 메타데이터만 정적으로 분석하고 미디어 도메인을 제한합니다.
+
+`gallery`는 일러스트, 코스플레이 및 화보 분류입니다. 이미지 소스는 `type: 'comic'`을 사용하고 한 갤러리를 한 작품으로 취급하며 `chapter()`로 이미지를 순서대로 반환합니다. 기존 읽기, 라이브러리 및 다운로드를 사용합니다. 이미지 수나 수위로 분류하지 않습니다.
+
+암호화 이미지는 `imageDecrypt`로 선언합니다. 형식 검사와 캐시 저장 전에 복호화하며 설정을 캐시 식별에 포함하고 실패는 저장하지 않습니다. AES-CBC와 엄격한 PKCS#7 패딩을 지원합니다. `key`와 `iv`는 UTF-8로 인코딩하고 이미지 도메인을 제한해야 합니다. 다른 도메인의 이미지는 변경하지 않습니다.
+
+```js
+imageDecrypt: {
+  type: 'aes-cbc',
+  key: '0123456789abcdef', // UTF-8: 16, 24 or 32 bytes
+  iv: '0123456789abcdef',  // UTF-8: 16 bytes
+  domains: ['images.example.com'],
+},
+```
+
+네트워크 오류에는 안전한 `diagnostics` 필드 `host`, `transport`, `reason`을 포함하여 인증서, 핸드셰이크, DNS, 연결, 시간 초과를 구분합니다. 자동 로그는 허용 필드만 기록하며 원문 메시지, 인증 정보, 요청 본문, 서명 URL은 기록하지 않습니다.
+
+`reason: 'TLS_HANDSHAKE_TERMINATED'`는 네이티브 `HandshakeException.message`가 `Connection terminated during handshake`와 정확히 일치할 때만 사용합니다. 인증서 검증 실패가 아니라 TLS 핸드셰이크 완료 전 연결 종료를 뜻합니다. 본문 없는 HTTPS GET / HEAD 요청만 이 오류에 한 번 재시도합니다. 취소, 인증서 실패, 다른 TLS 오류, HTTP 오류, 응답 읽기 오류는 재시도하지 않습니다. 다시 실패하면 호스트와 VPN·프록시 경로 확인 안내를 표시하고 안전한 진단 필드만 기록합니다.
 
 이 방법에서는 `this`를 사용하여 다음에 액세스할 수 있습니다.
 
@@ -64,7 +96,7 @@ Park.register({
 | `this.config` | 소스 설정에서 사용자가 선택한 값(설정되지 않은 경우 `default`) |
 | `this.store` | 영구 키-값 저장: `get(key, fallback)` / `set(key, value)`, 토큰, 도메인 이름 목록 등을 저장하는 데 사용됩니다. `await flush()`는 디스크 쓰기가 성공했는지 확인하고 실패하면 오류를 발생시킵니다. |
 | `this.cookies` | `get(url)` / `set(url, {name: value})` / `clear(url)` |
-| `this.log(...)` | 앱의 "실행 로그"에 쓰기 |
+| `this.log({code, host, transport, reason})` | 허용된 구조화 필드만 저장하며 자유 텍스트는 버립니다. |
 
 전역 도구:
 
@@ -102,7 +134,7 @@ await this.http.request({
   hasNext: true,
   cursor: '12345',        // 선택 사항: 커서가 페이지를 넘기는 사이트(예: E-Hentai)는 다음 페이지 커서를 반환하고 앱은 다음에 요청할 때 이를 그대로 반환합니다.
 }
-// 또는 섹션 레이아웃(피드 레이아웃이 '섹션'인 경우):
+// sections를 반환하면 앱이 응답에 따라 섹션 레이아웃을 표시합니다.
 { sections: [{ title: 'Latest chapters', items: [WorkItem] }], hasNext: false }
 ```
 
@@ -143,7 +175,7 @@ await this.http.request({
 
 - 영상 소스는 `detail(id).chapters`에 재생 순서의 `[{id, title}]`을 반환합니다. 각 `id`는 안정적인 식별자여야 하며 화질명이나 임시 미디어 URL을 사용하면 안 됩니다. 앱은 같은 ID로 회차 선택, 개별 진행 상황, 다운로드와 이어보기를 관리하고 `videos(id, episodeId = '_')`로 해당 회차를 가져옵니다. 단일 영상은 `singleChapterId`를 사용하며 생략하면 `'_'`입니다.
 - `format`을 생략하면 기존의 직접 MP4 재생 및 다운로드 경로를 사용합니다. HLS 항목은 `format: 'hls'`를 명시하고 manifest에 아래의 `media` 권한을 선언해야 합니다.
-- HLS 마스터 재생목록(`#EXT-X-STREAM-INF`)은 먼저 호스트가 각 화질의 독립적인 세그먼트 재생목록으로 펼치고 `RESOLUTION`에서 실제 화질을 얻은 뒤 플레이어나 다운로더에 전달합니다. 마스터를 반환할 때 `quality`는 원하는 화질을 뜻하며, 기본적으로 해당 값 이하에서 가능한 가장 높은 화질을 선택합니다. 해당 항목이 없으면 최고 화질을 선택합니다. 각 변형은 오디오와 비디오가 함께 다중화된 MPEG-TS여야 합니다. 별도 `AUDIO`, `VIDEO`, `SUBTITLES` renditions와 `media.domains` 밖의 주소는 거부합니다.
+- HLS 마스터 재생목록(`#EXT-X-STREAM-INF`)은 먼저 호스트가 각 화질의 독립적인 세그먼트 재생목록으로 펼치고 `RESOLUTION`에서 실제 화질을 얻은 뒤 플레이어나 다운로더에 전달합니다. 마스터를 반환할 때 `quality`는 원하는 화질을 뜻하며, 기본적으로 해당 값 이하에서 가능한 가장 높은 화질을 선택합니다. 해당 항목이 없으면 최고 화질을 선택합니다. 각 변형은 오디오와 비디오가 함께 다중화된 MPEG-TS여야 합니다. 별도 `AUDIO`, `VIDEO`, `SUBTITLES` renditions와 `media.domains` 밖의 주소는 거부합니다. 선택적인 `#EXT-X-I-FRAME-STREAM-INF` 미리 보기 트랙은 무시되며 주소를 등록하거나 요청하지 않습니다. 단일 미디어 재생 목록의 해상도를 알 수 없으면 `label: '原画'`를 제공합니다. 라벨은 UI 언어로 번역되며 요청 화질을 실제 해상도로 표시하지 않습니다.
 - 확장된 HLS는 `#EXT-X-ENDLIST`가 있는 완전하고 연속적인 MPEG-TS VOD만 지원합니다. `METHOD=AES-128`, `KEYFORMAT=identity`(생략 시에도 identity)의 CBC/PKCS7 복호화를 지원합니다. 키는 정확히 16바이트이고 IV는 명시적인 128비트 값 또는 세그먼트 미디어 시퀀스에서 생성합니다. 키는 세션 메모리에만 보관하며 복호화한 TS는 재생과 다운로드의 공통 처리 과정에서 검증합니다. 라이브, SAMPLE-AES, 다른 KEYFORMAT, `EXT-X-MAP`, `EXT-X-BYTERANGE`, fMP4, discontinuity와 gap은 지원하지 않습니다. MissAV의 비표준 `#EXT-X-TOKEN`은 제거합니다.
 - 재생 시 `127.0.0.1`에만 바인딩한 무작위 포트와 토큰을 사용하며, 유한한 URL 등록 목록에서 검증된 세그먼트를 필요할 때 가져옵니다. 세션을 닫으면 요청을 취소합니다. HLS 오프라인 다운로드는 현재 Android에서만 지원합니다. 각 세그먼트를 검증하고 SHA-256을 저장하며 재개 시 다시 검증합니다. 취소를 지원하며, 마지막에 기기의 Media3로 MP4를 리먹싱한 후 완성된 파일만 오프라인 라이브러리에 등록합니다. iOS/macOS의 HLS 재생은 이번에 검증하지 않았으므로 검증된 기능으로 표기할 수 없습니다.
 
@@ -158,7 +190,7 @@ await this.http.request({
 // settings에서는 values 대신 options를 사용할 수도 있습니다.
 ```
 
-`feeds`의 각 항목은 소스 페이지 `{ key, label, layout?: 'grid' | 'sections', options?: [...] }`의 탭입니다.
+`feeds`의 각 항목은 소스 페이지 `{ key, label, options?: [...] }`의 탭입니다.
 
 `defaultFeed`는 소스 페이지를 열 때 처음 표시할 탭을 지정합니다. 값을 생략하거나 해당 key를 찾을 수 없으면, App은 key에 `promote` / `recommend` / `featured`가 포함된 추천 탭, `rank` / `toplist`가 포함된 순위 탭, `popular` / `hot` / `trending`이 포함된 인기 탭 순으로 선택합니다. 일치하는 탭이 없으면 첫 번째 탭을 엽니다.
 
@@ -187,6 +219,7 @@ media: { mode: 'native', origin: 'https://example.com', domains: ['media.example
 
 - 각 소스는 **독립적인** JS 환경(각각 인터페이스가 없는 WebView가 있음)에서 실행되며 소스는 서로의 전역 개체를 볼 수 없습니다. 네이티브 브리지는 호출이 어떤 환경에서 왔는지만 인식하며 스크립트는 다른 소스를 가장할 수 없습니다.
 - 각 소스에는 독립적인 쿠키 항아리가 있습니다. 소스에서 발행한 요청은 자체 쿠키만 가져와 저장하며 다른 소스의 로그인 상태는 읽지 않습니다.
+- Secure Cookie는 HTTP 요청으로 보내지 않습니다. 검증 페이지 접근과 브라우저 Cookie 가져오기는 설치된 소스의 `domains`를 기준으로 검증하며, 확인 가능한 보안 속성과 만료 시간을 보존합니다. 소스 Cookie를 지우거나 소스를 제거하면 관련 브라우저 세션을 닫고 해당 사이트의 브라우저 Cookie도 지웁니다. 브라우저 사이트 Cookie는 시스템에서 공유하므로 같은 사이트를 선언한 소스도 영향을 받습니다.
 - `domains`는 소스가 속한 사이트를 선언합니다. (도메인명은 등록 가능, 서브도메인명은 자동으로 포함됩니다.) 이러한 사이트의 쿠키만 내장 브라우저(Cloudflare 인증, 웹 로그인에 의해 공유됨)와 동기화되며 브라우저 모드의 `network.origin`도 해당 쿠키에 속해야 합니다. 생략할 경우 `homepage`, `network.origin`, `account.cookieUrl/loginUrl`에서 추론합니다.
 - 웹사이트나 웨어하우스에서 소스를 설치하는 경우 앱은 인터넷 연결이 불가능한 샌드박스의 스크립트 정보를 먼저 읽어서 사용자에게 이름, 버전, SHA-256, 선언된 사이트 및 위험 경고를 표시한 후 확인 후 설치합니다. 소스웨어하우스의 `index.json` 항목에는 `sha256` 필드가 포함될 수 있으며, 다운로드 내용이 일치하지 않을 경우 설치가 거부됩니다.
 
@@ -252,13 +285,13 @@ Flutter 인터페이스는 `tr('已选 {count}', {'count': count})` 또는 `cont
 
 `url`는 스크립트의 전체 주소입니다. `index.json`와 관련하여 `file`를 사용할 수도 있습니다. 타사 창고는 사용자 확인 후 수동으로 설치됩니다. `sha256`는 선택사항입니다. 다운로드한 콘텐츠는 제공 시 검증됩니다.
 
-공식 자동 업데이트는 엄격한 규칙을 채택합니다. 버전은 점으로 구분되고 앞에 0이 없는 3개의 세그먼트로 구성된 음수가 아닌 정수여야 합니다(예: `0.0.1`, `0.1.0`). 이는 세그먼트별로 번호별로 비교됩니다. 누락된 세그먼트, 여러 세그먼트 또는 시험판 접미사는 허용되지 않습니다. 스크립트 `sha256`의 원래 UTF-8 텍스트는 공백을 자르거나 줄 바꿈을 변환하지 않고 제공되어야 합니다. 스크립트에서 선언된 `key` 및 `version`는 인덱스와 일치해야 합니다. `apiVersion`는 현재 앱 런타임과 완전히 일치해야 합니다. 일치하지 않을 경우 자동 업데이트가 거부됩니다. 먼저 이 API를 지원하는 앱을 사용해야 합니다. 호환되는 분기가 제공되지 않습니다.
+공식 업데이트는 엄격한 규칙을 채택합니다. 버전은 점으로 구분되고 앞에 0이 없는 3개의 세그먼트로 구성된 음수가 아닌 정수여야 합니다(예: `0.0.1`, `0.1.0`). 이는 세그먼트별로 번호별로 비교됩니다. 누락된 세그먼트, 여러 세그먼트 또는 시험판 접미사는 허용되지 않습니다. 스크립트 `sha256`의 원래 UTF-8 텍스트는 공백을 자르거나 줄 바꿈을 변환하지 않고 제공되어야 합니다. 스크립트에서 선언된 `key` 및 `version`는 인덱스와 일치해야 합니다. `apiVersion`는 현재 앱 런타임과 완전히 일치해야 합니다. 일치하지 않을 경우 업데이트가 거부됩니다. 먼저 이 API를 지원하는 앱을 사용해야 합니다. 호환되는 분기가 제공되지 않습니다.
 
 ### 앱 공식 업데이트
 
-"Origin Site Management"는 기본적으로 "공식 소스 자동 업데이트"를 켜고 시작하거나 포그라운드로 돌아갈 때 12시간마다 확인합니다. 실패하면 잦은 재시도를 피하기 위해 확인 시간도 기록됩니다. 자동 업데이트를 끈 후에도 지금 업데이트 확인을 계속 사용할 수 있습니다. 설치된 내장 소스와 공식 온라인 소스만 업그레이드합니다. 새로운 소스를 자동으로 설치하지 않으며, 사용자가 설치한 동일한 이름의 타사 소스를 인수하지도 않습니다.
+시작할 때 공식 인덱스만 읽고 새 플러그인 버전이 있으면 확인을 요청합니다. 확인 전에는 다운로드하거나 설치하지 않습니다. 앱이 전면으로 돌아올 때는 실패한 요청도 포함하여 12시간 간격을 유지합니다. 두 자동 확인 옵션은 기본적으로 켜져 있으며 각각 꺼도 수동 확인은 가능합니다. 설치된 내장 및 공식 소스만 확인하며 타사 소스는 변경하지 않습니다.
 
-설치 중에 ID, 버전, API 및 다이제스트를 확인하고 업데이트를 완료하기 전에 초기화 및 상태 지속성이 성공할 때까지 기다립니다. 이전 스크립트 및 사용자 상태를 유지하지 못했습니다. 설치 중에 애플리케이션이 중단되면 다음에 시작할 때 복원됩니다. 새로운 온라인 버전은 내장 스크립트의 이전 버전이나 동일한 버전보다 우선하며, 새 설치 패키지는 더 높은 버전이 있을 때 정상적으로 업그레이드될 수 있습니다. "내장 소스 복원"은 현재 설치 패키지 버전으로 적극적으로 롤백할 수 있습니다. 나중에 자동 업데이트를 켜면 계속해서 공식 새 버전을 받을 수 있습니다.
+확인 후 소스 식별 정보, 버전, 출처, API와 SHA-256을 다시 검증하고 초기화와 상태 저장이 성공하면 설치를 완료합니다. 실패 시 기존 스크립트와 개인 데이터를 복구하고 중단된 설치는 다음 시작 시 복구합니다. 시작할 때 기존 플러그인을 내장 스크립트로 덮어쓰지 않습니다. 스크립트가 없어도 등록 정보와 데이터를 보존하며 새 플러그인에만 내장 스크립트를 처음 설치합니다. 내장 소스 복원도 확인이 필요합니다. Android에서는 확인 후 기기에 맞는 공식 APK를 앱에서 다운로드합니다. 크기, SHA-256, 패키지 이름, 버전과 서명을 검증하고 시스템 설치 화면을 열어 다시 확인합니다. 권한을 허용한 후 돌아와 설치 계속을 누르세요. 진행률, 취소와 재시도를 지원하며 실패 시 공식 페이지를 이용할 수 있습니다. 다른 플랫폼에서는 공식 페이지에서 직접 다운로드합니다.
 
 ### 공식 소스 공개
 
@@ -268,7 +301,9 @@ Flutter 인터페이스는 `tr('已选 {count}', {'count': count})` 또는 `cont
 https://raw.githubusercontent.com/drdon1234/Hentai-Park/sources/index.json
 ```
 
-`assets/sources/index.json`는 유지되는 유일한 소스 목록이고, `file`는 동일한 디렉터리에 있는 유일한 스크립트 소스 코드를 가리킵니다. 파일 이름은 `[A-Za-z0-9_-]+.js`를 준수해야 합니다. 파일 이름 본문의 하위 디렉터리, 기호 링크 또는 점은 허용되지 않으며 클라이언트의 공식 소스 주소 확인과 일치해야 합니다. `tools/publish_sources.mjs` 게시 인덱스 생성: 각 레코드에는 `key`, `name`, `version`, `description`, `url`, `sha256` 및 `apiVersion`. 스크립트 URL은 이 소스 코드의 전체 40자리 커밋 번호로 고정되어 있습니다.
+소스 `key`는 `[A-Za-z0-9_-]`만 허용하며 길이는 1–100입니다. 예약된 `_app`은 사용할 수 없고 스크립트 파일명은 `{key}.js`여야 합니다.
+
+`assets/sources/index.json`는 유지되는 유일한 소스 목록이고, `file`는 동일한 디렉터리에 있는 유일한 스크립트 소스 코드를 가리킵니다. 파일 이름은 `[A-Za-z0-9_-]+.js`를 준수해야 합니다. 파일 이름 본문의 하위 디렉터리, 기호 링크 또는 점은 허용되지 않으며 클라이언트의 공식 소스 주소 확인과 일치해야 합니다. `tools/publish_sources.mjs` 게시 인덱스 생성: 각 레코드에는 `key`, `name`, `version`, `category`, `description`, `url`, `sha256` 및 `apiVersion`. 스크립트 URL은 이 소스 코드의 전체 40자리 커밋 번호로 고정되어 있습니다.
 
 ```text
 https://raw.githubusercontent.com/drdon1234/Hentai-Park/<源码提交 SHA>/assets/sources/<file>
@@ -287,3 +322,64 @@ node tools/publish_sources.mjs --commit '<完整 40 位源码提交 SHA>' --outp
 기존 릴리스를 확인해야 하는 경우 `--previous '旧索引本地路径'`를 전달합니다. 이전 인덱스가 유효하지 않아 확인에 실패하면 버전 보호가 자동으로 건너뛰지 않습니다. 작업공간에 커밋되지 않은 수정 사항이 있는 경우 로컬 결과는 미리 보기에만 사용됩니다. 공식 릴리스는 워크플로에서 체크아웃한 소스 코드를 제출하여 생성됩니다.
 
 `.github/workflows/publish-sources.yml` 기본 저장소 기본값 `main` 분기 관련 파일이 푸시되거나 `main`에서 수동으로 트리거되는 경우에만 실행됩니다. 워크플로는 순차적으로 실행되며 최신 `main`는 다음에서 체크아웃됩니다. 각 작업의 시작과 스크립트 주소 및 릴리스 기록은 실제 체크아웃된 커밋 번호로 고정됩니다. 작업이 실행되는 동안 후속 문서 제출은 게시를 방해하지 않습니다. 후속 소스 파일 제출은 다음 직렬 작업을 트리거합니다. 워크플로는 먼저 기존의 안정적인 인덱스를 다운로드하고 모든 오프라인 확인을 완료한 다음 일반 Git을 사용하여 원자 업데이트를 `sources` 분기에 푸시합니다. `sources` 분기에서 확인이 실패하거나 동시 변경이 발생하면 온라인 인덱스를 덮어쓰지 않습니다. 안정적인 색인 없이 처음으로 출판물을 만들 수 있습니다. 릴리스에서는 스크립트와 인덱스가 위의 검증을 통과했음을 나타냅니다. 사이트 액세스, 계정 로그인, 이미지 또는 비디오 로딩은 여전히 ​​별도로 확인해야 합니다.
+
+
+`type: 'video', category: 'shortvideo'` 는 전체 화면 세로 피드를 활성화합니다. 각 작품은 동영상 하나이며 `videos(id, '_')` 는 유효한 최신 미디어를 반환합니다. `feed` 의 `hasNext`와 `cursor`로 자동 페이지를 로드하고 인증 정보나 서명된 미디어 주소는 커서에 넣지 않습니다. 현재 항목만 재생하고 다음은 정지 상태로 미리 로드하며 나머지 플레이어는 취소 및 해제합니다. 검증된 검색 인터페이스가 없으면 `search`를 선언하지 않습니다.
+
+
+선택적인 `imageNetwork`는 `mode: browser`, HTTPS `origin`, `domains`로 이미지 전송을 선언합니다. 출처 도메인 안에서만 허용하며 허용된 헤더만 사용하고 인증 정보 및 리디렉션 없이 이미지당 20 MiB로 제한합니다. 복호화, 형식 검사, 디코딩, 분리 캐시는 유지합니다. Tik.porn 페이지와 API는 각자의 동일 출처 세션을 사용하고 재생은 MP4입니다.
+
+
+## 소설 읽기
+
+`type: 'novel', category: 'novel'` · `capabilities.textChapter: true`
+
+`textChapter(id, chapterId)`는 비어 있지 않은 일반 텍스트 `{title?, paragraphs: [String]}`를 반환합니다. 목록·상세는 `mediaKind: 'novel'`, `language: 'zh'` 또는 `'en'`을 유지하며 표지가 없으면 빈 문자열입니다. 같은 장의 페이지만 합치고 답글·다른 장·광고는 제외합니다. 권한으로 잘린 본문은 `LOGIN_REQUIRED`를 반환합니다. 장은 안정적인 ID와 사이트 순서, 단편은 `chapters: null`을 사용합니다. `Park.html.paragraphs(node)`가 텍스트를 추출하고 장마다 `text.json`을 원자적으로 저장합니다. 진행률·주석은 원문 UTF-16 위치를 사용합니다. 책갈피는 별도 저장하며 서재 백업에 포함합니다.
+
+`paragraphs.join('\n\n')` → UTF-16
+
+
+## 구독 프로토콜
+
+`subscription.normalize`와 `subscription.posts`를 함께 선언하면 `capabilities.subscription`이 생성되어 독립 구독 화면에 표시됩니다. 사이트 로직은 플러그인에 둡니다. `normalize`는 로그인·통신 없이 사이트 사용자명 또는 통제된 프로필 URL을 검증합니다. 선택적 `resolve`는 온라인 확인, `targets`는 가입 대상을 반환하며 `subscription.joinedTargets: true`를 생성합니다. 커서는 불투명 문자열, `hasNext: false`는 마지막 페이지이며 빈 페이지도 계속될 수 있습니다. `locked`는 권한 부족, `previewOnly`는 미리보기를 명시합니다.
+
+```js
+subscription: {
+  normalize(input) { return { id: validatedTarget, label: displayName }; },
+  async resolve(input) { return { id: validatedTarget, label: displayName }; },
+  async targets() { return [{ id: joinedTarget, label: displayName }]; },
+  async posts(target, { cursor }) {
+    return {
+      items: [{ id, title, text, date, url, locked, media: [
+        { type: 'image', url, preview, previewOnly: false },
+        { type: 'video', url, preview, format: 'mp4', headers: {} },
+        { type: 'image', resource: { cacheKey, size } },
+      ] }],
+      cursor: nextCursor, hasNext: true,
+    };
+  },
+  async mediaChunk(resource, offset) { return { base64, done }; },
+}
+```
+
+직접 URL이 없는 인증 첨부는 `media[].resource`에 정수 `size`와 비밀이 아닌 안정적인 `cacheKey`를 지정합니다. 만료되는 참조·인증 정보로 키를 바꾸지 않습니다. `subscription.mediaChunk(resource, offset)`는 `{base64, done}`을 반환하며 최대128 KiB, 정렬된 오프셋과 완전한 중간 블록, 첨부 최대512 MiB를 지킵니다. 호스트가 총량을 검증하고 자체 캐시에 원자적으로 기록합니다. 리소스는 경로를 지정할 수 없으며 사용 중 파일은 보호됩니다. 백업 대상에는 서명 URL·resource를 저장하지 않습니다.
+
+기존 세션은 `account.type: 'session'`와 비밀 필드로 받으며 분리하지 않고 플러그인이 검증합니다. 실제 인증을 확인해야 로그인 성공이며 저장으로 자동 팔로우·가입하지 않습니다. 네이티브 `bodyBase64`는 최대2 MiB이며 body·브라우저 모드와 함께 사용할 수 없습니다. base64 응답 가능. `digestBytes('sha1'|'sha256', bytes)`는 최대2 MiB 정수 바이트, `randomBytes(length)`는1–65536입니다. TLS, 도메인 분리와 리디렉션 제한을 유지하며 임의 브라우저 통신·WebSocket·파일을 열지 않습니다.
+
+[구독](../../SUBSCRIPTIONS.md)
+
+subscription과 feeds를 함께 선언한 소스는 일반 카테고리에도 표시됩니다. feed/search 항목의 presentation:'post', text, date, url, media 배열은 게시물 카드를 구성하며 presentation:'media'는 격자를 사용합니다. mediaKind와 coverAspect는 항목의 미디어를 설명하고 이미지 모음은 페이지 전환을 지원합니다. network.confirmation:{selector,readySelector,requiredCookies,message}는 확인 창, 본문 표시와 필수 Cookie를 선언합니다. CONFIRM_REQUIRED 후 확인 창이 사라지고 본문과 Cookie가 준비되며 탐색이 안정된 뒤 돌아옵니다. 사용자 대신 확인하지 않습니다.
+
+
+## 게임
+
+게임 소스는 `type:game`, `category:game`, `mediaKind:game`을 선언합니다. `gameResources(workId)`는 안정 ID와 채널 `{id,kind:direct|external,label,size}`을 반환하며 다운로드 URL을 포함하지 않습니다. `resolveGameResource(workId,resourceId,channelId)`는 클릭이나 재시도 시 `{kind,url,urls?,filename?,extractionCode,archivePassword}`를 반환합니다. 직접 전송은 HTTPS native `media` 도메인 허용 목록이 필요하며 모든 리디렉션을 확인하고 Cookie를 보내지 않습니다. 모든 미러와 분할 파일을 유지하세요. 게임은 읽기 장이나 장 업데이트를 생성하지 않습니다. 임시 URL은 저장하거나 로그에 남기지 않습니다.
+
+GalgameX → KUN Galgame. [game-domain.md](../../game-domain.md)
+
+
+## 차원 찻집 게임 자료
+
+차원 찻집은 GalgameX와 KUN 다음에 표시되며 Galgame 인기 게시물을 사용합니다. 앱에서 로그인한 뒤 해제 버튼을 누르면 “感谢分享，好人一生平安”을 보냅니다. 목록과 상세는 읽기 전용이며 이미 해제된 게시물에는 다시 댓글을 달지 않습니다. 전송 결과가 불확실하면 계정과 게시물별로 상태를 저장하고 재시작 후에도 자동 재전송하지 않습니다. 원문에서 확인해야 합니다. 동적 인증은 사이트에서 처리합니다. 원본 클라우드 링크, 각 링크의 코드와 압축 암호를 보존합니다. 데스크톱 로그인은 앱과 별개입니다.
+
+`GameChannel`: `requiresReply: true`, `replyText`. `resolveGameResource`: `extractionCodes` aligned with `urls` (empty string: no code), or shared `extractionCode`. `CONFIRM_REQUIRED` → original post URL.

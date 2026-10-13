@@ -1,88 +1,117 @@
-[簡體中文](../../../README.md) · [繁體中文](README.md) · [日本語](../ja/README.md) · [한국어](../ko/README.md) · [English](../en/README.md) · [Español](../es/README.md) · [Русский](../ru/README.md) · [العربية](../ar/README.md)
+[简体中文](../../../README.md) · [繁體中文](README.md) · [日本語](../ja/README.md) · [한국어](../ko/README.md) · [English](../en/README.md) · [Español](../es/README.md) · [Русский](../ru/README.md) · [العربية](../ar/README.md)
 
 <p align="center">
   <img src="../../images/banner.svg" alt="HentaiPark" width="100%">
 </p>
 
-<div align="center">
-
-[![Release](https://img.shields.io/github/v/release/drdon1234/Hentai-Park?label=下載)](https://github.com/drdon1234/Hentai-Park/releases/latest)
-![Android](https://img.shields.io/badge/Android-7.0%2B-3DDC84?logo=android&logoColor=white)
-![Flutter](https://img.shields.io/badge/Flutter-02569B?logo=flutter&logoColor=white)
-
-</div>
-
-> [!WARNING]
-> 本應用涉及成人內容，僅限成年人在當地法律允許的範圍內使用。所有內容均來自第三方站點，App 本身不儲存也不提供任何內容。
-
-## 截圖
+<p align="center"><strong>漫畫、圖集、影片、小說與遊戲，一個應用輕鬆瀏覽。</strong></p>
 
 <p align="center">
-  <img src="../../screenshots/home.jpg" width="24%">
-  <img src="../../screenshots/multi_language_search.jpg" width="24%">
-  <img src="../../screenshots/continue_reading.jpg" width="24%">
-  <img src="../../screenshots/blocklist_presets.jpg" width="24%">
+  <a href="https://github.com/drdon1234/Hentai-Park/releases/latest"><img src="https://img.shields.io/github/v/release/drdon1234/Hentai-Park?label=Download&color=e5355f" alt="下載應用"></a>
+  <img src="https://img.shields.io/badge/Android-7.0%2B-3DDC84?logo=android&logoColor=white" alt="Android 7.0+">
 </p>
 
-## 支援的源站
+<p align="center">
+  <a href="https://github.com/drdon1234/Hentai-Park/releases/latest">下載應用</a> ·
+  <a href="#screenshots">介面預覽</a> ·
+  <a href="#faq">常見問題</a> ·
+  <a href="https://github.com/drdon1234/Hentai-Park/issues">回報問題</a>
+</p>
 
-| 源站 | 型別 | 說明 |
-|------|------|------|
-| E-Hentai / ExHentai | 漫畫 | 網頁登入後可切換裡站 |
-| nhentai | 漫畫 | |
-| 禁漫天堂 | 漫畫 | 支援車號直達，線路自動切換 |
-| WNACG（紳士漫畫） | 漫畫 | 匿名閱讀，支援合集章節與自動換線 |
-| 嗶咔漫畫 | 漫畫 | 自行配置賬號，或確認後自動註冊專用賬號 |
-| Hanime1 | 影片 | 首次使用可能需要透過 Cloudflare 驗證 |
-| MissAV | 影片 | 支援多畫質播放與 Android 離線下載 |
-| 黃果短劇 | 影片 | 分集播放、獨立續播進度與 Android 逐集 MP4 下載 |
+> 僅限成年人在當地法律允許的範圍內使用。內容來自第三方站點。
 
-源站以外掛形式載入，可在設定中新增第三方源。官方來源支援自動更新，也可在「源站管理」中手動檢查更新。
+## 下載與開始使用
 
-## 功能
+在 **[最新版本](https://github.com/drdon1234/Hentai-Park/releases/latest)** 下載並安裝 Android APK。大多數手機和平板選擇 `arm64-v8a`；模擬器通常選擇 `x86_64`。
 
-- **聚合搜尋**：一次搜尋所有源站；貼上連結或輸入車號（如 `JM350234`）直接開啟作品
-- **多語言搜尋**：自動把關鍵詞翻譯成中 / 日 / 韓 / 英等多種語言一起搜尋
-- **書架與更新**：多分類收藏，自動檢查連載更新並推送通知，可自動下載新章節
-- **閱讀器**：條漫 / 翻頁 / 日漫模式，雙頁、裁白邊、護眼濾鏡，音量鍵翻頁
-- **影片播放**：選集、自動下一集與每集獨立續播；清晰度切換、倍速、記憶播放進度；左右側上下滑動調整亮度與音量，橫向拖動調整進度；支援橫屏及豎屏全屏、正反方向旋轉
-- **下載**：按章節下載漫畫，選擇畫質逐集下載影片並儲存為 MP4；完成的集可單獨離線播放，支援匯入匯出 CBZ
-- **換源遷移**：把收藏遷移到另一個源，保留閱讀進度
-- **遮蔽標籤**：自定義遮蔽，並提供可按需啟用的預設分組
-- **隱私保護**：應用鎖、無痕模式、封面模糊、防截圖
-- **備份恢復**：一鍵備份書庫、進度與設定，支援定時自動備份
-- **八語言介面**：簡體中文、繁體中文、日語、韓語、英語、西班牙語、俄語、阿拉伯語；支援跟隨系統和即時切換，阿拉伯語採用從右到左佈局
+1. **找內容**：開啟「發現」，選擇分類與站點，或直接搜尋。
+2. **開始看**：開啟作品閱讀或播放，喜歡的內容加入「書架」。
+3. **接著看**：從最近瀏覽繼續，或在「書架」「更新」查看收藏與追更。
 
-## 下載
+需要登入的站點可在「我的 → 源站管理」設定；部分站點可能需要 VPN 或代理。
 
-前往 [Releases](https://github.com/drdon1234/Hentai-Park/releases/latest) 下載最新版本。不確定選哪個時，大多數手機請選擇 `arm64-v8a` 版本。
+<a id="screenshots"></a>
 
-## 開始使用
+## 介面預覽
 
-1. 在「發現」選擇源站，或使用搜尋欄搜尋作品、貼上作品連結、輸入車號。多語言搜尋保留原始關鍵詞和檢測到的源語言，同時顯示翻譯關鍵詞。
-2. 在「我的 → 語言 → 介面語言」選擇語言。預設跟隨系統；修改會立即生效並儲存在本機，不影響作品原始標題、標籤或已儲存的使用者資料。
-3. 在「我的 → 源站管理」啟用、排序及配置源站。嗶咔未配置賬號時，「發現」會顯示提示，可進入自行配置或啟用專用自動維護賬號。
-4. 開啟嗶咔「使用專用自動維護賬號」時會彈出註冊確認。確認後馬上建立專用賬號並登入，後續登入狀態由應用維護。關閉開關會保留專用賬號；重新開啟可複用，已有手動賬號不會被覆蓋。註冊失敗可重試同一賬號。
-5. 漫畫詳情頁可以收藏、選擇分類及下載章節；「書架」整理收藏，「更新」檢查新章節，「歷史」和繼續閱讀恢復進度。「我的 → 備份與恢復」可以匯出資料，恢復時與當前資料合併。
+手機直向與平板橫向截圖來自 MuMu 模擬器，以亮色模式展示；封面已模糊處理。
 
-影片頁左側上下滑動調亮度、右側上下滑動調音量，橫向滑動預覽進度，鬆手後跳轉。播放控制提供橫屏和豎屏展開，旋轉螢幕時操作區隨顯示方向調整。閱讀器支援上下滾動、從左到右或從右到左翻頁，閱讀方向由閱讀器設定決定。
+<p align="center">
+  <img src="../../screenshots/home.jpg" alt="手機亮色：發現與分類瀏覽" width="32%">
+  <img src="../../screenshots/search.jpg" alt="手機亮色：多站搜尋" width="32%">
+  <img src="../../screenshots/blocklist_presets.jpg" alt="手機亮色：內容封鎖" width="32%">
+</p>
+<p align="center"><sub>發現 · 搜尋 · 內容封鎖</sub></p>
+
+<p align="center">
+  <img src="../../screenshots/tablet_home.jpg" alt="平板亮色：側欄導覽與分類瀏覽" width="49%">
+  <img src="../../screenshots/tablet_search.jpg" alt="平板亮色：多欄搜尋結果" width="49%">
+</p>
+<p align="center"><sub>平板橫向：更寬的瀏覽與搜尋空間</sub></p>
+
+<details>
+<summary>暗色模式對比</summary>
+
+<p align="center">
+  <img src="../../screenshots/home_dark.jpg" alt="手機暗色：發現與分類瀏覽" width="32%">
+</p>
+
+</details>
+
+## 主要功能
+
+| 功能 | 你可以做什麼 |
+| --- | --- |
+| **瀏覽與搜尋** | 按分類發現內容，同時搜尋多個站點；以多語言關鍵字擴大搜尋範圍 |
+| **閱讀與觀看** | 漫畫捲動、翻頁或雙頁閱讀；影片選集、倍速與續播；小說調整排版或朗讀 |
+| **收藏與追更** | 收藏分組、儲存進度，訂閱作品、關鍵字、作者或頻道更新 |
+| **離線使用** | 下載支援的漫畫、影片與小說；匯入、匯出 CBZ 漫畫 |
+| **遊戲資源** | 瀏覽遊戲介紹、版本與下載連結，儲存或匯出下載檔案 |
+| **翻譯與篩選** | 翻譯標題、簡介和標籤，封鎖不想看的內容 |
+| **隱私與備份** | 應用鎖、無痕模式、封面模糊、防截圖；備份收藏、進度與設定 |
+
+支援亮色、暗色主題及八種介面語言。各站點可用功能以應用內入口為準。
+
+## 支援的站點
+
+涵蓋本子、漫畫、美圖、成人動畫、JAV、成人影片、短影片、AI 短劇、小說和遊戲，也可集中瀏覽訂閱的創作者與頻道。
+
+<details>
+<summary>展開站點清單</summary>
+
+| 分類 | 站點 |
+| --- | --- |
+| 本子 / 漫畫 | E-Hentai / ExHentai、Pixiv、nhentai、禁漫天堂、WNACG、哔咔漫画 |
+| 美圖 | CosplayTele、NudeCosplay、XiuRen、PixiBB、PornPics |
+| 成人動畫 | Hanime1、Hanime.tv、Rule34Video |
+| JAV | MissAV、JableTV、SupJav、123AV |
+| 成人影片 | Pornhub、XVideos、91porn、iXXX、Thumbzilla、TubeSafari、SpankBang |
+| 短影片 | Pornhub Shorties、Fyptt、Tik.porn |
+| AI 短劇 | 黄果短剧、黄豆短剧、91短剧 |
+| 小說 | Book18、Cool18、Canovel、Literotica、Lush Stories、StoriesOnline、69story |
+| 遊戲 | GalgameX、KUN Galgame、次元茶馆 |
+| 使用者 / 頻道訂閱 | X / Twitter、Telegram、myfans.jp、pixivFANBOX |
+
+次元茶館部分資源需要登入並回覆解鎖；點擊解鎖按鈕會在原帖發送「感谢分享，好人一生平安」。
+
+</details>
+
+在「我的 → 源站管理」啟用、排序或新增站點。軟體與官方源站更新可依應用提示安裝。
+
+<a id="faq"></a>
 
 ## 常見問題
 
-**嗶咔 / ExHentai 無法使用？**
-嗶咔需要自行配置賬號或確認註冊專用自動維護賬號；ExHentai 需要網頁登入，而且賬號本身必須具備裡站許可權。
+**站點無法開啟，或圖片、影片載入失敗？** 先檢查網路，必要時嘗試 VPN 或在網路設定中配置代理。出現網頁驗證時，依提示完成後重試。
 
-**圖片載入慢或失敗？**
-可在設定中配置 HTTP 代理；禁漫 / 嗶咔可嘗試切換圖片分流。
+**需要站點帳號嗎？** 部分站點需要登入或相應存取權限，應用會提示。可在「我的 → 源站管理」開啟對應站點設定。
 
-**Hanime1 一直轉圈？**
-按提示在內建瀏覽器中完成 Cloudflare 驗證即可。
+**如何接收更新提醒？** 在作品詳情或「發現 → 訂閱」新增訂閱，再到「我的 → 訂閱與通知設定」開啟通知並授予系統權限。
 
-## 開發
+**換裝置如何保留收藏與進度？** 在「我的 → 備份與還原」匯出備份，在新裝置還原。離線下載另行儲存，站點帳號可能需要重新登入。
 
-```bash
-flutter pub get
-flutter build apk --release --split-per-abi
-```
+**如何回報問題？** 在 [Issues](https://github.com/drdon1234/Hentai-Park/issues) 提供應用版本、站點名稱與重現步驟；截圖前隱藏帳號與私人內容。
 
-想為新站點編寫源外掛，請參考 [源外掛開發指南](SOURCE_API.md)。內建源外掛版本從 `0.0.1` 開始；應用版本與外掛版本分別管理。
+---
+
+[AGPL-3.0 授權](../../../LICENSE) · [第三方聲明](../../licenses/README.md) · [開發說明](../../DEVELOPMENT.md)
