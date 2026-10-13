@@ -9,8 +9,9 @@
 Park.register({
   key: 'hanime1',
   name: 'Hanime1',
-  version: '0.0.1',
+  version: '0.0.3',
   type: 'video',
+  category: 'anime',
   color: '#E5355F',
   icon: 'https://hanime1.me/favicon.ico',
   description: '里番、泡面番与 3D 动画，支持多清晰度在线播放与下载',
@@ -20,7 +21,7 @@ Park.register({
   idPattern: '^(\\d{1,8})$',
   idExample: '408297',
   imageHeaders: { Referer: 'https://hanime1.me/' },
-  network: { mode: 'browser', origin: 'https://hanime1.me' },
+  network: { mode: 'browser', origin: 'https://hanime1.me', vpnHint: true },
 
   settings: [
     {
@@ -279,3 +280,6 @@ Park.register({
     return list;
   },
 });
+
+// 更新订阅维度由本站插件声明，保留原有浏览入口。
+Park.enableUpdateSubscriptions(Park.__pending, {"dimensions":[{"key":"search","label":"搜索关键词","hint":"输入作品、作者或话题关键词"},{"key":"filter","label":"标签或作者筛选","hint":"从详情页标签菜单添加"}],"searchFilters":{"sort":"最新上市"}});

@@ -7,8 +7,9 @@
 Park.register({
   key: 'nhentai',
   name: 'nhentai',
-  version: '0.0.2',
+  version: '0.0.4',
   type: 'comic',
+  category: 'doujin',
   color: '#ED2553',
   icon: 'https://nhentai.net/favicon.ico',
   description: '海量同人志，官方 API，支持标签语法与语言过滤',
@@ -18,7 +19,7 @@ Park.register({
   idPattern: '^(?:nh)?(\\d{1,7})$',
   idExample: '177013',
   imageHeaders: { Referer: 'https://nhentai.net/' },
-  network: { headers: { Accept: 'application/json' } },
+  network: { vpnHint: true, headers: { Accept: 'application/json' } },
 
   settings: [
     {
@@ -272,3 +273,6 @@ Park.register({
     return { pages: pages.map(({ url, fallbacks, width, height }) => ({ url, fallbacks, width, height })) };
   },
 });
+
+// 更新订阅维度由本站插件声明，保留原有浏览入口。
+Park.enableUpdateSubscriptions(Park.__pending, {"dimensions":[{"key":"search","label":"搜索关键词","hint":"输入作品、作者或话题关键词"},{"key":"filter","label":"标签或作者筛选","hint":"从详情页标签菜单添加"}]});

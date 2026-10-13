@@ -10,8 +10,9 @@
 Park.register({
   key: 'jm',
   name: '禁漫天堂',
-  version: '0.0.1',
+  version: '0.0.4',
   type: 'comic',
+  category: 'doujin',
   color: '#F7841E',
   icon: 'https://18comic.vip/favicon.ico',
   description: '中文本子与韩漫资源丰富，支持连载分话、自动切换线路与图片还原',
@@ -59,7 +60,7 @@ Park.register({
 
   defaultFeed: 'promote',
   feeds: [
-    { key: 'promote', label: '推荐', layout: 'sections' },
+    { key: 'promote', label: '推荐' },
     { key: 'latest', label: '最新' },
     {
       key: 'ranking',
@@ -410,3 +411,6 @@ Park.register({
     };
   },
 });
+
+// 更新订阅维度由本站插件声明，保留原有浏览入口。
+Park.enableUpdateSubscriptions(Park.__pending, {"dimensions":[{"key":"search","label":"搜索关键词","hint":"输入作品、作者或话题关键词"},{"key":"filter","label":"标签或作者筛选","hint":"从详情页标签菜单添加"},{"key":"work","label":"作品连载","hint":"作品编号或详情链接"}],"searchFilters":{"sort":"mr"}});

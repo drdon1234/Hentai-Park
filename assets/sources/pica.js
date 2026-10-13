@@ -8,8 +8,9 @@
 Park.register({
   key: 'pica',
   name: '哔咔漫画',
-  version: '0.0.3',
+  version: '0.0.5',
   type: 'comic',
+  category: 'doujin',
   color: '#EC97B6',
   icon: 'https://manhuabika.com/favicon.ico',
   description: '分区丰富的老牌漫画社区，支持多话连载（需要账号）',
@@ -19,6 +20,7 @@ Park.register({
   idPattern: '^([0-9a-f]{24})$',
   idExample: '5821859b5f6b9a4f93dbf6e9',
   imageHeaders: {},
+  network: { vpnHint: true },
 
   settings: [
     {
@@ -479,3 +481,6 @@ Park.register({
     return { pages: docs.map((d) => ({ url: this.imageUrl(d.media) })).filter((p) => p.url) };
   },
 });
+
+// 更新订阅维度由本站插件声明，保留原有浏览入口。
+Park.enableUpdateSubscriptions(Park.__pending, {"dimensions":[{"key":"search","label":"搜索关键词","hint":"输入作品、作者或话题关键词"},{"key":"filter","label":"标签或作者筛选","hint":"从详情页标签菜单添加"},{"key":"work","label":"作品连载","hint":"作品编号或详情链接"}],"searchFilters":{"sort":"dd"}});

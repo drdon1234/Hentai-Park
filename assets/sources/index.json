@@ -2,13 +2,410 @@
   "name": "HentaiPark 官方源",
   "apiVersion": 1,
   "sources": [
-    { "key": "ehentai", "name": "E-Hentai", "version": "0.0.1", "type": "comic", "file": "ehentai.js", "description": "历史最悠久的画廊站，标签体系完善；登录后可切换里站 ExHentai" },
-    { "key": "nhentai", "name": "nhentai", "version": "0.0.2", "type": "comic", "file": "nhentai.js", "description": "海量同人志，官方 API，支持标签语法与语言过滤" },
-    { "key": "jm", "name": "禁漫天堂", "version": "0.0.1", "type": "comic", "file": "jm.js", "description": "中文本子与韩漫资源丰富，支持连载分话、自动切换线路与图片还原" },
-    { "key": "wnacg", "name": "绅士漫画", "version": "0.0.1", "type": "comic", "file": "wnacg.js", "description": "汉化漫画与图集，支持多话合集和自动切换线路" },
-    { "key": "pica", "name": "哔咔漫画", "version": "0.0.3", "type": "comic", "file": "pica.js", "description": "分区丰富的老牌漫画社区，支持多话连载（需要账号）" },
-    { "key": "hanime1", "name": "Hanime1", "version": "0.0.1", "type": "video", "file": "hanime1.js", "description": "里番、泡面番与 3D 动画，支持多清晰度在线播放与下载" },
-    { "key": "missav", "name": "MissAV", "version": "0.0.1", "type": "video", "file": "missav.js", "description": "真人成人视频，支持多清晰度播放与安卓离线下载" },
-    { "key": "huangguo", "name": "黄果短剧", "version": "0.0.1", "type": "video", "file": "huangguo.js", "description": "AI 短剧与漫剧，支持分类、排行、搜索和分集播放" }
+    {
+      "key": "jm",
+      "name": "禁漫天堂",
+      "version": "0.0.4",
+      "type": "comic",
+      "category": "doujin",
+      "file": "jm.js",
+      "description": "中文本子与韩漫资源丰富，支持连载分话、自动切换线路与图片还原"
+    },
+    {
+      "key": "ehentai",
+      "name": "E-Hentai",
+      "version": "0.0.4",
+      "type": "comic",
+      "category": "doujin",
+      "file": "ehentai.js",
+      "description": "历史最悠久的画廊站，标签体系完善；登录后可切换里站 ExHentai"
+    },
+    {
+      "key": "nhentai",
+      "name": "nhentai",
+      "version": "0.0.4",
+      "type": "comic",
+      "category": "doujin",
+      "file": "nhentai.js",
+      "description": "海量同人志，官方 API，支持标签语法与语言过滤"
+    },
+    {
+      "key": "pica",
+      "name": "哔咔漫画",
+      "version": "0.0.5",
+      "type": "comic",
+      "category": "doujin",
+      "file": "pica.js",
+      "description": "分区丰富的老牌漫画社区，支持多话连载（需要账号）"
+    },
+    {
+      "key": "wnacg",
+      "name": "绅士漫画",
+      "version": "0.0.3",
+      "type": "comic",
+      "category": "doujin",
+      "file": "wnacg.js",
+      "description": "汉化漫画与图集，支持多话合集和自动切换线路"
+    },
+    {
+      "key": "pixiv",
+      "name": "Pixiv",
+      "version": "0.0.2",
+      "type": "comic",
+      "category": "doujin",
+      "file": "pixiv.js",
+      "description": "插画与漫画社区，支持个性化推荐、排行、搜索和多页原图阅读"
+    },
+    {
+      "key": "pixibb",
+      "name": "PixiBB",
+      "version": "0.0.2",
+      "type": "comic",
+      "category": "gallery",
+      "file": "pixibb.js",
+      "description": "Cosplay 与写真图集，支持推荐、分类与搜索"
+    },
+    {
+      "key": "xiuren",
+      "name": "XiuRen",
+      "version": "0.0.2",
+      "type": "comic",
+      "category": "gallery",
+      "file": "xiuren.js",
+      "description": "工作室写真图集，支持热门、模特搜索与整套阅读"
+    },
+    {
+      "key": "cosplaytele",
+      "name": "CosplayTele",
+      "version": "0.0.2",
+      "type": "comic",
+      "category": "gallery",
+      "file": "cosplaytele.js",
+      "description": "Cosplay 写真图集，支持热门、角色搜索与整套阅读"
+    },
+    {
+      "key": "nudecosplay",
+      "name": "NudeCosplay",
+      "version": "0.0.2",
+      "type": "comic",
+      "category": "gallery",
+      "file": "nudecosplay.js",
+      "description": "Cosplay 写真图集，支持总热门、月热门与周热门"
+    },
+    {
+      "key": "hanime1",
+      "name": "Hanime1",
+      "version": "0.0.3",
+      "type": "video",
+      "category": "anime",
+      "file": "hanime1.js",
+      "description": "里番、泡面番与 3D 动画，支持多清晰度在线播放与下载"
+    },
+    {
+      "key": "missav",
+      "name": "MissAV",
+      "version": "0.0.3",
+      "type": "video",
+      "category": "jav",
+      "file": "missav.js",
+      "description": "真人成人视频，支持多清晰度播放与安卓离线下载"
+    },
+    {
+      "key": "jable",
+      "name": "JableTV",
+      "version": "0.0.3",
+      "type": "video",
+      "category": "jav",
+      "file": "jable.js",
+      "description": "JAV 视频，支持热门、搜索与 HLS 播放"
+    },
+    {
+      "key": "supjav",
+      "name": "SupJav",
+      "version": "0.0.3",
+      "type": "video",
+      "category": "jav",
+      "file": "supjav.js",
+      "description": "JAV 视频，支持热门、搜索与 FST 线路播放"
+    },
+    {
+      "key": "av123",
+      "name": "123AV",
+      "version": "0.0.2",
+      "type": "video",
+      "category": "jav",
+      "file": "av123.js",
+      "description": "JAV 视频，支持推荐、热门、搜索与 HLS 播放"
+    },
+    {
+      "key": "pornhub",
+      "name": "Pornhub",
+      "version": "0.0.2",
+      "type": "video",
+      "category": "adult",
+      "file": "pornhub.js",
+      "description": "综合成人视频，支持推荐、搜索和多清晰度播放"
+    },
+    {
+      "key": "xvideos",
+      "name": "XVideos",
+      "version": "0.0.2",
+      "type": "video",
+      "category": "adult",
+      "file": "xvideos.js",
+      "description": "综合成人视频，支持排行、搜索和高清播放"
+    },
+    {
+      "key": "thumbzilla",
+      "name": "Thumbzilla",
+      "version": "0.0.2",
+      "type": "video",
+      "category": "adult",
+      "file": "thumbzilla.js",
+      "description": "成人视频，支持热门、搜索和多清晰度 MP4 播放"
+    },
+    {
+      "key": "porn91",
+      "name": "91porn",
+      "version": "0.0.2",
+      "type": "video",
+      "category": "adult",
+      "file": "porn91.js",
+      "description": "成人视频社区，支持推荐、搜索和原画播放"
+    },
+    {
+      "key": "ixxx",
+      "name": "iXXX",
+      "version": "0.0.3",
+      "type": "video",
+      "category": "adult",
+      "file": "ixxx.js",
+      "description": "综合成人视频搜索，支持排行、分页与原站打开"
+    },
+    {
+      "key": "tubesafari",
+      "name": "TubeSafari",
+      "version": "0.0.2",
+      "type": "video",
+      "category": "adult",
+      "file": "tubesafari.js",
+      "description": "综合成人视频搜索，支持热门、分页与原站打开"
+    },
+    {
+      "key": "shorties",
+      "name": "Pornhub Shorties",
+      "version": "0.0.2",
+      "type": "video",
+      "category": "shortvideo",
+      "file": "shorties.js",
+      "description": "竖屏短视频推荐，上下滑动连续播放"
+    },
+    {
+      "key": "tikporn",
+      "name": "Tik.porn",
+      "version": "0.0.2",
+      "type": "video",
+      "category": "shortvideo",
+      "file": "tikporn.js",
+      "description": "竖屏短视频推荐，支持连续播放和搜索"
+    },
+    {
+      "key": "fyptt",
+      "name": "Fyptt",
+      "version": "0.0.2",
+      "type": "video",
+      "category": "shortvideo",
+      "file": "fyptt.js",
+      "description": "竖屏短视频，支持连续播放和搜索"
+    },
+    {
+      "key": "huangguo",
+      "name": "黄果短剧",
+      "version": "0.0.4",
+      "type": "video",
+      "category": "aiDrama",
+      "file": "huangguo.js",
+      "description": "AI短剧与漫剧，支持分类、排行、搜索和分集播放"
+    },
+    {
+      "key": "drama91",
+      "name": "91短剧",
+      "version": "0.0.3",
+      "type": "video",
+      "category": "aiDrama",
+      "file": "drama91.js",
+      "description": "AI短剧、漫剧与视频，支持推荐、分类、搜索和分集播放"
+    },
+    {
+      "key": "huangdou",
+      "name": "黄豆短剧",
+      "version": "0.0.3",
+      "type": "video",
+      "category": "aiDrama",
+      "file": "huangdou.js",
+      "description": "AI短剧与漫剧，支持分类、排行、搜索和分集播放"
+    },
+    {
+      "key": "cool18",
+      "name": "Cool18",
+      "description": "禁忌书屋小说版，支持精华、热帖、搜索与正文阅读",
+      "version": "0.0.3",
+      "type": "novel",
+      "category": "novel",
+      "file": "cool18.js"
+    },
+    {
+      "key": "book18",
+      "name": "Book18",
+      "description": "中文长篇与短篇小说，支持推荐、搜索、目录和正文阅读",
+      "version": "0.0.3",
+      "type": "novel",
+      "category": "novel",
+      "file": "book18.js"
+    },
+    {
+      "key": "canovel",
+      "name": "Canovel",
+      "description": "中文短篇与分篇小说，支持搜索和正文阅读",
+      "version": "0.0.3",
+      "type": "novel",
+      "category": "novel",
+      "file": "canovel.js"
+    },
+    {
+      "key": "literotica",
+      "name": "Literotica",
+      "description": "英文小说与系列故事，支持排行、搜索和完整正文分页",
+      "version": "0.0.3",
+      "type": "novel",
+      "category": "novel",
+      "file": "literotica.js"
+    },
+    {
+      "key": "lushstories",
+      "name": "Lush Stories",
+      "description": "英文小说社区，支持推荐、搜索与正文阅读",
+      "version": "0.0.3",
+      "type": "novel",
+      "category": "novel",
+      "file": "lushstories.js"
+    },
+    {
+      "key": "storiesonline",
+      "name": "StoriesOnline",
+      "description": "英文长短篇与连载小说，支持推荐、搜索与章节目录；部分正文需要登录",
+      "version": "0.0.3",
+      "type": "novel",
+      "category": "novel",
+      "file": "storiesonline.js"
+    },
+    {
+      "key": "galgamex",
+      "name": "GalgameX",
+      "version": "0.0.3",
+      "type": "game",
+      "category": "game",
+      "file": "galgamex.js",
+      "description": "游戏目录、版本资源与直链和网盘渠道"
+    },
+    {
+      "key": "kungal",
+      "name": "KUN Galgame",
+      "version": "0.0.3",
+      "type": "game",
+      "category": "game",
+      "file": "kungal.js",
+      "description": "游戏排行、搜索及社区分享资源"
+    },
+    {
+      "key": "cycg",
+      "name": "次元茶馆",
+      "version": "0.0.1",
+      "type": "game",
+      "category": "game",
+      "file": "cycg.js",
+      "description": "社区游戏分享，登录后按需回复解锁网盘资源"
+    },
+    {
+      "key": "fanbox",
+      "name": "pixivFANBOX",
+      "version": "0.0.2",
+      "type": "comic",
+      "category": "other",
+      "file": "fanbox.js",
+      "description": "创作者订阅，公开目录与封面预览"
+    },
+    {
+      "key": "x",
+      "name": "X / Twitter",
+      "version": "0.0.3",
+      "type": "video",
+      "category": "other",
+      "file": "x.js",
+      "description": "登录后浏览推荐、图集、视频集和站内搜索，支持公开用户订阅"
+    },
+    {
+      "key": "telegram",
+      "name": "Telegram",
+      "version": "0.0.3",
+      "type": "video",
+      "category": "other",
+      "file": "telegram.js",
+      "description": "频道订阅，公开预览与已有授权会话访问"
+    },
+    {
+      "key": "myfans",
+      "name": "myfans.jp",
+      "version": "0.0.3",
+      "type": "comic",
+      "category": "other",
+      "file": "myfans.js",
+      "description": "创作者订阅，公开图片、视频及视频预览"
+    },
+    {
+      "key": "hanime",
+      "name": "Hanime.tv",
+      "version": "0.0.2",
+      "type": "video",
+      "category": "anime",
+      "file": "hanime.js",
+      "description": "里番目录、排行与搜索；播放需打开原站"
+    },
+    {
+      "key": "rule34video",
+      "name": "Rule34Video",
+      "version": "0.0.2",
+      "type": "video",
+      "category": "anime",
+      "file": "rule34video.js",
+      "description": "同人动画与游戏角色短片，支持评分榜、搜索和多清晰度 MP4"
+    },
+    {
+      "key": "pornpics",
+      "name": "PornPics",
+      "version": "0.0.2",
+      "type": "comic",
+      "category": "gallery",
+      "file": "pornpics.js",
+      "description": "国际写真图集，支持评分榜、热门、搜索与整套原图阅读"
+    },
+    {
+      "key": "spankbang",
+      "name": "SpankBang",
+      "version": "0.0.3",
+      "type": "video",
+      "category": "adult",
+      "file": "spankbang.js",
+      "description": "综合成人视频，支持推荐、搜索与多清晰度MP4；可能需浏览器确认"
+    },
+    {
+      "key": "story69",
+      "name": "69story",
+      "version": "0.0.2",
+      "type": "novel",
+      "category": "novel",
+      "file": "story69.js",
+      "description": "中文短篇小说，支持最新与分类阅读；站点无有效搜索"
+    }
   ]
 }

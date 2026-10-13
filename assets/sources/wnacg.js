@@ -43,7 +43,7 @@
   const language = (category) => /漢化|汉化/.test(category) ? 'chinese' : /日語|日文/.test(category) ? 'japanese' : /English|英文/i.test(category) ? 'english' : '';
 
   Park.register({
-    key: 'wnacg', name: '绅士漫画', version: '0.0.1', type: 'comic', color: '#E86F9C',
+    key: 'wnacg', name: '绅士漫画', version: '0.0.3', type: 'comic', category: 'doujin', color: '#E86F9C',
     description: '汉化漫画与图集，支持多话合集和自动切换线路',
     homepage: 'https://www.wnacg.com', language: 'multi',
     domains: ['wnacg.com', 'wnacg.ru', 'wn001.cfd', 'wn002.cfd', 'wn10.cfd', 'wnacg01.link', 'wnacg02.link'],
@@ -57,7 +57,7 @@
     network: { mode: 'native', headers: {
       'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36',
     } },
-    defaultFeed: 'latest',
+    defaultFeed: 'ranking',
     feeds: [
       { key: 'latest', label: '最新' },
       { key: 'ranking', label: '排行榜', options: [{ key: 'period', label: '周期', default: 'week', values: [
@@ -315,3 +315,6 @@
     },
   });
 })();
+
+// 更新订阅维度由本站插件声明，保留原有浏览入口。
+Park.enableUpdateSubscriptions(Park.__pending, {"dimensions":[{"key":"search","label":"搜索关键词","hint":"输入作品、作者或话题关键词"},{"key":"filter","label":"标签或作者筛选","hint":"从详情页标签菜单添加"},{"key":"work","label":"作品连载","hint":"作品编号或详情链接"}]});

@@ -1,0 +1,150 @@
+(function () {
+  'use strict';
+  const HOME = 'https://www.book18.org';
+  function idValue(id) {
+    let s;
+    try {
+      s = decodeURIComponent(String(id));
+    } catch (_) {
+      throw Park.error('NOT_FOUND', '作品编号无效');
+    }
+    if (
+      !/^(?:[1-9]\d{0,12}|chapters\/[^/?#\r\n]{1,250})$/.test(s) ||
+      s.includes('://')
+    )
+      throw Park.error('NOT_FOUND', '作品编号无效');
+    return s;
+  }
+  function urlOf(id) {
+    const s = idValue(id);
+    return (
+      HOME +
+      (s.startsWith('chapters/')
+        ? '/chapters/' + encodeURIComponent(s.slice(9))
+        : '/' + s)
+    );
+  }
+  function href(node, base) {
+    try {
+      const u = new URL(node.getAttribute('href'), base);
+      return u.protocol === 'https:' && u.hostname === 'www.book18.org'
+        ? u
+        : null;
+    } catch (_) {
+      return null;
+    }
+  }
+  async function doc(source, url) {
+    const r = source.http.ensureOk(await source.http.get(url));
+    return Park.html.parse(r.body);
+  }
+  function entries(d, base) {
+    const out = [],
+      seen = new Set();
+    for (const a of d.querySelectorAll('.list-group-item a[href]')) {
+      const u = href(a, base);
+      if (!u || !/^\/(?:chapters\/[^?#]+|\d+)$/.test(u.pathname)) continue;
+      const id = decodeURIComponent(u.pathname.slice(1));
+      if (seen.has(id)) continue;
+      seen.add(id);
+      out.push({
+        id,
+        title: Park.html.text(a),
+        cover: '',
+        language: 'zh',
+        mediaKind: 'novel',
+      });
+    }
+    return out;
+  }
+  async function list(source, req, path, params) {
+    const page = Math.max(1, Number(req.page) || 1),
+      u = new URL(path, HOME);
+    for (const [k, v] of Object.entries(params)) u.searchParams.set(k, v);
+    u.searchParams.set('page', page);
+    const d = await doc(source, u.href),
+      next = d.querySelector('.next:not(.disabled) a[href]');
+    return { items: entries(d, u.href), page, hasNext: !!next };
+  }
+  Park.register({
+    key: 'book18',
+    name: 'Book18',
+    version: '0.0.3',
+    type: 'novel',
+    category: 'novel',
+    language: 'zh',
+    color: '#D99A36',
+    homepage: HOME,
+    domains: ['www.book18.org'],
+    description: '中文长篇与短篇小说，支持推荐、搜索、目录和正文阅读',
+    network: { mode: 'native', vpnHint: true },
+    linkPatterns: ['book18\\.org/(chapters/[^?#\\s]+|[0-9]+)'],
+    idPattern: '^(?:[1-9]\\d*|chapters/.+)$',
+    defaultFeed: 'recommend',
+    feeds: [
+      { key: 'recommend', label: '推荐' },
+      { key: 'popular', label: '热门' },
+      { key: 'latest', label: '最新' },
+      { key: 'short', label: '短篇' },
+    ],
+    async feed(key, req) {
+      if (!['recommend', 'popular', 'latest', 'short'].includes(key))
+        throw Park.error('CONFIG', '未知列表');
+      return list(this, req, key === 'short' ? '/article/index' : '/', {
+        sort:
+          key === 'recommend'
+            ? 'score'
+            : key === 'popular'
+              ? 'views'
+              : 'modified',
+      });
+    },
+    async search(req) {
+      return list(this, req, '/', { q: String(req.keyword || '').trim() });
+    },
+    async detail(value) {
+      const id = idValue(value),
+        url = urlOf(id),
+        d = await doc(this, url),
+        title = Park.html.text(d.querySelector('h1')) || id;
+      const chapters = id.startsWith('chapters/')
+        ? entries(d, url)
+            .filter((e) => /^\d+$/.test(e.id))
+            .map((e) => ({ id: e.id, title: e.title }))
+        : null;
+      if (chapters && !chapters.length)
+        throw Park.error('PARSE', '小说目录为空或受限');
+      const author = (title + ' ' + (chapters?.[0]?.title || '')).match(
+        /作者[：:]\s*([^\s]+)/,
+      );
+      return {
+        id,
+        title,
+        cover: '',
+        url,
+        language: 'zh',
+        mediaKind: 'novel',
+        authors: author ? [author[1]] : [],
+        chapters,
+        singleChapterId: chapters ? null : id,
+        tags: [],
+      };
+    },
+    async textChapter(value, chapterId) {
+      const id = idValue(value);
+      if (id.startsWith('chapters/') && !chapterId)
+        throw Park.error('CONFIG', '请选择章节');
+      if (chapterId && !/^\d+$/.test(String(chapterId)))
+        throw Park.error('NOT_FOUND', '章节编号无效');
+      if (!id.startsWith('chapters/') && chapterId && String(chapterId) !== id)
+        throw Park.error('NOT_FOUND', '章节编号无效');
+      const d = await doc(this, urlOf(chapterId || id)),
+        paragraphs = Park.html.paragraphs(d.querySelector('#content.reader'));
+      if (!paragraphs.length) throw Park.error('PARSE', '小说正文为空或受限');
+      return { title: Park.html.text(d.querySelector('h1')), paragraphs };
+    },
+  });
+})();
+
+// 更新订阅维度由本站插件声明，保留原有浏览入口。
+Park.enableUpdateSubscriptions(Park.__pending, {"dimensions":[{"key":"search","label":"搜索关键词","hint":"输入作品、作者或话题关键词"},{"key":"filter","label":"标签或作者筛选","hint":"从详情页标签菜单添加"},{"key":"work","label":"作品连载","hint":"作品编号或详情链接"}]});

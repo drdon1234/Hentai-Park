@@ -11,8 +11,9 @@
 Park.register({
   key: 'ehentai',
   name: 'E-Hentai',
-  version: '0.0.1',
+  version: '0.0.4',
   type: 'comic',
+  category: 'doujin',
   color: '#9C2A2A',
   icon: 'https://e-hentai.org/favicon.ico',
   description: '历史最悠久的画廊站，标签体系完善；登录后可切换里站 ExHentai',
@@ -23,6 +24,7 @@ Park.register({
   idPattern: '^(\\d+)[_/ ]([0-9a-f]{10})/?$',
   idExample: '2345678/abcdef1234',
   imageHeaders: { Referer: 'https://e-hentai.org/' },
+  network: { vpnHint: true },
 
   settings: [
     {
@@ -499,7 +501,7 @@ Park.register({
     const count = metas[0] ? Number(metas[0].filecount) : 0;
     if (!count) throw Park.error('NOT_FOUND', '画廊没有图片');
     // Images are resolved lazily one page at a time by resolveImage.
-    return { pages: Array.from({ length: count }, (_, i) => ({ token: String(i) })), cacheKey: `eh-${gid}` };
+    return { pages: Array.from({ length: count }, (_, i) => ({ token: String(i) })) };
   },
 
   async pageLink(gid, token, index) {
@@ -562,3 +564,6 @@ Park.register({
     };
   },
 });
+
+// 更新订阅维度由本站插件声明，保留原有浏览入口。
+Park.enableUpdateSubscriptions(Park.__pending, {"dimensions":[{"key":"search","label":"搜索关键词","hint":"输入作品、作者或话题关键词"},{"key":"filter","label":"标签或作者筛选","hint":"从详情页标签菜单添加"}]});

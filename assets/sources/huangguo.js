@@ -6,16 +6,21 @@
 Park.register({
   key: 'huangguo',
   name: '黄果短剧',
-  version: '0.0.1',
+  version: '0.0.4',
   type: 'video',
+  category: 'aiDrama',
   color: '#F2AD24',
-  description: 'AI 短剧与漫剧，支持分类、排行、搜索和分集播放',
+  description: 'AI短剧与漫剧，支持分类、排行、搜索和分集播放',
   homepage: 'https://huangguoai.com',
   domains: ['huangguoai.com'],
   language: 'zh',
   linkPatterns: ['huangguoai\\.com/(?:video|detail)/(\\d+)(?:/|[?#]|$)'],
   idPattern: '^(\\d+)$',
   imageHeaders: { Referer: 'https://huangguoai.com/' },
+  imageDecrypt: {
+    type: 'aes-cbc', key: 'f5d965df75336270', iv: '97b60394abc2fbe1',
+    domains: ['pic.wirqed.cn'],
+  },
   network: { mode: 'native' },
   media: {
     mode: 'native', origin: 'https://huangguoai.com',
@@ -33,7 +38,7 @@ Park.register({
         {
           key: 'category', label: '类型', type: 'select', default: 'ai-duanju',
           values: [
-            { value: 'ai-duanju', label: 'AI 短剧' },
+            { value: 'ai-duanju', label: 'AI短剧' },
             { value: 'ai-manju', label: 'AI 漫剧' },
             { value: 'ai-huanlian', label: 'AI 换脸' },
             { value: 'ai-mogai', label: 'AI 魔改' },
@@ -276,3 +281,6 @@ Park.register({
     }];
   },
 });
+
+// 更新订阅维度由本站插件声明，保留原有浏览入口。
+Park.enableUpdateSubscriptions(Park.__pending, {"dimensions":[{"key":"search","label":"搜索关键词","hint":"输入作品、作者或话题关键词"},{"key":"filter","label":"标签或作者筛选","hint":"从详情页标签菜单添加"},{"key":"work","label":"作品连载","hint":"作品编号或详情链接"}]});

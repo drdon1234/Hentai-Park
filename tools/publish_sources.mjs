@@ -1,43 +1,18 @@
 #!/usr/bin/env node
 // Offline publisher for the official source index. Uses only Node built-ins.
-import { createHash } from 'node:crypto';
-import { lstat, readFile, realpath, writeFile } from 'node:fs/promises';
+import { lstat, realpath, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
 import vm from 'node:vm';
 
 const defaultRoot = fileURLToPath(new URL('../', import.meta.url));
-const rawBase = 'https://raw.githubusercontent.com/drdon1234/Hentai-Park';
+import { versionParts, compareVersions, readUtf8, isSourceKey, isSha256, isCommit, sha256, officialAssetUrl } from './publish_common.mjs';
 const executionOptions = { timeout: 1000 };
 
 function requiredText(value, label) {
   if (typeof value !== 'string' || !value.trim()) throw new Error(`${label} 必须是非空字符串`);
   return value;
-}
-
-function versionParts(value) {
-  if (typeof value !== 'string' || !/^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/.test(value)) {
-    throw new Error(`无效版本 ${JSON.stringify(value)}：version 必须是无前导零的三段非负整数`);
-  }
-  return value.split('.').map(BigInt);
-}
-
-function compareVersions(a, b) {
-  const left = versionParts(a);
-  const right = versionParts(b);
-  for (let i = 0; i < 3; i++) {
-    const difference = left[i] - right[i];
-    if (difference !== 0n) return difference > 0n ? 1 : -1;
-  }
-  return 0;
-}
-
-async function readUtf8(filename) {
-  const bytes = await readFile(filename);
-  const text = bytes.toString('utf8');
-  if (!bytes.equals(Buffer.from(text, 'utf8'))) throw new Error(`${filename} 不是有效 UTF-8 文件`);
-  return text;
 }
 
 function createProbe(runtimeCode) {
@@ -89,7 +64,7 @@ function publishedSources(previousIndex) {
   for (const entry of previousIndex.sources) {
     const key = requiredText(entry?.key, '旧索引 key');
     versionParts(entry.version);
-    if (typeof entry.sha256 !== 'string' || !/^[a-fA-F0-9]{64}$/.test(entry.sha256)) {
+    if (!isSha256(entry.sha256)) {
       throw new Error(`旧索引 ${key} 缺少有效 sha256`);
     }
     if (published.has(key)) throw new Error(`旧索引存在重复 key：${key}`);
@@ -99,7 +74,7 @@ function publishedSources(previousIndex) {
 }
 
 export async function generateIndex({ root = defaultRoot, commit, previousIndex } = {}) {
-  if (typeof commit !== 'string' || !/^[a-f0-9]{40}$/.test(commit)) {
+  if (!isCommit(commit)) {
     throw new Error('commit 必须是源码提交的完整 40 位小写十六进制 SHA');
   }
   const sourceRoot = await realpath(path.resolve(root, 'assets', 'sources'));
@@ -116,36 +91,44 @@ export async function generateIndex({ root = defaultRoot, commit, previousIndex 
   const sources = [];
   for (const entry of index.sources) {
     const key = requiredText(entry?.key, '清单 key');
-    if (!/^[A-Za-z0-9_-]+$/.test(key)) throw new Error(`无效 key：${key}`);
+    if (!isSourceKey(key)) throw new Error(`无效 key：${key}`);
     if (keys.has(key)) throw new Error(`清单存在重复 key：${key}`);
     keys.add(key);
     requiredText(entry.name, `${key} name`);
     if (typeof entry.description !== 'string') throw new Error(`${key} description 必须是字符串`);
+    if (!['doujin', 'anime', 'aiDrama', 'jav', 'adult', 'shortvideo', 'gallery', 'novel', 'game', 'other'].includes(entry.category)) {
+      throw new Error(`${key} category 必须是有效的内容分类`);
+    }
     versionParts(entry.version);
     if (entry.apiVersion !== undefined && entry.apiVersion !== runtimeApi) {
       throw new Error(`${key} 的清单 apiVersion 与运行时 API 不一致`);
     }
     const code = await readUtf8(await scriptPath(sourceRoot, entry.file));
+    if (entry.file !== `${key}.js`) throw new Error(`${key} 的文件路径必须匹配 key`);
     const { apiVersion, manifest } = probeScript(runtimeCode, code, entry.file);
     if (manifest.key !== key || manifest.version !== entry.version) {
       throw new Error(`${entry.file} 注册的 key/version 与清单不一致`);
     }
+    if (manifest.category !== entry.category) {
+      throw new Error(`${entry.file} 注册的 category 与清单不一致`);
+    }
     if (apiVersion !== runtimeApi || manifest.apiVersion !== runtimeApi) {
       throw new Error(`${key} 的脚本 apiVersion ${manifest.apiVersion} 与运行时 API ${runtimeApi} 不一致`);
     }
-    const sha256 = createHash('sha256').update(code, 'utf8').digest('hex');
+    const digest = sha256(code);
     const previous = published.get(key);
     if (previous) {
       const comparison = compareVersions(entry.version, previous.version);
       if (comparison < 0) throw new Error(`${key} 禁止降版：${previous.version} → ${entry.version}`);
-      if (comparison === 0 && sha256 !== previous.sha256.toLowerCase()) {
+      if (comparison === 0 && digest !== previous.sha256.toLowerCase()) {
         throw new Error(`${key} 同版本 ${entry.version} 的脚本内容已改变，请同时提升脚本和清单版本`);
       }
     }
     sources.push({
       key, name: entry.name, version: entry.version, description: entry.description,
-      url: `${rawBase}/${commit}/assets/sources/${entry.file}`,
-      sha256, apiVersion: runtimeApi,
+      category: entry.category,
+      url: officialAssetUrl(commit, `assets/sources/${entry.file}`),
+      sha256: digest, apiVersion: runtimeApi,
     });
   }
   return { name: index.name, apiVersion: runtimeApi, sources };

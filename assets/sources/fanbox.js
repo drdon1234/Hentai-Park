@@ -1,0 +1,15 @@
+(function(){
+ 'use strict';
+ const HOME='https://www.fanbox.cc',BASE='https://api.fanbox.cc';
+ function normalize(input){let s=String(input||'').trim();if(/^https?:\/\//i.test(s)){const u=new URL(s);if(u.protocol!=='https:'||u.username||u.password)throw Park.error('CONFIG','订阅目标无效');if(u.hostname.endsWith('.fanbox.cc')&&!['www.fanbox.cc','api.fanbox.cc'].includes(u.hostname)&&u.pathname==='/')s=u.hostname.slice(0,-10);else if(u.hostname==='www.fanbox.cc'&&/^\/@[a-zA-Z0-9_-]+\/?$/.test(u.pathname))s=u.pathname.replace(/^\/@|\/$/g,'');else throw Park.error('CONFIG','订阅目标无效');}s=s.replace(/^@/,'');if(!/^[a-zA-Z0-9_-]{1,64}$/.test(s))throw Park.error('CONFIG','订阅目标无效');return {id:s,label:s};}
+ async function api(source,url,params){const r=await source.http.get(url,{params,headers:{Origin:HOME,Referer:HOME+'/',Cookie:''}});if(!r.ok)throw Park.error('BLOCKED','访问受限，请在原站检查权限');return r.json().body;}
+ Park.register({key:'fanbox',name:'pixivFANBOX',version:'0.0.2',type:'comic',category:'other',homepage:HOME,domains:['fanbox.cc','pixiv.pximg.net'],network:{vpnHint:true},description:'创作者目录订阅，支持公开封面预览；会员正文尚未验证',idExample:'rosuuri',
+ subscription:{hint:'当前支持公开目录和封面预览；正文与会员登录尚未验证。',normalize,
+  async resolve(input){return normalize(input);},
+  async posts(input,options){const t=normalize(input);const d=await api(this,BASE+'/post.paginateCreator',{creatorId:t.id});const urls=d.pageUrls||[];const index=Number(options?.cursor||0);if(!Number.isInteger(index)||index<0||index>100000)throw Park.error('CONFIG','分页参数无效');if(index>=urls.length)return {items:[],hasNext:false};const u=new URL(urls[index]);if(u.origin!==BASE||u.pathname!=='/post.listCreator'||u.searchParams.get('creatorId')!==t.id)throw Park.error('PARSE','站点接口已变化，请稍后重试');const page=await api(this,u.href);return {items:(page.posts||[]).map(p=>({id:p.id,title:p.title||'',text:p.excerpt||'',date:p.publishedDatetime||'',url:`https://${t.id}.fanbox.cc/posts/${p.id}`,locked:p.isRestricted===true,media:p.cover?.url?[{type:'image',url:p.cover.url,preview:p.cover.url,previewOnly:true}]:[]})),cursor:String(index+1),hasNext:index+1<urls.length};}
+ }
+ });
+})();
+
+// 更新订阅维度由本站插件声明，保留原有浏览入口。
+Park.enableUpdateSubscriptions(Park.__pending, {"dimensions":[{"key":"posts","label":"频道或博主","hint":"用户名、频道名或主页链接"}]});

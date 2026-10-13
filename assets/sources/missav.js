@@ -2,8 +2,9 @@
 Park.register({
   key: 'missav',
   name: 'MissAV',
-  version: '0.0.1',
+  version: '0.0.3',
   type: 'video',
+  category: 'jav',
   color: '#EF4444',
   description: '真人成人视频，支持多清晰度播放与安卓离线下载',
   homepage: 'https://missav.ai',
@@ -13,7 +14,7 @@ Park.register({
   idPattern: '^[a-z0-9][a-z0-9-]{1,120}$',
   idExample: 'bank-250',
   imageHeaders: {Referer: 'https://missav.ai/'},
-  network: {mode: 'browser', origin: 'https://missav.ai'},
+  network: {mode: 'browser', origin: 'https://missav.ai', vpnHint: true},
   media: {mode: 'browser', origin: 'https://missav.ai', domains: ['surrit.com']},
   settings: [{key: 'quality', type: 'select', label: '默认清晰度', default: '1080', options: [
     {value: '1080', label: '1080P'}, {value: '720', label: '720P'}, {value: '480', label: '480P'},
@@ -164,3 +165,6 @@ Park.register({
     return sources.map(source => ({...source, label: `${source.quality}P`, format: 'hls', preferred: source.quality === preferred}));
   },
 });
+
+// 更新订阅维度由本站插件声明，保留原有浏览入口。
+Park.enableUpdateSubscriptions(Park.__pending, {"dimensions":[{"key":"search","label":"搜索关键词","hint":"输入作品、作者或话题关键词"},{"key":"filter","label":"标签或作者筛选","hint":"从详情页标签菜单添加"},{"key":"code","label":"完整番号","hint":"请输入完整番号，例如 ABP-123"},{"key":"series","label":"站点系列","hint":"请使用详情页的系列链接"}],"seriesPattern":"^/(?:dm\\d*/)?cn/series/[^?#]+$","searchFilters":{"sort":"published_at"}});
