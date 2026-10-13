@@ -1,15 +1,27 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+
 import '../core/localization.dart';
 
 /// Material 3 theme tuned for an image-heavy reader: deep neutral surfaces in dark mode so covers
 /// pop, a single accent color (user selectable), rounded geometry and calm motion.
 class ParkTheme {
-  static Map<int, String> get accents => <int, String>{0xFFE5355F: tr('樱桃红'), 0xFFF7841E: tr('琥珀橙'), 0xFF7C4DFF: tr('暮光紫'), 0xFF2D9CDB: tr('天青蓝'), 0xFF1DB954: tr('薄荷绿'), 0xFFEC97B6: tr('樱花粉')};
+  static Map<int, String> get accents => <int, String>{
+    0xFFE5355F: tr('樱桃红'),
+    0xFFF7841E: tr('琥珀橙'),
+    0xFF7C4DFF: tr('暮光紫'),
+    0xFF2D9CDB: tr('天青蓝'),
+    0xFF1DB954: tr('薄荷绿'),
+    0xFFEC97B6: tr('樱花粉'),
+  };
 
   static ThemeData build(Brightness brightness, Color seed) {
     final dark = brightness == Brightness.dark;
-    var scheme = ColorScheme.fromSeed(seedColor: seed, brightness: brightness, dynamicSchemeVariant: DynamicSchemeVariant.fidelity);
+    var scheme = ColorScheme.fromSeed(
+      seedColor: seed,
+      brightness: brightness,
+      dynamicSchemeVariant: DynamicSchemeVariant.fidelity,
+    );
     if (dark) {
       scheme = scheme.copyWith(
         surface: const Color(0xFF101014),
@@ -20,7 +32,11 @@ class ParkTheme {
         surfaceContainerHighest: const Color(0xFF2A2A32),
       );
     }
-    final base = ThemeData(useMaterial3: true, colorScheme: scheme, brightness: brightness);
+    final base = ThemeData(
+      useMaterial3: true,
+      colorScheme: scheme,
+      brightness: brightness,
+    );
     return base.copyWith(
       scaffoldBackgroundColor: scheme.surface,
       appBarTheme: AppBarTheme(
@@ -28,14 +44,21 @@ class ParkTheme {
         surfaceTintColor: Colors.transparent,
         scrolledUnderElevation: 0,
         centerTitle: false,
-        titleTextStyle: base.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700, color: scheme.onSurface),
-        systemOverlayStyle: dark ? SystemUiOverlayStyle.light : SystemUiOverlayStyle.dark,
+        titleTextStyle: base.textTheme.titleLarge?.copyWith(
+          fontWeight: FontWeight.w700,
+          color: scheme.onSurface,
+        ),
+        systemOverlayStyle: dark
+            ? SystemUiOverlayStyle.light
+            : SystemUiOverlayStyle.dark,
       ),
       navigationBarTheme: NavigationBarThemeData(
         backgroundColor: scheme.surfaceContainerLow,
         indicatorColor: scheme.primary.withValues(alpha: 0.18),
         height: 68,
-        labelTextStyle: WidgetStatePropertyAll(base.textTheme.labelMedium?.copyWith(fontWeight: FontWeight.w600)),
+        labelTextStyle: WidgetStatePropertyAll(
+          base.textTheme.labelMedium?.copyWith(fontWeight: FontWeight.w600),
+        ),
       ),
       cardTheme: CardThemeData(
         color: scheme.surfaceContainer,
@@ -52,27 +75,44 @@ class ParkTheme {
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
         fillColor: scheme.surfaceContainerHighest, // one step above cards and dialogs so fields stay visible
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: BorderSide.none,
+        ),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 14,
+        ),
       ),
       bottomSheetTheme: BottomSheetThemeData(
         backgroundColor: scheme.surfaceContainerLow,
         showDragHandle: true,
-        shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
       ),
-      dialogTheme: DialogThemeData(backgroundColor: scheme.surfaceContainerHigh),
+      dialogTheme: DialogThemeData(
+        backgroundColor: scheme.surfaceContainerHigh,
+      ),
       snackBarTheme: SnackBarThemeData(
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       ),
-      listTileTheme: ListTileThemeData(shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+      listTileTheme: ListTileThemeData(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      ),
       pageTransitionsTheme: const PageTransitionsTheme(
-        builders: {TargetPlatform.android: PredictiveBackPageTransitionsBuilder(), TargetPlatform.windows: FadeForwardsPageTransitionsBuilder()},
+        builders: {
+          TargetPlatform.android: PredictiveBackPageTransitionsBuilder(),
+          TargetPlatform.windows: FadeForwardsPageTransitionsBuilder(),
+        },
       ),
       tabBarTheme: TabBarThemeData(
         dividerColor: Colors.transparent,
         indicatorSize: TabBarIndicatorSize.label,
-        labelStyle: base.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
+        labelStyle: base.textTheme.titleSmall?.copyWith(
+          fontWeight: FontWeight.w700,
+        ),
         unselectedLabelStyle: base.textTheme.titleSmall,
         tabAlignment: TabAlignment.start,
       ),
@@ -87,7 +127,13 @@ extension ContextX on BuildContext {
   void toast(String message, {SnackBarAction? action}) {
     ScaffoldMessenger.of(this)
       ..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(content: Text(message), action: action, duration: const Duration(seconds: 3)));
+      ..showSnackBar(
+        SnackBar(
+          content: Text(message),
+          action: action,
+          duration: const Duration(seconds: 3),
+        ),
+      );
   }
 }
 
@@ -95,8 +141,14 @@ String formatCount(int? n) {
   if (n == null) return '';
   final language = AppLocalizations.instance.locale.languageCode;
   if (const {'zh', 'ja', 'ko'}.contains(language)) {
-    if (n >= 100000000) return tr('{value0}亿', {'value0': (n / 100000000).toStringAsFixed(1)});
-    if (n >= 10000) return tr('{value0}万', {'value0': (n / 10000).toStringAsFixed(n >= 100000 ? 0 : 1)});
+    if (n >= 100000000) {
+      return tr('{value0}亿', {'value0': (n / 100000000).toStringAsFixed(1)});
+    }
+    if (n >= 10000) {
+      return tr('{value0}万', {
+        'value0': (n / 10000).toStringAsFixed(n >= 100000 ? 0 : 1),
+      });
+    }
   }
   if (n >= 1000000) return '${(n / 1000000).toStringAsFixed(1)}M';
   if (n >= 1000) return '${(n / 1000).toStringAsFixed(1)}k';

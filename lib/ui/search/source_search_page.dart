@@ -3,11 +3,15 @@ import 'package:flutter/material.dart';
 import '../../core/models.dart';
 import '../../core/localization.dart';
 import '../../core/settings.dart';
+import '../../core/content_scope.dart';
 import '../../engine/source_manager.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
+import '../widgets/content_translation.dart';
 import '../widgets/paged_grid.dart';
 import 'multi_language.dart';
+import 'search_toolbar.dart';
+import '../discovery_navigation.dart';
 
 /// Search inside one source with that source's native filters (sort, category, language, rating…).
 class SourceSearchPage extends StatefulWidget {
@@ -44,7 +48,10 @@ class _SourceSearchPageState extends State<SourceSearchPage> {
     source: widget.sourceKey,
   );
   bool _started = false;
-  bool _translating = false;
+  final _translation = KeywordTranslationRequest();
+  bool get _translating => _translation.busy;
+
+  void _translationChanged() => setState(() {});
   String _submitted = '';
   Map<String, Object?> _submittedFilters = const {};
   int _searchGeneration = 0;
@@ -54,6 +61,8 @@ class _SourceSearchPageState extends State<SourceSearchPage> {
   @override
   void initState() {
     super.initState();
+    _translation.addListener(_translationChanged);
+    _text.addListener(_textChanged);
     if (widget.initialMulti != null) {
       _multi = widget.initialMulti;
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -70,8 +79,16 @@ class _SourceSearchPageState extends State<SourceSearchPage> {
   @override
   void dispose() {
     _controller.dispose();
+    _translation.dispose();
     _text.dispose();
     super.dispose();
+  }
+
+  void _textChanged() {
+    if (_text.text.isEmpty && _started) {
+      _searchGeneration++;
+      setState(() => _started = false);
+    }
   }
 
   Future<WorkPage> _load(int page, String? cursor) {
@@ -104,7 +121,12 @@ class _SourceSearchPageState extends State<SourceSearchPage> {
             ? List.unmodifiable(entry.value as List)
             : entry.value,
     });
-    if (k.isNotEmpty) AppSettings.instance.addSearchHistory(k);
+    if (k.isNotEmpty) {
+      AppSettings.instance.addSearchHistory(
+        k,
+        scope: ContentScope.source(widget.sourceKey),
+      );
+    }
     FocusScope.of(context).unfocus();
     if (!keepMulti || _multi?.original != k) _multi = null;
     _multiSearch = _multi == null
@@ -122,18 +144,19 @@ class _SourceSearchPageState extends State<SourceSearchPage> {
   /// Translates the keyword into the configured languages and searches all of them at once.
   Future<void> _searchMulti() async {
     final k = _text.text.trim();
-    if (k.isEmpty || _translating) return;
-    FocusScope.of(context).unfocus();
-    setState(() => _translating = true);
-    final generation = _searchGeneration;
-    final multi = await translateKeyword(context, k);
-    if (!mounted) return;
-    setState(() => _translating = false);
-    if (multi == null ||
-        generation != _searchGeneration ||
+    if (_translating) return;
+    if (!await confirmMultiLanguageSearch(context, k) ||
+        !mounted ||
         _text.text.trim() != k) {
       return;
     }
+    FocusScope.of(context).unfocus();
+    final multi = await _translation.run(
+      keyword: () => _text.text,
+      generation: () => _searchGeneration,
+      translate: (text) => translateKeyword(context, text),
+    );
+    if (!mounted || multi == null) return;
     _multi = multi;
     _search(keepMulti: true);
   }
@@ -162,100 +185,130 @@ class _SourceSearchPageState extends State<SourceSearchPage> {
   @override
   Widget build(BuildContext context) {
     AppLocalizations.of(context);
-    return Theme(
-      data: ParkTheme.build(Theme.of(context).brightness, _m.color),
-      child: Builder(
-        builder: (context) {
-          return Scaffold(
-            appBar: AppBar(
-              titleSpacing: 0,
-              title: TextField(
-                controller: _text,
-                autofocus:
-                    widget.initialKeyword.isEmpty &&
-                    widget.initialFilters == null,
-                textInputAction: TextInputAction.search,
-                onSubmitted: (_) => _search(),
-                decoration: InputDecoration(
-                  hintText: tr('在 {source} 中搜索', {'source': _m.name}),
-                  prefixIcon: Padding(
-                    padding: const EdgeInsets.all(10),
-                    child: SourceAvatar(_m.key, size: 24),
-                  ),
-                  suffixIcon: IconButton(
-                    icon: const Icon(Icons.close_rounded),
-                    onPressed: _text.clear,
-                  ),
-                  contentPadding: const EdgeInsets.symmetric(vertical: 10),
+    return TranslationPage(
+      child: Theme(
+        data: ParkTheme.build(Theme.of(context).brightness, _m.color),
+        child: Builder(
+          builder: (context) {
+            return Scaffold(
+              appBar: AppBar(
+                title: Text(
+                  _m.name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
+                actions: [
+                  const DomainMenu(),
+                  TranslationControls(source: widget.sourceKey),
+                ],
               ),
-              actions: [
-                if (_m.searchFilters.isNotEmpty)
-                  IconButton(
-                    tooltip: tr('筛选'),
-                    icon: Badge(
-                      isLabelVisible: _activeFilters > 0,
-                      label: Text('$_activeFilters'),
-                      child: const Icon(Icons.filter_list_rounded),
+              body: SearchLayout(
+                toolbar: SearchToolbar(
+                  field: TextField(
+                    controller: _text,
+                    autofocus:
+                        widget.initialKeyword.isEmpty &&
+                        widget.initialFilters == null,
+                    textInputAction: TextInputAction.search,
+                    onSubmitted: (_) => _search(),
+                    decoration: InputDecoration(
+                      hintText: tr('在 {source} 中搜索', {'source': _m.name}),
+                      prefixIcon: Padding(
+                        padding: const EdgeInsetsDirectional.fromSTEB(
+                          14,
+                          10,
+                          12,
+                          10,
+                        ),
+                        child: SourceAvatar(_m.key, size: 24),
+                      ),
+                      suffixIcon: IconButton(
+                        icon: const Icon(Icons.close_rounded),
+                        tooltip: tr('清空'),
+                        onPressed: _text.clear,
+                      ),
+                      contentPadding: SearchToolbar.inputPadding,
                     ),
-                    onPressed: _openFilters,
                   ),
-                _translating
-                    ? const Padding(
-                        padding: EdgeInsets.all(14),
-                        child: SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(strokeWidth: 2.2),
+                  actions: [
+                    if (_m.searchFilters.isNotEmpty)
+                      TextButton.icon(
+                        label: Text(tr('筛选')),
+                        icon: Badge(
+                          isLabelVisible: _activeFilters > 0,
+                          label: Text('$_activeFilters'),
+                          child: const Icon(Icons.filter_list_rounded),
+                        ),
+                        onPressed: _openFilters,
+                      ),
+                    _translating
+                        ? const Padding(
+                            padding: EdgeInsets.all(14),
+                            child: SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2.2,
+                              ),
+                            ),
+                          )
+                        : TextButton.icon(
+                            label: Text(tr('多语言搜索')),
+                            onPressed: _searchMulti,
+                            icon: const Icon(Icons.language_rounded),
+                          ),
+                    FilledButton.icon(
+                      label: Text(tr('搜索')),
+                      icon: const Icon(Icons.search_rounded),
+                      onPressed: _search,
+                    ),
+                  ],
+                ),
+                results: !_started
+                    ? ListenableBuilder(
+                        listenable: AppSettings.instance,
+                        builder: (context, _) => _Intro(
+                          manifest: _m,
+                          onPick: (k) {
+                            _text.text = k;
+                            _search();
+                          },
                         ),
                       )
-                    : TextButton(
-                        onPressed: _searchMulti,
-                        child: Text(tr('多语言')),
+                    : RefreshIndicator(
+                        onRefresh: _controller.refresh,
+                        child: CustomScrollView(
+                          physics: const AlwaysScrollableScrollPhysics(),
+                          slivers: [
+                            if (_multi != null)
+                              SliverToBoxAdapter(
+                                child: TranslationsBar(
+                                  keyword: _multi!,
+                                  onPick: (k) {
+                                    _text.text = k;
+                                    _search();
+                                  },
+                                ),
+                              ),
+                            if (_activeFilters > 0)
+                              SliverToBoxAdapter(
+                                child: _ActiveFilters(
+                                  manifest: _m,
+                                  values: _filters,
+                                  onTap: _openFilters,
+                                ),
+                              ),
+                            PagedSliverGrid(
+                              controller: _controller,
+                              kind: _m.kind,
+                            ),
+                          ],
+                        ),
                       ),
-                IconButton(
-                  tooltip: tr('搜索'),
-                  icon: const Icon(Icons.search_rounded),
-                  onPressed: _search,
-                ),
-              ],
-            ),
-            body: !_started
-                ? _Intro(
-                    manifest: _m,
-                    onPick: (k) {
-                      _text.text = k;
-                      _search();
-                    },
-                  )
-                : RefreshIndicator(
-                    onRefresh: _controller.refresh,
-                    child: CustomScrollView(
-                      slivers: [
-                        if (_multi != null)
-                          SliverToBoxAdapter(
-                            child: TranslationsBar(
-                              keyword: _multi!,
-                              onPick: (k) {
-                                _text.text = k;
-                                _search();
-                              },
-                            ),
-                          ),
-                        if (_activeFilters > 0)
-                          SliverToBoxAdapter(
-                            child: _ActiveFilters(
-                              manifest: _m,
-                              values: _filters,
-                              onTap: _openFilters,
-                            ),
-                          ),
-                        PagedSliverGrid(controller: _controller, kind: _m.kind),
-                      ],
-                    ),
-                  ),
-          );
-        },
+              ),
+            );
+          },
+        ),
       ),
     );
   }
@@ -269,7 +322,8 @@ class _Intro extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     AppLocalizations.of(context);
-    final history = AppSettings.instance.searchHistory.take(12).toList();
+    final scope = ContentScope.source(manifest.key);
+    final history = AppSettings.instance.searchHistoryFor(scope);
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
@@ -288,13 +342,24 @@ class _Intro extends StatelessWidget {
           SectionHeader(
             tr('最近搜索'),
             padding: const EdgeInsets.fromLTRB(4, 20, 4, 8),
+            trailing: IconButton(
+              tooltip: tr('清空'),
+              icon: const Icon(Icons.delete_sweep_outlined),
+              onPressed: () =>
+                  AppSettings.instance.clearSearchHistory(scope: scope),
+            ),
           ),
           Wrap(
             spacing: 8,
             runSpacing: 8,
             children: [
               for (final k in history)
-                ActionChip(label: Text(k), onPressed: () => onPick(k)),
+                InputChip(
+                  label: Text(k),
+                  onPressed: () => onPick(k),
+                  onDeleted: () =>
+                      AppSettings.instance.removeSearchHistory(k, scope: scope),
+                ),
             ],
           ),
         ],

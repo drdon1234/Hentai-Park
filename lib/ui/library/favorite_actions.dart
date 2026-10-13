@@ -18,18 +18,34 @@ Future<void> toggleFavorite(BuildContext context, WorkItem item) async {
   }
   // Mihon's duplicate check: the same work may already be in the library from another source.
   final key = normalizeTitle(item.title);
-  final dupes = lib.favorites().where((f) => f.item.uid != item.uid && normalizeTitle(f.item.title) == key).toList();
+  final dupes = lib
+      .favorites()
+      .where(
+        (f) => f.item.uid != item.uid && normalizeTitle(f.item.title) == key,
+      )
+      .toList();
   if (dupes.isNotEmpty) {
     final existing = dupes.first.item;
     final choice = await showDialog<String>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: Text(tr('书库中已有相似作品')),
-        content: Text('「${existing.title}」（${SourceManager.instance.manifest(existing.source)?.name ?? existing.source}）'),
+        content: Text(
+          '「${existing.title}」（${SourceManager.instance.manifest(existing.source)?.name ?? existing.source}）',
+        ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: Text(tr('取消'))),
-          TextButton(onPressed: () => Navigator.pop(ctx, 'open'), child: Text(tr('打开已有'))),
-          FilledButton(onPressed: () => Navigator.pop(ctx, 'add'), child: Text(tr('仍然收藏'))),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text(tr('取消')),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, 'open'),
+            child: Text(tr('打开已有')),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, 'add'),
+            child: Text(tr('仍然收藏')),
+          ),
         ],
       ),
     );
@@ -51,12 +67,19 @@ Future<void> toggleFavorite(BuildContext context, WorkItem item) async {
 
 /// Changes the categories of an existing favorite.
 Future<void> editFavoriteCategories(BuildContext context, String uid) async {
-  final picked = await pickCategories(context, selected: Library.instance.categoriesOf(uid));
+  final picked = await pickCategories(
+    context,
+    selected: Library.instance.categoriesOf(uid),
+  );
   if (picked != null) Library.instance.setCategories(uid, picked);
 }
 
 /// Multi-select category sheet (Mihon style). An empty selection means the default category.
-Future<Set<int>?> pickCategories(BuildContext context, {Set<int> selected = const {}, String title = '设置分类'}) {
+Future<Set<int>?> pickCategories(
+  BuildContext context, {
+  Set<int> selected = const {},
+  String title = '设置分类',
+}) {
   return showModalBottomSheet<Set<int>>(
     context: context,
     isScrollControlled: true,
@@ -96,13 +119,22 @@ class _CategoryPickerState extends State<_CategoryPicker> {
         final cats = Library.instance.categories;
         return SafeArea(
           child: ConstrainedBox(
-            constraints: BoxConstraints(maxHeight: MediaQuery.sizeOf(context).height * 0.7),
+            constraints: BoxConstraints(
+              maxHeight: MediaQuery.sizeOf(context).height * 0.7,
+            ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
                 ListTile(
-                  title: Text(tr(widget.title), style: const TextStyle(fontWeight: FontWeight.w700)),
-                  trailing: TextButton.icon(onPressed: _create, icon: const Icon(Icons.add_rounded), label: Text(tr('新建'))),
+                  title: Text(
+                    tr(widget.title),
+                    style: const TextStyle(fontWeight: FontWeight.w700),
+                  ),
+                  trailing: TextButton.icon(
+                    onPressed: _create,
+                    icon: const Icon(Icons.add_rounded),
+                    label: Text(tr('新建')),
+                  ),
                 ),
                 if (cats.isEmpty)
                   Padding(
@@ -117,7 +149,11 @@ class _CategoryPickerState extends State<_CategoryPicker> {
                         CheckboxListTile(
                           value: _selected.contains(c.id),
                           title: Text(c.name),
-                          onChanged: (v) => setState(() => v == true ? _selected.add(c.id) : _selected.remove(c.id)),
+                          onChanged: (v) => setState(
+                            () => v == true
+                                ? _selected.add(c.id)
+                                : _selected.remove(c.id),
+                          ),
                         ),
                     ],
                   ),
@@ -127,11 +163,17 @@ class _CategoryPickerState extends State<_CategoryPicker> {
                   child: Row(
                     children: [
                       Expanded(
-                        child: OutlinedButton(onPressed: () => Navigator.pop(context), child: Text(tr('取消'))),
+                        child: OutlinedButton(
+                          onPressed: () => Navigator.pop(context),
+                          child: Text(tr('取消')),
+                        ),
                       ),
                       const SizedBox(width: 12),
                       Expanded(
-                        child: FilledButton(onPressed: () => Navigator.pop(context, _selected), child: Text(tr('确定'))),
+                        child: FilledButton(
+                          onPressed: () => Navigator.pop(context, _selected),
+                          child: Text(tr('确定')),
+                        ),
                       ),
                     ],
                   ),
@@ -145,7 +187,12 @@ class _CategoryPickerState extends State<_CategoryPicker> {
   }
 }
 
-Future<String?> promptText(BuildContext context, String title, String initial, {String? hint}) {
+Future<String?> promptText(
+  BuildContext context,
+  String title,
+  String initial, {
+  String? hint,
+}) {
   final c = TextEditingController(text: initial);
   return showDialog<String>(
     context: context,
@@ -155,11 +202,16 @@ Future<String?> promptText(BuildContext context, String title, String initial, {
         controller: c,
         autofocus: true,
         decoration: InputDecoration(hintText: hint),
-        onSubmitted: (v) => Navigator.pop(ctx, v.trim().isEmpty ? null : v.trim()),
+        onSubmitted: (v) =>
+            Navigator.pop(ctx, v.trim().isEmpty ? null : v.trim()),
       ),
       actions: [
         TextButton(onPressed: () => Navigator.pop(ctx), child: Text(tr('取消'))),
-        FilledButton(onPressed: () => Navigator.pop(ctx, c.text.trim().isEmpty ? null : c.text.trim()), child: Text(tr('确定'))),
+        FilledButton(
+          onPressed: () =>
+              Navigator.pop(ctx, c.text.trim().isEmpty ? null : c.text.trim()),
+          child: Text(tr('确定')),
+        ),
       ],
     ),
   );

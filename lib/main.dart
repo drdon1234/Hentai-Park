@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:path/path.dart' as p;
@@ -9,29 +10,55 @@ import 'package:path/path.dart' as p;
 import 'core/app_lock.dart';
 import 'core/crash_log.dart';
 import 'core/models.dart';
+import 'novel/reading_notes.dart';
 import 'core/localization.dart';
 import 'core/settings.dart';
+import 'core/tag_translations.dart';
 import 'core/storage.dart';
 import 'data/database.dart';
-import 'data/legacy_import.dart';
 import 'engine/cookie_store.dart';
 import 'engine/http_service.dart';
 import 'engine/source_manager.dart';
 import 'images/image_store.dart';
 import 'library/backup.dart';
+import 'library/restore_transaction.dart';
 import 'library/downloads.dart';
+import 'game/downloads.dart';
 import 'library/library.dart';
 import 'library/updater.dart';
 import 'ui/lock/lock_screen.dart';
-import 'ui/platform.dart';
+import 'engine/platform_bridge.dart';
+import 'ui/nav.dart';
 import 'ui/shell.dart';
 import 'ui/theme.dart';
+import 'subscriptions/background.dart';
+
+@pragma('vm:entry-point')
+Future<void> subscriptionBackgroundMain() => subscriptionBackground();
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  if (Platform.isAndroid) {
+    await const MethodChannel('hentai_park/platform')
+        .invokeMethod<void>('claimSourceEngine');
+  }
+  LicenseRegistry.addLicense(() async* {
+    yield LicenseEntryWithLineBreaks([
+      'HentaiPark (AGPL-3.0-only)',
+    ], await rootBundle.loadString('LICENSE'));
+    yield LicenseEntryWithLineBreaks([
+      'Telegram source dependencies',
+    ], await rootBundle.loadString('docs/licenses/telegram-dependencies.txt'));
+    yield LicenseEntryWithLineBreaks([
+      'EhTagTranslation names (CC-BY-NC-SA-3.0-CN)',
+    ], await rootBundle.loadString('docs/licenses/ehtagtranslation.txt'));
+  });
   await AppPaths.init();
   CrashLog.install();
+  final db = AppDatabase.file(File(p.join(AppPaths.data.path, 'park.db')));
+  await RestoreTransaction.recover(db);
   await AppSettings.instance.load();
+  await TagTranslations.instance.init();
   await AppLocalizations.instance.load();
   AppLocalizations.instance.setLocale(
     AppSettings.instance.locale ??
@@ -41,18 +68,10 @@ Future<void> main() async {
   );
   await CookieStore.instance.init();
   HttpService.instance.init();
-  final db = AppDatabase.file(File(p.join(AppPaths.data.path, 'park.db')));
-  try {
-    await LegacyImport.run(
-      db,
-      dataDir: AppPaths.data,
-      downloadsDir: AppPaths.downloads,
-    );
-  } catch (e) {
-    debugPrint('legacy import failed, old files kept: $e');
-  }
   await Library.instance.open(db);
+  await ReadingNotes.instance.load();
   await DownloadManager.instance.load(db);
+  await GameDownloadManager.instance.load();
   AppLock.instance.init();
   LibraryUpdater.instance.onFinished.add(_autoDownload);
   if (Platform.isAndroid) {
@@ -71,9 +90,13 @@ Future<void> main() async {
   runApp(const ParkApp());
   // Sources load after the first frame; the UI shows skeletons meanwhile.
   unawaited(
-    SourceManager.instance.init().then(
-      (_) => BackupService.instance.autoBackupIfDue(),
-    ),
+    SourceManager.instance
+        .init()
+        .then((_) => BackupService.instance.autoBackupIfDue())
+        .catchError((Object error, StackTrace stack) {
+          CrashLog.record(error, stack);
+          return null;
+        }),
   );
   unawaited(ImageStore.instance.trim());
 }
@@ -100,6 +123,7 @@ class ParkApp extends StatelessWidget {
       builder: (context, _) {
         final seed = Color(settings.seedColor);
         return MaterialApp(
+          navigatorObservers: [Nav.routeObserver],
           title: 'HentaiPark',
           locale: settings.locale,
           supportedLocales: AppLocalizations.supportedLocales,

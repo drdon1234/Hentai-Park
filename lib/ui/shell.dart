@@ -4,17 +4,22 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../core/settings.dart';
-import '../engine/source_updater.dart';
 import '../library/backup.dart';
 import '../library/updater.dart';
 import 'history/history_page.dart';
+import 'discovery_navigation.dart';
 import 'home/home_page.dart';
 import 'library/library_page.dart';
-import 'platform.dart';
+import '../engine/platform_bridge.dart';
 import 'settings/settings_page.dart';
 import 'theme.dart';
 import 'updates/updates_page.dart';
+import 'updates/startup_update_check.dart';
+import 'widgets/content_translation.dart';
 import '../core/localization.dart';
+import '../subscriptions/updater.dart';
+import 'subscriptions/subscription_updates_page.dart';
+import 'nav.dart';
 
 /// Root navigation: 发现 / 书架 / 更新 / 历史 / 我的 (Mihon's Browse / Library / Updates / History / More).
 class Shell extends StatefulWidget {
@@ -31,9 +36,11 @@ class _ShellState extends State<Shell> {
 
   int _index = 0;
   final _visited = <int>{0};
+  final _discovery = ValueNotifier(const DiscoveryDestination.all());
   DateTime? _lastBack;
   late final AppLifecycleListener _lifecycle;
   StreamSubscription<String>? _taps;
+  StreamSubscription<void>? _subscriptionWakes;
 
   /// New chapters found since the updates tab was last opened (badge).
   int _unseenUpdates = 0;
@@ -50,26 +57,38 @@ class _ShellState extends State<Shell> {
       if (p != null) _onNotificationTap(p);
     });
     unawaited(updater.autoUpdateIfDue());
-    unawaited(SourceUpdater.instance.autoUpdateIfDue());
+    _subscriptionWakes = PlatformBridge.subscriptionWakes.listen(
+      (_) => unawaited(SubscriptionUpdater.instance.run()),
+    );
+    SubscriptionUpdater.instance.start();
   }
 
   @override
   void dispose() {
+    _discovery.dispose();
     _lifecycle.dispose();
     _taps?.cancel();
+    _subscriptionWakes?.cancel();
     LibraryUpdater.instance.onFinished.remove(_onUpdateFinished);
     LibraryUpdater.instance.onProgress = null;
+    SubscriptionUpdater.instance.stop();
     super.dispose();
   }
 
   void _onResume() {
     BackupService.instance.autoBackupIfDue();
     LibraryUpdater.instance.autoUpdateIfDue();
-    unawaited(SourceUpdater.instance.autoUpdateIfDue());
+    unawaited(SubscriptionUpdater.instance.run());
   }
 
   void _onNotificationTap(String payload) {
     if (payload == 'updates') _select(_updatesTab);
+    if (payload == 'subscriptions' && mounted) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) Nav.push(context, const SubscriptionUpdatesPage());
+      });
+      WidgetsBinding.instance.ensureVisualUpdate();
+    }
   }
 
   void _notifyProgress(LibraryUpdater u) {
@@ -169,7 +188,7 @@ class _ShellState extends State<Shell> {
   }
 
   Widget _page(int i) => switch (i) {
-    0 => const HomePage(),
+    0 => HomePage(destination: _discovery, onOpenHistory: () => _select(3)),
     1 => const LibraryPage(),
     2 => const UpdatesPage(),
     3 => const HistoryPage(),
@@ -185,7 +204,9 @@ class _ShellState extends State<Shell> {
       index: _index,
       children: [
         for (var i = 0; i < 5; i++)
-          _visited.contains(i) ? _page(i) : const SizedBox.shrink(),
+          _visited.contains(i)
+              ? TranslationPage(active: i == _index, child: _page(i))
+              : const SizedBox.shrink(),
       ],
     );
     final destinations = _destinations;
@@ -238,12 +259,21 @@ class _ShellState extends State<Shell> {
               destinations: destinations,
             ),
           );
-    return PopScope(
-      canPop: false,
-      onPopInvokedWithResult: (didPop, _) {
-        if (!didPop) _onBack();
+    return DiscoveryNavigation(
+      onSelect: (destination) {
+        Navigator.of(context).popUntil((route) => route.isFirst);
+        _discovery.value = destination;
+        _select(0);
       },
-      child: scaffold,
+      child: StartupUpdateCheck(
+        child: PopScope(
+          canPop: false,
+          onPopInvokedWithResult: (didPop, _) {
+            if (!didPop) _onBack();
+          },
+          child: scaffold,
+        ),
+      ),
     );
   }
 }

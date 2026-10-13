@@ -77,12 +77,25 @@ class CoverImage extends StatelessWidget {
     this.fit = BoxFit.cover,
     this.radius = 12,
     this.blur,
+    this.title = '',
+    this.mediaKind,
+    this.onReady,
   });
   final String source;
   final String url;
   final BoxFit fit;
   final double radius;
   final bool? blur;
+  final String title;
+  final MediaKind? mediaKind;
+  final VoidCallback? onReady;
+
+  void _notifyReady() {
+    final callback = onReady;
+    if (callback != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => callback());
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -90,7 +103,50 @@ class CoverImage extends StatelessWidget {
     final colors = context.colors;
     Widget child;
     if (url.isEmpty) {
-      child = _placeholder(colors, Icons.image_not_supported_outlined);
+      _notifyReady();
+      child =
+          title.isNotEmpty &&
+              (mediaKind == MediaKind.novel ||
+                  SourceManager.instance.manifest(source)?.isNovel == true)
+          ? LayoutBuilder(
+              builder: (context, constraints) {
+                final compact =
+                    constraints.maxWidth < 90 || constraints.maxHeight < 100;
+                return Padding(
+                  padding: EdgeInsets.all(compact ? 6 : 16),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      if (!compact)
+                        Icon(
+                          Icons.menu_book_rounded,
+                          color: colors.primary,
+                          size: 32,
+                        ),
+                      if (!compact) const SizedBox(height: 16),
+                      Flexible(
+                        child: Text(
+                          title,
+                          textAlign: TextAlign.center,
+                          maxLines: compact ? 3 : 6,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: colors.onSurface,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              },
+            )
+          : _placeholder(
+              colors,
+              SourceManager.instance.manifest(source)?.isNovel == true
+                  ? Icons.menu_book_rounded
+                  : Icons.image_not_supported_outlined,
+            );
     } else {
       child = LayoutBuilder(
         builder: (context, constraints) {
@@ -123,6 +179,7 @@ class CoverImage extends StatelessWidget {
             gaplessPlayback: true,
             filterQuality: FilterQuality.medium,
             frameBuilder: (context, child, frame, sync) {
+              if (sync || frame != null) _notifyReady();
               if (sync) return child;
               return AnimatedOpacity(
                 opacity: frame == null ? 0 : 1,
@@ -131,8 +188,10 @@ class CoverImage extends StatelessWidget {
                 child: child,
               );
             },
-            errorBuilder: (_, _, _) =>
-                _placeholder(colors, Icons.broken_image_outlined),
+            errorBuilder: (_, _, _) {
+              _notifyReady();
+              return _placeholder(colors, Icons.broken_image_outlined);
+            },
           );
         },
       );
@@ -468,5 +527,7 @@ extension SourceErrorX on Object {
       : SourceError('UNKNOWN', toString());
 }
 
-MediaKind kindOf(String source) =>
-    SourceManager.instance.manifest(source)?.kind ?? MediaKind.comic;
+MediaKind kindOf(WorkItem item) => MediaKind.fromJson(
+  item.json['mediaKind'] ??
+      SourceManager.instance.manifest(item.source)?.kind.name,
+);

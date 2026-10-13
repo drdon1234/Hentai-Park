@@ -37,14 +37,22 @@ class _BackupPageState extends State<BackupPage> {
   }
 
   Future<void> _create() async {
-    final options = await showDialog<BackupOptions>(context: context, builder: (_) => const _OptionsDialog());
+    final options = await showDialog<BackupOptions>(
+      context: context,
+      builder: (_) => const _OptionsDialog(),
+    );
     if (options == null) return;
     await _guard(() async {
-      final file = await BackupService.instance.writeTo(AppPaths.backups, options);
+      final file = await BackupService.instance.writeTo(
+        AppPaths.backups,
+        options,
+      );
       await _refresh();
       if (!mounted) return;
       context.toast(tr('备份已保存'));
-      await SharePlus.instance.share(ShareParams(files: [XFile(file.path)], subject: p.basename(file.path)));
+      await SharePlus.instance.share(
+        ShareParams(files: [XFile(file.path)], subject: p.basename(file.path)),
+      );
     });
   }
 
@@ -55,8 +63,14 @@ class _BackupPageState extends State<BackupPage> {
         title: Text(tr('恢复备份？')),
         content: Text(tr('备份会与当前数据合并：收藏取并集，已读进度保留较新的一方，设置会被备份中的值覆盖。')),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(tr('取消'))),
-          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: Text(tr('恢复'))),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text(tr('取消')),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text(tr('恢复')),
+          ),
         ],
       ),
     );
@@ -68,14 +82,28 @@ class _BackupPageState extends State<BackupPage> {
         context: context,
         builder: (ctx) => AlertDialog(
           title: Text(tr('恢复完成')),
-          content: Text(report.summary.isEmpty ? tr('没有需要合并的新数据') : tr('已合并：{value0}', {'value0': report.summary})),
-          actions: [FilledButton(onPressed: () => Navigator.pop(ctx), child: Text(tr('好')))],
+          content: Text(
+            report.summary.isEmpty
+                ? tr('没有需要合并的新数据')
+                : tr('已合并：{value0}', {'value0': report.summary}),
+          ),
+          actions: [
+            FilledButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: Text(tr('好')),
+            ),
+          ],
         ),
       );
       if (!mounted) return;
       for (final missing in report.sourcesToInstall) {
         if (!mounted) break;
-        await installSourceFromUrl(context, missing.url);
+        final key = await installSourceFromUrl(
+          context,
+          missing.url,
+          expectedKey: missing.key,
+        );
+        if (key == null && mounted) context.toast(tr('未安装的源设置已保留，安装后自动恢复'));
       }
     });
   }
@@ -110,10 +138,27 @@ class _BackupPageState extends State<BackupPage> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            ListTile(title: Text(p.basename(f.path), style: const TextStyle(fontWeight: FontWeight.w700))),
-            ListTile(leading: const Icon(Icons.restore_rounded), title: Text(tr('从此备份恢复')), onTap: () => Navigator.pop(ctx, 'restore')),
-            ListTile(leading: const Icon(Icons.share_rounded), title: Text(tr('分享 / 另存')), onTap: () => Navigator.pop(ctx, 'share')),
-            ListTile(leading: const Icon(Icons.delete_outline_rounded), title: Text(tr('删除')), onTap: () => Navigator.pop(ctx, 'delete')),
+            ListTile(
+              title: Text(
+                p.basename(f.path),
+                style: const TextStyle(fontWeight: FontWeight.w700),
+              ),
+            ),
+            ListTile(
+              leading: const Icon(Icons.restore_rounded),
+              title: Text(tr('从此备份恢复')),
+              onTap: () => Navigator.pop(ctx, 'restore'),
+            ),
+            ListTile(
+              leading: const Icon(Icons.share_rounded),
+              title: Text(tr('分享 / 另存')),
+              onTap: () => Navigator.pop(ctx, 'share'),
+            ),
+            ListTile(
+              leading: const Icon(Icons.delete_outline_rounded),
+              title: Text(tr('删除')),
+              onTap: () => Navigator.pop(ctx, 'delete'),
+            ),
           ],
         ),
       ),
@@ -139,7 +184,12 @@ class _BackupPageState extends State<BackupPage> {
       builder: (context, _) => Scaffold(
         appBar: AppBar(
           title: Text(tr('备份与恢复')),
-          bottom: _busy ? const PreferredSize(preferredSize: Size.fromHeight(2), child: LinearProgressIndicator(minHeight: 2)) : null,
+          bottom: _busy
+              ? const PreferredSize(
+                  preferredSize: Size.fromHeight(2),
+                  child: LinearProgressIndicator(minHeight: 2),
+                )
+              : null,
         ),
         body: ListView(
           padding: const EdgeInsets.fromLTRB(12, 8, 12, 32),
@@ -150,7 +200,9 @@ class _BackupPageState extends State<BackupPage> {
                   ListTile(
                     leading: const Icon(Icons.backup_outlined),
                     title: Text(tr('创建备份')),
-                    subtitle: Text(tr('收藏、分类、阅读进度、历史、设置与源列表')),
+                    subtitle: Text(
+                      tr('收藏、分类、阅读进度、历史、标注、订阅、设置与源列表；不包含下载正文或 Cookie'),
+                    ),
                     onTap: _busy ? null : _create,
                   ),
                   ListTile(
@@ -169,34 +221,88 @@ class _BackupPageState extends State<BackupPage> {
                   ListTile(
                     leading: const Icon(Icons.schedule_rounded),
                     title: Text(tr('自动备份')),
-                    subtitle: Text(last == 0 ? tr('尚未自动备份过') : tr('上次：{value0}', {'value0': timeAgo(DateTime.fromMillisecondsSinceEpoch(last))})),
-                    trailing: DropdownButton<int>(
+                    subtitle: Text(
+                      last == 0
+                          ? tr('尚未自动备份过')
+                          : tr('上次：{value0}', {
+                              'value0': timeAgo(
+                                DateTime.fromMillisecondsSinceEpoch(last),
+                              ),
+                            }),
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsetsDirectional.fromSTEB(
+                      72,
+                      0,
+                      16,
+                      12,
+                    ),
+                    child: DropdownButton<int>(
                       value: s.autoBackupHours,
+                      isExpanded: true,
                       underline: const SizedBox.shrink(),
-                      items: [
-                        (0, tr('关闭')),
-                        (12, tr('每 12 小时')),
-                        (24, tr('每天')),
-                        (72, tr('每 3 天')),
-                        (168, tr('每周')),
-                      ].map((e) => DropdownMenuItem(value: e.$1, child: Text(e.$2))).toList(),
+                      items:
+                          [
+                                (0, tr('关闭')),
+                                (12, tr('每 12 小时')),
+                                (24, tr('每天')),
+                                (72, tr('每 3 天')),
+                                (168, tr('每周')),
+                              ]
+                              .map(
+                                (e) => DropdownMenuItem(
+                                  value: e.$1,
+                                  child: Text(
+                                    e.$2,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              )
+                              .toList(),
                       onChanged: (v) => s.autoBackupHours = v ?? 24,
                     ),
                   ),
                   ListTile(
                     leading: const Icon(Icons.layers_outlined),
                     title: Text(tr('保留份数')),
-                    trailing: DropdownButton<int>(
+                    subtitle: Text(tr('仅清理自动备份，手工备份保留')),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 8,
+                    ),
+                    child: Text(tr('打开应用或回到前台时检查备份间隔；应用关闭时不会执行后台定时备份')),
+                  ),
+                  Padding(
+                    padding: const EdgeInsetsDirectional.fromSTEB(
+                      72,
+                      0,
+                      16,
+                      12,
+                    ),
+                    child: DropdownButton<int>(
                       value: s.autoBackupKeep,
+                      isExpanded: true,
                       underline: const SizedBox.shrink(),
-                      items: const [1, 2, 3, 5, 10].map((v) => DropdownMenuItem(value: v, child: Text('$v'))).toList(),
+                      items: const [1, 2, 3, 5, 10]
+                          .map(
+                            (v) =>
+                                DropdownMenuItem(value: v, child: Text('$v')),
+                          )
+                          .toList(),
                       onChanged: (v) => s.autoBackupKeep = v ?? 3,
                     ),
                   ),
                   ListTile(
                     leading: const Icon(Icons.folder_outlined),
                     title: Text(tr('备份目录')),
-                    subtitle: SelectableText(AppPaths.backups.path, style: context.text.bodySmall),
+                    subtitle: SelectableText(
+                      AppPaths.backups.path,
+                      style: context.text.bodySmall,
+                    ),
                   ),
                 ],
               ),
@@ -243,21 +349,47 @@ class _OptionsDialogState extends State<_OptionsDialog> {
       content: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          CheckboxListTile(value: library, title: Text(tr('书库')), subtitle: Text(tr('收藏、分类、阅读进度、历史')), onChanged: (v) => setState(() => library = v!)),
-          CheckboxListTile(value: settings, title: Text(tr('应用设置')), onChanged: (v) => setState(() => settings = v!)),
-          CheckboxListTile(value: sources, title: Text(tr('源列表与源设置')), onChanged: (v) => setState(() => sources = v!)),
+          CheckboxListTile(
+            value: library,
+            title: Text(tr('书库')),
+            subtitle: Text(tr('收藏、分类、阅读进度、历史')),
+            onChanged: (v) => setState(() => library = v!),
+          ),
+          CheckboxListTile(
+            value: settings,
+            title: Text(tr('应用设置')),
+            onChanged: (v) => setState(() => settings = v!),
+          ),
+          CheckboxListTile(
+            value: sources,
+            title: Text(tr('源列表与源设置')),
+            onChanged: (v) => setState(() => sources = v!),
+          ),
           CheckboxListTile(
             value: credentials,
             title: Text(tr('源登录数据')),
-            subtitle: Text(tr('包含 Token 等凭据，请妥善保管备份文件；基于 Cookie 的登录（如 E-Hentai）需要重新登录')),
+            subtitle: Text(
+              tr('包含 Token 等凭据，请妥善保管备份文件；基于 Cookie 的登录（如 E-Hentai）需要重新登录'),
+            ),
             onChanged: sources ? (v) => setState(() => credentials = v!) : null,
           ),
         ],
       ),
       actions: [
-        TextButton(onPressed: () => Navigator.pop(context), child: Text(tr('取消'))),
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: Text(tr('取消')),
+        ),
         FilledButton(
-          onPressed: () => Navigator.pop(context, BackupOptions(library: library, settings: settings, sources: sources, credentials: sources && credentials)),
+          onPressed: () => Navigator.pop(
+            context,
+            BackupOptions(
+              library: library,
+              settings: settings,
+              sources: sources,
+              credentials: sources && credentials,
+            ),
+          ),
           child: Text(tr('创建')),
         ),
       ],

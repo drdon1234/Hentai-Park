@@ -5,7 +5,13 @@ import '../theme.dart';
 
 /// Rows of horizontally scrolling chips, one row per option (period, category, sort…).
 class OptionBar extends StatelessWidget {
-  const OptionBar({super.key, required this.options, required this.values, required this.onChanged, this.padding = const EdgeInsets.fromLTRB(12, 8, 12, 0)});
+  const OptionBar({
+    super.key,
+    required this.options,
+    required this.values,
+    required this.onChanged,
+    this.padding = const EdgeInsets.fromLTRB(12, 8, 12, 0),
+  });
   final List<OptionDef> options;
   final Map<String, Object?> values;
   final ValueChanged<Map<String, Object?>> onChanged;
@@ -18,7 +24,13 @@ class OptionBar extends StatelessWidget {
       child: Column(
         children: [
           for (final o in options)
-            if (o.type == 'select' || o.type == 'multi') _OptionRow(option: o, values: values, onChanged: onChanged, showLabel: options.length > 1),
+            if (o.type == 'select' || o.type == 'multi')
+              _OptionRow(
+                option: o,
+                values: values,
+                onChanged: onChanged,
+                showLabel: options.length > 1,
+              ),
         ],
       ),
     );
@@ -28,7 +40,12 @@ class OptionBar extends StatelessWidget {
 /// One option row. The selected chip is scrolled into view, so a default like "全彩" that sits far
 /// down a long category list is still visible when the page opens.
 class _OptionRow extends StatefulWidget {
-  const _OptionRow({required this.option, required this.values, required this.onChanged, required this.showLabel});
+  const _OptionRow({
+    required this.option,
+    required this.values,
+    required this.onChanged,
+    required this.showLabel,
+  });
   final OptionDef option;
   final Map<String, Object?> values;
   final ValueChanged<Map<String, Object?>> onChanged;
@@ -52,7 +69,9 @@ class _OptionRowState extends State<_OptionRow> {
 
   bool _isSelected(Choice choice) {
     final v = widget.values[widget.option.key];
-    return widget.option.type == 'multi' ? ((v as List?) ?? const []).contains(choice.value) : v == choice.value;
+    return widget.option.type == 'multi'
+        ? ((v as List?) ?? const []).contains(choice.value)
+        : v == choice.value;
   }
 
   @override
@@ -68,13 +87,20 @@ class _OptionRowState extends State<_OptionRow> {
             Center(
               child: Padding(
                 padding: const EdgeInsets.only(left: 4, right: 10),
-                child: Text(o.label, style: context.text.labelLarge?.copyWith(color: context.colors.onSurfaceVariant)),
+                child: Text(
+                  o.label,
+                  style: context.text.labelLarge?.copyWith(
+                    color: context.colors.onSurfaceVariant,
+                  ),
+                ),
               ),
             ),
           for (final choice in o.values)
             Padding(
               // Only the first selected chip needs a key to scroll to.
-              key: !keyed && _isSelected(choice) && (keyed = true) ? _selectedKey : null,
+              key: !keyed && _isSelected(choice) && (keyed = true)
+                  ? _selectedKey
+                  : null,
               padding: const EdgeInsets.only(right: 6),
               child: Center(child: _chip(context, o, choice)),
             ),
@@ -93,7 +119,9 @@ class _OptionRowState extends State<_OptionRow> {
         selected: current.contains(choice.value),
         showCheckmark: false,
         selectedColor: color?.withValues(alpha: 0.35),
-        avatar: color != null ? CircleAvatar(backgroundColor: color, radius: 5) : null,
+        avatar: color != null
+            ? CircleAvatar(backgroundColor: color, radius: 5)
+            : null,
         visualDensity: VisualDensity.compact,
         onSelected: (on) {
           final next = [...current];

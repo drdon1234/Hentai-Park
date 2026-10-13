@@ -18,7 +18,10 @@ class LockGate extends StatelessWidget {
       builder: (context, _) => Stack(
         children: [
           // Keep the app mounted underneath so navigation state survives locking.
-          ExcludeSemantics(excluding: lock.locked, child: TickerMode(enabled: !lock.locked, child: child)),
+          ExcludeSemantics(
+            excluding: lock.locked,
+            child: TickerMode(enabled: !lock.locked, child: child),
+          ),
           if (lock.locked) const Positioned.fill(child: _LockScreen()),
         ],
       ),
@@ -37,7 +40,9 @@ class _LockScreenState extends State<_LockScreen> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => AppLock.instance.unlock());
+    WidgetsBinding.instance.addPostFrameCallback(
+      (_) => AppLock.instance.unlock(),
+    );
   }
 
   @override
@@ -53,9 +58,18 @@ class _LockScreenState extends State<_LockScreen> {
             children: [
               Icon(Icons.lock_outline_rounded, size: 56, color: c.primary),
               const SizedBox(height: 16),
-              Text(tr('HentaiPark 已锁定'), style: context.text.titleMedium?.copyWith(fontWeight: FontWeight.w700)),
+              Text(
+                tr('HentaiPark 已锁定'),
+                style: context.text.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
               const SizedBox(height: 24),
-              FilledButton.icon(onPressed: AppLock.instance.unlock, icon: const Icon(Icons.fingerprint_rounded), label: Text(tr('解锁'))),
+              FilledButton.icon(
+                onPressed: AppLock.instance.unlock,
+                icon: const Icon(Icons.fingerprint_rounded),
+                label: Text(tr('解锁')),
+              ),
             ],
           ),
         ),

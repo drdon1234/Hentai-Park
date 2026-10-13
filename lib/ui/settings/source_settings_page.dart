@@ -7,6 +7,7 @@ import '../../engine/source_manager.dart';
 import '../nav.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
+import '../widgets/content_translation.dart';
 import 'login_panel.dart';
 import 'source_install.dart';
 
@@ -107,7 +108,11 @@ class _SourceSettingsPageState extends State<SourceSettingsPage> {
                       child: ListTile(
                         title: Text(m.description),
                         subtitle: Text(
-                          'v${m.version} · ${context.tr(s.origin == 'official' ? '官方' : s.origin == 'builtin' ? '内置源' : '第三方源')}${m.homepage.isNotEmpty ? ' · ${Uri.parse(m.homepage).host}' : ''}',
+                          'v${m.version} · ${context.tr(s.origin == 'official'
+                              ? '官方'
+                              : s.origin == 'builtin'
+                              ? '内置源'
+                              : '第三方源')}${m.homepage.isNotEmpty ? ' · ${Uri.parse(m.homepage).host}' : ''}',
                         ),
                         trailing: m.homepage.isEmpty
                             ? null
@@ -118,6 +123,16 @@ class _SourceSettingsPageState extends State<SourceSettingsPage> {
                                   mode: LaunchMode.externalApplication,
                                 ),
                               ),
+                      ),
+                    ),
+                    Card(
+                      child: ListTile(
+                        leading: const Icon(Icons.translate_rounded),
+                        title: Text(context.tr('官方标签翻译包')),
+                        onTap: () => showTagTranslationPacks(
+                          context,
+                          source: widget.sourceKey,
+                        ),
                       ),
                     ),
                     if (m.account != null) ...[
@@ -164,79 +179,80 @@ class _SourceSettingsPageState extends State<SourceSettingsPage> {
                     if (canRestore || !managed)
                       _header(context, context.tr('维护')),
                     if (canRestore || !managed)
-                    Card(
-                      child: Column(
-                        children: [
-                          if (canRestore)
-                            ListTile(
-                              leading: const Icon(Icons.restore_rounded),
-                              title: Text(context.tr('恢复内置版本')),
-                              onTap: () async {
-                                await sm.resetBuiltin(m.key);
-                                if (context.mounted) {
-                                  context.toast(context.tr('已恢复'));
-                                }
-                              },
-                            ),
-                          if (!managed && s.url.isNotEmpty)
-                            ListTile(
-                              leading: const Icon(
-                                Icons.system_update_alt_rounded,
+                      Card(
+                        child: Column(
+                          children: [
+                            if (canRestore)
+                              ListTile(
+                                leading: const Icon(Icons.restore_rounded),
+                                title: Text(context.tr('恢复内置版本')),
+                                onTap: () async {
+                                  await sm.resetBuiltin(m.key);
+                                  if (context.mounted) {
+                                    context.toast(context.tr('已恢复'));
+                                  }
+                                },
                               ),
-                              title: Text(context.tr('从原地址更新')),
-                              subtitle: Text(
-                                s.url,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
+                            if (!managed && s.url.isNotEmpty)
+                              ListTile(
+                                leading: const Icon(
+                                  Icons.system_update_alt_rounded,
+                                ),
+                                title: Text(context.tr('从原地址更新')),
+                                subtitle: Text(
+                                  s.url,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                onTap: () =>
+                                    installSourceFromUrl(context, s.url),
                               ),
-                              onTap: () => installSourceFromUrl(context, s.url),
-                            ),
-                          if (!managed)
-                            ListTile(
-                              leading: Icon(
-                                Icons.delete_outline_rounded,
-                                color: context.colors.error,
-                              ),
-                              title: Text(
-                                context.tr('卸载此源'),
-                                style: TextStyle(color: context.colors.error),
-                              ),
-                              onTap: () async {
-                                final ok = await showDialog<bool>(
-                                  context: context,
-                                  builder: (ctx) => AlertDialog(
-                                    title: Text(
-                                      context.tr('卸载「{name}」？', {
-                                        'name': m.name,
-                                      }),
+                            if (!managed)
+                              ListTile(
+                                leading: Icon(
+                                  Icons.delete_outline_rounded,
+                                  color: context.colors.error,
+                                ),
+                                title: Text(
+                                  context.tr('卸载此源'),
+                                  style: TextStyle(color: context.colors.error),
+                                ),
+                                onTap: () async {
+                                  final ok = await showDialog<bool>(
+                                    context: context,
+                                    builder: (ctx) => AlertDialog(
+                                      title: Text(
+                                        context.tr('卸载「{name}」？', {
+                                          'name': m.name,
+                                        }),
+                                      ),
+                                      content: Text(
+                                        context.tr(
+                                          '该源的设置、登录信息与 Cookie 都会被删除。书架中的收藏与下载不受影响。',
+                                        ),
+                                      ),
+                                      actions: [
+                                        TextButton(
+                                          onPressed: () =>
+                                              Navigator.pop(ctx, false),
+                                          child: Text(context.tr('取消')),
+                                        ),
+                                        FilledButton(
+                                          onPressed: () =>
+                                              Navigator.pop(ctx, true),
+                                          child: Text(context.tr('卸载')),
+                                        ),
+                                      ],
                                     ),
-                                    content: Text(
-                                      context.tr(
-                                        '该源的设置、登录信息与 Cookie 都会被删除。书架中的收藏与下载不受影响。',
-                                      ),
-                                    ),
-                                    actions: [
-                                      TextButton(
-                                        onPressed: () =>
-                                            Navigator.pop(ctx, false),
-                                        child: Text(context.tr('取消')),
-                                      ),
-                                      FilledButton(
-                                        onPressed: () =>
-                                            Navigator.pop(ctx, true),
-                                        child: Text(context.tr('卸载')),
-                                      ),
-                                    ],
-                                  ),
-                                );
-                                if (ok != true) return;
-                                await sm.uninstall(m.key);
-                                if (context.mounted) Navigator.pop(context);
-                              },
-                            ),
-                        ],
+                                  );
+                                  if (ok != true) return;
+                                  await sm.uninstall(m.key);
+                                  if (context.mounted) Navigator.pop(context);
+                                },
+                              ),
+                          ],
+                        ),
                       ),
-                    ),
                   ],
                 ),
               );

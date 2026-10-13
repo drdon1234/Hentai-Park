@@ -41,7 +41,8 @@ class _LibraryPageState extends State<LibraryPage> {
     if (lib.categories.isEmpty) return const [null];
     return [
       null,
-      if (lib.favorites(category: Library.defaultCategory).isNotEmpty) Library.defaultCategory,
+      if (lib.favorites(category: Library.defaultCategory).isNotEmpty)
+        Library.defaultCategory,
       for (final c in lib.categories) c.id,
     ];
   }
@@ -61,10 +62,20 @@ class _LibraryPageState extends State<LibraryPage> {
     }
     final r = await updater.run(category: category);
     if (!mounted || r == null) return;
-    context.toast(r.newChapters > 0 ? tr('{value0} 部作品有新章节，详见「更新」', {'value0': r.updated.length}) : tr('没有新章节{value0}', {'value0': r.errors.isNotEmpty ? tr('（{value0} 部检查失败）', {'value0': r.errors.length}) : ''}));
+    context.toast(
+      r.newChapters > 0
+          ? tr('{value0} 部作品有新章节，详见「更新」', {'value0': r.updated.length})
+          : tr('没有新章节{value0}', {
+              'value0': r.errors.isNotEmpty
+                  ? tr('（{value0} 部检查失败）', {'value0': r.errors.length})
+                  : '',
+            }),
+    );
   }
 
-  void _toggle(String uid) => setState(() => _selected.contains(uid) ? _selected.remove(uid) : _selected.add(uid));
+  void _toggle(String uid) => setState(
+    () => _selected.contains(uid) ? _selected.remove(uid) : _selected.add(uid),
+  );
 
   Future<void> _selectionAction(String action) async {
     final lib = Library.instance;
@@ -79,7 +90,8 @@ class _LibraryPageState extends State<LibraryPage> {
         }
       case 'read':
         for (final uid in uids) {
-          final chapters = lib.chaptersCached(uid) ?? await lib.loadChapters(uid);
+          final chapters =
+              lib.chaptersCached(uid) ?? await lib.loadChapters(uid);
           lib.markRead(uid, chapters.map((c) => c.chapterId), true);
         }
       case 'remove':
@@ -88,8 +100,14 @@ class _LibraryPageState extends State<LibraryPage> {
           builder: (ctx) => AlertDialog(
             title: Text(tr('取消收藏 {value0} 部作品？', {'value0': uids.length})),
             actions: [
-              TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(tr('取消'))),
-              FilledButton(onPressed: () => Navigator.pop(ctx, true), child: Text(tr('取消收藏'))),
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: Text(tr('取消')),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.pop(ctx, true),
+                child: Text(tr('取消收藏')),
+              ),
             ],
           ),
         );
@@ -98,8 +116,11 @@ class _LibraryPageState extends State<LibraryPage> {
           lib.removeFavorite(uid);
         }
       case 'migrate':
-        final items = [for (final uid in uids) lib.favorite(uid)?.item].nonNulls.toList();
-        if (items.isNotEmpty) await Nav.push(context, MigrationPage(items: items));
+        final items = [for (final uid in uids) lib.favorite(uid)?.item].nonNulls
+            .toList();
+        if (items.isNotEmpty) {
+          await Nav.push(context, MigrationPage(items: items));
+        }
     }
     if (mounted) setState(_selected.clear);
   }
@@ -118,13 +139,27 @@ class _LibraryPageState extends State<LibraryPage> {
           length: tabs.length,
           child: Builder(
             builder: (context) => Scaffold(
-              appBar: _selected.isNotEmpty ? _selectionBar() : _appBar(context, lib, tabs),
+              appBar: _selected.isNotEmpty
+                  ? _selectionBar()
+                  : _appBar(context, lib, tabs),
               body: tabs.length == 1
-                  ? _LibraryTab(category: null, query: _query.text, selected: _selected, onToggle: _toggle, onRefresh: () => _update(null))
+                  ? _LibraryTab(
+                      category: null,
+                      query: _query.text,
+                      selected: _selected,
+                      onToggle: _toggle,
+                      onRefresh: () => _update(null),
+                    )
                   : TabBarView(
                       children: [
                         for (final t in tabs)
-                          _LibraryTab(category: t, query: _query.text, selected: _selected, onToggle: _toggle, onRefresh: () => _update(t)),
+                          _LibraryTab(
+                            category: t,
+                            query: _query.text,
+                            selected: _selected,
+                            onToggle: _toggle,
+                            onRefresh: () => _update(t),
+                          ),
                       ],
                     ),
             ),
@@ -135,11 +170,20 @@ class _LibraryPageState extends State<LibraryPage> {
   }
 
   PreferredSizeWidget _selectionBar() => AppBar(
-    leading: IconButton(icon: const Icon(Icons.close_rounded), onPressed: () => setState(_selected.clear)),
+    leading: IconButton(
+      icon: const Icon(Icons.close_rounded),
+      onPressed: () => setState(_selected.clear),
+    ),
     title: Text(tr('已选 {value0}', {'value0': _selected.length})),
     actions: [
-      TextButton(onPressed: () => _selectionAction('categories'), child: Text(tr('分类'))),
-      TextButton(onPressed: () => _selectionAction('read'), child: Text(tr('标为已读'))),
+      TextButton(
+        onPressed: () => _selectionAction('categories'),
+        child: Text(tr('分类')),
+      ),
+      TextButton(
+        onPressed: () => _selectionAction('read'),
+        child: Text(tr('标为已读')),
+      ),
       PopupMenuButton<String>(
         tooltip: tr('更多'),
         onSelected: _selectionAction,
@@ -151,14 +195,21 @@ class _LibraryPageState extends State<LibraryPage> {
     ],
   );
 
-  PreferredSizeWidget _appBar(BuildContext context, Library lib, List<int?> tabs) {
+  PreferredSizeWidget _appBar(
+    BuildContext context,
+    Library lib,
+    List<int?> tabs,
+  ) {
     final controller = DefaultTabController.of(context);
     return AppBar(
       title: _searching
           ? TextField(
               controller: _query,
               autofocus: true,
-              decoration: InputDecoration(hintText: tr('搜索书架'), border: InputBorder.none),
+              decoration: InputDecoration(
+                hintText: tr('搜索书架'),
+                border: InputBorder.none,
+              ),
               onChanged: (_) => setState(() {}),
             )
           : Text(tr('书架')),
@@ -171,7 +222,11 @@ class _LibraryPageState extends State<LibraryPage> {
             if (!_searching) _query.clear();
           }),
         ),
-        IconButton(tooltip: tr('筛选与排序'), icon: const Icon(Icons.filter_list_rounded), onPressed: () => showLibraryOptions(context)),
+        IconButton(
+          tooltip: tr('筛选与排序'),
+          icon: const Icon(Icons.filter_list_rounded),
+          onPressed: () => showLibraryOptions(context),
+        ),
         PopupMenuButton<String>(
           onSelected: (v) {
             switch (v) {
@@ -184,7 +239,8 @@ class _LibraryPageState extends State<LibraryPage> {
             }
           },
           itemBuilder: (_) => [
-            if (tabs.length > 1) PopupMenuItem(value: 'update', child: Text(tr('检查当前分类的更新'))),
+            if (tabs.length > 1)
+              PopupMenuItem(value: 'update', child: Text(tr('检查当前分类的更新'))),
             PopupMenuItem(value: 'updateAll', child: Text(tr('检查全部更新'))),
             PopupMenuItem(value: 'categories', child: Text(tr('管理分类'))),
           ],
@@ -202,7 +258,13 @@ class _LibraryPageState extends State<LibraryPage> {
 }
 
 class _LibraryTab extends StatelessWidget {
-  const _LibraryTab({required this.category, required this.query, required this.selected, required this.onToggle, required this.onRefresh});
+  const _LibraryTab({
+    required this.category,
+    required this.query,
+    required this.selected,
+    required this.onToggle,
+    required this.onRefresh,
+  });
   final int? category;
   final String query;
   final Set<String> selected;
@@ -222,8 +284,18 @@ class _LibraryTab extends StatelessWidget {
 
     final list = lib.favorites(category: category).where((f) {
       final uid = f.item.uid;
-      if (query.trim().isNotEmpty && !normalizeTitle(f.item.title).contains(q)) return false;
+      if (query.trim().isNotEmpty &&
+          !normalizeTitle(f.item.title).contains(q)) {
+        return false;
+      }
       if (sources.isNotEmpty && !sources.contains(f.item.source)) return false;
+      if (s.libraryFilterKind != 'all' &&
+          (f.item.json['mediaKind'] ??
+                  SourceManager.instance.manifest(f.item.source)?.kind.name ??
+                  'comic') !=
+              s.libraryFilterKind) {
+        return false;
+      }
       if (s.libraryFilterDownloaded && !downloaded(uid)) return false;
       if (s.libraryFilterUnread && lib.statsOf(uid).unread == 0) return false;
       return true;
@@ -231,17 +303,24 @@ class _LibraryTab extends StatelessWidget {
     int byKey(FavoriteEntry a, FavoriteEntry b) {
       switch (s.librarySort) {
         case 'title':
-          return a.item.title.toLowerCase().compareTo(b.item.title.toLowerCase());
+          return a.item.title.toLowerCase().compareTo(
+            b.item.title.toLowerCase(),
+          );
         case 'read':
           final x = lib.historyOf(a.item.uid)?.time.millisecondsSinceEpoch ?? 0;
           final y = lib.historyOf(b.item.uid)?.time.millisecondsSinceEpoch ?? 0;
           return x.compareTo(y);
         case 'updated':
-          final x = lib.statsOf(a.item.uid).latestFetch?.millisecondsSinceEpoch ?? 0;
-          final y = lib.statsOf(b.item.uid).latestFetch?.millisecondsSinceEpoch ?? 0;
+          final x =
+              lib.statsOf(a.item.uid).latestFetch?.millisecondsSinceEpoch ?? 0;
+          final y =
+              lib.statsOf(b.item.uid).latestFetch?.millisecondsSinceEpoch ?? 0;
           return x.compareTo(y);
         case 'unread':
-          return lib.statsOf(a.item.uid).unread.compareTo(lib.statsOf(b.item.uid).unread);
+          return lib
+              .statsOf(a.item.uid)
+              .unread
+              .compareTo(lib.statsOf(b.item.uid).unread);
         default:
           return a.added.compareTo(b.added);
       }
@@ -255,23 +334,40 @@ class _LibraryTab extends StatelessWidget {
   Widget build(BuildContext context) {
     AppLocalizations.of(context);
     return ListenableBuilder(
-      listenable: Listenable.merge([AppSettings.instance, DownloadManager.instance, SourceManager.instance]),
+      listenable: Listenable.merge([
+        AppSettings.instance,
+        DownloadManager.instance,
+        SourceManager.instance,
+      ]),
       builder: (context, _) {
         final entries = _entries();
         final s = AppSettings.instance;
         final Widget content;
         if (entries.isEmpty) {
-          final filtered = Library.instance.favorites(category: category).isNotEmpty;
+          final filtered = Library.instance
+              .favorites(category: category)
+              .isNotEmpty;
           content = SliverFillRemaining(
             hasScrollBody: false,
             child: MessageView(
               icon: Icons.bookmark_border_rounded,
               title: filtered ? tr('没有符合条件的作品') : tr('还没有收藏'),
-              message: filtered ? tr('调整搜索或筛选条件试试') : tr('在作品详情页点击书签按钮即可收藏\n长按收藏按钮可以设置分类'),
+              message: filtered
+                  ? tr('调整搜索或筛选条件试试')
+                  : tr('在作品详情页点击书签按钮即可收藏\n长按收藏按钮可以设置分类'),
             ),
           );
-        } else if (s.libraryDisplay == 'list') {
-          content = SliverList.builder(itemCount: entries.length, itemBuilder: (context, i) => _listTile(context, entries[i]));
+        } else if (s.libraryDisplay == 'list' ||
+            entries.any(
+              (f) =>
+                  f.item.json['mediaKind'] == 'novel' ||
+                  SourceManager.instance.manifest(f.item.source)?.isNovel ==
+                      true,
+            )) {
+          content = SliverList.builder(
+            itemCount: entries.length,
+            itemBuilder: (context, i) => _listTile(context, entries[i]),
+          );
         } else {
           content = _grid(context, entries);
         }
@@ -279,14 +375,20 @@ class _LibraryTab extends StatelessWidget {
           onRefresh: onRefresh,
           child: CustomScrollView(
             physics: const AlwaysScrollableScrollPhysics(),
-            slivers: [const SliverToBoxAdapter(child: SizedBox(height: 8)), content, const SliverToBoxAdapter(child: SizedBox(height: 24))],
+            slivers: [
+              const SliverToBoxAdapter(child: SizedBox(height: 8)),
+              content,
+              const SliverToBoxAdapter(child: SizedBox(height: 24)),
+            ],
           ),
         );
       },
     );
   }
 
-  void _tap(BuildContext context, FavoriteEntry f) => selected.isNotEmpty ? onToggle(f.item.uid) : Nav.openWork(context, f.item);
+  void _tap(BuildContext context, FavoriteEntry f) => selected.isNotEmpty
+      ? onToggle(f.item.uid)
+      : Nav.openWork(context, f.item);
 
   List<Widget> _badges(BuildContext context, FavoriteEntry f) {
     final s = AppSettings.instance;
@@ -294,9 +396,17 @@ class _LibraryTab extends StatelessWidget {
     final stats = lib.statsOf(f.item.uid);
     final t = DownloadManager.instance.task(f.item.uid);
     return [
-      if (s.badgeUnread && stats.unread > 0 && !lib.isOneShot(f.item.uid)) Pill('${stats.unread}', color: context.colors.primary, solid: true),
-      if (s.badgeDownloaded && t != null && (t.status == DownloadStatus.done || t.done > 0))
-        const Pill('', icon: Icons.download_done_rounded, color: Colors.teal, solid: true),
+      if (s.badgeUnread && stats.unread > 0 && !lib.isOneShot(f.item.uid))
+        Pill('${stats.unread}', color: context.colors.primary, solid: true),
+      if (s.badgeDownloaded &&
+          t != null &&
+          (t.status == DownloadStatus.done || t.done > 0))
+        const Pill(
+          '',
+          icon: Icons.download_done_rounded,
+          color: Colors.teal,
+          solid: true,
+        ),
     ];
   }
 
@@ -322,7 +432,7 @@ class _LibraryTab extends StatelessWidget {
                 showSource: AppSettings.instance.badgeSource,
                 selected: selected.contains(f.item.uid),
                 badges: _badges(context, f),
-                onTap: () => _tap(context, f),
+                onTap: selected.isNotEmpty ? () => onToggle(f.item.uid) : null,
                 onLongPress: () => onToggle(f.item.uid),
               );
             }, childCount: entries.length),
@@ -345,12 +455,20 @@ class _LibraryTab extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
           child: Row(
             children: [
-              SizedBox(
-                width: 46,
-                height: 62,
-                child: CoverImage(source: f.item.source, url: f.item.cover, radius: 8),
-              ),
-              const SizedBox(width: 12),
+              if (f.item.json['mediaKind'] != 'novel' &&
+                  SourceManager.instance.manifest(f.item.source)?.isNovel !=
+                      true) ...[
+                SizedBox(
+                  width: 46,
+                  height: 62,
+                  child: CoverImage(
+                    source: f.item.source,
+                    url: f.item.cover,
+                    radius: 8,
+                  ),
+                ),
+                const SizedBox(width: 12),
+              ],
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -359,18 +477,29 @@ class _LibraryTab extends StatelessWidget {
                       f.item.title,
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
-                      style: context.text.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
+                      style: context.text.bodyMedium?.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                     const SizedBox(height: 4),
                     Row(
                       children: [
-                        if (AppSettings.instance.badgeSource) ...[SourceAvatar(f.item.source, size: 16), const SizedBox(width: 6)],
+                        if (AppSettings.instance.badgeSource) ...[
+                          SourceAvatar(f.item.source, size: 16),
+                          const SizedBox(width: 6),
+                        ],
                         Expanded(
                           child: Text(
-                            h == null ? tr('未读') : tr('上次阅读 {value0}', {'value0': timeAgo(h.time)}),
+                            h == null
+                                ? tr('未读')
+                                : tr('上次阅读 {value0}', {
+                                    'value0': timeAgo(h.time),
+                                  }),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: context.text.labelMedium?.copyWith(color: c.onSurfaceVariant),
+                            style: context.text.labelMedium?.copyWith(
+                              color: c.onSurfaceVariant,
+                            ),
                           ),
                         ),
                       ],

@@ -33,6 +33,7 @@ class _LoginPanelState extends State<LoginPanel> {
 
   AccountDef get a => widget.account;
   bool get _cookies => a.type == 'cookies';
+  bool get _session => a.type == 'session';
 
   @override
   void dispose() {
@@ -84,18 +85,32 @@ class _LoginPanelState extends State<LoginPanel> {
     if (!mounted) return;
     if (text.trim().isEmpty) {
       context.toast(
-        context.tr(_cookies ? '剪贴板是空的，请先复制 Cookie' : '剪贴板是空的，请先复制账号和密码'),
+        context.tr(
+          _session
+              ? '剪贴板是空的，请先复制授权会话'
+              : _cookies
+              ? '剪贴板是空的，请先复制 Cookie'
+              : '剪贴板是空的，请先复制账号和密码',
+        ),
       );
       return;
     }
-    final values = parsePastedCredentials(
-      text,
-      _fields.keys.toList(),
-      cookies: _cookies,
-    );
+    final values = _session && a.fields.length == 1
+        ? {a.fields.first['key'].toString(): text.trim()}
+        : parsePastedCredentials(
+            text,
+            _fields.keys.toList(),
+            cookies: _cookies,
+          );
     if (values.isEmpty) {
       context.toast(
-        context.tr(_cookies ? '没有在剪贴板里识别到 Cookie' : '没有在剪贴板里识别到账号和密码'),
+        context.tr(
+          _session
+              ? '授权会话格式无效'
+              : _cookies
+              ? '没有在剪贴板里识别到 Cookie'
+              : '没有在剪贴板里识别到账号和密码',
+        ),
       );
       return;
     }

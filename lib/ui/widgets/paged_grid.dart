@@ -1,23 +1,59 @@
 import 'package:flutter/material.dart';
 
+import 'dart:convert';
+
 import '../../core/models.dart';
 import '../../core/tag_blocklist.dart';
+import '../../core/settings.dart';
 import '../theme.dart';
 import 'common.dart';
 import 'error_view.dart';
+import 'source_network_hint.dart';
 import 'work_card.dart';
+import 'work_text_row.dart';
+import '../../subscriptions/models.dart';
+import '../subscriptions/subscription_posts_page.dart';
 import '../../core/localization.dart';
 
 typedef PageLoader = Future<WorkPage> Function(int page, String? cursor);
 
 /// Infinite-scroll state for a cursor- or page-based listing.
 class PagedController extends ChangeNotifier {
-  PagedController(this.loader, {required this.source});
+  PagedController(this.loader, {required this.source}) {
+    _rules = _ruleSignature;
+    AppSettings.instance.addListener(_rulesChanged);
+  }
 
   PageLoader loader;
   final String source;
   final List<WorkItem> items = [];
   final Set<String> _seen = {};
+  final _loaded = <WorkItem>[];
+  List<WorkSection>? _rawSections;
+  late String _rules;
+  String get _ruleSignature => jsonEncode([
+    AppSettings.instance.blockedTags,
+    AppSettings.instance.blockPresetState,
+  ]);
+  void _rulesChanged() {
+    if (_disposed || _rules == _ruleSignature) return;
+    _rules = _ruleSignature;
+    final blocklist = TagBlocklist.current();
+    items
+      ..clear()
+      ..addAll(_loaded.where((i) => blocklist.matchItem(i) == null));
+    hidden = _loaded.length - items.length;
+    if (_rawSections != null) {
+      sections = [
+        for (final s in _rawSections!)
+          WorkSection(
+            s.title,
+            s.items.where((i) => blocklist.matchItem(i) == null).toList(),
+          ),
+      ];
+    }
+    _notify();
+  }
 
   /// Works hidden by the tag blocklist so far.
   int hidden = 0;
@@ -29,6 +65,7 @@ class PagedController extends ChangeNotifier {
   int page = 0;
   int? totalPages;
   int? total;
+  bool staleCache = false;
   String? _cursor;
   int _generation = 0;
   bool _disposed = false;
@@ -37,6 +74,8 @@ class PagedController extends ChangeNotifier {
     _generation++;
     items.clear();
     _seen.clear();
+    _loaded.clear();
+    _rawSections = null;
     hidden = 0;
     _emptyPages = 0;
     sections = null;
@@ -46,6 +85,7 @@ class PagedController extends ChangeNotifier {
     _cursor = null;
     totalPages = null;
     total = null;
+    staleCache = false;
     loading = false;
     _notify();
     await loadMore();
@@ -64,10 +104,12 @@ class PagedController extends ChangeNotifier {
       _cursor = result.cursor;
       totalPages = result.totalPages ?? totalPages;
       total = result.total ?? total;
+      staleCache = staleCache || result.staleCache;
       var added = 0;
       var shown = 0;
       final blocklist = TagBlocklist.current();
       if (result.sections != null) {
+        _rawSections = result.sections;
         sections = [
           for (final s in result.sections!)
             WorkSection(
@@ -78,6 +120,7 @@ class PagedController extends ChangeNotifier {
       }
       for (final item in result.items) {
         if (_seen.add(item.id)) {
+          _loaded.add(item);
           added++;
           if (blocklist.matchItem(item) != null) {
             hidden++;
@@ -116,6 +159,7 @@ class PagedController extends ChangeNotifier {
   @override
   void dispose() {
     _disposed = true;
+    AppSettings.instance.removeListener(_rulesChanged);
     super.dispose();
   }
 }
@@ -188,6 +232,34 @@ class PagedSliverGrid extends StatelessWidget {
           }
           return _skeletonGrid(context);
         }
+        if (kind == MediaKind.novel ||
+            c.items.any((item) => item.json['presentation'] == 'post')) {
+          return SliverMainAxisGroup(
+            slivers: [
+              SliverList.builder(
+                itemCount: c.items.length,
+                itemBuilder: (context, i) {
+                  if (i >= c.items.length - 3 &&
+                      c.hasNext &&
+                      !c.loading &&
+                      c.error == null) {
+                    WidgetsBinding.instance.addPostFrameCallback(
+                      (_) => c.loadMore(),
+                    );
+                  }
+                  final item = c.items[i];
+                  return item.json['presentation'] == 'post'
+                      ? SubscriptionPostCard(
+                          source: item.source,
+                          post: SubscriptionPost(item.json),
+                        )
+                      : WorkTextRow(item: item, showSource: showSource);
+                },
+              ),
+              SliverToBoxAdapter(child: _footer(context)),
+            ],
+          );
+        }
         final aspect = gridAspectFor(c.items, kind);
         return SliverLayoutBuilder(
           builder: (context, constraints) {
@@ -259,14 +331,17 @@ class PagedSliverGrid extends StatelessWidget {
       );
     }
     if (c.loading) {
-      return const Padding(
+      return Padding(
         padding: EdgeInsets.all(20),
-        child: Center(
-          child: SizedBox(
-            width: 22,
-            height: 22,
-            child: CircularProgressIndicator(strokeWidth: 2.4),
-          ),
+        child: Column(
+          children: [
+            const SizedBox(
+              width: 22,
+              height: 22,
+              child: CircularProgressIndicator(strokeWidth: 2.4),
+            ),
+            SourceNetworkHint(source: c.source),
+          ],
         ),
       );
     }
@@ -292,6 +367,27 @@ class PagedSliverGrid extends StatelessWidget {
   }
 
   Widget _skeletonGrid(BuildContext context) {
+    if (kind == MediaKind.novel) {
+      return SliverToBoxAdapter(
+        child: Column(
+          children: [
+            const LoadingIndicator(),
+            SourceNetworkHint(source: controller.source),
+            for (var i = 0; i < 6; i++)
+              const Padding(
+                padding: EdgeInsets.all(16),
+                child: Column(
+                  children: [
+                    Skeleton(height: 18),
+                    SizedBox(height: 10),
+                    Skeleton(height: 12),
+                  ],
+                ),
+              ),
+          ],
+        ),
+      );
+    }
     final aspect = kind == MediaKind.video ? 16 / 9 : 0.7;
     return SliverLayoutBuilder(
       builder: (context, constraints) {
@@ -303,9 +399,14 @@ class PagedSliverGrid extends StatelessWidget {
             cols;
         return SliverMainAxisGroup(
           slivers: [
-            const SliverToBoxAdapter(
-              child: LoadingIndicator(
-                padding: EdgeInsets.fromLTRB(16, 16, 16, 4),
+            SliverToBoxAdapter(
+              child: Column(
+                children: [
+                  const LoadingIndicator(
+                    padding: EdgeInsets.fromLTRB(16, 16, 16, 4),
+                  ),
+                  SourceNetworkHint(source: controller.source),
+                ],
               ),
             ),
             SliverPadding(
@@ -368,7 +469,18 @@ class WorkCarousel extends StatelessWidget {
   Widget build(BuildContext context) {
     AppLocalizations.of(context);
     if (items.isEmpty) return const SizedBox.shrink();
-    final aspect = gridAspectFor(items, kindOf(items.first.source));
+    if (kindOf(items.first) == MediaKind.novel ||
+        items.first.json['mediaKind'] == 'novel') {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SectionHeader(title, leading: leading, trailing: trailing),
+          for (final item in items)
+            WorkTextRow(item: item, showSource: showSource),
+        ],
+      );
+    }
+    final aspect = gridAspectFor(items, kindOf(items.first));
     final cardWidth = aspect > 1 ? 200.0 : 118.0;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,

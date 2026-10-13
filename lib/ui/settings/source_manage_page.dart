@@ -2,27 +2,37 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../core/settings.dart';
+import '../../core/models.dart';
 import '../../engine/source_manager.dart';
 import '../../engine/source_updater.dart';
 import '../nav.dart';
 import '../theme.dart';
+import '../updates/update_prompt.dart';
 import '../widgets/common.dart';
 import 'source_install.dart';
+import 'domain_order_page.dart';
 import '../../core/localization.dart';
 
 /// Enable/disable and reorder sources (order is used everywhere, including aggregated search),
 /// and install new source plugins from a URL or a repository index.
-class SourceManagePage extends StatelessWidget {
+class SourceManagePage extends StatefulWidget {
   const SourceManagePage({super.key, this.updater});
 
   final SourceUpdater? updater;
+
+  @override
+  State<SourceManagePage> createState() => _SourceManagePageState();
+}
+
+class _SourceManagePageState extends State<SourceManagePage> {
+  SourceCategory? _category;
 
   @override
   Widget build(BuildContext context) {
     AppLocalizations.of(context);
     final sm = SourceManager.instance;
     final settings = AppSettings.instance;
-    final updates = updater ?? SourceUpdater.instance;
+    final updates = widget.updater ?? SourceUpdater.instance;
     return Scaffold(
       appBar: AppBar(title: Text(tr('源站管理'))),
       floatingActionButton: FloatingActionButton.extended(
@@ -33,7 +43,16 @@ class SourceManagePage extends StatelessWidget {
       body: ListenableBuilder(
         listenable: Listenable.merge([sm, settings, updates]),
         builder: (context, _) {
-          final list = sm.all;
+          final all = sm.all;
+          final list = _category == null
+              ? all
+              : all
+                    .where(
+                      (s) =>
+                          (s.manifest?.category ?? SourceCategory.other) ==
+                          _category,
+                    )
+                    .toList();
           return ReorderableListView.builder(
             padding: const EdgeInsets.fromLTRB(12, 8, 12, 96),
             header: Column(
@@ -42,11 +61,30 @@ class SourceManagePage extends StatelessWidget {
                 Card(
                   margin: const EdgeInsets.only(bottom: 12),
                   child: Column(
+                    children: [
+                      ListTile(
+                        leading: const Icon(Icons.swap_vert_rounded),
+                        title: Text(tr('域排序')),
+                        trailing: const Icon(Icons.chevron_right_rounded),
+                        onTap: () => Nav.push(context, const DomainOrderPage()),
+                      ),
+                      ListTile(
+                        leading: const Icon(Icons.restore_rounded),
+                        title: Text(tr('恢复站点默认顺序')),
+                        subtitle: Text(tr('按内容质量、站点口碑和接入完整度推荐排列。')),
+                        onTap: sm.resetOrderToDefault,
+                      ),
+                    ],
+                  ),
+                ),
+                Card(
+                  margin: const EdgeInsets.only(bottom: 12),
+                  child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       SwitchListTile(
-                        title: Text(tr('自动更新官方源')),
-                        subtitle: Text(tr('定期检查并更新官方源，保留登录状态与设置。')),
+                        title: Text(tr('启动时检查插件更新')),
+                        subtitle: Text(tr('每次启动检查官方插件，有更新时提示，确认后才安装。')),
                         value: settings.autoSourceUpdates,
                         onChanged: (value) =>
                             settings.autoSourceUpdates = value,
@@ -71,13 +109,49 @@ class SourceManagePage extends StatelessWidget {
                           ),
                         ),
                       ),
+                      if (updates.lastResult?.available.isNotEmpty ?? false)
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                          child: FilledButton.tonalIcon(
+                            onPressed: updates.running
+                                ? null
+                                : () => _update(context, updates),
+                            icon: const Icon(Icons.new_releases_outlined),
+                            label: Text(
+                              tr('发现 {count} 个插件更新', {
+                                'count': updates.lastResult!.available.length,
+                              }),
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      ChoiceChip(
+                        label: Text(tr('全部')),
+                        selected: _category == null,
+                        onSelected: (_) => setState(() => _category = null),
+                      ),
+                      for (final category in settings.domainOrder)
+                        ChoiceChip(
+                          label: Text(category.label),
+                          selected: _category == category,
+                          onSelected: (_) =>
+                              setState(() => _category = category),
+                        ),
                     ],
                   ),
                 ),
                 Padding(
                   padding: const EdgeInsets.fromLTRB(8, 0, 8, 8),
                   child: Text(
-                    tr('拖动调整顺序；顺序也决定聚合搜索结果的排列。'),
+                    tr('拖动调整分类内的顺序；顺序也决定首页和聚合搜索的排列。'),
                     style: context.text.bodySmall?.copyWith(
                       color: context.colors.onSurfaceVariant,
                     ),
@@ -86,7 +160,10 @@ class SourceManagePage extends StatelessWidget {
               ],
             ),
             itemCount: list.length,
-            onReorderItem: sm.reorder,
+            onReorderItem: (oldIndex, newIndex) => sm.reorder(
+              all.indexOf(list[oldIndex]),
+              all.indexOf(list[newIndex]),
+            ),
             itemBuilder: (context, i) {
               final s = list[i];
               final m = s.manifest;
@@ -103,7 +180,7 @@ class SourceManagePage extends StatelessWidget {
                   subtitle: Text(
                     s.loadError != null
                         ? tr('加载失败：{value0}', {'value0': s.loadError})
-                        : 'v${s.version} · ${tr(m?.isVideo == true ? '视频' : '漫画')}${s.origin == 'official'
+                        : 'v${s.version} · ${(m?.category ?? SourceCategory.other).label}${s.origin == 'official'
                               ? ' · ${tr('官方')}'
                               : s.origin == 'builtin'
                               ? ' · ${tr('内置')}'
@@ -144,54 +221,16 @@ class SourceManagePage extends StatelessWidget {
 
   Future<void> _update(BuildContext context, SourceUpdater updates) async {
     try {
-      final result = await updates.updateNow();
+      final result = await updates.checkNow();
       if (!context.mounted) return;
-      if (result.failures.isNotEmpty) {
-        await showDialog<void>(
-          context: context,
-          builder: (ctx) => AlertDialog(
-            title: Text(tr('官方源更新失败')),
-            content: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  if (result.updated.isNotEmpty) ...[
-                    Text(
-                      tr('已更新 {count} 个官方源', {'count': result.updated.length}),
-                    ),
-                    const SizedBox(height: 12),
-                  ],
-                  for (final failure in result.failures.entries)
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 8),
-                      child: Text(
-                        '${failure.key == '官方源仓库' ? tr('官方源仓库') : failure.key}\n${tr(failure.value)}',
-                      ),
-                    ),
-                ],
-              ),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(ctx),
-                child: Text(tr('关闭')),
-              ),
-            ],
-          ),
-        );
+      if (result.available.isNotEmpty) {
+        await showSourceUpdatePrompt(context, result, updates);
       } else {
-        context.toast(
-          result.updated.isNotEmpty
-              ? tr('已更新 {count} 个官方源', {'count': result.updated.length})
-              : tr(result.checked == 0 ? '没有可检查的官方源' : '官方源已是最新版本'),
-        );
+        await showSourceUpdateResult(context, result);
       }
-    } catch (e) {
+    } catch (_) {
       if (context.mounted) {
-        context.toast(
-          tr('官方源更新失败：{value0}', {'value0': e.asSourceError.message}),
-        );
+        context.toast(tr('无法检查官方插件更新，请检查网络后重试'));
       }
     }
   }

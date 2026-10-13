@@ -1,4 +1,7 @@
 import 'dart:async';
+import 'dart:convert';
+
+import '../../engine/challenge.dart';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
@@ -24,6 +27,10 @@ class WebVerifyPage extends StatefulWidget {
   }) => WebVerifyPage._(_Mode.cloudflare, source: source, url: url);
   factory WebVerifyPage.login({required String source, required String url}) =>
       WebVerifyPage._(_Mode.login, source: source, url: url);
+  factory WebVerifyPage.confirmation({
+    required String source,
+    required String url,
+  }) => WebVerifyPage._(_Mode.confirmation, source: source, url: url);
 
   final String source;
   final String url;
@@ -33,7 +40,7 @@ class WebVerifyPage extends StatefulWidget {
   State<WebVerifyPage> createState() => _WebVerifyPageState();
 }
 
-enum _Mode { cloudflare, login }
+enum _Mode { cloudflare, login, confirmation }
 
 class _WebVerifyPageState extends State<WebVerifyPage> {
   InAppWebViewController? _c;
@@ -43,11 +50,53 @@ class _WebVerifyPageState extends State<WebVerifyPage> {
   String _status = '';
   bool _browserFailed = false;
   int _browserGeneration = 0;
+  bool _checking = false;
+  bool _finishing = false;
+  bool _sessionClosed = false;
+  void Function()? _unregisterSession;
+  int _navigationGeneration = 0;
+  bool _loading = true;
+
+  Map get _confirmation =>
+      SourceManager.instance.manifest(widget.source)?.network['confirmation']
+          as Map? ??
+      const {};
+
+  bool _allowed(String? url) {
+    if (_sessionClosed || url == null) return false;
+    try {
+      CookieStore.instance.checkBrowserUri(Uri.parse(url), widget.source);
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
 
   @override
   void initState() {
     super.initState();
-    _status = widget._mode == _Mode.cloudflare
+    _browserFailed = !_allowed(widget.url);
+    if (!_browserFailed) {
+      CookieStore.instance.trackBrowserUri(
+        Uri.parse(widget.url),
+        widget.source,
+      );
+    }
+    _unregisterSession = CookieStore.instance.registerBrowserSession((
+      partition,
+    ) async {
+      if (partition != widget.source || !mounted) return;
+      _sessionClosed = true;
+      _done = true;
+      _poll?.cancel();
+      final controller = _c;
+      _c = null;
+      setState(() => _browserFailed = true);
+      await controller?.stopLoading();
+    });
+    _status = widget._mode == _Mode.confirmation
+        ? (_confirmation['message']?.toString() ?? '请在站点页面中完成确认后继续')
+        : widget._mode == _Mode.cloudflare
         ? '正在打开站点，验证通常会自动完成；如出现勾选框请点一下'
         : '请在页面中登录，登录成功后会自动返回';
     _poll = Timer.periodic(const Duration(milliseconds: 1500), (_) => _check());
@@ -56,57 +105,147 @@ class _WebVerifyPageState extends State<WebVerifyPage> {
   @override
   void dispose() {
     _poll?.cancel();
+    _unregisterSession?.call();
+    _sessionClosed = true;
     super.dispose();
   }
 
   Future<void> _check() async {
+    if (_checking || _sessionClosed) return;
     final c = _c;
     if (c == null || _done) return;
-    if (widget._mode == _Mode.cloudflare) {
-      final title = await c.getTitle() ?? '';
-      final html =
-          '${await c.evaluateJavascript(source: "document.documentElement ? document.documentElement.outerHTML.slice(0, 4000) : ''") ?? ''}';
-      final challenged =
-          title.contains('Just a moment') ||
-          title.contains('Attention Required') ||
-          html.contains('challenge-platform') ||
-          html.contains('cf-chl');
-      if (!challenged && _progress >= 1 && html.length > 200) await _finish();
-    } else {
-      final m = SourceManager.instance.manifest(widget.source)?.account;
-      if (m == null) return;
-      final uri = Uri.parse(m.cookieUrl.isNotEmpty ? m.cookieUrl : widget.url);
-      final cookies = await CookieManager.instance().getCookies(
-        url: WebUri(uri.toString()),
-      );
-      final values = {for (final ck in cookies) ck.name: ck.value.toString()};
-      if (m.requiredCookies.every((k) => (values[k] ?? '').isNotEmpty)) {
-        _done = true;
-        try {
-          await SourceManager.instance.login(widget.source, values);
-          if (mounted) Navigator.pop(context, true);
-        } catch (e) {
-          _done = false;
-          if (mounted) setState(() => _status = '登录信息无效：$e');
+    _checking = true;
+    try {
+      if (!_allowed((await c.getUrl())?.toString())) return;
+      if (widget._mode != _Mode.login) {
+        final generation = _navigationGeneration;
+        final title = await c.getTitle() ?? '';
+        final html =
+            '${await c.evaluateJavascript(source: "document.documentElement ? document.documentElement.outerHTML.slice(0, 4000) : ''") ?? ''}';
+        final challenged = hasChallengeMarkers(html, title: title);
+        if (!challenged &&
+            !_loading &&
+            _progress >= 1 &&
+            html.length > 200 &&
+            await _confirmationReady()) {
+          if (generation == _navigationGeneration) await _finish();
+        }
+      } else {
+        final m = SourceManager.instance.manifest(widget.source)?.account;
+        if (m == null) return;
+        final uri = Uri.parse(
+          m.cookieUrl.isNotEmpty ? m.cookieUrl : widget.url,
+        );
+        CookieStore.instance.checkBrowserUri(uri, widget.source);
+        final values = await CookieStore.instance.importFromWebView(
+          uri,
+          partition: widget.source,
+        );
+        if (_sessionClosed || !mounted) return;
+        if (m.requiredCookies.every((k) => (values[k] ?? '').isNotEmpty)) {
+          _done = true;
+          try {
+            await SourceManager.instance.login(widget.source, values);
+            if (mounted) Navigator.pop(context, true);
+          } catch (e) {
+            _done = false;
+            if (mounted) setState(() => _status = '登录信息无效：$e');
+          }
         }
       }
+    } catch (_) {
+      if (mounted && !_sessionClosed) setState(() => _browserFailed = true);
+    } finally {
+      _checking = false;
     }
   }
 
+  Future<bool> _confirmationReady() async {
+    final c = _c;
+    if (c == null || _loading || _sessionClosed || _browserFailed) return false;
+    final selector = _confirmation['selector']?.toString() ?? '';
+    final readySelector = _confirmation['readySelector']?.toString() ?? '';
+    if (selector.isNotEmpty) {
+      final visible = await c.evaluateJavascript(
+        source:
+            '''
+        Array.from(document.querySelectorAll(${jsonEncode(selector)})).some(el => {
+          const style = getComputedStyle(el);
+          return style.display !== 'none' && style.visibility !== 'hidden' && el.getClientRects().length > 0;
+        })
+      ''',
+      );
+      if (visible != false) return false;
+    }
+    if (readySelector.isNotEmpty) {
+      final ready = await c.evaluateJavascript(
+        source: '!!document.querySelector(${jsonEncode(readySelector)})',
+      );
+      if (ready != true) return false;
+    }
+    final requiredCookies =
+        (_confirmation['requiredCookies'] as List? ?? const [])
+            .whereType<String>();
+    if (requiredCookies.isNotEmpty) {
+      final uri = Uri.parse(widget.url)
+          .replace(path: '/', query: '', fragment: '');
+      final cookies = await CookieStore.instance.importFromWebView(
+        uri,
+        partition: widget.source,
+      );
+      if (!requiredCookies.every((key) => (cookies[key] ?? '').isNotEmpty)) {
+        return false;
+      }
+    }
+    return true;
+  }
+
   Future<void> _finish() async {
-    _done = true;
-    final uri = Uri.parse(widget.url);
-    await CookieStore.instance.importFromWebView(
-      Uri.parse('${uri.scheme}://${uri.host}/'),
-      partition: widget.source,
-    );
-    final ua = await _c?.evaluateJavascript(source: 'navigator.userAgent');
-    if (ua is String && ua.isNotEmpty) HttpService.instance.userAgent = ua;
-    await BrowserFetcher.instance.reset(widget.url);
-    if (mounted) {
-      setState(() => _status = '验证通过');
-      await Future.delayed(const Duration(milliseconds: 400));
-      if (mounted) Navigator.pop(context, true);
+    if (_finishing || _done || _sessionClosed || !_allowed(widget.url)) return;
+    _finishing = true;
+    try {
+      final generation = _navigationGeneration;
+      if (!await _confirmationReady() || generation != _navigationGeneration) {
+        return;
+      }
+      final actual = (await _c?.getUrl())?.toString();
+      if (!_allowed(actual) || _sessionClosed) return;
+      _done = true;
+      final uri = Uri.parse(widget.url);
+      await CookieStore.instance.importFromWebView(
+        uri.replace(path: '/', query: '', fragment: ''),
+        partition: widget.source,
+      );
+      if (_sessionClosed || !mounted) return;
+      if (_loading || generation != _navigationGeneration) {
+        _done = false;
+        return;
+      }
+      final ua = await _c?.evaluateJavascript(source: 'navigator.userAgent');
+      if (ua is String && ua.isNotEmpty) HttpService.instance.userAgent = ua;
+      await BrowserFetcher.instance.reset(widget.url);
+      if (mounted &&
+          !_sessionClosed &&
+          !_loading &&
+          generation == _navigationGeneration) {
+        setState(() => _status = '验证通过');
+        await Future.delayed(const Duration(milliseconds: 400));
+        if (mounted &&
+            !_sessionClosed &&
+            !_loading &&
+            generation == _navigationGeneration) {
+          Navigator.pop(context, true);
+        } else {
+          _done = false;
+        }
+      } else {
+        _done = false;
+      }
+    } catch (_) {
+      _done = false;
+      if (mounted && !_sessionClosed) setState(() => _browserFailed = true);
+    } finally {
+      _finishing = false;
     }
   }
 
@@ -118,7 +257,7 @@ class _WebVerifyPageState extends State<WebVerifyPage> {
     return Scaffold(
       appBar: AppBar(
         title: Text(
-          widget._mode == _Mode.cloudflare
+          widget._mode != _Mode.login
               ? tr('验证 {value0}', {'value0': name})
               : tr('登录 {value0}', {'value0': name}),
         ),
@@ -128,8 +267,11 @@ class _WebVerifyPageState extends State<WebVerifyPage> {
             icon: const Icon(Icons.refresh_rounded),
             onPressed: () => _c?.reload(),
           ),
-          if (widget._mode == _Mode.cloudflare)
-            TextButton(onPressed: _finish, child: Text(tr('完成'))),
+          if (widget._mode != _Mode.login)
+            TextButton(
+              onPressed: _browserFailed ? null : _finish,
+              child: Text(tr('完成')),
+            ),
         ],
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(3),
@@ -147,7 +289,7 @@ class _WebVerifyPageState extends State<WebVerifyPage> {
             child: Row(
               children: [
                 Icon(
-                  widget._mode == _Mode.cloudflare
+                  widget._mode != _Mode.login
                       ? Icons.verified_user_outlined
                       : Icons.login_rounded,
                   size: 18,
@@ -166,6 +308,7 @@ class _WebVerifyPageState extends State<WebVerifyPage> {
                     source: widget.source,
                     error: SourceError('NETWORK', '浏览器请求失败'),
                     onRetry: () => setState(() {
+                      if (_sessionClosed || !_allowed(widget.url)) return;
                       _browserFailed = false;
                       _browserGeneration++;
                     }),
@@ -176,16 +319,47 @@ class _WebVerifyPageState extends State<WebVerifyPage> {
                     initialSettings: InAppWebViewSettings(
                       javaScriptEnabled: true,
                       userAgent: HttpService.instance.userAgent,
-                      useShouldOverrideUrlLoading: false,
+                      useShouldOverrideUrlLoading: true,
                     ),
                     onWebViewCreated: (c) => _c = c,
+                    shouldOverrideUrlLoading: (_, action) {
+                      final url = action.request.url?.toString();
+                      if (!_allowed(url)) return NavigationActionPolicy.CANCEL;
+                      CookieStore.instance.trackBrowserUri(
+                        Uri.parse(url!),
+                        widget.source,
+                      );
+                      return NavigationActionPolicy.ALLOW;
+                    },
+                    onLoadStart: (controller, url) async {
+                      _navigationGeneration++;
+                      _loading = true;
+                      _progress = 0;
+                      if (!_allowed(url?.toString())) {
+                        await controller.stopLoading();
+                        if (mounted) setState(() => _browserFailed = true);
+                      } else {
+                        CookieStore.instance.trackBrowserUri(
+                          Uri.parse(url!.toString()),
+                          widget.source,
+                        );
+                      }
+                    },
                     onRenderProcessGone: (c, detail) {
                       _c = null;
                       if (mounted) setState(() => _browserFailed = true);
                     },
-                    onProgressChanged: (_, p) =>
-                        setState(() => _progress = p / 100),
-                    onLoadStop: (_, _) => _check(),
+                    onProgressChanged: (_, p) {
+                      if (mounted && !_sessionClosed) {
+                        setState(() => _progress = p / 100);
+                      }
+                    },
+                    onLoadStop: (_, url) {
+                      if (_allowed(url?.toString())) {
+                        _loading = false;
+                        _check();
+                      }
+                    },
                   ),
           ),
         ],
