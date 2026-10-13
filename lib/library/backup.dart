@@ -1,13 +1,22 @@
+import '../core/diagnostics.dart';
+
 import 'dart:convert';
 import 'dart:io';
 import 'dart:isolate';
 import 'dart:typed_data';
+
+import 'progress_merge.dart';
+import 'backup_validation.dart';
+import 'restore_transaction.dart';
+import '../subscriptions/subscription_store.dart';
+import '../core/async_tasks.dart';
 
 import 'package:drift/drift.dart';
 import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
 
 import '../core/settings.dart';
+import '../novel/reading_notes.dart';
 import '../core/storage.dart';
 import '../data/database.dart';
 import '../engine/source_manager.dart';
@@ -20,6 +29,7 @@ class BackupOptions {
     this.settings = true,
     this.sources = true,
     this.credentials = false,
+    this.automatic = false,
   });
   final bool library;
   final bool settings;
@@ -27,6 +37,7 @@ class BackupOptions {
 
   /// Source private stores (tokens, account ids). Cookie-based logins are not included.
   final bool credentials;
+  final bool automatic;
 }
 
 class RestoreReport {
@@ -36,6 +47,7 @@ class RestoreReport {
   int history = 0;
   bool settings = false;
   int sources = 0;
+  int subscriptions = 0;
   List<({String key, String url})> sourcesToInstall = [];
 
   String get summary => [
@@ -45,11 +57,12 @@ class RestoreReport {
     if (history > 0) tr('历史 {value0}', {'value0': history}),
     if (settings) tr('设置'),
     if (sources > 0) tr('源设置 {value0}', {'value0': sources}),
+    if (subscriptions > 0) tr('订阅 {value0}', {'value0': subscriptions}),
   ].join('、');
 }
 
 /// `.parkbak` backups: gzip-compressed JSON. Restoring merges into the current data instead of
-/// replacing it (favorites are unioned, read marks OR-ed, progress and history keep the newer value).
+/// replacing it (favorites are unioned; chapter progress and history keep the newer snapshot).
 class BackupService {
   BackupService._();
   static final BackupService instance = BackupService._();
@@ -57,7 +70,7 @@ class BackupService {
   static const format = 'parkbak';
   static const version = 1;
   static const extension = '.parkbak';
-  Future<void> _writeTail = Future<void>.value();
+  final _writes = SerialExecutor();
   Future<File?>? _autoBackupRun;
 
   // ── Create ──
@@ -70,7 +83,10 @@ class BackupService {
       'format': format,
       'version': version,
       'createdAt': DateTime.now().millisecondsSinceEpoch,
+      'origin': options.automatic ? 'automatic' : 'manual',
       if (options.settings) 'settings': AppSettings.instance.exportJson(),
+      if (options.library) 'readingNotes': ReadingNotes.instance.exportJson(),
+      if (options.library) 'subscriptions': await _subscriptions(),
       if (options.sources)
         'sources': await SourceManager.instance.exportJson(
           credentials: options.credentials,
@@ -106,7 +122,10 @@ class BackupService {
     if (data is! Map || data['format'] != format) {
       throw FormatException(tr('不是 HentaiPark 备份文件'));
     }
-    if ((data['version'] as num? ?? 0) > version) {
+    if (data['version'] is! int || data['version'] < 1) {
+      throw const FormatException('备份数据无效');
+    }
+    if ((data['version'] as int) > version) {
       throw FormatException(tr('备份来自更新版本的应用，请先升级'));
     }
     return data.cast<String, dynamic>();
@@ -199,10 +218,11 @@ class BackupService {
     );
     yield (
       'chapters',
-      _rows(db,
+      _rows(
+        db,
         '''
       SELECT rowid AS cursor, * FROM chapters
-      WHERE rowid > ? AND ("read" = 1 OR last_page > 0 OR position_updated_at IS NOT NULL) ORDER BY rowid LIMIT 512
+      WHERE rowid > ? AND ("read" = 1 OR progress_updated_at IS NOT NULL OR position_updated_at IS NOT NULL) ORDER BY rowid LIMIT 512
     ''',
       ).map(
         (r) => {
@@ -214,6 +234,7 @@ class BackupService {
           'read': r['read'] == 1,
           'lastPage': r['last_page'],
           'pageCount': r['page_count'],
+          'progressUpdatedAt': r['progress_updated_at'],
           'dateRead': r['date_read'],
           'position': r['position'],
           'duration': r['duration'],
@@ -245,32 +266,71 @@ class BackupService {
 
   // ── Restore ──
 
-  Future<RestoreReport> restore(List<int> bytes) async {
-    final json = await Isolate.run(() => decode(bytes));
-    final report = RestoreReport();
-    final lib = json['library'];
-    if (lib is Map) {
-      await Library.instance.flush();
-      await mergeLibrary(
-        Library.instance.db,
-        lib.cast<String, dynamic>(),
-        report,
-      );
-      await Library.instance.open(Library.instance.db);
-    }
-    final settings = json['settings'];
-    if (settings is Map) {
-      AppSettings.instance.importJson(settings.cast<String, dynamic>());
-      report.settings = true;
-    }
-    final sources = json['sources'];
-    if (sources is Map) {
-      final s = sources.cast<String, dynamic>();
-      report.sourcesToInstall = await SourceManager.instance.importJson(s);
-      report.sources = (s['settings'] as Map?)?.length ?? 0;
-    }
-    return report;
+  Future<Map<String, dynamic>> _subscriptions() async {
+    await SubscriptionStore.instance.reload();
+    return SubscriptionStore.instance.exportJson();
   }
+
+  Future<RestoreReport> restore(List<int> bytes) => _writes.run(
+    () => SourceManager.instance.exclusively(() async {
+      final json = await Isolate.run(() => decode(bytes));
+      validateBackup(json);
+      final report = RestoreReport();
+      final lib = json['library'];
+      final files = <String, Object?>{};
+      await Library.instance.flush();
+      await AppSettings.instance.flush();
+      await SourceManager.instance.flush();
+      final settings = json['settings'];
+      if (settings is Map) {
+        files['settings.json'] = AppSettings.instance.prepareImport(
+          settings.cast<String, dynamic>(),
+        );
+        report.settings = true;
+      }
+      if (json.containsKey('readingNotes')) {
+        files['reading_notes.json'] = ReadingNotes.instance.prepareMerge(
+          json['readingNotes'],
+        );
+      }
+      if (json['subscriptions'] case final data?) {
+        await SubscriptionStore.instance.reload();
+        SubscriptionStore.parse(data);
+        report.subscriptions = SubscriptionStore.parse(data).length;
+      }
+      final sources = json['sources'];
+      if (sources is Map) {
+        final s = sources.cast<String, dynamic>();
+        final plan = await SourceManager.instance.prepareImport(s);
+        files.addAll(plan.files);
+        report.sourcesToInstall = plan.missing;
+        report.sources = (s['settings'] as Map?)?.length ?? 0;
+      }
+      await RestoreTransaction.apply(Library.instance.db, files, () async {
+        if (json['subscriptions'] case final data?) {
+          await SubscriptionStore.instance.merge(data);
+        }
+        if (lib is Map) {
+          await mergeLibrary(
+            Library.instance.db,
+            lib.cast<String, dynamic>(),
+            report,
+          );
+        }
+      });
+      // 文件与数据库提交成功后才发布新的内存状态；运行时加载失败由源管理界面呈现。
+      await Library.instance.open(Library.instance.db);
+      if (settings is Map) await AppSettings.instance.reload();
+      if (files.containsKey('reading_notes.json')) {
+        await ReadingNotes.instance.reload();
+      }
+      if (json.containsKey('subscriptions')) {
+        await SubscriptionStore.instance.reload();
+      }
+      if (sources is Map) await SourceManager.instance.reloadFromDisk();
+      return report;
+    }),
+  );
 
   static Future<void> mergeLibrary(
     AppDatabase db,
@@ -365,6 +425,7 @@ class BackupService {
         final lastPage = (c['lastPage'] as num?)?.toInt() ?? 0;
         final pageCount = (c['pageCount'] as num?)?.toInt() ?? 0;
         final dateRead = (c['dateRead'] as num?)?.toInt();
+        final progressUpdatedAt = (c['progressUpdatedAt'] as num?)?.toInt();
         final position = (c['position'] as num?)?.toInt() ?? 0;
         final duration = (c['duration'] as num?)?.toInt() ?? 0;
         final positionUpdatedAt = (c['positionUpdatedAt'] as num?)?.toInt();
@@ -389,6 +450,7 @@ class BackupService {
                   read: Value(read),
                   lastPage: Value(lastPage),
                   pageCount: Value(pageCount),
+                  progressUpdatedAt: Value(progressUpdatedAt),
                   dateRead: Value(
                     positionUpdatedAt != null && !read ? null : dateRead,
                   ),
@@ -398,30 +460,29 @@ class BackupService {
                 ),
               );
         } else {
-          final newerPosition =
-              positionUpdatedAt != null &&
-              positionUpdatedAt > (current.positionUpdatedAt ?? -1);
-          final videoProgress =
-              positionUpdatedAt != null || current.positionUpdatedAt != null;
+          final selection = selectProgress(
+            comic: progressUpdatedAt,
+            video: positionUpdatedAt,
+            currentComic: current.progressUpdatedAt,
+            currentVideo: current.positionUpdatedAt,
+          );
+          final newerPosition = selection.video;
+          final newerProgress = selection.comic;
+          final takeProgress = selection.read;
           await db
               .update(db.chapters)
               .replace(
                 current.copyWith(
-                  read: videoProgress
-                      ? (newerPosition ? read : current.read)
-                      : current.read || read,
-                  lastPage: current.lastPage > lastPage
-                      ? current.lastPage
-                      : lastPage,
-                  pageCount: current.pageCount > pageCount
-                      ? current.pageCount
-                      : pageCount,
+                  read: takeProgress ? read : current.read,
+                  lastPage: newerProgress ? lastPage : current.lastPage,
+                  pageCount: newerProgress ? pageCount : current.pageCount,
+                  progressUpdatedAt: Value(
+                    newerProgress
+                        ? progressUpdatedAt
+                        : current.progressUpdatedAt,
+                  ),
                   dateRead: Value(
-                    videoProgress
-                        ? (newerPosition
-                              ? (read ? dateRead : null)
-                              : current.dateRead)
-                        : current.dateRead ?? dateRead,
+                    takeProgress ? (read ? dateRead : null) : current.dateRead,
                   ),
                   position: newerPosition
                       ? (position < 0 ? 0 : position)
@@ -472,7 +533,6 @@ class BackupService {
             );
         report.history++;
       }
-      await db.normalizeVideoRecords();
     });
   }
 
@@ -487,9 +547,7 @@ class BackupService {
     Directory dir, [
     BackupOptions options = const BackupOptions(),
   ]) async {
-    final previous = _writeTail;
-    late final Future<File> result;
-    result = previous.then((_) async {
+    return _writes.run(() async {
       await dir.create(recursive: true);
       final bytes = await create(options);
       final base = fileName(DateTime.now());
@@ -502,19 +560,9 @@ class BackupService {
           ),
         );
       }
-      final temp = File(
-        '${file.path}.tmp-${DateTime.now().microsecondsSinceEpoch}',
-      );
-      try {
-        await temp.writeAsBytes(bytes, flush: true);
-        await temp.rename(file.path);
-      } finally {
-        if (await temp.exists()) await temp.delete();
-      }
+      await writeFileAtomic(file, bytes);
       return file;
     });
-    _writeTail = result.then<void>((_) {}).catchError((Object _) {});
-    return result;
   }
 
   Future<List<File>> listBackups() async {
@@ -529,7 +577,7 @@ class BackupService {
     return files;
   }
 
-  /// Writes an automatic backup when the configured interval has passed, then prunes old ones.
+  /// Writes an automatic backup when due. Retention never includes manual or unknown origins.
   Future<File?> autoBackupIfDue() async {
     final active = _autoBackupRun;
     if (active != null) return active;
@@ -548,15 +596,27 @@ class BackupService {
         .add(Duration(hours: s.autoBackupHours));
     if (DateTime.now().isBefore(due)) return null;
     try {
-      final file = await writeTo(AppPaths.backups);
+      final file = await writeTo(
+        AppPaths.backups,
+        const BackupOptions(automatic: true),
+      );
       s.lastAutoBackup = DateTime.now().millisecondsSinceEpoch;
-      final all = await listBackups();
+      final all = <File>[];
+      for (final candidate in await listBackups()) {
+        try {
+          if (decode(await candidate.readAsBytes())['origin'] == 'automatic') {
+            all.add(candidate);
+          }
+        } catch (_) {
+          // Unknown or damaged user backups are never retention candidates.
+        }
+      }
       for (final old in all.skip(s.autoBackupKeep.clamp(1, 50))) {
         await old.delete();
       }
       return file;
     } catch (e) {
-      debugPrint('auto backup failed: $e');
+      debugPrint(Diagnostics.error(e));
       return null;
     }
   }

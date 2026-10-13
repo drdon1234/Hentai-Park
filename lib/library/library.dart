@@ -1,11 +1,16 @@
+import '../core/diagnostics.dart';
+
 import 'dart:async';
 import 'dart:convert';
+
+import 'progress_merge.dart';
 
 import 'package:drift/drift.dart';
 import 'package:flutter/foundation.dart';
 
 import '../core/models.dart';
 import '../core/settings.dart';
+import '../core/content_scope.dart';
 import '../data/database.dart';
 import '../engine/source_manager.dart';
 
@@ -16,7 +21,8 @@ import '../engine/source_manager.dart';
 }
 
 /// The chapter key used for reading state: one-shot works use their single chapter id or '_'.
-String chapterKeyOf(String? chapterId) => (chapterId == null || chapterId.isEmpty) ? '_' : chapterId;
+String chapterKeyOf(String? chapterId) =>
+    (chapterId == null || chapterId.isEmpty) ? '_' : chapterId;
 
 class Category {
   Category(this.id, this.name, this.sort);
@@ -26,7 +32,15 @@ class Category {
 }
 
 class HistoryEntry {
-  HistoryEntry({required this.item, required this.time, this.chapterId, this.chapterTitle, this.page = 0, this.pageCount = 0, this.position});
+  HistoryEntry({
+    required this.item,
+    required this.time,
+    this.chapterId,
+    this.chapterTitle,
+    this.page = 0,
+    this.pageCount = 0,
+    this.position,
+  });
 
   WorkItem item;
   DateTime time;
@@ -38,7 +52,8 @@ class HistoryEntry {
 
   String get uid => item.uid;
 
-  double get progress => pageCount > 0 ? ((page + 1) / pageCount).clamp(0, 1) : 0;
+  double get progress =>
+      pageCount > 0 ? ((page + 1) / pageCount).clamp(0, 1) : 0;
 }
 
 class FavoriteEntry {
@@ -56,6 +71,7 @@ class ChapterState {
     this.read = false,
     this.lastPage = 0,
     this.pageCount = 0,
+    this.progressUpdatedAt,
     this.position = 0,
     this.duration = 0,
     this.positionUpdatedAt,
@@ -69,13 +85,12 @@ class ChapterState {
   bool read;
   int lastPage;
   int pageCount;
+  DateTime? progressUpdatedAt;
   int position;
   int duration;
   DateTime? positionUpdatedAt;
   DateTime dateFetch;
   DateTime? dateRead;
-
-  bool get started => read || lastPage > 0 || position > 0;
 
   factory ChapterState.fromRow(ChapterRow r) => ChapterState(
     chapterId: r.chapterId,
@@ -84,13 +99,18 @@ class ChapterState {
     read: r.read,
     lastPage: r.lastPage,
     pageCount: r.pageCount,
+    progressUpdatedAt: r.progressUpdatedAt == null
+        ? null
+        : DateTime.fromMillisecondsSinceEpoch(r.progressUpdatedAt!),
     position: r.position,
     duration: r.duration,
     positionUpdatedAt: r.positionUpdatedAt == null
         ? null
         : DateTime.fromMillisecondsSinceEpoch(r.positionUpdatedAt!),
     dateFetch: DateTime.fromMillisecondsSinceEpoch(r.dateFetch),
-    dateRead: r.dateRead == null ? null : DateTime.fromMillisecondsSinceEpoch(r.dateRead!),
+    dateRead: r.dateRead == null
+        ? null
+        : DateTime.fromMillisecondsSinceEpoch(r.dateRead!),
   );
 }
 
@@ -112,7 +132,9 @@ class WorkStats {
 /// Favorites, categories and history are mirrored in memory so the UI can query them synchronously;
 /// every mutation is a small targeted write instead of rewriting a file.
 class Library extends ChangeNotifier {
-  Library._();
+  Library._() {
+    SourceManager.instance.addListener(_captureHistoryDomains);
+  }
   static final Library instance = Library._();
 
   static const historyLimit = 2000;
@@ -140,22 +162,38 @@ class Library extends ChangeNotifier {
     _chapters.clear();
     _stats.clear();
     _oneShots.clear();
-    for (final c in await (db.select(db.categories)..orderBy([(c) => OrderingTerm.asc(c.sort), (c) => OrderingTerm.asc(c.id)])).get()) {
+    for (final c
+        in await (db.select(db.categories)..orderBy([
+              (c) => OrderingTerm.asc(c.sort),
+              (c) => OrderingTerm.asc(c.id),
+            ]))
+            .get()) {
       _categories.add(Category(c.id, c.name, c.sort));
     }
     final memberships = <String, Set<int>>{};
     for (final m in await db.select(db.workCategories).get()) {
-      memberships.putIfAbsent('${m.source}:${m.workId}', () => {}).add(m.categoryId);
+      memberships
+          .putIfAbsent('${m.source}:${m.workId}', () => {})
+          .add(m.categoryId);
     }
-    for (final w in await (db.select(db.works)..where((w) => w.favorite.equals(true))).get()) {
+    for (final w in await (db.select(
+      db.works,
+    )..where((w) => w.favorite.equals(true))).get()) {
       final item = _itemOf(w);
       if (w.oneShot) _oneShots.add(item.uid);
-      _favorites[item.uid] = FavoriteEntry(item, DateTime.fromMillisecondsSinceEpoch(w.favoritedAt ?? 0), memberships[item.uid] ?? {});
+      _favorites[item.uid] = FavoriteEntry(
+        item,
+        DateTime.fromMillisecondsSinceEpoch(w.favoritedAt ?? 0),
+        memberships[item.uid] ?? {},
+      );
     }
-    final rows = await (db.select(db.history).join([innerJoin(db.works, db.works.source.equalsExp(db.history.source) & db.works.id.equalsExp(db.history.workId))])
-          ..orderBy([OrderingTerm.desc(db.history.time)])
-          ..limit(historyLimit))
-        .get();
+    final rows = await (db.select(db.history).join([
+      innerJoin(
+        db.works,
+        db.works.source.equalsExp(db.history.source) &
+            db.works.id.equalsExp(db.history.workId),
+      ),
+    ])..orderBy([OrderingTerm.desc(db.history.time)])).get();
     for (final r in rows) {
       final h = r.readTable(db.history);
       final item = _itemOf(r.readTable(db.works));
@@ -170,6 +208,7 @@ class Library extends ChangeNotifier {
       );
     }
     await _loadStats();
+    _captureHistoryDomains();
     notifyListeners();
   }
 
@@ -180,7 +219,13 @@ class Library extends ChangeNotifier {
     } catch (_) {
       json = {};
     }
-    return WorkItem.fromStored({'title': w.title, 'cover': w.cover, ...json, 'id': w.id, 'source': w.source});
+    return WorkItem.fromStored({
+      'title': w.title,
+      'cover': w.cover,
+      ...json,
+      'id': w.id,
+      'source': w.source,
+    });
   }
 
   Future<void> _loadStats([String? uid]) async {
@@ -201,11 +246,14 @@ class Library extends ChangeNotifier {
         .get();
     for (final r in rows) {
       final latest = r.read<int?>('latest');
-      _stats['${r.read<String>('source')}:${r.read<String>('work_id')}'] = WorkStats(
-        chapters: r.read<int>('n'),
-        unread: r.read<int?>('unread') ?? 0,
-        latestFetch: latest == null || latest == 0 ? null : DateTime.fromMillisecondsSinceEpoch(latest),
-      );
+      _stats['${r.read<String>('source')}:${r.read<String>('work_id')}'] =
+          WorkStats(
+            chapters: r.read<int>('n'),
+            unread: r.read<int?>('unread') ?? 0,
+            latestFetch: latest == null || latest == 0
+                ? null
+                : DateTime.fromMillisecondsSinceEpoch(latest),
+          );
     }
   }
 
@@ -218,25 +266,41 @@ class Library extends ChangeNotifier {
   (Object, StackTrace)? _writeFailure;
 
   void _run(Future<void> Function() write) {
-    _writes = _writes.then((_) => write()).catchError((Object e, StackTrace st) {
+    _writes = _writes.then((_) => write()).catchError((
+      Object e,
+      StackTrace st,
+    ) {
       _writeFailure ??= (e, st);
-      debugPrint('library write failed: $e\n$st');
+      debugPrint(Diagnostics.error(e));
     });
   }
 
   /// Inserts or refreshes the stored snapshot of a work without touching its library flags.
   Future<void> _saveWork(WorkItem item) {
-    final json = jsonEncode(item.toJson());
+    final json = jsonEncode(_domainSnapshot(item).toJson());
     return _db
         .into(_db.works)
         .insert(
-          WorksCompanion.insert(source: item.source, id: item.id, title: Value(item.title), cover: Value(item.cover), json: Value(json)),
-          onConflict: DoUpdate((_) => WorksCompanion(title: Value(item.title), cover: Value(item.cover), json: Value(json))),
+          WorksCompanion.insert(
+            source: item.source,
+            id: item.id,
+            title: Value(item.title),
+            cover: Value(item.cover),
+            json: Value(json),
+          ),
+          onConflict: DoUpdate(
+            (_) => WorksCompanion(
+              title: Value(item.title),
+              cover: Value(item.cover),
+              json: Value(json),
+            ),
+          ),
         );
   }
 
   /// Refreshes cached snapshots (e.g. a newer cover) everywhere the work is shown.
   void updateSnapshot(WorkItem item) {
+    item = _domainSnapshot(item);
     final fav = _favorites[item.uid];
     final hist = _history[item.uid];
     if (fav != null) fav.item = item;
@@ -248,13 +312,18 @@ class Library extends ChangeNotifier {
 
   List<Category> get categories => List.unmodifiable(_categories);
 
-  Category? category(int id) => _categories.where((c) => c.id == id).firstOrNull;
+  Category? category(int id) =>
+      _categories.where((c) => c.id == id).firstOrNull;
 
   Future<Category?> createCategory(String name) async {
     final n = name.trim();
     if (n.isEmpty || _categories.any((c) => c.name == n)) return null;
-    final sort = _categories.isEmpty ? 0 : _categories.map((c) => c.sort).reduce((a, b) => a > b ? a : b) + 1;
-    final id = await _db.into(_db.categories).insert(CategoriesCompanion.insert(name: n, sort: Value(sort)));
+    final sort = _categories.isEmpty
+        ? 0
+        : _categories.map((c) => c.sort).reduce((a, b) => a > b ? a : b) + 1;
+    final id = await _db
+        .into(_db.categories)
+        .insert(CategoriesCompanion.insert(name: n, sort: Value(sort)));
     final c = Category(id, n, sort);
     _categories.add(c);
     notifyListeners();
@@ -264,9 +333,17 @@ class Library extends ChangeNotifier {
   bool renameCategory(int id, String name) {
     final n = name.trim();
     final c = category(id);
-    if (c == null || n.isEmpty || _categories.any((x) => x.name == n && x.id != id)) return false;
+    if (c == null ||
+        n.isEmpty ||
+        _categories.any((x) => x.name == n && x.id != id)) {
+      return false;
+    }
     c.name = n;
-    _run(() => (_db.update(_db.categories)..where((t) => t.id.equals(id))).write(CategoriesCompanion(name: Value(n))));
+    _run(
+      () => (_db.update(_db.categories)..where((t) => t.id.equals(id))).write(
+        CategoriesCompanion(name: Value(n)),
+      ),
+    );
     notifyListeners();
     return true;
   }
@@ -276,7 +353,9 @@ class Library extends ChangeNotifier {
     for (final f in _favorites.values) {
       f.categories.remove(id);
     }
-    _run(() => (_db.delete(_db.categories)..where((t) => t.id.equals(id))).go());
+    _run(
+      () => (_db.delete(_db.categories)..where((t) => t.id.equals(id))).go(),
+    );
     notifyListeners();
   }
 
@@ -288,7 +367,11 @@ class Library extends ChangeNotifier {
     _run(
       () => _db.batch((b) {
         for (final c in _categories) {
-          b.update(_db.categories, CategoriesCompanion(sort: Value(c.sort)), where: (t) => t.id.equals(c.id));
+          b.update(
+            _db.categories,
+            CategoriesCompanion(sort: Value(c.sort)),
+            where: (t) => t.id.equals(c.id),
+          );
         }
       }),
     );
@@ -303,7 +386,10 @@ class Library extends ChangeNotifier {
         .where(
           (f) =>
               (source == null || f.item.source == source) &&
-              (category == null || (category == defaultCategory ? f.categories.isEmpty : f.categories.contains(category))),
+              (category == null ||
+                  (category == defaultCategory
+                      ? f.categories.isEmpty
+                      : f.categories.contains(category))),
         )
         .toList()
       ..sort((a, b) => b.added.compareTo(a.added));
@@ -313,16 +399,27 @@ class Library extends ChangeNotifier {
   FavoriteEntry? favorite(String uid) => _favorites[uid];
   Set<int> categoriesOf(String uid) => {...?_favorites[uid]?.categories};
 
-  void addFavorite(WorkItem item, {Set<int> categories = const {}, DateTime? at}) {
+  void addFavorite(
+    WorkItem item, {
+    Set<int> categories = const {},
+    DateTime? at,
+  }) {
+    item = _domainSnapshot(item);
     final now = at ?? DateTime.now();
     final valid = categories.where((id) => category(id) != null).toSet();
     _favorites[item.uid] = FavoriteEntry(item, now, valid);
     _run(() async {
       await _db.transaction(() async {
         await _saveWork(item);
-        await (_db.update(_db.works)..where((w) => w.source.equals(item.source) & w.id.equals(item.id))).write(
-          WorksCompanion(favorite: const Value(true), favoritedAt: Value(now.millisecondsSinceEpoch)),
-        );
+        await (_db.update(_db.works)..where(
+              (w) => w.source.equals(item.source) & w.id.equals(item.id),
+            ))
+            .write(
+              WorksCompanion(
+                favorite: const Value(true),
+                favoritedAt: Value(now.millisecondsSinceEpoch),
+              ),
+            );
         await _writeCategories(item.uid, valid);
       });
     });
@@ -334,8 +431,13 @@ class Library extends ChangeNotifier {
     final (source, id) = splitUid(uid);
     _run(
       () => _db.transaction(() async {
-        await (_db.update(_db.works)..where((w) => w.source.equals(source) & w.id.equals(id))).write(
-          const WorksCompanion(favorite: Value(false), favoritedAt: Value(null)),
+        await (_db.update(
+          _db.works,
+        )..where((w) => w.source.equals(source) & w.id.equals(id))).write(
+          const WorksCompanion(
+            favorite: Value(false),
+            favoritedAt: Value(null),
+          ),
         );
         await _writeCategories(uid, const {});
       }),
@@ -354,9 +456,20 @@ class Library extends ChangeNotifier {
 
   Future<void> _writeCategories(String uid, Set<int> ids) async {
     final (source, id) = splitUid(uid);
-    await (_db.delete(_db.workCategories)..where((m) => m.source.equals(source) & m.workId.equals(id))).go();
+    await (_db.delete(
+      _db.workCategories,
+    )..where((m) => m.source.equals(source) & m.workId.equals(id))).go();
     for (final c in ids) {
-      await _db.into(_db.workCategories).insert(WorkCategoriesCompanion.insert(source: source, workId: id, categoryId: c), mode: InsertMode.insertOrIgnore);
+      await _db
+          .into(_db.workCategories)
+          .insert(
+            WorkCategoriesCompanion.insert(
+              source: source,
+              workId: id,
+              categoryId: c,
+            ),
+            mode: InsertMode.insertOrIgnore,
+          );
     }
   }
 
@@ -367,10 +480,11 @@ class Library extends ChangeNotifier {
 
   Future<List<ChapterState>> loadChapters(String uid) async {
     final (source, id) = splitUid(uid);
-    final rows = await (_db.select(_db.chapters)
-          ..where((c) => c.source.equals(source) & c.workId.equals(id))
-          ..orderBy([(c) => OrderingTerm.asc(c.sort)]))
-        .get();
+    final rows =
+        await (_db.select(_db.chapters)
+              ..where((c) => c.source.equals(source) & c.workId.equals(id))
+              ..orderBy([(c) => OrderingTerm.asc(c.sort)]))
+            .get();
     final list = rows.map(ChapterState.fromRow).toList();
     _chapters[uid] = list;
     notifyListeners();
@@ -385,9 +499,13 @@ class Library extends ChangeNotifier {
   /// Reconciles the stored chapter list with what the site returned. New chapters get
   /// `dateFetch = now`; chapters that vanished are dropped unless they carry reading state.
   /// Returns the ids of chapters that are new compared with a previous non-empty sync.
-  Future<List<String>> syncChapters(WorkItem item, List<Chapter> chapters, {bool oneShot = false,
+  Future<List<String>> syncChapters(
+    WorkItem item,
+    List<Chapter> chapters, {
+    bool oneShot = false,
     bool complete = true,
-    DateTime? now}) async {
+    DateTime? now,
+  }) async {
     final uid = item.uid;
     if (complete) {
       oneShot ? _oneShots.add(uid) : _oneShots.remove(uid);
@@ -397,10 +515,19 @@ class Library extends ChangeNotifier {
     await _db.transaction(() async {
       await _saveWork(item);
       if (complete) {
-        await (_db.update(_db.works)..where((w) => w.source.equals(item.source) & w.id.equals(item.id))).write(WorksCompanion(oneShot: Value(oneShot)));
+        await (_db.update(_db.works)..where(
+              (w) => w.source.equals(item.source) & w.id.equals(item.id),
+            ))
+            .write(WorksCompanion(oneShot: Value(oneShot)));
       }
       final existing = {
-        for (final r in await (_db.select(_db.chapters)..where((c) => c.source.equals(item.source) & c.workId.equals(item.id))).get()) r.chapterId: r,
+        for (final r
+            in await (_db.select(_db.chapters)..where(
+                  (c) =>
+                      c.source.equals(item.source) & c.workId.equals(item.id),
+                ))
+                .get())
+          r.chapterId: r,
       };
       final seen = <String>{};
       var nextSort =
@@ -420,24 +547,52 @@ class Library extends ChangeNotifier {
           // fetch time so the updates feed keeps site order.
           final fetched = !complete
               ? 0
-              : existing.isEmpty ? i : time + i;
+              : existing.isEmpty
+              ? i
+              : time + i;
           final sort = complete ? i : nextSort++;
           await _db
               .into(_db.chapters)
               .insert(
-                ChaptersCompanion.insert(source: item.source, workId: item.id, chapterId: key, title: Value(ch.title), sort: Value(sort), dateFetch: Value(fetched)),
+                ChaptersCompanion.insert(
+                  source: item.source,
+                  workId: item.id,
+                  chapterId: key,
+                  title: Value(ch.title),
+                  sort: Value(sort),
+                  dateFetch: Value(fetched),
+                ),
               );
         } else if (old.title != ch.title || (complete && old.sort != i)) {
-          await (_db.update(_db.chapters)..where((c) => c.source.equals(item.source) & c.workId.equals(item.id) & c.chapterId.equals(key))).write(
-            ChaptersCompanion(title: Value(ch.title), sort: complete ? Value(i) : const Value.absent()),
-          );
+          await (_db.update(_db.chapters)..where(
+                (c) =>
+                    c.source.equals(item.source) &
+                    c.workId.equals(item.id) &
+                    c.chapterId.equals(key),
+              ))
+              .write(
+                ChaptersCompanion(
+                  title: Value(ch.title),
+                  sort: complete ? Value(i) : const Value.absent(),
+                ),
+              );
         }
       }
       for (final old in complete ? existing.values : const <ChapterRow>[]) {
-        if (seen.contains(old.chapterId) || old.read || old.lastPage > 0 || old.positionUpdatedAt != null) {
+        if (seen.contains(old.chapterId) ||
+            old.read ||
+            old.lastPage > 0 ||
+            old.progressUpdatedAt != null ||
+            old.positionUpdatedAt != null) {
           continue;
         }
-        await (_db.delete(_db.chapters)..where((c) => c.source.equals(item.source) & c.workId.equals(item.id) & c.chapterId.equals(old.chapterId))).go();
+        await (_db.delete(_db.chapters)..where(
+              (c) =>
+                  c.source.equals(item.source) &
+                  c.workId.equals(item.id) &
+                  c.chapterId.equals(old.chapterId),
+            ))
+            .go();
       }
     });
     await _loadStats(uid);
@@ -456,6 +611,7 @@ class Library extends ChangeNotifier {
       if (!ids.contains(c.chapterId)) continue;
       c.read = read;
       c.dateRead = read ? now : null;
+      c.progressUpdatedAt = now;
       if (video || c.positionUpdatedAt != null) c.positionUpdatedAt = now;
       if (!read) {
         c.lastPage = 0;
@@ -463,8 +619,18 @@ class Library extends ChangeNotifier {
       }
     }
     _run(() async {
-      await (_db.update(_db.chapters)..where((c) => c.source.equals(source) & c.workId.equals(id) & c.chapterId.isIn(ids))).write(
-        ChaptersCompanion(read: Value(read), dateRead: Value(read ? now.millisecondsSinceEpoch : null), lastPage: read ? const Value.absent() : const Value(0),
+      await (_db.update(_db.chapters)..where(
+            (c) =>
+                c.source.equals(source) &
+                c.workId.equals(id) &
+                c.chapterId.isIn(ids),
+          ))
+          .write(
+            ChaptersCompanion(
+              read: Value(read),
+              dateRead: Value(read ? now.millisecondsSinceEpoch : null),
+              progressUpdatedAt: Value(now.millisecondsSinceEpoch),
+              lastPage: read ? const Value.absent() : const Value(0),
               position: read ? const Value.absent() : const Value(0),
             ),
           );
@@ -473,12 +639,15 @@ class Library extends ChangeNotifier {
                 c.source.equals(source) &
                 c.workId.equals(id) &
                 c.chapterId.isIn(ids) &
-                (video ? const Constant(true) : c.positionUpdatedAt.isNotNull()),
+                (video
+                    ? const Constant(true)
+                    : c.positionUpdatedAt.isNotNull()),
           ))
           .write(
             ChaptersCompanion(
-              positionUpdatedAt: Value(now.millisecondsSinceEpoch)),
-      );
+              positionUpdatedAt: Value(now.millisecondsSinceEpoch),
+            ),
+          );
       await _loadStats(uid);
       if (read) {
         for (final l in onChaptersRead) {
@@ -491,16 +660,172 @@ class Library extends ChangeNotifier {
   }
 
   /// Read-state listeners (e.g. "delete after reading") get every chapter that just became read.
-  final List<void Function(String uid, List<String> chapterIds)> onChaptersRead = [];
+  final List<void Function(String uid, List<String> chapterIds)>
+  onChaptersRead = [];
 
   // ── History ──
 
-  List<HistoryEntry> history({String? source}) =>
-      _history.values.where((h) => source == null || h.item.source == source).toList()..sort((a, b) => b.time.compareTo(a.time));
+  SourceCategory domainOf(WorkItem item) =>
+      SourceManager.instance.manifest(item.source)?.category ??
+      SourceCategory.fromJson(item.json['contentDomain']);
+
+  WorkItem _domainSnapshot(WorkItem item) {
+    final manifest = SourceManager.instance.manifest(item.source);
+    final kind =
+        item.json['mediaKind'] ??
+        manifest?.kind.name ??
+        _history[item.uid]?.item.json['mediaKind'] ??
+        _favorites[item.uid]?.item.json['mediaKind'];
+    final domain =
+        manifest?.category.name ??
+        item.json['contentDomain'] ??
+        _history[item.uid]?.item.json['contentDomain'] ??
+        _favorites[item.uid]?.item.json['contentDomain'];
+    if ((domain == null || item.json['contentDomain'] == domain) &&
+        (kind == null || item.json['mediaKind'] == kind)) {
+      return item;
+    }
+    return WorkItem({
+      ...item.json,
+      'contentDomain': ?domain,
+      'mediaKind': ?kind,
+    }, item.source);
+  }
+
+  void _captureHistoryDomains() {
+    var changed = false;
+    for (final h in _history.values) {
+      final item = _domainSnapshot(h.item);
+      if (identical(item, h.item)) continue;
+      h.item = item;
+      final snapshot = item;
+      _run(() => _saveWork(snapshot));
+      changed = true;
+    }
+    for (final favorite in _favorites.values) {
+      final item = _domainSnapshot(favorite.item);
+      if (identical(item, favorite.item)) continue;
+      favorite.item = item;
+      _run(() => _saveWork(item));
+      changed = true;
+    }
+    if (changed) notifyListeners();
+  }
+
+  List<HistoryEntry> history({
+    String? source,
+    ContentScope scope = const ContentScope.all(),
+  }) =>
+      _history.values
+          .where(
+            (h) =>
+                (source == null || h.item.source == source) &&
+                scope.contains(h.item.source, domainOf(h.item)),
+          )
+          .toList()
+        ..sort((a, b) => b.time.compareTo(a.time));
 
   HistoryEntry? historyOf(String uid) => _history[uid];
 
+  /// Copies matched chapter progress without making the move a new reading event.
+  Future<void> copyProgress(
+    WorkItem from,
+    WorkItem target,
+    Map<String, String> chapters,
+  ) async {
+    if (_incognito || from.uid == target.uid) return;
+    await flush();
+    final old = _chapters[from.uid] ?? await loadChapters(from.uid);
+    final history = _history[from.uid];
+    var copiedHistory = false;
+    await _db.transaction(() async {
+      for (final state in old) {
+        final key = chapters[state.chapterId];
+        if (key == null) continue;
+        final current =
+            await (_db.select(_db.chapters)..where(
+                  (c) =>
+                      c.source.equals(target.source) &
+                      c.workId.equals(target.id) &
+                      c.chapterId.equals(key),
+                ))
+                .getSingleOrNull();
+        if (current == null) continue;
+        final comicTime = state.progressUpdatedAt?.millisecondsSinceEpoch;
+        final videoTime = state.positionUpdatedAt?.millisecondsSinceEpoch;
+        final selection = selectProgress(
+          comic: comicTime,
+          video: videoTime,
+          currentComic: current.progressUpdatedAt,
+          currentVideo: current.positionUpdatedAt,
+        );
+        final copyComic = selection.comic;
+        final copyVideo = selection.video;
+        final copyRead = selection.read;
+        if (!copyComic && !copyVideo) continue;
+        await (_db.update(_db.chapters)..where(
+              (c) =>
+                  c.source.equals(target.source) &
+                  c.workId.equals(target.id) &
+                  c.chapterId.equals(key),
+            ))
+            .write(
+              ChaptersCompanion(
+                read: copyRead ? Value(state.read) : const Value.absent(),
+                dateRead: copyRead
+                    ? Value(state.dateRead?.millisecondsSinceEpoch)
+                    : const Value.absent(),
+                lastPage: copyComic
+                    ? Value(state.lastPage)
+                    : const Value.absent(),
+                pageCount: copyComic
+                    ? Value(state.pageCount)
+                    : const Value.absent(),
+                progressUpdatedAt: copyComic
+                    ? Value(comicTime)
+                    : const Value.absent(),
+                position: copyVideo
+                    ? Value(state.position)
+                    : const Value.absent(),
+                duration: copyVideo
+                    ? Value(state.duration)
+                    : const Value.absent(),
+                positionUpdatedAt: copyVideo
+                    ? Value(videoTime)
+                    : const Value.absent(),
+              ),
+            );
+      }
+      if (history == null ||
+          !chapters.containsKey(chapterKeyOf(history.chapterId))) {
+        return;
+      }
+      final current = _history[target.uid];
+      if (current != null && !history.time.isAfter(current.time)) return;
+      final key = chapters[chapterKeyOf(history.chapterId)]!;
+      final state = chapterState(target.uid, key);
+      final copied = HistoryEntry(
+        item: _domainSnapshot(target),
+        time: history.time,
+        chapterId: key,
+        chapterTitle: state?.title,
+        page: history.page,
+        pageCount: history.pageCount,
+        position: history.position,
+      );
+      await _db
+          .into(_db.history)
+          .insertOnConflictUpdate(_historySnapshot(copied));
+      _history[target.uid] = copied;
+      copiedHistory = true;
+    });
+    await loadChapters(target.uid);
+    await _loadStats(target.uid);
+    if (copiedHistory || chapters.isNotEmpty) notifyListeners();
+  }
+
   void recordVisit(WorkItem item) {
+    item = _domainSnapshot(item);
     updateSnapshot(item);
     if (_incognito) return;
     final h = _history[item.uid];
@@ -517,9 +842,18 @@ class Library extends ChangeNotifier {
 
   /// Records the reader position. [chapterKey] identifies the chapter row ('_' / single id for one-shots);
   /// reaching the last page marks the chapter read.
-  void recordProgress(WorkItem item, {String? chapterId, String? chapterKey, String? chapterTitle, required int page, required int pageCount}) {
+  void recordProgress(
+    WorkItem item, {
+    String? chapterId,
+    String? chapterKey,
+    String? chapterTitle,
+    required int page,
+    required int pageCount,
+  }) {
     if (_incognito) return;
-    final h = _history[item.uid] ?? HistoryEntry(item: item, time: DateTime.now());
+    item = _domainSnapshot(item);
+    final h =
+        _history[item.uid] ?? HistoryEntry(item: item, time: DateTime.now());
     h
       ..item = item
       ..time = DateTime.now()
@@ -537,14 +871,15 @@ class Library extends ChangeNotifier {
     if (cached != null) {
       cached
         ..lastPage = page
-        ..pageCount = pageCount;
+        ..pageCount = pageCount
+        ..progressUpdatedAt = h.time;
       if (finished) {
         cached
           ..read = true
           ..dateRead ??= DateTime.now();
       }
     }
-    final now = DateTime.now().millisecondsSinceEpoch;
+    final now = h.time.millisecondsSinceEpoch;
     _run(() async {
       await _db
           .into(_db.chapters)
@@ -556,6 +891,7 @@ class Library extends ChangeNotifier {
               title: Value(chapterTitle ?? ''),
               lastPage: Value(page),
               pageCount: Value(pageCount),
+              progressUpdatedAt: Value(now),
               read: Value(finished),
               dateRead: Value(finished ? now : null),
             ),
@@ -563,8 +899,11 @@ class Library extends ChangeNotifier {
               (old) => ChaptersCompanion.custom(
                 lastPage: Constant(page),
                 pageCount: Constant(pageCount),
+                progressUpdatedAt: Constant(now),
                 read: finished ? const Constant(true) : old.read,
-                dateRead: finished ? coalesce([old.dateRead, Constant(now)]) : old.dateRead,
+                dateRead: finished
+                    ? coalesce([old.dateRead, Constant(now)])
+                    : old.dateRead,
               ),
             ),
           );
@@ -578,12 +917,15 @@ class Library extends ChangeNotifier {
     });
   }
 
-  void recordVideoPosition(WorkItem item, int seconds, {
+  void recordVideoPosition(
+    WorkItem item,
+    int seconds, {
     String? episodeId,
     String? episodeTitle,
     int? duration,
   }) {
     if (_incognito) return;
+    item = _domainSnapshot(item);
     final key = chapterKeyOf(episodeId);
     final now = DateTime.now();
     final position = seconds < 0 ? 0 : seconds;
@@ -647,7 +989,7 @@ class Library extends ChangeNotifier {
       await _loadStats(item.uid);
       notifyListeners();
     });
-    if (_history.length > historyLimit + 100) _trimHistory();
+    _trimHistory(item.source);
   }
 
   static HistoryCompanion _historySnapshot(HistoryEntry h) =>
@@ -671,22 +1013,26 @@ class Library extends ChangeNotifier {
         await _db.into(_db.history).insertOnConflictUpdate(snapshot);
       });
     });
-    if (_history.length > historyLimit + 100) _trimHistory();
+    _trimHistory(item.source);
   }
 
-  void _trimHistory() {
-    final drop = history().sublist(historyLimit);
-    for (final h in drop) {
-      _history.remove(h.uid);
-    }
-    final cutoff = drop.first.time.millisecondsSinceEpoch;
-    _run(() => (_db.delete(_db.history)..where((t) => t.time.isSmallerOrEqualValue(cutoff))).go());
+  void _trimHistory(String source) {
+    final entries = _history.values
+        .where((h) => h.item.source == source)
+        .toList();
+    if (entries.length <= historyLimit + 100) return;
+    entries.sort((a, b) => b.time.compareTo(a.time));
+    removeHistoryMany(entries.skip(historyLimit).map((h) => h.uid));
   }
 
   void removeHistory(String uid) {
     _history.remove(uid);
     final (source, id) = splitUid(uid);
-    _run(() => (_db.delete(_db.history)..where((t) => t.source.equals(source) & t.workId.equals(id))).go());
+    _run(
+      () => (_db.delete(
+        _db.history,
+      )..where((t) => t.source.equals(source) & t.workId.equals(id))).go(),
+    );
     notifyListeners();
   }
 
@@ -696,19 +1042,21 @@ class Library extends ChangeNotifier {
     for (final uid in list) {
       _history.remove(uid);
     }
-    _run(() => _db.transaction(() async {
-      for (final uid in list) {
-        final (source, id) = splitUid(uid);
-        await (_db.delete(_db.history)..where((t) => t.source.equals(source) & t.workId.equals(id))).go();
-      }
-    }));
+    _run(
+      () => _db.transaction(() async {
+        for (final uid in list) {
+          final (source, id) = splitUid(uid);
+          await (_db.delete(
+            _db.history,
+          )..where((t) => t.source.equals(source) & t.workId.equals(id))).go();
+        }
+      }),
+    );
     notifyListeners();
   }
 
-  void clearHistory() {
-    _history.clear();
-    _run(() => _db.delete(_db.history).go());
-    notifyListeners();
+  void clearHistory({ContentScope scope = const ContentScope.all()}) {
+    removeHistoryMany(history(scope: scope).map((h) => h.uid));
   }
 
   // ── Library updates ──
@@ -716,34 +1064,59 @@ class Library extends ChangeNotifier {
   /// Records that a library update just checked this work.
   Future<void> markChecked(String uid) {
     final (source, id) = splitUid(uid);
-    return (_db.update(_db.works)..where((w) => w.source.equals(source) & w.id.equals(id))).write(
-      WorksCompanion(lastUpdateCheck: Value(DateTime.now().millisecondsSinceEpoch)),
+    return (_db.update(
+      _db.works,
+    )..where((w) => w.source.equals(source) & w.id.equals(id))).write(
+      WorksCompanion(
+        lastUpdateCheck: Value(DateTime.now().millisecondsSinceEpoch),
+      ),
     );
   }
 
   /// Chapters that appeared after their work was added to the library, newest first (the updates feed).
   Future<List<UpdateEntry>> recentUpdates({int limit = 300}) async {
-    final rows = await (_db.select(_db.chapters).join([
-      innerJoin(_db.works, _db.works.source.equalsExp(_db.chapters.source) & _db.works.id.equalsExp(_db.chapters.workId)),
-    ])
-          ..where(_db.works.favorite.equals(true) & _db.chapters.dateFetch.isBiggerThan(coalesce([_db.works.favoritedAt, const Constant(0)])))
-          ..orderBy([OrderingTerm.desc(_db.chapters.dateFetch)])
-          ..limit(limit))
-        .get();
-    return [for (final r in rows) UpdateEntry(_itemOf(r.readTable(_db.works)), ChapterState.fromRow(r.readTable(_db.chapters)))];
+    final rows =
+        await (_db.select(_db.chapters).join([
+                innerJoin(
+                  _db.works,
+                  _db.works.source.equalsExp(_db.chapters.source) &
+                      _db.works.id.equalsExp(_db.chapters.workId),
+                ),
+              ])
+              ..where(
+                _db.works.favorite.equals(true) &
+                    _db.chapters.dateFetch.isBiggerThan(
+                      coalesce([_db.works.favoritedAt, const Constant(0)]),
+                    ),
+              )
+              ..orderBy([OrderingTerm.desc(_db.chapters.dateFetch)])
+              ..limit(limit))
+            .get();
+    return [
+      for (final r in rows)
+        UpdateEntry(
+          _itemOf(r.readTable(_db.works)),
+          ChapterState.fromRow(r.readTable(_db.chapters)),
+        ),
+    ];
   }
 
   // ── Per-work preferences ──
 
   Future<int?> readerModeOf(String uid) async {
     final (source, id) = splitUid(uid);
-    final row = await (_db.select(_db.works)..where((w) => w.source.equals(source) & w.id.equals(id))).getSingleOrNull();
+    final row =
+        await (_db.select(_db.works)
+              ..where((w) => w.source.equals(source) & w.id.equals(id)))
+            .getSingleOrNull();
     return row?.readerMode;
   }
 
   Future<void> setReaderMode(WorkItem item, int? mode) async {
     await _saveWork(item);
-    await (_db.update(_db.works)..where((w) => w.source.equals(item.source) & w.id.equals(item.id))).write(WorksCompanion(readerMode: Value(mode)));
+    await (_db.update(_db.works)
+          ..where((w) => w.source.equals(item.source) & w.id.equals(item.id)))
+        .write(WorksCompanion(readerMode: Value(mode)));
   }
 
   /// Waits for queued writes (used before backups and in tests).

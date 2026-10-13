@@ -2,9 +2,14 @@ import '../core/models.dart';
 import '../core/titles.dart';
 import 'library.dart';
 import '../core/localization.dart';
+import '../engine/source_manager.dart';
 
 class MigrationOptions {
-  const MigrationOptions({this.categories = true, this.readState = true, this.removeOld = true});
+  const MigrationOptions({
+    this.categories = true,
+    this.readState = true,
+    this.removeOld = true,
+  });
   final bool categories;
   final bool readState;
 
@@ -14,49 +19,102 @@ class MigrationOptions {
 
 /// Moves a favorite to another source's copy of the same work (Mihon's source migration).
 class Migrator {
-  /// Maps old chapter ids to new ones: by parsed chapter number first, then by position when
-  /// both lists have the same length.
-  static Map<String, String> matchChapters(List<ChapterState> old, List<Chapter> fresh) {
+  /// 仅复制无歧义的一对一对应；相同目录长度不代表章节身份相同。
+  static Map<String, String> matchChapters(
+    List<ChapterState> old,
+    List<Chapter> fresh,
+  ) {
     final out = <String, String>{};
     if (old.isEmpty || fresh.isEmpty) return out;
-    if (old.length == 1 && fresh.length == 1) return {old.first.chapterId: chapterKeyOf(fresh.first.id)};
-    final byNumber = <double, String>{};
-    for (final c in fresh) {
-      final n = parseChapterNumber(c.title);
-      if (n != null) byNumber.putIfAbsent(n, () => chapterKeyOf(c.id));
-    }
-    final sortedOld = [...old]..sort((a, b) => a.sort.compareTo(b.sort));
-    for (var i = 0; i < sortedOld.length; i++) {
-      final o = sortedOld[i];
-      final n = parseChapterNumber(o.title);
-      final hit = n == null ? null : byNumber[n];
-      if (hit != null) {
-        out[o.chapterId] = hit;
-      } else if (sortedOld.length == fresh.length) {
-        out[o.chapterId] = chapterKeyOf(fresh[i].id);
+    String titleKey(String title) => title.toLowerCase().replaceAll(
+      RegExp(r'[\s\p{P}\p{S}]+', unicode: true),
+      '',
+    );
+    final used = <String>{};
+    void match(Object? Function(String) keyOf) {
+      final oldKeys = <Object, List<ChapterState>>{};
+      final newKeys = <Object, List<Chapter>>{};
+      for (final chapter in old) {
+        final key = keyOf(chapter.title);
+        if (key != null && key != '') (oldKeys[key] ??= []).add(chapter);
+      }
+      for (final chapter in fresh) {
+        final key = keyOf(chapter.title);
+        if (key != null && key != '') (newKeys[key] ??= []).add(chapter);
+      }
+      for (final entry in oldKeys.entries) {
+        final candidates = newKeys[entry.key];
+        if (entry.value.length != 1 || candidates?.length != 1) continue;
+        final source = entry.value.single.chapterId;
+        final target = chapterKeyOf(candidates!.single.id);
+        if (!out.containsKey(source) && used.add(target)) out[source] = target;
       }
     }
+
+    match(titleKey);
+    match(parseChapterNumber);
     return out;
   }
 
-  static Future<void> migrate(Library lib, {required WorkItem from, required WorkDetail to, MigrationOptions options = const MigrationOptions()}) async {
+  /// 返回是否移除了原收藏；未匹配的进度仍保留在原收藏中。
+  static Future<bool> migrate(
+    Library lib, {
+    required WorkItem from,
+    required WorkDetail to,
+    MigrationOptions options = const MigrationOptions(),
+  }) async {
     final target = to.toItem();
-    final categories = options.categories ? lib.categoriesOf(from.uid) : <int>{};
+    final categories = options.categories
+        ? lib.categoriesOf(from.uid)
+        : <int>{};
     final wasFavorite = lib.isFavorite(target.uid);
     if (!wasFavorite) {
       lib.addFavorite(target, categories: categories);
     } else if (options.categories) {
-      lib.setCategories(target.uid, {...lib.categoriesOf(target.uid), ...categories});
+      lib.setCategories(target.uid, {
+        ...lib.categoriesOf(target.uid),
+        ...categories,
+      });
     }
-    final chapters = to.chapters ?? [Chapter(chapterKeyOf(to.singleChapterId), tr('全本'))];
-    await lib.syncChapters(target, chapters, oneShot: to.chapters == null);
-    if (options.readState) {
-      final old = lib.chaptersCached(from.uid) ?? await lib.loadChapters(from.uid);
-      final map = matchChapters(old, chapters);
-      final read = [for (final o in old) if (o.read && map[o.chapterId] != null) map[o.chapterId]!];
-      lib.markRead(target.uid, read, true);
-    }
-    if (options.removeOld) lib.removeFavorite(from.uid);
+    final kind = MediaKind.fromJson(
+      to.json['mediaKind'] ??
+          SourceManager.instance.manifest(to.source)?.kind.name,
+    );
+    final chapters = kind == MediaKind.video
+        ? to.videoEpisodes
+        : to.chapters ?? [Chapter(chapterKeyOf(to.singleChapterId), tr('全本'))];
+    var unmatchedProgress = false;
     await lib.flush();
+    if (kind != MediaKind.game) {
+      await lib.syncChapters(
+        target,
+        chapters,
+        oneShot: kind == MediaKind.video
+            ? !to.hasVideoEpisodes
+            : to.chapters == null,
+        complete: to.chaptersComplete,
+      );
+    }
+    if (options.readState && kind != MediaKind.game) {
+      final old =
+          lib.chaptersCached(from.uid) ?? await lib.loadChapters(from.uid);
+      final map = matchChapters(old, chapters);
+      unmatchedProgress = old.any(
+        (chapter) =>
+            !map.containsKey(chapter.chapterId) &&
+            (chapter.read ||
+                chapter.lastPage > 0 ||
+                chapter.position > 0 ||
+                chapter.progressUpdatedAt != null ||
+                chapter.positionUpdatedAt != null),
+      );
+      await lib.copyProgress(from, target, map);
+    }
+    await lib.flush();
+    final removeOriginal =
+        options.removeOld && !unmatchedProgress && from.uid != target.uid;
+    if (removeOriginal) lib.removeFavorite(from.uid);
+    await lib.flush();
+    return removeOriginal;
   }
 }

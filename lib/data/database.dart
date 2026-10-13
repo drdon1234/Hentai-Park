@@ -3,6 +3,8 @@ import 'dart:io';
 import 'package:drift/drift.dart';
 import 'package:drift/native.dart';
 
+import '../subscriptions/schema.dart';
+
 part 'database.g.dart';
 
 /// Every work the app has a reason to remember (favorite, history, downloaded, chapters known).
@@ -19,7 +21,7 @@ class Works extends Table {
   IntColumn get lastUpdateCheck => integer().nullable()();
   IntColumn get readerMode => integer().nullable()();
 
-  /// The site lists no chapters for this work (a single gallery), so library updates can skip it. Added in v2.
+  /// The site lists no chapters for this work (a single gallery), so library updates can skip it.
   BoolColumn get oneShot => boolean().withDefault(const Constant(false))();
 
   @override
@@ -37,7 +39,8 @@ class Categories extends Table {
 class WorkCategories extends Table {
   TextColumn get source => text()();
   TextColumn get workId => text()();
-  IntColumn get categoryId => integer().references(Categories, #id, onDelete: KeyAction.cascade)();
+  IntColumn get categoryId =>
+      integer().references(Categories, #id, onDelete: KeyAction.cascade)();
 
   @override
   Set<Column> get primaryKey => {source, workId, categoryId};
@@ -57,6 +60,7 @@ class Chapters extends Table {
   IntColumn get pageCount => integer().withDefault(const Constant(0))();
   IntColumn get dateFetch => integer().withDefault(const Constant(0))();
   IntColumn get dateRead => integer().nullable()();
+  IntColumn get progressUpdatedAt => integer().nullable()();
 
   /// Video playback state for this chapter. Values are media seconds; the timestamp
   /// below is the wall-clock time at which the position was written.
@@ -96,69 +100,59 @@ class DownloadTasks extends Table {
   Set<Column> get primaryKey => {uid};
 }
 
-@DriftDatabase(tables: [Works, Categories, WorkCategories, Chapters, History, DownloadTasks])
+class RestoreCheckpoints extends Table {
+  IntColumn get id => integer()();
+  TextColumn get token => text()();
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+@DriftDatabase(
+  tables: [
+    Works,
+    Categories,
+    WorkCategories,
+    Chapters,
+    History,
+    DownloadTasks,
+    RestoreCheckpoints,
+  ],
+)
 class AppDatabase extends _$AppDatabase {
   AppDatabase(super.e);
 
-  factory AppDatabase.file(File file) => AppDatabase(NativeDatabase.createInBackground(file));
+  factory AppDatabase.file(File file) =>
+      AppDatabase(NativeDatabase.createInBackground(file));
   factory AppDatabase.memory() => AppDatabase(NativeDatabase.memory());
 
   @override
-  int get schemaVersion => 3;
+  int get schemaVersion => 6;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
     onCreate: (m) async {
       await m.createAll();
-      await customStatement('CREATE INDEX IF NOT EXISTS idx_works_favorite ON works (favorite)');
-      await customStatement('CREATE INDEX IF NOT EXISTS idx_chapters_fetch ON chapters (date_fetch)');
+      await createSubscriptionTables(this);
+      await customStatement(
+        'CREATE INDEX IF NOT EXISTS idx_works_favorite ON works (favorite)',
+      );
+      await customStatement(
+        'CREATE INDEX IF NOT EXISTS idx_chapters_fetch ON chapters (date_fetch)',
+      );
     },
-    // Future schema changes go here, keyed on `from`; each step must be idempotent.
     onUpgrade: (m, from, to) async {
       if (from < 2) await m.addColumn(works, works.oneShot);
       if (from < 3) {
         await m.addColumn(chapters, chapters.position);
         await m.addColumn(chapters, chapters.duration);
         await m.addColumn(chapters, chapters.positionUpdatedAt);
-        await normalizeVideoRecords();
       }
+      if (from < 4) await m.addColumn(chapters, chapters.progressUpdatedAt);
+      if (from < 5) await m.createTable(restoreCheckpoints);
+      if (from < 6) await createSubscriptionTables(this);
     },
     beforeOpen: (details) async {
       await customStatement('PRAGMA foreign_keys = ON');
     },
   );
-
-  /// Copies the legacy work-level video position into its chapter row once.
-  /// Explicit per-episode progress always wins over the old history snapshot.
-  Future<void> normalizeVideoRecords() async {
-    // Match WorkDetail.videoEpisodes: a source's singleChapterId is the stable
-    // identity when the legacy history did not record an episode.
-    await customStatement(r'''
-      UPDATE history SET chapter_id = COALESCE((
-        SELECT NULLIF(CAST(json_extract(w.json, '$.singleChapterId') AS TEXT), '')
-        FROM works w WHERE w.source = history.source AND w.id = history.work_id
-          AND json_valid(w.json)
-      ), '_')
-      WHERE position IS NOT NULL AND (chapter_id IS NULL OR chapter_id = '')
-    ''');
-    await customStatement('''
-      INSERT INTO chapters (source, work_id, chapter_id, title, position, position_updated_at)
-      SELECT h.source, h.work_id, COALESCE(NULLIF(h.chapter_id, ''), '_'),
-             COALESCE(h.chapter_title, ''), MAX(h.position, 0), h.time
-      FROM history h LEFT JOIN chapters c
-        ON c.source = h.source AND c.work_id = h.work_id
-        AND c.chapter_id = COALESCE(NULLIF(h.chapter_id, ''), '_')
-      WHERE h.position IS NOT NULL
-        AND c.position_updated_at IS NULL
-      ON CONFLICT(source, work_id, chapter_id) DO UPDATE SET
-        position = excluded.position, position_updated_at = excluded.position_updated_at
-      WHERE chapters.position_updated_at IS NULL
-    ''');
-  }
-
-  Future<bool> get isEmpty async {
-    final works = await (select(this.works)..limit(1)).get();
-    final tasks = await (select(downloadTasks)..limit(1)).get();
-    return works.isEmpty && tasks.isEmpty;
-  }
 }

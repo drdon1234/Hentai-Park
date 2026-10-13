@@ -280,7 +280,7 @@ class WorkRow extends DataClass implements Insertable<WorkRow> {
   final int? lastUpdateCheck;
   final int? readerMode;
 
-  /// The site lists no chapters for this work (a single gallery), so library updates can skip it. Added in v2.
+  /// The site lists no chapters for this work (a single gallery), so library updates can skip it.
   final bool oneShot;
   const WorkRow({
     required this.source,
@@ -1240,6 +1240,17 @@ class $ChaptersTable extends Chapters
     type: DriftSqlType.int,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _progressUpdatedAtMeta = const VerificationMeta(
+    'progressUpdatedAt',
+  );
+  @override
+  late final GeneratedColumn<int> progressUpdatedAt = GeneratedColumn<int>(
+    'progress_updated_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _positionMeta = const VerificationMeta(
     'position',
   );
@@ -1287,6 +1298,7 @@ class $ChaptersTable extends Chapters
     pageCount,
     dateFetch,
     dateRead,
+    progressUpdatedAt,
     position,
     duration,
     positionUpdatedAt,
@@ -1369,6 +1381,15 @@ class $ChaptersTable extends Chapters
         dateRead.isAcceptableOrUnknown(data['date_read']!, _dateReadMeta),
       );
     }
+    if (data.containsKey('progress_updated_at')) {
+      context.handle(
+        _progressUpdatedAtMeta,
+        progressUpdatedAt.isAcceptableOrUnknown(
+          data['progress_updated_at']!,
+          _progressUpdatedAtMeta,
+        ),
+      );
+    }
     if (data.containsKey('position')) {
       context.handle(
         _positionMeta,
@@ -1439,6 +1460,10 @@ class $ChaptersTable extends Chapters
         DriftSqlType.int,
         data['${effectivePrefix}date_read'],
       ),
+      progressUpdatedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}progress_updated_at'],
+      ),
       position: attachedDatabase.typeMapping.read(
         DriftSqlType.int,
         data['${effectivePrefix}position'],
@@ -1471,6 +1496,7 @@ class ChapterRow extends DataClass implements Insertable<ChapterRow> {
   final int pageCount;
   final int dateFetch;
   final int? dateRead;
+  final int? progressUpdatedAt;
 
   /// Video playback state for this chapter. Values are media seconds; the timestamp
   /// below is the wall-clock time at which the position was written.
@@ -1488,6 +1514,7 @@ class ChapterRow extends DataClass implements Insertable<ChapterRow> {
     required this.pageCount,
     required this.dateFetch,
     this.dateRead,
+    this.progressUpdatedAt,
     required this.position,
     required this.duration,
     this.positionUpdatedAt,
@@ -1506,6 +1533,9 @@ class ChapterRow extends DataClass implements Insertable<ChapterRow> {
     map['date_fetch'] = Variable<int>(dateFetch);
     if (!nullToAbsent || dateRead != null) {
       map['date_read'] = Variable<int>(dateRead);
+    }
+    if (!nullToAbsent || progressUpdatedAt != null) {
+      map['progress_updated_at'] = Variable<int>(progressUpdatedAt);
     }
     map['position'] = Variable<int>(position);
     map['duration'] = Variable<int>(duration);
@@ -1529,6 +1559,9 @@ class ChapterRow extends DataClass implements Insertable<ChapterRow> {
       dateRead: dateRead == null && nullToAbsent
           ? const Value.absent()
           : Value(dateRead),
+      progressUpdatedAt: progressUpdatedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(progressUpdatedAt),
       position: Value(position),
       duration: Value(duration),
       positionUpdatedAt: positionUpdatedAt == null && nullToAbsent
@@ -1553,6 +1586,7 @@ class ChapterRow extends DataClass implements Insertable<ChapterRow> {
       pageCount: serializer.fromJson<int>(json['pageCount']),
       dateFetch: serializer.fromJson<int>(json['dateFetch']),
       dateRead: serializer.fromJson<int?>(json['dateRead']),
+      progressUpdatedAt: serializer.fromJson<int?>(json['progressUpdatedAt']),
       position: serializer.fromJson<int>(json['position']),
       duration: serializer.fromJson<int>(json['duration']),
       positionUpdatedAt: serializer.fromJson<int?>(json['positionUpdatedAt']),
@@ -1572,6 +1606,7 @@ class ChapterRow extends DataClass implements Insertable<ChapterRow> {
       'pageCount': serializer.toJson<int>(pageCount),
       'dateFetch': serializer.toJson<int>(dateFetch),
       'dateRead': serializer.toJson<int?>(dateRead),
+      'progressUpdatedAt': serializer.toJson<int?>(progressUpdatedAt),
       'position': serializer.toJson<int>(position),
       'duration': serializer.toJson<int>(duration),
       'positionUpdatedAt': serializer.toJson<int?>(positionUpdatedAt),
@@ -1589,6 +1624,7 @@ class ChapterRow extends DataClass implements Insertable<ChapterRow> {
     int? pageCount,
     int? dateFetch,
     Value<int?> dateRead = const Value.absent(),
+    Value<int?> progressUpdatedAt = const Value.absent(),
     int? position,
     int? duration,
     Value<int?> positionUpdatedAt = const Value.absent(),
@@ -1603,6 +1639,9 @@ class ChapterRow extends DataClass implements Insertable<ChapterRow> {
     pageCount: pageCount ?? this.pageCount,
     dateFetch: dateFetch ?? this.dateFetch,
     dateRead: dateRead.present ? dateRead.value : this.dateRead,
+    progressUpdatedAt: progressUpdatedAt.present
+        ? progressUpdatedAt.value
+        : this.progressUpdatedAt,
     position: position ?? this.position,
     duration: duration ?? this.duration,
     positionUpdatedAt: positionUpdatedAt.present
@@ -1621,6 +1660,9 @@ class ChapterRow extends DataClass implements Insertable<ChapterRow> {
       pageCount: data.pageCount.present ? data.pageCount.value : this.pageCount,
       dateFetch: data.dateFetch.present ? data.dateFetch.value : this.dateFetch,
       dateRead: data.dateRead.present ? data.dateRead.value : this.dateRead,
+      progressUpdatedAt: data.progressUpdatedAt.present
+          ? data.progressUpdatedAt.value
+          : this.progressUpdatedAt,
       position: data.position.present ? data.position.value : this.position,
       duration: data.duration.present ? data.duration.value : this.duration,
       positionUpdatedAt: data.positionUpdatedAt.present
@@ -1642,6 +1684,7 @@ class ChapterRow extends DataClass implements Insertable<ChapterRow> {
           ..write('pageCount: $pageCount, ')
           ..write('dateFetch: $dateFetch, ')
           ..write('dateRead: $dateRead, ')
+          ..write('progressUpdatedAt: $progressUpdatedAt, ')
           ..write('position: $position, ')
           ..write('duration: $duration, ')
           ..write('positionUpdatedAt: $positionUpdatedAt')
@@ -1661,6 +1704,7 @@ class ChapterRow extends DataClass implements Insertable<ChapterRow> {
     pageCount,
     dateFetch,
     dateRead,
+    progressUpdatedAt,
     position,
     duration,
     positionUpdatedAt,
@@ -1679,6 +1723,7 @@ class ChapterRow extends DataClass implements Insertable<ChapterRow> {
           other.pageCount == this.pageCount &&
           other.dateFetch == this.dateFetch &&
           other.dateRead == this.dateRead &&
+          other.progressUpdatedAt == this.progressUpdatedAt &&
           other.position == this.position &&
           other.duration == this.duration &&
           other.positionUpdatedAt == this.positionUpdatedAt);
@@ -1695,6 +1740,7 @@ class ChaptersCompanion extends UpdateCompanion<ChapterRow> {
   final Value<int> pageCount;
   final Value<int> dateFetch;
   final Value<int?> dateRead;
+  final Value<int?> progressUpdatedAt;
   final Value<int> position;
   final Value<int> duration;
   final Value<int?> positionUpdatedAt;
@@ -1710,6 +1756,7 @@ class ChaptersCompanion extends UpdateCompanion<ChapterRow> {
     this.pageCount = const Value.absent(),
     this.dateFetch = const Value.absent(),
     this.dateRead = const Value.absent(),
+    this.progressUpdatedAt = const Value.absent(),
     this.position = const Value.absent(),
     this.duration = const Value.absent(),
     this.positionUpdatedAt = const Value.absent(),
@@ -1726,6 +1773,7 @@ class ChaptersCompanion extends UpdateCompanion<ChapterRow> {
     this.pageCount = const Value.absent(),
     this.dateFetch = const Value.absent(),
     this.dateRead = const Value.absent(),
+    this.progressUpdatedAt = const Value.absent(),
     this.position = const Value.absent(),
     this.duration = const Value.absent(),
     this.positionUpdatedAt = const Value.absent(),
@@ -1744,6 +1792,7 @@ class ChaptersCompanion extends UpdateCompanion<ChapterRow> {
     Expression<int>? pageCount,
     Expression<int>? dateFetch,
     Expression<int>? dateRead,
+    Expression<int>? progressUpdatedAt,
     Expression<int>? position,
     Expression<int>? duration,
     Expression<int>? positionUpdatedAt,
@@ -1760,6 +1809,7 @@ class ChaptersCompanion extends UpdateCompanion<ChapterRow> {
       if (pageCount != null) 'page_count': pageCount,
       if (dateFetch != null) 'date_fetch': dateFetch,
       if (dateRead != null) 'date_read': dateRead,
+      if (progressUpdatedAt != null) 'progress_updated_at': progressUpdatedAt,
       if (position != null) 'position': position,
       if (duration != null) 'duration': duration,
       if (positionUpdatedAt != null) 'position_updated_at': positionUpdatedAt,
@@ -1778,6 +1828,7 @@ class ChaptersCompanion extends UpdateCompanion<ChapterRow> {
     Value<int>? pageCount,
     Value<int>? dateFetch,
     Value<int?>? dateRead,
+    Value<int?>? progressUpdatedAt,
     Value<int>? position,
     Value<int>? duration,
     Value<int?>? positionUpdatedAt,
@@ -1794,6 +1845,7 @@ class ChaptersCompanion extends UpdateCompanion<ChapterRow> {
       pageCount: pageCount ?? this.pageCount,
       dateFetch: dateFetch ?? this.dateFetch,
       dateRead: dateRead ?? this.dateRead,
+      progressUpdatedAt: progressUpdatedAt ?? this.progressUpdatedAt,
       position: position ?? this.position,
       duration: duration ?? this.duration,
       positionUpdatedAt: positionUpdatedAt ?? this.positionUpdatedAt,
@@ -1834,6 +1886,9 @@ class ChaptersCompanion extends UpdateCompanion<ChapterRow> {
     if (dateRead.present) {
       map['date_read'] = Variable<int>(dateRead.value);
     }
+    if (progressUpdatedAt.present) {
+      map['progress_updated_at'] = Variable<int>(progressUpdatedAt.value);
+    }
     if (position.present) {
       map['position'] = Variable<int>(position.value);
     }
@@ -1862,6 +1917,7 @@ class ChaptersCompanion extends UpdateCompanion<ChapterRow> {
           ..write('pageCount: $pageCount, ')
           ..write('dateFetch: $dateFetch, ')
           ..write('dateRead: $dateRead, ')
+          ..write('progressUpdatedAt: $progressUpdatedAt, ')
           ..write('position: $position, ')
           ..write('duration: $duration, ')
           ..write('positionUpdatedAt: $positionUpdatedAt, ')
@@ -2736,6 +2792,195 @@ class DownloadTasksCompanion extends UpdateCompanion<DownloadRow> {
   }
 }
 
+class $RestoreCheckpointsTable extends RestoreCheckpoints
+    with TableInfo<$RestoreCheckpointsTable, RestoreCheckpoint> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $RestoreCheckpointsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<int> id = GeneratedColumn<int>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _tokenMeta = const VerificationMeta('token');
+  @override
+  late final GeneratedColumn<String> token = GeneratedColumn<String>(
+    'token',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [id, token];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'restore_checkpoints';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<RestoreCheckpoint> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('token')) {
+      context.handle(
+        _tokenMeta,
+        token.isAcceptableOrUnknown(data['token']!, _tokenMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_tokenMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  RestoreCheckpoint map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return RestoreCheckpoint(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}id'],
+      )!,
+      token: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}token'],
+      )!,
+    );
+  }
+
+  @override
+  $RestoreCheckpointsTable createAlias(String alias) {
+    return $RestoreCheckpointsTable(attachedDatabase, alias);
+  }
+}
+
+class RestoreCheckpoint extends DataClass
+    implements Insertable<RestoreCheckpoint> {
+  final int id;
+  final String token;
+  const RestoreCheckpoint({required this.id, required this.token});
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<int>(id);
+    map['token'] = Variable<String>(token);
+    return map;
+  }
+
+  RestoreCheckpointsCompanion toCompanion(bool nullToAbsent) {
+    return RestoreCheckpointsCompanion(id: Value(id), token: Value(token));
+  }
+
+  factory RestoreCheckpoint.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return RestoreCheckpoint(
+      id: serializer.fromJson<int>(json['id']),
+      token: serializer.fromJson<String>(json['token']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<int>(id),
+      'token': serializer.toJson<String>(token),
+    };
+  }
+
+  RestoreCheckpoint copyWith({int? id, String? token}) =>
+      RestoreCheckpoint(id: id ?? this.id, token: token ?? this.token);
+  RestoreCheckpoint copyWithCompanion(RestoreCheckpointsCompanion data) {
+    return RestoreCheckpoint(
+      id: data.id.present ? data.id.value : this.id,
+      token: data.token.present ? data.token.value : this.token,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('RestoreCheckpoint(')
+          ..write('id: $id, ')
+          ..write('token: $token')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(id, token);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is RestoreCheckpoint &&
+          other.id == this.id &&
+          other.token == this.token);
+}
+
+class RestoreCheckpointsCompanion extends UpdateCompanion<RestoreCheckpoint> {
+  final Value<int> id;
+  final Value<String> token;
+  const RestoreCheckpointsCompanion({
+    this.id = const Value.absent(),
+    this.token = const Value.absent(),
+  });
+  RestoreCheckpointsCompanion.insert({
+    this.id = const Value.absent(),
+    required String token,
+  }) : token = Value(token);
+  static Insertable<RestoreCheckpoint> custom({
+    Expression<int>? id,
+    Expression<String>? token,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (token != null) 'token': token,
+    });
+  }
+
+  RestoreCheckpointsCompanion copyWith({Value<int>? id, Value<String>? token}) {
+    return RestoreCheckpointsCompanion(
+      id: id ?? this.id,
+      token: token ?? this.token,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<int>(id.value);
+    }
+    if (token.present) {
+      map['token'] = Variable<String>(token.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('RestoreCheckpointsCompanion(')
+          ..write('id: $id, ')
+          ..write('token: $token')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -2745,6 +2990,8 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $ChaptersTable chapters = $ChaptersTable(this);
   late final $HistoryTable history = $HistoryTable(this);
   late final $DownloadTasksTable downloadTasks = $DownloadTasksTable(this);
+  late final $RestoreCheckpointsTable restoreCheckpoints =
+      $RestoreCheckpointsTable(this);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -2756,6 +3003,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     chapters,
     history,
     downloadTasks,
+    restoreCheckpoints,
   ];
   @override
   StreamQueryUpdateRules get streamUpdateRules => const StreamQueryUpdateRules([
@@ -3612,6 +3860,7 @@ typedef $$ChaptersTableCreateCompanionBuilder = ChaptersCompanion Function({
   Value<int> pageCount,
   Value<int> dateFetch,
   Value<int?> dateRead,
+  Value<int?> progressUpdatedAt,
   Value<int> position,
   Value<int> duration,
   Value<int?> positionUpdatedAt,
@@ -3628,6 +3877,7 @@ typedef $$ChaptersTableUpdateCompanionBuilder = ChaptersCompanion Function({
   Value<int> pageCount,
   Value<int> dateFetch,
   Value<int?> dateRead,
+  Value<int?> progressUpdatedAt,
   Value<int> position,
   Value<int> duration,
   Value<int?> positionUpdatedAt,
@@ -3690,6 +3940,11 @@ class $$ChaptersTableFilterComposer
 
   ColumnFilters<int> get dateRead => $composableBuilder(
     column: $table.dateRead,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get progressUpdatedAt => $composableBuilder(
+    column: $table.progressUpdatedAt,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -3768,6 +4023,11 @@ class $$ChaptersTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<int> get progressUpdatedAt => $composableBuilder(
+    column: $table.progressUpdatedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<int> get position => $composableBuilder(
     column: $table.position,
     builder: (column) => ColumnOrderings(column),
@@ -3823,6 +4083,11 @@ class $$ChaptersTableAnnotationComposer
   GeneratedColumn<int> get dateRead =>
       $composableBuilder(column: $table.dateRead, builder: (column) => column);
 
+  GeneratedColumn<int> get progressUpdatedAt => $composableBuilder(
+    column: $table.progressUpdatedAt,
+    builder: (column) => column,
+  );
+
   GeneratedColumn<int> get position =>
       $composableBuilder(column: $table.position, builder: (column) => column);
 
@@ -3876,6 +4141,7 @@ class $$ChaptersTableTableManager
                 Value<int> pageCount = const Value.absent(),
                 Value<int> dateFetch = const Value.absent(),
                 Value<int?> dateRead = const Value.absent(),
+                Value<int?> progressUpdatedAt = const Value.absent(),
                 Value<int> position = const Value.absent(),
                 Value<int> duration = const Value.absent(),
                 Value<int?> positionUpdatedAt = const Value.absent(),
@@ -3891,6 +4157,7 @@ class $$ChaptersTableTableManager
                 pageCount: pageCount,
                 dateFetch: dateFetch,
                 dateRead: dateRead,
+                progressUpdatedAt: progressUpdatedAt,
                 position: position,
                 duration: duration,
                 positionUpdatedAt: positionUpdatedAt,
@@ -3908,6 +4175,7 @@ class $$ChaptersTableTableManager
                 Value<int> pageCount = const Value.absent(),
                 Value<int> dateFetch = const Value.absent(),
                 Value<int?> dateRead = const Value.absent(),
+                Value<int?> progressUpdatedAt = const Value.absent(),
                 Value<int> position = const Value.absent(),
                 Value<int> duration = const Value.absent(),
                 Value<int?> positionUpdatedAt = const Value.absent(),
@@ -3923,6 +4191,7 @@ class $$ChaptersTableTableManager
                 pageCount: pageCount,
                 dateFetch: dateFetch,
                 dateRead: dateRead,
+                progressUpdatedAt: progressUpdatedAt,
                 position: position,
                 duration: duration,
                 positionUpdatedAt: positionUpdatedAt,
@@ -4431,6 +4700,156 @@ typedef $$DownloadTasksTableProcessedTableManager =
       DownloadRow,
       PrefetchHooks Function()
     >;
+typedef $$RestoreCheckpointsTableCreateCompanionBuilder =
+    RestoreCheckpointsCompanion Function({
+      Value<int> id,
+      required String token,
+    });
+typedef $$RestoreCheckpointsTableUpdateCompanionBuilder =
+    RestoreCheckpointsCompanion Function({Value<int> id, Value<String> token});
+
+class $$RestoreCheckpointsTableFilterComposer
+    extends Composer<_$AppDatabase, $RestoreCheckpointsTable> {
+  $$RestoreCheckpointsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get token => $composableBuilder(
+    column: $table.token,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$RestoreCheckpointsTableOrderingComposer
+    extends Composer<_$AppDatabase, $RestoreCheckpointsTable> {
+  $$RestoreCheckpointsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get token => $composableBuilder(
+    column: $table.token,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$RestoreCheckpointsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $RestoreCheckpointsTable> {
+  $$RestoreCheckpointsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get token =>
+      $composableBuilder(column: $table.token, builder: (column) => column);
+}
+
+class $$RestoreCheckpointsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $RestoreCheckpointsTable,
+          RestoreCheckpoint,
+          $$RestoreCheckpointsTableFilterComposer,
+          $$RestoreCheckpointsTableOrderingComposer,
+          $$RestoreCheckpointsTableAnnotationComposer,
+          $$RestoreCheckpointsTableCreateCompanionBuilder,
+          $$RestoreCheckpointsTableUpdateCompanionBuilder,
+          (
+            RestoreCheckpoint,
+            BaseReferences<
+              _$AppDatabase,
+              $RestoreCheckpointsTable,
+              RestoreCheckpoint
+            >,
+          ),
+          RestoreCheckpoint,
+          PrefetchHooks Function()
+        > {
+  $$RestoreCheckpointsTableTableManager(
+    _$AppDatabase db,
+    $RestoreCheckpointsTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$RestoreCheckpointsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$RestoreCheckpointsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$RestoreCheckpointsTableAnnotationComposer(
+                $db: db,
+                $table: table,
+              ),
+          updateCompanionCallback: ({
+            Value<int> id = const Value.absent(),
+            Value<String> token = const Value.absent(),
+          }) => RestoreCheckpointsCompanion(id: id, token: token),
+          createCompanionCallback: ({
+            Value<int> id = const Value.absent(),
+            required String token,
+          }) => RestoreCheckpointsCompanion.insert(id: id, token: token),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable<$RestoreCheckpointsTable, RestoreCheckpoint>(
+                    table,
+                  ),
+                  BaseReferences<
+                    _$AppDatabase,
+                    $RestoreCheckpointsTable,
+                    RestoreCheckpoint
+                  >(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$RestoreCheckpointsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $RestoreCheckpointsTable,
+      RestoreCheckpoint,
+      $$RestoreCheckpointsTableFilterComposer,
+      $$RestoreCheckpointsTableOrderingComposer,
+      $$RestoreCheckpointsTableAnnotationComposer,
+      $$RestoreCheckpointsTableCreateCompanionBuilder,
+      $$RestoreCheckpointsTableUpdateCompanionBuilder,
+      (
+        RestoreCheckpoint,
+        BaseReferences<
+          _$AppDatabase,
+          $RestoreCheckpointsTable,
+          RestoreCheckpoint
+        >,
+      ),
+      RestoreCheckpoint,
+      PrefetchHooks Function()
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -4447,4 +4866,6 @@ class $AppDatabaseManager {
       $$HistoryTableTableManager(_db, _db.history);
   $$DownloadTasksTableTableManager get downloadTasks =>
       $$DownloadTasksTableTableManager(_db, _db.downloadTasks);
+  $$RestoreCheckpointsTableTableManager get restoreCheckpoints =>
+      $$RestoreCheckpointsTableTableManager(_db, _db.restoreCheckpoints);
 }
