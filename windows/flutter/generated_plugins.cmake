@@ -5,6 +5,7 @@
 list(APPEND FLUTTER_PLUGIN_LIST
   connectivity_plus
   flutter_inappwebview_windows
+  flutter_tts
   gal
   local_auth_windows
   share_plus

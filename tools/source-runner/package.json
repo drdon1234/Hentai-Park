@@ -3,10 +3,9 @@
   "private": true,
   "type": "module",
   "description": "Develop and smoke-test HentaiPark source scripts against live sites",
-  "scripts": {
-    "smoke": "node ../../test/source-runner/smoke.mjs"
-  },
   "dependencies": {
+    "@mtproto/core": "6.3.0",
+    "esbuild": "0.25.12",
     "linkedom": "^0.18.12"
   }
 }

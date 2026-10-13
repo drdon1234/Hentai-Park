@@ -1,0 +1,10 @@
+# 文本统一使用 LF；二进制资产保留原始字节。
+* text=auto eol=lf
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.webp binary
+*.ico binary
+*.ttf binary
+*.woff2 binary
