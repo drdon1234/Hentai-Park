@@ -1,6 +1,6 @@
 /* 只解析聚合索引，不带源 Cookie 请求外部作品或执行远端脚本。 */
 Park.register({
-  key: 'ixxx', name: 'iXXX', version: '0.0.4', type: 'video', category: 'adult', color: '#F97316',
+  key: 'ixxx', name: 'iXXX', version: '0.0.5', type: 'video', category: 'adult', color: '#F97316',
   description: '综合成人视频搜索，支持排行、分页与原站打开',
   homepage: 'https://www.ixxx.com', domains: ['ixxx.com', 'ttcache.com'], language: 'en',
   network: {mode: 'browser', origin: 'https://www.ixxx.com', vpnHint: true, confirmation: {
@@ -37,7 +37,8 @@ Park.register({
   pageUrl(value, kind) {
     try {
       const u = new URL(value, this.BASE);
-      const validPath = kind === 'feed' ? u.pathname === '/rating' : /^\/c\/[^/?#]+\/?$/.test(u.pathname);
+      const validPath = kind === 'feed' ? /^\/(?:[a-z]{2}(?:-[a-z]{2})?\/)?rating\/?$/i.test(u.pathname)
+        : /^\/(?:[a-z]{2}(?:-[a-z]{2})?\/)?c\/[^/?#]+\/?$/i.test(u.pathname);
       if (u.origin === this.BASE && !u.username && !u.password && !u.hash && validPath &&
           !/%2f|%5c|%2e/i.test(u.pathname) &&
           Array.from(u.searchParams.keys()).every(k => k === 'page') &&
@@ -99,9 +100,20 @@ Park.register({
     const keyword = String(req.keyword || '').trim(), page = Math.max(1, Math.floor(Number(req.page) || 1));
     if (!keyword) return {items: [], page, hasNext: false};
     if (page > 1 && !req.cursor) throw Park.error('CONFIG', '请按顺序加载视频列表');
-    const result = page === 1
-      ? await this.request(this.BASE + '/searching/by-form', {'search_query[query]': keyword})
-      : await this.request(this.pageUrl(req.cursor, 'search'));
+    let result;
+    if (page === 1) {
+      const home = await this.request(this.BASE + '/');
+      const form = home.doc.querySelector('form input[name="search_query[query]"]')?.closest('form');
+      let action;
+      try { action = new URL(form?.getAttribute('action'), home.url); } catch (_) {}
+      if (!action || action.origin !== this.BASE || action.username || action.password || action.search || action.hash ||
+          !/^\/(?:[a-z]{2}(?:-[a-z]{2})?\/)?searching\/by-form$/i.test(action.pathname)) {
+        throw Park.error('PARSE', '站点搜索表单无效');
+      }
+      result = await this.request(action.href, {'search_query[query]': keyword});
+    } else {
+      result = await this.request(this.pageUrl(req.cursor, 'search'));
+    }
     return this.result(result, page, 'search');
   },
   async detail(id, preview) {

@@ -30,6 +30,8 @@ Download and install an Android APK from the **[latest release](https://github.c
 
 Manage site logins in Me → Source management. Some sites may require a VPN or proxy.
 
+AI dramas keep playing during vertical swipes and preload the next episode. Tap the picture to reveal the brightness and volume bars, then drag inside a bar to adjust it. Automatic posters load in the background; browsing takes priority. Changing a source setting cancels reads using the old configuration.
+
 <a id="screenshots"></a>
 
 ## Screenshots

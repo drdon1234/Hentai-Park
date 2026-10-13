@@ -1,6 +1,8 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 
+import '../../core/localization.dart';
+
 /// Controls sit above the detector, so their taps never enter its gesture arena.
 /// Transparent space between controls still reaches the video underneath.
 class VideoGestureSurface extends StatefulWidget {
@@ -9,6 +11,7 @@ class VideoGestureSurface extends StatefulWidget {
     required this.child,
     this.overlay,
     this.pageVertically = false,
+    this.showLevelControls = false,
     required this.onTap,
     required this.onDoubleTap,
     required this.onStart,
@@ -20,6 +23,7 @@ class VideoGestureSurface extends StatefulWidget {
   final Widget child;
   final Widget? overlay;
   final bool pageVertically;
+  final bool showLevelControls;
   final VoidCallback onTap;
   final ValueChanged<Offset> onDoubleTap;
   final void Function(Offset point, Size viewport) onStart;
@@ -36,9 +40,14 @@ class _VideoGestureSurfaceState extends State<VideoGestureSurface> {
   Offset _doubleTap = Offset.zero;
   bool _blocked = false;
 
-  Widget _detector(Size viewport, {double x = 0, bool horizontalOnly = false}) {
+  Widget _detector(
+    Size viewport, {
+    Offset origin = Offset.zero,
+    bool horizontalOnly = false,
+    bool verticalOnly = false,
+  }) {
     void down(DragDownDetails details) {
-      _down = details.localPosition + Offset(x, 0);
+      _down = details.localPosition + origin;
       final media = MediaQuery.of(context);
       final insets = media.systemGestureInsets;
       final box = context.findRenderObject() as RenderBox?;
@@ -59,7 +68,7 @@ class _VideoGestureSurfaceState extends State<VideoGestureSurface> {
     }
 
     void update(DragUpdateDetails details) {
-      if (!_blocked) widget.onUpdate(details.localPosition + Offset(x, 0));
+      if (!_blocked) widget.onUpdate(details.localPosition + origin);
     }
 
     void end(DragEndDetails details) {
@@ -74,14 +83,18 @@ class _VideoGestureSurfaceState extends State<VideoGestureSurface> {
       behavior: HitTestBehavior.opaque,
       dragStartBehavior: DragStartBehavior.down,
       onTap: widget.onTap,
-      onDoubleTapDown: (details) =>
-          _doubleTap = details.localPosition + Offset(x, 0),
+      onDoubleTapDown: (details) => _doubleTap = details.localPosition + origin,
       onDoubleTap: () => widget.onDoubleTap(_doubleTap),
-      onPanDown: horizontalOnly ? null : down,
-      onPanStart: horizontalOnly ? null : start,
-      onPanUpdate: horizontalOnly ? null : update,
-      onPanEnd: horizontalOnly ? null : end,
-      onPanCancel: horizontalOnly ? null : cancel,
+      onPanDown: horizontalOnly || verticalOnly ? null : down,
+      onPanStart: horizontalOnly || verticalOnly ? null : start,
+      onPanUpdate: horizontalOnly || verticalOnly ? null : update,
+      onPanEnd: horizontalOnly || verticalOnly ? null : end,
+      onPanCancel: horizontalOnly || verticalOnly ? null : cancel,
+      onVerticalDragDown: verticalOnly ? down : null,
+      onVerticalDragStart: verticalOnly ? start : null,
+      onVerticalDragUpdate: verticalOnly ? update : null,
+      onVerticalDragEnd: verticalOnly ? end : null,
+      onVerticalDragCancel: verticalOnly ? cancel : null,
       onHorizontalDragDown: horizontalOnly ? down : null,
       onHorizontalDragStart: horizontalOnly ? start : null,
       onHorizontalDragUpdate: horizontalOnly ? update : null,
@@ -97,27 +110,70 @@ class _VideoGestureSurfaceState extends State<VideoGestureSurface> {
       fit: StackFit.expand,
       children: [
         widget.child,
-        if (widget.pageVertically)
-          Row(
-            children: [
-              Expanded(child: _detector(constraints.biggest)),
-              Expanded(
-                child: _detector(
-                  constraints.biggest,
-                  x: constraints.maxWidth / 3,
-                  horizontalOnly: true,
+        _detector(constraints.biggest, horizontalOnly: widget.pageVertically),
+        if (widget.pageVertically &&
+            widget.showLevelControls &&
+            constraints.maxHeight >= 180)
+          for (final left in [true, false])
+            Positioned(
+              left: left ? 8 : null,
+              right: left ? null : 8,
+              top:
+                  (constraints.maxHeight -
+                      (constraints.maxHeight * .3).clamp(72.0, 144.0)) /
+                  2,
+              width: 48,
+              height: (constraints.maxHeight * .3).clamp(72.0, 144.0),
+              child: Tooltip(
+                message: tr(left ? '亮度' : '音量'),
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    const IgnorePointer(
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(
+                          color: Colors.black38,
+                          borderRadius: BorderRadius.all(Radius.circular(24)),
+                        ),
+                      ),
+                    ),
+                    IgnorePointer(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            left
+                                ? Icons.brightness_6_outlined
+                                : Icons.volume_up_outlined,
+                            color: Colors.white70,
+                            size: 20,
+                          ),
+                          const SizedBox(height: 8),
+                          const Icon(
+                            Icons.unfold_more_rounded,
+                            color: Colors.white70,
+                            size: 20,
+                          ),
+                        ],
+                      ),
+                    ),
+                    _detector(
+                      constraints.biggest,
+                      verticalOnly: true,
+                      origin: Offset(
+                        left ? 8 : constraints.maxWidth - 56,
+                        (constraints.maxHeight -
+                                (constraints.maxHeight * .3).clamp(
+                                  72.0,
+                                  144.0,
+                                )) /
+                            2,
+                      ),
+                    ),
+                  ],
                 ),
               ),
-              Expanded(
-                child: _detector(
-                  constraints.biggest,
-                  x: constraints.maxWidth * 2 / 3,
-                ),
-              ),
-            ],
-          )
-        else
-          _detector(constraints.biggest),
+            ),
         if (widget.overlay != null) widget.overlay!,
       ],
     ),

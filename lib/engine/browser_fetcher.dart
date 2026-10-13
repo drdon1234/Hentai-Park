@@ -64,12 +64,15 @@ class _OriginPage {
   HeadlessInAppWebView? _view;
   InAppWebViewController? _controller;
   Completer<void>? _ready;
+  void Function(Object? error)? _finishReady;
   Timer? _idle;
   int _nextRequest = 0;
   Completer<void>? _navigation;
   bool _navigationStarted = false;
   int _documentGeneration = 0;
   Uri? _documentUri;
+  Uri? _documentRequest;
+  bool _documentConsumed = false;
   final _requestQueue = SerialExecutor();
   CancelToken _session = CancelToken();
   bool _retired = false;
@@ -95,6 +98,7 @@ class _OriginPage {
         ? target
         : Uri.parse('$origin/');
     _documentUri = bootstrap;
+    _documentRequest = bootstrap;
     final ready = _ready = Completer<void>();
     Timer? timeout;
     var settled = false;
@@ -102,8 +106,11 @@ class _OriginPage {
       if (settled) return;
       settled = true;
       timeout?.cancel();
+      if (identical(_ready, ready)) _finishReady = null;
       error == null ? ready.complete() : ready.completeError(error);
     }
+
+    _finishReady = (error) => finish(error);
 
     _view = HeadlessInAppWebView(
       initialUrlRequest: URLRequest(url: WebUri(bootstrap.toString())),
@@ -121,6 +128,7 @@ class _OriginPage {
         if (identical(_ready, ready)) {
           if (_navigation != null) _navigationStarted = true;
           _documentGeneration++;
+          _documentConsumed = false;
           _documentUri = url == null ? null : Uri.tryParse(url.toString());
         }
       },
@@ -156,7 +164,7 @@ class _OriginPage {
           if (!current()) return;
           final html =
               await c.evaluateJavascript(
-                source: 'document.documentElement.outerHTML.slice(0, 3000)',
+                source: 'document.documentElement.outerHTML.slice(0, 4 * 1024 * 1024)',
               ) ??
               '';
           if (!current()) return;
@@ -194,7 +202,8 @@ class _OriginPage {
     // The platform may call a failing load callback before run() returns.
     ready.future.ignore();
     try {
-      await _view!.run();
+      final view = _view!;
+      await view.run();
       // Managed challenges usually pass on their own within a few seconds.
       if (!settled) {
         timeout = Timer(
@@ -210,7 +219,7 @@ class _OriginPage {
       }
       await ready.future;
     } catch (e) {
-      await dispose();
+      if (identical(_ready, ready)) await dispose();
       if (e is! SourceError && e is! DioException) {
         throw SourceError('NETWORK', '浏览器请求失败：$e');
       }
@@ -285,6 +294,7 @@ class _OriginPage {
     }
     _documentGeneration++;
     _documentUri = Uri.parse(url);
+    _documentRequest = Uri.parse(url);
     final ready = _navigation = Completer<void>();
     _navigationStarted = false;
     final timeout = Timer(
@@ -323,12 +333,27 @@ class _OriginPage {
     bool retried = false,
   }) async {
     if (cancelToken?.cancelError case final error?) throw error;
-    await Future.any([
-      _ensure(request),
-      if (cancelToken != null)
-        cancelToken.whenCancel.then<void>((error) => throw error),
-    ]);
+    try {
+      await awaitCancelled(_ensure(request), cancelToken);
+    } catch (_) {
+      // 取消初始化中的海报请求时释放旧页面，前台可立即导航到自己的目标。
+      if (cancelToken?.isCancelled == true && _ready?.isCompleted == false) {
+        await dispose();
+      }
+      rethrow;
+    }
     if (cancelToken?.cancelError case final error?) throw error;
+    if ((request['method'] ?? 'GET').toString().toUpperCase() == 'GET' &&
+        !_documentConsumed &&
+        request['body'] == null &&
+        request['responseType'] != 'base64') {
+      final document = await awaitCancelled(
+        _readDocument(request['url'].toString()),
+        cancelToken,
+      );
+      if (cancelToken?.cancelError case final error?) throw error;
+      if (document != null) return document;
+    }
     _idle?.cancel();
     final controller = _controller!;
     final session = _session;
@@ -417,6 +442,12 @@ class _OriginPage {
         if (!retried &&
             (request['method'] ?? 'GET').toString().toUpperCase() == 'GET') {
           await _verifyDocument(request['url'].toString(), cancelToken);
+          final document = await awaitCancelled(
+            _readDocument(request['url'].toString()),
+            cancelToken,
+          );
+          if (cancelToken?.cancelError case final error?) throw error;
+          if (document != null) return document;
           return await _fetch(request, cancelToken: cancelToken, retried: true);
         }
         throw SourceError(
@@ -436,10 +467,60 @@ class _OriginPage {
     }
   }
 
+  Future<Map<String, Object?>?> _readDocument(String requested) async {
+    final controller = _controller;
+    if (controller == null) return null;
+    final generation = _documentGeneration;
+    try {
+      final current = await controller.getUrl();
+      final uri = current == null ? null : Uri.tryParse(current.toString());
+      // 接受该次导航的同源重定向（如语言首页），其他资源仍使用真实请求。
+      if (uri == null ||
+          uri.origin != origin ||
+          uri != _documentUri ||
+          requested != _documentRequest?.toString()) {
+        return null;
+      }
+      final value = await controller.evaluateJavascript(
+        source: '''
+        document.readyState === 'complete' && document.contentType === 'text/html'
+          ? {body: document.documentElement.outerHTML, url: location.href, contentType: document.contentType}
+          : null
+      ''',
+      );
+      if (!identical(controller, _controller) ||
+          generation != _documentGeneration ||
+          value is! Map ||
+          value['url'] != uri.toString() ||
+          value['contentType'] != 'text/html') {
+        return null;
+      }
+      final body = value['body'];
+      if (body is! String ||
+          body.length < 200 ||
+          body.length > 4 * 1024 * 1024 ||
+          hasChallengeMarkers(body)) {
+        return null;
+      }
+      _documentConsumed = true;
+      return {
+        'status': 200,
+        'headers': {'content-type': 'text/html'},
+        'body': body,
+        'url': uri.toString(),
+      };
+    } catch (_) {
+      return null;
+    }
+  }
+
   Future<void> dispose() async {
     _documentGeneration++;
+    _documentRequest = null;
     _idle?.cancel();
     _session.cancel('browser session closed');
+    _finishReady?.call(SourceError('CANCELLED', '浏览器会话已关闭'));
+    _finishReady = null;
     _finishNavigation(SourceError('CANCELLED', '浏览器会话已关闭'));
     final view = _view;
     _view = null;

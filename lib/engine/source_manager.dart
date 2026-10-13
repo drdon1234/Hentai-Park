@@ -150,6 +150,8 @@ class SourceManager extends ChangeNotifier {
   final _mutations = SerialExecutor();
   final Set<Future<void>> _activeCalls = {};
   final _activeBySource = <String, Set<Future<void>>>{};
+  final _readRequests = <String, Set<CancelToken>>{};
+  final _backgroundFeeds = <String, Set<CancelToken>>{};
   final _sourceMutations = <String, SerialExecutor>{};
   final _attachmentWrites = <String, SerialExecutor>{};
 
@@ -861,6 +863,10 @@ class SourceManager extends ChangeNotifier {
   /// Mutations wait for existing calls; new calls wait for the queued mutations.
   Future<T> _mutate<T>(Future<T> Function() action, {String? key}) {
     if (key != null) {
+      // 新设置不能等待旧分流或后台海报的网络超时；账号写入仍正常串行。
+      for (final token in _readRequests[key]?.toList() ?? <CancelToken>[]) {
+        token.cancel('source configuration changed');
+      }
       final pendingGlobal = _mutations.settled;
       final queue = _sourceMutations[key] ??= SerialExecutor();
       return queue.run(() async {
@@ -987,6 +993,19 @@ class SourceManager extends ChangeNotifier {
     }
     final finished = Completer<void>();
     if (cancelToken?.cancelError case final error?) throw error;
+    final isRead = const {
+      'feed',
+      'search',
+      'detail',
+      'chapters',
+      'pages',
+      'videos',
+    }.contains(method);
+    final readToken = isRead ? CancelToken() : cancelToken;
+    final cancellation = isRead
+        ? cancelToken?.whenCancel.asStream().listen(readToken!.cancel)
+        : null;
+    if (isRead) (_readRequests[key] ??= {}).add(readToken!);
     _activeCalls.add(finished.future);
     (_activeBySource[key] ??= {}).add(finished.future);
     try {
@@ -994,17 +1013,19 @@ class SourceManager extends ChangeNotifier {
         key,
         method,
         args,
-        cancelToken: cancelToken,
+        cancelToken: readToken,
       );
     } finally {
       _activeCalls.remove(finished.future);
       _activeBySource[key]?.remove(finished.future);
       finished.complete();
-      if (cancelToken?.isCancelled != true &&
+      await cancellation?.cancel();
+      if (isRead) _readRequests[key]?.remove(readToken);
+      if (readToken?.isCancelled != true &&
           _backgroundKeys == null &&
           !method.startsWith('account.') &&
           manifest(key)?.can('status') == true) {
-        await refreshAccount(key);
+        unawaited(refreshAccount(key));
       }
     }
   }
@@ -1016,40 +1037,56 @@ class SourceManager extends ChangeNotifier {
     String? cursor,
     Map<String, Object?> options = const {},
     bool refresh = false,
+    bool background = false,
+    CancelToken? cancelToken,
   }) async {
     await ready;
-    final source = manifest(key);
-    // 每次读取摘要，登录、退出及网页登录改变身份后不能命中旧账号主页。
-    final cookies = await CookieStore.instance.snapshotPartition(key);
-    final result = await HomeCache.instance.request(
-      [
-        key,
-        source?.version,
-        cookies,
-        settingsOf(key),
-        _state[key]?['data'],
-        AppSettings.instance.proxy,
-        source?.json['domains'],
-        feedKey,
-        page,
-        cursor,
-        options,
-        HomeMetadata.fields.toList(),
-      ],
-      () async {
-        return (await _call(key, 'feed', [
+    if (!background) cancelBackgroundFeeds(key);
+    final token = cancelToken ?? CancelToken();
+    if (background) (_backgroundFeeds[key] ??= {}).add(token);
+    try {
+      final source = manifest(key);
+      // 每次读取摘要，登录、退出及网页登录改变身份后不能命中旧账号主页。
+      final cookies = await CookieStore.instance.snapshotPartition(key);
+      final result = await HomeCache.instance.request(
+        [
+          key,
+          source?.version,
+          cookies,
+          settingsOf(key),
+          _state[key]?['data'],
+          AppSettings.instance.proxy,
+          source?.json['domains'],
           feedKey,
-          {'page': page, 'cursor': cursor, 'options': options},
-        ]) as Map).cast<String, dynamic>();
-      },
-      refresh: refresh,
-      shouldCache: HomeMetadata.cacheable,
-      serialize: HomeMetadata.serialize,
-    );
-    return WorkPage.fromJson({
-      ...result.data,
-      '_staleCache': result.stale,
-    }, key);
+          page,
+          cursor,
+          options,
+          HomeMetadata.fields.toList(),
+        ],
+        () async {
+          return (await _call(key, 'feed', [
+            feedKey,
+            {'page': page, 'cursor': cursor, 'options': options},
+          ], cancelToken: token) as Map).cast<String, dynamic>();
+        },
+        refresh: refresh,
+        requestGroup: background ? 'background' : 'foreground',
+        shouldCache: HomeMetadata.cacheable,
+        serialize: HomeMetadata.serialize,
+      );
+      return WorkPage.fromJson({
+        ...result.data,
+        '_staleCache': result.stale,
+      }, key);
+    } finally {
+      if (background) _backgroundFeeds[key]?.remove(token);
+    }
+  }
+
+  void cancelBackgroundFeeds(String key) {
+    for (final token in _backgroundFeeds[key]?.toList() ?? <CancelToken>[]) {
+      token.cancel('foreground browsing takes priority');
+    }
   }
 
   Future<WorkPage> search(

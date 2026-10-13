@@ -28,6 +28,7 @@ import 'video_gesture_surface.dart';
 import 'video_gestures.dart';
 import 'video_episode_sheet.dart';
 import 'adaptive_video_progress.dart';
+import 'prepared_video.dart';
 
 class VideoPage extends StatefulWidget {
   const VideoPage({
@@ -50,6 +51,7 @@ class VideoPage extends StatefulWidget {
 
 class _VideoPageState extends State<VideoPage> with WidgetsBindingObserver {
   VideoPlayerController? _c;
+  final _playerUpdates = ValueNotifier(0);
   HlsPlayback? _media;
   HlsPlayback? _preparingMedia;
   List<VideoSource> _sources = [];
@@ -79,7 +81,11 @@ class _VideoPageState extends State<VideoPage> with WidgetsBindingObserver {
   late final List<Chapter> _episodes;
   late Chapter _episode;
   late final PageController _episodePages;
-  bool _paging = false;
+  Chapter? _preloadedEpisode;
+  CancelToken? _preloadCancel;
+  Future<PreparedVideo>? _preloaded;
+  PreparedVideo? _nextPreview;
+  Future<void> _preloadClosing = Future.value();
   bool get _scrollEpisodes =>
       _episodes.length > 1 &&
       (SourceManager.instance.manifest(widget.work.source)?.category ==
@@ -134,9 +140,11 @@ class _VideoPageState extends State<VideoPage> with WidgetsBindingObserver {
     _volumeSub?.cancel();
     _openRequest++;
     _sourceRequest?.cancel('video page closed');
+    unawaited(_discardPreload());
     WidgetsBinding.instance.removeObserver(this);
     AppLock.instance.removeListener(_onLockChanged);
     _c?.removeListener(_onTick);
+    _playerUpdates.dispose();
     final media = _media;
     unawaited(
       (_c?.dispose() ?? Future<void>.value()).whenComplete(() async {
@@ -186,10 +194,7 @@ class _VideoPageState extends State<VideoPage> with WidgetsBindingObserver {
     return _playbackUpdates = _playbackUpdates
         .then((_) async {
           if (!mounted || c == null || !identical(c, _c)) return;
-          if (_foreground &&
-              !_paging &&
-              !AppLock.instance.locked &&
-              _wantsPlayback) {
+          if (_foreground && !AppLock.instance.locked && _wantsPlayback) {
             await c.play();
           } else {
             await c.pause();
@@ -232,6 +237,7 @@ class _VideoPageState extends State<VideoPage> with WidgetsBindingObserver {
   }
 
   Future<void> _selectEpisode(Chapter episode) async {
+    if (_scrollEpisodes && _supported) return _selectDramaEpisode(episode);
     _savePosition();
     _sourceRequest?.cancel('video source reloaded');
     final request = _sourceRequest = CancelToken();
@@ -321,6 +327,159 @@ class _VideoPageState extends State<VideoPage> with WidgetsBindingObserver {
       }
     } finally {
       if (identical(_sourceRequest, request)) _sourceRequest = null;
+    }
+  }
+
+  Future<void> _discardPreload() {
+    final pending = _preloaded;
+    _preloadCancel?.cancel('episode preload no longer needed');
+    _preloaded = null;
+    _preloadedEpisode = null;
+    _preloadCancel = null;
+    _nextPreview = null;
+    if (pending != null) {
+      final closing = pending
+          .then((video) => video.close())
+          .catchError((Object _) {});
+      _preloadClosing = Future.wait([_preloadClosing, closing]).then((_) {});
+    }
+    return _preloadClosing;
+  }
+
+  void _preloadNext() {
+    if (!mounted ||
+        !_scrollEpisodes ||
+        !_supported ||
+        _preloaded != null ||
+        _episodeIndex >= _episodes.length - 1) {
+      return;
+    }
+    final next = _preloadedEpisode = _episodes[_episodeIndex + 1];
+    final token = _preloadCancel = CancelToken();
+    final pending = _preloaded = PreparedVideo.open(
+      widget.work,
+      next,
+      token,
+      localFile: widget.localFile,
+      initialSources: widget.initialSources,
+    );
+    // 预加载失败不影响当前播放，切到该集时才显示或重试。
+    pending.ignore();
+    unawaited(
+      pending
+          .then((video) {
+            if (mounted && identical(pending, _preloaded)) {
+              setState(() => _nextPreview = video);
+            }
+          })
+          .catchError((Object _) {}),
+    );
+  }
+
+  Future<void> _selectDramaEpisode(Chapter episode) async {
+    _savePosition();
+    _sourceRequest?.cancel('episode changed');
+    final token = _sourceRequest = CancelToken();
+    final request = ++_openRequest;
+    Future<PreparedVideo>? pending;
+    if (_preloadedEpisode?.id == episode.id) {
+      pending = _preloaded;
+      // 转移所有权，当前请求取消时也取消尚未完成的预加载。
+      final preloadToken = _preloadCancel;
+      unawaited(token.whenCancel.then((error) => preloadToken?.cancel(error)));
+      _preloaded = null;
+      _preloadedEpisode = null;
+      _preloadCancel = null;
+      _nextPreview = null;
+    } else {
+      unawaited(_discardPreload());
+    }
+    _savePos?.cancel();
+    _hide?.cancel();
+    _cancelGesture();
+    final old = _c;
+    final oldMedia = _media;
+    old?.removeListener(_onTick);
+    // 只在确认换集后停止旧声音；释放与新播放器接管并行。
+    final retiring = () async {
+      try {
+        await old?.pause();
+      } finally {
+        await (old?.dispose() ?? Future<void>.value()).whenComplete(
+          () async => oldMedia?.close(),
+        );
+      }
+    }();
+    retiring.ignore();
+    setState(() {
+      _episode = episode;
+      _c = null;
+      _media = null;
+      _sources = [];
+      _current = null;
+      _error = null;
+      _offline = false;
+      _completed = false;
+      _controls = true;
+      _wantsPlayback = true;
+    });
+    if (_episodePages.hasClients &&
+        _episodePages.page?.round() != _episodeIndex) {
+      _episodePages.jumpToPage(_episodeIndex);
+    }
+    PreparedVideo? prepared;
+    try {
+      if (pending == null) {
+        await Future.wait([retiring, _preloadClosing]);
+        if (!mounted || token.isCancelled || request != _openRequest) return;
+      }
+      prepared =
+          await (pending ??
+              PreparedVideo.open(
+                widget.work,
+                episode,
+                token,
+                localFile: widget.localFile,
+                initialSources: widget.initialSources,
+              ));
+      if (!mounted || token.isCancelled || request != _openRequest) {
+        await prepared.close();
+        return;
+      }
+      final c = prepared.controller;
+      final resume = _resumePoint(c.value.duration);
+      if (resume != null) await c.seekTo(resume);
+      await c.setPlaybackSpeed(_speed);
+      if (!mounted || token.isCancelled || request != _openRequest) {
+        await prepared.close();
+        return;
+      }
+      c.addListener(_onTick);
+      setState(() {
+        _c = c;
+        _media = prepared!.media;
+        _sources = prepared.sources;
+        _current = prepared.source;
+        _offline = prepared.offline;
+      });
+      await _syncPlayback();
+      if (!mounted || request != _openRequest) return;
+      _savePos = Timer.periodic(
+        const Duration(seconds: 10),
+        (_) => _savePosition(),
+      );
+      _scheduleHide();
+      await retiring;
+      if (mounted && request == _openRequest) _preloadNext();
+    } catch (error) {
+      if (prepared != null && !identical(prepared.controller, _c)) {
+        await prepared.close();
+      }
+      if (mounted && !token.isCancelled && request == _openRequest) {
+        setState(() => _error = error);
+      }
+    } finally {
+      if (identical(_sourceRequest, token)) _sourceRequest = null;
     }
   }
 
@@ -451,7 +610,7 @@ class _VideoPageState extends State<VideoPage> with WidgetsBindingObserver {
     // seek must not overwrite the user's new play request.
     final newlyCompleted = completed && !_completed;
     _completed = completed;
-    if (mounted) setState(() {});
+    if (mounted) _playerUpdates.value++;
     if (newlyCompleted) {
       _savePosition();
       if (_wantsPlayback && _episodeIndex < _episodes.length - 1) {
@@ -748,7 +907,10 @@ class _VideoPageState extends State<VideoPage> with WidgetsBindingObserver {
   @override
   Widget build(BuildContext context) {
     AppLocalizations.of(context);
-    final player = _player(context);
+    final player = AnimatedBuilder(
+      animation: _playerUpdates,
+      builder: (context, _) => _player(context),
+    );
     if (_fullscreen) {
       return PopScope(
         canPop: false,
@@ -868,6 +1030,7 @@ class _VideoPageState extends State<VideoPage> with WidgetsBindingObserver {
     } else {
       inner = VideoGestureSurface(
         pageVertically: _scrollEpisodes,
+        showLevelControls: _controls,
         onTap: _toggleControls,
         onDoubleTap: (point) {
           final box = context.findRenderObject() as RenderBox?;
@@ -979,13 +1142,10 @@ class _VideoPageState extends State<VideoPage> with WidgetsBindingObserver {
         onNotification: (notification) {
           if (notification.depth != 0) return false;
           if (notification is ScrollStartNotification) {
-            _paging = true;
             _hide?.cancel();
-            _c?.pause();
           }
           if (notification is ScrollEndNotification) {
-            _paging = false;
-            _syncPlayback();
+            _scheduleHide();
           }
           return false;
         },
@@ -998,6 +1158,16 @@ class _VideoPageState extends State<VideoPage> with WidgetsBindingObserver {
           },
           itemBuilder: (_, index) => index == _episodeIndex
               ? active
+              : _preloadedEpisode == _episodes[index] && _nextPreview != null
+              ? ColoredBox(
+                  color: Colors.black,
+                  child: Center(
+                    child: AspectRatio(
+                      aspectRatio: _nextPreview!.controller.value.aspectRatio,
+                      child: VideoPlayer(_nextPreview!.controller),
+                    ),
+                  ),
+                )
               : ColoredBox(
                   color: Colors.black,
                   child: Center(

@@ -1575,5 +1575,6 @@
   "部分游戏需要登录；打开网页后点击右上角账号按钮登录，完成后返回重试。Cookie 仅保存在本机。": "Some games require sign-in. Open the page and use the account button at the top right, then return and retry. Cookies stay on this device.",
   "若已看到正常页面，请点击完成；如资源仍被隐藏，请在原帖或回复页完成验证与回复，再返回重试": "If the normal page is visible, tap Done. If resources are still hidden, complete verification and reply in the original thread or reply page, then retry",
   "在打开的网页中登录，看到账号或退出按钮后点击完成；若已是正常资源页，无需寻找人机验证。点击回复解锁会发送“感谢分享，好人一生平安”": "Sign in on the opened page and tap Done when your account or a logout button appears. A normal resource page needs no extra challenge. Reply to unlock sends “感谢分享，好人一生平安”.",
-  "请在回复页完成验证并手动回复，返回后重试读取资源": "Complete verification and reply manually on the reply page, then return and retry loading resources"
+  "请在回复页完成验证并手动回复，返回后重试读取资源": "Complete verification and reply manually on the reply page, then return and retry loading resources",
+  "音量": "Volume"
 }

@@ -30,6 +30,8 @@ Descarga e instala un APK de Android desde la **[última versión](https://githu
 
 Gestiona las cuentas en Yo → Gestión de fuentes. Algunos sitios pueden necesitar una VPN o un proxy.
 
+Los dramas de IA siguen reproduciéndose durante los deslizamientos verticales y precargan el siguiente episodio. Toca la imagen para mostrar las barras de brillo y volumen y arrastra dentro de ellas para ajustar. Los carteles automáticos se cargan en segundo plano; la navegación tiene prioridad. Al cambiar un ajuste de la fuente se cancelan las lecturas con la configuración anterior.
+
 <a id="screenshots"></a>
 
 ## Capturas

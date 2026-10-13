@@ -51,6 +51,7 @@ class HomeCache {
     List<Object?> identity,
     Future<Map<String, dynamic>> Function() load, {
     bool refresh = false,
+    String requestGroup = 'foreground',
     bool Function(Map<String, dynamic>)? shouldCache,
     Map<String, dynamic> Function(Map<String, dynamic>)? serialize,
   }) {
@@ -59,10 +60,11 @@ class HomeCache {
         .convert(utf8.encode(jsonEncode(_canonical(identity))))
         .toString();
     final generation = _generation;
-    final pendingKey = '${directory.path}/$generation/$key/$refresh';
+    final pendingKey =
+        '${directory.path}/$generation/$key/$refresh/$requestGroup';
     final existing = _pending[pendingKey];
     if (existing != null) return existing;
-    if (refresh) {
+    if (refresh || requestGroup == 'foreground') {
       _refreshes[key] = ++_requestSequence;
     }
     final sequence = _refreshes[key] ?? 0;

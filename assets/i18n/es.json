@@ -1575,5 +1575,6 @@
   "部分游戏需要登录；打开网页后点击右上角账号按钮登录，完成后返回重试。Cookie 仅保存在本机。": "Algunos juegos requieren iniciar sesión. Usa el botón de cuenta arriba a la derecha y vuelve a intentarlo. Las cookies solo se guardan en este dispositivo.",
   "若已看到正常页面，请点击完成；如资源仍被隐藏，请在原帖或回复页完成验证与回复，再返回重试": "Si ves la página normal, pulsa Listo. Si los recursos siguen ocultos, completa la verificación y responde en el hilo o página de respuesta; luego reinténtalo",
   "在打开的网页中登录，看到账号或退出按钮后点击完成；若已是正常资源页，无需寻找人机验证。点击回复解锁会发送“感谢分享，好人一生平安”": "Inicia sesión y pulsa Listo cuando aparezca tu cuenta o el botón de salir. Una página normal de recursos no requiere otra verificación. Desbloquear mediante respuesta envía “感谢分享，好人一生平安”.",
-  "请在回复页完成验证并手动回复，返回后重试读取资源": "Completa la verificación y responde manualmente en la página de respuesta; vuelve y carga los recursos de nuevo"
+  "请在回复页完成验证并手动回复，返回后重试读取资源": "Completa la verificación y responde manualmente en la página de respuesta; vuelve y carga los recursos de nuevo",
+  "音量": "Volumen"
 }

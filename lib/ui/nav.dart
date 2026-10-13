@@ -70,7 +70,12 @@ class Nav {
       );
 
   static Future<void> openSource(BuildContext context, String source) =>
-      push(context, SourcePage(sourceKey: source));
+      _openSource(context, source);
+
+  static Future<void> _openSource(BuildContext context, String source) {
+    SourceManager.instance.cancelBackgroundFeeds(source);
+    return push(context, SourcePage(sourceKey: source));
+  }
 
   static Future<bool> confirmAccess(
     BuildContext context,

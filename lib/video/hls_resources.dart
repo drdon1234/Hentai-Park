@@ -1,10 +1,15 @@
-import 'dart:typed_data';
-
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 
 import '../core/models.dart';
 import '../engine/media_transport.dart';
 import 'hls.dart';
+
+Uint8List _decodeSegment((Uint8List, Uint8List, Uint8List) payload) {
+  final bytes = decryptHlsAes128(payload.$1, payload.$2, payload.$3);
+  validateTransportStream(bytes);
+  return bytes;
+}
 
 /// Both playback and downloads consume the same validated plaintext resources.
 /// Keys belong to this media session and are never written to disk or served.
@@ -55,7 +60,14 @@ class HlsResources {
         rethrow;
       }
       _check();
-      plaintext = decryptHlsAes128(response.bytes, key, segment.iv!);
+      // AES 分段可能达到数 MB，同步纯 Dart 解密会阻塞手势与每一帧渲染。
+      plaintext = await compute(_decodeSegment, (
+        response.bytes,
+        key,
+        segment.iv!,
+      ), debugLabel: 'HLS segment decrypt');
+      _check();
+      return plaintext;
     }
     _check();
     validateTransportStream(plaintext);

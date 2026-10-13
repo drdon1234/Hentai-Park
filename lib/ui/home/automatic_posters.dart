@@ -146,6 +146,7 @@ class AutomaticPosters {
             feed.key,
             options: feed.defaultOptions(),
             refresh: refresh,
+            background: true,
           );
           return [...page.items, ...?page.sections?.expand((s) => s.items)]
               .where((item) => blocklist.matchItem(item) == null)
