@@ -8,7 +8,12 @@ class CropRect {
   int get height => bottom - top;
 
   @override
-  bool operator ==(Object other) => other is CropRect && other.left == left && other.top == top && other.right == right && other.bottom == bottom;
+  bool operator ==(Object other) =>
+      other is CropRect &&
+      other.left == left &&
+      other.top == top &&
+      other.right == right &&
+      other.bottom == bottom;
 
   @override
   int get hashCode => Object.hash(left, top, right, bottom);
@@ -21,10 +26,19 @@ class CropRect {
 /// color (sampled at the top-left pixel) within [tolerance]. Returns null when there is nothing worth
 /// cropping (< 1% per side) or the content would shrink below [minKeep] of either dimension
 /// (blank or almost blank pages stay as they are).
-CropRect? detectContentRect(Uint8List rgba, int width, int height, {int tolerance = 24, double minKeep = 0.4}) {
+CropRect? detectContentRect(
+  Uint8List rgba,
+  int width,
+  int height, {
+  int tolerance = 24,
+  double minKeep = 0.4,
+}) {
   if (width < 8 || height < 8 || rgba.length < width * height * 4) return null;
   final br = rgba[0], bg = rgba[1], bb = rgba[2];
-  bool same(int i) => (rgba[i] - br).abs() <= tolerance && (rgba[i + 1] - bg).abs() <= tolerance && (rgba[i + 2] - bb).abs() <= tolerance;
+  bool same(int i) =>
+      (rgba[i] - br).abs() <= tolerance &&
+      (rgba[i + 1] - bg).abs() <= tolerance &&
+      (rgba[i + 2] - bb).abs() <= tolerance;
   // Sampling every few pixels keeps this fast on large pages; a 1-pixel stroke may be missed, which only
   // means slightly less cropping.
   final stepX = (width / 400).ceil().clamp(1, 8);
@@ -68,8 +82,15 @@ CropRect? detectContentRect(Uint8List rgba, int width, int height, {int toleranc
   right = (right + padX).clamp(0, width);
   bottom = (bottom + padY).clamp(0, height);
   final rect = CropRect(left, top, right, bottom);
-  if (rect.width < width * minKeep || rect.height < height * minKeep) return null;
+  if (rect.width < width * minKeep || rect.height < height * minKeep) {
+    return null;
+  }
   final minX = width * 0.01, minY = height * 0.01;
-  if (left < minX && top < minY && width - right < minX && height - bottom < minY) return null;
+  if (left < minX &&
+      top < minY &&
+      width - right < minX &&
+      height - bottom < minY) {
+    return null;
+  }
   return rect;
 }

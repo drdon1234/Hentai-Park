@@ -1,5 +1,9 @@
 import 'dart:convert';
 
+import 'source_identity.dart';
+import 'official_repository.dart';
+import '../core/versions.dart';
+
 import '../core/models.dart';
 import 'http_service.dart';
 
@@ -38,22 +42,9 @@ class SourceRepository {
   SourceRepository({Future<String> Function(String url)? read})
     : _read = read ?? _download;
 
-  static const indexUrl =
-      'https://raw.githubusercontent.com/drdon1234/Hentai-Park/sources/index.json';
+  static const indexUrl = '$officialRawBase/sources/index.json';
   static const supportedApiVersion = 1;
   final Future<String> Function(String url) _read;
-
-  static final _key = RegExp(r'^[A-Za-z0-9_-]+$');
-  static final _version = RegExp(
-    r'^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$',
-  );
-  static final _sha256 = RegExp(r'^[a-fA-F0-9]{64}$');
-  static final _scriptUrl = RegExp(
-    r'^https://raw\.githubusercontent\.com/drdon1234/Hentai-Park/[a-fA-F0-9]{40}/assets/sources/[A-Za-z0-9_-]+\.js$',
-  );
-
-  static bool _matches(RegExp pattern, Object? value) =>
-      value is String && pattern.stringMatch(value) == value;
 
   static Future<String> _download(String url) async {
     final res = await HttpService.instance.send(method: 'GET', url: url);
@@ -93,10 +84,10 @@ class SourceRepository {
               raw['name'] is String &&
               (raw['name'] as String).trim().isNotEmpty
           ? raw['name'] as String
-          : raw is Map && _matches(_key, raw['key'])
+          : raw is Map && isSourceKey(raw['key'])
           ? raw['key'] as String
           : '#$position';
-      if (raw is Map && _matches(_key, raw['key'])) {
+      if (raw is Map && isSourceKey(raw['key'])) {
         final key = raw['key'] as String;
         if (!seen.add(key)) {
           entries.remove(key);
@@ -120,16 +111,16 @@ class SourceRepository {
 
   static SourceRepositoryEntry _parseEntry(Object? raw) {
     if (raw is! Map ||
-        !_matches(_key, raw['key']) ||
+        !isSourceKey(raw['key']) ||
         raw['name'] is! String ||
         (raw['name'] as String).trim().isEmpty ||
-        !_matches(_version, raw['version']) ||
-        !_matches(_sha256, raw['sha256']) ||
+        !isReleaseVersion(raw['version']) ||
+        !isSha256(raw['sha256']) ||
         raw['apiVersion'] is! int ||
         (raw['apiVersion'] as int) < 1) {
       throw SourceError('CONFIG', '官方源条目缺少有效的必填字段');
     }
-    if (!_matches(_scriptUrl, raw['url'])) {
+    if (!isOfficialAsset(raw['url'], 'assets/sources/${raw['key']}.js')) {
       throw SourceError('CONFIG', '官方源脚本地址必须指向官方仓库的固定提交');
     }
     return SourceRepositoryEntry(

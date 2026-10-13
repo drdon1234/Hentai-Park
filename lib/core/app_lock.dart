@@ -1,3 +1,5 @@
+import 'diagnostics.dart';
+
 import 'dart:io';
 
 import 'package:flutter/widgets.dart';
@@ -18,7 +20,11 @@ class AppLock extends ChangeNotifier with WidgetsBindingObserver {
   DateTime? _backgroundSince;
 
   bool get locked => _locked;
-  static bool get platformSupported => Platform.isAndroid || Platform.isIOS || Platform.isWindows || Platform.isMacOS;
+  static bool get platformSupported =>
+      Platform.isAndroid ||
+      Platform.isIOS ||
+      Platform.isWindows ||
+      Platform.isMacOS;
 
   void init() {
     WidgetsBinding.instance.addObserver(this);
@@ -39,9 +45,12 @@ class AppLock extends ChangeNotifier with WidgetsBindingObserver {
     if (_authenticating) return false;
     _authenticating = true;
     try {
-      return await _auth.authenticate(localizedReason: tr(reason), persistAcrossBackgrounding: true);
+      return await _auth.authenticate(
+        localizedReason: tr(reason),
+        persistAcrossBackgrounding: true,
+      );
     } catch (e) {
-      debugPrint('authenticate failed: $e');
+      debugPrint(Diagnostics.error(e));
       return false;
     } finally {
       _authenticating = false;
@@ -80,7 +89,9 @@ class AppLock extends ChangeNotifier with WidgetsBindingObserver {
       case AppLifecycleState.resumed:
         final since = _backgroundSince;
         _backgroundSince = null;
-        if (since != null && DateTime.now().difference(since).inSeconds >= AppSettings.instance.appLockAfter) {
+        if (since != null &&
+            DateTime.now().difference(since).inSeconds >=
+                AppSettings.instance.appLockAfter) {
           _locked = true;
           notifyListeners();
         }

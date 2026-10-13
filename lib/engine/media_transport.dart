@@ -3,9 +3,7 @@ import 'dart:typed_data';
 import 'package:dio/dio.dart';
 
 import '../core/models.dart';
-import 'browser_media.dart';
 import 'domains.dart';
-import 'native_media.dart';
 
 /// Media domains are independent of source cookie domains. Both transports use
 /// the same HTTPS allowlist and neither sends application/source credentials.
@@ -108,14 +106,4 @@ abstract interface class MediaTransport {
     CancelToken? cancelToken,
   });
   Future<void> close();
-}
-
-MediaTransport createMediaTransport(
-  SourceManifest manifest, {
-  Map<String, String> headers = const {},
-}) {
-  final policy = MediaPolicy.fromManifest(manifest);
-  return policy.mode == 'browser'
-      ? BrowserMedia(policy, headers: headers)
-      : NativeMedia(policy, headers: headers);
 }

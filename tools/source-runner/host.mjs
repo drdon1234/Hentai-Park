@@ -50,6 +50,18 @@ function storeCookies(url, setCookies) {
 export const persisted = {};
 export const logs = [];
 
+const errorCodes = new Set(['NETWORK', 'TIMEOUT', 'AUTH', 'PARSE', 'CONFIG', 'UNSUPPORTED', 'HTTP', 'CANCELLED', 'UNKNOWN', 'CONFIRM_REQUIRED', 'CLOUDFLARE', 'LOGIN_REQUIRED', 'NOT_FOUND', 'BLOCKED']);
+const failureReasons = new Set(['TLS_CERTIFICATE', 'TLS_HANDSHAKE_TERMINATED', 'TLS_HANDSHAKE', 'CONNECT_TIMEOUT', 'RECEIVE_TIMEOUT', 'SEND_TIMEOUT', 'DNS', 'CONNECTION', 'RESPONSE_STREAM', 'NETWORK', 'CANCELLED', 'UNKNOWN']);
+export function diagnosticMessage(value) {
+  if (!value || typeof value !== 'object') return 'event=message';
+  const fields = ['event=source'];
+  if (errorCodes.has(value.code)) fields.push(`code=${value.code}`);
+  if (['native', 'browser'].includes(value.transport)) fields.push(`transport=${value.transport}`);
+  if (failureReasons.has(value.reason)) fields.push(`reason=${value.reason}`);
+  if (typeof value.host === 'string' && value.host.length <= 253 && /^(?:[a-zA-Z0-9-]+\.)*[a-zA-Z0-9-]+$/.test(value.host)) fields.push(`host=${value.host}`);
+  return fields.join(' ');
+}
+
 const native = {
   async request(o) {
     const headers = { 'User-Agent': UA, ...o.headers };
@@ -60,7 +72,7 @@ const native = {
       res = await fetch(o.url, {
         method: o.method,
         headers,
-        body: o.body,
+        body: o.bodyBase64 === undefined ? o.body : Buffer.from(o.bodyBase64, 'base64'),
         redirect: 'follow',
         signal: AbortSignal.timeout(o.timeout || 30000),
       });
@@ -83,6 +95,12 @@ const native = {
 
   async crypto(op, a) {
     switch (op) {
+      case 'randomBytes':
+        if (!Number.isInteger(a.length) || a.length < 1 || a.length > 65536) throw {code:'CONFIG',message:'随机字节长度无效'};
+        return Array.from(crypto.randomBytes(a.length));
+      case 'digestBytes':
+        if (!['sha1','sha256'].includes(a.algorithm) || !Array.isArray(a.bytes) || a.bytes.length > 2097152 || a.bytes.some(b=>!Number.isInteger(b)||b<0||b>255)) throw {code:'CONFIG',message:'摘要数据无效'};
+        return Array.from(crypto.createHash(a.algorithm).update(Buffer.from(a.bytes)).digest());
       case 'md5Hex':
         return Array.isArray(a.text)
           ? a.text.map((t) => crypto.createHash('md5').update(t, 'utf8').digest('hex'))
@@ -127,8 +145,10 @@ const native = {
   },
 
   log(key, level, message) {
-    logs.push(`[${key}] ${message}`);
-    if (process.env.PARK_VERBOSE) console.log(`  · [${key}] ${message}`);
+    const tag = /^[A-Za-z0-9_-]{1,100}$/.test(key) ? key : 'source';
+    const entry = `[${tag}] ${diagnosticMessage(message)}`;
+    logs.push(entry);
+    if (process.env.PARK_VERBOSE) console.log(entry);
   },
 };
 

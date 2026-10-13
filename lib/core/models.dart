@@ -25,7 +25,45 @@ Color parseHexColor(String hex, [Color fallback = const Color(0xFF7C4DFF)]) {
   return value == null ? fallback : Color(value);
 }
 
-enum MediaKind { comic, video }
+enum MediaKind {
+  comic,
+  video,
+  novel,
+  game;
+
+  static MediaKind fromJson(Object? value) =>
+      values.firstWhere((kind) => kind.name == value, orElse: () => comic);
+}
+
+extension MediaKindLabel on MediaKind {
+  String get label => tr(switch (this) {
+    MediaKind.comic => '漫画',
+    MediaKind.video => '视频',
+    MediaKind.novel => '小说',
+    MediaKind.game => '游戏',
+  });
+}
+
+/// Content grouping for browsing; media kind still controls reading and playback.
+enum SourceCategory {
+  doujin('本子'),
+  anime('里番'),
+  aiDrama('AI短剧'),
+  jav('JAV'),
+  adult('成人视频'),
+  shortvideo('短视频'),
+  gallery('美图'),
+  novel('小说'),
+  game('游戏'),
+  other('其他');
+
+  const SourceCategory(this._label);
+  final String _label;
+  String get label => tr(_label);
+
+  static SourceCategory fromJson(Object? value) => SourceCategory.values
+      .firstWhere((category) => category.name == value, orElse: () => other);
+}
 
 /// One selectable value of a feed option, search filter or setting.
 class Choice {
@@ -89,23 +127,16 @@ class OptionDef {
 }
 
 class FeedDef {
-  FeedDef({
-    required this.key,
-    required this._label,
-    required this.options,
-    required this.layout,
-  });
+  FeedDef({required this.key, required this._label, required this.options});
   final String key;
   final String _label;
   String get label => tr(_label);
   final List<OptionDef> options;
-  final String layout; // grid | sections
 
   factory FeedDef.fromJson(Map<String, dynamic> j) => FeedDef(
     key: _str(j['key']),
     label: _str(j['label']),
     options: _maps(j['options']).map(OptionDef.fromJson).toList(),
-    layout: _str(j['layout']).isEmpty ? 'grid' : _str(j['layout']),
   );
 
   Map<String, Object?> defaultOptions() => {
@@ -125,7 +156,7 @@ class AccountDef {
     required this.required,
     this.managedAccount = false,
   });
-  final String type; // password | cookies
+  final String type; // password | cookies | session
   final String _title;
   final String _hint;
   String get title => tr(_title);
@@ -159,7 +190,11 @@ class SourceManifest {
     : key = _str(json['key']),
       _name = _str(json['name']),
       version = _str(json['version']),
-      kind = _str(json['type']) == 'video' ? MediaKind.video : MediaKind.comic,
+      kind = MediaKind.values.firstWhere(
+        (kind) => kind.name == json['type'],
+        orElse: () => MediaKind.comic,
+      ),
+      category = SourceCategory.fromJson(json['category']),
       color = parseHexColor(_str(json['color'])),
       icon = _str(json['icon']),
       _description = _str(json['description']),
@@ -192,6 +227,7 @@ class SourceManifest {
   String get name => tr(_name);
   final String version;
   final MediaKind kind;
+  final SourceCategory category;
   final Color color;
   final String icon;
   final String _description;
@@ -237,6 +273,11 @@ class SourceManifest {
 
   bool can(String capability) => capabilities[capability] == true;
   bool get isVideo => kind == MediaKind.video;
+
+  /// 聚合视频索引不提供媒体时，作品通过系统浏览器打开。
+  bool get opensExternally => isVideo && !can('videos');
+  bool get isNovel => kind == MediaKind.novel;
+  bool get isGame => kind == MediaKind.game;
   bool get usesBrowserNetwork => network['mode'] == 'browser';
   String get origin =>
       _str(network['origin']).isNotEmpty ? _str(network['origin']) : homepage;
@@ -323,6 +364,7 @@ class WorkPage {
     this.cursor,
     this.total,
     this.sections,
+    this.staleCache = false,
   });
   final List<WorkItem> items;
   final int page;
@@ -331,6 +373,7 @@ class WorkPage {
   final String? cursor;
   final int? total;
   final List<WorkSection>? sections;
+  final bool staleCache;
 
   factory WorkPage.fromJson(Map<String, dynamic> j, String source) => WorkPage(
     items: _maps(j['items']).map((e) => WorkItem(e, source)).toList(),
@@ -339,6 +382,7 @@ class WorkPage {
     hasNext: j['hasNext'] == true,
     cursor: j['cursor']?.toString(),
     total: _int(j['total']),
+    staleCache: j['_staleCache'] == true,
     sections: j['sections'] is List
         ? _maps(j['sections'])
               .map(
@@ -488,7 +532,7 @@ class WorkDetail extends WorkItem {
 
 /// One page of a chapter. Either a direct [url] or a [token] resolved lazily through `resolveImage`.
 class PageImage {
-  PageImage(this.json)
+  PageImage(Map<String, dynamic> json)
     : url = _str(json['url']),
       token = json['token']?.toString(),
       fallbacks = _strings(json['fallbacks']),
@@ -498,7 +542,6 @@ class PageImage {
       transform = json['transform'] is Map ? _map(json['transform']) : null,
       cacheKey = json['cacheKey']?.toString();
 
-  final Map<String, dynamic> json;
   final String url;
   final String? token;
   final List<String> fallbacks;
@@ -514,20 +557,141 @@ class PageImage {
 }
 
 class ChapterImages {
-  ChapterImages(this.pages, this.cacheKey);
+  ChapterImages(this.pages);
   final List<PageImage> pages;
-  final String? cacheKey;
 
-  factory ChapterImages.fromJson(Map<String, dynamic> j) => ChapterImages(
-    _maps(j['pages']).map(PageImage.new).toList(),
-    j['cacheKey']?.toString(),
-  );
+  factory ChapterImages.fromJson(Map<String, dynamic> j) =>
+      ChapterImages(_maps(j['pages']).map(PageImage.new).toList());
+}
+
+/// 小说正文只接受纯文本，段落顺序同时作为阅读位置与离线契约。
+class TextChapter {
+  TextChapter({required this.title, required List<String> paragraphs})
+    : paragraphs = List.unmodifiable(paragraphs);
+  final String title;
+  final List<String> paragraphs;
+
+  factory TextChapter.fromJson(Map<String, dynamic> json) {
+    final raw = json['paragraphs'];
+    if (raw is! List || raw.any((p) => p is! String)) {
+      throw SourceError('PARSE', '小说正文格式无效');
+    }
+    final paragraphs = raw
+        .cast<String>()
+        .map((p) => p.trim())
+        .where((p) => p.isNotEmpty)
+        .toList();
+    if (paragraphs.isEmpty) throw SourceError('PARSE', '小说正文为空或受限');
+    return TextChapter(title: _str(json['title']), paragraphs: paragraphs);
+  }
+
+  Map<String, dynamic> toJson() => {'title': title, 'paragraphs': paragraphs};
+}
+
+enum GameChannelKind { direct, external }
+
+class GameChannel {
+  GameChannel.fromJson(Map<String, dynamic> json)
+    : id = _str(json['id']),
+      label = _str(json['label']),
+      size = _str(json['size']),
+      requiresReply = json['requiresReply'] == true,
+      replyText = _str(json['replyText']),
+      kind = json['kind'] == 'direct'
+          ? GameChannelKind.direct
+          : GameChannelKind.external;
+  final String id, label, size, replyText;
+  final bool requiresReply;
+  final GameChannelKind kind;
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'label': label,
+    'size': size,
+    'requiresReply': requiresReply,
+    if (requiresReply) 'replyText': replyText,
+    'kind': kind.name,
+  };
+}
+
+/// Stable resource metadata only. Resolved links never enter library snapshots.
+class GameResource {
+  GameResource.fromJson(Map<String, dynamic> json)
+    : id = _str(json['id']),
+      title = _str(json['title']),
+      version = _str(json['version']),
+      size = _str(json['size']),
+      notes = _str(json['notes']),
+      status = _str(json['status']),
+      testStatus = _str(json['testStatus']),
+      platforms = _strings(json['platforms']),
+      languages = _strings(json['languages']),
+      channels = _maps(json['channels']).map(GameChannel.fromJson).toList();
+  final String id, title, version, size, notes, status, testStatus;
+  final List<String> platforms, languages;
+  final List<GameChannel> channels;
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'title': title,
+    'version': version,
+    'size': size,
+    'notes': notes,
+    'status': status,
+    'testStatus': testStatus,
+    'platforms': platforms,
+    'languages': languages,
+    'channels': channels.map((c) => c.toJson()).toList(),
+  };
+}
+
+/// Ephemeral click result, deliberately has no persistence method.
+class GameResourceLink {
+  GameResourceLink.fromJson(Map<String, dynamic> json)
+    : url = _str(json['url']),
+      filename = _str(json['filename']),
+      urls = json['urls'] is List
+          ? _strings(json['urls'])
+          : [_str(json['url'])],
+      extractionCode = _str(json['extractionCode']),
+      extractionCodes = _strings(json['extractionCodes']),
+      archivePassword = _str(json['archivePassword']),
+      kind = json['kind'] == 'direct'
+          ? GameChannelKind.direct
+          : GameChannelKind.external {
+    if (urls.isEmpty || urls.first != url || urls.length > 100) {
+      throw SourceError('PARSE', '游戏下载地址无效');
+    }
+    if (extractionCodes.isNotEmpty && extractionCodes.length != urls.length) {
+      throw SourceError('PARSE', '游戏下载地址无效');
+    }
+    for (final value in urls) {
+      final uri = Uri.tryParse(value);
+      if (uri == null ||
+          !{
+            'https',
+            'http',
+            'ftp',
+            'ftps',
+            'magnet',
+            'ed2k',
+            'thunder',
+          }.contains(uri.scheme) ||
+          uri.userInfo.isNotEmpty ||
+          ({'https', 'http', 'ftp', 'ftps'}.contains(uri.scheme) &&
+              uri.host.isEmpty) ||
+          (kind == GameChannelKind.direct && uri.scheme != 'https')) {
+        throw SourceError('PARSE', '游戏下载地址无效');
+      }
+    }
+  }
+  final String url, filename, extractionCode, archivePassword;
+  final List<String> urls, extractionCodes;
+  final GameChannelKind kind;
 }
 
 class VideoSource {
   VideoSource(Map<String, dynamic> j)
     : quality = _int(j['quality']) ?? 0,
-      label = _str(j['label']).isEmpty
+      _label = _str(j['label']).isEmpty
           ? '${_int(j['quality']) ?? ''}P'
           : _str(j['label']),
       url = _str(j['url']),
@@ -535,7 +699,8 @@ class VideoSource {
       format = _str(j['format']),
       preferred = j['preferred'] == true;
   final int quality;
-  final String label;
+  final String _label;
+  String get label => tr(_label);
   final String url;
   final Map<String, String> headers;
   final String format;
@@ -551,18 +716,24 @@ class AccountStatus {
 
 /// Error codes produced by sources (see park_runtime.js).
 class SourceError implements Exception {
-  SourceError(this.code, String message, {this.status, this.url})
-    : _message = message;
+  SourceError(
+    this.code,
+    String message, {
+    this.status,
+    this.url,
+    this.diagnostics = const <String, String>{},
+  }) : _message = message;
   final String code;
   final String _message;
   String get rawMessage => _message;
   String get message => tr(_message);
   final int? status;
   final String? url;
+  final Map<String, String> diagnostics;
 
   bool get isCloudflare => code == 'CLOUDFLARE';
+  bool get needsConfirmation => code == 'CONFIRM_REQUIRED';
   bool get needsLogin => code == 'LOGIN_REQUIRED';
-  bool get isNotFound => code == 'NOT_FOUND';
   bool get isNetwork => code == 'NETWORK';
 
   factory SourceError.fromJson(Object? j) {
@@ -572,6 +743,8 @@ class SourceError implements Exception {
       _str(m['message']),
       status: _int(m['status']),
       url: m['url']?.toString(),
+      diagnostics: _map(m['diagnostics'])
+          .map((key, value) => MapEntry(key, value.toString())),
     );
   }
 

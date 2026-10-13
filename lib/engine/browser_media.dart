@@ -1,6 +1,9 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'challenge.dart';
+import '../core/async_tasks.dart';
+
 import 'package:dio/dio.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 
@@ -21,7 +24,7 @@ class BrowserMedia implements MediaTransport {
   Future<void>? _ready;
   Future<void>? _starting;
   Future<void>? _viewDisposal;
-  Future<void> _queue = Future.value();
+  final _queue = SerialExecutor();
   Future<void>? _closing;
   int _nextId = 0;
 
@@ -103,9 +106,7 @@ class BrowserMedia implements MediaTransport {
           final html = await controller.evaluateJavascript(
             source: 'document.documentElement.outerHTML.slice(0,3000)',
           );
-          if (!title.contains('Just a moment') &&
-              !title.contains('Attention Required') &&
-              !'$html'.contains('challenge-platform')) {
+          if (!hasChallengeMarkers('$html', title: title)) {
             finish();
           }
         } catch (e) {
@@ -172,7 +173,7 @@ class BrowserMedia implements MediaTransport {
       throw ArgumentError.value(maxBytes, 'maxBytes');
     }
     _check(cancelToken);
-    final operation = _queue.then((_) async {
+    final operation = _queue.run(() async {
       _check(cancelToken);
       await _untilClosed(_ready ??= _start(), cancelToken);
       _check(cancelToken);
@@ -271,7 +272,6 @@ if (jobs.has(id)) jobs.get(id)?.abort(); else jobs.set(id, null);''',
         await cancellation?.cancel();
       }
     });
-    _queue = operation.then<void>((_) {}, onError: (Object _, StackTrace _) {});
     return _untilClosed(operation, cancelToken);
   }
 
@@ -294,7 +294,7 @@ if (jobs.has(id)) jobs.get(id)?.abort(); else jobs.set(id, null);''',
       if (view != null) await _disposeView(view, starting);
     } finally {
       _view = null;
-      await _queue;
+      await _queue.settled;
       await _closingEvents.close();
     }
   }();

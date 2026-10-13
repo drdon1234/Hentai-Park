@@ -8,19 +8,33 @@ import '../core/settings.dart';
 import 'source_manager.dart';
 import 'source_repository.dart';
 
+/// An update offered for a specific installed source, with its state captured at check time.
+class SourceUpdateCandidate {
+  SourceUpdateCandidate({required this.entry, required this.source})
+    : version = source.version,
+      origin = source.origin;
+
+  final SourceRepositoryEntry entry;
+  final InstalledSource source;
+  final String version;
+  final String origin;
+}
+
 class SourceUpdateResult {
   const SourceUpdateResult({
+    this.available = const [],
     this.updated = const [],
     this.failures = const {},
     this.checked = 0,
   });
 
+  final List<SourceUpdateCandidate> available;
   final List<String> updated;
   final Map<String, String> failures;
   final int checked;
 }
 
-/// Keeps installed official sources current without taking over URL installations.
+/// Checks official sources, and installs offered updates only after confirmation.
 class SourceUpdater extends ChangeNotifier {
   SourceUpdater({
     SourceRepository? repository,
@@ -57,10 +71,18 @@ class SourceUpdater extends ChangeNotifier {
   final Future<void> Function(int) _recordAttempt;
   final DateTime Function() _now;
   Future<SourceUpdateResult>? _flight;
+  List<SourceUpdateCandidate>? _applying;
   int? _attemptedAt;
+  bool _disposed = false;
 
   bool get running => _flight != null;
   SourceUpdateResult? lastResult;
+
+  @override
+  void dispose() {
+    _disposed = true;
+    super.dispose();
+  }
 
   static Future<InstallPreview> _previewOfficial(SourceRepositoryEntry entry) =>
       SourceManager.instance.previewFromUrl(
@@ -88,17 +110,59 @@ class SourceUpdater extends ChangeNotifier {
   }
 
   /// Explicit checks bypass the interval and join any check already in progress.
-  Future<SourceUpdateResult> updateNow() {
+  Future<SourceUpdateResult> checkNow() {
     if (_flight != null) return _flight!;
+    return _start(_check);
+  }
+
+  /// This method is called only after the user confirms the selected candidates.
+  /// A confirmation waits for an active check rather than accidentally returning it.
+  Future<SourceUpdateResult> applyUpdates(
+    List<SourceUpdateCandidate> candidates,
+  ) {
+    final selected = List<SourceUpdateCandidate>.unmodifiable(
+      {for (final candidate in candidates) candidate.entry.key: candidate}
+          .values,
+    );
+    final active = _flight;
+    if (active != null) {
+      if (_applying != null && _sameCandidates(_applying!, selected)) {
+        return active;
+      }
+      return active.then((_) => applyUpdates(selected));
+    }
+    if (selected.isEmpty) {
+      return Future.value(lastResult ?? const SourceUpdateResult());
+    }
+    return _start(() => _apply(selected), applying: selected);
+  }
+
+  static bool _sameCandidates(
+    List<SourceUpdateCandidate> a,
+    List<SourceUpdateCandidate> b,
+  ) =>
+      a.length == b.length &&
+      a.every((candidate) => b.any((other) => identical(candidate, other)));
+
+  Future<SourceUpdateResult> _start(
+    Future<SourceUpdateResult> Function() action, {
+    List<SourceUpdateCandidate>? applying,
+  }) {
+    if (_disposed) {
+      return Future.value(
+        SourceUpdateResult(failures: {tr('官方源仓库'): tr('官方源更新失败')}),
+      );
+    }
     final completion = Completer<SourceUpdateResult>();
     _flight = completion.future;
-    notifyListeners();
-    unawaited(_run(completion));
+    _applying = applying;
+    if (!_disposed) notifyListeners();
+    unawaited(_run(action, completion));
     return completion.future;
   }
 
   /// Called at launch and resume. Record failed attempts too, to avoid retry loops.
-  Future<void> autoUpdateIfDue() async {
+  Future<void> autoCheckIfDue({bool force = false}) async {
     if (!_autoEnabled()) return;
     if (_flight != null) {
       await _flight;
@@ -107,12 +171,29 @@ class SourceUpdater extends ChangeNotifier {
     final now = _now().millisecondsSinceEpoch;
     final last = _attemptedAt ?? _lastAttempt();
     // A corrected system clock must not leave checks suspended indefinitely.
-    if (last > 0 && now >= last && now - last < interval.inMilliseconds) return;
-    await updateNow();
+    if (!force &&
+        last > 0 &&
+        now >= last &&
+        now - last < interval.inMilliseconds) {
+      return;
+    }
+    await checkNow();
   }
 
-  Future<void> _run(Completer<SourceUpdateResult> completion) async {
-    final updated = <String>[];
+  Future<void> _run(
+    Future<SourceUpdateResult> Function() action,
+    Completer<SourceUpdateResult> completion,
+  ) async {
+    final result = await action();
+    lastResult = result;
+    _flight = null;
+    _applying = null;
+    completion.complete(result);
+    if (!_disposed) notifyListeners();
+  }
+
+  Future<SourceUpdateResult> _check() async {
+    final available = <SourceUpdateCandidate>[];
     final failures = <String, String>{};
     var checked = 0;
     try {
@@ -129,44 +210,79 @@ class SourceUpdater extends ChangeNotifier {
         checked++;
         try {
           if (entry.apiVersion != SourceRepository.supportedApiVersion) {
-            throw SourceError('UNSUPPORTED', '此源需要更新应用后才能自动更新');
+            throw SourceError('UNSUPPORTED', '此源需要更新应用后才能更新');
           }
           if (!SourceManager.isNewer(entry.version, source.version)) continue;
-          final version = source.version;
-          final origin = source.origin;
-          final preview = await _preview(entry);
-          _validatePreview(entry, preview);
-          final current = _find(entry.key);
-          if (!identical(source, current) ||
-              current == null ||
-              current.origin != origin ||
-              current.version != version ||
-              !_isOfficial(current)) {
-            throw SourceError('CONFIG', '源状态已改变，本次更新已跳过');
-          }
-          await _install(preview);
-          updated.add(entry.name);
+          available.add(SourceUpdateCandidate(entry: entry, source: source));
         } catch (error) {
           failures[entry.name] = _describe(error);
         }
       }
     } catch (error) {
       failures[tr('官方源仓库')] = _describe(error);
-    } finally {
-      final result = SourceUpdateResult(
-        updated: List.unmodifiable(updated),
-        failures: Map.unmodifiable(failures),
-        checked: checked,
-      );
-      lastResult = result;
-      _flight = null;
-      completion.complete(result);
-      notifyListeners();
+    }
+    return SourceUpdateResult(
+      available: List.unmodifiable(available),
+      failures: Map.unmodifiable(failures),
+      checked: checked,
+    );
+  }
+
+  Future<SourceUpdateResult> _apply(
+    List<SourceUpdateCandidate> candidates,
+  ) async {
+    final updated = <String>[];
+    final failures = <String, String>{};
+    final remaining = <String, SourceUpdateCandidate>{
+      for (final candidate in lastResult?.available ?? const [])
+        candidate.entry.key: candidate,
+      for (final candidate in candidates) candidate.entry.key: candidate,
+    };
+    try {
+      await _ready();
+      for (final candidate in candidates) {
+        final entry = candidate.entry;
+        try {
+          _validateCandidate(candidate);
+          final preview = await _preview(entry);
+          _validatePreview(entry, preview);
+          _validateCandidate(candidate);
+          await _install(preview);
+          updated.add(entry.name);
+          remaining.remove(entry.key);
+        } catch (error) {
+          failures[entry.name] = _describe(error);
+        }
+      }
+    } catch (error) {
+      failures[tr('官方源仓库')] = _describe(error);
+    }
+    return SourceUpdateResult(
+      updated: List.unmodifiable(updated),
+      available: List.unmodifiable(remaining.values),
+      failures: Map.unmodifiable(failures),
+      checked: candidates.length,
+    );
+  }
+
+  void _validateCandidate(SourceUpdateCandidate candidate) {
+    final entry = candidate.entry;
+    final current = _find(entry.key);
+    if (!identical(current, candidate.source) ||
+        current == null ||
+        current.origin != candidate.origin ||
+        current.version != candidate.version ||
+        !_isOfficial(current) ||
+        !SourceManager.isNewer(entry.version, current.version)) {
+      throw SourceError('CONFIG', '源状态已改变，本次更新已跳过');
+    }
+    if (entry.apiVersion != SourceRepository.supportedApiVersion) {
+      throw SourceError('UNSUPPORTED', '此源需要更新应用后才能更新');
     }
   }
 
   static String _describe(Object error) =>
-      error is SourceError ? error.friendly : error.toString();
+      error is SourceError ? error.friendly : tr('官方源更新失败');
 
   static void _validatePreview(
     SourceRepositoryEntry entry,

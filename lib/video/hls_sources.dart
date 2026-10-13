@@ -1,5 +1,7 @@
 import 'dart:convert';
 
+import 'hls_syntax.dart';
+
 import 'package:dio/dio.dart';
 
 import '../core/models.dart';
@@ -62,20 +64,15 @@ class HlsSources {
   }
 
   List<VideoSource> _variants(String text, Uri base) {
-    final lines = text
-        .replaceFirst('\uFEFF', '')
-        .split('\n')
-        .map((l) => l.trim())
-        .where((l) => l.isNotEmpty)
-        .toList();
-    if (lines.isEmpty || lines.first != '#EXTM3U') {
-      throw SourceError('NETWORK', 'HLS 分段不完整');
-    }
+    final lines = hlsLines(text);
     if (!lines.any((line) => line.startsWith('#EXT-X-STREAM-INF:'))) return [];
     final variants = <int, VideoSource>{};
     int? quality;
     for (final line in lines) {
       if (line.startsWith('#')) {
+        // Optional trick-play tracks are not playback variants. Their URIs
+        // are never registered or fetched; muxed audio/video remains required.
+        if (line.startsWith('#EXT-X-I-FRAME-STREAM-INF:')) continue;
         if (RegExp(r'\bURI\s*=', caseSensitive: false).hasMatch(line)) {
           throw SourceError('UNSUPPORTED', 'HLS 使用了不支持的媒体格式');
         }
@@ -83,12 +80,9 @@ class HlsSources {
         if (quality != null || variants.length >= 32) {
           throw SourceError('UNSUPPORTED', 'HLS 使用了不支持的媒体格式');
         }
-        final attributes = <String, String>{};
-        for (final match in RegExp(
-          r'(?:^|,)([A-Z0-9-]+)=("[^"]*"|[^,]*)',
-        ).allMatches(line.substring('#EXT-X-STREAM-INF:'.length))) {
-          attributes[match[1]!] = match[2]!.replaceAll('"', '');
-        }
+        final attributes = hlsAttributes(
+          line.substring('#EXT-X-STREAM-INF:'.length),
+        );
         if (['AUDIO', 'VIDEO', 'SUBTITLES'].any(
           (key) => attributes.containsKey(key) && attributes[key] != 'NONE',
         )) {

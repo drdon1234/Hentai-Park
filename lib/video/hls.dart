@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 
-import 'package:pointycastle/export.dart';
+import '../core/crypto.dart';
+import 'hls_syntax.dart';
 
 import '../core/models.dart';
 
@@ -40,16 +41,7 @@ Uint8List decryptHlsAes128(Uint8List encrypted, Uint8List key, Uint8List iv) {
     throw SourceError('NETWORK', 'HLS 加密分段无效');
   }
   try {
-    final cipher =
-        PaddedBlockCipherImpl(PKCS7Padding(), CBCBlockCipher(AESEngine()))
-          ..init(
-            false,
-            PaddedBlockCipherParameters(
-              ParametersWithIV(KeyParameter(key), iv),
-              null,
-            ),
-          );
-    return cipher.process(encrypted);
+    return aesCbcDecrypt(encrypted, key, iv);
   } catch (_) {
     throw SourceError('NETWORK', 'HLS 加密分段解密失败');
   }
@@ -60,18 +52,10 @@ class HlsPlaylist {
   HlsPlaylist._(this.lines, this.segments);
   final List<String> lines;
   final List<HlsSegment> segments;
-  double get duration => segments.fold(0, (sum, s) => sum + s.duration);
 
   static HlsPlaylist parse(String text, Uri base) {
-    final lines = text
-        .replaceFirst('\uFEFF', '')
-        .split('\n')
-        .map((l) => l.trim())
-        .where((l) => l.isNotEmpty)
-        .toList();
-    if (lines.isEmpty ||
-        lines.first != '#EXTM3U' ||
-        !lines.contains('#EXT-X-ENDLIST')) {
+    final lines = hlsLines(text);
+    if (!lines.contains('#EXT-X-ENDLIST')) {
       throw SourceError('UNSUPPORTED', '只支持完整的 HLS 点播清单');
     }
     final segments = <HlsSegment>[];
@@ -87,7 +71,7 @@ class HlsPlaylist {
       if (ended) throw SourceError('UNSUPPORTED', 'HLS 结束标签后包含数据');
       if (line.startsWith('#EXT-X-TOKEN:')) continue;
       if (line.startsWith('#EXT-X-KEY:')) {
-        final attributes = _attributes(line.substring('#EXT-X-KEY:'.length));
+        final attributes = hlsAttributes(line.substring('#EXT-X-KEY:'.length));
         if (attributes['METHOD'] == 'NONE') {
           if (attributes.length != 1) {
             throw SourceError('NETWORK', 'HLS 加密清单无效');
@@ -201,27 +185,6 @@ class HlsPlaylist {
     }
     return '${output.join('\n')}\n';
   }
-}
-
-Map<String, String> _attributes(String text) {
-  final result = <String, String>{};
-  var end = 0;
-  for (final match in RegExp(
-    r'([A-Z0-9-]+)=("[^"]*"|[^,]*)(?:,|$)',
-  ).allMatches(text)) {
-    if (match.start != end || result.containsKey(match[1])) {
-      throw SourceError('NETWORK', 'HLS 加密清单无效');
-    }
-    final value = match[2]!;
-    result[match[1]!] = value.startsWith('"')
-        ? value.substring(1, value.length - 1)
-        : value;
-    end = match.end;
-  }
-  if (end != text.length || result.isEmpty) {
-    throw SourceError('NETWORK', 'HLS 加密清单无效');
-  }
-  return result;
 }
 
 void validateTransportStream(Uint8List bytes) {

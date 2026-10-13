@@ -2,8 +2,29 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:crypto/crypto.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
+import 'package:uuid/uuid.dart';
+
+import 'async_tasks.dart';
+
+/// 同目录准备并提交文件；提交前可检查取消/代次，失败不改动原文件。
+Future<bool> writeFileAtomic(
+  File file,
+  List<int> bytes, {
+  FutureOr<bool> Function()? canCommit,
+}) async {
+  final temporary = File('${file.path}.tmp-${const Uuid().v4()}');
+  try {
+    await temporary.writeAsBytes(bytes, flush: true);
+    if (canCommit != null && !await canCommit()) return false;
+    await temporary.rename(file.path);
+    return true;
+  } finally {
+    if (await temporary.exists()) await temporary.delete();
+  }
+}
 
 /// Well-known app directories, resolved once at startup.
 class AppPaths {
@@ -53,11 +74,12 @@ class JsonStore {
   final Duration debounce;
   Object? _data;
   Timer? _timer;
-  Future<void>? _writing;
+  final _writing = SerialExecutor();
 
   File get _file => AppPaths.dataFile(name);
 
   Future<Object?> load() async {
+    _data = null;
     try {
       if (await _file.exists()) _data = jsonDecode(await _file.readAsString());
     } catch (_) {
@@ -84,17 +106,12 @@ class JsonStore {
     _timer = null;
     final text = jsonEncode(_data);
     final file = _file;
-    final tmp = File('${file.path}.tmp');
-    final write = (_writing ?? Future<void>.value()).then((_) async {
-      await tmp.writeAsString(text, flush: true);
-      await tmp.rename(file.path);
+    return _writing.run(() async {
+      await writeFileAtomic(file, utf8.encode(text));
     });
-    // Set the queue synchronously: simultaneous flushes cannot all race past the same await.
-    // This tail recovers from an earlier failure; the returned write preserves this call's failure.
-    _writing = write.catchError((Object _) {});
-    return write;
   }
 }
 
-/// Turns an id (which may contain '/', ':' …) into a single safe path segment.
-String safeFileName(String s) => s.replaceAll(RegExp(r'[^\w.-]+'), '_');
+/// Stable identity segment: fixed length, safe on all filesystems, and distinct
+/// even when IDs differ only by punctuation, Unicode, or letter case.
+String safeFileName(String s) => sha256.convert(utf8.encode(s)).toString();

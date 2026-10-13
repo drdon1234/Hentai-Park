@@ -7,10 +7,12 @@ import 'package:flutter/services.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 
 import '../core/models.dart';
+import '../core/diagnostics.dart';
 import 'cookie_store.dart';
 import 'crypto_bridge.dart';
 import 'domains.dart';
 import 'http_service.dart';
+import 'source_identity.dart';
 
 typedef PersistCallback = Future<void> Function(
   String sourceKey,
@@ -63,9 +65,9 @@ class JsEngine {
     await _closingRuntimes[key];
   }
 
-  void log(String tag, String message) {
+  void log(String tag, Object? message) {
     final line =
-        '${DateTime.now().toIso8601String().substring(11, 19)} [$tag] $message';
+        '${DateTime.now().toIso8601String().substring(11, 19)} [${RegExp(r'^[A-Za-z0-9_-]{1,100}$').hasMatch(tag) ? tag : 'runtime'}] ${Diagnostics.message(message)}';
     logs.add(line);
     if (logs.length > 500) logs.removeRange(0, logs.length - 500);
     if (kDebugMode) debugPrint(line);
@@ -114,8 +116,7 @@ class SourceRuntime {
   final _rendererGone = Completer<void>();
   static const _platform = MethodChannel('hentai_park/platform');
 
-  String get _origin =>
-      'https://${key.isEmpty ? 'probe' : safeHostLabel(key)}.source.park.invalid/';
+  String get _origin => 'https://${sourceHost(key)}.source.park.invalid/';
 
   static const _bootstrap = r'''
 (function () {
@@ -317,6 +318,7 @@ class SourceRuntime {
             'message': e.rawMessage,
             'status': e.status,
             'url': e.url,
+            'diagnostics': e.diagnostics,
           },
         };
       } catch (e) {
@@ -404,7 +406,7 @@ class SourceRuntime {
       handlerName: 'park_log',
       callback: (args) {
         final m = (args.first as Map).cast<String, dynamic>();
-        engine.log(_tag, m['message'].toString());
+        engine.log(_tag, m['message']);
         return null;
       },
     );
@@ -442,6 +444,9 @@ class SourceRuntime {
     );
     if (key.isNotEmpty && info.key != key) {
       throw SourceError('CONFIG', '脚本注册的 key（${info.key}）与安装记录（$key）不一致');
+    }
+    if (!isSourceKey(info.key)) {
+      throw SourceError('CONFIG', '源标识不符合有效身份长度或格式');
     }
     domains = declaredDomains(info.manifest);
     _code = code;
@@ -520,12 +525,7 @@ class SourceRuntime {
       );
       // Cancellation releases the caller immediately, but stuck JavaScript must
       // retain its own deadline until the native evaluation actually settles.
-      final bounded = _bounded(
-        operation,
-        timeout,
-        'NETWORK',
-        '请求超时',
-      );
+      final bounded = _bounded(operation, timeout, 'NETWORK', '请求超时');
       final res = await Future.any([
         bounded,
         if (token != null)
@@ -546,10 +546,4 @@ class SourceRuntime {
       }
     }
   }
-}
-
-/// A DNS-safe label derived from a source key.
-String safeHostLabel(String key) {
-  final s = key.toLowerCase().replaceAll(RegExp(r'[^a-z0-9-]'), '-');
-  return s.isEmpty ? 'source' : s;
 }

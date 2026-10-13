@@ -18,11 +18,26 @@ String searchableTitle(String title) {
 
 /// A comparison key: bracket noise removed, lower-cased, punctuation and whitespace dropped.
 String normalizeTitle(String title) {
-  final key = searchableTitle(title).toLowerCase().replaceAll(RegExp(r'[\s\p{P}\p{S}]+', unicode: true), '');
+  final key = searchableTitle(title)
+      .toLowerCase()
+      .replaceAll(RegExp(r'[\s\p{P}\p{S}]+', unicode: true), '');
   return key.isEmpty ? title.toLowerCase().trim() : key;
 }
 
-const _cnDigits = {'零': 0, '〇': 0, '一': 1, '二': 2, '两': 2, '三': 3, '四': 4, '五': 5, '六': 6, '七': 7, '八': 8, '九': 9};
+const _cnDigits = {
+  '零': 0,
+  '〇': 0,
+  '一': 1,
+  '二': 2,
+  '两': 2,
+  '三': 3,
+  '四': 4,
+  '五': 5,
+  '六': 6,
+  '七': 7,
+  '八': 8,
+  '九': 9,
+};
 
 /// Parses simple Chinese numerals up to 9999 ("十二" → 12, "一百零五" → 105).
 int? parseChineseNumber(String s) {
@@ -56,10 +71,14 @@ double? parseChapterNumber(String title) {
     final m = p.firstMatch(t);
     if (m != null) return double.tryParse(m.group(1)!);
   }
-  final cn = RegExp(r'第\s*([零〇一二两三四五六七八九十百千]+)\s*[话話章回集篇节節部]').firstMatch(title);
+  final cn = RegExp(r'第\s*([零〇一二两三四五六七八九十百千]+)\s*[话話章回集篇节節部]')
+      .firstMatch(title);
   if (cn != null) return parseChineseNumber(cn.group(1)!)?.toDouble();
   // Fall back to the last number, ignoring volume markers like "vol.2".
-  final cleaned = t.replaceAll(RegExp(r'(?:vol(?:ume)?|第\s*\d+\s*[卷册冊])\.?\s*\d+'), ' ');
+  final cleaned = t.replaceAll(
+    RegExp(r'(?:vol(?:ume)?|第\s*\d+\s*[卷册冊])\.?\s*\d+'),
+    ' ',
+  );
   final all = RegExp(r'(\d+(?:\.\d+)?)').allMatches(cleaned).toList();
   if (all.isEmpty) return null;
   return double.tryParse(all.last.group(1)!);

@@ -1,3 +1,5 @@
+import '../core/diagnostics.dart';
+
 import 'dart:convert';
 import 'dart:io';
 
@@ -7,7 +9,10 @@ import 'package:flutter_inappwebview/flutter_inappwebview.dart' as wv;
 import 'package:path/path.dart' as p;
 
 import '../core/storage.dart';
+import '../core/models.dart';
+import 'browser_fetcher.dart';
 import 'domains.dart';
+import 'source_identity.dart' as identity;
 
 /// Persistent cookies for native requests, partitioned per source: every source has its own jar,
 /// so one source can never send or read another source's login cookies. App-level requests
@@ -19,14 +24,39 @@ class CookieStore {
   CookieStore._();
   static final CookieStore instance = CookieStore._();
 
-  static const appPartition = '_app';
+  static const appPartition = identity.appPartition;
 
   final Map<String, PersistCookieJar> _jars = {};
+  final Map<String, Set<Uri>> _browserUris = {};
+  final Map<String, int> _generations = {};
+  final Map<String, Future<void>> _operations = {};
+  final _browserSessions = <Future<void> Function(String)>{};
+
+  /// 权限来自已安装源，不能采用调用脚本提供的域名列表。
+  List<String>? Function(String partition)? domainsForPartition;
+  void Function() registerBrowserSession(Future<void> Function(String) close) {
+    _browserSessions.add(close);
+    return () => _browserSessions.remove(close);
+  }
+
+  Future<T> _serialize<T>(String partition, Future<T> Function() action) {
+    final operation = (_operations[partition] ?? Future<void>.value()).then(
+      (_) => action(),
+    );
+    _operations[partition] = operation.then<void>(
+      (_) {},
+      onError: (Object _, StackTrace _) {},
+    );
+    return operation;
+  }
 
   Directory get _root => Directory(p.join(AppPaths.data.path, 'cookie_jars'));
-  Directory get _legacy => Directory(p.join(AppPaths.data.path, 'cookies'));
 
   Future<void> init() async {
+    _jars.clear();
+    _browserUris.clear();
+    _generations.clear();
+    _operations.clear();
     await _root.create(recursive: true);
   }
 
@@ -35,44 +65,55 @@ class CookieStore {
     return _jars.putIfAbsent(
       name,
       () => PersistCookieJar(
-        storage: FileStorage(p.join(_root.path, safeFileName(name))),
+        storage: FileStorage(_partitionDirectory(name).path),
         ignoreExpires: false,
       ),
     );
   }
 
-  /// Copies the single jar used by older versions into every installed source's partition, so
-  /// existing logins keep working, then retires it.
-  Future<void> migrateLegacy(Iterable<String> sourceKeys) async {
-    if (!await _legacy.exists()) return;
-    for (final key in {...sourceKeys, appPartition}) {
-      final target = Directory(p.join(_root.path, safeFileName(key)));
-      if (await target.exists()) continue;
-      await _copyDir(_legacy, target);
-    }
-    try {
-      await _legacy.rename('${_legacy.path}.migrated');
-    } catch (e) {
-      debugPrint('retire legacy cookies: $e');
-    }
-    _jars.clear();
+  Future<String> headerFor(Uri uri, {required String partition}) async {
+    final cookies = await _forRequest(uri, partition);
+    return cookies.map((c) => '${c.name}=${c.value}').join('; ');
   }
 
-  static Future<void> _copyDir(Directory from, Directory to) async {
-    await to.create(recursive: true);
-    await for (final e in from.list()) {
-      final dest = p.join(to.path, p.basename(e.path));
-      if (e is Directory) {
-        await _copyDir(e, Directory(dest));
-      } else if (e is File) {
-        await e.copy(dest);
+  Future<List<Cookie>> _forRequest(Uri uri, String partition) async {
+    if (!{'http', 'https'}.contains(uri.scheme)) return [];
+    final j = jar(partition);
+    final cookies = await j.loadForRequest(uri);
+    final expiry = Map<Cookie, bool>.identity();
+    // PersistCookieJar loads host JSON through a cast view. Recast the nested
+    // map as dynamic values, just as its request selector does, before iteration.
+    for (final hosts in [j.hostCookies, j.domainCookies]) {
+      for (final paths in hosts.values) {
+        for (final values
+            in paths.cast<String, Map<String, dynamic>>().values) {
+          for (final stored in values.values.whereType<SerializableCookie>()) {
+            expiry[stored.cookie] = stored.isExpired();
+          }
+        }
       }
     }
+    return cookies.where((cookie) {
+      if (cookie.secure && uri.scheme != 'https') return false;
+      // 依赖的 Secure 分支也会放行过期 Cookie，按原始创建时间检查 Max-Age。
+      return expiry[cookie] == false;
+    }).toList();
   }
 
-  Future<String> headerFor(Uri uri, {required String partition}) async {
-    final cookies = await jar(partition).loadForRequest(uri);
-    return cookies.map((c) => '${c.name}=${c.value}').join('; ');
+  void checkBrowserUri(Uri uri, String partition) {
+    final domains = domainsForPartition?.call(partition);
+    if (!{'http', 'https'}.contains(uri.scheme) ||
+        uri.host.isEmpty ||
+        uri.userInfo.isNotEmpty ||
+        domains == null ||
+        !hostInDomains(uri.host, domains)) {
+      throw SourceError('CONFIG', '浏览器地址不在源声明的域名范围内');
+    }
+  }
+
+  void trackBrowserUri(Uri uri, String partition) {
+    checkBrowserUri(uri, partition);
+    (_browserUris[partition] ??= {}).add(uri);
   }
 
   Future<void> saveFromResponse(
@@ -90,13 +131,13 @@ class CookieStore {
         final i = pair.indexOf('=');
         if (i > 0) {
           try {
+            final value = pair
+                .substring(i + 1)
+                .trim()
+                .replaceAll(RegExp(r'[\s",;\\]'), '');
             cookies.add(
-              Cookie(
-                pair.substring(0, i).trim(),
-                pair
-                    .substring(i + 1)
-                    .trim()
-                    .replaceAll(RegExp(r'[\s",;\\]'), ''),
+              Cookie.fromSetCookieValue(
+                '${pair.substring(0, i).trim()}=$value${line.substring(pair.length)}',
               ),
             );
           } catch (_) {}
@@ -107,7 +148,7 @@ class CookieStore {
   }
 
   Future<Map<String, String>> get(Uri uri, {required String partition}) async {
-    final cookies = await jar(partition).loadForRequest(uri);
+    final cookies = await _forRequest(uri, partition);
     return {for (final c in cookies) c.name: c.value};
   }
 
@@ -118,6 +159,7 @@ class CookieStore {
     required String partition,
     bool mirror = true,
   }) async {
+    if (mirror) checkBrowserUri(uri, partition);
     final domain = _cookieDomain(uri.host);
     final cookies = values.entries.map((e) {
       final c = Cookie(e.key, e.value)
@@ -127,7 +169,10 @@ class CookieStore {
       return c;
     }).toList();
     await jar(partition).saveFromResponse(uri, cookies);
-    if (mirror) await _mirrorToWebView(uri, values);
+    if (mirror) {
+      trackBrowserUri(uri, partition);
+      await _mirrorToWebView(uri, values);
+    }
   }
 
   Future<void> clear(
@@ -147,14 +192,109 @@ class CookieStore {
   }
 
   /// Removes every cookie of a partition (source uninstalled or "clear cookies" in storage settings).
-  Future<void> clearPartition(String partition) async {
+  Future<void> clearPartition(String partition) {
+    _generations[partition] = (_generations[partition] ?? 0) + 1;
+    return _serialize(partition, () => _clearPartition(partition));
+  }
+
+  Future<void> _clearPartition(String partition) async {
+    final snapshot = _snapshotCookies(await snapshotPartition(partition));
+    final domains = domainsForPartition?.call(partition) ?? const <String>[];
+    final sharedPartitions = _browserUris.keys
+        .where(
+          (key) =>
+              _browserUris[key]!.any((uri) => hostInDomains(uri.host, domains)),
+        )
+        .toList();
+    await Future.wait([
+      for (final key in {partition, ...sharedPartitions})
+        ..._browserSessions.toList().map((close) => close(key)),
+    ]);
+    final browserUris = _browserUris.remove(partition) ?? <Uri>{};
+    final hosts = <String>{
+      for (final uri in browserUris) uri.host,
+      ...domains,
+      ...BrowserFetcher.instance.hostsForDomains(domains),
+      for (final cookie in snapshot.values)
+        if (hostInDomains(cookie.host, domains)) cookie.host,
+    };
+    // 先终止旧网页请求，防止清除后迟到的响应重新建立登录态。
+    await BrowserFetcher.instance.clearDomains(hosts);
+    if (_webViewSupported && hosts.isNotEmpty) {
+      final manager = wv.CookieManager.instance();
+      final addresses = <Uri>{
+        for (final host in hosts) Uri(scheme: 'https', host: host, path: '/'),
+        ...browserUris,
+      };
+      for (final uri in addresses) {
+        final host = uri.host;
+        for (final cookie in await manager.getCookies(
+          url: wv.WebUri(uri.toString()),
+        )) {
+          final domain =
+              cookie.domain?.replaceFirst(RegExp(r'^\.'), '') ?? host;
+          if (!hostInDomains(host, [domain])) continue;
+          await _deleteBrowserCookie(
+            manager,
+            uri,
+            cookie.name,
+            cookie.domain,
+            cookie.path ??
+                (uri.path.endsWith('/') ? uri.path : uri.resolve('.').path),
+            domains,
+          );
+        }
+      }
+      // 已持久化的非根路径 Cookie 不能仅通过根 URL 枚举。
+      for (final entry in snapshot.values) {
+        if (!hostInDomains(entry.host, domains)) continue;
+        final cookie = entry.value.cookie;
+        await _deleteBrowserCookie(
+          manager,
+          Uri(scheme: 'https', host: entry.host, path: cookie.path ?? '/'),
+          cookie.name,
+          cookie.domain,
+          cookie.path ?? '/',
+          domains,
+        );
+      }
+    }
     final j = _jars.remove(partition) ?? jar(partition);
     _jars.remove(partition);
     await j.deleteAll();
   }
 
+  Future<void> _deleteBrowserCookie(
+    wv.CookieManager manager,
+    Uri uri,
+    String name,
+    String? domain,
+    String path,
+    List<String> domains,
+  ) async {
+    final identities = <String?>{domain};
+    // Android 只返回 name/value，枚举权限范围内的 host-only 和 Domain 身份。
+    if (domain == null) {
+      final labels = uri.host.split('.');
+      for (var start = 0; start < labels.length; start++) {
+        final candidate = labels.sublist(start).join('.');
+        if (!hostInDomains(candidate, domains)) continue;
+        identities.add(candidate);
+        identities.add('.$candidate');
+      }
+    }
+    for (final identity in identities) {
+      await manager.deleteCookie(
+        url: wv.WebUri(uri.toString()),
+        name: name,
+        domain: identity,
+        path: path,
+      );
+    }
+  }
+
   Directory _partitionDirectory(String key) {
-    final name = safeFileName(key.isEmpty ? appPartition : key);
+    final name = identity.sourceIdentity(key.isEmpty ? appPartition : key);
     final root = p.normalize(p.absolute(_root.path));
     final path = p.normalize(p.join(root, name));
     if (!p.isWithin(root, path)) throw ArgumentError.value(key, 'key');
@@ -241,6 +381,15 @@ class CookieStore {
     return cookies;
   }
 
+  Future<Map<String, String>> authenticationValues(
+    String key,
+    List<String> names,
+  ) async => {
+    for (final entry in _snapshotCookies(await snapshotPartition(key)).entries)
+      if (names.contains(entry.value.value.cookie.name))
+        entry.key: entry.value.value.cookie.value,
+  };
+
   Future<void> _restoreBrowserCookies(
     Map<String, String> current,
     Map<String, String> snapshot,
@@ -288,24 +437,47 @@ class CookieStore {
     Uri uri, {
     required String partition,
   }) async {
+    checkBrowserUri(uri, partition);
+    final generation = _generations[partition] ?? 0;
+    trackBrowserUri(uri, partition);
     if (!_webViewSupported) return {};
     final list = await wv.CookieManager.instance().getCookies(
       url: wv.WebUri(uri.toString()),
     );
+    checkBrowserUri(uri, partition);
+    if (generation != (_generations[partition] ?? 0)) {
+      throw SourceError('CANCELLED', '浏览器会话已关闭');
+    }
+    final domains = domainsForPartition!(partition)!;
+    final allowed = list.where((c) {
+      final domain = c.domain?.replaceFirst(RegExp(r'^\.'), '') ?? uri.host;
+      return _validCookie(c.name, c.value.toString()) &&
+          !(c.isSecure == true && uri.scheme != 'https') &&
+          hostInDomains(uri.host, [domain]) &&
+          hostInDomains(domain, domains) &&
+          (c.expiresDate == null ||
+              c.expiresDate! > DateTime.now().millisecondsSinceEpoch);
+    }).toList();
     final values = <String, String>{
-      for (final c in list) c.name: c.value.toString(),
+      for (final c in allowed) c.name: c.value.toString(),
     };
-    final domain = _cookieDomain(uri.host);
-    await jar(partition).saveFromResponse(uri, [
-      for (final c in list)
-        if (_validCookie(c.name, c.value.toString()))
+    await _serialize(partition, () async {
+      checkBrowserUri(uri, partition);
+      if (generation != (_generations[partition] ?? 0)) {
+        throw SourceError('CANCELLED', '浏览器会话已关闭');
+      }
+      await jar(partition).saveFromResponse(uri, [
+        for (final c in allowed)
           (Cookie(c.name, c.value.toString())
-            ..domain = c.domain ?? domain
+            ..domain = c.domain
             ..path = c.path ?? '/'
+            ..secure = c.isSecure ?? (uri.scheme == 'https')
+            ..httpOnly = c.isHttpOnly ?? true
             ..expires = c.expiresDate != null
                 ? DateTime.fromMillisecondsSinceEpoch(c.expiresDate!)
-                : DateTime.now().add(const Duration(days: 30))),
-    ]);
+                : null),
+      ]);
+    });
     return values;
   }
 
@@ -324,7 +496,7 @@ class CookieStore {
               .millisecondsSinceEpoch,
         );
       } catch (e) {
-        debugPrint('cookie mirror failed: $e');
+        debugPrint(Diagnostics.error(e));
       }
     }
   }

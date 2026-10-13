@@ -1,4 +1,10 @@
+import '../core/diagnostics.dart';
+
 import 'dart:async';
+
+import 'challenge.dart';
+import '../core/async_tasks.dart';
+import 'cancellation.dart';
 
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
@@ -6,6 +12,7 @@ import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 
 import '../core/models.dart';
 import 'http_service.dart';
+import 'domains.dart';
 
 /// Runs requests for Cloudflare-protected sites inside a hidden browser page opened on the site's
 /// origin: same-origin `fetch()` carries a genuine browser fingerprint and the clearance cookies.
@@ -14,6 +21,12 @@ class BrowserFetcher {
   static final BrowserFetcher instance = BrowserFetcher._();
 
   final Map<String, _OriginPage> _pages = {};
+
+  Set<String> hostsForDomains(Iterable<String> domains) => {
+    for (final origin in _pages.keys)
+      if (hostInDomains(Uri.parse(origin).host, domains))
+        Uri.parse(origin).host,
+  };
 
   Future<Map<String, Object?>> fetch({
     required String origin,
@@ -32,7 +45,15 @@ class BrowserFetcher {
   Future<void> reset(String origin) async {
     final uri = Uri.parse(origin);
     final page = _pages.remove(uri.origin);
-    await page?.dispose();
+    await page?.retire();
+  }
+
+  /// 浏览器凭据由进程共享，同域名的运行中页面必须一起停止。
+  Future<void> clearDomains(Iterable<String> domains) async {
+    final keys = _pages.keys
+        .where((origin) => hostInDomains(Uri.parse(origin).host, domains))
+        .toList();
+    await Future.wait([for (final key in keys) _pages.remove(key)!.retire()]);
   }
 }
 
@@ -48,10 +69,21 @@ class _OriginPage {
   Completer<void>? _navigation;
   int _documentGeneration = 0;
   Uri? _documentUri;
-  Future<void> _requestQueue = Future.value();
+  final _requestQueue = SerialExecutor();
   CancelToken _session = CancelToken();
+  bool _retired = false;
+
+  void _checkActive() {
+    if (_retired) throw SourceError('CANCELLED', '浏览器会话已关闭');
+  }
+
+  Future<void> retire() async {
+    _retired = true;
+    await dispose();
+  }
 
   Future<void> _ensure() async {
+    _checkActive();
     if (_ready != null) return _ready!.future;
     _session = CancelToken();
     _documentUri = Uri.parse('$origin/robots.txt');
@@ -118,10 +150,7 @@ class _OriginPage {
               ) ??
               '';
           if (!current()) return;
-          final challenged =
-              title.contains('Just a moment') ||
-              '$html'.contains('challenge-platform') ||
-              title.contains('Attention Required');
+          final challenged = hasChallengeMarkers('$html', title: title);
           if (!challenged) {
             finish();
             _finishNavigation();
@@ -183,18 +212,10 @@ class _OriginPage {
     Map<String, dynamic> request, {
     CancelToken? cancelToken,
   }) {
-    final operation = _requestQueue.then(
-      (_) => _fetchWithRecovery(request, cancelToken),
+    final operation = _requestQueue.run(
+      () => _fetchWithRecovery(request, cancelToken),
     );
-    _requestQueue = operation.then<void>(
-      (_) {},
-      onError: (Object _, StackTrace _) {},
-    );
-    if (cancelToken == null) return operation;
-    return Future.any([
-      operation,
-      cancelToken.whenCancel.then<Map<String, Object?>>((error) => throw error),
-    ]);
+    return awaitCancelled(operation, cancelToken);
   }
 
   Future<Map<String, Object?>> _fetchWithRecovery(
@@ -206,6 +227,7 @@ class _OriginPage {
     _idle?.cancel();
     try {
       for (var attempt = 0; ; attempt++) {
+        _checkActive();
         if (token?.cancelError case final error?) throw error;
         try {
           final result = await _fetch(request, cancelToken: token);
@@ -233,7 +255,7 @@ class _OriginPage {
       }
     } finally {
       _idle?.cancel();
-      _idle = Timer(const Duration(minutes: 3), dispose);
+      if (!_retired) _idle = Timer(const Duration(minutes: 3), dispose);
     }
   }
 
@@ -378,9 +400,7 @@ class _OriginPage {
       }
       final status = (value['status'] as num?)?.toInt() ?? 0;
       final body = value['body']?.toString() ?? '';
-      if ((status == 403 || status == 503) &&
-          (body.contains('Just a moment') ||
-              body.contains('challenge-platform'))) {
+      if ((status == 403 || status == 503) && hasChallengeMarkers(body)) {
         // A fetch response cannot execute a managed challenge. Load it as a
         // same-origin document, then retry the read once after it has cleared.
         if (!retried &&
@@ -417,7 +437,7 @@ class _OriginPage {
     try {
       await view?.dispose();
     } catch (e) {
-      debugPrint('browser page dispose: $e');
+      debugPrint(Diagnostics.error(e));
     }
   }
 }

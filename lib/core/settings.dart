@@ -2,7 +2,10 @@ import 'package:flutter/material.dart';
 
 import 'storage.dart';
 import 'localization.dart';
-import 'translator.dart';
+import 'translation_options.dart';
+import 'content_scope.dart';
+import 'models.dart';
+import 'settings_validation.dart';
 
 enum ReaderMode { vertical, leftToRight, rightToLeft }
 
@@ -29,7 +32,58 @@ class AppSettings extends ChangeNotifier {
 
   Future<void> load() async {
     final data = await _store.load();
-    if (data is Map) _v = data.cast<String, dynamic>();
+    _v = data is Map ? data.cast<String, dynamic>() : {};
+    final invalidKeys = <String>[];
+    for (final e in _v.entries) {
+      try {
+        validateSettings({e.key: e.value});
+      } on FormatException {
+        invalidKeys.add(e.key);
+      }
+    }
+    if (invalidKeys.isNotEmpty) {
+      final file = AppPaths.dataFile('settings.json');
+      // 只保留将被修正的原配置，不动账号、书库或下载。
+      if (await file.exists()) {
+        await file.copy(
+          '${file.path}.invalid-${DateTime.now().microsecondsSinceEpoch}',
+        );
+      }
+      for (final key in invalidKeys) {
+        _v.remove(key);
+      }
+      _store.save(_v);
+      await _store.flush();
+    }
+    if (_v.containsKey('searchHistory')) {
+      final migrated = _migrateSearchHistory(_v);
+      _store.save(migrated);
+      await _store.flush();
+      _v = migrated;
+    }
+  }
+
+  static Map<String, dynamic> _migrateSearchHistory(
+    Map<String, dynamic> values,
+  ) {
+    if (!values.containsKey('searchHistory')) return values;
+    final buckets = {
+      ...?(values['searchHistories'] as Map?)?.cast<String, dynamic>(),
+    };
+    final key = const ContentScope.all().historyKey;
+    final seen = <String>{};
+    buckets[key] =
+        [
+              if (buckets[key] is List)
+                ...(buckets[key] as List).whereType<String>(),
+              if (values['searchHistory'] is List)
+                ...(values['searchHistory'] as List).whereType<String>(),
+            ]
+            .map((s) => s.trim())
+            .where((s) => s.isNotEmpty && seen.add(s))
+            .take(30)
+            .toList();
+    return {...values, 'searchHistories': buckets}..remove('searchHistory');
   }
 
   T _get<T>(String key, T fallback) {
@@ -38,6 +92,7 @@ class AppSettings extends ChangeNotifier {
   }
 
   void _set(String key, Object? value) {
+    validateSettings({key: value});
     _v[key] = value;
     _store.save(_v);
     notifyListeners();
@@ -79,6 +134,35 @@ class AppSettings extends ChangeNotifier {
   int get gridColumns => _get('gridColumns', 0); // 0 = adaptive
   set gridColumns(int v) => _set('gridColumns', v);
 
+  /// Default display order for content domains; source ranking is independent.
+  static const defaultDomainOrder = [
+    SourceCategory.doujin,
+    SourceCategory.gallery,
+    SourceCategory.anime,
+    SourceCategory.jav,
+    SourceCategory.adult,
+    SourceCategory.shortvideo,
+    SourceCategory.aiDrama,
+    SourceCategory.novel,
+    SourceCategory.game,
+    SourceCategory.other,
+  ];
+
+  List<SourceCategory> get domainOrder {
+    final raw = _v['domainOrder'];
+    final categories = {for (final c in SourceCategory.values) c.name: c};
+    return {
+      if (raw is List)
+        for (final name in raw)
+          if (categories.containsKey(name)) categories[name]!,
+      ...defaultDomainOrder,
+    }.toList();
+  }
+
+  set domainOrder(List<SourceCategory> value) => _set('domainOrder', [
+    for (final category in {...value, ...defaultDomainOrder}) category.name,
+  ]);
+
   // ── Reader ──
   ReaderMode get readerMode =>
       ReaderMode.values[_get(
@@ -100,7 +184,7 @@ class AppSettings extends ChangeNotifier {
   set tapToPage(bool v) => _set('tapToPage', v);
 
   double _getDouble(String key, double fallback) =>
-      (_v[key] as num?)?.toDouble() ?? fallback;
+      _v[key] is num ? (_v[key] as num).toDouble() : fallback;
 
   /// Two pages side by side in paged modes: off | landscape | always.
   String get readerDual => _get('readerDual', 'off');
@@ -159,6 +243,56 @@ class AppSettings extends ChangeNotifier {
   double get readerGap => _getDouble('readerGap', 0);
   set readerGap(double v) => _set('readerGap', v);
 
+  double get novelFontSize => _getDouble('novelFontSize', 22).clamp(12, 42);
+  set novelFontSize(double v) => _set('novelFontSize', v.clamp(12, 42));
+  double get novelLineHeight =>
+      _getDouble('novelLineHeight', 1.8).clamp(1.2, 2.8);
+  set novelLineHeight(double v) => _set('novelLineHeight', v.clamp(1.2, 2.8));
+  double get novelLetterSpacing =>
+      _getDouble('novelLetterSpacing', 0).clamp(0, 4);
+  set novelLetterSpacing(double v) => _set('novelLetterSpacing', v.clamp(0, 4));
+  double get novelMargin => _getDouble('novelMargin', 20).clamp(8, 48);
+  set novelMargin(double v) => _set('novelMargin', v.clamp(8, 48));
+  double get novelParagraphGap =>
+      _getDouble('novelParagraphGap', 12).clamp(0, 36);
+  set novelParagraphGap(double v) => _set('novelParagraphGap', v.clamp(0, 36));
+  String get novelFont => _get('novelFont', 'system');
+  set novelFont(String v) => _set('novelFont', v);
+  bool get novelBold => _get('novelBold', false);
+  set novelBold(bool v) => _set('novelBold', v);
+  bool get novelJustify => _get('novelJustify', false);
+  set novelJustify(bool v) => _set('novelJustify', v);
+  String get novelMode => _get('novelMode', 'scroll');
+  set novelMode(String v) => _set('novelMode', v);
+  String get novelTheme => _get('novelTheme', 'paper');
+  set novelTheme(String v) => _set('novelTheme', v);
+  double get novelDim => _getDouble('novelDim', 0).clamp(0, 0.7);
+  set novelDim(double v) => _set('novelDim', v.clamp(0, 0.7));
+  double get novelBrightness => _getDouble('novelBrightness', -1).clamp(-1, 1);
+  set novelBrightness(double v) =>
+      _set('novelBrightness', v < 0 ? -1.0 : v.clamp(0, 1));
+  double get novelAutoScroll =>
+      _getDouble('novelAutoScroll', 30).clamp(10, 100);
+  set novelAutoScroll(double v) => _set('novelAutoScroll', v.clamp(10, 100));
+  bool get novelShowStatus => _get('novelShowStatus', true);
+  set novelShowStatus(bool v) => _set('novelShowStatus', v);
+  bool get novelIndent => _get('novelIndent', true);
+  set novelIndent(bool v) => _set('novelIndent', v);
+  bool get novelKeepScreenOn => _get('novelKeepScreenOn', true);
+  set novelKeepScreenOn(bool v) => _set('novelKeepScreenOn', v);
+  bool get novelVolumeKeys => _get('novelVolumeKeys', false);
+  set novelVolumeKeys(bool v) => _set('novelVolumeKeys', v);
+  bool get novelTapToPage => _get('novelTapToPage', true);
+  set novelTapToPage(bool v) => _set('novelTapToPage', v);
+  bool get novelAnimate => _get('novelAnimate', true);
+  set novelAnimate(bool v) => _set('novelAnimate', v);
+  String get novelOrientation => _get('novelOrientation', 'auto');
+  set novelOrientation(String v) => _set('novelOrientation', v);
+  double get novelSpeechRate => _getDouble('novelSpeechRate', .5).clamp(.2, .8);
+  set novelSpeechRate(double v) => _set('novelSpeechRate', v.clamp(.2, .8));
+  String get libraryFilterKind => _get('libraryFilterKind', 'all');
+  set libraryFilterKind(String v) => _set('libraryFilterKind', v);
+
   // ── Network ──
   String get proxy => _get('proxy', '');
   set proxy(String v) => _set('proxy', v.trim());
@@ -169,15 +303,32 @@ class AppSettings extends ChangeNotifier {
   int get cacheLimitMb => _get('cacheLimitMb', 1024);
   set cacheLimitMb(int v) => _set('cacheLimitMb', v);
 
+  bool get tagDownloadReminders => _get('tagDownloadReminders', true);
+  set tagDownloadReminders(bool v) => _set('tagDownloadReminders', v);
+
+  int get subscriptionUpdateHours => _get('subscriptionUpdateHours', 6);
+  set subscriptionUpdateHours(int v) => _set('subscriptionUpdateHours', v);
+  bool get subscriptionNotifications =>
+      _get('subscriptionNotifications', false);
+  set subscriptionNotifications(bool v) => _set('subscriptionNotifications', v);
+  bool get subscriptionNotificationPreview =>
+      _get('subscriptionNotificationPreview', false);
+  set subscriptionNotificationPreview(bool v) =>
+      _set('subscriptionNotificationPreview', v);
+
   int get downloadConcurrency => _get('downloadConcurrency', 3);
   set downloadConcurrency(int v) => _set('downloadConcurrency', v);
 
   bool get downloadWifiOnly => _get('downloadWifiOnly', false);
   set downloadWifiOnly(bool v) => _set('downloadWifiOnly', v);
 
-  /// Check official source plugins at launch and when the app resumes.
+  /// Check official plugins at launch; installing requires user confirmation.
   bool get autoSourceUpdates => _get('autoSourceUpdates', true);
   set autoSourceUpdates(bool v) => _set('autoSourceUpdates', v);
+
+  /// Check the installed application's version at launch without downloading it.
+  bool get autoAppUpdates => _get('autoAppUpdates', true);
+  set autoAppUpdates(bool v) => _set('autoAppUpdates', v);
 
   int get lastSourceUpdate => _get('lastSourceUpdate', 0);
   set lastSourceUpdate(int v) => _set('lastSourceUpdate', v);
@@ -233,19 +384,35 @@ class AppSettings extends ChangeNotifier {
   }
 
   // ── Search ──
-  List<String> get searchHistory =>
-      (_v['searchHistory'] as List?)?.map((e) => e.toString()).toList() ?? [];
-  void addSearchHistory(String keyword) {
-    final k = keyword.trim();
-    if (k.isEmpty) return;
-    final list = searchHistory..remove(k);
-    list.insert(0, k);
-    _set('searchHistory', list.take(30).toList());
+  Map<String, dynamic> get _searchHistories =>
+      (_v['searchHistories'] as Map?)?.cast<String, dynamic>() ?? {};
+  List<String> searchHistoryFor(ContentScope scope) =>
+      (_searchHistories[scope.historyKey] as List?)
+          ?.whereType<String>()
+          .toList() ??
+      [];
+  void _saveSearchHistory(ContentScope scope, List<String> history) {
+    final buckets = {..._searchHistories};
+    if (history.isEmpty) {
+      buckets.remove(scope.historyKey);
+    } else {
+      buckets[scope.historyKey] = history;
+    }
+    _set('searchHistories', buckets);
   }
 
-  void removeSearchHistory(String keyword) =>
-      _set('searchHistory', searchHistory..remove(keyword));
-  void clearSearchHistory() => _set('searchHistory', <String>[]);
+  void addSearchHistory(String keyword, {required ContentScope scope}) {
+    final k = keyword.trim();
+    if (k.isEmpty || incognito) return;
+    final list = searchHistoryFor(scope)..remove(k);
+    list.insert(0, k);
+    _saveSearchHistory(scope, list.take(30).toList());
+  }
+
+  void removeSearchHistory(String keyword, {required ContentScope scope}) =>
+      _saveSearchHistory(scope, searchHistoryFor(scope)..remove(keyword));
+  void clearSearchHistory({required ContentScope scope}) =>
+      _saveSearchHistory(scope, []);
 
   /// Sources excluded from aggregated search (enabled sources are included by default).
   Set<String> get aggregateExcluded =>
@@ -258,7 +425,10 @@ class AppSettings extends ChangeNotifier {
     _set('aggregateExcluded', s.toList());
   }
 
-  /// Translation service used by multi-language search (see core/translator.dart).
+  /// Translation service used by multi-language search (see core/translation_options.dart).
+  bool get autoTranslateContent => _get('autoTranslateContent', false);
+  set autoTranslateContent(bool value) => _set('autoTranslateContent', value);
+
   String get translateEngine => _get('translateEngine', 'google');
   set translateEngine(String v) => _set('translateEngine', v);
 
@@ -271,9 +441,6 @@ class AppSettings extends ChangeNotifier {
   }
 
   set translateTargets(List<String> v) => _set('translateTargets', v);
-
-  bool get onboarded => _get('onboarded', false);
-  set onboarded(bool v) => _set('onboarded', v);
 
   // ── Privacy ──
   /// Incognito: no history, progress or read marks are recorded.
@@ -363,7 +530,6 @@ class AppSettings extends ChangeNotifier {
     'lastAutoBackup',
     'lastLibraryUpdate',
     'lastSourceUpdate',
-    'onboarded',
   };
 
   Map<String, dynamic> exportJson() => {
@@ -372,12 +538,30 @@ class AppSettings extends ChangeNotifier {
   };
 
   void importJson(Map<String, dynamic> values) {
-    for (final e in values.entries) {
-      if (!_localOnly.contains(e.key)) _v[e.key] = e.value;
-    }
+    _v = prepareImport(values);
     _store.save(_v);
     notifyListeners();
   }
 
   Future<void> flush() => _store.flush();
+
+  Map<String, dynamic> prepareImport(Map<String, dynamic> values) {
+    validateSettings(values);
+    return _migrateSearchHistory({
+      ..._v,
+      for (final e in values.entries)
+        if (!_localOnly.contains(e.key)) e.key: e.value,
+    });
+  }
+
+  Future<void> reload() async {
+    await load();
+    AppLocalizations.instance.setLocale(
+      locale ??
+          AppLocalizations.resolveLocales(
+            WidgetsBinding.instance.platformDispatcher.locales,
+          ),
+    );
+    notifyListeners();
+  }
 }

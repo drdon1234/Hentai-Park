@@ -3,6 +3,8 @@ import 'dart:io';
 import 'dart:isolate';
 import 'dart:ui' as ui;
 
+import '../engine/cancellation.dart';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/painting.dart';
 import 'package:dio/dio.dart';
@@ -11,6 +13,7 @@ import '../core/models.dart';
 import '../engine/source_manager.dart';
 import 'crop_borders.dart';
 import 'image_store.dart';
+import 'image_decryption.dart';
 
 /// Loads an image for a source: direct URL, or a page resolved lazily through the source
 /// (`resolveImage`), with the source's default headers and an optional pixel transform.
@@ -23,6 +26,7 @@ class ParkImage extends ImageProvider<ParkImage> {
     this.cacheKey,
     this.fallbacks = const [],
     this.transform,
+    this.decryption,
     this.lazy,
     this.highPriority = false,
     this.localPath,
@@ -43,6 +47,7 @@ class ParkImage extends ImageProvider<ParkImage> {
       source: source,
       url: url,
       headers: {...?m?.imageHeaders, ...?headers},
+      decryption: ImageDecryption.fromJson(m?.json['imageDecrypt']),
     );
   }
 
@@ -68,6 +73,7 @@ class ParkImage extends ImageProvider<ParkImage> {
       source: source,
       url: page.url,
       headers: {...?m?.imageHeaders, ...page.headers},
+      decryption: ImageDecryption.fromJson(m?.json['imageDecrypt']),
       cacheKey:
           page.cacheKey ??
           (page.needsResolve
@@ -89,6 +95,7 @@ class ParkImage extends ImageProvider<ParkImage> {
   final String? cacheKey;
   final List<String> fallbacks;
   final Map<String, dynamic>? transform;
+  final ImageDecryption? decryption;
   final LazyPage? lazy;
   final bool highPriority;
   final String? localPath;
@@ -96,7 +103,8 @@ class ParkImage extends ImageProvider<ParkImage> {
   /// Trim uniform page margins after decoding (reader "crop borders").
   final bool crop;
 
-  String get identity => localPath ?? cacheKey ?? url;
+  String get identity =>
+      localPath ?? decryption?.cacheKey(cacheKey ?? url) ?? cacheKey ?? url;
 
   @override
   Future<ParkImage> obtainKey(ImageConfiguration configuration) =>
@@ -124,7 +132,7 @@ class ParkImage extends ImageProvider<ParkImage> {
         codec?.dispose();
         codec = null;
         if (localPath != null || attempt > 0) rethrow;
-        await ImageStore.instance.invalidate(cacheKey ?? url);
+        await ImageStore.instance.invalidate(identity, partition: source);
       }
     }
     final decoded = codec!;
@@ -170,16 +178,18 @@ class ParkImage extends ImageProvider<ParkImage> {
     final lazyPage = lazy;
     if (lazyPage == null) {
       return ImageStore.instance.load(
+        manifest: SourceManager.instance.manifest(source),
         url: url,
         headers: headers,
         cacheKey: cacheKey,
         fallbacks: fallbacks,
+        decryption: decryption,
         highPriority: highPriority,
         partition: source,
         cancelToken: cancelToken,
       );
     }
-    final hit = await ImageStore.instance.cached(cacheKey!);
+    final hit = await ImageStore.instance.cached(identity, partition: source);
     if (cancelToken?.cancelError case final error?) throw error;
     if (hit != null) return hit;
     Object? lastError;
@@ -195,16 +205,14 @@ class ParkImage extends ImageProvider<ParkImage> {
           retry: retry,
           cancelToken: cancelToken,
         );
-        final page = await Future.any([
-          resolving,
-          if (cancelToken != null)
-            cancelToken.whenCancel.then<PageImage>((error) => throw error),
-        ]);
+        final page = await awaitCancelled(resolving, cancelToken);
         return await ImageStore.instance.load(
+          manifest: SourceManager.instance.manifest(source),
           url: page.url,
           headers: {...headers, ...page.headers},
           cacheKey: cacheKey,
           fallbacks: page.fallbacks,
+          decryption: decryption,
           highPriority: true,
           partition: source,
           cancelToken: cancelToken,

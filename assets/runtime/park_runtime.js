@@ -31,6 +31,7 @@
     LOGIN_REQUIRED: 'LOGIN_REQUIRED',
     BLOCKED: 'BLOCKED',
     CLOUDFLARE: 'CLOUDFLARE',
+    CONFIRM_REQUIRED: 'CONFIRM_REQUIRED',
     NETWORK: 'NETWORK',
     HTTP: 'HTTP',
     UNSUPPORTED: 'UNSUPPORTED',
@@ -49,6 +50,18 @@
       throw new ParkError(err.code, err.message, err);
     }
     throw new ParkError(ErrorCode.NETWORK, String((err && err.message) || err));
+  }
+
+  // Only structured, non-secret transport facts are allowed in automatic logs.
+  function networkDiagnostics(err) {
+    const d = err && err.diagnostics;
+    if (!d || typeof d !== 'object') return {};
+    const safe = {};
+    if (typeof d.host === 'string' && d.host.length <= 253 && /^[a-z0-9.-]+$/i.test(d.host)) safe.host = d.host;
+    if (['native', 'browser'].includes(d.transport)) safe.transport = d.transport;
+    if (['TLS_CERTIFICATE', 'TLS_HANDSHAKE', 'TLS_HANDSHAKE_TERMINATED', 'DNS', 'CONNECTION', 'CONNECT_TIMEOUT',
+      'RECEIVE_TIMEOUT', 'SEND_TIMEOUT', 'RESPONSE_STREAM', 'NETWORK'].includes(d.reason)) safe.reason = d.reason;
+    return safe;
   }
 
   // ── HTTP ────────────────────────────────────────────────
@@ -152,6 +165,8 @@
     /** AES-ECB decrypt base64 data with an utf8 key, PKCS7 unpadding, returns utf8 text. */
     aesEcbDecrypt: (base64, key) => call('crypto', 'aesEcbDecrypt', { base64, key }),
     uuid: () => call('crypto', 'uuid', {}),
+    digestBytes: (algorithm, bytes) => call('crypto', 'digestBytes', { algorithm, bytes: Array.from(bytes) }),
+    randomBytes: (length) => call('crypto', 'randomBytes', { length }),
   };
 
   function createCookies(source) {
@@ -165,6 +180,24 @@
   // ── HTML ────────────────────────────────────────────────
 
   const html = {
+    // Extract only text, preserving block and BR boundaries without running site markup.
+    paragraphs(node) {
+      if (!node) return [];
+      const root = node.cloneNode(true);
+      for (const unwanted of root.querySelectorAll('script,style,nav,form,button,iframe,aside')) unwanted.remove();
+      let value = '';
+      const blocks = /^(P|DIV|SECTION|ARTICLE|BLOCKQUOTE|H[1-6]|LI|PRE)$/;
+      function walk(n) {
+        if (n.nodeType === 3) { value += n.textContent; return; }
+        if (n.nodeName === 'BR') { value += '\n'; return; }
+        const block = blocks.test(n.nodeName);
+        if (block) value += '\n';
+        for (const child of n.childNodes || []) walk(child);
+        if (block) value += '\n';
+      }
+      walk(root);
+      return value.replace(/\r/g, '').split(/\n+/).map(p => p.replace(/[\t \u00a0]+/g, ' ').trim()).filter(Boolean);
+    },
     parse(text) {
       if (typeof DOMParser === 'undefined') throw new ParkError(ErrorCode.CONFIG, 'DOMParser unavailable');
       return new DOMParser().parseFromString(String(text || ''), 'text/html');
@@ -313,6 +346,7 @@
       name: def.name,
       version: def.version || '0.0.0',
       type: def.type || 'comic',
+      category: def.category || 'other',
       color: def.color || '#7C4DFF',
       icon: def.icon || '',
       description: def.description || '',
@@ -323,8 +357,12 @@
       idPattern: def.idPattern || '',
       idExample: def.idExample || '',
       imageHeaders: def.imageHeaders || {},
+      imageNetwork: def.imageNetwork ? pick(def.imageNetwork) : null,
+      imageDecrypt: pick(def.imageDecrypt || {}),
       network: pick(def.network || {}),
       media: pick(def.media || {}),
+      subscription: pick(def.subscription ? {hint:def.subscription.hint || '',joinedTargets:typeof def.subscription.targets === 'function'} : null),
+      updateSubscriptions: pick(def.updateSubscriptions ? {dimensions:def.updateSubscriptions.dimensions} : null),
       settings: pick(def.settings || []),
       account: def.account
         ? {
@@ -344,11 +382,16 @@
       searchFilters: pick(def.searchFilters || []),
       searchHint: def.searchHint || '',
       capabilities: {
+        subscription: !!(def.subscription && typeof def.subscription.normalize === 'function' && typeof def.subscription.posts === 'function'),
+        subscriptionUpdates: !!(def.updateSubscriptions && typeof def.updateSubscriptions.check === 'function'),
         search: typeof def.search === 'function',
         random: typeof def.random === 'function',
         chapter: typeof def.chapter === 'function',
+        textChapter: typeof def.textChapter === 'function',
         resolveImage: typeof def.resolveImage === 'function',
         videos: typeof def.videos === 'function',
+        gameResources: typeof def.gameResources === 'function',
+        resolveGameResource: typeof def.resolveGameResource === 'function',
         thumbnails: typeof def.thumbnails === 'function',
         status: !!(def.account && typeof def.account.status === 'function'),
       },
@@ -367,6 +410,76 @@
 
     error(code, message, extra) {
       return new ParkError(code, message, extra);
+    },
+
+    /** 源显式选择维度，框架只负责规范化协议和稳定 ID。 */
+    enableUpdateSubscriptions(def, rules) {
+      const dimensions = rules.dimensions;
+      const bounded = value => {
+        const text = String(value || '').trim();
+        if (!text || text.length > 2048 || /[\u0000-\u001f]/.test(text)) throw Park.error('CONFIG','订阅目标无效');
+        return text;
+      };
+      const code = value => bounded(value).toUpperCase().replace(/[_\s]/g,'-');
+      def.updateSubscriptions = {
+        dimensions,
+        async normalize(dimension, input) {
+          if (!dimensions.some(d => d.key === dimension)) throw Park.error('UNSUPPORTED','不支持此订阅维度');
+          let id = bounded(input);
+          if (dimension === 'posts') return this.subscription.normalize.call(this,id);
+          if (dimension === 'work') {
+            for (const pattern of this.linkPatterns || []) { const m = new RegExp(pattern).exec(id); if (m) {id=m[1];break;} }
+            const detail = await this.detail(id);
+            if (!detail || !Array.isArray(detail.chapters) || !detail.chapters.length) throw Park.error('UNSUPPORTED','此作品没有可订阅的连载章节');
+            return {id: String(detail.id || id), label: String(detail.title || id)};
+          }
+          if (dimension === 'code') {
+            id = code(id);
+            if (!/^[A-Z0-9]{2,16}-\d{2,8}$/.test(id)) throw Park.error('CONFIG','请输入完整番号，例如 ABP-123');
+          }
+          if(dimension==='series' && /^https:\/\//.test(id)) {
+            const url=new URL(id);
+            if(!(this.domains||[]).some(domain=>url.hostname===domain || url.hostname.endsWith('.'+domain)) || url.username || url.password) throw Park.error('CONFIG','请使用详情页的系列链接');
+            id=url.pathname;
+          }
+          if (dimension === 'series' && (!rules.seriesPattern || !new RegExp(rules.seriesPattern).test(id))) throw Park.error('CONFIG','请使用详情页的系列链接');
+          if (dimension === 'filter') {
+            let data; try {data=JSON.parse(id);} catch (_) {throw Park.error('CONFIG','订阅筛选无效');}
+            if (!data || typeof data.keyword !== 'string' || !data.filters || typeof data.filters !== 'object' || Array.isArray(data.filters)) throw Park.error('CONFIG','订阅筛选无效');
+            id=JSON.stringify({keyword:data.keyword,filters:data.filters});
+          }
+          return {id,label:id};
+        },
+        async check(target, options = {}) {
+          const dimension=target.dimension;
+          if (!dimensions.some(d=>d.key===dimension)) throw Park.error('UNSUPPORTED','不支持此订阅维度');
+          const cursor=options.cursor;
+          if (dimension === 'work') {
+            const detail=await this.detail(target.target);
+            if (!detail || !Array.isArray(detail.chapters) || !detail.chapters.length) throw Park.error('PARSE','章节目录暂不可用');
+            if(detail.chapters.some(c=>!c || c.id==null || !String(c.id).trim())) throw Park.error('PARSE','章节编号无效');
+            return {items:detail.chapters.map(c=>({id:target.target+'\u001f'+String(c.id),title:String(detail.title||'')+' · '+String(c.title||c.id),workId:target.target,chapterId:String(c.id),kind:'chapter'})),hasNext:false};
+          }
+          if (dimension === 'posts') {
+            const page=await this.subscription.posts.call(this,target.target,{cursor});
+            if(!page || !Array.isArray(page.items) || page.items.some(p=>!p || p.id==null || !String(p.id).trim())) throw Park.error('PARSE','动态编号无效');
+            return {...page,windowed:true,items:page.items.map(p=>({id:String(p.id),title:String(p.title||p.text||'').slice(0,512),kind:'post'}))};
+          }
+          const position=cursor ? JSON.parse(cursor) : {page:1};
+          const pageNumber=position.page;
+          if (!Number.isInteger(pageNumber) || pageNumber<1 || pageNumber>10000) throw Park.error('CONFIG','分页参数无效');
+          let keyword=target.target, filters={...(rules.searchFilters||{})};
+          if (dimension==='series') {keyword='';filters.category=target.target;}
+          if (dimension==='filter') {const data=JSON.parse(target.target);keyword=data.keyword;filters={...filters,...data.filters};}
+          const page=await this.search({keyword,page:pageNumber,cursor:position.sourceCursor,filters});
+          if (!page || !Array.isArray(page.items)) throw Park.error('PARSE','订阅列表暂不可用');
+          if(page.items.some(i=>!i || i.id==null || !String(i.id).trim())) throw Park.error('PARSE','作品编号无效');
+          let items=page.items;
+          if (dimension==='code') items=items.filter(i=>code(i.id)===target.target || (String(i.title||'').toUpperCase().match(/[A-Z0-9]{2,16}[-_ ]\d{2,8}/g)||[]).some(c=>code(c)===target.target));
+          return {windowed:true,items:items.map(i=>({id:String(i.id),title:String(i.title||''),workId:String(i.id),kind:'work'})),hasNext:page.hasNext===true,cursor:page.hasNext===true?JSON.stringify({page:pageNumber+1,sourceCursor:page.cursor}):null};
+        },
+      };
+      return def;
     },
 
     /** Called by source scripts. Only the last registered definition per key is kept. */
@@ -388,7 +501,7 @@
       def.cookies = createCookies(def);
       def.log = (...args) => {
         try {
-          native().log(def.key, 'info', args.map((a) => (typeof a === 'string' ? a : JSON.stringify(a))).join(' '));
+          native().log(def.key, 'info', args.length === 1 && args[0] && typeof args[0] === 'object' ? args[0] : null);
         } catch (e) {
           /* ignore */
         }
@@ -446,21 +559,18 @@
       } catch (err) {
         const code = (err && err.code) || ErrorCode.PARSE;
         const message = (err && err.message) || String(err);
+        const diagnostics = networkDiagnostics(err);
         if (code !== 'CANCELLED') {
           try {
-            const status = Number.isInteger(err && err.status) ? `（HTTP ${err.status}）` : '';
-            await native().log(key, 'error', `${path} 失败：${code}${status}`);
+            await native().log(key, 'error', { code, ...diagnostics });
           } catch (e) {
             /* Diagnostics must not replace the original source error. */
           }
         }
-        return { ok: false, error: { code, message, status: err && err.status, url: err && err.url } };
+        return { ok: false, error: { code, message, status: err && err.status, url: err && err.url, diagnostics } };
       }
     },
 
-    sourceKeys() {
-      return Object.keys(sources);
-    },
   };
 
   global.Park = Park;

@@ -15,8 +15,29 @@ class BlockPreset {
 }
 
 const blockPresets = <BlockPreset>[
-  BlockPreset('guro', '重口', ['guro', 'ryona', 'snuff', 'vore', 'necrophilia', 'scat', 'torture', '重口', '猎奇', '獵奇', 'グロ', 'リョナ']),
-  BlockPreset('loli', '未成年女孩', ['lolicon', 'loli', 'toddlercon', '萝莉', '蘿莉', 'ロリ', '幼女']),
+  BlockPreset('guro', '重口', [
+    'guro',
+    'ryona',
+    'snuff',
+    'vore',
+    'necrophilia',
+    'scat',
+    'torture',
+    '重口',
+    '猎奇',
+    '獵奇',
+    'グロ',
+    'リョナ',
+  ]),
+  BlockPreset('loli', '未成年女孩', [
+    'lolicon',
+    'loli',
+    'toddlercon',
+    '萝莉',
+    '蘿莉',
+    'ロリ',
+    '幼女',
+  ]),
   BlockPreset('shota', '未成年男孩', ['shotacon', 'shota', '正太', 'ショタ']),
   BlockPreset('futa', '扶她', [
     'futanari',
@@ -33,11 +54,55 @@ const blockPresets = <BlockPreset>[
     'ふたなり',
     'フタナリ',
   ]),
-  BlockPreset('ntr', 'NTR', ['netorare', 'ntr', 'cheating', '寝取られ', '寝取り', '牛头人', '绿帽', '綠帽']),
-  BlockPreset('incest', '乱伦', ['incest', 'inseki', '乱伦', '亂倫', '近親相姦', '近亲相奸', '近亲']),
-  BlockPreset('gay', '男同性恋', ['yaoi', 'males only', 'gay', 'bara', 'bl', '耽美', '男同', '腐向', 'ボーイズラブ', 'ホモ']),
-  BlockPreset('lesbian', '女同性恋', ['yuri', 'females only', 'lesbian', '百合', '女同', 'レズ', '蕾丝']),
-  BlockPreset('furry', 'Furry', ['furry', 'kemono', 'anthro', '兽人', '獸人', '福瑞', 'ケモノ']),
+  BlockPreset('ntr', 'NTR', [
+    'netorare',
+    'ntr',
+    'cheating',
+    '寝取られ',
+    '寝取り',
+    '牛头人',
+    '绿帽',
+    '綠帽',
+  ]),
+  BlockPreset('incest', '乱伦', [
+    'incest',
+    'inseki',
+    '乱伦',
+    '亂倫',
+    '近親相姦',
+    '近亲相奸',
+    '近亲',
+  ]),
+  BlockPreset('gay', '男同性恋', [
+    'yaoi',
+    'males only',
+    'gay',
+    'bara',
+    'bl',
+    '耽美',
+    '男同',
+    '腐向',
+    'ボーイズラブ',
+    'ホモ',
+  ]),
+  BlockPreset('lesbian', '女同性恋', [
+    'yuri',
+    'females only',
+    'lesbian',
+    '百合',
+    '女同',
+    'レズ',
+    '蕾丝',
+  ]),
+  BlockPreset('furry', 'Furry', [
+    'furry',
+    'kemono',
+    'anthro',
+    '兽人',
+    '獸人',
+    '福瑞',
+    'ケモノ',
+  ]),
 ];
 
 /// A preset as configured by the user (enabled state, title matching, edited entries).
@@ -54,8 +119,15 @@ class BlockPresetConfig {
       for (final p in blockPresets)
         () {
           final m = (state[p.id] as Map?) ?? const {};
-          final entries = m['entries'] is List ? (m['entries'] as List).map((e) => e.toString()).toList() : p.entries;
-          return BlockPresetConfig(p, m['on'] == true, m['title'] == true, entries);
+          final entries = m['entries'] is List
+              ? (m['entries'] as List).map((e) => e.toString()).toList()
+              : p.entries;
+          return BlockPresetConfig(
+            p,
+            m['on'] == true,
+            m['title'] == true,
+            entries,
+          );
         }(),
     ];
   }
@@ -69,7 +141,9 @@ class BlockPresetConfig {
 /// - `title:word` matches works whose title contains the word
 class TagBlocklist {
   TagBlocklist(Iterable<String> entries, {this._titlePatterns = const []})
-    : _entries = [for (final e in entries) e.trim().toLowerCase()].where((e) => e.isNotEmpty).toList();
+    : _entries = [for (final e in entries) e.trim().toLowerCase()]
+          .where((e) => e.isNotEmpty)
+          .toList();
 
   factory TagBlocklist.current() {
     final entries = [...AppSettings.instance.blockedTags];
@@ -92,7 +166,12 @@ class TagBlocklist {
   static RegExp? titleRegex(String entry) {
     final e = entry.trim();
     if (e.isEmpty) return null;
-    if (RegExp(r'^[A-Za-z0-9 ]+$').hasMatch(e)) return RegExp('(?<![A-Za-z0-9])${RegExp.escape(e)}(?![A-Za-z0-9])', caseSensitive: false);
+    if (RegExp(r'^[A-Za-z0-9 ]+$').hasMatch(e)) {
+      return RegExp(
+        '(?<![A-Za-z0-9])${RegExp.escape(e)}(?![A-Za-z0-9])',
+        caseSensitive: false,
+      );
+    }
     try {
       return RegExp(e, caseSensitive: false);
     } on FormatException {
@@ -142,7 +221,10 @@ class TagBlocklist {
   List<String> matchDetail(WorkDetail d) {
     final tags = [
       for (final g in d.tagGroups)
-        for (final t in g.tags) ...[t.name, if (g.namespace.isNotEmpty) '${g.namespace}:${t.name}'],
+        for (final t in g.tags) ...[
+          t.name,
+          if (g.namespace.isNotEmpty) '${g.namespace}:${t.name}',
+        ],
       ...d.tags,
     ];
     final hits = <String>{};

@@ -3,6 +3,9 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
+import 'challenge.dart';
+import 'network_client.dart';
+
 import 'package:dio/dio.dart';
 import 'package:dio/io.dart';
 
@@ -11,6 +14,25 @@ import '../core/settings.dart';
 import 'browser_fetcher.dart';
 import 'cookie_store.dart';
 import 'domains.dart';
+
+/// 二进制传输仍通过同一域名隔离、TLS 和重定向策略。
+Object? decodeSourceBody(Map<String, dynamic> request) {
+  if (request['bodyBase64'] == null) return request['body']?.toString();
+  if (request['body'] != null || request['mode'] == 'browser') {
+    throw SourceError('CONFIG', '二进制请求参数无效');
+  }
+  final encoded = request['bodyBase64'];
+  if (encoded is! String || encoded.length > 2796204) {
+    throw SourceError('CONFIG', '二进制请求过大');
+  }
+  try {
+    final bytes = base64Decode(encoded);
+    if (bytes.length > 2097152) throw const FormatException();
+    return bytes;
+  } catch (_) {
+    throw SourceError('CONFIG', '二进制请求参数无效');
+  }
+}
 
 /// Native HTTP for sources and images: proxy, persistent cookies (redirect-aware),
 /// Cloudflare challenge detection, and the browser-engine path for protected sites.
@@ -49,15 +71,7 @@ class HttpService {
       ),
     );
     dio.httpClientAdapter = IOHttpClientAdapter(
-      createHttpClient: () {
-        final client = HttpClient()
-          ..maxConnectionsPerHost = 8
-          ..idleTimeout = const Duration(seconds: 30)
-          ..autoUncompress = true;
-        final proxy = _proxy.replaceFirst(RegExp(r'^https?://'), '');
-        if (proxy.isNotEmpty) client.findProxy = (_) => 'PROXY $proxy';
-        return client;
-      },
+      createHttpClient: () => createHttpClient(proxy: _proxy),
     );
     return dio;
   }
@@ -72,6 +86,9 @@ class HttpService {
     CancelToken? cancelToken,
   }) async {
     _throwIfCancelled(cancelToken);
+    if (o['bodyBase64'] != null && o['mode'] == 'browser') {
+      throw SourceError('CONFIG', '二进制请求参数无效');
+    }
     if (o['mode'] == 'browser') {
       final origin = (o['origin'] ?? '').toString();
       final target = _httpUri(o['url'].toString());
@@ -98,7 +115,7 @@ class HttpService {
       headers: (o['headers'] as Map? ?? {}).map(
         (k, v) => MapEntry(k.toString(), v?.toString() ?? ''),
       ),
-      body: o['body']?.toString(),
+      body: decodeSourceBody(o),
       timeout: o['timeout'] is num
           ? Duration(milliseconds: (o['timeout'] as num).toInt())
           : null,
@@ -125,8 +142,9 @@ class HttpService {
     bool detectCloudflare = true,
     CancelToken? cancelToken,
     void Function(int received, int total)? onProgress,
+    int? maxBytes,
   }) async {
-    final res = await _request(
+    final resource = await _request(
       method: method,
       url: url,
       headers: headers,
@@ -135,37 +153,45 @@ class HttpService {
       partition: partition,
       cancelToken: cancelToken,
     );
-    final bytes = BytesBuilder(copy: false);
-    await for (final chunk in _responseStream(
-      res,
-      timeout,
-      cancelToken,
-      onProgress,
-    )) {
-      bytes.add(chunk);
-    }
-    final result = HttpResult(
-      status: res.statusCode ?? 0,
-      headers: {
-        for (final e in res.headers.map.entries)
-          e.key.toLowerCase(): e.value.join(', '),
-      },
-      bytes: bytes.takeBytes(),
-      url: res.realUri.toString(),
-    );
-    if (detectCloudflare && result.isCloudflareChallenge) {
-      throw SourceError(
-        'CLOUDFLARE',
-        'Cloudflare 验证：${res.realUri.host}',
-        status: result.status,
-        url: result.url,
+    final res = resource.response;
+    try {
+      final bytes = BytesBuilder(copy: false);
+      await for (final chunk in _responseStream(
+        res,
+        timeout,
+        cancelToken,
+        onProgress,
+      )) {
+        if (maxBytes != null && bytes.length + chunk.length > maxBytes) {
+          throw SourceError('NETWORK', '媒体资源过大');
+        }
+        bytes.add(chunk);
+      }
+      final result = HttpResult(
+        status: res.statusCode ?? 0,
+        headers: {
+          for (final e in res.headers.map.entries)
+            e.key.toLowerCase(): e.value.join(', '),
+        },
+        bytes: bytes.takeBytes(),
+        url: res.realUri.toString(),
       );
+      if (detectCloudflare && result.isCloudflareChallenge) {
+        throw SourceError(
+          'CLOUDFLARE',
+          'Cloudflare 验证：${res.realUri.host}',
+          status: result.status,
+          url: result.url,
+        );
+      }
+      return result;
+    } finally {
+      await resource.close();
     }
-    return result;
   }
 
   // Both buffered requests and file downloads use the same explicit redirect policy.
-  Future<Response<ResponseBody>> _request({
+  Future<_HttpResponse> _request({
     required String method,
     required String url,
     required Map<String, String> headers,
@@ -178,90 +204,146 @@ class HttpService {
     var currentMethod = method.toUpperCase();
     Object? currentBody = body;
     final currentHeaders = Map<String, String>.of(headers);
+    var handshakeRetried = false;
     for (var hop = 0; hop < 8; hop++) {
       _throwIfCancelled(cancelToken);
-      // dart:io can only inflate gzip/deflate, so never advertise br/zstd even if a source asks for it.
-      final h = <String, String>{'User-Agent': userAgent, ...currentHeaders}
-        ..removeWhere((k, _) => k.toLowerCase() == 'accept-encoding');
-      h['Accept-Encoding'] = 'gzip, deflate';
-      if (!h.keys.any((k) => k.toLowerCase() == 'cookie')) {
-        final cookie = await CookieStore.instance.headerFor(
-          uri,
-          partition: partition,
-        );
-        if (cookie.isNotEmpty) h['Cookie'] = cookie;
-      }
-      h.removeWhere((k, v) => v.isEmpty && k.toLowerCase() != 'authorization');
-      Response<ResponseBody> res;
+      final requestToken = CancelToken();
+      final cancellation = cancelToken?.whenCancel.asStream().listen(
+        requestToken.cancel,
+      );
+      var transferred = false;
       try {
-        res = await _dio.requestUri<ResponseBody>(
-          uri,
-          data: currentBody,
-          cancelToken: cancelToken,
-          options: Options(
-            method: currentMethod,
-            headers: h,
-            responseType: ResponseType.stream,
-            followRedirects: false,
-            receiveTimeout: timeout,
-            sendTimeout: timeout,
-          ),
-        );
-      } on DioException catch (e) {
-        if (CancelToken.isCancel(e)) rethrow;
-        throw SourceError('NETWORK', _describe(e, uri.host), url: url);
-      }
-      _throwIfCancelled(cancelToken);
-      final setCookies = res.headers.map['set-cookie'] ?? const [];
-      if (setCookies.isNotEmpty) {
-        await CookieStore.instance.saveFromResponse(
-          uri,
-          setCookies,
-          partition: partition,
-        );
-      }
-      _throwIfCancelled(cancelToken);
-      final status = res.statusCode ?? 0;
-      final location = res.headers.value('location');
-      if ({301, 302, 303, 307, 308}.contains(status) && location != null) {
-        // Close unused response bodies before dispatching the next hop.
-        await res.data!.stream.listen(null).cancel();
-        final next = _httpUri(uri.resolve(location).toString());
-        if (uri.scheme == 'https' && next.scheme != 'https') {
-          throw SourceError(
-            'NETWORK',
-            '拒绝从 HTTPS 重定向到不安全的 HTTP 地址',
-            url: next.toString(),
+        // dart:io can only inflate gzip/deflate, so never advertise br/zstd even if a source asks for it.
+        final h = <String, String>{'User-Agent': userAgent, ...currentHeaders}
+          ..removeWhere((k, _) => k.toLowerCase() == 'accept-encoding');
+        h['Accept-Encoding'] = 'gzip, deflate';
+        if (!h.keys.any((k) => k.toLowerCase() == 'cookie')) {
+          final cookie = await CookieStore.instance.headerFor(
+            uri,
+            partition: partition,
           );
+          if (cookie.isNotEmpty) h['Cookie'] = cookie;
         }
-        if (status == 303 ||
-            ((status == 301 || status == 302) && currentMethod == 'POST')) {
-          currentMethod = 'GET';
-          currentBody = null;
-          currentHeaders.removeWhere(
-            (name, _) => {
-              'content-type',
-              'content-length',
-              'transfer-encoding',
-            }.contains(name.toLowerCase()),
-          );
-        }
-        if (uri.scheme != next.scheme ||
-            uri.host != next.host ||
-            uri.port != next.port) {
-          if (currentBody != null) {
-            throw SourceError('NETWORK', '拒绝跨来源重定向携带请求体', url: next.toString());
+        h.removeWhere(
+          (k, v) => v.isEmpty && k.toLowerCase() != 'authorization',
+        );
+        late Response<ResponseBody> res;
+        while (true) {
+          _throwIfCancelled(cancelToken);
+          try {
+            res = await _dio.requestUri<ResponseBody>(
+              uri,
+              data: currentBody,
+              cancelToken: requestToken,
+              options: Options(
+                method: currentMethod,
+                headers: h,
+                responseType: ResponseType.stream,
+                followRedirects: false,
+                receiveTimeout: timeout,
+                sendTimeout: timeout,
+              ),
+            );
+            break;
+          } on DioException catch (e) {
+            if (CancelToken.isCancel(e)) rethrow;
+            _throwIfCancelled(cancelToken);
+            // This exact dart:io error occurs before HTTP is sent. Recover only
+            // replayable reads, once per logical request, at the failed hop.
+            if (!handshakeRetried &&
+                uri.scheme == 'https' &&
+                {'GET', 'HEAD'}.contains(currentMethod) &&
+                currentBody == null &&
+                _isHandshakeTerminated(e)) {
+              handshakeRetried = true;
+              final delay = Future<void>.delayed(
+                const Duration(milliseconds: 250),
+              );
+              if (cancelToken == null) {
+                await delay;
+              } else {
+                await Future.any<void>([
+                  delay,
+                  cancelToken.whenCancel.then<void>((error) => throw error),
+                ]);
+              }
+              continue;
+            }
+            throw SourceError(
+              'NETWORK',
+              _describe(e, uri.host),
+              url: uri.toString(),
+              diagnostics: {
+                'host': uri.host,
+                'transport': 'native',
+                'reason': _failureReason(e),
+              },
+            );
           }
-          // Custom source headers can contain arbitrary credentials. Carry only known
-          // non-secret HTTP headers across origins; destination cookies are loaded afresh.
-          currentHeaders.removeWhere(
-            (name, _) => !_redirectHeaders.contains(name.toLowerCase()),
+        }
+        _throwIfCancelled(cancelToken);
+        final setCookies = res.headers.map['set-cookie'] ?? const [];
+        if (setCookies.isNotEmpty) {
+          await CookieStore.instance.saveFromResponse(
+            uri,
+            setCookies,
+            partition: partition,
           );
         }
-        uri = next;
-        continue;
+        _throwIfCancelled(cancelToken);
+        final status = res.statusCode ?? 0;
+        final location = res.headers.value('location');
+        if ({301, 302, 303, 307, 308}.contains(status) && location != null) {
+          // Close unused response bodies before dispatching the next hop.
+          requestToken.cancel('redirect response discarded');
+          await res.data!.stream.listen(null).cancel();
+          final next = _httpUri(uri.resolve(location).toString());
+          if (uri.scheme == 'https' && next.scheme != 'https') {
+            throw SourceError(
+              'NETWORK',
+              '拒绝从 HTTPS 重定向到不安全的 HTTP 地址',
+              url: next.toString(),
+            );
+          }
+          if (status == 303 ||
+              ((status == 301 || status == 302) && currentMethod == 'POST')) {
+            currentMethod = 'GET';
+            currentBody = null;
+            currentHeaders.removeWhere(
+              (name, _) => {
+                'content-type',
+                'content-length',
+                'transfer-encoding',
+              }.contains(name.toLowerCase()),
+            );
+          }
+          if (uri.scheme != next.scheme ||
+              uri.host != next.host ||
+              uri.port != next.port) {
+            if (currentBody != null) {
+              throw SourceError(
+                'NETWORK',
+                '拒绝跨来源重定向携带请求体',
+                url: next.toString(),
+              );
+            }
+            // Custom source headers can contain arbitrary credentials. Carry only known
+            // non-secret HTTP headers across origins; destination cookies are loaded afresh.
+            currentHeaders.removeWhere(
+              (name, _) => !_redirectHeaders.contains(name.toLowerCase()),
+            );
+          }
+          uri = next;
+          continue;
+        }
+        transferred = true;
+        return _HttpResponse(res, requestToken, cancellation);
+      } finally {
+        if (!transferred) {
+          requestToken.cancel('HTTP request finished');
+          await cancellation?.cancel();
+        }
       }
-      return res;
     }
     throw SourceError('NETWORK', '重定向次数过多：$url', url: url);
   }
@@ -313,6 +395,11 @@ class HttpService {
         'NETWORK',
         '${response.realUri.host}: 响应读取失败（$error）',
         url: response.realUri.toString(),
+        diagnostics: {
+          'host': response.realUri.host,
+          'transport': 'native',
+          'reason': 'RESPONSE_STREAM',
+        },
       );
     }
   }
@@ -332,7 +419,7 @@ class HttpService {
     void Function(int received, int total)? onProgress,
   }) async {
     const timeout = Duration(minutes: 5);
-    final res = await _request(
+    final resource = await _request(
       method: 'GET',
       url: url,
       headers: headers,
@@ -340,29 +427,45 @@ class HttpService {
       timeout: timeout,
       cancelToken: cancelToken,
     );
-    final status = res.statusCode ?? 0;
-    if (status < 200 || status >= 300) {
-      await res.data!.stream.listen(null).cancel();
-      throw SourceError('HTTP', '下载失败：HTTP $status', status: status, url: url);
-    }
-    final file = File(savePath);
-    final sink = file.openWrite();
+    final res = resource.response;
     try {
-      await sink.addStream(
-        _responseStream(res, timeout, cancelToken, onProgress),
-      );
-      await sink.flush();
-      _throwIfCancelled(cancelToken);
-    } catch (_) {
-      await sink.close().catchError((Object _) {});
-      if (await file.exists()) await file.delete();
-      rethrow;
+      final status = res.statusCode ?? 0;
+      if (status < 200 || status >= 300) {
+        await resource.close();
+        throw SourceError(
+          'HTTP',
+          '下载失败：HTTP $status',
+          status: status,
+          url: url,
+        );
+      }
+      final file = File(savePath);
+      final sink = file.openWrite();
+      try {
+        await sink.addStream(
+          _responseStream(res, timeout, cancelToken, onProgress),
+        );
+        await sink.flush();
+        _throwIfCancelled(cancelToken);
+      } catch (_) {
+        await sink.close().catchError((Object _) {});
+        if (await file.exists()) await file.delete();
+        rethrow;
+      } finally {
+        await sink.close();
+      }
     } finally {
-      await sink.close();
+      await resource.close();
     }
   }
 
   static String _describe(DioException e, String host) {
+    if (_isHandshakeTerminated(e)) {
+      return '$host: TLS 握手期间连接中断，请检查 VPN 或代理线路后重试';
+    }
+    if (e.error is HandshakeException || e.error is TlsException) {
+      return '$host: TLS 握手失败（${e.error}）';
+    }
     switch (e.type) {
       case DioExceptionType.connectionTimeout:
         return '$host: 连接超时';
@@ -372,8 +475,62 @@ class HttpService {
       case DioExceptionType.connectionError:
         return '$host: 无法连接（${e.error ?? e.message}）';
       default:
-        return '$host: ${e.message ?? e.error?.toString() ?? e.type.name}';
+        return '$host: ${e.error?.toString() ?? e.message ?? e.type.name}';
     }
+  }
+
+  static String _failureReason(DioException e) {
+    final cause = e.error;
+    if (e.type == DioExceptionType.badCertificate ||
+        (cause is TlsException &&
+            RegExp(
+              'CERTIFICATE_VERIFY_FAILED|certificate verify failed',
+              caseSensitive: false,
+            ).hasMatch(cause.toString()))) {
+      return 'TLS_CERTIFICATE';
+    }
+    if (_isHandshakeTerminated(e)) return 'TLS_HANDSHAKE_TERMINATED';
+    if (cause is TlsException) return 'TLS_HANDSHAKE';
+    if (cause is SocketException) {
+      return RegExp(
+            'host lookup|name.*resolution|name.*known',
+            caseSensitive: false,
+          ).hasMatch(cause.message)
+          ? 'DNS'
+          : 'CONNECTION';
+    }
+    return switch (e.type) {
+      DioExceptionType.connectionTimeout => 'CONNECT_TIMEOUT',
+      DioExceptionType.receiveTimeout => 'RECEIVE_TIMEOUT',
+      DioExceptionType.sendTimeout => 'SEND_TIMEOUT',
+      DioExceptionType.connectionError => 'CONNECTION',
+      _ => 'NETWORK',
+    };
+  }
+
+  static bool _isHandshakeTerminated(DioException e) {
+    final cause = e.error;
+    return e.type != DioExceptionType.badCertificate &&
+        cause is HandshakeException &&
+        cause.message == 'Connection terminated during handshake';
+  }
+}
+
+/// Owns the adapter request for as long as its response body is in use.
+/// Dio's exposed stream does not propagate subscription cancellation to the
+/// adapter, so release the request token explicitly on every exit path.
+class _HttpResponse {
+  _HttpResponse(this.response, this.token, this.cancellation);
+  final Response<ResponseBody> response;
+  final CancelToken token;
+  final StreamSubscription<DioException>? cancellation;
+  bool _closed = false;
+
+  Future<void> close() async {
+    if (_closed) return;
+    _closed = true;
+    token.cancel('HTTP response released');
+    await cancellation?.cancel();
   }
 }
 
@@ -414,9 +571,6 @@ class HttpResult {
       bytes.length > 4096 ? bytes.sublist(0, 4096) : bytes,
       allowMalformed: true,
     );
-    return head.contains('Just a moment') ||
-        head.contains('cf-chl') ||
-        head.contains('Attention Required') ||
-        head.contains('challenge-platform');
+    return hasChallengeMarkers(head);
   }
 }

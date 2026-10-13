@@ -1,6 +1,8 @@
 import 'dart:async';
-import 'dart:io';
 import 'dart:typed_data';
+
+import 'cancellation.dart';
+import 'network_client.dart';
 
 import 'package:dio/dio.dart';
 import 'package:dio/io.dart';
@@ -27,16 +29,9 @@ class NativeMedia implements MediaTransport {
 
   static Dio _build() {
     final dio = Dio(BaseOptions(connectTimeout: const Duration(seconds: 15)));
-    final proxy = AppSettings.instance.proxy.replaceFirst(
-      RegExp(r'^https?://'),
-      '',
-    );
     dio.httpClientAdapter = IOHttpClientAdapter(
-      createHttpClient: () {
-        final client = HttpClient()..maxConnectionsPerHost = 8;
-        if (proxy.isNotEmpty) client.findProxy = (_) => 'PROXY $proxy';
-        return client;
-      },
+      createHttpClient: () =>
+          createHttpClient(proxy: AppSettings.instance.proxy),
     );
     return dio;
   }
@@ -48,9 +43,6 @@ class NativeMedia implements MediaTransport {
     if (token.cancelError case final error?) throw error;
     if (_closed) throw SourceError('CANCELLED', '媒体会话已关闭');
   }
-
-  Future<T> _untilCancelled<T>(Future<T> work, CancelToken token) =>
-      Future.any([work, token.whenCancel.then<T>((error) => throw error)]);
 
   Future<Uint8List> _read(
     ResponseBody response,
@@ -92,7 +84,7 @@ class NativeMedia implements MediaTransport {
       if (length != null && length > maxBytes) {
         throw SourceError('NETWORK', '媒体资源过大');
       }
-      return await _untilCancelled(result.future, token);
+      return await awaitCancelled(result.future, token);
     } finally {
       await subscription.cancel();
     }
@@ -129,7 +121,7 @@ class NativeMedia implements MediaTransport {
           requestToken.cancel,
         );
         try {
-          final response = await _untilCancelled(
+          final response = await awaitCancelled(
             _client.get<ResponseBody>(
               target.toString(),
               options: Options(
