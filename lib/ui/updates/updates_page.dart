@@ -11,6 +11,7 @@ import '../nav.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
 import '../../core/localization.dart';
+import '../subscriptions/subscription_updates_page.dart';
 
 /// Mihon's Updates tab: new chapters of favorites, newest first, grouped by day.
 class UpdatesPage extends StatefulWidget {
@@ -25,7 +26,8 @@ class _UpdatesPageState extends State<UpdatesPage> {
   final Set<String> _selected = {};
   Timer? _debounce;
 
-  static String _keyOf(UpdateEntry e) => '${e.item.uid}\u0000${e.chapter.chapterId}';
+  static String _keyOf(UpdateEntry e) =>
+      '${e.item.uid}\u0000${e.chapter.chapterId}';
 
   @override
   void initState() {
@@ -60,8 +62,15 @@ class _UpdatesPageState extends State<UpdatesPage> {
     if (!mounted || result == null) return;
     context.toast(
       result.newChapters > 0
-          ? tr('{value0} 部作品有 {value1} 个新章节', {'value0': result.updated.length, 'value1': result.newChapters})
-          : tr('没有新章节{value0}', {'value0': result.errors.isNotEmpty ? tr('（{value0} 部检查失败）', {'value0': result.errors.length}) : ''}),
+          ? tr('{value0} 部作品有 {value1} 个新章节', {
+              'value0': result.updated.length,
+              'value1': result.newChapters,
+            })
+          : tr('没有新章节{value0}', {
+              'value0': result.errors.isNotEmpty
+                  ? tr('（{value0} 部检查失败）', {'value0': result.errors.length})
+                  : '',
+            }),
     );
   }
 
@@ -70,7 +79,9 @@ class _UpdatesPageState extends State<UpdatesPage> {
     _selected.contains(k) ? _selected.remove(k) : _selected.add(k);
   });
 
-  List<UpdateEntry> get _selectedEntries => (_entries ?? const []).where((e) => _selected.contains(_keyOf(e))).toList();
+  List<UpdateEntry> get _selectedEntries => (_entries ?? const [])
+      .where((e) => _selected.contains(_keyOf(e)))
+      .toList();
 
   void _markSelected(bool read) {
     final byWork = <String, List<String>>{};
@@ -86,7 +97,10 @@ class _UpdatesPageState extends State<UpdatesPage> {
   void _download(Iterable<UpdateEntry> entries) {
     final byWork = <String, (WorkItem, List<Chapter>)>{};
     for (final e in entries) {
-      byWork.putIfAbsent(e.item.uid, () => (e.item, <Chapter>[])).$2.add(Chapter(e.chapter.chapterId, e.chapter.title));
+      byWork
+          .putIfAbsent(e.item.uid, () => (e.item, <Chapter>[]))
+          .$2
+          .add(Chapter(e.chapter.chapterId, e.chapter.title));
     }
     for (final w in byWork.values) {
       DownloadManager.instance.enqueueNewChapters(w.$1, w.$2);
@@ -106,11 +120,26 @@ class _UpdatesPageState extends State<UpdatesPage> {
         return Scaffold(
           appBar: selecting
               ? AppBar(
-                  leading: IconButton(icon: const Icon(Icons.close_rounded), onPressed: () => setState(_selected.clear)),
+                  leading: IconButton(
+                    icon: const Icon(Icons.close_rounded),
+                    onPressed: () => setState(_selected.clear),
+                  ),
                   title: Text(tr('已选 {value0}', {'value0': _selected.length})),
                   actions: [
-                    TextButton(onPressed: () => _markSelected(true), child: Text(tr('标为已读'))),
-                    TextButton(onPressed: () => _markSelected(false), child: Text(tr('标为未读'))),
+                    IconButton(
+                      tooltip: tr('订阅更新'),
+                      icon: const Icon(Icons.notifications_outlined),
+                      onPressed: () =>
+                          Nav.push(context, const SubscriptionUpdatesPage()),
+                    ),
+                    TextButton(
+                      onPressed: () => _markSelected(true),
+                      child: Text(tr('标为已读')),
+                    ),
+                    TextButton(
+                      onPressed: () => _markSelected(false),
+                      child: Text(tr('标为未读')),
+                    ),
                     IconButton(
                       tooltip: tr('下载'),
                       icon: const Icon(Icons.download_rounded),
@@ -127,21 +156,49 @@ class _UpdatesPageState extends State<UpdatesPage> {
                     children: [
                       Text(tr('更新')),
                       Text(
-                        updater.running ? tr('正在检查 {value0}/{value1}', {'value0': updater.done, 'value1': updater.total}) : (last == 0 ? tr('尚未检查过更新') : tr('上次检查：{value0}', {'value0': timeAgo(DateTime.fromMillisecondsSinceEpoch(last))})),
-                        style: context.text.labelSmall?.copyWith(color: context.colors.onSurfaceVariant),
+                        updater.running
+                            ? tr('正在检查 {value0}/{value1}', {
+                                'value0': updater.done,
+                                'value1': updater.total,
+                              })
+                            : (last == 0
+                                  ? tr('尚未检查过更新')
+                                  : tr('上次检查：{value0}', {
+                                      'value0': timeAgo(
+                                        DateTime.fromMillisecondsSinceEpoch(
+                                          last,
+                                        ),
+                                      ),
+                                    })),
+                        style: context.text.labelSmall?.copyWith(
+                          color: context.colors.onSurfaceVariant,
+                        ),
                       ),
                     ],
                   ),
                   actions: [
                     if (updater.running)
-                      IconButton(tooltip: tr('停止'), icon: const Icon(Icons.stop_circle_outlined), onPressed: updater.cancel)
+                      IconButton(
+                        tooltip: tr('停止'),
+                        icon: const Icon(Icons.stop_circle_outlined),
+                        onPressed: updater.cancel,
+                      )
                     else
-                      IconButton(tooltip: tr('检查更新'), icon: const Icon(Icons.refresh_rounded), onPressed: _refresh),
+                      IconButton(
+                        tooltip: tr('检查更新'),
+                        icon: const Icon(Icons.refresh_rounded),
+                        onPressed: _refresh,
+                      ),
                   ],
                   bottom: updater.running
                       ? PreferredSize(
                           preferredSize: const Size.fromHeight(3),
-                          child: LinearProgressIndicator(value: updater.total > 0 ? updater.done / updater.total : null, minHeight: 3),
+                          child: LinearProgressIndicator(
+                            value: updater.total > 0
+                                ? updater.done / updater.total
+                                : null,
+                            minHeight: 3,
+                          ),
                         )
                       : null,
                 ),
@@ -153,12 +210,18 @@ class _UpdatesPageState extends State<UpdatesPage> {
 
   Widget _body(BuildContext context) {
     final entries = _entries;
-    if (entries == null) return const Center(child: CircularProgressIndicator());
+    if (entries == null) {
+      return const Center(child: CircularProgressIndicator());
+    }
     if (entries.isEmpty) {
       return ListView(
         children: [
           SizedBox(height: 120),
-          MessageView(icon: Icons.new_releases_outlined, title: tr('暂无更新'), message: tr('下拉检查书架中连载作品的新章节\n可以在「我的 → 书库」中设置自动检查')),
+          MessageView(
+            icon: Icons.new_releases_outlined,
+            title: tr('暂无更新'),
+            message: tr('下拉检查书架中连载作品的新章节\n可以在「我的 → 书库」中设置自动检查'),
+          ),
         ],
       );
     }
@@ -168,7 +231,12 @@ class _UpdatesPageState extends State<UpdatesPage> {
       final label = dayLabel(e.chapter.dateFetch);
       if (label != day) {
         day = label;
-        rows.add(SectionHeader(label, padding: const EdgeInsets.fromLTRB(16, 16, 8, 4)));
+        rows.add(
+          SectionHeader(
+            label,
+            padding: const EdgeInsets.fromLTRB(16, 16, 8, 4),
+          ),
+        );
       }
       rows.add(_tile(context, e));
     }
@@ -179,12 +247,17 @@ class _UpdatesPageState extends State<UpdatesPage> {
     final c = context.colors;
     final read = e.chapter.read;
     final selected = _selected.contains(_keyOf(e));
-    final downloaded = DownloadManager.instance.isChapterDownloaded(e.item.uid, e.chapter.chapterId);
+    final downloaded = DownloadManager.instance.isChapterDownloaded(
+      e.item.uid,
+      e.chapter.chapterId,
+    );
     final muted = read ? c.onSurface.withValues(alpha: 0.45) : null;
     return Material(
       color: selected ? c.primary.withValues(alpha: 0.18) : Colors.transparent,
       child: InkWell(
-        onTap: () => _selected.isNotEmpty ? _toggle(e) : Nav.openChapter(context, e.item, e.chapter.chapterId),
+        onTap: () => _selected.isNotEmpty
+            ? _toggle(e)
+            : Nav.openChapter(context, e.item, e.chapter.chapterId),
         onLongPress: () => _toggle(e),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
@@ -195,7 +268,11 @@ class _UpdatesPageState extends State<UpdatesPage> {
                 child: SizedBox(
                   width: 46,
                   height: 62,
-                  child: CoverImage(source: e.item.source, url: e.item.cover, radius: 8),
+                  child: CoverImage(
+                    source: e.item.source,
+                    url: e.item.cover,
+                    radius: 8,
+                  ),
                 ),
               ),
               const SizedBox(width: 12),
@@ -207,7 +284,10 @@ class _UpdatesPageState extends State<UpdatesPage> {
                       e.item.title,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: context.text.bodyMedium?.copyWith(fontWeight: read ? FontWeight.w500 : FontWeight.w700, color: muted),
+                      style: context.text.bodyMedium?.copyWith(
+                        fontWeight: read ? FontWeight.w500 : FontWeight.w700,
+                        color: muted,
+                      ),
                     ),
                     const SizedBox(height: 3),
                     Row(
@@ -215,17 +295,29 @@ class _UpdatesPageState extends State<UpdatesPage> {
                         if (!read)
                           Padding(
                             padding: const EdgeInsets.only(right: 6),
-                            child: Icon(Icons.circle, size: 8, color: c.primary),
+                            child: Icon(
+                              Icons.circle,
+                              size: 8,
+                              color: c.primary,
+                            ),
                           ),
                         Expanded(
                           child: Text(
                             [
                               e.chapter.title,
-                              if (!read && e.chapter.lastPage > 0 && e.chapter.pageCount > 0) tr('读到 {value0}/{value1}', {'value0': e.chapter.lastPage + 1, 'value1': e.chapter.pageCount}),
+                              if (!read &&
+                                  e.chapter.lastPage > 0 &&
+                                  e.chapter.pageCount > 0)
+                                tr('读到 {value0}/{value1}', {
+                                  'value0': e.chapter.lastPage + 1,
+                                  'value1': e.chapter.pageCount,
+                                }),
                             ].join(' · '),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: context.text.labelMedium?.copyWith(color: muted ?? c.onSurfaceVariant),
+                            style: context.text.labelMedium?.copyWith(
+                              color: muted ?? c.onSurfaceVariant,
+                            ),
                           ),
                         ),
                       ],
@@ -236,10 +328,18 @@ class _UpdatesPageState extends State<UpdatesPage> {
               if (downloaded)
                 Padding(
                   padding: const EdgeInsets.all(12),
-                  child: Icon(Icons.download_done_rounded, color: c.primary, size: 20),
+                  child: Icon(
+                    Icons.download_done_rounded,
+                    color: c.primary,
+                    size: 20,
+                  ),
                 )
               else
-                IconButton(tooltip: tr('下载'), icon: const Icon(Icons.download_outlined, size: 20), onPressed: () => _download([e])),
+                IconButton(
+                  tooltip: tr('下载'),
+                  icon: const Icon(Icons.download_outlined, size: 20),
+                  onPressed: () => _download([e]),
+                ),
             ],
           ),
         ),

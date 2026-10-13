@@ -1,0 +1,367 @@
+import 'dart:async';
+import 'dart:io';
+
+import 'package:dio/dio.dart';
+import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
+
+import '../../core/localization.dart';
+import '../../engine/app_updater.dart';
+import '../../engine/app_installer.dart';
+import '../../engine/source_updater.dart';
+
+/// 只展示可确认的操作；检查本身不会触发下载或安装。
+Future<void> showAppUpdatePrompt(
+  BuildContext context,
+  AppUpdateResult result, {
+  Future<bool> Function(Uri)? openRelease,
+  AppInstaller? installer,
+}) async {
+  final release = result.release;
+  if (release == null || !context.mounted) return;
+  final service = installer ?? AppInstaller();
+  final confirmed = await showDialog<bool>(
+    context: context,
+    builder: (ctx) => AlertDialog(
+      scrollable: true,
+      title: Text(tr('发现软件新版本')),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              tr('当前版本：{current}，最新版本：{latest}', {
+                'current': result.currentVersion ?? '',
+                'latest': release.version,
+              }),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              tr(
+                service.supported
+                    ? '确认后在应用内下载安装包，再由系统提示你确认安装。'
+                    : '此平台请前往官方发布页下载并手动安装。',
+              ),
+            ),
+            if (release.notes.isNotEmpty) ...[
+              const SizedBox(height: 16),
+              SelectableText(release.notes),
+            ],
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(ctx, false),
+          child: Text(tr('稍后')),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.pop(ctx, true),
+          child: Text(tr(service.supported ? '下载并安装' : '前往下载')),
+        ),
+      ],
+    ),
+  );
+  if (confirmed != true) return;
+  if (!context.mounted) return;
+  if (service.supported) {
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => _AppDownloadDialog(
+        release: release,
+        installer: service,
+        openRelease: openRelease ?? _openRelease,
+      ),
+    );
+    return;
+  }
+  var opened = false;
+  try {
+    opened = await (openRelease ?? _openRelease)(release.url);
+  } catch (_) {}
+  if (!opened && context.mounted) {
+    _message(context, tr('无法打开下载页面，请稍后重试'));
+  }
+}
+
+class _AppDownloadDialog extends StatefulWidget {
+  const _AppDownloadDialog({
+    required this.release,
+    required this.installer,
+    required this.openRelease,
+  });
+  final AppRelease release;
+  final AppInstaller installer;
+  final Future<bool> Function(Uri) openRelease;
+  @override
+  State<_AppDownloadDialog> createState() => _AppDownloadDialogState();
+}
+
+class _AppDownloadDialogState extends State<_AppDownloadDialog> {
+  CancelToken? _token;
+  File? _file;
+  double? _progress;
+  String? _failure;
+  bool _busy = false;
+  bool _permission = false;
+  bool _handedToInstaller = false;
+
+  Future<void> _discard() async {
+    final file = _file;
+    _file = null;
+    if (file == null) return;
+    try {
+      await widget.installer.discard(file);
+    } catch (_) {
+      // 缓存清理失败不替代原始安装错误。
+    }
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    unawaited(_run());
+  }
+
+  Future<void> _run() async {
+    if (_busy) return;
+    setState(() {
+      _busy = true;
+      _failure = null;
+      _permission = false;
+    });
+    final token = CancelToken();
+    _token = token;
+    try {
+      _file ??= await widget.installer.prepare(widget.release, token, (
+        received,
+        total,
+      ) {
+        if (mounted && !token.isCancelled) {
+          setState(
+            () => _progress = total > 0 ? (received / total).clamp(0, 1) : null,
+          );
+        }
+      });
+      if (!mounted || token.isCancelled) return;
+      final launched = await widget.installer.install(
+        _file!,
+        widget.release.version,
+      );
+      _handedToInstaller = launched;
+      if (!mounted || token.isCancelled) return;
+      if (launched) {
+        Navigator.pop(context);
+        return;
+      }
+      setState(() => _permission = true);
+    } catch (error) {
+      // 系统拒绝或缓存文件失效时，重试重新下载并校验。
+      await _discard();
+      if (mounted && !token.isCancelled) {
+        setState(
+          () => _failure = error is AppInstallFailure
+              ? error.message
+              : '无法下载或安装更新，请重试或前往官方发布页',
+        );
+      }
+    } finally {
+      if ((!mounted || token.isCancelled) && !_handedToInstaller) {
+        await _discard();
+      }
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _authorize() async {
+    try {
+      await widget.installer.openPermission();
+    } catch (_) {
+      if (mounted) setState(() => _failure = '无法打开安装权限设置，请重试');
+    }
+  }
+
+  Future<void> _fallback() async {
+    var opened = false;
+    try {
+      opened = await widget.openRelease(widget.release.url);
+    } catch (_) {}
+    if (mounted && !opened) setState(() => _failure = '无法打开下载页面，请稍后重试');
+  }
+
+  @override
+  void dispose() {
+    _token?.cancel();
+    if (!_busy && !_handedToInstaller) unawaited(_discard());
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => PopScope(
+    canPop: !_busy,
+    child: AlertDialog(
+      scrollable: true,
+      title: Text(tr(_permission ? '需要安装权限' : '软件更新')),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (_busy) ...[
+            LinearProgressIndicator(value: _progress),
+            const SizedBox(height: 12),
+            Text(tr('正在下载并校验安装包…')),
+          ],
+          if (_permission) Text(tr('请在系统设置中允许安装此应用提供的更新，返回后点击“继续安装”。')),
+          if (_failure != null) Text(tr(_failure!)),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () {
+            _token?.cancel();
+            Navigator.pop(context);
+          },
+          child: Text(tr(_busy ? '取消' : '关闭')),
+        ),
+        if (_permission) ...[
+          TextButton(
+            onPressed: _busy ? null : _authorize,
+            child: Text(tr('打开安装权限设置')),
+          ),
+          FilledButton(onPressed: _busy ? null : _run, child: Text(tr('继续安装'))),
+        ],
+        if (_failure != null && !_busy) ...[
+          TextButton(onPressed: _fallback, child: Text(tr('官方发布页'))),
+          FilledButton(
+            onPressed: () {
+              _progress = null;
+              unawaited(_run());
+            },
+            child: Text(tr('重试')),
+          ),
+        ],
+      ],
+    ),
+  );
+}
+
+Future<bool> _openRelease(Uri url) =>
+    launchUrl(url, mode: LaunchMode.externalApplication);
+
+Future<void> showAppUpdateResult(
+  BuildContext context,
+  AppUpdateResult result,
+) async {
+  if (!context.mounted) return;
+  if (result.release != null) {
+    await showAppUpdatePrompt(context, result);
+  } else {
+    _message(context, tr(result.failure ?? '软件已是最新版本'));
+  }
+}
+
+Future<void> showSourceUpdatePrompt(
+  BuildContext context,
+  SourceUpdateResult result,
+  SourceUpdater updater,
+) async {
+  if (!context.mounted || result.available.isEmpty) return;
+  final confirmed = await showDialog<bool>(
+    context: context,
+    builder: (ctx) => AlertDialog(
+      scrollable: true,
+      title: Text(tr('发现 {count} 个插件更新', {'count': result.available.length})),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(tr('确认后下载并安装以下官方插件，保留登录状态与设置。')),
+            const SizedBox(height: 12),
+            for (final candidate in result.available)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Text(
+                  '${candidate.entry.name}\nv${candidate.version} → v${candidate.entry.version}',
+                ),
+              ),
+            if (result.failures.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              ..._failures(result),
+            ],
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(ctx, false),
+          child: Text(tr('稍后')),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.pop(ctx, true),
+          child: Text(tr('确认升级')),
+        ),
+      ],
+    ),
+  );
+  if (confirmed != true) return;
+  final applied = await updater.applyUpdates(result.available);
+  if (context.mounted) await showSourceUpdateResult(context, applied);
+}
+
+Iterable<Widget> _failures(SourceUpdateResult result) sync* {
+  for (final failure in result.failures.entries) {
+    yield Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Text('${failure.key}\n${tr(failure.value)}'),
+    );
+  }
+}
+
+Future<void> showSourceUpdateResult(
+  BuildContext context,
+  SourceUpdateResult result,
+) async {
+  if (!context.mounted) return;
+  if (result.failures.isNotEmpty) {
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        scrollable: true,
+        title: Text(tr('官方源更新失败')),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (result.updated.isNotEmpty) ...[
+                Text(tr('已更新 {count} 个官方源', {'count': result.updated.length})),
+                const SizedBox(height: 12),
+              ],
+              ..._failures(result),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text(tr('关闭')),
+          ),
+        ],
+      ),
+    );
+    return;
+  }
+  _message(
+    context,
+    result.updated.isNotEmpty
+        ? tr('已更新 {count} 个官方源', {'count': result.updated.length})
+        : tr(result.checked == 0 ? '没有可检查的官方源' : '官方源已是最新版本'),
+  );
+}
+
+void _message(BuildContext context, String text) {
+  ScaffoldMessenger.maybeOf(context)
+      ?.showSnackBar(SnackBar(content: Text(text)));
+}

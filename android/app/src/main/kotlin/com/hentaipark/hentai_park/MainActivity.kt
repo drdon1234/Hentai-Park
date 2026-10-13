@@ -105,6 +105,30 @@ class MainActivity : FlutterFragmentActivity() {
         channel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "hentai_park/platform").also {
             it.setMethodCallHandler { call, result ->
                 when (call.method) {
+                    "claimSourceEngine" -> SubscriptionJob.claim(result)
+                    "scheduleSubscriptions" -> {
+                        try {
+                            SubscriptionJob.schedule(this, (call.arguments as Number).toInt())
+                            result.success(null)
+                        } catch (_: Exception) { result.error("SCHEDULE", "SCHEDULE", null) }
+                    }
+                    "notifyChecked" -> {
+                        try { result.success(SubscriptionNotifications.send(this, call.arguments as Map<*, *>)) }
+                        catch (_: Exception) { result.success(false) }
+                    }
+                    "appUpdateAbis" -> result.success(Build.SUPPORTED_ABIS.toList())
+                    "appUpdatePermission" -> {
+                        try {
+                            AppInstaller(this).openPermission()
+                            result.success(null)
+                        } catch (_: Exception) { result.error("UPDATE_PERMISSION", "UPDATE_PERMISSION", null) }
+                    }
+                    "appUpdateInstall" -> {
+                        try {
+                            val args = call.arguments as Map<*, *>
+                            result.success(AppInstaller(this).install(args["path"] as String, args["version"] as String))
+                        } catch (_: Exception) { result.error("UPDATE_INSTALL", "UPDATE_INSTALL", null) }
+                    }
                     "terminateSourceRenderer" -> {
                         val id = call.arguments as? String
                         val plugin = flutterEngine.plugins.get(InAppWebViewFlutterPlugin::class.java) as? InAppWebViewFlutterPlugin
@@ -190,9 +214,11 @@ class MainActivity : FlutterFragmentActivity() {
                 }
             }
         }
+        SubscriptionJob.foreground = channel
     }
 
     override fun cleanUpFlutterEngine(flutterEngine: FlutterEngine) {
+        if (SubscriptionJob.foreground === channel) SubscriptionJob.foreground = null
         mediaRemuxer?.shutdown()
         mediaRemuxer = null
         super.cleanUpFlutterEngine(flutterEngine)
