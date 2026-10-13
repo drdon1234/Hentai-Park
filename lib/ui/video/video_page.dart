@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
@@ -11,12 +12,14 @@ import 'package:wakelock_plus/wakelock_plus.dart';
 import '../../core/localization.dart';
 import '../../core/app_lock.dart';
 import '../../core/models.dart';
+import '../../images/subscription_cache.dart';
+import '../../images/image_store.dart';
 import '../../engine/source_manager.dart';
-import '../../engine/media_transport.dart';
+import '../../engine/media_transport_factory.dart';
 import '../../library/downloads.dart';
 import '../../library/library.dart';
 import '../../video/hls_playback.dart';
-import '../platform.dart';
+import '../../engine/platform_bridge.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
 import '../widgets/error_view.dart';
@@ -24,11 +27,22 @@ import '../widgets/paged_grid.dart';
 import 'video_gesture_surface.dart';
 import 'video_gestures.dart';
 import 'video_episode_sheet.dart';
+import 'adaptive_video_progress.dart';
 
 class VideoPage extends StatefulWidget {
-  const VideoPage({super.key, required this.work, this.episodeId});
+  const VideoPage({
+    super.key,
+    required this.work,
+    this.episodeId,
+    this.initialSources,
+    this.localFile,
+    this.recordHistory = true,
+  });
   final WorkDetail work;
   final String? episodeId;
+  final List<VideoSource>? initialSources;
+  final File? localFile;
+  final bool recordHistory;
 
   @override
   State<VideoPage> createState() => _VideoPageState();
@@ -64,6 +78,13 @@ class _VideoPageState extends State<VideoPage> with WidgetsBindingObserver {
   CancelToken? _sourceRequest;
   late final List<Chapter> _episodes;
   late Chapter _episode;
+  late final PageController _episodePages;
+  bool _paging = false;
+  bool get _scrollEpisodes =>
+      _episodes.length > 1 &&
+      (SourceManager.instance.manifest(widget.work.source)?.category ==
+              SourceCategory.aiDrama ||
+          widget.work.json['category'] == 'aiDrama');
 
   int get _episodeIndex => _episodes.indexOf(_episode);
 
@@ -79,6 +100,9 @@ class _VideoPageState extends State<VideoPage> with WidgetsBindingObserver {
   @override
   void initState() {
     super.initState();
+    if (widget.localFile != null) {
+      SubscriptionCache.instance.retain(widget.localFile!);
+    }
     _episodes = widget.work.videoEpisodes;
     final selected =
         widget.episodeId ??
@@ -87,6 +111,7 @@ class _VideoPageState extends State<VideoPage> with WidgetsBindingObserver {
       (episode) => episode.id == chapterKeyOf(selected),
       orElse: () => _episodes.first,
     );
+    _episodePages = PageController(initialPage: _episodeIndex);
     final lifecycle = WidgetsBinding.instance.lifecycleState;
     _foreground = lifecycle == null || lifecycle == AppLifecycleState.resumed;
     WidgetsBinding.instance.addObserver(this);
@@ -101,6 +126,7 @@ class _VideoPageState extends State<VideoPage> with WidgetsBindingObserver {
 
   @override
   void dispose() {
+    _episodePages.dispose();
     _savePosition();
     _hide?.cancel();
     _savePos?.cancel();
@@ -113,9 +139,16 @@ class _VideoPageState extends State<VideoPage> with WidgetsBindingObserver {
     _c?.removeListener(_onTick);
     final media = _media;
     unawaited(
-      (_c?.dispose() ?? Future<void>.value()).whenComplete(
-        () async => media?.close(),
-      ),
+      (_c?.dispose() ?? Future<void>.value()).whenComplete(() async {
+        try {
+          await media?.close();
+        } finally {
+          if (widget.localFile case final file?) {
+            SubscriptionCache.instance.release(file);
+            await ImageStore.instance.trim();
+          }
+        }
+      }),
     );
     unawaited(_preparingMedia?.close());
     WakelockPlus.disable();
@@ -153,7 +186,10 @@ class _VideoPageState extends State<VideoPage> with WidgetsBindingObserver {
     return _playbackUpdates = _playbackUpdates
         .then((_) async {
           if (!mounted || c == null || !identical(c, _c)) return;
-          if (_foreground && !AppLock.instance.locked && _wantsPlayback) {
+          if (_foreground &&
+              !_paging &&
+              !AppLock.instance.locked &&
+              _wantsPlayback) {
             await c.play();
           } else {
             await c.pause();
@@ -220,6 +256,10 @@ class _VideoPageState extends State<VideoPage> with WidgetsBindingObserver {
       _completed = false;
       _wantsPlayback = true;
     });
+    if (_episodePages.hasClients &&
+        _episodePages.page?.round() != _episodes.indexOf(episode)) {
+      _episodePages.jumpToPage(_episodes.indexOf(episode));
+    }
     try {
       await preparing?.close();
       await (old?.dispose() ?? Future<void>.value()).whenComplete(
@@ -236,11 +276,21 @@ class _VideoPageState extends State<VideoPage> with WidgetsBindingObserver {
       if (!mounted || request.isCancelled || openRequest != _openRequest) {
         return;
       }
-      if (local != null) {
+      final playbackFile = widget.localFile ?? local;
+      if (playbackFile != null) {
         _offline = true;
+        if (!_supported) {
+          setState(
+            () => _current = VideoSource({
+              'url': playbackFile.uri.toString(),
+              'format': 'mp4',
+            }),
+          );
+          return;
+        }
         await _open(
           VideoPlayerController.file(
-            local,
+            playbackFile,
             videoPlayerOptions: VideoPlayerOptions(
               allowBackgroundPlayback: true,
             ),
@@ -249,12 +299,14 @@ class _VideoPageState extends State<VideoPage> with WidgetsBindingObserver {
         );
         return;
       }
-      final sources = await SourceManager.instance.videos(
-        widget.work.source,
-        widget.work.id,
-        episodeId: episode.id,
-        cancelToken: request,
-      );
+      final sources =
+          widget.initialSources ??
+          await SourceManager.instance.videos(
+            widget.work.source,
+            widget.work.id,
+            episodeId: episode.id,
+            cancelToken: request,
+          );
       if (!mounted || request.isCancelled || openRequest != _openRequest) {
         return;
       }
@@ -411,6 +463,7 @@ class _VideoPageState extends State<VideoPage> with WidgetsBindingObserver {
   }
 
   void _savePosition() {
+    if (!widget.recordHistory) return;
     final c = _c;
     if (c == null || !c.value.isInitialized) return;
     Library.instance.recordVideoPosition(
@@ -814,6 +867,7 @@ class _VideoPageState extends State<VideoPage> with WidgetsBindingObserver {
       );
     } else {
       inner = VideoGestureSurface(
+        pageVertically: _scrollEpisodes,
         onTap: _toggleControls,
         onDoubleTap: (point) {
           final box = context.findRenderObject() as RenderBox?;
@@ -836,6 +890,37 @@ class _VideoPageState extends State<VideoPage> with WidgetsBindingObserver {
               child: IgnorePointer(
                 ignoring: !_controls,
                 child: _controlsOverlay(c),
+              ),
+            ),
+            Positioned(
+              left: 8,
+              right: 8,
+              bottom: 0,
+              child: SafeArea(
+                top: false,
+                bottom: _fullscreen,
+                child: Listener(
+                  onPointerDown: (_) {
+                    _hide?.cancel();
+                    setState(() => _controls = true);
+                  },
+                  child: AdaptiveVideoProgress(
+                    position: c.value.position,
+                    duration: c.value.duration,
+                    buffered: c.value.buffered.isEmpty
+                        ? Duration.zero
+                        : c.value.buffered.last.end,
+                    onScrubbingChanged: (scrubbing) {
+                      if (scrubbing) {
+                        _cancelGesture();
+                        _hide?.cancel();
+                      } else {
+                        _scheduleHide();
+                      }
+                    },
+                    onSeek: (position) => c.seekTo(position),
+                  ),
+                ),
               ),
             ),
             if (_seekHint != null)
@@ -887,7 +972,44 @@ class _VideoPageState extends State<VideoPage> with WidgetsBindingObserver {
         ),
       );
     }
-    final box = ColoredBox(color: Colors.black, child: inner);
+    Widget box = ColoredBox(color: Colors.black, child: inner);
+    if (_scrollEpisodes) {
+      final active = box;
+      box = NotificationListener<ScrollNotification>(
+        onNotification: (notification) {
+          if (notification.depth != 0) return false;
+          if (notification is ScrollStartNotification) {
+            _paging = true;
+            _hide?.cancel();
+            _c?.pause();
+          }
+          if (notification is ScrollEndNotification) {
+            _paging = false;
+            _syncPlayback();
+          }
+          return false;
+        },
+        child: PageView.builder(
+          controller: _episodePages,
+          scrollDirection: Axis.vertical,
+          itemCount: _episodes.length,
+          onPageChanged: (index) {
+            if (_episodes[index] != _episode) _selectEpisode(_episodes[index]);
+          },
+          itemBuilder: (_, index) => index == _episodeIndex
+              ? active
+              : ColoredBox(
+                  color: Colors.black,
+                  child: Center(
+                    child: Text(
+                      _episodes[index].title,
+                      style: const TextStyle(color: Colors.white),
+                    ),
+                  ),
+                ),
+        ),
+      );
+    }
     if (_fullscreen) return box;
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -902,12 +1024,7 @@ class _VideoPageState extends State<VideoPage> with WidgetsBindingObserver {
 
   Widget _controlsOverlay(VideoPlayerController c) {
     final v = c.value;
-    final total = v.duration.inMilliseconds.toDouble();
     final displayPosition = _previewPosition ?? v.position;
-    final pos = displayPosition.inMilliseconds.clamp(0, total).toDouble();
-    final buffered = v.buffered.isEmpty
-        ? 0.0
-        : v.buffered.last.end.inMilliseconds.toDouble();
     return Stack(
       fit: StackFit.expand,
       children: [
@@ -977,7 +1094,8 @@ class _VideoPageState extends State<VideoPage> with WidgetsBindingObserver {
               const Spacer(),
               IconButton(
                 tooltip: tr(v.isPlaying ? '暂停' : '播放'),
-                iconSize: 56,
+                iconSize: 40,
+                padding: EdgeInsets.zero,
                 icon: Icon(
                   v.isPlaying
                       ? Icons.pause_circle_filled_rounded
@@ -999,55 +1117,12 @@ class _VideoPageState extends State<VideoPage> with WidgetsBindingObserver {
                       _fmt(displayPosition),
                       style: const TextStyle(color: Colors.white, fontSize: 12),
                     ),
-                    Expanded(
-                      child: Stack(
-                        alignment: Alignment.center,
-                        children: [
-                          if (total > 0)
-                            Padding(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 24,
-                              ),
-                              child: LinearProgressIndicator(
-                                value: (buffered / total).clamp(0, 1),
-                                minHeight: 2,
-                                backgroundColor: Colors.white24,
-                                color: Colors.white38,
-                              ),
-                            ),
-                          Slider(
-                            value: pos,
-                            max: total > 0 ? total : 1,
-                            onChangeStart: total > 0
-                                ? (_) => _hide?.cancel()
-                                : null,
-                            onChanged: total > 0
-                                ? (x) => setState(
-                                    () => _previewPosition = Duration(
-                                      milliseconds: x.round(),
-                                    ),
-                                  )
-                                : null,
-                            onChangeEnd: total > 0
-                                ? (x) async {
-                                    await c.seekTo(
-                                      Duration(milliseconds: x.round()),
-                                    );
-                                    if (!mounted) return;
-                                    setState(() => _previewPosition = null);
-                                    _scheduleHide();
-                                  }
-                                : null,
-                            activeColor: Theme.of(context).colorScheme.primary,
-                            inactiveColor: Colors.transparent,
-                          ),
-                        ],
-                      ),
-                    ),
+                    const Text(' / ', style: TextStyle(color: Colors.white70)),
                     Text(
                       _fmt(v.duration),
                       style: const TextStyle(color: Colors.white, fontSize: 12),
                     ),
+                    const Spacer(),
                     IconButton(
                       tooltip: tr(
                         _displayMode == VideoDisplayMode.landscape
@@ -1079,6 +1154,7 @@ class _VideoPageState extends State<VideoPage> with WidgetsBindingObserver {
                   ],
                 ),
               ),
+              const SizedBox(height: 56),
             ],
           ),
         ),

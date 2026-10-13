@@ -22,9 +22,19 @@ extension TapLayoutLabel on TapLayout {
 /// Maps a tap at normalized coordinates (0..1) to an action.
 /// "next" zones are on the right / bottom; [rtl] mirrors them horizontally for right-to-left reading,
 /// and [invertH] / [invertV] mirror them again on request.
-TapAction tapActionFor(double x, double y, {required TapLayout layout, required bool vertical, bool rtl = false, bool invertH = false, bool invertV = false}) {
+TapAction tapActionFor(
+  double x,
+  double y, {
+  required TapLayout layout,
+  required bool vertical,
+  bool rtl = false,
+  bool invertH = false,
+  bool invertV = false,
+}) {
   var l = layout;
-  if (l == TapLayout.auto) l = vertical ? TapLayout.lShaped : TapLayout.leftRight;
+  if (l == TapLayout.auto) {
+    l = vertical ? TapLayout.lShaped : TapLayout.leftRight;
+  }
   if (rtl != invertH) x = 1 - x;
   if (invertV) y = 1 - y;
   const a = 1 / 3, b = 2 / 3;
@@ -65,7 +75,11 @@ class Spread {
   int get first => pages.first;
 
   @override
-  bool operator ==(Object other) => other is Spread && other.half == half && other.pages.length == pages.length && other.pages.indexed.every((e) => pages[e.$1] == e.$2);
+  bool operator ==(Object other) =>
+      other is Spread &&
+      other.half == half &&
+      other.pages.length == pages.length &&
+      other.pages.indexed.every((e) => pages[e.$1] == e.$2);
 
   @override
   int get hashCode => Object.hash(Object.hashAll(pages), half);

@@ -22,7 +22,8 @@ class ReaderImage extends StatefulWidget {
   final double? knownAspect;
   final ValueChanged<double>? onAspect;
   final BoxFit fit;
-  final bool fillHeight; // paged mode: fill the viewport instead of sizing by width
+  final bool
+  fillHeight; // paged mode: fill the viewport instead of sizing by width
   final Alignment alignment; // dual pages lean towards the spine
 
   @override
@@ -55,7 +56,9 @@ class _ReaderImageState extends State<ReaderImage> {
   }
 
   void _resolve() {
-    final stream = widget.provider.resolve(createLocalImageConfiguration(context));
+    final stream = widget.provider.resolve(
+      createLocalImageConfiguration(context),
+    );
     if (stream.key == _stream?.key) return;
     _stream?.removeListener(_listener);
     _stream = stream..addListener(_listener);
@@ -107,7 +110,10 @@ class _ReaderImageState extends State<ReaderImage> {
         height: widget.fillHeight ? double.infinity : null,
       );
       if (widget.fillHeight) return img;
-      return AspectRatio(aspectRatio: info.image.width / info.image.height, child: img);
+      return AspectRatio(
+        aspectRatio: info.image.width / info.image.height,
+        child: img,
+      );
     }
     final aspect = widget.knownAspect ?? 0.7;
     final placeholder = Center(
@@ -115,12 +121,21 @@ class _ReaderImageState extends State<ReaderImage> {
           ? Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Icon(Icons.broken_image_outlined, color: Colors.white38, size: 40),
+                const Icon(
+                  Icons.broken_image_outlined,
+                  color: Colors.white38,
+                  size: 40,
+                ),
                 const SizedBox(height: 8),
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 24),
                   child: Text(
-                    tr('第 {value0} 页加载失败\n{value1}', {'value0': widget.index + 1, 'value1': _error is SourceError ? (_error as SourceError).message : _error}),
+                    tr('第 {value0} 页加载失败\n{value1}', {
+                      'value0': widget.index + 1,
+                      'value1': _error is SourceError
+                          ? (_error as SourceError).message
+                          : _error,
+                    }),
                     textAlign: TextAlign.center,
                     maxLines: 4,
                     overflow: TextOverflow.ellipsis,
@@ -128,17 +143,32 @@ class _ReaderImageState extends State<ReaderImage> {
                   ),
                 ),
                 const SizedBox(height: 10),
-                FilledButton.tonalIcon(onPressed: _retry, icon: const Icon(Icons.refresh_rounded), label: Text(_attempt > 0 ? tr('再试一次') : tr('重试'))),
+                FilledButton.tonalIcon(
+                  onPressed: _retry,
+                  icon: const Icon(Icons.refresh_rounded),
+                  label: Text(_attempt > 0 ? tr('再试一次') : tr('重试')),
+                ),
               ],
             )
           : Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const SizedBox(width: 26, height: 26, child: CircularProgressIndicator(strokeWidth: 2.4, color: Colors.white38)),
+                const SizedBox(
+                  width: 26,
+                  height: 26,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2.4,
+                    color: Colors.white38,
+                  ),
+                ),
                 const SizedBox(height: 10),
                 Text(
                   '${widget.index + 1}',
-                  style: const TextStyle(color: Colors.white38, fontSize: 20, fontWeight: FontWeight.w700),
+                  style: const TextStyle(
+                    color: Colors.white38,
+                    fontSize: 20,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
               ],
             ),

@@ -1,6 +1,11 @@
+import '../../core/diagnostics.dart';
+
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
+
+import '../discovery_navigation.dart';
+
 import 'package:flutter/services.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -13,14 +18,27 @@ import '../../library/library.dart';
 import '../nav.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
+import '../widgets/cover_hero.dart';
+import '../widgets/content_translation.dart';
+import '../widgets/text_translation.dart';
+import '../../subscriptions/subscription_store.dart';
+import '../../subscriptions/updater.dart';
+
+import 'dart:convert';
+import 'dart:async';
+
 import '../widgets/error_view.dart';
+import '../widgets/expandable_description.dart';
+import '../widgets/metadata_text_row.dart';
 import '../widgets/paged_grid.dart';
+import '../widgets/source_network_hint.dart';
 import '../../core/settings.dart';
 import '../../core/tag_blocklist.dart';
 import '../../core/titles.dart';
 import '../library/favorite_actions.dart';
 import '../migration/migration_page.dart';
 import 'thumbnail_grid.dart';
+import '../game/game_resources.dart';
 
 class DetailPage extends StatefulWidget {
   const DetailPage({
@@ -28,10 +46,12 @@ class DetailPage extends StatefulWidget {
     required this.source,
     required this.id,
     this.preview,
+    this.coverHeroTag,
   });
   final String source;
   final String id;
   final WorkItem? preview;
+  final Object? coverHeroTag;
 
   @override
   State<DetailPage> createState() => _DetailPageState();
@@ -42,11 +62,14 @@ class _DetailPageState extends State<DetailPage> {
   Object? _error;
   bool _reversed = false;
   final Set<String> _selected = {};
+  final _resourcesKey = GlobalKey();
 
   SourceManifest? get _m => SourceManager.instance.manifest(widget.source);
   String get _uid => '${widget.source}:${widget.id}';
   bool get _isVideo =>
       _m?.isVideo ?? DownloadManager.instance.task(_uid)?.isVideo ?? false;
+  bool get _opensExternally => _m?.opensExternally == true;
+  bool get _isGame => _m?.isGame == true || _item.json['mediaKind'] == 'game';
 
   @override
   void initState() {
@@ -57,6 +80,7 @@ class _DetailPageState extends State<DetailPage> {
 
   /// Keeps the stored chapter list (and with it read state and library updates) in step with the site.
   Future<void> _syncChapters(WorkDetail d) async {
+    if (_opensExternally || _isGame) return;
     final chapters = _isVideo
         ? d.videoEpisodes
         : d.chapters ?? [Chapter(chapterKeyOf(d.singleChapterId), tr('全本'))];
@@ -68,7 +92,7 @@ class _DetailPageState extends State<DetailPage> {
         complete: d.chaptersComplete,
       );
     } catch (e) {
-      debugPrint('sync chapters failed: $e');
+      debugPrint(Diagnostics.error(e));
     }
   }
 
@@ -76,8 +100,6 @@ class _DetailPageState extends State<DetailPage> {
     setState(() => _error = null);
     if (widget.source == localSource) {
       // Imported files: everything is on disk, there is no site to ask.
-      await DownloadManager.instance.normalizeTask(_uid);
-      if (!mounted) return;
       final d = DownloadManager.instance.offlineDetail(
         widget.source,
         widget.id,
@@ -94,7 +116,11 @@ class _DetailPageState extends State<DetailPage> {
       return;
     }
     try {
-      final d = await SourceManager.instance.detail(widget.source, widget.id);
+      final d = await SourceManager.instance.detail(
+        widget.source,
+        widget.id,
+        preview: widget.preview,
+      );
       if (!mounted) return;
       setState(() => _detail = d);
       Library.instance.recordVisit(d.toItem());
@@ -102,8 +128,6 @@ class _DetailPageState extends State<DetailPage> {
     } catch (e) {
       if (!mounted) return;
       // Offline (or the site is down): fall back to the downloaded copy when there is one.
-      await DownloadManager.instance.normalizeTask(_uid);
-      if (!mounted) return;
       final offline = DownloadManager.instance.offlineDetail(
         widget.source,
         widget.id,
@@ -127,6 +151,10 @@ class _DetailPageState extends State<DetailPage> {
   void _read({Chapter? chapter, int page = 0}) {
     final d = _detail;
     if (d == null) return;
+    if (_opensExternally || _isGame) {
+      _openOriginal();
+      return;
+    }
     if (_isVideo) {
       Nav.openVideo(context, d, episodeId: chapter?.id);
       return;
@@ -142,8 +170,35 @@ class _DetailPageState extends State<DetailPage> {
   }
 
   void _continue() {
+    if (_isGame) {
+      final target = _resourcesKey.currentContext;
+      if (target != null) {
+        Scrollable.ensureVisible(
+          target,
+          duration: const Duration(milliseconds: 300),
+        );
+      } else if (_detail != null) {
+        showModalBottomSheet<void>(
+          context: context,
+          isScrollControlled: true,
+          builder: (_) => SafeArea(
+            child: FractionallySizedBox(
+              heightFactor: .85,
+              child: SingleChildScrollView(
+                child: GameResources(work: _detail!),
+              ),
+            ),
+          ),
+        );
+      }
+      return;
+    }
     final d = _detail;
     if (d == null) return;
+    if (_opensExternally) {
+      _openOriginal();
+      return;
+    }
     if (_isVideo) {
       Nav.openVideo(context, d);
       return;
@@ -162,7 +217,7 @@ class _DetailPageState extends State<DetailPage> {
 
   Future<void> _download() async {
     final d = _detail;
-    if (d == null) return;
+    if (d == null || _opensExternally) return;
     if (_isVideo) {
       var episodes = d.videoEpisodes;
       if (episodes.length > 1) {
@@ -197,7 +252,7 @@ class _DetailPageState extends State<DetailPage> {
 
   Future<void> _downloadVideo(List<Chapter> episodes) async {
     final d = _detail;
-    if (d == null || episodes.isEmpty) return;
+    if (d == null || episodes.isEmpty || _opensExternally) return;
     final sources = await guarded(
       context,
       widget.source,
@@ -245,39 +300,48 @@ class _DetailPageState extends State<DetailPage> {
     AppLocalizations.of(context);
     final m = _m;
     final color = m?.color ?? context.colors.primary;
-    return Theme(
-      data: ParkTheme.build(Theme.of(context).brightness, color),
-      child: Builder(
-        builder: (context) {
-          return Scaffold(
-            body: ListenableBuilder(
-              listenable: Listenable.merge([
-                Library.instance,
-                DownloadManager.instance,
-              ]),
-              builder: (context, _) => CustomScrollView(
-                slivers: [
-                  _Header(item: _item, detail: _detail, manifest: m),
-                  SliverToBoxAdapter(child: _actions(context)),
-                  if (_error != null && _detail == null)
-                    SliverFillRemaining(
-                      hasScrollBody: false,
-                      child: SourceErrorView(
-                        error: _error!,
-                        source: widget.source,
-                        onRetry: _load,
-                      ),
-                    )
-                  else if (_detail == null)
-                    const SliverToBoxAdapter(child: _BodySkeleton())
-                  else
-                    ..._body(context, _detail!),
-                  const SliverToBoxAdapter(child: SizedBox(height: 48)),
-                ],
+    return TranslationPage(
+      child: Theme(
+        data: ParkTheme.build(Theme.of(context).brightness, color),
+        child: Builder(
+          builder: (context) {
+            return Scaffold(
+              body: ListenableBuilder(
+                listenable: Listenable.merge([
+                  Library.instance,
+                  DownloadManager.instance,
+                ]),
+                builder: (context, _) => CustomScrollView(
+                  slivers: [
+                    _Header(
+                      item: _item,
+                      detail: _detail,
+                      manifest: m,
+                      coverHeroTag: widget.coverHeroTag,
+                    ),
+                    SliverToBoxAdapter(child: _actions(context)),
+                    if (_error != null && _detail == null)
+                      SliverFillRemaining(
+                        hasScrollBody: false,
+                        child: SourceErrorView(
+                          error: _error!,
+                          source: widget.source,
+                          onRetry: _load,
+                        ),
+                      )
+                    else if (_detail == null)
+                      SliverToBoxAdapter(
+                        child: _BodySkeleton(source: widget.source),
+                      )
+                    else
+                      ..._body(context, _detail!),
+                    const SliverToBoxAdapter(child: SizedBox(height: 48)),
+                  ],
+                ),
               ),
-            ),
-          );
-        },
+            );
+          },
+        ),
       ),
     );
   }
@@ -288,16 +352,32 @@ class _DetailPageState extends State<DetailPage> {
     final h = Library.instance.historyOf(_item.uid);
     final fav = Library.instance.isFavorite(_item.uid);
     final dl = DownloadManager.instance.task(_item.uid);
-    final resumeLabel = isVideo
+    final isNovel =
+        _m?.isNovel == true ||
+        dl?.isNovel == true ||
+        _item.json['mediaKind'] == 'novel';
+    final resumeLabel = _isGame
+        ? tr('查看游戏资源')
+        : _opensExternally
+        ? tr('打开原站')
+        : isVideo
         ? (h?.position != null && h!.position! > 5 ? tr('继续播放') : tr('立即播放'))
         : (h != null && h.pageCount > 0
-              ? tr('继续 {chapter}{page}/{total}', {
-                  'chapter': h.chapterTitle != null && d?.chapters != null
-                      ? '${h.chapterTitle} · '
-                      : '',
-                  'page': h.page + 1,
-                  'total': h.pageCount,
-                })
+              ? isNovel
+                    ? tr('继续阅读 · {percent}%', {
+                        'percent':
+                            ((h.page / (h.pageCount - 1).clamp(1, 1 << 31)) *
+                                    100)
+                                .clamp(0, 100)
+                                .round(),
+                      })
+                    : tr('继续 {chapter}{page}/{total}', {
+                        'chapter': h.chapterTitle != null && d?.chapters != null
+                            ? '${h.chapterTitle} · '
+                            : '',
+                        'page': h.page + 1,
+                        'total': h.pageCount,
+                      })
               : tr('开始阅读'));
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
@@ -311,9 +391,17 @@ class _DetailPageState extends State<DetailPage> {
                   borderRadius: BorderRadius.circular(14),
                 ),
               ),
-              onPressed: d == null ? null : _continue,
+              onPressed: d == null || (_opensExternally && !_canOpenOriginal)
+                  ? null
+                  : _continue,
               icon: Icon(
-                isVideo ? Icons.play_arrow_rounded : Icons.auto_stories_rounded,
+                _isGame
+                    ? Icons.sports_esports_outlined
+                    : _opensExternally
+                    ? Icons.open_in_browser_rounded
+                    : isVideo
+                    ? Icons.play_arrow_rounded
+                    : Icons.auto_stories_rounded,
               ),
               label: Text(resumeLabel, overflow: TextOverflow.ellipsis),
             ),
@@ -328,17 +416,19 @@ class _DetailPageState extends State<DetailPage> {
                 ? () => editFavoriteCategories(context, _item.uid)
                 : null,
           ),
-          const SizedBox(width: 8),
-          _SquareButton(
-            icon: dl == null
-                ? Icons.download_rounded
-                : (dl.status == DownloadStatus.done
-                      ? Icons.download_done_rounded
-                      : Icons.downloading_rounded),
-            tooltip: tr('下载'),
-            active: dl != null,
-            onPressed: d == null ? null : _download,
-          ),
+          if (!_opensExternally && !_isGame) ...[
+            const SizedBox(width: 8),
+            _SquareButton(
+              icon: dl == null
+                  ? Icons.download_rounded
+                  : (dl.status == DownloadStatus.done
+                        ? Icons.download_done_rounded
+                        : Icons.downloading_rounded),
+              tooltip: tr('下载'),
+              active: dl != null,
+              onPressed: d == null ? null : _download,
+            ),
+          ],
           const SizedBox(width: 8),
           _SquareButton(
             icon: Icons.more_horiz_rounded,
@@ -350,6 +440,29 @@ class _DetailPageState extends State<DetailPage> {
     );
   }
 
+  Uri? get _originalUri {
+    final uri = Uri.tryParse(_detail?.url ?? '');
+    return uri != null &&
+            (uri.scheme == 'https' || uri.scheme == 'http') &&
+            uri.host.isNotEmpty &&
+            uri.userInfo.isEmpty
+        ? uri
+        : null;
+  }
+
+  bool get _canOpenOriginal => _originalUri != null;
+
+  Future<void> _openOriginal() async {
+    final uri = _originalUri;
+    if (uri == null) return;
+    try {
+      final opened = await launchUrl(uri, mode: LaunchMode.externalApplication);
+      if (!opened && mounted) context.toast(tr('无法打开原站，请稍后重试'));
+    } catch (_) {
+      if (mounted) context.toast(tr('无法打开原站，请稍后重试'));
+    }
+  }
+
   Future<void> _more(BuildContext context) async {
     final d = _detail!;
     await showModalBottomSheet(
@@ -358,16 +471,13 @@ class _DetailPageState extends State<DetailPage> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            if (d.url.isNotEmpty)
+            if (_canOpenOriginal)
               ListTile(
                 leading: const Icon(Icons.open_in_browser_rounded),
                 title: Text(tr('在浏览器中打开')),
                 onTap: () {
                   Navigator.pop(ctx);
-                  launchUrl(
-                    Uri.parse(d.url),
-                    mode: LaunchMode.externalApplication,
-                  );
+                  _openOriginal();
                 },
               ),
             if (d.url.isNotEmpty)
@@ -520,7 +630,9 @@ class _DetailPageState extends State<DetailPage> {
   List<Widget> _body(BuildContext context, WorkDetail d) {
     final c = context.colors;
     final isVideo = _isVideo;
-    final chapters = isVideo && d.hasVideoEpisodes
+    final chapters = _opensExternally || _isGame
+        ? null
+        : isVideo && d.hasVideoEpisodes
         ? d.videoEpisodes
         : d.chapters;
     final blocked = TagBlocklist.current().matchDetail(d);
@@ -555,8 +667,14 @@ class _DetailPageState extends State<DetailPage> {
           ),
         ),
       if (d.description.isNotEmpty)
-        SliverToBoxAdapter(child: _Description(text: d.description)),
-      if (d.tagGroups.isNotEmpty || d.authors.isNotEmpty)
+        SliverToBoxAdapter(child: ExpandableDescription(text: d.description)),
+      if (_isGame)
+        SliverToBoxAdapter(
+          child: GameResources(key: _resourcesKey, work: d),
+        ),
+      if (d.tagGroups.isNotEmpty ||
+          d.authors.isNotEmpty ||
+          d.uploader.isNotEmpty)
         SliverToBoxAdapter(
           child: _Tags(detail: d, source: widget.source),
         ),
@@ -658,7 +776,10 @@ class _DetailPageState extends State<DetailPage> {
                             state.lastPage > 0 &&
                             state.pageCount > 0)
                           Text(
-                            '${state.lastPage + 1}/${state.pageCount}',
+                            _m?.isNovel == true ||
+                                    d.json['mediaKind'] == 'novel'
+                                ? '${((state.lastPage / (state.pageCount - 1).clamp(1, 1 << 31)) * 100).clamp(0, 100).round()}%'
+                                : '${state.lastPage + 1}/${state.pageCount}',
                             style: TextStyle(
                               fontSize: 10,
                               color: c.onSurfaceVariant,
@@ -680,6 +801,7 @@ class _DetailPageState extends State<DetailPage> {
         ),
       ],
       if (!isVideo &&
+          !_isGame &&
           (d.thumbnails.isNotEmpty || _m?.can('thumbnails') == true))
         SliverToBoxAdapter(
           child: ThumbnailSection(
@@ -758,18 +880,77 @@ class _SquareButton extends StatelessWidget {
   }
 }
 
-class _Header extends StatelessWidget {
+class _Header extends StatefulWidget {
   const _Header({
     required this.item,
     required this.detail,
     required this.manifest,
+    required this.coverHeroTag,
   });
   final WorkItem item;
   final WorkDetail? detail;
   final SourceManifest? manifest;
+  final Object? coverHeroTag;
+
+  @override
+  State<_Header> createState() => _HeaderState();
+}
+
+class _HeaderState extends State<_Header> {
+  late WorkItem _coverItem = widget.item;
+  late WorkItem _readyItem = widget.item;
+  Animation<double>? _routeAnimation;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final animation = ModalRoute.of(context)?.animation;
+    if (animation == _routeAnimation) return;
+    _routeAnimation?.removeStatusListener(_routeChanged);
+    _routeAnimation = animation;
+    animation?.addStatusListener(_routeChanged);
+  }
+
+  @override
+  void didUpdateWidget(_Header oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.item.cover == _readyItem.cover &&
+        widget.item.source == _readyItem.source) {
+      _readyItem = widget.item;
+      _applyCover();
+    }
+  }
+
+  void _routeChanged(AnimationStatus status) {
+    if (status == AnimationStatus.completed) _applyCover();
+  }
+
+  void _coverReady(WorkItem item) {
+    if (!mounted || item != widget.item || item == _readyItem) return;
+    _readyItem = item;
+    _applyCover();
+  }
+
+  void _applyCover() {
+    // 进出场期间冻结落点，防止飞行目标在详情响应到达时移动。
+    if (_routeAnimation?.isAnimating == true || _coverItem == _readyItem) {
+      return;
+    }
+    setState(() => _coverItem = _readyItem);
+  }
+
+  @override
+  void dispose() {
+    _routeAnimation?.removeStatusListener(_routeChanged);
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
+    final item = widget.item;
+    final detail = widget.detail;
+    final manifest = widget.manifest;
+    final coverHeroTag = widget.coverHeroTag;
     AppLocalizations.of(context);
     final c = context.colors;
     final isVideo =
@@ -777,9 +958,62 @@ class _Header extends StatelessWidget {
         DownloadManager.instance.task(item.uid)?.isVideo ??
         false;
     final d = detail;
+    if (manifest?.isNovel == true || item.json['mediaKind'] == 'novel') {
+      return SliverMainAxisGroup(
+        slivers: [
+          SliverAppBar(
+            pinned: true,
+            title: ContentTranslation(
+              text: item.title,
+              source: item.source,
+              builder: (value) => Text(value),
+            ),
+            actions: [TranslationControls(source: item.source)],
+          ),
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  ContentTranslation(
+                    text: item.title,
+                    source: item.source,
+                    builder: (value) => SelectableText(
+                      value,
+                      style: context.text.headlineSmall,
+                    ),
+                  ),
+                  if (item.subtitle.isNotEmpty &&
+                      item.subtitle != item.title) ...[
+                    const SizedBox(height: 8),
+                    ContentTranslation(
+                      text: item.subtitle,
+                      source: item.source,
+                      builder: (value) => SelectableText(value),
+                    ),
+                  ],
+                  const SizedBox(height: 12),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      SourceAvatar(item.source, size: 20),
+                      Text(manifest?.name ?? item.source),
+                      if (item.uploaded.isNotEmpty) Text(item.uploaded),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      );
+    }
     final top = MediaQuery.paddingOf(context).top;
-    final coverAspect = item.coverAspect ?? (isVideo ? 16 / 9 : 0.7);
+    final coverAspect = _coverItem.coverAspect ?? (isVideo ? 16 / 9 : 0.7);
     final coverWidth = coverAspect > 1 ? 200.0 : 128.0;
+    final coverSize = Size(coverWidth, coverWidth / coverAspect);
     final meta = <Widget>[
       if ((d?.pages ?? item.pages ?? 0) > 0)
         _Meta(
@@ -809,151 +1043,244 @@ class _Header extends StatelessWidget {
       if (d?.comments != null && d!.comments! > 0)
         _Meta(Icons.forum_outlined, '${d.comments}'),
     ];
-    return SliverAppBar(
-      pinned: true,
-      stretch: true,
-      expandedHeight: (coverWidth / coverAspect) + top + 70,
-      title: _CollapsingTitle(item.title),
-      flexibleSpace: LayoutBuilder(
-        builder: (context, constraints) {
-          final collapsed = constraints.maxHeight <= kToolbarHeight + top + 4;
-          return FlexibleSpaceBar(
-            collapseMode: CollapseMode.parallax,
-            stretchModes: const [StretchMode.zoomBackground],
-            background: Stack(
-              fit: StackFit.expand,
-              children: [
-                if (item.cover.isNotEmpty)
-                  ImageFiltered(
-                    imageFilter: ImageFilter.blur(sigmaX: 30, sigmaY: 30),
-                    child: Opacity(
-                      opacity: 0.45,
-                      child: CoverImage(
-                        source: item.source,
-                        url: item.cover,
-                        radius: 0,
+    return TweenAnimationBuilder<Size>(
+      tween: Tween<Size>(begin: coverSize, end: coverSize),
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeInOutCubic,
+      builder: (context, size, _) => SliverAppBar(
+        pinned: true,
+        stretch: true,
+        expandedHeight: size.height + top + 70,
+        title: ContentTranslation(
+          text: item.title,
+          source: item.source,
+          builder: (value) => _CollapsingTitle(value),
+        ),
+        actions: [
+          const DomainMenu(),
+          if (d != null &&
+              d.chapters?.isNotEmpty == true &&
+              ((manifest?.json['updateSubscriptions'] as Map?)?['dimensions']
+                          as List? ??
+                      [])
+                  .whereType<Map>()
+                  .any((v) => v['key'] == 'work'))
+            IconButton(
+              tooltip: tr('订阅作品更新'),
+              icon: const Icon(Icons.notifications_active_outlined),
+              onPressed: () async {
+                await SubscriptionStore.instance.load();
+                await SubscriptionStore.instance.add(
+                  source: item.source,
+                  target: item.id,
+                  label: item.title,
+                  dimension: 'work',
+                );
+                unawaited(SubscriptionUpdater.instance.run(force: true));
+                if (context.mounted) context.toast(tr('已添加更新订阅'));
+              },
+            ),
+          TranslationControls(source: item.source),
+        ],
+        flexibleSpace: LayoutBuilder(
+          builder: (context, constraints) {
+            final collapsed = constraints.maxHeight <= kToolbarHeight + top + 4;
+            return FlexibleSpaceBar(
+              collapseMode: CollapseMode.parallax,
+              stretchModes: const [StretchMode.zoomBackground],
+              background: Stack(
+                fit: StackFit.expand,
+                children: [
+                  if (item.cover.isNotEmpty)
+                    ImageFiltered(
+                      imageFilter: ImageFilter.blur(sigmaX: 30, sigmaY: 30),
+                      child: Opacity(
+                        opacity: 0.45,
+                        child: CoverImage(
+                          source: item.source,
+                          url: item.cover,
+                          radius: 0,
+                          title: item.title,
+                        ),
+                      ),
+                    ),
+                  DecoratedBox(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [c.surface.withValues(alpha: 0.2), c.surface],
                       ),
                     ),
                   ),
-                DecoratedBox(
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      colors: [c.surface.withValues(alpha: 0.2), c.surface],
-                    ),
-                  ),
-                ),
-                if (!collapsed)
-                  Positioned(
-                    left: 16,
-                    right: 16,
-                    bottom: 8,
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: [
-                        SizedBox(
-                          width: coverWidth,
-                          child: AspectRatio(
-                            aspectRatio: coverAspect,
-                            child: GestureDetector(
-                              onTap: isVideo && d != null
-                                  ? () => Nav.openVideo(context, d)
-                                  : null,
-                              child: Stack(
-                                fit: StackFit.expand,
-                                children: [
-                                  Hero(
-                                    tag: 'cover-${item.uid}',
-                                    child: CoverImage(
-                                      source: item.source,
-                                      url: item.cover,
-                                    ),
-                                  ),
-                                  if (isVideo)
-                                    Center(
-                                      child: Container(
-                                        decoration: const BoxDecoration(
-                                          color: Colors.black45,
-                                          shape: BoxShape.circle,
-                                        ),
-                                        padding: const EdgeInsets.all(8),
-                                        child: const Icon(
-                                          Icons.play_arrow_rounded,
-                                          color: Colors.white,
-                                          size: 34,
+                  if (!collapsed)
+                    Positioned(
+                      left: 16,
+                      right: 16,
+                      bottom: 8,
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          SizedBox(
+                            width: size.width,
+                            height: size.height,
+                            child: SizedBox.expand(
+                              child: GestureDetector(
+                                onTap: isVideo && d != null
+                                    ? () => Nav.openVideo(context, d)
+                                    : null,
+                                child: Stack(
+                                  fit: StackFit.expand,
+                                  children: [
+                                    CoverHero(
+                                      tag: coverHeroTag,
+                                      child: ClipRRect(
+                                        borderRadius: BorderRadius.circular(12),
+                                        child: AnimatedSwitcher(
+                                          duration: const Duration(
+                                            milliseconds: 300,
+                                          ),
+                                          layoutBuilder: (current, previous) =>
+                                              Stack(
+                                                fit: StackFit.expand,
+                                                children: [
+                                                  ...previous,
+                                                  ?current,
+                                                ],
+                                              ),
+                                          child: _cover(_coverItem),
                                         ),
                                       ),
                                     ),
-                                ],
+                                    if (_readyItem != item)
+                                      IgnorePointer(
+                                        child: Opacity(
+                                          opacity: 0,
+                                          child: _cover(
+                                            item,
+                                            onReady: () => _coverReady(item),
+                                          ),
+                                        ),
+                                      ),
+                                    if (isVideo)
+                                      Center(
+                                        child: Container(
+                                          decoration: const BoxDecoration(
+                                            color: Colors.black45,
+                                            shape: BoxShape.circle,
+                                          ),
+                                          padding: const EdgeInsets.all(8),
+                                          child: const Icon(
+                                            Icons.play_arrow_rounded,
+                                            color: Colors.white,
+                                            size: 34,
+                                          ),
+                                        ),
+                                      ),
+                                  ],
+                                ),
                               ),
                             ),
                           ),
-                        ),
-                        const SizedBox(width: 14),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Row(
-                                children: [
-                                  SourceAvatar(item.source, size: 20),
-                                  const SizedBox(width: 6),
-                                  Flexible(
-                                    child: Text(
-                                      manifest?.name ?? item.source,
-                                      style: context.text.labelMedium?.copyWith(
+                          const SizedBox(width: 14),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Row(
+                                  children: [
+                                    SourceAvatar(item.source, size: 20),
+                                    const SizedBox(width: 6),
+                                    Flexible(
+                                      child: Text(
+                                        manifest?.name ?? item.source,
+                                        style: context.text.labelMedium
+                                            ?.copyWith(
+                                              color: c.onSurfaceVariant,
+                                            ),
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                    if ((d?.category ?? item.category)
+                                        .isNotEmpty) ...[
+                                      const SizedBox(width: 6),
+                                      Pill(
+                                        d?.category ?? item.category,
+                                        color: item.badgeColor.isNotEmpty
+                                            ? parseHexColor(item.badgeColor)
+                                            : c.primary,
+                                      ),
+                                    ],
+                                  ],
+                                ),
+                                const SizedBox(height: 6),
+                                ContentTranslation(
+                                  text: item.title,
+                                  source: item.source,
+                                  builder: (value) => SelectableText(
+                                    value,
+                                    maxLines: 4,
+                                    style: context.text.titleMedium?.copyWith(
+                                      fontWeight: FontWeight.w800,
+                                      height: 1.3,
+                                    ),
+                                  ),
+                                ),
+                                if (item.subtitle.isNotEmpty &&
+                                    item.subtitle != item.title) ...[
+                                  const SizedBox(height: 4),
+                                  ContentTranslation(
+                                    text: item.subtitle,
+                                    source: item.source,
+                                    builder: (value) => Text(
+                                      value,
+                                      maxLines: 2,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: context.text.bodySmall?.copyWith(
                                         color: c.onSurfaceVariant,
                                       ),
-                                      overflow: TextOverflow.ellipsis,
                                     ),
                                   ),
-                                  if ((d?.category ?? item.category)
-                                      .isNotEmpty) ...[
-                                    const SizedBox(width: 6),
-                                    Pill(
-                                      d?.category ?? item.category,
-                                      color: item.badgeColor.isNotEmpty
-                                          ? parseHexColor(item.badgeColor)
-                                          : c.primary,
-                                    ),
-                                  ],
                                 ],
-                              ),
-                              const SizedBox(height: 6),
-                              SelectableText(
-                                item.title,
-                                maxLines: 4,
-                                style: context.text.titleMedium?.copyWith(
-                                  fontWeight: FontWeight.w800,
-                                  height: 1.3,
-                                ),
-                              ),
-                              if (item.subtitle.isNotEmpty &&
-                                  item.subtitle != item.title) ...[
-                                const SizedBox(height: 4),
-                                Text(
-                                  item.subtitle,
-                                  maxLines: 2,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: context.text.bodySmall?.copyWith(
-                                    color: c.onSurfaceVariant,
-                                  ),
+                                const SizedBox(height: 8),
+                                Wrap(
+                                  spacing: 10,
+                                  runSpacing: 4,
+                                  children: meta,
                                 ),
                               ],
-                              const SizedBox(height: 8),
-                              Wrap(spacing: 10, runSpacing: 4, children: meta),
-                            ],
+                            ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
-                  ),
-              ],
-            ),
-          );
-        },
+                ],
+              ),
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  Widget _cover(WorkItem item, {VoidCallback? onReady}) {
+    final aspect =
+        item.coverAspect ?? (widget.manifest?.isVideo == true ? 16 / 9 : 0.7);
+    final width = aspect > 1 ? 200.0 : 128.0;
+    return FittedBox(
+      key: ValueKey((item.source, item.cover, aspect)),
+      fit: BoxFit.cover,
+      child: SizedBox(
+        width: width,
+        height: width / aspect,
+        child: CoverImage(
+          source: item.source,
+          url: item.cover,
+          title: item.title,
+          mediaKind: item.json['mediaKind'] == 'novel' ? MediaKind.novel : null,
+          onReady: onReady,
+        ),
       ),
     );
   }
@@ -981,42 +1308,6 @@ class _Meta extends StatelessWidget {
   );
 }
 
-class _Description extends StatefulWidget {
-  const _Description({required this.text});
-  final String text;
-
-  @override
-  State<_Description> createState() => _DescriptionState();
-}
-
-class _DescriptionState extends State<_Description> {
-  bool _open = false;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(12),
-        onTap: () => setState(() => _open = !_open),
-        child: AnimatedSize(
-          duration: const Duration(milliseconds: 200),
-          alignment: Alignment.topCenter,
-          child: Text(
-            widget.text,
-            maxLines: _open ? null : 3,
-            overflow: _open ? null : TextOverflow.ellipsis,
-            style: context.text.bodyMedium?.copyWith(
-              color: context.colors.onSurfaceVariant,
-              height: 1.5,
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
 /// Tag groups by namespace. Tap searches the tag in this source; long-press copies it.
 class _Tags extends StatelessWidget {
   const _Tags({required this.detail, required this.source});
@@ -1035,7 +1326,6 @@ class _Tags extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     AppLocalizations.of(context);
-    final c = context.colors;
     final groups = [...detail.tagGroups];
     final hasAuthorGroup = groups.any(
       (g) => g.tags.any((t) => detail.authors.contains(t.name)),
@@ -1048,15 +1338,26 @@ class _Tags extends StatelessWidget {
           if (!hasAuthorGroup && detail.authors.isNotEmpty)
             _row(context, tr('作者'), [
               for (final a in detail.authors)
-                _chip(context, a, () {
-                  final s = detail.authorSearch;
-                  Nav.openSourceSearch(
-                    context,
-                    source,
-                    keyword: (s?['keyword'] ?? a).toString(),
-                    filters: (s?['filters'] as Map?)?.cast<String, Object?>(),
-                  );
-                }),
+                _chip(
+                  context,
+                  a,
+                  () {
+                    final s = detail.authorSearch;
+                    Nav.openSourceSearch(
+                      context,
+                      source,
+                      keyword: (s?['keyword'] ?? a).toString(),
+                      filters: (s?['filters'] as Map?)?.cast<String, Object?>(),
+                    );
+                  },
+                  subscriptionTag: TagRef(
+                    a,
+                    (detail.authorSearch?['keyword'] ?? a).toString(),
+                    (detail.authorSearch?['filters'] as Map? ?? {})
+                        .cast<String, dynamic>(),
+                    null,
+                  ),
+                ),
             ]),
           for (final g in groups)
             _row(context, tr(g.label), [
@@ -1067,17 +1368,11 @@ class _Tags extends StatelessWidget {
                   () => _search(context, t),
                   count: t.count,
                   namespace: g.namespace,
+                  subscriptionTag: t,
                 ),
             ]),
           if (detail.uploader.isNotEmpty)
-            _row(context, tr('上传者'), [
-              Text(
-                detail.uploader,
-                style: context.text.bodySmall?.copyWith(
-                  color: c.onSurfaceVariant,
-                ),
-              ),
-            ]),
+            MetadataTextRow(label: tr('上传者'), value: detail.uploader),
         ],
       ),
     );
@@ -1109,6 +1404,7 @@ class _Tags extends StatelessWidget {
     BuildContext context,
     String label,
     String namespace,
+    TagRef? subscriptionTag,
   ) async {
     final scoped = namespace.isEmpty ? null : '$namespace:$label';
     final action = await showModalBottomSheet<String>(
@@ -1129,6 +1425,21 @@ class _Tags extends StatelessWidget {
               onTap: () => Navigator.pop(ctx, 'copy'),
             ),
             ListTile(
+              leading: const Icon(Icons.translate),
+              title: Text(tr('翻译')),
+              onTap: () => Navigator.pop(ctx, 'translate'),
+            ),
+            if (SourceManager.instance
+                        .manifest(source)
+                        ?.can('subscriptionUpdates') ==
+                    true &&
+                subscriptionTag != null)
+              ListTile(
+                leading: const Icon(Icons.notifications_active_outlined),
+                title: Text(tr('订阅此标签更新')),
+                onTap: () => Navigator.pop(ctx, 'subscribe'),
+              ),
+            ListTile(
               leading: const Icon(Icons.block_rounded),
               title: Text(tr('屏蔽「{label}」', {'label': label})),
               onTap: () => Navigator.pop(ctx, 'block'),
@@ -1145,6 +1456,25 @@ class _Tags extends StatelessWidget {
     );
     if (!context.mounted || action == null) return;
     switch (action) {
+      case 'subscribe':
+        final tag = subscriptionTag!;
+        await SubscriptionStore.instance.load();
+        await SubscriptionStore.instance.add(
+          source: source,
+          target: jsonEncode({'keyword': tag.keyword, 'filters': tag.filters}),
+          label: label,
+          dimension: 'filter',
+        );
+        unawaited(SubscriptionUpdater.instance.run(force: true));
+        if (context.mounted) context.toast(tr('已添加更新订阅'));
+      case 'translate':
+        await showTextTranslation(
+          context,
+          label,
+          source: source,
+          namespace: namespace,
+          tag: true,
+        );
       case 'copy':
         await Clipboard.setData(ClipboardData(text: label));
         if (context.mounted) {
@@ -1164,6 +1494,7 @@ class _Tags extends StatelessWidget {
     VoidCallback onTap, {
     int? count,
     String namespace = '',
+    TagRef? subscriptionTag,
   }) {
     final c = context.colors;
     return Material(
@@ -1172,21 +1503,31 @@ class _Tags extends StatelessWidget {
       child: InkWell(
         borderRadius: BorderRadius.circular(8),
         onTap: onTap,
-        onLongPress: () => _chipMenu(context, label, namespace),
+        onLongPress: () =>
+            _chipMenu(context, label, namespace, subscriptionTag),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
-          child: Text.rich(
-            TextSpan(
-              children: [
-                TextSpan(text: label),
-                if (count != null)
-                  TextSpan(
-                    text: '  ${formatCount(count)}',
-                    style: TextStyle(color: c.onSurfaceVariant, fontSize: 10.5),
-                  ),
-              ],
+          child: ContentTranslation(
+            text: label,
+            source: source,
+            namespace: namespace,
+            tag: true,
+            builder: (value) => Text.rich(
+              TextSpan(
+                children: [
+                  TextSpan(text: value),
+                  if (count != null)
+                    TextSpan(
+                      text: '  ${formatCount(count)}',
+                      style: TextStyle(
+                        color: c.onSurfaceVariant,
+                        fontSize: 10.5,
+                      ),
+                    ),
+                ],
+              ),
+              style: context.text.labelMedium,
             ),
-            style: context.text.labelMedium,
           ),
         ),
       ),
@@ -1195,7 +1536,8 @@ class _Tags extends StatelessWidget {
 }
 
 class _BodySkeleton extends StatelessWidget {
-  const _BodySkeleton();
+  const _BodySkeleton({required this.source});
+  final String source;
 
   @override
   Widget build(BuildContext context) => Padding(
@@ -1207,6 +1549,7 @@ class _BodySkeleton extends StatelessWidget {
           label: context.tr('正在加载详情…'),
           padding: const EdgeInsets.only(bottom: 20),
         ),
+        SourceNetworkHint(source: source),
         const Skeleton(height: 14, radius: 4),
         const SizedBox(height: 8),
         const Skeleton(height: 14, width: 220, radius: 4),
