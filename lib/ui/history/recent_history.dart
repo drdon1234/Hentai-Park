@@ -1,18 +1,25 @@
 import 'package:flutter/material.dart';
 
 import '../../core/localization.dart';
+import '../../core/content_scope.dart';
 import '../../library/library.dart';
 import '../theme.dart';
 import '../widgets/work_card.dart';
 
-/// 全站记录始终横向单行，小说/视频与漫画共用相同海报比例。
+/// 所选范围的记录横向单行，小说/视频与漫画共用相同海报比例。
 class RecentHistory extends StatelessWidget {
-  const RecentHistory({super.key, this.onOpenHistory, this.limit});
+  const RecentHistory({
+    super.key,
+    this.onOpenHistory,
+    this.limit,
+    this.scope = const ContentScope.all(),
+  });
+  final ContentScope scope;
   final VoidCallback? onOpenHistory;
   final int? limit;
   @override
   Widget build(BuildContext context) {
-    final entries = Library.instance.history();
+    final entries = Library.instance.history(scope: scope);
     final recent = limit == null ? entries : entries.take(limit!).toList();
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,

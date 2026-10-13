@@ -1,17 +1,17 @@
 /* 91 短剧：稳定编号为 分类/作品编号，详情页提供当前规范链接与完整选集。 */
 Park.register({
-  key: 'drama91', name: '91短剧', version: '0.0.3',
+  key: 'drama91', name: '91短剧', version: '0.0.4',
   type: 'video', category: 'aiDrama', color: '#E6C87A',
   description: 'AI短剧、漫剧与视频，支持推荐、分类、搜索和分集播放',
   homepage: 'https://91crdjai.com', domains: ['91crdjai.com'], language: 'zh',
   linkPatterns: ['91crdjai\\.com/((?:duanju|manju|zhenrenju|shipin)/[1-9]\\d*)(?:-[^/?#]+)?(?:/|[?#]|$)'],
   idPattern: '^((?:duanju|manju|zhenrenju|shipin)/[1-9]\\d*)$',
   imageHeaders: { Referer: 'https://91crdjai.com/' },
-  imageDecrypt: { type: 'aes-cbc', key: 'f5d965df75336270', iv: '97b60394abc2fbe1', domains: ['pic.wirqed.cn'] },
+  imageDecrypt: { type: 'aes-cbc', key: 'f5d965df75336270', iv: '97b60394abc2fbe1', domains: ['pic.drleao.cn'] },
   network: { mode: 'native', vpnHint: true },
   media: { mode: 'native', origin: 'https://91crdjai.com', domains: [
-    'yd-hls.tktjpm.cn', 'tp1.wirqed.cn', 'tp2.wirqed.cn', 'tp3.wirqed.cn',
-    'tp4.wirqed.cn', 'tp5.wirqed.cn', 'tp6.wirqed.cn', 'tp7.wirqed.cn', 'tp8.wirqed.cn',
+    'yd-hls.hzjvlo.cn', 'tp1.drleao.cn', 'tp2.drleao.cn', 'tp3.drleao.cn',
+    'tp4.drleao.cn', 'tp5.drleao.cn', 'tp6.drleao.cn', 'tp7.drleao.cn', 'tp8.drleao.cn',
   ] },
   defaultFeed: 'recommend',
   feeds: [

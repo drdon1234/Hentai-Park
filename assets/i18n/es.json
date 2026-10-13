@@ -1564,5 +1564,16 @@
   "已复制到新的源；未匹配的进度保留在原收藏中": "Copiado a la nueva fuente; el progreso sin correspondencia permanece en el favorito original",
   "当前筛选下没有帖子或媒体": "No hay publicaciones ni medios que coincidan con los filtros",
   "本页没有匹配的内容，可继续加载": "No hay contenido coincidente en esta página; puedes cargar más",
-  "可插拔的多源站漫画、图集、视频、小说与游戏客户端。内容来自第三方站点，仅限成年人在合法地区使用。": "Cliente de múltiples fuentes para cómics, galerías, vídeos, novelas y juegos. El contenido procede de sitios de terceros y está destinado a adultos donde su uso sea legal."
+  "可插拔的多源站漫画、图集、视频、小说与游戏客户端。内容来自第三方站点，仅限成年人在合法地区使用。": "Cliente de múltiples fuentes para cómics, galerías, vídeos, novelas y juegos. El contenido procede de sitios de terceros y está destinado a adultos donde su uso sea legal.",
+  "重新随机选择封面": "Elegir otra portada aleatoria",
+  "海报更新失败，请重试": "No se pudo actualizar la portada. Reinténtalo",
+  "未找到可用海报，请进入站点完成验证或登录后重试": "No hay una portada disponible. Abre el sitio, verifica o inicia sesión y reinténtalo",
+  "请在页面中登录；已看到账号或正常资源页时，可点击完成重新检查登录状态": "Inicia sesión aquí. Cuando aparezca tu cuenta o los recursos, pulsa Listo para comprobar la sesión",
+  "尚未识别到登录，请确认网页显示账号后点击完成；如有验证提示，请先完成验证": "No se detectó la sesión. Cuando se muestre tu cuenta, pulsa Listo. Completa antes cualquier verificación",
+  "GalgameX 账号": "Cuenta de GalgameX",
+  "该游戏需要登录，请在应用内登录 GalgameX 后重试": "Este juego requiere iniciar sesión. Accede a GalgameX desde la app y reinténtalo",
+  "部分游戏需要登录；打开网页后点击右上角账号按钮登录，完成后返回重试。Cookie 仅保存在本机。": "Algunos juegos requieren iniciar sesión. Usa el botón de cuenta arriba a la derecha y vuelve a intentarlo. Las cookies solo se guardan en este dispositivo.",
+  "若已看到正常页面，请点击完成；如资源仍被隐藏，请在原帖或回复页完成验证与回复，再返回重试": "Si ves la página normal, pulsa Listo. Si los recursos siguen ocultos, completa la verificación y responde en el hilo o página de respuesta; luego reinténtalo",
+  "在打开的网页中登录，看到账号或退出按钮后点击完成；若已是正常资源页，无需寻找人机验证。点击回复解锁会发送“感谢分享，好人一生平安”": "Inicia sesión y pulsa Listo cuando aparezca tu cuenta o el botón de salir. Una página normal de recursos no requiere otra verificación. Desbloquear mediante respuesta envía “感谢分享，好人一生平安”.",
+  "请在回复页完成验证并手动回复，返回后重试读取资源": "Completa la verificación y responde manualmente en la página de respuesta; vuelve y carga los recursos de nuevo"
 }

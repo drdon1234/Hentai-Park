@@ -82,18 +82,18 @@
   }
 
   Park.register({
-    key: 'cycg', name: '次元茶馆', version: '0.0.1', type: 'game', category: 'game', language: 'zh', color: '#BD916B',
+    key: 'cycg', name: '次元茶馆', version: '0.0.2', type: 'game', category: 'game', language: 'zh', color: '#BD916B',
     homepage: BASE, domains: ['cycg.xyz'], icon: BASE + '/favicon.ico',
     description: '社区游戏分享，登录后按需回复解锁网盘资源',
     network: {mode: 'browser', origin: BASE, vpnHint: true,
-      confirmation: {readySelector: '.showhide,.slst li.pbw', message: '请在原帖完成验证或检查回复结果，解锁后返回重试'}},
+      confirmation: {readySelector: '#ct,#threadlisttableid,#postlist,#thread_subject,.showhide,.slst li.pbw', message: '若已看到正常页面，请点击完成；如资源仍被隐藏，请在原帖或回复页完成验证与回复，再返回重试'}},
     imageHeaders: {Referer: BASE + '/'},
     linkPatterns: ['https?://(?:www\\.)?cycg\\.xyz/thread-(\\d+)-', 'https?://(?:www\\.)?cycg\\.xyz/forum\\.php\\?mod=viewthread&tid=(\\d+)'],
     idPattern: '^(\\d+)$', idExample: '20602',
     defaultFeed: 'popular', feeds: [{key: 'popular', label: '热门'}, {key: 'latest', label: '最新'}],
     account: {
       type: 'cookies', title: '次元茶馆账号', required: false,
-      hint: '在应用内登录；点击回复解锁会发送“感谢分享，好人一生平安”',
+      hint: '在打开的网页中登录，看到账号或退出按钮后点击完成；若已是正常资源页，无需寻找人机验证。点击回复解锁会发送“感谢分享，好人一生平安”',
       loginUrl: BASE + '/member.php?mod=logging&action=login', cookieUrl: BASE + '/', requiredCookies: [],
       fields: [{key: 'cookie', label: 'Cookie', secret: true}],
       async login(values) {
@@ -141,7 +141,7 @@
       }
       return output;
     },
-    async feed({key, page = 1}) {
+    async feed(key, {page = 1} = {}) {
       page = Math.max(1, Number(page) || 1);
       const url = BASE + '/forum.php?mod=forumdisplay&fid=2&page=' + page + (key === 'latest' ? '&orderby=dateline' : '&filter=heat&orderby=heats');
       const doc = await this.page(url), table = doc.querySelector('#threadlisttableid');
@@ -155,7 +155,7 @@
       return {items: await this.hydrate(rows), page, hasNext: !!doc.querySelector('.pg .nxt')};
     },
     async search({keyword, page = 1, cursor}) {
-      if (!String(keyword || '').trim()) return this.feed({key: 'popular', page});
+      if (!String(keyword || '').trim()) return this.feed('popular', {page});
       let doc;
       if (cursor) {
         const u = sameSite(cursor);
@@ -241,8 +241,9 @@
         const attemptKey = accountId + ':' + id;
         if (attempts[attemptKey]) throw confirm();
         const replyUrl = BASE + '/forum.php?mod=post&action=reply&fid=2&tid=' + id;
+        const verifyReply = () => Park.error('CONFIRM_REQUIRED', '请在回复页完成验证并手动回复，返回后重试读取资源', {url: replyUrl});
         const reply = await this.page(replyUrl), form = reply.querySelector('#postform');
-        if (!form) throw confirm();
+        if (!form) throw verifyReply();
         const action = sameSite(form.getAttribute('action'));
         if (action.pathname !== '/forum.php' || action.searchParams.get('mod') !== 'post' || action.searchParams.get('action') !== 'reply' || action.searchParams.get('tid') !== id || action.searchParams.get('fid') !== '2') throw Park.error('PARSE', '站点表单地址无效');
         const values = {};
@@ -250,17 +251,17 @@
           const input = form.querySelector(`[name="${name}"]`);
           if (input) values[name] = input.getAttribute('value') || '';
         }
-        if (!values.formhash) throw confirm();
+        if (!values.formhash) throw verifyReply();
         const question = form.querySelector('[name^="secanswer"]');
         const scripts = Array.from(reply.querySelectorAll('script')).map(s => s.textContent || '').join('\n');
-        if (form.querySelector('[name^="seccode"]') || /(?:seccodecheck|secqaacheck)\s*=\s*(?:parseInt\(['"]1['"]\)|1)/.test(scripts) && !question) throw confirm();
+        if (form.querySelector('[name^="seccode"]') || /(?:seccodecheck|secqaacheck)\s*=\s*(?:parseInt\(['"]1['"]\)|1)/.test(scripts) && !question) throw verifyReply();
         if (question) {
           const context = text(question.parentNode);
           const m = /(?:^|\s)(\d{1,3})\s*([+\-×*÷/])\s*(\d{1,3})\s*=\s*\?/.exec(context);
-          if (!m) throw confirm();
+          if (!m) throw verifyReply();
           const a = Number(m[1]), b = Number(m[3]), op = m[2];
           const answer = op === '+' ? a + b : op === '-' ? a - b : /[×*]/.test(op) ? a * b : b ? a / b : NaN;
-          if (!Number.isInteger(answer)) throw confirm();
+          if (!Number.isInteger(answer)) throw verifyReply();
           values[question.getAttribute('name')] = String(answer);
           for (const input of form.querySelectorAll('input[type="hidden"][name^="sec"]')) values[input.getAttribute('name')] = input.getAttribute('value') || '';
         }

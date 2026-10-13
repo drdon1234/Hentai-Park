@@ -6,6 +6,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 
 import '../../core/localization.dart';
+import '../../core/models.dart';
 import '../../core/settings.dart';
 import '../../engine/source_manager.dart';
 import '../../images/source_posters.dart';
@@ -22,8 +23,8 @@ class SourcePoster extends StatefulWidget {
 }
 
 class _SourcePosterState extends State<SourcePoster> {
-  List<String> _urls = [];
   Uint8List? _local;
+  int _revision = 0;
   int _generation = 0;
   bool _visible = false;
   String get _identity => AutomaticPosters.instance.identity(widget.source);
@@ -32,11 +33,14 @@ class _SourcePosterState extends State<SourcePoster> {
   void initState() {
     super.initState();
     _previousIdentity = _identity;
+    _revision = SourcePosterStore.instance.revision(widget.source.key);
     SourcePosterStore.instance.addListener(_changed);
   }
 
   void _changed() {
-    AutomaticPosters.instance.refresh(widget.source.key);
+    final revision = SourcePosterStore.instance.revision(widget.source.key);
+    if (revision == _revision) return;
+    _revision = revision;
     if (_visible) unawaited(_load());
   }
 
@@ -45,7 +49,7 @@ class _SourcePosterState extends State<SourcePoster> {
     super.didUpdateWidget(oldWidget);
     if (_identity != _previousIdentity) {
       _previousIdentity = _identity;
-      _urls = [];
+      _local = null;
       if (_visible) unawaited(_load());
     }
   }
@@ -53,18 +57,13 @@ class _SourcePosterState extends State<SourcePoster> {
   Future<void> _load() async {
     _visible = true;
     final generation = ++_generation;
-    final file = SourcePosterStore.instance.localFile(widget.source.key);
     Uint8List? local;
     try {
-      if (await file.exists()) local = await file.readAsBytes();
+      local = await AutomaticPosters.instance.image(widget.source);
     } catch (_) {}
-    final urls = local != null
-        ? <String>[]
-        : await AutomaticPosters.instance.load(widget.source);
     if (mounted && generation == _generation) {
       setState(() {
         _local = local;
-        _urls = urls;
       });
     }
   }
@@ -113,20 +112,6 @@ class _SourcePosterState extends State<SourcePoster> {
               ),
             ),
             ?localImage,
-            if (local == null && _urls.isNotEmpty)
-              Row(
-                children: [
-                  for (final url in _urls)
-                    Expanded(
-                      child: CoverImage(
-                        key: ValueKey('$url:$_generation'),
-                        source: widget.source.key,
-                        url: url,
-                        radius: 0,
-                      ),
-                    ),
-                ],
-              ),
             DecoratedBox(
               decoration: BoxDecoration(
                 gradient: LinearGradient(
@@ -178,8 +163,12 @@ class _SourcePosterMenuState extends State<SourcePosterMenu> {
     if (_busy) return;
     setState(() => _busy = true);
     try {
-      if (action == 'automatic') {
-        await SourcePosterStore.instance.useAutomatic(widget.source);
+      if (action == 'automatic' || action == 'random') {
+        final source = SourceManager.instance.all
+            .where((s) => s.key == widget.source)
+            .firstOrNull;
+        if (source == null) return;
+        await AutomaticPosters.instance.randomize(source);
       } else {
         final result = await FilePicker.pickFile(type: FileType.image);
         if (result == null) return;
@@ -189,8 +178,16 @@ class _SourcePosterMenuState extends State<SourcePosterMenu> {
         final bytes = await result.xFile.readAsBytes();
         await SourcePosterStore.instance.importImage(widget.source, bytes);
       }
-    } catch (_) {
-      if (mounted) context.toast(tr('海报更新失败，请选择可解码且不超过20MB的图片'));
+    } catch (e) {
+      if (mounted) {
+        context.toast(
+          action == 'upload'
+              ? tr('海报更新失败，请选择可解码且不超过20MB的图片')
+              : e is SourceError
+              ? e.friendly
+              : tr('海报更新失败，请重试'),
+        );
+      }
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -213,6 +210,7 @@ class _SourcePosterMenuState extends State<SourcePosterMenu> {
           itemBuilder: (_) => [
             PopupMenuItem(value: 'upload', child: Text(tr('上传海报'))),
             PopupMenuItem(value: 'automatic', child: Text(tr('自动获取海报'))),
+            PopupMenuItem(value: 'random', child: Text(tr('重新随机选择封面'))),
           ],
         );
 }

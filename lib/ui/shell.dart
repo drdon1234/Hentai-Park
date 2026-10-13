@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../core/settings.dart';
+import '../core/content_scope.dart';
 import '../library/backup.dart';
 import '../library/updater.dart';
 import 'history/history_page.dart';
@@ -37,6 +38,8 @@ class _ShellState extends State<Shell> {
   int _index = 0;
   final _visited = <int>{0};
   final _discovery = ValueNotifier(const DiscoveryDestination.all());
+  ContentScope _historyScope = const ContentScope.all();
+  int _historyOpenRequest = 0;
   DateTime? _lastBack;
   late final AppLifecycleListener _lifecycle;
   StreamSubscription<String>? _taps;
@@ -188,10 +191,17 @@ class _ShellState extends State<Shell> {
   }
 
   Widget _page(int i) => switch (i) {
-    0 => HomePage(destination: _discovery, onOpenHistory: () => _select(3)),
+    0 => HomePage(
+      destination: _discovery,
+      onOpenHistory: (scope) {
+        _historyScope = scope;
+        _historyOpenRequest++;
+        _select(3);
+      },
+    ),
     1 => const LibraryPage(),
     2 => const UpdatesPage(),
-    3 => const HistoryPage(),
+    3 => HistoryPage(scope: _historyScope, openRequest: _historyOpenRequest),
     _ => const SettingsPage(),
   };
 

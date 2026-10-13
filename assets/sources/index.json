@@ -176,7 +176,7 @@
     {
       "key": "ixxx",
       "name": "iXXX",
-      "version": "0.0.3",
+      "version": "0.0.4",
       "type": "video",
       "category": "adult",
       "file": "ixxx.js",
@@ -221,7 +221,7 @@
     {
       "key": "huangguo",
       "name": "黄果短剧",
-      "version": "0.0.4",
+      "version": "0.0.5",
       "type": "video",
       "category": "aiDrama",
       "file": "huangguo.js",
@@ -230,7 +230,7 @@
     {
       "key": "drama91",
       "name": "91短剧",
-      "version": "0.0.3",
+      "version": "0.0.4",
       "type": "video",
       "category": "aiDrama",
       "file": "drama91.js",
@@ -239,7 +239,7 @@
     {
       "key": "huangdou",
       "name": "黄豆短剧",
-      "version": "0.0.3",
+      "version": "0.0.4",
       "type": "video",
       "category": "aiDrama",
       "file": "huangdou.js",
@@ -302,7 +302,7 @@
     {
       "key": "galgamex",
       "name": "GalgameX",
-      "version": "0.0.3",
+      "version": "0.0.4",
       "type": "game",
       "category": "game",
       "file": "galgamex.js",
@@ -320,7 +320,7 @@
     {
       "key": "cycg",
       "name": "次元茶馆",
-      "version": "0.0.1",
+      "version": "0.0.2",
       "type": "game",
       "category": "game",
       "file": "cycg.js",

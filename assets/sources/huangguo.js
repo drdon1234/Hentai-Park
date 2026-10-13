@@ -6,7 +6,7 @@
 Park.register({
   key: 'huangguo',
   name: '黄果短剧',
-  version: '0.0.4',
+  version: '0.0.5',
   type: 'video',
   category: 'aiDrama',
   color: '#F2AD24',
@@ -19,14 +19,14 @@ Park.register({
   imageHeaders: { Referer: 'https://huangguoai.com/' },
   imageDecrypt: {
     type: 'aes-cbc', key: 'f5d965df75336270', iv: '97b60394abc2fbe1',
-    domains: ['pic.wirqed.cn'],
+    domains: ['pic.drleao.cn'],
   },
   network: { mode: 'native' },
   media: {
     mode: 'native', origin: 'https://huangguoai.com',
     domains: [
-      'yd-hls.tktjpm.cn', 'tp1.wirqed.cn', 'tp2.wirqed.cn', 'tp3.wirqed.cn',
-      'tp4.wirqed.cn', 'tp5.wirqed.cn', 'tp6.wirqed.cn', 'tp7.wirqed.cn', 'tp8.wirqed.cn',
+      'yd-hls.hzjvlo.cn', 'tp1.drleao.cn', 'tp2.drleao.cn', 'tp3.drleao.cn',
+      'tp4.drleao.cn', 'tp5.drleao.cn', 'tp6.drleao.cn', 'tp7.drleao.cn', 'tp8.drleao.cn',
     ],
   },
   defaultFeed: 'recommend',

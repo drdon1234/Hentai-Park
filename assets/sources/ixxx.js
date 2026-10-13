@@ -1,10 +1,10 @@
 /* 只解析聚合索引，不带源 Cookie 请求外部作品或执行远端脚本。 */
 Park.register({
-  key: 'ixxx', name: 'iXXX', version: '0.0.3', type: 'video', category: 'adult', color: '#F97316',
+  key: 'ixxx', name: 'iXXX', version: '0.0.4', type: 'video', category: 'adult', color: '#F97316',
   description: '综合成人视频搜索，支持排行、分页与原站打开',
   homepage: 'https://www.ixxx.com', domains: ['ixxx.com', 'ttcache.com'], language: 'en',
-  network: {mode: 'native', vpnHint: true, confirmation: {
-    selector: '#splash-page[open], #age-verification', readySelector: 'a.item-link[href]',
+  network: {mode: 'browser', origin: 'https://www.ixxx.com', vpnHint: true, confirmation: {
+    selector: '#splash-page[open], #age-verification[open], #age-verification:not(dialog)', readySelector: 'a.item-link[href]',
     requiredCookies: ['splashPageAccepted'],
     message: '请在站点页面中完成年龄确认后继续',
   }}, imageHeaders: {Referer: 'https://www.ixxx.com/'},
@@ -53,7 +53,7 @@ Park.register({
     const doc = Park.html.parse(r.body);
     if (doc.querySelector(this.network.confirmation.selector)) {
       const cookies = await this.cookies.get(this.BASE + '/');
-      if (!cookies.splashPageAccepted || doc.querySelector('#age-verification')) {
+      if (!cookies.splashPageAccepted || doc.querySelector('#age-verification[open], #age-verification:not(dialog)')) {
         throw Park.error('CONFIRM_REQUIRED', '请在站点页面中完成年龄确认后继续', {url: r.url || url});
       }
     }

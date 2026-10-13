@@ -1564,5 +1564,16 @@
   "已复制到新的源；未匹配的进度保留在原收藏中": "Copied to the new source; unmatched progress remains in the original favorite",
   "当前筛选下没有帖子或媒体": "No posts or media match the current filters",
   "本页没有匹配的内容，可继续加载": "No matching content on this page; you can load more",
-  "可插拔的多源站漫画、图集、视频、小说与游戏客户端。内容来自第三方站点，仅限成年人在合法地区使用。": "A pluggable multi-source client for comics, galleries, videos, novels and games. Content comes from third-party sites, for adults in regions where use is legal."
+  "可插拔的多源站漫画、图集、视频、小说与游戏客户端。内容来自第三方站点，仅限成年人在合法地区使用。": "A pluggable multi-source client for comics, galleries, videos, novels and games. Content comes from third-party sites, for adults in regions where use is legal.",
+  "重新随机选择封面": "Choose another random cover",
+  "海报更新失败，请重试": "Cover update failed. Please retry",
+  "未找到可用海报，请进入站点完成验证或登录后重试": "No usable cover found. Open the site, complete verification or sign in, then retry",
+  "请在页面中登录；已看到账号或正常资源页时，可点击完成重新检查登录状态": "Sign in on this page. When your account or the resource page appears, tap Done to check your login",
+  "尚未识别到登录，请确认网页显示账号后点击完成；如有验证提示，请先完成验证": "Login not detected yet. Once the page shows your account, tap Done. Complete any verification first",
+  "GalgameX 账号": "GalgameX account",
+  "该游戏需要登录，请在应用内登录 GalgameX 后重试": "This game requires sign-in. Sign in to GalgameX within the app, then retry",
+  "部分游戏需要登录；打开网页后点击右上角账号按钮登录，完成后返回重试。Cookie 仅保存在本机。": "Some games require sign-in. Open the page and use the account button at the top right, then return and retry. Cookies stay on this device.",
+  "若已看到正常页面，请点击完成；如资源仍被隐藏，请在原帖或回复页完成验证与回复，再返回重试": "If the normal page is visible, tap Done. If resources are still hidden, complete verification and reply in the original thread or reply page, then retry",
+  "在打开的网页中登录，看到账号或退出按钮后点击完成；若已是正常资源页，无需寻找人机验证。点击回复解锁会发送“感谢分享，好人一生平安”": "Sign in on the opened page and tap Done when your account or a logout button appears. A normal resource page needs no extra challenge. Reply to unlock sends “感谢分享，好人一生平安”.",
+  "请在回复页完成验证并手动回复，返回后重试读取资源": "Complete verification and reply manually on the reply page, then return and retry loading resources"
 }

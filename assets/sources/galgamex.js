@@ -2,6 +2,7 @@
 (function () {
   const BASE = 'https://www.galgamex.net';
   const fail = () => Park.error('PARSE', '游戏站点返回的数据无效');
+  const loginRequired = () => Park.error('LOGIN_REQUIRED', '该游戏需要登录，请在应用内登录 GalgameX 后重试');
   const idOf = value => { const id = String(value); if (!/^[a-z0-9]{8}$/.test(id)) throw fail(); return id; };
   const flight = html => [...html.matchAll(/self\.__next_f\.push\(\[1,("(?:[^"\\]|\\.)*")\]\)/g)].map(m => JSON.parse(m[1])).join('');
   // Flight records may contain length-prefixed text with embedded newlines.
@@ -48,7 +49,7 @@
     return parsed.origin + (parsed.hostname === 'game.galgamex.com' || parsed.hostname === 'pan.baidu.com' ? '/' + tail : parsed.pathname);
   };
   Park.register({
-    key: 'galgamex', name: 'GalgameX', version: '0.0.3', type: 'game', category: 'game', color: '#E984AE',
+    key: 'galgamex', name: 'GalgameX', version: '0.0.4', type: 'game', category: 'game', color: '#E984AE',
     description: '游戏目录、版本资源与直链和网盘渠道', homepage: BASE, language: 'chinese',
     domains: ['galgamex.net', 'imgs.galgamex.win', 'shared.fastly.steamstatic.com', 'cdn.akamai.steamstatic.com'],
     media: { mode: 'native', origin: BASE, domains: ['game.galgamex.com'] },
@@ -56,6 +57,35 @@
     linkPatterns: ['https?://(?:www\\.)?galgamex\\.net/game/([a-z0-9]{8})'], idPattern: '^([a-z0-9]{8})$', idExample: '9476825d',
     defaultFeed: 'ranking', feeds: [{ key: 'ranking', label: '本周热门' }, { key: 'latest', label: '资源更新' }],
     settings: [{ key: 'nsfw', type: 'switch', label: '显示 NSFW 内容', default: true }],
+    account: {
+      type: 'cookies', title: 'GalgameX 账号', required: false,
+      hint: '部分游戏需要登录；打开网页后点击右上角账号按钮登录，完成后返回重试。Cookie 仅保存在本机。',
+      loginUrl: BASE, cookieUrl: BASE + '/', requiredCookies: [],
+      fields: [{key: 'cookie', label: 'Cookie', secret: true}],
+      async login(values) {
+        const cookies = {};
+        if (values.cookie) {
+          for (const part of String(values.cookie).split(';')) {
+            const at = part.indexOf('=');
+            if (at > 0) cookies[part.slice(0, at).trim()] = part.slice(at + 1).trim();
+          }
+        } else Object.assign(cookies, values);
+        const safe = {};
+        for (const [key, value] of Object.entries(cookies)) {
+          if (/^[A-Za-z0-9_.-]{1,100}$/.test(key) && typeof value === 'string' && !/[\r\n;]/.test(value)) safe[key] = value;
+        }
+        if (!Object.keys(safe).length) throw loginRequired();
+        await this.cookies.set(BASE + '/', safe);
+        const session = await this.http.json(BASE + '/api/auth/get-session');
+        if (!session?.user?.id) throw loginRequired();
+        return {name: session.user.name || 'GalgameX'};
+      },
+      async logout() { await this.cookies.clear(BASE + '/'); },
+      async status() {
+        const session = await this.http.json(BASE + '/api/auth/get-session');
+        return {loggedIn: !!session?.user?.id, name: session?.user?.name || ''};
+      },
+    },
     async init() { this.actionCache = null; this.gameIds = new Map(); },
     async filter() {
       await this.http.json(BASE + '/api/content-filter', { method: 'POST', json: { value: this.config.nsfw ? 'all' : 'sfw' } });
@@ -89,7 +119,7 @@
       return { items: value.games.map(item), page: args.pageIndex, total: value.total,
         hasNext: args.pageIndex * args.limit < value.total };
     },
-    async feed({ key, page = 1 }) {
+    async feed(key, { page = 1 } = {}) {
       if (key === 'ranking') {
         if (page > 1) return { items: [], page, hasNext: false };
         const games = field(flight(await this.page('/games/ranking')), 'weekly');
@@ -103,7 +133,9 @@
     },
     async detail(id) {
       id = idOf(id);
-      const g = field(flight(await this.page('/game/' + id)), 'game');
+      const html = await this.page('/game/' + id);
+      if (/该内容需要登录后才可以访问|此游戏包含\s*NSFW\s*内容，请登录后查看/.test(Park.html.strip(html))) throw loginRequired();
+      const g = field(flight(html), 'game');
       if (!g || g.uniqueId !== id || !Number.isInteger(g.id)) throw fail();
       this.gameIds.set(id, g.id);
       return { ...item(g), url: BASE + '/game/' + id,
@@ -114,9 +146,15 @@
     async resources(id) {
       id = idOf(id);
       if (!this.gameIds.has(id)) await this.detail(id);
-      const data = await this.http.json(BASE + '/api/game/resources', { params: { gameId: this.gameIds.get(id), status: 'approved' } });
+      const data = await this.resourceJson('/api/game/resources', { params: { gameId: this.gameIds.get(id), status: 'approved' } });
       if (!Array.isArray(data?.data?.resources)) throw fail();
       return data.data.resources;
+    },
+    async resourceJson(path, options = {}) {
+      const response = await this.http.request({url: BASE + path, ...options});
+      if (response.status === 401 || response.status === 403) throw loginRequired();
+      this.http.ensureOk(response);
+      return response.json();
     },
     async gameResources(id) {
       return Promise.all((await this.resources(id)).map(async r => ({ id: String(r.id), title: r.name || '', version: r.version || '', size: r.size || '',
@@ -141,7 +179,7 @@
       if (index < 0) throw fail();
       const original = channel(resource.urls?.[index], index);
       if (!original) throw fail();
-      const result = await this.http.json(BASE + '/api/game/resource/' + encodeURIComponent(resourceId) + '/download', { method: 'POST' });
+      const result = await this.resourceJson('/api/game/resource/' + encodeURIComponent(resourceId) + '/download', { method: 'POST' });
       const resolved = result?.data?.resource;
       if (!Array.isArray(resolved?.urls) || !resolved.urls.length) throw Park.error('LOGIN_REQUIRED', '无法获取游戏资源，请在原站检查权限');
       const identity = linkIdentity(resource.urls[index]);

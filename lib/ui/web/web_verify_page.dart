@@ -98,7 +98,7 @@ class _WebVerifyPageState extends State<WebVerifyPage> {
         ? (_confirmation['message']?.toString() ?? '请在站点页面中完成确认后继续')
         : widget._mode == _Mode.cloudflare
         ? '正在打开站点，验证通常会自动完成；如出现勾选框请点一下'
-        : '请在页面中登录，登录成功后会自动返回';
+        : '请在页面中登录；已看到账号或正常资源页时，可点击完成重新检查登录状态';
     _poll = Timer.periodic(const Duration(milliseconds: 1500), (_) => _check());
   }
 
@@ -117,17 +117,19 @@ class _WebVerifyPageState extends State<WebVerifyPage> {
     _checking = true;
     try {
       if (!_allowed((await c.getUrl())?.toString())) return;
+      final generation = _navigationGeneration;
+      if (_loading || _progress < 1 || _browserFailed) return;
+      final title = await c.getTitle() ?? '';
+      final html =
+          '${await c.evaluateJavascript(source: "document.documentElement ? document.documentElement.outerHTML.slice(0, 4000) : ''") ?? ''}';
+      if (_loading ||
+          generation != _navigationGeneration ||
+          hasChallengeMarkers(html, title: title) ||
+          html.length <= 200) {
+        return;
+      }
       if (widget._mode != _Mode.login) {
-        final generation = _navigationGeneration;
-        final title = await c.getTitle() ?? '';
-        final html =
-            '${await c.evaluateJavascript(source: "document.documentElement ? document.documentElement.outerHTML.slice(0, 4000) : ''") ?? ''}';
-        final challenged = hasChallengeMarkers(html, title: title);
-        if (!challenged &&
-            !_loading &&
-            _progress >= 1 &&
-            html.length > 200 &&
-            await _confirmationReady()) {
+        if (await _confirmationReady()) {
           if (generation == _navigationGeneration) await _finish();
         }
       } else {
@@ -141,15 +143,43 @@ class _WebVerifyPageState extends State<WebVerifyPage> {
           uri,
           partition: widget.source,
         );
-        if (_sessionClosed || !mounted) return;
-        if (m.requiredCookies.every((k) => (values[k] ?? '').isNotEmpty)) {
+        if (_sessionClosed ||
+            !mounted ||
+            _loading ||
+            generation != _navigationGeneration) {
+          return;
+        }
+        if (values.isNotEmpty &&
+            m.requiredCookies.every((k) => (values[k] ?? '').isNotEmpty)) {
           _done = true;
           try {
+            final ua = await c.evaluateJavascript(
+              source: 'navigator.userAgent',
+            );
+            if (ua is String && ua.isNotEmpty) {
+              HttpService.instance.userAgent = ua;
+            }
+            await BrowserFetcher.instance.reset(widget.url);
+            if (_sessionClosed ||
+                _loading ||
+                generation != _navigationGeneration) {
+              _done = false;
+              return;
+            }
             await SourceManager.instance.login(widget.source, values);
-            if (mounted) Navigator.pop(context, true);
-          } catch (e) {
+            if (mounted &&
+                !_sessionClosed &&
+                !_loading &&
+                generation == _navigationGeneration) {
+              Navigator.pop(context, true);
+            } else {
+              _done = false;
+            }
+          } catch (_) {
             _done = false;
-            if (mounted) setState(() => _status = '登录信息无效：$e');
+            if (mounted && !_sessionClosed) {
+              setState(() => _status = '尚未识别到登录，请确认网页显示账号后点击完成；如有验证提示，请先完成验证');
+            }
           }
         }
       }
@@ -267,11 +297,14 @@ class _WebVerifyPageState extends State<WebVerifyPage> {
             icon: const Icon(Icons.refresh_rounded),
             onPressed: () => _c?.reload(),
           ),
-          if (widget._mode != _Mode.login)
-            TextButton(
-              onPressed: _browserFailed ? null : _finish,
-              child: Text(tr('完成')),
-            ),
+          TextButton(
+            onPressed: _browserFailed || _loading
+                ? null
+                : widget._mode == _Mode.login
+                ? _check
+                : _finish,
+            child: Text(tr('完成')),
+          ),
         ],
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(3),

@@ -22,7 +22,7 @@ export 'source_tile.dart' show SourceTile;
 class HomePage extends StatefulWidget {
   const HomePage({super.key, this.destination, this.onOpenHistory});
   final ValueNotifier<DiscoveryDestination>? destination;
-  final VoidCallback? onOpenHistory;
+  final ValueChanged<ContentScope>? onOpenHistory;
   @override
   State<HomePage> createState() => _HomePageState();
 }
@@ -57,10 +57,14 @@ class _HomePageState extends State<HomePage> {
   void _select(DiscoveryDestination destination) =>
       _destination.value = destination;
   void _history() {
+    final category = _destination.value.category;
+    final scope = category == null
+        ? const ContentScope.all()
+        : ContentScope.domain(category);
     if (widget.onOpenHistory != null) {
-      widget.onOpenHistory!();
+      widget.onOpenHistory!(scope);
     } else {
-      Nav.push(context, const HistoryPage());
+      Nav.push(context, HistoryPage(scope: scope));
     }
   }
 
@@ -155,6 +159,9 @@ class _HomePageState extends State<HomePage> {
                       ),
                       SliverToBoxAdapter(
                         child: RecentHistory(
+                          scope: selected.category == null
+                              ? const ContentScope.all()
+                              : ContentScope.domain(selected.category!),
                           limit: 20,
                           onOpenHistory: _history,
                         ),

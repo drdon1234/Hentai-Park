@@ -16,8 +16,13 @@ import '../../core/localization.dart';
 
 /// Reading / watching history grouped by day, with search, swipe-to-delete and a resume button.
 class HistoryPage extends StatefulWidget {
-  const HistoryPage({super.key, this.scope = const ContentScope.all()});
+  const HistoryPage({
+    super.key,
+    this.scope = const ContentScope.all(),
+    this.openRequest = 0,
+  });
   final ContentScope scope;
+  final int openRequest;
 
   @override
   State<HistoryPage> createState() => _HistoryPageState();
@@ -27,6 +32,15 @@ class _HistoryPageState extends State<HistoryPage> {
   final _query = TextEditingController();
   bool _searching = false;
   late ContentScope _scope = widget.scope;
+
+  @override
+  void didUpdateWidget(HistoryPage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.scope != widget.scope ||
+        oldWidget.openRequest != widget.openRequest) {
+      _scope = widget.scope;
+    }
+  }
 
   @override
   void dispose() {

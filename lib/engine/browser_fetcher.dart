@@ -67,6 +67,7 @@ class _OriginPage {
   Timer? _idle;
   int _nextRequest = 0;
   Completer<void>? _navigation;
+  bool _navigationStarted = false;
   int _documentGeneration = 0;
   Uri? _documentUri;
   final _requestQueue = SerialExecutor();
@@ -82,11 +83,18 @@ class _OriginPage {
     await dispose();
   }
 
-  Future<void> _ensure() async {
+  Future<void> _ensure(Map<String, dynamic> request) async {
     _checkActive();
     if (_ready != null) return _ready!.future;
     _session = CancelToken();
-    _documentUri = Uri.parse('$origin/robots.txt');
+    final target = Uri.parse(request['url'].toString());
+    final method = (request['method'] ?? 'GET').toString().toUpperCase();
+    // 初始化真实页面，让手动验证和隐藏请求使用相同路径的会话。
+    // 非读取请求只打开首页，绝不通过导航重复提交表单。
+    final bootstrap = method == 'GET' && target.origin == origin
+        ? target
+        : Uri.parse('$origin/');
+    _documentUri = bootstrap;
     final ready = _ready = Completer<void>();
     Timer? timeout;
     var settled = false;
@@ -98,7 +106,7 @@ class _OriginPage {
     }
 
     _view = HeadlessInAppWebView(
-      initialUrlRequest: URLRequest(url: WebUri('$origin/robots.txt')),
+      initialUrlRequest: URLRequest(url: WebUri(bootstrap.toString())),
       initialSettings: InAppWebViewSettings(
         javaScriptEnabled: true,
         userAgent: HttpService.instance.userAgent,
@@ -111,6 +119,7 @@ class _OriginPage {
       },
       onLoadStart: (c, url) {
         if (identical(_ready, ready)) {
+          if (_navigation != null) _navigationStarted = true;
           _documentGeneration++;
           _documentUri = url == null ? null : Uri.tryParse(url.toString());
         }
@@ -124,6 +133,7 @@ class _OriginPage {
         unawaited(dispose());
       },
       onLoadStop: (c, url) async {
+        if (_navigation != null && !_navigationStarted) return;
         final generation = _documentGeneration;
         final navigation = _navigation;
         final document = url == null ? null : Uri.tryParse(url.toString());
@@ -193,7 +203,7 @@ class _OriginPage {
             SourceError(
               'CLOUDFLARE',
               'Cloudflare 验证未自动通过：${Uri.parse(origin).host}',
-              url: origin,
+              url: bootstrap.toString(),
             ),
           ),
         );
@@ -276,6 +286,7 @@ class _OriginPage {
     _documentGeneration++;
     _documentUri = Uri.parse(url);
     final ready = _navigation = Completer<void>();
+    _navigationStarted = false;
     final timeout = Timer(
       const Duration(seconds: 25),
       () => _finishNavigation(
@@ -313,7 +324,7 @@ class _OriginPage {
   }) async {
     if (cancelToken?.cancelError case final error?) throw error;
     await Future.any([
-      _ensure(),
+      _ensure(request),
       if (cancelToken != null)
         cancelToken.whenCancel.then<void>((error) => throw error),
     ]);
@@ -411,7 +422,7 @@ class _OriginPage {
         throw SourceError(
           'CLOUDFLARE',
           'Cloudflare 验证：${Uri.parse(origin).host}',
-          url: origin,
+          url: request['url'].toString(),
         );
       }
       return {
