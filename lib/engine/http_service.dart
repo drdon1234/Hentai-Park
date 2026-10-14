@@ -269,18 +269,7 @@ class HttpService {
               }
               continue;
             }
-            final (message, params) = _describe(e, uri.host);
-            throw SourceError(
-              'NETWORK',
-              message,
-              params: params,
-              url: uri.toString(),
-              diagnostics: {
-                'host': uri.host,
-                'transport': 'native',
-                'reason': _failureReason(e),
-              },
-            );
+            throw transportError(e, uri);
           }
         }
         _throwIfCancelled(cancelToken);
@@ -466,6 +455,22 @@ class HttpService {
     } finally {
       await resource.close();
     }
+  }
+
+  /// The error for a request that failed before a response arrived.
+  static SourceError transportError(DioException e, Uri uri) {
+    final (message, params) = _describe(e, uri.host);
+    return SourceError(
+      'NETWORK',
+      message,
+      params: params,
+      url: uri.toString(),
+      diagnostics: {
+        'host': uri.host,
+        'transport': 'native',
+        'reason': _failureReason(e),
+      },
+    );
   }
 
   /// A message template and its values for a failed request.

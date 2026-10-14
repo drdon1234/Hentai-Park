@@ -11,7 +11,7 @@ Park.register({
   },
   key: 'missav',
   name: 'MissAV',
-  version: '0.0.4',
+  version: '0.0.5',
   type: 'video',
   category: 'jav',
   color: '#EF4444',
@@ -137,6 +137,58 @@ Park.register({
     return [...found].sort((a,b) => b[0]-a[0]).map(([quality,url]) => ({quality,url}));
   },
 
+  // The site renders related videos in the browser from Recombee; its public frontend token
+  // lives in the app bundle, so read it from there instead of copying it into the plugin.
+  async recombee(doc) {
+    const script = [...doc.querySelectorAll('script[src]')].map(s => s.getAttribute('src') || '')
+      .find(src => /^https:\/\/missav\.ai\/build\/assets\/app\.[a-z0-9]+\.js$/.test(src));
+    if (!script) return null;
+    if (this.recombeeClient && this.recombeeClient.script === script) return this.recombeeClient;
+    const r = await this.http.get(script);
+    if (!r.ok || r.body.length > 4 * 1024 * 1024) return null;
+    const m = /\.ApiClient\("([a-z0-9-]{1,64})","([A-Za-z0-9]{16,128})",\{baseUri:"([a-z0-9-]+\.recombee\.com)"\}/.exec(r.body);
+    if (!m) return null;
+    this.recombeeClient = {script, database: m[1], token: m[2], base: 'https://' + m[3]};
+    return this.recombeeClient;
+  },
+
+  async hmacSha1Hex(key, text) {
+    const bytes = value => Array.from(new TextEncoder().encode(value));
+    let k = bytes(key);
+    if (k.length > 64) k = await Park.crypto.digestBytes('sha1', k);
+    const block = k.concat(new Array(64 - k.length).fill(0));
+    const inner = await Park.crypto.digestBytes('sha1', block.map(b => b ^ 0x36).concat(bytes(text)));
+    const outer = await Park.crypto.digestBytes('sha1', block.map(b => b ^ 0x5c).concat(inner));
+    return outer.map(b => b.toString(16).padStart(2, '0')).join('');
+  },
+
+  async related(doc, id) {
+    const client = await this.recombee(doc);
+    if (!client) return [];
+    // Same request and signature as the site's recombee-js-api-client RecommendItemsToItem.
+    let path = `/${client.database}/recomms/items/${encodeURIComponent(id)}/items/?frontend_timestamp=${Math.floor(Date.now() / 1000)}`;
+    path += '&frontend_sign=' + await this.hmacSha1Hex(client.token, path);
+    const r = await this.http.post(client.base + path, {mode: 'native', json: {
+      targetUserId: this.recombeeUser || (this.recombeeUser = await Park.crypto.uuid()),
+      count: 16, scenario: 'mobile-watch-next', returnProperties: true,
+      includedProperties: ['title_cn', 'duration'], cascadeCreate: true,
+    }});
+    if (!r.ok || r.body.length > 1024 * 1024) return [];
+    let data;
+    try { data = JSON.parse(r.body); } catch (_) { return []; }
+    const out = [];
+    for (const recomm of Array.isArray(data.recomms) ? data.recomms.slice(0, 50) : []) {
+      const itemId = String(recomm && recomm.id || '').toLowerCase(), values = recomm && recomm.values || {};
+      if (!/^[a-z0-9][a-z0-9-]{1,120}$/.test(itemId) || itemId === id || out.some(item => item.id === itemId)) continue;
+      const code = itemId.toUpperCase().replace(/-(?:UNCENSORED-LEAK|CHINESE-SUBTITLE|ENGLISH-SUBTITLE)$/, '');
+      const seconds = Number(values.duration) || 0;
+      out.push({id: itemId, title: values.title_cn ? `${code} ${values.title_cn}` : code,
+        cover: `https://fourhoi.com/${itemId}/cover-t.jpg`, coverAspect: 16 / 9,
+        duration: seconds ? `${Math.floor(seconds/3600)}:${String(Math.floor(seconds/60)%60).padStart(2,'0')}:${String(seconds%60).padStart(2,'0')}` : ''});
+    }
+    return out;
+  },
+
   async detail(id) {
     id = this.validId(id);
     const {html, doc} = await this.getPage('/cn/' + id);
@@ -159,7 +211,7 @@ Park.register({
       authors: actors, description: meta('og:description'), uploaded: time ? time.getAttribute('datetime').slice(0,10) : '',
       duration: seconds ? `${Math.floor(seconds/3600)}:${String(Math.floor(seconds/60)%60).padStart(2,'0')}:${String(seconds%60).padStart(2,'0')}` : '',
       tags: tags.length ? [{namespace: 'tag',label: '标签',tags}] : [],
-      qualities: this.mediaSources(html).map(s => s.quality), related: this.cards(doc).filter(item => item.id !== id)};
+      qualities: this.mediaSources(html).map(s => s.quality), related: await this.related(doc, id)};
   },
 
   async videos(id) {

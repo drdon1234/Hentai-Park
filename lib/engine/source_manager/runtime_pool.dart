@@ -58,7 +58,7 @@ mixin _RuntimePool on _SourceRegistry {
     } catch (e) {
       _activations.remove(s.key)?.ignore();
       s.loadFailure = e is SourceError ? e : SourceError('CONFIG', '$e');
-      debugPrint(Diagnostics.error(e));
+      AppLog.error(e, event: 'source_load', site: s.key);
     }
     _manifestChanges.add({s.key});
   }
@@ -229,8 +229,10 @@ mixin _RuntimePool on _SourceRegistry {
     } on SourceError catch (error) {
       // Errors raised by the plugin are worded in its own copy.
       final copy = manifest(key)?.copy;
+      final worded = copy == null ? error : error.withCopy(copy);
+      AppLog.error(worded, event: 'source', site: key, action: method);
       if (copy == null) rethrow;
-      throw error.withCopy(copy);
+      throw worded;
     } finally {
       _activeCalls.remove(finished.future);
       _activeBySource[key]?.remove(finished.future);

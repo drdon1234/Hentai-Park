@@ -32,6 +32,9 @@ class PluginCopy {
         (locale == 'zh-Hans' ? null : _byLocale['en']?[key]);
   }
 
+  /// Whether the plugin declares copy for [key] (its fixed source text).
+  bool has(String key) => _byLocale.values.any((copy) => copy.containsKey(key));
+
   /// Translates plugin text by its Chinese source string.
   String text(String key, [Map<String, Object?> params = const {}]) {
     final value = _lookup(key);

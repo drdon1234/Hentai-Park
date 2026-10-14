@@ -14,6 +14,7 @@ import 'media_transport.dart';
 class BrowserMedia implements MediaTransport {
   BrowserMedia(this.policy, {Map<String, String> headers = const {}})
     : headers = policy.requestHeaders(headers);
+  @override
   final MediaPolicy policy;
   final Map<String, String> headers;
   final _closed = Completer<void>();

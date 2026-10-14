@@ -9,7 +9,7 @@ Park.register({
     "ru": {"中文短篇小说，支持最新与分类阅读；站点无有效搜索": "Короткие рассказы на китайском: новинки и категории; поиск на сайте недоступен", "都市生活": "Городская жизнь"},
     "ar": {"中文短篇小说，支持最新与分类阅读；站点无有效搜索": "قصص صينية قصيرة حسب الأحدث والفئات؛ لا يتوفر بحث فعال", "都市生活": "الحياة في المدينة"},
   },
-  key: 'story69', name: '69story', version: '0.0.3', type: 'novel', category: 'novel',
+  key: 'story69', name: '69story', version: '0.0.4', type: 'novel', category: 'novel',
   language: 'zh-Hant', color: '#D56A74', homepage: 'https://69story.com',
   description: '中文短篇小说，支持最新与分类阅读；站点无有效搜索',
   domains: ['69story.com'], network: {mode: 'native', vpnHint: true},
@@ -31,9 +31,9 @@ Park.register({
     if (!this.siteUrl(r.url || url)) throw Park.error('BLOCKED', '站点需要在浏览器中确认后访问');
     return {doc: Park.html.parse(r.body), url: r.url || url};
   },
-  cards(doc) {
+  cards(doc, rows = 'main tr[id^="post-"]') {
     const items = [], seen = new Set();
-    for (const row of doc.querySelectorAll('main tr[id^="post-"]')) {
+    for (const row of doc.querySelectorAll(rows)) {
       const a = row.querySelector('td.entry-content a[rel="bookmark"]'), u = a && this.siteUrl(a.getAttribute('href'));
       const m = u && /^\/article\/(\d{1,12})-[^/]+\.html$/.exec(u.pathname), title = Park.html.text(a);
       if (!m || !title || seen.has(m[1])) continue;
@@ -56,7 +56,8 @@ Park.register({
     const article = doc.querySelector('article#post-' + id), title = Park.html.text(article?.querySelector('h1'));
     if (!article || !title) throw Park.error('NOT_FOUND', '小说不存在');
     const tags = [...article.querySelectorAll('a[rel="tag"]')].map(a => ({name: Park.html.text(a)})).filter(x => x.name);
-    return {id, title, url, cover: '', mediaKind: 'novel', language: 'zh-Hant', chapters: null, authors: [], tags, related: []};
+    return {id, title, url, cover: '', mediaKind: 'novel', language: 'zh-Hant', chapters: null, authors: [], tags,
+      related: this.cards(doc, '#related-entries tr[id^="post-"]').filter(x => x.id !== id)};
   },
   paragraphs(doc, id) {
     const body = doc.querySelector('article#post-' + this.idValue(id) + ' > div.entry-content');

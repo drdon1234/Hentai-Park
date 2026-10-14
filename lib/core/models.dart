@@ -797,6 +797,7 @@ class SourceError implements Exception {
   final String _message;
   final PluginCopy _copy;
   String get rawMessage => _message;
+  PluginCopy get copy => _copy;
 
   /// Plugin errors are translated with the plugin's own copy, then the app's.
   String get message => _copy.text(_message, params);

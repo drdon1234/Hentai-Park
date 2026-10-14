@@ -63,7 +63,7 @@
 | `confirmAction` | 确认对话框；删除等不可撤销操作用 `destructive: true` |
 | `showChoiceSheet` | 从一组选项中选一个的底部弹层（清晰度、倍速、设置项的取值） |
 | `ParkRefresh` | 下拉刷新，开始刷新时轻触感 |
-| `ReaderChrome` | 漫画、小说、视频共用的沉浸控制层：点中间显示，顶部标题与动作，底部进度；叠加在内容上，不重排正文 |
+| `ReaderChrome` | 漫画、小说、视频共用的沉浸控制层：点中间显示，顶部标题与动作，底部进度；叠加在内容上，不重排正文。视频用 `fade` 让控制条从屏幕边缘渐隐，不用整块实色条遮住画面 |
 | `ReaderProgress` / `ReaderBadge` / `ReaderChapterEnd` | 阅读器底部进度、页码角标、章节末尾 |
 
 ## 按钮

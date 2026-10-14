@@ -37,20 +37,31 @@ Los sitios que necesitan cuenta o proxy se configuran en Más → Sitios y Más 
 
 ## Capturas
 
-<p align="center">
-  <img src="../../screenshots/home.jpg" alt="Explorar (claro)" width="32%">
-  <img src="../../screenshots/detail.jpg" alt="Detalles de una obra (claro)" width="32%">
-  <img src="../../screenshots/home_dark.jpg" alt="Explorar (oscuro)" width="32%">
-</p>
-<p align="center"><sub>Explorar · Detalles · Tema oscuro</sub></p>
+<table>
+  <tr>
+    <td align="center" width="33%"><img src="../../screenshots/home.jpg" alt="Explorar (claro)" width="100%"></td>
+    <td align="center" width="33%"><img src="../../screenshots/detail.jpg" alt="Detalles de una obra (claro)" width="100%"></td>
+    <td align="center" width="33%"><img src="../../screenshots/home_dark.jpg" alt="Explorar (oscuro)" width="100%"></td>
+  </tr>
+  <tr>
+    <td align="center"><sub>Explorar</sub></td>
+    <td align="center"><sub>Detalles</sub></td>
+    <td align="center"><sub>Tema oscuro</sub></td>
+  </tr>
+</table>
 
-<p align="center">
-  <img src="../../screenshots/tablet_home.jpg" alt="Tableta en horizontal: navegación lateral y Explorar" width="49%">
-  <img src="../../screenshots/tablet_search.jpg" alt="Tableta en horizontal: búsqueda en todos los sitios" width="49%">
-</p>
-<p align="center"><sub>Tableta en horizontal</sub></p>
+<table>
+  <tr>
+    <td align="center" width="50%"><img src="../../screenshots/tablet_home.jpg" alt="Tableta en horizontal: navegación lateral, Explorar y detalles" width="100%"></td>
+    <td align="center" width="50%"><img src="../../screenshots/tablet_search.jpg" alt="Tableta en horizontal: búsqueda en todos los sitios" width="100%"></td>
+  </tr>
+  <tr>
+    <td align="center"><sub>Tableta en horizontal · Explorar y detalles</sub></td>
+    <td align="center"><sub>Tableta en horizontal · Búsqueda en todos los sitios</sub></td>
+  </tr>
+</table>
 
-Capturas tomadas en el emulador MuMu con las portadas difuminadas.
+Las capturas usan datos de demostración sin conexión; los sitios, obras y portadas que aparecen son ejemplos originales, no contenido real.
 
 <a id="features"></a>
 

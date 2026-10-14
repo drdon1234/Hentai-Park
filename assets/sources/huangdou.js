@@ -9,7 +9,7 @@ Park.register({
     "ru": {"高分推荐": "С высоким рейтингом", "黄豆短剧": "Короткие сериалы Huangdou"},
     "ar": {"高分推荐": "الأعلى تقييمًا", "黄豆短剧": "مسلسلات Huangdou القصيرة"},
   },
-  key: 'huangdou', name: '黄豆短剧', version: '0.0.7',
+  key: 'huangdou', name: '黄豆短剧', version: '0.0.8',
   type: 'video', category: 'aiDrama', color: '#FFC857',
   description: 'AI短剧与漫剧，支持分类、排行、搜索和分集播放',
   homepage: 'https://aihuangdou.com', domains: ['aihuangdou.com'], language: 'zh',
@@ -192,11 +192,11 @@ Park.register({
     if (data.videoApi || data.videoKey || data.videoIv) throw Park.error('UNSUPPORTED', 'AI短剧该分集使用暂不支持的播放方式');
     if (!data.current.src) throw Park.error('NOT_FOUND', 'AI短剧该分集暂无可用播放地址');
     const url = this.absolute(data.current.src), u = url && new URL(url);
-    if (!u || u.protocol !== 'https:' || u.port || u.username || u.password || u.hash || (!/\.m3u8(?:\?|$)/i.test(url) && !this.media.domains.includes(u.hostname))) {
+    if (!u || u.protocol !== 'https:' || u.port || u.username || u.password || u.hash || !/\.m3u8(?:\?|$)/i.test(url)) {
       throw Park.error('PARSE', 'AI短剧播放地址无效');
     }
     return [{ quality: 0, label: '原画', url, headers: { Referer: this.BASE + path }, preferred: true,
-      ...(/\.m3u8(?:[?#]|$)/i.test(url) ? { format: 'hls' } : {}),
+      format: 'hls',
     }];
   },
 });

@@ -1,11 +1,14 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
 
+import 'app_log.dart';
 import 'async_tasks.dart';
 import 'diagnostics.dart';
+import 'models.dart';
 import 'storage.dart';
 
 /// Persists uncaught errors to `logs/crash.log` (rotated at 256 KB) so users can export them.
@@ -17,26 +20,30 @@ class CrashLog {
 
   static void install() {
     FlutterError.onError = (details) {
-      record(
-        details.exception,
-        details.stack,
-        context: details.context?.toString(),
-      );
-      debugPrint(Diagnostics.error(details.exception));
+      record(details.exception, details.stack, library: details.library);
     };
     PlatformDispatcher.instance.onError = (error, stack) {
       record(error, stack);
-      debugPrint(Diagnostics.error(error));
       return true;
     };
   }
 
-  static void record(Object error, StackTrace? stack, {String? context}) {
-    final entry = StringBuffer()
-      ..writeln('==== ${DateTime.now().toIso8601String()}')
-      ..writeln(Diagnostics.error(error))
-      ..writeln(Diagnostics.stack(stack));
-    unawaited(_writes.run(() => _append(entry.toString())));
+  static void record(Object error, StackTrace? stack, {String? library}) {
+    final fields = {
+      'event': 'crash',
+      ...Diagnostics.error(error),
+      'library': ?library,
+    };
+    final copy = error is SourceError ? error.copy : null;
+    final clean = Diagnostics.fields(fields, copy: copy);
+    final frames = Diagnostics.stack(stack);
+    AppLog.record(clean, copy: copy, frames: frames);
+    final entry = jsonEncode({
+      'time': DateTime.now().toIso8601String(),
+      'fields': clean,
+      'frames': frames,
+    });
+    unawaited(_writes.run(() => _append('$entry\n')));
   }
 
   static Future<void> _append(String text) async {
@@ -52,35 +59,61 @@ class CrashLog {
     }
   }
 
-  /// Everything useful for a bug report: platform, recent crashes and the given runtime logs.
-  static Future<String> report(List<String> runtimeLogs) async {
+  /// Uncaught errors of earlier runs, sanitized again when read back.
+  static Future<List<String>> _earlier() async {
+    final lines = <String>[];
+    for (final f in [File('${file.path}.1'), file]) {
+      try {
+        if (!await f.exists()) continue;
+        for (final line in await f.readAsLines()) {
+          final Object? value;
+          try {
+            value = jsonDecode(line);
+          } on FormatException {
+            continue;
+          }
+          if (value is! Map || value['fields'] is! Map) continue;
+          final time = DateTime.tryParse('${value['time']}');
+          if (time == null) continue;
+          lines.add(
+            '${time.toIso8601String().substring(0, 19)} '
+            '${Diagnostics.format(Diagnostics.fields(value['fields'] as Map))}',
+          );
+          final frames = value['frames'];
+          if (frames is List) {
+            lines.addAll(
+              Diagnostics.stack(StackTrace.fromString(frames.join('\n')))
+                  .map((frame) => '  $frame'),
+            );
+          }
+        }
+      } catch (_) {
+        // An unreadable log must not block the report.
+      }
+    }
+    return lines;
+  }
+
+  /// Everything useful for a bug report: platform, recent crashes and this run's log.
+  static Future<String> report({List<String> context = const []}) async {
+    final earlier = await _earlier();
     final b = StringBuffer()
       ..writeln('HentaiPark 诊断日志')
       ..writeln('时间：${DateTime.now().toIso8601String()}')
       ..writeln(
         '系统：${Platform.operatingSystem} ${Platform.operatingSystemVersion}',
       )
-      ..writeln('Dart：${Platform.version.split(' ').first}')
-      ..writeln();
-    for (final f in [File('${file.path}.1'), file]) {
-      if (await f.exists()) {
-        for (final line in (await f.readAsString()).split('\n')) {
-          if (line.startsWith('event=')) b.writeln(Diagnostics.message(line));
-          if (line.startsWith('#')) {
-            b.writeln(Diagnostics.stack(StackTrace.fromString(line)));
-          }
-        }
-      }
-    }
+      ..writeln('Dart：${Platform.version.split(' ').first}');
+    context.forEach(b.writeln);
     b
-      ..writeln('==== 运行日志')
-      ..writeAll(
-        runtimeLogs.map((line) {
-          final start = line.indexOf('event=');
-          return Diagnostics.message(start < 0 ? null : line.substring(start));
-        }),
-        '\n',
-      );
+      ..writeln()
+      ..writeln('==== 未捕获错误（含此前运行）')
+      ..writeAll(earlier.isEmpty ? ['无'] : earlier, '\n')
+      ..writeln()
+      ..writeln()
+      ..writeln('==== 本次运行')
+      ..writeAll(AppLog.lines.isEmpty ? ['无'] : AppLog.lines, '\n')
+      ..writeln();
     return b.toString();
   }
 }

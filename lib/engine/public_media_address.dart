@@ -3,6 +3,10 @@ import 'dart:io';
 import '../core/models.dart';
 
 /// Reject non-public addresses, including IPv4-mapped IPv6; direct connections use checked IPs.
+/// 198.18.0.0/15 is accepted: it is reserved for benchmarking and never assigned
+/// to LAN hosts, and Clash, sing-box and Surge map domains into it in fake-ip
+/// mode. The system VPN routes those connections by domain, and TLS still
+/// verifies the original host name.
 bool isPublicMediaAddress(InternetAddress address) {
   final bytes = address.rawAddress;
   if (bytes.length == 16) {
@@ -31,7 +35,7 @@ bool isPublicMediaAddress(InternetAddress address) {
       !(a == 169 && b == 254) &&
       !(a == 172 && b >= 16 && b <= 31) &&
       !(a == 192 && (b == 168 || b == 0 || b == 2)) &&
-      !(a == 198 && (b == 18 || b == 19 || (b == 51 && bytes[2] == 100))) &&
+      !(a == 198 && b == 51 && bytes[2] == 100) &&
       !(a == 203 && b == 0 && bytes[2] == 113);
 }
 
@@ -40,7 +44,15 @@ Future<List<InternetAddress>> publicMediaAddresses(String host) async {
       .timeout(const Duration(seconds: 15));
   if (addresses.isEmpty ||
       addresses.any((address) => !isPublicMediaAddress(address))) {
-    throw SourceError('CONFIG', '媒体地址不在站点声明的 HTTPS 域名内');
+    throw SourceError(
+      'CONFIG',
+      '媒体主机解析到了内网或保留地址，已拒绝连接',
+      diagnostics: {
+        'host': host,
+        'transport': 'native',
+        'reason': 'PRIVATE_ADDRESS',
+      },
+    );
   }
   return addresses;
 }

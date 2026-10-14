@@ -37,20 +37,31 @@
 
 ## 截图
 
-<p align="center">
-  <img src="docs/screenshots/home.jpg" alt="发现页（亮色）" width="32%">
-  <img src="docs/screenshots/detail.jpg" alt="作品详情（亮色）" width="32%">
-  <img src="docs/screenshots/home_dark.jpg" alt="发现页（暗色）" width="32%">
-</p>
-<p align="center"><sub>发现 · 详情 · 暗色</sub></p>
+<table>
+  <tr>
+    <td align="center" width="33%"><img src="docs/screenshots/home.jpg" alt="发现页（亮色）" width="100%"></td>
+    <td align="center" width="33%"><img src="docs/screenshots/detail.jpg" alt="作品详情（亮色）" width="100%"></td>
+    <td align="center" width="33%"><img src="docs/screenshots/home_dark.jpg" alt="发现页（暗色）" width="100%"></td>
+  </tr>
+  <tr>
+    <td align="center"><sub>发现</sub></td>
+    <td align="center"><sub>详情</sub></td>
+    <td align="center"><sub>暗色</sub></td>
+  </tr>
+</table>
 
-<p align="center">
-  <img src="docs/screenshots/tablet_home.jpg" alt="平板横屏：侧栏导航与发现页" width="49%">
-  <img src="docs/screenshots/tablet_search.jpg" alt="平板横屏：多站搜索" width="49%">
-</p>
-<p align="center"><sub>平板横屏</sub></p>
+<table>
+  <tr>
+    <td align="center" width="50%"><img src="docs/screenshots/tablet_home.jpg" alt="平板横屏：侧栏导航、发现页与详情" width="100%"></td>
+    <td align="center" width="50%"><img src="docs/screenshots/tablet_search.jpg" alt="平板横屏：多站搜索" width="100%"></td>
+  </tr>
+  <tr>
+    <td align="center"><sub>平板横屏 · 发现与详情</sub></td>
+    <td align="center"><sub>平板横屏 · 多站搜索</sub></td>
+  </tr>
+</table>
 
-截图来自 MuMu 模拟器，封面已模糊处理。
+截图使用离线演示数据拍摄，其中的站点、作品与封面均为原创示例，不是真实内容。
 
 <a id="features"></a>
 

@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:video_player/video_player.dart';
 
+import '../../core/app_log.dart';
 import '../../core/models.dart';
 import '../../engine/cancellation.dart';
 import '../../engine/media_transport.dart';
@@ -77,10 +78,19 @@ class ShortVideoPlayer implements ShortVideoHandle {
       await awaitCancelled(controller.setLooping(true), cancel);
       _check(cancel);
       return ShortVideoPlayer._(controller, media);
-    } catch (error) {
+    } catch (error, stack) {
       await (controller?.dispose() ?? Future<void>.value()).whenComplete(
         () async => media?.close(),
       );
+      if (!cancel.isCancelled) {
+        AppLog.error(
+          error,
+          event: 'playback',
+          site: item.source,
+          action: source.format == 'hls' ? 'hls' : 'direct',
+          stack: error is SourceError ? null : stack,
+        );
+      }
       if (error is SourceError) rethrow;
       throw SourceError('NETWORK', '短视频播放失败');
     }

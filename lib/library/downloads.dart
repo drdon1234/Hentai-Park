@@ -8,8 +8,8 @@ import 'package:drift/drift.dart' show InsertMode;
 import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
 
+import '../core/app_log.dart';
 import '../core/async_tasks.dart';
-import '../core/diagnostics.dart';
 import '../core/models.dart';
 import '../core/settings.dart';
 import '../core/storage.dart';
@@ -178,7 +178,7 @@ class DownloadManager extends ChangeNotifier {
         );
         _tasks[t.uid] = t;
       } catch (e) {
-        debugPrint(Diagnostics.error(e));
+        AppLog.error(e, event: 'download_restore');
       }
     }
     Library.instance.onChaptersRead.add(_onChaptersRead);
@@ -197,9 +197,9 @@ class DownloadManager extends ChangeNotifier {
         _onWifi = wifi;
         _settingsChanged();
         notifyListeners();
-      }, onError: (Object e) => debugPrint(Diagnostics.error(e)));
+      }, onError: (Object e) => AppLog.error(e, event: 'connectivity'));
     } catch (e) {
-      debugPrint(Diagnostics.error(e));
+      AppLog.error(e, event: 'connectivity');
     }
   }
 
@@ -278,7 +278,7 @@ class DownloadManager extends ChangeNotifier {
               }
             }),
           )
-          .catchError((Object e) => debugPrint(Diagnostics.error(e))),
+          .catchError((Object e) => AppLog.error(e, event: 'download_save')),
     );
     notifyListeners();
   }

@@ -37,20 +37,31 @@
 
 ## スクリーンショット
 
-<p align="center">
-  <img src="../../screenshots/home.jpg" alt="見つける（ライト）" width="32%">
-  <img src="../../screenshots/detail.jpg" alt="作品の詳細（ライト）" width="32%">
-  <img src="../../screenshots/home_dark.jpg" alt="見つける（ダーク）" width="32%">
-</p>
-<p align="center"><sub>見つける · 詳細 · ダーク</sub></p>
+<table>
+  <tr>
+    <td align="center" width="33%"><img src="../../screenshots/home.jpg" alt="見つける（ライト）" width="100%"></td>
+    <td align="center" width="33%"><img src="../../screenshots/detail.jpg" alt="作品の詳細（ライト）" width="100%"></td>
+    <td align="center" width="33%"><img src="../../screenshots/home_dark.jpg" alt="見つける（ダーク）" width="100%"></td>
+  </tr>
+  <tr>
+    <td align="center"><sub>見つける</sub></td>
+    <td align="center"><sub>詳細</sub></td>
+    <td align="center"><sub>ダーク</sub></td>
+  </tr>
+</table>
 
-<p align="center">
-  <img src="../../screenshots/tablet_home.jpg" alt="タブレット横向き：サイドナビゲーションと見つける" width="49%">
-  <img src="../../screenshots/tablet_search.jpg" alt="タブレット横向き：全サイト検索" width="49%">
-</p>
-<p align="center"><sub>タブレット（横向き）</sub></p>
+<table>
+  <tr>
+    <td align="center" width="50%"><img src="../../screenshots/tablet_home.jpg" alt="タブレット横向き：サイドナビゲーション、見つける、詳細" width="100%"></td>
+    <td align="center" width="50%"><img src="../../screenshots/tablet_search.jpg" alt="タブレット横向き：全サイト検索" width="100%"></td>
+  </tr>
+  <tr>
+    <td align="center"><sub>タブレット横向き · 見つけると詳細</sub></td>
+    <td align="center"><sub>タブレット横向き · 全サイト検索</sub></td>
+  </tr>
+</table>
 
-スクリーンショットは MuMu エミュレーターで撮影し、表紙はぼかしています。
+スクリーンショットはオフラインのデモデータで撮影しています。サイト・作品・表紙はすべてオリジナルのサンプルで、実在のコンテンツではありません。
 
 <a id="features"></a>
 

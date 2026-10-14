@@ -151,17 +151,23 @@ class Nav {
               : ReaderPage(work: work, chapter: chapter, startPage: startPage),
         );
 
+  /// [stored]: [work] was rebuilt from stored data, not loaded from the site.
   static Future<void> openVideo(
     BuildContext context,
     WorkDetail work, {
     String? episodeId,
+    bool stored = false,
   }) => SourceManager.instance.manifest(work.source)?.opensExternally == true
       ? openWork(context, work.toItem())
       : push(
           context,
           _short(work.source)
               ? ShortVideoPage(source: work.source, initial: work.toItem())
-              : VideoPage(work: work, episodeId: episodeId),
+              : VideoPage(
+                  work: work,
+                  episodeId: episodeId,
+                  fetchDetails: stored && work.source != localSource,
+                ),
         );
 
   /// Opens the reader or player at [chapterId] from a stored chapter list.
@@ -177,7 +183,7 @@ class Nav {
       case OpenWorkPage():
         return openWork(context, item);
       case PlayVideo(work: final work?, :final episodeId):
-        return openVideo(context, work, episodeId: episodeId);
+        return openVideo(context, work, episodeId: episodeId, stored: true);
       case PlayVideo(:final episodeId):
         final detail = await guarded(
           context,

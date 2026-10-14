@@ -4,11 +4,10 @@ import 'dart:isolate';
 import 'dart:typed_data';
 
 import 'package:drift/drift.dart';
-import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
 
+import '../core/app_log.dart';
 import '../core/async_tasks.dart';
-import '../core/diagnostics.dart';
 import '../core/localization.dart';
 import '../core/settings.dart';
 import '../core/storage.dart';
@@ -614,7 +613,7 @@ class BackupService {
       }
       return file;
     } catch (e) {
-      debugPrint(Diagnostics.error(e));
+      AppLog.error(e, event: 'auto_backup');
       return null;
     }
   }

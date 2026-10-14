@@ -9,7 +9,10 @@ import 'domains.dart';
 /// HTTPS rules; native HLS may explicitly authorize resources within a single session.
 /// Neither transport sends application/source credentials.
 class MediaPolicy {
-  MediaPolicy._(this.mode, this.origin, this.domains, this.session);
+  MediaPolicy._(this.site, this.mode, this.origin, this.domains, this.session);
+
+  /// The source key, for diagnostics.
+  final String site;
   final bool session;
   final Set<Uri> _authorized = {};
   final String mode;
@@ -39,6 +42,7 @@ class MediaPolicy {
       throw SourceError('CONFIG', '站点没有声明有效的媒体权限');
     }
     final policy = MediaPolicy._(
+      manifest.key,
       '$mode',
       page.origin,
       List.unmodifiable(domains),
@@ -133,6 +137,7 @@ class MediaResponse {
 }
 
 abstract interface class MediaTransport {
+  MediaPolicy get policy;
   void validate(Uri url);
   Future<MediaResponse> fetch(
     Uri url, {

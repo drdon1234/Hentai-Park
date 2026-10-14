@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-import '../../core/diagnostics.dart';
+import '../../core/app_log.dart';
 import '../../core/localization.dart';
 import '../../core/models.dart';
 import '../../core/tag_blocklist.dart';
@@ -87,7 +87,7 @@ class _DetailPageState extends State<DetailPage> {
         complete: d.chaptersComplete,
       );
     } catch (e) {
-      debugPrint(Diagnostics.error(e));
+      AppLog.error(e, event: 'chapter_sync', site: widget.source);
     }
   }
 

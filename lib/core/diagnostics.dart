@@ -1,6 +1,9 @@
+import 'dart:convert';
+
+import 'localization.dart';
 import 'models.dart';
 
-/// 自动日志仅接受白名单，不尝试从任意异常全文猜测哪些部分是秘密。
+/// 自动日志仅接受白名单字段，不尝试从任意异常全文猜测哪些部分是秘密。
 class Diagnostics {
   static const codes = {
     'NETWORK',
@@ -23,6 +26,7 @@ class Diagnostics {
     'TLS_HANDSHAKE_TERMINATED',
     'TLS_HANDSHAKE',
     'DNS',
+    'PRIVATE_ADDRESS',
     'CONNECTION',
     'CONNECT_TIMEOUT',
     'RECEIVE_TIMEOUT',
@@ -32,54 +36,81 @@ class Diagnostics {
     'CANCELLED',
     'UNKNOWN',
   };
-  static String error(Object error) {
-    if (error is! SourceError) {
-      return 'event=error type=${error.runtimeType.toString().replaceAll(RegExp(r"[^A-Za-z0-9_]"), '')}';
-    }
-    return event({'code': error.code, ...error.diagnostics});
+
+  static final _event = RegExp(r'^[a-z][a-z_]{0,31}$');
+  static final _name = RegExp(r'^[A-Za-z][A-Za-z0-9_.-]{0,63}$');
+  static final _host = RegExp(r'^(?:[a-zA-Z0-9-]+\.)*[a-zA-Z0-9-]+$');
+
+  /// Fields describing [error]. A message is kept only as its fixed template;
+  /// placeholder values never enter the log.
+  static Map<String, String> error(Object error) {
+    if (error is! SourceError) return {'type': '${error.runtimeType}'};
+    return {
+      'code': error.code,
+      if (error.status != null) 'status': '${error.status}',
+      ...error.diagnostics,
+      'message': error.rawMessage,
+    };
   }
 
-  static String event(Map fields) {
-    final result = <String>['event=source'];
-    if (codes.contains(fields['code'])) result.add('code=${fields['code']}');
-    if ({'native', 'browser'}.contains(fields['transport'])) {
-      result.add('transport=${fields['transport']}');
+  /// Keeps whitelisted fields only. Messages must be application or plugin
+  /// copy keys, which are static text written by developers.
+  static Map<String, String> fields(Map input, {PluginCopy? copy}) {
+    String? value(String key) {
+      final v = input[key];
+      return v is String || v is num ? '$v' : null;
     }
-    if (reasons.contains(fields['reason'])) {
-      result.add('reason=${fields['reason']}');
-    }
-    final host = fields['host'];
-    if (host is String &&
-        host.length <= 253 &&
-        RegExp(r'^(?:[a-zA-Z0-9-]+\.)*[a-zA-Z0-9-]+$').hasMatch(host)) {
-      result.add('host=$host');
-    }
-    return result.join(' ');
+
+    final event = value('event');
+    final site = value('site');
+    final action = value('action');
+    final code = value('code');
+    final status = int.tryParse(value('status') ?? '');
+    final reason = value('reason');
+    final transport = value('transport');
+    final host = value('host');
+    final type = value('type')?.replaceAll(RegExp(r'[^A-Za-z0-9_]'), '');
+    final library = value('library')?.replaceAll(' ', '_');
+    final message = value('message');
+    return {
+      'event': event != null && _event.hasMatch(event) ? event : 'source',
+      if (site != null && _name.hasMatch(site)) 'site': site,
+      if (action != null && _name.hasMatch(action)) 'action': action,
+      if (codes.contains(code)) 'code': code!,
+      if (status != null && status >= 100 && status <= 599) 'status': '$status',
+      if (reasons.contains(reason)) 'reason': reason!,
+      if (transport == 'native' || transport == 'browser')
+        'transport': transport!,
+      if (host != null && host.length <= 253 && _host.hasMatch(host))
+        'host': host,
+      if (type != null && type.isNotEmpty && type.length <= 64) 'type': type,
+      if (library != null && _name.hasMatch(library)) 'library': library,
+      if (message != null &&
+          message.length <= 200 &&
+          (AppLocalizations.instance.hasMessage(message) ||
+              (copy?.has(message) ?? false)))
+        'message': message,
+    };
   }
 
-  static String message(Object? value) {
-    if (value is Map) return event(value);
-    final text = value?.toString() ?? '';
-    // 重复净化时保留本模块生成的结构化字段；不保留任意自由文本。
-    if (RegExp(r'^event=error type=[A-Za-z0-9_]+$').hasMatch(text)) return text;
-    if (text.startsWith('event=source')) {
-      final fields = <String, String>{};
-      for (final token in text.split(' ').skip(1)) {
-        final parts = token.split('=');
-        if (parts.length == 2) fields[parts[0]] = parts[1];
-      }
-      return event(fields);
-    }
-    return 'event=message';
-  }
-
-  static String stack(StackTrace? stack) => (stack?.toString() ?? '')
-      .split('\n')
-      .where(
-        (line) => RegExp(
-          r'^#\d+\s+[A-Za-z0-9_.$<> ]+ \(package:[A-Za-z0-9_./-]+\.dart:\d+:\d+\)$',
-        ).hasMatch(line),
+  static String format(Map<String, String> fields) => fields.entries
+      .map(
+        (e) => e.key == 'message'
+            ? 'message=${jsonEncode(e.value)}'
+            : '${e.key}=${e.value}',
       )
+      .join(' ');
+
+  static final _frame = RegExp(
+    r'^#\d+\s+[A-Za-z0-9_.$<> ]+ \((?:package|dart):[A-Za-z0-9_./-]+\.dart:\d+(?::\d+)?\)$',
+  );
+
+  /// Code locations only. Release builds omit columns, so they are optional.
+  static List<String> stack(StackTrace? stack) => (stack?.toString() ?? '')
+      .split('\n')
+      .map((line) => line.trim())
+      .where(_frame.hasMatch)
+      .map((line) => line.replaceFirst(RegExp(r'\s+'), ' '))
       .take(30)
-      .join('\n');
+      .toList();
 }

@@ -2,8 +2,8 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 
+import '../core/app_log.dart';
 import '../core/async_tasks.dart';
-import '../core/diagnostics.dart';
 import '../core/localization.dart';
 import '../core/models.dart';
 import '../core/settings.dart';
@@ -129,7 +129,7 @@ class LibraryUpdater extends ChangeNotifier {
       try {
         hook(result);
       } catch (e) {
-        debugPrint(Diagnostics.error(e));
+        AppLog.error(e, event: 'update_hook');
       }
     }
     return result;

@@ -13,6 +13,7 @@ import '../../engine/source_manager.dart';
 import '../../images/park_image.dart';
 import '../../library/library.dart';
 import '../history/history_page.dart';
+import '../kit/tokens.dart';
 import '../nav.dart';
 import '../theme.dart';
 import '../video/adaptive_video_progress.dart';
@@ -558,8 +559,14 @@ class _ShortVideoPageState extends State<ShortVideoPage>
                     top: 0,
                     left: 0,
                     right: 0,
-                    child: ColoredBox(
-                      color: Colors.black38,
+                    child: DecoratedBox(
+                      decoration: const BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: [Scrims.medium, Colors.transparent],
+                        ),
+                      ),
                       child: Row(
                         children: [
                           const BackButton(color: Colors.white),

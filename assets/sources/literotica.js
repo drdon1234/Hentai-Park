@@ -1,7 +1,8 @@
 (function () {
   'use strict';
   const HOME = 'https://www.literotica.com',
-    SEARCH = 'https://search.literotica.com';
+    SEARCH = 'https://search.literotica.com',
+    API = 'https://literotica.com/api/3';
   function idValue(id) {
     if (!/^[a-z0-9][a-z0-9-]{0,220}$/.test(String(id)))
       throw Park.error('NOT_FOUND', '作品编号无效');
@@ -56,6 +57,42 @@
     }
     return out;
   }
+  // Story pages load "Similar stories" from the public API instead of rendering them.
+  async function similar(source, id) {
+    const r = await source.http.get(
+      API + '/stories/' + encodeURIComponent(id) + '/similar',
+    );
+    if (!r.ok || r.body.length > 1024 * 1024) return [];
+    let data;
+    try {
+      data = JSON.parse(r.body);
+    } catch (_) {
+      return [];
+    }
+    const out = [],
+      seen = new Set([id]);
+    for (const x of Array.isArray(data) ? data.slice(0, 50) : []) {
+      const slug = x && String(x.url || '');
+      if (
+        x.type !== 'story' ||
+        x.language !== 1 ||
+        !/^[a-z0-9][a-z0-9-]{0,220}$/.test(slug) ||
+        !x.title ||
+        seen.has(slug)
+      )
+        continue;
+      seen.add(slug);
+      out.push({
+        id: slug,
+        title: String(x.title),
+        cover: '',
+        language: 'en',
+        mediaKind: 'novel',
+        uploader: String(x.authorname || ''),
+      });
+    }
+    return out;
+  }
   async function list(source, req, url) {
     const u = new URL(url),
       page = Math.max(1, Number(req.page) || 1);
@@ -95,7 +132,7 @@
     },
     key: 'literotica',
     name: 'Literotica',
-    version: '0.0.4',
+    version: '0.0.5',
     type: 'novel',
     category: 'novel',
     language: 'en',
@@ -128,7 +165,7 @@
           d.querySelector('a[rel="author"],a[href*="/authors/"]'),
         );
       if (!title) throw Park.error('NOT_FOUND', '小说不存在');
-      const related = entries(d).filter((x) => x.id !== id);
+      const related = await similar(this, id);
       return {
         id,
         title,

@@ -9,7 +9,7 @@ Park.register({
     "ru": {"标清": "Стандартное качество", "综合成人视频，支持排行、搜索和高清播放": "Видео для взрослых с рейтингами, поиском и высоким качеством", "高清": "Высокое качество"},
     "ar": {"标清": "جودة قياسية", "综合成人视频，支持排行、搜索和高清播放": "فيديوهات للبالغين مع تصنيفات وبحث وتشغيل بجودة عالية", "高清": "جودة عالية"},
   },
-  key: 'xvideos', name: 'XVideos', version: '0.0.3', type: 'video', category: 'adult', color: '#E31B23',
+  key: 'xvideos', name: 'XVideos', version: '0.0.4', type: 'video', category: 'adult', color: '#E31B23',
   description: '综合成人视频，支持排行、搜索和高清播放', homepage: 'https://www.xvideos.com', domains: ['xvideos.com'], language: 'en',
   network: {mode: 'native', vpnHint: true}, imageHeaders: {Referer: 'https://www.xvideos.com/'},
   linkPatterns: ['xvideos\\.com/(video\\.[a-z0-9]+/[^?#\\s]+)(?:[?#]|$)'],
@@ -79,9 +79,36 @@ Park.register({
     if (!keyword) return {items: [], page: 1, hasNext: false};
     return this.listing(this.BASE + '/?k=' + encodeURIComponent(keyword), req, 'search');
   },
+  // Related videos are not rendered as cards: the page script holds them as `var video_related=[...]`.
+  related(html, id) {
+    const start = html.indexOf('video_related=[');
+    if (start < 0) return [];
+    let depth = 0, quoted = false, end = -1;
+    for (let i = start + 'video_related='.length; i < html.length && end < 0; i++) {
+      const c = html[i];
+      if (quoted) { if (c === '\\') i++; else if (c === '"') quoted = false; }
+      else if (c === '"') quoted = true;
+      else if (c === '[' || c === '{') depth++;
+      else if ((c === ']' || c === '}') && --depth === 0) end = i + 1;
+    }
+    let data;
+    try { data = JSON.parse(html.slice(start + 'video_related='.length, end)); } catch (_) { return []; }
+    const items = [], seen = new Set();
+    for (const v of Array.isArray(data) ? data.slice(0, 100) : []) {
+      if (!v || typeof v.u !== 'string' || typeof v.i !== 'string' || !/^https:\/\//.test(v.i)) continue;
+      let itemId;
+      try { const u = new URL(v.u, this.BASE); if (!this.siteUrl(u)) continue; itemId = this.validId(u.pathname.slice(1)); } catch (_) { continue; }
+      const encoded = /^video\.([^/]+)/.exec(itemId)[1], title = String(v.tf || v.t || '').trim();
+      if (!title || itemId === id || seen.has(encoded)) continue;
+      seen.add(encoded);
+      items.push({id: itemId, title, cover: v.i, coverAspect: 16/9, duration: String(v.d || ''),
+        views: Park.utils.parseCount(String(v.n || '')), uploader: String(v.pn || '')});
+    }
+    return items;
+  },
   async detail(id) {
     id = this.validId(id);
-    const url = this.BASE + '/' + id, {doc} = await this.getPage(url);
+    const url = this.BASE + '/' + id, {html, doc} = await this.getPage(url);
     const title = doc.querySelector('meta[property="og:title"]')?.getAttribute('content'), cover = doc.querySelector('meta[property="og:image"]')?.getAttribute('content');
     if (!title || !cover) throw Park.error('PARSE', '成人视频详情解析失败');
     const tags = [], seen = new Set();
@@ -90,7 +117,7 @@ Park.register({
       if (name && /^\/tags\/[a-z0-9_-]+\/?$/i.test(tag) && !seen.has(tag)) { seen.add(tag); tags.push({name, keyword: '', filters: {tag}}); }
     }
     return {id, title, cover, coverAspect: 16/9, url, duration: Park.html.text(doc.querySelector('h2.page-title .duration')),
-      description: '', authors: [], tags: tags.length ? [{namespace: 'tag', label: '标签', tags}] : [], related: this.cards(doc).filter(i => i.id !== id)};
+      description: '', authors: [], tags: tags.length ? [{namespace: 'tag', label: '标签', tags}] : [], related: this.related(html, id)};
   },
   async videos(id) {
     const referer = this.BASE + '/' + this.validId(id), {html} = await this.getPage(referer);

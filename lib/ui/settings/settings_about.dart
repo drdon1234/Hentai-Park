@@ -1,13 +1,16 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:path/path.dart' as p;
 import 'package:share_plus/share_plus.dart';
 
+import '../../core/app_log.dart';
 import '../../core/crash_log.dart';
 import '../../core/localization.dart';
+import '../../core/settings.dart';
 import '../../core/storage.dart';
-import '../../engine/js_engine.dart';
+import '../../engine/source_manager.dart';
 import '../kit/kit.dart';
 import '../nav.dart';
 import '../theme.dart';
@@ -38,7 +41,7 @@ List<Widget> aboutSettings(BuildContext context) => [
     children: [
       ListRow(
         title: tr('运行日志'),
-        subtitle: tr('诊断日志只记录错误类型、传输方式和目标主机'),
+        subtitle: tr('诊断日志只记录错误代码、网络原因、目标主机和代码位置'),
         trailing: const Icon(Icons.chevron_right_rounded),
         onTap: () => Nav.push(context, const _LogsPage()),
       ),
@@ -57,58 +60,82 @@ List<Widget> aboutSettings(BuildContext context) => [
   ),
 ];
 
-class _LogsPage extends StatelessWidget {
+class _LogsPage extends StatefulWidget {
   const _LogsPage();
 
   @override
-  Widget build(BuildContext context) {
-    final logs = JsEngine.instance.logs.reversed.toList();
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(tr('运行日志')),
-        actions: [
-          IconButton(
-            tooltip: tr('导出诊断日志'),
-            icon: const Icon(Icons.ios_share_rounded),
-            onPressed: () async {
-              final text = await CrashLog.report(JsEngine.instance.logs);
-              final file = File(
-                p.join(AppPaths.cache.path, 'hentaipark_log.txt'),
-              );
-              await file.writeAsString(text);
-              await SharePlus.instance.share(
-                ShareParams(files: [XFile(file.path)]),
-              );
-            },
-          ),
-        ],
-      ),
-      body: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(
-              Gap.page,
-              Gap.s,
-              Gap.page,
-              Gap.s,
-            ),
-            child: Text(
-              tr(
-                '自动记录的字段：错误类型、传输方式、网络原因和目标主机。不记录账号、密码、Cookie、Token、请求内容或完整链接。',
-              ),
-              style: context.text.bodySmall?.copyWith(
-                color: context.colors.onSurfaceVariant,
-              ),
-            ),
-          ),
-          const Divider(),
-          Expanded(
-            child: logs.isEmpty
-                ? EmptyState(icon: Icons.notes_rounded, title: tr('暂无日志'))
-                : SelectableLogView(logs: logs),
-          ),
-        ],
-      ),
+  State<_LogsPage> createState() => _LogsPageState();
+}
+
+class _LogsPageState extends State<_LogsPage> {
+  late final Future<String> _report = _build();
+
+  /// The in-app view and the export are the same report.
+  static Future<String> _build() async {
+    final info = await PackageInfo.fromPlatform();
+    final sites = [
+      for (final key in AppLog.sites.toList()..sort())
+        '$key ${SourceManager.instance.manifest(key)?.version ?? '-'}',
+    ];
+    return CrashLog.report(
+      context: [
+        '应用：${info.version}+${info.buildNumber}',
+        '应用代理：${AppSettings.instance.proxy.isEmpty ? '未设置' : '已设置'}',
+        '日志涉及的站点插件：${sites.isEmpty ? '无' : sites.join('，')}',
+      ],
     );
   }
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+    appBar: AppBar(
+      title: Text(tr('运行日志')),
+      actions: [
+        IconButton(
+          tooltip: tr('导出诊断日志'),
+          icon: const Icon(Icons.ios_share_rounded),
+          onPressed: () async {
+            final file = File(
+              p.join(AppPaths.cache.path, 'hentaipark_log.txt'),
+            );
+            await file.writeAsString(await _report);
+            await SharePlus.instance.share(
+              ShareParams(files: [XFile(file.path)]),
+            );
+          },
+        ),
+      ],
+    ),
+    body: Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(Gap.page, Gap.s, Gap.page, Gap.s),
+          child: Text(
+            tr(
+              '自动记录时间、站点与操作、错误代码、HTTP 状态、网络原因、目标主机、内置错误文案和代码位置。不记录账号、密码、Cookie、Token、请求内容、完整链接或错误中的动态内容。',
+            ),
+            style: context.text.bodySmall?.copyWith(
+              color: context.colors.onSurfaceVariant,
+            ),
+          ),
+        ),
+        const Divider(),
+        Expanded(
+          child: FutureBuilder<String>(
+            future: _report,
+            builder: (context, snapshot) => switch (snapshot) {
+              AsyncSnapshot(hasData: true, :final data?) => SelectableLogView(
+                text: data,
+              ),
+              AsyncSnapshot(hasError: true) => EmptyState(
+                icon: Icons.notes_rounded,
+                title: tr('日志读取失败'),
+              ),
+              _ => const Center(child: CircularProgressIndicator()),
+            },
+          ),
+        ),
+      ],
+    ),
+  );
 }

@@ -8,8 +8,8 @@ import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
 
+import '../core/app_log.dart';
 import '../core/async_tasks.dart';
-import '../core/diagnostics.dart';
 import '../core/models.dart';
 import '../core/settings.dart';
 import '../core/storage.dart';
@@ -28,7 +28,7 @@ class ImageStore {
       if (_lastLimit == limit) return;
       _lastLimit = limit;
       unawaited(
-        trim().catchError((Object e) => debugPrint(Diagnostics.error(e))),
+        trim().catchError((Object e) => AppLog.error(e, event: 'image_cache')),
       );
     });
   }

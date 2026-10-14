@@ -3,7 +3,7 @@ import 'dart:io';
 import 'package:flutter/widgets.dart';
 import 'package:local_auth/local_auth.dart';
 
-import 'diagnostics.dart';
+import 'app_log.dart';
 import 'localization.dart';
 import 'settings.dart';
 
@@ -49,7 +49,7 @@ class AppLock extends ChangeNotifier with WidgetsBindingObserver {
         persistAcrossBackgrounding: true,
       );
     } catch (e) {
-      debugPrint(Diagnostics.error(e));
+      AppLog.error(e, event: 'app_lock');
       return false;
     } finally {
       _authenticating = false;

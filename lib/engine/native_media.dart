@@ -24,6 +24,7 @@ class NativeMedia implements MediaTransport, MediaSessionAuthority {
   }) : headers = policy.requestHeaders(headers),
        _proxy = AppSettings.instance.proxy,
        _client = client ?? _build(policy, AppSettings.instance.proxy);
+  @override
   final MediaPolicy policy;
   final Map<String, String> headers;
   final Dio _client;
@@ -174,25 +175,34 @@ class NativeMedia implements MediaTransport, MediaSessionAuthority {
           requestToken.cancel,
         );
         try {
-          final response = await awaitCancelled(
-            _client.get<ResponseBody>(
-              target.toString(),
-              options: Options(
-                responseType: ResponseType.stream,
-                followRedirects: false,
-                validateStatus: (_) => true,
-                sendTimeout: const Duration(seconds: 15),
-                receiveTimeout: const Duration(seconds: 40),
-                headers: {
-                  'User-Agent': HttpService.instance.userAgent,
-                  'Referer': '${policy.origin}/',
-                  ...headers,
-                },
+          final Response<ResponseBody> response;
+          try {
+            response = await awaitCancelled(
+              _client.get<ResponseBody>(
+                target.toString(),
+                options: Options(
+                  responseType: ResponseType.stream,
+                  followRedirects: false,
+                  validateStatus: (_) => true,
+                  sendTimeout: const Duration(seconds: 15),
+                  receiveTimeout: const Duration(seconds: 40),
+                  headers: {
+                    'User-Agent': HttpService.instance.userAgent,
+                    'Referer': '${policy.origin}/',
+                    ...headers,
+                  },
+                ),
+                cancelToken: requestToken,
               ),
-              cancelToken: requestToken,
-            ),
-            token,
-          );
+              token,
+            );
+          } on DioException catch (e) {
+            _check(token);
+            if (CancelToken.isCancel(e)) rethrow;
+            // The checked-address connection raises its own source error.
+            if (e.error case final SourceError error) throw error;
+            throw HttpService.transportError(e, target);
+          }
           _check(token);
           final body = response.data;
           if (body == null) throw SourceError('NETWORK', '媒体响应为空');
@@ -208,7 +218,12 @@ class NativeMedia implements MediaTransport, MediaSessionAuthority {
           }
           if (status != 200) {
             await body.stream.listen((_) {}).cancel();
-            throw SourceError('NETWORK', '媒体请求失败', status: status);
+            throw SourceError(
+              'NETWORK',
+              '媒体请求失败',
+              status: status,
+              diagnostics: {'host': target.host, 'transport': 'native'},
+            );
           }
           final bytes = await _read(body, maxBytes, token);
           _check(token);

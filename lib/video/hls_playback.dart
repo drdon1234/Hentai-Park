@@ -6,6 +6,7 @@ import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
 
+import '../core/app_log.dart';
 import '../core/models.dart';
 import '../engine/media_transport.dart';
 import 'hls.dart';
@@ -162,7 +163,9 @@ class HlsPlayback {
           response.add(Uint8List.sublistView(bytes, start, end + 1));
         }
       }
-    } catch (_) {
+    } catch (error, stack) {
+      // The player only sees a 502, so record why the segment failed.
+      _logSegment(error, stack);
       try {
         response.statusCode = HttpStatus.badGateway;
       } catch (_) {}
@@ -171,6 +174,19 @@ class HlsPlayback {
         await response.close();
       } catch (_) {}
     }
+  }
+
+  void _logSegment(Object error, StackTrace stack) {
+    if (_closed || (error is DioException && CancelToken.isCancel(error))) {
+      return;
+    }
+    AppLog.error(
+      error,
+      event: 'media',
+      site: transport.policy.site,
+      action: 'segment',
+      stack: error is SourceError ? null : stack,
+    );
   }
 
   Future<void> close() => _closing ??= () async {

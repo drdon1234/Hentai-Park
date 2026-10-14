@@ -17,6 +17,7 @@ class ReaderChrome extends StatelessWidget {
     this.bottom,
     this.barColor = Scrims.strong,
     this.foreground = Scrims.onScrim,
+    this.fade = false,
     this.onBack,
   });
   final bool visible;
@@ -27,7 +28,25 @@ class ReaderChrome extends StatelessWidget {
   final Widget? bottom;
   final Color barColor;
   final Color foreground;
+
+  /// Bars fade from [barColor] at the screen edge to clear, instead of solid blocks. For video,
+  /// where solid bars would cover most of a short inline player.
+  final bool fade;
   final VoidCallback? onBack;
+
+  Widget _bar({required bool top, required Widget child}) {
+    if (!fade) return Material(color: barColor, child: child);
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: top ? Alignment.topCenter : Alignment.bottomCenter,
+          end: top ? Alignment.bottomCenter : Alignment.topCenter,
+          colors: [barColor, barColor.withValues(alpha: 0)],
+        ),
+      ),
+      child: Material(type: MaterialType.transparency, child: child),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -52,8 +71,8 @@ class ReaderChrome extends StatelessWidget {
                   offset: visible ? Offset.zero : const Offset(0, -1),
                   duration: duration,
                   curve: Motion.curve,
-                  child: Material(
-                    color: barColor,
+                  child: _bar(
+                    top: true,
                     child: SafeArea(
                       bottom: false,
                       child: IconTheme.merge(
@@ -131,8 +150,8 @@ class ReaderChrome extends StatelessWidget {
                     offset: visible ? Offset.zero : const Offset(0, 1),
                     duration: duration,
                     curve: Motion.curve,
-                    child: Material(
-                      color: barColor,
+                    child: _bar(
+                      top: false,
                       child: SafeArea(
                         top: false,
                         child: IconTheme.merge(

@@ -7,9 +7,11 @@ import 'package:video_player/video_player.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 
 import '../../core/app_lock.dart';
+import '../../core/app_log.dart';
 import '../../core/localization.dart';
 import '../../core/models.dart';
 import '../../engine/platform_bridge.dart';
+import '../../engine/source_manager.dart';
 import '../kit/components.dart';
 import '../theme.dart';
 import 'video_controls.dart';
@@ -28,12 +30,17 @@ class VideoPage extends StatefulWidget {
     this.initialSources,
     this.localFile,
     this.recordHistory = true,
+    this.fetchDetails = false,
   });
   final WorkDetail work;
   final String? episodeId;
   final List<VideoSource>? initialSources;
   final File? localFile;
   final bool recordHistory;
+
+  /// [work] was rebuilt from stored data (resuming from history or the shelf), so the site's
+  /// detail is loaded for the panel below the player: metadata, series and related videos.
+  final bool fetchDetails;
 
   @override
   State<VideoPage> createState() => _VideoPageState();
@@ -50,6 +57,7 @@ class _VideoPageState extends State<VideoPage>
     recordHistory: widget.recordHistory,
   );
   late final PageController _episodePages;
+  WorkDetail? _details;
   bool _controls = true;
   VideoDisplayMode _displayMode = VideoDisplayMode.inline;
   StreamSubscription<double>? _volumeSub;
@@ -77,6 +85,22 @@ class _VideoPageState extends State<VideoPage>
     });
     unawaited(_readLevels());
     _session.init();
+    if (widget.fetchDetails) unawaited(_loadDetails());
+  }
+
+  Future<void> _loadDetails() async {
+    final work = widget.work;
+    try {
+      final details = await SourceManager.instance.detail(
+        work.source,
+        work.id,
+        preview: work.toItem(),
+      );
+      if (mounted) setState(() => _details = details);
+    } catch (e, stack) {
+      // Playback does not depend on it; the panel keeps the stored title and metadata.
+      AppLog.error(e, event: 'video_details', site: work.source, stack: stack);
+    }
   }
 
   @override
@@ -314,7 +338,7 @@ class _VideoPageState extends State<VideoPage>
             if (_episodes.length > 1) _episodeBar(),
             Expanded(
               child: VideoDetails(
-                work: widget.work,
+                work: _details ?? widget.work,
                 offline: _session.offline,
                 quality: _session.current?.label,
               ),

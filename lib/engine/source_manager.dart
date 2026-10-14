@@ -8,8 +8,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:path/path.dart' as p;
 
+import '../core/app_log.dart';
 import '../core/async_tasks.dart';
-import '../core/diagnostics.dart';
 import '../core/localization.dart';
 import '../core/models.dart';
 import '../core/settings.dart';

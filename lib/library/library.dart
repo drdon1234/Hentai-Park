@@ -4,8 +4,8 @@ import 'dart:convert';
 import 'package:drift/drift.dart';
 import 'package:flutter/foundation.dart';
 
+import '../core/app_log.dart';
 import '../core/content_scope.dart';
-import '../core/diagnostics.dart';
 import '../core/models.dart';
 import '../core/settings.dart';
 import '../data/database.dart';
@@ -304,7 +304,7 @@ class Library extends ChangeNotifier {
       StackTrace st,
     ) {
       _writeFailure ??= (e, st);
-      debugPrint(Diagnostics.error(e));
+      AppLog.error(e, event: 'library_write', stack: st);
     });
   }
 

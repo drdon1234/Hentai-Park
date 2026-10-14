@@ -562,14 +562,8 @@
       } catch (err) {
         const code = (err && err.code) || ErrorCode.PARSE;
         const message = (err && err.message) || String(err);
+        // The host logs the failure with the method name and the plugin's copy.
         const diagnostics = networkDiagnostics(err);
-        if (code !== 'CANCELLED') {
-          try {
-            await native().log(key, 'error', { code, ...diagnostics });
-          } catch (e) {
-            /* Diagnostics must not replace the original source error. */
-          }
-        }
         // Messages are templates; their values travel separately so the app can translate them.
         const params = err && err.params && typeof err.params === 'object'
           ? Object.fromEntries(Object.entries(err.params).map(([k, v]) => [k, v == null ? '' : String(v)]))

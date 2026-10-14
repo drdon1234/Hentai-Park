@@ -1,11 +1,10 @@
 import 'dart:async';
 
 import 'package:dio/dio.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 
+import '../core/app_log.dart';
 import '../core/async_tasks.dart';
-import '../core/diagnostics.dart';
 import '../core/models.dart';
 import 'cancellation.dart';
 import 'challenge.dart';
@@ -540,7 +539,7 @@ class _OriginPage {
     try {
       await view?.dispose();
     } catch (e) {
-      debugPrint(Diagnostics.error(e));
+      AppLog.error(e, event: 'browser_dispose');
     }
   }
 }

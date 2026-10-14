@@ -37,20 +37,31 @@
 
 ## Скриншоты
 
-<p align="center">
-  <img src="../../screenshots/home.jpg" alt="Обзор (светлая тема)" width="32%">
-  <img src="../../screenshots/detail.jpg" alt="Страница работы (светлая тема)" width="32%">
-  <img src="../../screenshots/home_dark.jpg" alt="Обзор (тёмная тема)" width="32%">
-</p>
-<p align="center"><sub>Обзор · Работа · Тёмная тема</sub></p>
+<table>
+  <tr>
+    <td align="center" width="33%"><img src="../../screenshots/home.jpg" alt="Обзор (светлая тема)" width="100%"></td>
+    <td align="center" width="33%"><img src="../../screenshots/detail.jpg" alt="Страница работы (светлая тема)" width="100%"></td>
+    <td align="center" width="33%"><img src="../../screenshots/home_dark.jpg" alt="Обзор (тёмная тема)" width="100%"></td>
+  </tr>
+  <tr>
+    <td align="center"><sub>Обзор</sub></td>
+    <td align="center"><sub>Работа</sub></td>
+    <td align="center"><sub>Тёмная тема</sub></td>
+  </tr>
+</table>
 
-<p align="center">
-  <img src="../../screenshots/tablet_home.jpg" alt="Планшет, альбомная ориентация: боковая навигация и «Обзор»" width="49%">
-  <img src="../../screenshots/tablet_search.jpg" alt="Планшет, альбомная ориентация: поиск по всем сайтам" width="49%">
-</p>
-<p align="center"><sub>Планшет в альбомной ориентации</sub></p>
+<table>
+  <tr>
+    <td align="center" width="50%"><img src="../../screenshots/tablet_home.jpg" alt="Планшет, альбомная ориентация: боковая навигация, «Обзор» и страница работы" width="100%"></td>
+    <td align="center" width="50%"><img src="../../screenshots/tablet_search.jpg" alt="Планшет, альбомная ориентация: поиск по всем сайтам" width="100%"></td>
+  </tr>
+  <tr>
+    <td align="center"><sub>Планшет, альбомная ориентация · Обзор и страница работы</sub></td>
+    <td align="center"><sub>Планшет, альбомная ориентация · Поиск по всем сайтам</sub></td>
+  </tr>
+</table>
 
-Скриншоты сделаны в эмуляторе MuMu, обложки размыты.
+Скриншоты сделаны на офлайн-демоданных: показанные сайты, работы и обложки — оригинальные примеры, а не реальный контент.
 
 <a id="features"></a>
 

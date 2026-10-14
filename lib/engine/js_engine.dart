@@ -8,7 +8,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 
-import '../core/diagnostics.dart';
+import '../core/app_log.dart';
 import '../core/models.dart';
 import 'cookie_store.dart';
 import 'crypto_bridge.dart';
@@ -42,7 +42,6 @@ class JsEngine {
 
   /// Enqueues a source reload after its runtime is invalidated by a crash or timeout.
   void Function(String key)? onRestarted;
-  final List<String> logs = [];
   String? _runtimeCode;
 
   Future<String> _runtimeSource() async => _runtimeCode ??= await rootBundle
@@ -72,14 +71,6 @@ class JsEngine {
   Future<void> disposeRuntime(String key) async {
     await _runtimes.remove(key)?.dispose();
     await _closingRuntimes[key];
-  }
-
-  void log(String tag, Object? message) {
-    final line =
-        '${DateTime.now().toIso8601String().substring(11, 19)} [${RegExp(r'^[A-Za-z0-9_-]{1,100}$').hasMatch(tag) ? tag : 'runtime'}] ${Diagnostics.message(message)}';
-    logs.add(line);
-    if (logs.length > 500) logs.removeRange(0, logs.length - 500);
-    if (kDebugMode) debugPrint(line);
   }
 
   // Convenience wrappers keyed by source.
@@ -215,7 +206,6 @@ class SourceRuntime {
           if (!ready.isCompleted) ready.completeError(e);
         }
       },
-      onConsoleMessage: (c, m) => engine.log(_tag, m.message),
       // Source code stays in the initial document, including on Windows where
       // loadData uses about:blank instead of honoring baseUrl.
       shouldOverrideUrlLoading: (c, action) => NavigationActionPolicy.CANCEL,
@@ -260,7 +250,7 @@ class SourceRuntime {
   }
 
   Future<void> _restart() async {
-    engine.log(_tag, 'runtime crashed, restarting');
+    AppLog.record({'event': 'runtime_restart', 'site': _tag});
     _invalidate();
   }
 
@@ -288,10 +278,10 @@ class SourceRuntime {
           if (terminated == true) {
             await _rendererGone.future.timeout(const Duration(seconds: 2));
           } else {
-            engine.log(_tag, 'renderer termination unavailable');
+            AppLog.record({'event': 'renderer_unavailable', 'site': _tag});
           }
         } catch (e) {
-          engine.log(_tag, 'renderer termination failed: $e');
+          AppLog.error(e, event: 'renderer_terminate', site: _tag);
         }
       } catch (_) {}
     }
@@ -417,7 +407,10 @@ class SourceRuntime {
       handlerName: 'park_log',
       callback: (args) {
         final m = (args.first as Map).cast<String, dynamic>();
-        engine.log(_tag, m['message']);
+        // Plugins may log structured transport facts; free text is dropped.
+        if (m['message'] case final Map fields) {
+          AppLog.record({...fields, 'event': 'plugin', 'site': _tag});
+        }
         return null;
       },
     );

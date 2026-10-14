@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 import 'package:video_player/video_player.dart';
 
 import '../../core/app_lock.dart';
+import '../../core/app_log.dart';
 import '../../core/models.dart';
 import '../../engine/media_transport_factory.dart';
 import '../../engine/source_manager.dart';
@@ -288,9 +289,10 @@ class VideoSession extends ChangeNotifier {
         media: media,
         requestId: request,
       );
-    } catch (e) {
+    } catch (e, stack) {
       await media?.close();
       if (_active && request == _request) {
+        _logPlayback(e, s.format == 'hls' ? 'hls' : 'direct', stack);
         error = e;
         _update();
       }
@@ -298,6 +300,15 @@ class VideoSession extends ChangeNotifier {
       if (identical(_preparingMedia, media)) _preparingMedia = null;
     }
   }
+
+  void _logPlayback(Object error, String action, StackTrace stack) =>
+      AppLog.error(
+        error,
+        event: 'playback',
+        site: work.source,
+        action: action,
+        stack: error is SourceError ? null : stack,
+      );
 
   Future<void> _open(
     VideoPlayerController c, {
@@ -331,10 +342,11 @@ class VideoSession extends ChangeNotifier {
       final resume = at ?? _resumePoint(c.value.duration);
       if (resume != null) await c.seekTo(resume);
       await c.setPlaybackSpeed(speed);
-    } catch (e) {
+    } catch (e, stack) {
       await c.dispose();
       await media?.close();
       if (_active && request == _request) {
+        _logPlayback(e, 'player', stack);
         error = SourceError(
           'NETWORK',
           '视频加载失败：{error}',

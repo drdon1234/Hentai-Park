@@ -39,20 +39,31 @@
 
 ## لقطات الشاشة
 
-<p align="center">
-  <img src="../../screenshots/home.jpg" alt="استكشاف (فاتح)" width="32%">
-  <img src="../../screenshots/detail.jpg" alt="تفاصيل العمل (فاتح)" width="32%">
-  <img src="../../screenshots/home_dark.jpg" alt="استكشاف (داكن)" width="32%">
-</p>
-<p align="center"><sub>استكشاف · التفاصيل · الوضع الداكن</sub></p>
+<table>
+  <tr>
+    <td align="center" width="33%"><img src="../../screenshots/home.jpg" alt="استكشاف (فاتح)" width="100%"></td>
+    <td align="center" width="33%"><img src="../../screenshots/detail.jpg" alt="تفاصيل العمل (فاتح)" width="100%"></td>
+    <td align="center" width="33%"><img src="../../screenshots/home_dark.jpg" alt="استكشاف (داكن)" width="100%"></td>
+  </tr>
+  <tr>
+    <td align="center"><sub>استكشاف</sub></td>
+    <td align="center"><sub>التفاصيل</sub></td>
+    <td align="center"><sub>الوضع الداكن</sub></td>
+  </tr>
+</table>
 
-<p align="center">
-  <img src="../../screenshots/tablet_home.jpg" alt="جهاز لوحي أفقي: التنقل الجانبي واستكشاف" width="49%">
-  <img src="../../screenshots/tablet_search.jpg" alt="جهاز لوحي أفقي: البحث عبر المواقع" width="49%">
-</p>
-<p align="center"><sub>جهاز لوحي بالوضع الأفقي</sub></p>
+<table>
+  <tr>
+    <td align="center" width="50%"><img src="../../screenshots/tablet_home.jpg" alt="جهاز لوحي أفقي: التنقل الجانبي واستكشاف والتفاصيل" width="100%"></td>
+    <td align="center" width="50%"><img src="../../screenshots/tablet_search.jpg" alt="جهاز لوحي أفقي: البحث عبر المواقع" width="100%"></td>
+  </tr>
+  <tr>
+    <td align="center"><sub>جهاز لوحي أفقي · استكشاف والتفاصيل</sub></td>
+    <td align="center"><sub>جهاز لوحي أفقي · البحث عبر المواقع</sub></td>
+  </tr>
+</table>
 
-التُقطت الصور على محاكي MuMu مع تمويه الأغلفة.
+التُقطت الصور ببيانات عرض توضيحي دون اتصال؛ المواقع والأعمال والأغلفة الظاهرة أمثلة أصلية وليست محتوى حقيقيًا.
 
 <a id="features"></a>
 

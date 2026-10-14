@@ -59,6 +59,7 @@ class VideoControls extends StatelessWidget {
     final landscape = displayMode == VideoDisplayMode.landscape;
     return ReaderChrome(
       visible: true,
+      fade: true,
       title: title,
       onBack: onBack,
       actions: [

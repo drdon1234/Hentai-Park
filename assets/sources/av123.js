@@ -9,7 +9,7 @@ Park.register({
     "ru": {"JAV 视频，支持推荐、热门、搜索与 HLS 播放": "Видео JAV с рекомендациями, популярными списками, поиском и воспроизведением HLS", "推荐列表暂不可用": "Рекомендации временно недоступны", "推荐配置暂不可用": "Настройки рекомендаций временно недоступны", "播放线路暂不可用": "Воспроизведение временно недоступно", "请刷新推荐列表后重试": "Обновите рекомендации и повторите попытку"},
     "ar": {"JAV 视频，支持推荐、热门、搜索与 HLS 播放": "مقاطع JAV مع توصيات وقوائم شائعة وبحث وتشغيل HLS", "推荐列表暂不可用": "التوصيات غير متاحة مؤقتًا", "推荐配置暂不可用": "إعدادات التوصيات غير متاحة مؤقتًا", "播放线路暂不可用": "التشغيل غير متاح مؤقتًا", "请刷新推荐列表后重试": "حدّث التوصيات وحاول مرة أخرى"},
   },
-  key: 'av123', name: '123AV', version: '0.0.5', type: 'video', category: 'jav', color: '#EF4444',
+  key: 'av123', name: '123AV', version: '0.0.6', type: 'video', category: 'jav', color: '#EF4444',
   description: 'JAV 视频，支持推荐、热门、搜索与 HLS 播放',
   homepage: 'https://123av.com', domains: ['123av.com', 'sadie-shop.site'], language: 'zh-Hans',
   network: {mode: 'browser', origin: 'https://123av.com', vpnHint: true},
@@ -65,6 +65,35 @@ Park.register({
     }
     return {items:this.cards(doc),page,totalPages,hasNext:page<totalPages};
   },
+  // POST to the site's rec2 service with its public signature; null when it is unavailable.
+  async recPost(key, path, json) {
+    // Use an explicit request UA so the site's public signature uses the same value.
+    const ua='Mozilla/5.0', timestamp=String(Math.floor(Date.now()/1000));
+    let hash=0;
+    for (const c of key+timestamp+ua) hash=((hash<<5)-hash+c.charCodeAt(0))|0;
+    const r=await this.http.post('https://rec2.123av.com'+path,{mode:'native',headers:{'User-Agent':ua},
+      params:{timestamp,signature:(hash>>>0).toString(16)},json});
+    if (!r.ok || r.body.length>1024*1024) return null;
+    try {return JSON.parse(r.body);} catch (_) {return null;}
+  },
+  async recItems(data) {
+    const entries=Array.isArray(data.recomms)?data.recomms.slice(0,100):[];
+    const codes=entries.filter(i=>i && /^[a-z0-9][a-z0-9_-]{1,120}$/i.test(i.code || ''));
+    const hashes=await Park.crypto.md5Hex(codes.map(i=>i.code.toLowerCase()));
+    return codes.map((i,n)=>({id:i.code.toLowerCase(),title:i.code+(i.title_cn?' — '+i.title_cn:''),
+      cover:'https://icdn.123av.me/img2/s360/'+hashes[n].slice(0,2)+'/'+i.code.toLowerCase()+'/cover.jpg',coverAspect:16/9,duration:this.duration(i.duration)}));
+  },
+  // The watch page loads similar videos in the browser from rec2 ("watch-similar").
+  async related(doc, id) {
+    const node=doc.querySelector('[x-data^="recommendation("]');
+    const config=node && node.getAttribute('x-data') || '';
+    const key=/\bkey:\s*'([a-f0-9-]{36})'/.exec(config);
+    if (!key || !config.includes("base: 'https://rec2.123av.com'") || !config.includes("scenario: 'watch-similar'")) return [];
+    if (!this.recUser) this.recUser=await Park.crypto.uuid();
+    const data=await this.recPost(key[1],'/items/'+encodeURIComponent(id)+'/items',
+      {count:12,target_user:this.recUser,included_properties:['code','title_cn','duration']});
+    return data?(await this.recItems(data)).filter(i=>i.id!==id):[];
+  },
   async recommendations(req) {
     const page=Math.max(1,Math.floor(Number(req.page)||1));
     if (page===1 || !this.recConfig) {
@@ -78,21 +107,10 @@ Park.register({
     }
     const previous=page>1 && this.recPages.get(page-1);
     if (page>1 && !previous) throw Park.error('CONFIG','请刷新推荐列表后重试');
-    // Use an explicit request UA so the site's public signature uses the same value.
-    const ua='Mozilla/5.0', timestamp=String(Math.floor(Date.now()/1000));
-    let hash=0;
-    for (const c of this.recConfig.key+timestamp+ua) hash=((hash<<5)-hash+c.charCodeAt(0))|0;
     const path=previous?'/next/items/'+encodeURIComponent(previous):'/users/'+this.recConfig.user+'/items';
-    const r=await this.http.post('https://rec2.123av.com'+path,{mode:'native',headers:{'User-Agent':ua},
-      params:{timestamp,signature:(hash>>>0).toString(16)},json:previous?{count:12}:{count:12,scenario:'home-recommended',included_properties:['code','title_cn','duration']}});
-    if (!r.ok || r.body.length>1024*1024) throw Park.error('HTTP','推荐列表暂不可用');
-    let data;
-    try {data=JSON.parse(r.body);} catch (_) {throw Park.error('PARSE','推荐列表暂不可用');}
-    const entries=Array.isArray(data.recomms)?data.recomms.slice(0,100):[];
-    const codes=entries.filter(i=>i && /^[a-z0-9][a-z0-9_-]{1,120}$/i.test(i.code || ''));
-    const hashes=await Park.crypto.md5Hex(codes.map(i=>i.code.toLowerCase()));
-    const items=codes.map((i,n)=>({id:i.code.toLowerCase(),title:i.code+(i.title_cn?' — '+i.title_cn:''),
-      cover:'https://icdn.123av.me/img2/s360/'+hashes[n].slice(0,2)+'/'+i.code.toLowerCase()+'/cover.jpg',coverAspect:16/9,duration:this.duration(i.duration)}));
+    const data=await this.recPost(this.recConfig.key,path,previous?{count:12}:{count:12,scenario:'home-recommended',included_properties:['code','title_cn','duration']});
+    if (!data) throw Park.error('HTTP','推荐列表暂不可用');
+    const items=await this.recItems(data);
     const cursor=/^[a-f0-9]{16,128}$/.test(data.recomm_id || '')?data.recomm_id:'';
     if (cursor) this.recPages.set(page,cursor);
     if (this.recPages.size>100) this.recPages.delete(this.recPages.keys().next().value);
@@ -141,7 +159,7 @@ Park.register({
       }
     }
     return {id,title,cover,coverAspect:16/9,url:this.BASE+'/cn/v/'+id,authors,duration,uploaded,
-      description:Park.html.text(doc.querySelector('.watch__desc-text')),tags:tags.length?[{namespace:'tag',label:'标签',tags}]:[],related:this.cards(doc).filter(i=>i.id!==id)};
+      description:Park.html.text(doc.querySelector('.watch__desc-text')),tags:tags.length?[{namespace:'tag',label:'标签',tags}]:[],related:await this.related(doc,id)};
   },
   async videos(id) {
     const doc=await this.getPage('/cn/v/'+this.validId(id));

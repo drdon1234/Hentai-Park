@@ -37,20 +37,31 @@
 
 ## 截圖
 
-<p align="center">
-  <img src="../../screenshots/home.jpg" alt="發現頁（淺色）" width="32%">
-  <img src="../../screenshots/detail.jpg" alt="作品詳情（淺色）" width="32%">
-  <img src="../../screenshots/home_dark.jpg" alt="發現頁（深色）" width="32%">
-</p>
-<p align="center"><sub>發現 · 詳情 · 深色</sub></p>
+<table>
+  <tr>
+    <td align="center" width="33%"><img src="../../screenshots/home.jpg" alt="發現頁（淺色）" width="100%"></td>
+    <td align="center" width="33%"><img src="../../screenshots/detail.jpg" alt="作品詳情（淺色）" width="100%"></td>
+    <td align="center" width="33%"><img src="../../screenshots/home_dark.jpg" alt="發現頁（深色）" width="100%"></td>
+  </tr>
+  <tr>
+    <td align="center"><sub>發現</sub></td>
+    <td align="center"><sub>詳情</sub></td>
+    <td align="center"><sub>深色</sub></td>
+  </tr>
+</table>
 
-<p align="center">
-  <img src="../../screenshots/tablet_home.jpg" alt="平板橫向：側欄導覽與發現頁" width="49%">
-  <img src="../../screenshots/tablet_search.jpg" alt="平板橫向：全站搜尋" width="49%">
-</p>
-<p align="center"><sub>平板橫向</sub></p>
+<table>
+  <tr>
+    <td align="center" width="50%"><img src="../../screenshots/tablet_home.jpg" alt="平板橫向：側欄導覽、發現頁與詳情" width="100%"></td>
+    <td align="center" width="50%"><img src="../../screenshots/tablet_search.jpg" alt="平板橫向：全站搜尋" width="100%"></td>
+  </tr>
+  <tr>
+    <td align="center"><sub>平板橫向 · 發現與詳情</sub></td>
+    <td align="center"><sub>平板橫向 · 全站搜尋</sub></td>
+  </tr>
+</table>
 
-截圖來自 MuMu 模擬器，封面已模糊處理。
+截圖使用離線示範資料拍攝，其中的站點、作品與封面均為原創範例，不是真實內容。
 
 <a id="features"></a>
 

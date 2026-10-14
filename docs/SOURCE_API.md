@@ -143,7 +143,7 @@ Park.register({
 - `network.mode: 'browser'` + `network.origin`：请求在打开于 `origin` 的隐藏浏览器页中以同源 `fetch()` 发出，带真实浏览器指纹，适合 Cloudflare 防护较严的站点。同源 GET 收到 Cloudflare 质询时，隐藏浏览器先导航到该文档完成自动验证，再重试一次原请求；仍未通过时抛 `CLOUDFLARE`。
 - `network.vpnHint: true`：在中国大陆可能需要 VPN 或代理的站点声明它，等待超过 8 秒和失败时提示“可能需要 VPN 或代理”。不要把所有错误都归因于 VPN。
 - `network.confirmation: { selector, readySelector, requiredCookies, message }`：需要用户明确确认（如年龄确认）的站点声明。`selector` 匹配确认弹窗，`readySelector` 匹配可访问的页面内容，`requiredCookies` 是确认后必须落地的 Cookie 名。插件遇到未确认页面时抛 `Park.error('CONFIRM_REQUIRED', message, { url })`；应用提供“去确认”入口，等弹窗消失、内容出现、Cookie 写入且导航稳定后返回。应用不会代替用户点击确认；这项声明也约束通用人机验证页，避免把年龄确认误当成已通过。
-- 网络异常附带安全的 `diagnostics` 字段 `host`、`transport`、`reason`，区分 TLS 证书、握手、DNS、连接和超时；自动日志只记录这几个白名单字段。`reason: 'TLS_HANDSHAKE_TERMINATED'` 仅表示原生 `HandshakeException.message` 恰好是 `Connection terminated during handshake`（握手完成前连接中断，不是证书校验失败）；只有 HTTPS、无请求体的 GET / HEAD 遇到它时自动重试一次，其他错误都不重试。
+- 网络异常附带安全的 `diagnostics` 字段 `host`、`transport`、`reason`，区分 TLS 证书、握手、DNS、连接和超时。框架在调用失败时自动记录站点、方法名、错误代码、HTTP 状态和这些字段；错误消息只有在属于插件 `i18n` 或应用文案键时才以模板形式记录，占位符的值不进日志。`reason: 'TLS_HANDSHAKE_TERMINATED'` 仅表示原生 `HandshakeException.message` 恰好是 `Connection terminated during handshake`（握手完成前连接中断，不是证书校验失败）；只有 HTTPS、无请求体的 GET / HEAD 遇到它时自动重试一次，其他错误都不重试。
 
 ### 图片
 
@@ -174,7 +174,7 @@ media: { mode: 'native', origin: 'https://example.com', domains: ['media.example
 - `media.mode` 为 `'native'` 或 `'browser'`。`media.origin` 必须属于插件声明的站点，使用 HTTPS 默认端口 443，不含用户凭据、查询或片段。
 - `media.domains` 是独立的媒体域名白名单（含子域），不授予站点 Cookie 权限。清单、分段和密钥都只允许 HTTPS 443，拒绝 URL 用户凭据、片段、IP、localhost（含子域）和 `.local`。
 - `'native'` 使用独立、无凭据的原生客户端，不读写站点 Cookie、Authorization 或代理认证；每一跳重定向都先校验目标域名。只允许 `Referer`、`Origin`、`Accept`、`Accept-Language`，前两者必须匹配 `media.origin`。
-- 动态 HLS CDN 可声明 `media.scope: 'session'`（仅限 `mode: 'native'`）。框架授权插件本次解析的播放地址，再逐项授权清单内的子清单、分片、密钥及最多 8 跳重定向；授权仅存在于当前播放或下载会话，不写入 manifest、Cookie 权限或持久化白名单。所有地址保持 HTTPS 443、无凭据和片段，DNS 解析必须全部为公网地址；直连固定到检查后的 IP，同时保留原主机的 TLS 校验。显式配置 HTTP 代理时，仅连接用户指定的代理，媒体域名由代理解析；公网 DNS 检查由可信代理承担（支持 Fake-IP 网络），应用仍检查每一跳 URL 的 HTTPS、端口与主机格式。关闭会话会销毁授权。`media.domains` 继续约束静态会话及非 HLS 资源；动态授权不适用于直接交给系统播放器的 MP4。
+- 动态 HLS CDN 可声明 `media.scope: 'session'`（仅限 `mode: 'native'`）。框架授权插件本次解析的播放地址，再逐项授权清单内的子清单、分片、密钥及最多 8 跳重定向；授权仅存在于当前播放或下载会话，不写入 manifest、Cookie 权限或持久化白名单。所有地址保持 HTTPS 443、无凭据和片段，DNS 解析必须全部为公网地址；`198.18.0.0/15` 视为允许，它是不分配给局域网主机的基准测试保留段，Clash、sing-box、Surge 等系统 VPN 的 Fake-IP 模式把域名映射到这里。直连固定到检查后的 IP，同时保留原主机的 TLS 校验；解析到内网或其他保留地址时报“媒体主机解析到了内网或保留地址”，诊断原因为 `PRIVATE_ADDRESS`。显式配置 HTTP 代理时，仅连接用户指定的代理，媒体域名由代理解析；公网 DNS 检查由可信代理承担（支持 Fake-IP 网络），应用仍检查每一跳 URL 的 HTTPS、端口与主机格式。关闭会话会销毁授权。`media.domains` 继续约束静态会话及非 HLS 资源；动态授权不适用于直接交给系统播放器的 MP4。
 - `'browser'` 在 `media.origin` 的隐藏浏览器建立媒体会话，使用 `credentials: 'omit'`、`mode: 'cors'`、`redirect: 'error'`。
 - 响应流式限长并重新校验响应地址：清单最多 2 MiB，单个分段最多 32 MiB，AES-128 密钥必须 16 字节；超限、空响应或不允许的地址一律拒绝。
 
@@ -372,7 +372,7 @@ subscription: {
 | `this.config` | 用户在站点设置中选择的值（未设置时为 `default`） |
 | `this.store` | 持久化键值存储：`get(key, fallback)` / `set(key, value)`，用于保存 Token、域名列表等；`await flush()` 确认写盘成功，失败抛错 |
 | `this.cookies` | `get(url)` / `set(url, { name: value })` / `clear(url)` |
-| `this.log({ code, host, transport, reason })` | 只写入这些允许的字段；自由文本不保留，避免泄露凭据与请求地址 |
+| `this.log({ code, status, host, transport, reason, action })` | 只写入这些允许的字段；自由文本不保留，避免泄露凭据与请求地址 |
 
 全局工具：
 

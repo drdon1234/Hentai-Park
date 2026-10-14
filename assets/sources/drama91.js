@@ -9,7 +9,7 @@ Park.register({
     "ru": {"91短剧": "Короткие сериалы 91", "AI短剧、漫剧与视频，支持推荐、分类、搜索和分集播放": "ИИ-мини-драмы, анимированные комиксы и видео с рекомендациями, категориями, поиском и просмотром по сериям", "成人漫剧": "Анимированные комиксы для взрослых", "成人短剧": "Короткие сериалы для взрослых", "真人剧": "Игровые сериалы"},
     "ar": {"91短剧": "مسلسلات 91 القصيرة", "AI短剧、漫剧与视频，支持推荐、分类、搜索和分集播放": "دراما قصيرة بالذكاء الاصطناعي وقصص مصورة متحركة وفيديوهات، مع توصيات وتصنيفات وبحث وتشغيل الحلقات", "成人漫剧": "قصص مصورة متحركة للبالغين", "成人短剧": "مسلسلات قصيرة للبالغين", "真人剧": "مسلسلات تمثيلية"},
   },
-  key: 'drama91', name: '91短剧', version: '0.0.7',
+  key: 'drama91', name: '91短剧', version: '0.0.8',
   type: 'video', category: 'aiDrama', color: '#E6C87A',
   description: 'AI短剧、漫剧与视频，支持推荐、分类、搜索和分集播放',
   homepage: 'https://91crdjai.com', domains: ['91crdjai.com'], language: 'zh',
@@ -171,9 +171,9 @@ Park.register({
     if (data.videoApi || data.videoKey || data.videoIv) throw Park.error('UNSUPPORTED', 'AI短剧该分集使用暂不支持的播放方式');
     if (!data.current.src) throw Park.error('NOT_FOUND', 'AI短剧该分集暂无可用播放地址');
     const url = this.absolute(data.current.src), u = url && new URL(url);
-    if (!u || u.protocol !== 'https:' || u.port || u.username || u.password || u.hash || (!/\.m3u8(?:\?|$)/i.test(url) && !this.media.domains.includes(u.hostname))) throw Park.error('PARSE', 'AI短剧播放地址无效');
+    if (!u || u.protocol !== 'https:' || u.port || u.username || u.password || u.hash || !/\.m3u8(?:\?|$)/i.test(url)) throw Park.error('PARSE', 'AI短剧播放地址无效');
     return [{ quality: 0, label: '原画', url, headers: { Referer: this.BASE + playPath }, preferred: true,
-      ...(/\.m3u8(?:[?#]|$)/i.test(url) ? { format: 'hls' } : {}),
+      format: 'hls',
     }];
   },
 });

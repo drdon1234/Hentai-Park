@@ -37,20 +37,31 @@ Sites that need an account or a proxy are set up in More → Sites and More → 
 
 ## Screenshots
 
-<p align="center">
-  <img src="../../screenshots/home.jpg" alt="Discover (light)" width="32%">
-  <img src="../../screenshots/detail.jpg" alt="Work details (light)" width="32%">
-  <img src="../../screenshots/home_dark.jpg" alt="Discover (dark)" width="32%">
-</p>
-<p align="center"><sub>Discover · Details · Dark theme</sub></p>
+<table>
+  <tr>
+    <td align="center" width="33%"><img src="../../screenshots/home.jpg" alt="Discover (light)" width="100%"></td>
+    <td align="center" width="33%"><img src="../../screenshots/detail.jpg" alt="Work details (light)" width="100%"></td>
+    <td align="center" width="33%"><img src="../../screenshots/home_dark.jpg" alt="Discover (dark)" width="100%"></td>
+  </tr>
+  <tr>
+    <td align="center"><sub>Discover</sub></td>
+    <td align="center"><sub>Details</sub></td>
+    <td align="center"><sub>Dark theme</sub></td>
+  </tr>
+</table>
 
-<p align="center">
-  <img src="../../screenshots/tablet_home.jpg" alt="Tablet landscape: side navigation and Discover" width="49%">
-  <img src="../../screenshots/tablet_search.jpg" alt="Tablet landscape: search across sites" width="49%">
-</p>
-<p align="center"><sub>Tablet, landscape</sub></p>
+<table>
+  <tr>
+    <td align="center" width="50%"><img src="../../screenshots/tablet_home.jpg" alt="Tablet landscape: side navigation, Discover and details" width="100%"></td>
+    <td align="center" width="50%"><img src="../../screenshots/tablet_search.jpg" alt="Tablet landscape: search across sites" width="100%"></td>
+  </tr>
+  <tr>
+    <td align="center"><sub>Tablet landscape · Discover and details</sub></td>
+    <td align="center"><sub>Tablet landscape · Search across sites</sub></td>
+  </tr>
+</table>
 
-Screenshots were taken on the MuMu emulator with covers blurred.
+Screenshots use offline demo data; the sites, works and covers shown are original samples, not real content.
 
 <a id="features"></a>
 

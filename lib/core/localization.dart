@@ -106,6 +106,10 @@ class AppLocalizations {
 
   static final _placeholder = RegExp(r'\{([A-Za-z][A-Za-z0-9_]*)\}');
 
+  /// Whether [message] is an application message key (fixed source text).
+  bool hasMessage(String message) =>
+      _messages['zh-Hans']?.containsKey(message) ?? false;
+
   /// Looks up an application message by its exact key.
   String translate(String message, [Map<String, Object?> params = const {}]) {
     final translated =

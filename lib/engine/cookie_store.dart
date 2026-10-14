@@ -2,11 +2,10 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:cookie_jar/cookie_jar.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart' as wv;
 import 'package:path/path.dart' as p;
 
-import '../core/diagnostics.dart';
+import '../core/app_log.dart';
 import '../core/models.dart';
 import '../core/storage.dart';
 import 'browser_fetcher.dart';
@@ -493,7 +492,7 @@ class CookieStore {
               .millisecondsSinceEpoch,
         );
       } catch (e) {
-        debugPrint(Diagnostics.error(e));
+        AppLog.error(e, event: 'cookie_sync');
       }
     }
   }

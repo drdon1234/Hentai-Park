@@ -37,20 +37,31 @@
 
 ## 스크린샷
 
-<p align="center">
-  <img src="../../screenshots/home.jpg" alt="탐색 (라이트)" width="32%">
-  <img src="../../screenshots/detail.jpg" alt="작품 상세 (라이트)" width="32%">
-  <img src="../../screenshots/home_dark.jpg" alt="탐색 (다크)" width="32%">
-</p>
-<p align="center"><sub>탐색 · 상세 · 다크</sub></p>
+<table>
+  <tr>
+    <td align="center" width="33%"><img src="../../screenshots/home.jpg" alt="탐색 (라이트)" width="100%"></td>
+    <td align="center" width="33%"><img src="../../screenshots/detail.jpg" alt="작품 상세 (라이트)" width="100%"></td>
+    <td align="center" width="33%"><img src="../../screenshots/home_dark.jpg" alt="탐색 (다크)" width="100%"></td>
+  </tr>
+  <tr>
+    <td align="center"><sub>탐색</sub></td>
+    <td align="center"><sub>상세</sub></td>
+    <td align="center"><sub>다크</sub></td>
+  </tr>
+</table>
 
-<p align="center">
-  <img src="../../screenshots/tablet_home.jpg" alt="태블릿 가로: 사이드 내비게이션과 탐색" width="49%">
-  <img src="../../screenshots/tablet_search.jpg" alt="태블릿 가로: 전체 사이트 검색" width="49%">
-</p>
-<p align="center"><sub>태블릿 가로 화면</sub></p>
+<table>
+  <tr>
+    <td align="center" width="50%"><img src="../../screenshots/tablet_home.jpg" alt="태블릿 가로: 사이드 내비게이션, 탐색, 상세" width="100%"></td>
+    <td align="center" width="50%"><img src="../../screenshots/tablet_search.jpg" alt="태블릿 가로: 전체 사이트 검색" width="100%"></td>
+  </tr>
+  <tr>
+    <td align="center"><sub>태블릿 가로 · 탐색과 상세</sub></td>
+    <td align="center"><sub>태블릿 가로 · 전체 사이트 검색</sub></td>
+  </tr>
+</table>
 
-스크린샷은 MuMu 에뮬레이터에서 찍었으며 표지는 흐리게 처리했습니다.
+스크린샷은 오프라인 데모 데이터로 촬영했습니다. 화면의 사이트, 작품, 표지는 모두 직접 만든 예시이며 실제 콘텐츠가 아닙니다.
 
 <a id="features"></a>
 

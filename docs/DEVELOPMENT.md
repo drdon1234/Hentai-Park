@@ -12,7 +12,7 @@
 
 ### Android SDK
 
-以下路径是开发机示例，不是项目约定。Flutter 的 `android-sdk` 与 `android/local.properties` 的 `sdk.dir` 都应指向包含 `platforms`、`build-tools`、`platform-tools`、`ndk` 的那一层：
+Flutter 的 `android-sdk` 与 `android/local.properties` 的 `sdk.dir` 都应指向包含 `platforms`、`build-tools`、`platform-tools`、`ndk` 的那一层，把 `<Android SDK 目录>` 换成本机实际路径：
 
 ```powershell
 flutter config --android-sdk '<Android SDK 目录>'
@@ -83,6 +83,7 @@ Flutter 不在 PATH 上时传入完整路径：`.\tools\check.ps1 -FlutterComman
 - 官方插件由 `.github/workflows/publish-sources.yml` 在 `main` 推送后发布到 `sources` 分支，流程见 SOURCE_API.md 的“发布”。
 - 已安装旧版插件的用户在接受官方插件更新之前继续使用旧脚本；插件文案、错误提示等随插件更新生效，发布说明中要提醒用户更新插件。
 - 官方插件更新最多三个站点并发下载、校验和安装。安装、卸载与恢复内置版本只等待对应站点的操作；其他站点可继续发起请求。同站点的新请求等待自身更新结束。每个站点使用独立的 `source_install_<key>.json` 恢复日志，失败只恢复自身脚本、配置与 Cookie；启动时先恢复未完成事务。全量备份、导入仍使用全局一致性屏障。
+- 运行日志（设置 → 关于 → 运行日志）与导出文件是同一份报告：应用版本、是否设置了应用代理、日志涉及的站点插件版本，此前运行的未捕获错误（`logs/crash.log`，JSON 行，读取时重新净化），以及本次运行的事件。事件包括插件调用失败（`event=source`，带方法名）、播放打开失败（`event=playback`）、HLS 分片失败（`event=media`）和未捕获错误（`event=crash`，带代码位置）。字段白名单见 `lib/core/diagnostics.dart`；连续相同的事件合并计数。WebView 控制台输出不记录。
 - 发现页各站点的首屏作品在本次应用会话中复用，切换分类、展示站点和滚动不会重新请求。顶部下拉刷新清空全部会话内容，下次可见时重新获取；已加载的横向书架在滚出屏幕后保留。每个分类的展示站点通过标题右侧配置按钮选择，配置随应用设置持久化。
 
 ### 许可
