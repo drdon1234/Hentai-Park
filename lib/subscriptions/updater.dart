@@ -6,8 +6,8 @@ import 'package:flutter/foundation.dart';
 import '../core/localization.dart';
 import '../core/models.dart';
 import '../core/settings.dart';
-import '../engine/source_manager.dart';
 import '../engine/platform_bridge.dart';
+import '../engine/source_manager.dart';
 import 'subscription_store.dart';
 import 'update_store.dart';
 
@@ -77,7 +77,7 @@ class SubscriptionUpdater extends ChangeNotifier {
     await manager.ready;
     if (manager[e.source]?.enabled != true ||
         manager.manifest(e.source)?.can('subscriptionUpdates') != true) {
-      throw SourceError('UNSUPPORTED', '此源暂不支持更新订阅');
+      throw SourceError('UNSUPPORTED', '这个站点暂不支持更新订阅');
     }
     return manager.checkSubscription(
       e.source,
@@ -180,7 +180,7 @@ class SubscriptionUpdater extends ChangeNotifier {
                 await Future<void>.delayed(const Duration(milliseconds: 300));
               }
               if (identity != await fingerprint(entry)) {
-                throw SourceError('CANCELLED', '账号或源配置已改变，请重新检查');
+                throw SourceError('CANCELLED', '账号或站点设置已改变，请重新检查');
               }
               if (cancelled || cancel.isCancelled) {
                 throw SourceError('CANCELLED', '订阅检查已取消');

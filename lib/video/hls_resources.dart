@@ -56,7 +56,7 @@ class HlsResources {
       try {
         key = await pending;
       } catch (_) {
-        if (identical(_keys[keyUrl], pending)) _keys.remove(keyUrl);
+        if (identical(_keys[keyUrl], pending)) _keys.remove(keyUrl)?.ignore();
         rethrow;
       }
       _check();

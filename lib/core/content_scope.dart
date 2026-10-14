@@ -1,7 +1,7 @@
 import 'dart:convert';
 
-import 'models.dart';
 import 'localization.dart';
+import 'models.dart';
 
 /// 内容分类与站点身份是不同的范围，序列化时保持边界。
 class ContentScope {
@@ -26,7 +26,7 @@ class ContentScope {
     ] else
       'all',
   ]);
-  String get label => sourceKey ?? category?.label ?? tr('全部域');
+  String get label => sourceKey ?? category?.label ?? tr('全部分类');
   bool contains(String source, SourceCategory domain) =>
       (sourceKey == null || source == sourceKey) &&
       (category == null || domain == category);

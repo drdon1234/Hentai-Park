@@ -1,27 +1,25 @@
-import '../core/diagnostics.dart';
-
 import 'dart:convert';
 import 'dart:io';
 import 'dart:isolate';
 import 'dart:typed_data';
 
-import 'progress_merge.dart';
-import 'backup_validation.dart';
-import 'restore_transaction.dart';
-import '../subscriptions/subscription_store.dart';
-import '../core/async_tasks.dart';
-
 import 'package:drift/drift.dart';
 import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
 
+import '../core/async_tasks.dart';
+import '../core/diagnostics.dart';
+import '../core/localization.dart';
 import '../core/settings.dart';
-import '../novel/reading_notes.dart';
 import '../core/storage.dart';
 import '../data/database.dart';
 import '../engine/source_manager.dart';
+import '../novel/reading_notes.dart';
+import '../subscriptions/subscription_store.dart';
+import 'backup_validation.dart';
 import 'library.dart';
-import '../core/localization.dart';
+import 'progress_merge.dart';
+import 'restore_transaction.dart';
 
 class BackupOptions {
   const BackupOptions({
@@ -56,7 +54,7 @@ class RestoreReport {
     if (chapters > 0) tr('章节进度 {value0}', {'value0': chapters}),
     if (history > 0) tr('历史 {value0}', {'value0': history}),
     if (settings) tr('设置'),
-    if (sources > 0) tr('源设置 {value0}', {'value0': sources}),
+    if (sources > 0) tr('站点设置 {value0}', {'value0': sources}),
     if (subscriptions > 0) tr('订阅 {value0}', {'value0': subscriptions}),
   ].join('、');
 }

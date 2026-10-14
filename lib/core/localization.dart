@@ -36,8 +36,6 @@ class AppLocalizations {
     GlobalCupertinoLocalizations.delegate,
   ];
   static final _messages = <String, Map<String, String>>{};
-  static final _templates =
-      <({String key, RegExp pattern, List<String> params})>[];
   Locale locale;
 
   static String localeKey(Locale locale) => locale.languageCode == 'zh'
@@ -92,35 +90,6 @@ class AppLocalizations {
       }),
     );
     _messages.addEntries(loaded);
-    for (final key in _messages['zh-Hans']!.keys) {
-      final matches = RegExp(r'\{([A-Za-z][A-Za-z0-9_]*)\}')
-          .allMatches(key)
-          .toList();
-      if (matches.isEmpty || RegExp(r'[㐀-鿿]').allMatches(key).length < 2) {
-        continue;
-      }
-      final pattern = StringBuffer('^');
-      var end = 0;
-      for (final match in matches) {
-        pattern.write(RegExp.escape(key.substring(end, match.start)));
-        pattern.write(r'([\s\S]*?)');
-        end = match.end;
-      }
-      pattern.write(RegExp.escape(key.substring(end)));
-      pattern.write(r'$');
-      _templates.add((
-        key: key,
-        pattern: RegExp(pattern.toString()),
-        params: matches.map((match) => match.group(1)!).toList(),
-      ));
-    }
-    // Prefer the most specific wording when two source error templates overlap.
-    _templates.sort(
-      (a, b) => b.key
-          .replaceAll(RegExp(r'\{[^}]+\}'), '')
-          .length
-          .compareTo(a.key.replaceAll(RegExp(r'\{[^}]+\}'), '').length),
-    );
   }
 
   void setLocale(Locale value) => locale = resolveLocale(value);
@@ -135,31 +104,18 @@ class AppLocalizations {
     };
   }
 
+  static final _placeholder = RegExp(r'\{([A-Za-z][A-Za-z0-9_]*)\}');
+
+  /// Looks up an application message by its exact key.
   String translate(String message, [Map<String, Object?> params = const {}]) {
-    var key = message;
-    var values = params;
-    // Built-in JavaScript errors arrive with interpolated values. Match only
-    // application templates; callers never pass remote titles through tr().
-    if (!(_messages['zh-Hans']?.containsKey(message) ?? false) &&
-        params.isEmpty) {
-      for (final template in _templates) {
-        final match = template.pattern.firstMatch(message);
-        if (match == null) continue;
-        key = template.key;
-        values = {
-          for (var i = 0; i < template.params.length; i++)
-            template.params[i]: match.group(i + 1),
-        };
-        break;
-      }
-    }
     final translated =
-        _messages[localeKey(locale)]?[key] ?? _messages['en']?[key] ?? key;
-    return translated.replaceAllMapped(RegExp(r'\{([A-Za-z][A-Za-z0-9_]*)\}'), (
-      match,
-    ) {
+        _messages[localeKey(locale)]?[message] ??
+        _messages['en']?[message] ??
+        message;
+    if (params.isEmpty) return translated;
+    return translated.replaceAllMapped(_placeholder, (match) {
       final key = match.group(1)!;
-      return values.containsKey(key) ? '${values[key] ?? ''}' : match.group(0)!;
+      return params.containsKey(key) ? '${params[key] ?? ''}' : match.group(0)!;
     });
   }
 

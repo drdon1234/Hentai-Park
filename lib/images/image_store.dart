@@ -1,33 +1,29 @@
-import '../core/diagnostics.dart';
-
 import 'dart:async';
-
-import 'subscription_cache.dart';
-
 import 'dart:collection';
 import 'dart:convert';
 import 'dart:io';
-
-import '../core/async_tasks.dart';
-import '../engine/cancellation.dart';
 
 import 'package:crypto/crypto.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
 
+import '../core/async_tasks.dart';
+import '../core/diagnostics.dart';
 import '../core/models.dart';
 import '../core/settings.dart';
 import '../core/storage.dart';
+import '../engine/cancellation.dart';
 import '../engine/cookie_store.dart';
 import '../engine/http_service.dart';
 import 'image_decryption.dart';
 import 'image_network.dart';
+import 'subscription_cache.dart';
 
 /// Disk-cached, concurrency-limited image downloads shared by covers, thumbnails and the reader.
 class ImageStore {
   ImageStore._() {
-    AppSettings.instance.addListener(() {
+    AppSettings.instance.watch(const {'cacheLimitMb'}).addListener(() {
       final limit = AppSettings.instance.cacheLimitMb;
       if (_lastLimit == limit) return;
       _lastLimit = limit;
@@ -183,7 +179,7 @@ class ImageStore {
       try {
         return await fetch();
       } finally {
-        _inflight.remove(requestKey);
+        _inflight.remove(requestKey)?.ignore();
       }
     }();
   }
@@ -233,7 +229,8 @@ class ImageStore {
             if (!res.ok) {
               throw SourceError(
                 'HTTP',
-                '图片 HTTP ${res.status}',
+                '图片 HTTP {status}',
+                params: {'status': res.status},
                 status: res.status,
                 url: url,
               );

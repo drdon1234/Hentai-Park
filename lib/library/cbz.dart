@@ -4,17 +4,16 @@ import 'dart:isolate';
 import 'dart:typed_data';
 import 'dart:ui' as ui;
 
-import '../core/async_tasks.dart';
-
 import 'package:archive/archive_io.dart';
 import 'package:crypto/crypto.dart';
 import 'package:path/path.dart' as p;
 
+import '../core/async_tasks.dart';
+import '../core/localization.dart';
 import '../core/models.dart';
 import '../core/storage.dart';
 import '../images/park_image.dart';
 import 'downloads.dart';
-import '../core/localization.dart';
 
 /// Comic metadata written to / read from ComicInfo.xml (the de-facto CBZ metadata format).
 class ComicInfo {

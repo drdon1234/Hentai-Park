@@ -4,9 +4,9 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
 
-import 'storage.dart';
-import 'diagnostics.dart';
 import 'async_tasks.dart';
+import 'diagnostics.dart';
+import 'storage.dart';
 
 /// Persists uncaught errors to `logs/crash.log` (rotated at 256 KB) so users can export them.
 class CrashLog {

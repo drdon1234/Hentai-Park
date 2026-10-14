@@ -3,17 +3,16 @@ import 'dart:io';
 import 'dart:isolate';
 import 'dart:ui' as ui;
 
-import '../engine/cancellation.dart';
-
+import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/painting.dart';
-import 'package:dio/dio.dart';
 
 import '../core/models.dart';
+import '../engine/cancellation.dart';
 import '../engine/source_manager.dart';
 import 'crop_borders.dart';
-import 'image_store.dart';
 import 'image_decryption.dart';
+import 'image_store.dart';
 
 /// Loads an image for a source: direct URL, or a page resolved lazily through the source
 /// (`resolveImage`), with the source's default headers and an optional pixel transform.
@@ -289,7 +288,7 @@ Future<ui.Image> unscrambleStrips(ui.Image src, int segments) async {
 /// Crops uniform margins off [src] (detection runs on a background isolate). Returns [src] unchanged
 /// when there is nothing to crop.
 Future<ui.Image> cropBorders(ui.Image src) async {
-  final data = await src.toByteData(format: ui.ImageByteFormat.rawRgba);
+  final data = await src.toByteData();
   if (data == null) return src;
   final w = src.width, h = src.height;
   final rect = await compute(_detect, (

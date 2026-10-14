@@ -1,18 +1,16 @@
-import '../core/diagnostics.dart';
-
 import 'dart:async';
-
-import 'challenge.dart';
-import '../core/async_tasks.dart';
-import 'cancellation.dart';
 
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 
+import '../core/async_tasks.dart';
+import '../core/diagnostics.dart';
 import '../core/models.dart';
-import 'http_service.dart';
+import 'cancellation.dart';
+import 'challenge.dart';
 import 'domains.dart';
+import 'http_service.dart';
 
 /// Runs requests for Cloudflare-protected sites inside a hidden browser page opened on the site's
 /// origin: same-origin `fetch()` carries a genuine browser fingerprint and the clearance cookies.
@@ -115,10 +113,8 @@ class _OriginPage {
     _view = HeadlessInAppWebView(
       initialUrlRequest: URLRequest(url: WebUri(bootstrap.toString())),
       initialSettings: InAppWebViewSettings(
-        javaScriptEnabled: true,
         userAgent: HttpService.instance.userAgent,
         blockNetworkImage: true,
-        mediaPlaybackRequiresUserGesture: true,
         useShouldOverrideUrlLoading: true,
       ),
       onWebViewCreated: (c) {
@@ -152,8 +148,8 @@ class _OriginPage {
             identical(navigation, _navigation);
         if (!identical(_ready, ready)) return;
         if (url == null || Uri.parse(url.toString()).origin != origin) {
-          finish(SourceError('CONFIG', '浏览器页面已离开源声明的同源地址'));
-          _finishNavigation(SourceError('CONFIG', '浏览器页面已离开源声明的同源地址'));
+          finish(SourceError('CONFIG', '浏览器页面已离开站点声明的同源地址'));
+          _finishNavigation(SourceError('CONFIG', '浏览器页面已离开站点声明的同源地址'));
           return;
         }
         if (!current()) return;
@@ -175,7 +171,11 @@ class _OriginPage {
           }
         } catch (error) {
           if (!current()) return;
-          final failure = SourceError('NETWORK', '浏览器请求失败：$error');
+          final failure = SourceError(
+            'NETWORK',
+            '浏览器请求失败：{error}',
+            params: {'error': '$error'},
+          );
           finish(failure);
           _finishNavigation(failure);
         }
@@ -211,7 +211,8 @@ class _OriginPage {
           () => finish(
             SourceError(
               'CLOUDFLARE',
-              'Cloudflare 验证未自动通过：${Uri.parse(origin).host}',
+              'Cloudflare 验证未自动通过：{host}',
+              params: {'host': Uri.parse(origin).host},
               url: bootstrap.toString(),
             ),
           ),
@@ -221,7 +222,11 @@ class _OriginPage {
     } catch (e) {
       if (identical(_ready, ready)) await dispose();
       if (e is! SourceError && e is! DioException) {
-        throw SourceError('NETWORK', '浏览器请求失败：$e');
+        throw SourceError(
+          'NETWORK',
+          '浏览器请求失败：{error}',
+          params: {'error': '$e'},
+        );
       }
       rethrow;
     }
@@ -302,7 +307,8 @@ class _OriginPage {
       () => _finishNavigation(
         SourceError(
           'CLOUDFLARE',
-          'Cloudflare 验证未自动通过：${Uri.parse(origin).host}',
+          'Cloudflare 验证未自动通过：{host}',
+          params: {'host': Uri.parse(origin).host},
           url: url,
         ),
       ),
@@ -426,7 +432,11 @@ class _OriginPage {
       if (result?.error != null) throw SourceError('NETWORK', result!.error!);
       final value = result?.value;
       if (value is! Map) {
-        throw SourceError('NETWORK', '浏览器请求失败：${request['url']}');
+        throw SourceError(
+          'NETWORK',
+          '浏览器请求失败：{error}',
+          params: {'error': '${request['url']}'},
+        );
       }
       if (value['error'] != null) {
         throw SourceError(
@@ -452,7 +462,8 @@ class _OriginPage {
         }
         throw SourceError(
           'CLOUDFLARE',
-          'Cloudflare 验证：${Uri.parse(origin).host}',
+          'Cloudflare 验证：{host}',
+          params: {'host': Uri.parse(origin).host},
           url: request['url'].toString(),
         );
       }

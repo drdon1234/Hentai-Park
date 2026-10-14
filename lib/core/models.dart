@@ -4,6 +4,9 @@
 import 'dart:ui' show Color;
 
 import 'localization.dart';
+import 'plugin_copy.dart';
+
+export 'plugin_copy.dart' show PluginCopy;
 
 Map<String, dynamic> _map(Object? v) =>
     v is Map ? v.cast<String, dynamic>() : <String, dynamic>{};
@@ -67,21 +70,25 @@ enum SourceCategory {
 
 /// One selectable value of a feed option, search filter or setting.
 class Choice {
-  Choice(this.value, String label, {this.color}) : _label = label;
+  Choice(this.value, String label, {this.color, PluginCopy? copy})
+    : _label = label,
+      _copy = copy ?? PluginCopy.none;
   final Object? value;
   final String _label;
-  String get label => tr(_label);
+  final PluginCopy _copy;
+  String get label => _copy.text(_label);
   final String? color;
 
-  factory Choice.fromJson(Object? json) {
+  factory Choice.fromJson(Object? json, [PluginCopy? copy]) {
     if (json is Map) {
       return Choice(
         json['value'],
         _str(json['label'] ?? json['value']),
         color: json['color']?.toString(),
+        copy: copy,
       );
     }
-    return Choice(json, _str(json));
+    return Choice(json, _str(json), copy: copy);
   }
 }
 
@@ -94,17 +101,19 @@ class OptionDef {
     required this.values,
     this.defaultValue,
     this._description = '',
-  });
+    PluginCopy? copy,
+  }) : _copy = copy ?? PluginCopy.none;
   final String key;
   final String _label;
-  String get label => tr(_label);
+  final PluginCopy _copy;
+  String get label => _copy.text(_label);
   final String type;
   final List<Choice> values;
   final Object? defaultValue;
   final String _description;
-  String get description => tr(_description);
+  String get description => _copy.text(_description);
 
-  factory OptionDef.fromJson(Map<String, dynamic> j) {
+  factory OptionDef.fromJson(Map<String, dynamic> j, [PluginCopy? copy]) {
     final values = (j['values'] ?? j['options']) as List? ?? const [];
     return OptionDef(
       key: _str(j['key']),
@@ -112,9 +121,10 @@ class OptionDef {
       type: _str(j['type']).isEmpty
           ? (values.isEmpty ? 'text' : 'select')
           : _str(j['type']),
-      values: values.map(Choice.fromJson).toList(),
+      values: values.map((v) => Choice.fromJson(v, copy)).toList(),
       defaultValue: j['default'],
       description: _str(j['description']),
+      copy: copy,
     );
   }
 
@@ -127,17 +137,27 @@ class OptionDef {
 }
 
 class FeedDef {
-  FeedDef({required this.key, required this._label, required this.options});
+  FeedDef({
+    required this.key,
+    required this._label,
+    required this.options,
+    PluginCopy? copy,
+  }) : _copy = copy ?? PluginCopy.none;
   final String key;
   final String _label;
-  String get label => tr(_label);
+  final PluginCopy _copy;
+  String get label => _copy.text(_label);
   final List<OptionDef> options;
 
-  factory FeedDef.fromJson(Map<String, dynamic> j) => FeedDef(
-    key: _str(j['key']),
-    label: _str(j['label']),
-    options: _maps(j['options']).map(OptionDef.fromJson).toList(),
-  );
+  factory FeedDef.fromJson(Map<String, dynamic> j, [PluginCopy? copy]) =>
+      FeedDef(
+        key: _str(j['key']),
+        label: _str(j['label']),
+        options: _maps(j['options'])
+            .map((o) => OptionDef.fromJson(o, copy))
+            .toList(),
+        copy: copy,
+      );
 
   Map<String, Object?> defaultOptions() => {
     for (final o in options) o.key: o.defaultValue,
@@ -156,12 +176,17 @@ class AccountDef {
     required this.required,
     this.managedAccount = false,
     this.loginDomains = const [],
-  });
+    PluginCopy? copy,
+  }) : _copy = copy ?? PluginCopy.none;
   final String type; // password | cookies | session
   final String _title;
   final String _hint;
-  String get title => tr(_title);
-  String get hint => tr(_hint);
+  final PluginCopy _copy;
+  String get title => _copy.text(_title);
+  String get hint => _copy.text(_hint);
+
+  /// Translates a field label or hint the plugin declared.
+  String text(String value) => _copy.text(value);
   final List<Map<String, dynamic>> fields;
   final String loginUrl;
 
@@ -172,7 +197,7 @@ class AccountDef {
   final bool required;
   final bool managedAccount;
 
-  static AccountDef? fromJson(Object? json) {
+  static AccountDef? fromJson(Object? json, [PluginCopy? copy]) {
     if (json is! Map) return null;
     final j = json.cast<String, dynamic>();
     return AccountDef(
@@ -186,12 +211,16 @@ class AccountDef {
       requiredCookies: _strings(j['requiredCookies']),
       required: j['required'] == true,
       managedAccount: j['managedAccount'] == true,
+      copy: copy,
     );
   }
 }
 
 class SourceManifest {
-  SourceManifest(this.json)
+  SourceManifest(Map<String, dynamic> json)
+    : this._(json, PluginCopy(json['i18n']));
+
+  SourceManifest._(this.json, this.copy)
     : key = _str(json['key']),
       _name = _str(json['name']),
       version = _str(json['version']),
@@ -216,27 +245,34 @@ class SourceManifest {
           .map((k, v) => MapEntry(k, v.toString())),
       network = _map(json['network']),
       media = _map(json['media']),
-      settings = _maps(json['settings']).map(OptionDef.fromJson).toList(),
-      account = AccountDef.fromJson(json['account']),
-      feeds = _maps(json['feeds']).map(FeedDef.fromJson).toList(),
+      settings = _maps(json['settings'])
+          .map((o) => OptionDef.fromJson(o, copy))
+          .toList(),
+      account = AccountDef.fromJson(json['account'], copy),
+      feeds = _maps(json['feeds'])
+          .map((f) => FeedDef.fromJson(f, copy))
+          .toList(),
       defaultFeed = _str(json['defaultFeed']),
       searchFilters = _maps(json['searchFilters'])
-          .map(OptionDef.fromJson)
+          .map((o) => OptionDef.fromJson(o, copy))
           .toList(),
       _searchHint = _str(json['searchHint']),
       capabilities = _map(json['capabilities']);
 
   final Map<String, dynamic> json;
+
+  /// The plugin's own translations; see [PluginCopy].
+  final PluginCopy copy;
   final String key;
   final String _name;
-  String get name => tr(_name);
+  String get name => copy.text(_name);
   final String version;
   final MediaKind kind;
   final SourceCategory category;
   final Color color;
   final String icon;
   final String _description;
-  String get description => tr(_description);
+  String get description => copy.text(_description);
   final String homepage;
   final String language;
   final List<RegExp> linkPatterns;
@@ -273,7 +309,7 @@ class SourceManifest {
 
   final List<OptionDef> searchFilters;
   final String _searchHint;
-  String get searchHint => tr(_searchHint);
+  String get searchHint => copy.text(_searchHint);
   final Map<String, dynamic> capabilities;
 
   bool can(String capability) => capabilities[capability] == true;
@@ -331,10 +367,21 @@ class WorkItem {
       badgeColor = _str(json['badgeColor']),
       duration = _str(json['duration']),
       uploaded = _str(json['uploaded']),
-      tags = _strings(json['tags']);
+      tags = _strings(json['tags']),
+      mediaKind = MediaKind.values
+          .where((kind) => kind.name == json['mediaKind'])
+          .firstOrNull;
 
   final Map<String, dynamic> json;
   final String source;
+
+  /// The kind declared on the item itself (sources that mix kinds); null means the source's.
+  final MediaKind? mediaKind;
+  bool get isNovel => mediaKind == MediaKind.novel;
+  bool get isGame => mediaKind == MediaKind.game;
+
+  /// Update-subscription posts carry their media instead of having a detail page.
+  bool get isSubscriptionPost => json['media'] is List;
   final String id;
   final String title;
   final String subtitle;
@@ -517,6 +564,20 @@ class WorkDetail extends WorkItem {
   /// Offline and stored chapter subsets must not replace a complete source directory.
   bool get chaptersComplete => json['chaptersComplete'] != false;
   bool get hasVideoEpisodes => chapters?.isNotEmpty == true;
+
+  /// The site lists the work as having chapters but returned none (nothing to open yet).
+  bool get hasNoChapters => chapters != null && chapters!.isEmpty;
+
+  /// The chapter to open: the one last read when it still exists, otherwise the first.
+  /// Null for single-chapter works and when the chapter list is empty.
+  Chapter? chapterToOpen([String? lastChapterId]) {
+    final list = chapters;
+    if (list == null || list.isEmpty) return null;
+    return list.firstWhere(
+      (c) => c.id == lastChapterId,
+      orElse: () => list.first,
+    );
+  }
 
   /// Video episodes share the library's stable chapter identities.
   List<Chapter> get videoEpisodes => hasVideoEpisodes
@@ -727,14 +788,35 @@ class SourceError implements Exception {
     this.status,
     this.url,
     this.diagnostics = const <String, String>{},
-  }) : _message = message;
+    this.params = const {},
+    PluginCopy? copy,
+  }) : _message = message,
+       _copy = copy ?? PluginCopy.none;
+
   final String code;
   final String _message;
+  final PluginCopy _copy;
   String get rawMessage => _message;
-  String get message => tr(_message);
+
+  /// Plugin errors are translated with the plugin's own copy, then the app's.
+  String get message => _copy.text(_message, params);
+
+  /// The same error, translated with [copy] (the source that raised it).
+  SourceError withCopy(PluginCopy copy) => SourceError(
+    code,
+    _message,
+    status: status,
+    url: url,
+    diagnostics: diagnostics,
+    params: params,
+    copy: copy,
+  );
   final int? status;
   final String? url;
   final Map<String, String> diagnostics;
+
+  /// Values for the placeholders in the message template; the template is the translation key.
+  final Map<String, Object?> params;
 
   bool get isCloudflare => code == 'CLOUDFLARE';
   bool get needsConfirmation => code == 'CONFIRM_REQUIRED';
@@ -750,6 +832,7 @@ class SourceError implements Exception {
       url: m['url']?.toString(),
       diagnostics: _map(m['diagnostics'])
           .map((key, value) => MapEntry(key, value.toString())),
+      params: _map(m['params']),
     );
   }
 

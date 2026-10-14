@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 
-import 'storage.dart';
-import 'localization.dart';
-import 'translation_options.dart';
 import 'content_scope.dart';
+import 'localization.dart';
 import 'models.dart';
 import 'settings_validation.dart';
+import 'storage.dart';
+import 'translation_options.dart';
 
 enum ReaderMode { vertical, leftToRight, rightToLeft }
 
@@ -22,7 +22,139 @@ extension ReaderModeLabel on ReaderMode {
   };
 }
 
-/// User preferences. Every setter persists immediately (debounced) and notifies listeners.
+/// Settings grouped by what they affect. Each domain notifies only for its own keys,
+/// while all values stay in one settings.json, so the stored format and backups are
+/// unchanged. Every stored key belongs to exactly one domain.
+enum SettingsDomain {
+  appearance({
+    'themeMode',
+    'seedColor',
+    'language',
+    'refreshRate',
+    'gridColumns',
+    'domainOrder',
+    'homeCategories',
+  }),
+  reader({
+    'readerMode',
+    'preloadPages',
+    'keepScreenOn',
+    'volumeKeyPaging',
+    'tapToPage',
+    'readerDual',
+    'readerCoverSingle',
+    'readerSplitWide',
+    'readerCrop',
+    'readerDim',
+    'readerWarm',
+    'readerGrayscale',
+    'readerInvert',
+    'readerTapLayout',
+    'readerTapInvertH',
+    'readerTapInvertV',
+    'readerBackground',
+    'readerShowPageNumber',
+    'readerOrientation',
+    'readerAnimate',
+    'readerGap',
+  }),
+  novel({
+    'novelAnimate',
+    'novelAutoScroll',
+    'novelBold',
+    'novelBrightness',
+    'novelDim',
+    'novelFont',
+    'novelFontSize',
+    'novelIndent',
+    'novelJustify',
+    'novelKeepScreenOn',
+    'novelLetterSpacing',
+    'novelLineHeight',
+    'novelMargin',
+    'novelMode',
+    'novelOrientation',
+    'novelParagraphGap',
+    'novelShowStatus',
+    'novelSpeechRate',
+    'novelTapToPage',
+    'novelTheme',
+    'novelVolumeKeys',
+  }),
+  network({
+    'proxy',
+    'imageConcurrency',
+    'cacheLimitMb',
+    'downloadConcurrency',
+    'downloadWifiOnly',
+  }),
+  privacy({
+    'blurCovers',
+    'secureScreen',
+    'incognito',
+    'appLock',
+    'appLockAfter',
+    'adultConfirmed',
+    'onboarded',
+    'replyWithoutAsking',
+  }),
+  library({
+    'askCategoryOnFavorite',
+    'librarySort',
+    'librarySortAsc',
+    'libraryDisplay',
+    'libraryFilterDownloaded',
+    'libraryFilterUnread',
+    'libraryFilterSources',
+    'libraryFilterKind',
+    'badgeUnread',
+    'badgeDownloaded',
+    'badgeSource',
+    'libraryUpdateHours',
+    'lastLibraryUpdate',
+    'updateOnlyMultiChapter',
+    'updateSkipUnread',
+    'updateSkipNotStarted',
+    'autoDownloadNew',
+    'deleteAfterRead',
+  }),
+  subscriptions({
+    'subscriptionUpdateHours',
+    'subscriptionNotifications',
+    'subscriptionNotificationPreview',
+  }),
+  search({
+    'searchHistories',
+    'tagDownloadReminders',
+    'aggregateExcluded',
+    'autoTranslateContent',
+    'translateEngine',
+    'translateTargets',
+  }),
+  filter({'blockedTags', 'blockPresets'}),
+  maintenance({
+    'autoSourceUpdates',
+    'autoAppUpdates',
+    'lastSourceUpdate',
+    'autoBackupHours',
+    'autoBackupKeep',
+    'lastAutoBackup',
+  });
+
+  const SettingsDomain(this.keys);
+  final Set<String> keys;
+
+  static SettingsDomain? of(String key) {
+    for (final domain in values) {
+      if (domain.keys.contains(key)) return domain;
+    }
+    return null;
+  }
+}
+
+/// User preferences. Every setter persists immediately (debounced) and notifies listeners
+/// of its key and domain; prefer [AppSettings.domain] or [AppSettings.watch] over listening
+/// to the whole object.
 class AppSettings extends ChangeNotifier {
   AppSettings._();
   static final AppSettings instance = AppSettings._();
@@ -30,9 +162,15 @@ class AppSettings extends ChangeNotifier {
   final _store = JsonStore('settings.json');
   Map<String, dynamic> _v = {};
 
+  /// No settings were stored before this launch: a new install, which gets the full first-run
+  /// flow. Existing users only confirm their age once.
+  bool get freshInstall => _freshInstall;
+  bool _freshInstall = false;
+
   Future<void> load() async {
     final data = await _store.load();
     _v = data is Map ? data.cast<String, dynamic>() : {};
+    _freshInstall = _v.isEmpty;
     final invalidKeys = <String>[];
     for (final e in _v.entries) {
       try {
@@ -92,11 +230,92 @@ class AppSettings extends ChangeNotifier {
   }
 
   void _set(String key, Object? value) {
+    assert(SettingsDomain.of(key) != null, 'Settings key $key has no domain');
     validateSettings({key: value});
     _v[key] = value;
     _store.save(_v);
+    _keyed[key]?.notify();
     notifyListeners();
   }
+
+  final _keyed = <String, _KeyNotifier>{};
+
+  /// Notifies only when one of [keys] changes (or settings are reloaded wholesale). Prefer this
+  /// over listening to the whole object: search history writes, for example, must not rebuild
+  /// the app theme or a reader.
+  Listenable watch(Iterable<String> keys) => Listenable.merge([
+    for (final key in keys) _keyed[key] ??= _KeyNotifier(),
+  ]);
+
+  /// Notifies when any setting of [domain] changes.
+  Listenable domain(SettingsDomain domain) =>
+      _domains[domain] ??= watch(domain.keys);
+  final _domains = <SettingsDomain, Listenable>{};
+
+  void _notifyAll() {
+    for (final notifier in _keyed.values) {
+      notifier.notify();
+    }
+    notifyListeners();
+  }
+
+  /// Keys that change the app-wide theme or language.
+  static const appearanceKeys = {'themeMode', 'seedColor', 'language'};
+
+  /// Keys that change which works are hidden by the content filter.
+  static const filterKeys = {'blockedTags', 'blockPresets'};
+
+  /// Keys the comic reader renders from.
+  static const readerKeys = {
+    'keepScreenOn',
+    'preloadPages',
+    'readerAnimate',
+    'readerBackground',
+    'readerCoverSingle',
+    'readerCrop',
+    'readerDim',
+    'readerDual',
+    'readerGap',
+    'readerGrayscale',
+    'readerInvert',
+    'readerMode',
+    'readerOrientation',
+    'readerShowPageNumber',
+    'readerSplitWide',
+    'readerTapInvertH',
+    'readerTapInvertV',
+    'readerTapLayout',
+    'readerWarm',
+    'seedColor',
+    'tapToPage',
+    'volumeKeyPaging',
+  };
+
+  /// Keys the novel reader renders from.
+  static const novelKeys = {
+    'novelAnimate',
+    'novelAutoScroll',
+    'novelBold',
+    'novelBrightness',
+    'novelDim',
+    'novelFont',
+    'novelFontSize',
+    'novelIndent',
+    'novelJustify',
+    'novelKeepScreenOn',
+    'novelLetterSpacing',
+    'novelLineHeight',
+    'novelMargin',
+    'novelMode',
+    'novelOrientation',
+    'novelParagraphGap',
+    'novelShowStatus',
+    'novelSpeechRate',
+    'novelTapToPage',
+    'novelTheme',
+    'novelVolumeKeys',
+    'seedColor',
+  };
 
   /// Empty language code follows the system language.
   String get language => _get('language', '');
@@ -118,7 +337,7 @@ class AppSettings extends ChangeNotifier {
       ThemeMode.values[_get('themeMode', ThemeMode.dark.index).clamp(0, 2)];
   set themeMode(ThemeMode m) => _set('themeMode', m.index);
 
-  int get seedColor => _get('seedColor', 0xFFE5355F);
+  int get seedColor => _get('seedColor', 0xFFC96442);
   set seedColor(int c) => _set('seedColor', c);
 
   bool get blurCovers => _get('blurCovers', false);
@@ -256,7 +475,7 @@ class AppSettings extends ChangeNotifier {
   double get novelParagraphGap =>
       _getDouble('novelParagraphGap', 12).clamp(0, 36);
   set novelParagraphGap(double v) => _set('novelParagraphGap', v.clamp(0, 36));
-  String get novelFont => _get('novelFont', 'system');
+  String get novelFont => _get('novelFont', 'serif');
   set novelFont(String v) => _set('novelFont', v);
   bool get novelBold => _get('novelBold', false);
   set novelBold(bool v) => _set('novelBold', v);
@@ -442,6 +661,32 @@ class AppSettings extends ChangeNotifier {
 
   set translateTargets(List<String> v) => _set('translateTargets', v);
 
+  // ── First run ──
+  /// The user confirmed being an adult on this device.
+  bool get adultConfirmed => _get('adultConfirmed', false);
+  set adultConfirmed(bool v) => _set('adultConfirmed', v);
+
+  /// The first-run flow (privacy and interests) is finished or skipped.
+  bool get onboarded => _get('onboarded', false);
+  set onboarded(bool v) => _set('onboarded', v);
+
+  /// Categories with a shelf on the home page; empty shows every category.
+  List<SourceCategory> get homeCategories {
+    final raw = _v['homeCategories'];
+    if (raw is! List) return const [];
+    final names = raw.whereType<String>().toSet();
+    return SourceCategory.values.where((c) => names.contains(c.name)).toList();
+  }
+
+  set homeCategories(List<SourceCategory> value) =>
+      _set('homeCategories', [for (final c in value) c.name]);
+
+  /// Sites where posting a reply to unlock a resource no longer asks first.
+  Set<String> get replyWithoutAsking =>
+      ((_v['replyWithoutAsking'] as List?) ?? []).whereType<String>().toSet();
+  void allowReplyWithoutAsking(String source) =>
+      _set('replyWithoutAsking', {...replyWithoutAsking, source}.toList());
+
   // ── Privacy ──
   /// Incognito: no history, progress or read marks are recorded.
   bool get incognito => _get('incognito', false);
@@ -525,6 +770,7 @@ class AppSettings extends ChangeNotifier {
 
   /// Keys that describe this device or transient state and are never exported in backups.
   static const _localOnly = {
+    'adultConfirmed',
     'appLock',
     'appLockAfter',
     'lastAutoBackup',
@@ -540,7 +786,7 @@ class AppSettings extends ChangeNotifier {
   void importJson(Map<String, dynamic> values) {
     _v = prepareImport(values);
     _store.save(_v);
-    notifyListeners();
+    _notifyAll();
   }
 
   Future<void> flush() => _store.flush();
@@ -562,6 +808,10 @@ class AppSettings extends ChangeNotifier {
             WidgetsBinding.instance.platformDispatcher.locales,
           ),
     );
-    notifyListeners();
+    _notifyAll();
   }
+}
+
+class _KeyNotifier extends ChangeNotifier {
+  void notify() => notifyListeners();
 }

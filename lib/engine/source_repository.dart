@@ -1,11 +1,11 @@
 import 'dart:convert';
 
-import 'source_identity.dart';
-import 'official_repository.dart';
-import '../core/versions.dart';
-
+import '../core/localization.dart';
 import '../core/models.dart';
+import '../core/versions.dart';
 import 'http_service.dart';
+import 'official_repository.dart';
+import 'source_identity.dart';
 
 /// A validated script published by the official source repository.
 class SourceRepositoryEntry {
@@ -49,7 +49,12 @@ class SourceRepository {
   static Future<String> _download(String url) async {
     final res = await HttpService.instance.send(method: 'GET', url: url);
     if (!res.ok) {
-      throw SourceError('HTTP', '仓库返回 HTTP ${res.status}', status: res.status);
+      throw SourceError(
+        'HTTP',
+        '仓库返回 HTTP {status}',
+        params: {'status': res.status},
+        status: res.status,
+      );
     }
     return res.text;
   }
@@ -59,7 +64,7 @@ class SourceRepository {
     try {
       return parse(jsonDecode(text));
     } on FormatException {
-      throw SourceError('CONFIG', '官方源索引格式无效');
+      throw SourceError('CONFIG', '官方站点索引格式无效');
     }
   }
 
@@ -67,10 +72,10 @@ class SourceRepository {
     if (data is! Map ||
         data['apiVersion'] is! int ||
         data['sources'] is! List) {
-      throw SourceError('CONFIG', '官方源索引格式无效');
+      throw SourceError('CONFIG', '官方站点索引格式无效');
     }
     if (data['apiVersion'] != supportedApiVersion) {
-      throw SourceError('UNSUPPORTED', '官方源索引需要更新应用后才能使用');
+      throw SourceError('UNSUPPORTED', '官方站点索引需要更新应用后才能使用');
     }
     final entries = <String, SourceRepositoryEntry>{};
     final failures = <String, String>{};
@@ -91,7 +96,7 @@ class SourceRepository {
         final key = raw['key'] as String;
         if (!seen.add(key)) {
           entries.remove(key);
-          failures[names[key]!] = '官方源标识重复：$key';
+          failures[names[key]!] = tr('官方站点标识重复：{key}', {'key': key});
           continue;
         }
         names[key] = name;
@@ -100,7 +105,7 @@ class SourceRepository {
         final entry = _parseEntry(raw);
         entries[entry.key] = entry;
       } on SourceError catch (error) {
-        failures[name] = error.rawMessage;
+        failures[name] = error.message;
       }
     }
     return SourceRepositoryIndex(
@@ -118,10 +123,10 @@ class SourceRepository {
         !isSha256(raw['sha256']) ||
         raw['apiVersion'] is! int ||
         (raw['apiVersion'] as int) < 1) {
-      throw SourceError('CONFIG', '官方源条目缺少有效的必填字段');
+      throw SourceError('CONFIG', '官方站点条目缺少有效的必填字段');
     }
     if (!isOfficialAsset(raw['url'], 'assets/sources/${raw['key']}.js')) {
-      throw SourceError('CONFIG', '官方源脚本地址必须指向官方仓库的固定提交');
+      throw SourceError('CONFIG', '官方站点脚本地址必须指向官方仓库的固定提交');
     }
     return SourceRepositoryEntry(
       key: raw['key'] as String,

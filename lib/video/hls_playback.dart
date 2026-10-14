@@ -102,7 +102,7 @@ class HlsPlayback {
     try {
       return await operation;
     } finally {
-      _pending.remove(path);
+      _pending.remove(path)?.ignore();
     }
   }
 

@@ -27,7 +27,14 @@ class PlatformBridge {
   static Future<void> bindSettings() {
     if (!_settingsBound) {
       _settingsBound = true;
-      AppSettings.instance.addListener(() => unawaited(bindSettings()));
+      AppSettings.instance
+          .watch(const {
+            'secureScreen',
+            'appLock',
+            'refreshRate',
+            'subscriptionUpdateHours',
+          })
+          .addListener(() => unawaited(bindSettings()));
     }
     final settings = AppSettings.instance;
     final secure = settings.secureScreen || settings.appLock;

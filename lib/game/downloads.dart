@@ -374,7 +374,7 @@ class GameDownloadManager extends ChangeNotifier {
       await sources.ready;
       final manifest = sources.manifest(task.item.source);
       if (manifest == null || !manifest.isGame) {
-        throw SourceError('CONFIG', '游戏源未加载');
+        throw SourceError('CONFIG', '游戏站点未加载');
       }
       final link = await sources.resolveGameResource(
         task.item.source,

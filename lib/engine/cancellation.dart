@@ -10,9 +10,11 @@ Future<T> awaitCancelled<T>(Future<T> work, CancelToken? token) async {
     if (!result.isCompleted) result.completeError(error, stack);
   }
 
-  work.then((value) {
-    if (!result.isCompleted) result.complete(value);
-  }, onError: (Object error, StackTrace stack) => fail(error, stack));
+  unawaited(
+    work.then((value) {
+      if (!result.isCompleted) result.complete(value);
+    }, onError: (Object error, StackTrace stack) => fail(error, stack)),
+  );
   final subscription = token.whenCancel.asStream().listen(fail);
   if (token.cancelError case final error?) fail(error);
   try {

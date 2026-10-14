@@ -1,5 +1,3 @@
-import '../core/diagnostics.dart';
-
 import 'dart:convert';
 import 'dart:io';
 
@@ -8,8 +6,9 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart' as wv;
 import 'package:path/path.dart' as p;
 
-import '../core/storage.dart';
+import '../core/diagnostics.dart';
 import '../core/models.dart';
+import '../core/storage.dart';
 import 'browser_fetcher.dart';
 import 'domains.dart';
 import 'source_identity.dart' as identity;
@@ -66,7 +65,6 @@ class CookieStore {
       name,
       () => PersistCookieJar(
         storage: FileStorage(_partitionDirectory(name).path),
-        ignoreExpires: false,
       ),
     );
   }
@@ -107,7 +105,7 @@ class CookieStore {
         uri.userInfo.isNotEmpty ||
         domains == null ||
         !hostInDomains(uri.host, domains)) {
-      throw SourceError('CONFIG', '浏览器地址不在源声明的域名范围内');
+      throw SourceError('CONFIG', '浏览器地址不在站点声明的域名范围内');
     }
   }
 
@@ -490,7 +488,6 @@ class CookieStore {
           name: e.key,
           value: e.value,
           domain: _cookieDomain(uri.host),
-          path: '/',
           expiresDate: DateTime.now()
               .add(const Duration(days: 365))
               .millisecondsSinceEpoch,

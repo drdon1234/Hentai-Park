@@ -1,9 +1,8 @@
 import 'dart:typed_data';
 
 import '../core/crypto.dart';
-import 'hls_syntax.dart';
-
 import '../core/models.dart';
+import 'hls_syntax.dart';
 
 class HlsSegment {
   const HlsSegment(

@@ -83,7 +83,8 @@ class Translator {
     if (!res.ok) {
       throw SourceError(
         'NETWORK',
-        '谷歌翻译请求失败（HTTP ${res.status}）',
+        '谷歌翻译请求失败（HTTP {status}）',
+        params: {'status': res.status},
         status: res.status,
       );
     }
@@ -116,7 +117,8 @@ class Translator {
       if (!auth.ok) {
         throw SourceError(
           'NETWORK',
-          '微软翻译授权失败（HTTP ${auth.status}）',
+          '微软翻译授权失败（HTTP {status}）',
+          params: {'status': auth.status},
           status: auth.status,
         );
       }
@@ -142,7 +144,8 @@ class Translator {
       _msToken = null;
       throw SourceError(
         'NETWORK',
-        '微软翻译请求失败（HTTP ${res.status}）',
+        '微软翻译请求失败（HTTP {status}）',
+        params: {'status': res.status},
         status: res.status,
       );
     }

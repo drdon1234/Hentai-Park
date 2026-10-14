@@ -46,6 +46,8 @@ void validateSettings(Map<String, dynamic> values) {
     'updateOnlyMultiChapter',
     'updateSkipUnread',
     'updateSkipNotStarted',
+    'adultConfirmed',
+    'onboarded',
   };
   const choices = <String, Set<Object>>{
     'subscriptionUpdateHours': {0, 1, 3, 6, 12, 24},
@@ -113,6 +115,8 @@ void validateSettings(Map<String, dynamic> values) {
     'aggregateExcluded',
     'libraryFilterSources',
     'searchHistory',
+    'homeCategories',
+    'replyWithoutAsking',
   };
   bool stringList(Object? value) =>
       value is List && value.every((e) => e is String);

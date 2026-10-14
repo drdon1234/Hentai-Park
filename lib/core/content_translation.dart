@@ -68,7 +68,7 @@ class ContentTranslationQueue extends ChangeNotifier {
         text.length > maxTextLength ||
         target == null ||
         !waiter.active) {
-      return Future.value(null);
+      return Future.value();
     }
     final key = (text: text, target: target, engine: engine);
     final translated = cached(text, locale, engine);
@@ -79,7 +79,7 @@ class ContentTranslationQueue extends ChangeNotifier {
       return waiter.result.future;
     }
     _discardInactive();
-    if (_queue.length >= _maxQueued) return Future.value(null);
+    if (_queue.length >= _maxQueued) return Future.value();
     final job = _Job(key, waiter);
     _pending[key] = job;
     _queue.add(job);

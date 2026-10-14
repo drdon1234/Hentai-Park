@@ -1,11 +1,10 @@
 import 'dart:convert';
 
-import 'hls_syntax.dart';
-
 import 'package:dio/dio.dart';
 
 import '../core/models.dart';
 import '../engine/media_transport.dart';
+import 'hls_syntax.dart';
 
 /// Expand a muxed HLS master into the actual qualities offered by the CDN.
 class HlsSources {

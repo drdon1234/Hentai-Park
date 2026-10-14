@@ -1,13 +1,15 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:developer' show Timeline;
 
+import 'package:crypto/crypto.dart' as crypto;
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 
-import '../core/models.dart';
 import '../core/diagnostics.dart';
+import '../core/models.dart';
 import 'cookie_store.dart';
 import 'crypto_bridge.dart';
 import 'domains.dart';
@@ -45,6 +47,13 @@ class JsEngine {
 
   Future<String> _runtimeSource() async => _runtimeCode ??= await rootBundle
       .loadString('assets/runtime/park_runtime.js');
+
+  String? _runtimeHash;
+
+  /// Identifies the bundled runtime; cached manifests are only valid for the runtime that made them.
+  Future<String> runtimeHash() async => _runtimeHash ??= crypto.sha256
+      .convert(utf8.encode(await _runtimeSource()))
+      .toString();
 
   SourceRuntime runtime(String key) =>
       _runtimes.putIfAbsent(key, () => SourceRuntime._(this, key));
@@ -157,12 +166,12 @@ class SourceRuntime {
   );
 
   Future<void> start() async {
-    if (_disposed) throw SourceError('CONFIG', '源运行时已关闭');
+    if (_disposed) throw SourceError('CONFIG', '站点运行环境已关闭');
     if (_ready != null) return _ready!.future;
     final ready = _ready = Completer<void>();
     await engine._closingRuntimes[key];
     final runtime = await engine._runtimeSource();
-    if (_disposed) throw SourceError('CONFIG', '源运行时已关闭');
+    if (_disposed) throw SourceError('CONFIG', '站点运行环境已关闭');
     // Each runtime gets its own origin so storage APIs are not shared between sources either.
     _view = HeadlessInAppWebView(
       initialData: InAppWebViewInitialData(
@@ -170,7 +179,6 @@ class SourceRuntime {
         baseUrl: WebUri(_origin),
       ),
       initialSettings: InAppWebViewSettings(
-        javaScriptEnabled: true,
         blockNetworkImage: true,
         blockNetworkLoads: true,
         useShouldOverrideUrlLoading: true,
@@ -188,7 +196,7 @@ class SourceRuntime {
             c.evaluateJavascript(source: _bootstrap),
             const Duration(seconds: 30),
             'CONFIG',
-            '源初始化超时',
+            '站点启动超时',
           );
           final res = await _bounded(
             c.callAsyncJavaScript(
@@ -197,7 +205,7 @@ class SourceRuntime {
             ),
             const Duration(seconds: 30),
             'CONFIG',
-            '源初始化超时',
+            '站点启动超时',
           );
           if (res?.error != null || res?.value != 'function') {
             throw StateError('runtime failed: ${res?.error}');
@@ -308,7 +316,7 @@ class SourceRuntime {
       final finished = Completer<void>();
       _bridgeCalls.add(finished.future);
       try {
-        if (_disposed) throw SourceError('CONFIG', '源运行时已关闭');
+        if (_disposed) throw SourceError('CONFIG', '站点运行环境已关闭');
         if (sandboxed) throw SourceError('CONFIG', '安装前预览时不允许访问网络与存储');
         return {'__value': await body()};
       } on SourceError catch (e) {
@@ -316,6 +324,9 @@ class SourceRuntime {
           '__error': {
             'code': e.code,
             'message': e.rawMessage,
+            'params': {
+              for (final p in e.params.entries) p.key: '${p.value ?? ''}',
+            },
             'status': e.status,
             'url': e.url,
             'diagnostics': e.diagnostics,
@@ -389,11 +400,11 @@ class SourceRuntime {
       handlerName: 'park_persist',
       callback: (args) => guard(() async {
         if (sandboxed || key.isEmpty) {
-          throw SourceError('CONFIG', '沙盒禁止保存源状态');
+          throw SourceError('CONFIG', '预览时不能保存站点数据');
         }
         final m = (args.first as Map).cast<String, dynamic>();
         final persist = engine.onPersist;
-        if (persist == null) throw SourceError('CONFIG', '源状态存储不可用');
+        if (persist == null) throw SourceError('CONFIG', '站点数据存储不可用');
         await persist(
           key,
           (m['data'] as Map? ?? {}).cast<String, dynamic>(),
@@ -414,7 +425,7 @@ class SourceRuntime {
 
   /// Evaluates a source script and returns the key it registered with its static manifest.
   Future<ScriptInfo> loadScript(String code) async {
-    await _bounded(start(), const Duration(seconds: 30), 'CONFIG', '源初始化超时');
+    await _bounded(start(), const Duration(seconds: 30), 'CONFIG', '站点启动超时');
     final res = await _bounded(
       _c!.callAsyncJavaScript(
         functionBody: '''
@@ -427,10 +438,14 @@ class SourceRuntime {
       ),
       const Duration(seconds: 30),
       'CONFIG',
-      '源脚本求值超时',
+      '站点脚本运行超时',
     );
     if (res?.error != null) {
-      throw SourceError('CONFIG', '脚本加载失败：${res!.error}');
+      throw SourceError(
+        'CONFIG',
+        '脚本加载失败：{error}',
+        params: {'error': res!.error},
+      );
     }
     final value = res?.value;
     if (value is! Map ||
@@ -443,10 +458,14 @@ class SourceRuntime {
       (value['manifest'] as Map? ?? {}).cast<String, dynamic>(),
     );
     if (key.isNotEmpty && info.key != key) {
-      throw SourceError('CONFIG', '脚本注册的 key（${info.key}）与安装记录（$key）不一致');
+      throw SourceError(
+        'CONFIG',
+        '脚本注册的标识（{script}）与安装记录（{installed}）不一致',
+        params: {'script': info.key, 'installed': key},
+      );
     }
     if (!isSourceKey(info.key)) {
-      throw SourceError('CONFIG', '源标识不符合有效身份长度或格式');
+      throw SourceError('CONFIG', '站点标识的长度或格式无效');
     }
     domains = declaredDomains(info.manifest);
     _code = code;
@@ -464,10 +483,14 @@ class SourceRuntime {
       ),
       const Duration(seconds: 30),
       'CONFIG',
-      '源初始化超时',
+      '站点启动超时',
     );
     if (res?.error != null) {
-      throw SourceError('CONFIG', '源初始化失败：${res!.error}');
+      throw SourceError(
+        'CONFIG',
+        '站点启动失败：{error}',
+        params: {'error': res!.error},
+      );
     }
     final manifest = (res!.value as Map).cast<String, dynamic>();
     domains = declaredDomains(manifest);
@@ -476,7 +499,7 @@ class SourceRuntime {
   }
 
   Future<void> updateSettings(Map<String, dynamic> settings) async {
-    await _bounded(start(), const Duration(seconds: 30), 'CONFIG', '源初始化超时');
+    await _bounded(start(), const Duration(seconds: 30), 'CONFIG', '站点启动超时');
     await _bounded(
       _c!.callAsyncJavaScript(
         functionBody: 'Park.updateSettings(key, settings);',
@@ -484,7 +507,7 @@ class SourceRuntime {
       ),
       const Duration(seconds: 30),
       'CONFIG',
-      '源脚本求值超时',
+      '站点脚本运行超时',
     );
   }
 
@@ -495,8 +518,10 @@ class SourceRuntime {
     Duration timeout = const Duration(seconds: 90),
     CancelToken? cancelToken,
   }) async {
+    // Visible in profile timelines, so call counts can be measured per screen.
+    Timeline.instantSync('js.invoke', arguments: {'method': method});
     if (cancelToken?.cancelError case final error?) throw error;
-    await _bounded(start(), const Duration(seconds: 30), 'CONFIG', '源初始化超时');
+    await _bounded(start(), const Duration(seconds: 30), 'CONFIG', '站点启动超时');
     if (cancelToken?.cancelError case final error?) throw error;
     final invocation = cancelToken == null ? null : '${++_nextInvocation}';
     final token = invocation == null ? null : CancelToken();
@@ -535,7 +560,7 @@ class SourceRuntime {
       ]);
       if (res?.error != null) throw SourceError('PARSE', res!.error!);
       final value = res?.value;
-      if (value is! Map) throw SourceError('PARSE', '源返回了无效结果');
+      if (value is! Map) throw SourceError('PARSE', '站点返回了无效结果');
       if (value['ok'] == true) return value['value'];
       throw SourceError.fromJson(value['error']);
     } finally {

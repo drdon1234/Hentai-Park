@@ -1,21 +1,19 @@
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:path/path.dart' as p;
-
-import 'versions.dart';
-import 'localization.dart';
-import '../engine/official_repository.dart';
-import 'async_tasks.dart';
-import '../engine/network_client.dart';
-
 import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
+import 'package:path/path.dart' as p;
 
+import '../engine/network_client.dart';
+import '../engine/official_repository.dart';
+import '../engine/source_identity.dart';
+import 'async_tasks.dart';
+import 'localization.dart';
 import 'settings.dart';
 import 'storage.dart';
-import '../engine/source_identity.dart';
+import 'versions.dart';
 
 /// Official dictionaries affect presentation only; original tags stay intact.
 class TagTranslationPack {

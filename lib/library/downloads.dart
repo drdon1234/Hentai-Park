@@ -1,11 +1,6 @@
-import '../core/diagnostics.dart';
-
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
-
-import '../core/async_tasks.dart';
-import '../engine/cancellation.dart';
 
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:dio/dio.dart';
@@ -13,13 +8,16 @@ import 'package:drift/drift.dart' show InsertMode;
 import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
 
+import '../core/async_tasks.dart';
+import '../core/diagnostics.dart';
 import '../core/models.dart';
 import '../core/settings.dart';
 import '../core/storage.dart';
 import '../data/database.dart';
+import '../engine/cancellation.dart';
 import '../engine/http_service.dart';
-import '../engine/source_manager.dart';
 import '../engine/media_transport_factory.dart';
+import '../engine/source_manager.dart';
 import '../images/park_image.dart';
 import '../video/hls_download.dart';
 import 'library.dart';
@@ -184,7 +182,7 @@ class DownloadManager extends ChangeNotifier {
       }
     }
     Library.instance.onChaptersRead.add(_onChaptersRead);
-    AppSettings.instance.addListener(_settingsChanged);
+    _settingsListenable.addListener(_settingsChanged);
     await _watchNetwork();
     _pump();
   }
@@ -211,6 +209,11 @@ class DownloadManager extends ChangeNotifier {
 
   /// False while "Wi-Fi only" is on and the device is on mobile data.
   bool get networkAllowed => !AppSettings.instance.downloadWifiOnly || _onWifi;
+
+  final _settingsListenable = AppSettings.instance.watch(const {
+    'downloadConcurrency',
+    'downloadWifiOnly',
+  });
 
   void _settingsChanged() {
     if (_disposed) return;
@@ -239,7 +242,7 @@ class DownloadManager extends ChangeNotifier {
   void dispose() {
     _disposed = true;
     _connectivity?.cancel();
-    AppSettings.instance.removeListener(_settingsChanged);
+    _settingsListenable.removeListener(_settingsChanged);
     Library.instance.onChaptersRead.remove(_onChaptersRead);
     for (final t in _active.values) {
       t.status = DownloadStatus.paused;
@@ -281,7 +284,7 @@ class DownloadManager extends ChangeNotifier {
   }
 
   void enqueue(WorkItem item, List<Chapter> chapters, {int? videoQuality}) {
-    if (item.json['mediaKind'] == 'game' ||
+    if (item.isGame ||
         SourceManager.instance.manifest(item.source)?.isGame == true) {
       throw SourceError('UNSUPPORTED', '游戏资源请使用独立下载渠道');
     }
@@ -292,7 +295,7 @@ class DownloadManager extends ChangeNotifier {
     final media = videoQuality != null
         ? DownloadMedia.video
         : SourceManager.instance.manifest(item.source)?.isNovel == true ||
-              item.json['mediaKind'] == 'novel'
+              item.isNovel
         ? DownloadMedia.novel
         : DownloadMedia.comic;
     if (_tasks[item.uid] case final existing?) {
@@ -801,7 +804,7 @@ class DownloadManager extends ChangeNotifier {
         token,
       );
       _checkRunning(t, token);
-      if (sources.isEmpty) throw SourceError('NOT_FOUND', '视频源未加载');
+      if (sources.isEmpty) throw SourceError('NOT_FOUND', '视频站点未加载');
       final src = sources.firstWhere(
         (s) => t.videoQuality != 0 && s.quality == t.videoQuality,
         orElse: () =>
@@ -830,7 +833,7 @@ class DownloadManager extends ChangeNotifier {
 
       if (src.format == 'hls') {
         final manifest = SourceManager.instance.manifest(t.item.source);
-        if (manifest == null) throw SourceError('CONFIG', '视频源未加载');
+        if (manifest == null) throw SourceError('CONFIG', '视频站点未加载');
         if (!Platform.isAndroid) {
           throw SourceError('UNSUPPORTED', 'HLS 下载封装目前仅支持安卓');
         }

@@ -1,16 +1,14 @@
-import '../core/diagnostics.dart';
-
 import 'dart:async';
-
-import '../core/async_tasks.dart';
 
 import 'package:flutter/foundation.dart';
 
+import '../core/async_tasks.dart';
+import '../core/diagnostics.dart';
+import '../core/localization.dart';
 import '../core/models.dart';
 import '../core/settings.dart';
 import '../engine/source_manager.dart';
 import 'library.dart';
-import '../core/localization.dart';
 
 typedef DetailFetcher = Future<WorkDetail> Function(String source, String id);
 

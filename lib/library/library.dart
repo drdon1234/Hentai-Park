@@ -1,18 +1,16 @@
-import '../core/diagnostics.dart';
-
 import 'dart:async';
 import 'dart:convert';
-
-import 'progress_merge.dart';
 
 import 'package:drift/drift.dart';
 import 'package:flutter/foundation.dart';
 
+import '../core/content_scope.dart';
+import '../core/diagnostics.dart';
 import '../core/models.dart';
 import '../core/settings.dart';
-import '../core/content_scope.dart';
 import '../data/database.dart';
 import '../engine/source_manager.dart';
+import 'progress_merge.dart';
 
 /// Splits a `source:id` uid (ids may themselves contain ':' or '/').
 (String, String) splitUid(String uid) {
@@ -128,12 +126,16 @@ class WorkStats {
   final DateTime? latestFetch;
 }
 
+/// Parts of the library a screen can listen to without rebuilding for the others.
+enum LibraryCollection { favorites, categories, history, chapters }
+
 /// Favorites (with categories), chapter reading state and history, persisted in SQLite.
 /// Favorites, categories and history are mirrored in memory so the UI can query them synchronously;
 /// every mutation is a small targeted write instead of rewriting a file.
 class Library extends ChangeNotifier {
   Library._() {
-    SourceManager.instance.addListener(_captureHistoryDomains);
+    // Only sources whose manifests changed need their snapshots refreshed.
+    SourceManager.instance.manifestChanges.listen(_captureHistoryDomains);
   }
   static final Library instance = Library._();
 
@@ -149,6 +151,37 @@ class Library extends ChangeNotifier {
   final Set<String> _oneShots = {};
 
   AppDatabase get db => _db;
+
+  final _collections = {for (final c in LibraryCollection.values) c: _Signal()};
+  final _works = <String, _Signal>{};
+
+  /// Notifies when [collection] changes anywhere in the library.
+  Listenable collection(LibraryCollection collection) =>
+      _collections[collection]!;
+
+  /// Notifies when one work's favorite state, history, progress or chapter states change.
+  Listenable work(String uid) => _works[uid] ??= _Signal(
+    onUnused: (signal) {
+      if (identical(_works[uid], signal)) _works.remove(uid);
+    },
+  );
+
+  void _changed(
+    Set<LibraryCollection> collections, [
+    Iterable<String> uids = const [],
+    bool allWorks = false,
+  ]) {
+    for (final c in collections) {
+      _collections[c]!.notify();
+    }
+    for (final signal
+        in allWorks
+            ? [..._works.values]
+            : [for (final uid in uids) ?_works[uid]]) {
+      signal.notify();
+    }
+    notifyListeners();
+  }
 
   /// Pauses history, progress and read marks (Mihon's incognito mode).
   bool get _incognito => AppSettings.instance.incognito;
@@ -209,7 +242,7 @@ class Library extends ChangeNotifier {
     }
     await _loadStats();
     _captureHistoryDomains();
-    notifyListeners();
+    _changed(LibraryCollection.values.toSet(), const [], true);
   }
 
   static WorkItem _itemOf(WorkRow w) {
@@ -326,7 +359,7 @@ class Library extends ChangeNotifier {
         .insert(CategoriesCompanion.insert(name: n, sort: Value(sort)));
     final c = Category(id, n, sort);
     _categories.add(c);
-    notifyListeners();
+    _changed(const {LibraryCollection.categories});
     return c;
   }
 
@@ -344,7 +377,7 @@ class Library extends ChangeNotifier {
         CategoriesCompanion(name: Value(n)),
       ),
     );
-    notifyListeners();
+    _changed(const {LibraryCollection.categories});
     return true;
   }
 
@@ -356,7 +389,7 @@ class Library extends ChangeNotifier {
     _run(
       () => (_db.delete(_db.categories)..where((t) => t.id.equals(id))).go(),
     );
-    notifyListeners();
+    _changed(const {LibraryCollection.categories, LibraryCollection.favorites});
   }
 
   void reorderCategories(List<int> ids) {
@@ -375,7 +408,7 @@ class Library extends ChangeNotifier {
         }
       }),
     );
-    notifyListeners();
+    _changed(const {LibraryCollection.categories});
   }
 
   // ── Favorites ──
@@ -423,7 +456,7 @@ class Library extends ChangeNotifier {
         await _writeCategories(item.uid, valid);
       });
     });
-    notifyListeners();
+    _changed(const {LibraryCollection.favorites}, [item.uid]);
   }
 
   void removeFavorite(String uid) {
@@ -442,7 +475,7 @@ class Library extends ChangeNotifier {
         await _writeCategories(uid, const {});
       }),
     );
-    notifyListeners();
+    _changed(const {LibraryCollection.favorites}, [uid]);
   }
 
   void setCategories(String uid, Set<int> ids) {
@@ -451,7 +484,7 @@ class Library extends ChangeNotifier {
     final valid = ids.where((id) => category(id) != null).toSet();
     f.categories = valid;
     _run(() => _db.transaction(() => _writeCategories(uid, valid)));
-    notifyListeners();
+    _changed(const {LibraryCollection.favorites}, [uid]);
   }
 
   Future<void> _writeCategories(String uid, Set<int> ids) async {
@@ -487,7 +520,7 @@ class Library extends ChangeNotifier {
             .get();
     final list = rows.map(ChapterState.fromRow).toList();
     _chapters[uid] = list;
-    notifyListeners();
+    _changed(const {LibraryCollection.chapters}, [uid]);
     return list;
   }
 
@@ -654,9 +687,9 @@ class Library extends ChangeNotifier {
           l(uid, ids.toList());
         }
       }
-      notifyListeners();
+      _changed(const {LibraryCollection.chapters}, [uid]);
     });
-    notifyListeners();
+    _changed(const {LibraryCollection.chapters}, [uid]);
   }
 
   /// Read-state listeners (e.g. "delete after reading") get every chapter that just became read.
@@ -692,9 +725,12 @@ class Library extends ChangeNotifier {
     }, item.source);
   }
 
-  void _captureHistoryDomains() {
+  /// Stores each work's category and media type with it, so history and favorites keep their
+  /// place after the source is removed. [sources] limits the pass to changed sources.
+  void _captureHistoryDomains([Set<String>? sources]) {
     var changed = false;
     for (final h in _history.values) {
+      if (sources != null && !sources.contains(h.item.source)) continue;
       final item = _domainSnapshot(h.item);
       if (identical(item, h.item)) continue;
       h.item = item;
@@ -703,13 +739,16 @@ class Library extends ChangeNotifier {
       changed = true;
     }
     for (final favorite in _favorites.values) {
+      if (sources != null && !sources.contains(favorite.item.source)) continue;
       final item = _domainSnapshot(favorite.item);
       if (identical(item, favorite.item)) continue;
       favorite.item = item;
       _run(() => _saveWork(item));
       changed = true;
     }
-    if (changed) notifyListeners();
+    if (changed) {
+      _changed(const {LibraryCollection.history, LibraryCollection.favorites});
+    }
   }
 
   List<HistoryEntry> history({
@@ -821,7 +860,12 @@ class Library extends ChangeNotifier {
     });
     await loadChapters(target.uid);
     await _loadStats(target.uid);
-    if (copiedHistory || chapters.isNotEmpty) notifyListeners();
+    if (copiedHistory || chapters.isNotEmpty) {
+      _changed(
+        const {LibraryCollection.history, LibraryCollection.chapters},
+        [target.uid],
+      );
+    }
   }
 
   void recordVisit(WorkItem item) {
@@ -837,7 +881,7 @@ class Library extends ChangeNotifier {
         ..time = DateTime.now();
     }
     _saveHistory(_history[item.uid]!);
-    notifyListeners();
+    _changed(const {LibraryCollection.history}, [item.uid]);
   }
 
   /// Records the reader position. [chapterKey] identifies the chapter row ('_' / single id for one-shots);
@@ -912,7 +956,10 @@ class Library extends ChangeNotifier {
         for (final l in onChaptersRead) {
           l(item.uid, [key]);
         }
-        notifyListeners();
+        _changed(
+          const {LibraryCollection.history, LibraryCollection.chapters},
+          [item.uid],
+        );
       }
     });
   }
@@ -987,7 +1034,10 @@ class Library extends ChangeNotifier {
             );
       });
       await _loadStats(item.uid);
-      notifyListeners();
+      _changed(
+        const {LibraryCollection.history, LibraryCollection.chapters},
+        [item.uid],
+      );
     });
     _trimHistory(item.source);
   }
@@ -1033,7 +1083,7 @@ class Library extends ChangeNotifier {
         _db.history,
       )..where((t) => t.source.equals(source) & t.workId.equals(id))).go(),
     );
-    notifyListeners();
+    _changed(const {LibraryCollection.history}, [uid]);
   }
 
   void removeHistoryMany(Iterable<String> uids) {
@@ -1052,7 +1102,7 @@ class Library extends ChangeNotifier {
         }
       }),
     );
-    notifyListeners();
+    _changed(const {LibraryCollection.history}, list);
   }
 
   void clearHistory({ContentScope scope = const ContentScope.all()}) {
@@ -1130,6 +1180,26 @@ class Library extends ChangeNotifier {
     _writeFailure = null;
     if (failure != null) {
       Error.throwWithStackTrace(failure.$1, failure.$2);
+    }
+  }
+}
+
+/// A listenable that forgets itself once nobody listens, so per-work signals do not pile up.
+/// The check runs a microtask later: widgets swap listenables by removing and re-adding a
+/// listener in one go, and that must not orphan the signal they keep using.
+class _Signal extends ChangeNotifier {
+  _Signal({this.onUnused});
+  final void Function(_Signal signal)? onUnused;
+
+  void notify() => notifyListeners();
+
+  @override
+  void removeListener(VoidCallback listener) {
+    super.removeListener(listener);
+    if (onUnused case final onUnused?) {
+      scheduleMicrotask(() {
+        if (!hasListeners) onUnused(this);
+      });
     }
   }
 }

@@ -1,7 +1,7 @@
 import 'dart:convert';
 
-import 'package:flutter/foundation.dart';
 import 'package:drift/drift.dart' show Variable;
+import 'package:flutter/foundation.dart';
 
 import '../core/async_tasks.dart';
 import '../core/storage.dart';

@@ -11,7 +11,7 @@ MediaTransport? createImageTransport(
   final declaration = manifest?.json['imageNetwork'];
   if (declaration == null) return null;
   if (declaration is! Map || declaration['mode'] != 'browser') {
-    throw SourceError('CONFIG', '源没有声明有效的媒体权限');
+    throw SourceError('CONFIG', '站点没有声明有效的媒体权限');
   }
   final domains = declaration['domains'];
   final sourceDomains = declaredDomains(manifest!.json);
@@ -21,7 +21,7 @@ MediaTransport? createImageTransport(
       domains.any((d) => d is! String || !hostInDomains(d, sourceDomains)) ||
       origin == null ||
       !hostInDomains(origin.host, domains.cast<String>())) {
-    throw SourceError('CONFIG', '源没有声明有效的媒体权限');
+    throw SourceError('CONFIG', '站点没有声明有效的媒体权限');
   }
   return createMediaTransport(
     SourceManifest({

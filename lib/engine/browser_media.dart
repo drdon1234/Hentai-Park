@@ -1,13 +1,12 @@
 import 'dart:async';
 import 'dart:convert';
 
-import 'challenge.dart';
-import '../core/async_tasks.dart';
-
 import 'package:dio/dio.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 
+import '../core/async_tasks.dart';
 import '../core/models.dart';
+import 'challenge.dart';
 import 'http_service.dart';
 import 'media_transport.dart';
 
@@ -41,13 +40,15 @@ class BrowserMedia implements MediaTransport {
       (_) => fail(SourceError('CANCELLED', '媒体会话已关闭')),
     );
     final cancellation = token?.whenCancel.asStream().listen(fail);
-    work.then(
-      (value) {
-        if (!result.isCompleted) result.complete(value);
-      },
-      onError: (Object error, StackTrace stack) {
-        if (!result.isCompleted) result.completeError(error, stack);
-      },
+    unawaited(
+      work.then(
+        (value) {
+          if (!result.isCompleted) result.complete(value);
+        },
+        onError: (Object error, StackTrace stack) {
+          if (!result.isCompleted) result.completeError(error, stack);
+        },
+      ),
     );
     if (_closed.isCompleted) fail(SourceError('CANCELLED', '媒体会话已关闭'));
     if (token?.cancelError case final error?) fail(error);
@@ -84,10 +85,8 @@ class BrowserMedia implements MediaTransport {
     final view = HeadlessInAppWebView(
       initialUrlRequest: URLRequest(url: WebUri('${policy.origin}/robots.txt')),
       initialSettings: InAppWebViewSettings(
-        javaScriptEnabled: true,
         userAgent: HttpService.instance.userAgent,
         blockNetworkImage: true,
-        mediaPlaybackRequiresUserGesture: true,
         useShouldOverrideUrlLoading: true,
       ),
       onWebViewCreated: (controller) => _controller = controller,
@@ -98,7 +97,7 @@ class BrowserMedia implements MediaTransport {
       },
       onLoadStop: (controller, url) async {
         if (url == null || Uri.tryParse('$url')?.origin != policy.origin) {
-          finish(SourceError('CONFIG', '媒体浏览器离开了源声明的地址'));
+          finish(SourceError('CONFIG', '媒体浏览器离开了站点声明的地址'));
           return;
         }
         try {
@@ -251,7 +250,11 @@ if (jobs.has(id)) jobs.get(id)?.abort(); else jobs.set(id, null);''',
             value['body'] is! String) {
           throw SourceError(
             'NETWORK',
-            '媒体请求失败：${value is Map ? value['error'] ?? value['status'] : '空响应'}',
+            '媒体请求失败：{error}',
+            params: {
+              'error':
+                  '${value is Map ? value['error'] ?? value['status'] : 'empty'}',
+            },
           );
         }
         final finalUrl = Uri.tryParse('${value['url']}');

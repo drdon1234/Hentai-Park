@@ -3,17 +3,16 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
-import 'challenge.dart';
-import 'network_client.dart';
-
 import 'package:dio/dio.dart';
 import 'package:dio/io.dart';
 
 import '../core/models.dart';
 import '../core/settings.dart';
 import 'browser_fetcher.dart';
+import 'challenge.dart';
 import 'cookie_store.dart';
 import 'domains.dart';
+import 'network_client.dart';
 
 /// 二进制传输仍通过同一域名隔离、TLS 和重定向策略。
 Object? decodeSourceBody(Map<String, dynamic> request) {
@@ -51,7 +50,7 @@ class HttpService {
   void init() {
     _proxy = AppSettings.instance.proxy;
     _dio = _build();
-    AppSettings.instance.addListener(() {
+    AppSettings.instance.watch(const {'proxy'}).addListener(() {
       if (AppSettings.instance.proxy != _proxy) {
         _proxy = AppSettings.instance.proxy;
         _dio.close();
@@ -98,7 +97,7 @@ class HttpService {
           page.scheme != target.scheme ||
           page.host != target.host ||
           page.port != target.port) {
-        throw SourceError('CONFIG', '浏览器模式只能访问源声明的同源地址');
+        throw SourceError('CONFIG', '浏览器模式只能访问站点声明的同源地址');
       }
       final result = await BrowserFetcher.instance.fetch(
         origin: origin,
@@ -179,7 +178,8 @@ class HttpService {
       if (detectCloudflare && result.isCloudflareChallenge) {
         throw SourceError(
           'CLOUDFLARE',
-          'Cloudflare 验证：${res.realUri.host}',
+          'Cloudflare 验证：{host}',
+          params: {'host': res.realUri.host},
           status: result.status,
           url: result.url,
         );
@@ -269,9 +269,11 @@ class HttpService {
               }
               continue;
             }
+            final (message, params) = _describe(e, uri.host);
             throw SourceError(
               'NETWORK',
-              _describe(e, uri.host),
+              message,
+              params: params,
               url: uri.toString(),
               diagnostics: {
                 'host': uri.host,
@@ -345,7 +347,12 @@ class HttpService {
         }
       }
     }
-    throw SourceError('NETWORK', '重定向次数过多：$url', url: url);
+    throw SourceError(
+      'NETWORK',
+      '重定向次数过多：{url}',
+      params: {'url': url},
+      url: url,
+    );
   }
 
   static const _redirectHeaders = {
@@ -393,7 +400,8 @@ class HttpService {
       if (error is SourceError) rethrow;
       throw SourceError(
         'NETWORK',
-        '${response.realUri.host}: 响应读取失败（$error）',
+        '{host}: 响应读取失败（{error}）',
+        params: {'host': response.realUri.host, 'error': '$error'},
         url: response.realUri.toString(),
         diagnostics: {
           'host': response.realUri.host,
@@ -434,7 +442,8 @@ class HttpService {
         await resource.close();
         throw SourceError(
           'HTTP',
-          '下载失败：HTTP $status',
+          '下载失败：HTTP {status}',
+          params: {'status': status},
           status: status,
           url: url,
         );
@@ -459,24 +468,33 @@ class HttpService {
     }
   }
 
-  static String _describe(DioException e, String host) {
+  /// A message template and its values for a failed request.
+  static (String, Map<String, Object?>) _describe(DioException e, String host) {
     if (_isHandshakeTerminated(e)) {
-      return '$host: TLS 握手期间连接中断，请检查 VPN 或代理线路后重试';
+      return ('{host}: TLS 握手期间连接中断，请检查 VPN 或代理线路后重试', {'host': host});
     }
     if (e.error is HandshakeException || e.error is TlsException) {
-      return '$host: TLS 握手失败（${e.error}）';
+      return (
+        '{host}: TLS 握手失败（{error}）',
+        {'host': host, 'error': '${e.error}'},
+      );
     }
-    switch (e.type) {
-      case DioExceptionType.connectionTimeout:
-        return '$host: 连接超时';
-      case DioExceptionType.receiveTimeout:
-      case DioExceptionType.sendTimeout:
-        return '$host: 响应超时';
-      case DioExceptionType.connectionError:
-        return '$host: 无法连接（${e.error ?? e.message}）';
-      default:
-        return '$host: ${e.error?.toString() ?? e.message ?? e.type.name}';
-    }
+    return switch (e.type) {
+      DioExceptionType.connectionTimeout => ('{host}: 连接超时', {'host': host}),
+      DioExceptionType.receiveTimeout ||
+      DioExceptionType.sendTimeout => ('{host}: 响应超时', {'host': host}),
+      DioExceptionType.connectionError => (
+        '{host}: 无法连接（{error}）',
+        {'host': host, 'error': '${e.error ?? e.message}'},
+      ),
+      _ => (
+        '{host}: {error}',
+        {
+          'host': host,
+          'error': e.error?.toString() ?? e.message ?? e.type.name,
+        },
+      ),
+    };
   }
 
   static String _failureReason(DioException e) {

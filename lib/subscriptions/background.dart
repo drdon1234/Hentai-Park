@@ -1,12 +1,12 @@
 import 'dart:io';
 
-import 'package:flutter/widgets.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter/widgets.dart';
 import 'package:path/path.dart' as p;
 
-import '../core/storage.dart';
-import '../core/settings.dart';
 import '../core/localization.dart';
+import '../core/settings.dart';
+import '../core/storage.dart';
 import '../data/database.dart';
 import '../engine/cookie_store.dart';
 import '../engine/http_service.dart';

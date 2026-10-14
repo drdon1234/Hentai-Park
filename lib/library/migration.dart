@@ -1,8 +1,8 @@
+import '../core/localization.dart';
 import '../core/models.dart';
 import '../core/titles.dart';
-import 'library.dart';
-import '../core/localization.dart';
 import '../engine/source_manager.dart';
+import 'library.dart';
 
 class MigrationOptions {
   const MigrationOptions({
@@ -76,10 +76,7 @@ class Migrator {
         ...categories,
       });
     }
-    final kind = MediaKind.fromJson(
-      to.json['mediaKind'] ??
-          SourceManager.instance.manifest(to.source)?.kind.name,
-    );
+    final kind = SourceManager.instance.kindOf(to);
     final chapters = kind == MediaKind.video
         ? to.videoEpisodes
         : to.chapters ?? [Chapter(chapterKeyOf(to.singleChapterId), tr('全本'))];

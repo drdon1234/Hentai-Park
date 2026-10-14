@@ -150,7 +150,7 @@ class SourceUpdater extends ChangeNotifier {
   }) {
     if (_disposed) {
       return Future.value(
-        SourceUpdateResult(failures: {tr('官方源仓库'): tr('官方源更新失败')}),
+        SourceUpdateResult(failures: {tr('官方站点仓库'): tr('官方站点更新失败')}),
       );
     }
     final completion = Completer<SourceUpdateResult>();
@@ -201,16 +201,14 @@ class SourceUpdater extends ChangeNotifier {
       await _recordAttempt(_attemptedAt!);
       await _ready();
       final index = await _repository.fetch();
-      failures.addAll(
-        index.failures.map((name, message) => MapEntry(name, tr(message))),
-      );
+      failures.addAll(index.failures);
       for (final entry in index.entries) {
         final source = _find(entry.key);
         if (source == null || !_isOfficial(source)) continue;
         checked++;
         try {
           if (entry.apiVersion != SourceRepository.supportedApiVersion) {
-            throw SourceError('UNSUPPORTED', '此源需要更新应用后才能更新');
+            throw SourceError('UNSUPPORTED', '此站点需要更新应用后才能更新');
           }
           if (!SourceManager.isNewer(entry.version, source.version)) continue;
           available.add(SourceUpdateCandidate(entry: entry, source: source));
@@ -219,7 +217,7 @@ class SourceUpdater extends ChangeNotifier {
         }
       }
     } catch (error) {
-      failures[tr('官方源仓库')] = _describe(error);
+      failures[tr('官方站点仓库')] = _describe(error);
     }
     return SourceUpdateResult(
       available: List.unmodifiable(available),
@@ -255,7 +253,7 @@ class SourceUpdater extends ChangeNotifier {
         }
       }
     } catch (error) {
-      failures[tr('官方源仓库')] = _describe(error);
+      failures[tr('官方站点仓库')] = _describe(error);
     }
     return SourceUpdateResult(
       updated: List.unmodifiable(updated),
@@ -274,32 +272,32 @@ class SourceUpdater extends ChangeNotifier {
         current.version != candidate.version ||
         !_isOfficial(current) ||
         !SourceManager.isNewer(entry.version, current.version)) {
-      throw SourceError('CONFIG', '源状态已改变，本次更新已跳过');
+      throw SourceError('CONFIG', '站点状态已改变，本次更新已跳过');
     }
     if (entry.apiVersion != SourceRepository.supportedApiVersion) {
-      throw SourceError('UNSUPPORTED', '此源需要更新应用后才能更新');
+      throw SourceError('UNSUPPORTED', '此站点需要更新应用后才能更新');
     }
   }
 
   static String _describe(Object error) =>
-      error is SourceError ? error.friendly : tr('官方源更新失败');
+      error is SourceError ? error.friendly : tr('官方站点更新失败');
 
   static void _validatePreview(
     SourceRepositoryEntry entry,
     InstallPreview preview,
   ) {
     if (preview.key != entry.key || preview.manifest.key != entry.key) {
-      throw SourceError('CONFIG', '下载的源标识与官方索引不一致');
+      throw SourceError('CONFIG', '下载的站点标识与官方索引不一致');
     }
     if (preview.manifest.version != entry.version) {
-      throw SourceError('CONFIG', '下载的源版本与官方索引不一致');
+      throw SourceError('CONFIG', '下载的站点版本与官方索引不一致');
     }
     final api = preview.manifest.json['apiVersion'];
     if (api is! int || api != SourceRepository.supportedApiVersion) {
-      throw SourceError('UNSUPPORTED', '下载的源 API 与当前应用不兼容');
+      throw SourceError('UNSUPPORTED', '下载的站点 API 与当前应用不兼容');
     }
     if (preview.sha256 != entry.sha256) {
-      throw SourceError('CONFIG', '脚本校验失败：内容与源仓库公布的 SHA-256 不一致，可能被篡改');
+      throw SourceError('CONFIG', '脚本校验失败：内容与站点仓库公布的 SHA-256 不一致，可能被篡改');
     }
   }
 }

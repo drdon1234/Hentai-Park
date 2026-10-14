@@ -1,12 +1,11 @@
-import 'diagnostics.dart';
-
 import 'dart:io';
 
 import 'package:flutter/widgets.dart';
 import 'package:local_auth/local_auth.dart';
 
-import 'settings.dart';
+import 'diagnostics.dart';
 import 'localization.dart';
+import 'settings.dart';
 
 /// Mihon's app lock: biometrics / device credential on launch and after the app was in the
 /// background longer than the configured delay.
