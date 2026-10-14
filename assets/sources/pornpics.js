@@ -1,6 +1,15 @@
 /* PornPics：公开图集与 JSON 分页，页面脚本不执行。 */
 Park.register({
-  key: 'pornpics', name: 'PornPics', version: '0.0.2', type: 'comic', category: 'gallery',
+  i18n: {
+    "zh-Hant": {"国际写真图集，支持评分榜、热门、搜索与整套原图阅读": "國際寫真圖集，支援評分榜、熱門、搜尋與整套原圖閱讀", "图集列表解析失败": "圖集列表解析失敗", "图集地址无效": "圖集位址無效"},
+    "ja": {"国际写真图集，支持评分榜、热门、搜索与整套原图阅读": "写真ギャラリー。評価順・人気順・検索・全原画像の閲覧に対応", "图集列表解析失败": "ギャラリー一覧の解析に失敗しました", "图集地址无效": "ギャラリーの URL が無効です"},
+    "ko": {"国际写真图集，支持评分榜、热门、搜索与整套原图阅读": "사진 갤러리; 평점순, 인기순, 검색 및 전체 원본 이미지 보기 지원", "图集列表解析失败": "갤러리 목록 분석 실패", "图集地址无效": "갤러리 주소가 올바르지 않습니다"},
+    "en": {"国际写真图集，支持评分榜、热门、搜索与整套原图阅读": "Photo galleries with ratings, popular lists, search and full original-image sets", "图集列表解析失败": "Failed to parse gallery list", "图集地址无效": "Invalid gallery URL"},
+    "es": {"国际写真图集，支持评分榜、热门、搜索与整套原图阅读": "Galerías de fotos con clasificación, populares, búsqueda e imágenes originales completas", "图集列表解析失败": "No se pudo analizar la lista de galerías", "图集地址无效": "URL de galería no válida"},
+    "ru": {"国际写真图集，支持评分榜、热门、搜索与整套原图阅读": "Фотогалереи: рейтинг, популярное, поиск и просмотр всех оригиналов", "图集列表解析失败": "Не удалось разобрать список галерей", "图集地址无效": "Недопустимый адрес галереи"},
+    "ar": {"国际写真图集，支持评分榜、热门、搜索与整套原图阅读": "معارض صور مع التقييم والشائع والبحث وعرض جميع الصور الأصلية", "图集列表解析失败": "تعذر تحليل قائمة المعارض", "图集地址无效": "عنوان المعرض غير صالح"},
+  },
+  key: 'pornpics', name: 'PornPics', version: '0.0.3', type: 'comic', category: 'gallery',
   language: 'en', color: '#F16E24', homepage: 'https://www.pornpics.com',
   description: '国际写真图集，支持评分榜、热门、搜索与整套原图阅读',
   domains: ['pornpics.com'], network: {mode: 'native', vpnHint: true},

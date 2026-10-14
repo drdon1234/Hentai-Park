@@ -1,6 +1,15 @@
 /* 列表和站内作品页；外部播放器在原站打开，不伪装成媒体文件。 */
 Park.register({
-  key: 'tubesafari', name: 'TubeSafari', version: '0.0.2', type: 'video', category: 'adult', color: '#21B7B5',
+  i18n: {
+    "zh-Hant": {"综合成人视频搜索，支持热门、分页与原站打开": "綜合成人影片搜尋，支援熱門、分頁與開啟原站"},
+    "ja": {"综合成人视频搜索，支持热门、分页与原站打开": "総合成人動画検索。人気一覧、ページ送り、元サイトへのリンクに対応"},
+    "ko": {"综合成人视频搜索，支持热门、分页与原站打开": "인기 목록, 페이지 탐색 및 원본 사이트 열기를 지원하는 종합 성인 동영상 검색"},
+    "en": {"综合成人视频搜索，支持热门、分页与原站打开": "Adult video search with popular lists, pagination and original-site links"},
+    "es": {"综合成人视频搜索，支持热门、分页与原站打开": "Búsqueda de vídeos para adultos con listas populares, paginación y enlaces al sitio original"},
+    "ru": {"综合成人视频搜索，支持热门、分页与原站打开": "Поиск видео для взрослых: популярное, страницы и переход на исходный сайт"},
+    "ar": {"综合成人视频搜索，支持热门、分页与原站打开": "بحث فيديوهات البالغين مع قوائم شائعة وصفحات وروابط الموقع الأصلي"},
+  },
+  key: 'tubesafari', name: 'TubeSafari', version: '0.0.3', type: 'video', category: 'adult', color: '#21B7B5',
   description: '综合成人视频搜索，支持热门、分页与原站打开', homepage: 'https://tubesafari.com', language: 'en',
   domains: ['tubesafari.com', 'xhcdn.com', 'nv7s.com', 'others-cdn.com', 'txxx.tube', 'phncdn.com'],
   network: {mode: 'native', vpnHint: true}, imageHeaders: {Referer: 'https://tubesafari.com/'},

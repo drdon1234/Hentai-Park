@@ -75,9 +75,18 @@
     };
   }
   Park.register({
+    i18n: {
+      "zh-Hant": {"站点搜索入口不可用": "站點搜尋入口不可用", "英文长短篇与连载小说，支持推荐、搜索与章节目录；部分正文需要登录": "英文長短篇與連載小說，支援推薦、搜尋與章節目錄；部分正文需要登入"},
+      "ja": {"站点搜索入口不可用": "サイト検索を利用できません", "英文长短篇与连载小说，支持推荐、搜索与章节目录；部分正文需要登录": "英語の長編・短編・連載小説。おすすめ、検索、目次に対応。一部の本文はログインが必要"},
+      "ko": {"站点搜索入口不可用": "사이트 검색을 사용할 수 없습니다", "英文长短篇与连载小说，支持推荐、搜索与章节目录；部分正文需要登录": "영어 장편·단편·연재 소설. 추천, 검색 및 목차 지원. 일부 본문은 로그인 필요"},
+      "en": {"站点搜索入口不可用": "Site search is unavailable", "英文长短篇与连载小说，支持推荐、搜索与章节目录；部分正文需要登录": "English novels, short stories and serials with recommendations, search and chapter lists; some text requires login"},
+      "es": {"站点搜索入口不可用": "Búsqueda del sitio no disponible", "英文长短篇与连载小说，支持推荐、搜索与章节目录；部分正文需要登录": "Novelas, relatos y series en inglés con recomendaciones, búsqueda y capítulos; algunos textos requieren iniciar sesión"},
+      "ru": {"站点搜索入口不可用": "Поиск по сайту недоступен", "英文长短篇与连载小说，支持推荐、搜索与章节目录；部分正文需要登录": "Английские романы, рассказы и сериалы: рекомендации, поиск и оглавление; часть текстов требует входа"},
+      "ar": {"站点搜索入口不可用": "البحث في الموقع غير متاح", "英文长短篇与连载小说，支持推荐、搜索与章节目录；部分正文需要登录": "روايات وقصص ومسلسلات إنجليزية مع توصيات وبحث وفهرس فصول؛ بعض النصوص تتطلب تسجيل الدخول"},
+    },
     key: 'storiesonline',
     name: 'StoriesOnline',
-    version: '0.0.4',
+    version: '0.0.5',
     type: 'novel',
     category: 'novel',
     language: 'en',
@@ -93,6 +102,7 @@
       required: false,
       loginUrl: HOME + '/sol-secure/login.php',
       loginDomains: ['login.wlpc.com'],
+
       cookieUrl: HOME + '/',
       requiredCookies: [],
     },

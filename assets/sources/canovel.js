@@ -36,9 +36,18 @@
     return { items, page, hasNext: !!d.querySelector('.nextpostslink') };
   }
   Park.register({
+    i18n: {
+      "zh-Hant": {"中文短篇与分篇小说，支持搜索和正文阅读": "中文短篇與分篇小說，支援搜尋和正文閱讀"},
+      "ja": {"中文短篇与分篇小说，支持搜索和正文阅读": "中国語の短編・分割小説。検索と本文の閲覧に対応"},
+      "ko": {"中文短篇与分篇小说，支持搜索和正文阅读": "중국어 단편·연작 소설. 검색 및 본문 읽기 지원"},
+      "en": {"中文短篇与分篇小说，支持搜索和正文阅读": "Chinese short stories and serialized posts with search and text reading"},
+      "es": {"中文短篇与分篇小说，支持搜索和正文阅读": "Relatos y entregas en chino con búsqueda y lectura"},
+      "ru": {"中文短篇与分篇小说，支持搜索和正文阅读": "Китайские рассказы и серии публикаций: поиск и чтение"},
+      "ar": {"中文短篇与分篇小说，支持搜索和正文阅读": "قصص صينية قصيرة ومتسلسلة مع البحث وقراءة النص"},
+    },
     key: 'canovel',
     name: 'Canovel',
-    version: '0.0.3',
+    version: '0.0.4',
     type: 'novel',
     category: 'novel',
     language: 'zh',

@@ -1,6 +1,15 @@
 /* 69story：只读取同站小说，正文与广告分离。 */
 Park.register({
-  key: 'story69', name: '69story', version: '0.0.2', type: 'novel', category: 'novel',
+  i18n: {
+    "zh-Hant": {"中文短篇小说，支持最新与分类阅读；站点无有效搜索": "中文短篇小說，支援最新與分類閱讀；站點無有效搜尋", "都市生活": "都市生活"},
+    "ja": {"中文短篇小说，支持最新与分类阅读；站点无有效搜索": "中国語の短編小説。新着・カテゴリ閲覧に対応。サイト検索は利用できません", "都市生活": "都市生活"},
+    "ko": {"中文短篇小说，支持最新与分类阅读；站点无有效搜索": "중국어 단편 소설; 최신 및 분류별 읽기 지원; 사이트 검색은 지원하지 않습니다", "都市生活": "도시 생활"},
+    "en": {"中文短篇小说，支持最新与分类阅读；站点无有效搜索": "Chinese short stories with latest and category browsing; no working site search", "都市生活": "City life"},
+    "es": {"中文短篇小说，支持最新与分类阅读；站点无有效搜索": "Relatos cortos en chino por novedades y categorías; sin búsqueda funcional", "都市生活": "Vida urbana"},
+    "ru": {"中文短篇小说，支持最新与分类阅读；站点无有效搜索": "Короткие рассказы на китайском: новинки и категории; поиск на сайте недоступен", "都市生活": "Городская жизнь"},
+    "ar": {"中文短篇小说，支持最新与分类阅读；站点无有效搜索": "قصص صينية قصيرة حسب الأحدث والفئات؛ لا يتوفر بحث فعال", "都市生活": "الحياة في المدينة"},
+  },
+  key: 'story69', name: '69story', version: '0.0.3', type: 'novel', category: 'novel',
   language: 'zh-Hant', color: '#D56A74', homepage: 'https://69story.com',
   description: '中文短篇小说，支持最新与分类阅读；站点无有效搜索',
   domains: ['69story.com'], network: {mode: 'native', vpnHint: true},

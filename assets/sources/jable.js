@@ -1,6 +1,15 @@
 /* Jable.TV page data; remote player scripts are never executed. */
 Park.register({
-  key: 'jable', name: 'JableTV', version: '0.0.3', type: 'video', category: 'jav',
+  i18n: {
+    "zh-Hant": {"JAV 视频，支持热门、搜索与 HLS 播放": "JAV 影片，支援熱門、搜尋與 HLS 播放"},
+    "ja": {"JAV 视频，支持热门、搜索与 HLS 播放": "JAV 動画、人気作品・検索・HLS 再生に対応"},
+    "ko": {"JAV 视频，支持热门、搜索与 HLS 播放": "인기 목록, 검색 및 HLS 재생을 지원하는 JAV 동영상"},
+    "en": {"JAV 视频，支持热门、搜索与 HLS 播放": "JAV videos with popular feeds, search and HLS playback"},
+    "es": {"JAV 视频，支持热门、搜索与 HLS 播放": "Videos JAV con populares, búsqueda y reproducción HLS"},
+    "ru": {"JAV 视频，支持热门、搜索与 HLS 播放": "JAV: популярное, поиск и воспроизведение HLS"},
+    "ar": {"JAV 视频，支持热门、搜索与 HLS 播放": "فيديوهات JAV مع قوائم شائعة وبحث وتشغيل HLS"},
+  },
+  key: 'jable', name: 'JableTV', version: '0.0.4', type: 'video', category: 'jav',
   color: '#14B8A6', description: 'JAV 视频，支持热门、搜索与 HLS 播放',
   homepage: 'https://jable.tv', domains: ['jable.tv'], language: 'zh-Hant',
   network: {mode: 'browser', origin: 'https://jable.tv', vpnHint: true},
@@ -22,7 +31,7 @@ Park.register({
   async getPage(path, params = {}) {
     const response = await this.http.get(this.BASE + path, {params});
     if (response.status === 404) throw Park.error('NOT_FOUND', '影片不存在');
-    if (!response.ok) throw Park.error('HTTP', `JableTV HTTP ${response.status}`, {status: response.status});
+    if (!response.ok) throw Park.error('HTTP', 'JableTV HTTP {value0}', { params: {value0: response.status},status: response.status});
     if (response.body.length > 4 * 1024 * 1024) throw Park.error('PARSE', '影片页面过大');
     return {html: response.body, doc: Park.html.parse(response.body)};
   },

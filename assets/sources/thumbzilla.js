@@ -1,6 +1,15 @@
 /* 静态 JSON 提取同站 MP4 元数据，不执行播放器脚本。 */
 Park.register({
-  key: 'thumbzilla', name: 'Thumbzilla', version: '0.0.2', type: 'video', category: 'adult', color: '#FF9900',
+  i18n: {
+    "zh-Hant": {"成人视频，支持热门、搜索和多清晰度 MP4 播放": "成人影片，支援熱門、搜尋與多畫質 MP4 播放"},
+    "ja": {"成人视频，支持热门、搜索和多清晰度 MP4 播放": "成人動画。人気一覧、検索、複数画質の MP4 再生に対応"},
+    "ko": {"成人视频，支持热门、搜索和多清晰度 MP4 播放": "인기 목록, 검색 및 여러 화질의 MP4 재생을 지원하는 성인 동영상"},
+    "en": {"成人视频，支持热门、搜索和多清晰度 MP4 播放": "Adult videos with popular lists, search and multi-quality MP4 playback"},
+    "es": {"成人视频，支持热门、搜索和多清晰度 MP4 播放": "Vídeos para adultos con listas populares, búsqueda y reproducción MP4 en varias calidades"},
+    "ru": {"成人视频，支持热门、搜索和多清晰度 MP4 播放": "Видео для взрослых: популярное, поиск и MP4 в разных качествах"},
+    "ar": {"成人视频，支持热门、搜索和多清晰度 MP4 播放": "فيديوهات البالغين مع قوائم شائعة وبحث وتشغيل MP4 بجودات متعددة"},
+  },
+  key: 'thumbzilla', name: 'Thumbzilla', version: '0.0.3', type: 'video', category: 'adult', color: '#FF9900',
   description: '成人视频，支持热门、搜索和多清晰度 MP4 播放', homepage: 'https://www.thumbzilla.com',
   domains: ['thumbzilla.com', 'ypncdn.com', 'phncdn.com'], language: 'en',
   network: {mode: 'native', vpnHint: true}, imageHeaders: {Referer: 'https://www.thumbzilla.com/'},

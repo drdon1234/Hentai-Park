@@ -1,6 +1,15 @@
 /* SupJav FST: parse bounded strings without executing remote JavaScript. */
 Park.register({
-  key: 'supjav', name: 'SupJav', version: '0.0.3', type: 'video', category: 'jav', color: '#F59E0B',
+  i18n: {
+    "zh-Hant": {"FST 播放线路暂不可用": "FST 播放線路暫不可用", "JAV 视频，支持热门、搜索与 FST 线路播放": "JAV 影片，支援熱門、搜尋與 FST 線路播放", "中文字幕": "中文字幕", "无码": "無碼", "此影片没有可用的 FST 线路": "此影片沒有可用的 FST 線路"},
+    "ja": {"FST 播放线路暂不可用": "FST サーバーは一時的に利用できません", "JAV 视频，支持热门、搜索与 FST 线路播放": "JAV 動画、人気作品・検索・FST 再生に対応", "中文字幕": "中国語字幕", "无码": "無修正", "此影片没有可用的 FST 线路": "利用可能な FST サーバーがありません"},
+    "ko": {"FST 播放线路暂不可用": "FST 서버를 일시적으로 사용할 수 없습니다", "JAV 视频，支持热门、搜索与 FST 线路播放": "인기 목록, 검색 및 FST 재생을 지원하는 JAV 동영상", "中文字幕": "중국어 자막", "无码": "무수정", "此影片没有可用的 FST 线路": "사용 가능한 FST 서버가 없습니다"},
+    "en": {"FST 播放线路暂不可用": "The FST server is temporarily unavailable", "JAV 视频，支持热门、搜索与 FST 线路播放": "JAV videos with popular feeds, search and FST playback", "中文字幕": "Chinese subtitles", "无码": "Uncensored", "此影片没有可用的 FST 线路": "This video has no available FST server"},
+    "es": {"FST 播放线路暂不可用": "El servidor FST no está disponible temporalmente", "JAV 视频，支持热门、搜索与 FST 线路播放": "Videos JAV con populares, búsqueda y reproducción FST", "中文字幕": "Subtítulos en chino", "无码": "Sin censura", "此影片没有可用的 FST 线路": "Este video no tiene un servidor FST disponible"},
+    "ru": {"FST 播放线路暂不可用": "Сервер FST временно недоступен", "JAV 视频，支持热门、搜索与 FST 线路播放": "JAV: популярное, поиск и воспроизведение FST", "中文字幕": "Китайские субтитры", "无码": "Без цензуры", "此影片没有可用的 FST 线路": "Для этого видео нет доступного сервера FST"},
+    "ar": {"FST 播放线路暂不可用": "خادم FST غير متاح مؤقتًا", "JAV 视频，支持热门、搜索与 FST 线路播放": "فيديوهات JAV مع قوائم شائعة وبحث وتشغيل FST", "中文字幕": "ترجمة صينية", "无码": "غير خاضع للرقابة", "此影片没有可用的 FST 线路": "لا يوجد خادم FST متاح لهذا الفيديو"},
+  },
+  key: 'supjav', name: 'SupJav', version: '0.0.4', type: 'video', category: 'jav', color: '#F59E0B',
   description: 'JAV 视频，支持热门、搜索与 FST 线路播放',
   homepage: 'https://supjav.com', domains: ['supjav.com', 'lk1.supremejav.com', 'fc2stream.tv'], language: 'zh',
   network: {mode: 'browser', origin: 'https://supjav.com', vpnHint: true},
@@ -23,7 +32,7 @@ Park.register({
   async getPage(path, params = {}) {
     const response = await this.http.get(this.BASE + path, {params});
     if (response.status === 404) throw Park.error('NOT_FOUND', '影片不存在');
-    if (!response.ok) throw Park.error('HTTP', `SupJav HTTP ${response.status}`, {status: response.status});
+    if (!response.ok) throw Park.error('HTTP', 'SupJav HTTP {value0}', { params: {value0: response.status},status: response.status});
     if (response.body.length > 4 * 1024 * 1024) throw Park.error('PARSE', '影片页面过大');
     return {html: response.body, doc: Park.html.parse(response.body)};
   },

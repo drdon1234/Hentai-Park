@@ -1,6 +1,15 @@
 /* WordPress 编号入口解析当前页面，播放签名每次重新获取。 */
 Park.register({
-  key: 'fyptt', name: 'Fyptt', version: '0.0.2', type: 'video', category: 'shortvideo',
+  i18n: {
+    "zh-Hant": {"竖屏短视频，支持连续播放和搜索": "直式短影片，支援連續播放和搜尋"},
+    "ja": {"竖屏短视频，支持连续播放和搜索": "連続再生と検索に対応する縦型動画"},
+    "ko": {"竖屏短视频，支持连续播放和搜索": "연속 재생과 검색을 지원하는 세로 동영상"},
+    "en": {"竖屏短视频，支持连续播放和搜索": "Vertical videos with continuous playback and search"},
+    "es": {"竖屏短视频，支持连续播放和搜索": "Vídeos verticales con reproducción continua y búsqueda"},
+    "ru": {"竖屏短视频，支持连续播放和搜索": "Вертикальные видео с непрерывным просмотром и поиском"},
+    "ar": {"竖屏短视频，支持连续播放和搜索": "مقاطع عمودية تدعم التشغيل المتواصل والبحث"},
+  },
+  key: 'fyptt', name: 'Fyptt', version: '0.0.3', type: 'video', category: 'shortvideo',
   color: '#F34468', description: '竖屏短视频，支持连续播放和搜索', language: 'en',
   homepage: 'https://fyptt.to/', domains: ['fyptt.to'], network: {mode: 'native', vpnHint: true},
   imageHeaders: {Referer: 'https://fyptt.to/'},

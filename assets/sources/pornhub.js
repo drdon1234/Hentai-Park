@@ -1,6 +1,15 @@
 /* 静态解析页面 JSON 与官方 MP4 元数据，不执行远程脚本。 */
 Park.register({
-  key: 'pornhub', name: 'Pornhub', version: '0.0.2', type: 'video', category: 'adult',
+  i18n: {
+    "zh-Hant": {"成人视频播放数据解析失败": "成人影片播放資料解析失敗", "综合成人视频，支持推荐、搜索和多清晰度播放": "綜合成人影片，支援推薦、搜尋和多畫質播放"},
+    "ja": {"成人视频播放数据解析失败": "成人向け動画の再生データを解析できませんでした", "综合成人视频，支持推荐、搜索和多清晰度播放": "おすすめ・検索・複数画質再生に対応した成人向け動画"},
+    "ko": {"成人视频播放数据解析失败": "성인 동영상 재생 데이터를 분석하지 못했습니다", "综合成人视频，支持推荐、搜索和多清晰度播放": "추천, 검색 및 다양한 화질 재생을 지원하는 성인 동영상"},
+    "en": {"成人视频播放数据解析失败": "Could not parse adult video playback data", "综合成人视频，支持推荐、搜索和多清晰度播放": "Adult videos with recommendations, search and multiple playback qualities"},
+    "es": {"成人视频播放数据解析失败": "No se pudieron analizar los datos de reproducción del vídeo para adultos", "综合成人视频，支持推荐、搜索和多清晰度播放": "Vídeos para adultos con recomendaciones, búsqueda y varias calidades"},
+    "ru": {"成人视频播放数据解析失败": "Не удалось разобрать данные воспроизведения видео для взрослых", "综合成人视频，支持推荐、搜索和多清晰度播放": "Видео для взрослых с рекомендациями, поиском и выбором качества"},
+    "ar": {"成人视频播放数据解析失败": "تعذر تحليل بيانات تشغيل الفيديو للبالغين", "综合成人视频，支持推荐、搜索和多清晰度播放": "فيديوهات للبالغين مع توصيات وبحث وخيارات جودة متعددة"},
+  },
+  key: 'pornhub', name: 'Pornhub', version: '0.0.3', type: 'video', category: 'adult',
   color: '#FF9900', description: '综合成人视频，支持推荐、搜索和多清晰度播放',
   homepage: 'https://www.pornhub.com', domains: ['pornhub.com'], language: 'en',
   network: {mode: 'native', vpnHint: true}, imageHeaders: {Referer: 'https://www.pornhub.com/'},

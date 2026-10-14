@@ -113,7 +113,7 @@
         try {
           return JSON.parse(res.body);
         } catch (e) {
-          throw new ParkError(ErrorCode.PARSE, `响应不是 JSON（HTTP ${res.status}）：${String(res.body).slice(0, 120)}`);
+          throw new ParkError(ErrorCode.PARSE, '响应不是 JSON（HTTP {status}）：{body}', { params: { status: res.status, body: String(res.body).slice(0, 120) } });
         }
       };
       return res;
@@ -122,7 +122,7 @@
     function ensureOk(res, allow) {
       if (res.ok || (allow && allow.includes(res.status))) return res;
       if (res.status === 404) throw new ParkError(ErrorCode.NOT_FOUND, '内容不存在或已被删除', { status: 404 });
-      throw new ParkError(ErrorCode.HTTP, `HTTP ${res.status}`, { status: res.status, body: String(res.body || '').slice(0, 300) });
+      throw new ParkError(ErrorCode.HTTP, 'HTTP {status}', { status: res.status, body: String(res.body || '').slice(0, 300), params: { status: res.status } });
     }
 
     return {
@@ -379,6 +379,8 @@
           }
         : null,
       feeds: pick(def.feeds || []),
+      // The plugin's own translations, keyed by its Chinese source text: {locale: {text: translation}}.
+      i18n: pick(def.i18n || {}),
       defaultFeed: def.defaultFeed || '',
       searchFilters: pick(def.searchFilters || []),
       searchHint: def.searchHint || '',
@@ -494,7 +496,7 @@
     /** Host: attach settings/store and run `init`. Returns the manifest. */
     async setup(key, state, { waitForInit = false } = {}) {
       const entry = sources[key];
-      if (!entry) throw new ParkError(ErrorCode.CONFIG, `source ${key} not loaded`);
+      if (!entry) throw new ParkError(ErrorCode.CONFIG, '站点未加载');
       const def = entry.def;
       def.settings_ = Object.assign(settingDefaults(def), (state && state.settings) || {});
       def.store = createStore(def, state && state.data);
@@ -539,14 +541,14 @@
     async invoke(key, path, args, invocation) {
       if (invocation === null) invocation = undefined;
       const entry = sources[key];
-      if (!entry) return { ok: false, error: { code: ErrorCode.CONFIG, message: `源 ${key} 未加载` } };
+      if (!entry) return { ok: false, error: { code: ErrorCode.CONFIG, message: '站点未加载' } };
       try {
         await entry.ready;
         // Namespaced methods ("account.login") still run with the source as `this`.
         let target = entry.def;
         for (const part of String(path).split('.')) target = target ? target[part] : undefined;
         if (typeof target !== 'function') {
-          throw new ParkError(ErrorCode.UNSUPPORTED, `${entry.def.name} 不支持 ${path}`);
+          throw new ParkError(ErrorCode.UNSUPPORTED, '{site}不支持{action}', { params: { site: entry.def.name, action: path } });
         }
         // Keep the source state shared, but bind HTTP to this invocation even
         // across awaits and nested source methods. Never use a global active ID.
@@ -568,7 +570,11 @@
             /* Diagnostics must not replace the original source error. */
           }
         }
-        return { ok: false, error: { code, message, status: err && err.status, url: err && err.url, diagnostics } };
+        // Messages are templates; their values travel separately so the app can translate them.
+        const params = err && err.params && typeof err.params === 'object'
+          ? Object.fromEntries(Object.entries(err.params).map(([k, v]) => [k, v == null ? '' : String(v)]))
+          : undefined;
+        return { ok: false, error: { code, message, params, status: err && err.status, url: err && err.url, diagnostics } };
       }
     },
 

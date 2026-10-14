@@ -1,6 +1,15 @@
 /* 只解析聚合索引，不带源 Cookie 请求外部作品或执行远端脚本。 */
 Park.register({
-  key: 'ixxx', name: 'iXXX', version: '0.0.5', type: 'video', category: 'adult', color: '#F97316',
+  i18n: {
+    "zh-Hant": {"综合成人视频搜索，支持排行、分页与原站打开": "綜合成人影片搜尋，支援排行、分頁與開啟原站", "站点搜索表单无效": "站點搜尋表單無效"},
+    "ja": {"综合成人视频搜索，支持排行、分页与原站打开": "総合成人動画検索。ランキング、ページ送り、元サイトへのリンクに対応", "站点搜索表单无效": "サイトの検索フォームが無効です"},
+    "ko": {"综合成人视频搜索，支持排行、分页与原站打开": "순위, 페이지 탐색 및 원본 사이트 열기를 지원하는 종합 성인 동영상 검색", "站点搜索表单无效": "사이트 검색 양식이 잘못되었습니다"},
+    "en": {"综合成人视频搜索，支持排行、分页与原站打开": "Adult video search with rankings, pagination and original-site links", "站点搜索表单无效": "The site's search form is invalid"},
+    "es": {"综合成人视频搜索，支持排行、分页与原站打开": "Búsqueda de vídeos para adultos con clasificaciones, paginación y enlaces al sitio original", "站点搜索表单无效": "El formulario de búsqueda del sitio no es válido"},
+    "ru": {"综合成人视频搜索，支持排行、分页与原站打开": "Поиск видео для взрослых с рейтингами, страницами и переходом на исходный сайт", "站点搜索表单无效": "Форма поиска на сайте недействительна"},
+    "ar": {"综合成人视频搜索，支持排行、分页与原站打开": "بحث فيديوهات البالغين مع التصنيفات والصفحات وروابط الموقع الأصلي", "站点搜索表单无效": "نموذج البحث في الموقع غير صالح"},
+  },
+  key: 'ixxx', name: 'iXXX', version: '0.0.6', type: 'video', category: 'adult', color: '#F97316',
   description: '综合成人视频搜索，支持排行、分页与原站打开',
   homepage: 'https://www.ixxx.com', domains: ['ixxx.com', 'ttcache.com'], language: 'en',
   network: {mode: 'browser', origin: 'https://www.ixxx.com', vpnHint: true, confirmation: {

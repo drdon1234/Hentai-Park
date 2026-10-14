@@ -192,7 +192,7 @@
   async function getPost(source, value) {
     const id = idValue(value), cached = cache.get(id);
     if (cached && Date.now() - cached.time < 5 * 60 * 1000) {
-      if (!allowed(source, cached.post)) throw Park.error('BLOCKED', '此图集已被源筛选规则屏蔽');
+      if (!allowed(source, cached.post)) throw Park.error('BLOCKED', '此图集已被站点的筛选规则屏蔽');
       return cached.post;
     }
     let post;
@@ -203,14 +203,23 @@
       post = data[0];
     }
     if (!post || !post.id) throw Park.error('NOT_FOUND', '图集不存在');
-    if (!allowed(source, post)) throw Park.error('BLOCKED', '此图集已被源筛选规则屏蔽');
+    if (!allowed(source, post)) throw Park.error('BLOCKED', '此图集已被站点的筛选规则屏蔽');
     if (!item(post)) throw Park.error('NOT_FOUND', '此图集没有可用图片');
     remember(post);
     return post;
   }
 
   Park.register({
-    key: SITE.key, name: SITE.name, version: '0.0.2', type: 'comic', category: 'gallery',
+    i18n: {
+      "zh-Hant": {"XiuRen": "XiuRen", "工作室写真图集，支持热门、模特搜索与整套阅读": "工作室寫真圖集，支援熱門、模特兒搜尋與整套閱讀"},
+      "ja": {"XiuRen": "XiuRen", "工作室写真图集，支持热门、模特搜索与整套阅读": "スタジオ写真集。人気作品・モデル検索・全画像の閲覧に対応"},
+      "ko": {"XiuRen": "XiuRen", "工作室写真图集，支持热门、模特搜索与整套阅读": "스튜디오 화보, 인기 목록·모델 검색·전체 감상 지원"},
+      "en": {"XiuRen": "XiuRen", "工作室写真图集，支持热门、模特搜索与整套阅读": "Studio photo galleries with popular works, model search and full-set viewing"},
+      "es": {"XiuRen": "XiuRen", "工作室写真图集，支持热门、模特搜索与整套阅读": "Galerías de estudio con populares, búsqueda de modelos y lectura completa"},
+      "ru": {"XiuRen": "XiuRen", "工作室写真图集，支持热门、模特搜索与整套阅读": "Студийные фотосессии: популярные работы, поиск моделей и полный просмотр"},
+      "ar": {"XiuRen": "XiuRen", "工作室写真图集，支持热门、模特搜索与整套阅读": "معارض صور استوديو مع أعمال شائعة وبحث عن العارضين وعرض المجموعة كاملة"},
+    },
+    key: SITE.key, name: SITE.name, version: '0.0.3', type: 'comic', category: 'gallery',
     color: SITE.color, description: SITE.description, homepage: SITE.home, domains: [SITE.domain], language: SITE.language,
     network: {mode: 'native', vpnHint: true}, imageHeaders: {Referer: SITE.home + '/'},
     linkPatterns: [SITE.domain.replace(/\./g, '\\.') + '/([^/?#]+)(?:/|[?#]|$)'], idPattern: '^[1-9]\\d{0,14}$',

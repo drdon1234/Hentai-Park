@@ -1,6 +1,15 @@
 /* 页面与 API 分别使用自己的同源浏览器会话，媒体走原生 MP4。 */
 Park.register({
-  key: 'tikporn', name: 'Tik.porn', version: '0.0.2', type: 'video', category: 'shortvideo',
+  i18n: {
+    "zh-Hant": {"竖屏短视频推荐，支持连续播放和搜索": "直式短影片推薦，支援連續播放和搜尋"},
+    "ja": {"竖屏短视频推荐，支持连续播放和搜索": "連続再生と検索に対応する縦型動画のおすすめ"},
+    "ko": {"竖屏短视频推荐，支持连续播放和搜索": "연속 재생과 검색을 지원하는 세로 동영상 추천"},
+    "en": {"竖屏短视频推荐，支持连续播放和搜索": "Vertical video recommendations with continuous playback and search"},
+    "es": {"竖屏短视频推荐，支持连续播放和搜索": "Recomendaciones de vídeos verticales con reproducción continua y búsqueda"},
+    "ru": {"竖屏短视频推荐，支持连续播放和搜索": "Рекомендации вертикальных видео с непрерывным просмотром и поиском"},
+    "ar": {"竖屏短视频推荐，支持连续播放和搜索": "اقتراحات مقاطع عمودية تدعم التشغيل المتواصل والبحث"},
+  },
+  key: 'tikporn', name: 'Tik.porn', version: '0.0.3', type: 'video', category: 'shortvideo',
   color: '#FF427B', description: '竖屏短视频推荐，支持连续播放和搜索', language: 'en',
   homepage: 'https://tik.porn/', domains: ['tik.porn'],
   network: {mode: 'browser', origin: 'https://tik.porn', vpnHint: true},

@@ -202,7 +202,7 @@
   async function getPost(source, value) {
     const id = idValue(value), cached = cache.get(id);
     if (cached && Date.now() - cached.time < 5 * 60 * 1000) {
-      if (!allowed(source, cached.post)) throw Park.error('BLOCKED', '此图集已被源筛选规则屏蔽');
+      if (!allowed(source, cached.post)) throw Park.error('BLOCKED', '此图集已被站点的筛选规则屏蔽');
       return cached.post;
     }
     let post;
@@ -213,14 +213,23 @@
       post = data[0];
     }
     if (!post || !post.id) throw Park.error('NOT_FOUND', '图集不存在');
-    if (!allowed(source, post)) throw Park.error('BLOCKED', '此图集已被源筛选规则屏蔽');
+    if (!allowed(source, post)) throw Park.error('BLOCKED', '此图集已被站点的筛选规则屏蔽');
     if (!item(post)) throw Park.error('NOT_FOUND', '此图集没有可用图片');
     remember(post);
     return post;
   }
 
   Park.register({
-    key: SITE.key, name: SITE.name, version: '0.0.2', type: 'comic', category: 'gallery',
+    i18n: {
+      "zh-Hant": {"Cosplay 与写真图集，支持推荐、分类与搜索": "Cosplay 與寫真圖集，支援推薦、分類與搜尋", "PixiBB": "PixiBB"},
+      "ja": {"Cosplay 与写真图集，支持推荐、分类与搜索": "コスプレ・写真集。おすすめ・カテゴリ・検索に対応", "PixiBB": "PixiBB"},
+      "ko": {"Cosplay 与写真图集，支持推荐、分类与搜索": "코스플레이 및 화보, 추천·분류·검색 지원", "PixiBB": "PixiBB"},
+      "en": {"Cosplay 与写真图集，支持推荐、分类与搜索": "Cosplay and photo galleries with recommendations, categories and search", "PixiBB": "PixiBB"},
+      "es": {"Cosplay 与写真图集，支持推荐、分类与搜索": "Galerías de cosplay y fotografía con recomendaciones, categorías y búsqueda", "PixiBB": "PixiBB"},
+      "ru": {"Cosplay 与写真图集，支持推荐、分类与搜索": "Косплей и фотосессии: рекомендации, категории и поиск", "PixiBB": "PixiBB"},
+      "ar": {"Cosplay 与写真图集，支持推荐、分类与搜索": "معارض كوسبلاي وتصوير مع توصيات وتصنيفات وبحث", "PixiBB": "PixiBB"},
+    },
+    key: SITE.key, name: SITE.name, version: '0.0.3', type: 'comic', category: 'gallery',
     color: SITE.color, description: SITE.description, homepage: SITE.home, domains: [SITE.domain], language: SITE.language,
     network: {mode: 'native', vpnHint: true}, imageHeaders: {Referer: SITE.home + '/'},
     linkPatterns: [SITE.domain.replace(/\./g, '\\.') + '/([^/?#]+)(?:/|[?#]|$)'], idPattern: '^[1-9]\\d{0,14}$',

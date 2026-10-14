@@ -1,6 +1,15 @@
 /* 静态解码已验证的媒体元素百分号字符串，不执行远程脚本。 */
 Park.register({
-  key: 'porn91', name: '91porn', version: '0.0.2', type: 'video', category: 'adult', color: '#D81B60',
+  i18n: {
+    "zh-Hant": {"成人视频社区，支持推荐、搜索和原画播放": "成人影片社群，支援推薦、搜尋和原畫播放"},
+    "ja": {"成人视频社区，支持推荐、搜索和原画播放": "おすすめ・検索・元画質再生に対応した成人向け動画コミュニティ"},
+    "ko": {"成人视频社区，支持推荐、搜索和原画播放": "추천, 검색 및 원본 화질 재생을 지원하는 성인 동영상 커뮤니티"},
+    "en": {"成人视频社区，支持推荐、搜索和原画播放": "Adult video community with recommendations, search and original-quality playback"},
+    "es": {"成人视频社区，支持推荐、搜索和原画播放": "Comunidad de vídeos para adultos con recomendaciones, búsqueda y calidad original"},
+    "ru": {"成人视频社区，支持推荐、搜索和原画播放": "Сообщество видео для взрослых с рекомендациями, поиском и оригинальным качеством"},
+    "ar": {"成人视频社区，支持推荐、搜索和原画播放": "مجتمع فيديوهات للبالغين مع توصيات وبحث وتشغيل بالجودة الأصلية"},
+  },
+  key: 'porn91', name: '91porn', version: '0.0.3', type: 'video', category: 'adult', color: '#D81B60',
   description: '成人视频社区，支持推荐、搜索和原画播放', homepage: 'https://91porn.com', domains: ['91porn.com'], language: 'zh',
   network: {mode: 'native', vpnHint: true}, imageHeaders: {Referer: 'https://91porn.com/'},
   linkPatterns: ['91porn\\.com/view_video\\.php\\?(?:[^#]*&)?viewkey=([a-zA-Z0-9]{5,64})(?:&|#|$)'],

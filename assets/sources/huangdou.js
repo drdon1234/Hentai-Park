@@ -1,6 +1,15 @@
 /* 黄豆短剧：仅解析当前站点公开页面；播放时重新读取指定集的签名地址。 */
 Park.register({
-  key: 'huangdou', name: '黄豆短剧', version: '0.0.5',
+  i18n: {
+    "zh-Hant": {"高分推荐": "高分推薦", "黄豆短剧": "黃豆短劇"},
+    "ja": {"高分推荐": "高評価のおすすめ", "黄豆短剧": "黄豆ショートドラマ"},
+    "ko": {"高分推荐": "높은 평점 추천", "黄豆短剧": "황더우 숏드라마"},
+    "en": {"高分推荐": "Top rated", "黄豆短剧": "Huangdou Shorts"},
+    "es": {"高分推荐": "Mejor valorados", "黄豆短剧": "Series cortas Huangdou"},
+    "ru": {"高分推荐": "С высоким рейтингом", "黄豆短剧": "Короткие сериалы Huangdou"},
+    "ar": {"高分推荐": "الأعلى تقييمًا", "黄豆短剧": "مسلسلات Huangdou القصيرة"},
+  },
+  key: 'huangdou', name: '黄豆短剧', version: '0.0.6',
   type: 'video', category: 'aiDrama', color: '#FFC857',
   description: 'AI短剧与漫剧，支持分类、排行、搜索和分集播放',
   homepage: 'https://aihuangdou.com', domains: ['aihuangdou.com'], language: 'zh',

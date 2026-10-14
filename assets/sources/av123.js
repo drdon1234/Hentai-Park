@@ -1,6 +1,15 @@
 /* 123AV: read declared player data and JSON; never execute remote scripts. */
 Park.register({
-  key: 'av123', name: '123AV', version: '0.0.3', type: 'video', category: 'jav', color: '#EF4444',
+  i18n: {
+    "zh-Hant": {"JAV 视频，支持推荐、热门、搜索与 HLS 播放": "JAV 影片，支援推薦、熱門、搜尋與 HLS 播放", "推荐列表暂不可用": "推薦列表暫不可用", "推荐配置暂不可用": "推薦設定暫不可用", "播放线路暂不可用": "播放線路暫不可用", "请刷新推荐列表后重试": "請重新整理推薦列表後重試"},
+    "ja": {"JAV 视频，支持推荐、热门、搜索与 HLS 播放": "おすすめ・人気・検索・HLS 再生に対応する JAV 動画", "推荐列表暂不可用": "おすすめは現在利用できません", "推荐配置暂不可用": "おすすめの設定は現在利用できません", "播放线路暂不可用": "再生は現在利用できません", "请刷新推荐列表后重试": "おすすめを更新して再試行してください"},
+    "ko": {"JAV 视频，支持推荐、热门、搜索与 HLS 播放": "추천, 인기 목록, 검색 및 HLS 재생을 지원하는 JAV 동영상", "推荐列表暂不可用": "추천 목록을 일시적으로 사용할 수 없습니다", "推荐配置暂不可用": "추천 설정을 일시적으로 사용할 수 없습니다", "播放线路暂不可用": "재생 경로를 일시적으로 사용할 수 없습니다", "请刷新推荐列表后重试": "추천 목록을 새로고침한 후 다시 시도하세요"},
+    "en": {"JAV 视频，支持推荐、热门、搜索与 HLS 播放": "JAV videos with recommendations, popular lists, search and HLS playback", "推荐列表暂不可用": "Recommendations are temporarily unavailable", "推荐配置暂不可用": "Recommendation settings are temporarily unavailable", "播放线路暂不可用": "Playback is temporarily unavailable", "请刷新推荐列表后重试": "Refresh recommendations and try again"},
+    "es": {"JAV 视频，支持推荐、热门、搜索与 HLS 播放": "Vídeos JAV con recomendaciones, listas populares, búsqueda y reproducción HLS", "推荐列表暂不可用": "Las recomendaciones no están disponibles temporalmente", "推荐配置暂不可用": "La configuración de recomendaciones no está disponible temporalmente", "播放线路暂不可用": "La reproducción no está disponible temporalmente", "请刷新推荐列表后重试": "Actualiza las recomendaciones e inténtalo de nuevo"},
+    "ru": {"JAV 视频，支持推荐、热门、搜索与 HLS 播放": "Видео JAV с рекомендациями, популярными списками, поиском и воспроизведением HLS", "推荐列表暂不可用": "Рекомендации временно недоступны", "推荐配置暂不可用": "Настройки рекомендаций временно недоступны", "播放线路暂不可用": "Воспроизведение временно недоступно", "请刷新推荐列表后重试": "Обновите рекомендации и повторите попытку"},
+    "ar": {"JAV 视频，支持推荐、热门、搜索与 HLS 播放": "مقاطع JAV مع توصيات وقوائم شائعة وبحث وتشغيل HLS", "推荐列表暂不可用": "التوصيات غير متاحة مؤقتًا", "推荐配置暂不可用": "إعدادات التوصيات غير متاحة مؤقتًا", "播放线路暂不可用": "التشغيل غير متاح مؤقتًا", "请刷新推荐列表后重试": "حدّث التوصيات وحاول مرة أخرى"},
+  },
+  key: 'av123', name: '123AV', version: '0.0.5', type: 'video', category: 'jav', color: '#EF4444',
   description: 'JAV 视频，支持推荐、热门、搜索与 HLS 播放',
   homepage: 'https://123av.com', domains: ['123av.com', 'sadie-shop.site'], language: 'zh-Hans',
   network: {mode: 'browser', origin: 'https://123av.com', vpnHint: true},
@@ -31,7 +40,7 @@ Park.register({
   async getPage(path, params = {}) {
     const r=await this.http.get(this.BASE + path,{params});
     if (r.status===404) throw Park.error('NOT_FOUND','影片不存在');
-    if (!r.ok) throw Park.error('HTTP',`123AV HTTP ${r.status}`,{status:r.status});
+    if (!r.ok) throw Park.error('HTTP', '123AV HTTP {value0}',{ params: {value0: r.status},status:r.status});
     if (r.body.length>4*1024*1024) throw Park.error('PARSE','影片页面过大');
     return Park.html.parse(r.body);
   },
@@ -145,7 +154,7 @@ Park.register({
     let data;
     try {data=JSON.parse(r.body);} catch (_) {throw Park.error('PARSE','播放线路暂不可用');}
     const url=data && data.media && data.media.stream;
-    if (typeof url!=='string' || !/^https:\/\/[^\s#]+\.m3u8(?:\?[^\s#]*)?$/.test(url)) throw Park.error('UNSUPPORTED','此影片没有可用的 HLS 清晰度');
+    if (typeof url !== 'string' || !/^https:\/\/[^\s#]+\.m3u8(?:\?[^\s#]*)?$/.test(url)) throw Park.error('UNSUPPORTED','此影片没有可用的 HLS 清晰度');
     return [{url,quality:Number(this.config.quality)||1080,label:'原画',format:'hls',preferred:true,headers:{Referer:referer,Origin:origin}}];
   },
 });

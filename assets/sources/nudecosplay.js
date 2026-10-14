@@ -189,7 +189,7 @@
   async function getPost(source, value) {
     const id = idValue(value), cached = cache.get(id);
     if (cached && Date.now() - cached.time < 5 * 60 * 1000) {
-      if (!allowed(source, cached.post)) throw Park.error('BLOCKED', '此图集已被源筛选规则屏蔽');
+      if (!allowed(source, cached.post)) throw Park.error('BLOCKED', '此图集已被站点的筛选规则屏蔽');
       return cached.post;
     }
     let post;
@@ -200,14 +200,23 @@
       post = data[0];
     }
     if (!post || !post.id) throw Park.error('NOT_FOUND', '图集不存在');
-    if (!allowed(source, post)) throw Park.error('BLOCKED', '此图集已被源筛选规则屏蔽');
+    if (!allowed(source, post)) throw Park.error('BLOCKED', '此图集已被站点的筛选规则屏蔽');
     if (!item(post)) throw Park.error('NOT_FOUND', '此图集没有可用图片');
     remember(post);
     return post;
   }
 
   Park.register({
-    key: SITE.key, name: SITE.name, version: '0.0.2', type: 'comic', category: 'gallery',
+    i18n: {
+      "zh-Hant": {"Cosplay 写真图集，支持总热门、月热门与周热门": "Cosplay 寫真圖集，支援總熱門、月熱門與週熱門", "NudeCosplay": "NudeCosplay"},
+      "ja": {"Cosplay 写真图集，支持总热门、月热门与周热门": "コスプレ写真集。総合・月間・週間の人気作品に対応", "NudeCosplay": "NudeCosplay"},
+      "ko": {"Cosplay 写真图集，支持总热门、月热门与周热门": "코스플레이 화보, 전체·월간·주간 인기 목록 지원", "NudeCosplay": "NudeCosplay"},
+      "en": {"Cosplay 写真图集，支持总热门、月热门与周热门": "Cosplay galleries with all-time, monthly and weekly popular works", "NudeCosplay": "NudeCosplay"},
+      "es": {"Cosplay 写真图集，支持总热门、月热门与周热门": "Galerías de cosplay con populares de siempre, del mes y de la semana", "NudeCosplay": "NudeCosplay"},
+      "ru": {"Cosplay 写真图集，支持总热门、月热门与周热门": "Косплей-галереи с популярными работами за всё время, месяц и неделю", "NudeCosplay": "NudeCosplay"},
+      "ar": {"Cosplay 写真图集，支持总热门、月热门与周热门": "معارض كوسبلاي مع أعمال شائعة إجمالاً وشهرياً وأسبوعياً", "NudeCosplay": "NudeCosplay"},
+    },
+    key: SITE.key, name: SITE.name, version: '0.0.3', type: 'comic', category: 'gallery',
     color: SITE.color, description: SITE.description, homepage: SITE.home, domains: [SITE.domain], language: SITE.language,
     network: {mode: 'native', vpnHint: true}, imageHeaders: {Referer: SITE.home + '/'},
     linkPatterns: [SITE.domain.replace(/\./g, '\\.') + '/([^/?#]+)(?:/|[?#]|$)'], idPattern: '^[1-9]\\d{0,14}$',

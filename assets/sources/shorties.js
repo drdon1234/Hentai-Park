@@ -1,6 +1,15 @@
 /* 只解析 Shorties 的 JSON；请求令牌仅保存在源实例内存。 */
 Park.register({
-  key: 'shorties', name: 'Pornhub Shorties', version: '0.0.2', type: 'video', category: 'shortvideo',
+  i18n: {
+    "zh-Hant": {"竖屏短视频推荐，上下滑动连续播放": "直式短影片推薦，上下滑動連續播放", "请刷新短视频列表": "請重新整理短影片清單"},
+    "ja": {"竖屏短视频推荐，上下滑动连续播放": "縦型動画のおすすめを上下スワイプで連続再生", "请刷新短视频列表": "ショート動画一覧を更新してください"},
+    "ko": {"竖屏短视频推荐，上下滑动连续播放": "위아래로 넘기며 연속 재생하는 세로 동영상 추천", "请刷新短视频列表": "짧은 동영상 목록을 새로고침하세요"},
+    "en": {"竖屏短视频推荐，上下滑动连续播放": "Vertical video recommendations with continuous swipe playback", "请刷新短视频列表": "Refresh the short video feed"},
+    "es": {"竖屏短视频推荐，上下滑动连续播放": "Recomendaciones de vídeos verticales con reproducción continua al deslizar", "请刷新短视频列表": "Actualiza la lista de vídeos cortos"},
+    "ru": {"竖屏短视频推荐，上下滑动连续播放": "Рекомендации вертикальных видео с непрерывным просмотром свайпами", "请刷新短视频列表": "Обновите ленту коротких видео"},
+    "ar": {"竖屏短视频推荐，上下滑动连续播放": "اقتراحات مقاطع عمودية مع تشغيل متواصل بالسحب لأعلى وأسفل", "请刷新短视频列表": "حدّث قائمة المقاطع القصيرة"},
+  },
+  key: 'shorties', name: 'Pornhub Shorties', version: '0.0.3', type: 'video', category: 'shortvideo',
   color: '#FF9900', description: '竖屏短视频推荐，上下滑动连续播放', language: 'en',
   homepage: 'https://www.pornhub.com/shorties', domains: ['pornhub.com'],
   network: {mode: 'native', vpnHint: true},

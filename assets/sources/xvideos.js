@@ -1,6 +1,15 @@
 /* 完整详情路径作为作品 ID；静态提取媒体，不执行远程播放器代码。 */
 Park.register({
-  key: 'xvideos', name: 'XVideos', version: '0.0.2', type: 'video', category: 'adult', color: '#E31B23',
+  i18n: {
+    "zh-Hant": {"标清": "標清", "综合成人视频，支持排行、搜索和高清播放": "綜合成人影片，支援排行、搜尋和高清播放", "高清": "高清"},
+    "ja": {"标清": "標準画質", "综合成人视频，支持排行、搜索和高清播放": "ランキング・検索・高画質再生に対応した成人向け動画", "高清": "高画質"},
+    "ko": {"标清": "표준 화질", "综合成人视频，支持排行、搜索和高清播放": "순위, 검색 및 고화질 재생을 지원하는 성인 동영상", "高清": "고화질"},
+    "en": {"标清": "Standard quality", "综合成人视频，支持排行、搜索和高清播放": "Adult videos with rankings, search and high-quality playback", "高清": "High quality"},
+    "es": {"标清": "Calidad estándar", "综合成人视频，支持排行、搜索和高清播放": "Vídeos para adultos con clasificaciones, búsqueda y reproducción de alta calidad", "高清": "Alta calidad"},
+    "ru": {"标清": "Стандартное качество", "综合成人视频，支持排行、搜索和高清播放": "Видео для взрослых с рейтингами, поиском и высоким качеством", "高清": "Высокое качество"},
+    "ar": {"标清": "جودة قياسية", "综合成人视频，支持排行、搜索和高清播放": "فيديوهات للبالغين مع تصنيفات وبحث وتشغيل بجودة عالية", "高清": "جودة عالية"},
+  },
+  key: 'xvideos', name: 'XVideos', version: '0.0.3', type: 'video', category: 'adult', color: '#E31B23',
   description: '综合成人视频，支持排行、搜索和高清播放', homepage: 'https://www.xvideos.com', domains: ['xvideos.com'], language: 'en',
   network: {mode: 'native', vpnHint: true}, imageHeaders: {Referer: 'https://www.xvideos.com/'},
   linkPatterns: ['xvideos\\.com/(video\\.[a-z0-9]+/[^?#\\s]+)(?:[?#]|$)'],

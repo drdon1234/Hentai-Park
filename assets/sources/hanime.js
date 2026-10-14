@@ -1,6 +1,15 @@
 /* Hanime.tv：公开目录检索；未验证的播放器握手不冒充本地媒体。 */
 Park.register({
-  key: 'hanime', name: 'Hanime.tv', version: '0.0.2', type: 'video', category: 'anime',
+  i18n: {
+    "zh-Hant": {"影片列表解析失败": "影片列表解析失敗", "里番目录、排行与搜索；播放需打开原站": "裏番目錄、排行與搜尋；播放需開啟原站"},
+    "ja": {"影片列表解析失败": "動画一覧の解析に失敗しました", "里番目录、排行与搜索；播放需打开原站": "アニメのカタログ・ランキング・検索。再生は元サイトで"},
+    "ko": {"影片列表解析失败": "동영상 목록 분석 실패", "里番目录、排行与搜索；播放需打开原站": "애니메이션 목록, 순위 및 검색; 재생은 원본 사이트에서"},
+    "en": {"影片列表解析失败": "Failed to parse video list", "里番目录、排行与搜索；播放需打开原站": "Anime catalog, rankings and search; open the original site to play"},
+    "es": {"影片列表解析失败": "No se pudo analizar la lista de vídeos", "里番目录、排行与搜索；播放需打开原站": "Catálogo de anime, clasificación y búsqueda; reproducción en el sitio original"},
+    "ru": {"影片列表解析失败": "Не удалось разобрать список видео", "里番目录、排行与搜索；播放需打开原站": "Каталог аниме, рейтинг и поиск; просмотр на исходном сайте"},
+    "ar": {"影片列表解析失败": "تعذر تحليل قائمة الفيديو", "里番目录、排行与搜索；播放需打开原站": "دليل الأنمي والترتيب والبحث؛ التشغيل على الموقع الأصلي"},
+  },
+  key: 'hanime', name: 'Hanime.tv', version: '0.0.3', type: 'video', category: 'anime',
   language: 'en', color: '#EC407A', homepage: 'https://hanime.tv',
   description: '里番目录、排行与搜索；播放需打开原站',
   domains: ['hanime.tv', 'hanime-cdn.com', 'guest.freeanimehentai.net'],

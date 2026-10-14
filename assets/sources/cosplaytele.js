@@ -189,7 +189,7 @@
   async function getPost(source, value) {
     const id = idValue(value), cached = cache.get(id);
     if (cached && Date.now() - cached.time < 5 * 60 * 1000) {
-      if (!allowed(source, cached.post)) throw Park.error('BLOCKED', '此图集已被源筛选规则屏蔽');
+      if (!allowed(source, cached.post)) throw Park.error('BLOCKED', '此图集已被站点的筛选规则屏蔽');
       return cached.post;
     }
     let post;
@@ -200,14 +200,23 @@
       post = data[0];
     }
     if (!post || !post.id) throw Park.error('NOT_FOUND', '图集不存在');
-    if (!allowed(source, post)) throw Park.error('BLOCKED', '此图集已被源筛选规则屏蔽');
+    if (!allowed(source, post)) throw Park.error('BLOCKED', '此图集已被站点的筛选规则屏蔽');
     if (!item(post)) throw Park.error('NOT_FOUND', '此图集没有可用图片');
     remember(post);
     return post;
   }
 
   Park.register({
-    key: SITE.key, name: SITE.name, version: '0.0.2', type: 'comic', category: 'gallery',
+    i18n: {
+      "zh-Hant": {"Cosplay 写真图集，支持热门、角色搜索与整套阅读": "Cosplay 寫真圖集，支援熱門、角色搜尋與整套閱讀", "CosplayTele": "CosplayTele"},
+      "ja": {"Cosplay 写真图集，支持热门、角色搜索与整套阅读": "コスプレ写真集。人気作品・キャラクター検索・全画像の閲覧に対応", "CosplayTele": "CosplayTele"},
+      "ko": {"Cosplay 写真图集，支持热门、角色搜索与整套阅读": "코스플레이 화보, 인기 목록·캐릭터 검색·전체 감상 지원", "CosplayTele": "CosplayTele"},
+      "en": {"Cosplay 写真图集，支持热门、角色搜索与整套阅读": "Cosplay galleries with popular works, character search and full-set viewing", "CosplayTele": "CosplayTele"},
+      "es": {"Cosplay 写真图集，支持热门、角色搜索与整套阅读": "Galerías de cosplay con populares, búsqueda de personajes y lectura completa", "CosplayTele": "CosplayTele"},
+      "ru": {"Cosplay 写真图集，支持热门、角色搜索与整套阅读": "Косплей-галереи: популярные работы, поиск персонажей и просмотр полного набора", "CosplayTele": "CosplayTele"},
+      "ar": {"Cosplay 写真图集，支持热门、角色搜索与整套阅读": "معارض كوسبلاي مع أعمال شائعة وبحث عن الشخصيات وعرض المجموعة كاملة", "CosplayTele": "CosplayTele"},
+    },
+    key: SITE.key, name: SITE.name, version: '0.0.3', type: 'comic', category: 'gallery',
     color: SITE.color, description: SITE.description, homepage: SITE.home, domains: [SITE.domain], language: SITE.language,
     network: {mode: 'native', vpnHint: true}, imageHeaders: {Referer: SITE.home + '/'},
     linkPatterns: [SITE.domain.replace(/\./g, '\\.') + '/([^/?#]+)(?:/|[?#]|$)'], idPattern: '^[1-9]\\d{0,14}$',

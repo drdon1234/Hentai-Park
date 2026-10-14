@@ -16,7 +16,16 @@
     return children || document.value || '';
   };
   Park.register({
-    key: 'kungal', name: 'KUN Galgame', version: '0.0.4', type: 'game', category: 'game', color: '#6FA7DF',
+    i18n: {
+      "zh-Hant": {"游戏排行、搜索及社区分享资源": "遊戲排行、搜尋及社群分享資源"},
+      "ja": {"游戏排行、搜索及社区分享资源": "ゲームランキング、検索、コミュニティリソース"},
+      "ko": {"游戏排行、搜索及社区分享资源": "게임 순위, 검색 및 커뮤니티 자료"},
+      "en": {"游戏排行、搜索及社区分享资源": "Game rankings, search and community resources"},
+      "es": {"游戏排行、搜索及社区分享资源": "Clasificaciones, búsqueda y recursos de la comunidad"},
+      "ru": {"游戏排行、搜索及社区分享资源": "Рейтинги игр, поиск и ресурсы сообщества"},
+      "ar": {"游戏排行、搜索及社区分享资源": "تصنيفات ألعاب وبحث وموارد المجتمع"},
+    },
+    key: 'kungal', name: 'KUN Galgame', version: '0.0.5', type: 'game', category: 'game', color: '#6FA7DF',
     description: '游戏排行、搜索及社区分享资源', homepage: BASE, language: 'multi',
     domains: ['kungal.com', 'image.kungal.iloveren.link'], network: { mode: 'native', vpnHint: true },
     linkPatterns: ['https?://(?:www\\.)?kungal\\.com/(?:galgame|works)/(\\d+)'], idPattern: '^(\\d+)$', idExample: '1408',

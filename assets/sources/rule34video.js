@@ -1,6 +1,15 @@
 /* Rule34Video：静态 KVS 数据，拒绝执行播放器脚本。 */
 Park.register({
-  key: 'rule34video', name: 'Rule34Video', version: '0.0.2', type: 'video', category: 'anime',
+  i18n: {
+    "zh-Hant": {"同人动画与游戏角色短片，支持评分榜、搜索和多清晰度 MP4": "同人動畫與遊戲角色短片，支援評分榜、搜尋和多畫質 MP4"},
+    "ja": {"同人动画与游戏角色短片，支持评分榜、搜索和多清晰度 MP4": "同人アニメ・ゲームキャラクター動画。評価順・検索・複数画質の MP4 に対応"},
+    "ko": {"同人动画与游戏角色短片，支持评分榜、搜索和多清晰度 MP4": "동인 애니메이션과 게임 캐릭터 영상; 평점순, 검색 및 다양한 MP4 화질 지원"},
+    "en": {"同人动画与游戏角色短片，支持评分榜、搜索和多清晰度 MP4": "Fan animations and game character clips with ratings, search and multiple MP4 qualities"},
+    "es": {"同人动画与游戏角色短片，支持评分榜、搜索和多清晰度 MP4": "Animaciones de fans y personajes de videojuegos, con clasificación, búsqueda y varias calidades MP4"},
+    "ru": {"同人动画与游戏角色短片，支持评分榜、搜索和多清晰度 MP4": "Фанатская анимация и ролики с игровыми персонажами: рейтинг, поиск и MP4 разного качества"},
+    "ar": {"同人动画与游戏角色短片，支持评分榜、搜索和多清晰度 MP4": "رسوم المعجبين ومقاطع شخصيات الألعاب مع التقييم والبحث وجودات MP4 متعددة"},
+  },
+  key: 'rule34video', name: 'Rule34Video', version: '0.0.3', type: 'video', category: 'anime',
   language: 'en', color: '#88AA44', homepage: 'https://rule34video.com',
   description: '同人动画与游戏角色短片，支持评分榜、搜索和多清晰度 MP4',
   domains: ['rule34video.com'], network: {mode: 'native', vpnHint: true},

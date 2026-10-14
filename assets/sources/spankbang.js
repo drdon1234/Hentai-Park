@@ -1,6 +1,15 @@
 /* SpankBang：浏览器同源取页面，静态提取公开 MP4；不执行播放器。 */
 Park.register({
-  key: 'spankbang', name: 'SpankBang', version: '0.0.3', type: 'video', category: 'adult',
+  i18n: {
+    "zh-Hant": {"综合成人视频，支持推荐、搜索与多清晰度MP4；可能需浏览器确认": "綜合成人影片，支援推薦、搜尋與多畫質MP4；可能需瀏覽器確認"},
+    "ja": {"综合成人视频，支持推荐、搜索与多清晰度MP4；可能需浏览器确认": "成人動画。おすすめ・検索・複数画質の MP4 に対応。ブラウザーでの確認が必要な場合があります"},
+    "ko": {"综合成人视频，支持推荐、搜索与多清晰度MP4；可能需浏览器确认": "성인 동영상; 추천, 검색 및 다양한 MP4 화질 지원; 브라우저 확인이 필요할 수 있습니다"},
+    "en": {"综合成人视频，支持推荐、搜索与多清晰度MP4；可能需浏览器确认": "Adult videos with recommendations, search and multiple MP4 qualities; browser confirmation may be required"},
+    "es": {"综合成人视频，支持推荐、搜索与多清晰度MP4；可能需浏览器确认": "Vídeos para adultos con recomendaciones, búsqueda y varias calidades MP4; puede requerir confirmación en el navegador"},
+    "ru": {"综合成人视频，支持推荐、搜索与多清晰度MP4；可能需浏览器确认": "Видео для взрослых: рекомендации, поиск и MP4 разного качества; может требоваться подтверждение в браузере"},
+    "ar": {"综合成人视频，支持推荐、搜索与多清晰度MP4；可能需浏览器确认": "فيديو للبالغين مع التوصيات والبحث وجودات MP4 متعددة؛ قد يلزم التأكيد في المتصفح"},
+  },
+  key: 'spankbang', name: 'SpankBang', version: '0.0.4', type: 'video', category: 'adult',
   language: 'en', color: '#F99B1C', homepage: 'https://spankbang.com',
   description: '综合成人视频，支持推荐、搜索与多清晰度MP4；可能需浏览器确认',
   domains: ['spankbang.com', 'sb-cd.com'], network: {mode: 'browser', origin: 'https://spankbang.com', vpnHint: true, confirmation: {

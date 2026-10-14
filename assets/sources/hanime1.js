@@ -7,9 +7,18 @@
  *   so they are always resolved right before playback / download.
  */
 Park.register({
+  i18n: {
+    "zh-Hant": {"2D動畫": "2D動畫", "AI生成": "AI生成", "Hanime1 影片 {value0} 不存在或需要登录": "Hanime1 影片 {value0} 不存在或需要登入", "Hanime1 返回 HTTP {value0}": "Hanime1 返回 HTTP {value0}", "好评最多": "好評最多", "时长最长": "時長最長", "時長最長": "時長最長", "最新上传": "最新上傳", "最新上傳": "最新上傳", "本日排行": "本日排行", "本月排行": "本月排行", "本週排行": "本週排行", "没有找到可用的视频源（可能需要登录）": "沒有找到可用的影片源（可能需要登入）", "泡麵番": "泡麵番", "相关度": "相關度", "裏番": "裡番", "觀看次數": "觀看次數", "观看最多": "觀看最多", "讚好比例": "讚好比例", "里番、泡面番与 3D 动画，支持多清晰度在线播放与下载": "裡番、泡麵番與 3D 動畫，支援多清晰度線上播放與下載", "默认类型": "預設型別"},
+    "ja": {"2D動畫": "2Dアニメーション", "AI生成": "AIの生成", "Hanime1 影片 {value0} 不存在或需要登录": "Hanime1 ビデオ {value0} が存在しないか、ログインが必要です", "Hanime1 返回 HTTP {value0}": "Hanime1はHTTP {value0}を返す", "好评最多": "最も好意的なコメント", "时长最长": "最長持続時間", "時長最長": "最長持続時間", "最新上传": "最新のアップロード", "最新上傳": "最新のアップロード", "本日排行": "今日のランキング", "本月排行": "今月のランキング", "本週排行": "今週のランキング", "没有找到可用的视频源（可能需要登录）": "利用可能なビデオ ソースが見つかりません (ログインが必要な場合があります)", "泡麵番": "即席麺", "相关度": "関連性", "裏番": "リパン", "觀看次數": "ビュー数", "观看最多": "最も閲覧されている", "讚好比例": "いいね比率", "里番、泡面番与 3D 动画，支持多清晰度在线播放与下载": "Ripa、インスタントラーメン、3Dアニメーションはマルチ解像度のオンライン再生とダウンロードをサポート", "默认类型": "デフォルトタイプ"},
+    "ko": {"2D動畫": "2D 애니메이션", "AI生成": "AI 생성", "Hanime1 影片 {value0} 不存在或需要登录": "Hanime1 비디오 {value0}가 존재하지 않거나 로그인이 필요합니다", "Hanime1 返回 HTTP {value0}": "Hanime1은 HTTP {value0}를 반환합니다.", "好评最多": "가장 긍정적인 리뷰", "时长最长": "가장 긴 기간", "時長最長": "가장 긴 기간", "最新上传": "최신 업로드", "最新上傳": "최신 업로드", "本日排行": "오늘의 순위", "本月排行": "이번달 순위", "本週排行": "이번주 순위", "没有找到可用的视频源（可能需要登录）": "사용 가능한 비디오 소스를 찾을 수 없습니다(로그인이 필요할 수 있음)", "泡麵番": "인스턴트 국수", "相关度": "관련성", "裏番": "리판", "觀看次數": "조회수", "观看最多": "가장 많이 본", "讚好比例": "좋아요 비율", "里番、泡面番与 3D 动画，支持多清晰度在线播放与下载": "리반(Riban), 라면, 3D 애니메이션, 다중화질 온라인 재생 및 다운로드 지원", "默认类型": "기본 유형"},
+    "en": {"2D動畫": "2D animation", "AI生成": "AI generation", "Hanime1 影片 {value0} 不存在或需要登录": "Hanime1 video {value0} does not exist or requires login", "Hanime1 返回 HTTP {value0}": "Hanime1 returns HTTP {value0}", "好评最多": "Most favorable comments", "时长最长": "The longest duration", "時長最長": "The longest duration", "最新上传": "Latest upload", "最新上傳": "Latest upload", "本日排行": "Today's ranking", "本月排行": "This month's ranking", "本週排行": "This week's ranking", "没有找到可用的视频源（可能需要登录）": "No available video source found (may require login)", "泡麵番": "Instant noodles", "相关度": "Relevance", "裏番": "Ripan", "觀看次數": "Number of views", "观看最多": "Most viewed", "讚好比例": "Like ratio", "里番、泡面番与 3D 动画，支持多清晰度在线播放与下载": "Ripa, instant noodles and 3D animation support multi-definition online playback and downloading", "默认类型": "Default type"},
+    "es": {"2D動畫": "Animación 2D", "AI生成": "Generación de IA", "Hanime1 影片 {value0} 不存在或需要登录": "El vídeo de Hanime1 {value0} no existe o requiere iniciar sesión", "Hanime1 返回 HTTP {value0}": "Hanime1 devuelve HTTP {value0}", "好评最多": "Comentarios más favorables", "时长最长": "La duración más larga", "時長最長": "La duración más larga", "最新上传": "Última carga", "最新上傳": "Última carga", "本日排行": "Clasificación de hoy", "本月排行": "Clasificación de este mes", "本週排行": "Clasificación de esta semana", "没有找到可用的视频源（可能需要登录）": "No se encontró ninguna fuente de vídeo disponible (puede ser necesario iniciar sesión)", "泡麵番": "Fideos instantáneos", "相关度": "Relevancia", "裏番": "Ripán", "觀看次數": "Número de vistas", "观看最多": "Más vistos", "讚好比例": "Proporción similar", "里番、泡面番与 3D 动画，支持多清晰度在线播放与下载": "Ripa, fideos instantáneos y animación 3D admiten reproducción y descarga en línea multidefinición", "默认类型": "Tipo predeterminado"},
+    "ru": {"2D動畫": "2D-анимация", "AI生成": "Генерация ИИ", "Hanime1 影片 {value0} 不存在或需要登录": "Видео Hanime1 {value0} не существует или требует входа в систему", "Hanime1 返回 HTTP {value0}": "Hanime1 возвращает HTTP {value0}", "好评最多": "Самые положительные комментарии", "时长最长": "Самая большая продолжительность", "時長最長": "Самая продолжительная продолжительность", "最新上传": "Последняя загрузка", "最新上傳": "Последняя загрузка", "本日排行": "Сегодняшний рейтинг", "本月排行": "Рейтинг этого месяца", "本週排行": "Рейтинг этой недели", "没有找到可用的视频源（可能需要登录）": "Доступный источник видео не найден (может потребоваться вход в систему)", "泡麵番": "Лапша быстрого приготовления", "相关度": "Актуальность", "裏番": "Рипан", "觀看次數": "Количество просмотров", "观看最多": "Самые просматриваемые", "讚好比例": "Подобное соотношение", "里番、泡面番与 3D 动画，支持多清晰度在线播放与下载": "Рипа, лапша быстрого приготовления и 3D-анимация поддерживают онлайн-воспроизведение и загрузку с несколькими разрешениями.", "默认类型": "Тип по умолчанию"},
+    "ar": {"2D動畫": "الرسوم المتحركة ثنائية الأبعاد", "AI生成": "جيل الذكاء الاصطناعي", "Hanime1 影片 {value0} 不存在或需要登录": "فيديو Hanime1 {value0} غير موجود أو يتطلب تسجيل الدخول", "Hanime1 返回 HTTP {value0}": "Hanime1 يُرجع HTTP {value0}", "好评最多": "التعليقات الأكثر إيجابية", "时长最长": "أطول مدة", "時長最長": "أطول مدة", "最新上传": "آخر تحميل", "最新上傳": "آخر تحميل", "本日排行": "ترتيب اليوم", "本月排行": "ترتيب هذا الشهر", "本週排行": "ترتيب هذا الأسبوع", "没有找到可用的视频源（可能需要登录）": "لم يتم العثور على مصدر فيديو متاح (قد يتطلب تسجيل الدخول)", "泡麵番": "المكرونة سريعة التحضير", "相关度": "الصلة", "裏番": "ريبان", "觀看次數": "عدد المشاهدات", "观看最多": "الأكثر مشاهدة", "讚好比例": "نسبة الإعجاب", "里番、泡面番与 3D 动画，支持多清晰度在线播放与下载": "تدعم Ripa والمعكرونة سريعة التحضير والرسوم المتحركة ثلاثية الأبعاد التشغيل والتنزيل عبر الإنترنت متعدد التعريفات", "默认类型": "النوع الافتراضي"},
+  },
   key: 'hanime1',
   name: 'Hanime1',
-  version: '0.0.3',
+  version: '0.0.4',
   type: 'video',
   category: 'anime',
   color: '#E5355F',
@@ -111,7 +120,7 @@ Park.register({
   async getDoc(path, params) {
     const res = await this.http.get(this.BASE + path, { params });
     if (res.status === 404) throw Park.error('NOT_FOUND', '影片不存在');
-    if (!res.ok) throw Park.error('HTTP', `Hanime1 返回 HTTP ${res.status}`, { status: res.status });
+    if (!res.ok) throw Park.error('HTTP', 'Hanime1 返回 HTTP {value0}', { params: {value0: res.status}, status: res.status });
     return Park.html.parse(res.body);
   },
 
@@ -202,7 +211,7 @@ Park.register({
       return el ? el.getAttribute('content') || '' : '';
     };
     const title = Park.html.text(doc.querySelector('#shareBtn-title')) || og('title').replace(/\s*-\s*Hanime1\.me\s*$/i, '');
-    if (!title) throw Park.error('NOT_FOUND', `Hanime1 影片 ${id} 不存在或需要登录`);
+    if (!title) throw Park.error('NOT_FOUND', 'Hanime1 影片 {value0} 不存在或需要登录', { params: {value0: id} });
     const panel = Park.html.text(doc.querySelector('.video-description-panel'));
     const vd = /(?:觀看次數|观看次数)：\s*([\d.,]+\s*[萬万億亿]?)次\s*(\d{4}-\d{2}-\d{2})?/.exec(panel);
     const tags = [];

@@ -1,8 +1,17 @@
 /* MissAV: only parse page data. Packed media strings are decoded without eval. */
 Park.register({
+  i18n: {
+    "zh-Hant": {"MissAV 返回 HTTP {value0}": "MissAV 傳回 HTTP {value0}", "发行日期": "發行日期", "收藏最多": "收藏最多", "真人成人视频，支持多清晰度播放与安卓离线下载": "真人成人影片，支援多畫質播放與 Android 離線下載"},
+    "ja": {"MissAV 返回 HTTP {value0}": "MissAV が HTTP {value0} を返しました", "发行日期": "発売日", "收藏最多": "お気に入り数順", "真人成人视频，支持多清晰度播放与安卓离线下载": "実写の成人向け動画。複数画質での再生と Android のオフラインダウンロードに対応"},
+    "ko": {"MissAV 返回 HTTP {value0}": "MissAV가 HTTP {value0}을 반환했습니다", "发行日期": "출시일", "收藏最多": "즐겨찾기 많은 순", "真人成人视频，支持多清晰度播放与安卓离线下载": "실사 성인 동영상, 여러 화질 재생 및 Android 오프라인 다운로드 지원"},
+    "en": {"MissAV 返回 HTTP {value0}": "MissAV returned HTTP {value0}", "发行日期": "Release date", "收藏最多": "Most saved", "真人成人视频，支持多清晰度播放与安卓离线下载": "Live-action adult videos with multiple playback resolutions and Android offline downloads"},
+    "es": {"MissAV 返回 HTTP {value0}": "MissAV devolvió HTTP {value0}", "发行日期": "Fecha de lanzamiento", "收藏最多": "Más guardados", "真人成人视频，支持多清晰度播放与安卓离线下载": "Videos para adultos de acción real con varias resoluciones y descargas sin conexión en Android"},
+    "ru": {"MissAV 返回 HTTP {value0}": "MissAV вернул HTTP {value0}", "发行日期": "Дата выпуска", "收藏最多": "Больше всего добавлений в избранное", "真人成人视频，支持多清晰度播放与安卓离线下载": "Видео для взрослых с реальными актёрами, выбором качества и офлайн-загрузкой на Android"},
+    "ar": {"MissAV 返回 HTTP {value0}": "أعاد MissAV حالة HTTP {value0}", "发行日期": "تاريخ الإصدار", "收藏最多": "الأكثر حفظًا", "真人成人视频，支持多清晰度播放与安卓离线下载": "فيديوهات للبالغين بممثلين حقيقيين، مع خيارات متعددة للجودة والتنزيل دون اتصال على Android"},
+  },
   key: 'missav',
   name: 'MissAV',
-  version: '0.0.3',
+  version: '0.0.4',
   type: 'video',
   category: 'jav',
   color: '#EF4444',
@@ -38,7 +47,7 @@ Park.register({
   async getPage(path, params) {
     const response = await this.http.get(this.BASE + path, {params});
     if (response.status === 404) throw Park.error('NOT_FOUND', '影片不存在');
-    if (!response.ok) throw Park.error('HTTP', `MissAV 返回 HTTP ${response.status}`, {status: response.status});
+    if (!response.ok) throw Park.error('HTTP', 'MissAV 返回 HTTP {value0}', { params: {value0: response.status},status: response.status});
     return {html: response.body, doc: Park.html.parse(response.body)};
   },
 

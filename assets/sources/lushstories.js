@@ -89,9 +89,18 @@
     };
   }
   Park.register({
+    i18n: {
+      "zh-Hant": {"英文小说社区，支持推荐、搜索与正文阅读": "英文小說社群，支援推薦、搜尋與正文閱讀"},
+      "ja": {"英文小说社区，支持推荐、搜索与正文阅读": "英語の小説コミュニティ。おすすめ、検索、本文の閲覧に対応"},
+      "ko": {"英文小说社区，支持推荐、搜索与正文阅读": "영어 소설 커뮤니티. 추천, 검색 및 본문 읽기 지원"},
+      "en": {"英文小说社区，支持推荐、搜索与正文阅读": "English fiction community with recommendations, search and text reading"},
+      "es": {"英文小说社区，支持推荐、搜索与正文阅读": "Comunidad de ficción en inglés con recomendaciones, búsqueda y lectura"},
+      "ru": {"英文小说社区，支持推荐、搜索与正文阅读": "Сообщество английской прозы: рекомендации, поиск и чтение"},
+      "ar": {"英文小说社区，支持推荐、搜索与正文阅读": "مجتمع روايات إنجليزية مع توصيات وبحث وقراءة النص"},
+    },
     key: 'lushstories',
     name: 'Lush Stories',
-    version: '0.0.3',
+    version: '0.0.4',
     type: 'novel',
     category: 'novel',
     language: 'en',

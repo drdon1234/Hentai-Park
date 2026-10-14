@@ -63,9 +63,18 @@
     return { items: entries(d, !!params.keywords), page, hasNext: !!next };
   }
   Park.register({
+    i18n: {
+      "zh-Hant": {"小说不存在或受限": "小說不存在或受限", "禁忌书屋小说版，支持精华、热帖、搜索与正文阅读": "禁忌書屋小說版，支援精華、熱門文章、搜尋與正文閱讀", "精华": "精華"},
+      "ja": {"小说不存在或受限": "小説が存在しないか制限されています", "禁忌书屋小说版，支持精华、热帖、搜索与正文阅读": "禁忌書屋の小説掲示板。厳選作品、人気投稿、検索、本文の閲覧に対応", "精华": "厳選"},
+      "ko": {"小说不存在或受限": "소설이 없거나 제한됩니다", "禁忌书屋小说版，支持精华、热帖、搜索与正文阅读": "금기서옥 소설 게시판. 엄선 작품, 인기 글, 검색 및 본문 읽기 지원", "精华": "엄선"},
+      "en": {"小说不存在或受限": "Novel not found or restricted", "禁忌书屋小说版，支持精华、热帖、搜索与正文阅读": "Cool18 fiction board with curated posts, popular posts, search and text reading", "精华": "Featured"},
+      "es": {"小说不存在或受限": "Novela no encontrada o restringida", "禁忌书屋小说版，支持精华、热帖、搜索与正文阅读": "Foro de ficción de Cool18 con selección, publicaciones populares, búsqueda y lectura", "精华": "Destacados"},
+      "ru": {"小说不存在或受限": "Роман не найден или доступ ограничен", "禁忌书屋小说版，支持精华、热帖、搜索与正文阅读": "Раздел прозы Cool18: избранные и популярные публикации, поиск и чтение", "精华": "Избранное"},
+      "ar": {"小说不存在或受限": "الرواية غير موجودة أو مقيدة", "禁忌书屋小说版，支持精华、热帖、搜索与正文阅读": "منتدى روايات Cool18 مع مشاركات مختارة وشائعة وبحث وقراءة النص", "精华": "مختارات"},
+    },
     key: 'cool18',
     name: 'Cool18',
-    version: '0.0.3',
+    version: '0.0.4',
     type: 'novel',
     category: 'novel',
     language: 'zh',

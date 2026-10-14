@@ -5,9 +5,18 @@
  * The website is behind Cloudflare but the API currently is not; images come from i*.nhentai.net.
  */
 Park.register({
+  i18n: {
+    "zh-Hant": {"nhentai {value0} 不存在": "nhentai {value0} 不存在", "nhentai 随机接口没有返回作品": "nhentai 隨機介面沒有返回作品", "应用于排行与搜索（关键词里写了 language: 时以关键词为准）": "應用於排行與搜尋（關鍵詞裡寫了 language: 時以關鍵詞為準）", "总热门": "總熱門", "支持 tag:\"big breasts\"、artist:xxx、-yaoi、pages:>20 等站内语法": "支援 tag:\"big breasts\"、artist:xxx、-yaoi、pages:>20 等站內語法", "海量同人志，官方 API，支持标签语法与语言过滤": "海量同人誌，官方 API，支援標籤語法與語言過濾", "源返回了不一致的作品标识": "來源傳回了不一致的作品識別碼", "默认语言过滤": "預設語言過濾"},
+    "ja": {"nhentai {value0} 不存在": "nhentai の作品 {value0} は存在しません", "nhentai 随机接口没有返回作品": "nhentai からランダム作品を取得できませんでした", "应用于排行与搜索（关键词里写了 language: 时以关键词为准）": "ランキングと検索に適用します（検索語に language: がある場合はそちらを優先）", "总热门": "総合人気度", "支持 tag:\"big breasts\"、artist:xxx、-yaoi、pages:>20 等站内语法": "tag:\"big breasts\"、artist:xxx、-yaoi、pages:>20 などのサイト検索構文に対応", "海量同人志，官方 API，支持标签语法与语言过滤": "大規模な同人誌、公式 API、タグ構文と言語フィルタリングをサポート", "源返回了不一致的作品标识": "ソースが一致しない作品識別子を返しました", "默认语言过滤": "デフォルト言語フィルタリング"},
+    "ko": {"nhentai {value0} 不存在": "nhentai 작품 {value0}이(가) 존재하지 않습니다", "nhentai 随机接口没有返回作品": "nhentai에서 무작위 작품을 반환하지 않았습니다", "应用于排行与搜索（关键词里写了 language: 时以关键词为准）": "순위와 검색에 적용됩니다. 검색어의 language: 필터가 우선합니다", "总热门": "총 인기도", "支持 tag:\"big breasts\"、artist:xxx、-yaoi、pages:>20 等站内语法": "tag:\"big breasts\", artist:xxx, -yaoi, pages:>20 등의 사이트 검색 구문 지원", "海量同人志，官方 API，支持标签语法与语言过滤": "공식 API인 대규모 동인지는 태그 구문 및 언어 필터링을 지원합니다.", "源返回了不一致的作品标识": "소스가 일치하지 않는 작품 식별자를 반환했습니다", "默认语言过滤": "기본 언어 필터"},
+    "en": {"nhentai {value0} 不存在": "nhentai work {value0} does not exist", "nhentai 随机接口没有返回作品": "nhentai returned no random works", "应用于排行与搜索（关键词里写了 language: 时以关键词为准）": "Applies to rankings and search; a language: filter in the query takes priority", "总热门": "Total Popularity", "支持 tag:\"big breasts\"、artist:xxx、-yaoi、pages:>20 等站内语法": "Supports site search syntax such as tag:\"big breasts\", artist:xxx, -yaoi and pages:>20", "海量同人志，官方 API，支持标签语法与语言过滤": "Massive doujinshi, official API, supports tag syntax and language filtering", "源返回了不一致的作品标识": "The source returned an inconsistent work identifier", "默认语言过滤": "Default language filtering"},
+    "es": {"nhentai {value0} 不存在": "La obra {value0} no existe en nhentai", "nhentai 随机接口没有返回作品": "nhentai no devolvió ninguna obra aleatoria", "应用于排行与搜索（关键词里写了 language: 时以关键词为准）": "Se aplica a clasificaciones y búsquedas; el filtro language: de la consulta tiene prioridad", "总热门": "Popularidad total", "支持 tag:\"big breasts\"、artist:xxx、-yaoi、pages:>20 等站内语法": "Admite sintaxis del sitio como tag:\"big breasts\", artist:xxx, -yaoi y pages:>20", "海量同人志，官方 API，支持标签语法与语言过滤": "Massive doujinshi, API oficial, admite sintaxis de etiquetas y filtrado de idiomas", "源返回了不一致的作品标识": "La fuente devolvió un identificador de obra inconsistente", "默认语言过滤": "Filtrado de idioma predeterminado"},
+    "ru": {"nhentai {value0} 不存在": "Произведение {value0} не найдено в nhentai", "nhentai 随机接口没有返回作品": "nhentai не вернул случайных произведений", "应用于排行与搜索（关键词里写了 language: 时以关键词为准）": "Применяется к рейтингам и поиску; фильтр language: в запросе имеет приоритет", "总热门": "Общая популярность", "支持 tag:\"big breasts\"、artist:xxx、-yaoi、pages:>20 等站内语法": "Поддерживается синтаксис поиска сайта: tag:\"big breasts\", artist:xxx, -yaoi, pages:>20", "海量同人志，官方 API，支持标签语法与语言过滤": "Massive doujinshi, официальный API, поддерживает синтаксис тегов и языковую фильтрацию.", "源返回了不一致的作品标识": "Источник вернул несоответствующий идентификатор произведения", "默认语言过滤": "Фильтрация языка по умолчанию"},
+    "ar": {"nhentai {value0} 不存在": "العمل {value0} غير موجود في nhentai", "nhentai 随机接口没有返回作品": "لم يُرجع nhentai أي أعمال عشوائية", "应用于排行与搜索（关键词里写了 language: 时以关键词为准）": "يُطبّق على الترتيب والبحث؛ تكون الأولوية لمرشح language: في عبارة البحث", "总热门": "إجمالي الشعبية", "支持 tag:\"big breasts\"、artist:xxx、-yaoi、pages:>20 等站内语法": "يدعم صيغ البحث في الموقع مثل tag:\"big breasts\" وartist:xxx و-yaoi وpages:>20", "海量同人志，官方 API，支持标签语法与语言过滤": "الدوجينشي الضخم، واجهة برمجة التطبيقات الرسمية، تدعم بناء جملة العلامة وتصفية اللغة", "源返回了不一致的作品标识": "أعاد المصدر معرّف عمل غير متطابق", "默认语言过滤": "تصفية اللغة الافتراضية"},
+  },
   key: 'nhentai',
   name: 'nhentai',
-  version: '0.0.4',
+  version: '0.0.5',
   type: 'comic',
   category: 'doujin',
   color: '#ED2553',
@@ -222,7 +231,7 @@ Park.register({
 
   async loadDetail(id) {
     const d = await this.http.json(`${this.API}/galleries/${encodeURIComponent(id)}`);
-    if (!d || !d.id) throw Park.error('NOT_FOUND', `nhentai ${id} 不存在`);
+    if (!d || !d.id) throw Park.error('NOT_FOUND', 'nhentai {value0} 不存在', { params: {value0: id} });
     const byType = {};
     for (const t of d.tags || []) (byType[t.type] = byType[t.type] || []).push(t);
     const quote = (name) => (name.includes(' ') ? `"${name}"` : name);
