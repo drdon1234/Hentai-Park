@@ -1,16 +1,54 @@
 [简体中文](../../SOURCE_API.md) · [繁體中文](../zh-Hant/SOURCE_API.md) · [日本語](../ja/SOURCE_API.md) · [한국어](../ko/SOURCE_API.md) · [English](SOURCE_API.md) · [Español](../es/SOURCE_API.md) · [Русский](../ru/SOURCE_API.md) · [العربية](../ar/SOURCE_API.md)
 
-# Source plug-in development guide
+# Site plugin API
 
-Each origin of HentaiPark is a separate JavaScript file. Apps load them at runtime: they can be installed, updated, enabled/deactivated from the source repository without recompiling the app.
-The built-in source is located at [`assets/sources/`](../../../assets/sources/) and can be used directly as an example reference.
+[Quick start](#quick-start) · [Manifest fields](#manifest-fields) · [Methods](#methods) · [Runtime API](#runtime-api) · [Error codes](#error-codes) · [Localization](#localization) · [Publishing](#publishing) · [Appendix: notes on official sites](#appendix-notes-on-official-sites)
 
-## Running environment
+Every site in HentaiPark is a standalone JavaScript plugin. The app loads plugins at runtime; they can be installed from a repository, updated, enabled or disabled **without rebuilding the app**. The official plugins live in [`assets/sources/`](../../../assets/sources/) and make good examples.
 
-- Source scripts run in a headless WebView within the App (full modern JS with `DOMParser`). The native layer provides cryptography, Cookie handling, and native HTTP requests. Native HTTP has no CORS restrictions; browser network and media requests follow the separate rules below.
-- The same runtime ([`assets/runtime/park_runtime.js`](../../../assets/runtime/park_runtime.js)) can also be run in Node, and you can directly do smoke testing on the real site during development:
+The Simplified Chinese version of this document is authoritative. Site rules stay in the plugin; networking, caching and images are provided by the framework, which never special-cases a site by name.
 
-Install runner dependencies from the repository root, then create your own ignored `test/source-smoke.mjs` using the shared host below. It only loads a manifest; add actual feed/page 2/search/detail/cover decoding/chapter/media checks for the changed source. The Node host is a development aid, not a security sandbox for untrusted scripts.
+## Quick start
+
+### Runtime environment
+
+- Plugins run in a headless WebView inside the app, with modern JS and `DOMParser`. The native layer provides crypto, cookies and native HTTP; native HTTP has no CORS restrictions, while browser networking and media follow their own rules below.
+- A plugin's runtime starts the first time the site is used and is released after about 5 idle minutes, or when more than 6 are running. Manifests are cached by "script SHA-256 + runtime version", so launching the app doesn't run plugins. Don't assume a plugin is running as soon as the app starts.
+- The same runtime ([`assets/runtime/park_runtime.js`](../../../assets/runtime/park_runtime.js)) also runs in Node, so you can smoke-test against real sites while developing. The Node host is a development tool, not a security sandbox for untrusted scripts.
+
+### A minimal plugin
+
+```js
+Park.register({
+  key: 'mysite',
+  name: '我的站点',
+  version: '0.0.1',
+  type: 'comic',
+  category: 'doujin',
+  homepage: 'https://example.com',
+  domains: ['example.com'],
+  defaultFeed: 'popular',
+  feeds: [{ key: 'popular', label: '热门' }],
+
+  async feed(key, { page }) {
+    const doc = Park.html.parse(await this.http.text(`https://example.com/popular?page=${page}`));
+    return {
+      items: [...doc.querySelectorAll('.gallery')].map((el) => ({
+        id: el.dataset.id,
+        title: Park.html.text(el.querySelector('.title')),
+        cover: el.querySelector('img').src,
+      })),
+      hasNext: !!doc.querySelector('.next'),
+    };
+  },
+  async detail(id) { /* … */ },
+  async chapter(id, chapterId) { /* … */ },
+});
+```
+
+### Trying it in Node
+
+Install the shared runner's dependencies at the repository root and create an ignored `test/source-smoke.mjs` like the one below. The example only loads the manifest; when you change a plugin, also verify with real requests the first page, the second page, search, details, cover decoding, and chapters or video media.
 
 ```js
 import { loadSource } from '../tools/source-runner/host.mjs';
@@ -23,185 +61,109 @@ npm ci --prefix 'tools/source-runner'
 node 'test/source-smoke.mjs'
 ```
 
-## Register a source
+## Manifest fields
 
 ```js
 Park.register({
-  key: 'mysite',              // Unique identifier, cannot be changed after installation
-  name: 'Example Source',
-  version: '0.0.1',           // When the version number in the warehouse is higher, the App will prompt for an update.
-  type: 'comic',              // comic | video | novel | game
+  key: 'mysite',              // unique and permanent; only [A-Za-z0-9_-], 1–100 chars, not _app
+  name: '我的站点',
+  version: '0.0.1',           // three numbers; the app offers an update when the repository has a higher one
+  type: 'comic',              // comic | video | novel | game: how works are read or played
   category: 'doujin',         // doujin | anime | aiDrama | jav | adult | shortvideo | gallery | novel | game | other
-  color: '#E5355F',           // Brand color: used for source entrance cards and source page theme colors
-  description: 'Example source description',
+  color: '#E5355F',           // brand color: site avatar and site page
+  description: '一句话介绍',
   homepage: 'https://example.com',
-  domains: ['example.com'],                   // For the site it belongs to, see "Isolation and Security"; if omitted, it will be deduced from the address such as homepage.
-  linkPatterns: ['example\\.com/g/(\\d+)'],   // Used for direct access when pasting links in aggregate searches; the first group is the work ID
-  idPattern: '^(\\d+)$',                      // Used for direct access when entering the number directly
-  imageHeaders: { Referer: 'https://example.com/' },  // Carried by default when loading covers and pictures
-  network: { mode: 'native', vpnHint: true },                // See the "Network" section
-  media: { mode: 'browser', origin: 'https://example.com', domains: ['media.example.com'] },  // Optional HLS media permission; see below
+  domains: ['example.com'],                   // sites it belongs to, see "Isolation and security"; derived from homepage etc. if omitted
+  linkPatterns: ['example\\.com/g/(\\d+)'],   // pasted links open the work directly; group 1 is the work ID
+  idPattern: '^(\\d+)$',                      // typed IDs open the work directly
+  imageHeaders: { Referer: 'https://example.com/' },  // default headers for covers and images
+  network: { mode: 'native', vpnHint: true },  // see "Network"
+  media: { mode: 'browser', origin: 'https://example.com', domains: ['media.example.com'] },  // optional HLS media permission
+  imageNetwork: { mode: 'browser', origin: 'https://img.example.com', domains: ['img.example.com'] }, // optional
+  imageDecrypt: { /* optional, see "Encrypted images" */ },
 
-  settings: [ /* option definitions */ ],
-  account: { /* optional account */ },
-  defaultFeed: 'ranking',                     // The label entered by default when opening the origin page (key in feeds)
-  feeds: [ /* browse tabs */ ],
+  settings: [ /* options, see "Options" */ ],
+  account: { /* optional, see "Accounts" */ },
+  defaultFeed: 'ranking',     // tab opened by default on the site page (a key in feeds)
+  feeds: [ /* site page tabs */ ],
   searchFilters: [ /* search filters */ ],
-  searchHint: 'Search by title or tag',
+  searchHint: '搜索技巧提示',
+  i18n: { /* the plugin's own UI translations, see "Localization" */ },
 
-  async init() {},                            // Optional: Called once when loading (for example, refreshing the domain name list)
-  async onSettingsChanged() {},               // Optional: Called after the user modifies the source settings
+  subscription: { /* optional: follow channels/creators, see "Subscriptions" */ },
+  updateSubscriptions: { /* optional: update subscriptions, see "Update subscriptions" */ },
 
-  async feed(key, { page, cursor, options }) {},
-  async search({ keyword, page, cursor, filters }) {},
-  async random() {},                          // Returns the work ID
-  async detail(id, preview) {},
-  async chapter(id, chapterId) {},            // comics
-  async resolveImage({ id, chapterId, index, token, retry }) {},  // Optional: Delayed parsing of images
-  async thumbnails(id, page) {},              // Optional: Load preview thumbnails in pages
-  async videos(id, episodeId = '_') {},                        // video
+  async init() {},              // optional: called once when the runtime starts (e.g. refresh a domain list)
+  async onSettingsChanged() {}, // optional: called after the user changes site settings
+  // plus the methods in "Methods"
 });
 ```
 
-`type` controls reading or playback; `category` groups sources on the home page, in source management and in search. Unknown or missing categories go under Other. Prefer recommendations, then rankings, then popular works for the default feed; use latest only if none are available.
+Capabilities are exported by the runtime from the methods a plugin implements; don't write them by hand.
 
-AI short dramas use `category: 'aiDrama'`; the old `drama` identifier is not accepted. Site channel names are independent of the app category and keep their original names. The app category does not automatically filter site channels.
+### Type and category
 
-`adult` groups general adult video sites such as Pornhub, XVideos and 91porn, with `type: 'video'`. Dedicated JAV sites use `jav`. Categories group content and do not replace site tags or user filters.
+`type` decides how works are read, played or treated as game resources; `category` decides where the site appears on Discover, in site management and in search. Unknown or missing categories go to "Other". New sites must declare their type, category and capabilities accurately.
 
-Aggregate video sources still declare `type: 'video', category: 'adult'`. Omit `videos` when no media API is verified; the runtime exports `capabilities.videos: false`. The main detail action opens `detail.url` in the system browser, hides playback/download/episodes and skips synthetic chapter sync and updates while preserving favorites/history. Optional `detail(id, preview)` receives public displayed or stored metadata only when source and ID match; the source must revalidate the ID and URL. iXXX uses the upstream URL without known tracking parameters as its stable ID; TubeSafari keeps the upstream key. Neither requests external works with source cookies. Direct references without preview remain openable but may lack a title or cover. Thumbzilla statically parses MP4 metadata and restricts media domains.
+| Category | Meaning |
+| --- | --- |
+| `doujin` | Doujinshi and comics |
+| `gallery` | Galleries: illustration, cosplay and photo sets. Image sites still declare `type: 'comic'`; one gallery is one work and its images come from `chapter()` in order, so reading, favorites and downloads work as usual. The category isn't about image count or explicitness |
+| `anime` | Adult animation |
+| `aiDrama` | AI short dramas. The old `drama` value isn't accepted; declare the site's own channel names as they are, the app category doesn't filter them |
+| `jav` | Dedicated JAV sites |
+| `adult` | General adult video (Pornhub, XVideos, 91porn…), `type: 'video'`. A category is a grouping; it doesn't replace site tags or user filters |
+| `shortvideo` | Short videos: a full-screen vertical feed, see below |
+| `novel` | Novels, `type: 'novel'` |
+| `game` | Games, `type: 'game'` |
+| `other` | Everything else (subscription sites, etc.) |
 
-`gallery` groups illustrations, cosplay and photo sets. Image sources keep `type: 'comic'`: one gallery maps to one work and `chapter()` returns its images in order, reusing reading, library and downloads. Classification does not depend on image count or explicitness.
+- **Short videos** (`type: 'video', category: 'shortvideo'`): works, search, favorites and history open straight into the feed. Each work is one short video and `videos(id, '_')` returns its current media; no detail page is needed. `hasNext` and `cursor` from `feed` drive automatic paging near the end; cursors must not contain credentials or media signatures. Refreshing starts from page one; the current item plays, the next one is preloaded paused, the rest are released. Don't declare `search` if the site has none.
+- **Aggregators that can only play on the original site**: still declare `type: 'video', category: 'adult'`; without a verified media API, don't implement `videos`, and the runtime exports `capabilities.videos: false`. The detail page's main button then opens `detail.url` in the system browser, playback, downloads and episodes are hidden, no fake chapters are stored and no chapter updates are checked; favorites and history still work.
+- **Novels** and **games** are covered under "Methods".
 
-Declare encrypted images with `imageDecrypt`. The framework decrypts before format validation and caching; the strategy is part of the cache identity, and failures are not cached. AES-CBC with strict PKCS#7 padding is supported. Encode `key` and `iv` as UTF-8 and limit the image domains; images on other domains remain unchanged.
+Choose `defaultFeed` in the order **recommended > rankings > popular**; use the latest page or another valid entry only if the site really has none of these, and never fake an unverified API. If it's missing or unknown, the app picks by key (first `promote` / `recommend` / `featured`, then `rank` / `toplist`, then `popular` / `hot` / `trending`), falling back to the first tab.
+
+### Options
+
+`feeds[].options`, `searchFilters` and `settings` share one format:
+
+```js
+{ key: 'sort', label: '排序', type: 'select', default: 'date',
+  values: [{ value: 'date', label: '最新' }, { value: 'popular', label: '热门', color: '#f00' }] }
+// type: select | multi | number | text | password | switch
+// settings may use options instead of values
+```
+
+Each `feeds` entry is a tab on the site page: `{ key, label, options?: [...] }`.
+
+### Network
+
+- `network.mode: 'native'` (default): native HTTP with persistent cookies, using the user's proxy. A Cloudflare challenge raises `CLOUDFLARE`; the app guides the user through it in the built-in browser and syncs the clearance cookies back to native requests.
+- `network.mode: 'browser'` + `network.origin`: requests are made with same-origin `fetch()` from a hidden browser page opened at `origin`, with a real browser fingerprint — for sites with strict Cloudflare protection. When a same-origin GET receives a Cloudflare challenge, the hidden browser navigates to it to pass automatically and retries once; if that fails, `CLOUDFLARE` is raised.
+- `network.vpnHint: true`: declare it for sites that may need a VPN or proxy in mainland China; waits over 8 seconds and failures then mention "may need a VPN or proxy". Don't blame every error on the VPN.
+- `network.confirmation: { selector, readySelector, requiredCookies, message }`: for sites that need explicit confirmation (an age gate, for example). `selector` matches the confirmation dialog, `readySelector` the accessible content, and `requiredCookies` are the cookies that must exist afterwards. When the plugin hits an unconfirmed page it throws `Park.error('CONFIRM_REQUIRED', message, { url })`; the app offers "Confirm" and returns once the dialog is gone, content is visible, cookies are written and navigation has settled. The app never clicks confirm for the user, and this declaration also keeps generic human checks from mistaking an age gate for success.
+- Network errors carry safe `diagnostics` fields `host`, `transport` and `reason`, distinguishing TLS certificates, handshakes, DNS, connections and timeouts; automatic logs record only these allowed fields. `reason: 'TLS_HANDSHAKE_TERMINATED'` only means the native `HandshakeException.message` is exactly `Connection terminated during handshake` (the connection dropped before the handshake completed, not a certificate failure); only HTTPS GET/HEAD requests without a body retry once on it, and nothing else is retried.
+
+### Images
+
+- `imageNetwork: { mode: 'browser', origin, domains }`: declare it when an image CDN needs browser requests. `origin` and every image domain must be within `domains`; only HTTPS and allow-listed headers are used; image requests carry no account credentials, follow no redirects and are limited to 20 MiB each, and still go through decryption, format checks, decoding and per-site caching. Without it, the native image transport is used.
+- **Encrypted images**: declare `imageDecrypt` and the framework decrypts before the format check and caching; the decryption settings are part of the cache identity and failures aren't cached. AES-CBC with strict PKCS#7 padding is supported, with `key` and `iv` encoded as UTF-8; image domains must be listed, other domains use the normal path.
 
 ```js
 imageDecrypt: {
   type: 'aes-cbc',
-  key: '0123456789abcdef', // UTF-8: 16, 24 or 32 bytes
-  iv: '0123456789abcdef',  // UTF-8: 16 bytes
+  key: '0123456789abcdef', // 16, 24 or 32 UTF-8 bytes
+  iv: '0123456789abcdef',  // 16 UTF-8 bytes
   domains: ['images.example.com'],
 },
 ```
 
-Network errors include safe `diagnostics` fields `host`, `transport` and `reason` to distinguish certificate, handshake, DNS, connection and timeout failures. Automatic logs record only allowlisted fields, never raw messages, credentials, request bodies or signed URLs.
+A cover returning HTTP 200 isn't enough — verify that it decodes.
 
-`reason: 'TLS_HANDSHAKE_TERMINATED'` means only that the native `HandshakeException.message` exactly equals `Connection terminated during handshake`: the connection ended before the TLS handshake completed, not that certificate validation failed. Only HTTPS GET / HEAD requests without a body retry once for this exact error. Cancellation, certificate failures, other TLS errors, HTTP errors and response-stream errors do not retry. A repeated failure shows the host and suggests checking the VPN or proxy route; logs retain only safe diagnostic fields.
+### Media permission (HLS and direct files)
 
-In the method, you can use `this` to access:
-
-| Members | Description |
-|------|------|
-| `this.http` | `request(opts)`, `get(url, opts)`, `post(url, opts)`, `text(url, opts)`, `json(url, opts)` |
-| `this.config` | The value selected by the user in the source settings (`default` if not set) |
-| `this.store` | Persistent key-value storage: `get(key, fallback)` / `set(key, value)`, used to save Token, domain name list, etc.; `await flush()` confirms the disk writing is successful, and throws an error if it fails |
-| `this.cookies` | `get(url)` / `set(url, {name: value})` / `clear(url)` |
-| `this.log({code, host, transport, reason})` | Only allowlisted structured fields are retained; free text is discarded. |
-
-Global tools:
-
-| Tools | Instructions |
-|------|------|
-| `Park.html.parse(text)` | Return standard `Document`, you can use `querySelector` |
-| `Park.html.text(node)` / `unescape(s)` / `strip(html)` | Text processing |
-| `Park.crypto.md5Hex(text \| text[])` | MD5, you can pass arrays for batch calculation |
-| `Park.crypto.sha256Hex` / `hmacSha256Hex(key, text)` / `aesEcbDecrypt(base64, key)` / `uuid()` | Native implementation, fast |
-| `Park.utils.rateLimiter(ms)` | Returns `wait()`, ensuring the minimum interval between two requests |
-| `Park.utils.mapLimit(items, n, fn)` / `lruMap(n)` / `parseCount('1.2万')` / `formatDate(ts)` | Other commonly used tools |
-| `Park.error(code, message)` | Throws an error with error code, see below |
-
-### `http.request(opts)`
-
-```js
-await this.http.request({
-  url, method: 'GET', headers: {}, params: { q: 'x' },   // params will be concatenated into the URL
-  json: {...} | form: {...} | body: 'raw',
-  timeout: 15000,
-  responseType: 'text' | 'base64',
-});
-// → { status, headers, body, url, ok, json() }
-```
-
-`text()` / `json()` automatically throw on non-2xx responses (404 → `NOT_FOUND`). Cookies are saved automatically and selected again for each redirect target. Cross-origin redirects do not carry the original authentication headers; cross-origin redirects that retain a request body are rejected.
-
-## Data structure
-
-**List page** (return value of `feed` / `search`)
-
-```js
-{
-  items: [WorkItem], page: 1, totalPages: 20, total: 500,
-  hasNext: true,
-  cursor: '12345',        // Optional: Sites where the cursor turns pages (such as E-Hentai) return the next page cursor, and the App will return it as it is the next time it makes a request.
-}
-// Or return sections; the app selects the section layout from the response:
-{ sections: [{ title: 'Latest chapters', items: [WorkItem] }], hasNext: false }
-```
-
-**WorkItem**: `{ id, title, subtitle?, cover, coverAspect?, pages?, rating?, likes?, views?, language?, category?, badge?, badgeColor?, duration?, uploaded?, tags? }`
-
-- `coverAspect` (width / height) makes the grid layout before the image is loaded to avoid jumping.
-- `badgeColor` The color used for category labels (e.g. E-Hentai the traditional color scheme for each category).
-
-**Details** (`detail`): All fields of the WorkItem, additionally including:
-
-```js
-{
-  url, authors: [], description, uploader?, size?, comments?,
-  tags: [{ namespace: 'artist', label: 'Author', tags: [{ name, keyword, filters?, count? }] }],
-  chapters: [{ id, title }] | null,   // null represents a single chapter
-  singleChapterId?,                   // The chapter ID required for a single chapter work (such as "1" for Bika)
-  thumbnails?: [url | {url, width, height, offsetX, offsetY}],   // Support sprite image
-  related?: [WorkItem], series?: [WorkItem],
-}
-```
-
-When a tag is clicked, the app searches for `keyword` and `filters` in the source, so the tag can be mapped to the site's native syntax (e.g. `artist:"xxx"`) or filter parameters (e.g. Hanime1 of `tags[]`).
-
-**Chapter** (`chapter`)
-
-```js
-{ pages: [
-  { url, headers?, fallbacks?: [url], width?, height?, transform? },  // Address is known
-  { token: '12' },                                                      // Delayed resolution: App will call resolveImage
-]}
-```
-
-- `fallbacks`: backup mirror, try in sequence when the primary address fails.
-- `transform: { type: 'unscramble-strips', segments: N }`: When the image is cut into N strips horizontally and stored in reverse order (JMComic), the App will be restored natively on the GPU. The downloaded offline file saves the original image and restores it when displayed.
-- `resolveImage` returns `{ url, headers?, width?, height?, cacheKey? }`. When it fails, the App will increment `retry` and call again, and the source can use this to change a server (`nl` parameter of E-Hentai).
-
-**Video** (`videos`): `[{ quality: 1080, label: '1080P', url, headers?, format?, preferred? }]`. Video direct links usually have a time limit, and the App will re-obtain it every time before playing/downloading.
-
-- Video sources return `[{id, title}]` in playback order through `detail(id).chapters`. Each `id` must be stable, never a quality label or temporary media URL. The host uses the same ID for selection, independent progress, downloads and resume, and calls `videos(id, episodeId = '_')` for that episode. Single videos use `singleChapterId`, or `'_'` when omitted.
-- Omitting `format` keeps the direct MP4 playback and download path. HLS entries must explicitly return `format: 'hls'` and declare the `media` permission described below in the manifest.
-- The host first expands an HLS master playlist (`#EXT-X-STREAM-INF`) into its separate variant playlists, obtains actual resolutions from `RESOLUTION`, and passes those variants to the player or downloader. For a master playlist, `quality` is the desired resolution: the highest available resolution not exceeding it is preferred, or the highest available resolution if none qualifies. Each variant must contain muxed audio and video in MPEG-TS. Separate `AUDIO`, `VIDEO`, or `SUBTITLES` renditions and URLs outside `media.domains` are rejected. Optional `#EXT-X-I-FRAME-STREAM-INF` trick-play tracks are ignored; their addresses are never registered or requested. When a single media playlist has no known resolution, provide `label: '原画'`; the label is translated by the UI language, and a requested quality must not be presented as the actual resolution.
-- Expanded HLS variants support only complete, continuous MPEG-TS VOD playlists containing `#EXT-X-ENDLIST`. CBC/PKCS7 decryption supports `METHOD=AES-128` with `KEYFORMAT=identity` (also the default when omitted), exactly 16-byte keys, and either an explicit 128-bit IV or an IV derived from the segment media sequence. Keys stay in session memory; decrypted TS is validated through the same playback/download pipeline. Live streams, SAMPLE-AES, other KEYFORMAT values, `EXT-X-MAP`, `EXT-X-BYTERANGE`, fMP4, discontinuities and gaps remain unsupported. MissAV's nonstandard `#EXT-X-TOKEN` is removed.
-- Playback uses a random port bound only to `127.0.0.1` and a random token, with a finite URL registry fetching validated segments on demand; closing the session cancels its requests. HLS offline downloads currently support Android only: each segment is validated, saved with a SHA-256 hash, and rechecked on resume, with cancellation support. Local Media3 remuxing produces MP4, and only a complete file is published to the offline library. HLS playback on iOS/macOS has not been verified in this round and must not be described as verified.
-
-## Option definition
-
-`feeds[].options`, `searchFilters`, `settings` use the same format:
-
-```js
-{ key: 'sort', label: 'Sort', type: 'select', default: 'date',
-  values: [{ value: 'date', label: 'Latest' }, { value: 'popular', label: 'Popular', color: '#f00' }] }
-// type: select (single choice) | multi (multiple choices) | number | text | password | switch
-// In settings, options can be used instead of values.
-```
-
-Each item in `feeds` is a tab in the source page: `{ key, label, options?: [...] }`.
-
-`defaultFeed` Specifies which tab to enter by default when opening the origin page. When the corresponding key is not filled in or cannot be found, the App will automatically select according to the key in the order of Recommendation > Ranking > Popular (key includes `promote` / `recommend` / `featured`, and then `rank` / `toplist`, then `popular` / `hot` / `trending`), if not, enter the first label.
-
-## network
-
-- `network.mode: 'native'` (default): Native HTTP request, using persistent cookies, can go through the proxy set by the user. If the Cloudflare query is detected, `CLOUDFLARE` will be thrown. The App will guide the user to complete the verification in the built-in browser and synchronize the common cookie back to the native request.
-- `network.mode: 'browser'` + `network.origin`: The request was made with origin `fetch()` in a hidden browser page opened at `origin`, with a real browser fingerprint. Applies to Cloudflare sites that are more heavily protected (e.g. Hanime1). When a same-origin GET receives a Cloudflare challenge response, the hidden browser navigates to that document to perform automatic verification and retries the original request once. Failure still raises `CLOUDFLARE` and uses the existing verification flow.
-
-## Media permissions (HLS)
-
-`media` permission is separate from `this.http`, `network` and site Cookie synchronization. Both transports apply the same domain rules:
+The `media` permission is independent of `this.http`, `network` and site cookies:
 
 ```js
 domains: ['example.com'],
@@ -209,65 +171,301 @@ network: { mode: 'native' },
 media: { mode: 'native', origin: 'https://example.com', domains: ['media.example.com'] },
 ```
 
-- `media.mode` supports `'native'` and `'browser'`. Both require `media.origin` to belong to a source-declared site, use HTTPS on the default port 443, and contain no URL credentials, query or fragment.
-- `media.domains` is an independent media allowlist including subdomains; it grants no source-site Cookie access. Playlists, segments and keys require HTTPS 443. URL credentials, fragments, IP addresses, localhost (including subdomains) and `.local` are rejected.
-- `media.mode: 'native'` uses a separate credential-free native client, without site Cookies, Authorization or proxy authentication. Every redirect target is checked against the allowlist before following that hop. Only `Referer`, `Origin`, `Accept` and `Accept-Language` headers are allowed; the first two must match `media.origin`.
-- `media.mode: 'browser'` opens a media session in a hidden browser at `media.origin` using `credentials: 'omit'`, `mode: 'cors'` and `redirect: 'error'`. It follows the CDN's CORS rules and does not follow redirects.
-- Response sizes are limited during streaming and response URLs are checked again. Playlists are limited to 2 MiB, segments to 32 MiB, and AES-128 keys must be exactly 16 bytes. Oversized or empty responses and disallowed URLs are rejected. Source `domains` and Cookie-bearing `network` rules remain separate.
+- `media.mode` is `'native'` or `'browser'`. `media.origin` must belong to the plugin's sites, use HTTPS on the default port 443, and contain no credentials, query or fragment.
+- `media.domains` is a separate allow-list for media (subdomains included) that grants no site cookie access. Playlists, segments and keys must be HTTPS on 443; URL credentials, fragments, IPs, localhost (and subdomains) and `.local` are rejected.
+- `'native'` uses a separate native client without credentials: no site cookies, Authorization or proxy auth; every redirect hop is checked first. Only `Referer`, `Origin`, `Accept` and `Accept-Language` are allowed, and the first two must match `media.origin`.
+- `'browser'` opens a media session in a hidden browser at `media.origin` with `credentials: 'omit'`, `mode: 'cors'` and `redirect: 'error'`.
+- Responses are size-limited while streaming and their final address is re-checked: playlists up to 2 MiB, segments up to 32 MiB, AES-128 keys exactly 16 bytes. Oversized or empty responses and disallowed addresses are rejected.
 
-## Isolation and security
+### Isolation and security
 
-- Each source runs in an **independent** JS environment (each has an interfaceless WebView), and the sources cannot see each other's global objects; the native bridge only recognizes which environment the call comes from, and scripts cannot impersonate other sources.
-- Each source has an independent cookie jar: the request issued by the source will only bring and save its own cookie, and will not read the login status of other sources.
-- Secure Cookies are never sent over HTTP. Verification-page access and browser Cookie imports are checked against the installed source’s `domains`; available security attributes and expiry are preserved. Clearing a source’s Cookies or uninstalling it also closes the associated browser sessions and clears that site’s browser Cookies. The system shares browser site Cookies, so sources declaring the same site are affected by clearing that site.
-- `domains` declares the site to which the source belongs (domain name can be registered, subdomain name is automatically included). Only cookies from these sites will be synchronized to the built-in browser (shared by Cloudflare authentication, web login), and `network.origin` in browser mode must also belong to them. When omitted, infer from `homepage`, `network.origin`, `account.cookieUrl/loginUrl`.
-- When installing the source from a website or warehouse, the App will first read the script information in a sandbox that cannot be connected to the Internet, display the name, version, SHA-256, declared site and risk warning to the user, and then install it after confirmation. The `index.json` entry in the source warehouse can have the `sha256` field, and the installation will be refused if the download content does not match.
+- Each plugin runs in its **own** JS environment (its own headless WebView), so plugins can't see each other's globals; the native bridge knows which environment called it, so a script can't impersonate another plugin.
+- Each plugin has its **own cookie jar**: its requests carry and store only its own cookies.
+- Secure cookies are never sent over HTTP. Opening verification pages and importing browser cookies are checked against the installed plugin's `domains`, keeping available security attributes and expiry. Clearing a site's cookies or uninstalling also closes its browser session and clears that site's browser cookies; browser cookies are shared by the system, so plugins declaring the same site are affected by that clean-up.
+- `domains` declares which sites a plugin belongs to (registrable domains, subdomains included). Only these sites' cookies sync with the built-in browser (shared by Cloudflare verification and web sign-in), and `network.origin` in browser mode must belong to them. If omitted, they're derived from `homepage`, `network.origin` and `account.cookieUrl/loginUrl`.
+- Cross-origin redirects drop the original origin's auth headers; cross-origin redirects that keep a request body are refused. TLS certificate validation is always on.
+- When installing from a URL or repository, the app first reads the script in an offline sandbox and shows the name, version, SHA-256, declared sites and risks; nothing is installed until the user confirms.
 
-## Account
+### Accounts
 
 ```js
 account: {
-  type: 'password' | 'cookies',
+  type: 'password' | 'cookies' | 'session',
   title, hint, required: false,
-  fields: [{ key: 'email', label: 'Email' }, { key: 'password', label: 'Password', secret: true }],
-  loginUrl?, cookieUrl?, requiredCookies?: ['ipb_member_id'],   // After providing it, you can log in to the web page and the App will automatically obtain the cookie.
+  fields: [{ key: 'email', label: '邮箱' }, { key: 'password', label: '密码', secret: true }],
+  loginUrl?, cookieUrl?, requiredCookies?: ['ipb_member_id'],   // enables web sign-in; the app collects the cookies
+  loginDomains?: ['accounts.google.com', 'appleid.apple.com'],  // third-party sign-in domains, used only for sign-in navigation
   async login(values) { return { name } },
   async logout() {},
   async status() { return { loggedIn, name, configured } },
-  managedAccount: true,                 // Optional: Provide dedicated automatic maintenance account
-  async enableManaged() {},             // Only called after the user confirms registration
+  managedAccount: true,                 // optional: offers an automatically managed account
+  async enableManaged() {},             // only called after the user agrees to registration
 }
 ```
 
-`configured` indicates that the account has been configured, independent of whether the current login is successful. `managedAccount: true` declares that the source supports a dedicated automatic maintenance account; source settings use the `managedAccount` switch with the same name. The host must first display the auto-registration instructions and obtain user confirmation before saving the enablement settings and calling `account.enableManaged()`. Candidate credentials should be saved and `await this.store.flush()` used before registration to ensure that the same account can be restored after a failure or application restart.
+- Account status is refreshed only on first use, after sign-in, sign-out and web sign-in, and when the last check is older than 10 minutes — not after every call. `configured` means an account is set up, whether or not sign-in currently works.
+- `loginDomains`: third-party sign-in domains the site actually uses (subdomains included). They're allowed only while the user has the web sign-in page open, HTTPS on 443 only; URL credentials, IPs, localhost and `.local` are refused. Verification pages, access confirmation, plugin requests and cookie import are still checked against `domains`; don't add sign-in domains to `domains` to widen access. The sign-in page supports same-window redirects and pop-ups that keep `window.opener`, with the same checks in pop-ups; a blank initial page grants no external navigation. Sign-in isn't considered complete while on a third-party page; cookies sync once back on the site. Third-party cookies aren't imported into the plugin's jar or cleared with the site's cookies; the system WebView manages them. Third parties may still restrict sign-in in embedded browsers.
+- `type: 'session'` imports an existing authorized session: declare one secret field (such as `session`); the clipboard content is kept whole and validated by the plugin rather than split into username, password or cookies. Sign-in must really confirm authorization — never report success from the input's format alone.
+- `managedAccount: true` declares an automatically managed account, controlled by a setting with the same name. The app must first explain automatic registration and get the user's agreement, then save the setting and call `account.enableManaged()`. Save candidate credentials and `await this.store.flush()` before registering, so a failure or restart recovers the same account. Keep manual and managed credentials separate; a managed account never overwrites a manual one. Turning the setting off keeps the managed account for reuse; an expired token only signs in again and never registers another account.
+- Passwords, tokens and plugin state are the user's local data; never put real credentials in documents or logs.
 
-PicACG example saves manual credentials and dedicated accounts separately, and existing manual accounts must not be overwritten by dedicated accounts. Turn off the switch to retain the dedicated account and turn it back on for reuse; if the Token expires, you can only log in again and do not register again. After registration fails or the response is lost, retry the original candidate account to avoid creating redundant accounts. Account password, token, and source status are all user local data. Do not output real credentials in documents and logs.
+## Methods
 
-## Internationalization
+`this` inside methods is described in "Runtime API". All methods may be `async`.
 
-Application interface support `zh-Hans`, `zh-Hant`, `ja`, `ko`, `en`, `es`, `ru`, `ar`. Material, Cupertino, and system controls use corresponding languages; the Arabic interface goes from right to left. The interface language setting takes effect immediately and is saved persistently. It follows the system by default; Chinese scripts and regions determine whether to use simplified or traditional Chinese.
+```js
+async feed(key, { page, cursor, options }) {}      // site page tabs
+async search({ keyword, page, cursor, filters }) {}
+async random() {}                                  // returns a work ID
+async detail(id, preview) {}
+async chapter(id, chapterId) {}                    // comics, galleries
+async resolveImage({ id, chapterId, index, token, retry }) {}  // optional: lazy image resolution
+async thumbnails(id, page) {}                      // optional: paged preview thumbnails
+async videos(id, episodeId = '_') {}               // video
+async textChapter(id, chapterId) {}                // novels
+async gameResources(workId) {}                     // games
+async resolveGameResource(workId, resourceId, channelId) {}
+```
 
-The Flutter interface uniformly calls `tr('已选 {count}', {'count': count})`, or `context.tr`. The original Chinese text of the message is used as the resource key, the parameter is `{name}`, and the eight-language resource is located at `assets/i18n/`. When adding or modifying visible copy, all resources must be updated simultaneously and the placeholders must be consistent. The static name, description, browsing label, options and error prompts of the plug-in are resource mapped when the application is displayed; the title, author, tag, user input and persistence protocol key of the remote work remain the original text.
+### Lists: `feed` / `search`
 
-## Error code
+```js
+{
+  items: [WorkItem], page: 1, totalPages: 20, total: 500,
+  hasNext: true,
+  cursor: '12345',        // optional: cursor-paged sites return the next cursor, passed back as is
+}
+// or sections, shown as a sectioned layout:
+{ sections: [{ title: '连载更新', items: [WorkItem] }], hasNext: false }
+```
 
-Use `throw Park.error(code, message)` to throw an error, and the App will provide corresponding guidance based on the error code:
+**WorkItem**: `{ id, title, subtitle?, cover, coverAspect?, pages?, rating?, likes?, views?, language?, category?, badge?, badgeColor?, duration?, uploaded?, tags?, mediaKind? }`
 
-| code | App processing |
-|------|-----------|
-| `CLOUDFLARE` | "Go to verification" button: Open the built-in browser |
-| `LOGIN_REQUIRED` | "Go to login" button: Open the account area of the source settings |
-| `NOT_FOUND` | Display "Content does not exist" |
-| `BLOCKED` | Displays "Access Restricted" (such as IP blocked, quota exhausted), the picture will not be retried |
-| `NETWORK` / `HTTP` / `PARSE` | Display error message with "Retry" button |
+- `coverAspect` (width / height) lets the grid lay out before images load.
+- `badgeColor` colors the category badge.
+- `mediaKind: 'comic' | 'video' | 'novel' | 'game'` is the work's own type. Plugins with a single type may omit it; mixed-type plugins must set it — never treat images as videos just because of the plugin's `type`. Novel and game works always set it, so offline works and history still open in the right reader after the plugin is uninstalled.
+- Post-style results may include `presentation: 'post'`, `text`, `date`, `url` and a `media` array to show as post cards; `presentation: 'media'` shows a media grid that opens the media inside the work. Posts may have no media; media URLs remain subject to the plugin's declared domains and permissions.
 
-## Source warehouse
+### Details: `detail`
 
-A repository is a `index.json` that can be placed on static hosting (e.g. GitHub raw). Users can browse, install and update by entering the warehouse address in "Source Site Management → Add Source":
+All WorkItem fields, plus:
+
+```js
+{
+  url, authors: [], description, uploader?, size?, comments?,
+  tags: [{ namespace: 'artist', label: '作者', tags: [{ name, keyword, filters?, count? }] }],
+  chapters: [{ id, title }] | null,   // null means a single chapter
+  singleChapterId?,                   // chapter ID needed by single-chapter works
+  thumbnails?: [url | { url, width, height, offsetX, offsetY }],   // sprite sheets supported
+  related?: [WorkItem], series?: [WorkItem],
+}
+```
+
+- Tapping a tag searches this site with `keyword` and `filters`, so tags can map to the site's own syntax (such as `artist:"xxx"`) or filter parameters.
+- The optional second argument `preview` carries public metadata already shown or stored, passed only when `preview.source` and `preview.id` match the request. The plugin must still check the ID and validate URLs. Works opened by typed ID have no preview, so title and cover may be incomplete.
+
+### Chapters: `chapter` / `resolveImage` / `thumbnails`
+
+```js
+{ pages: [
+  { url, headers?, fallbacks?: [url], width?, height?, transform? },  // known URL
+  { token: '12' },                                                      // lazy: the app calls resolveImage
+]}
+```
+
+- `fallbacks`: mirrors tried in order when the main URL fails.
+- `transform: { type: 'unscramble-strips', segments: N }`: for images cut into N strips stored in reverse, restored on the GPU. Offline files keep the original image and are restored on display.
+- `resolveImage` returns `{ url, headers?, width?, height?, cacheKey? }`. On failure the app calls it again with a higher `retry`, letting the plugin switch servers.
+- `thumbnails(id, page)` returns `{ thumbnails: [...], hasNext }`.
+
+### Video: `videos`
+
+Returns `[{ quality: 1080, label: '1080P', url, headers?, format?, preferred? }]`. Direct links usually expire, so the app fetches them again before every playback or download.
+
+- Multi-episode videos return `[{ id, title }]` in play order from `detail(id).chapters`; each `id` must be stable, never a quality or temporary media URL. The app uses the same ID to pick episodes, store progress, download and resume, and calls `videos(id, episodeId)` for each episode. Single videos use `singleChapterId`, or `'_'` if absent.
+- Without `format`, playback and download treat the link as direct MP4. HLS must return `format: 'hls'` and declare the `media` permission.
+- An HLS master playlist (`#EXT-X-STREAM-INF`) is expanded by the app into per-variant playlists, with real quality taken from `RESOLUTION`. When you return a master playlist, `quality` is the desired quality: the highest real quality not above it is chosen, or the highest available. Each variant must be muxed audio/video MPEG-TS; separate `AUDIO`, `VIDEO`, `SUBTITLES` renditions and addresses outside `media.domains` are rejected. `#EXT-X-I-FRAME-STREAM-INF` tracks are ignored. If a single playlist has no known resolution, use `label: '原画'` rather than presenting the desired quality as real.
+- Only complete, continuous MPEG-TS VOD playlists with `#EXT-X-ENDLIST` are supported; `METHOD=AES-128` with `KEYFORMAT=identity` (CBC/PKCS7) is decrypted, with exactly 16-byte keys and an explicit IV or one derived from the media sequence. Keys stay in session memory. Live streams, SAMPLE-AES, other KEYFORMATs, `EXT-X-MAP`, `EXT-X-BYTERANGE`, fMP4, discontinuities and gaps aren't supported; the non-standard `#EXT-X-TOKEN` is removed.
+- Playback uses a random port bound to `127.0.0.1` and a random token, serving verified segments on demand from a limited URL registry; closing the session cancels requests. HLS offline downloads are Android-only for now: each segment is verified and its SHA-256 saved, downloads can resume and be cancelled, and Media3 finally muxes an MP4 — only complete files reach the offline library.
+
+### Novels: `textChapter`
+
+Novel plugins declare `type: 'novel', category: 'novel'`; implementing `textChapter` exports `capabilities.textChapter: true`. Lists and details set `mediaKind: 'novel'` and `language: 'zh'` or `'en'`. Without a real cover, return `cover: ''` and the app shows a text cover instead of requesting a fake image.
+
+```js
+async textChapter(id, chapterId) {
+  // The full text of the chapter; paragraphs must be non-empty strings without HTML.
+  return { title: '章节标题', paragraphs: ['第一段正文。', '第二段正文。'] };
+}
+```
+
+- Multi-chapter novels return stable IDs in the site's confirmed reading order in `detail.chapters`; single stories use `chapters: null` and optionally `singleChapterId`.
+- In-chapter pagination is merged in order by the plugin; never merge the next chapter, forum replies, ads or recommendations into the text. `Park.html.paragraphs(node)` extracts plain text generically; site boundaries and pagination are still the plugin's job.
+- Text cut short by sign-in, payment or permissions throws `LOGIN_REQUIRED`; never present a preview as a complete chapter.
+- The app writes `text.json` atomically per chapter; a download counts as complete only when fully written. Reading progress and notes use UTF-16 offsets into `paragraphs.join('\n\n')`; font size, typeface, indentation and other layout settings only affect display. Bookmarks and notes live apart from downloads, are included in backups, and survive deleting a download.
+
+### Games: `gameResources` / `resolveGameResource`
+
+Game plugins declare `type: 'game', category: 'game'`; works set `mediaKind: 'game'` and have no fake `chapters`. The runtime exports `capabilities.gameResources` and `capabilities.resolveGameResource` from the methods.
+
+```js
+async gameResources(workId) {
+  return [{ id: 'resource-id', title: '', version: '1.2', size: '2 GB',
+    platforms: ['Windows'], languages: ['SimplifiedChinese'], notes: '原站备注',
+    status: 'valid', testStatus: 'untested',
+    channels: [{ id: 'stable-channel-id', kind: 'direct', label: 'game.zip', size: '2 GB' }] }];
+}
+async resolveGameResource(workId, resourceId, channelId) {
+  return { kind: 'direct', url: 'https://files.example/game.zip?temporary-signature',
+    filename: 'game.zip', extractionCode: '', archivePassword: '' };
+  // Cloud drives return kind: 'external', urls: [all mirrors/parts], url: urls[0].
+}
+```
+
+- `gameResources` returns only stable IDs, metadata and channels — no signed URLs, passwords or fake download states. `testStatus` is `tested | untested | unknown`, copied from the site; channels with `status: 'expired'` are disabled.
+- `resolveGameResource` is called only when the user taps or retries; its URL is never persisted or logged. Passwords may be saved with the local download task but never in diagnostics. Don't drop cloud-drive links; when returning several, `extractionCodes` can match `urls` one to one (empty string means none), and `extractionCode` is for a shared code.
+- Channels that require a reply declare `requiresReply: true, replyText: 'the actual reply'`; the app shows "Reply to unlock links" and the exact text, and calls only after the user confirms. Before resolving, the plugin must re-check the first post: if already unlocked it only reads; it submits once and only on the user's tap, saving account/thread state reliably before sending. When the result is unclear, on repeated attempts or when dynamic verification is needed, return `CONFIRM_REQUIRED` with the thread URL and never resend automatically; never reply from lists, details, prefetching or background updates.
+- Direct links must declare `media: { mode: 'native', origin, domains }`. Files are streamed by a separate cookie-less client; the framework handles HTTPS, per-hop domain checks, length checks, cleanup on cancel and protection of finished files. There's no resume; retrying resolves the address again and restarts. Cloud drives open in external apps, limited to HTTP(S), FTP(S), magnet, ed2k and thunder, without site cookies. Games create no chapters, reading progress or chapter updates, and the app never installs, extracts or runs files.
+
+### Subscriptions: `subscription`
+
+Subscription plugins (following channels or creators) declare a `subscription` object; the runtime exports `capabilities.subscription` when both `normalize` and `posts` exist, and the site appears under Discover → Subscriptions. Plugins that also declare `feeds` appear in the normal categories too.
+
+```js
+subscription: {
+  hint: '无需登录即可保存订阅；媒体访问取决于原站权限。',
+  normalize(input) { return { id: validatedTarget, label: displayName }; },
+  async resolve(input) { return { id: validatedTarget, label: displayName }; },
+  async targets() { return [{ id: joinedChannelId, label: channelName }]; },
+  async posts(target, { cursor }) {
+    return { items: [{ id, title, text, date, url, locked,
+      media: [{ type: 'image', url, preview, previewOnly: false },
+              { type: 'video', url, preview, format: 'mp4', headers: {} }] }],
+      cursor: nextCursor, hasNext: true };
+  },
+  async mediaChunk(resource, offset) { return { base64, done }; }, // optional
+}
+```
+
+- `normalize` must validate locally only, so targets can be saved signed out or offline; accept only usernames or controlled profile URLs of this site. `resolve` and `targets` are optional; with `targets`, the manifest outputs `subscription.joinedTargets: true`.
+- `posts` cursors are opaque strings; the last page has `hasNext: false`, and pages without media may still continue. `locked` means insufficient permission; `previewOnly` marks public previews — never pass a thumbnail off as the full content.
+- Authorized attachments without a direct link use `media[].resource` and implement `mediaChunk(resource, offset)`: at most 128 KiB per call, offsets aligned to 128 KiB; the resource must contain an integer `size` and a stable, non-secret string `cacheKey` that doesn't change with credentials or temporary references. The framework checks total size and each chunk and writes atomically to its own cache path; one attachment may be up to 512 MiB and the resource can't choose the local path. Signed links and resources aren't stored in subscription records.
+- Saving a subscription never follows or joins anything. Unverified write actions must send the user to the original site; never follow, join or pay silently.
+
+### Update subscriptions: `updateSubscriptions`
+
+Regular plugins can support "follow for updates" with a separate `updateSubscriptions` object. The runtime exports `capabilities.subscriptionUpdates` only when `check` exists; it changes neither the category nor `capabilities.subscription`. Metadata includes `dimensions: [{ key, label, hint }]`; tag menus can pass the raw keyword and filter parameters.
+
+- `normalize(dimension, input)` returns `{ id, label }`; `check({ dimension, target }, { cursor })` returns `{ items, hasNext, cursor }`. Items are `{ id, title, kind, workId, chapterId }` with `kind` limited to `work | post | chapter`, stable non-empty IDs and no media URLs, cookies or credentials. Chapter IDs include the work's identity so "Chapter 1" of different works don't collide.
+- `Park.enableUpdateSubscriptions(Park.__pending, rules)` provides a generic adapter; declare dimensions explicitly at the end of the script, optionally with `searchFilters` and `seriesPattern`. `work` uses the real chapter list; `posts` uses the existing channel API; `search` and `filter` use search, `code` matches complete codes exactly, and `series` uses series paths validated against the site's domains. Search cursors store both page number and site cursor.
+- Search and post checks return `windowed: true`, meaning the latest three pages are checked: the first check only records a baseline, later ones raise "newly found" events by stable ID without claiming a publish date. Other paged protocols check at most three pages per round, saving cursors and candidates and committing in one transaction once complete; chapter lists are never truncated, with a cap of 20,000 candidates (exceeding it is an error). Network, permission, verification, empty-list or partial-parse failures must raise explicit errors, never empty success.
+- Foreground and background share the plugin runtime, cookie partitions, domain constraints and checker. Background checks only start the relevant plugins and never sign in, subscribe on the site, download media or bypass permissions. A change of account or plugin configuration rebuilds the baseline (token renewal doesn't).
+
+## Runtime API
+
+Inside methods, `this` provides:
+
+| Member | Description |
+| --- | --- |
+| `this.http` | `request(opts)`, `get(url, opts)`, `post(url, opts)`, `text(url, opts)`, `json(url, opts)` |
+| `this.config` | values the user chose in site settings (`default` when unset) |
+| `this.store` | persistent key-value store: `get(key, fallback)` / `set(key, value)` for tokens, domain lists, etc.; `await flush()` confirms the write and throws on failure |
+| `this.cookies` | `get(url)` / `set(url, { name: value })` / `clear(url)` |
+| `this.log({ code, host, transport, reason })` | writes only these allowed fields; free text is dropped so credentials and URLs never leak |
+
+Global helpers:
+
+| Helper | Description |
+| --- | --- |
+| `Park.html.parse(text)` | returns a standard `Document` for `querySelector` |
+| `Park.html.text(node)` / `unescape(s)` / `strip(html)` / `paragraphs(node)` | text helpers |
+| `Park.crypto.md5Hex(text \| text[])` | MD5, arrays allowed for batches |
+| `Park.crypto.sha256Hex` / `hmacSha256Hex(key, text)` / `aesEcbDecrypt(base64, key)` / `uuid()` | native implementations |
+| `Park.crypto.digestBytes('sha1' \| 'sha256', bytes)` | arrays of 0–255 integers, up to 2 MiB |
+| `Park.crypto.randomBytes(length)` | secure random bytes, length 1–65536 |
+| `Park.utils.rateLimiter(ms)` | returns `wait()` guaranteeing a minimum gap between requests |
+| `Park.utils.mapLimit(items, n, fn)` / `lruMap(n)` / `parseCount('1.2万')` / `formatDate(ts)` | other helpers |
+| `Park.error(code, message, extra?)` | creates an error with a code, see "Error codes" |
+
+### `http.request(opts)`
+
+```js
+await this.http.request({
+  url, method: 'GET', headers: {}, params: { q: 'x' },   // params are appended to the URL
+  json: {...} | form: {...} | body: 'raw' | bodyBase64: '...',
+  timeout: 15000,
+  responseType: 'text' | 'base64',
+});
+// → { status, headers, body, url, ok, json() }
+```
+
+- `text()` / `json()` throw on non-2xx responses (404 → `NOT_FOUND`). Cookies are saved automatically and chosen again for every redirect target.
+- `bodyBase64` is a raw binary body (up to 2 MiB) and can't be combined with `body` or browser mode; it follows the same domain isolation, TLS and redirect rules as text requests. Plugins can't open browser networking, WebSockets or arbitrary file access themselves.
+
+## Error codes
+
+Throw with `throw Park.error(code, message, extra)`; the app reacts to the code:
+
+| code | What the app does |
+| --- | --- |
+| `CLOUDFLARE` | "Verify": opens the built-in browser |
+| `CONFIRM_REQUIRED` | "Confirm": waits for the user to complete the declared access confirmation (`extra.url` points to it) |
+| `LOGIN_REQUIRED` | "Sign in": opens the account section of the site settings |
+| `NOT_FOUND` | shows "Content not found" |
+| `BLOCKED` | shows "Access restricted" (IP ban, quota exhausted…); images aren't retried |
+| `NETWORK` | shows "Couldn't connect" with the reason and "Retry" |
+| `HTTP` / `PARSE` / `UNSUPPORTED` / `CONFIG` | shows the plugin's message and "Retry" |
+
+### Structured messages
+
+`message` is a **Chinese template** that doubles as the translation key; put the variable parts in `extra.params` instead of concatenating them:
+
+```js
+throw Park.error('HTTP', '站点返回 HTTP {status}', { params: { status: res.status }, status: res.status });
+throw Park.error('NOT_FOUND', '影片不存在');
+```
+
+The app translates the template with the plugin's own `i18n` first, then the app's shared vocabulary, and fills `params` into the placeholders. A concatenated string can't be translated, so non-Chinese users would see Chinese. `status`, `url` and `diagnostics` in `extra` work as before.
+
+### Home cache and error semantics
+
+- Live `feed` results keep every field the plugin returns; the home cache on disk keeps only allow-listed display metadata (ID, title, cover, tags, uploader, media type, category, display stats); `url`, credentials, media lists and posts aren't written. Don't put credentials in IDs, cover URLs or cursors. Results that need dynamic media or posts aren't cached.
+- A stale cache is shown as offline content only for explicit `NETWORK` / `TIMEOUT` errors, and is marked as cached. Sign-in, confirmation, human verification, parsing and configuration failures must throw their own errors; the framework never disguises them as network failures, and a user-triggered refresh also shows the real error.
+
+## Localization
+
+The app UI supports `zh-Hans`, `zh-Hant`, `ja`, `ko`, `en`, `es`, `ru` and `ar` (Arabic is right-to-left). Write every static, user-facing text in a plugin (name, description, tab names, options, search hint, account notes, error messages) in **Simplified Chinese**; the original text is the translation key.
+
+A plugin ships its own translations in the manifest's `i18n`:
+
+```js
+Park.register({
+  i18n: {
+    'zh-Hant': { '发行日期': '發行日期', '影片不存在': '影片不存在' },
+    'en': { '发行日期': 'Release date', '影片不存在': 'Video not found', '站点返回 HTTP {status}': 'The site returned HTTP {status}' },
+    // likewise ja, ko, es, ru, ar
+  },
+  key: 'mysite',
+  // …
+});
+```
+
+- Lookup order: the plugin's `i18n` for the current language → the plugin's `en` (except for Simplified Chinese) → the app's shared vocabulary (`assets/i18n/`, e.g. "Sort", "Latest", "Popular") → the original text.
+- Only words the app doesn't already have need to go in `i18n`; common words reuse the app's translations. Placeholders `{name}` must match the original.
+- Remote content (titles, authors, tags, descriptions), user input and persisted protocol keys stay as they are and aren't translated as UI text.
+- Changing `i18n` is a plugin change and needs a version bump. Users with an older plugin see the old wording until they update.
+
+The app's own UI text uses `tr('已选 {count}', { 'count': count })` or `context.tr`; the eight language files live in `assets/i18n/`, and every addition or change must update all of them with matching placeholders.
+
+## Publishing
+
+### Repositories
+
+A repository is a single `index.json` on any static host. Users enter its address in More → Sites → Add site to browse, install and update:
 
 ```json
 {
-  "name": "我的源仓库",
+  "name": "我的站点仓库",
   "apiVersion": 1,
   "sources": [
     {
@@ -276,112 +474,90 @@ A repository is a `index.json` that can be placed on static hosting (e.g. GitHub
       "version": "0.0.1",
       "description": "一句话介绍",
       "url": "https://example.com/sources/mysite.js",
-      "sha256": "脚本 UTF-8 原文的 64 位十六进制 SHA-256",
+      "sha256": "64-hex-digit SHA-256 of the script's UTF-8 text",
       "apiVersion": 1
     }
   ]
 }
 ```
 
-`url` is the full address of the script; you can also use `file` relative to `index.json`. The third-party warehouse is manually installed after user confirmation. `sha256` is optional. The downloaded content will be verified when provided.
+`url` is the full script address; `file` relative to `index.json` also works. Third-party repositories are installed manually after the user confirms; `sha256` is optional and checked when present.
 
-Official updates adopt strict rules: the version must be a three-segment non-negative integer separated by dots and without leading zeros (for example, `0.0.1`, `0.1.0`), which is compared segment by segment by number; missing segments, multiple segments, or pre-release suffixes are not accepted. The original UTF-8 text of the script `sha256` must be provided without trimming whitespace or converting newlines; the `key` and `version` declared by the script must be consistent with the index. `apiVersion` must completely match the current App runtime. If it does not match, the update will be refused. You need to use an App that supports this API first; no compatible branch is provided.
+### Versions and update rules
 
-### Official updates in the App
+- Versions are three dot-separated non-negative integers without leading zeros (e.g. `0.0.1`), compared numerically per part; missing parts, extra parts and pre-release suffixes are rejected.
+- Official updates must provide the `sha256` of the script's UTF-8 text (no trimming or newline conversion), and the script's `key` and `version` must match the index; `apiVersion` must equal the app runtime's exactly, otherwise the update is refused.
+- Plugin and app versions are separate. When changing a plugin script (including `i18n`), bump the version in both the script and `assets/sources/index.json`; the publisher refuses downgrades and the same version with different content.
 
-Official update checks read only the index at each launch. Checks on returning to the foreground retain a 12-hour interval, including failed attempts. Both automatic checks are enabled by default and can be disabled separately in settings; manual checks remain available. Only installed built-in and official sources are checked; third-party sources remain independent. Downloads and installation require explicit confirmation.
+### Official updates in the app
 
-After confirmation, installation rechecks source identity, version, origin, API and SHA-256, and waits for initialization and state persistence. Failure restores the previous script and private data; interrupted installation is recovered at the next launch. Startup never replaces an installed plugin with a bundled script, even if its script is missing. Only new plugins receive their initial bundled script. Explicitly restoring a built-in source requires confirmation. On Android, confirmation downloads the matching official APK in the app. Size, SHA-256, package name, version and signing certificates are verified before opening the system installer, which still requires confirmation. If permission is needed, grant it and return to tap Continue installation. Progress, cancellation and retry are supported; the official release page is a fallback on failure. Other platforms use the official page for manual downloads.
+- "Check plugin updates at startup", in More → Sites and More → About → Updates, is on by default: each launch reads only the official index, announces new versions, and downloads, verifies and installs only after the user confirms. Returning to the foreground keeps a 12-hour interval, and failures still record the check time. With automatic checks off, manual checks still work. Only installed built-in and official plugins are checked; new plugins aren't installed automatically and third-party plugins with the same key aren't taken over.
+- Installation re-verifies identity, version, origin, API and digest, and completes only after initialization and state persistence succeed; failures keep the old script and user state, and an interrupted install is recovered on next launch. Launching never overwrites installed plugins with bundled scripts; a missing script keeps its record and data until the user restores or updates it. "Restore built-in version" rolls back to the version in the current app package after confirmation.
+- App updates are also checked by default: on Android, after the user confirms, the app downloads the matching official APK, verifies size, SHA-256, package name, version and signature, then opens the system installer, with progress, cancel and retry; the official release page is the fallback.
 
-### Release of official sources
+### Publishing official plugins
 
-The official source follows the public main warehouse [drdon1234/Hentai-Park](https://github.com/drdon1234/Hentai-Park), and the fixed entrance to the client is:
+Official plugins are published from the main repository [drdon1234/Hentai-Park](https://github.com/drdon1234/Hentai-Park); the app reads:
 
 ```text
 https://raw.githubusercontent.com/drdon1234/Hentai-Park/sources/index.json
 ```
 
-The source `key` allows only `[A-Za-z0-9_-]`, has a length of 1–100, and cannot use the reserved `_app`; the script filename must be `{key}.js`.
-
-`assets/sources/index.json` is the only source list maintained, and `file` points to the only script source code in the same directory. The file name must conform to `[A-Za-z0-9_-]+.js`. Subdirectories, symbolic links, or dots in the body of the file name are not accepted and must be consistent with the client's official source address verification. `tools/publish_sources.mjs` Generate publishing index: each record contains `key`, `name`, `version`, `category` ,`description`, `url`, `sha256` and `apiVersion`. The script URL is fixed to the complete 40-digit commit number of this source code:
-
-```text
-https://raw.githubusercontent.com/drdon1234/Hentai-Park/<源码提交 SHA>/assets/sources/<file>
-```
-
-The `sources` branch only saves the generated root directory `index.json`, without copying the script or manually maintaining a second source list. When updating a script, the version in the script and the manifest must be upgraded at the same time; the publisher refuses to downgrade the version, and also refuses the same version to correspond to different script content. The same version can be published repeatedly with unchanged content, and normal upgrades will not be affected by the old index version.
-
-The publisher relies only on the Node.js built-in module and can run offline in Node.js 22 or newer. It checks manifests, file existences, and directory boundaries, loads the shared runtime and scripts in a separate context that provides no network or storage interfaces, and checks using the same `Park.__pending` / `Park.manifest` probes as the App Install Preview `key`, `version` and API. The detection does not call `setup`, `init`, login or site business methods, and cannot replace the origin site network usability test.
-
-Local preview example (the output is at `test/` which has been ignored and will not be published; the commit number should use the real SHA of the corresponding source code):
+- `assets/sources/index.json` is the only maintained list; `file` points to a script in the same folder named `{key}.js` (`[A-Za-z0-9_-]+.js`; no subfolders, symlinks or dots in the base name).
+- `tools/publish_sources.mjs` generates the published index with `key`, `name`, `version`, `category`, `description`, `url`, `sha256` and `apiVersion`; script URLs are pinned to the full source commit: `https://raw.githubusercontent.com/drdon1234/Hentai-Park/<commit SHA>/assets/sources/<file>`. The `sources` branch holds only the generated `index.json`.
+- The publisher needs only Node.js 22+ built-ins and runs offline: it checks the list, files and folder boundaries, loads the runtime and scripts without network or storage, and verifies `key`, `version` and API with the same `Park.__pending` / `Park.manifest` probe as the install preview. It doesn't call `init`, sign-in or site methods, so it can't replace real requests.
 
 ```powershell
-node tools/publish_sources.mjs --commit '<完整 40 位源码提交 SHA>' --output 'test/official-source-index.json'
+node tools/publish_sources.mjs --commit '<full 40-character commit SHA>' --output 'test/official-source-index.json'
 ```
 
-When you need to check for existing releases, pass in `--previous '旧索引本地路径'`. If the verification fails when the old index is invalid, version protection will not be silently skipped. When there are uncommitted modifications in the workspace, the local results are only used for preview; the official release is generated by submitting the source code checked out by the workflow.
+Add `--previous 'path to old index'` to compare with an existing release; an invalid old index fails the check. `.github/workflows/publish-sources.yml` runs only for related pushes to `main` in the main repository or manual runs, one at a time, and updates the `sources` branch with a single ordinary push after every check passes; a failed check or a concurrent change to the branch never overwrites the live index.
 
-`.github/workflows/publish-sources.yml` Only runs when the main repository default `main` branch related files are pushed, or triggered manually from `main`. The workflow is executed serially, and the latest `main` is checked out at the beginning of each task, and the script address and release record are fixed with the actual checked-out commit number. Subsequent document submissions while the task is running will not prevent publishing; subsequent source file submissions will trigger the next serial task. The workflow first downloads the existing stable index and completes all offline verification, and then uses ordinary Git to push the atomic update to the `sources` branch; the online index will not be overwritten when the verification fails or concurrent changes occur in the `sources` branch. A publication can be created for the first time without a stable index. The release only indicates that the script and index have passed the above verification. Site access, account login and image or video loading still need to be verified separately.
+### Generated plugins
 
+The Telegram plugin's only implementation is `assets/sources/telegram_entry.mjs`; `assets/sources/telegram.js` is generated and must not be edited by hand:
 
-`type: 'video', category: 'shortvideo'` enables the full-screen vertical feed. Each work represents one short video; `videos(id, '_')` returns fresh media URLs. `feed` uses `hasNext` and `cursor` for automatic pagination; cursors must not contain credentials or signed media URLs. Only the current video plays, the next is preloaded while paused, and other players are cancelled and released. Omit `search` when no verified search interface exists.
-
-
-Optional `imageNetwork: {mode: 'browser', origin: 'https://image.example.com', domains: ['image.example.com']}` declares a browser image CDN. The origin and every image domain must belong to source domains. Requests allow only HTTPS and approved headers, omit credentials, refuse redirects and limit each image to 20 MiB. Decryption, format checks, decoding and partitioned caching still apply. Tik.porn pages and API each use their own same-origin browser session; playback uses MP4, not fMP4 HLS or DASH.
-
-
-## Novel reading
-
-`type: 'novel', category: 'novel'` · `capabilities.textChapter: true`
-
-Implement `textChapter(id, chapterId)` returning `{title?, paragraphs: [String]}` with nonempty plain text. Lists and details retain `mediaKind: 'novel'`, `language: 'zh'` or `'en'`; missing covers are empty strings. Merge internal pages of the same chapter, never replies, unrelated chapters or ads. Throw `LOGIN_REQUIRED` for truncated access previews. Chapters use stable IDs and site order, or `chapters: null` for a single story. `Park.html.paragraphs(node)` extracts text; downloads atomically write each chapter to `text.json`. Progress and annotations use original UTF-16 offsets. Bookmarks are separate from downloads and included in library backups.
-
-`paragraphs.join('\n\n')` → UTF-16
-
-
-## Subscription protocol
-
-Declare both `subscription.normalize` and `subscription.posts` to expose `capabilities.subscription` in the independent Discovery subscription entry. Site logic stays in the plugin. `normalize` validates locally without login/network and accepts only the site’s usernames or controlled profile URLs. Optional `resolve` performs network resolution; optional `targets` lists joined targets and exports `subscription.joinedTargets: true`. Cursors are opaque strings; `hasNext: false` ends pagination and an empty page may still continue. `locked` means insufficient permissions; `previewOnly` must identify previews.
-
-```js
-subscription: {
-  normalize(input) { return { id: validatedTarget, label: displayName }; },
-  async resolve(input) { return { id: validatedTarget, label: displayName }; },
-  async targets() { return [{ id: joinedTarget, label: displayName }]; },
-  async posts(target, { cursor }) {
-    return {
-      items: [{ id, title, text, date, url, locked, media: [
-        { type: 'image', url, preview, previewOnly: false },
-        { type: 'video', url, preview, format: 'mp4', headers: {} },
-        { type: 'image', resource: { cacheKey, size } },
-      ] }],
-      cursor: nextCursor, hasNext: true,
-    };
-  },
-  async mediaChunk(resource, offset) { return { base64, done }; },
-}
+```powershell
+npm ci --prefix 'tools/source-runner'
+node tools/build_subscription_sources.mjs
 ```
 
-For authorized attachments without a direct URL, supply `media[].resource` with an integer `size` and a stable non-secret `cacheKey`, independent of expiring file references or credentials. Implement `subscription.mediaChunk(resource, offset)` returning `{base64, done}`: at most 128 KiB per chunk, aligned offsets, full intermediate chunks; maximum attachment 512 MiB. The host validates totals and writes atomically to its own cache; resources cannot choose paths. Cache usage counts toward the media limit and active files are protected. Targets in backups contain no signed URLs/resources.
+It uses [@mtproto/core 6.3.0](https://github.com/alik0211/mtproto-core) (GPL-3.0, [license](../../licenses/mtproto-core.txt); dependency summary in [third-party licenses](../../licenses/telegram-dependencies.txt)). The site adapter replaces transport, cryptography and storage, and doesn't enable the library's default WebSocket, browser localStorage or debug logging.
 
-Existing session imports use `account.type: 'session'` with a secret session field, validated by the plugin without splitting it into passwords/Cookies. Login success requires actual authorization. Saving subscriptions never follows/joins a service. Native binary requests use `bodyBase64` (at most 2 MiB), mutually exclusive with `body` and browser mode; responses can use `responseType: 'base64'`. `Park.crypto.digestBytes('sha1'|'sha256', bytes)` accepts at most 2 MiB of integer bytes; `randomBytes(length)` accepts 1–65536. TLS, domain isolation and redirect restrictions remain in force; plugins cannot open arbitrary browser network, WebSockets or files.
+## Appendix: notes on official sites
 
-[Subscriptions](../../SUBSCRIPTIONS.md)
+Conventions you need when maintaining the official plugins. Sites change; the plugin code is authoritative.
 
-Sources declaring both subscription and feeds also appear in ordinary categories. Feed/search items may include presentation:'post', text, date, url and a media array for post cards; presentation:'media' uses a grid. mediaKind and coverAspect describe item media, and image collections support paging. network.confirmation:{selector,readySelector,requiredCookies,message} declares the gate, content marker and required cookies. After CONFIRM_REQUIRED, the browser returns only after the gate disappears, content is ready, cookies are stored and navigation is stable. The framework never confirms on the user's behalf.
+**Games**
 
+- Default order is GalgameX → KUN Galgame → Dimension Tea House. GalgameX and KUN enable NSFW by default (the guest `content-filter` API and the `include_nsfw` parameter respectively).
+- GalgameX defaults to this week's popular list. The resource update list uses a Next Server Action discovered from the current front end; the action ID is cached for 15 minutes and rediscovered when it stops working, and no remote script is executed. Details are parsed from SSR Flight data. Public resources use host plus path hash as a stable channel ID; resolved results are matched by host and file name / share ID, rejecting mismatches and duplicates, without relying on the order of temporary links.
+- KUN defaults to the 7-day views ranking using its public native API; the download API is called only on tap, so prefetching never inflates the site's download count. Resource pages are walked by the API's total; repeated pages or early empty pages are errors.
+- Dimension Tea House uses browser mode with its own sign-in and defaults to the popular Galgame resource board; covers come from first-post attachments with 400 ms between requests. The resource list is read-only; the reply "感谢分享，好人一生平安" is sent with the full form only after the user confirms. Already unlocked threads are never replied to; when the result is unclear, state is kept and the user is pointed to the thread, and nothing is resent after a restart.
 
-## Games
+**Novels**
 
-Game sources declare `type:game`, `category:game` and `mediaKind:game`. `gameResources(workId)` returns stable resource metadata and channels `{id,kind:direct|external,label,size}` without resolved URLs. `resolveGameResource(workId,resourceId,channelId)` returns ephemeral `{kind,url,urls?,filename?,extractionCode,archivePassword}` on a user click or retry. Direct downloads require a native HTTPS `media` domain allowlist; redirects are checked at each hop and no source cookies are sent. Keep every external mirror or archive part. Game resources never become reader chapters or chapter updates. Temporary URLs must not be persisted or logged.
+| Site | Default tab | Scope and limits |
+| --- | --- | --- |
+| Book18 | Recommended | Chinese long and short stories; chapters in site order |
+| Cool18 | Featured | Only the forbidden-books board; each main post is its own work, replies and same-titled posts aren't merged; some content needs account permissions |
+| Canovel | Latest | In-article pagination supported |
+| Literotica | Rankings | English; search excludes non-English, audio, how-to, reviews and essays |
+| Lush Stories | Recommended | English; audio and poetry excluded |
+| StoriesOnline | Author picks | English; truncated anonymous text asks to sign in and is never saved as a full chapter |
+| 69story | Latest | Chinese; categories, search, contents and per-chapter reading |
 
-GalgameX → KUN Galgame. [game-domain.md](../../game-domain.md)
+**Subscriptions**
 
+| Platform | Content | Sign-in |
+| --- | --- | --- |
+| X / Twitter | Anonymous public media; authorized posts and media when signed in | Web sign-in, or `auth_token` and `ct0` |
+| Telegram | Public channel previews; channel history and attachments when signed in | Import an existing Telegram WebK local-storage session |
+| myfans.jp | Creator lists, public images, public videos and trial previews | Member sign-in not verified |
+| pixivFANBOX | Public lists and cover previews | Member sign-in not verified |
 
-## Tea House game resources
-
-Tea House follows GalgameX and KUN and uses the popular Galgame forum feed. Sign in inside the app. Clicking “Reply to unlock links” sends “感谢分享，好人一生平安”. Lists and details are read-only. Already unlocked posts are not replied to again. An uncertain submission is persisted by account and post and requires checking the original page; it is not automatically resent, including after restart. Dynamic verification requires the site page. Original cloud links, per-link extraction codes and archive passwords are preserved. Desktop browser sessions are separate from app sessions.
-
-`GameChannel`: `requiresReply: true`, `replyText`. `resolveGameResource`: `extractionCodes` aligned with `urls` (empty string: no code), or shared `extractionCode`. `CONFIRM_REQUIRED` → original post URL.
+- X's `ct0` must match `X-CSRF-Token`; sessions can expire or be revoked. After sign-in the plugin loads operation IDs and feature flags from the current web app, then reads UserTweets and keeps only the target author's media (no retweets or quotes). Anonymous third-party proxies never receive X cookies.
+- Telegram local storage isn't a cookie: the import needs `dc` and the matching `dcN_auth_key` (512 hex digits), as JSON or `key=value` text. The plugin only restores an existing WebK session — no code-based sign-in or own client registration — and signing out only deletes the session saved by this app. Attachments are read in 128 KiB chunks, up to 512 MiB each; expired media references are refreshed once. Networking goes through the isolated native HTTP bridge; WebView fetch/WebSocket isn't enabled.
+- OnlyFans, Fantia, Patreon and Fansly don't have a complete media path and aren't in the official list. A home page that opens doesn't mean media can be subscribed to, and paid access is never bypassed.
 
 Dynamic HLS CDNs: declare `media.scope: 'session'` with native media. Only the current resolved URL, playlist resources and up to 8 redirect hops are authorized, without changing cookie permissions. HTTPS 443 and credential-free headers remain required. Direct connections reject non-public DNS addresses and connect to a checked IP with normal TLS hostname verification. An explicitly configured HTTP proxy resolves upstream hosts and is trusted to enforce public-network routing. Permissions disappear when the playback/download session closes; direct MP4 and browser media retain static domain restrictions.

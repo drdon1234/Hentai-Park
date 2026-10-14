@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "permissions": {
+    "allow": [
+      "Bash(git status:*)",
+      "Bash(git diff:*)",
+      "Bash(git log:*)",
+      "Bash(git show:*)",
+      "Bash(node tools/check_localizations.mjs)",
+      "Bash(node tools/check_styles.mjs)",
+      "Bash(node tools/publish_sources.mjs:*)",
+      "Bash(flutter analyze:*)",
+      "Bash(dart format:*)"
+    ],
+    "ask": [
+      "Bash(git commit:*)",
+      "Bash(git push:*)",
+      "Bash(git add:*)",
+      "Bash(gh release:*)"
+    ]
+  }
+}

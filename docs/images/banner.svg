@@ -2,30 +2,26 @@
   <title id="title">HentaiPark</title>
   <defs>
     <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#e5355f"/>
-      <stop offset="1" stop-color="#6a3fd8"/>
-    </linearGradient>
-    <linearGradient id="ink" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#e5355f"/>
-      <stop offset="1" stop-color="#7c4dff"/>
+      <stop offset="0" stop-color="#D97757"/>
+      <stop offset="1" stop-color="#B5532F"/>
     </linearGradient>
     <clipPath id="card"><rect width="1280" height="260" rx="24"/></clipPath>
   </defs>
   <g clip-path="url(#card)">
     <rect width="1280" height="260" fill="url(#bg)"/>
-    <circle cx="1240" cy="270" r="270" fill="#ffffff" opacity="0.04"/>
-    <circle cx="1240" cy="270" r="210" fill="none" stroke="#ffffff" stroke-width="2" opacity="0.08"/>
-    <g transform="translate(840 -160) scale(6.2)" fill="none" stroke="#ffffff" stroke-opacity="0.12" stroke-width="0.9" stroke-linejoin="round">
+    <circle cx="1240" cy="270" r="270" fill="#FAF9F6" opacity="0.05"/>
+    <circle cx="1240" cy="270" r="210" fill="none" stroke="#FAF9F6" stroke-width="2" opacity="0.1"/>
+    <g transform="translate(840 -160) scale(6.2)" fill="none" stroke="#FAF9F6" stroke-opacity="0.12" stroke-width="0.9" stroke-linejoin="round">
       <path d="M30,38 C38,35 46,35 53,40 L53,72 C46,67 38,67 30,70 Z"/>
       <path d="M78,38 C70,35 62,35 55,40 L55,72 C62,67 70,67 78,70 Z"/>
       <path d="M61,47 L71,54 L61,61 Z"/>
     </g>
   </g>
-  <rect x="100" y="70" width="120" height="120" rx="28" fill="#ffffff"/>
+  <rect x="100" y="70" width="120" height="120" rx="28" fill="#FAF9F6"/>
   <g transform="translate(65.5 36.4) scale(1.75)">
-    <path fill="url(#ink)" d="M30,38 C38,35 46,35 53,40 L53,72 C46,67 38,67 30,70 Z"/>
-    <path fill="url(#ink)" d="M78,38 C70,35 62,35 55,40 L55,72 C62,67 70,67 78,70 Z"/>
-    <path fill="#ffffff" d="M61,47 L71,54 L61,61 Z"/>
+    <path fill="#C96442" d="M30,38 C38,35 46,35 53,40 L53,72 C46,67 38,67 30,70 Z"/>
+    <path fill="#C96442" d="M78,38 C70,35 62,35 55,40 L55,72 C62,67 70,67 78,70 Z"/>
+    <path fill="#FAF9F6" d="M61,47 L71,54 L61,61 Z"/>
   </g>
-  <text x="270" y="155" fill="#ffffff" font-family="Segoe UI,Arial,sans-serif" font-size="80" font-weight="700" letter-spacing="-1">HentaiPark</text>
+  <text x="270" y="155" fill="#FAF9F6" font-family="Georgia,'Noto Serif','Source Han Serif SC',serif" font-size="80" font-weight="600" letter-spacing="-1">HentaiPark</text>
 </svg>

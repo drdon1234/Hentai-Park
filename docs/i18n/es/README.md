@@ -4,116 +4,109 @@
   <img src="../../images/banner.svg" alt="HentaiPark" width="100%">
 </p>
 
-<p align="center"><strong>Cómics, galerías, videos, novelas y juegos en una sola aplicación.</strong></p>
+<p align="center"><strong>Cómics, galerías, vídeos, novelas y juegos en una sola app tranquila.</strong></p>
 
 <p align="center">
-  <a href="https://github.com/drdon1234/Hentai-Park/releases/latest"><img src="https://img.shields.io/github/v/release/drdon1234/Hentai-Park?label=Download&color=e5355f" alt="Descargar"></a>
-  <img src="https://img.shields.io/badge/Android-7.0%2B-3DDC84?logo=android&logoColor=white" alt="Android 7.0+">
+  <a href="https://github.com/drdon1234/Hentai-Park/releases/latest"><img src="https://img.shields.io/github/v/release/drdon1234/Hentai-Park?label=Download&color=C96442" alt="Descargar"></a>
+  <img src="https://img.shields.io/badge/Android-7.0%2B-C96442?logo=android&logoColor=white" alt="Android 7.0+">
 </p>
 
 <p align="center">
   <a href="https://github.com/drdon1234/Hentai-Park/releases/latest">Descargar</a> ·
   <a href="#screenshots">Capturas</a> ·
+  <a href="#features">Funciones</a> ·
   <a href="#faq">Preguntas frecuentes</a> ·
-  <a href="https://github.com/drdon1234/Hentai-Park/issues">Informar de un problema</a>
+  <a href="https://github.com/drdon1234/Hentai-Park/issues">Comentarios</a>
 </p>
 
-> Solo para adultos, donde lo permita la legislación local. El contenido procede de sitios de terceros.
+> Solo para adultos y donde la ley local lo permita. Todo el contenido procede de sitios de terceros; HentaiPark no almacena ni ofrece contenido.
 
-## Descargar y empezar
+## Descarga
 
-Descarga e instala un APK de Android desde la **[última versión](https://github.com/drdon1234/Hentai-Park/releases/latest)**. Elige `arm64-v8a` para la mayoría de móviles y tabletas, o `x86_64` para la mayoría de emuladores.
+Descarga el APK para Android desde la **[última versión](https://github.com/drdon1234/Hentai-Park/releases/latest)**. La mayoría de móviles y tabletas usan `arm64-v8a`; los emuladores suelen usar `x86_64`.
 
-1. **Encuentra contenido**: Abre Descubrir, elige una categoría y un sitio, o busca directamente.
-2. **Lee o mira**: Abre una obra y guarda tus favoritas en Biblioteca.
-3. **Continúa**: Retoma desde la actividad reciente o consulta Biblioteca y Actualizaciones.
+## Empieza en tres pasos
 
-Gestiona las cuentas en Yo → Gestión de fuentes. Algunos sitios pueden necesitar una VPN o un proxy.
+1. **Explorar**: abre Explorar y elige una categoría, o escribe una palabra clave, pega un enlace o un código en el buscador.
+2. **Leer y ver**: abre una obra y toca el botón principal. Añade las que te gusten a la Biblioteca.
+3. **Seguir donde lo dejaste**: Continuar, arriba en Explorar, y el Historial te llevan al punto exacto; las series que sigues se actualizan en Biblioteca → Actualizaciones.
 
-Los dramas de IA siguen reproduciéndose durante los deslizamientos verticales y precargan el siguiente episodio. Toca la imagen para mostrar las barras de brillo y volumen y arrastra dentro de ellas para ajustar. Los carteles automáticos se cargan en segundo plano; la navegación tiene prioridad. Al cambiar un ajuste de la fuente se cancelan las lecturas con la configuración anterior.
+Los sitios que necesitan cuenta o proxy se configuran en Más → Sitios y Más → Red.
 
 <a id="screenshots"></a>
 
 ## Capturas
 
-Capturas de móvil y tableta horizontal tomadas en MuMu, principalmente en modo claro y con las portadas difuminadas.
+<p align="center">
+  <img src="../../screenshots/home.jpg" alt="Explorar (claro)" width="32%">
+  <img src="../../screenshots/detail.jpg" alt="Detalles de una obra (claro)" width="32%">
+  <img src="../../screenshots/home_dark.jpg" alt="Explorar (oscuro)" width="32%">
+</p>
+<p align="center"><sub>Explorar · Detalles · Tema oscuro</sub></p>
 
 <p align="center">
-  <img src="../../screenshots/home.jpg" alt="Móvil, modo claro: Descubrir" width="32%">
-  <img src="../../screenshots/search.jpg" alt="Móvil, modo claro: búsqueda en varios sitios" width="32%">
-  <img src="../../screenshots/blocklist_presets.jpg" alt="Móvil, modo claro: bloqueo de contenido" width="32%">
+  <img src="../../screenshots/tablet_home.jpg" alt="Tableta en horizontal: navegación lateral y Explorar" width="49%">
+  <img src="../../screenshots/tablet_search.jpg" alt="Tableta en horizontal: búsqueda en todos los sitios" width="49%">
 </p>
-<p align="center"><sub>Descubrir · Buscar · Bloquear contenido</sub></p>
+<p align="center"><sub>Tableta en horizontal</sub></p>
 
-<p align="center">
-  <img src="../../screenshots/tablet_home.jpg" alt="Tableta, modo claro: navegación lateral" width="49%">
-  <img src="../../screenshots/tablet_search.jpg" alt="Tableta, modo claro: resultados en varias columnas" width="49%">
-</p>
-<p align="center"><sub>Tableta horizontal: más espacio para explorar y buscar</sub></p>
+Capturas tomadas en el emulador MuMu con las portadas difuminadas.
 
-<details>
-<summary>Comparar el modo oscuro</summary>
+<a id="features"></a>
 
-<p align="center">
-  <img src="../../screenshots/home_dark.jpg" alt="Móvil, modo oscuro: Descubrir" width="32%">
-</p>
+## Funciones
 
-</details>
-
-## Funciones principales
-
-| Función | Qué puedes hacer |
+| Función | Qué ofrece |
 | --- | --- |
-| **Explorar y buscar** | Explora por categoría, busca en varios sitios y prueba palabras clave en otros idiomas |
-| **Leer y ver** | Desplazamiento, paso de página o doble página; selección de episodios, velocidad y reproducción desde el último punto; diseño y lectura en voz alta de novelas |
-| **Guardar y seguir** | Agrupa favoritos, conserva tu progreso y sigue obras, palabras clave, creadores o canales |
-| **Sin conexión** | Descarga cómics, videos y novelas compatibles; importa y exporta cómics CBZ |
-| **Recursos de juegos** | Consulta descripciones, versiones y enlaces de descarga; guarda o exporta los archivos descargados |
-| **Traducir y filtrar** | Traduce títulos, descripciones y etiquetas; bloquea contenido no deseado |
-| **Privacidad y copias** | Bloqueo de la app, modo incógnito, portadas difuminadas y protección contra capturas; copias de favoritos, progreso y ajustes |
+| Explorar y buscar | Navega por categorías, busca en varios sitios a la vez y amplía la búsqueda con palabras clave en otros idiomas; pega un enlace o código para ir directo a una obra |
+| Leer y ver | Cómics con desplazamiento, páginas o doble página; vídeos con episodios, velocidad y reanudación; novelas con tipografía, marcadores, notas y lectura en voz alta. Los tres lectores comparten los mismos controles |
+| Biblioteca | Favoritos con categorías, avisos de capítulos nuevos y descargas en un solo lugar; suscríbete a creadores, canales o palabras clave |
+| Sin conexión | Descarga cómics, vídeos y novelas; importa y exporta CBZ |
+| Recursos de juegos | Consulta la información, versiones y enlaces de descarga de juegos |
+| Traducción y filtros | Traduce títulos, descripciones y etiquetas; oculta obras por etiqueta |
+| Privacidad y copias | Bloqueo de la app, modo incógnito, portadas difuminadas, bloqueo de capturas; copia de favoritos, progreso y ajustes |
 
-Temas claro y oscuro e interfaz en ocho idiomas. Las funciones disponibles dependen del sitio; consulta las opciones de la app.
+Temas claro y oscuro, ocho idiomas de interfaz. Las funciones de cada sitio se indican en la app.
 
 ## Sitios compatibles
 
-Doujinshi, cómics, galerías, animación para adultos, JAV, videos para adultos, videos cortos, dramas de IA, novelas y juegos, además de creadores y canales que sigues.
-
-<details>
-<summary>Ver la lista de sitios</summary>
-
 | Categoría | Sitios |
 | --- | --- |
-| Doujinshi / cómics | E-Hentai / ExHentai, Pixiv, nhentai, 禁漫天堂, WNACG, 哔咔漫画 |
-| Galerías | CosplayTele, NudeCosplay, XiuRen, PixiBB, PornPics |
-| Animación para adultos | Hanime1, Hanime.tv, Rule34Video |
+| Doujinshi / cómics | E-Hentai / ExHentai, Pixiv, nhentai, JMComic, WNACG, PicACG |
+| Galería | CosplayTele, NudeCosplay, XiuRen, PixiBB, PornPics |
+| Anime adulto | Hanime1, Hanime.tv, Rule34Video |
 | JAV | MissAV, JableTV, SupJav, 123AV |
-| Videos para adultos | Pornhub, XVideos, 91porn, iXXX, Thumbzilla, TubeSafari, SpankBang |
-| Videos cortos | Pornhub Shorties, Fyptt, Tik.porn |
-| Dramas de IA | 黄果短剧, 黄豆短剧, 91短剧 |
+| Vídeos para adultos | Pornhub, XVideos, 91porn, iXXX, Thumbzilla, TubeSafari, SpankBang |
+| Vídeos cortos | Pornhub Shorties, Fyptt, Tik.porn |
+| Dramas cortos de IA | Series cortas Huangguo, Series cortas Huangdou, Series cortas 91 |
 | Novelas | Book18, Cool18, Canovel, Literotica, Lush Stories, StoriesOnline, 69story |
-| Juegos | GalgameX, KUN Galgame, 次元茶馆 |
-| Creadores / canales | X / Twitter, Telegram, myfans.jp, pixivFANBOX |
+| Juegos | GalgameX, KUN Galgame, Salón de té dimensional |
+| Suscripciones | X / Twitter, Telegram, myfans.jp, pixivFANBOX |
 
-Algunos recursos de Tea House requieren iniciar sesión y responder. El botón de desbloqueo publica “感谢分享，好人一生平安” en el hilo original.
-
-</details>
-
-Activa, ordena o añade sitios en Yo → Gestión de fuentes. Sigue los avisos de la app para instalar actualizaciones de la aplicación y de las fuentes oficiales.
+Activa, ordena, actualiza o añade sitios en Más → Sitios.
 
 <a id="faq"></a>
 
 ## Preguntas frecuentes
 
-**¿No se carga un sitio, imagen o video?** Comprueba la conexión. Si hace falta, usa una VPN o configura un proxy en los ajustes de red. Si aparece una verificación web, complétala y vuelve a intentarlo.
+**¿Un sitio no abre o no cargan las imágenes o vídeos?**
+Revisa primero la conexión. Algunos sitios pueden requerir VPN o proxy en China continental; configura el proxy en Más → Red. Si aparece una verificación web, supérala una vez en el navegador integrado.
 
-**¿Necesito una cuenta del sitio?** Algunos sitios requieren iniciar sesión o tener permiso de acceso. La app te avisará; abre los ajustes del sitio en Yo → Gestión de fuentes.
+**¿Necesito cuentas en los sitios?**
+Casi nunca. Los sitios que la necesitan lo indican arriba en su página, y puedes iniciar sesión desde los ajustes del sitio en Más → Sitios. El inicio de sesión web de Pixiv, X y StoriesOnline admite cuentas de terceros como Google y Apple; que permitan el navegador integrado depende de ellos.
 
-**¿Cómo recibo avisos de actualizaciones?** Añade una suscripción desde los detalles de una obra o Descubrir → Suscripciones. Activa las notificaciones en Yo → Ajustes de suscripciones y notificaciones y concede el permiso de Android.
+**¿La app publica o responde en mi nombre?**
+Nunca por su cuenta. Algunos recursos del Salón de té dimensional solo se desbloquean tras responder; la app te muestra exactamente qué se publicará y solo lo envía cuando confirmas.
 
-**¿Cómo conservo favoritos y progreso al cambiar de dispositivo?** Exporta una copia en Yo → Copia de seguridad y restauración y restáurala en el nuevo dispositivo. Guarda las descargas aparte; quizá debas volver a iniciar sesión en los sitios.
+**¿Cómo conservo favoritos y progreso al cambiar de móvil?**
+Exporta una copia en Más → Copia de seguridad y restáurala en el nuevo dispositivo. Las descargas no se incluyen y algunos sitios pueden pedir iniciar sesión de nuevo.
 
-**¿Cómo informo de un problema?** Abre un [issue](https://github.com/drdon1234/Hentai-Park/issues) con la versión de la app, el sitio y los pasos para reproducirlo. Oculta las cuentas y el contenido privado en las capturas.
+**¿Qué se envía al traducir?**
+Solo los títulos, descripciones y etiquetas que decidas traducir, al servicio de traducción que elijas. Más → Búsqueda y traducción detalla qué se envía.
+
+**¿Cómo informo de un problema?**
+Abre un [issue](https://github.com/drdon1234/Hentai-Park/issues) con la versión de la app, el nombre del sitio y los pasos para reproducirlo. Oculta cuentas y contenido privado en las capturas.
 
 ---
 
-[Licencia AGPL-3.0](../../../LICENSE) · [Avisos de terceros](../../licenses/README.md) · [Desarrollo](../../DEVELOPMENT.md)
+[Licencia AGPL-3.0](../../../LICENSE) · [Avisos de terceros](../../licenses/README.md) · [Desarrollo](../../DEVELOPMENT.md) · [API de plugins de sitios](SOURCE_API.md)

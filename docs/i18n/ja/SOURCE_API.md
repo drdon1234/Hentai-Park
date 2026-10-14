@@ -1,16 +1,54 @@
 [简体中文](../../SOURCE_API.md) · [繁體中文](../zh-Hant/SOURCE_API.md) · [日本語](SOURCE_API.md) · [한국어](../ko/SOURCE_API.md) · [English](../en/SOURCE_API.md) · [Español](../es/SOURCE_API.md) · [Русский](../ru/SOURCE_API.md) · [العربية](../ar/SOURCE_API.md)
 
-# ソースプラグイン開発ガイド
+# サイトプラグイン API
 
-HentaiPark の各オリジンは、別個の JavaScript ファイルです。アプリは実行時にそれらを読み込みます。アプリを再コンパイルすることなく、ソース リポジトリからインストール、更新、有効化/非アクティブ化できます。
-組み込みソースは [`assets/sources/`](../../../assets/sources/) にあり、サンプル参照として直接使用できます。
+[クイックスタート](#クイックスタート) · [manifest のフィールド](#manifest-のフィールド) · [メソッド](#メソッド) · [ランタイム API](#ランタイム-api) · [エラーコード](#エラーコード) · [多言語対応](#多言語対応) · [公開](#公開) · [付録：公式サイトのメモ](#付録公式サイトのメモ)
 
-## 実行環境
+HentaiPark の各サイトは独立した JavaScript プラグインです。アプリは実行時にプラグインを読み込み、リポジトリからのインストール、更新、有効化・無効化が **アプリを再ビルドせずに** できます。公式プラグインは [`assets/sources/`](../../../assets/sources/) にあり、そのまま例として参考にできます。
 
-- ソーススクリプトはアプリ内のヘッドレス WebView で実行されます（`DOMParser` を含む最新の JS）。暗号処理、Cookie、ネイティブ HTTP リクエストはネイティブ層が提供します。ネイティブ HTTP に CORS 制限はありませんが、ブラウザのネットワーク・メディアリクエストは下記の個別規則に従います。
-- 同じランタイム ([`assets/runtime/park_runtime.js`](../../../assets/runtime/park_runtime.js)) を Node で実行することもでき、開発中に実際のサイトでスモーク テストを直接実行できます。
+本書は簡体字中国語版が正です。サイト固有のルールはプラグインに置き、通信・キャッシュ・画像の共通機能はフレームワークが提供します。フレームワークはサイト名で特別扱いをしません。
 
-ルートで共有 runner の依存関係をインストールし、無視される `test/source-smoke.mjs` を以下の例で作成します。例は manifest の読込のみです。変更したソースのホーム、2ページ目、検索、詳細、表紙のデコード、章とメディアを実測してください。Node ホストは開発用で、未信頼スクリプトの安全な隔離ではありません。
+## クイックスタート
+
+### 実行環境
+
+- プラグインはアプリ内のヘッドレス WebView で動作し、最新の JS と `DOMParser` が使えます。ネイティブ層が暗号処理、Cookie、ネイティブ HTTP を提供します。ネイティブ HTTP に CORS 制限はなく、ブラウザ通信とメディアは後述の規則に従います。
+- 各プラグインのランタイムはサイトが初めて使われたときに起動し、約 5 分使われないか、同時に 6 個を超えると解放されます。manifest は「スクリプトの SHA-256 + ランタイムのバージョン」でキャッシュされるため、アプリ起動時にプラグインは実行されません。起動直後からプラグインが動いている前提にしないでください。
+- 同じランタイム（[`assets/runtime/park_runtime.js`](../../../assets/runtime/park_runtime.js)）は Node でも動くので、開発中に実サイトで動作確認できます。Node ホストは開発用で、信頼できないスクリプトのサンドボックスではありません。
+
+### 最小のプラグイン
+
+```js
+Park.register({
+  key: 'mysite',
+  name: '我的站点',
+  version: '0.0.1',
+  type: 'comic',
+  category: 'doujin',
+  homepage: 'https://example.com',
+  domains: ['example.com'],
+  defaultFeed: 'popular',
+  feeds: [{ key: 'popular', label: '热门' }],
+
+  async feed(key, { page }) {
+    const doc = Park.html.parse(await this.http.text(`https://example.com/popular?page=${page}`));
+    return {
+      items: [...doc.querySelectorAll('.gallery')].map((el) => ({
+        id: el.dataset.id,
+        title: Park.html.text(el.querySelector('.title')),
+        cover: el.querySelector('img').src,
+      })),
+      hasNext: !!doc.querySelector('.next'),
+    };
+  },
+  async detail(id) { /* … */ },
+  async chapter(id, chapterId) { /* … */ },
+});
+```
+
+### Node で試す
+
+リポジトリのルートで共有ランナーの依存関係をインストールし、無視される `test/source-smoke.mjs` を次のように作ります。この例は manifest を読むだけです。プラグインを変更したら、トップ、2 ページ目、検索、詳細、表紙のデコード、章または動画メディアも実際のリクエストで確認してください。
 
 ```js
 import { loadSource } from '../tools/source-runner/host.mjs';
@@ -23,185 +61,109 @@ npm ci --prefix 'tools/source-runner'
 node 'test/source-smoke.mjs'
 ```
 
-## ソースを登録する
+## manifest のフィールド
 
 ```js
 Park.register({
-  key: 'mysite',              // 一意の識別子。インストール後は変更できません
-  name: 'Example Source',
-  version: '0.0.1',           // ウェアハウス内のバージョン番号が高い場合、アプリは更新を求めるプロンプトを表示します。
-  type: 'comic',              // comic | video | novel | game
+  key: 'mysite',              // 一意で変更不可。[A-Za-z0-9_-] のみ、1〜100 文字、_app は不可
+  name: '我的站点',
+  version: '0.0.1',           // 3 つの数字。リポジトリの方が新しいと更新を案内
+  type: 'comic',              // comic | video | novel | game：読み方・再生方法を決める
   category: 'doujin',         // doujin | anime | aiDrama | jav | adult | shortvideo | gallery | novel | game | other
-  color: '#E5355F',           // ブランドカラー: ソース入口カードとソースページのテーマカラーに使用されます。
-  description: 'Example source description',
+  color: '#E5355F',           // ブランドカラー：サイトのアイコンとサイトページ
+  description: '一句话介绍',
   homepage: 'https://example.com',
-  domains: ['example.com'],                   // 所属するサイトについては、「分離とセキュリティ」を参照してください。省略した場合はホームページなどのアドレスから推測されます。
-  linkPatterns: ['example\\.com/g/(\\d+)'],   // 集約検索にリンクを貼り付けるときに直接アクセスするために使用されます。最初のグループは作品IDです
-  idPattern: '^(\\d+)$',                      // 番号を直接入力してダイレクトアクセスする場合に使用します。
-  imageHeaders: { Referer: 'https://example.com/' },  // 表紙や写真を読み込むときにデフォルトで適用されます
-  network: { mode: 'native', vpnHint: true },                // 「ネットワーク」セクションを参照してください。
-  media: { mode: 'browser', origin: 'https://example.com', domains: ['media.example.com'] },  // 任意の HLS メディア権限。下記参照
+  domains: ['example.com'],                   // 所属サイト。「分離とセキュリティ」参照。省略時は homepage などから推定
+  linkPatterns: ['example\\.com/g/(\\d+)'],   // 貼り付けたリンクで作品を直接開く。1 番目のグループが作品 ID
+  idPattern: '^(\\d+)$',                      // 入力した ID で作品を直接開く
+  imageHeaders: { Referer: 'https://example.com/' },  // 表紙と画像の既定ヘッダー
+  network: { mode: 'native', vpnHint: true },  // 「ネットワーク」参照
+  media: { mode: 'browser', origin: 'https://example.com', domains: ['media.example.com'] },  // 任意の HLS メディア権限
+  imageNetwork: { mode: 'browser', origin: 'https://img.example.com', domains: ['img.example.com'] }, // 任意
+  imageDecrypt: { /* 任意。「暗号化画像」参照 */ },
 
-  settings: [ /* option definitions */ ],
-  account: { /* optional account */ },
-  defaultFeed: 'ranking',                     // 元のページを開いたときにデフォルトで入力されるラベル (フィードにキー入力)
-  feeds: [ /* browse tabs */ ],
-  searchFilters: [ /* search filters */ ],
-  searchHint: 'Search by title or tag',
+  settings: [ /* オプション。「オプション定義」参照 */ ],
+  account: { /* 任意。「アカウント」参照 */ },
+  defaultFeed: 'ranking',     // サイトページで最初に開くタブ（feeds の key）
+  feeds: [ /* サイトページのタブ */ ],
+  searchFilters: [ /* 検索フィルター */ ],
+  searchHint: '搜索技巧提示',
+  i18n: { /* プラグイン独自の UI 翻訳。「多言語対応」参照 */ },
 
-  async init() {},                            // オプション: ロード時に 1 回呼び出されます (ドメイン名リストの更新など)。
-  async onSettingsChanged() {},               // オプション: ユーザーがソース設定を変更した後に呼び出されます。
+  subscription: { /* 任意：チャンネル・クリエイターの購読。「購読」参照 */ },
+  updateSubscriptions: { /* 任意：更新の購読。「更新の購読」参照 */ },
 
-  async feed(key, { page, cursor, options }) {},
-  async search({ keyword, page, cursor, filters }) {},
-  async random() {},                          // 作品IDを返します
-  async detail(id, preview) {},
-  async chapter(id, chapterId) {},            // 漫画
-  async resolveImage({ id, chapterId, index, token, retry }) {},  // オプション: 画像の遅延解析
-  async thumbnails(id, page) {},              // オプション: プレビューのサムネイルをページにロードします
-  async videos(id, episodeId = '_') {},                        // ビデオ
+  async init() {},              // 任意：ランタイム起動時に 1 回呼ばれる（ドメイン一覧の更新など）
+  async onSettingsChanged() {}, // 任意：ユーザーがサイト設定を変えた後に呼ばれる
+  // ほかに「メソッド」の各メソッド
 });
 ```
 
-`type` は閲覧または再生を決め、`category` はホーム、ソース管理、検索の分類を決めます。不明または未指定の分類は「その他」です。既定のフィードはおすすめ、ランキング、人気の順に選び、いずれもない場合のみ最新を使用します。
+機能（`capabilities`）は実装されたメソッドからランタイムが自動で出力します。手書きしないでください。
 
-AIショートドラマには `category: 'aiDrama'` を使用し、旧識別子 `drama` は受け付けません。サイトのチャンネル名はアプリの分類とは独立しており、元の名前を保持します。アプリの分類でサイトのチャンネルを自動的に除外することはありません。
+### 種類と分類
 
-`adult` は Pornhub、XVideos、91porn などの総合成人動画サイトの分類で、`type: 'video'` を指定します。JAV 専門サイトには `jav` を使用します。分類はサイトのタグやユーザーの絞り込みを置き換えません。
+`type` は作品の読み方・再生・ゲームリソースの扱いを、`category` は「見つける」、サイト管理、検索での分類を決めます。不明または未宣言の分類は「その他」になります。新しいサイトは種類、分類、機能を正確に宣言してください。
 
-集約動画ソースも `type: 'video', category: 'adult'` を指定します。確認済みメディア API がなければ `videos` を実装せず、`capabilities.videos: false` になります。詳細の主操作は `detail.url` をシステムブラウザーで開き、再生・ダウンロード・話一覧を非表示にし、架空の章同期や更新確認を行いません。お気に入りと履歴は保持します。任意の `detail(id, preview)` はソースと ID が一致する公開メタデータだけを受け取り、ソース側でも ID と URL を検証します。iXXX は既知の追跡パラメーターを除いた上流 URL、TubeSafari は上流 key を安定 ID に使い、ソース Cookie で外部作品を要求しません。プレビューなしの直接参照も開けますが、題名や表紙が不足する場合があります。Thumbzilla は MP4 メタデータを静的に解析し、配信ドメインを制限します。
+| 分類 | 内容 |
+| --- | --- |
+| `doujin` | 同人誌と漫画 |
+| `gallery` | ギャラリー：イラスト、コスプレ、写真集。画像サイトも `type: 'comic'` を宣言し、1 つのギャラリーが 1 作品、画像は `chapter()` で順に返すので、閲覧・お気に入り・ダウンロードがそのまま使えます。枚数や過激さで分けるものではありません |
+| `anime` | 成人向けアニメ |
+| `aiDrama` | AI ショートドラマ。旧 `drama` は受け付けません。サイト自身のチャンネル名はそのまま宣言し、アプリの分類で絞り込むことはしません |
+| `jav` | JAV 専門サイト |
+| `adult` | 総合成人向け動画（Pornhub、XVideos、91porn など）、`type: 'video'`。分類はグループ分けで、サイトのタグやユーザーの絞り込みの代わりにはなりません |
+| `shortvideo` | ショート動画：全画面の縦スクロールフィード（後述） |
+| `novel` | 小説、`type: 'novel'` |
+| `game` | ゲーム、`type: 'game'` |
+| `other` | その他（購読系サイトなど） |
 
-`gallery` はイラスト、コスプレ、写真集の分類です。画像ソースは `type: 'comic'` を使用し、1 ギャラリーを1作品として扱い、`chapter()` で画像を順番に返します。閲覧・ライブラリ・ダウンロードは既存機能を利用します。画像数や内容の露出度で分類を分けません。
+- **ショート動画**（`type: 'video', category: 'shortvideo'`）：作品、検索、お気に入り、履歴からフィードに直接入ります。1 作品が 1 本の動画で、`videos(id, '_')` が現在のメディアを返し、詳細ページは不要です。`feed` の `hasNext` と `cursor` で終わり付近を自動ページングします。カーソルに認証情報やメディア署名を入れてはいけません。更新すると 1 ページ目から始まり、表示中の 1 本を再生、次の 1 本を一時停止で先読みし、ほかは解放します。検索がないサイトは `search` を宣言しません。
+- **元サイトでしか再生できないまとめサイト**：`type: 'video', category: 'adult'` を宣言したまま、検証済みのメディア API がなければ `videos` を実装せず、ランタイムは `capabilities.videos: false` を出力します。詳細ページのメインボタンは `detail.url` をシステムブラウザで開き、再生・ダウンロード・エピソードは非表示、架空の章の保存や章の更新確認はしません。お気に入りと履歴は使えます。
+- **小説** と **ゲーム** は「メソッド」で説明します。
 
-暗号化画像は `imageDecrypt` で宣言します。形式検査とキャッシュ前に復号し、復号設定もキャッシュ識別に含めます。失敗はキャッシュしません。AES-CBC と厳密な PKCS#7 パディングに対応し、`key` と `iv` は UTF-8 で符号化します。画像ドメインを限定し、それ以外の画像は変更しません。
+`defaultFeed` は **おすすめ > ランキング > 人気** の順で選び、どれもない場合だけ最新ページなどの有効な入口を使います。検証していない API を作ってはいけません。未指定や不明な key の場合、アプリは key から自動で選びます（`promote` / `recommend` / `featured`、次に `rank` / `toplist`、次に `popular` / `hot` / `trending`）。どれもなければ最初のタブです。
+
+### オプション定義
+
+`feeds[].options`、`searchFilters`、`settings` は同じ形式です。
+
+```js
+{ key: 'sort', label: '排序', type: 'select', default: 'date',
+  values: [{ value: 'date', label: '最新' }, { value: 'popular', label: '热门', color: '#f00' }] }
+// type：select | multi | number | text | password | switch
+// settings では values の代わりに options も使える
+```
+
+`feeds` の各項目はサイトページのタブです：`{ key, label, options?: [...] }`。
+
+### ネットワーク
+
+- `network.mode: 'native'`（既定）：永続 Cookie を使うネイティブ HTTP で、ユーザーのプロキシを通ります。Cloudflare のチャレンジを検出すると `CLOUDFLARE` を投げ、アプリが内蔵ブラウザで認証を案内し、通過用 Cookie をネイティブリクエストに同期します。
+- `network.mode: 'browser'` + `network.origin`：`origin` で開いた隠しブラウザページから同一オリジンの `fetch()` で送信し、本物のブラウザの特徴を持ちます。Cloudflare の保護が厳しいサイト向けです。同一オリジンの GET が Cloudflare のチャレンジを受けると、隠しブラウザがそのページに移動して自動認証し、元のリクエストを 1 回だけ再試行します。それでも通らなければ `CLOUDFLARE` です。
+- `network.vpnHint: true`：中国本土で VPN やプロキシが必要かもしれないサイトに宣言します。8 秒を超える待機や失敗時に「VPN またはプロキシが必要な場合があります」と表示します。すべてのエラーを VPN のせいにしないでください。
+- `network.confirmation: { selector, readySelector, requiredCookies, message }`：年齢確認などユーザーの明示的な確認が必要なサイト向け。`selector` は確認ダイアログ、`readySelector` は閲覧可能な内容、`requiredCookies` は確認後に必要な Cookie 名です。未確認のページではプラグインが `Park.error('CONFIRM_REQUIRED', message, { url })` を投げ、アプリが「確認する」を表示し、ダイアログが消え、内容が現れ、Cookie が書き込まれ、遷移が落ち着いてから戻ります。アプリがユーザーの代わりに確認を押すことはありません。この宣言は汎用の認証ページが年齢確認を通過済みと誤認しないようにもします。
+- ネットワークエラーには安全な `diagnostics` フィールド `host`、`transport`、`reason` が付き、TLS 証明書、ハンドシェイク、DNS、接続、タイムアウトを区別します。自動ログにはこれらの許可されたフィールドだけを記録します。`reason: 'TLS_HANDSHAKE_TERMINATED'` はネイティブの `HandshakeException.message` が `Connection terminated during handshake` と完全一致した場合だけで（ハンドシェイク完了前の切断であり、証明書の失敗ではありません）、本文のない HTTPS の GET / HEAD だけが 1 回再試行され、ほかは再試行しません。
+
+### 画像
+
+- `imageNetwork: { mode: 'browser', origin, domains }`：画像 CDN にブラウザからのリクエストが必要な場合に宣言します。`origin` と画像ドメインはすべて `domains` に含まれている必要があり、HTTPS と許可リストのヘッダーのみ使えます。画像リクエストは認証情報を送らず、リダイレクトに従わず、1 枚最大 20 MiB で、復号、形式チェック、デコード、サイト別キャッシュはそのまま行われます。宣言しない場合はネイティブの画像転送を使います。
+- **暗号化画像**：`imageDecrypt` を宣言すると、フレームワークが形式チェックとキャッシュの前に復号します。復号設定はキャッシュの識別に含まれ、失敗結果はキャッシュしません。AES-CBC と厳密な PKCS#7 パディングに対応し、`key` と `iv` は UTF-8 です。画像ドメインを必ず限定し、ほかのドメインは通常の経路を使います。
 
 ```js
 imageDecrypt: {
   type: 'aes-cbc',
-  key: '0123456789abcdef', // UTF-8: 16, 24 or 32 bytes
-  iv: '0123456789abcdef',  // UTF-8: 16 bytes
+  key: '0123456789abcdef', // UTF-8 で 16、24、32 バイト
+  iv: '0123456789abcdef',  // UTF-8 で 16 バイト
   domains: ['images.example.com'],
 },
 ```
 
-ネットワークエラーには安全な `diagnostics` の `host`、`transport`、`reason` を付与し、証明書、ハンドシェイク、DNS、接続、タイムアウトを区別します。自動ログは許可された項目のみを記録し、元のメッセージ、認証情報、本文、署名 URL は記録しません。
+表紙が HTTP 200 でも使えるとは限りません。デコードできることを確認してください。
 
-`reason: 'TLS_HANDSHAKE_TERMINATED'` はネイティブの `HandshakeException.message` が `Connection terminated during handshake` と完全に一致した場合のみです。証明書検証の失敗ではなく、TLS ハンドシェイク完了前の切断を示します。本文のない HTTPS GET / HEAD のみ、このエラーで一度再試行します。キャンセル、証明書、その他の TLS、HTTP、応答読み取りエラーは再試行しません。再失敗時はホストと VPN・プロキシ経路の確認案内を表示し、安全な診断項目のみを記録します。
+### メディア権限（HLS と直接ファイル）
 
-このメソッドでは、`this` を使用して以下にアクセスできます。
-
-|メンバー |説明 |
-|------|------|
-| `this.http` | `request(opts)`、`get(url, opts)`、`post(url, opts)`、`text(url, opts)`、`json(url, opts)` |
-| `this.config` |ソース設定でユーザーが選択した値 (設定されていない場合は `default`) |
-| `this.store` |永続的なキーと値のストレージ: `get(key, fallback)` / `set(key, value)`、トークン、ドメイン名リストなどの保存に使用されます。 `await flush()` は、ディスクの書き込みが成功したことを確認し、失敗した場合はエラーをスローします。
-| `this.cookies` | `get(url)` / `set(url, {name: value})` / `clear(url)` |
-| `this.log({code, host, transport, reason})` | 許可された構造化フィールドのみ保存し、自由文は保存しません。 |
-
-グローバルツール:
-
-|ツール |説明書 |
-|------|------|
-| `Park.html.parse(text)` |標準の `Document` を返します。`querySelector` | を使用できます。
-| `Park.html.text(node)` / `unescape(s)` / `strip(html)` |テキスト処理 |
-| `Park.crypto.md5Hex(text \| text[])` | MD5、バッチ計算のために配列を渡すことができます |
-| `Park.crypto.sha256Hex` / `hmacSha256Hex(key, text)` / `aesEcbDecrypt(base64, key)` / `uuid()` |ネイティブ実装、高速 |
-| `Park.utils.rateLimiter(ms)` | `wait()` を返し、2 つのリクエスト間の最小間隔を保証します。
-| `Park.utils.mapLimit(items, n, fn)` / `lruMap(n)` / `parseCount('1.2万')` / `formatDate(ts)` |その他の一般的に使用されるツール |
-| `Park.error(code, message)` |エラー コード付きのエラーがスローされます。以下を参照してください。
-
-### `http.request(opts)`
-
-```js
-await this.http.request({
-  url, method: 'GET', headers: {}, params: { q: 'x' },   // params は URL に連結されます
-  json: {...} | form: {...} | body: 'raw',
-  timeout: 15000,
-  responseType: 'text' | 'base64',
-});
-// → { status, headers, body, url, ok, json() }
-```
-
-`text()` / `json()` は非 2xx レスポンスで自動的にエラーを投げます（404 → `NOT_FOUND`）。Cookie は自動保存され、リダイレクト先のアドレスごとに選び直されます。異なるオリジンへのリダイレクトでは元の認証ヘッダーを送信しません。リクエスト本文を保持したまま異なるオリジンへ転送するリダイレクトは拒否します。
-
-## データ構造
-
-**リストページ** (戻り値 `feed` / `search`)
-
-```js
-{
-  items: [WorkItem], page: 1, totalPages: 20, total: 500,
-  hasNext: true,
-  cursor: '12345',        // オプション: カーソルでページをめくるサイト (E-Hentai など) は次のページ カーソルを返し、アプリは次回リクエストを行うときにそれをそのまま返します。
-}
-// sections を返すと、応答に基づいてアプリがセクション表示を選択します。
-{ sections: [{ title: 'Latest chapters', items: [WorkItem] }], hasNext: false }
-```
-
-**作業項目**: `{ id, title, subtitle?, cover, coverAspect?, pages?, rating?, likes?, views?, language?, category?, badge?, badgeColor?, duration?, uploaded?, tags? }`
-
-- `coverAspect` (幅 / 高さ) は、ジャンプを避けるために画像が読み込まれる前にグリッド レイアウトを作成します。
-- `badgeColor` カテゴリ ラベルに使用される色 (例: E-Hentai 各カテゴリの従来の配色)。
-
-**詳細** (`detail`): WorkItem のすべてのフィールド。さらに次のものが含まれます。
-
-```js
-{
-  url, authors: [], description, uploader?, size?, comments?,
-  tags: [{ namespace: 'artist', label: 'Author', tags: [{ name, keyword, filters?, count? }] }],
-  chapters: [{ id, title }] | null,   // null は単一の章を表します
-  singleChapterId?,                   // 単一章作品に必要な章ID (例: Bika の場合は「1」)
-  thumbnails?: [url | {url, width, height, offsetX, offsetY}],   // スプライト画像をサポート
-  related?: [WorkItem], series?: [WorkItem],
-}
-```
-
-タグをクリックすると、アプリはソース内で `keyword` と `filters` を検索するため、タグをサイトのネイティブ構文 (例: `artist:"xxx"`) またはフィルター パラメーター (例: Hanime1/`tags[]`)。
-
-**章** (`chapter`)
-
-```js
-{ pages: [
-  { url, headers?, fallbacks?: [url], width?, height?, transform? },  // 住所がわかっている
-  { token: '12' },                                                      // 遅延解決: アプリはresolveImageを呼び出します
-]}
-```
-
-- `fallbacks`: バックアップ ミラー。プライマリ アドレスに障害が発生したときに順番に試行します。
-- `transform: { type: 'unscramble-strips', segments: N }`: 画像が水平方向に N 個のストリップにカットされ、逆の順序で保存されると (JMComic)、アプリは GPU 上でネイティブに復元されます。ダウンロードしたオフライン ファイルは元の画像を保存し、表示時に復元します。
-- `resolveImage` は `{ url, headers?, width?, height?, cacheKey? }` を返します。失敗すると、アプリは `retry` を増分して再度呼び出します。ソースはこれを使用してサーバー (`nl` パラメーター) を変更できます。 E-Hentai）。
-
-**ビデオ** (`videos`): `[{ quality: 1080, label: '1080P', url, headers?, format?, preferred? }]`。通常、ビデオの直接リンクには時間制限があり、アプリは再生/ダウンロードする前に毎回リンクを再取得します。
-
-- ビデオソースは `detail(id).chapters` に再生順の `[{id, title}]` を返します。各 `id` は安定した識別子とし、画質名や一時的なメディア URL を使わないでください。ホストは同じ ID で選択、個別進捗、ダウンロード、再開を管理し、`videos(id, episodeId = '_')` でそのエピソードのリソースを取得します。単一ビデオには `singleChapterId` を使い、省略時は `'_'` とします。
-- `format` を省略すると、直接 MP4 を再生・ダウンロードする経路を使います。HLS は `format: 'hls'` を明示し、manifest に下記の `media` 権限を宣言する必要があります。
-- HLS マスター再生リスト（`#EXT-X-STREAM-INF`）は、まずホストが各画質の独立したセグメント再生リストに展開し、`RESOLUTION` から実際の画質を取得してプレーヤーやダウンローダーに渡します。マスターを返す場合、`quality` は希望画質を示し、それ以下で利用できる最高画質を既定で選びます。該当しなければ最も高い画質を選びます。各バリアントは音声と映像を多重化した MPEG-TS である必要があります。別ストリームの `AUDIO`、`VIDEO`、`SUBTITLES` renditions と `media.domains` 外の URL は拒否します。 任意の `#EXT-X-I-FRAME-STREAM-INF` 早送りプレビュートラックは無視され、アドレスは登録も取得もされません。単一メディアプレイリストの解像度が不明な場合は `label: '原画'` を指定します。ラベルは画面の言語に翻訳され、希望画質を実際の解像度として表示しません。
-- 展開後の HLS は `#EXT-X-ENDLIST` を含む完全で連続した MPEG-TS VOD のみ対応します。`METHOD=AES-128` と `KEYFORMAT=identity`（省略時も identity）の CBC/PKCS7 復号に対応し、鍵は正確に 16 バイト、IV は明示的な 128 ビット値またはセグメントのメディアシーケンスから導出します。鍵はセッションのメモリだけに保持し、復号した TS を再生・ダウンロード共通の処理で検証します。ライブ、SAMPLE-AES、他の KEYFORMAT、`EXT-X-MAP`、`EXT-X-BYTERANGE`、fMP4、discontinuity、gap は未対応です。MissAV の非標準 `#EXT-X-TOKEN` は削除します。
-- 再生には `127.0.0.1` のみにバインドしたランダムなポートとトークンを使い、有限の URL 登録表から検証済みセグメントを必要に応じて取得します。セッション終了時にリクエストをキャンセルします。HLS のオフラインダウンロードは現在 Android のみ対応し、各セグメントを検証して SHA-256 を保存し、再開時に再検証します。キャンセルにも対応し、最後に端末上の Media3 で MP4 に再多重化して、完成したファイルのみをオフラインライブラリに公開します。iOS/macOS の HLS 再生は今回検証していないため、検証済みとは表記できません。
-
-## オプションの定義
-
-`feeds[].options`、`searchFilters`、`settings` は同じ形式を使用します。
-
-```js
-{ key: 'sort', label: 'Sort', type: 'select', default: 'date',
-  values: [{ value: 'date', label: 'Latest' }, { value: 'popular', label: 'Popular', color: '#f00' }] }
-// type: select（単一選択）| multi（複数選択）| number | text | password | switch
-// settings では values の代わりに options を使うこともできます。
-```
-
-`feeds` の各項目は、ソース ページ `{ key, label, options?: [...] }` のタブです。
-
-`defaultFeed` 元のページを開いたときにデフォルトで入るタブを指定します。該当するキーが未入力または見つからない場合は、アプリがおすすめ > ランキング > 人気の順でキーに応じて自動的に選択します (キーには `promote` / `recommend` / `featured` が含まれます)。 `rank` / `toplist`、次に `popular` / `hot` / `trending`)、そうでない場合は最初の文字列を入力しますラベル。
-
-## ネットワーク
-
-- `network.mode: 'native'` (デフォルト): 永続的な Cookie を使用するネイティブ HTTP リクエストは、ユーザーが設定したプロキシを通過できます。 Cloudflare クエリが検出された場合、`CLOUDFLARE` がスローされます。このアプリは、ユーザーが組み込みブラウザで検証を完了し、共通 Cookie をネイティブ リクエストに同期するようにガイドします。
-- `network.mode: 'browser'` + `network.origin`: リクエストは、`origin` で開かれた非表示のブラウザ ページで、発信元 `fetch()` を使用して、実際のブラウザのフィンガープリントを使用して行われました。より厳重に保護されている Cloudflare サイトに適用されます (例: Hanime1)。 同一オリジンの GET が Cloudflare 認証ページを返した場合、非表示ブラウザでその文書を開いて自動認証を行い、元のリクエストを一度だけ再試行します。認証に失敗すると `CLOUDFLARE` を返し、既存の手動認証フローに進みます。
-
-## メディア権限（HLS）
-
-`media` 権限は `this.http`、`network`、サイトの Cookie 同期と独立し、どちらの転送方式も同じドメイン規則を使います。
+`media` 権限は `this.http`、`network`、サイトの Cookie から独立しています。
 
 ```js
 domains: ['example.com'],
@@ -209,65 +171,301 @@ network: { mode: 'native' },
 media: { mode: 'native', origin: 'https://example.com', domains: ['media.example.com'] },
 ```
 
-- `media.mode` は `'native'` と `'browser'` に対応します。両方とも `media.origin` はソースが宣言したサイトに属し、HTTPS の既定ポート 443 を使い、URL の認証情報、クエリ、フラグメントを含めてはいけません。
-- `media.domains` はサブドメインを含む独立したメディア許可リストで、サイト Cookie の権限を与えません。再生リスト、セグメント、鍵は HTTPS 443 のみ許可し、URL 認証情報、フラグメント、IP アドレス、localhost（サブドメイン含む）、`.local` を拒否します。
-- `media.mode: 'native'` は独立した認証情報なしのネイティブクライアントを使い、サイト Cookie、Authorization、プロキシ認証を送信しません。リダイレクトは各転送先を許可リストで検証してから追跡します。許可するヘッダーは `Referer`、`Origin`、`Accept`、`Accept-Language` のみで、前の二つは `media.origin` に一致する必要があります。
-- `media.mode: 'browser'` は `media.origin` の非表示ブラウザでセッションを開き、`credentials: 'omit'`、`mode: 'cors'`、`redirect: 'error'` を使います。CDN の CORS 規則に従い、リダイレクトしません。
-- ストリーミング中に応答サイズを制限し、応答 URL を再検証します。再生リストは 2 MiB、セグメントは 32 MiB が上限で、AES-128 鍵は正確に 16 バイトです。超過、空の応答、許可外 URL を拒否し、ソース `domains` と Cookie 付き `network` の規則は独立したままです。
+- `media.mode` は `'native'` か `'browser'`。`media.origin` はプラグインの所属サイトに含まれ、HTTPS の既定ポート 443 を使い、認証情報・クエリ・フラグメントを含めません。
+- `media.domains` はメディア専用の許可ドメイン一覧（サブドメインを含む）で、サイトの Cookie 権限は与えません。プレイリスト、セグメント、鍵は HTTPS 443 のみで、URL 内の認証情報、フラグメント、IP、localhost（サブドメインを含む）、`.local` は拒否します。
+- `'native'` は認証情報を持たない別のネイティブクライアントを使い、サイトの Cookie、Authorization、プロキシ認証を読み書きしません。リダイレクトは 1 ホップごとに先に確認します。使えるヘッダーは `Referer`、`Origin`、`Accept`、`Accept-Language` のみで、前の 2 つは `media.origin` と一致する必要があります。
+- `'browser'` は `media.origin` の隠しブラウザでメディアセッションを作り、`credentials: 'omit'`、`mode: 'cors'`、`redirect: 'error'` を使います。
+- 応答はストリーミング中にサイズを制限し、最終アドレスを再確認します。プレイリスト最大 2 MiB、セグメント最大 32 MiB、AES-128 の鍵はちょうど 16 バイト。超過、空の応答、許可されないアドレスはすべて拒否します。
 
-## 分離とセキュリティ
+### 分離とセキュリティ
 
-- 各ソースは **独立した** JS 環境で実行され (それぞれにインターフェイスのない WebView があります)、ソースは互いのグローバル オブジェクトを認識できません。ネイティブ ブリッジは、呼び出しがどの環境から来たのかを認識するだけであり、スクリプトは他のソースになりすますことはできません。
-- 各ソースには独立した Cookie jar があります。ソースによって発行されたリクエストは、独自の Cookie を取得および保存するだけであり、他のソースのログイン ステータスは読み取りません。
-- Secure Cookie は HTTP では送信しません。検証ページの表示とブラウザ Cookie の取り込みは、インストール済みソースの `domains` に照らして検証し、取得できる安全属性と有効期限を保持します。Cookie の消去やソースの削除では、該当ブラウザセッションを閉じ、そのサイトのブラウザ Cookie も消去します。ブラウザのサイト Cookie はシステムで共有されるため、同じサイトを宣言するソースも消去の影響を受けます。
-- `domains` はソースが属するサイトを宣言します (ドメイン名を登録可能、サブドメイン名は自動的に含まれます)。これらのサイトからの Cookie のみが組み込みブラウザ (Cloudflare 認証、Web ログインで共有) に同期され、ブラウザ モードの `network.origin` もこれらのサイトに属している必要があります。省略した場合は、`homepage`、`network.origin`、`account.cookieUrl/loginUrl`から推測します。
-- ウェブサイトや倉庫からソースをインストールする場合、アプリはまずインターネットに接続できないサンドボックス内のスクリプト情報を読み取り、名前、バージョン、SHA-256、宣言されたサイト、およびリスク警告をユーザーに表示し、確認後にインストールします。ソース ウェアハウスの `index.json` エントリには `sha256` フィールドを含めることができ、ダウンロード コンテンツが一致しない場合、インストールは拒否されます。
+- 各プラグインは **独立した** JS 環境（それぞれ専用のヘッドレス WebView）で動き、互いのグローバルは見えません。ネイティブブリッジは呼び出し元の環境を識別するため、別のプラグインになりすませません。
+- 各プラグインは **独立した Cookie 保管場所** を持ち、リクエストは自分の Cookie だけを送り、保存します。
+- Secure Cookie は HTTP では送りません。認証ページを開くときやブラウザ Cookie の取り込みは、インストール済みプラグインの `domains` で確認し、取得できるセキュリティ属性と有効期限を保持します。サイトの Cookie を消去するかアンインストールすると、対応するブラウザセッションを閉じ、そのサイトのブラウザ Cookie も消去します。ブラウザのサイト Cookie はシステムで共有されるため、同じサイトを宣言したプラグインも影響を受けます。
+- `domains` はプラグインの所属サイト（登録可能ドメイン、サブドメインを含む）を宣言します。これらのサイトの Cookie だけが内蔵ブラウザと同期され（Cloudflare 認証とウェブログインで共用）、ブラウザモードの `network.origin` もこれらに属する必要があります。省略時は `homepage`、`network.origin`、`account.cookieUrl/loginUrl` から推定します。
+- 異なるオリジンへのリダイレクトでは元のオリジンの認証ヘッダーを送りません。リクエスト本文を伴う異なるオリジンへのリダイレクトは拒否します。TLS 証明書の検証は常に有効です。
+- URL やリポジトリからインストールするとき、アプリはまずネットワークのないサンドボックスでスクリプト情報を読み、名前、バージョン、SHA-256、宣言サイト、リスクを表示し、ユーザーが確認してからインストールします。
 
-## アカウント
+### アカウント
 
 ```js
 account: {
-  type: 'password' | 'cookies',
+  type: 'password' | 'cookies' | 'session',
   title, hint, required: false,
-  fields: [{ key: 'email', label: 'Email' }, { key: 'password', label: 'Password', secret: true }],
-  loginUrl?, cookieUrl?, requiredCookies?: ['ipb_member_id'],   // 提供後、Web ページにログインすると、アプリが自動的に Cookie を取得します。
+  fields: [{ key: 'email', label: '邮箱' }, { key: 'password', label: '密码', secret: true }],
+  loginUrl?, cookieUrl?, requiredCookies?: ['ipb_member_id'],   // ウェブでログインでき、アプリが Cookie を取得
+  loginDomains?: ['accounts.google.com', 'appleid.apple.com'],  // 外部ログインのドメイン（ログイン時の遷移のみ）
   async login(values) { return { name } },
   async logout() {},
   async status() { return { loggedIn, name, configured } },
-  managedAccount: true,                 // オプション: 専用の自動メンテナンス アカウントを提供します
-  async enableManaged() {},             // ユーザーが登録を確認した後にのみ呼び出されます
+  managedAccount: true,                 // 任意：自動管理の専用アカウントを提供
+  async enableManaged() {},             // ユーザーが登録に同意した後だけ呼ばれる
 }
 ```
 
-`configured` は、現在のログインが成功したかどうかに関係なく、アカウントが構成されていることを示します。 `managedAccount: true` は、ソースが専用の自動メンテナンス アカウントをサポートしていることを宣言します。ソース設定では、同じ名前の `managedAccount` スイッチが使用されます。ホストは、有効化設定を保存して `account.enableManaged()` を呼び出す前に、最初に自動登録手順を表示し、ユーザーの確認を取得する必要があります。失敗またはアプリケーションの再起動後に同じアカウントを確実に復元できるように、候補資格情報を保存し、登録前に `await this.store.flush()` を使用する必要があります。
+- アカウントの状態は、初回使用時、ログイン・ログアウト・ウェブログインの後、前回の確認から 10 分を過ぎたときだけ更新し、呼び出しのたびには確認しません。`configured` はアカウントが設定済みであることを示し、現在ログインできているかとは別です。
+- `loginDomains`：サイトが実際に使う外部ログインのドメイン（サブドメインを含む）。ユーザーがウェブログインページを開いている間だけ、HTTPS 443 への遷移を許可し、URL 内の認証情報、IP、localhost、`.local` は拒否します。認証ページ、アクセス確認、プラグインのリクエスト、Cookie の取り込みは引き続き `domains` で確認するため、外部ログインのドメインを `domains` に加えて権限を広げてはいけません。ログインページは同じウィンドウでの遷移と `window.opener` を保つポップアップに対応し、ポップアップ内も同じ確認を行い、空白の初期ページは外部遷移を許可しません。外部ページにいる間はログイン完了とみなさず、サイトに戻ってから Cookie を同期します。外部の Cookie はプラグインの保管場所に取り込まず、サイトの Cookie 消去でも消えません。システムの WebView が管理します。外部サービスが組み込みブラウザでのログインを制限する場合もあります。
+- `type: 'session'` は既存の認証セッションを取り込みます。秘密のフィールド（例：`session`）を 1 つ宣言し、クリップボードの内容をそのまま保持してプラグインが検証します。ユーザー名・パスワード・Cookie に分割しません。ログインは実際の認可を確認する必要があり、入力形式だけで成功と報告してはいけません。
+- `managedAccount: true` は自動管理の専用アカウントを提供することを宣言し、サイト設定の同名スイッチで制御します。アプリはまず自動登録の説明を表示して同意を得てから設定を保存し、`account.enableManaged()` を呼びます。登録前に候補の認証情報を保存して `await this.store.flush()` し、失敗や再起動後も同じアカウントを復元できるようにします。手動の認証情報と専用アカウントは分けて保存し、専用アカウントが手動アカウントを上書きすることはありません。スイッチをオフにしても専用アカウントは残り、再びオンにすると再利用します。トークンの期限切れでは再ログインだけを行い、登録し直しません。
+- パスワード、トークン、プラグインの状態はユーザーの端末上のデータです。文書やログに実際の認証情報を書かないでください。
 
-PicACG の例では、手動資格情報と専用アカウントを個別に保存します。既存の手動アカウントを専用アカウントで上書きしてはなりません。専用アカウントを保持するにはスイッチをオフにし、再利用するにはオンに戻します。トークンの有効期限が切れた場合は、再度ログインすることのみが可能であり、再登録はできません。登録が失敗するか、応答が失われた後は、冗長なアカウントの作成を避けるために、元の候補アカウントを再試行してください。アカウントのパスワード、トークン、およびソースのステータスはすべてユーザーのローカル データです。実際の認証情報をドキュメントやログに出力しないでください。
+## メソッド
 
-## 国際化
+メソッド内の `this` は「ランタイム API」を参照してください。すべてのメソッドは `async` にできます。
 
-アプリケーション インターフェイスのサポート `zh-Hans`、`zh-Hant`、`ja`、`ko`、 `en`、`es`、`ru`、`ar`。マテリアル、クパチーノ、およびシステム コントロールは対応する言語を使用します。アラビア語のインターフェイスは右から左に進みます。インターフェイス言語設定はすぐに有効になり、永続的に保存されます。デフォルトではシステムに従います。中国語の文字と地域によって、簡体字中国語と繁体字中国語のどちらを使用するかが決まります。
+```js
+async feed(key, { page, cursor, options }) {}      // サイトページのタブ
+async search({ keyword, page, cursor, filters }) {}
+async random() {}                                  // 作品 ID を返す
+async detail(id, preview) {}
+async chapter(id, chapterId) {}                    // 漫画、ギャラリー
+async resolveImage({ id, chapterId, index, token, retry }) {}  // 任意：画像の遅延解決
+async thumbnails(id, page) {}                      // 任意：プレビューサムネイルのページ読み込み
+async videos(id, episodeId = '_') {}               // 動画
+async textChapter(id, chapterId) {}                // 小説
+async gameResources(workId) {}                     // ゲーム
+async resolveGameResource(workId, resourceId, channelId) {}
+```
 
-Flutter インターフェイスは一律に `tr('已选 {count}', {'count': count})` または `context.tr` を呼び出します。メッセージの元の中国語テキストがリソース キーとして使用され、パラメータは `{name}` で、8 か国語のリソースは次の場所にあります。 `assets/i18n/`。表示されているコピーを追加または変更する場合、すべてのリソースを同時に更新し、プレースホルダーが一貫している必要があります。プラグインの静的名、説明、参照ラベル、オプション、およびエラー プロンプトは、アプリケーションの表示時にリソース マップされます。リモート作業のタイトル、作成者、タグ、ユーザー入力、および永続化プロトコル キーは元のテキストのままです。
+### 一覧：`feed` / `search`
+
+```js
+{
+  items: [WorkItem], page: 1, totalPages: 20, total: 500,
+  hasNext: true,
+  cursor: '12345',        // 任意：カーソル方式のサイトは次のカーソルを返し、アプリはそのまま返す
+}
+// またはセクションを返し、セクション表示にする：
+{ sections: [{ title: '连载更新', items: [WorkItem] }], hasNext: false }
+```
+
+**WorkItem**：`{ id, title, subtitle?, cover, coverAspect?, pages?, rating?, likes?, views?, language?, category?, badge?, badgeColor?, duration?, uploaded?, tags?, mediaKind? }`
+
+- `coverAspect`（幅 / 高さ）があると画像の読み込み前にグリッドを配置できます。
+- `badgeColor` は分類バッジの色です。
+- `mediaKind: 'comic' | 'video' | 'novel' | 'game'` は作品自体の種類です。種類が 1 つのプラグインは省略できますが、混在するプラグインは必ず指定し、プラグインの `type` だけで画像を動画として扱ってはいけません。小説とゲームの作品は常に指定し、プラグインをアンインストールしてもオフライン作品と履歴が正しいリーダーで開くようにします。
+- 投稿形式の結果は `presentation: 'post'`、`text`、`date`、`url` と `media` 配列を持て、投稿カードとして表示されます。`presentation: 'media'` はメディアのグリッドで表示し、タップで作品内のメディアを開きます。投稿にメディアがなくてもかまいません。メディアのアドレスはプラグインが宣言したドメインと権限に従います。
+
+### 詳細：`detail`
+
+WorkItem の全フィールドに加えて：
+
+```js
+{
+  url, authors: [], description, uploader?, size?, comments?,
+  tags: [{ namespace: 'artist', label: '作者', tags: [{ name, keyword, filters?, count? }] }],
+  chapters: [{ id, title }] | null,   // null は単一章
+  singleChapterId?,                   // 単一章の作品に必要な章 ID
+  thumbnails?: [url | { url, width, height, offsetX, offsetY }],   // スプライトに対応
+  related?: [WorkItem], series?: [WorkItem],
+}
+```
+
+- タグをタップすると、このサイトで `keyword` と `filters` を使って検索します。タグをサイト独自の構文（例：`artist:"xxx"`）やフィルターのパラメータに対応付けられます。
+- 2 番目の引数 `preview` は任意で、`preview.source` と `preview.id` が一致する場合だけ、表示済み・保存済みの公開メタデータが渡されます。プラグインは ID を確認し URL を検証する必要があります。ID を入力して開いた場合は preview がなく、タイトルや表紙が不完全なことがあります。
+
+### 章：`chapter` / `resolveImage` / `thumbnails`
+
+```js
+{ pages: [
+  { url, headers?, fallbacks?: [url], width?, height?, transform? },  // アドレスが分かっている
+  { token: '12' },                                                      // 遅延解決：アプリが resolveImage を呼ぶ
+]}
+```
+
+- `fallbacks`：予備のミラー。主アドレスが失敗すると順に試します。
+- `transform: { type: 'unscramble-strips', segments: N }`：画像が N 本の帯に切られ逆順で保存されている場合に GPU で復元します。オフラインファイルは元画像を保存し、表示時に復元します。
+- `resolveImage` は `{ url, headers?, width?, height?, cacheKey? }` を返します。失敗するとアプリは `retry` を増やして再度呼ぶので、プラグインはサーバーを切り替えられます。
+- `thumbnails(id, page)` は `{ thumbnails: [...], hasNext }` を返します。
+
+### 動画：`videos`
+
+`[{ quality: 1080, label: '1080P', url, headers?, format?, preferred? }]` を返します。直接リンクは通常期限があるため、アプリは再生やダウンロードのたびに取得し直します。
+
+- 複数話の動画は `detail(id).chapters` で再生順の `[{ id, title }]` を返します。各 `id` は安定している必要があり、画質や一時的なメディア URL で代用してはいけません。アプリは同じ ID でエピソード選択、進捗の保存、ダウンロード、続きからの再生を行い、`videos(id, episodeId)` でその話のリソースを取得します。単話は `singleChapterId`、なければ `'_'` です。
+- `format` を省略すると MP4 の直接リンクとして再生・ダウンロードします。HLS は `format: 'hls'` を返し、`media` 権限を宣言する必要があります。
+- HLS のマスタープレイリスト（`#EXT-X-STREAM-INF`）はアプリがバリアントごとのプレイリストに展開し、`RESOLUTION` から実際の画質を得ます。マスターを返す場合、`quality` は希望画質で、それ以下で最高の実画質を選び、該当がなければ最高画質を選びます。各バリアントは音声と映像を多重化した MPEG-TS である必要があり、独立した `AUDIO`、`VIDEO`、`SUBTITLES` や `media.domains` 外のアドレスは拒否します。`#EXT-X-I-FRAME-STREAM-INF` は無視します。単一のプレイリストで解像度が分からない場合は `label: '原画'` とし、希望画質を実際の解像度として示さないでください。
+- `#EXT-X-ENDLIST` のある完全で連続した MPEG-TS の VOD プレイリストだけに対応します。`METHOD=AES-128`、`KEYFORMAT=identity` の CBC/PKCS7 を復号し、鍵はちょうど 16 バイト、IV は明示されたものかメディアシーケンスから導出したものです。鍵はセッション中のメモリだけに置きます。ライブ、SAMPLE-AES、ほかの KEYFORMAT、`EXT-X-MAP`、`EXT-X-BYTERANGE`、fMP4、discontinuity、gap には対応せず、非標準の `#EXT-X-TOKEN` は取り除きます。
+- 再生時は `127.0.0.1` だけにバインドしたランダムなポートとランダムなトークンを使い、限定された URL 登録から検証済みのセグメントを必要に応じて読み出します。セッションを閉じるとリクエストは取り消されます。HLS のオフラインダウンロードは現在 Android のみで、セグメントごとに検証して SHA-256 を保存し、再開と取り消しができ、最後に Media3 で MP4 にまとめます。完全なファイルだけがオフラインライブラリに入ります。
+
+### 小説：`textChapter`
+
+小説プラグインは `type: 'novel', category: 'novel'` を宣言し、`textChapter` を実装すると `capabilities.textChapter: true` が出力されます。一覧と詳細では `mediaKind: 'novel'` と `language: 'zh'` または `'en'` を指定します。本物の表紙がなければ `cover: ''` を返し、アプリは架空の画像を要求せずに文字の表紙を表示します。
+
+```js
+async textChapter(id, chapterId) {
+  // その章の本文全体を返す。paragraphs は空でない文字列の配列で、HTML を含めない。
+  return { title: '章节标题', paragraphs: ['第一段正文。', '第二段正文。'] };
+}
+```
+
+- 複数章の小説は `detail.chapters` で安定した ID とサイトで確認できる読む順序を返します。単編は `chapters: null` と任意の `singleChapterId` を使います。
+- 章内のページ分割はプラグインが順に結合し、次の章、掲示板の返信、広告、おすすめ作品を本文に含めてはいけません。`Park.html.paragraphs(node)` は汎用的なテキスト抽出を提供しますが、サイトの境界とページ分割はプラグインが決めます。
+- ログイン、課金、権限で本文が切り詰められる場合は `LOGIN_REQUIRED` を投げ、プレビューを完全な章と偽ってはいけません。
+- アプリは章ごとに `text.json` をアトミックに書き込み、完全に書き込めた場合だけダウンロード完了とします。読書の進捗とメモは `paragraphs.join('\n\n')` の UTF-16 の位置を使い、文字サイズ、フォント、字下げなどの表示設定は本文や保存位置を変えません。しおりとメモはダウンロードとは別に保存され、バックアップに含まれ、ダウンロードを削除しても残ります。
+
+### ゲーム：`gameResources` / `resolveGameResource`
+
+ゲームプラグインは `type: 'game', category: 'game'` を宣言し、作品は `mediaKind: 'game'` を指定して架空の `chapters` を持ちません。ランタイムはメソッドから `capabilities.gameResources` と `capabilities.resolveGameResource` を出力します。
+
+```js
+async gameResources(workId) {
+  return [{ id: 'resource-id', title: '', version: '1.2', size: '2 GB',
+    platforms: ['Windows'], languages: ['SimplifiedChinese'], notes: '原站备注',
+    status: 'valid', testStatus: 'untested',
+    channels: [{ id: 'stable-channel-id', kind: 'direct', label: 'game.zip', size: '2 GB' }] }];
+}
+async resolveGameResource(workId, resourceId, channelId) {
+  return { kind: 'direct', url: 'https://files.example/game.zip?temporary-signature',
+    filename: 'game.zip', extractionCode: '', archivePassword: '' };
+  // クラウドストレージは kind: 'external'、urls: [すべての予備・分割リンク]、url: urls[0] を返す。
+}
+```
+
+- `gameResources` は安定した ID、メタデータ、チャンネルだけを返し、署名付き URL、パスワード、架空のダウンロード状態を含めてはいけません。`testStatus` は `tested | untested | unknown` で、サイトの表示をそのまま写したものです。`status: 'expired'` のチャンネルは無効になります。
+- `resolveGameResource` はユーザーのタップか再試行のときだけ呼ばれ、返す URL は保存もログもされません。パスワードはローカルのダウンロードタスクと一緒に保存できますが、診断には書きません。複数のクラウドリンクを捨ててはいけません。複数返す場合は `urls` と同じ長さの `extractionCodes`（空文字は取得コードなし）を、共通のコードには `extractionCode` を使えます。
+- 返信が必要なチャンネルは `requiresReply: true, replyText: '実際の返信内容'` を宣言し、アプリは「返信してリンクを解除」と送信する文面を表示し、ユーザーの確認後にだけ呼びます。プラグインは解決前に最初の投稿を確認し直し、解除済みなら読むだけにします。ユーザーのタップ時に 1 回だけ送信し、送信前にアカウントとスレッドの状態を確実に保存します。結果が不明、繰り返しの試行、動的な認証が必要な場合は、元の投稿の URL とともに `CONFIRM_REQUIRED` を返し、自動で再送してはいけません。一覧、詳細、先読み、バックグラウンド更新では返信しません。
+- 直接リンクは `media: { mode: 'native', origin, domains }` を宣言します。ファイルは Cookie を持たない別のクライアントでストリーミング保存し、HTTPS、ホップごとのドメイン確認、長さの確認、取り消し時の後片付け、完成ファイルの保護はフレームワークが担います。中断からの再開はなく、再試行するとアドレスを解決し直して最初からダウンロードします。クラウドストレージは外部アプリで開き、HTTP(S)、FTP(S)、magnet、ed2k、thunder だけを許可し、サイトの Cookie は使いません。ゲームは章、読書の進捗、章の更新を作らず、アプリがファイルを自動でインストール、展開、実行することはありません。
+
+### 購読：`subscription`
+
+チャンネルやクリエイターを購読するプラグインは `subscription` オブジェクトを宣言します。`normalize` と `posts` が両方あるとランタイムは `capabilities.subscription` を出力し、「見つける → 購読」に表示されます。`feeds` も宣言したプラグインは通常の分類にも表示されます。
+
+```js
+subscription: {
+  hint: '无需登录即可保存订阅；媒体访问取决于原站权限。',
+  normalize(input) { return { id: validatedTarget, label: displayName }; },
+  async resolve(input) { return { id: validatedTarget, label: displayName }; },
+  async targets() { return [{ id: joinedChannelId, label: channelName }]; },
+  async posts(target, { cursor }) {
+    return { items: [{ id, title, text, date, url, locked,
+      media: [{ type: 'image', url, preview, previewOnly: false },
+              { type: 'video', url, preview, format: 'mp4', headers: {} }] }],
+      cursor: nextCursor, hasNext: true };
+  },
+  async mediaChunk(resource, offset) { return { base64, done }; }, // 任意
+}
+```
+
+- `normalize` は端末内だけで検証し、未ログインやオフラインでも対象を保存できるようにします。このサイトのユーザー名か管理されたプロフィール URL だけを受け付けます。`resolve` と `targets` は任意で、`targets` があると manifest は `subscription.joinedTargets: true` を出力します。
+- `posts` のカーソルは不透明な文字列で、最終ページは `hasNext: false`、メディアのないページでもページングを続けられます。`locked` は権限不足、`previewOnly` は公開プレビューであることを示します。サムネイルを全文と偽ってはいけません。
+- 直接リンクを出せない認可済みの添付ファイルは `media[].resource` を使い、`mediaChunk(resource, offset)` を実装します。1 回最大 128 KiB、offset は 128 KiB 単位で、resource には整数の `size` と、認証情報や一時的な参照で変わらない安定した非秘密の文字列 `cacheKey` が必要です。フレームワークは全体サイズと各チャンクを確認し、自分のキャッシュパスにアトミックに書き込みます。1 つの添付は最大 512 MiB で、resource がローカルパスを決めることはできません。署名付きリンクと resource は購読記録に保存しません。
+- 購読の保存で自動的にフォローや参加をすることはありません。検証していない書き込み操作は元のサイトでの手動操作に誘導し、黙ってフォロー、参加、支払いをしてはいけません。
+
+### 更新の購読：`updateSubscriptions`
+
+通常のプラグインは独立した `updateSubscriptions` オブジェクトで「更新を追う」に対応できます。ランタイムは `check` がある場合だけ `capabilities.subscriptionUpdates` を出力し、作品の分類や前述の `capabilities.subscription` には影響しません。メタデータは `dimensions: [{ key, label, hint }]` を含み、タグメニューから元のキーワードとフィルターを渡せます。
+
+- `normalize(dimension, input)` は `{ id, label }` を、`check({ dimension, target }, { cursor })` は `{ items, hasNext, cursor }` を返します。各項目は `{ id, title, kind, workId, chapterId }` で、`kind` は `work | post | chapter` のみ、ID は安定していて空でなく、メディア URL、Cookie、認証情報を含めません。章 ID には作品の識別も含め、別の作品の「第 1 話」が衝突しないようにします。
+- `Park.enableUpdateSubscriptions(Park.__pending, rules)` が汎用の対応を提供し、ルールはスクリプトの末尾で明示的に宣言し、`searchFilters`、`seriesPattern` を指定できます。`work` は実際の章一覧、`posts` は既存のチャンネル API、`search` と `filter` は検索を使い、`code` は品番に完全一致、`series` はサイトのドメインで検証したシリーズパスを使います。検索のカーソルはページ番号とサイトのカーソルの両方を保存します。
+- 検索と投稿の確認は `windowed: true` を返し、最新 3 ページの範囲を確認します。初回は基準を記録するだけで、以降は安定した ID で「新しく見つかった」イベントを出し、公開日時を知っているとは主張しません。ほかのページ方式は 1 回最大 3 ページで、カーソルと候補を保存し、完了したらトランザクションで確定します。章一覧は切り詰めず、候補の上限は 20,000 件（超えるとエラー）です。ネットワーク、権限、認証ページ、空の一覧、不完全な解析では明確なエラーを投げ、空の成功で隠してはいけません。
+- フォアグラウンドとバックグラウンドはプラグインのランタイム、Cookie の区画、ドメイン制約、確認処理を共有します。バックグラウンドは関係するプラグインだけを起動し、ログイン、サイトでの購読、メディアのダウンロード、権限の回避は行いません。アカウントやプラグインの設定が変わると基準を作り直します（トークンの更新は含みません）。
+
+## ランタイム API
+
+メソッド内では `this` で次を使えます。
+
+| メンバー | 説明 |
+| --- | --- |
+| `this.http` | `request(opts)`、`get(url, opts)`、`post(url, opts)`、`text(url, opts)`、`json(url, opts)` |
+| `this.config` | ユーザーがサイト設定で選んだ値（未設定なら `default`） |
+| `this.store` | 永続的なキーと値の保存：`get(key, fallback)` / `set(key, value)`。トークンやドメイン一覧などに使い、`await flush()` で書き込みを確認（失敗すると例外） |
+| `this.cookies` | `get(url)` / `set(url, { name: value })` / `clear(url)` |
+| `this.log({ code, host, transport, reason })` | 許可されたフィールドだけを書き込み、自由なテキストは残さないので認証情報やアドレスが漏れません |
+
+グローバルなヘルパー：
+
+| ヘルパー | 説明 |
+| --- | --- |
+| `Park.html.parse(text)` | 標準の `Document` を返し、`querySelector` が使える |
+| `Park.html.text(node)` / `unescape(s)` / `strip(html)` / `paragraphs(node)` | テキスト処理 |
+| `Park.crypto.md5Hex(text \| text[])` | MD5。配列で一括計算できる |
+| `Park.crypto.sha256Hex` / `hmacSha256Hex(key, text)` / `aesEcbDecrypt(base64, key)` / `uuid()` | ネイティブ実装 |
+| `Park.crypto.digestBytes('sha1' \| 'sha256', bytes)` | 最大 2 MiB の 0〜255 の整数配列 |
+| `Park.crypto.randomBytes(length)` | 安全な乱数バイト。length は 1〜65536 |
+| `Park.utils.rateLimiter(ms)` | `wait()` を返し、リクエスト間の最小間隔を保証 |
+| `Park.utils.mapLimit(items, n, fn)` / `lruMap(n)` / `parseCount('1.2万')` / `formatDate(ts)` | その他のヘルパー |
+| `Park.error(code, message, extra?)` | エラーコード付きのエラーを作る。「エラーコード」参照 |
+
+### `http.request(opts)`
+
+```js
+await this.http.request({
+  url, method: 'GET', headers: {}, params: { q: 'x' },   // params は URL に付く
+  json: {...} | form: {...} | body: 'raw' | bodyBase64: '...',
+  timeout: 15000,
+  responseType: 'text' | 'base64',
+});
+// → { status, headers, body, url, ok, json() }
+```
+
+- `text()` / `json()` は 2xx 以外で例外を投げます（404 → `NOT_FOUND`）。Cookie は自動で保存され、リダイレクト先ごとに選び直されます。
+- `bodyBase64` はバイナリの本文（最大 2 MiB）で、`body` やブラウザモードとは併用できません。テキストのリクエストと同じドメイン分離、TLS、リダイレクトの規則に従います。プラグインが自分でブラウザ通信、WebSocket、任意のファイルアクセスを開くことはできません。
 
 ## エラーコード
 
-`throw Park.error(code, message)` を使用してエラーをスローすると、アプリはエラー コードに基づいて対応するガイダンスを提供します。
+`throw Park.error(code, message, extra)` で投げると、アプリはコードに応じて案内します。
 
-|コード |アプリの処理 |
-|------|-----------|
-| `CLOUDFLARE` | 「検証に進む」ボタン: 内蔵ブラウザを開きます |
-| `LOGIN_REQUIRED` | 「ログインに進む」ボタン: ソース設定のアカウント領域を開きます |
-| `NOT_FOUND` | 「コンテンツが存在しません」と表示 |
-| `BLOCKED` | 「アクセスが制限されています」と表示されます (IP がブロックされている、クォータが使い果たされているなど)。画像は再試行されません。
-| `NETWORK` / `HTTP` / `PARSE` | 「再試行」ボタンでエラーメッセージを表示 |
+| code | アプリの対応 |
+| --- | --- |
+| `CLOUDFLARE` | 「認証する」：内蔵ブラウザを開く |
+| `CONFIRM_REQUIRED` | 「確認する」：プラグインが宣言したアクセス確認をユーザーが終えるのを待つ（`extra.url` が確認ページ） |
+| `LOGIN_REQUIRED` | 「ログインする」：サイト設定のアカウント欄を開く |
+| `NOT_FOUND` | 「コンテンツがありません」を表示 |
+| `BLOCKED` | 「アクセス制限」を表示（IP の遮断、上限到達など）。画像は再試行しない |
+| `NETWORK` | 「ネットワークに接続できません」と理由、「再試行」を表示 |
+| `HTTP` / `PARSE` / `UNSUPPORTED` / `CONFIG` | プラグインのメッセージと「再試行」を表示 |
 
-## ソース倉庫
+### 構造化されたメッセージ
 
-リポジトリは、静的ホスティングに配置できる `index.json` です (例: GitHub raw)。ユーザーは、[ソース サイト管理] → [ソースの追加] に倉庫のアドレスを入力することで、参照、インストール、更新できます。
+`message` は **中国語のテンプレート** で、そのまま翻訳キーになります。変わる部分は文字列に連結せず `extra.params` に入れます。
+
+```js
+throw Park.error('HTTP', '站点返回 HTTP {status}', { params: { status: res.status }, status: res.status });
+throw Park.error('NOT_FOUND', '影片不存在');
+```
+
+アプリはまずプラグインの `i18n`、次にアプリ共通の語彙でテンプレートを翻訳し、`params` を差し込みます。連結した文字列は翻訳できず、中国語以外のユーザーには中国語のまま表示されます。`extra` の `status`、`url`、`diagnostics` はこれまでどおり使えます。
+
+### ホームのキャッシュとエラーの意味
+
+- `feed` のリアルタイムの結果はプラグインが返したフィールドをすべて保持します。ディスクのホームキャッシュは作品 ID、タイトル、表紙、タグ、投稿者、メディアの種類、分類、表示用の統計など許可リストのメタデータだけを保存し、`url`、認証情報、メディア一覧、投稿は書き込みません。ID、表紙のアドレス、カーソルに認証情報を入れないでください。動的なメディアや投稿の表示が必要な結果はキャッシュしません。
+- 古いキャッシュは明確な `NETWORK` / `TIMEOUT` エラーのときだけオフラインの内容として表示し、キャッシュであることを示します。ログイン、確認、人による認証、解析、設定の失敗はそれぞれのエラーを投げる必要があり、フレームワークがネットワーク障害に見せかけることはありません。ユーザーが自分で更新して失敗した場合も実際のエラーを表示します。
+
+## 多言語対応
+
+アプリの UI は `zh-Hans`、`zh-Hant`、`ja`、`ko`、`en`、`es`、`ru`、`ar`（アラビア語は右から左）に対応します。プラグイン内の人が読む静的な文言（名前、説明、タブ名、オプション、検索のヒント、アカウントの説明、エラーメッセージ）はすべて **簡体字中国語の原文** で書き、原文が翻訳キーになります。
+
+プラグインは manifest の `i18n` に自分の翻訳を持ちます。
+
+```js
+Park.register({
+  i18n: {
+    'zh-Hant': { '发行日期': '發行日期', '影片不存在': '影片不存在' },
+    'en': { '发行日期': 'Release date', '影片不存在': 'Video not found', '站点返回 HTTP {status}': 'The site returned HTTP {status}' },
+    // ja、ko、es、ru、ar も同様
+  },
+  key: 'mysite',
+  // …
+});
+```
+
+- 検索の順序：プラグインの `i18n` の現在の言語 → プラグインの `en`（簡体字中国語の UI を除く）→ アプリの共通語彙（`assets/i18n/`、例：「並べ替え」「最新」「人気」）→ 原文。
+- アプリにない、そのプラグインだけの語句だけを `i18n` に書き、共通の語句はアプリの翻訳を使います。プレースホルダー `{name}` は原文と一致させます。
+- リモートの内容（作品名、作者、タグ、紹介文）、ユーザーの入力、保存されるプロトコルのキーはそのままにし、UI の文言として翻訳しません。
+- `i18n` の変更もプラグインの変更なので、バージョンを上げる必要があります。古いプラグインのユーザーは更新するまで以前の文言を見ます。
+
+アプリ自体の UI 文言は `tr('已选 {count}', { 'count': count })` か `context.tr` で呼び、8 言語のリソースは `assets/i18n/` にあります。追加や変更のときはすべての言語を更新し、プレースホルダーを揃えてください。
+
+## 公開
+
+### リポジトリ
+
+リポジトリは 1 つの `index.json` で、任意の静的ホスティングに置けます。ユーザーは「その他 → サイト → サイトを追加」にアドレスを入力して閲覧、インストール、更新できます。
 
 ```json
 {
-  "name": "我的源仓库",
+  "name": "我的站点仓库",
   "apiVersion": 1,
   "sources": [
     {
@@ -276,112 +474,90 @@ Flutter インターフェイスは一律に `tr('已选 {count}', {'count': cou
       "version": "0.0.1",
       "description": "一句话介绍",
       "url": "https://example.com/sources/mysite.js",
-      "sha256": "脚本 UTF-8 原文的 64 位十六进制 SHA-256",
+      "sha256": "スクリプトの UTF-8 原文の 64 桁 16 進 SHA-256",
       "apiVersion": 1
     }
   ]
 }
 ```
 
-`url` はスクリプトの完全なアドレスです。 `index.json` に対して `file` を使用することもできます。サードパーティ ウェアハウスは、ユーザーの確認後に手動でインストールされます。 `sha256` はオプションです。ダウンロードしたコンテンツは提供時に検証されます。
+`url` はスクリプトの完全なアドレスで、`index.json` からの相対の `file` も使えます。サードパーティのリポジトリはユーザーの確認後に手動でインストールします。`sha256` は任意で、ある場合はダウンロード内容を検証します。
 
-公式更新では、厳密なルールが採用されています。バージョンは、ドットで区切られ、先頭のゼロのない 3 つのセグメントからなる非負の整数である必要があります (たとえば、`0.0.1`、`0.1.0`)。数値によってセグメントごとに比較されます。欠落しているセグメント、複数のセグメント、またはプレリリースのサフィックスは受け入れられません。スクリプト `sha256` の元の UTF-8 テキストは、空白のトリミングや改行の変換を行わずに提供する必要があります。スクリプトによって宣言された `key` および `version` は、インデックスと一致している必要があります。 `apiVersion` は、現在のアプリのランタイムと完全に一致する必要があります。一致しない場合はアップデートが拒否されます。まず、この API をサポートするアプリを使用する必要があります。互換性のあるブランチは提供されていません。
+### バージョンと更新の規則
 
-### アプリの公式アップデート
+- バージョンはドット区切りで先頭ゼロのない 3 つの非負整数（例：`0.0.1`）で、各部分を数値で比較します。欠けた部分、余分な部分、プレリリースの接尾辞は受け付けません。
+- 公式の更新ではスクリプトの UTF-8 原文の `sha256`（空白の除去や改行の変換をしない）が必要で、スクリプトが宣言した `key`、`version` はインデックスと一致する必要があります。`apiVersion` は現在のアプリのランタイムと完全に一致しなければ更新を拒否します。
+- プラグインとアプリのバージョンは別々に管理します。プラグインのスクリプト（`i18n` を含む）を変更したら、スクリプトと `assets/sources/index.json` の両方でバージョンを上げます。公開ツールはダウングレードと、同じバージョンで内容が違うものを拒否します。
 
-起動時の自動確認では公式インデックスのみを読み込み、更新がある場合に確認を求めます。ダウンロードとインストールはユーザーの確認後に行います。前面に戻った際の確認には、失敗時を含め12時間の間隔を設けます。両方の自動確認は初期設定で有効で、個別に無効化しても手動確認は可能です。インストール済みの内蔵・公式ソースのみが対象で、第三者のソースは変更しません。
+### アプリ内の公式更新
 
-確認後、ソースの同一性、バージョン、提供元、API、SHA-256を再検証し、初期化と状態の保存が成功してから完了します。失敗時には元のスクリプトと個人データを復元し、中断したインストールは次回起動時に復旧します。起動時に既存プラグインを内蔵スクリプトで置き換えません。スクリプトがなくても登録情報とデータを保持し、新規プラグインにのみ内蔵スクリプトを導入します。内蔵ソースへの復元も確認が必要です。Android では確認後に対応する公式 APK をアプリ内でダウンロードします。サイズ、SHA-256、パッケージ名、バージョン、署名を検証し、システムでインストールを確認します。権限を許可して戻った後は「インストールを続行」を押してください。進捗、キャンセル、再試行に対応し、失敗時は公式ページを利用できます。他の環境では公式ページから手動でダウンロードします。
+- 「その他 → サイト」と「その他 → このアプリについて → 更新」の「起動時にプラグインの更新を確認」は既定でオンです。起動ごとに公式インデックスだけを読み、新しいバージョンがあれば案内し、ユーザーの確認後にダウンロード、検証、インストールします。フォアグラウンドへの復帰時は 12 時間の間隔を保ち、失敗しても確認時刻を記録します。自動確認をオフにしても手動で確認できます。確認するのはインストール済みの内蔵と公式のプラグインだけで、新しいプラグインを自動でインストールしたり、同じ key のサードパーティプラグインを引き継いだりはしません。
+- インストール時は識別、バージョン、取得元、API、ダイジェストを再検証し、初期化と状態の保存が成功して初めて完了します。失敗すると古いスクリプトとユーザーの状態を残し、インストール中に中断した場合は次回起動時に復元します。起動時にアプリ同梱のスクリプトで既存のプラグインを上書きすることはありません。スクリプトがない場合は登録情報とユーザーデータを残し、ユーザーが復元や更新を選ぶのを待ちます。「内蔵バージョンに戻す」は確認後、現在のアプリに同梱されたバージョンに戻します。
+- アプリ自体の更新も既定で確認します。Android ではユーザーの確認後、端末に合う公式 APK をアプリ内でダウンロードし、サイズ、SHA-256、パッケージ名、バージョン、署名を検証してからシステムのインストーラーを開きます。進捗、取り消し、再試行に対応し、公式のリリースページを予備の入口とします。
 
-### 公式ソースの公開
+### 公式プラグインの公開
 
-公式ソースは公開メイン ウェアハウス [drdon1234/Hentai-Park](https://github.com/drdon1234/Hentai-Park) に従い、クライアントへの固定入り口は次のとおりです。
+公式プラグインはメインリポジトリ [drdon1234/Hentai-Park](https://github.com/drdon1234/Hentai-Park) から公開し、アプリは次を読みます。
 
 ```text
 https://raw.githubusercontent.com/drdon1234/Hentai-Park/sources/index.json
 ```
 
-ソースの `key` は `[A-Za-z0-9_-]` のみ、長さは 1–100 とし、予約済みの `_app` は使用できません。スクリプト名は `{key}.js` です。
-
-`assets/sources/index.json` は維持される唯一のソース リストであり、`file` は同じディレクトリ内の唯一のスクリプト ソース コードを指します。ファイル名は `[A-Za-z0-9_-]+.js` に準拠する必要があります。ファイル名の本文内のサブディレクトリ、シンボリック リンク、またはドットは受け入れられず、クライアントの公式ソース アドレス検証と一致している必要があります。 `tools/publish_sources.mjs` 公開インデックスを生成します。各レコードには、`key`、`name`、`version`, `category`、`description`、が含まれます。 `url`、`sha256`、および `apiVersion`。スクリプト URL は、このソース コードの完全な 40 桁のコミット番号に固定されています。
-
-```text
-https://raw.githubusercontent.com/drdon1234/Hentai-Park/<源码提交 SHA>/assets/sources/<file>
-```
-
-`sources` ブランチは、スクリプトをコピーしたり、2 番目のソース リストを手動で管理したりせず、生成されたルート ディレクトリ `index.json` のみを保存します。スクリプトを更新するときは、スクリプト内のバージョンとマニフェストを同時にアップグレードする必要があります。発行者はバージョンのダウングレードを拒否し、異なるスクリプト コンテンツに対応する同じバージョンも拒否します。同じバージョンを内容を変更せずに繰り返し公開することができ、通常のアップグレードは古いインデックス バージョンの影響を受けません。
-
-パブリッシャーは Node.js 組み込みモジュールのみに依存しており、Node.js 22 以降ではオフラインで実行できます。マニフェスト、ファイルの存在、ディレクトリ境界をチェックし、ネットワークまたはストレージ インターフェイスを提供しない別のコンテキストで共有ランタイムとスクリプトを読み込み、アプリ インストール プレビュー `key` と同じ `Park.__pending` / `Park.manifest` プローブを使用してチェックします。 `version` および API。この検出では、`setup`、`init`、ログインまたはサイト ビジネス メソッドは呼び出されず、元のサイトのネットワーク ユーザビリティ テストを置き換えることはできません。
-
-ローカル プレビューの例 (出力は `test/` にありますが、これは無視され、公開されません。コミット番号は、対応するソース コードの実際の SHA を使用する必要があります):
+- `assets/sources/index.json` が唯一の管理対象の一覧で、`file` は同じフォルダの `{key}.js` を指します（`[A-Za-z0-9_-]+.js`。サブフォルダ、シンボリックリンク、ファイル名の本体にドットは不可）。
+- `tools/publish_sources.mjs` が公開インデックスを生成し、各項目に `key`、`name`、`version`、`category`、`description`、`url`、`sha256`、`apiVersion` を含めます。スクリプトの URL はソースの完全なコミット番号に固定されます：`https://raw.githubusercontent.com/drdon1234/Hentai-Park/<コミット SHA>/assets/sources/<file>`。`sources` ブランチには生成した `index.json` だけを置きます。
+- 公開ツールは Node.js 22 以降の組み込みモジュールだけを使い、オフラインで動きます。一覧、ファイル、フォルダの境界を確認し、ネットワークと保存のない環境でランタイムとスクリプトを読み込み、インストール時のプレビューと同じ `Park.__pending` / `Park.manifest` の方法で `key`、`version`、API を確認します。`init`、ログイン、サイトのメソッドは呼ばないため、実際のリクエストでの確認の代わりにはなりません。
 
 ```powershell
-node tools/publish_sources.mjs --commit '<完整 40 位源码提交 SHA>' --output 'test/official-source-index.json'
+node tools/publish_sources.mjs --commit '<40 桁のコミット SHA>' --output 'test/official-source-index.json'
 ```
 
-既存のリリースを確認する必要がある場合は、`--previous '旧索引本地路径'` を渡します。古いインデックスが無効で検証が失敗した場合でも、バージョン保護は暗黙的にスキップされません。ワークスペースにコミットされていない変更がある場合、ローカルの結果はプレビューにのみ使用されます。正式リリースは、ワークフローによってチェックアウトされたソース コードを送信することによって生成されます。
+既存の公開と比べる場合は `--previous '旧インデックスのパス'` を加えます。旧インデックスが無効なら検証は失敗します。`.github/workflows/publish-sources.yml` はメインリポジトリの `main` ブランチへの関連する push か手動実行のときだけ、1 つずつ動き、すべての検証に通ってから通常の push 1 回で `sources` ブランチを更新します。検証の失敗やブランチの同時変更で公開中のインデックスが上書きされることはありません。
 
-`.github/workflows/publish-sources.yml` メイン リポジトリのデフォルト `main` ブランチ関連ファイルがプッシュされた場合、または `main` から手動でトリガーされた場合にのみ実行されます。ワークフローはシリアルに実行され、最新の `main` は各タスクの開始時にチェックアウトされ、スクリプト アドレスとリリース レコードは実際にチェックアウトされたコミット番号で固定されます。タスクの実行中にその後ドキュメントを送信しても、公開が妨げられることはありません。後続のソース ファイルの送信により、次のシリアル タスクがトリガーされます。ワークフローは、最初に既存の安定したインデックスをダウンロードしてすべてのオフライン検証を完了し、次に通常の Git を使用してアトミック更新を `sources` ブランチにプッシュします。検証が失敗した場合、または `sources` ブランチで同時に変更が発生した場合、オンライン インデックスは上書きされません。パブリケーションは、安定したインデックスなしで初めて作成される可能性があります。このリリースでは、スクリプトとインデックスが上記の検証に合格したことのみが示されます。サイトへのアクセス、アカウントへのログイン、画像またはビデオの読み込みは個別に検証する必要があります。
+### ビルドで生成されるプラグイン
 
+Telegram プラグインの唯一の実装は `assets/sources/telegram_entry.mjs` で、`assets/sources/telegram.js` はビルドで生成されるため手で編集してはいけません。
 
-`type: 'video', category: 'shortvideo'` は全画面縦型フィードを有効にします。作品ごとに1本の動画を扱い、`videos(id, '_')` が最新のメディアURLを返します。`feed` の `hasNext` と `cursor` で自動ページングします。カーソルに認証情報や署名付きメディアURLを含めないでください。現在の動画のみ再生、次は停止して先読みし、他のプレーヤーは中止・解放します。未検証の検索APIは `search` を宣言しません。
-
-
-任意の `imageNetwork` に `mode: browser`、HTTPS の `origin` と `domains` を指定できます。すべて源のドメイン内に限定し、許可されたヘッダーのみ使用、認証情報を送信せず、リダイレクトを拒否し、画像を20 MiBに制限します。復号、形式確認、デコード、分離キャッシュを維持します。Tik.porn のページとAPIは各自の同一オリジンで取得し、再生はMP4を使います。
-
-
-## 小説の閲覧
-
-`type: 'novel', category: 'novel'` · `capabilities.textChapter: true`
-
-`textChapter(id, chapterId)` は空ではないプレーンテキスト `{title?, paragraphs: [String]}` を返します。一覧・詳細には `mediaKind: 'novel'`、`language: 'zh'` または `'en'` を保持します。表紙がなければ空文字列です。同じ章の本文ページのみを結合し、返信や別の章、広告は含めません。権限で切り詰められた本文は `LOGIN_REQUIRED` を返します。章は安定した ID とサイト順を使用し、単編は `chapters: null` です。`Park.html.paragraphs(node)` が文字を抽出し、ダウンロードは章ごとに `text.json` を原子的に書き込みます。進捗と注釈は原文の UTF-16 位置を使います。しおりは独立して保存し、書庫バックアップに含めます。
-
-`paragraphs.join('\n\n')` → UTF-16
-
-
-## 購読プロトコル
-
-`subscription.normalize` と `subscription.posts` の両方を宣言すると `capabilities.subscription` が生成され、独立した購読画面に表示されます。サイト固有処理はプラグイン内に置きます。`normalize` はログインや通信なしにサイトのユーザー名または管理されたプロフィール URL を検証します。任意の `resolve` はオンライン解決、`targets` は参加済み対象を返して `subscription.joinedTargets: true` を生成します。カーソルは不透明文字列、`hasNext: false` で終了し、空ページでも続行できます。権限不足は `locked`、プレビューは `previewOnly` で明示します。
-
-```js
-subscription: {
-  normalize(input) { return { id: validatedTarget, label: displayName }; },
-  async resolve(input) { return { id: validatedTarget, label: displayName }; },
-  async targets() { return [{ id: joinedTarget, label: displayName }]; },
-  async posts(target, { cursor }) {
-    return {
-      items: [{ id, title, text, date, url, locked, media: [
-        { type: 'image', url, preview, previewOnly: false },
-        { type: 'video', url, preview, format: 'mp4', headers: {} },
-        { type: 'image', resource: { cacheKey, size } },
-      ] }],
-      cursor: nextCursor, hasNext: true,
-    };
-  },
-  async mediaChunk(resource, offset) { return { base64, done }; },
-}
+```powershell
+npm ci --prefix 'tools/source-runner'
+node tools/build_subscription_sources.mjs
 ```
 
-直接 URL のない認証メディアは `media[].resource` に整数の `size` と安定した秘密情報を含まない `cacheKey` を指定します。期限付き参照や認証情報でキーを変えません。`subscription.mediaChunk(resource, offset)` は `{base64, done}` を返し、128 KiB 以下、整列オフセット、中間ブロックは完全長、添付は最大512 MiBです。ホストが総量とキャッシュパスを管理して原子的に保存し、使用中のファイルを保護します。バックアップ対象に署名 URL や resource は保存しません。
+[@mtproto/core 6.3.0](https://github.com/alik0211/mtproto-core)（GPL-3.0、[ライセンス](../../licenses/mtproto-core.txt)、依存関係の一覧は [サードパーティライセンス](../../licenses/telegram-dependencies.txt)）を使います。サイトの対応部分が転送、暗号、保存を置き換え、ライブラリ既定の WebSocket、ブラウザの localStorage、デバッグログは使いません。
 
-既存セッションは `account.type: 'session'` と秘密フィールドで受け取り、分割せずプラグインが検証します。ログインは実際の認証を確認し、保存で自動フォロー・参加しません。ネイティブ `bodyBase64` は最大2 MiB、body・ブラウザモードと併用不可、応答は base64 にできます。`digestBytes('sha1'|'sha256', bytes)` は最大2 MiBの整数バイト、`randomBytes(length)` は1–65536です。TLS、ドメイン分離、リダイレクト制限を維持し、任意のブラウザ通信・WebSocket・ファイルは許可しません。
+## 付録：公式サイトのメモ
 
-[購読](../../SUBSCRIPTIONS.md)
+公式プラグインを保守するときに知っておくべきサイトの約束事です。サイトは変わるので、プラグインのコードが正です。
 
-subscription と feeds の両方を宣言するソースは通常カテゴリにも表示されます。feed/search の項目は presentation:'post'、text、date、url、media 配列で投稿カードを表示し、presentation:'media' はグリッドを使用します。mediaKind と coverAspect は各項目のメディアを表し、画像は順に閲覧できます。network.confirmation:{selector,readySelector,requiredCookies,message} は確認画面、本文の目印、必要 Cookie を宣言します。CONFIRM_REQUIRED 後は確認画面が消え、本文と Cookie が揃い、遷移が安定してから戻ります。利用者の代わりに確認しません。
+**ゲーム**
 
+- 既定の順序は GalgameX → KUN Galgame → 次元茶館。GalgameX と KUN は NSFW を既定でオン（それぞれゲストの `content-filter` API と `include_nsfw` パラメータ）。
+- GalgameX の既定は今週の人気。リソース更新一覧は現在のフロントエンドから動的に見つけた Next Server Action を使い、アクション ID を 15 分キャッシュし、無効になったら見つけ直します。リモートのスクリプトは実行しません。詳細は SSR Flight のデータから解析します。公開リソースはホストとパスのハッシュを安定したチャンネル ID とし、解決結果をホストとファイル名・共有 ID で照合し、不一致や重複は拒否します。一時リンクの順序には頼りません。
+- KUN の既定は 7 日間の閲覧ランキングで、公開されたネイティブ API を使います。ダウンロード API はタップ時だけ呼び、先読みでサイトのダウンロード数を増やしません。リソースのページは API の総数で巡回し、同じページの繰り返しや早すぎる空ページはエラーにします。
+- 次元茶館はブラウザモードと独自のログインを使い、既定は Galgame リソース板の人気です。一覧の表紙は最初の投稿の添付から補い、リクエスト間隔は 400ms です。リソース一覧は読み取り専用で、ユーザーが確認した後にだけ完全なフォームで「感谢分享，好人一生平安」を送信します。解除済みなら投稿せず、結果が不明な場合は状態を保持して元の投稿の確認を案内し、再起動後も再送しません。
 
-## ゲーム
+**小説**
 
-ゲームソースは `type:game`、`category:game`、`mediaKind:game` を宣言します。`gameResources(workId)` は安定 ID と `{id,kind:direct|external,label,size}` を返し、解決済み URL を含めません。`resolveGameResource(workId,resourceId,channelId)` はクリックや再試行時に `{kind,url,urls?,filename?,extractionCode,archivePassword}` を返します。直接転送は HTTPS の native `media` 許可ドメインが必要で、各リダイレクトを検査し Cookie を送りません。全ミラーと分割ファイルを保持します。ゲームには読書章や章更新を作成しません。一時 URL を保存・ログ記録しないでください。
+| サイト | 既定のタブ | 範囲と制限 |
+| --- | --- | --- |
+| Book18 | おすすめ | 中国語の長編・短編。目次はサイトの順序 |
+| Cool18 | 精選 | 禁忌書屋のみ。各主投稿が独立した作品で、返信や同名の投稿は結合しない。一部はアカウントの権限が必要 |
+| Canovel | 最新 | 記事内の本文ページ分割に対応 |
+| Literotica | ランキング | 英語。検索は英語以外、オーディオ、ハウツー、レビュー、エッセイを除外 |
+| Lush Stories | おすすめ | 英語。オーディオと詩を除外 |
+| StoriesOnline | 作者のおすすめ | 英語。匿名で本文が切り詰められるとログインを案内し、プレビューを完全な章として保存しない |
+| 69story | 最新 | 中国語。分類、検索、目次、章ごとの閲覧に対応 |
 
-GalgameX → KUN Galgame. [game-domain.md](../../game-domain.md)
+**購読**
 
+| プラットフォーム | 内容 | ログイン |
+| --- | --- | --- |
+| X / Twitter | 匿名の公開メディア。ログイン後は認可された投稿とメディア | ウェブログイン、または `auth_token` と `ct0` |
+| Telegram | 公開チャンネルのプレビュー。ログイン後はチャンネルの履歴と添付 | 既存の Telegram WebK のローカルストレージのセッションを取り込む |
+| myfans.jp | クリエイター一覧、公開画像、公開動画、試聴プレビュー | 会員ログインは未検証 |
+| pixivFANBOX | 公開の一覧と表紙のプレビュー | 会員ログインは未検証 |
 
-## 次元茶館のゲームリソース
-
-次元茶館は GalgameX、KUN の後に表示され、Galgame フォーラムの人気投稿を使います。アプリ内でログインし、解除ボタンを押すと「感谢分享，好人一生平安」を送信します。一覧と詳細は読み取り専用です。解除済みの投稿には再返信しません。送信結果が不明な場合はアカウントと投稿ごとに状態を保存し、再起動後も自動再送信せず、元の投稿で確認します。動的な認証はサイトで行います。元のクラウドリンク、リンクごとのコード、解凍パスワードを保持します。デスクトップのログインはアプリと別です。
-
-`GameChannel`: `requiresReply: true`, `replyText`. `resolveGameResource`: `extractionCodes` aligned with `urls` (empty string: no code), or shared `extractionCode`. `CONFIRM_REQUIRED` → original post URL.
+- X の `ct0` は `X-CSRF-Token` と一致する必要があり、セッションは期限切れや取り消しが起こり得ます。ログイン後は現在のウェブページから操作 ID と feature flags を読み込んで UserTweets を読み、対象の作者のメディアだけを残します（リツイートと引用は除外）。匿名のサードパーティのプロキシに X の Cookie は送りません。
+- Telegram のローカルストレージは Cookie ではありません。取り込みには `dc` と対応する `dcN_auth_key`（512 桁の 16 進）が必要で、JSON か `key=value` のテキストを使えます。プラグインは既存の WebK セッションを復元するだけで、認証コードでのログインや独自クライアントの登録はしません。ログアウトはこのアプリが保存したセッションを消すだけです。添付は 128 KiB 単位で読み、1 つ最大 512 MiB。メディアの参照が期限切れなら 1 回だけ更新します。通信は分離されたネイティブ HTTP ブリッジを通り、WebView の fetch や WebSocket は開きません。
+- OnlyFans、Fantia、Patreon、Fansly はメディアの取得経路が完成しておらず、公式一覧に入っていません。トップページが開けることは購読できることを意味せず、有料の権限を回避することもありません。
 
 動的 HLS CDN は native の `media.scope: 'session'` で利用できます。解析した再生 URL、プレイリストのリソース、最大8回のリダイレクトを現在の再生・ダウンロードセッションだけに許可し、Cookie 権限は変更しません。HTTPS 443 と認証情報を含まないリクエストを維持します。直接接続では公開 DNS アドレスを確認して接続先 IP を固定し、TLS ホスト名検証を維持します。明示的な HTTP プロキシを使用する場合は、その信頼されたプロキシが名前解決と公開ネットワーク制限を担当します。終了時に許可を破棄します。MP4 の直接再生と browser モードは静的ドメイン制限を維持します。

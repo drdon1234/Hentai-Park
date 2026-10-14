@@ -4,116 +4,109 @@
   <img src="../../images/banner.svg" alt="HentaiPark" width="100%">
 </p>
 
-<p align="center"><strong>漫画・画像集・動画・小説・ゲームを、ひとつのアプリで。</strong></p>
+<p align="center"><strong>漫画、ギャラリー、動画、小説、ゲームを、ひとつの静かなアプリで。</strong></p>
 
 <p align="center">
-  <a href="https://github.com/drdon1234/Hentai-Park/releases/latest"><img src="https://img.shields.io/github/v/release/drdon1234/Hentai-Park?label=Download&color=e5355f" alt="ダウンロード"></a>
-  <img src="https://img.shields.io/badge/Android-7.0%2B-3DDC84?logo=android&logoColor=white" alt="Android 7.0+">
+  <a href="https://github.com/drdon1234/Hentai-Park/releases/latest"><img src="https://img.shields.io/github/v/release/drdon1234/Hentai-Park?label=Download&color=C96442" alt="ダウンロード"></a>
+  <img src="https://img.shields.io/badge/Android-7.0%2B-C96442?logo=android&logoColor=white" alt="Android 7.0+">
 </p>
 
 <p align="center">
   <a href="https://github.com/drdon1234/Hentai-Park/releases/latest">ダウンロード</a> ·
-  <a href="#screenshots">画面紹介</a> ·
+  <a href="#screenshots">スクリーンショット</a> ·
+  <a href="#features">機能</a> ·
   <a href="#faq">よくある質問</a> ·
-  <a href="https://github.com/drdon1234/Hentai-Park/issues">不具合報告</a>
+  <a href="https://github.com/drdon1234/Hentai-Park/issues">フィードバック</a>
 </p>
 
-> 現地の法律で認められる範囲で、成人のみご利用ください。コンテンツは第三者のサイトから提供されます。
+> 成人のみ、お住まいの地域の法律で認められている範囲でご利用ください。すべてのコンテンツは第三者のサイトから提供され、HentaiPark はコンテンツを保存・提供しません。
 
-## ダウンロードと使い方
+## ダウンロード
 
-**[最新リリース](https://github.com/drdon1234/Hentai-Park/releases/latest)** から Android APK をダウンロードしてインストールしてください。通常のスマートフォンやタブレットは `arm64-v8a`、エミュレーターは通常 `x86_64` を選びます。
+**[最新リリース](https://github.com/drdon1234/Hentai-Park/releases/latest)** から Android APK をダウンロードしてください。ほとんどのスマートフォンとタブレットは `arm64-v8a`、エミュレーターは通常 `x86_64` です。
 
-1. **探す**：「発見」でカテゴリとサイトを選ぶか、直接検索します。
-2. **読む・見る**：作品を開いて読み始めたり再生したりできます。気に入った作品は「本棚」へ。
-3. **続きを楽しむ**：最近の閲覧から再開するか、「本棚」「更新」でお気に入りと新着を確認します。
+## 3 ステップで始める
 
-ログインは「マイページ → ソース管理」で設定できます。一部のサイトには VPN やプロキシが必要な場合があります。
+1. **見つける**：「見つける」を開いてカテゴリーを選ぶか、検索欄にキーワード・リンク・品番を入力します。
+2. **読む・見る**：作品を開いてメインボタンをタップ。気に入ったものは「ライブラリ」に追加します。
+3. **続きから**：「見つける」上部の「続きから」と「履歴」で前回の位置に戻れます。追いかけている作品は「ライブラリ → 更新」に届きます。
 
-AI短編ドラマは上下スワイプ中も再生を続け、次のエピソードを事前に読み込みます。画面をタップして明るさと音量のバーを表示し、バー内で上下にドラッグして調整します。自動ポスターはバックグラウンドで取得され、サイトの閲覧が優先されます。設定を変更すると、古い設定での読み込みを中止します。
+ログインやプロキシが必要なサイトは「その他 → サイト」「その他 → ネットワーク」で設定します。
 
 <a id="screenshots"></a>
 
-## 画面紹介
-
-MuMu エミュレーターのスマートフォン縦画面とタブレット横画面です。ライトモードを中心に、表紙はぼかして表示しています。
+## スクリーンショット
 
 <p align="center">
-  <img src="../../screenshots/home.jpg" alt="スマートフォン・ライト：発見" width="32%">
-  <img src="../../screenshots/search.jpg" alt="スマートフォン・ライト：複数サイト検索" width="32%">
-  <img src="../../screenshots/blocklist_presets.jpg" alt="スマートフォン・ライト：コンテンツのブロック" width="32%">
+  <img src="../../screenshots/home.jpg" alt="見つける（ライト）" width="32%">
+  <img src="../../screenshots/detail.jpg" alt="作品の詳細（ライト）" width="32%">
+  <img src="../../screenshots/home_dark.jpg" alt="見つける（ダーク）" width="32%">
 </p>
-<p align="center"><sub>発見 · 検索 · コンテンツのブロック</sub></p>
+<p align="center"><sub>見つける · 詳細 · ダーク</sub></p>
 
 <p align="center">
-  <img src="../../screenshots/tablet_home.jpg" alt="タブレット・ライト：サイドバーと閲覧" width="49%">
-  <img src="../../screenshots/tablet_search.jpg" alt="タブレット・ライト：複数列の検索結果" width="49%">
+  <img src="../../screenshots/tablet_home.jpg" alt="タブレット横向き：サイドナビゲーションと見つける" width="49%">
+  <img src="../../screenshots/tablet_search.jpg" alt="タブレット横向き：全サイト検索" width="49%">
 </p>
-<p align="center"><sub>タブレット横画面：閲覧と検索を広々と</sub></p>
+<p align="center"><sub>タブレット（横向き）</sub></p>
 
-<details>
-<summary>ダークモードを比較</summary>
+スクリーンショットは MuMu エミュレーターで撮影し、表紙はぼかしています。
 
-<p align="center">
-  <img src="../../screenshots/home_dark.jpg" alt="スマートフォン・ダーク：発見" width="32%">
-</p>
+<a id="features"></a>
 
-</details>
+## 機能
 
-## 主な機能
-
-| 機能 | できること |
+| 機能 | 内容 |
 | --- | --- |
-| **閲覧と検索** | カテゴリから探す、複数サイトをまとめて検索する、多言語のキーワードで検索範囲を広げる |
-| **読む・見る** | 漫画のスクロール・ページ送り・見開き、動画の話数選択・倍速・続きから再生、小説のレイアウト調整と読み上げ |
-| **お気に入りと更新** | お気に入りの分類と進捗保存、作品・キーワード・作者・チャンネルの更新購読 |
-| **オフライン** | 対応する漫画・動画・小説をダウンロード、CBZ 漫画をインポート・エクスポート |
-| **ゲーム情報** | 紹介・バージョン・ダウンロードリンクを確認し、ダウンロードしたファイルを保存・書き出し |
-| **翻訳と絞り込み** | タイトル・紹介文・タグを翻訳し、見たくないコンテンツをブロック |
-| **プライバシーとバックアップ** | アプリロック・シークレットモード・表紙ぼかし・スクリーンショット防止、お気に入り・進捗・設定のバックアップ |
+| 見つける・検索 | カテゴリー別に閲覧、複数サイトを同時検索、多言語のキーワードで範囲を広げられます。リンクや品番を貼り付けると作品を直接開けます |
+| 読む・見る | 漫画は縦スクロール・ページ送り・見開き、動画はエピソード選択・倍速・続きから再生、小説は文字設定・しおり・メモ・読み上げ。3 つのリーダーは同じ操作で使えます |
+| ライブラリ | お気に入りのカテゴリー分け、更新通知、ダウンロードを「ライブラリ」にまとめ、作者・チャンネル・キーワードの新着も購読できます |
+| オフライン | 漫画・動画・小説をダウンロード。CBZ の取り込みと書き出し |
+| ゲームリソース | ゲームの紹介・バージョン・ダウンロードリンクを確認 |
+| 翻訳とフィルター | タイトル・紹介文・タグを翻訳。タグで作品を非表示 |
+| プライバシーとバックアップ | アプリロック、シークレットモード、表紙のぼかし、スクリーンショット防止。お気に入り・進捗・設定をバックアップ |
 
-ライト・ダークテーマと8言語の表示に対応。利用できる機能は、各サイトのアプリ内表示をご確認ください。
+ライトとダークのテーマ、8 つの表示言語に対応。各サイトで使える機能はアプリ内の表示に従います。
 
 ## 対応サイト
 
-同人誌・漫画・画像集・成人向けアニメ・JAV・成人向け動画・ショート動画・AI ドラマ・小説・ゲームに対応。購読したクリエイターやチャンネルもまとめて閲覧できます。
-
-<details>
-<summary>サイト一覧を表示</summary>
-
-| カテゴリ | サイト |
+| カテゴリー | サイト |
 | --- | --- |
-| 同人誌 / 漫画 | E-Hentai / ExHentai, Pixiv, nhentai, 禁漫天堂, WNACG, 哔咔漫画 |
-| 画像集 | CosplayTele, NudeCosplay, XiuRen, PixiBB, PornPics |
-| 成人向けアニメ | Hanime1, Hanime.tv, Rule34Video |
-| JAV | MissAV, JableTV, SupJav, 123AV |
-| 成人向け動画 | Pornhub, XVideos, 91porn, iXXX, Thumbzilla, TubeSafari, SpankBang |
-| ショート動画 | Pornhub Shorties, Fyptt, Tik.porn |
-| AI ドラマ | 黄果短剧, 黄豆短剧, 91短剧 |
-| 小説 | Book18, Cool18, Canovel, Literotica, Lush Stories, StoriesOnline, 69story |
-| ゲーム | GalgameX, KUN Galgame, 次元茶馆 |
-| クリエイター / チャンネル | X / Twitter, Telegram, myfans.jp, pixivFANBOX |
+| 同人誌 / 漫画 | E-Hentai / ExHentai、Pixiv、nhentai、JMComic、WNACG、PicACG |
+| ギャラリー | CosplayTele、NudeCosplay、XiuRen、PixiBB、PornPics |
+| 成人向けアニメ | Hanime1、Hanime.tv、Rule34Video |
+| JAV | MissAV、JableTV、SupJav、123AV |
+| 成人向け動画 | Pornhub、XVideos、91porn、iXXX、Thumbzilla、TubeSafari、SpankBang |
+| ショート動画 | Pornhub Shorties、Fyptt、Tik.porn |
+| AIショートドラマ | 黄果ショートドラマ、黄豆ショートドラマ、91ショートドラマ |
+| 小説 | Book18、Cool18、Canovel、Literotica、Lush Stories、StoriesOnline、69story |
+| ゲーム | GalgameX、KUN Galgame、次元茶館 |
+| 購読 | X / Twitter、Telegram、myfans.jp、pixivFANBOX |
 
-次元茶館の一部のリソースにはログインと返信が必要です。解除ボタンを押すと、元の投稿に「感谢分享，好人一生平安」と返信します。
-
-</details>
-
-「マイページ → ソース管理」でサイトの有効化・並べ替え・追加ができます。アプリと公式ソースの更新は、アプリの案内に従ってインストールしてください。
+「その他 → サイト」でサイトの有効化、並べ替え、更新、追加ができます。
 
 <a id="faq"></a>
 
 ## よくある質問
 
-**サイトや画像・動画が読み込めない場合は？** まず接続を確認し、必要に応じて VPN を試すか、ネットワーク設定でプロキシを設定してください。認証ページが表示されたら、完了後に再試行してください。
+**サイトが開けない、画像や動画が読み込めない**
+まずネットワークを確認してください。中国本土では VPN やプロキシが必要なサイトがあります。プロキシは「その他 → ネットワーク」で設定できます。認証画面が出たら、内蔵ブラウザで一度だけ通過してください。
 
-**サイトのアカウントは必要ですか？** ログインや閲覧権限が必要なサイトではアプリが案内します。「マイページ → ソース管理」から該当サイトの設定を開いてください。
+**サイトのアカウントは必要？**
+ほとんど不要です。ログインが必要なサイトはサイトページの上部に表示され、「その他 → サイト」のサイト設定からログインできます。Pixiv、X、StoriesOnline のウェブログインは Google や Apple などの外部アカウントに対応していますが、内蔵ブラウザを許可するかは各サービス次第です。
 
-**更新通知を受け取るには？** 作品詳細か「発見 → 購読」で購読を追加し、「マイページ → 購読と通知設定」で通知を有効にして、Android の通知権限を許可してください。
+**勝手にサイトへ投稿・返信しますか？**
+自動では行いません。次元茶館の一部リソースは返信しないと解除されないため、送信する内容を先に表示し、確認してから送信します。
 
-**機種変更でお気に入りと進捗を引き継ぐには？** 「マイページ → バックアップと復元」で書き出し、新しい端末で復元してください。オフラインのダウンロードは別途保存し、サイトには再ログインが必要な場合があります。
+**機種変更してもお気に入りと進捗を残すには？**
+「その他 → バックアップ」で書き出し、新しい端末で復元します。ダウンロードは含まれず、サイトによっては再ログインが必要です。
 
-**不具合を報告するには？** [Issues](https://github.com/drdon1234/Hentai-Park/issues) にアプリのバージョン、サイト名、再現手順を記載してください。画像内のアカウント情報や個人的な内容は隠してください。
+**翻訳で何が送信されますか？**
+翻訳を選んだタイトル・紹介文・タグだけが、選んだ翻訳サービスに送られます。詳しくは「その他 → 検索と翻訳」に記載しています。
+
+**問題を報告するには？**
+[Issues](https://github.com/drdon1234/Hentai-Park/issues) にアプリのバージョン、サイト名、再現手順を書いてください。スクリーンショットではアカウントや個人的な内容を隠してください。
 
 ---
 
-[AGPL-3.0 ライセンス](../../../LICENSE) · [第三者ライセンス](../../licenses/README.md) · [開発情報](../../DEVELOPMENT.md)
+[AGPL-3.0 ライセンス](../../../LICENSE) · [サードパーティ表記](../../licenses/README.md) · [開発ガイド](../../DEVELOPMENT.md) · [サイトプラグイン API](SOURCE_API.md)
