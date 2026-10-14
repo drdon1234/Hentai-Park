@@ -155,6 +155,7 @@ class AccountDef {
     required this.requiredCookies,
     required this.required,
     this.managedAccount = false,
+    this.loginDomains = const [],
   });
   final String type; // password | cookies | session
   final String _title;
@@ -163,6 +164,9 @@ class AccountDef {
   String get hint => tr(_hint);
   final List<Map<String, dynamic>> fields;
   final String loginUrl;
+
+  /// 仅放行第三方授权导航，不授予 Cookie 访问权限。
+  final List<String> loginDomains;
   final String cookieUrl;
   final List<String> requiredCookies;
   final bool required;
@@ -177,6 +181,7 @@ class AccountDef {
       hint: _str(j['hint']),
       fields: _maps(j['fields']),
       loginUrl: _str(j['loginUrl']),
+      loginDomains: _strings(j['loginDomains']),
       cookieUrl: _str(j['cookieUrl']),
       requiredCookies: _strings(j['requiredCookies']),
       required: j['required'] == true,

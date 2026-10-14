@@ -72,3 +72,15 @@ List<String> declaredDomains(Map<String, dynamic> manifest) {
   }
   return out.toList();
 }
+
+/// 登录页额外允许的授权主机；源站 Cookie 权限保持独立。
+bool loginNavigationAllowed(Uri uri, Iterable<String> domains) =>
+    uri.scheme == 'https' &&
+    uri.port == 443 &&
+    uri.userInfo.isEmpty &&
+    uri.host.isNotEmpty &&
+    !_isIp(uri.host) &&
+    uri.host != 'localhost' &&
+    !uri.host.endsWith('.localhost') &&
+    !uri.host.endsWith('.local') &&
+    hostInDomains(uri.host, domains);

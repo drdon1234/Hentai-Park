@@ -63,7 +63,7 @@
     };
   }
   Park.register({
-    key: 'pixiv', name: 'Pixiv', version: '0.0.2', type: 'comic', category: 'doujin',
+    key: 'pixiv', name: 'Pixiv', version: '0.0.3', type: 'comic', category: 'doujin',
     color: '#0096FA', icon: 'https://www.pixiv.net/favicon.ico',
     description: '插画与漫画社区，支持个性化推荐、排行、搜索和多页原图阅读',
     homepage: HOME, domains: ['pixiv.net'], language: 'multi',
@@ -81,6 +81,7 @@
       type: 'cookies', title: 'Pixiv 账号', required: false,
       hint: '推荐与 R-18 内容需要登录；请在 Pixiv 账号设置中开启相应内容显示。Cookie 仅保存在本机。',
       loginUrl: 'https://accounts.pixiv.net/login?return_to=https%3A%2F%2Fwww.pixiv.net%2F',
+      loginDomains: ['accounts.google.com', 'appleid.apple.com', 'account.apple.com', 'facebook.com', 'api.weibo.com', 'passport.weibo.com', 'passport.weibo.cn', 'login.sina.com.cn'],
       cookieUrl: HOME + '/', requiredCookies: ['PHPSESSID'],
       fields: [{ key: 'PHPSESSID', label: 'PHPSESSID', secret: true, hint: '粘贴 Pixiv 的 PHPSESSID 值' }],
       async login(values) {

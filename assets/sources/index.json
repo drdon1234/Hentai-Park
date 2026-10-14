@@ -50,7 +50,7 @@
     {
       "key": "pixiv",
       "name": "Pixiv",
-      "version": "0.0.2",
+      "version": "0.0.3",
       "type": "comic",
       "category": "doujin",
       "file": "pixiv.js",
@@ -294,7 +294,7 @@
       "key": "storiesonline",
       "name": "StoriesOnline",
       "description": "英文长短篇与连载小说，支持推荐、搜索与章节目录；部分正文需要登录",
-      "version": "0.0.3",
+      "version": "0.0.4",
       "type": "novel",
       "category": "novel",
       "file": "storiesonline.js"
@@ -338,7 +338,7 @@
     {
       "key": "x",
       "name": "X / Twitter",
-      "version": "0.0.3",
+      "version": "0.0.4",
       "type": "video",
       "category": "other",
       "file": "x.js",

@@ -125,7 +125,7 @@
     }).filter(Boolean);
     return {items,page:Math.max(1,Number(req.page)||1),cursor,hasNext:!!cursor&&cursor!==req.cursor};
   }
-  Park.register({key:'x',name:'X / Twitter',version:'0.0.3',type:'video',category:'other',homepage:HOME,domains:['x.com','twitter.com','abs.twimg.com','pbs.twimg.com','video.twimg.com','api.fxtwitter.com'],network:{vpnHint:true},description:'登录后浏览推荐、图集、视频集和站内搜索，支持公开用户订阅',idExample:'NASA',
+  Park.register({key:'x',name:'X / Twitter',version:'0.0.4',type:'video',category:'other',homepage:HOME,domains:['x.com','twitter.com','abs.twimg.com','pbs.twimg.com','video.twimg.com','api.fxtwitter.com'],network:{vpnHint:true},description:'登录后浏览推荐、图集、视频集和站内搜索，支持公开用户订阅',idExample:'NASA',
     defaultFeed:'recommend',feeds:[{key:'recommend',label:'推荐',options:[mediaFilter]},{key:'photos',label:'图集'},{key:'videos',label:'视频集'}],
     searchHint:'搜索帖子、用户或话题；推荐和搜索需要先登录 X',searchFilters:[mediaFilter,{key:'sort',label:'排序',type:'select',default:'Top',values:[{value:'Top',label:'热门'},{value:'Latest',label:'最新'}]}],
     async feed(key,req={}){
@@ -145,7 +145,8 @@
       const data=await api(this,'SearchTimeline',{rawQuery:keyword,count:20,querySource:'typed_query',product:type==='image'?'Photos':type==='video'?'Videos':sort,withGrokTranslatedBio:false,...(req.cursor?{cursor:req.cursor}:{})});
       return workPage(data,req,type);
     },
-    account:{type:'cookies',title:'登录 X',hint:'请使用 auth_token 和 ct0；敏感内容需在原站开启显示权限',loginUrl:HOME+'/i/flow/login',cookieUrl:HOME+'/',requiredCookies:['auth_token','ct0'],fields:[{key:'auth_token',label:'auth_token',secret:true},{key:'ct0',label:'ct0',secret:true}],
+    account:{type:'cookies',title:'登录 X',hint:'请使用 auth_token 和 ct0；敏感内容需在原站开启显示权限',loginUrl:HOME+'/i/flow/login',
+      loginDomains:['accounts.google.com','appleid.apple.com','account.apple.com'],cookieUrl:HOME+'/',requiredCookies:['auth_token','ct0'],fields:[{key:'auth_token',label:'auth_token',secret:true},{key:'ct0',label:'ct0',secret:true}],
       async login(values){await this.cookies.set(HOME+'/',{auth_token:values.auth_token,ct0:values.ct0});bootstrap=null;this.store.set('account',null);try{const d=await api(this,'Viewer',{withCommunitiesMemberships:true,withSubscribedTab:true,withCommunitiesMetadata:true});const u=walk(d,x=>x.__typename==='User'&&x.rest_id)[0];if(!u)throw Park.error('LOGIN_REQUIRED','登录信息无效，请重新登录');const name=u.core?.screen_name||u.legacy?.screen_name||'X';this.store.set('account',{name});return {name};}catch(e){await this.cookies.clear(HOME+'/');throw e;}},
       async logout(){await this.cookies.clear(HOME+'/');this.store.set('account',null);bootstrap=null;},status(){const a=this.store.get('account');return {loggedIn:!!a,name:a?.name||''};}},
     subscription:{hint:'可先订阅；匿名访问可能受限。需要关注时请到原站手动操作。',normalize,

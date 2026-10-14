@@ -371,6 +371,7 @@
             hint: def.account.hint || '',
             fields: pick(def.account.fields || []),
             loginUrl: def.account.loginUrl || '',
+            loginDomains: Array.isArray(def.account.loginDomains) ? def.account.loginDomains.map(String) : [],
             cookieUrl: def.account.cookieUrl || '',
             requiredCookies: def.account.requiredCookies || [],
             required: !!def.account.required,

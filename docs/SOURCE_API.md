@@ -327,6 +327,7 @@ account: {
   title, hint, required: false,
   fields: [{ key: 'email', label: '邮箱' }, { key: 'password', label: '密码', secret: true }],
   loginUrl?, cookieUrl?, requiredCookies?: ['ipb_member_id'],   // 提供后可以在网页中登录，App 自动获取 Cookie
+  loginDomains: ['accounts.google.com', 'appleid.apple.com'], // 可选：第三方授权页域名，仅用于登录导航
   async login(values) { return { name } },
   async logout() {},
   async status() { return { loggedIn, name, configured } },
@@ -334,6 +335,10 @@ account: {
   async enableManaged() {},             // 仅在用户确认注册后调用
 }
 ```
+
+`account.loginDomains` 由源插件声明实际使用的第三方授权域名，包含其子域名；仅在用户打开网页登录页时放行 HTTPS 默认端口 443 的跳转，拒绝 URL 用户凭据、IP、localhost 及 `.local`。普通验证页、访问确认、源请求与 Cookie 导入仍按 `domains` 校验，不能把第三方授权域名加入 `domains` 来扩大权限。登录页支持原窗口跳转及保留 `window.opener` 的授权弹窗，弹窗继续使用相同域名检查。停留在授权页时不判断源站登录完成，回到源站后才同步源站 Cookie。第三方身份提供商仍可能限制内嵌浏览器登录。
+
+当前官方源：Pixiv 声明 Google、Apple、Facebook、微博及微博 SSO 域名；X 声明 Google、Apple；StoriesOnline 声明独立账号服务 `login.wlpc.com`。第三方 Cookie 不导入源的 Cookie 罐，也不随清除源 Cookie 自动删除；第三方网页登录态由系统 WebView 管理。
 
 `configured` 表示已有账号配置，独立于当前是否成功登录。`managedAccount: true` 声明源支持专用自动维护账号；源设置使用同名 `managedAccount` 开关。宿主必须先展示自动注册说明并取得用户确认，再保存启用设置并调用 `account.enableManaged()`。注册前应保存候选凭据并 `await this.store.flush()`，确保失败或应用重启后仍可恢复同一账号。
 

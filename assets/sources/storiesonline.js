@@ -77,7 +77,7 @@
   Park.register({
     key: 'storiesonline',
     name: 'StoriesOnline',
-    version: '0.0.3',
+    version: '0.0.4',
     type: 'novel',
     category: 'novel',
     language: 'en',
@@ -92,6 +92,7 @@
       title: '站点账号',
       required: false,
       loginUrl: HOME + '/sol-secure/login.php',
+      loginDomains: ['login.wlpc.com'],
       cookieUrl: HOME + '/',
       requiredCookies: [],
     },
