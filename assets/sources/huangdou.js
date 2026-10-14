@@ -9,7 +9,7 @@ Park.register({
     "ru": {"高分推荐": "С высоким рейтингом", "黄豆短剧": "Короткие сериалы Huangdou"},
     "ar": {"高分推荐": "الأعلى تقييمًا", "黄豆短剧": "مسلسلات Huangdou القصيرة"},
   },
-  key: 'huangdou', name: '黄豆短剧', version: '0.0.6',
+  key: 'huangdou', name: '黄豆短剧', version: '0.0.7',
   type: 'video', category: 'aiDrama', color: '#FFC857',
   description: 'AI短剧与漫剧，支持分类、排行、搜索和分集播放',
   homepage: 'https://aihuangdou.com', domains: ['aihuangdou.com'], language: 'zh',
@@ -21,10 +21,7 @@ Park.register({
     domains: ['pic.drleao.cn'],
   },
   network: { mode: 'native', vpnHint: true },
-  media: { mode: 'native', scope: 'session', origin: 'https://aihuangdou.com', domains: [
-    'yd-hls.hzjvlo.cn', 'tp1.drleao.cn', 'tp2.drleao.cn', 'tp3.drleao.cn',
-    'tp4.drleao.cn', 'tp5.drleao.cn', 'tp6.drleao.cn', 'tp7.drleao.cn', 'tp8.drleao.cn',
-  ] },
+  media: { mode: 'native', scope: 'session', origin: 'https://aihuangdou.com' },
   defaultFeed: 'recommend',
   feeds: [
     { key: 'recommend', label: '推荐' },

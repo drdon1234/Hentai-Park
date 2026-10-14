@@ -77,7 +77,7 @@ class MediaPolicy {
         url.userInfo.isNotEmpty ||
         !_publicHost(url.host) ||
         url.hasFragment) {
-      throw SourceError('CONFIG', '媒体地址不在站点声明的 HTTPS 域名内');
+      throw SourceError('CONFIG', '媒体地址必须是有效的公网 HTTPS 地址');
     }
   }
 
@@ -86,7 +86,10 @@ class MediaPolicy {
     if (session
         ? !_authorized.contains(url)
         : !hostInDomains(url.host, domains)) {
-      throw SourceError('CONFIG', '媒体地址不在站点声明的 HTTPS 域名内');
+      throw SourceError(
+        'CONFIG',
+        session ? '媒体地址未由当前播放接口或清单授权' : '媒体地址不在站点声明的 HTTPS 域名内',
+      );
     }
   }
 

@@ -9,7 +9,7 @@ Park.register({
     "ru": {"91短剧": "Короткие сериалы 91", "AI短剧、漫剧与视频，支持推荐、分类、搜索和分集播放": "ИИ-мини-драмы, анимированные комиксы и видео с рекомендациями, категориями, поиском и просмотром по сериям", "成人漫剧": "Анимированные комиксы для взрослых", "成人短剧": "Короткие сериалы для взрослых", "真人剧": "Игровые сериалы"},
     "ar": {"91短剧": "مسلسلات 91 القصيرة", "AI短剧、漫剧与视频，支持推荐、分类、搜索和分集播放": "دراما قصيرة بالذكاء الاصطناعي وقصص مصورة متحركة وفيديوهات، مع توصيات وتصنيفات وبحث وتشغيل الحلقات", "成人漫剧": "قصص مصورة متحركة للبالغين", "成人短剧": "مسلسلات قصيرة للبالغين", "真人剧": "مسلسلات تمثيلية"},
   },
-  key: 'drama91', name: '91短剧', version: '0.0.6',
+  key: 'drama91', name: '91短剧', version: '0.0.7',
   type: 'video', category: 'aiDrama', color: '#E6C87A',
   description: 'AI短剧、漫剧与视频，支持推荐、分类、搜索和分集播放',
   homepage: 'https://91crdjai.com', domains: ['91crdjai.com'], language: 'zh',
@@ -18,10 +18,7 @@ Park.register({
   imageHeaders: { Referer: 'https://91crdjai.com/' },
   imageDecrypt: { type: 'aes-cbc', key: 'f5d965df75336270', iv: '97b60394abc2fbe1', domains: ['pic.drleao.cn'] },
   network: { mode: 'native', vpnHint: true },
-  media: { mode: 'native', scope: 'session', origin: 'https://91crdjai.com', domains: [
-    'yd-hls.hzjvlo.cn', 'tp1.drleao.cn', 'tp2.drleao.cn', 'tp3.drleao.cn',
-    'tp4.drleao.cn', 'tp5.drleao.cn', 'tp6.drleao.cn', 'tp7.drleao.cn', 'tp8.drleao.cn',
-  ] },
+  media: { mode: 'native', scope: 'session', origin: 'https://91crdjai.com' },
   defaultFeed: 'recommend',
   feeds: [
     { key: 'recommend', label: '推荐' }, { key: 'ranking', label: '排行榜' },
