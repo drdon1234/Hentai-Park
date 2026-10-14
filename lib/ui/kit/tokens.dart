@@ -27,6 +27,12 @@ abstract final class Motion {
   static const short = Duration(milliseconds: 150);
   static const medium = Duration(milliseconds: 250);
   static const curve = Curves.easeOutCubic;
+  static AnimationStyle menu(BuildContext context) => AnimationStyle(
+    duration: of(context, short),
+    reverseDuration: of(context, short),
+    curve: curve,
+    reverseCurve: curve,
+  );
 
   static Duration of(BuildContext context, Duration duration) =>
       MediaQuery.disableAnimationsOf(context) ? Duration.zero : duration;

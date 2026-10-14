@@ -681,6 +681,14 @@ class AppSettings extends ChangeNotifier {
   set homeCategories(List<SourceCategory> value) =>
       _set('homeCategories', [for (final c in value) c.name]);
 
+  String? homeSource(SourceCategory category) =>
+      (_v['homeSources'] as Map?)?[category.name] as String?;
+
+  void setHomeSource(SourceCategory category, String source) => _set(
+    'homeSources',
+    {...?(_v['homeSources'] as Map?), category.name: source},
+  );
+
   /// Sites where posting a reply to unlock a resource no longer asks first.
   Set<String> get replyWithoutAsking =>
       ((_v['replyWithoutAsking'] as List?) ?? []).whereType<String>().toSet();

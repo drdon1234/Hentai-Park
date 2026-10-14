@@ -23,17 +23,44 @@ class FeedShelf extends StatefulWidget {
     required this.title,
     this.onMore,
     this.moreLabel,
+    this.onConfigure,
   });
   final String sourceKey;
   final String title;
   final VoidCallback? onMore;
   final String? moreLabel;
+  final VoidCallback? onConfigure;
+
+  static final _pages = <String, Future<List<WorkItem>>>{};
+  static final refreshes = ValueNotifier(0);
+  static Future<List<WorkItem>> cachedItems(
+    String key,
+    Future<List<WorkItem>> Function() load,
+  ) async {
+    final pending = _pages.putIfAbsent(key, load);
+    try {
+      return await pending;
+    } catch (_) {
+      if (identical(_pages[key], pending)) {
+        _pages.remove(key)?.ignore();
+      }
+      rethrow;
+    }
+  }
+
+  static void refreshAll() {
+    _pages.clear();
+    refreshes.value++;
+  }
 
   @override
   State<FeedShelf> createState() => _FeedShelfState();
 }
 
-class _FeedShelfState extends State<FeedShelf> {
+class _FeedShelfState extends State<FeedShelf>
+    with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
   List<WorkItem>? _items;
   Object? _error;
   bool _loading = false;
@@ -46,16 +73,27 @@ class _FeedShelfState extends State<FeedShelf> {
   void initState() {
     super.initState();
     _filters.addListener(_filtersChanged);
+    FeedShelf.refreshes.addListener(_refresh);
   }
 
   @override
   void dispose() {
     _filters.removeListener(_filtersChanged);
+    FeedShelf.refreshes.removeListener(_refresh);
     super.dispose();
   }
 
   void _filtersChanged() {
     if (mounted) setState(() {});
+  }
+
+  void _refresh() {
+    if (!mounted) return;
+    setState(() {
+      _items = null;
+      _error = null;
+    });
+    if (_visible) unawaited(_load());
   }
 
   @override
@@ -82,29 +120,41 @@ class _FeedShelfState extends State<FeedShelf> {
       _loading = true;
       _error = null;
     });
+    final generation = FeedShelf.refreshes.value;
     try {
       final feed = manifest.feeds[manifest.defaultFeedIndex];
-      final page = await SourceManager.instance.feed(
-        key,
-        feed.key,
-        options: feed.defaultOptions(),
-      );
-      if (!mounted || key != widget.sourceKey) return;
-      setState(
-        () => _items = [
+      final page = await FeedShelf.cachedItems(key, () async {
+        final page = await SourceManager.instance.feed(
+          key,
+          feed.key,
+          options: feed.defaultOptions(),
+          refresh: generation > 0,
+        );
+        return [
           ...?page.sections?.expand((section) => section.items),
           ...page.items,
-        ].take(24).toList(),
-      );
+        ].take(24).toList();
+      });
+      if (!mounted || key != widget.sourceKey) return;
+      if (generation != FeedShelf.refreshes.value) return;
+      setState(() => _items = page);
     } catch (error) {
-      if (mounted && key == widget.sourceKey) setState(() => _error = error);
+      if (mounted &&
+          key == widget.sourceKey &&
+          generation == FeedShelf.refreshes.value) {
+        setState(() => _error = error);
+      }
     } finally {
-      if (mounted) setState(() => _loading = false);
+      if (mounted) {
+        setState(() => _loading = false);
+        if (_visible && _items == null && _error == null) unawaited(_load());
+      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     final manifest = SourceManager.instance.manifest(widget.sourceKey);
     final blocklist = TagBlocklist.current();
     final items = _items
@@ -160,12 +210,22 @@ class _FeedShelfState extends State<FeedShelf> {
           SectionHeader(
             widget.title,
             leading: SourceAvatar(widget.sourceKey, size: 22),
-            trailing: widget.onMore == null
-                ? null
-                : TextButton(
+            trailing: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (widget.onConfigure != null)
+                  IconButton(
+                    tooltip: tr('选择展示站点'),
+                    icon: const Icon(Icons.tune_rounded),
+                    onPressed: widget.onConfigure,
+                  ),
+                if (widget.onMore != null)
+                  TextButton(
                     onPressed: widget.onMore,
                     child: Text(widget.moreLabel ?? tr('全部')),
                   ),
+              ],
+            ),
           ),
           AnimatedSwitcher(
             duration: Motion.of(context, Motion.medium),

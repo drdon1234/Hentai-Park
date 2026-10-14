@@ -151,6 +151,11 @@ void validateSettings(Map<String, dynamic> values) {
           value is Map &&
           value.entries.every((e) => e.key is String && stringList(e.value));
     }
+    if (key == 'homeSources') {
+      valid =
+          value is Map &&
+          value.entries.every((e) => e.key is String && e.value is String);
+    }
     if (key == 'blockPresets') {
       valid =
           value is Map &&

@@ -501,6 +501,7 @@ Future<T?> showChoiceSheet<T>(
   required String Function(T option) label,
 }) => showModalBottomSheet<T>(
   context: context,
+  sheetAnimationStyle: Motion.menu(context),
   isScrollControlled: true,
   builder: (ctx) => SafeArea(
     child: ConstrainedBox(

@@ -32,6 +32,7 @@ class _HomePageState extends State<HomePage> {
   late final Listenable _domainOrder = AppSettings.instance.watch(const {
     'domainOrder',
     'homeCategories',
+    'homeSources',
   });
   ValueNotifier<DiscoveryDestination> get _destination =>
       widget.destination ?? _localDestination;
@@ -122,41 +123,47 @@ class _HomePageState extends State<HomePage> {
 
   Widget _content(BuildContext context, DiscoveryDestination selected) {
     final sm = SourceManager.instance;
-    return CustomScrollView(
-      controller: _scroll,
-      slivers: [
-        SliverToBoxAdapter(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(Gap.page, Gap.s, Gap.page, 0),
-            child: ParkSearchField(
-              hint: selected.category == null
-                  ? tr('搜索作品、标签，或粘贴链接 / 车号')
-                  : tr('在{category}中搜索', {
-                      'category': selected.category!.label,
-                    }),
-              onTap: () => Nav.openAggregateSearch(context, scope: _scope),
+    return RefreshIndicator(
+      onRefresh: () async {
+        FeedShelf.refreshAll();
+      },
+      child: CustomScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        controller: _scroll,
+        slivers: [
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(Gap.page, Gap.s, Gap.page, 0),
+              child: ParkSearchField(
+                hint: selected.category == null
+                    ? tr('搜索作品、标签，或粘贴链接 / 车号')
+                    : tr('在{category}中搜索', {
+                        'category': selected.category!.label,
+                      }),
+                onTap: () => Nav.openAggregateSearch(context, scope: _scope),
+              ),
             ),
           ),
-        ),
-        SliverToBoxAdapter(
-          child: ListenableBuilder(
-            listenable: Listenable.merge([
-              Library.instance.collection(LibraryCollection.history),
-              sm,
-            ]),
-            builder: (context, _) => RecentHistory(
-              scope: _scope,
-              limit: 20,
-              onOpenHistory: _history,
+          SliverToBoxAdapter(
+            child: ListenableBuilder(
+              listenable: Listenable.merge([
+                Library.instance.collection(LibraryCollection.history),
+                sm,
+              ]),
+              builder: (context, _) => RecentHistory(
+                scope: _scope,
+                limit: 20,
+                onOpenHistory: _history,
+              ),
             ),
           ),
-        ),
-        ListenableBuilder(
-          listenable: Listenable.merge([sm, _domainOrder]),
-          builder: (context, _) => _shelves(context, selected),
-        ),
-        const SliverToBoxAdapter(child: SizedBox(height: Gap.xl)),
-      ],
+          ListenableBuilder(
+            listenable: Listenable.merge([sm, _domainOrder]),
+            builder: (context, _) => _shelves(context, selected),
+          ),
+          const SliverToBoxAdapter(child: SizedBox(height: Gap.xl)),
+        ],
+      ),
     );
   }
 
@@ -218,8 +225,7 @@ class _HomePageState extends State<HomePage> {
       else
         for (final c in AppSettings.instance.domainOrder)
           if (_interesting(c))
-            if (sources.where((s) => s.manifest!.category == c).firstOrNull
-                case final first?)
+            if (_displaySource(sources, c) case final first?)
               (source: first, category: c),
     ];
     return SliverList.builder(
@@ -232,11 +238,36 @@ class _HomePageState extends State<HomePage> {
           sourceKey: shelf.source.key,
           title: category == null ? '${shelf.category.label} · $name' : name,
           moreLabel: category == null ? tr('更多') : tr('进入'),
+          onConfigure: category == null
+              ? () => _configure(shelf.category, shelf.source.key)
+              : null,
           onMore: category == null
               ? () => _select(DiscoveryDestination.domain(shelf.category))
               : () => Nav.openSource(context, shelf.source.key),
         );
       },
     );
+  }
+
+  InstalledSource? _displaySource(
+    List<InstalledSource> sources,
+    SourceCategory category,
+  ) {
+    final eligible = sources.where((s) => s.manifest!.category == category);
+    final chosen = AppSettings.instance.homeSource(category);
+    return eligible.where((s) => s.key == chosen).firstOrNull ??
+        eligible.firstOrNull;
+  }
+
+  Future<void> _configure(SourceCategory category, String selected) async {
+    final sources = browsableSources(category);
+    final chosen = await showChoiceSheet<String>(
+      context,
+      title: tr('选择展示站点'),
+      selected: selected,
+      options: sources.map((source) => source.key).toList(),
+      label: (key) => sources.firstWhere((source) => source.key == key).name,
+    );
+    if (chosen != null) AppSettings.instance.setHomeSource(category, chosen);
   }
 }

@@ -1225,5 +1225,8 @@
   "该站点已停用": "This site is turned off",
   "站点未安装": "Site not installed",
   "显示输入内容": "Show input",
-  "隐藏输入内容": "Hide input"
+  "隐藏输入内容": "Hide input",
+  "选择展示站点": "Choose featured site",
+  "媒体地址必须是有效的公网 HTTPS 地址": "Media URL must be a valid public HTTPS URL",
+  "媒体地址未由当前播放接口或清单授权": "Media URL was not authorized by the current playback response or playlist"
 }

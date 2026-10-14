@@ -341,6 +341,7 @@ class MenuChip<T> extends StatelessWidget {
   Widget build(BuildContext context) {
     final entries = options.entries.toList();
     return PopupMenuButton<int>(
+      popUpAnimationStyle: Motion.menu(context),
       tooltip: label,
       onSelected: (i) => onSelected(entries[i].key),
       itemBuilder: (_) => [

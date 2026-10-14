@@ -99,6 +99,7 @@ class _ScopeMenu<T> extends StatelessWidget {
     // Indexes rather than values: a null value would read as a cancelled menu.
     final entries = options.entries.toList();
     return PopupMenuButton<int>(
+      popUpAnimationStyle: Motion.menu(context),
       tooltip: label,
       onSelected: (i) => onSelected(entries[i].key),
       itemBuilder: (_) => [

@@ -186,6 +186,7 @@ class _AggregateSearchPageState extends State<AggregateSearchPage> {
   /// Which sites take part, grouped by category; most visits never need it, so it lives in a sheet.
   Future<void> _editSites() => showModalBottomSheet<void>(
     context: context,
+    sheetAnimationStyle: Motion.menu(context),
     isScrollControlled: true,
     builder: (ctx) => ListenableBuilder(
       listenable: AppSettings.instance.watch(const {'aggregateExcluded'}),
