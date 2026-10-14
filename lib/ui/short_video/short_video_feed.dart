@@ -1,7 +1,5 @@
 import 'package:flutter/foundation.dart';
 
-import 'dart:convert';
-
 import '../../core/models.dart';
 import '../../core/settings.dart';
 import '../../core/tag_blocklist.dart';
@@ -11,8 +9,7 @@ typedef ShortVideoLoader = Future<WorkPage> Function(int page, String? cursor);
 /// 分页只保留作品元数据；播放器资源由独立的有界池管理。
 class ShortVideoFeed extends ChangeNotifier {
   ShortVideoFeed(this._load, {WorkItem? initial, this.allowItem}) {
-    _rules = _ruleSignature;
-    AppSettings.instance.addListener(_rulesChanged);
+    _filters.addListener(_rulesChanged);
     if (initial != null) {
       _loaded.add(initial);
       if (_allows(initial)) items.add(initial);
@@ -23,19 +20,13 @@ class ShortVideoFeed extends ChangeNotifier {
   final bool Function(WorkItem)? allowItem;
   final _loaded = <WorkItem>[];
   final _explicit = <String>{};
-  late String _rules;
-  String get _ruleSignature => jsonEncode([
-    AppSettings.instance.blockedTags,
-    AppSettings.instance.blockPresetState,
-  ]);
+  final _filters = AppSettings.instance.watch(AppSettings.filterKeys);
   bool _allows(WorkItem item) =>
       _explicit.contains(item.uid) ||
       (allowItem?.call(item) ??
           (TagBlocklist.current().matchItem(item) == null));
   void _rulesChanged() {
-    final rules = _ruleSignature;
-    if (_disposed || rules == _rules) return;
-    _rules = rules;
+    if (_disposed) return;
     _explicit.clear();
     final current = index < items.length ? items[index].uid : null;
     items
@@ -129,7 +120,7 @@ class ShortVideoFeed extends ChangeNotifier {
   @override
   void dispose() {
     _disposed = true;
-    AppSettings.instance.removeListener(_rulesChanged);
+    _filters.removeListener(_rulesChanged);
     generation++;
     super.dispose();
   }

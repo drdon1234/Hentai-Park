@@ -1,17 +1,19 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
+import '../../core/localization.dart';
 import '../../core/models.dart';
 import '../../core/settings.dart';
 import '../../library/downloads.dart';
 import '../../library/library.dart';
 import '../../library/updater.dart';
+import '../library/shelf_page.dart';
 import '../nav.dart';
+import '../subscriptions/subscription_updates_page.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
-import '../../core/localization.dart';
-import '../subscriptions/subscription_updates_page.dart';
 
 /// Mihon's Updates tab: new chapters of favorites, newest first, grouped by day.
 class UpdatesPage extends StatefulWidget {
@@ -29,17 +31,23 @@ class _UpdatesPageState extends State<UpdatesPage> {
   static String _keyOf(UpdateEntry e) =>
       '${e.item.uid}\u0000${e.chapter.chapterId}';
 
+  /// The feed lists new chapters of favorites; history changes do not affect it.
+  final _library = Listenable.merge([
+    Library.instance.collection(LibraryCollection.chapters),
+    Library.instance.collection(LibraryCollection.favorites),
+  ]);
+
   @override
   void initState() {
     super.initState();
     _reload();
-    Library.instance.addListener(_scheduleReload);
+    _library.addListener(_scheduleReload);
     LibraryUpdater.instance.addListener(_scheduleReload);
   }
 
   @override
   void dispose() {
-    Library.instance.removeListener(_scheduleReload);
+    _library.removeListener(_scheduleReload);
     LibraryUpdater.instance.removeListener(_scheduleReload);
     _debounce?.cancel();
     super.dispose();
@@ -74,7 +82,12 @@ class _UpdatesPageState extends State<UpdatesPage> {
     );
   }
 
-  void _toggle(UpdateEntry e) => setState(() {
+  void _toggle(UpdateEntry e) {
+    HapticFeedback.selectionClick();
+    _toggleSelection(e);
+  }
+
+  void _toggleSelection(UpdateEntry e) => setState(() {
     final k = _keyOf(e);
     _selected.contains(k) ? _selected.remove(k) : _selected.add(k);
   });
@@ -110,7 +123,6 @@ class _UpdatesPageState extends State<UpdatesPage> {
 
   @override
   Widget build(BuildContext context) {
-    AppLocalizations.of(context);
     final updater = LibraryUpdater.instance;
     return ListenableBuilder(
       listenable: Listenable.merge([updater, DownloadManager.instance]),
@@ -121,17 +133,12 @@ class _UpdatesPageState extends State<UpdatesPage> {
           appBar: selecting
               ? AppBar(
                   leading: IconButton(
+                    tooltip: tr('取消选择'),
                     icon: const Icon(Icons.close_rounded),
                     onPressed: () => setState(_selected.clear),
                   ),
                   title: Text(tr('已选 {value0}', {'value0': _selected.length})),
                   actions: [
-                    IconButton(
-                      tooltip: tr('订阅更新'),
-                      icon: const Icon(Icons.notifications_outlined),
-                      onPressed: () =>
-                          Nav.push(context, const SubscriptionUpdatesPage()),
-                    ),
                     TextButton(
                       onPressed: () => _markSelected(true),
                       child: Text(tr('标为已读')),
@@ -150,33 +157,61 @@ class _UpdatesPageState extends State<UpdatesPage> {
                     ),
                   ],
                 )
-              : AppBar(
-                  title: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(tr('更新')),
-                      Text(
-                        updater.running
-                            ? tr('正在检查 {value0}/{value1}', {
-                                'value0': updater.done,
-                                'value1': updater.total,
-                              })
-                            : (last == 0
-                                  ? tr('尚未检查过更新')
-                                  : tr('上次检查：{value0}', {
-                                      'value0': timeAgo(
-                                        DateTime.fromMillisecondsSinceEpoch(
-                                          last,
-                                        ),
-                                      ),
-                                    })),
-                        style: context.text.labelSmall?.copyWith(
-                          color: context.colors.onSurfaceVariant,
+              : PageHeader(
+                  titleWidget: ShelfTitle(tr('更新')),
+                  // The status sits under the tabs so they stay where the other shelves have them.
+                  bottom: PreferredSize(
+                    preferredSize: const Size.fromHeight(23),
+                    child: Column(
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(
+                            Gap.page,
+                            0,
+                            Gap.page,
+                            Gap.xs,
+                          ),
+                          child: Align(
+                            alignment: AlignmentDirectional.centerStart,
+                            child: Text(
+                              updater.running
+                                  ? tr('正在检查 {value0}/{value1}', {
+                                      'value0': updater.done,
+                                      'value1': updater.total,
+                                    })
+                                  : (last == 0
+                                        ? tr('尚未检查过更新')
+                                        : tr('上次检查：{value0}', {
+                                            'value0': timeAgo(
+                                              DateTime.fromMillisecondsSinceEpoch(
+                                                last,
+                                              ),
+                                            ),
+                                          })),
+                              style: context.text.labelSmall?.copyWith(
+                                color: context.colors.onSurfaceVariant,
+                              ),
+                            ),
+                          ),
                         ),
-                      ),
-                    ],
+                        if (updater.running)
+                          LinearProgressIndicator(
+                            value: updater.total > 0
+                                ? updater.done / updater.total
+                                : null,
+                            minHeight: 3,
+                          )
+                        else
+                          const SizedBox(height: 3),
+                      ],
+                    ),
                   ),
                   actions: [
+                    TextButton(
+                      onPressed: () =>
+                          Nav.push(context, const SubscriptionUpdatesPage()),
+                      child: Text(tr('订阅')),
+                    ),
                     if (updater.running)
                       IconButton(
                         tooltip: tr('停止'),
@@ -190,19 +225,8 @@ class _UpdatesPageState extends State<UpdatesPage> {
                         onPressed: _refresh,
                       ),
                   ],
-                  bottom: updater.running
-                      ? PreferredSize(
-                          preferredSize: const Size.fromHeight(3),
-                          child: LinearProgressIndicator(
-                            value: updater.total > 0
-                                ? updater.done / updater.total
-                                : null,
-                            minHeight: 3,
-                          ),
-                        )
-                      : null,
                 ),
-          body: RefreshIndicator(onRefresh: _refresh, child: _body(context)),
+          body: ParkRefresh(onRefresh: _refresh, child: _body(context)),
         );
       },
     );
@@ -216,11 +240,11 @@ class _UpdatesPageState extends State<UpdatesPage> {
     if (entries.isEmpty) {
       return ListView(
         children: [
-          SizedBox(height: 120),
-          MessageView(
-            icon: Icons.new_releases_outlined,
+          const SizedBox(height: 120),
+          EmptyState(
+            icon: Icons.update_rounded,
             title: tr('暂无更新'),
-            message: tr('下拉检查书架中连载作品的新章节\n可以在「我的 → 书库」中设置自动检查'),
+            message: tr('下拉检查收藏中连载作品的新章节。自动检查可在“我的 → 书架与下载”中设置。'),
           ),
         ],
       );
@@ -253,7 +277,7 @@ class _UpdatesPageState extends State<UpdatesPage> {
     );
     final muted = read ? c.onSurface.withValues(alpha: 0.45) : null;
     return Material(
-      color: selected ? c.primary.withValues(alpha: 0.18) : Colors.transparent,
+      color: selected ? c.secondaryContainer : Colors.transparent,
       child: InkWell(
         onTap: () => _selected.isNotEmpty
             ? _toggle(e)
@@ -263,15 +287,16 @@ class _UpdatesPageState extends State<UpdatesPage> {
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
           child: Row(
             children: [
-              GestureDetector(
-                onTap: () => Nav.openWork(context, e.item),
-                child: SizedBox(
-                  width: 46,
-                  height: 62,
-                  child: CoverImage(
-                    source: e.item.source,
-                    url: e.item.cover,
-                    radius: 8,
+              // The row opens the chapter; the cover opens the work.
+              Semantics(
+                button: true,
+                label: tr('打开详情'),
+                child: GestureDetector(
+                  onTap: () => Nav.openWork(context, e.item),
+                  child: SizedBox(
+                    width: 46,
+                    height: 62,
+                    child: CoverImage(source: e.item.source, url: e.item.cover),
                   ),
                 ),
               ),
@@ -285,7 +310,7 @@ class _UpdatesPageState extends State<UpdatesPage> {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: context.text.bodyMedium?.copyWith(
-                        fontWeight: read ? FontWeight.w500 : FontWeight.w700,
+                        fontWeight: read ? FontWeight.w500 : FontWeight.w600,
                         color: muted,
                       ),
                     ),
@@ -330,8 +355,9 @@ class _UpdatesPageState extends State<UpdatesPage> {
                   padding: const EdgeInsets.all(12),
                   child: Icon(
                     Icons.download_done_rounded,
-                    color: c.primary,
+                    color: c.onSurfaceVariant,
                     size: 20,
+                    semanticLabel: tr('已下载'),
                   ),
                 )
               else

@@ -5,18 +5,18 @@ import 'package:video_player/video_player.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 
 import '../../core/app_lock.dart';
+import '../../core/content_scope.dart';
 import '../../core/localization.dart';
 import '../../core/models.dart';
-import '../../core/content_scope.dart';
 import '../../core/tag_blocklist.dart';
-import '../history/history_page.dart';
-import '../widgets/content_translation.dart';
 import '../../engine/source_manager.dart';
 import '../../images/park_image.dart';
 import '../../library/library.dart';
+import '../history/history_page.dart';
 import '../nav.dart';
-import '../discovery_navigation.dart';
+import '../theme.dart';
 import '../video/adaptive_video_progress.dart';
+import '../widgets/content_translation.dart';
 import '../widgets/error_view.dart';
 import '../widgets/source_network_hint.dart';
 import 'short_video_feed.dart';
@@ -65,7 +65,7 @@ class _ShortVideoPageState extends State<ShortVideoPage>
       ..addListener(_changed);
     _feed = ShortVideoFeed((page, cursor) {
       final m = SourceManager.instance.manifest(widget.source);
-      if (m == null || m.feeds.isEmpty) throw SourceError('CONFIG', '源未加载');
+      if (m == null || m.feeds.isEmpty) throw SourceError('CONFIG', '站点未加载');
       final i = (widget.feedIndex ?? m.defaultFeedIndex).clamp(
         0,
         m.feeds.length - 1,
@@ -353,20 +353,24 @@ class _ShortVideoPageState extends State<ShortVideoPage>
             ),
           ),
         if (active)
-          GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            onTap: () => _playback.toggle(),
-            child: c == null && error == null
-                ? _loading()
-                : !_playback.wantsPlayback
-                ? const Center(
-                    child: Icon(
-                      Icons.play_arrow_rounded,
-                      size: 80,
-                      color: Colors.white70,
-                    ),
-                  )
-                : const SizedBox.expand(),
+          Semantics(
+            button: true,
+            label: tr(_playback.wantsPlayback ? '暂停' : '播放'),
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: () => _playback.toggle(),
+              child: c == null && error == null
+                  ? _loading()
+                  : !_playback.wantsPlayback
+                  ? const Center(
+                      child: Icon(
+                        Icons.play_arrow_rounded,
+                        size: 80,
+                        color: Colors.white70,
+                      ),
+                    )
+                  : const SizedBox.expand(),
+            ),
           ),
         if (error != null)
           ColoredBox(
@@ -439,13 +443,9 @@ class _ShortVideoPageState extends State<ShortVideoPage>
                                 overflow: active && _expanded
                                     ? null
                                     : TextOverflow.ellipsis,
-                                style: const TextStyle(
+                                style: context.text.titleMedium?.copyWith(
                                   color: Colors.white,
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w600,
-                                  shadows: [
-                                    Shadow(blurRadius: 5, color: Colors.black),
-                                  ],
+                                  shadows: const [Shadow(blurRadius: 5)],
                                 ),
                               ),
                             ),
@@ -466,7 +466,7 @@ class _ShortVideoPageState extends State<ShortVideoPage>
                 ),
                 const SizedBox(width: 8),
                 ListenableBuilder(
-                  listenable: Library.instance,
+                  listenable: Library.instance.work(item.uid),
                   builder: (context, _) {
                     final favorite = Library.instance.isFavorite(item.uid);
                     return IconButton(
@@ -480,7 +480,7 @@ class _ShortVideoPageState extends State<ShortVideoPage>
                       },
                       icon: Icon(
                         favorite ? Icons.favorite : Icons.favorite_border,
-                        color: favorite ? Colors.pinkAccent : Colors.white,
+                        color: favorite ? context.colors.primary : Colors.white,
                         size: 32,
                       ),
                     );
@@ -496,7 +496,6 @@ class _ShortVideoPageState extends State<ShortVideoPage>
 
   @override
   Widget build(BuildContext context) {
-    AppLocalizations.of(context);
     final manifest = SourceManager.instance.manifest(widget.source);
     return TranslationPage(
       child: Theme(
@@ -563,7 +562,7 @@ class _ShortVideoPageState extends State<ShortVideoPage>
                       color: Colors.black38,
                       child: Row(
                         children: [
-                          BackButton(color: Colors.white),
+                          const BackButton(color: Colors.white),
                           Expanded(
                             child: Text(
                               manifest?.name ?? tr('短视频'),
@@ -572,7 +571,6 @@ class _ShortVideoPageState extends State<ShortVideoPage>
                               style: const TextStyle(color: Colors.white),
                             ),
                           ),
-                          const DomainMenu(),
                           TranslationControls(source: widget.source),
                           if (manifest?.can('search') == true)
                             IconButton(
@@ -597,7 +595,7 @@ class _ShortVideoPageState extends State<ShortVideoPage>
                               ),
                               PopupMenuItem(
                                 value: 'settings',
-                                child: Text(tr('源设置')),
+                                child: Text(tr('站点设置')),
                               ),
                             ],
                             onSelected: (action) {

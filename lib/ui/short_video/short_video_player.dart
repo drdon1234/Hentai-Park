@@ -29,7 +29,7 @@ class ShortVideoPlayer implements ShortVideoHandle {
       throw SourceError('UNSUPPORTED', '此设备暂不支持短视频播放');
     }
     final manifest = SourceManager.instance.manifest(item.source);
-    if (manifest == null) throw SourceError('CONFIG', '源未加载');
+    if (manifest == null) throw SourceError('CONFIG', '站点未加载');
     final sources = await SourceManager.instance.videos(
       item.source,
       item.id,
@@ -67,7 +67,7 @@ class ShortVideoPlayer implements ShortVideoHandle {
       controller = VideoPlayerController.networkUrl(
         uri,
         httpHeaders: media == null ? headers : const {},
-        videoPlayerOptions: VideoPlayerOptions(allowBackgroundPlayback: false),
+        videoPlayerOptions: VideoPlayerOptions(),
       );
       await awaitCancelled(
         controller.initialize().timeout(const Duration(seconds: 30)),

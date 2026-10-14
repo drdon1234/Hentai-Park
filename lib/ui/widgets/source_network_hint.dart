@@ -60,7 +60,6 @@ class _DelayedNetworkHintState extends State<DelayedNetworkHint> {
 
   @override
   Widget build(BuildContext context) {
-    AppLocalizations.of(context);
     if (!_visible) return const SizedBox.shrink();
     return const NetworkAccessHint();
   }
@@ -72,7 +71,6 @@ class NetworkAccessHint extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    AppLocalizations.of(context);
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       child: Column(

@@ -12,7 +12,6 @@ class VideoEpisodeSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    AppLocalizations.of(context);
     final episodes = work.videoEpisodes;
     return SafeArea(
       child: ConstrainedBox(
@@ -21,7 +20,7 @@ class VideoEpisodeSheet extends StatelessWidget {
         ),
         child: ListenableBuilder(
           listenable: Listenable.merge([
-            Library.instance,
+            Library.instance.work(work.uid),
             DownloadManager.instance,
           ]),
           builder: (context, _) => Column(
@@ -30,7 +29,7 @@ class VideoEpisodeSheet extends StatelessWidget {
               ListTile(
                 title: Text(
                   tr('选集'),
-                  style: const TextStyle(fontWeight: FontWeight.w700),
+                  style: const TextStyle(fontWeight: FontWeight.w600),
                 ),
               ),
               Flexible(

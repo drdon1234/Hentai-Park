@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../core/localization.dart';
+import '../kit/tokens.dart';
 import '../theme.dart';
 import 'content_translation.dart';
 
@@ -47,10 +48,10 @@ class _ExpandableDescriptionState extends State<ExpandableDescription> {
           final canExpand = painter.didExceedMaxLines;
           painter.dispose();
           return InkWell(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: Radii.medium,
             onTap: canExpand ? _toggle : null,
             child: AnimatedSize(
-              duration: const Duration(milliseconds: 200),
+              duration: Motion.of(context, Motion.medium),
               alignment: Alignment.topCenter,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,

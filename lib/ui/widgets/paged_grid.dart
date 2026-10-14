@@ -1,28 +1,29 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
-import 'dart:convert';
-
+import '../../core/localization.dart';
 import '../../core/models.dart';
-import '../../core/tag_blocklist.dart';
 import '../../core/settings.dart';
-import '../theme.dart';
-import 'common.dart';
-import 'error_view.dart';
-import 'source_network_hint.dart';
-import 'work_card.dart';
-import 'work_text_row.dart';
+import '../../core/tag_blocklist.dart';
 import '../../subscriptions/models.dart';
 import '../subscriptions/subscription_posts_page.dart';
-import '../../core/localization.dart';
+import '../theme.dart';
+import 'common.dart';
+import 'cover_tile.dart';
+import 'error_view.dart';
+import 'source_network_hint.dart';
+import 'work_text_row.dart';
 
 typedef PageLoader = Future<WorkPage> Function(int page, String? cursor);
 
 /// Infinite-scroll state for a cursor- or page-based listing.
 class PagedController extends ChangeNotifier {
   PagedController(this.loader, {required this.source}) {
-    _rules = _ruleSignature;
-    AppSettings.instance.addListener(_rulesChanged);
+    _filters.addListener(_rulesChanged);
   }
+
+  final _filters = AppSettings.instance.watch(AppSettings.filterKeys);
 
   PageLoader loader;
   final String source;
@@ -30,14 +31,8 @@ class PagedController extends ChangeNotifier {
   final Set<String> _seen = {};
   final _loaded = <WorkItem>[];
   List<WorkSection>? _rawSections;
-  late String _rules;
-  String get _ruleSignature => jsonEncode([
-    AppSettings.instance.blockedTags,
-    AppSettings.instance.blockPresetState,
-  ]);
   void _rulesChanged() {
-    if (_disposed || _rules == _ruleSignature) return;
-    _rules = _ruleSignature;
+    if (_disposed) return;
     final blocklist = TagBlocklist.current();
     items
       ..clear()
@@ -137,9 +132,11 @@ class PagedController extends ChangeNotifier {
       // A page where everything was filtered would leave nothing to scroll to; fetch on (a few times).
       _emptyPages = shown == 0 ? _emptyPages + 1 : 0;
       if (shown == 0 && hasNext && _emptyPages <= 3) {
-        Future.microtask(() {
-          if (gen == _generation) loadMore();
-        });
+        unawaited(
+          Future.microtask(() {
+            if (gen == _generation) loadMore();
+          }),
+        );
       }
     } catch (e) {
       if (gen != _generation) return;
@@ -159,7 +156,7 @@ class PagedController extends ChangeNotifier {
   @override
   void dispose() {
     _disposed = true;
-    AppSettings.instance.removeListener(_rulesChanged);
+    _filters.removeListener(_rulesChanged);
     super.dispose();
   }
 }
@@ -172,7 +169,7 @@ class PagedSliverGrid extends StatelessWidget {
     required this.controller,
     required this.kind,
     this.showSource = false,
-    this.padding = const EdgeInsets.fromLTRB(12, 8, 12, 24),
+    this.padding = const EdgeInsets.fromLTRB(Gap.page, Gap.s, Gap.page, Gap.xl),
   });
   final PagedController controller;
   final MediaKind kind;
@@ -181,7 +178,6 @@ class PagedSliverGrid extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    AppLocalizations.of(context);
     return ListenableBuilder(
       listenable: controller,
       builder: (context, _) {
@@ -201,7 +197,7 @@ class PagedSliverGrid extends StatelessWidget {
           if (!c.loading && !c.hasNext) {
             return SliverFillRemaining(
               hasScrollBody: false,
-              child: MessageView(
+              child: EmptyState(
                 icon: Icons.search_off_rounded,
                 title: tr('这里什么都没有'),
                 message: tr('换个关键词或筛选条件试试'),
@@ -211,7 +207,7 @@ class PagedSliverGrid extends StatelessWidget {
           if (!c.loading && c.hasNext) {
             return SliverFillRemaining(
               hasScrollBody: false,
-              child: MessageView(
+              child: EmptyState(
                 icon: Icons.filter_alt_outlined,
                 title: tr('这里什么都没有'),
                 message: c.hidden > 0
@@ -267,7 +263,7 @@ class PagedSliverGrid extends StatelessWidget {
             final cardWidth =
                 (constraints.crossAxisExtent -
                     padding.horizontal -
-                    (cols - 1) * 10) /
+                    (cols - 1) * Gap.m) /
                 cols;
             final extraText = cardTextExtent(context);
             return SliverMainAxisGroup(
@@ -277,8 +273,8 @@ class PagedSliverGrid extends StatelessWidget {
                   sliver: SliverGrid(
                     gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                       crossAxisCount: cols,
-                      crossAxisSpacing: 10,
-                      mainAxisSpacing: 14,
+                      crossAxisSpacing: Gap.m,
+                      mainAxisSpacing: Gap.l,
                       mainAxisExtent: cardWidth / aspect + extraText,
                     ),
                     delegate: SliverChildBuilderDelegate((context, i) {
@@ -290,7 +286,7 @@ class PagedSliverGrid extends StatelessWidget {
                           (_) => c.loadMore(),
                         );
                       }
-                      return WorkCard(
+                      return CoverTile(
                         item: c.items[i],
                         aspect: aspect,
                         showSource: showSource,
@@ -332,7 +328,7 @@ class PagedSliverGrid extends StatelessWidget {
     }
     if (c.loading) {
       return Padding(
-        padding: EdgeInsets.all(20),
+        padding: const EdgeInsets.all(20),
         child: Column(
           children: [
             const SizedBox(
@@ -395,7 +391,7 @@ class PagedSliverGrid extends StatelessWidget {
         final cardWidth =
             (constraints.crossAxisExtent -
                 padding.horizontal -
-                (cols - 1) * 10) /
+                (cols - 1) * Gap.m) /
             cols;
         return SliverMainAxisGroup(
           slivers: [
@@ -414,12 +410,12 @@ class PagedSliverGrid extends StatelessWidget {
               sliver: SliverGrid(
                 gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                   crossAxisCount: cols,
-                  crossAxisSpacing: 10,
-                  mainAxisSpacing: 14,
+                  crossAxisSpacing: Gap.m,
+                  mainAxisSpacing: Gap.l,
                   mainAxisExtent: cardWidth / aspect + cardTextExtent(context),
                 ),
                 delegate: SliverChildBuilderDelegate(
-                  (_, _) => WorkCardSkeleton(aspect: aspect),
+                  (_, _) => CoverTileSkeleton(aspect: aspect),
                   childCount: cols * 4,
                 ),
               ),
@@ -437,7 +433,6 @@ class _SectionsSliver extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    AppLocalizations.of(context);
     final sections = controller.sections!;
     return SliverList.builder(
       itemCount: sections.length,
@@ -467,10 +462,8 @@ class WorkCarousel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    AppLocalizations.of(context);
     if (items.isEmpty) return const SizedBox.shrink();
-    if (kindOf(items.first) == MediaKind.novel ||
-        items.first.json['mediaKind'] == 'novel') {
+    if (kindOf(items.first) == MediaKind.novel || items.first.isNovel) {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -490,12 +483,12 @@ class WorkCarousel extends StatelessWidget {
           height: height ?? cardWidth / aspect + cardTextExtent(context),
           child: ListView.separated(
             scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: 16),
+            padding: const EdgeInsets.symmetric(horizontal: Gap.page),
             itemCount: items.length,
-            separatorBuilder: (_, _) => const SizedBox(width: 10),
+            separatorBuilder: (_, _) => const SizedBox(width: Gap.m),
             itemBuilder: (context, i) => SizedBox(
               width: cardWidth,
-              child: WorkCard(
+              child: CoverTile(
                 item: items[i],
                 aspect: aspect,
                 showSource: showSource,

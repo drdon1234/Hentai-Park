@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 
 import '../../core/app_lock.dart';
-import '../theme.dart';
 import '../../core/localization.dart';
+import '../kit/kit.dart';
+import '../theme.dart';
 
 /// Covers the whole app while [AppLock] is locked.
 class LockGate extends StatelessWidget {
@@ -11,7 +12,6 @@ class LockGate extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    AppLocalizations.of(context);
     final lock = AppLock.instance;
     return ListenableBuilder(
       listenable: lock,
@@ -47,7 +47,6 @@ class _LockScreenState extends State<_LockScreen> {
 
   @override
   Widget build(BuildContext context) {
-    AppLocalizations.of(context);
     final c = context.colors;
     return Material(
       color: c.surface,
@@ -56,15 +55,17 @@ class _LockScreenState extends State<_LockScreen> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.lock_outline_rounded, size: 56, color: c.primary),
-              const SizedBox(height: 16),
+              Icon(
+                Icons.lock_outline_rounded,
+                size: 40,
+                color: c.onSurfaceVariant,
+              ),
+              const SizedBox(height: Gap.l),
               Text(
                 tr('HentaiPark 已锁定'),
-                style: context.text.titleMedium?.copyWith(
-                  fontWeight: FontWeight.w700,
-                ),
+                style: ParkText.serif(context.text.headlineSmall),
               ),
-              const SizedBox(height: 24),
+              const SizedBox(height: Gap.xl),
               FilledButton.icon(
                 onPressed: AppLock.instance.unlock,
                 icon: const Icon(Icons.fingerprint_rounded),

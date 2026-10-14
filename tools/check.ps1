@@ -15,6 +15,8 @@ Push-Location -LiteralPath $checkRoot
 try {
     & $nodeTool.Source 'tools/check_localizations.mjs'
     if ($LASTEXITCODE -ne 0) { throw '八语言文案检查失败' }
+    & $nodeTool.Source 'tools/check_styles.mjs'
+    if ($LASTEXITCODE -ne 0) { throw '界面样式令牌检查失败' }
     & $flutterTool.Source analyze --no-pub lib
     if ($LASTEXITCODE -ne 0) { throw '生产代码静态检查失败' }
     & $dartTool.Source format --output=none --set-exit-if-changed lib

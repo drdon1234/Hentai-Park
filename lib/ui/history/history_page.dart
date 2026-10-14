@@ -1,18 +1,17 @@
 import 'package:flutter/material.dart';
 
+import '../../core/content_scope.dart';
+import '../../core/localization.dart';
 import '../../core/models.dart';
 import '../../core/settings.dart';
-import '../../core/content_scope.dart';
 import '../../engine/source_manager.dart';
-import 'history_scope_selector.dart';
-import '../widgets/content_translation.dart';
 import '../../library/library.dart';
 import '../nav.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
-import 'recent_history.dart';
-import '../discovery_navigation.dart';
-import '../../core/localization.dart';
+import '../widgets/content_translation.dart';
+import '../widgets/cover_tile.dart';
+import 'history_scope_selector.dart';
 
 /// Reading / watching history grouped by day, with search, swipe-to-delete and a resume button.
 class HistoryPage extends StatefulWidget {
@@ -86,12 +85,11 @@ class _HistoryPageState extends State<HistoryPage> {
 
   @override
   Widget build(BuildContext context) {
-    AppLocalizations.of(context);
     return TranslationPage(
       child: ListenableBuilder(
         listenable: Listenable.merge([
-          Library.instance,
-          AppSettings.instance,
+          Library.instance.collection(LibraryCollection.history),
+          AppSettings.instance.watch(const {'domainOrder'}),
           SourceManager.instance,
         ]),
         builder: (context, _) {
@@ -101,20 +99,23 @@ class _HistoryPageState extends State<HistoryPage> {
               .where((h) => q.isEmpty || h.item.title.toLowerCase().contains(q))
               .toList();
           return Scaffold(
-            appBar: AppBar(
-              title: _searching
+            appBar: PageHeader(
+              title: _searching ? null : tr('历史'),
+              titleWidget: _searching
                   ? TextField(
                       controller: _query,
                       autofocus: true,
                       decoration: InputDecoration(
                         hintText: tr('搜索历史'),
+                        filled: false,
                         border: InputBorder.none,
+                        enabledBorder: InputBorder.none,
+                        focusedBorder: InputBorder.none,
                       ),
                       onChanged: (_) => setState(() {}),
                     )
-                  : Text(tr('历史')),
+                  : null,
               actions: [
-                const DomainMenu(),
                 const TranslationControls(),
                 IconButton(
                   tooltip: _searching ? tr('关闭搜索') : tr('搜索'),
@@ -135,38 +136,24 @@ class _HistoryPageState extends State<HistoryPage> {
             ),
             body: CustomScrollView(
               slivers: [
-                SliverToBoxAdapter(child: RecentHistory()),
-                SliverToBoxAdapter(child: SectionHeader(tr('完整历史'))),
                 SliverToBoxAdapter(
                   child: HistoryScopeSelector(
                     scope: _scope,
                     onChanged: (scope) => setState(() => _scope = scope),
                   ),
                 ),
-                if (AppSettings.instance.incognito)
-                  SliverToBoxAdapter(
-                    child: MaterialBanner(
-                      content: Text(tr('无痕模式已开启，新的浏览与阅读不会被记录')),
-                      leading: const Icon(Icons.visibility_off_outlined),
-                      actions: [
-                        TextButton(
-                          onPressed: () =>
-                              AppSettings.instance.incognito = false,
-                          child: Text(tr('关闭')),
-                        ),
-                      ],
-                    ),
-                  ),
                 if (list.isEmpty)
-                  SliverToBoxAdapter(
-                    child: MessageView(
+                  SliverFillRemaining(
+                    hasScrollBody: false,
+                    child: EmptyState(
                       icon: Icons.history_rounded,
                       title: q.isEmpty ? tr('暂无浏览记录') : tr('没有匹配的记录'),
+                      message: q.isEmpty ? tr('看过的作品会按日期出现在这里') : null,
                     ),
                   )
                 else
                   _list(context, list),
-                const SliverToBoxAdapter(child: SizedBox(height: 24)),
+                const SliverToBoxAdapter(child: SizedBox(height: Gap.xl)),
               ],
             ),
           );
@@ -183,9 +170,22 @@ class _HistoryPageState extends State<HistoryPage> {
       if (label != day) {
         day = label;
         rows.add(
-          SectionHeader(
-            label,
-            padding: const EdgeInsets.fromLTRB(16, 16, 8, 4),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(
+              Gap.page,
+              Gap.l,
+              Gap.page,
+              Gap.xs,
+            ),
+            child: Semantics(
+              header: true,
+              child: Text(
+                label,
+                style: context.text.labelLarge?.copyWith(
+                  color: context.colors.onSurfaceVariant,
+                ),
+              ),
+            ),
           ),
         );
       }
@@ -209,23 +209,20 @@ class _HistoryPageState extends State<HistoryPage> {
       onDismissed: (_) => Library.instance.removeHistory(h.uid),
       child: InkWell(
         onTap: () => Nav.openWork(context, h.item),
+        onLongPress: () => showWorkActions(context, h.item),
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 6, 4, 6),
+          padding: const EdgeInsets.fromLTRB(Gap.page, Gap.s, Gap.xs, Gap.s),
           child: Row(
             children: [
-              if (h.item.json['mediaKind'] != 'novel' &&
+              if (!h.item.isNovel &&
                   SourceManager.instance.manifest(h.item.source)?.isNovel !=
                       true) ...[
                 SizedBox(
-                  width: 56,
-                  height: 76,
-                  child: CoverImage(
-                    source: h.item.source,
-                    url: h.item.cover,
-                    radius: 8,
-                  ),
+                  width: 48,
+                  height: 66,
+                  child: CoverImage(source: h.item.source, url: h.item.cover),
                 ),
-                const SizedBox(width: 12),
+                const SizedBox(width: Gap.m),
               ],
               Expanded(
                 child: Column(
@@ -239,7 +236,7 @@ class _HistoryPageState extends State<HistoryPage> {
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                         style: context.text.bodyMedium?.copyWith(
-                          fontWeight: FontWeight.w600,
+                          fontWeight: FontWeight.w500,
                         ),
                       ),
                     ),
@@ -253,7 +250,7 @@ class _HistoryPageState extends State<HistoryPage> {
                             [
                               time,
                               if (h.pageCount > 0)
-                                '${h.chapterTitle != null ? '${h.chapterTitle} ' : ''}${h.item.json['mediaKind'] == 'novel' ? '${(h.progress * 100).round()}%' : '${h.page + 1}/${h.pageCount}'}',
+                                '${h.chapterTitle != null ? '${h.chapterTitle} ' : ''}${h.item.isNovel ? '${(h.progress * 100).round()}%' : '${h.page + 1}/${h.pageCount}'}',
                               if (h.position != null && h.chapterTitle != null)
                                 h.chapterTitle!,
                               if (h.position != null && h.position! > 0)
@@ -274,12 +271,16 @@ class _HistoryPageState extends State<HistoryPage> {
                       ],
                     ),
                     if (h.progress > 0) ...[
-                      const SizedBox(height: 8),
+                      const SizedBox(height: Gap.s),
                       ClipRRect(
-                        borderRadius: BorderRadius.circular(4),
+                        borderRadius: const BorderRadius.all(
+                          Radius.circular(2),
+                        ),
                         child: LinearProgressIndicator(
                           value: h.progress,
-                          minHeight: 3,
+                          minHeight: 2,
+                          semanticsLabel: tr('阅读进度'),
+                          semanticsValue: '${(h.progress * 100).round()}%',
                         ),
                       ),
                     ],
@@ -288,7 +289,7 @@ class _HistoryPageState extends State<HistoryPage> {
               ),
               IconButton(
                 tooltip: tr('继续'),
-                icon: const Icon(Icons.play_circle_outline_rounded),
+                icon: const Icon(Icons.play_arrow_rounded),
                 onPressed: () => _resume(h),
               ),
             ],

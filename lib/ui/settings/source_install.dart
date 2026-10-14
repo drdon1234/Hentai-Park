@@ -1,10 +1,12 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
-import '../../engine/source_manager.dart';
+import '../../core/localization.dart';
 import '../../core/models.dart';
+import '../../engine/source_manager.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
-import '../../core/localization.dart';
 
 /// Downloads a script, shows what it is and what it would be allowed to touch, and installs it only
 /// after the user confirms (Mihon's "untrusted extension" prompt). Returns the key, or null.
@@ -19,7 +21,7 @@ Future<String?> installSourceFromUrl(
   try {
     preview = await _withProgress(
       context,
-      tr('正在下载并检查源脚本…'),
+      tr('正在下载并检查站点脚本…'),
       () => sm.previewFromUrl(url, expectedSha256: expectedSha256),
     );
   } catch (e) {
@@ -30,7 +32,7 @@ Future<String?> installSourceFromUrl(
   }
   if (!context.mounted) return null;
   if (expectedKey != null && preview.key != expectedKey) {
-    context.toast(tr('源脚本身份或校验值无效'));
+    context.toast(tr('站点脚本的标识或校验值无效'));
     return null;
   }
   final ok = await showDialog<bool>(
@@ -64,22 +66,24 @@ Future<T> _withProgress<T>(
   Future<T> Function() body,
 ) async {
   final nav = Navigator.of(context, rootNavigator: true);
-  showDialog<void>(
-    context: context,
-    barrierDismissible: false,
-    builder: (_) => PopScope(
-      canPop: false,
-      child: AlertDialog(
-        content: Row(
-          children: [
-            const SizedBox(
-              width: 22,
-              height: 22,
-              child: CircularProgressIndicator(strokeWidth: 2.5),
-            ),
-            const SizedBox(width: 16),
-            Expanded(child: Text(message)),
-          ],
+  unawaited(
+    showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => PopScope(
+        canPop: false,
+        child: AlertDialog(
+          content: Row(
+            children: [
+              const SizedBox(
+                width: 22,
+                height: 22,
+                child: CircularProgressIndicator(strokeWidth: 2.5),
+              ),
+              const SizedBox(width: 16),
+              Expanded(child: Text(message)),
+            ],
+          ),
         ),
       ),
     ),
@@ -97,7 +101,6 @@ class _TrustDialog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    AppLocalizations.of(context);
     final m = preview.manifest;
     final c = context.colors;
     Widget row(String label, String value, {bool mono = false}) => Padding(
@@ -118,7 +121,7 @@ class _TrustDialog extends StatelessWidget {
             child: SelectableText(
               value,
               style: mono
-                  ? const TextStyle(fontFamily: 'monospace', fontSize: 12)
+                  ? ParkText.mono(context.text.bodySmall)
                   : context.text.bodyMedium,
             ),
           ),
@@ -129,8 +132,8 @@ class _TrustDialog extends StatelessWidget {
       icon: Icon(Icons.verified_user_outlined, color: c.primary),
       title: Text(
         preview.existing != null
-            ? tr('更新源「{value0}」？', {'value0': m.name})
-            : tr('安装源「{value0}」？', {'value0': m.name}),
+            ? tr('更新站点「{value0}」？', {'value0': m.name})
+            : tr('安装站点「{value0}」？', {'value0': m.name}),
       ),
       content: SingleChildScrollView(
         child: Column(
@@ -162,7 +165,7 @@ class _TrustDialog extends StatelessWidget {
                       ),
                       const SizedBox(width: 8),
                       Expanded(
-                        child: Text(tr(w), style: TextStyle(color: c.error)),
+                        child: Text(w, style: TextStyle(color: c.error)),
                       ),
                     ],
                   ),
@@ -170,7 +173,7 @@ class _TrustDialog extends StatelessWidget {
             ],
             const SizedBox(height: 8),
             Text(
-              tr('源脚本会以你的身份访问上述站点。只安装你信任的来源。'),
+              tr('站点脚本会以你的身份访问上述站点。只安装你信任的来源。'),
               style: context.text.bodySmall?.copyWith(
                 color: c.onSurfaceVariant,
               ),

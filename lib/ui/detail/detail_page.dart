@@ -1,44 +1,35 @@
-import '../../core/diagnostics.dart';
-
-import 'dart:ui';
+import 'dart:async';
 
 import 'package:flutter/material.dart';
-
-import '../discovery_navigation.dart';
-
 import 'package:flutter/services.dart';
-import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-import '../../core/models.dart';
+import '../../core/diagnostics.dart';
 import '../../core/localization.dart';
+import '../../core/models.dart';
+import '../../core/tag_blocklist.dart';
 import '../../engine/source_manager.dart';
 import '../../library/downloads.dart';
 import '../../library/library.dart';
+import '../game/game_resources.dart';
+import '../kit/kit.dart';
 import '../nav.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
-import '../widgets/cover_hero.dart';
 import '../widgets/content_translation.dart';
-import '../widgets/text_translation.dart';
-import '../../subscriptions/subscription_store.dart';
-import '../../subscriptions/updater.dart';
-
-import 'dart:convert';
-import 'dart:async';
-
 import '../widgets/error_view.dart';
 import '../widgets/expandable_description.dart';
-import '../widgets/metadata_text_row.dart';
 import '../widgets/paged_grid.dart';
-import '../widgets/source_network_hint.dart';
-import '../../core/settings.dart';
-import '../../core/tag_blocklist.dart';
-import '../../core/titles.dart';
-import '../library/favorite_actions.dart';
-import '../migration/migration_page.dart';
+import 'detail_action_bar.dart';
+import 'detail_actions.dart';
+import 'detail_download.dart';
+import 'detail_header.dart';
+import 'detail_sections.dart';
+import 'detail_tags.dart';
 import 'thumbnail_grid.dart';
-import '../game/game_resources.dart';
+
+/// A work's page: header, one primary action, then description, tags, chapters, previews and
+/// related works. Layout pieces live in detail_header.dart and detail_sections.dart.
 
 class DetailPage extends StatefulWidget {
   const DetailPage({
@@ -47,11 +38,15 @@ class DetailPage extends StatefulWidget {
     required this.id,
     this.preview,
     this.coverHeroTag,
+    this.onClose,
   });
   final String source;
   final String id;
   final WorkItem? preview;
   final Object? coverHeroTag;
+
+  /// Closes the page when it is shown beside a list instead of as a route.
+  final VoidCallback? onClose;
 
   @override
   State<DetailPage> createState() => _DetailPageState();
@@ -69,7 +64,7 @@ class _DetailPageState extends State<DetailPage> {
   bool get _isVideo =>
       _m?.isVideo ?? DownloadManager.instance.task(_uid)?.isVideo ?? false;
   bool get _opensExternally => _m?.opensExternally == true;
-  bool get _isGame => _m?.isGame == true || _item.json['mediaKind'] == 'game';
+  bool get _isGame => _m?.isGame == true || _item.isGame;
 
   @override
   void initState() {
@@ -111,7 +106,7 @@ class _DetailPageState extends State<DetailPage> {
       );
       if (d != null) {
         Library.instance.recordVisit(d.toItem());
-        _syncChapters(d);
+        unawaited(_syncChapters(d));
       }
       return;
     }
@@ -124,7 +119,7 @@ class _DetailPageState extends State<DetailPage> {
       if (!mounted) return;
       setState(() => _detail = d);
       Library.instance.recordVisit(d.toItem());
-      _syncChapters(d);
+      unawaited(_syncChapters(d));
     } catch (e) {
       if (!mounted) return;
       // Offline (or the site is down): fall back to the downloaded copy when there is one.
@@ -143,6 +138,17 @@ class _DetailPageState extends State<DetailPage> {
     }
   }
 
+  DetailKind get _kind {
+    if (_isGame) return DetailKind.game;
+    if (_opensExternally) return DetailKind.external;
+    if (_isVideo) return DetailKind.video;
+    final novel =
+        _m?.isNovel == true ||
+        DownloadManager.instance.task(_uid)?.isNovel == true ||
+        _item.isNovel;
+    return novel ? DetailKind.novel : DetailKind.reading;
+  }
+
   WorkItem get _item =>
       _detail?.toItem() ??
       widget.preview ??
@@ -159,13 +165,11 @@ class _DetailPageState extends State<DetailPage> {
       Nav.openVideo(context, d, episodeId: chapter?.id);
       return;
     }
-    if (d.chapters != null && chapter == null) {
-      final h = Library.instance.historyOf(d.uid);
-      chapter = d.chapters!.firstWhere(
-        (c) => c.id == h?.chapterId,
-        orElse: () => d.chapters!.first,
-      );
+    if (d.hasNoChapters) {
+      context.toast(tr('暂无章节'));
+      return;
     }
+    chapter ??= d.chapterToOpen(Library.instance.historyOf(d.uid)?.chapterId);
     Nav.openReader(context, d, chapter: chapter, startPage: page);
   }
 
@@ -175,7 +179,7 @@ class _DetailPageState extends State<DetailPage> {
       if (target != null) {
         Scrollable.ensureVisible(
           target,
-          duration: const Duration(milliseconds: 300),
+          duration: Motion.of(context, Motion.medium),
         );
       } else if (_detail != null) {
         showModalBottomSheet<void>(
@@ -204,238 +208,70 @@ class _DetailPageState extends State<DetailPage> {
       return;
     }
     final h = Library.instance.historyOf(d.uid);
-    if (h != null && h.pageCount > 0) {
-      final chapter = d.chapters?.firstWhere(
-        (c) => c.id == h.chapterId,
-        orElse: () => d.chapters!.first,
-      );
+    if (h != null && h.pageCount > 0 && !d.hasNoChapters) {
+      final chapter = d.chapterToOpen(h.chapterId);
       Nav.openReader(context, d, chapter: chapter, startPage: h.page);
     } else {
       _read();
     }
   }
 
-  Future<void> _download() async {
-    final d = _detail;
-    if (d == null || _opensExternally) return;
-    if (_isVideo) {
-      var episodes = d.videoEpisodes;
-      if (episodes.length > 1) {
-        final picked = await showModalBottomSheet<List<Chapter>>(
-          context: context,
-          isScrollControlled: true,
-          builder: (_) => _ChapterPicker(
-            chapters: episodes,
-            isVideo: true,
-            completed: DownloadManager.instance.task(_uid)?.completed ?? {},
-          ),
-        );
-        if (picked == null || picked.isEmpty || !mounted) return;
-        episodes = picked;
-      }
-      await _downloadVideo(episodes);
-      return;
-    } else if (d.chapters != null && d.chapters!.length > 1) {
-      final picked = await showModalBottomSheet<List<Chapter>>(
-        context: context,
-        isScrollControlled: true,
-        builder: (_) => _ChapterPicker(chapters: d.chapters!),
-      );
-      if (picked == null || picked.isEmpty || !mounted) return;
-      DownloadManager.instance.enqueue(_item, picked);
-    } else {
-      final id = d.chapters?.first.id ?? d.singleChapterId ?? '_';
-      DownloadManager.instance.enqueue(_item, [Chapter(id, tr('全本'))]);
-    }
-    if (mounted) context.toast(tr('已加入下载队列'));
-  }
-
-  Future<void> _downloadVideo(List<Chapter> episodes) async {
-    final d = _detail;
-    if (d == null || episodes.isEmpty || _opensExternally) return;
-    final sources = await guarded(
-      context,
-      widget.source,
-      () => SourceManager.instance.videos(
-        widget.source,
-        d.id,
-        episodeId: episodes.first.id,
-      ),
-    );
-    if (sources == null || !mounted) return;
-    final picked = await showModalBottomSheet<VideoSource>(
-      context: context,
-      builder: (ctx) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(
-              title: Text(
-                tr('选择下载清晰度'),
-                style: const TextStyle(fontWeight: FontWeight.w700),
-              ),
-            ),
-            for (final s in sources)
-              ListTile(
-                leading: const Icon(Icons.high_quality_outlined),
-                title: Text(s.label),
-                trailing: s.preferred ? Pill(tr('推荐')) : null,
-                onTap: () => Navigator.pop(ctx, s),
-              ),
-          ],
-        ),
-      ),
-    );
-    if (picked == null || !mounted) return;
-    DownloadManager.instance.enqueueVideo(
-      _item,
-      episodes,
-      quality: picked.quality,
-    );
-    if (mounted) context.toast(tr('已加入下载队列'));
-  }
-
   @override
   Widget build(BuildContext context) {
-    AppLocalizations.of(context);
-    final m = _m;
-    final color = m?.color ?? context.colors.primary;
     return TranslationPage(
-      child: Theme(
-        data: ParkTheme.build(Theme.of(context).brightness, color),
-        child: Builder(
-          builder: (context) {
-            return Scaffold(
-              body: ListenableBuilder(
-                listenable: Listenable.merge([
-                  Library.instance,
-                  DownloadManager.instance,
-                ]),
-                builder: (context, _) => CustomScrollView(
-                  slivers: [
-                    _Header(
+      child: Scaffold(
+        body: ListenableBuilder(
+          listenable: Listenable.merge([
+            Library.instance.work(_uid),
+            DownloadManager.instance,
+          ]),
+          builder: (context, _) => CustomScrollView(
+            slivers: [
+              DetailHeader(
+                item: _item,
+                detail: _detail,
+                manifest: _m,
+                coverHeroTag: widget.coverHeroTag,
+                onClose: widget.onClose,
+                body: [
+                  SliverToBoxAdapter(
+                    child: DetailActionBar(
                       item: _item,
                       detail: _detail,
-                      manifest: m,
-                      coverHeroTag: widget.coverHeroTag,
+                      kind: _kind,
+                      onPrimary: _opensExternally && !_canOpenOriginal
+                          ? null
+                          : _continue,
+                      onDownload: () => downloadWork(
+                        context,
+                        _detail!,
+                        _item,
+                        isVideo: _isVideo,
+                      ),
+                      onMore: () => _more(context),
                     ),
-                    SliverToBoxAdapter(child: _actions(context)),
-                    if (_error != null && _detail == null)
-                      SliverFillRemaining(
-                        hasScrollBody: false,
-                        child: SourceErrorView(
-                          error: _error!,
-                          source: widget.source,
-                          onRetry: _load,
-                        ),
-                      )
-                    else if (_detail == null)
-                      SliverToBoxAdapter(
-                        child: _BodySkeleton(source: widget.source),
-                      )
-                    else
-                      ..._body(context, _detail!),
-                    const SliverToBoxAdapter(child: SizedBox(height: 48)),
-                  ],
-                ),
+                  ),
+                  if (_detail != null)
+                    ..._body(context, _detail!)
+                  else if (_error == null)
+                    SliverToBoxAdapter(
+                      child: DetailBodySkeleton(source: widget.source),
+                    ),
+                  const SliverToBoxAdapter(child: SizedBox(height: Gap.xxl)),
+                ],
               ),
-            );
-          },
+              if (_error != null && _detail == null)
+                SliverFillRemaining(
+                  hasScrollBody: false,
+                  child: SourceErrorView(
+                    error: _error!,
+                    source: widget.source,
+                    onRetry: _load,
+                  ),
+                ),
+            ],
+          ),
         ),
-      ),
-    );
-  }
-
-  Widget _actions(BuildContext context) {
-    final d = _detail;
-    final isVideo = _isVideo;
-    final h = Library.instance.historyOf(_item.uid);
-    final fav = Library.instance.isFavorite(_item.uid);
-    final dl = DownloadManager.instance.task(_item.uid);
-    final isNovel =
-        _m?.isNovel == true ||
-        dl?.isNovel == true ||
-        _item.json['mediaKind'] == 'novel';
-    final resumeLabel = _isGame
-        ? tr('查看游戏资源')
-        : _opensExternally
-        ? tr('打开原站')
-        : isVideo
-        ? (h?.position != null && h!.position! > 5 ? tr('继续播放') : tr('立即播放'))
-        : (h != null && h.pageCount > 0
-              ? isNovel
-                    ? tr('继续阅读 · {percent}%', {
-                        'percent':
-                            ((h.page / (h.pageCount - 1).clamp(1, 1 << 31)) *
-                                    100)
-                                .clamp(0, 100)
-                                .round(),
-                      })
-                    : tr('继续 {chapter}{page}/{total}', {
-                        'chapter': h.chapterTitle != null && d?.chapters != null
-                            ? '${h.chapterTitle} · '
-                            : '',
-                        'page': h.page + 1,
-                        'total': h.pageCount,
-                      })
-              : tr('开始阅读'));
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
-      child: Row(
-        children: [
-          Expanded(
-            child: FilledButton.icon(
-              style: FilledButton.styleFrom(
-                minimumSize: const Size.fromHeight(50),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(14),
-                ),
-              ),
-              onPressed: d == null || (_opensExternally && !_canOpenOriginal)
-                  ? null
-                  : _continue,
-              icon: Icon(
-                _isGame
-                    ? Icons.sports_esports_outlined
-                    : _opensExternally
-                    ? Icons.open_in_browser_rounded
-                    : isVideo
-                    ? Icons.play_arrow_rounded
-                    : Icons.auto_stories_rounded,
-              ),
-              label: Text(resumeLabel, overflow: TextOverflow.ellipsis),
-            ),
-          ),
-          const SizedBox(width: 10),
-          _SquareButton(
-            icon: fav ? Icons.bookmark_rounded : Icons.bookmark_border_rounded,
-            tooltip: fav ? tr('取消收藏') : tr('收藏'),
-            active: fav,
-            onPressed: () => toggleFavorite(context, _item),
-            onLongPress: fav
-                ? () => editFavoriteCategories(context, _item.uid)
-                : null,
-          ),
-          if (!_opensExternally && !_isGame) ...[
-            const SizedBox(width: 8),
-            _SquareButton(
-              icon: dl == null
-                  ? Icons.download_rounded
-                  : (dl.status == DownloadStatus.done
-                        ? Icons.download_done_rounded
-                        : Icons.downloading_rounded),
-              tooltip: tr('下载'),
-              active: dl != null,
-              onPressed: d == null ? null : _download,
-            ),
-          ],
-          const SizedBox(width: 8),
-          _SquareButton(
-            icon: Icons.more_horiz_rounded,
-            tooltip: tr('更多'),
-            onPressed: d == null ? null : () => _more(context),
-          ),
-        ],
       ),
     );
   }
@@ -463,172 +299,79 @@ class _DetailPageState extends State<DetailPage> {
     }
   }
 
-  Future<void> _more(BuildContext context) async {
-    final d = _detail!;
-    await showModalBottomSheet(
-      context: context,
-      builder: (ctx) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (_canOpenOriginal)
-              ListTile(
-                leading: const Icon(Icons.open_in_browser_rounded),
-                title: Text(tr('在浏览器中打开')),
-                onTap: () {
-                  Navigator.pop(ctx);
-                  _openOriginal();
-                },
-              ),
-            if (d.url.isNotEmpty)
-              ListTile(
-                leading: const Icon(Icons.share_rounded),
-                title: Text(tr('分享链接')),
-                onTap: () {
-                  Navigator.pop(ctx);
-                  SharePlus.instance.share(
-                    ShareParams(text: '${d.title}\n${d.url}'),
-                  );
-                },
-              ),
-            ListTile(
-              leading: const Icon(Icons.copy_rounded),
-              title: Text(tr('复制标题')),
-              onTap: () {
-                Clipboard.setData(ClipboardData(text: d.title));
-                Navigator.pop(ctx);
-                context.toast(tr('已复制'));
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.tag_rounded),
-              title: Text(tr('复制编号  {id}', {'id': d.id})),
-              onTap: () {
-                Clipboard.setData(ClipboardData(text: d.id));
-                Navigator.pop(ctx);
-                context.toast(tr('已复制'));
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.travel_explore_rounded),
-              title: Text(tr('在所有源站搜索标题')),
-              onTap: () {
-                Navigator.pop(ctx);
-                Nav.openAggregateSearch(
-                  context,
-                  keyword: searchableTitle(d.title),
-                );
-              },
-            ),
-            if (Library.instance.isFavorite(d.uid))
-              ListTile(
-                leading: const Icon(Icons.swap_horiz_rounded),
-                title: Text(tr('迁移到其他源')),
-                subtitle: Text(tr('保留分类与已读进度')),
-                onTap: () {
-                  Navigator.pop(ctx);
-                  Nav.push(context, MigrationPage(items: [_item]));
-                },
-              ),
-          ],
-        ),
-      ),
-    );
-  }
+  Future<void> _more(BuildContext context) => showDetailMore(
+    context,
+    detail: _detail!,
+    item: _item,
+    onOpenOriginal: _canOpenOriginal ? _openOriginal : null,
+  );
 
   int _unread(List<Chapter> chapters) => chapters
       .where((ch) => Library.instance.chapterState(_uid, ch.id)?.read != true)
       .length;
 
-  void _toggleSelect(String id) => setState(
-    () => _selected.contains(id) ? _selected.remove(id) : _selected.add(id),
-  );
+  void _toggleSelect(String id) {
+    HapticFeedback.selectionClick();
+    setState(
+      () => _selected.contains(id) ? _selected.remove(id) : _selected.add(id),
+    );
+  }
 
-  Widget _selectionBar(BuildContext context, List<Chapter> chapters) {
-    void done() => setState(_selected.clear);
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(8, 12, 8, 4),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              IconButton(
-                tooltip: tr('取消选择'),
-                onPressed: done,
-                icon: const Icon(Icons.close_rounded),
-              ),
-              Text(
-                tr('已选 {count}', {'count': _selected.length}),
-                style: const TextStyle(fontWeight: FontWeight.w700),
-              ),
-              const Spacer(),
-              TextButton(
-                onPressed: () =>
-                    setState(() => _selected.addAll(chapters.map((c) => c.id))),
-                child: Text(tr('全选')),
-              ),
-              IconButton(
-                tooltip: tr('下载所选'),
-                onPressed: () async {
-                  final selected = chapters
-                      .where((c) => _selected.contains(c.id))
-                      .toList();
-                  if (_isVideo) {
-                    await _downloadVideo(selected);
-                    if (mounted) done();
-                    return;
-                  }
-                  DownloadManager.instance.enqueue(_item, selected);
-                  context.toast(tr('已加入下载队列'));
-                  done();
-                },
-                icon: const Icon(Icons.download_rounded),
-              ),
-            ],
-          ),
-          if (!_isVideo)
-            Wrap(
-              spacing: 4,
-              children: [
-                TextButton(
-                  onPressed: () {
-                    Library.instance.markRead(_uid, _selected.toList(), true);
-                    done();
-                  },
-                  child: Text(tr('标为已读')),
-                ),
-                TextButton(
-                  onPressed: () {
-                    Library.instance.markRead(_uid, _selected.toList(), false);
-                    done();
-                  },
-                  child: Text(tr('标为未读')),
-                ),
-                if (_selected.length == 1)
-                  TextButton(
-                    onPressed: () {
-                      final i = chapters.indexWhere(
-                        (c) => c.id == _selected.first,
-                      );
-                      Library.instance.markRead(
-                        _uid,
-                        chapters.take(i).map((c) => c.id).toList(),
-                        true,
-                      );
-                      done();
-                    },
-                    child: Text(tr('之前的章节标为已读')),
-                  ),
-              ],
-            ),
-        ],
+  Widget _chapterHeader(BuildContext context, List<Chapter> chapters) {
+    if (_selected.isNotEmpty) {
+      void done() => setState(_selected.clear);
+      return ChapterSelectionBar(
+        count: _selected.length,
+        isVideo: _isVideo,
+        onClear: done,
+        onSelectAll: () =>
+            setState(() => _selected.addAll(chapters.map((c) => c.id))),
+        onDownload: () async {
+          final selected = chapters
+              .where((c) => _selected.contains(c.id))
+              .toList();
+          if (_isVideo) {
+            await downloadEpisodes(context, _detail!, _item, selected);
+            if (mounted) done();
+            return;
+          }
+          DownloadManager.instance.enqueue(_item, selected);
+          context.toast(tr('已加入下载队列'));
+          done();
+        },
+        onMarkRead: (read) {
+          Library.instance.markRead(_uid, _selected.toList(), read);
+          done();
+        },
+        onMarkPreviousRead: _selected.length == 1
+            ? () {
+                final i = chapters.indexWhere((c) => c.id == _selected.first);
+                Library.instance.markRead(
+                  _uid,
+                  chapters.take(i).map((c) => c.id).toList(),
+                  true,
+                );
+                done();
+              }
+            : null,
+      );
+    }
+    final unread = _unread(chapters);
+    return SectionHeader(
+      _isVideo
+          ? tr('选集 · {count}', {'count': chapters.length})
+          : tr('章节 · {count}{unread}', {
+              'count': chapters.length,
+              'unread': unread > 0 ? tr('（未读 {count}）', {'count': unread}) : '',
+            }),
+      trailing: TextButton(
+        onPressed: () => setState(() => _reversed = !_reversed),
+        child: Text(_reversed ? tr('倒序') : tr('正序')),
       ),
     );
   }
 
   List<Widget> _body(BuildContext context, WorkDetail d) {
-    final c = context.colors;
     final isVideo = _isVideo;
     final chapters = _opensExternally || _isGame
         ? null
@@ -636,36 +379,14 @@ class _DetailPageState extends State<DetailPage> {
         ? d.videoEpisodes
         : d.chapters;
     final blocked = TagBlocklist.current().matchDetail(d);
+    final ordered = chapters == null
+        ? null
+        : (_reversed ? chapters.reversed.toList() : chapters);
+    final current = Library.instance.historyOf(d.uid)?.chapterId;
+    final isNovel = _m?.isNovel == true || d.isNovel;
     return [
       if (blocked.isNotEmpty)
-        SliverToBoxAdapter(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-            child: Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: c.errorContainer,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Row(
-                children: [
-                  Icon(
-                    Icons.block_rounded,
-                    color: c.onErrorContainer,
-                    size: 20,
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Text(
-                      tr('包含已屏蔽的内容：{tags}', {'tags': blocked.join(tr('、'))}),
-                      style: TextStyle(color: c.onErrorContainer),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
+        SliverToBoxAdapter(child: BlockedNotice(tags: blocked)),
       if (d.description.isNotEmpty)
         SliverToBoxAdapter(child: ExpandableDescription(text: d.description)),
       if (_isGame)
@@ -676,128 +397,39 @@ class _DetailPageState extends State<DetailPage> {
           d.authors.isNotEmpty ||
           d.uploader.isNotEmpty)
         SliverToBoxAdapter(
-          child: _Tags(detail: d, source: widget.source),
+          child: TagSection(detail: d, source: widget.source),
         ),
-      if (chapters != null && chapters.isNotEmpty) ...[
+      if (d.hasNoChapters && !isVideo && !_isGame && !_opensExternally)
         SliverToBoxAdapter(
-          child: _selected.isEmpty
-              ? SectionHeader(
-                  isVideo
-                      ? tr('选集 · {count}', {'count': chapters.length})
-                      : tr('章节 · {count}{unread}', {
-                          'count': chapters.length,
-                          'unread': _unread(chapters) > 0
-                              ? tr('（未读 {count}）', {'count': _unread(chapters)})
-                              : '',
-                        }),
-                  leading: Icon(
-                    Icons.format_list_numbered_rounded,
-                    color: c.primary,
-                    size: 20,
-                  ),
-                  trailing: TextButton.icon(
-                    onPressed: () => setState(() => _reversed = !_reversed),
-                    icon: Icon(
-                      _reversed
-                          ? Icons.arrow_upward_rounded
-                          : Icons.arrow_downward_rounded,
-                      size: 16,
-                    ),
-                    label: Text(_reversed ? tr('倒序') : tr('正序')),
-                  ),
-                )
-              : _selectionBar(context, chapters),
-        ),
-        SliverPadding(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          sliver: SliverGrid(
-            gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-              maxCrossAxisExtent: 180,
-              mainAxisExtent: 44,
-              crossAxisSpacing: 8,
-              mainAxisSpacing: 8,
-            ),
-            delegate: SliverChildBuilderDelegate((context, i) {
-              final ch = (_reversed ? chapters.reversed.toList() : chapters)[i];
-              final h = Library.instance.historyOf(d.uid);
-              final current = h?.chapterId == ch.id;
-              final state = Library.instance.chapterState(d.uid, ch.id);
-              final read = state?.read == true;
-              final selected = _selected.contains(ch.id);
-              final downloaded = DownloadManager.instance.isChapterDownloaded(
-                d.uid,
-                ch.id,
-              );
-              return Material(
-                color: selected
-                    ? c.primary.withValues(alpha: 0.35)
-                    : (current
-                          ? c.primary.withValues(alpha: 0.2)
-                          : c.surfaceContainerHigh),
-                borderRadius: BorderRadius.circular(10),
-                child: InkWell(
-                  borderRadius: BorderRadius.circular(10),
-                  onTap: () => _selected.isNotEmpty
-                      ? _toggleSelect(ch.id)
-                      : _read(chapter: ch),
-                  onLongPress: () => _toggleSelect(ch.id),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 10),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            ch.title,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              fontWeight: current
-                                  ? FontWeight.w700
-                                  : FontWeight.w500,
-                              color: current
-                                  ? c.primary
-                                  : (read
-                                        ? c.onSurface.withValues(alpha: 0.4)
-                                        : null),
-                            ),
-                          ),
-                        ),
-                        if (isVideo && state != null && state.position > 0)
-                          Text(
-                            '${state.position ~/ 60}:${(state.position % 60).toString().padLeft(2, '0')}',
-                            style: TextStyle(
-                              fontSize: 10,
-                              color: c.onSurfaceVariant,
-                            ),
-                          ),
-                        if (!isVideo &&
-                            !read &&
-                            state != null &&
-                            state.lastPage > 0 &&
-                            state.pageCount > 0)
-                          Text(
-                            _m?.isNovel == true ||
-                                    d.json['mediaKind'] == 'novel'
-                                ? '${((state.lastPage / (state.pageCount - 1).clamp(1, 1 << 31)) * 100).clamp(0, 100).round()}%'
-                                : '${state.lastPage + 1}/${state.pageCount}',
-                            style: TextStyle(
-                              fontSize: 10,
-                              color: c.onSurfaceVariant,
-                            ),
-                          ),
-                        if (downloaded)
-                          Icon(
-                            Icons.download_done_rounded,
-                            size: 14,
-                            color: c.primary,
-                          ),
-                      ],
-                    ),
-                  ),
-                ),
-              );
-            }, childCount: chapters.length),
+          child: EmptyState(
+            compact: true,
+            icon: Icons.format_list_bulleted_rounded,
+            title: tr('暂无章节'),
+            message: tr('站点还没有列出章节，稍后再来看看。'),
+            actions: [TextButton(onPressed: _load, child: Text(tr('刷新')))],
           ),
+        ),
+      if (ordered != null && ordered.isNotEmpty) ...[
+        SliverToBoxAdapter(child: _chapterHeader(context, ordered)),
+        SliverList.separated(
+          itemCount: ordered.length,
+          separatorBuilder: (_, _) =>
+              const Divider(indent: Gap.page, endIndent: Gap.page),
+          itemBuilder: (context, i) {
+            final ch = ordered[i];
+            return ChapterRow(
+              chapter: ch,
+              uid: d.uid,
+              isVideo: isVideo,
+              isNovel: isNovel,
+              current: current == ch.id,
+              selected: _selected.contains(ch.id),
+              onTap: () => _selected.isNotEmpty
+                  ? _toggleSelect(ch.id)
+                  : _read(chapter: ch),
+              onLongPress: () => _toggleSelect(ch.id),
+            );
+          },
         ),
       ],
       if (!isVideo &&
@@ -811,878 +443,12 @@ class _DetailPageState extends State<DetailPage> {
         ),
       if (d.series.isNotEmpty)
         SliverToBoxAdapter(
-          child: WorkCarousel(
-            title: tr('同系列'),
-            items: d.series,
-            leading: Icon(
-              Icons.video_library_outlined,
-              color: c.primary,
-              size: 20,
-            ),
-          ),
+          child: WorkCarousel(title: tr('同系列'), items: d.series),
         ),
       if (d.related.isNotEmpty)
         SliverToBoxAdapter(
-          child: WorkCarousel(
-            title: tr('相关推荐'),
-            items: d.related,
-            leading: Icon(Icons.recommend_outlined, color: c.primary, size: 20),
-          ),
+          child: WorkCarousel(title: tr('相关推荐'), items: d.related),
         ),
     ];
-  }
-}
-
-class _SquareButton extends StatelessWidget {
-  const _SquareButton({
-    required this.icon,
-    required this.tooltip,
-    this.onPressed,
-    this.onLongPress,
-    this.active = false,
-  });
-  final IconData icon;
-  final String tooltip;
-  final VoidCallback? onPressed;
-  final VoidCallback? onLongPress;
-  final bool active;
-
-  @override
-  Widget build(BuildContext context) {
-    AppLocalizations.of(context);
-    final c = context.colors;
-    return Tooltip(
-      message: tooltip,
-      child: Material(
-        color: active
-            ? c.primary.withValues(alpha: 0.2)
-            : c.surfaceContainerHigh,
-        borderRadius: BorderRadius.circular(14),
-        child: InkWell(
-          borderRadius: BorderRadius.circular(14),
-          onTap: onPressed,
-          onLongPress: onLongPress,
-          child: SizedBox(
-            width: 50,
-            height: 50,
-            child: Icon(
-              icon,
-              color: active
-                  ? c.primary
-                  : (onPressed == null
-                        ? c.onSurface.withValues(alpha: 0.3)
-                        : c.onSurface),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _Header extends StatefulWidget {
-  const _Header({
-    required this.item,
-    required this.detail,
-    required this.manifest,
-    required this.coverHeroTag,
-  });
-  final WorkItem item;
-  final WorkDetail? detail;
-  final SourceManifest? manifest;
-  final Object? coverHeroTag;
-
-  @override
-  State<_Header> createState() => _HeaderState();
-}
-
-class _HeaderState extends State<_Header> {
-  late WorkItem _coverItem = widget.item;
-  late WorkItem _readyItem = widget.item;
-  Animation<double>? _routeAnimation;
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    final animation = ModalRoute.of(context)?.animation;
-    if (animation == _routeAnimation) return;
-    _routeAnimation?.removeStatusListener(_routeChanged);
-    _routeAnimation = animation;
-    animation?.addStatusListener(_routeChanged);
-  }
-
-  @override
-  void didUpdateWidget(_Header oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (widget.item.cover == _readyItem.cover &&
-        widget.item.source == _readyItem.source) {
-      _readyItem = widget.item;
-      _applyCover();
-    }
-  }
-
-  void _routeChanged(AnimationStatus status) {
-    if (status == AnimationStatus.completed) _applyCover();
-  }
-
-  void _coverReady(WorkItem item) {
-    if (!mounted || item != widget.item || item == _readyItem) return;
-    _readyItem = item;
-    _applyCover();
-  }
-
-  void _applyCover() {
-    // 进出场期间冻结落点，防止飞行目标在详情响应到达时移动。
-    if (_routeAnimation?.isAnimating == true || _coverItem == _readyItem) {
-      return;
-    }
-    setState(() => _coverItem = _readyItem);
-  }
-
-  @override
-  void dispose() {
-    _routeAnimation?.removeStatusListener(_routeChanged);
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final item = widget.item;
-    final detail = widget.detail;
-    final manifest = widget.manifest;
-    final coverHeroTag = widget.coverHeroTag;
-    AppLocalizations.of(context);
-    final c = context.colors;
-    final isVideo =
-        manifest?.isVideo ??
-        DownloadManager.instance.task(item.uid)?.isVideo ??
-        false;
-    final d = detail;
-    if (manifest?.isNovel == true || item.json['mediaKind'] == 'novel') {
-      return SliverMainAxisGroup(
-        slivers: [
-          SliverAppBar(
-            pinned: true,
-            title: ContentTranslation(
-              text: item.title,
-              source: item.source,
-              builder: (value) => Text(value),
-            ),
-            actions: [TranslationControls(source: item.source)],
-          ),
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  ContentTranslation(
-                    text: item.title,
-                    source: item.source,
-                    builder: (value) => SelectableText(
-                      value,
-                      style: context.text.headlineSmall,
-                    ),
-                  ),
-                  if (item.subtitle.isNotEmpty &&
-                      item.subtitle != item.title) ...[
-                    const SizedBox(height: 8),
-                    ContentTranslation(
-                      text: item.subtitle,
-                      source: item.source,
-                      builder: (value) => SelectableText(value),
-                    ),
-                  ],
-                  const SizedBox(height: 12),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: [
-                      SourceAvatar(item.source, size: 20),
-                      Text(manifest?.name ?? item.source),
-                      if (item.uploaded.isNotEmpty) Text(item.uploaded),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
-      );
-    }
-    final top = MediaQuery.paddingOf(context).top;
-    final coverAspect = _coverItem.coverAspect ?? (isVideo ? 16 / 9 : 0.7);
-    final coverWidth = coverAspect > 1 ? 200.0 : 128.0;
-    final coverSize = Size(coverWidth, coverWidth / coverAspect);
-    final meta = <Widget>[
-      if ((d?.pages ?? item.pages ?? 0) > 0)
-        _Meta(
-          Icons.photo_library_outlined,
-          tr('{count} 页', {'count': d?.pages ?? item.pages}),
-        ),
-      if ((d?.rating ?? item.rating) != null)
-        _Meta(
-          Icons.star_rounded,
-          (d?.rating ?? item.rating)!.toStringAsFixed(2),
-          color: const Color(0xFFFFC94D),
-        ),
-      if ((d?.likes ?? item.likes ?? 0) > 0)
-        _Meta(
-          Icons.favorite_rounded,
-          formatCount(d?.likes ?? item.likes),
-          color: const Color(0xFFFF6B8B),
-        ),
-      if ((d?.views ?? item.views ?? 0) > 0)
-        _Meta(Icons.visibility_outlined, formatCount(d?.views ?? item.views)),
-      if ((d?.language ?? item.language).isNotEmpty)
-        _Meta(Icons.translate_rounded, d?.language ?? item.language),
-      if ((d?.uploaded ?? item.uploaded).isNotEmpty)
-        _Meta(Icons.schedule_rounded, d?.uploaded ?? item.uploaded),
-      if (d != null && d.size.isNotEmpty)
-        _Meta(Icons.sd_storage_outlined, d.size),
-      if (d?.comments != null && d!.comments! > 0)
-        _Meta(Icons.forum_outlined, '${d.comments}'),
-    ];
-    return TweenAnimationBuilder<Size>(
-      tween: Tween<Size>(begin: coverSize, end: coverSize),
-      duration: const Duration(milliseconds: 300),
-      curve: Curves.easeInOutCubic,
-      builder: (context, size, _) => SliverAppBar(
-        pinned: true,
-        stretch: true,
-        expandedHeight: size.height + top + 70,
-        title: ContentTranslation(
-          text: item.title,
-          source: item.source,
-          builder: (value) => _CollapsingTitle(value),
-        ),
-        actions: [
-          const DomainMenu(),
-          if (d != null &&
-              d.chapters?.isNotEmpty == true &&
-              ((manifest?.json['updateSubscriptions'] as Map?)?['dimensions']
-                          as List? ??
-                      [])
-                  .whereType<Map>()
-                  .any((v) => v['key'] == 'work'))
-            IconButton(
-              tooltip: tr('订阅作品更新'),
-              icon: const Icon(Icons.notifications_active_outlined),
-              onPressed: () async {
-                await SubscriptionStore.instance.load();
-                await SubscriptionStore.instance.add(
-                  source: item.source,
-                  target: item.id,
-                  label: item.title,
-                  dimension: 'work',
-                );
-                unawaited(SubscriptionUpdater.instance.run(force: true));
-                if (context.mounted) context.toast(tr('已添加更新订阅'));
-              },
-            ),
-          TranslationControls(source: item.source),
-        ],
-        flexibleSpace: LayoutBuilder(
-          builder: (context, constraints) {
-            final collapsed = constraints.maxHeight <= kToolbarHeight + top + 4;
-            return FlexibleSpaceBar(
-              collapseMode: CollapseMode.parallax,
-              stretchModes: const [StretchMode.zoomBackground],
-              background: Stack(
-                fit: StackFit.expand,
-                children: [
-                  if (item.cover.isNotEmpty)
-                    ImageFiltered(
-                      imageFilter: ImageFilter.blur(sigmaX: 30, sigmaY: 30),
-                      child: Opacity(
-                        opacity: 0.45,
-                        child: CoverImage(
-                          source: item.source,
-                          url: item.cover,
-                          radius: 0,
-                          title: item.title,
-                        ),
-                      ),
-                    ),
-                  DecoratedBox(
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                        colors: [c.surface.withValues(alpha: 0.2), c.surface],
-                      ),
-                    ),
-                  ),
-                  if (!collapsed)
-                    Positioned(
-                      left: 16,
-                      right: 16,
-                      bottom: 8,
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.end,
-                        children: [
-                          SizedBox(
-                            width: size.width,
-                            height: size.height,
-                            child: SizedBox.expand(
-                              child: GestureDetector(
-                                onTap: isVideo && d != null
-                                    ? () => Nav.openVideo(context, d)
-                                    : null,
-                                child: Stack(
-                                  fit: StackFit.expand,
-                                  children: [
-                                    CoverHero(
-                                      tag: coverHeroTag,
-                                      child: ClipRRect(
-                                        borderRadius: BorderRadius.circular(12),
-                                        child: AnimatedSwitcher(
-                                          duration: const Duration(
-                                            milliseconds: 300,
-                                          ),
-                                          layoutBuilder: (current, previous) =>
-                                              Stack(
-                                                fit: StackFit.expand,
-                                                children: [
-                                                  ...previous,
-                                                  ?current,
-                                                ],
-                                              ),
-                                          child: _cover(_coverItem),
-                                        ),
-                                      ),
-                                    ),
-                                    if (_readyItem != item)
-                                      IgnorePointer(
-                                        child: Opacity(
-                                          opacity: 0,
-                                          child: _cover(
-                                            item,
-                                            onReady: () => _coverReady(item),
-                                          ),
-                                        ),
-                                      ),
-                                    if (isVideo)
-                                      Center(
-                                        child: Container(
-                                          decoration: const BoxDecoration(
-                                            color: Colors.black45,
-                                            shape: BoxShape.circle,
-                                          ),
-                                          padding: const EdgeInsets.all(8),
-                                          child: const Icon(
-                                            Icons.play_arrow_rounded,
-                                            color: Colors.white,
-                                            size: 34,
-                                          ),
-                                        ),
-                                      ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 14),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Row(
-                                  children: [
-                                    SourceAvatar(item.source, size: 20),
-                                    const SizedBox(width: 6),
-                                    Flexible(
-                                      child: Text(
-                                        manifest?.name ?? item.source,
-                                        style: context.text.labelMedium
-                                            ?.copyWith(
-                                              color: c.onSurfaceVariant,
-                                            ),
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                    ),
-                                    if ((d?.category ?? item.category)
-                                        .isNotEmpty) ...[
-                                      const SizedBox(width: 6),
-                                      Pill(
-                                        d?.category ?? item.category,
-                                        color: item.badgeColor.isNotEmpty
-                                            ? parseHexColor(item.badgeColor)
-                                            : c.primary,
-                                      ),
-                                    ],
-                                  ],
-                                ),
-                                const SizedBox(height: 6),
-                                ContentTranslation(
-                                  text: item.title,
-                                  source: item.source,
-                                  builder: (value) => SelectableText(
-                                    value,
-                                    maxLines: 4,
-                                    style: context.text.titleMedium?.copyWith(
-                                      fontWeight: FontWeight.w800,
-                                      height: 1.3,
-                                    ),
-                                  ),
-                                ),
-                                if (item.subtitle.isNotEmpty &&
-                                    item.subtitle != item.title) ...[
-                                  const SizedBox(height: 4),
-                                  ContentTranslation(
-                                    text: item.subtitle,
-                                    source: item.source,
-                                    builder: (value) => Text(
-                                      value,
-                                      maxLines: 2,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: context.text.bodySmall?.copyWith(
-                                        color: c.onSurfaceVariant,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                                const SizedBox(height: 8),
-                                Wrap(
-                                  spacing: 10,
-                                  runSpacing: 4,
-                                  children: meta,
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                ],
-              ),
-            );
-          },
-        ),
-      ),
-    );
-  }
-
-  Widget _cover(WorkItem item, {VoidCallback? onReady}) {
-    final aspect =
-        item.coverAspect ?? (widget.manifest?.isVideo == true ? 16 / 9 : 0.7);
-    final width = aspect > 1 ? 200.0 : 128.0;
-    return FittedBox(
-      key: ValueKey((item.source, item.cover, aspect)),
-      fit: BoxFit.cover,
-      child: SizedBox(
-        width: width,
-        height: width / aspect,
-        child: CoverImage(
-          source: item.source,
-          url: item.cover,
-          title: item.title,
-          mediaKind: item.json['mediaKind'] == 'novel' ? MediaKind.novel : null,
-          onReady: onReady,
-        ),
-      ),
-    );
-  }
-}
-
-class _Meta extends StatelessWidget {
-  const _Meta(this.icon, this.text, {this.color});
-  final IconData icon;
-  final String text;
-  final Color? color;
-
-  @override
-  Widget build(BuildContext context) => Row(
-    mainAxisSize: MainAxisSize.min,
-    children: [
-      Icon(icon, size: 14, color: color ?? context.colors.onSurfaceVariant),
-      const SizedBox(width: 3),
-      Text(
-        text,
-        style: context.text.labelMedium?.copyWith(
-          color: context.colors.onSurfaceVariant,
-        ),
-      ),
-    ],
-  );
-}
-
-/// Tag groups by namespace. Tap searches the tag in this source; long-press copies it.
-class _Tags extends StatelessWidget {
-  const _Tags({required this.detail, required this.source});
-  final WorkDetail detail;
-  final String source;
-
-  void _search(BuildContext context, TagRef t) {
-    Nav.openSourceSearch(
-      context,
-      source,
-      keyword: t.keyword,
-      filters: t.filters.isEmpty ? null : t.filters.cast<String, Object?>(),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    AppLocalizations.of(context);
-    final groups = [...detail.tagGroups];
-    final hasAuthorGroup = groups.any(
-      (g) => g.tags.any((t) => detail.authors.contains(t.name)),
-    );
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          if (!hasAuthorGroup && detail.authors.isNotEmpty)
-            _row(context, tr('作者'), [
-              for (final a in detail.authors)
-                _chip(
-                  context,
-                  a,
-                  () {
-                    final s = detail.authorSearch;
-                    Nav.openSourceSearch(
-                      context,
-                      source,
-                      keyword: (s?['keyword'] ?? a).toString(),
-                      filters: (s?['filters'] as Map?)?.cast<String, Object?>(),
-                    );
-                  },
-                  subscriptionTag: TagRef(
-                    a,
-                    (detail.authorSearch?['keyword'] ?? a).toString(),
-                    (detail.authorSearch?['filters'] as Map? ?? {})
-                        .cast<String, dynamic>(),
-                    null,
-                  ),
-                ),
-            ]),
-          for (final g in groups)
-            _row(context, tr(g.label), [
-              for (final t in g.tags)
-                _chip(
-                  context,
-                  t.name,
-                  () => _search(context, t),
-                  count: t.count,
-                  namespace: g.namespace,
-                  subscriptionTag: t,
-                ),
-            ]),
-          if (detail.uploader.isNotEmpty)
-            MetadataTextRow(label: tr('上传者'), value: detail.uploader),
-        ],
-      ),
-    );
-  }
-
-  Widget _row(BuildContext context, String label, List<Widget> chips) =>
-      Padding(
-        padding: const EdgeInsets.only(bottom: 10),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              width: 56,
-              padding: const EdgeInsets.only(top: 6),
-              child: Text(
-                label,
-                style: context.text.labelMedium?.copyWith(
-                  color: context.colors.onSurfaceVariant,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ),
-            Expanded(child: Wrap(spacing: 6, runSpacing: 6, children: chips)),
-          ],
-        ),
-      );
-
-  Future<void> _chipMenu(
-    BuildContext context,
-    String label,
-    String namespace,
-    TagRef? subscriptionTag,
-  ) async {
-    final scoped = namespace.isEmpty ? null : '$namespace:$label';
-    final action = await showModalBottomSheet<String>(
-      context: context,
-      builder: (ctx) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(
-              title: Text(
-                scoped ?? label,
-                style: const TextStyle(fontWeight: FontWeight.w700),
-              ),
-            ),
-            ListTile(
-              leading: const Icon(Icons.copy_rounded),
-              title: Text(tr('复制')),
-              onTap: () => Navigator.pop(ctx, 'copy'),
-            ),
-            ListTile(
-              leading: const Icon(Icons.translate),
-              title: Text(tr('翻译')),
-              onTap: () => Navigator.pop(ctx, 'translate'),
-            ),
-            if (SourceManager.instance
-                        .manifest(source)
-                        ?.can('subscriptionUpdates') ==
-                    true &&
-                subscriptionTag != null)
-              ListTile(
-                leading: const Icon(Icons.notifications_active_outlined),
-                title: Text(tr('订阅此标签更新')),
-                onTap: () => Navigator.pop(ctx, 'subscribe'),
-              ),
-            ListTile(
-              leading: const Icon(Icons.block_rounded),
-              title: Text(tr('屏蔽「{label}」', {'label': label})),
-              onTap: () => Navigator.pop(ctx, 'block'),
-            ),
-            if (scoped != null)
-              ListTile(
-                leading: const Icon(Icons.block_outlined),
-                title: Text(tr('仅屏蔽「{label}」', {'label': scoped})),
-                onTap: () => Navigator.pop(ctx, 'blockScoped'),
-              ),
-          ],
-        ),
-      ),
-    );
-    if (!context.mounted || action == null) return;
-    switch (action) {
-      case 'subscribe':
-        final tag = subscriptionTag!;
-        await SubscriptionStore.instance.load();
-        await SubscriptionStore.instance.add(
-          source: source,
-          target: jsonEncode({'keyword': tag.keyword, 'filters': tag.filters}),
-          label: label,
-          dimension: 'filter',
-        );
-        unawaited(SubscriptionUpdater.instance.run(force: true));
-        if (context.mounted) context.toast(tr('已添加更新订阅'));
-      case 'translate':
-        await showTextTranslation(
-          context,
-          label,
-          source: source,
-          namespace: namespace,
-          tag: true,
-        );
-      case 'copy':
-        await Clipboard.setData(ClipboardData(text: label));
-        if (context.mounted) {
-          context.toast(tr('已复制「{label}」', {'label': label}));
-        }
-      case 'block':
-      case 'blockScoped':
-        final entry = action == 'block' ? label : scoped!;
-        AppSettings.instance.addBlockedTag(entry);
-        context.toast(tr('已屏蔽「{label}」，列表中将隐藏带有该标签的作品', {'label': entry}));
-    }
-  }
-
-  Widget _chip(
-    BuildContext context,
-    String label,
-    VoidCallback onTap, {
-    int? count,
-    String namespace = '',
-    TagRef? subscriptionTag,
-  }) {
-    final c = context.colors;
-    return Material(
-      color: c.surfaceContainerHigh,
-      borderRadius: BorderRadius.circular(8),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(8),
-        onTap: onTap,
-        onLongPress: () =>
-            _chipMenu(context, label, namespace, subscriptionTag),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
-          child: ContentTranslation(
-            text: label,
-            source: source,
-            namespace: namespace,
-            tag: true,
-            builder: (value) => Text.rich(
-              TextSpan(
-                children: [
-                  TextSpan(text: value),
-                  if (count != null)
-                    TextSpan(
-                      text: '  ${formatCount(count)}',
-                      style: TextStyle(
-                        color: c.onSurfaceVariant,
-                        fontSize: 10.5,
-                      ),
-                    ),
-                ],
-              ),
-              style: context.text.labelMedium,
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _BodySkeleton extends StatelessWidget {
-  const _BodySkeleton({required this.source});
-  final String source;
-
-  @override
-  Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.all(16),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        LoadingIndicator(
-          label: context.tr('正在加载详情…'),
-          padding: const EdgeInsets.only(bottom: 20),
-        ),
-        SourceNetworkHint(source: source),
-        const Skeleton(height: 14, radius: 4),
-        const SizedBox(height: 8),
-        const Skeleton(height: 14, width: 220, radius: 4),
-        const SizedBox(height: 24),
-        const Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: [
-            Skeleton(width: 64, height: 28, radius: 8),
-            Skeleton(width: 90, height: 28, radius: 8),
-            Skeleton(width: 54, height: 28, radius: 8),
-            Skeleton(width: 80, height: 28, radius: 8),
-            Skeleton(width: 70, height: 28, radius: 8),
-          ],
-        ),
-      ],
-    ),
-  );
-}
-
-class _ChapterPicker extends StatefulWidget {
-  const _ChapterPicker({
-    required this.chapters,
-    this.isVideo = false,
-    this.completed = const {},
-  });
-  final List<Chapter> chapters;
-  final bool isVideo;
-  final Set<String> completed;
-
-  @override
-  State<_ChapterPicker> createState() => _ChapterPickerState();
-}
-
-class _ChapterPickerState extends State<_ChapterPicker> {
-  final Set<String> _selected = {};
-
-  @override
-  Widget build(BuildContext context) {
-    AppLocalizations.of(context);
-    final all = _selected.length == widget.chapters.length;
-    return DraggableScrollableSheet(
-      expand: false,
-      initialChildSize: 0.7,
-      builder: (context, scroll) => Column(
-        children: [
-          ListTile(
-            title: Text(
-              tr(widget.isVideo ? '选择要下载的分集（{count}）' : '选择要下载的章节（{count}）', {
-                'count': _selected.length,
-              }),
-              style: const TextStyle(fontWeight: FontWeight.w700),
-            ),
-            trailing: TextButton(
-              onPressed: () => setState(
-                () => all
-                    ? _selected.clear()
-                    : _selected.addAll(widget.chapters.map((c) => c.id)),
-              ),
-              child: Text(all ? tr('全不选') : tr('全选')),
-            ),
-          ),
-          Expanded(
-            child: ListView.builder(
-              controller: scroll,
-              itemCount: widget.chapters.length,
-              itemBuilder: (_, i) {
-                final ch = widget.chapters[i];
-                return CheckboxListTile(
-                  value: _selected.contains(ch.id),
-                  title: Text(ch.title),
-                  subtitle: widget.completed.contains(ch.id)
-                      ? Text(tr('已下载'))
-                      : null,
-                  onChanged: (v) => setState(
-                    () => v == true
-                        ? _selected.add(ch.id)
-                        : _selected.remove(ch.id),
-                  ),
-                );
-              },
-            ),
-          ),
-          SafeArea(
-            top: false,
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: SizedBox(
-                width: double.infinity,
-                child: FilledButton(
-                  onPressed: _selected.isEmpty
-                      ? null
-                      : () => Navigator.pop(
-                          context,
-                          widget.chapters
-                              .where((c) => _selected.contains(c.id))
-                              .toList(),
-                        ),
-                  child: Text(tr('开始下载')),
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-/// App bar title that fades in only once the header has collapsed (the expanded header shows it already).
-class _CollapsingTitle extends StatelessWidget {
-  const _CollapsingTitle(this.title);
-  final String title;
-
-  @override
-  Widget build(BuildContext context) {
-    final settings = context
-        .dependOnInheritedWidgetOfExactType<FlexibleSpaceBarSettings>();
-    var t = 1.0;
-    if (settings != null && settings.maxExtent > settings.minExtent) {
-      t =
-          ((settings.maxExtent - settings.currentExtent) /
-                  (settings.maxExtent - settings.minExtent))
-              .clamp(0.0, 1.0);
-    }
-    return Opacity(
-      opacity: t < 0.85 ? 0 : (t - 0.85) / 0.15,
-      child: Text(
-        title,
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-        style: context.text.titleMedium,
-      ),
-    );
   }
 }

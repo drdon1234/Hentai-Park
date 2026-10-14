@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../core/localization.dart';
 import '../../core/models.dart';
 import '../../core/settings.dart';
 import '../../engine/source_manager.dart';
@@ -7,7 +8,6 @@ import '../../images/park_image.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
 import '../widgets/on_visible.dart';
-import '../../core/localization.dart';
 
 typedef ThumbnailLoader =
     Future<({List<PreviewThumb> thumbs, bool hasNext})> Function(int page);
@@ -157,7 +157,6 @@ class _ThumbnailSectionState extends State<ThumbnailSection> {
 
   @override
   Widget build(BuildContext context) {
-    AppLocalizations.of(context);
     final thumbs = _pager.thumbs;
     if (thumbs.isEmpty) return const SizedBox.shrink();
     final blur = AppSettings.instance.blurCovers;
@@ -189,13 +188,13 @@ class _ThumbnailSectionState extends State<ThumbnailSection> {
               final t = thumbs[i];
               final index = t.index ?? i;
               return InkWell(
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: Radii.small,
                 onTap: () => widget.onOpen(index),
                 child: Column(
                   children: [
                     Expanded(
                       child: ClipRRect(
-                        borderRadius: BorderRadius.circular(8),
+                        borderRadius: Radii.small,
                         child: ColoredBox(
                           color: context.colors.surfaceContainerHigh,
                           child: t.isSprite
@@ -262,11 +261,9 @@ class _Sprite extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    AppLocalizations.of(context);
     final w = thumb.width!;
     final h = thumb.height!;
     return FittedBox(
-      fit: BoxFit.contain,
       child: SizedBox(
         width: w,
         height: h,
@@ -281,7 +278,6 @@ class _Sprite extends StatelessWidget {
               offset: Offset(-thumb.offsetX, -thumb.offsetY),
               child: Image(
                 image: ParkImage.url(source, thumb.url),
-                filterQuality: FilterQuality.medium,
                 alignment: Alignment.topLeft,
               ),
             ),

@@ -1,5 +1,9 @@
-import 'package:flutter/material.dart';
+import 'dart:async';
 
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+
+import '../../core/localization.dart';
 import '../../core/models.dart';
 import '../../core/settings.dart';
 import '../../core/titles.dart';
@@ -7,10 +11,10 @@ import '../../engine/source_manager.dart';
 import '../../library/library.dart';
 import '../nav.dart';
 import '../theme.dart';
-import '../../core/localization.dart';
 
 /// Adds or removes a favorite the same way from every entry point (detail page, long-press menus).
 Future<void> toggleFavorite(BuildContext context, WorkItem item) async {
+  unawaited(HapticFeedback.lightImpact());
   final lib = Library.instance;
   if (lib.isFavorite(item.uid)) {
     lib.removeFavorite(item.uid);
@@ -112,9 +116,11 @@ class _CategoryPickerState extends State<_CategoryPicker> {
 
   @override
   Widget build(BuildContext context) {
-    AppLocalizations.of(context);
     return ListenableBuilder(
-      listenable: Library.instance,
+      listenable: Listenable.merge([
+        Library.instance.collection(LibraryCollection.categories),
+        Library.instance.collection(LibraryCollection.favorites),
+      ]),
       builder: (context, _) {
         final cats = Library.instance.categories;
         return SafeArea(
@@ -128,7 +134,7 @@ class _CategoryPickerState extends State<_CategoryPicker> {
                 ListTile(
                   title: Text(
                     tr(widget.title),
-                    style: const TextStyle(fontWeight: FontWeight.w700),
+                    style: const TextStyle(fontWeight: FontWeight.w600),
                   ),
                   trailing: TextButton.icon(
                     onPressed: _create,
@@ -138,7 +144,7 @@ class _CategoryPickerState extends State<_CategoryPicker> {
                 ),
                 if (cats.isEmpty)
                   Padding(
-                    padding: EdgeInsets.fromLTRB(24, 0, 24, 16),
+                    padding: const EdgeInsets.fromLTRB(24, 0, 24, 16),
                     child: Text(tr('还没有分类。不选择任何分类时作品会放在"默认"里。')),
                   ),
                 Flexible(

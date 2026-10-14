@@ -1,13 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:url_launcher/url_launcher.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:url_launcher/url_launcher.dart';
 
-import '../../core/models.dart';
 import '../../core/localization.dart';
+import '../../core/models.dart';
+import '../../core/settings.dart';
 import '../../engine/source_manager.dart';
 import '../../game/downloads.dart';
 import '../../library/downloads.dart' show DownloadStatus;
+import '../kit/kit.dart';
 import '../theme.dart';
 import '../widgets/error_view.dart';
 
@@ -113,8 +115,63 @@ class GameResourceCardState extends State<GameResourceCard> {
   bool _busy = false;
   Object? _error;
   String? _lastChannel;
+
+  /// A reply is posted publicly with the user's account, so it is never sent without a clear yes.
+  Future<bool> _confirmReply(GameChannel channel) async {
+    final source = widget.work.source;
+    final settings = AppSettings.instance;
+    if (settings.replyWithoutAsking.contains(source)) return true;
+    final site = SourceManager.instance.manifest(source)?.name ?? source;
+    var remember = false;
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setState) => AlertDialog(
+          title: Text(tr('以你的账号发帖？')),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                tr('{site}要求回复后才显示下载链接。继续会用你的账号在下面的帖子里公开回复。', {'site': site}),
+              ),
+              const SizedBox(height: Gap.m),
+              Text(tr('帖子'), style: ctx.text.labelLarge),
+              Text(widget.work.title, style: ctx.text.bodyMedium),
+              const SizedBox(height: Gap.s),
+              Text(tr('回复内容'), style: ctx.text.labelLarge),
+              Text(channel.replyText, style: ctx.text.bodyMedium),
+              const SizedBox(height: Gap.s),
+              CheckboxListTile(
+                contentPadding: EdgeInsets.zero,
+                controlAffinity: ListTileControlAffinity.leading,
+                value: remember,
+                onChanged: (v) => setState(() => remember = v ?? false),
+                title: Text(tr('这个站点不再询问')),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: Text(tr('取消')),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: Text(tr('回复并获取链接')),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (ok == true && remember) settings.allowReplyWithoutAsking(source);
+    return ok == true;
+  }
+
   Future<void> _choose(GameChannel channel) async {
     if (_busy) return;
+    if (channel.requiresReply && !await _confirmReply(channel)) return;
+    if (!mounted) return;
     _lastChannel = channel.id;
     setState(() {
       _busy = true;
@@ -341,7 +398,7 @@ class GameResourceCardState extends State<GameResourceCard> {
                               ? '回复解锁并获取链接'
                               : channel.kind == GameChannelKind.direct
                               ? '直链下载'
-                              : '获取网盘链接')} · ${tr(channel.label)}${channel.size.isEmpty ? '' : ' · ${channel.size}'}',
+                              : '获取网盘链接')} · ${(SourceManager.instance.manifest(widget.work.source)?.copy ?? PluginCopy.none).text(channel.label)}${channel.size.isEmpty ? '' : ' · ${channel.size}'}',
                         ),
                       ),
                     ),
@@ -377,83 +434,81 @@ class GameDownloadTile extends StatelessWidget {
       DownloadStatus.done => '下载完成',
       DownloadStatus.failed => '下载失败',
     });
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text(
-              task.item.title,
-              style: Theme.of(context).textTheme.titleSmall,
+    return Padding(
+      padding: const EdgeInsets.symmetric(
+        horizontal: Gap.page,
+        vertical: Gap.m,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(task.item.title, style: Theme.of(context).textTheme.titleSmall),
+          SelectableText(task.filename),
+          Text(
+            '$label · ${(task.bytes / (1024 * 1024)).toStringAsFixed(1)} MB${task.total > 0 ? ' / ${(task.total / (1024 * 1024)).toStringAsFixed(1)} MB' : ''}',
+          ),
+          if (running || queued)
+            LinearProgressIndicator(
+              value: task.total > 0 ? task.bytes / task.total : null,
             ),
-            SelectableText(task.filename),
-            Text(
-              '$label · ${(task.bytes / (1024 * 1024)).toStringAsFixed(1)} MB${task.total > 0 ? ' / ${(task.total / (1024 * 1024)).toStringAsFixed(1)} MB' : ''}',
-            ),
-            if (running || queued)
-              LinearProgressIndicator(
-                value: task.total > 0 ? task.bytes / task.total : null,
-              ),
-            if (task.error != null) Text(tr(task.error!)),
-            if (task.extractionCode.isNotEmpty)
-              SelectableText('${tr('提取码')}: ${task.extractionCode}'),
-            if (task.archivePassword.isNotEmpty)
-              SelectableText('${tr('解压密码')}: ${task.archivePassword}'),
-            if (done) SelectableText(task.file.path),
-            Wrap(
-              spacing: 8,
-              children: [
-                if (running || queued)
-                  TextButton(
-                    onPressed: () => manager.cancel(task.key),
-                    child: Text(tr('取消下载')),
-                  )
-                else if (!done)
-                  TextButton(
-                    onPressed: manager.isActive(task.key)
-                        ? null
-                        : () => manager.retry(task.key),
-                    child: Text(tr('重新下载')),
-                  ),
-                if (done)
-                  TextButton(
-                    onPressed: () async {
-                      try {
-                        await SharePlus.instance.share(
-                          ShareParams(files: [XFile(task.file.path)]),
-                        );
-                      } catch (_) {
-                        if (context.mounted) context.toast(tr('无法导出游戏文件'));
-                      }
-                    },
-                    child: Text(tr('导出游戏文件')),
-                  ),
-                if (done)
-                  TextButton(
-                    onPressed: () async {
-                      await Clipboard.setData(
-                        ClipboardData(text: task.file.path),
+          if (task.error != null) Text(tr(task.error!)),
+          if (task.extractionCode.isNotEmpty)
+            SelectableText('${tr('提取码')}: ${task.extractionCode}'),
+          if (task.archivePassword.isNotEmpty)
+            SelectableText('${tr('解压密码')}: ${task.archivePassword}'),
+          if (done) SelectableText(task.file.path),
+          Wrap(
+            spacing: 8,
+            children: [
+              if (running || queued)
+                TextButton(
+                  onPressed: () => manager.cancel(task.key),
+                  child: Text(tr('取消下载')),
+                )
+              else if (!done)
+                TextButton(
+                  onPressed: manager.isActive(task.key)
+                      ? null
+                      : () => manager.retry(task.key),
+                  child: Text(tr('重新下载')),
+                ),
+              if (done)
+                TextButton(
+                  onPressed: () async {
+                    try {
+                      await SharePlus.instance.share(
+                        ShareParams(files: [XFile(task.file.path)]),
                       );
-                      if (context.mounted) context.toast(tr('已复制'));
-                    },
-                    child: Text(tr('复制文件路径')),
-                  ),
-                if (!running && !queued)
-                  TextButton(
-                    onPressed: () async {
-                      try {
-                        await manager.remove(task.key);
-                      } catch (_) {
-                        if (context.mounted) context.toast(tr('请先取消下载并等待结束'));
-                      }
-                    },
-                    child: Text(tr('移除任务（保留文件）')),
-                  ),
-              ],
-            ),
-          ],
-        ),
+                    } catch (_) {
+                      if (context.mounted) context.toast(tr('无法导出游戏文件'));
+                    }
+                  },
+                  child: Text(tr('导出游戏文件')),
+                ),
+              if (done)
+                TextButton(
+                  onPressed: () async {
+                    await Clipboard.setData(
+                      ClipboardData(text: task.file.path),
+                    );
+                    if (context.mounted) context.toast(tr('已复制'));
+                  },
+                  child: Text(tr('复制文件路径')),
+                ),
+              if (!running && !queued)
+                TextButton(
+                  onPressed: () async {
+                    try {
+                      await manager.remove(task.key);
+                    } catch (_) {
+                      if (context.mounted) context.toast(tr('请先取消下载并等待结束'));
+                    }
+                  },
+                  child: Text(tr('移除任务（保留文件）')),
+                ),
+            ],
+          ),
+        ],
       ),
     );
   }

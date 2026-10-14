@@ -79,7 +79,7 @@ class PreparedVideo {
         var url = Uri.parse(source.url);
         if (source.format == 'hls') {
           final manifest = SourceManager.instance.manifest(work.source);
-          if (manifest == null) throw SourceError('CONFIG', '视频源未加载');
+          if (manifest == null) throw SourceError('CONFIG', '视频站点未加载');
           final opening = media = HlsPlayback(
             createMediaTransport(
               manifest,

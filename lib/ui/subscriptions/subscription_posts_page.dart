@@ -7,18 +7,19 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/localization.dart';
 import '../../core/models.dart';
-import '../../engine/source_manager.dart';
 import '../../engine/domains.dart';
+import '../../engine/source_manager.dart';
+import '../../images/image_store.dart';
 import '../../images/park_image.dart';
 import '../../images/subscription_cache.dart';
-import '../../images/image_store.dart';
 import '../../subscriptions/models.dart';
 import '../../subscriptions/subscription_store.dart';
+import '../kit/kit.dart';
 import '../nav.dart';
 import '../settings/source_settings_page.dart';
+import '../theme.dart';
 import '../video/video_page.dart';
 import '../widgets/error_view.dart';
-import '../theme.dart';
 import '../widgets/on_visible.dart';
 import '../widgets/text_translation.dart';
 
@@ -143,7 +144,6 @@ class _SubscriptionPostsPageState extends State<SubscriptionPostsPage> {
 
   @override
   Widget build(BuildContext context) {
-    AppLocalizations.of(context);
     final manifest = SourceManager.instance.manifest(widget.entry.source);
     final visible = posts.map(_visiblePost).where(_isVisible).toList();
     return Scaffold(
@@ -151,7 +151,7 @@ class _SubscriptionPostsPageState extends State<SubscriptionPostsPage> {
         title: Text(widget.entry.label),
         actions: [
           IconButton(
-            tooltip: tr('账号与源设置'),
+            tooltip: tr('账号与站点设置'),
             onPressed: _login,
             icon: const Icon(Icons.manage_accounts),
           ),
@@ -162,7 +162,7 @@ class _SubscriptionPostsPageState extends State<SubscriptionPostsPage> {
           ),
         ],
       ),
-      body: RefreshIndicator(
+      body: ParkRefresh(
         onRefresh: () => _load(refresh: true),
         child: ListView(
           padding: const EdgeInsets.fromLTRB(12, 8, 12, 24),
@@ -512,7 +512,7 @@ class _SubscriptionMediaPageState extends State<SubscriptionMediaPage> {
             uri.userInfo.isNotEmpty ||
             uri.port != 443 ||
             !hostInDomains(uri.host, declaredDomains(manifest.json))) {
-          throw SourceError('CONFIG', '媒体地址不在源声明的 HTTPS 域名内');
+          throw SourceError('CONFIG', '媒体地址不在站点声明的 HTTPS 域名内');
         }
       }
       if (media.needsDownload) {
@@ -572,7 +572,6 @@ class _SubscriptionMediaPageState extends State<SubscriptionMediaPage> {
 
   @override
   Widget build(BuildContext context) {
-    AppLocalizations.of(context);
     final Widget body;
     if (error != null) {
       body = SourceErrorView(

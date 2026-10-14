@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../kit/tokens.dart';
+
 /// 封面只与发起导航的入口配对；飞行时保持两端解码尺寸并渐变换图。
 class CoverHero extends StatelessWidget {
   const CoverHero({super.key, required this.tag, required this.child});
@@ -29,7 +31,7 @@ class CoverHero extends StatelessWidget {
       ),
     );
     return ClipRRect(
-      borderRadius: BorderRadius.circular(12),
+      borderRadius: Radii.small,
       child: Stack(
         fit: StackFit.expand,
         children: [

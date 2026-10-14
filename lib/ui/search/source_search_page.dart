@@ -1,17 +1,15 @@
 import 'package:flutter/material.dart';
 
-import '../../core/models.dart';
-import '../../core/localization.dart';
-import '../../core/settings.dart';
 import '../../core/content_scope.dart';
+import '../../core/localization.dart';
+import '../../core/models.dart';
+import '../../core/settings.dart';
 import '../../engine/source_manager.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
 import '../widgets/content_translation.dart';
 import '../widgets/paged_grid.dart';
 import 'multi_language.dart';
-import 'search_toolbar.dart';
-import '../discovery_navigation.dart';
 
 /// Search inside one source with that source's native filters (sort, category, language, rating…).
 class SourceSearchPage extends StatefulWidget {
@@ -184,89 +182,86 @@ class _SourceSearchPageState extends State<SourceSearchPage> {
 
   @override
   Widget build(BuildContext context) {
-    AppLocalizations.of(context);
     return TranslationPage(
-      child: Theme(
-        data: ParkTheme.build(Theme.of(context).brightness, _m.color),
-        child: Builder(
-          builder: (context) {
-            return Scaffold(
-              appBar: AppBar(
-                title: Text(
-                  _m.name,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
+      child: Builder(
+        builder: (context) => Scaffold(
+          appBar: AppBar(
+            titleSpacing: 0,
+            title: ParkSearchField(
+              controller: _text,
+              autofocus:
+                  widget.initialKeyword.isEmpty &&
+                  widget.initialFilters == null,
+              hint: tr('在 {source} 中搜索', {'source': _m.name}),
+              onSubmitted: (_) => _search(),
+              trailing: [
+                IconButton(
+                  icon: const Icon(Icons.close_rounded),
+                  tooltip: tr('清空'),
+                  onPressed: _text.clear,
                 ),
-                actions: [
-                  const DomainMenu(),
-                  TranslationControls(source: widget.sourceKey),
-                ],
-              ),
-              body: SearchLayout(
-                toolbar: SearchToolbar(
-                  field: TextField(
-                    controller: _text,
-                    autofocus:
-                        widget.initialKeyword.isEmpty &&
-                        widget.initialFilters == null,
-                    textInputAction: TextInputAction.search,
-                    onSubmitted: (_) => _search(),
-                    decoration: InputDecoration(
-                      hintText: tr('在 {source} 中搜索', {'source': _m.name}),
-                      prefixIcon: Padding(
-                        padding: const EdgeInsetsDirectional.fromSTEB(
-                          14,
-                          10,
-                          12,
-                          10,
+              ],
+            ),
+            actions: [
+              TranslationControls(source: widget.sourceKey),
+              const SizedBox(width: Gap.xs),
+            ],
+          ),
+          body: Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(
+                  Gap.page,
+                  Gap.s,
+                  Gap.page,
+                  Gap.xs,
+                ),
+                child: Row(
+                  children: [
+                    SourceAvatar(_m.key, size: 20),
+                    const SizedBox(width: Gap.s),
+                    Expanded(
+                      child: Text(
+                        _m.name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: context.text.labelLarge?.copyWith(
+                          color: context.colors.onSurfaceVariant,
                         ),
-                        child: SourceAvatar(_m.key, size: 24),
                       ),
-                      suffixIcon: IconButton(
-                        icon: const Icon(Icons.close_rounded),
-                        tooltip: tr('清空'),
-                        onPressed: _text.clear,
-                      ),
-                      contentPadding: SearchToolbar.inputPadding,
                     ),
-                  ),
-                  actions: [
                     if (_m.searchFilters.isNotEmpty)
-                      TextButton.icon(
-                        label: Text(tr('筛选')),
-                        icon: Badge(
-                          isLabelVisible: _activeFilters > 0,
-                          label: Text('$_activeFilters'),
-                          child: const Icon(Icons.filter_list_rounded),
+                      Badge(
+                        isLabelVisible: _activeFilters > 0,
+                        label: Text('$_activeFilters'),
+                        child: TextButton(
+                          onPressed: _openFilters,
+                          child: Text(tr('筛选')),
                         ),
-                        onPressed: _openFilters,
                       ),
-                    _translating
-                        ? const Padding(
-                            padding: EdgeInsets.all(14),
-                            child: SizedBox(
-                              width: 20,
-                              height: 20,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2.2,
-                              ),
-                            ),
-                          )
-                        : TextButton.icon(
-                            label: Text(tr('多语言搜索')),
-                            onPressed: _searchMulti,
-                            icon: const Icon(Icons.language_rounded),
-                          ),
-                    FilledButton.icon(
-                      label: Text(tr('搜索')),
-                      icon: const Icon(Icons.search_rounded),
-                      onPressed: _search,
-                    ),
+                    if (_translating)
+                      const Padding(
+                        padding: EdgeInsets.all(Gap.m),
+                        child: SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        ),
+                      )
+                    else
+                      TextButton(
+                        onPressed: _searchMulti,
+                        child: Text(tr('多语言搜索')),
+                      ),
                   ],
                 ),
-                results: !_started
+              ),
+              Expanded(
+                child: !_started
                     ? ListenableBuilder(
-                        listenable: AppSettings.instance,
+                        listenable: AppSettings.instance.watch(const {
+                          'searchHistories',
+                        }),
                         builder: (context, _) => _Intro(
                           manifest: _m,
                           onPick: (k) {
@@ -275,10 +270,12 @@ class _SourceSearchPageState extends State<SourceSearchPage> {
                           },
                         ),
                       )
-                    : RefreshIndicator(
+                    : ParkRefresh(
                         onRefresh: _controller.refresh,
                         child: CustomScrollView(
                           physics: const AlwaysScrollableScrollPhysics(),
+                          keyboardDismissBehavior:
+                              ScrollViewKeyboardDismissBehavior.onDrag,
                           slivers: [
                             if (_multi != null)
                               SliverToBoxAdapter(
@@ -306,8 +303,8 @@ class _SourceSearchPageState extends State<SourceSearchPage> {
                         ),
                       ),
               ),
-            );
-          },
+            ],
+          ),
         ),
       ),
     );
@@ -321,32 +318,42 @@ class _Intro extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    AppLocalizations.of(context);
     final scope = ContentScope.source(manifest.key);
     final history = AppSettings.instance.searchHistoryFor(scope);
     return ListView(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.symmetric(horizontal: Gap.page),
       children: [
         if (manifest.searchHint.isNotEmpty)
-          Card(
-            child: ListTile(
-              leading: Icon(
-                Icons.lightbulb_outline_rounded,
-                color: context.colors.primary,
-              ),
-              title: Text(tr('搜索技巧')),
-              subtitle: Text(manifest.searchHint),
+          Padding(
+            padding: const EdgeInsets.only(top: Gap.m),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(
+                  Icons.lightbulb_outline_rounded,
+                  size: 18,
+                  color: context.colors.onSurfaceVariant,
+                ),
+                const SizedBox(width: Gap.s),
+                Expanded(
+                  child: Text(
+                    manifest.searchHint,
+                    style: context.text.bodyMedium?.copyWith(
+                      color: context.colors.onSurfaceVariant,
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
         if (history.isNotEmpty) ...[
           SectionHeader(
             tr('最近搜索'),
-            padding: const EdgeInsets.fromLTRB(4, 20, 4, 8),
-            trailing: IconButton(
-              tooltip: tr('清空'),
-              icon: const Icon(Icons.delete_sweep_outlined),
+            padding: const EdgeInsets.fromLTRB(0, Gap.xl, 0, Gap.s),
+            trailing: TextButton(
               onPressed: () =>
                   AppSettings.instance.clearSearchHistory(scope: scope),
+              child: Text(tr('清空')),
             ),
           ),
           Wrap(
@@ -380,7 +387,6 @@ class _ActiveFilters extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    AppLocalizations.of(context);
     final defaults = manifest.defaultFilters();
     final chips = <String>[];
     for (final f in manifest.searchFilters) {
@@ -437,7 +443,6 @@ class _FilterSheetState extends State<FilterSheet> {
 
   @override
   Widget build(BuildContext context) {
-    AppLocalizations.of(context);
     return DraggableScrollableSheet(
       expand: false,
       initialChildSize: 0.6,
@@ -451,7 +456,7 @@ class _FilterSheetState extends State<FilterSheet> {
                 Text(
                   tr('筛选'),
                   style: context.text.titleLarge?.copyWith(
-                    fontWeight: FontWeight.w800,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
                 const Spacer(),
@@ -477,7 +482,7 @@ class _FilterSheetState extends State<FilterSheet> {
                     child: Text(
                       f.label,
                       style: context.text.titleSmall?.copyWith(
-                        fontWeight: FontWeight.w700,
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
                   ),
@@ -552,10 +557,10 @@ class _NumberField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    AppLocalizations.of(context);
     return Row(
       children: [
         IconButton.filledTonal(
+          tooltip: '-10',
           onPressed: value > 0
               ? () => onChanged((value - 10).clamp(0, 9999))
               : null,
@@ -570,6 +575,7 @@ class _NumberField extends StatelessWidget {
           ),
         ),
         IconButton.filledTonal(
+          tooltip: '+10',
           onPressed: () => onChanged(value + 10),
           icon: const Icon(Icons.add_rounded),
         ),

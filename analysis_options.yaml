@@ -6,3 +6,13 @@ analyzer:
     - build/**
     - android/**
     - windows/**
+    - test/**
+
+linter:
+  rules:
+    - directives_ordering
+    - prefer_const_constructors
+    - avoid_redundant_argument_values
+    - unawaited_futures
+    - use_build_context_synchronously
+    - prefer_final_locals

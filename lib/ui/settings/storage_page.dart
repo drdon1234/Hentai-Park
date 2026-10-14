@@ -3,17 +3,17 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:path/path.dart' as p;
 
+import '../../core/localization.dart';
 import '../../core/storage.dart';
 import '../../engine/cookie_store.dart';
-import '../../engine/source_manager.dart';
 import '../../engine/home_cache.dart';
+import '../../engine/source_manager.dart';
+import '../../game/downloads.dart';
 import '../../images/image_store.dart';
 import '../../library/downloads.dart';
-import '../../game/downloads.dart';
 import '../../library/library.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
-import '../../core/localization.dart';
 
 /// Where the space goes, and ways to get it back.
 class StoragePage extends StatefulWidget {
@@ -126,10 +126,10 @@ class _StoragePageState extends State<StoragePage> {
           children: [
             ListTile(
               title: Text(
-                tr('清除哪个源的 Cookie？'),
-                style: TextStyle(fontWeight: FontWeight.w700),
+                tr('清除哪个站点的 Cookie？'),
+                style: const TextStyle(fontWeight: FontWeight.w600),
               ),
-              subtitle: Text(tr('会退出该源基于 Cookie 的登录，Cloudflare 验证也需要重新通过')),
+              subtitle: Text(tr('会退出该站点基于 Cookie 的登录，Cloudflare 验证也需要重新通过')),
             ),
             for (final s in sources)
               ListTile(
@@ -155,7 +155,6 @@ class _StoragePageState extends State<StoragePage> {
 
   @override
   Widget build(BuildContext context) {
-    AppLocalizations.of(context);
     String size(int? v) => v == null ? tr('计算中…') : formatBytes(v);
     final downloads = _downloads;
     final dlTotal = downloads?.values.fold(0, (a, b) => a + b);
@@ -172,100 +171,98 @@ class _StoragePageState extends State<StoragePage> {
       body: AbsorbPointer(
         absorbing: _busy,
         child: ListView(
-          padding: const EdgeInsets.fromLTRB(12, 8, 12, 32),
+          padding: const EdgeInsets.fromLTRB(0, 8, 0, 32),
           children: [
-            Card(
-              child: Column(
-                children: [
-                  ListTile(
-                    leading: const Icon(Icons.home_outlined),
-                    title: Text(tr('主页数据缓存')),
-                    subtitle: Text(size(_homeCache)),
-                    trailing: TextButton(
-                      onPressed: () =>
-                          _run(HomeCache.instance.clear, tr('缓存已清除')),
-                      child: Text(tr('清除')),
-                    ),
+            RowGroup(
+              children: [
+                ListTile(
+                  leading: const Icon(Icons.home_outlined),
+                  title: Text(tr('主页数据缓存')),
+                  subtitle: Text(size(_homeCache)),
+                  trailing: TextButton(
+                    onPressed: () =>
+                        _run(HomeCache.instance.clear, tr('缓存已清除')),
+                    child: Text(tr('清除')),
                   ),
-                  ListTile(
-                    leading: const Icon(Icons.image_outlined),
-                    title: Text(tr('媒体缓存')),
-                    subtitle: Text(size(_cache)),
-                    trailing: TextButton(
-                      onPressed: () => _run(() async {
-                        await ImageStore.instance.clear();
-                        imageCache.clear();
-                      }, tr('缓存已清除')),
-                      child: Text(tr('清除')),
-                    ),
+                ),
+                ListTile(
+                  leading: const Icon(Icons.image_outlined),
+                  title: Text(tr('媒体缓存')),
+                  subtitle: Text(size(_cache)),
+                  trailing: TextButton(
+                    onPressed: () => _run(() async {
+                      await ImageStore.instance.clear();
+                      imageCache.clear();
+                    }, tr('缓存已清除')),
+                    child: Text(tr('清除')),
                   ),
-                  ListTile(
-                    leading: const Icon(Icons.storage_rounded),
-                    title: Text(tr('书库数据库')),
-                    subtitle: Text(size(_database)),
-                  ),
-                  ListTile(
-                    leading: const Icon(Icons.backup_outlined),
-                    title: Text(tr('备份文件')),
-                    subtitle: Text(size(_backups)),
-                  ),
-                ],
-              ),
+                ),
+                ListTile(
+                  leading: const Icon(Icons.storage_rounded),
+                  title: Text(tr('书库数据库')),
+                  subtitle: Text(size(_database)),
+                ),
+                ListTile(
+                  leading: const Icon(Icons.backup_outlined),
+                  title: Text(tr('备份文件')),
+                  subtitle: Text(size(_backups)),
+                ),
+              ],
             ),
-            SectionHeader(tr('下载')),
-            Card(
-              child: Column(
-                children: [
-                  ListTile(
-                    leading: const Icon(Icons.download_done_rounded),
-                    title: Text(tr('全部下载')),
-                    subtitle: Text(size(dlTotal)),
-                  ),
-                  if (downloads != null)
-                    for (final e
-                        in downloads.entries.toList()
-                          ..sort((a, b) => b.value.compareTo(a.value)))
-                      ListTile(
-                        dense: true,
-                        leading: SourceAvatar(e.key, size: 24),
-                        title: Text(
-                          e.key == localSource
-                              ? tr('本地导入')
-                              : SourceManager.instance.manifest(e.key)?.name ??
-                                    e.key,
-                        ),
-                        trailing: Text(formatBytes(e.value)),
+            RowGroup(
+              title: tr('下载'),
+              children: [
+                ListTile(
+                  leading: const Icon(Icons.download_done_rounded),
+                  title: Text(tr('全部下载')),
+                  subtitle: Text(size(dlTotal)),
+                ),
+                if (downloads != null)
+                  for (final e
+                      in downloads.entries.toList()
+                        ..sort((a, b) => b.value.compareTo(a.value)))
+                    ListTile(
+                      dense: true,
+                      leading: SourceAvatar(e.key, size: 24),
+                      title: Text(
+                        e.key == localSource
+                            ? tr('本地导入')
+                            : SourceManager.instance.manifest(e.key)?.name ??
+                                  e.key,
                       ),
-                  ListTile(
-                    leading: const Icon(Icons.auto_delete_outlined),
-                    title: Text(tr('删除已读章节的下载')),
-                    subtitle: Text(tr('只删除标记为已读的漫画章节，本地导入不受影响')),
-                    onTap: () async {
-                      var n = 0;
-                      await _run(() async => n = await _deleteRead(), '');
-                      if (context.mounted) {
-                        context.toast(tr('已删除 {value0} 个章节', {'value0': n}));
-                      }
-                    },
-                  ),
-                  ListTile(
-                    leading: const Icon(Icons.folder_outlined),
-                    title: Text(tr('下载位置')),
-                    subtitle: SelectableText(
-                      p.normalize(DownloadManager.instance.root.path),
-                      style: context.text.bodySmall,
+                      trailing: Text(formatBytes(e.value)),
                     ),
+                ListTile(
+                  leading: const Icon(Icons.auto_delete_outlined),
+                  title: Text(tr('删除已读章节的下载')),
+                  subtitle: Text(tr('只删除标记为已读的漫画章节，本地导入不受影响')),
+                  onTap: () async {
+                    var n = 0;
+                    await _run(() async => n = await _deleteRead(), '');
+                    if (context.mounted) {
+                      context.toast(tr('已删除 {value0} 个章节', {'value0': n}));
+                    }
+                  },
+                ),
+                ListTile(
+                  leading: const Icon(Icons.folder_outlined),
+                  title: Text(tr('下载位置')),
+                  subtitle: SelectableText(
+                    p.normalize(DownloadManager.instance.root.path),
+                    style: context.text.bodySmall,
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
-            SectionHeader(tr('站点数据')),
-            Card(
-              child: ListTile(
-                leading: const Icon(Icons.cookie_outlined),
-                title: Text(tr('清除某个源的 Cookie')),
-                onTap: _clearCookies,
-              ),
+            RowGroup(
+              title: tr('站点数据'),
+              children: [
+                ListTile(
+                  leading: const Icon(Icons.cookie_outlined),
+                  title: Text(tr('清除某个站点的 Cookie')),
+                  onTap: _clearCookies,
+                ),
+              ],
             ),
           ],
         ),

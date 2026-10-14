@@ -1,11 +1,11 @@
-import 'package:flutter/material.dart';
 import 'package:dio/dio.dart';
+import 'package:flutter/material.dart';
 
-import '../../core/models.dart';
 import '../../core/localization.dart';
+import '../../core/models.dart';
 import '../../core/settings.dart';
-import '../../core/translator.dart';
 import '../../core/translation_options.dart';
+import '../../core/translator.dart';
 import '../../engine/source_manager.dart';
 import '../theme.dart';
 
@@ -140,7 +140,7 @@ Future<MultiKeyword?> translateKeyword(
   final s = AppSettings.instance;
   final targets = s.translateTargets;
   if (targets.isEmpty) {
-    context.toast(tr('请先在设置 › 多语言搜索中选择目标语言'));
+    context.toast(tr('请先在「我的 › 搜索与翻译」中选择语言'));
     return null;
   }
   try {
@@ -243,7 +243,6 @@ class TranslationsBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    AppLocalizations.of(context);
     final entries = keyword.translations.entries.toList();
     return SizedBox(
       height:

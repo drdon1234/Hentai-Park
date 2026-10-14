@@ -5,13 +5,13 @@ import 'package:flutter/material.dart';
 import 'package:path/path.dart' as p;
 import 'package:share_plus/share_plus.dart';
 
+import '../../core/localization.dart';
 import '../../core/settings.dart';
 import '../../core/storage.dart';
 import '../../library/backup.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
 import 'source_install.dart';
-import '../../core/localization.dart';
 
 class BackupPage extends StatefulWidget {
   const BackupPage({super.key});
@@ -103,7 +103,7 @@ class _BackupPageState extends State<BackupPage> {
           missing.url,
           expectedKey: missing.key,
         );
-        if (key == null && mounted) context.toast(tr('未安装的源设置已保留，安装后自动恢复'));
+        if (key == null && mounted) context.toast(tr('未安装站点的设置已保留，安装后自动恢复'));
       }
     });
   }
@@ -141,7 +141,7 @@ class _BackupPageState extends State<BackupPage> {
             ListTile(
               title: Text(
                 p.basename(f.path),
-                style: const TextStyle(fontWeight: FontWeight.w700),
+                style: const TextStyle(fontWeight: FontWeight.w600),
               ),
             ),
             ListTile(
@@ -177,10 +177,9 @@ class _BackupPageState extends State<BackupPage> {
 
   @override
   Widget build(BuildContext context) {
-    AppLocalizations.of(context);
     final last = s.lastAutoBackup;
     return ListenableBuilder(
-      listenable: s,
+      listenable: s.domain(SettingsDomain.maintenance),
       builder: (context, _) => Scaffold(
         appBar: AppBar(
           title: Text(tr('备份与恢复')),
@@ -192,135 +191,118 @@ class _BackupPageState extends State<BackupPage> {
               : null,
         ),
         body: ListView(
-          padding: const EdgeInsets.fromLTRB(12, 8, 12, 32),
+          padding: const EdgeInsets.fromLTRB(0, 8, 0, 32),
           children: [
-            Card(
-              child: Column(
-                children: [
-                  ListTile(
-                    leading: const Icon(Icons.backup_outlined),
-                    title: Text(tr('创建备份')),
-                    subtitle: Text(
-                      tr('收藏、分类、阅读进度、历史、标注、订阅、设置与源列表；不包含下载正文或 Cookie'),
-                    ),
-                    onTap: _busy ? null : _create,
+            RowGroup(
+              children: [
+                ListTile(
+                  leading: const Icon(Icons.backup_outlined),
+                  title: Text(tr('创建备份')),
+                  subtitle: Text(
+                    tr('收藏、分类、阅读进度、历史、标注、订阅、设置与站点列表；不包含下载内容或 Cookie'),
                   ),
-                  ListTile(
-                    leading: const Icon(Icons.settings_backup_restore_rounded),
-                    title: Text(tr('从文件恢复')),
-                    subtitle: Text(tr('选择 .parkbak 文件，与当前数据合并')),
-                    onTap: _busy ? null : _pickAndRestore,
-                  ),
-                ],
-              ),
+                  onTap: _busy ? null : _create,
+                ),
+                ListTile(
+                  leading: const Icon(Icons.settings_backup_restore_rounded),
+                  title: Text(tr('从文件恢复')),
+                  subtitle: Text(tr('选择 .parkbak 文件，与当前数据合并')),
+                  onTap: _busy ? null : _pickAndRestore,
+                ),
+              ],
             ),
             const SizedBox(height: 12),
-            Card(
-              child: Column(
-                children: [
-                  ListTile(
-                    leading: const Icon(Icons.schedule_rounded),
-                    title: Text(tr('自动备份')),
-                    subtitle: Text(
-                      last == 0
-                          ? tr('尚未自动备份过')
-                          : tr('上次：{value0}', {
-                              'value0': timeAgo(
-                                DateTime.fromMillisecondsSinceEpoch(last),
-                              ),
-                            }),
-                    ),
+            RowGroup(
+              children: [
+                ListTile(
+                  leading: const Icon(Icons.schedule_rounded),
+                  title: Text(tr('自动备份')),
+                  subtitle: Text(
+                    last == 0
+                        ? tr('尚未自动备份过')
+                        : tr('上次：{value0}', {
+                            'value0': timeAgo(
+                              DateTime.fromMillisecondsSinceEpoch(last),
+                            ),
+                          }),
                   ),
-                  Padding(
-                    padding: const EdgeInsetsDirectional.fromSTEB(
-                      72,
-                      0,
-                      16,
-                      12,
-                    ),
-                    child: DropdownButton<int>(
-                      value: s.autoBackupHours,
-                      isExpanded: true,
-                      underline: const SizedBox.shrink(),
-                      items:
-                          [
-                                (0, tr('关闭')),
-                                (12, tr('每 12 小时')),
-                                (24, tr('每天')),
-                                (72, tr('每 3 天')),
-                                (168, tr('每周')),
-                              ]
-                              .map(
-                                (e) => DropdownMenuItem(
-                                  value: e.$1,
-                                  child: Text(
-                                    e.$2,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsetsDirectional.fromSTEB(72, 0, 16, 12),
+                  child: DropdownButton<int>(
+                    value: s.autoBackupHours,
+                    isExpanded: true,
+                    underline: const SizedBox.shrink(),
+                    items:
+                        [
+                              (0, tr('关闭')),
+                              (12, tr('每 12 小时')),
+                              (24, tr('每天')),
+                              (72, tr('每 3 天')),
+                              (168, tr('每周')),
+                            ]
+                            .map(
+                              (e) => DropdownMenuItem(
+                                value: e.$1,
+                                child: Text(
+                                  e.$2,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
                                 ),
-                              )
-                              .toList(),
-                      onChanged: (v) => s.autoBackupHours = v ?? 24,
-                    ),
+                              ),
+                            )
+                            .toList(),
+                    onChanged: (v) => s.autoBackupHours = v ?? 24,
                   ),
-                  ListTile(
-                    leading: const Icon(Icons.layers_outlined),
-                    title: Text(tr('保留份数')),
-                    subtitle: Text(tr('仅清理自动备份，手工备份保留')),
+                ),
+                ListTile(
+                  leading: const Icon(Icons.layers_outlined),
+                  title: Text(tr('保留份数')),
+                  subtitle: Text(tr('仅清理自动备份，手工备份保留')),
+                ),
+                Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 8,
                   ),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 8,
-                    ),
-                    child: Text(tr('打开应用或回到前台时检查备份间隔；应用关闭时不会执行后台定时备份')),
+                  child: Text(tr('打开应用或回到前台时检查备份间隔；应用关闭时不会执行后台定时备份')),
+                ),
+                Padding(
+                  padding: const EdgeInsetsDirectional.fromSTEB(72, 0, 16, 12),
+                  child: DropdownButton<int>(
+                    value: s.autoBackupKeep,
+                    isExpanded: true,
+                    underline: const SizedBox.shrink(),
+                    items: const [1, 2, 3, 5, 10]
+                        .map(
+                          (v) => DropdownMenuItem(value: v, child: Text('$v')),
+                        )
+                        .toList(),
+                    onChanged: (v) => s.autoBackupKeep = v ?? 3,
                   ),
-                  Padding(
-                    padding: const EdgeInsetsDirectional.fromSTEB(
-                      72,
-                      0,
-                      16,
-                      12,
-                    ),
-                    child: DropdownButton<int>(
-                      value: s.autoBackupKeep,
-                      isExpanded: true,
-                      underline: const SizedBox.shrink(),
-                      items: const [1, 2, 3, 5, 10]
-                          .map(
-                            (v) =>
-                                DropdownMenuItem(value: v, child: Text('$v')),
-                          )
-                          .toList(),
-                      onChanged: (v) => s.autoBackupKeep = v ?? 3,
-                    ),
+                ),
+                ListTile(
+                  leading: const Icon(Icons.folder_outlined),
+                  title: Text(tr('备份目录')),
+                  subtitle: SelectableText(
+                    AppPaths.backups.path,
+                    style: context.text.bodySmall,
                   ),
-                  ListTile(
-                    leading: const Icon(Icons.folder_outlined),
-                    title: Text(tr('备份目录')),
-                    subtitle: SelectableText(
-                      AppPaths.backups.path,
-                      style: context.text.bodySmall,
-                    ),
-                  ),
-                ],
-              ),
+                ),
+              ],
             ),
             if (_files.isNotEmpty) ...[
-              SectionHeader(tr('本机备份')),
-              Card(
-                child: Column(
-                  children: [
-                    for (final f in _files)
-                      ListTile(
-                        leading: const Icon(Icons.description_outlined),
-                        title: Text(p.basename(f.path)),
-                        subtitle: Text(formatBytes(f.lengthSync())),
-                        onTap: _busy ? null : () => _fileMenu(f),
-                      ),
-                  ],
-                ),
+              RowGroup(
+                title: tr('本机备份'),
+                children: [
+                  for (final f in _files)
+                    ListTile(
+                      leading: const Icon(Icons.description_outlined),
+                      title: Text(p.basename(f.path)),
+                      subtitle: Text(formatBytes(f.lengthSync())),
+                      onTap: _busy ? null : () => _fileMenu(f),
+                    ),
+                ],
               ),
             ],
           ],
@@ -342,7 +324,6 @@ class _OptionsDialogState extends State<_OptionsDialog> {
 
   @override
   Widget build(BuildContext context) {
-    AppLocalizations.of(context);
     return AlertDialog(
       title: Text(tr('备份内容')),
       contentPadding: const EdgeInsets.fromLTRB(8, 16, 8, 0),
@@ -362,12 +343,12 @@ class _OptionsDialogState extends State<_OptionsDialog> {
           ),
           CheckboxListTile(
             value: sources,
-            title: Text(tr('源列表与源设置')),
+            title: Text(tr('站点列表与站点设置')),
             onChanged: (v) => setState(() => sources = v!),
           ),
           CheckboxListTile(
             value: credentials,
-            title: Text(tr('源登录数据')),
+            title: Text(tr('站点登录数据')),
             subtitle: Text(
               tr('包含 Token 等凭据，请妥善保管备份文件；基于 Cookie 的登录（如 E-Hentai）需要重新登录'),
             ),

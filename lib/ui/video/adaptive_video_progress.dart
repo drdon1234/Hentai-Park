@@ -59,7 +59,6 @@ class _AdaptiveVideoProgressState extends State<AdaptiveVideoProgress> {
 
   @override
   Widget build(BuildContext context) {
-    AppLocalizations.of(context);
     final total = widget.duration.inMilliseconds.toDouble();
     final position = (_preview ?? widget.position.inMilliseconds.toDouble())
         .clamp(0.0, total > 0 ? total : 1.0);
@@ -89,7 +88,7 @@ class _AdaptiveVideoProgressState extends State<AdaptiveVideoProgress> {
               thumbShape: RoundSliderThumbShape(
                 enabledThumbRadius: _expanded ? 9 : 3,
               ),
-              overlayShape: const RoundSliderOverlayShape(overlayRadius: 24),
+              overlayShape: const RoundSliderOverlayShape(),
               activeTrackColor: Colors.white,
               inactiveTrackColor: Colors.white24,
               secondaryActiveTrackColor: Colors.white54,

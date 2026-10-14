@@ -15,7 +15,7 @@ extension TapLayoutLabel on TapLayout {
     TapLayout.lShaped => tr('L 形'),
     TapLayout.kindle => tr('Kindle 式'),
     TapLayout.edge => tr('边缘'),
-    TapLayout.off => tr('关闭'),
+    TapLayout.off => tr('已关闭'),
   };
 }
 

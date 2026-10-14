@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
@@ -5,16 +7,17 @@ import 'package:flutter/material.dart';
 import 'package:path/path.dart' as p;
 import 'package:share_plus/share_plus.dart';
 
-import '../../core/settings.dart';
+import '../../core/localization.dart';
 import '../../core/models.dart';
+import '../../core/settings.dart';
+import '../../game/downloads.dart';
 import '../../library/cbz.dart';
 import '../../library/downloads.dart';
-import '../../game/downloads.dart';
 import '../game/game_resources.dart';
 import '../nav.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
-import '../../core/localization.dart';
+import 'shelf_page.dart';
 
 class DownloadsPage extends StatelessWidget {
   const DownloadsPage({super.key});
@@ -52,37 +55,46 @@ class DownloadsPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    AppLocalizations.of(context);
     final dm = DownloadManager.instance;
     final games = GameDownloadManager.instance;
     return Scaffold(
-      appBar: AppBar(
-        title: Text(tr('下载')),
+      appBar: PageHeader(
+        titleWidget: ShelfTitle(tr('下载')),
         actions: [
-          IconButton(
-            tooltip: tr('全部暂停'),
-            icon: const Icon(Icons.pause_circle_outline_rounded),
-            onPressed: () {
-              dm.pauseAll();
-              for (final task in games.tasks) {
-                if (task.status == DownloadStatus.running ||
-                    task.status == DownloadStatus.queued) {
-                  games.cancel(task.key);
-                }
+          ListenableBuilder(
+            listenable: Listenable.merge([dm, games]),
+            builder: (context, _) {
+              if (dm.tasks.isEmpty && games.tasks.isEmpty) {
+                return const SizedBox.shrink();
               }
-            },
-          ),
-          IconButton(
-            tooltip: tr('全部继续'),
-            icon: const Icon(Icons.play_circle_outline_rounded),
-            onPressed: () {
-              dm.resumeAll();
-              for (final task in games.tasks) {
-                if (task.status == DownloadStatus.paused ||
-                    task.status == DownloadStatus.failed) {
-                  games.retry(task.key);
-                }
-              }
+              return Row(
+                children: [
+                  TextButton(
+                    onPressed: () {
+                      dm.pauseAll();
+                      for (final task in games.tasks) {
+                        if (task.status == DownloadStatus.running ||
+                            task.status == DownloadStatus.queued) {
+                          games.cancel(task.key);
+                        }
+                      }
+                    },
+                    child: Text(tr('全部暂停')),
+                  ),
+                  TextButton(
+                    onPressed: () {
+                      dm.resumeAll();
+                      for (final task in games.tasks) {
+                        if (task.status == DownloadStatus.paused ||
+                            task.status == DownloadStatus.failed) {
+                          games.retry(task.key);
+                        }
+                      }
+                    },
+                    child: Text(tr('全部继续')),
+                  ),
+                ],
+              );
             },
           ),
         ],
@@ -101,13 +113,13 @@ class DownloadsPage extends StatelessWidget {
             children: [
               if (!dm.networkAllowed)
                 MaterialBanner(
-                  leading: Icon(Icons.wifi_off_rounded),
+                  leading: const Icon(Icons.wifi_off_rounded),
                   content: Text(tr('已开启"仅在 Wi-Fi 下下载"，连接 Wi-Fi 后自动继续')),
-                  actions: [SizedBox.shrink()],
+                  actions: [const SizedBox.shrink()],
                 ),
               Expanded(
                 child: tasks.isEmpty && gameTasks.isEmpty
-                    ? MessageView(
+                    ? EmptyState(
                         icon: Icons.download_for_offline_outlined,
                         title: tr('没有下载任务'),
                         message: tr(
@@ -115,9 +127,12 @@ class DownloadsPage extends StatelessWidget {
                         ),
                       )
                     : ListView.separated(
-                        padding: const EdgeInsets.fromLTRB(12, 8, 12, 96),
+                        padding: const EdgeInsets.only(bottom: 96),
                         itemCount: gameTasks.length + tasks.length,
-                        separatorBuilder: (_, _) => const SizedBox(height: 4),
+                        separatorBuilder: (_, _) => const Divider(
+                          indent: Gap.page,
+                          endIndent: Gap.page,
+                        ),
                         itemBuilder: (context, i) => i < gameTasks.length
                             ? GameDownloadTile(task: gameTasks[i])
                             : _TaskTile(task: tasks[i - gameTasks.length]),
@@ -174,7 +189,7 @@ class _TaskTile extends StatelessWidget {
                 t.item.title,
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(fontWeight: FontWeight.w700),
+                style: const TextStyle(fontWeight: FontWeight.w600),
               ),
             ),
             if (t.chapters.length > 1)
@@ -230,25 +245,27 @@ class _TaskTile extends StatelessWidget {
 
   Future<void> _exportCbz(BuildContext context) async {
     final progress = ValueNotifier<String>(tr('正在打包…'));
-    showDialog<void>(
-      context: context,
-      barrierDismissible: false,
-      builder: (_) => AlertDialog(
-        content: Row(
-          children: [
-            const SizedBox(
-              width: 22,
-              height: 22,
-              child: CircularProgressIndicator(strokeWidth: 2.5),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: ValueListenableBuilder(
-                valueListenable: progress,
-                builder: (_, v, _) => Text(v),
+    unawaited(
+      showDialog<void>(
+        context: context,
+        barrierDismissible: false,
+        builder: (_) => AlertDialog(
+          content: Row(
+            children: [
+              const SizedBox(
+                width: 22,
+                height: 22,
+                child: CircularProgressIndicator(strokeWidth: 2.5),
               ),
-            ),
-          ],
+              const SizedBox(width: 16),
+              Expanded(
+                child: ValueListenableBuilder(
+                  valueListenable: progress,
+                  builder: (_, v, _) => Text(v),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -278,33 +295,20 @@ class _TaskTile extends StatelessWidget {
   }
 
   Future<void> _confirmDelete(BuildContext context) async {
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(tr('删除下载？')),
-        content: Text(
-          task.item.source == localSource
-              ? tr('导入的本地文件会被删除。')
-              : tr('已下载的文件也会一并删除。'),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: Text(tr('取消')),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: Text(tr('删除')),
-          ),
-        ],
-      ),
+    final ok = await confirmAction(
+      context,
+      title: tr('删除下载？'),
+      message: task.item.source == localSource
+          ? tr('导入的本地文件会被删除。')
+          : tr('已下载的文件也会一并删除。'),
+      confirmLabel: tr('删除'),
+      destructive: true,
     );
-    if (ok == true) await DownloadManager.instance.delete(task.uid);
+    if (ok) await DownloadManager.instance.delete(task.uid);
   }
 
   @override
   Widget build(BuildContext context) {
-    AppLocalizations.of(context);
     final c = context.colors;
     final t = task;
     final waitingWifi =
@@ -342,111 +346,108 @@ class _TaskTile extends StatelessWidget {
             : tr('已完成{value0}', {
                 'value0': t.bytes > 0 ? ' · ${formatBytes(t.bytes)}' : '',
               }),
-        Colors.green,
+        c.onSurfaceVariant,
       ),
       DownloadStatus.failed => (
         tr('失败：{value0}', {'value0': t.error ?? ''}),
         c.error,
       ),
     };
-    return Card(
-      child: InkWell(
-        onTap: () => _open(context),
-        onLongPress: () => _menu(context),
-        child: Padding(
-          padding: const EdgeInsets.all(10),
-          child: Row(
-            children: [
-              SizedBox(
-                width: 56,
-                height: 78,
-                child: CoverImage(
-                  source: t.item.source,
-                  url: t.item.cover,
-                  radius: 8,
-                  title: t.item.title,
-                  mediaKind: t.isNovel ? MediaKind.novel : null,
-                ),
+    return InkWell(
+      onTap: () => _open(context),
+      onLongPress: () => _menu(context),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(Gap.page, Gap.m, Gap.xs, Gap.m),
+        child: Row(
+          children: [
+            SizedBox(
+              width: 56,
+              height: 78,
+              child: CoverImage(
+                source: t.item.source,
+                url: t.item.cover,
+                title: t.item.title,
+                mediaKind: t.isNovel ? MediaKind.novel : null,
               ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      t.item.title,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: context.text.bodyMedium?.copyWith(
-                        fontWeight: FontWeight.w600,
-                      ),
+            ),
+            const SizedBox(width: Gap.m),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    t.item.title,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: context.text.bodyMedium?.copyWith(
+                      fontWeight: FontWeight.w600,
                     ),
-                    const SizedBox(height: 4),
-                    Row(
-                      children: [
-                        SourceAvatar(t.item.source, size: 16),
-                        const SizedBox(width: 6),
-                        Expanded(
-                          child: Text(
-                            statusText,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: context.text.labelMedium?.copyWith(
-                              color: statusColor,
-                            ),
+                  ),
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      SourceAvatar(t.item.source, size: 16),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          statusText,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: context.text.labelMedium?.copyWith(
+                            color: statusColor,
                           ),
                         ),
-                        if (t.chapters.length > 1)
-                          Text(
-                            tr(
-                              t.isVideo
-                                  ? '{value0}/{value1} 集'
-                                  : '{value0}/{value1} 章',
-                              {
-                                'value0': t.completed.length,
-                                'value1': t.chapters.length,
-                              },
-                            ),
-                            style: context.text.labelSmall,
-                          ),
-                      ],
-                    ),
-                    if (t.status == DownloadStatus.running ||
-                        t.status == DownloadStatus.paused) ...[
-                      const SizedBox(height: 8),
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(4),
-                        child: LinearProgressIndicator(
-                          value: t.total > 0 ? t.progress : null,
-                          minHeight: 4,
-                          backgroundColor: c.surfaceContainerHighest,
-                        ),
                       ),
+                      if (t.chapters.length > 1)
+                        Text(
+                          tr(
+                            t.isVideo
+                                ? '{value0}/{value1} 集'
+                                : '{value0}/{value1} 章',
+                            {
+                              'value0': t.completed.length,
+                              'value1': t.chapters.length,
+                            },
+                          ),
+                          style: context.text.labelSmall,
+                        ),
                     ],
+                  ),
+                  if (t.status == DownloadStatus.running ||
+                      t.status == DownloadStatus.paused) ...[
+                    const SizedBox(height: 8),
+                    ClipRRect(
+                      borderRadius: const BorderRadius.all(Radius.circular(2)),
+                      child: LinearProgressIndicator(
+                        value: t.total > 0 ? t.progress : null,
+                        minHeight: 4,
+                        backgroundColor: c.surfaceContainerHighest,
+                      ),
+                    ),
                   ],
-                ),
+                ],
               ),
-              const SizedBox(width: 4),
-              if (t.status == DownloadStatus.running)
-                IconButton(
-                  tooltip: tr('暂停'),
-                  icon: const Icon(Icons.pause_rounded),
-                  onPressed: () => DownloadManager.instance.pause(t.uid),
-                )
-              else if (t.status == DownloadStatus.paused ||
-                  t.status == DownloadStatus.failed)
-                IconButton(
-                  tooltip: tr('继续'),
-                  icon: const Icon(Icons.play_arrow_rounded),
-                  onPressed: () => DownloadManager.instance.resume(t.uid),
-                ),
+            ),
+            const SizedBox(width: 4),
+            if (t.status == DownloadStatus.running)
               IconButton(
-                tooltip: tr('更多'),
-                icon: const Icon(Icons.more_vert_rounded),
-                onPressed: () => _menu(context),
+                tooltip: tr('暂停'),
+                icon: const Icon(Icons.pause_rounded),
+                onPressed: () => DownloadManager.instance.pause(t.uid),
+              )
+            else if (t.status == DownloadStatus.paused ||
+                t.status == DownloadStatus.failed)
+              IconButton(
+                tooltip: tr('继续'),
+                icon: const Icon(Icons.play_arrow_rounded),
+                onPressed: () => DownloadManager.instance.resume(t.uid),
               ),
-            ],
-          ),
+            IconButton(
+              tooltip: tr('更多'),
+              icon: const Icon(Icons.more_vert_rounded),
+              onPressed: () => _menu(context),
+            ),
+          ],
         ),
       ),
     );
@@ -467,7 +468,6 @@ class _ChapterSheetState extends State<_ChapterSheet> {
 
   @override
   Widget build(BuildContext context) {
-    AppLocalizations.of(context);
     final t = widget.task;
     return ListenableBuilder(
       listenable: DownloadManager.instance,
@@ -482,7 +482,7 @@ class _ChapterSheetState extends State<_ChapterSheet> {
               ListTile(
                 title: Text(
                   tr(t.isVideo ? '下载的分集' : '下载的章节'),
-                  style: TextStyle(fontWeight: FontWeight.w700),
+                  style: const TextStyle(fontWeight: FontWeight.w600),
                 ),
                 trailing: FilledButton.tonalIcon(
                   onPressed: _selected.isEmpty

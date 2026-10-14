@@ -1,16 +1,17 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
+import '../../core/content_scope.dart';
+import '../../core/localization.dart';
 import '../../core/models.dart';
 import '../../core/settings.dart';
-import '../../core/content_scope.dart';
-import 'history_scope_selector.dart';
-import '../widgets/content_translation.dart';
 import '../../engine/source_manager.dart';
 import '../../library/library.dart';
 import '../nav.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
-import '../../core/localization.dart';
+import '../widgets/content_translation.dart';
+import 'history_scope_selector.dart';
 
 /// Full "continue reading" list with multi-select: remove many entries at once.
 class ContinueReadingPage extends StatefulWidget {
@@ -65,13 +66,12 @@ class _ContinueReadingPageState extends State<ContinueReadingPage> {
 
   @override
   Widget build(BuildContext context) {
-    AppLocalizations.of(context);
     return TranslationPage(
       child: ListenableBuilder(
         listenable: Listenable.merge([
-          Library.instance,
+          Library.instance.collection(LibraryCollection.history),
           SourceManager.instance,
-          AppSettings.instance,
+          AppSettings.instance.watch(const {'domainOrder'}),
         ]),
         builder: (context, _) {
           final list = Library.instance.history(scope: _scope);
@@ -125,7 +125,7 @@ class _ContinueReadingPageState extends State<ContinueReadingPage> {
                 ),
                 Expanded(
                   child: list.isEmpty
-                      ? MessageView(
+                      ? EmptyState(
                           icon: Icons.history_rounded,
                           title: tr('没有继续阅读的作品'),
                         )
@@ -176,6 +176,11 @@ class _ContinueReadingPageState extends State<ContinueReadingPage> {
     );
   }
 
+  void _setSelected(String uid, bool selected) {
+    HapticFeedback.selectionClick();
+    setState(() => selected ? _selected.add(uid) : _selected.remove(uid));
+  }
+
   Widget _tile(BuildContext context, HistoryEntry h) {
     final c = context.colors;
     final selected = _selected.contains(h.uid);
@@ -184,32 +189,22 @@ class _ContinueReadingPageState extends State<ContinueReadingPage> {
           ? c.primaryContainer.withValues(alpha: 0.35)
           : Colors.transparent,
       child: InkWell(
-        onTap: () => setState(
-          () => selected ? _selected.remove(h.uid) : _selected.add(h.uid),
-        ),
+        onTap: () => _setSelected(h.uid, !selected),
         child: Padding(
           padding: const EdgeInsets.fromLTRB(4, 6, 4, 6),
           child: Row(
             children: [
               Checkbox(
                 value: selected,
-                onChanged: (v) => setState(
-                  () => v == true
-                      ? _selected.add(h.uid)
-                      : _selected.remove(h.uid),
-                ),
+                onChanged: (v) => _setSelected(h.uid, v == true),
               ),
-              if (h.item.json['mediaKind'] != 'novel' &&
+              if (!h.item.isNovel &&
                   SourceManager.instance.manifest(h.item.source)?.isNovel !=
                       true) ...[
                 SizedBox(
                   width: 52,
                   height: 70,
-                  child: CoverImage(
-                    source: h.item.source,
-                    url: h.item.cover,
-                    radius: 8,
-                  ),
+                  child: CoverImage(source: h.item.source, url: h.item.cover),
                 ),
                 const SizedBox(width: 12),
               ],
@@ -239,7 +234,7 @@ class _ContinueReadingPageState extends State<ContinueReadingPage> {
                             [
                               dayLabel(h.time),
                               if (h.pageCount > 0)
-                                '${h.chapterTitle != null ? '${h.chapterTitle} ' : ''}${h.item.json['mediaKind'] == 'novel' ? '${(h.progress * 100).round()}%' : '${h.page + 1}/${h.pageCount}'}',
+                                '${h.chapterTitle != null ? '${h.chapterTitle} ' : ''}${h.item.isNovel ? '${(h.progress * 100).round()}%' : '${h.page + 1}/${h.pageCount}'}',
                               if (h.position != null && h.chapterTitle != null)
                                 h.chapterTitle!,
                               if (h.position != null && h.position! > 0)
@@ -262,7 +257,9 @@ class _ContinueReadingPageState extends State<ContinueReadingPage> {
                     if (h.progress > 0) ...[
                       const SizedBox(height: 8),
                       ClipRRect(
-                        borderRadius: BorderRadius.circular(4),
+                        borderRadius: const BorderRadius.all(
+                          Radius.circular(2),
+                        ),
                         child: LinearProgressIndicator(
                           value: h.progress,
                           minHeight: 3,

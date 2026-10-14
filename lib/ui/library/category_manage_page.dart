@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 
+import '../../core/localization.dart';
 import '../../library/library.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
 import 'favorite_actions.dart';
-import '../../core/localization.dart';
 
 class CategoryManagePage extends StatelessWidget {
   const CategoryManagePage({super.key});
@@ -50,7 +50,6 @@ class CategoryManagePage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    AppLocalizations.of(context);
     final lib = Library.instance;
     return Scaffold(
       appBar: AppBar(title: Text(tr('分类'))),
@@ -64,14 +63,14 @@ class CategoryManagePage extends StatelessWidget {
         builder: (context, _) {
           final cats = lib.categories;
           if (cats.isEmpty) {
-            return MessageView(
+            return EmptyState(
               icon: Icons.label_outline_rounded,
               title: tr('还没有分类'),
               message: tr('分类用于整理书架；一部作品可以同时属于多个分类'),
             );
           }
           return ReorderableListView.builder(
-            padding: const EdgeInsets.fromLTRB(12, 8, 12, 96),
+            padding: const EdgeInsets.fromLTRB(0, 8, 0, 96),
             itemCount: cats.length,
             onReorderItem: (from, to) {
               final ids = cats.map((c) => c.id).toList();
@@ -81,9 +80,8 @@ class CategoryManagePage extends StatelessWidget {
             },
             itemBuilder: (context, i) {
               final c = cats[i];
-              return Card(
+              return HairlineItem(
                 key: ValueKey(c.id),
-                margin: const EdgeInsets.only(bottom: 8),
                 child: ListTile(
                   leading: const Icon(Icons.label_outline_rounded),
                   title: Text(c.name),

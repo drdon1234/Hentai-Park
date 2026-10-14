@@ -2,29 +2,29 @@ import 'package:flutter/material.dart';
 
 import '../../core/localization.dart';
 import '../../core/settings.dart';
+import '../kit/kit.dart';
 
 class DomainOrderPage extends StatelessWidget {
   const DomainOrderPage({super.key});
 
   @override
   Widget build(BuildContext context) {
-    AppLocalizations.of(context);
     final settings = AppSettings.instance;
     return Scaffold(
-      appBar: AppBar(title: Text(tr('域排序'))),
+      appBar: AppBar(title: Text(tr('分类顺序'))),
       body: ListenableBuilder(
-        listenable: settings,
+        listenable: settings.domain(SettingsDomain.appearance),
         builder: (context, _) {
           final domains = settings.domainOrder;
           return ReorderableListView.builder(
-            padding: const EdgeInsets.fromLTRB(12, 8, 12, 24),
+            padding: const EdgeInsets.fromLTRB(0, 8, 0, 24),
             buildDefaultDragHandles: false,
             header: Padding(
               padding: const EdgeInsets.fromLTRB(4, 0, 4, 12),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Text(tr('拖动调整域的顺序；首页、聚合搜索和域选择器会同步排列。')),
+                  Text(tr('拖动调整分类的顺序；发现页、搜索和分类栏都会按这个顺序排列。')),
                   const SizedBox(height: 8),
                   Align(
                     alignment: AlignmentDirectional.centerEnd,
@@ -42,9 +42,8 @@ class DomainOrderPage extends StatelessWidget {
               domains.insert(to, domains.removeAt(from));
               settings.domainOrder = domains;
             },
-            itemBuilder: (context, index) => Card(
+            itemBuilder: (context, index) => HairlineItem(
               key: ValueKey(domains[index]),
-              margin: const EdgeInsets.only(bottom: 8),
               child: ListTile(
                 title: Text(domains[index].label),
                 trailing: ReorderableDragStartListener(

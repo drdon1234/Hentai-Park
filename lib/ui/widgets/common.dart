@@ -5,12 +5,15 @@ import 'dart:ui';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
+import '../../core/localization.dart';
 import '../../core/models.dart';
 import '../../core/settings.dart';
 import '../../engine/source_manager.dart';
 import '../../images/park_image.dart';
+import '../kit/tokens.dart';
 import '../theme.dart';
-import '../../core/localization.dart';
+
+export '../kit/kit.dart';
 
 /// Brand monogram for a source (favicons are .ico, which Flutter cannot decode; a monogram in the
 /// brand color is crisper and more consistent anyway).
@@ -35,33 +38,37 @@ class SourceAvatar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    AppLocalizations.of(context);
     final m = SourceManager.instance.manifest(sourceKey);
     final local = sourceKey == 'local';
-    final color = local
-        ? Colors.blueGrey
-        : (m?.color ?? context.colors.primary);
+    final c = context.colors;
+    // The site's own color identifies it; a flat tile keeps it from competing with covers.
+    final color = local ? c.surfaceContainerHighest : (m?.color ?? c.outline);
+    final ink = ThemeData.estimateBrightnessForColor(color) == Brightness.dark
+        ? Scrims.onScrim
+        : Colors.black87;
     return Container(
       width: size,
       height: size,
       alignment: Alignment.center,
+      padding: EdgeInsets.all(size * .16),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(size * 0.3),
-        gradient: LinearGradient(
-          colors: [color, Color.lerp(color, Colors.black, 0.35)!],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
+        color: color,
+        borderRadius: BorderRadius.all(Radius.circular(size * .28)),
       ),
       child: local
-          ? Icon(Icons.book_rounded, color: Colors.white, size: size * 0.5)
-          : Text(
-              monogram(m?.name ?? sourceKey),
-              style: TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.w800,
-                fontSize: size * 0.38,
-                height: 1,
+          ? Icon(
+              Icons.book_rounded,
+              color: c.onSurfaceVariant,
+              size: size * 0.5,
+            )
+          : FittedBox(
+              child: Text(
+                monogram(m?.name ?? sourceKey),
+                style: context.text.labelLarge?.copyWith(
+                  color: ink,
+                  fontWeight: FontWeight.w600,
+                  height: 1,
+                ),
               ),
             ),
     );
@@ -75,7 +82,7 @@ class CoverImage extends StatelessWidget {
     required this.source,
     required this.url,
     this.fit = BoxFit.cover,
-    this.radius = 12,
+    this.radius = Radii.sm,
     this.blur,
     this.title = '',
     this.mediaKind,
@@ -99,7 +106,6 @@ class CoverImage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    AppLocalizations.of(context);
     final colors = context.colors;
     Widget child;
     if (url.isEmpty) {
@@ -120,8 +126,8 @@ class CoverImage extends StatelessWidget {
                       if (!compact)
                         Icon(
                           Icons.menu_book_rounded,
-                          color: colors.primary,
-                          size: 32,
+                          color: colors.outline,
+                          size: 28,
                         ),
                       if (!compact) const SizedBox(height: 16),
                       Flexible(
@@ -130,10 +136,8 @@ class CoverImage extends StatelessWidget {
                           textAlign: TextAlign.center,
                           maxLines: compact ? 3 : 6,
                           overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            color: colors.onSurface,
-                            fontWeight: FontWeight.w600,
-                          ),
+                          style: ParkText.serif(context.text.bodyMedium)
+                              ?.copyWith(color: colors.onSurface),
                         ),
                       ),
                     ],
@@ -172,19 +176,17 @@ class CoverImage extends StatelessWidget {
                     provider,
                     width: width,
                     height: height,
-                    allowUpscaling: false,
                     policy: ResizeImagePolicy.fit,
                   ),
             fit: fit,
             gaplessPlayback: true,
-            filterQuality: FilterQuality.medium,
             frameBuilder: (context, child, frame, sync) {
               if (sync || frame != null) _notifyReady();
               if (sync) return child;
               return AnimatedOpacity(
                 opacity: frame == null ? 0 : 1,
-                duration: const Duration(milliseconds: 220),
-                curve: Curves.easeOut,
+                duration: Motion.of(context, Motion.medium),
+                curve: Motion.curve,
                 child: child,
               );
             },
@@ -203,7 +205,7 @@ class CoverImage extends StatelessWidget {
       }
     }
     return ClipRRect(
-      borderRadius: BorderRadius.circular(radius),
+      borderRadius: BorderRadius.all(Radius.circular(radius)),
       child: ColoredBox(color: colors.surfaceContainerHigh, child: child),
     );
   }
@@ -271,7 +273,6 @@ class _CoverImageProvider extends ImageProvider<_CoverImageProvider> {
   int get hashCode => Object.hash(image, size, fit);
 }
 
-/// Shimmer skeleton block.
 /// Spinner with a caption, shown while a page is still loading.
 class LoadingIndicator extends StatelessWidget {
   const LoadingIndicator({
@@ -286,7 +287,6 @@ class LoadingIndicator extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    AppLocalizations.of(context);
     final fg = color ?? context.colors.onSurfaceVariant;
     return Padding(
       padding: padding,
@@ -306,8 +306,9 @@ class LoadingIndicator extends StatelessWidget {
   }
 }
 
+/// Shimmer skeleton block.
 class Skeleton extends StatefulWidget {
-  const Skeleton({super.key, this.width, this.height, this.radius = 12});
+  const Skeleton({super.key, this.width, this.height, this.radius = Radii.sm});
   final double? width;
   final double? height;
   final double radius;
@@ -321,7 +322,18 @@ class _SkeletonState extends State<Skeleton>
   late final AnimationController _c = AnimationController(
     vsync: this,
     duration: const Duration(milliseconds: 1200),
-  )..repeat();
+  );
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // "Remove animations" leaves a still placeholder.
+    if (MediaQuery.disableAnimationsOf(context)) {
+      _c.stop();
+    } else if (!_c.isAnimating) {
+      _c.repeat();
+    }
+  }
 
   @override
   void dispose() {
@@ -331,7 +343,6 @@ class _SkeletonState extends State<Skeleton>
 
   @override
   Widget build(BuildContext context) {
-    AppLocalizations.of(context);
     final base = context.colors.surfaceContainerHigh;
     final hi = context.colors.surfaceContainerHighest;
     return AnimatedBuilder(
@@ -340,7 +351,7 @@ class _SkeletonState extends State<Skeleton>
         width: widget.width,
         height: widget.height,
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(widget.radius),
+          borderRadius: BorderRadius.all(Radius.circular(widget.radius)),
           gradient: LinearGradient(
             begin: Alignment(-1 - 2 * (1 - _c.value) + 2, 0),
             end: Alignment(1 - 2 * (1 - _c.value) + 2, 0),
@@ -348,163 +359,6 @@ class _SkeletonState extends State<Skeleton>
             stops: const [0.2, 0.5, 0.8],
           ),
         ),
-      ),
-    );
-  }
-}
-
-/// Full-area message with an icon and optional actions (empty states and errors).
-class MessageView extends StatelessWidget {
-  const MessageView({
-    super.key,
-    required this.icon,
-    required this.title,
-    this.message,
-    this.actions = const [],
-    this.compact = false,
-  });
-  final IconData icon;
-  final String title;
-  final String? message;
-  final List<Widget> actions;
-  final bool compact;
-
-  @override
-  Widget build(BuildContext context) {
-    AppLocalizations.of(context);
-    final c = context.colors;
-    return Center(
-      child: Padding(
-        padding: EdgeInsets.all(compact ? 12 : 32),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              padding: EdgeInsets.all(compact ? 10 : 18),
-              decoration: BoxDecoration(
-                color: c.primary.withValues(alpha: 0.12),
-                shape: BoxShape.circle,
-              ),
-              child: Icon(icon, size: compact ? 24 : 36, color: c.primary),
-            ),
-            SizedBox(height: compact ? 8 : 16),
-            Text(
-              title,
-              style:
-                  (compact ? context.text.titleSmall : context.text.titleMedium)
-                      ?.copyWith(fontWeight: FontWeight.w700),
-              textAlign: TextAlign.center,
-            ),
-            if (message != null && message!.isNotEmpty) ...[
-              const SizedBox(height: 6),
-              Text(
-                message!,
-                style: context.text.bodySmall?.copyWith(
-                  color: c.onSurfaceVariant,
-                ),
-                textAlign: TextAlign.center,
-                maxLines: compact ? 3 : 6,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ],
-            if (actions.isNotEmpty) ...[
-              SizedBox(height: compact ? 8 : 18),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                alignment: WrapAlignment.center,
-                children: actions,
-              ),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class Pill extends StatelessWidget {
-  const Pill(
-    this.label, {
-    super.key,
-    this.color,
-    this.icon,
-    this.solid = false,
-  });
-  final String label;
-  final Color? color;
-  final IconData? icon;
-  final bool solid;
-
-  @override
-  Widget build(BuildContext context) {
-    AppLocalizations.of(context);
-    final c = color ?? context.colors.secondary;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-      decoration: BoxDecoration(
-        color: solid ? c : c.withValues(alpha: 0.16),
-        borderRadius: BorderRadius.circular(6),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          if (icon != null) ...[
-            Icon(icon, size: 11, color: solid ? Colors.white : c),
-            const SizedBox(width: 2),
-          ],
-          Flexible(
-            child: Text(
-              label,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                fontSize: 10.5,
-                fontWeight: FontWeight.w700,
-                color: solid ? Colors.white : c,
-                height: 1.2,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class SectionHeader extends StatelessWidget {
-  const SectionHeader(
-    this.title, {
-    super.key,
-    this.trailing,
-    this.leading,
-    this.padding = const EdgeInsets.fromLTRB(16, 20, 8, 8),
-  });
-  final String title;
-  final Widget? trailing;
-  final Widget? leading;
-  final EdgeInsets padding;
-
-  @override
-  Widget build(BuildContext context) {
-    AppLocalizations.of(context);
-    return Padding(
-      padding: padding,
-      child: Row(
-        children: [
-          if (leading != null) ...[leading!, const SizedBox(width: 10)],
-          Expanded(
-            child: Text(
-              title,
-              style: context.text.titleMedium?.copyWith(
-                fontWeight: FontWeight.w800,
-              ),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-          ?trailing,
-        ],
       ),
     );
   }
@@ -527,7 +381,4 @@ extension SourceErrorX on Object {
       : SourceError('UNKNOWN', toString());
 }
 
-MediaKind kindOf(WorkItem item) => MediaKind.fromJson(
-  item.json['mediaKind'] ??
-      SourceManager.instance.manifest(item.source)?.kind.name,
-);
+MediaKind kindOf(WorkItem item) => SourceManager.instance.kindOf(item);

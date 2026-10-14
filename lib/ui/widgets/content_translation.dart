@@ -10,6 +10,11 @@ import '../../engine/source_manager.dart';
 import 'on_visible.dart';
 import 'text_translation.dart';
 
+final _translationSettings = AppSettings.instance.watch(const {
+  'autoTranslateContent',
+  'translateEngine',
+});
+
 /// Per-route display state. Original values remain in models and actions.
 class TranslationPage extends StatefulWidget {
   const TranslationPage({super.key, required this.child, this.active = true});
@@ -28,12 +33,11 @@ class _TranslationPageState extends State<TranslationPage> {
 
   @override
   Widget build(BuildContext context) {
-    AppLocalizations.of(context);
     final active =
         widget.active && (_TranslationScope.of(context)?.active ?? true);
     return ListenableBuilder(
       listenable: Listenable.merge([
-        AppSettings.instance,
+        _translationSettings,
         TagTranslations.instance,
       ]),
       builder: (context, _) => _TranslationScope(
@@ -504,7 +508,7 @@ Future<void> showTagTranslationPacks(
                       key: ValueKey('source-$selected'),
                       initialValue: selected,
                       isExpanded: true,
-                      decoration: InputDecoration(labelText: tr('源站')),
+                      decoration: InputDecoration(labelText: tr('站点')),
                       items: [
                         for (final key in service.sources)
                           DropdownMenuItem(

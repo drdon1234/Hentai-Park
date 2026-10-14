@@ -1,17 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import '../../core/settings.dart';
+import '../../core/localization.dart';
 import '../../core/models.dart';
+import '../../core/settings.dart';
 import '../../engine/source_manager.dart';
 import '../../engine/source_updater.dart';
 import '../nav.dart';
 import '../theme.dart';
 import '../updates/update_prompt.dart';
 import '../widgets/common.dart';
-import 'source_install.dart';
 import 'domain_order_page.dart';
-import '../../core/localization.dart';
+import 'source_install.dart';
 
 /// Enable/disable and reorder sources (order is used everywhere, including aggregated search),
 /// and install new source plugins from a URL or a repository index.
@@ -29,16 +29,15 @@ class _SourceManagePageState extends State<SourceManagePage> {
 
   @override
   Widget build(BuildContext context) {
-    AppLocalizations.of(context);
     final sm = SourceManager.instance;
     final settings = AppSettings.instance;
     final updates = widget.updater ?? SourceUpdater.instance;
     return Scaffold(
-      appBar: AppBar(title: Text(tr('源站管理'))),
+      appBar: AppBar(title: Text(tr('站点管理'))),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => _install(context),
         icon: const Icon(Icons.add_rounded),
-        label: Text(tr('添加源')),
+        label: Text(tr('添加站点')),
       ),
       body: ListenableBuilder(
         listenable: Listenable.merge([sm, settings, updates]),
@@ -54,78 +53,70 @@ class _SourceManagePageState extends State<SourceManagePage> {
                     )
                     .toList();
           return ReorderableListView.builder(
-            padding: const EdgeInsets.fromLTRB(12, 8, 12, 96),
+            padding: const EdgeInsets.fromLTRB(0, 8, 0, 96),
             header: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Card(
-                  margin: const EdgeInsets.only(bottom: 12),
-                  child: Column(
-                    children: [
-                      ListTile(
-                        leading: const Icon(Icons.swap_vert_rounded),
-                        title: Text(tr('域排序')),
-                        trailing: const Icon(Icons.chevron_right_rounded),
-                        onTap: () => Nav.push(context, const DomainOrderPage()),
-                      ),
-                      ListTile(
-                        leading: const Icon(Icons.restore_rounded),
-                        title: Text(tr('恢复站点默认顺序')),
-                        subtitle: Text(tr('按内容质量、站点口碑和接入完整度推荐排列。')),
-                        onTap: sm.resetOrderToDefault,
-                      ),
-                    ],
-                  ),
+                RowGroup(
+                  children: [
+                    ListTile(
+                      leading: const Icon(Icons.swap_vert_rounded),
+                      title: Text(tr('分类顺序')),
+                      trailing: const Icon(Icons.chevron_right_rounded),
+                      onTap: () => Nav.push(context, const DomainOrderPage()),
+                    ),
+                    ListTile(
+                      leading: const Icon(Icons.restore_rounded),
+                      title: Text(tr('恢复站点默认顺序')),
+                      subtitle: Text(tr('按内容质量、站点口碑和接入完整度推荐排列。')),
+                      onTap: sm.resetOrderToDefault,
+                    ),
+                  ],
                 ),
-                Card(
-                  margin: const EdgeInsets.only(bottom: 12),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      SwitchListTile(
-                        title: Text(tr('启动时检查插件更新')),
-                        subtitle: Text(tr('每次启动检查官方插件，有更新时提示，确认后才安装。')),
-                        value: settings.autoSourceUpdates,
-                        onChanged: (value) =>
-                            settings.autoSourceUpdates = value,
+                RowGroup(
+                  children: [
+                    SwitchListTile(
+                      title: Text(tr('启动时检查插件更新')),
+                      subtitle: Text(tr('每次启动检查官方插件，有更新时提示，确认后才安装。')),
+                      value: settings.autoSourceUpdates,
+                      onChanged: (value) => settings.autoSourceUpdates = value,
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                      child: FilledButton.tonalIcon(
+                        onPressed: updates.running
+                            ? null
+                            : () => _update(context, updates),
+                        icon: updates.running
+                            ? const SizedBox(
+                                width: 18,
+                                height: 18,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              )
+                            : const Icon(Icons.system_update_alt_rounded),
+                        label: Text(
+                          tr(updates.running ? '正在检查官方站点更新…' : '立即检查更新'),
+                        ),
                       ),
+                    ),
+                    if (updates.lastResult?.available.isNotEmpty ?? false)
                       Padding(
                         padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
                         child: FilledButton.tonalIcon(
                           onPressed: updates.running
                               ? null
                               : () => _update(context, updates),
-                          icon: updates.running
-                              ? const SizedBox(
-                                  width: 18,
-                                  height: 18,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                  ),
-                                )
-                              : const Icon(Icons.system_update_alt_rounded),
+                          icon: const Icon(Icons.new_releases_outlined),
                           label: Text(
-                            tr(updates.running ? '正在检查官方源更新…' : '立即检查更新'),
+                            tr('发现 {count} 个插件更新', {
+                              'count': updates.lastResult!.available.length,
+                            }),
                           ),
                         ),
                       ),
-                      if (updates.lastResult?.available.isNotEmpty ?? false)
-                        Padding(
-                          padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-                          child: FilledButton.tonalIcon(
-                            onPressed: updates.running
-                                ? null
-                                : () => _update(context, updates),
-                            icon: const Icon(Icons.new_releases_outlined),
-                            label: Text(
-                              tr('发现 {count} 个插件更新', {
-                                'count': updates.lastResult!.available.length,
-                              }),
-                            ),
-                          ),
-                        ),
-                    ],
-                  ),
+                  ],
                 ),
                 Padding(
                   padding: const EdgeInsets.only(bottom: 12),
@@ -151,7 +142,7 @@ class _SourceManagePageState extends State<SourceManagePage> {
                 Padding(
                   padding: const EdgeInsets.fromLTRB(8, 0, 8, 8),
                   child: Text(
-                    tr('拖动调整分类内的顺序；顺序也决定首页和聚合搜索的排列。'),
+                    tr('拖动调整分类内站点的顺序；发现页和全站搜索也按这个顺序。'),
                     style: context.text.bodySmall?.copyWith(
                       color: context.colors.onSurfaceVariant,
                     ),
@@ -167,15 +158,14 @@ class _SourceManagePageState extends State<SourceManagePage> {
             itemBuilder: (context, i) {
               final s = list[i];
               final m = s.manifest;
-              return Card(
+              return HairlineItem(
                 key: ValueKey(s.key),
-                margin: const EdgeInsets.only(bottom: 8),
                 child: ListTile(
                   contentPadding: const EdgeInsets.only(left: 12, right: 4),
                   leading: SourceAvatar(s.key, size: 40),
                   title: Text(
                     s.name,
-                    style: const TextStyle(fontWeight: FontWeight.w700),
+                    style: const TextStyle(fontWeight: FontWeight.w600),
                   ),
                   subtitle: Text(
                     s.loadError != null
@@ -240,12 +230,12 @@ class _SourceManagePageState extends State<SourceManagePage> {
     final url = await showDialog<String>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: Text(tr('添加源')),
+        title: Text(tr('添加站点')),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(tr('输入源脚本（.js）或源仓库（index.json）的地址。')),
+            Text(tr('输入站点脚本（.js）或站点仓库（index.json）的地址。')),
             const SizedBox(height: 12),
             TextField(
               controller: c,
@@ -254,6 +244,7 @@ class _SourceManagePageState extends State<SourceManagePage> {
               decoration: InputDecoration(
                 hintText: tr('https://…/source.js 或 …/index.json'),
                 suffixIcon: IconButton(
+                  tooltip: tr('粘贴'),
                   icon: const Icon(Icons.content_paste_rounded),
                   onPressed: () async => c.text =
                       (await Clipboard.getData('text/plain'))?.text?.trim() ??
@@ -263,7 +254,7 @@ class _SourceManagePageState extends State<SourceManagePage> {
             ),
             const SizedBox(height: 8),
             Text(
-              tr('只安装你信任的源：源脚本可以访问网络并读取它所属站点的登录信息。'),
+              tr('只安装你信任的站点：站点脚本可以访问网络，并读取它所属站点的登录信息。'),
               style: Theme.of(ctx).textTheme.bodySmall
                   ?.copyWith(color: Theme.of(ctx).colorScheme.error),
             ),
@@ -313,7 +304,6 @@ class _RepoPageState extends State<_RepoPage> {
 
   @override
   Widget build(BuildContext context) {
-    AppLocalizations.of(context);
     final sm = SourceManager.instance;
     return Scaffold(
       appBar: AppBar(title: Text(Uri.parse(widget.url).host)),
@@ -328,42 +318,43 @@ class _RepoPageState extends State<_RepoPage> {
             final canUpdate =
                 installed != null &&
                 SourceManager.isNewer(e.version, installed.version);
-            return Card(
-              margin: const EdgeInsets.only(bottom: 8),
-              child: ListTile(
-                title: Text(
-                  e.name,
-                  style: const TextStyle(fontWeight: FontWeight.w700),
+            return RowGroup(
+              children: [
+                ListTile(
+                  title: Text(
+                    e.name,
+                    style: const TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                  subtitle: Text(
+                    'v${e.version}${e.description.isNotEmpty ? ' · ${e.description}' : ''}',
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  trailing: _busy.contains(e.key)
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : installed != null && !canUpdate
+                      ? Tag(tr('已安装'))
+                      : FilledButton.tonal(
+                          onPressed: () async {
+                            setState(() => _busy.add(e.key));
+                            try {
+                              await installSourceFromUrl(
+                                context,
+                                e.url,
+                                expectedSha256: e.sha256,
+                              );
+                            } finally {
+                              if (mounted) setState(() => _busy.remove(e.key));
+                            }
+                          },
+                          child: Text(canUpdate ? tr('更新') : tr('安装')),
+                        ),
                 ),
-                subtitle: Text(
-                  'v${e.version}${e.description.isNotEmpty ? ' · ${e.description}' : ''}',
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                trailing: _busy.contains(e.key)
-                    ? const SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : installed != null && !canUpdate
-                    ? Pill(tr('已安装'))
-                    : FilledButton.tonal(
-                        onPressed: () async {
-                          setState(() => _busy.add(e.key));
-                          try {
-                            await installSourceFromUrl(
-                              context,
-                              e.url,
-                              expectedSha256: e.sha256,
-                            );
-                          } finally {
-                            if (mounted) setState(() => _busy.remove(e.key));
-                          }
-                        },
-                        child: Text(canUpdate ? tr('更新') : tr('安装')),
-                      ),
-              ),
+              ],
             );
           },
         ),

@@ -22,7 +22,7 @@ class MetadataTextRow extends StatelessWidget {
               label,
               style: theme.textTheme.labelMedium?.copyWith(
                 color: theme.colorScheme.onSurfaceVariant,
-                fontWeight: FontWeight.w700,
+                fontWeight: FontWeight.w600,
               ),
             ),
           ),

@@ -46,7 +46,7 @@ class _LoginPanelState extends State<LoginPanel> {
   List<String> get _missing => [
     for (final f in a.fields)
       if (f['optional'] != true && _fields[f['key']]!.text.trim().isEmpty)
-        tr(f['label'].toString()),
+        a.text(f['label'].toString()),
   ];
 
   Future<void> _submit() async {
@@ -240,7 +240,7 @@ class _LoginPanelState extends State<LoginPanel> {
   Widget _actions(BuildContext context) {
     final pasteLabel = context.tr('从剪贴板识别');
     final loginLabel = context.tr('登录');
-    final textStyle = context.text.labelLarge ?? const TextStyle(fontSize: 14);
+    final textStyle = context.text.labelLarge ?? const TextStyle();
     double measure(String label) {
       final painter = TextPainter(
         text: TextSpan(text: label, style: textStyle),
@@ -323,19 +323,20 @@ class _LoginPanelState extends State<LoginPanel> {
           : (secret
                 ? const [AutofillHints.password]
                 : const [AutofillHints.username]),
-      style: _cookies
-          ? const TextStyle(fontFamily: 'monospace', fontSize: 14)
-          : null,
+      style: _cookies ? ParkText.mono(context.text.bodyMedium) : null,
       textInputAction: TextInputAction.next,
       decoration: InputDecoration(
         labelText: optional
             ? context.tr('{label}（可选）', {
-                'label': tr(f['label']?.toString() ?? ''),
+                'label': a.text(f['label']?.toString() ?? ''),
               })
-            : tr(f['label']?.toString() ?? ''),
-        helperText: hint.isEmpty ? null : tr(hint),
+            : a.text(f['label']?.toString() ?? ''),
+        helperText: hint.isEmpty ? null : a.text(hint),
         suffixIcon: secret
             ? IconButton(
+                tooltip: context.tr(
+                  _revealed.contains(key) ? '隐藏输入内容' : '显示输入内容',
+                ),
                 icon: Icon(
                   _revealed.contains(key)
                       ? Icons.visibility_off_outlined

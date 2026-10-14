@@ -55,7 +55,7 @@ class NovelSettingsSheet extends StatelessWidget {
     );
     return SafeArea(
       child: ListenableBuilder(
-        listenable: s,
+        listenable: s.domain(SettingsDomain.novel),
         builder: (context, _) => SizedBox(
           height: MediaQuery.sizeOf(context).height * .78,
           child: Column(

@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 
+import '../../core/localization.dart';
 import '../../core/settings.dart';
 import 'reader_layout.dart';
-import '../../core/localization.dart';
 
 /// Reader options in three tabs (Mihon's reader settings sheet). Changes apply live: the reader
 /// listens to [AppSettings]. The reading mode is per work; [onMode] receives the user's choice.
@@ -48,14 +48,13 @@ class _ReaderSettingsState extends State<_ReaderSettings> {
 
   @override
   Widget build(BuildContext context) {
-    AppLocalizations.of(context);
     final s = AppSettings.instance;
     return DefaultTabController(
       length: 3,
       child: SizedBox(
         height: MediaQuery.sizeOf(context).height * 0.6,
         child: ListenableBuilder(
-          listenable: s,
+          listenable: s.domain(SettingsDomain.reader),
           builder: (context, _) => Column(
             children: [
               TabBar(
@@ -186,7 +185,6 @@ class _ReaderSettingsState extends State<_ReaderSettings> {
             title: Text(tr('页间距')),
             subtitle: Slider(
               value: s.readerGap.clamp(0, 32),
-              min: 0,
               max: 32,
               divisions: 8,
               label: '${s.readerGap.round()}',

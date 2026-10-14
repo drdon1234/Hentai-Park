@@ -343,7 +343,6 @@ class _WebVerifyPageState extends State<WebVerifyPage> {
 
   @override
   Widget build(BuildContext context) {
-    AppLocalizations.of(context);
     final name =
         SourceManager.instance.manifest(widget.source)?.name ?? widget.source;
     return Scaffold(
@@ -416,7 +415,6 @@ class _WebVerifyPageState extends State<WebVerifyPage> {
                         ? URLRequest(url: WebUri(widget.url))
                         : null,
                     initialSettings: InAppWebViewSettings(
-                      javaScriptEnabled: true,
                       userAgent: HttpService.instance.userAgent,
                       useShouldOverrideUrlLoading: true,
                       supportMultipleWindows: widget._mode == _Mode.login,

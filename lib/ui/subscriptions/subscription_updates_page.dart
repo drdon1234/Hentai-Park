@@ -1,13 +1,14 @@
 import 'dart:async';
 
-import 'package:flutter/material.dart';
 import 'package:drift/drift.dart' show Variable;
+import 'package:flutter/material.dart';
 
 import '../../core/localization.dart';
 import '../../engine/source_manager.dart';
 import '../../subscriptions/subscription_store.dart';
 import '../../subscriptions/update_store.dart';
 import '../../subscriptions/updater.dart';
+import '../kit/kit.dart';
 import '../nav.dart';
 import 'subscription_posts_page.dart';
 
@@ -111,7 +112,7 @@ class _SubscriptionUpdatesPageState extends State<SubscriptionUpdatesPage> {
               ? const Center(child: CircularProgressIndicator())
               : events!.isEmpty
               ? Center(child: Text(tr('暂无订阅更新')))
-              : RefreshIndicator(
+              : ParkRefresh(
                   onRefresh: () async {
                     await updater.run(force: true);
                     await _load();

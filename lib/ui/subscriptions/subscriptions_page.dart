@@ -3,18 +3,18 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../core/localization.dart';
+import '../../core/settings.dart';
+import '../../engine/platform_bridge.dart';
 import '../../engine/source_manager.dart';
 import '../../subscriptions/subscription_store.dart';
-import '../nav.dart';
-import '../settings/source_settings_page.dart';
-import '../settings/source_manage_page.dart';
-import '../widgets/common.dart';
-import '../theme.dart';
-import 'subscription_posts_page.dart';
-import '../../core/settings.dart';
-import '../../subscriptions/updater.dart';
 import '../../subscriptions/update_store.dart';
-import '../../engine/platform_bridge.dart';
+import '../../subscriptions/updater.dart';
+import '../nav.dart';
+import '../settings/source_manage_page.dart';
+import '../settings/source_settings_page.dart';
+import '../theme.dart';
+import '../widgets/common.dart';
+import 'subscription_posts_page.dart';
 import 'subscription_updates_page.dart';
 
 class SubscriptionsPage extends StatefulWidget {
@@ -74,7 +74,6 @@ class _SubscriptionsPageState extends State<SubscriptionsPage> {
 
   @override
   Widget build(BuildContext context) {
-    AppLocalizations.of(context);
     return ListenableBuilder(
       listenable: Listenable.merge([
         store,
@@ -88,7 +87,7 @@ class _SubscriptionsPageState extends State<SubscriptionsPage> {
                 title: Text(tr('订阅')),
                 actions: [
                   IconButton(
-                    tooltip: tr('源站管理'),
+                    tooltip: tr('站点管理'),
                     onPressed: () =>
                         Nav.push(context, const SourceManagePage()),
                     icon: const Icon(Icons.tune),
@@ -315,7 +314,7 @@ class _SubscriptionsPageState extends State<SubscriptionsPage> {
                             ),
                             PopupMenuItem(
                               value: 'login',
-                              child: Text(tr('账号与源设置')),
+                              child: Text(tr('账号与站点设置')),
                             ),
                             PopupMenuItem(
                               value: 'remove',
@@ -480,7 +479,7 @@ class _SubscriptionDialogState extends State<_SubscriptionDialog> {
                             label.clear();
                             failure = null;
                           }),
-                    decoration: InputDecoration(labelText: tr('订阅源')),
+                    decoration: InputDecoration(labelText: tr('订阅站点')),
                   ),
                 const SizedBox(height: 12),
                 if (widget.entry == null)
@@ -557,7 +556,7 @@ class _SubscriptionDialogState extends State<_SubscriptionDialog> {
                           },
                     icon: const Icon(Icons.login),
                     label: Text(
-                      tr(account?.loggedIn == true ? '账号与源设置' : '登录（可选）'),
+                      tr(account?.loggedIn == true ? '账号与站点设置' : '登录（可选）'),
                     ),
                   ),
                 if (failure != null)

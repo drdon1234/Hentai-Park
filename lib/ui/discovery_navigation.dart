@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../core/localization.dart';
 import '../core/models.dart';
 import '../core/settings.dart';
+import 'kit/tokens.dart';
 
 /// 发现入口与媒体分类分开，订阅不会改变源的媒体类型或分类。
 class DiscoveryDestination {
@@ -31,7 +32,7 @@ List<DiscoveryDestination> get discoveryDestinations => [
   const DiscoveryDestination.subscriptions(),
 ];
 
-/// 全局域切换回到根发现页；页面状态由 Shell 持有，不重复堆叠首页。
+/// 从任意页面回到根发现页的某个分类；页面状态由 Shell 持有，不重复堆叠首页。
 class DiscoveryNavigation extends InheritedWidget {
   const DiscoveryNavigation({
     super.key,
@@ -46,25 +47,6 @@ class DiscoveryNavigation extends InheritedWidget {
       oldWidget.onSelect != onSelect;
 }
 
-class DomainMenu extends StatelessWidget {
-  const DomainMenu({super.key, this.onSelected});
-  final ValueChanged<DiscoveryDestination>? onSelected;
-  @override
-  Widget build(BuildContext context) {
-    final select = onSelected ?? DiscoveryNavigation.of(context)?.onSelect;
-    if (select == null) return const SizedBox.shrink();
-    return PopupMenuButton<DiscoveryDestination>(
-      tooltip: tr('切换域'),
-      icon: const Icon(Icons.dashboard_outlined),
-      onSelected: select,
-      itemBuilder: (_) => [
-        for (final destination in discoveryDestinations)
-          PopupMenuItem(value: destination, child: Text(destination.label)),
-      ],
-    );
-  }
-}
-
 class DiscoveryDomainBar extends StatelessWidget {
   const DiscoveryDomainBar({
     super.key,
@@ -74,24 +56,18 @@ class DiscoveryDomainBar extends StatelessWidget {
   final DiscoveryDestination selected;
   final ValueChanged<DiscoveryDestination> onSelected;
 
-  static double extent(BuildContext context) =>
-      56 +
-      (MediaQuery.textScalerOf(context).scale(14) - 14).clamp(
-        0,
-        double.infinity,
-      );
-
   @override
-  Widget build(BuildContext context) => SizedBox(
-    height: extent(context),
+  // Start-aligned so a row that fits on a wide screen lines up with the page content.
+  Widget build(BuildContext context) => Align(
+    alignment: AlignmentDirectional.centerStart,
     child: SingleChildScrollView(
       scrollDirection: Axis.horizontal,
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+      padding: const EdgeInsets.fromLTRB(Gap.page, 0, Gap.page, Gap.s),
       child: Row(
         children: [
           for (final destination in discoveryDestinations)
             Padding(
-              padding: const EdgeInsetsDirectional.only(end: 8),
+              padding: const EdgeInsetsDirectional.only(end: Gap.s),
               child: _DomainChip(
                 destination: destination,
                 selected: selected == destination,
@@ -127,7 +103,7 @@ class _DomainChipState extends State<_DomainChip> {
           Scrollable.ensureVisible(
             context,
             alignment: .5,
-            duration: const Duration(milliseconds: 200),
+            duration: Motion.of(context, Motion.medium),
           );
         }
       });
@@ -137,9 +113,6 @@ class _DomainChipState extends State<_DomainChip> {
   @override
   Widget build(BuildContext context) => ChoiceChip(
     label: Text(widget.destination.label),
-    avatar: widget.destination.subscription
-        ? const Icon(Icons.subscriptions_outlined, size: 18)
-        : null,
     selected: widget.selected,
     showCheckmark: false,
     onSelected: (_) => widget.onSelected(widget.destination),

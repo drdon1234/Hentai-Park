@@ -13,7 +13,6 @@ class UpdateSettings extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    AppLocalizations.of(context);
     final settings = AppSettings.instance;
     final updater = appUpdater ?? AppUpdater.instance;
     return ListenableBuilder(
@@ -63,7 +62,7 @@ class UpdateSettings extends StatelessWidget {
           ),
           ListTile(
             leading: const Icon(Icons.extension_outlined),
-            title: Text(tr('源站管理')),
+            title: Text(tr('站点管理')),
             trailing: const Icon(Icons.chevron_right_rounded),
             onTap: () => Nav.push(context, const SourceManagePage()),
           ),

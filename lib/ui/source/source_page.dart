@@ -1,19 +1,17 @@
 import 'package:flutter/material.dart';
 
-import '../discovery_navigation.dart';
-
-import '../../core/models.dart';
 import '../../core/content_scope.dart';
-import '../history/history_page.dart';
-import '../widgets/content_translation.dart';
+import '../../core/localization.dart';
+import '../../core/models.dart';
 import '../../engine/source_manager.dart';
+import '../history/history_page.dart';
 import '../nav.dart';
 import '../short_video/short_video_page.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
+import '../widgets/content_translation.dart';
 import '../widgets/option_bar.dart';
 import '../widgets/paged_grid.dart';
-import '../../core/localization.dart';
 
 /// A single source's own entry: one tab per feed (latest, ranking, categories…), each with the
 /// source's native options (periods, categories, sort) as chips.
@@ -36,16 +34,25 @@ class SourcePage extends StatefulWidget {
 
 class _SourcePageState extends State<SourcePage> {
   SourceManager get _sources => widget.sourceManager ?? SourceManager.instance;
+
   @override
   Widget build(BuildContext context) {
-    AppLocalizations.of(context);
+    final account = _sources.accountListenable(widget.sourceKey);
+    if (account == null) return _build(context);
+    return ValueListenableBuilder(
+      valueListenable: account,
+      builder: (context, _, _) => _build(context),
+    );
+  }
+
+  Widget _build(BuildContext context) {
     final m = _sources.manifest(widget.sourceKey);
     if (m == null) {
       return Scaffold(
         appBar: AppBar(),
-        body: MessageView(
+        body: EmptyState(
           icon: Icons.extension_off_outlined,
-          title: tr('源未加载'),
+          title: tr('站点未加载'),
         ),
       );
     }
@@ -57,133 +64,169 @@ class _SourcePageState extends State<SourcePage> {
     }
     final account = _sources[widget.sourceKey]?.account;
     final needsLogin = m.account?.required == true && account?.loggedIn != true;
+    final tabs = m.feeds.length > 1
+        ? TabBar(
+            isScrollable: true,
+            tabs: [for (final f in m.feeds) Tab(text: f.label)],
+          )
+        : null;
     return TranslationPage(
-      child: Theme(
-        // Tint the page with the source's brand color so each site feels distinct.
-        data: ParkTheme.build(Theme.of(context).brightness, m.color),
-        child: DefaultTabController(
-          length: m.feeds.length,
-          initialIndex: (widget.initialFeed ?? m.defaultFeedIndex).clamp(
-            0,
-            m.feeds.isEmpty ? 0 : m.feeds.length - 1,
-          ),
-          child: Builder(
-            builder: (context) {
-              return Scaffold(
-                body: NestedScrollView(
-                  headerSliverBuilder: (context, inner) => [
-                    SliverOverlapAbsorber(
-                      handle: NestedScrollView.sliverOverlapAbsorberHandleFor(
-                        context,
-                      ),
-                      sliver: SliverAppBar(
-                        pinned: true,
-                        floating: true,
-                        snap: true,
-                        forceElevated: inner,
-                        title: Row(
-                          children: [
-                            SourceAvatar(widget.sourceKey, size: 30),
-                            const SizedBox(width: 10),
-                            Flexible(
-                              child: Text(
-                                m.name,
-                                overflow: TextOverflow.ellipsis,
-                              ),
+      child: DefaultTabController(
+        length: m.feeds.length,
+        initialIndex: (widget.initialFeed ?? m.defaultFeedIndex).clamp(
+          0,
+          m.feeds.isEmpty ? 0 : m.feeds.length - 1,
+        ),
+        child: Builder(
+          builder: (context) {
+            return Scaffold(
+              body: NestedScrollView(
+                headerSliverBuilder: (context, inner) => [
+                  SliverOverlapAbsorber(
+                    handle: NestedScrollView.sliverOverlapAbsorberHandleFor(
+                      context,
+                    ),
+                    sliver: SliverAppBar(
+                      pinned: true,
+                      floating: true,
+                      snap: true,
+                      forceElevated: inner,
+                      title: Row(
+                        children: [
+                          SourceAvatar(widget.sourceKey, size: 28),
+                          const SizedBox(width: Gap.m),
+                          Flexible(
+                            child: Text(
+                              m.name,
+                              overflow: TextOverflow.ellipsis,
                             ),
-                          ],
-                        ),
-                        actions: [
-                          const DomainMenu(),
-                          TranslationControls(source: widget.sourceKey),
-                          if (m.can('search'))
-                            IconButton(
-                              tooltip: tr('搜索'),
-                              icon: const Icon(Icons.search_rounded),
-                              onPressed: () => Nav.openSourceSearch(
-                                context,
-                                widget.sourceKey,
-                              ),
-                            ),
-                          PopupMenuButton<String>(
-                            icon: Badge(
-                              isLabelVisible: needsLogin,
-                              smallSize: 8,
-                              child: const Icon(Icons.more_vert),
-                            ),
-                            itemBuilder: (context) => [
-                              PopupMenuItem(
-                                value: 'history',
-                                child: Text(tr('浏览历史')),
-                              ),
-                              if (m.can('random'))
-                                PopupMenuItem(
-                                  value: 'random',
-                                  child: Text(tr('随机')),
-                                ),
-                              PopupMenuItem(
-                                value: 'settings',
-                                child: Text(tr('源设置')),
-                              ),
-                            ],
-                            onSelected: (action) async {
-                              if (action == 'history') {
-                                await Nav.push(
-                                  context,
-                                  HistoryPage(
-                                    scope: ContentScope.source(
-                                      widget.sourceKey,
-                                    ),
-                                  ),
-                                );
-                              } else if (action == 'random') {
-                                await Nav.random(context, widget.sourceKey);
-                              } else {
-                                await Nav.openSourceSettings(
-                                  context,
-                                  widget.sourceKey,
-                                );
-                                if (mounted) setState(() {});
-                              }
-                            },
                           ),
                         ],
-                        bottom: m.feeds.length > 1
-                            ? TabBar(
-                                isScrollable: true,
-                                tabs: [
-                                  for (final f in m.feeds) Tab(text: f.label),
-                                ],
-                              )
-                            : null,
                       ),
-                    ),
-                  ],
-                  body: m.feeds.isEmpty
-                      ? MessageView(
-                          icon: Icons.dashboard_customize_outlined,
-                          title: tr('该源没有提供浏览页'),
-                          message: tr('请使用搜索'),
-                        )
-                      : TabBarView(
-                          children: [
-                            for (final f in m.feeds)
-                              FeedTab(
-                                key: PageStorageKey('${m.key}-${f.key}'),
-                                source: m,
-                                sourceManager: _sources,
-                                feed: f,
+                      actions: [
+                        TranslationControls(source: widget.sourceKey),
+                        if (m.can('search'))
+                          IconButton(
+                            tooltip: tr('搜索'),
+                            icon: const Icon(Icons.search_rounded),
+                            onPressed: () =>
+                                Nav.openSourceSearch(context, widget.sourceKey),
+                          ),
+                        PopupMenuButton<String>(
+                          tooltip: tr('更多'),
+                          itemBuilder: (context) => [
+                            PopupMenuItem(
+                              value: 'history',
+                              child: Text(tr('浏览历史')),
+                            ),
+                            if (m.can('random'))
+                              PopupMenuItem(
+                                value: 'random',
+                                child: Text(tr('随机一部')),
                               ),
+                            PopupMenuItem(
+                              value: 'settings',
+                              child: Text(tr('站点设置')),
+                            ),
                           ],
+                          onSelected: (action) async {
+                            if (action == 'history') {
+                              await Nav.push(
+                                context,
+                                HistoryPage(
+                                  scope: ContentScope.source(widget.sourceKey),
+                                ),
+                              );
+                            } else if (action == 'random') {
+                              await Nav.random(context, widget.sourceKey);
+                            } else {
+                              await Nav.openSourceSettings(
+                                context,
+                                widget.sourceKey,
+                              );
+                              if (mounted) setState(() {});
+                            }
+                          },
                         ),
-                ),
-              );
-            },
-          ),
+                      ],
+                      // Login is stated in words where browsing happens, not as a dot on a menu.
+                      bottom: needsLogin
+                          ? PreferredSize(
+                              preferredSize: Size.fromHeight(
+                                48 + (tabs?.preferredSize.height ?? 0),
+                              ),
+                              child: Column(
+                                children: [
+                                  _LoginStrip(source: widget.sourceKey),
+                                  ?tabs,
+                                ],
+                              ),
+                            )
+                          : tabs,
+                    ),
+                  ),
+                ],
+                body: m.feeds.isEmpty
+                    ? EmptyState(
+                        icon: Icons.dashboard_customize_outlined,
+                        title: tr('这个站点没有浏览页'),
+                        message: tr('请使用搜索'),
+                      )
+                    : TabBarView(
+                        children: [
+                          for (final f in m.feeds)
+                            FeedTab(
+                              key: PageStorageKey('${m.key}-${f.key}'),
+                              source: m,
+                              sourceManager: _sources,
+                              feed: f,
+                            ),
+                        ],
+                      ),
+              ),
+            );
+          },
         ),
       ),
     );
   }
+}
+
+class _LoginStrip extends StatelessWidget {
+  const _LoginStrip({required this.source});
+  final String source;
+
+  @override
+  Widget build(BuildContext context) => SizedBox(
+    height: 48,
+    child: Padding(
+      padding: const EdgeInsets.only(left: Gap.page, right: Gap.s),
+      child: Row(
+        children: [
+          Icon(
+            Icons.lock_outline_rounded,
+            size: 18,
+            color: context.colors.onSurfaceVariant,
+          ),
+          const SizedBox(width: Gap.s),
+          Expanded(
+            child: Text(
+              tr('这个站点需要登录后才能浏览'),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: context.text.bodyMedium?.copyWith(
+                color: context.colors.onSurfaceVariant,
+              ),
+            ),
+          ),
+          TextButton(
+            onPressed: () => Nav.openSourceSettings(context, source),
+            child: Text(tr('去登录')),
+          ),
+        ],
+      ),
+    ),
+  );
 }
 
 class FeedTab extends StatefulWidget {
@@ -239,9 +282,8 @@ class _FeedTabState extends State<FeedTab> with AutomaticKeepAliveClientMixin {
 
   @override
   Widget build(BuildContext context) {
-    AppLocalizations.of(context);
     super.build(context);
-    return RefreshIndicator(
+    return ParkRefresh(
       onRefresh: _refresh,
       child: CustomScrollView(
         physics: const AlwaysScrollableScrollPhysics(),
@@ -266,8 +308,18 @@ class _FeedTabState extends State<FeedTab> with AutomaticKeepAliveClientMixin {
             builder: (context, _) => _controller.staleCache
                 ? SliverToBoxAdapter(
                     child: Padding(
-                      padding: const EdgeInsets.all(12),
-                      child: Text(tr('网络暂不可用，正在显示之前缓存的主页数据')),
+                      padding: const EdgeInsets.fromLTRB(
+                        Gap.page,
+                        Gap.m,
+                        Gap.page,
+                        0,
+                      ),
+                      child: Text(
+                        tr('网络暂不可用，正在显示之前缓存的主页数据'),
+                        style: context.text.bodySmall?.copyWith(
+                          color: context.colors.onSurfaceVariant,
+                        ),
+                      ),
                     ),
                   )
                 : const SliverToBoxAdapter(),
@@ -278,7 +330,12 @@ class _FeedTabState extends State<FeedTab> with AutomaticKeepAliveClientMixin {
                 _controller.total != null && _controller.items.isNotEmpty
                 ? SliverToBoxAdapter(
                     child: Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 6, 16, 0),
+                      padding: const EdgeInsets.fromLTRB(
+                        Gap.page,
+                        Gap.s,
+                        Gap.page,
+                        0,
+                      ),
                       child: Text(
                         tr('约 {value0} 部作品', {
                           'value0': formatCount(_controller.total),

@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 
-import '../../core/settings.dart';
+import '../../core/localization.dart';
 import '../../core/models.dart';
+import '../../core/settings.dart';
 import '../../engine/source_manager.dart';
 import '../widgets/common.dart';
-import '../../core/localization.dart';
 
 /// Filter / sort / display options for the library (Mihon's three-tab sheet).
 Future<void> showLibraryOptions(BuildContext context) =>
@@ -28,14 +28,13 @@ class _LibraryOptions extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    AppLocalizations.of(context);
     final s = AppSettings.instance;
     return DefaultTabController(
       length: 3,
       child: SizedBox(
         height: MediaQuery.sizeOf(context).height * 0.55,
         child: ListenableBuilder(
-          listenable: s,
+          listenable: s.domain(SettingsDomain.library),
           builder: (context, _) => Column(
             children: [
               TabBar(
@@ -82,8 +81,8 @@ class _LibraryOptions extends StatelessWidget {
                           onChanged: (v) => s.libraryFilterUnread = v ?? false,
                         ),
                         SectionHeader(
-                          tr('源站'),
-                          padding: EdgeInsets.fromLTRB(16, 12, 8, 4),
+                          tr('站点'),
+                          padding: const EdgeInsets.fromLTRB(16, 12, 8, 4),
                         ),
                         Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -153,12 +152,12 @@ class _LibraryOptions extends StatelessWidget {
                             segments: [
                               ButtonSegment(
                                 value: 'grid',
-                                icon: Icon(Icons.grid_view_rounded),
+                                icon: const Icon(Icons.grid_view_rounded),
                                 label: Text(tr('网格')),
                               ),
                               ButtonSegment(
                                 value: 'list',
-                                icon: Icon(Icons.view_list_rounded),
+                                icon: const Icon(Icons.view_list_rounded),
                                 label: Text(tr('列表')),
                               ),
                             ],
@@ -179,7 +178,7 @@ class _LibraryOptions extends StatelessWidget {
                         ),
                         CheckboxListTile(
                           value: s.badgeSource,
-                          title: Text(tr('源站图标')),
+                          title: Text(tr('站点图标')),
                           onChanged: (v) => s.badgeSource = v ?? true,
                         ),
                       ],

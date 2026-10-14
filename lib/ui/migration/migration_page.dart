@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../core/localization.dart';
 import '../../core/models.dart';
 import '../../core/titles.dart';
 import '../../engine/source_manager.dart';
@@ -7,9 +8,8 @@ import '../../library/library.dart';
 import '../../library/migration.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
+import '../widgets/cover_tile.dart';
 import '../widgets/error_view.dart';
-import '../widgets/work_card.dart';
-import '../../core/localization.dart';
 
 /// Moves favorites to another source (Mihon's migration): search every other source for the title,
 /// pick the matching work, then copy categories / read marks and optionally drop the old favorite.
@@ -46,10 +46,7 @@ class _MigrationPageState extends State<MigrationPage> {
   }
 
   List<InstalledSource> get _targets {
-    final kind = MediaKind.fromJson(
-      _current.json['mediaKind'] ??
-          SourceManager.instance.manifest(_current.source)?.kind.name,
-    );
+    final kind = SourceManager.instance.kindOf(_current);
     return SourceManager.instance.enabled
         .where(
           (s) =>
@@ -99,14 +96,14 @@ class _MigrationPageState extends State<MigrationPage> {
       if (!mounted) return;
       context.toast(
         options.removeOld && !removedOriginal
-            ? tr('已复制到新的源；未匹配的进度保留在原收藏中')
+            ? tr('已复制到新的站点；未匹配的进度保留在原收藏中')
             : options.removeOld
             ? tr('已迁移到 {value0}', {
                 'value0':
                     SourceManager.instance.manifest(target.source)?.name ??
                     target.source,
               })
-            : tr('已复制到新的源'),
+            : tr('已复制到新的站点'),
       );
       _next();
     } catch (e) {
@@ -122,7 +119,6 @@ class _MigrationPageState extends State<MigrationPage> {
 
   @override
   Widget build(BuildContext context) {
-    AppLocalizations.of(context);
     final from =
         SourceManager.instance.manifest(_current.source)?.name ??
         _current.source;
@@ -134,7 +130,7 @@ class _MigrationPageState extends State<MigrationPage> {
                   'value0': _index + 1,
                   'value1': widget.items.length,
                 })
-              : tr('迁移到其他源'),
+              : tr('迁移到其他站点'),
         ),
         actions: [
           if (widget.items.length > 1)
@@ -181,6 +177,7 @@ class _MigrationPageState extends State<MigrationPage> {
                     labelText: tr('搜索标题'),
                     border: const OutlineInputBorder(),
                     suffixIcon: IconButton(
+                      tooltip: tr('搜索'),
                       icon: const Icon(Icons.search_rounded),
                       onPressed: _search,
                     ),
@@ -191,10 +188,10 @@ class _MigrationPageState extends State<MigrationPage> {
             if (_targets.isEmpty)
               SliverFillRemaining(
                 hasScrollBody: false,
-                child: MessageView(
+                child: EmptyState(
                   icon: Icons.swap_horiz_rounded,
-                  title: tr('没有可迁移的目标源'),
-                  message: tr('需要至少一个其他已启用、支持搜索的同类型源'),
+                  title: tr('没有可迁移的目标站点'),
+                  message: tr('需要至少一个其他已启用、支持搜索的同类站点'),
                 ),
               )
             else
@@ -244,7 +241,6 @@ class _TargetResultsState extends State<_TargetResults> {
 
   @override
   Widget build(BuildContext context) {
-    AppLocalizations.of(context);
     final m = SourceManager.instance.manifest(widget.source)!;
     return FutureBuilder<WorkPage>(
       future: _future,
@@ -258,13 +254,11 @@ class _TargetResultsState extends State<_TargetResults> {
         } else if (snap.hasError) {
           body = Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Card(
-              child: SourceErrorView(
-                error: snap.error!,
-                source: widget.source,
-                compact: true,
-                onRetry: () => setState(() => _future = _load()),
-              ),
+            child: SourceErrorView(
+              error: snap.error!,
+              source: widget.source,
+              compact: true,
+              onRetry: () => setState(() => _future = _load()),
             ),
           );
         } else if (snap.data!.items.isEmpty) {
@@ -290,7 +284,7 @@ class _TargetResultsState extends State<_TargetResults> {
               separatorBuilder: (_, _) => const SizedBox(width: 10),
               itemBuilder: (context, i) => SizedBox(
                 width: w,
-                child: WorkCard(
+                child: CoverTile(
                   item: items[i],
                   aspect: a,
                   onTap: () => widget.onPick(items[i]),
@@ -327,7 +321,6 @@ class _OptionsDialogState extends State<_OptionsDialog> {
 
   @override
   Widget build(BuildContext context) {
-    AppLocalizations.of(context);
     final target =
         SourceManager.instance.manifest(widget.to.source)?.name ??
         widget.to.source;
@@ -354,7 +347,7 @@ class _OptionsDialogState extends State<_OptionsDialog> {
             title: Text(tr('复制分类')),
             onChanged: (v) => setState(() => categories = v!),
           ),
-          if (widget.to.json['mediaKind'] != 'game')
+          if (!widget.to.isGame)
             CheckboxListTile(
               value: readState,
               title: Text(tr('复制已读章节')),

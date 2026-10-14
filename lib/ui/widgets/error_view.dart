@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 
+import '../../core/localization.dart';
 import '../../core/models.dart';
 import '../../engine/source_manager.dart';
 import '../nav.dart';
 import 'common.dart';
 import 'source_network_hint.dart';
-import '../../core/localization.dart';
 
 /// Error state that offers the action that actually fixes the problem:
 /// Cloudflare → verify in the built-in browser, login required → account page, otherwise retry.
@@ -24,7 +24,6 @@ class SourceErrorView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    AppLocalizations.of(context);
     final e = error.asSourceError;
     final (icon, title) = switch (e.code) {
       'CLOUDFLARE' => (Icons.verified_user_outlined, tr('需要通过人机验证')),
@@ -77,7 +76,7 @@ class SourceErrorView extends StatelessWidget {
           child: Text(tr('网络设置')),
         ),
     ];
-    final view = MessageView(
+    final view = EmptyState(
       icon: icon,
       title: title,
       message: e.isCloudflare ? e.friendly : e.message,

@@ -68,7 +68,7 @@ class _StartupUpdateCheckState extends State<StartupUpdateCheck>
     _sourcesEnabled = AppSettings.instance.autoSourceUpdates;
     _visibilityChanges = widget.visibilityChanges ?? AppLock.instance;
     _visibilityChanges.addListener(_scheduleDrain);
-    AppSettings.instance.addListener(_settingsChanged);
+    _settings.addListener(_settingsChanged);
     binding.addObserver(this);
     binding.addPostFrameCallback((_) {
       if (!mounted) return;
@@ -96,6 +96,11 @@ class _StartupUpdateCheckState extends State<StartupUpdateCheck>
     }
     _scheduleDrain();
   }
+
+  final _settings = AppSettings.instance.watch(const {
+    'autoAppUpdates',
+    'autoSourceUpdates',
+  });
 
   void _settingsChanged() {
     final settings = AppSettings.instance;
@@ -234,7 +239,7 @@ class _StartupUpdateCheckState extends State<StartupUpdateCheck>
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
-    AppSettings.instance.removeListener(_settingsChanged);
+    _settings.removeListener(_settingsChanged);
     _visibilityChanges.removeListener(_scheduleDrain);
     _pending.clear();
     super.dispose();

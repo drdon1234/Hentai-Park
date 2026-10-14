@@ -6,9 +6,10 @@ import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/localization.dart';
-import '../../engine/app_updater.dart';
 import '../../engine/app_installer.dart';
+import '../../engine/app_updater.dart';
 import '../../engine/source_updater.dart';
+import '../theme.dart';
 
 /// 只展示可确认的操作；检查本身不会触发下载或安装。
 Future<void> showAppUpdatePrompt(
@@ -280,10 +281,21 @@ Future<void> showSourceUpdatePrompt(
             Text(tr('确认后下载并安装以下官方插件，保留登录状态与设置。')),
             const SizedBox(height: 12),
             for (final candidate in result.available)
+              // Name and versions are separate lines, so a CJK name never changes the
+              // font the arrow is drawn with.
               Padding(
                 padding: const EdgeInsets.only(bottom: 8),
-                child: Text(
-                  '${candidate.entry.name}\nv${candidate.version} → v${candidate.entry.version}',
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(candidate.entry.name),
+                    Text(
+                      'v${candidate.version} → v${candidate.entry.version}',
+                      style: ctx.text.bodySmall?.copyWith(
+                        color: ctx.colors.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
                 ),
               ),
             if (result.failures.isNotEmpty) ...[
@@ -329,14 +341,14 @@ Future<void> showSourceUpdateResult(
       context: context,
       builder: (ctx) => AlertDialog(
         scrollable: true,
-        title: Text(tr('官方源更新失败')),
+        title: Text(tr('官方站点更新失败')),
         content: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               if (result.updated.isNotEmpty) ...[
-                Text(tr('已更新 {count} 个官方源', {'count': result.updated.length})),
+                Text(tr('已更新 {count} 个官方站点', {'count': result.updated.length})),
                 const SizedBox(height: 12),
               ],
               ..._failures(result),
@@ -356,8 +368,8 @@ Future<void> showSourceUpdateResult(
   _message(
     context,
     result.updated.isNotEmpty
-        ? tr('已更新 {count} 个官方源', {'count': result.updated.length})
-        : tr(result.checked == 0 ? '没有可检查的官方源' : '官方源已是最新版本'),
+        ? tr('已更新 {count} 个官方站点', {'count': result.updated.length})
+        : tr(result.checked == 0 ? '没有可检查的官方站点' : '官方站点已是最新版本'),
   );
 }
 

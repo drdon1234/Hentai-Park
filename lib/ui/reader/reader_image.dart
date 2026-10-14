@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 
+import '../../core/localization.dart';
 import '../../core/models.dart';
 import '../../images/park_image.dart';
-import '../../core/localization.dart';
+import '../theme.dart';
 
 /// Resolves a page image manually so the reader knows its real size (stable layout), can show a
 /// numbered placeholder while loading, and can retry failed pages in place.
@@ -98,14 +99,12 @@ class _ReaderImageState extends State<ReaderImage> {
 
   @override
   Widget build(BuildContext context) {
-    AppLocalizations.of(context);
     final info = _info;
     if (info != null) {
       final img = RawImage(
         image: info.image,
         fit: widget.fit,
         alignment: widget.alignment,
-        filterQuality: FilterQuality.medium,
         width: double.infinity,
         height: widget.fillHeight ? double.infinity : null,
       );
@@ -139,7 +138,9 @@ class _ReaderImageState extends State<ReaderImage> {
                     textAlign: TextAlign.center,
                     maxLines: 4,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(color: Colors.white54, fontSize: 12),
+                    style: context.text.bodySmall?.copyWith(
+                      color: Colors.white54,
+                    ),
                   ),
                 ),
                 const SizedBox(height: 10),
@@ -164,10 +165,8 @@ class _ReaderImageState extends State<ReaderImage> {
                 const SizedBox(height: 10),
                 Text(
                   '${widget.index + 1}',
-                  style: const TextStyle(
+                  style: context.text.titleLarge?.copyWith(
                     color: Colors.white38,
-                    fontSize: 20,
-                    fontWeight: FontWeight.w700,
                   ),
                 ),
               ],

@@ -6,7 +6,10 @@ import '../../core/models.dart';
 import '../../core/settings.dart';
 import '../../engine/source_manager.dart';
 import '../../library/library.dart';
+import '../kit/kit.dart';
+import '../theme.dart';
 
+/// Narrows history to a category, then to one site within it.
 class HistoryScopeSelector extends StatelessWidget {
   const HistoryScopeSelector({
     super.key,
@@ -15,6 +18,7 @@ class HistoryScopeSelector extends StatelessWidget {
   });
   final ContentScope scope;
   final ValueChanged<ContentScope> onChanged;
+
   @override
   Widget build(BuildContext context) {
     final lib = Library.instance;
@@ -37,58 +41,96 @@ class HistoryScopeSelector extends StatelessWidget {
           s.key,
       ?source,
     }.toList();
-    return LayoutBuilder(
-      builder: (context, constraints) => Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        child: Wrap(
-          spacing: 16,
-          runSpacing: 4,
-          crossAxisAlignment: WrapCrossAlignment.center,
+    String siteName(String key) =>
+        SourceManager.instance.manifest(key)?.name ?? key;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(Gap.page, 0, Gap.page, Gap.s),
+      child: Wrap(
+        spacing: Gap.s,
+        runSpacing: Gap.s,
+        children: [
+          _ScopeMenu<SourceCategory?>(
+            label: category?.label ?? tr('全部分类'),
+            active: category != null,
+            options: {
+              null: tr('全部分类'),
+              for (final d in AppSettings.instance.domainOrder) d: d.label,
+            },
+            onSelected: (d) => onChanged(
+              d == null ? const ContentScope.all() : ContentScope.domain(d),
+            ),
+          ),
+          _ScopeMenu<String?>(
+            label: source == null ? tr('全部站点') : siteName(source),
+            active: source != null,
+            options: {
+              null: tr('全部站点'),
+              for (final key in keys) key: siteName(key),
+            },
+            onSelected: (key) => onChanged(
+              key != null
+                  ? ContentScope.source(key)
+                  : category == null
+                  ? const ContentScope.all()
+                  : ContentScope.domain(category),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ScopeMenu<T> extends StatelessWidget {
+  const _ScopeMenu({
+    required this.label,
+    required this.active,
+    required this.options,
+    required this.onSelected,
+  });
+  final String label;
+  final bool active;
+  final Map<T, String> options;
+  final ValueChanged<T> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    // Indexes rather than values: a null value would read as a cancelled menu.
+    final entries = options.entries.toList();
+    return PopupMenuButton<int>(
+      tooltip: label,
+      onSelected: (i) => onSelected(entries[i].key),
+      itemBuilder: (_) => [
+        for (var i = 0; i < entries.length; i++)
+          PopupMenuItem(value: i, child: Text(entries[i].value)),
+      ],
+      child: Container(
+        constraints: const BoxConstraints(minHeight: 36, maxWidth: 240),
+        padding: const EdgeInsets.only(left: Gap.m, right: Gap.s),
+        decoration: BoxDecoration(
+          color: active ? c.secondaryContainer : null,
+          border: Border.all(
+            color: active ? c.secondaryContainer : c.outlineVariant,
+          ),
+          borderRadius: Radii.small,
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            SizedBox(
-              width: (constraints.maxWidth - 24).clamp(0, 200),
-              child: DropdownButton<SourceCategory>(
-                isExpanded: true,
-                value: category,
-                hint: Text(tr('全部域')),
-                items: [
-                  DropdownMenuItem(value: null, child: Text(tr('全部域'))),
-                  for (final d in AppSettings.instance.domainOrder)
-                    DropdownMenuItem(value: d, child: Text(d.label)),
-                ],
-                onChanged: (d) => onChanged(
-                  d == null ? const ContentScope.all() : ContentScope.domain(d),
+            Flexible(
+              child: Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: context.text.labelLarge?.copyWith(
+                  color: active ? c.onSecondaryContainer : c.onSurface,
                 ),
               ),
             ),
-            ConstrainedBox(
-              constraints: BoxConstraints(
-                minWidth: (constraints.maxWidth - 24).clamp(0, 360),
-                maxWidth: (constraints.maxWidth - 24).clamp(0, double.infinity),
-              ),
-              child: DropdownButton<String>(
-                isExpanded: true,
-                value: source,
-                hint: Text(tr('域内全部站点')),
-                items: [
-                  DropdownMenuItem(value: null, child: Text(tr('域内全部站点'))),
-                  for (final key in keys)
-                    DropdownMenuItem(
-                      value: key,
-                      child: Text(
-                        SourceManager.instance.manifest(key)?.name ?? key,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                ],
-                onChanged: (key) => onChanged(
-                  key != null
-                      ? ContentScope.source(key)
-                      : category == null
-                      ? const ContentScope.all()
-                      : ContentScope.domain(category),
-                ),
-              ),
+            Icon(
+              Icons.arrow_drop_down_rounded,
+              color: active ? c.onSecondaryContainer : c.onSurfaceVariant,
             ),
           ],
         ),

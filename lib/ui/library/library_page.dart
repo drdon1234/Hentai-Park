@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
+import '../../core/localization.dart';
 import '../../core/settings.dart';
 import '../../core/titles.dart';
 import '../../engine/source_manager.dart';
@@ -10,11 +12,11 @@ import '../migration/migration_page.dart';
 import '../nav.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
-import '../widgets/work_card.dart';
+import '../widgets/cover_tile.dart';
 import 'category_manage_page.dart';
 import 'favorite_actions.dart';
 import 'library_options_sheet.dart';
-import '../../core/localization.dart';
+import 'shelf_page.dart';
 
 /// The library (Mihon style): one tab per category, filter / sort / display options, search,
 /// pull-to-refresh library updates and multi-select actions.
@@ -73,9 +75,13 @@ class _LibraryPageState extends State<LibraryPage> {
     );
   }
 
-  void _toggle(String uid) => setState(
-    () => _selected.contains(uid) ? _selected.remove(uid) : _selected.add(uid),
-  );
+  void _toggle(String uid) {
+    HapticFeedback.selectionClick();
+    setState(
+      () =>
+          _selected.contains(uid) ? _selected.remove(uid) : _selected.add(uid),
+    );
+  }
 
   Future<void> _selectionAction(String action) async {
     final lib = Library.instance;
@@ -127,9 +133,11 @@ class _LibraryPageState extends State<LibraryPage> {
 
   @override
   Widget build(BuildContext context) {
-    AppLocalizations.of(context);
     return ListenableBuilder(
-      listenable: Library.instance,
+      listenable: Listenable.merge([
+        for (final c in LibraryCollection.values)
+          if (c != LibraryCollection.history) Library.instance.collection(c),
+      ]),
       builder: (context, _) {
         final lib = Library.instance;
         final tabs = _tabs(lib);
@@ -171,6 +179,7 @@ class _LibraryPageState extends State<LibraryPage> {
 
   PreferredSizeWidget _selectionBar() => AppBar(
     leading: IconButton(
+      tooltip: tr('取消选择'),
       icon: const Icon(Icons.close_rounded),
       onPressed: () => setState(_selected.clear),
     ),
@@ -188,7 +197,7 @@ class _LibraryPageState extends State<LibraryPage> {
         tooltip: tr('更多'),
         onSelected: _selectionAction,
         itemBuilder: (_) => [
-          PopupMenuItem(value: 'migrate', child: Text(tr('迁移到其他源'))),
+          PopupMenuItem(value: 'migrate', child: Text(tr('迁移到其他站点'))),
           PopupMenuItem(value: 'remove', child: Text(tr('取消收藏'))),
         ],
       ),
@@ -201,18 +210,21 @@ class _LibraryPageState extends State<LibraryPage> {
     List<int?> tabs,
   ) {
     final controller = DefaultTabController.of(context);
-    return AppBar(
-      title: _searching
+    return PageHeader(
+      titleWidget: _searching
           ? TextField(
               controller: _query,
               autofocus: true,
               decoration: InputDecoration(
                 hintText: tr('搜索书架'),
+                filled: false,
                 border: InputBorder.none,
+                enabledBorder: InputBorder.none,
+                focusedBorder: InputBorder.none,
               ),
               onChanged: (_) => setState(() {}),
             )
-          : Text(tr('书架')),
+          : ShelfTitle(tr('书架')),
       actions: [
         IconButton(
           tooltip: _searching ? tr('关闭搜索') : tr('搜索'),
@@ -228,6 +240,7 @@ class _LibraryPageState extends State<LibraryPage> {
           onPressed: () => showLibraryOptions(context),
         ),
         PopupMenuButton<String>(
+          tooltip: tr('更多'),
           onSelected: (v) {
             switch (v) {
               case 'update':
@@ -290,10 +303,7 @@ class _LibraryTab extends StatelessWidget {
       }
       if (sources.isNotEmpty && !sources.contains(f.item.source)) return false;
       if (s.libraryFilterKind != 'all' &&
-          (f.item.json['mediaKind'] ??
-                  SourceManager.instance.manifest(f.item.source)?.kind.name ??
-                  'comic') !=
-              s.libraryFilterKind) {
+          kindOf(f.item).name != s.libraryFilterKind) {
         return false;
       }
       if (s.libraryFilterDownloaded && !downloaded(uid)) return false;
@@ -332,10 +342,10 @@ class _LibraryTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    AppLocalizations.of(context);
     return ListenableBuilder(
       listenable: Listenable.merge([
-        AppSettings.instance,
+        AppSettings.instance.domain(SettingsDomain.library),
+        AppSettings.instance.watch(const {'gridColumns'}),
         DownloadManager.instance,
         SourceManager.instance,
       ]),
@@ -349,18 +359,18 @@ class _LibraryTab extends StatelessWidget {
               .isNotEmpty;
           content = SliverFillRemaining(
             hasScrollBody: false,
-            child: MessageView(
+            child: EmptyState(
               icon: Icons.bookmark_border_rounded,
               title: filtered ? tr('没有符合条件的作品') : tr('还没有收藏'),
               message: filtered
                   ? tr('调整搜索或筛选条件试试')
-                  : tr('在作品详情页点击书签按钮即可收藏\n长按收藏按钮可以设置分类'),
+                  : tr('在作品详情页点“收藏”，作品就会出现在这里'),
             ),
           );
         } else if (s.libraryDisplay == 'list' ||
             entries.any(
               (f) =>
-                  f.item.json['mediaKind'] == 'novel' ||
+                  f.item.isNovel ||
                   SourceManager.instance.manifest(f.item.source)?.isNovel ==
                       true,
             )) {
@@ -371,14 +381,14 @@ class _LibraryTab extends StatelessWidget {
         } else {
           content = _grid(context, entries);
         }
-        return RefreshIndicator(
+        return ParkRefresh(
           onRefresh: onRefresh,
           child: CustomScrollView(
             physics: const AlwaysScrollableScrollPhysics(),
             slivers: [
-              const SliverToBoxAdapter(child: SizedBox(height: 8)),
+              const SliverToBoxAdapter(child: SizedBox(height: Gap.s)),
               content,
-              const SliverToBoxAdapter(child: SizedBox(height: 24)),
+              const SliverToBoxAdapter(child: SizedBox(height: Gap.xl)),
             ],
           ),
         );
@@ -390,22 +400,23 @@ class _LibraryTab extends StatelessWidget {
       ? onToggle(f.item.uid)
       : Nav.openWork(context, f.item);
 
-  List<Widget> _badges(BuildContext context, FavoriteEntry f) {
+  List<CoverBadge> _badges(BuildContext context, FavoriteEntry f) {
     final s = AppSettings.instance;
     final lib = Library.instance;
     final stats = lib.statsOf(f.item.uid);
     final t = DownloadManager.instance.task(f.item.uid);
     return [
       if (s.badgeUnread && stats.unread > 0 && !lib.isOneShot(f.item.uid))
-        Pill('${stats.unread}', color: context.colors.primary, solid: true),
+        (
+          tag: Tag('${stats.unread}', accent: true),
+          label: '${tr('未读数')} ${stats.unread}',
+        ),
       if (s.badgeDownloaded &&
           t != null &&
           (t.status == DownloadStatus.done || t.done > 0))
-        const Pill(
-          '',
-          icon: Icons.download_done_rounded,
-          color: Colors.teal,
-          solid: true,
+        (
+          tag: const Tag('', icon: Icons.download_done_rounded, onImage: true),
+          label: tr('已下载'),
         ),
     ];
   }
@@ -414,19 +425,20 @@ class _LibraryTab extends StatelessWidget {
     return SliverLayoutBuilder(
       builder: (context, c) {
         final cols = gridColumnsFor(c.crossAxisExtent);
-        final width = (c.crossAxisExtent - 24 - (cols - 1) * 10) / cols;
+        final width =
+            (c.crossAxisExtent - Gap.page * 2 - (cols - 1) * Gap.m) / cols;
         return SliverPadding(
-          padding: const EdgeInsets.symmetric(horizontal: 12),
+          padding: const EdgeInsets.symmetric(horizontal: Gap.page),
           sliver: SliverGrid(
             gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
               crossAxisCount: cols,
-              crossAxisSpacing: 10,
-              mainAxisSpacing: 14,
+              crossAxisSpacing: Gap.m,
+              mainAxisSpacing: Gap.l,
               mainAxisExtent: width / 0.7 + cardTextExtent(context),
             ),
             delegate: SliverChildBuilderDelegate((context, i) {
               final f = entries[i];
-              return WorkCard(
+              return CoverTile(
                 item: f.item,
                 aspect: 0.7,
                 showSource: AppSettings.instance.badgeSource,
@@ -447,27 +459,26 @@ class _LibraryTab extends StatelessWidget {
     final sel = selected.contains(f.item.uid);
     final h = Library.instance.historyOf(f.item.uid);
     return Material(
-      color: sel ? c.primary.withValues(alpha: 0.18) : Colors.transparent,
+      color: sel ? c.secondaryContainer : Colors.transparent,
       child: InkWell(
         onTap: () => _tap(context, f),
         onLongPress: () => onToggle(f.item.uid),
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+          padding: const EdgeInsets.symmetric(
+            horizontal: Gap.page,
+            vertical: Gap.s,
+          ),
           child: Row(
             children: [
-              if (f.item.json['mediaKind'] != 'novel' &&
+              if (!f.item.isNovel &&
                   SourceManager.instance.manifest(f.item.source)?.isNovel !=
                       true) ...[
                 SizedBox(
                   width: 46,
                   height: 62,
-                  child: CoverImage(
-                    source: f.item.source,
-                    url: f.item.cover,
-                    radius: 8,
-                  ),
+                  child: CoverImage(source: f.item.source, url: f.item.cover),
                 ),
-                const SizedBox(width: 12),
+                const SizedBox(width: Gap.m),
               ],
               Expanded(
                 child: Column(
@@ -478,10 +489,10 @@ class _LibraryTab extends StatelessWidget {
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: context.text.bodyMedium?.copyWith(
-                        fontWeight: FontWeight.w600,
+                        fontWeight: FontWeight.w500,
                       ),
                     ),
-                    const SizedBox(height: 4),
+                    const SizedBox(height: Gap.xs),
                     Row(
                       children: [
                         if (AppSettings.instance.badgeSource) ...[
@@ -507,7 +518,11 @@ class _LibraryTab extends StatelessWidget {
                   ],
                 ),
               ),
-              ..._badges(context, f),
+              for (final b in _badges(context, f))
+                Semantics(
+                  label: b.label,
+                  child: ExcludeSemantics(child: b.tag),
+                ),
             ],
           ),
         ),
