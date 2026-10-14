@@ -1228,7 +1228,11 @@ class SourceManager extends ChangeNotifier {
       }
       resolved.addAll(
         await HlsSources(
-          createMediaTransport(sourceManifest, headers: source.headers),
+          createMediaTransport(
+            sourceManifest,
+            headers: source.headers,
+            initialUrl: Uri.parse(source.url),
+          ),
         ).resolve([source], cancelToken: cancelToken),
       );
     }

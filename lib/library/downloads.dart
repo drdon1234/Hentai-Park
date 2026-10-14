@@ -834,13 +834,18 @@ class DownloadManager extends ChangeNotifier {
         if (!Platform.isAndroid) {
           throw SourceError('UNSUPPORTED', 'HLS 下载封装目前仅支持安卓');
         }
-        await HlsDownload(createMediaTransport(manifest, headers: src.headers))
-            .run(
-              Uri.parse(src.url),
-              output: part,
-              cancelToken: token,
-              onProgress: progress,
-            );
+        await HlsDownload(
+          createMediaTransport(
+            manifest,
+            headers: src.headers,
+            initialUrl: Uri.parse(src.url),
+          ),
+        ).run(
+          Uri.parse(src.url),
+          output: part,
+          cancelToken: token,
+          onProgress: progress,
+        );
       } else {
         await HttpService.instance.download(
           url: src.url,

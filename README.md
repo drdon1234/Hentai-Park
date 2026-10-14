@@ -120,3 +120,5 @@ AI 短剧支持上下滑动切集，滑动期间继续播放，并预加载下�
 ---
 
 [AGPL-3.0 许可证](LICENSE) · [第三方声明](docs/licenses/README.md) · [开发说明](docs/DEVELOPMENT.md)
+
+123AV 与 AI 短剧的动态 HLS CDN 在单次播放或下载会话内授权，随媒体清单和 HTTPS 重定向更新，不扩大站点 Cookie 权限。现有用户请更新应用后，在源管理中更新相关插件。

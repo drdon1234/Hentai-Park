@@ -1,6 +1,6 @@
 /* 91 短剧：稳定编号为 分类/作品编号，详情页提供当前规范链接与完整选集。 */
 Park.register({
-  key: 'drama91', name: '91短剧', version: '0.0.4',
+  key: 'drama91', name: '91短剧', version: '0.0.5',
   type: 'video', category: 'aiDrama', color: '#E6C87A',
   description: 'AI短剧、漫剧与视频，支持推荐、分类、搜索和分集播放',
   homepage: 'https://91crdjai.com', domains: ['91crdjai.com'], language: 'zh',
@@ -9,7 +9,7 @@ Park.register({
   imageHeaders: { Referer: 'https://91crdjai.com/' },
   imageDecrypt: { type: 'aes-cbc', key: 'f5d965df75336270', iv: '97b60394abc2fbe1', domains: ['pic.drleao.cn'] },
   network: { mode: 'native', vpnHint: true },
-  media: { mode: 'native', origin: 'https://91crdjai.com', domains: [
+  media: { mode: 'native', scope: 'session', origin: 'https://91crdjai.com', domains: [
     'yd-hls.hzjvlo.cn', 'tp1.drleao.cn', 'tp2.drleao.cn', 'tp3.drleao.cn',
     'tp4.drleao.cn', 'tp5.drleao.cn', 'tp6.drleao.cn', 'tp7.drleao.cn', 'tp8.drleao.cn',
   ] },
@@ -165,7 +165,7 @@ Park.register({
     if (data.videoApi || data.videoKey || data.videoIv) throw Park.error('UNSUPPORTED', 'AI短剧该分集使用暂不支持的播放方式');
     if (!data.current.src) throw Park.error('NOT_FOUND', 'AI短剧该分集暂无可用播放地址');
     const url = this.absolute(data.current.src), u = url && new URL(url);
-    if (!u || u.protocol !== 'https:' || u.port || u.username || u.password || u.hash || !this.media.domains.includes(u.hostname)) throw Park.error('PARSE', 'AI短剧播放地址无效');
+    if (!u || u.protocol !== 'https:' || u.port || u.username || u.password || u.hash || (!/\.m3u8(?:\?|$)/i.test(url) && !this.media.domains.includes(u.hostname))) throw Park.error('PARSE', 'AI短剧播放地址无效');
     return [{ quality: 0, label: '原画', url, headers: { Referer: this.BASE + playPath }, preferred: true,
       ...(/\.m3u8(?:[?#]|$)/i.test(url) ? { format: 'hls' } : {}),
     }];

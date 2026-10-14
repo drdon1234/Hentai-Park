@@ -1,6 +1,6 @@
 /* 黄豆短剧：仅解析当前站点公开页面；播放时重新读取指定集的签名地址。 */
 Park.register({
-  key: 'huangdou', name: '黄豆短剧', version: '0.0.4',
+  key: 'huangdou', name: '黄豆短剧', version: '0.0.5',
   type: 'video', category: 'aiDrama', color: '#FFC857',
   description: 'AI短剧与漫剧，支持分类、排行、搜索和分集播放',
   homepage: 'https://aihuangdou.com', domains: ['aihuangdou.com'], language: 'zh',
@@ -12,7 +12,7 @@ Park.register({
     domains: ['pic.drleao.cn'],
   },
   network: { mode: 'native', vpnHint: true },
-  media: { mode: 'native', origin: 'https://aihuangdou.com', domains: [
+  media: { mode: 'native', scope: 'session', origin: 'https://aihuangdou.com', domains: [
     'yd-hls.hzjvlo.cn', 'tp1.drleao.cn', 'tp2.drleao.cn', 'tp3.drleao.cn',
     'tp4.drleao.cn', 'tp5.drleao.cn', 'tp6.drleao.cn', 'tp7.drleao.cn', 'tp8.drleao.cn',
   ] },
@@ -186,7 +186,7 @@ Park.register({
     if (data.videoApi || data.videoKey || data.videoIv) throw Park.error('UNSUPPORTED', 'AI短剧该分集使用暂不支持的播放方式');
     if (!data.current.src) throw Park.error('NOT_FOUND', 'AI短剧该分集暂无可用播放地址');
     const url = this.absolute(data.current.src), u = url && new URL(url);
-    if (!u || u.protocol !== 'https:' || u.port || u.username || u.password || u.hash || !this.media.domains.includes(u.hostname)) {
+    if (!u || u.protocol !== 'https:' || u.port || u.username || u.password || u.hash || (!/\.m3u8(?:\?|$)/i.test(url) && !this.media.domains.includes(u.hostname))) {
       throw Park.error('PARSE', 'AI短剧播放地址无效');
     }
     return [{ quality: 0, label: '原画', url, headers: { Referer: this.BASE + path }, preferred: true,

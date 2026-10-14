@@ -41,7 +41,10 @@ class ShortVideoPlayer implements ShortVideoHandle {
       (s) => s.preferred,
       orElse: () => sources.first,
     );
-    final policy = MediaPolicy.fromManifest(manifest);
+    final policy = MediaPolicy.fromManifest(
+      manifest,
+      initialUrl: source.format == 'hls' ? Uri.parse(source.url) : null,
+    );
     var uri = Uri.parse(source.url);
     policy.validate(uri);
     final headers = policy.requestHeaders(source.headers);
@@ -49,7 +52,13 @@ class ShortVideoPlayer implements ShortVideoHandle {
     VideoPlayerController? controller;
     try {
       if (source.format == 'hls') {
-        media = HlsPlayback(createMediaTransport(manifest, headers: headers));
+        media = HlsPlayback(
+          createMediaTransport(
+            manifest,
+            headers: headers,
+            initialUrl: Uri.parse(source.url),
+          ),
+        );
         final opening = media;
         unawaited(cancel.whenCancel.then((_) => opening.close()));
         uri = await media.open(uri);

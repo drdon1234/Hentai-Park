@@ -383,3 +383,5 @@ GalgameX → KUN Galgame. [game-domain.md](../../game-domain.md)
 차원 찻집은 GalgameX와 KUN 다음에 표시되며 Galgame 인기 게시물을 사용합니다. 앱에서 로그인한 뒤 해제 버튼을 누르면 “感谢分享，好人一生平安”을 보냅니다. 목록과 상세는 읽기 전용이며 이미 해제된 게시물에는 다시 댓글을 달지 않습니다. 전송 결과가 불확실하면 계정과 게시물별로 상태를 저장하고 재시작 후에도 자동 재전송하지 않습니다. 원문에서 확인해야 합니다. 동적 인증은 사이트에서 처리합니다. 원본 클라우드 링크, 각 링크의 코드와 압축 암호를 보존합니다. 데스크톱 로그인은 앱과 별개입니다.
 
 `GameChannel`: `requiresReply: true`, `replyText`. `resolveGameResource`: `extractionCodes` aligned with `urls` (empty string: no code), or shared `extractionCode`. `CONFIRM_REQUIRED` → original post URL.
+
+동적 HLS CDN은 native 모드의 `media.scope: 'session'`으로 지원합니다. 현재 재생 URL, 재생목록 리소스 및 최대 8회 리디렉션만 재생·다운로드 세션에 허용하며 Cookie 권한은 바뀌지 않습니다. HTTPS 443과 인증 정보 없는 요청을 유지합니다. 직접 연결은 공개 DNS 주소를 검사하고 검증된 IP에 연결하며 TLS 호스트 검증을 유지합니다. 명시적 HTTP 프록시는 신뢰된 프록시가 DNS 및 공개망 제한을 담당합니다. 종료 시 권한을 폐기합니다. 직접 MP4와 browser 모드는 정적 도메인 제한을 유지합니다.

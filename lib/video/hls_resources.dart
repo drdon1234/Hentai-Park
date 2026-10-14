@@ -21,8 +21,8 @@ class HlsResources {
 
   void validate(HlsPlaylist playlist) {
     for (final segment in playlist.segments) {
-      transport.validate(segment.url);
-      if (segment.key case final key?) transport.validate(key);
+      authorizeMediaResource(transport, segment.url);
+      if (segment.key case final key?) authorizeMediaResource(transport, key);
     }
   }
 

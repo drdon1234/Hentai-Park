@@ -500,7 +500,13 @@ class _VideoPageState extends State<VideoPage> with WidgetsBindingObserver {
       if (s.format == 'hls') {
         final manifest = SourceManager.instance.manifest(widget.work.source);
         if (manifest == null) throw SourceError('CONFIG', '视频源未加载');
-        media = HlsPlayback(createMediaTransport(manifest, headers: s.headers));
+        media = HlsPlayback(
+          createMediaTransport(
+            manifest,
+            headers: s.headers,
+            initialUrl: Uri.parse(s.url),
+          ),
+        );
         _preparingMedia = media;
         url = await media.open(url);
       }

@@ -16,7 +16,7 @@
     return children || document.value || '';
   };
   Park.register({
-    key: 'kungal', name: 'KUN Galgame', version: '0.0.3', type: 'game', category: 'game', color: '#6FA7DF',
+    key: 'kungal', name: 'KUN Galgame', version: '0.0.4', type: 'game', category: 'game', color: '#6FA7DF',
     description: '游戏排行、搜索及社区分享资源', homepage: BASE, language: 'multi',
     domains: ['kungal.com', 'image.kungal.iloveren.link'], network: { mode: 'native', vpnHint: true },
     linkPatterns: ['https?://(?:www\\.)?kungal\\.com/(?:galgame|works)/(\\d+)'], idPattern: '^(\\d+)$', idExample: '1408',
@@ -28,11 +28,11 @@
       if (!Array.isArray(result.items)) throw fail();
       return { items: result.items.map(item), page, total: result.total, hasNext: page * limit < result.total };
     },
-    async feed({ key, page = 1 }) {
+    async feed(key, { page = 1 } = {}) {
       return this.list('/works', { page, resource_type: 'game', sort: key === 'ranking' ? 'view_7d_desc' : 'resource_updated_desc' });
     },
     async search({ keyword, page = 1 }) {
-      if (!String(keyword || '').trim()) return this.feed({ key: 'latest', page });
+      if (!String(keyword || '').trim()) return this.feed('latest', { page });
       return this.list('/search/works', { q: String(keyword), page, resource_type: 'game' });
     },
     async detail(id) {

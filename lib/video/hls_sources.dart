@@ -36,7 +36,7 @@ class HlsSources {
           continue;
         }
         for (final variant in variants) {
-          transport.validate(Uri.parse(variant.url));
+          authorizeMediaResource(transport, Uri.parse(variant.url));
         }
         final preferred = variants
             .firstWhere(

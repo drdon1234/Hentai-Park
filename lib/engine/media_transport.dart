@@ -6,16 +6,20 @@ import '../core/models.dart';
 import 'domains.dart';
 
 /// Media domains are independent of source cookie domains. Both transports use
-/// the same HTTPS allowlist and neither sends application/source credentials.
+/// HTTPS rules; native HLS may explicitly authorize resources within a single session.
+/// Neither transport sends application/source credentials.
 class MediaPolicy {
-  MediaPolicy._(this.mode, this.origin, this.domains);
+  MediaPolicy._(this.mode, this.origin, this.domains, this.session);
+  final bool session;
+  final Set<Uri> _authorized = {};
   final String mode;
   final String origin;
   final List<String> domains;
 
-  factory MediaPolicy.fromManifest(SourceManifest manifest) {
+  factory MediaPolicy.fromManifest(SourceManifest manifest, {Uri? initialUrl}) {
     final media = manifest.media;
     final mode = media['mode'];
+    final session = media['scope'] == 'session';
     final page = Uri.tryParse('${media['origin'] ?? ''}');
     final domains = (media['domains'] as List? ?? const [])
         .map((domain) => '$domain'.toLowerCase())
@@ -29,11 +33,19 @@ class MediaPolicy {
         page.hasFragment ||
         !_publicHost(page.host) ||
         !hostInDomains(page.host, declaredDomains(manifest.json)) ||
-        domains.isEmpty ||
+        (domains.isEmpty && !session) ||
+        (session && mode != 'native') ||
         domains.any((domain) => !_publicHost(domain))) {
-      throw SourceError('CONFIG', '源没有声明有效的媒体权限');
+      throw SourceError('CONFIG', '站点没有声明有效的媒体权限');
     }
-    return MediaPolicy._('$mode', page.origin, List.unmodifiable(domains));
+    final policy = MediaPolicy._(
+      '$mode',
+      page.origin,
+      List.unmodifiable(domains),
+      session,
+    );
+    if (session && initialUrl != null) policy.authorize(initialUrl);
+    return policy;
   }
 
   static bool _publicHost(String host) =>
@@ -48,14 +60,33 @@ class MediaPolicy {
       !host.endsWith('.localhost') &&
       !host.endsWith('.local');
 
-  void validate(Uri url) {
+  void revokeSession() => _authorized.clear();
+
+  void authorize(Uri url) {
+    if (!session) {
+      validate(url);
+      return;
+    }
+    _validateAddress(url);
+    _authorized.add(url);
+  }
+
+  void _validateAddress(Uri url) {
     if (url.scheme != 'https' ||
         url.port != 443 ||
         url.userInfo.isNotEmpty ||
         !_publicHost(url.host) ||
-        !hostInDomains(url.host, domains) ||
         url.hasFragment) {
-      throw SourceError('CONFIG', '媒体地址不在源声明的 HTTPS 域名内');
+      throw SourceError('CONFIG', '媒体地址不在站点声明的 HTTPS 域名内');
+    }
+  }
+
+  void validate(Uri url) {
+    _validateAddress(url);
+    if (session
+        ? !_authorized.contains(url)
+        : !hostInDomains(url.host, domains)) {
+      throw SourceError('CONFIG', '媒体地址不在站点声明的 HTTPS 域名内');
     }
   }
 
@@ -83,7 +114,7 @@ class MediaPolicy {
             url.userInfo.isNotEmpty ||
             url.hasFragment ||
             (name == 'origin' && entry.value != origin)) {
-          throw SourceError('CONFIG', '媒体请求头不在源声明的地址内');
+          throw SourceError('CONFIG', '媒体请求头不在站点声明的地址内');
         }
       }
       result[entry.key] = entry.value;
@@ -106,4 +137,17 @@ abstract interface class MediaTransport {
     CancelToken? cancelToken,
   });
   Future<void> close();
+}
+
+/// Only native dynamic sessions implement this authority; static transports retain validation.
+abstract interface class MediaSessionAuthority {
+  void authorize(Uri url);
+}
+
+void authorizeMediaResource(MediaTransport transport, Uri url) {
+  if (transport is MediaSessionAuthority) {
+    (transport as MediaSessionAuthority).authorize(url);
+  } else {
+    transport.validate(url);
+  }
 }

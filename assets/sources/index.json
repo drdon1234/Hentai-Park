@@ -131,7 +131,7 @@
     {
       "key": "av123",
       "name": "123AV",
-      "version": "0.0.2",
+      "version": "0.0.3",
       "type": "video",
       "category": "jav",
       "file": "av123.js",
@@ -221,7 +221,7 @@
     {
       "key": "huangguo",
       "name": "黄果短剧",
-      "version": "0.0.5",
+      "version": "0.0.6",
       "type": "video",
       "category": "aiDrama",
       "file": "huangguo.js",
@@ -230,7 +230,7 @@
     {
       "key": "drama91",
       "name": "91短剧",
-      "version": "0.0.4",
+      "version": "0.0.5",
       "type": "video",
       "category": "aiDrama",
       "file": "drama91.js",
@@ -239,7 +239,7 @@
     {
       "key": "huangdou",
       "name": "黄豆短剧",
-      "version": "0.0.4",
+      "version": "0.0.5",
       "type": "video",
       "category": "aiDrama",
       "file": "huangdou.js",
@@ -311,7 +311,7 @@
     {
       "key": "kungal",
       "name": "KUN Galgame",
-      "version": "0.0.3",
+      "version": "0.0.4",
       "type": "game",
       "category": "game",
       "file": "kungal.js",

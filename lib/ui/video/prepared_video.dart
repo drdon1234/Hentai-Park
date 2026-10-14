@@ -81,7 +81,11 @@ class PreparedVideo {
           final manifest = SourceManager.instance.manifest(work.source);
           if (manifest == null) throw SourceError('CONFIG', '视频源未加载');
           final opening = media = HlsPlayback(
-            createMediaTransport(manifest, headers: source.headers),
+            createMediaTransport(
+              manifest,
+              headers: source.headers,
+              initialUrl: Uri.parse(source.url),
+            ),
           );
           cancellation = cancel.whenCancel.asStream().listen(
             (_) => unawaited(opening.close()),

@@ -1,10 +1,10 @@
 /* 123AV: read declared player data and JSON; never execute remote scripts. */
 Park.register({
-  key: 'av123', name: '123AV', version: '0.0.2', type: 'video', category: 'jav', color: '#EF4444',
+  key: 'av123', name: '123AV', version: '0.0.3', type: 'video', category: 'jav', color: '#EF4444',
   description: 'JAV 视频，支持推荐、热门、搜索与 HLS 播放',
   homepage: 'https://123av.com', domains: ['123av.com', 'sadie-shop.site'], language: 'zh-Hans',
   network: {mode: 'browser', origin: 'https://123av.com', vpnHint: true},
-  media: {mode: 'native', origin: 'https://sadie-shop.site', domains: ['freeboldspirit.site', 'truefreespirit.site']},
+  media: {mode: 'native', scope: 'session', origin: 'https://sadie-shop.site', domains: ['freeboldspirit.site', 'truefreespirit.site']},
   imageHeaders: {Referer: 'https://123av.com/'},
   linkPatterns: ['123av\\.com/(?:en|cn|tw|ja|ko|th|ms|id|fil|hi|vi|de|fr)/v/([a-z0-9][a-z0-9_-]{1,120})(?:[/?#]|$)'],
   idPattern: '^[a-z0-9][a-z0-9_-]{1,120}$', idExample: 'ipzz-964',
@@ -145,7 +145,7 @@ Park.register({
     let data;
     try {data=JSON.parse(r.body);} catch (_) {throw Park.error('PARSE','播放线路暂不可用');}
     const url=data && data.media && data.media.stream;
-    if (typeof url!=='string' || !/^https:\/\/(?:[a-z0-9-]+\.)*(?:freeboldspirit|truefreespirit)\.site\/[^\s#]+\.m3u8(?:\?[^\s#]*)?$/.test(url)) throw Park.error('UNSUPPORTED','此影片没有可用的 HLS 清晰度');
+    if (typeof url!=='string' || !/^https:\/\/[^\s#]+\.m3u8(?:\?[^\s#]*)?$/.test(url)) throw Park.error('UNSUPPORTED','此影片没有可用的 HLS 清晰度');
     return [{url,quality:Number(this.config.quality)||1080,label:'原画',format:'hls',preferred:true,headers:{Referer:referer,Origin:origin}}];
   },
 });

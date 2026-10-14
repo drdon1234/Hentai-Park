@@ -383,3 +383,5 @@ GalgameX → KUN Galgame. [game-domain.md](../../game-domain.md)
 次元茶館排在 GalgameX、KUN 之後，預設 Galgame 資源區熱門。應用內登入後，點擊「回覆解鎖並取得連結」會發送「感谢分享，好人一生平安」。列表與詳情只讀，已解鎖不再回覆；不明提交結果依帳號及帖子保存，重啟後也不自動重發，需在原帖核實。動態驗證需在站點頁面處理。保留原始網盤連結、逐條提取碼及解壓碼。桌面瀏覽器登入與應用獨立。
 
 `GameChannel`: `requiresReply: true`, `replyText`. `resolveGameResource`: `extractionCodes` aligned with `urls` (empty string: no code), or shared `extractionCode`. `CONFIRM_REQUIRED` → original post URL.
+
+動態 HLS CDN 可宣告 `media.scope: 'session'`（僅 native）。本次解析地址、清單資源與最多 8 跳重新導向僅授權給目前播放或下載工作階段，不增加 Cookie 權限。保留 HTTPS 443 與無憑據請求；直連檢查公網 DNS 並固定已驗證 IP，TLS 主機驗證保持啟用。明確設定 HTTP 代理時由可信代理解析及限制上游網路。關閉後銷毀授權；直連 MP4 與 browser 媒體仍使用靜態網域限制。

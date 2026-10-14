@@ -383,3 +383,5 @@ GalgameX → KUN Galgame. [game-domain.md](../../game-domain.md)
 次元茶館は GalgameX、KUN の後に表示され、Galgame フォーラムの人気投稿を使います。アプリ内でログインし、解除ボタンを押すと「感谢分享，好人一生平安」を送信します。一覧と詳細は読み取り専用です。解除済みの投稿には再返信しません。送信結果が不明な場合はアカウントと投稿ごとに状態を保存し、再起動後も自動再送信せず、元の投稿で確認します。動的な認証はサイトで行います。元のクラウドリンク、リンクごとのコード、解凍パスワードを保持します。デスクトップのログインはアプリと別です。
 
 `GameChannel`: `requiresReply: true`, `replyText`. `resolveGameResource`: `extractionCodes` aligned with `urls` (empty string: no code), or shared `extractionCode`. `CONFIRM_REQUIRED` → original post URL.
+
+動的 HLS CDN は native の `media.scope: 'session'` で利用できます。解析した再生 URL、プレイリストのリソース、最大8回のリダイレクトを現在の再生・ダウンロードセッションだけに許可し、Cookie 権限は変更しません。HTTPS 443 と認証情報を含まないリクエストを維持します。直接接続では公開 DNS アドレスを確認して接続先 IP を固定し、TLS ホスト名検証を維持します。明示的な HTTP プロキシを使用する場合は、その信頼されたプロキシが名前解決と公開ネットワーク制限を担当します。終了時に許可を破棄します。MP4 の直接再生と browser モードは静的ドメイン制限を維持します。

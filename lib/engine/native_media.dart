@@ -1,40 +1,58 @@
 import 'dart:async';
-import 'dart:typed_data';
+import 'dart:io';
 
-import 'cancellation.dart';
-import 'network_client.dart';
+import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
 import 'package:dio/io.dart';
 
 import '../core/models.dart';
 import '../core/settings.dart';
+import 'cancellation.dart';
 import 'http_service.dart';
 import 'media_transport.dart';
+import 'network_client.dart';
+import 'public_media_address.dart';
 
 /// A credential-free native media session. It owns a client rather than the
 /// source HTTP service, so cookies, authentication and redirects stay isolated.
-class NativeMedia implements MediaTransport {
+class NativeMedia implements MediaTransport, MediaSessionAuthority {
   NativeMedia(
     this.policy, {
     Map<String, String> headers = const {},
     Dio? client,
   }) : headers = policy.requestHeaders(headers),
-       _client = client ?? _build();
+       _proxy = AppSettings.instance.proxy,
+       _client = client ?? _build(policy, AppSettings.instance.proxy);
   final MediaPolicy policy;
   final Map<String, String> headers;
   final Dio _client;
+  final String _proxy;
   final _requests = <CancelToken>{};
   bool _closed = false;
 
-  static Dio _build() {
+  static Dio _build(MediaPolicy policy, String proxy) {
     final dio = Dio(BaseOptions(connectTimeout: const Duration(seconds: 15)));
     dio.httpClientAdapter = IOHttpClientAdapter(
-      createHttpClient: () =>
-          createHttpClient(proxy: AppSettings.instance.proxy),
+      createHttpClient: () {
+        final client = createHttpClient(proxy: proxy);
+        if (policy.session) {
+          client.connectionFactory = (uri, proxyHost, proxyPort) async {
+            if (proxyHost != null) {
+              return Socket.startConnect(proxyHost, proxyPort!);
+            }
+            final addresses = await publicMediaAddresses(uri.host);
+            return Socket.startConnect(addresses.first, uri.port);
+          };
+        }
+        return client;
+      },
     );
     return dio;
   }
+
+  @override
+  void authorize(Uri url) => policy.authorize(url);
 
   @override
   void validate(Uri url) => policy.validate(url);
@@ -116,6 +134,9 @@ class NativeMedia implements MediaTransport {
       for (var hop = 0; hop < 8; hop++) {
         _check(token);
         validate(target);
+        if (policy.session && _proxy.isEmpty) {
+          await publicMediaAddresses(target.host);
+        }
         final requestToken = CancelToken();
         final requestCancellation = token.whenCancel.asStream().listen(
           requestToken.cancel,
@@ -149,6 +170,7 @@ class NativeMedia implements MediaTransport {
             final location = response.headers.value('location');
             if (location == null) throw SourceError('NETWORK', '媒体重定向地址缺失');
             target = target.resolve(location);
+            policy.authorize(target);
             validate(target);
             continue;
           }
@@ -183,6 +205,7 @@ class NativeMedia implements MediaTransport {
     for (final token in _requests.toList()) {
       token.cancel('media closed');
     }
+    policy.revokeSession();
     _client.close(force: true);
   }
 }
