@@ -8,7 +8,7 @@
       "version": "0.0.5",
       "description": "中文本子与韩漫资源丰富，支持连载分话、自动切换线路与图片还原",
       "category": "doujin",
-      "url": "https://raw.githubusercontent.com/drdon1234/Hentai-Park/464168100e5a967c662e65a23d030b0b5d615ef5/assets/sources/jm.js",
+      "url": "https://raw.githubusercontent.com/drdon1234/Hentai-Park/68b44d5a15287b022a2d137fe1e700dadb13521a/assets/sources/jm.js",
       "sha256": "ff4e846dcbcbaca2050ba51c03ec93553901ab5ed90425afe0f8f94c2721911a",
       "apiVersion": 1
     },
@@ -18,7 +18,7 @@
       "version": "0.0.5",
       "description": "历史最悠久的画廊站，标签体系完善；登录后可切换里站 ExHentai",
       "category": "doujin",
-      "url": "https://raw.githubusercontent.com/drdon1234/Hentai-Park/464168100e5a967c662e65a23d030b0b5d615ef5/assets/sources/ehentai.js",
+      "url": "https://raw.githubusercontent.com/drdon1234/Hentai-Park/68b44d5a15287b022a2d137fe1e700dadb13521a/assets/sources/ehentai.js",
       "sha256": "8206157444379f1612bf91385a2ab15ba88771800531717e90f2fa8ecdd82cb3",
       "apiVersion": 1
     },
@@ -28,7 +28,7 @@
       "version": "0.0.5",
       "description": "海量同人志，官方 API，支持标签语法与语言过滤",
       "category": "doujin",
-      "url": "https://raw.githubusercontent.com/drdon1234/Hentai-Park/464168100e5a967c662e65a23d030b0b5d615ef5/assets/sources/nhentai.js",
+      "url": "https://raw.githubusercontent.com/drdon1234/Hentai-Park/68b44d5a15287b022a2d137fe1e700dadb13521a/assets/sources/nhentai.js",
       "sha256": "d33434891f3392f74a309acab78c0a6a21182f5bb618e096cd97c0f0db84f585",
       "apiVersion": 1
     },
@@ -38,7 +38,7 @@
       "version": "0.0.6",
       "description": "分区丰富的老牌漫画社区，支持多话连载（需要账号）",
       "category": "doujin",
-      "url": "https://raw.githubusercontent.com/drdon1234/Hentai-Park/464168100e5a967c662e65a23d030b0b5d615ef5/assets/sources/pica.js",
+      "url": "https://raw.githubusercontent.com/drdon1234/Hentai-Park/68b44d5a15287b022a2d137fe1e700dadb13521a/assets/sources/pica.js",
       "sha256": "808ca0b440b8dc6cd6567723aeac93001d2031d1c9e5bd2d3cdb3afcff6497cc",
       "apiVersion": 1
     },
@@ -48,7 +48,7 @@
       "version": "0.0.4",
       "description": "汉化漫画与图集，支持多话合集和自动切换线路",
       "category": "doujin",
-      "url": "https://raw.githubusercontent.com/drdon1234/Hentai-Park/464168100e5a967c662e65a23d030b0b5d615ef5/assets/sources/wnacg.js",
+      "url": "https://raw.githubusercontent.com/drdon1234/Hentai-Park/68b44d5a15287b022a2d137fe1e700dadb13521a/assets/sources/wnacg.js",
       "sha256": "e13557667716d9261eba0e14981a711222dc35d5c98f19c0a5cabebebc9d6aa6",
       "apiVersion": 1
     },
@@ -58,7 +58,7 @@
       "version": "0.0.4",
       "description": "插画与漫画社区，支持个性化推荐、排行、搜索和多页原图阅读",
       "category": "doujin",
-      "url": "https://raw.githubusercontent.com/drdon1234/Hentai-Park/464168100e5a967c662e65a23d030b0b5d615ef5/assets/sources/pixiv.js",
+      "url": "https://raw.githubusercontent.com/drdon1234/Hentai-Park/68b44d5a15287b022a2d137fe1e700dadb13521a/assets/sources/pixiv.js",
       "sha256": "aa528e4a2a83f4bf9ed761891b15c31bdd7d5723db0178a27a6d885af79efc98",
       "apiVersion": 1
     },
@@ -68,7 +68,7 @@
       "version": "0.0.3",
       "description": "Cosplay 与写真图集，支持推荐、分类与搜索",
       "category": "gallery",
-      "url": "https://raw.githubusercontent.com/drdon1234/Hentai-Park/464168100e5a967c662e65a23d030b0b5d615ef5/assets/sources/pixibb.js",
+      "url": "https://raw.githubusercontent.com/drdon1234/Hentai-Park/68b44d5a15287b022a2d137fe1e700dadb13521a/assets/sources/pixibb.js",
       "sha256": "7da25df1751e997ddf3d72bbd1328d3096c6e4185a673713140e4d48867e5633",
       "apiVersion": 1
     },
@@ -78,7 +78,7 @@
       "version": "0.0.3",
       "description": "工作室写真图集，支持热门、模特搜索与整套阅读",
       "category": "gallery",
-      "url": "https://raw.githubusercontent.com/drdon1234/Hentai-Park/464168100e5a967c662e65a23d030b0b5d615ef5/assets/sources/xiuren.js",
+      "url": "https://raw.githubusercontent.com/drdon1234/Hentai-Park/68b44d5a15287b022a2d137fe1e700dadb13521a/assets/sources/xiuren.js",
       "sha256": "b0d8e001e7c68a8d5dea28d8ae0ee7ded6c817a956b7e0b4b43be338b6a5baea",
       "apiVersion": 1
     },
@@ -88,7 +88,7 @@
       "version": "0.0.3",
       "description": "Cosplay 写真图集，支持热门、角色搜索与整套阅读",
       "category": "gallery",
-      "url": "https://raw.githubusercontent.com/drdon1234/Hentai-Park/464168100e5a967c662e65a23d030b0b5d615ef5/assets/sources/cosplaytele.js",
+      "url": "https://raw.githubusercontent.com/drdon1234/Hentai-Park/68b44d5a15287b022a2d137fe1e700dadb13521a/assets/sources/cosplaytele.js",
       "sha256": "55221edd92dfe5524d36c86c80e0e6b449250bfb18b463b295b768b0a72fad7f",
       "apiVersion": 1
     },
@@ -98,7 +98,7 @@
       "version": "0.0.3",
       "description": "Cosplay 写真图集，支持总热门、月热门与周热门",
       "category": "gallery",
-      "url": "https://raw.githubusercontent.com/drdon1234/Hentai-Park/464168100e5a967c662e65a23d030b0b5d615ef5/assets/sources/nudecosplay.js",
+      "url": "https://raw.githubusercontent.com/drdon1234/Hentai-Park/68b44d5a15287b022a2d137fe1e700dadb13521a/assets/sources/nudecosplay.js",
       "sha256": "691375f622898fe5dddb2b258aa2b21185e92947e42a47791d307f761609b66f",
       "apiVersion": 1
     },
@@ -108,7 +108,7 @@
       "version": "0.0.4",
       "description": "里番、泡面番与 3D 动画，支持多清晰度在线播放与下载",
       "category": "anime",
-      "url": "https://raw.githubusercontent.com/drdon1234/Hentai-Park/464168100e5a967c662e65a23d030b0b5d615ef5/assets/sources/hanime1.js",
+      "url": "https://raw.githubusercontent.com/drdon1234/Hentai-Park/68b44d5a15287b022a2d137fe1e700dadb13521a/assets/sources/hanime1.js",
       "sha256": "b2990f6519842955470051e54b2ca07eaea7c4cda73b62a800a6fc892f099cd5",
       "apiVersion": 1
     },
@@ -118,7 +118,7 @@
       "version": "0.0.4",
       "description": "真人成人视频，支持多清晰度播放与安卓离线下载",
       "category": "jav",
-      "url": "https://raw.githubusercontent.com/drdon1234/Hentai-Park/464168100e5a967c662e65a23d030b0b5d615ef5/assets/sources/missav.js",
+      "url": "https://raw.githubusercontent.com/drdon1234/Hentai-Park/68b44d5a15287b022a2d137fe1e700dadb13521a/assets/sources/missav.js",
       "sha256": "48c20cfe6d32484bdf17570448789a4d5737755e5703ee94b1fb82a6646b7b49",
       "apiVersion": 1
     },
@@ -128,7 +128,7 @@
       "version": "0.0.4",
       "description": "JAV 视频，支持热门、搜索与 HLS 播放",
       "category": "jav",
-      "url": "https://raw.githubusercontent.com/drdon1234/Hentai-Park/464168100e5a967c662e65a23d030b0b5d615ef5/assets/sources/jable.js",
+      "url": "https://raw.githubusercontent.com/drdon1234/Hentai-Park/68b44d5a15287b022a2d137fe1e700dadb13521a/assets/sources/jable.js",
       "sha256": "947816b28568a73f6e5ad28e17008edd157fe06e91be9bf61e68bba615d5f71d",
       "apiVersion": 1
     },
@@ -138,7 +138,7 @@
       "version": "0.0.4",
       "description": "JAV 视频，支持热门、搜索与 FST 线路播放",
       "category": "jav",
-      "url": "https://raw.githubusercontent.com/drdon1234/Hentai-Park/464168100e5a967c662e65a23d030b0b5d615ef5/assets/sources/supjav.js",
+      "url": "https://raw.githubusercontent.com/drdon1234/Hentai-Park/68b44d5a15287b022a2d137fe1e700dadb13521a/assets/sources/supjav.js",
       "sha256": "780228e06534df1db5f9592244a264cb5279d9742ec0e95b64935bd265f7223e",
       "apiVersion": 1
     },
@@ -148,7 +148,7 @@
       "version": "0.0.5",
       "description": "JAV 视频，支持推荐、热门、搜索与 HLS 播放",
       "category": "jav",
-      "url": "https://raw.githubusercontent.com/drdon1234/Hentai-Park/464168100e5a967c662e65a23d030b0b5d615ef5/assets/sources/av123.js",
+      "url": "https://raw.githubusercontent.com/drdon1234/Hentai-Park/68b44d5a15287b022a2d137fe1e700dadb13521a/assets/sources/av123.js",
       "sha256": "36a9dce2dc186700efbbcb60931f1ed6011805ec32d6597cdf39f7a4aac81519",
       "apiVersion": 1
     },
@@ -158,7 +158,7 @@
       "version": "0.0.3",
       "description": "综合成人视频，支持推荐、搜索和多清晰度播放",
       "category": "adult",
-      "url": "https://raw.githubusercontent.com/drdon1234/Hentai-Park/464168100e5a967c662e65a23d030b0b5d615ef5/assets/sources/pornhub.js",
+      "url": "https://raw.githubusercontent.com/drdon1234/Hentai-Park/68b44d5a15287b022a2d137fe1e700dadb13521a/assets/sources/pornhub.js",
       "sha256": "f9daf55d936537db12db15aa9c9b3161b2824a587df21d68233ffd4f8b145c12",
       "apiVersion": 1
     },
@@ -168,7 +168,7 @@
       "version": "0.0.3",
       "description": "综合成人视频，支持排行、搜索和高清播放",
       "category": "adult",
-      "url": "https://raw.githubusercontent.com/drdon1234/Hentai-Park/464168100e5a967c662e65a23d030b0b5d615ef5/assets/sources/xvideos.js",
+      "url": "https://raw.githubusercontent.com/drdon1234/Hentai-Park/68b44d5a15287b022a2d137fe1e700dadb13521a/assets/sources/xvideos.js",
       "sha256": "cc5bdd6375eb8f805cacec7a466dd65dc41e7f4bf6cc507d5d306ecc9ab8306d",
       "apiVersion": 1
     },
@@ -178,7 +178,7 @@
       "version": "0.0.3",
       "description": "成人视频，支持热门、搜索和多清晰度 MP4 播放",
       "category": "adult",
-      "url": "https://raw.githubusercontent.com/drdon1234/Hentai-Park/464168100e5a967c662e65a23d030b0b5d615ef5/assets/sources/thumbzilla.js",
+      "url": "https://raw.githubusercontent.com/drdon1234/Hentai-Park/68b44d5a15287b022a2d137fe1e700dadb13521a/assets/sources/thumbzilla.js",
       "sha256": "0ce1ece4b0553810bb2ddfc4aead679354cd553c9454d4cdf08047dbcca3d116",
       "apiVersion": 1
     },
@@ -188,7 +188,7 @@
       "version": "0.0.3",
       "description": "成人视频社区，支持推荐、搜索和原画播放",
       "category": "adult",
-      "url": "https://raw.githubusercontent.com/drdon1234/Hentai-Park/464168100e5a967c662e65a23d030b0b5d615ef5/assets/sources/porn91.js",
+      "url": "https://raw.githubusercontent.com/drdon1234/Hentai-Park/68b44d5a15287b022a2d137fe1e700dadb13521a/assets/sources/porn91.js",
       "sha256": "edc91897f6132a9c45f375843b2fe337234ae269b9c3a9dddc2e8ae78b4a3b6d",
       "apiVersion": 1
     },
@@ -198,7 +198,7 @@
       "version": "0.0.6",
       "description": "综合成人视频搜索，支持排行、分页与原站打开",
       "category": "adult",
-      "url": "https://raw.githubusercontent.com/drdon1234/Hentai-Park/464168100e5a967c662e65a23d030b0b5d615ef5/assets/sources/ixxx.js",
+      "url": "https://raw.githubusercontent.com/drdon1234/Hentai-Park/68b44d5a15287b022a2d137fe1e700dadb13521a/assets/sources/ixxx.js",
       "sha256": "c063aa991915a248a9f52b1db856aaefc321f433edf9df480594d390411cddf7",
       "apiVersion": 1
     },
@@ -208,7 +208,7 @@
       "version": "0.0.3",
       "description": "综合成人视频搜索，支持热门、分页与原站打开",
       "category": "adult",
-      "url": "https://raw.githubusercontent.com/drdon1234/Hentai-Park/464168100e5a967c662e65a23d030b0b5d615ef5/assets/sources/tubesafari.js",
+      "url": "https://raw.githubusercontent.com/drdon1234/Hentai-Park/68b44d5a15287b022a2d137fe1e700dadb13521a/assets/sources/tubesafari.js",
       "sha256": "f2b3d134f92a8d886624003985122f7f2f54774fee835c89d52d6a1f77286155",
       "apiVersion": 1
     },
@@ -218,7 +218,7 @@
       "version": "0.0.3",
       "description": "竖屏短视频推荐，上下滑动连续播放",
       "category": "shortvideo",
-      "url": "https://raw.githubusercontent.com/drdon1234/Hentai-Park/464168100e5a967c662e65a23d030b0b5d615ef5/assets/sources/shorties.js",
+      "url": "https://raw.githubusercontent.com/drdon1234/Hentai-Park/68b44d5a15287b022a2d137fe1e700dadb13521a/assets/sources/shorties.js",
       "sha256": "deceefe1623f6f2e65cb4f4e2517643b42ed19b102249c07a0b838a5b2f3b09c",
       "apiVersion": 1
     },
@@ -228,7 +228,7 @@
       "version": "0.0.3",
       "description": "竖屏短视频推荐，支持连续播放和搜索",
       "category": "shortvideo",
-      "url": "https://raw.githubusercontent.com/drdon1234/Hentai-Park/464168100e5a967c662e65a23d030b0b5d615ef5/assets/sources/tikporn.js",
+      "url": "https://raw.githubusercontent.com/drdon1234/Hentai-Park/68b44d5a15287b022a2d137fe1e700dadb13521a/assets/sources/tikporn.js",
       "sha256": "97dd139818750feed4d7334eac8eefa8307a184f26de4eea2052738e33dce087",
       "apiVersion": 1
     },
@@ -238,38 +238,38 @@
       "version": "0.0.3",
       "description": "竖屏短视频，支持连续播放和搜索",
       "category": "shortvideo",
-      "url": "https://raw.githubusercontent.com/drdon1234/Hentai-Park/464168100e5a967c662e65a23d030b0b5d615ef5/assets/sources/fyptt.js",
+      "url": "https://raw.githubusercontent.com/drdon1234/Hentai-Park/68b44d5a15287b022a2d137fe1e700dadb13521a/assets/sources/fyptt.js",
       "sha256": "067ed49133543d4ff782128572678e1997ac0e826462ff425edaaf788d6a810a",
       "apiVersion": 1
     },
     {
       "key": "huangguo",
       "name": "黄果短剧",
-      "version": "0.0.7",
+      "version": "0.0.8",
       "description": "AI短剧与漫剧，支持分类、排行、搜索和分集播放",
       "category": "aiDrama",
-      "url": "https://raw.githubusercontent.com/drdon1234/Hentai-Park/464168100e5a967c662e65a23d030b0b5d615ef5/assets/sources/huangguo.js",
-      "sha256": "710f2d736768770a5b2bca087feec378fdef24722b44ff97755f9e5489ff24f0",
+      "url": "https://raw.githubusercontent.com/drdon1234/Hentai-Park/68b44d5a15287b022a2d137fe1e700dadb13521a/assets/sources/huangguo.js",
+      "sha256": "22906942011a8232b59693e3e701be07fce59dc360b8adacb0d5dc389ff325f4",
       "apiVersion": 1
     },
     {
       "key": "drama91",
       "name": "91短剧",
-      "version": "0.0.6",
+      "version": "0.0.7",
       "description": "AI短剧、漫剧与视频，支持推荐、分类、搜索和分集播放",
       "category": "aiDrama",
-      "url": "https://raw.githubusercontent.com/drdon1234/Hentai-Park/464168100e5a967c662e65a23d030b0b5d615ef5/assets/sources/drama91.js",
-      "sha256": "c1bb773f9a2b9530e2a7832fa50781fe940ed72630e993865ccd6b52d84e7424",
+      "url": "https://raw.githubusercontent.com/drdon1234/Hentai-Park/68b44d5a15287b022a2d137fe1e700dadb13521a/assets/sources/drama91.js",
+      "sha256": "00da0650d967e53b57a7fedcdb676017098b44a7184c94c74fb244f57275dbf4",
       "apiVersion": 1
     },
     {
       "key": "huangdou",
       "name": "黄豆短剧",
-      "version": "0.0.6",
+      "version": "0.0.7",
       "description": "AI短剧与漫剧，支持分类、排行、搜索和分集播放",
       "category": "aiDrama",
-      "url": "https://raw.githubusercontent.com/drdon1234/Hentai-Park/464168100e5a967c662e65a23d030b0b5d615ef5/assets/sources/huangdou.js",
-      "sha256": "08be8495537c841e73493ce41150e9a0f8129bd3315b7e88b3ccf824074e24ac",
+      "url": "https://raw.githubusercontent.com/drdon1234/Hentai-Park/68b44d5a15287b022a2d137fe1e700dadb13521a/assets/sources/huangdou.js",
+      "sha256": "30545003bdbea97762e616d6e98020780fbf77f575a73cac0781838b75fcec91",
       "apiVersion": 1
     },
     {
@@ -278,7 +278,7 @@
       "version": "0.0.4",
       "description": "禁忌书屋小说版，支持精华、热帖、搜索与正文阅读",
       "category": "novel",
-      "url": "https://raw.githubusercontent.com/drdon1234/Hentai-Park/464168100e5a967c662e65a23d030b0b5d615ef5/assets/sources/cool18.js",
+      "url": "https://raw.githubusercontent.com/drdon1234/Hentai-Park/68b44d5a15287b022a2d137fe1e700dadb13521a/assets/sources/cool18.js",
       "sha256": "1b8712715e1ece064c604543a8083c3e9cc4d2f5d19be0745e777c4c34b692f2",
       "apiVersion": 1
     },
@@ -288,7 +288,7 @@
       "version": "0.0.4",
       "description": "中文长篇与短篇小说，支持推荐、搜索、目录和正文阅读",
       "category": "novel",
-      "url": "https://raw.githubusercontent.com/drdon1234/Hentai-Park/464168100e5a967c662e65a23d030b0b5d615ef5/assets/sources/book18.js",
+      "url": "https://raw.githubusercontent.com/drdon1234/Hentai-Park/68b44d5a15287b022a2d137fe1e700dadb13521a/assets/sources/book18.js",
       "sha256": "f1fafb8d04b16ee0420a020112153ea0d1a3ec7cbd8fdedb6bb7217c600e6bf3",
       "apiVersion": 1
     },
@@ -298,7 +298,7 @@
       "version": "0.0.4",
       "description": "中文短篇与分篇小说，支持搜索和正文阅读",
       "category": "novel",
-      "url": "https://raw.githubusercontent.com/drdon1234/Hentai-Park/464168100e5a967c662e65a23d030b0b5d615ef5/assets/sources/canovel.js",
+      "url": "https://raw.githubusercontent.com/drdon1234/Hentai-Park/68b44d5a15287b022a2d137fe1e700dadb13521a/assets/sources/canovel.js",
       "sha256": "646a029ea2597f36e89d9849af512c2389f913b35d079be332db20c9b417df25",
       "apiVersion": 1
     },
@@ -308,7 +308,7 @@
       "version": "0.0.4",
       "description": "英文小说与系列故事，支持排行、搜索和完整正文分页",
       "category": "novel",
-      "url": "https://raw.githubusercontent.com/drdon1234/Hentai-Park/464168100e5a967c662e65a23d030b0b5d615ef5/assets/sources/literotica.js",
+      "url": "https://raw.githubusercontent.com/drdon1234/Hentai-Park/68b44d5a15287b022a2d137fe1e700dadb13521a/assets/sources/literotica.js",
       "sha256": "6068542b4a2ddeb66c6fefa069dec1ef415fbb0203572afe20e1f76223213a0a",
       "apiVersion": 1
     },
@@ -318,7 +318,7 @@
       "version": "0.0.4",
       "description": "英文小说社区，支持推荐、搜索与正文阅读",
       "category": "novel",
-      "url": "https://raw.githubusercontent.com/drdon1234/Hentai-Park/464168100e5a967c662e65a23d030b0b5d615ef5/assets/sources/lushstories.js",
+      "url": "https://raw.githubusercontent.com/drdon1234/Hentai-Park/68b44d5a15287b022a2d137fe1e700dadb13521a/assets/sources/lushstories.js",
       "sha256": "1b3214e6ca84a234c71b116e3c0578c71085dbeac168b51ce4df02265db5377d",
       "apiVersion": 1
     },
@@ -328,7 +328,7 @@
       "version": "0.0.5",
       "description": "英文长短篇与连载小说，支持推荐、搜索与章节目录；部分正文需要登录",
       "category": "novel",
-      "url": "https://raw.githubusercontent.com/drdon1234/Hentai-Park/464168100e5a967c662e65a23d030b0b5d615ef5/assets/sources/storiesonline.js",
+      "url": "https://raw.githubusercontent.com/drdon1234/Hentai-Park/68b44d5a15287b022a2d137fe1e700dadb13521a/assets/sources/storiesonline.js",
       "sha256": "378b2954fffebfb8c4597a1a94046e1d4cbb540b7292f50112b7af841de1f3f5",
       "apiVersion": 1
     },
@@ -338,7 +338,7 @@
       "version": "0.0.5",
       "description": "游戏目录、版本资源与直链和网盘渠道",
       "category": "game",
-      "url": "https://raw.githubusercontent.com/drdon1234/Hentai-Park/464168100e5a967c662e65a23d030b0b5d615ef5/assets/sources/galgamex.js",
+      "url": "https://raw.githubusercontent.com/drdon1234/Hentai-Park/68b44d5a15287b022a2d137fe1e700dadb13521a/assets/sources/galgamex.js",
       "sha256": "892e3fc331d829c0ee26715826b48c6f3e7a46015b64b631ef3492f1790b7c23",
       "apiVersion": 1
     },
@@ -348,7 +348,7 @@
       "version": "0.0.5",
       "description": "游戏排行、搜索及社区分享资源",
       "category": "game",
-      "url": "https://raw.githubusercontent.com/drdon1234/Hentai-Park/464168100e5a967c662e65a23d030b0b5d615ef5/assets/sources/kungal.js",
+      "url": "https://raw.githubusercontent.com/drdon1234/Hentai-Park/68b44d5a15287b022a2d137fe1e700dadb13521a/assets/sources/kungal.js",
       "sha256": "f92fab1be4914e791fc56dfebae64852258d09b4ea3427699c157893dd1036c6",
       "apiVersion": 1
     },
@@ -358,7 +358,7 @@
       "version": "0.0.3",
       "description": "社区游戏分享，登录后按需回复解锁网盘资源",
       "category": "game",
-      "url": "https://raw.githubusercontent.com/drdon1234/Hentai-Park/464168100e5a967c662e65a23d030b0b5d615ef5/assets/sources/cycg.js",
+      "url": "https://raw.githubusercontent.com/drdon1234/Hentai-Park/68b44d5a15287b022a2d137fe1e700dadb13521a/assets/sources/cycg.js",
       "sha256": "26ad703b5579aea807db7e28503c6617755c0853015a5bd292b96c66a89ecd50",
       "apiVersion": 1
     },
@@ -368,7 +368,7 @@
       "version": "0.0.3",
       "description": "创作者订阅，公开目录与封面预览",
       "category": "other",
-      "url": "https://raw.githubusercontent.com/drdon1234/Hentai-Park/464168100e5a967c662e65a23d030b0b5d615ef5/assets/sources/fanbox.js",
+      "url": "https://raw.githubusercontent.com/drdon1234/Hentai-Park/68b44d5a15287b022a2d137fe1e700dadb13521a/assets/sources/fanbox.js",
       "sha256": "1b5dd4a82d97b34a9ec908a9ca952432c55f70933dccadf7b71bf1b1802d217a",
       "apiVersion": 1
     },
@@ -378,7 +378,7 @@
       "version": "0.0.5",
       "description": "登录后浏览推荐、图集、视频集和站内搜索，支持公开用户订阅",
       "category": "other",
-      "url": "https://raw.githubusercontent.com/drdon1234/Hentai-Park/464168100e5a967c662e65a23d030b0b5d615ef5/assets/sources/x.js",
+      "url": "https://raw.githubusercontent.com/drdon1234/Hentai-Park/68b44d5a15287b022a2d137fe1e700dadb13521a/assets/sources/x.js",
       "sha256": "355bb738c19759ba6d12ad104b50527378c2d31cc5ff7c648277061f47d14452",
       "apiVersion": 1
     },
@@ -388,7 +388,7 @@
       "version": "0.0.4",
       "description": "频道订阅，公开预览与已有授权会话访问",
       "category": "other",
-      "url": "https://raw.githubusercontent.com/drdon1234/Hentai-Park/464168100e5a967c662e65a23d030b0b5d615ef5/assets/sources/telegram.js",
+      "url": "https://raw.githubusercontent.com/drdon1234/Hentai-Park/68b44d5a15287b022a2d137fe1e700dadb13521a/assets/sources/telegram.js",
       "sha256": "904386e2cdb91bba2f942c993d184426a1ec4e20e7accc0a210fd8bb5c3c4eec",
       "apiVersion": 1
     },
@@ -398,7 +398,7 @@
       "version": "0.0.4",
       "description": "创作者订阅，公开图片、视频及视频预览",
       "category": "other",
-      "url": "https://raw.githubusercontent.com/drdon1234/Hentai-Park/464168100e5a967c662e65a23d030b0b5d615ef5/assets/sources/myfans.js",
+      "url": "https://raw.githubusercontent.com/drdon1234/Hentai-Park/68b44d5a15287b022a2d137fe1e700dadb13521a/assets/sources/myfans.js",
       "sha256": "d39f4262ca19f2375fed63034fad3bf26a69bab5471d3be9795511a9663df44f",
       "apiVersion": 1
     },
@@ -408,7 +408,7 @@
       "version": "0.0.3",
       "description": "里番目录、排行与搜索；播放需打开原站",
       "category": "anime",
-      "url": "https://raw.githubusercontent.com/drdon1234/Hentai-Park/464168100e5a967c662e65a23d030b0b5d615ef5/assets/sources/hanime.js",
+      "url": "https://raw.githubusercontent.com/drdon1234/Hentai-Park/68b44d5a15287b022a2d137fe1e700dadb13521a/assets/sources/hanime.js",
       "sha256": "dfcc3ca178dc08612743342681bf08c90e998bdce186e27b0ddc508714af6f0d",
       "apiVersion": 1
     },
@@ -418,7 +418,7 @@
       "version": "0.0.3",
       "description": "同人动画与游戏角色短片，支持评分榜、搜索和多清晰度 MP4",
       "category": "anime",
-      "url": "https://raw.githubusercontent.com/drdon1234/Hentai-Park/464168100e5a967c662e65a23d030b0b5d615ef5/assets/sources/rule34video.js",
+      "url": "https://raw.githubusercontent.com/drdon1234/Hentai-Park/68b44d5a15287b022a2d137fe1e700dadb13521a/assets/sources/rule34video.js",
       "sha256": "aa10354031720472c7c6035d94c7627659799ad7e2624d9c395836b57c2ab760",
       "apiVersion": 1
     },
@@ -428,7 +428,7 @@
       "version": "0.0.3",
       "description": "国际写真图集，支持评分榜、热门、搜索与整套原图阅读",
       "category": "gallery",
-      "url": "https://raw.githubusercontent.com/drdon1234/Hentai-Park/464168100e5a967c662e65a23d030b0b5d615ef5/assets/sources/pornpics.js",
+      "url": "https://raw.githubusercontent.com/drdon1234/Hentai-Park/68b44d5a15287b022a2d137fe1e700dadb13521a/assets/sources/pornpics.js",
       "sha256": "51e80ecf18af99bc412ac21ab966893e24ca0ea950565c7d3431c2934c7fe3f7",
       "apiVersion": 1
     },
@@ -438,7 +438,7 @@
       "version": "0.0.4",
       "description": "综合成人视频，支持推荐、搜索与多清晰度MP4；可能需浏览器确认",
       "category": "adult",
-      "url": "https://raw.githubusercontent.com/drdon1234/Hentai-Park/464168100e5a967c662e65a23d030b0b5d615ef5/assets/sources/spankbang.js",
+      "url": "https://raw.githubusercontent.com/drdon1234/Hentai-Park/68b44d5a15287b022a2d137fe1e700dadb13521a/assets/sources/spankbang.js",
       "sha256": "872645576fcee67900accbe0f960c3a6c5ba7180bcd84208808053b043534458",
       "apiVersion": 1
     },
@@ -448,7 +448,7 @@
       "version": "0.0.3",
       "description": "中文短篇小说，支持最新与分类阅读；站点无有效搜索",
       "category": "novel",
-      "url": "https://raw.githubusercontent.com/drdon1234/Hentai-Park/464168100e5a967c662e65a23d030b0b5d615ef5/assets/sources/story69.js",
+      "url": "https://raw.githubusercontent.com/drdon1234/Hentai-Park/68b44d5a15287b022a2d137fe1e700dadb13521a/assets/sources/story69.js",
       "sha256": "72cfde48bcdb8858871bea1b3e16fdd7c6cb212c1172fca484bfd5352285c9fe",
       "apiVersion": 1
     }
