@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 
+import '../core/async_tasks.dart';
 import '../core/localization.dart';
 import '../core/models.dart';
 import '../core/settings.dart';
@@ -238,7 +239,7 @@ class SourceUpdater extends ChangeNotifier {
     };
     try {
       await _ready();
-      for (final candidate in candidates) {
+      await forEachConcurrent(candidates, 3, (candidate) async {
         final entry = candidate.entry;
         try {
           _validateCandidate(candidate);
@@ -251,7 +252,7 @@ class SourceUpdater extends ChangeNotifier {
         } catch (error) {
           failures[entry.name] = _describe(error);
         }
-      }
+      });
     } catch (error) {
       failures[tr('官方站点仓库')] = _describe(error);
     }

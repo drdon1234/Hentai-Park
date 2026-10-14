@@ -118,6 +118,7 @@ mixin _SourceInstaller on _SourceRegistry {
         expectedVersion: expectedVersion,
         expectedOrigin: expectedOrigin,
       ),
+      key: preview.key,
     );
   }
 
@@ -128,13 +129,13 @@ mixin _SourceInstaller on _SourceRegistry {
     required String? expectedVersion,
     required String? expectedOrigin,
   }) async {
-    final journalFile = AppPaths.dataFile('source_install.json');
-    if (await journalFile.exists()) {
-      throw SourceError('CONFIG', '上次站点更新尚未恢复，请重启应用后重试');
-    }
     final key = preview.key;
     if (!isSourceKey(key) || sha256Hex(preview.code) != preview.sha256) {
       throw SourceError('CONFIG', '站点脚本的标识或校验值无效');
+    }
+    final journalFile = AppPaths.dataFile('source_install_$key.json');
+    if (await journalFile.exists()) {
+      throw SourceError('CONFIG', '上次站点更新尚未恢复，请重启应用后重试');
     }
     final existing = _sources[key];
     if (official &&
@@ -258,12 +259,25 @@ mixin _SourceInstaller on _SourceRegistry {
 
   @override
   Future<void> _recoverInstall() async {
-    final file = AppPaths.dataFile('source_install.json');
-    if (!await file.exists()) return;
-    final journal = (jsonDecode(await file.readAsString()) as Map)
-        .cast<String, dynamic>();
-    await _restoreInstall(journal);
-    await file.delete();
+    final files = await AppPaths.data.list().where((entry) {
+      final name = p.basename(entry.path);
+      return entry is File &&
+          (name == 'source_install.json' ||
+              name.startsWith('source_install_') && name.endsWith('.json'));
+    }).toList();
+    for (final entry in files) {
+      final file = entry as File;
+      final journal = (jsonDecode(await file.readAsString()) as Map)
+          .cast<String, dynamic>();
+      final key = journal['key'];
+      if (!isSourceKey(key) ||
+          (p.basename(file.path) != 'source_install.json' &&
+              p.basename(file.path) != 'source_install_$key.json')) {
+        throw SourceError('CONFIG', '站点脚本的标识或校验值无效');
+      }
+      await _restoreInstall(journal);
+      await file.delete();
+    }
   }
 
   /// Removes a source together with everything it stored: runtime, settings, private store and cookies.
@@ -285,7 +299,7 @@ mixin _SourceInstaller on _SourceRegistry {
     _saveRegistry();
     _manifestChanges.add({key});
     notifyListeners();
-  });
+  }, key: key);
 
   /// Restores a built-in source to the bundled version.
   Future<void> resetBuiltin(String key) => _mutate(() async {
@@ -327,5 +341,5 @@ mixin _SourceInstaller on _SourceRegistry {
     _saveRegistry();
     await _registry.flush();
     notifyListeners();
-  });
+  }, key: key);
 }

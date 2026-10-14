@@ -20,6 +20,7 @@ import '../images/subscription_cache.dart';
 import '../subscriptions/context_identity.dart';
 import '../subscriptions/models.dart';
 import '../video/hls_sources.dart';
+import 'cancellation.dart';
 import 'cookie_store.dart';
 import 'domains.dart';
 import 'home_cache.dart';
@@ -78,6 +79,7 @@ abstract class _SourceRegistry extends ChangeNotifier {
   final _readRequests = <String, Set<CancelToken>>{};
   final _backgroundFeeds = <String, Set<CancelToken>>{};
   final _sourceMutations = <String, SerialExecutor>{};
+  final _changingSources = <String>{};
   final _attachmentWrites = <String, SerialExecutor>{};
 
   final _registry = JsonStore('sources.json');
@@ -278,7 +280,12 @@ abstract class _SourceRegistry extends ChangeNotifier {
         await Future.wait(
           _activeBySource[key]?.toList() ?? const <Future<void>>[],
         );
-        return action();
+        _changingSources.add(key);
+        try {
+          return await action();
+        } finally {
+          _changingSources.remove(key);
+        }
       });
     }
     final pendingLocal = _sourceMutations.values.map((q) => q.settled).toList();

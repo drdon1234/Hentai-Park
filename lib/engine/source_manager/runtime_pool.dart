@@ -148,7 +148,9 @@ mixin _RuntimePool on _SourceRegistry {
   /// [_maxRuntimes]. A runtime with calls in flight is never released.
   void _trimRuntimes({DateTime? now}) {
     now ??= DateTime.now();
-    bool idle(String key) => _activeBySource[key]?.isEmpty ?? true;
+    bool idle(String key) =>
+        !_changingSources.contains(key) &&
+        (_activeBySource[key]?.isEmpty ?? true);
     final running = _activations.keys.where(idle).toList()
       ..sort(
         (a, b) => (_lastUsed[a] ?? DateTime(0)).compareTo(
@@ -180,12 +182,12 @@ mixin _RuntimePool on _SourceRegistry {
     CancelToken? cancelToken,
   }) async {
     if (cancelToken?.cancelError case final error?) throw error;
-    await ready;
+    await awaitCancelled(ready, cancelToken);
     while (true) {
       final pending = _mutations.settled;
       final local = _sourceMutations[key]?.settled;
-      await pending;
-      await local;
+      await awaitCancelled(pending, cancelToken);
+      if (local != null) await awaitCancelled(local, cancelToken);
       if (identical(pending, _mutations.settled) &&
           identical(local, _sourceMutations[key]?.settled)) {
         break;
