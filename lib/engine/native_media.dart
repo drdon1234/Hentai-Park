@@ -42,7 +42,39 @@ class NativeMedia implements MediaTransport, MediaSessionAuthority {
               return Socket.startConnect(proxyHost, proxyPort!);
             }
             final addresses = await publicMediaAddresses(uri.host);
-            return Socket.startConnect(addresses.first, uri.port);
+            final task = await Socket.startConnect(addresses.first, uri.port);
+            if (uri.scheme != 'https') return task;
+            Socket? connected;
+            var cancelled = false;
+            final secured = task.socket.then((socket) async {
+              connected = socket;
+              if (cancelled) {
+                socket.destroy();
+                throw const SocketException('Media connection cancelled');
+              }
+              try {
+                // Keep the checked IP while using the original host for SNI
+                // and certificate validation. A custom factory owns TLS.
+                final secure = await SecureSocket.secure(
+                  socket,
+                  host: uri.host,
+                );
+                connected = secure;
+                if (cancelled) {
+                  secure.destroy();
+                  throw const SocketException('Media connection cancelled');
+                }
+                return secure;
+              } catch (_) {
+                socket.destroy();
+                rethrow;
+              }
+            });
+            return ConnectionTask.fromSocket(secured, () {
+              cancelled = true;
+              task.cancel();
+              connected?.destroy();
+            });
           };
         }
         return client;
