@@ -41,7 +41,7 @@
     {
       "key": "wnacg",
       "name": "绅士漫画",
-      "version": "0.0.5",
+      "version": "0.0.6",
       "type": "comic",
       "category": "doujin",
       "file": "wnacg.js",
@@ -50,7 +50,7 @@
     {
       "key": "pixiv",
       "name": "Pixiv",
-      "version": "0.0.4",
+      "version": "0.0.5",
       "type": "comic",
       "category": "doujin",
       "file": "pixiv.js",
@@ -104,7 +104,7 @@
     {
       "key": "missav",
       "name": "MissAV",
-      "version": "0.0.5",
+      "version": "0.0.6",
       "type": "video",
       "category": "jav",
       "file": "missav.js",
@@ -113,7 +113,7 @@
     {
       "key": "jable",
       "name": "JableTV",
-      "version": "0.0.4",
+      "version": "0.0.5",
       "type": "video",
       "category": "jav",
       "file": "jable.js",
@@ -122,7 +122,7 @@
     {
       "key": "supjav",
       "name": "SupJav",
-      "version": "0.0.4",
+      "version": "0.0.5",
       "type": "video",
       "category": "jav",
       "file": "supjav.js",
@@ -167,7 +167,7 @@
     {
       "key": "porn91",
       "name": "91porn",
-      "version": "0.0.3",
+      "version": "0.0.4",
       "type": "video",
       "category": "adult",
       "file": "porn91.js",
@@ -258,7 +258,7 @@
       "key": "book18",
       "name": "Book18",
       "description": "中文长篇与短篇小说，支持推荐、搜索、目录和正文阅读",
-      "version": "0.0.4",
+      "version": "0.0.5",
       "type": "novel",
       "category": "novel",
       "file": "book18.js"
@@ -320,7 +320,7 @@
     {
       "key": "cycg",
       "name": "次元茶馆",
-      "version": "0.0.3",
+      "version": "0.0.4",
       "type": "game",
       "category": "game",
       "file": "cycg.js",
@@ -338,7 +338,7 @@
     {
       "key": "x",
       "name": "X / Twitter",
-      "version": "0.0.5",
+      "version": "0.0.6",
       "type": "video",
       "category": "other",
       "file": "x.js",
@@ -365,16 +365,16 @@
     {
       "key": "hanime",
       "name": "Hanime.tv",
-      "version": "0.0.3",
+      "version": "0.0.4",
       "type": "video",
       "category": "anime",
       "file": "hanime.js",
-      "description": "里番目录、排行与搜索；播放需打开原站"
+      "description": "里番目录、排行与搜索；支持应用内网页播放"
     },
     {
       "key": "rule34video",
       "name": "Rule34Video",
-      "version": "0.0.3",
+      "version": "0.0.4",
       "type": "video",
       "category": "anime",
       "file": "rule34video.js",
@@ -383,7 +383,7 @@
     {
       "key": "pornpics",
       "name": "PornPics",
-      "version": "0.0.4",
+      "version": "0.0.5",
       "type": "comic",
       "category": "gallery",
       "file": "pornpics.js",
@@ -392,7 +392,7 @@
     {
       "key": "spankbang",
       "name": "SpankBang",
-      "version": "0.0.4",
+      "version": "0.0.5",
       "type": "video",
       "category": "adult",
       "file": "spankbang.js",
@@ -410,7 +410,7 @@
     {
       "key": "ranking-fanza",
       "name": "FANZA",
-      "version": "0.0.1",
+      "version": "0.0.2",
       "type": "video",
       "category": "jav",
       "rankingOnly": true,
@@ -420,7 +420,7 @@
     {
       "key": "ranking-fc2",
       "name": "FC2",
-      "version": "0.0.1",
+      "version": "0.0.3",
       "type": "video",
       "category": "jav",
       "rankingOnly": true,
@@ -430,7 +430,7 @@
     {
       "key": "ranking-mgs",
       "name": "MGStage",
-      "version": "0.0.1",
+      "version": "0.0.2",
       "type": "video",
       "category": "jav",
       "rankingOnly": true,
@@ -440,7 +440,7 @@
     {
       "key": "ranking-studios",
       "name": "无码厂商",
-      "version": "0.0.1",
+      "version": "0.0.2",
       "type": "video",
       "category": "jav",
       "rankingOnly": true,
@@ -466,6 +466,16 @@
       "rankingOnly": true,
       "file": "ranking-toranoana.js",
       "description": "官方销量榜"
+    },
+    {
+      "key": "ranking-javmenu",
+      "name": "JavMenu",
+      "version": "0.0.1",
+      "type": "video",
+      "category": "jav",
+      "rankingOnly": true,
+      "file": "ranking-javmenu.js",
+      "description": "站内热门"
     }
   ]
 }

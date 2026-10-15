@@ -10,7 +10,7 @@ import '../widgets/common.dart';
 
 class RankingRow extends StatefulWidget {
   const RankingRow({super.key, required this.item, required this.board});
-  final WorkItem item;
+  final RankingEntry item;
   final RankingDef board;
 
   @override
@@ -22,8 +22,9 @@ class _RankingRowState extends State<RankingRow> {
 
   void _open() {
     final item = widget.item;
+    if (widget.board.kind == 'seller') return;
     if (widget.board.opensWork) {
-      Nav.openWork(context, item);
+      if (item.work case final work?) Nav.openWork(context, work);
     } else {
       final keyword = item.json['keyword'] as String?;
       Nav.openAggregateSearch(
@@ -97,15 +98,23 @@ class _RankingRowState extends State<RankingRow> {
                           overflow: _expanded ? null : TextOverflow.ellipsis,
                           style: context.text.bodySmall,
                         ),
+                      if (item.json['workCount'] case final num count)
+                        Text(
+                          tr('作品数：{count}', {'count': count}),
+                          style: context.text.bodySmall,
+                        ),
                       Wrap(
                         spacing: Gap.s,
                         children: [
-                          TextButton(
-                            onPressed: _open,
-                            child: Text(
-                              widget.board.opensWork ? tr('打开详情') : tr('搜索作品'),
+                          if (widget.board.kind != 'seller')
+                            TextButton(
+                              onPressed: _open,
+                              child: Text(
+                                widget.board.opensWork
+                                    ? tr('打开详情')
+                                    : tr('搜索作品'),
+                              ),
                             ),
-                          ),
                           if (original)
                             TextButton(
                               onPressed: () async {

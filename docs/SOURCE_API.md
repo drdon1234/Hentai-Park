@@ -125,6 +125,8 @@ Park.register({
 
 `defaultFeed` 按 **推荐页 > 排行榜页 > 热门页** 选择，站点确实没有这些入口时才用最新页或其他有效入口，不得伪造未验证的接口。未填写或找不到 key 时，应用按 key 自动选择（先 `promote` / `recommend` / `featured`，再 `rank` / `toplist`，再 `popular` / `hot` / `trending`），都没有就进第一个标签。
 
+支持匿名访问、但推荐需要登录的源声明 `anonymousDefaultFeed: 'ranking'`，值必须指向 `feeds` 中真实可匿名访问的入口，优先排行榜。主页和站点页在未登录时使用该入口；已登录时使用 `defaultFeed`，用户显式选择的标签保持原选择。不要把空列表或网络失败一概当作匿名状态。
+
 ### 选项定义
 
 `feeds[].options`、`searchFilters`、`settings` 使用同一种格式：
@@ -480,11 +482,11 @@ Park.register({
 
 ## 排行榜
 
-源通过 `rankings` 声明作品榜；`capabilities.rankings` 由运行时根据声明生成。仅提供商业榜的源设置 `rankingOnly: true`，不声明 `feeds`，不伪造详情、阅读或播放能力。它只出现在独立排行榜页和站点管理中。
+源通过 `rankings` 声明作品榜、女优榜、卖家榜或动态分类榜；`capabilities.rankings` 由运行时根据声明生成。仅提供商业榜的源设置 `rankingOnly: true`，不声明 `feeds`，不伪造详情、阅读或播放能力。它只出现在独立排行榜页和站点管理中。
 
 ```js
 rankings: [{
-  key: 'sales', label: '排行榜', category: 'doujin', metric: '官方销量榜',
+  key: 'sales', label: '排行榜', category: 'doujin', section: 'market', metric: '官方销量榜',
   options: [{ key: 'period', label: '周期', default: 'week', values: [
     { value: 'week', label: '周榜' }, { value: 'month', label: '月榜' },
   ] }],
@@ -496,9 +498,9 @@ async ranking(board, { page = 1, offset = 0, cursor, options = {} }) {
 },
 ```
 
-- `category` 决定搜索范围，首批支持 `jav`、`doujin`、`anime`。`metric` 明确标示销量、人气或站内热度；站点默认热门不能称为销量榜。
+- `section` 可为 `market`（市场榜，`rankingOnly` 默认）或 `site`（站点榜，普通内容源默认），页面分区显示。`kind` 可为 `work`、`actress`、`seller`、`genre`；人物榜须返回人物或卖家条目，不可伪装成作品。动态选项标记 `dynamic: true`，由 `rankingOptions(board)` 返回真实选择项，运行时会在请求前校验。`category` 决定搜索范围，首批支持 `jav`、`doujin`、`anime`。`metric` 明确标示销量、人气或站内热度；站点默认热门不能称为销量榜。
 - `rank` 保留原站名次，包括并列名次；官网只有有序列表时使用其原始位置。`offset` 是此前收到的原始条目数，不受本地去重和屏蔽影响。`keyword` 可选，缺省按标题搜索；`url` 是无凭据的 HTTPS 商品链接。
-- 既有内容源可声明 `{ key: 'hot', label: '排行榜', category: 'doujin', metric: '站内热度', feed: 'hot' }`。省略 `options` 时继承对应 feed 的选项；无需实现 `ranking()`，运行时复用 `feed()`，保留作品字段，补 `workId` 和缺失的 `rank`。页面由此打开真实作品详情。独立实现的商业榜只提供分类聚合搜索和原站入口。
+- 既有内容源可声明 `{ key: 'hot', label: '排行榜', category: 'doujin', metric: '站内热度', feed: 'hot' }`。省略 `options` 时继承对应 feed 的选项；无需实现 `ranking()`，运行时复用 `feed()`，保留作品字段，补 `workId` 和缺失的 `rank`。页面由此打开真实作品详情。作品可打开详情；人物榜按姓名搜索并保留原站入口，卖家榜只打开原站。独立排行榜插件通过 `rankings` 分支发布，普通内容源（包括带排行榜声明的源）仍通过 `sources` 分支分发。
 - 运行时在请求前拒绝未声明榜单或选项值。每个榜单与选项组合独立分页、刷新与会话复用；插件版本变化后使用新会话。列表按用户已有的内容屏蔽规则过滤，保留原始名次。
 - 排行榜结果不使用普通首页磁盘缓存，避免丢失名次、检索词和商品链接。所有站点业务规则留在插件内。
 

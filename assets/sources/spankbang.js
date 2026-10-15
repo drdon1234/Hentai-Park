@@ -9,7 +9,7 @@ Park.register({
     "ru": {"综合成人视频，支持推荐、搜索与多清晰度MP4；可能需浏览器确认": "Видео для взрослых: рекомендации, поиск и MP4 разного качества; может требоваться подтверждение в браузере"},
     "ar": {"综合成人视频，支持推荐、搜索与多清晰度MP4；可能需浏览器确认": "فيديو للبالغين مع التوصيات والبحث وجودات MP4 متعددة؛ قد يلزم التأكيد في المتصفح"},
   },
-  key: 'spankbang', name: 'SpankBang', version: '0.0.4', type: 'video', category: 'adult',
+  key: 'spankbang', name: 'SpankBang', version: '0.0.5', type: 'video', category: 'adult',
   language: 'en', color: '#F99B1C', homepage: 'https://spankbang.com',
   description: '综合成人视频，支持推荐、搜索与多清晰度MP4；可能需浏览器确认',
   domains: ['spankbang.com', 'sb-cd.com'], network: {mode: 'browser', origin: 'https://spankbang.com', vpnHint: true, confirmation: {
@@ -127,3 +127,7 @@ Park.register({
     return out;
   },
 });
+
+Park.enableUpdateSubscriptions(Park.__pending, {dimensions: [
+  {key: 'search', label: '搜索关键词', hint: '输入作品、作者或话题关键词'},
+]});

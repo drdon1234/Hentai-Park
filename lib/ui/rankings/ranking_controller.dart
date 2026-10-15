@@ -4,7 +4,7 @@ import '../../core/models.dart';
 import '../../core/settings.dart';
 import '../../core/tag_blocklist.dart';
 
-typedef RankingLoader = Future<WorkPage> Function(
+typedef RankingLoader = Future<RankingPage> Function(
   int page,
   String? cursor,
   int offset,
@@ -17,15 +17,19 @@ class RankingController extends ChangeNotifier {
   }
   final _filters = AppSettings.instance.watch(AppSettings.filterKeys);
   final RankingLoader load;
-  final List<WorkItem> items = [];
-  final List<WorkItem> _loaded = [];
+  final List<RankingEntry> items = [];
+  final List<RankingEntry> _loaded = [];
   int get hidden => _loaded.length - items.length;
   void _applyFilters() {
     if (_disposed) return;
     final rules = TagBlocklist.current();
     items
       ..clear()
-      ..addAll(_loaded.where((item) => rules.matchItem(item) == null));
+      ..addAll(
+        _loaded.where(
+          (item) => item.work == null || rules.matchItem(item.work!) == null,
+        ),
+      );
     notifyListeners();
   }
 
@@ -65,7 +69,7 @@ class RankingController extends ChangeNotifier {
       if (_disposed || generation != _generation) return;
       var added = 0;
       for (final item in result.items) {
-        if (_seen.add(item.id)) {
+        if (_seen.add(item.uid)) {
           _loaded.add(item);
           added++;
         }

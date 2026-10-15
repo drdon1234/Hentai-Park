@@ -100,6 +100,7 @@ class OptionDef {
     required this.type,
     required this.values,
     this.defaultValue,
+    this.dynamicValues = false,
     this._description = '',
     PluginCopy? copy,
   }) : _copy = copy ?? PluginCopy.none;
@@ -110,6 +111,7 @@ class OptionDef {
   final String type;
   final List<Choice> values;
   final Object? defaultValue;
+  final bool dynamicValues;
   final String _description;
   String get description => _copy.text(_description);
 
@@ -119,9 +121,17 @@ class OptionDef {
       key: _str(j['key']),
       label: _str(j['label']),
       type: _str(j['type']).isEmpty
-          ? (values.isEmpty ? 'text' : 'select')
+          ? (values.isEmpty && j['dynamic'] != true ? 'text' : 'select')
           : _str(j['type']),
-      values: values.map((v) => Choice.fromJson(v, copy)).toList(),
+      values: values
+          .map(
+            (v) => Choice.fromJson(
+              v,
+              j['dynamic'] == true ? PluginCopy.none : copy,
+            ),
+          )
+          .toList(),
+      dynamicValues: j['dynamic'] == true,
       defaultValue: j['default'],
       description: _str(j['description']),
       copy: copy,
@@ -172,6 +182,8 @@ class RankingDef {
       _metric = _str(json['metric']),
       category = SourceCategory.fromJson(json['category']),
       feed = _str(json['feed']),
+      kind = _str(json['kind']).isEmpty ? 'work' : _str(json['kind']),
+      section = _str(json['section']),
       options = _maps(json['options'])
           .map((value) => OptionDef.fromJson(value, copy))
           .toList(),
@@ -183,13 +195,51 @@ class RankingDef {
   final PluginCopy _copy;
   final SourceCategory category;
   final String feed;
+  final String kind;
+  final String section;
   final List<OptionDef> options;
   String get label => _copy.text(_label);
   String get metric => _copy.text(_metric);
-  bool get opensWork => feed.isNotEmpty;
+  bool get opensWork => feed.isNotEmpty && kind == 'work';
   Map<String, Object?> defaultOptions() => {
     for (final option in options) option.key: option.defaultValue,
   };
+}
+
+/// 人物榜条目不会进入作品详情、收藏或阅读链路。
+class RankingEntry {
+  RankingEntry(this.json, this.source);
+  final Map<String, dynamic> json;
+  final String source;
+  String get id => _str(json['id']);
+  String get kind => _str(json['kind']).isEmpty ? 'work' : _str(json['kind']);
+  String get uid => '$source:$kind:$id';
+  String get title => _str(json['title']);
+  String get subtitle => _str(json['subtitle']);
+  String get cover => _str(json['cover']);
+  WorkItem? get work => kind == 'work' ? WorkItem(json, source) : null;
+}
+
+class RankingPage {
+  RankingPage({
+    required this.items,
+    required this.page,
+    this.hasNext = false,
+    this.cursor,
+  });
+  final List<RankingEntry> items;
+  final int page;
+  final bool hasNext;
+  final String? cursor;
+  factory RankingPage.fromJson(Map<String, dynamic> json, String source) =>
+      RankingPage(
+        items: _maps(json['items'])
+            .map((row) => RankingEntry(row, source))
+            .toList(),
+        page: _int(json['page']) ?? 1,
+        hasNext: json['hasNext'] == true,
+        cursor: json['cursor']?.toString(),
+      );
 }
 
 class AccountDef {
@@ -284,6 +334,7 @@ class SourceManifest {
           .map((f) => RankingDef.fromJson(f, copy))
           .toList(),
       defaultFeed = _str(json['defaultFeed']),
+      anonymousDefaultFeed = _str(json['anonymousDefaultFeed']),
       searchFilters = _maps(json['searchFilters'])
           .map((o) => OptionDef.fromJson(o, copy))
           .toList(),
@@ -320,6 +371,17 @@ class SourceManifest {
 
   /// Key of the feed the source page opens on (manifest `defaultFeed`).
   final String defaultFeed;
+  final String anonymousDefaultFeed;
+
+  int entryFeedIndex({required bool loggedIn}) {
+    if (!loggedIn && anonymousDefaultFeed.isNotEmpty) {
+      final index = feeds.indexWhere(
+        (feed) => feed.key == anonymousDefaultFeed,
+      );
+      if (index >= 0) return index;
+    }
+    return defaultFeedIndex;
+  }
 
   /// The feed to open first: the manifest's `defaultFeed`, otherwise recommended > ranking > popular.
   int get defaultFeedIndex {

@@ -360,16 +360,45 @@ class SubscriptionMediaTile extends StatelessWidget {
       button: true,
       label: tr(media.type == 'video' ? '播放视频' : '查看图片'),
       child: InkWell(
-        onTap: () => Nav.push(
-          context,
-          media.type == 'image'
-              ? SubscriptionGalleryPage(
-                  source: source,
-                  post: post,
-                  index: index,
-                )
-              : SubscriptionMediaPage(source: source, post: post, index: index),
-        ),
+        onTap: () async {
+          if (media.type == 'video' &&
+              !media.needsDownload &&
+              SourceManager.instance.manifest(source)?.feeds.isNotEmpty ==
+                  true) {
+            await Nav.openWork(
+              context,
+              WorkItem({
+                'id': post.id,
+                'title': post.title,
+                'text': post.text,
+                'url': post.url,
+                'date': post.date,
+                'mediaKind': 'video',
+                'cover': media.preview,
+                'media': [
+                  media.json,
+                  for (var i = 0; i < post.media.length; i++)
+                    if (i != index) post.media[i].json,
+                ],
+              }, source),
+            );
+            return;
+          }
+          await Nav.push(
+            context,
+            media.type == 'image'
+                ? SubscriptionGalleryPage(
+                    source: source,
+                    post: post,
+                    index: index,
+                  )
+                : SubscriptionMediaPage(
+                    source: source,
+                    post: post,
+                    index: index,
+                  ),
+          );
+        },
         child: SizedBox(
           width: 136,
           height: 136,

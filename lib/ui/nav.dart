@@ -27,9 +27,26 @@ import 'widgets/error_view.dart';
 /// Central navigation so every entry point (cards, tags, links, history…) behaves the same.
 class Nav {
   static final routeObserver = RouteObserver<ModalRoute<dynamic>>();
-  static bool _short(String source) =>
-      SourceManager.instance.manifest(source)?.category ==
-      SourceCategory.shortvideo;
+  static bool _short(String source, [WorkItem? item]) {
+    final manifest = SourceManager.instance.manifest(source);
+    return manifest?.category == SourceCategory.shortvideo ||
+        (item?.isSubscriptionPost == true &&
+            item?.mediaKind == MediaKind.video &&
+            (item?.json['media'] as List? ?? const []).any(
+              (media) =>
+                  media is Map &&
+                  media['type'] == 'video' &&
+                  (media['url'] as String? ?? '').isNotEmpty,
+            ));
+  }
+
+  static int? _videoFeed(String source) {
+    final manifest = SourceManager.instance.manifest(source);
+    if (manifest?.isVideo != true) return null;
+    final index = manifest!.feeds.indexWhere((feed) => feed.key == 'videos');
+    return index < 0 ? null : index;
+  }
+
   static Future<T?> push<T>(BuildContext context, Widget page) {
     final discovery = DiscoveryNavigation.of(context);
     return Navigator.of(context).push<T>(
@@ -49,7 +66,9 @@ class Nav {
     Object? coverHeroTag,
   }) async {
     final pane = DetailPane.maybeOf(context);
-    if (pane != null && !item.isSubscriptionPost && !_short(item.source)) {
+    if (pane != null &&
+        !item.isSubscriptionPost &&
+        !_short(item.source, item)) {
       pane.onShow(item);
       return;
     }
@@ -62,10 +81,14 @@ class Nav {
     Object? coverHeroTag,
   ) => push(
     context,
-    item.isSubscriptionPost
+    _short(item.source, item)
+        ? ShortVideoPage(
+            source: item.source,
+            initial: item,
+            feedIndex: _videoFeed(item.source),
+          )
+        : item.isSubscriptionPost
         ? SubscriptionWorkPage(item: item)
-        : _short(item.source)
-        ? ShortVideoPage(source: item.source, initial: item)
         : DetailPage(
             source: item.source,
             id: item.id,
@@ -102,11 +125,13 @@ class Nav {
     } catch (_) {
       return false;
     }
-    return await push<bool>(
+    final ok =
+        await push<bool>(
           context,
           WebVerifyPage.confirmation(source: source, url: target),
         ) ==
         true;
+    return ok;
   }
 
   static Future<void> openSourceSearch(
@@ -164,8 +189,12 @@ class Nav {
           context,
           SourceManager.instance.manifest(work.source)?.usesWebVideo == true
               ? WebVideoPage(work: work, episodeId: episodeId)
-              : _short(work.source)
-              ? ShortVideoPage(source: work.source, initial: work.toItem())
+              : _short(work.source, work)
+              ? ShortVideoPage(
+                  source: work.source,
+                  initial: work.toItem(),
+                  feedIndex: _videoFeed(work.source),
+                )
               : VideoPage(
                   work: work,
                   episodeId: episodeId,
@@ -208,6 +237,19 @@ class Nav {
 
   static Future<void> openSourceSettings(BuildContext context, String source) =>
       push(context, SourceSettingsPage(sourceKey: source));
+
+  static Future<bool> login(BuildContext context, String source) async {
+    final account = SourceManager.instance.manifest(source)?.account;
+    if (account == null || account.loginUrl.isEmpty) {
+      await openSourceSettings(context, source);
+      return SourceManager.instance[source]?.account?.loggedIn == true;
+    }
+    return await push<bool>(
+          context,
+          WebVerifyPage.login(source: source, url: account.loginUrl),
+        ) ==
+        true;
+  }
 
   static Future<void> openNetworkSettings(BuildContext context) =>
       push(context, const SettingsSectionPage(SettingsSection.network));

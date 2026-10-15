@@ -1,33 +1,44 @@
 Park.register({
-  key: 'ranking-studios', name: '无码厂商', version: '0.0.1',
+  key: 'ranking-studios', name: '无码厂商', version: '0.0.2',
   type: 'video', category: 'jav', rankingOnly: true,
   description: '官方人气榜', homepage: 'https://www.1pondo.tv/',
   domains: ['1pondo.tv', '10musume.com', 'pacopacomama.com', 'caribbeancom.com'],
   network: { vpnHint: true },
-  rankings: [
+  rankings: [...[
     ['1pondo', '一本道'], ['10musume', '天然むすめ'],
     ['pacopacomama', 'パコパコママ'], ['caribbeancom', '加勒比'],
   ].map(([key, label]) => ({ key, label, category: 'jav', metric: '官方人气榜',
     options: [{ key: 'period', label: '周期', default: 'weekly', values: [
       { value: 'weekly', label: '周榜' }, { value: 'monthly', label: '月榜' },
     ] }],
-  })),
+  })), { key: 'caribbean-actresses', label: '加勒比', kind: 'actress', category: 'jav', metric: '官方女优榜' }],
   async ranking(studio, req) {
     if (Number(req.page) > 1) return { items: [], page: Number(req.page), hasNext: false };
     const period = req.options?.period || 'weekly';
     let items;
-    if (studio === 'caribbeancom') {
+    if (studio === 'caribbeancom' || studio === 'caribbean-actresses') {
       const base = 'https://www.caribbeancom.com';
-      const response = this.http.ensureOk(await this.http.get(`${base}/ranking/${period}.html`, { responseType: 'base64' }));
+      const actress = studio === 'caribbean-actresses';
+      const response = this.http.ensureOk(await this.http.get(`${base}/ranking/${actress ? 'actress.htm' : period + '.html'}`, { responseType: 'base64' }));
       const bytes = Uint8Array.from(atob(response.body), c => c.charCodeAt(0));
       const doc = Park.html.parse(new TextDecoder('euc-jp').decode(bytes));
-      items = [...doc.querySelectorAll('.is-movie-ranking a.entry[href]')].map((row) => {
+      items = [...doc.querySelectorAll(actress ? '.is-actress-ranking a.entry[href]' : '.is-movie-ranking a.entry[href]')].map((row) => {
+        if (actress) {
+          const match = /^\/search_act\/(\d+)\/1\.html$/.exec(row.getAttribute('href') || '');
+          if (!match) return null;
+          const title = Park.html.text(row.querySelector('.meta-title'));
+          return { id: match[1], title, keyword: title,
+            rank: Number(Park.html.text(row.querySelector('.ranking-number'))),
+            workCount: Number(Park.html.text(row).match(/出演作品数:\s*(\d+)/)?.[1]) || undefined,
+            cover: new URL(row.querySelector('img.media-image')?.getAttribute('src') || '', base).href,
+            url: base + row.getAttribute('href') };
+        }
         const match = /^\/moviepages\/(\d{6}-\d{3})\/index\.html$/.exec(row.getAttribute('href') || '');
         if (!match) return null;
         return { id: match[1], keyword: match[1],
           rank: Number(Park.html.text(row.querySelector('.ranking-number'))),
           title: Park.html.text(row.querySelector('.meta-title')),
-          cover: row.querySelector('img.media-image')?.getAttribute('src') || '',
+          cover: new URL(row.querySelector('img.media-image')?.getAttribute('src') || '', base).href,
           url: base + row.getAttribute('href') };
       }).filter(Boolean);
     } else {

@@ -58,8 +58,7 @@ class SourceErrorView extends StatelessWidget {
           icon: const Icon(Icons.login_rounded),
           label: Text(tr('去登录')),
           onPressed: () async {
-            await Nav.openSourceSettings(context, source);
-            onRetry();
+            if (await Nav.login(context, source)) onRetry();
           },
         ),
       if (e.isCloudflare || e.needsLogin || e.needsConfirmation)
@@ -83,14 +82,24 @@ class SourceErrorView extends StatelessWidget {
       actions: actions,
       compact: compact,
     );
-    if (!e.isNetwork ||
-        SourceManager.instance.manifest(source)?.network['vpnHint'] != true) {
-      return view;
-    }
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [view, const NetworkAccessHint(showSettings: false)],
+    final content =
+        e.isNetwork &&
+            SourceManager.instance.manifest(source)?.network['vpnHint'] == true
+        ? Column(
+            mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [view, const NetworkAccessHint(showSettings: false)],
+          )
+        : view;
+    return LayoutBuilder(
+      builder: (context, constraints) => SingleChildScrollView(
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            minHeight: constraints.hasBoundedHeight ? constraints.maxHeight : 0,
+          ),
+          child: content,
+        ),
+      ),
     );
   }
 }
@@ -123,7 +132,7 @@ Future<T?> guarded<T>(
           action: e.needsLogin
               ? SnackBarAction(
                   label: tr('去登录'),
-                  onPressed: () => Nav.openSourceSettings(context, source),
+                  onPressed: () => Nav.login(context, source),
                 )
               : null,
         ),

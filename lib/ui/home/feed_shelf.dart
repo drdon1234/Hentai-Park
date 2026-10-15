@@ -10,6 +10,7 @@ import '../../engine/source_manager.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
 import '../widgets/cover_tile.dart';
+import '../widgets/error_view.dart';
 import '../widgets/on_visible.dart';
 import '../widgets/source_network_hint.dart';
 import '../widgets/work_text_row.dart';
@@ -65,6 +66,9 @@ class _FeedShelfState extends State<FeedShelf>
   Object? _error;
   bool _loading = false;
   bool _visible = false;
+  int _revision = 0;
+  bool _forceRefresh = false;
+  StreamSubscription<String>? _authentication;
   late final Listenable _filters = AppSettings.instance.watch(
     AppSettings.filterKeys,
   );
@@ -74,12 +78,18 @@ class _FeedShelfState extends State<FeedShelf>
     super.initState();
     _filters.addListener(_filtersChanged);
     FeedShelf.refreshes.addListener(_refresh);
+    _authentication = SourceManager.instance.authenticationChanges.listen((
+      key,
+    ) {
+      if (key == widget.sourceKey) _refresh();
+    });
   }
 
   @override
   void dispose() {
     _filters.removeListener(_filtersChanged);
     FeedShelf.refreshes.removeListener(_refresh);
+    _authentication?.cancel();
     super.dispose();
   }
 
@@ -89,6 +99,9 @@ class _FeedShelfState extends State<FeedShelf>
 
   void _refresh() {
     if (!mounted) return;
+    _revision++;
+    _forceRefresh = true;
+    FeedShelf._pages.remove(widget.sourceKey)?.ignore();
     setState(() {
       _items = null;
       _error = null;
@@ -100,6 +113,7 @@ class _FeedShelfState extends State<FeedShelf>
   void didUpdateWidget(FeedShelf old) {
     super.didUpdateWidget(old);
     if (old.sourceKey != widget.sourceKey) {
+      _revision++;
       _items = null;
       _error = null;
       if (_visible) unawaited(_load());
@@ -120,15 +134,15 @@ class _FeedShelfState extends State<FeedShelf>
       _loading = true;
       _error = null;
     });
-    final generation = FeedShelf.refreshes.value;
+    final generation = _revision;
     try {
-      final feed = manifest.feeds[manifest.defaultFeedIndex];
+      final feed = manifest.feeds[SourceManager.instance.entryFeedIndex(key)];
       final page = await FeedShelf.cachedItems(key, () async {
         final page = await SourceManager.instance.feed(
           key,
           feed.key,
           options: feed.defaultOptions(),
-          refresh: generation > 0,
+          refresh: _forceRefresh,
         );
         return [
           ...?page.sections?.expand((section) => section.items),
@@ -136,12 +150,11 @@ class _FeedShelfState extends State<FeedShelf>
         ].take(24).toList();
       });
       if (!mounted || key != widget.sourceKey) return;
-      if (generation != FeedShelf.refreshes.value) return;
+      if (generation != _revision) return;
+      _forceRefresh = false;
       setState(() => _items = page);
     } catch (error) {
-      if (mounted &&
-          key == widget.sourceKey &&
-          generation == FeedShelf.refreshes.value) {
+      if (mounted && key == widget.sourceKey && generation == _revision) {
         setState(() => _error = error);
       }
     } finally {
@@ -164,7 +177,7 @@ class _FeedShelfState extends State<FeedShelf>
     final Widget body;
     if (_error != null) {
       body = _ShelfMessage(
-        message: _error!.asSourceError.friendly,
+        error: _error!,
         source: widget.sourceKey,
         onRetry: _load,
       );
@@ -295,29 +308,40 @@ class _ShelfSkeleton extends StatelessWidget {
 }
 
 class _ShelfMessage extends StatelessWidget {
-  const _ShelfMessage({required this.message, this.onRetry, this.source});
-  final String message;
+  const _ShelfMessage({this.message, this.error, this.onRetry, this.source});
+  final String? message;
+  final Object? error;
   final VoidCallback? onRetry;
   final String? source;
 
   @override
-  Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.fromLTRB(Gap.page, 0, Gap.s, Gap.s),
-    child: Row(
-      children: [
-        Expanded(
-          child: Text(
-            message,
-            maxLines: 3,
-            overflow: TextOverflow.ellipsis,
-            style: context.text.bodyMedium?.copyWith(
-              color: context.colors.onSurfaceVariant,
-            ),
+  Widget build(BuildContext context) => error != null && source != null
+      ? Padding(
+          padding: const EdgeInsets.symmetric(horizontal: Gap.page),
+          child: SourceErrorView(
+            error: error!,
+            source: source!,
+            onRetry: onRetry ?? () {},
+            compact: true,
           ),
-        ),
-        if (onRetry != null)
-          TextButton(onPressed: onRetry, child: Text(tr('重试'))),
-      ],
-    ),
-  );
+        )
+      : Padding(
+          padding: const EdgeInsets.fromLTRB(Gap.page, 0, Gap.s, Gap.s),
+          child: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  message ?? '',
+                  maxLines: 3,
+                  overflow: TextOverflow.ellipsis,
+                  style: context.text.bodyMedium?.copyWith(
+                    color: context.colors.onSurfaceVariant,
+                  ),
+                ),
+              ),
+              if (onRetry != null)
+                TextButton(onPressed: onRetry, child: Text(tr('重试'))),
+            ],
+          ),
+        );
 }

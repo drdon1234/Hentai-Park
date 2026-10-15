@@ -63,6 +63,7 @@ class _WebVerifyPageState extends State<WebVerifyPage> {
   int _navigationGeneration = 0;
   bool _loading = true;
   bool _popupOpen = false;
+  bool _browserReady = false;
 
   Map get _confirmation =>
       SourceManager.instance.manifest(widget.source)?.network['confirmation']
@@ -160,6 +161,49 @@ class _WebVerifyPageState extends State<WebVerifyPage> {
         ? '正在打开站点，验证通常会自动完成；如出现勾选框请点一下'
         : '请在页面中登录；已看到账号或正常资源页时，可点击完成重新检查登录状态';
     _poll = Timer.periodic(const Duration(milliseconds: 1500), (_) => _check());
+    unawaited(_prepareBrowser());
+  }
+
+  Future<void> _prepareBrowser() async {
+    try {
+      // 弹窗继承已恢复的浏览器会话，第三方 OAuth 地址不参与源 Cookie 同步。
+      if (widget.windowId == null && !_browserFailed) {
+        final account = SourceManager.instance.manifest(widget.source)?.account;
+        final urls = <String>{
+          widget.url,
+          if (widget._mode == _Mode.login &&
+              account?.cookieUrl.isNotEmpty == true)
+            account!.cookieUrl,
+        };
+        for (final url in urls) {
+          if (!_sourceAllowed(url)) continue;
+          await CookieStore.instance.restoreToWebView(
+            Uri.parse(url),
+            partition: widget.source,
+          );
+          if (!mounted || _sessionClosed) return;
+        }
+      }
+    } catch (_) {
+      if (!mounted || _sessionClosed) return;
+      _browserFailed = true;
+    }
+    if (mounted && !_sessionClosed) setState(() => _browserReady = true);
+  }
+
+  void _retryBrowser() {
+    if (_sessionClosed || !_allowed(widget.url)) return;
+    setState(() {
+      _c = null;
+      _browserFailed = false;
+      _browserReady = false;
+      _loading = true;
+      _progress = 0;
+      _done = false;
+      _navigationGeneration++;
+      _browserGeneration++;
+    });
+    unawaited(_prepareBrowser());
   }
 
   @override
@@ -208,6 +252,7 @@ class _WebVerifyPageState extends State<WebVerifyPage> {
         final values = await CookieStore.instance.importFromWebView(
           uri,
           partition: widget.source,
+          authoritative: true,
         );
         if (_sessionClosed ||
             !mounted ||
@@ -291,11 +336,14 @@ class _WebVerifyPageState extends State<WebVerifyPage> {
         (_confirmation['requiredCookies'] as List? ?? const [])
             .whereType<String>();
     if (requiredCookies.isNotEmpty) {
-      final uri = Uri.parse(widget.url)
+      final actual = (await c.getUrl())?.toString();
+      if (!_allowed(actual)) return false;
+      final uri = Uri.parse(actual!)
           .replace(path: '/', query: '', fragment: '');
       final cookies = await CookieStore.instance.importFromWebView(
         uri,
         partition: widget.source,
+        authoritative: true,
       );
       if (!requiredCookies.every((key) => (cookies[key] ?? '').isNotEmpty)) {
         return false;
@@ -305,7 +353,7 @@ class _WebVerifyPageState extends State<WebVerifyPage> {
   }
 
   Future<void> _finish() async {
-    if (_finishing || _done || _sessionClosed || !_allowed(widget.url)) return;
+    if (_finishing || _done || _sessionClosed) return;
     _finishing = true;
     try {
       final generation = _navigationGeneration;
@@ -315,10 +363,11 @@ class _WebVerifyPageState extends State<WebVerifyPage> {
       final actual = (await _c?.getUrl())?.toString();
       if (!_allowed(actual) || _sessionClosed) return;
       _done = true;
-      final uri = Uri.parse(widget.url);
+      final uri = Uri.parse(actual!);
       await CookieStore.instance.importFromWebView(
-        uri.replace(path: '/', query: '', fragment: ''),
+        uri.replace(query: '', fragment: ''),
         partition: widget.source,
+        authoritative: true,
       );
       if (_sessionClosed || !mounted) return;
       if (_loading || generation != _navigationGeneration) {
@@ -327,7 +376,7 @@ class _WebVerifyPageState extends State<WebVerifyPage> {
       }
       final ua = await _c?.evaluateJavascript(source: 'navigator.userAgent');
       if (ua is String && ua.isNotEmpty) HttpService.instance.userAgent = ua;
-      await BrowserFetcher.instance.reset(widget.url);
+      await BrowserFetcher.instance.reset(actual);
       if (mounted &&
           !_sessionClosed &&
           !_loading &&
@@ -338,6 +387,7 @@ class _WebVerifyPageState extends State<WebVerifyPage> {
             !_sessionClosed &&
             !_loading &&
             generation == _navigationGeneration) {
+          SourceManager.instance.authenticationChanged(widget.source);
           Navigator.pop(context, true);
         } else {
           _done = false;
@@ -413,12 +463,10 @@ class _WebVerifyPageState extends State<WebVerifyPage> {
                 ? SourceErrorView(
                     source: widget.source,
                     error: SourceError('NETWORK', '浏览器请求失败'),
-                    onRetry: () => setState(() {
-                      if (_sessionClosed || !_allowed(widget.url)) return;
-                      _browserFailed = false;
-                      _browserGeneration++;
-                    }),
+                    onRetry: _retryBrowser,
                   )
+                : !_browserReady
+                ? const Center(child: CircularProgressIndicator())
                 : InAppWebView(
                     key: ValueKey(_browserGeneration),
                     windowId: _browserGeneration == 0 ? widget.windowId : null,

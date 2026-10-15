@@ -9,7 +9,7 @@ Park.register({
     "ru": {"同人动画与游戏角色短片，支持评分榜、搜索和多清晰度 MP4": "Фанатская анимация и ролики с игровыми персонажами: рейтинг, поиск и MP4 разного качества"},
     "ar": {"同人动画与游戏角色短片，支持评分榜、搜索和多清晰度 MP4": "رسوم المعجبين ومقاطع شخصيات الألعاب مع التقييم والبحث وجودات MP4 متعددة"},
   },
-  key: 'rule34video', name: 'Rule34Video', version: '0.0.3', type: 'video', category: 'anime',
+  key: 'rule34video', name: 'Rule34Video', version: '0.0.4', type: 'video', category: 'anime',
   language: 'en', color: '#88AA44', homepage: 'https://rule34video.com',
   description: '同人动画与游戏角色短片，支持评分榜、搜索和多清晰度 MP4',
   domains: ['rule34video.com'], network: {mode: 'native', vpnHint: true},
@@ -127,3 +127,7 @@ Park.register({
     return list;
   },
 });
+
+Park.enableUpdateSubscriptions(Park.__pending, {dimensions: [
+  {key: 'search', label: '搜索关键词', hint: '输入作品、作者或话题关键词'},
+]});

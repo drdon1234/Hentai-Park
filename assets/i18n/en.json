@@ -1256,5 +1256,12 @@
   "无法打开原站": "Could not open the original site",
   "第 {rank} 名": "Rank {rank}",
   "实时": "Real time",
-  "年榜": "Yearly"
+  "年榜": "Yearly",
+  "市场排行榜": "Market rankings",
+  "站点排行榜": "Site rankings",
+  "女优榜": "Actress rankings",
+  "分类榜": "Genre rankings",
+  "卖家榜": "Seller rankings",
+  "作品榜": "Work rankings",
+  "作品数：{count}": "Works: {count}"
 }

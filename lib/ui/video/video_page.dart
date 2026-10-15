@@ -17,6 +17,7 @@ import '../theme.dart';
 import 'video_controls.dart';
 import 'video_episode_sheet.dart';
 import 'video_gestures.dart';
+import 'video_layout.dart';
 import 'video_session.dart';
 import 'video_stage.dart';
 
@@ -332,18 +333,25 @@ class _VideoPageState extends State<VideoPage>
     return Scaffold(
       backgroundColor: context.colors.surface,
       body: SafeArea(
-        child: Column(
-          children: [
-            player,
-            if (_episodes.length > 1) _episodeBar(),
-            Expanded(
-              child: VideoDetails(
-                work: _details ?? widget.work,
-                offline: _session.offline,
-                quality: _session.current?.label,
+        child: VideoLayout(
+          player: player,
+          header: VideoDetails(
+            work: _details ?? widget.work,
+            offline: _session.offline,
+            quality: _session.current?.label,
+            showRelated: false,
+          ),
+          details: Column(
+            children: [
+              if (_episodes.length > 1) _episodeBar(),
+              Expanded(
+                child: VideoDetails(
+                  work: _details ?? widget.work,
+                  showHeader: false,
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

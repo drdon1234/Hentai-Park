@@ -12,6 +12,8 @@ import '../../engine/http_service.dart';
 import '../../engine/platform_bridge.dart';
 import '../../engine/source_manager.dart';
 import '../../library/library.dart';
+import '../video/video_controls.dart';
+import '../video/video_layout.dart';
 import '../widgets/error_view.dart';
 import 'web_playback_policy.dart';
 
@@ -237,111 +239,121 @@ class _WebVideoPageState extends State<WebVideoPage>
             ),
       body: SafeArea(
         top: !_fullscreen,
-        child: Stack(
-          children: [
-            if (policy != null && session != null)
-              InAppWebView(
-                key: ValueKey(session),
-                keepAlive: session,
-                // 不设置初始 URL；Android 切换独立 Profile 后才允许联网。
-                initialSettings: InAppWebViewSettings(
-                  userAgent: HttpService.instance.userAgent,
-                  incognito: !Platform.isAndroid,
-                  thirdPartyCookiesEnabled: false,
-                  javaScriptBridgeEnabled: false,
-                  useShouldOverrideUrlLoading: true,
-                  regexToCancelSubFramesLoading: policy.blockedFramePattern,
-                  supportMultipleWindows: true,
-                  allowsInlineMediaPlayback: true,
-                  allowsPictureInPictureMediaPlayback: false,
-                  allowFileAccess: false,
-                  allowContentAccess: false,
-                  mixedContentMode: MixedContentMode.MIXED_CONTENT_NEVER_ALLOW,
-                  useOnDownloadStart: true,
-                  disableDefaultErrorPage: true,
-                ),
-                onWebViewCreated: (c) => _created(c, policy, session),
-                onCreateWindow: (_, action) async => false,
-                onDownloadStarting: (_, request) async => DownloadStartResponse(
-                  handled: true,
-                  action: DownloadStartResponseAction.CANCEL,
-                ),
-                onPermissionRequest: (_, request) async => PermissionResponse(
-                  resources: request.resources,
-                  action: PermissionResponseAction.DENY,
-                ),
-                shouldOverrideUrlLoading: (c, action) async {
-                  final uri = Uri.tryParse(
-                    action.request.url?.toString() ?? '',
-                  );
-                  final allowed =
-                      _active(c, session) &&
-                      _ready &&
-                      uri != null &&
-                      (action.isForMainFrame
-                          ? policy.allowsMainFrame(uri)
-                          : policy.allowsFrame(uri));
-                  return allowed
-                      ? NavigationActionPolicy.ALLOW
-                      : NavigationActionPolicy.CANCEL;
-                },
-                onLoadStart: (c, url) async {
-                  if (!_active(c, session)) return;
-                  final uri = Uri.tryParse(url?.toString() ?? '');
-                  if (!_ready || uri == null || !policy.allowsMainFrame(uri)) {
-                    await c.stopLoading();
-                    if (_ready && mounted) {
-                      unawaited(_setPaused(c, true));
-                      setState(
-                        () => _error = SourceError('BLOCKED', '播放器跳转地址未获授权'),
-                      );
+        child: VideoLayout(
+          fullscreen: _fullscreen,
+          header: VideoDetails(work: widget.work, showRelated: false),
+          details: VideoDetails(work: widget.work, showHeader: false),
+          player: Stack(
+            fit: StackFit.expand,
+            children: [
+              if (policy != null && session != null)
+                InAppWebView(
+                  key: ValueKey(session),
+                  keepAlive: session,
+                  // 不设置初始 URL；Android 切换独立 Profile 后才允许联网。
+                  initialSettings: InAppWebViewSettings(
+                    userAgent: HttpService.instance.userAgent,
+                    incognito: !Platform.isAndroid,
+                    thirdPartyCookiesEnabled: false,
+                    javaScriptBridgeEnabled: false,
+                    useShouldOverrideUrlLoading: true,
+                    regexToCancelSubFramesLoading: policy.blockedFramePattern,
+                    supportMultipleWindows: true,
+                    allowsInlineMediaPlayback: true,
+                    allowsPictureInPictureMediaPlayback: false,
+                    allowFileAccess: false,
+                    allowContentAccess: false,
+                    mixedContentMode:
+                        MixedContentMode.MIXED_CONTENT_NEVER_ALLOW,
+                    useOnDownloadStart: true,
+                    disableDefaultErrorPage: true,
+                  ),
+                  onWebViewCreated: (c) => _created(c, policy, session),
+                  onCreateWindow: (_, action) async => false,
+                  onDownloadStarting: (_, request) async =>
+                      DownloadStartResponse(
+                        handled: true,
+                        action: DownloadStartResponseAction.CANCEL,
+                      ),
+                  onPermissionRequest: (_, request) async => PermissionResponse(
+                    resources: request.resources,
+                    action: PermissionResponseAction.DENY,
+                  ),
+                  shouldOverrideUrlLoading: (c, action) async {
+                    final uri = Uri.tryParse(
+                      action.request.url?.toString() ?? '',
+                    );
+                    final allowed =
+                        _active(c, session) &&
+                        _ready &&
+                        uri != null &&
+                        (action.isForMainFrame
+                            ? policy.allowsMainFrame(uri)
+                            : policy.allowsFrame(uri));
+                    return allowed
+                        ? NavigationActionPolicy.ALLOW
+                        : NavigationActionPolicy.CANCEL;
+                  },
+                  onLoadStart: (c, url) async {
+                    if (!_active(c, session)) return;
+                    final uri = Uri.tryParse(url?.toString() ?? '');
+                    if (!_ready ||
+                        uri == null ||
+                        !policy.allowsMainFrame(uri)) {
+                      await c.stopLoading();
+                      if (_ready && mounted) {
+                        unawaited(_setPaused(c, true));
+                        setState(
+                          () => _error = SourceError('BLOCKED', '播放器跳转地址未获授权'),
+                        );
+                      }
                     }
-                  }
-                },
-                onProgressChanged: (c, progress) {
-                  if (_active(c, session)) {
-                    setState(() => _progress = progress / 100);
-                  }
-                },
-                onLoadStop: (c, url) {
-                  if (_active(c, session)) _syncLifecycle();
-                },
-                onReceivedError: (c, request, error) {
-                  if (_active(c, session) && request.isForMainFrame == true) {
-                    _failed();
-                  }
-                },
-                onReceivedHttpError: (c, request, response) {
-                  if (_active(c, session) && request.isForMainFrame == true) {
-                    _failed();
-                  }
-                },
-                onRenderProcessGone: (c, detail) {
-                  if (_active(c, session)) _failed();
-                },
-                onEnterFullscreen: (c) {
-                  if (_active(c, session)) _setFullscreen(true);
-                },
-                onExitFullscreen: (c) {
-                  if (_active(c, session)) _setFullscreen(false);
-                },
-              ),
-            if (_error != null)
-              Positioned.fill(
-                child: ColoredBox(
-                  color: Theme.of(context).scaffoldBackgroundColor,
-                  child: Center(
-                    child: SourceErrorView(
-                      source: widget.work.source,
-                      error: _error!,
-                      onRetry: _load,
+                  },
+                  onProgressChanged: (c, progress) {
+                    if (_active(c, session)) {
+                      setState(() => _progress = progress / 100);
+                    }
+                  },
+                  onLoadStop: (c, url) {
+                    if (_active(c, session)) _syncLifecycle();
+                  },
+                  onReceivedError: (c, request, error) {
+                    if (_active(c, session) && request.isForMainFrame == true) {
+                      _failed();
+                    }
+                  },
+                  onReceivedHttpError: (c, request, response) {
+                    if (_active(c, session) && request.isForMainFrame == true) {
+                      _failed();
+                    }
+                  },
+                  onRenderProcessGone: (c, detail) {
+                    if (_active(c, session)) _failed();
+                  },
+                  onEnterFullscreen: (c) {
+                    if (_active(c, session)) _setFullscreen(true);
+                  },
+                  onExitFullscreen: (c) {
+                    if (_active(c, session)) _setFullscreen(false);
+                  },
+                ),
+              if (_error != null)
+                Positioned.fill(
+                  child: ColoredBox(
+                    color: Theme.of(context).scaffoldBackgroundColor,
+                    child: Center(
+                      child: SourceErrorView(
+                        source: widget.work.source,
+                        error: _error!,
+                        onRetry: _load,
+                      ),
                     ),
                   ),
                 ),
-              ),
-            if (policy == null && _error == null)
-              const Center(child: CircularProgressIndicator()),
-          ],
+              if (policy == null && _error == null)
+                const Center(child: CircularProgressIndicator()),
+            ],
+          ),
         ),
       ),
     );

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../core/content_scope.dart';
@@ -41,11 +43,11 @@ class _SourcePageState extends State<SourcePage> {
     if (account == null) return _build(context);
     return ValueListenableBuilder(
       valueListenable: account,
-      builder: (context, _, _) => _build(context),
+      builder: (context, status, _) => _build(context, status),
     );
   }
 
-  Widget _build(BuildContext context) {
+  Widget _build(BuildContext context, [AccountStatus? accountStatus]) {
     final m = _sources.manifest(widget.sourceKey);
     if (m == null) {
       return Scaffold(
@@ -62,8 +64,8 @@ class _SourcePageState extends State<SourcePage> {
         feedIndex: widget.initialFeed,
       );
     }
-    final account = _sources[widget.sourceKey]?.account;
-    final needsLogin = m.account?.required == true && account?.loggedIn != true;
+    final needsLogin =
+        m.account?.required == true && accountStatus?.loggedIn != true;
     final tabs = m.feeds.length > 1
         ? TabBar(
             isScrollable: true,
@@ -73,10 +75,9 @@ class _SourcePageState extends State<SourcePage> {
     return TranslationPage(
       child: DefaultTabController(
         length: m.feeds.length,
-        initialIndex: (widget.initialFeed ?? m.defaultFeedIndex).clamp(
-          0,
-          m.feeds.isEmpty ? 0 : m.feeds.length - 1,
-        ),
+        initialIndex:
+            (widget.initialFeed ?? _sources.entryFeedIndex(widget.sourceKey))
+                .clamp(0, m.feeds.isEmpty ? 0 : m.feeds.length - 1),
         child: Builder(
           builder: (context) {
             return Scaffold(
@@ -220,7 +221,7 @@ class _LoginStrip extends StatelessWidget {
             ),
           ),
           TextButton(
-            onPressed: () => Nav.openSourceSettings(context, source),
+            onPressed: () => Nav.login(context, source),
             child: Text(tr('去登录')),
           ),
         ],
@@ -245,6 +246,17 @@ class FeedTab extends StatefulWidget {
 }
 
 class _FeedTabState extends State<FeedTab> with AutomaticKeepAliveClientMixin {
+  StreamSubscription<String>? _authentication;
+  @override
+  void initState() {
+    super.initState();
+    _authentication = (widget.sourceManager ?? SourceManager.instance)
+        .authenticationChanges
+        .listen((key) {
+          if (key == widget.source.key) unawaited(_refresh());
+        });
+  }
+
   bool _forceRefresh = false;
   late Map<String, Object?> _options = widget.feed.defaultOptions();
   late final PagedController _controller = PagedController(
@@ -273,6 +285,7 @@ class _FeedTabState extends State<FeedTab> with AutomaticKeepAliveClientMixin {
 
   @override
   void dispose() {
+    _authentication?.cancel();
     _controller.dispose();
     super.dispose();
   }

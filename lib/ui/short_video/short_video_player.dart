@@ -31,11 +31,30 @@ class ShortVideoPlayer implements ShortVideoHandle {
     }
     final manifest = SourceManager.instance.manifest(item.source);
     if (manifest == null) throw SourceError('CONFIG', '站点未加载');
-    final sources = await SourceManager.instance.videos(
-      item.source,
-      item.id,
-      cancelToken: cancel,
-    );
+    final embeddedMedia = item.json['media'];
+    final embeddedVideo = embeddedMedia is List
+        ? embeddedMedia.whereType<Map>().cast<Map>().where((media) {
+            return media['type'] == 'video' &&
+                media['url'] is String &&
+                (media['url'] as String).isNotEmpty;
+          }).firstOrNull
+        : null;
+    final sources = embeddedVideo == null
+        ? await SourceManager.instance.videos(
+            item.source,
+            item.id,
+            cancelToken: cancel,
+          )
+        : [
+            VideoSource({
+              'url': embeddedVideo['url'],
+              'format': (embeddedVideo['url'] as String).contains('.m3u8')
+                  ? 'hls'
+                  : 'mp4',
+              'preferred': true,
+              'label': '原画',
+            }),
+          ];
     _check(cancel);
     if (sources.isEmpty) throw SourceError('UNSUPPORTED', '此影片暂无可用播放地址');
     final source = sources.firstWhere(

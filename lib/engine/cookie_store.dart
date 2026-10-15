@@ -157,18 +157,28 @@ class CookieStore {
     bool mirror = true,
   }) async {
     if (mirror) checkBrowserUri(uri, partition);
+    // 网页登录已导入真实 Cookie；插件再次确认同值时不能重建成一年期根路径 Cookie。
+    final existing = await _forRequest(uri, partition);
+    final changed = Map<String, String>.fromEntries(
+      values.entries.where(
+        (entry) => !existing.any(
+          (cookie) => cookie.name == entry.key && cookie.value == entry.value,
+        ),
+      ),
+    );
     final domain = _cookieDomain(uri.host);
-    final cookies = values.entries.map((e) {
+    final cookies = changed.entries.map((e) {
       final c = Cookie(e.key, e.value)
         ..domain = domain
         ..path = '/'
         ..expires = DateTime.now().add(const Duration(days: 365));
       return c;
     }).toList();
-    await jar(partition).saveFromResponse(uri, cookies);
+    if (cookies.isNotEmpty) await jar(partition).saveFromResponse(uri, cookies);
     if (mirror) {
       trackBrowserUri(uri, partition);
-      await _mirrorToWebView(uri, values);
+      await _mirrorToWebView(uri, changed);
+      await restoreToWebView(uri, partition: partition);
     }
   }
 
@@ -429,10 +439,62 @@ class CookieStore {
     }
   }
 
+  /// 恢复浏览器丢失的持久凭证，不覆盖浏览器刚轮换的新值。
+  Future<void> restoreToWebView(Uri uri, {required String partition}) async {
+    checkBrowserUri(uri, partition);
+    final generation = _generations[partition] ?? 0;
+    await _serialize(partition, () async {
+      if (generation != (_generations[partition] ?? 0)) {
+        throw SourceError('CANCELLED', '浏览器会话已关闭');
+      }
+      trackBrowserUri(uri, partition);
+      if (!_webViewSupported) return;
+      final manager = wv.CookieManager.instance();
+      final current = await manager.getCookies(url: wv.WebUri(uri.toString()));
+      final cookies = await _forRequest(uri, partition);
+      final stored = _snapshotCookies(await snapshotPartition(partition));
+      for (final cookie in cookies) {
+        if (current.any((c) => _browserCookieMatches(c, cookie, uri))) {
+          continue;
+        }
+        int? expiry = cookie.expires?.millisecondsSinceEpoch;
+        if (cookie.maxAge != null) {
+          for (final value in stored.values) {
+            final saved = value.value.cookie;
+            if (saved.name == cookie.name &&
+                saved.domain == cookie.domain &&
+                saved.path == cookie.path) {
+              expiry = (value.value.createTimeStamp + cookie.maxAge!) * 1000;
+              break;
+            }
+          }
+        }
+        await manager.setCookie(
+          url: wv.WebUri(uri.toString()),
+          name: cookie.name,
+          value: cookie.value,
+          domain: cookie.domain,
+          path: cookie.path ?? '/',
+          expiresDate: expiry,
+          isSecure: cookie.secure,
+          isHttpOnly: cookie.httpOnly,
+        );
+      }
+    });
+  }
+
+  bool _browserCookieMatches(wv.Cookie browser, Cookie native, Uri uri) =>
+      browser.name == native.name &&
+      (browser.path == null || browser.path == (native.path ?? '/')) &&
+      (browser.domain == null ||
+          browser.domain!.replaceFirst(RegExp(r'^\.'), '') ==
+              (native.domain ?? uri.host).replaceFirst(RegExp(r'^\.'), ''));
+
   /// Copies cookies from the WebView store (after a Cloudflare check or web login) into a source's jar.
   Future<Map<String, String>> importFromWebView(
     Uri uri, {
     required String partition,
+    bool authoritative = false,
   }) async {
     checkBrowserUri(uri, partition);
     final generation = _generations[partition] ?? 0;
@@ -463,17 +525,71 @@ class CookieStore {
       if (generation != (_generations[partition] ?? 0)) {
         throw SourceError('CANCELLED', '浏览器会话已关闭');
       }
-      await jar(partition).saveFromResponse(uri, [
-        for (final c in allowed)
-          (Cookie(c.name, c.value.toString())
-            ..domain = c.domain
-            ..path = c.path ?? '/'
-            ..secure = c.isSecure ?? (uri.scheme == 'https')
-            ..httpOnly = c.isHttpOnly ?? true
-            ..expires = c.expiresDate != null
-                ? DateTime.fromMillisecondsSinceEpoch(c.expiresDate!)
-                : null),
-      ]);
+      final removed = <Cookie>[];
+      final previous = await _forRequest(uri, partition);
+      final stored = _snapshotCookies(await snapshotPartition(partition));
+      final imported = <Cookie>[];
+      for (final c in allowed) {
+        final candidates = previous
+            .where((old) => _browserCookieMatches(c, old, uri))
+            .toList();
+        // 缺失属性时只恢复已知身份，不把非根路径或 Domain 凭证改成根路径 host-only。
+        final matches = candidates.where((old) => old.value == c.value);
+        final old = matches.firstOrNull ?? candidates.firstOrNull;
+        final metadataMissing =
+            c.path == null &&
+            c.domain == null &&
+            c.isSecure == null &&
+            c.isHttpOnly == null;
+        DateTime? expiry = c.expiresDate != null
+            ? DateTime.fromMillisecondsSinceEpoch(c.expiresDate!)
+            : metadataMissing
+            ? old?.expires
+            : null;
+        if (metadataMissing && old?.maxAge != null) {
+          final saved = stored.values
+              .where(
+                (entry) =>
+                    entry.host ==
+                        (old!.domain ?? uri.host).replaceFirst(
+                          RegExp(r'^\.'),
+                          '',
+                        ) &&
+                    entry.value.cookie.name == old.name &&
+                    entry.value.cookie.path == old.path &&
+                    entry.value.cookie.domain == old.domain,
+              )
+              .firstOrNull;
+          if (saved != null) {
+            expiry = DateTime.fromMillisecondsSinceEpoch(
+              (saved.value.createTimeStamp + old!.maxAge!) * 1000,
+            );
+          }
+        }
+        imported.add(
+          Cookie(c.name, c.value.toString())
+            ..domain = metadataMissing ? old?.domain : c.domain
+            ..path = c.path ?? old?.path ?? '/'
+            ..secure = c.isSecure ?? old?.secure ?? (uri.scheme == 'https')
+            ..httpOnly = c.isHttpOnly ?? old?.httpOnly ?? true
+            ..expires = expiry,
+        );
+      }
+      if (authoritative) {
+        for (final old in previous) {
+          if (allowed.any((c) => _browserCookieMatches(c, old, uri))) {
+            continue;
+          }
+          removed.add(
+            Cookie(old.name, '')
+              ..domain = old.domain
+              ..path = old.path
+              ..maxAge = 0
+              ..expires = DateTime.fromMillisecondsSinceEpoch(0),
+          );
+        }
+      }
+      await jar(partition).saveFromResponse(uri, [...removed, ...imported]);
     });
     return values;
   }

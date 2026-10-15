@@ -1,17 +1,17 @@
-/* Hanime.tv：公开目录检索；未验证的播放器握手不冒充本地媒体。 */
+/* Hanime.tv：公开目录检索与同站网页播放；不冒充本地媒体直链。 */
 Park.register({
   i18n: {
-    "zh-Hant": {"影片列表解析失败": "影片列表解析失敗", "里番目录、排行与搜索；播放需打开原站": "裏番目錄、排行與搜尋；播放需開啟原站"},
-    "ja": {"影片列表解析失败": "動画一覧の解析に失敗しました", "里番目录、排行与搜索；播放需打开原站": "アニメのカタログ・ランキング・検索。再生は元サイトで"},
-    "ko": {"影片列表解析失败": "동영상 목록 분석 실패", "里番目录、排行与搜索；播放需打开原站": "애니메이션 목록, 순위 및 검색; 재생은 원본 사이트에서"},
-    "en": {"影片列表解析失败": "Failed to parse video list", "里番目录、排行与搜索；播放需打开原站": "Anime catalog, rankings and search; open the original site to play"},
-    "es": {"影片列表解析失败": "No se pudo analizar la lista de vídeos", "里番目录、排行与搜索；播放需打开原站": "Catálogo de anime, clasificación y búsqueda; reproducción en el sitio original"},
-    "ru": {"影片列表解析失败": "Не удалось разобрать список видео", "里番目录、排行与搜索；播放需打开原站": "Каталог аниме, рейтинг и поиск; просмотр на исходном сайте"},
-    "ar": {"影片列表解析失败": "تعذر تحليل قائمة الفيديو", "里番目录、排行与搜索；播放需打开原站": "دليل الأنمي والترتيب والبحث؛ التشغيل على الموقع الأصلي"},
+    "zh-Hant": {"影片列表解析失败": "影片列表解析失敗", "里番目录、排行与搜索；支持应用内网页播放": "裏番目錄、排行與搜尋；支援應用內網頁播放"},
+    "ja": {"影片列表解析失败": "動画一覧の解析に失敗しました", "里番目录、排行与搜索；支持应用内网页播放": "アニメのカタログ・ランキング・検索。アプリ内ウェブ再生に対応"},
+    "ko": {"影片列表解析失败": "동영상 목록 분석 실패", "里番目录、排行与搜索；支持应用内网页播放": "애니메이션 목록, 순위 및 검색; 앱 내 웹 재생 지원"},
+    "en": {"影片列表解析失败": "Failed to parse video list", "里番目录、排行与搜索；支持应用内网页播放": "Anime catalog, rankings and search; supports in-app web playback"},
+    "es": {"影片列表解析失败": "No se pudo analizar la lista de vídeos", "里番目录、排行与搜索；支持应用内网页播放": "Catálogo de anime, clasificación y búsqueda; reproducción web en la aplicación"},
+    "ru": {"影片列表解析失败": "Не удалось разобрать список видео", "里番目录、排行与搜索；支持应用内网页播放": "Каталог аниме, рейтинг и поиск; веб-воспроизведение в приложении"},
+    "ar": {"影片列表解析失败": "تعذر تحليل قائمة الفيديو", "里番目录、排行与搜索；支持应用内网页播放": "دليل الأنمي والترتيب والبحث؛ تشغيل الويب داخل التطبيق"},
   },
-  key: 'hanime', name: 'Hanime.tv', version: '0.0.3', type: 'video', category: 'anime',
+  key: 'hanime', name: 'Hanime.tv', version: '0.0.4', type: 'video', category: 'anime',
   language: 'en', color: '#EC407A', homepage: 'https://hanime.tv',
-  description: '里番目录、排行与搜索；播放需打开原站',
+  description: '里番目录、排行与搜索；支持应用内网页播放',
   domains: ['hanime.tv', 'hanime-cdn.com', 'guest.freeanimehentai.net'],
   network: {mode: 'native', vpnHint: true},
   imageHeaders: {Referer: 'https://hanime.tv/'},
@@ -89,4 +89,16 @@ Park.register({
     const tags = [...doc.querySelectorAll('main a[href*="/browse/tags/"]')].map(a => ({name: Park.html.text(a), keyword: Park.html.text(a)})).filter(x => x.name);
     return {id, title: meta.name, cover: this.cover(meta.thumbnailUrl), url, description: meta.description || '', duration: meta.duration || '', chapters: null, tags, authors: [], related: this.cards(doc).filter(x => x.id !== id)};
   },
+  async webVideo(value) {
+    const id = this.idValue(value);
+    return {
+      url: this.BASE + '/videos/hentai/' + id,
+      navigationDomains: ['hanime.tv'],
+      frameDomains: ['hanime-cdn.com', 'freeanimehentai.net'],
+    };
+  },
 });
+
+Park.enableUpdateSubscriptions(Park.__pending, {dimensions: [
+  {key: 'search', label: '搜索关键词', hint: '输入作品、作者或标签关键词'},
+]});

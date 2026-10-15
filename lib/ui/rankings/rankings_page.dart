@@ -28,6 +28,9 @@ class RankingsPage extends StatefulWidget {
 class _RankingsPageState extends State<RankingsPage> {
   late SourceCategory _category = widget.category ?? SourceCategory.jav;
   String? _selected;
+  String _section = 'market';
+  String _kind = 'work';
+  final _optionLoads = <String, Future<List<OptionDef>>>{};
   final _sessions = <String, RankingController>{};
   final _options = <String, Map<String, Object?>>{};
   SourceManager get _manager => widget.sourceManager ?? SourceManager.instance;
@@ -111,105 +114,207 @@ class _RankingsPageState extends State<RankingsPage> {
         final category = categories.contains(_category)
             ? _category
             : categories.first;
-        final boards = available
-            .where((entry) => entry.board.category == category)
+        final categoryBoards = available
+            .where((e) => e.board.category == category)
+            .toList();
+        String sectionOf(RankingSelection e) => e.board.section.isEmpty
+            ? (e.source.rankingOnly ? 'market' : 'site')
+            : e.board.section;
+        final sections = [
+          'market',
+          'site',
+        ].where((s) => categoryBoards.any((e) => sectionOf(e) == s)).toList();
+        final section = sections.contains(_section) ? _section : sections.first;
+        final sectionBoards = categoryBoards
+            .where((e) => sectionOf(e) == section)
+            .toList();
+        final kinds = [
+          'work',
+          'actress',
+          'genre',
+          'seller',
+        ].where((k) => sectionBoards.any((e) => e.board.kind == k)).toList();
+        final kind = kinds.contains(_kind) ? _kind : kinds.first;
+        final boards = sectionBoards
+            .where((e) => e.board.kind == kind)
             .toList();
         final entry =
             boards.where((entry) => _key(entry) == _selected).firstOrNull ??
             boards.first;
         final key = _key(entry);
-        final options = _options[key] ?? entry.board.defaultOptions();
-        final sessionKey = '$key:${jsonEncode(options)}';
-        final controller = _sessions.putIfAbsent(sessionKey, () {
-          final result = RankingController(
-            (page, cursor, offset) => _manager.ranking(
-              entry.source.key,
-              entry.board.key,
-              page: page,
-              cursor: cursor,
-              offset: offset,
-              options: options,
-            ),
-          );
-          // 开始加载放在布局后，避免在构建过程中通知监听器。
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (mounted) result.loadMore();
-          });
-          return result;
-        });
-        return _RankingList(
-          key: ValueKey(sessionKey),
-          controller: controller,
-          entry: entry,
-          header: Column(
-            children: [
-              SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.symmetric(horizontal: Gap.page),
-                child: Row(
-                  children: [
-                    for (final value in categories)
-                      Padding(
-                        padding: const EdgeInsetsDirectional.only(end: Gap.s),
-                        child: ChoiceChip(
-                          label: Text(value.label),
-                          selected: value == category,
-                          showCheckmark: false,
-                          onSelected: (_) => setState(() {
-                            _category = value;
-                            _selected = null;
-                          }),
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(
-                  Gap.page,
-                  Gap.s,
-                  Gap.page,
-                  0,
-                ),
-                child: DropdownButtonFormField<String>(
-                  key: ValueKey(key),
-                  initialValue: key,
-                  isExpanded: true,
-                  decoration: InputDecoration(labelText: tr('榜单')),
-                  items: [
-                    for (final option in boards)
-                      DropdownMenuItem(
-                        value: _key(option),
-                        child: Text(
-                          '${option.source.name} · ${option.board.label}',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                  ],
-                  onChanged: (value) => setState(() => _selected = value),
-                ),
-              ),
-              OptionBar(
-                key: ValueKey('options-$key'),
-                options: entry.board.options,
-                values: options,
-                onChanged: (values) => setState(() => _options[key] = values),
-              ),
-              Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: Gap.page,
-                  vertical: Gap.s,
-                ),
-                child: Align(
-                  alignment: AlignmentDirectional.centerStart,
-                  child: Text(entry.board.metric),
-                ),
-              ),
-            ],
+        return FutureBuilder<List<OptionDef>>(
+          key: ValueKey(key),
+          future: _optionLoads.putIfAbsent(
+            key,
+            () => _manager.rankingOptions(entry.source.key, entry.board),
           ),
+          builder: (context, snapshot) {
+            final definitions = snapshot.data ?? entry.board.options;
+            final options =
+                _options[key] ??
+                {for (final o in definitions) o.key: o.defaultValue};
+            final sessionKey = '$key:${jsonEncode(options)}';
+            final header = Column(
+              children: [
+                SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  padding: const EdgeInsets.symmetric(horizontal: Gap.page),
+                  child: Row(
+                    children: [
+                      for (final value in categories)
+                        Padding(
+                          padding: const EdgeInsetsDirectional.only(end: Gap.s),
+                          child: ChoiceChip(
+                            label: Text(value.label),
+                            selected: value == category,
+                            showCheckmark: false,
+                            onSelected: (_) => setState(() {
+                              _category = value;
+                              _selected = null;
+                            }),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+                _chips(
+                  sections,
+                  section,
+                  (v) => v == 'market' ? tr('市场排行榜') : tr('站点排行榜'),
+                  (v) => setState(() {
+                    _section = v;
+                    _selected = null;
+                  }),
+                ),
+                _chips(
+                  kinds,
+                  kind,
+                  (v) => tr(switch (v) {
+                    'actress' => '女优榜',
+                    'genre' => '分类榜',
+                    'seller' => '卖家榜',
+                    _ => '作品榜',
+                  }),
+                  (v) => setState(() {
+                    _kind = v;
+                    _selected = null;
+                  }),
+                ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(
+                    Gap.page,
+                    Gap.s,
+                    Gap.page,
+                    0,
+                  ),
+                  child: DropdownButtonFormField<String>(
+                    key: ValueKey(key),
+                    initialValue: key,
+                    isExpanded: true,
+                    decoration: InputDecoration(labelText: tr('榜单')),
+                    items: [
+                      for (final option in boards)
+                        DropdownMenuItem(
+                          value: _key(option),
+                          child: Text(
+                            '${option.source.name} · ${option.board.label}',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                    ],
+                    onChanged: (value) => setState(() => _selected = value),
+                  ),
+                ),
+                if (snapshot.hasData)
+                  OptionBar(
+                    key: ValueKey('options-$key'),
+                    options: definitions,
+                    values: options,
+                    onChanged: (values) =>
+                        setState(() => _options[key] = values),
+                  ),
+                Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: Gap.page,
+                    vertical: Gap.s,
+                  ),
+                  child: Align(
+                    alignment: AlignmentDirectional.centerStart,
+                    child: Text(entry.board.metric),
+                  ),
+                ),
+              ],
+            );
+            if (!snapshot.hasData) {
+              return CustomScrollView(
+                slivers: [
+                  SliverToBoxAdapter(child: header),
+                  SliverToBoxAdapter(
+                    child: snapshot.hasError
+                        ? SourceErrorView(
+                            error: snapshot.error!,
+                            source: entry.source.key,
+                            onRetry: () =>
+                                setState(() => _optionLoads.remove(key)),
+                          )
+                        : const Padding(
+                            padding: EdgeInsets.all(Gap.xl),
+                            child: Center(child: CircularProgressIndicator()),
+                          ),
+                  ),
+                ],
+              );
+            }
+            final controller = _sessions.putIfAbsent(sessionKey, () {
+              final result = RankingController(
+                (page, cursor, offset) => _manager.ranking(
+                  entry.source.key,
+                  entry.board.key,
+                  page: page,
+                  cursor: cursor,
+                  offset: offset,
+                  options: options,
+                ),
+              );
+              // 开始加载放在布局后，避免在构建过程中通知监听器。
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                if (mounted) result.loadMore();
+              });
+              return result;
+            });
+            return _RankingList(
+              key: ValueKey(sessionKey),
+              controller: controller,
+              entry: entry,
+              header: header,
+            );
+          },
         );
       },
+    ),
+  );
+  Widget _chips(
+    List<String> values,
+    String selected,
+    String Function(String) label,
+    ValueChanged<String> onChanged,
+  ) => SingleChildScrollView(
+    scrollDirection: Axis.horizontal,
+    padding: const EdgeInsets.symmetric(horizontal: Gap.page),
+    child: Row(
+      children: [
+        for (final value in values)
+          Padding(
+            padding: const EdgeInsetsDirectional.only(end: Gap.s),
+            child: ChoiceChip(
+              label: Text(label(value)),
+              selected: value == selected,
+              showCheckmark: false,
+              onSelected: (_) => onChanged(value),
+            ),
+          ),
+      ],
     ),
   );
 }

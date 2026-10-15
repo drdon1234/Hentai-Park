@@ -227,10 +227,14 @@ class VideoDetails extends StatelessWidget {
     required this.work,
     this.offline = false,
     this.quality,
+    this.showHeader = true,
+    this.showRelated = true,
   });
   final WorkDetail work;
   final bool offline;
   final String? quality;
+  final bool showHeader;
+  final bool showRelated;
 
   @override
   Widget build(BuildContext context) {
@@ -244,34 +248,42 @@ class VideoDetails extends StatelessWidget {
     ];
     return CustomScrollView(
       slivers: [
-        SliverToBoxAdapter(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(Gap.page, Gap.m, Gap.page, 0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                SelectableText(
-                  d.title,
-                  style: ParkText.serif(context.text.titleMedium),
-                ),
-                if (meta.isNotEmpty) ...[
-                  const SizedBox(height: Gap.xs),
-                  Text(
-                    meta.join(' · '),
-                    style: context.text.bodySmall?.copyWith(
-                      color: context.colors.onSurfaceVariant,
-                    ),
+        if (showHeader)
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(Gap.page, Gap.m, Gap.page, 0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  SelectableText(
+                    d.title,
+                    style: ParkText.serif(context.text.titleMedium),
                   ),
+                  if (meta.isNotEmpty) ...[
+                    const SizedBox(height: Gap.xs),
+                    Text(
+                      meta.join(' · '),
+                      style: context.text.bodySmall?.copyWith(
+                        color: context.colors.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
                 ],
-              ],
+              ),
             ),
           ),
-        ),
-        if (d.series.isNotEmpty)
+        if (showRelated && d.description.isNotEmpty)
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.all(Gap.page),
+              child: SelectableText(d.description),
+            ),
+          ),
+        if (showRelated && d.series.isNotEmpty)
           SliverToBoxAdapter(
             child: WorkCarousel(title: tr('同系列'), items: d.series),
           ),
-        if (d.related.isNotEmpty)
+        if (showRelated && d.related.isNotEmpty)
           SliverToBoxAdapter(
             child: WorkCarousel(title: tr('相关推荐'), items: d.related),
           ),

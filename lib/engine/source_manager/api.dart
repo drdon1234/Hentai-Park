@@ -2,7 +2,22 @@ part of '../source_manager.dart';
 
 /// Typed calls into a source: feeds, search, details, chapters, media and game resources.
 mixin _SourceApi on _SourceRegistry {
-  Future<WorkPage> ranking(
+  Future<List<OptionDef>> rankingOptions(String key, RankingDef board) async {
+    if (!board.options.any((option) => option.dynamicValues)) {
+      return board.options;
+    }
+    final result = await _call(key, 'rankingOptions', [board.key]);
+    return (result as List)
+        .map(
+          (value) => OptionDef.fromJson(
+            (value as Map).cast<String, dynamic>(),
+            manifest(key)?.copy,
+          ),
+        )
+        .toList();
+  }
+
+  Future<RankingPage> ranking(
     String key,
     String board, {
     int page = 1,
@@ -15,7 +30,7 @@ mixin _SourceApi on _SourceRegistry {
       board,
       {'page': page, 'offset': offset, 'cursor': cursor, 'options': options},
     ], cancelToken: cancelToken);
-    return WorkPage.fromJson((result as Map).cast<String, dynamic>(), key);
+    return RankingPage.fromJson((result as Map).cast<String, dynamic>(), key);
   }
 
   Future<WorkPage> feed(

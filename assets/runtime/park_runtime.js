@@ -340,6 +340,8 @@
   function rankingDefs(def) {
     return (def.rankings || []).map(board => ({
       ...board,
+      section: board.section || (def.rankingOnly ? 'market' : 'site'),
+      kind: board.kind || 'work',
       options: board.options || (def.feeds || []).find(feed => feed.key === board.feed)?.options || [],
     }));
   }
@@ -391,6 +393,7 @@
       // The plugin's own translations, keyed by its Chinese source text: {locale: {text: translation}}.
       i18n: pick(def.i18n || {}),
       defaultFeed: def.defaultFeed || '',
+      anonymousDefaultFeed: def.anonymousDefaultFeed || '',
       searchFilters: pick(def.searchFilters || []),
       searchHint: def.searchHint || '',
       capabilities: {
@@ -558,25 +561,42 @@
         // Namespaced methods ("account.login") still run with the source as `this`.
         let target = entry.def;
         for (const part of String(path).split('.')) target = target ? target[part] : undefined;
-        if (path === 'ranking') {
+        if (path === 'ranking' || path === 'rankingOptions') {
           const board = rankingDefs(entry.def).find(b => b.key === args?.[0]);
           if (!board) throw new ParkError(ErrorCode.CONFIG, '未知列表');
-          const request = args?.[1] || {};
-          for (const option of board.options || []) {
-            const value = request.options?.[option.key] ?? option.default;
-            if (option.values && !option.values.some(choice => choice.value === value)) {
-              throw new ParkError(ErrorCode.CONFIG, '未知列表');
+          const loadOptions = async function () {
+            const declared = board.options || [];
+            if (!declared.some(o => o.dynamic)) return declared;
+            if (typeof this.rankingOptions !== 'function') throw new ParkError(ErrorCode.CONFIG, '未知列表');
+            const dynamic = await this.rankingOptions(board.key);
+            return declared.map(option => {
+              if (!option.dynamic) return option;
+              const resolved = dynamic?.find(o => o.key === option.key);
+              if (!resolved?.values?.length) throw new ParkError(ErrorCode.PARSE, '排行榜解析失败');
+              return {...option, ...resolved};
+            });
+          };
+          const ranking = target;
+          target = path === 'rankingOptions' ? loadOptions : async function (_, request = {}) {
+            const options = await loadOptions.call(this);
+            const selected = {...request.options};
+            for (const option of options) {
+              const value = selected[option.key] ?? option.default;
+              if (option.values && !option.values.some(choice => choice.value === value)) {
+                throw new ParkError(ErrorCode.CONFIG, '未知列表');
+              }
+              selected[option.key] = value;
             }
-          }
-          if (typeof target !== 'function' && board.feed && typeof entry.def.feed === 'function') {
-            target = async function (_, req) {
-              const page = await this.feed(board.feed, req);
-              return {...page, items: (page.items || []).map((item, index) => ({
-                ...item, rank: item.rank ?? (Number(req.offset) || 0) + index + 1,
-                workId: item.id,
-              }))};
-            };
-          }
+            const req = {...request, options: selected};
+            const fromFeed = typeof ranking !== 'function' && board.feed && typeof this.feed === 'function';
+            if (!fromFeed && typeof ranking !== 'function') throw new ParkError(ErrorCode.CONFIG, '未知列表');
+            const page = fromFeed ? await this.feed(board.feed, req) : await ranking.call(this, board.key, req);
+            return {...page, items: (page.items || []).map((item, index) => ({
+              ...item,
+              kind: board.kind === 'actress' || board.kind === 'seller' ? board.kind : 'work',
+              ...(fromFeed ? {rank: item.rank ?? (Number(req.offset) || 0) + index + 1, workId: item.id} : {}),
+            }))};
+          };
         }
         if (typeof target !== 'function') {
           throw new ParkError(ErrorCode.UNSUPPORTED, '{site}不支持{action}', { params: { site: entry.def.name, action: path } });

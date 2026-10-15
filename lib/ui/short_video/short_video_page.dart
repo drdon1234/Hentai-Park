@@ -46,6 +46,7 @@ class _ShortVideoPageState extends State<ShortVideoPage>
   late final ShortVideoPlayback _playback;
   final PageController _pages = PageController();
   Timer? _saveTimer;
+  StreamSubscription<String>? _authentication;
   WorkItem? _visible;
   ModalRoute<dynamic>? _route;
   bool _foreground = true,
@@ -64,21 +65,39 @@ class _ShortVideoPageState extends State<ShortVideoPage>
     AppLock.instance.addListener(_sync);
     _playback = ShortVideoPlayback(ShortVideoPlayer.open)
       ..addListener(_changed);
-    _feed = ShortVideoFeed((page, cursor) {
-      final m = SourceManager.instance.manifest(widget.source);
-      if (m == null || m.feeds.isEmpty) throw SourceError('CONFIG', '站点未加载');
-      final i = (widget.feedIndex ?? m.defaultFeedIndex).clamp(
-        0,
-        m.feeds.length - 1,
-      );
-      return SourceManager.instance.feed(
-        widget.source,
-        m.feeds[i].key,
-        page: page,
-        cursor: cursor,
-        options: m.feeds[i].defaultOptions(),
-      );
-    })..addListener(_feedChanged);
+    _authentication = SourceManager.instance.authenticationChanges.listen((
+      key,
+    ) {
+      if (key == widget.source) unawaited(_refresh());
+    });
+    _feed = ShortVideoFeed(
+      (page, cursor) {
+        final m = SourceManager.instance.manifest(widget.source);
+        if (m == null || m.feeds.isEmpty) throw SourceError('CONFIG', '站点未加载');
+        final i =
+            (widget.feedIndex ??
+                    SourceManager.instance.entryFeedIndex(widget.source))
+                .clamp(0, m.feeds.length - 1);
+        return SourceManager.instance.feed(
+          widget.source,
+          m.feeds[i].key,
+          page: page,
+          cursor: cursor,
+          options: m.feeds[i].defaultOptions(),
+          refresh: _refreshing,
+        );
+      },
+      allowItem: (item) =>
+          TagBlocklist.current().matchItem(item) == null &&
+          (widget.initial?.isSubscriptionPost != true ||
+              (item.mediaKind == MediaKind.video &&
+                  (item.json['media'] as List? ?? const []).any(
+                    (media) =>
+                        media is Map &&
+                        media['type'] == 'video' &&
+                        (media['url'] as String? ?? '').isNotEmpty,
+                  ))),
+    )..addListener(_feedChanged);
     _saveTimer = Timer.periodic(const Duration(seconds: 10), (_) => _save());
     if (widget.initial != null) {
       _resolving = true;
@@ -268,6 +287,7 @@ class _ShortVideoPageState extends State<ShortVideoPage>
 
   @override
   void dispose() {
+    _authentication?.cancel();
     _save();
     _saveTimer?.cancel();
     Nav.routeObserver.unsubscribe(this);

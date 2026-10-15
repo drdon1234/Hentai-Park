@@ -171,6 +171,11 @@ class _ShellState extends State<Shell> {
       _select(0);
       return;
     }
+    if (_discovery.value != const DiscoveryDestination.all()) {
+      _discovery.value = const DiscoveryDestination.all();
+      _lastBack = null;
+      return;
+    }
     final now = DateTime.now();
     if (_lastBack != null &&
         now.difference(_lastBack!) < const Duration(seconds: 2)) {
@@ -182,6 +187,7 @@ class _ShellState extends State<Shell> {
   }
 
   void _select(int i) {
+    _lastBack = null;
     if (i != _index) HapticFeedback.selectionClick();
     setState(() {
       // The work beside the list belongs to the tab it was opened from.

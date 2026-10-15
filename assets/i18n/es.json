@@ -1256,5 +1256,12 @@
   "无法打开原站": "No se pudo abrir el sitio original",
   "第 {rank} 名": "Puesto {rank}",
   "实时": "En tiempo real",
-  "年榜": "Anual"
+  "年榜": "Anual",
+  "市场排行榜": "Rankings del mercado",
+  "站点排行榜": "Rankings del sitio",
+  "女优榜": "Ranking de actrices",
+  "分类榜": "Ranking por categoría",
+  "卖家榜": "Ranking de vendedores",
+  "作品榜": "Ranking de obras",
+  "作品数：{count}": "Obras: {count}"
 }

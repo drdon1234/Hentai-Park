@@ -102,12 +102,19 @@ class HttpService {
           page.port != target.port) {
         throw SourceError('CONFIG', '浏览器模式只能访问站点声明的同源地址');
       }
+      await CookieStore.instance.restoreToWebView(target, partition: partition);
+      _throwIfCancelled(cancelToken);
       final result = await BrowserFetcher.instance.fetch(
         origin: origin,
         request: o,
         cancelToken: cancelToken,
       );
       _throwIfCancelled(cancelToken);
+      await CookieStore.instance.importFromWebView(
+        target,
+        partition: partition,
+        authoritative: true,
+      );
       return result;
     }
     final res = await send(

@@ -45,6 +45,7 @@ mixin _SourceAccounts on _SourceRegistry {
   Future<String> login(String key, Map<String, String> values) async {
     final res = await _call(key, 'account.login', [values]);
     await refreshAccount(key);
+    authenticationChanged(key);
     return res is Map ? (res['name'] ?? '').toString() : '';
   }
 
@@ -55,6 +56,7 @@ mixin _SourceAccounts on _SourceRegistry {
       await setManagedAccount(key, false);
     }
     await refreshAccount(key);
+    authenticationChanged(key);
   }
 
   /// Checks the account. Runs after login, logout, web login, on a source's first use after

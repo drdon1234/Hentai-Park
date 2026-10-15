@@ -43,8 +43,8 @@
       seen = new Set();
     for (const a of d.querySelectorAll('.list-group-item a[href]')) {
       const u = href(a, base);
-      if (!u || !/^\/(?:chapters\/[^?#]+|\d+)$/.test(u.pathname)) continue;
-      const id = decodeURIComponent(u.pathname.slice(1));
+      if (!u || !/^\/(?:chapters\/[^?#]+|\d+|article\/\d+)$/.test(u.pathname)) continue;
+      const id = decodeURIComponent(u.pathname.replace(/^\/article\//, '/').slice(1));
       if (seen.has(id)) continue;
       seen.add(id);
       out.push({
@@ -78,7 +78,7 @@
     },
     key: 'book18',
     name: 'Book18',
-    version: '0.0.4',
+    version: '0.0.5',
     type: 'novel',
     category: 'novel',
     language: 'zh',
@@ -99,7 +99,8 @@
     async feed(key, req) {
       if (!['recommend', 'popular', 'latest', 'short'].includes(key))
         throw Park.error('CONFIG', '未知列表');
-      return list(this, req, key === 'short' ? '/article/index' : '/', {
+      if (key === 'short') return list(this, req, '/article/index', {});
+      return list(this, req, '/', {
         sort:
           key === 'recommend'
             ? 'score'

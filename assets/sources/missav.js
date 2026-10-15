@@ -11,7 +11,7 @@ Park.register({
   },
   key: 'missav',
   name: 'MissAV',
-  version: '0.0.5',
+  version: '0.0.6',
   type: 'video',
   category: 'jav',
   color: '#EF4444',
@@ -28,6 +28,8 @@ Park.register({
   settings: [{key: 'quality', type: 'select', label: '默认清晰度', default: '1080', options: [
     {value: '1080', label: '1080P'}, {value: '720', label: '720P'}, {value: '480', label: '480P'},
   ]}],
+  rankings: [{key: 'today-hot', label: '今日热门', category: 'jav', section: 'site', metric: '站内热门', feed: 'today-hot'},
+    {key: 'weekly-hot', label: '本周热门', category: 'jav', section: 'site', metric: '站内热门', feed: 'weekly-hot'}],
   defaultFeed: 'today-hot',
   feeds: [{key: 'new', label: '最近更新'}, {key: 'release', label: '最新上市'},
     {key: 'today-hot', label: '今日热门'}, {key: 'weekly-hot', label: '本周热门'}],

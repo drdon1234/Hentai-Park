@@ -9,7 +9,7 @@ Park.register({
     "ru": {"成人视频社区，支持推荐、搜索和原画播放": "Сообщество видео для взрослых с рекомендациями, поиском и оригинальным качеством"},
     "ar": {"成人视频社区，支持推荐、搜索和原画播放": "مجتمع فيديوهات للبالغين مع توصيات وبحث وتشغيل بالجودة الأصلية"},
   },
-  key: 'porn91', name: '91porn', version: '0.0.3', type: 'video', category: 'adult', color: '#D81B60',
+  key: 'porn91', name: '91porn', version: '0.0.4', type: 'video', category: 'adult', color: '#D81B60',
   description: '成人视频社区，支持推荐、搜索和原画播放', homepage: 'https://91porn.com', domains: ['91porn.com'], language: 'zh',
   network: {mode: 'native', vpnHint: true}, imageHeaders: {Referer: 'https://91porn.com/'},
   linkPatterns: ['91porn\\.com/view_video\\.php\\?(?:[^#]*&)?viewkey=([a-zA-Z0-9]{5,64})(?:&|#|$)'],
@@ -50,6 +50,10 @@ Park.register({
       const a = c.querySelector('a[href*="view_video.php"]'), img = c.querySelector('img');
       const m = a && /(?:\?|&)viewkey=([a-zA-Z0-9]{5,64})(?:&|$)/.exec(a.getAttribute('href') || '');
       const title = Park.html.text(c.querySelector('.video-title')) || img?.getAttribute('title') || img?.getAttribute('alt') || Park.html.text(a), cover = img && (img.getAttribute('data-src') || img.getAttribute('src'));
+      // 插入的推广卡会复用真实影片链接，但封面属于另一影片；必须在去重前排除。
+      const videoId = /playvthumb_(\d+)/.exec(c.querySelector('[id^="playvthumb_"]')?.getAttribute('id') || '')?.[1];
+      const coverId = /\/thumb\/(\d+)\./.exec(cover || '')?.[1];
+      if (videoId && coverId && videoId !== coverId) continue;
       if (!m || !title || !/^https:\/\//.test(cover || '') || seen.has(m[1])) continue;
       seen.add(m[1]); items.push({id: m[1], title, cover, coverAspect: 16/9, duration: Park.html.text(c.querySelector('.duration'))});
     }

@@ -9,7 +9,7 @@ Park.register({
     "ru": {"国际写真图集，支持评分榜、热门、搜索与整套原图阅读": "Фотогалереи: рейтинг, популярное, поиск и просмотр всех оригиналов", "图集列表解析失败": "Не удалось разобрать список галерей", "图集地址无效": "Недопустимый адрес галереи"},
     "ar": {"国际写真图集，支持评分榜、热门、搜索与整套原图阅读": "معارض صور مع التقييم والشائع والبحث وعرض جميع الصور الأصلية", "图集列表解析失败": "تعذر تحليل قائمة المعارض", "图集地址无效": "عنوان المعرض غير صالح"},
   },
-  key: 'pornpics', name: 'PornPics', version: '0.0.4', type: 'comic', category: 'gallery',
+  key: 'pornpics', name: 'PornPics', version: '0.0.5', type: 'comic', category: 'gallery',
   language: 'en', color: '#F16E24', homepage: 'https://www.pornpics.com',
   description: '国际写真图集，支持评分榜、热门、搜索与整套原图阅读',
   domains: ['pornpics.com'], network: {mode: 'native', vpnHint: true},
@@ -133,3 +133,7 @@ Park.register({
     return {pages};
   },
 });
+
+Park.enableUpdateSubscriptions(Park.__pending, {dimensions: [
+  {key: 'search', label: '搜索关键词', hint: '输入作品、作者或话题关键词'},
+]});

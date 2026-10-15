@@ -99,8 +99,19 @@ abstract class _SourceRegistry extends ChangeNotifier {
   final _manifestChanges = StreamController<Set<String>>.broadcast(sync: true);
   Stream<Set<String>> get manifestChanges => _manifestChanges.stream;
 
+  /// 实际认证完成也可能不改变账号名，浏览页不能只依赖账号状态比较。
+  final _authenticationChanges = StreamController<String>.broadcast(sync: true);
+  Stream<String> get authenticationChanges => _authenticationChanges.stream;
+  void authenticationChanged(String key) => _authenticationChanges.add(key);
+
   ValueListenable<AccountStatus?>? accountListenable(String key) =>
       _sources[key]?.accountListenable;
+
+  int entryFeedIndex(String key) =>
+      manifest(key)?.entryFeedIndex(
+        loggedIn: accountListenable(key)?.value?.loggedIn == true,
+      ) ??
+      0;
   final Map<String, InstalledSource> _sources = {};
   final Map<String, Map<String, dynamic>> _state = {}; // key → {settings, data}
   final Map<String, JsonStore> _stateStores = {};
