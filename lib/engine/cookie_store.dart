@@ -631,5 +631,6 @@ class CookieStore {
       Platform.isAndroid ||
       Platform.isIOS ||
       Platform.isWindows ||
-      Platform.isMacOS;
+      Platform.isMacOS ||
+      Platform.isLinux;
 }

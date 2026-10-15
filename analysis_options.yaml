@@ -7,6 +7,9 @@ analyzer:
     - android/**
     - windows/**
     - test/**
+    - ios/**
+    - macos/**
+    - linux/**
 
 linter:
   rules:

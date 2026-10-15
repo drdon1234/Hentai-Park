@@ -55,6 +55,22 @@ class AppPaths {
 
   static File dataFile(String name) => File(p.join(data.path, name));
 
+  /// 仅影响新任务；已下载任务仍保存原目录，避免移动或遗失资产。
+  static Future<void> selectDownloadDirectory(String path) async {
+    if (path.isEmpty || !p.isAbsolute(path)) {
+      throw const FileSystemException('Invalid download directory');
+    }
+    final directory = Directory(path);
+    await directory.create(recursive: true);
+    final probe = File(p.join(path, '.park-write-${const Uuid().v4()}'));
+    try {
+      await probe.writeAsBytes(const [], flush: true);
+    } finally {
+      if (await probe.exists()) await probe.delete();
+    }
+    downloadRoot = directory;
+  }
+
   /// App-specific external storage on Android (visible to file managers, no permission needed).
   static Future<Directory?> _external() async {
     if (!Platform.isAndroid) return null;

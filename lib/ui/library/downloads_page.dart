@@ -1,11 +1,9 @@
 import 'dart:async';
-
 import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:path/path.dart' as p;
-import 'package:share_plus/share_plus.dart';
 
 import '../../core/localization.dart';
 import '../../core/models.dart';
@@ -13,11 +11,12 @@ import '../../core/settings.dart';
 import '../../game/downloads.dart';
 import '../../library/cbz.dart';
 import '../../library/downloads.dart';
+import '../../video/offline_video_export.dart';
 import '../game/game_resources.dart';
 import '../nav.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
-import 'shelf_page.dart';
+import '../widgets/platform_share.dart';
 
 class DownloadsPage extends StatelessWidget {
   const DownloadsPage({super.key});
@@ -59,7 +58,7 @@ class DownloadsPage extends StatelessWidget {
     final games = GameDownloadManager.instance;
     return Scaffold(
       appBar: PageHeader(
-        titleWidget: ShelfTitle(tr('下载')),
+        title: tr('下载'),
         actions: [
           ListenableBuilder(
             listenable: Listenable.merge([dm, games]),
@@ -233,10 +232,13 @@ class _TaskTile extends StatelessWidget {
           t.item.id,
           episodeId: t.chapters.first.id,
         );
-        if (file != null) {
-          await SharePlus.instance.share(
-            ShareParams(files: [XFile(file.path)]),
+        if (file != null && context.mounted) {
+          final exported = await exportOfflineVideo(
+            file,
+            Directory(p.join(DownloadManager.instance.root.path, 'exports')),
           );
+          if (!context.mounted) return;
+          await shareContent(context, files: [XFile(exported.path)]);
         }
       case 'delete':
         await _confirmDelete(context);
@@ -285,8 +287,9 @@ class _TaskTile extends StatelessWidget {
       nav.pop();
       if (!context.mounted) return;
       context.toast(tr('已导出到 {value0}', {'value0': out.path}));
-      await SharePlus.instance.share(
-        ShareParams(files: [for (final f in files) XFile(f.path)]),
+      await shareContent(
+        context,
+        files: [for (final f in files) XFile(f.path)],
       );
     } catch (e) {
       nav.pop();

@@ -54,3 +54,13 @@ docs/superpowers/
 
 # Personal agent notes
 CLAUDE.local.md
+
+# Generated native build files
+/ios/Pods/
+/ios/Flutter/Generated.xcconfig
+/ios/Flutter/flutter_export_environment.sh
+/ios/Runner/GeneratedPluginRegistrant.*
+/macos/Pods/
+/macos/Flutter/ephemeral/
+/linux/flutter/ephemeral/
+**/xcuserdata/

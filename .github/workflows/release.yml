@@ -1,0 +1,84 @@
+name: Release platforms
+on:
+  push:
+    tags: ['v*.*.*']
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: '创建 GitHub Release（默认仅构建）'
+        type: boolean
+        default: false
+      notes:
+        description: '仓库内发布说明路径，必须包含中文和 English 两节'
+        type: string
+        default: 'docs/RELEASE_NOTES.md'
+permissions:
+  contents: read
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  prepare:
+    if: github.event_name == 'push' || github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      matrix: ${{ steps.plan.outputs.matrix }}
+      version: ${{ steps.meta.outputs.version }}
+      tag: ${{ steps.meta.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+        with: {fetch-depth: 0}
+      - name: Require a main branch commit
+        run: git merge-base --is-ancestor HEAD origin/main
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - id: meta
+        run: node tools/platform_build.mjs metadata
+      - id: plan
+        run: node tools/platform_build.mjs plan
+      - env:
+          NOTES: ${{ inputs.notes || 'docs/RELEASE_NOTES.md' }}
+        run: node tools/platform_build.mjs notes "$NOTES"
+      - uses: actions/upload-artifact@v4
+        with: {name: release-notes, path: test/release-notes.md, retention-days: 7}
+  checks:
+    runs-on: windows-2022
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - uses: subosito/flutter-action@v2
+        with: {channel: stable, flutter-version: '3.47.7', cache: true}
+      - run: flutter pub get
+      - shell: pwsh
+        run: ./tools/check.ps1
+  build:
+    needs: [prepare, checks]
+    uses: ./.github/workflows/build.yml
+    with:
+      matrix: ${{ needs.prepare.outputs.matrix }}
+      release: ${{ github.event_name == 'push' || inputs.publish }}
+    secrets: inherit
+  publish:
+    needs: [prepare, build]
+    if: github.event_name == 'push' || inputs.publish
+    runs-on: ubuntu-24.04
+    environment: release
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with: {pattern: 'distribution-*', merge-multiple: true, path: test/release}
+      - uses: actions/download-artifact@v4
+        with: {name: release-notes, path: test/notes}
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ needs.prepare.outputs.tag }}
+          target_commitish: ${{ github.sha }}
+          name: HentaiPark v${{ needs.prepare.outputs.version }}
+          body_path: test/notes/release-notes.md
+          files: test/release/*
+          fail_on_unmatched_files: true

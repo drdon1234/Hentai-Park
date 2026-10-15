@@ -1,11 +1,11 @@
 import 'dart:async';
-import 'dart:io';
 
 import 'package:dio/dio.dart';
 import 'package:video_player/video_player.dart';
 
 import '../../core/app_log.dart';
 import '../../core/models.dart';
+import '../../core/platform_capabilities.dart';
 import '../../engine/cancellation.dart';
 import '../../engine/media_transport.dart';
 import '../../engine/media_transport_factory.dart';
@@ -26,7 +26,7 @@ class ShortVideoPlayer implements ShortVideoHandle {
     WorkItem item,
     CancelToken cancel,
   ) async {
-    if (!Platform.isAndroid && !Platform.isIOS && !Platform.isMacOS) {
+    if (!PlatformCapabilities.nativeVideo) {
       throw SourceError('UNSUPPORTED', '此设备暂不支持短视频播放');
     }
     final manifest = SourceManager.instance.manifest(item.source);

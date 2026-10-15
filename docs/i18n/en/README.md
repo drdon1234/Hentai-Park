@@ -25,6 +25,8 @@
 
 Get the Android APK from the **[latest release](https://github.com/drdon1234/Hentai-Park/releases/latest)**. Most phones and tablets need `arm64-v8a`; emulators usually need `x86_64`.
 
+Clients are available for Android, Windows, macOS and Linux. iOS/iPadOS currently has a simulator package only; Web is unavailable. See [installation and platform limits](../../PLATFORMS.md).
+
 ## Get started in three steps
 
 1. **Discover**: open Discover and pick a category, or type a keyword, paste a link or a video code into the search box.
@@ -72,8 +74,8 @@ Screenshots use offline demo data; the sites, works and covers shown are origina
 | Rankings | Open doujinshi, anime and JAV rankings from Discover; choose a site and period, search works or open the original site |
 | Discover and search | Browse by category, search many sites at once, widen a search with keywords in other languages; paste a link or code to jump straight to a work |
 | Read and watch | Comics scroll, page or show two-page spreads; videos have episodes, speed control and resume; novels have typography settings, bookmarks, notes and read-aloud. All three readers share the same controls |
-| Library | Favorites with categories, new-chapter alerts and downloads in one place; subscribe to creators, channels or keywords |
-| Offline | Download comics, videos and novels; import and export CBZ |
+| Library | Favorites with categories and new-chapter alerts; subscribe to creators, channels or keywords |
+| Downloads | A dedicated main navigation tab for comic, video, novel and game downloads; import and export CBZ |
 | Game resources | See game details, versions and download links |
 | Translation and filters | Translate titles, descriptions and tags; hide works by tag |
 | Privacy and backup | App lock, incognito mode, blurred covers, screenshot blocking; back up favorites, progress and settings |
@@ -97,11 +99,14 @@ Light and dark themes, eight interface languages. What each site supports is sho
 
 Enable, reorder, update or add sites in More → Sites.
 
+## Rankings
 
+| Category | Sites |
+| --- | --- |
+| Market rankings | FANZA、FC2、MGStage、一本道、天然むすめ、パコパコママ、Caribbeancom、DLsite、Toranoana |
+| Site rankings | JavMenu、MissAV、JableTV、SupJav、JM、E-Hentai、WNACG、nhentai、Hanime1 |
 
-Commercial rankings include FANZA, FC2, MGStage, four uncensored studios, DLsite doujinshi/adult manga and Toranoana. Sales, studio popularity and community rankings are labeled separately. Commercial entries offer category-specific search and original product links; they do not claim direct reading or playback.
-
-Source scripts stay on the main branch. The `sources` branch distributes regular plugins; `rankings` distributes ranking-only plugins. Both contain only a generated index pointing to immutable source commits with SHA-256. The workflow validates and publishes each channel separately; the app reads both independently, rejects mismatched channel markers and duplicate keys, and keeps the existing update confirmation flow.
+Market rankings include works, actresses, sellers and categories; site rankings show popular content. Search works, open details or visit the original site.
 
 iXXX and TubeSafari use in-app web playback. The playback page may require site confirmation; controls are provided by the upstream page. App downloads and precise playback resume are unavailable. Android requires a recent Android System WebView with isolated-session support.
 

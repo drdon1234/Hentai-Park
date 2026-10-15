@@ -1,6 +1,8 @@
 import 'dart:async';
 
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:video_player/video_player.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 
@@ -57,6 +59,20 @@ class _ShortVideoPageState extends State<ShortVideoPage>
   bool _refreshing = false;
   double _overscroll = 0;
   Object? _initialError;
+  DateTime _lastWheel = DateTime.fromMillisecondsSinceEpoch(0);
+
+  void _step(int delta) {
+    if (!_pages.hasClients || _scrolling || _resolving) return;
+    final next = (_feed.index + delta).clamp(0, _feed.items.length);
+    if (next == _feed.index) return;
+    unawaited(
+      _pages.animateToPage(
+        next,
+        duration: const Duration(milliseconds: 220),
+        curve: Curves.easeOut,
+      ),
+    );
+  }
 
   @override
   void initState() {
@@ -518,133 +534,175 @@ class _ShortVideoPageState extends State<ShortVideoPage>
   @override
   Widget build(BuildContext context) {
     final manifest = SourceManager.instance.manifest(widget.source);
-    return TranslationPage(
-      child: Theme(
-        data: ThemeData.dark(useMaterial3: true),
-        child: Builder(
-          builder: (context) => Scaffold(
-            backgroundColor: Colors.black,
-            body: SafeArea(
-              child: Stack(
-                children: [
-                  Positioned.fill(
-                    child: _initialError != null
-                        ? _error(_initialError!, _resolveInitial)
-                        : _resolving
-                        ? _loading()
-                        : NotificationListener<ScrollNotification>(
-                            onNotification: (n) {
-                              if (n.depth != 0) return false;
-                              if (n is ScrollStartNotification) {
-                                _scrolling = true;
-                                _overscroll = 0;
-                                _sync();
-                              }
-                              if (n is OverscrollNotification &&
-                                  n.dragDetails != null) {
-                                final atStart =
-                                    _feed.index == 0 && n.overscroll < 0;
-                                final atEnd =
-                                    _feed.index == _feed.items.length &&
-                                    !_feed.hasNext &&
-                                    n.overscroll > 0;
-                                if (atStart || atEnd) {
-                                  _overscroll += n.overscroll.abs();
-                                }
-                              }
-                              if (n is ScrollEndNotification) {
-                                _scrolling = false;
-                                if (_overscroll >= 64) unawaited(_refresh());
-                                _sync();
-                              }
-                              return false;
-                            },
-                            child: PageView.builder(
-                              key: ValueKey(_feed.generation),
-                              controller: _pages,
-                              scrollDirection: Axis.vertical,
-                              itemCount: _feed.items.length + 1,
-                              onPageChanged: (i) {
-                                _save();
-                                _feed.select(i);
-                              },
-                              itemBuilder: (context, i) =>
-                                  i == _feed.items.length
-                                  ? _tail()
-                                  : _video(_feed.items[i], i == _feed.index),
-                            ),
-                          ),
-                  ),
-                  Positioned(
-                    top: 0,
-                    left: 0,
-                    right: 0,
-                    child: DecoratedBox(
-                      decoration: const BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.topCenter,
-                          end: Alignment.bottomCenter,
-                          colors: [Scrims.medium, Colors.transparent],
-                        ),
-                      ),
-                      child: Row(
-                        children: [
-                          const BackButton(color: Colors.white),
-                          Expanded(
-                            child: Text(
-                              manifest?.name ?? tr('短视频'),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(color: Colors.white),
-                            ),
-                          ),
-                          TranslationControls(source: widget.source),
-                          if (manifest?.can('search') == true)
-                            IconButton(
-                              tooltip: tr('搜索'),
-                              icon: const Icon(Icons.search),
-                              onPressed: () =>
-                                  Nav.openSourceSearch(context, widget.source),
-                            ),
-                          PopupMenuButton<String>(
-                            icon: const Icon(
-                              Icons.more_vert,
-                              color: Colors.white,
-                            ),
-                            itemBuilder: (context) => [
-                              PopupMenuItem(
-                                value: 'history',
-                                child: Text(tr('浏览历史')),
-                              ),
-                              PopupMenuItem(
-                                value: 'refresh',
-                                child: Text(tr('刷新')),
-                              ),
-                              PopupMenuItem(
-                                value: 'settings',
-                                child: Text(tr('站点设置')),
-                              ),
-                            ],
-                            onSelected: (action) {
-                              if (action == 'history') {
-                                Nav.push(
-                                  context,
-                                  HistoryPage(
-                                    scope: ContentScope.source(widget.source),
+    return CallbackShortcuts(
+      bindings: {
+        const SingleActivator(LogicalKeyboardKey.arrowDown): () => _step(1),
+        const SingleActivator(LogicalKeyboardKey.pageDown): () => _step(1),
+        const SingleActivator(LogicalKeyboardKey.arrowUp): () => _step(-1),
+        const SingleActivator(LogicalKeyboardKey.pageUp): () => _step(-1),
+        const SingleActivator(LogicalKeyboardKey.space): () =>
+            unawaited(_playback.toggle()),
+      },
+      child: Focus(
+        autofocus: true,
+        child: Listener(
+          onPointerSignal: (event) {
+            if (event is! PointerScrollEvent ||
+                event.scrollDelta.dy == 0 ||
+                _expanded) {
+              return;
+            }
+            GestureBinding.instance.pointerSignalResolver.register(event, (
+              event,
+            ) {
+              final now = DateTime.now();
+              if (now.difference(_lastWheel).inMilliseconds < 300) return;
+              _lastWheel = now;
+              _step((event as PointerScrollEvent).scrollDelta.dy > 0 ? 1 : -1);
+            });
+          },
+          child: TranslationPage(
+            child: Theme(
+              data: ThemeData.dark(useMaterial3: true),
+              child: Builder(
+                builder: (context) => Scaffold(
+                  backgroundColor: Colors.black,
+                  body: SafeArea(
+                    child: Stack(
+                      children: [
+                        Positioned.fill(
+                          child: _initialError != null
+                              ? _error(_initialError!, _resolveInitial)
+                              : _resolving
+                              ? _loading()
+                              : NotificationListener<ScrollNotification>(
+                                  onNotification: (n) {
+                                    if (n.depth != 0) return false;
+                                    if (n is ScrollStartNotification) {
+                                      _scrolling = true;
+                                      _overscroll = 0;
+                                      _sync();
+                                    }
+                                    if (n is OverscrollNotification &&
+                                        n.dragDetails != null) {
+                                      final atStart =
+                                          _feed.index == 0 && n.overscroll < 0;
+                                      final atEnd =
+                                          _feed.index == _feed.items.length &&
+                                          !_feed.hasNext &&
+                                          n.overscroll > 0;
+                                      if (atStart || atEnd) {
+                                        _overscroll += n.overscroll.abs();
+                                      }
+                                    }
+                                    if (n is ScrollEndNotification) {
+                                      _scrolling = false;
+                                      if (_overscroll >= 64) {
+                                        unawaited(_refresh());
+                                      }
+                                      _sync();
+                                    }
+                                    return false;
+                                  },
+                                  child: PageView.builder(
+                                    key: ValueKey(_feed.generation),
+                                    controller: _pages,
+                                    scrollDirection: Axis.vertical,
+                                    itemCount: _feed.items.length + 1,
+                                    onPageChanged: (i) {
+                                      _save();
+                                      _feed.select(i);
+                                    },
+                                    itemBuilder: (context, i) =>
+                                        i == _feed.items.length
+                                        ? _tail()
+                                        : _video(
+                                            _feed.items[i],
+                                            i == _feed.index,
+                                          ),
                                   ),
-                                );
-                              } else if (action == 'refresh') {
-                                _refresh();
-                              } else {
-                                Nav.openSourceSettings(context, widget.source);
-                              }
-                            },
+                                ),
+                        ),
+                        Positioned(
+                          top: 0,
+                          left: 0,
+                          right: 0,
+                          child: DecoratedBox(
+                            decoration: const BoxDecoration(
+                              gradient: LinearGradient(
+                                begin: Alignment.topCenter,
+                                end: Alignment.bottomCenter,
+                                colors: [Scrims.medium, Colors.transparent],
+                              ),
+                            ),
+                            child: Row(
+                              children: [
+                                const BackButton(color: Colors.white),
+                                Expanded(
+                                  child: Text(
+                                    manifest?.name ?? tr('短视频'),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(color: Colors.white),
+                                  ),
+                                ),
+                                TranslationControls(source: widget.source),
+                                if (manifest?.can('search') == true)
+                                  IconButton(
+                                    tooltip: tr('搜索'),
+                                    icon: const Icon(Icons.search),
+                                    onPressed: () => Nav.openSourceSearch(
+                                      context,
+                                      widget.source,
+                                    ),
+                                  ),
+                                PopupMenuButton<String>(
+                                  icon: const Icon(
+                                    Icons.more_vert,
+                                    color: Colors.white,
+                                  ),
+                                  itemBuilder: (context) => [
+                                    PopupMenuItem(
+                                      value: 'history',
+                                      child: Text(tr('浏览历史')),
+                                    ),
+                                    PopupMenuItem(
+                                      value: 'refresh',
+                                      child: Text(tr('刷新')),
+                                    ),
+                                    PopupMenuItem(
+                                      value: 'settings',
+                                      child: Text(tr('站点设置')),
+                                    ),
+                                  ],
+                                  onSelected: (action) {
+                                    if (action == 'history') {
+                                      Nav.push(
+                                        context,
+                                        HistoryPage(
+                                          scope: ContentScope.source(
+                                            widget.source,
+                                          ),
+                                        ),
+                                      );
+                                    } else if (action == 'refresh') {
+                                      _refresh();
+                                    } else {
+                                      Nav.openSourceSettings(
+                                        context,
+                                        widget.source,
+                                      );
+                                    }
+                                  },
+                                ),
+                              ],
+                            ),
                           ),
-                        ],
-                      ),
+                        ),
+                      ],
                     ),
                   ),
-                ],
+                ),
               ),
             ),
           ),

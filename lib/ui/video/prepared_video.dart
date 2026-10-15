@@ -57,10 +57,22 @@ class PreparedVideo {
       var sources = <VideoSource>[];
       VideoSource? source;
       if (local != null) {
-        controller = VideoPlayerController.file(
-          local,
-          videoPlayerOptions: VideoPlayerOptions(allowBackgroundPlayback: true),
-        );
+        if (local.path.endsWith('.m3u8')) {
+          final opening = media = HlsPlayback.local(local);
+          cancellation = cancel.whenCancel.asStream().listen(
+            (_) => unawaited(opening.close()),
+          );
+          final url = await awaitCancelled(opening.openLocal(), cancel);
+          check();
+          controller = VideoPlayerController.networkUrl(url);
+        } else {
+          controller = VideoPlayerController.file(
+            local,
+            videoPlayerOptions: VideoPlayerOptions(
+              allowBackgroundPlayback: true,
+            ),
+          );
+        }
       } else {
         sources =
             initialSources ??

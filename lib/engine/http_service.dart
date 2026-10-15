@@ -154,9 +154,11 @@ class HttpService {
     void Function(int received, int total)? onProgress,
     int? maxBytes,
     bool followRedirects = true,
+    Future<void> Function(Uri)? beforeRequest,
   }) async {
     final resource = await _request(
       followRedirects: followRedirects,
+      beforeRequest: beforeRequest,
       method: method,
       url: url,
       headers: headers,
@@ -205,6 +207,7 @@ class HttpService {
 
   // Both buffered requests and file downloads use the same explicit redirect policy.
   Future<_HttpResponse> _request({
+    Future<void> Function(Uri)? beforeRequest,
     bool followRedirects = true,
     required String method,
     required String url,
@@ -220,6 +223,8 @@ class HttpService {
     final currentHeaders = Map<String, String>.of(headers);
     var handshakeRetried = false;
     for (var hop = 0; hop < 8; hop++) {
+      _throwIfCancelled(cancelToken);
+      await beforeRequest?.call(uri);
       _throwIfCancelled(cancelToken);
       final requestToken = CancelToken();
       final cancellation = cancelToken?.whenCancel.asStream().listen(

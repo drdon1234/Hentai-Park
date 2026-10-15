@@ -1,6 +1,8 @@
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 
 import '../../core/localization.dart';
+import '../../core/platform_capabilities.dart';
 import '../../core/settings.dart';
 import '../../core/storage.dart';
 import '../../engine/platform_bridge.dart';
@@ -103,6 +105,21 @@ List<Widget> shelfSettings(BuildContext context, AppSettings s) => [
         title: tr('下载位置'),
         subtitle: AppPaths.downloadRoot.path,
         subtitleMaxLines: 3,
+        trailing: PlatformCapabilities.desktop
+            ? const Icon(Icons.folder_open_rounded)
+            : null,
+        onTap: !PlatformCapabilities.desktop
+            ? null
+            : () async {
+                try {
+                  final path = await FilePicker.getDirectoryPath();
+                  if (path == null) return;
+                  await AppPaths.selectDownloadDirectory(path);
+                  s.downloadDirectory = path;
+                } catch (_) {
+                  if (context.mounted) context.toast(tr('无法保存到所选目录'));
+                }
+              },
       ),
     ],
   ),

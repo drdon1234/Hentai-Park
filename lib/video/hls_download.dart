@@ -57,9 +57,14 @@ Future<void> remuxTransportStream(
 
 /// Validated per-segment state survives pause/restart; no partial MP4 is published.
 class HlsDownload {
-  HlsDownload(this.transport, {this.remux = remuxTransportStream});
+  HlsDownload(
+    this.transport, {
+    this.remux = remuxTransportStream,
+    this.keepPlaylist = false,
+  });
   final MediaTransport transport;
   final MediaRemux remux;
+  final bool keepPlaylist;
 
   static void _check(CancelToken token) {
     if (token.cancelError case final error?) throw error;
@@ -164,6 +169,18 @@ class HlsDownload {
         _check(cancelToken);
         onProgress(i + 1, total, bytes);
       }
+      if (keepPlaylist) {
+        var index = 0;
+        final text = playlist.rewrite(
+          (_) => '${Uri.encodeComponent(p.basename(work.path))}/${index++}.ts',
+        );
+        await temporary.writeAsString(text, flush: true);
+        _check(cancelToken);
+        await temporary.rename(output.path);
+        published = true;
+        onProgress(total, total, bytes);
+        return;
+      }
       final sink = await input.open(mode: FileMode.write);
       try {
         for (var i = 0; i < playlist.segments.length; i++) {
@@ -197,7 +214,7 @@ class HlsDownload {
           if (await temporary.exists()) await temporary.delete();
         } finally {
           if (await input.exists()) await input.delete();
-          if (published && await work.exists()) {
+          if (published && !keepPlaylist && await work.exists()) {
             await work.delete(recursive: true);
           }
         }

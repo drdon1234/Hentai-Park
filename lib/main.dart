@@ -1,11 +1,13 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:path/path.dart' as p;
+import 'package:video_player_media_kit/video_player_media_kit.dart';
 
 import 'core/app_lock.dart';
 import 'core/crash_log.dart';
@@ -16,7 +18,9 @@ import 'core/storage.dart';
 import 'core/tag_translations.dart';
 import 'data/database.dart';
 import 'engine/cookie_store.dart';
+import 'engine/desktop_window.dart';
 import 'engine/http_service.dart';
+import 'engine/native_notifications.dart';
 import 'engine/platform_bridge.dart';
 import 'engine/source_manager.dart';
 import 'game/downloads.dart';
@@ -38,6 +42,8 @@ Future<void> subscriptionBackgroundMain() => subscriptionBackground();
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  if (Platform.isMacOS) await FilePicker.skipEntitlementsChecks();
+  VideoPlayerMediaKit.ensureInitialized(windows: true, linux: true);
   if (Platform.isAndroid) {
     await const MethodChannel('hentai_park/platform')
         .invokeMethod<void>('claimSourceEngine');
@@ -58,6 +64,16 @@ Future<void> main() async {
   final db = AppDatabase.file(File(p.join(AppPaths.data.path, 'park.db')));
   await RestoreTransaction.recover(db);
   await AppSettings.instance.load();
+  final downloadDirectory = AppSettings.instance.downloadDirectory;
+  if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) {
+    if (downloadDirectory.isNotEmpty) {
+      try {
+        await AppPaths.selectDownloadDirectory(downloadDirectory);
+      } catch (_) {
+        // 外置磁盘暂不可用时保留原配置；旧下载任务仍使用其已保存的绝对路径。
+      }
+    }
+  }
   await Future.wait([
     TagTranslations.instance.init(),
     AppLocalizations.instance.load(),
@@ -89,6 +105,8 @@ Future<void> main() async {
   } catch (_) {}
   // App lock also hides content in the recent-apps switcher.
   await PlatformBridge.bindSettings();
+  await DesktopWindow.instance.init();
+  await NativeNotifications.instance.init();
   runApp(const ParkApp());
   // Sources load after the first frame; the UI shows skeletons meanwhile.
   unawaited(

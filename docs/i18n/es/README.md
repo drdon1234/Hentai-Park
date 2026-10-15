@@ -25,6 +25,8 @@
 
 Descarga el APK para Android desde la **[última versión](https://github.com/drdon1234/Hentai-Park/releases/latest)**. La mayoría de móviles y tabletas usan `arm64-v8a`; los emuladores suelen usar `x86_64`.
 
+Hay clientes para Android, Windows, macOS y Linux. iOS/iPadOS solo dispone de un paquete para simulador; Web no está disponible. Consulta la [instalación y limitaciones](../../PLATFORMS.md).
+
 ## Empieza en tres pasos
 
 1. **Explorar**: abre Explorar y elige una categoría, o escribe una palabra clave, pega un enlace o un código en el buscador.
@@ -72,8 +74,8 @@ Las capturas usan datos de demostración sin conexión; los sitios, obras y port
 | Clasificaciones | Abre clasificaciones de dōjinshi, anime y JAV desde Descubrir; elige sitio y período, busca obras o visita el sitio original |
 | Explorar y buscar | Navega por categorías, busca en varios sitios a la vez y amplía la búsqueda con palabras clave en otros idiomas; pega un enlace o código para ir directo a una obra |
 | Leer y ver | Cómics con desplazamiento, páginas o doble página; vídeos con episodios, velocidad y reanudación; novelas con tipografía, marcadores, notas y lectura en voz alta. Los tres lectores comparten los mismos controles |
-| Biblioteca | Favoritos con categorías, avisos de capítulos nuevos y descargas en un solo lugar; suscríbete a creadores, canales o palabras clave |
-| Sin conexión | Descarga cómics, vídeos y novelas; importa y exporta CBZ |
+| Biblioteca | Favoritos con categorías y avisos de capítulos nuevos; suscríbete a creadores, canales o palabras clave |
+| Descargas | Pestaña propia en la navegación principal para gestionar descargas de cómics, vídeos, novelas y juegos; importa y exporta CBZ |
 | Recursos de juegos | Consulta la información, versiones y enlaces de descarga de juegos |
 | Traducción y filtros | Traduce títulos, descripciones y etiquetas; oculta obras por etiqueta |
 | Privacidad y copias | Bloqueo de la app, modo incógnito, portadas difuminadas, bloqueo de capturas; copia de favoritos, progreso y ajustes |
@@ -97,11 +99,14 @@ Temas claro y oscuro, ocho idiomas de interfaz. Las funciones de cada sitio se i
 
 Activa, ordena, actualiza o añade sitios en Más → Sitios.
 
+## Clasificaciones
 
+| Categoría | Sitios |
+| --- | --- |
+| Listas comerciales | FANZA、FC2、MGStage、一本道、天然むすめ、パコパコママ、Caribbeancom、DLsite、Toranoana |
+| Listas de sitios | JavMenu、MissAV、JableTV、SupJav、JM、E-Hentai、WNACG、nhentai、Hanime1 |
 
-Las fuentes comerciales incluyen FANZA, FC2, MGStage, cuatro productoras sin censura, manga dōjinshi y para adultos de DLsite y Toranoana. Las ventas, la popularidad de las productoras y las listas de cada comunidad se identifican por separado. Las entradas comerciales permiten buscar por categoría y abrir el producto original; la lectura o reproducción depende del sitio encontrado.
-
-El código permanece en la rama principal. `sources` distribuye complementos normales y `rankings` los dedicados a clasificaciones. Ambas ramas contienen solo un índice generado con URL de un commit fijo y SHA-256. El flujo valida y publica cada canal por separado; la aplicación lee ambos de forma independiente, rechaza canales incorrectos y claves duplicadas y conserva la confirmación de actualización.
+Las listas comerciales incluyen obras, actrices, vendedores y categorías; las de sitios muestran contenido popular. Puedes buscar obras, ver detalles o abrir el sitio original.
 
 iXXX y TubeSafari usan reproducción web en la app. La página puede requerir confirmación del sitio; los controles los proporciona la página de origen. No se admiten las descargas de la app ni reanudar en un punto exacto. Android requiere una versión reciente de Android System WebView con sesiones aisladas.
 

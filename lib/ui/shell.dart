@@ -17,6 +17,7 @@ import 'discovery_navigation.dart';
 import 'history/history_page.dart';
 import 'home/home_page.dart';
 import 'kit/kit.dart';
+import 'library/downloads_page.dart';
 import 'library/shelf_page.dart';
 import 'nav.dart';
 import 'onboarding/onboarding_page.dart';
@@ -26,7 +27,7 @@ import 'theme.dart';
 import 'updates/startup_update_check.dart';
 import 'widgets/content_translation.dart';
 
-/// Root navigation: 发现 / 书架 / 历史 / 我的. Library updates live inside 书架 as a segment.
+/// Root navigation: 发现 / 书架 / 下载 / 历史 / 我的.
 class Shell extends StatefulWidget {
   const Shell({super.key});
 
@@ -36,7 +37,9 @@ class Shell extends StatefulWidget {
 
 class _ShellState extends State<Shell> {
   static const _shelfTab = 1;
-  static const _historyTab = 2;
+  static const _downloadsTab = 2;
+  static const _historyTab = 3;
+  static const _tabCount = 5;
   static const _progressNotification = 1001;
   static const _resultNotification = 1002;
 
@@ -217,6 +220,11 @@ class _ShellState extends State<Shell> {
         tooltip: unseen > 0 ? tr('书架，{value0} 个新章节', {'value0': unseen}) : null,
       ),
       NavigationDestination(
+        icon: const Icon(Icons.download_outlined),
+        selectedIcon: const Icon(Icons.download_rounded),
+        label: tr('下载'),
+      ),
+      NavigationDestination(
         icon: const Icon(Icons.history_outlined),
         selectedIcon: const Icon(Icons.history_rounded),
         label: tr('历史'),
@@ -239,6 +247,7 @@ class _ShellState extends State<Shell> {
       },
     ),
     _shelfTab => ShelfPage(segment: _shelf, unseenUpdates: _unseenUpdates),
+    _downloadsTab => const DownloadsPage(),
     _historyTab => HistoryPage(
       scope: _historyScope,
       openRequest: _historyOpenRequest,
@@ -280,7 +289,7 @@ class _ShellState extends State<Shell> {
               index: _index,
               children: [
                 // Hidden tabs keep their state but not their animations.
-                for (var i = 0; i < 4; i++)
+                for (var i = 0; i < _tabCount; i++)
                   _visited.contains(i)
                       ? TickerMode(
                           enabled: i == _index,

@@ -4,14 +4,13 @@ import 'package:flutter/material.dart';
 import '../../core/localization.dart';
 import '../kit/kit.dart';
 import '../updates/updates_page.dart';
-import 'downloads_page.dart';
 import 'library_page.dart';
 
 /// Segments of the shelf tab. Updates matter only for serialized comics and subscriptions, so
 /// they live here instead of taking a navigation destination of their own.
-enum ShelfSegment { favorites, updates, downloads }
+enum ShelfSegment { favorites, updates }
 
-/// The shelf: 收藏 · 更新 · 下载. Each segment keeps its own page bar; [ShelfTitle] turns that
+/// The shelf: 收藏 · 更新. Each segment keeps its own page bar; [ShelfTitle] turns that
 /// bar's title into the segment switcher.
 class ShelfPage extends StatefulWidget {
   const ShelfPage({
@@ -49,7 +48,6 @@ class _ShelfPageState extends State<ShelfPage> {
                 switch (s) {
                   ShelfSegment.favorites => const LibraryPage(),
                   ShelfSegment.updates => const UpdatesPage(),
-                  ShelfSegment.downloads => const DownloadsPage(),
                 },
           ],
         ),
@@ -92,7 +90,6 @@ class ShelfTitle extends StatelessWidget {
       tabs: [
         HeaderTab(tr('收藏夹')),
         HeaderTab(tr('更新'), count: scope.unseenUpdates),
-        HeaderTab(tr('下载')),
       ],
       selected: scope.segment.index,
       onSelected: (i) => scope.onSelect(ShelfSegment.values[i]),

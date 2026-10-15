@@ -138,7 +138,7 @@ void validateSettings(Map<String, dynamic> values) {
           value <= bounds.$2 &&
           (decimals.contains(key) || value is int);
     }
-    if (key == 'proxy') valid = value is String;
+    if (key == 'proxy' || key == 'downloadDirectory') valid = value is String;
     if (stringLists.contains(key)) valid = stringList(value);
     if (key == 'domainOrder') valid = value is List;
     if (key == 'translateTargets') {

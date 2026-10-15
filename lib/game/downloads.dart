@@ -262,6 +262,7 @@ class GameDownloadManager extends ChangeNotifier {
   GameDownloadTask? _active;
   CancelToken? _cancel;
   bool _loaded = false;
+  Future<void>? _running;
   List<GameDownloadTask> get tasks =>
       _tasks.values.toList()
         ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
@@ -290,6 +291,17 @@ class GameDownloadManager extends ChangeNotifier {
 
   void _save() => _store.save(tasks.map((t) => t.toJson()).toList());
   Future<void> flush() => _store.flush();
+  Future<void> pauseAndFlush() async {
+    for (final task in tasks) {
+      if (task.status == DownloadStatus.queued ||
+          task.status == DownloadStatus.running) {
+        cancel(task.key);
+      }
+    }
+    await _running;
+    await flush();
+  }
+
   Future<void> enqueue(
     WorkItem item,
     GameResource resource,
@@ -362,7 +374,7 @@ class GameDownloadManager extends ChangeNotifier {
     final task = tasks
         .where((t) => t.status == DownloadStatus.queued)
         .firstOrNull;
-    if (task != null) unawaited(_run(task));
+    if (task != null) unawaited(_running = _run(task));
   }
 
   Future<void> _run(GameDownloadTask task) async {

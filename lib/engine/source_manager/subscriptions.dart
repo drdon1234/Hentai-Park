@@ -136,6 +136,7 @@ mixin _SubscriptionApi on _SourceRegistry {
       if (cancelToken?.cancelError case final error?) throw error;
       if (await file.exists() && await file.length() == size) {
         await file.setLastModified(DateTime.now());
+        await SubscriptionCache.instance.record(file);
         return file;
       }
       final output = await temporary.open(mode: FileMode.write);
@@ -167,11 +168,13 @@ mixin _SubscriptionApi on _SourceRegistry {
       }
       if (cancelToken?.cancelError case final error?) throw error;
       await temporary.rename(file.path);
+      await SubscriptionCache.instance.record(file);
       await ImageStore.instance.trim();
       return file;
     } finally {
       SubscriptionCache.instance.release(temporary);
       if (await temporary.exists()) await temporary.delete();
+      await SubscriptionCache.instance.record(temporary);
     }
   }
 }

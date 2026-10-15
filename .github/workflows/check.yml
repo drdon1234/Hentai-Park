@@ -1,53 +1,271 @@
-name: Project checks
-
+name: Checks and platform builds
 on:
   push:
     branches: [main]
+    paths: ['lib/**', 'assets/**', 'android/**', 'ios/**', 'macos/**', 'linux/**', 'windows/**', 'pubspec.*', 'tools/**', '.github/workflows/**']
   pull_request:
+    paths: ['lib/**', 'assets/**', 'android/**', 'ios/**', 'macos/**', 'linux/**', 'windows/**', 'pubspec.*', 'tools/**', '.github/workflows/**']
   workflow_dispatch:
-
 permissions:
   contents: read
-
 concurrency:
-  group: project-checks-${{ github.ref }}
+  group: checks-${{ github.ref }}
   cancel-in-progress: true
-
 jobs:
-  check:
-    runs-on: windows-latest
-    timeout-minutes: 15
+  checks:
+    runs-on: windows-2022
+    timeout-minutes: 20
+    outputs:
+      matrix: ${{ steps.plan.outputs.matrix }}
+      build: ${{ steps.plan.outputs.build }}
     steps:
       - uses: actions/checkout@v4
+        with: {fetch-depth: 0}
       - uses: actions/setup-node@v4
-        with:
-          node-version: '22'
+        with: {node-version: '22'}
       - uses: subosito/flutter-action@v2
-        with:
-          channel: stable
-          flutter-version: '3.47.7'
-          cache: true
-      - name: Install dependencies
-        run: flutter pub get
-      - name: Analyze production code and validate official sources
-        shell: pwsh
+        with: {channel: stable, flutter-version: '3.47.7', cache: true}
+      - run: flutter pub get
+      - shell: pwsh
         run: ./tools/check.ps1
+      - name: Portable offline media verification
+        shell: bash
+        run: |
+          mkdir -p test
+          cat > test/platform_media_test.dart <<'DART'
+          import 'dart:convert';
+          import 'dart:io';
+          import 'dart:typed_data';
 
-  android-build:
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: '17'
-      - uses: subosito/flutter-action@v2
-        with:
-          channel: stable
-          flutter-version: '3.47.7'
-          cache: true
-      - name: Install dependencies
-        run: flutter pub get
-      - name: Verify production Android compilation without release credentials
-        run: flutter build apk --release --split-per-abi --android-project-arg=verifyUnsignedBuild=true
+          import 'package:archive/archive.dart';
+          import 'package:dio/dio.dart';
+          import 'package:flutter_test/flutter_test.dart';
+          import 'package:hentai_park/core/models.dart';
+          import 'package:hentai_park/engine/media_transport.dart';
+          import 'package:hentai_park/video/hls_download.dart';
+          import 'package:hentai_park/video/hls_playback.dart';
+          import 'package:hentai_park/video/local_hls_media.dart';
+          import 'package:hentai_park/video/offline_video_export.dart';
+
+          final segment = Uint8List(376)
+            ..[0] = 0x47
+            ..[188] = 0x47;
+
+          class FixtureMedia implements MediaTransport {
+            final Uri url = Uri.parse('https://media.example.org/index.m3u8');
+            int reads = 0;
+            @override
+            MediaPolicy get policy => MediaPolicy.fromManifest(
+              SourceManifest({
+                'key': 'fixture',
+                'name': 'Fixture',
+                'version': '1.0.0',
+                'domains': ['media.example.org'],
+                'media': {
+                  'mode': 'native',
+                  'origin': 'https://media.example.org',
+                  'domains': ['media.example.org'],
+                },
+              }),
+            );
+            @override
+            void validate(Uri uri) => policy.validate(uri);
+            @override
+            Future<MediaResponse> fetch(
+              Uri uri, {
+              required int maxBytes,
+              CancelToken? cancelToken,
+            }) async {
+              validate(uri);
+              if (uri.path.endsWith('.m3u8')) {
+                return MediaResponse(
+                  Uint8List.fromList(
+                    utf8.encode(
+                      '#EXTM3U\n#EXT-X-TARGETDURATION:2\n#EXTINF:2,\na.ts\n#EXTINF:2,\nb.ts\n#EXT-X-ENDLIST\n',
+                    ),
+                  ),
+                  uri,
+                );
+              }
+              reads++;
+              return MediaResponse(segment, uri);
+            }
+
+            @override
+            Future<void> close() async {}
+          }
+
+          void main() {
+            TestWidgetsFlutterBinding.ensureInitialized();
+            HttpOverrides.global = null;
+            late Directory directory;
+            setUp(() async {
+              directory = await Directory('test').createTemp('platform-media-');
+            });
+            tearDown(() async {
+              await directory.delete(recursive: true);
+            });
+
+            test(
+              'portable HLS survives rename and serves only registered local resources',
+              () async {
+                final remote = FixtureMedia();
+                final part = File('${directory.path}/video.m3u8.part');
+                await HlsDownload(remote, keepPlaylist: true).run(
+                  remote.url,
+                  output: part,
+                  cancelToken: CancelToken(),
+                  onProgress: (_, _, _) {},
+                );
+                expect(remote.reads, 2);
+                final file = await part.rename('${directory.path}/video.m3u8');
+                final stored = await file.readAsString();
+                expect(stored, isNot(contains('media.example.org')));
+                final playback = HlsPlayback.local(file);
+                final client = HttpClient();
+                try {
+                  final address = await playback.openLocal();
+                  final response = await (await client.getUrl(address)).close();
+                  final playlist = await utf8.decoder.bind(response).join();
+                  final resource = Uri.parse(
+                    playlist.split('\n').firstWhere((line) => line.startsWith('http')),
+                  );
+                  final request = await client.getUrl(resource);
+                  request.headers.set('range', 'bytes=0-187');
+                  final bytes = await request.close();
+                  expect(bytes.statusCode, 206);
+                  expect(await bytes.fold<int>(0, (n, b) => n + b.length), 188);
+                  final denied = await (await client.getUrl(
+                    address.resolve('unregistered.ts'),
+                  )).close();
+                  expect(denied.statusCode, 404);
+                } finally {
+                  client.close(force: true);
+                  await playback.close();
+                }
+              },
+            );
+
+            test(
+              'local HLS rejects remote URLs, traversal and links outside the bundle',
+              () async {
+                final file = File('${directory.path}/video.m3u8');
+                await file.writeAsString('#EXTM3U\n');
+                final local = LocalHlsMedia(file);
+                for (final address in [
+                  'https://evil.example/a.ts',
+                  'https://offline.park.invalid/other.ts',
+                  'https://offline.park.invalid/index.m3u8?url=secret',
+                  'file:///etc/passwd',
+                ]) {
+                  expect(
+                    () => local.validate(Uri.parse(address)),
+                    throwsA(isA<SourceError>()),
+                  );
+                }
+                await local.close();
+                await expectLater(
+                  local.fetch(LocalHlsMedia.playlistUrl, maxBytes: 100),
+                  throwsA(isA<SourceError>()),
+                );
+              },
+            );
+            test('HLS export includes segments and cleans rejected exports', () async {
+              final file = File('${directory.path}/video.m3u8');
+              final segments = Directory('${file.path}.part.hls');
+              await segments.create();
+              await File('${segments.path}/0.ts').writeAsBytes(segment);
+              await file.writeAsString('#EXTM3U\nvideo.m3u8.part.hls/0.ts\n');
+              final exports = Directory('${directory.path}/exports');
+              final output = await exportOfflineVideo(file, exports);
+              final archive = ZipDecoder().decodeBytes(await output.readAsBytes());
+              expect(
+                archive.files.map((f) => f.name),
+                containsAll(['video.m3u8', 'video.m3u8.part.hls/0.ts']),
+              );
+              final second = await exportOfflineVideo(file, exports);
+              expect(second.path, isNot(output.path));
+              await file.writeAsString('#EXTM3U\n../secret.ts\n');
+              await expectLater(
+                exportOfflineVideo(file, exports),
+                throwsA(isA<SourceError>()),
+              );
+              expect(await exports.list().length, 2);
+            });
+
+            test(
+              'local HLS enforces cancellation, read limits and missing files',
+              () async {
+                final file = File('${directory.path}/video.m3u8');
+                await file.writeAsString('#EXTM3U\n');
+                final local = LocalHlsMedia(file);
+                final cancelled = CancelToken()..cancel('fixture');
+                await expectLater(
+                  local.fetch(
+                    LocalHlsMedia.playlistUrl,
+                    maxBytes: 100,
+                    cancelToken: cancelled,
+                  ),
+                  throwsA(isA<DioException>()),
+                );
+                await expectLater(
+                  local.fetch(LocalHlsMedia.playlistUrl, maxBytes: 2),
+                  throwsA(isA<SourceError>().having((e) => e.code, 'code', 'NETWORK')),
+                );
+                await expectLater(
+                  local.fetch(LocalHlsMedia.playlistUrl, maxBytes: 33 * 1024 * 1024),
+                  throwsA(isA<SourceError>().having((e) => e.code, 'code', 'CONFIG')),
+                );
+                await expectLater(
+                  local.fetch(
+                    LocalHlsMedia.playlistUrl.resolve('video.m3u8.part.hls/0.ts'),
+                    maxBytes: 100,
+                  ),
+                  throwsA(isA<SourceError>().having((e) => e.code, 'code', 'NOT_FOUND')),
+                );
+                await local.close();
+              },
+            );
+
+            test('local HLS and export reject symlinks outside the bundle', () async {
+              final bundle = await Directory('${directory.path}/bundle').create();
+              final outside = File('${directory.path}/outside.ts');
+              await outside.writeAsBytes(segment);
+              final file = File('${bundle.path}/video.m3u8');
+              final segments = await Directory('${file.path}.part.hls').create();
+              final link = Link('${segments.path}/0.ts');
+              try {
+                await link.create(outside.absolute.path);
+              } on FileSystemException {
+                if (!Platform.isWindows) rethrow;
+                markTestSkipped('Windows session cannot create symbolic links');
+                return;
+              }
+              await file.writeAsString('#EXTM3U\nvideo.m3u8.part.hls/0.ts\n');
+              final local = LocalHlsMedia(file);
+              await expectLater(
+                local.fetch(
+                  LocalHlsMedia.playlistUrl.resolve('video.m3u8.part.hls/0.ts'),
+                  maxBytes: 1024,
+                ),
+                throwsA(isA<SourceError>().having((e) => e.code, 'code', 'CONFIG')),
+              );
+              await expectLater(
+                exportOfflineVideo(file, Directory('${directory.path}/exports')),
+                throwsA(isA<SourceError>()),
+              );
+              await local.close();
+            });
+          }
+          DART
+          flutter test test/platform_media_test.dart
+      - id: plan
+        env:
+          CHANGE_BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: node tools/platform_build.mjs plan
+  platforms:
+    needs: checks
+    if: needs.checks.outputs.build == 'true'
+    uses: ./.github/workflows/build.yml
+    with:
+      matrix: ${{ needs.checks.outputs.matrix }}

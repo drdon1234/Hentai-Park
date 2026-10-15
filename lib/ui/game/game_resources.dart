@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/localization.dart';
@@ -12,6 +11,7 @@ import '../../library/downloads.dart' show DownloadStatus;
 import '../kit/kit.dart';
 import '../theme.dart';
 import '../widgets/error_view.dart';
+import '../widgets/platform_share.dart';
 
 class GameResources extends StatefulWidget {
   const GameResources({super.key, required this.work});
@@ -476,8 +476,9 @@ class GameDownloadTile extends StatelessWidget {
                 TextButton(
                   onPressed: () async {
                     try {
-                      await SharePlus.instance.share(
-                        ShareParams(files: [XFile(task.file.path)]),
+                      await shareContent(
+                        context,
+                        files: [XFile(task.file.path)],
                       );
                     } catch (_) {
                       if (context.mounted) context.toast(tr('无法导出游戏文件'));

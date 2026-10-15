@@ -8,6 +8,7 @@ import 'package:video_player/video_player.dart';
 import '../../core/app_lock.dart';
 import '../../core/app_log.dart';
 import '../../core/models.dart';
+import '../../core/platform_capabilities.dart';
 import '../../engine/media_transport_factory.dart';
 import '../../engine/source_manager.dart';
 import '../../images/image_store.dart';
@@ -79,12 +80,7 @@ class VideoSession extends ChangeNotifier {
   PreparedVideo? nextPreview;
   Future<void> _preloadClosing = Future.value();
 
-  static bool get supported => switch (defaultTargetPlatform) {
-    TargetPlatform.android ||
-    TargetPlatform.iOS ||
-    TargetPlatform.macOS => true,
-    _ => false,
-  };
+  static bool get supported => PlatformCapabilities.nativeVideo;
 
   /// AI dramas page vertically between episodes and preload the next one.
   bool get scrollEpisodes =>
@@ -211,6 +207,27 @@ class VideoSession extends ChangeNotifier {
             'format': 'mp4',
           });
           _update();
+          return;
+        }
+        if (playbackFile.path.endsWith('.m3u8')) {
+          final media = _preparingMedia = HlsPlayback.local(playbackFile);
+          try {
+            final url = await media.openLocal();
+            if (!_active || request.isCancelled || openRequest != _request) {
+              await media.close();
+              return;
+            }
+            await _open(
+              VideoPlayerController.networkUrl(url),
+              media: media,
+              requestId: openRequest,
+            );
+          } catch (_) {
+            await media.close();
+            rethrow;
+          } finally {
+            if (identical(_preparingMedia, media)) _preparingMedia = null;
+          }
           return;
         }
         await _open(

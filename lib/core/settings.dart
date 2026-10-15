@@ -87,6 +87,7 @@ enum SettingsDomain {
     'cacheLimitMb',
     'downloadConcurrency',
     'downloadWifiOnly',
+    'downloadDirectory',
   }),
   privacy({
     'blurCovers',
@@ -541,6 +542,9 @@ class AppSettings extends ChangeNotifier {
   bool get downloadWifiOnly => _get('downloadWifiOnly', false);
   set downloadWifiOnly(bool v) => _set('downloadWifiOnly', v);
 
+  String get downloadDirectory => _get('downloadDirectory', '');
+  set downloadDirectory(String v) => _set('downloadDirectory', v);
+
   /// Check official plugins at launch; installing requires user confirmation.
   bool get autoSourceUpdates => _get('autoSourceUpdates', true);
   set autoSourceUpdates(bool v) => _set('autoSourceUpdates', v);
@@ -778,6 +782,7 @@ class AppSettings extends ChangeNotifier {
 
   /// Keys that describe this device or transient state and are never exported in backups.
   static const _localOnly = {
+    'downloadDirectory',
     'adultConfirmed',
     'appLock',
     'appLockAfter',

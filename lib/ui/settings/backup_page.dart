@@ -3,7 +3,6 @@ import 'dart:io';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:path/path.dart' as p;
-import 'package:share_plus/share_plus.dart';
 
 import '../../core/localization.dart';
 import '../../core/settings.dart';
@@ -11,6 +10,7 @@ import '../../core/storage.dart';
 import '../../library/backup.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
+import '../widgets/platform_share.dart';
 import 'source_install.dart';
 
 class BackupPage extends StatefulWidget {
@@ -50,8 +50,10 @@ class _BackupPageState extends State<BackupPage> {
       await _refresh();
       if (!mounted) return;
       context.toast(tr('备份已保存'));
-      await SharePlus.instance.share(
-        ShareParams(files: [XFile(file.path)], subject: p.basename(file.path)),
+      await shareContent(
+        context,
+        files: [XFile(file.path)],
+        subject: p.basename(file.path),
       );
     });
   }
@@ -168,7 +170,7 @@ class _BackupPageState extends State<BackupPage> {
       case 'restore':
         await _restoreBytes(await f.readAsBytes());
       case 'share':
-        await SharePlus.instance.share(ShareParams(files: [XFile(f.path)]));
+        await shareContent(context, files: [XFile(f.path)]);
       case 'delete':
         await f.delete();
         await _refresh();

@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:collection';
 import 'dart:convert';
 import 'dart:io';
 
@@ -18,6 +17,7 @@ import '../engine/cookie_store.dart';
 import '../engine/http_service.dart';
 import 'image_decryption.dart';
 import 'image_network.dart';
+import 'image_tasks.dart';
 import 'subscription_cache.dart';
 
 /// Disk-cached, concurrency-limited image downloads shared by covers, thumbnails and the reader.
@@ -34,7 +34,7 @@ class ImageStore {
   }
   static final ImageStore instance = ImageStore._();
 
-  final Map<String, Future<Uint8List>> _inflight = {};
+  final _inflight = ImageTasks<Uint8List>();
   final _diskQueue = SerialExecutor();
   final Map<String, ({int size, DateTime modified})> _files = {};
   String? _indexedPath;
@@ -49,8 +49,11 @@ class ImageStore {
     if (_indexedPath == _dir.path) return;
     _files.clear();
     _bytes = 0;
-    _indexedPath = _dir.path;
-    if (!await _dir.exists()) return;
+    _indexedPath = null;
+    if (!await _dir.exists()) {
+      _indexedPath = _dir.path;
+      return;
+    }
     await for (final entity in _dir.list(recursive: true)) {
       if (entity is! File) continue;
       if (p.basename(entity.path).contains('.tmp-')) {
@@ -61,6 +64,7 @@ class ImageStore {
       _files[entity.path] = (size: stat.size, modified: stat.modified);
       _bytes += stat.size;
     }
+    _indexedPath = _dir.path;
   }
 
   void _forget(String path) {
@@ -71,12 +75,11 @@ class ImageStore {
     if (token?.cancelError case final error?) throw error;
   }
 
-  /// One limiter per image host: sites never queue behind each other, and no single host gets flooded.
-  final Map<String, _Limiter> _limiters = {};
-  final _globalLimiter = _Limiter(fixedMaximum: 16);
+  final _scheduler = ImageScheduler(
+    hostLimit: () => AppSettings.instance.imageConcurrency.clamp(2, 16),
+  );
 
-  _Limiter _limiterFor(String url) =>
-      _limiters.putIfAbsent(Uri.tryParse(url)?.host ?? '', _Limiter.new);
+  void refreshPriorities() => _scheduler.refresh();
 
   Directory get _dir => Directory(p.join(AppPaths.cache.path, 'img'));
 
@@ -125,33 +128,42 @@ class ImageStore {
     String partition = CookieStore.appPartition,
     CancelToken? cancelToken,
     SourceManifest? manifest,
+    ImagePriority? priority,
+    ImagePriority Function()? priorityOf,
   }) {
     final key = decryption?.cacheKey(cacheKey ?? url) ?? cacheKey ?? url;
     final generation = _generation;
-    Future<Uint8List> fetch() async {
+    final source = manifest?.key ?? partition;
+    final sourceGeneration = imageTransportGeneration(source);
+    Future<Uint8List> fetch(
+      CancelToken cancelToken,
+      ImagePriority Function() priority,
+    ) async {
       _checkCancelled(cancelToken);
       final hit = await cached(key, partition: partition);
       _checkCancelled(cancelToken);
       if (hit != null) return hit;
-      final bytes = await _limiterFor(url).run(
-        () => _globalLimiter.run(
-          () => _download(
-            [url, ...fallbacks],
-            headers,
-            partition,
-            cancelToken,
-            decryption,
-            manifest,
-          ),
-          highPriority: highPriority,
-          cancelToken: cancelToken,
-        ),
-        highPriority: highPriority,
-        cancelToken: cancelToken,
+      final bytes = await _download(
+        [url, ...fallbacks],
+        headers,
+        partition,
+        cancelToken,
+        decryption,
+        manifest,
+        () {
+          final inherited = priorityOf?.call();
+          return inherited != null && inherited.index < priority().index
+              ? inherited
+              : priority();
+        },
+        () => sourceGeneration == imageTransportGeneration(source),
       );
       _checkCancelled(cancelToken);
       await _disk(() async {
-        if (generation != _generation) return;
+        if (generation != _generation ||
+            sourceGeneration != imageTransportGeneration(source)) {
+          return;
+        }
         await _index();
         final f = fileFor(key, partition: partition);
         await f.parent.create(recursive: true);
@@ -160,7 +172,8 @@ class ImageStore {
           bytes,
           canCommit: () {
             _checkCancelled(cancelToken);
-            return generation == _generation;
+            return generation == _generation &&
+                sourceGeneration == imageTransportGeneration(source);
           },
         );
         if (!committed) return;
@@ -172,36 +185,63 @@ class ImageStore {
       return bytes;
     }
 
-    // An individually cancellable download must never cancel a reader sharing its URL.
-    if (cancelToken != null) return fetch();
-    final requestKey = jsonEncode([partition, key]);
-    return _inflight[requestKey] ??= () async {
-      try {
-        return await fetch();
-      } finally {
-        _inflight.remove(requestKey)?.ignore();
-      }
-    }();
+    return _inflight.run(
+      jsonEncode([
+        partition,
+        key,
+        generation,
+        sourceGeneration,
+        manifest?.json['imageNetwork'],
+      ]),
+      fetch,
+      priority:
+          priority ??
+          (highPriority ? ImagePriority.visible : ImagePriority.background),
+      cancelToken: cancelToken,
+      onPromoted: _scheduler.refresh,
+    );
   }
 
   Future<Uint8List> _download(
     List<String> urls,
     Map<String, String> headers,
     String partition,
-    CancelToken? token,
+    CancelToken token,
     ImageDecryption? decryption,
     SourceManifest? manifest,
+    ImagePriority Function() priority,
+    bool Function() isCurrent,
   ) async {
     Object? lastError;
     for (final url in urls) {
       for (var attempt = 0; attempt < 2; attempt++) {
         _checkCancelled(token);
+        if (!isCurrent()) throw SourceError('CANCELLED', '媒体会话已关闭');
+        void Function()? release;
         try {
-          final browser = createImageTransport(manifest, headers: headers);
+          final browser = createImageTransport(
+            manifest,
+            headers: headers,
+            partition: partition,
+          );
+          Future<void> acquire(Uri uri) async {
+            release?.call();
+            release = null;
+            release = await _scheduler.acquire(
+              uri.host,
+              priority: priority,
+              token: token,
+              browserSession: browser == null
+                  ? null
+                  : imageTransportIdentity(manifest!, headers, partition),
+            );
+          }
+
           late Uint8List encrypted;
           late String finalUrl;
           if (browser != null) {
             try {
+              await acquire(Uri.parse(url));
               final result = await browser.fetch(
                 Uri.parse(url),
                 maxBytes: 20 * 1024 * 1024,
@@ -225,6 +265,7 @@ class ImageStore {
               partition: partition,
               detectCloudflare: false,
               cancelToken: token,
+              beforeRequest: acquire,
             );
             if (!res.ok) {
               throw SourceError(
@@ -244,6 +285,9 @@ class ImageStore {
           }
           return bytes;
         } on SourceError catch (e) {
+          release?.call();
+          release = null;
+          if (e.code == 'CANCELLED' || e.code == 'CONFIG') rethrow;
           lastError = e;
           if (e.status == 404 || e.status == 403) {
             break; // try next mirror instead of retrying
@@ -252,6 +296,8 @@ class ImageStore {
             Future<void>.delayed(Duration(milliseconds: 400 * (attempt + 1))),
             token,
           );
+        } finally {
+          release?.call();
         }
       }
     }
@@ -290,6 +336,7 @@ class ImageStore {
       _files.clear();
       _bytes = 0;
       _indexedPath = _dir.path;
+      await invalidateImageTransports();
       await SubscriptionCache.instance.clear();
     });
   }
@@ -304,10 +351,7 @@ class ImageStore {
     final totalLimit = AppSettings.instance.cacheLimitMb * 1024 * 1024;
     final mediaSize = await SubscriptionCache.instance.size();
     final limit = (totalLimit - mediaSize).clamp(0, totalLimit);
-    if (_bytes <= limit) {
-      await SubscriptionCache.instance.trim(totalLimit - _bytes);
-      return;
-    }
+    if (_bytes + mediaSize <= totalLimit) return;
     final files = _files.entries.toList()
       ..sort((a, b) => a.value.modified.compareTo(b.value.modified));
     for (final file in files) {
@@ -322,53 +366,5 @@ class ImageStore {
     await SubscriptionCache.instance.trim(
       (totalLimit - _bytes).clamp(0, totalLimit),
     );
-  }
-}
-
-/// Bounded concurrency with a priority lane (reader pages jump ahead of cover thumbnails).
-class _Limiter {
-  _Limiter({this.fixedMaximum});
-  final int? fixedMaximum;
-  int _running = 0;
-  final _high = Queue<Completer<void>>();
-  final _low = Queue<Completer<void>>();
-
-  int get _max =>
-      fixedMaximum ?? AppSettings.instance.imageConcurrency.clamp(2, 16);
-
-  Future<T> run<T>(
-    Future<T> Function() task, {
-    bool highPriority = false,
-    CancelToken? cancelToken,
-  }) async {
-    if (_running >= _max) {
-      final c = Completer<void>();
-      final queue = highPriority ? _high : _low;
-      queue.add(c);
-      try {
-        await awaitCancelled(c.future, cancelToken);
-      } catch (_) {
-        if (!queue.remove(c)) _release();
-        rethrow;
-      }
-    } else {
-      _running++;
-    }
-    try {
-      ImageStore._checkCancelled(cancelToken);
-      return await task();
-    } finally {
-      _release();
-    }
-  }
-
-  void _release() {
-    if (_high.isNotEmpty) {
-      _high.removeFirst().complete();
-    } else if (_low.isNotEmpty) {
-      _low.removeFirst().complete();
-    } else {
-      _running--;
-    }
   }
 }

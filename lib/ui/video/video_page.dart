@@ -291,32 +291,57 @@ class _VideoPageState extends State<VideoPage>
 
   @override
   Widget build(BuildContext context) {
-    final player = VideoStage(
-      session: _session,
-      fullscreen: _fullscreen,
-      controlsVisible: _controls,
-      controls: _controlsLayer,
-      episodePages: _episodePages,
-      previewPosition: _previewPosition,
-      hint: _seekHint,
-      dim: !_nativeLevels && _brightness < 1 ? (1 - _brightness) * 0.8 : 0,
-      onTap: _toggleControls,
-      onDoubleTap: _seekBy,
-      onGestureStart: _startGesture,
-      onGestureUpdate: _updateGesture,
-      onGestureEnd: _endGesture,
-      onGestureCancel: _cancelGesture,
-      onShowControls: () {
-        _hide?.cancel();
-        setState(() => _controls = true);
+    final player = CallbackShortcuts(
+      bindings: {
+        const SingleActivator(LogicalKeyboardKey.space): () {
+          _session.togglePlayback();
+          _scheduleHide();
+        },
+        const SingleActivator(LogicalKeyboardKey.arrowLeft): () => _seekBy(-10),
+        const SingleActivator(LogicalKeyboardKey.arrowRight): () => _seekBy(10),
+        const SingleActivator(LogicalKeyboardKey.keyF): _toggleFullscreen,
+        const SingleActivator(LogicalKeyboardKey.escape): () {
+          if (_fullscreen) _toggleFullscreen();
+        },
       },
-      onInteract: () => _hide?.cancel(),
-      onIdle: _scheduleHide,
-      onEpisodePage: (index) {
-        if (_episodes[index] != _session.episode) {
-          _session.selectEpisode(_episodes[index]);
-        }
-      },
+      child: Focus(
+        autofocus: true,
+        child: MouseRegion(
+          onHover: (_) {
+            if (!_controls) setState(() => _controls = true);
+            _scheduleHide();
+          },
+          child: VideoStage(
+            session: _session,
+            fullscreen: _fullscreen,
+            controlsVisible: _controls,
+            controls: _controlsLayer,
+            episodePages: _episodePages,
+            previewPosition: _previewPosition,
+            hint: _seekHint,
+            dim: !_nativeLevels && _brightness < 1
+                ? (1 - _brightness) * 0.8
+                : 0,
+            onTap: _toggleControls,
+            onDoubleTap: _seekBy,
+            onGestureStart: _startGesture,
+            onGestureUpdate: _updateGesture,
+            onGestureEnd: _endGesture,
+            onGestureCancel: _cancelGesture,
+            onShowControls: () {
+              _hide?.cancel();
+              setState(() => _controls = true);
+            },
+            onInteract: () => _hide?.cancel(),
+            onIdle: _scheduleHide,
+            onEpisodePage: (index) {
+              if (_episodes[index] != _session.episode) {
+                _session.selectEpisode(_episodes[index]);
+              }
+            },
+          ),
+        ),
+      ),
     );
     if (_fullscreen) {
       return PopScope(

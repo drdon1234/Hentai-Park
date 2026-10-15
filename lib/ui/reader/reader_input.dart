@@ -2,6 +2,18 @@ part of 'reader_page.dart';
 
 /// Taps, keys and the long-press page menu (save or share a page).
 mixin _ReaderInput on _ReaderBase, _ReaderNavigation {
+  Future<void> _setDesktopFullscreen(bool enabled) async {
+    final previous = _desktopFullscreen;
+    _desktopFullscreen = enabled;
+    try {
+      await PlatformBridge.applyVideoFullscreen(enabled);
+    } catch (_) {
+      if (mounted && _desktopFullscreen == enabled) {
+        _desktopFullscreen = previous;
+      }
+    }
+  }
+
   void _toggleOverlay() {
     setState(() => _overlay = !_overlay);
     SystemChrome.setEnabledSystemUIMode(
@@ -40,6 +52,10 @@ mixin _ReaderInput on _ReaderBase, _ReaderNavigation {
   KeyEventResult _onKey(FocusNode node, KeyEvent e) {
     if (e is! KeyDownEvent) return KeyEventResult.ignored;
     final k = e.logicalKey;
+    if (PlatformCapabilities.desktop && k == LogicalKeyboardKey.keyF) {
+      unawaited(_setDesktopFullscreen(!_desktopFullscreen));
+      return KeyEventResult.handled;
+    }
     if (k == LogicalKeyboardKey.arrowDown ||
         k == LogicalKeyboardKey.space ||
         k == LogicalKeyboardKey.pageDown ||
@@ -56,6 +72,10 @@ mixin _ReaderInput on _ReaderBase, _ReaderNavigation {
       return KeyEventResult.handled;
     }
     if (k == LogicalKeyboardKey.escape) {
+      if (_desktopFullscreen) {
+        unawaited(_setDesktopFullscreen(false));
+        return KeyEventResult.handled;
+      }
       Navigator.maybePop(context);
       return KeyEventResult.handled;
     }
@@ -94,6 +114,10 @@ mixin _ReaderInput on _ReaderBase, _ReaderNavigation {
       final bytes = await _provider(index).displayBytes();
       final name = 'hentaipark_${safeFileName(widget.work.id)}_${index + 1}';
       if (action == PageAction.save) {
+        if (!PlatformCapabilities.photoLibrary) {
+          await FilePicker.saveFile(fileName: '$name.png', bytes: bytes);
+          return;
+        }
         if (!await Gal.hasAccess(toAlbum: true)) {
           await Gal.requestAccess(toAlbum: true);
         }
@@ -102,7 +126,8 @@ mixin _ReaderInput on _ReaderBase, _ReaderNavigation {
       } else {
         final file = File(p.join(AppPaths.cache.path, '$name.png'));
         await file.writeAsBytes(bytes);
-        await SharePlus.instance.share(ShareParams(files: [XFile(file.path)]));
+        if (!mounted) return;
+        await shareContent(context, files: [XFile(file.path)]);
       }
     } catch (e) {
       if (mounted) context.toast(tr('操作失败：{value0}', {'value0': e}));

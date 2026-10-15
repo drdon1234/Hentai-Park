@@ -28,31 +28,60 @@ class SubscriptionCache {
     }
   }
 
-  Future<List<(File, FileStat)>> _files() async {
-    if (!await directory.exists()) return [];
-    final files = <(File, FileStat)>[];
-    await for (final file in directory.list(followLinks: false)) {
-      if (file is File) {
+  final _index = <String, ({int size, DateTime modified})>{};
+  String? _indexedPath;
+  int _bytes = 0;
+
+  Future<void> _ensureIndex() async {
+    final path = _path(File(directory.path));
+    if (_indexedPath == path) return;
+    final entries = <String, ({int size, DateTime modified})>{};
+    var bytes = 0;
+    if (await directory.exists()) {
+      await for (final file in directory.list(followLinks: false)) {
+        if (file is! File) continue;
         final stat = await file.stat();
-        if (stat.type == FileSystemEntityType.file) files.add((file, stat));
+        if (stat.type != FileSystemEntityType.file) continue;
+        entries[_path(file)] = (size: stat.size, modified: stat.modified);
+        bytes += stat.size;
       }
     }
-    return files;
+    _index
+      ..clear()
+      ..addAll(entries);
+    _bytes = bytes;
+    _indexedPath = path;
   }
 
-  Future<int> size() => _writes.run(
-    () async => (await _files()).fold<int>(0, (sum, e) => sum + e.$2.size),
-  );
+  /// 附件原子替换或删除后仅更新该文件，热路径不再遍历目录。
+  Future<void> record(File file) => _writes.run(() async {
+    if (!p.isWithin(p.absolute(directory.path), _path(file))) return;
+    await _ensureIndex();
+    _bytes -= _index.remove(_path(file))?.size ?? 0;
+    final stat = await file.stat();
+    if (stat.type == FileSystemEntityType.file) {
+      _index[_path(file)] = (size: stat.size, modified: stat.modified);
+      _bytes += stat.size;
+    }
+  });
+
+  Future<int> size() => _writes.run(() async {
+    await _ensureIndex();
+    return _bytes;
+  });
+
   Future<void> trim(int budget) => _writes.run(() async {
-    final files = (await _files())
-      ..sort((a, b) => a.$2.modified.compareTo(b.$2.modified));
-    var size = files.fold<int>(0, (sum, e) => sum + e.$2.size);
-    for (final e in files) {
-      if (size <= budget) break;
-      if (_pins.containsKey(_path(e.$1))) continue;
+    await _ensureIndex();
+    if (_bytes <= budget) return;
+    final files = _index.entries.toList()
+      ..sort((a, b) => a.value.modified.compareTo(b.value.modified));
+    for (final entry in files) {
+      if (_bytes <= budget) break;
+      if (_pins.containsKey(entry.key)) continue;
       try {
-        await e.$1.delete();
-        size -= e.$2.size;
+        final file = File(entry.key);
+        if (await file.exists()) await file.delete();
+        _bytes -= _index.remove(entry.key)?.size ?? 0;
       } on FileSystemException {
         /* 下次重试。 */
       }

@@ -2,25 +2,30 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:dio/dio.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:gal/gal.dart';
 import 'package:path/path.dart' as p;
 import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
-import 'package:share_plus/share_plus.dart';
 
 import '../../core/localization.dart';
 import '../../core/models.dart';
+import '../../core/platform_capabilities.dart';
 import '../../core/settings.dart';
 import '../../core/storage.dart';
+import '../../engine/platform_bridge.dart';
 import '../../engine/source_manager.dart';
+import '../../images/image_tasks.dart';
 import '../../images/park_image.dart';
 import '../../library/downloads.dart';
 import '../../library/library.dart';
 import '../kit/kit.dart';
 import '../theme.dart';
 import '../widgets/error_view.dart';
+import '../widgets/platform_share.dart';
 import 'device_session.dart';
+import 'page_preloader.dart';
 import 'reader_image.dart';
 import 'reader_layout.dart';
 import 'reader_settings_sheet.dart';
@@ -57,6 +62,7 @@ abstract class _ReaderBase extends State<ReaderPage> {
   String? _loadedChapterId;
   int _page = 0;
   bool _overlay = false;
+  bool _desktopFullscreen = false;
   late ReaderMode _mode = _settings.readerMode;
   bool _modeOverride = false;
   final Map<int, double> _aspects = {};
@@ -71,6 +77,10 @@ abstract class _ReaderBase extends State<ReaderPage> {
   final _focus = FocusNode();
   Timer? _saveTimer;
   CancelToken? _request;
+  late final _preloader = PagePreloader((index, token) async {
+    await _provider(index)
+        .loadBytes(cancelToken: token, priority: ImagePriority.preload);
+  });
 
   String get _source => widget.work.source;
   String? get _chapterId => _chapter?.id ?? widget.work.singleChapterId;
@@ -122,12 +132,16 @@ class _ReaderPageState extends _ReaderBase
   @override
   void dispose() {
     _loadGeneration++;
+    _preloader.clear();
     _request?.cancel();
     WidgetsBinding.instance.removeObserver(this);
     _saveProgress();
     _saveTimer?.cancel();
     _device.dispose();
     _watched.removeListener(_onSettings);
+    if (_desktopFullscreen) {
+      unawaited(PlatformBridge.applyVideoFullscreen(false));
+    }
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
     _pager?.dispose();
     _zoom.dispose();
@@ -144,7 +158,10 @@ class _ReaderPageState extends _ReaderBase
 
   void _onSettings() {
     _configureDevice();
-    if (mounted) setState(() {});
+    if (mounted) {
+      setState(() {});
+      _preload();
+    }
   }
 
   void _configureDevice() {
@@ -158,6 +175,7 @@ class _ReaderPageState extends _ReaderBase
   @override
   Future<void> _load({int startPage = 0}) async {
     final generation = ++_loadGeneration;
+    _preloader.clear();
     _request?.cancel();
     final request = _request = CancelToken();
     final chapterId = _chapterId;

@@ -15,6 +15,7 @@ import '../core/models.dart';
 import '../core/settings.dart';
 import '../core/storage.dart';
 import '../core/versions.dart';
+import '../images/image_network.dart';
 import '../images/image_store.dart';
 import '../images/subscription_cache.dart';
 import '../subscriptions/context_identity.dart';
@@ -294,6 +295,7 @@ abstract class _SourceRegistry extends ChangeNotifier {
         );
         _changingSources.add(key);
         try {
+          await invalidateImageTransports(key);
           return await action();
         } finally {
           _changingSources.remove(key);
@@ -304,6 +306,7 @@ abstract class _SourceRegistry extends ChangeNotifier {
     return _mutations.run(() async {
       await Future.wait(pendingLocal);
       await Future.wait(_activeCalls.toList());
+      await invalidateImageTransports();
       return action();
     });
   }

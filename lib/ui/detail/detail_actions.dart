@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:share_plus/share_plus.dart';
 
 import '../../core/localization.dart';
 import '../../core/models.dart';
@@ -13,6 +12,7 @@ import '../migration/migration_page.dart';
 import '../nav.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
+import '../widgets/platform_share.dart';
 
 /// Favorite, download and more: outlined, quiet, and accent only when active.
 class DetailSecondaryButton extends StatelessWidget {
@@ -103,9 +103,7 @@ Future<void> showDetailMore(
               title: Text(tr('分享链接')),
               onTap: () {
                 Navigator.pop(ctx);
-                SharePlus.instance.share(
-                  ShareParams(text: '${d.title}\n${d.url}'),
-                );
+                shareContent(context, text: '${d.title}\n${d.url}');
               },
             ),
           ListTile(

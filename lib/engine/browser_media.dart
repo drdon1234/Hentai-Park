@@ -12,11 +12,17 @@ import 'media_transport.dart';
 
 /// One hidden page per playback/download. Closing it aborts and releases all requests.
 class BrowserMedia implements MediaTransport {
-  BrowserMedia(this.policy, {Map<String, String> headers = const {}})
-    : headers = policy.requestHeaders(headers);
+  BrowserMedia(
+    this.policy, {
+    Map<String, String> headers = const {},
+    this.concurrentRequests = false,
+  }) : headers = policy.requestHeaders(headers);
   @override
   final MediaPolicy policy;
   final Map<String, String> headers;
+  final bool concurrentRequests;
+  bool get isClosed => _closed.isCompleted;
+  final _active = <Future<void>>{};
   final _closed = Completer<void>();
   final _closingEvents = StreamController<void>.broadcast(sync: true);
   HeadlessInAppWebView? _view;
@@ -173,7 +179,7 @@ class BrowserMedia implements MediaTransport {
       throw ArgumentError.value(maxBytes, 'maxBytes');
     }
     _check(cancelToken);
-    final operation = _queue.run(() async {
+    Future<MediaResponse> action() async {
       _check(cancelToken);
       await _untilClosed(_ready ??= _start(), cancelToken);
       _check(cancelToken);
@@ -275,7 +281,17 @@ if (jobs.has(id)) jobs.get(id)?.abort(); else jobs.set(id, null);''',
         finished = true;
         await cancellation?.cancel();
       }
-    });
+    }
+
+    final operation = concurrentRequests
+        ? Future.sync(action)
+        : _queue.run(action);
+    final settled = operation.then<void>(
+      (_) {},
+      onError: (Object _, StackTrace _) {},
+    );
+    _active.add(settled);
+    settled.then((_) => _active.remove(settled));
     return _untilClosed(operation, cancelToken);
   }
 
@@ -299,6 +315,7 @@ if (jobs.has(id)) jobs.get(id)?.abort(); else jobs.set(id, null);''',
     } finally {
       _view = null;
       await _queue.settled;
+      await Future.wait(_active.toList());
       await _closingEvents.close();
     }
   }();

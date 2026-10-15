@@ -8,7 +8,7 @@
 
 - 工具链：Flutter 3.47.7（Dart 3.13.5）、JDK 17、Node.js 22。CI 固定这个 Flutter 版本。
 - WebView 使用 beta 依赖，用于现有的浏览器桥能力；升级前必须验证 Cookie 分区、验证页和媒体传输。`flutter_tts` 仍使用外部 Kotlin 插件，升级 Flutter 前要核对插件的内置 Kotlin 支持。
-- 当前正式运行和发布目标是 Android。Windows 只是开发宿主，桌面目录不代表原生能力已经验证。
+- Android、Windows、macOS、Linux 与 iOS 模拟器均由 GitHub Actions 执行构建检查；真实设备和 Linux 发行版运行仍需单独验证。Web 因浏览器文件、Cookie、CORS 与本地媒体安全边界暂不宣称完整支持，详见 [平台矩阵](PLATFORMS.md)。
 
 ### Android SDK
 
@@ -79,7 +79,7 @@ Flutter 不在 PATH 上时传入完整路径：`.\tools\check.ps1 -FlutterComman
 ## 发布
 
 - 插件版本与应用版本分开管理。修改插件脚本时同时提高插件版本并更新 `assets/sources/index.json`；不擅自提高应用版本。
-- 应用发布前核对包名、递增 versionCode、使用正式证书。CI 不自动发布应用。
+- 应用版本只取 pubspec.yaml。正式发布通过 GitHub Actions 的标签或明确启用的手动发布，Android 分发使用正式证书；日常编译不要求商业签名。
 - Android 中正在执行的软件安装包、站点插件、媒体、游戏及词包下载共用数据同步前台服务和 CPU 唤醒锁，切后台和锁屏后继续执行；通知只显示通用下载提示。队列交接保留短暂服务窗口，所有任务结束后自动停止。系统停止服务或 Android 的后台时间额度耗尽时取消正在执行的下载；用户强停、移除应用任务或系统回收进程后不承诺继续，重新打开后按各下载队列已有规则恢复或重试。插件安装保留原有事务恢复机制。
 - 作品详情的下载入口在已有下载任务时改为移除操作，覆盖排队、下载中、暂停、失败和已完成状态；确认后停止任务并删除本作品已下载内容，取消保持原样。章节选择里的下载操作仍用于补充下载。
 - 官方插件源码与唯一清单均在 `main` 维护。`.github/workflows/publish-sources.yml` 分别发布到 `sources` 和 `rankings` 分支：普通插件进入 `sources`，`rankingOnly: true` 的独立排行榜插件进入 `rankings`。两个分支仅保留固定源码提交地址与摘要的索引，版本检查和用户确认更新流程相同，流程见 SOURCE_API.md 的“发布”。
@@ -140,7 +140,8 @@ GitHub Release 正文就是应用内“发现软件新版本”对话框里的�
 | 站点 | 一个站点插件及其对应的网站（代码中仍叫 source） |
 | 分类 | 发现页的入口分组：本子、美图、里番、JAV、成人视频、短视频、AI 短剧、小说、游戏、其他（代码中的 `category`） |
 | 媒体类型 | 漫画 / 视频 / 小说 / 游戏，决定阅读或播放方式（代码中的 `type`、`mediaKind`） |
-| 书架 | 界面入口：收藏、更新、下载 |
+| 书架 | 界面入口：收藏、更新 |
+| 下载 | 独立主导航入口：下载任务与离线内容管理 |
 | 书库 | 持久化的收藏、进度与历史数据 |
 | 订阅 | 关注频道、创作者或关键词的新内容 |
 
@@ -166,3 +167,35 @@ GitHub Release 正文就是应用内“发现软件新版本”对话框里的�
 - Android 后台任务由 JobScheduler 启动独立的 Flutter 引擎和原有沙箱，只加载启用订阅关联的站点，不主动刷新全部账号；前台启动时先等后台任务取消并写完。系统可能推迟任务，不保证实时通知。
 - 应用内记录不依赖通知权限。系统通知需要用户开启并授权，默认不显示标题；成功显示后才标记已投递，被拒或频道关闭时稍后重试，稳定的通知 ID 避免叠加。最多保留最近 500 条。移除目标会停止它的通知，历史事件保留。
 - 订阅附件与图片共用媒体缓存上限，可在“我的 → 存储”中查看和清理；正在使用的附件受保护。缓存只保存可重建的媒体，不替代下载或备份。
+
+### 跨平台构建与发布
+
+平台功能与安装方法见 [PLATFORMS.md](PLATFORMS.md)。原生目标由 check.yml、build.yml、release.yml 统一检查、构建、打包与发布；Web 按本次产品决定明确未支持，不列入构建及发布目标。普通 PR 不传递发布凭据，发布使用受保护的 release 环境；手动 publish 默认 false。
+
+无付费 Apple 凭据时：macOS ad-hoc 包不公证；iOS 执行无签名真机编译和模拟器打包，不生成普通用户可安装的 IPA。TestFlight/App Store 上传尚未接入。请勿通过关闭系统全局安全保护或 TLS 校验解决安装/网络问题。
+
+## GitHub Actions
+
+工作流使用标准 GitHub 托管运行器：Android/Linux 宿主为 ubuntu-24.04（Linux 在 Debian forky（testing）容器中构建）、Windows 为 windows-2022、Apple 为 macos-15。没有收费大型运行器。Flutter 版本与项目 SDK 对齐，依赖按锁文件解析并缓存。
+
+- check.yml：main 推送、PR、手动触发；仅代码、资源、工具和平台文件变动触发，文档变更不触发。生产文案/样式/分析/格式、官方插件离线校验、动态写入被忽略 test/ 的离线 HLS 用例；按变动范围决定平台矩阵。跨平台生产代码变动构建全部原生目标，单个平台宿主变动只构建对应平台；源脚本和翻译资源单独变动只做检查。
+- build.yml：被复用的矩阵构建，包含 Linux 系统依赖、Windows NuGet、Android 无签名编译、macOS app、iOS 无签名真机编译和模拟器 app。macOS 验证主程序含 arm64/x86_64。
+- release.yml：推送与 pubspec.yaml 对应的 vX.Y.Z 标签，或在 main 手动触发。手动 publish 默认 false，仅构建；启用 publish 或标签触发才创建 Release。生产检查和全部构建成功后才发布。发布前必须更新 docs/RELEASE_NOTES.md，或手动提供仓库内其他双语说明路径。
+- 临时产物位于 Actions 的 distribution-平台 artifacts，保留 7 天。正式附件放 GitHub Release，名称含版本、构建号、平台和架构，并附 SHA-256。Windows 是完整目录 ZIP，Linux 是完整 bundle tar.gz，Apple 是完整 .app ZIP，Android 是分架构签名 APK。
+- iOS 只做编译与模拟器打包，不宣称模拟器运行成功。Web 当前没有构建或发布任务。
+
+版本标签必须与 pubspec.yaml 一致；没有更新版本时不要重用已有发布标签。Release 正文只含中文和 English 两节，遵守 DEVELOPMENT.md 既有格式。
+
+## Secrets 与外部设置
+
+为 release 环境配置保护规则、允许的发布分支/标签和必要审批；普通 PR 检查不传递发布 Secrets。构建 job 只有 contents:read，只有最终发布 job 有 contents:write；不可信 PR 不得配置为可进入 release 环境。
+
+| Secrets | 用途 | 缺失时 |
+| --- | --- | --- |
+| ANDROID_KEYSTORE_BASE64、ANDROID_KEYSTORE_PASSWORD、ANDROID_KEY_ALIAS、ANDROID_KEY_PASSWORD | Android 正式签名 | 仅编译，不上传 APK |
+| MACOS_CERTIFICATE_BASE64、MACOS_CERTIFICATE_PASSWORD、MACOS_SIGN_IDENTITY | Developer ID Application p12 与身份名称 | ad-hoc app，无 Developer ID |
+| APPLE_NOTARY_KEY_ID、APPLE_NOTARY_ISSUER、APPLE_NOTARY_KEY_BASE64 | Apple 公证 API p8 | 已签名包不公证；没有 Developer ID 时也不调用公证 |
+
+Apple 付费会员不是普通构建前提。没有 iOS 分发凭据的配置项：TestFlight、App Store、真机签名及其上传流程尚未实现，不会显示为成功。Windows 商业签名也未启用，不阻断普通 ZIP 构建。
+
+仓库需允许 Actions、artifact 上传和 GITHUB_TOKEN 创建 Release；Linux runner 需能安装依赖，Windows 需能下载 WebView2/NuGet 和媒体依赖，Apple 需 Xcode/插件所需 CocoaPods 或 SPM 网络访问。依赖下载和构建失败会阻止正式发布。

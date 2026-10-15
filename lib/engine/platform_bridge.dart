@@ -3,12 +3,14 @@ import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
+import 'package:window_manager/window_manager.dart';
 
 import '../core/localization.dart';
+import '../core/platform_capabilities.dart';
 import '../core/settings.dart';
+import 'native_notifications.dart';
 
-/// Small Android-only native hooks (MainActivity): screenshot protection, volume-key paging and
-/// plain system notifications.
+/// 平台原生能力：Android 设备控制、桌面全屏与系统通知。
 class PlatformBridge {
   static const _channel = MethodChannel('hentai_park/platform');
   static final _wakes = StreamController<void>.broadcast();
@@ -62,6 +64,7 @@ class PlatformBridge {
   static void _listen() {
     if (_listening) return;
     _listening = true;
+    NativeNotifications.instance.onTap = _taps.add;
     _channel.setMethodCallHandler((call) async {
       switch (call.method) {
         case 'subscriptionWake':
@@ -140,6 +143,10 @@ class PlatformBridge {
   /// Android uses its current insets API: Flutter's immersiveSticky request is
   /// ignored on target SDK 36. The same native session restores prior bar state.
   static Future<void> applyVideoFullscreen(bool enabled) async {
+    if (PlatformCapabilities.desktop) {
+      await windowManager.setFullScreen(enabled);
+      return;
+    }
     if (defaultTargetPlatform == TargetPlatform.android) {
       try {
         await _channel.invokeMethod('setVideoFullscreen', enabled);
@@ -214,7 +221,10 @@ class PlatformBridge {
 
   /// The payload of the notification that launched the app, if any (returned once).
   static Future<String?> takeLaunchPayload() async {
-    if (!Platform.isAndroid) return null;
+    if (!Platform.isAndroid) {
+      await NativeNotifications.instance.init();
+      return NativeNotifications.instance.takeLaunchPayload();
+    }
     try {
       return await _channel.invokeMethod<String>('takeLaunchPayload');
     } catch (_) {
@@ -224,7 +234,9 @@ class PlatformBridge {
 
   /// Asks for POST_NOTIFICATIONS on Android 13+; true when already granted.
   static Future<bool> requestNotificationPermission() async {
-    if (!Platform.isAndroid) return false;
+    if (!Platform.isAndroid) {
+      return NativeNotifications.instance.requestPermission();
+    }
     try {
       return await _channel.invokeMethod<bool>(
             'requestNotificationPermission',
@@ -246,7 +258,15 @@ class PlatformBridge {
     String channel = 'library',
     String channelName = '书库更新',
   }) async {
-    if (!Platform.isAndroid) return;
+    if (!Platform.isAndroid) {
+      await NativeNotifications.instance.show(
+        id: id,
+        title: title,
+        body: text,
+        payload: payload,
+      );
+      return;
+    }
     try {
       await _channel.invokeMethod('notify', {
         'id': id,
@@ -263,7 +283,7 @@ class PlatformBridge {
   }
 
   static Future<void> cancelNotification(int id) async {
-    if (!Platform.isAndroid) return;
+    if (!Platform.isAndroid) return NativeNotifications.instance.cancel(id);
     try {
       await _channel.invokeMethod('cancelNotification', id);
     } catch (_) {}
@@ -277,7 +297,14 @@ class PlatformBridge {
     required String channel,
     required String channelName,
   }) async {
-    if (!Platform.isAndroid) return false;
+    if (!Platform.isAndroid) {
+      return NativeNotifications.instance.show(
+        id: id,
+        title: title,
+        body: text,
+        payload: payload,
+      );
+    }
     try {
       return await _channel.invokeMethod<bool>('notifyChecked', {
             'id': id,

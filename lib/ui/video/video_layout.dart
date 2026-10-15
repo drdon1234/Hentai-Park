@@ -18,6 +18,28 @@ class VideoLayout extends StatelessWidget {
   @override
   Widget build(BuildContext context) => LayoutBuilder(
     builder: (context, constraints) {
+      if (!fullscreen &&
+          constraints.maxWidth >= 1000 &&
+          constraints.maxHeight >= 480) {
+        return Row(
+          children: [
+            Expanded(
+              child: Center(
+                child: AspectRatio(aspectRatio: 16 / 9, child: player),
+              ),
+            ),
+            SizedBox(
+              width: (constraints.maxWidth * .32).clamp(320.0, 440.0),
+              child: Column(
+                children: [
+                  Expanded(child: header),
+                  Expanded(child: details),
+                ],
+              ),
+            ),
+          ],
+        );
+      }
       final playerHeight = (constraints.maxWidth * 9 / 16).clamp(
         0.0,
         constraints.maxHeight * .6,

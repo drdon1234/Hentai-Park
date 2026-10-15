@@ -27,7 +27,7 @@ class AppLock extends ChangeNotifier with WidgetsBindingObserver {
 
   void init() {
     WidgetsBinding.instance.addObserver(this);
-    _locked = AppSettings.instance.appLock;
+    _locked = platformSupported && AppSettings.instance.appLock;
   }
 
   /// Whether the device can authenticate at all (biometrics or a screen lock is set up).
@@ -80,7 +80,11 @@ class AppLock extends ChangeNotifier with WidgetsBindingObserver {
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (!AppSettings.instance.appLock || _authenticating) return;
+    if (!platformSupported ||
+        !AppSettings.instance.appLock ||
+        _authenticating) {
+      return;
+    }
     switch (state) {
       case AppLifecycleState.hidden:
       case AppLifecycleState.paused:

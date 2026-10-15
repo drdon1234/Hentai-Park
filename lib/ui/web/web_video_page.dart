@@ -8,6 +8,7 @@ import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import '../../core/app_lock.dart';
 import '../../core/localization.dart';
 import '../../core/models.dart';
+import '../../core/storage.dart';
 import '../../engine/http_service.dart';
 import '../../engine/platform_bridge.dart';
 import '../../engine/source_manager.dart';
@@ -33,6 +34,8 @@ class _WebVideoPageState extends State<WebVideoPage>
   WebPlaybackPolicy? _policy;
   InAppWebViewController? _controller;
   InAppWebViewKeepAlive? _keepAlive;
+  WebViewEnvironment? _environment;
+  Directory? _profileDirectory;
   Object? _error;
   double _progress = 0;
   bool _ready = false;
@@ -47,10 +50,16 @@ class _WebVideoPageState extends State<WebVideoPage>
     unawaited(_load());
   }
 
-  Future<void> _release(InAppWebViewKeepAlive? session, dynamic id) async {
-    if (session == null) return;
+  Future<void> _release(
+    InAppWebViewKeepAlive? session,
+    dynamic id,
+    WebViewEnvironment? environment,
+    Directory? profile,
+  ) async {
     try {
-      if (Platform.isAndroid && id is String) {
+      if (session == null) {
+        // 也清理尚未创建视图就被取消的 Windows 环境。
+      } else if (Platform.isAndroid && id is String) {
         await _platform.invokeMethod('releaseWebVideo', id);
       } else {
         await InAppWebViewController.disposeKeepAlive(session);
@@ -58,21 +67,37 @@ class _WebVideoPageState extends State<WebVideoPage>
     } catch (_) {
       // 页面销毁时不得清除共享 Cookie 或默认 WebView 数据。
     }
+    try {
+      await environment?.dispose();
+    } catch (_) {}
+    try {
+      if (profile != null && await profile.exists()) {
+        await profile.delete(recursive: true);
+      }
+    } catch (_) {
+      // WebView2 进程可能尚未退出；残留仅在应用缓存内，绝不复用该目录。
+    }
   }
 
   Future<void> _load() async {
     final generation = ++_generation;
     final old = _keepAlive;
+    final oldEnvironment = _environment;
+    final oldProfile = _profileDirectory;
     final id = _controller?.getViewId();
     _controller = null;
     _keepAlive = null;
+    _environment = null;
+    _profileDirectory = null;
     setState(() {
       _policy = null;
       _error = null;
       _ready = false;
       _progress = 0;
     });
-    await _release(old, id);
+    await _release(old, id, oldEnvironment, oldProfile);
+    WebViewEnvironment? environment;
+    Directory? profile;
     try {
       final target = await SourceManager.instance.webVideo(
         widget.work.source,
@@ -80,15 +105,38 @@ class _WebVideoPageState extends State<WebVideoPage>
         episodeId: widget.episodeId,
       );
       final policy = WebPlaybackPolicy.fromJson(target);
-      if (!Platform.isAndroid && !Platform.isIOS && !Platform.isMacOS) {
+      if (!Platform.isAndroid &&
+          !Platform.isIOS &&
+          !Platform.isMacOS &&
+          !Platform.isWindows &&
+          !Platform.isLinux) {
         throw SourceError('UNSUPPORTED', '当前设备暂不支持应用内网页播放');
       }
-      if (!mounted || generation != _generation) return;
+      if (Platform.isWindows) {
+        // 独立用户目录保证旧 Runtime 也不能回退到站点的默认 Cookie 存储。
+        profile = await Directory('${AppPaths.cache.path}/web_video')
+            .createTemp();
+        environment = await WebViewEnvironment.create(
+          settings: WebViewEnvironmentSettings(userDataFolder: profile.path),
+        );
+        if (!await environment.isInterfaceSupported(
+          WebViewInterface.ICoreWebView2Environment10,
+        )) {
+          throw SourceError('UNSUPPORTED', '当前设备暂不支持应用内网页播放');
+        }
+      }
+      if (!mounted || generation != _generation) {
+        await _release(null, null, environment, profile);
+        return;
+      }
       setState(() {
+        _environment = environment;
+        _profileDirectory = profile;
         _policy = policy;
         _keepAlive = InAppWebViewKeepAlive();
       });
     } catch (error) {
+      await _release(null, null, environment, profile);
       if (!mounted || generation != _generation) return;
       setState(
         () => _error = error is FormatException
@@ -104,7 +152,7 @@ class _WebVideoPageState extends State<WebVideoPage>
     InAppWebViewKeepAlive session,
   ) async {
     if (!mounted || !identical(session, _keepAlive)) {
-      await _release(session, controller.getViewId());
+      await _release(session, controller.getViewId(), null, null);
       return;
     }
     _controller = controller;
@@ -202,7 +250,7 @@ class _WebVideoPageState extends State<WebVideoPage>
     AppLock.instance.removeListener(_lockChanged);
     final session = _keepAlive;
     final id = _controller?.getViewId();
-    unawaited(_release(session, id));
+    unawaited(_release(session, id, _environment, _profileDirectory));
     unawaited(PlatformBridge.applyVideoFullscreen(false));
     super.dispose();
   }
@@ -250,6 +298,7 @@ class _WebVideoPageState extends State<WebVideoPage>
                 InAppWebView(
                   key: ValueKey(session),
                   keepAlive: session,
+                  webViewEnvironment: _environment,
                   // 不设置初始 URL；Android 切换独立 Profile 后才允许联网。
                   initialSettings: InAppWebViewSettings(
                     userAgent: HttpService.instance.userAgent,

@@ -1269,5 +1269,6 @@
   "无法启动后台下载，请返回应用后重试": "No se pudieron iniciar las descargas en segundo plano. Vuelve a la aplicación e inténtalo de nuevo",
   "后台下载已被系统停止，请返回应用后重试": "El sistema detuvo las descargas en segundo plano. Vuelve a la aplicación e inténtalo de nuevo",
   "移除下载项": "Eliminar descarga",
-  "从下载列表移除「{title}」并删除已下载内容？": "¿Eliminar «{title}» de las descargas y borrar su contenido descargado?"
+  "从下载列表移除「{title}」并删除已下载内容？": "¿Eliminar «{title}» de las descargas y borrar su contenido descargado?",
+  "无法保存到所选目录": "No se puede guardar en la carpeta seleccionada"
 }

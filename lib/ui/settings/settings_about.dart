@@ -3,7 +3,6 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:path/path.dart' as p;
-import 'package:share_plus/share_plus.dart';
 
 import '../../core/app_log.dart';
 import '../../core/crash_log.dart';
@@ -14,6 +13,7 @@ import '../../engine/source_manager.dart';
 import '../kit/kit.dart';
 import '../nav.dart';
 import '../theme.dart';
+import '../widgets/platform_share.dart';
 import '../widgets/selectable_log_view.dart';
 import 'update_settings.dart';
 
@@ -99,9 +99,8 @@ class _LogsPageState extends State<_LogsPage> {
               p.join(AppPaths.cache.path, 'hentaipark_log.txt'),
             );
             await file.writeAsString(await _report);
-            await SharePlus.instance.share(
-              ShareParams(files: [XFile(file.path)]),
-            );
+            if (!context.mounted) return;
+            await shareContent(context, files: [XFile(file.path)]);
           },
         ),
       ],

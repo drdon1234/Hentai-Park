@@ -11,10 +11,14 @@ import '../core/models.dart';
 import '../engine/media_transport.dart';
 import 'hls.dart';
 import 'hls_resources.dart';
+import 'local_hls_media.dart';
 
 /// A private, finite URL registry. The player never supplies an upstream URL.
 class HlsPlayback {
   HlsPlayback(this.transport);
+  HlsPlayback.local(File playlist) : transport = LocalHlsMedia(playlist);
+
+  Future<Uri> openLocal() => open(LocalHlsMedia.playlistUrl);
   final MediaTransport transport;
   final _cancel = CancelToken();
   final _routes = <String, HlsSegment>{};

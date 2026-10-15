@@ -5,10 +5,11 @@ mixin _ReaderNavigation on _ReaderBase {
   void _preload() {
     final pages = _pages;
     if (pages == null) return;
-    final n = _settings.preloadPages;
-    for (var i = _page + 1; i <= _page + n && i < pages.length; i++) {
-      precacheImage(_provider(i), context, onError: (_, _) {});
-    }
+    _preloader.update(
+      page: _page,
+      count: pages.length,
+      window: _settings.preloadPages,
+    );
   }
 
   bool get _dualActive {

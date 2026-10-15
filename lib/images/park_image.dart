@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 import 'dart:isolate';
 import 'dart:ui' as ui;
@@ -12,7 +13,9 @@ import '../engine/cancellation.dart';
 import '../engine/source_manager.dart';
 import 'crop_borders.dart';
 import 'image_decryption.dart';
+import 'image_network.dart';
 import 'image_store.dart';
+import 'image_tasks.dart';
 
 /// Loads an image for a source: direct URL, or a page resolved lazily through the source
 /// (`resolveImage`), with the source's default headers and an optional pixel transform.
@@ -121,7 +124,7 @@ class ParkImage extends ImageProvider<ParkImage> {
   Future<ui.Codec> _loadCodec(ImageDecoderCallback decode) async {
     ui.Codec? codec;
     for (var attempt = 0; attempt < 2; attempt++) {
-      final bytes = await loadBytes();
+      final bytes = await loadBytes(priority: ImagePriority.visible);
       try {
         codec = await decode(await ui.ImmutableBuffer.fromUint8List(bytes));
         // Some decoders accept the header and fail only on the first frame.
@@ -167,7 +170,13 @@ class ParkImage extends ImageProvider<ParkImage> {
   }
 
   /// Raw (still scrambled) bytes; also used by the downloader.
-  Future<Uint8List> loadBytes({CancelToken? cancelToken}) async {
+  Future<Uint8List> loadBytes({
+    CancelToken? cancelToken,
+    ImagePriority? priority,
+  }) async {
+    final requestedPriority =
+        priority ??
+        (highPriority ? ImagePriority.visible : ImagePriority.background);
     if (cancelToken?.cancelError case final error?) throw error;
     if (localPath != null) {
       final bytes = await File(localPath!).readAsBytes();
@@ -183,28 +192,69 @@ class ParkImage extends ImageProvider<ParkImage> {
         cacheKey: cacheKey,
         fallbacks: fallbacks,
         decryption: decryption,
-        highPriority: highPriority,
+        priority: requestedPriority,
         partition: source,
         cancelToken: cancelToken,
       );
     }
+    return _lazyTasks.run(
+      jsonEncode([
+        source,
+        identity,
+        lazyPage.token,
+        imageTransportGeneration(source),
+      ]),
+      (token, priority) => _loadLazy(lazyPage, token, priority),
+      priority: requestedPriority,
+      cancelToken: cancelToken,
+      onPromoted: () {
+        _resolving.refresh();
+        ImageStore.instance.refreshPriorities();
+      },
+    );
+  }
+
+  static final _lazyTasks = ImageTasks<Uint8List>();
+  static final _resolving = ImageScheduler(hostLimit: () => 2, maximum: 4);
+
+  Future<Uint8List> _loadLazy(
+    LazyPage lazyPage,
+    CancelToken cancelToken,
+    ImagePriority Function() priority,
+  ) async {
+    final generation = imageTransportGeneration(source);
     final hit = await ImageStore.instance.cached(identity, partition: source);
-    if (cancelToken?.cancelError case final error?) throw error;
+    if (cancelToken.cancelError case final error?) throw error;
     if (hit != null) return hit;
     Object? lastError;
     for (var retry = 0; retry < 3; retry++) {
-      if (cancelToken?.cancelError case final error?) throw error;
+      if (cancelToken.cancelError case final error?) throw error;
       try {
-        final resolving = SourceManager.instance.resolveImage(
+        final release = await _resolving.acquire(
           source,
-          id: lazyPage.workId,
-          chapterId: lazyPage.chapterId,
-          index: lazyPage.index,
-          token: lazyPage.token,
-          retry: retry,
-          cancelToken: cancelToken,
+          priority: priority,
+          token: cancelToken,
         );
-        final page = await awaitCancelled(resolving, cancelToken);
+        late PageImage page;
+        try {
+          page = await awaitCancelled(
+            SourceManager.instance.resolveImage(
+              source,
+              id: lazyPage.workId,
+              chapterId: lazyPage.chapterId,
+              index: lazyPage.index,
+              token: lazyPage.token,
+              retry: retry,
+              cancelToken: cancelToken,
+            ),
+            cancelToken,
+          );
+        } finally {
+          release();
+        }
+        if (generation != imageTransportGeneration(source)) {
+          throw SourceError('CANCELLED', '媒体会话已关闭');
+        }
         return await ImageStore.instance.load(
           manifest: SourceManager.instance.manifest(source),
           url: page.url,
@@ -212,7 +262,8 @@ class ParkImage extends ImageProvider<ParkImage> {
           cacheKey: cacheKey,
           fallbacks: page.fallbacks,
           decryption: decryption,
-          highPriority: true,
+          priority: priority(),
+          priorityOf: priority,
           partition: source,
           cancelToken: cancelToken,
         );
@@ -220,7 +271,9 @@ class ParkImage extends ImageProvider<ParkImage> {
         lastError = e;
         if (e.code == 'BLOCKED' ||
             e.code == 'LOGIN_REQUIRED' ||
-            e.code == 'NOT_FOUND') {
+            e.code == 'NOT_FOUND' ||
+            e.code == 'CANCELLED' ||
+            e.code == 'CONFIG') {
           rethrow;
         }
       }

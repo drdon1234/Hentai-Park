@@ -1,9 +1,62 @@
+import 'dart:io';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter_tts/flutter_tts.dart';
+
+import '../core/models.dart';
 
 /// 只向设备已安装的系统语音引擎提交正文，不调用应用的翻译或生成服务。
 class NovelSpeech extends ChangeNotifier {
   final _tts = FlutterTts();
+  Process? _speechProcess;
+  Future<void> _stopEngine() async {
+    if (Platform.isLinux) {
+      final process = _speechProcess;
+      _speechProcess = null;
+      process?.kill();
+      if (process != null) await process.exitCode;
+    } else {
+      await _tts.stop();
+    }
+  }
+
+  Future<int> _speak(
+    String text,
+    String language,
+    double rate,
+    int generation,
+  ) async {
+    if (!Platform.isLinux) return await _tts.speak(text);
+    try {
+      final process = await Process.start('espeak-ng', [
+        '--stdin',
+        '-v',
+        language.startsWith('zh') ? 'cmn' : 'en',
+        '-s',
+        (175 * rate / .5).round().clamp(80, 450).toString(),
+      ]);
+      if (_disposed || generation != _generation) {
+        process.kill();
+        await process.exitCode;
+        return 0;
+      }
+      _speechProcess = process;
+      // 正文只经标准输入交给本机引擎，不写日志、参数或临时文件。
+      final drains = Future.wait([
+        process.stdout.drain<void>(),
+        process.stderr.drain<void>(),
+      ]);
+      process.stdin.writeln(text);
+      await process.stdin.close();
+      final code = await process.exitCode;
+      await drains;
+      if (identical(_speechProcess, process)) _speechProcess = null;
+      return code == 0 ? 1 : 0;
+    } on ProcessException {
+      throw SourceError('CONFIG', '朗读不可用，请检查系统语音引擎与语言包');
+    }
+  }
+
   int _generation = 0;
   bool _playing = false;
   bool _disposed = false;
@@ -12,7 +65,7 @@ class NovelSpeech extends ChangeNotifier {
     _generation++;
     _playing = false;
     if (!_disposed) notifyListeners();
-    await _tts.stop();
+    await _stopEngine();
   }
 
   Future<void> read(
@@ -25,11 +78,13 @@ class NovelSpeech extends ChangeNotifier {
     final generation = ++_generation;
     _playing = false;
     if (!_disposed) notifyListeners();
-    await _tts.stop();
+    await _stopEngine();
     if (generation != _generation || _disposed) return;
-    await _tts.awaitSpeakCompletion(true);
-    await _tts.setLanguage(language.startsWith('zh') ? 'zh-CN' : 'en-US');
-    await _tts.setSpeechRate(rate);
+    if (!Platform.isLinux) {
+      await _tts.awaitSpeakCompletion(true);
+      await _tts.setLanguage(language.startsWith('zh') ? 'zh-CN' : 'en-US');
+      await _tts.setSpeechRate(rate);
+    }
     if (generation != _generation || _disposed) return;
     _playing = true;
     notifyListeners();
@@ -46,7 +101,10 @@ class NovelSpeech extends ChangeNotifier {
         final chunk = text.substring(start, end).trim();
         if (chunk.isNotEmpty) {
           onPosition(start);
-          if (await _tts.speak(chunk) != 1) throw StateError('TTS unavailable');
+          if (await _speak(chunk, language, rate, generation) != 1 &&
+              generation == _generation) {
+            throw StateError('TTS unavailable');
+          }
         }
         start = end;
         while (start < text.length && text[start] == '\n') {
@@ -65,7 +123,7 @@ class NovelSpeech extends ChangeNotifier {
   void dispose() {
     _disposed = true;
     _generation++;
-    _tts.stop().catchError((Object _) => null);
+    _stopEngine().catchError((Object _) {});
     super.dispose();
   }
 }

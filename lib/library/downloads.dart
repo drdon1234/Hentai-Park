@@ -253,6 +253,35 @@ class DownloadManager extends ChangeNotifier {
   }
 
   /// Persists the given tasks (all when null). Progress is saved at chapter boundaries, not per page.
+  Future<void> flush() async {
+    await _writes.settled;
+    // 显式落盘最新任务，使关闭窗口时数据库错误能返回调用者。
+    final tasks = _tasks.values.toList();
+    await _writes.run(
+      () => _db.batch((b) {
+        for (final t in tasks) {
+          b.insert(
+            _db.downloadTasks,
+            DownloadTasksCompanion.insert(
+              uid: t.uid,
+              source: t.item.source,
+              json: jsonEncode(t.toJson()),
+              dir: t.dir.path,
+              createdAt: t.createdAt.millisecondsSinceEpoch,
+            ),
+            mode: InsertMode.insertOrReplace,
+          );
+        }
+      }),
+    );
+  }
+
+  Future<void> pauseAndFlush() async {
+    pauseAll();
+    await Future.wait(_runs.values.toList());
+    await flush();
+  }
+
   void _save([Iterable<DownloadTask>? which]) {
     if (_disposed) return;
     final rows = [
@@ -827,7 +856,11 @@ class DownloadManager extends ChangeNotifier {
       final directory = t.videoDirectory(episode.id);
       await directory.create(recursive: true);
       _checkRunning(t, token);
-      final file = File(p.join(directory.path, 'video_${src.quality}p.mp4'));
+      final portableHls = src.format == 'hls' && !Platform.isAndroid;
+      final extension = portableHls ? 'm3u8' : 'mp4';
+      final file = File(
+        p.join(directory.path, 'video_${src.quality}p.$extension'),
+      );
       final part = File('${file.path}.part');
       final beforeDone = t.done;
       final beforeBytes = t.bytes;
@@ -847,15 +880,13 @@ class DownloadManager extends ChangeNotifier {
       if (src.format == 'hls') {
         final manifest = SourceManager.instance.manifest(t.item.source);
         if (manifest == null) throw SourceError('CONFIG', '视频站点未加载');
-        if (!Platform.isAndroid) {
-          throw SourceError('UNSUPPORTED', 'HLS 下载封装目前仅支持安卓');
-        }
         await HlsDownload(
           createMediaTransport(
             manifest,
             headers: src.headers,
             initialUrl: Uri.parse(src.url),
           ),
+          keepPlaylist: portableHls,
         ).run(
           Uri.parse(src.url),
           output: part,
@@ -900,7 +931,7 @@ class DownloadManager extends ChangeNotifier {
     final root = p.normalize(p.absolute(task.dir.path));
     final target = p.normalize(p.join(root, relative));
     if (!p.isWithin(root, target) ||
-        p.extension(target).toLowerCase() != '.mp4') {
+        !const {'.mp4', '.m3u8'}.contains(p.extension(target).toLowerCase())) {
       return null;
     }
     final file = File(target);

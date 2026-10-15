@@ -52,7 +52,7 @@ class HeaderTab {
   final int count;
 }
 
-/// Serif text tabs used as a page title, such as 收藏 · 更新 · 下载 on the shelf.
+/// Serif text tabs used as a page title, such as 收藏 · 更新 on the shelf.
 class HeaderTabs extends StatelessWidget {
   const HeaderTabs({
     super.key,
