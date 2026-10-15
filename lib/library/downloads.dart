@@ -14,6 +14,7 @@ import '../core/models.dart';
 import '../core/settings.dart';
 import '../core/storage.dart';
 import '../data/database.dart';
+import '../engine/background_downloads.dart';
 import '../engine/cancellation.dart';
 import '../engine/http_service.dart';
 import '../engine/media_transport_factory.dart';
@@ -563,7 +564,10 @@ class DownloadManager extends ChangeNotifier {
       ..error = null
       ..cancel = token;
     notifyListeners();
+    DownloadLease? lease;
     try {
+      lease = await BackgroundDownloads.instance.acquire(cancelToken: token);
+      lease.check();
       await awaitCancelled(SourceManager.instance.ready, token);
       _checkRunning(t, token);
       if (!await _ownsDirectory(t, create: true)) {
@@ -590,6 +594,13 @@ class DownloadManager extends ChangeNotifier {
           t.status != DownloadStatus.running) {
         return;
       }
+      if (BackgroundDownloads.interruption(token.cancelError ?? e)
+          case final stopped?) {
+        t
+          ..status = DownloadStatus.paused
+          ..error = stopped.friendly;
+        return;
+      }
       if (!networkAllowed) {
         // Lost Wi-Fi with "Wi-Fi only" on: wait for it instead of failing.
         t.status = DownloadStatus.queued;
@@ -598,6 +609,8 @@ class DownloadManager extends ChangeNotifier {
       t
         ..status = DownloadStatus.failed
         ..error = e is SourceError ? e.friendly : e.toString();
+    } finally {
+      await lease?.release();
     }
   }
 

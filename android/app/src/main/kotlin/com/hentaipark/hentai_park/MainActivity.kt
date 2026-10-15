@@ -38,6 +38,7 @@ class MainActivity : FlutterFragmentActivity() {
     private var launchPayload: String? = null
     private var videoBrightness: Float? = null
     private var videoFullscreen = false
+    private var downloadsChannel: MethodChannel? = null
     private var videoSystemUi: VideoSystemUi? = null
 
     private data class VideoSystemUi(val visibleTypes: Int, val behavior: Int)
@@ -99,6 +100,7 @@ class MainActivity : FlutterFragmentActivity() {
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
+        downloadsChannel = DownloadService.attach(applicationContext, flutterEngine.dartExecutor.binaryMessenger)
         mediaRemuxer?.shutdown()
         mediaRemuxer = MediaRemuxer(applicationContext, flutterEngine.dartExecutor.binaryMessenger)
         launchPayload = intent?.getStringExtra(EXTRA_PAYLOAD)
@@ -229,6 +231,8 @@ class MainActivity : FlutterFragmentActivity() {
     }
 
     override fun cleanUpFlutterEngine(flutterEngine: FlutterEngine) {
+        DownloadService.detach(downloadsChannel)
+        downloadsChannel = null
         if (SubscriptionJob.foreground === channel) SubscriptionJob.foreground = null
         mediaRemuxer?.shutdown()
         mediaRemuxer = null

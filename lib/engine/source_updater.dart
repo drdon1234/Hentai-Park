@@ -6,6 +6,7 @@ import '../core/async_tasks.dart';
 import '../core/localization.dart';
 import '../core/models.dart';
 import '../core/settings.dart';
+import 'background_downloads.dart';
 import 'source_manager.dart';
 import 'source_repository.dart';
 
@@ -135,7 +136,23 @@ class SourceUpdater extends ChangeNotifier {
     if (selected.isEmpty) {
       return Future.value(lastResult ?? const SourceUpdateResult());
     }
-    return _start(() => _apply(selected), applying: selected);
+    return _start(() async {
+      try {
+        return await BackgroundDownloads.instance.run(
+          (token) => _apply(
+            selected,
+            check: () {
+              if (token.cancelError case final error?) throw error;
+            },
+          ),
+        );
+      } catch (error) {
+        return SourceUpdateResult(
+          available: selected,
+          failures: {tr('官方站点仓库'): _describe(error)},
+        );
+      }
+    }, applying: selected);
   }
 
   static bool _sameCandidates(
@@ -228,8 +245,9 @@ class SourceUpdater extends ChangeNotifier {
   }
 
   Future<SourceUpdateResult> _apply(
-    List<SourceUpdateCandidate> candidates,
-  ) async {
+    List<SourceUpdateCandidate> candidates, {
+    required void Function() check,
+  }) async {
     final updated = <String>[];
     final failures = <String, String>{};
     final remaining = <String, SourceUpdateCandidate>{
@@ -238,13 +256,16 @@ class SourceUpdater extends ChangeNotifier {
       for (final candidate in candidates) candidate.entry.key: candidate,
     };
     try {
+      check();
       await _ready();
       await forEachConcurrent(candidates, 3, (candidate) async {
         final entry = candidate.entry;
         try {
+          check();
           _validateCandidate(candidate);
           final preview = await _preview(entry);
           _validatePreview(entry, preview);
+          check();
           _validateCandidate(candidate);
           await _install(preview);
           updated.add(entry.name);

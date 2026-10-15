@@ -4,19 +4,41 @@ import '../../core/localization.dart';
 import '../../core/models.dart';
 import '../../engine/source_manager.dart';
 import '../../library/downloads.dart';
-import '../kit/kit.dart';
 import '../theme.dart';
+import '../widgets/common.dart';
 import '../widgets/error_view.dart';
 import 'detail_sections.dart';
 
-/// Download from the detail page: picks chapters or episodes when there are several, and
-/// a quality for videos, then queues the download.
+/// 已有任务时确认移除并删除文件；否则选择章节、分集与清晰度后加入队列。
 Future<void> downloadWork(
   BuildContext context,
-  WorkDetail detail,
+  WorkDetail? detail,
   WorkItem item, {
   required bool isVideo,
 }) async {
+  final manager = DownloadManager.instance;
+  final existing = manager.task(item.uid);
+  if (existing != null) {
+    final confirmed = await confirmAction(
+      context,
+      title: tr('移除下载项'),
+      message: tr('从下载列表移除「{title}」并删除已下载内容？', {'title': item.title}),
+      confirmLabel: tr('删除'),
+      destructive: true,
+    );
+    if (!confirmed || !identical(manager.task(item.uid), existing)) return;
+    try {
+      await manager.delete(item.uid);
+    } catch (error) {
+      if (context.mounted) {
+        context.toast(
+          tr('操作失败：{value0}', {'value0': error.asSourceError.friendly}),
+        );
+      }
+    }
+    return;
+  }
+  if (detail == null) return;
   if (isVideo) {
     var episodes = detail.videoEpisodes;
     if (episodes.length > 1) {

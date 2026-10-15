@@ -7,6 +7,7 @@ import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
 import 'app_updater.dart';
+import 'background_downloads.dart';
 import 'http_service.dart';
 
 class AppInstallFailure implements Exception {
@@ -51,6 +52,15 @@ class AppInstaller {
   final Future<void> Function() _openPermission;
 
   Future<File> prepare(
+    AppRelease release,
+    CancelToken token,
+    void Function(int, int) progress,
+  ) => BackgroundDownloads.instance.run(
+    (_) => _prepare(release, token, progress),
+    cancelToken: token,
+  );
+
+  Future<File> _prepare(
     AppRelease release,
     CancelToken token,
     void Function(int, int) progress,

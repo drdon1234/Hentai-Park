@@ -9,6 +9,8 @@ import 'package:path/path.dart' as p;
 import '../core/models.dart';
 import '../core/settings.dart';
 import '../core/storage.dart';
+import '../engine/background_downloads.dart';
+import '../engine/cancellation.dart';
 import '../engine/media_transport.dart';
 import '../engine/network_client.dart';
 import '../engine/source_manager.dart';
@@ -369,9 +371,12 @@ class GameDownloadManager extends ChangeNotifier {
     task.status = DownloadStatus.running;
     task.error = null;
     notifyListeners();
+    DownloadLease? lease;
     try {
+      lease = await BackgroundDownloads.instance.acquire(cancelToken: token);
+      lease.check();
       final sources = SourceManager.instance;
-      await sources.ready;
+      await awaitCancelled(sources.ready, token);
       final manifest = sources.manifest(task.item.source);
       if (manifest == null || !manifest.isGame) {
         throw SourceError('CONFIG', '游戏站点未加载');
@@ -403,12 +408,18 @@ class GameDownloadManager extends ChangeNotifier {
         },
       );
       task.status = DownloadStatus.done;
-    } catch (_) {
+    } catch (error) {
       if (task.status == DownloadStatus.running) {
-        task.status = DownloadStatus.failed;
-        task.error = '直链下载失败，可重试或选择网盘渠道';
+        final stopped = BackgroundDownloads.interruption(
+          token.cancelError ?? error,
+        );
+        task.status = stopped == null
+            ? DownloadStatus.failed
+            : DownloadStatus.paused;
+        task.error = stopped?.friendly ?? '直链下载失败，可重试或选择网盘渠道';
       }
     } finally {
+      await lease?.release();
       _active = null;
       _cancel = null;
       _save();

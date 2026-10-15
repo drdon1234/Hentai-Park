@@ -21,24 +21,26 @@ mixin _SourceInstaller on _SourceRegistry {
 
   /// Downloads a script and inspects it in a sandboxed runtime, without installing anything.
   /// [expectedSha256] (from a repository index) must match when given.
-  Future<InstallPreview> previewFromUrl(
-    String url, {
-    String? expectedSha256,
-  }) async {
-    final res = await HttpService.instance.send(method: 'GET', url: url);
-    if (!res.ok) {
-      throw SourceError(
-        'HTTP',
-        '下载失败：HTTP {status}',
-        params: {'status': res.status},
-      );
-    }
-    return previewScript(
-      decodeSourceScript(res.bytes),
-      url: url,
-      expectedSha256: expectedSha256,
-    );
-  }
+  Future<InstallPreview> previewFromUrl(String url, {String? expectedSha256}) =>
+      BackgroundDownloads.instance.run((token) async {
+        final res = await HttpService.instance.send(
+          method: 'GET',
+          url: url,
+          cancelToken: token,
+        );
+        if (!res.ok) {
+          throw SourceError(
+            'HTTP',
+            '下载失败：HTTP {status}',
+            params: {'status': res.status},
+          );
+        }
+        return previewScript(
+          decodeSourceScript(res.bytes),
+          url: url,
+          expectedSha256: expectedSha256,
+        );
+      });
 
   Future<InstallPreview> previewScript(
     String code, {
@@ -110,15 +112,18 @@ mixin _SourceInstaller on _SourceRegistry {
     final expectedSource = preview.existing;
     final expectedVersion = expectedSource?.version;
     final expectedOrigin = expectedSource?.origin;
-    return _mutate(
-      () => _install(
-        preview,
-        official: official,
-        expectedSource: expectedSource,
-        expectedVersion: expectedVersion,
-        expectedOrigin: expectedOrigin,
+    return BackgroundDownloads.instance.run(
+      (token) => _mutate(
+        () => _install(
+          preview,
+          official: official,
+          expectedSource: expectedSource,
+          expectedVersion: expectedVersion,
+          expectedOrigin: expectedOrigin,
+          cancelToken: token,
+        ),
+        key: preview.key,
       ),
-      key: preview.key,
     );
   }
 
@@ -128,7 +133,9 @@ mixin _SourceInstaller on _SourceRegistry {
     required InstalledSource? expectedSource,
     required String? expectedVersion,
     required String? expectedOrigin,
+    required CancelToken cancelToken,
   }) async {
+    if (cancelToken.cancelError case final error?) throw error;
     final key = preview.key;
     if (!isSourceKey(key) || sha256Hex(preview.code) != preview.sha256) {
       throw SourceError('CONFIG', '站点脚本的标识或校验值无效');
@@ -173,6 +180,7 @@ mixin _SourceInstaller on _SourceRegistry {
       };
       // One temporary recovery record covers only the source being changed. A crash
       // before the commit point restores its script, registry and private state on launch.
+      if (cancelToken.cancelError case final error?) throw error;
       await writeFileAtomic(journalFile, utf8.encode(jsonEncode(journal)));
       await writeFileAtomic(file, utf8.encode(preview.code));
       final s =
@@ -190,6 +198,7 @@ mixin _SourceInstaller on _SourceRegistry {
         (_stateStores[key] ??= JsonStore('source_state_$key.json')).save(state);
       }
       await _load(s, waitForInit: true);
+      if (cancelToken.cancelError case final error?) throw error;
       if (s.loadFailure case final failure?) throw failure;
       if (s.manifest?.json['key'] != key ||
           s.version != preview.manifest.version ||
@@ -302,44 +311,49 @@ mixin _SourceInstaller on _SourceRegistry {
   }, key: key);
 
   /// Restores a built-in source to the bundled version.
-  Future<void> resetBuiltin(String key) => _mutate(() async {
-    final s = _sources[key];
-    if (s == null || !_builtinKeys.contains(key)) return;
-    final index = jsonDecode(
-      await rootBundle.loadString('assets/sources/index.json'),
-    ) as Map;
-    final entry = (index['sources'] as List).cast<Map>().firstWhere(
-      (entry) => entry['key'] == key,
-    );
-    final code = await rootBundle.loadString('assets/sources/${entry['file']}');
-    // Reuse installation recovery so an explicit reset preserves private state on failure.
-    await _install(
-      InstallPreview(
-        code: code,
-        url: '',
-        key: key,
-        manifest: SourceManifest({
-          'key': key,
-          'version': entry['version'],
-          'apiVersion': 1,
-        }),
-        sha256: sha256Hex(code),
-        domains: s.manifest == null
-            ? const []
-            : declaredDomains(s.manifest!.json),
-        warnings: const [],
-        existing: s,
-      ),
-      official: false,
-      expectedSource: s,
-      expectedVersion: s.version,
-      expectedOrigin: s.origin,
-    );
-    s
-      ..origin = 'builtin'
-      ..url = '';
-    _saveRegistry();
-    await _registry.flush();
-    notifyListeners();
-  }, key: key);
+  Future<void> resetBuiltin(String key) => BackgroundDownloads.instance.run(
+    (token) => _mutate(() async {
+      final s = _sources[key];
+      if (s == null || !_builtinKeys.contains(key)) return;
+      final index = jsonDecode(
+        await rootBundle.loadString('assets/sources/index.json'),
+      ) as Map;
+      final entry = (index['sources'] as List).cast<Map>().firstWhere(
+        (entry) => entry['key'] == key,
+      );
+      final code = await rootBundle.loadString(
+        'assets/sources/${entry['file']}',
+      );
+      // Reuse installation recovery so an explicit reset preserves private state on failure.
+      await _install(
+        InstallPreview(
+          code: code,
+          url: '',
+          key: key,
+          manifest: SourceManifest({
+            'key': key,
+            'version': entry['version'],
+            'apiVersion': 1,
+          }),
+          sha256: sha256Hex(code),
+          domains: s.manifest == null
+              ? const []
+              : declaredDomains(s.manifest!.json),
+          warnings: const [],
+          existing: s,
+        ),
+        official: false,
+        expectedSource: s,
+        expectedVersion: s.version,
+        expectedOrigin: s.origin,
+        cancelToken: token,
+      );
+      s
+        ..origin = 'builtin'
+        ..url = '';
+      _saveRegistry();
+      await _registry.flush();
+      notifyListeners();
+    }, key: key),
+  );
 }

@@ -245,7 +245,7 @@ class _DetailPageState extends State<DetailPage> {
                           : _continue,
                       onDownload: () => downloadWork(
                         context,
-                        _detail!,
+                        _detail,
                         _item,
                         isVideo: _isVideo,
                       ),

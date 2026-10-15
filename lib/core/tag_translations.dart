@@ -2,10 +2,12 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:crypto/crypto.dart';
+import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:path/path.dart' as p;
 
+import '../engine/background_downloads.dart';
 import '../engine/network_client.dart';
 import '../engine/official_repository.dart';
 import '../engine/source_identity.dart';
@@ -330,13 +332,14 @@ class TagTranslations extends ChangeNotifier {
 
   /// Explicit installation works offline before the repository's first publication.
   Future<void> download(String source, String locale) =>
-      _run(source, locale, (revision) async {
+      _run(source, locale, (revision, token) async {
         final text = await rootBundle.loadString(
           'assets/tag_translations/$source/$locale.json',
         );
         if (utf8.encode(text).length > TagTranslationPack.maxBytes) {
           throw const FormatException('词包过大');
         }
+        if (token.cancelError case final error?) throw error;
         await _install(
           TagTranslationPack.parse(
             jsonDecode(text),
@@ -349,11 +352,13 @@ class TagTranslations extends ChangeNotifier {
 
   /// User-initiated update; an unavailable repository preserves the installed pack.
   Future<void> updateFromRepository(String source, String locale) =>
-      _run(source, locale, (revision) async {
+      _run(source, locale, (revision, token) async {
         await refreshRepository();
+        if (token.cancelError case final error?) throw error;
         final entry = _remote['$source/$locale'];
         if (entry == null) throw const FormatException('词包索引缺失或重复');
         final text = await _readRemote(entry.url);
+        if (token.cancelError case final error?) throw error;
         if (utf8.encode(text).length > TagTranslationPack.maxBytes) {
           throw const FormatException('词包过大');
         }
@@ -379,7 +384,7 @@ class TagTranslations extends ChangeNotifier {
   Future<void> _run(
     String source,
     String locale,
-    Future<void> Function(int revision) operation,
+    Future<void> Function(int revision, CancelToken token) operation,
   ) {
     if (!isSourceKey(source) || !locales.contains(locale)) {
       return Future.error(const FormatException('不支持的站点或语言'));
@@ -389,9 +394,13 @@ class TagTranslations extends ChangeNotifier {
     if (existing != null) return existing;
     final revision = _revisions[key] ?? 0;
     late final Future<void> pending;
-    pending = Future<void>.sync(() => operation(revision)).whenComplete(() {
-      if (identical(_pending[key], pending)) _pending.remove(key);
-    });
+    pending = BackgroundDownloads.instance
+        .run((token) async {
+          await operation(revision, token);
+        })
+        .whenComplete(() {
+          if (identical(_pending[key], pending)) _pending.remove(key);
+        });
     _pending[key] = pending;
     return pending;
   }

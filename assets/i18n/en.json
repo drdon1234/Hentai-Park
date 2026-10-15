@@ -1263,5 +1263,11 @@
   "分类榜": "Genre rankings",
   "卖家榜": "Seller rankings",
   "作品榜": "Work rankings",
-  "作品数：{count}": "Works: {count}"
+  "作品数：{count}": "Works: {count}",
+  "下载任务": "Downloads",
+  "正在下载，切到后台后继续": "Downloading continues in the background",
+  "无法启动后台下载，请返回应用后重试": "Could not start background downloads. Return to the app and retry",
+  "后台下载已被系统停止，请返回应用后重试": "Background downloads were stopped by the system. Return to the app and retry",
+  "移除下载项": "Remove download",
+  "从下载列表移除「{title}」并删除已下载内容？": "Remove “{title}” from downloads and delete its downloaded content?"
 }

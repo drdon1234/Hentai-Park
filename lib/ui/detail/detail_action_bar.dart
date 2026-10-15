@@ -86,13 +86,11 @@ class DetailActionBar extends StatelessWidget {
                   : (dl.status == DownloadStatus.done
                         ? Icons.download_done_rounded
                         : Icons.downloading_rounded),
-              tooltip: dl == null
-                  ? tr('下载')
-                  : dl.status == DownloadStatus.done
-                  ? tr('已下载')
-                  : tr('下载中'),
+              tooltip: dl == null ? tr('下载') : tr('移除下载项'),
               active: dl != null,
-              onPressed: detail == null || _empty ? null : onDownload,
+              onPressed: dl == null && (detail == null || _empty)
+                  ? null
+                  : onDownload,
             ),
           ],
           const SizedBox(width: Gap.s),
