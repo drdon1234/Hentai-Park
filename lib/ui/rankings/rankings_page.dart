@@ -1,0 +1,321 @@
+import 'dart:convert';
+
+import 'package:flutter/material.dart';
+
+import '../../core/localization.dart';
+import '../../core/models.dart';
+import '../../engine/source_manager.dart';
+import '../nav.dart';
+import '../settings/source_manage_page.dart';
+import '../widgets/common.dart';
+import '../widgets/error_view.dart';
+import '../widgets/option_bar.dart';
+import '../widgets/source_network_hint.dart';
+import 'ranking_controller.dart';
+import 'ranking_row.dart';
+
+typedef RankingSelection = ({SourceManifest source, RankingDef board});
+
+class RankingsPage extends StatefulWidget {
+  const RankingsPage({super.key, this.category, this.sourceManager});
+  final SourceCategory? category;
+  final SourceManager? sourceManager;
+
+  @override
+  State<RankingsPage> createState() => _RankingsPageState();
+}
+
+class _RankingsPageState extends State<RankingsPage> {
+  late SourceCategory _category = widget.category ?? SourceCategory.jav;
+  String? _selected;
+  final _sessions = <String, RankingController>{};
+  final _options = <String, Map<String, Object?>>{};
+  SourceManager get _manager => widget.sourceManager ?? SourceManager.instance;
+  String _key(RankingSelection entry) =>
+      '${entry.source.key}:${entry.source.version}:${entry.board.key}';
+
+  @override
+  void dispose() {
+    for (final session in _sessions.values) {
+      session.dispose();
+    }
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+    appBar: AppBar(
+      title: Text(tr('排行榜')),
+      actions: [
+        IconButton(
+          tooltip: tr('管理站点'),
+          icon: const Icon(Icons.extension_outlined),
+          onPressed: () => Nav.push(context, const SourceManagePage()),
+        ),
+      ],
+    ),
+    body: ListenableBuilder(
+      listenable: _manager,
+      builder: (context, _) {
+        if (_manager.initializationError case final error?) {
+          return SourceErrorView(
+            error: error,
+            source: '',
+            onRetry: () async {
+              try {
+                await _manager.init();
+              } catch (_) {
+                // 初始化错误由管理器状态展示。
+              }
+            },
+          );
+        }
+        if (!_manager.loaded) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        final entries = <RankingSelection>[
+          for (final source in _manager.enabled)
+            for (final board in source.manifest!.rankings)
+              (source: source.manifest!, board: board),
+        ];
+        // 商业榜优先；同一组维持官方插件清单的顺序。
+        final commercial = entries
+            .where((entry) => entry.source.rankingOnly)
+            .toList();
+        final community = entries
+            .where((entry) => !entry.source.rankingOnly)
+            .toList();
+        final available = [...commercial, ...community];
+        final categories = [
+          for (final category in [
+            SourceCategory.jav,
+            SourceCategory.doujin,
+            SourceCategory.anime,
+          ])
+            if (available.any((entry) => entry.board.category == category))
+              category,
+        ];
+        if (categories.isEmpty) {
+          return EmptyState(
+            icon: Icons.leaderboard_outlined,
+            title: tr('暂无可用排行榜'),
+            message: tr('在站点管理中启用或安装站点'),
+            actions: [
+              TextButton(
+                onPressed: () => Nav.push(context, const SourceManagePage()),
+                child: Text(tr('管理站点')),
+              ),
+            ],
+          );
+        }
+        final category = categories.contains(_category)
+            ? _category
+            : categories.first;
+        final boards = available
+            .where((entry) => entry.board.category == category)
+            .toList();
+        final entry =
+            boards.where((entry) => _key(entry) == _selected).firstOrNull ??
+            boards.first;
+        final key = _key(entry);
+        final options = _options[key] ?? entry.board.defaultOptions();
+        final sessionKey = '$key:${jsonEncode(options)}';
+        final controller = _sessions.putIfAbsent(sessionKey, () {
+          final result = RankingController(
+            (page, cursor, offset) => _manager.ranking(
+              entry.source.key,
+              entry.board.key,
+              page: page,
+              cursor: cursor,
+              offset: offset,
+              options: options,
+            ),
+          );
+          // 开始加载放在布局后，避免在构建过程中通知监听器。
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) result.loadMore();
+          });
+          return result;
+        });
+        return _RankingList(
+          key: ValueKey(sessionKey),
+          controller: controller,
+          entry: entry,
+          header: Column(
+            children: [
+              SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.symmetric(horizontal: Gap.page),
+                child: Row(
+                  children: [
+                    for (final value in categories)
+                      Padding(
+                        padding: const EdgeInsetsDirectional.only(end: Gap.s),
+                        child: ChoiceChip(
+                          label: Text(value.label),
+                          selected: value == category,
+                          showCheckmark: false,
+                          onSelected: (_) => setState(() {
+                            _category = value;
+                            _selected = null;
+                          }),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(
+                  Gap.page,
+                  Gap.s,
+                  Gap.page,
+                  0,
+                ),
+                child: DropdownButtonFormField<String>(
+                  key: ValueKey(key),
+                  initialValue: key,
+                  isExpanded: true,
+                  decoration: InputDecoration(labelText: tr('榜单')),
+                  items: [
+                    for (final option in boards)
+                      DropdownMenuItem(
+                        value: _key(option),
+                        child: Text(
+                          '${option.source.name} · ${option.board.label}',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                  ],
+                  onChanged: (value) => setState(() => _selected = value),
+                ),
+              ),
+              OptionBar(
+                key: ValueKey('options-$key'),
+                options: entry.board.options,
+                values: options,
+                onChanged: (values) => setState(() => _options[key] = values),
+              ),
+              Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: Gap.page,
+                  vertical: Gap.s,
+                ),
+                child: Align(
+                  alignment: AlignmentDirectional.centerStart,
+                  child: Text(entry.board.metric),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    ),
+  );
+}
+
+class _RankingList extends StatelessWidget {
+  const _RankingList({
+    super.key,
+    required this.controller,
+    required this.entry,
+    required this.header,
+  });
+  final RankingController controller;
+  final RankingSelection entry;
+  final Widget header;
+
+  @override
+  Widget build(BuildContext context) => ListenableBuilder(
+    listenable: controller,
+    builder: (context, _) => ParkRefresh(
+      onRefresh: controller.refresh,
+      child: CustomScrollView(
+        key: PageStorageKey(key),
+        physics: const AlwaysScrollableScrollPhysics(),
+        slivers: [
+          SliverToBoxAdapter(child: header),
+          if (controller.hidden > 0)
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.all(Gap.s),
+                child: Text(
+                  tr('（已屏蔽 {value0} 部）', {'value0': controller.hidden}),
+                  textAlign: TextAlign.center,
+                ),
+              ),
+            ),
+          if (controller.loading && controller.items.isEmpty)
+            SliverToBoxAdapter(
+              child: Column(
+                children: [
+                  const Padding(
+                    padding: EdgeInsets.all(Gap.xl),
+                    child: Center(child: CircularProgressIndicator()),
+                  ),
+                  SourceNetworkHint(source: entry.source.key),
+                ],
+              ),
+            ),
+          SliverList.builder(
+            itemCount: controller.items.length,
+            itemBuilder: (context, index) {
+              if (index >= controller.items.length - 3 &&
+                  controller.hasNext &&
+                  !controller.loading &&
+                  controller.error == null) {
+                WidgetsBinding.instance.addPostFrameCallback(
+                  (_) => controller.loadMore(),
+                );
+              }
+              final item = controller.items[index];
+              return RankingRow(
+                key: ValueKey(item.uid),
+                item: item,
+                board: entry.board,
+              );
+            },
+          ),
+          if (controller.error case final error?)
+            SliverToBoxAdapter(
+              child: SourceErrorView(
+                error: error,
+                source: entry.source.key,
+                onRetry: controller.loadMore,
+                compact: controller.items.isNotEmpty,
+              ),
+            )
+          else if (controller.items.isEmpty &&
+              !controller.loading &&
+              !controller.hasNext)
+            SliverFillRemaining(
+              hasScrollBody: false,
+              child: EmptyState(
+                icon: Icons.leaderboard_outlined,
+                title: tr('暂无可用排行榜'),
+              ),
+            )
+          else if (controller.loading && controller.items.isNotEmpty)
+            const SliverToBoxAdapter(
+              child: Padding(
+                padding: EdgeInsets.all(Gap.l),
+                child: Center(child: CircularProgressIndicator()),
+              ),
+            ),
+          if (controller.hasNext &&
+              !controller.loading &&
+              controller.error == null)
+            SliverToBoxAdapter(
+              child: Center(
+                child: TextButton(
+                  onPressed: controller.loadMore,
+                  child: Text(tr('加载更多')),
+                ),
+              ),
+            ),
+          const SliverToBoxAdapter(child: SizedBox(height: Gap.xl)),
+        ],
+      ),
+    ),
+  );
+}

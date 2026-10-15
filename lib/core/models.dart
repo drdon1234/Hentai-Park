@@ -164,6 +164,34 @@ class FeedDef {
   };
 }
 
+/// 榜单声明不改变源的媒体类型；一个商业站可同时提供 JAV 和动画榜。
+class RankingDef {
+  RankingDef.fromJson(Map<String, dynamic> json, PluginCopy copy)
+    : key = _str(json['key']),
+      _label = _str(json['label']),
+      _metric = _str(json['metric']),
+      category = SourceCategory.fromJson(json['category']),
+      feed = _str(json['feed']),
+      options = _maps(json['options'])
+          .map((value) => OptionDef.fromJson(value, copy))
+          .toList(),
+      _copy = copy;
+
+  final String key;
+  final String _label;
+  final String _metric;
+  final PluginCopy _copy;
+  final SourceCategory category;
+  final String feed;
+  final List<OptionDef> options;
+  String get label => _copy.text(_label);
+  String get metric => _copy.text(_metric);
+  bool get opensWork => feed.isNotEmpty;
+  Map<String, Object?> defaultOptions() => {
+    for (final option in options) option.key: option.defaultValue,
+  };
+}
+
 class AccountDef {
   AccountDef({
     required this.type,
@@ -252,6 +280,9 @@ class SourceManifest {
       feeds = _maps(json['feeds'])
           .map((f) => FeedDef.fromJson(f, copy))
           .toList(),
+      rankings = _maps(json['rankings'])
+          .map((f) => RankingDef.fromJson(f, copy))
+          .toList(),
       defaultFeed = _str(json['defaultFeed']),
       searchFilters = _maps(json['searchFilters'])
           .map((o) => OptionDef.fromJson(o, copy))
@@ -284,6 +315,8 @@ class SourceManifest {
   final List<OptionDef> settings;
   final AccountDef? account;
   final List<FeedDef> feeds;
+  final List<RankingDef> rankings;
+  bool get rankingOnly => json['rankingOnly'] == true;
 
   /// Key of the feed the source page opens on (manifest `defaultFeed`).
   final String defaultFeed;
@@ -316,7 +349,8 @@ class SourceManifest {
   bool get isVideo => kind == MediaKind.video;
 
   /// 聚合视频索引不提供媒体时，作品通过系统浏览器打开。
-  bool get opensExternally => isVideo && !can('videos');
+  bool get opensExternally => isVideo && !can('videos') && !can('webVideo');
+  bool get usesWebVideo => isVideo && !can('videos') && can('webVideo');
   bool get isNovel => kind == MediaKind.novel;
   bool get isGame => kind == MediaKind.game;
   bool get usesBrowserNetwork => network['mode'] == 'browser';

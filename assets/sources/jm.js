@@ -19,7 +19,7 @@ Park.register({
   },
   key: 'jm',
   name: '禁漫天堂',
-  version: '0.0.6',
+  version: '0.0.7',
   type: 'comic',
   category: 'doujin',
   color: '#F7841E',
@@ -67,6 +67,7 @@ Park.register({
     },
   ],
 
+  rankings: [{ key: 'ranking', label: '排行榜', category: 'doujin', metric: '站内热度', feed: 'ranking' }],
   defaultFeed: 'promote',
   feeds: [
     { key: 'promote', label: '推荐' },

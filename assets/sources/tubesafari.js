@@ -1,16 +1,16 @@
-/* 列表和站内作品页；外部播放器在原站打开，不伪装成媒体文件。 */
+/* 列表和站内作品页；解析真实播放入口，交给隔离的应用内网页播放器。 */
 Park.register({
   i18n: {
-    "zh-Hant": {"综合成人视频搜索，支持热门、分页与原站打开": "綜合成人影片搜尋，支援熱門、分頁與開啟原站"},
-    "ja": {"综合成人视频搜索，支持热门、分页与原站打开": "総合成人動画検索。人気一覧、ページ送り、元サイトへのリンクに対応"},
-    "ko": {"综合成人视频搜索，支持热门、分页与原站打开": "인기 목록, 페이지 탐색 및 원본 사이트 열기를 지원하는 종합 성인 동영상 검색"},
-    "en": {"综合成人视频搜索，支持热门、分页与原站打开": "Adult video search with popular lists, pagination and original-site links"},
-    "es": {"综合成人视频搜索，支持热门、分页与原站打开": "Búsqueda de vídeos para adultos con listas populares, paginación y enlaces al sitio original"},
-    "ru": {"综合成人视频搜索，支持热门、分页与原站打开": "Поиск видео для взрослых: популярное, страницы и переход на исходный сайт"},
-    "ar": {"综合成人视频搜索，支持热门、分页与原站打开": "بحث فيديوهات البالغين مع قوائم شائعة وصفحات وروابط الموقع الأصلي"},
+    "zh-Hant": {"综合成人视频搜索，支持热门、分页与应用内网页播放": "綜合成人影片搜尋，支援熱門、分頁與應用程式內網頁播放"},
+    "ja": {"综合成人视频搜索，支持热门、分页与应用内网页播放": "人気一覧、ページ送り、アプリ内ウェブ再生に対応する成人動画検索"},
+    "ko": {"综合成人视频搜索，支持热门、分页与应用内网页播放": "인기 목록, 페이지 탐색 및 앱 내 웹 재생을 지원하는 성인 동영상 검색"},
+    "en": {"综合成人视频搜索，支持热门、分页与应用内网页播放": "Adult video search with popular lists, pagination and in-app web playback"},
+    "es": {"综合成人视频搜索，支持热门、分页与应用内网页播放": "Búsqueda de vídeos para adultos con listas populares, paginación y reproducción web en la app"},
+    "ru": {"综合成人视频搜索，支持热门、分页与应用内网页播放": "Поиск видео для взрослых: популярное, страницы и веб-плеер в приложении"},
+    "ar": {"综合成人视频搜索，支持热门、分页与应用内网页播放": "بحث فيديوهات البالغين مع القوائم الشائعة والصفحات وتشغيل الويب داخل التطبيق"},
   },
-  key: 'tubesafari', name: 'TubeSafari', version: '0.0.3', type: 'video', category: 'adult', color: '#21B7B5',
-  description: '综合成人视频搜索，支持热门、分页与原站打开', homepage: 'https://tubesafari.com', language: 'en',
+  key: 'tubesafari', name: 'TubeSafari', version: '0.0.4', type: 'video', category: 'adult', color: '#21B7B5',
+  description: '综合成人视频搜索，支持热门、分页与应用内网页播放', homepage: 'https://tubesafari.com', language: 'en',
   domains: ['tubesafari.com', 'xhcdn.com', 'nv7s.com', 'others-cdn.com', 'txxx.tube', 'phncdn.com'],
   network: {mode: 'native', vpnHint: true}, imageHeaders: {Referer: 'https://tubesafari.com/'},
   linkPatterns: ['tubesafari\\.com/video\\?id=([a-zA-Z0-9_-]+)(?:[&#]|$)'],
@@ -83,10 +83,41 @@ Park.register({
     id = this.validId(id);
     const url = this.BASE + '/video?id=' + encodeURIComponent(id);
     const item = preview && preview.id === id ? preview : {};
-    // 作品页可能直接外跳；只交给系统浏览器，不用源凭据请求上游。
+    // 保留列表元数据；播放时重新解析，不用源凭据请求上游。
     const title = typeof item.title === 'string' && item.title ? item.title : id;
     return {id, url, title, cover: this.coverUrl(item.cover) ? item.cover : '', coverAspect: 16/9,
       duration: typeof item.duration === 'string' ? item.duration : '', tags: [], authors: []};
+  },
+  async webVideo(id) {
+    id = this.validId(id);
+    const pageUrl = this.BASE + '/video?id=' + encodeURIComponent(id);
+    const response = await this.http.get(pageUrl, {timeout: 30000, followRedirects: false});
+    if (response.status === 404) throw Park.error('NOT_FOUND', '影片不存在');
+    let target;
+    if ([301, 302, 303, 307, 308].includes(response.status)) {
+      target = Object.entries(response.headers).find(([key]) => key.toLowerCase() === 'location')?.[1];
+    } else {
+      if (!response.ok) throw Park.error('HTTP', '成人视频请求失败');
+      if (response.body.length > 4 * 1024 * 1024) throw Park.error('PARSE', '影片页面过大');
+      target = Park.html.parse(response.body).querySelector('iframe#video2[src][allowfullscreen]')?.getAttribute('src');
+    }
+    if (!target) throw Park.error('PARSE', '播放器地址暂不可用');
+    let url;
+    try {
+      url = new URL(target, this.BASE);
+      if (url.protocol !== 'https:' || url.username || url.password || url.port ||
+          !/^(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.)+[a-z]{2,63}$/.test(url.hostname) ||
+          /(?:^|\.)(?:localhost|local|internal|test|invalid)$/.test(url.hostname)) {
+        throw new Error('unsafe');
+      }
+    } catch (_) { throw Park.error('PARSE', '播放器地址无效'); }
+    // 实测的播放器跨域跳转；不扩大源 HTTP 或 Cookie 权限。
+    const redirects = {
+      'xh.partners': ['xhamster.com'],
+      'xh.video': ['xhamster.com'],
+      'videotxxx.com': ['txxx.me'],
+    };
+    return {url: url.href, navigationDomains: [url.hostname, ...(redirects[url.hostname] || [])]};
   },
 });
 

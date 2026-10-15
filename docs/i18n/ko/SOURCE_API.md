@@ -501,6 +501,7 @@ Park.register({
 
 ```text
 https://raw.githubusercontent.com/drdon1234/Hentai-Park/sources/index.json
+https://raw.githubusercontent.com/drdon1234/Hentai-Park/rankings/index.json
 ```
 
 - `assets/sources/index.json`이 유일하게 관리하는 목록이며 `file`은 같은 폴더의 `{key}.js`를 가리킵니다 (`[A-Za-z0-9_-]+.js`. 하위 폴더, 심볼릭 링크, 파일 이름 본체의 점은 불가).
@@ -511,7 +512,7 @@ https://raw.githubusercontent.com/drdon1234/Hentai-Park/sources/index.json
 node tools/publish_sources.mjs --commit '<40자리 커밋 SHA>' --output 'test/official-source-index.json'
 ```
 
-기존 배포와 비교하려면 `--previous '이전 인덱스 경로'`를 더합니다. 이전 인덱스가 잘못되었으면 검증이 실패합니다. `.github/workflows/publish-sources.yml`은 메인 저장소 `main` 브랜치에 관련 파일을 push하거나 직접 실행할 때만 하나씩 동작하며, 모든 검증을 통과한 뒤 일반 push 한 번으로 `sources` 브랜치를 갱신합니다. 검증 실패나 브랜치의 동시 변경으로 배포 중인 인덱스를 덮어쓰지 않습니다.
+소스는 메인 브랜치에서 관리합니다. 일반 플러그인은 `sources`, 순위 전용은 `rankings`로 배포합니다. 두 브랜치에는 고정 커밋 URL과 SHA-256을 포함하는 인덱스만 저장합니다. 워크플로는 각 채널을 별도로 검증·배포하고 앱은 독립적으로 읽습니다. 채널 불일치 및 중복 key를 거부하며 기존 업데이트 확인 절차를 사용합니다.
 
 ### 빌드로 생성되는 플러그인
 
@@ -561,3 +562,22 @@ node tools/build_subscription_sources.mjs
 - OnlyFans, Fantia, Patreon, Fansly는 미디어를 읽는 경로가 완성되지 않아 공식 목록에 없습니다. 첫 페이지가 열린다고 미디어를 구독할 수 있는 것은 아니며, 유료 권한을 우회하지 않습니다.
 
 동적 HLS CDN은 native 모드의 `media.scope: 'session'`으로 지원합니다. 현재 재생 URL, 재생목록 리소스 및 최대 8회 리디렉션만 재생·다운로드 세션에 허용하며 Cookie 권한은 바뀌지 않습니다. HTTPS 443과 인증 정보 없는 요청을 유지합니다. 직접 연결은 공개 DNS 주소를 검사하고 검증된 IP에 연결하며 TLS 호스트 검증을 유지합니다. 명시적 HTTP 프록시는 신뢰된 프록시가 DNS 및 공개망 제한을 담당합니다. 종료 시 권한을 폐기합니다. 직접 MP4와 browser 모드는 정적 도메인 제한을 유지합니다.
+
+### `webVideo(id, episodeId)`
+
+iXXX와 TubeSafari는 앱 내 웹 재생을 사용합니다. 재생 페이지에서 사이트 확인이 필요할 수 있습니다. 재생 제어는 원본 페이지가 제공하며 앱 다운로드와 정확한 이어보기를 지원하지 않습니다. Android에서는 격리된 세션을 지원하는 최신 Android System WebView가 필요합니다.
+
+```js
+return { url: "https://player.example.com/watch/1", navigationDomains: ["player.example.com"], frameDomains: [] };
+// Native HTTP only: this.http.get(url, { followRedirects: false })
+```
+
+## 순위 및 별도 배포
+
+`rankings`는 `key`, `label`, `category`, `metric`, `options`로 정의합니다. 순위 전용 플러그인은 `rankingOnly: true`이며 `feeds`를 선언하지 않습니다. `ranking(board, {page, offset, cursor, options})`는 작품 페이지를 반환하며 항목은 `id`, 원본 `rank`, `title`, `cover`, 선택적인 `keyword`, `subtitle`, HTTPS 상품 `url`을 포함합니다. 공동 순위를 유지합니다. 기존 소스는 `feed`를 지정하여 옵션을 상속하고 `feed()`를 재사용할 수 있습니다. 작품 필드를 유지하고 `workId`와 누락된 순위를 추가하여 상세 페이지를 엽니다. 판매 순위는 지정 분류를 검색합니다.
+
+소스는 메인 브랜치에서 관리합니다. 일반 플러그인은 `sources`, 순위 전용은 `rankings`로 배포합니다. 두 브랜치에는 고정 커밋 URL과 SHA-256을 포함하는 인덱스만 저장합니다. 워크플로는 각 채널을 별도로 검증·배포하고 앱은 독립적으로 읽습니다. 채널 불일치 및 중복 key를 거부하며 기존 업데이트 확인 절차를 사용합니다.
+
+```powershell
+node tools/publish_sources.mjs --commit '<SHA>' --channel rankings --output 'test/official-ranking-index.json'
+```

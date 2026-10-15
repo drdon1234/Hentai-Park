@@ -501,6 +501,7 @@ Park.register({
 
 ```text
 https://raw.githubusercontent.com/drdon1234/Hentai-Park/sources/index.json
+https://raw.githubusercontent.com/drdon1234/Hentai-Park/rankings/index.json
 ```
 
 - `assets/sources/index.json` が唯一の管理対象の一覧で、`file` は同じフォルダの `{key}.js` を指します（`[A-Za-z0-9_-]+.js`。サブフォルダ、シンボリックリンク、ファイル名の本体にドットは不可）。
@@ -511,7 +512,7 @@ https://raw.githubusercontent.com/drdon1234/Hentai-Park/sources/index.json
 node tools/publish_sources.mjs --commit '<40 桁のコミット SHA>' --output 'test/official-source-index.json'
 ```
 
-既存の公開と比べる場合は `--previous '旧インデックスのパス'` を加えます。旧インデックスが無効なら検証は失敗します。`.github/workflows/publish-sources.yml` はメインリポジトリの `main` ブランチへの関連する push か手動実行のときだけ、1 つずつ動き、すべての検証に通ってから通常の push 1 回で `sources` ブランチを更新します。検証の失敗やブランチの同時変更で公開中のインデックスが上書きされることはありません。
+ソースはメインブランチで管理し、通常プラグインは `sources`、専用ランキングは `rankings` で配信します。各ブランチは固定コミットURLとSHA-256を含む生成インデックスだけを保存します。ワークフローは各チャンネルを個別に検証・公開し、アプリは個別に読み込みます。不一致のチャンネルや重複keyを拒否し、更新確認の手順は共通です。
 
 ### ビルドで生成されるプラグイン
 
@@ -561,3 +562,22 @@ node tools/build_subscription_sources.mjs
 - OnlyFans、Fantia、Patreon、Fansly はメディアの取得経路が完成しておらず、公式一覧に入っていません。トップページが開けることは購読できることを意味せず、有料の権限を回避することもありません。
 
 動的 HLS CDN は native の `media.scope: 'session'` で利用できます。解析した再生 URL、プレイリストのリソース、最大8回のリダイレクトを現在の再生・ダウンロードセッションだけに許可し、Cookie 権限は変更しません。HTTPS 443 と認証情報を含まないリクエストを維持します。直接接続では公開 DNS アドレスを確認して接続先 IP を固定し、TLS ホスト名検証を維持します。明示的な HTTP プロキシを使用する場合は、その信頼されたプロキシが名前解決と公開ネットワーク制限を担当します。終了時に許可を破棄します。MP4 の直接再生と browser モードは静的ドメイン制限を維持します。
+
+### `webVideo(id, episodeId)`
+
+iXXX と TubeSafari はアプリ内ウェブ再生を使用します。再生ページでサイトの確認が必要な場合があります。操作は配信元のページが提供し、アプリのダウンロードと正確な続き再生には対応しません。Android では独立セッション対応の新しい Android System WebView が必要です。
+
+```js
+return { url: "https://player.example.com/watch/1", navigationDomains: ["player.example.com"], frameDomains: [] };
+// Native HTTP only: this.http.get(url, { followRedirects: false })
+```
+
+## ランキングと独立配信
+
+`rankings` は `key`、`label`、`category`、`metric`、`options` で定義します。専用プラグインは `rankingOnly: true` とし、`feeds` を宣言しません。`ranking(board, {page, offset, cursor, options})` は作品ページを返し、項目には `id`、元の `rank`、`title`、`cover`、任意の `keyword`、`subtitle`、HTTPS商品 `url` を含めます。同順位を保持します。既存ソースは `feed` を指定して選択肢を継承し、`feed()` を再利用できます。作品フィールドを保持し、`workId` と不足する順位を補って詳細を開きます。販売ランキングは指定カテゴリを検索します。
+
+ソースはメインブランチで管理し、通常プラグインは `sources`、専用ランキングは `rankings` で配信します。各ブランチは固定コミットURLとSHA-256を含む生成インデックスだけを保存します。ワークフローは各チャンネルを個別に検証・公開し、アプリは個別に読み込みます。不一致のチャンネルや重複keyを拒否し、更新確認の手順は共通です。
+
+```powershell
+node tools/publish_sources.mjs --commit '<SHA>' --channel rankings --output 'test/official-ranking-index.json'
+```

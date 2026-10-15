@@ -80,7 +80,7 @@ Flutter 不在 PATH 上时传入完整路径：`.\tools\check.ps1 -FlutterComman
 
 - 插件版本与应用版本分开管理。修改插件脚本时同时提高插件版本并更新 `assets/sources/index.json`；不擅自提高应用版本。
 - 应用发布前核对包名、递增 versionCode、使用正式证书。CI 不自动发布应用。
-- 官方插件由 `.github/workflows/publish-sources.yml` 在 `main` 推送后发布到 `sources` 分支，流程见 SOURCE_API.md 的“发布”。
+- 官方插件源码与唯一清单均在 `main` 维护。`.github/workflows/publish-sources.yml` 分别发布到 `sources` 和 `rankings` 分支：普通插件进入 `sources`，`rankingOnly: true` 的独立排行榜插件进入 `rankings`。两个分支仅保留固定源码提交地址与摘要的索引，版本检查和用户确认更新流程相同，流程见 SOURCE_API.md 的“发布”。
 - 已安装旧版插件的用户在接受官方插件更新之前继续使用旧脚本；插件文案、错误提示等随插件更新生效。应用启动时会提示可用的插件更新，发布说明只在“插件更新”小节列出站点与新版本，不再写更新步骤。
 - 官方插件更新最多三个站点并发下载、校验和安装。安装、卸载与恢复内置版本只等待对应站点的操作；其他站点可继续发起请求。同站点的新请求等待自身更新结束。每个站点使用独立的 `source_install_<key>.json` 恢复日志，失败只恢复自身脚本、配置与 Cookie；启动时先恢复未完成事务。全量备份、导入仍使用全局一致性屏障。
 - 运行日志（设置 → 关于 → 运行日志）与导出文件是同一份报告：应用版本、是否设置了应用代理、日志涉及的站点插件版本，此前运行的未捕获错误（`logs/crash.log`，JSON 行，读取时重新净化），以及本次运行的事件。事件包括插件调用失败（`event=source`，带方法名）、播放打开失败（`event=playback`）、HLS 分片失败（`event=media`）和未捕获错误（`event=crash`，带代码位置）。字段白名单见 `lib/core/diagnostics.dart`；连续相同的事件合并计数。WebView 控制台输出不记录。

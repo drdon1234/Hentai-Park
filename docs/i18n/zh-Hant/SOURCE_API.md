@@ -501,6 +501,7 @@ Park.register({
 
 ```text
 https://raw.githubusercontent.com/drdon1234/Hentai-Park/sources/index.json
+https://raw.githubusercontent.com/drdon1234/Hentai-Park/rankings/index.json
 ```
 
 - `assets/sources/index.json` 是唯一維護的清單，`file` 指向同目錄下的指令碼，檔名必須是 `{key}.js`（`[A-Za-z0-9_-]+.js`，不接受子目錄、符號連結或檔名中的點號）。
@@ -511,7 +512,7 @@ https://raw.githubusercontent.com/drdon1234/Hentai-Park/sources/index.json
 node tools/publish_sources.mjs --commit '<完整 40 位提交 SHA>' --output 'test/official-source-index.json'
 ```
 
-需要對比已有發布時加 `--previous '旧索引路径'`；舊索引無效時校驗失敗。`.github/workflows/publish-sources.yml` 只在主倉庫 `main` 分支相關檔案推送或手動觸發時執行，序列執行，校驗全部透過後用一次普通推送原子更新 `sources` 分支；校驗失敗或分支有併發變更時不會覆蓋線上索引。
+原始碼繼續在主分支維護，普通插件由 `sources` 分發，獨立排行榜插件由 `rankings` 分發。兩分支只保存指向固定原始碼提交並含 SHA-256 的索引。工作流分別驗證和發布兩頻道；應用獨立讀取，拒絕頻道標記不符與重複 key，沿用更新確認流程。
 
 ### 構建生成的外掛
 
@@ -561,3 +562,22 @@ node tools/build_subscription_sources.mjs
 - OnlyFans、Fantia、Patreon、Fansly 未完成媒體讀取鏈路，沒有加入官方清單。首頁能開啟不等於可以訂閱媒體，也不提供付費許可權繞過。
 
 動態 HLS CDN 可宣告 `media.scope: 'session'`（僅 native）。本次解析地址、清單資源與最多 8 跳重新導向僅授權給目前播放或下載工作階段，不增加 Cookie 權限。保留 HTTPS 443 與無憑據請求；直連檢查公網 DNS 並固定已驗證 IP，TLS 主機驗證保持啟用。明確設定 HTTP 代理時由可信代理解析及限制上游網路。關閉後銷毀授權；直連 MP4 與 browser 媒體仍使用靜態網域限制。
+
+### `webVideo(id, episodeId)`
+
+iXXX、TubeSafari 使用應用程式內網頁播放。播放頁可能仍需站點確認；播放控制由上游頁面提供，暫不支援應用程式的下載與精確續播。Android 需要支援獨立工作階段的較新版本 Android System WebView。
+
+```js
+return { url: "https://player.example.com/watch/1", navigationDomains: ["player.example.com"], frameDomains: [] };
+// Native HTTP only: this.http.get(url, { followRedirects: false })
+```
+
+## 排行榜與獨立分發
+
+`rankings` 以 `key`、`label`、`category`、`metric`、`options` 宣告榜單。獨立排行榜插件設定 `rankingOnly: true` 且不宣告 `feeds`。`ranking(board, {page, offset, cursor, options})` 回傳作品頁；條目包含 `id`、原站 `rank`、`title`、`cover`，以及可選的 `keyword`、`subtitle`、HTTPS 商品 `url`，保留並列名次。現有內容源可宣告 `feed`：未指定選項時繼承該 feed，執行時複用 `feed()` 並保留作品欄位、補上 `workId` 和缺失名次，開啟作品詳情。商業榜則搜尋指定分類。
+
+原始碼繼續在主分支維護，普通插件由 `sources` 分發，獨立排行榜插件由 `rankings` 分發。兩分支只保存指向固定原始碼提交並含 SHA-256 的索引。工作流分別驗證和發布兩頻道；應用獨立讀取，拒絕頻道標記不符與重複 key，沿用更新確認流程。
+
+```powershell
+node tools/publish_sources.mjs --commit '<SHA>' --channel rankings --output 'test/official-ranking-index.json'
+```

@@ -501,6 +501,7 @@ Official plugins are published from the main repository [drdon1234/Hentai-Park](
 
 ```text
 https://raw.githubusercontent.com/drdon1234/Hentai-Park/sources/index.json
+https://raw.githubusercontent.com/drdon1234/Hentai-Park/rankings/index.json
 ```
 
 - `assets/sources/index.json` is the only maintained list; `file` points to a script in the same folder named `{key}.js` (`[A-Za-z0-9_-]+.js`; no subfolders, symlinks or dots in the base name).
@@ -511,7 +512,7 @@ https://raw.githubusercontent.com/drdon1234/Hentai-Park/sources/index.json
 node tools/publish_sources.mjs --commit '<full 40-character commit SHA>' --output 'test/official-source-index.json'
 ```
 
-Add `--previous 'path to old index'` to compare with an existing release; an invalid old index fails the check. `.github/workflows/publish-sources.yml` runs only for related pushes to `main` in the main repository or manual runs, one at a time, and updates the `sources` branch with a single ordinary push after every check passes; a failed check or a concurrent change to the branch never overwrites the live index.
+Source scripts stay on the main branch. The `sources` branch distributes regular plugins; `rankings` distributes ranking-only plugins. Both contain only a generated index pointing to immutable source commits with SHA-256. The workflow validates and publishes each channel separately; the app reads both independently, rejects mismatched channel markers and duplicate keys, and keeps the existing update confirmation flow.
 
 ### Generated plugins
 
@@ -561,3 +562,22 @@ Conventions you need when maintaining the official plugins. Sites change; the pl
 - OnlyFans, Fantia, Patreon and Fansly don't have a complete media path and aren't in the official list. A home page that opens doesn't mean media can be subscribed to, and paid access is never bypassed.
 
 Dynamic HLS CDNs: declare `media.scope: 'session'` with native media. Only the current resolved URL, playlist resources and up to 8 redirect hops are authorized, without changing cookie permissions. HTTPS 443 and credential-free headers remain required. Direct connections reject non-public DNS addresses and connect to a checked IP with normal TLS hostname verification. An explicitly configured HTTP proxy resolves upstream hosts and is trusted to enforce public-network routing. Permissions disappear when the playback/download session closes; direct MP4 and browser media retain static domain restrictions.
+
+### `webVideo(id, episodeId)`
+
+iXXX and TubeSafari use in-app web playback. The playback page may require site confirmation; controls are provided by the upstream page. App downloads and precise playback resume are unavailable. Android requires a recent Android System WebView with isolated-session support.
+
+```js
+return { url: "https://player.example.com/watch/1", navigationDomains: ["player.example.com"], frameDomains: [] };
+// Native HTTP only: this.http.get(url, { followRedirects: false })
+```
+
+## Rankings and separate distribution
+
+`rankings` declares boards with `key`, `label`, `category`, `metric` and `options`. A ranking-only plugin sets `rankingOnly: true` and declares no `feeds`. `ranking(board, {page, offset, cursor, options})` returns a work page; each item includes `id`, original `rank`, `title`, `cover`, optional `keyword`, `subtitle` and an HTTPS product `url`. Preserve tied ranks. An existing source may declare `feed` on its board: options are inherited when omitted, and the runtime reuses `feed()` while retaining work fields and adding `workId` and any missing rank. Those entries open work details; commercial entries search the declared category.
+
+Source scripts stay on the main branch. The `sources` branch distributes regular plugins; `rankings` distributes ranking-only plugins. Both contain only a generated index pointing to immutable source commits with SHA-256. The workflow validates and publishes each channel separately; the app reads both independently, rejects mismatched channel markers and duplicate keys, and keeps the existing update confirmation flow.
+
+```powershell
+node tools/publish_sources.mjs --commit '<SHA>' --channel rankings --output 'test/official-ranking-index.json'
+```

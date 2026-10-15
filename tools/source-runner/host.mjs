@@ -73,7 +73,7 @@ const native = {
         method: o.method,
         headers,
         body: o.bodyBase64 === undefined ? o.body : Buffer.from(o.bodyBase64, 'base64'),
-        redirect: 'follow',
+        redirect: o.followRedirects === false ? 'manual' : 'follow',
         signal: AbortSignal.timeout(o.timeout || 30000),
       });
     } catch (err) {

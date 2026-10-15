@@ -16,6 +16,7 @@ class SourceRepositoryEntry {
     required this.url,
     required this.sha256,
     required this.apiVersion,
+    this.rankingOnly = false,
   });
 
   final String key;
@@ -24,6 +25,7 @@ class SourceRepositoryEntry {
   final String url;
   final String sha256;
   final int apiVersion;
+  final bool rankingOnly;
 }
 
 class SourceRepositoryIndex {
@@ -43,6 +45,7 @@ class SourceRepository {
     : _read = read ?? _download;
 
   static const indexUrl = '$officialRawBase/sources/index.json';
+  static const rankingsUrl = '$officialRawBase/rankings/index.json';
   static const supportedApiVersion = 1;
   final Future<String> Function(String url) _read;
 
@@ -60,12 +63,46 @@ class SourceRepository {
   }
 
   Future<SourceRepositoryIndex> fetch() async {
-    final text = await _read(indexUrl);
-    try {
-      return parse(jsonDecode(text));
-    } on FormatException {
-      throw SourceError('CONFIG', '官方站点索引格式无效');
+    final entries = <String, SourceRepositoryEntry>{};
+    final failures = <String, String>{};
+    final duplicate = <String>{};
+    final results = await Future.wait([
+      for (final url in [indexUrl, rankingsUrl])
+        () async {
+          try {
+            return (index: parse(jsonDecode(await _read(url))), error: null);
+          } catch (error) {
+            return (index: null, error: error);
+          }
+        }(),
+    ]);
+    for (var i = 0; i < results.length; i++) {
+      final result = results[i];
+      if (result.index == null) {
+        failures[i == 0
+            ? tr('官方站点仓库')
+            : tr('排行榜插件')] = result.error is SourceError
+            ? (result.error as SourceError).message
+            : tr('官方站点索引格式无效');
+        continue;
+      }
+      failures.addAll(result.index!.failures);
+      for (final entry in result.index!.entries) {
+        if (duplicate.contains(entry.key) || entries.containsKey(entry.key)) {
+          duplicate.add(entry.key);
+          entries.remove(entry.key);
+          failures[entry.name] = tr('官方站点标识重复：{key}', {'key': entry.key});
+        } else if (entry.rankingOnly != (i == 1)) {
+          failures[entry.name] = tr('排行榜分发频道不匹配');
+        } else {
+          entries[entry.key] = entry;
+        }
+      }
     }
+    return SourceRepositoryIndex(
+      entries: entries.values.toList(),
+      failures: failures,
+    );
   }
 
   static SourceRepositoryIndex parse(Object? data) {
@@ -122,7 +159,8 @@ class SourceRepository {
         !isReleaseVersion(raw['version']) ||
         !isSha256(raw['sha256']) ||
         raw['apiVersion'] is! int ||
-        (raw['apiVersion'] as int) < 1) {
+        (raw['apiVersion'] as int) < 1 ||
+        (raw.containsKey('rankingOnly') && raw['rankingOnly'] is! bool)) {
       throw SourceError('CONFIG', '官方站点条目缺少有效的必填字段');
     }
     if (!isOfficialAsset(raw['url'], 'assets/sources/${raw['key']}.js')) {
@@ -135,6 +173,7 @@ class SourceRepository {
       url: raw['url'] as String,
       sha256: (raw['sha256'] as String).toLowerCase(),
       apiVersion: raw['apiVersion'] as int,
+      rankingOnly: raw['rankingOnly'] == true,
     );
   }
 }

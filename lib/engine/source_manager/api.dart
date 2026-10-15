@@ -2,6 +2,22 @@ part of '../source_manager.dart';
 
 /// Typed calls into a source: feeds, search, details, chapters, media and game resources.
 mixin _SourceApi on _SourceRegistry {
+  Future<WorkPage> ranking(
+    String key,
+    String board, {
+    int page = 1,
+    int offset = 0,
+    String? cursor,
+    Map<String, Object?> options = const {},
+    CancelToken? cancelToken,
+  }) async {
+    final result = await _call(key, 'ranking', [
+      board,
+      {'page': page, 'offset': offset, 'cursor': cursor, 'options': options},
+    ], cancelToken: cancelToken);
+    return WorkPage.fromJson((result as Map).cast<String, dynamic>(), key);
+  }
+
   Future<WorkPage> feed(
     String key,
     String feedKey, {
@@ -174,6 +190,14 @@ mixin _SourceApi on _SourceRegistry {
       hasNext: res['hasNext'] == true,
     );
   }
+
+  /// A sandboxed web player target; it grants no HTTP or Cookie permissions.
+  Future<Map<String, dynamic>> webVideo(
+    String key,
+    String id, {
+    String? episodeId,
+  }) async => (await _call(key, 'webVideo', [id, episodeId ?? '_']) as Map)
+      .cast<String, dynamic>();
 
   Future<List<VideoSource>> videos(
     String key,

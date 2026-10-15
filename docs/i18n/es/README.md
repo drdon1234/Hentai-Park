@@ -69,6 +69,7 @@ Las capturas usan datos de demostración sin conexión; los sitios, obras y port
 
 | Función | Qué ofrece |
 | --- | --- |
+| Clasificaciones | Abre clasificaciones de dōjinshi, anime y JAV desde Descubrir; elige sitio y período, busca obras o visita el sitio original |
 | Explorar y buscar | Navega por categorías, busca en varios sitios a la vez y amplía la búsqueda con palabras clave en otros idiomas; pega un enlace o código para ir directo a una obra |
 | Leer y ver | Cómics con desplazamiento, páginas o doble página; vídeos con episodios, velocidad y reanudación; novelas con tipografía, marcadores, notas y lectura en voz alta. Los tres lectores comparten los mismos controles |
 | Biblioteca | Favoritos con categorías, avisos de capítulos nuevos y descargas en un solo lugar; suscríbete a creadores, canales o palabras clave |
@@ -95,6 +96,14 @@ Temas claro y oscuro, ocho idiomas de interfaz. Las funciones de cada sitio se i
 | Suscripciones | X / Twitter, Telegram, myfans.jp, pixivFANBOX |
 
 Activa, ordena, actualiza o añade sitios en Más → Sitios.
+
+
+
+Las fuentes comerciales incluyen FANZA, FC2, MGStage, cuatro productoras sin censura, manga dōjinshi y para adultos de DLsite y Toranoana. Las ventas, la popularidad de las productoras y las listas de cada comunidad se identifican por separado. Las entradas comerciales permiten buscar por categoría y abrir el producto original; la lectura o reproducción depende del sitio encontrado.
+
+El código permanece en la rama principal. `sources` distribuye complementos normales y `rankings` los dedicados a clasificaciones. Ambas ramas contienen solo un índice generado con URL de un commit fijo y SHA-256. El flujo valida y publica cada canal por separado; la aplicación lee ambos de forma independiente, rechaza canales incorrectos y claves duplicadas y conserva la confirmación de actualización.
+
+iXXX y TubeSafari usan reproducción web en la app. La página puede requerir confirmación del sitio; los controles los proporciona la página de origen. No se admiten las descargas de la app ni reanudar en un punto exacto. Android requiere una versión reciente de Android System WebView con sesiones aisladas.
 
 <a id="faq"></a>
 

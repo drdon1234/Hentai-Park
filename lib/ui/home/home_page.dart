@@ -11,6 +11,7 @@ import '../history/history_page.dart';
 import '../history/recent_history.dart';
 import '../kit/kit.dart';
 import '../nav.dart';
+import '../rankings/rankings_page.dart';
 import '../settings/source_manage_page.dart';
 import '../subscriptions/subscriptions_page.dart';
 import 'feed_shelf.dart';
@@ -91,6 +92,12 @@ class _HomePageState extends State<HomePage> {
       appBar: PageHeader(
         title: 'HentaiPark',
         actions: [
+          IconButton(
+            tooltip: tr('排行榜'),
+            icon: const Icon(Icons.leaderboard_outlined),
+            onPressed: () =>
+                Nav.push(context, RankingsPage(category: selected.category)),
+          ),
           TextButton(
             onPressed: () => Nav.push(context, const SitesPage()),
             child: Text(tr('站点')),

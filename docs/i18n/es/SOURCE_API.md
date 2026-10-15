@@ -501,6 +501,7 @@ Los plugins oficiales se publican desde el repositorio principal [drdon1234/Hent
 
 ```text
 https://raw.githubusercontent.com/drdon1234/Hentai-Park/sources/index.json
+https://raw.githubusercontent.com/drdon1234/Hentai-Park/rankings/index.json
 ```
 
 - `assets/sources/index.json` es la única lista mantenida; `file` apunta a un script de la misma carpeta llamado `{key}.js` (`[A-Za-z0-9_-]+.js`; sin subcarpetas, enlaces simbólicos ni puntos en el nombre base).
@@ -511,7 +512,7 @@ https://raw.githubusercontent.com/drdon1234/Hentai-Park/sources/index.json
 node tools/publish_sources.mjs --commit '<SHA completo de 40 caracteres>' --output 'test/official-source-index.json'
 ```
 
-Añade `--previous 'ruta del índice anterior'` para comparar con una publicación existente; un índice anterior no válido hace fallar la comprobación. `.github/workflows/publish-sources.yml` solo se ejecuta con pushes relacionados a `main` del repositorio principal o de forma manual, de uno en uno, y actualiza la rama `sources` con un único push normal tras pasar todas las comprobaciones; una comprobación fallida o un cambio simultáneo en la rama nunca sobrescriben el índice publicado.
+El código permanece en la rama principal. `sources` distribuye complementos normales y `rankings` los dedicados a clasificaciones. Ambas ramas contienen solo un índice generado con URL de un commit fijo y SHA-256. El flujo valida y publica cada canal por separado; la aplicación lee ambos de forma independiente, rechaza canales incorrectos y claves duplicadas y conserva la confirmación de actualización.
 
 ### Plugins generados
 
@@ -561,3 +562,22 @@ Convenciones necesarias para mantener los plugins oficiales. Los sitios cambian;
 - OnlyFans, Fantia, Patreon y Fansly no tienen una ruta de medios completa y no están en la lista oficial. Que la página principal abra no significa que se puedan suscribir sus medios, y nunca se elude el acceso de pago.
 
 Para CDN HLS dinámicas, declare `media.scope: 'session'` en modo native. Se autorizan la URL resuelta, los recursos de la lista y hasta 8 redirecciones solo durante la reproducción o descarga, sin ampliar permisos de Cookie. Se exige HTTPS 443 y solicitudes sin credenciales. La conexión directa valida DNS público y fija una IP comprobada conservando TLS. Un proxy HTTP explícito y de confianza resuelve los destinos y controla el acceso a redes públicas. Al cerrar se revocan los permisos. MP4 directo y browser mantienen la lista estática de dominios.
+
+### `webVideo(id, episodeId)`
+
+iXXX y TubeSafari usan reproducción web en la app. La página puede requerir confirmación del sitio; los controles los proporciona la página de origen. No se admiten las descargas de la app ni reanudar en un punto exacto. Android requiere una versión reciente de Android System WebView con sesiones aisladas.
+
+```js
+return { url: "https://player.example.com/watch/1", navigationDomains: ["player.example.com"], frameDomains: [] };
+// Native HTTP only: this.http.get(url, { followRedirects: false })
+```
+
+## Clasificaciones y distribución independiente
+
+`rankings` declara listas mediante `key`, `label`, `category`, `metric` y `options`. Un complemento dedicado usa `rankingOnly: true` y no declara `feeds`. `ranking(board, {page, offset, cursor, options})` devuelve una página de obras con `id`, `rank` original, `title`, `cover` y campos opcionales `keyword`, `subtitle` y `url` HTTPS del producto. Se conservan los empates. Una fuente existente puede declarar `feed`: hereda sus opciones si se omiten y reutiliza `feed()`, conserva los campos y añade `workId` y el puesto si falta, para abrir los detalles. Las entradas comerciales buscan en la categoría declarada.
+
+El código permanece en la rama principal. `sources` distribuye complementos normales y `rankings` los dedicados a clasificaciones. Ambas ramas contienen solo un índice generado con URL de un commit fijo y SHA-256. El flujo valida y publica cada canal por separado; la aplicación lee ambos de forma independiente, rechaza canales incorrectos y claves duplicadas y conserva la confirmación de actualización.
+
+```powershell
+node tools/publish_sources.mjs --commit '<SHA>' --channel rankings --output 'test/official-ranking-index.json'
+```

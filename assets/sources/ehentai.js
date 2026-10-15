@@ -20,7 +20,7 @@ Park.register({
   },
   key: 'ehentai',
   name: 'E-Hentai',
-  version: '0.0.5',
+  version: '0.0.6',
   type: 'comic',
   category: 'doujin',
   color: '#9C2A2A',
@@ -95,6 +95,7 @@ Park.register({
     },
   },
 
+  rankings: [{ key: 'toplist', label: '排行榜', category: 'doujin', metric: '站内热度', feed: 'toplist' }],
   defaultFeed: 'toplist',
   feeds: [
     { key: 'latest', label: '最新' },

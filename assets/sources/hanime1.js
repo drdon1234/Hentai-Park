@@ -18,7 +18,7 @@ Park.register({
   },
   key: 'hanime1',
   name: 'Hanime1',
-  version: '0.0.4',
+  version: '0.0.5',
   type: 'video',
   category: 'anime',
   color: '#E5355F',
@@ -56,6 +56,7 @@ Park.register({
     },
   ],
 
+  rankings: [{ key: 'ranking', label: '排行榜', category: 'anime', metric: '站内热度', feed: 'ranking' }],
   defaultFeed: 'ranking',
   feeds: [
     { key: 'latest', label: '最新上市' },

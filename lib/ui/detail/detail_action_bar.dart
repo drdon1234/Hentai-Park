@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/localization.dart';
 import '../../core/models.dart';
+import '../../engine/source_manager.dart';
 import '../../library/downloads.dart';
 import '../../library/library.dart';
 import '../kit/kit.dart';
@@ -40,7 +41,10 @@ class DetailActionBar extends StatelessWidget {
   Widget build(BuildContext context) {
     final fav = Library.instance.isFavorite(item.uid);
     final dl = DownloadManager.instance.task(item.uid);
-    final downloads = kind != DetailKind.external && kind != DetailKind.game;
+    final downloads =
+        kind != DetailKind.external &&
+        kind != DetailKind.game &&
+        SourceManager.instance.manifest(item.source)?.usesWebVideo != true;
     return Padding(
       padding: const EdgeInsets.fromLTRB(Gap.page, 0, Gap.page, Gap.xs),
       child: Row(

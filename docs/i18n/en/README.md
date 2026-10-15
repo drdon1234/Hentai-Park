@@ -69,6 +69,7 @@ Screenshots use offline demo data; the sites, works and covers shown are origina
 
 | Feature | What you get |
 | --- | --- |
+| Rankings | Open doujinshi, anime and JAV rankings from Discover; choose a site and period, search works or open the original site |
 | Discover and search | Browse by category, search many sites at once, widen a search with keywords in other languages; paste a link or code to jump straight to a work |
 | Read and watch | Comics scroll, page or show two-page spreads; videos have episodes, speed control and resume; novels have typography settings, bookmarks, notes and read-aloud. All three readers share the same controls |
 | Library | Favorites with categories, new-chapter alerts and downloads in one place; subscribe to creators, channels or keywords |
@@ -95,6 +96,14 @@ Light and dark themes, eight interface languages. What each site supports is sho
 | Subscriptions | X / Twitter, Telegram, myfans.jp, pixivFANBOX |
 
 Enable, reorder, update or add sites in More → Sites.
+
+
+
+Commercial rankings include FANZA, FC2, MGStage, four uncensored studios, DLsite doujinshi/adult manga and Toranoana. Sales, studio popularity and community rankings are labeled separately. Commercial entries offer category-specific search and original product links; they do not claim direct reading or playback.
+
+Source scripts stay on the main branch. The `sources` branch distributes regular plugins; `rankings` distributes ranking-only plugins. Both contain only a generated index pointing to immutable source commits with SHA-256. The workflow validates and publishes each channel separately; the app reads both independently, rejects mismatched channel markers and duplicate keys, and keeps the existing update confirmation flow.
+
+iXXX and TubeSafari use in-app web playback. The playback page may require site confirmation; controls are provided by the upstream page. App downloads and precise playback resume are unavailable. Android requires a recent Android System WebView with isolated-session support.
 
 <a id="faq"></a>
 

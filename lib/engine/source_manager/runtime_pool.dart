@@ -207,6 +207,7 @@ mixin _RuntimePool on _SourceRegistry {
       rethrow;
     }
     final isRead = const {
+      'ranking',
       'feed',
       'search',
       'detail',

@@ -503,6 +503,7 @@ Park.register({
 
 ```text
 https://raw.githubusercontent.com/drdon1234/Hentai-Park/sources/index.json
+https://raw.githubusercontent.com/drdon1234/Hentai-Park/rankings/index.json
 ```
 
 - `assets/sources/index.json` هو القائمة الوحيدة المُدارة؛ ويشير `file` إلى نص في المجلد نفسه باسم `{key}.js` (`[A-Za-z0-9_-]+.js`؛ دون مجلدات فرعية أو روابط رمزية أو نقاط في الاسم الأساسي).
@@ -513,7 +514,7 @@ https://raw.githubusercontent.com/drdon1234/Hentai-Park/sources/index.json
 node tools/publish_sources.mjs --commit '<SHA الإيداع الكامل من 40 حرفًا>' --output 'test/official-source-index.json'
 ```
 
-أضف `--previous 'مسار الفهرس القديم'` للمقارنة مع نشر قائم؛ والفهرس القديم غير الصالح يُفشل الفحص. لا يعمل `.github/workflows/publish-sources.yml` إلا مع الدفعات المتعلقة إلى `main` في المستودع الرئيسي أو التشغيل اليدوي، واحدًا تلو الآخر، ويحدّث فرع `sources` بدفعة عادية واحدة بعد اجتياز كل الفحوص؛ ولا يكتب فحص فاشل أو تغيير متزامن في الفرع فوق الفهرس المنشور أبدًا.
+يبقى المصدر في الفرع الرئيسي. يوزع `sources` الإضافات العادية و`rankings` إضافات الترتيب. يحفظ الفرعان فهرساً مولداً فقط يتضمن رابط التزام ثابت وSHA-256. يتحقق سير العمل من كل قناة وينشرها بصورة مستقلة، ويقرأ التطبيق القناتين بصورة مستقلة ويرفض العلامات المخالفة ومفاتيح key المكررة ويحتفظ بتأكيد التحديث.
 
 ### الإضافات المولَّدة
 
@@ -565,3 +566,22 @@ node tools/build_subscription_sources.mjs
 </div>
 
 لشبكات CDN المتغيرة لـ HLS، استخدم `media.scope: 'session'` في وضع native. يُسمح بعنوان التشغيل وموارد القائمة وما يصل إلى 8 تحويلات داخل جلسة التشغيل أو التنزيل فقط دون توسيع صلاحيات Cookie. يبقى HTTPS 443 والطلبات الخالية من بيانات الاعتماد مطلوبين. تتحقق الاتصالات المباشرة من DNS العام وتستخدم IP متحققًا منه مع فحص TLS المعتاد. يتولى وكيل HTTP الموثوق والمحدد صراحة حل الأسماء وقيود الشبكة العامة. تُلغى الصلاحيات عند الإغلاق. يحتفظ MP4 المباشر ووضع browser بقيود النطاقات الثابتة.
+
+### `webVideo(id, episodeId)`
+
+يستخدم iXXX وTubeSafari تشغيل الويب داخل التطبيق. قد تتطلب صفحة التشغيل تأكيد الموقع؛ توفر الصفحة الأصلية عناصر التحكم. تنزيلات التطبيق واستئناف التشغيل الدقيق غير متاحين. يتطلب Android إصدارًا حديثًا من Android System WebView يدعم الجلسات المعزولة.
+
+```js
+return { url: "https://player.example.com/watch/1", navigationDomains: ["player.example.com"], frameDomains: [] };
+// Native HTTP only: this.http.get(url, { followRedirects: false })
+```
+
+## الترتيبات والتوزيع المستقل
+
+يعرّف `rankings` القوائم عبر `key` و`label` و`category` و`metric` و`options`. تضبط الإضافة المخصصة `rankingOnly: true` دون `feeds`. تعيد `ranking(board, {page, offset, cursor, options})` صفحة أعمال تحتوي على `id` و`rank` الأصلي و`title` و`cover` وحقول اختيارية `keyword` و`subtitle` و`url` منتج HTTPS. تُحفظ المراكز المتساوية. يمكن للمصدر الحالي تحديد `feed` لتوريث الخيارات عند حذفها وإعادة استخدام `feed()`، مع حفظ الحقول وإضافة `workId` والمركز المفقود لفتح التفاصيل. تبحث النتائج التجارية ضمن الفئة المحددة.
+
+يبقى المصدر في الفرع الرئيسي. يوزع `sources` الإضافات العادية و`rankings` إضافات الترتيب. يحفظ الفرعان فهرساً مولداً فقط يتضمن رابط التزام ثابت وSHA-256. يتحقق سير العمل من كل قناة وينشرها بصورة مستقلة، ويقرأ التطبيق القناتين بصورة مستقلة ويرفض العلامات المخالفة ومفاتيح key المكررة ويحتفظ بتأكيد التحديث.
+
+```powershell
+node tools/publish_sources.mjs --commit '<SHA>' --channel rankings --output 'test/official-ranking-index.json'
+```

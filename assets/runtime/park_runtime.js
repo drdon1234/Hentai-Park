@@ -337,6 +337,13 @@
     return out;
   }
 
+  function rankingDefs(def) {
+    return (def.rankings || []).map(board => ({
+      ...board,
+      options: board.options || (def.feeds || []).find(feed => feed.key === board.feed)?.options || [],
+    }));
+  }
+
   /** Strips functions so that the manifest can cross the bridge as JSON. */
   function manifestOf(def) {
     const pick = (obj) => JSON.parse(JSON.stringify(obj === undefined ? null : obj));
@@ -379,12 +386,15 @@
           }
         : null,
       feeds: pick(def.feeds || []),
+      rankingOnly: def.rankingOnly === true,
+      rankings: pick(rankingDefs(def)),
       // The plugin's own translations, keyed by its Chinese source text: {locale: {text: translation}}.
       i18n: pick(def.i18n || {}),
       defaultFeed: def.defaultFeed || '',
       searchFilters: pick(def.searchFilters || []),
       searchHint: def.searchHint || '',
       capabilities: {
+        rankings: Array.isArray(def.rankings) && def.rankings.length > 0,
         subscription: !!(def.subscription && typeof def.subscription.normalize === 'function' && typeof def.subscription.posts === 'function'),
         subscriptionUpdates: !!(def.updateSubscriptions && typeof def.updateSubscriptions.check === 'function'),
         search: typeof def.search === 'function',
@@ -393,6 +403,7 @@
         textChapter: typeof def.textChapter === 'function',
         resolveImage: typeof def.resolveImage === 'function',
         videos: typeof def.videos === 'function',
+        webVideo: typeof def.webVideo === 'function',
         gameResources: typeof def.gameResources === 'function',
         resolveGameResource: typeof def.resolveGameResource === 'function',
         thumbnails: typeof def.thumbnails === 'function',
@@ -547,6 +558,26 @@
         // Namespaced methods ("account.login") still run with the source as `this`.
         let target = entry.def;
         for (const part of String(path).split('.')) target = target ? target[part] : undefined;
+        if (path === 'ranking') {
+          const board = rankingDefs(entry.def).find(b => b.key === args?.[0]);
+          if (!board) throw new ParkError(ErrorCode.CONFIG, '未知列表');
+          const request = args?.[1] || {};
+          for (const option of board.options || []) {
+            const value = request.options?.[option.key] ?? option.default;
+            if (option.values && !option.values.some(choice => choice.value === value)) {
+              throw new ParkError(ErrorCode.CONFIG, '未知列表');
+            }
+          }
+          if (typeof target !== 'function' && board.feed && typeof entry.def.feed === 'function') {
+            target = async function (_, req) {
+              const page = await this.feed(board.feed, req);
+              return {...page, items: (page.items || []).map((item, index) => ({
+                ...item, rank: item.rank ?? (Number(req.offset) || 0) + index + 1,
+                workId: item.id,
+              }))};
+            };
+          }
+        }
         if (typeof target !== 'function') {
           throw new ParkError(ErrorCode.UNSUPPORTED, '{site}不支持{action}', { params: { site: entry.def.name, action: path } });
         }

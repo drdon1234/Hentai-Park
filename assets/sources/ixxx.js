@@ -1,16 +1,16 @@
 /* 只解析聚合索引，不带源 Cookie 请求外部作品或执行远端脚本。 */
 Park.register({
   i18n: {
-    "zh-Hant": {"综合成人视频搜索，支持排行、分页与原站打开": "綜合成人影片搜尋，支援排行、分頁與開啟原站", "站点搜索表单无效": "站點搜尋表單無效"},
-    "ja": {"综合成人视频搜索，支持排行、分页与原站打开": "総合成人動画検索。ランキング、ページ送り、元サイトへのリンクに対応", "站点搜索表单无效": "サイトの検索フォームが無効です"},
-    "ko": {"综合成人视频搜索，支持排行、分页与原站打开": "순위, 페이지 탐색 및 원본 사이트 열기를 지원하는 종합 성인 동영상 검색", "站点搜索表单无效": "사이트 검색 양식이 잘못되었습니다"},
-    "en": {"综合成人视频搜索，支持排行、分页与原站打开": "Adult video search with rankings, pagination and original-site links", "站点搜索表单无效": "The site's search form is invalid"},
-    "es": {"综合成人视频搜索，支持排行、分页与原站打开": "Búsqueda de vídeos para adultos con clasificaciones, paginación y enlaces al sitio original", "站点搜索表单无效": "El formulario de búsqueda del sitio no es válido"},
-    "ru": {"综合成人视频搜索，支持排行、分页与原站打开": "Поиск видео для взрослых с рейтингами, страницами и переходом на исходный сайт", "站点搜索表单无效": "Форма поиска на сайте недействительна"},
-    "ar": {"综合成人视频搜索，支持排行、分页与原站打开": "بحث فيديوهات البالغين مع التصنيفات والصفحات وروابط الموقع الأصلي", "站点搜索表单无效": "نموذج البحث في الموقع غير صالح"},
+    "zh-Hant": {"综合成人视频搜索，支持排行、分页与应用内网页播放": "綜合成人影片搜尋，支援排行、分頁與應用程式內網頁播放", "站点搜索表单无效": "站點搜尋表單無效"},
+    "ja": {"综合成人视频搜索，支持排行、分页与应用内网页播放": "ランキング、ページ送り、アプリ内ウェブ再生に対応する成人動画検索", "站点搜索表单无效": "サイトの検索フォームが無効です"},
+    "ko": {"综合成人视频搜索，支持排行、分页与应用内网页播放": "순위, 페이지 탐색 및 앱 내 웹 재생을 지원하는 성인 동영상 검색", "站点搜索表单无效": "사이트 검색 양식이 잘못되었습니다"},
+    "en": {"综合成人视频搜索，支持排行、分页与应用内网页播放": "Adult video search with rankings, pagination and in-app web playback", "站点搜索表单无效": "The site's search form is invalid"},
+    "es": {"综合成人视频搜索，支持排行、分页与应用内网页播放": "Búsqueda de vídeos para adultos con clasificaciones, paginación y reproducción web en la app", "站点搜索表单无效": "El formulario de búsqueda del sitio no es válido"},
+    "ru": {"综合成人视频搜索，支持排行、分页与应用内网页播放": "Поиск видео для взрослых с рейтингами, страницами и веб-плеером в приложении", "站点搜索表单无效": "Форма поиска на сайте недействительна"},
+    "ar": {"综合成人视频搜索，支持排行、分页与应用内网页播放": "بحث فيديوهات البالغين مع التصنيفات والصفحات وتشغيل الويب داخل التطبيق", "站点搜索表单无效": "نموذج البحث في الموقع غير صالح"},
   },
-  key: 'ixxx', name: 'iXXX', version: '0.0.6', type: 'video', category: 'adult', color: '#F97316',
-  description: '综合成人视频搜索，支持排行、分页与原站打开',
+  key: 'ixxx', name: 'iXXX', version: '0.0.7', type: 'video', category: 'adult', color: '#F97316',
+  description: '综合成人视频搜索，支持排行、分页与应用内网页播放',
   homepage: 'https://www.ixxx.com', domains: ['ixxx.com', 'ttcache.com'], language: 'en',
   network: {mode: 'browser', origin: 'https://www.ixxx.com', vpnHint: true, confirmation: {
     selector: '#splash-page[open], #age-verification[open], #age-verification:not(dialog)', readySelector: 'a.item-link[href]',
@@ -133,6 +133,15 @@ Park.register({
       cover: this.coverUrl(item.cover) ? item.cover : '', coverAspect: 16/9,
       duration: typeof item.duration === 'string' ? item.duration : '',
       uploader: typeof item.uploader === 'string' ? item.uploader : '', tags: [], authors: []};
+  },
+  async webVideo(id) {
+    let url = this.externalUrl(id);
+    if (!url || url !== id) throw Park.error('NOT_FOUND', '影片编号无效');
+    // 索引中的历史 HTTP 链接仍保持作品 ID；播放器只使用 HTTPS。
+    const target = new URL(url);
+    target.protocol = 'https:';
+    url = target.href;
+    return {url, navigationDomains: [new URL(url).hostname]};
   },
 });
 

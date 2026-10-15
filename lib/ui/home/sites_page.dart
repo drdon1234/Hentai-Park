@@ -35,7 +35,9 @@ class SitesPage extends StatelessWidget {
           AppSettings.instance.watch(const {'domainOrder'}),
         ]),
         builder: (context, _) {
-          final sources = sm.enabled;
+          final sources = sm.enabled
+              .where((source) => !source.manifest!.rankingOnly)
+              .toList();
           if (sources.isEmpty) {
             return EmptyState(
               icon: Icons.extension_off_outlined,

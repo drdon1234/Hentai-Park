@@ -120,6 +120,7 @@ Park.register({
 
 - **短视频**（`type: 'video', category: 'shortvideo'`）：作品、搜索、收藏和历史入口直接进入连续流。每个作品是一个短视频，`videos(id, '_')` 返回当前有效媒体，不需要详情页。`feed` 的 `hasNext` 和 `cursor` 用于临近末尾时自动翻页，游标不能包含账号凭据或媒体签名。刷新从第一页开始；当前条播放，下一条暂停预加载，其余释放。站点没有搜索接口时不声明 `search`。
 - **只能在原站播放的聚合视频站**：仍声明 `type: 'video', category: 'adult'`；没有经过验证的媒体接口时不实现 `videos`，运行时导出 `capabilities.videos: false`。详情页主按钮改为用系统浏览器打开 `detail.url`，隐藏播放、下载和分集，不同步虚构章节、不检查章节更新；收藏与历史照常。
+- **应用内网页播放的视频站**：实现 `webVideo(id, episodeId)`，返回 `{ url, navigationDomains?, frameDomains? }`。应用在受控 WebView 中打开 `url`，仅允许 HTTPS、无凭据的声明域名主框架导航和 iframe；它不等同于 `videos`，不提供原生播放、下载或媒体嗅探能力。
 - **小说**和**游戏**的协议见“方法”中的对应小节。
 
 `defaultFeed` 按 **推荐页 > 排行榜页 > 热门页** 选择，站点确实没有这些入口时才用最新页或其他有效入口，不得伪造未验证的接口。未填写或找不到 key 时，应用按 key 自动选择（先 `promote` / `recommend` / `featured`，再 `rank` / `toplist`，再 `popular` / `hot` / `trending`），都没有就进第一个标签。
@@ -289,6 +290,23 @@ WorkItem 的全部字段，再加：
 - 只支持带 `#EXT-X-ENDLIST` 的完整、连续 MPEG-TS 点播清单；支持 `METHOD=AES-128`、`KEYFORMAT=identity` 的 CBC/PKCS7 解密，密钥恰好 16 字节，IV 可显式提供或由媒体序号推导。密钥只保存在当前会话内存。不支持直播、SAMPLE-AES、其他 KEYFORMAT、`EXT-X-MAP`、`EXT-X-BYTERANGE`、fMP4、discontinuity 和 gap；非标准的 `#EXT-X-TOKEN` 会被移除。
 - 播放时使用只绑定 `127.0.0.1` 的随机端口和随机令牌，通过有限 URL 注册表按需读取已验证的分段，关闭会话即取消请求。HLS 离线下载目前只支持 Android：逐段验证并保存 SHA-256，可恢复、可取消，最后由 Media3 封装为 MP4，完整成品才进入离线库。
 
+### 应用内网页视频：`webVideo`
+
+当站点只提供真实播放网页、没有可验证的媒体资源时，实现 `webVideo(id, episodeId)`，不要虚构 `videos` 或章节。返回：
+
+```js
+return {
+  url: 'https://player.example.com/watch/1',
+  navigationDomains: ['player.example.com'],
+  frameDomains: [],
+};
+```
+
+- 运行时自动导出 `capabilities.webVideo`。同时实现 `videos` 时优先原生播放器。详情和历史入口均进入应用内网页，隐藏应用的下载与虚构选集，不承诺精确断点续播；页面控制由上游提供。
+- 地址必须为 HTTPS、公网域名、无用户凭据且仅使用 443 端口。默认允许目标注册域及子域；额外主框架跳转和 iframe 只允许返回的域及子域，必须根据真实请求声明。域声明不扩大插件 HTTP、媒体或 Cookie 权限。弹窗、下载、文件访问和页面调用原生桥接均被拒绝。
+- Android 使用独立临时 WebView Profile，不读写默认浏览器或插件 Cookie。需要设备 WebView 支持 `MULTI_PROFILE`，否则提示更新 Android System WebView。退出清除该 Profile 的 Cookie 和网站存储并销毁 WebView；若设备暂不允许删除已载入的 Profile，下一次进程启动播放时清理遗留目录。Apple 使用临时会话，其他平台暂不支持。应用进入后台或上锁时暂停播放。
+- 播放页可能需要单独完成年龄或站点确认；不导入源凭据。聚合站解析跳转时可用原生 HTTP 的 `followRedirects: false` 读取 `Location`，不携带源凭据访问上游。
+
 ### 小说：`textChapter`
 
 小说插件声明 `type: 'novel', category: 'novel'`，实现 `textChapter` 后运行时导出 `capabilities.textChapter: true`。列表和详情填写 `mediaKind: 'novel'` 和 `language: 'zh'` 或 `'en'`。没有真实封面时返回 `cover: ''`，应用显示文字封面，不请求虚构图片。
@@ -396,11 +414,13 @@ await this.http.request({
   json: {...} | form: {...} | body: 'raw' | bodyBase64: '...',
   timeout: 15000,
   responseType: 'text' | 'base64',
+  followRedirects: false, // 可选，默认 true；仅原生网络支持
 });
 // → { status, headers, body, url, ok, json() }
 ```
 
 - `text()` / `json()` 遇到非 2xx 自动抛错（404 → `NOT_FOUND`）。Cookie 自动保存，并按每次重定向的目标地址重新选择。
+- 原生网络设置 `followRedirects: false` 时返回原始 30x 响应和 `Location`，不访问跳转目标；浏览器网络不支持该选项并返回 `CONFIG`。需要检查 30x 时用 `request()` / `get()`，不要用要求 2xx 的 `text()` / `json()`。
 - `bodyBase64` 是原始二进制请求体（最多 2 MiB），不能与 `body` 或浏览器模式同时使用；与文本请求使用相同的域名隔离、TLS 和重定向规则。插件不能自行开放浏览器网络、WebSocket 或任意文件访问。
 
 ## 错误码
@@ -458,6 +478,30 @@ Park.register({
 
 应用自身的界面文案通过 `tr('已选 {count}', { 'count': count })` 或 `context.tr` 调用，八种语言资源位于 `assets/i18n/`，新增或修改时必须同步全部语言并保持占位符一致。
 
+## 排行榜
+
+源通过 `rankings` 声明作品榜；`capabilities.rankings` 由运行时根据声明生成。仅提供商业榜的源设置 `rankingOnly: true`，不声明 `feeds`，不伪造详情、阅读或播放能力。它只出现在独立排行榜页和站点管理中。
+
+```js
+rankings: [{
+  key: 'sales', label: '排行榜', category: 'doujin', metric: '官方销量榜',
+  options: [{ key: 'period', label: '周期', default: 'week', values: [
+    { value: 'week', label: '周榜' }, { value: 'month', label: '月榜' },
+  ] }],
+}],
+async ranking(board, { page = 1, offset = 0, cursor, options = {} }) {
+  return { items: [{ id: '商品标识', rank: 1, title: '远端作品名', cover: 'https://example.com/cover.jpg',
+    keyword: '作品检索词', url: 'https://example.com/product/1', subtitle: '作者或番号' }],
+    page, hasNext: false };
+},
+```
+
+- `category` 决定搜索范围，首批支持 `jav`、`doujin`、`anime`。`metric` 明确标示销量、人气或站内热度；站点默认热门不能称为销量榜。
+- `rank` 保留原站名次，包括并列名次；官网只有有序列表时使用其原始位置。`offset` 是此前收到的原始条目数，不受本地去重和屏蔽影响。`keyword` 可选，缺省按标题搜索；`url` 是无凭据的 HTTPS 商品链接。
+- 既有内容源可声明 `{ key: 'hot', label: '排行榜', category: 'doujin', metric: '站内热度', feed: 'hot' }`。省略 `options` 时继承对应 feed 的选项；无需实现 `ranking()`，运行时复用 `feed()`，保留作品字段，补 `workId` 和缺失的 `rank`。页面由此打开真实作品详情。独立实现的商业榜只提供分类聚合搜索和原站入口。
+- 运行时在请求前拒绝未声明榜单或选项值。每个榜单与选项组合独立分页、刷新与会话复用；插件版本变化后使用新会话。列表按用户已有的内容屏蔽规则过滤，保留原始名次。
+- 排行榜结果不使用普通首页磁盘缓存，避免丢失名次、检索词和商品链接。所有站点业务规则留在插件内。
+
 ## 发布
 
 ### 源仓库
@@ -502,17 +546,19 @@ Park.register({
 
 ```text
 https://raw.githubusercontent.com/drdon1234/Hentai-Park/sources/index.json
+https://raw.githubusercontent.com/drdon1234/Hentai-Park/rankings/index.json
 ```
 
 - `assets/sources/index.json` 是唯一维护的清单，`file` 指向同目录下的脚本，文件名必须是 `{key}.js`（`[A-Za-z0-9_-]+.js`，不接受子目录、符号链接或文件名中的点号）。
-- `tools/publish_sources.mjs` 生成发布索引，每条记录包含 `key`、`name`、`version`、`category`、`description`、`url`、`sha256`、`apiVersion`，脚本 URL 固定到本次源码的完整提交号：`https://raw.githubusercontent.com/drdon1234/Hentai-Park/<提交 SHA>/assets/sources/<file>`。`sources` 分支只保存生成的 `index.json`。
+- `tools/publish_sources.mjs` 生成发布索引，每条记录包含 `key`、`name`、`version`、`category`、`description`、`rankingOnly`、`url`、`sha256`、`apiVersion`，脚本 URL 固定到本次源码的完整提交号：`https://raw.githubusercontent.com/drdon1234/Hentai-Park/<提交 SHA>/assets/sources/<file>`。源码始终在主分支维护；`sources` 和 `rankings` 分支各只保存生成的 `index.json`，按 `rankingOnly` 分流，不重复维护源码。清单标记必须与运行时 manifest 一致。
 - 发布器只依赖 Node.js 22+ 内置模块，可以离线运行：检查清单、文件和目录边界，在不提供网络和存储的上下文中加载运行时和脚本，用与安装预览相同的 `Park.__pending` / `Park.manifest` 方式核对 `key`、`version` 和 API。它不调用 `init`、登录或站点方法，不能代替真实请求验证。
 
 ```powershell
 node tools/publish_sources.mjs --commit '<完整 40 位提交 SHA>' --output 'test/official-source-index.json'
+node tools/publish_sources.mjs --commit '<完整 40 位提交 SHA>' --channel rankings --output 'test/official-ranking-index.json'
 ```
 
-需要对比已有发布时加 `--previous '旧索引路径'`；旧索引无效时校验失败。`.github/workflows/publish-sources.yml` 只在主仓库 `main` 分支相关文件推送或手动触发时运行，串行执行，校验全部通过后用一次普通推送原子更新 `sources` 分支；校验失败或分支有并发变更时不会覆盖线上索引。
+需要对比已有发布时加 `--previous '旧索引路径'`，使用对应频道的旧索引；旧索引无效时校验失败。`.github/workflows/publish-sources.yml` 只在主仓库 `main` 分支相关文件推送或手动触发时运行，工作流排队，通过矩阵分别校验并用普通推送原子更新两个频道；校验失败或分支有并发变更时不会覆盖线上索引。应用独立读取两个索引，一个失败仍检查另一个；频道标记不符或跨索引重复 key 的条目不能安装或覆盖其他条目。下载时仍验证固定提交 URL、SHA-256、版本、API 和频道，确认安装后才生效。
 
 ### 构建生成的插件
 

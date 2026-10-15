@@ -64,6 +64,7 @@ class _DetailPageState extends State<DetailPage> {
   bool get _isVideo =>
       _m?.isVideo ?? DownloadManager.instance.task(_uid)?.isVideo ?? false;
   bool get _opensExternally => _m?.opensExternally == true;
+  bool get _webVideo => _m?.usesWebVideo == true;
   bool get _isGame => _m?.isGame == true || _item.isGame;
 
   @override
@@ -75,7 +76,7 @@ class _DetailPageState extends State<DetailPage> {
 
   /// Keeps the stored chapter list (and with it read state and library updates) in step with the site.
   Future<void> _syncChapters(WorkDetail d) async {
-    if (_opensExternally || _isGame) return;
+    if (_opensExternally || _webVideo || _isGame) return;
     final chapters = _isVideo
         ? d.videoEpisodes
         : d.chapters ?? [Chapter(chapterKeyOf(d.singleChapterId), tr('全本'))];
@@ -373,7 +374,7 @@ class _DetailPageState extends State<DetailPage> {
 
   List<Widget> _body(BuildContext context, WorkDetail d) {
     final isVideo = _isVideo;
-    final chapters = _opensExternally || _isGame
+    final chapters = _opensExternally || _webVideo || _isGame
         ? null
         : isVideo && d.hasVideoEpisodes
         ? d.videoEpisodes

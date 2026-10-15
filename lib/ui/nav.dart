@@ -20,6 +20,7 @@ import 'source/source_page.dart';
 import 'subscriptions/subscription_posts_page.dart';
 import 'video/video_page.dart';
 import 'web/web_verify_page.dart';
+import 'web/web_video_page.dart';
 import 'widgets/content_translation.dart';
 import 'widgets/error_view.dart';
 
@@ -161,7 +162,9 @@ class Nav {
       ? openWork(context, work.toItem())
       : push(
           context,
-          _short(work.source)
+          SourceManager.instance.manifest(work.source)?.usesWebVideo == true
+              ? WebVideoPage(work: work, episodeId: episodeId)
+              : _short(work.source)
               ? ShortVideoPage(source: work.source, initial: work.toItem())
               : VideoPage(
                   work: work,

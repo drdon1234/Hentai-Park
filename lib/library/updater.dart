@@ -72,6 +72,7 @@ class LibraryUpdater extends ChangeNotifier {
         s.ready &&
         m != null &&
         !m.opensExternally &&
+        !m.usesWebVideo &&
         !m.isGame;
   }
 

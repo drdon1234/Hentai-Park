@@ -18,6 +18,9 @@ concurrency:
 
 jobs:
   publish:
+    strategy:
+      matrix:
+        channel: [sources, rankings]
     if: github.repository == 'drdon1234/Hentai-Park' && github.ref == 'refs/heads/main' && github.event.repository.default_branch == 'main'
     runs-on: ubuntu-latest
     timeout-minutes: 5
@@ -36,15 +39,17 @@ jobs:
       - name: Validate and generate index
         id: generate
         shell: bash
+        env:
+          CHANNEL: ${{ matrix.channel }}
         run: |
           set -euo pipefail
           SOURCE_COMMIT="$(git rev-parse HEAD)"
 
           previous_args=()
           published_commit=''
-          if git ls-remote --exit-code origin refs/heads/sources > "$RUNNER_TEMP/sources-ref"; then
-            git fetch --no-tags origin refs/heads/sources:refs/remotes/origin/sources
-            published_commit="$(git rev-parse refs/remotes/origin/sources)"
+          if git ls-remote --exit-code origin "refs/heads/$CHANNEL" > "$RUNNER_TEMP/sources-ref"; then
+            git fetch --no-tags origin "refs/heads/$CHANNEL:refs/remotes/origin/$CHANNEL"
+            published_commit="$(git rev-parse "refs/remotes/origin/$CHANNEL")"
             if git cat-file -e "$published_commit:index.json"; then
               git show "$published_commit:index.json" > "$RUNNER_TEMP/published-index.json"
               previous_args=(--previous "$RUNNER_TEMP/published-index.json")
@@ -55,15 +60,17 @@ jobs:
           fi
 
           node tools/publish_sources.mjs --commit "$SOURCE_COMMIT" \
+            --channel "$CHANNEL" \
             --output "$RUNNER_TEMP/source-index.json" "${previous_args[@]}"
           echo "source_commit=$SOURCE_COMMIT" >> "$GITHUB_OUTPUT"
           echo "published_commit=$published_commit" >> "$GITHUB_OUTPUT"
           echo 'ready=true' >> "$GITHUB_OUTPUT"
 
-      - name: Atomically update sources branch
+      - name: Atomically update plugin channel branch
         if: steps.generate.outputs.ready == 'true'
         shell: bash
         env:
+          CHANNEL: ${{ matrix.channel }}
           SOURCE_COMMIT: ${{ steps.generate.outputs.source_commit }}
           PUBLISHED_COMMIT: ${{ steps.generate.outputs.published_commit }}
           GIT_AUTHOR_NAME: github-actions[bot]
@@ -83,6 +90,6 @@ jobs:
             fi
             parent_args=(-p "$PUBLISHED_COMMIT")
           fi
-          publication="$(git commit-tree "$tree" "${parent_args[@]}" -m "Publish sources from $SOURCE_COMMIT")"
+          publication="$(git commit-tree "$tree" "${parent_args[@]}" -m "Publish $CHANNEL from $SOURCE_COMMIT")"
           # A normal fast-forward push refuses a concurrent branch change; never force-push.
-          git push origin "$publication:refs/heads/sources"
+          git push origin "$publication:refs/heads/$CHANNEL"

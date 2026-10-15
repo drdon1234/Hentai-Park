@@ -5,7 +5,7 @@
     {
       "key": "jm",
       "name": "禁漫天堂",
-      "version": "0.0.6",
+      "version": "0.0.7",
       "type": "comic",
       "category": "doujin",
       "file": "jm.js",
@@ -14,7 +14,7 @@
     {
       "key": "ehentai",
       "name": "E-Hentai",
-      "version": "0.0.5",
+      "version": "0.0.6",
       "type": "comic",
       "category": "doujin",
       "file": "ehentai.js",
@@ -23,7 +23,7 @@
     {
       "key": "nhentai",
       "name": "nhentai",
-      "version": "0.0.5",
+      "version": "0.0.6",
       "type": "comic",
       "category": "doujin",
       "file": "nhentai.js",
@@ -41,7 +41,7 @@
     {
       "key": "wnacg",
       "name": "绅士漫画",
-      "version": "0.0.4",
+      "version": "0.0.5",
       "type": "comic",
       "category": "doujin",
       "file": "wnacg.js",
@@ -95,7 +95,7 @@
     {
       "key": "hanime1",
       "name": "Hanime1",
-      "version": "0.0.4",
+      "version": "0.0.5",
       "type": "video",
       "category": "anime",
       "file": "hanime1.js",
@@ -176,20 +176,20 @@
     {
       "key": "ixxx",
       "name": "iXXX",
-      "version": "0.0.6",
+      "version": "0.0.7",
       "type": "video",
       "category": "adult",
       "file": "ixxx.js",
-      "description": "综合成人视频搜索，支持排行、分页与原站打开"
+      "description": "综合成人视频搜索，支持排行、分页与应用内网页播放"
     },
     {
       "key": "tubesafari",
       "name": "TubeSafari",
-      "version": "0.0.3",
+      "version": "0.0.4",
       "type": "video",
       "category": "adult",
       "file": "tubesafari.js",
-      "description": "综合成人视频搜索，支持热门、分页与原站打开"
+      "description": "综合成人视频搜索，支持热门、分页与应用内网页播放"
     },
     {
       "key": "shorties",
@@ -406,6 +406,66 @@
       "category": "novel",
       "file": "story69.js",
       "description": "中文短篇小说，支持最新与分类阅读；站点无有效搜索"
+    },
+    {
+      "key": "ranking-fanza",
+      "name": "FANZA",
+      "version": "0.0.1",
+      "type": "video",
+      "category": "jav",
+      "rankingOnly": true,
+      "file": "ranking-fanza.js",
+      "description": "官方销量榜"
+    },
+    {
+      "key": "ranking-fc2",
+      "name": "FC2",
+      "version": "0.0.1",
+      "type": "video",
+      "category": "jav",
+      "rankingOnly": true,
+      "file": "ranking-fc2.js",
+      "description": "官方销量榜"
+    },
+    {
+      "key": "ranking-mgs",
+      "name": "MGStage",
+      "version": "0.0.1",
+      "type": "video",
+      "category": "jav",
+      "rankingOnly": true,
+      "file": "ranking-mgs.js",
+      "description": "官方销量榜"
+    },
+    {
+      "key": "ranking-studios",
+      "name": "无码厂商",
+      "version": "0.0.1",
+      "type": "video",
+      "category": "jav",
+      "rankingOnly": true,
+      "file": "ranking-studios.js",
+      "description": "官方人气榜"
+    },
+    {
+      "key": "ranking-dlsite",
+      "name": "DLsite",
+      "version": "0.0.1",
+      "type": "comic",
+      "category": "doujin",
+      "rankingOnly": true,
+      "file": "ranking-dlsite.js",
+      "description": "官方销量榜"
+    },
+    {
+      "key": "ranking-toranoana",
+      "name": "虎之穴",
+      "version": "0.0.1",
+      "type": "comic",
+      "category": "doujin",
+      "rankingOnly": true,
+      "file": "ranking-toranoana.js",
+      "description": "官方销量榜"
     }
   ]
 }

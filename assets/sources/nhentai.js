@@ -16,7 +16,7 @@ Park.register({
   },
   key: 'nhentai',
   name: 'nhentai',
-  version: '0.0.5',
+  version: '0.0.6',
   type: 'comic',
   category: 'doujin',
   color: '#ED2553',
@@ -46,6 +46,7 @@ Park.register({
     },
   ],
 
+  rankings: [{ key: 'popular', label: '排行榜', category: 'doujin', metric: '站内热门', feed: 'popular' }],
   defaultFeed: 'popular',
   feeds: [
     { key: 'latest', label: '最新' },

@@ -102,9 +102,20 @@ class MainActivity : FlutterFragmentActivity() {
         mediaRemuxer?.shutdown()
         mediaRemuxer = MediaRemuxer(applicationContext, flutterEngine.dartExecutor.binaryMessenger)
         launchPayload = intent?.getStringExtra(EXTRA_PAYLOAD)
+        val webVideoProfiles = WebVideoProfiles(flutterEngine)
         channel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "hentai_park/platform").also {
             it.setMethodCallHandler { call, result ->
                 when (call.method) {
+                    "isolateWebVideo" -> {
+                        try { result.success(webVideoProfiles.isolate(call.arguments as String)) }
+                        catch (_: Exception) { result.success(false) }
+                    }
+                    "releaseWebVideo" -> {
+                        try {
+                            webVideoProfiles.release(call.arguments as String)
+                            result.success(null)
+                        } catch (_: Exception) { result.error("WEB_VIDEO", "WEB_VIDEO", null) }
+                    }
                     "claimSourceEngine" -> SubscriptionJob.claim(result)
                     "scheduleSubscriptions" -> {
                         try {

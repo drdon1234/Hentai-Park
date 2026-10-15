@@ -89,6 +89,9 @@ class HttpService {
       throw SourceError('CONFIG', '二进制请求参数无效');
     }
     if (o['mode'] == 'browser') {
+      if (o['followRedirects'] == false) {
+        throw SourceError('CONFIG', '浏览器请求不支持禁止重定向');
+      }
       final origin = (o['origin'] ?? '').toString();
       final target = _httpUri(o['url'].toString());
       final page = _httpUri(origin.isNotEmpty ? origin : target.toString());
@@ -108,6 +111,7 @@ class HttpService {
       return result;
     }
     final res = await send(
+      followRedirects: o['followRedirects'] != false,
       partition: partition,
       method: (o['method'] ?? 'GET').toString(),
       url: o['url'].toString(),
@@ -142,8 +146,10 @@ class HttpService {
     CancelToken? cancelToken,
     void Function(int received, int total)? onProgress,
     int? maxBytes,
+    bool followRedirects = true,
   }) async {
     final resource = await _request(
+      followRedirects: followRedirects,
       method: method,
       url: url,
       headers: headers,
@@ -192,6 +198,7 @@ class HttpService {
 
   // Both buffered requests and file downloads use the same explicit redirect policy.
   Future<_HttpResponse> _request({
+    bool followRedirects = true,
     required String method,
     required String url,
     required Map<String, String> headers,
@@ -284,7 +291,9 @@ class HttpService {
         _throwIfCancelled(cancelToken);
         final status = res.statusCode ?? 0;
         final location = res.headers.value('location');
-        if ({301, 302, 303, 307, 308}.contains(status) && location != null) {
+        if (followRedirects &&
+            {301, 302, 303, 307, 308}.contains(status) &&
+            location != null) {
           // Close unused response bodies before dispatching the next hop.
           requestToken.cancel('redirect response discarded');
           await res.data!.stream.listen(null).cancel();

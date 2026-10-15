@@ -73,7 +73,8 @@ function publishedSources(previousIndex) {
   return published;
 }
 
-export async function generateIndex({ root = defaultRoot, commit, previousIndex } = {}) {
+export async function generateIndex({ root = defaultRoot, commit, previousIndex, channel = 'sources' } = {}) {
+  if (!['sources', 'rankings'].includes(channel)) throw new Error('无效发布频道');
   if (!isCommit(commit)) {
     throw new Error('commit 必须是源码提交的完整 40 位小写十六进制 SHA');
   }
@@ -112,10 +113,17 @@ export async function generateIndex({ root = defaultRoot, commit, previousIndex 
     if (manifest.category !== entry.category) {
       throw new Error(`${entry.file} 注册的 category 与清单不一致`);
     }
+    if (manifest.rankingOnly !== (entry.rankingOnly === true)) {
+      throw new Error(`${key} 的排行榜标记与清单不一致`);
+    }
+    if (manifest.rankingOnly && (!manifest.rankings.length || manifest.feeds.length)) {
+      throw new Error(`${key} 必须仅声明排行榜，不得混入普通列表`);
+    }
     if (apiVersion !== runtimeApi || manifest.apiVersion !== runtimeApi) {
       throw new Error(`${key} 的脚本 apiVersion ${manifest.apiVersion} 与运行时 API ${runtimeApi} 不一致`);
     }
     const digest = sha256(code);
+    if ((channel === 'rankings') !== manifest.rankingOnly) continue;
     const previous = published.get(key);
     if (previous) {
       const comparison = compareVersions(entry.version, previous.version);
@@ -127,21 +135,23 @@ export async function generateIndex({ root = defaultRoot, commit, previousIndex 
     sources.push({
       key, name: entry.name, version: entry.version, description: entry.description,
       category: entry.category,
+      rankingOnly: manifest.rankingOnly,
       url: officialAssetUrl(commit, `assets/sources/${entry.file}`),
       sha256: digest, apiVersion: runtimeApi,
     });
   }
-  return { name: index.name, apiVersion: runtimeApi, sources };
+  return { name: channel === 'rankings' ? 'HentaiPark Rankings' : index.name, apiVersion: runtimeApi, sources };
 }
 
 async function main() {
   const { values } = parseArgs({ options: {
     root: { type: 'string' }, commit: { type: 'string' },
     previous: { type: 'string' }, output: { type: 'string' },
+    channel: { type: 'string', default: 'sources' },
   } });
   requiredText(values.output, '--output');
   const previousIndex = values.previous ? JSON.parse(await readUtf8(values.previous)) : undefined;
-  const index = await generateIndex({ root: values.root, commit: values.commit, previousIndex });
+  const index = await generateIndex({ root: values.root, commit: values.commit, previousIndex, channel: values.channel });
   // Do not touch an existing output until every script and the previous publication have passed.
   await writeFile(values.output, JSON.stringify(index, null, 2) + '\n', 'utf8');
   console.log(`已离线验证并生成 ${index.sources.length} 个官方源：${values.output}`);
