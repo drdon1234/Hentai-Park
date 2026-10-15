@@ -175,11 +175,15 @@ class _WebVerifyPageState extends State<WebVerifyPage> {
     final c = _c;
     if (c == null || _done) return;
     _checking = true;
+    final generation = _navigationGeneration;
     try {
       // 停留在第三方授权页时，不导入 Cookie 或判断源站登录完成。
       final actual = (await c.getUrl())?.toString();
-      if (_popupOpen || !_sourceAllowed(actual)) return;
-      final generation = _navigationGeneration;
+      if (_popupOpen ||
+          generation != _navigationGeneration ||
+          !_sourceAllowed(actual)) {
+        return;
+      }
       if (_loading || _progress < 1 || _browserFailed) return;
       final title = await c.getTitle() ?? '';
       final html =
@@ -246,7 +250,15 @@ class _WebVerifyPageState extends State<WebVerifyPage> {
         }
       }
     } catch (_) {
-      if (mounted && !_sessionClosed) setState(() => _browserFailed = true);
+      // 授权跳转或弹窗关闭会中断旧页面的异步调用，不能据此销毁新页面。
+      if (mounted &&
+          !_sessionClosed &&
+          !_popupOpen &&
+          !_loading &&
+          identical(c, _c) &&
+          generation == _navigationGeneration) {
+        setState(() => _browserFailed = true);
+      }
     } finally {
       _checking = false;
     }
@@ -440,6 +452,12 @@ class _WebVerifyPageState extends State<WebVerifyPage> {
                           setState(() => _browserFailed = true);
                         }
                         return NavigationActionPolicy.CANCEL;
+                      }
+                      if (action.isForMainFrame) {
+                        // 在 onLoadStart 到来前就让旧页面的登录检查失效。
+                        _navigationGeneration++;
+                        _loading = true;
+                        _progress = 0;
                       }
                       _trackSourceUri(url!);
                       return NavigationActionPolicy.ALLOW;
