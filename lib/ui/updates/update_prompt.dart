@@ -9,6 +9,7 @@ import '../../core/localization.dart';
 import '../../engine/app_installer.dart';
 import '../../engine/app_updater.dart';
 import '../../engine/source_updater.dart';
+import '../kit/tokens.dart';
 import '../theme.dart';
 
 /// 只展示可确认的操作；检查本身不会触发下载或安装。
@@ -45,10 +46,10 @@ Future<void> showAppUpdatePrompt(
                     : '此平台请前往官方发布页下载并手动安装。',
               ),
             ),
-            if (release.notes.isNotEmpty) ...[
-              const SizedBox(height: 16),
-              SelectableText(release.notes),
-            ],
+            for (final line in release.notesFor(
+              chinese: AppLocalizations.of(ctx).locale.languageCode == 'zh',
+            ))
+              _ReleaseNote(line),
           ],
         ),
       ),
@@ -85,6 +86,34 @@ Future<void> showAppUpdatePrompt(
   if (!opened && context.mounted) {
     _message(context, tr('无法打开下载页面，请稍后重试'));
   }
+}
+
+/// One line of the release notes: section headings, list items and plain text.
+class _ReleaseNote extends StatelessWidget {
+  const _ReleaseNote(this.line);
+  final ReleaseNoteLine line;
+
+  @override
+  Widget build(BuildContext context) => switch (line.kind) {
+    ReleaseNoteKind.heading => Padding(
+      padding: const EdgeInsets.only(top: Gap.l, bottom: Gap.xs),
+      child: Text(line.text, style: context.text.titleSmall),
+    ),
+    ReleaseNoteKind.item => Padding(
+      padding: const EdgeInsets.only(top: Gap.xs),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('•  '),
+          Expanded(child: SelectableText(line.text)),
+        ],
+      ),
+    ),
+    ReleaseNoteKind.text => Padding(
+      padding: const EdgeInsets.only(top: Gap.s),
+      child: SelectableText(line.text),
+    ),
+  };
 }
 
 class _AppDownloadDialog extends StatefulWidget {

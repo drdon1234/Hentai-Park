@@ -20,7 +20,43 @@ class AppRelease {
   final Uri url;
   final String notes;
   final List<AppApk> assets;
+
+  /// The notes in the interface language: Chinese interfaces read the `## 中文`
+  /// section, all others `## English` (format in docs/DEVELOPMENT.md). A body
+  /// with only one of them shows that one; a body with neither shows whole.
+  List<ReleaseNoteLine> notesFor({required bool chinese}) {
+    final all = notes.replaceAll('\r\n', '\n').split('\n');
+    List<String>? section(String name) {
+      final start = all.indexWhere(
+        (line) => RegExp('^##\\s+$name\\s*\$').hasMatch(line),
+      );
+      if (start < 0) return null;
+      final end = all.indexWhere((line) => line.startsWith('## '), start + 1);
+      return all.sublist(start + 1, end < 0 ? all.length : end);
+    }
+
+    final lines =
+        section(chinese ? '中文' : 'English') ??
+        section(chinese ? 'English' : '中文') ??
+        all;
+    return [
+      for (final line in lines.map((line) => line.trim()))
+        if (line.isNotEmpty)
+          switch (RegExp(r'^(#{1,6}|[-*])\s+(.+)$').firstMatch(line)) {
+            final m? when m.group(1)!.startsWith('#') => (
+              kind: ReleaseNoteKind.heading,
+              text: m.group(2)!,
+            ),
+            final m? => (kind: ReleaseNoteKind.item, text: m.group(2)!),
+            null => (kind: ReleaseNoteKind.text, text: line),
+          },
+    ];
+  }
 }
+
+enum ReleaseNoteKind { heading, item, text }
+
+typedef ReleaseNoteLine = ({ReleaseNoteKind kind, String text});
 
 class AppApk {
   const AppApk({
