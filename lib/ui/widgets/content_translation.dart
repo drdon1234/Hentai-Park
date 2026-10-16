@@ -370,6 +370,53 @@ class TranslationControls extends StatelessWidget {
   }
 }
 
+/// 多站点页面用当前站点展示安装状态，不依赖列表中是否恰好有可见标签。
+class TagTranslationPackStatus extends StatelessWidget {
+  const TagTranslationPackStatus({super.key, required this.source});
+  final String source;
+
+  @override
+  Widget build(BuildContext context) {
+    final scope = _TranslationScope.of(context);
+    final locale =
+        scope?.locale ??
+        AppLocalizations.localeKey(AppLocalizations.of(context).locale);
+    final service = TagTranslations.instance;
+    return ListenableBuilder(
+      listenable: service,
+      builder: (context, _) {
+        final available = service.availableLocales(source).contains(locale);
+        return OnVisible(
+          key: ValueKey('$source/$locale'),
+          onVisible: (visible) {
+            if (visible &&
+                scope?.active == true &&
+                scope?.original != true &&
+                ModalRoute.of(context)?.isCurrent != false) {
+              unawaited(showTagDownloadGuide(context, source, locale));
+            }
+          },
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              TextButton.icon(
+                onPressed: () =>
+                    showTagTranslationPacks(context, source: source),
+                icon: const Icon(Icons.translate_rounded),
+                label: Text(tr('官方标签翻译包')),
+              ),
+              if (service.installed(source, locale))
+                Text(tr('翻译包已安装'))
+              else if (!available)
+                Text(tr('本站暂无专用词包，开启内容翻译后可翻译标签')),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
 Future<void> showTagDownloadGuide(
   BuildContext context,
   String source,

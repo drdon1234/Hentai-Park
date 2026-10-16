@@ -412,7 +412,9 @@ class _DetailPageState extends State<DetailPage> {
     final isNovel = _m?.isNovel == true || d.isNovel;
     return [
       if (d.variants.isNotEmpty || d.workCode.isNotEmpty)
-        SliverToBoxAdapter(child: DetailVersions(work: d)),
+        SliverToBoxAdapter(
+          child: DetailVersions(work: d, manifest: _m),
+        ),
       if (blocked.isNotEmpty)
         SliverToBoxAdapter(child: BlockedNotice(tags: blocked)),
       if (d.description.isNotEmpty)

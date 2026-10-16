@@ -142,14 +142,20 @@ class PlatformBridge {
 
   /// Android uses its current insets API: Flutter's immersiveSticky request is
   /// ignored on target SDK 36. The same native session restores prior bar state.
-  static Future<void> applyVideoFullscreen(bool enabled) async {
+  static Future<void> applyVideoFullscreen(
+    bool enabled, {
+    bool landscape = false,
+  }) async {
     if (PlatformCapabilities.desktop) {
       await windowManager.setFullScreen(enabled);
       return;
     }
     if (defaultTargetPlatform == TargetPlatform.android) {
       try {
-        await _channel.invokeMethod('setVideoFullscreen', enabled);
+        await _channel.invokeMethod('setVideoFullscreen', {
+          'enabled': enabled,
+          'landscape': landscape,
+        });
         return;
       } catch (_) {}
     }

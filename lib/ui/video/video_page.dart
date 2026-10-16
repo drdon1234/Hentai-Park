@@ -208,6 +208,7 @@ class _VideoPageState extends State<VideoPage>
           await SystemChrome.setPreferredOrientations(videoOrientations(mode));
           await PlatformBridge.applyVideoFullscreen(
             mode != VideoDisplayMode.inline,
+            landscape: mode == VideoDisplayMode.landscape,
           );
         })
         .catchError((Object _) {});

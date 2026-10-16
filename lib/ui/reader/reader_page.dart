@@ -30,6 +30,7 @@ import 'reader_image.dart';
 import 'reader_layout.dart';
 import 'reader_settings_sheet.dart';
 import 'reader_views.dart';
+import 'reader_zoom.dart';
 
 part 'reader_input.dart';
 part 'reader_navigation.dart';

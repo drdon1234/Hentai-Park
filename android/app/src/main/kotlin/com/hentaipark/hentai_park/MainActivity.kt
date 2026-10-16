@@ -7,6 +7,7 @@ import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
+import android.content.pm.ActivityInfo
 import android.content.pm.PackageManager
 import android.media.AudioManager
 import android.os.Build
@@ -191,7 +192,15 @@ class MainActivity : FlutterFragmentActivity() {
                     }
                     "setVideoFullscreen" -> {
                         try {
-                            videoFullscreen = call.arguments == true
+                            val args = call.arguments as Map<*, *>
+                            videoFullscreen = args["enabled"] == true
+                            // Flutter's USER_* orientations honor rotation lock. Video
+                            // fullscreen must follow gravity within the selected axis.
+                            requestedOrientation = when {
+                                !videoFullscreen -> ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+                                args["landscape"] == true -> ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
+                                else -> ActivityInfo.SCREEN_ORIENTATION_SENSOR_PORTRAIT
+                            }
                             if (videoFullscreen) hideVideoSystemBars()
                             else restoreVideoSystemBars(clear = true)
                             result.success(null)

@@ -57,9 +57,8 @@ mixin _ReaderViews on _ReaderBase, _ReaderNavigation, _ReaderInput {
 
   Widget _verticalView(List<PageImage> pages) {
     final gap = _settings.readerGap;
-    return InteractiveViewer(
-      transformationController: _zoom,
-      minScale: 1,
+    return ReaderZoom(
+      controller: _zoom,
       maxScale: 4,
       panEnabled: _zoomed,
       child: ScrollablePositionedList.builder(

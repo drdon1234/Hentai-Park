@@ -106,6 +106,7 @@ class VideoControls extends StatelessWidget {
                     Expanded(child: progress!),
                   ],
                   IconButton(
+                    color: fg,
                     tooltip: tr(landscape ? '竖屏展开' : '横屏播放'),
                     icon: Icon(
                       landscape
@@ -119,6 +120,7 @@ class VideoControls extends StatelessWidget {
                     ),
                   ),
                   IconButton(
+                    color: fg,
                     tooltip: tr(fullscreen ? '退出全屏' : '竖屏展开'),
                     icon: Icon(
                       fullscreen

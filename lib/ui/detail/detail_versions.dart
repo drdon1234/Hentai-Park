@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 
+import '../../core/content_scope.dart';
 import '../../core/localization.dart';
 import '../../core/models.dart';
-import '../../engine/source_manager.dart';
 import '../nav.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
@@ -10,14 +10,14 @@ import '../widgets/work_editions.dart';
 
 /// 仅展示插件确认的版本；不同版本保持各自的进度、收藏与下载身份。
 class DetailVersions extends StatelessWidget {
-  const DetailVersions({super.key, required this.work});
+  const DetailVersions({super.key, required this.work, required this.manifest});
   final WorkDetail work;
+  final SourceManifest? manifest;
 
   @override
   Widget build(BuildContext context) {
     final keyword = work.workCode;
-    final searchable =
-        SourceManager.instance.manifest(work.source)?.can('search') == true;
+    final searchable = manifest?.can('search') == true;
     return Padding(
       padding: const EdgeInsets.symmetric(
         horizontal: Gap.page,
@@ -57,11 +57,14 @@ class DetailVersions extends StatelessWidget {
                     keyword: keyword,
                   ),
                 ),
-              if (keyword.isNotEmpty)
+              if (keyword.isNotEmpty && manifest != null)
                 ActionChip(
                   label: Text(tr('跨站查找版本')),
-                  onPressed: () =>
-                      Nav.openAggregateSearch(context, keyword: keyword),
+                  onPressed: () => Nav.openAggregateSearch(
+                    context,
+                    keyword: keyword,
+                    scope: ContentScope.domain(manifest!.category),
+                  ),
                 ),
             ],
           ),

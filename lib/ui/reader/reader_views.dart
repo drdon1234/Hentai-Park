@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../core/localization.dart';
 import '../kit/adaptive_sheet.dart';
 import '../kit/kit.dart';
+import 'reader_zoom.dart';
 
 /// Grayscale and invert filters on the pages, and the dim and warm layers above them.
 class ReaderFilters extends StatelessWidget {
@@ -177,10 +178,9 @@ class _ZoomablePageState extends State<ZoomablePage>
     return GestureDetector(
       onDoubleTapDown: (d) => _down = d,
       onDoubleTap: _toggle,
-      child: InteractiveViewer(
-        transformationController: _t,
-        minScale: 1,
-        maxScale: 5,
+      child: ReaderZoom(
+        controller: _t,
+        onInteractionStart: (_) => _anim.stop(),
         child: SizedBox.expand(child: widget.child),
       ),
     );

@@ -247,6 +247,13 @@ class _RankingsPageState extends State<RankingsPage> {
                           setState(() => _options[key] = values),
                     ),
                   Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: Gap.page),
+                    child: Align(
+                      alignment: AlignmentDirectional.centerStart,
+                      child: TagTranslationPackStatus(source: entry.source.key),
+                    ),
+                  ),
+                  Padding(
                     padding: const EdgeInsets.symmetric(
                       horizontal: Gap.page,
                       vertical: Gap.s,
