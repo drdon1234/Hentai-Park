@@ -83,8 +83,10 @@ class VideoControls extends StatelessWidget {
           ?episodes,
           LayoutBuilder(
             builder: (context, constraints) {
+              // 手机上的底部操作保持两层：时间和屏幕按钮在上，进度轨道在下。
+              // 这样保留原来的操作顺序，只缩短两层之间的距离；宽屏才把轨道放到同一行。
               final stacked =
-                  constraints.maxWidth < 320 ||
+                  constraints.maxWidth < 600 ||
                   MediaQuery.textScalerOf(context).scale(1) > 1.3;
               final time = Text(
                 '${formatPlaybackTime(position)} / ${formatPlaybackTime(value.duration)}',
@@ -130,7 +132,13 @@ class VideoControls extends StatelessWidget {
               return stacked && progress != null
                   ? Column(
                       mainAxisSize: MainAxisSize.min,
-                      children: [progress!, row],
+                      children: [
+                        row,
+                        Padding(
+                          padding: const EdgeInsets.only(top: Gap.xs),
+                          child: progress!,
+                        ),
+                      ],
                     )
                   : row;
             },
