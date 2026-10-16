@@ -61,15 +61,19 @@ class DesktopWindow with WindowListener {
     await windowManager.ensureInitialized();
     await windowManager.setTitle('HentaiPark');
     await windowManager.setMinimumSize(const Size(360, 480));
+    if (Platform.isWindows) {
+      await _updateTrayLabels();
+    }
+    // 启动错误页尚无主导航；初始化成功前保留原生关闭能力。
     await windowManager.setPreventClose(true);
-    windowManager.addListener(this);
     if (Platform.isWindows) {
       _tray.setMethodCallHandler((call) async {
         if (call.method == 'exit') await _exit();
       });
-      await _updateTrayLabels();
       AppSettings.instance.watch({'language'}).addListener(_updateTrayLabels);
     }
+    // 所有可能失败的初始化完成后再注册，启动重试不会重复添加监听。
+    windowManager.addListener(this);
   }
 
   @override

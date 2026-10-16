@@ -10,6 +10,7 @@ import 'package:path/path.dart' as p;
 
 import '../core/app_log.dart';
 import '../core/async_tasks.dart';
+import '../core/localization.dart';
 import '../core/models.dart';
 import '../core/settings.dart';
 import '../core/storage.dart';
@@ -45,6 +46,7 @@ class DownloadTask {
     required this.media,
     this.videoQuality,
     Map<String, String>? videoFiles,
+    this.deletingChapters,
   }) : dir = Directory(
          dir ??
              p.join(
@@ -70,6 +72,9 @@ class DownloadTask {
   int bytes;
   String? error;
   CancelToken? cancel;
+
+  /// 空列表表示删除整个任务；非空列表表示待完成的章节删除。
+  List<String>? deletingChapters;
   final DateTime createdAt;
 
   /// Chapters whose files are complete (pages.json written), so they can be read offline even
@@ -100,6 +105,7 @@ class DownloadTask {
     'media': media.name,
     if (videoQuality != null) 'videoQuality': videoQuality,
     if (videoFiles.isNotEmpty) 'videoFiles': videoFiles,
+    if (deletingChapters != null) 'deletingChapters': deletingChapters,
   };
 
   factory DownloadTask.fromJson(
@@ -127,6 +133,7 @@ class DownloadTask {
     videoFiles: (j['videoFiles'] as Map? ?? const {}).map(
       (k, v) => MapEntry(k.toString(), v.toString()),
     ),
+    deletingChapters: (j['deletingChapters'] as List?)?.cast<String>(),
   );
 
   /// Single videos retain their root output; explicit episode catalogs use isolated directories.
@@ -148,6 +155,14 @@ class DownloadManager extends ChangeNotifier {
 
   late AppDatabase _db;
   final Map<String, DownloadTask> _tasks = {};
+  final Map<String, DownloadRow> _restoreFailures = {};
+  final _restores = SerialExecutor();
+
+  List<({String uid, String source})> get restoreFailures => [
+    for (final row in _restoreFailures.values)
+      (uid: row.uid, source: row.source),
+  ];
+  bool hasRestoreFailure(String uid) => _restoreFailures.containsKey(uid);
 
   /// Root directory for new downloads (user-visible app storage on Android).
   Directory get root => AppPaths.downloadRoot;
@@ -160,6 +175,7 @@ class DownloadManager extends ChangeNotifier {
   final Map<String, DownloadTask> _active = {};
   final Map<DownloadTask, Future<void>> _runs = {};
   final Map<String, Future<void>> _deletions = {};
+  final Set<String> _removing = {};
   final _writes = SerialExecutor();
   bool _disposed = false;
 
@@ -172,20 +188,76 @@ class DownloadManager extends ChangeNotifier {
     _db = db;
     for (final r in await db.select(db.downloadTasks).get()) {
       try {
-        final t = DownloadTask.fromJson(
-          (jsonDecode(r.json) as Map).cast<String, dynamic>(),
-          dir: r.dir,
-          createdAt: DateTime.fromMillisecondsSinceEpoch(r.createdAt),
-        );
+        final t = _restoreTask(r);
         _tasks[t.uid] = t;
+        _restoreFailures.remove(r.uid);
       } catch (e) {
+        _restoreFailures[r.uid] = r;
         AppLog.error(e, event: 'download_restore');
       }
     }
     Library.instance.onChaptersRead.add(_onChaptersRead);
     _settingsListenable.addListener(_settingsChanged);
     await _watchNetwork();
+    for (final task in _tasks.values.toList()) {
+      if (task.deletingChapters == null) continue;
+      try {
+        await _retryDeletion(task);
+      } catch (error) {
+        AppLog.error(error, event: 'download_delete');
+      }
+    }
     _pump();
+  }
+
+  DownloadTask _restoreTask(DownloadRow row) {
+    final task = DownloadTask.fromJson(
+      (jsonDecode(row.json) as Map).cast<String, dynamic>(),
+      dir: row.dir,
+      createdAt: DateTime.fromMillisecondsSinceEpoch(row.createdAt),
+    );
+    if (task.uid != row.uid || task.item.source != row.source) {
+      throw const FormatException('Invalid download identity');
+    }
+    return task;
+  }
+
+  Future<void> retryRestore(String uid) =>
+      _restores.run(() => _retryRestore(uid));
+
+  Future<void> _retryRestore(String uid) async {
+    if (!_restoreFailures.containsKey(uid)) return;
+    final row = await (_db.select(
+      _db.downloadTasks,
+    )..where((r) => r.uid.equals(uid))).getSingleOrNull();
+    if (row == null) {
+      _restoreFailures.remove(uid);
+      notifyListeners();
+      return;
+    }
+    try {
+      final task = _restoreTask(row);
+      _tasks[uid] = task;
+      _restoreFailures.remove(uid);
+      if (task.deletingChapters != null) await _retryDeletion(task);
+      _pump();
+    } finally {
+      notifyListeners();
+    }
+  }
+
+  /// 无法确定文件归属时只移除记录，保留原始本地文件。
+  Future<void> removeRestoreFailure(String uid) =>
+      _restores.run(() => _removeRestoreFailure(uid));
+
+  Future<void> _removeRestoreFailure(String uid) async {
+    if (!_restoreFailures.containsKey(uid)) return;
+    await _writes.run(
+      () =>
+          (_db.delete(_db.downloadTasks)..where((r) => r.uid.equals(uid))).go(),
+    );
+    _restoreFailures.remove(uid);
+    notifyListeners();
   }
 
   Future<void> _watchNetwork() async {
@@ -235,7 +307,12 @@ class DownloadManager extends ChangeNotifier {
     final t = _tasks[uid];
     if (t == null || t.item.source == localSource) return;
     unawaited(
-      deleteChapters(uid, chapterIds.where(t.completed.contains).toList()),
+      deleteChapters(
+        uid,
+        chapterIds.where(t.completed.contains).toList(),
+      ).catchError(
+        (Object error) => AppLog.error(error, event: 'download_delete'),
+      ),
     );
   }
 
@@ -254,6 +331,7 @@ class DownloadManager extends ChangeNotifier {
 
   /// Persists the given tasks (all when null). Progress is saved at chapter boundaries, not per page.
   Future<void> flush() async {
+    await Future.wait(_deletions.values.toList());
     await _writes.settled;
     // 显式落盘最新任务，使关闭窗口时数据库错误能返回调用者。
     final tasks = _tasks.values.toList();
@@ -286,7 +364,7 @@ class DownloadManager extends ChangeNotifier {
     if (_disposed) return;
     final rows = [
       for (final t in which ?? _tasks.values)
-        if (identical(_tasks[t.uid], t))
+        if (identical(_tasks[t.uid], t) && !_deletions.containsKey(t.uid))
           DownloadTasksCompanion.insert(
             uid: t.uid,
             source: t.item.source,
@@ -319,6 +397,7 @@ class DownloadManager extends ChangeNotifier {
       throw SourceError('UNSUPPORTED', '游戏资源请使用独立下载渠道');
     }
     if (_disposed || chapters.isEmpty) return;
+    if (_restoreFailures.containsKey(item.uid)) return;
     if (item.source == localSource) {
       return; // imported files are already complete
     }
@@ -336,21 +415,26 @@ class DownloadManager extends ChangeNotifier {
     final deleting = _deletions[item.uid];
     if (deleting != null) {
       final existing = _tasks[item.uid];
+      final removing = _removing.contains(item.uid);
       final requested = List<Chapter>.of(chapters);
       if (existing != null) {
         existing.status = DownloadStatus.queued;
         _save([existing]);
       }
       unawaited(
-        deleting.then((_) {
-          if (existing == null) {
-            enqueue(item, requested, videoQuality: videoQuality);
-          } else if (!_disposed && identical(_tasks[item.uid], existing)) {
-            _addChapters(existing, requested, videoQuality: videoQuality);
-            _save([existing]);
-            _pump();
-          }
-        }),
+        deleting
+            .then((_) {
+              if (existing == null || removing) {
+                enqueue(item, requested, videoQuality: videoQuality);
+              } else if (!_disposed && identical(_tasks[item.uid], existing)) {
+                _addChapters(existing, requested, videoQuality: videoQuality);
+                _save([existing]);
+                _pump();
+              }
+            })
+            .catchError(
+              (Object error) => AppLog.error(error, event: 'download_delete'),
+            ),
       );
       return;
     }
@@ -400,6 +484,18 @@ class DownloadManager extends ChangeNotifier {
 
   void resume(String uid) {
     final t = _tasks[uid];
+    if (t?.deletingChapters != null) {
+      if (t!.deletingChapters!.isNotEmpty) {
+        t.status = DownloadStatus.queued;
+        t.error = null;
+      }
+      unawaited(
+        _retryDeletion(t).catchError(
+          (Object error) => AppLog.error(error, event: 'download_delete'),
+        ),
+      );
+      return;
+    }
     if (t == null || t.status == DownloadStatus.done) return;
     t
       ..status = DownloadStatus.queued
@@ -442,6 +538,15 @@ class DownloadManager extends ChangeNotifier {
     }
     final t = _tasks[uid];
     if (t == null || chapterIds.isEmpty) return Future.value();
+    final unfinished = t.deletingChapters;
+    if (unfinished != null) {
+      if (unfinished.isEmpty) return delete(uid);
+      chapterIds = {...unfinished, ...chapterIds}.toList();
+      if (t.status == DownloadStatus.failed) {
+        t.status = DownloadStatus.paused;
+        t.error = null;
+      }
+    }
     if (t.chapters.every((c) => chapterIds.contains(c.id))) return delete(uid);
     // Stop the current writer while retaining the latest queued/paused intent.
     if (t.status == DownloadStatus.running) {
@@ -449,10 +554,15 @@ class DownloadManager extends ChangeNotifier {
       t.cancel?.cancel('chapters deleted');
     }
     late final Future<void> deletion;
-    deletion = _deleteChapters(t, List.of(chapterIds)).whenComplete(() {
-      if (identical(_deletions[uid], deletion)) _deletions.remove(uid);
-      _pump();
-    });
+    deletion = _deleteChapters(t, List.of(chapterIds))
+        .catchError((Object error, StackTrace stack) {
+          _deletionFailed(t, error);
+          Error.throwWithStackTrace(error, stack);
+        })
+        .whenComplete(() {
+          if (identical(_deletions[uid], deletion)) _deletions.remove(uid);
+          _pump();
+        });
     _deletions[uid] = deletion;
     return deletion;
   }
@@ -461,12 +571,14 @@ class DownloadManager extends ChangeNotifier {
     final pending = _runs[t];
     if (pending != null) await pending;
     if (!identical(_tasks[t.uid], t)) return;
+    t.deletingChapters = chapterIds;
+    await _writeTask(t, t.toJson());
     final owned = await _ownsDirectory(t);
     for (final id in chapterIds) {
-      final relative = t.videoFiles.remove(id);
+      final relative = t.videoFiles[id];
       if (owned && relative != null) {
         final file = await _videoFile(t, relative);
-        if (file != null) await file.delete();
+        if (file != null && await file.exists()) await file.delete();
       }
       final dir = t.isVideo
           ? t.videoDirectory(id)
@@ -480,22 +592,75 @@ class DownloadManager extends ChangeNotifier {
           await dir.delete(recursive: true);
         }
       }
-      t.completed.remove(id);
     }
+    final remaining = t.chapters
+        .where((c) => !chapterIds.contains(c.id))
+        .toList();
+    final completed = t.completed.difference(chapterIds.toSet());
+    final videoFiles = Map<String, String>.of(t.videoFiles)
+      ..removeWhere((id, _) => chapterIds.contains(id));
+    final json = t.toJson()
+      ..remove('deletingChapters')
+      ..['chapters'] = [
+        for (final c in remaining) {'id': c.id, 'title': c.title},
+      ]
+      ..['completed'] = completed.toList()
+      ..['videoFiles'] = videoFiles;
+    await _writeTask(t, json);
+    t.completed
+      ..clear()
+      ..addAll(completed);
+    t.videoFiles
+      ..clear()
+      ..addAll(videoFiles);
     t.chapters.removeWhere((c) => chapterIds.contains(c.id));
-    _save([t]);
+    t.deletingChapters = null;
+    notifyListeners();
+    // 删除期间暂停或补充下载的最新意图也必须持久化。
+    await _writeTask(t, t.toJson());
   }
+
+  Future<void> _writeTask(DownloadTask task, Map<String, dynamic> json) =>
+      _writes.run(() async {
+        await _db
+            .into(_db.downloadTasks)
+            .insertOnConflictUpdate(
+              DownloadTasksCompanion.insert(
+                uid: task.uid,
+                source: task.item.source,
+                json: jsonEncode(json),
+                dir: task.dir.path,
+                createdAt: task.createdAt.millisecondsSinceEpoch,
+              ),
+            );
+      });
+
+  void _deletionFailed(DownloadTask task, Object error) {
+    task.status = DownloadStatus.failed;
+    task.error = tr('删除失败，请重试');
+    AppLog.error(error, event: 'download_delete');
+    notifyListeners();
+  }
+
+  Future<void> _retryDeletion(DownloadTask task) =>
+      task.deletingChapters!.isEmpty
+      ? delete(task.uid)
+      : deleteChapters(task.uid, List.of(task.deletingChapters!));
 
   /// Registers an already complete task (local imports).
   void addCompleted(DownloadTask t) {
+    if (hasRestoreFailure(t.uid)) {
+      throw SourceError('CONFIG', '下载记录恢复失败，请前往下载页处理');
+    }
     _tasks[t.uid] = t;
     _save([t]);
   }
 
   Future<void> delete(String uid) {
     final pending = _deletions[uid];
-    if (pending != null && !_tasks.containsKey(uid)) return pending;
-    final t = _tasks.remove(uid);
+    if (pending != null && _removing.contains(uid)) return pending;
+    final t = _tasks[uid];
+    _removing.add(uid);
     if (t != null) {
       t.status = DownloadStatus.paused;
       t.cancel?.cancel('download deleted');
@@ -504,8 +669,15 @@ class DownloadManager extends ChangeNotifier {
     deletion =
         (pending == null
                 ? _delete(uid, t)
-                : pending.then((_) => _delete(uid, t)))
+                : pending
+                      .then((_) {}, onError: (Object _) {})
+                      .then((_) => _delete(uid, t)))
+            .catchError((Object error, StackTrace stack) {
+              if (t != null) _deletionFailed(t, error);
+              Error.throwWithStackTrace(error, stack);
+            })
             .whenComplete(() {
+              _removing.remove(uid);
               if (identical(_deletions[uid], deletion)) _deletions.remove(uid);
               _pump();
             });
@@ -516,6 +688,10 @@ class DownloadManager extends ChangeNotifier {
   Future<void> _delete(String uid, DownloadTask? t) async {
     final pending = _runs[t];
     if (pending != null) await pending;
+    if (t != null) {
+      t.deletingChapters = [];
+      await _writeTask(t, t.toJson());
+    }
     if (t != null && await _ownsDirectory(t) && await t.dir.exists()) {
       await t.dir.delete(recursive: true);
     }
@@ -524,6 +700,7 @@ class DownloadManager extends ChangeNotifier {
           (_db.delete(_db.downloadTasks)..where((r) => r.uid.equals(uid))).go(),
     );
     await deletion;
+    if (identical(_tasks[uid], t)) _tasks.remove(uid);
     notifyListeners();
     _pump();
   }
@@ -535,7 +712,9 @@ class DownloadManager extends ChangeNotifier {
             .where((t) => t.status == DownloadStatus.queued)
             .toList()) {
       final source = next.item.source;
-      if (_active.containsKey(source) || _deletions.containsKey(next.uid)) {
+      if (_active.containsKey(source) ||
+          _deletions.containsKey(next.uid) ||
+          next.deletingChapters != null) {
         continue;
       }
       _active[source] = next;

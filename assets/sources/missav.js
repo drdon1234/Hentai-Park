@@ -11,7 +11,7 @@ Park.register({
   },
   key: 'missav',
   name: 'MissAV',
-  version: '0.0.6',
+  version: '0.0.7',
   type: 'video',
   category: 'jav',
   color: '#EF4444',
@@ -40,6 +40,36 @@ Park.register({
   ]}],
   BASE: 'https://missav.ai',
 
+  identity(id, label = '') {
+    const code = id.replace(/(?:-(?:uncensored-leak|uncensored|chinese-subtitle|english-subtitle))+$/, '');
+    const text = id + ' ' + label;
+    const editions = [];
+    if (/uncensored-leak|无码流出|無碼流出/i.test(text)) editions.push('无码流出');
+    else if (/uncensored|无码|無碼|無修正/i.test(text)) editions.push('无码');
+    if (/chinese-subtitle|中文字幕|中文\s*字幕/i.test(text)) editions.push('中文字幕');
+    if (/english-subtitle|英文字幕/i.test(text)) editions.push('英文字幕');
+    return {workCode: /^(?:\d{0,4}[a-z]{2,12}-\d{2,8}[a-z]?|fc2-ppv-\d{2,12})$/i.test(code) ? code.toUpperCase() : '', editions};
+  },
+
+  variants(doc, id, title, cover) {
+    const current = this.identity(id).workCode;
+    if (!current) return [];
+    const out = [];
+    for (const a of doc.querySelectorAll('a[href]')) {
+      let url;
+      try { url = new URL(a.getAttribute('href'), this.BASE); } catch (_) { continue; }
+      if (url.origin !== this.BASE || url.search || url.hash) continue;
+      const match = /^\/(?:dm\d*\/)?cn\/([a-z0-9][a-z0-9-]{1,120})$/.exec(url.pathname);
+      if (!match || match[1] === id || out.some(item => item.id === match[1])) continue;
+      const label = Park.html.text(a);
+      const identity = this.identity(match[1], label);
+      if (identity.workCode !== current) continue;
+      if (!identity.editions.length && /原版|原作|original/i.test(label)) identity.editions.push('原版');
+      out.push({id: match[1], title, cover, coverAspect: 16 / 9, ...identity});
+    }
+    return out;
+  },
+
   validId(id) {
     const value = String(id).toLowerCase();
     if (!/^[a-z0-9][a-z0-9-]{1,120}$/.test(value)) throw Park.error('NOT_FOUND', '影片编号无效');
@@ -64,7 +94,13 @@ Park.register({
       const cover = img.getAttribute('data-src') || img.getAttribute('src') || '';
       if (!title || !/^https:\/\//.test(cover)) continue;
       const duration = (Park.html.text(card).match(/\b(?:\d+:)?\d{1,2}:\d{2}\b/) || [''])[0];
-      out.push({id: m[1], title, cover, coverAspect: 16 / 9, duration});
+      // 推荐模板会保留隐藏的字幕角标，不能把未显示的标记当成版本信息。
+      const labels = card.cloneNode(true);
+      for (const node of labels.querySelectorAll('[hidden], [style], script, template')) {
+        if (node.hasAttribute('hidden') || /display\s*:\s*none/i.test(node.getAttribute('style') || '') || /^(SCRIPT|TEMPLATE)$/.test(node.nodeName)) node.remove();
+      }
+      const editionLabels = [...labels.querySelectorAll('span')].map(Park.html.text).join(' ');
+      out.push({id: m[1], title, cover, coverAspect: 16 / 9, duration, ...this.identity(m[1], editionLabels)});
     }
     return out;
   },
@@ -184,7 +220,7 @@ Park.register({
       if (!/^[a-z0-9][a-z0-9-]{1,120}$/.test(itemId) || itemId === id || out.some(item => item.id === itemId)) continue;
       const code = itemId.toUpperCase().replace(/-(?:UNCENSORED-LEAK|CHINESE-SUBTITLE|ENGLISH-SUBTITLE)$/, '');
       const seconds = Number(values.duration) || 0;
-      out.push({id: itemId, title: values.title_cn ? `${code} ${values.title_cn}` : code,
+      out.push({id: itemId, title: values.title_cn ? `${code} ${values.title_cn}` : code, ...this.identity(itemId),
         cover: `https://fourhoi.com/${itemId}/cover-t.jpg`, coverAspect: 16 / 9,
         duration: seconds ? `${Math.floor(seconds/3600)}:${String(Math.floor(seconds/60)%60).padStart(2,'0')}:${String(seconds%60).padStart(2,'0')}` : ''});
     }
@@ -209,7 +245,11 @@ Park.register({
     }
     const time = doc.querySelector('time[datetime]');
     const seconds = Number(meta('og:video:duration')) || 0;
+    const editionTags = [...doc.querySelectorAll('.space-y-2 a[href]')]
+      .map(a => a.getAttribute('href') || '').filter(url => /\/cn\/(?:chinese-subtitle|english-subtitle|uncensored-leak|uncensored)(?:[?#]|$)/.test(url)).join(' ');
     return {id, title, cover: meta('og:image'), coverAspect: 16/9, url: this.BASE + '/cn/' + id,
+      ...this.identity(id, editionTags),
+      variants: this.variants(doc, id, title, meta('og:image')),
       authors: actors, description: meta('og:description'), uploaded: time ? time.getAttribute('datetime').slice(0,10) : '',
       duration: seconds ? `${Math.floor(seconds/3600)}:${String(Math.floor(seconds/60)%60).padStart(2,'0')}:${String(seconds%60).padStart(2,'0')}` : '',
       tags: tags.length ? [{namespace: 'tag',label: '标签',tags}] : [],

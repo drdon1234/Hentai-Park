@@ -20,9 +20,15 @@ class LockGate extends StatelessWidget {
           // Keep the app mounted underneath so navigation state survives locking.
           ExcludeSemantics(
             excluding: lock.locked,
-            child: TickerMode(enabled: !lock.locked, child: child),
+            child: ExcludeFocus(
+              excluding: lock.locked,
+              child: TickerMode(enabled: !lock.locked, child: child),
+            ),
           ),
-          if (lock.locked) const Positioned.fill(child: _LockScreen()),
+          if (lock.locked)
+            const Positioned.fill(
+              child: FocusScope(autofocus: true, child: _LockScreen()),
+            ),
         ],
       ),
     );

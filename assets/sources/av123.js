@@ -9,7 +9,7 @@ Park.register({
     "ru": {"JAV 视频，支持推荐、热门、搜索与 HLS 播放": "Видео JAV с рекомендациями, популярными списками, поиском и воспроизведением HLS", "推荐列表暂不可用": "Рекомендации временно недоступны", "推荐配置暂不可用": "Настройки рекомендаций временно недоступны", "播放线路暂不可用": "Воспроизведение временно недоступно", "请刷新推荐列表后重试": "Обновите рекомендации и повторите попытку"},
     "ar": {"JAV 视频，支持推荐、热门、搜索与 HLS 播放": "مقاطع JAV مع توصيات وقوائم شائعة وبحث وتشغيل HLS", "推荐列表暂不可用": "التوصيات غير متاحة مؤقتًا", "推荐配置暂不可用": "إعدادات التوصيات غير متاحة مؤقتًا", "播放线路暂不可用": "التشغيل غير متاح مؤقتًا", "请刷新推荐列表后重试": "حدّث التوصيات وحاول مرة أخرى"},
   },
-  key: 'av123', name: '123AV', version: '0.0.6', type: 'video', category: 'jav', color: '#EF4444',
+  key: 'av123', name: '123AV', version: '0.0.7', type: 'video', category: 'jav', color: '#EF4444',
   description: 'JAV 视频，支持推荐、热门、搜索与 HLS 播放',
   homepage: 'https://123av.com', domains: ['123av.com', 'sadie-shop.site'], language: 'zh-Hans',
   network: {mode: 'browser', origin: 'https://123av.com', vpnHint: true},
@@ -23,6 +23,29 @@ Park.register({
   settings: [{key: 'quality', type: 'select', label: '默认清晰度', default: '1080', options: [
     {value: '1080', label: '1080P'}, {value: '720', label: '720P'}, {value: '480', label: '480P'}]}],
   BASE: 'https://123av.com',
+  identity(id, labels = '') {
+    const code = id.replace(/(?:-(?:uncensored-leaked|uncensored|chinese-subtitle|english-subtitle))+$/, '');
+    const editions = [], text = id + ' ' + labels;
+    if (/uncensored-leaked/i.test(text)) editions.push('无码流出');
+    else if (/uncensored|无码|無碼/i.test(text)) editions.push('无码');
+    else if (/有码|有碼|^censored$/i.test(labels.trim())) editions.push('有码');
+    if (/chinese-subtitle|中文字幕/i.test(text)) editions.push('中文字幕');
+    if (/english-subtitle|英文字幕/i.test(text)) editions.push('英文字幕');
+    return {workCode: /^(?:\d{0,4}[a-z]{2,12}-\d{2,8}[a-z]?|fc2-ppv-\d{2,12})$/i.test(code) ? code.toUpperCase() : '', editions};
+  },
+  variants(doc, id) {
+    const code = this.identity(id).workCode, items = [];
+    if (!code) return items;
+    for (const a of doc.querySelectorAll('a[href]')) {
+      let url;
+      try { url = new URL(a.getAttribute('href'), this.BASE); } catch (_) { continue; }
+      const match = /^\/cn\/v\/([a-z0-9][a-z0-9_-]{1,120})$/.exec(url.pathname);
+      if (url.origin !== this.BASE || url.search || url.hash || !match || match[1] === id || items.some(item => item.id === match[1])) continue;
+      const identity = this.identity(match[1], a.classList.contains('watch__version') ? Park.html.text(a) : '');
+      if (identity.workCode === code) items.push({id: match[1], title: Park.html.text(a) || match[1].toUpperCase(), ...identity});
+    }
+    return items;
+  },
   validId(id) {
     const value = String(id).toLowerCase();
     if (!/^[a-z0-9][a-z0-9_-]{1,120}$/.test(value)) throw Park.error('NOT_FOUND', '影片编号无效');
@@ -51,7 +74,7 @@ Park.register({
       const m=a && /^\/cn\/v\/([a-z0-9][a-z0-9_-]{1,120})(?:[?#]|$)/.exec(a.getAttribute('href') || '');
       const title=Park.html.text(a), cover=img && img.getAttribute('src');
       if (!m || !title || !/^https:\/\/icdn\.123av\.me\//.test(cover || '') || items.some(i=>i.id===m[1])) continue;
-      items.push({id:m[1],title,cover,coverAspect:16/9,duration:this.duration(Park.html.text(card.querySelector('.card__dur')))});
+      items.push({id:m[1],title,cover,coverAspect:16/9,duration:this.duration(Park.html.text(card.querySelector('.card__dur'))), ...this.identity(m[1], Park.html.text(card.querySelector('.card__badge')))});
     }
     return items;
   },
@@ -80,7 +103,7 @@ Park.register({
     const entries=Array.isArray(data.recomms)?data.recomms.slice(0,100):[];
     const codes=entries.filter(i=>i && /^[a-z0-9][a-z0-9_-]{1,120}$/i.test(i.code || ''));
     const hashes=await Park.crypto.md5Hex(codes.map(i=>i.code.toLowerCase()));
-    return codes.map((i,n)=>({id:i.code.toLowerCase(),title:i.code+(i.title_cn?' — '+i.title_cn:''),
+    return codes.map((i,n)=>({id:i.code.toLowerCase(),title:i.code+(i.title_cn?' — '+i.title_cn:''), ...this.identity(i.code.toLowerCase()),
       cover:'https://icdn.123av.me/img2/s360/'+hashes[n].slice(0,2)+'/'+i.code.toLowerCase()+'/cover.jpg',coverAspect:16/9,duration:this.duration(i.duration)}));
   },
   // The watch page loads similar videos in the browser from rec2 ("watch-similar").
@@ -158,7 +181,7 @@ Park.register({
         tags.push({name:label,keyword:'',filters:{category:path}});
       }
     }
-    return {id,title,cover,coverAspect:16/9,url:this.BASE+'/cn/v/'+id,authors,duration,uploaded,
+    return {id,title,cover,coverAspect:16/9,url:this.BASE+'/cn/v/'+id,authors,duration,uploaded, ...this.identity(id), variants:this.variants(doc,id),
       description:Park.html.text(doc.querySelector('.watch__desc-text')),tags:tags.length?[{namespace:'tag',label:'标签',tags}]:[],related:await this.related(doc,id)};
   },
   async videos(id) {

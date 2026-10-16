@@ -300,7 +300,6 @@ class BackupService {
       }
       if (json['subscriptions'] case final data?) {
         await SubscriptionStore.instance.reload();
-        SubscriptionStore.parse(data);
         report.subscriptions = SubscriptionStore.parse(data).length;
       }
       final sources = json['sources'];

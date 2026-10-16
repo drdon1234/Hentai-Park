@@ -15,7 +15,7 @@ String formatPlaybackTime(Duration d) {
 }
 
 /// The control layer over the player: title, quality and speed on top, play in the middle,
-/// time and screen modes at the bottom (the progress bar is drawn by the page above it).
+/// time, progress and screen modes in one bottom control group.
 class VideoControls extends StatelessWidget {
   const VideoControls({
     super.key,
@@ -33,6 +33,7 @@ class VideoControls extends StatelessWidget {
     this.quality,
     this.onQuality,
     this.episodes,
+    this.progress,
   });
   final VideoPlayerValue value;
 
@@ -52,6 +53,7 @@ class VideoControls extends StatelessWidget {
   final String? quality;
   final VoidCallback? onQuality;
   final Widget? episodes;
+  final Widget? progress;
 
   @override
   Widget build(BuildContext context) {
@@ -75,49 +77,65 @@ class VideoControls extends StatelessWidget {
           child: Text('${speed}x'),
         ),
       ],
-      bottom: Padding(
-        padding: const EdgeInsets.only(bottom: 48),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ?episodes,
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    '${formatPlaybackTime(position)} / ${formatPlaybackTime(value.duration)}',
-                    style: context.text.labelMedium?.copyWith(
-                      color: fg,
-                      fontFeatures: const [FontFeature.tabularFigures()],
+      bottom: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          ?episodes,
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final stacked =
+                  constraints.maxWidth < 320 ||
+                  MediaQuery.textScalerOf(context).scale(1) > 1.3;
+              final time = Text(
+                '${formatPlaybackTime(position)} / ${formatPlaybackTime(value.duration)}',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: context.text.labelMedium?.copyWith(
+                  color: fg,
+                  fontFeatures: const [FontFeature.tabularFigures()],
+                ),
+              );
+              final row = Row(
+                children: [
+                  if (progress == null || stacked)
+                    Expanded(child: time)
+                  else ...[
+                    time,
+                    Expanded(child: progress!),
+                  ],
+                  IconButton(
+                    tooltip: tr(landscape ? '竖屏展开' : '横屏播放'),
+                    icon: Icon(
+                      landscape
+                          ? Icons.stay_current_portrait_rounded
+                          : Icons.screen_rotation_rounded,
+                    ),
+                    onPressed: () => onDisplayMode(
+                      landscape
+                          ? VideoDisplayMode.portrait
+                          : VideoDisplayMode.landscape,
                     ),
                   ),
-                ),
-                IconButton(
-                  tooltip: tr(landscape ? '竖屏展开' : '横屏播放'),
-                  icon: Icon(
-                    landscape
-                        ? Icons.stay_current_portrait_rounded
-                        : Icons.screen_rotation_rounded,
+                  IconButton(
+                    tooltip: tr(fullscreen ? '退出全屏' : '竖屏展开'),
+                    icon: Icon(
+                      fullscreen
+                          ? Icons.fullscreen_exit_rounded
+                          : Icons.fullscreen_rounded,
+                    ),
+                    onPressed: onFullscreen,
                   ),
-                  onPressed: () => onDisplayMode(
-                    landscape
-                        ? VideoDisplayMode.portrait
-                        : VideoDisplayMode.landscape,
-                  ),
-                ),
-                IconButton(
-                  tooltip: tr(fullscreen ? '退出全屏' : '竖屏展开'),
-                  icon: Icon(
-                    fullscreen
-                        ? Icons.fullscreen_exit_rounded
-                        : Icons.fullscreen_rounded,
-                  ),
-                  onPressed: onFullscreen,
-                ),
-              ],
-            ),
-          ],
-        ),
+                ],
+              );
+              return stacked && progress != null
+                  ? Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [progress!, row],
+                    )
+                  : row;
+            },
+          ),
+        ],
       ),
       child: Stack(
         children: [

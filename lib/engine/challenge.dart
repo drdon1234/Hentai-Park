@@ -21,6 +21,13 @@ bool hasChallengeMarkers(String body, {String title = ''}) {
   ).hasMatch(pageTitle)) {
     return true;
   }
+  if (body.toLowerCase().contains('cloudflare') &&
+      RegExp(
+        r'^\s*(?:请稍候|請稍候|请稍等|請稍等|しばらくお待ちください|잠시만 기다리세요|Un momento|Einen Moment|Один момент|لحظة واحدة)(?:[\s.…!！]|$)',
+        caseSensitive: false,
+      ).hasMatch(pageTitle)) {
+    return true;
+  }
   // 检测脚本也会注入正常内容页，只有验证配置或验证表单才表示拦截。
   return RegExp(
         r'(?:window\.)?_cf_chl_opt\s*=|id\s*=\s*["\x27](?:challenge-form|cf-challenge-running)["\x27]',

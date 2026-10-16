@@ -17,6 +17,8 @@ class HomeMetadata {
     'duration',
     'uploaded',
     'tags',
+    'workCode',
+    'editions',
     'uploader',
     'mediaKind',
     'contentDomain',
@@ -44,6 +46,8 @@ class HomeMetadata {
           field: value[field],
       if (value['tags'] is List)
         'tags': (value['tags'] as List).whereType<String>().toList(),
+      if (value['editions'] is List)
+        'editions': (value['editions'] as List).whereType<String>().toList(),
     };
     return {
       for (final field in ['page', 'totalPages', 'hasNext', 'cursor', 'total'])

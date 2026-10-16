@@ -124,6 +124,8 @@ Park.register({
 
 `defaultFeed`는 **추천 > 순위 > 인기** 순으로 고르고, 사이트에 이런 입구가 정말 없을 때만 최신 페이지 등 유효한 입구를 씁니다. 검증하지 않은 API를 만들어 내면 안 됩니다. 비어 있거나 key를 찾지 못하면 앱이 key로 자동 선택합니다 (`promote` / `recommend` / `featured`, 다음 `rank` / `toplist`, 다음 `popular` / `hot` / `trending`). 없으면 첫 탭입니다.
 
+익명 접근은 가능하지만 추천에 로그인이 필요한 소스는 `anonymousDefaultFeed: 'ranking'`을 선언합니다. `feeds`에서 실제 익명 접근이 확인된 항목을 지정하고 순위를 우선합니다. 홈과 사이트 화면은 로그아웃 상태에서 이 항목을, 로그인 상태에서 `defaultFeed`를 사용하며 사용자가 직접 선택한 탭은 유지합니다. 빈 목록이나 네트워크 오류를 무조건 익명 상태로 판단하지 마세요.
+
 ### 옵션 정의
 
 `feeds[].options`, `searchFilters`, `settings`는 같은 형식을 씁니다.
@@ -239,7 +241,10 @@ async resolveGameResource(workId, resourceId, channelId) {}
 { sections: [{ title: '连载更新', items: [WorkItem] }], hasNext: false }
 ```
 
-**WorkItem**: `{ id, title, subtitle?, cover, coverAspect?, pages?, rating?, likes?, views?, language?, category?, badge?, badgeColor?, duration?, uploaded?, tags?, mediaKind? }`
+**WorkItem**: `{ id, title, subtitle?, cover, coverAspect?, pages?, rating?, likes?, views?, language?, category?, badge?, badgeColor?, duration?, uploaded?, tags?, mediaKind?, workCode?, editions? }`
+
+- `workCode`는 원본 사이트에서 확인한 작품 번호 또는 공통 검색 코드이며 같은 작품을 찾는 데만 사용합니다. `id`를 대체하거나 작품 식별, 즐겨찾기, 진행 상태, 다운로드를 병합하지 않습니다.
+- `editions`는 원본 사이트가 명시한 고정 버전 라벨(중국어 자막, 무삭제 유출본 등)입니다. 라벨이 없다고 원본으로 추정하면 안 됩니다. 번역 표시는 원래 라벨을 변경하지 않습니다.
 
 - `coverAspect` (너비 / 높이)가 있으면 이미지가 로드되기 전에 격자를 배치할 수 있습니다.
 - `badgeColor`는 분류 배지의 색입니다.
@@ -257,9 +262,11 @@ WorkItem의 모든 필드에 더해:
   chapters: [{ id, title }] | null,   // null은 단일 챕터
   singleChapterId?,                   // 단일 챕터 작품에 필요한 챕터 ID
   thumbnails?: [url | { url, width, height, offsetX, offsetY }],   // 스프라이트 지원
-  related?: [WorkItem], series?: [WorkItem],
+  related?: [WorkItem], series?: [WorkItem], variants?: [WorkItem],
 }
 ```
+
+- `variants`에는 원본 사이트가 제공한 같은 사이트의 동일 작품에 대한 실제 버전 링크만 포함하며 각 버전의 독립적인 `id`를 유지합니다. URL을 추측하지 마세요. 다른 사이트의 버전은 `workCode`로 검색하며 즐겨찾기, 진행 상태, 다운로드를 독립적으로 유지합니다.
 
 - 태그를 누르면 이 사이트에서 `keyword`와 `filters`로 검색하므로, 태그를 사이트 고유 문법 (예: `artist:"xxx"`)이나 필터 매개변수에 대응시킬 수 있습니다.
 - 두 번째 인자 `preview`는 선택이며, `preview.source`와 `preview.id`가 요청과 일치할 때만 이미 표시되었거나 저장된 공개 메타데이터가 전달됩니다. 플러그인은 여전히 ID를 확인하고 URL을 검증해야 합니다. 번호를 입력해 열면 preview가 없으므로 제목과 표지가 불완전할 수 있습니다.

@@ -9,7 +9,7 @@ Park.register({
     "ru": {"FST 播放线路暂不可用": "Сервер FST временно недоступен", "JAV 视频，支持热门、搜索与 FST 线路播放": "JAV: популярное, поиск и воспроизведение FST", "中文字幕": "Китайские субтитры", "无码": "Без цензуры", "此影片没有可用的 FST 线路": "Для этого видео нет доступного сервера FST"},
     "ar": {"FST 播放线路暂不可用": "خادم FST غير متاح مؤقتًا", "JAV 视频，支持热门、搜索与 FST 线路播放": "فيديوهات JAV مع قوائم شائعة وبحث وتشغيل FST", "中文字幕": "ترجمة صينية", "无码": "غير خاضع للرقابة", "此影片没有可用的 FST 线路": "لا يوجد خادم FST متاح لهذا الفيديو"},
   },
-  key: 'supjav', name: 'SupJav', version: '0.0.5', type: 'video', category: 'jav', color: '#F59E0B',
+  key: 'supjav', name: 'SupJav', version: '0.0.6', type: 'video', category: 'jav', color: '#F59E0B',
   description: 'JAV 视频，支持热门、搜索与 FST 线路播放',
   homepage: 'https://supjav.com', domains: ['supjav.com', 'lk1.supremejav.com', 'fc2stream.tv'], language: 'zh',
   network: {mode: 'browser', origin: 'https://supjav.com', vpnHint: true},
@@ -39,6 +39,30 @@ Park.register({
     if (response.body.length > 4 * 1024 * 1024) throw Park.error('PARSE', '影片页面过大');
     return {html: response.body, doc: Park.html.parse(response.body)};
   },
+  identity(title, labels = '') {
+    const match = /^\s*(?:\[[^\]]{1,40}\]\s*|【[^】]{1,40}】\s*)*(FC2[- ]?PPV[- ]?\d{2,12}|\d{0,4}[a-z]{2,12}-\d{2,8}[a-z]?)(?=\s|$)/i.exec(title);
+    const workCode = match ? match[1].replace(/^FC2[- ]?PPV[- ]?/i, 'FC2-PPV-').toUpperCase() : '';
+    const text = (match ? title.slice(0, match.index + match[0].length - match[1].length) : '') + ' ' + labels;
+    const editions = [];
+    if (/无码破解|無碼破解|reducing-mosaic/i.test(text)) editions.push('无码破解');
+    else if (/无码|無碼|uncensored-jav/i.test(text)) editions.push('无码');
+    else if (/有码|有碼|censored-jav/i.test(text)) editions.push('有码');
+    if (/中文字幕|chinese-subtitles/i.test(text)) editions.push('中文字幕');
+    if (/英文字幕|english-subtitles/i.test(text)) editions.push('英文字幕');
+    return {workCode, editions};
+  },
+  variants(doc, id, title) {
+    const code = this.identity(title).workCode;
+    if (!code) return [];
+    const items = [];
+    for (const a of doc.querySelectorAll('a[href]')) {
+      const match = /^https:\/\/supjav\.com\/zh\/([0-9]{1,12})\.html$/.exec(a.getAttribute('href') || '');
+      const name = Park.html.text(a), identity = this.identity(name);
+      if (!match || match[1] === id || identity.workCode !== code || items.some(item => item.id === match[1])) continue;
+      items.push({id: match[1], title: name, ...identity});
+    }
+    return items;
+  },
   cards(doc) {
     const items = [];
     for (const card of doc.querySelectorAll('div.post')) {
@@ -46,7 +70,7 @@ Park.register({
       const m = a && /^https:\/\/supjav\.com\/(?:zh\/)?([0-9]{1,12})\.html$/.exec(a.getAttribute('href') || '');
       const title = Park.html.text(a), cover = img && (img.getAttribute('data-original') || img.getAttribute('src'));
       if (!m || !title || !/^https:\/\//.test(cover || '') || items.some(i => i.id === m[1])) continue;
-      items.push({id: m[1], title, cover, coverAspect: 320/216});
+      items.push({id: m[1], title, cover, coverAspect: 320/216, ...this.identity(title)});
     }
     return items;
   },
@@ -88,7 +112,9 @@ Park.register({
       if (m[1].includes('/category/cast/')) authors.push(name);
       if (!tags.some(t => t.filters.category === m[1])) tags.push({name, keyword: '', filters: {category: m[1]}});
     }
+    const editionTags = [...doc.querySelectorAll('.post-meta .cats a[href]')].map(a => a.getAttribute('href') || '').join(' ');
     return {id, title, cover: img ? img.getAttribute('src') : '', coverAspect: 16/9, url: this.BASE + '/zh/' + id + '.html', authors,
+      ...this.identity(title, editionTags), variants: this.variants(doc, id, title),
       tags: tags.length ? [{namespace: 'tag', label: '标签', tags}] : [], related: this.cards(doc).filter(i => i.id !== id)};
   },
   packedMedia(html) {

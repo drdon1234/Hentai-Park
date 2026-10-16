@@ -272,28 +272,30 @@ class _VideoPageState extends State<VideoPage>
     onPick: _pickEpisode,
   );
 
-  Widget _controlsLayer(VideoPlayerValue value) => VideoControls(
-    value: value,
-    position: _previewPosition ?? value.position,
-    title: widget.work.title,
-    fullscreen: _fullscreen,
-    displayMode: _displayMode,
-    speed: _session.speed,
-    quality: _session.sources.length > 1 ? _session.current?.label : null,
-    onQuality: _switchQuality,
-    onSpeed: _pickSpeed,
-    episodes: _fullscreen && _episodes.length > 1
-        ? _episodeBar(overlay: true)
-        : null,
-    onBack: () =>
-        _fullscreen ? _toggleFullscreen() : Navigator.maybePop(context),
-    onPlayPause: () {
-      _session.togglePlayback();
-      _scheduleHide();
-    },
-    onDisplayMode: _setDisplayMode,
-    onFullscreen: _toggleFullscreen,
-  );
+  Widget _controlsLayer(VideoPlayerValue value, Widget progress) =>
+      VideoControls(
+        progress: progress,
+        value: value,
+        position: _previewPosition ?? value.position,
+        title: widget.work.title,
+        fullscreen: _fullscreen,
+        displayMode: _displayMode,
+        speed: _session.speed,
+        quality: _session.sources.length > 1 ? _session.current?.label : null,
+        onQuality: _switchQuality,
+        onSpeed: _pickSpeed,
+        episodes: _fullscreen && _episodes.length > 1
+            ? _episodeBar(overlay: true)
+            : null,
+        onBack: () =>
+            _fullscreen ? _toggleFullscreen() : Navigator.maybePop(context),
+        onPlayPause: () {
+          _session.togglePlayback();
+          _scheduleHide();
+        },
+        onDisplayMode: _setDisplayMode,
+        onFullscreen: _toggleFullscreen,
+      );
 
   @override
   Widget build(BuildContext context) {

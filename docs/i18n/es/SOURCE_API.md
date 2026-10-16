@@ -124,6 +124,8 @@ Las capacidades (`capabilities`) las exporta el entorno a partir de los métodos
 
 Elige `defaultFeed` en el orden **recomendados > clasificaciones > populares**; usa la página de novedades u otra entrada válida solo si el sitio no tiene ninguna de ellas, y nunca inventes una API no verificada. Si falta o no existe, la app elige por la key (primero `promote` / `recommend` / `featured`, luego `rank` / `toplist`, luego `popular` / `hot` / `trending`) y, si nada encaja, la primera pestaña.
 
+Las fuentes que permiten acceso anónimo pero requieren iniciar sesión para las recomendaciones declaran `anonymousDefaultFeed: 'ranking'`. Debe apuntar a una entrada de `feeds` cuyo acceso anónimo se haya verificado, preferiblemente una clasificación. El inicio y la página de la fuente usan esta entrada sin sesión y `defaultFeed` con sesión; se conserva la pestaña elegida explícitamente. No interpretes toda lista vacía o error de red como una sesión anónima.
+
 ### Opciones
 
 `feeds[].options`, `searchFilters` y `settings` comparten formato:
@@ -239,7 +241,10 @@ async resolveGameResource(workId, resourceId, channelId) {}
 { sections: [{ title: '连载更新', items: [WorkItem] }], hasNext: false }
 ```
 
-**WorkItem**: `{ id, title, subtitle?, cover, coverAspect?, pages?, rating?, likes?, views?, language?, category?, badge?, badgeColor?, duration?, uploaded?, tags?, mediaKind? }`
+**WorkItem**: `{ id, title, subtitle?, cover, coverAspect?, pages?, rating?, likes?, views?, language?, category?, badge?, badgeColor?, duration?, uploaded?, tags?, mediaKind?, workCode?, editions? }`
+
+- `workCode` es un código de obra confirmado por la fuente y se usa solo para buscar la misma obra. No sustituye a `id` ni fusiona identidades, favoritos, progreso o descargas.
+- `editions` contiene etiquetas fijas de edición indicadas explícitamente por la fuente, como subtítulos en chino o una filtración sin censura. La ausencia de etiquetas no implica una edición original. La traducción visible no modifica las etiquetas originales.
 
 - `coverAspect` (ancho / alto) permite colocar la cuadrícula antes de que carguen las imágenes.
 - `badgeColor` colorea la insignia de categoría.
@@ -257,9 +262,11 @@ Todos los campos de WorkItem, más:
   chapters: [{ id, title }] | null,   // null significa un solo capítulo
   singleChapterId?,                   // ID de capítulo que necesitan las obras de un solo capítulo
   thumbnails?: [url | { url, width, height, offsetX, offsetY }],   // admite sprites
-  related?: [WorkItem], series?: [WorkItem],
+  related?: [WorkItem], series?: [WorkItem], variants?: [WorkItem],
 }
 ```
+
+- `variants` incluye únicamente enlaces reales proporcionados por la fuente a ediciones de la misma obra en esa fuente, cada una con su propio `id`; no se deben adivinar URL. Las ediciones de otras fuentes se buscan mediante `workCode`; favoritos, progreso y descargas permanecen independientes.
 
 - Al tocar una etiqueta se busca en este sitio con `keyword` y `filters`, así que las etiquetas pueden corresponder a la sintaxis propia del sitio (como `artist:"xxx"`) o a parámetros de filtro.
 - El segundo argumento opcional `preview` lleva los metadatos públicos ya mostrados o guardados, y solo se pasa si `preview.source` y `preview.id` coinciden con la solicitud. El plugin debe seguir comprobando el ID y validando las URL. Las obras abiertas por ID escrito no tienen vista previa, así que título y portada pueden estar incompletos.

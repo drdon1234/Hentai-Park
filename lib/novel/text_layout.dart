@@ -1,5 +1,14 @@
 import 'package:flutter/painting.dart';
 
+/// 正文方向取首个有方向的字符，不跟随应用界面语言。
+TextDirection novelTextDirection(String text) {
+  final first = RegExp(r'\p{L}', unicode: true).firstMatch(text)?.group(0);
+  if (first == null) return TextDirection.ltr;
+  return RegExp(r'[\u0590-\u08ff\ufb1d-\ufdff\ufe70-\ufeff]').hasMatch(first)
+      ? TextDirection.rtl
+      : TextDirection.ltr;
+}
+
 class NovelPage {
   const NovelPage(this.start, this.end);
   final int start;
@@ -41,7 +50,9 @@ List<NovelPage> paginateNovel(
                           .getLineBoundary(
                             painter.getPositionForOffset(
                               Offset(
-                                0,
+                                direction == TextDirection.rtl
+                                    ? painter.width
+                                    : 0,
                                 line.baseline - line.ascent + line.height / 2,
                               ),
                             ),

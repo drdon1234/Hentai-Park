@@ -16,7 +16,7 @@ import '../widgets/cover_tile.dart';
 import 'category_manage_page.dart';
 import 'favorite_actions.dart';
 import 'library_options_sheet.dart';
-import 'shelf_page.dart';
+import 'shelf_components.dart';
 
 /// The library (Mihon style): one tab per category, filter / sort / display options, search,
 /// pull-to-refresh library updates and multi-select actions.

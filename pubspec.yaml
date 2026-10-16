@@ -2,7 +2,7 @@ name: hentai_park
 description: "HentaiPark - pluggable multi-source comic, video, novel & game client"
 publish_to: 'none'
 
-version: 0.7.1+19
+version: 0.7.2+20
 
 environment:
   sdk: ^3.13.5
@@ -75,6 +75,7 @@ flutter:
     - assets/tag_translations/drama91/
     - assets/tag_translations/huangdou/
     - assets/tag_translations/ixxx/
+    - assets/tag_translations/ranking-fanza/
     - assets/tag_translations/jable/
     - assets/tag_translations/nudecosplay/
     - assets/tag_translations/pixibb/

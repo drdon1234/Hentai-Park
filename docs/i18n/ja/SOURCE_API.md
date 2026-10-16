@@ -124,6 +124,8 @@ Park.register({
 
 `defaultFeed` は **おすすめ > ランキング > 人気** の順で選び、どれもない場合だけ最新ページなどの有効な入口を使います。検証していない API を作ってはいけません。未指定や不明な key の場合、アプリは key から自動で選びます（`promote` / `recommend` / `featured`、次に `rank` / `toplist`、次に `popular` / `hot` / `trending`）。どれもなければ最初のタブです。
 
+匿名アクセスは可能でもおすすめにログインが必要なソースは `anonymousDefaultFeed: 'ranking'` を宣言します。`feeds` 内で匿名アクセスを実際に確認した項目を指定し、ランキングを優先します。ホームとサイト画面では未ログイン時にこの項目、ログイン時に `defaultFeed` を使用し、ユーザーが明示的に選んだタブは保持します。空の一覧やネットワークエラーをすべて未ログインと判断しないでください。
+
 ### オプション定義
 
 `feeds[].options`、`searchFilters`、`settings` は同じ形式です。
@@ -239,7 +241,10 @@ async resolveGameResource(workId, resourceId, channelId) {}
 { sections: [{ title: '连载更新', items: [WorkItem] }], hasNext: false }
 ```
 
-**WorkItem**：`{ id, title, subtitle?, cover, coverAspect?, pages?, rating?, likes?, views?, language?, category?, badge?, badgeColor?, duration?, uploaded?, tags?, mediaKind? }`
+**WorkItem**：`{ id, title, subtitle?, cover, coverAspect?, pages?, rating?, likes?, views?, language?, category?, badge?, badgeColor?, duration?, uploaded?, tags?, mediaKind?, workCode?, editions? }`
+
+- `workCode` は配信元で確認された作品番号または共通検索コードで、同じ作品の検索にのみ使用します。`id` を置き換えず、作品の識別、お気に入り、進捗、ダウンロードを統合しません。
+- `editions` は配信元が明記する固定の版ラベル（中国語字幕、無修正版の流出など）です。ラベルがない場合に原版と推測してはいけません。表示の翻訳は元のラベルを変更しません。
 
 - `coverAspect`（幅 / 高さ）があると画像の読み込み前にグリッドを配置できます。
 - `badgeColor` は分類バッジの色です。
@@ -257,9 +262,11 @@ WorkItem の全フィールドに加えて：
   chapters: [{ id, title }] | null,   // null は単一章
   singleChapterId?,                   // 単一章の作品に必要な章 ID
   thumbnails?: [url | { url, width, height, offsetX, offsetY }],   // スプライトに対応
-  related?: [WorkItem], series?: [WorkItem],
+  related?: [WorkItem], series?: [WorkItem], variants?: [WorkItem],
 }
 ```
+
+- `variants` には配信元が提供する、同じ配信元の同一作品の実在する版リンクのみを含め、各版の `id` を独立して保ちます。URL を推測してはいけません。他の配信元の版は `workCode` で検索し、お気に入り、進捗、ダウンロードは独立して保持します。
 
 - タグをタップすると、このサイトで `keyword` と `filters` を使って検索します。タグをサイト独自の構文（例：`artist:"xxx"`）やフィルターのパラメータに対応付けられます。
 - 2 番目の引数 `preview` は任意で、`preview.source` と `preview.id` が一致する場合だけ、表示済み・保存済みの公開メタデータが渡されます。プラグインは ID を確認し URL を検証する必要があります。ID を入力して開いた場合は preview がなく、タイトルや表紙が不完全なことがあります。

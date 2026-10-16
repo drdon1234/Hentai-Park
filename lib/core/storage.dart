@@ -3,10 +3,12 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:crypto/crypto.dart';
+import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:uuid/uuid.dart';
 
+import 'app_log.dart';
 import 'async_tasks.dart';
 
 /// 同目录准备并提交文件；提交前可检查取消/代次，失败不改动原文件。
@@ -91,6 +93,27 @@ class JsonStore {
   Object? _data;
   Timer? _timer;
   final _writing = SerialExecutor();
+  static final _failed = <JsonStore>{};
+  static final failedWrites = ValueNotifier<int>(0);
+  static Timer? _retry;
+
+  static Future<void> retryFailed() async {
+    _retry?.cancel();
+    _retry = null;
+    await Future.wait([
+      for (final store in _failed.toList())
+        store.flush().catchError((Object _) {}),
+    ]);
+  }
+
+  void _writeFailed(Object error) {
+    _failed.add(this);
+    failedWrites.value = _failed.length;
+    AppLog.error(error, event: 'storage_save');
+    _retry ??= Timer(const Duration(seconds: 5), () {
+      unawaited(retryFailed());
+    });
+  }
 
   File get _file => AppPaths.dataFile(name);
 
@@ -98,7 +121,7 @@ class JsonStore {
     _data = null;
     try {
       if (await _file.exists()) _data = jsonDecode(await _file.readAsString());
-    } catch (_) {
+    } on FormatException {
       // Corrupt file: keep a copy for diagnosis and start fresh.
       try {
         await _file.copy('${_file.path}.broken');
@@ -123,7 +146,18 @@ class JsonStore {
     final text = jsonEncode(_data);
     final file = _file;
     return _writing.run(() async {
-      await writeFileAtomic(file, utf8.encode(text));
+      try {
+        await writeFileAtomic(file, utf8.encode(text));
+        _failed.remove(this);
+        failedWrites.value = _failed.length;
+        if (_failed.isEmpty) {
+          _retry?.cancel();
+          _retry = null;
+        }
+      } catch (error) {
+        _writeFailed(error);
+        rethrow;
+      }
     });
   }
 }

@@ -82,6 +82,8 @@ Las capturas usan datos de demostración sin conexión; los sitios, obras y port
 | Traducción y filtros | Traduce títulos, descripciones y etiquetas; oculta obras por etiqueta |
 | Privacidad y copias | Bloqueo de la app, modo incógnito, portadas difuminadas, bloqueo de capturas; copia de favoritos, progreso y ajustes |
 
+Los títulos JAV muestran los subtítulos y las ediciones indicados por el sitio de origen. Puedes abrir otras ediciones o buscar por código en uno o varios sitios; los favoritos, el progreso y las descargas se guardan por separado para cada edición.
+
 Temas claro y oscuro, ocho idiomas de interfaz. Las funciones de cada sitio se indican en la app.
 
 ## Sitios compatibles

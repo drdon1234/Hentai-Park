@@ -11,6 +11,7 @@ import '../theme.dart';
 import 'common.dart';
 import 'content_translation.dart';
 import 'cover_hero.dart';
+import 'work_editions.dart';
 
 /// A library signal on a cover, with what a screen reader announces for it.
 typedef CoverBadge = ({Widget tag, String label});
@@ -48,6 +49,7 @@ class _CoverTileState extends State<CoverTile> {
 
   /// One muted line: text values, with small glyphs for rating and likes.
   List<(IconData?, String)> _metadata(WorkItem item) => [
+    if (item.editions.isNotEmpty) (null, workEditionLabel(item)),
     if (widget.showSource)
       (null, SourceManager.instance.manifest(item.source)?.name ?? item.source),
     if (item.category.isNotEmpty) (null, item.category),

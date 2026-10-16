@@ -43,7 +43,7 @@ class VideoStage extends StatelessWidget {
   final bool controlsVisible;
 
   /// The controls layer for the current player value.
-  final Widget Function(VideoPlayerValue value) controls;
+  final Widget Function(VideoPlayerValue value, Widget progress) controls;
   final PageController episodePages;
   final Duration? previewPosition;
   final String? hint;
@@ -165,35 +165,28 @@ class VideoStage extends StatelessWidget {
                 excluding: !controlsVisible,
                 child: IgnorePointer(
                   ignoring: !controlsVisible,
-                  child: controls(c.value),
-                ),
-              ),
-            ),
-          ),
-          Positioned(
-            left: 8,
-            right: 8,
-            bottom: 0,
-            child: SafeArea(
-              top: false,
-              bottom: fullscreen,
-              child: Listener(
-                onPointerDown: (_) => onShowControls(),
-                child: AdaptiveVideoProgress(
-                  position: c.value.position,
-                  duration: c.value.duration,
-                  buffered: c.value.buffered.isEmpty
-                      ? Duration.zero
-                      : c.value.buffered.last.end,
-                  onScrubbingChanged: (scrubbing) {
-                    if (scrubbing) {
-                      onGestureCancel();
-                      onInteract();
-                    } else {
-                      onIdle();
-                    }
-                  },
-                  onSeek: (position) => c.seekTo(position),
+                  child: controls(
+                    c.value,
+                    Listener(
+                      onPointerDown: (_) => onShowControls(),
+                      child: AdaptiveVideoProgress(
+                        position: c.value.position,
+                        duration: c.value.duration,
+                        buffered: c.value.buffered.isEmpty
+                            ? Duration.zero
+                            : c.value.buffered.last.end,
+                        onScrubbingChanged: (scrubbing) {
+                          if (scrubbing) {
+                            onGestureCancel();
+                            onInteract();
+                          } else {
+                            onIdle();
+                          }
+                        },
+                        onSeek: (position) => c.seekTo(position),
+                      ),
+                    ),
+                  ),
                 ),
               ),
             ),

@@ -110,6 +110,7 @@ class DownloadsPage extends StatelessWidget {
         builder: (context, _) {
           final tasks = dm.tasks;
           final gameTasks = games.tasks;
+          final failures = dm.restoreFailures;
           return Column(
             children: [
               if (!dm.networkAllowed)
@@ -119,7 +120,7 @@ class DownloadsPage extends StatelessWidget {
                   actions: [const SizedBox.shrink()],
                 ),
               Expanded(
-                child: tasks.isEmpty && gameTasks.isEmpty
+                child: tasks.isEmpty && gameTasks.isEmpty && failures.isEmpty
                     ? EmptyState(
                         icon: Icons.download_for_offline_outlined,
                         title: tr('没有下载任务'),
@@ -129,14 +130,24 @@ class DownloadsPage extends StatelessWidget {
                       )
                     : ListView.separated(
                         padding: const EdgeInsets.only(bottom: 96),
-                        itemCount: gameTasks.length + tasks.length,
+                        itemCount:
+                            failures.length + gameTasks.length + tasks.length,
                         separatorBuilder: (_, _) => const Divider(
                           indent: Gap.page,
                           endIndent: Gap.page,
                         ),
-                        itemBuilder: (context, i) => i < gameTasks.length
-                            ? GameDownloadTile(task: gameTasks[i])
-                            : _TaskTile(task: tasks[i - gameTasks.length]),
+                        itemBuilder: (context, i) {
+                          if (i < failures.length) {
+                            return _RestoreFailureTile(
+                              uid: failures[i].uid,
+                              source: failures[i].source,
+                            );
+                          }
+                          i -= failures.length;
+                          return i < gameTasks.length
+                              ? GameDownloadTile(task: gameTasks[i])
+                              : _TaskTile(task: tasks[i - gameTasks.length]);
+                        },
                       ),
               ),
             ],
@@ -145,6 +156,59 @@ class DownloadsPage extends StatelessWidget {
       ),
     );
   }
+}
+
+class _RestoreFailureTile extends StatelessWidget {
+  const _RestoreFailureTile({required this.uid, required this.source});
+  final String uid, source;
+
+  Future<void> _retry(BuildContext context) async {
+    try {
+      await DownloadManager.instance.retryRestore(uid);
+    } catch (_) {
+      if (context.mounted) context.toast(tr('下载记录恢复失败，请前往下载页处理'));
+    }
+  }
+
+  Future<void> _remove(BuildContext context) async {
+    final confirmed = await confirmAction(
+      context,
+      title: tr('移除损坏的下载记录？'),
+      message: tr('只移除无法恢复的下载记录，保留本地文件。'),
+      confirmLabel: tr('移除记录'),
+      destructive: true,
+    );
+    if (!confirmed) return;
+    try {
+      await DownloadManager.instance.removeRestoreFailure(uid);
+    } catch (_) {
+      if (context.mounted) context.toast(tr('删除失败，请重试'));
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.all(Gap.page),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(tr('下载记录恢复失败'), style: context.text.titleMedium),
+        const SizedBox(height: Gap.s),
+        Text(source, style: context.text.bodyMedium),
+        Text(tr('原始记录和本地文件已保留，可以重试或仅移除记录。')),
+        Wrap(
+          spacing: Gap.s,
+          children: [
+            TextButton(onPressed: () => _retry(context), child: Text(tr('重试'))),
+            TextButton(
+              onPressed: () => _remove(context),
+              child: Text(tr('移除记录')),
+            ),
+          ],
+        ),
+      ],
+    ),
+  );
 }
 
 class _TaskTile extends StatelessWidget {
@@ -327,7 +391,12 @@ class _TaskTile extends StatelessWidget {
       confirmLabel: tr('删除'),
       destructive: true,
     );
-    if (ok) await DownloadManager.instance.delete(task.uid);
+    if (!ok) return;
+    try {
+      await DownloadManager.instance.delete(task.uid);
+    } catch (_) {
+      if (context.mounted) context.toast(tr('删除失败，请重试'));
+    }
   }
 
   @override
@@ -511,11 +580,15 @@ class _ChapterSheetState extends State<_ChapterSheet> {
                   onPressed: _selected.isEmpty
                       ? null
                       : () async {
-                          await DownloadManager.instance.deleteChapters(
-                            t.uid,
-                            _selected.toList(),
-                          );
-                          if (context.mounted) Navigator.pop(context);
+                          try {
+                            await DownloadManager.instance.deleteChapters(
+                              t.uid,
+                              _selected.toList(),
+                            );
+                            if (context.mounted) Navigator.pop(context);
+                          } catch (_) {
+                            if (context.mounted) context.toast(tr('删除失败，请重试'));
+                          }
                         },
                   icon: const Icon(Icons.delete_outline_rounded),
                   label: Text(tr('删除 {value0}', {'value0': _selected.length})),

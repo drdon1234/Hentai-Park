@@ -245,7 +245,7 @@ class _WebVerifyPageState extends State<WebVerifyPage> {
       if (_loading || _progress < 1 || _browserFailed) return;
       final title = await c.getTitle() ?? '';
       final html =
-          '${await c.evaluateJavascript(source: "document.documentElement ? document.documentElement.outerHTML.slice(0, 4000) : ''") ?? ''}';
+          '${await c.evaluateJavascript(source: "document.documentElement ? document.documentElement.outerHTML.slice(0, 4 * 1024 * 1024) : ''") ?? ''}';
       if (_loading ||
           generation != _navigationGeneration ||
           hasChallengeMarkers(html, title: title) ||
@@ -326,6 +326,19 @@ class _WebVerifyPageState extends State<WebVerifyPage> {
   Future<bool> _confirmationReady() async {
     final c = _c;
     if (c == null || _loading || _sessionClosed || _browserFailed) return false;
+    // 自动检查和“完成”按钮必须遵守相同条件；挑战配置可能在长页面末尾。
+    final generation = _navigationGeneration;
+    final title = await c.getTitle() ?? '';
+    final html =
+        '${await c.evaluateJavascript(source: "document.documentElement ? document.documentElement.outerHTML.slice(0, 4 * 1024 * 1024) : ''") ?? ''}';
+    if (_sessionClosed ||
+        _loading ||
+        _progress < 1 ||
+        generation != _navigationGeneration ||
+        html.length <= 200 ||
+        hasChallengeMarkers(html, title: title)) {
+      return false;
+    }
     final selector = _confirmation['selector']?.toString() ?? '';
     final readySelector = _confirmation['readySelector']?.toString() ?? '';
     if (selector.isNotEmpty) {

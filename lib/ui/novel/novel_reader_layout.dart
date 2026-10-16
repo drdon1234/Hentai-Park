@@ -13,7 +13,7 @@ mixin _NovelLayout on _NovelReaderBase {
         text: prefix + _text.substring(segment.start, segment.end).trimRight(),
         style: _effectiveStyle,
       ),
-      textDirection: TextDirection.ltr,
+      textDirection: _textDirection,
       textAlign: _align,
     )..layout(maxWidth: _textWidth);
   }
@@ -68,7 +68,7 @@ mixin _NovelLayout on _NovelReaderBase {
           painter
               .getPositionForOffset(
                 Offset(
-                  0,
+                  _textDirection == TextDirection.rtl ? painter.width : 0,
                   math.max(0, -first.itemLeadingEdge * _viewport.height),
                 ),
               )
@@ -143,7 +143,7 @@ mixin _NovelLayout on _NovelReaderBase {
     return Text.rich(
       TextSpan(style: style, children: spans),
       textAlign: _align,
-      textDirection: TextDirection.ltr,
+      textDirection: _textDirection,
     );
   }
 
@@ -160,6 +160,7 @@ mixin _NovelLayout on _NovelReaderBase {
       _textWidth = math.max(1, c.maxWidth - margin * 2);
       final layoutKey = (
         _text,
+        _textDirection,
         c.maxWidth,
         c.maxHeight,
         style,
@@ -175,7 +176,7 @@ mixin _NovelLayout on _NovelReaderBase {
           width: math.max(1, c.maxWidth - margin * 2),
           height: math.max(1, c.maxHeight - 32),
           style: style,
-          direction: TextDirection.ltr,
+          direction: _textDirection,
           align: _align,
           indent: _settings.novelIndent,
           paragraphGap: _settings.novelParagraphGap,

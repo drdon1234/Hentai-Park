@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/models.dart';
 import '../theme.dart';
+import 'content_translation.dart';
 
 /// Rows of horizontally scrolling chips, one row per option (period, category, sort…).
 class OptionBar extends StatelessWidget {
@@ -11,6 +12,7 @@ class OptionBar extends StatelessWidget {
     required this.values,
     required this.onChanged,
     this.dropdowns = false,
+    this.source = '',
     this.padding = const EdgeInsets.fromLTRB(12, 8, 12, 0),
   });
   final List<OptionDef> options;
@@ -18,6 +20,21 @@ class OptionBar extends StatelessWidget {
   final ValueChanged<Map<String, Object?>> onChanged;
   final EdgeInsets padding;
   final bool dropdowns;
+  final String source;
+
+  static Widget choiceLabel(OptionDef option, Choice choice, String source) {
+    Widget text(String value) =>
+        Text(value, maxLines: 1, overflow: TextOverflow.ellipsis);
+    return option.dynamicValues
+        ? ContentTranslation(
+            text: choice.label,
+            source: source,
+            tag: true,
+            namespace: option.key,
+            builder: text,
+          )
+        : text(choice.label);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -41,11 +58,7 @@ class OptionBar extends StatelessWidget {
                     for (var i = 0; i < o.values.length; i++)
                       DropdownMenuItem(
                         value: i,
-                        child: Text(
-                          o.values[i].label,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
+                        child: choiceLabel(o, o.values[i], source),
                       ),
                   ],
                   onChanged: (i) {
@@ -61,6 +74,7 @@ class OptionBar extends StatelessWidget {
                 values: values,
                 onChanged: onChanged,
                 showLabel: options.length > 1,
+                source: source,
               ),
         ],
       ),
@@ -76,11 +90,13 @@ class _OptionRow extends StatefulWidget {
     required this.values,
     required this.onChanged,
     required this.showLabel,
+    required this.source,
   });
   final OptionDef option;
   final Map<String, Object?> values;
   final ValueChanged<Map<String, Object?>> onChanged;
   final bool showLabel;
+  final String source;
 
   @override
   State<_OptionRow> createState() => _OptionRowState();
@@ -152,7 +168,7 @@ class _OptionRowState extends State<_OptionRow> {
     if (o.type == 'multi') {
       final current = (values[o.key] as List?)?.toList() ?? [];
       return FilterChip(
-        label: Text(choice.label),
+        label: OptionBar.choiceLabel(o, choice, widget.source),
         selected: current.contains(choice.value),
         showCheckmark: false,
         selectedColor: color?.withValues(alpha: 0.35),
@@ -168,7 +184,7 @@ class _OptionRowState extends State<_OptionRow> {
       );
     }
     return ChoiceChip(
-      label: Text(choice.label),
+      label: OptionBar.choiceLabel(o, choice, widget.source),
       selected: values[o.key] == choice.value,
       showCheckmark: false,
       visualDensity: VisualDensity.compact,

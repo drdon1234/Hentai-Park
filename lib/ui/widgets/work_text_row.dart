@@ -6,6 +6,7 @@ import '../theme.dart';
 import 'common.dart';
 import 'content_translation.dart';
 import 'cover_tile.dart';
+import 'work_editions.dart';
 
 /// 小说作品不构造封面；行高随标题、简介和系统字体增长。
 class WorkTextRow extends StatelessWidget {
@@ -39,6 +40,7 @@ class WorkTextRow extends StatelessWidget {
               ),
             ],
             if (showSource ||
+                item.editions.isNotEmpty ||
                 item.uploaded.isNotEmpty ||
                 item.tags.isNotEmpty) ...[
               const SizedBox(height: 8),
@@ -47,6 +49,8 @@ class WorkTextRow extends StatelessWidget {
                 runSpacing: 4,
                 children: [
                   if (showSource) SourceAvatar(item.source, size: 20),
+                  if (item.editions.isNotEmpty)
+                    Text(workEditionLabel(item), style: context.text.bodySmall),
                   if (item.uploaded.isNotEmpty)
                     Text(item.uploaded, style: context.text.bodySmall),
                   for (final tag in item.tags.take(4))

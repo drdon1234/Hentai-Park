@@ -308,6 +308,7 @@ class _FeedTabState extends State<FeedTab> with AutomaticKeepAliveClientMixin {
           if (widget.feed.options.isNotEmpty)
             SliverToBoxAdapter(
               child: OptionBar(
+                source: widget.source.key,
                 options: widget.feed.options,
                 values: _options,
                 onChanged: (values) {

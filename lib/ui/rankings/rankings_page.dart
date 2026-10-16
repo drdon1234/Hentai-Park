@@ -240,6 +240,7 @@ class _RankingsPageState extends State<RankingsPage> {
                     OptionBar(
                       key: ValueKey('options-$key'),
                       dropdowns: true,
+                      source: entry.source.key,
                       options: definitions,
                       values: options,
                       onChanged: (values) =>

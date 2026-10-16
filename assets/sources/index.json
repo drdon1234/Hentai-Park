@@ -104,7 +104,7 @@
     {
       "key": "missav",
       "name": "MissAV",
-      "version": "0.0.6",
+      "version": "0.0.7",
       "type": "video",
       "category": "jav",
       "file": "missav.js",
@@ -113,7 +113,7 @@
     {
       "key": "jable",
       "name": "JableTV",
-      "version": "0.0.5",
+      "version": "0.0.6",
       "type": "video",
       "category": "jav",
       "file": "jable.js",
@@ -122,7 +122,7 @@
     {
       "key": "supjav",
       "name": "SupJav",
-      "version": "0.0.5",
+      "version": "0.0.6",
       "type": "video",
       "category": "jav",
       "file": "supjav.js",
@@ -131,7 +131,7 @@
     {
       "key": "av123",
       "name": "123AV",
-      "version": "0.0.6",
+      "version": "0.0.7",
       "type": "video",
       "category": "jav",
       "file": "av123.js",

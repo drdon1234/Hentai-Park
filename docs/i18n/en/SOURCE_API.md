@@ -124,6 +124,8 @@ Capabilities are exported by the runtime from the methods a plugin implements; d
 
 Choose `defaultFeed` in the order **recommended > rankings > popular**; use the latest page or another valid entry only if the site really has none of these, and never fake an unverified API. If it's missing or unknown, the app picks by key (first `promote` / `recommend` / `featured`, then `rank` / `toplist`, then `popular` / `hot` / `trending`), falling back to the first tab.
 
+Sources that allow anonymous access but require login for recommendations declare `anonymousDefaultFeed: 'ranking'`. It must reference a verified anonymously accessible entry in `feeds`, preferably rankings. The home and source pages use it when logged out and `defaultFeed` when logged in; an explicitly selected tab is preserved. Do not treat every empty list or network failure as an anonymous session.
+
 ### Options
 
 `feeds[].options`, `searchFilters` and `settings` share one format:
@@ -239,7 +241,10 @@ async resolveGameResource(workId, resourceId, channelId) {}
 { sections: [{ title: '连载更新', items: [WorkItem] }], hasNext: false }
 ```
 
-**WorkItem**: `{ id, title, subtitle?, cover, coverAspect?, pages?, rating?, likes?, views?, language?, category?, badge?, badgeColor?, duration?, uploaded?, tags?, mediaKind? }`
+**WorkItem**: `{ id, title, subtitle?, cover, coverAspect?, pages?, rating?, likes?, views?, language?, category?, badge?, badgeColor?, duration?, uploaded?, tags?, mediaKind?, workCode?, editions? }`
+
+- `workCode` is a work code confirmed by the source, used only to find the same work. It never replaces `id` or merges identities, favorites, progress, or downloads.
+- `editions` contains explicit, fixed edition labels from the source, such as Chinese subtitles or an uncensored leak. Missing labels must not imply an original edition. Translated display text does not change stored labels.
 
 - `coverAspect` (width / height) lets the grid lay out before images load.
 - `badgeColor` colors the category badge.
@@ -257,9 +262,11 @@ All WorkItem fields, plus:
   chapters: [{ id, title }] | null,   // null means a single chapter
   singleChapterId?,                   // chapter ID needed by single-chapter works
   thumbnails?: [url | { url, width, height, offsetX, offsetY }],   // sprite sheets supported
-  related?: [WorkItem], series?: [WorkItem],
+  related?: [WorkItem], series?: [WorkItem], variants?: [WorkItem],
 }
 ```
+
+- `variants` contains only actual links supplied by the source to editions of the same work on that source, each with its own `id`; never guess URLs. Find editions on other sources with `workCode`; favorites, progress, and downloads stay independent.
 
 - Tapping a tag searches this site with `keyword` and `filters`, so tags can map to the site's own syntax (such as `artist:"xxx"`) or filter parameters.
 - The optional second argument `preview` carries public metadata already shown or stored, passed only when `preview.source` and `preview.id` match the request. The plugin must still check the ID and validate URLs. Works opened by typed ID have no preview, so title and cover may be incomplete.

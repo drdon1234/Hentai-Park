@@ -9,7 +9,7 @@ import '../../core/settings.dart';
 import '../../library/downloads.dart';
 import '../../library/library.dart';
 import '../../library/updater.dart';
-import '../library/shelf_page.dart';
+import '../library/shelf_components.dart';
 import '../nav.dart';
 import '../subscriptions/subscription_updates_page.dart';
 import '../theme.dart';

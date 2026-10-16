@@ -15,6 +15,7 @@ import 'history/history_page.dart';
 import 'home/home_page.dart';
 import 'kit/kit.dart';
 import 'library/downloads_page.dart';
+import 'library/shelf_components.dart';
 import 'library/shelf_page.dart';
 import 'nav.dart';
 import 'onboarding/onboarding_page.dart';

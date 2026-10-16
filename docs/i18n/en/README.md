@@ -82,6 +82,8 @@ Screenshots use offline demo data; the sites, works and covers shown are origina
 | Translation and filters | Translate titles, descriptions and tags; hide works by tag |
 | Privacy and backup | App lock, incognito mode, blurred covers, screenshot blocking; back up favorites, progress and settings |
 
+JAV titles show subtitle and edition labels provided by the source. Switch between available editions or search by code within or across sites; favorites, progress and downloads are saved separately for each edition.
+
 Light and dark themes, eight interface languages. What each site supports is shown in the app.
 
 ## Supported sites

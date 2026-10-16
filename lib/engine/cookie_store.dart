@@ -38,6 +38,7 @@ class CookieStore {
   }
 
   Future<T> _serialize<T>(String partition, Future<T> Function() action) {
+    partition = partition.isEmpty ? appPartition : partition;
     final operation = (_operations[partition] ?? Future<void>.value()).then(
       (_) => action(),
     );
@@ -46,6 +47,14 @@ class CookieStore {
       onError: (Object _, StackTrace _) {},
     );
     return operation;
+  }
+
+  int generation(String partition) =>
+      _generations[partition.isEmpty ? appPartition : partition] ?? 0;
+
+  void _invalidateSession(String partition) {
+    final name = partition.isEmpty ? appPartition : partition;
+    _generations[name] = generation(name) + 1;
   }
 
   Directory get _root => Directory(p.join(AppPaths.data.path, 'cookie_jars'));
@@ -69,7 +78,10 @@ class CookieStore {
   }
 
   Future<String> headerFor(Uri uri, {required String partition}) async {
-    final cookies = await _forRequest(uri, partition);
+    final cookies = await _serialize(
+      partition,
+      () => _forRequest(uri, partition),
+    );
     return cookies.map((c) => '${c.name}=${c.value}').join('; ');
   }
 
@@ -117,7 +129,9 @@ class CookieStore {
     Uri uri,
     List<String> setCookies, {
     required String partition,
+    int? requestGeneration,
   }) async {
+    final acceptedGeneration = requestGeneration ?? generation(partition);
     final cookies = <Cookie>[];
     for (final line in setCookies) {
       try {
@@ -141,11 +155,19 @@ class CookieStore {
         }
       }
     }
-    if (cookies.isNotEmpty) await jar(partition).saveFromResponse(uri, cookies);
+    await _serialize(partition, () async {
+      if (acceptedGeneration != generation(partition)) return;
+      if (cookies.isNotEmpty) {
+        await jar(partition).saveFromResponse(uri, cookies);
+      }
+    });
   }
 
   Future<Map<String, String>> get(Uri uri, {required String partition}) async {
-    final cookies = await _forRequest(uri, partition);
+    final cookies = await _serialize(
+      partition,
+      () => _forRequest(uri, partition),
+    );
     return {for (final c in cookies) c.name: c.value};
   }
 
@@ -157,29 +179,37 @@ class CookieStore {
     bool mirror = true,
   }) async {
     if (mirror) checkBrowserUri(uri, partition);
-    // 网页登录已导入真实 Cookie；插件再次确认同值时不能重建成一年期根路径 Cookie。
-    final existing = await _forRequest(uri, partition);
-    final changed = Map<String, String>.fromEntries(
-      values.entries.where(
-        (entry) => !existing.any(
-          (cookie) => cookie.name == entry.key && cookie.value == entry.value,
+    final acceptedGeneration = generation(partition);
+    await _serialize(partition, () async {
+      if (acceptedGeneration != generation(partition)) {
+        throw SourceError('CANCELLED', '浏览器会话已关闭');
+      }
+      // 网页登录已导入真实 Cookie；插件再次确认同值时不能重建成一年期根路径 Cookie。
+      final existing = await _forRequest(uri, partition);
+      final changed = Map<String, String>.fromEntries(
+        values.entries.where(
+          (entry) => !existing.any(
+            (cookie) => cookie.name == entry.key && cookie.value == entry.value,
+          ),
         ),
-      ),
-    );
-    final domain = _cookieDomain(uri.host);
-    final cookies = changed.entries.map((e) {
-      final c = Cookie(e.key, e.value)
-        ..domain = domain
-        ..path = '/'
-        ..expires = DateTime.now().add(const Duration(days: 365));
-      return c;
-    }).toList();
-    if (cookies.isNotEmpty) await jar(partition).saveFromResponse(uri, cookies);
-    if (mirror) {
-      trackBrowserUri(uri, partition);
-      await _mirrorToWebView(uri, changed);
-      await restoreToWebView(uri, partition: partition);
-    }
+      );
+      final domain = _cookieDomain(uri.host);
+      final cookies = changed.entries.map((e) {
+        final c = Cookie(e.key, e.value)
+          ..domain = domain
+          ..path = '/'
+          ..expires = DateTime.now().add(const Duration(days: 365));
+        return c;
+      }).toList();
+      if (cookies.isNotEmpty) {
+        await jar(partition).saveFromResponse(uri, cookies);
+      }
+      if (mirror) {
+        trackBrowserUri(uri, partition);
+        await _mirrorToWebView(uri, changed);
+        await _restoreToWebView(uri, partition);
+      }
+    });
   }
 
   Future<void> clear(
@@ -187,25 +217,31 @@ class CookieStore {
     required String partition,
     bool mirror = true,
   }) async {
-    await jar(partition).delete(uri, true);
-    if (mirror && _webViewSupported) {
-      try {
-        await wv.CookieManager.instance().deleteCookies(
-          url: wv.WebUri(uri.toString()),
-          domain: _cookieDomain(uri.host),
-        );
-      } catch (_) {}
-    }
+    _invalidateSession(partition);
+    await _serialize(partition, () async {
+      await jar(partition).delete(uri, true);
+      if (mirror && _webViewSupported) {
+        try {
+          await wv.CookieManager.instance().deleteCookies(
+            url: wv.WebUri(uri.toString()),
+            domain: _cookieDomain(uri.host),
+          );
+        } catch (error) {
+          AppLog.error(error, event: 'cookie_clear');
+          rethrow;
+        }
+      }
+    });
   }
 
   /// Removes every cookie of a partition (source uninstalled or "clear cookies" in storage settings).
   Future<void> clearPartition(String partition) {
-    _generations[partition] = (_generations[partition] ?? 0) + 1;
+    _invalidateSession(partition);
     return _serialize(partition, () => _clearPartition(partition));
   }
 
   Future<void> _clearPartition(String partition) async {
-    final snapshot = _snapshotCookies(await snapshotPartition(partition));
+    final snapshot = _snapshotCookies(await _snapshotPartition(partition));
     final domains = domainsForPartition?.call(partition) ?? const <String>[];
     final sharedPartitions = _browserUris.keys
         .where(
@@ -266,8 +302,9 @@ class CookieStore {
         );
       }
     }
-    final j = _jars.remove(partition) ?? jar(partition);
-    _jars.remove(partition);
+    final name = partition.isEmpty ? appPartition : partition;
+    final j = _jars.remove(name) ?? jar(name);
+    _jars.remove(name);
     await j.deleteAll();
   }
 
@@ -309,7 +346,10 @@ class CookieStore {
   }
 
   /// Exact files for one source's install journal; cookie_jar persists UTF-8 JSON.
-  Future<Map<String, String>> snapshotPartition(String key) async {
+  Future<Map<String, String>> snapshotPartition(String key) =>
+      _serialize(key, () => _snapshotPartition(key));
+
+  Future<Map<String, String>> _snapshotPartition(String key) async {
     final directory = _partitionDirectory(key);
     if (!await directory.exists()) return {};
     final snapshot = <String, String>{};
@@ -331,26 +371,29 @@ class CookieStore {
     Map<String, String> snapshot, {
     List<String> domains = const [],
   }) async {
-    final directory = _partitionDirectory(key);
-    for (final path in snapshot.keys) {
-      if (p.isAbsolute(path) ||
-          !p.isWithin(
-            directory.path,
-            p.normalize(p.join(directory.path, path)),
-          )) {
-        throw ArgumentError.value(path, 'snapshot');
+    _invalidateSession(key);
+    await _serialize(key, () async {
+      final directory = _partitionDirectory(key);
+      for (final path in snapshot.keys) {
+        if (p.isAbsolute(path) ||
+            !p.isWithin(
+              directory.path,
+              p.normalize(p.join(directory.path, path)),
+            )) {
+          throw ArgumentError.value(path, 'snapshot');
+        }
       }
-    }
-    final current = await snapshotPartition(key);
-    // Mirror first so a failed restore can retry using the unchanged candidate files.
-    await _restoreBrowserCookies(current, snapshot, domains);
-    _jars.remove(key.isEmpty ? appPartition : key);
-    if (await directory.exists()) await directory.delete(recursive: true);
-    for (final entry in snapshot.entries) {
-      final file = File(p.join(directory.path, entry.key));
-      await file.parent.create(recursive: true);
-      await file.writeAsString(entry.value, flush: true);
-    }
+      final current = await _snapshotPartition(key);
+      // Mirror first so a failed restore can retry using the unchanged candidate files.
+      await _restoreBrowserCookies(current, snapshot, domains);
+      _jars.remove(key.isEmpty ? appPartition : key);
+      if (await directory.exists()) await directory.delete(recursive: true);
+      for (final entry in snapshot.entries) {
+        final file = File(p.join(directory.path, entry.key));
+        await file.parent.create(recursive: true);
+        await file.writeAsString(entry.value, flush: true);
+      }
+    });
   }
 
   static Map<String, ({String host, SerializableCookie value})>
@@ -442,45 +485,49 @@ class CookieStore {
   /// 恢复浏览器丢失的持久凭证，不覆盖浏览器刚轮换的新值。
   Future<void> restoreToWebView(Uri uri, {required String partition}) async {
     checkBrowserUri(uri, partition);
-    final generation = _generations[partition] ?? 0;
+    final acceptedGeneration = generation(partition);
     await _serialize(partition, () async {
-      if (generation != (_generations[partition] ?? 0)) {
+      if (acceptedGeneration != generation(partition)) {
         throw SourceError('CANCELLED', '浏览器会话已关闭');
       }
-      trackBrowserUri(uri, partition);
-      if (!_webViewSupported) return;
-      final manager = wv.CookieManager.instance();
-      final current = await manager.getCookies(url: wv.WebUri(uri.toString()));
-      final cookies = await _forRequest(uri, partition);
-      final stored = _snapshotCookies(await snapshotPartition(partition));
-      for (final cookie in cookies) {
-        if (current.any((c) => _browserCookieMatches(c, cookie, uri))) {
-          continue;
-        }
-        int? expiry = cookie.expires?.millisecondsSinceEpoch;
-        if (cookie.maxAge != null) {
-          for (final value in stored.values) {
-            final saved = value.value.cookie;
-            if (saved.name == cookie.name &&
-                saved.domain == cookie.domain &&
-                saved.path == cookie.path) {
-              expiry = (value.value.createTimeStamp + cookie.maxAge!) * 1000;
-              break;
-            }
+      await _restoreToWebView(uri, partition);
+    });
+  }
+
+  Future<void> _restoreToWebView(Uri uri, String partition) async {
+    trackBrowserUri(uri, partition);
+    if (!_webViewSupported) return;
+    final manager = wv.CookieManager.instance();
+    final current = await manager.getCookies(url: wv.WebUri(uri.toString()));
+    final cookies = await _forRequest(uri, partition);
+    final stored = _snapshotCookies(await _snapshotPartition(partition));
+    for (final cookie in cookies) {
+      if (current.any((c) => _browserCookieMatches(c, cookie, uri))) {
+        continue;
+      }
+      int? expiry = cookie.expires?.millisecondsSinceEpoch;
+      if (cookie.maxAge != null) {
+        for (final value in stored.values) {
+          final saved = value.value.cookie;
+          if (saved.name == cookie.name &&
+              saved.domain == cookie.domain &&
+              saved.path == cookie.path) {
+            expiry = (value.value.createTimeStamp + cookie.maxAge!) * 1000;
+            break;
           }
         }
-        await manager.setCookie(
-          url: wv.WebUri(uri.toString()),
-          name: cookie.name,
-          value: cookie.value,
-          domain: cookie.domain,
-          path: cookie.path ?? '/',
-          expiresDate: expiry,
-          isSecure: cookie.secure,
-          isHttpOnly: cookie.httpOnly,
-        );
       }
-    });
+      await manager.setCookie(
+        url: wv.WebUri(uri.toString()),
+        name: cookie.name,
+        value: cookie.value,
+        domain: cookie.domain,
+        path: cookie.path ?? '/',
+        expiresDate: expiry,
+        isSecure: cookie.secure,
+        isHttpOnly: cookie.httpOnly,
+      );
+    }
   }
 
   bool _browserCookieMatches(wv.Cookie browser, Cookie native, Uri uri) =>
@@ -497,14 +544,14 @@ class CookieStore {
     bool authoritative = false,
   }) async {
     checkBrowserUri(uri, partition);
-    final generation = _generations[partition] ?? 0;
+    final acceptedGeneration = generation(partition);
     trackBrowserUri(uri, partition);
     if (!_webViewSupported) return {};
     final list = await wv.CookieManager.instance().getCookies(
       url: wv.WebUri(uri.toString()),
     );
     checkBrowserUri(uri, partition);
-    if (generation != (_generations[partition] ?? 0)) {
+    if (acceptedGeneration != generation(partition)) {
       throw SourceError('CANCELLED', '浏览器会话已关闭');
     }
     final domains = domainsForPartition!(partition)!;
@@ -522,12 +569,12 @@ class CookieStore {
     };
     await _serialize(partition, () async {
       checkBrowserUri(uri, partition);
-      if (generation != (_generations[partition] ?? 0)) {
+      if (acceptedGeneration != generation(partition)) {
         throw SourceError('CANCELLED', '浏览器会话已关闭');
       }
       final removed = <Cookie>[];
       final previous = await _forRequest(uri, partition);
-      final stored = _snapshotCookies(await snapshotPartition(partition));
+      final stored = _snapshotCookies(await _snapshotPartition(partition));
       final imported = <Cookie>[];
       for (final c in allowed) {
         final candidates = previous

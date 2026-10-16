@@ -12,6 +12,7 @@ import '../theme.dart';
 import '../widgets/common.dart';
 import '../widgets/content_translation.dart';
 import '../widgets/cover_hero.dart';
+import '../widgets/work_editions.dart';
 
 /// Detail page header: a pinned bar whose title appears once the cover scrolls away, then the
 /// cover beside a serif title, the site and a single line of quiet metadata.
@@ -98,6 +99,8 @@ class _DetailHeaderState extends State<DetailHeader> {
     final item = widget.item;
     final d = widget.detail;
     return [
+      if (item.editions.isNotEmpty)
+        (Icons.video_label_outlined, workEditionLabel(item)),
       if ((d?.pages ?? item.pages ?? 0) > 0)
         (
           Icons.photo_library_outlined,
@@ -234,59 +237,37 @@ class _DetailHeaderState extends State<DetailHeader> {
 
   Widget _coverBox(BuildContext context, double width) {
     final aspect = _coverItem.coverAspect ?? (_isVideo ? 16 / 9 : 0.7);
-    final d = widget.detail;
     return SizedBox(
       width: width,
       height: width / aspect,
-      child: GestureDetector(
-        onTap: _isVideo && d != null ? () => Nav.openVideo(context, d) : null,
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            CoverHero(
-              tag: widget.coverHeroTag,
-              child: ClipRRect(
-                borderRadius: Radii.small,
-                child: AnimatedSwitcher(
-                  duration: Motion.of(context, Motion.medium),
-                  layoutBuilder: (current, previous) => Stack(
-                    fit: StackFit.expand,
-                    children: [...previous, ?current],
-                  ),
-                  child: _cover(_coverItem),
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          CoverHero(
+            tag: widget.coverHeroTag,
+            child: ClipRRect(
+              borderRadius: Radii.small,
+              child: AnimatedSwitcher(
+                duration: Motion.of(context, Motion.medium),
+                layoutBuilder: (current, previous) => Stack(
+                  fit: StackFit.expand,
+                  children: [...previous, ?current],
+                ),
+                child: _cover(_coverItem),
+              ),
+            ),
+          ),
+          if (_readyItem != widget.item)
+            IgnorePointer(
+              child: Opacity(
+                opacity: 0,
+                child: _cover(
+                  widget.item,
+                  onReady: () => _coverReady(widget.item),
                 ),
               ),
             ),
-            if (_readyItem != widget.item)
-              IgnorePointer(
-                child: Opacity(
-                  opacity: 0,
-                  child: _cover(
-                    widget.item,
-                    onReady: () => _coverReady(widget.item),
-                  ),
-                ),
-              ),
-            if (_isVideo)
-              Center(
-                child: DecoratedBox(
-                  decoration: const BoxDecoration(
-                    color: Scrims.medium,
-                    shape: BoxShape.circle,
-                  ),
-                  child: Padding(
-                    padding: const EdgeInsets.all(Gap.s),
-                    child: Icon(
-                      Icons.play_arrow_rounded,
-                      color: Scrims.onScrim,
-                      size: 30,
-                      semanticLabel: tr('播放'),
-                    ),
-                  ),
-                ),
-              ),
-          ],
-        ),
+        ],
       ),
     );
   }

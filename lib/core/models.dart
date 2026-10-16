@@ -464,6 +464,8 @@ class WorkItem {
       duration = _str(json['duration']),
       uploaded = _str(json['uploaded']),
       tags = _strings(json['tags']),
+      workCode = _str(json['workCode']),
+      editions = _strings(json['editions']),
       mediaKind = MediaKind.values
           .where((kind) => kind.name == json['mediaKind'])
           .firstOrNull;
@@ -494,6 +496,10 @@ class WorkItem {
   final String duration;
   final String uploaded;
   final List<String> tags;
+
+  /// A source-declared work identity for searching; never replaces the source ID.
+  final String workCode;
+  final List<String> editions;
 
   String get uid => '$source:$id';
 
@@ -629,6 +635,13 @@ class WorkDetail extends WorkItem {
       singleChapterId = json['singleChapterId']?.toString(),
       related = _maps(json['related']).map((e) => WorkItem(e, source)).toList(),
       series = _maps(json['series']).map((e) => WorkItem(e, source)).toList(),
+      variants = _maps(json['variants'])
+          .where(
+            (e) =>
+                _str(e['id']).isNotEmpty && _str(e['id']) != _str(json['id']),
+          )
+          .map((e) => WorkItem(e, source))
+          .toList(),
       thumbnails = (json['thumbnails'] as List? ?? const [])
           .map(
             (t) => t is Map
@@ -653,6 +666,7 @@ class WorkDetail extends WorkItem {
   final String? singleChapterId;
   final List<WorkItem> related;
   final List<WorkItem> series;
+  final List<WorkItem> variants;
   final List<PreviewThumb> thumbnails;
   final int? thumbnailsTotal;
   final Map<String, dynamic>? authorSearch;

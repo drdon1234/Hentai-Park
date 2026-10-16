@@ -94,6 +94,10 @@ mixin _NovelActions on _NovelReaderBase {
   }
 
   void _download() {
+    if (DownloadManager.instance.hasRestoreFailure(widget.work.uid)) {
+      context.toast(tr('下载记录恢复失败，请前往下载页处理'));
+      return;
+    }
     DownloadManager.instance.enqueue(widget.work.toItem(), [_chapter]);
     context.toast(tr('已加入下载队列'));
   }

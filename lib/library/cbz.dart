@@ -278,6 +278,9 @@ class Cbz {
         ? ComicInfo()
         : ComicInfo.parse(utf8.decode(infoFile.content, allowMalformed: true));
     final id = sha1.convert(bytes).toString().substring(0, 16);
+    if (DownloadManager.instance.hasRestoreFailure('$localSource:$id')) {
+      throw SourceError('CONFIG', '下载记录恢复失败，请前往下载页处理');
+    }
     final dir = Directory(
       p.join(root.path, safeFileName(localSource), safeFileName(id)),
     );

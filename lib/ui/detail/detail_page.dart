@@ -29,6 +29,7 @@ import 'detail_download.dart';
 import 'detail_header.dart';
 import 'detail_sections.dart';
 import 'detail_tags.dart';
+import 'detail_versions.dart';
 import 'thumbnail_grid.dart';
 
 /// A work's page: header, one primary action, then description, tags, chapters, previews and
@@ -348,6 +349,10 @@ class _DetailPageState extends State<DetailPage> {
         onSelectAll: () =>
             setState(() => _selected.addAll(chapters.map((c) => c.id))),
         onDownload: () async {
+          if (DownloadManager.instance.hasRestoreFailure(_item.uid)) {
+            context.toast(tr('下载记录恢复失败，请前往下载页处理'));
+            return;
+          }
           final selected = chapters
               .where((c) => _selected.contains(c.id))
               .toList();
@@ -406,6 +411,8 @@ class _DetailPageState extends State<DetailPage> {
     final current = Library.instance.historyOf(d.uid)?.chapterId;
     final isNovel = _m?.isNovel == true || d.isNovel;
     return [
+      if (d.variants.isNotEmpty || d.workCode.isNotEmpty)
+        SliverToBoxAdapter(child: DetailVersions(work: d)),
       if (blocked.isNotEmpty)
         SliverToBoxAdapter(child: BlockedNotice(tags: blocked)),
       if (d.description.isNotEmpty)

@@ -63,7 +63,21 @@ class _OnVisibleState extends State<OnVisible> {
         Offset.zero & box.size,
       );
       RenderObject? ancestor = box.parent;
+      RenderObject child = box;
       while (ancestor != null) {
+        var painted = ancestor.paintsChild(child);
+        // IndexedStack 给隐藏子项也保留布局与坐标，不能仅凭矩形判断。
+        if (ancestor is RenderIndexedStack) {
+          RenderBox? selected = ancestor.firstChild;
+          for (var i = 0; i < (ancestor.index ?? -1) && selected != null; i++) {
+            selected = ancestor.childAfter(selected);
+          }
+          painted = ancestor.index != null && identical(selected, child);
+        }
+        if (!painted) {
+          rect = Rect.zero;
+          break;
+        }
         if (ancestor is RenderAbstractViewport) {
           final bounds = MatrixUtils.transformRect(
             ancestor.getTransformTo(null),
@@ -71,6 +85,7 @@ class _OnVisibleState extends State<OnVisible> {
           );
           rect = rect.intersect(bounds);
         }
+        child = ancestor;
         ancestor = ancestor.parent;
       }
       final view = View.of(context);
@@ -123,5 +138,12 @@ class _ObservedBox extends RenderProxyBox {
   void performLayout() {
     super.performLayout();
     onLayout();
+  }
+
+  @override
+  void paint(PaintingContext context, Offset offset) {
+    // 下拉菜单淡入只重绘、不重新布局；首次真正绘制时重新判断可见性。
+    onLayout();
+    super.paint(context, offset);
   }
 }

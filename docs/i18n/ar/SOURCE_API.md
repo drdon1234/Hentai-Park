@@ -126,6 +126,8 @@ Park.register({
 
 اختر `defaultFeed` بالترتيب **الموصى به > التصنيفات > الرائج**، ولا تستخدم صفحة الأحدث أو مدخلًا آخر إلا إن خلا الموقع منها فعلًا، ولا تخترع واجهة غير مُتحقَّق منها. عند غيابه أو عدم وجود المفتاح يختار التطبيق حسب المفتاح (أولًا `promote` / `recommend` / `featured`، ثم `rank` / `toplist`، ثم `popular` / `hot` / `trending`)، وإلا فالتبويب الأول.
 
+تُعلن المصادر التي تسمح بالتصفح المجهول وتتطلب تسجيل الدخول للتوصيات عن `anonymousDefaultFeed: 'ranking'`. يجب أن يشير إلى مدخل في `feeds` تم التحقق من إتاحته دون تسجيل الدخول، مع تفضيل الترتيب. تستخدم الصفحة الرئيسية وصفحة المصدر هذا المدخل عند عدم تسجيل الدخول و`defaultFeed` عند تسجيل الدخول، مع الاحتفاظ بعلامة التبويب التي اختارها المستخدم صراحةً. لا تعتبر كل قائمة فارغة أو خطأ شبكة دليلًا على جلسة مجهولة.
+
 ### تعريف الخيارات
 
 تستخدم `feeds[].options` و`searchFilters` و`settings` الصيغة نفسها:
@@ -241,7 +243,10 @@ async resolveGameResource(workId, resourceId, channelId) {}
 { sections: [{ title: '连载更新', items: [WorkItem] }], hasNext: false }
 ```
 
-**WorkItem**: `{ id, title, subtitle?, cover, coverAspect?, pages?, rating?, likes?, views?, language?, category?, badge?, badgeColor?, duration?, uploaded?, tags?, mediaKind? }`
+**WorkItem**: `{ id, title, subtitle?, cover, coverAspect?, pages?, rating?, likes?, views?, language?, category?, badge?, badgeColor?, duration?, uploaded?, tags?, mediaKind?, workCode?, editions? }`
+
+- `workCode` هو رمز عمل مؤكّد من المصدر، ويُستخدم فقط للعثور على العمل نفسه. لا يحل محل `id` ولا يدمج هوية الأعمال أو المفضلة أو التقدم أو التنزيلات.
+- `editions` يحتوي على تسميات إصدارات ثابتة يذكرها المصدر صراحة، مثل الترجمة الصينية أو نسخة مسرّبة غير خاضعة للرقابة. غياب التسمية لا يعني الإصدار الأصلي. عرض الترجمة لا يغيّر التسميات الأصلية.
 
 - يتيح `coverAspect` (العرض / الارتفاع) ترتيب الشبكة قبل تحميل الصور.
 - يلوّن `badgeColor` شارة الفئة.
@@ -259,9 +264,11 @@ async resolveGameResource(workId, resourceId, channelId) {}
   chapters: [{ id, title }] | null,   // null يعني فصلًا واحدًا
   singleChapterId?,                   // معرّف الفصل الذي تحتاجه الأعمال ذات الفصل الواحد
   thumbnails?: [url | { url, width, height, offsetX, offsetY }],   // تدعم الصور المجمّعة
-  related?: [WorkItem], series?: [WorkItem],
+  related?: [WorkItem], series?: [WorkItem], variants?: [WorkItem],
 }
 ```
+
+- `variants` يحتوي فقط على روابط فعلية يقدّمها المصدر لإصدارات العمل نفسه في المصدر نفسه، مع `id` مستقل لكل إصدار؛ لا يجوز تخمين عناوين URL. تُبحث إصدارات المصادر الأخرى عبر `workCode` وتبقى المفضلة والتقدم والتنزيلات مستقلة.
 
 - يبحث النقر على وسم في هذا الموقع باستخدام `keyword` و`filters`، فيمكن ربط الوسوم بصيغة الموقع الخاصة (مثل `artist:"xxx"`) أو بمعاملات التصفية.
 - الوسيط الثاني الاختياري `preview` يحمل بيانات وصفية عامة معروضة أو محفوظة، ولا يُمرَّر إلا حين يطابق `preview.source` و`preview.id` الطلب. على الإضافة مع ذلك فحص المعرّف والتحقق من الروابط. الأعمال المفتوحة بمعرّف مكتوب لا معاينة لها، فقد يكون العنوان والغلاف ناقصين.

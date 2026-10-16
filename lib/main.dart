@@ -13,6 +13,7 @@ import 'core/crash_log.dart';
 import 'core/localization.dart';
 import 'core/models.dart';
 import 'core/settings.dart';
+import 'core/startup.dart';
 import 'core/storage.dart';
 import 'core/tag_translations.dart';
 import 'data/database.dart';
@@ -34,8 +35,10 @@ import 'subscriptions/background.dart';
 import 'ui/lock/lock_screen.dart';
 import 'ui/nav.dart';
 import 'ui/shell.dart';
+import 'ui/startup/startup_gate.dart';
 import 'ui/theme.dart';
 import 'ui/widgets/desktop_scale.dart';
+import 'ui/widgets/storage_save_notice.dart';
 import 'video/desktop_video_player.dart';
 
 @pragma('vm:entry-point')
@@ -43,12 +46,7 @@ Future<void> subscriptionBackgroundMain() => subscriptionBackground();
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  if (Platform.isMacOS) await FilePicker.skipEntitlementsChecks();
   DesktopVideoPlayer.register();
-  if (Platform.isAndroid) {
-    await const MethodChannel('hentai_park/platform')
-        .invokeMethod<void>('claimSourceEngine');
-  }
   LicenseRegistry.addLicense(() async* {
     yield LicenseEntryWithLineBreaks([
       'HentaiPark (AGPL-3.0-only)',
@@ -60,66 +58,108 @@ Future<void> main() async {
       'EhTagTranslation names (CC-BY-NC-SA-3.0-CN)',
     ], await rootBundle.loadString('docs/licenses/ehtagtranslation.txt'));
   });
-  await AppPaths.init();
-  CrashLog.install();
-  final db = AppDatabase.file(File(p.join(AppPaths.data.path, 'park.db')));
-  await RestoreTransaction.recover(db);
-  await AppSettings.instance.load();
-  final downloadDirectory = AppSettings.instance.downloadDirectory;
-  if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) {
-    if (downloadDirectory.isNotEmpty) {
-      try {
-        await AppPaths.selectDownloadDirectory(downloadDirectory);
-      } catch (_) {
-        // 外置磁盘暂不可用时保留原配置；旧下载任务仍使用其已保存的绝对路径。
-      }
-    }
-  }
-  await Future.wait([
-    TagTranslations.instance.init(),
-    AppLocalizations.instance.load(),
-    CookieStore.instance.init(),
-    ReadingNotes.instance.load(),
-  ]);
-  AppLocalizations.instance.setLocale(
-    AppSettings.instance.locale ??
+  late AppDatabase db;
+  final startup = StartupSequence([
+    () async {
+      await AppLocalizations.instance.load();
+      AppLocalizations.instance.setLocale(
         AppLocalizations.resolveLocales(
           WidgetsBinding.instance.platformDispatcher.locales,
         ),
-  );
-  HttpService.instance.init();
-  await Library.instance.open(db);
-  await DownloadManager.instance.load(db);
-  await GameDownloadManager.instance.load();
-  AppLock.instance.init();
-  LibraryUpdater.instance.onFinished.add(_autoDownload);
-  if (Platform.isAndroid) {
-    await InAppWebViewController.setWebContentsDebuggingEnabled(false);
-    unawaited(SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge));
-  }
-  // Use the system WebView UA everywhere so Cloudflare clearance stays valid for native requests.
-  try {
-    final ua = await InAppWebViewController.getDefaultUserAgent();
-    if (ua.isNotEmpty) {
-      HttpService.instance.userAgent = ua.replaceAll('; wv)', ')');
-    }
-  } catch (_) {}
-  // App lock also hides content in the recent-apps switcher.
-  await PlatformBridge.bindSettings();
-  await DesktopWindow.instance.init();
-  await NativeNotifications.instance.init();
-  runApp(const ParkApp());
-  // Sources load after the first frame; the UI shows skeletons meanwhile.
-  unawaited(
-    SourceManager.instance
-        .init()
-        .then((_) => BackupService.instance.autoBackupIfDue())
-        .catchError((Object error, StackTrace stack) {
-          CrashLog.record(error, stack);
-          return null;
-        }),
-  );
-  unawaited(ImageStore.instance.trim());
+      );
+    },
+    () async {
+      if (Platform.isMacOS) await FilePicker.skipEntitlementsChecks();
+    },
+    () async {
+      if (Platform.isAndroid) {
+        await const MethodChannel('hentai_park/platform')
+            .invokeMethod<void>('claimSourceEngine');
+      }
+    },
+    AppPaths.init,
+    () async {
+      CrashLog.install();
+    },
+    () async {
+      final candidate = AppDatabase.file(
+        File(p.join(AppPaths.data.path, 'park.db')),
+      );
+      try {
+        await candidate.customSelect('SELECT 1').get();
+        await RestoreTransaction.recover(candidate);
+        db = candidate;
+      } catch (_) {
+        await candidate.close();
+        rethrow;
+      }
+    },
+    AppSettings.instance.load,
+    () async {
+      final downloadDirectory = AppSettings.instance.downloadDirectory;
+      if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) {
+        if (downloadDirectory.isNotEmpty) {
+          try {
+            await AppPaths.selectDownloadDirectory(downloadDirectory);
+          } catch (_) {
+            // 外置磁盘暂不可用时保留原配置；旧下载任务仍使用其已保存的绝对路径。
+          }
+        }
+      }
+    },
+    TagTranslations.instance.init,
+    CookieStore.instance.init,
+    ReadingNotes.instance.load,
+    () async {
+      AppLocalizations.instance.setLocale(
+        AppSettings.instance.locale ??
+            AppLocalizations.resolveLocales(
+              WidgetsBinding.instance.platformDispatcher.locales,
+            ),
+      );
+      HttpService.instance.init();
+    },
+    () => Library.instance.open(db),
+    () => DownloadManager.instance.load(db),
+    GameDownloadManager.instance.load,
+    () async {
+      AppLock.instance.init();
+      LibraryUpdater.instance.onFinished.add(_autoDownload);
+    },
+    () async {
+      if (Platform.isAndroid) {
+        await InAppWebViewController.setWebContentsDebuggingEnabled(false);
+        unawaited(SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge));
+      }
+      // Use the system WebView UA everywhere so Cloudflare clearance stays valid for native requests.
+      try {
+        final ua = await InAppWebViewController.getDefaultUserAgent();
+        if (ua.isNotEmpty) {
+          HttpService.instance.userAgent = ua.replaceAll('; wv)', ')');
+        }
+      } catch (_) {}
+      // App lock also hides content in the recent-apps switcher.
+    },
+    PlatformBridge.bindSettings,
+    DesktopWindow.instance.init,
+    NativeNotifications.instance.init,
+    () async {
+      // Sources load after the first frame; the UI shows skeletons meanwhile.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        unawaited(
+          SourceManager.instance
+              .init()
+              .then((_) => BackupService.instance.autoBackupIfDue())
+              .catchError((Object error, StackTrace stack) {
+                CrashLog.record(error, stack);
+                return null;
+              }),
+        );
+        unawaited(ImageStore.instance.trim());
+      });
+    },
+  ]);
+  runApp(StartupGate(initialize: startup.run, child: const ParkApp()));
 }
 
 /// "Download new chapters": queue what a library update found.
@@ -165,7 +205,11 @@ class ParkApp extends StatelessWidget {
             child: _SystemNavInset(
               child: DesktopScale(
                 child: DesktopShutdownGate(
-                  child: LockGate(child: child ?? const SizedBox.shrink()),
+                  child: LockGate(
+                    child: StorageSaveNotice(
+                      child: child ?? const SizedBox.shrink(),
+                    ),
+                  ),
                 ),
               ),
             ),

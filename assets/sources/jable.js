@@ -9,7 +9,7 @@ Park.register({
     "ru": {"JAV 视频，支持热门、搜索与 HLS 播放": "JAV: популярное, поиск и воспроизведение HLS"},
     "ar": {"JAV 视频，支持热门、搜索与 HLS 播放": "فيديوهات JAV مع قوائم شائعة وبحث وتشغيل HLS"},
   },
-  key: 'jable', name: 'JableTV', version: '0.0.5', type: 'video', category: 'jav',
+  key: 'jable', name: 'JableTV', version: '0.0.6', type: 'video', category: 'jav',
   color: '#14B8A6', description: 'JAV 视频，支持热门、搜索与 HLS 播放',
   homepage: 'https://jable.tv', domains: ['jable.tv'], language: 'zh-Hant',
   network: {mode: 'browser', origin: 'https://jable.tv', vpnHint: true},
@@ -26,6 +26,15 @@ Park.register({
   settings: [{key: 'quality', type: 'select', label: '默认清晰度', default: '1080', options: [
     {value: '1080', label: '1080P'}, {value: '720', label: '720P'}, {value: '480', label: '480P'}]}],
   BASE: 'https://jable.tv',
+  identity(id, labels = '') {
+    const code = id.replace(/(?:-(?:uncensored-leak|uncensored|chinese-subtitle|english-subtitle))+$/, '');
+    const editions = [], text = id + ' ' + labels;
+    if (/uncensored-leak|无码流出|無碼流出/i.test(text)) editions.push('无码流出');
+    else if (/uncensored|无码|無碼/i.test(text)) editions.push('无码');
+    if (/chinese-subtitle|中文字幕/i.test(text)) editions.push('中文字幕');
+    if (/english-subtitle|英文字幕/i.test(text)) editions.push('英文字幕');
+    return {workCode: /^(?:\d{0,4}[a-z]{2,12}-\d{2,8}[a-z]?|fc2-ppv-\d{2,12})$/i.test(code) ? code.toUpperCase() : '', editions};
+  },
   validId(id) {
     const value = String(id).toLowerCase();
     if (!/^[a-z0-9][a-z0-9-]{1,120}$/.test(value)) throw Park.error('NOT_FOUND', '影片编号无效');
@@ -46,7 +55,8 @@ Park.register({
       const cover = img && (img.getAttribute('data-src') || img.getAttribute('src'));
       const title = Park.html.text(a);
       if (!match || !title || !/^https:\/\//.test(cover || '') || items.some(i => i.id === match[1])) continue;
-      items.push({id: match[1], title, cover, coverAspect: 16/9, duration: Park.html.text(card.querySelector('.label'))});
+      const labels = [...card.querySelectorAll('.label, .badge')].map(Park.html.text).join(' ');
+      items.push({id: match[1], title, cover, coverAspect: 16/9, duration: Park.html.text(card.querySelector('.label')), ...this.identity(match[1], labels)});
     }
     return items;
   },
@@ -87,10 +97,13 @@ Park.register({
       const name = tooltip && (tooltip.getAttribute('data-original-title') || tooltip.getAttribute('title')) || Park.html.text(a);
       if (m && name) tags.push({name, keyword: '', filters: {category: m[1]}});
     }
-    return {id, title, cover: image ? image.getAttribute('content') : '', coverAspect: 16/9,
+    const identity = this.identity(id, tags.map(tag => tag.name).join(' '));
+    const related = this.cards(doc).filter(i => i.id !== id);
+    return {id, title, cover: image ? image.getAttribute('content') : '', coverAspect: 16/9, ...identity,
+      variants: identity.workCode ? related.filter(item => item.workCode === identity.workCode) : [],
       url: this.BASE + '/videos/' + id + '/', description: Park.html.text(doc.querySelector('.video-info .desc')),
       authors: tags.filter(t => t.filters.category.startsWith('/models/')).map(t => t.name),
-      tags: tags.length ? [{namespace: 'tag', label: '标签', tags}] : [], related: this.cards(doc).filter(i => i.id !== id)};
+      tags: tags.length ? [{namespace: 'tag', label: '标签', tags}] : [], related};
   },
   async videos(id) {
     id = this.validId(id);

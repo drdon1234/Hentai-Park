@@ -218,6 +218,7 @@ class HttpService {
     CancelToken? cancelToken,
   }) async {
     var uri = _httpUri(url);
+    final cookieGeneration = CookieStore.instance.generation(partition);
     var currentMethod = method.toUpperCase();
     Object? currentBody = body;
     final currentHeaders = Map<String, String>.of(headers);
@@ -298,6 +299,7 @@ class HttpService {
             uri,
             setCookies,
             partition: partition,
+            requestGeneration: cookieGeneration,
           );
         }
         _throwIfCancelled(cancelToken);

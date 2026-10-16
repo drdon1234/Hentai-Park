@@ -243,7 +243,10 @@ async resolveGameResource(workId, resourceId, channelId) {}
 { sections: [{ title: '连载更新', items: [WorkItem] }], hasNext: false }
 ```
 
-**WorkItem**：`{ id, title, subtitle?, cover, coverAspect?, pages?, rating?, likes?, views?, language?, category?, badge?, badgeColor?, duration?, uploaded?, tags?, mediaKind? }`
+**WorkItem**：`{ id, title, subtitle?, cover, coverAspect?, pages?, rating?, likes?, views?, language?, category?, badge?, badgeColor?, duration?, uploaded?, tags?, mediaKind?, workCode?, editions? }`
+
+- `workCode` 是原站确认的番号或共同检索码，仅用于查找同作品；不替代 `id`，不合并作品身份、收藏、进度或下载。
+- `editions` 是原站明确标注的固定版本标签（如“中文字幕”“无码流出”）；没有标记时不得推断为原版。显示译文不改变原始标签。
 
 - `coverAspect`（宽 / 高）让网格在图片加载前就排好版。
 - `badgeColor` 用于分类角标的颜色。
@@ -261,9 +264,11 @@ WorkItem 的全部字段，再加：
   chapters: [{ id, title }] | null,   // null 表示单章
   singleChapterId?,                   // 单章作品需要的章节 ID
   thumbnails?: [url | { url, width, height, offsetX, offsetY }],   // 支持雪碧图
-  related?: [WorkItem], series?: [WorkItem],
+  related?: [WorkItem], series?: [WorkItem], variants?: [WorkItem],
 }
 ```
+
+- `variants` 只包含原站提供的同源、同作品实际版本链接，各版本必须保留独立 `id`；不得猜测 URL。跨站版本通过 `workCode` 查找，各自保留收藏、进度与下载。
 
 - 点击标签时，应用在本站点用 `keyword` 与 `filters` 搜索，因此可以把标签映射成站点原生语法（如 `artist:"xxx"`）或筛选参数。
 - 第二个参数 `preview` 可选：只有 `preview.source`、`preview.id` 与请求一致时，才传入已显示或已存储的作品公开元数据。插件仍要核对 ID 并校验 URL。直接输入编号打开时没有预览，标题和封面可能不完整。

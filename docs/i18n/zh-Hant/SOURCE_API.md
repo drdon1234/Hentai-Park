@@ -124,6 +124,8 @@ Park.register({
 
 `defaultFeed` 按 **推薦頁 > 排行榜頁 > 熱門頁** 選擇，站點確實沒有這些入口時才用最新頁或其他有效入口，不得偽造未驗證的介面。未填寫或找不到 key 時，應用按 key 自動選擇（先 `promote` / `recommend` / `featured`，再 `rank` / `toplist`，再 `popular` / `hot` / `trending`），都沒有就進第一個標籤。
 
+支援匿名存取、但推薦需要登入的源宣告 `anonymousDefaultFeed: 'ranking'`，值必須指向 `feeds` 中實際可匿名存取的入口，優先排行榜。首頁和站點頁在未登入時使用此入口；已登入時使用 `defaultFeed`，使用者明確選擇的分頁維持原選擇。不要把空列表或網路失敗一概視為匿名狀態。
+
 ### 選項定義
 
 `feeds[].options`、`searchFilters`、`settings` 使用同一種格式：
@@ -239,7 +241,10 @@ async resolveGameResource(workId, resourceId, channelId) {}
 { sections: [{ title: '连载更新', items: [WorkItem] }], hasNext: false }
 ```
 
-**WorkItem**：`{ id, title, subtitle?, cover, coverAspect?, pages?, rating?, likes?, views?, language?, category?, badge?, badgeColor?, duration?, uploaded?, tags?, mediaKind? }`
+**WorkItem**：`{ id, title, subtitle?, cover, coverAspect?, pages?, rating?, likes?, views?, language?, category?, badge?, badgeColor?, duration?, uploaded?, tags?, mediaKind?, workCode?, editions? }`
+
+- `workCode` 是原站確認的番號或共同檢索碼，僅用於查找同作品；不取代 `id`，不合併作品身分、收藏、進度或下載。
+- `editions` 是原站明確標註的固定版本標籤（如「中文字幕」「無碼流出」）；沒有標記時不得推斷為原版。顯示譯文不改變原始標籤。
 
 - `coverAspect`（寬 / 高）讓網格在圖片載入前就排好版。
 - `badgeColor` 用於分類角標的顏色。
@@ -257,9 +262,11 @@ WorkItem 的全部欄位，再加：
   chapters: [{ id, title }] | null,   // null 表示单章
   singleChapterId?,                   // 单章作品需要的章节 ID
   thumbnails?: [url | { url, width, height, offsetX, offsetY }],   // 支持雪碧图
-  related?: [WorkItem], series?: [WorkItem],
+  related?: [WorkItem], series?: [WorkItem], variants?: [WorkItem],
 }
 ```
+
+- `variants` 只包含原站提供的同來源、同作品實際版本連結，各版本必須保留獨立 `id`；不得猜測 URL。跨站版本透過 `workCode` 查找，各自保留收藏、進度與下載。
 
 - 點選標籤時，應用在本站點用 `keyword` 與 `filters` 搜尋，因此可以把標籤對映成站點原生語法（如 `artist:"xxx"`）或篩選引數。
 - 第二個引數 `preview` 可選：只有 `preview.source`、`preview.id` 與請求一致時，才傳入已顯示或已儲存的作品公開後設資料。外掛仍要核對 ID 並校驗 URL。直接輸入編號開啟時沒有預覽，標題和封面可能不完整。

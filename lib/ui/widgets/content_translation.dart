@@ -56,7 +56,7 @@ class _TranslationPageState extends State<TranslationPage> {
   }
 }
 
-class _TranslationScope extends InheritedWidget {
+class _TranslationScope extends InheritedTheme {
   const _TranslationScope({
     required this.owner,
     required this.original,
@@ -73,6 +73,17 @@ class _TranslationScope extends InheritedWidget {
   final int retry;
   static _TranslationScope? of(BuildContext context) =>
       context.dependOnInheritedWidgetOfExactType<_TranslationScope>();
+  @override
+  Widget wrap(BuildContext context, Widget child) => _TranslationScope(
+    owner: owner,
+    original: original,
+    enabled: enabled,
+    active: active,
+    locale: locale,
+    engine: engine,
+    retry: retry,
+    child: child,
+  );
   @override
   // Installed dictionaries refresh visible display without mutating source models.
   bool updateShouldNotify(_TranslationScope old) => true;

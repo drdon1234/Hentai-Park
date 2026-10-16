@@ -18,6 +18,10 @@ Future<void> downloadWork(
   required bool isVideo,
 }) async {
   final manager = DownloadManager.instance;
+  if (manager.hasRestoreFailure(item.uid)) {
+    context.toast(tr('下载记录恢复失败，请前往下载页处理'));
+    return;
+  }
   final existing = manager.task(item.uid);
   if (existing != null) {
     final confirmed = await confirmAction(
@@ -85,6 +89,10 @@ Future<void> downloadEpisodes(
   List<Chapter> episodes,
 ) async {
   if (episodes.isEmpty) return;
+  if (DownloadManager.instance.hasRestoreFailure(item.uid)) {
+    context.toast(tr('下载记录恢复失败，请前往下载页处理'));
+    return;
+  }
   final sources = await guarded(
     context,
     detail.source,

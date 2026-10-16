@@ -91,6 +91,8 @@ class _RankingRowState extends State<RankingRow> {
                         child: ContentTranslation(
                           source: item.source,
                           text: item.title,
+                          tag: widget.board.kind == 'genre',
+                          namespace: 'genre',
                           builder: (value) => Text(
                             value,
                             maxLines: _expanded ? null : 3,

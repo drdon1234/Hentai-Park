@@ -67,6 +67,7 @@ abstract class _NovelReaderBase extends State<NovelReaderPage> {
   Size _viewport = Size.zero;
   TextStyle _effectiveStyle = const TextStyle();
   double _textWidth = 1;
+  TextDirection _textDirection = TextDirection.ltr;
   CancelToken? _request;
   List<Chapter> get _chapters => widget.work.chapters?.isNotEmpty == true
       ? widget.work.chapters!
@@ -185,6 +186,7 @@ class _NovelReaderPageState extends _NovelReaderBase
       );
       if (!mounted || generation != _generation) return;
       _text = body.paragraphs.join('\n\n');
+      _textDirection = novelTextDirection(_text);
       _cache[key] = body;
       while (_cache.length > 3) {
         _cache.remove(_cache.keys.first);
