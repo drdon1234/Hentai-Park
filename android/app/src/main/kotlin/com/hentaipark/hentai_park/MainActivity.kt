@@ -7,7 +7,6 @@ import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
-import android.content.pm.ActivityInfo
 import android.content.pm.PackageManager
 import android.media.AudioManager
 import android.os.Build
@@ -39,6 +38,7 @@ class MainActivity : FlutterFragmentActivity() {
     private var launchPayload: String? = null
     private var videoBrightness: Float? = null
     private var videoFullscreen = false
+    private val videoOrientation by lazy { VideoOrientation(this) }
     private var downloadsChannel: MethodChannel? = null
     private var videoSystemUi: VideoSystemUi? = null
 
@@ -59,10 +59,12 @@ class MainActivity : FlutterFragmentActivity() {
 
     override fun onPostResume() {
         super.onPostResume()
+        videoOrientation.resume()
         if (videoFullscreen) hideVideoSystemBars()
     }
 
     override fun onPause() {
+        videoOrientation.pause()
         // Keep the fullscreen preference, but release the window while backgrounded.
         restoreVideoSystemBars(clear = false)
         resetVideoBrightness()
@@ -194,18 +196,14 @@ class MainActivity : FlutterFragmentActivity() {
                         try {
                             val args = call.arguments as Map<*, *>
                             videoFullscreen = args["enabled"] == true
-                            // Flutter's USER_* orientations honor rotation lock. Video
-                            // fullscreen must follow gravity within the selected axis.
-                            requestedOrientation = when {
-                                !videoFullscreen -> ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
-                                args["landscape"] == true -> ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
-                                else -> ActivityInfo.SCREEN_ORIENTATION_SENSOR_PORTRAIT
-                            }
+                            if (videoFullscreen) videoOrientation.start(args["landscape"] == true)
+                            else videoOrientation.stop()
                             if (videoFullscreen) hideVideoSystemBars()
                             else restoreVideoSystemBars(clear = true)
                             result.success(null)
                         } catch (error: Exception) {
                             videoFullscreen = false
+                            videoOrientation.stop()
                             runCatching { restoreVideoSystemBars(clear = true) }
                             result.error("SYSTEM_UI", error.message, null)
                         }
@@ -287,6 +285,7 @@ class MainActivity : FlutterFragmentActivity() {
 
     override fun onDestroy() {
         videoFullscreen = false
+        videoOrientation.stop()
         restoreVideoSystemBars(clear = true)
         resetVideoBrightness()
         super.onDestroy()
