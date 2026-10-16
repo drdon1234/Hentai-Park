@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 
 import '../../core/content_translation.dart';
@@ -58,6 +59,7 @@ class TranslationSelectionArea extends StatefulWidget {
 
 class _TranslationSelectionAreaState extends State<TranslationSelectionArea> {
   String selected = '';
+
   @override
   Widget build(BuildContext context) => SelectionArea(
     onSelectionChanged: (value) => selected = value?.plainText ?? '',
@@ -78,8 +80,79 @@ class _TranslationSelectionAreaState extends State<TranslationSelectionArea> {
             ),
           ],
         ),
-    child: widget.child,
+    child: TextSelectionGuard(child: widget.child),
   );
+}
+
+/// 放在选择区域内部，只允许从可选文字的实际行框开始选择。
+class TextSelectionGuard extends StatefulWidget {
+  const TextSelectionGuard({super.key, required this.child});
+  final Widget child;
+
+  @override
+  State<TextSelectionGuard> createState() => _TextSelectionGuardState();
+}
+
+class _TextSelectionGuardState extends State<TextSelectionGuard> {
+  bool _startsOnText = false;
+  late final _delegate = _TextHitSelectionDelegate(() => _startsOnText);
+
+  void _pointerDown(PointerDownEvent event) {
+    final result = HitTestResult();
+    RendererBinding.instance.hitTestInView(
+      result,
+      event.position,
+      event.viewId,
+    );
+    _startsOnText = result.path.any((entry) {
+      final target = entry.target;
+      if (target is! RenderParagraph || target.registrar == null) return false;
+      final point = target.globalToLocal(event.position);
+      if (!target.paintBounds.contains(point)) return false;
+      return target
+          .getBoxesForSelection(
+            TextSelection(
+              baseOffset: 0,
+              extentOffset: target.text.toPlainText().length,
+            ),
+          )
+          .any((box) => box.toRect().contains(point));
+    });
+  }
+
+  @override
+  void dispose() {
+    _delegate.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => Listener(
+    behavior: HitTestBehavior.translucent,
+    onPointerDown: _pointerDown,
+    child: SelectionContainer(delegate: _delegate, child: widget.child),
+  );
+}
+
+/// Flutter 默认会选中距长按位置最近的文字；仅允许从实际文字范围起选。
+/// 起选后仍由框架处理跨段拖选、滚动、选择手柄与键盘操作。
+class _TextHitSelectionDelegate extends StaticSelectionContainerDelegate {
+  _TextHitSelectionDelegate(this.startsOnText);
+  final bool Function() startsOnText;
+
+  @override
+  SelectionResult dispatchSelectionEvent(SelectionEvent event) {
+    final starting =
+        event is SelectWordSelectionEvent ||
+        event is SelectParagraphSelectionEvent ||
+        (event is SelectionEdgeUpdateEvent &&
+            value.status == SelectionStatus.none);
+    if (starting && !startsOnText()) {
+      super.dispatchSelectionEvent(const ClearSelectionEvent());
+      return SelectionResult.none;
+    }
+    return super.dispatchSelectionEvent(event);
+  }
 }
 
 class _TextTranslationSheet extends StatefulWidget {
@@ -187,17 +260,17 @@ class _TextTranslationSheetState extends State<_TextTranslationSheet> {
               children: [
                 TextButton(
                   onPressed: busy ? null : _translate,
-                  child: Text(tr('重试')),
+                  child: SelectionContainer.disabled(child: Text(tr('重试'))),
                 ),
                 TextButton(
                   onPressed: result == null
                       ? null
                       : () => Clipboard.setData(ClipboardData(text: result!)),
-                  child: Text(tr('复制译文')),
+                  child: SelectionContainer.disabled(child: Text(tr('复制译文'))),
                 ),
                 TextButton(
                   onPressed: () => Navigator.pop(context),
-                  child: Text(tr('关闭')),
+                  child: SelectionContainer.disabled(child: Text(tr('关闭'))),
                 ),
               ],
             ),

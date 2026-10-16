@@ -392,7 +392,9 @@ class _DetailPageState extends State<DetailPage> {
             }),
       trailing: TextButton(
         onPressed: () => setState(() => _reversed = !_reversed),
-        child: Text(_reversed ? tr('倒序') : tr('正序')),
+        child: SelectionContainer.disabled(
+          child: Text(_reversed ? tr('倒序') : tr('正序')),
+        ),
       ),
     );
   }
@@ -436,7 +438,12 @@ class _DetailPageState extends State<DetailPage> {
             icon: Icons.format_list_bulleted_rounded,
             title: tr('暂无章节'),
             message: tr('站点还没有列出章节，稍后再来看看。'),
-            actions: [TextButton(onPressed: _load, child: Text(tr('刷新')))],
+            actions: [
+              TextButton(
+                onPressed: _load,
+                child: SelectionContainer.disabled(child: Text(tr('刷新'))),
+              ),
+            ],
           ),
         ),
       if (ordered != null && ordered.isNotEmpty) ...[

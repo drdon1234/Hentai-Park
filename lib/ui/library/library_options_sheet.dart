@@ -40,9 +40,15 @@ class _LibraryOptions extends StatelessWidget {
             children: [
               TabBar(
                 tabs: [
-                  Tab(text: tr('筛选')),
-                  Tab(text: tr('排序')),
-                  Tab(text: tr('显示')),
+                  Tab(
+                    child: SelectionContainer.disabled(child: Text(tr('筛选'))),
+                  ),
+                  Tab(
+                    child: SelectionContainer.disabled(child: Text(tr('排序'))),
+                  ),
+                  Tab(
+                    child: SelectionContainer.disabled(child: Text(tr('显示'))),
+                  ),
                 ],
               ),
               Expanded(
@@ -62,7 +68,9 @@ class _LibraryOptions extends StatelessWidget {
                                   kind.name: kind.label,
                               }.entries)
                                 ChoiceChip(
-                                  label: Text(entry.value),
+                                  label: SelectionContainer.disabled(
+                                    child: Text(entry.value),
+                                  ),
                                   selected: s.libraryFilterKind == entry.key,
                                   onSelected: (_) =>
                                       s.libraryFilterKind = entry.key,
@@ -72,13 +80,17 @@ class _LibraryOptions extends StatelessWidget {
                         ),
                         CheckboxListTile(
                           value: s.libraryFilterDownloaded,
-                          title: Text(tr('已下载')),
+                          title: SelectionContainer.disabled(
+                            child: Text(tr('已下载')),
+                          ),
                           onChanged: (v) =>
                               s.libraryFilterDownloaded = v ?? false,
                         ),
                         CheckboxListTile(
                           value: s.libraryFilterUnread,
-                          title: Text(tr('有未读')),
+                          title: SelectionContainer.disabled(
+                            child: Text(tr('有未读')),
+                          ),
                           onChanged: (v) => s.libraryFilterUnread = v ?? false,
                         ),
                         SectionHeader(
@@ -94,7 +106,9 @@ class _LibraryOptions extends StatelessWidget {
                               for (final src in SourceManager.instance.all)
                                 FilterChip(
                                   avatar: SourceAvatar(src.key, size: 20),
-                                  label: Text(src.name),
+                                  label: SelectionContainer.disabled(
+                                    child: Text(src.name),
+                                  ),
                                   selected: s.libraryFilterSources.contains(
                                     src.key,
                                   ),
@@ -105,7 +119,9 @@ class _LibraryOptions extends StatelessWidget {
                                   },
                                 ),
                               FilterChip(
-                                label: Text(tr('本地')),
+                                label: SelectionContainer.disabled(
+                                  child: Text(tr('本地')),
+                                ),
                                 selected: s.libraryFilterSources.contains(
                                   'local',
                                 ),
@@ -125,7 +141,9 @@ class _LibraryOptions extends StatelessWidget {
                         for (final (key, label, icon) in sorts)
                           ListTile(
                             leading: Icon(icon),
-                            title: Text(label),
+                            title: SelectionContainer.disabled(
+                              child: Text(label),
+                            ),
                             trailing: s.librarySort == key
                                 ? Icon(
                                     s.librarySortAsc
@@ -154,12 +172,16 @@ class _LibraryOptions extends StatelessWidget {
                               ButtonSegment(
                                 value: 'grid',
                                 icon: const Icon(Icons.grid_view_rounded),
-                                label: Text(tr('网格')),
+                                label: SelectionContainer.disabled(
+                                  child: Text(tr('网格')),
+                                ),
                               ),
                               ButtonSegment(
                                 value: 'list',
                                 icon: const Icon(Icons.view_list_rounded),
-                                label: Text(tr('列表')),
+                                label: SelectionContainer.disabled(
+                                  child: Text(tr('列表')),
+                                ),
                               ),
                             ],
                             selected: {s.libraryDisplay},
@@ -169,17 +191,23 @@ class _LibraryOptions extends StatelessWidget {
                         ),
                         CheckboxListTile(
                           value: s.badgeUnread,
-                          title: Text(tr('未读数徽标')),
+                          title: SelectionContainer.disabled(
+                            child: Text(tr('未读数徽标')),
+                          ),
                           onChanged: (v) => s.badgeUnread = v ?? true,
                         ),
                         CheckboxListTile(
                           value: s.badgeDownloaded,
-                          title: Text(tr('已下载徽标')),
+                          title: SelectionContainer.disabled(
+                            child: Text(tr('已下载徽标')),
+                          ),
                           onChanged: (v) => s.badgeDownloaded = v ?? true,
                         ),
                         CheckboxListTile(
                           value: s.badgeSource,
-                          title: Text(tr('站点图标')),
+                          title: SelectionContainer.disabled(
+                            child: Text(tr('站点图标')),
+                          ),
                           onChanged: (v) => s.badgeSource = v ?? true,
                         ),
                       ],

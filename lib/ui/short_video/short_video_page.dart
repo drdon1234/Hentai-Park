@@ -165,11 +165,11 @@ class _ShortVideoPageState extends State<ShortVideoPage>
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(ctx, false),
-              child: Text(tr('取消')),
+              child: SelectionContainer.disabled(child: Text(tr('取消'))),
             ),
             FilledButton(
               onPressed: () => Navigator.pop(ctx, true),
-              child: Text(tr('继续')),
+              child: SelectionContainer.disabled(child: Text(tr('继续'))),
             ),
           ],
         ),
@@ -356,13 +356,13 @@ class _ShortVideoPageState extends State<ShortVideoPage>
             if (_feed.hasNext)
               TextButton(
                 onPressed: () => _feed.loadMore(),
-                child: Text(tr('继续加载')),
+                child: SelectionContainer.disabled(child: Text(tr('继续加载'))),
               ),
             const SizedBox(height: 16),
             FilledButton.icon(
               onPressed: _refresh,
               icon: const Icon(Icons.refresh),
-              label: Text(tr('刷新')),
+              label: SelectionContainer.disabled(child: Text(tr('刷新'))),
             ),
           ],
         ),
@@ -428,7 +428,9 @@ class _ShortVideoPageState extends State<ShortVideoPage>
                     if (value.hasError)
                       FilledButton.tonal(
                         onPressed: () => _playback.retry(),
-                        child: Text(tr('重试')),
+                        child: SelectionContainer.disabled(
+                          child: Text(tr('重试')),
+                        ),
                       ),
                     if (value.isBuffering) const LinearProgressIndicator(),
                     AdaptiveVideoProgress(
@@ -664,15 +666,21 @@ class _ShortVideoPageState extends State<ShortVideoPage>
                                   itemBuilder: (context) => [
                                     PopupMenuItem(
                                       value: 'history',
-                                      child: Text(tr('浏览历史')),
+                                      child: SelectionContainer.disabled(
+                                        child: Text(tr('浏览历史')),
+                                      ),
                                     ),
                                     PopupMenuItem(
                                       value: 'refresh',
-                                      child: Text(tr('刷新')),
+                                      child: SelectionContainer.disabled(
+                                        child: Text(tr('刷新')),
+                                      ),
                                     ),
                                     PopupMenuItem(
                                       value: 'settings',
-                                      child: Text(tr('站点设置')),
+                                      child: SelectionContainer.disabled(
+                                        child: Text(tr('站点设置')),
+                                      ),
                                     ),
                                   ],
                                   onSelected: (action) {

@@ -280,17 +280,7 @@ class _ContentTranslationState extends State<ContentTranslation> {
           }
         }
       },
-      child: widget.tag
-          ? widget.builder(value)
-          : GestureDetector(
-              onLongPress: () => showTextTranslation(
-                context,
-                widget.text,
-                queue: _queue,
-                source: widget.source,
-              ),
-              child: widget.builder(value),
-            ),
+      child: widget.builder(value),
     );
   }
 }
@@ -332,7 +322,9 @@ class TranslationControls extends StatelessWidget {
                 children: [
                   ListTile(
                     leading: const Icon(Icons.translate),
-                    title: Text(tr('翻译当前页面')),
+                    title: SelectionContainer.disabled(
+                      child: Text(tr('翻译当前页面')),
+                    ),
                     onTap: () {
                       scope.owner.change(() {
                         scope.owner.manual = true;
@@ -344,7 +336,9 @@ class TranslationControls extends StatelessWidget {
                   ),
                   SwitchListTile(
                     dense: true,
-                    title: Text(tr('自动翻译可见内容')),
+                    title: SelectionContainer.disabled(
+                      child: Text(tr('自动翻译可见内容')),
+                    ),
                     value: AppSettings.instance.autoTranslateContent,
                     onChanged: (value) {
                       AppSettings.instance.autoTranslateContent = value;
@@ -353,7 +347,9 @@ class TranslationControls extends StatelessWidget {
                   ),
                   SwitchListTile(
                     dense: true,
-                    title: Text(tr('显示原文（仅当前页面）')),
+                    title: SelectionContainer.disabled(
+                      child: Text(tr('显示原文（仅当前页面）')),
+                    ),
                     value: scope.owner.original,
                     onChanged: (value) {
                       scope.owner.change(() => scope.owner.original = value);
@@ -403,7 +399,7 @@ class TagTranslationPackStatus extends StatelessWidget {
                 onPressed: () =>
                     showTagTranslationPacks(context, source: source),
                 icon: const Icon(Icons.translate_rounded),
-                label: Text(tr('官方标签翻译包')),
+                label: SelectionContainer.disabled(child: Text(tr('官方标签翻译包'))),
               ),
               if (service.installed(source, locale))
                 Text(tr('翻译包已安装'))
@@ -434,15 +430,15 @@ Future<void> showTagDownloadGuide(
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, 'never'),
-            child: Text(tr('不再提醒')),
+            child: SelectionContainer.disabled(child: Text(tr('不再提醒'))),
           ),
           TextButton(
             onPressed: () => Navigator.pop(ctx, 'later'),
-            child: Text(tr('下次提醒')),
+            child: SelectionContainer.disabled(child: Text(tr('下次提醒'))),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(ctx, 'download'),
-            child: Text(tr('立即下载')),
+            child: SelectionContainer.disabled(child: Text(tr('立即下载'))),
           ),
         ],
       ),
@@ -563,69 +559,78 @@ Future<void> showTagTranslationPacks(
                     ),
                   if (selected != null) ...[
                     const SizedBox(height: 12),
-                    DropdownButtonFormField<String>(
-                      key: ValueKey('source-$selected'),
-                      initialValue: selected,
-                      isExpanded: true,
-                      decoration: InputDecoration(labelText: tr('站点')),
-                      items: [
-                        for (final key in service.sources)
-                          DropdownMenuItem(
-                            value: key,
-                            child: Text(
-                              SourceManager.instance.manifest(key)?.name ?? key,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                      ],
-                      onChanged: busy
-                          ? null
-                          : (value) {
-                              refresh(() {
-                                selected = value;
-                                message = null;
-                                normalize();
-                              });
-                              final key = selected!, language = locale;
-                              unawaited(
-                                operation(
-                                  () => service.ensureLoaded(key, language),
-                                  '',
+                    SelectionContainer.disabled(
+                      child: DropdownButtonFormField<String>(
+                        key: ValueKey('source-$selected'),
+                        initialValue: selected,
+                        isExpanded: true,
+                        decoration: InputDecoration(labelText: tr('站点')),
+                        items: [
+                          for (final key in service.sources)
+                            DropdownMenuItem(
+                              value: key,
+                              child: SelectionContainer.disabled(
+                                child: Text(
+                                  SourceManager.instance.manifest(key)?.name ??
+                                      key,
+                                  overflow: TextOverflow.ellipsis,
                                 ),
-                              );
-                            },
+                              ),
+                            ),
+                        ],
+                        onChanged: busy
+                            ? null
+                            : (value) {
+                                refresh(() {
+                                  selected = value;
+                                  message = null;
+                                  normalize();
+                                });
+                                final key = selected!, language = locale;
+                                unawaited(
+                                  operation(
+                                    () => service.ensureLoaded(key, language),
+                                    '',
+                                  ),
+                                );
+                              },
+                      ),
                     ),
                     const SizedBox(height: 12),
-                    DropdownButtonFormField<String>(
-                      key: ValueKey('locale-$selected-$locale'),
-                      initialValue: locale,
-                      isExpanded: true,
-                      decoration: InputDecoration(labelText: tr('语言')),
-                      items: [
-                        for (final language in languages)
-                          DropdownMenuItem(
-                            value: language,
-                            child: Text(
-                              AppLocalizations.languageNames[language] ??
-                                  language,
-                            ),
-                          ),
-                      ],
-                      onChanged: busy
-                          ? null
-                          : (value) {
-                              refresh(() {
-                                locale = value!;
-                                message = null;
-                              });
-                              final key = selected!, language = locale;
-                              unawaited(
-                                operation(
-                                  () => service.ensureLoaded(key, language),
-                                  '',
+                    SelectionContainer.disabled(
+                      child: DropdownButtonFormField<String>(
+                        key: ValueKey('locale-$selected-$locale'),
+                        initialValue: locale,
+                        isExpanded: true,
+                        decoration: InputDecoration(labelText: tr('语言')),
+                        items: [
+                          for (final language in languages)
+                            DropdownMenuItem(
+                              value: language,
+                              child: SelectionContainer.disabled(
+                                child: Text(
+                                  AppLocalizations.languageNames[language] ??
+                                      language,
                                 ),
-                              );
-                            },
+                              ),
+                            ),
+                        ],
+                        onChanged: busy
+                            ? null
+                            : (value) {
+                                refresh(() {
+                                  locale = value!;
+                                  message = null;
+                                });
+                                final key = selected!, language = locale;
+                                unawaited(
+                                  operation(
+                                    () => service.ensureLoaded(key, language),
+                                    '',
+                                  ),
+                                );
+                              },
+                      ),
                     ),
                     const SizedBox(height: 12),
                     Text(tr('词包优先显示译文；未命中时按内容翻译开关处理，搜索与屏蔽仍使用原文')),
@@ -656,7 +661,9 @@ Future<void> showTagTranslationPacks(
                                       '翻译包已安装',
                                     );
                                   },
-                            child: Text(tr('安装内置词包')),
+                            child: SelectionContainer.disabled(
+                              child: Text(tr('安装内置词包')),
+                            ),
                           ),
                         if (service.remoteAvailable(selected!, locale))
                           TextButton(
@@ -672,7 +679,9 @@ Future<void> showTagTranslationPacks(
                                       '翻译包已安装',
                                     );
                                   },
-                            child: Text(tr('从官方仓库下载更新')),
+                            child: SelectionContainer.disabled(
+                              child: Text(tr('从官方仓库下载更新')),
+                            ),
                           ),
                         if (service.installed(selected!, locale))
                           TextButton(
@@ -685,7 +694,9 @@ Future<void> showTagTranslationPacks(
                                       '词库已移除',
                                     );
                                   },
-                            child: Text(tr('移除词库')),
+                            child: SelectionContainer.disabled(
+                              child: Text(tr('移除词库')),
+                            ),
                           ),
                       ],
                     ),
@@ -702,7 +713,9 @@ Future<void> showTagTranslationPacks(
                     ),
                   TextButton.icon(
                     icon: const Icon(Icons.refresh),
-                    label: Text(tr('检查官方可用词包')),
+                    label: SelectionContainer.disabled(
+                      child: Text(tr('检查官方可用词包')),
+                    ),
                     onPressed: busy
                         ? null
                         : () =>

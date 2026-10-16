@@ -237,7 +237,9 @@ class _SourceSearchPageState extends State<SourceSearchPage> {
                         label: Text('$_activeFilters'),
                         child: TextButton(
                           onPressed: _openFilters,
-                          child: Text(tr('筛选')),
+                          child: SelectionContainer.disabled(
+                            child: Text(tr('筛选')),
+                          ),
                         ),
                       ),
                     if (_translating)
@@ -252,7 +254,9 @@ class _SourceSearchPageState extends State<SourceSearchPage> {
                     else
                       TextButton(
                         onPressed: _searchMulti,
-                        child: Text(tr('多语言搜索')),
+                        child: SelectionContainer.disabled(
+                          child: Text(tr('多语言搜索')),
+                        ),
                       ),
                   ],
                 ),
@@ -354,7 +358,7 @@ class _Intro extends StatelessWidget {
             trailing: TextButton(
               onPressed: () =>
                   AppSettings.instance.clearSearchHistory(scope: scope),
-              child: Text(tr('清空')),
+              child: SelectionContainer.disabled(child: Text(tr('清空'))),
             ),
           ),
           Wrap(
@@ -363,7 +367,7 @@ class _Intro extends StatelessWidget {
             children: [
               for (final k in history)
                 InputChip(
-                  label: Text(k),
+                  label: SelectionContainer.disabled(child: Text(k)),
                   onPressed: () => onPick(k),
                   onDeleted: () =>
                       AppSettings.instance.removeSearchHistory(k, scope: scope),
@@ -418,7 +422,7 @@ class _ActiveFilters extends StatelessWidget {
             Padding(
               padding: const EdgeInsets.only(right: 6),
               child: ActionChip(
-                label: Text(c),
+                label: SelectionContainer.disabled(child: Text(c)),
                 onPressed: onTap,
                 visualDensity: VisualDensity.compact,
               ),
@@ -467,7 +471,7 @@ class _FilterSheetState extends State<FilterSheet> {
                       ..clear()
                       ..addAll(widget.manifest.defaultFilters()),
                   ),
-                  child: Text(tr('重置')),
+                  child: SelectionContainer.disabled(child: Text(tr('重置'))),
                 ),
               ],
             ),
@@ -500,7 +504,9 @@ class _FilterSheetState extends State<FilterSheet> {
                         for (final c in f.values)
                           if (f.type == 'multi')
                             FilterChip(
-                              label: Text(c.label),
+                              label: SelectionContainer.disabled(
+                                child: Text(c.label),
+                              ),
                               selected: ((_v[f.key] as List?) ?? []).contains(
                                 c.value,
                               ),
@@ -519,7 +525,9 @@ class _FilterSheetState extends State<FilterSheet> {
                             )
                           else
                             ChoiceChip(
-                              label: Text(c.label),
+                              label: SelectionContainer.disabled(
+                                child: Text(c.label),
+                              ),
                               selected: _v[f.key] == c.value,
                               showCheckmark: false,
                               onSelected: (_) =>
@@ -540,7 +548,7 @@ class _FilterSheetState extends State<FilterSheet> {
                 width: double.infinity,
                 child: FilledButton(
                   onPressed: () => Navigator.pop(context, _v),
-                  child: Text(tr('应用筛选')),
+                  child: SelectionContainer.disabled(child: Text(tr('应用筛选'))),
                 ),
               ),
             ),

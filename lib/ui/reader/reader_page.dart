@@ -274,12 +274,14 @@ class _ReaderPageState extends _ReaderBase
                   for (final m in ReaderMode.values)
                     PopupMenuItem(
                       value: m,
-                      child: Row(
-                        children: [
-                          Icon(m.icon, size: 20),
-                          const SizedBox(width: Gap.m),
-                          Text(m.label),
-                        ],
+                      child: SelectionContainer.disabled(
+                        child: Row(
+                          children: [
+                            Icon(m.icon, size: 20),
+                            const SizedBox(width: Gap.m),
+                            Text(m.label),
+                          ],
+                        ),
                       ),
                     ),
                 ],

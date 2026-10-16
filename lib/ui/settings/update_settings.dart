@@ -22,15 +22,19 @@ class UpdateSettings extends StatelessWidget {
         children: [
           SwitchListTile(
             secondary: const Icon(Icons.system_update_alt_rounded),
-            title: Text(tr('启动时检查软件更新')),
-            subtitle: Text(tr('每次启动检查软件版本，有更新时提示，确认后在应用内下载并由系统确认安装。')),
+            title: SelectionContainer.disabled(child: Text(tr('启动时检查软件更新'))),
+            subtitle: SelectionContainer.disabled(
+              child: Text(tr('每次启动检查软件版本，有更新时提示，确认后在应用内下载并由系统确认安装。')),
+            ),
             value: settings.autoAppUpdates,
             onChanged: (value) => settings.autoAppUpdates = value,
           ),
           SwitchListTile(
             secondary: const Icon(Icons.extension_outlined),
-            title: Text(tr('启动时检查插件更新')),
-            subtitle: Text(tr('每次启动检查官方插件，有更新时提示，确认后才安装。')),
+            title: SelectionContainer.disabled(child: Text(tr('启动时检查插件更新'))),
+            subtitle: SelectionContainer.disabled(
+              child: Text(tr('每次启动检查官方插件，有更新时提示，确认后才安装。')),
+            ),
             value: settings.autoSourceUpdates,
             onChanged: (value) => settings.autoSourceUpdates = value,
           ),
@@ -57,12 +61,14 @@ class UpdateSettings extends StatelessWidget {
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
                   : const Icon(Icons.update_rounded),
-              label: Text(tr(updater.running ? '正在检查软件更新…' : '检查软件更新')),
+              label: SelectionContainer.disabled(
+                child: Text(tr(updater.running ? '正在检查软件更新…' : '检查软件更新')),
+              ),
             ),
           ),
           ListTile(
             leading: const Icon(Icons.extension_outlined),
-            title: Text(tr('站点管理')),
+            title: SelectionContainer.disabled(child: Text(tr('站点管理'))),
             trailing: const Icon(Icons.chevron_right_rounded),
             onTap: () => Nav.push(context, const SourceManagePage()),
           ),

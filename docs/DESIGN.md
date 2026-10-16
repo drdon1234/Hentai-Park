@@ -35,6 +35,8 @@
 - 字重最高 600，不用 bold / w700 以上。
 - `ParkText.serif(style)`：页面大标题（`PageHeader`）、作品标题、空状态标题等。中日韩字符回退到 Noto Serif CJK / 思源宋体。
 - `ParkText.mono(style)`：日志、Cookie、校验值。
+- 按钮、页签、筛选项、菜单项和有独立长按操作的列表项使用 `SelectionContainer.disabled` 排除文字选择；简介、正文、日志和输入框保留复制能力。
+- 页面选择区内部使用 `TextSelectionGuard`，仅从实际文字行框开始选择，空白处和行尾空白不得吸附到其他区域的文字；起选后保留跨行、跨段拖选。
 
 ### 间距、圆角、动效
 

@@ -100,7 +100,7 @@ class _HomePageState extends State<HomePage> {
           ),
           TextButton(
             onPressed: () => Nav.push(context, const SitesPage()),
-            child: Text(tr('站点')),
+            child: SelectionContainer.disabled(child: Text(tr('站点'))),
           ),
         ],
       ),
@@ -194,7 +194,7 @@ class _HomePageState extends State<HomePage> {
                   await sm.init();
                 } catch (_) {}
               },
-              child: Text(tr('重试')),
+              child: SelectionContainer.disabled(child: Text(tr('重试'))),
             ),
           ],
         ),
@@ -219,7 +219,7 @@ class _HomePageState extends State<HomePage> {
           actions: [
             FilledButton(
               onPressed: () => Nav.push(context, const SourceManagePage()),
-              child: Text(tr('管理站点')),
+              child: SelectionContainer.disabled(child: Text(tr('管理站点'))),
             ),
           ],
         ),

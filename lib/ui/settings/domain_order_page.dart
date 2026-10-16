@@ -31,7 +31,9 @@ class DomainOrderPage extends StatelessWidget {
                     child: TextButton(
                       onPressed: () =>
                           settings.domainOrder = AppSettings.defaultDomainOrder,
-                      child: Text(tr('恢复默认顺序')),
+                      child: SelectionContainer.disabled(
+                        child: Text(tr('恢复默认顺序')),
+                      ),
                     ),
                   ),
                 ],
@@ -45,14 +47,18 @@ class DomainOrderPage extends StatelessWidget {
             itemBuilder: (context, index) => HairlineItem(
               key: ValueKey(domains[index]),
               child: ListTile(
-                title: Text(domains[index].label),
-                trailing: ReorderableDragStartListener(
-                  index: index,
-                  child: Padding(
-                    padding: const EdgeInsets.all(12),
-                    child: Icon(
-                      Icons.drag_handle_rounded,
-                      semanticLabel: tr('拖动排序'),
+                title: SelectionContainer.disabled(
+                  child: Text(domains[index].label),
+                ),
+                trailing: SelectionContainer.disabled(
+                  child: ReorderableDragStartListener(
+                    index: index,
+                    child: Padding(
+                      padding: const EdgeInsets.all(12),
+                      child: Icon(
+                        Icons.drag_handle_rounded,
+                        semanticLabel: tr('拖动排序'),
+                      ),
                     ),
                   ),
                 ),

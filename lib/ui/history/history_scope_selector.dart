@@ -104,36 +104,41 @@ class _ScopeMenu<T> extends StatelessWidget {
       onSelected: (i) => onSelected(entries[i].key),
       itemBuilder: (_) => [
         for (var i = 0; i < entries.length; i++)
-          PopupMenuItem(value: i, child: Text(entries[i].value)),
-      ],
-      child: Container(
-        constraints: const BoxConstraints(minHeight: 36, maxWidth: 240),
-        padding: const EdgeInsets.only(left: Gap.m, right: Gap.s),
-        decoration: BoxDecoration(
-          color: active ? c.secondaryContainer : null,
-          border: Border.all(
-            color: active ? c.secondaryContainer : c.outlineVariant,
+          PopupMenuItem(
+            value: i,
+            child: SelectionContainer.disabled(child: Text(entries[i].value)),
           ),
-          borderRadius: Radii.small,
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Flexible(
-              child: Text(
-                label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: context.text.labelLarge?.copyWith(
-                  color: active ? c.onSecondaryContainer : c.onSurface,
+      ],
+      child: SelectionContainer.disabled(
+        child: Container(
+          constraints: const BoxConstraints(minHeight: 36, maxWidth: 240),
+          padding: const EdgeInsets.only(left: Gap.m, right: Gap.s),
+          decoration: BoxDecoration(
+            color: active ? c.secondaryContainer : null,
+            border: Border.all(
+              color: active ? c.secondaryContainer : c.outlineVariant,
+            ),
+            borderRadius: Radii.small,
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Flexible(
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: context.text.labelLarge?.copyWith(
+                    color: active ? c.onSecondaryContainer : c.onSurface,
+                  ),
                 ),
               ),
-            ),
-            Icon(
-              Icons.arrow_drop_down_rounded,
-              color: active ? c.onSecondaryContainer : c.onSurfaceVariant,
-            ),
-          ],
+              Icon(
+                Icons.arrow_drop_down_rounded,
+                color: active ? c.onSecondaryContainer : c.onSurfaceVariant,
+              ),
+            ],
+          ),
         ),
       ),
     );

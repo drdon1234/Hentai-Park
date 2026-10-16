@@ -181,12 +181,14 @@ class _SubscriptionPostsPageState extends State<SubscriptionPostsPage> {
               children: [
                 for (final mode in const ['posts', 'image', 'video'])
                   ChoiceChip(
-                    label: Text(
-                      tr(switch (mode) {
-                        'image' => '图集',
-                        'video' => '视频集',
-                        _ => '帖子',
-                      }),
+                    label: SelectionContainer.disabled(
+                      child: Text(
+                        tr(switch (mode) {
+                          'image' => '图集',
+                          'video' => '视频集',
+                          _ => '帖子',
+                        }),
+                      ),
                     ),
                     selected: display == mode,
                     onSelected: (_) => _filter(mode: mode),
@@ -199,12 +201,14 @@ class _SubscriptionPostsPageState extends State<SubscriptionPostsPage> {
               children: [
                 for (final type in const ['all', 'image', 'video'])
                   FilterChip(
-                    label: Text(
-                      tr(switch (type) {
-                        'image' => '图片',
-                        'video' => '视频',
-                        _ => '全部',
-                      }),
+                    label: SelectionContainer.disabled(
+                      child: Text(
+                        tr(switch (type) {
+                          'image' => '图片',
+                          'video' => '视频',
+                          _ => '全部',
+                        }),
+                      ),
                     ),
                     selected: mediaType == type,
                     onSelected: (_) => _filter(type: type),
@@ -258,7 +262,7 @@ class _SubscriptionPostsPageState extends State<SubscriptionPostsPage> {
                     _emptyPages = 0;
                     _load();
                   },
-                  child: Text(tr('加载更多')),
+                  child: SelectionContainer.disabled(child: Text(tr('加载更多'))),
                 ),
               ),
           ],
@@ -334,7 +338,7 @@ class SubscriptionPostCard extends StatelessWidget {
                     }
                   }
                 },
-                child: Text(tr('在原站打开')),
+                child: SelectionContainer.disabled(child: Text(tr('在原站打开'))),
               ),
             ),
         ],
@@ -399,33 +403,37 @@ class SubscriptionMediaTile extends StatelessWidget {
                   ),
           );
         },
-        child: SizedBox(
-          width: 136,
-          height: 136,
-          child: Stack(
-            fit: StackFit.expand,
-            children: [
-              if (media.preview.isNotEmpty)
-                Image(
-                  image: ParkImage.url(source, media.preview),
-                  fit: BoxFit.cover,
-                  errorBuilder: (_, error, stack) =>
-                      const Center(child: Icon(Icons.broken_image_outlined)),
-                )
-              else
-                ColoredBox(
-                  color: Theme.of(context).colorScheme.surfaceContainerHighest,
-                ),
-              if (media.type == 'video' || media.preview.isEmpty)
-                Center(
-                  child: Icon(
-                    media.type == 'video'
-                        ? Icons.play_circle
-                        : Icons.image_outlined,
-                    size: 40,
+        child: SelectionContainer.disabled(
+          child: SizedBox(
+            width: 136,
+            height: 136,
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                if (media.preview.isNotEmpty)
+                  Image(
+                    image: ParkImage.url(source, media.preview),
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, error, stack) =>
+                        const Center(child: Icon(Icons.broken_image_outlined)),
+                  )
+                else
+                  ColoredBox(
+                    color: Theme.of(context)
+                        .colorScheme
+                        .surfaceContainerHighest,
                   ),
-                ),
-            ],
+                if (media.type == 'video' || media.preview.isEmpty)
+                  Center(
+                    child: Icon(
+                      media.type == 'video'
+                          ? Icons.play_circle
+                          : Icons.image_outlined,
+                      size: 40,
+                    ),
+                  ),
+              ],
+            ),
           ),
         ),
       ),

@@ -41,15 +41,15 @@ Future<void> toggleFavorite(BuildContext context, WorkItem item) async {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: Text(tr('取消')),
+            child: SelectionContainer.disabled(child: Text(tr('取消'))),
           ),
           TextButton(
             onPressed: () => Navigator.pop(ctx, 'open'),
-            child: Text(tr('打开已有')),
+            child: SelectionContainer.disabled(child: Text(tr('打开已有'))),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(ctx, 'add'),
-            child: Text(tr('仍然收藏')),
+            child: SelectionContainer.disabled(child: Text(tr('仍然收藏'))),
           ),
         ],
       ),
@@ -133,14 +133,18 @@ class _CategoryPickerState extends State<_CategoryPicker> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 ListTile(
-                  title: Text(
-                    tr(widget.title),
-                    style: const TextStyle(fontWeight: FontWeight.w600),
+                  title: SelectionContainer.disabled(
+                    child: Text(
+                      tr(widget.title),
+                      style: const TextStyle(fontWeight: FontWeight.w600),
+                    ),
                   ),
-                  trailing: TextButton.icon(
-                    onPressed: _create,
-                    icon: const Icon(Icons.add_rounded),
-                    label: Text(tr('新建')),
+                  trailing: SelectionContainer.disabled(
+                    child: TextButton.icon(
+                      onPressed: _create,
+                      icon: const Icon(Icons.add_rounded),
+                      label: Text(tr('新建')),
+                    ),
                   ),
                 ),
                 if (cats.isEmpty)
@@ -155,7 +159,9 @@ class _CategoryPickerState extends State<_CategoryPicker> {
                       for (final c in cats)
                         CheckboxListTile(
                           value: _selected.contains(c.id),
-                          title: Text(c.name),
+                          title: SelectionContainer.disabled(
+                            child: Text(c.name),
+                          ),
                           onChanged: (v) => setState(
                             () => v == true
                                 ? _selected.add(c.id)
@@ -172,14 +178,18 @@ class _CategoryPickerState extends State<_CategoryPicker> {
                       Expanded(
                         child: OutlinedButton(
                           onPressed: () => Navigator.pop(context),
-                          child: Text(tr('取消')),
+                          child: SelectionContainer.disabled(
+                            child: Text(tr('取消')),
+                          ),
                         ),
                       ),
                       const SizedBox(width: 12),
                       Expanded(
                         child: FilledButton(
                           onPressed: () => Navigator.pop(context, _selected),
-                          child: Text(tr('确定')),
+                          child: SelectionContainer.disabled(
+                            child: Text(tr('确定')),
+                          ),
                         ),
                       ),
                     ],
@@ -213,11 +223,14 @@ Future<String?> promptText(
             Navigator.pop(ctx, v.trim().isEmpty ? null : v.trim()),
       ),
       actions: [
-        TextButton(onPressed: () => Navigator.pop(ctx), child: Text(tr('取消'))),
+        TextButton(
+          onPressed: () => Navigator.pop(ctx),
+          child: SelectionContainer.disabled(child: Text(tr('取消'))),
+        ),
         FilledButton(
           onPressed: () =>
               Navigator.pop(ctx, c.text.trim().isEmpty ? null : c.text.trim()),
-          child: Text(tr('确定')),
+          child: SelectionContainer.disabled(child: Text(tr('确定'))),
         ),
       ],
     ),

@@ -108,11 +108,11 @@ class _LibraryPageState extends State<LibraryPage> {
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(ctx, false),
-                child: Text(tr('取消')),
+                child: SelectionContainer.disabled(child: Text(tr('取消'))),
               ),
               FilledButton(
                 onPressed: () => Navigator.pop(ctx, true),
-                child: Text(tr('取消收藏')),
+                child: SelectionContainer.disabled(child: Text(tr('取消收藏'))),
               ),
             ],
           ),
@@ -187,18 +187,24 @@ class _LibraryPageState extends State<LibraryPage> {
     actions: [
       TextButton(
         onPressed: () => _selectionAction('categories'),
-        child: Text(tr('分类')),
+        child: SelectionContainer.disabled(child: Text(tr('分类'))),
       ),
       TextButton(
         onPressed: () => _selectionAction('read'),
-        child: Text(tr('标为已读')),
+        child: SelectionContainer.disabled(child: Text(tr('标为已读'))),
       ),
       PopupMenuButton<String>(
         tooltip: tr('更多'),
         onSelected: _selectionAction,
         itemBuilder: (_) => [
-          PopupMenuItem(value: 'migrate', child: Text(tr('迁移到其他站点'))),
-          PopupMenuItem(value: 'remove', child: Text(tr('取消收藏'))),
+          PopupMenuItem(
+            value: 'migrate',
+            child: SelectionContainer.disabled(child: Text(tr('迁移到其他站点'))),
+          ),
+          PopupMenuItem(
+            value: 'remove',
+            child: SelectionContainer.disabled(child: Text(tr('取消收藏'))),
+          ),
         ],
       ),
     ],
@@ -253,9 +259,20 @@ class _LibraryPageState extends State<LibraryPage> {
           },
           itemBuilder: (_) => [
             if (tabs.length > 1)
-              PopupMenuItem(value: 'update', child: Text(tr('检查当前分类的更新'))),
-            PopupMenuItem(value: 'updateAll', child: Text(tr('检查全部更新'))),
-            PopupMenuItem(value: 'categories', child: Text(tr('管理分类'))),
+              PopupMenuItem(
+                value: 'update',
+                child: SelectionContainer.disabled(
+                  child: Text(tr('检查当前分类的更新')),
+                ),
+              ),
+            PopupMenuItem(
+              value: 'updateAll',
+              child: SelectionContainer.disabled(child: Text(tr('检查全部更新'))),
+            ),
+            PopupMenuItem(
+              value: 'categories',
+              child: SelectionContainer.disabled(child: Text(tr('管理分类'))),
+            ),
           ],
         ),
       ],
@@ -263,7 +280,14 @@ class _LibraryPageState extends State<LibraryPage> {
           ? TabBar(
               isScrollable: true,
               tabAlignment: TabAlignment.start,
-              tabs: [for (final t in tabs) Tab(text: _tabLabel(lib, t))],
+              tabs: [
+                for (final t in tabs)
+                  Tab(
+                    child: SelectionContainer.disabled(
+                      child: Text(_tabLabel(lib, t)),
+                    ),
+                  ),
+              ],
             )
           : null,
     );
@@ -463,67 +487,69 @@ class _LibraryTab extends StatelessWidget {
       child: InkWell(
         onTap: () => _tap(context, f),
         onLongPress: () => onToggle(f.item.uid),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(
-            horizontal: Gap.page,
-            vertical: Gap.s,
-          ),
-          child: Row(
-            children: [
-              if (!f.item.isNovel &&
-                  SourceManager.instance.manifest(f.item.source)?.isNovel !=
-                      true) ...[
-                SizedBox(
-                  width: 46,
-                  height: 62,
-                  child: CoverImage(source: f.item.source, url: f.item.cover),
-                ),
-                const SizedBox(width: Gap.m),
-              ],
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      f.item.title,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: context.text.bodyMedium?.copyWith(
-                        fontWeight: FontWeight.w500,
+        child: SelectionContainer.disabled(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(
+              horizontal: Gap.page,
+              vertical: Gap.s,
+            ),
+            child: Row(
+              children: [
+                if (!f.item.isNovel &&
+                    SourceManager.instance.manifest(f.item.source)?.isNovel !=
+                        true) ...[
+                  SizedBox(
+                    width: 46,
+                    height: 62,
+                    child: CoverImage(source: f.item.source, url: f.item.cover),
+                  ),
+                  const SizedBox(width: Gap.m),
+                ],
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        f.item.title,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: context.text.bodyMedium?.copyWith(
+                          fontWeight: FontWeight.w500,
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: Gap.xs),
-                    Row(
-                      children: [
-                        if (AppSettings.instance.badgeSource) ...[
-                          SourceAvatar(f.item.source, size: 16),
-                          const SizedBox(width: 6),
-                        ],
-                        Expanded(
-                          child: Text(
-                            h == null
-                                ? tr('未读')
-                                : tr('上次阅读 {value0}', {
-                                    'value0': timeAgo(h.time),
-                                  }),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: context.text.labelMedium?.copyWith(
-                              color: c.onSurfaceVariant,
+                      const SizedBox(height: Gap.xs),
+                      Row(
+                        children: [
+                          if (AppSettings.instance.badgeSource) ...[
+                            SourceAvatar(f.item.source, size: 16),
+                            const SizedBox(width: 6),
+                          ],
+                          Expanded(
+                            child: Text(
+                              h == null
+                                  ? tr('未读')
+                                  : tr('上次阅读 {value0}', {
+                                      'value0': timeAgo(h.time),
+                                    }),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: context.text.labelMedium?.copyWith(
+                                color: c.onSurfaceVariant,
+                              ),
                             ),
                           ),
-                        ),
-                      ],
-                    ),
-                  ],
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-              for (final b in _badges(context, f))
-                Semantics(
-                  label: b.label,
-                  child: ExcludeSemantics(child: b.tag),
-                ),
-            ],
+                for (final b in _badges(context, f))
+                  Semantics(
+                    label: b.label,
+                    child: ExcludeSemantics(child: b.tag),
+                  ),
+              ],
+            ),
           ),
         ),
       ),

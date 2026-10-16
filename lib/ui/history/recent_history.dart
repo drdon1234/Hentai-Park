@@ -31,7 +31,10 @@ class RecentHistory extends StatelessWidget {
           tr('继续看'),
           trailing: onOpenHistory == null
               ? null
-              : TextButton(onPressed: onOpenHistory, child: Text(tr('全部'))),
+              : TextButton(
+                  onPressed: onOpenHistory,
+                  child: SelectionContainer.disabled(child: Text(tr('全部'))),
+                ),
         ),
         SizedBox(
           height: width / .72 + cardTextExtent(context),

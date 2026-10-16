@@ -39,8 +39,10 @@ class DirectJump extends StatelessWidget {
               for (final r in refs)
                 ActionChip(
                   avatar: SourceAvatar(r.source, size: 22),
-                  label: Text(
-                    '${SourceManager.instance.manifest(r.source)?.name ?? r.source}  ${r.id}',
+                  label: SelectionContainer.disabled(
+                    child: Text(
+                      '${SourceManager.instance.manifest(r.source)?.name ?? r.source}  ${r.id}',
+                    ),
                   ),
                   onPressed: () => Nav.openRef(context, r.source, r.id),
                 ),
@@ -95,7 +97,9 @@ class SearchScopeBar extends StatelessWidget {
                       ))
                         FilterChip(
                           avatar: SourceAvatar(s.key, size: 20),
-                          label: Text(s.name),
+                          label: SelectionContainer.disabled(
+                            child: Text(s.name),
+                          ),
                           selected: scope.contains(s.key),
                           showCheckmark: false,
                           onSelected: (on) {
@@ -134,7 +138,7 @@ class SearchHistoryList extends StatelessWidget {
           trailing: TextButton(
             onPressed: () =>
                 AppSettings.instance.clearSearchHistory(scope: scope),
-            child: Text(tr('清空')),
+            child: SelectionContainer.disabled(child: Text(tr('清空'))),
           ),
         ),
         Padding(
@@ -145,7 +149,7 @@ class SearchHistoryList extends StatelessWidget {
             children: [
               for (final k in history)
                 InputChip(
-                  label: Text(k),
+                  label: SelectionContainer.disabled(child: Text(k)),
                   onPressed: () => onPick(k),
                   onDeleted: () =>
                       AppSettings.instance.removeSearchHistory(k, scope: scope),
@@ -191,25 +195,27 @@ class SourceResultsRow extends StatelessWidget {
                 ),
               )
             : Nav.openSourceSearch(context, source, keyword: keyword),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (result.loading) ...[
-              const SizedBox(
-                width: 14,
-                height: 14,
-                child: CircularProgressIndicator(strokeWidth: 2),
-              ),
-              const SizedBox(width: 8),
+        child: SelectionContainer.disabled(
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (result.loading) ...[
+                const SizedBox(
+                  width: 14,
+                  height: 14,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
+                const SizedBox(width: 8),
+              ],
+              if (result.page != null && (result.page!.total ?? 0) > 0)
+                Text(
+                  tr('{count} 部 ', {'count': formatCount(result.page!.total)}),
+                  style: context.text.labelMedium,
+                ),
+              Text(tr('全部')),
+              const Icon(Icons.chevron_right_rounded, size: 18),
             ],
-            if (result.page != null && (result.page!.total ?? 0) > 0)
-              Text(
-                tr('{count} 部 ', {'count': formatCount(result.page!.total)}),
-                style: context.text.labelMedium,
-              ),
-            Text(tr('全部')),
-            const Icon(Icons.chevron_right_rounded, size: 18),
-          ],
+          ),
         ),
       ),
     );
@@ -346,17 +352,27 @@ class MenuChip<T> extends StatelessWidget {
       onSelected: (i) => onSelected(entries[i].key),
       itemBuilder: (_) => [
         for (var i = 0; i < entries.length; i++)
-          PopupMenuItem(value: i, child: Text(entries[i].value)),
-      ],
-      child: IgnorePointer(
-        child: FilterChip(
-          label: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [Text(label), const Icon(Icons.arrow_drop_down_rounded)],
+          PopupMenuItem(
+            value: i,
+            child: SelectionContainer.disabled(child: Text(entries[i].value)),
           ),
-          selected: active,
-          showCheckmark: false,
-          onSelected: (_) {},
+      ],
+      child: SelectionContainer.disabled(
+        child: IgnorePointer(
+          child: FilterChip(
+            label: SelectionContainer.disabled(
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(label),
+                  const Icon(Icons.arrow_drop_down_rounded),
+                ],
+              ),
+            ),
+            selected: active,
+            showCheckmark: false,
+            onSelected: (_) {},
+          ),
         ),
       ),
     );

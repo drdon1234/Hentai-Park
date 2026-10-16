@@ -123,10 +123,12 @@ class _RankingRowState extends State<RankingRow> {
                           if (widget.board.kind != 'seller')
                             TextButton(
                               onPressed: _open,
-                              child: Text(
-                                widget.board.opensWork
-                                    ? tr('打开详情')
-                                    : tr('搜索作品'),
+                              child: SelectionContainer.disabled(
+                                child: Text(
+                                  widget.board.opensWork
+                                      ? tr('打开详情')
+                                      : tr('搜索作品'),
+                                ),
                               ),
                             ),
                           if (original)
@@ -147,7 +149,9 @@ class _RankingRowState extends State<RankingRow> {
                                   );
                                 }
                               },
-                              child: Text(tr('原站')),
+                              child: SelectionContainer.disabled(
+                                child: Text(tr('原站')),
+                              ),
                             ),
                         ],
                       ),

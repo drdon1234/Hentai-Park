@@ -122,8 +122,10 @@ class VideoStage extends StatelessWidget {
                 mode: LaunchMode.externalApplication,
               ),
               icon: const Icon(Icons.open_in_new_rounded),
-              label: Text(
-                tr('用外部播放器打开（{quality}）', {'quality': current.label}),
+              label: SelectionContainer.disabled(
+                child: Text(
+                  tr('用外部播放器打开（{quality}）', {'quality': current.label}),
+                ),
               ),
             ),
           ],

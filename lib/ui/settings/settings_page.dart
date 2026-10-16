@@ -28,8 +28,10 @@ class SettingsPage extends StatelessWidget {
           children: [
             SwitchListTile(
               secondary: const Icon(Icons.visibility_off_outlined),
-              title: Text(tr('无痕模式')),
-              subtitle: Text(tr('暂停记录历史、阅读进度与已读状态')),
+              title: SelectionContainer.disabled(child: Text(tr('无痕模式'))),
+              subtitle: SelectionContainer.disabled(
+                child: Text(tr('暂停记录历史、阅读进度与已读状态')),
+              ),
               value: s.incognito,
               onChanged: (v) => s.incognito = v,
             ),

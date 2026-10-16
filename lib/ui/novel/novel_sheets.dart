@@ -33,8 +33,12 @@ class _ListSheet extends StatelessWidget {
       child: Column(
         children: [
           ListTile(
-            title: Text(title, style: context.text.titleMedium),
-            trailing: action,
+            title: SelectionContainer.disabled(
+              child: Text(title, style: context.text.titleMedium),
+            ),
+            trailing: action == null
+                ? null
+                : SelectionContainer.disabled(child: action!),
           ),
           if (field != null)
             Padding(
@@ -73,7 +77,7 @@ Future<int?> showChapterDirectory(
           height: .8,
           action: TextButton(
             onPressed: () => update(() => reversed = !reversed),
-            child: Text(tr('倒序')),
+            child: SelectionContainer.disabled(child: Text(tr('倒序'))),
           ),
           field: TextField(
             controller: controller,
@@ -86,10 +90,10 @@ Future<int?> showChapterDirectory(
               final index = indices[i], chapter = chapters[index];
               return ListTile(
                 selected: index == current,
-                title: Text(chapter.title),
+                title: SelectionContainer.disabled(child: Text(chapter.title)),
                 subtitle:
                     Library.instance.chapterState(uid, chapter.id)?.read == true
-                    ? Text(tr('已读'))
+                    ? SelectionContainer.disabled(child: Text(tr('已读')))
                     : null,
                 trailing:
                     DownloadManager.instance.isChapterDownloaded(
@@ -143,10 +147,12 @@ Future<int?> showChapterSearch(BuildContext context, String text) async {
             itemBuilder: (ctx, i) {
               final offset = matches[i];
               return ListTile(
-                title: Text(
-                  text.substring(
-                    math.max(0, offset - 24),
-                    math.min(text.length, offset + query.length + 70),
+                title: SelectionContainer.disabled(
+                  child: Text(
+                    text.substring(
+                      math.max(0, offset - 24),
+                      math.min(text.length, offset + query.length + 70),
+                    ),
                   ),
                 ),
                 onTap: () => Navigator.pop(ctx, offset),
@@ -192,10 +198,13 @@ Future<String?> askNote(
         ),
       ),
       actions: [
-        TextButton(onPressed: () => Navigator.pop(ctx), child: Text(tr('取消'))),
+        TextButton(
+          onPressed: () => Navigator.pop(ctx),
+          child: SelectionContainer.disabled(child: Text(tr('取消'))),
+        ),
         FilledButton(
           onPressed: () => Navigator.pop(ctx, controller.text),
-          child: Text(tr('保存')),
+          child: SelectionContainer.disabled(child: Text(tr('保存'))),
         ),
       ],
     ),
@@ -236,42 +245,49 @@ Future<ReadingNote?> showReadingNotes(
                 itemBuilder: (ctx, i) {
                   final n = notes[i];
                   return ListTile(
-                    title: Text(
-                      n.note.isEmpty ? n.quote : n.note,
-                      maxLines: 3,
-                      overflow: TextOverflow.ellipsis,
+                    title: SelectionContainer.disabled(
+                      child: Text(
+                        n.note.isEmpty ? n.quote : n.note,
+                        maxLines: 3,
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ),
-                    subtitle: Text(
-                      chapters
-                              .where((c) => c.id == n.chapterId)
-                              .firstOrNull
-                              ?.title ??
-                          n.chapterId,
+                    subtitle: SelectionContainer.disabled(
+                      child: Text(
+                        chapters
+                                .where((c) => c.id == n.chapterId)
+                                .firstOrNull
+                                ?.title ??
+                            n.chapterId,
+                      ),
                     ),
                     onTap: () => Navigator.pop(ctx, n),
-                    trailing: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        IconButton(
-                          tooltip: tr('编辑标注'),
-                          icon: const Icon(Icons.edit_outlined),
-                          onPressed: () => guarded(() async {
-                            final value = await askNote(ctx, initial: n.note);
-                            if (value != null) {
-                              await ReadingNotes.instance.update(
-                                n.id,
-                                note: value,
-                              );
-                            }
-                          }),
-                        ),
-                        IconButton(
-                          tooltip: tr('删除'),
-                          icon: const Icon(Icons.delete_outline),
-                          onPressed: () =>
-                              guarded(() => ReadingNotes.instance.remove(n.id)),
-                        ),
-                      ],
+                    trailing: SelectionContainer.disabled(
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          IconButton(
+                            tooltip: tr('编辑标注'),
+                            icon: const Icon(Icons.edit_outlined),
+                            onPressed: () => guarded(() async {
+                              final value = await askNote(ctx, initial: n.note);
+                              if (value != null) {
+                                await ReadingNotes.instance.update(
+                                  n.id,
+                                  note: value,
+                                );
+                              }
+                            }),
+                          ),
+                          IconButton(
+                            tooltip: tr('删除'),
+                            icon: const Icon(Icons.delete_outline),
+                            onPressed: () => guarded(
+                              () => ReadingNotes.instance.remove(n.id),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   );
                 },

@@ -173,32 +173,40 @@ class _TagChip extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            ListTile(title: Text(scoped ?? label, style: ctx.text.titleMedium)),
+            ListTile(
+              title: SelectionContainer.disabled(
+                child: Text(scoped ?? label, style: ctx.text.titleMedium),
+              ),
+            ),
             ListTile(
               leading: const Icon(Icons.copy_rounded),
-              title: Text(tr('复制')),
+              title: SelectionContainer.disabled(child: Text(tr('复制'))),
               onTap: () => Navigator.pop(ctx, 'copy'),
             ),
             ListTile(
               leading: const Icon(Icons.translate),
-              title: Text(tr('翻译')),
+              title: SelectionContainer.disabled(child: Text(tr('翻译'))),
               onTap: () => Navigator.pop(ctx, 'translate'),
             ),
             if (canSubscribe)
               ListTile(
                 leading: const Icon(Icons.notifications_none_rounded),
-                title: Text(tr('订阅此标签更新')),
+                title: SelectionContainer.disabled(child: Text(tr('订阅此标签更新'))),
                 onTap: () => Navigator.pop(ctx, 'subscribe'),
               ),
             ListTile(
               leading: const Icon(Icons.block_rounded),
-              title: Text(tr('屏蔽「{label}」', {'label': label})),
+              title: SelectionContainer.disabled(
+                child: Text(tr('屏蔽「{label}」', {'label': label})),
+              ),
               onTap: () => Navigator.pop(ctx, 'block'),
             ),
             if (scoped != null)
               ListTile(
                 leading: const Icon(Icons.block_outlined),
-                title: Text(tr('仅屏蔽「{label}」', {'label': scoped})),
+                title: SelectionContainer.disabled(
+                  child: Text(tr('仅屏蔽「{label}」', {'label': scoped})),
+                ),
                 onTap: () => Navigator.pop(ctx, 'blockScoped'),
               ),
           ],
@@ -252,27 +260,29 @@ class _TagChip extends StatelessWidget {
       child: InkWell(
         onTap: onTap,
         onLongPress: () => _menu(context),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
-          child: ContentTranslation(
-            text: label,
-            source: source,
-            namespace: namespace,
-            tag: true,
-            builder: (value) => Text.rich(
-              TextSpan(
-                children: [
-                  TextSpan(text: value),
-                  if (count != null)
-                    TextSpan(
-                      text: '  ${formatCount(count)}',
-                      style: context.text.labelSmall?.copyWith(
-                        color: c.onSurfaceVariant,
+        child: SelectionContainer.disabled(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+            child: ContentTranslation(
+              text: label,
+              source: source,
+              namespace: namespace,
+              tag: true,
+              builder: (value) => Text.rich(
+                TextSpan(
+                  children: [
+                    TextSpan(text: value),
+                    if (count != null)
+                      TextSpan(
+                        text: '  ${formatCount(count)}',
+                        style: context.text.labelSmall?.copyWith(
+                          color: c.onSurfaceVariant,
+                        ),
                       ),
-                    ),
-                ],
+                  ],
+                ),
+                style: context.text.labelLarge,
               ),
-              style: context.text.labelLarge,
             ),
           ),
         ),

@@ -46,26 +46,30 @@ class OptionBar extends StatelessWidget {
             if (dropdowns && o.type == 'select')
               Padding(
                 padding: const EdgeInsets.only(bottom: 8),
-                child: DropdownButtonFormField<int>(
-                  key: ValueKey('${o.key}:${values[o.key]}'),
-                  initialValue:
-                      o.values.indexWhere((c) => c.value == values[o.key]) < 0
-                      ? null
-                      : o.values.indexWhere((c) => c.value == values[o.key]),
-                  isExpanded: true,
-                  decoration: InputDecoration(labelText: o.label),
-                  items: [
-                    for (var i = 0; i < o.values.length; i++)
-                      DropdownMenuItem(
-                        value: i,
-                        child: choiceLabel(o, o.values[i], source),
-                      ),
-                  ],
-                  onChanged: (i) {
-                    if (i != null) {
-                      onChanged({...values, o.key: o.values[i].value});
-                    }
-                  },
+                child: SelectionContainer.disabled(
+                  child: DropdownButtonFormField<int>(
+                    key: ValueKey('${o.key}:${values[o.key]}'),
+                    initialValue:
+                        o.values.indexWhere((c) => c.value == values[o.key]) < 0
+                        ? null
+                        : o.values.indexWhere((c) => c.value == values[o.key]),
+                    isExpanded: true,
+                    decoration: InputDecoration(labelText: o.label),
+                    items: [
+                      for (var i = 0; i < o.values.length; i++)
+                        DropdownMenuItem(
+                          value: i,
+                          child: SelectionContainer.disabled(
+                            child: choiceLabel(o, o.values[i], source),
+                          ),
+                        ),
+                    ],
+                    onChanged: (i) {
+                      if (i != null) {
+                        onChanged({...values, o.key: o.values[i].value});
+                      }
+                    },
+                  ),
                 ),
               )
             else if (o.type == 'select' || o.type == 'multi')
@@ -168,7 +172,9 @@ class _OptionRowState extends State<_OptionRow> {
     if (o.type == 'multi') {
       final current = (values[o.key] as List?)?.toList() ?? [];
       return FilterChip(
-        label: OptionBar.choiceLabel(o, choice, widget.source),
+        label: SelectionContainer.disabled(
+          child: OptionBar.choiceLabel(o, choice, widget.source),
+        ),
         selected: current.contains(choice.value),
         showCheckmark: false,
         selectedColor: color?.withValues(alpha: 0.35),
@@ -184,7 +190,9 @@ class _OptionRowState extends State<_OptionRow> {
       );
     }
     return ChoiceChip(
-      label: OptionBar.choiceLabel(o, choice, widget.source),
+      label: SelectionContainer.disabled(
+        child: OptionBar.choiceLabel(o, choice, widget.source),
+      ),
       selected: values[o.key] == choice.value,
       showCheckmark: false,
       visualDensity: VisualDensity.compact,

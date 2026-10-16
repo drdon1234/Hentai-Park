@@ -112,7 +112,7 @@ class _DomainChipState extends State<_DomainChip> {
 
   @override
   Widget build(BuildContext context) => ChoiceChip(
-    label: Text(widget.destination.label),
+    label: SelectionContainer.disabled(child: Text(widget.destination.label)),
     selected: widget.selected,
     showCheckmark: false,
     onSelected: (_) => widget.onSelected(widget.destination),

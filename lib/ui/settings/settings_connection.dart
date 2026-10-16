@@ -18,8 +18,10 @@ List<Widget> searchSettings(BuildContext context, AppSettings s) => [
     title: tr('内容翻译'),
     children: [
       SwitchListTile(
-        title: Text(tr('自动翻译可见内容')),
-        subtitle: Text(tr('标题、简介等远端文字按界面语言显示，原文保留')),
+        title: SelectionContainer.disabled(child: Text(tr('自动翻译可见内容'))),
+        subtitle: SelectionContainer.disabled(
+          child: Text(tr('标题、简介等远端文字按界面语言显示，原文保留')),
+        ),
         value: s.autoTranslateContent,
         onChanged: (v) => s.autoTranslateContent = v,
       ),
@@ -72,7 +74,7 @@ List<Widget> searchSettings(BuildContext context, AppSettings s) => [
         onTap: () => showTagTranslationPacks(context),
       ),
       SwitchListTile(
-        title: Text(tr('提醒下载标签词库')),
+        title: SelectionContainer.disabled(child: Text(tr('提醒下载标签词库'))),
         value: s.tagDownloadReminders,
         onChanged: (v) => s.tagDownloadReminders = v,
       ),
@@ -124,14 +126,16 @@ List<Widget> privacySettings(BuildContext context, AppSettings s) => [
   RowGroup(
     children: [
       SwitchListTile(
-        title: Text(tr('模糊封面')),
-        subtitle: Text(tr('在列表与预览中模糊所有封面')),
+        title: SelectionContainer.disabled(child: Text(tr('模糊封面'))),
+        subtitle: SelectionContainer.disabled(child: Text(tr('在列表与预览中模糊所有封面'))),
         value: s.blurCovers,
         onChanged: (v) => s.blurCovers = v,
       ),
       SwitchListTile(
-        title: Text(tr('应用锁')),
-        subtitle: Text(tr('打开应用时需要指纹 / 面部 / 锁屏密码验证')),
+        title: SelectionContainer.disabled(child: Text(tr('应用锁'))),
+        subtitle: SelectionContainer.disabled(
+          child: Text(tr('打开应用时需要指纹 / 面部 / 锁屏密码验证')),
+        ),
         value: s.appLock,
         onChanged: AppLock.platformSupported
             ? (v) async {
@@ -165,8 +169,10 @@ List<Widget> privacySettings(BuildContext context, AppSettings s) => [
           },
         ),
       SwitchListTile(
-        title: Text(tr('防截屏与多任务预览')),
-        subtitle: Text(tr('最近任务中隐藏内容，并禁止截屏（Android）')),
+        title: SelectionContainer.disabled(child: Text(tr('防截屏与多任务预览'))),
+        subtitle: SelectionContainer.disabled(
+          child: Text(tr('最近任务中隐藏内容，并禁止截屏（Android）')),
+        ),
         value: s.secureScreen,
         onChanged: (v) => s.secureScreen = v,
       ),
@@ -185,7 +191,7 @@ List<Widget> subscriptionSettings(BuildContext context, AppSettings s) => [
   RowGroup(
     children: [
       SwitchListTile(
-        title: Text(tr('自动检查订阅更新')),
+        title: SelectionContainer.disabled(child: Text(tr('自动检查订阅更新'))),
         value: s.subscriptionUpdateHours > 0,
         onChanged: (value) => s.subscriptionUpdateHours = value ? 6 : 0,
       ),

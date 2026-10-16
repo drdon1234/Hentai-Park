@@ -138,8 +138,14 @@ class _OnboardingPageState extends State<OnboardingPage> {
       ),
     ],
     actions: [
-      TextButton(onPressed: () => SystemNavigator.pop(), child: Text(tr('退出'))),
-      FilledButton(onPressed: _confirmAge, child: Text(tr('我已成年，继续'))),
+      TextButton(
+        onPressed: () => SystemNavigator.pop(),
+        child: SelectionContainer.disabled(child: Text(tr('退出'))),
+      ),
+      FilledButton(
+        onPressed: _confirmAge,
+        child: SelectionContainer.disabled(child: Text(tr('我已成年，继续'))),
+      ),
     ],
   );
 
@@ -158,23 +164,29 @@ class _OnboardingPageState extends State<OnboardingPage> {
           children: [
             SwitchListTile(
               contentPadding: EdgeInsets.zero,
-              title: Text(tr('模糊封面')),
-              subtitle: Text(tr('在列表与预览中模糊所有封面')),
+              title: SelectionContainer.disabled(child: Text(tr('模糊封面'))),
+              subtitle: SelectionContainer.disabled(
+                child: Text(tr('在列表与预览中模糊所有封面')),
+              ),
               value: _settings.blurCovers,
               onChanged: (v) => _settings.blurCovers = v,
             ),
             SwitchListTile(
               contentPadding: EdgeInsets.zero,
-              title: Text(tr('防截屏与多任务预览')),
-              subtitle: Text(tr('最近任务中隐藏内容，并禁止截屏（Android）')),
+              title: SelectionContainer.disabled(child: Text(tr('防截屏与多任务预览'))),
+              subtitle: SelectionContainer.disabled(
+                child: Text(tr('最近任务中隐藏内容，并禁止截屏（Android）')),
+              ),
               value: _settings.secureScreen,
               onChanged: (v) => _settings.secureScreen = v,
             ),
             if (AppLock.platformSupported)
               SwitchListTile(
                 contentPadding: EdgeInsets.zero,
-                title: Text(tr('应用锁')),
-                subtitle: Text(tr('打开应用时需要指纹 / 面部 / 锁屏密码验证')),
+                title: SelectionContainer.disabled(child: Text(tr('应用锁'))),
+                subtitle: SelectionContainer.disabled(
+                  child: Text(tr('打开应用时需要指纹 / 面部 / 锁屏密码验证')),
+                ),
                 value: _settings.appLock,
                 onChanged: (v) async {
                   if (!v) {
@@ -196,11 +208,11 @@ class _OnboardingPageState extends State<OnboardingPage> {
       actions: [
         TextButton(
           onPressed: () => setState(() => _step = _Step.interests),
-          child: Text(tr('跳过')),
+          child: SelectionContainer.disabled(child: Text(tr('跳过'))),
         ),
         FilledButton(
           onPressed: () => setState(() => _step = _Step.interests),
-          child: Text(tr('下一步')),
+          child: SelectionContainer.disabled(child: Text(tr('下一步'))),
         ),
       ],
     ),
@@ -217,7 +229,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
         children: [
           for (final c in _settings.domainOrder)
             FilterChip(
-              label: Text(c.label),
+              label: SelectionContainer.disabled(child: Text(c.label)),
               selected: _interests.contains(c),
               onSelected: (on) =>
                   setState(() => on ? _interests.add(c) : _interests.remove(c)),
@@ -231,11 +243,11 @@ class _OnboardingPageState extends State<OnboardingPage> {
           _interests.addAll(AppSettings.defaultDomainOrder);
           _finish();
         },
-        child: Text(tr('跳过')),
+        child: SelectionContainer.disabled(child: Text(tr('跳过'))),
       ),
       FilledButton(
         onPressed: _interests.isEmpty ? null : _finish,
-        child: Text(tr('开始使用')),
+        child: SelectionContainer.disabled(child: Text(tr('开始使用'))),
       ),
     ],
   );

@@ -141,11 +141,15 @@ class _UpdatesPageState extends State<UpdatesPage> {
                   actions: [
                     TextButton(
                       onPressed: () => _markSelected(true),
-                      child: Text(tr('标为已读')),
+                      child: SelectionContainer.disabled(
+                        child: Text(tr('标为已读')),
+                      ),
                     ),
                     TextButton(
                       onPressed: () => _markSelected(false),
-                      child: Text(tr('标为未读')),
+                      child: SelectionContainer.disabled(
+                        child: Text(tr('标为未读')),
+                      ),
                     ),
                     IconButton(
                       tooltip: tr('下载'),
@@ -210,7 +214,7 @@ class _UpdatesPageState extends State<UpdatesPage> {
                     TextButton(
                       onPressed: () =>
                           Nav.push(context, const SubscriptionUpdatesPage()),
-                      child: Text(tr('订阅')),
+                      child: SelectionContainer.disabled(child: Text(tr('订阅'))),
                     ),
                     if (updater.running)
                       IconButton(
@@ -283,90 +287,95 @@ class _UpdatesPageState extends State<UpdatesPage> {
             ? _toggle(e)
             : Nav.openChapter(context, e.item, e.chapter.chapterId),
         onLongPress: () => _toggle(e),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-          child: Row(
-            children: [
-              // The row opens the chapter; the cover opens the work.
-              Semantics(
-                button: true,
-                label: tr('打开详情'),
-                child: GestureDetector(
-                  onTap: () => Nav.openWork(context, e.item),
-                  child: SizedBox(
-                    width: 46,
-                    height: 62,
-                    child: CoverImage(source: e.item.source, url: e.item.cover),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      e.item.title,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: context.text.bodyMedium?.copyWith(
-                        fontWeight: read ? FontWeight.w500 : FontWeight.w600,
-                        color: muted,
+        child: SelectionContainer.disabled(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+            child: Row(
+              children: [
+                // The row opens the chapter; the cover opens the work.
+                Semantics(
+                  button: true,
+                  label: tr('打开详情'),
+                  child: GestureDetector(
+                    onTap: () => Nav.openWork(context, e.item),
+                    child: SizedBox(
+                      width: 46,
+                      height: 62,
+                      child: CoverImage(
+                        source: e.item.source,
+                        url: e.item.cover,
                       ),
                     ),
-                    const SizedBox(height: 3),
-                    Row(
-                      children: [
-                        if (!read)
-                          Padding(
-                            padding: const EdgeInsets.only(right: 6),
-                            child: Icon(
-                              Icons.circle,
-                              size: 8,
-                              color: c.primary,
-                            ),
-                          ),
-                        Expanded(
-                          child: Text(
-                            [
-                              e.chapter.title,
-                              if (!read &&
-                                  e.chapter.lastPage > 0 &&
-                                  e.chapter.pageCount > 0)
-                                tr('读到 {value0}/{value1}', {
-                                  'value0': e.chapter.lastPage + 1,
-                                  'value1': e.chapter.pageCount,
-                                }),
-                            ].join(' · '),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: context.text.labelMedium?.copyWith(
-                              color: muted ?? c.onSurfaceVariant,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-              if (downloaded)
-                Padding(
-                  padding: const EdgeInsets.all(12),
-                  child: Icon(
-                    Icons.download_done_rounded,
-                    color: c.onSurfaceVariant,
-                    size: 20,
-                    semanticLabel: tr('已下载'),
                   ),
-                )
-              else
-                IconButton(
-                  tooltip: tr('下载'),
-                  icon: const Icon(Icons.download_outlined, size: 20),
-                  onPressed: () => _download([e]),
                 ),
-            ],
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        e.item.title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: context.text.bodyMedium?.copyWith(
+                          fontWeight: read ? FontWeight.w500 : FontWeight.w600,
+                          color: muted,
+                        ),
+                      ),
+                      const SizedBox(height: 3),
+                      Row(
+                        children: [
+                          if (!read)
+                            Padding(
+                              padding: const EdgeInsets.only(right: 6),
+                              child: Icon(
+                                Icons.circle,
+                                size: 8,
+                                color: c.primary,
+                              ),
+                            ),
+                          Expanded(
+                            child: Text(
+                              [
+                                e.chapter.title,
+                                if (!read &&
+                                    e.chapter.lastPage > 0 &&
+                                    e.chapter.pageCount > 0)
+                                  tr('读到 {value0}/{value1}', {
+                                    'value0': e.chapter.lastPage + 1,
+                                    'value1': e.chapter.pageCount,
+                                  }),
+                              ].join(' · '),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: context.text.labelMedium?.copyWith(
+                                color: muted ?? c.onSurfaceVariant,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                if (downloaded)
+                  Padding(
+                    padding: const EdgeInsets.all(12),
+                    child: Icon(
+                      Icons.download_done_rounded,
+                      color: c.onSurfaceVariant,
+                      size: 20,
+                      semanticLabel: tr('已下载'),
+                    ),
+                  )
+                else
+                  IconButton(
+                    tooltip: tr('下载'),
+                    icon: const Icon(Icons.download_outlined, size: 20),
+                    onPressed: () => _download([e]),
+                  ),
+              ],
+            ),
           ),
         ),
       ),

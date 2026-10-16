@@ -106,7 +106,10 @@ class _SubscriptionUpdatesPageState extends State<SubscriptionUpdatesPage> {
         Expanded(
           child: failed
               ? Center(
-                  child: TextButton(onPressed: _load, child: Text(tr('重试'))),
+                  child: TextButton(
+                    onPressed: _load,
+                    child: SelectionContainer.disabled(child: Text(tr('重试'))),
+                  ),
                 )
               : events == null
               ? const Center(child: CircularProgressIndicator())
@@ -125,13 +128,17 @@ class _SubscriptionUpdatesPageState extends State<SubscriptionUpdatesPage> {
                         leading: Icon(
                           event.unread ? Icons.fiber_new : Icons.done,
                         ),
-                        title: Text(
-                          event.title,
-                          maxLines: 3,
-                          overflow: TextOverflow.ellipsis,
+                        title: SelectionContainer.disabled(
+                          child: Text(
+                            event.title,
+                            maxLines: 3,
+                            overflow: TextOverflow.ellipsis,
+                          ),
                         ),
-                        subtitle: Text(
-                          '${SourceManager.instance[event.source]?.name ?? event.source} · ${MaterialLocalizations.of(context).formatShortDate(DateTime.fromMillisecondsSinceEpoch(event.createdAt))}',
+                        subtitle: SelectionContainer.disabled(
+                          child: Text(
+                            '${SourceManager.instance[event.source]?.name ?? event.source} · ${MaterialLocalizations.of(context).formatShortDate(DateTime.fromMillisecondsSinceEpoch(event.createdAt))}',
+                          ),
                         ),
                         onTap: () => _open(event),
                       );

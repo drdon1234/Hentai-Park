@@ -21,34 +21,36 @@ class SettingsSlider extends StatelessWidget {
   final ValueChanged<int> onChanged;
 
   @override
-  Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.fromLTRB(Gap.page, Gap.m, Gap.s, 0),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Expanded(child: Text(title, style: context.text.bodyLarge)),
-            Padding(
-              padding: const EdgeInsets.only(right: Gap.s),
-              child: Text(
-                '$value',
-                style: context.text.bodyLarge?.copyWith(
-                  color: context.colors.onSurfaceVariant,
+  Widget build(BuildContext context) => SelectionContainer.disabled(
+    child: Padding(
+      padding: const EdgeInsets.fromLTRB(Gap.page, Gap.m, Gap.s, 0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(child: Text(title, style: context.text.bodyLarge)),
+              Padding(
+                padding: const EdgeInsets.only(right: Gap.s),
+                child: Text(
+                  '$value',
+                  style: context.text.bodyLarge?.copyWith(
+                    color: context.colors.onSurfaceVariant,
+                  ),
                 ),
               ),
-            ),
-          ],
-        ),
-        Slider(
-          value: value.toDouble(),
-          min: min.toDouble(),
-          max: max.toDouble(),
-          divisions: max - min,
-          label: '$value',
-          onChanged: (v) => onChanged(v.round()),
-        ),
-      ],
+            ],
+          ),
+          Slider(
+            value: value.toDouble(),
+            min: min.toDouble(),
+            max: max.toDouble(),
+            divisions: max - min,
+            label: '$value',
+            onChanged: (v) => onChanged(v.round()),
+          ),
+        ],
+      ),
     ),
   );
 }
@@ -85,10 +87,13 @@ Future<String?> askSettingText(
         decoration: InputDecoration(hintText: hint),
       ),
       actions: [
-        TextButton(onPressed: () => Navigator.pop(ctx), child: Text(tr('取消'))),
+        TextButton(
+          onPressed: () => Navigator.pop(ctx),
+          child: SelectionContainer.disabled(child: Text(tr('取消'))),
+        ),
         FilledButton(
           onPressed: () => Navigator.pop(ctx, c.text.trim()),
-          child: Text(tr('保存')),
+          child: SelectionContainer.disabled(child: Text(tr('保存'))),
         ),
       ],
     ),

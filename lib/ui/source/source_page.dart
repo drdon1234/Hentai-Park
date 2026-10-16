@@ -69,7 +69,10 @@ class _SourcePageState extends State<SourcePage> {
     final tabs = m.feeds.length > 1
         ? TabBar(
             isScrollable: true,
-            tabs: [for (final f in m.feeds) Tab(text: f.label)],
+            tabs: [
+              for (final f in m.feeds)
+                Tab(child: SelectionContainer.disabled(child: Text(f.label))),
+            ],
           )
         : null;
     return TranslationPage(
@@ -118,16 +121,22 @@ class _SourcePageState extends State<SourcePage> {
                           itemBuilder: (context) => [
                             PopupMenuItem(
                               value: 'history',
-                              child: Text(tr('浏览历史')),
+                              child: SelectionContainer.disabled(
+                                child: Text(tr('浏览历史')),
+                              ),
                             ),
                             if (m.can('random'))
                               PopupMenuItem(
                                 value: 'random',
-                                child: Text(tr('随机一部')),
+                                child: SelectionContainer.disabled(
+                                  child: Text(tr('随机一部')),
+                                ),
                               ),
                             PopupMenuItem(
                               value: 'settings',
-                              child: Text(tr('站点设置')),
+                              child: SelectionContainer.disabled(
+                                child: Text(tr('站点设置')),
+                              ),
                             ),
                           ],
                           onSelected: (action) async {
@@ -222,7 +231,7 @@ class _LoginStrip extends StatelessWidget {
           ),
           TextButton(
             onPressed: () => Nav.login(context, source),
-            child: Text(tr('去登录')),
+            child: SelectionContainer.disabled(child: Text(tr('去登录'))),
           ),
         ],
       ),

@@ -93,16 +93,16 @@ class DesktopWindow with WindowListener {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
-              child: Text(tr('取消')),
+              child: SelectionContainer.disabled(child: Text(tr('取消'))),
             ),
             if (canHide)
               TextButton(
                 onPressed: () => Navigator.pop(context, false),
-                child: Text(tr('收起到托盘')),
+                child: SelectionContainer.disabled(child: Text(tr('收起到托盘'))),
               ),
             FilledButton(
               onPressed: () => Navigator.pop(context, true),
-              child: Text(tr('退出')),
+              child: SelectionContainer.disabled(child: Text(tr('退出'))),
             ),
           ],
         ),
@@ -172,7 +172,9 @@ class DesktopShutdownGate extends StatelessWidget {
                     ? FilledButton.icon(
                         onPressed: window._exit,
                         icon: const Icon(Icons.refresh_rounded),
-                        label: Text(tr('重试')),
+                        label: SelectionContainer.disabled(
+                          child: Text(tr('重试')),
+                        ),
                       )
                     : const CircularProgressIndicator(),
               ),

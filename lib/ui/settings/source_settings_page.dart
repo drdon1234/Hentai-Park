@@ -117,22 +117,28 @@ class _SourceSettingsPageState extends State<SourceSettingsPage> {
                     RowGroup(
                       children: [
                         ListTile(
-                          title: Text(m.description),
-                          subtitle: Text(
-                            'v${m.version} · ${context.tr(s.origin == 'official'
-                                ? '官方'
-                                : s.origin == 'builtin'
-                                ? '内置站点'
-                                : '第三方站点')}${m.homepage.isNotEmpty ? ' · ${Uri.parse(m.homepage).host}' : ''}',
+                          title: SelectionContainer.disabled(
+                            child: Text(m.description),
+                          ),
+                          subtitle: SelectionContainer.disabled(
+                            child: Text(
+                              'v${m.version} · ${context.tr(s.origin == 'official'
+                                  ? '官方'
+                                  : s.origin == 'builtin'
+                                  ? '内置站点'
+                                  : '第三方站点')}${m.homepage.isNotEmpty ? ' · ${Uri.parse(m.homepage).host}' : ''}',
+                            ),
                           ),
                           trailing: m.homepage.isEmpty
                               ? null
-                              : IconButton(
-                                  tooltip: tr('在浏览器中打开'),
-                                  icon: const Icon(Icons.open_in_new_rounded),
-                                  onPressed: () => launchUrl(
-                                    Uri.parse(m.homepage),
-                                    mode: LaunchMode.externalApplication,
+                              : SelectionContainer.disabled(
+                                  child: IconButton(
+                                    tooltip: tr('在浏览器中打开'),
+                                    icon: const Icon(Icons.open_in_new_rounded),
+                                    onPressed: () => launchUrl(
+                                      Uri.parse(m.homepage),
+                                      mode: LaunchMode.externalApplication,
+                                    ),
                                   ),
                                 ),
                         ),
@@ -142,7 +148,9 @@ class _SourceSettingsPageState extends State<SourceSettingsPage> {
                       children: [
                         ListTile(
                           leading: const Icon(Icons.translate_rounded),
-                          title: Text(context.tr('官方标签翻译包')),
+                          title: SelectionContainer.disabled(
+                            child: Text(context.tr('官方标签翻译包')),
+                          ),
                           onTap: () => showTagTranslationPacks(
                             context,
                             source: widget.sourceKey,
@@ -167,12 +175,16 @@ class _SourceSettingsPageState extends State<SourceSettingsPage> {
                       children: [
                         ListTile(
                           leading: const Icon(Icons.verified_user_outlined),
-                          title: Text(context.tr('打开站点进行人机验证')),
-                          subtitle: Text(
-                            context.tr(
-                              m.usesBrowserNetwork
-                                  ? '这个站点通过内置浏览器访问，遇到验证时在这里完成'
-                                  : '遇到 Cloudflare 验证时使用',
+                          title: SelectionContainer.disabled(
+                            child: Text(context.tr('打开站点进行人机验证')),
+                          ),
+                          subtitle: SelectionContainer.disabled(
+                            child: Text(
+                              context.tr(
+                                m.usesBrowserNetwork
+                                    ? '这个站点通过内置浏览器访问，遇到验证时在这里完成'
+                                    : '遇到 Cloudflare 验证时使用',
+                              ),
                             ),
                           ),
                           onTap: () async {
@@ -195,7 +207,9 @@ class _SourceSettingsPageState extends State<SourceSettingsPage> {
                           if (canRestore)
                             ListTile(
                               leading: const Icon(Icons.restore_rounded),
-                              title: Text(context.tr('恢复内置版本')),
+                              title: SelectionContainer.disabled(
+                                child: Text(context.tr('恢复内置版本')),
+                              ),
                               onTap: () async {
                                 await sm.resetBuiltin(m.key);
                                 if (context.mounted) {
@@ -208,11 +222,15 @@ class _SourceSettingsPageState extends State<SourceSettingsPage> {
                               leading: const Icon(
                                 Icons.system_update_alt_rounded,
                               ),
-                              title: Text(context.tr('从原地址更新')),
-                              subtitle: Text(
-                                s.url,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
+                              title: SelectionContainer.disabled(
+                                child: Text(context.tr('从原地址更新')),
+                              ),
+                              subtitle: SelectionContainer.disabled(
+                                child: Text(
+                                  s.url,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
                               ),
                               onTap: () => installSourceFromUrl(context, s.url),
                             ),
@@ -222,9 +240,11 @@ class _SourceSettingsPageState extends State<SourceSettingsPage> {
                                 Icons.delete_outline_rounded,
                                 color: context.colors.error,
                               ),
-                              title: Text(
-                                context.tr('卸载此站点'),
-                                style: TextStyle(color: context.colors.error),
+                              title: SelectionContainer.disabled(
+                                child: Text(
+                                  context.tr('卸载此站点'),
+                                  style: TextStyle(color: context.colors.error),
+                                ),
                               ),
                               onTap: () async {
                                 final ok = await showDialog<bool>(
@@ -244,12 +264,16 @@ class _SourceSettingsPageState extends State<SourceSettingsPage> {
                                       TextButton(
                                         onPressed: () =>
                                             Navigator.pop(ctx, false),
-                                        child: Text(context.tr('取消')),
+                                        child: SelectionContainer.disabled(
+                                          child: Text(context.tr('取消')),
+                                        ),
                                       ),
                                       FilledButton(
                                         onPressed: () =>
                                             Navigator.pop(ctx, true),
-                                        child: Text(context.tr('卸载')),
+                                        child: SelectionContainer.disabled(
+                                          child: Text(context.tr('卸载')),
+                                        ),
                                       ),
                                     ],
                                   ),
@@ -294,14 +318,22 @@ class _SourceSettingsPageState extends State<SourceSettingsPage> {
         children: [
           ListTile(
             leading: const CircleAvatar(child: Icon(Icons.person_rounded)),
-            title: Text(status!.name.isEmpty ? context.tr('已登录') : status.name),
-            subtitle: Text(managed ? context.tr('专用自动维护账号') : a.title),
-            trailing: TextButton(
-              onPressed: () async {
-                await sm.logout(s.key);
-                if (context.mounted) context.toast(context.tr('已退出登录'));
-              },
-              child: Text(context.tr('退出')),
+            title: SelectionContainer.disabled(
+              child: Text(
+                status!.name.isEmpty ? context.tr('已登录') : status.name,
+              ),
+            ),
+            subtitle: SelectionContainer.disabled(
+              child: Text(managed ? context.tr('专用自动维护账号') : a.title),
+            ),
+            trailing: SelectionContainer.disabled(
+              child: TextButton(
+                onPressed: () async {
+                  await sm.logout(s.key);
+                  if (context.mounted) context.toast(context.tr('已退出登录'));
+                },
+                child: Text(context.tr('退出')),
+              ),
             ),
           ),
         ],
@@ -328,8 +360,10 @@ class _SourceSettingsPageState extends State<SourceSettingsPage> {
                           child: CircularProgressIndicator(strokeWidth: 2),
                         )
                       : const Icon(Icons.refresh_rounded),
-                  label: Text(
-                    context.tr(_accountBusy ? '正在准备专用账号…' : '重试专用账号'),
+                  label: SelectionContainer.disabled(
+                    child: Text(
+                      context.tr(_accountBusy ? '正在准备专用账号…' : '重试专用账号'),
+                    ),
                   ),
                 ),
               ],
@@ -346,8 +380,10 @@ class _SourceSettingsPageState extends State<SourceSettingsPage> {
     switch (o.type) {
       case 'switch':
         return SwitchListTile(
-          title: Text(o.label),
-          subtitle: o.description.isEmpty ? null : Text(o.description),
+          title: SelectionContainer.disabled(child: Text(o.label)),
+          subtitle: o.description.isEmpty
+              ? null
+              : SelectionContainer.disabled(child: Text(o.description)),
           value: value == true,
           onChanged: _accountBusy && o.key == 'managedAccount'
               ? null
@@ -359,11 +395,13 @@ class _SourceSettingsPageState extends State<SourceSettingsPage> {
         );
       case 'select':
         return ListTile(
-          title: Text(o.label),
-          subtitle: Text(
-            o.description.isEmpty
-                ? o.labelOf(value)
-                : '${o.labelOf(value)}\n${o.description}',
+          title: SelectionContainer.disabled(child: Text(o.label)),
+          subtitle: SelectionContainer.disabled(
+            child: Text(
+              o.description.isEmpty
+                  ? o.labelOf(value)
+                  : '${o.labelOf(value)}\n${o.description}',
+            ),
           ),
           isThreeLine: o.description.isNotEmpty,
           trailing: const Icon(Icons.unfold_more_rounded),
@@ -380,14 +418,18 @@ class _SourceSettingsPageState extends State<SourceSettingsPage> {
                     shrinkWrap: true,
                     children: [
                       ListTile(
-                        title: Text(
-                          o.label,
-                          style: const TextStyle(fontWeight: FontWeight.w600),
+                        title: SelectionContainer.disabled(
+                          child: Text(
+                            o.label,
+                            style: const TextStyle(fontWeight: FontWeight.w600),
+                          ),
                         ),
                       ),
                       for (final c in o.values)
                         ListTile(
-                          title: Text(c.label),
+                          title: SelectionContainer.disabled(
+                            child: Text(c.label),
+                          ),
                           trailing: c.value == value
                               ? const Icon(Icons.check_rounded)
                               : null,
@@ -403,11 +445,13 @@ class _SourceSettingsPageState extends State<SourceSettingsPage> {
         );
       default:
         return ListTile(
-          title: Text(o.label),
-          subtitle: Text(
-            '${value ?? ''}'.isEmpty
-                ? context.tr('未设置')
-                : (o.type == 'password' ? '••••••' : '$value'),
+          title: SelectionContainer.disabled(child: Text(o.label)),
+          subtitle: SelectionContainer.disabled(
+            child: Text(
+              '${value ?? ''}'.isEmpty
+                  ? context.tr('未设置')
+                  : (o.type == 'password' ? '••••••' : '$value'),
+            ),
           ),
           onTap: () async {
             final c = TextEditingController(text: '${value ?? ''}');
@@ -423,11 +467,15 @@ class _SourceSettingsPageState extends State<SourceSettingsPage> {
                 actions: [
                   TextButton(
                     onPressed: () => Navigator.pop(ctx),
-                    child: Text(context.tr('取消')),
+                    child: SelectionContainer.disabled(
+                      child: Text(context.tr('取消')),
+                    ),
                   ),
                   FilledButton(
                     onPressed: () => Navigator.pop(ctx, c.text),
-                    child: Text(context.tr('保存')),
+                    child: SelectionContainer.disabled(
+                      child: Text(context.tr('保存')),
+                    ),
                   ),
                 ],
               ),
@@ -451,11 +499,11 @@ Future<bool?> confirmManagedAccount(BuildContext context) => showDialog<bool>(
     actions: [
       TextButton(
         onPressed: () => Navigator.pop(ctx, false),
-        child: Text(ctx.tr('取消')),
+        child: SelectionContainer.disabled(child: Text(ctx.tr('取消'))),
       ),
       FilledButton(
         onPressed: () => Navigator.pop(ctx, true),
-        child: Text(ctx.tr('确认并注册')),
+        child: SelectionContainer.disabled(child: Text(ctx.tr('确认并注册'))),
       ),
     ],
   ),

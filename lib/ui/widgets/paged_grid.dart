@@ -227,7 +227,7 @@ class PagedSliverGrid extends StatelessWidget {
                       c.loadMore();
                     },
                     icon: const Icon(Icons.expand_more_rounded),
-                    label: Text(tr('继续加载')),
+                    label: SelectionContainer.disabled(child: Text(tr('继续加载'))),
                   ),
                 ],
               ),

@@ -109,12 +109,18 @@ Future<void> downloadEpisodes(
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          ListTile(title: Text(tr('选择下载清晰度'), style: ctx.text.titleMedium)),
+          ListTile(
+            title: SelectionContainer.disabled(
+              child: Text(tr('选择下载清晰度'), style: ctx.text.titleMedium),
+            ),
+          ),
           for (final s in sources)
             ListTile(
               leading: const Icon(Icons.high_quality_outlined),
-              title: Text(s.label),
-              trailing: s.preferred ? Tag(tr('推荐')) : null,
+              title: SelectionContainer.disabled(child: Text(s.label)),
+              trailing: s.preferred
+                  ? SelectionContainer.disabled(child: Tag(tr('推荐')))
+                  : null,
               onTap: () => Navigator.pop(ctx, s),
             ),
         ],

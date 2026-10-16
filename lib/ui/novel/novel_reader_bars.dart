@@ -96,7 +96,7 @@ class NovelReaderBottomBar extends StatelessWidget {
             TextButton(
               style: style,
               onPressed: onDirectory,
-              child: Text(tr('目录')),
+              child: SelectionContainer.disabled(child: Text(tr('目录'))),
             ),
             TextButton(
               style: style,
@@ -105,7 +105,7 @@ class NovelReaderBottomBar extends StatelessWidget {
                 isScrollControlled: true,
                 builder: (_) => const NovelSettingsSheet(),
               ),
-              child: Text(tr('阅读设置')),
+              child: SelectionContainer.disabled(child: Text(tr('阅读设置'))),
             ),
           ],
         ),

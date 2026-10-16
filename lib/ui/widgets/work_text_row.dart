@@ -15,50 +15,54 @@ class WorkTextRow extends StatelessWidget {
   final bool showSource;
 
   @override
-  // One semantics node: the translatable texts below have their own long-press
-  // handlers, which would otherwise split the row from its title.
+  // 整行作为一个可访问性入口，长按统一交给作品操作菜单。
   Widget build(BuildContext context) => MergeSemantics(
     child: InkWell(
       onTap: () => Nav.openWork(context, item),
       onLongPress: () => showWorkActions(context, item),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            ContentTranslation(
-              text: item.title,
-              source: item.source,
-              builder: (text) => Text(text, style: context.text.titleMedium),
-            ),
-            if (item.subtitle.isNotEmpty && item.subtitle != item.title) ...[
-              const SizedBox(height: 6),
+      child: SelectionContainer.disabled(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
               ContentTranslation(
-                text: item.subtitle,
+                text: item.title,
                 source: item.source,
-                builder: (text) => Text(text, style: context.text.bodyMedium),
+                builder: (text) => Text(text, style: context.text.titleMedium),
               ),
+              if (item.subtitle.isNotEmpty && item.subtitle != item.title) ...[
+                const SizedBox(height: 6),
+                ContentTranslation(
+                  text: item.subtitle,
+                  source: item.source,
+                  builder: (text) => Text(text, style: context.text.bodyMedium),
+                ),
+              ],
+              if (showSource ||
+                  item.editions.isNotEmpty ||
+                  item.uploaded.isNotEmpty ||
+                  item.tags.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 4,
+                  children: [
+                    if (showSource) SourceAvatar(item.source, size: 20),
+                    if (item.editions.isNotEmpty)
+                      Text(
+                        workEditionLabel(item),
+                        style: context.text.bodySmall,
+                      ),
+                    if (item.uploaded.isNotEmpty)
+                      Text(item.uploaded, style: context.text.bodySmall),
+                    for (final tag in item.tags.take(4))
+                      Text(tag, style: context.text.bodySmall),
+                  ],
+                ),
+              ],
             ],
-            if (showSource ||
-                item.editions.isNotEmpty ||
-                item.uploaded.isNotEmpty ||
-                item.tags.isNotEmpty) ...[
-              const SizedBox(height: 8),
-              Wrap(
-                spacing: 8,
-                runSpacing: 4,
-                children: [
-                  if (showSource) SourceAvatar(item.source, size: 20),
-                  if (item.editions.isNotEmpty)
-                    Text(workEditionLabel(item), style: context.text.bodySmall),
-                  if (item.uploaded.isNotEmpty)
-                    Text(item.uploaded, style: context.text.bodySmall),
-                  for (final tag in item.tags.take(4))
-                    Text(tag, style: context.text.bodySmall),
-                ],
-              ),
-            ],
-          ],
+          ),
         ),
       ),
     ),

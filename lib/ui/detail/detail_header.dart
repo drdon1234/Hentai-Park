@@ -310,27 +310,29 @@ class _DetailHeaderState extends State<DetailHeader> {
         InkWell(
           borderRadius: Radii.small,
           onTap: () => Nav.openSource(context, item.source),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 2),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                SourceAvatar(item.source, size: 18),
-                const SizedBox(width: Gap.s - 2),
-                Flexible(
-                  child: Text(
-                    widget.manifest?.name ?? item.source,
-                    overflow: TextOverflow.ellipsis,
-                    style: context.text.labelLarge?.copyWith(
-                      color: c.onSurfaceVariant,
+          child: SelectionContainer.disabled(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 2),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  SourceAvatar(item.source, size: 18),
+                  const SizedBox(width: Gap.s - 2),
+                  Flexible(
+                    child: Text(
+                      widget.manifest?.name ?? item.source,
+                      overflow: TextOverflow.ellipsis,
+                      style: context.text.labelLarge?.copyWith(
+                        color: c.onSurfaceVariant,
+                      ),
                     ),
                   ),
-                ),
-                if (category.isNotEmpty) ...[
-                  const SizedBox(width: Gap.s - 2),
-                  Flexible(child: Tag(category)),
+                  if (category.isNotEmpty) ...[
+                    const SizedBox(width: Gap.s - 2),
+                    Flexible(child: Tag(category)),
+                  ],
                 ],
-              ],
+              ),
             ),
           ),
         ),

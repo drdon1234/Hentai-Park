@@ -223,7 +223,9 @@ mixin _NovelLayout on _NovelReaderBase {
                       if (i == _pages.length - 1)
                         TextButton(
                           onPressed: () => _changedOffset(_text.length),
-                          child: Text(tr('标记本章已读')),
+                          child: SelectionContainer.disabled(
+                            child: Text(tr('标记本章已读')),
+                          ),
                         ),
                     ],
                   ),
@@ -299,19 +301,21 @@ mixin _NovelLayout on _NovelReaderBase {
                   ),
                 ],
               ),
-          child: GestureDetector(
-            behavior: HitTestBehavior.translucent,
-            onTapUp: (details) {
-              final fraction = details.localPosition.dx / c.maxWidth;
-              if (_settings.novelTapToPage && fraction < .25) {
-                _move(-1);
-              } else if (_settings.novelTapToPage && fraction > .75) {
-                _move(1);
-              } else {
-                _toggleControls();
-              }
-            },
-            child: content,
+          child: TextSelectionGuard(
+            child: GestureDetector(
+              behavior: HitTestBehavior.translucent,
+              onTapUp: (details) {
+                final fraction = details.localPosition.dx / c.maxWidth;
+                if (_settings.novelTapToPage && fraction < .25) {
+                  _move(-1);
+                } else if (_settings.novelTapToPage && fraction > .75) {
+                  _move(1);
+                } else {
+                  _toggleControls();
+                }
+              },
+              child: content,
+            ),
           ),
         ),
       );

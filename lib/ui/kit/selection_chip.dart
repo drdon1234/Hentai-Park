@@ -15,7 +15,7 @@ class SelectionChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => FilterChip(
-    label: Text(label),
+    label: SelectionContainer.disabled(child: Text(label)),
     selected: selected,
     showCheckmark: false,
     avatar: ExcludeSemantics(

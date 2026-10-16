@@ -87,12 +87,12 @@ Future<PageAction?> showPageActions(BuildContext context, int index) =>
             ),
             ListTile(
               leading: const Icon(Icons.share_rounded),
-              title: Text(tr('分享图片')),
+              title: SelectionContainer.disabled(child: Text(tr('分享图片'))),
               onTap: () => Navigator.pop(ctx, PageAction.share),
             ),
             ListTile(
               leading: const Icon(Icons.save_alt_rounded),
-              title: Text(tr('保存到相册')),
+              title: SelectionContainer.disabled(child: Text(tr('保存到相册'))),
               onTap: () => Navigator.pop(ctx, PageAction.save),
             ),
           ],

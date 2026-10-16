@@ -27,9 +27,11 @@ class VideoEpisodeSheet extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               ListTile(
-                title: Text(
-                  tr('选集'),
-                  style: const TextStyle(fontWeight: FontWeight.w600),
+                title: SelectionContainer.disabled(
+                  child: Text(
+                    tr('选集'),
+                    style: const TextStyle(fontWeight: FontWeight.w600),
+                  ),
                 ),
               ),
               Flexible(
@@ -57,21 +59,25 @@ class VideoEpisodeSheet extends StatelessWidget {
                             ? Icons.play_circle_fill_rounded
                             : Icons.play_circle_outline_rounded,
                       ),
-                      title: Text(episode.title),
+                      title: SelectionContainer.disabled(
+                        child: Text(episode.title),
+                      ),
                       subtitle: state != null && state.position > 0
-                          ? Text(
-                              tr('看到 {value0}:{value1}', {
-                                'value0': state.position ~/ 60,
-                                'value1': (state.position % 60)
-                                    .toString()
-                                    .padLeft(2, '0'),
-                              }),
+                          ? SelectionContainer.disabled(
+                              child: Text(
+                                tr('看到 {value0}:{value1}', {
+                                  'value0': state.position ~/ 60,
+                                  'value1': (state.position % 60)
+                                      .toString()
+                                      .padLeft(2, '0'),
+                                }),
+                              ),
                             )
                           : null,
-                      trailing: downloaded
-                          ? Text(tr('已下载'))
-                          : queued
-                          ? Text(tr('未完成'))
+                      trailing: downloaded || queued
+                          ? SelectionContainer.disabled(
+                              child: Text(tr(downloaded ? '已下载' : '未完成')),
+                            )
                           : null,
                       onTap: () => Navigator.pop(context, episode),
                     );

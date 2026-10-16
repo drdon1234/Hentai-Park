@@ -27,7 +27,9 @@ class StorageSaveNotice extends StatelessWidget {
                       actions: [
                         TextButton(
                           onPressed: JsonStore.retryFailed,
-                          child: Text(tr('重试')),
+                          child: SelectionContainer.disabled(
+                            child: Text(tr('重试')),
+                          ),
                         ),
                       ],
                     ),

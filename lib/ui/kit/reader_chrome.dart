@@ -35,6 +35,7 @@ class ReaderChrome extends StatelessWidget {
   final VoidCallback? onBack;
 
   Widget _bar({required bool top, required Widget child}) {
+    child = SelectionContainer.disabled(child: child);
     if (!fade) return Material(color: barColor, child: child);
     return DecoratedBox(
       decoration: BoxDecoration(
@@ -327,13 +328,13 @@ class ReaderChapterEnd extends StatelessWidget {
             FilledButton.icon(
               onPressed: onNext,
               icon: const Icon(Icons.skip_next_rounded),
-              label: Text(tr('下一章')),
+              label: SelectionContainer.disabled(child: Text(tr('下一章'))),
             )
           else
             OutlinedButton(
               style: OutlinedButton.styleFrom(foregroundColor: foreground),
               onPressed: () => Navigator.maybePop(context),
-              child: Text(tr('返回详情')),
+              child: SelectionContainer.disabled(child: Text(tr('返回详情'))),
             ),
         ],
       ),

@@ -148,18 +148,18 @@ class GameResourceCardState extends State<GameResourceCard> {
                 controlAffinity: ListTileControlAffinity.leading,
                 value: remember,
                 onChanged: (v) => setState(() => remember = v ?? false),
-                title: Text(tr('这个站点不再询问')),
+                title: SelectionContainer.disabled(child: Text(tr('这个站点不再询问'))),
               ),
             ],
           ),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(ctx, false),
-              child: Text(tr('取消')),
+              child: SelectionContainer.disabled(child: Text(tr('取消'))),
             ),
             FilledButton(
               onPressed: () => Navigator.pop(ctx, true),
-              child: Text(tr('回复并获取链接')),
+              child: SelectionContainer.disabled(child: Text(tr('回复并获取链接'))),
             ),
           ],
         ),
@@ -239,22 +239,30 @@ class GameResourceCardState extends State<GameResourceCard> {
             const SizedBox(height: 12),
             if (result.extractionCode.isNotEmpty)
               ListTile(
-                title: Text(tr('提取码')),
-                subtitle: SelectableText(result.extractionCode),
-                trailing: IconButton(
-                  tooltip: tr('复制'),
-                  icon: const Icon(Icons.copy),
-                  onPressed: () => _copy(result.extractionCode),
+                title: SelectionContainer.disabled(child: Text(tr('提取码'))),
+                subtitle: SelectionContainer.disabled(
+                  child: SelectableText(result.extractionCode),
+                ),
+                trailing: SelectionContainer.disabled(
+                  child: IconButton(
+                    tooltip: tr('复制'),
+                    icon: const Icon(Icons.copy),
+                    onPressed: () => _copy(result.extractionCode),
+                  ),
                 ),
               ),
             if (result.archivePassword.isNotEmpty)
               ListTile(
-                title: Text(tr('解压密码')),
-                subtitle: SelectableText(result.archivePassword),
-                trailing: IconButton(
-                  tooltip: tr('复制'),
-                  icon: const Icon(Icons.copy),
-                  onPressed: () => _copy(result.archivePassword),
+                title: SelectionContainer.disabled(child: Text(tr('解压密码'))),
+                subtitle: SelectionContainer.disabled(
+                  child: SelectableText(result.archivePassword),
+                ),
+                trailing: SelectionContainer.disabled(
+                  child: IconButton(
+                    tooltip: tr('复制'),
+                    icon: const Icon(Icons.copy),
+                    onPressed: () => _copy(result.archivePassword),
+                  ),
                 ),
               ),
             for (var i = 0; i < result.urls.length; i++)
@@ -271,12 +279,18 @@ class GameResourceCardState extends State<GameResourceCard> {
                           result.extractionCodes[i] != result.extractionCode)
                         ListTile(
                           contentPadding: EdgeInsets.zero,
-                          title: Text(tr('提取码')),
-                          subtitle: SelectableText(result.extractionCodes[i]),
-                          trailing: IconButton(
-                            tooltip: tr('复制'),
-                            icon: const Icon(Icons.copy),
-                            onPressed: () => _copy(result.extractionCodes[i]),
+                          title: SelectionContainer.disabled(
+                            child: Text(tr('提取码')),
+                          ),
+                          subtitle: SelectionContainer.disabled(
+                            child: SelectableText(result.extractionCodes[i]),
+                          ),
+                          trailing: SelectionContainer.disabled(
+                            child: IconButton(
+                              tooltip: tr('复制'),
+                              icon: const Icon(Icons.copy),
+                              onPressed: () => _copy(result.extractionCodes[i]),
+                            ),
                           ),
                         ),
                       Wrap(
@@ -285,12 +299,16 @@ class GameResourceCardState extends State<GameResourceCard> {
                           FilledButton.tonalIcon(
                             onPressed: () => _open(result.urls[i]),
                             icon: const Icon(Icons.open_in_new),
-                            label: Text(tr('打开链接')),
+                            label: SelectionContainer.disabled(
+                              child: Text(tr('打开链接')),
+                            ),
                           ),
                           TextButton.icon(
                             onPressed: () => _copy(result.urls[i]),
                             icon: const Icon(Icons.copy),
-                            label: Text(tr('复制链接')),
+                            label: SelectionContainer.disabled(
+                              child: Text(tr('复制链接')),
+                            ),
                           ),
                         ],
                       ),
@@ -392,12 +410,14 @@ class GameResourceCardState extends State<GameResourceCard> {
                               ? Icons.download
                               : Icons.open_in_new,
                         ),
-                        label: Text(
-                          '${tr(channel.requiresReply
-                              ? '回复解锁并获取链接'
-                              : channel.kind == GameChannelKind.direct
-                              ? '直链下载'
-                              : '获取网盘链接')} · ${(SourceManager.instance.manifest(widget.work.source)?.copy ?? PluginCopy.none).text(channel.label)}${channel.size.isEmpty ? '' : ' · ${channel.size}'}',
+                        label: SelectionContainer.disabled(
+                          child: Text(
+                            '${tr(channel.requiresReply
+                                ? '回复解锁并获取链接'
+                                : channel.kind == GameChannelKind.direct
+                                ? '直链下载'
+                                : '获取网盘链接')} · ${(SourceManager.instance.manifest(widget.work.source)?.copy ?? PluginCopy.none).text(channel.label)}${channel.size.isEmpty ? '' : ' · ${channel.size}'}',
+                          ),
                         ),
                       ),
                     ),
@@ -462,14 +482,14 @@ class GameDownloadTile extends StatelessWidget {
               if (running || queued)
                 TextButton(
                   onPressed: () => manager.cancel(task.key),
-                  child: Text(tr('取消下载')),
+                  child: SelectionContainer.disabled(child: Text(tr('取消下载'))),
                 )
               else if (!done)
                 TextButton(
                   onPressed: manager.isActive(task.key)
                       ? null
                       : () => manager.retry(task.key),
-                  child: Text(tr('重新下载')),
+                  child: SelectionContainer.disabled(child: Text(tr('重新下载'))),
                 ),
               if (done)
                 TextButton(
@@ -483,7 +503,7 @@ class GameDownloadTile extends StatelessWidget {
                       if (context.mounted) context.toast(tr('无法导出游戏文件'));
                     }
                   },
-                  child: Text(tr('导出游戏文件')),
+                  child: SelectionContainer.disabled(child: Text(tr('导出游戏文件'))),
                 ),
               if (done)
                 TextButton(
@@ -493,7 +513,7 @@ class GameDownloadTile extends StatelessWidget {
                     );
                     if (context.mounted) context.toast(tr('已复制'));
                   },
-                  child: Text(tr('复制文件路径')),
+                  child: SelectionContainer.disabled(child: Text(tr('复制文件路径'))),
                 ),
               if (!running && !queued)
                 TextButton(
@@ -504,7 +524,9 @@ class GameDownloadTile extends StatelessWidget {
                       if (context.mounted) context.toast(tr('请先取消下载并等待结束'));
                     }
                   },
-                  child: Text(tr('移除任务（保留文件）')),
+                  child: SelectionContainer.disabled(
+                    child: Text(tr('移除任务（保留文件）')),
+                  ),
                 ),
             ],
           ),

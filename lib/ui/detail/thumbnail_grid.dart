@@ -190,32 +190,37 @@ class _ThumbnailSectionState extends State<ThumbnailSection> {
               return InkWell(
                 borderRadius: Radii.small,
                 onTap: () => widget.onOpen(index),
-                child: Column(
-                  children: [
-                    Expanded(
-                      child: ClipRRect(
-                        borderRadius: Radii.small,
-                        child: ColoredBox(
-                          color: context.colors.surfaceContainerHigh,
-                          child: t.isSprite
-                              ? _Sprite(source: widget.detail.source, thumb: t)
-                              : CoverImage(
-                                  source: widget.detail.source,
-                                  url: t.url,
-                                  radius: 0,
-                                  blur: blur,
-                                ),
+                child: SelectionContainer.disabled(
+                  child: Column(
+                    children: [
+                      Expanded(
+                        child: ClipRRect(
+                          borderRadius: Radii.small,
+                          child: ColoredBox(
+                            color: context.colors.surfaceContainerHigh,
+                            child: t.isSprite
+                                ? _Sprite(
+                                    source: widget.detail.source,
+                                    thumb: t,
+                                  )
+                                : CoverImage(
+                                    source: widget.detail.source,
+                                    url: t.url,
+                                    radius: 0,
+                                    blur: blur,
+                                  ),
+                          ),
                         ),
                       ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      '${index + 1}',
-                      style: context.text.labelSmall?.copyWith(
-                        color: context.colors.onSurfaceVariant,
+                      const SizedBox(height: 2),
+                      Text(
+                        '${index + 1}',
+                        style: context.text.labelSmall?.copyWith(
+                          color: context.colors.onSurfaceVariant,
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               );
             },
@@ -244,7 +249,9 @@ class _ThumbnailSectionState extends State<ThumbnailSection> {
                     : TextButton.icon(
                         onPressed: () => _more(fromUser: true),
                         icon: const Icon(Icons.expand_more_rounded),
-                        label: Text(tr('加载更多预览')),
+                        label: SelectionContainer.disabled(
+                          child: Text(tr('加载更多预览')),
+                        ),
                       ),
               ),
             ),

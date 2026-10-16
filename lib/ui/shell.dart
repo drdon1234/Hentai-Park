@@ -294,7 +294,7 @@ class _ShellState extends State<Shell> {
                 NavigationRailDestination(
                   icon: d.icon,
                   selectedIcon: d.selectedIcon,
-                  label: Text(d.label),
+                  label: SelectionContainer.disabled(child: Text(d.label)),
                 ),
             ],
           );
@@ -305,11 +305,13 @@ class _ShellState extends State<Shell> {
               top: BorderSide(color: context.colors.outlineVariant, width: .8),
             ),
           ),
-          child: NavigationBar(
-            selectedIndex: _index,
-            onDestinationSelected: _select,
-            labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
-            destinations: destinations,
+          child: SelectionContainer.disabled(
+            child: NavigationBar(
+              selectedIndex: _index,
+              onDestinationSelected: _select,
+              labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
+              destinations: destinations,
+            ),
           ),
         );
       },
@@ -369,35 +371,37 @@ class _IncognitoBanner extends StatelessWidget {
             excludeSemantics: true,
             child: InkWell(
               onTap: () => s.incognito = false,
-              child: Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: Gap.page,
-                  vertical: Gap.s,
-                ),
-                child: Row(
-                  children: [
-                    Icon(
-                      Icons.visibility_off_outlined,
-                      size: 18,
-                      color: c.onInverseSurface,
-                    ),
-                    const SizedBox(width: Gap.s),
-                    Expanded(
-                      child: Text(
-                        tr('无痕模式：不记录历史与进度'),
-                        style: context.text.bodyMedium?.copyWith(
-                          color: c.onInverseSurface,
+              child: SelectionContainer.disabled(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: Gap.page,
+                    vertical: Gap.s,
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.visibility_off_outlined,
+                        size: 18,
+                        color: c.onInverseSurface,
+                      ),
+                      const SizedBox(width: Gap.s),
+                      Expanded(
+                        child: Text(
+                          tr('无痕模式：不记录历史与进度'),
+                          style: context.text.bodyMedium?.copyWith(
+                            color: c.onInverseSurface,
+                          ),
                         ),
                       ),
-                    ),
-                    Text(
-                      tr('关闭'),
-                      style: context.text.labelLarge?.copyWith(
-                        color: c.onInverseSurface,
-                        fontWeight: FontWeight.w600,
+                      Text(
+                        tr('关闭'),
+                        style: context.text.labelLarge?.copyWith(
+                          color: c.onInverseSurface,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             ),

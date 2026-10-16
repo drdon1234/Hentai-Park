@@ -184,11 +184,13 @@ class _TrustDialog extends StatelessWidget {
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context, false),
-          child: Text(tr('取消')),
+          child: SelectionContainer.disabled(child: Text(tr('取消'))),
         ),
         FilledButton(
           onPressed: () => Navigator.pop(context, true),
-          child: Text(preview.existing != null ? tr('信任并更新') : tr('信任并安装')),
+          child: SelectionContainer.disabled(
+            child: Text(preview.existing != null ? tr('信任并更新') : tr('信任并安装')),
+          ),
         ),
       ],
     );

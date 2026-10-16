@@ -38,7 +38,7 @@ class SourceErrorView extends StatelessWidget {
       if (e.needsConfirmation)
         FilledButton.icon(
           icon: const Icon(Icons.open_in_browser_rounded),
-          label: Text(tr('去确认')),
+          label: SelectionContainer.disabled(child: Text(tr('去确认'))),
           onPressed: () async {
             if (await Nav.confirmAccess(context, source, url: e.url)) onRetry();
           },
@@ -46,7 +46,7 @@ class SourceErrorView extends StatelessWidget {
       if (e.isCloudflare)
         FilledButton.icon(
           icon: const Icon(Icons.open_in_browser_rounded),
-          label: Text(tr('去验证')),
+          label: SelectionContainer.disabled(child: Text(tr('去验证'))),
           onPressed: () async {
             if (await Nav.verifyCloudflare(context, source, url: e.url)) {
               onRetry();
@@ -56,23 +56,26 @@ class SourceErrorView extends StatelessWidget {
       if (e.needsLogin)
         FilledButton.icon(
           icon: const Icon(Icons.login_rounded),
-          label: Text(tr('去登录')),
+          label: SelectionContainer.disabled(child: Text(tr('去登录'))),
           onPressed: () async {
             if (await Nav.login(context, source)) onRetry();
           },
         ),
       if (e.isCloudflare || e.needsLogin || e.needsConfirmation)
-        OutlinedButton(onPressed: onRetry, child: Text(tr('重试')))
+        OutlinedButton(
+          onPressed: onRetry,
+          child: SelectionContainer.disabled(child: Text(tr('重试'))),
+        )
       else
         FilledButton.tonalIcon(
           onPressed: onRetry,
           icon: const Icon(Icons.refresh_rounded),
-          label: Text(tr('重试')),
+          label: SelectionContainer.disabled(child: Text(tr('重试'))),
         ),
       if (e.isNetwork)
         TextButton(
           onPressed: () => Nav.openNetworkSettings(context),
-          child: Text(tr('网络设置')),
+          child: SelectionContainer.disabled(child: Text(tr('网络设置'))),
         ),
     ];
     final view = EmptyState(

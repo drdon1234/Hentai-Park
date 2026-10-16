@@ -62,9 +62,11 @@ class DetailActionBar extends StatelessWidget {
                 DetailKind.reading ||
                 DetailKind.novel => Icons.auto_stories_outlined,
               }),
-              label: Text(
-                _empty ? tr('暂无章节') : _primaryLabel(),
-                overflow: TextOverflow.ellipsis,
+              label: SelectionContainer.disabled(
+                child: Text(
+                  _empty ? tr('暂无章节') : _primaryLabel(),
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
             ),
           ),

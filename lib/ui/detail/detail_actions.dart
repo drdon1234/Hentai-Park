@@ -56,16 +56,18 @@ class DetailSecondaryButton extends StatelessWidget {
           child: InkWell(
             onTap: onPressed,
             onLongPress: onLongPress,
-            child: SizedBox(
-              width: 48,
-              height: 48,
-              child: Icon(
-                icon,
-                color: !enabled
-                    ? c.onSurface.withValues(alpha: .3)
-                    : active
-                    ? c.primary
-                    : c.onSurface,
+            child: SelectionContainer.disabled(
+              child: SizedBox(
+                width: 48,
+                height: 48,
+                child: Icon(
+                  icon,
+                  color: !enabled
+                      ? c.onSurface.withValues(alpha: .3)
+                      : active
+                      ? c.primary
+                      : c.onSurface,
+                ),
               ),
             ),
           ),
@@ -92,7 +94,7 @@ Future<void> showDetailMore(
           if (onOpenOriginal != null)
             ListTile(
               leading: const Icon(Icons.open_in_browser_rounded),
-              title: Text(tr('在浏览器中打开')),
+              title: SelectionContainer.disabled(child: Text(tr('在浏览器中打开'))),
               onTap: () {
                 Navigator.pop(ctx);
                 onOpenOriginal();
@@ -101,7 +103,7 @@ Future<void> showDetailMore(
           if (d.url.isNotEmpty)
             ListTile(
               leading: const Icon(Icons.share_rounded),
-              title: Text(tr('分享链接')),
+              title: SelectionContainer.disabled(child: Text(tr('分享链接'))),
               onTap: () {
                 Navigator.pop(ctx);
                 shareContent(context, text: '${d.title}\n${d.url}');
@@ -109,7 +111,7 @@ Future<void> showDetailMore(
             ),
           ListTile(
             leading: const Icon(Icons.copy_rounded),
-            title: Text(tr('复制标题')),
+            title: SelectionContainer.disabled(child: Text(tr('复制标题'))),
             onTap: () {
               Clipboard.setData(ClipboardData(text: d.title));
               Navigator.pop(ctx);
@@ -118,7 +120,9 @@ Future<void> showDetailMore(
           ),
           ListTile(
             leading: const Icon(Icons.tag_rounded),
-            title: Text(tr('复制编号  {id}', {'id': d.id})),
+            title: SelectionContainer.disabled(
+              child: Text(tr('复制编号  {id}', {'id': d.id})),
+            ),
             onTap: () {
               Clipboard.setData(ClipboardData(text: d.id));
               Navigator.pop(ctx);
@@ -127,7 +131,7 @@ Future<void> showDetailMore(
           ),
           ListTile(
             leading: const Icon(Icons.travel_explore_rounded),
-            title: Text(tr('在所有站点搜索标题')),
+            title: SelectionContainer.disabled(child: Text(tr('在所有站点搜索标题'))),
             onTap: () {
               Navigator.pop(ctx);
               Nav.openAggregateSearch(
@@ -139,8 +143,10 @@ Future<void> showDetailMore(
           if (Library.instance.isFavorite(d.uid))
             ListTile(
               leading: const Icon(Icons.swap_horiz_rounded),
-              title: Text(tr('迁移到其他站点')),
-              subtitle: Text(tr('保留分类与已读进度')),
+              title: SelectionContainer.disabled(child: Text(tr('迁移到其他站点'))),
+              subtitle: SelectionContainer.disabled(
+                child: Text(tr('保留分类与已读进度')),
+              ),
               onTap: () {
                 Navigator.pop(ctx);
                 Nav.push(context, MigrationPage(items: [item]));

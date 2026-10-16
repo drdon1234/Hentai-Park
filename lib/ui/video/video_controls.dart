@@ -69,12 +69,12 @@ class VideoControls extends StatelessWidget {
           TextButton(
             onPressed: onQuality,
             style: TextButton.styleFrom(foregroundColor: fg),
-            child: Text(quality!),
+            child: SelectionContainer.disabled(child: Text(quality!)),
           ),
         TextButton(
           onPressed: onSpeed,
           style: TextButton.styleFrom(foregroundColor: fg),
-          child: Text('${speed}x'),
+          child: SelectionContainer.disabled(child: Text('${speed}x')),
         ),
       ],
       bottom: Column(

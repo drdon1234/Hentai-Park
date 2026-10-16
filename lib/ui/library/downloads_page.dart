@@ -80,7 +80,7 @@ class DownloadsPage extends StatelessWidget {
                         }
                       }
                     },
-                    child: Text(tr('全部暂停')),
+                    child: SelectionContainer.disabled(child: Text(tr('全部暂停'))),
                   ),
                   TextButton(
                     onPressed: () {
@@ -92,7 +92,7 @@ class DownloadsPage extends StatelessWidget {
                         }
                       }
                     },
-                    child: Text(tr('全部继续')),
+                    child: SelectionContainer.disabled(child: Text(tr('全部继续'))),
                   ),
                 ],
               );
@@ -103,7 +103,7 @@ class DownloadsPage extends StatelessWidget {
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => _import(context),
         icon: const Icon(Icons.file_open_outlined),
-        label: Text(tr('导入本地漫画')),
+        label: SelectionContainer.disabled(child: Text(tr('导入本地漫画'))),
       ),
       body: ListenableBuilder(
         listenable: Listenable.merge([dm, games, AppSettings.instance]),
@@ -199,10 +199,13 @@ class _RestoreFailureTile extends StatelessWidget {
         Wrap(
           spacing: Gap.s,
           children: [
-            TextButton(onPressed: () => _retry(context), child: Text(tr('重试'))),
+            TextButton(
+              onPressed: () => _retry(context),
+              child: SelectionContainer.disabled(child: Text(tr('重试'))),
+            ),
             TextButton(
               onPressed: () => _remove(context),
-              child: Text(tr('移除记录')),
+              child: SelectionContainer.disabled(child: Text(tr('移除记录'))),
             ),
           ],
         ),
@@ -250,30 +253,36 @@ class _TaskTile extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             ListTile(
-              title: Text(
-                t.item.title,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(fontWeight: FontWeight.w600),
+              title: SelectionContainer.disabled(
+                child: Text(
+                  t.item.title,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontWeight: FontWeight.w600),
+                ),
               ),
             ),
             if (t.chapters.length > 1)
               ListTile(
                 leading: const Icon(Icons.list_rounded),
-                title: Text(tr(t.isVideo ? '管理分集' : '管理章节')),
+                title: SelectionContainer.disabled(
+                  child: Text(tr(t.isVideo ? '管理分集' : '管理章节')),
+                ),
                 onTap: () => Navigator.pop(ctx, 'chapters'),
               ),
             if (canExport)
               ListTile(
                 leading: const Icon(Icons.archive_outlined),
-                title: Text(tr('导出为 CBZ')),
+                title: SelectionContainer.disabled(child: Text(tr('导出为 CBZ'))),
                 onTap: () => Navigator.pop(ctx, 'cbz'),
               ),
             if (canExport)
               ListTile(
                 leading: const Icon(Icons.picture_as_pdf_outlined),
-                title: Text(tr('导出为 PDF')),
-                subtitle: Text(tr('按已完成章节导出，动图仅保留第一帧')),
+                title: SelectionContainer.disabled(child: Text(tr('导出为 PDF'))),
+                subtitle: SelectionContainer.disabled(
+                  child: Text(tr('按已完成章节导出，动图仅保留第一帧')),
+                ),
                 onTap: () => Navigator.pop(ctx, 'pdf'),
               ),
             if (t.isVideo &&
@@ -281,12 +290,12 @@ class _TaskTile extends StatelessWidget {
                 t.completed.contains(t.chapters.first.id))
               ListTile(
                 leading: const Icon(Icons.ios_share_rounded),
-                title: Text(tr('导出视频文件')),
+                title: SelectionContainer.disabled(child: Text(tr('导出视频文件'))),
                 onTap: () => Navigator.pop(ctx, 'video'),
               ),
             ListTile(
               leading: const Icon(Icons.delete_outline_rounded),
-              title: Text(tr('删除')),
+              title: SelectionContainer.disabled(child: Text(tr('删除'))),
               onTap: () => Navigator.pop(ctx, 'delete'),
             ),
           ],
@@ -448,98 +457,102 @@ class _TaskTile extends StatelessWidget {
     return InkWell(
       onTap: () => _open(context),
       onLongPress: () => _menu(context),
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(Gap.page, Gap.m, Gap.xs, Gap.m),
-        child: Row(
-          children: [
-            SizedBox(
-              width: 56,
-              height: 78,
-              child: CoverImage(
-                source: t.item.source,
-                url: t.item.cover,
-                title: t.item.title,
-                mediaKind: t.isNovel ? MediaKind.novel : null,
+      child: SelectionContainer.disabled(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(Gap.page, Gap.m, Gap.xs, Gap.m),
+          child: Row(
+            children: [
+              SizedBox(
+                width: 56,
+                height: 78,
+                child: CoverImage(
+                  source: t.item.source,
+                  url: t.item.cover,
+                  title: t.item.title,
+                  mediaKind: t.isNovel ? MediaKind.novel : null,
+                ),
               ),
-            ),
-            const SizedBox(width: Gap.m),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    t.item.title,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: context.text.bodyMedium?.copyWith(
-                      fontWeight: FontWeight.w600,
+              const SizedBox(width: Gap.m),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      t.item.title,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: context.text.bodyMedium?.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 4),
-                  Row(
-                    children: [
-                      SourceAvatar(t.item.source, size: 16),
-                      const SizedBox(width: 6),
-                      Expanded(
-                        child: Text(
-                          statusText,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: context.text.labelMedium?.copyWith(
-                            color: statusColor,
+                    const SizedBox(height: 4),
+                    Row(
+                      children: [
+                        SourceAvatar(t.item.source, size: 16),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: Text(
+                            statusText,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: context.text.labelMedium?.copyWith(
+                              color: statusColor,
+                            ),
                           ),
+                        ),
+                        if (t.chapters.length > 1)
+                          Text(
+                            tr(
+                              t.isVideo
+                                  ? '{value0}/{value1} 集'
+                                  : '{value0}/{value1} 章',
+                              {
+                                'value0': t.completed.length,
+                                'value1': t.chapters.length,
+                              },
+                            ),
+                            style: context.text.labelSmall,
+                          ),
+                      ],
+                    ),
+                    if (t.status == DownloadStatus.running ||
+                        t.status == DownloadStatus.paused) ...[
+                      const SizedBox(height: 8),
+                      ClipRRect(
+                        borderRadius: const BorderRadius.all(
+                          Radius.circular(2),
+                        ),
+                        child: LinearProgressIndicator(
+                          value: t.total > 0 ? t.progress : null,
+                          minHeight: 4,
+                          backgroundColor: c.surfaceContainerHighest,
                         ),
                       ),
-                      if (t.chapters.length > 1)
-                        Text(
-                          tr(
-                            t.isVideo
-                                ? '{value0}/{value1} 集'
-                                : '{value0}/{value1} 章',
-                            {
-                              'value0': t.completed.length,
-                              'value1': t.chapters.length,
-                            },
-                          ),
-                          style: context.text.labelSmall,
-                        ),
                     ],
-                  ),
-                  if (t.status == DownloadStatus.running ||
-                      t.status == DownloadStatus.paused) ...[
-                    const SizedBox(height: 8),
-                    ClipRRect(
-                      borderRadius: const BorderRadius.all(Radius.circular(2)),
-                      child: LinearProgressIndicator(
-                        value: t.total > 0 ? t.progress : null,
-                        minHeight: 4,
-                        backgroundColor: c.surfaceContainerHighest,
-                      ),
-                    ),
                   ],
-                ],
+                ),
               ),
-            ),
-            const SizedBox(width: 4),
-            if (t.status == DownloadStatus.running)
+              const SizedBox(width: 4),
+              if (t.status == DownloadStatus.running)
+                IconButton(
+                  tooltip: tr('暂停'),
+                  icon: const Icon(Icons.pause_rounded),
+                  onPressed: () => DownloadManager.instance.pause(t.uid),
+                )
+              else if (t.status == DownloadStatus.paused ||
+                  t.status == DownloadStatus.failed)
+                IconButton(
+                  tooltip: tr('继续'),
+                  icon: const Icon(Icons.play_arrow_rounded),
+                  onPressed: () => DownloadManager.instance.resume(t.uid),
+                ),
               IconButton(
-                tooltip: tr('暂停'),
-                icon: const Icon(Icons.pause_rounded),
-                onPressed: () => DownloadManager.instance.pause(t.uid),
-              )
-            else if (t.status == DownloadStatus.paused ||
-                t.status == DownloadStatus.failed)
-              IconButton(
-                tooltip: tr('继续'),
-                icon: const Icon(Icons.play_arrow_rounded),
-                onPressed: () => DownloadManager.instance.resume(t.uid),
+                tooltip: tr('更多'),
+                icon: const Icon(Icons.more_vert_rounded),
+                onPressed: () => _menu(context),
               ),
-            IconButton(
-              tooltip: tr('更多'),
-              icon: const Icon(Icons.more_vert_rounded),
-              onPressed: () => _menu(context),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -572,26 +585,34 @@ class _ChapterSheetState extends State<_ChapterSheet> {
             mainAxisSize: MainAxisSize.min,
             children: [
               ListTile(
-                title: Text(
-                  tr(t.isVideo ? '下载的分集' : '下载的章节'),
-                  style: const TextStyle(fontWeight: FontWeight.w600),
+                title: SelectionContainer.disabled(
+                  child: Text(
+                    tr(t.isVideo ? '下载的分集' : '下载的章节'),
+                    style: const TextStyle(fontWeight: FontWeight.w600),
+                  ),
                 ),
-                trailing: FilledButton.tonalIcon(
-                  onPressed: _selected.isEmpty
-                      ? null
-                      : () async {
-                          try {
-                            await DownloadManager.instance.deleteChapters(
-                              t.uid,
-                              _selected.toList(),
-                            );
-                            if (context.mounted) Navigator.pop(context);
-                          } catch (_) {
-                            if (context.mounted) context.toast(tr('删除失败，请重试'));
-                          }
-                        },
-                  icon: const Icon(Icons.delete_outline_rounded),
-                  label: Text(tr('删除 {value0}', {'value0': _selected.length})),
+                trailing: SelectionContainer.disabled(
+                  child: FilledButton.tonalIcon(
+                    onPressed: _selected.isEmpty
+                        ? null
+                        : () async {
+                            try {
+                              await DownloadManager.instance.deleteChapters(
+                                t.uid,
+                                _selected.toList(),
+                              );
+                              if (context.mounted) Navigator.pop(context);
+                            } catch (_) {
+                              if (context.mounted) {
+                                context.toast(tr('删除失败，请重试'));
+                              }
+                            }
+                          },
+                    icon: const Icon(Icons.delete_outline_rounded),
+                    label: Text(
+                      tr('删除 {value0}', {'value0': _selected.length}),
+                    ),
+                  ),
                 ),
               ),
               Flexible(
@@ -601,22 +622,28 @@ class _ChapterSheetState extends State<_ChapterSheet> {
                     for (final ch in t.chapters)
                       CheckboxListTile(
                         value: _selected.contains(ch.id),
-                        title: Text(ch.title),
-                        subtitle: Text(
-                          t.completed.contains(ch.id) ? tr('已下载') : tr('未完成'),
+                        title: SelectionContainer.disabled(
+                          child: Text(ch.title),
+                        ),
+                        subtitle: SelectionContainer.disabled(
+                          child: Text(
+                            t.completed.contains(ch.id) ? tr('已下载') : tr('未完成'),
+                          ),
                         ),
                         secondary: t.isVideo
-                            ? IconButton(
-                                tooltip: tr('播放'),
-                                icon: const Icon(
-                                  Icons.play_circle_outline_rounded,
+                            ? SelectionContainer.disabled(
+                                child: IconButton(
+                                  tooltip: tr('播放'),
+                                  icon: const Icon(
+                                    Icons.play_circle_outline_rounded,
+                                  ),
+                                  onPressed: t.completed.contains(ch.id)
+                                      ? () {
+                                          Navigator.pop(context);
+                                          widget.onOpen(ch);
+                                        }
+                                      : null,
                                 ),
-                                onPressed: t.completed.contains(ch.id)
-                                    ? () {
-                                        Navigator.pop(context);
-                                        widget.onOpen(ch);
-                                      }
-                                    : null,
                               )
                             : null,
                         onChanged: (v) => setState(

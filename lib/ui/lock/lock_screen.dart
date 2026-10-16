@@ -77,7 +77,7 @@ class _LockScreenState extends State<_LockScreen> {
                 FilledButton.icon(
                   onPressed: AppLock.instance.unlock,
                   icon: const Icon(Icons.fingerprint_rounded),
-                  label: Text(tr('解锁')),
+                  label: SelectionContainer.disabled(child: Text(tr('解锁'))),
                 ),
               ],
             ),

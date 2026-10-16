@@ -69,55 +69,57 @@ class ChapterRow extends StatelessWidget {
         child: InkWell(
           onTap: onTap,
           onLongPress: onLongPress,
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(minHeight: 48),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(
-                horizontal: Gap.page,
-                vertical: Gap.s,
-              ),
-              child: Row(
-                children: [
-                  if (current)
-                    Padding(
-                      padding: const EdgeInsetsDirectional.only(end: Gap.s),
-                      child: Icon(
-                        Icons.play_arrow_rounded,
-                        size: 18,
-                        color: c.primary,
+          child: SelectionContainer.disabled(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(minHeight: 48),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: Gap.page,
+                  vertical: Gap.s,
+                ),
+                child: Row(
+                  children: [
+                    if (current)
+                      Padding(
+                        padding: const EdgeInsetsDirectional.only(end: Gap.s),
+                        child: Icon(
+                          Icons.play_arrow_rounded,
+                          size: 18,
+                          color: c.primary,
+                        ),
+                      ),
+                    Expanded(
+                      child: Text(
+                        chapter.title,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: context.text.bodyMedium?.copyWith(
+                          fontWeight: current ? FontWeight.w600 : null,
+                          color: read && !current
+                              ? c.onSurfaceVariant.withValues(alpha: .7)
+                              : c.onSurface,
+                        ),
                       ),
                     ),
-                  Expanded(
-                    child: Text(
-                      chapter.title,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: context.text.bodyMedium?.copyWith(
-                        fontWeight: current ? FontWeight.w600 : null,
-                        color: read && !current
-                            ? c.onSurfaceVariant.withValues(alpha: .7)
-                            : c.onSurface,
+                    if (progress != null) ...[
+                      const SizedBox(width: Gap.s),
+                      Text(
+                        progress,
+                        style: context.text.labelSmall?.copyWith(
+                          color: c.primary,
+                        ),
                       ),
-                    ),
-                  ),
-                  if (progress != null) ...[
-                    const SizedBox(width: Gap.s),
-                    Text(
-                      progress,
-                      style: context.text.labelSmall?.copyWith(
-                        color: c.primary,
+                    ],
+                    if (downloaded) ...[
+                      const SizedBox(width: Gap.s),
+                      Icon(
+                        Icons.download_done_rounded,
+                        size: 16,
+                        color: c.onSurfaceVariant,
                       ),
-                    ),
+                    ],
                   ],
-                  if (downloaded) ...[
-                    const SizedBox(width: Gap.s),
-                    Icon(
-                      Icons.download_done_rounded,
-                      size: 16,
-                      color: c.onSurfaceVariant,
-                    ),
-                  ],
-                ],
+                ),
               ),
             ),
           ),
@@ -165,8 +167,14 @@ class ChapterSelectionBar extends StatelessWidget {
               style: context.text.titleSmall,
             ),
             const Spacer(),
-            TextButton(onPressed: onSelectAll, child: Text(tr('全选'))),
-            TextButton(onPressed: onDownload, child: Text(tr('下载'))),
+            TextButton(
+              onPressed: onSelectAll,
+              child: SelectionContainer.disabled(child: Text(tr('全选'))),
+            ),
+            TextButton(
+              onPressed: onDownload,
+              child: SelectionContainer.disabled(child: Text(tr('下载'))),
+            ),
           ],
         ),
         if (!isVideo)
@@ -175,16 +183,18 @@ class ChapterSelectionBar extends StatelessWidget {
             children: [
               TextButton(
                 onPressed: () => onMarkRead(true),
-                child: Text(tr('标为已读')),
+                child: SelectionContainer.disabled(child: Text(tr('标为已读'))),
               ),
               TextButton(
                 onPressed: () => onMarkRead(false),
-                child: Text(tr('标为未读')),
+                child: SelectionContainer.disabled(child: Text(tr('标为未读'))),
               ),
               if (onMarkPreviousRead != null)
                 TextButton(
                   onPressed: onMarkPreviousRead,
-                  child: Text(tr('之前的章节标为已读')),
+                  child: SelectionContainer.disabled(
+                    child: Text(tr('之前的章节标为已读')),
+                  ),
                 ),
             ],
           ),
@@ -256,19 +266,23 @@ class _ChapterPickerState extends State<ChapterPicker> {
       builder: (context, scroll) => Column(
         children: [
           ListTile(
-            title: Text(
-              tr(widget.isVideo ? '选择要下载的分集（{count}）' : '选择要下载的章节（{count}）', {
-                'count': _selected.length,
-              }),
-              style: context.text.titleMedium,
-            ),
-            trailing: TextButton(
-              onPressed: () => setState(
-                () => all
-                    ? _selected.clear()
-                    : _selected.addAll(widget.chapters.map((c) => c.id)),
+            title: SelectionContainer.disabled(
+              child: Text(
+                tr(widget.isVideo ? '选择要下载的分集（{count}）' : '选择要下载的章节（{count}）', {
+                  'count': _selected.length,
+                }),
+                style: context.text.titleMedium,
               ),
-              child: Text(all ? tr('全不选') : tr('全选')),
+            ),
+            trailing: SelectionContainer.disabled(
+              child: TextButton(
+                onPressed: () => setState(
+                  () => all
+                      ? _selected.clear()
+                      : _selected.addAll(widget.chapters.map((c) => c.id)),
+                ),
+                child: Text(all ? tr('全不选') : tr('全选')),
+              ),
             ),
           ),
           const Divider(),
@@ -280,9 +294,9 @@ class _ChapterPickerState extends State<ChapterPicker> {
                 final ch = widget.chapters[i];
                 return CheckboxListTile(
                   value: _selected.contains(ch.id),
-                  title: Text(ch.title),
+                  title: SelectionContainer.disabled(child: Text(ch.title)),
                   subtitle: widget.completed.contains(ch.id)
-                      ? Text(tr('已下载'))
+                      ? SelectionContainer.disabled(child: Text(tr('已下载')))
                       : null,
                   onChanged: (v) => setState(
                     () => v == true
@@ -308,7 +322,7 @@ class _ChapterPickerState extends State<ChapterPicker> {
                               .where((c) => _selected.contains(c.id))
                               .toList(),
                         ),
-                  child: Text(tr('开始下载')),
+                  child: SelectionContainer.disabled(child: Text(tr('开始下载'))),
                 ),
               ),
             ),

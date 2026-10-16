@@ -126,16 +126,20 @@ class _StoragePageState extends State<StoragePage> {
           shrinkWrap: true,
           children: [
             ListTile(
-              title: Text(
-                tr('清除哪个站点的 Cookie？'),
-                style: const TextStyle(fontWeight: FontWeight.w600),
+              title: SelectionContainer.disabled(
+                child: Text(
+                  tr('清除哪个站点的 Cookie？'),
+                  style: const TextStyle(fontWeight: FontWeight.w600),
+                ),
               ),
-              subtitle: Text(tr('会退出该站点基于 Cookie 的登录，Cloudflare 验证也需要重新通过')),
+              subtitle: SelectionContainer.disabled(
+                child: Text(tr('会退出该站点基于 Cookie 的登录，Cloudflare 验证也需要重新通过')),
+              ),
             ),
             for (final s in sources)
               ListTile(
                 leading: SourceAvatar(s.key, size: 28),
-                title: Text(s.name),
+                title: SelectionContainer.disabled(child: Text(s.name)),
                 onTap: () => Navigator.pop(ctx, s.key),
               ),
           ],
@@ -178,35 +182,47 @@ class _StoragePageState extends State<StoragePage> {
               children: [
                 ListTile(
                   leading: const Icon(Icons.home_outlined),
-                  title: Text(tr('主页数据缓存')),
-                  subtitle: Text(size(_homeCache)),
-                  trailing: TextButton(
-                    onPressed: () =>
-                        _run(HomeCache.instance.clear, tr('缓存已清除')),
-                    child: Text(tr('清除')),
+                  title: SelectionContainer.disabled(child: Text(tr('主页数据缓存'))),
+                  subtitle: SelectionContainer.disabled(
+                    child: Text(size(_homeCache)),
+                  ),
+                  trailing: SelectionContainer.disabled(
+                    child: TextButton(
+                      onPressed: () =>
+                          _run(HomeCache.instance.clear, tr('缓存已清除')),
+                      child: Text(tr('清除')),
+                    ),
                   ),
                 ),
                 ListTile(
                   leading: const Icon(Icons.image_outlined),
-                  title: Text(tr('媒体缓存')),
-                  subtitle: Text(size(_cache)),
-                  trailing: TextButton(
-                    onPressed: () => _run(() async {
-                      await ImageStore.instance.clear();
-                      imageCache.clear();
-                    }, tr('缓存已清除')),
-                    child: Text(tr('清除')),
+                  title: SelectionContainer.disabled(child: Text(tr('媒体缓存'))),
+                  subtitle: SelectionContainer.disabled(
+                    child: Text(size(_cache)),
+                  ),
+                  trailing: SelectionContainer.disabled(
+                    child: TextButton(
+                      onPressed: () => _run(() async {
+                        await ImageStore.instance.clear();
+                        imageCache.clear();
+                      }, tr('缓存已清除')),
+                      child: Text(tr('清除')),
+                    ),
                   ),
                 ),
                 ListTile(
                   leading: const Icon(Icons.storage_rounded),
-                  title: Text(tr('书库数据库')),
-                  subtitle: Text(size(_database)),
+                  title: SelectionContainer.disabled(child: Text(tr('书库数据库'))),
+                  subtitle: SelectionContainer.disabled(
+                    child: Text(size(_database)),
+                  ),
                 ),
                 ListTile(
                   leading: const Icon(Icons.backup_outlined),
-                  title: Text(tr('备份文件')),
-                  subtitle: Text(size(_backups)),
+                  title: SelectionContainer.disabled(child: Text(tr('备份文件'))),
+                  subtitle: SelectionContainer.disabled(
+                    child: Text(size(_backups)),
+                  ),
                 ),
               ],
             ),
@@ -215,8 +231,10 @@ class _StoragePageState extends State<StoragePage> {
               children: [
                 ListTile(
                   leading: const Icon(Icons.download_done_rounded),
-                  title: Text(tr('全部下载')),
-                  subtitle: Text(size(dlTotal)),
+                  title: SelectionContainer.disabled(child: Text(tr('全部下载'))),
+                  subtitle: SelectionContainer.disabled(
+                    child: Text(size(dlTotal)),
+                  ),
                 ),
                 if (downloads != null)
                   for (final e
@@ -225,18 +243,26 @@ class _StoragePageState extends State<StoragePage> {
                     ListTile(
                       dense: true,
                       leading: SourceAvatar(e.key, size: 24),
-                      title: Text(
-                        e.key == localSource
-                            ? tr('本地导入')
-                            : SourceManager.instance.manifest(e.key)?.name ??
-                                  e.key,
+                      title: SelectionContainer.disabled(
+                        child: Text(
+                          e.key == localSource
+                              ? tr('本地导入')
+                              : SourceManager.instance.manifest(e.key)?.name ??
+                                    e.key,
+                        ),
                       ),
-                      trailing: Text(formatBytes(e.value)),
+                      trailing: SelectionContainer.disabled(
+                        child: Text(formatBytes(e.value)),
+                      ),
                     ),
                 ListTile(
                   leading: const Icon(Icons.auto_delete_outlined),
-                  title: Text(tr('删除已读章节的下载')),
-                  subtitle: Text(tr('只删除标记为已读的漫画章节，本地导入不受影响')),
+                  title: SelectionContainer.disabled(
+                    child: Text(tr('删除已读章节的下载')),
+                  ),
+                  subtitle: SelectionContainer.disabled(
+                    child: Text(tr('只删除标记为已读的漫画章节，本地导入不受影响')),
+                  ),
                   onTap: () async {
                     var n = 0;
                     await _run(() async => n = await _deleteRead(), '');
@@ -247,10 +273,12 @@ class _StoragePageState extends State<StoragePage> {
                 ),
                 ListTile(
                   leading: const Icon(Icons.folder_outlined),
-                  title: Text(tr('下载位置')),
-                  subtitle: SelectableText(
-                    p.normalize(DownloadManager.instance.root.path),
-                    style: context.text.bodySmall,
+                  title: SelectionContainer.disabled(child: Text(tr('下载位置'))),
+                  subtitle: SelectionContainer.disabled(
+                    child: SelectableText(
+                      p.normalize(DownloadManager.instance.root.path),
+                      style: context.text.bodySmall,
+                    ),
                   ),
                 ),
               ],
@@ -260,7 +288,9 @@ class _StoragePageState extends State<StoragePage> {
               children: [
                 ListTile(
                   leading: const Icon(Icons.cookie_outlined),
-                  title: Text(tr('清除某个站点的 Cookie')),
+                  title: SelectionContainer.disabled(
+                    child: Text(tr('清除某个站点的 Cookie')),
+                  ),
                   onTap: _clearCookies,
                 ),
               ],

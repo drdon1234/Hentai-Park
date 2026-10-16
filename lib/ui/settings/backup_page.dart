@@ -68,11 +68,11 @@ class _BackupPageState extends State<BackupPage> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: Text(tr('取消')),
+            child: SelectionContainer.disabled(child: Text(tr('取消'))),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(ctx, true),
-            child: Text(tr('恢复')),
+            child: SelectionContainer.disabled(child: Text(tr('恢复'))),
           ),
         ],
       ),
@@ -93,7 +93,7 @@ class _BackupPageState extends State<BackupPage> {
           actions: [
             FilledButton(
               onPressed: () => Navigator.pop(ctx),
-              child: Text(tr('好')),
+              child: SelectionContainer.disabled(child: Text(tr('好'))),
             ),
           ],
         ),
@@ -142,24 +142,26 @@ class _BackupPageState extends State<BackupPage> {
           mainAxisSize: MainAxisSize.min,
           children: [
             ListTile(
-              title: Text(
-                p.basename(f.path),
-                style: const TextStyle(fontWeight: FontWeight.w600),
+              title: SelectionContainer.disabled(
+                child: Text(
+                  p.basename(f.path),
+                  style: const TextStyle(fontWeight: FontWeight.w600),
+                ),
               ),
             ),
             ListTile(
               leading: const Icon(Icons.restore_rounded),
-              title: Text(tr('从此备份恢复')),
+              title: SelectionContainer.disabled(child: Text(tr('从此备份恢复'))),
               onTap: () => Navigator.pop(ctx, 'restore'),
             ),
             ListTile(
               leading: const Icon(Icons.share_rounded),
-              title: Text(tr('分享 / 另存')),
+              title: SelectionContainer.disabled(child: Text(tr('分享 / 另存'))),
               onTap: () => Navigator.pop(ctx, 'share'),
             ),
             ListTile(
               leading: const Icon(Icons.delete_outline_rounded),
-              title: Text(tr('删除')),
+              title: SelectionContainer.disabled(child: Text(tr('删除'))),
               onTap: () => Navigator.pop(ctx, 'delete'),
             ),
           ],
@@ -200,16 +202,20 @@ class _BackupPageState extends State<BackupPage> {
               children: [
                 ListTile(
                   leading: const Icon(Icons.backup_outlined),
-                  title: Text(tr('创建备份')),
-                  subtitle: Text(
-                    tr('收藏、分类、阅读进度、历史、标注、订阅、设置与站点列表；不包含下载内容或 Cookie'),
+                  title: SelectionContainer.disabled(child: Text(tr('创建备份'))),
+                  subtitle: SelectionContainer.disabled(
+                    child: Text(
+                      tr('收藏、分类、阅读进度、历史、标注、订阅、设置与站点列表；不包含下载内容或 Cookie'),
+                    ),
                   ),
                   onTap: _busy ? null : _create,
                 ),
                 ListTile(
                   leading: const Icon(Icons.settings_backup_restore_rounded),
-                  title: Text(tr('从文件恢复')),
-                  subtitle: Text(tr('选择 .parkbak 文件，与当前数据合并')),
+                  title: SelectionContainer.disabled(child: Text(tr('从文件恢复'))),
+                  subtitle: SelectionContainer.disabled(
+                    child: Text(tr('选择 .parkbak 文件，与当前数据合并')),
+                  ),
                   onTap: _busy ? null : _pickAndRestore,
                 ),
               ],
@@ -219,49 +225,57 @@ class _BackupPageState extends State<BackupPage> {
               children: [
                 ListTile(
                   leading: const Icon(Icons.schedule_rounded),
-                  title: Text(tr('自动备份')),
-                  subtitle: Text(
-                    last == 0
-                        ? tr('尚未自动备份过')
-                        : tr('上次：{value0}', {
-                            'value0': timeAgo(
-                              DateTime.fromMillisecondsSinceEpoch(last),
-                            ),
-                          }),
+                  title: SelectionContainer.disabled(child: Text(tr('自动备份'))),
+                  subtitle: SelectionContainer.disabled(
+                    child: Text(
+                      last == 0
+                          ? tr('尚未自动备份过')
+                          : tr('上次：{value0}', {
+                              'value0': timeAgo(
+                                DateTime.fromMillisecondsSinceEpoch(last),
+                              ),
+                            }),
+                    ),
                   ),
                 ),
                 Padding(
                   padding: const EdgeInsetsDirectional.fromSTEB(72, 0, 16, 12),
-                  child: DropdownButton<int>(
-                    value: s.autoBackupHours,
-                    isExpanded: true,
-                    underline: const SizedBox.shrink(),
-                    items:
-                        [
-                              (0, tr('关闭')),
-                              (12, tr('每 12 小时')),
-                              (24, tr('每天')),
-                              (72, tr('每 3 天')),
-                              (168, tr('每周')),
-                            ]
-                            .map(
-                              (e) => DropdownMenuItem(
-                                value: e.$1,
-                                child: Text(
-                                  e.$2,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
+                  child: SelectionContainer.disabled(
+                    child: DropdownButton<int>(
+                      value: s.autoBackupHours,
+                      isExpanded: true,
+                      underline: const SizedBox.shrink(),
+                      items:
+                          [
+                                (0, tr('关闭')),
+                                (12, tr('每 12 小时')),
+                                (24, tr('每天')),
+                                (72, tr('每 3 天')),
+                                (168, tr('每周')),
+                              ]
+                              .map(
+                                (e) => DropdownMenuItem(
+                                  value: e.$1,
+                                  child: SelectionContainer.disabled(
+                                    child: Text(
+                                      e.$2,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
                                 ),
-                              ),
-                            )
-                            .toList(),
-                    onChanged: (v) => s.autoBackupHours = v ?? 24,
+                              )
+                              .toList(),
+                      onChanged: (v) => s.autoBackupHours = v ?? 24,
+                    ),
                   ),
                 ),
                 ListTile(
                   leading: const Icon(Icons.layers_outlined),
-                  title: Text(tr('保留份数')),
-                  subtitle: Text(tr('仅清理自动备份，手工备份保留')),
+                  title: SelectionContainer.disabled(child: Text(tr('保留份数'))),
+                  subtitle: SelectionContainer.disabled(
+                    child: Text(tr('仅清理自动备份，手工备份保留')),
+                  ),
                 ),
                 Padding(
                   padding: const EdgeInsets.symmetric(
@@ -272,24 +286,33 @@ class _BackupPageState extends State<BackupPage> {
                 ),
                 Padding(
                   padding: const EdgeInsetsDirectional.fromSTEB(72, 0, 16, 12),
-                  child: DropdownButton<int>(
-                    value: s.autoBackupKeep,
-                    isExpanded: true,
-                    underline: const SizedBox.shrink(),
-                    items: const [1, 2, 3, 5, 10]
-                        .map(
-                          (v) => DropdownMenuItem(value: v, child: Text('$v')),
-                        )
-                        .toList(),
-                    onChanged: (v) => s.autoBackupKeep = v ?? 3,
+                  child: SelectionContainer.disabled(
+                    child: DropdownButton<int>(
+                      value: s.autoBackupKeep,
+                      isExpanded: true,
+                      underline: const SizedBox.shrink(),
+                      items: const [1, 2, 3, 5, 10]
+                          .map(
+                            (v) => DropdownMenuItem(
+                              value: v,
+                              child: SelectionContainer.disabled(
+                                child: Text('$v'),
+                              ),
+                            ),
+                          )
+                          .toList(),
+                      onChanged: (v) => s.autoBackupKeep = v ?? 3,
+                    ),
                   ),
                 ),
                 ListTile(
                   leading: const Icon(Icons.folder_outlined),
-                  title: Text(tr('备份目录')),
-                  subtitle: SelectableText(
-                    AppPaths.backups.path,
-                    style: context.text.bodySmall,
+                  title: SelectionContainer.disabled(child: Text(tr('备份目录'))),
+                  subtitle: SelectionContainer.disabled(
+                    child: SelectableText(
+                      AppPaths.backups.path,
+                      style: context.text.bodySmall,
+                    ),
                   ),
                 ),
               ],
@@ -301,8 +324,12 @@ class _BackupPageState extends State<BackupPage> {
                   for (final f in _files)
                     ListTile(
                       leading: const Icon(Icons.description_outlined),
-                      title: Text(p.basename(f.path)),
-                      subtitle: Text(formatBytes(f.lengthSync())),
+                      title: SelectionContainer.disabled(
+                        child: Text(p.basename(f.path)),
+                      ),
+                      subtitle: SelectionContainer.disabled(
+                        child: Text(formatBytes(f.lengthSync())),
+                      ),
                       onTap: _busy ? null : () => _fileMenu(f),
                     ),
                 ],
@@ -335,25 +362,29 @@ class _OptionsDialogState extends State<_OptionsDialog> {
         children: [
           CheckboxListTile(
             value: library,
-            title: Text(tr('书库')),
-            subtitle: Text(tr('收藏、分类、阅读进度、历史')),
+            title: SelectionContainer.disabled(child: Text(tr('书库'))),
+            subtitle: SelectionContainer.disabled(
+              child: Text(tr('收藏、分类、阅读进度、历史')),
+            ),
             onChanged: (v) => setState(() => library = v!),
           ),
           CheckboxListTile(
             value: settings,
-            title: Text(tr('应用设置')),
+            title: SelectionContainer.disabled(child: Text(tr('应用设置'))),
             onChanged: (v) => setState(() => settings = v!),
           ),
           CheckboxListTile(
             value: sources,
-            title: Text(tr('站点列表与站点设置')),
+            title: SelectionContainer.disabled(child: Text(tr('站点列表与站点设置'))),
             onChanged: (v) => setState(() => sources = v!),
           ),
           CheckboxListTile(
             value: credentials,
-            title: Text(tr('站点登录数据')),
-            subtitle: Text(
-              tr('包含 Token 等凭据，请妥善保管备份文件；基于 Cookie 的登录（如 E-Hentai）需要重新登录'),
+            title: SelectionContainer.disabled(child: Text(tr('站点登录数据'))),
+            subtitle: SelectionContainer.disabled(
+              child: Text(
+                tr('包含 Token 等凭据，请妥善保管备份文件；基于 Cookie 的登录（如 E-Hentai）需要重新登录'),
+              ),
             ),
             onChanged: sources ? (v) => setState(() => credentials = v!) : null,
           ),
@@ -362,7 +393,7 @@ class _OptionsDialogState extends State<_OptionsDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context),
-          child: Text(tr('取消')),
+          child: SelectionContainer.disabled(child: Text(tr('取消'))),
         ),
         FilledButton(
           onPressed: () => Navigator.pop(
@@ -374,7 +405,7 @@ class _OptionsDialogState extends State<_OptionsDialog> {
               credentials: sources && credentials,
             ),
           ),
-          child: Text(tr('创建')),
+          child: SelectionContainer.disabled(child: Text(tr('创建'))),
         ),
       ],
     );

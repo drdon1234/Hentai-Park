@@ -82,7 +82,9 @@ class _ExpandableDescriptionState extends State<ExpandableDescription> {
                               ? Icons.expand_less_rounded
                               : Icons.expand_more_rounded,
                         ),
-                        label: Text(tr(_open ? '收起简介' : '展开简介')),
+                        label: SelectionContainer.disabled(
+                          child: Text(tr(_open ? '收起简介' : '展开简介')),
+                        ),
                       ),
                     ),
                 ],

@@ -91,36 +91,38 @@ class HeaderTabs extends StatelessWidget {
                   if (i != selected) HapticFeedback.selectionClick();
                   onSelected(i);
                 },
-                child: Padding(
-                  padding: EdgeInsetsDirectional.only(
-                    start: i == 0 ? 0 : Gap.s,
-                    end: Gap.m,
-                    top: Gap.xs,
-                    bottom: Gap.xs,
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      AnimatedDefaultTextStyle(
-                        duration: Motion.of(context, Motion.short),
-                        style: style!.copyWith(
-                          color: i == selected ? c.onSurface : c.outline,
+                child: SelectionContainer.disabled(
+                  child: Padding(
+                    padding: EdgeInsetsDirectional.only(
+                      start: i == 0 ? 0 : Gap.s,
+                      end: Gap.m,
+                      top: Gap.xs,
+                      bottom: Gap.xs,
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        AnimatedDefaultTextStyle(
+                          duration: Motion.of(context, Motion.short),
+                          style: style!.copyWith(
+                            color: i == selected ? c.onSurface : c.outline,
+                          ),
+                          child: Text(tabs[i].label),
                         ),
-                        child: Text(tabs[i].label),
-                      ),
-                      if (tabs[i].count > 0)
-                        Padding(
-                          padding: const EdgeInsetsDirectional.only(start: 2),
-                          child: Text(
-                            '${tabs[i].count}',
-                            style: context.text.labelSmall?.copyWith(
-                              color: c.primary,
-                              fontWeight: FontWeight.w600,
+                        if (tabs[i].count > 0)
+                          Padding(
+                            padding: const EdgeInsetsDirectional.only(start: 2),
+                            child: Text(
+                              '${tabs[i].count}',
+                              style: context.text.labelSmall?.copyWith(
+                                color: c.primary,
+                                fontWeight: FontWeight.w600,
+                              ),
                             ),
                           ),
-                        ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
               ),
@@ -208,57 +210,59 @@ class ListRow extends StatelessWidget {
       child: InkWell(
         onTap: enabled ? onTap : null,
         onLongPress: enabled ? onLongPress : null,
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(minHeight: 56),
-          child: Padding(
-            padding: padding,
-            child: Row(
-              children: [
-                if (leading != null) ...[
-                  IconTheme.merge(
-                    data: IconThemeData(color: c.onSurfaceVariant, size: 22),
-                    child: leading!,
-                  ),
-                  const SizedBox(width: Gap.l),
-                ],
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        title,
-                        maxLines: titleMaxLines,
-                        overflow: TextOverflow.ellipsis,
-                        style: context.text.bodyLarge?.copyWith(color: fg),
-                      ),
-                      if (subtitle != null && subtitle!.isNotEmpty) ...[
-                        const SizedBox(height: 2),
+        child: SelectionContainer.disabled(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(minHeight: 56),
+            child: Padding(
+              padding: padding,
+              child: Row(
+                children: [
+                  if (leading != null) ...[
+                    IconTheme.merge(
+                      data: IconThemeData(color: c.onSurfaceVariant, size: 22),
+                      child: leading!,
+                    ),
+                    const SizedBox(width: Gap.l),
+                  ],
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
                         Text(
-                          subtitle!,
-                          maxLines: subtitleMaxLines,
+                          title,
+                          maxLines: titleMaxLines,
                           overflow: TextOverflow.ellipsis,
-                          style: context.text.bodyMedium?.copyWith(
-                            color: c.onSurfaceVariant,
-                          ),
+                          style: context.text.bodyLarge?.copyWith(color: fg),
                         ),
+                        if (subtitle != null && subtitle!.isNotEmpty) ...[
+                          const SizedBox(height: 2),
+                          Text(
+                            subtitle!,
+                            maxLines: subtitleMaxLines,
+                            overflow: TextOverflow.ellipsis,
+                            style: context.text.bodyMedium?.copyWith(
+                              color: c.onSurfaceVariant,
+                            ),
+                          ),
+                        ],
                       ],
-                    ],
-                  ),
-                ),
-                if (trailing != null) ...[
-                  const SizedBox(width: Gap.m),
-                  IconTheme.merge(
-                    data: IconThemeData(color: c.onSurfaceVariant),
-                    child: DefaultTextStyle.merge(
-                      style: context.text.bodyMedium?.copyWith(
-                        color: c.onSurfaceVariant,
-                      ),
-                      child: trailing!,
                     ),
                   ),
+                  if (trailing != null) ...[
+                    const SizedBox(width: Gap.m),
+                    IconTheme.merge(
+                      data: IconThemeData(color: c.onSurfaceVariant),
+                      child: DefaultTextStyle.merge(
+                        style: context.text.bodyMedium?.copyWith(
+                          color: c.onSurfaceVariant,
+                        ),
+                        child: trailing!,
+                      ),
+                    ),
+                  ],
                 ],
-              ],
+              ),
             ),
           ),
         ),
@@ -474,7 +478,9 @@ Future<bool> confirmAction(
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(ctx, false),
-          child: Text(cancelLabel ?? tr('取消')),
+          child: SelectionContainer.disabled(
+            child: Text(cancelLabel ?? tr('取消')),
+          ),
         ),
         FilledButton(
           style: destructive
@@ -484,7 +490,7 @@ Future<bool> confirmAction(
                 )
               : null,
           onPressed: () => Navigator.pop(ctx, true),
-          child: Text(confirmLabel),
+          child: SelectionContainer.disabled(child: Text(confirmLabel)),
         ),
       ],
     ),
@@ -524,7 +530,7 @@ Future<T?> showChoiceSheet<T>(
           ),
           for (final option in options)
             ListTile(
-              title: Text(label(option)),
+              title: SelectionContainer.disabled(child: Text(label(option))),
               selected: option == selected,
               trailing: option == selected
                   ? const Icon(Icons.check_rounded)

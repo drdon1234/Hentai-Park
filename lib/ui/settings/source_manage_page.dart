@@ -37,7 +37,7 @@ class _SourceManagePageState extends State<SourceManagePage> {
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => _install(context),
         icon: const Icon(Icons.add_rounded),
-        label: Text(tr('添加站点')),
+        label: SelectionContainer.disabled(child: Text(tr('添加站点'))),
       ),
       body: ListenableBuilder(
         listenable: Listenable.merge([sm, settings, updates]),
@@ -61,14 +61,20 @@ class _SourceManagePageState extends State<SourceManagePage> {
                   children: [
                     ListTile(
                       leading: const Icon(Icons.swap_vert_rounded),
-                      title: Text(tr('分类顺序')),
+                      title: SelectionContainer.disabled(
+                        child: Text(tr('分类顺序')),
+                      ),
                       trailing: const Icon(Icons.chevron_right_rounded),
                       onTap: () => Nav.push(context, const DomainOrderPage()),
                     ),
                     ListTile(
                       leading: const Icon(Icons.restore_rounded),
-                      title: Text(tr('恢复站点默认顺序')),
-                      subtitle: Text(tr('按内容质量、站点口碑和接入完整度推荐排列。')),
+                      title: SelectionContainer.disabled(
+                        child: Text(tr('恢复站点默认顺序')),
+                      ),
+                      subtitle: SelectionContainer.disabled(
+                        child: Text(tr('按内容质量、站点口碑和接入完整度推荐排列。')),
+                      ),
                       onTap: sm.resetOrderToDefault,
                     ),
                   ],
@@ -76,8 +82,12 @@ class _SourceManagePageState extends State<SourceManagePage> {
                 RowGroup(
                   children: [
                     SwitchListTile(
-                      title: Text(tr('启动时检查插件更新')),
-                      subtitle: Text(tr('每次启动检查官方插件，有更新时提示，确认后才安装。')),
+                      title: SelectionContainer.disabled(
+                        child: Text(tr('启动时检查插件更新')),
+                      ),
+                      subtitle: SelectionContainer.disabled(
+                        child: Text(tr('每次启动检查官方插件，有更新时提示，确认后才安装。')),
+                      ),
                       value: settings.autoSourceUpdates,
                       onChanged: (value) => settings.autoSourceUpdates = value,
                     ),
@@ -96,8 +106,10 @@ class _SourceManagePageState extends State<SourceManagePage> {
                                 ),
                               )
                             : const Icon(Icons.system_update_alt_rounded),
-                        label: Text(
-                          tr(updates.running ? '正在检查官方站点更新…' : '立即检查更新'),
+                        label: SelectionContainer.disabled(
+                          child: Text(
+                            tr(updates.running ? '正在检查官方站点更新…' : '立即检查更新'),
+                          ),
                         ),
                       ),
                     ),
@@ -109,10 +121,12 @@ class _SourceManagePageState extends State<SourceManagePage> {
                               ? null
                               : () => _update(context, updates),
                           icon: const Icon(Icons.new_releases_outlined),
-                          label: Text(
-                            tr('发现 {count} 个插件更新', {
-                              'count': updates.lastResult!.available.length,
-                            }),
+                          label: SelectionContainer.disabled(
+                            child: Text(
+                              tr('发现 {count} 个插件更新', {
+                                'count': updates.lastResult!.available.length,
+                              }),
+                            ),
                           ),
                         ),
                       ),
@@ -125,13 +139,17 @@ class _SourceManagePageState extends State<SourceManagePage> {
                     runSpacing: 8,
                     children: [
                       ChoiceChip(
-                        label: Text(tr('全部')),
+                        label: SelectionContainer.disabled(
+                          child: Text(tr('全部')),
+                        ),
                         selected: _category == null,
                         onSelected: (_) => setState(() => _category = null),
                       ),
                       for (final category in settings.domainOrder)
                         ChoiceChip(
-                          label: Text(category.label),
+                          label: SelectionContainer.disabled(
+                            child: Text(category.label),
+                          ),
                           selected: _category == category,
                           onSelected: (_) =>
                               setState(() => _category = category),
@@ -163,42 +181,48 @@ class _SourceManagePageState extends State<SourceManagePage> {
                 child: ListTile(
                   contentPadding: const EdgeInsets.only(left: 12, right: 4),
                   leading: SourceAvatar(s.key, size: 40),
-                  title: Text(
-                    s.name,
-                    style: const TextStyle(fontWeight: FontWeight.w600),
+                  title: SelectionContainer.disabled(
+                    child: Text(
+                      s.name,
+                      style: const TextStyle(fontWeight: FontWeight.w600),
+                    ),
                   ),
-                  subtitle: Text(
-                    s.loadError != null
-                        ? tr('加载失败：{value0}', {'value0': s.loadError})
-                        : 'v${s.version} · ${(m?.category ?? SourceCategory.other).label}${s.origin == 'official'
-                              ? ' · ${tr('官方')}'
-                              : s.origin == 'builtin'
-                              ? ' · ${tr('内置')}'
-                              : ''}${s.sha256.isNotEmpty ? ' · ${s.sha256.substring(0, 8)}' : ''}',
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: s.loadError != null
-                        ? TextStyle(color: context.colors.error)
-                        : null,
+                  subtitle: SelectionContainer.disabled(
+                    child: Text(
+                      s.loadError != null
+                          ? tr('加载失败：{value0}', {'value0': s.loadError})
+                          : 'v${s.version} · ${(m?.category ?? SourceCategory.other).label}${s.origin == 'official'
+                                ? ' · ${tr('官方')}'
+                                : s.origin == 'builtin'
+                                ? ' · ${tr('内置')}'
+                                : ''}${s.sha256.isNotEmpty ? ' · ${s.sha256.substring(0, 8)}' : ''}',
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: s.loadError != null
+                          ? TextStyle(color: context.colors.error)
+                          : null,
+                    ),
                   ),
                   onTap: m == null
                       ? null
                       : () => Nav.openSourceSettings(context, s.key),
-                  trailing: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Switch(
-                        value: s.enabled,
-                        onChanged: (v) => sm.setEnabled(s.key, v),
-                      ),
-                      ReorderableDragStartListener(
-                        index: i,
-                        child: const Padding(
-                          padding: EdgeInsets.all(8),
-                          child: Icon(Icons.drag_handle_rounded),
+                  trailing: SelectionContainer.disabled(
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Switch(
+                          value: s.enabled,
+                          onChanged: (v) => sm.setEnabled(s.key, v),
                         ),
-                      ),
-                    ],
+                        ReorderableDragStartListener(
+                          index: i,
+                          child: const Padding(
+                            padding: EdgeInsets.all(8),
+                            child: Icon(Icons.drag_handle_rounded),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               );
@@ -263,11 +287,11 @@ class _SourceManagePageState extends State<SourceManagePage> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: Text(tr('取消')),
+            child: SelectionContainer.disabled(child: Text(tr('取消'))),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(ctx, c.text.trim()),
-            child: Text(tr('下一步')),
+            child: SelectionContainer.disabled(child: Text(tr('下一步'))),
           ),
         ],
       ),
@@ -321,38 +345,46 @@ class _RepoPageState extends State<_RepoPage> {
             return RowGroup(
               children: [
                 ListTile(
-                  title: Text(
-                    e.name,
-                    style: const TextStyle(fontWeight: FontWeight.w600),
+                  title: SelectionContainer.disabled(
+                    child: Text(
+                      e.name,
+                      style: const TextStyle(fontWeight: FontWeight.w600),
+                    ),
                   ),
-                  subtitle: Text(
-                    'v${e.version}${e.description.isNotEmpty ? ' · ${e.description}' : ''}',
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
+                  subtitle: SelectionContainer.disabled(
+                    child: Text(
+                      'v${e.version}${e.description.isNotEmpty ? ' · ${e.description}' : ''}',
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
                   ),
-                  trailing: _busy.contains(e.key)
-                      ? const SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : installed != null && !canUpdate
-                      ? Tag(tr('已安装'))
-                      : FilledButton.tonal(
-                          onPressed: () async {
-                            setState(() => _busy.add(e.key));
-                            try {
-                              await installSourceFromUrl(
-                                context,
-                                e.url,
-                                expectedSha256: e.sha256,
-                              );
-                            } finally {
-                              if (mounted) setState(() => _busy.remove(e.key));
-                            }
-                          },
-                          child: Text(canUpdate ? tr('更新') : tr('安装')),
-                        ),
+                  trailing: SelectionContainer.disabled(
+                    child: _busy.contains(e.key)
+                        ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : installed != null && !canUpdate
+                        ? Tag(tr('已安装'))
+                        : FilledButton.tonal(
+                            onPressed: () async {
+                              setState(() => _busy.add(e.key));
+                              try {
+                                await installSourceFromUrl(
+                                  context,
+                                  e.url,
+                                  expectedSha256: e.sha256,
+                                );
+                              } finally {
+                                if (mounted) {
+                                  setState(() => _busy.remove(e.key));
+                                }
+                              }
+                            },
+                            child: Text(canUpdate ? tr('更新') : tr('安装')),
+                          ),
+                  ),
                 ),
               ],
             );

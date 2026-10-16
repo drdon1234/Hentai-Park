@@ -24,7 +24,7 @@ class SitesPage extends StatelessWidget {
         actions: [
           TextButton(
             onPressed: () => Nav.push(context, const SourceManagePage()),
-            child: Text(tr('管理')),
+            child: SelectionContainer.disabled(child: Text(tr('管理'))),
           ),
           const SizedBox(width: Gap.xs),
         ],
@@ -46,7 +46,7 @@ class SitesPage extends StatelessWidget {
               actions: [
                 FilledButton(
                   onPressed: () => Nav.push(context, const SourceManagePage()),
-                  child: Text(tr('管理站点')),
+                  child: SelectionContainer.disabled(child: Text(tr('管理站点'))),
                 ),
               ],
             );
@@ -145,14 +145,29 @@ class SiteRow extends StatelessWidget {
         },
         itemBuilder: (_) => [
           if (m.can('search'))
-            PopupMenuItem(value: 'search', child: Text(tr('在此站点搜索'))),
+            PopupMenuItem(
+              value: 'search',
+              child: SelectionContainer.disabled(child: Text(tr('在此站点搜索'))),
+            ),
           if (ranking != null)
-            PopupMenuItem(value: 'ranking', child: Text(tr('排行'))),
+            PopupMenuItem(
+              value: 'ranking',
+              child: SelectionContainer.disabled(child: Text(tr('排行'))),
+            ),
           if (m.can('random'))
-            PopupMenuItem(value: 'random', child: Text(tr('随机一部'))),
+            PopupMenuItem(
+              value: 'random',
+              child: SelectionContainer.disabled(child: Text(tr('随机一部'))),
+            ),
           if (needsAccount)
-            PopupMenuItem(value: 'account', child: Text(tr('登录或配置账号'))),
-          PopupMenuItem(value: 'settings', child: Text(tr('站点设置'))),
+            PopupMenuItem(
+              value: 'account',
+              child: SelectionContainer.disabled(child: Text(tr('登录或配置账号'))),
+            ),
+          PopupMenuItem(
+            value: 'settings',
+            child: SelectionContainer.disabled(child: Text(tr('站点设置'))),
+          ),
         ],
       ),
     );

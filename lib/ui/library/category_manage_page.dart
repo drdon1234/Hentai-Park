@@ -36,11 +36,11 @@ class CategoryManagePage extends StatelessWidget {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: Text(tr('取消')),
+            child: SelectionContainer.disabled(child: Text(tr('取消'))),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(ctx, true),
-            child: Text(tr('删除')),
+            child: SelectionContainer.disabled(child: Text(tr('删除'))),
           ),
         ],
       ),
@@ -56,7 +56,7 @@ class CategoryManagePage extends StatelessWidget {
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => _create(context),
         icon: const Icon(Icons.add_rounded),
-        label: Text(tr('新建分类')),
+        label: SelectionContainer.disabled(child: Text(tr('新建分类'))),
       ),
       body: ListenableBuilder(
         listenable: lib,
@@ -84,33 +84,37 @@ class CategoryManagePage extends StatelessWidget {
                 key: ValueKey(c.id),
                 child: ListTile(
                   leading: const Icon(Icons.label_outline_rounded),
-                  title: Text(c.name),
-                  subtitle: Text(
-                    tr('{value0} 部作品', {
-                      'value0': lib.favorites(category: c.id).length,
-                    }),
+                  title: SelectionContainer.disabled(child: Text(c.name)),
+                  subtitle: SelectionContainer.disabled(
+                    child: Text(
+                      tr('{value0} 部作品', {
+                        'value0': lib.favorites(category: c.id).length,
+                      }),
+                    ),
                   ),
-                  trailing: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      IconButton(
-                        tooltip: tr('重命名'),
-                        icon: const Icon(Icons.edit_outlined),
-                        onPressed: () => _rename(context, c),
-                      ),
-                      IconButton(
-                        tooltip: tr('删除'),
-                        icon: const Icon(Icons.delete_outline_rounded),
-                        onPressed: () => _delete(context, c),
-                      ),
-                      ReorderableDragStartListener(
-                        index: i,
-                        child: const Padding(
-                          padding: EdgeInsets.all(8),
-                          child: Icon(Icons.drag_handle_rounded),
+                  trailing: SelectionContainer.disabled(
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        IconButton(
+                          tooltip: tr('重命名'),
+                          icon: const Icon(Icons.edit_outlined),
+                          onPressed: () => _rename(context, c),
                         ),
-                      ),
-                    ],
+                        IconButton(
+                          tooltip: tr('删除'),
+                          icon: const Icon(Icons.delete_outline_rounded),
+                          onPressed: () => _delete(context, c),
+                        ),
+                        ReorderableDragStartListener(
+                          index: i,
+                          child: const Padding(
+                            padding: EdgeInsets.all(8),
+                            child: Icon(Icons.drag_handle_rounded),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               );

@@ -164,7 +164,9 @@ class _LoginPanelState extends State<LoginPanel> {
                   ButtonSegment(
                     value: true,
                     icon: const Icon(Icons.public_rounded, size: 18),
-                    label: Text(context.tr('网页登录')),
+                    label: SelectionContainer.disabled(
+                      child: Text(context.tr('网页登录')),
+                    ),
                   ),
                   ButtonSegment(
                     value: false,
@@ -172,7 +174,9 @@ class _LoginPanelState extends State<LoginPanel> {
                       _cookies ? Icons.cookie_outlined : Icons.password_rounded,
                       size: 18,
                     ),
-                    label: Text(context.tr(_cookies ? '填写 Cookie' : '账号密码')),
+                    label: SelectionContainer.disabled(
+                      child: Text(context.tr(_cookies ? '填写 Cookie' : '账号密码')),
+                    ),
                   ),
                 ],
                 selected: {_web},
@@ -204,7 +208,7 @@ class _LoginPanelState extends State<LoginPanel> {
         FilledButton.icon(
           onPressed: _webLogin,
           icon: const Icon(Icons.open_in_browser_rounded),
-          label: Text(context.tr('打开登录页')),
+          label: SelectionContainer.disabled(child: Text(context.tr('打开登录页'))),
         ),
       ],
     );
@@ -262,29 +266,33 @@ class _LoginPanelState extends State<LoginPanel> {
         style: style,
         onPressed: _busy ? null : _paste,
         icon: const Icon(Icons.content_paste_rounded, size: 18),
-        label: Text(
-          pasteLabel,
-          maxLines: 1,
-          softWrap: false,
-          overflow: TextOverflow.ellipsis,
+        label: SelectionContainer.disabled(
+          child: Text(
+            pasteLabel,
+            maxLines: 1,
+            softWrap: false,
+            overflow: TextOverflow.ellipsis,
+          ),
         ),
       ),
     );
     final submit = FilledButton(
       style: style,
       onPressed: _busy ? null : _submit,
-      child: _busy
-          ? const SizedBox(
-              width: 18,
-              height: 18,
-              child: CircularProgressIndicator(strokeWidth: 2),
-            )
-          : Text(
-              loginLabel,
-              maxLines: 1,
-              softWrap: false,
-              overflow: TextOverflow.ellipsis,
-            ),
+      child: SelectionContainer.disabled(
+        child: _busy
+            ? const SizedBox(
+                width: 18,
+                height: 18,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              )
+            : Text(
+                loginLabel,
+                maxLines: 1,
+                softWrap: false,
+                overflow: TextOverflow.ellipsis,
+              ),
+      ),
     );
     return LayoutBuilder(
       builder: (context, constraints) {

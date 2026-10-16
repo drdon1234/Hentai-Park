@@ -49,11 +49,11 @@ class _ContinueReadingPageState extends State<ContinueReadingPage> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: Text(tr('取消')),
+            child: SelectionContainer.disabled(child: Text(tr('取消'))),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(ctx, true),
-            child: Text(tr('移除')),
+            child: SelectionContainer.disabled(child: Text(tr('移除'))),
           ),
         ],
       ),
@@ -97,7 +97,7 @@ class _ContinueReadingPageState extends State<ContinueReadingPage> {
                         if (!_selected.remove(h.uid)) _selected.add(h.uid);
                       }
                     }),
-                    child: Text(tr('反选')),
+                    child: SelectionContainer.disabled(child: Text(tr('反选'))),
                   ),
                 TextButton(
                   onPressed: list.isEmpty
@@ -109,7 +109,9 @@ class _ContinueReadingPageState extends State<ContinueReadingPage> {
                             _selected.addAll(list.map((h) => h.uid));
                           }
                         }),
-                  child: Text(allSelected ? tr('取消全选') : tr('全选')),
+                  child: SelectionContainer.disabled(
+                    child: Text(allSelected ? tr('取消全选') : tr('全选')),
+                  ),
                 ),
                 const SizedBox(width: 4),
               ],
@@ -147,7 +149,9 @@ class _ContinueReadingPageState extends State<ContinueReadingPage> {
                           Expanded(
                             child: OutlinedButton(
                               onPressed: () => setState(_selected.clear),
-                              child: Text(tr('取消选择')),
+                              child: SelectionContainer.disabled(
+                                child: Text(tr('取消选择')),
+                              ),
                             ),
                           ),
                           const SizedBox(width: 12),
@@ -159,10 +163,12 @@ class _ContinueReadingPageState extends State<ContinueReadingPage> {
                               ),
                               onPressed: _delete,
                               icon: const Icon(Icons.delete_outline_rounded),
-                              label: Text(
-                                tr('移除 {value0} 项', {
-                                  'value0': _selected.length,
-                                }),
+                              label: SelectionContainer.disabled(
+                                child: Text(
+                                  tr('移除 {value0} 项', {
+                                    'value0': _selected.length,
+                                  }),
+                                ),
                               ),
                             ),
                           ),
@@ -190,91 +196,94 @@ class _ContinueReadingPageState extends State<ContinueReadingPage> {
           : Colors.transparent,
       child: InkWell(
         onTap: () => _setSelected(h.uid, !selected),
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(4, 6, 4, 6),
-          child: Row(
-            children: [
-              Checkbox(
-                value: selected,
-                onChanged: (v) => _setSelected(h.uid, v == true),
-              ),
-              if (!h.item.isNovel &&
-                  SourceManager.instance.manifest(h.item.source)?.isNovel !=
-                      true) ...[
-                SizedBox(
-                  width: 52,
-                  height: 70,
-                  child: CoverImage(source: h.item.source, url: h.item.cover),
+        child: SelectionContainer.disabled(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(4, 6, 4, 6),
+            child: Row(
+              children: [
+                Checkbox(
+                  value: selected,
+                  onChanged: (v) => _setSelected(h.uid, v == true),
                 ),
-                const SizedBox(width: 12),
-              ],
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    ContentTranslation(
-                      text: h.item.title,
-                      source: h.item.source,
-                      builder: (value) => Text(
-                        value,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: context.text.bodyMedium?.copyWith(
-                          fontWeight: FontWeight.w600,
+                if (!h.item.isNovel &&
+                    SourceManager.instance.manifest(h.item.source)?.isNovel !=
+                        true) ...[
+                  SizedBox(
+                    width: 52,
+                    height: 70,
+                    child: CoverImage(source: h.item.source, url: h.item.cover),
+                  ),
+                  const SizedBox(width: 12),
+                ],
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      ContentTranslation(
+                        text: h.item.title,
+                        source: h.item.source,
+                        builder: (value) => Text(
+                          value,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: context.text.bodyMedium?.copyWith(
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
                       ),
-                    ),
-                    const SizedBox(height: 6),
-                    Row(
-                      children: [
-                        SourceAvatar(h.item.source, size: 16),
-                        const SizedBox(width: 6),
-                        Expanded(
-                          child: Text(
-                            [
-                              dayLabel(h.time),
-                              if (h.pageCount > 0)
-                                '${h.chapterTitle != null ? '${h.chapterTitle} ' : ''}${h.item.isNovel ? '${(h.progress * 100).round()}%' : '${h.page + 1}/${h.pageCount}'}',
-                              if (h.position != null && h.chapterTitle != null)
-                                h.chapterTitle!,
-                              if (h.position != null && h.position! > 0)
-                                tr('看到 {value0}:{value1}', {
-                                  'value0': h.position! ~/ 60,
-                                  'value1': (h.position! % 60)
-                                      .toString()
-                                      .padLeft(2, '0'),
-                                }),
-                            ].join(' · '),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: context.text.labelMedium?.copyWith(
-                              color: c.onSurfaceVariant,
+                      const SizedBox(height: 6),
+                      Row(
+                        children: [
+                          SourceAvatar(h.item.source, size: 16),
+                          const SizedBox(width: 6),
+                          Expanded(
+                            child: Text(
+                              [
+                                dayLabel(h.time),
+                                if (h.pageCount > 0)
+                                  '${h.chapterTitle != null ? '${h.chapterTitle} ' : ''}${h.item.isNovel ? '${(h.progress * 100).round()}%' : '${h.page + 1}/${h.pageCount}'}',
+                                if (h.position != null &&
+                                    h.chapterTitle != null)
+                                  h.chapterTitle!,
+                                if (h.position != null && h.position! > 0)
+                                  tr('看到 {value0}:{value1}', {
+                                    'value0': h.position! ~/ 60,
+                                    'value1': (h.position! % 60)
+                                        .toString()
+                                        .padLeft(2, '0'),
+                                  }),
+                              ].join(' · '),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: context.text.labelMedium?.copyWith(
+                                color: c.onSurfaceVariant,
+                              ),
                             ),
+                          ),
+                        ],
+                      ),
+                      if (h.progress > 0) ...[
+                        const SizedBox(height: 8),
+                        ClipRRect(
+                          borderRadius: const BorderRadius.all(
+                            Radius.circular(2),
+                          ),
+                          child: LinearProgressIndicator(
+                            value: h.progress,
+                            minHeight: 3,
                           ),
                         ),
                       ],
-                    ),
-                    if (h.progress > 0) ...[
-                      const SizedBox(height: 8),
-                      ClipRRect(
-                        borderRadius: const BorderRadius.all(
-                          Radius.circular(2),
-                        ),
-                        child: LinearProgressIndicator(
-                          value: h.progress,
-                          minHeight: 3,
-                        ),
-                      ),
                     ],
-                  ],
+                  ),
                 ),
-              ),
-              IconButton(
-                tooltip: tr('继续'),
-                icon: const Icon(Icons.play_circle_outline_rounded),
-                onPressed: () => _resume(h),
-              ),
-            ],
+                IconButton(
+                  tooltip: tr('继续'),
+                  icon: const Icon(Icons.play_circle_outline_rounded),
+                  onPressed: () => _resume(h),
+                ),
+              ],
+            ),
           ),
         ),
       ),

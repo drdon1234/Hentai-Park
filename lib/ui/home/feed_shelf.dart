@@ -235,7 +235,9 @@ class _FeedShelfState extends State<FeedShelf>
                 if (widget.onMore != null)
                   TextButton(
                     onPressed: widget.onMore,
-                    child: Text(widget.moreLabel ?? tr('全部')),
+                    child: SelectionContainer.disabled(
+                      child: Text(widget.moreLabel ?? tr('全部')),
+                    ),
                   ),
               ],
             ),
@@ -340,7 +342,10 @@ class _ShelfMessage extends StatelessWidget {
                 ),
               ),
               if (onRetry != null)
-                TextButton(onPressed: onRetry, child: Text(tr('重试'))),
+                TextButton(
+                  onPressed: onRetry,
+                  child: SelectionContainer.disabled(child: Text(tr('重试'))),
+                ),
             ],
           ),
         );

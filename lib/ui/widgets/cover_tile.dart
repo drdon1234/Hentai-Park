@@ -110,141 +110,145 @@ class _CoverTileState extends State<CoverTile> {
         borderRadius: Radii.small,
         onTap: onTap,
         onLongPress: onLongPress,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            AspectRatio(
-              aspectRatio:
-                  widget.aspect ?? item.coverAspect ?? (video ? 16 / 9 : 0.7),
-              child: Stack(
-                fit: StackFit.expand,
-                children: [
-                  CoverHero(
-                    tag: _coverHeroTag,
-                    child: CoverImage(
-                      source: item.source,
-                      url: item.cover,
-                      title: item.title,
-                      mediaKind: item.isNovel ? MediaKind.novel : null,
-                    ),
-                  ),
-                  if (badge != null)
-                    PositionedDirectional(
-                      start: Gap.xs + 2,
-                      top: Gap.xs + 2,
-                      end: Gap.xs + 2,
-                      child: Align(
-                        alignment: AlignmentDirectional.centerStart,
-                        child: badge,
+        child: SelectionContainer.disabled(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              AspectRatio(
+                aspectRatio:
+                    widget.aspect ?? item.coverAspect ?? (video ? 16 / 9 : 0.7),
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    CoverHero(
+                      tag: _coverHeroTag,
+                      child: CoverImage(
+                        source: item.source,
+                        url: item.cover,
+                        title: item.title,
+                        mediaKind: item.isNovel ? MediaKind.novel : null,
                       ),
                     ),
-                  if (item.duration.isNotEmpty)
-                    PositionedDirectional(
-                      end: Gap.xs + 2,
-                      bottom: Gap.xs + 2,
-                      child: Tag(item.duration, onImage: true),
-                    ),
-                  if (history != null && history.progress > 0)
-                    Positioned(
-                      left: 0,
-                      right: 0,
-                      bottom: 0,
-                      child: ClipRRect(
-                        borderRadius: const BorderRadius.vertical(
-                          bottom: Radius.circular(Radii.sm),
-                        ),
-                        child: LinearProgressIndicator(
-                          value: history.progress,
-                          minHeight: 3,
-                          backgroundColor: Scrims.soft,
+                    if (badge != null)
+                      PositionedDirectional(
+                        start: Gap.xs + 2,
+                        top: Gap.xs + 2,
+                        end: Gap.xs + 2,
+                        child: Align(
+                          alignment: AlignmentDirectional.centerStart,
+                          child: badge,
                         ),
                       ),
-                    ),
-                  if (widget.selected)
-                    DecoratedBox(
-                      decoration: BoxDecoration(
-                        color: Scrims.soft,
-                        borderRadius: Radii.small,
-                        border: Border.all(color: c.primary, width: 2),
+                    if (item.duration.isNotEmpty)
+                      PositionedDirectional(
+                        end: Gap.xs + 2,
+                        bottom: Gap.xs + 2,
+                        child: Tag(item.duration, onImage: true),
                       ),
-                      child: Align(
-                        alignment: AlignmentDirectional.topEnd,
-                        child: Padding(
-                          padding: const EdgeInsets.all(Gap.xs + 2),
-                          child: Icon(
-                            Icons.check_circle_rounded,
-                            color: c.primary,
-                            size: 24,
+                    if (history != null && history.progress > 0)
+                      Positioned(
+                        left: 0,
+                        right: 0,
+                        bottom: 0,
+                        child: ClipRRect(
+                          borderRadius: const BorderRadius.vertical(
+                            bottom: Radius.circular(Radii.sm),
+                          ),
+                          child: LinearProgressIndicator(
+                            value: history.progress,
+                            minHeight: 3,
+                            backgroundColor: Scrims.soft,
                           ),
                         ),
                       ),
-                    ),
-                ],
-              ),
-            ),
-            const SizedBox(height: Gap.xs + 2),
-            ContentTranslation(
-              text: item.title,
-              source: item.source,
-              builder: (value) => Text(
-                value,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: context.text.bodySmall?.copyWith(
-                  fontWeight: FontWeight.w500,
-                  height: 1.3,
-                  color: c.onSurface,
-                ),
-              ),
-            ),
-            if (metadata.isNotEmpty)
-              Padding(
-                padding: const EdgeInsets.only(top: 1),
-                child: Text.rich(
-                  TextSpan(
-                    children: [
-                      for (var i = 0; i < metadata.length; i++) ...[
-                        if (i > 0) const TextSpan(text: ' · '),
-                        if (metadata[i].$1 case final icon?)
-                          WidgetSpan(
-                            alignment: PlaceholderAlignment.middle,
-                            child: Padding(
-                              padding: const EdgeInsetsDirectional.only(end: 1),
-                              child: Icon(
-                                icon,
-                                size: 11,
-                                color: c.onSurfaceVariant,
-                              ),
+                    if (widget.selected)
+                      DecoratedBox(
+                        decoration: BoxDecoration(
+                          color: Scrims.soft,
+                          borderRadius: Radii.small,
+                          border: Border.all(color: c.primary, width: 2),
+                        ),
+                        child: Align(
+                          alignment: AlignmentDirectional.topEnd,
+                          child: Padding(
+                            padding: const EdgeInsets.all(Gap.xs + 2),
+                            child: Icon(
+                              Icons.check_circle_rounded,
+                              color: c.primary,
+                              size: 24,
                             ),
                           ),
-                        TextSpan(text: metadata[i].$2),
-                      ],
-                    ],
-                  ),
-                  maxLines: 1,
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: Gap.xs + 2),
+              ContentTranslation(
+                text: item.title,
+                source: item.source,
+                builder: (value) => Text(
+                  value,
+                  maxLines: 2,
                   overflow: TextOverflow.ellipsis,
-                  style: context.text.labelSmall?.copyWith(
-                    color: c.onSurfaceVariant,
+                  style: context.text.bodySmall?.copyWith(
+                    fontWeight: FontWeight.w500,
+                    height: 1.3,
+                    color: c.onSurface,
                   ),
                 ),
-              )
-            else if (item.subtitle.isNotEmpty && item.subtitle != item.title)
-              Padding(
-                padding: const EdgeInsets.only(top: 1),
-                child: ContentTranslation(
-                  text: item.subtitle,
-                  source: item.source,
-                  builder: (value) => Text(
-                    value,
+              ),
+              if (metadata.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(top: 1),
+                  child: Text.rich(
+                    TextSpan(
+                      children: [
+                        for (var i = 0; i < metadata.length; i++) ...[
+                          if (i > 0) const TextSpan(text: ' · '),
+                          if (metadata[i].$1 case final icon?)
+                            WidgetSpan(
+                              alignment: PlaceholderAlignment.middle,
+                              child: Padding(
+                                padding: const EdgeInsetsDirectional.only(
+                                  end: 1,
+                                ),
+                                child: Icon(
+                                  icon,
+                                  size: 11,
+                                  color: c.onSurfaceVariant,
+                                ),
+                              ),
+                            ),
+                          TextSpan(text: metadata[i].$2),
+                        ],
+                      ],
+                    ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: context.text.labelSmall?.copyWith(
                       color: c.onSurfaceVariant,
                     ),
                   ),
+                )
+              else if (item.subtitle.isNotEmpty && item.subtitle != item.title)
+                Padding(
+                  padding: const EdgeInsets.only(top: 1),
+                  child: ContentTranslation(
+                    text: item.subtitle,
+                    source: item.source,
+                    builder: (value) => Text(
+                      value,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: context.text.labelSmall?.copyWith(
+                        color: c.onSurfaceVariant,
+                      ),
+                    ),
+                  ),
                 ),
-              ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -266,15 +270,19 @@ Future<void> showWorkActions(
         children: [
           ListTile(
             leading: SourceAvatar(item.source, size: 32),
-            title: Text(
-              item.title,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
+            title: SelectionContainer.disabled(
+              child: Text(
+                item.title,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
             ),
-            subtitle: Text(
-              item.subtitle.isNotEmpty ? item.subtitle : item.id,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
+            subtitle: SelectionContainer.disabled(
+              child: Text(
+                item.subtitle.isNotEmpty ? item.subtitle : item.id,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
             ),
           ),
           const Divider(height: 1),
@@ -284,7 +292,9 @@ Future<void> showWorkActions(
                   ? Icons.bookmark_remove_outlined
                   : Icons.bookmark_add_outlined,
             ),
-            title: Text(lib.isFavorite(item.uid) ? tr('取消收藏') : tr('加入收藏')),
+            title: SelectionContainer.disabled(
+              child: Text(lib.isFavorite(item.uid) ? tr('取消收藏') : tr('加入收藏')),
+            ),
             onTap: () {
               Navigator.pop(ctx);
               toggleFavorite(context, item);
@@ -293,7 +303,7 @@ Future<void> showWorkActions(
           if (lib.isFavorite(item.uid))
             ListTile(
               leading: const Icon(Icons.label_outline_rounded),
-              title: Text(tr('设置分类')),
+              title: SelectionContainer.disabled(child: Text(tr('设置分类'))),
               onTap: () {
                 Navigator.pop(ctx);
                 editFavoriteCategories(context, item.uid);
@@ -301,7 +311,7 @@ Future<void> showWorkActions(
             ),
           ListTile(
             leading: const Icon(Icons.open_in_new_rounded),
-            title: Text(tr('打开详情')),
+            title: SelectionContainer.disabled(child: Text(tr('打开详情'))),
             onTap: () {
               Navigator.pop(ctx);
               Nav.openWork(context, item, coverHeroTag: coverHeroTag);
@@ -310,7 +320,7 @@ Future<void> showWorkActions(
           if (lib.historyOf(item.uid) != null)
             ListTile(
               leading: const Icon(Icons.history_toggle_off_rounded),
-              title: Text(tr('删除阅读记录')),
+              title: SelectionContainer.disabled(child: Text(tr('删除阅读记录'))),
               onTap: () {
                 lib.removeHistory(item.uid);
                 Navigator.pop(ctx);

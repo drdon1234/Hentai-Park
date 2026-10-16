@@ -115,11 +115,11 @@ Future<bool> confirmMultiLanguageSearch(
                     ? null
                     : () => Navigator.pop(ctx, true),
                 icon: const Icon(Icons.search),
-                label: Text(tr('翻译并搜索')),
+                label: SelectionContainer.disabled(child: Text(tr('翻译并搜索'))),
               ),
               TextButton(
                 onPressed: () => Navigator.pop(ctx, false),
-                child: Text(tr('取消')),
+                child: SelectionContainer.disabled(child: Text(tr('取消'))),
               ),
             ],
           ),
@@ -275,16 +275,18 @@ class TranslationsBar extends StatelessWidget {
             padding: const EdgeInsetsDirectional.only(end: 6),
             child: ActionChip(
               avatar: const Icon(Icons.edit_note_rounded, size: 16),
-              label: Text(
-                keyword.sourceLanguage == null
-                    ? tr('原文：{keyword}', {'keyword': keyword.original})
-                    : tr('原文 · {language}：{keyword}', {
-                        'language': tr(
-                          translateLanguages[keyword.sourceLanguage] ??
-                              keyword.sourceLanguage!,
-                        ),
-                        'keyword': keyword.original,
-                      }),
+              label: SelectionContainer.disabled(
+                child: Text(
+                  keyword.sourceLanguage == null
+                      ? tr('原文：{keyword}', {'keyword': keyword.original})
+                      : tr('原文 · {language}：{keyword}', {
+                          'language': tr(
+                            translateLanguages[keyword.sourceLanguage] ??
+                                keyword.sourceLanguage!,
+                          ),
+                          'keyword': keyword.original,
+                        }),
+                ),
               ),
               visualDensity: VisualDensity.compact,
               onPressed: () => onPick(keyword.original),
@@ -294,8 +296,10 @@ class TranslationsBar extends StatelessWidget {
             Padding(
               padding: const EdgeInsets.only(right: 6),
               child: ActionChip(
-                label: Text(
-                  '${tr(translateLanguages[e.key] ?? e.key)}：${e.value}',
+                label: SelectionContainer.disabled(
+                  child: Text(
+                    '${tr(translateLanguages[e.key] ?? e.key)}：${e.value}',
+                  ),
                 ),
                 visualDensity: VisualDensity.compact,
                 onPressed: () => onPick(e.value),

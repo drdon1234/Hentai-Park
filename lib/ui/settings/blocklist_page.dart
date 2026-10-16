@@ -78,7 +78,7 @@ class _BlocklistPageState extends State<BlocklistPage> {
                   children: [
                     for (final e in list)
                       InputChip(
-                        label: Text(e),
+                        label: SelectionContainer.disabled(child: Text(e)),
                         onDeleted: () => s.blockedTags = [
                           for (final x in list)
                             if (x != e) x,
@@ -138,11 +138,11 @@ class _PresetCard extends StatelessWidget {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: Text(tr('取消')),
+            child: SelectionContainer.disabled(child: Text(tr('取消'))),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(ctx, text.text),
-            child: Text(tr('确定')),
+            child: SelectionContainer.disabled(child: Text(tr('确定'))),
           ),
         ],
       ),
@@ -162,18 +162,22 @@ class _PresetCard extends StatelessWidget {
             value: c.on,
             onChanged: (v) => s.setBlockPreset(_id, on: v),
           ),
-          title: Text(
-            c.preset.name,
-            style: const TextStyle(fontWeight: FontWeight.w600),
+          title: SelectionContainer.disabled(
+            child: Text(
+              c.preset.name,
+              style: const TextStyle(fontWeight: FontWeight.w600),
+            ),
           ),
-          subtitle: Text(
-            tr('{value0} · {value1} 项{value2}', {
-              'value0': c.on ? tr('已启用') : tr('未启用'),
-              'value1': c.entries.length,
-              'value2': c.title ? tr(' · 匹配标题') : '',
-            }),
-            style: context.text.bodySmall?.copyWith(
-              color: context.colors.onSurfaceVariant,
+          subtitle: SelectionContainer.disabled(
+            child: Text(
+              tr('{value0} · {value1} 项{value2}', {
+                'value0': c.on ? tr('已启用') : tr('未启用'),
+                'value1': c.entries.length,
+                'value2': c.title ? tr(' · 匹配标题') : '',
+              }),
+              style: context.text.bodySmall?.copyWith(
+                color: context.colors.onSurfaceVariant,
+              ),
             ),
           ),
           childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
@@ -183,8 +187,10 @@ class _PresetCard extends StatelessWidget {
               contentPadding: EdgeInsets.zero,
               value: c.title,
               onChanged: (v) => s.setBlockPreset(_id, title: v ?? false),
-              title: Text(tr('标题正则匹配')),
-              subtitle: Text(tr('标题命中任意一项也会被屏蔽')),
+              title: SelectionContainer.disabled(child: Text(tr('标题正则匹配'))),
+              subtitle: SelectionContainer.disabled(
+                child: Text(tr('标题命中任意一项也会被屏蔽')),
+              ),
             ),
             Wrap(
               spacing: 6,
@@ -192,7 +198,9 @@ class _PresetCard extends StatelessWidget {
               children: [
                 for (var i = 0; i < c.entries.length; i++)
                   InputChip(
-                    label: Text(c.entries[i]),
+                    label: SelectionContainer.disabled(
+                      child: Text(c.entries[i]),
+                    ),
                     visualDensity: VisualDensity.compact,
                     onPressed: () async {
                       final v = (await _edit(
@@ -209,7 +217,7 @@ class _PresetCard extends StatelessWidget {
                   ),
                 ActionChip(
                   avatar: const Icon(Icons.add_rounded, size: 18),
-                  label: Text(tr('添加')),
+                  label: SelectionContainer.disabled(child: Text(tr('添加'))),
                   visualDensity: VisualDensity.compact,
                   onPressed: () async {
                     final v = (await _edit(context))?.trim();
@@ -224,7 +232,7 @@ class _PresetCard extends StatelessWidget {
               child: TextButton.icon(
                 onPressed: () => s.setBlockPreset(_id, reset: true),
                 icon: const Icon(Icons.restart_alt_rounded, size: 18),
-                label: Text(tr('恢复默认标签')),
+                label: SelectionContainer.disabled(child: Text(tr('恢复默认标签'))),
               ),
             ),
           ],

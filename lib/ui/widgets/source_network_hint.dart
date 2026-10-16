@@ -84,7 +84,7 @@ class NetworkAccessHint extends StatelessWidget {
           if (showSettings)
             TextButton(
               onPressed: () => Nav.openNetworkSettings(context),
-              child: Text(tr('网络设置')),
+              child: SelectionContainer.disabled(child: Text(tr('网络设置'))),
             ),
         ],
       ),

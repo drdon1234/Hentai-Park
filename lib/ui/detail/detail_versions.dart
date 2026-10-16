@@ -34,23 +34,25 @@ class DetailVersions extends StatelessWidget {
             children: [
               for (final variant in work.variants)
                 ActionChip(
-                  label: ConstrainedBox(
-                    constraints: BoxConstraints(
-                      maxWidth: MediaQuery.sizeOf(context).width * .7,
-                    ),
-                    child: Text(
-                      variant.editions.isNotEmpty
-                          ? workEditionLabel(variant)
-                          : variant.title,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
+                  label: SelectionContainer.disabled(
+                    child: ConstrainedBox(
+                      constraints: BoxConstraints(
+                        maxWidth: MediaQuery.sizeOf(context).width * .7,
+                      ),
+                      child: Text(
+                        variant.editions.isNotEmpty
+                            ? workEditionLabel(variant)
+                            : variant.title,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ),
                   ),
                   onPressed: () => Nav.openWork(context, variant),
                 ),
               if (keyword.isNotEmpty && searchable)
                 ActionChip(
-                  label: Text(tr('站内查找版本')),
+                  label: SelectionContainer.disabled(child: Text(tr('站内查找版本'))),
                   onPressed: () => Nav.openSourceSearch(
                     context,
                     work.source,
@@ -59,7 +61,7 @@ class DetailVersions extends StatelessWidget {
                 ),
               if (keyword.isNotEmpty && manifest != null)
                 ActionChip(
-                  label: Text(tr('跨站查找版本')),
+                  label: SelectionContainer.disabled(child: Text(tr('跨站查找版本'))),
                   onPressed: () => Nav.openAggregateSearch(
                     context,
                     keyword: keyword,

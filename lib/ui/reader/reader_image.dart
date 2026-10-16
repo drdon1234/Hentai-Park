@@ -147,7 +147,9 @@ class _ReaderImageState extends State<ReaderImage> {
                 FilledButton.tonalIcon(
                   onPressed: _retry,
                   icon: const Icon(Icons.refresh_rounded),
-                  label: Text(_attempt > 0 ? tr('再试一次') : tr('重试')),
+                  label: SelectionContainer.disabled(
+                    child: Text(_attempt > 0 ? tr('再试一次') : tr('重试')),
+                  ),
                 ),
               ],
             )

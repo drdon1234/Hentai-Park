@@ -453,7 +453,7 @@ class _WebVerifyPageState extends State<WebVerifyPage> {
                 : widget._mode == _Mode.login
                 ? _check
                 : _finish,
-            child: Text(tr('完成')),
+            child: SelectionContainer.disabled(child: Text(tr('完成'))),
           ),
         ],
         bottom: PreferredSize(

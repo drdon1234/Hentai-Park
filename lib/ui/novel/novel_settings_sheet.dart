@@ -44,7 +44,9 @@ class NovelSettingsSheet extends StatelessWidget {
           children: [
             for (final entry in values.entries)
               ChoiceChip(
-                label: Text(tr(entry.value)),
+                label: SelectionContainer.disabled(
+                  child: Text(tr(entry.value)),
+                ),
                 selected: value == entry.key,
                 onSelected: (_) => change(entry.key),
               ),
@@ -61,11 +63,13 @@ class NovelSettingsSheet extends StatelessWidget {
           child: Column(
             children: [
               ListTile(
-                title: Text(tr('阅读设置')),
-                trailing: IconButton(
-                  tooltip: tr('关闭'),
-                  icon: const Icon(Icons.close),
-                  onPressed: () => Navigator.pop(context),
+                title: SelectionContainer.disabled(child: Text(tr('阅读设置'))),
+                trailing: SelectionContainer.disabled(
+                  child: IconButton(
+                    tooltip: tr('关闭'),
+                    icon: const Icon(Icons.close),
+                    onPressed: () => Navigator.pop(context),
+                  ),
                 ),
               ),
               Expanded(
@@ -135,7 +139,9 @@ class NovelSettingsSheet extends StatelessWidget {
                     ),
                     SwitchListTile(
                       contentPadding: EdgeInsets.zero,
-                      title: Text(tr('亮度跟随系统')),
+                      title: SelectionContainer.disabled(
+                        child: Text(tr('亮度跟随系统')),
+                      ),
                       value: s.novelBrightness < 0,
                       onChanged: (v) => s.novelBrightness = v ? -1 : .5,
                     ),
@@ -164,49 +170,63 @@ class NovelSettingsSheet extends StatelessWidget {
                     ),
                     SwitchListTile(
                       contentPadding: EdgeInsets.zero,
-                      title: Text(tr('粗体')),
+                      title: SelectionContainer.disabled(child: Text(tr('粗体'))),
                       value: s.novelBold,
                       onChanged: (v) => s.novelBold = v,
                     ),
                     SwitchListTile(
                       contentPadding: EdgeInsets.zero,
-                      title: Text(tr('两端对齐')),
+                      title: SelectionContainer.disabled(
+                        child: Text(tr('两端对齐')),
+                      ),
                       value: s.novelJustify,
                       onChanged: (v) => s.novelJustify = v,
                     ),
                     SwitchListTile(
                       contentPadding: EdgeInsets.zero,
-                      title: Text(tr('首行缩进')),
+                      title: SelectionContainer.disabled(
+                        child: Text(tr('首行缩进')),
+                      ),
                       value: s.novelIndent,
                       onChanged: (v) => s.novelIndent = v,
                     ),
                     SwitchListTile(
                       contentPadding: EdgeInsets.zero,
-                      title: Text(tr('显示阅读状态')),
+                      title: SelectionContainer.disabled(
+                        child: Text(tr('显示阅读状态')),
+                      ),
                       value: s.novelShowStatus,
                       onChanged: (v) => s.novelShowStatus = v,
                     ),
                     SwitchListTile(
                       contentPadding: EdgeInsets.zero,
-                      title: Text(tr('保持屏幕常亮')),
+                      title: SelectionContainer.disabled(
+                        child: Text(tr('保持屏幕常亮')),
+                      ),
                       value: s.novelKeepScreenOn,
                       onChanged: (v) => s.novelKeepScreenOn = v,
                     ),
                     SwitchListTile(
                       contentPadding: EdgeInsets.zero,
-                      title: Text(tr('音量键翻页')),
+                      title: SelectionContainer.disabled(
+                        child: Text(tr('音量键翻页')),
+                      ),
                       value: s.novelVolumeKeys,
                       onChanged: (v) => s.novelVolumeKeys = v,
                     ),
                     SwitchListTile(
                       contentPadding: EdgeInsets.zero,
-                      title: Text(tr('点击翻页')),
+                      title: SelectionContainer.disabled(
+                        child: Text(tr('点击翻页')),
+                      ),
                       value: s.novelTapToPage,
                       onChanged: (v) => s.novelTapToPage = v,
                     ),
                     SwitchListTile(
                       contentPadding: EdgeInsets.zero,
-                      title: Text(tr('翻页动画')),
+                      title: SelectionContainer.disabled(
+                        child: Text(tr('翻页动画')),
+                      ),
                       value: s.novelAnimate,
                       onChanged: (v) => s.novelAnimate = v,
                     ),

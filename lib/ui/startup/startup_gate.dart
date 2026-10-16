@@ -64,7 +64,12 @@ class _StartupGateState extends State<StartupGate> {
                       title: tr('启动失败'),
                       message: tr('初始化未完成，请检查存储空间、访问权限和系统服务后重试。原有数据不会被清除。'),
                       actions: [
-                        FilledButton(onPressed: _start, child: Text(tr('重试'))),
+                        FilledButton(
+                          onPressed: _start,
+                          child: SelectionContainer.disabled(
+                            child: Text(tr('重试')),
+                          ),
+                        ),
                         TextButton(
                           onPressed: () async {
                             try {
@@ -76,7 +81,9 @@ class _StartupGateState extends State<StartupGate> {
                               AppLog.error(error, event: 'diagnostics_copy');
                             }
                           },
-                          child: Text(tr(_copied ? '已复制' : '复制诊断信息')),
+                          child: SelectionContainer.disabled(
+                            child: Text(tr(_copied ? '已复制' : '复制诊断信息')),
+                          ),
                         ),
                       ],
                     )

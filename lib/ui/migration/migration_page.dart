@@ -134,7 +134,10 @@ class _MigrationPageState extends State<MigrationPage> {
         ),
         actions: [
           if (widget.items.length > 1)
-            TextButton(onPressed: _busy ? null : _next, child: Text(tr('跳过'))),
+            TextButton(
+              onPressed: _busy ? null : _next,
+              child: SelectionContainer.disabled(child: Text(tr('跳过'))),
+            ),
         ],
         bottom: _busy
             ? const PreferredSize(
@@ -158,12 +161,16 @@ class _MigrationPageState extends State<MigrationPage> {
                     radius: 6,
                   ),
                 ),
-                title: Text(
-                  _current.title,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
+                title: SelectionContainer.disabled(
+                  child: Text(
+                    _current.title,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ),
-                subtitle: Text(tr('当前来源：{value0}', {'value0': from})),
+                subtitle: SelectionContainer.disabled(
+                  child: Text(tr('当前来源：{value0}', {'value0': from})),
+                ),
               ),
             ),
             SliverToBoxAdapter(
@@ -344,14 +351,14 @@ class _OptionsDialogState extends State<_OptionsDialog> {
           ),
           CheckboxListTile(
             value: categories,
-            title: Text(tr('复制分类')),
+            title: SelectionContainer.disabled(child: Text(tr('复制分类'))),
             onChanged: (v) => setState(() => categories = v!),
           ),
           if (!widget.to.isGame)
             CheckboxListTile(
               value: readState,
-              title: Text(tr('复制已读章节')),
-              subtitle: Text(tr('按章节号匹配')),
+              title: SelectionContainer.disabled(child: Text(tr('复制已读章节'))),
+              subtitle: SelectionContainer.disabled(child: Text(tr('按章节号匹配'))),
               onChanged: (v) => setState(() => readState = v!),
             ),
         ],
@@ -359,7 +366,7 @@ class _OptionsDialogState extends State<_OptionsDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context),
-          child: Text(tr('取消')),
+          child: SelectionContainer.disabled(child: Text(tr('取消'))),
         ),
         TextButton(
           onPressed: () => Navigator.pop(
@@ -370,14 +377,14 @@ class _OptionsDialogState extends State<_OptionsDialog> {
               removeOld: false,
             ),
           ),
-          child: Text(tr('复制')),
+          child: SelectionContainer.disabled(child: Text(tr('复制'))),
         ),
         FilledButton(
           onPressed: () => Navigator.pop(
             context,
             MigrationOptions(categories: categories, readState: readState),
           ),
-          child: Text(tr('迁移')),
+          child: SelectionContainer.disabled(child: Text(tr('迁移'))),
         ),
       ],
     );

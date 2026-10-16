@@ -146,17 +146,30 @@ mixin _NovelActions on _NovelReaderBase {
       }
     },
     itemBuilder: (ctx) => [
-      PopupMenuItem(value: 'notes', child: Text(tr('书签与标注'))),
-      PopupMenuItem(value: 'search', child: Text(tr('本章搜索'))),
-      PopupMenuItem(value: 'download', child: Text(tr('下载本章'))),
+      PopupMenuItem(
+        value: 'notes',
+        child: SelectionContainer.disabled(child: Text(tr('书签与标注'))),
+      ),
+      PopupMenuItem(
+        value: 'search',
+        child: SelectionContainer.disabled(child: Text(tr('本章搜索'))),
+      ),
+      PopupMenuItem(
+        value: 'download',
+        child: SelectionContainer.disabled(child: Text(tr('下载本章'))),
+      ),
       if (!_paged)
         PopupMenuItem(
           value: 'auto',
-          child: Text(tr(_auto ? '停止自动滚动' : '自动滚动')),
+          child: SelectionContainer.disabled(
+            child: Text(tr(_auto ? '停止自动滚动' : '自动滚动')),
+          ),
         ),
       PopupMenuItem(
         value: 'speech',
-        child: Text(tr(_speech.playing ? '停止朗读' : '朗读')),
+        child: SelectionContainer.disabled(
+          child: Text(tr(_speech.playing ? '停止朗读' : '朗读')),
+        ),
       ),
     ],
   );

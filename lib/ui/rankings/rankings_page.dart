@@ -109,7 +109,7 @@ class _RankingsPageState extends State<RankingsPage> {
               actions: [
                 TextButton(
                   onPressed: () => Nav.push(context, const SourceManagePage()),
-                  child: Text(tr('管理站点')),
+                  child: SelectionContainer.disabled(child: Text(tr('管理站点'))),
                 ),
               ],
             );
@@ -168,23 +168,27 @@ class _RankingsPageState extends State<RankingsPage> {
                       Gap.page,
                       0,
                     ),
-                    child: DropdownButtonFormField<SourceCategory>(
-                      key: ValueKey(category),
-                      initialValue: category,
-                      isExpanded: true,
-                      decoration: InputDecoration(labelText: tr('分类')),
-                      items: [
-                        for (final value in categories)
-                          DropdownMenuItem(
-                            value: value,
-                            child: Text(value.label),
-                          ),
-                      ],
-                      onChanged: (value) => setState(() {
-                        if (value == null) return;
-                        _category = value;
-                        _selected = null;
-                      }),
+                    child: SelectionContainer.disabled(
+                      child: DropdownButtonFormField<SourceCategory>(
+                        key: ValueKey(category),
+                        initialValue: category,
+                        isExpanded: true,
+                        decoration: InputDecoration(labelText: tr('分类')),
+                        items: [
+                          for (final value in categories)
+                            DropdownMenuItem(
+                              value: value,
+                              child: SelectionContainer.disabled(
+                                child: Text(value.label),
+                              ),
+                            ),
+                        ],
+                        onChanged: (value) => setState(() {
+                          if (value == null) return;
+                          _category = value;
+                          _selected = null;
+                        }),
+                      ),
                     ),
                   ),
                   _chips(
@@ -217,23 +221,27 @@ class _RankingsPageState extends State<RankingsPage> {
                       Gap.page,
                       0,
                     ),
-                    child: DropdownButtonFormField<String>(
-                      key: ValueKey(key),
-                      initialValue: key,
-                      isExpanded: true,
-                      decoration: InputDecoration(labelText: tr('榜单')),
-                      items: [
-                        for (final option in boards)
-                          DropdownMenuItem(
-                            value: _key(option),
-                            child: Text(
-                              '${option.source.name} · ${option.board.label}',
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
+                    child: SelectionContainer.disabled(
+                      child: DropdownButtonFormField<String>(
+                        key: ValueKey(key),
+                        initialValue: key,
+                        isExpanded: true,
+                        decoration: InputDecoration(labelText: tr('榜单')),
+                        items: [
+                          for (final option in boards)
+                            DropdownMenuItem(
+                              value: _key(option),
+                              child: SelectionContainer.disabled(
+                                child: Text(
+                                  '${option.source.name} · ${option.board.label}',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
                             ),
-                          ),
-                      ],
-                      onChanged: (value) => setState(() => _selected = value),
+                        ],
+                        onChanged: (value) => setState(() => _selected = value),
+                      ),
                     ),
                   ),
                   if (snapshot.hasData)
@@ -321,18 +329,23 @@ class _RankingsPageState extends State<RankingsPage> {
     ValueChanged<String> onChanged,
   ) => Padding(
     padding: const EdgeInsets.fromLTRB(Gap.page, Gap.s, Gap.page, 0),
-    child: DropdownButtonFormField<String>(
-      key: ValueKey('$selected:${values.join(',')}'),
-      initialValue: selected,
-      isExpanded: true,
-      decoration: InputDecoration(labelText: label(selected)),
-      items: [
-        for (final value in values)
-          DropdownMenuItem(value: value, child: Text(label(value))),
-      ],
-      onChanged: (value) {
-        if (value != null) onChanged(value);
-      },
+    child: SelectionContainer.disabled(
+      child: DropdownButtonFormField<String>(
+        key: ValueKey('$selected:${values.join(',')}'),
+        initialValue: selected,
+        isExpanded: true,
+        decoration: InputDecoration(labelText: label(selected)),
+        items: [
+          for (final value in values)
+            DropdownMenuItem(
+              value: value,
+              child: SelectionContainer.disabled(child: Text(label(value))),
+            ),
+        ],
+        onChanged: (value) {
+          if (value != null) onChanged(value);
+        },
+      ),
     ),
   );
 }
@@ -446,7 +459,7 @@ class _RankingListState extends State<_RankingList> {
               child: Center(
                 child: TextButton(
                   onPressed: widget.controller.loadMore,
-                  child: Text(tr('加载更多')),
+                  child: SelectionContainer.disabled(child: Text(tr('加载更多'))),
                 ),
               ),
             ),

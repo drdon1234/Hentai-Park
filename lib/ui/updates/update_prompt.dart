@@ -56,11 +56,13 @@ Future<void> showAppUpdatePrompt(
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(ctx, false),
-          child: Text(tr('稍后')),
+          child: SelectionContainer.disabled(child: Text(tr('稍后'))),
         ),
         FilledButton(
           onPressed: () => Navigator.pop(ctx, true),
-          child: Text(tr(service.supported ? '下载并安装' : '前往下载')),
+          child: SelectionContainer.disabled(
+            child: Text(tr(service.supported ? '下载并安装' : '前往下载')),
+          ),
         ),
       ],
     ),
@@ -252,23 +254,31 @@ class _AppDownloadDialogState extends State<_AppDownloadDialog> {
             _token?.cancel();
             Navigator.pop(context);
           },
-          child: Text(tr(_busy ? '取消' : '关闭')),
+          child: SelectionContainer.disabled(
+            child: Text(tr(_busy ? '取消' : '关闭')),
+          ),
         ),
         if (_permission) ...[
           TextButton(
             onPressed: _busy ? null : _authorize,
-            child: Text(tr('打开安装权限设置')),
+            child: SelectionContainer.disabled(child: Text(tr('打开安装权限设置'))),
           ),
-          FilledButton(onPressed: _busy ? null : _run, child: Text(tr('继续安装'))),
+          FilledButton(
+            onPressed: _busy ? null : _run,
+            child: SelectionContainer.disabled(child: Text(tr('继续安装'))),
+          ),
         ],
         if (_failure != null && !_busy) ...[
-          TextButton(onPressed: _fallback, child: Text(tr('官方发布页'))),
+          TextButton(
+            onPressed: _fallback,
+            child: SelectionContainer.disabled(child: Text(tr('官方发布页'))),
+          ),
           FilledButton(
             onPressed: () {
               _progress = null;
               unawaited(_run());
             },
-            child: Text(tr('重试')),
+            child: SelectionContainer.disabled(child: Text(tr('重试'))),
           ),
         ],
       ],
@@ -337,11 +347,11 @@ Future<void> showSourceUpdatePrompt(
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(ctx, false),
-          child: Text(tr('稍后')),
+          child: SelectionContainer.disabled(child: Text(tr('稍后'))),
         ),
         FilledButton(
           onPressed: () => Navigator.pop(ctx, true),
-          child: Text(tr('确认升级')),
+          child: SelectionContainer.disabled(child: Text(tr('确认升级'))),
         ),
       ],
     ),
@@ -387,7 +397,7 @@ Future<void> showSourceUpdateResult(
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: Text(tr('关闭')),
+            child: SelectionContainer.disabled(child: Text(tr('关闭'))),
           ),
         ],
       ),

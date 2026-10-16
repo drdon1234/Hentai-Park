@@ -288,13 +288,15 @@ class _AggregateSearchPageState extends State<AggregateSearchPage> {
                             ),
                           ),
                           ActionChip(
-                            label: Text(
-                              included == eligible
-                                  ? tr('全部站点 · {count}', {'count': eligible})
-                                  : tr('站点 {included}/{count}', {
-                                      'included': included,
-                                      'count': eligible,
-                                    }),
+                            label: SelectionContainer.disabled(
+                              child: Text(
+                                included == eligible
+                                    ? tr('全部站点 · {count}', {'count': eligible})
+                                    : tr('站点 {included}/{count}', {
+                                        'included': included,
+                                        'count': eligible,
+                                      }),
+                              ),
                             ),
                             onPressed: _editSites,
                           ),
@@ -315,7 +317,9 @@ class _AggregateSearchPageState extends State<AggregateSearchPage> {
                                 Icons.translate_rounded,
                                 size: 18,
                               ),
-                              label: Text(tr('多语言搜索')),
+                              label: SelectionContainer.disabled(
+                                child: Text(tr('多语言搜索')),
+                              ),
                               onPressed: typed.isEmpty ? null : _submitMulti,
                             ),
                         ],
@@ -349,7 +353,9 @@ class _AggregateSearchPageState extends State<AggregateSearchPage> {
                           OutlinedButton(
                             onPressed: () =>
                                 Nav.push(context, const SourceManagePage()),
-                            child: Text(tr('管理站点')),
+                            child: SelectionContainer.disabled(
+                              child: Text(tr('管理站点')),
+                            ),
                           ),
                         ],
                         compact: true,
