@@ -72,6 +72,7 @@ void validateSettings(Map<String, dynamic> values) {
     'language': {'', 'zh-Hans', 'zh-Hant', 'en', 'ja', 'ko', 'es', 'ru', 'ar'},
   };
   const ranges = <String, (num, num)>{
+    'desktopScale': (75, 200),
     'seedColor': (0, 0xffffffff),
     'refreshRate': (0, 1000),
     'preloadPages': (0, 10),

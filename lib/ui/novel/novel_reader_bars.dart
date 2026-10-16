@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../core/localization.dart';
+import '../kit/adaptive_sheet.dart';
 import '../kit/kit.dart';
 import '../theme.dart';
 import 'novel_settings_sheet.dart';
@@ -87,8 +88,10 @@ class NovelReaderBottomBar extends StatelessWidget {
           onPrevious: onPrevious,
           onNext: onNext,
         ),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+        Wrap(
+          alignment: WrapAlignment.spaceEvenly,
+          spacing: Gap.m,
+          runSpacing: Gap.xs,
           children: [
             TextButton(
               style: style,
@@ -97,7 +100,7 @@ class NovelReaderBottomBar extends StatelessWidget {
             ),
             TextButton(
               style: style,
-              onPressed: () => showModalBottomSheet<void>(
+              onPressed: () => showAdaptiveSheet<void>(
                 context: context,
                 isScrollControlled: true,
                 builder: (_) => const NovelSettingsSheet(),

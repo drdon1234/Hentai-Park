@@ -9,6 +9,7 @@ import '../../core/app_lock.dart';
 import '../../core/localization.dart';
 import '../../core/models.dart';
 import '../../core/storage.dart';
+import '../../engine/desktop_shutdown.dart';
 import '../../engine/http_service.dart';
 import '../../engine/platform_bridge.dart';
 import '../../engine/source_manager.dart';
@@ -79,71 +80,73 @@ class _WebVideoPageState extends State<WebVideoPage>
     }
   }
 
-  Future<void> _load() async {
-    final generation = ++_generation;
-    final old = _keepAlive;
-    final oldEnvironment = _environment;
-    final oldProfile = _profileDirectory;
-    final id = _controller?.getViewId();
-    _controller = null;
-    _keepAlive = null;
-    _environment = null;
-    _profileDirectory = null;
-    setState(() {
-      _policy = null;
-      _error = null;
-      _ready = false;
-      _progress = 0;
-    });
-    await _release(old, id, oldEnvironment, oldProfile);
-    WebViewEnvironment? environment;
-    Directory? profile;
-    try {
-      final target = await SourceManager.instance.webVideo(
-        widget.work.source,
-        widget.work.id,
-        episodeId: widget.episodeId,
-      );
-      final policy = WebPlaybackPolicy.fromJson(target);
-      if (!Platform.isAndroid &&
-          !Platform.isIOS &&
-          !Platform.isMacOS &&
-          !Platform.isWindows &&
-          !Platform.isLinux) {
-        throw SourceError('UNSUPPORTED', '当前设备暂不支持应用内网页播放');
-      }
-      if (Platform.isWindows) {
-        // 独立用户目录保证旧 Runtime 也不能回退到站点的默认 Cookie 存储。
-        profile = await Directory('${AppPaths.cache.path}/web_video')
-            .createTemp();
-        environment = await WebViewEnvironment.create(
-          settings: WebViewEnvironmentSettings(userDataFolder: profile.path),
+  Future<void> _load() {
+    return PendingDisposals.instance.watch(() async {
+      final generation = ++_generation;
+      final old = _keepAlive;
+      final oldEnvironment = _environment;
+      final oldProfile = _profileDirectory;
+      final id = _controller?.getViewId();
+      _controller = null;
+      _keepAlive = null;
+      _environment = null;
+      _profileDirectory = null;
+      setState(() {
+        _policy = null;
+        _error = null;
+        _ready = false;
+        _progress = 0;
+      });
+      await _release(old, id, oldEnvironment, oldProfile);
+      WebViewEnvironment? environment;
+      Directory? profile;
+      try {
+        final target = await SourceManager.instance.webVideo(
+          widget.work.source,
+          widget.work.id,
+          episodeId: widget.episodeId,
         );
-        if (!await environment.isInterfaceSupported(
-          WebViewInterface.ICoreWebView2Environment10,
-        )) {
+        final policy = WebPlaybackPolicy.fromJson(target);
+        if (!Platform.isAndroid &&
+            !Platform.isIOS &&
+            !Platform.isMacOS &&
+            !Platform.isWindows &&
+            !Platform.isLinux) {
           throw SourceError('UNSUPPORTED', '当前设备暂不支持应用内网页播放');
         }
-      }
-      if (!mounted || generation != _generation) {
+        if (Platform.isWindows) {
+          // 独立用户目录保证旧 Runtime 也不能回退到站点的默认 Cookie 存储。
+          profile = await Directory('${AppPaths.cache.path}/web_video')
+              .createTemp();
+          environment = await WebViewEnvironment.create(
+            settings: WebViewEnvironmentSettings(userDataFolder: profile.path),
+          );
+          if (!await environment.isInterfaceSupported(
+            WebViewInterface.ICoreWebView2Environment10,
+          )) {
+            throw SourceError('UNSUPPORTED', '当前设备暂不支持应用内网页播放');
+          }
+        }
+        if (!mounted || generation != _generation) {
+          await _release(null, null, environment, profile);
+          return;
+        }
+        setState(() {
+          _environment = environment;
+          _profileDirectory = profile;
+          _policy = policy;
+          _keepAlive = InAppWebViewKeepAlive();
+        });
+      } catch (error) {
         await _release(null, null, environment, profile);
-        return;
+        if (!mounted || generation != _generation) return;
+        setState(
+          () => _error = error is FormatException
+              ? SourceError('PARSE', '播放器地址无效')
+              : error,
+        );
       }
-      setState(() {
-        _environment = environment;
-        _profileDirectory = profile;
-        _policy = policy;
-        _keepAlive = InAppWebViewKeepAlive();
-      });
-    } catch (error) {
-      await _release(null, null, environment, profile);
-      if (!mounted || generation != _generation) return;
-      setState(
-        () => _error = error is FormatException
-            ? SourceError('PARSE', '播放器地址无效')
-            : error,
-      );
-    }
+    }());
   }
 
   Future<void> _created(
@@ -250,7 +253,9 @@ class _WebVideoPageState extends State<WebVideoPage>
     AppLock.instance.removeListener(_lockChanged);
     final session = _keepAlive;
     final id = _controller?.getViewId();
-    unawaited(_release(session, id, _environment, _profileDirectory));
+    PendingDisposals.instance.add(
+      _release(session, id, _environment, _profileDirectory),
+    );
     unawaited(PlatformBridge.applyVideoFullscreen(false));
     super.dispose();
   }

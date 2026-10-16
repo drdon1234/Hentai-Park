@@ -22,14 +22,12 @@ class DetailHeader extends StatefulWidget {
     required this.detail,
     required this.manifest,
     required this.coverHeroTag,
-    this.onClose,
     this.body = const [],
   });
   final WorkItem item;
   final WorkDetail? detail;
   final SourceManifest? manifest;
   final Object? coverHeroTag;
-  final VoidCallback? onClose;
 
   /// The rest of the page. It lives in the same group as the app bar, because a pinned
   /// header only stays pinned while its group is on screen.
@@ -148,53 +146,94 @@ class _DetailHeaderState extends State<DetailHeader> {
   @override
   Widget build(BuildContext context) {
     final item = widget.item;
-    return SliverMainAxisGroup(
-      slivers: [
-        SliverAppBar(
-          pinned: true,
-          leading: widget.onClose == null
-              ? null
-              : IconButton(
-                  tooltip: tr('关闭'),
-                  icon: const Icon(Icons.close_rounded),
-                  onPressed: widget.onClose,
-                ),
-          title: _CollapsingTitle(item: item),
-          actions: [
-            if (_canSubscribe)
-              IconButton(
-                tooltip: tr('订阅作品更新'),
-                icon: const Icon(Icons.notifications_none_rounded),
-                onPressed: _subscribe,
-              ),
-            TranslationControls(source: item.source),
-            const SizedBox(width: Gap.xs),
-          ],
-        ),
-        SliverToBoxAdapter(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(Gap.page, Gap.xs, Gap.page, 0),
-            child: _isNovel
-                ? _info(context)
-                : Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _coverBox(context),
-                      const SizedBox(width: Gap.l),
-                      Expanded(child: _info(context)),
-                    ],
+    return SliverLayoutBuilder(
+      builder: (context, constraints) {
+        final inset = ((constraints.crossAxisExtent - 1120) / 2).clamp(
+          0.0,
+          double.infinity,
+        );
+        return SliverMainAxisGroup(
+          slivers: [
+            SliverAppBar(
+              pinned: true,
+              title: _CollapsingTitle(item: item),
+              actions: [
+                if (_canSubscribe)
+                  IconButton(
+                    tooltip: tr('订阅作品更新'),
+                    icon: const Icon(Icons.notifications_none_rounded),
+                    onPressed: _subscribe,
                   ),
-          ),
-        ),
-        const SliverToBoxAdapter(child: SizedBox(height: Gap.l)),
-        ...widget.body,
-      ],
+                TranslationControls(source: item.source),
+                const SizedBox(width: Gap.xs),
+              ],
+            ),
+            SliverPadding(
+              padding: EdgeInsets.symmetric(horizontal: inset),
+              sliver: SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(
+                    Gap.page,
+                    Gap.xs,
+                    Gap.page,
+                    0,
+                  ),
+                  child: LayoutBuilder(
+                    builder: (context, constraints) {
+                      if (_isNovel) return _info(context);
+                      final wide = constraints.maxWidth >= 700;
+                      final stacked =
+                          constraints.maxWidth < 440 ||
+                          constraints.maxWidth /
+                                  MediaQuery.textScalerOf(context).scale(1) <
+                              320;
+                      final aspect =
+                          _coverItem.coverAspect ?? (_isVideo ? 16 / 9 : 0.7);
+                      final width = wide
+                          ? (constraints.maxWidth * (aspect > 1 ? .42 : .28))
+                                .clamp(240.0, aspect > 1 ? 440.0 : 320.0)
+                          : constraints.maxWidth * (stacked ? .65 : .32);
+                      final cover = _coverBox(context, width);
+                      if (stacked) {
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Center(child: cover),
+                            const SizedBox(height: Gap.l),
+                            _info(context),
+                          ],
+                        );
+                      }
+                      return Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          cover,
+                          SizedBox(width: wide ? Gap.xxl : Gap.l),
+                          Expanded(child: _info(context)),
+                        ],
+                      );
+                    },
+                  ),
+                ),
+              ),
+            ),
+            SliverPadding(
+              padding: EdgeInsets.symmetric(horizontal: inset),
+              sliver: SliverMainAxisGroup(
+                slivers: [
+                  const SliverToBoxAdapter(child: SizedBox(height: Gap.l)),
+                  ...widget.body,
+                ],
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 
-  Widget _coverBox(BuildContext context) {
+  Widget _coverBox(BuildContext context, double width) {
     final aspect = _coverItem.coverAspect ?? (_isVideo ? 16 / 9 : 0.7);
-    final width = aspect > 1 ? 168.0 : 116.0;
     final d = widget.detail;
     return SizedBox(
       width: width,
@@ -267,7 +306,6 @@ class _DetailHeaderState extends State<DetailHeader> {
           builder: (value) => SelectableText(
             value,
             minLines: 1,
-            maxLines: _isNovel ? null : 5,
             style: ParkText.serif(context.text.titleLarge)
                 ?.copyWith(fontWeight: FontWeight.w600, height: 1.3),
           ),
@@ -327,10 +365,12 @@ class _DetailHeaderState extends State<DetailHeader> {
                   children: [
                     Icon(icon, size: 14, color: c.onSurfaceVariant),
                     const SizedBox(width: 3),
-                    Text(
-                      text,
-                      style: context.text.labelMedium?.copyWith(
-                        color: c.onSurfaceVariant,
+                    Flexible(
+                      child: Text(
+                        text,
+                        style: context.text.labelMedium?.copyWith(
+                          color: c.onSurfaceVariant,
+                        ),
                       ),
                     ),
                   ],
@@ -344,13 +384,10 @@ class _DetailHeaderState extends State<DetailHeader> {
 
   Widget _cover(WorkItem item, {VoidCallback? onReady}) {
     final aspect = item.coverAspect ?? (_isVideo ? 16 / 9 : 0.7);
-    final width = aspect > 1 ? 168.0 : 116.0;
-    return FittedBox(
+    return AspectRatio(
       key: ValueKey((item.source, item.cover, aspect)),
-      fit: BoxFit.cover,
-      child: SizedBox(
-        width: width,
-        height: width / aspect,
+      aspectRatio: aspect,
+      child: SizedBox.expand(
         child: CoverImage(
           source: item.source,
           url: item.cover,

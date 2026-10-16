@@ -11,7 +11,7 @@ description: HentaiPark 发布前的检查清单（应用 APK 或官方插件）
 
 - `git status`：列出将要发布的改动；确认 `/test/` 仍在 `.gitignore` 中，`test/` 下没有被跟踪的文件（`git ls-files test` 应为空）。
 - 不要提交与本次发布无关的本地修改（例如 `windows/flutter/generated_plugin_registrant.h` 这类机器相关文件）。
-- 本地提交不得把 Codex 作为联合提交人。
+- 本地提交不得把 claude（https://github.com/claude）作为联合提交人。
 
 ## 2. 自动检查
 

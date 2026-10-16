@@ -106,11 +106,16 @@ mixin _SourceApi on _SourceRegistry {
     return WorkPage.fromJson((res as Map).cast<String, dynamic>(), key);
   }
 
-  Future<WorkDetail> detail(String key, String id, {WorkItem? preview}) async {
+  Future<WorkDetail> detail(
+    String key,
+    String id, {
+    WorkItem? preview,
+    CancelToken? cancelToken,
+  }) async {
     final res = await _call(key, 'detail', [
       id,
       if (preview?.source == key && preview?.id == id) preview!.toJson(),
-    ]);
+    ], cancelToken: cancelToken);
     return WorkDetail((res as Map).cast<String, dynamic>(), key);
   }
 
@@ -228,6 +233,9 @@ mixin _SourceApi on _SourceRegistry {
         .whereType<Map>()
         .map((e) => VideoSource(e.cast<String, dynamic>()))
         .toList();
+    if (sources.isEmpty) {
+      throw SourceError('UNSUPPORTED', '此影片暂无可用播放地址');
+    }
     if (!sources.any((s) => s.format == 'hls')) return sources;
     final sourceManifest = manifest(key);
     if (sourceManifest == null) throw SourceError('CONFIG', '视频站点未加载');

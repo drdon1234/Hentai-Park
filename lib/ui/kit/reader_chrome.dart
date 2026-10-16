@@ -53,7 +53,9 @@ class ReaderChrome extends StatelessWidget {
     final duration = Motion.of(context, Motion.medium);
     final text = Theme.of(context).textTheme;
     final stackActions =
-        actions.isNotEmpty && MediaQuery.textScalerOf(context).scale(14) > 20;
+        actions.isNotEmpty &&
+        (MediaQuery.textScalerOf(context).scale(14) > 20 ||
+            MediaQuery.sizeOf(context).width < 360);
     return Stack(
       children: [
         Positioned.fill(child: child),
@@ -217,42 +219,57 @@ class _ReaderProgressState extends State<ReaderProgress> {
     final fg = DefaultTextStyle.of(context).style.color ?? Scrims.onScrim;
     final value = (_drag ?? widget.value).clamp(0.0, widget.max);
     final text = Theme.of(context).textTheme.labelLarge?.copyWith(color: fg);
-    return Row(
-      children: [
-        IconButton(
-          tooltip: widget.previousTooltip ?? tr('上一章'),
-          onPressed: widget.onPrevious,
-          icon: const Icon(Icons.skip_previous_rounded),
-          color: fg,
-          disabledColor: fg.withValues(alpha: .25),
+    final previous = IconButton(
+      tooltip: widget.previousTooltip ?? tr('上一章'),
+      onPressed: widget.onPrevious,
+      icon: const Icon(Icons.skip_previous_rounded),
+      color: fg,
+      disabledColor: fg.withValues(alpha: .25),
+    );
+    final next = IconButton(
+      tooltip: widget.nextTooltip ?? tr('下一章'),
+      onPressed: widget.onNext,
+      icon: const Icon(Icons.skip_next_rounded),
+      color: fg,
+      disabledColor: fg.withValues(alpha: .25),
+    );
+    final slider = Expanded(
+      child: Slider(
+        value: value,
+        max: widget.max <= 0 ? 1 : widget.max,
+        divisions: widget.divisions,
+        label: widget.label(value),
+        onChanged: (v) => setState(() => _drag = v),
+        onChangeEnd: (v) {
+          setState(() => _drag = null);
+          widget.onSeek(v);
+        },
+      ),
+    );
+    final labels = [
+      Text(widget.label(value), style: text),
+      if (widget.trailingLabel != null)
+        Text(
+          widget.trailingLabel!,
+          style: text?.copyWith(color: fg.withValues(alpha: .6)),
         ),
-        Text(widget.label(value), style: text),
-        Expanded(
-          child: Slider(
-            value: value,
-            max: widget.max <= 0 ? 1 : widget.max,
-            divisions: widget.divisions,
-            label: widget.label(value),
-            onChanged: (v) => setState(() => _drag = v),
-            onChangeEnd: (v) {
-              setState(() => _drag = null);
-              widget.onSeek(v);
-            },
-          ),
-        ),
-        if (widget.trailingLabel != null)
-          Text(
-            widget.trailingLabel!,
-            style: text?.copyWith(color: fg.withValues(alpha: .6)),
-          ),
-        IconButton(
-          tooltip: widget.nextTooltip ?? tr('下一章'),
-          onPressed: widget.onNext,
-          icon: const Icon(Icons.skip_next_rounded),
-          color: fg,
-          disabledColor: fg.withValues(alpha: .25),
-        ),
-      ],
+    ];
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        if (constraints.maxWidth / MediaQuery.textScalerOf(context).scale(1) <
+            360) {
+          return Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Wrap(spacing: Gap.m, children: labels),
+              Row(children: [previous, slider, next]),
+            ],
+          );
+        }
+        return Row(
+          children: [previous, labels.first, slider, ...labels.skip(1), next],
+        );
+      },
     );
   }
 }

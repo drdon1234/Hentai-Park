@@ -72,9 +72,17 @@ class BackupService {
 
   // ── Create ──
 
-  Future<Uint8List> create([
-    BackupOptions options = const BackupOptions(),
-  ]) async {
+  Future<Uint8List> create([BackupOptions options = const BackupOptions()]) =>
+      _run(() => _create(options));
+
+  // Public entry points claim the queue before yielding. Internal calls must
+  // not enqueue again: an accepted write still finishes after suspend().
+  Future<T> _run<T>(Future<T> Function() action) {
+    if (_suspended) return Future.error(StateError('Backup service suspended'));
+    return _writes.run(action);
+  }
+
+  Future<Uint8List> _create(BackupOptions options) async {
     await Library.instance.flush();
     final json = <String, dynamic>{
       'format': format,
@@ -268,7 +276,7 @@ class BackupService {
     return SubscriptionStore.instance.exportJson();
   }
 
-  Future<RestoreReport> restore(List<int> bytes) => _writes.run(
+  Future<RestoreReport> restore(List<int> bytes) => _run(
     () => SourceManager.instance.exclusively(() async {
       final json = await Isolate.run(() => decode(bytes));
       validateBackup(json);
@@ -544,9 +552,9 @@ class BackupService {
     Directory dir, [
     BackupOptions options = const BackupOptions(),
   ]) async {
-    return _writes.run(() async {
+    return _run(() async {
       await dir.create(recursive: true);
-      final bytes = await create(options);
+      final bytes = await _create(options);
       final base = fileName(DateTime.now());
       var file = File(p.join(dir.path, base));
       for (var suffix = 2; await file.exists(); suffix++) {
@@ -576,6 +584,7 @@ class BackupService {
 
   /// Writes an automatic backup when due. Retention never includes manual or unknown origins.
   Future<File?> autoBackupIfDue() async {
+    if (_suspended) return null;
     final active = _autoBackupRun;
     if (active != null) return active;
     late final Future<File?> run;
@@ -585,6 +594,16 @@ class BackupService {
     _autoBackupRun = run;
     return run;
   }
+
+  bool _suspended = false;
+
+  Future<void> suspend() async {
+    _suspended = true;
+    await _autoBackupRun;
+    await _writes.settled;
+  }
+
+  void resume() => _suspended = false;
 
   Future<File?> _autoBackup() async {
     final s = AppSettings.instance;

@@ -7,6 +7,7 @@ import '../../core/models.dart';
 import '../../library/downloads.dart';
 import '../../library/library.dart';
 import '../../novel/reading_notes.dart';
+import '../kit/adaptive_sheet.dart';
 import '../kit/kit.dart';
 import '../theme.dart';
 
@@ -56,7 +57,7 @@ Future<int?> showChapterDirectory(
 }) async {
   final controller = TextEditingController();
   var query = '', reversed = false;
-  final selected = await showModalBottomSheet<int>(
+  final selected = await showAdaptiveSheet<int>(
     context: context,
     isScrollControlled: true,
     builder: (ctx) => StatefulBuilder(
@@ -113,7 +114,7 @@ Future<int?> showChapterDirectory(
 Future<int?> showChapterSearch(BuildContext context, String text) async {
   final controller = TextEditingController();
   var query = '';
-  final result = await showModalBottomSheet<int>(
+  final result = await showAdaptiveSheet<int>(
     context: context,
     isScrollControlled: true,
     builder: (ctx) => StatefulBuilder(
@@ -208,7 +209,7 @@ Future<ReadingNote?> showReadingNotes(
   BuildContext context, {
   required String uid,
   required List<Chapter> chapters,
-}) => showModalBottomSheet<ReadingNote>(
+}) => showAdaptiveSheet<ReadingNote>(
   context: context,
   isScrollControlled: true,
   builder: (ctx) => ListenableBuilder(

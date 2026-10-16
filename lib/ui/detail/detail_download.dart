@@ -4,6 +4,7 @@ import '../../core/localization.dart';
 import '../../core/models.dart';
 import '../../engine/source_manager.dart';
 import '../../library/downloads.dart';
+import '../kit/adaptive_sheet.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
 import '../widgets/error_view.dart';
@@ -42,7 +43,7 @@ Future<void> downloadWork(
   if (isVideo) {
     var episodes = detail.videoEpisodes;
     if (episodes.length > 1) {
-      final picked = await showModalBottomSheet<List<Chapter>>(
+      final picked = await showAdaptiveSheet<List<Chapter>>(
         context: context,
         isScrollControlled: true,
         builder: (_) => ChapterPicker(
@@ -59,7 +60,7 @@ Future<void> downloadWork(
   }
   final chapters = detail.chapters;
   if (chapters != null && chapters.length > 1) {
-    final picked = await showModalBottomSheet<List<Chapter>>(
+    final picked = await showAdaptiveSheet<List<Chapter>>(
       context: context,
       isScrollControlled: true,
       builder: (_) => ChapterPicker(chapters: chapters),
@@ -94,7 +95,7 @@ Future<void> downloadEpisodes(
     ),
   );
   if (sources == null || !context.mounted) return;
-  final picked = await showModalBottomSheet<VideoSource>(
+  final picked = await showAdaptiveSheet<VideoSource>(
     context: context,
     builder: (ctx) => SafeArea(
       child: Column(

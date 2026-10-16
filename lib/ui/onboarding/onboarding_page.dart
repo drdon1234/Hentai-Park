@@ -114,14 +114,11 @@ class _OnboardingPageState extends State<OnboardingPage> {
       const Divider(),
       Padding(
         padding: const EdgeInsets.fromLTRB(Gap.xl, Gap.m, Gap.xl, Gap.l),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.end,
-          children: [
-            for (var i = 0; i < actions.length; i++) ...[
-              if (i > 0) const SizedBox(width: Gap.s),
-              actions[i],
-            ],
-          ],
+        child: Wrap(
+          alignment: WrapAlignment.end,
+          spacing: Gap.s,
+          runSpacing: Gap.s,
+          children: actions,
         ),
       ),
     ],

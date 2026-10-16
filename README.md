@@ -25,6 +25,8 @@
 
 提供 Android、Windows、macOS 和 Linux 客户端；iOS/iPadOS 目前仅提供模拟器包，Web 暂不支持。安装方法与平台限制见 [平台说明](docs/PLATFORMS.md)。
 
+桌面支持 Ctrl+滚轮、Ctrl/Cmd 加减键缩放界面，Ctrl/Cmd+0 恢复默认，也可在外观设置中调整。Windows 托盘图标可恢复窗口或退出；关闭窗口时可选择收起到托盘或退出。
+
 ## 下载
 
 在 **[最新版本](https://github.com/drdon1234/Hentai-Park/releases/latest)** 下载对应平台的安装包。Android 多数手机和平板选 `arm64-v8a`，模拟器一般选 `x86_64`。桌面包需完整解压，详细安装方法见 [平台说明](docs/PLATFORMS.md)。
@@ -79,7 +81,7 @@
 | 排行榜 | 在「发现」顶部打开本子、里番、JAV 榜单，分市场榜与站点榜；JAV 可看作品、女优和可筛选的分类榜 |
 | 阅读与观看 | 漫画滚动、翻页或双页；视频选集、倍速与续播；小说排版、书签、标注与朗读。三种阅读器用同一套控制层 |
 | 书架 | 收藏分组、更新提醒；订阅作者、频道或关键词的新内容 |
-| 下载 | 独立主导航入口，管理漫画、视频、小说与游戏下载；导入、导出 CBZ |
+| 下载 | 独立主导航入口，管理漫画、视频、小说与游戏下载；导入、导出 CBZ；在作品菜单按已完成章节导出 PDF，动图仅保留第一帧 |
 | 游戏资源 | 查看游戏介绍、版本与下载链接 |
 | 翻译与过滤 | 翻译标题、简介与标签；按标签屏蔽内容 |
 | 隐私与备份 | 应用锁、无痕模式、封面模糊、防截屏；备份收藏、进度与设置 |
@@ -98,7 +100,7 @@
 | 短视频 | Pornhub Shorties、Fyptt、Tik.porn |
 | AI 短剧 | 黄果短剧、黄豆短剧、91短剧 |
 | 小说 | Book18、Cool18、Canovel、Literotica、Lush Stories、StoriesOnline、69story |
-| 游戏 | GalgameX、KUN Galgame、次元茶馆 |
+| 游戏 | KUN Galgame、GalgameX、次元茶馆 |
 | 订阅 | X / Twitter、Telegram、myfans.jp、pixivFANBOX |
 
 在「我的 → 站点」启用、排序、更新或添加站点。
@@ -111,6 +113,8 @@
 | 站点榜 | JavMenu、MissAV、JableTV、SupJav、JM、E-Hentai、WNACG、nhentai、Hanime1 |
 
 市场榜提供作品、女优、卖家和分类榜单；站点榜展示各站热门内容。可搜索作品、打开详情或访问原站。
+
+排行榜支持筛选和标题翻译；封面保留原始比例，长标题可点按展开。
 
 iXXX、TubeSafari 使用应用内网页播放。播放页可能仍需站点确认；播放控制由上游页面提供，暂不支持应用的下载与精确断点续播。Android 需支持独立会话的较新版本 Android System WebView。
 

@@ -7,6 +7,7 @@ import '../../core/models.dart';
 import '../nav.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
+import '../widgets/content_translation.dart';
 
 class RankingRow extends StatefulWidget {
   const RankingRow({super.key, required this.item, required this.board});
@@ -67,12 +68,15 @@ class _RankingRowState extends State<RankingRow> {
                   GestureDetector(
                     onTap: _open,
                     child: SizedBox(
-                      width: 76,
+                      width: widget.board.category == SourceCategory.jav
+                          ? 120
+                          : 76,
                       height: 104,
                       child: CoverImage(
                         source: item.source,
                         url: item.cover,
                         title: item.title,
+                        fit: BoxFit.contain,
                       ),
                     ),
                   ),
@@ -84,19 +88,27 @@ class _RankingRowState extends State<RankingRow> {
                     children: [
                       GestureDetector(
                         onTap: () => setState(() => _expanded = !_expanded),
-                        child: Text(
-                          item.title,
-                          maxLines: _expanded ? null : 3,
-                          overflow: _expanded ? null : TextOverflow.ellipsis,
-                          style: context.text.titleSmall,
+                        child: ContentTranslation(
+                          source: item.source,
+                          text: item.title,
+                          builder: (value) => Text(
+                            value,
+                            maxLines: _expanded ? null : 3,
+                            overflow: _expanded ? null : TextOverflow.ellipsis,
+                            style: context.text.titleSmall,
+                          ),
                         ),
                       ),
                       if (item.subtitle.isNotEmpty)
-                        Text(
-                          item.subtitle,
-                          maxLines: _expanded ? null : 2,
-                          overflow: _expanded ? null : TextOverflow.ellipsis,
-                          style: context.text.bodySmall,
+                        ContentTranslation(
+                          source: item.source,
+                          text: item.subtitle,
+                          builder: (value) => Text(
+                            value,
+                            maxLines: _expanded ? null : 2,
+                            overflow: _expanded ? null : TextOverflow.ellipsis,
+                            style: context.text.bodySmall,
+                          ),
                         ),
                       if (item.json['workCount'] case final num count)
                         Text(

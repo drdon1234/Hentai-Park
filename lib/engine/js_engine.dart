@@ -38,6 +38,8 @@ class JsEngine {
 
   final Map<String, SourceRuntime> _runtimes = {};
   final Map<String, Future<void>> _closingRuntimes = {};
+  bool _closing = false;
+  bool _suspended = false;
   PersistCallback? onPersist;
 
   /// Enqueues a source reload after its runtime is invalidated by a crash or timeout.
@@ -54,12 +56,36 @@ class JsEngine {
       .convert(utf8.encode(await _runtimeSource()))
       .toString();
 
-  SourceRuntime runtime(String key) =>
-      _runtimes.putIfAbsent(key, () => SourceRuntime._(this, key));
+  SourceRuntime runtime(String key) {
+    if (_closing || _suspended) throw SourceError('CANCELLED', '应用正在关闭');
+    return _runtimes.putIfAbsent(key, () => SourceRuntime._(this, key));
+  }
+
+  /// 可逆地拒绝新桥接调用，等待已接受的写入完成；失败退出后仍复用原运行时。
+  Future<void> suspend() async {
+    _suspended = true;
+    for (final runtime in _runtimes.values.toList()) {
+      while (runtime._bridgeCalls.isNotEmpty) {
+        await Future.wait(runtime._bridgeCalls.toList());
+      }
+    }
+  }
+
+  void resume() => _suspended = false;
+
+  /// 原生引擎退出前释放 WebView，避免插件析构时访问已失效的 messenger。
+  Future<void> dispose() async {
+    _closing = true;
+    final runtimes = _runtimes.values.toList();
+    _runtimes.clear();
+    await Future.wait([for (final runtime in runtimes) runtime.dispose()]);
+    await Future.wait(_closingRuntimes.values.toList());
+  }
 
   /// Evaluates an untrusted script in a throwaway runtime whose bridge refuses network, cookies and
   /// storage, and reports what it registers.
   Future<ScriptInfo> probe(String code) async {
+    if (_closing || _suspended) throw SourceError('CANCELLED', '应用正在关闭');
     final r = SourceRuntime._(this, '', sandboxed: true);
     try {
       return await r.loadScript(code);
@@ -307,6 +333,9 @@ class SourceRuntime {
       _bridgeCalls.add(finished.future);
       try {
         if (_disposed) throw SourceError('CONFIG', '站点运行环境已关闭');
+        if (engine._suspended || engine._closing) {
+          throw SourceError('CANCELLED', '应用正在关闭');
+        }
         if (sandboxed) throw SourceError('CONFIG', '安装前预览时不允许访问网络与存储');
         return {'__value': await body()};
       } on SourceError catch (e) {

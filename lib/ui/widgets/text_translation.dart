@@ -7,6 +7,7 @@ import '../../core/content_translation.dart';
 import '../../core/localization.dart';
 import '../../core/settings.dart';
 import '../../core/tag_translations.dart';
+import '../kit/adaptive_sheet.dart';
 
 Future<void> showTextTranslation(
   BuildContext context,
@@ -26,7 +27,7 @@ Future<void> showTextTranslation(
     } catch (_) {}
     if (!context.mounted) return;
   }
-  return showModalBottomSheet<void>(
+  return showAdaptiveSheet<void>(
     context: context,
     isScrollControlled: true,
     builder: (_) => _TextTranslationSheet(

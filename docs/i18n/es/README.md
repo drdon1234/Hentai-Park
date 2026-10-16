@@ -27,6 +27,8 @@ Descarga el APK para Android desde la **[última versión](https://github.com/dr
 
 Hay clientes para Android, Windows, macOS y Linux. iOS/iPadOS solo dispone de un paquete para simulador; Web no está disponible. Consulta la [instalación y limitaciones](../../PLATFORMS.md).
 
+En escritorio, usa Ctrl+rueda del ratón o Ctrl/Cmd con las teclas más/menos para ajustar la escala, y Ctrl/Cmd+0 para restablecerla; también puedes hacerlo en Apariencia. El icono de la bandeja de Windows permite restaurar la ventana o salir. Al cerrar la ventana, puedes elegir ocultarla en la bandeja o salir.
+
 ## Empieza en tres pasos
 
 1. **Explorar**: abre Explorar y elige una categoría, o escribe una palabra clave, pega un enlace o un código en el buscador.
@@ -75,7 +77,7 @@ Las capturas usan datos de demostración sin conexión; los sitios, obras y port
 | Explorar y buscar | Navega por categorías, busca en varios sitios a la vez y amplía la búsqueda con palabras clave en otros idiomas; pega un enlace o código para ir directo a una obra |
 | Leer y ver | Cómics con desplazamiento, páginas o doble página; vídeos con episodios, velocidad y reanudación; novelas con tipografía, marcadores, notas y lectura en voz alta. Los tres lectores comparten los mismos controles |
 | Biblioteca | Favoritos con categorías y avisos de capítulos nuevos; suscríbete a creadores, canales o palabras clave |
-| Descargas | Pestaña propia en la navegación principal para gestionar descargas de cómics, vídeos, novelas y juegos; importa y exporta CBZ |
+| Descargas | Pestaña propia en la navegación principal para gestionar descargas de cómics, vídeos, novelas y juegos; importa y exporta CBZ; exporta los capítulos de imágenes completados como PDF desde el menú de la obra, guardando solo el primer fotograma de las imágenes animadas |
 | Recursos de juegos | Consulta la información, versiones y enlaces de descarga de juegos |
 | Traducción y filtros | Traduce títulos, descripciones y etiquetas; oculta obras por etiqueta |
 | Privacidad y copias | Bloqueo de la app, modo incógnito, portadas difuminadas, bloqueo de capturas; copia de favoritos, progreso y ajustes |
@@ -94,7 +96,7 @@ Temas claro y oscuro, ocho idiomas de interfaz. Las funciones de cada sitio se i
 | Vídeos cortos | Pornhub Shorties, Fyptt, Tik.porn |
 | Dramas cortos de IA | Series cortas Huangguo, Series cortas Huangdou, Series cortas 91 |
 | Novelas | Book18, Cool18, Canovel, Literotica, Lush Stories, StoriesOnline, 69story |
-| Juegos | GalgameX, KUN Galgame, Salón de té dimensional |
+| Juegos | KUN Galgame, GalgameX, Salón de té dimensional |
 | Suscripciones | X / Twitter, Telegram, myfans.jp, pixivFANBOX |
 
 Activa, ordena, actualiza o añade sitios en Más → Sitios.
@@ -107,6 +109,8 @@ Activa, ordena, actualiza o añade sitios en Más → Sitios.
 | Listas de sitios | JavMenu、MissAV、JableTV、SupJav、JM、E-Hentai、WNACG、nhentai、Hanime1 |
 
 Las listas comerciales incluyen obras, actrices, vendedores y categorías; las de sitios muestran contenido popular. Puedes buscar obras, ver detalles o abrir el sitio original.
+
+Las clasificaciones permiten filtrar y traducir títulos. Las portadas mantienen su proporción; pulsa un título largo para expandirlo.
 
 iXXX y TubeSafari usan reproducción web en la app. La página puede requerir confirmación del sitio; los controles los proporciona la página de origen. No se admiten las descargas de la app ni reanudar en un punto exacto. Android requiere una versión reciente de Android System WebView con sesiones aisladas.
 

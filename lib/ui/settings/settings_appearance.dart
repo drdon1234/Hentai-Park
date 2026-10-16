@@ -3,8 +3,10 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 
 import '../../core/localization.dart';
+import '../../core/platform_capabilities.dart';
 import '../../core/settings.dart';
 import '../../engine/platform_bridge.dart';
+import '../kit/adaptive_sheet.dart';
 import '../kit/kit.dart';
 import '../theme.dart';
 import 'settings_rows.dart';
@@ -23,18 +25,26 @@ List<Widget> appearanceSettings(BuildContext context, AppSettings s) {
             horizontal: Gap.page,
             vertical: Gap.m,
           ),
-          child: Row(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Expanded(child: Text(tr('主题'), style: context.text.bodyLarge)),
-              SegmentedButton<ThemeMode>(
-                showSelectedIcon: false,
-                segments: [
-                  ButtonSegment(value: ThemeMode.system, label: Text(tr('跟随'))),
-                  ButtonSegment(value: ThemeMode.light, label: Text(tr('浅色'))),
-                  ButtonSegment(value: ThemeMode.dark, label: Text(tr('深色'))),
+              Text(tr('主题'), style: context.text.bodyLarge),
+              const SizedBox(height: Gap.s),
+              Wrap(
+                spacing: Gap.s,
+                runSpacing: Gap.s,
+                children: [
+                  for (final option in [
+                    (ThemeMode.system, tr('跟随')),
+                    (ThemeMode.light, tr('浅色')),
+                    (ThemeMode.dark, tr('深色')),
+                  ])
+                    ChoiceChip(
+                      label: Text(option.$2),
+                      selected: s.themeMode == option.$1,
+                      onSelected: (_) => s.themeMode = option.$1,
+                    ),
                 ],
-                selected: {s.themeMode},
-                onSelectionChanged: (v) => s.themeMode = v.first,
               ),
             ],
           ),
@@ -92,6 +102,30 @@ List<Widget> appearanceSettings(BuildContext context, AppSettings s) {
           trailing: const Icon(Icons.chevron_right_rounded),
           onTap: () => _editHomeCategories(context, s),
         ),
+        if (PlatformCapabilities.desktop)
+          ListRow(
+            title: tr('界面缩放'),
+            subtitle:
+                '${s.desktopScale}% · Ctrl + / − / 0 · Ctrl + ${tr('滚轮')}',
+            trailing: const Icon(Icons.chevron_right_rounded),
+            onTap: () async {
+              final value = await chooseSetting<int>(context, tr('界面缩放'), {
+                for (final value in {
+                  75,
+                  90,
+                  100,
+                  110,
+                  125,
+                  150,
+                  175,
+                  200,
+                  s.desktopScale,
+                }.toList()..sort())
+                  value: '$value%',
+              }, s.desktopScale);
+              if (value != null) s.desktopScale = value;
+            },
+          ),
         ListRow(
           title: tr('每行封面数'),
           subtitle: s.gridColumns == 0 ? tr('自动') : '${s.gridColumns}',
@@ -126,7 +160,7 @@ List<Widget> appearanceSettings(BuildContext context, AppSettings s) {
 }
 
 Future<void> _editHomeCategories(BuildContext context, AppSettings s) =>
-    showModalBottomSheet<void>(
+    showAdaptiveSheet<void>(
       context: context,
       builder: (ctx) => ListenableBuilder(
         listenable: s.watch(const {'homeCategories'}),

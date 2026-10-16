@@ -182,7 +182,14 @@ class PagedSliverGrid extends StatelessWidget {
       listenable: controller,
       builder: (context, _) {
         final c = controller;
-        if (c.sections != null) return _SectionsSliver(controller: c);
+        if (c.sections != null) {
+          return SliverMainAxisGroup(
+            slivers: [
+              _SectionsSliver(controller: c),
+              SliverToBoxAdapter(child: _footer(context)),
+            ],
+          );
+        }
         if (c.items.isEmpty) {
           if (c.error != null) {
             return SliverFillRemaining(
@@ -311,19 +318,11 @@ class PagedSliverGrid extends StatelessWidget {
   Widget _footer(BuildContext context) {
     final c = controller;
     if (c.error != null) {
-      return Padding(
-        padding: const EdgeInsets.all(16),
-        child: Center(
-          child: FilledButton.tonalIcon(
-            onPressed: c.loadMore,
-            icon: const Icon(Icons.refresh_rounded),
-            label: Text(
-              tr('加载失败，点击重试  {value0}', {
-                'value0': c.error!.asSourceError.code,
-              }),
-            ),
-          ),
-        ),
+      return SourceErrorView(
+        error: c.error!,
+        source: c.source,
+        onRetry: c.loadMore,
+        compact: true,
       );
     }
     if (c.loading) {

@@ -1,23 +1,35 @@
 ## 中文
 
-### 改进
-- 下载独立为主导航入口，书架保留收藏和更新，管理离线内容更方便。
-- 优化漫画图片加载调度和翻页预加载，减少重复请求与无效加载。
-- 桌面支持选择下载目录和导出离线视频，漫画阅读器支持键盘全屏操作。
-- 桌面播放器支持宽屏分栏、键盘操作和窗口全屏。
-- Windows 和 Linux 接入视频播放，离线视频支持本地 HLS。
+### 新功能
+- 已下载漫画支持按已完成章节导出 PDF，动图仅保留第一帧。
 
-### 注意事项
-- Web 客户端尚不可用；iOS/iPadOS 目前仅提供模拟器包，不能直接安装到真机。
+### 改进
+- 统一各平台的棕白应用图标。
+- 桌面支持调整整体界面缩放，可使用 Ctrl/Cmd 加减键、Ctrl＋滚轮及外观设置，Ctrl/Cmd＋0 恢复默认大小。
+- 重新安排桌面详情和播放页面，改善窄窗口、大字体及宽屏使用体验。
+- 排行榜改用下拉筛选，补齐内容翻译入口，并完整显示横竖封面。
+- Windows 关闭窗口时可选择收起到托盘或退出，并可通过托盘恢复窗口。
+
+### 修复
+- 修复手机切换排行榜时页面意外向下滚动。
+- 修复部分视频加载失败、切集或离开页面后播放资源未正确释放的问题。
+- 修复部分页面人机验证后的刷新与重试，并在缓存详情中保留验证入口。
+- 修复退出时未等待备份和后台更新完成的问题。
 
 ## English
 
-### Improvements
-- Downloads now has its own main navigation tab; the library keeps favorites and updates for easier offline content management.
-- Improve comic image scheduling and page preloading to reduce duplicate requests and unnecessary loading.
-- Choose desktop download folders, export offline videos, and use keyboard fullscreen controls in the comic reader.
-- Desktop video supports a split layout, keyboard controls and window fullscreen.
-- Windows and Linux gain video playback, including local HLS for offline videos.
+### New
+- Export completed chapters of downloaded comics as PDF files; animated images use only their first frame.
 
-### Notes
-- The Web client is not available; iOS/iPadOS currently provides a simulator package only, which cannot be installed directly on a device.
+### Improvements
+- Unify the brown and white app icon across platforms.
+- Adjust the entire desktop interface with Ctrl/Cmd plus or minus, Ctrl+wheel, or Appearance settings; use Ctrl/Cmd+0 to reset.
+- Redesign desktop detail and playback pages for wide screens, small windows and larger text.
+- Use dropdown ranking filters, add content translation controls and show landscape and portrait covers without cropping.
+- Choose whether to minimize to the tray or exit when closing the Windows window, and restore the window from the tray.
+
+### Fixes
+- Fix unexpected downward scrolling when switching rankings on phones.
+- Fix playback resources not being released correctly after some video loading failures, episode changes or leaving the page.
+- Fix refresh and retry after verification on affected pages, and retain verification access in cached details.
+- Fix exiting before backups and background updates have finished.

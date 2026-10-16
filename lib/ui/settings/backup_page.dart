@@ -8,6 +8,7 @@ import '../../core/localization.dart';
 import '../../core/settings.dart';
 import '../../core/storage.dart';
 import '../../library/backup.dart';
+import '../kit/adaptive_sheet.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
 import '../widgets/platform_share.dart';
@@ -134,7 +135,7 @@ class _BackupPageState extends State<BackupPage> {
   }
 
   Future<void> _fileMenu(File f) async {
-    final action = await showModalBottomSheet<String>(
+    final action = await showAdaptiveSheet<String>(
       context: context,
       builder: (ctx) => SafeArea(
         child: Column(

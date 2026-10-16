@@ -9,6 +9,7 @@ import '../../core/settings.dart';
 import '../../core/titles.dart';
 import '../../engine/source_manager.dart';
 import '../../library/library.dart';
+import '../kit/adaptive_sheet.dart';
 import '../nav.dart';
 import '../theme.dart';
 
@@ -84,7 +85,7 @@ Future<Set<int>?> pickCategories(
   Set<int> selected = const {},
   String title = '设置分类',
 }) {
-  return showModalBottomSheet<Set<int>>(
+  return showAdaptiveSheet<Set<int>>(
     context: context,
     isScrollControlled: true,
     builder: (_) => _CategoryPicker(selected: selected, title: title),

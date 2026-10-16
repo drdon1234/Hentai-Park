@@ -32,6 +32,7 @@ enum SettingsDomain {
     'language',
     'refreshRate',
     'gridColumns',
+    'desktopScale',
     'domainOrder',
     'homeCategories',
   }),
@@ -261,7 +262,12 @@ class AppSettings extends ChangeNotifier {
   }
 
   /// Keys that change the app-wide theme or language.
-  static const appearanceKeys = {'themeMode', 'seedColor', 'language'};
+  static const appearanceKeys = {
+    'themeMode',
+    'seedColor',
+    'language',
+    'desktopScale',
+  };
 
   /// Keys that change which works are hidden by the content filter.
   static const filterKeys = {'blockedTags', 'blockPresets'};
@@ -350,6 +356,9 @@ class AppSettings extends ChangeNotifier {
   /// Preferred display refresh rate in Hz; 0 = follow the display's highest rate.
   int get refreshRate => _get('refreshRate', 0);
   set refreshRate(int v) => _set('refreshRate', v);
+
+  int get desktopScale => _get('desktopScale', 100);
+  set desktopScale(int v) => _set('desktopScale', v.clamp(75, 200));
 
   int get gridColumns => _get('gridColumns', 0); // 0 = adaptive
   set gridColumns(int v) => _set('gridColumns', v);

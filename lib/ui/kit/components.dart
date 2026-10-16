@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 
 import '../../core/localization.dart';
 import '../theme.dart';
+import 'adaptive_sheet.dart';
 import 'tokens.dart';
 
 /// Top-level page bar: a serif title (or [HeaderTabs]) and its actions.
@@ -499,7 +500,7 @@ Future<T?> showChoiceSheet<T>(
   required List<T> options,
   required T? selected,
   required String Function(T option) label,
-}) => showModalBottomSheet<T>(
+}) => showAdaptiveSheet<T>(
   context: context,
   sheetAnimationStyle: Motion.menu(context),
   isScrollControlled: true,

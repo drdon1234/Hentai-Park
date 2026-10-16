@@ -236,6 +236,14 @@
   "导入本地漫画": "Importar cómics",
   "导入的本地文件会被删除。": "Se eliminarán los archivos importados.",
   "导出为 CBZ": "Exportar como CBZ",
+  "导出为 PDF": "Exportar como PDF",
+  "按已完成章节导出，动图仅保留第一帧": "Exporta los capítulos completados; las imágenes animadas usan solo el primer fotograma",
+  "正在导出…": "Exportando…",
+  "正在导出 {value0}/{value1}…": "Exportando {value0}/{value1}…",
+  "没有可导出的已完成图片章节": "No hay capítulos de imágenes completados para exportar",
+  "章节没有可导出的图片": "Este capítulo no tiene imágenes para exportar",
+  "图片文件路径无效": "Ruta de archivo de imagen no válida",
+  "图片无法编码": "No se puede codificar la imagen",
   "导出失败：{value0}": "No se pudo exportar: {value0}",
   "导出视频文件": "Exportar archivo de vídeo",
   "导出诊断日志": "Exportar registro de diagnóstico",
@@ -1270,5 +1278,10 @@
   "后台下载已被系统停止，请返回应用后重试": "El sistema detuvo las descargas en segundo plano. Vuelve a la aplicación e inténtalo de nuevo",
   "移除下载项": "Eliminar descarga",
   "从下载列表移除「{title}」并删除已下载内容？": "¿Eliminar «{title}» de las descargas y borrar su contenido descargado?",
-  "无法保存到所选目录": "No se puede guardar en la carpeta seleccionada"
+  "无法保存到所选目录": "No se puede guardar en la carpeta seleccionada",
+  "界面缩放": "Escala de interfaz",
+  "滚轮": "rueda",
+  "恢复窗口": "Restaurar ventana",
+  "关闭应用": "Cerrar aplicación",
+  "收起到托盘": "Ocultar en la bandeja"
 }

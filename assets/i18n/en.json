@@ -236,6 +236,14 @@
   "导入本地漫画": "Import comics",
   "导入的本地文件会被删除。": "The imported files will be deleted.",
   "导出为 CBZ": "Export as CBZ",
+  "导出为 PDF": "Export as PDF",
+  "按已完成章节导出，动图仅保留第一帧": "Export completed chapters; animated images use only the first frame",
+  "正在导出…": "Exporting…",
+  "正在导出 {value0}/{value1}…": "Exporting {value0}/{value1}…",
+  "没有可导出的已完成图片章节": "No completed image chapters to export",
+  "章节没有可导出的图片": "This chapter has no images to export",
+  "图片文件路径无效": "Invalid image file path",
+  "图片无法编码": "Unable to encode image",
   "导出失败：{value0}": "Couldn't export: {value0}",
   "导出视频文件": "Export video file",
   "导出诊断日志": "Export diagnostic log",
@@ -1270,5 +1278,10 @@
   "后台下载已被系统停止，请返回应用后重试": "Background downloads were stopped by the system. Return to the app and retry",
   "移除下载项": "Remove download",
   "从下载列表移除「{title}」并删除已下载内容？": "Remove “{title}” from downloads and delete its downloaded content?",
-  "无法保存到所选目录": "Cannot save to the selected folder"
+  "无法保存到所选目录": "Cannot save to the selected folder",
+  "界面缩放": "Interface scale",
+  "滚轮": "wheel",
+  "恢复窗口": "Restore window",
+  "关闭应用": "Close application",
+  "收起到托盘": "Hide to tray"
 }

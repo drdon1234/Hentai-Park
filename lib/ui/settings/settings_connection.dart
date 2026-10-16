@@ -5,6 +5,7 @@ import '../../core/localization.dart';
 import '../../core/settings.dart';
 import '../../core/translation_options.dart';
 import '../kit/kit.dart';
+import '../kit/selection_chip.dart';
 import '../nav.dart';
 import '../subscriptions/subscriptions_page.dart';
 import '../theme.dart';
@@ -51,8 +52,8 @@ List<Widget> searchSettings(BuildContext context, AppSettings s) => [
               runSpacing: Gap.s - 2,
               children: [
                 for (final e in translateLanguages.entries)
-                  FilterChip(
-                    label: Text(tr(e.value)),
+                  SelectionChip(
+                    label: tr(e.value),
                     selected: s.translateTargets.contains(e.key),
                     onSelected: (on) {
                       final list = s.translateTargets;

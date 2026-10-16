@@ -4,6 +4,7 @@ import '../../core/localization.dart';
 import '../../core/models.dart';
 import '../../engine/source_manager.dart';
 import '../../library/library.dart';
+import '../kit/adaptive_sheet.dart';
 import '../library/favorite_actions.dart';
 import '../nav.dart';
 import '../theme.dart';
@@ -255,7 +256,7 @@ Future<void> showWorkActions(
   Object? coverHeroTag,
 }) async {
   final lib = Library.instance;
-  await showModalBottomSheet(
+  await showAdaptiveSheet(
     context: context,
     builder: (ctx) => SafeArea(
       child: Column(

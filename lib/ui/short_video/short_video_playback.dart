@@ -4,6 +4,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 
 import '../../core/models.dart';
+import '../../engine/desktop_shutdown.dart';
 
 abstract interface class ShortVideoHandle {
   Future<void> play();
@@ -178,7 +179,7 @@ class ShortVideoPlayback extends ChangeNotifier {
   @override
   void dispose() {
     _disposed = true;
-    unawaited(close());
+    PendingDisposals.instance.add(close());
     super.dispose();
   }
 }

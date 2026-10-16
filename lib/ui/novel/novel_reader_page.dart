@@ -418,7 +418,14 @@ class _NovelReaderPageState extends _NovelReaderBase
                               )
                             : _body == null
                             ? const Center(child: CircularProgressIndicator())
-                            : _content(foreground),
+                            : Center(
+                                child: ConstrainedBox(
+                                  constraints: const BoxConstraints(
+                                    maxWidth: 900,
+                                  ),
+                                  child: _content(foreground),
+                                ),
+                              ),
                       ),
                       if (_body != null && _settings.novelShowStatus)
                         NovelStatusLine(

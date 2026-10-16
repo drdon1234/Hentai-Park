@@ -10,6 +10,7 @@ import '../../core/settings.dart';
 import '../../engine/source_manager.dart';
 import '../../subscriptions/subscription_store.dart';
 import '../../subscriptions/updater.dart';
+import '../kit/adaptive_sheet.dart';
 import '../nav.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
@@ -166,7 +167,7 @@ class _TagChip extends StatelessWidget {
         SourceManager.instance.manifest(source)?.can('subscriptionUpdates') ==
             true &&
         subscriptionTag != null;
-    final action = await showModalBottomSheet<String>(
+    final action = await showAdaptiveSheet<String>(
       context: context,
       builder: (ctx) => SafeArea(
         child: Column(

@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:video_player/video_player.dart';
@@ -12,6 +13,7 @@ import '../../core/localization.dart';
 import '../../core/models.dart';
 import '../../engine/platform_bridge.dart';
 import '../../engine/source_manager.dart';
+import '../kit/adaptive_sheet.dart';
 import '../kit/components.dart';
 import '../theme.dart';
 import 'video_controls.dart';
@@ -63,6 +65,7 @@ class _VideoPageState extends State<VideoPage>
   VideoDisplayMode _displayMode = VideoDisplayMode.inline;
   StreamSubscription<double>? _volumeSub;
   Future<void> _screenUpdates = Future.value();
+  final _detailsRequest = CancelToken();
 
   List<Chapter> get _episodes => _session.episodes;
   int get _episodeIndex => _session.episodeIndex;
@@ -96,9 +99,11 @@ class _VideoPageState extends State<VideoPage>
         work.source,
         work.id,
         preview: work.toItem(),
+        cancelToken: _detailsRequest,
       );
       if (mounted) setState(() => _details = details);
     } catch (e, stack) {
+      if (_detailsRequest.isCancelled) return;
       // Playback does not depend on it; the panel keeps the stored title and metadata.
       AppLog.error(e, event: 'video_details', site: work.source, stack: stack);
     }
@@ -106,6 +111,7 @@ class _VideoPageState extends State<VideoPage>
 
   @override
   void dispose() {
+    _detailsRequest.cancel('video page closed');
     _episodePages.dispose();
     _hide?.cancel();
     _hintTimer?.cancel();
@@ -230,7 +236,7 @@ class _VideoPageState extends State<VideoPage>
 
   Future<void> _pickEpisode() async {
     _hide?.cancel();
-    final picked = await showModalBottomSheet<Chapter>(
+    final picked = await showAdaptiveSheet<Chapter>(
       context: context,
       isScrollControlled: true,
       builder: (_) =>
@@ -357,6 +363,7 @@ class _VideoPageState extends State<VideoPage>
     }
     return Scaffold(
       backgroundColor: context.colors.surface,
+      appBar: AppBar(title: Text(tr('播放'))),
       body: SafeArea(
         child: VideoLayout(
           player: player,
@@ -367,14 +374,10 @@ class _VideoPageState extends State<VideoPage>
             showRelated: false,
           ),
           details: Column(
+            mainAxisSize: MainAxisSize.min,
             children: [
               if (_episodes.length > 1) _episodeBar(),
-              Expanded(
-                child: VideoDetails(
-                  work: _details ?? widget.work,
-                  showHeader: false,
-                ),
-              ),
+              VideoDetails(work: _details ?? widget.work, showHeader: false),
             ],
           ),
         ),

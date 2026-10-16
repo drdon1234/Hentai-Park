@@ -8,6 +8,7 @@ import '../../core/settings.dart';
 import '../../engine/source_manager.dart';
 import '../../game/downloads.dart';
 import '../../library/downloads.dart' show DownloadStatus;
+import '../kit/adaptive_sheet.dart';
 import '../kit/kit.dart';
 import '../theme.dart';
 import '../widgets/error_view.dart';
@@ -222,9 +223,7 @@ class GameResourceCardState extends State<GameResourceCard> {
     }
   }
 
-  Future<void> _showLinks(
-    GameResourceLink result,
-  ) => showModalBottomSheet<void>(
+  Future<void> _showLinks(GameResourceLink result) => showAdaptiveSheet<void>(
     context: context,
     isScrollControlled: true,
     builder: (context) => SafeArea(

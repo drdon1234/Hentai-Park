@@ -47,6 +47,14 @@ class SubscriptionUpdater extends ChangeNotifier {
   int failures = 0, checked = 0;
   Timer? _timer;
   bool cancelled = false;
+  Future<void>? _activeRun;
+
+  Future<void> suspend() async {
+    stop();
+    cancel();
+    await _activeRun;
+  }
+
   final _cancels = <CancelToken>{};
   void cancel() {
     cancelled = true;
@@ -56,6 +64,7 @@ class SubscriptionUpdater extends ChangeNotifier {
   }
 
   void start() {
+    cancelled = false;
     _timer ??= Timer.periodic(
       const Duration(minutes: 1),
       (_) => unawaited(run()),
@@ -106,7 +115,14 @@ class SubscriptionUpdater extends ChangeNotifier {
   Future<void> run({
     bool force = false,
     Duration budget = const Duration(minutes: 3),
-  }) async {
+  }) {
+    if (cancelled || _activeRun != null) return Future.value();
+    return _activeRun = _run(force: force, budget: budget).whenComplete(() {
+      _activeRun = null;
+    });
+  }
+
+  Future<void> _run({required bool force, required Duration budget}) async {
     if (running || (!force && interval() == 0)) return;
     if (cancelled) return;
     running = true;

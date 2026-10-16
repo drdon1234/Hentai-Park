@@ -7,7 +7,6 @@ import '../engine/source_manager.dart';
 import '../library/downloads.dart';
 import '../library/playback_resolver.dart';
 import 'detail/detail_page.dart';
-import 'detail_pane.dart';
 import 'discovery_navigation.dart';
 import 'novel/novel_reader_page.dart';
 import 'reader/reader_page.dart';
@@ -65,13 +64,6 @@ class Nav {
     WorkItem item, {
     Object? coverHeroTag,
   }) async {
-    final pane = DetailPane.maybeOf(context);
-    if (pane != null &&
-        !item.isSubscriptionPost &&
-        !_short(item.source, item)) {
-      pane.onShow(item);
-      return;
-    }
     await _pushWork(context, item, coverHeroTag);
   }
 

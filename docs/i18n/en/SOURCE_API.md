@@ -531,7 +531,7 @@ Conventions you need when maintaining the official plugins. Sites change; the pl
 
 **Games**
 
-- Default order is GalgameX → KUN Galgame → Dimension Tea House. GalgameX and KUN enable NSFW by default (the guest `content-filter` API and the `include_nsfw` parameter respectively).
+- Default order is KUN Galgame → GalgameX → Dimension Tea House. GalgameX and KUN enable NSFW by default (the guest `content-filter` API and the `include_nsfw` parameter respectively).
 - GalgameX defaults to this week's popular list. The resource update list uses a Next Server Action discovered from the current front end; the action ID is cached for 15 minutes and rediscovered when it stops working, and no remote script is executed. Details are parsed from SSR Flight data. Public resources use host plus path hash as a stable channel ID; resolved results are matched by host and file name / share ID, rejecting mismatches and duplicates, without relying on the order of temporary links.
 - KUN defaults to the 7-day views ranking using its public native API; the download API is called only on tap, so prefetching never inflates the site's download count. Resource pages are walked by the API's total; repeated pages or early empty pages are errors.
 - Dimension Tea House uses browser mode with its own sign-in and defaults to the popular Galgame resource board; covers come from first-post attachments with 400 ms between requests. The resource list is read-only; the reply "感谢分享，好人一生平安" is sent with the full form only after the user confirms. Already unlocked threads are never replied to; when the result is unclear, state is kept and the user is pointed to the thread, and nothing is resent after a restart.

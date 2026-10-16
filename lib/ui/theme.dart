@@ -250,7 +250,7 @@ class ParkTheme {
         shape: controlShape,
         side: WidgetStateBorderSide.resolveWith(
           (states) => states.contains(WidgetState.selected)
-              ? BorderSide(color: selectedTint)
+              ? hairline.copyWith(color: selectedTint)
               : hairline.copyWith(color: scheme.outline.withValues(alpha: .5)),
         ),
         labelStyle: text.labelLarge?.copyWith(color: scheme.onSurface),

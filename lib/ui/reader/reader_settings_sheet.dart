@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/localization.dart';
 import '../../core/settings.dart';
+import '../kit/adaptive_sheet.dart';
 import 'reader_layout.dart';
 
 /// Reader options in three tabs (Mihon's reader settings sheet). Changes apply live: the reader
@@ -13,7 +14,7 @@ Future<void> showReaderSettings(
   required void Function(ReaderMode mode) onMode,
   required VoidCallback onUseDefault,
 }) {
-  return showModalBottomSheet<void>(
+  return showAdaptiveSheet<void>(
     context: context,
     isScrollControlled: true,
     showDragHandle: true,
@@ -58,6 +59,7 @@ class _ReaderSettingsState extends State<_ReaderSettings> {
           builder: (context, _) => Column(
             children: [
               TabBar(
+                isScrollable: true,
                 tabs: [
                   Tab(text: tr('阅读模式')),
                   Tab(text: tr('通用')),
@@ -80,13 +82,17 @@ class _ReaderSettingsState extends State<_ReaderSettings> {
     T value,
     List<(T, String)> options,
     ValueChanged<T> onChanged,
-  ) => SegmentedButton<T>(
-    showSelectedIcon: false,
-    segments: [
-      for (final o in options) ButtonSegment(value: o.$1, label: Text(o.$2)),
+  ) => Wrap(
+    spacing: 8,
+    runSpacing: 4,
+    children: [
+      for (final option in options)
+        ChoiceChip(
+          label: Text(option.$2),
+          selected: option.$1 == value,
+          onSelected: (_) => onChanged(option.$1),
+        ),
     ],
-    selected: {value},
-    onSelectionChanged: (v) => onChanged(v.first),
   );
 
   Widget _modeTab(AppSettings s) {
@@ -117,17 +123,14 @@ class _ReaderSettingsState extends State<_ReaderSettings> {
         ),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: Row(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Expanded(
-                child: Text(
-                  _override
-                      ? tr('仅对本作生效（默认：{value0}）', {
-                          'value0': s.readerMode.label,
-                        })
-                      : tr('使用默认阅读模式'),
-                  style: Theme.of(context).textTheme.bodySmall,
-                ),
+              Text(
+                _override
+                    ? tr('仅对本作生效（默认：{value0}）', {'value0': s.readerMode.label})
+                    : tr('使用默认阅读模式'),
+                style: Theme.of(context).textTheme.bodySmall,
               ),
               if (_override && s.readerMode != _mode)
                 TextButton(
@@ -215,7 +218,8 @@ class _ReaderSettingsState extends State<_ReaderSettings> {
         ListTile(
           title: Text(tr('点击区域')),
           enabled: s.tapToPage,
-          trailing: DropdownButton<TapLayout>(
+          subtitle: DropdownButton<TapLayout>(
+            isExpanded: true,
             value: layout,
             underline: const SizedBox.shrink(),
             items: [

@@ -6,6 +6,10 @@
 
 ## 环境与构建
 
+Windows 的 `windows/webview_lifecycle.cmake` 将 WebView 共享图形资源的释放移到插件析构阶段，按视图、合成器、D3D、DispatcherQueue、WinRT 的顺序关闭，避免 DLL 卸载期间访问图形驱动。构建只生成一个修正后的翻译单元，不修改 Pub 缓存。依赖升级导致对应源码结构变化时构建明确失败，必须核对释放顺序后更新集成。
+
+Windows/Linux 通过 `lib/video/desktop_video_player.dart` 将共享 `video_player` 控制器接入 `media_kit`；Android 与 Apple 平台使用系统实现。桌面桥先返回可释放的播放器标识，原生创建及打开结果通过事件交付；初始化失败也必须释放控制器。升级媒体依赖时需检查创建失败、切集、重播及关闭中的资源释放。
+
 - 工具链：Flutter 3.47.7（Dart 3.13.5）、JDK 17、Node.js 22。CI 固定这个 Flutter 版本。
 - WebView 使用 beta 依赖，用于现有的浏览器桥能力；升级前必须验证 Cookie 分区、验证页和媒体传输。`flutter_tts` 仍使用外部 Kotlin 插件，升级 Flutter 前要核对插件的内置 Kotlin 支持。
 - Android、Windows、macOS、Linux 与 iOS 模拟器均由 GitHub Actions 执行构建检查；真实设备和 Linux 发行版运行仍需单独验证。Web 因浏览器文件、Cookie、CORS 与本地媒体安全边界暂不宣称完整支持，详见 [平台矩阵](PLATFORMS.md)。
@@ -152,6 +156,7 @@ GitHub Release 正文就是应用内“发现软件新版本”对话框里的�
 - 备份包含书库、进度、标注、订阅目标、全局设置和站点配置；不含离线正文、媒体缓存和 Cookie。站点的 Token 等私有凭据只在用户勾选“站点登录数据”时导出。
 - 成年确认只保存在本机，不进入备份。
 - 自动备份只在启动和回到前台时检查，不在应用关闭后定时运行。
+- 桌面退出先暂停订阅、书库更新、备份和下载，等待已接受的备份快照、写盘及恢复任务完成，再释放页面、源运行时与数据库。暂停后迟到的文件选择结果不得创建新备份任务；可逆准备阶段失败后恢复服务，数据库关闭阶段失败只重试退出。
 - 备份里有、本机没安装的第三方站点，其配置会保留到后续备份中，安装相同 key 的插件后应用。
 
 ### 迁移与缓存

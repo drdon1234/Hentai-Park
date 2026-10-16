@@ -247,6 +247,9 @@ class VideoDetails extends StatelessWidget {
       ?quality,
     ];
     return CustomScrollView(
+      shrinkWrap: true,
+      primary: false,
+      physics: const NeverScrollableScrollPhysics(),
       slivers: [
         if (showHeader)
           SliverToBoxAdapter(

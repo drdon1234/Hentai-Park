@@ -6,6 +6,7 @@ import '../../core/localization.dart';
 import '../../core/models.dart';
 import '../../core/settings.dart';
 import '../../engine/source_manager.dart';
+import '../kit/adaptive_sheet.dart';
 import '../nav.dart';
 import '../settings/source_manage_page.dart';
 import '../theme.dart';
@@ -184,7 +185,7 @@ class _AggregateSearchPageState extends State<AggregateSearchPage> {
   }
 
   /// Which sites take part, grouped by category; most visits never need it, so it lives in a sheet.
-  Future<void> _editSites() => showModalBottomSheet<void>(
+  Future<void> _editSites() => showAdaptiveSheet<void>(
     context: context,
     sheetAnimationStyle: Motion.menu(context),
     isScrollControlled: true,

@@ -52,26 +52,29 @@ class _LockScreenState extends State<_LockScreen> {
       color: c.surface,
       child: SafeArea(
         child: Center(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                Icons.lock_outline_rounded,
-                size: 40,
-                color: c.onSurfaceVariant,
-              ),
-              const SizedBox(height: Gap.l),
-              Text(
-                tr('HentaiPark 已锁定'),
-                style: ParkText.serif(context.text.headlineSmall),
-              ),
-              const SizedBox(height: Gap.xl),
-              FilledButton.icon(
-                onPressed: AppLock.instance.unlock,
-                icon: const Icon(Icons.fingerprint_rounded),
-                label: Text(tr('解锁')),
-              ),
-            ],
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(Gap.page),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  Icons.lock_outline_rounded,
+                  size: 40,
+                  color: c.onSurfaceVariant,
+                ),
+                const SizedBox(height: Gap.l),
+                Text(
+                  tr('HentaiPark 已锁定'),
+                  style: ParkText.serif(context.text.headlineSmall),
+                ),
+                const SizedBox(height: Gap.xl),
+                FilledButton.icon(
+                  onPressed: AppLock.instance.unlock,
+                  icon: const Icon(Icons.fingerprint_rounded),
+                  label: Text(tr('解锁')),
+                ),
+              ],
+            ),
           ),
         ),
       ),

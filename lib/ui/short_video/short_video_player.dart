@@ -11,6 +11,7 @@ import '../../engine/media_transport.dart';
 import '../../engine/media_transport_factory.dart';
 import '../../engine/source_manager.dart';
 import '../../video/hls_playback.dart';
+import '../video/player_initialization.dart';
 import 'short_video_playback.dart';
 
 class ShortVideoPlayer implements ShortVideoHandle {
@@ -89,10 +90,7 @@ class ShortVideoPlayer implements ShortVideoHandle {
         httpHeaders: media == null ? headers : const {},
         videoPlayerOptions: VideoPlayerOptions(),
       );
-      await awaitCancelled(
-        controller.initialize().timeout(const Duration(seconds: 30)),
-        cancel,
-      );
+      await initializePlayer(controller, cancel);
       _check(cancel);
       await awaitCancelled(controller.setLooping(true), cancel);
       _check(cancel);

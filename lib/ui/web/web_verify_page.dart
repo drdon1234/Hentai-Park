@@ -9,6 +9,7 @@ import '../../core/models.dart';
 import '../../engine/browser_fetcher.dart';
 import '../../engine/challenge.dart';
 import '../../engine/cookie_store.dart';
+import '../../engine/desktop_shutdown.dart';
 import '../../engine/domains.dart';
 import '../../engine/http_service.dart';
 import '../../engine/source_manager.dart';
@@ -50,6 +51,7 @@ enum _Mode { cloudflare, login, confirmation }
 
 class _WebVerifyPageState extends State<WebVerifyPage> {
   InAppWebViewController? _c;
+  InAppWebViewKeepAlive _keepAlive = InAppWebViewKeepAlive();
   double _progress = 0;
   bool _done = false;
   Timer? _poll;
@@ -97,6 +99,12 @@ class _WebVerifyPageState extends State<WebVerifyPage> {
     if (_sourceAllowed(url)) {
       CookieStore.instance.trackBrowserUri(Uri.parse(url), widget.source);
     }
+  }
+
+  Future<void> _refreshBrowserSessions() async {
+    final manifest = SourceManager.instance.manifest(widget.source);
+    if (manifest == null) return;
+    await BrowserFetcher.instance.clearDomains(declaredDomains(manifest.json));
   }
 
   Future<bool> _openWindow(CreateWindowAction action) async {
@@ -193,6 +201,9 @@ class _WebVerifyPageState extends State<WebVerifyPage> {
 
   void _retryBrowser() {
     if (_sessionClosed || !_allowed(widget.url)) return;
+    final old = _keepAlive;
+    _keepAlive = InAppWebViewKeepAlive();
+    PendingDisposals.instance.add(InAppWebViewController.disposeKeepAlive(old));
     setState(() {
       _c = null;
       _browserFailed = false;
@@ -211,6 +222,9 @@ class _WebVerifyPageState extends State<WebVerifyPage> {
     _poll?.cancel();
     _unregisterSession?.call();
     _sessionClosed = true;
+    PendingDisposals.instance.add(
+      InAppWebViewController.disposeKeepAlive(_keepAlive),
+    );
     super.dispose();
   }
 
@@ -270,7 +284,7 @@ class _WebVerifyPageState extends State<WebVerifyPage> {
             if (ua is String && ua.isNotEmpty) {
               HttpService.instance.userAgent = ua;
             }
-            await BrowserFetcher.instance.reset(widget.url);
+            await _refreshBrowserSessions();
             if (_sessionClosed ||
                 _loading ||
                 generation != _navigationGeneration) {
@@ -376,7 +390,7 @@ class _WebVerifyPageState extends State<WebVerifyPage> {
       }
       final ua = await _c?.evaluateJavascript(source: 'navigator.userAgent');
       if (ua is String && ua.isNotEmpty) HttpService.instance.userAgent = ua;
-      await BrowserFetcher.instance.reset(actual);
+      await _refreshBrowserSessions();
       if (mounted &&
           !_sessionClosed &&
           !_loading &&
@@ -469,6 +483,7 @@ class _WebVerifyPageState extends State<WebVerifyPage> {
                 ? const Center(child: CircularProgressIndicator())
                 : InAppWebView(
                     key: ValueKey(_browserGeneration),
+                    keepAlive: _keepAlive,
                     windowId: _browserGeneration == 0 ? widget.windowId : null,
                     initialUrlRequest:
                         widget.windowId == null || _browserGeneration > 0
@@ -493,6 +508,15 @@ class _WebVerifyPageState extends State<WebVerifyPage> {
                     },
                     shouldOverrideUrlLoading: (_, action) {
                       final url = action.request.url?.toString();
+                      final uri = Uri.tryParse(url ?? '');
+                      if (!_sessionClosed &&
+                          uri != null &&
+                          challengeFrameNavigationAllowed(
+                            uri,
+                            isForMainFrame: action.isForMainFrame,
+                          )) {
+                        return NavigationActionPolicy.ALLOW;
+                      }
                       if (!_allowed(url)) {
                         if (action.isForMainFrame &&
                             mounted &&

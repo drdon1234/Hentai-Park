@@ -4,6 +4,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../core/localization.dart';
 import '../../core/models.dart';
 import '../../engine/source_manager.dart';
+import '../kit/adaptive_sheet.dart';
 import '../nav.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
@@ -100,7 +101,13 @@ class _SourceSettingsPageState extends State<SourceSettingsPage> {
                     children: [
                       SourceAvatar(m.key, size: 28),
                       const SizedBox(width: 10),
-                      Text(m.name),
+                      Expanded(
+                        child: Text(
+                          m.name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -361,7 +368,7 @@ class _SourceSettingsPageState extends State<SourceSettingsPage> {
           isThreeLine: o.description.isNotEmpty,
           trailing: const Icon(Icons.unfold_more_rounded),
           onTap: () async {
-            final picked = await showModalBottomSheet<Choice>(
+            final picked = await showAdaptiveSheet<Choice>(
               context: context,
               isScrollControlled: true,
               builder: (ctx) => SafeArea(

@@ -579,7 +579,7 @@ node tools/build_subscription_sources.mjs
 
 **游戏**
 
-- 默认顺序 GalgameX → KUN Galgame → 次元茶馆。GalgameX 与 KUN 默认开启 NSFW（分别用游客 `content-filter` 接口和 `include_nsfw` 参数）。
+- 默认顺序 KUN Galgame → GalgameX → 次元茶馆。GalgameX 与 KUN 默认开启 NSFW（分别用游客 `content-filter` 接口和 `include_nsfw` 参数）。
 - GalgameX 默认本周热门。资源更新列表使用前端动态发现的 Next Server Action，动作编号缓存 15 分钟，失效后重新发现，不执行远端脚本；详情从 SSR Flight 数据解析。公开资源用主机与路径哈希作为稳定渠道编号，解析后按主机及文件名/分享编号匹配，拒绝不匹配或重复匹配，不依赖临时链接的顺序。
 - KUN 默认七日浏览排行，使用公开原生 API；下载接口只在点击时调用，避免预取增加站点下载计数。按接口总数遍历资源页，重复页或提前空页报错。
 - 次元茶馆使用浏览器模式和独立登录，默认 Galgame 资源区热门；列表从首楼附件补封面，请求间隔 400ms。资源列表只读；只有用户确认回复后才按完整表单发送“感谢分享，好人一生平安”。已解锁不发帖；响应不明时保留状态并引导检查原帖，重启也不重复发送。

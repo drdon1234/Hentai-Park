@@ -10,12 +10,14 @@ class OptionBar extends StatelessWidget {
     required this.options,
     required this.values,
     required this.onChanged,
+    this.dropdowns = false,
     this.padding = const EdgeInsets.fromLTRB(12, 8, 12, 0),
   });
   final List<OptionDef> options;
   final Map<String, Object?> values;
   final ValueChanged<Map<String, Object?>> onChanged;
   final EdgeInsets padding;
+  final bool dropdowns;
 
   @override
   Widget build(BuildContext context) {
@@ -24,7 +26,36 @@ class OptionBar extends StatelessWidget {
       child: Column(
         children: [
           for (final o in options)
-            if (o.type == 'select' || o.type == 'multi')
+            if (dropdowns && o.type == 'select')
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: DropdownButtonFormField<int>(
+                  key: ValueKey('${o.key}:${values[o.key]}'),
+                  initialValue:
+                      o.values.indexWhere((c) => c.value == values[o.key]) < 0
+                      ? null
+                      : o.values.indexWhere((c) => c.value == values[o.key]),
+                  isExpanded: true,
+                  decoration: InputDecoration(labelText: o.label),
+                  items: [
+                    for (var i = 0; i < o.values.length; i++)
+                      DropdownMenuItem(
+                        value: i,
+                        child: Text(
+                          o.values[i].label,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                  ],
+                  onChanged: (i) {
+                    if (i != null) {
+                      onChanged({...values, o.key: o.values[i].value});
+                    }
+                  },
+                ),
+              )
+            else if (o.type == 'select' || o.type == 'multi')
               _OptionRow(
                 option: o,
                 values: values,
@@ -63,7 +94,13 @@ class _OptionRowState extends State<_OptionRow> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final ctx = _selectedKey.currentContext;
-      if (ctx != null) Scrollable.ensureVisible(ctx, alignment: 0.3);
+      if (ctx != null) {
+        final object = ctx.findRenderObject();
+        final scrollable = Scrollable.maybeOf(ctx, axis: Axis.horizontal);
+        if (object != null && scrollable != null) {
+          scrollable.position.ensureVisible(object, alignment: 0.3);
+        }
+      }
     });
   }
 
@@ -79,7 +116,7 @@ class _OptionRowState extends State<_OptionRow> {
     final o = widget.option;
     var keyed = false;
     return SizedBox(
-      height: 44,
+      height: 44 * MediaQuery.textScalerOf(context).scale(1).clamp(1, 2),
       child: ListView(
         scrollDirection: Axis.horizontal,
         children: [

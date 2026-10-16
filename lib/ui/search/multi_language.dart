@@ -7,6 +7,8 @@ import '../../core/settings.dart';
 import '../../core/translation_options.dart';
 import '../../core/translator.dart';
 import '../../engine/source_manager.dart';
+import '../kit/adaptive_sheet.dart';
+import '../kit/selection_chip.dart';
 import '../theme.dart';
 
 /// A keyword plus its translations, searched together.
@@ -71,7 +73,7 @@ Future<bool> confirmMultiLanguageSearch(
 ) async {
   final settings = AppSettings.instance;
   final selected = settings.translateTargets.toSet();
-  final approved = await showModalBottomSheet<bool>(
+  final approved = await showAdaptiveSheet<bool>(
     context: context,
     isScrollControlled: true,
     builder: (ctx) => StatefulBuilder(
@@ -96,8 +98,8 @@ Future<bool> confirmMultiLanguageSearch(
                 runSpacing: 6,
                 children: [
                   for (final language in translateLanguages.entries)
-                    FilterChip(
-                      label: Text(tr(language.value)),
+                    SelectionChip(
+                      label: tr(language.value),
                       selected: selected.contains(language.key),
                       onSelected: (on) => refresh(() {
                         on

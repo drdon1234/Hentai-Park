@@ -9,6 +9,9 @@
 
 ## 结构与实现
 
+- 界面规范见 `docs/DESIGN.md`，插件协议见 `docs/SOURCE_API.md`，构建、检查与数据语义见 `docs/DEVELOPMENT.md`。新增、验证站点和发布前检查分别使用 `.agents/skills/` 下对应技能。
+- Flutter 不在 PATH 时，向 `tools/check.ps1` 传入 `-FlutterCommand` 和 `-DartCommand` 的 SDK 完整路径。
+
 - `lib/core/`：模型、配置、国际化；`lib/engine/`：源加载、网络、隔离与桥接；`lib/images/`：图片处理和缓存；`lib/ui/`：界面；`assets/sources/`：唯一的源插件实现。
 - 站点业务规则留在源插件内，通用网络、缓存和图片能力留在框架内；不要在 Dart 中按源名称硬编码站点特例。
 - `type: comic|video|novel|game` 决定阅读/播放行为；`category: doujin|anime|aiDrama|jav|adult|shortvideo|gallery|novel|game|other` 决定本子、里番、AI短剧、JAV、成人视频、短视频、美图、小说、游戏、其他的入口分类。订阅按 `capabilities.subscription` 使用独立入口。新增源必须准确声明类型、分类和能力。

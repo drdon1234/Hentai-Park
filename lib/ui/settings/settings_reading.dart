@@ -6,6 +6,7 @@ import '../../core/platform_capabilities.dart';
 import '../../core/settings.dart';
 import '../../core/storage.dart';
 import '../../engine/platform_bridge.dart';
+import '../kit/adaptive_sheet.dart';
 import '../kit/kit.dart';
 import '../library/category_manage_page.dart';
 import '../nav.dart';
@@ -146,87 +147,86 @@ Map<int, String> get _intervals => {
 };
 
 /// The four update options in one place: how often, and which favorites to skip.
-Future<void> _editUpdatePolicy(BuildContext context) =>
-    showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      builder: (ctx) => ListenableBuilder(
-        listenable: AppSettings.instance.domain(SettingsDomain.library),
-        builder: (ctx, _) {
-          final s = AppSettings.instance;
-          return SafeArea(
-            child: SingleChildScrollView(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(
-                      Gap.page,
-                      0,
-                      Gap.page,
-                      Gap.s,
-                    ),
-                    child: Text(tr('更新策略'), style: ctx.text.titleLarge),
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: Gap.page),
-                    child: Text(
-                      tr('打开应用或回到前台时，如果已到间隔就检查收藏的新章节'),
-                      style: ctx.text.bodyMedium?.copyWith(
-                        color: ctx.colors.onSurfaceVariant,
-                      ),
-                    ),
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.all(Gap.page),
-                    child: Wrap(
-                      spacing: Gap.s,
-                      runSpacing: Gap.s,
-                      children: [
-                        for (final e in _intervals.entries)
-                          ChoiceChip(
-                            label: Text(e.value),
-                            selected: s.libraryUpdateHours == e.key,
-                            showCheckmark: false,
-                            onSelected: (_) {
-                              s.libraryUpdateHours = e.key;
-                              if (e.key > 0) {
-                                PlatformBridge.requestNotificationPermission();
-                              }
-                            },
-                          ),
-                      ],
-                    ),
-                  ),
-                  SwitchListTile(
-                    title: Text(tr('只检查多章节作品')),
-                    subtitle: Text(tr('单本画廊不会出新章节，跳过可以省去大部分请求')),
-                    value: s.updateOnlyMultiChapter,
-                    onChanged: s.libraryUpdateHours == 0
-                        ? null
-                        : (v) => s.updateOnlyMultiChapter = v,
-                  ),
-                  SwitchListTile(
-                    title: Text(tr('跳过有未读章节的作品')),
-                    value: s.updateSkipUnread,
-                    onChanged: s.libraryUpdateHours == 0
-                        ? null
-                        : (v) => s.updateSkipUnread = v,
-                  ),
-                  SwitchListTile(
-                    title: Text(tr('跳过还没开始读的作品')),
-                    value: s.updateSkipNotStarted,
-                    onChanged: s.libraryUpdateHours == 0
-                        ? null
-                        : (v) => s.updateSkipNotStarted = v,
-                  ),
-                  const SizedBox(height: Gap.s),
-                ],
+Future<void> _editUpdatePolicy(BuildContext context) => showAdaptiveSheet<void>(
+  context: context,
+  isScrollControlled: true,
+  builder: (ctx) => ListenableBuilder(
+    listenable: AppSettings.instance.domain(SettingsDomain.library),
+    builder: (ctx, _) {
+      final s = AppSettings.instance;
+      return SafeArea(
+        child: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(
+                  Gap.page,
+                  0,
+                  Gap.page,
+                  Gap.s,
+                ),
+                child: Text(tr('更新策略'), style: ctx.text.titleLarge),
               ),
-            ),
-          );
-        },
-      ),
-    );
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: Gap.page),
+                child: Text(
+                  tr('打开应用或回到前台时，如果已到间隔就检查收藏的新章节'),
+                  style: ctx.text.bodyMedium?.copyWith(
+                    color: ctx.colors.onSurfaceVariant,
+                  ),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.all(Gap.page),
+                child: Wrap(
+                  spacing: Gap.s,
+                  runSpacing: Gap.s,
+                  children: [
+                    for (final e in _intervals.entries)
+                      ChoiceChip(
+                        label: Text(e.value),
+                        selected: s.libraryUpdateHours == e.key,
+                        showCheckmark: false,
+                        onSelected: (_) {
+                          s.libraryUpdateHours = e.key;
+                          if (e.key > 0) {
+                            PlatformBridge.requestNotificationPermission();
+                          }
+                        },
+                      ),
+                  ],
+                ),
+              ),
+              SwitchListTile(
+                title: Text(tr('只检查多章节作品')),
+                subtitle: Text(tr('单本画廊不会出新章节，跳过可以省去大部分请求')),
+                value: s.updateOnlyMultiChapter,
+                onChanged: s.libraryUpdateHours == 0
+                    ? null
+                    : (v) => s.updateOnlyMultiChapter = v,
+              ),
+              SwitchListTile(
+                title: Text(tr('跳过有未读章节的作品')),
+                value: s.updateSkipUnread,
+                onChanged: s.libraryUpdateHours == 0
+                    ? null
+                    : (v) => s.updateSkipUnread = v,
+              ),
+              SwitchListTile(
+                title: Text(tr('跳过还没开始读的作品')),
+                value: s.updateSkipNotStarted,
+                onChanged: s.libraryUpdateHours == 0
+                    ? null
+                    : (v) => s.updateSkipNotStarted = v,
+              ),
+              const SizedBox(height: Gap.s),
+            ],
+          ),
+        ),
+      );
+    },
+  ),
+);
 
 // ── 搜索与翻译 ──

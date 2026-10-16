@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -8,10 +9,12 @@ import '../../core/app_log.dart';
 import '../../core/localization.dart';
 import '../../core/models.dart';
 import '../../core/tag_blocklist.dart';
+import '../../engine/desktop_shutdown.dart';
 import '../../engine/source_manager.dart';
 import '../../library/downloads.dart';
 import '../../library/library.dart';
 import '../game/game_resources.dart';
+import '../kit/adaptive_sheet.dart';
 import '../kit/kit.dart';
 import '../nav.dart';
 import '../theme.dart';
@@ -38,15 +41,13 @@ class DetailPage extends StatefulWidget {
     required this.id,
     this.preview,
     this.coverHeroTag,
-    this.onClose,
+    this.sourceManager,
   });
   final String source;
   final String id;
   final WorkItem? preview;
   final Object? coverHeroTag;
-
-  /// Closes the page when it is shown beside a list instead of as a route.
-  final VoidCallback? onClose;
+  final SourceManager? sourceManager;
 
   @override
   State<DetailPage> createState() => _DetailPageState();
@@ -58,8 +59,10 @@ class _DetailPageState extends State<DetailPage> {
   bool _reversed = false;
   final Set<String> _selected = {};
   final _resourcesKey = GlobalKey();
+  CancelToken? _request;
+  SourceManager get _manager => widget.sourceManager ?? SourceManager.instance;
 
-  SourceManifest? get _m => SourceManager.instance.manifest(widget.source);
+  SourceManifest? get _m => _manager.manifest(widget.source);
   String get _uid => '${widget.source}:${widget.id}';
   bool get _isVideo =>
       _m?.isVideo ?? DownloadManager.instance.task(_uid)?.isVideo ?? false;
@@ -70,7 +73,9 @@ class _DetailPageState extends State<DetailPage> {
   @override
   void initState() {
     super.initState();
-    Library.instance.loadChapters(_uid);
+    PendingDisposals.instance.add(
+      Library.instance.loadChapters(_uid).then<void>((_) {}),
+    );
     _load();
   }
 
@@ -93,6 +98,8 @@ class _DetailPageState extends State<DetailPage> {
   }
 
   Future<void> _load() async {
+    _request?.cancel('detail reloaded');
+    final request = _request = CancelToken();
     setState(() => _error = null);
     if (widget.source == localSource) {
       // Imported files: everything is on disk, there is no site to ask.
@@ -107,29 +114,37 @@ class _DetailPageState extends State<DetailPage> {
       );
       if (d != null) {
         Library.instance.recordVisit(d.toItem());
-        unawaited(_syncChapters(d));
+        PendingDisposals.instance.add(_syncChapters(d));
       }
       return;
     }
     try {
-      final d = await SourceManager.instance.detail(
+      final d = await _manager.detail(
         widget.source,
         widget.id,
         preview: widget.preview,
+        cancelToken: request,
       );
-      if (!mounted) return;
+      if (!mounted || request.isCancelled || !identical(_request, request)) {
+        return;
+      }
       setState(() => _detail = d);
       Library.instance.recordVisit(d.toItem());
-      unawaited(_syncChapters(d));
+      PendingDisposals.instance.add(_syncChapters(d));
     } catch (e) {
-      if (!mounted) return;
+      if (!mounted || request.isCancelled || !identical(_request, request)) {
+        return;
+      }
       // Offline (or the site is down): fall back to the downloaded copy when there is one.
       final offline = DownloadManager.instance.offlineDetail(
         widget.source,
         widget.id,
       );
       if (offline != null) {
-        setState(() => _detail = offline);
+        setState(() {
+          _detail = offline;
+          _error = e;
+        });
         context.toast(
           tr('无法连接{source}，已打开离线下载的内容', {'source': _m?.name ?? ''}),
         );
@@ -137,6 +152,12 @@ class _DetailPageState extends State<DetailPage> {
       }
       setState(() => _error = e);
     }
+  }
+
+  @override
+  void dispose() {
+    _request?.cancel('detail page closed');
+    super.dispose();
   }
 
   DetailKind get _kind {
@@ -183,7 +204,7 @@ class _DetailPageState extends State<DetailPage> {
           duration: Motion.of(context, Motion.medium),
         );
       } else if (_detail != null) {
-        showModalBottomSheet<void>(
+        showAdaptiveSheet<void>(
           context: context,
           isScrollControlled: true,
           builder: (_) => SafeArea(
@@ -233,8 +254,16 @@ class _DetailPageState extends State<DetailPage> {
                 detail: _detail,
                 manifest: _m,
                 coverHeroTag: widget.coverHeroTag,
-                onClose: widget.onClose,
                 body: [
+                  if (_error != null)
+                    SliverToBoxAdapter(
+                      child: SourceErrorView(
+                        error: _error!,
+                        source: widget.source,
+                        onRetry: _load,
+                        compact: true,
+                      ),
+                    ),
                   SliverToBoxAdapter(
                     child: DetailActionBar(
                       item: _item,
@@ -261,15 +290,6 @@ class _DetailPageState extends State<DetailPage> {
                   const SliverToBoxAdapter(child: SizedBox(height: Gap.xxl)),
                 ],
               ),
-              if (_error != null && _detail == null)
-                SliverFillRemaining(
-                  hasScrollBody: false,
-                  child: SourceErrorView(
-                    error: _error!,
-                    source: widget.source,
-                    onRetry: _load,
-                  ),
-                ),
             ],
           ),
         ),

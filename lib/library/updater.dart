@@ -52,6 +52,16 @@ class LibraryUpdater extends ChangeNotifier {
 
   bool _running = false;
   bool _cancel = false;
+  bool _suspended = false;
+  Future<UpdateResult?>? _activeRun;
+
+  Future<void> suspend() async {
+    _suspended = true;
+    cancel();
+    await _activeRun;
+  }
+
+  void resume() => _suspended = false;
   int done = 0;
   int total = 0;
   String? current;
@@ -97,7 +107,14 @@ class LibraryUpdater extends ChangeNotifier {
   void cancel() => _cancel = true;
 
   /// Runs an update over all favorites, or those of [category]. Returns null when one is already running.
-  Future<UpdateResult?> run({int? category}) async {
+  Future<UpdateResult?> run({int? category}) {
+    if (_suspended || _activeRun != null) return Future.value();
+    return _activeRun = _run(category: category).whenComplete(() {
+      _activeRun = null;
+    });
+  }
+
+  Future<UpdateResult?> _run({int? category}) async {
     if (_running) return null;
     _running = true;
     _cancel = false;
@@ -126,7 +143,7 @@ class LibraryUpdater extends ChangeNotifier {
       current = null;
       notifyListeners();
     }
-    for (final hook in onFinished) {
+    for (final hook in _cancel ? <void Function(UpdateResult)>[] : onFinished) {
       try {
         hook(result);
       } catch (e) {
@@ -146,6 +163,7 @@ class LibraryUpdater extends ChangeNotifier {
       current = f.item.title;
       try {
         final d = await _fetch(f.item.source, f.item.id);
+        if (_cancel) return;
         final item = d.toItem();
         final isVideo =
             SourceManager.instance.manifest(f.item.source)?.isVideo == true;

@@ -8,12 +8,12 @@ import 'package:archive/archive_io.dart';
 import 'package:crypto/crypto.dart';
 import 'package:path/path.dart' as p;
 
-import '../core/async_tasks.dart';
 import '../core/localization.dart';
 import '../core/models.dart';
 import '../core/storage.dart';
 import '../images/park_image.dart';
 import 'downloads.dart';
+import 'export_files.dart';
 
 /// Comic metadata written to / read from ComicInfo.xml (the de-facto CBZ metadata format).
 class ComicInfo {
@@ -133,34 +133,7 @@ String imageExtension(Uint8List b) {
   return '.jpg';
 }
 
-String _fileSafe(String s) {
-  final t = s
-      .replaceAll(RegExp(r'[\\/:*?"<>|\r\n]+'), ' ')
-      .replaceAll(RegExp(r'\s+'), ' ')
-      .trim();
-  return t.length > 80
-      ? t.substring(0, 80).trim()
-      : (t.isEmpty ? 'untitled' : t);
-}
-
 class Cbz {
-  static final _publishing = SerialExecutor();
-
-  static Future<File> _publish(String staged, Directory outDir, String name) {
-    return _publishing.run(() async {
-      var file = File(p.join(outDir.path, name));
-      for (var suffix = 2; await file.exists(); suffix++) {
-        file = File(
-          p.join(
-            outDir.path,
-            '${p.basenameWithoutExtension(name)} ($suffix).cbz',
-          ),
-        );
-      }
-      return File(staged).rename(file.path);
-    });
-  }
-
   /// Writes one .cbz per completed chapter of a downloaded comic into [outDir]. Pages that need a
   /// transform (JM strip scrambling) are restored and re-encoded as PNG.
   static Future<List<File>> exportTask(
@@ -173,7 +146,7 @@ class Cbz {
         .where((c) => t.completed.contains(c.id))
         .toList();
     final out = <File>[];
-    final base = _fileSafe(t.item.title);
+    final base = exportFileName(t.item.title);
     for (var ci = 0; ci < chapters.length; ci++) {
       final ch = chapters[ci];
       final manifest = File(
@@ -192,7 +165,7 @@ class Cbz {
         pageCount: pages.length,
       );
       final name = chapters.length > 1
-          ? '$base - ${_fileSafe(ch.title)}.cbz'
+          ? '$base - ${exportFileName(ch.title)}.cbz'
           : '$base.cbz';
       final staging = await outDir.createTemp('.park-export-');
       final entries = <(String path, String name)>[];
@@ -229,7 +202,7 @@ class Cbz {
         final staged = p.join(staging.path, 'chapter.cbz');
         final xml = info.toXml();
         await Isolate.run(() => _encodeChapter(staged, entries, xml));
-        out.add(await _publish(staged, outDir, name));
+        out.add(await publishExport(File(staged), outDir, name));
       } finally {
         await staging.delete(recursive: true);
       }

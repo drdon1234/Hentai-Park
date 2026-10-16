@@ -10,6 +10,7 @@ import '../../engine/media_transport_factory.dart';
 import '../../engine/source_manager.dart';
 import '../../library/downloads.dart';
 import '../../video/hls_playback.dart';
+import 'player_initialization.dart';
 
 /// 准备完成前不播放；所有过期请求都释放播放器及其独立媒体会话。
 class PreparedVideo {
@@ -111,10 +112,7 @@ class PreparedVideo {
           videoPlayerOptions: VideoPlayerOptions(allowBackgroundPlayback: true),
         );
       }
-      await awaitCancelled(
-        controller.initialize().timeout(const Duration(seconds: 30)),
-        cancel,
-      );
+      await initializePlayer(controller, cancel);
       check();
       return PreparedVideo(controller, media, sources, source, local != null);
     } catch (_) {

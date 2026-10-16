@@ -300,15 +300,6 @@
       "file": "storiesonline.js"
     },
     {
-      "key": "galgamex",
-      "name": "GalgameX",
-      "version": "0.0.5",
-      "type": "game",
-      "category": "game",
-      "file": "galgamex.js",
-      "description": "游戏目录、版本资源与直链和网盘渠道"
-    },
-    {
       "key": "kungal",
       "name": "KUN Galgame",
       "version": "0.0.5",
@@ -316,6 +307,15 @@
       "category": "game",
       "file": "kungal.js",
       "description": "游戏排行、搜索及社区分享资源"
+    },
+    {
+      "key": "galgamex",
+      "name": "GalgameX",
+      "version": "0.0.5",
+      "type": "game",
+      "category": "game",
+      "file": "galgamex.js",
+      "description": "游戏目录、版本资源与直链和网盘渠道"
     },
     {
       "key": "cycg",

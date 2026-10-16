@@ -10,9 +10,11 @@ import '../../core/models.dart';
 import '../../core/settings.dart';
 import '../../game/downloads.dart';
 import '../../library/cbz.dart';
+import '../../library/comic_pdf.dart';
 import '../../library/downloads.dart';
 import '../../video/offline_video_export.dart';
 import '../game/game_resources.dart';
+import '../kit/adaptive_sheet.dart';
 import '../nav.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
@@ -152,7 +154,7 @@ class _TaskTile extends StatelessWidget {
   Future<void> _chapters(BuildContext context) async {
     final t = DownloadManager.instance.task(task.uid);
     if (!context.mounted || t == null) return;
-    return showModalBottomSheet<void>(
+    return showAdaptiveSheet<void>(
       context: context,
       isScrollControlled: true,
       builder: (_) => _ChapterSheet(
@@ -177,7 +179,7 @@ class _TaskTile extends StatelessWidget {
     final t = DownloadManager.instance.task(task.uid);
     if (!context.mounted || t == null) return;
     final canExport = !t.isVideo && !t.isNovel && t.completed.isNotEmpty;
-    final action = await showModalBottomSheet<String>(
+    final action = await showAdaptiveSheet<String>(
       context: context,
       builder: (ctx) => SafeArea(
         child: Column(
@@ -203,6 +205,13 @@ class _TaskTile extends StatelessWidget {
                 title: Text(tr('导出为 CBZ')),
                 onTap: () => Navigator.pop(ctx, 'cbz'),
               ),
+            if (canExport)
+              ListTile(
+                leading: const Icon(Icons.picture_as_pdf_outlined),
+                title: Text(tr('导出为 PDF')),
+                subtitle: Text(tr('按已完成章节导出，动图仅保留第一帧')),
+                onTap: () => Navigator.pop(ctx, 'pdf'),
+              ),
             if (t.isVideo &&
                 t.chapters.length == 1 &&
                 t.completed.contains(t.chapters.first.id))
@@ -225,7 +234,9 @@ class _TaskTile extends StatelessWidget {
       case 'chapters':
         await _chapters(context);
       case 'cbz':
-        await _exportCbz(context);
+        await _exportImages(context);
+      case 'pdf':
+        await _exportImages(context, pdf: true);
       case 'video':
         final file = await DownloadManager.instance.localVideo(
           t.item.source,
@@ -245,13 +256,15 @@ class _TaskTile extends StatelessWidget {
     }
   }
 
-  Future<void> _exportCbz(BuildContext context) async {
-    final progress = ValueNotifier<String>(tr('正在打包…'));
-    unawaited(
-      showDialog<void>(
-        context: context,
-        barrierDismissible: false,
-        builder: (_) => AlertDialog(
+  Future<void> _exportImages(BuildContext context, {bool pdf = false}) async {
+    final progress = ValueNotifier<String>(tr('正在导出…'));
+    final nav = Navigator.of(context, rootNavigator: true);
+    final dialog = showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => PopScope(
+        canPop: false,
+        child: AlertDialog(
           content: Row(
             children: [
               const SizedBox(
@@ -271,20 +284,25 @@ class _TaskTile extends StatelessWidget {
         ),
       ),
     );
-    final nav = Navigator.of(context, rootNavigator: true);
+    var showingProgress = true;
+    Future<void> closeProgress() async {
+      if (!showingProgress) return;
+      showingProgress = false;
+      if (nav.mounted) nav.pop();
+      await dialog;
+    }
+
     try {
       final out = Directory(
         p.join(DownloadManager.instance.root.path, 'exports'),
       );
-      final files = await Cbz.exportTask(
-        task,
-        out,
-        onProgress: (d, n) => progress.value = tr('正在打包 {value0}/{value1}…', {
-          'value0': d,
-          'value1': n,
-        }),
+      void onProgress(int done, int total) => progress.value = tr(
+        '正在导出 {value0}/{value1}…',
+        {'value0': done, 'value1': total},
       );
-      nav.pop();
+      final export = pdf ? ComicPdf.exportTask : Cbz.exportTask;
+      final files = await export(task, out, onProgress: onProgress);
+      await closeProgress();
       if (!context.mounted) return;
       context.toast(tr('已导出到 {value0}', {'value0': out.path}));
       await shareContent(
@@ -292,8 +310,10 @@ class _TaskTile extends StatelessWidget {
         files: [for (final f in files) XFile(f.path)],
       );
     } catch (e) {
-      nav.pop();
+      await closeProgress();
       if (context.mounted) context.toast(tr('导出失败：{value0}', {'value0': e}));
+    } finally {
+      progress.dispose();
     }
   }
 

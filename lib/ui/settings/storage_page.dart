@@ -12,6 +12,7 @@ import '../../game/downloads.dart';
 import '../../images/image_store.dart';
 import '../../library/downloads.dart';
 import '../../library/library.dart';
+import '../kit/adaptive_sheet.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
 
@@ -118,7 +119,7 @@ class _StoragePageState extends State<StoragePage> {
 
   Future<void> _clearCookies() async {
     final sources = SourceManager.instance.all;
-    final key = await showModalBottomSheet<String>(
+    final key = await showAdaptiveSheet<String>(
       context: context,
       builder: (ctx) => SafeArea(
         child: ListView(

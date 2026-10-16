@@ -7,6 +7,7 @@ import '../../core/localization.dart';
 import '../../core/settings.dart';
 import '../../core/tag_translations.dart';
 import '../../engine/source_manager.dart';
+import '../kit/adaptive_sheet.dart';
 import 'on_visible.dart';
 import 'text_translation.dart';
 
@@ -310,7 +311,7 @@ class TranslationControls extends StatelessWidget {
             ? Theme.of(context).colorScheme.primary
             : null,
       ),
-      onPressed: () => showModalBottomSheet<void>(
+      onPressed: () => showAdaptiveSheet<void>(
         context: context,
         builder: (ctx) => StatefulBuilder(
           builder: (ctx, refresh) => SafeArea(
@@ -454,7 +455,7 @@ Future<void> showTagTranslationPacks(
     } catch (_) {}
     if (!context.mounted) return;
   }
-  await showModalBottomSheet<void>(
+  await showAdaptiveSheet<void>(
     context: context,
     isScrollControlled: true,
     builder: (ctx) => StatefulBuilder(

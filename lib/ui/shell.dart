@@ -5,14 +5,11 @@ import 'package:flutter/services.dart';
 
 import '../core/content_scope.dart';
 import '../core/localization.dart';
-import '../core/models.dart';
 import '../core/settings.dart';
 import '../engine/platform_bridge.dart';
 import '../library/backup.dart';
 import '../library/updater.dart';
 import '../subscriptions/updater.dart';
-import 'detail/detail_page.dart';
-import 'detail_pane.dart';
 import 'discovery_navigation.dart';
 import 'history/history_page.dart';
 import 'home/home_page.dart';
@@ -56,16 +53,6 @@ class _ShellState extends State<Shell> {
 
   /// New chapters found since the updates segment was last opened (badge).
   final _unseenUpdates = ValueNotifier(0);
-
-  /// The work shown beside the list on wide screens.
-  WorkItem? _pane;
-
-  void _showPane(WorkItem item) {
-    if (_pane?.uid == item.uid) return;
-    setState(() => _pane = item);
-  }
-
-  void _closePane() => setState(() => _pane = null);
 
   @override
   void initState() {
@@ -166,10 +153,6 @@ class _ShellState extends State<Shell> {
   /// Back on another tab returns to 发现; on 发现 it needs a second press within 2 s to leave,
   /// so a stray back gesture never closes the app mid-browse.
   void _onBack() {
-    if (_pane != null) {
-      _closePane();
-      return;
-    }
     if (_index != 0) {
       _select(0);
       return;
@@ -193,8 +176,6 @@ class _ShellState extends State<Shell> {
     _lastBack = null;
     if (i != _index) HapticFeedback.selectionClick();
     setState(() {
-      // The work beside the list belongs to the tab it was opened from.
-      if (i != _index) _pane = null;
       _index = i;
       _visited.add(i);
     });
@@ -270,14 +251,6 @@ class _ShellState extends State<Shell> {
   Widget _shell(BuildContext context) {
     final width = MediaQuery.sizeOf(context).width;
     final wide = width >= 840;
-    if (!wide && _pane != null) {
-      // Narrowed (e.g. rotated) with a work open beside the list: open it as a page.
-      final item = _pane!;
-      _pane = null;
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) Nav.openWork(context, item);
-      });
-    }
     // Tabs are built lazily on first visit and then kept alive. The body never changes its
     // parent, so toggling incognito keeps every tab's scroll position and state.
     final body = Column(
@@ -340,34 +313,14 @@ class _ShellState extends State<Shell> {
         );
       },
     );
-    final pane = _pane;
     final scaffold = wide
-        ? DetailPane(
-            selected: pane?.uid,
-            onShow: _showPane,
-            child: Scaffold(
-              body: Row(
-                children: [
-                  SafeArea(right: false, child: navigation),
-                  const VerticalDivider(width: 1, thickness: .8),
-                  Expanded(child: body),
-                  if (pane != null) ...[
-                    const VerticalDivider(width: 1, thickness: .8),
-                    SizedBox(
-                      width: (width * .42).clamp(360.0, 560.0),
-                      child: TranslationPage(
-                        child: DetailPage(
-                          key: ValueKey(pane.uid),
-                          source: pane.source,
-                          id: pane.id,
-                          preview: pane,
-                          onClose: _closePane,
-                        ),
-                      ),
-                    ),
-                  ],
-                ],
-              ),
+        ? Scaffold(
+            body: Row(
+              children: [
+                SafeArea(right: false, child: navigation),
+                const VerticalDivider(width: 1, thickness: .8),
+                Expanded(child: body),
+              ],
             ),
           )
         : Scaffold(body: body, bottomNavigationBar: navigation);

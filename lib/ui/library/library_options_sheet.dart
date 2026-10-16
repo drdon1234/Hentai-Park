@@ -4,11 +4,12 @@ import '../../core/localization.dart';
 import '../../core/models.dart';
 import '../../core/settings.dart';
 import '../../engine/source_manager.dart';
+import '../kit/adaptive_sheet.dart';
 import '../widgets/common.dart';
 
 /// Filter / sort / display options for the library (Mihon's three-tab sheet).
 Future<void> showLibraryOptions(BuildContext context) =>
-    showModalBottomSheet<void>(
+    showAdaptiveSheet<void>(
       context: context,
       isScrollControlled: true,
       showDragHandle: true,

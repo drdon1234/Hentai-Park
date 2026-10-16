@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../core/localization.dart';
+import '../kit/adaptive_sheet.dart';
 import '../kit/kit.dart';
 
 /// Grayscale and invert filters on the pages, and the dim and warm layers above them.
@@ -62,7 +63,7 @@ enum PageAction { share, save }
 
 /// What to do with one page (long press).
 Future<PageAction?> showPageActions(BuildContext context, int index) =>
-    showModalBottomSheet<PageAction>(
+    showAdaptiveSheet<PageAction>(
       context: context,
       builder: (ctx) => SafeArea(
         child: Column(

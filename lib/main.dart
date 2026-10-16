@@ -7,7 +7,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:path/path.dart' as p;
-import 'package:video_player_media_kit/video_player_media_kit.dart';
 
 import 'core/app_lock.dart';
 import 'core/crash_log.dart';
@@ -36,6 +35,8 @@ import 'ui/lock/lock_screen.dart';
 import 'ui/nav.dart';
 import 'ui/shell.dart';
 import 'ui/theme.dart';
+import 'ui/widgets/desktop_scale.dart';
+import 'video/desktop_video_player.dart';
 
 @pragma('vm:entry-point')
 Future<void> subscriptionBackgroundMain() => subscriptionBackground();
@@ -43,7 +44,7 @@ Future<void> subscriptionBackgroundMain() => subscriptionBackground();
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   if (Platform.isMacOS) await FilePicker.skipEntitlementsChecks();
-  VideoPlayerMediaKit.ensureInitialized(windows: true, linux: true);
+  DesktopVideoPlayer.register();
   if (Platform.isAndroid) {
     await const MethodChannel('hentai_park/platform')
         .invokeMethod<void>('claimSourceEngine');
@@ -144,6 +145,7 @@ class ParkApp extends StatelessWidget {
       builder: (context, _) {
         final accent = Color(settings.seedColor);
         return MaterialApp(
+          navigatorKey: DesktopWindow.navigatorKey,
           navigatorObservers: [Nav.routeObserver],
           title: 'HentaiPark',
           locale: settings.locale,
@@ -161,7 +163,11 @@ class ParkApp extends StatelessWidget {
           home: const Shell(),
           builder: (context, child) => _LanguageRefresh(
             child: _SystemNavInset(
-              child: LockGate(child: child ?? const SizedBox.shrink()),
+              child: DesktopScale(
+                child: DesktopShutdownGate(
+                  child: LockGate(child: child ?? const SizedBox.shrink()),
+                ),
+              ),
             ),
           ),
         );

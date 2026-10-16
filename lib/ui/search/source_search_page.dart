@@ -5,6 +5,7 @@ import '../../core/localization.dart';
 import '../../core/models.dart';
 import '../../core/settings.dart';
 import '../../engine/source_manager.dart';
+import '../kit/adaptive_sheet.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
 import '../widgets/content_translation.dart';
@@ -169,7 +170,7 @@ class _SourceSearchPageState extends State<SourceSearchPage> {
   }
 
   Future<void> _openFilters() async {
-    final result = await showModalBottomSheet<Map<String, Object?>>(
+    final result = await showAdaptiveSheet<Map<String, Object?>>(
       context: context,
       isScrollControlled: true,
       builder: (_) => FilterSheet(manifest: _m, values: _filters),

@@ -18,6 +18,14 @@ class BrowserFetcher {
   static final BrowserFetcher instance = BrowserFetcher._();
 
   final Map<String, _OriginPage> _pages = {};
+  bool _closing = false;
+
+  Future<void> dispose() async {
+    _closing = true;
+    final pages = _pages.values.toList();
+    _pages.clear();
+    await Future.wait([for (final page in pages) page.retire()]);
+  }
 
   Set<String> hostsForDomains(Iterable<String> domains) => {
     for (final origin in _pages.keys)
@@ -30,6 +38,7 @@ class BrowserFetcher {
     required Map<String, dynamic> request,
     CancelToken? cancelToken,
   }) async {
+    if (_closing) throw SourceError('CANCELLED', '应用正在关闭');
     final base = Uri.parse(
       origin.isNotEmpty ? origin : request['url'].toString(),
     );

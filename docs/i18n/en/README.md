@@ -27,6 +27,8 @@ Get the Android APK from the **[latest release](https://github.com/drdon1234/Hen
 
 Clients are available for Android, Windows, macOS and Linux. iOS/iPadOS currently has a simulator package only; Web is unavailable. See [installation and platform limits](../../PLATFORMS.md).
 
+On desktop, use Ctrl+mouse wheel or Ctrl/Cmd plus/minus to scale the interface, and Ctrl/Cmd+0 to reset; scaling is also available in Appearance settings. The Windows tray icon restores the window or exits the app. When closing the window, choose to hide it to the tray or exit.
+
 ## Get started in three steps
 
 1. **Discover**: open Discover and pick a category, or type a keyword, paste a link or a video code into the search box.
@@ -75,7 +77,7 @@ Screenshots use offline demo data; the sites, works and covers shown are origina
 | Discover and search | Browse by category, search many sites at once, widen a search with keywords in other languages; paste a link or code to jump straight to a work |
 | Read and watch | Comics scroll, page or show two-page spreads; videos have episodes, speed control and resume; novels have typography settings, bookmarks, notes and read-aloud. All three readers share the same controls |
 | Library | Favorites with categories and new-chapter alerts; subscribe to creators, channels or keywords |
-| Downloads | A dedicated main navigation tab for comic, video, novel and game downloads; import and export CBZ |
+| Downloads | A dedicated main navigation tab for comic, video, novel and game downloads; import and export CBZ; export completed image chapters as PDF from the work menu, using only the first frame of animated images |
 | Game resources | See game details, versions and download links |
 | Translation and filters | Translate titles, descriptions and tags; hide works by tag |
 | Privacy and backup | App lock, incognito mode, blurred covers, screenshot blocking; back up favorites, progress and settings |
@@ -94,7 +96,7 @@ Light and dark themes, eight interface languages. What each site supports is sho
 | Short videos | Pornhub Shorties, Fyptt, Tik.porn |
 | AI short dramas | Huangguo Shorts, Huangdou Shorts, 91 Shorts |
 | Novels | Book18, Cool18, Canovel, Literotica, Lush Stories, StoriesOnline, 69story |
-| Games | GalgameX, KUN Galgame, Dimension Tea House |
+| Games | KUN Galgame, GalgameX, Dimension Tea House |
 | Subscriptions | X / Twitter, Telegram, myfans.jp, pixivFANBOX |
 
 Enable, reorder, update or add sites in More → Sites.
@@ -107,6 +109,8 @@ Enable, reorder, update or add sites in More → Sites.
 | Site rankings | JavMenu、MissAV、JableTV、SupJav、JM、E-Hentai、WNACG、nhentai、Hanime1 |
 
 Market rankings include works, actresses, sellers and categories; site rankings show popular content. Search works, open details or visit the original site.
+
+Rankings support filters and title translation. Covers retain their aspect ratio; click a long title to expand it.
 
 iXXX and TubeSafari use in-app web playback. The playback page may require site confirmation; controls are provided by the upstream page. App downloads and precise playback resume are unavailable. Android requires a recent Android System WebView with isolated-session support.
 

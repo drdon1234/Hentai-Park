@@ -7,6 +7,7 @@ import '../../core/localization.dart';
 import '../../core/models.dart';
 import '../../core/titles.dart';
 import '../../library/library.dart';
+import '../kit/adaptive_sheet.dart';
 import '../kit/kit.dart';
 import '../migration/migration_page.dart';
 import '../nav.dart';
@@ -82,7 +83,7 @@ Future<void> showDetailMore(
   VoidCallback? onOpenOriginal,
 }) async {
   final d = detail;
-  await showModalBottomSheet(
+  await showAdaptiveSheet(
     context: context,
     builder: (ctx) => SafeArea(
       child: Column(

@@ -9,6 +9,7 @@ import '../../core/app_lock.dart';
 import '../../core/app_log.dart';
 import '../../core/models.dart';
 import '../../core/platform_capabilities.dart';
+import '../../engine/desktop_shutdown.dart';
 import '../../engine/media_transport_factory.dart';
 import '../../engine/source_manager.dart';
 import '../../images/image_store.dart';
@@ -16,6 +17,7 @@ import '../../images/subscription_cache.dart';
 import '../../library/downloads.dart';
 import '../../library/library.dart';
 import '../../video/hls_playback.dart';
+import 'player_initialization.dart';
 import 'prepared_video.dart';
 
 part 'video_session_drama.dart';
@@ -74,6 +76,7 @@ class VideoSession extends ChangeNotifier {
   Future<void> _playbackUpdates = Future.value();
   int _request = 0;
   CancelToken? _sourceRequest;
+  CancelToken? _openingRequest;
   Chapter? preloadedEpisode;
   CancelToken? _preloadCancel;
   Future<PreparedVideo>? _preloaded;
@@ -174,98 +177,105 @@ class VideoSession extends ChangeNotifier {
     _wantsPlayback = true;
   }
 
-  Future<void> selectEpisode(Chapter next) async {
-    if (scrollEpisodes && supported) return _selectDramaEpisode(next);
-    savePosition();
-    _sourceRequest?.cancel('video source reloaded');
-    final request = _sourceRequest = CancelToken();
-    final openRequest = ++_request;
-    final old = controller;
-    final oldMedia = _media;
-    final preparing = _preparingMedia;
-    _preparingMedia = null;
-    _resetFor(next);
-    _update();
-    try {
-      await preparing?.close();
-      await (old?.dispose() ?? Future<void>.value()).whenComplete(
-        () async => oldMedia?.close(),
-      );
-      if (!_active || request.isCancelled || openRequest != _request) return;
-      final local = await DownloadManager.instance.localVideo(
-        work.source,
-        work.id,
-        episodeId: next.id,
-      );
-      if (!_active || request.isCancelled || openRequest != _request) return;
-      final playbackFile = localFile ?? local;
-      if (playbackFile != null) {
-        offline = true;
-        if (!supported) {
-          current = VideoSource({
-            'url': playbackFile.uri.toString(),
-            'format': 'mp4',
-          });
-          _update();
-          return;
-        }
-        if (playbackFile.path.endsWith('.m3u8')) {
-          final media = _preparingMedia = HlsPlayback.local(playbackFile);
-          try {
-            final url = await media.openLocal();
-            if (!_active || request.isCancelled || openRequest != _request) {
-              await media.close();
-              return;
-            }
-            await _open(
-              VideoPlayerController.networkUrl(url),
-              media: media,
-              requestId: openRequest,
-            );
-          } catch (_) {
-            await media.close();
-            rethrow;
-          } finally {
-            if (identical(_preparingMedia, media)) _preparingMedia = null;
+  Future<void> selectEpisode(Chapter next) {
+    return PendingDisposals.instance.watch(() async {
+      if (scrollEpisodes && supported) return _selectDramaEpisode(next);
+      savePosition();
+      _openingRequest?.cancel('video episode changed');
+      _sourceRequest?.cancel('video source reloaded');
+      final request = _sourceRequest = CancelToken();
+      final openRequest = ++_request;
+      final old = controller;
+      final oldMedia = _media;
+      final preparing = _preparingMedia;
+      _preparingMedia = null;
+      _resetFor(next);
+      _update();
+      try {
+        await preparing?.close();
+        await (old?.dispose() ?? Future<void>.value()).whenComplete(
+          () async => oldMedia?.close(),
+        );
+        if (!_active || request.isCancelled || openRequest != _request) return;
+        final local = await DownloadManager.instance.localVideo(
+          work.source,
+          work.id,
+          episodeId: next.id,
+        );
+        if (!_active || request.isCancelled || openRequest != _request) return;
+        final playbackFile = localFile ?? local;
+        if (playbackFile != null) {
+          offline = true;
+          if (!supported) {
+            current = VideoSource({
+              'url': playbackFile.uri.toString(),
+              'format': 'mp4',
+            });
+            _update();
+            return;
           }
+          if (playbackFile.path.endsWith('.m3u8')) {
+            final media = _preparingMedia = HlsPlayback.local(playbackFile);
+            try {
+              final url = await media.openLocal();
+              if (!_active || request.isCancelled || openRequest != _request) {
+                await media.close();
+                return;
+              }
+              await _open(
+                VideoPlayerController.networkUrl(url),
+                media: media,
+                requestId: openRequest,
+              );
+            } catch (_) {
+              await media.close();
+              rethrow;
+            } finally {
+              if (identical(_preparingMedia, media)) _preparingMedia = null;
+            }
+            return;
+          }
+          await _open(
+            VideoPlayerController.file(
+              playbackFile,
+              videoPlayerOptions: VideoPlayerOptions(
+                allowBackgroundPlayback: true,
+              ),
+            ),
+            requestId: openRequest,
+          );
           return;
         }
-        await _open(
-          VideoPlayerController.file(
-            playbackFile,
-            videoPlayerOptions: VideoPlayerOptions(
-              allowBackgroundPlayback: true,
-            ),
-          ),
+        final loaded =
+            initialSources ??
+            await SourceManager.instance.videos(
+              work.source,
+              work.id,
+              episodeId: next.id,
+              cancelToken: request,
+            );
+        if (!_active || request.isCancelled || openRequest != _request) return;
+        sources = loaded;
+        if (loaded.isEmpty) {
+          throw SourceError('UNSUPPORTED', '此影片暂无可用播放地址');
+        }
+        await _play(
+          loaded.firstWhere((s) => s.preferred, orElse: () => loaded.first),
           requestId: openRequest,
         );
-        return;
+      } catch (e) {
+        if (_active && !request.isCancelled && openRequest == _request) {
+          error = e;
+          _update();
+        }
+      } finally {
+        if (identical(_sourceRequest, request)) _sourceRequest = null;
       }
-      final loaded =
-          initialSources ??
-          await SourceManager.instance.videos(
-            work.source,
-            work.id,
-            episodeId: next.id,
-            cancelToken: request,
-          );
-      if (!_active || request.isCancelled || openRequest != _request) return;
-      sources = loaded;
-      await _play(
-        loaded.firstWhere((s) => s.preferred, orElse: () => loaded.first),
-        requestId: openRequest,
-      );
-    } catch (e) {
-      if (_active && !request.isCancelled && openRequest == _request) {
-        error = e;
-        _update();
-      }
-    } finally {
-      if (identical(_sourceRequest, request)) _sourceRequest = null;
-    }
+    }());
   }
 
   Future<void> _play(VideoSource s, {Duration? at, int? requestId}) async {
+    _openingRequest?.cancel('video source changed');
     final request = requestId ?? ++_request;
     final preparing = _preparingMedia;
     _preparingMedia = null;
@@ -332,62 +342,75 @@ class VideoSession extends ChangeNotifier {
     Duration? at,
     HlsPlayback? media,
     int? requestId,
-  }) async {
-    final request = requestId ?? ++_request;
-    if (!_active || request != _request) {
-      await c.dispose();
-      await media?.close();
-      return;
-    }
-    _savePos?.cancel();
-    onInterrupt?.call();
-    final old = controller;
-    final oldMedia = _media;
-    _media = null;
-    old?.removeListener(_onTick);
-    controller = null;
-    _update();
-    await old?.dispose();
-    await oldMedia?.close();
-    try {
-      await c.initialize();
+  }) {
+    return PendingDisposals.instance.watch(() async {
+      final request = requestId ?? ++_request;
       if (!_active || request != _request) {
         await c.dispose();
         await media?.close();
         return;
       }
-      final resume = at ?? _resumePoint(c.value.duration);
-      if (resume != null) await c.seekTo(resume);
-      await c.setPlaybackSpeed(speed);
-    } catch (e, stack) {
-      await c.dispose();
-      await media?.close();
-      if (_active && request == _request) {
-        _logPlayback(e, 'player', stack);
-        error = SourceError(
-          'NETWORK',
-          '视频加载失败：{error}',
-          params: {'error': e is SourceError ? e.message : '$e'},
-        );
-        _update();
+      _savePos?.cancel();
+      onInterrupt?.call();
+      final old = controller;
+      final oldMedia = _media;
+      _media = null;
+      old?.removeListener(_onTick);
+      controller = null;
+      _update();
+      await old?.dispose();
+      await oldMedia?.close();
+      if (!_active || request != _request) {
+        await c.dispose();
+        await media?.close();
+        return;
       }
-      return;
-    }
-    if (!_active || request != _request) {
-      await c.dispose();
-      await media?.close();
-      return;
-    }
-    c.addListener(_onTick);
-    _completed = c.value.isCompleted;
-    controller = c;
-    _media = media;
-    error = null;
-    _update();
-    await syncPlayback();
-    if (!_active || request != _request) return;
-    _startSaving();
-    onStarted?.call();
+      _openingRequest?.cancel('video player replaced');
+      final cancellation = _openingRequest = CancelToken();
+      try {
+        await initializePlayer(c, cancellation);
+        if (!_active || request != _request) {
+          await c.dispose();
+          await media?.close();
+          return;
+        }
+        final resume = at ?? _resumePoint(c.value.duration);
+        if (resume != null) await c.seekTo(resume);
+        await c.setPlaybackSpeed(speed);
+      } catch (e, stack) {
+        await c.dispose();
+        await media?.close();
+        if (_active && request == _request) {
+          _logPlayback(e, 'player', stack);
+          error = e is SourceError
+              ? e
+              : SourceError(
+                  'NETWORK',
+                  '视频加载失败：{error}',
+                  params: {'error': e is SourceError ? e.message : '$e'},
+                );
+          _update();
+        }
+        return;
+      } finally {
+        if (identical(_openingRequest, cancellation)) _openingRequest = null;
+      }
+      if (!_active || request != _request) {
+        await c.dispose();
+        await media?.close();
+        return;
+      }
+      c.addListener(_onTick);
+      _completed = c.value.isCompleted;
+      controller = c;
+      _media = media;
+      error = null;
+      _update();
+      await syncPlayback();
+      if (!_active || request != _request) return;
+      _startSaving();
+      onStarted?.call();
+    }());
   }
 
   void _startSaving() {
@@ -446,11 +469,12 @@ class VideoSession extends ChangeNotifier {
     _savePos?.cancel();
     _request++;
     _sourceRequest?.cancel('video page closed');
-    unawaited(_discardPreload());
+    _openingRequest?.cancel('video page closed');
+    PendingDisposals.instance.add(_discardPreload());
     controller?.removeListener(_onTick);
     playerUpdates.dispose();
     final media = _media;
-    unawaited(
+    PendingDisposals.instance.add(
       (controller?.dispose() ?? Future<void>.value()).whenComplete(() async {
         try {
           await media?.close();
@@ -462,7 +486,9 @@ class VideoSession extends ChangeNotifier {
         }
       }),
     );
-    unawaited(_preparingMedia?.close());
+    PendingDisposals.instance.add(
+      _preparingMedia?.close() ?? Future<void>.value(),
+    );
     super.dispose();
   }
 }
