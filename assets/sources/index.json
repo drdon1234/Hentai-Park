@@ -480,7 +480,7 @@
     {
       "key": "google_lens",
       "name": "Google Lens",
-      "version": "0.0.1",
+      "version": "0.0.2",
       "type": "comic",
       "category": "other",
       "file": "google_lens.js",

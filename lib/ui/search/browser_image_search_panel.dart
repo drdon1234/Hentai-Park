@@ -4,7 +4,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 
-import '../../core/localization.dart';
+import '../../core/models.dart';
 import '../../engine/browser_image_search.dart';
 import '../../engine/cookie_store.dart';
 import '../../engine/http_service.dart';
@@ -18,11 +18,15 @@ class BrowserImageSearchPanel extends StatefulWidget {
     required this.imageBase64,
     required this.cancelToken,
     required this.onComplete,
+    required this.onError,
+    required this.onVerificationChanged,
   });
   final String source, imageBase64;
   final BrowserImageSearchRequest request;
   final CancelToken cancelToken;
   final ValueChanged<BrowserImageSearchResult?> onComplete;
+  final ValueChanged<SourceError> onError;
+  final ValueChanged<bool> onVerificationChanged;
   @override
   State<BrowserImageSearchPanel> createState() =>
       _BrowserImageSearchPanelState();
@@ -32,20 +36,17 @@ class _BrowserImageSearchPanelState extends State<BrowserImageSearchPanel> {
   InAppWebViewController? _controller;
   // 显示验证区域时复用同一个平台视图，避免重建丢失上传会话。
   InAppWebView? _webView;
-  Timer? _poll;
+  Timer? _poll, _timeout;
   bool _ready = false, _busy = false, _uploaded = false, _done = false;
-  bool _needsRestart = false;
   bool _verification = false;
-  int _browserGeneration = 0;
   int _navigation = 0, _stable = 0, _stableRows = 0;
   String _lastUrl = '', _lastResult = '';
-  DateTime _deadline = DateTime.now().add(const Duration(seconds: 90));
-  String? _error;
   void Function()? _unregister;
 
   @override
   void initState() {
     super.initState();
+    _startTimeout();
     widget.cancelToken.whenCancel.then((_) => _cancel());
     _unregister = CookieStore.instance.registerBrowserSession((key) async {
       if (key == widget.source) await _cancel();
@@ -81,6 +82,7 @@ class _BrowserImageSearchPanelState extends State<BrowserImageSearchPanel> {
     if (!mounted || _done) return;
     _done = true;
     _poll?.cancel();
+    _timeout?.cancel();
     final controller = _controller;
     widget.onComplete(null);
     try {
@@ -88,39 +90,20 @@ class _BrowserImageSearchPanelState extends State<BrowserImageSearchPanel> {
     } catch (_) {}
   }
 
-  void _fail(String message, {bool restart = false}) {
-    if (!mounted || _done) return;
-    _needsRestart = _needsRestart || restart;
-    setState(() => _error = message);
+  void _startTimeout() {
+    _timeout?.cancel();
+    _timeout = Timer(const Duration(seconds: 90), () {
+      _fail('请求超时');
+    });
   }
 
-  Future<void> _retry() async {
-    _deadline = DateTime.now().add(const Duration(seconds: 90));
-    if (_needsRestart) {
-      final controller = _controller;
-      _navigation++;
-      _browserGeneration++;
-      _poll?.cancel();
-      setState(() {
-        _error = null;
-        _ready = false;
-        _needsRestart = false;
-        _uploaded = false;
-        _verification = false;
-        _stable = _stableRows = 0;
-        _lastUrl = _lastResult = '';
-        _controller = null;
-        _webView = null;
-      });
-      try {
-        await controller?.stopLoading();
-      } catch (_) {}
-      if (!mounted || _done) return;
-      await _prepare();
-    } else {
-      setState(() => _error = null);
-      await (_ready ? _check() : _prepare());
-    }
+  void _fail(String message, {String code = 'NETWORK'}) {
+    if (!mounted || _done) return;
+    _done = true;
+    _poll?.cancel();
+    _timeout?.cancel();
+    unawaited(_controller?.stopLoading().catchError((_) {}));
+    widget.onError(SourceError(code, message));
   }
 
   bool _allowed(String? value) {
@@ -134,10 +117,8 @@ class _BrowserImageSearchPanelState extends State<BrowserImageSearchPanel> {
     _busy = true;
     final generation = _navigation;
     try {
-      if (DateTime.now().isAfter(_deadline) && _error == null) {
-        _fail('反搜尚未完成，请在页面中完成验证或稍后重试');
-      }
       final current = await c.getUrl().timeout(const Duration(seconds: 8));
+      if (!mounted || _done || generation != _navigation) return;
       final uri = Uri.tryParse(current?.toString() ?? '');
       if (uri == null || !widget.request.allows(uri)) return;
       final response = await c
@@ -165,13 +146,20 @@ class _BrowserImageSearchPanelState extends State<BrowserImageSearchPanel> {
       if (!mounted || _done || generation != _navigation) return;
       final state = response?.value;
       if (response?.error != null || state is! Map) {
-        _fail('反搜服务返回无效数据');
+        _fail('反搜服务返回无效数据', code: 'PARSE');
         return;
       }
       if (state['url'] != uri.toString()) return;
       final verification = state['verification'] == true;
       if (_verification != verification) {
         setState(() => _verification = verification);
+        // 手动验证不占用后台请求时限；通过后重新计时。
+        if (verification) {
+          _timeout?.cancel();
+        } else {
+          _startTimeout();
+        }
+        widget.onVerificationChanged(verification);
       }
       // 验证页不能被当作上传表单的宿主页；验证通过后继续原请求。
       if (verification) return;
@@ -199,7 +187,7 @@ class _BrowserImageSearchPanelState extends State<BrowserImageSearchPanel> {
             )
             .timeout(const Duration(seconds: 8));
         if (upload?.value != true && mounted && !_done) {
-          _fail('浏览器请求失败', restart: true);
+          _fail('浏览器请求失败');
         }
         return;
       }
@@ -226,7 +214,7 @@ class _BrowserImageSearchPanelState extends State<BrowserImageSearchPanel> {
           final html = await c.getHtml().timeout(const Duration(seconds: 8));
           if (!mounted || _done || generation != _navigation) return;
           if (html == null || html.isEmpty || html.length > 4 * 1024 * 1024) {
-            _fail('反搜服务返回无效数据');
+            _fail('反搜服务返回无效数据', code: 'PARSE');
             return;
           }
           await CookieStore.instance.importFromWebView(
@@ -236,13 +224,14 @@ class _BrowserImageSearchPanelState extends State<BrowserImageSearchPanel> {
           if (!mounted || _done || generation != _navigation) return;
           _done = true;
           _poll?.cancel();
+          _timeout?.cancel();
           widget.onComplete(BrowserImageSearchResult(url, html));
           return;
         }
       }
     } catch (_) {
       if (mounted && !_done && generation == _navigation) {
-        _fail('浏览器请求失败', restart: true);
+        _fail('浏览器请求失败');
       }
     } finally {
       _busy = false;
@@ -253,21 +242,27 @@ class _BrowserImageSearchPanelState extends State<BrowserImageSearchPanel> {
   void dispose() {
     _done = true;
     _poll?.cancel();
+    _timeout?.cancel();
     _unregister?.call();
-    unawaited(_controller?.stopLoading());
+    unawaited(_controller?.stopLoading().catchError((_) {}));
     _controller = null;
     super.dispose();
   }
 
   InAppWebView _createWebView() => InAppWebView(
-    key: ValueKey(_browserGeneration),
     initialUrlRequest: URLRequest(url: WebUri(widget.request.url.toString())),
     initialSettings: InAppWebViewSettings(
       userAgent: HttpService.instance.userAgent,
       useShouldOverrideUrlLoading: true,
       cacheEnabled: false,
     ),
-    onWebViewCreated: (c) => _controller = c,
+    onWebViewCreated: (c) {
+      if (_done) {
+        unawaited(c.stopLoading().catchError((_) {}));
+      } else {
+        _controller = c;
+      }
+    },
     shouldOverrideUrlLoading: (_, action) =>
         _allowed(action.request.url?.toString())
         ? NavigationActionPolicy.ALLOW
@@ -276,7 +271,7 @@ class _BrowserImageSearchPanelState extends State<BrowserImageSearchPanel> {
       _navigation++;
       if (!_allowed(url?.toString())) {
         await c.stopLoading();
-        _fail('浏览器页面已离开站点声明的同源地址');
+        _fail('浏览器页面已离开站点声明的同源地址', code: 'CONFIG');
       } else {
         CookieStore.instance.trackBrowserUri(
           Uri.parse(url.toString()),
@@ -286,32 +281,24 @@ class _BrowserImageSearchPanelState extends State<BrowserImageSearchPanel> {
     },
     onReceivedError: (_, request, error) {
       if (request.isForMainFrame == true) {
-        _fail('浏览器请求失败', restart: true);
+        _fail('浏览器请求失败');
       }
     },
     onReceivedHttpError: (_, request, _) {
       if (request.isForMainFrame == true) {
-        _fail('浏览器请求失败', restart: true);
+        _fail('浏览器请求失败');
       }
     },
-    onRenderProcessGone: (_, _) => _fail('浏览器请求失败', restart: true),
+    onRenderProcessGone: (_, _) => _fail('浏览器请求失败'),
   );
 
   @override
-  Widget build(BuildContext context) => Column(
-    crossAxisAlignment: CrossAxisAlignment.stretch,
-    children: [
-      if (_error != null || _verification)
-        Text(tr(_error ?? '正在反搜；如出现人机验证，请在下方页面中完成')),
-      if (_error != null) TextButton(onPressed: _retry, child: Text(tr('继续'))),
-      if (_ready)
-        Offstage(
-          offstage: !_verification,
-          child: SizedBox(
-            height: MediaQuery.sizeOf(context).height * 0.6,
-            child: _webView!,
-          ),
-        ),
-    ],
+  Widget build(BuildContext context) => IgnorePointer(
+    ignoring: !_verification,
+    child: ExcludeSemantics(
+      excluding: !_verification,
+      // 平台视图需要参与绘制才能得到真实视口；由父页面覆盖普通网页。
+      child: _ready ? _webView! : const SizedBox.expand(),
+    ),
   );
 }

@@ -1,5 +1,5 @@
 Park.register({
-  key: 'google_lens', name: 'Google Lens', version: '0.0.1', apiVersion: 1,
+  key: 'google_lens', name: 'Google Lens', version: '0.0.2', apiVersion: 1,
   type: 'comic', category: 'other', homepage: 'https://lens.google.com/',
   description: '综合图片反搜；在应用内浏览器上传并查找完全匹配出处',
   domains: ['google.com'], network: { vpnHint: true },
@@ -19,7 +19,7 @@ Park.register({
       fileField: 'encoded_image', resultPath: '/search', resultQuery: 'vsrid',
       resultParams: { udm: '48', hl: 'en' },
       resultSelector: 'a[href^="/goto?"], #search a[href^="/url?"], #search a[href^="/imgres?"], #search a[href^="http"]',
-      emptySelector: 'body', emptyText: 'No results found',
+      emptySelector: 'body', emptyText: 'No exact matches found',
     } };
   },
   async reverseSearchResult(page) {
@@ -54,7 +54,7 @@ Park.register({
       if (candidates.length >= 20) break;
     }
     if (!candidates.length) {
-      if (/No results found|No matching images found|couldn't find any results/i.test(text)) return [];
+      if (/No exact matches found|No results found|No matching images found|couldn't find any results/i.test(text)) return [];
       throw Park.error('PARSE', '反搜服务返回无效数据');
     }
     const resolved = new Array(candidates.length);
