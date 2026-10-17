@@ -117,6 +117,23 @@ Park.register({
 
 `title` 必填，`keyword` 和 `url` 至少提供一个，其余可省略。只有明确识别出作品名或番号才填 `keyword`；只有标签或出处链接时不要伪造作品名称，不提供资源搜索按钮。`url` 仅允许无凭据的 HTTP(S) 网页；没有明确的原站详情链接时省略，不能伪造。`similarity` 为服务提供的 0–100 相似度，没有分数不填；不同服务分数不能混排为统一可信度。`uncertain` 标记低可信候选。`episode` 为字符串或数值，`from/to` 为秒。候选不是 `WorkItem`，不能直接下载、收藏或播放；用户可用 `keyword` 继续聚合搜索资源。各站的阈值、去重、限额处理与响应解析保留在插件中，空匹配和解析失败必须区分。
 
+需要浏览器会话的服务可从 `reverseSearch(image)` 返回声明式上传条件，而非候选列表：
+
+```js
+return { browser: {
+  url: 'https://example.org/',
+  uploadUrl: 'https://example.org/upload', fileField: 'image',
+  resultPath: '/search', resultQuery: 'session',
+  resultParams: { mode: 'exact' },
+  resultSelector: '#results a',
+  emptySelector: '#results', emptyText: 'No results found',
+} };
+```
+
+应用打开可见浏览器，在初始页面加载完成后创建 multipart 表单，将同一份 PNG 上传到 `uploadUrl`。上传与结果加载保留同一浏览器会话；需要人机验证时由用户在页面内完成。`url`、`uploadUrl`、所有导航与最终页必须为源 `domains` 内无凭据的 HTTPS 地址、使用 443 端口，不授予其他域名权限。插件仅声明条件，不能提供浏览器脚本。
+
+结果页必须满足 `resultPath` 精确匹配且 `resultQuery` 参数非空，应用在现有会话参数上合并 `resultParams`，等待结果链接或明确无结果文案稳定后返回。`resultParams` 最多 8 项、值最多 256 字符；选择器最长 1024 字符，`emptyText` 最长 256 字符。浏览器返回最多 4 MiB 的 `{url, html}`，由同一插件的 `reverseSearchResult(page)` 解析为上述候选列表；它不会自动导出新能力。解析异常必须报错，不能当作无结果。临时网页禁用缓存；Cookie 使用本站分区，清理会话时关闭浏览器，图片与 HTML 不进入应用持久存储或日志。取消、返回及旧结果丢弃规则同普通反搜。
+
 ### 类型与分类
 
 `type` 决定阅读、播放或游戏资源行为，`category` 决定发现页、站点管理与搜索中的分组；未知或未声明的分类归入“其他”。新增站点必须准确声明类型、分类和能力。

@@ -6,6 +6,7 @@ mixin _SourceApi on _SourceRegistry {
     String key,
     String imageBase64, {
     CancelToken? cancelToken,
+    BrowserImageSearch? browserSearch,
   }) async {
     if (manifest(key)?.can('reverseSearch') != true) {
       throw SourceError('UNSUPPORTED', '本站不支持反搜');
@@ -13,9 +14,32 @@ mixin _SourceApi on _SourceRegistry {
     if (imageBase64.isEmpty || imageBase64.length > 2400000) {
       throw SourceError('CONFIG', '图片无法处理');
     }
-    final result = await _call(key, 'reverseSearch', [
+    var result = await _call(key, 'reverseSearch', [
       {'base64': imageBase64, 'mimeType': 'image/png'},
     ], cancelToken: cancelToken);
+    if (result is Map && result['browser'] is Map) {
+      final request = BrowserImageSearchRequest.fromJson(
+        (result['browser'] as Map).cast<String, dynamic>(),
+        domains: declaredDomains(manifest(key)!.json),
+      );
+      if (browserSearch == null) {
+        throw SourceError('UNSUPPORTED', '此反搜服务需要在应用内打开浏览器');
+      }
+      if (cancelToken?.cancelError case final error?) throw error;
+      final page = await awaitCancelled(browserSearch(request), cancelToken);
+      if (cancelToken?.cancelError case final error?) throw error;
+      if (page == null) throw SourceError('CANCELLED', '已取消');
+      final uri = Uri.tryParse(page.url);
+      if (uri == null ||
+          !request.isResult(uri) ||
+          page.html.isEmpty ||
+          page.html.length > 4 * 1024 * 1024) {
+        throw SourceError('PARSE', '反搜服务返回无效数据');
+      }
+      result = await _call(key, 'reverseSearchResult', [
+        page.toJson(),
+      ], cancelToken: cancelToken);
+    }
     if (result is! List ||
         result.length > 50 ||
         result.any((row) => row is! Map)) {

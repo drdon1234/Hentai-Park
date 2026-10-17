@@ -23,6 +23,7 @@ import '../subscriptions/context_identity.dart';
 import '../subscriptions/models.dart';
 import '../video/hls_sources.dart';
 import 'background_downloads.dart';
+import 'browser_image_search.dart';
 import 'cancellation.dart';
 import 'cookie_store.dart';
 import 'domains.dart';

@@ -478,6 +478,15 @@
       "description": "站内热门"
     },
     {
+      "key": "google_lens",
+      "name": "Google Lens",
+      "version": "0.0.1",
+      "type": "comic",
+      "category": "other",
+      "file": "google_lens.js",
+      "description": "综合图片反搜；在应用内浏览器上传并查找完全匹配出处"
+    },
+    {
       "key": "trace_moe",
       "name": "trace.moe",
       "version": "0.0.1",

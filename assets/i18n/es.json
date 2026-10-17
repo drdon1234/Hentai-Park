@@ -1364,5 +1364,9 @@
   "反搜服务返回无效数据": "El servicio devolvió datos no válidos",
   "本站不支持反搜": "Este sitio no admite búsqueda inversa",
   "反搜请求仍在处理中，请稍后重试": "La búsqueda sigue en curso. Inténtalo más tarde",
-  "请求过于频繁或额度已用尽，请稍后重试": "Demasiadas solicitudes o cuota agotada. Inténtalo más tarde"
+  "请求过于频繁或额度已用尽，请稍后重试": "Demasiadas solicitudes o cuota agotada. Inténtalo más tarde",
+  "浏览器反搜参数无效": "Parámetros de búsqueda de imágenes del navegador no válidos",
+  "此反搜服务需要在应用内打开浏览器": "Este servicio requiere el navegador integrado",
+  "反搜尚未完成，请在页面中完成验证或稍后重试": "La búsqueda no ha terminado. Completa la verificación en esta página o inténtalo más tarde",
+  "正在反搜；如出现人机验证，请在下方页面中完成": "Buscando; si aparece una verificación, complétala en la página inferior"
 }

@@ -7,6 +7,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/localization.dart';
 import '../../core/reverse_search.dart';
+import '../../engine/browser_image_search.dart';
 import '../../engine/source_manager.dart';
 import '../../images/search_image.dart';
 import '../nav.dart';
@@ -15,6 +16,7 @@ import '../theme.dart';
 import '../widgets/common.dart';
 import '../widgets/error_view.dart';
 import '../widgets/source_network_hint.dart';
+import 'browser_image_search_page.dart';
 import 'search_crop_page.dart';
 
 class ReverseSearchPage extends StatefulWidget {
@@ -147,6 +149,22 @@ class _ReverseSearchPageState extends State<ReverseSearchPage> {
         source,
         image.base64,
         cancelToken: token,
+        browserSearch: (request) async {
+          if (!mounted || token.isCancelled || generation != _generation) {
+            return null;
+          }
+          final page = await Nav.push<BrowserImageSearchResult>(
+            context,
+            BrowserImageSearchPage(
+              source: source,
+              request: request,
+              imageBase64: image.base64,
+              cancelToken: token,
+            ),
+          );
+          if (page == null) token.cancel();
+          return page;
+        },
       );
       if (mounted && generation == _generation && !token.isCancelled) {
         setState(() => _results = rows);

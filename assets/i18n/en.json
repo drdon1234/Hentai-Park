@@ -1364,5 +1364,9 @@
   "反搜服务返回无效数据": "Reverse search service returned invalid data",
   "本站不支持反搜": "This site does not support reverse image search",
   "反搜请求仍在处理中，请稍后重试": "A reverse search is still running. Try again shortly",
-  "请求过于频繁或额度已用尽，请稍后重试": "Too many requests or quota exhausted. Try again later"
+  "请求过于频繁或额度已用尽，请稍后重试": "Too many requests or quota exhausted. Try again later",
+  "浏览器反搜参数无效": "Invalid browser image search parameters",
+  "此反搜服务需要在应用内打开浏览器": "This search service requires the in-app browser",
+  "反搜尚未完成，请在页面中完成验证或稍后重试": "Search is not complete. Finish verification on this page or try again later",
+  "正在反搜；如出现人机验证，请在下方页面中完成": "Searching; if a verification challenge appears, complete it below"
 }

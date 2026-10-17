@@ -1,0 +1,87 @@
+Park.register({
+  key: 'google_lens', name: 'Google Lens', version: '0.0.1', apiVersion: 1,
+  type: 'comic', category: 'other', homepage: 'https://lens.google.com/',
+  description: '综合图片反搜；在应用内浏览器上传并查找完全匹配出处',
+  domains: ['google.com'], network: { vpnHint: true },
+  i18n: {
+    'zh-Hant': { '综合图片反搜；在应用内浏览器上传并查找完全匹配出处': '綜合圖片反搜；在應用程式內瀏覽器上傳並查找完全相符出處' },
+    en: { '综合图片反搜；在应用内浏览器上传并查找完全匹配出处': 'General reverse image search; upload in the in-app browser and find exact sources' },
+    ja: { '综合图片反搜；在应用内浏览器上传并查找完全匹配出处': '総合画像検索。アプリ内ブラウザでアップロードし、完全一致の出典を検索' },
+    ko: { '综合图片反搜；在应用内浏览器上传并查找完全匹配出处': '종합 이미지 역검색, 앱 내 브라우저에서 업로드하여 정확한 출처 검색' },
+    es: { '综合图片反搜；在应用内浏览器上传并查找完全匹配出处': 'Búsqueda inversa general; sube la imagen en el navegador integrado y busca fuentes exactas' },
+    ru: { '综合图片反搜；在应用内浏览器上传并查找完全匹配出处': 'Обратный поиск изображений: загрузка во встроенном браузере и поиск точных источников' },
+    ar: { '综合图片反搜；在应用内浏览器上传并查找完全匹配出处': 'بحث عكسي شامل؛ ارفع الصورة في المتصفح المدمج للعثور على مصادر مطابقة' },
+  },
+  reverseSearch() {
+    return { browser: {
+      url: 'https://www.google.com/?hl=en',
+      uploadUrl: 'https://lens.google.com/v3/upload?hl=en&re=df&stcs=' + Date.now() + '&vpw=1920&vph=1080&ep=subb',
+      fileField: 'encoded_image', resultPath: '/search', resultQuery: 'vsrid',
+      resultParams: { udm: '48', hl: 'en' },
+      resultSelector: 'a[href^="/goto?"], #search a[href^="/url?"], #search a[href^="/imgres?"], #search a[href^="http"]',
+      emptySelector: 'body', emptyText: 'No results found',
+    } };
+  },
+  async reverseSearchResult(page) {
+    const parsed = Park.html.parse(page.html);
+    const text = Park.html.text(parsed.querySelector('body') || parsed.documentElement);
+    if (!/^https:\/\/www\.google\.com\/search\?/.test(page.url) || !/[?&]vsrid=/.test(page.url)) {
+      throw Park.error('PARSE', '反搜服务返回无效数据');
+    }
+    if (/unusual traffic|expired visual search|enable javascript/i.test(text)) {
+      throw Park.error('PARSE', '反搜服务返回无效数据');
+    }
+    const candidates = [], seen = new Set();
+    for (const anchor of parsed.querySelectorAll('a[href]')) {
+      const raw = Park.html.attr(anchor, 'href');
+      const title = Park.html.text(anchor).trim();
+      if (!title || title.length > 4096) continue;
+      let url = '', redirect = '';
+      if (/^\/(goto|url|imgres)\?/.test(raw)) {
+        for (const name of ['imgrefurl', 'url', 'q']) {
+          const value = (raw.match(new RegExp('[?&]' + name + '=([^&]+)')) || [])[1];
+          if (!value) continue;
+          let decoded;
+          try { decoded = decodeURIComponent(value.replace(/\+/g, ' ')); } catch (_) { continue; }
+          if (/^https?:\/\//i.test(decoded)) { url = decoded; break; }
+        }
+        if (!url) redirect = 'https://www.google.com' + raw;
+      } else if (/^https?:\/\//i.test(raw) && anchor.closest('#search')) { url = raw; }
+      else continue;
+      const key = url || redirect;
+      if (seen.has(key)) continue;
+      seen.add(key); candidates.push({ title, url, redirect });
+      if (candidates.length >= 20) break;
+    }
+    if (!candidates.length) {
+      if (/No results found|No matching images found|couldn't find any results/i.test(text)) return [];
+      throw Park.error('PARSE', '反搜服务返回无效数据');
+    }
+    const resolved = new Array(candidates.length);
+    let next = 0, failure;
+    // 限制并发与单次等待，个别跳板失败不丢弃已经得到的出处。
+    await Promise.all(Array.from({ length: Math.min(4, candidates.length) }, async () => {
+      while (next < candidates.length) {
+        const index = next++, candidate = candidates[index];
+        try {
+          let url = candidate.url;
+          if (!url) {
+            const response = await this.http.get(candidate.redirect, { followRedirects: false, timeout: 8000 });
+            if ([301, 302, 303, 307, 308].includes(response.status)) url = response.headers.location || '';
+          }
+          resolved[index] = { title: candidate.title, url };
+        } catch (error) { failure = failure || error; }
+      }
+    }));
+    const matches = [], urls = new Set();
+    for (const candidate of resolved) {
+      if (!candidate) continue;
+      const url = candidate.url;
+      if (!/^https?:\/\/(?![^/]*@)[^/\s?#]+(?:[/?#]|$)/i.test(url) ||
+          /^https?:\/\/(?:[^/]+\.)?google\.com(?:[/:?#]|$)/i.test(url) || urls.has(url)) continue;
+      urls.add(url); matches.push({ title: candidate.title, url });
+    }
+    if (!matches.length) throw failure || Park.error('PARSE', '反搜服务返回无效数据');
+    return matches;
+  },
+});

@@ -117,12 +117,15 @@ Enable, reorder, update or add sites in More → Sites.
 
 | Purpose | Service |
 | --- | --- |
+| General image sources (exact matches) | Google Lens |
 | Anime titles, episodes and timestamps | trace.moe |
 | Anime and Galgame characters and titles | AnimeTrace |
 | Illustration sources | IQDB |
 | JAV catalog numbers from screenshots | AVScan |
 
 Open Reverse image search at the top of Discover. Choose an image, optionally crop it, select a service, then search. Open an original source when available or search resources by title or catalog number. Images upload only after you press Search, to the selected service.
+
+Google Lens opens the in-app browser, uploads the image and returns sources automatically. Complete any verification challenge on the page; some networks may require a VPN or proxy.
 
 Results are candidates to verify; similarity is not confirmation. trace.moe has a limited free quota and IQDB may queue requests. AVScan shows high-score candidates only and is for personal non-commercial use. Coverage is not exhaustive; character recognition does not provide game downloads.
 
