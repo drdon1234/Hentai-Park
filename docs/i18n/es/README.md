@@ -125,7 +125,7 @@ Activa, ordena, actualiza o añade sitios en Más → Sitios.
 
 Abre la búsqueda inversa arriba de Descubrir. Elige una imagen, recórtala si quieres, selecciona un servicio y busca. Abre el origen cuando esté disponible o busca recursos por título o código. La imagen solo se sube al servicio elegido al pulsar Buscar.
 
-Google Lens abre el navegador integrado, sube la imagen y devuelve las fuentes automáticamente. Completa cualquier verificación en la página; algunas redes pueden requerir VPN o proxy.
+Google Lens sube imágenes y obtiene las fuentes en segundo plano. Todas las búsquedas inversas muestran el progreso y los resultados en la interfaz propia de la aplicación; el área de verificación aparece solo cuando se necesita verificación manual. Algunas redes pueden requerir VPN o proxy.
 
 Los resultados son candidatos por verificar; la similitud no confirma el origen. trace.moe tiene cuota gratuita limitada e IQDB puede tener cola. AVScan muestra solo candidatos de alta puntuación y permite uso personal no comercial. La cobertura no es exhaustiva; reconocer personajes no proporciona descargas de juegos.
 

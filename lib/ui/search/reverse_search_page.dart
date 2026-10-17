@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:dio/dio.dart';
@@ -16,7 +17,7 @@ import '../theme.dart';
 import '../widgets/common.dart';
 import '../widgets/error_view.dart';
 import '../widgets/source_network_hint.dart';
-import 'browser_image_search_page.dart';
+import 'browser_image_search_panel.dart';
 import 'search_crop_page.dart';
 
 class ReverseSearchPage extends StatefulWidget {
@@ -36,6 +37,8 @@ class _ReverseSearchPageState extends State<ReverseSearchPage> {
   bool _busy = false, _preparing = false;
   List<ReverseSearchMatch>? _results;
   Object? _error;
+  BrowserImageSearchRequest? _browserRequest;
+  Completer<BrowserImageSearchResult?>? _browserResult;
 
   List<InstalledSource> get _sources =>
       _manager.enabled.where((s) => s.manifest!.can('reverseSearch')).toList();
@@ -69,10 +72,18 @@ class _ReverseSearchPageState extends State<ReverseSearchPage> {
     _generation++;
     _token?.cancel();
     _token = null;
+    _finishBrowser(null);
     _busy = false;
     _preparing = false;
     _results = null;
     _error = null;
+  }
+
+  void _finishBrowser(BrowserImageSearchResult? result) {
+    final pending = _browserResult;
+    _browserResult = null;
+    _browserRequest = null;
+    if (pending != null && !pending.isCompleted) pending.complete(result);
   }
 
   @override
@@ -153,15 +164,12 @@ class _ReverseSearchPageState extends State<ReverseSearchPage> {
           if (!mounted || token.isCancelled || generation != _generation) {
             return null;
           }
-          final page = await Nav.push<BrowserImageSearchResult>(
-            context,
-            BrowserImageSearchPage(
-              source: source,
-              request: request,
-              imageBase64: image.base64,
-              cancelToken: token,
-            ),
-          );
+          final result = Completer<BrowserImageSearchResult?>();
+          setState(() {
+            _browserRequest = request;
+            _browserResult = result;
+          });
+          final page = await result.future;
           if (page == null) token.cancel();
           return page;
         },
@@ -198,6 +206,7 @@ class _ReverseSearchPageState extends State<ReverseSearchPage> {
   Widget build(BuildContext context) {
     final sources = _sources;
     final manifest = _source == null ? null : _manager.manifest(_source!);
+    final generation = _generation;
     return Scaffold(
       appBar: AppBar(
         title: Text(tr('图片反搜')),
@@ -209,160 +218,207 @@ class _ReverseSearchPageState extends State<ReverseSearchPage> {
           ),
         ],
       ),
-      body: ListView(
-        padding: const EdgeInsets.all(Gap.page),
-        children: [
-          Text(tr('从截图或插画查找出处，再用作品名或番号搜索资源')),
-          const SizedBox(height: Gap.l),
-          if (sources.isEmpty)
-            EmptyState(
-              icon: Icons.image_search_outlined,
-              title: tr('没有启用的反搜服务'),
-              message: tr('在站点管理中启用或安装站点'),
-            ),
-          if (sources.isNotEmpty)
-            Wrap(
-              spacing: Gap.s,
-              runSpacing: Gap.s,
-              children: [
-                for (final source in sources)
-                  ChoiceChip(
-                    label: SelectionContainer.disabled(
-                      child: Text(source.manifest!.name),
-                    ),
-                    selected: source.key == _source,
-                    onSelected: (_) => setState(() {
-                      _invalidate();
-                      _source = source.key;
-                      _syncSource();
-                    }),
-                  ),
-              ],
-            ),
-          if (manifest != null) ...[
-            const SizedBox(height: Gap.m),
-            Text(manifest.description),
-            if (manifest.network['vpnHint'] == true) const NetworkAccessHint(),
-          ],
-          const SizedBox(height: Gap.l),
-          if (_image != null)
-            ConstrainedBox(
-              constraints: const BoxConstraints(maxHeight: 280),
-              child: Image.memory(
-                _image!.bytes,
-                fit: BoxFit.contain,
-                semanticLabel: tr('待反搜图片'),
-              ),
-            ),
-          const SizedBox(height: Gap.s),
-          Wrap(
-            spacing: Gap.s,
-            runSpacing: Gap.s,
-            children: [
-              OutlinedButton.icon(
-                onPressed: _preparing ? null : _pick,
-                icon: const Icon(Icons.add_photo_alternate_outlined),
-                label: SelectionContainer.disabled(child: Text(tr('选择图片'))),
-              ),
-              if (_image != null)
-                TextButton(
-                  onPressed: _preparing ? null : _crop,
-                  child: SelectionContainer.disabled(child: Text(tr('裁剪图片'))),
-                ),
-              if (_image != null)
-                TextButton(
-                  onPressed: () => setState(() {
-                    _invalidate();
-                    _original = null;
-                    _image = null;
-                  }),
-                  child: SelectionContainer.disabled(child: Text(tr('移除图片'))),
-                ),
-            ],
-          ),
-          if (_preparing) const LinearProgressIndicator(),
-          const SizedBox(height: Gap.l),
-          Text(tr('点击搜索后，图片会上传至所选服务；请勿上传私人或敏感图片')),
-          const SizedBox(height: Gap.s),
-          Align(
-            alignment: AlignmentDirectional.centerStart,
-            child: _busy
-                ? OutlinedButton(
-                    onPressed: () => setState(_invalidate),
-                    child: SelectionContainer.disabled(child: Text(tr('取消'))),
-                  )
-                : FilledButton.icon(
-                    onPressed: _image == null || _source == null || _preparing
-                        ? null
-                        : _search,
-                    icon: const Icon(Icons.image_search_outlined),
-                    label: SelectionContainer.disabled(child: Text(tr('开始反搜'))),
-                  ),
-          ),
-          if (_busy) ...[
-            const SizedBox(height: Gap.l),
-            const LinearProgressIndicator(),
-            const SizedBox(height: Gap.s),
-            Text(tr('正在识别，服务繁忙时可能需要排队')),
-          ],
-          if (_error != null && _source != null)
-            SourceErrorView(
-              error: _error!,
-              source: _source!,
-              onRetry: _search,
-              compact: true,
-            ),
-          if (_results != null) ...[
-            const SizedBox(height: Gap.l),
-            Text(tr('识别结果仅供核对；分数由各服务提供，不代表已确认出处')),
-            if (_results!.isEmpty)
-              EmptyState(
-                icon: Icons.search_off_outlined,
-                title: tr('未找到可靠匹配'),
-                message: tr('尝试裁剪主体、使用更清晰的原图或切换服务'),
-              ),
-            for (final row in _results!) ...[
-              const Divider(),
-              SelectableText(
-                row.title,
-                style: Theme.of(context).textTheme.titleMedium,
-              ),
-              if (row.description.isNotEmpty) SelectableText(row.description),
-              if (row.uncertain) Text(tr('低可信候选，请核对')),
-              if (row.similarity != null)
-                Text(
-                  tr('相似度 {score}%', {
-                    'score': row.similarity!.toStringAsFixed(1),
-                  }),
-                ),
-              if (row.episode.isNotEmpty)
-                Text(tr('第 {episode} 集', {'episode': row.episode})),
-              if (row.from != null && row.to != null)
-                Text('${_time(row.from!)} – ${_time(row.to!)}'),
-              Wrap(
-                spacing: Gap.s,
-                runSpacing: Gap.s,
+      body: LayoutBuilder(
+        builder: (context, constraints) => Column(
+          children: [
+            Expanded(
+              child: ListView(
+                padding: const EdgeInsets.all(Gap.page),
                 children: [
-                  if (row.keyword.isNotEmpty)
-                    TextButton(
-                      onPressed: () => Nav.openAggregateSearch(
-                        context,
-                        keyword: row.keyword,
-                      ),
-                      child: SelectionContainer.disabled(
-                        child: Text(tr('搜索资源')),
+                  Text(tr('从截图或插画查找出处，再用作品名或番号搜索资源')),
+                  const SizedBox(height: Gap.l),
+                  if (sources.isEmpty)
+                    EmptyState(
+                      icon: Icons.image_search_outlined,
+                      title: tr('没有启用的反搜服务'),
+                      message: tr('在站点管理中启用或安装站点'),
+                    ),
+                  if (sources.isNotEmpty)
+                    Wrap(
+                      spacing: Gap.s,
+                      runSpacing: Gap.s,
+                      children: [
+                        for (final source in sources)
+                          ChoiceChip(
+                            label: SelectionContainer.disabled(
+                              child: Text(source.manifest!.name),
+                            ),
+                            selected: source.key == _source,
+                            onSelected: (_) => setState(() {
+                              _invalidate();
+                              _source = source.key;
+                              _syncSource();
+                            }),
+                          ),
+                      ],
+                    ),
+                  if (manifest != null) ...[
+                    const SizedBox(height: Gap.m),
+                    Text(manifest.description),
+                    if (manifest.network['vpnHint'] == true)
+                      const NetworkAccessHint(),
+                  ],
+                  const SizedBox(height: Gap.l),
+                  if (_image != null)
+                    ConstrainedBox(
+                      constraints: const BoxConstraints(maxHeight: 280),
+                      child: Image.memory(
+                        _image!.bytes,
+                        fit: BoxFit.contain,
+                        semanticLabel: tr('待反搜图片'),
                       ),
                     ),
-                  if (row.url.isNotEmpty)
-                    TextButton(
-                      onPressed: () => _open(row.url),
-                      child: SelectionContainer.disabled(child: Text(tr('原站'))),
+                  const SizedBox(height: Gap.s),
+                  Wrap(
+                    spacing: Gap.s,
+                    runSpacing: Gap.s,
+                    children: [
+                      OutlinedButton.icon(
+                        onPressed: _preparing ? null : _pick,
+                        icon: const Icon(Icons.add_photo_alternate_outlined),
+                        label: SelectionContainer.disabled(
+                          child: Text(tr('选择图片')),
+                        ),
+                      ),
+                      if (_image != null)
+                        TextButton(
+                          onPressed: _preparing ? null : _crop,
+                          child: SelectionContainer.disabled(
+                            child: Text(tr('裁剪图片')),
+                          ),
+                        ),
+                      if (_image != null)
+                        TextButton(
+                          onPressed: () => setState(() {
+                            _invalidate();
+                            _original = null;
+                            _image = null;
+                          }),
+                          child: SelectionContainer.disabled(
+                            child: Text(tr('移除图片')),
+                          ),
+                        ),
+                    ],
+                  ),
+                  if (_preparing) const LinearProgressIndicator(),
+                  const SizedBox(height: Gap.l),
+                  Text(tr('点击搜索后，图片会上传至所选服务；请勿上传私人或敏感图片')),
+                  const SizedBox(height: Gap.s),
+                  Align(
+                    alignment: AlignmentDirectional.centerStart,
+                    child: _busy
+                        ? OutlinedButton(
+                            onPressed: () => setState(_invalidate),
+                            child: SelectionContainer.disabled(
+                              child: Text(tr('取消')),
+                            ),
+                          )
+                        : FilledButton.icon(
+                            onPressed:
+                                _image == null || _source == null || _preparing
+                                ? null
+                                : _search,
+                            icon: const Icon(Icons.image_search_outlined),
+                            label: SelectionContainer.disabled(
+                              child: Text(tr('开始反搜')),
+                            ),
+                          ),
+                  ),
+                  if (_busy) ...[
+                    const SizedBox(height: Gap.l),
+                    const LinearProgressIndicator(),
+                    const SizedBox(height: Gap.s),
+                    Text(tr('正在识别，服务繁忙时可能需要排队')),
+                  ],
+                  if (_error != null && _source != null)
+                    SourceErrorView(
+                      error: _error!,
+                      source: _source!,
+                      onRetry: _search,
+                      compact: true,
                     ),
+                  if (_results != null) ...[
+                    const SizedBox(height: Gap.l),
+                    Text(tr('识别结果仅供核对；分数由各服务提供，不代表已确认出处')),
+                    if (_results!.isEmpty)
+                      EmptyState(
+                        icon: Icons.search_off_outlined,
+                        title: tr('未找到可靠匹配'),
+                        message: tr('尝试裁剪主体、使用更清晰的原图或切换服务'),
+                      ),
+                    for (final row in _results!) ...[
+                      const Divider(),
+                      SelectableText(
+                        row.title,
+                        style: Theme.of(context).textTheme.titleMedium,
+                      ),
+                      if (row.description.isNotEmpty)
+                        SelectableText(row.description),
+                      if (row.uncertain) Text(tr('低可信候选，请核对')),
+                      if (row.similarity != null)
+                        Text(
+                          tr('相似度 {score}%', {
+                            'score': row.similarity!.toStringAsFixed(1),
+                          }),
+                        ),
+                      if (row.episode.isNotEmpty)
+                        Text(tr('第 {episode} 集', {'episode': row.episode})),
+                      if (row.from != null && row.to != null)
+                        Text('${_time(row.from!)} – ${_time(row.to!)}'),
+                      Wrap(
+                        spacing: Gap.s,
+                        runSpacing: Gap.s,
+                        children: [
+                          if (row.keyword.isNotEmpty)
+                            TextButton(
+                              onPressed: () => Nav.openAggregateSearch(
+                                context,
+                                keyword: row.keyword,
+                              ),
+                              child: SelectionContainer.disabled(
+                                child: Text(tr('搜索资源')),
+                              ),
+                            ),
+                          if (row.url.isNotEmpty)
+                            TextButton(
+                              onPressed: () => _open(row.url),
+                              child: SelectionContainer.disabled(
+                                child: Text(tr('原站')),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ],
+                  ],
                 ],
               ),
-            ],
+            ),
+            // 会话不放在惰性列表中，滚动和窄屏不能销毁仍在处理的浏览器。
+            if (_browserRequest != null)
+              ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxHeight: constraints.maxHeight * 0.7,
+                ),
+                child: SingleChildScrollView(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: Gap.page),
+                    child: BrowserImageSearchPanel(
+                      key: ValueKey(_generation),
+                      source: _source!,
+                      request: _browserRequest!,
+                      imageBase64: _image!.base64,
+                      cancelToken: _token!,
+                      onComplete: (result) {
+                        if (mounted && generation == _generation) {
+                          setState(() => _finishBrowser(result));
+                        }
+                      },
+                    ),
+                  ),
+                ),
+              ),
           ],
-        ],
+        ),
       ),
     );
   }

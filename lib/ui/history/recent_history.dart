@@ -36,38 +36,41 @@ class RecentHistory extends StatelessWidget {
         .toList();
     final recent = limit == null ? entries : entries.take(limit!).toList();
     if (recent.isEmpty) return const SizedBox.shrink();
-    final width = (MediaQuery.sizeOf(context).width - Gap.page * 2).clamp(
-      240.0,
-      340.0,
-    );
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        SectionHeader(
-          tr('继续看'),
-          leading: const Icon(Icons.history_rounded),
-          trailing: onOpenHistory == null
-              ? null
-              : TextButton(
-                  onPressed: onOpenHistory,
-                  child: SelectionContainer.disabled(child: Text(tr('全部'))),
-                ),
-        ),
-        SizedBox(
-          height:
-              116 * MediaQuery.textScalerOf(context).scale(1).clamp(1.0, 1.6),
-          child: ListView.separated(
-            scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: Gap.page),
-            itemCount: recent.length,
-            separatorBuilder: (_, _) => const SizedBox(width: Gap.m),
-            itemBuilder: (context, index) => SizedBox(
-              width: width,
-              child: _ContinueCard(entry: recent[index]),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final width = ((constraints.maxWidth - Gap.page * 2) * 0.64).clamp(
+          160.0,
+          224.0,
+        );
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            SectionHeader(
+              tr('继续看'),
+              leading: const Icon(Icons.history_rounded),
+              trailing: onOpenHistory == null
+                  ? null
+                  : TextButton(
+                      onPressed: onOpenHistory,
+                      child: SelectionContainer.disabled(child: Text(tr('全部'))),
+                    ),
             ),
-          ),
-        ),
-      ],
+            SizedBox(
+              height: 116 * MediaQuery.textScalerOf(context).scale(1),
+              child: ListView.separated(
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.symmetric(horizontal: Gap.page),
+                itemCount: recent.length,
+                separatorBuilder: (_, _) => const SizedBox(width: Gap.m),
+                itemBuilder: (context, index) => SizedBox(
+                  width: width,
+                  child: _ContinueCard(entry: recent[index]),
+                ),
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 }
@@ -94,7 +97,7 @@ class _ContinueCard extends StatelessWidget {
           child: Row(
             children: [
               SizedBox(
-                width: 64,
+                width: 48,
                 child: ClipRRect(
                   borderRadius: Radii.small,
                   child: CoverImage(
@@ -104,7 +107,7 @@ class _ContinueCard extends StatelessWidget {
                   ),
                 ),
               ),
-              const SizedBox(width: Gap.m),
+              const SizedBox(width: Gap.s),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -145,8 +148,6 @@ class _ContinueCard extends StatelessWidget {
                   ],
                 ),
               ),
-              const SizedBox(width: Gap.s),
-              const Icon(Icons.play_circle_outline_rounded),
             ],
           ),
         ),

@@ -1,21 +1,15 @@
 ## 中文
 
-### 新功能
-- 接入 Google Lens 综合图片反搜，自动上传所选图片、查找完全匹配出处，并在应用内显示可访问的原站链接。
-
 ### 改进
-- 浏览器反搜支持取消、失败重试和页面内手动完成验证。
+- 缩小继续阅读卡片，同屏可查看多个作品，保留章节、阅读进度和播放时间，并适配大字体。
 
-### 注意事项
-- Google Lens 需要更新应用后使用；出现人机验证时，请在打开的页面中手动完成。
+### 修复
+- Google Lens 和其他图片反搜统一在应用自建界面显示进度、错误与结果，不再自动跳转原网页；仅需手动验证时显示验证区域。
 
 ## English
 
-### New
-- Add Google Lens reverse image search to upload the selected image, find exact matches and display links to original pages in the app.
-
 ### Improvements
-- Browser image search supports cancellation, retries and manual verification on the page.
+- Make Continue cards more compact so multiple works are visible at once, while keeping chapter details, reading progress and playback time with support for larger text.
 
-### Notes
-- Update the app to use Google Lens; if a verification challenge appears, complete it manually on the opened page.
+### Fixes
+- Google Lens and other reverse image searches now show progress, errors and results in the app's own interface without automatically opening the original webpage; a verification area appears only when manual verification is needed.
