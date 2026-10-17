@@ -12,6 +12,7 @@ import '../core/app_log.dart';
 import '../core/async_tasks.dart';
 import '../core/localization.dart';
 import '../core/models.dart';
+import '../core/reverse_search.dart';
 import '../core/settings.dart';
 import '../core/storage.dart';
 import '../core/versions.dart';

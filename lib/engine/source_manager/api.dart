@@ -2,6 +2,33 @@ part of '../source_manager.dart';
 
 /// Typed calls into a source: feeds, search, details, chapters, media and game resources.
 mixin _SourceApi on _SourceRegistry {
+  Future<List<ReverseSearchMatch>> reverseSearch(
+    String key,
+    String imageBase64, {
+    CancelToken? cancelToken,
+  }) async {
+    if (manifest(key)?.can('reverseSearch') != true) {
+      throw SourceError('UNSUPPORTED', '本站不支持反搜');
+    }
+    if (imageBase64.isEmpty || imageBase64.length > 2400000) {
+      throw SourceError('CONFIG', '图片无法处理');
+    }
+    final result = await _call(key, 'reverseSearch', [
+      {'base64': imageBase64, 'mimeType': 'image/png'},
+    ], cancelToken: cancelToken);
+    if (result is! List ||
+        result.length > 50 ||
+        result.any((row) => row is! Map)) {
+      throw SourceError('PARSE', '反搜服务返回无效数据');
+    }
+    return result
+        .map(
+          (row) =>
+              ReverseSearchMatch.fromJson((row as Map).cast<String, dynamic>()),
+        )
+        .toList();
+  }
+
   Future<List<Map<String, String>>> searchSuggestions(
     String key,
     String keyword, {

@@ -12,6 +12,7 @@ import '../history/recent_history.dart';
 import '../kit/kit.dart';
 import '../nav.dart';
 import '../rankings/rankings_page.dart';
+import '../search/reverse_search_page.dart';
 import '../settings/source_manage_page.dart';
 import '../subscriptions/subscriptions_page.dart';
 import 'feed_shelf.dart';
@@ -92,6 +93,11 @@ class _HomePageState extends State<HomePage> {
         appBar: PageHeader(
           title: 'HentaiPark',
           actions: [
+            IconButton(
+              tooltip: tr('图片反搜'),
+              icon: const Icon(Icons.image_search_outlined),
+              onPressed: () => Nav.push(context, const ReverseSearchPage()),
+            ),
             IconButton(
               tooltip: tr('排行榜'),
               icon: const Icon(Icons.leaderboard_outlined),
@@ -196,6 +202,7 @@ class _HomePageState extends State<HomePage> {
                     for (final source in sm.enabled.where(
                       (s) =>
                           !s.manifest!.rankingOnly &&
+                          !s.manifest!.reverseSearchOnly &&
                           s.manifest!.category == selected.category,
                     ))
                       SiteRow(source: source),
@@ -268,6 +275,7 @@ class _HomePageState extends State<HomePage> {
               .where(
                 (source) =>
                     !source.manifest!.rankingOnly &&
+                    !source.manifest!.reverseSearchOnly &&
                     (category == null || source.manifest!.category == category),
               )
               .toList()
@@ -275,7 +283,10 @@ class _HomePageState extends State<HomePage> {
     if (sources.isEmpty) {
       if (category != null &&
           sm.enabled.any(
-            (s) => !s.manifest!.rankingOnly && s.manifest!.category == category,
+            (s) =>
+                !s.manifest!.rankingOnly &&
+                !s.manifest!.reverseSearchOnly &&
+                s.manifest!.category == category,
           )) {
         return const SliverToBoxAdapter(child: SizedBox.shrink());
       }

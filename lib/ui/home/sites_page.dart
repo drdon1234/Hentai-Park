@@ -36,7 +36,11 @@ class SitesPage extends StatelessWidget {
         ]),
         builder: (context, _) {
           final sources = sm.enabled
-              .where((source) => !source.manifest!.rankingOnly)
+              .where(
+                (source) =>
+                    !source.manifest!.rankingOnly &&
+                    !source.manifest!.reverseSearchOnly,
+              )
               .toList();
           if (sources.isEmpty) {
             return EmptyState(

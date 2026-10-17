@@ -112,6 +112,21 @@ Temas claro y oscuro, ocho idiomas de interfaz. Las funciones de cada sitio se i
 
 Activa, ordena, actualiza o añade sitios en Más → Sitios.
 
+
+## Búsqueda inversa de imágenes
+
+| Uso | Servicio |
+| --- | --- |
+| Títulos de anime, episodios y tiempos | trace.moe |
+| Personajes y títulos de anime y Galgame | AnimeTrace |
+| Origen de ilustraciones | IQDB |
+| Códigos JAV a partir de capturas | AVScan |
+
+Abre la búsqueda inversa arriba de Descubrir. Elige una imagen, recórtala si quieres, selecciona un servicio y busca. Abre el origen cuando esté disponible o busca recursos por título o código. La imagen solo se sube al servicio elegido al pulsar Buscar.
+
+Los resultados son candidatos por verificar; la similitud no confirma el origen. trace.moe tiene cuota gratuita limitada e IQDB puede tener cola. AVScan muestra solo candidatos de alta puntuación y permite uso personal no comercial. La cobertura no es exhaustiva; reconocer personajes no proporciona descargas de juegos.
+
+
 ## Clasificaciones
 
 | Categoría | Sitios |

@@ -88,7 +88,31 @@
       o.url = withQuery(o.url, o.params);
       delete o.params;
       o.headers = Object.assign({}, defaults.headers || {}, o.headers || {});
-      if (o.json !== undefined) {
+      if (o.multipart !== undefined) {
+        if (o.json !== undefined || o.form !== undefined || o.body !== undefined || o.bodyBase64 !== undefined || o.mode === 'browser' || defaults.mode === 'browser') {
+          throw new ParkError(ErrorCode.CONFIG, '二进制请求参数无效');
+        }
+        const input = o.multipart;
+        const file = input && input.file;
+        const validToken = value => typeof value === 'string' && /^[A-Za-z0-9_.-]{1,100}$/.test(value);
+        if (!file || !validToken(file.name) || !validToken(file.filename) || !/^image\/(png|jpeg|webp|gif)$/.test(file.mimeType) ||
+          typeof file.base64 !== 'string' || file.base64.length > 2796204 || !/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/.test(file.base64) || !file.base64) {
+          throw new ParkError(ErrorCode.CONFIG, '二进制请求参数无效');
+        }
+        const boundary = 'Park' + await crypto.uuid();
+        const utf8 = text => unescape(encodeURIComponent(text));
+        let body = '';
+        for (const [name, value] of Object.entries(input.fields || {})) {
+          if (!validToken(name) || typeof value !== 'string' || value.length > 4096) throw new ParkError(ErrorCode.CONFIG, '二进制请求参数无效');
+          body += '--' + boundary + '\r\nContent-Disposition: form-data; name="' + name + '"\r\n\r\n' + utf8(value) + '\r\n';
+        }
+        body += '--' + boundary + '\r\nContent-Disposition: form-data; name="' + file.name + '"; filename="' + file.filename + '"\r\nContent-Type: ' + file.mimeType + '\r\n\r\n' + atob(file.base64) + '\r\n--' + boundary + '--\r\n';
+        if (body.length > 2097152) throw new ParkError(ErrorCode.CONFIG, '二进制请求过大');
+        for (const key of Object.keys(o.headers)) if (key.toLowerCase() === 'content-type') delete o.headers[key];
+        o.headers['Content-Type'] = 'multipart/form-data; boundary=' + boundary;
+        o.bodyBase64 = btoa(body);
+        delete o.multipart;
+      } else if (o.json !== undefined) {
         o.body = JSON.stringify(o.json);
         if (!hasHeader(o.headers, 'content-type')) o.headers['Content-Type'] = 'application/json; charset=UTF-8';
         delete o.json;
@@ -397,6 +421,7 @@
       searchFilters: pick(def.searchFilters || []),
       searchHint: def.searchHint || '',
       capabilities: {
+        reverseSearch: typeof def.reverseSearch === 'function',
         interaction: typeof def.interaction === 'function',
         searchSuggestions: typeof def.searchSuggestions === 'function',
         rankings: Array.isArray(def.rankings) && def.rankings.length > 0,

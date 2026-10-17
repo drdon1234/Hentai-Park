@@ -101,6 +101,22 @@ Park.register({
 
 能力（`capabilities`）由运行时根据实现了哪些方法自动导出，插件不手写。
 
+### 图片反搜
+
+实现 `reverseSearch(image)` 自动导出 `capabilities.reverseSearch: true`，显示在独立的“图片反搜”页。仅反搜插件声明 `type: 'comic', category: 'other'` 作为清单归类，不声明 `feeds`、`search`、`detail` 或章节／媒体方法；此处的 `type` 不产生可读作品。没有首页的反搜服务不填写 `defaultFeed`。可同时为普通站点提供反搜能力。
+
+输入为 `{base64, mimeType: 'image/png'}`，由应用在内存中解码、缩放、可选裁剪并重新编码，大小不超过 1,800,000 字节，不含原文件名或本机路径。用户点击搜索才上传到所选服务，换图、切换服务、取消与销毁会取消请求并丢弃旧结果。图片和查询响应不持久化、不进入诊断日志。
+
+返回最多 50 条出处候选：
+
+```js
+[{ title: '作品名称', keyword: '用于继续搜索的作品名或番号',
+   description: '可选角色或其他原站信息', url: 'https://example.org/original',
+   similarity: 91.2, uncertain: false, episode: 1, from: 272.2, to: 282.6 }]
+```
+
+`title` 必填，`keyword` 和 `url` 至少提供一个，其余可省略。只有明确识别出作品名或番号才填 `keyword`；只有标签或出处链接时不要伪造作品名称，不提供资源搜索按钮。`url` 仅允许无凭据的 HTTP(S) 网页；没有明确的原站详情链接时省略，不能伪造。`similarity` 为服务提供的 0–100 相似度，没有分数不填；不同服务分数不能混排为统一可信度。`uncertain` 标记低可信候选。`episode` 为字符串或数值，`from/to` 为秒。候选不是 `WorkItem`，不能直接下载、收藏或播放；用户可用 `keyword` 继续聚合搜索资源。各站的阈值、去重、限额处理与响应解析保留在插件中，空匹配和解析失败必须区分。
+
 ### 类型与分类
 
 `type` 决定阅读、播放或游戏资源行为，`category` 决定发现页、站点管理与搜索中的分组；未知或未声明的分类归入“其他”。新增站点必须准确声明类型、分类和能力。
@@ -441,6 +457,7 @@ await this.http.request({
 - `text()` / `json()` 遇到非 2xx 自动抛错（404 → `NOT_FOUND`）。Cookie 自动保存，并按每次重定向的目标地址重新选择。
 - 原生网络设置 `followRedirects: false` 时返回原始 30x 响应和 `Location`，不访问跳转目标；浏览器网络不支持该选项并返回 `CONFIG`。需要检查 30x 时用 `request()` / `get()`，不要用要求 2xx 的 `text()` / `json()`。
 - `bodyBase64` 是原始二进制请求体（最多 2 MiB），不能与 `body` 或浏览器模式同时使用；与文本请求使用相同的域名隔离、TLS 和重定向规则。插件不能自行开放浏览器网络、WebSocket 或任意文件访问。
+- 文件上传使用 `multipart: {fields: {name: '文本'}, file: {name: 'file', filename: 'image.png', mimeType: 'image/png', base64: '...'}}`，与 `json/form/body/bodyBase64` 互斥，仅用于原生网络。运行时生成边界、编码 UTF-8 字段和二进制文件，并通过 `bodyBase64` 发送；完整请求体上限仍为 2 MiB。字段名、文件名仅允许 1–100 位 ASCII 字母、数字、下划线、点或短横线，文本字段最多 4096 字符，文件类型限 PNG、JPEG、WebP、GIF。不要上传本机路径、原始文件名或凭据。
 
 ## 错误码
 

@@ -476,6 +476,42 @@
       "rankingOnly": true,
       "file": "ranking-javmenu.js",
       "description": "站内热门"
+    },
+    {
+      "key": "trace_moe",
+      "name": "trace.moe",
+      "version": "0.0.1",
+      "type": "comic",
+      "category": "other",
+      "file": "trace_moe.js",
+      "description": "动画截图定位作品、集数与时间点；免费额度有限"
+    },
+    {
+      "key": "anime_trace",
+      "name": "AnimeTrace",
+      "version": "0.0.1",
+      "type": "comic",
+      "category": "other",
+      "file": "anime_trace.js",
+      "description": "识别动画与 Galgame 角色及作品；候选结果需核对"
+    },
+    {
+      "key": "iqdb",
+      "name": "IQDB",
+      "version": "0.0.1",
+      "type": "comic",
+      "category": "other",
+      "file": "iqdb.js",
+      "description": "插画出处反搜；高峰期可能需要排队"
+    },
+    {
+      "key": "avscan",
+      "name": "AVScan",
+      "version": "0.0.1",
+      "type": "comic",
+      "category": "other",
+      "file": "avscan.js",
+      "description": "JAV 截图查番号；仅显示高分候选，限个人非商业使用"
     }
   ]
 }

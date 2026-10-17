@@ -368,6 +368,8 @@ class SourceManifest {
   final List<FeedDef> feeds;
   final List<RankingDef> rankings;
   bool get rankingOnly => json['rankingOnly'] == true;
+  bool get reverseSearchOnly =>
+      can('reverseSearch') && feeds.isEmpty && !can('search');
 
   /// Key of the feed the source page opens on (manifest `defaultFeed`).
   final String defaultFeed;

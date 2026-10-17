@@ -11,6 +11,7 @@ import 'discovery_navigation.dart';
 import 'novel/novel_reader_page.dart';
 import 'reader/reader_page.dart';
 import 'search/aggregate_search_page.dart';
+import 'search/reverse_search_page.dart';
 import 'search/source_search_page.dart';
 import 'settings/settings_sections.dart';
 import 'settings/source_settings_page.dart';
@@ -102,6 +103,9 @@ class Nav {
 
   static Future<void> _openSource(BuildContext context, String source) {
     SourceManager.instance.cancelBackgroundFeeds(source);
+    if (SourceManager.instance.manifest(source)?.reverseSearchOnly == true) {
+      return push(context, ReverseSearchPage(sourceKey: source));
+    }
     return push(context, SourcePage(sourceKey: source));
   }
 
