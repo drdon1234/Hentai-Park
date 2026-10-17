@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -14,7 +15,7 @@ class HomeCacheResult {
   final bool stale;
 }
 
-/// 仅管理可重建的主页元数据，容量和删除范围均与媒体、离线内容分离。
+/// 管理可重建的作品与访问地址缓存，与媒体文件、离线下载分开计量和清理。
 class HomeCache {
   HomeCache({
     Directory? directory,
@@ -27,6 +28,9 @@ class HomeCache {
        _clock = clock ?? DateTime.now;
   static final instance = HomeCache();
   static const lifetime = Duration(minutes: 15);
+  static bool invalidatesContent(Object error) =>
+      error is SourceError &&
+      {'LOGIN_REQUIRED', 'AUTH', 'NOT_FOUND'}.contains(error.code);
   final Directory? _directory;
   final DateTime Function() _clock;
   final int budget;
@@ -54,20 +58,38 @@ class HomeCache {
     String requestGroup = 'foreground',
     bool Function(Map<String, dynamic>)? shouldCache,
     Map<String, dynamic> Function(Map<String, dynamic>)? serialize,
+    void Function(Map<String, dynamic>)? onCached,
+    bool preferCached = false,
   }) {
+    if (preferCached) {
+      final cached = Completer<HomeCacheResult>();
+      final latest = request(
+        identity,
+        load,
+        refresh: true,
+        requestGroup: requestGroup,
+        shouldCache: shouldCache,
+        serialize: serialize,
+        onCached: refresh
+            ? null
+            : (data) {
+                onCached?.call(data);
+                cached.complete(HomeCacheResult(data, stale: true));
+              },
+      );
+      // 首次播放可以使用缓存，后台请求仍更新磁盘；错误已由请求层记录。
+      return refresh ? latest : Future.any([cached.future, latest]);
+    }
     // 网络/会话原值只参与摘要，不进入文件名、正文或诊断日志。
     final key = sha256
         .convert(utf8.encode(jsonEncode(_canonical(identity))))
         .toString();
     final generation = _generation;
     final pendingKey =
-        '${directory.path}/$generation/$key/$refresh/$requestGroup';
+        '${directory.path}/$generation/$key/$refresh/$requestGroup/${onCached == null ? 0 : ++_requestSequence}';
     final existing = _pending[pendingKey];
     if (existing != null) return existing;
-    if (refresh || requestGroup == 'foreground') {
-      _refreshes[key] = ++_requestSequence;
-    }
-    final sequence = _refreshes[key] ?? 0;
+    final sequence = ++_requestSequence;
     return _pending[pendingKey] ??=
         _request(
           key,
@@ -77,6 +99,8 @@ class HomeCache {
           shouldCache,
           serialize,
           sequence,
+          onCached,
+          requestGroup == 'foreground' || refresh,
         ).whenComplete(() {
           _pending.remove(pendingKey);
           if (!_pending.keys.any((pending) => pending.contains('/$key/'))) {
@@ -93,6 +117,8 @@ class HomeCache {
     bool Function(Map<String, dynamic>)? shouldCache,
     Map<String, dynamic> Function(Map<String, dynamic>)? serialize,
     int sequence,
+    void Function(Map<String, dynamic>)? onCached,
+    bool foreground,
   ) async {
     final root = directory;
     final file = File(p.join(root.path, '$key.json'));
@@ -120,15 +146,38 @@ class HomeCache {
         return null;
       }
     });
-    if (!refresh &&
+    if (cached != null && generation == _generation) {
+      onCached?.call(cached.data);
+    }
+    if (onCached == null &&
+        !refresh &&
         cached != null &&
         _clock().difference(cached.written) < lifetime) {
       return HomeCacheResult(cached.data);
     }
     Map<String, dynamic> data;
+    // 只读取已有缓存不会让正在进行的最新请求失去写入资格。
+    if (foreground && sequence > (_refreshes[key] ?? 0)) {
+      _refreshes[key] = sequence;
+    } else {
+      _refreshes.putIfAbsent(key, () => sequence);
+    }
     try {
       data = await load();
     } on SourceError catch (error) {
+      if (invalidatesContent(error)) {
+        try {
+          await _disk.run(() async {
+            if (generation == _generation &&
+                (_refreshes[key] ?? 0) == sequence &&
+                await file.exists()) {
+              await file.delete();
+            }
+          });
+        } on FileSystemException {
+          /* 不掩盖原始权限错误。 */
+        }
+      }
       if ({'NETWORK', 'TIMEOUT'}.contains(error.code) &&
           !refresh &&
           cached != null &&

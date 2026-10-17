@@ -1,11 +1,13 @@
 import 'dart:async';
 
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 
 import '../../core/localization.dart';
 import '../../core/models.dart';
 import '../../core/settings.dart';
 import '../../core/tag_blocklist.dart';
+import '../../engine/home_cache.dart';
 import '../../engine/source_manager.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
@@ -42,10 +44,9 @@ class FeedShelf extends StatefulWidget {
     try {
       return await pending;
     } catch (_) {
-      if (identical(_pages[key], pending)) {
-        _pages.remove(key)?.ignore();
-      }
       rethrow;
+    } finally {
+      if (identical(_pages[key], pending)) _pages.remove(key)?.ignore();
     }
   }
 
@@ -68,6 +69,7 @@ class _FeedShelfState extends State<FeedShelf>
   bool _visible = false;
   int _revision = 0;
   bool _forceRefresh = false;
+  CancelToken? _request;
   StreamSubscription<String>? _authentication;
   late final Listenable _filters = AppSettings.instance.watch(
     AppSettings.filterKeys,
@@ -81,12 +83,16 @@ class _FeedShelfState extends State<FeedShelf>
     _authentication = SourceManager.instance.authenticationChanges.listen((
       key,
     ) {
-      if (key == widget.sourceKey) _refresh();
+      if (key == widget.sourceKey) {
+        _items = null;
+        _refresh();
+      }
     });
   }
 
   @override
   void dispose() {
+    _request?.cancel();
     _filters.removeListener(_filtersChanged);
     FeedShelf.refreshes.removeListener(_refresh);
     _authentication?.cancel();
@@ -103,7 +109,6 @@ class _FeedShelfState extends State<FeedShelf>
     _forceRefresh = true;
     FeedShelf._pages.remove(widget.sourceKey)?.ignore();
     setState(() {
-      _items = null;
       _error = null;
     });
     if (_visible) unawaited(_load());
@@ -126,7 +131,8 @@ class _FeedShelfState extends State<FeedShelf>
   }
 
   Future<void> _load() async {
-    if (_loading) return;
+    if (_loading || !mounted) return;
+    final request = _request = CancelToken();
     final key = widget.sourceKey;
     final manifest = SourceManager.instance.manifest(key);
     if (manifest == null || manifest.feeds.isEmpty) return;
@@ -143,6 +149,17 @@ class _FeedShelfState extends State<FeedShelf>
           feed.key,
           options: feed.defaultOptions(),
           refresh: _forceRefresh,
+          cancelToken: request,
+          onCached: (cached) {
+            if (mounted && generation == _revision && key == widget.sourceKey) {
+              setState(
+                () => _items = [
+                  ...?cached.sections?.expand((s) => s.items),
+                  ...cached.items,
+                ].take(24).toList(),
+              );
+            }
+          },
         );
         return [
           ...?page.sections?.expand((section) => section.items),
@@ -155,12 +172,20 @@ class _FeedShelfState extends State<FeedShelf>
       setState(() => _items = page);
     } catch (error) {
       if (mounted && key == widget.sourceKey && generation == _revision) {
-        setState(() => _error = error);
+        setState(() {
+          _error = error;
+          if (HomeCache.invalidatesContent(error)) {
+            _items = null;
+          }
+        });
       }
     } finally {
       if (mounted) {
         setState(() => _loading = false);
-        if (_visible && _items == null && _error == null) unawaited(_load());
+        if (_visible &&
+            (generation != _revision || (_items == null && _error == null))) {
+          unawaited(_load());
+        }
       }
     }
   }
@@ -175,7 +200,7 @@ class _FeedShelfState extends State<FeedShelf>
         .toList();
     final novel = manifest?.isNovel == true;
     final Widget body;
-    if (_error != null) {
+    if (_error != null && items == null) {
       body = _ShelfMessage(
         error: _error!,
         source: widget.sourceKey,
@@ -242,6 +267,17 @@ class _FeedShelfState extends State<FeedShelf>
               ],
             ),
           ),
+          if (_loading)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(Gap.page, 0, Gap.page, Gap.s),
+              child: Text(tr('获取最新作品中'), style: context.text.bodySmall),
+            ),
+          if (_error != null && items != null)
+            _ShelfMessage(
+              error: _error!,
+              source: widget.sourceKey,
+              onRetry: _load,
+            ),
           AnimatedSwitcher(
             duration: Motion.of(context, Motion.medium),
             child: KeyedSubtree(

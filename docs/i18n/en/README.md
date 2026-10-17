@@ -21,6 +21,9 @@
 
 > For adults only, where permitted by local law. All content comes from third-party sites; HentaiPark neither stores nor provides any content.
 
+
+Choose Data saver mode in My → Network and storage: Data saver shows compact site entries on home and category pages and loads works when you open a site. Maximum data saving also disables automatic loading on site pages and retrieves works only after a search. Sites without search show an explanation.
+
 ## Download
 
 Get the Android APK from the **[latest release](https://github.com/drdon1234/Hentai-Park/releases/latest)**. Most phones and tablets need `arm64-v8a`; emulators usually need `x86_64`.
@@ -82,6 +85,12 @@ Screenshots use offline demo data; the sites, works and covers shown are origina
 | Translation and filters | Translate titles, descriptions and tags; hide works by tag |
 | Privacy and backup | App lock, incognito mode, blurred covers, screenshot blocking; back up favorites, progress and settings |
 
+In the novel reader, More → Translate full text translates the complete text and continues with chapters as you open them. You can switch back to the original.
+
+Browse and detail pages open cached works immediately, retaining chapter and media addresses while fetching the latest works. If refreshing fails, accessible cached content remains available. Returning home restores your scroll position. Long-press a work card to block the work or its author; remove blocks in content filter settings. Ranking filters are remembered, with fresh results on every visit. Short videos default to Pornhub Shorties.
+
+On supported sites, use “Site preferences” in the detail page’s More menu or a card’s long-press menu with your in-app account: MissAV supports site favorites and EH supports ratings, separately from local favorites. Pixiv opens rankings when signed out and recommendations when signed in; recommendations require sign-in. Pixiv and EH offer site keyword suggestions while searching.
+
 JAV titles show subtitle and edition labels provided by the source. Switch between available editions or search by code within or across sites; favorites, progress and downloads are saved separately for each edition.
 
 Light and dark themes, eight interface languages. What each site supports is shown in the app.
@@ -133,7 +142,7 @@ Never on its own. Some Dimension Tea House resources only unlock after a reply; 
 Export a backup in More → Backup and restore it on the new device. Downloads aren't included, and some sites may ask you to sign in again.
 
 **What does translation send?**
-Only the titles, descriptions and tags you choose to translate go to the translation service you picked. More → Search & translation lists exactly what is sent.
+When translating titles, descriptions, tags, search terms, selected text or a full novel chapter, that content is sent to Google Translate. Accounts, cookies and reading history are not sent. The target follows the app language.
 
 **How do I report a problem?**
 Open an [issue](https://github.com/drdon1234/Hentai-Park/issues) with the app version, site name and steps to reproduce. Hide accounts and private content in screenshots.

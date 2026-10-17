@@ -4,6 +4,7 @@ import '../../core/localization.dart';
 import '../kit/tokens.dart';
 import '../theme.dart';
 import 'content_translation.dart';
+import 'text_translation.dart';
 
 class ExpandableDescription extends StatefulWidget {
   const ExpandableDescription({super.key, required this.text});
@@ -50,44 +51,46 @@ class _ExpandableDescriptionState extends State<ExpandableDescription> {
           return InkWell(
             borderRadius: Radii.medium,
             onTap: canExpand ? _toggle : null,
-            child: AnimatedSize(
-              duration: Motion.of(context, Motion.medium),
-              alignment: Alignment.topCenter,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  if (_open)
-                    for (final chunk in translationChunks(widget.text))
+            child: TranslationSelectionArea(
+              child: AnimatedSize(
+                duration: Motion.of(context, Motion.medium),
+                alignment: Alignment.topCenter,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (_open)
+                      for (final chunk in translationChunks(widget.text))
+                        ContentTranslation(
+                          text: chunk,
+                          builder: (value) => Text(value, style: style),
+                        )
+                    else
                       ContentTranslation(
-                        text: chunk,
-                        builder: (value) => Text(value, style: style),
-                      )
-                  else
-                    ContentTranslation(
-                      text: translationChunks(widget.text).firstOrNull ?? '',
-                      builder: (value) => Text(
-                        value,
-                        maxLines: 3,
-                        overflow: TextOverflow.ellipsis,
-                        style: style,
-                      ),
-                    ),
-                  if (canExpand)
-                    Semantics(
-                      expanded: _open,
-                      child: TextButton.icon(
-                        onPressed: _toggle,
-                        icon: Icon(
-                          _open
-                              ? Icons.expand_less_rounded
-                              : Icons.expand_more_rounded,
-                        ),
-                        label: SelectionContainer.disabled(
-                          child: Text(tr(_open ? '收起简介' : '展开简介')),
+                        text: translationChunks(widget.text).firstOrNull ?? '',
+                        builder: (value) => Text(
+                          value,
+                          maxLines: 3,
+                          overflow: TextOverflow.ellipsis,
+                          style: style,
                         ),
                       ),
-                    ),
-                ],
+                    if (canExpand)
+                      Semantics(
+                        expanded: _open,
+                        child: TextButton.icon(
+                          onPressed: _toggle,
+                          icon: Icon(
+                            _open
+                                ? Icons.expand_less_rounded
+                                : Icons.expand_more_rounded,
+                          ),
+                          label: SelectionContainer.disabled(
+                            child: Text(tr(_open ? '收起简介' : '展开简介')),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
               ),
             ),
           );

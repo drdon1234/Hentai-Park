@@ -18,7 +18,8 @@ class SubscriptionMedia {
 
 class SubscriptionPost {
   SubscriptionPost(Map data)
-    : id = (data['id'] ?? '').toString(),
+    : json = Map<String, dynamic>.from(data),
+      id = (data['id'] ?? '').toString(),
       title = (data['title'] ?? '').toString(),
       text = (data['text'] ?? '').toString(),
       url = (data['url'] ?? '').toString(),
@@ -28,6 +29,7 @@ class SubscriptionPost {
           .whereType<Map>()
           .map((m) => SubscriptionMedia(m.cast<String, dynamic>()))
           .toList();
+  final Map<String, dynamic> json;
   final String id, title, text, url, date;
   final bool locked;
   final List<SubscriptionMedia> media;

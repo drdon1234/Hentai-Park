@@ -180,6 +180,7 @@ class VideoSession extends ChangeNotifier {
   Future<void> selectEpisode(Chapter next) {
     return PendingDisposals.instance.watch(() async {
       if (scrollEpisodes && supported) return _selectDramaEpisode(next);
+      final refreshSources = error != null && next.id == episode.id;
       savePosition();
       _openingRequest?.cancel('video episode changed');
       _sourceRequest?.cancel('video source reloaded');
@@ -253,6 +254,7 @@ class VideoSession extends ChangeNotifier {
               work.id,
               episodeId: next.id,
               cancelToken: request,
+              refresh: refreshSources,
             );
         if (!_active || request.isCancelled || openRequest != _request) return;
         sources = loaded;

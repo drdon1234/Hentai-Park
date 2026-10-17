@@ -1,9 +1,11 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
 
 import '../../core/localization.dart';
 import '../../core/models.dart';
+import '../../core/settings.dart';
 import '../../engine/source_manager.dart';
 import '../nav.dart';
 import '../settings/source_manage_page.dart';
@@ -27,19 +29,52 @@ class RankingsPage extends StatefulWidget {
 }
 
 class _RankingsPageState extends State<RankingsPage> {
-  late SourceCategory _category = widget.category ?? SourceCategory.jav;
-  String? _selected;
-  String _section = 'market';
-  String _kind = 'work';
+  StreamSubscription<String>? _authentication;
+  @override
+  void initState() {
+    super.initState();
+    _authentication = _manager.authenticationChanges.listen((source) {
+      if (!mounted) return;
+      setState(() {
+        final keys = _sessions.keys
+            .where((key) => key.startsWith('$source:'))
+            .toList();
+        for (final key in keys) {
+          _sessions.remove(key)?.dispose();
+        }
+        _optionLoads.removeWhere((key, _) => key.startsWith('$source:'));
+        _activeSession = null;
+      });
+    });
+  }
+
+  late SourceCategory _category =
+      widget.category ?? SourceCategory.fromJson(_saved['category'] ?? 'jav');
+  late String? _selected = _saved['selected'] as String?;
+  late String _section = _saved['section'] as String? ?? 'market';
+  late String _kind = _saved['kind'] as String? ?? 'work';
+  late final _saved = AppSettings.instance.rankingSelection;
   final _optionLoads = <String, Future<List<OptionDef>>>{};
   final _sessions = <String, RankingController>{};
-  final _options = <String, Map<String, Object?>>{};
+  late final _options = <String, Map<String, Object?>>{
+    for (final e in (_saved['options'] as Map? ?? {}).entries)
+      if (e.value is Map) '${e.key}': Map<String, Object?>.from(e.value as Map),
+  };
+  String? _activeSession;
+  void _save() => AppSettings.instance.rankingSelection = {
+    'category': _category.name,
+    'section': _section,
+    'kind': _kind,
+    if (_selected != null) 'selected': _selected,
+    'options': _options,
+  };
   SourceManager get _manager => widget.sourceManager ?? SourceManager.instance;
   String _key(RankingSelection entry) =>
-      '${entry.source.key}:${entry.source.version}:${entry.board.key}';
+      '${entry.source.key}:${entry.board.key}';
 
   @override
   void dispose() {
+    _authentication?.cancel();
     for (final session in _sessions.values) {
       session.dispose();
     }
@@ -147,6 +182,10 @@ class _RankingsPageState extends State<RankingsPage> {
               boards.where((entry) => _key(entry) == _selected).firstOrNull ??
               boards.first;
           final key = _key(entry);
+          _category = category;
+          _section = section;
+          _kind = kind;
+          _selected = key;
           return FutureBuilder<List<OptionDef>>(
             key: ValueKey(key),
             future: _optionLoads.putIfAbsent(
@@ -155,10 +194,25 @@ class _RankingsPageState extends State<RankingsPage> {
             ),
             builder: (context, snapshot) {
               final definitions = snapshot.data ?? entry.board.options;
-              final options =
-                  _options[key] ??
-                  {for (final o in definitions) o.key: o.defaultValue};
-              final sessionKey = '$key:${jsonEncode(options)}';
+              final stored = _options[key] ?? const <String, Object?>{};
+              final options = {
+                for (final o in definitions)
+                  o.key:
+                      stored.containsKey(o.key) &&
+                          (o.values.isEmpty ||
+                              (o.type == 'multi' && stored[o.key] is List
+                                  ? (stored[o.key] as List).every(
+                                      (v) => o.values.any((c) => c.value == v),
+                                    )
+                                  : o.values.any(
+                                      (c) => c.value == stored[o.key],
+                                    )))
+                      ? stored[o.key]
+                      : o.defaultValue,
+              };
+              final sessionKey =
+                  '$key:${entry.source.version}:${jsonEncode(options)}';
+              _options[key] = options;
               final header = Column(
                 children: [
                   Padding(
@@ -187,6 +241,7 @@ class _RankingsPageState extends State<RankingsPage> {
                           if (value == null) return;
                           _category = value;
                           _selected = null;
+                          _save();
                         }),
                       ),
                     ),
@@ -198,6 +253,7 @@ class _RankingsPageState extends State<RankingsPage> {
                     (v) => setState(() {
                       _section = v;
                       _selected = null;
+                      _save();
                     }),
                   ),
                   _chips(
@@ -212,6 +268,7 @@ class _RankingsPageState extends State<RankingsPage> {
                     (v) => setState(() {
                       _kind = v;
                       _selected = null;
+                      _save();
                     }),
                   ),
                   Padding(
@@ -240,7 +297,10 @@ class _RankingsPageState extends State<RankingsPage> {
                               ),
                             ),
                         ],
-                        onChanged: (value) => setState(() => _selected = value),
+                        onChanged: (value) => setState(() {
+                          _selected = value;
+                          _save();
+                        }),
                       ),
                     ),
                   ),
@@ -251,8 +311,11 @@ class _RankingsPageState extends State<RankingsPage> {
                       source: entry.source.key,
                       options: definitions,
                       values: options,
-                      onChanged: (values) =>
-                          setState(() => _options[key] = values),
+                      onChanged: (values) => setState(() {
+                        _options[key] = values;
+                        _selected = key;
+                        _save();
+                      }),
                     ),
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: Gap.page),
@@ -293,6 +356,7 @@ class _RankingsPageState extends State<RankingsPage> {
                   ],
                 );
               }
+              final existing = _sessions.containsKey(sessionKey);
               final controller = _sessions.putIfAbsent(sessionKey, () {
                 final result = RankingController(
                   (page, cursor, offset) => _manager.ranking(
@@ -310,6 +374,16 @@ class _RankingsPageState extends State<RankingsPage> {
                 });
                 return result;
               });
+              if (_activeSession != sessionKey) {
+                _activeSession = sessionKey;
+                if (existing) {
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    if (mounted && _activeSession == sessionKey) {
+                      controller.refresh();
+                    }
+                  });
+                }
+              }
               return _RankingList(
                 key: ValueKey(sessionKey),
                 controller: controller,

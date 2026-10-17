@@ -9,7 +9,6 @@ import '../../core/tag_translations.dart';
 import '../../engine/source_manager.dart';
 import '../kit/adaptive_sheet.dart';
 import 'on_visible.dart';
-import 'text_translation.dart';
 
 final _translationSettings = AppSettings.instance.watch(const {
   'autoTranslateContent',
@@ -50,7 +49,7 @@ class _TranslationPageState extends State<TranslationPage> {
         locale: AppLocalizations.localeKey(AppLocalizations.of(context).locale),
         engine: AppSettings.instance.translateEngine,
         retry: retry,
-        child: TranslationSelectionArea(child: widget.child),
+        child: widget.child,
       ),
     );
   }

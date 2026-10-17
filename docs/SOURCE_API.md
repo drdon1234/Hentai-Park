@@ -220,6 +220,8 @@ account: {
 ```js
 async feed(key, { page, cursor, options }) {}      // 站点页标签
 async search({ keyword, page, cursor, filters }) {}
+async searchSuggestions(keyword) {}               // 可选：当前站点关键词联想
+async interaction(workId, { value } = {}) {}       // 可选：读取或保存当前账号原站喜好
 async random() {}                                  // 返回作品 ID
 async detail(id, preview) {}
 async chapter(id, chapterId) {}                    // 漫画、图集
@@ -230,6 +232,14 @@ async textChapter(id, chapterId) {}                // 小说
 async gameResources(workId) {}                     // 游戏
 async resolveGameResource(workId, resourceId, channelId) {}
 ```
+
+### 关键词联想：`searchSuggestions`
+
+声明方法后运行时导出 `capabilities.searchSuggestions: true`。站内搜索框在输入暂停后调用，清空、提交搜索或销毁页面时取消请求；失败不打断正常搜索。只返回本站真实支持的候选，最多十条，形如 `[{keyword: '原站查询词', label: '候选标签', subtitle: '可选翻译或命名空间'}]`。点击后用 `keyword` 提交本站搜索，框架不拼接站点查询语法。Pixiv 使用原标签，EH 保留命名空间与完整匹配语法。
+
+### 原站喜好：`interaction`
+
+声明方法后运行时导出 `capabilities.interaction: true`。`interaction(workId, {})` 只读当前登录账号的状态；用户明确选择后调用 `interaction(workId, {value})` 写入。返回 `{type: 'like'|'favorite'|'rating', value}`，点赞、收藏为布尔值；评分为 0.5 到 5 的半星值，无法可靠读取个人评分时返回 `null`，不能用站点平均分冒充个人评分。写入必须验证服务端结果，不能将请求发出当作成功。未登录或登录失效返回 `LOGIN_REQUIRED`；Cookie、CSRF 与原站接口规则在插件内处理，框架不保存凭证副本。此操作与应用本地收藏分开，站点是否使用这些数据推荐由原站决定。
 
 ### 列表：`feed` / `search`
 
@@ -243,7 +253,9 @@ async resolveGameResource(workId, resourceId, channelId) {}
 { sections: [{ title: '连载更新', items: [WorkItem] }], hasNext: false }
 ```
 
-**WorkItem**：`{ id, title, subtitle?, cover, coverAspect?, pages?, rating?, likes?, views?, language?, category?, badge?, badgeColor?, duration?, uploaded?, tags?, mediaKind?, workCode?, editions? }`
+**WorkItem**：`{ id, title, subtitle?, cover, coverAspect?, pages?, rating?, likes?, views?, language?, category?, badge?, badgeColor?, duration?, uploaded?, tags?, authors?, uploader?, mediaKind?, workCode?, editions? }`
+
+- `authors` 为原站提供的作者名称数组，`uploader` 为上传者标识，用于源内作者屏蔽。列表应尽量提供这些字段；不得从标题或含义不明的副标题猜测作者。列表缺失时，长按屏蔽作者会尝试从详情补充。
 
 - `workCode` 是原站确认的番号或共同检索码，仅用于查找同作品；不替代 `id`，不合并作品身份、收藏、进度或下载。
 - `editions` 是原站明确标注的固定版本标签（如“中文字幕”“无码流出”）；没有标记时不得推断为原版。显示译文不改变原始标签。

@@ -211,6 +211,7 @@ mixin _RuntimePool on _SourceRegistry {
       'rankingOptions',
       'feed',
       'search',
+      'searchSuggestions',
       'detail',
       'chapters',
       'pages',

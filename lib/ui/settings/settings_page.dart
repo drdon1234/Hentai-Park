@@ -117,9 +117,16 @@ extension SettingsSectionSummary on SettingsSection {
       SettingsSection.subscriptions =>
         s.subscriptionUpdateHours > 0 ? tr('自动检查') : tr('已关闭'),
       SettingsSection.filter =>
-        s.blockedTags.isEmpty
+        s.blockedTags.isEmpty &&
+                s.blockedWorks.isEmpty &&
+                s.blockedAuthors.isEmpty
             ? tr('未屏蔽标签')
-            : tr('已屏蔽 {value0} 项', {'value0': s.blockedTags.length}),
+            : tr('已屏蔽 {value0} 项', {
+                'value0':
+                    s.blockedTags.length +
+                    s.blockedWorks.length +
+                    s.blockedAuthors.length,
+              }),
       SettingsSection.sites => tr('{count} 个站点已启用', {
         'count': SourceManager.instance.enabled.length,
       }),

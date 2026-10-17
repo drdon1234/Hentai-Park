@@ -10,6 +10,7 @@ import '../../core/localization.dart';
 import '../../core/models.dart';
 import '../../core/tag_blocklist.dart';
 import '../../engine/desktop_shutdown.dart';
+import '../../engine/home_cache.dart';
 import '../../engine/source_manager.dart';
 import '../../library/downloads.dart';
 import '../../library/library.dart';
@@ -58,9 +59,11 @@ class _DetailPageState extends State<DetailPage> {
   WorkDetail? _detail;
   Object? _error;
   bool _reversed = false;
+  bool _refreshing = false;
   final Set<String> _selected = {};
   final _resourcesKey = GlobalKey();
   CancelToken? _request;
+  StreamSubscription<String>? _authentication;
   SourceManager get _manager => widget.sourceManager ?? SourceManager.instance;
 
   SourceManifest? get _m => _manager.manifest(widget.source);
@@ -78,6 +81,11 @@ class _DetailPageState extends State<DetailPage> {
       Library.instance.loadChapters(_uid).then<void>((_) {}),
     );
     _load();
+    _authentication = _manager.authenticationChanges.listen((source) {
+      if (source != widget.source || !mounted) return;
+      _detail = null;
+      unawaited(_load());
+    });
   }
 
   /// Keeps the stored chapter list (and with it read state and library updates) in step with the site.
@@ -101,7 +109,10 @@ class _DetailPageState extends State<DetailPage> {
   Future<void> _load() async {
     _request?.cancel('detail reloaded');
     final request = _request = CancelToken();
-    setState(() => _error = null);
+    setState(() {
+      _error = null;
+      _refreshing = true;
+    });
     if (widget.source == localSource) {
       // Imported files: everything is on disk, there is no site to ask.
       final d = DownloadManager.instance.offlineDetail(
@@ -113,6 +124,7 @@ class _DetailPageState extends State<DetailPage> {
             ? _error = SourceError('NOT_FOUND', '本地文件已被删除')
             : _detail = d,
       );
+      _refreshing = false;
       if (d != null) {
         Library.instance.recordVisit(d.toItem());
         PendingDisposals.instance.add(_syncChapters(d));
@@ -125,16 +137,30 @@ class _DetailPageState extends State<DetailPage> {
         widget.id,
         preview: widget.preview,
         cancelToken: request,
+        onCached: (cached) {
+          if (mounted && identical(_request, request) && !request.isCancelled) {
+            setState(() {
+              _detail = cached;
+            });
+          }
+        },
       );
       if (!mounted || request.isCancelled || !identical(_request, request)) {
         return;
       }
-      setState(() => _detail = d);
+      setState(() {
+        _detail = d;
+        _refreshing = false;
+      });
       Library.instance.recordVisit(d.toItem());
       PendingDisposals.instance.add(_syncChapters(d));
     } catch (e) {
       if (!mounted || request.isCancelled || !identical(_request, request)) {
         return;
+      }
+      _refreshing = false;
+      if (HomeCache.invalidatesContent(e)) {
+        _detail = null;
       }
       // Offline (or the site is down): fall back to the downloaded copy when there is one.
       final offline = DownloadManager.instance.offlineDetail(
@@ -157,6 +183,7 @@ class _DetailPageState extends State<DetailPage> {
 
   @override
   void dispose() {
+    _authentication?.cancel();
     _request?.cancel('detail page closed');
     super.dispose();
   }
@@ -256,6 +283,13 @@ class _DetailPageState extends State<DetailPage> {
                 manifest: _m,
                 coverHeroTag: widget.coverHeroTag,
                 body: [
+                  if (_refreshing)
+                    SliverToBoxAdapter(
+                      child: Padding(
+                        padding: const EdgeInsets.all(Gap.page),
+                        child: Text(tr('获取最新作品中')),
+                      ),
+                    ),
                   if (_error != null)
                     SliverToBoxAdapter(
                       child: SourceErrorView(

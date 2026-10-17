@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../core/models.dart';
+import '../kit/tokens.dart';
 import '../theme.dart';
 import 'content_translation.dart';
 
@@ -13,7 +14,7 @@ class OptionBar extends StatelessWidget {
     required this.onChanged,
     this.dropdowns = false,
     this.source = '',
-    this.padding = const EdgeInsets.fromLTRB(12, 8, 12, 0),
+    this.padding = const EdgeInsets.fromLTRB(Gap.page, Gap.s, Gap.page, 0),
   });
   final List<OptionDef> options;
   final Map<String, Object?> values;

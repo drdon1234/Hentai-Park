@@ -25,8 +25,9 @@ class ShortVideoPlayer implements ShortVideoHandle {
 
   static Future<ShortVideoHandle> open(
     WorkItem item,
-    CancelToken cancel,
-  ) async {
+    CancelToken cancel, {
+    bool refresh = false,
+  }) async {
     if (!PlatformCapabilities.nativeVideo) {
       throw SourceError('UNSUPPORTED', '此设备暂不支持短视频播放');
     }
@@ -45,6 +46,7 @@ class ShortVideoPlayer implements ShortVideoHandle {
             item.source,
             item.id,
             cancelToken: cancel,
+            refresh: refresh,
           )
         : [
             VideoSource({

@@ -215,7 +215,29 @@ class TagBlocklist {
     return null;
   }
 
-  String? matchItem(WorkItem item) => match(title: item.title, tags: item.tags);
+  static List<String> authorsOf(WorkItem item) => {
+    ...item.authors,
+    if (item.json['uploader'] is String) item.json['uploader'] as String,
+    if (item.json['author'] is String) item.json['author'] as String,
+    if (item is WorkDetail)
+      ...item.tagGroups
+          .where((g) => {'artist', 'author', 'group'}.contains(g.namespace))
+          .expand((g) => g.tags.map((t) => t.name)),
+  }.map((v) => v.trim()).where((v) => v.isNotEmpty).toList();
+
+  String? matchItem(WorkItem item) {
+    final settings = AppSettings.instance;
+    if (settings.blockedWorks.containsKey(item.uid)) return tr('已屏蔽作品');
+    if (settings.isBlockedAuthorWork(item) ||
+        authorsOf(item).any(
+          (a) => settings.blockedAuthors.containsKey(
+            '${item.source}:${a.toLowerCase()}',
+          ),
+        )) {
+      return tr('已屏蔽作者');
+    }
+    return match(title: item.title, tags: item.tags);
+  }
 
   /// Detail pages know namespaces, so `namespace:tag` entries can match there too.
   List<String> matchDetail(WorkDetail d) {
@@ -228,6 +250,8 @@ class TagBlocklist {
       ...d.tags,
     ];
     final hits = <String>{};
+    final identity = matchItem(d);
+    if (identity != null) hits.add(identity);
     for (final (label, re) in _titlePatterns) {
       if (re.hasMatch(d.title)) hits.add(label);
     }

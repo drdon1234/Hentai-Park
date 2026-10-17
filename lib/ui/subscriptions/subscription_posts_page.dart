@@ -7,6 +7,8 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/localization.dart';
 import '../../core/models.dart';
+import '../../core/settings.dart';
+import '../../core/tag_blocklist.dart';
 import '../../engine/domains.dart';
 import '../../engine/source_manager.dart';
 import '../../images/image_store.dart';
@@ -19,6 +21,7 @@ import '../nav.dart';
 import '../settings/source_settings_page.dart';
 import '../theme.dart';
 import '../video/video_page.dart';
+import '../widgets/cover_tile.dart';
 import '../widgets/error_view.dart';
 import '../widgets/on_visible.dart';
 import '../widgets/text_translation.dart';
@@ -32,7 +35,13 @@ class SubscriptionWorkPage extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(title: Text(post.title)),
       body: ListView(
-        children: [SubscriptionPostCard(source: item.source, post: post)],
+        children: [
+          SubscriptionPostCard(
+            source: item.source,
+            post: post,
+            selectable: true,
+          ),
+        ],
       ),
     );
   }
@@ -55,8 +64,13 @@ class _SubscriptionPostsPageState extends State<SubscriptionPostsPage> {
   String mediaType = 'all';
   String display = 'posts';
   int _emptyPages = 0;
+  late final _filters = AppSettings.instance.watch(AppSettings.filterKeys);
+  void _filtersChanged() {
+    if (mounted) setState(() {});
+  }
 
   SubscriptionPost _visiblePost(SubscriptionPost post) => SubscriptionPost({
+    ...post.json,
     'id': post.id,
     'title': post.title,
     'text': post.text,
@@ -73,7 +87,11 @@ class _SubscriptionPostsPageState extends State<SubscriptionPostsPage> {
         .toList(),
   });
   bool _isVisible(SubscriptionPost post) =>
-      (display == 'posts' && mediaType == 'all') || post.media.isNotEmpty;
+      TagBlocklist.current().matchItem(
+            WorkItem(post.json, widget.entry.source),
+          ) ==
+          null &&
+      ((display == 'posts' && mediaType == 'all') || post.media.isNotEmpty);
 
   void _filter({String? type, String? mode}) => setState(() {
     if (type != null) mediaType = type;
@@ -83,12 +101,14 @@ class _SubscriptionPostsPageState extends State<SubscriptionPostsPage> {
   @override
   void initState() {
     super.initState();
+    _filters.addListener(_filtersChanged);
     unawaited(_load());
   }
 
   @override
   void dispose() {
     generation++;
+    _filters.removeListener(_filtersChanged);
     request?.cancel();
     super.dispose();
   }
@@ -277,71 +297,83 @@ class SubscriptionPostCard extends StatelessWidget {
     super.key,
     required this.source,
     required this.post,
+    this.selectable = false,
   });
   final String source;
   final SubscriptionPost post;
+  final bool selectable;
   @override
   Widget build(BuildContext context) => Card(
-    child: Padding(
-      padding: const EdgeInsets.all(14),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          if (post.title.isNotEmpty)
-            Text(post.title, style: Theme.of(context).textTheme.titleMedium),
-          if (post.date.isNotEmpty)
-            Text(post.date, style: Theme.of(context).textTheme.bodySmall),
-          if (post.text.isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 8),
-              child: TranslationSelectionArea(child: Text(post.text)),
-            ),
-          if (post.locked ||
-              post.media.any((m) => m.json['previewOnly'] == true))
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 8),
-              child: Text(
-                tr(
-                  post.locked
-                      ? '受限内容，仅展示原站公开预览'
-                      : post.media.any(
-                          (m) =>
-                              m.type == 'video' &&
-                              m.json['previewOnly'] == true,
-                        )
-                      ? '公开视频预览，可在应用内播放；完整内容取决于原站权限'
-                      : '公开预览，完整内容请到原站查看',
+    child: InkWell(
+      onLongPress: selectable
+          ? null
+          : () => showWorkActions(context, WorkItem(post.json, source)),
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            if (post.title.isNotEmpty)
+              Text(post.title, style: Theme.of(context).textTheme.titleMedium),
+            if (post.date.isNotEmpty)
+              Text(post.date, style: Theme.of(context).textTheme.bodySmall),
+            if (post.text.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                child: selectable
+                    ? TranslationSelectionArea(child: Text(post.text))
+                    : Text(post.text),
+              ),
+            if (post.locked ||
+                post.media.any((m) => m.json['previewOnly'] == true))
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                child: Text(
+                  tr(
+                    post.locked
+                        ? '受限内容，仅展示原站公开预览'
+                        : post.media.any(
+                            (m) =>
+                                m.type == 'video' &&
+                                m.json['previewOnly'] == true,
+                          )
+                        ? '公开视频预览，可在应用内播放；完整内容取决于原站权限'
+                        : '公开预览，完整内容请到原站查看',
+                  ),
                 ),
               ),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                for (var i = 0; i < post.media.length; i++)
+                  SubscriptionMediaTile(source: source, post: post, index: i),
+              ],
             ),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              for (var i = 0; i < post.media.length; i++)
-                SubscriptionMediaTile(source: source, post: post, index: i),
-            ],
-          ),
-          if (post.url.isNotEmpty)
-            Align(
-              alignment: AlignmentDirectional.centerEnd,
-              child: TextButton(
-                onPressed: () async {
-                  final u = Uri.tryParse(post.url);
-                  if (u?.scheme == 'https') {
-                    try {
-                      await launchUrl(u!, mode: LaunchMode.externalApplication);
-                    } catch (_) {
-                      if (context.mounted) {
-                        context.toast(tr('无法打开链接'));
+            if (post.url.isNotEmpty)
+              Align(
+                alignment: AlignmentDirectional.centerEnd,
+                child: TextButton(
+                  onPressed: () async {
+                    final u = Uri.tryParse(post.url);
+                    if (u?.scheme == 'https') {
+                      try {
+                        await launchUrl(
+                          u!,
+                          mode: LaunchMode.externalApplication,
+                        );
+                      } catch (_) {
+                        if (context.mounted) {
+                          context.toast(tr('无法打开链接'));
+                        }
                       }
                     }
-                  }
-                },
-                child: SelectionContainer.disabled(child: Text(tr('在原站打开'))),
+                  },
+                  child: SelectionContainer.disabled(child: Text(tr('在原站打开'))),
+                ),
               ),
-            ),
-        ],
+          ],
+        ),
       ),
     ),
   );
@@ -364,6 +396,8 @@ class SubscriptionMediaTile extends StatelessWidget {
       button: true,
       label: tr(media.type == 'video' ? '播放视频' : '查看图片'),
       child: InkWell(
+        onLongPress: () =>
+            showWorkActions(context, WorkItem(post.json, source)),
         onTap: () async {
           if (media.type == 'video' &&
               !media.needsDownload &&
@@ -372,6 +406,7 @@ class SubscriptionMediaTile extends StatelessWidget {
             await Nav.openWork(
               context,
               WorkItem({
+                ...post.json,
                 'id': post.id,
                 'title': post.title,
                 'text': post.text,

@@ -107,10 +107,10 @@ mixin _NovelLayout on _NovelReaderBase {
         .where((n) => n.chapterId == _loadedKey && n.quote.isNotEmpty);
     final ranges = <(int, int)>[];
     for (final note in notes) {
-      final start = math.max(0, note.offset - offset),
+      final start = math.max(0, _displayOffset(note.offset) - offset),
           end = math.min(
             value.length,
-            note.offset + note.quote.length - offset,
+            _displayOffset(note.offset + note.quote.length) - offset,
           );
       if (end > start && start < value.length) ranges.add((start, end));
     }

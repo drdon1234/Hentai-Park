@@ -2,6 +2,58 @@ part of '../source_manager.dart';
 
 /// Typed calls into a source: feeds, search, details, chapters, media and game resources.
 mixin _SourceApi on _SourceRegistry {
+  Future<List<Map<String, String>>> searchSuggestions(
+    String key,
+    String keyword, {
+    CancelToken? cancelToken,
+  }) async {
+    if (manifest(key)?.can('searchSuggestions') != true ||
+        keyword.trim().isEmpty) {
+      return [];
+    }
+    final result = await _call(key, 'searchSuggestions', [
+      keyword.trim(),
+    ], cancelToken: cancelToken);
+    if (result is! List) throw SourceError('PARSE', '媒体数据无效');
+    final seen = <String>{};
+    return [
+      for (final entry in result.whereType<Map>())
+        if (entry['keyword'] is String &&
+            (entry['keyword'] as String).trim().isNotEmpty &&
+            seen.add(entry['keyword'] as String))
+          {
+            'keyword': entry['keyword'] as String,
+            'label': (entry['label'] ?? entry['keyword']).toString(),
+            'subtitle': (entry['subtitle'] ?? '').toString(),
+          },
+    ].take(10).toList();
+  }
+
+  Future<Map<String, dynamic>> interaction(
+    String key,
+    String id, {
+    Object? value,
+  }) async {
+    if (manifest(key)?.can('interaction') != true) {
+      throw SourceError('UNSUPPORTED', '本站未提供原站互动');
+    }
+    final result = await _call(key, 'interaction', [
+      id,
+      {'value': ?value},
+    ]);
+    if (result is! Map ||
+        !{'favorite', 'rating', 'like'}.contains(result['type']) ||
+        (result['type'] == 'rating'
+            ? result['value'] != null &&
+                  (result['value'] is! num ||
+                      (result['value'] as num) < 0.5 ||
+                      (result['value'] as num) > 5)
+            : result['value'] is! bool)) {
+      throw SourceError('PARSE', '原站互动数据无效');
+    }
+    return result.cast<String, dynamic>();
+  }
+
   Future<List<OptionDef>> rankingOptions(String key, RankingDef board) async {
     if (!board.options.any((option) => option.dynamicValues)) {
       return board.options;
@@ -42,6 +94,7 @@ mixin _SourceApi on _SourceRegistry {
     bool refresh = false,
     bool background = false,
     CancelToken? cancelToken,
+    void Function(WorkPage)? onCached,
   }) async {
     await ready;
     if (!background) cancelBackgroundFeeds(key);
@@ -76,6 +129,11 @@ mixin _SourceApi on _SourceRegistry {
         requestGroup: background ? 'background' : 'foreground',
         shouldCache: HomeMetadata.cacheable,
         serialize: HomeMetadata.serialize,
+        onCached: onCached == null
+            ? null
+            : (data) {
+                if (!token.isCancelled) onCached(WorkPage.fromJson(data, key));
+              },
       );
       return WorkPage.fromJson({
         ...result.data,
@@ -111,12 +169,37 @@ mixin _SourceApi on _SourceRegistry {
     String id, {
     WorkItem? preview,
     CancelToken? cancelToken,
+    void Function(WorkDetail)? onCached,
   }) async {
-    final res = await _call(key, 'detail', [
-      id,
-      if (preview?.source == key && preview?.id == id) preview!.toJson(),
-    ], cancelToken: cancelToken);
-    return WorkDetail((res as Map).cast<String, dynamic>(), key);
+    await ready;
+    final result = await HomeCache.instance.request(
+      [
+        'detail',
+        key,
+        manifest(key)?.version,
+        id,
+        await CookieStore.instance.snapshotPartition(key),
+        settingsOf(key),
+        _state[key]?['data'],
+        AppSettings.instance.proxy,
+        HomeMetadata.fields.toList(),
+        HomeMetadata.detailFields.toList(),
+      ],
+      () async => (await _call(key, 'detail', [
+        id,
+        if (preview?.source == key && preview?.id == id) preview!.toJson(),
+      ], cancelToken: cancelToken) as Map).cast<String, dynamic>(),
+      refresh: true,
+      serialize: HomeMetadata.detail,
+      onCached: onCached == null
+          ? null
+          : (data) {
+              if (cancelToken?.isCancelled != true) {
+                onCached(WorkDetail(data, key));
+              }
+            },
+    );
+    return WorkDetail(result.data, key);
   }
 
   Future<String> random(String key) async =>
@@ -224,21 +307,61 @@ mixin _SourceApi on _SourceRegistry {
     String id, {
     String? episodeId,
     CancelToken? cancelToken,
+    bool refresh = false,
   }) async {
-    final res = await _call(key, 'videos', [
-      id,
-      episodeId ?? '_',
-    ], cancelToken: cancelToken);
-    final sources = (res as List)
+    await ready;
+    final result = await HomeCache.instance.request(
+      [
+        'videos',
+        key,
+        manifest(key)?.version,
+        id,
+        episodeId ?? '_',
+        await CookieStore.instance.snapshotPartition(key),
+        settingsOf(key),
+        _state[key]?['data'],
+        AppSettings.instance.proxy,
+      ],
+      () async => {
+        'sources': await _call(key, 'videos', [
+          id,
+          episodeId ?? '_',
+        ], cancelToken: cancelToken),
+      },
+      refresh: refresh,
+      preferCached: true,
+      shouldCache: (data) =>
+          (data['sources'] as List? ?? []).isNotEmpty &&
+          (data['sources'] as List).whereType<Map>().every(
+            (source) => (source['headers'] as Map? ?? {}).keys.every(
+              (name) => !{
+                'cookie',
+                'authorization',
+                'proxy-authorization',
+              }.contains(name.toString().toLowerCase()),
+            ),
+          ),
+    );
+    final sources = (result.data['sources'] as List)
         .whereType<Map>()
         .map((e) => VideoSource(e.cast<String, dynamic>()))
         .toList();
     if (sources.isEmpty) {
       throw SourceError('UNSUPPORTED', '此影片暂无可用播放地址');
     }
-    if (!sources.any((s) => s.format == 'hls')) return sources;
     final sourceManifest = manifest(key);
     if (sourceManifest == null) throw SourceError('CONFIG', '视频站点未加载');
+    // 磁盘地址与新接口结果都必须服从当前插件的媒体权限。
+    for (final source in sources) {
+      final uri = Uri.parse(source.url);
+      final policy = MediaPolicy.fromManifest(
+        sourceManifest,
+        initialUrl: source.format == 'hls' ? uri : null,
+      );
+      policy.validate(uri);
+      policy.requestHeaders(source.headers);
+    }
+    if (!sources.any((s) => s.format == 'hls')) return sources;
     final resolved = <VideoSource>[];
     for (final source in sources) {
       if (source.format != 'hls') {

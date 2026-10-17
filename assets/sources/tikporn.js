@@ -9,7 +9,7 @@ Park.register({
     "ru": {"竖屏短视频推荐，支持连续播放和搜索": "Рекомендации вертикальных видео с непрерывным просмотром и поиском"},
     "ar": {"竖屏短视频推荐，支持连续播放和搜索": "اقتراحات مقاطع عمودية تدعم التشغيل المتواصل والبحث"},
   },
-  key: 'tikporn', name: 'Tik.porn', version: '0.0.3', type: 'video', category: 'shortvideo',
+  key: 'tikporn', name: 'Tik.porn', version: '0.0.4', type: 'video', category: 'shortvideo',
   color: '#FF427B', description: '竖屏短视频推荐，支持连续播放和搜索', language: 'en',
   homepage: 'https://tik.porn/', domains: ['tik.porn'],
   network: {mode: 'browser', origin: 'https://tik.porn', vpnHint: true},
@@ -62,7 +62,11 @@ Park.register({
       if (!Array.isArray(videos)) throw Park.error('PARSE', '短视频数据解析失败');
       const items = videos.map(v => this.item(v)).filter(Boolean);
       if (!items.length) throw Park.error('PARSE', '短视频数据解析失败');
-      return {items, page, hasNext: true, cursor: this.cursor(items.map(v => v.id), videos[0]?.recommId)};
+      const first = {items, page, hasNext: true, cursor: this.cursor(items.map(v => v.id), videos[0]?.recommId)};
+      // SSR 只负责首个可播放作品；首屏还需要与原站一致地读取推荐批次。
+      if (items.length >= 10) return first;
+      const next = await this.feed(key, {page, cursor: first.cursor});
+      return {...next, page, items: [...new Map([...items, ...next.items].map(v => [v.id, v])).values()]};
     }
     let c;
     try { c = JSON.parse(req.cursor); } catch (_) { throw Park.error('CONFIG', '短视频分页数据无效'); }

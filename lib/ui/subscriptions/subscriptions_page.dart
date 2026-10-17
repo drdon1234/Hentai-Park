@@ -119,86 +119,118 @@ class _SubscriptionsPageState extends State<SubscriptionsPage> {
             : ListView(
                 padding: const EdgeInsets.fromLTRB(16, 12, 16, 100),
                 children: [
-                  ListTile(
-                    title: SelectionContainer.disabled(child: Text(tr('订阅更新'))),
-                    leading: const Icon(Icons.notifications_outlined),
-                    onTap: () =>
-                        Nav.push(context, const SubscriptionUpdatesPage()),
-                  ),
-                  ListTile(
-                    title: SelectionContainer.disabled(
-                      child: Text(tr('自动检查订阅')),
-                    ),
-                    subtitle: SelectionContainer.disabled(
-                      child: DropdownButton<int>(
-                        isExpanded: true,
-                        value: AppSettings.instance.subscriptionUpdateHours,
-                        items: [
-                          for (final hours in [0, 1, 3, 6, 12, 24])
-                            DropdownMenuItem(
-                              value: hours,
-                              child: Text(
-                                hours == 0
-                                    ? tr('关闭')
-                                    : tr('每 {hours} 小时', {'hours': hours}),
+                  RowGroup(
+                    children: [
+                      ListTile(
+                        trailing: const Icon(Icons.chevron_right_rounded),
+                        title: SelectionContainer.disabled(
+                          child: Text(tr('订阅更新')),
+                        ),
+                        leading: const Icon(Icons.notifications_outlined),
+                        onTap: () =>
+                            Nav.push(context, const SubscriptionUpdatesPage()),
+                      ),
+                      ExpansionTile(
+                        tilePadding: const EdgeInsets.symmetric(
+                          horizontal: Gap.page,
+                        ),
+                        leading: const Icon(Icons.tune_rounded),
+                        title: Text(tr('订阅设置')),
+                        children: [
+                          ListTile(
+                            title: SelectionContainer.disabled(
+                              child: Text(tr('自动检查订阅')),
+                            ),
+                            subtitle: SelectionContainer.disabled(
+                              child: DropdownButton<int>(
+                                isExpanded: true,
+                                value: AppSettings
+                                    .instance
+                                    .subscriptionUpdateHours,
+                                items: [
+                                  for (final hours in [0, 1, 3, 6, 12, 24])
+                                    DropdownMenuItem(
+                                      value: hours,
+                                      child: Text(
+                                        hours == 0
+                                            ? tr('关闭')
+                                            : tr('每 {hours} 小时', {
+                                                'hours': hours,
+                                              }),
+                                      ),
+                                    ),
+                                ],
+                                onChanged: (value) {
+                                  AppSettings.instance.subscriptionUpdateHours =
+                                      value ?? 6;
+                                  setState(() {});
+                                },
                               ),
                             ),
+                          ),
+                          SwitchListTile(
+                            title: SelectionContainer.disabled(
+                              child: Text(tr('订阅系统通知')),
+                            ),
+                            value:
+                                AppSettings.instance.subscriptionNotifications,
+                            onChanged: (value) async {
+                              if (value) {
+                                await PlatformBridge.requestNotificationPermission();
+                              }
+                              AppSettings.instance.subscriptionNotifications =
+                                  value;
+                              if (mounted) setState(() {});
+                            },
+                          ),
+                          if (AppSettings.instance.subscriptionNotifications)
+                            SwitchListTile(
+                              title: SelectionContainer.disabled(
+                                child: Text(tr('通知中显示内容标题')),
+                              ),
+                              subtitle: SelectionContainer.disabled(
+                                child: Text(tr('关闭时仅提示有更新')),
+                              ),
+                              value: AppSettings
+                                  .instance
+                                  .subscriptionNotificationPreview,
+                              onChanged: (value) {
+                                AppSettings
+                                        .instance
+                                        .subscriptionNotificationPreview =
+                                    value;
+                                setState(() {});
+                              },
+                            ),
+                          TextButton.icon(
+                            onPressed: SubscriptionUpdater.instance.running
+                                ? null
+                                : () => SubscriptionUpdater.instance.run(
+                                    force: true,
+                                  ),
+                            icon: SubscriptionUpdater.instance.running
+                                ? const SizedBox(
+                                    width: 18,
+                                    height: 18,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                    ),
+                                  )
+                                : const Icon(Icons.refresh),
+                            label: SelectionContainer.disabled(
+                              child: Text(tr('检查订阅更新')),
+                            ),
+                          ),
                         ],
-                        onChanged: (value) {
-                          AppSettings.instance.subscriptionUpdateHours =
-                              value ?? 6;
-                          setState(() {});
-                        },
                       ),
-                    ),
+                    ],
                   ),
-                  SwitchListTile(
-                    title: SelectionContainer.disabled(
-                      child: Text(tr('订阅系统通知')),
-                    ),
-                    value: AppSettings.instance.subscriptionNotifications,
-                    onChanged: (value) async {
-                      if (value) {
-                        await PlatformBridge.requestNotificationPermission();
-                      }
-                      AppSettings.instance.subscriptionNotifications = value;
-                      if (mounted) setState(() {});
-                    },
-                  ),
-                  if (AppSettings.instance.subscriptionNotifications)
-                    SwitchListTile(
-                      title: SelectionContainer.disabled(
-                        child: Text(tr('通知中显示内容标题')),
-                      ),
-                      subtitle: SelectionContainer.disabled(
-                        child: Text(tr('关闭时仅提示有更新')),
-                      ),
-                      value:
-                          AppSettings.instance.subscriptionNotificationPreview,
-                      onChanged: (value) {
-                        AppSettings.instance.subscriptionNotificationPreview =
-                            value;
-                        setState(() {});
-                      },
-                    ),
-                  TextButton.icon(
-                    onPressed: SubscriptionUpdater.instance.running
-                        ? null
-                        : () => SubscriptionUpdater.instance.run(force: true),
-                    icon: SubscriptionUpdater.instance.running
-                        ? const SizedBox(
-                            width: 18,
-                            height: 18,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : const Icon(Icons.refresh),
-                    label: SelectionContainer.disabled(
-                      child: Text(tr('检查订阅更新')),
-                    ),
-                  ),
+                  const SizedBox(height: Gap.m),
                   Text(
                     tr('无需登录即可保存订阅；媒体访问取决于原站权限。'),
-                    style: Theme.of(context).textTheme.bodyMedium,
+                    style: context.text.bodySmall?.copyWith(
+                      color: context.colors.onSurfaceVariant,
+                    ),
                   ),
                   const SizedBox(height: 16),
                   if (store.items.isEmpty)
@@ -206,149 +238,180 @@ class _SubscriptionsPageState extends State<SubscriptionsPage> {
                       padding: const EdgeInsets.symmetric(vertical: 48),
                       child: Center(child: Text(tr('还没有订阅'))),
                     ),
-                  for (final entry in store.items)
-                    Card(
-                      child: ListTile(
-                        title: SelectionContainer.disabled(
-                          child: Text(entry.label),
-                        ),
-                        subtitle: SelectionContainer.disabled(
-                          child: Text(
-                            '${manager.manifest(entry.source)?.name ?? entry.source} · ${entry.label}\n${tr(entry.enabled ? '检查已开启' : '检查已暂停')}',
+                  for (final source
+                      in store.items.map((e) => e.source).toSet()) ...[
+                    SectionHeader(
+                      manager.manifest(source)?.name ?? source,
+                      leading: SourceAvatar(source, size: 24),
+                    ),
+                    for (final entry in store.items.where(
+                      (e) => e.source == source,
+                    ))
+                      HairlineItem(
+                        key: ValueKey(entry.identity),
+                        child: ListTile(
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: Gap.s,
+                            vertical: Gap.xs,
                           ),
-                        ),
-                        isThreeLine: true,
-                        onTap: () => entry.dimension == 'posts'
-                            ? Nav.push(
-                                context,
-                                SubscriptionPostsPage(entry: entry),
-                              )
-                            : entry.dimension == 'work'
-                            ? Nav.openRef(context, entry.source, entry.target)
-                            : Nav.push(
-                                context,
-                                const SubscriptionUpdatesPage(),
-                              ),
-                        trailing: SelectionContainer.disabled(
-                          child: PopupMenuButton<String>(
-                            onSelected: (action) async {
-                              try {
-                                if (action == 'edit') {
-                                  await _edit(entry);
-                                } else if (action == 'status') {
-                                  final state = await UpdateStore(
-                                    store.database,
-                                  ).state(entry);
-                                  if (!context.mounted) return;
-                                  await showDialog<void>(
-                                    context: context,
-                                    builder: (context) => AlertDialog(
-                                      title: Text(tr('订阅状态')),
-                                      content: Text(
-                                        '${tr(state.baseline ? '基线已建立' : '正在建立首次基线')}\n${state.error.isEmpty ? tr('检查正常') : tr('检查失败：{code}', {'code': state.error})}\n${state.lastSuccess == 0 ? '' : DateTime.fromMillisecondsSinceEpoch(state.lastSuccess).toLocal()}',
+                          leading: Icon(
+                            entry.enabled
+                                ? Icons.notifications_active_outlined
+                                : Icons.notifications_paused_outlined,
+                          ),
+                          title: SelectionContainer.disabled(
+                            child: Text(
+                              entry.label,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          subtitle: SelectionContainer.disabled(
+                            child: Text(
+                              '${tr(entry.dimension == 'posts'
+                                  ? '频道或博主'
+                                  : entry.dimension == 'work'
+                                  ? '作品更新'
+                                  : '关键词或筛选')} · ${tr(entry.enabled ? '检查已开启' : '检查已暂停')}',
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          isThreeLine: false,
+                          onTap: () => entry.dimension == 'posts'
+                              ? Nav.push(
+                                  context,
+                                  SubscriptionPostsPage(entry: entry),
+                                )
+                              : entry.dimension == 'work'
+                              ? Nav.openRef(context, entry.source, entry.target)
+                              : Nav.push(
+                                  context,
+                                  const SubscriptionUpdatesPage(),
+                                ),
+                          trailing: SelectionContainer.disabled(
+                            child: PopupMenuButton<String>(
+                              onSelected: (action) async {
+                                try {
+                                  if (action == 'edit') {
+                                    await _edit(entry);
+                                  } else if (action == 'status') {
+                                    final state = await UpdateStore(
+                                      store.database,
+                                    ).state(entry);
+                                    if (!context.mounted) return;
+                                    await showDialog<void>(
+                                      context: context,
+                                      builder: (context) => AlertDialog(
+                                        title: Text(tr('订阅状态')),
+                                        content: Text(
+                                          '${tr(state.baseline ? '基线已建立' : '正在建立首次基线')}\n${state.error.isEmpty ? tr('检查正常') : tr('检查失败：{code}', {'code': state.error})}\n${state.lastSuccess == 0 ? '' : DateTime.fromMillisecondsSinceEpoch(state.lastSuccess).toLocal()}',
+                                        ),
+                                        actions: [
+                                          TextButton(
+                                            onPressed: () =>
+                                                Navigator.pop(context),
+                                            child: Text(tr('关闭')),
+                                          ),
+                                        ],
                                       ),
-                                      actions: [
-                                        TextButton(
-                                          onPressed: () =>
-                                              Navigator.pop(context),
-                                          child: Text(tr('关闭')),
-                                        ),
-                                      ],
-                                    ),
-                                  );
-                                } else if (action == 'pause' ||
-                                    action == 'notify') {
-                                  await store.add(
-                                    source: entry.source,
-                                    target: entry.target,
-                                    label: entry.label,
-                                    dimension: entry.dimension,
-                                    enabled: action == 'pause'
-                                        ? !entry.enabled
-                                        : entry.enabled,
-                                    notify: action == 'notify'
-                                        ? !entry.notify
-                                        : entry.notify,
-                                  );
-                                } else if (action == 'login') {
-                                  await Nav.push(
-                                    context,
-                                    SourceSettingsPage(sourceKey: entry.source),
-                                  );
-                                } else if (action == 'remove') {
-                                  final ok = await showDialog<bool>(
-                                    context: context,
-                                    builder: (context) => AlertDialog(
-                                      title: Text(tr('移除订阅')),
-                                      content: Text(entry.label),
-                                      actions: [
-                                        TextButton(
-                                          onPressed: () =>
-                                              Navigator.pop(context, false),
-                                          child: Text(tr('取消')),
-                                        ),
-                                        FilledButton(
-                                          onPressed: () =>
-                                              Navigator.pop(context, true),
-                                          child: Text(tr('移除')),
-                                        ),
-                                      ],
-                                    ),
-                                  );
-                                  if (ok == true) {
-                                    try {
-                                      await store.remove(
-                                        entry.source,
-                                        entry.target,
-                                        dimension: entry.dimension,
-                                      );
-                                    } catch (_) {
-                                      if (context.mounted) {
-                                        context.toast(tr('订阅保存失败，请重试'));
+                                    );
+                                  } else if (action == 'pause' ||
+                                      action == 'notify') {
+                                    await store.add(
+                                      source: entry.source,
+                                      target: entry.target,
+                                      label: entry.label,
+                                      dimension: entry.dimension,
+                                      enabled: action == 'pause'
+                                          ? !entry.enabled
+                                          : entry.enabled,
+                                      notify: action == 'notify'
+                                          ? !entry.notify
+                                          : entry.notify,
+                                    );
+                                  } else if (action == 'login') {
+                                    await Nav.push(
+                                      context,
+                                      SourceSettingsPage(
+                                        sourceKey: entry.source,
+                                      ),
+                                    );
+                                  } else if (action == 'remove') {
+                                    final ok = await showDialog<bool>(
+                                      context: context,
+                                      builder: (context) => AlertDialog(
+                                        title: Text(tr('移除订阅')),
+                                        content: Text(entry.label),
+                                        actions: [
+                                          TextButton(
+                                            onPressed: () =>
+                                                Navigator.pop(context, false),
+                                            child: Text(tr('取消')),
+                                          ),
+                                          FilledButton(
+                                            onPressed: () =>
+                                                Navigator.pop(context, true),
+                                            child: Text(tr('移除')),
+                                          ),
+                                        ],
+                                      ),
+                                    );
+                                    if (ok == true) {
+                                      try {
+                                        await store.remove(
+                                          entry.source,
+                                          entry.target,
+                                          dimension: entry.dimension,
+                                        );
+                                      } catch (_) {
+                                        if (context.mounted) {
+                                          context.toast(tr('订阅保存失败，请重试'));
+                                        }
                                       }
                                     }
                                   }
+                                } catch (_) {
+                                  if (context.mounted) {
+                                    context.toast(tr('订阅保存失败，请重试'));
+                                  }
                                 }
-                              } catch (_) {
-                                if (context.mounted) {
-                                  context.toast(tr('订阅保存失败，请重试'));
-                                }
-                              }
-                            },
-                            itemBuilder: (_) => [
-                              PopupMenuItem(
-                                value: 'edit',
-                                child: Text(tr('编辑订阅')),
-                              ),
-                              PopupMenuItem(
-                                value: 'status',
-                                child: Text(tr('订阅状态')),
-                              ),
-                              PopupMenuItem(
-                                value: 'pause',
-                                child: Text(
-                                  tr(entry.enabled ? '暂停检查' : '恢复检查'),
+                              },
+                              itemBuilder: (_) => [
+                                PopupMenuItem(
+                                  value: 'edit',
+                                  child: Text(tr('编辑订阅')),
                                 ),
-                              ),
-                              PopupMenuItem(
-                                value: 'notify',
-                                child: Text(
-                                  tr(entry.notify ? '关闭此订阅通知' : '开启此订阅通知'),
+                                PopupMenuItem(
+                                  value: 'status',
+                                  child: Text(tr('订阅状态')),
                                 ),
-                              ),
-                              PopupMenuItem(
-                                value: 'login',
-                                child: Text(tr('账号与站点设置')),
-                              ),
-                              PopupMenuItem(
-                                value: 'remove',
-                                child: Text(tr('移除订阅')),
-                              ),
-                            ],
+                                PopupMenuItem(
+                                  value: 'pause',
+                                  child: Text(
+                                    tr(entry.enabled ? '暂停检查' : '恢复检查'),
+                                  ),
+                                ),
+                                PopupMenuItem(
+                                  value: 'notify',
+                                  child: Text(
+                                    tr(entry.notify ? '关闭此订阅通知' : '开启此订阅通知'),
+                                  ),
+                                ),
+                                PopupMenuItem(
+                                  value: 'login',
+                                  child: Text(tr('账号与站点设置')),
+                                ),
+                                PopupMenuItem(
+                                  value: 'remove',
+                                  child: Text(tr('移除订阅')),
+                                ),
+                              ],
+                            ),
                           ),
                         ),
                       ),
-                    ),
+                  ],
                 ],
               ),
       ),

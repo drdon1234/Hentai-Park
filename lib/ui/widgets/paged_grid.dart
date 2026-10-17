@@ -6,6 +6,7 @@ import '../../core/localization.dart';
 import '../../core/models.dart';
 import '../../core/settings.dart';
 import '../../core/tag_blocklist.dart';
+import '../../engine/home_cache.dart';
 import '../../subscriptions/models.dart';
 import '../subscriptions/subscription_posts_page.dart';
 import '../theme.dart';
@@ -61,6 +62,25 @@ class PagedController extends ChangeNotifier {
   int? totalPages;
   int? total;
   bool staleCache = false;
+  bool _preview = false;
+  void Function(WorkPage) cachedReceiver() {
+    final generation = _generation;
+    return (cached) {
+      if (generation == _generation) showCached(cached);
+    };
+  }
+
+  /// 先显示可打开的缓存作品，不推进实时请求的页号或游标。
+  void showCached(WorkPage cached) {
+    if (_disposed || page != 0 || !loading) return;
+    _preview = true;
+    _loaded
+      ..clear()
+      ..addAll(cached.items);
+    _rawSections = cached.sections;
+    _rulesChanged();
+  }
+
   String? _cursor;
   int _generation = 0;
   bool _disposed = false;
@@ -81,6 +101,7 @@ class PagedController extends ChangeNotifier {
     totalPages = null;
     total = null;
     staleCache = false;
+    _preview = false;
     loading = false;
     _notify();
     await loadMore();
@@ -95,6 +116,15 @@ class PagedController extends ChangeNotifier {
     try {
       final result = await loader(page + 1, _cursor);
       if (_disposed || gen != _generation) return;
+      if (_preview) {
+        _preview = false;
+        _loaded.clear();
+        items.clear();
+        _seen.clear();
+        hidden = 0;
+        sections = null;
+        _rawSections = null;
+      }
       page = result.page > page ? result.page : page + 1;
       _cursor = result.cursor;
       totalPages = result.totalPages ?? totalPages;
@@ -140,6 +170,13 @@ class PagedController extends ChangeNotifier {
       }
     } catch (e) {
       if (gen != _generation) return;
+      if (_preview && HomeCache.invalidatesContent(e)) {
+        _preview = false;
+        _loaded.clear();
+        items.clear();
+        sections = null;
+        _rawSections = null;
+      }
       error = e;
     } finally {
       if (gen == _generation) {

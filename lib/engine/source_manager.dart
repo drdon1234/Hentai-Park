@@ -29,6 +29,7 @@ import 'home_cache.dart';
 import 'home_metadata.dart';
 import 'http_service.dart';
 import 'js_engine.dart';
+import 'media_transport.dart';
 import 'media_transport_factory.dart';
 import 'source_identity.dart';
 

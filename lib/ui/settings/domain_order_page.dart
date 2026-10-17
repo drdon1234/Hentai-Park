@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../core/localization.dart';
 import '../../core/settings.dart';
 import '../kit/kit.dart';
+import '../widgets/confirm_reset.dart';
 
 class DomainOrderPage extends StatelessWidget {
   const DomainOrderPage({super.key});
@@ -20,7 +21,7 @@ class DomainOrderPage extends StatelessWidget {
             padding: const EdgeInsets.fromLTRB(0, 8, 0, 24),
             buildDefaultDragHandles: false,
             header: Padding(
-              padding: const EdgeInsets.fromLTRB(4, 0, 4, 12),
+              padding: const EdgeInsets.fromLTRB(Gap.page, 0, Gap.page, Gap.m),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
@@ -29,8 +30,15 @@ class DomainOrderPage extends StatelessWidget {
                   Align(
                     alignment: AlignmentDirectional.centerEnd,
                     child: TextButton(
-                      onPressed: () =>
-                          settings.domainOrder = AppSettings.defaultDomainOrder,
+                      onPressed: () => confirmReset(
+                        context,
+                        title: '恢复默认顺序',
+                        message: '将替换当前手动排列的分类顺序，是否继续？',
+                        reset: () async {
+                          settings.domainOrder = AppSettings.defaultDomainOrder;
+                          await settings.flush();
+                        },
+                      ),
                       child: SelectionContainer.disabled(
                         child: Text(tr('恢复默认顺序')),
                       ),

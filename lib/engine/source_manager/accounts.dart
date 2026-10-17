@@ -43,20 +43,26 @@ mixin _SourceAccounts on _SourceRegistry {
   }
 
   Future<String> login(String key, Map<String, String> values) async {
+    final wasLoggedIn = accountListenable(key)?.value?.loggedIn;
     final res = await _call(key, 'account.login', [values]);
     await refreshAccount(key);
-    authenticationChanged(key);
+    if (wasLoggedIn == accountListenable(key)?.value?.loggedIn) {
+      authenticationChanged(key);
+    }
     return res is Map ? (res['name'] ?? '').toString() : '';
   }
 
   Future<void> logout(String key) async {
+    final wasLoggedIn = accountListenable(key)?.value?.loggedIn;
     await _call(key, 'account.logout', []);
     if (manifest(key)?.account?.managedAccount == true &&
         settingsOf(key)['managedAccount'] == true) {
       await setManagedAccount(key, false);
     }
     await refreshAccount(key);
-    authenticationChanged(key);
+    if (wasLoggedIn == accountListenable(key)?.value?.loggedIn) {
+      authenticationChanged(key);
+    }
   }
 
   /// Checks the account. Runs after login, logout, web login, on a source's first use after
@@ -84,6 +90,7 @@ mixin _SourceAccounts on _SourceRegistry {
       return;
     }
     s.accountListenable.value = status;
+    if (old?.loggedIn != status.loggedIn) authenticationChanged(key);
     if (loader == null) _cacheManifest(s);
   }
 }

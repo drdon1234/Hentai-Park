@@ -21,6 +21,9 @@
 
 > Solo para adultos y donde la ley local lo permita. Todo el contenido procede de sitios de terceros; HentaiPark no almacena ni ofrece contenido.
 
+
+Elige el modo de ahorro en Mi perfil → Red y almacenamiento. El ahorro normal muestra sitios compactos en el inicio y las categorías, y carga obras al abrir un sitio. El ahorro máximo tampoco carga automáticamente dentro del sitio: obtiene obras solo después de buscar. Los sitios sin búsqueda muestran una explicación.
+
 ## Descarga
 
 Descarga el APK para Android desde la **[última versión](https://github.com/drdon1234/Hentai-Park/releases/latest)**. La mayoría de móviles y tabletas usan `arm64-v8a`; los emuladores suelen usar `x86_64`.
@@ -82,6 +85,12 @@ Las capturas usan datos de demostración sin conexión; los sitios, obras y port
 | Traducción y filtros | Traduce títulos, descripciones y etiquetas; oculta obras por etiqueta |
 | Privacidad y copias | Bloqueo de la app, modo incógnito, portadas difuminadas, bloqueo de capturas; copia de favoritos, progreso y ajustes |
 
+En el lector de novelas, Más → Traducir texto completo traduce todo el texto y continúa al abrir otros capítulos. Puedes volver al original.
+
+Las páginas de exploración y detalles permiten abrir las obras en caché, con sus capítulos y direcciones multimedia, mientras buscan las obras más recientes. Si falla la actualización, el contenido accesible permanece disponible. Al volver al inicio se restaura la posición de desplazamiento. Mantén pulsada una tarjeta para bloquear la obra o al autor; puedes quitar el bloqueo en los filtros. Las clasificaciones recuerdan los filtros y consultan resultados nuevos en cada visita. Los vídeos cortos usan Pornhub Shorties de forma predeterminada.
+
+En los sitios compatibles, usa las preferencias del sitio en Más o al mantener pulsada una tarjeta con tu sesión de la aplicación: MissAV admite favoritos y EH puntuaciones, independientes de los favoritos locales. Pixiv abre las clasificaciones sin sesión y las recomendaciones con sesión; las recomendaciones requieren iniciar sesión. Pixiv y EH ofrecen sugerencias de palabras clave en la búsqueda del sitio.
+
 Los títulos JAV muestran los subtítulos y las ediciones indicados por el sitio de origen. Puedes abrir otras ediciones o buscar por código en uno o varios sitios; los favoritos, el progreso y las descargas se guardan por separado para cada edición.
 
 Temas claro y oscuro, ocho idiomas de interfaz. Las funciones de cada sitio se indican en la app.
@@ -133,7 +142,7 @@ Nunca por su cuenta. Algunos recursos del Salón de té dimensional solo se desb
 Exporta una copia en Más → Copia de seguridad y restáurala en el nuevo dispositivo. Las descargas no se incluyen y algunos sitios pueden pedir iniciar sesión de nuevo.
 
 **¿Qué se envía al traducir?**
-Solo los títulos, descripciones y etiquetas que decidas traducir, al servicio de traducción que elijas. Más → Búsqueda y traducción detalla qué se envía.
+Al traducir títulos, descripciones, etiquetas, búsquedas, texto seleccionado o un capítulo completo, ese contenido se envía a Google Translate. No se envían cuentas, cookies ni historial de lectura. El idioma de destino sigue al de la app.
 
 **¿Cómo informo de un problema?**
 Abre un [issue](https://github.com/drdon1234/Hentai-Park/issues) con la versión de la app, el nombre del sitio y los pasos para reproducirlo. Oculta cuentas y contenido privado en las capturas.

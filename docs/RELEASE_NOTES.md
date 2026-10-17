@@ -1,35 +1,57 @@
 ## 中文
 
 ### 新功能
-- 历史记录支持多选、全选和批量移除，保留收藏及章节已读状态。
+- 新增普通省流与超级省流：普通模式进入站点后加载作品，超级模式仅在站内搜索后加载作品，主页和域页使用紧凑站点入口。
+- 小说阅读器支持全文翻译，自动翻译随后打开的章节，可切回原文并保留阅读位置。
+- 长按作品卡片可屏蔽作品或作者，并在屏蔽管理中恢复。
+- 支持使用当前登录账号保存 MissAV 原站收藏和 E-Hentai 原站评分。
+- Pixiv 和 E-Hentai 搜索支持关键词联想。
+
+### 改进
+- 首页、站点页和详情页优先显示缓存作品，保留可访问的章节与媒体地址，并提示正在获取最新作品。
+- 返回首页时保留原有浏览位置，排行榜筛选自动保存并获取对应最新内容。
+- 继续看使用独立续读版式，订阅按站点分组，优化窄屏和大字体布局。
+- 补齐其他分类的站点快捷入口，统一筛选栏边距，并为恢复默认排序等操作增加确认和完成提示。
 
 ### 修复
-- 修复按钮、筛选和菜单文字被长按选中的问题，保留正文与输入框的文字选择能力。
-- 修复在页面空白处或文字行尾长按时误选其他区域文字的问题。
-- 修复手机播放界面将时间、屏幕按钮和进度条挤在同一行的问题，恢复上下两层布局并调整为适中间距。
-- 修复跨站查找作品版本时搜索其他内容分类的问题，查找范围限定为作品所属分类。
-- 修复排行榜默认榜单未提示安装标签翻译包的问题，增加当前站点的词包安装入口、安装状态和缺包说明。
-- 改善图集双指缩放响应，保留单指翻页和滚动，并避免双击缩放动画干扰双指操作。
-- 修复播放器放大和全屏按钮随页面主题变暗的问题，提高按钮在视频画面上的可见性。
-- 修复全屏播放无法随重力翻转的问题，竖屏和横屏模式均可在各自方向内自动翻转。
+- 修复 TikPorn 首页和站点页只显示一个视频的问题，短视频默认站点改为 Pornhub Shorties。
+- 修复 X 视频缺少有效媒体权限，以及转帖作品误认作者、封面和视频无法加载的问题。
+- Pixiv 未登录时默认进入排行榜，登录后默认进入推荐；需要登录的推荐入口显示明确提示。
+- 限制系统界面和作品列表的文字选择，保留详情正文、小说等内容的选字能力。
+
+### 插件更新
+- E-Hentai 0.0.7、MissAV 0.0.8：增加原站喜好操作，E-Hentai 增加搜索联想。
+- Pixiv 0.0.6：优化登录与默认入口，增加搜索联想。
+- TikPorn 0.0.4、X 0.0.7：修复短视频列表和转帖视频加载。
 
 ### 注意事项
-- 已安装旧版 0.7.3 的用户需从发布页下载最新安装包覆盖安装，应用内不会提示同版本更新。
+- 微软翻译接口已失效，本版使用 Google 翻译；原先选择微软的配置会恢复为默认翻译服务。
 
 ## English
 
 ### New
-- Add selection, select all and batch removal to history while preserving favorites and chapter read status.
+- Add Data saver and Maximum data saving: load works after opening a site in the standard mode, or only after a site search in the maximum mode, with compact site entries on home and category pages.
+- Translate full text in the novel reader, continue translating chapters as you open them, and switch back to the original while preserving your reading position.
+- Long-press a work card to block the work or author, with an option to restore them in block management.
+- Save MissAV favorites and E-Hentai ratings on the original site using your signed-in account.
+- Get keyword suggestions when searching Pixiv and E-Hentai.
+
+### Improvements
+- Show cached works first on home, site and detail pages, retain accessible chapters and media URLs, and indicate when the latest works are being fetched.
+- Preserve your browsing position when returning home and remember ranking filters while fetching the latest matching results.
+- Give Continue reading a distinct layout, group subscriptions by site, and improve narrow-screen and large-text layouts.
+- Add missing shortcuts in the Other category, align filter bar margins, and add confirmation and completion messages when restoring default orders and similar settings.
 
 ### Fixes
-- Prevent long presses from selecting button, filter and menu labels while preserving text selection in content and input fields.
-- Fix long presses on blank areas or beyond line endings selecting text elsewhere on the page.
-- Fix time, screen controls and the progress bar being crowded into one row on phones; restore the two-row layout with balanced spacing.
-- Restrict cross-site edition searches to the title's content category instead of searching unrelated categories.
-- Fix missing tag dictionary installation prompts on default ranking boards; add installation access, status and availability information for the selected site.
-- Improve pinch-to-zoom responsiveness in image galleries while preserving one-finger paging and scrolling, and prevent double-tap animations from interrupting pinch gestures.
-- Fix player expand and fullscreen buttons becoming dark with the page theme, making them easier to see over video.
-- Fix fullscreen playback not following gravity, allowing portrait and landscape modes to flip within their respective orientations.
+- Fix TikPorn home and site pages showing only one video, and make Pornhub Shorties the default short-video site.
+- Fix missing media permissions for X videos and incorrect author detection, covers and video loading for reposted works.
+- Open Pixiv rankings by default when signed out and recommendations when signed in; show a clear sign-in prompt for recommendations that require an account.
+- Prevent text selection in system controls and work lists while preserving selection in detail content, novels and similar reading areas.
+
+### Plugin updates
+- E-Hentai 0.0.7 and MissAV 0.0.8: add site preference actions; E-Hentai also gains search suggestions.
+- Pixiv 0.0.6: improve sign-in handling and default feeds, and add search suggestions.
+- TikPorn 0.0.4 and X 0.0.7: fix short-video lists and reposted video loading.
 
 ### Notes
-- If you already have an earlier 0.7.3 installed, download and install the latest package from the release page; in-app update checks do not notify you about same-version updates.
+- The Microsoft translation endpoint is no longer available. This version uses Google Translate and resets Microsoft selections to the default translation service.

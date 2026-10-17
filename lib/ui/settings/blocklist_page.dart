@@ -5,6 +5,7 @@ import '../../core/settings.dart';
 import '../../core/tag_blocklist.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
+import '../widgets/confirm_reset.dart';
 
 /// Tag / title blocklist (see core/tag_blocklist.dart for matching rules).
 class BlocklistPage extends StatefulWidget {
@@ -85,6 +86,28 @@ class _BlocklistPageState extends State<BlocklistPage> {
                         ],
                       ),
                   ],
+                ),
+              const SizedBox(height: 24),
+              Text(tr('已屏蔽作品'), style: context.text.titleMedium),
+              for (final entry in s.blockedWorks.entries)
+                ListTile(
+                  title: Text(entry.value),
+                  trailing: IconButton(
+                    tooltip: tr('取消屏蔽'),
+                    icon: const Icon(Icons.close_rounded),
+                    onPressed: () => s.unblockWork(entry.key),
+                  ),
+                ),
+              const SizedBox(height: 12),
+              Text(tr('已屏蔽作者'), style: context.text.titleMedium),
+              for (final entry in s.blockedAuthors.entries)
+                ListTile(
+                  title: Text(entry.value),
+                  trailing: IconButton(
+                    tooltip: tr('取消屏蔽'),
+                    icon: const Icon(Icons.close_rounded),
+                    onPressed: () => s.unblockAuthor(entry.key),
+                  ),
                 ),
               const SizedBox(height: 24),
               Text(
@@ -230,7 +253,15 @@ class _PresetCard extends StatelessWidget {
             Align(
               alignment: Alignment.centerRight,
               child: TextButton.icon(
-                onPressed: () => s.setBlockPreset(_id, reset: true),
+                onPressed: () => confirmReset(
+                  context,
+                  title: '恢复默认标签',
+                  message: '将替换此组手动修改的标签，是否继续？',
+                  reset: () async {
+                    s.setBlockPreset(_id, reset: true);
+                    await s.flush();
+                  },
+                ),
                 icon: const Icon(Icons.restart_alt_rounded, size: 18),
                 label: SelectionContainer.disabled(child: Text(tr('恢复默认标签'))),
               ),

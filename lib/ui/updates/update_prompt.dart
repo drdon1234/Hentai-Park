@@ -107,13 +107,13 @@ class _ReleaseNote extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text('•  '),
-          Expanded(child: SelectableText(line.text)),
+          Expanded(child: Text(line.text)),
         ],
       ),
     ),
     ReleaseNoteKind.text => Padding(
       padding: const EdgeInsets.only(top: Gap.s),
-      child: SelectableText(line.text),
+      child: Text(line.text),
     ),
   };
 }

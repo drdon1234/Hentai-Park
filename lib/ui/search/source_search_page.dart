@@ -11,6 +11,7 @@ import '../widgets/common.dart';
 import '../widgets/content_translation.dart';
 import '../widgets/paged_grid.dart';
 import 'multi_language.dart';
+import 'search_suggestions.dart';
 
 /// Search inside one source with that source's native filters (sort, category, language, rating…).
 class SourceSearchPage extends StatefulWidget {
@@ -21,11 +22,13 @@ class SourceSearchPage extends StatefulWidget {
     this.initialFilters,
     this.initialMulti,
     this.sourceManager,
+    this.searchOnlyEntry = false,
   });
   final String sourceKey;
   final String initialKeyword;
   final Map<String, Object?>? initialFilters;
   final SourceManager? sourceManager;
+  final bool searchOnlyEntry;
 
   /// A keyword and its translations, searched together.
   final MultiKeyword? initialMulti;
@@ -47,6 +50,13 @@ class _SourceSearchPageState extends State<SourceSearchPage> {
     source: widget.sourceKey,
   );
   bool _started = false;
+  late final _suggestions = SearchSuggestions(
+    (keyword, token) => _sources.searchSuggestions(
+      widget.sourceKey,
+      keyword,
+      cancelToken: token,
+    ),
+  );
   final _translation = KeywordTranslationRequest();
   bool get _translating => _translation.busy;
 
@@ -77,6 +87,7 @@ class _SourceSearchPageState extends State<SourceSearchPage> {
 
   @override
   void dispose() {
+    _suggestions.dispose();
     _controller.dispose();
     _translation.dispose();
     _text.dispose();
@@ -84,6 +95,7 @@ class _SourceSearchPageState extends State<SourceSearchPage> {
   }
 
   void _textChanged() {
+    if (_m.can('searchSuggestions')) _suggestions.update(_text.text);
     if (_text.text.isEmpty && _started) {
       _searchGeneration++;
       setState(() => _started = false);
@@ -111,6 +123,7 @@ class _SourceSearchPageState extends State<SourceSearchPage> {
   }
 
   void _search({bool keepMulti = false}) {
+    _suggestions.clear();
     final k = _text.text.trim();
     _searchGeneration++;
     _submitted = k;
@@ -191,6 +204,7 @@ class _SourceSearchPageState extends State<SourceSearchPage> {
             title: ParkSearchField(
               controller: _text,
               autofocus:
+                  !widget.searchOnlyEntry &&
                   widget.initialKeyword.isEmpty &&
                   widget.initialFilters == null,
               hint: tr('在 {source} 中搜索', {'source': _m.name}),
@@ -210,6 +224,25 @@ class _SourceSearchPageState extends State<SourceSearchPage> {
           ),
           body: Column(
             children: [
+              if (widget.searchOnlyEntry && !_started)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(
+                    Gap.page,
+                    Gap.s,
+                    Gap.page,
+                    0,
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(tr('超级省流'), style: context.text.labelLarge),
+                      Text(
+                        tr('站点页不自动加载作品，输入关键词后搜索'),
+                        style: context.text.bodySmall,
+                      ),
+                    ],
+                  ),
+                ),
               Padding(
                 padding: const EdgeInsets.fromLTRB(
                   Gap.page,
@@ -262,51 +295,74 @@ class _SourceSearchPageState extends State<SourceSearchPage> {
                 ),
               ),
               Expanded(
-                child: !_started
-                    ? ListenableBuilder(
-                        listenable: AppSettings.instance.watch(const {
-                          'searchHistories',
-                        }),
-                        builder: (context, _) => _Intro(
-                          manifest: _m,
-                          onPick: (k) {
-                            _text.text = k;
-                            _search();
-                          },
-                        ),
-                      )
-                    : ParkRefresh(
-                        onRefresh: _controller.refresh,
-                        child: CustomScrollView(
-                          physics: const AlwaysScrollableScrollPhysics(),
-                          keyboardDismissBehavior:
-                              ScrollViewKeyboardDismissBehavior.onDrag,
-                          slivers: [
-                            if (_multi != null)
-                              SliverToBoxAdapter(
-                                child: TranslationsBar(
-                                  keyword: _multi!,
-                                  onPick: (k) {
-                                    _text.text = k;
-                                    _search();
-                                  },
-                                ),
+                child: ListenableBuilder(
+                  listenable: _suggestions,
+                  builder: (context, _) => _suggestions.items.isNotEmpty
+                      ? ListView(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: Gap.page,
+                          ),
+                          children: [
+                            for (final item in _suggestions.items)
+                              ListTile(
+                                leading: const Icon(Icons.search),
+                                title: Text(item['label']!),
+                                subtitle: item['subtitle']!.isEmpty
+                                    ? null
+                                    : Text(item['subtitle']!),
+                                onTap: () {
+                                  _text.text = item['keyword']!;
+                                  _search();
+                                },
                               ),
-                            if (_activeFilters > 0)
-                              SliverToBoxAdapter(
-                                child: _ActiveFilters(
-                                  manifest: _m,
-                                  values: _filters,
-                                  onTap: _openFilters,
-                                ),
-                              ),
-                            PagedSliverGrid(
-                              controller: _controller,
-                              kind: _m.kind,
-                            ),
                           ],
+                        )
+                      : !_started
+                      ? ListenableBuilder(
+                          listenable: AppSettings.instance.watch(const {
+                            'searchHistories',
+                          }),
+                          builder: (context, _) => _Intro(
+                            manifest: _m,
+                            onPick: (k) {
+                              _text.text = k;
+                              _search();
+                            },
+                          ),
+                        )
+                      : ParkRefresh(
+                          onRefresh: _controller.refresh,
+                          child: CustomScrollView(
+                            physics: const AlwaysScrollableScrollPhysics(),
+                            keyboardDismissBehavior:
+                                ScrollViewKeyboardDismissBehavior.onDrag,
+                            slivers: [
+                              if (_multi != null)
+                                SliverToBoxAdapter(
+                                  child: TranslationsBar(
+                                    keyword: _multi!,
+                                    onPick: (k) {
+                                      _text.text = k;
+                                      _search();
+                                    },
+                                  ),
+                                ),
+                              if (_activeFilters > 0)
+                                SliverToBoxAdapter(
+                                  child: _ActiveFilters(
+                                    manifest: _m,
+                                    values: _filters,
+                                    onTap: _openFilters,
+                                  ),
+                                ),
+                              PagedSliverGrid(
+                                controller: _controller,
+                                kind: _m.kind,
+                              ),
+                            ],
+                          ),
                         ),
-                      ),
+                ),
               ),
             ],
           ),

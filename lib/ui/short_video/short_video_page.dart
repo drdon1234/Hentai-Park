@@ -10,6 +10,7 @@ import '../../core/app_lock.dart';
 import '../../core/content_scope.dart';
 import '../../core/localization.dart';
 import '../../core/models.dart';
+import '../../core/settings.dart';
 import '../../core/tag_blocklist.dart';
 import '../../engine/source_manager.dart';
 import '../../images/park_image.dart';
@@ -20,6 +21,7 @@ import '../nav.dart';
 import '../theme.dart';
 import '../video/adaptive_video_progress.dart';
 import '../widgets/content_translation.dart';
+import '../widgets/cover_tile.dart';
 import '../widgets/error_view.dart';
 import '../widgets/source_network_hint.dart';
 import 'short_video_feed.dart';
@@ -59,6 +61,7 @@ class _ShortVideoPageState extends State<ShortVideoPage>
   bool _refreshing = false;
   double _overscroll = 0;
   Object? _initialError;
+  final _retrySources = <String>{};
   DateTime _lastWheel = DateTime.fromMillisecondsSinceEpoch(0);
 
   void _step(int delta) {
@@ -79,8 +82,13 @@ class _ShortVideoPageState extends State<ShortVideoPage>
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     AppLock.instance.addListener(_sync);
-    _playback = ShortVideoPlayback(ShortVideoPlayer.open)
-      ..addListener(_changed);
+    _playback = ShortVideoPlayback(
+      (item, cancel) => ShortVideoPlayer.open(
+        item,
+        cancel,
+        refresh: _retrySources.remove(item.uid),
+      ),
+    )..addListener(_changed);
     _authentication = SourceManager.instance.authenticationChanges.listen((
       key,
     ) {
@@ -88,6 +96,9 @@ class _ShortVideoPageState extends State<ShortVideoPage>
     });
     _feed = ShortVideoFeed(
       (page, cursor) {
+        if (AppSettings.instance.searchOnlySources) {
+          return Future.value(WorkPage(items: const [], page: page));
+        }
         final m = SourceManager.instance.manifest(widget.source);
         if (m == null || m.feeds.isEmpty) throw SourceError('CONFIG', '站点未加载');
         final i =
@@ -101,6 +112,7 @@ class _ShortVideoPageState extends State<ShortVideoPage>
           cursor: cursor,
           options: m.feeds[i].defaultOptions(),
           refresh: _refreshing,
+          onCached: page == 1 ? _feed.cachedReceiver() : null,
         );
       },
       allowItem: (item) =>
@@ -301,6 +313,17 @@ class _ShortVideoPageState extends State<ShortVideoPage>
     }
   }
 
+  Future<void> _retryPlayback() async {
+    final item = _visible;
+    if (item == null) return;
+    if (item.isSubscriptionPost) {
+      await _refresh();
+      return;
+    }
+    _retrySources.add(item.uid);
+    await _playback.retry();
+  }
+
   @override
   void dispose() {
     _authentication?.cancel();
@@ -325,6 +348,7 @@ class _ShortVideoPageState extends State<ShortVideoPage>
         children: [
           const CircularProgressIndicator(),
           const SizedBox(height: 16),
+          Text(tr('获取最新作品中')),
           SourceNetworkHint(source: widget.source),
         ],
       ),
@@ -412,7 +436,7 @@ class _ShortVideoPageState extends State<ShortVideoPage>
         if (error != null)
           ColoredBox(
             color: Colors.black87,
-            child: _error(error, () => _playback.retry()),
+            child: _error(error, _retryPlayback),
           ),
         if (active && c != null)
           Positioned(
@@ -427,7 +451,7 @@ class _ShortVideoPageState extends State<ShortVideoPage>
                   children: [
                     if (value.hasError)
                       FilledButton.tonal(
-                        onPressed: () => _playback.retry(),
+                        onPressed: _retryPlayback,
                         child: SelectionContainer.disabled(
                           child: Text(tr('重试')),
                         ),
@@ -470,6 +494,7 @@ class _ShortVideoPageState extends State<ShortVideoPage>
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           GestureDetector(
+                            onLongPress: () => showWorkActions(context, item),
                             onTap: active
                                 ? () => setState(() => _expanded = !_expanded)
                                 : null,
@@ -625,6 +650,19 @@ class _ShortVideoPageState extends State<ShortVideoPage>
                                   ),
                                 ),
                         ),
+                        if (_feed.refreshingCached && _feed.items.isNotEmpty)
+                          Positioned(
+                            top: kToolbarHeight,
+                            left: Gap.page,
+                            right: Gap.page,
+                            child: IgnorePointer(
+                              child: Text(
+                                tr('获取最新作品中'),
+                                textAlign: TextAlign.center,
+                                style: const TextStyle(color: Colors.white),
+                              ),
+                            ),
+                          ),
                         Positioned(
                           top: 0,
                           left: 0,

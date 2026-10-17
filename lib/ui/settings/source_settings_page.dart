@@ -8,6 +8,7 @@ import '../kit/adaptive_sheet.dart';
 import '../nav.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
+import '../widgets/confirm_reset.dart';
 import '../widgets/content_translation.dart';
 import 'login_panel.dart';
 import 'source_install.dart';
@@ -211,10 +212,12 @@ class _SourceSettingsPageState extends State<SourceSettingsPage> {
                                 child: Text(context.tr('恢复内置版本')),
                               ),
                               onTap: () async {
-                                await sm.resetBuiltin(m.key);
-                                if (context.mounted) {
-                                  context.toast(context.tr('已恢复'));
-                                }
+                                await confirmReset(
+                                  context,
+                                  title: '恢复内置版本',
+                                  message: '将使用安装包内置的站点插件，账号与设置保留。是否继续？',
+                                  reset: () => sm.resetBuiltin(m.key),
+                                );
                               },
                             ),
                           if (!managed && s.url.isNotEmpty)

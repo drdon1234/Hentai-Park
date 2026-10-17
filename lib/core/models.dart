@@ -463,6 +463,7 @@ class WorkItem {
       badgeColor = _str(json['badgeColor']),
       duration = _str(json['duration']),
       uploaded = _str(json['uploaded']),
+      authors = [..._strings(json['authors'])],
       tags = _strings(json['tags']),
       workCode = _str(json['workCode']),
       editions = _strings(json['editions']),
@@ -495,6 +496,9 @@ class WorkItem {
   final String badgeColor;
   final String duration;
   final String uploaded;
+
+  /// 源提供的作者，以及浏览时从详情补充的真实作者。
+  final List<String> authors;
   final List<String> tags;
 
   /// A source-declared work identity for searching; never replaces the source ID.
@@ -503,7 +507,12 @@ class WorkItem {
 
   String get uid => '$source:$id';
 
-  Map<String, dynamic> toJson() => {...json, 'id': id, 'source': source};
+  Map<String, dynamic> toJson() => {
+    ...json,
+    if (authors.isNotEmpty) 'authors': authors,
+    'id': id,
+    'source': source,
+  };
 
   factory WorkItem.fromStored(Map<String, dynamic> j) =>
       WorkItem(j, _str(j['source']));
@@ -602,7 +611,6 @@ class PreviewThumb {
 class WorkDetail extends WorkItem {
   WorkDetail(super.json, super.source)
     : url = _str(json['url']),
-      authors = _strings(json['authors']),
       description = _str(json['description']),
       uploader = _str(json['uploader']),
       size = _str(json['size']),
@@ -656,7 +664,6 @@ class WorkDetail extends WorkItem {
           : null;
 
   final String url;
-  final List<String> authors;
   final String description;
   final String uploader;
   final String size;
@@ -700,7 +707,7 @@ class WorkDetail extends WorkItem {
         ];
 
   WorkItem toItem() => WorkItem.fromStored({
-    ...json,
+    ...toJson(),
     'source': source,
     'tags': tagGroups.expand((g) => g.tags.map((t) => t.name)).take(8).toList(),
   });

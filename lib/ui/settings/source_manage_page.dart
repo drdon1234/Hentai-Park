@@ -10,6 +10,7 @@ import '../nav.dart';
 import '../theme.dart';
 import '../updates/update_prompt.dart';
 import '../widgets/common.dart';
+import '../widgets/confirm_reset.dart';
 import 'domain_order_page.dart';
 import 'source_install.dart';
 
@@ -75,7 +76,15 @@ class _SourceManagePageState extends State<SourceManagePage> {
                       subtitle: SelectionContainer.disabled(
                         child: Text(tr('按内容质量、站点口碑和接入完整度推荐排列。')),
                       ),
-                      onTap: sm.resetOrderToDefault,
+                      onTap: () => confirmReset(
+                        context,
+                        title: '恢复站点默认顺序',
+                        message: '将替换当前手动排列的站点顺序，是否继续？',
+                        reset: () async {
+                          sm.resetOrderToDefault();
+                          await sm.flush();
+                        },
+                      ),
                     ),
                   ],
                 ),
@@ -133,7 +142,12 @@ class _SourceManagePageState extends State<SourceManagePage> {
                   ],
                 ),
                 Padding(
-                  padding: const EdgeInsets.only(bottom: 12),
+                  padding: const EdgeInsets.fromLTRB(
+                    Gap.page,
+                    0,
+                    Gap.page,
+                    Gap.m,
+                  ),
                   child: Wrap(
                     spacing: 8,
                     runSpacing: 8,

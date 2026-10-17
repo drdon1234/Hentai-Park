@@ -38,6 +38,7 @@ class PreparedVideo {
     CancelToken cancel, {
     File? localFile,
     List<VideoSource>? initialSources,
+    bool refresh = false,
   }) async {
     void check() {
       if (cancel.cancelError case final error?) throw error;
@@ -82,6 +83,7 @@ class PreparedVideo {
               work.id,
               episodeId: episode.id,
               cancelToken: cancel,
+              refresh: refresh,
             );
         check();
         if (sources.isEmpty) throw SourceError('UNSUPPORTED', '此影片暂无可用播放地址');

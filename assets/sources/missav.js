@@ -11,7 +11,7 @@ Park.register({
   },
   key: 'missav',
   name: 'MissAV',
-  version: '0.0.7',
+  version: '0.0.8',
   type: 'video',
   category: 'jav',
   color: '#EF4444',
@@ -39,6 +39,57 @@ Park.register({
     {value: 'saved', label: '收藏最多'},
   ]}],
   BASE: 'https://missav.ai',
+
+  account: {
+    type: 'cookies', title: '登录', hint: '登录后可使用原站收藏',
+    loginUrl: 'https://missav.ai', cookieUrl: 'https://missav.ai', fields: [],
+    async login(values) {
+      await this.cookies.set(this.BASE, values);
+      const status = await this.account.status.call(this);
+      if (!status.loggedIn) throw Park.error('LOGIN_REQUIRED', '请先登录');
+      return {name: status.name};
+    },
+    async logout() { await this.cookies.clear(this.BASE); },
+    async status() {
+      const {doc} = await this.getPage('/cn/new');
+      const item = this.cards(doc)[0];
+      if (!item) throw Park.error('PARSE', '原站互动数据无效');
+      const state = await this.interactionState(item.id);
+      return {loggedIn: !!state.user, name: String(state.user?.username || state.user?.name || '')};
+    },
+  },
+
+  async interactionState(id) {
+    const {html} = await this.getPage('/cn/' + this.validId(id));
+    const match = /\/api\/items\/([a-zA-Z0-9_-]+)\/view/.exec(html);
+    if (!match) throw Park.error('PARSE', '原站互动数据无效');
+    const state = await this.http.json(this.BASE + '/api/items/' + match[1] + '/view');
+    if (typeof state.saved !== 'boolean') throw Park.error('PARSE', '原站互动数据无效');
+    return {item: match[1], user: state.user, saved: state.saved};
+  },
+
+  async interaction(id, req = {}) {
+    let state = await this.interactionState(id);
+    if (!state.user) throw Park.error('LOGIN_REQUIRED', '请先登录');
+    if (req.value !== undefined) {
+      if (typeof req.value !== 'boolean') throw Park.error('CONFIG', '原站互动数据无效');
+      if (state.saved !== req.value) {
+        const cookies = await this.cookies.get(this.BASE);
+        const headers = {Accept: 'application/json', Referer: this.BASE + '/cn/' + id};
+        if (cookies['XSRF-TOKEN']) {
+          try { headers['X-XSRF-TOKEN'] = decodeURIComponent(cookies['XSRF-TOKEN']); }
+          catch (_) { throw Park.error('AUTH', '原站操作未成功，请重试'); }
+        }
+        const res = await this.http.request({url: this.BASE + '/api/items/' + state.item + '/save',
+          method: req.value ? 'POST' : 'DELETE', headers});
+        if (res.status === 401) throw Park.error('LOGIN_REQUIRED', '请先登录');
+        if (!res.ok) throw Park.error('HTTP', 'HTTP {status}', {status: res.status, params: {status: res.status}});
+        state = await this.interactionState(id);
+        if (!state.user || state.saved !== req.value) throw Park.error('AUTH', '原站操作未成功，请重试');
+      }
+    }
+    return {type: 'favorite', value: state.saved};
+  },
 
   identity(id, label = '') {
     const code = id.replace(/(?:-(?:uncensored-leak|uncensored|chinese-subtitle|english-subtitle))+$/, '');

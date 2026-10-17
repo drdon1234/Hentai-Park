@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../../core/localization.dart';
 import '../../core/models.dart';
+import '../../core/settings.dart';
+import '../../core/tag_blocklist.dart';
 import '../../engine/source_manager.dart';
 import '../../library/library.dart';
 import '../kit/adaptive_sheet.dart';
@@ -11,6 +13,7 @@ import '../theme.dart';
 import 'common.dart';
 import 'content_translation.dart';
 import 'cover_hero.dart';
+import 'source_interaction.dart';
 import 'work_editions.dart';
 
 /// A library signal on a cover, with what a screen reader announces for it.
@@ -265,69 +268,139 @@ Future<void> showWorkActions(
   await showAdaptiveSheet(
     context: context,
     builder: (ctx) => SafeArea(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          ListTile(
-            leading: SourceAvatar(item.source, size: 32),
-            title: SelectionContainer.disabled(
-              child: Text(
-                item.title,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: SourceAvatar(item.source, size: 32),
+              title: SelectionContainer.disabled(
+                child: Text(
+                  item.title,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              subtitle: SelectionContainer.disabled(
+                child: Text(
+                  item.subtitle.isNotEmpty ? item.subtitle : item.id,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
             ),
-            subtitle: SelectionContainer.disabled(
-              child: Text(
-                item.subtitle.isNotEmpty ? item.subtitle : item.id,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
+            const Divider(height: 1),
+            if (SourceManager.instance
+                    .manifest(item.source)
+                    ?.can('interaction') ==
+                true)
+              ListTile(
+                leading: const Icon(Icons.thumb_up_outlined),
+                title: Text(tr('原站喜好')),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  showSourceInteraction(context, item);
+                },
               ),
-            ),
-          ),
-          const Divider(height: 1),
-          ListTile(
-            leading: Icon(
-              lib.isFavorite(item.uid)
-                  ? Icons.bookmark_remove_outlined
-                  : Icons.bookmark_add_outlined,
-            ),
-            title: SelectionContainer.disabled(
-              child: Text(lib.isFavorite(item.uid) ? tr('取消收藏') : tr('加入收藏')),
-            ),
-            onTap: () {
-              Navigator.pop(ctx);
-              toggleFavorite(context, item);
-            },
-          ),
-          if (lib.isFavorite(item.uid))
             ListTile(
-              leading: const Icon(Icons.label_outline_rounded),
-              title: SelectionContainer.disabled(child: Text(tr('设置分类'))),
+              leading: const Icon(Icons.block_rounded),
+              title: Text(tr('屏蔽作品')),
               onTap: () {
+                AppSettings.instance.blockWork(item);
                 Navigator.pop(ctx);
-                editFavoriteCategories(context, item.uid);
+                context.toast(tr('已屏蔽作品'));
               },
             ),
-          ListTile(
-            leading: const Icon(Icons.open_in_new_rounded),
-            title: SelectionContainer.disabled(child: Text(tr('打开详情'))),
-            onTap: () {
-              Navigator.pop(ctx);
-              Nav.openWork(context, item, coverHeroTag: coverHeroTag);
-            },
-          ),
-          if (lib.historyOf(item.uid) != null)
             ListTile(
-              leading: const Icon(Icons.history_toggle_off_rounded),
-              title: SelectionContainer.disabled(child: Text(tr('删除阅读记录'))),
-              onTap: () {
-                lib.removeHistory(item.uid);
+              leading: const Icon(Icons.person_off_outlined),
+              title: Text(tr('屏蔽作者')),
+              onTap: () async {
                 Navigator.pop(ctx);
+                try {
+                  var authors = TagBlocklist.authorsOf(item);
+                  if (authors.isEmpty) {
+                    if (item.isSubscriptionPost) {
+                      if (context.mounted) context.toast(tr('本站未提供作者信息'));
+                      return;
+                    }
+                    authors = TagBlocklist.authorsOf(
+                      await SourceManager.instance.detail(
+                        item.source,
+                        item.id,
+                        preview: item,
+                      ),
+                    );
+                    // 列表也使用已取得的真实作者，设置变更后立即重新过滤当前卡片。
+                    item.authors.addAll(authors);
+                  }
+                  if (!context.mounted) return;
+                  if (authors.isEmpty) {
+                    context.toast(tr('本站未提供作者信息'));
+                    return;
+                  }
+                  final author = await showChoiceSheet<String>(
+                    context,
+                    title: tr('屏蔽作者'),
+                    selected: '',
+                    options: authors,
+                    label: (a) => a,
+                  );
+                  if (author != null) {
+                    AppSettings.instance.blockAuthor(
+                      item.source,
+                      author,
+                      work: item,
+                    );
+                    if (context.mounted) context.toast(tr('已屏蔽作者'));
+                  }
+                } catch (_) {
+                  if (context.mounted) context.toast(tr('作者信息获取失败，请重试'));
+                }
               },
             ),
-          const SizedBox(height: 8),
-        ],
+            ListTile(
+              leading: Icon(
+                lib.isFavorite(item.uid)
+                    ? Icons.bookmark_remove_outlined
+                    : Icons.bookmark_add_outlined,
+              ),
+              title: SelectionContainer.disabled(
+                child: Text(lib.isFavorite(item.uid) ? tr('取消收藏') : tr('加入收藏')),
+              ),
+              onTap: () {
+                Navigator.pop(ctx);
+                toggleFavorite(context, item);
+              },
+            ),
+            if (lib.isFavorite(item.uid))
+              ListTile(
+                leading: const Icon(Icons.label_outline_rounded),
+                title: SelectionContainer.disabled(child: Text(tr('设置分类'))),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  editFavoriteCategories(context, item.uid);
+                },
+              ),
+            ListTile(
+              leading: const Icon(Icons.open_in_new_rounded),
+              title: SelectionContainer.disabled(child: Text(tr('打开详情'))),
+              onTap: () {
+                Navigator.pop(ctx);
+                Nav.openWork(context, item, coverHeroTag: coverHeroTag);
+              },
+            ),
+            if (lib.historyOf(item.uid) != null)
+              ListTile(
+                leading: const Icon(Icons.history_toggle_off_rounded),
+                title: SelectionContainer.disabled(child: Text(tr('删除阅读记录'))),
+                onTap: () {
+                  lib.removeHistory(item.uid);
+                  Navigator.pop(ctx);
+                },
+              ),
+            const SizedBox(height: 8),
+          ],
+        ),
       ),
     ),
   );

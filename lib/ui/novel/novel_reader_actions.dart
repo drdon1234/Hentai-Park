@@ -37,14 +37,19 @@ mixin _NovelActions on _NovelReaderBase {
   Future<void> _search() async {
     if (_body == null) return;
     final key = _loadedKey;
-    final result = await showChapterSearch(context, _text);
-    if (mounted && result != null && key == _loadedKey) _jump(result);
+    final searched = _text;
+    final document = _translationDocument;
+    final result = await showChapterSearch(context, searched);
+    if (mounted && result != null && key == _loadedKey) {
+      _jump(_displayOffset(document?.originalOffset(result) ?? result));
+    }
   }
 
   @override
   Future<void> _addNote({required bool bookmark}) async {
     if (_body == null || _loadedKey == null) return;
     final key = _loadedKey!;
+    final generation = _generation;
     var quote = bookmark
         ? _text.substring(_offset, novelSafeOffset(_text, _offset + 100))
         : _selected;
@@ -58,8 +63,12 @@ mixin _NovelActions on _NovelReaderBase {
       offset = found.start;
       quote = _text.substring(found.start, found.end);
     }
+    final sourceStart = _sourceOffset(offset);
+    final sourceEnd = _sourceOffset(offset + quote.length);
+    quote = _originalText.substring(sourceStart, sourceEnd);
+    offset = sourceStart;
     final note = bookmark ? '' : await askNote(context, quote: quote);
-    if (note == null) return;
+    if (note == null || !mounted || generation != _generation) return;
     try {
       await ReadingNotes.instance.add(
         uid: widget.work.uid,
@@ -87,7 +96,7 @@ mixin _NovelActions on _NovelReaderBase {
       return;
     }
     if (index == _chapterIndex) {
-      _jump(result.offset);
+      _jump(_displayOffset(result.offset));
     } else {
       await _switchChapter(index, offset: result.offset);
     }
@@ -114,7 +123,9 @@ mixin _NovelActions on _NovelReaderBase {
       await _speech.read(
         _text,
         offset: _offset,
-        language: widget.work.language.isNotEmpty
+        language: _translationDocument != null
+            ? normalizeSearchLanguage(_translation!.locale)!
+            : widget.work.language.isNotEmpty
             ? widget.work.language
             : SourceManager.instance.manifest(widget.work.source)?.language ??
                   'en',
@@ -143,9 +154,18 @@ mixin _NovelActions on _NovelReaderBase {
           _setAuto(!_auto);
         case 'speech':
           _readAloud();
+        case 'translation':
+          _toggleFullTranslation();
       }
     },
     itemBuilder: (ctx) => [
+      PopupMenuItem(
+        value: 'translation',
+        enabled: _body != null,
+        child: SelectionContainer.disabled(
+          child: Text(tr(_translateFullText ? '显示原文' : '全文翻译')),
+        ),
+      ),
       PopupMenuItem(
         value: 'notes',
         child: SelectionContainer.disabled(child: Text(tr('书签与标注'))),

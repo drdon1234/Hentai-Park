@@ -54,6 +54,7 @@
     return {
       id: idValue(work.id || work.illust_id), title: String(work.title || ''),
       subtitle: String(work.userName || work.user_name || ''), cover: imageUrl(work.url),
+      authors: [String(work.userName || work.user_name || '')].filter(Boolean),
       coverAspect: square ? 1 : (Number(work.width) && Number(work.height) ? Number(work.width) / Number(work.height) : null),
       pages: Number(work.pageCount || work.illust_page_count) || 0,
       views: ranking ? Number(work.view_count) || 0 : undefined,
@@ -72,7 +73,7 @@
       "ru": {"Pixiv Cookie 格式无效": "Некорректный формат Cookie Pixiv", "Pixiv 作品编号无效": "Некорректный ID произведения Pixiv", "Pixiv 动图暂不支持，请在站点查看": "Анимации Pixiv пока не поддерживаются. Смотрите их на сайте", "Pixiv 筛选参数无效": "Некорректные параметры фильтра Pixiv", "Pixiv 请求失败，请检查网络后重试": "Запрос Pixiv не удался. Проверьте сеть и повторите", "Pixiv 账号": "Аккаунт Pixiv", "Pixiv 返回的数据无效，请稍后重试": "Pixiv вернул некорректные данные. Повторите позже", "作品类型": "Тип произведения", "内容分级": "Возрастной рейтинг", "匹配方式": "Режим совпадения", "推荐与 R-18 内容需要登录；请在 Pixiv 账号设置中开启相应内容显示。Cookie 仅保存在本机。": "Для рекомендаций и контента R-18 нужен вход. Включите показ соответствующего контента в настройках Pixiv. Cookie хранятся только на этом устройстве.", "插画": "Иллюстрация", "插画与漫画社区，支持个性化推荐、排行、搜索和多页原图阅读": "Сообщество иллюстраций и манги: рекомендации, рейтинги, поиск и многостраничные оригиналы", "标签完全匹配": "Точное совпадение тега", "标签部分匹配": "Частичное совпадение тега", "标题与简介": "Название и описание", "每日": "Ежедневно", "站点默认": "По умолчанию на сайте", "粘贴 Pixiv 的 PHPSESSID 值": "Вставьте значение PHPSESSID Pixiv", "请登录 Pixiv；Cookie 可能已过期，R-18 内容还需在站点开启显示权限": "Войдите в Pixiv. Возможно, Cookie истёк; для R-18 также разрешите показ на сайте", "输入关键词或标签，可筛选漫画、插画与 R-18 内容": "Введите слова или теги; фильтруйте мангу, иллюстрации и контент R-18", "默认作品类型": "Тип произведений по умолчанию"},
       "ar": {"Pixiv Cookie 格式无效": "تنسيق Cookie الخاص بـ Pixiv غير صالح", "Pixiv 作品编号无效": "معرّف عمل Pixiv غير صالح", "Pixiv 动图暂不支持，请在站点查看": "رسوم Pixiv المتحركة غير مدعومة حالياً. شاهدها في الموقع", "Pixiv 筛选参数无效": "معلمات تصفية Pixiv غير صالحة", "Pixiv 请求失败，请检查网络后重试": "فشل طلب Pixiv. تحقّق من الشبكة وحاول مجدداً", "Pixiv 账号": "حساب Pixiv", "Pixiv 返回的数据无效，请稍后重试": "أعاد Pixiv بيانات غير صالحة. حاول لاحقاً", "作品类型": "نوع العمل", "内容分级": "تصنيف المحتوى", "匹配方式": "طريقة المطابقة", "推荐与 R-18 内容需要登录；请在 Pixiv 账号设置中开启相应内容显示。Cookie 仅保存在本机。": "يلزم تسجيل الدخول للتوصيات ومحتوى R-18. فعّل عرض المحتوى المناسب في إعدادات حساب Pixiv. تُحفظ ملفات Cookie على هذا الجهاز فقط.", "插画": "رسوم", "插画与漫画社区，支持个性化推荐、排行、搜索和多页原图阅读": "مجتمع للرسوم والمانغا مع توصيات شخصية وترتيب وبحث وقراءة الصور الأصلية متعددة الصفحات", "标签完全匹配": "مطابقة تامة للوسم", "标签部分匹配": "مطابقة جزئية للوسم", "标题与简介": "العنوان والوصف", "每日": "يومي", "站点默认": "الإعداد الافتراضي للموقع", "粘贴 Pixiv 的 PHPSESSID 值": "الصق قيمة PHPSESSID من Pixiv", "请登录 Pixiv；Cookie 可能已过期，R-18 内容还需在站点开启显示权限": "سجّل الدخول إلى Pixiv. قد تكون صلاحية Cookie انتهت؛ يجب أيضاً تفعيل عرض R-18 في الموقع", "输入关键词或标签，可筛选漫画、插画与 R-18 内容": "أدخل كلمات أو وسوماً؛ صفِّ النتائج حسب المانغا والرسوم ومحتوى R-18", "默认作品类型": "نوع العمل الافتراضي"},
     },
-    key: 'pixiv', name: 'Pixiv', version: '0.0.5', type: 'comic', category: 'doujin',
+    key: 'pixiv', name: 'Pixiv', version: '0.0.6', type: 'comic', category: 'doujin',
     color: '#0096FA', icon: 'https://www.pixiv.net/favicon.ico',
     description: '插画与漫画社区，支持个性化推荐、排行、搜索和多页原图阅读',
     homepage: HOME, domains: ['pixiv.net'], language: 'multi',
@@ -101,7 +102,7 @@
         // Validate the candidate before replacing the current cookie jar.
         const headers = { Cookie: 'PHPSESSID=' + session };
         const extra = await this.request('/ajax/user/extra', { lang: 'zh' }, { auth: true, headers });
-        if (!extra || !Number.isFinite(Number(extra.following))) throw Park.error('LOGIN_REQUIRED', LOGIN);
+        if (!extra || typeof extra.following !== 'number' || !Number.isFinite(extra.following)) throw Park.error('LOGIN_REQUIRED', LOGIN);
         const userId = session.split('_')[0];
         const user = await this.request('/ajax/user/' + userId, { full: 0, lang: 'zh' }, { headers });
         if (!user || String(user.userId) !== userId) throw Park.error('LOGIN_REQUIRED', LOGIN);
@@ -117,11 +118,11 @@
       },
       async status() {
         const cookies = await this.cookies.get(HOME + '/');
-        if (!cookies.PHPSESSID) return { loggedIn: false, configured: false, name: '' };
+        if (!/^\d+_[A-Za-z0-9_-]+$/.test(cookies.PHPSESSID || '')) return { loggedIn: false, configured: false, name: '' };
         const account = this.store.get('account') || {};
         try {
           const extra = await this.request('/ajax/user/extra', { lang: 'zh' }, { auth: true });
-          if (!extra || !Number.isFinite(Number(extra.following))) throw Park.error('LOGIN_REQUIRED', LOGIN);
+          if (!extra || typeof extra.following !== 'number' || !Number.isFinite(extra.following)) throw Park.error('LOGIN_REQUIRED', LOGIN);
           return { loggedIn: true, configured: true, name: account.name || 'Pixiv' };
         } catch (e) {
           if (e.code !== 'LOGIN_REQUIRED') throw e;
@@ -155,7 +156,20 @@
     },
     async requireLogin() {
       const cookies = await this.cookies.get(HOME + '/');
-      if (!cookies.PHPSESSID) throw Park.error('LOGIN_REQUIRED', LOGIN);
+      if (!/^\d+_[A-Za-z0-9_-]+$/.test(cookies.PHPSESSID || '')) throw Park.error('LOGIN_REQUIRED', LOGIN);
+      const extra = await this.request('/ajax/user/extra', { lang: 'zh' }, { auth: true });
+      if (!extra || typeof extra.following !== 'number' || !Number.isFinite(extra.following)) throw Park.error('LOGIN_REQUIRED', LOGIN);
+    },
+    async searchSuggestions(keyword) {
+      keyword = String(keyword || '').trim();
+      if (!keyword) return [];
+      const response = await this.http.get(HOME + '/rpc/cps.php', { params: { keyword, lang: 'zh' } });
+      if (!response.ok) throw Park.error('HTTP', 'Pixiv 请求失败，请检查网络后重试', { status: response.status });
+      let data;
+      try { data = JSON.parse(response.body); } catch (_) { throw Park.error('PARSE', PARSE); }
+      if (!Array.isArray(data?.candidates)) throw Park.error('PARSE', PARSE);
+      return data.candidates.filter(c => typeof c.tag_name === 'string').slice(0, 10)
+        .map(c => ({ keyword: c.tag_name, label: c.tag_name, subtitle: c.tag_translation || '' }));
     },
     async request(path, params = {}, { auth = false, headers = {} } = {}) {
       const response = await this.http.get(HOME + path, { params, headers });

@@ -52,6 +52,7 @@ extension _DramaEpisodes on VideoSession {
 
   Future<void> _selectDramaEpisode(Chapter next) {
     return PendingDisposals.instance.watch(() async {
+      final refreshSources = error != null && next.id == episode.id;
       savePosition();
       _sourceRequest?.cancel('episode changed');
       final token = _sourceRequest = CancelToken();
@@ -98,6 +99,7 @@ extension _DramaEpisodes on VideoSession {
                   token,
                   localFile: localFile,
                   initialSources: initialSources,
+                  refresh: refreshSources,
                 ));
         if (!_active || token.isCancelled || request != _request) {
           await prepared.close();

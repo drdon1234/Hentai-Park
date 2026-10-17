@@ -314,12 +314,10 @@ class HairlineItem extends StatelessWidget {
   final Widget child;
 
   @override
-  Widget build(BuildContext context) => DecoratedBox(
-    decoration: BoxDecoration(
-      color: context.colors.surface,
-      border: Border(
-        bottom: BorderSide(color: context.colors.outlineVariant, width: .8),
-      ),
+  Widget build(BuildContext context) => Material(
+    color: context.colors.surface,
+    shape: Border(
+      bottom: BorderSide(color: context.colors.outlineVariant, width: .8),
     ),
     child: child,
   );

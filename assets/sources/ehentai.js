@@ -20,7 +20,7 @@ Park.register({
   },
   key: 'ehentai',
   name: 'E-Hentai',
-  version: '0.0.6',
+  version: '0.0.7',
   type: 'comic',
   category: 'doujin',
   color: '#9C2A2A',
@@ -60,6 +60,29 @@ Park.register({
       ],
     },
   ],
+
+  async interaction(id, req = {}) {
+    const [gid, token] = this.splitId(id);
+    const html = await this.page(`${this.base}/g/${gid}/${token}/`);
+    const uid = /\bapiuid\s*=\s*(-?\d+)/.exec(html);
+    const key = /\bapikey\s*=\s*["']([^"']+)["']/.exec(html);
+    if (!uid || Number(uid[1]) < 0 || !key) throw Park.error('LOGIN_REQUIRED', '请先登录');
+    // display_rating 也可能是平均分，不能把它显示为用户的评分。
+    if (req.value === undefined) return {type: 'rating', value: null};
+    const value = req.value;
+    if (typeof value !== 'number' || value < 0.5 || value > 5 || !Number.isInteger(value * 2)) {
+      throw Park.error('CONFIG', '原站互动数据无效');
+    }
+    await this.wait();
+    const res = await this.http.json(this.apiUrl, {method: 'POST', json: {
+      method: 'rategallery', apiuid: Number(uid[1]), apikey: key[1], gid, token, rating: value * 2,
+    }});
+    if (res.login !== undefined) throw Park.error('LOGIN_REQUIRED', '请先登录');
+    if (res.error || typeof res.rating_usr !== 'number' || res.rating_usr !== value) {
+      throw Park.error('AUTH', '原站操作未成功，请重试');
+    }
+    return {type: 'rating', value: res.rating_usr};
+  },
 
   account: {
     type: 'cookies',
@@ -306,6 +329,8 @@ Park.register({
       id: `${meta.gid}/${meta.token}`,
       title: Park.html.unescape(meta.title),
       subtitle: Park.html.unescape(meta.title_jpn || ''),
+      authors: (groups.artist || []).concat(groups.group || []),
+      uploader: Park.html.unescape(meta.uploader || ''),
       cover: this.thumb(meta.thumb),
       pages: Number(meta.filecount) || 0,
       rating: Park.utils.toFloat(meta.rating),
@@ -364,6 +389,21 @@ Park.register({
     if (rating >= 2) Object.assign(params, { advsearch: '1', f_sr: 'on', f_srdd: String(Math.min(rating, 5)) });
     if (Number(f.minPages) > 1) Object.assign(params, { advsearch: '1', f_sp: 'on', f_spf: String(Number(f.minPages)) });
     return params;
+  },
+
+  async searchSuggestions(keyword) {
+    keyword = String(keyword || '').trim();
+    if (!keyword) return [];
+    await this.wait();
+    const response = await this.http.post('https://api.e-hentai.org/api.php', {
+      json: { method: 'tagsuggest', text: keyword },
+    });
+    if (!response.ok) throw Park.error('HTTP', 'HTTP {status}', { params: { status: response.status }, status: response.status });
+    let data;
+    try { data = JSON.parse(response.body); } catch (_) { throw Park.error('PARSE', '媒体数据无效'); }
+    if (!data?.tags || typeof data.tags !== 'object') throw Park.error('PARSE', '媒体数据无效');
+    return Object.values(data.tags).filter(t => typeof t.ns === 'string' && typeof t.tn === 'string').slice(0, 10)
+      .map(t => ({ keyword: t.ns + ':"' + t.tn + '"$', label: t.tn, subtitle: t.ns }));
   },
 
   async search(req) {

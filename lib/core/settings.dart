@@ -83,6 +83,7 @@ enum SettingsDomain {
     'novelVolumeKeys',
   }),
   network({
+    'dataSavingMode',
     'proxy',
     'imageConcurrency',
     'cacheLimitMb',
@@ -126,6 +127,7 @@ enum SettingsDomain {
     'subscriptionNotificationPreview',
   }),
   search({
+    'rankingSelection',
     'searchHistories',
     'tagDownloadReminders',
     'aggregateExcluded',
@@ -133,7 +135,7 @@ enum SettingsDomain {
     'translateEngine',
     'translateTargets',
   }),
-  filter({'blockedTags', 'blockPresets'}),
+  filter({'blockedTags', 'blockPresets', 'blockedWorks', 'blockedAuthors'}),
   maintenance({
     'autoSourceUpdates',
     'autoAppUpdates',
@@ -270,7 +272,12 @@ class AppSettings extends ChangeNotifier {
   };
 
   /// Keys that change which works are hidden by the content filter.
-  static const filterKeys = {'blockedTags', 'blockPresets'};
+  static const filterKeys = {
+    'blockedTags',
+    'blockPresets',
+    'blockedWorks',
+    'blockedAuthors',
+  };
 
   /// Keys the comic reader renders from.
   static const readerKeys = {
@@ -526,6 +533,11 @@ class AppSettings extends ChangeNotifier {
   String get proxy => _get('proxy', '');
   set proxy(String v) => _set('proxy', v.trim());
 
+  String get dataSavingMode => _get('dataSavingMode', 'off');
+  set dataSavingMode(String v) => _set('dataSavingMode', v);
+  bool get dataSaver => dataSavingMode != 'off';
+  bool get searchOnlySources => dataSavingMode == 'super';
+
   int get imageConcurrency => _get('imageConcurrency', 6);
   set imageConcurrency(int v) => _set('imageConcurrency', v);
 
@@ -578,6 +590,48 @@ class AppSettings extends ChangeNotifier {
   List<String> get blockedTags =>
       ((_v['blockedTags'] as List?) ?? []).map((e) => e.toString()).toList();
   set blockedTags(List<String> v) => _set('blockedTags', v);
+
+  Map<String, String> get blockedWorks =>
+      Map<String, String>.from(_v['blockedWorks'] as Map? ?? {});
+  Map<String, dynamic> get _blockedAuthorRules =>
+      Map<String, dynamic>.from(_v['blockedAuthors'] as Map? ?? {});
+  Map<String, String> get blockedAuthors => {
+    for (final entry in _blockedAuthorRules.entries)
+      entry.key: (entry.value as Map)['name'] as String,
+  };
+  bool isBlockedAuthorWork(WorkItem item) => _blockedAuthorRules.values.any(
+    (rule) => ((rule as Map)['works'] as List).contains(item.uid),
+  );
+  void blockWork(WorkItem item) =>
+      _set('blockedWorks', {...blockedWorks, item.uid: item.title});
+  void unblockWork(String uid) =>
+      _set('blockedWorks', {...blockedWorks}..remove(uid));
+  void blockAuthor(String source, String author, {WorkItem? work}) {
+    final name = author.trim();
+    if (name.isNotEmpty) {
+      final identity = '$source:${name.toLowerCase()}';
+      final rules = _blockedAuthorRules;
+      _set('blockedAuthors', {
+        ...rules,
+        identity: {
+          'name': name,
+          // 列表可能不含作者；记录已核实作品与规则的关系，重启后仍能隐藏。
+          'works': {
+            ...?((rules[identity] as Map?)?['works'] as List?),
+            if (work?.source == source) work!.uid,
+          }.toList(),
+        },
+      });
+    }
+  }
+
+  void unblockAuthor(String identity) =>
+      _set('blockedAuthors', _blockedAuthorRules..remove(identity));
+
+  Map<String, dynamic> get rankingSelection =>
+      Map<String, dynamic>.from(_v['rankingSelection'] as Map? ?? {});
+  set rankingSelection(Map<String, dynamic> value) =>
+      _set('rankingSelection', value);
 
   void addBlockedTag(String entry) {
     final e = entry.trim();
@@ -695,7 +749,8 @@ class AppSettings extends ChangeNotifier {
       _set('homeCategories', [for (final c in value) c.name]);
 
   String? homeSource(SourceCategory category) =>
-      (_v['homeSources'] as Map?)?[category.name] as String?;
+      (_v['homeSources'] as Map?)?[category.name] as String? ??
+      (category == SourceCategory.shortvideo ? 'shorties' : null);
 
   void setHomeSource(SourceCategory category, String source) => _set(
     'homeSources',

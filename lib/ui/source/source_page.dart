@@ -5,10 +5,13 @@ import 'package:flutter/material.dart';
 import '../../core/content_scope.dart';
 import '../../core/localization.dart';
 import '../../core/models.dart';
+import '../../core/settings.dart';
 import '../../engine/source_manager.dart';
 import '../history/history_page.dart';
 import '../nav.dart';
+import '../search/source_search_page.dart';
 import '../short_video/short_video_page.dart';
+import '../subscriptions/subscription_source_page.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
 import '../widgets/content_translation.dart';
@@ -40,10 +43,14 @@ class _SourcePageState extends State<SourcePage> {
   @override
   Widget build(BuildContext context) {
     final account = _sources.accountListenable(widget.sourceKey);
-    if (account == null) return _build(context);
-    return ValueListenableBuilder(
-      valueListenable: account,
-      builder: (context, status, _) => _build(context, status),
+    return ListenableBuilder(
+      listenable: AppSettings.instance.watch(const {'dataSavingMode'}),
+      builder: (context, _) => account == null
+          ? _build(context)
+          : ValueListenableBuilder(
+              valueListenable: account,
+              builder: (context, status, _) => _build(context, status),
+            ),
     );
   }
 
@@ -57,6 +64,25 @@ class _SourcePageState extends State<SourcePage> {
           title: tr('站点未加载'),
         ),
       );
+    }
+    if (AppSettings.instance.searchOnlySources) {
+      return m.can('search')
+          ? SourceSearchPage(
+              sourceKey: widget.sourceKey,
+              sourceManager: _sources,
+              searchOnlyEntry: true,
+            )
+          : Scaffold(
+              appBar: AppBar(title: Text(m.name)),
+              body: EmptyState(
+                icon: Icons.search_off_rounded,
+                title: tr('超级省流'),
+                message: tr('此站点不支持搜索'),
+              ),
+            );
+    }
+    if (m.feeds.isEmpty && m.can('subscription')) {
+      return SubscriptionSourcePage(source: widget.sourceKey);
     }
     if (m.category == SourceCategory.shortvideo) {
       return ShortVideoPage(
@@ -77,6 +103,7 @@ class _SourcePageState extends State<SourcePage> {
         : null;
     return TranslationPage(
       child: DefaultTabController(
+        key: ValueKey((widget.sourceKey, accountStatus?.loggedIn == true)),
         length: m.feeds.length,
         initialIndex:
             (widget.initialFeed ?? _sources.entryFeedIndex(widget.sourceKey))
@@ -259,6 +286,8 @@ class _FeedTabState extends State<FeedTab> with AutomaticKeepAliveClientMixin {
   @override
   void initState() {
     super.initState();
+    _controller = PagedController(_load, source: widget.source.key);
+    _controller.loadMore();
     _authentication = (widget.sourceManager ?? SourceManager.instance)
         .authenticationChanges
         .listen((key) {
@@ -268,10 +297,7 @@ class _FeedTabState extends State<FeedTab> with AutomaticKeepAliveClientMixin {
 
   bool _forceRefresh = false;
   late Map<String, Object?> _options = widget.feed.defaultOptions();
-  late final PagedController _controller = PagedController(
-    _load,
-    source: widget.source.key,
-  )..loadMore();
+  late final PagedController _controller;
 
   Future<WorkPage> _load(int page, String? cursor) =>
       (widget.sourceManager ?? SourceManager.instance).feed(
@@ -281,6 +307,7 @@ class _FeedTabState extends State<FeedTab> with AutomaticKeepAliveClientMixin {
         cursor: cursor,
         options: _options,
         refresh: _forceRefresh,
+        onCached: page == 1 ? _controller.cachedReceiver() : null,
       );
 
   Future<void> _refresh() async {
@@ -326,6 +353,18 @@ class _FeedTabState extends State<FeedTab> with AutomaticKeepAliveClientMixin {
                 },
               ),
             ),
+          ListenableBuilder(
+            listenable: _controller,
+            builder: (context, _) =>
+                _controller.loading && _controller.page == 0
+                ? SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.all(Gap.page),
+                      child: Text(tr('获取最新作品中')),
+                    ),
+                  )
+                : const SliverToBoxAdapter(),
+          ),
           ListenableBuilder(
             listenable: _controller,
             builder: (context, _) => _controller.staleCache

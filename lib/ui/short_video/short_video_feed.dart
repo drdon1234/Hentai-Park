@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import '../../core/models.dart';
 import '../../core/settings.dart';
 import '../../core/tag_blocklist.dart';
+import '../../engine/home_cache.dart';
 
 typedef ShortVideoLoader = Future<WorkPage> Function(int page, String? cursor);
 
@@ -45,6 +46,23 @@ class ShortVideoFeed extends ChangeNotifier {
   String? _cursor;
   bool loading = false, hasNext = true, _disposed = false;
   Object? error;
+  bool _preview = false;
+  bool get refreshingCached => _preview && loading;
+  void Function(WorkPage) cachedReceiver() {
+    final request = generation;
+    return (cached) {
+      if (_disposed ||
+          request != generation ||
+          _page != 1 ||
+          items.isNotEmpty) {
+        return;
+      }
+      _preview = true;
+      _loaded.addAll(cached.items);
+      items.addAll(cached.items.where(_allows));
+      notifyListeners();
+    };
+  }
 
   void seed(WorkItem item, {bool allowBlocked = false}) {
     if (_disposed || !_seen.add(item.uid)) return;
@@ -72,6 +90,19 @@ class ShortVideoFeed extends ChangeNotifier {
       for (var skipped = 0; skipped < 3; skipped++) {
         final result = await _load(_page, _cursor);
         if (_disposed || request != generation) return;
+        if (_preview) {
+          final playing = index < items.length ? items[index] : null;
+          _preview = false;
+          _loaded.clear();
+          items.clear();
+          _seen.clear();
+          index = 0;
+          if (playing != null) {
+            _loaded.add(playing);
+            items.add(playing);
+            _seen.add(playing.uid);
+          }
+        }
         final added = result.items
             .where((i) => i.id.isNotEmpty && _seen.add(i.uid))
             .toList();
@@ -92,7 +123,16 @@ class ShortVideoFeed extends ChangeNotifier {
         }
       }
     } catch (e) {
-      if (!_disposed && request == generation) error = e;
+      if (!_disposed && request == generation) {
+        if (_preview && HomeCache.invalidatesContent(e)) {
+          _preview = false;
+          _loaded.clear();
+          items.clear();
+          _seen.clear();
+          index = 0;
+        }
+        error = e;
+      }
     } finally {
       if (!_disposed && request == generation) {
         loading = false;
@@ -104,6 +144,7 @@ class ShortVideoFeed extends ChangeNotifier {
   Future<void> refresh() {
     if (_disposed) return Future.value();
     generation++;
+    _preview = false;
     items.clear();
     _loaded.clear();
     _explicit.clear();

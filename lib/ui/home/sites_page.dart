@@ -149,12 +149,12 @@ class SiteRow extends StatelessWidget {
               value: 'search',
               child: SelectionContainer.disabled(child: Text(tr('在此站点搜索'))),
             ),
-          if (ranking != null)
+          if (ranking != null && !AppSettings.instance.searchOnlySources)
             PopupMenuItem(
               value: 'ranking',
               child: SelectionContainer.disabled(child: Text(tr('排行'))),
             ),
-          if (m.can('random'))
+          if (m.can('random') && !AppSettings.instance.searchOnlySources)
             PopupMenuItem(
               value: 'random',
               child: SelectionContainer.disabled(child: Text(tr('随机一部'))),

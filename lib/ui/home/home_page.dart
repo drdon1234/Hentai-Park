@@ -28,12 +28,13 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
   final _localDestination = ValueNotifier(const DiscoveryDestination.all());
-  final _scroll = ScrollController();
-  bool _subscriptionsVisited = false;
+  final _destinations = <String, DiscoveryDestination>{};
+  final _scrolls = <String, ScrollController>{};
   late final Listenable _domainOrder = AppSettings.instance.watch(const {
     'domainOrder',
     'homeCategories',
     'homeSources',
+    'dataSavingMode',
   });
   ValueNotifier<DiscoveryDestination> get _destination =>
       widget.destination ?? _localDestination;
@@ -41,7 +42,7 @@ class _HomePageState extends State<HomePage> {
   @override
   void initState() {
     super.initState();
-    _subscriptionsVisited = _destination.value.subscription;
+    _destinations[_destination.value.key] = _destination.value;
     _destination.addListener(_changed);
   }
 
@@ -51,29 +52,24 @@ class _HomePageState extends State<HomePage> {
     if (oldWidget.destination != widget.destination) {
       (oldWidget.destination ?? _localDestination).removeListener(_changed);
       _destination.addListener(_changed);
+      _destinations[_destination.value.key] = _destination.value;
     }
   }
 
   void _changed() {
-    if (_scroll.hasClients) _scroll.jumpTo(0);
-    setState(() => _subscriptionsVisited |= _destination.value.subscription);
+    setState(() {
+      _destinations[_destination.value.key] = _destination.value;
+    });
   }
 
   void _select(DiscoveryDestination destination) =>
       _destination.value = destination;
 
-  ContentScope get _scope {
-    final category = _destination.value.category;
-    return category == null
-        ? const ContentScope.all()
-        : ContentScope.domain(category);
-  }
-
-  void _history() {
+  void _history(ContentScope scope) {
     if (widget.onOpenHistory != null) {
-      widget.onOpenHistory!(_scope);
+      widget.onOpenHistory!(scope);
     } else {
-      Nav.push(context, HistoryPage(scope: _scope));
+      Nav.push(context, HistoryPage(scope: scope));
     }
   }
 
@@ -81,62 +77,73 @@ class _HomePageState extends State<HomePage> {
   void dispose() {
     _destination.removeListener(_changed);
     _localDestination.dispose();
-    _scroll.dispose();
+    for (final scroll in _scrolls.values) {
+      scroll.dispose();
+    }
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     final selected = _destination.value;
-    return Scaffold(
-      appBar: PageHeader(
-        title: 'HentaiPark',
-        actions: [
-          IconButton(
-            tooltip: tr('排行榜'),
-            icon: const Icon(Icons.leaderboard_outlined),
-            onPressed: () =>
-                Nav.push(context, RankingsPage(category: selected.category)),
-          ),
-          TextButton(
-            onPressed: () => Nav.push(context, const SitesPage()),
-            child: SelectionContainer.disabled(child: Text(tr('站点'))),
-          ),
-        ],
-      ),
-      body: Column(
-        children: [
-          ListenableBuilder(
-            listenable: _domainOrder,
-            builder: (context, _) =>
-                DiscoveryDomainBar(selected: selected, onSelected: _select),
-          ),
-          Expanded(
-            child: IndexedStack(
-              index: selected.subscription ? 1 : 0,
-              children: [
-                _content(context, selected),
-                if (_subscriptionsVisited)
-                  const SubscriptionsPage(embedded: true)
-                else
-                  const SizedBox.shrink(),
-              ],
+    return ListenableBuilder(
+      listenable: _domainOrder,
+      builder: (context, _) => Scaffold(
+        appBar: PageHeader(
+          title: 'HentaiPark',
+          actions: [
+            IconButton(
+              tooltip: tr('排行榜'),
+              icon: const Icon(Icons.leaderboard_outlined),
+              onPressed: () =>
+                  Nav.push(context, RankingsPage(category: selected.category)),
             ),
-          ),
-        ],
+            TextButton(
+              onPressed: () => Nav.push(context, const SitesPage()),
+              child: SelectionContainer.disabled(child: Text(tr('站点'))),
+            ),
+          ],
+        ),
+        body: Column(
+          children: [
+            ListenableBuilder(
+              listenable: _domainOrder,
+              builder: (context, _) =>
+                  DiscoveryDomainBar(selected: selected, onSelected: _select),
+            ),
+            Expanded(
+              child: IndexedStack(
+                index: _destinations.keys.toList().indexOf(selected.key),
+                children: [
+                  for (final destination in _destinations.values)
+                    KeyedSubtree(
+                      key: ValueKey(destination.key),
+                      child: destination.subscription
+                          ? const SubscriptionsPage(embedded: true)
+                          : _content(context, destination),
+                    ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
 
   Widget _content(BuildContext context, DiscoveryDestination selected) {
     final sm = SourceManager.instance;
+    final dataSaver = AppSettings.instance.dataSaver;
+    final scope = selected.category == null
+        ? const ContentScope.all()
+        : ContentScope.domain(selected.category!);
     return RefreshIndicator(
       onRefresh: () async {
-        FeedShelf.refreshAll();
+        if (!dataSaver) FeedShelf.refreshAll();
       },
       child: CustomScrollView(
         physics: const AlwaysScrollableScrollPhysics(),
-        controller: _scroll,
+        controller: _scrolls.putIfAbsent(selected.key, ScrollController.new),
         slivers: [
           SliverToBoxAdapter(
             child: Padding(
@@ -147,23 +154,69 @@ class _HomePageState extends State<HomePage> {
                     : tr('在{category}中搜索', {
                         'category': selected.category!.label,
                       }),
-                onTap: () => Nav.openAggregateSearch(context, scope: _scope),
+                onTap: () => Nav.openAggregateSearch(context, scope: scope),
               ),
             ),
           ),
-          SliverToBoxAdapter(
-            child: ListenableBuilder(
-              listenable: Listenable.merge([
-                Library.instance.collection(LibraryCollection.history),
-                sm,
-              ]),
-              builder: (context, _) => RecentHistory(
-                scope: _scope,
-                limit: 20,
-                onOpenHistory: _history,
+          if (dataSaver)
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(
+                  Gap.page,
+                  Gap.m,
+                  Gap.page,
+                  0,
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      tr('省流量模式'),
+                      style: Theme.of(context).textTheme.labelLarge,
+                    ),
+                    Text(
+                      tr(
+                        AppSettings.instance.searchOnlySources
+                            ? '主页和域页仅显示站点入口；站点页不自动加载作品，只响应搜索'
+                            : '主页和域页仅显示站点入口，进入站点后再加载作品',
+                      ),
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                  ],
+                ),
               ),
             ),
-          ),
+          if (!dataSaver && selected.category != null)
+            SliverToBoxAdapter(
+              child: ListenableBuilder(
+                listenable: sm,
+                builder: (context, _) => Column(
+                  children: [
+                    SectionHeader(tr('站点')),
+                    for (final source in sm.enabled.where(
+                      (s) =>
+                          !s.manifest!.rankingOnly &&
+                          s.manifest!.category == selected.category,
+                    ))
+                      SiteRow(source: source),
+                  ],
+                ),
+              ),
+            ),
+          if (!dataSaver)
+            SliverToBoxAdapter(
+              child: ListenableBuilder(
+                listenable: Listenable.merge([
+                  Library.instance.collection(LibraryCollection.history),
+                  sm,
+                ]),
+                builder: (context, _) => RecentHistory(
+                  scope: scope,
+                  limit: 20,
+                  onOpenHistory: () => _history(scope),
+                ),
+              ),
+            ),
           ListenableBuilder(
             listenable: Listenable.merge([sm, _domainOrder]),
             builder: (context, _) => _shelves(context, selected),
@@ -209,8 +262,23 @@ class _HomePageState extends State<HomePage> {
       );
     }
     final category = selected.category;
-    final sources = browsableSources(category);
+    final dataSaver = AppSettings.instance.dataSaver;
+    final sources = dataSaver
+        ? sm.enabled
+              .where(
+                (source) =>
+                    !source.manifest!.rankingOnly &&
+                    (category == null || source.manifest!.category == category),
+              )
+              .toList()
+        : browsableSources(category);
     if (sources.isEmpty) {
+      if (category != null &&
+          sm.enabled.any(
+            (s) => !s.manifest!.rankingOnly && s.manifest!.category == category,
+          )) {
+        return const SliverToBoxAdapter(child: SizedBox.shrink());
+      }
       return SliverToBoxAdapter(
         child: EmptyState(
           icon: Icons.extension_off_outlined,
@@ -223,6 +291,24 @@ class _HomePageState extends State<HomePage> {
             ),
           ],
         ),
+      );
+    }
+    if (dataSaver) {
+      return SliverList.list(
+        children: [
+          for (final domain in AppSettings.instance.domainOrder)
+            if ((category != null || _interesting(domain)) &&
+                sources.any((source) => source.manifest!.category == domain))
+              RowGroup(
+                title: domain.label,
+                children: [
+                  for (final source in sources.where(
+                    (source) => source.manifest!.category == domain,
+                  ))
+                    SiteRow(source: source),
+                ],
+              ),
+        ],
       );
     }
     // Inside a category: one shelf per site. On “全部”: the first site of each category.

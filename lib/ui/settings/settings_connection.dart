@@ -28,13 +28,6 @@ List<Widget> searchSettings(BuildContext context, AppSettings s) => [
       ListRow(
         title: tr('翻译服务'),
         subtitle: tr(translateEngines[s.translateEngine] ?? s.translateEngine),
-        trailing: const Icon(Icons.chevron_right_rounded),
-        onTap: () async {
-          final v = await chooseSetting<String>(context, tr('翻译服务'), {
-            for (final e in translateEngines.entries) e.key: tr(e.value),
-          }, s.translateEngine);
-          if (v != null) s.translateEngine = v;
-        },
       ),
       const _TranslationNotice(),
     ],
@@ -83,6 +76,37 @@ List<Widget> searchSettings(BuildContext context, AppSettings s) => [
 ];
 
 List<Widget> networkSettings(BuildContext context, AppSettings s) => [
+  RowGroup(
+    children: [
+      ListTile(
+        title: SelectionContainer.disabled(child: Text(tr('省流量模式'))),
+        subtitle: SelectionContainer.disabled(
+          child: Text(
+            tr(switch (s.dataSavingMode) {
+              'standard' => '主页和域页仅显示站点入口，进入站点后再加载作品',
+              'super' => '主页和域页仅显示站点入口；站点页不自动加载作品，只响应搜索',
+              _ => '关闭',
+            }),
+          ),
+        ),
+        trailing: const Icon(Icons.chevron_right_rounded),
+        onTap: () async {
+          final value = await showChoiceSheet<String>(
+            context,
+            title: tr('省流量模式'),
+            selected: s.dataSavingMode,
+            options: const ['off', 'standard', 'super'],
+            label: (mode) => tr(switch (mode) {
+              'standard' => '普通省流',
+              'super' => '超级省流',
+              _ => '关闭',
+            }),
+          );
+          if (value != null) s.dataSavingMode = value;
+        },
+      ),
+    ],
+  ),
   RowGroup(
     children: [
       ListRow(
@@ -225,7 +249,7 @@ class _TranslationNotice extends StatelessWidget {
         Expanded(
           child: Text(
             tr(
-              '翻译时，标题、简介、标签和搜索词会发送给所选的翻译服务（Google 或 Microsoft）。不会发送账号、Cookie 或阅读记录。',
+              '翻译时，标题、简介、标签、搜索词及你选择翻译的小说正文会发送给 Google 翻译。不会发送账号、Cookie 或阅读记录。',
             ),
             style: context.text.bodySmall?.copyWith(
               color: context.colors.onSurfaceVariant,

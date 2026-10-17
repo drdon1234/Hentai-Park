@@ -50,6 +50,7 @@ void validateSettings(Map<String, dynamic> values) {
     'onboarded',
   };
   const choices = <String, Set<Object>>{
+    'dataSavingMode': {'off', 'standard', 'super'},
     'subscriptionUpdateHours': {0, 1, 3, 6, 12, 24},
     'themeMode': {0, 1, 2},
     'readerMode': {0, 1, 2},
@@ -68,7 +69,7 @@ void validateSettings(Map<String, dynamic> values) {
     'libraryFilterKind': {'all', 'comic', 'video', 'novel', 'game'},
     'librarySort': {'added', 'read', 'title', 'updated', 'unread'},
     'libraryDisplay': {'grid', 'list'},
-    'translateEngine': {'google', 'microsoft'},
+    'translateEngine': {'google'},
     'language': {'', 'zh-Hans', 'zh-Hant', 'en', 'ja', 'ko', 'es', 'ru', 'ar'},
   };
   const ranges = <String, (num, num)>{
@@ -152,10 +153,50 @@ void validateSettings(Map<String, dynamic> values) {
           value is Map &&
           value.entries.every((e) => e.key is String && stringList(e.value));
     }
-    if (key == 'homeSources') {
+    if (key == 'homeSources' || key == 'blockedWorks') {
       valid =
           value is Map &&
           value.entries.every((e) => e.key is String && e.value is String);
+    }
+    if (key == 'blockedAuthors') {
+      valid =
+          value is Map &&
+          value.entries.every(
+            (e) =>
+                e.key is String &&
+                e.value is Map &&
+                (e.value as Map)['name'] is String &&
+                stringList((e.value as Map)['works']),
+          );
+    }
+    if (key == 'rankingSelection') {
+      valid =
+          value is Map &&
+          value.entries.every(
+            (e) =>
+                e.key is String &&
+                (e.value is String ||
+                    e.value is Map &&
+                        (e.value as Map).values.every(
+                          (v) =>
+                              v is Map &&
+                              v.entries.every(
+                                (o) =>
+                                    o.key is String &&
+                                    (o.value == null ||
+                                        o.value is String ||
+                                        o.value is num ||
+                                        o.value is bool ||
+                                        o.value is List &&
+                                            (o.value as List).every(
+                                              (v) =>
+                                                  v is String ||
+                                                  v is num ||
+                                                  v is bool,
+                                            )),
+                              ),
+                        )),
+          );
     }
     if (key == 'blockPresets') {
       valid =

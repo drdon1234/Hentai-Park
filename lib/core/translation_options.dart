@@ -10,7 +10,4 @@ const translateLanguages = <String, String>{
   'ar': '阿拉伯语',
 };
 
-const translateEngines = <String, String>{
-  'google': '谷歌翻译',
-  'microsoft': '微软翻译',
-};
+const translateEngines = <String, String>{'google': '谷歌翻译'};

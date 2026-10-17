@@ -6,14 +6,17 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
 
+import '../../core/content_translation.dart';
 import '../../core/localization.dart';
 import '../../core/models.dart';
 import '../../core/settings.dart';
+import '../../core/translator.dart';
 import '../../engine/platform_bridge.dart';
 import '../../engine/source_manager.dart';
 import '../../library/downloads.dart';
 import '../../library/library.dart';
 import '../../novel/novel_speech.dart';
+import '../../novel/novel_translation.dart';
 import '../../novel/reading_notes.dart';
 import '../../novel/text_layout.dart';
 import '../kit/kit.dart';
@@ -26,6 +29,7 @@ import 'novel_sheets.dart';
 
 part 'novel_reader_actions.dart';
 part 'novel_reader_layout.dart';
+part 'novel_reader_translation.dart';
 
 class NovelReaderPage extends StatefulWidget {
   const NovelReaderPage({
@@ -33,10 +37,12 @@ class NovelReaderPage extends StatefulWidget {
     required this.work,
     this.chapter,
     this.startOffset = 0,
+    this.translationQueue,
   });
   final WorkDetail work;
   final Chapter? chapter;
   final int startOffset;
+  final ContentTranslationQueue? translationQueue;
   @override
   State<NovelReaderPage> createState() => _NovelReaderPageState();
 }
@@ -45,6 +51,10 @@ class NovelReaderPage extends StatefulWidget {
 abstract class _NovelReaderBase extends State<NovelReaderPage> {
   final _settings = AppSettings.instance;
   final _watched = AppSettings.instance.watch(AppSettings.novelKeys);
+  final _translationPreferences = AppSettings.instance.watch(const {
+    'translateEngine',
+    'language',
+  });
   final _items = ItemScrollController();
   final _positions = ItemPositionsListener.create();
   final _scrollOffset = ScrollOffsetController();
@@ -69,6 +79,16 @@ abstract class _NovelReaderBase extends State<NovelReaderPage> {
   double _textWidth = 1;
   TextDirection _textDirection = TextDirection.ltr;
   CancelToken? _request;
+  bool _translateFullText = false;
+  String? _translationLocale;
+  NovelTranslationSession? _translation;
+  NovelTranslationDocument? _translationDocument;
+  final _translations = <String, NovelTranslationSession>{};
+  String get _originalText => _body?.paragraphs.join('\n\n') ?? '';
+  int _sourceOffset(int offset) =>
+      _translationDocument?.originalOffset(offset) ?? offset;
+  int _displayOffset(int offset) =>
+      _translationDocument?.translatedOffset(offset) ?? offset;
   List<Chapter> get _chapters => widget.work.chapters?.isNotEmpty == true
       ? widget.work.chapters!
       : [Chapter(chapterKeyOf(widget.work.singleChapterId), tr('全本'))];
@@ -82,10 +102,15 @@ abstract class _NovelReaderBase extends State<NovelReaderPage> {
   Future<void> _switchChapter(int index, {int? offset});
   void _setAuto(bool value);
   Future<void> _addNote({required bool bookmark});
+  void _toggleFullTranslation();
 }
 
 class _NovelReaderPageState extends _NovelReaderBase
-    with WidgetsBindingObserver, _NovelLayout, _NovelActions {
+    with
+        WidgetsBindingObserver,
+        _NovelLayout,
+        _NovelActions,
+        _NovelTranslation {
   @override
   void initState() {
     super.initState();
@@ -96,6 +121,7 @@ class _NovelReaderPageState extends _NovelReaderBase
     );
     _positions.itemPositions.addListener(_onScroll);
     _watched.addListener(_onSettings);
+    _translationPreferences.addListener(_onTranslationPreferences);
     ReadingNotes.instance.addListener(_onNotes);
     _speech.addListener(_onNotes);
     _configureDevice();
@@ -107,11 +133,16 @@ class _NovelReaderPageState extends _NovelReaderBase
     _generation++;
     _request?.cancel();
     _save();
+    _detachTranslation();
+    for (final session in _translations.values) {
+      session.dispose();
+    }
     _saveTimer?.cancel();
     _autoTimer?.cancel();
     _device.dispose();
     _positions.itemPositions.removeListener(_onScroll);
     _watched.removeListener(_onSettings);
+    _translationPreferences.removeListener(_onTranslationPreferences);
     ReadingNotes.instance.removeListener(_onNotes);
     _speech.removeListener(_onNotes);
     _speech.dispose();
@@ -121,6 +152,18 @@ class _NovelReaderPageState extends _NovelReaderBase
     _pager?.dispose();
     _focus.dispose();
     super.dispose();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final locale = AppLocalizations.localeKey(
+      AppLocalizations.of(context).locale,
+    );
+    if (_translationLocale != locale) {
+      _translationLocale = locale;
+      if (_translateFullText && _body != null) _beginTranslation();
+    }
   }
 
   @override
@@ -157,6 +200,8 @@ class _NovelReaderPageState extends _NovelReaderBase
 
   Future<void> _load(int offset) async {
     final generation = ++_generation;
+    _detachTranslation();
+    _translationDocument = null;
     _request?.cancel();
     final request = _request = CancelToken();
     final key = _chapter.id;
@@ -199,6 +244,7 @@ class _NovelReaderPageState extends _NovelReaderBase
         _offline = offline;
         _loadedKey = key;
       });
+      if (_translateFullText) _beginTranslation();
       unawaited(_prefetch(generation, request));
     } catch (e) {
       if (mounted && generation == _generation) setState(() => _error = e);
@@ -238,14 +284,16 @@ class _NovelReaderPageState extends _NovelReaderBase
       chapterId: _loadedKey,
       chapterKey: _loadedKey,
       chapterTitle: _chapter.title,
-      page: _offset,
-      pageCount: _text.length + 1,
+      page: _sourceOffset(_offset),
+      pageCount: _originalText.length + 1,
     );
   }
 
   @override
   void _changedOffset(int offset) {
-    _offset = novelSafeOffset(_text, offset);
+    final next = novelSafeOffset(_text, offset);
+    if (_offset == next) return;
+    _offset = next;
     _saveTimer?.cancel();
     _saveTimer = Timer(const Duration(milliseconds: 500), _save);
     if (mounted) setState(() {});
@@ -394,17 +442,23 @@ class _NovelReaderPageState extends _NovelReaderBase
             ],
             bottom: _body == null
                 ? null
-                : NovelReaderBottomBar(
-                    foreground: foreground,
-                    progress: progress,
-                    onSeek: (v) => _jump((v * _text.length).round()),
-                    onPrevious: _chapterIndex > 0
-                        ? () => _switchChapter(_chapterIndex - 1)
-                        : null,
-                    onNext: _chapterIndex < _chapters.length - 1
-                        ? () => _switchChapter(_chapterIndex + 1)
-                        : null,
-                    onDirectory: _directory,
+                : Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (_translateFullText) _translationStatus(background),
+                      NovelReaderBottomBar(
+                        foreground: foreground,
+                        progress: progress,
+                        onSeek: (v) => _jump((v * _text.length).round()),
+                        onPrevious: _chapterIndex > 0
+                            ? () => _switchChapter(_chapterIndex - 1)
+                            : null,
+                        onNext: _chapterIndex < _chapters.length - 1
+                            ? () => _switchChapter(_chapterIndex + 1)
+                            : null,
+                        onDirectory: _directory,
+                      ),
+                    ],
                   ),
             child: SafeArea(
               child: Stack(
@@ -416,7 +470,7 @@ class _NovelReaderPageState extends _NovelReaderBase
                             ? SourceErrorView(
                                 error: _error!,
                                 source: widget.work.source,
-                                onRetry: () => _load(_offset),
+                                onRetry: () => _load(_sourceOffset(_offset)),
                               )
                             : _body == null
                             ? const Center(child: CircularProgressIndicator())
@@ -440,6 +494,13 @@ class _NovelReaderPageState extends _NovelReaderBase
                         ),
                     ],
                   ),
+                  if (_translateFullText && _body != null && !_controls)
+                    Positioned(
+                      left: Gap.page,
+                      right: Gap.page,
+                      bottom: 0,
+                      child: _translationStatus(background),
+                    ),
                   if (_settings.novelDim > 0)
                     Positioned.fill(
                       child: IgnorePointer(

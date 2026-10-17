@@ -397,6 +397,8 @@
       searchFilters: pick(def.searchFilters || []),
       searchHint: def.searchHint || '',
       capabilities: {
+        interaction: typeof def.interaction === 'function',
+        searchSuggestions: typeof def.searchSuggestions === 'function',
         rankings: Array.isArray(def.rankings) && def.rankings.length > 0,
         subscription: !!(def.subscription && typeof def.subscription.normalize === 'function' && typeof def.subscription.posts === 'function'),
         subscriptionUpdates: !!(def.updateSubscriptions && typeof def.updateSubscriptions.check === 'function'),
