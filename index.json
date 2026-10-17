@@ -9,7 +9,7 @@
       "description": "官方销量榜",
       "category": "jav",
       "rankingOnly": true,
-      "url": "https://raw.githubusercontent.com/drdon1234/Hentai-Park/b9a0850eb9d045b5ca97c846c2674d31787c981a/assets/sources/ranking-fanza.js",
+      "url": "https://raw.githubusercontent.com/drdon1234/Hentai-Park/a743309b20fe20ea713eca3cb55d671792132c71/assets/sources/ranking-fanza.js",
       "sha256": "1043e6f89e6447b29bd827915275ed4fd78fefa479eb40200bb60679583062d0",
       "apiVersion": 1
     },
@@ -20,7 +20,7 @@
       "description": "官方销量榜",
       "category": "jav",
       "rankingOnly": true,
-      "url": "https://raw.githubusercontent.com/drdon1234/Hentai-Park/b9a0850eb9d045b5ca97c846c2674d31787c981a/assets/sources/ranking-fc2.js",
+      "url": "https://raw.githubusercontent.com/drdon1234/Hentai-Park/a743309b20fe20ea713eca3cb55d671792132c71/assets/sources/ranking-fc2.js",
       "sha256": "e3d2881bf20a738383efbca66e709eab6ee9ed5e37842f27a2d449a0875ef472",
       "apiVersion": 1
     },
@@ -31,7 +31,7 @@
       "description": "官方销量榜",
       "category": "jav",
       "rankingOnly": true,
-      "url": "https://raw.githubusercontent.com/drdon1234/Hentai-Park/b9a0850eb9d045b5ca97c846c2674d31787c981a/assets/sources/ranking-mgs.js",
+      "url": "https://raw.githubusercontent.com/drdon1234/Hentai-Park/a743309b20fe20ea713eca3cb55d671792132c71/assets/sources/ranking-mgs.js",
       "sha256": "1c927570b8ae358ce214909789fb873d58dff47822862d6f64944d129e3f893b",
       "apiVersion": 1
     },
@@ -42,7 +42,7 @@
       "description": "官方人气榜",
       "category": "jav",
       "rankingOnly": true,
-      "url": "https://raw.githubusercontent.com/drdon1234/Hentai-Park/b9a0850eb9d045b5ca97c846c2674d31787c981a/assets/sources/ranking-studios.js",
+      "url": "https://raw.githubusercontent.com/drdon1234/Hentai-Park/a743309b20fe20ea713eca3cb55d671792132c71/assets/sources/ranking-studios.js",
       "sha256": "36617b0789de7444238a05ca2bdf1b72df4d8a811b708b5fc708fa4b3f752a5f",
       "apiVersion": 1
     },
@@ -53,7 +53,7 @@
       "description": "官方销量榜",
       "category": "doujin",
       "rankingOnly": true,
-      "url": "https://raw.githubusercontent.com/drdon1234/Hentai-Park/b9a0850eb9d045b5ca97c846c2674d31787c981a/assets/sources/ranking-dlsite.js",
+      "url": "https://raw.githubusercontent.com/drdon1234/Hentai-Park/a743309b20fe20ea713eca3cb55d671792132c71/assets/sources/ranking-dlsite.js",
       "sha256": "9879d0875b3f1c6fce5da49cdd17123dbc7de12cb89c059c08fecc8b5fd19581",
       "apiVersion": 1
     },
@@ -64,7 +64,7 @@
       "description": "官方销量榜",
       "category": "doujin",
       "rankingOnly": true,
-      "url": "https://raw.githubusercontent.com/drdon1234/Hentai-Park/b9a0850eb9d045b5ca97c846c2674d31787c981a/assets/sources/ranking-toranoana.js",
+      "url": "https://raw.githubusercontent.com/drdon1234/Hentai-Park/a743309b20fe20ea713eca3cb55d671792132c71/assets/sources/ranking-toranoana.js",
       "sha256": "7575fad6b5ada0acbdc0391c6ef005ad9d0ae65963323ca27b88745187953a63",
       "apiVersion": 1
     },
@@ -75,7 +75,7 @@
       "description": "站内热门",
       "category": "jav",
       "rankingOnly": true,
-      "url": "https://raw.githubusercontent.com/drdon1234/Hentai-Park/b9a0850eb9d045b5ca97c846c2674d31787c981a/assets/sources/ranking-javmenu.js",
+      "url": "https://raw.githubusercontent.com/drdon1234/Hentai-Park/a743309b20fe20ea713eca3cb55d671792132c71/assets/sources/ranking-javmenu.js",
       "sha256": "1d1f012f739a1c00dbde06fb70aa90b0d3481d1cea0c91c950df33f32bb13524",
       "apiVersion": 1
     }
