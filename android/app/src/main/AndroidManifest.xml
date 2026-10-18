@@ -20,7 +20,7 @@
         android:usesCleartextTraffic="true"
         android:largeHeap="true"
         android:requestLegacyExternalStorage="true"
-        android:name="${applicationName}"
+        android:name=".ParkApplication"
         android:icon="@mipmap/ic_launcher">
         <service android:name=".SubscriptionJob" android:permission="android.permission.BIND_JOB_SERVICE" android:exported="true" />
         <service android:name=".DownloadService" android:exported="false" android:stopWithTask="true" android:foregroundServiceType="dataSync" />

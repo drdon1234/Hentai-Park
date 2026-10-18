@@ -5,7 +5,6 @@ import 'dart:ui';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
-import '../../core/localization.dart';
 import '../../core/models.dart';
 import '../../core/settings.dart';
 import '../../engine/source_manager.dart';
@@ -273,21 +272,18 @@ class _CoverImageProvider extends ImageProvider<_CoverImageProvider> {
   int get hashCode => Object.hash(image, size, fit);
 }
 
-/// Spinner with a caption, shown while a page is still loading.
+/// 普通加载只显示转圈，避免在已有内容上重复叠加状态文案。
 class LoadingIndicator extends StatelessWidget {
   const LoadingIndicator({
     super.key,
-    this.label = '加载中…',
     this.padding = const EdgeInsets.all(20),
     this.color,
   });
-  final String label;
   final EdgeInsets padding;
   final Color? color;
 
   @override
   Widget build(BuildContext context) {
-    final fg = color ?? context.colors.onSurfaceVariant;
     return Padding(
       padding: padding,
       child: Row(
@@ -298,8 +294,6 @@ class LoadingIndicator extends StatelessWidget {
             height: 20,
             child: CircularProgressIndicator(strokeWidth: 2.4, color: color),
           ),
-          const SizedBox(width: 12),
-          Text(tr(label), style: context.text.labelLarge?.copyWith(color: fg)),
         ],
       ),
     );

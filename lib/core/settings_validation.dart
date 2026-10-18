@@ -50,6 +50,7 @@ void validateSettings(Map<String, dynamic> values) {
     'onboarded',
   };
   const choices = <String, Set<Object>>{
+    'logMode': {'full', 'redacted'},
     'dataSavingMode': {'off', 'standard', 'super'},
     'subscriptionUpdateHours': {0, 1, 3, 6, 12, 24},
     'themeMode': {0, 1, 2},
@@ -77,6 +78,8 @@ void validateSettings(Map<String, dynamic> values) {
     'seedColor': (0, 0xffffffff),
     'refreshRate': (0, 1000),
     'preloadPages': (0, 10),
+    'shortVideoPreloadCount': (0, 3),
+    'shortVideoRetainedCount': (0, 5),
     'readerTapLayout': (0, 5),
     'readerDim': (0, .8),
     'readerWarm': (0, .5),

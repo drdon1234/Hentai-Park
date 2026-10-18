@@ -17,7 +17,7 @@ Park.register({
   },
   key: 'pica',
   name: '哔咔漫画',
-  version: '0.0.6',
+  version: '0.0.7',
   type: 'comic',
   category: 'doujin',
   color: '#EC97B6',
@@ -451,6 +451,25 @@ Park.register({
     }
     // `order` is what the pages endpoint expects; the list comes newest first.
     return all.sort((a, b) => a.order - b.order).map((e) => ({ id: String(e.order), title: e.title || `第 ${e.order} 话` }));
+  },
+
+  async interaction(id, req = {}) {
+    const read = async () => {
+      const data = await this.request('comics/' + encodeURIComponent(String(id)));
+      const comic = data.comic;
+      if (!comic || typeof comic.isLiked !== 'boolean' || typeof comic.isFavourite !== 'boolean') throw Park.error('PARSE', '原站互动数据无效');
+      return [{type: 'like', value: comic.isLiked}, {type: 'favorite', value: comic.isFavourite}];
+    };
+    let states = await read();
+    if (req.value !== undefined) {
+      if (!['like', 'favorite'].includes(req.type) || typeof req.value !== 'boolean') throw Park.error('CONFIG', '原站互动数据无效');
+      if (states.find(s => s.type === req.type).value !== req.value) {
+        await this.request('comics/' + encodeURIComponent(String(id)) + (req.type === 'like' ? '/like' : '/favourite'), {});
+        states = await read();
+        if (states.find(s => s.type === req.type).value !== req.value) throw Park.error('AUTH', '原站操作未成功，请重试');
+      }
+    }
+    return states;
   },
 
   async detail(id) {

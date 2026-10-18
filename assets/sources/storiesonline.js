@@ -28,6 +28,16 @@
     safe(r.url || url);
     return Park.html.parse(r.body);
   }
+  function field(row, label) {
+    const heading = [...(row?.querySelectorAll('.misc b') || [])]
+      .find(n => Park.html.text(n) === label + ':');
+    const parts = [];
+    for (let n = heading?.nextSibling; n; n = n.nextSibling) {
+      if (n.nodeName === 'BR' || n.nodeName === 'B') break;
+      if (n.nodeName !== 'SCRIPT' && n.nodeName !== 'STYLE') parts.push(Park.html.text(n));
+    }
+    return parts.join(' ').replace(/\s*\|\s*$/, '').trim();
+  }
   function entries(d) {
     const items = [],
       seen = new Set();
@@ -43,9 +53,22 @@
       const m = u.pathname.match(/^\/([sn]\/\d+\/[a-z0-9-]+)$/);
       if (!m || seen.has(m[1])) continue;
       seen.add(m[1]);
+      const row = a.closest('.res-item') || a.closest('h3.sname')?.parentElement,
+        author = Park.html.text(row?.querySelector('a[href^="/a/"]')),
+        summary = row?.querySelector('.sdesc,.res-desc')?.cloneNode(true);
+      summary?.querySelectorAll('div,script,style').forEach(n => n.remove());
+      summary?.querySelectorAll('a[href*="/library/get_review.php"]').forEach(n => n.remove());
+      const category = field(row, 'Genre'),
+        tags = field(row, 'Tags').split(',').map(t => t.trim()).filter(Boolean),
+        uploaded = field(row, 'Updated') || field(row, 'Concluded') || field(row, 'Posted');
       items.push({
         id: m[1],
         title: Park.html.text(a),
+        subtitle: Park.html.text(summary).replace(/\s*\/\s*\(\s*\)\s*$/, ''),
+        authors: author ? [author] : [],
+        category,
+        tags,
+        uploaded,
         cover: '',
         language: 'en',
         mediaKind: 'novel',
@@ -86,7 +109,7 @@
     },
     key: 'storiesonline',
     name: 'StoriesOnline',
-    version: '0.0.5',
+    version: '0.0.6',
     type: 'novel',
     category: 'novel',
     language: 'en',

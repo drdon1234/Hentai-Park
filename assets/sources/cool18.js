@@ -38,12 +38,19 @@
       )
         continue;
       seen.add(id);
-      items.push({
-        id,
-        title: text
+      const rawTitle = text
           .replace(/^\.\s*/, '')
           .replace(/\s+-\s+[^]*?\(\d+ bytes\)[^]*$/, '')
           .trim(),
+        author = rawTitle.match(/\s*作者[：:]\s*([^\s()[\]【】（）]+)/);
+      items.push({
+        id,
+        title: author ? rawTitle.slice(0, author.index).replace(/[（(【[]\s*$/, '').trim() : rawTitle,
+        authors: author ? [author[1]] : [],
+        subtitle: '',
+        category: '',
+        tags: [],
+        uploaded: '',
         cover: '',
         language: 'zh',
         mediaKind: 'novel',
@@ -74,7 +81,7 @@
     },
     key: 'cool18',
     name: 'Cool18',
-    version: '0.0.4',
+    version: '0.0.5',
     type: 'novel',
     category: 'novel',
     language: 'zh',

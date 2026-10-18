@@ -22,7 +22,7 @@
 > Solo para adultos y donde la ley local lo permita. Todo el contenido procede de sitios de terceros; HentaiPark no almacena ni ofrece contenido.
 
 
-Elige el modo de ahorro en Mi perfil → Red y almacenamiento. El ahorro normal muestra sitios compactos en el inicio y las categorías, y carga obras al abrir un sitio. El ahorro máximo tampoco carga automáticamente dentro del sitio: obtiene obras solo después de buscar. Los sitios sin búsqueda muestran una explicación.
+Elige el modo de ahorro en Más → Red. El ahorro normal muestra sitios compactos en el inicio y las categorías, y carga obras al abrir un sitio. El ahorro máximo tampoco carga automáticamente dentro del sitio: obtiene obras solo después de buscar. Los sitios sin búsqueda muestran una explicación.
 
 ## Descarga
 
@@ -87,9 +87,13 @@ Las capturas usan datos de demostración sin conexión; los sitios, obras y port
 
 En el lector de novelas, Más → Traducir texto completo traduce todo el texto y continúa al abrir otros capítulos. Puedes volver al original.
 
-Las páginas de exploración y detalles permiten abrir las obras en caché, con sus capítulos y direcciones multimedia, mientras buscan las obras más recientes. Si falla la actualización, el contenido accesible permanece disponible. Al volver al inicio se restaura la posición de desplazamiento. Mantén pulsada una tarjeta para bloquear la obra o al autor; puedes quitar el bloqueo en los filtros. Las clasificaciones recuerdan los filtros y consultan resultados nuevos en cada visita. Los vídeos cortos usan Pornhub Shorties de forma predeterminada.
+Las páginas de exploración y detalles permiten abrir las obras en caché, con sus capítulos y direcciones multimedia. Si falla la actualización, el contenido accesible permanece disponible. Al volver al inicio se restaura la posición de desplazamiento. Mantén pulsada una tarjeta para bloquear la obra o al autor; puedes quitar el bloqueo en los filtros. Las clasificaciones recuerdan los filtros y consultan resultados nuevos en cada visita. Los vídeos cortos usan Pornhub Shorties de forma predeterminada. Solo las estanterías de sitios recomendados del inicio y las categorías muestran «Obteniendo las últimas obras» al actualizar el contenido en caché. Las demás cargas muestran indicadores de progreso sin texto de estado.
 
-En los sitios compatibles, usa las preferencias del sitio en Más o al mantener pulsada una tarjeta con tu sesión de la aplicación: MissAV admite favoritos y EH puntuaciones, independientes de los favoritos locales. Pixiv abre las clasificaciones sin sesión y las recomendaciones con sesión; las recomendaciones requieren iniciar sesión. Pixiv y EH ofrecen sugerencias de palabras clave en la búsqueda del sitio.
+Los vídeos cortos precargan los próximos vídeos y conservan los vistos recientemente con su búfer, con 2 de cada tipo por defecto. Ajusta cada cantidad en Mi página → Vídeos cortos o Más → Ajustes de vídeos cortos en el reproductor; pon 0 para desactivar. La caché dura mientras la página de reproducción esté abierta. Una cantidad mayor consume más memoria y datos.
+
+Los favoritos locales permanecen en tu biblioteca. Las interacciones del sitio usan tu cuenta para Me gusta, favoritos/marcadores y puntuaciones admitidos. Los marcadores de X son favoritos del sitio. Pixiv, X y PicACG admiten Me gusta y favoritos; MissAV, favoritos; EH, favoritos y puntuaciones. Los sitios con cuenta muestran Iniciar sesión o Gestionar cuenta bajo la barra. Pixiv abre recomendaciones con o sin sesión, con carga continua, más obras del autor y recomendaciones relacionadas. Pixiv y EH ofrecen sugerencias de búsqueda. Pega un enlace de obra o compartido para abrir la obra correspondiente en la aplicación.
+
+GalgameX admite favoritos del sitio: se guardan en tu primera colección. Si no tienes ninguna, créala primero en el sitio. Quitar un favorito elimina la obra de todas las colecciones.
 
 Los títulos JAV muestran los subtítulos y las ediciones indicados por el sitio de origen. Puedes abrir otras ediciones o buscar por código en uno o varios sitios; los favoritos, el progreso y las descargas se guardan por separado para cada edición.
 
@@ -100,7 +104,7 @@ Temas claro y oscuro, ocho idiomas de interfaz. Las funciones de cada sitio se i
 | Categoría | Sitios |
 | --- | --- |
 | Doujinshi / cómics | E-Hentai / ExHentai, Pixiv, nhentai, JMComic, WNACG, PicACG |
-| Galería | CosplayTele, NudeCosplay, XiuRen, PixiBB, PornPics |
+| Galería | CosplayTele, NudeCosplay, XiuRen, PixiBB, PornPics, Danbooru |
 | Anime adulto | Hanime1, Hanime.tv, Rule34Video |
 | JAV | MissAV, JableTV, SupJav, 123AV |
 | Vídeos para adultos | Pornhub, XVideos, 91porn, iXXX, Thumbzilla, TubeSafari, SpankBang |
@@ -110,6 +114,8 @@ Temas claro y oscuro, ocho idiomas de interfaz. Las funciones de cada sitio se i
 | Juegos | KUN Galgame, GalgameX, Salón de té dimensional |
 | Suscripciones | X / Twitter, Telegram, myfans.jp, pixivFANBOX |
 
+Las listas de novelas muestran títulos, autores, resúmenes, fechas y etiquetas de categoría con un formato uniforme; se omite la información no disponible en el sitio original.
+
 Activa, ordena, actualiza o añade sitios en Más → Sitios.
 
 
@@ -118,10 +124,14 @@ Activa, ordena, actualiza o añade sitios en Más → Sitios.
 | Uso | Servicio |
 | --- | --- |
 | Fuentes generales de imágenes (coincidencias exactas) | Google Lens |
+| Fuentes generales e imágenes similares | Yandex, Bing, Baidu Imágenes |
 | Títulos de anime, episodios y tiempos | trace.moe |
 | Personajes y títulos de anime y Galgame | AnimeTrace |
 | Origen de ilustraciones | IQDB |
+| Fuentes de galerías para adultos | E-Hentai Imágenes |
 | Códigos JAV a partir de capturas | AVScan |
+
+La búsqueda inversa de Bing depende de la región. Baidu puede devolver solo imágenes similares y enlaces de origen. E-Hentai Imágenes solo busca en las galerías públicas de E-Hentai y puede no encontrar imágenes redimensionadas o recortadas.
 
 Los servicios se agrupan verticalmente en General, Anime, JAV e Imágenes y permiten seleccionar entre categorías.
 

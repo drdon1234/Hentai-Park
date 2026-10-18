@@ -6,9 +6,11 @@ import 'package:path/path.dart' as p;
 
 import '../../core/app_log.dart';
 import '../../core/crash_log.dart';
+import '../../core/diagnostic_entry.dart';
 import '../../core/localization.dart';
 import '../../core/settings.dart';
 import '../../core/storage.dart';
+import '../../engine/platform_bridge.dart';
 import '../../engine/source_manager.dart';
 import '../kit/kit.dart';
 import '../nav.dart';
@@ -41,7 +43,7 @@ List<Widget> aboutSettings(BuildContext context) => [
     children: [
       ListRow(
         title: tr('运行日志'),
-        subtitle: tr('诊断日志只记录错误代码、网络原因、目标主机和代码位置'),
+        subtitle: tr('查看应用错误、崩溃堆栈与系统退出信息'),
         trailing: const Icon(Icons.chevron_right_rounded),
         onTap: () => Nav.push(context, const _LogsPage()),
       ),
@@ -68,16 +70,20 @@ class _LogsPage extends StatefulWidget {
 }
 
 class _LogsPageState extends State<_LogsPage> {
-  late final Future<String> _report = _build();
+  late LogMode _mode = AppSettings.instance.logMode;
+  late Future<String> _report = _build(_mode);
 
   /// The in-app view and the export are the same report.
-  static Future<String> _build() async {
+  static Future<String> _build(LogMode mode) async {
     final info = await PackageInfo.fromPlatform();
+    final nativeEntries = await PlatformBridge.readCrashDiagnostics();
     final sites = [
       for (final key in AppLog.sites.toList()..sort())
         '$key ${SourceManager.instance.manifest(key)?.version ?? '-'}',
     ];
     return CrashLog.report(
+      mode: mode,
+      nativeEntries: nativeEntries,
       context: [
         '应用：${info.version}+${info.buildNumber}',
         '应用代理：${AppSettings.instance.proxy.isEmpty ? '未设置' : '已设置'}',
@@ -86,41 +92,92 @@ class _LogsPageState extends State<_LogsPage> {
     );
   }
 
+  static String _label(LogMode mode) => switch (mode) {
+    LogMode.full => tr('完整模式（默认）'),
+    LogMode.redacted => tr('脱敏模式'),
+  };
+
   @override
   Widget build(BuildContext context) => Scaffold(
     appBar: AppBar(
       title: Text(tr('运行日志')),
       actions: [
         IconButton(
+          tooltip: tr('刷新'),
+          icon: const Icon(Icons.refresh_rounded),
+          onPressed: () => setState(() {
+            _report = _build(_mode);
+          }),
+        ),
+        IconButton(
           tooltip: tr('导出诊断日志'),
           icon: const Icon(Icons.ios_share_rounded),
           onPressed: () async {
-            final file = File(
-              p.join(AppPaths.cache.path, 'hentaipark_log.txt'),
-            );
-            await file.writeAsString(await _report);
-            if (!context.mounted) return;
-            await shareContent(context, files: [XFile(file.path)]);
+            try {
+              final text = await _report;
+              final file = File(
+                p.join(AppPaths.cache.path, 'hentaipark_log.txt'),
+              );
+              await file.writeAsString(text);
+              if (!context.mounted) return;
+              await shareContent(context, files: [XFile(file.path)]);
+            } catch (_) {
+              if (!context.mounted) return;
+              ScaffoldMessenger.of(context)
+                  .showSnackBar(SnackBar(content: Text(tr('日志导出失败'))));
+            }
           },
         ),
       ],
     ),
-    body: Column(
-      children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(Gap.page, Gap.s, Gap.page, Gap.s),
-          child: Text(
-            tr(
-              '自动记录时间、站点与操作、错误代码、HTTP 状态、网络原因、目标主机、内置错误文案和代码位置。不记录账号、密码、Cookie、Token、请求内容、完整链接或错误中的动态内容。',
+    body: CustomScrollView(
+      slivers: [
+        SliverToBoxAdapter(
+          child: ListRow(
+            title: tr('日志模式'),
+            subtitle: _label(_mode),
+            trailing: const Icon(Icons.expand_more_rounded),
+            onTap: () async {
+              final mode = await showChoiceSheet<LogMode>(
+                context,
+                title: tr('日志模式'),
+                options: LogMode.values,
+                selected: _mode,
+                label: _label,
+              );
+              if (mode == null || !mounted || mode == _mode) return;
+              AppSettings.instance.logMode = mode;
+              setState(() {
+                _mode = mode;
+                _report = _build(mode);
+              });
+            },
+          ),
+        ),
+        SliverToBoxAdapter(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(
+              Gap.page,
+              Gap.s,
+              Gap.page,
+              Gap.s,
             ),
-            style: context.text.bodySmall?.copyWith(
-              color: context.colors.onSurfaceVariant,
+            child: Text(
+              tr(
+                _mode == LogMode.full
+                    ? '仅记录错误代码、网络原因、目标主机和安全代码位置，不记录异常正文、账号信息或本地路径。页面与导出使用相同模式。'
+                    : '在安全诊断信息的基础上隐藏目标主机和系统详细版本。页面与导出使用相同模式。',
+              ),
+              style: context.text.bodySmall?.copyWith(
+                color: context.colors.onSurfaceVariant,
+              ),
             ),
           ),
         ),
-        const Divider(),
-        Expanded(
+        const SliverToBoxAdapter(child: Divider()),
+        SliverFillRemaining(
           child: FutureBuilder<String>(
+            key: ValueKey(_report),
             future: _report,
             builder: (context, snapshot) => switch (snapshot) {
               AsyncSnapshot(hasData: true, :final data?) => SelectableLogView(

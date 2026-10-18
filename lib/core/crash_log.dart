@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -6,21 +5,22 @@ import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
 
 import 'app_log.dart';
-import 'async_tasks.dart';
+import 'diagnostic_entry.dart';
 import 'diagnostics.dart';
 import 'models.dart';
 import 'storage.dart';
 
-/// Persists uncaught errors to `logs/crash.log` (rotated at 256 KB) so users can export them.
+/// Fatal errors are flushed synchronously: the event loop may never run again.
 class CrashLog {
   static const _limit = 256 * 1024;
-  static final _writes = SerialExecutor();
+  static final _pending = <DiagnosticEntry>[];
 
   static File get file => File(p.join(AppPaths.data.path, 'logs', 'crash.log'));
 
   static void install() {
     FlutterError.onError = (details) {
       record(details.exception, details.stack, library: details.library);
+      if (kDebugMode) FlutterError.presentError(details);
     };
     PlatformDispatcher.instance.onError = (error, stack) {
       record(error, stack);
@@ -28,91 +28,121 @@ class CrashLog {
     };
   }
 
-  static void record(Object error, StackTrace? stack, {String? library}) {
-    final fields = {
-      'event': 'crash',
-      ...Diagnostics.error(error),
-      'library': ?library,
-    };
-    final copy = error is SourceError ? error.copy : null;
-    final clean = Diagnostics.fields(fields, copy: copy);
-    final frames = Diagnostics.stack(stack);
-    AppLog.record(clean, copy: copy, frames: frames);
-    final entry = jsonEncode({
-      'time': DateTime.now().toIso8601String(),
-      'fields': clean,
-      'frames': frames,
-    });
-    unawaited(_writes.run(() => _append('$entry\n')));
-  }
-
-  static Future<void> _append(String text) async {
-    try {
-      final f = file;
-      await f.parent.create(recursive: true);
-      if (await f.exists() && await f.length() > _limit) {
-        await f.rename('${f.path}.1');
+  /// Drain errors captured before the application directories were available.
+  static void initialize() {
+    // Historical files are disposable diagnostics, not user assets. Rewrite
+    // them through the same whitelist before any new crash is appended.
+    for (final f in [File('${file.path}.1'), file]) {
+      try {
+        if (!f.existsSync()) continue;
+        final clean = <String>[];
+        for (final line in f.readAsLinesSync()) {
+          try {
+            final entry = DiagnosticEntry.fromJson(jsonDecode(line));
+            if (entry != null) clean.add(jsonEncode(entry.toJson()));
+          } on FormatException {
+            // Ignore incomplete records.
+          }
+        }
+        f.writeAsStringSync(
+          clean.isEmpty ? '' : '${clean.join('\n')}\n',
+          flush: true,
+        );
+      } catch (_) {
+        // Unreadable storage must not prevent startup or error reporting.
       }
-      await f.writeAsString(text, mode: FileMode.append, flush: true);
-    } catch (_) {
-      // Logging must never throw.
+    }
+    for (final entry in _pending.toList()) {
+      if (_append(entry)) _pending.remove(entry);
     }
   }
 
-  /// Uncaught errors of earlier runs, sanitized again when read back.
-  static Future<List<String>> _earlier() async {
-    final lines = <String>[];
+  static void record(Object error, StackTrace? stack, {String? library}) {
+    final entry = AppLog.record(
+      {'event': 'crash', ...Diagnostics.error(error), 'library': ?library},
+      copy: error is SourceError ? error.copy : null,
+      frames: Diagnostics.stack(stack),
+    );
+    if (!_append(entry)) {
+      _pending.add(entry);
+      if (_pending.length > 50) _pending.removeAt(0);
+    }
+  }
+
+  static bool _append(DiagnosticEntry entry) {
+    try {
+      final f = file;
+      final text = '${jsonEncode(entry.toJson())}\n';
+      f.parent.createSync(recursive: true);
+      if (f.existsSync() &&
+          f.lengthSync() + utf8.encode(text).length > _limit) {
+        final rotated = File('${f.path}.1');
+        if (rotated.existsSync()) rotated.deleteSync();
+        f.renameSync(rotated.path);
+      }
+      f.writeAsStringSync(text, mode: FileMode.append, flush: true);
+      return true;
+    } catch (_) {
+      // Logging must never throw, including before AppPaths.init succeeds.
+      return false;
+    }
+  }
+
+  static Future<List<DiagnosticEntry>> _earlier() async {
+    final entries = <DiagnosticEntry>[];
     for (final f in [File('${file.path}.1'), file]) {
       try {
         if (!await f.exists()) continue;
         for (final line in await f.readAsLines()) {
-          final Object? value;
           try {
-            value = jsonDecode(line);
+            final entry = DiagnosticEntry.fromJson(jsonDecode(line));
+            if (entry != null) entries.add(entry);
           } on FormatException {
-            continue;
-          }
-          if (value is! Map || value['fields'] is! Map) continue;
-          final time = DateTime.tryParse('${value['time']}');
-          if (time == null) continue;
-          lines.add(
-            '${time.toIso8601String().substring(0, 19)} '
-            '${Diagnostics.format(Diagnostics.fields(value['fields'] as Map))}',
-          );
-          final frames = value['frames'];
-          if (frames is List) {
-            lines.addAll(
-              Diagnostics.stack(StackTrace.fromString(frames.join('\n')))
-                  .map((frame) => '  $frame'),
-            );
+            // A partial final line must not hide the remaining history.
           }
         }
       } catch (_) {
         // An unreadable log must not block the report.
       }
     }
-    return lines;
+    return entries;
   }
 
-  /// Everything useful for a bug report: platform, recent crashes and this run's log.
-  static Future<String> report({List<String> context = const []}) async {
-    final earlier = await _earlier();
+  /// One timeline for the UI and export; each stack stays with its event.
+  static Future<String> report({
+    List<String> context = const [],
+    LogMode mode = LogMode.full,
+    List<DiagnosticEntry> nativeEntries = const [],
+  }) async {
+    initialize();
+    final entries = <String, DiagnosticEntry>{};
+    for (final entry in [
+      ...await _earlier(),
+      ...AppLog.entries,
+      ...nativeEntries,
+    ]) {
+      entries[entry.identity] = entry;
+    }
+    final ordered = entries.values.toList()
+      ..sort((a, b) => b.time.compareTo(a.time));
     final b = StringBuffer()
       ..writeln('HentaiPark 诊断日志')
       ..writeln('时间：${DateTime.now().toIso8601String()}')
+      ..writeln('模式：${mode == LogMode.full ? '完整' : '脱敏'}')
       ..writeln(
-        '系统：${Platform.operatingSystem} ${Platform.operatingSystemVersion}',
+        mode == LogMode.full
+            ? '系统：${Platform.operatingSystem} ${Platform.operatingSystemVersion}'
+            : '系统：${Platform.operatingSystem}',
       )
       ..writeln('Dart：${Platform.version.split(' ').first}');
     context.forEach(b.writeln);
     b
       ..writeln()
-      ..writeln('==== 未捕获错误（含此前运行）')
-      ..writeAll(earlier.isEmpty ? ['无'] : earlier, '\n')
-      ..writeln()
-      ..writeln()
-      ..writeln('==== 本次运行')
-      ..writeAll(AppLog.lines.isEmpty ? ['无'] : AppLog.lines, '\n')
+      ..writeln('==== 运行事件（新到旧，含此前运行的未捕获错误与系统退出信息）')
+      ..writeAll(
+        ordered.isEmpty ? ['无'] : ordered.expand((entry) => entry.lines(mode)),
+        '\n',
+      )
       ..writeln();
     return b.toString();
   }

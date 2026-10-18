@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 
 import '../../core/content_scope.dart';
 import '../../core/localization.dart';
@@ -129,6 +128,25 @@ class _AggregateSearchPageState extends State<AggregateSearchPage> {
     _awaitingSources = !_sources.loaded;
     if (_awaitingSources) return;
     final k = _submitted;
+    final refs = _sources.extractRefs(k).where((ref) {
+      final manifest = _sources.manifest(ref.source);
+      return manifest != null && manifest.can('detail');
+    }).toList();
+    if (refs.isNotEmpty && _multi == null) {
+      setState(() {
+        _submitted = '';
+        _submittedSources = [];
+      });
+      if (refs.length == 1) {
+        Nav.openRef(
+          context,
+          refs.single.source,
+          refs.single.id,
+          sourceManager: widget.sourceManager,
+        );
+      }
+      return;
+    }
     final multi = _multi;
     final sources = _targets;
     final manifests = {for (final s in sources) s.key: s.manifest!};
@@ -171,9 +189,12 @@ class _AggregateSearchPageState extends State<AggregateSearchPage> {
   }
 
   Future<void> _paste() async {
-    final data = await Clipboard.getData('text/plain');
-    if (mounted && data?.text != null) {
-      _text.text = data!.text!.trim();
+    final text = await readSearchClipboard(context, focusNode: _focus);
+    if (mounted && text != null) {
+      _text.value = TextEditingValue(
+        text: text.trim(),
+        selection: TextSelection.collapsed(offset: text.trim().length),
+      );
       _submit(_text.text);
     }
   }
@@ -327,7 +348,9 @@ class _AggregateSearchPageState extends State<AggregateSearchPage> {
                     ),
                   ),
                   if (refs.isNotEmpty)
-                    SliverToBoxAdapter(child: DirectJump(refs: refs)),
+                    SliverToBoxAdapter(
+                      child: DirectJump(refs: refs, sourceManager: _sources),
+                    ),
                   if (_submitted.isEmpty || typed != _submitted)
                     SliverToBoxAdapter(
                       child: SearchHistoryList(
@@ -422,6 +445,7 @@ class _AggregateSearchPageState extends State<AggregateSearchPage> {
   List<({String source, String id})> _directRefs(String text) {
     final sm = _sources;
     final refs = sm.extractRefs(text);
+    final hasLinks = refs.isNotEmpty;
     // A bare word without digits is a keyword; several sites accept any slug as an ID.
     if (refs.isEmpty && !text.contains(' ') && RegExp(r'\d').hasMatch(text)) {
       for (final s in sm.enabled) {
@@ -434,7 +458,8 @@ class _AggregateSearchPageState extends State<AggregateSearchPage> {
         .where((r) {
           final m = sm.manifest(r.source);
           return m != null &&
-              _range.contains(r.source, m.category) &&
+              m.can('detail') &&
+              (hasLinks || _range.contains(r.source, m.category)) &&
               seen.add('${r.source}:${r.id}');
         })
         .take(6)

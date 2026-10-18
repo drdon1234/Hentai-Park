@@ -73,7 +73,7 @@ class DetailActionBar extends StatelessWidget {
           const SizedBox(width: Gap.s),
           DetailSecondaryButton(
             icon: fav ? Icons.bookmark_rounded : Icons.bookmark_border_rounded,
-            tooltip: fav ? tr('取消收藏') : tr('收藏'),
+            tooltip: fav ? tr('取消应用内收藏') : tr('应用内收藏'),
             active: fav,
             onPressed: () => toggleFavorite(context, item),
             onLongPress: fav

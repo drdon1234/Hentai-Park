@@ -267,7 +267,7 @@ class _FeedShelfState extends State<FeedShelf>
               ],
             ),
           ),
-          if (_loading)
+          if (_loading && items != null && items.isNotEmpty)
             Padding(
               padding: const EdgeInsets.fromLTRB(Gap.page, 0, Gap.page, Gap.s),
               child: Text(tr('获取最新作品中'), style: context.text.bodySmall),

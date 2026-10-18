@@ -47,9 +47,18 @@
       const title = Park.html.text(a);
       if (!title || /^(?:Page \d+|Next|Previous)$/i.test(title)) continue;
       seen.add(m[1]);
+      const authorNode = row?.querySelector('[property~="author"],a[href*="/authors/"]'),
+        author = authorNode?.querySelector('meta[property="name"]')?.getAttribute('content') ||
+          Park.html.text(authorNode).replace(/^by\s+/i, ''),
+        category = Park.html.text(row?.querySelector('a[href*="/c/"] span,a[href*="/c/"]'));
       out.push({
         id: m[1],
         title,
+        subtitle: Park.html.text(row?.querySelector('[property="headline"]')),
+        authors: author ? [author] : [],
+        category,
+        tags: category ? [category] : [],
+        uploaded: row?.querySelector('[property="datePublished"]')?.getAttribute('content') || '',
         cover: '',
         language: 'en',
         mediaKind: 'novel',
@@ -88,7 +97,13 @@
         cover: '',
         language: 'en',
         mediaKind: 'novel',
-        uploader: String(x.authorname || ''),
+        authors: x.authorname ? [String(x.authorname)] : [],
+        subtitle: String(x.description || ''),
+        category: '',
+        tags: (Array.isArray(x.tags) ? x.tags : [])
+          .filter(tag => typeof tag?.tag === 'string' && !tag.is_banned)
+          .map(tag => tag.tag),
+        uploaded: typeof x.date_approve === 'string' ? x.date_approve : '',
       });
     }
     return out;
@@ -132,7 +147,7 @@
     },
     key: 'literotica',
     name: 'Literotica',
-    version: '0.0.5',
+    version: '0.0.6',
     type: 'novel',
     category: 'novel',
     language: 'en',

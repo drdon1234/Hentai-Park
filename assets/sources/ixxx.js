@@ -9,7 +9,7 @@ Park.register({
     "ru": {"综合成人视频搜索，支持排行、分页与应用内网页播放": "Поиск видео для взрослых с рейтингами, страницами и веб-плеером в приложении", "站点搜索表单无效": "Форма поиска на сайте недействительна"},
     "ar": {"综合成人视频搜索，支持排行、分页与应用内网页播放": "بحث فيديوهات البالغين مع التصنيفات والصفحات وتشغيل الويب داخل التطبيق", "站点搜索表单无效": "نموذج البحث في الموقع غير صالح"},
   },
-  key: 'ixxx', name: 'iXXX', version: '0.0.7', type: 'video', category: 'adult', color: '#F97316',
+  key: 'ixxx', name: 'iXXX', version: '0.0.8', type: 'video', category: 'adult', color: '#F97316',
   description: '综合成人视频搜索，支持排行、分页与应用内网页播放',
   homepage: 'https://www.ixxx.com', domains: ['ixxx.com', 'ttcache.com'], language: 'en',
   network: {mode: 'browser', origin: 'https://www.ixxx.com', vpnHint: true, confirmation: {
@@ -19,6 +19,13 @@ Park.register({
   }}, imageHeaders: {Referer: 'https://www.ixxx.com/'},
   defaultFeed: 'ranking', feeds: [{key: 'ranking', label: '排行榜'}], searchHint: '搜索作品名或标签',
   BASE: 'https://www.ixxx.com',
+  linkPatterns: ['((?:https?://)?(?:www\\.)?ixxx\\.com/out/\\?[^\\s#]+)'],
+  resolveLink(id) {
+    const value = /^https?:\/\//i.test(id) ? id : 'https://' + id;
+    const url = this.target(value);
+    if (!url) throw Park.error('NOT_FOUND', '影片编号无效');
+    return url;
+  },
   externalUrl(value) {
     if (typeof value !== 'string' || value.length > 4096 || /[\x00-\x20\\]/.test(value)) return null;
     try {

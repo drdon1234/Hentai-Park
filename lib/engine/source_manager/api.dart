@@ -80,9 +80,10 @@ mixin _SourceApi on _SourceRegistry {
     ].take(10).toList();
   }
 
-  Future<Map<String, dynamic>> interaction(
+  Future<List<Map<String, dynamic>>> interaction(
     String key,
     String id, {
+    String? type,
     Object? value,
   }) async {
     if (manifest(key)?.can('interaction') != true) {
@@ -90,19 +91,48 @@ mixin _SourceApi on _SourceRegistry {
     }
     final result = await _call(key, 'interaction', [
       id,
-      {'value': ?value},
+      {'type': ?type, 'value': ?value},
     ]);
-    if (result is! Map ||
-        !{'favorite', 'rating', 'like'}.contains(result['type']) ||
-        (result['type'] == 'rating'
-            ? result['value'] != null &&
-                  (result['value'] is! num ||
-                      (result['value'] as num) < 0.5 ||
-                      (result['value'] as num) > 5)
-            : result['value'] is! bool)) {
+    final seen = <String>{};
+    if (result is! List ||
+        result.isEmpty ||
+        result.any((entry) {
+          if (entry is! Map ||
+              !{'favorite', 'rating', 'like'}.contains(entry['type']) ||
+              !seen.add(entry['type'] as String)) {
+            return true;
+          }
+          final v = entry['value'];
+          return entry['type'] == 'rating'
+              ? v != null &&
+                    (v is! num ||
+                        !v.isFinite ||
+                        v < 0.5 ||
+                        v > 5 ||
+                        v * 2 != (v * 2).roundToDouble())
+              : v is! bool ||
+                    (entry.containsKey('canUnset') &&
+                        entry['canUnset'] is! bool);
+        })) {
       throw SourceError('PARSE', '原站互动数据无效');
     }
-    return result.cast<String, dynamic>();
+    return result
+        .map((entry) => (entry as Map).cast<String, dynamic>())
+        .toList();
+  }
+
+  Future<WorkPage> related(
+    String key,
+    String id, {
+    int page = 1,
+    String? cursor,
+    CancelToken? cancelToken,
+  }) async {
+    final result = await _call(key, 'related', [
+      id,
+      {'page': page, 'cursor': cursor},
+    ], cancelToken: cancelToken);
+    return WorkPage.fromJson((result as Map).cast<String, dynamic>(), key);
   }
 
   Future<List<OptionDef>> rankingOptions(String key, RankingDef board) async {
@@ -437,6 +467,18 @@ mixin _SourceApi on _SourceRegistry {
       item.mediaKind ?? manifest(item.source)?.kind ?? MediaKind.comic;
 
   /// Finds (source, id) references in free text: links from any source, or "JM123456"-style codes.
+  Future<String> resolveLink(String key, String id) async {
+    if (manifest(key)?.can('resolveLink') != true) return id;
+    final result = await _call(key, 'resolveLink', [id]);
+    if (result is! String ||
+        result.isEmpty ||
+        result.length > 4096 ||
+        result.contains(RegExp(r'[\x00-\x1f]'))) {
+      throw SourceError('PARSE', '媒体数据无效');
+    }
+    return result;
+  }
+
   List<({String source, String id})> extractRefs(String text) {
     final refs = <({String source, String id})>[];
     for (final s in enabled) {

@@ -185,7 +185,7 @@ class _SubscriptionPostsPageState extends State<SubscriptionPostsPage> {
       body: ParkRefresh(
         onRefresh: () => _load(refresh: true),
         child: ListView(
-          padding: const EdgeInsets.fromLTRB(12, 8, 12, 24),
+          padding: const EdgeInsets.fromLTRB(Gap.page, Gap.s, Gap.page, Gap.xl),
           physics: const AlwaysScrollableScrollPhysics(),
           children: [
             Text(
@@ -200,16 +200,12 @@ class _SubscriptionPostsPageState extends State<SubscriptionPostsPage> {
               runSpacing: 8,
               children: [
                 for (final mode in const ['posts', 'image', 'video'])
-                  ChoiceChip(
-                    label: SelectionContainer.disabled(
-                      child: Text(
-                        tr(switch (mode) {
-                          'image' => '图集',
-                          'video' => '视频集',
-                          _ => '帖子',
-                        }),
-                      ),
-                    ),
+                  SelectionChip(
+                    label: tr(switch (mode) {
+                      'image' => '图集',
+                      'video' => '视频集',
+                      _ => '帖子',
+                    }),
                     selected: display == mode,
                     onSelected: (_) => _filter(mode: mode),
                   ),
@@ -220,16 +216,12 @@ class _SubscriptionPostsPageState extends State<SubscriptionPostsPage> {
               runSpacing: 8,
               children: [
                 for (final type in const ['all', 'image', 'video'])
-                  FilterChip(
-                    label: SelectionContainer.disabled(
-                      child: Text(
-                        tr(switch (type) {
-                          'image' => '图片',
-                          'video' => '视频',
-                          _ => '全部',
-                        }),
-                      ),
-                    ),
+                  SelectionChip(
+                    label: tr(switch (type) {
+                      'image' => '图片',
+                      'video' => '视频',
+                      _ => '全部',
+                    }),
                     selected: mediaType == type,
                     onSelected: (_) => _filter(type: type),
                   ),
@@ -309,7 +301,7 @@ class SubscriptionPostCard extends StatelessWidget {
           ? null
           : () => showWorkActions(context, WorkItem(post.json, source)),
       child: Padding(
-        padding: const EdgeInsets.all(14),
+        padding: const EdgeInsets.all(Gap.page),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [

@@ -5,6 +5,7 @@ import '../../core/localization.dart';
 import '../../core/models.dart';
 import '../../core/settings.dart';
 import '../../core/tag_blocklist.dart';
+import '../../engine/source_manager.dart';
 import '../../library/library.dart';
 import '../nav.dart';
 import '../theme.dart';
@@ -42,6 +43,10 @@ class RecentHistory extends StatelessWidget {
           160.0,
           224.0,
         );
+        final height = recent.fold(116.0, (height, entry) {
+          final extent = _ContinueCard(entry: entry).heightFor(context, width);
+          return extent > height ? extent : height;
+        });
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
@@ -56,7 +61,7 @@ class RecentHistory extends StatelessWidget {
                     ),
             ),
             SizedBox(
-              height: 116 * MediaQuery.textScalerOf(context).scale(1),
+              height: height,
               child: ListView.separated(
                 scrollDirection: Axis.horizontal,
                 padding: const EdgeInsets.symmetric(horizontal: Gap.page),
@@ -78,6 +83,43 @@ class RecentHistory extends StatelessWidget {
 class _ContinueCard extends StatelessWidget {
   const _ContinueCard({required this.entry});
   final HistoryEntry entry;
+
+  static const _coverWidth = 48.0;
+
+  String get _sourceName {
+    final source = entry.item.source;
+    if (source == 'local') return tr('本地导入');
+    final name = SourceManager.instance.manifest(source)?.name;
+    return name != null && name.trim().isNotEmpty ? name : source;
+  }
+
+  // 横向列表需要确定高度；逐种字号测量以兼容系统非线性字体缩放，站点全名不截断。
+  double heightFor(BuildContext context, double width) {
+    final textWidth = width - _coverWidth - Gap.s * 3;
+    double textHeight(String text, TextStyle? style) {
+      final painter = TextPainter(
+        text: TextSpan(text: text, style: style),
+        textDirection: Directionality.of(context),
+        textScaler: MediaQuery.textScalerOf(context),
+        locale: Localizations.maybeLocaleOf(context),
+      )..layout(maxWidth: textWidth);
+      final height = painter.height.ceilToDouble();
+      painter.dispose();
+      return height;
+    }
+
+    return Gap.s * 2 +
+        2 * textHeight('国', ParkText.serif(context.text.titleSmall)) +
+        Gap.xs +
+        textHeight(_sourceName, context.text.labelSmall) +
+        (entry.chapterTitle?.isNotEmpty == true
+            ? Gap.xs + textHeight('国', context.text.bodySmall)
+            : 0) +
+        Gap.s +
+        (entry.progress > 0 ? 3 + Gap.xs : 0) +
+        textHeight('国', context.text.labelSmall);
+  }
+
   @override
   Widget build(BuildContext context) {
     final item = entry.item;
@@ -97,7 +139,7 @@ class _ContinueCard extends StatelessWidget {
           child: Row(
             children: [
               SizedBox(
-                width: 48,
+                width: _coverWidth,
                 child: ClipRRect(
                   borderRadius: Radii.small,
                   child: CoverImage(
@@ -117,22 +159,34 @@ class _ContinueCard extends StatelessWidget {
                       item.title,
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
-                      style: context.text.titleSmall,
+                      style: ParkText.serif(context.text.titleSmall),
                     ),
                     const SizedBox(height: Gap.xs),
-                    if (entry.chapterTitle?.isNotEmpty == true)
+                    Text(
+                      _sourceName,
+                      style: context.text.labelSmall?.copyWith(
+                        color: context.colors.onSurfaceVariant,
+                      ),
+                    ),
+                    if (entry.chapterTitle?.isNotEmpty == true) ...[
+                      const SizedBox(height: Gap.xs),
                       Text(
                         entry.chapterTitle!,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: context.text.bodySmall,
+                        style: context.text.bodySmall?.copyWith(
+                          color: context.colors.onSurfaceVariant,
+                        ),
                       ),
+                    ],
                     const SizedBox(height: Gap.s),
-                    if (entry.progress > 0)
+                    if (entry.progress > 0) ...[
                       LinearProgressIndicator(
                         value: entry.progress,
                         minHeight: 3,
                       ),
+                      const SizedBox(height: Gap.xs),
+                    ],
                     Text(
                       entry.position != null
                           ? '$label · ${entry.position! ~/ 60}:${(entry.position! % 60).toString().padLeft(2, '0')}'

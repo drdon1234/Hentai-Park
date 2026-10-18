@@ -6,10 +6,12 @@ import '../../core/models.dart';
 import '../../core/settings.dart';
 import '../../engine/source_manager.dart';
 import '../kit/adaptive_sheet.dart';
+import '../nav.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
 import '../widgets/content_translation.dart';
 import '../widgets/paged_grid.dart';
+import '../widgets/source_account_strip.dart';
 import 'multi_language.dart';
 import 'search_suggestions.dart';
 
@@ -125,6 +127,20 @@ class _SourceSearchPageState extends State<SourceSearchPage> {
   void _search({bool keepMulti = false}) {
     _suggestions.clear();
     final k = _text.text.trim();
+    final refs = _sources
+        .extractRefs(k)
+        .where((ref) => _sources.manifest(ref.source)?.can('detail') == true)
+        .toList();
+    if (refs.length == 1 && !keepMulti) {
+      FocusScope.of(context).unfocus();
+      Nav.openRef(
+        context,
+        refs.single.source,
+        refs.single.id,
+        sourceManager: widget.sourceManager,
+      );
+      return;
+    }
     _searchGeneration++;
     _submitted = k;
     _submittedFilters = Map.unmodifiable({
@@ -200,6 +216,17 @@ class _SourceSearchPageState extends State<SourceSearchPage> {
       child: Builder(
         builder: (context) => Scaffold(
           appBar: AppBar(
+            bottom: widget.searchOnlyEntry && _m.account != null
+                ? PreferredSize(
+                    preferredSize: Size.fromHeight(
+                      SourceAccountStrip.height(context),
+                    ),
+                    child: SourceAccountStrip(
+                      source: widget.sourceKey,
+                      sourceManager: _sources,
+                    ),
+                  )
+                : null,
             titleSpacing: 0,
             title: ParkSearchField(
               controller: _text,
@@ -250,48 +277,70 @@ class _SourceSearchPageState extends State<SourceSearchPage> {
                   Gap.page,
                   Gap.xs,
                 ),
-                child: Row(
-                  children: [
-                    SourceAvatar(_m.key, size: 20),
-                    const SizedBox(width: Gap.s),
-                    Expanded(
-                      child: Text(
-                        _m.name,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: context.text.labelLarge?.copyWith(
-                          color: context.colors.onSurfaceVariant,
+                child: LayoutBuilder(
+                  builder: (context, constraints) => OverflowBar(
+                    alignment: MainAxisAlignment.spaceBetween,
+                    overflowSpacing: Gap.xs,
+                    children: [
+                      ConstrainedBox(
+                        constraints: BoxConstraints(
+                          maxWidth: constraints.maxWidth,
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            SourceAvatar(_m.key, size: 20),
+                            const SizedBox(width: Gap.s),
+                            Flexible(
+                              child: Text(
+                                _m.name,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: context.text.labelLarge?.copyWith(
+                                  color: context.colors.onSurfaceVariant,
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                       ),
-                    ),
-                    if (_m.searchFilters.isNotEmpty)
-                      Badge(
-                        isLabelVisible: _activeFilters > 0,
-                        label: Text('$_activeFilters'),
-                        child: TextButton(
-                          onPressed: _openFilters,
-                          child: SelectionContainer.disabled(
-                            child: Text(tr('筛选')),
-                          ),
-                        ),
+                      Wrap(
+                        spacing: Gap.s,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        children: [
+                          if (_m.searchFilters.isNotEmpty)
+                            Badge(
+                              isLabelVisible: _activeFilters > 0,
+                              label: Text('$_activeFilters'),
+                              child: TextButton(
+                                onPressed: _openFilters,
+                                child: SelectionContainer.disabled(
+                                  child: Text(tr('筛选')),
+                                ),
+                              ),
+                            ),
+                          if (_translating)
+                            const Padding(
+                              padding: EdgeInsets.all(Gap.m),
+                              child: SizedBox(
+                                width: 18,
+                                height: 18,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              ),
+                            )
+                          else
+                            TextButton(
+                              onPressed: _searchMulti,
+                              child: SelectionContainer.disabled(
+                                child: Text(tr('多语言搜索')),
+                              ),
+                            ),
+                        ],
                       ),
-                    if (_translating)
-                      const Padding(
-                        padding: EdgeInsets.all(Gap.m),
-                        child: SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        ),
-                      )
-                    else
-                      TextButton(
-                        onPressed: _searchMulti,
-                        child: SelectionContainer.disabled(
-                          child: Text(tr('多语言搜索')),
-                        ),
-                      ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
               Expanded(
@@ -511,7 +560,7 @@ class _FilterSheetState extends State<FilterSheet> {
       builder: (context, scroll) => Column(
         children: [
           Padding(
-            padding: const EdgeInsets.fromLTRB(20, 0, 12, 4),
+            padding: const EdgeInsets.fromLTRB(Gap.page, 0, Gap.page, Gap.xs),
             child: Row(
               children: [
                 Text(
@@ -535,7 +584,7 @@ class _FilterSheetState extends State<FilterSheet> {
           Expanded(
             child: ListView(
               controller: scroll,
-              padding: const EdgeInsets.symmetric(horizontal: 20),
+              padding: const EdgeInsets.symmetric(horizontal: Gap.page),
               children: [
                 for (final f in widget.manifest.searchFilters) ...[
                   Padding(
@@ -599,7 +648,12 @@ class _FilterSheetState extends State<FilterSheet> {
           SafeArea(
             top: false,
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(20, 8, 20, 12),
+              padding: const EdgeInsets.fromLTRB(
+                Gap.page,
+                Gap.s,
+                Gap.page,
+                Gap.m,
+              ),
               child: SizedBox(
                 width: double.infinity,
                 child: FilledButton(

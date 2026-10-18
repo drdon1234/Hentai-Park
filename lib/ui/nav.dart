@@ -90,13 +90,30 @@ class Nav {
           ),
   );
 
-  static Future<void> openRef(BuildContext context, String source, String id) =>
-      push(
-        context,
-        _short(source)
-            ? ShortVideoPage(source: source, initialId: id)
-            : DetailPage(source: source, id: id),
-      );
+  static Future<void> openRef(
+    BuildContext context,
+    String source,
+    String id, {
+    SourceManager? sourceManager,
+  }) async {
+    final manager = sourceManager ?? SourceManager.instance;
+    final resolved = await guarded(
+      context,
+      source,
+      () => manager.resolveLink(source, id),
+    );
+    if (resolved == null || !context.mounted) return;
+    await push(
+      context,
+      _short(source)
+          ? ShortVideoPage(source: source, initialId: resolved)
+          : DetailPage(
+              source: source,
+              id: resolved,
+              sourceManager: sourceManager,
+            ),
+    );
+  }
 
   static Future<void> openSource(BuildContext context, String source) =>
       _openSource(context, source);

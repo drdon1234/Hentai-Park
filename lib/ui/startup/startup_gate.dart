@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 
 import '../../core/app_log.dart';
 import '../../core/localization.dart';
+import '../../core/settings.dart';
 import '../kit/kit.dart';
 import '../theme.dart';
 
@@ -74,7 +75,11 @@ class _StartupGateState extends State<StartupGate> {
                           onPressed: () async {
                             try {
                               await Clipboard.setData(
-                                ClipboardData(text: AppLog.lines.join('\n')),
+                                ClipboardData(
+                                  text: AppLog.linesFor(
+                                    AppSettings.instance.logMode,
+                                  ).join('\n'),
+                                ),
                               );
                               if (mounted) setState(() => _copied = true);
                             } catch (error) {

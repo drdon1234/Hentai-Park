@@ -9,6 +9,7 @@ import '../../core/translator.dart';
 import '../../engine/source_manager.dart';
 import '../kit/adaptive_sheet.dart';
 import '../kit/selection_chip.dart';
+import '../kit/tokens.dart';
 import '../theme.dart';
 
 /// A keyword plus its translations, searched together.
@@ -79,7 +80,7 @@ Future<bool> confirmMultiLanguageSearch(
     builder: (ctx) => StatefulBuilder(
       builder: (ctx, refresh) => SafeArea(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.all(20),
+          padding: const EdgeInsets.all(Gap.page),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             mainAxisSize: MainAxisSize.min,

@@ -58,7 +58,7 @@
       "ru": {"GalgameX 账号": "Аккаунт GalgameX", "无法获取游戏资源，请在原站检查权限": "Недействительный ресурс или ответ загрузки. Проверьте доступ на сайте и повторите.", "游戏目录、版本资源与直链和网盘渠道": "Каталог игр, версии, прямые и облачные загрузки", "该游戏需要登录，请在应用内登录 GalgameX 后重试": "Для этой игры нужен вход. Войдите в GalgameX через приложение и повторите попытку", "部分游戏需要登录；打开网页后点击右上角账号按钮登录，完成后返回重试。Cookie 仅保存在本机。": "Некоторые игры требуют входа. Нажмите кнопку аккаунта справа вверху страницы, войдите и повторите попытку. Cookie хранятся только на устройстве."},
       "ar": {"GalgameX 账号": "حساب GalgameX", "无法获取游戏资源，请在原站检查权限": "مورد أو استجابة تنزيل غير صالحة. تحقق من صلاحيات الموقع وأعد المحاولة.", "游戏目录、版本资源与直链和网盘渠道": "دليل ألعاب وإصدارات وتنزيلات مباشرة وسحابية", "该游戏需要登录，请在应用内登录 GalgameX 后重试": "تتطلب هذه اللعبة تسجيل الدخول. سجّل الدخول إلى GalgameX داخل التطبيق ثم أعد المحاولة", "部分游戏需要登录；打开网页后点击右上角账号按钮登录，完成后返回重试。Cookie 仅保存在本机。": "تتطلب بعض الألعاب تسجيل الدخول. افتح الصفحة واستخدم زر الحساب أعلى اليمين ثم عد وأعد المحاولة. تُحفظ ملفات تعريف الارتباط على هذا الجهاز فقط."},
     },
-    key: 'galgamex', name: 'GalgameX', version: '0.0.5', type: 'game', category: 'game', color: '#E984AE',
+    key: 'galgamex', name: 'GalgameX', version: '0.0.6', type: 'game', category: 'game', color: '#E984AE',
     description: '游戏目录、版本资源与直链和网盘渠道', homepage: BASE, language: 'chinese',
     domains: ['galgamex.net', 'imgs.galgamex.win', 'shared.fastly.steamstatic.com', 'cdn.akamai.steamstatic.com'],
     media: { mode: 'native', origin: BASE, domains: ['game.galgamex.com'] },
@@ -95,29 +95,73 @@
         return {loggedIn: !!session?.user?.id, name: session?.user?.name || ''};
       },
     },
-    async init() { this.actionCache = null; this.gameIds = new Map(); },
+    async init() { this.actionCache = new Map(); this.gameIds = new Map(); },
     async filter() {
       await this.http.json(BASE + '/api/content-filter', { method: 'POST', json: { value: this.config.nsfw ? 'all' : 'sfw' } });
     },
     async page(path) { await this.filter(); return this.http.text(BASE + path); },
-    async gamesAction(refresh = false) {
-      if (!refresh && this.actionCache && Date.now() - this.actionCache.time < 900000) return this.actionCache.id;
-      const html = await this.page('/games');
+    async serverActions(path, names, refresh = false) {
+      const cached = this.actionCache.get(path);
+      if (!refresh && cached && Date.now() - cached.time < 900000 && names.every(name => cached.ids[name])) return cached.ids;
+      const html = await this.page(path);
       const scripts = [...new Set([...html.matchAll(/<script[^>]+src="([^\"]+)"/g)].map(m => m[1]).filter(p => p.startsWith('/_next/static/chunks/')))];
-      let found;
-      for (let start = 0; start < scripts.length && !found; start += 4) {
+      const ids = {};
+      for (let start = 0; start < scripts.length && !names.every(name => ids[name]); start += 4) {
         const texts = await Promise.all(scripts.slice(start, start + 4).map(p => this.http.text(BASE + p)));
         for (const text of texts) {
-          const match = /createServerReference\)\("([0-9a-f]{40,42})",[^;]{0,250}?"getGames"\)/.exec(text);
-          if (match) { found = match[1]; break; }
+          for (const name of names) {
+            const match = new RegExp('createServerReference\\)\\("([0-9a-f]{40,42})",[^;]{0,250}?"' + name + '"\\)').exec(text);
+            if (match) ids[name] = match[1];
+          }
         }
       }
-      if (!found) throw fail();
-      this.actionCache = { id: found, time: Date.now() }; return found;
+      if (!names.every(name => ids[name])) throw fail();
+      this.actionCache.set(path, { ids, time: Date.now() }); return ids;
+    },
+    async interactionAction(path, name, args) {
+      const actions = await this.serverActions(path, ['getGameInteractionStatus', 'toggleGameFavorite', 'getUserCollections']);
+      const response = await this.http.post(BASE + path, { body: JSON.stringify(args), headers: {
+        'Next-Action': actions[name], Accept: 'text/x-component', 'Content-Type': 'text/plain;charset=UTF-8' } });
+      if ([401, 403].includes(response.status)) throw loginRequired();
+      this.http.ensureOk(response);
+      const line = /(?:^|\n)1:/.exec(response.body);
+      const result = line ? valueAt(response.body, line.index + line[0].length) : null;
+      if (result == null) throw fail();
+      return result;
+    },
+    async interaction(id, req = {}) {
+      id = idOf(id);
+      const session = await this.http.json(BASE + '/api/auth/get-session');
+      if (!session?.user?.id) throw loginRequired();
+      if (req.value !== undefined && (req.type !== 'favorite' || typeof req.value !== 'boolean')) throw Park.error('CONFIG', '原站互动数据无效');
+      if (!this.gameIds.has(id)) await this.detail(id);
+      const gameId = this.gameIds.get(id), path = '/game/' + id;
+      const read = async () => {
+        const data = await this.interactionAction(path, 'getGameInteractionStatus', [gameId]);
+        if (typeof data.isFavorited !== 'boolean' || !Array.isArray(data.favoritedCollectionIds) ||
+            data.isFavorited !== (data.favoritedCollectionIds.length > 0)) throw fail();
+        return data;
+      };
+      let data = await read();
+      if (req.value !== undefined && data.isFavorited !== req.value) {
+        let collections = data.favoritedCollectionIds;
+        if (req.value) {
+          const available = await this.interactionAction(path, 'getUserCollections', []);
+          if (!Array.isArray(available)) throw fail();
+          if (!available.length) throw Park.error('UNSUPPORTED', '请先在原站创建收藏夹');
+          if (!['number', 'string'].includes(typeof available[0]?.id) || String(available[0].id).length > 128) throw fail();
+          collections = [available[0].id];
+        }
+        // Every toggle is user requested and sent once; never retry an uncertain write.
+        for (const collection of collections) await this.interactionAction(path, 'toggleGameFavorite', [gameId, collection]);
+        data = await read();
+        if (data.isFavorited !== req.value) throw Park.error('AUTH', '原站操作未成功，请重试');
+      }
+      return [{ type: 'favorite', value: data.isFavorited }];
     },
     async list(args, retry = false) {
       await this.filter();
-      const id = await this.gamesAction(retry);
+      const id = (await this.serverActions('/games', ['getGames'], retry)).getGames;
       const response = await this.http.post(BASE + '/games', { body: JSON.stringify([args]), headers: {
         'Next-Action': id, Accept: 'text/x-component', 'Content-Type': 'text/plain;charset=UTF-8' } });
       if (response.status >= 400 && !retry) return this.list(args, true);

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
+import '../../core/app_lock.dart';
 import '../../core/localization.dart';
+import '../../core/platform_capabilities.dart';
 import '../../core/settings.dart';
 import '../../engine/source_manager.dart';
 import '../kit/kit.dart';
@@ -22,36 +24,40 @@ class SettingsPage extends StatelessWidget {
         listenable: Listenable.merge([
           for (final domain in SettingsDomain.values)
             if (domain != SettingsDomain.search) s.domain(domain),
+          SourceManager.instance,
         ]),
-        builder: (context, _) => ListView(
-          padding: const EdgeInsets.only(bottom: Gap.xxl),
-          children: [
-            SwitchListTile(
-              secondary: const Icon(Icons.visibility_off_outlined),
-              title: SelectionContainer.disabled(child: Text(tr('无痕模式'))),
-              subtitle: SelectionContainer.disabled(
-                child: Text(tr('暂停记录历史、阅读进度与已读状态')),
+        builder: (context, _) => SettingsBody(
+          child: ListView(
+            padding: const EdgeInsets.only(bottom: Gap.xxl),
+            children: [
+              SwitchListTile(
+                secondary: const Icon(Icons.visibility_off_outlined),
+                title: SelectionContainer.disabled(child: Text(tr('无痕模式'))),
+                subtitle: SelectionContainer.disabled(
+                  child: Text(tr('暂停记录历史、阅读进度与已读状态')),
+                ),
+                value: s.incognito,
+                onChanged: (v) => s.incognito = v,
               ),
-              value: s.incognito,
-              onChanged: (v) => s.incognito = v,
-            ),
-            for (final group in _groups)
-              RowGroup(
-                title: group.$1,
-                children: [
-                  for (final section in group.$2)
-                    ListRow(
-                      leading: Icon(section.icon),
-                      title: section.title,
-                      subtitle: section.summary(),
-                      subtitleMaxLines: 1,
-                      trailing: const Icon(Icons.chevron_right_rounded),
-                      onTap: () =>
-                          Nav.push(context, SettingsSectionPage(section)),
-                    ),
-                ],
-              ),
-          ],
+              for (final group in _groups)
+                RowGroup(
+                  title: group.$1,
+                  children: [
+                    for (final section in group.$2)
+                      ListRow(
+                        leading: Icon(section.icon),
+                        title: section.title,
+                        titleMaxLines: null,
+                        subtitle: section.summary(),
+                        subtitleMaxLines: 1,
+                        trailing: const Icon(Icons.chevron_right_rounded),
+                        onTap: () =>
+                            Nav.push(context, SettingsSectionPage(section)),
+                      ),
+                  ],
+                ),
+            ],
+          ),
         ),
       ),
     );
@@ -63,6 +69,7 @@ class SettingsPage extends StatelessWidget {
       const [
         SettingsSection.appearance,
         SettingsSection.reading,
+        SettingsSection.shortVideo,
         SettingsSection.shelf,
         SettingsSection.search,
       ],
@@ -102,6 +109,10 @@ extension SettingsSectionSummary on SettingsSection {
         AppLocalizations.languageNames[s.language] ?? tr('跟随系统'),
       ].join(' · '),
       SettingsSection.reading => s.readerMode.label,
+      SettingsSection.shortVideo => tr('预加载 {preload} 条，保留已看 {retained} 条', {
+        'preload': s.shortVideoPreloadCount,
+        'retained': s.shortVideoRetainedCount,
+      }),
       SettingsSection.shelf =>
         s.libraryUpdateHours == 0
             ? tr('不自动检查更新')
@@ -110,9 +121,9 @@ extension SettingsSectionSummary on SettingsSection {
       SettingsSection.network =>
         s.proxy.isEmpty ? tr('未设置代理') : tr('代理 {proxy}', {'proxy': s.proxy}),
       SettingsSection.privacy => [
-        if (s.appLock) tr('应用锁'),
+        if (AppLock.platformSupported && s.appLock) tr('应用锁'),
         if (s.blurCovers) tr('模糊封面'),
-        if (s.secureScreen) tr('防截屏'),
+        if (PlatformCapabilities.secureScreen && s.secureScreen) tr('防截屏'),
       ].join(' · '),
       SettingsSection.subscriptions =>
         s.subscriptionUpdateHours > 0 ? tr('自动检查') : tr('已关闭'),

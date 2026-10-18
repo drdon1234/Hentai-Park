@@ -44,7 +44,12 @@ import 'video/desktop_video_player.dart';
 @pragma('vm:entry-point')
 Future<void> subscriptionBackgroundMain() => subscriptionBackground();
 
-Future<void> main() async {
+void main() {
+  CrashLog.install();
+  runZonedGuarded(_start, (error, stack) => CrashLog.record(error, stack));
+}
+
+Future<void> _start() async {
   WidgetsFlutterBinding.ensureInitialized();
   DesktopVideoPlayer.register();
   LicenseRegistry.addLicense(() async* {
@@ -79,7 +84,7 @@ Future<void> main() async {
     },
     AppPaths.init,
     () async {
-      CrashLog.install();
+      CrashLog.initialize();
     },
     () async {
       final candidate = AppDatabase.file(

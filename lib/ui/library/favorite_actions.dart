@@ -10,6 +10,7 @@ import '../../core/titles.dart';
 import '../../engine/source_manager.dart';
 import '../../library/library.dart';
 import '../kit/adaptive_sheet.dart';
+import '../kit/tokens.dart';
 import '../nav.dart';
 import '../theme.dart';
 
@@ -149,7 +150,12 @@ class _CategoryPickerState extends State<_CategoryPicker> {
                 ),
                 if (cats.isEmpty)
                   Padding(
-                    padding: const EdgeInsets.fromLTRB(24, 0, 24, 16),
+                    padding: const EdgeInsets.fromLTRB(
+                      Gap.page,
+                      0,
+                      Gap.page,
+                      Gap.l,
+                    ),
                     child: Text(tr('还没有分类。不选择任何分类时作品会放在"默认"里。')),
                   ),
                 Flexible(

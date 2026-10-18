@@ -26,6 +26,13 @@ class HomeMetadata {
     for (final field in ['related', 'series', 'variants'])
       if (data[field] is List)
         field: (serialize({'items': data[field]})['items'] as List),
+    if (data['relatedSections'] is List)
+      'relatedSections':
+          (serialize({
+                'items': [],
+                'sections': data['relatedSections'],
+              })['sections']
+              as List),
   };
   static const fields = {
     'id',

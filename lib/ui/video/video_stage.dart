@@ -133,14 +133,7 @@ class VideoStage extends StatelessWidget {
       );
     }
     if (c == null || !c.value.isInitialized) {
-      return Center(
-        child: LoadingIndicator(
-          label: tr(
-            session.sources.isEmpty && !session.offline ? '正在获取视频地址…' : '正在缓冲…',
-          ),
-          color: Colors.white70,
-        ),
-      );
+      return const Center(child: LoadingIndicator(color: Colors.white70));
     }
     return VideoGestureSurface(
       pageVertically: session.scrollEpisodes,

@@ -213,10 +213,7 @@ class DetailBodySkeleton extends StatelessWidget {
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        LoadingIndicator(
-          label: context.tr('正在加载详情…'),
-          padding: const EdgeInsets.only(bottom: Gap.l),
-        ),
+        const LoadingIndicator(padding: EdgeInsets.only(bottom: Gap.l)),
         SourceNetworkHint(source: source),
         const Skeleton(height: 14, radius: 4),
         const SizedBox(height: Gap.s),

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../core/localization.dart';
 import '../../core/models.dart';
 import '../nav.dart';
 import '../theme.dart';
@@ -22,17 +23,28 @@ class WorkTextRow extends StatelessWidget {
       onLongPress: () => showWorkActions(context, item),
       child: SelectionContainer.disabled(
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          padding: const EdgeInsets.symmetric(
+            horizontal: Gap.page,
+            vertical: Gap.m,
+          ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               ContentTranslation(
                 text: item.title,
                 source: item.source,
-                builder: (text) => Text(text, style: context.text.titleMedium),
+                builder: (text) =>
+                    Text(text, style: ParkText.serif(context.text.titleMedium)),
               ),
+              if (item.authors.isNotEmpty) ...[
+                const SizedBox(height: Gap.xs),
+                Text(
+                  '${tr('作者')}：${item.authors.join('、')}',
+                  style: context.text.bodySmall,
+                ),
+              ],
               if (item.subtitle.isNotEmpty && item.subtitle != item.title) ...[
-                const SizedBox(height: 6),
+                const SizedBox(height: Gap.s),
                 ContentTranslation(
                   text: item.subtitle,
                   source: item.source,
@@ -41,12 +53,13 @@ class WorkTextRow extends StatelessWidget {
               ],
               if (showSource ||
                   item.editions.isNotEmpty ||
+                  item.category.isNotEmpty ||
                   item.uploaded.isNotEmpty ||
                   item.tags.isNotEmpty) ...[
-                const SizedBox(height: 8),
+                const SizedBox(height: Gap.s),
                 Wrap(
-                  spacing: 8,
-                  runSpacing: 4,
+                  spacing: Gap.s,
+                  runSpacing: Gap.xs,
                   children: [
                     if (showSource) SourceAvatar(item.source, size: 20),
                     if (item.editions.isNotEmpty)
@@ -56,7 +69,12 @@ class WorkTextRow extends StatelessWidget {
                       ),
                     if (item.uploaded.isNotEmpty)
                       Text(item.uploaded, style: context.text.bodySmall),
-                    for (final tag in item.tags.take(4))
+                    if (item.category.isNotEmpty)
+                      Text(item.category, style: context.text.bodySmall),
+                    for (final tag
+                        in item.tags
+                            .where((tag) => tag != item.category)
+                            .take(4))
                       Text(tag, style: context.text.bodySmall),
                   ],
                 ),

@@ -22,7 +22,7 @@
 > For adults only, where permitted by local law. All content comes from third-party sites; HentaiPark neither stores nor provides any content.
 
 
-Choose Data saver mode in My → Network and storage: Data saver shows compact site entries on home and category pages and loads works when you open a site. Maximum data saving also disables automatic loading on site pages and retrieves works only after a search. Sites without search show an explanation.
+Choose Data saver mode in More → Network: Data saver shows compact site entries on home and category pages and loads works when you open a site. Maximum data saving also disables automatic loading on site pages and retrieves works only after a search. Sites without search show an explanation.
 
 ## Download
 
@@ -87,9 +87,13 @@ Screenshots use offline demo data; the sites, works and covers shown are origina
 
 In the novel reader, More → Translate full text translates the complete text and continues with chapters as you open them. You can switch back to the original.
 
-Browse and detail pages open cached works immediately, retaining chapter and media addresses while fetching the latest works. If refreshing fails, accessible cached content remains available. Returning home restores your scroll position. Long-press a work card to block the work or its author; remove blocks in content filter settings. Ranking filters are remembered, with fresh results on every visit. Short videos default to Pornhub Shorties.
+Browse and detail pages open cached works immediately, retaining chapter and media addresses. If refreshing fails, accessible cached content remains available. Returning home restores your scroll position. Long-press a work card to block the work or its author; remove blocks in content filter settings. Ranking filters are remembered, with fresh results on every visit. Short videos default to Pornhub Shorties. Only recommended-site shelves on home and category pages show “Getting the latest works” while refreshing cached content. Other loading states use progress indicators without captions.
 
-On supported sites, use “Site preferences” in the detail page’s More menu or a card’s long-press menu with your in-app account: MissAV supports site favorites and EH supports ratings, separately from local favorites. Pixiv opens rankings when signed out and recommendations when signed in; recommendations require sign-in. Pixiv and EH offer site keyword suggestions while searching.
+Short videos preload upcoming videos and keep recently watched videos with their buffers, with 2 of each by default. Adjust each count in My → Short videos or More → Short video settings on the player; set to 0 to disable. The cache lasts while the player page is open. Higher counts use more memory and data.
+
+Local favorites stay in your library. Site interactions use your signed-in account for likes, favorites/bookmarks and ratings supported by each site. X bookmarks are site favorites. Pixiv, X and PicACG support likes and favorites; MissAV supports favorites; EH supports favorites and ratings. Sites with accounts show Sign in or Manage account below the toolbar. Pixiv opens recommendations with or without sign-in and supports continuous loading, more works by the creator and related recommendations. Pixiv and EH offer search suggestions. Paste a work or share link into search to open the matching work in the app.
+
+GalgameX supports site favorites: new favorites go to your first collection. Create a collection on the site first if none exists. Removing a favorite removes the work from all collections.
 
 JAV titles show subtitle and edition labels provided by the source. Switch between available editions or search by code within or across sites; favorites, progress and downloads are saved separately for each edition.
 
@@ -100,7 +104,7 @@ Light and dark themes, eight interface languages. What each site supports is sho
 | Category | Sites |
 | --- | --- |
 | Doujinshi / comics | E-Hentai / ExHentai, Pixiv, nhentai, JMComic, WNACG, PicACG |
-| Gallery | CosplayTele, NudeCosplay, XiuRen, PixiBB, PornPics |
+| Gallery | CosplayTele, NudeCosplay, XiuRen, PixiBB, PornPics, Danbooru |
 | Adult animation | Hanime1, Hanime.tv, Rule34Video |
 | JAV | MissAV, JableTV, SupJav, 123AV |
 | Adult videos | Pornhub, XVideos, 91porn, iXXX, Thumbzilla, TubeSafari, SpankBang |
@@ -110,6 +114,8 @@ Light and dark themes, eight interface languages. What each site supports is sho
 | Games | KUN Galgame, GalgameX, Dimension Tea House |
 | Subscriptions | X / Twitter, Telegram, myfans.jp, pixivFANBOX |
 
+Novel lists use a consistent layout for titles, authors, summaries, dates and category tags; information unavailable from the source is omitted.
+
 Enable, reorder, update or add sites in More → Sites.
 
 
@@ -118,10 +124,14 @@ Enable, reorder, update or add sites in More → Sites.
 | Purpose | Service |
 | --- | --- |
 | General image sources (exact matches) | Google Lens |
+| General image sources and similar images | Yandex, Bing, Baidu Images |
 | Anime titles, episodes and timestamps | trace.moe |
 | Anime and Galgame characters and titles | AnimeTrace |
 | Illustration sources | IQDB |
+| Adult gallery sources | E-Hentai Image Search |
 | JAV catalog numbers from screenshots | AVScan |
+
+Bing reverse image search is region-dependent. Baidu may return only similar images and source links. E-Hentai Image Search covers public E-Hentai galleries only and may not match resized or cropped images.
 
 Services are grouped vertically into General, Anime, JAV and Images, with selection across categories.
 

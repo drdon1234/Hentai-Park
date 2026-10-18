@@ -65,19 +65,19 @@
   }
   Park.register({
     i18n: {
-      "zh-Hant": {"Pixiv Cookie 格式无效": "Pixiv Cookie 格式無效", "Pixiv 作品编号无效": "Pixiv 作品編號無效", "Pixiv 动图暂不支持，请在站点查看": "Pixiv 動圖暫不支援，請在站點查看", "Pixiv 筛选参数无效": "Pixiv 篩選參數無效", "Pixiv 请求失败，请检查网络后重试": "Pixiv 請求失敗，請檢查網路後重試", "Pixiv 账号": "Pixiv 帳號", "Pixiv 返回的数据无效，请稍后重试": "Pixiv 傳回的資料無效，請稍後重試", "作品类型": "作品類型", "内容分级": "內容分級", "匹配方式": "比對方式", "推荐与 R-18 内容需要登录；请在 Pixiv 账号设置中开启相应内容显示。Cookie 仅保存在本机。": "推薦與 R-18 內容需要登入；請在 Pixiv 帳號設定中開啟相應內容顯示。Cookie 僅儲存在本機。", "插画": "插畫", "插画与漫画社区，支持个性化推荐、排行、搜索和多页原图阅读": "插畫與漫畫社群，支援個人化推薦、排行、搜尋和多頁原圖閱讀", "标签完全匹配": "標籤完全比對", "标签部分匹配": "標籤部分比對", "标题与简介": "標題與簡介", "每日": "每日", "站点默认": "站點預設", "粘贴 Pixiv 的 PHPSESSID 值": "貼上 Pixiv 的 PHPSESSID 值", "请登录 Pixiv；Cookie 可能已过期，R-18 内容还需在站点开启显示权限": "請登入 Pixiv；Cookie 可能已過期，R-18 內容還需在站點開啟顯示權限", "输入关键词或标签，可筛选漫画、插画与 R-18 内容": "輸入關鍵字或標籤，可篩選漫畫、插畫與 R-18 內容", "默认作品类型": "預設作品類型"},
-      "ja": {"Pixiv Cookie 格式无效": "Pixiv Cookie の形式が無効です", "Pixiv 作品编号无效": "Pixiv の作品 ID が無効です", "Pixiv 动图暂不支持，请在站点查看": "Pixiv のうごイラは未対応です。サイトでご覧ください", "Pixiv 筛选参数无效": "Pixiv の絞り込み条件が無効です", "Pixiv 请求失败，请检查网络后重试": "Pixiv へのリクエストに失敗しました。ネットワークを確認して再試行してください", "Pixiv 账号": "Pixiv アカウント", "Pixiv 返回的数据无效，请稍后重试": "Pixiv の応答データが無効です。後でもう一度お試しください", "作品类型": "作品種別", "内容分级": "対象年齢", "匹配方式": "一致方式", "推荐与 R-18 内容需要登录；请在 Pixiv 账号设置中开启相应内容显示。Cookie 仅保存在本机。": "おすすめと R-18 コンテンツにはログインが必要です。Pixiv の設定で該当する表示を有効にしてください。Cookie は端末にのみ保存されます。", "插画": "イラスト", "插画与漫画社区，支持个性化推荐、排行、搜索和多页原图阅读": "イラスト・漫画コミュニティ。おすすめ、ランキング、検索、複数ページの原寸画像に対応", "标签完全匹配": "タグの完全一致", "标签部分匹配": "タグの部分一致", "标题与简介": "タイトルと説明", "每日": "毎日", "站点默认": "サイトの既定値", "粘贴 Pixiv 的 PHPSESSID 值": "Pixiv の PHPSESSID の値を貼り付け", "请登录 Pixiv；Cookie 可能已过期，R-18 内容还需在站点开启显示权限": "Pixiv にログインしてください。Cookie の期限が切れた可能性があります。R-18 はサイト側でも表示を有効にしてください", "输入关键词或标签，可筛选漫画、插画与 R-18 内容": "キーワードやタグを入力。漫画、イラスト、R-18 で絞り込めます", "默认作品类型": "既定の作品種別"},
-      "ko": {"Pixiv Cookie 格式无效": "Pixiv Cookie 형식이 올바르지 않습니다", "Pixiv 作品编号无效": "Pixiv 작품 번호가 올바르지 않습니다", "Pixiv 动图暂不支持，请在站点查看": "Pixiv 움직이는 일러스트는 아직 지원하지 않습니다. 사이트에서 확인하세요", "Pixiv 筛选参数无效": "Pixiv 필터 값이 올바르지 않습니다", "Pixiv 请求失败，请检查网络后重试": "Pixiv 요청에 실패했습니다. 네트워크를 확인한 후 다시 시도하세요", "Pixiv 账号": "Pixiv 계정", "Pixiv 返回的数据无效，请稍后重试": "Pixiv 응답 데이터가 올바르지 않습니다. 나중에 다시 시도하세요", "作品类型": "작품 유형", "内容分级": "콘텐츠 등급", "匹配方式": "검색 방식", "推荐与 R-18 内容需要登录；请在 Pixiv 账号设置中开启相应内容显示。Cookie 仅保存在本机。": "추천 및 R-18 콘텐츠에는 로그인이 필요합니다. Pixiv 계정 설정에서 해당 콘텐츠 표시를 켜세요. Cookie는 이 기기에만 저장됩니다.", "插画": "일러스트", "插画与漫画社区，支持个性化推荐、排行、搜索和多页原图阅读": "일러스트·만화 커뮤니티. 맞춤 추천, 랭킹, 검색 및 여러 페이지 원본 감상 지원", "标签完全匹配": "태그 완전 일치", "标签部分匹配": "태그 부분 일치", "标题与简介": "제목과 소개", "每日": "매일", "站点默认": "사이트 기본값", "粘贴 Pixiv 的 PHPSESSID 值": "Pixiv의 PHPSESSID 값을 붙여넣으세요", "请登录 Pixiv；Cookie 可能已过期，R-18 内容还需在站点开启显示权限": "Pixiv에 로그인하세요. Cookie가 만료되었을 수 있으며 R-18 콘텐츠는 사이트에서 표시 권한도 켜야 합니다", "输入关键词或标签，可筛选漫画、插画与 R-18 内容": "키워드나 태그를 입력하고 만화, 일러스트, R-18 콘텐츠를 선택하세요", "默认作品类型": "기본 작품 유형"},
-      "en": {"Pixiv Cookie 格式无效": "Invalid Pixiv cookie format", "Pixiv 作品编号无效": "Invalid Pixiv artwork ID", "Pixiv 动图暂不支持，请在站点查看": "Pixiv animations are not supported yet. View them on the site", "Pixiv 筛选参数无效": "Invalid Pixiv filter parameters", "Pixiv 请求失败，请检查网络后重试": "Pixiv request failed. Check your network and try again", "Pixiv 账号": "Pixiv account", "Pixiv 返回的数据无效，请稍后重试": "Invalid data returned by Pixiv. Try again later", "作品类型": "Work type", "内容分级": "Content rating", "匹配方式": "Match mode", "推荐与 R-18 内容需要登录；请在 Pixiv 账号设置中开启相应内容显示。Cookie 仅保存在本机。": "Sign in for recommendations and R-18 content. Enable the relevant content display in your Pixiv account settings. Cookies are stored only on this device.", "插画": "Illustration", "插画与漫画社区，支持个性化推荐、排行、搜索和多页原图阅读": "Illustration and manga community with personalized recommendations, rankings, search and multi-page originals", "标签完全匹配": "Exact tag match", "标签部分匹配": "Partial tag match", "标题与简介": "Title and description", "每日": "Daily", "站点默认": "Site default", "粘贴 Pixiv 的 PHPSESSID 值": "Paste the Pixiv PHPSESSID value", "请登录 Pixiv；Cookie 可能已过期，R-18 内容还需在站点开启显示权限": "Sign in to Pixiv. The cookie may have expired; enable R-18 display on the site as well", "输入关键词或标签，可筛选漫画、插画与 R-18 内容": "Enter keywords or tags; filter by manga, illustrations and R-18 content", "默认作品类型": "Default work type"},
-      "es": {"Pixiv Cookie 格式无效": "Formato de cookie de Pixiv no válido", "Pixiv 作品编号无效": "ID de obra de Pixiv no válido", "Pixiv 动图暂不支持，请在站点查看": "Las animaciones de Pixiv aún no son compatibles. Ábrelas en el sitio", "Pixiv 筛选参数无效": "Parámetros de filtro de Pixiv no válidos", "Pixiv 请求失败，请检查网络后重试": "La solicitud a Pixiv falló. Comprueba la red e inténtalo de nuevo", "Pixiv 账号": "Cuenta de Pixiv", "Pixiv 返回的数据无效，请稍后重试": "Pixiv devolvió datos no válidos. Inténtalo más tarde", "作品类型": "Tipo de obra", "内容分级": "Clasificación de contenido", "匹配方式": "Modo de coincidencia", "推荐与 R-18 内容需要登录；请在 Pixiv 账号设置中开启相应内容显示。Cookie 仅保存在本机。": "Inicia sesión para ver recomendaciones y contenido R-18. Activa su visualización en los ajustes de Pixiv. Las cookies solo se guardan en este dispositivo.", "插画": "Ilustración", "插画与漫画社区，支持个性化推荐、排行、搜索和多页原图阅读": "Comunidad de ilustraciones y manga con recomendaciones, rankings, búsqueda y originales de varias páginas", "标签完全匹配": "Coincidencia exacta de etiqueta", "标签部分匹配": "Coincidencia parcial de etiqueta", "标题与简介": "Título y descripción", "每日": "Diario", "站点默认": "Predeterminado del sitio", "粘贴 Pixiv 的 PHPSESSID 值": "Pega el valor PHPSESSID de Pixiv", "请登录 Pixiv；Cookie 可能已过期，R-18 内容还需在站点开启显示权限": "Inicia sesión en Pixiv. La cookie puede haber caducado; activa también la visualización de R-18 en el sitio", "输入关键词或标签，可筛选漫画、插画与 R-18 内容": "Introduce palabras o etiquetas; filtra manga, ilustraciones y contenido R-18", "默认作品类型": "Tipo de obra predeterminado"},
-      "ru": {"Pixiv Cookie 格式无效": "Некорректный формат Cookie Pixiv", "Pixiv 作品编号无效": "Некорректный ID произведения Pixiv", "Pixiv 动图暂不支持，请在站点查看": "Анимации Pixiv пока не поддерживаются. Смотрите их на сайте", "Pixiv 筛选参数无效": "Некорректные параметры фильтра Pixiv", "Pixiv 请求失败，请检查网络后重试": "Запрос Pixiv не удался. Проверьте сеть и повторите", "Pixiv 账号": "Аккаунт Pixiv", "Pixiv 返回的数据无效，请稍后重试": "Pixiv вернул некорректные данные. Повторите позже", "作品类型": "Тип произведения", "内容分级": "Возрастной рейтинг", "匹配方式": "Режим совпадения", "推荐与 R-18 内容需要登录；请在 Pixiv 账号设置中开启相应内容显示。Cookie 仅保存在本机。": "Для рекомендаций и контента R-18 нужен вход. Включите показ соответствующего контента в настройках Pixiv. Cookie хранятся только на этом устройстве.", "插画": "Иллюстрация", "插画与漫画社区，支持个性化推荐、排行、搜索和多页原图阅读": "Сообщество иллюстраций и манги: рекомендации, рейтинги, поиск и многостраничные оригиналы", "标签完全匹配": "Точное совпадение тега", "标签部分匹配": "Частичное совпадение тега", "标题与简介": "Название и описание", "每日": "Ежедневно", "站点默认": "По умолчанию на сайте", "粘贴 Pixiv 的 PHPSESSID 值": "Вставьте значение PHPSESSID Pixiv", "请登录 Pixiv；Cookie 可能已过期，R-18 内容还需在站点开启显示权限": "Войдите в Pixiv. Возможно, Cookie истёк; для R-18 также разрешите показ на сайте", "输入关键词或标签，可筛选漫画、插画与 R-18 内容": "Введите слова или теги; фильтруйте мангу, иллюстрации и контент R-18", "默认作品类型": "Тип произведений по умолчанию"},
-      "ar": {"Pixiv Cookie 格式无效": "تنسيق Cookie الخاص بـ Pixiv غير صالح", "Pixiv 作品编号无效": "معرّف عمل Pixiv غير صالح", "Pixiv 动图暂不支持，请在站点查看": "رسوم Pixiv المتحركة غير مدعومة حالياً. شاهدها في الموقع", "Pixiv 筛选参数无效": "معلمات تصفية Pixiv غير صالحة", "Pixiv 请求失败，请检查网络后重试": "فشل طلب Pixiv. تحقّق من الشبكة وحاول مجدداً", "Pixiv 账号": "حساب Pixiv", "Pixiv 返回的数据无效，请稍后重试": "أعاد Pixiv بيانات غير صالحة. حاول لاحقاً", "作品类型": "نوع العمل", "内容分级": "تصنيف المحتوى", "匹配方式": "طريقة المطابقة", "推荐与 R-18 内容需要登录；请在 Pixiv 账号设置中开启相应内容显示。Cookie 仅保存在本机。": "يلزم تسجيل الدخول للتوصيات ومحتوى R-18. فعّل عرض المحتوى المناسب في إعدادات حساب Pixiv. تُحفظ ملفات Cookie على هذا الجهاز فقط.", "插画": "رسوم", "插画与漫画社区，支持个性化推荐、排行、搜索和多页原图阅读": "مجتمع للرسوم والمانغا مع توصيات شخصية وترتيب وبحث وقراءة الصور الأصلية متعددة الصفحات", "标签完全匹配": "مطابقة تامة للوسم", "标签部分匹配": "مطابقة جزئية للوسم", "标题与简介": "العنوان والوصف", "每日": "يومي", "站点默认": "الإعداد الافتراضي للموقع", "粘贴 Pixiv 的 PHPSESSID 值": "الصق قيمة PHPSESSID من Pixiv", "请登录 Pixiv；Cookie 可能已过期，R-18 内容还需在站点开启显示权限": "سجّل الدخول إلى Pixiv. قد تكون صلاحية Cookie انتهت؛ يجب أيضاً تفعيل عرض R-18 في الموقع", "输入关键词或标签，可筛选漫画、插画与 R-18 内容": "أدخل كلمات أو وسوماً؛ صفِّ النتائج حسب المانغا والرسوم ومحتوى R-18", "默认作品类型": "نوع العمل الافتراضي"},
+      "zh-Hant": {"Pixiv Cookie 格式无效":"Pixiv Cookie 格式無效","Pixiv 作品编号无效":"Pixiv 作品編號無效","Pixiv 动图暂不支持，请在站点查看":"Pixiv 動圖暫不支援，請在站點查看","Pixiv 筛选参数无效":"Pixiv 篩選參數無效","Pixiv 请求失败，请检查网络后重试":"Pixiv 請求失敗，請檢查網路後重試","Pixiv 账号":"Pixiv 帳號","Pixiv 返回的数据无效，请稍后重试":"Pixiv 傳回的資料無效，請稍後重試","作品类型":"作品類型","内容分级":"內容分級","匹配方式":"比對方式","插画":"插畫","插画与漫画社区，支持个性化推荐、排行、搜索和多页原图阅读":"插畫與漫畫社群，支援個人化推薦、排行、搜尋和多頁原圖閱讀","标签完全匹配":"標籤完全比對","标签部分匹配":"標籤部分比對","标题与简介":"標題與簡介","每日":"每日","站点默认":"站點預設","粘贴 Pixiv 的 PHPSESSID 值":"貼上 Pixiv 的 PHPSESSID 值","请登录 Pixiv；Cookie 可能已过期，R-18 内容还需在站点开启显示权限":"請登入 Pixiv；Cookie 可能已過期，R-18 內容還需在站點開啟顯示權限","输入关键词或标签，可筛选漫画、插画与 R-18 内容":"輸入關鍵字或標籤，可篩選漫畫、插畫與 R-18 內容","默认作品类型":"預設作品類型","登录可获得个性化推荐、点赞与收藏；R-18 内容需开启显示权限。Cookie 仅保存在本机。":"登入可獲得個人化推薦、按讚與收藏；R-18 內容需開啟顯示權限。Cookie 僅儲存在本機。","作者其他作品":"作者其他作品","原站不支持取消点赞":"原站不支援取消按讚"},
+      "ja": {"Pixiv Cookie 格式无效":"Pixiv Cookie の形式が無効です","Pixiv 作品编号无效":"Pixiv の作品 ID が無効です","Pixiv 动图暂不支持，请在站点查看":"Pixiv のうごイラは未対応です。サイトでご覧ください","Pixiv 筛选参数无效":"Pixiv の絞り込み条件が無効です","Pixiv 请求失败，请检查网络后重试":"Pixiv へのリクエストに失敗しました。ネットワークを確認して再試行してください","Pixiv 账号":"Pixiv アカウント","Pixiv 返回的数据无效，请稍后重试":"Pixiv の応答データが無効です。後でもう一度お試しください","作品类型":"作品種別","内容分级":"対象年齢","匹配方式":"一致方式","插画":"イラスト","插画与漫画社区，支持个性化推荐、排行、搜索和多页原图阅读":"イラスト・漫画コミュニティ。おすすめ、ランキング、検索、複数ページの原寸画像に対応","标签完全匹配":"タグの完全一致","标签部分匹配":"タグの部分一致","标题与简介":"タイトルと説明","每日":"毎日","站点默认":"サイトの既定値","粘贴 Pixiv 的 PHPSESSID 值":"Pixiv の PHPSESSID の値を貼り付け","请登录 Pixiv；Cookie 可能已过期，R-18 内容还需在站点开启显示权限":"Pixiv にログインしてください。Cookie の期限が切れた可能性があります。R-18 はサイト側でも表示を有効にしてください","输入关键词或标签，可筛选漫画、插画与 R-18 内容":"キーワードやタグを入力。漫画、イラスト、R-18 で絞り込めます","默认作品类型":"既定の作品種別","登录可获得个性化推荐、点赞与收藏；R-18 内容需开启显示权限。Cookie 仅保存在本机。":"ログインすると個別のおすすめ、いいね、ブックマークを利用できます。R-18 は表示設定が必要です。Cookie は端末のみに保存されます。","作者其他作品":"作者の他の作品","原站不支持取消点赞":"このサイトではいいねを取り消せません"},
+      "ko": {"Pixiv Cookie 格式无效":"Pixiv Cookie 형식이 올바르지 않습니다","Pixiv 作品编号无效":"Pixiv 작품 번호가 올바르지 않습니다","Pixiv 动图暂不支持，请在站点查看":"Pixiv 움직이는 일러스트는 아직 지원하지 않습니다. 사이트에서 확인하세요","Pixiv 筛选参数无效":"Pixiv 필터 값이 올바르지 않습니다","Pixiv 请求失败，请检查网络后重试":"Pixiv 요청에 실패했습니다. 네트워크를 확인한 후 다시 시도하세요","Pixiv 账号":"Pixiv 계정","Pixiv 返回的数据无效，请稍后重试":"Pixiv 응답 데이터가 올바르지 않습니다. 나중에 다시 시도하세요","作品类型":"작품 유형","内容分级":"콘텐츠 등급","匹配方式":"검색 방식","插画":"일러스트","插画与漫画社区，支持个性化推荐、排行、搜索和多页原图阅读":"일러스트·만화 커뮤니티. 맞춤 추천, 랭킹, 검색 및 여러 페이지 원본 감상 지원","标签完全匹配":"태그 완전 일치","标签部分匹配":"태그 부분 일치","标题与简介":"제목과 소개","每日":"매일","站点默认":"사이트 기본값","粘贴 Pixiv 的 PHPSESSID 值":"Pixiv의 PHPSESSID 값을 붙여넣으세요","请登录 Pixiv；Cookie 可能已过期，R-18 内容还需在站点开启显示权限":"Pixiv에 로그인하세요. Cookie가 만료되었을 수 있으며 R-18 콘텐츠는 사이트에서 표시 권한도 켜야 합니다","输入关键词或标签，可筛选漫画、插画与 R-18 内容":"키워드나 태그를 입력하고 만화, 일러스트, R-18 콘텐츠를 선택하세요","默认作品类型":"기본 작품 유형","登录可获得个性化推荐、点赞与收藏；R-18 内容需开启显示权限。Cookie 仅保存在本机。":"로그인하면 맞춤 추천, 좋아요, 북마크를 이용할 수 있습니다. R-18 표시를 설정에서 켜세요. Cookie는 이 기기에만 저장됩니다.","作者其他作品":"작가의 다른 작품","原站不支持取消点赞":"사이트에서 좋아요 취소를 지원하지 않음"},
+      "en": {"Pixiv Cookie 格式无效":"Invalid Pixiv cookie format","Pixiv 作品编号无效":"Invalid Pixiv artwork ID","Pixiv 动图暂不支持，请在站点查看":"Pixiv animations are not supported yet. View them on the site","Pixiv 筛选参数无效":"Invalid Pixiv filter parameters","Pixiv 请求失败，请检查网络后重试":"Pixiv request failed. Check your network and try again","Pixiv 账号":"Pixiv account","Pixiv 返回的数据无效，请稍后重试":"Invalid data returned by Pixiv. Try again later","作品类型":"Work type","内容分级":"Content rating","匹配方式":"Match mode","插画":"Illustration","插画与漫画社区，支持个性化推荐、排行、搜索和多页原图阅读":"Illustration and manga community with personalized recommendations, rankings, search and multi-page originals","标签完全匹配":"Exact tag match","标签部分匹配":"Partial tag match","标题与简介":"Title and description","每日":"Daily","站点默认":"Site default","粘贴 Pixiv 的 PHPSESSID 值":"Paste the Pixiv PHPSESSID value","请登录 Pixiv；Cookie 可能已过期，R-18 内容还需在站点开启显示权限":"Sign in to Pixiv. The cookie may have expired; enable R-18 display on the site as well","输入关键词或标签，可筛选漫画、插画与 R-18 内容":"Enter keywords or tags; filter by manga, illustrations and R-18 content","默认作品类型":"Default work type","登录可获得个性化推荐、点赞与收藏；R-18 内容需开启显示权限。Cookie 仅保存在本机。":"Sign in for personalized recommendations, likes and bookmarks. Enable R-18 display in your account settings. Cookies stay on this device.","作者其他作品":"More by this creator","原站不支持取消点赞":"The site does not support undoing likes"},
+      "es": {"Pixiv Cookie 格式无效":"Formato de cookie de Pixiv no válido","Pixiv 作品编号无效":"ID de obra de Pixiv no válido","Pixiv 动图暂不支持，请在站点查看":"Las animaciones de Pixiv aún no son compatibles. Ábrelas en el sitio","Pixiv 筛选参数无效":"Parámetros de filtro de Pixiv no válidos","Pixiv 请求失败，请检查网络后重试":"La solicitud a Pixiv falló. Comprueba la red e inténtalo de nuevo","Pixiv 账号":"Cuenta de Pixiv","Pixiv 返回的数据无效，请稍后重试":"Pixiv devolvió datos no válidos. Inténtalo más tarde","作品类型":"Tipo de obra","内容分级":"Clasificación de contenido","匹配方式":"Modo de coincidencia","插画":"Ilustración","插画与漫画社区，支持个性化推荐、排行、搜索和多页原图阅读":"Comunidad de ilustraciones y manga con recomendaciones, rankings, búsqueda y originales de varias páginas","标签完全匹配":"Coincidencia exacta de etiqueta","标签部分匹配":"Coincidencia parcial de etiqueta","标题与简介":"Título y descripción","每日":"Diario","站点默认":"Predeterminado del sitio","粘贴 Pixiv 的 PHPSESSID 值":"Pega el valor PHPSESSID de Pixiv","请登录 Pixiv；Cookie 可能已过期，R-18 内容还需在站点开启显示权限":"Inicia sesión en Pixiv. La cookie puede haber caducado; activa también la visualización de R-18 en el sitio","输入关键词或标签，可筛选漫画、插画与 R-18 内容":"Introduce palabras o etiquetas; filtra manga, ilustraciones y contenido R-18","默认作品类型":"Tipo de obra predeterminado","登录可获得个性化推荐、点赞与收藏；R-18 内容需开启显示权限。Cookie 仅保存在本机。":"Inicia sesión para recomendaciones personalizadas, Me gusta y favoritos. Activa R-18 en los ajustes. Las cookies se guardan solo en este dispositivo.","作者其他作品":"Más del autor","原站不支持取消点赞":"El sitio no permite deshacer Me gusta"},
+      "ru": {"Pixiv Cookie 格式无效":"Некорректный формат Cookie Pixiv","Pixiv 作品编号无效":"Некорректный ID произведения Pixiv","Pixiv 动图暂不支持，请在站点查看":"Анимации Pixiv пока не поддерживаются. Смотрите их на сайте","Pixiv 筛选参数无效":"Некорректные параметры фильтра Pixiv","Pixiv 请求失败，请检查网络后重试":"Запрос Pixiv не удался. Проверьте сеть и повторите","Pixiv 账号":"Аккаунт Pixiv","Pixiv 返回的数据无效，请稍后重试":"Pixiv вернул некорректные данные. Повторите позже","作品类型":"Тип произведения","内容分级":"Возрастной рейтинг","匹配方式":"Режим совпадения","插画":"Иллюстрация","插画与漫画社区，支持个性化推荐、排行、搜索和多页原图阅读":"Сообщество иллюстраций и манги: рекомендации, рейтинги, поиск и многостраничные оригиналы","标签完全匹配":"Точное совпадение тега","标签部分匹配":"Частичное совпадение тега","标题与简介":"Название и описание","每日":"Ежедневно","站点默认":"По умолчанию на сайте","粘贴 Pixiv 的 PHPSESSID 值":"Вставьте значение PHPSESSID Pixiv","请登录 Pixiv；Cookie 可能已过期，R-18 内容还需在站点开启显示权限":"Войдите в Pixiv. Возможно, Cookie истёк; для R-18 также разрешите показ на сайте","输入关键词或标签，可筛选漫画、插画与 R-18 内容":"Введите слова или теги; фильтруйте мангу, иллюстрации и контент R-18","默认作品类型":"Тип произведений по умолчанию","登录可获得个性化推荐、点赞与收藏；R-18 内容需开启显示权限。Cookie 仅保存在本机。":"Войдите для персональных рекомендаций, отметок «Нравится» и закладок. Включите показ R-18 в настройках. Cookie хранятся только на устройстве.","作者其他作品":"Другие работы автора","原站不支持取消点赞":"Сайт не поддерживает отмену отметки «Нравится»"},
+      "ar": {"Pixiv Cookie 格式无效":"تنسيق Cookie الخاص بـ Pixiv غير صالح","Pixiv 作品编号无效":"معرّف عمل Pixiv غير صالح","Pixiv 动图暂不支持，请在站点查看":"رسوم Pixiv المتحركة غير مدعومة حالياً. شاهدها في الموقع","Pixiv 筛选参数无效":"معلمات تصفية Pixiv غير صالحة","Pixiv 请求失败，请检查网络后重试":"فشل طلب Pixiv. تحقّق من الشبكة وحاول مجدداً","Pixiv 账号":"حساب Pixiv","Pixiv 返回的数据无效，请稍后重试":"أعاد Pixiv بيانات غير صالحة. حاول لاحقاً","作品类型":"نوع العمل","内容分级":"تصنيف المحتوى","匹配方式":"طريقة المطابقة","插画":"رسوم","插画与漫画社区，支持个性化推荐、排行、搜索和多页原图阅读":"مجتمع للرسوم والمانغا مع توصيات شخصية وترتيب وبحث وقراءة الصور الأصلية متعددة الصفحات","标签完全匹配":"مطابقة تامة للوسم","标签部分匹配":"مطابقة جزئية للوسم","标题与简介":"العنوان والوصف","每日":"يومي","站点默认":"الإعداد الافتراضي للموقع","粘贴 Pixiv 的 PHPSESSID 值":"الصق قيمة PHPSESSID من Pixiv","请登录 Pixiv；Cookie 可能已过期，R-18 内容还需在站点开启显示权限":"سجّل الدخول إلى Pixiv. قد تكون صلاحية Cookie انتهت؛ يجب أيضاً تفعيل عرض R-18 في الموقع","输入关键词或标签，可筛选漫画、插画与 R-18 内容":"أدخل كلمات أو وسوماً؛ صفِّ النتائج حسب المانغا والرسوم ومحتوى R-18","默认作品类型":"نوع العمل الافتراضي","登录可获得个性化推荐、点赞与收藏；R-18 内容需开启显示权限。Cookie 仅保存在本机。":"سجّل الدخول للتوصيات الشخصية والإعجابات والمفضلة. فعّل عرض R-18 في إعدادات الحساب. تُحفظ ملفات Cookie على الجهاز فقط.","作者其他作品":"أعمال أخرى للمبدع","原站不支持取消点赞":"لا يدعم الموقع إلغاء الإعجاب"},
     },
-    key: 'pixiv', name: 'Pixiv', version: '0.0.6', type: 'comic', category: 'doujin',
+    key: 'pixiv', name: 'Pixiv', version: '0.0.7', type: 'comic', category: 'doujin',
     color: '#0096FA', icon: 'https://www.pixiv.net/favicon.ico',
     description: '插画与漫画社区，支持个性化推荐、排行、搜索和多页原图阅读',
     homepage: HOME, domains: ['pixiv.net'], language: 'multi',
-    linkPatterns: ['pixiv\\.net/(?:[a-z]{2}/)?artworks/(\\d+)', 'pixiv\\.net/member_illust\\.php\\?[^#]*?illust_id=(\\d+)'],
+    linkPatterns: ['pixiv\\.net/(?:[a-z]{2}/)?artworks/(\\d+)', 'pixiv\\.net/(?:member_illust|i)\\.php\\?[^#]*?illust_id=(\\d+)', 'pixiv\\.net/i/(\\d+)', 'pixiv\\.net/(?:[a-z]{2}/)?artworks\\?[^#]*?illust_id=(\\d+)'],
     idPattern: '^(?:pixiv)?([1-9]\\d{0,11})$', idExample: '150687026',
     // Mobile ranking pages ignore format=json; request the desktop representation.
     network: { vpnHint: true, headers: { Referer: HOME + '/', Accept: 'application/json',
@@ -89,7 +89,7 @@
     ] }],
     account: {
       type: 'cookies', title: 'Pixiv 账号', required: false,
-      hint: '推荐与 R-18 内容需要登录；请在 Pixiv 账号设置中开启相应内容显示。Cookie 仅保存在本机。',
+      hint: '登录可获得个性化推荐、点赞与收藏；R-18 内容需开启显示权限。Cookie 仅保存在本机。',
       loginUrl: 'https://accounts.pixiv.net/login?return_to=https%3A%2F%2Fwww.pixiv.net%2F',
       loginDomains: ['accounts.google.com', 'appleid.apple.com', 'account.apple.com', 'facebook.com', 'api.weibo.com', 'passport.weibo.com', 'passport.weibo.cn', 'login.sina.com.cn'],
 
@@ -131,7 +131,6 @@
       },
     },
     defaultFeed: 'recommended',
-    anonymousDefaultFeed: 'ranking',
     feeds: [
       { key: 'recommended', label: '推荐', options: [contentOption, ratingOption] },
       { key: 'ranking', label: '排行榜', options: [contentOption, ratingOption, {
@@ -191,16 +190,13 @@
       const content = this.contentOf(options);
       const rating = choice(options.rating, ['all', 'r18'], 'all');
       if (key === 'recommended') {
-        await this.requireLogin();
-        // The site's homepage has a finite recommendation section, not numbered pages.
-        if (page > 1) return { items: [], page, hasNext: false };
-        const data = await this.request('/ajax/top/' + (content === 'manga' ? 'manga' : 'illust'), { mode: rating, lang: 'zh' }, { auth: true });
-        const ids = data && data.page && data.page.recommend && data.page.recommend.ids;
-        const works = data && data.thumbnails && data.thumbnails.illust;
-        if (!Array.isArray(ids) || !Array.isArray(works)) throw Park.error('PARSE', PARSE);
-        const byId = new Map(works.map(w => [String(w.id), w]));
-        const selected = [...new Set(ids.map(String))].map(id => byId.get(id)).filter(w => isVisible(w, content));
-        return { items: selected.map(w => toItem(w)), page, hasNext: false };
+        if (rating === 'r18') await this.requireLogin();
+        // Discovery returns a fresh recommendation batch on every request, including anonymously.
+        const data = await this.request('/ajax/illust/discovery', { mode: rating, limit: 60, lang: 'zh' }, { auth: rating === 'r18' });
+        if (!data || !Array.isArray(data.illusts)) throw Park.error('PARSE', PARSE);
+        const hasNext = data.illusts.length > 0;
+        return { items: data.illusts.filter(w => isVisible(w, content)).map(w => toItem(w)), page,
+          hasNext, cursor: hasNext ? String(page) : null };
       }
       if (key !== 'ranking') throw Park.error('CONFIG', 'Pixiv 筛选参数无效');
       if (rating === 'r18') await this.requireLogin();
@@ -241,6 +237,57 @@
       if (data.isLoginOnly || Number(data.xRestrict) > 0) await this.requireLogin();
       return data;
     },
+    async related(id, req = {}) {
+      id = idValue(id);
+      const page = pageNumber(req.page);
+      let data, remaining;
+      if (page === 1) {
+        data = await this.request('/ajax/illust/' + id + '/recommend/init', { limit: 18, lang: 'zh' });
+        if (!data || !Array.isArray(data.nextIds)) throw Park.error('PARSE', PARSE);
+        remaining = [...new Set(data.nextIds.map(idValue))];
+      } else {
+        try { remaining = JSON.parse(String(req.cursor)); } catch (_) { throw Park.error('CONFIG', PARSE); }
+        if (!Array.isArray(remaining) || !remaining.length || remaining.length > 10000) throw Park.error('CONFIG', PARSE);
+        remaining = remaining.map(idValue);
+        const ids = remaining.slice(0, 18);
+        data = await this.request('/ajax/illust/recommend/illusts?'+ids.map(value => 'illust_ids%5B%5D='+value).join('&'), { lang: 'zh' });
+        remaining = remaining.slice(ids.length);
+      }
+      if (!data || !Array.isArray(data.illusts)) throw Park.error('PARSE', PARSE);
+      const works = data.illusts.filter(w => [0, 1].includes(workType(w)) && !w.isMasked && String(w.id) !== id);
+      const seen = new Set([id, ...works.map(w => String(w.id))]);
+      remaining = remaining.filter(value => !seen.has(value));
+      return {items: works.map(w => toItem(w)), page, hasNext: remaining.length > 0,
+        cursor: remaining.length ? JSON.stringify(remaining) : null};
+    },
+    async interaction(id, req = {}) {
+      id = idValue(id);
+      await this.requireLogin();
+      let data = await this.artwork(id);
+      if (req.value !== undefined) {
+        if (!['like', 'favorite'].includes(req.type) || typeof req.value !== 'boolean') throw Park.error('CONFIG', '原站互动数据无效');
+        if (req.type === 'like' && !req.value) throw Park.error('UNSUPPORTED', '原站不支持取消点赞');
+        const current = req.type === 'like' ? data.likeData === true : !!data.bookmarkData;
+        if (current !== req.value) {
+          const page = await this.http.get(HOME + '/artworks/' + id);
+          if (!page.ok) throw Park.error('LOGIN_REQUIRED', LOGIN);
+          const node = Park.html.parse(page.body).querySelector('meta[name="global-data"], meta[id="meta-global-data"]');
+          let token;
+          try { token = JSON.parse(node && node.getAttribute('content')).token; } catch (_) {}
+          if (typeof token !== 'string' || !token) throw Park.error('LOGIN_REQUIRED', LOGIN);
+          const path = req.type === 'like' ? '/ajax/illusts/like' : req.value ? '/ajax/illusts/bookmarks/add' : '/ajax/illusts/bookmarks/delete';
+          const json = req.type === 'like' ? {illust_id: id} : req.value ? {illust_id: id, restrict: 0, comment: '', tags: []} : {bookmarkIds: [String(data.bookmarkData.id)]};
+          const res = await this.http.post(HOME + path, {json, headers: {'x-csrf-token': token, Referer: HOME + '/artworks/' + id}});
+          if ([401, 403].includes(res.status)) throw Park.error('LOGIN_REQUIRED', LOGIN);
+          let result; try { result = res.json(); } catch (_) { throw Park.error('PARSE', PARSE); }
+          if (!res.ok || result.error) throw Park.error('AUTH', '原站操作未成功，请重试');
+          data = await this.artwork(id);
+          if ((req.type === 'like' ? data.likeData === true : !!data.bookmarkData) !== req.value) throw Park.error('AUTH', '原站操作未成功，请重试');
+        }
+      }
+      if (typeof data.likeData !== 'boolean') throw Park.error('PARSE', '原站互动数据无效');
+      return [{type: 'like', value: data.likeData, canUnset: false}, {type: 'favorite', value: !!data.bookmarkData}];
+    },
     async detail(id) {
       const data = await this.artwork(id);
       const tags = (data.tags && data.tags.tags || []).map(t => ({ name: String(t.tag), keyword: String(t.tag), filters: { match: 's_tag_full' } }));
@@ -254,6 +301,9 @@
         likes: Number(data.bookmarkCount) || 0, views: Number(data.viewCount) || 0,
         uploaded: data.uploadDate || data.createDate || '',
         badge: ratingBadge(data),
+        relatedSections: [{title: '作者其他作品', items: Object.values(data.userIllusts || {})
+          .filter(w => w && [0, 1].includes(workType(w)) && !w.isMasked && String(w.id) !== String(data.id))
+          .map(w => toItem(w))}],
         tags: [{ namespace: 'tag', label: '标签', tags }], chapters: null,
       };
     },

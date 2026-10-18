@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 
 import '../../core/localization.dart';
+import '../../core/platform_capabilities.dart';
 import '../../core/settings.dart';
 import '../kit/adaptive_sheet.dart';
+import '../kit/selection_chip.dart';
 import 'reader_layout.dart';
 
 /// Reader options in three tabs (Mihon's reader settings sheet). Changes apply live: the reader
@@ -93,8 +95,8 @@ class _ReaderSettingsState extends State<_ReaderSettings> {
     runSpacing: 4,
     children: [
       for (final option in options)
-        ChoiceChip(
-          label: SelectionContainer.disabled(child: Text(option.$2)),
+        SelectionChip(
+          label: option.$2,
           selected: option.$1 == value,
           onSelected: (_) => onChanged(option.$1),
         ),
@@ -257,11 +259,12 @@ class _ReaderSettingsState extends State<_ReaderSettings> {
           value: s.readerTapInvertV,
           onChanged: s.tapToPage ? (v) => s.readerTapInvertV = v : null,
         ),
-        SwitchListTile(
-          title: SelectionContainer.disabled(child: Text(tr('音量键翻页'))),
-          value: s.volumeKeyPaging,
-          onChanged: (v) => s.volumeKeyPaging = v,
-        ),
+        if (PlatformCapabilities.volumeKeyPaging)
+          SwitchListTile(
+            title: SelectionContainer.disabled(child: Text(tr('音量键翻页'))),
+            value: s.volumeKeyPaging,
+            onChanged: (v) => s.volumeKeyPaging = v,
+          ),
         ListTile(
           title: SelectionContainer.disabled(child: Text(tr('背景颜色'))),
           subtitle: SelectionContainer.disabled(

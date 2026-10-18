@@ -36,101 +36,105 @@ class _BlocklistPageState extends State<BlocklistPage> {
     final s = AppSettings.instance;
     return Scaffold(
       appBar: AppBar(title: Text(tr('屏蔽标签'))),
-      body: ListenableBuilder(
-        listenable: s.domain(SettingsDomain.filter),
-        builder: (context, _) {
-          final list = s.blockedTags;
-          return ListView(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
-            children: [
-              Text(
-                tr(
-                  '带有这些标签的作品会从浏览和搜索结果中隐藏；打开详情页时会给出提示。\n· 标签名（如 guro）匹配任意分类下的同名标签\n· 分类:标签（如 female:scat）只匹配该分类\n· title:关键词 匹配标题\n也可以在作品详情页长按标签直接屏蔽。',
-                ),
-                style: context.text.bodySmall?.copyWith(
-                  color: context.colors.onSurfaceVariant,
-                ),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: _input,
-                onSubmitted: (_) => _add(),
-                decoration: InputDecoration(
-                  hintText: tr('输入要屏蔽的标签'),
-                  border: const OutlineInputBorder(),
-                  suffixIcon: IconButton(
-                    tooltip: tr('添加'),
-                    icon: const Icon(Icons.add_rounded),
-                    onPressed: _add,
+      body: SettingsBody(
+        child: ListenableBuilder(
+          listenable: s.domain(SettingsDomain.filter),
+          builder: (context, _) {
+            final list = s.blockedTags;
+            return ListView(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
+              children: [
+                Text(
+                  tr(
+                    '带有这些标签的作品会从浏览和搜索结果中隐藏；打开详情页时会给出提示。\n· 标签名（如 guro）匹配任意分类下的同名标签\n· 分类:标签（如 female:scat）只匹配该分类\n· title:关键词 匹配标题\n也可以在作品详情页长按标签直接屏蔽。',
+                  ),
+                  style: context.text.bodySmall?.copyWith(
+                    color: context.colors.onSurfaceVariant,
                   ),
                 ),
-              ),
-              const SizedBox(height: 12),
-              if (list.isEmpty)
-                EmptyState(
-                  icon: Icons.block_rounded,
-                  title: tr('没有屏蔽任何标签'),
-                  compact: true,
-                )
-              else
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: [
-                    for (final e in list)
-                      InputChip(
-                        label: SelectionContainer.disabled(child: Text(e)),
-                        onDeleted: () => s.blockedTags = [
-                          for (final x in list)
-                            if (x != e) x,
-                        ],
-                      ),
-                  ],
-                ),
-              const SizedBox(height: 24),
-              Text(tr('已屏蔽作品'), style: context.text.titleMedium),
-              for (final entry in s.blockedWorks.entries)
-                ListTile(
-                  title: Text(entry.value),
-                  trailing: IconButton(
-                    tooltip: tr('取消屏蔽'),
-                    icon: const Icon(Icons.close_rounded),
-                    onPressed: () => s.unblockWork(entry.key),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: _input,
+                  onSubmitted: (_) => _add(),
+                  decoration: InputDecoration(
+                    hintText: tr('输入要屏蔽的标签'),
+                    border: const OutlineInputBorder(),
+                    suffixIcon: IconButton(
+                      tooltip: tr('添加'),
+                      icon: const Icon(Icons.add_rounded),
+                      onPressed: _add,
+                    ),
                   ),
                 ),
-              const SizedBox(height: 12),
-              Text(tr('已屏蔽作者'), style: context.text.titleMedium),
-              for (final entry in s.blockedAuthors.entries)
-                ListTile(
-                  title: Text(entry.value),
-                  trailing: IconButton(
-                    tooltip: tr('取消屏蔽'),
-                    icon: const Icon(Icons.close_rounded),
-                    onPressed: () => s.unblockAuthor(entry.key),
+                const SizedBox(height: 12),
+                if (list.isEmpty)
+                  EmptyState(
+                    icon: Icons.block_rounded,
+                    title: tr('没有屏蔽任何标签'),
+                    compact: true,
+                  )
+                else
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      for (final e in list)
+                        InputChip(
+                          label: SelectionContainer.disabled(child: Text(e)),
+                          onDeleted: () => s.blockedTags = [
+                            for (final x in list)
+                              if (x != e) x,
+                          ],
+                        ),
+                    ],
+                  ),
+                const SizedBox(height: 24),
+                Text(tr('已屏蔽作品'), style: context.text.titleMedium),
+                for (final entry in s.blockedWorks.entries)
+                  ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: Text(entry.value),
+                    trailing: IconButton(
+                      tooltip: tr('取消屏蔽'),
+                      icon: const Icon(Icons.close_rounded),
+                      onPressed: () => s.unblockWork(entry.key),
+                    ),
+                  ),
+                const SizedBox(height: 12),
+                Text(tr('已屏蔽作者'), style: context.text.titleMedium),
+                for (final entry in s.blockedAuthors.entries)
+                  ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: Text(entry.value),
+                    trailing: IconButton(
+                      tooltip: tr('取消屏蔽'),
+                      icon: const Icon(Icons.close_rounded),
+                      onPressed: () => s.unblockAuthor(entry.key),
+                    ),
+                  ),
+                const SizedBox(height: 24),
+                Text(
+                  tr('预设屏蔽'),
+                  style: context.text.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
-              const SizedBox(height: 24),
-              Text(
-                tr('预设屏蔽'),
-                style: context.text.titleMedium?.copyWith(
-                  fontWeight: FontWeight.w600,
+                const SizedBox(height: 4),
+                Text(
+                  tr(
+                    '默认都不启用，按需开启。每组的标签可以增删改；开启「标题正则匹配」后，每一项也会作为正则表达式匹配标题（纯英文单词按整词匹配）。',
+                  ),
+                  style: context.text.bodySmall?.copyWith(
+                    color: context.colors.onSurfaceVariant,
+                  ),
                 ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                tr(
-                  '默认都不启用，按需开启。每组的标签可以增删改；开启「标题正则匹配」后，每一项也会作为正则表达式匹配标题（纯英文单词按整词匹配）。',
-                ),
-                style: context.text.bodySmall?.copyWith(
-                  color: context.colors.onSurfaceVariant,
-                ),
-              ),
-              const SizedBox(height: 8),
-              for (final c in BlockPresetConfig.current())
-                _PresetCard(config: c),
-            ],
-          );
-        },
+                const SizedBox(height: 8),
+                for (final c in BlockPresetConfig.current())
+                  _PresetCard(config: c),
+              ],
+            );
+          },
+        ),
       ),
     );
   }
@@ -179,6 +183,7 @@ class _PresetCard extends StatelessWidget {
     return RowGroup(
       children: [
         ExpansionTile(
+          tilePadding: EdgeInsets.zero,
           shape: const Border(),
           collapsedShape: const Border(),
           leading: Switch(
@@ -203,7 +208,7 @@ class _PresetCard extends StatelessWidget {
               ),
             ),
           ),
-          childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+          childrenPadding: const EdgeInsets.only(bottom: Gap.m),
           expandedCrossAxisAlignment: CrossAxisAlignment.start,
           children: [
             CheckboxListTile(

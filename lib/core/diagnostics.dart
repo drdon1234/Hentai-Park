@@ -3,7 +3,7 @@ import 'dart:convert';
 import 'localization.dart';
 import 'models.dart';
 
-/// 自动日志仅接受白名单字段，不尝试从任意异常全文猜测哪些部分是秘密。
+/// 自动诊断仅采集白名单字段与 package:/dart: 代码位置。
 class Diagnostics {
   static const codes = {
     'NETWORK',
@@ -35,6 +35,22 @@ class Diagnostics {
     'NETWORK',
     'CANCELLED',
     'UNKNOWN',
+    'JAVA_CRASH',
+    'NATIVE_CRASH',
+    'ANR',
+    'LOW_MEMORY',
+    'SIGNALED',
+    'EXIT_SELF',
+    'EXCESSIVE_RESOURCE',
+    'USER_REQUESTED',
+    'USER_STOPPED',
+    'DEPENDENCY_DIED',
+    'INITIALIZATION_FAILURE',
+    'PERMISSION_CHANGE',
+    'PACKAGE_STATE_CHANGE',
+    'PACKAGE_UPDATED',
+    'FREEZER',
+    'OTHER',
   };
 
   static final _event = RegExp(r'^[a-z][a-z_]{0,31}$');
@@ -72,6 +88,7 @@ class Diagnostics {
     final type = value('type')?.replaceAll(RegExp(r'[^A-Za-z0-9_]'), '');
     final library = value('library')?.replaceAll(' ', '_');
     final message = value('message');
+    final exitStatus = int.tryParse(value('exitStatus') ?? '');
     return {
       'event': event != null && _event.hasMatch(event) ? event : 'source',
       if (site != null && _name.hasMatch(site)) 'site': site,
@@ -85,6 +102,8 @@ class Diagnostics {
         'host': host,
       if (type != null && type.isNotEmpty && type.length <= 64) 'type': type,
       if (library != null && _name.hasMatch(library)) 'library': library,
+      if (exitStatus != null && exitStatus >= 0 && exitStatus <= 255)
+        'exitStatus': '$exitStatus',
       if (message != null &&
           message.length <= 200 &&
           (AppLocalizations.instance.hasMessage(message) ||
@@ -111,6 +130,6 @@ class Diagnostics {
       .map((line) => line.trim())
       .where(_frame.hasMatch)
       .map((line) => line.replaceFirst(RegExp(r'\s+'), ' '))
-      .take(30)
+      .take(100)
       .toList();
 }

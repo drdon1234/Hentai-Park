@@ -52,10 +52,25 @@
       )
         continue;
       seen.add(m[1]);
+      const row = a.closest('article'),
+        authorNode = row.querySelector('header a[href^="/profile/"]'),
+        author = authorNode?.getAttribute('aria-label') || Park.html.text(authorNode),
+        categoryNode = [...row.querySelectorAll('footer a[href]')].find(n =>
+          n.getAttribute('href') === '/stories/' + m[1].split('/')[0]),
+        category = Park.html.text(categoryNode),
+        summary = [Park.html.text(a.querySelector('em')), Park.html.text(a.querySelector('p'))]
+          .find(text => text && !/^(?:Lorem ipsum|Sed ut perspiciatis)\b/i.test(text)) || '',
+        tags = [...row.querySelectorAll('footer a[href*="?tag="]')]
+          .map(n => Park.html.text(n)).filter(Boolean);
       out.push({
         id: m[1],
         title: Park.html.text(h),
-        subtitle: Park.html.text(a.querySelector('em')),
+        subtitle: summary,
+        authors: author ? [author] : [],
+        category,
+        tags,
+        uploaded: row.querySelector('time')?.getAttribute('datetime') ||
+          row.querySelector('time')?.getAttribute('title') || '',
         cover: '',
         language: 'en',
         mediaKind: 'novel',
@@ -100,7 +115,7 @@
     },
     key: 'lushstories',
     name: 'Lush Stories',
-    version: '0.0.4',
+    version: '0.0.5',
     type: 'novel',
     category: 'novel',
     language: 'en',

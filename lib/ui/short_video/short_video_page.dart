@@ -18,11 +18,13 @@ import '../../library/library.dart';
 import '../history/history_page.dart';
 import '../kit/tokens.dart';
 import '../nav.dart';
+import '../settings/settings_sections.dart';
 import '../theme.dart';
 import '../video/adaptive_video_progress.dart';
 import '../widgets/content_translation.dart';
 import '../widgets/cover_tile.dart';
 import '../widgets/error_view.dart';
+import '../widgets/source_interaction.dart';
 import '../widgets/source_network_hint.dart';
 import 'short_video_feed.dart';
 import 'short_video_playback.dart';
@@ -48,6 +50,7 @@ class _ShortVideoPageState extends State<ShortVideoPage>
     with WidgetsBindingObserver, RouteAware {
   late final ShortVideoFeed _feed;
   late final ShortVideoPlayback _playback;
+  final _preferences = AppSettings.instance.domain(SettingsDomain.shortVideo);
   final PageController _pages = PageController();
   Timer? _saveTimer;
   StreamSubscription<String>? _authentication;
@@ -88,7 +91,10 @@ class _ShortVideoPageState extends State<ShortVideoPage>
         cancel,
         refresh: _retrySources.remove(item.uid),
       ),
+      preloadCount: AppSettings.instance.shortVideoPreloadCount,
+      retainedCount: AppSettings.instance.shortVideoRetainedCount,
     )..addListener(_changed);
+    _preferences.addListener(_limitsChanged);
     _authentication = SourceManager.instance.authenticationChanges.listen((
       key,
     ) {
@@ -231,6 +237,7 @@ class _ShortVideoPageState extends State<ShortVideoPage>
 
   void _sync() {
     final enabled =
+        _visible != null &&
         _foreground &&
         !_covered &&
         !_scrolling &&
@@ -246,6 +253,15 @@ class _ShortVideoPageState extends State<ShortVideoPage>
 
   void _changed() {
     if (mounted) setState(() {});
+  }
+
+  void _limitsChanged() {
+    unawaited(
+      _playback.setLimits(
+        preloadCount: AppSettings.instance.shortVideoPreloadCount,
+        retainedCount: AppSettings.instance.shortVideoRetainedCount,
+      ),
+    );
   }
 
   ShortVideoPlayer? _player(WorkItem? item) {
@@ -282,12 +298,17 @@ class _ShortVideoPageState extends State<ShortVideoPage>
         if (mounted && _pages.hasClients) _pages.jumpToPage(_feed.index);
       });
     }
-    unawaited(
-      _playback.select(
-        current,
-        index + 1 < _feed.items.length ? _feed.items[index + 1] : null,
-      ),
-    );
+    // 列表尾页只暂停，翻回时继续复用；刷新或清空列表才释放全部缓存。
+    if (current != null || _feed.items.isEmpty) {
+      unawaited(
+        _playback.select(
+          current,
+          _feed.items
+              .skip(index + 1)
+              .take(AppSettings.maxShortVideoPreloadCount),
+        ),
+      );
+    }
     _sync();
     setState(() {});
   }
@@ -299,7 +320,7 @@ class _ShortVideoPageState extends State<ShortVideoPage>
     _save();
     try {
       _visible = null;
-      await _playback.select(null, null);
+      await _playback.select(null, const []);
       if (!mounted) return;
       setState(() {
         _expanded = false;
@@ -332,6 +353,7 @@ class _ShortVideoPageState extends State<ShortVideoPage>
     Nav.routeObserver.unsubscribe(this);
     WidgetsBinding.instance.removeObserver(this);
     AppLock.instance.removeListener(_sync);
+    _preferences.removeListener(_limitsChanged);
     _feed.removeListener(_feedChanged);
     _feed.dispose();
     _playback.removeListener(_changed);
@@ -348,7 +370,6 @@ class _ShortVideoPageState extends State<ShortVideoPage>
         children: [
           const CircularProgressIndicator(),
           const SizedBox(height: 16),
-          Text(tr('获取最新作品中')),
           SourceNetworkHint(source: widget.source),
         ],
       ),
@@ -534,7 +555,7 @@ class _ShortVideoPageState extends State<ShortVideoPage>
                   builder: (context, _) {
                     final favorite = Library.instance.isFavorite(item.uid);
                     return IconButton(
-                      tooltip: tr(favorite ? '取消收藏' : '收藏'),
+                      tooltip: tr(favorite ? '取消应用内收藏' : '应用内收藏'),
                       onPressed: () {
                         if (favorite) {
                           Library.instance.removeFavorite(item.uid);
@@ -543,13 +564,25 @@ class _ShortVideoPageState extends State<ShortVideoPage>
                         }
                       },
                       icon: Icon(
-                        favorite ? Icons.favorite : Icons.favorite_border,
+                        favorite ? Icons.bookmark : Icons.bookmark_border,
                         color: favorite ? context.colors.primary : Colors.white,
                         size: 32,
                       ),
                     );
                   },
                 ),
+                if (SourceManager.instance
+                        .manifest(item.source)
+                        ?.can('interaction') ==
+                    true)
+                  IconButton(
+                    tooltip: tr('原站互动'),
+                    onPressed: () => showSourceInteraction(context, item),
+                    icon: const Icon(
+                      Icons.thumb_up_outlined,
+                      color: Colors.white,
+                    ),
+                  ),
               ],
             ),
           ),
@@ -650,19 +683,6 @@ class _ShortVideoPageState extends State<ShortVideoPage>
                                   ),
                                 ),
                         ),
-                        if (_feed.refreshingCached && _feed.items.isNotEmpty)
-                          Positioned(
-                            top: kToolbarHeight,
-                            left: Gap.page,
-                            right: Gap.page,
-                            child: IgnorePointer(
-                              child: Text(
-                                tr('获取最新作品中'),
-                                textAlign: TextAlign.center,
-                                style: const TextStyle(color: Colors.white),
-                              ),
-                            ),
-                          ),
                         Positioned(
                           top: 0,
                           left: 0,
@@ -715,6 +735,12 @@ class _ShortVideoPageState extends State<ShortVideoPage>
                                       ),
                                     ),
                                     PopupMenuItem(
+                                      value: 'playback-settings',
+                                      child: SelectionContainer.disabled(
+                                        child: Text(tr('短视频设置')),
+                                      ),
+                                    ),
+                                    PopupMenuItem(
                                       value: 'settings',
                                       child: SelectionContainer.disabled(
                                         child: Text(tr('站点设置')),
@@ -733,6 +759,13 @@ class _ShortVideoPageState extends State<ShortVideoPage>
                                       );
                                     } else if (action == 'refresh') {
                                       _refresh();
+                                    } else if (action == 'playback-settings') {
+                                      Nav.push(
+                                        context,
+                                        const SettingsSectionPage(
+                                          SettingsSection.shortVideo,
+                                        ),
+                                      );
                                     } else {
                                       Nav.openSourceSettings(
                                         context,

@@ -17,6 +17,7 @@ import '../widgets/common.dart';
 import '../widgets/content_translation.dart';
 import '../widgets/option_bar.dart';
 import '../widgets/paged_grid.dart';
+import '../widgets/source_account_strip.dart';
 
 /// A single source's own entry: one tab per feed (latest, ranking, categories…), each with the
 /// source's native options (periods, categories, sort) as chips.
@@ -73,7 +74,20 @@ class _SourcePageState extends State<SourcePage> {
               searchOnlyEntry: true,
             )
           : Scaffold(
-              appBar: AppBar(title: Text(m.name)),
+              appBar: AppBar(
+                title: Text(m.name),
+                bottom: m.account == null
+                    ? null
+                    : PreferredSize(
+                        preferredSize: Size.fromHeight(
+                          SourceAccountStrip.height(context),
+                        ),
+                        child: SourceAccountStrip(
+                          source: widget.sourceKey,
+                          sourceManager: _sources,
+                        ),
+                      ),
+              ),
               body: EmptyState(
                 icon: Icons.search_off_rounded,
                 title: tr('超级省流'),
@@ -90,8 +104,6 @@ class _SourcePageState extends State<SourcePage> {
         feedIndex: widget.initialFeed,
       );
     }
-    final needsLogin =
-        m.account?.required == true && accountStatus?.loggedIn != true;
     final tabs = m.feeds.length > 1
         ? TabBar(
             isScrollable: true,
@@ -187,14 +199,18 @@ class _SourcePageState extends State<SourcePage> {
                         ),
                       ],
                       // Login is stated in words where browsing happens, not as a dot on a menu.
-                      bottom: needsLogin
+                      bottom: m.account != null
                           ? PreferredSize(
                               preferredSize: Size.fromHeight(
-                                48 + (tabs?.preferredSize.height ?? 0),
+                                SourceAccountStrip.height(context) +
+                                    (tabs?.preferredSize.height ?? 0),
                               ),
                               child: Column(
                                 children: [
-                                  _LoginStrip(source: widget.sourceKey),
+                                  SourceAccountStrip(
+                                    source: widget.sourceKey,
+                                    sourceManager: _sources,
+                                  ),
                                   ?tabs,
                                 ],
                               ),
@@ -204,10 +220,20 @@ class _SourcePageState extends State<SourcePage> {
                   ),
                 ],
                 body: m.feeds.isEmpty
-                    ? EmptyState(
-                        icon: Icons.dashboard_customize_outlined,
-                        title: tr('这个站点没有浏览页'),
-                        message: tr('请使用搜索'),
+                    ? LayoutBuilder(
+                        builder: (context, constraints) =>
+                            SingleChildScrollView(
+                              child: ConstrainedBox(
+                                constraints: BoxConstraints(
+                                  minHeight: constraints.maxHeight,
+                                ),
+                                child: EmptyState(
+                                  icon: Icons.dashboard_customize_outlined,
+                                  title: tr('这个站点没有浏览页'),
+                                  message: tr('请使用搜索'),
+                                ),
+                              ),
+                            ),
                       )
                     : TabBarView(
                         children: [
@@ -227,43 +253,6 @@ class _SourcePageState extends State<SourcePage> {
       ),
     );
   }
-}
-
-class _LoginStrip extends StatelessWidget {
-  const _LoginStrip({required this.source});
-  final String source;
-
-  @override
-  Widget build(BuildContext context) => SizedBox(
-    height: 48,
-    child: Padding(
-      padding: const EdgeInsets.only(left: Gap.page, right: Gap.s),
-      child: Row(
-        children: [
-          Icon(
-            Icons.lock_outline_rounded,
-            size: 18,
-            color: context.colors.onSurfaceVariant,
-          ),
-          const SizedBox(width: Gap.s),
-          Expanded(
-            child: Text(
-              tr('这个站点需要登录后才能浏览'),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: context.text.bodyMedium?.copyWith(
-                color: context.colors.onSurfaceVariant,
-              ),
-            ),
-          ),
-          TextButton(
-            onPressed: () => Nav.login(context, source),
-            child: SelectionContainer.disabled(child: Text(tr('去登录'))),
-          ),
-        ],
-      ),
-    ),
-  );
 }
 
 class FeedTab extends StatefulWidget {
@@ -353,18 +342,6 @@ class _FeedTabState extends State<FeedTab> with AutomaticKeepAliveClientMixin {
                 },
               ),
             ),
-          ListenableBuilder(
-            listenable: _controller,
-            builder: (context, _) =>
-                _controller.loading && _controller.page == 0
-                ? SliverToBoxAdapter(
-                    child: Padding(
-                      padding: const EdgeInsets.all(Gap.page),
-                      child: Text(tr('获取最新作品中')),
-                    ),
-                  )
-                : const SliverToBoxAdapter(),
-          ),
           ListenableBuilder(
             listenable: _controller,
             builder: (context, _) => _controller.staleCache

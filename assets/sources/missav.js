@@ -11,7 +11,7 @@ Park.register({
   },
   key: 'missav',
   name: 'MissAV',
-  version: '0.0.8',
+  version: '0.0.9',
   type: 'video',
   category: 'jav',
   color: '#EF4444',
@@ -69,6 +69,7 @@ Park.register({
   },
 
   async interaction(id, req = {}) {
+    if (req.value !== undefined && req.type !== 'favorite') throw Park.error('CONFIG', '原站互动数据无效');
     let state = await this.interactionState(id);
     if (!state.user) throw Park.error('LOGIN_REQUIRED', '请先登录');
     if (req.value !== undefined) {
@@ -88,7 +89,7 @@ Park.register({
         if (!state.user || state.saved !== req.value) throw Park.error('AUTH', '原站操作未成功，请重试');
       }
     }
-    return {type: 'favorite', value: state.saved};
+    return [{type: 'favorite', value: state.saved}];
   },
 
   identity(id, label = '') {

@@ -100,7 +100,7 @@ Future<void> showDetailMore(
                 true)
               ListTile(
                 leading: const Icon(Icons.thumb_up_outlined),
-                title: Text(tr('原站喜好')),
+                title: Text(tr('原站互动')),
                 onTap: () {
                   Navigator.pop(ctx);
                   showSourceInteraction(context, item);

@@ -21,8 +21,9 @@ import 'multi_language.dart';
 import 'source_search_page.dart';
 
 class DirectJump extends StatelessWidget {
-  const DirectJump({super.key, required this.refs});
+  const DirectJump({super.key, required this.refs, this.sourceManager});
   final List<({String source, String id})> refs;
+  final SourceManager? sourceManager;
 
   @override
   Widget build(BuildContext context) {
@@ -41,10 +42,15 @@ class DirectJump extends StatelessWidget {
                   avatar: SourceAvatar(r.source, size: 22),
                   label: SelectionContainer.disabled(
                     child: Text(
-                      '${SourceManager.instance.manifest(r.source)?.name ?? r.source}  ${r.id}',
+                      '${(sourceManager ?? SourceManager.instance).manifest(r.source)?.name ?? r.source}  ${r.id}',
                     ),
                   ),
-                  onPressed: () => Nav.openRef(context, r.source, r.id),
+                  onPressed: () => Nav.openRef(
+                    context,
+                    r.source,
+                    r.id,
+                    sourceManager: sourceManager,
+                  ),
                 ),
             ],
           ),

@@ -5,6 +5,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:window_manager/window_manager.dart';
 
+import '../core/app_log.dart';
+import '../core/diagnostic_entry.dart';
 import '../core/localization.dart';
 import '../core/platform_capabilities.dart';
 import '../core/settings.dart';
@@ -13,6 +15,23 @@ import 'native_notifications.dart';
 /// 平台原生能力：Android 设备控制、桌面全屏与系统通知。
 class PlatformBridge {
   static const _channel = MethodChannel('hentai_park/platform');
+
+  static Future<List<DiagnosticEntry>> readCrashDiagnostics() async {
+    if (!Platform.isAndroid) return const [];
+    try {
+      final values = await _channel.invokeListMethod<Object?>(
+        'readCrashDiagnostics',
+      );
+      return [
+        for (final value in values ?? const [])
+          ?DiagnosticEntry.fromJson(value),
+      ];
+    } catch (error, stack) {
+      AppLog.error(error, event: 'native_diagnostics', stack: stack);
+      return const [];
+    }
+  }
+
   static final _wakes = StreamController<void>.broadcast();
   static final _volume = StreamController<int>.broadcast();
   static final _taps = StreamController<String>.broadcast();

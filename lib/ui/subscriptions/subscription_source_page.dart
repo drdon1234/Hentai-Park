@@ -6,6 +6,7 @@ import '../../subscriptions/subscription_store.dart';
 import '../nav.dart';
 import '../widgets/common.dart';
 import '../widgets/error_view.dart';
+import '../widgets/source_account_strip.dart';
 import 'subscription_posts_page.dart';
 
 /// 无公共首页的站点仍可直接访问公开频道或作者，无需先保存订阅。
@@ -74,6 +75,14 @@ class _SubscriptionSourcePageState extends State<SubscriptionSourcePage> {
     final hint = (manifest.json['subscription'] as Map?)?['hint']?.toString();
     return Scaffold(
       appBar: AppBar(
+        bottom: manifest.account != null
+            ? PreferredSize(
+                preferredSize: Size.fromHeight(
+                  SourceAccountStrip.height(context),
+                ),
+                child: SourceAccountStrip(source: widget.source),
+              )
+            : null,
         title: Text(manifest.name),
         actions: [
           IconButton(
@@ -109,7 +118,7 @@ class _SubscriptionSourcePageState extends State<SubscriptionSourcePage> {
               onSubmitted: (_) => _open(),
             ),
             const SizedBox(height: Gap.m),
-            FilledButton(
+            OutlinedButton(
               onPressed: _busy ? null : _open,
               child: Text(tr(_busy ? '加载中' : '打开')),
             ),

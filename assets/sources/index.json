@@ -14,7 +14,7 @@
     {
       "key": "ehentai",
       "name": "E-Hentai",
-      "version": "0.0.7",
+      "version": "0.0.8",
       "type": "comic",
       "category": "doujin",
       "file": "ehentai.js",
@@ -32,7 +32,7 @@
     {
       "key": "pica",
       "name": "哔咔漫画",
-      "version": "0.0.6",
+      "version": "0.0.7",
       "type": "comic",
       "category": "doujin",
       "file": "pica.js",
@@ -50,7 +50,7 @@
     {
       "key": "pixiv",
       "name": "Pixiv",
-      "version": "0.0.6",
+      "version": "0.0.7",
       "type": "comic",
       "category": "doujin",
       "file": "pixiv.js",
@@ -64,6 +64,15 @@
       "category": "gallery",
       "file": "pixibb.js",
       "description": "Cosplay 与写真图集，支持推荐、分类与搜索"
+    },
+    {
+      "key": "danbooru",
+      "name": "Danbooru",
+      "version": "0.0.1",
+      "type": "comic",
+      "category": "gallery",
+      "file": "danbooru.js",
+      "description": "二次元图片图集，保留站内安全、擦边与 R18 分级"
     },
     {
       "key": "xiuren",
@@ -104,7 +113,7 @@
     {
       "key": "missav",
       "name": "MissAV",
-      "version": "0.0.8",
+      "version": "0.0.9",
       "type": "video",
       "category": "jav",
       "file": "missav.js",
@@ -176,7 +185,7 @@
     {
       "key": "ixxx",
       "name": "iXXX",
-      "version": "0.0.7",
+      "version": "0.0.8",
       "type": "video",
       "category": "adult",
       "file": "ixxx.js",
@@ -185,7 +194,7 @@
     {
       "key": "tubesafari",
       "name": "TubeSafari",
-      "version": "0.0.4",
+      "version": "0.0.5",
       "type": "video",
       "category": "adult",
       "file": "tubesafari.js",
@@ -249,7 +258,7 @@
       "key": "cool18",
       "name": "Cool18",
       "description": "禁忌书屋小说版，支持精华、热帖、搜索与正文阅读",
-      "version": "0.0.4",
+      "version": "0.0.5",
       "type": "novel",
       "category": "novel",
       "file": "cool18.js"
@@ -258,7 +267,7 @@
       "key": "book18",
       "name": "Book18",
       "description": "中文长篇与短篇小说，支持推荐、搜索、目录和正文阅读",
-      "version": "0.0.5",
+      "version": "0.0.6",
       "type": "novel",
       "category": "novel",
       "file": "book18.js"
@@ -267,7 +276,7 @@
       "key": "canovel",
       "name": "Canovel",
       "description": "中文短篇与分篇小说，支持搜索和正文阅读",
-      "version": "0.0.4",
+      "version": "0.0.5",
       "type": "novel",
       "category": "novel",
       "file": "canovel.js"
@@ -276,7 +285,7 @@
       "key": "literotica",
       "name": "Literotica",
       "description": "英文小说与系列故事，支持排行、搜索和完整正文分页",
-      "version": "0.0.5",
+      "version": "0.0.6",
       "type": "novel",
       "category": "novel",
       "file": "literotica.js"
@@ -285,7 +294,7 @@
       "key": "lushstories",
       "name": "Lush Stories",
       "description": "英文小说社区，支持推荐、搜索与正文阅读",
-      "version": "0.0.4",
+      "version": "0.0.5",
       "type": "novel",
       "category": "novel",
       "file": "lushstories.js"
@@ -294,7 +303,7 @@
       "key": "storiesonline",
       "name": "StoriesOnline",
       "description": "英文长短篇与连载小说，支持推荐、搜索与章节目录；部分正文需要登录",
-      "version": "0.0.5",
+      "version": "0.0.6",
       "type": "novel",
       "category": "novel",
       "file": "storiesonline.js"
@@ -311,7 +320,7 @@
     {
       "key": "galgamex",
       "name": "GalgameX",
-      "version": "0.0.5",
+      "version": "0.0.6",
       "type": "game",
       "category": "game",
       "file": "galgamex.js",
@@ -338,7 +347,7 @@
     {
       "key": "x",
       "name": "X / Twitter",
-      "version": "0.0.7",
+      "version": "0.0.8",
       "type": "video",
       "category": "other",
       "file": "x.js",
@@ -401,7 +410,7 @@
     {
       "key": "story69",
       "name": "69story",
-      "version": "0.0.4",
+      "version": "0.0.5",
       "type": "novel",
       "category": "novel",
       "file": "story69.js",
@@ -488,6 +497,36 @@
       "description": "综合图片反搜；在应用内浏览器上传并查找完全匹配出处"
     },
     {
+      "key": "yandex",
+      "name": "Yandex",
+      "version": "0.0.1",
+      "type": "comic",
+      "category": "other",
+      "reverseSearchCategory": "general",
+      "file": "yandex.js",
+      "description": "通用图片反搜；可查找网页出处与相似图片"
+    },
+    {
+      "key": "bing",
+      "name": "Bing",
+      "version": "0.0.1",
+      "type": "comic",
+      "category": "other",
+      "reverseSearchCategory": "general",
+      "file": "bing.js",
+      "description": "通用图片反搜；提供网页出处与视觉相似结果"
+    },
+    {
+      "key": "baidu",
+      "name": "百度识图",
+      "version": "0.0.1",
+      "type": "comic",
+      "category": "other",
+      "reverseSearchCategory": "general",
+      "file": "baidu.js",
+      "description": "通用图片反搜；结果覆盖取决于百度识图索引"
+    },
+    {
       "key": "trace_moe",
       "name": "trace.moe",
       "version": "0.0.3",
@@ -516,6 +555,16 @@
       "reverseSearchCategory": "gallery",
       "file": "iqdb.js",
       "description": "插画出处反搜；高峰期可能需要排队"
+    },
+    {
+      "key": "ehentai_reverse",
+      "name": "E-Hentai 识图",
+      "version": "0.0.1",
+      "type": "comic",
+      "category": "other",
+      "reverseSearchCategory": "gallery",
+      "file": "ehentai_reverse.js",
+      "description": "成人画廊图片反搜；返回匹配画廊与原站标签"
     },
     {
       "key": "avscan",

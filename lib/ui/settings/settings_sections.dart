@@ -15,6 +15,7 @@ import 'storage_page.dart';
 enum SettingsSection {
   appearance(Icons.palette_outlined),
   reading(Icons.auto_stories_outlined),
+  shortVideo(Icons.video_collection_outlined),
   shelf(Icons.collections_bookmark_outlined),
   search(Icons.translate_rounded),
   network(Icons.public_rounded),
@@ -33,6 +34,7 @@ enum SettingsSection {
   List<SettingsDomain> get domains => switch (this) {
     SettingsSection.appearance => const [SettingsDomain.appearance],
     SettingsSection.reading => const [SettingsDomain.reader],
+    SettingsSection.shortVideo => const [SettingsDomain.shortVideo],
     SettingsSection.shelf => const [
       SettingsDomain.library,
       SettingsDomain.network,
@@ -51,6 +53,7 @@ enum SettingsSection {
   String get title => switch (this) {
     SettingsSection.appearance => tr('外观'),
     SettingsSection.reading => tr('阅读'),
+    SettingsSection.shortVideo => tr('短视频'),
     SettingsSection.shelf => tr('书架与下载'),
     SettingsSection.search => tr('搜索与翻译'),
     SettingsSection.network => tr('网络'),
@@ -84,6 +87,7 @@ class SettingsSectionPage extends StatelessWidget {
       case SettingsSection.subscriptions:
       case SettingsSection.appearance:
       case SettingsSection.reading:
+      case SettingsSection.shortVideo:
       case SettingsSection.shelf:
       case SettingsSection.search:
       case SettingsSection.network:
@@ -98,19 +102,22 @@ class SettingsSectionPage extends StatelessWidget {
         listenable: Listenable.merge([
           for (final domain in section.domains) s.domain(domain),
         ]),
-        builder: (context, _) => ListView(
-          padding: const EdgeInsets.only(bottom: Gap.xxl),
-          children: switch (section) {
-            SettingsSection.appearance => appearanceSettings(context, s),
-            SettingsSection.reading => readingSettings(context, s),
-            SettingsSection.shelf => shelfSettings(context, s),
-            SettingsSection.search => searchSettings(context, s),
-            SettingsSection.network => networkSettings(context, s),
-            SettingsSection.privacy => privacySettings(context, s),
-            SettingsSection.subscriptions => subscriptionSettings(context, s),
-            SettingsSection.about => aboutSettings(context),
-            _ => const [],
-          },
+        builder: (context, _) => SettingsBody(
+          child: ListView(
+            padding: const EdgeInsets.only(bottom: Gap.xxl),
+            children: switch (section) {
+              SettingsSection.appearance => appearanceSettings(context, s),
+              SettingsSection.reading => readingSettings(context, s),
+              SettingsSection.shortVideo => shortVideoSettings(context, s),
+              SettingsSection.shelf => shelfSettings(context, s),
+              SettingsSection.search => searchSettings(context, s),
+              SettingsSection.network => networkSettings(context, s),
+              SettingsSection.privacy => privacySettings(context, s),
+              SettingsSection.subscriptions => subscriptionSettings(context, s),
+              SettingsSection.about => aboutSettings(context),
+              _ => const [],
+            },
+          ),
         ),
       ),
     );

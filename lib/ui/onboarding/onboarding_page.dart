@@ -4,11 +4,12 @@ import 'package:flutter/services.dart';
 import '../../core/app_lock.dart';
 import '../../core/localization.dart';
 import '../../core/models.dart';
+import '../../core/platform_capabilities.dart';
 import '../../core/settings.dart';
 import '../kit/kit.dart';
 import '../theme.dart';
 
-/// First run: confirm age (required), then privacy preferences and interests (both skippable).
+/// 首次使用先确认年龄，再设置隐私与分类；后续步骤可返回调整。
 /// Existing users who upgrade see only the age step.
 class OnboardingPage extends StatefulWidget {
   const OnboardingPage({super.key});
@@ -29,6 +30,11 @@ class _OnboardingPageState extends State<OnboardingPage> {
   };
 
   bool get _fullFlow => !_settings.onboarded && _settings.freshInstall;
+
+  void _back() {
+    if (_step == _Step.age) return;
+    setState(() => _step = _Step.values[_step.index - 1]);
+  }
 
   void _confirmAge() {
     HapticFeedback.lightImpact();
@@ -56,6 +62,9 @@ class _OnboardingPageState extends State<OnboardingPage> {
   @override
   Widget build(BuildContext context) => PopScope(
     canPop: false,
+    onPopInvokedWithResult: (didPop, _) {
+      if (!didPop) _back();
+    },
     child: Scaffold(
       body: SafeArea(
         child: Center(
@@ -89,7 +98,12 @@ class _OnboardingPageState extends State<OnboardingPage> {
     children: [
       Expanded(
         child: ListView(
-          padding: const EdgeInsets.fromLTRB(Gap.xl, Gap.xxl, Gap.xl, Gap.l),
+          padding: const EdgeInsets.fromLTRB(
+            Gap.page,
+            Gap.xxl,
+            Gap.page,
+            Gap.l,
+          ),
           children: [
             Semantics(
               header: true,
@@ -113,12 +127,19 @@ class _OnboardingPageState extends State<OnboardingPage> {
       ),
       const Divider(),
       Padding(
-        padding: const EdgeInsets.fromLTRB(Gap.xl, Gap.m, Gap.xl, Gap.l),
+        padding: const EdgeInsets.fromLTRB(Gap.page, Gap.m, Gap.page, Gap.l),
         child: Wrap(
           alignment: WrapAlignment.end,
           spacing: Gap.s,
           runSpacing: Gap.s,
-          children: actions,
+          children: [
+            if (_step != _Step.age)
+              TextButton(
+                onPressed: _back,
+                child: SelectionContainer.disabled(child: Text(tr('返回'))),
+              ),
+            ...actions,
+          ],
         ),
       ),
     ],
@@ -171,15 +192,18 @@ class _OnboardingPageState extends State<OnboardingPage> {
               value: _settings.blurCovers,
               onChanged: (v) => _settings.blurCovers = v,
             ),
-            SwitchListTile(
-              contentPadding: EdgeInsets.zero,
-              title: SelectionContainer.disabled(child: Text(tr('防截屏与多任务预览'))),
-              subtitle: SelectionContainer.disabled(
-                child: Text(tr('最近任务中隐藏内容，并禁止截屏（Android）')),
+            if (PlatformCapabilities.secureScreen)
+              SwitchListTile(
+                contentPadding: EdgeInsets.zero,
+                title: SelectionContainer.disabled(
+                  child: Text(tr('防截屏与多任务预览')),
+                ),
+                subtitle: SelectionContainer.disabled(
+                  child: Text(tr('最近任务中隐藏内容，并禁止截屏（Android）')),
+                ),
+                value: _settings.secureScreen,
+                onChanged: (v) => _settings.secureScreen = v,
               ),
-              value: _settings.secureScreen,
-              onChanged: (v) => _settings.secureScreen = v,
-            ),
             if (AppLock.platformSupported)
               SwitchListTile(
                 contentPadding: EdgeInsets.zero,
@@ -206,10 +230,6 @@ class _OnboardingPageState extends State<OnboardingPage> {
         ),
       ],
       actions: [
-        TextButton(
-          onPressed: () => setState(() => _step = _Step.interests),
-          child: SelectionContainer.disabled(child: Text(tr('跳过'))),
-        ),
         FilledButton(
           onPressed: () => setState(() => _step = _Step.interests),
           child: SelectionContainer.disabled(child: Text(tr('下一步'))),
@@ -228,8 +248,8 @@ class _OnboardingPageState extends State<OnboardingPage> {
         runSpacing: Gap.s,
         children: [
           for (final c in _settings.domainOrder)
-            FilterChip(
-              label: SelectionContainer.disabled(child: Text(c.label)),
+            SelectionChip(
+              label: c.label,
               selected: _interests.contains(c),
               onSelected: (on) =>
                   setState(() => on ? _interests.add(c) : _interests.remove(c)),

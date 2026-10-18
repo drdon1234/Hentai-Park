@@ -150,22 +150,28 @@ class SectionHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Padding(
     padding: padding,
-    child: Row(
-      children: [
-        if (leading != null) ...[leading!, const SizedBox(width: Gap.s)],
-        Expanded(
-          child: Semantics(
-            header: true,
-            child: Text(
-              title,
-              style: context.text.titleMedium,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
+    child: LayoutBuilder(
+      builder: (context, constraints) => Row(
+        children: [
+          if (leading != null) ...[leading!, const SizedBox(width: Gap.s)],
+          Expanded(
+            child: Semantics(
+              header: true,
+              child: Text(
+                title,
+                style: context.text.titleMedium,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
             ),
           ),
-        ),
-        ?trailing,
-      ],
+          if (trailing != null)
+            ConstrainedBox(
+              constraints: BoxConstraints(maxWidth: constraints.maxWidth * .6),
+              child: trailing,
+            ),
+        ],
+      ),
     ),
   );
 }
@@ -197,7 +203,7 @@ class ListRow extends StatelessWidget {
   final VoidCallback? onLongPress;
   final bool selected;
   final bool enabled;
-  final int titleMaxLines;
+  final int? titleMaxLines;
   final int subtitleMaxLines;
   final EdgeInsets padding;
 
@@ -232,7 +238,9 @@ class ListRow extends StatelessWidget {
                         Text(
                           title,
                           maxLines: titleMaxLines,
-                          overflow: TextOverflow.ellipsis,
+                          overflow: titleMaxLines == null
+                              ? TextOverflow.clip
+                              : TextOverflow.ellipsis,
                           style: context.text.bodyLarge?.copyWith(color: fg),
                         ),
                         if (subtitle != null && subtitle!.isNotEmpty) ...[
@@ -580,6 +588,42 @@ class ParkSearchField extends StatelessWidget {
         onTap: onTap,
         onSubmitted: onSubmitted,
         onChanged: onChanged,
+        contextMenuBuilder: (context, state) {
+          if (SystemContextMenu.isSupportedByField(state)) {
+            return SystemContextMenu.editableText(editableTextState: state);
+          }
+          return AdaptiveTextSelectionToolbar.buttonItems(
+            anchors: state.contextMenuAnchors,
+            buttonItems: [
+              for (final item in state.contextMenuButtonItems)
+                if (item.type != ContextMenuButtonType.paste) item,
+              if (!readOnly)
+                ContextMenuButtonItem(
+                  type: ContextMenuButtonType.paste,
+                  onPressed: () async {
+                    state.hideToolbar();
+                    final before = state.textEditingValue;
+                    final text = await readSearchClipboard(
+                      context,
+                      focusNode: state.widget.focusNode,
+                    );
+                    if (text == null ||
+                        !state.mounted ||
+                        state.textEditingValue != before) {
+                      return;
+                    }
+                    final selection = before.selection.isValid
+                        ? before.selection
+                        : TextSelection.collapsed(offset: before.text.length);
+                    state.userUpdateTextEditingValue(
+                      before.replaced(selection, text),
+                      SelectionChangedCause.toolbar,
+                    );
+                  },
+                ),
+            ],
+          );
+        },
         textInputAction: TextInputAction.search,
         style: context.text.bodyLarge,
         decoration: InputDecoration(
@@ -592,6 +636,29 @@ class ParkSearchField extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+/// Both the explicit paste button and the system edit menu use a focused, user-initiated read.
+Future<String?> readSearchClipboard(
+  BuildContext context, {
+  FocusNode? focusNode,
+}) async {
+  focusNode?.requestFocus();
+  try {
+    final data = await Clipboard.getData(Clipboard.kTextPlain);
+    if (!context.mounted) return null;
+    if (data?.text?.trim().isNotEmpty != true) {
+      context.toast(tr('剪贴板没有可粘贴的文字'));
+      return null;
+    }
+    return data!.text;
+  } on PlatformException {
+    if (context.mounted) context.toast(tr('无法读取剪贴板，请重试或使用系统粘贴菜单'));
+    return null;
+  } on MissingPluginException {
+    if (context.mounted) context.toast(tr('无法读取剪贴板，请重试或使用系统粘贴菜单'));
+    return null;
   }
 }
 

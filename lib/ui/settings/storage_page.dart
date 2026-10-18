@@ -173,129 +173,137 @@ class _StoragePageState extends State<StoragePage> {
               )
             : null,
       ),
-      body: AbsorbPointer(
-        absorbing: _busy,
-        child: ListView(
-          padding: const EdgeInsets.fromLTRB(0, 8, 0, 32),
-          children: [
-            RowGroup(
-              children: [
-                ListTile(
-                  leading: const Icon(Icons.home_outlined),
-                  title: SelectionContainer.disabled(child: Text(tr('主页数据缓存'))),
-                  subtitle: SelectionContainer.disabled(
-                    child: Text(size(_homeCache)),
-                  ),
-                  trailing: SelectionContainer.disabled(
-                    child: TextButton(
-                      onPressed: () =>
-                          _run(HomeCache.instance.clear, tr('缓存已清除')),
-                      child: Text(tr('清除')),
+      body: SettingsBody(
+        child: AbsorbPointer(
+          absorbing: _busy,
+          child: ListView(
+            padding: const EdgeInsets.fromLTRB(0, 8, 0, 32),
+            children: [
+              RowGroup(
+                children: [
+                  ListTile(
+                    leading: const Icon(Icons.home_outlined),
+                    title: SelectionContainer.disabled(
+                      child: Text(tr('主页数据缓存')),
+                    ),
+                    subtitle: SelectionContainer.disabled(
+                      child: Text(size(_homeCache)),
+                    ),
+                    trailing: SelectionContainer.disabled(
+                      child: TextButton(
+                        onPressed: () =>
+                            _run(HomeCache.instance.clear, tr('缓存已清除')),
+                        child: Text(tr('清除')),
+                      ),
                     ),
                   ),
-                ),
-                ListTile(
-                  leading: const Icon(Icons.image_outlined),
-                  title: SelectionContainer.disabled(child: Text(tr('媒体缓存'))),
-                  subtitle: SelectionContainer.disabled(
-                    child: Text(size(_cache)),
-                  ),
-                  trailing: SelectionContainer.disabled(
-                    child: TextButton(
-                      onPressed: () => _run(() async {
-                        await ImageStore.instance.clear();
-                        imageCache.clear();
-                      }, tr('缓存已清除')),
-                      child: Text(tr('清除')),
+                  ListTile(
+                    leading: const Icon(Icons.image_outlined),
+                    title: SelectionContainer.disabled(child: Text(tr('媒体缓存'))),
+                    subtitle: SelectionContainer.disabled(
+                      child: Text(size(_cache)),
+                    ),
+                    trailing: SelectionContainer.disabled(
+                      child: TextButton(
+                        onPressed: () => _run(() async {
+                          await ImageStore.instance.clear();
+                          imageCache.clear();
+                        }, tr('缓存已清除')),
+                        child: Text(tr('清除')),
+                      ),
                     ),
                   ),
-                ),
-                ListTile(
-                  leading: const Icon(Icons.storage_rounded),
-                  title: SelectionContainer.disabled(child: Text(tr('书库数据库'))),
-                  subtitle: SelectionContainer.disabled(
-                    child: Text(size(_database)),
+                  ListTile(
+                    leading: const Icon(Icons.storage_rounded),
+                    title: SelectionContainer.disabled(
+                      child: Text(tr('书库数据库')),
+                    ),
+                    subtitle: SelectionContainer.disabled(
+                      child: Text(size(_database)),
+                    ),
                   ),
-                ),
-                ListTile(
-                  leading: const Icon(Icons.backup_outlined),
-                  title: SelectionContainer.disabled(child: Text(tr('备份文件'))),
-                  subtitle: SelectionContainer.disabled(
-                    child: Text(size(_backups)),
+                  ListTile(
+                    leading: const Icon(Icons.backup_outlined),
+                    title: SelectionContainer.disabled(child: Text(tr('备份文件'))),
+                    subtitle: SelectionContainer.disabled(
+                      child: Text(size(_backups)),
+                    ),
                   ),
-                ),
-              ],
-            ),
-            RowGroup(
-              title: tr('下载'),
-              children: [
-                ListTile(
-                  leading: const Icon(Icons.download_done_rounded),
-                  title: SelectionContainer.disabled(child: Text(tr('全部下载'))),
-                  subtitle: SelectionContainer.disabled(
-                    child: Text(size(dlTotal)),
+                ],
+              ),
+              RowGroup(
+                title: tr('下载'),
+                children: [
+                  ListTile(
+                    leading: const Icon(Icons.download_done_rounded),
+                    title: SelectionContainer.disabled(child: Text(tr('全部下载'))),
+                    subtitle: SelectionContainer.disabled(
+                      child: Text(size(dlTotal)),
+                    ),
                   ),
-                ),
-                if (downloads != null)
-                  for (final e
-                      in downloads.entries.toList()
-                        ..sort((a, b) => b.value.compareTo(a.value)))
-                    ListTile(
-                      dense: true,
-                      leading: SourceAvatar(e.key, size: 24),
-                      title: SelectionContainer.disabled(
-                        child: Text(
-                          e.key == localSource
-                              ? tr('本地导入')
-                              : SourceManager.instance.manifest(e.key)?.name ??
-                                    e.key,
+                  if (downloads != null)
+                    for (final e
+                        in downloads.entries.toList()
+                          ..sort((a, b) => b.value.compareTo(a.value)))
+                      ListTile(
+                        dense: true,
+                        leading: SourceAvatar(e.key, size: 24),
+                        title: SelectionContainer.disabled(
+                          child: Text(
+                            e.key == localSource
+                                ? tr('本地导入')
+                                : SourceManager.instance
+                                          .manifest(e.key)
+                                          ?.name ??
+                                      e.key,
+                          ),
+                        ),
+                        trailing: SelectionContainer.disabled(
+                          child: Text(formatBytes(e.value)),
                         ),
                       ),
-                      trailing: SelectionContainer.disabled(
-                        child: Text(formatBytes(e.value)),
+                  ListTile(
+                    leading: const Icon(Icons.auto_delete_outlined),
+                    title: SelectionContainer.disabled(
+                      child: Text(tr('删除已读章节的下载')),
+                    ),
+                    subtitle: SelectionContainer.disabled(
+                      child: Text(tr('只删除标记为已读的漫画章节，本地导入不受影响')),
+                    ),
+                    onTap: () async {
+                      var n = 0;
+                      await _run(() async => n = await _deleteRead(), '');
+                      if (context.mounted) {
+                        context.toast(tr('已删除 {value0} 个章节', {'value0': n}));
+                      }
+                    },
+                  ),
+                  ListTile(
+                    leading: const Icon(Icons.folder_outlined),
+                    title: SelectionContainer.disabled(child: Text(tr('下载位置'))),
+                    subtitle: SelectionContainer.disabled(
+                      child: SelectableText(
+                        p.normalize(DownloadManager.instance.root.path),
+                        style: context.text.bodySmall,
                       ),
                     ),
-                ListTile(
-                  leading: const Icon(Icons.auto_delete_outlined),
-                  title: SelectionContainer.disabled(
-                    child: Text(tr('删除已读章节的下载')),
                   ),
-                  subtitle: SelectionContainer.disabled(
-                    child: Text(tr('只删除标记为已读的漫画章节，本地导入不受影响')),
-                  ),
-                  onTap: () async {
-                    var n = 0;
-                    await _run(() async => n = await _deleteRead(), '');
-                    if (context.mounted) {
-                      context.toast(tr('已删除 {value0} 个章节', {'value0': n}));
-                    }
-                  },
-                ),
-                ListTile(
-                  leading: const Icon(Icons.folder_outlined),
-                  title: SelectionContainer.disabled(child: Text(tr('下载位置'))),
-                  subtitle: SelectionContainer.disabled(
-                    child: SelectableText(
-                      p.normalize(DownloadManager.instance.root.path),
-                      style: context.text.bodySmall,
+                ],
+              ),
+              RowGroup(
+                title: tr('站点数据'),
+                children: [
+                  ListTile(
+                    leading: const Icon(Icons.cookie_outlined),
+                    title: SelectionContainer.disabled(
+                      child: Text(tr('清除某个站点的 Cookie')),
                     ),
+                    onTap: _clearCookies,
                   ),
-                ),
-              ],
-            ),
-            RowGroup(
-              title: tr('站点数据'),
-              children: [
-                ListTile(
-                  leading: const Icon(Icons.cookie_outlined),
-                  title: SelectionContainer.disabled(
-                    child: Text(tr('清除某个站点的 Cookie')),
-                  ),
-                  onTap: _clearCookies,
-                ),
-              ],
-            ),
-          ],
+                ],
+              ),
+            ],
+          ),
         ),
       ),
     );

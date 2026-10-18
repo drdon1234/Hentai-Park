@@ -83,10 +83,12 @@ class _SourceSettingsPageState extends State<SourceSettingsPage> {
         if (s == null || m == null) {
           return Scaffold(
             appBar: AppBar(),
-            body: EmptyState(
-              icon: Icons.error_outline_rounded,
-              title: context.tr('站点未加载'),
-              message: s?.loadError,
+            body: SettingsBody(
+              child: EmptyState(
+                icon: Icons.error_outline_rounded,
+                title: context.tr('站点未加载'),
+                message: s?.loadError,
+              ),
             ),
           );
         }
@@ -112,183 +114,190 @@ class _SourceSettingsPageState extends State<SourceSettingsPage> {
                     ],
                   ),
                 ),
-                body: ListView(
-                  padding: const EdgeInsets.fromLTRB(0, 4, 0, 32),
-                  children: [
-                    RowGroup(
-                      children: [
-                        ListTile(
-                          title: SelectionContainer.disabled(
-                            child: Text(m.description),
-                          ),
-                          subtitle: SelectionContainer.disabled(
-                            child: Text(
-                              'v${m.version} · ${context.tr(s.origin == 'official'
-                                  ? '官方'
-                                  : s.origin == 'builtin'
-                                  ? '内置站点'
-                                  : '第三方站点')}${m.homepage.isNotEmpty ? ' · ${Uri.parse(m.homepage).host}' : ''}',
-                            ),
-                          ),
-                          trailing: m.homepage.isEmpty
-                              ? null
-                              : SelectionContainer.disabled(
-                                  child: IconButton(
-                                    tooltip: tr('在浏览器中打开'),
-                                    icon: const Icon(Icons.open_in_new_rounded),
-                                    onPressed: () => launchUrl(
-                                      Uri.parse(m.homepage),
-                                      mode: LaunchMode.externalApplication,
-                                    ),
-                                  ),
-                                ),
-                        ),
-                      ],
-                    ),
-                    RowGroup(
-                      children: [
-                        ListTile(
-                          leading: const Icon(Icons.translate_rounded),
-                          title: SelectionContainer.disabled(
-                            child: Text(context.tr('官方标签翻译包')),
-                          ),
-                          onTap: () => showTagTranslationPacks(
-                            context,
-                            source: widget.sourceKey,
-                          ),
-                        ),
-                      ],
-                    ),
-                    if (m.account != null) ...[
-                      _header(context, context.tr('账号')),
-                      _account(context, s, m.account!),
-                    ],
-                    if (m.settings.isNotEmpty) ...[
-                      _header(context, context.tr('站点设置')),
+                body: SettingsBody(
+                  child: ListView(
+                    padding: const EdgeInsets.fromLTRB(0, 4, 0, 32),
+                    children: [
                       RowGroup(
                         children: [
-                          for (final o in m.settings) _setting(context, m, o),
-                        ],
-                      ),
-                    ],
-                    _header(context, context.tr('网络')),
-                    RowGroup(
-                      children: [
-                        ListTile(
-                          leading: const Icon(Icons.verified_user_outlined),
-                          title: SelectionContainer.disabled(
-                            child: Text(context.tr('打开站点进行人机验证')),
-                          ),
-                          subtitle: SelectionContainer.disabled(
-                            child: Text(
-                              context.tr(
-                                m.usesBrowserNetwork
-                                    ? '这个站点通过内置浏览器访问，遇到验证时在这里完成'
-                                    : '遇到 Cloudflare 验证时使用',
+                          ListTile(
+                            title: SelectionContainer.disabled(
+                              child: Text(m.description),
+                            ),
+                            subtitle: SelectionContainer.disabled(
+                              child: Text(
+                                'v${m.version} · ${context.tr(s.origin == 'official'
+                                    ? '官方'
+                                    : s.origin == 'builtin'
+                                    ? '内置站点'
+                                    : '第三方站点')}${m.homepage.isNotEmpty ? ' · ${Uri.parse(m.homepage).host}' : ''}',
                               ),
                             ),
+                            trailing: m.homepage.isEmpty
+                                ? null
+                                : SelectionContainer.disabled(
+                                    child: IconButton(
+                                      tooltip: tr('在浏览器中打开'),
+                                      icon: const Icon(
+                                        Icons.open_in_new_rounded,
+                                      ),
+                                      onPressed: () => launchUrl(
+                                        Uri.parse(m.homepage),
+                                        mode: LaunchMode.externalApplication,
+                                      ),
+                                    ),
+                                  ),
                           ),
-                          onTap: () async {
-                            final ok = await Nav.verifyCloudflare(
+                        ],
+                      ),
+                      RowGroup(
+                        children: [
+                          ListTile(
+                            leading: const Icon(Icons.translate_rounded),
+                            title: SelectionContainer.disabled(
+                              child: Text(context.tr('官方标签翻译包')),
+                            ),
+                            onTap: () => showTagTranslationPacks(
                               context,
-                              m.key,
-                            );
-                            if (context.mounted && ok) {
-                              context.toast(context.tr('验证完成'));
-                            }
-                          },
-                        ),
-                      ],
-                    ),
-                    if (canRestore || !managed)
-                      _header(context, context.tr('维护')),
-                    if (canRestore || !managed)
-                      RowGroup(
-                        children: [
-                          if (canRestore)
-                            ListTile(
-                              leading: const Icon(Icons.restore_rounded),
-                              title: SelectionContainer.disabled(
-                                child: Text(context.tr('恢复内置版本')),
-                              ),
-                              onTap: () async {
-                                await confirmReset(
-                                  context,
-                                  title: '恢复内置版本',
-                                  message: '将使用安装包内置的站点插件，账号与设置保留。是否继续？',
-                                  reset: () => sm.resetBuiltin(m.key),
-                                );
-                              },
+                              source: widget.sourceKey,
                             ),
-                          if (!managed && s.url.isNotEmpty)
-                            ListTile(
-                              leading: const Icon(
-                                Icons.system_update_alt_rounded,
-                              ),
-                              title: SelectionContainer.disabled(
-                                child: Text(context.tr('从原地址更新')),
-                              ),
-                              subtitle: SelectionContainer.disabled(
-                                child: Text(
-                                  s.url,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                              onTap: () => installSourceFromUrl(context, s.url),
-                            ),
-                          if (!managed)
-                            ListTile(
-                              leading: Icon(
-                                Icons.delete_outline_rounded,
-                                color: context.colors.error,
-                              ),
-                              title: SelectionContainer.disabled(
-                                child: Text(
-                                  context.tr('卸载此站点'),
-                                  style: TextStyle(color: context.colors.error),
-                                ),
-                              ),
-                              onTap: () async {
-                                final ok = await showDialog<bool>(
-                                  context: context,
-                                  builder: (ctx) => AlertDialog(
-                                    title: Text(
-                                      context.tr('卸载「{name}」？', {
-                                        'name': m.name,
-                                      }),
-                                    ),
-                                    content: Text(
-                                      context.tr(
-                                        '这个站点的设置、登录信息与 Cookie 都会被删除。书架中的收藏与下载不受影响。',
-                                      ),
-                                    ),
-                                    actions: [
-                                      TextButton(
-                                        onPressed: () =>
-                                            Navigator.pop(ctx, false),
-                                        child: SelectionContainer.disabled(
-                                          child: Text(context.tr('取消')),
-                                        ),
-                                      ),
-                                      FilledButton(
-                                        onPressed: () =>
-                                            Navigator.pop(ctx, true),
-                                        child: SelectionContainer.disabled(
-                                          child: Text(context.tr('卸载')),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                );
-                                if (ok != true) return;
-                                await sm.uninstall(m.key);
-                                if (context.mounted) Navigator.pop(context);
-                              },
-                            ),
+                          ),
                         ],
                       ),
-                  ],
+                      if (m.account != null) ...[
+                        _header(context, context.tr('账号')),
+                        _account(context, s, m.account!),
+                      ],
+                      if (m.settings.isNotEmpty) ...[
+                        _header(context, context.tr('站点设置')),
+                        RowGroup(
+                          children: [
+                            for (final o in m.settings) _setting(context, m, o),
+                          ],
+                        ),
+                      ],
+                      _header(context, context.tr('网络')),
+                      RowGroup(
+                        children: [
+                          ListTile(
+                            leading: const Icon(Icons.verified_user_outlined),
+                            title: SelectionContainer.disabled(
+                              child: Text(context.tr('打开站点进行人机验证')),
+                            ),
+                            subtitle: SelectionContainer.disabled(
+                              child: Text(
+                                context.tr(
+                                  m.usesBrowserNetwork
+                                      ? '这个站点通过内置浏览器访问，遇到验证时在这里完成'
+                                      : '遇到 Cloudflare 验证时使用',
+                                ),
+                              ),
+                            ),
+                            onTap: () async {
+                              final ok = await Nav.verifyCloudflare(
+                                context,
+                                m.key,
+                              );
+                              if (context.mounted && ok) {
+                                context.toast(context.tr('验证完成'));
+                              }
+                            },
+                          ),
+                        ],
+                      ),
+                      if (canRestore || !managed)
+                        _header(context, context.tr('维护')),
+                      if (canRestore || !managed)
+                        RowGroup(
+                          children: [
+                            if (canRestore)
+                              ListTile(
+                                leading: const Icon(Icons.restore_rounded),
+                                title: SelectionContainer.disabled(
+                                  child: Text(context.tr('恢复内置版本')),
+                                ),
+                                onTap: () async {
+                                  await confirmReset(
+                                    context,
+                                    title: '恢复内置版本',
+                                    message: '将使用安装包内置的站点插件，账号与设置保留。是否继续？',
+                                    reset: () => sm.resetBuiltin(m.key),
+                                  );
+                                },
+                              ),
+                            if (!managed && s.url.isNotEmpty)
+                              ListTile(
+                                leading: const Icon(
+                                  Icons.system_update_alt_rounded,
+                                ),
+                                title: SelectionContainer.disabled(
+                                  child: Text(context.tr('从原地址更新')),
+                                ),
+                                subtitle: SelectionContainer.disabled(
+                                  child: Text(
+                                    s.url,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                                onTap: () =>
+                                    installSourceFromUrl(context, s.url),
+                              ),
+                            if (!managed)
+                              ListTile(
+                                leading: Icon(
+                                  Icons.delete_outline_rounded,
+                                  color: context.colors.error,
+                                ),
+                                title: SelectionContainer.disabled(
+                                  child: Text(
+                                    context.tr('卸载此站点'),
+                                    style: TextStyle(
+                                      color: context.colors.error,
+                                    ),
+                                  ),
+                                ),
+                                onTap: () async {
+                                  final ok = await showDialog<bool>(
+                                    context: context,
+                                    builder: (ctx) => AlertDialog(
+                                      title: Text(
+                                        context.tr('卸载「{name}」？', {
+                                          'name': m.name,
+                                        }),
+                                      ),
+                                      content: Text(
+                                        context.tr(
+                                          '这个站点的设置、登录信息与 Cookie 都会被删除。书架中的收藏与下载不受影响。',
+                                        ),
+                                      ),
+                                      actions: [
+                                        TextButton(
+                                          onPressed: () =>
+                                              Navigator.pop(ctx, false),
+                                          child: SelectionContainer.disabled(
+                                            child: Text(context.tr('取消')),
+                                          ),
+                                        ),
+                                        FilledButton(
+                                          onPressed: () =>
+                                              Navigator.pop(ctx, true),
+                                          child: SelectionContainer.disabled(
+                                            child: Text(context.tr('卸载')),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  );
+                                  if (ok != true) return;
+                                  await sm.uninstall(m.key);
+                                  if (context.mounted) Navigator.pop(context);
+                                },
+                              ),
+                          ],
+                        ),
+                    ],
+                  ),
                 ),
               );
             },
@@ -299,7 +308,7 @@ class _SourceSettingsPageState extends State<SourceSettingsPage> {
   }
 
   Widget _header(BuildContext context, String title) => Padding(
-    padding: const EdgeInsets.fromLTRB(8, 20, 8, 6),
+    padding: const EdgeInsets.fromLTRB(Gap.page, 20, Gap.page, 6),
     child: Text(
       title,
       style: context.text.labelLarge?.copyWith(

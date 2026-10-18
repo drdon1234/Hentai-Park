@@ -663,6 +663,16 @@ class WorkDetail extends WorkItem {
           : null,
       singleChapterId = json['singleChapterId']?.toString(),
       related = _maps(json['related']).map((e) => WorkItem(e, source)).toList(),
+      relatedSections = _maps(json['relatedSections'])
+          .map(
+            (section) => WorkSection(
+              _str(section['title']),
+              _maps(section['items'])
+                  .map((item) => WorkItem(item, source))
+                  .toList(),
+            ),
+          )
+          .toList(),
       series = _maps(json['series']).map((e) => WorkItem(e, source)).toList(),
       variants = _maps(json['variants'])
           .where(
@@ -693,6 +703,7 @@ class WorkDetail extends WorkItem {
   final List<Chapter>? chapters;
   final String? singleChapterId;
   final List<WorkItem> related;
+  final List<WorkSection> relatedSections;
   final List<WorkItem> series;
   final List<WorkItem> variants;
   final List<PreviewThumb> thumbnails;

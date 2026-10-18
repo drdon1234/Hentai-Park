@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 
 import '../../core/localization.dart';
+import '../../core/platform_capabilities.dart';
 import '../../core/settings.dart';
+import '../kit/kit.dart';
 
 class NovelSettingsSheet extends StatelessWidget {
   const NovelSettingsSheet({super.key});
@@ -43,10 +45,8 @@ class NovelSettingsSheet extends StatelessWidget {
           runSpacing: 4,
           children: [
             for (final entry in values.entries)
-              ChoiceChip(
-                label: SelectionContainer.disabled(
-                  child: Text(tr(entry.value)),
-                ),
+              SelectionChip(
+                label: tr(entry.value),
                 selected: value == entry.key,
                 onSelected: (_) => change(entry.key),
               ),
@@ -74,7 +74,7 @@ class NovelSettingsSheet extends StatelessWidget {
               ),
               Expanded(
                 child: ListView(
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  padding: const EdgeInsets.symmetric(horizontal: Gap.page),
                   children: [
                     choices(tr('阅读模式'), s.novelMode, {
                       'scroll': '上下滚动',
@@ -137,15 +137,17 @@ class NovelSettingsSheet extends StatelessWidget {
                       .7,
                       (v) => s.novelDim = v,
                     ),
-                    SwitchListTile(
-                      contentPadding: EdgeInsets.zero,
-                      title: SelectionContainer.disabled(
-                        child: Text(tr('亮度跟随系统')),
+                    if (PlatformCapabilities.screenBrightness)
+                      SwitchListTile(
+                        contentPadding: EdgeInsets.zero,
+                        title: SelectionContainer.disabled(
+                          child: Text(tr('亮度跟随系统')),
+                        ),
+                        value: s.novelBrightness < 0,
+                        onChanged: (v) => s.novelBrightness = v ? -1 : .5,
                       ),
-                      value: s.novelBrightness < 0,
-                      onChanged: (v) => s.novelBrightness = v ? -1 : .5,
-                    ),
-                    if (s.novelBrightness >= 0)
+                    if (PlatformCapabilities.screenBrightness &&
+                        s.novelBrightness >= 0)
                       slider(
                         tr('亮度'),
                         s.novelBrightness,
@@ -206,14 +208,15 @@ class NovelSettingsSheet extends StatelessWidget {
                       value: s.novelKeepScreenOn,
                       onChanged: (v) => s.novelKeepScreenOn = v,
                     ),
-                    SwitchListTile(
-                      contentPadding: EdgeInsets.zero,
-                      title: SelectionContainer.disabled(
-                        child: Text(tr('音量键翻页')),
+                    if (PlatformCapabilities.volumeKeyPaging)
+                      SwitchListTile(
+                        contentPadding: EdgeInsets.zero,
+                        title: SelectionContainer.disabled(
+                          child: Text(tr('音量键翻页')),
+                        ),
+                        value: s.novelVolumeKeys,
+                        onChanged: (v) => s.novelVolumeKeys = v,
                       ),
-                      value: s.novelVolumeKeys,
-                      onChanged: (v) => s.novelVolumeKeys = v,
-                    ),
                     SwitchListTile(
                       contentPadding: EdgeInsets.zero,
                       title: SelectionContainer.disabled(

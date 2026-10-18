@@ -100,7 +100,10 @@ class _SubscriptionUpdatesPageState extends State<SubscriptionUpdatesPage> {
         if (updater.running) const LinearProgressIndicator(),
         if (updater.failures > 0)
           Padding(
-            padding: const EdgeInsets.all(12),
+            padding: const EdgeInsets.symmetric(
+              horizontal: Gap.page,
+              vertical: Gap.m,
+            ),
             child: Text(tr('部分订阅检查失败，请查看订阅状态')),
           ),
         Expanded(

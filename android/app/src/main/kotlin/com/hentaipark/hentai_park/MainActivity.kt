@@ -111,6 +111,12 @@ class MainActivity : FlutterFragmentActivity() {
         channel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "hentai_park/platform").also {
             it.setMethodCallHandler { call, result ->
                 when (call.method) {
+                    "readCrashDiagnostics" -> NativeCrashLog.read(applicationContext) { entries, error ->
+                        runOnUiThread {
+                            if (error == null) result.success(entries)
+                            else result.error("NATIVE_DIAGNOSTICS", "NATIVE_DIAGNOSTICS", null)
+                        }
+                    }
                     "isolateWebVideo" -> {
                         try { result.success(webVideoProfiles.isolate(call.arguments as String)) }
                         catch (_: Exception) { result.success(false) }

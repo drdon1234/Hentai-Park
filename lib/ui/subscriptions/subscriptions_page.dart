@@ -117,7 +117,7 @@ class _SubscriptionsPageState extends State<SubscriptionsPage> {
             : !store.loaded
             ? const Center(child: CircularProgressIndicator())
             : ListView(
-                padding: const EdgeInsets.fromLTRB(16, 12, 16, 100),
+                padding: const EdgeInsets.fromLTRB(0, Gap.m, 0, 100),
                 children: [
                   RowGroup(
                     children: [
@@ -226,10 +226,13 @@ class _SubscriptionsPageState extends State<SubscriptionsPage> {
                     ],
                   ),
                   const SizedBox(height: Gap.m),
-                  Text(
-                    tr('无需登录即可保存订阅；媒体访问取决于原站权限。'),
-                    style: context.text.bodySmall?.copyWith(
-                      color: context.colors.onSurfaceVariant,
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: Gap.page),
+                    child: Text(
+                      tr('无需登录即可保存订阅；媒体访问取决于原站权限。'),
+                      style: context.text.bodySmall?.copyWith(
+                        color: context.colors.onSurfaceVariant,
+                      ),
                     ),
                   ),
                   const SizedBox(height: 16),

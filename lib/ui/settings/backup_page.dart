@@ -195,147 +195,161 @@ class _BackupPageState extends State<BackupPage> {
                 )
               : null,
         ),
-        body: ListView(
-          padding: const EdgeInsets.fromLTRB(0, 8, 0, 32),
-          children: [
-            RowGroup(
-              children: [
-                ListTile(
-                  leading: const Icon(Icons.backup_outlined),
-                  title: SelectionContainer.disabled(child: Text(tr('创建备份'))),
-                  subtitle: SelectionContainer.disabled(
-                    child: Text(
-                      tr('收藏、分类、阅读进度、历史、标注、订阅、设置与站点列表；不包含下载内容或 Cookie'),
-                    ),
-                  ),
-                  onTap: _busy ? null : _create,
-                ),
-                ListTile(
-                  leading: const Icon(Icons.settings_backup_restore_rounded),
-                  title: SelectionContainer.disabled(child: Text(tr('从文件恢复'))),
-                  subtitle: SelectionContainer.disabled(
-                    child: Text(tr('选择 .parkbak 文件，与当前数据合并')),
-                  ),
-                  onTap: _busy ? null : _pickAndRestore,
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            RowGroup(
-              children: [
-                ListTile(
-                  leading: const Icon(Icons.schedule_rounded),
-                  title: SelectionContainer.disabled(child: Text(tr('自动备份'))),
-                  subtitle: SelectionContainer.disabled(
-                    child: Text(
-                      last == 0
-                          ? tr('尚未自动备份过')
-                          : tr('上次：{value0}', {
-                              'value0': timeAgo(
-                                DateTime.fromMillisecondsSinceEpoch(last),
-                              ),
-                            }),
-                    ),
-                  ),
-                ),
-                Padding(
-                  padding: const EdgeInsetsDirectional.fromSTEB(72, 0, 16, 12),
-                  child: SelectionContainer.disabled(
-                    child: DropdownButton<int>(
-                      value: s.autoBackupHours,
-                      isExpanded: true,
-                      underline: const SizedBox.shrink(),
-                      items:
-                          [
-                                (0, tr('关闭')),
-                                (12, tr('每 12 小时')),
-                                (24, tr('每天')),
-                                (72, tr('每 3 天')),
-                                (168, tr('每周')),
-                              ]
-                              .map(
-                                (e) => DropdownMenuItem(
-                                  value: e.$1,
-                                  child: SelectionContainer.disabled(
-                                    child: Text(
-                                      e.$2,
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                  ),
-                                ),
-                              )
-                              .toList(),
-                      onChanged: (v) => s.autoBackupHours = v ?? 24,
-                    ),
-                  ),
-                ),
-                ListTile(
-                  leading: const Icon(Icons.layers_outlined),
-                  title: SelectionContainer.disabled(child: Text(tr('保留份数'))),
-                  subtitle: SelectionContainer.disabled(
-                    child: Text(tr('仅清理自动备份，手工备份保留')),
-                  ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 8,
-                  ),
-                  child: Text(tr('打开应用或回到前台时检查备份间隔；应用关闭时不会执行后台定时备份')),
-                ),
-                Padding(
-                  padding: const EdgeInsetsDirectional.fromSTEB(72, 0, 16, 12),
-                  child: SelectionContainer.disabled(
-                    child: DropdownButton<int>(
-                      value: s.autoBackupKeep,
-                      isExpanded: true,
-                      underline: const SizedBox.shrink(),
-                      items: const [1, 2, 3, 5, 10]
-                          .map(
-                            (v) => DropdownMenuItem(
-                              value: v,
-                              child: SelectionContainer.disabled(
-                                child: Text('$v'),
-                              ),
-                            ),
-                          )
-                          .toList(),
-                      onChanged: (v) => s.autoBackupKeep = v ?? 3,
-                    ),
-                  ),
-                ),
-                ListTile(
-                  leading: const Icon(Icons.folder_outlined),
-                  title: SelectionContainer.disabled(child: Text(tr('备份目录'))),
-                  subtitle: SelectionContainer.disabled(
-                    child: SelectableText(
-                      AppPaths.backups.path,
-                      style: context.text.bodySmall,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            if (_files.isNotEmpty) ...[
+        body: SettingsBody(
+          child: ListView(
+            padding: const EdgeInsets.fromLTRB(0, 8, 0, 32),
+            children: [
               RowGroup(
-                title: tr('本机备份'),
                 children: [
-                  for (final f in _files)
-                    ListTile(
-                      leading: const Icon(Icons.description_outlined),
-                      title: SelectionContainer.disabled(
-                        child: Text(p.basename(f.path)),
+                  ListTile(
+                    leading: const Icon(Icons.backup_outlined),
+                    title: SelectionContainer.disabled(child: Text(tr('创建备份'))),
+                    subtitle: SelectionContainer.disabled(
+                      child: Text(
+                        tr('收藏、分类、阅读进度、历史、标注、订阅、设置与站点列表；不包含下载内容或 Cookie'),
                       ),
-                      subtitle: SelectionContainer.disabled(
-                        child: Text(formatBytes(f.lengthSync())),
-                      ),
-                      onTap: _busy ? null : () => _fileMenu(f),
                     ),
+                    onTap: _busy ? null : _create,
+                  ),
+                  ListTile(
+                    leading: const Icon(Icons.settings_backup_restore_rounded),
+                    title: SelectionContainer.disabled(
+                      child: Text(tr('从文件恢复')),
+                    ),
+                    subtitle: SelectionContainer.disabled(
+                      child: Text(tr('选择 .parkbak 文件，与当前数据合并')),
+                    ),
+                    onTap: _busy ? null : _pickAndRestore,
+                  ),
                 ],
               ),
+              const SizedBox(height: 12),
+              RowGroup(
+                children: [
+                  ListTile(
+                    leading: const Icon(Icons.schedule_rounded),
+                    title: SelectionContainer.disabled(child: Text(tr('自动备份'))),
+                    subtitle: SelectionContainer.disabled(
+                      child: Text(
+                        last == 0
+                            ? tr('尚未自动备份过')
+                            : tr('上次：{value0}', {
+                                'value0': timeAgo(
+                                  DateTime.fromMillisecondsSinceEpoch(last),
+                                ),
+                              }),
+                      ),
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsetsDirectional.fromSTEB(
+                      72,
+                      0,
+                      16,
+                      12,
+                    ),
+                    child: SelectionContainer.disabled(
+                      child: DropdownButton<int>(
+                        value: s.autoBackupHours,
+                        isExpanded: true,
+                        underline: const SizedBox.shrink(),
+                        items:
+                            [
+                                  (0, tr('关闭')),
+                                  (12, tr('每 12 小时')),
+                                  (24, tr('每天')),
+                                  (72, tr('每 3 天')),
+                                  (168, tr('每周')),
+                                ]
+                                .map(
+                                  (e) => DropdownMenuItem(
+                                    value: e.$1,
+                                    child: SelectionContainer.disabled(
+                                      child: Text(
+                                        e.$2,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                  ),
+                                )
+                                .toList(),
+                        onChanged: (v) => s.autoBackupHours = v ?? 24,
+                      ),
+                    ),
+                  ),
+                  ListTile(
+                    leading: const Icon(Icons.layers_outlined),
+                    title: SelectionContainer.disabled(child: Text(tr('保留份数'))),
+                    subtitle: SelectionContainer.disabled(
+                      child: Text(tr('仅清理自动备份，手工备份保留')),
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 8,
+                    ),
+                    child: Text(tr('打开应用或回到前台时检查备份间隔；应用关闭时不会执行后台定时备份')),
+                  ),
+                  Padding(
+                    padding: const EdgeInsetsDirectional.fromSTEB(
+                      72,
+                      0,
+                      16,
+                      12,
+                    ),
+                    child: SelectionContainer.disabled(
+                      child: DropdownButton<int>(
+                        value: s.autoBackupKeep,
+                        isExpanded: true,
+                        underline: const SizedBox.shrink(),
+                        items: const [1, 2, 3, 5, 10]
+                            .map(
+                              (v) => DropdownMenuItem(
+                                value: v,
+                                child: SelectionContainer.disabled(
+                                  child: Text('$v'),
+                                ),
+                              ),
+                            )
+                            .toList(),
+                        onChanged: (v) => s.autoBackupKeep = v ?? 3,
+                      ),
+                    ),
+                  ),
+                  ListTile(
+                    leading: const Icon(Icons.folder_outlined),
+                    title: SelectionContainer.disabled(child: Text(tr('备份目录'))),
+                    subtitle: SelectionContainer.disabled(
+                      child: SelectableText(
+                        AppPaths.backups.path,
+                        style: context.text.bodySmall,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              if (_files.isNotEmpty) ...[
+                RowGroup(
+                  title: tr('本机备份'),
+                  children: [
+                    for (final f in _files)
+                      ListTile(
+                        leading: const Icon(Icons.description_outlined),
+                        title: SelectionContainer.disabled(
+                          child: Text(p.basename(f.path)),
+                        ),
+                        subtitle: SelectionContainer.disabled(
+                          child: Text(formatBytes(f.lengthSync())),
+                        ),
+                        onTap: _busy ? null : () => _fileMenu(f),
+                      ),
+                  ],
+                ),
+              ],
             ],
-          ],
+          ),
         ),
       ),
     );

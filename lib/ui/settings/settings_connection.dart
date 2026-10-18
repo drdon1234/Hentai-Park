@@ -2,10 +2,10 @@ import 'package:flutter/material.dart';
 
 import '../../core/app_lock.dart';
 import '../../core/localization.dart';
+import '../../core/platform_capabilities.dart';
 import '../../core/settings.dart';
 import '../../core/translation_options.dart';
 import '../kit/kit.dart';
-import '../kit/selection_chip.dart';
 import '../nav.dart';
 import '../subscriptions/subscriptions_page.dart';
 import '../theme.dart';
@@ -192,14 +192,15 @@ List<Widget> privacySettings(BuildContext context, AppSettings s) => [
             if (v != null) s.appLockAfter = v;
           },
         ),
-      SwitchListTile(
-        title: SelectionContainer.disabled(child: Text(tr('防截屏与多任务预览'))),
-        subtitle: SelectionContainer.disabled(
-          child: Text(tr('最近任务中隐藏内容，并禁止截屏（Android）')),
+      if (PlatformCapabilities.secureScreen)
+        SwitchListTile(
+          title: SelectionContainer.disabled(child: Text(tr('防截屏与多任务预览'))),
+          subtitle: SelectionContainer.disabled(
+            child: Text(tr('最近任务中隐藏内容，并禁止截屏（Android）')),
+          ),
+          value: s.secureScreen,
+          onChanged: (v) => s.secureScreen = v,
         ),
-        value: s.secureScreen,
-        onChanged: (v) => s.secureScreen = v,
-      ),
     ],
   ),
 ];

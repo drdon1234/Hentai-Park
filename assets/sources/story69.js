@@ -9,7 +9,7 @@ Park.register({
     "ru": {"中文短篇小说，支持最新与分类阅读；站点无有效搜索": "Короткие рассказы на китайском: новинки и категории; поиск на сайте недоступен", "都市生活": "Городская жизнь"},
     "ar": {"中文短篇小说，支持最新与分类阅读；站点无有效搜索": "قصص صينية قصيرة حسب الأحدث والفئات؛ لا يتوفر بحث فعال", "都市生活": "الحياة في المدينة"},
   },
-  key: 'story69', name: '69story', version: '0.0.4', type: 'novel', category: 'novel',
+  key: 'story69', name: '69story', version: '0.0.5', type: 'novel', category: 'novel',
   language: 'zh-Hant', color: '#D56A74', homepage: 'https://69story.com',
   description: '中文短篇小说，支持最新与分类阅读；站点无有效搜索',
   domains: ['69story.com'], network: {mode: 'native', vpnHint: true},
@@ -35,9 +35,11 @@ Park.register({
     const items = [], seen = new Set();
     for (const row of doc.querySelectorAll(rows)) {
       const a = row.querySelector('td.entry-content a[rel="bookmark"]'), u = a && this.siteUrl(a.getAttribute('href'));
-      const m = u && /^\/article\/(\d{1,12})-[^/]+\.html$/.exec(u.pathname), title = Park.html.text(a);
+      const m = u && /^\/article\/(\d{1,12})-[^/]+\.html$/.exec(u.pathname), rawTitle = Park.html.text(a);
+      const category = Park.html.text(row.querySelector('.entry-header small a')),
+        title = rawTitle.replace(/\s*\/\s*[^/]*成人(?:小說|小说|文學|文学)\s*$/, '').trim();
       if (!m || !title || seen.has(m[1])) continue;
-      seen.add(m[1]); items.push({id: m[1], title, url: u.href, cover: '', mediaKind: 'novel', language: 'zh-Hant'});
+      seen.add(m[1]); items.push({id: m[1], title, subtitle: '', authors: [], category, tags: [], uploaded: '', url: u.href, cover: '', mediaKind: 'novel', language: 'zh-Hant'});
     }
     return items;
   },

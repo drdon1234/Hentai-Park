@@ -296,7 +296,7 @@ Future<void> showWorkActions(
                 true)
               ListTile(
                 leading: const Icon(Icons.thumb_up_outlined),
-                title: Text(tr('原站喜好')),
+                title: Text(tr('原站互动')),
                 onTap: () {
                   Navigator.pop(ctx);
                   showSourceInteraction(context, item);
@@ -365,7 +365,9 @@ Future<void> showWorkActions(
                     : Icons.bookmark_add_outlined,
               ),
               title: SelectionContainer.disabled(
-                child: Text(lib.isFavorite(item.uid) ? tr('取消收藏') : tr('加入收藏')),
+                child: Text(
+                  lib.isFavorite(item.uid) ? tr('取消应用内收藏') : tr('应用内收藏'),
+                ),
               ),
               onTap: () {
                 Navigator.pop(ctx);

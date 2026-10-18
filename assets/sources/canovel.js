@@ -25,9 +25,18 @@
         m = u.pathname.match(/^\/article\/(\d+)\/?$/);
       if (u.hostname !== 'canovel.com' || !m || seen.has(m[1])) continue;
       seen.add(m[1]);
+      const row = a.closest('.post-inner') || a.closest('article'),
+        author = Park.html.text(row?.querySelector('a[rel="author"]')),
+        tags = [...(row?.querySelectorAll('.post-category a') || [])]
+          .map(n => Park.html.text(n)).filter(Boolean);
       items.push({
         id: m[1],
         title: Park.html.text(a),
+        subtitle: Park.html.text(row?.querySelector('.entry-summary,.excerpt')),
+        authors: author ? [author] : [],
+        category: tags[0] || '',
+        tags,
+        uploaded: row?.querySelector('time')?.getAttribute('datetime') || '',
         cover: '',
         language: 'zh',
         mediaKind: 'novel',
@@ -47,7 +56,7 @@
     },
     key: 'canovel',
     name: 'Canovel',
-    version: '0.0.4',
+    version: '0.0.5',
     type: 'novel',
     category: 'novel',
     language: 'zh',

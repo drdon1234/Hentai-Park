@@ -262,7 +262,9 @@ account: {
 async feed(key, { page, cursor, options }) {}      // 站点页标签
 async search({ keyword, page, cursor, filters }) {}
 async searchSuggestions(keyword) {}               // 可选：当前站点关键词联想
-async interaction(workId, { value } = {}) {}       // 可选：读取或保存当前账号原站喜好
+async interaction(workId, { type, value } = {}) {} // 可选：读取或保存当前账号的独立原站互动
+async related(workId, { page, cursor } = {}) {}    // 可选：分页关联作品，返回 WorkPage
+resolveLink(id) {}                                // 可选：将分享跳转标识转换为规范作品 ID
 async random() {}                                  // 返回作品 ID
 async detail(id, preview) {}
 async chapter(id, chapterId) {}                    // 漫画、图集
@@ -278,9 +280,15 @@ async resolveGameResource(workId, resourceId, channelId) {}
 
 声明方法后运行时导出 `capabilities.searchSuggestions: true`。站内搜索框在输入暂停后调用，清空、提交搜索或销毁页面时取消请求；失败不打断正常搜索。只返回本站真实支持的候选，最多十条，形如 `[{keyword: '原站查询词', label: '候选标签', subtitle: '可选翻译或命名空间'}]`。点击后用 `keyword` 提交本站搜索，框架不拼接站点查询语法。Pixiv 使用原标签，EH 保留命名空间与完整匹配语法。
 
-### 原站喜好：`interaction`
+### 原站互动：`interaction`
 
-声明方法后运行时导出 `capabilities.interaction: true`。`interaction(workId, {})` 只读当前登录账号的状态；用户明确选择后调用 `interaction(workId, {value})` 写入。返回 `{type: 'like'|'favorite'|'rating', value}`，点赞、收藏为布尔值；评分为 0.5 到 5 的半星值，无法可靠读取个人评分时返回 `null`，不能用站点平均分冒充个人评分。写入必须验证服务端结果，不能将请求发出当作成功。未登录或登录失效返回 `LOGIN_REQUIRED`；Cookie、CSRF 与原站接口规则在插件内处理，框架不保存凭证副本。此操作与应用本地收藏分开，站点是否使用这些数据推荐由原站决定。
+声明方法后运行时导出 `capabilities.interaction: true`。`interaction(workId, {})` 只读当前登录账号的全部可用状态；用户选择具体项后调用 `interaction(workId, {type, value})` 写入。读写均返回非空数组 `[{type: 'like'|'favorite'|'rating', value, canUnset?}]`，同一类型不能重复，不能返回站点不支持的项。`like` 为原站点赞，`favorite` 为原站收藏或书签（X 书签即此类型），值为布尔值。原站单向点赞设置 `canUnset: false`，已点赞时隐藏取消操作。评分为 0.5 到 5 的半星值，无法可靠读取个人评分时返回 `null`，不能用站点平均分冒充个人评分。写入只修改指定类型，必须验证服务端结果，不能将请求发出当作成功。未登录或登录失效返回 `LOGIN_REQUIRED`；Cookie、CSRF 与原站接口规则在插件内处理，框架不保存凭证副本。应用内收藏独立保存在本地书库；原站是否利用互动数据改善推荐由原站决定。没有原站互动的匿名站点不实现此方法。
+
+### 关联作品与分享链接
+
+`detail.related` 为普通静态推荐列表；`detail.relatedSections` 为独立关联分组 `[{title, items: [WorkItem]}]`，例如作者其他作品，不能将其误标为同系列。分组标题使用插件文案，条目按原站返回保留。实现 `related(workId, {page, cursor})` 后导出 `capabilities.related: true`，返回与 `feed` 相同的 `WorkPage`。应用在关联列表首次展示及横向滚到末尾时请求，失败保留已有内容并允许重试；成功点赞或收藏当前页的关联作品后，可用该作品作为种子追加一批推荐。分页游标不包含账号凭证，重复作品按作品 ID 去重，取消与旧请求处理同普通列表。
+
+作品链接继续通过 `linkPatterns` 的第一个捕获组提取 ID。分享跳转链接包含编码 ID 时，可实现 `resolveLink(id)`（同步或异步），运行时导出 `capabilities.resolveLink: true`；应用在打开详情前调用它，使用返回的非空规范 ID 访问详情、收藏及进度。只能解析本站声明的分享链接，保持作品原有身份；不得把普通关键词或任意外站链接当成本站作品。框架不按站点名称硬编码转换规则。作品链接在聚合或站内搜索提交时优先直达；多作品链接保留选择入口。没有作品详情的排行榜、反搜和只读订阅源不强制声明作品链接。
 
 ### 列表：`feed` / `search`
 
@@ -297,6 +305,8 @@ async resolveGameResource(workId, resourceId, channelId) {}
 **WorkItem**：`{ id, title, subtitle?, cover, coverAspect?, pages?, rating?, likes?, views?, language?, category?, badge?, badgeColor?, duration?, uploaded?, tags?, authors?, uploader?, mediaKind?, workCode?, editions? }`
 
 - `authors` 为原站提供的作者名称数组，`uploader` 为上传者标识，用于源内作者屏蔽。列表应尽量提供这些字段；不得从标题或含义不明的副标题猜测作者。列表缺失时，长按屏蔽作者会尝试从详情补充。
+
+- 小说列表统一提供 `id`、`title`、`cover: ''`、`mediaKind: 'novel'`、`language`、`authors: []`、`subtitle`（简介或摘要）、`category`、`tags: []`、`uploaded`（原站日期）。缺失文本用空字符串，缺失集合用空数组；不补造作者、日期、分类或简介，不为列表逐项请求详情。插件负责把原站明确标注的作者、分类从标题中分离，保留作品名和原始 ID；论坛回帖标记、字节数、导航链接与占位简介不作为作品内容。共用小说行按标题、作者、简介、日期及分类标签展示真实信息。
 
 - `workCode` 是原站确认的番号或共同检索码，仅用于查找同作品；不替代 `id`，不合并作品身份、收藏、进度或下载。
 - `editions` 是原站明确标注的固定版本标签（如“中文字幕”“无码流出”）；没有标记时不得推断为原版。显示译文不改变原始标签。
@@ -317,7 +327,8 @@ WorkItem 的全部字段，再加：
   chapters: [{ id, title }] | null,   // null 表示单章
   singleChapterId?,                   // 单章作品需要的章节 ID
   thumbnails?: [url | { url, width, height, offsetX, offsetY }],   // 支持雪碧图
-  related?: [WorkItem], series?: [WorkItem], variants?: [WorkItem],
+  related?: [WorkItem], relatedSections?: [{ title, items: [WorkItem] }],
+  series?: [WorkItem], variants?: [WorkItem],
 }
 ```
 

@@ -13,6 +13,7 @@ import '../theme.dart';
 import 'common.dart';
 import 'cover_tile.dart';
 import 'error_view.dart';
+import 'on_visible.dart';
 import 'source_network_hint.dart';
 import 'work_text_row.dart';
 
@@ -488,6 +489,7 @@ class WorkCarousel extends StatelessWidget {
     this.trailing,
     this.showSource = false,
     this.height,
+    this.onEndReached,
   });
   final String title;
   final List<WorkItem> items;
@@ -495,6 +497,7 @@ class WorkCarousel extends StatelessWidget {
   final Widget? trailing;
   final bool showSource;
   final double? height;
+  final VoidCallback? onEndReached;
 
   @override
   Widget build(BuildContext context) {
@@ -522,14 +525,24 @@ class WorkCarousel extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: Gap.page),
             itemCount: items.length,
             separatorBuilder: (_, _) => const SizedBox(width: Gap.m),
-            itemBuilder: (context, i) => SizedBox(
-              width: cardWidth,
-              child: CoverTile(
-                item: items[i],
-                aspect: aspect,
-                showSource: showSource,
-              ),
-            ),
+            itemBuilder: (context, i) {
+              final card = SizedBox(
+                width: cardWidth,
+                child: CoverTile(
+                  item: items[i],
+                  aspect: aspect,
+                  showSource: showSource,
+                ),
+              );
+              return onEndReached != null && i == items.length - 1
+                  ? OnVisible(
+                      onVisible: (visible) {
+                        if (visible) onEndReached?.call();
+                      },
+                      child: card,
+                    )
+                  : card;
+            },
           ),
         ),
       ],

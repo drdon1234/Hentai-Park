@@ -20,7 +20,7 @@ Park.register({
   },
   key: 'ehentai',
   name: 'E-Hentai',
-  version: '0.0.7',
+  version: '0.0.8',
   type: 'comic',
   category: 'doujin',
   color: '#9C2A2A',
@@ -62,13 +62,51 @@ Park.register({
   ],
 
   async interaction(id, req = {}) {
+    if (req.value !== undefined && !['rating', 'favorite'].includes(req.type)) throw Park.error('CONFIG', '原站互动数据无效');
     const [gid, token] = this.splitId(id);
-    const html = await this.page(`${this.base}/g/${gid}/${token}/`);
+    let html = await this.page(`${this.base}/g/${gid}/${token}/`);
     const uid = /\bapiuid\s*=\s*(-?\d+)/.exec(html);
     const key = /\bapikey\s*=\s*["']([^"']+)["']/.exec(html);
     if (!uid || Number(uid[1]) < 0 || !key) throw Park.error('LOGIN_REQUIRED', '请先登录');
+    let personalRating = null;
+    const states = () => {
+      const link = Park.html.parse(html).querySelector('#favoritelink');
+      const label = link && Park.html.text(link);
+      return [...(label ? [{type: 'favorite', value: !/^Add to Favorites$/i.test(label)}] : []), {type: 'rating', value: personalRating}];
+    };
     // display_rating 也可能是平均分，不能把它显示为用户的评分。
-    if (req.value === undefined) return {type: 'rating', value: null};
+    if (req.value === undefined) return states();
+    if (req.type === 'favorite') {
+      if (typeof req.value !== 'boolean') throw Park.error('CONFIG', '原站互动数据无效');
+      const current = states().find(state => state.type === 'favorite');
+      if (!current) throw Park.error('PARSE', '原站互动数据无效');
+      if (current.value === req.value) return states();
+      const popbase = /\bpopbase\s*=\s*["']([^"']+)["']/.exec(html);
+      if (!popbase) throw Park.error('PARSE', '原站互动数据无效');
+      const url = new URL(popbase[1] + 'addfav', this.base);
+      if (url.origin !== this.base || url.pathname !== '/gallerypopups.php' || url.searchParams.get('gid') !== String(gid) || url.searchParams.get('t') !== token || url.searchParams.get('act') !== 'addfav') throw Park.error('PARSE', '原站互动数据无效');
+      const doc = Park.html.parse(await this.page(url.href));
+      const form = doc.querySelector('form:has(select[name="favcat"])');
+      if (!form) throw Park.error('LOGIN_REQUIRED', '请先登录');
+      const action = new URL(form.getAttribute('action') || url.href, url);
+      if (action.href !== url.href || (form.getAttribute('method') || '').toLowerCase() !== 'post') throw Park.error('PARSE', '原站互动数据无效');
+      const choices = [...form.querySelectorAll('select[name="favcat"] option')].map(option => option.getAttribute('value'));
+      const category = req.value ? choices.find(value => /^[0-9]$/.test(value)) : 'favdel';
+      if (!category || !choices.includes(category)) throw Park.error('PARSE', '原站互动数据无效');
+      const fields = {};
+      for (const input of form.querySelectorAll('input[name], textarea[name]')) {
+        const type = input.getAttribute('type');
+        if (['radio', 'checkbox'].includes(type) && !input.hasAttribute('checked')) continue;
+        fields[input.getAttribute('name')] = input.tagName.toLowerCase() === 'textarea' ? input.textContent : input.getAttribute('value') || '';
+      }
+      fields.favcat = category;
+      await this.wait();
+      const response = await this.http.post(action.href, {form: fields, headers: {Referer: url.href}});
+      if (!response.ok) throw Park.error('AUTH', '原站操作未成功，请重试');
+      html = await this.page(`${this.base}/g/${gid}/${token}/`);
+      if (states().find(state => state.type === 'favorite')?.value !== req.value) throw Park.error('AUTH', '原站操作未成功，请重试');
+      return states();
+    }
     const value = req.value;
     if (typeof value !== 'number' || value < 0.5 || value > 5 || !Number.isInteger(value * 2)) {
       throw Park.error('CONFIG', '原站互动数据无效');
@@ -81,7 +119,8 @@ Park.register({
     if (res.error || typeof res.rating_usr !== 'number' || res.rating_usr !== value) {
       throw Park.error('AUTH', '原站操作未成功，请重试');
     }
-    return {type: 'rating', value: res.rating_usr};
+    personalRating = res.rating_usr;
+    return states();
   },
 
   account: {

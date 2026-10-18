@@ -39,6 +39,7 @@ class _LibraryOptions extends StatelessWidget {
           builder: (context, _) => Column(
             children: [
               TabBar(
+                tabAlignment: TabAlignment.fill,
                 tabs: [
                   Tab(
                     child: SelectionContainer.disabled(child: Text(tr('筛选'))),
@@ -67,10 +68,8 @@ class _LibraryOptions extends StatelessWidget {
                                 for (final kind in MediaKind.values)
                                   kind.name: kind.label,
                               }.entries)
-                                ChoiceChip(
-                                  label: SelectionContainer.disabled(
-                                    child: Text(entry.value),
-                                  ),
+                                SelectionChip(
+                                  label: entry.value,
                                   selected: s.libraryFilterKind == entry.key,
                                   onSelected: (_) =>
                                       s.libraryFilterKind = entry.key,
@@ -95,7 +94,12 @@ class _LibraryOptions extends StatelessWidget {
                         ),
                         SectionHeader(
                           tr('站点'),
-                          padding: const EdgeInsets.fromLTRB(16, 12, 8, 4),
+                          padding: const EdgeInsets.fromLTRB(
+                            Gap.page,
+                            Gap.m,
+                            Gap.page,
+                            Gap.xs,
+                          ),
                         ),
                         Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -118,10 +122,8 @@ class _LibraryOptions extends StatelessWidget {
                                     s.libraryFilterSources = set;
                                   },
                                 ),
-                              FilterChip(
-                                label: SelectionContainer.disabled(
-                                  child: Text(tr('本地')),
-                                ),
+                              SelectionChip(
+                                label: tr('本地'),
                                 selected: s.libraryFilterSources.contains(
                                   'local',
                                 ),

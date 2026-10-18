@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'content_scope.dart';
+import 'diagnostic_entry.dart';
 import 'localization.dart';
 import 'models.dart';
 import 'settings_validation.dart';
@@ -82,6 +83,7 @@ enum SettingsDomain {
     'novelTheme',
     'novelVolumeKeys',
   }),
+  shortVideo({'shortVideoPreloadCount', 'shortVideoRetainedCount'}),
   network({
     'dataSavingMode',
     'proxy',
@@ -137,6 +139,7 @@ enum SettingsDomain {
   }),
   filter({'blockedTags', 'blockPresets', 'blockedWorks', 'blockedAuthors'}),
   maintenance({
+    'logMode',
     'autoSourceUpdates',
     'autoAppUpdates',
     'lastSourceUpdate',
@@ -410,6 +413,15 @@ class AppSettings extends ChangeNotifier {
   int get preloadPages => _get('preloadPages', 4);
   set preloadPages(int v) => _set('preloadPages', v);
 
+  static const maxShortVideoPreloadCount = 3;
+  static const maxShortVideoRetainedCount = 5;
+
+  int get shortVideoPreloadCount => _get('shortVideoPreloadCount', 2);
+  set shortVideoPreloadCount(int v) => _set('shortVideoPreloadCount', v);
+
+  int get shortVideoRetainedCount => _get('shortVideoRetainedCount', 2);
+  set shortVideoRetainedCount(int v) => _set('shortVideoRetainedCount', v);
+
   bool get keepScreenOn => _get('keepScreenOn', true);
   set keepScreenOn(bool v) => _set('keepScreenOn', v);
 
@@ -565,6 +577,9 @@ class AppSettings extends ChangeNotifier {
 
   String get downloadDirectory => _get('downloadDirectory', '');
   set downloadDirectory(String v) => _set('downloadDirectory', v);
+
+  LogMode get logMode => LogMode.values.byName(_get('logMode', 'full'));
+  set logMode(LogMode v) => _set('logMode', v.name);
 
   /// Check official plugins at launch; installing requires user confirmation.
   bool get autoSourceUpdates => _get('autoSourceUpdates', true);

@@ -47,9 +47,17 @@
       const id = decodeURIComponent(u.pathname.replace(/^\/article\//, '/').slice(1));
       if (seen.has(id)) continue;
       seen.add(id);
+      const rawTitle = Park.html.text(a),
+        author = rawTitle.match(/\s*作者[：:]\s*([^\s()[\]【】（）]+)/),
+        title = author ? rawTitle.slice(0, author.index).replace(/[（(【[]\s*$/, '').trim() : rawTitle;
       out.push({
         id,
-        title: Park.html.text(a),
+        title,
+        subtitle: '',
+        authors: author ? [author[1]] : [],
+        category: '',
+        tags: [],
+        uploaded: '',
         cover: '',
         language: 'zh',
         mediaKind: 'novel',
@@ -78,7 +86,7 @@
     },
     key: 'book18',
     name: 'Book18',
-    version: '0.0.5',
+    version: '0.0.6',
     type: 'novel',
     category: 'novel',
     language: 'zh',
@@ -117,11 +125,10 @@
         url = urlOf(id),
         d = await doc(this, url),
         title = Park.html.text(d.querySelector('h1')) || id;
-      const chapters = id.startsWith('chapters/')
-        ? entries(d, url)
-            .filter((e) => /^\d+$/.test(e.id))
-            .map((e) => ({ id: e.id, title: e.title }))
+      const chapterItems = id.startsWith('chapters/')
+        ? entries(d, url).filter((e) => /^\d+$/.test(e.id))
         : null;
+      const chapters = chapterItems?.map((e) => ({ id: e.id, title: e.title })) ?? null;
       if (chapters && !chapters.length)
         throw Park.error('PARSE', '小说目录为空或受限');
       const author = (title + ' ' + (chapters?.[0]?.title || '')).match(
@@ -134,7 +141,7 @@
         url,
         language: 'zh',
         mediaKind: 'novel',
-        authors: author ? [author[1]] : [],
+        authors: author ? [author[1]] : chapterItems?.find(e => e.authors.length)?.authors || [],
         chapters,
         singleChapterId: chapters ? null : id,
         tags: [],

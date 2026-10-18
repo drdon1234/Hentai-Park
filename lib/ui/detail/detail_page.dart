@@ -16,7 +16,6 @@ import '../../library/downloads.dart';
 import '../../library/library.dart';
 import '../game/game_resources.dart';
 import '../kit/adaptive_sheet.dart';
-import '../kit/kit.dart';
 import '../nav.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
@@ -24,6 +23,8 @@ import '../widgets/content_translation.dart';
 import '../widgets/error_view.dart';
 import '../widgets/expandable_description.dart';
 import '../widgets/paged_grid.dart';
+import '../widgets/related_works.dart';
+import '../widgets/source_interaction.dart';
 import 'detail_action_bar.dart';
 import 'detail_actions.dart';
 import 'detail_download.dart';
@@ -68,11 +69,13 @@ class _DetailPageState extends State<DetailPage> {
 
   SourceManifest? get _m => _manager.manifest(widget.source);
   String get _uid => '${widget.source}:${widget.id}';
-  bool get _isVideo =>
-      _m?.isVideo ?? DownloadManager.instance.task(_uid)?.isVideo ?? false;
-  bool get _opensExternally => _m?.opensExternally == true;
-  bool get _webVideo => _m?.usesWebVideo == true;
-  bool get _isGame => _m?.isGame == true || _item.isGame;
+  bool get _isVideo => _item.mediaKind != null
+      ? _item.mediaKind == MediaKind.video
+      : _m?.isVideo ?? DownloadManager.instance.task(_uid)?.isVideo ?? false;
+  bool get _opensExternally => _isVideo && _m?.opensExternally == true;
+  bool get _webVideo => _isVideo && _m?.usesWebVideo == true;
+  bool get _isGame =>
+      _item.mediaKind != null ? _item.isGame : _m?.isGame == true;
 
   @override
   void initState() {
@@ -193,7 +196,7 @@ class _DetailPageState extends State<DetailPage> {
     if (_opensExternally) return DetailKind.external;
     if (_isVideo) return DetailKind.video;
     final novel =
-        _m?.isNovel == true ||
+        (_item.mediaKind == null && _m?.isNovel == true) ||
         DownloadManager.instance.task(_uid)?.isNovel == true ||
         _item.isNovel;
     return novel ? DetailKind.novel : DetailKind.reading;
@@ -283,13 +286,8 @@ class _DetailPageState extends State<DetailPage> {
                 manifest: _m,
                 coverHeroTag: widget.coverHeroTag,
                 body: [
-                  if (_refreshing)
-                    SliverToBoxAdapter(
-                      child: Padding(
-                        padding: const EdgeInsets.all(Gap.page),
-                        child: Text(tr('获取最新作品中')),
-                      ),
-                    ),
+                  if (_refreshing && _detail != null)
+                    const SliverToBoxAdapter(child: LoadingIndicator()),
                   if (_error != null)
                     SliverToBoxAdapter(
                       child: SourceErrorView(
@@ -447,6 +445,18 @@ class _DetailPageState extends State<DetailPage> {
     final current = Library.instance.historyOf(d.uid)?.chapterId;
     final isNovel = _m?.isNovel == true || d.isNovel;
     return [
+      if (_m?.can('interaction') == true)
+        SliverToBoxAdapter(
+          child: Align(
+            alignment: AlignmentDirectional.centerEnd,
+            child: TextButton.icon(
+              onPressed: () =>
+                  showSourceInteraction(context, d, sourceManager: _manager),
+              icon: const Icon(Icons.thumb_up_outlined),
+              label: Text(tr('原站互动')),
+            ),
+          ),
+        ),
       if (d.variants.isNotEmpty || d.workCode.isNotEmpty)
         SliverToBoxAdapter(
           child: DetailVersions(work: d, manifest: _m),
@@ -516,9 +526,15 @@ class _DetailPageState extends State<DetailPage> {
         SliverToBoxAdapter(
           child: WorkCarousel(title: tr('同系列'), items: d.series),
         ),
-      if (d.related.isNotEmpty)
+      if (d.related.isNotEmpty ||
+          d.relatedSections.isNotEmpty ||
+          _m?.can('related') == true)
         SliverToBoxAdapter(
-          child: WorkCarousel(title: tr('相关推荐'), items: d.related),
+          child: RelatedWorks(
+            key: ObjectKey(d),
+            detail: d,
+            sourceManager: _manager,
+          ),
         ),
     ];
   }

@@ -6,6 +6,7 @@ import '../../core/models.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
 import '../widgets/paged_grid.dart';
+import '../widgets/related_works.dart';
 import 'video_gestures.dart';
 
 String formatPlaybackTime(Duration d) {
@@ -314,9 +315,10 @@ class VideoDetails extends StatelessWidget {
           SliverToBoxAdapter(
             child: WorkCarousel(title: tr('同系列'), items: d.series),
           ),
-        if (showRelated && d.related.isNotEmpty)
+        if (showRelated &&
+            (d.related.isNotEmpty || d.relatedSections.isNotEmpty))
           SliverToBoxAdapter(
-            child: WorkCarousel(title: tr('相关推荐'), items: d.related),
+            child: RelatedWorks(key: ObjectKey(d), detail: d),
           ),
         const SliverToBoxAdapter(child: SizedBox(height: Gap.xxl)),
       ],

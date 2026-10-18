@@ -33,11 +33,12 @@ List<Widget> readingSettings(BuildContext context, AppSettings s) => [
         value: s.tapToPage,
         onChanged: (v) => s.tapToPage = v,
       ),
-      SwitchListTile(
-        title: SelectionContainer.disabled(child: Text(tr('音量键翻页'))),
-        value: s.volumeKeyPaging,
-        onChanged: (v) => s.volumeKeyPaging = v,
-      ),
+      if (PlatformCapabilities.volumeKeyPaging)
+        SwitchListTile(
+          title: SelectionContainer.disabled(child: Text(tr('音量键翻页'))),
+          value: s.volumeKeyPaging,
+          onChanged: (v) => s.volumeKeyPaging = v,
+        ),
       SwitchListTile(
         title: SelectionContainer.disabled(child: Text(tr('阅读时保持屏幕常亮'))),
         value: s.keepScreenOn,
@@ -54,6 +55,36 @@ List<Widget> readingSettings(BuildContext context, AppSettings s) => [
         min: 0,
         max: 10,
         onChanged: (v) => s.preloadPages = v,
+      ),
+    ],
+  ),
+];
+
+List<Widget> shortVideoSettings(BuildContext context, AppSettings s) => [
+  RowGroup(
+    children: [
+      SettingsSlider(
+        title: tr('预加载视频数'),
+        value: s.shortVideoPreloadCount,
+        min: 0,
+        max: AppSettings.maxShortVideoPreloadCount,
+        onChanged: (v) => s.shortVideoPreloadCount = v,
+      ),
+      SettingsSlider(
+        title: tr('保留已看视频数'),
+        value: s.shortVideoRetainedCount,
+        min: 0,
+        max: AppSettings.maxShortVideoRetainedCount,
+        onChanged: (v) => s.shortVideoRetainedCount = v,
+      ),
+      Padding(
+        padding: const EdgeInsets.all(Gap.page),
+        child: Text(
+          tr('提前加载后续视频，保留最近看过的视频及缓冲。仅在当前页面有效；设为 0 可关闭，数量越多占用的内存和流量越多。'),
+          style: context.text.bodySmall?.copyWith(
+            color: context.colors.onSurfaceVariant,
+          ),
+        ),
       ),
     ],
   ),

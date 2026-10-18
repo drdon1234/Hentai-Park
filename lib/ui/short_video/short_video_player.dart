@@ -42,11 +42,14 @@ class ShortVideoPlayer implements ShortVideoHandle {
           }).firstOrNull
         : null;
     final sources = embeddedVideo == null
-        ? await SourceManager.instance.videos(
-            item.source,
-            item.id,
-            cancelToken: cancel,
-            refresh: refresh,
+        ? await awaitCancelled(
+            SourceManager.instance.videos(
+              item.source,
+              item.id,
+              cancelToken: cancel,
+              refresh: refresh,
+            ),
+            cancel,
           )
         : [
             VideoSource({
@@ -73,6 +76,7 @@ class ShortVideoPlayer implements ShortVideoHandle {
     final headers = policy.requestHeaders(source.headers);
     HlsPlayback? media;
     VideoPlayerController? controller;
+    StreamSubscription<DioException>? cancellation;
     try {
       if (source.format == 'hls') {
         media = HlsPlayback(
@@ -83,8 +87,10 @@ class ShortVideoPlayer implements ShortVideoHandle {
           ),
         );
         final opening = media;
-        unawaited(cancel.whenCancel.then((_) => opening.close()));
-        uri = await media.open(uri);
+        cancellation = cancel.whenCancel.asStream().listen(
+          (_) => unawaited(opening.close()),
+        );
+        uri = await awaitCancelled(media.open(uri), cancel);
       }
       _check(cancel);
       controller = VideoPlayerController.networkUrl(
@@ -112,6 +118,8 @@ class ShortVideoPlayer implements ShortVideoHandle {
       }
       if (error is SourceError) rethrow;
       throw SourceError('NETWORK', '短视频播放失败');
+    } finally {
+      await cancellation?.cancel();
     }
   }
 

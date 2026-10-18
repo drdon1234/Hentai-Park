@@ -39,10 +39,8 @@ List<Widget> appearanceSettings(BuildContext context, AppSettings s) {
                     (ThemeMode.light, tr('浅色')),
                     (ThemeMode.dark, tr('深色')),
                   ])
-                    ChoiceChip(
-                      label: SelectionContainer.disabled(
-                        child: Text(option.$2),
-                      ),
+                    SelectionChip(
+                      label: option.$2,
                       selected: s.themeMode == option.$1,
                       onSelected: (_) => s.themeMode = option.$1,
                     ),
@@ -161,63 +159,62 @@ List<Widget> appearanceSettings(BuildContext context, AppSettings s) {
   ];
 }
 
-Future<void> _editHomeCategories(
-  BuildContext context,
-  AppSettings s,
-) => showAdaptiveSheet<void>(
-  context: context,
-  builder: (ctx) => ListenableBuilder(
-    listenable: s.watch(const {'homeCategories'}),
-    builder: (ctx, _) {
-      final chosen = s.homeCategories.isEmpty
-          ? AppSettings.defaultDomainOrder.toSet()
-          : s.homeCategories.toSet();
-      return SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(Gap.page, 0, Gap.page, Gap.l),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(tr('发现页的分类'), style: ctx.text.titleLarge),
-              const SizedBox(height: Gap.xs),
-              Text(
-                tr('发现页会为这些分类放上书架。所有分类仍可在发现页顶部切换。'),
-                style: ctx.text.bodyMedium?.copyWith(
-                  color: ctx.colors.onSurfaceVariant,
-                ),
-              ),
-              const SizedBox(height: Gap.l),
-              Wrap(
-                spacing: Gap.s,
-                runSpacing: Gap.s,
+Future<void> _editHomeCategories(BuildContext context, AppSettings s) =>
+    showAdaptiveSheet<void>(
+      context: context,
+      builder: (ctx) => ListenableBuilder(
+        listenable: s.watch(const {'homeCategories'}),
+        builder: (ctx, _) {
+          final chosen = s.homeCategories.isEmpty
+              ? AppSettings.defaultDomainOrder.toSet()
+              : s.homeCategories.toSet();
+          return SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(Gap.page, 0, Gap.page, Gap.l),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  for (final c in s.domainOrder)
-                    FilterChip(
-                      label: SelectionContainer.disabled(child: Text(c.label)),
-                      selected: chosen.contains(c),
-                      onSelected: (on) {
-                        final next = {...chosen};
-                        on ? next.add(c) : next.remove(c);
-                        if (next.isEmpty) return;
-                        s.homeCategories =
-                            next.length == AppSettings.defaultDomainOrder.length
-                            ? const []
-                            : [
-                                for (final d in s.domainOrder)
-                                  if (next.contains(d)) d,
-                              ];
-                      },
+                  Text(tr('发现页的分类'), style: ctx.text.titleLarge),
+                  const SizedBox(height: Gap.xs),
+                  Text(
+                    tr('发现页会为这些分类放上书架。所有分类仍可在发现页顶部切换。'),
+                    style: ctx.text.bodyMedium?.copyWith(
+                      color: ctx.colors.onSurfaceVariant,
                     ),
+                  ),
+                  const SizedBox(height: Gap.l),
+                  Wrap(
+                    spacing: Gap.s,
+                    runSpacing: Gap.s,
+                    children: [
+                      for (final c in s.domainOrder)
+                        SelectionChip(
+                          label: c.label,
+                          selected: chosen.contains(c),
+                          onSelected: (on) {
+                            final next = {...chosen};
+                            on ? next.add(c) : next.remove(c);
+                            if (next.isEmpty) return;
+                            s.homeCategories =
+                                next.length ==
+                                    AppSettings.defaultDomainOrder.length
+                                ? const []
+                                : [
+                                    for (final d in s.domainOrder)
+                                      if (next.contains(d)) d,
+                                  ];
+                          },
+                        ),
+                    ],
+                  ),
                 ],
               ),
-            ],
-          ),
-        ),
-      );
-    },
-  ),
-);
+            ),
+          );
+        },
+      ),
+    );
 
 Future<void> _pickRefreshRate(BuildContext context, AppSettings s) async {
   final rates = await PlatformBridge.refreshRates();
@@ -253,28 +250,33 @@ class _AccentSwatch extends StatelessWidget {
       child: InkWell(
         customBorder: const CircleBorder(),
         onTap: onTap,
-        child: SelectionContainer.disabled(
-          child: Container(
-            width: 36,
-            height: 36,
-            decoration: BoxDecoration(
-              color: color,
-              shape: BoxShape.circle,
-              border: Border.all(
-                color: selected ? context.colors.onSurface : Colors.transparent,
-                width: 2,
+        child: Padding(
+          padding: const EdgeInsets.all(6),
+          child: SelectionContainer.disabled(
+            child: Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(
+                color: color,
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: selected
+                      ? context.colors.onSurface
+                      : Colors.transparent,
+                  width: 2,
+                ),
               ),
+              child: selected
+                  ? Icon(
+                      Icons.check_rounded,
+                      size: 18,
+                      color: ParkTheme.scheme(
+                        Theme.of(context).brightness,
+                        color,
+                      ).onPrimary,
+                    )
+                  : null,
             ),
-            child: selected
-                ? Icon(
-                    Icons.check_rounded,
-                    size: 18,
-                    color: ParkTheme.scheme(
-                      Theme.of(context).brightness,
-                      color,
-                    ).onPrimary,
-                  )
-                : null,
           ),
         ),
       ),
