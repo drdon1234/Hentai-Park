@@ -1,0 +1,123 @@
+{
+  "name": "HentaiPark Reverse Search",
+  "apiVersion": 1,
+  "sources": [
+    {
+      "key": "google_lens",
+      "name": "Google Lens",
+      "version": "0.0.4",
+      "description": "综合图片反搜；在应用内浏览器上传并查找完全匹配出处",
+      "category": "other",
+      "reverseSearchCategory": "general",
+      "rankingOnly": false,
+      "reverseSearchOnly": true,
+      "url": "https://raw.githubusercontent.com/drdon1234/Hentai-Park/19e781e8b919430dbb8b95d2b345c1a584af41dd/assets/sources/google_lens.js",
+      "sha256": "71972284b9472f7f1ab9ad924b33499cfd760c335c9b82c53952530265d0e064",
+      "apiVersion": 1
+    },
+    {
+      "key": "yandex",
+      "name": "Yandex",
+      "version": "0.0.1",
+      "description": "通用图片反搜；可查找网页出处与相似图片",
+      "category": "other",
+      "reverseSearchCategory": "general",
+      "rankingOnly": false,
+      "reverseSearchOnly": true,
+      "url": "https://raw.githubusercontent.com/drdon1234/Hentai-Park/19e781e8b919430dbb8b95d2b345c1a584af41dd/assets/sources/yandex.js",
+      "sha256": "80a616338df529e81828451511328bc31bff8db5681f84f71941b739e1bc0ed7",
+      "apiVersion": 1
+    },
+    {
+      "key": "bing",
+      "name": "Bing",
+      "version": "0.0.1",
+      "description": "通用图片反搜；提供网页出处与视觉相似结果",
+      "category": "other",
+      "reverseSearchCategory": "general",
+      "rankingOnly": false,
+      "reverseSearchOnly": true,
+      "url": "https://raw.githubusercontent.com/drdon1234/Hentai-Park/19e781e8b919430dbb8b95d2b345c1a584af41dd/assets/sources/bing.js",
+      "sha256": "d57fc0fbb1a7aa85f7a056b13c7760a45642953d9a86b13f9304871f38b2bd15",
+      "apiVersion": 1
+    },
+    {
+      "key": "baidu",
+      "name": "百度识图",
+      "version": "0.0.1",
+      "description": "通用图片反搜；结果覆盖取决于百度识图索引",
+      "category": "other",
+      "reverseSearchCategory": "general",
+      "rankingOnly": false,
+      "reverseSearchOnly": true,
+      "url": "https://raw.githubusercontent.com/drdon1234/Hentai-Park/19e781e8b919430dbb8b95d2b345c1a584af41dd/assets/sources/baidu.js",
+      "sha256": "b4dead7d7b15ecc56c85e2002bdb9adbca80010346ce59bd47de2845c859b823",
+      "apiVersion": 1
+    },
+    {
+      "key": "trace_moe",
+      "name": "trace.moe",
+      "version": "0.0.3",
+      "description": "动画截图定位作品、集数与时间点；免费额度有限",
+      "category": "other",
+      "reverseSearchCategory": "anime",
+      "rankingOnly": false,
+      "reverseSearchOnly": true,
+      "url": "https://raw.githubusercontent.com/drdon1234/Hentai-Park/19e781e8b919430dbb8b95d2b345c1a584af41dd/assets/sources/trace_moe.js",
+      "sha256": "90ce5a629a911b99aff68c454b30d2c9cc0724a051469fdfaac31c15ad05ea15",
+      "apiVersion": 1
+    },
+    {
+      "key": "anime_trace",
+      "name": "AnimeTrace",
+      "version": "0.0.3",
+      "description": "识别动画与 Galgame 角色及作品；候选结果需核对",
+      "category": "other",
+      "reverseSearchCategory": "anime",
+      "rankingOnly": false,
+      "reverseSearchOnly": true,
+      "url": "https://raw.githubusercontent.com/drdon1234/Hentai-Park/19e781e8b919430dbb8b95d2b345c1a584af41dd/assets/sources/anime_trace.js",
+      "sha256": "ad8a63191f37d92bf53012f2ccb3d06af474c2418f0e2b45e96eaac9913e69a3",
+      "apiVersion": 1
+    },
+    {
+      "key": "iqdb",
+      "name": "IQDB",
+      "version": "0.0.3",
+      "description": "插画出处反搜；高峰期可能需要排队",
+      "category": "other",
+      "reverseSearchCategory": "gallery",
+      "rankingOnly": false,
+      "reverseSearchOnly": true,
+      "url": "https://raw.githubusercontent.com/drdon1234/Hentai-Park/19e781e8b919430dbb8b95d2b345c1a584af41dd/assets/sources/iqdb.js",
+      "sha256": "e11ba76eb663b72c860b515aa613d3ee898cbff81ab572a45cb7482c3d98285b",
+      "apiVersion": 1
+    },
+    {
+      "key": "ehentai_reverse",
+      "name": "E-Hentai 识图",
+      "version": "0.0.1",
+      "description": "成人画廊图片反搜；返回匹配画廊与原站标签",
+      "category": "other",
+      "reverseSearchCategory": "gallery",
+      "rankingOnly": false,
+      "reverseSearchOnly": true,
+      "url": "https://raw.githubusercontent.com/drdon1234/Hentai-Park/19e781e8b919430dbb8b95d2b345c1a584af41dd/assets/sources/ehentai_reverse.js",
+      "sha256": "6ff4f2540ab9fe3be02ff2c43e1183dbb9e6af316273d20271cbfc6d1767ade0",
+      "apiVersion": 1
+    },
+    {
+      "key": "avscan",
+      "name": "AVScan",
+      "version": "0.0.3",
+      "description": "JAV 截图查番号；显示候选和相关图片，限个人非商业使用",
+      "category": "other",
+      "reverseSearchCategory": "jav",
+      "rankingOnly": false,
+      "reverseSearchOnly": true,
+      "url": "https://raw.githubusercontent.com/drdon1234/Hentai-Park/19e781e8b919430dbb8b95d2b345c1a584af41dd/assets/sources/avscan.js",
+      "sha256": "ca0c83768b76b8f652d65cc49fb4ec73746facebed8b968aeb5de76f6b80cd53",
+      "apiVersion": 1
+    }
+  ]
+}
