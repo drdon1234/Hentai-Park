@@ -123,11 +123,13 @@ Activa, ordena, actualiza o añade sitios en Más → Sitios.
 | Origen de ilustraciones | IQDB |
 | Códigos JAV a partir de capturas | AVScan |
 
-Abre la búsqueda inversa arriba de Descubrir. Elige una imagen, recórtala si quieres, selecciona un servicio y busca. Abre el origen cuando esté disponible o busca recursos por título o código. La imagen solo se sube al servicio elegido al pulsar Buscar.
+Los servicios se agrupan verticalmente en General, Anime, JAV e Imágenes y permiten seleccionar entre categorías.
+
+Abre la búsqueda inversa arriba de Descubrir. Por defecto solo está seleccionado Google Lens; puedes elegir varios servicios para buscar a la vez. Elige una imagen, recórtala si quieres y busca. Cambia entre sitios para ver sus resultados; solo aparecen los sitios con candidatos. Abre el origen o busca recursos por título o código. La imagen solo se sube a los servicios elegidos al pulsar Buscar.
 
 Google Lens sube imágenes y obtiene las fuentes en segundo plano. Todas las búsquedas inversas muestran el progreso y los resultados en la interfaz propia de la aplicación; el área de verificación aparece solo cuando se necesita verificación manual. Algunas redes pueden requerir VPN o proxy.
 
-Los resultados son candidatos por verificar; la similitud no confirma el origen. trace.moe tiene cuota gratuita limitada e IQDB puede tener cola. AVScan muestra solo candidatos de alta puntuación y permite uso personal no comercial. La cobertura no es exhaustiva; reconocer personajes no proporciona descargas de juegos.
+Los resultados son candidatos por verificar; la similitud no confirma el origen. trace.moe tiene cuota gratuita limitada e IQDB puede tener cola. AVScan permite uso personal no comercial. Se conservan los candidatos originales, las puntuaciones disponibles y las imágenes relacionadas; amplía Información del sitio original para ver tiempos, regiones detectadas, etiquetas y otros campos originales. La cobertura no es exhaustiva; reconocer personajes no proporciona descargas de juegos.
 
 
 ## Clasificaciones

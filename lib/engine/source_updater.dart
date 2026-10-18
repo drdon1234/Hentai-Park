@@ -314,8 +314,9 @@ class SourceUpdater extends ChangeNotifier {
     if (preview.manifest.version != entry.version) {
       throw SourceError('CONFIG', '下载的站点版本与官方索引不一致');
     }
-    if (preview.manifest.rankingOnly != entry.rankingOnly) {
-      throw SourceError('CONFIG', '排行榜分发频道不匹配');
+    if (preview.manifest.rankingOnly != entry.rankingOnly ||
+        preview.manifest.reverseSearchOnly != entry.reverseSearchOnly) {
+      throw SourceError('CONFIG', '插件分发频道不匹配');
     }
     final api = preview.manifest.json['apiVersion'];
     if (api is! int || api != SourceRepository.supportedApiVersion) {

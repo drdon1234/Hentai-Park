@@ -1,6 +1,6 @@
 Park.register({
-  key: 'trace_moe', name: 'trace.moe', version: '0.0.1', apiVersion: 1,
-  type: 'comic', category: 'other', homepage: 'https://trace.moe/',
+  key: 'trace_moe', name: 'trace.moe', version: '0.0.3', apiVersion: 1,
+  type: 'comic', category: 'other', reverseSearchCategory: 'anime', homepage: 'https://trace.moe/',
   description: '动画截图定位作品、集数与时间点；免费额度有限',
   domains: ['trace.moe'], network: { vpnHint: true },
   i18n: {
@@ -37,21 +37,20 @@ Park.register({
       this.http.ensureOk(response);
       const data = response.json();
       if (data.error || !Array.isArray(data.result)) throw Park.error('PARSE', '反搜服务返回无效数据');
-      const matches = data.result.filter(row => row.similarity >= 0.85 && row.anilist && row.anilist.id).map(row => ({
-        title: row.anilist.title.native || row.anilist.title.romaji || row.filename,
-        keyword: row.anilist.title.native || row.anilist.title.romaji || row.filename,
-        url: 'https://anilist.co/anime/' + row.anilist.id,
-        similarity: row.similarity * 100, episode: row.episode, from: row.from, to: row.to,
-      })).sort((a, b) => b.similarity - a.similarity);
-      const results = [];
-      for (const match of matches) {
-        const same = results.find(row => row.url === match.url && row.episode === match.episode && row.from <= match.to + 1 && match.from <= row.to + 1);
-        if (same) {
-          same.from = Math.min(same.from, match.from);
-          same.to = Math.max(same.to, match.to);
-        } else { results.push(match); }
-      }
-      return results.slice(0, 10);
+      return data.result.map(row => {
+        if (!row || typeof row.similarity !== 'number' || !Number.isFinite(row.similarity) ||
+            row.similarity < 0 || row.similarity > 1 || !row.anilist || !row.anilist.id || !row.anilist.title) {
+          throw Park.error('PARSE', '反搜服务返回无效数据');
+        }
+        return {
+          title: row.anilist.title.native || row.anilist.title.romaji || row.anilist.title.english || row.filename,
+          keyword: row.anilist.title.native || row.anilist.title.romaji || row.anilist.title.english || '',
+          url: 'https://anilist.co/anime/' + row.anilist.id,
+          similarity: row.similarity * 100, episode: row.episode, from: row.from, to: row.to,
+          images: row.image ? [{ url: row.image }] : [],
+          details: row,
+        };
+      }).sort((a, b) => b.similarity - a.similarity);
     } finally { this._searching = false; }
   },
 });

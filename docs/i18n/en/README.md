@@ -123,11 +123,13 @@ Enable, reorder, update or add sites in More → Sites.
 | Illustration sources | IQDB |
 | JAV catalog numbers from screenshots | AVScan |
 
-Open Reverse image search at the top of Discover. Choose an image, optionally crop it, select a service, then search. Open an original source when available or search resources by title or catalog number. Images upload only after you press Search, to the selected service.
+Services are grouped vertically into General, Anime, JAV and Images, with selection across categories.
+
+Open Reverse image search at the top of Discover. Only Google Lens is selected by default; you can select multiple services to search together. Choose an image, optionally crop it, then search. Switch between sites to view their results; only sites with candidates appear. Open an original source or search resources by title or catalog number. Images upload to the selected services only after you press Search.
 
 Google Lens uploads images and retrieves sources in the background. All reverse image searches show progress and results in the app’s own interface; a verification area appears only when manual verification is needed. Some networks may require a VPN or proxy.
 
-Results are candidates to verify; similarity is not confirmation. trace.moe has a limited free quota and IQDB may queue requests. AVScan shows high-score candidates only and is for personal non-commercial use. Coverage is not exhaustive; character recognition does not provide game downloads.
+Results are candidates to verify; similarity is not confirmation. trace.moe has a limited free quota and IQDB may queue requests. AVScan is for personal non-commercial use. Each service retains its original candidates, available scores and related images; expand Source information for timestamps, detection regions, tags and other original fields. Coverage is not exhaustive; character recognition does not provide game downloads.
 
 
 ## Rankings

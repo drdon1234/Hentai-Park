@@ -1,6 +1,6 @@
 Park.register({
-  key: 'google_lens', name: 'Google Lens', version: '0.0.2', apiVersion: 1,
-  type: 'comic', category: 'other', homepage: 'https://lens.google.com/',
+  key: 'google_lens', name: 'Google Lens', version: '0.0.4', apiVersion: 1,
+  type: 'comic', category: 'other', reverseSearchCategory: 'general', homepage: 'https://lens.google.com/',
   description: '综合图片反搜；在应用内浏览器上传并查找完全匹配出处',
   domains: ['google.com'], network: { vpnHint: true },
   i18n: {
@@ -18,7 +18,7 @@ Park.register({
       uploadUrl: 'https://lens.google.com/v3/upload?hl=en&re=df&stcs=' + Date.now() + '&vpw=1920&vph=1080&ep=subb',
       fileField: 'encoded_image', resultPath: '/search', resultQuery: 'vsrid',
       resultParams: { udm: '48', hl: 'en' },
-      resultSelector: 'a[href^="/goto?"], #search a[href^="/url?"], #search a[href^="/imgres?"], #search a[href^="http"]',
+      resultSelector: '#rso a[href], #search a[href^="/goto?"], #search a[href^="/url?"], #search a[href^="/imgres?"], #search a[href^="http"]',
       emptySelector: 'body', emptyText: 'No exact matches found',
     } };
   },
@@ -31,11 +31,12 @@ Park.register({
     if (/unusual traffic|expired visual search|enable javascript/i.test(text)) {
       throw Park.error('PARSE', '反搜服务返回无效数据');
     }
-    const candidates = [], seen = new Set();
-    for (const anchor of parsed.querySelectorAll('a[href]')) {
+    const candidates = [], seen = new Map();
+    for (const anchor of parsed.querySelectorAll('#rso a[href], #search a[href]')) {
       const raw = Park.html.attr(anchor, 'href');
-      const title = Park.html.text(anchor).trim();
-      if (!title || title.length > 4096) continue;
+      const thumbnail = anchor.querySelector('img');
+      const title = (Park.html.text(anchor) || Park.html.attr(anchor, 'aria-label') || Park.html.attr(thumbnail, 'alt')).trim();
+      if (title.length > 4096) throw Park.error('PARSE', '反搜服务返回无效数据');
       let url = '', redirect = '';
       if (/^\/(goto|url|imgres)\?/.test(raw)) {
         for (const name of ['imgrefurl', 'url', 'q']) {
@@ -46,12 +47,18 @@ Park.register({
           if (/^https?:\/\//i.test(decoded)) { url = decoded; break; }
         }
         if (!url) redirect = 'https://www.google.com' + raw;
-      } else if (/^https?:\/\//i.test(raw) && anchor.closest('#search')) { url = raw; }
+      } else if (/^https?:\/\//i.test(raw)) { url = raw; }
       else continue;
       const key = url || redirect;
-      if (seen.has(key)) continue;
-      seen.add(key); candidates.push({ title, url, redirect });
-      if (candidates.length >= 20) break;
+      const image = Park.html.attr(thumbnail, 'src') || Park.html.attr(thumbnail, 'data-src');
+      if (seen.has(key)) {
+        const existing = seen.get(key);
+        if (image && !existing.images.includes(image)) existing.images.push(image);
+        if (title && !existing.titles.includes(title)) existing.titles.push(title);
+        continue;
+      }
+      const candidate = { title: title || key, url, redirect, images: image ? [image] : [], titles: title ? [title] : [] };
+      seen.set(key, candidate); candidates.push(candidate);
     }
     if (!candidates.length) {
       if (/No exact matches found|No results found|No matching images found|couldn't find any results/i.test(text)) return [];
@@ -69,17 +76,32 @@ Park.register({
             const response = await this.http.get(candidate.redirect, { followRedirects: false, timeout: 8000 });
             if ([301, 302, 303, 307, 308].includes(response.status)) url = response.headers.location || '';
           }
-          resolved[index] = { title: candidate.title, url };
+          resolved[index] = { ...candidate, url };
         } catch (error) { failure = failure || error; }
       }
     }));
-    const matches = [], urls = new Set();
+    const matches = [], urls = new Map();
     for (const candidate of resolved) {
       if (!candidate) continue;
       const url = candidate.url;
       if (!/^https?:\/\/(?![^/]*@)[^/\s?#]+(?:[/?#]|$)/i.test(url) ||
-          /^https?:\/\/(?:[^/]+\.)?google\.com(?:[/:?#]|$)/i.test(url) || urls.has(url)) continue;
-      urls.add(url); matches.push({ title: candidate.title, url });
+          /^https?:\/\/(?:[^/]+\.)?google\.com(?:[/:?#]|$)/i.test(url)) continue;
+      const images = candidate.images.filter(image => /^(https?:\/\/|data:image\/(?:png|jpeg|webp|gif);base64,)/i.test(image)).map(url => ({ url }));
+      if (urls.has(url)) {
+        const existing = urls.get(url);
+        for (const image of images) {
+          if (!existing.images.some(i => i.url === image.url)) existing.images.push(image);
+        }
+        for (const title of candidate.titles) {
+          if (!existing.details.titles.includes(title)) existing.details.titles.push(title);
+        }
+        continue;
+      }
+      const match = {
+        title: candidate.title, url,
+        images, details: { title: candidate.title, titles: candidate.titles, url },
+      };
+      urls.set(url, match); matches.push(match);
     }
     if (!matches.length) throw failure || Park.error('PARSE', '反搜服务返回无效数据');
     return matches;

@@ -41,7 +41,7 @@ mixin _SourceApi on _SourceRegistry {
       ], cancelToken: cancelToken);
     }
     if (result is! List ||
-        result.length > 50 ||
+        result.length > 200 ||
         result.any((row) => row is! Map)) {
       throw SourceError('PARSE', '反搜服务返回无效数据');
     }

@@ -74,7 +74,7 @@ function publishedSources(previousIndex) {
 }
 
 export async function generateIndex({ root = defaultRoot, commit, previousIndex, channel = 'sources' } = {}) {
-  if (!['sources', 'rankings'].includes(channel)) throw new Error('无效发布频道');
+  if (!['sources', 'rankings', 'reverse-search'].includes(channel)) throw new Error('无效发布频道');
   if (!isCommit(commit)) {
     throw new Error('commit 必须是源码提交的完整 40 位小写十六进制 SHA');
   }
@@ -113,17 +113,27 @@ export async function generateIndex({ root = defaultRoot, commit, previousIndex,
     if (manifest.category !== entry.category) {
       throw new Error(`${entry.file} 注册的 category 与清单不一致`);
     }
+    if (manifest.capabilities.reverseSearch) {
+      if (!['general', 'anime', 'jav', 'gallery'].includes(manifest.reverseSearchCategory) ||
+          manifest.reverseSearchCategory !== (entry.reverseSearchCategory || 'general')) {
+        throw new Error(`${key} 的反搜分类无效或与清单不一致`);
+      }
+    }
     if (manifest.rankingOnly !== (entry.rankingOnly === true)) {
       throw new Error(`${key} 的排行榜标记与清单不一致`);
     }
     if (manifest.rankingOnly && (!manifest.rankings.length || manifest.feeds.length)) {
       throw new Error(`${key} 必须仅声明排行榜，不得混入普通列表`);
     }
+    if (manifest.rankingOnly && manifest.reverseSearchOnly) {
+      throw new Error(`${key} 不得同时属于排行榜与反搜频道`);
+    }
     if (apiVersion !== runtimeApi || manifest.apiVersion !== runtimeApi) {
       throw new Error(`${key} 的脚本 apiVersion ${manifest.apiVersion} 与运行时 API ${runtimeApi} 不一致`);
     }
     const digest = sha256(code);
-    if ((channel === 'rankings') !== manifest.rankingOnly) continue;
+    const sourceChannel = manifest.rankingOnly ? 'rankings' : manifest.reverseSearchOnly ? 'reverse-search' : 'sources';
+    if (channel !== sourceChannel) continue;
     const previous = published.get(key);
     if (previous) {
       const comparison = compareVersions(entry.version, previous.version);
@@ -135,12 +145,15 @@ export async function generateIndex({ root = defaultRoot, commit, previousIndex,
     sources.push({
       key, name: entry.name, version: entry.version, description: entry.description,
       category: entry.category,
+      ...(manifest.capabilities.reverseSearch ? {reverseSearchCategory: manifest.reverseSearchCategory} : {}),
       rankingOnly: manifest.rankingOnly,
+      reverseSearchOnly: manifest.reverseSearchOnly,
       url: officialAssetUrl(commit, `assets/sources/${entry.file}`),
       sha256: digest, apiVersion: runtimeApi,
     });
   }
-  return { name: channel === 'rankings' ? 'HentaiPark Rankings' : index.name, apiVersion: runtimeApi, sources };
+  const name = channel === 'rankings' ? 'HentaiPark Rankings' : channel === 'reverse-search' ? 'HentaiPark Reverse Search' : index.name;
+  return { name, apiVersion: runtimeApi, sources };
 }
 
 async function main() {

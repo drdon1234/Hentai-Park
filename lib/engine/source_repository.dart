@@ -17,6 +17,7 @@ class SourceRepositoryEntry {
     required this.sha256,
     required this.apiVersion,
     this.rankingOnly = false,
+    this.reverseSearchOnly = false,
   });
 
   final String key;
@@ -26,6 +27,7 @@ class SourceRepositoryEntry {
   final String sha256;
   final int apiVersion;
   final bool rankingOnly;
+  final bool reverseSearchOnly;
 }
 
 class SourceRepositoryIndex {
@@ -46,6 +48,7 @@ class SourceRepository {
 
   static const indexUrl = '$officialRawBase/sources/index.json';
   static const rankingsUrl = '$officialRawBase/rankings/index.json';
+  static const reverseSearchUrl = '$officialRawBase/reverse-search/index.json';
   static const supportedApiVersion = 1;
   final Future<String> Function(String url) _read;
 
@@ -67,7 +70,7 @@ class SourceRepository {
     final failures = <String, String>{};
     final duplicate = <String>{};
     final results = await Future.wait([
-      for (final url in [indexUrl, rankingsUrl])
+      for (final url in [indexUrl, rankingsUrl, reverseSearchUrl])
         () async {
           try {
             return (index: parse(jsonDecode(await _read(url))), error: null);
@@ -79,9 +82,11 @@ class SourceRepository {
     for (var i = 0; i < results.length; i++) {
       final result = results[i];
       if (result.index == null) {
-        failures[i == 0
-            ? tr('官方站点仓库')
-            : tr('排行榜插件')] = result.error is SourceError
+        failures[switch (i) {
+          0 => tr('官方站点仓库'),
+          1 => tr('排行榜插件'),
+          _ => tr('反搜插件'),
+        }] = result.error is SourceError
             ? (result.error as SourceError).message
             : tr('官方站点索引格式无效');
         continue;
@@ -92,8 +97,9 @@ class SourceRepository {
           duplicate.add(entry.key);
           entries.remove(entry.key);
           failures[entry.name] = tr('官方站点标识重复：{key}', {'key': entry.key});
-        } else if (entry.rankingOnly != (i == 1)) {
-          failures[entry.name] = tr('排行榜分发频道不匹配');
+        } else if (entry.rankingOnly != (i == 1) ||
+            entry.reverseSearchOnly != (i == 2)) {
+          failures[entry.name] = tr('插件分发频道不匹配');
         } else {
           entries[entry.key] = entry;
         }
@@ -160,7 +166,10 @@ class SourceRepository {
         !isSha256(raw['sha256']) ||
         raw['apiVersion'] is! int ||
         (raw['apiVersion'] as int) < 1 ||
-        (raw.containsKey('rankingOnly') && raw['rankingOnly'] is! bool)) {
+        (raw.containsKey('rankingOnly') && raw['rankingOnly'] is! bool) ||
+        (raw.containsKey('reverseSearchOnly') &&
+            raw['reverseSearchOnly'] is! bool) ||
+        (raw['rankingOnly'] == true && raw['reverseSearchOnly'] == true)) {
       throw SourceError('CONFIG', '官方站点条目缺少有效的必填字段');
     }
     if (!isOfficialAsset(raw['url'], 'assets/sources/${raw['key']}.js')) {
@@ -174,6 +183,7 @@ class SourceRepository {
       sha256: (raw['sha256'] as String).toLowerCase(),
       apiVersion: raw['apiVersion'] as int,
       rankingOnly: raw['rankingOnly'] == true,
+      reverseSearchOnly: raw['reverseSearchOnly'] == true,
     );
   }
 }

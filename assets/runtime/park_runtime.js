@@ -380,6 +380,7 @@
       version: def.version || '0.0.0',
       type: def.type || 'comic',
       category: def.category || 'other',
+      reverseSearchCategory: def.reverseSearchCategory || 'general',
       color: def.color || '#7C4DFF',
       icon: def.icon || '',
       description: def.description || '',
@@ -413,6 +414,8 @@
         : null,
       feeds: pick(def.feeds || []),
       rankingOnly: def.rankingOnly === true,
+      reverseSearchOnly: typeof def.reverseSearch === 'function' &&
+        !(def.feeds && def.feeds.length) && typeof def.search !== 'function',
       rankings: pick(rankingDefs(def)),
       // The plugin's own translations, keyed by its Chinese source text: {locale: {text: translation}}.
       i18n: pick(def.i18n || {}),

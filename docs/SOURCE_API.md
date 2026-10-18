@@ -105,17 +105,25 @@ Park.register({
 
 实现 `reverseSearch(image)` 自动导出 `capabilities.reverseSearch: true`，显示在独立的“图片反搜”页。仅反搜插件声明 `type: 'comic', category: 'other'` 作为清单归类，不声明 `feeds`、`search`、`detail` 或章节／媒体方法；此处的 `type` 不产生可读作品。没有首页的反搜服务不填写 `defaultFeed`。可同时为普通站点提供反搜能力。
 
+`reverseSearchCategory` 声明反搜用途，与作品 `category` 独立，可选 `general`（通用）、`anime`（里番）、`jav`（JAV）、`gallery`（美图），未声明时归入通用。脚本与官方清单使用相同值。服务选择区按此顺序纵向分组，直接显示各组，不折叠；同组保留站点排序，允许跨组多选。
+
 输入为 `{base64, mimeType: 'image/png'}`，由应用在内存中解码、缩放、可选裁剪并重新编码，大小不超过 1,800,000 字节，不含原文件名或本机路径。用户点击搜索才上传到所选服务，换图、切换服务、取消与销毁会取消请求并丢弃旧结果。图片和查询响应不持久化、不进入诊断日志。
 
-返回最多 50 条出处候选：
+返回最多 200 条出处候选（传输保护上限，不是按置信度筛选或静默截断）：
 
 ```js
 [{ title: '作品名称', keyword: '用于继续搜索的作品名或番号',
    description: '可选角色或其他原站信息', url: 'https://example.org/original',
-   similarity: 91.2, uncertain: false, episode: 1, from: 272.2, to: 282.6 }]
+   similarity: 91.2, uncertain: false, episode: 1, from: 272.2, to: 282.6,
+   images: [{ url: 'https://example.org/frame.jpg', label: '原站图片名称', similarity: 89.5 }],
+   details: { filename: '原始文件名', tags: ['原始标签'], detection: { box: [0.1, 0.2, 0.3, 0.4] } } }]
 ```
 
-`title` 必填，`keyword` 和 `url` 至少提供一个，其余可省略。只有明确识别出作品名或番号才填 `keyword`；只有标签或出处链接时不要伪造作品名称，不提供资源搜索按钮。`url` 仅允许无凭据的 HTTP(S) 网页；没有明确的原站详情链接时省略，不能伪造。`similarity` 为服务提供的 0–100 相似度，没有分数不填；不同服务分数不能混排为统一可信度。`uncertain` 标记低可信候选。`episode` 为字符串或数值，`from/to` 为秒。候选不是 `WorkItem`，不能直接下载、收藏或播放；用户可用 `keyword` 继续聚合搜索资源。各站的阈值、去重、限额处理与响应解析保留在插件中，空匹配和解析失败必须区分。
+`title` 必填，`keyword` 和 `url` 至少提供一个，其余可省略。只有明确识别出作品名或番号才填 `keyword`；只有标签或出处链接时不要伪造作品名称，不提供资源搜索按钮。`url` 仅允许无凭据的 HTTP(S) 网页；没有明确的原站详情链接时省略，不能伪造。`similarity` 为服务提供的 0–100 相似度，服务以 0–1 返回时仅做比例转换；没有分数不填，不同服务分数不能混排为统一可信度。`uncertain` 只传递服务明确给出的低可信标记，不能自定置信度。`episode` 为字符串或数值，`from/to` 为秒。候选不是 `WorkItem`，不能直接下载、收藏或播放；用户可用 `keyword` 继续聚合搜索资源。
+
+插件只解析并诚实保留服务返回的有效候选，不增加分数门槛、不截取前几条，不跨识别区域去重或合并不同时间片段；有分数时按该服务分数降序，无分数时保留原站顺序。相同网页的重复链接可以合并，但必须合并保留其可用图片与说明。空匹配和解析失败必须区分，未知结构、无效字段或超过保护上限应报错，不能伪装成无结果。
+
+`images` 最多 50 张，保留每张相关图片、原站名称与独立分数；仅接受无凭据 HTTP(S) 图片或 PNG/JPEG/WebP/GIF 的 base64 data URL（最多 512 KiB 字符）。相关图片在当前页面使用本站 Cookie 分区及通用网络策略加载，支持放大与失败重试，不写入磁盘缓存，换图、换站或离开页面后取消并释放。`details` 为原站候选的完整 JSON 对象，保留标题变体、角色与识别区域、逐帧分数、元数据及可用链接等原始维度，在「原站信息」中按原字段展开；不包含账号凭据、上传图片、整个响应的跟踪标识或请求会话。上限为 128 KiB、12 层、4096 个节点，原始字段值不作为界面文案翻译。不要将图片或候选数据写入日志或持久存储。
 
 需要浏览器会话的服务可从 `reverseSearch(image)` 返回声明式上传条件，而非候选列表：
 
@@ -600,18 +608,20 @@ async ranking(board, { page = 1, offset = 0, cursor, options = {} }) {
 ```text
 https://raw.githubusercontent.com/drdon1234/Hentai-Park/sources/index.json
 https://raw.githubusercontent.com/drdon1234/Hentai-Park/rankings/index.json
+https://raw.githubusercontent.com/drdon1234/Hentai-Park/reverse-search/index.json
 ```
 
 - `assets/sources/index.json` 是唯一维护的清单，`file` 指向同目录下的脚本，文件名必须是 `{key}.js`（`[A-Za-z0-9_-]+.js`，不接受子目录、符号链接或文件名中的点号）。
-- `tools/publish_sources.mjs` 生成发布索引，每条记录包含 `key`、`name`、`version`、`category`、`description`、`rankingOnly`、`url`、`sha256`、`apiVersion`，脚本 URL 固定到本次源码的完整提交号：`https://raw.githubusercontent.com/drdon1234/Hentai-Park/<提交 SHA>/assets/sources/<file>`。源码始终在主分支维护；`sources` 和 `rankings` 分支各只保存生成的 `index.json`，按 `rankingOnly` 分流，不重复维护源码。清单标记必须与运行时 manifest 一致。
+- `tools/publish_sources.mjs` 生成发布索引，每条记录包含 `key`、`name`、`version`、`category`、`description`、`rankingOnly`、`reverseSearchOnly`、`url`、`sha256`、`apiVersion`，脚本 URL 固定到本次源码的完整提交号：`https://raw.githubusercontent.com/drdon1234/Hentai-Park/<提交 SHA>/assets/sources/<file>`。源码始终在主分支维护；`sources`、`rankings` 和 `reverse-search` 分支各只保存生成的 `index.json`，不重复维护源码。`rankingOnly: true` 进入排行榜频道；实现反搜且没有首页与普通搜索的独立反搜插件进入反搜频道，其 `reverseSearchOnly` 由运行时导出；其余插件进入资源频道。资源站点附带排行榜或反搜能力时仍只在资源频道发布；一个插件不能同时属于独立排行榜和独立反搜频道。清单标记必须与运行时 manifest 一致。标签翻译数据包独立通过 `tag-translations` 分支发布，不使用站点脚本格式。
 - 发布器只依赖 Node.js 22+ 内置模块，可以离线运行：检查清单、文件和目录边界，在不提供网络和存储的上下文中加载运行时和脚本，用与安装预览相同的 `Park.__pending` / `Park.manifest` 方式核对 `key`、`version` 和 API。它不调用 `init`、登录或站点方法，不能代替真实请求验证。
 
 ```powershell
 node tools/publish_sources.mjs --commit '<完整 40 位提交 SHA>' --output 'test/official-source-index.json'
 node tools/publish_sources.mjs --commit '<完整 40 位提交 SHA>' --channel rankings --output 'test/official-ranking-index.json'
+node tools/publish_sources.mjs --commit '<完整 40 位提交 SHA>' --channel reverse-search --output 'test/official-reverse-search-index.json'
 ```
 
-需要对比已有发布时加 `--previous '旧索引路径'`，使用对应频道的旧索引；旧索引无效时校验失败。`.github/workflows/publish-sources.yml` 只在主仓库 `main` 分支相关文件推送或手动触发时运行，工作流排队，通过矩阵分别校验并用普通推送原子更新两个频道；校验失败或分支有并发变更时不会覆盖线上索引。应用独立读取两个索引，一个失败仍检查另一个；频道标记不符或跨索引重复 key 的条目不能安装或覆盖其他条目。下载时仍验证固定提交 URL、SHA-256、版本、API 和频道，确认安装后才生效。
+需要对比已有发布时加 `--previous '旧索引路径'`，使用对应频道的旧索引；旧索引无效时校验失败。`.github/workflows/publish-sources.yml` 只在主仓库 `main` 分支相关文件推送或手动触发时运行，工作流排队，通过矩阵分别校验并用普通推送原子更新三个脚本频道；校验失败或分支有并发变更时不会覆盖线上索引。应用独立读取三个脚本索引，一个失败仍检查其他索引；频道标记不符或跨索引重复 key 的条目不能安装或覆盖其他条目。下载时仍验证固定提交 URL、SHA-256、版本、API 和频道，确认安装后才生效。
 
 ### 构建生成的插件
 

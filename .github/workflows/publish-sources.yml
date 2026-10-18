@@ -20,7 +20,7 @@ jobs:
   publish:
     strategy:
       matrix:
-        channel: [sources, rankings]
+        channel: [sources, rankings, reverse-search]
     if: github.repository == 'drdon1234/Hentai-Park' && github.ref == 'refs/heads/main' && github.event.repository.default_branch == 'main'
     runs-on: ubuntu-latest
     timeout-minutes: 5

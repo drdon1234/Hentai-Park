@@ -1,23 +1,23 @@
-import 'dart:async';
 import 'dart:convert';
 
-import 'package:dio/dio.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/localization.dart';
 import '../../core/reverse_search.dart';
-import '../../engine/browser_image_search.dart';
 import '../../engine/source_manager.dart';
 import '../../images/search_image.dart';
 import '../nav.dart';
 import '../settings/source_manage_page.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
-import '../widgets/error_view.dart';
-import '../widgets/source_network_hint.dart';
 import 'browser_image_search_panel.dart';
+import 'reverse_search_controller.dart';
+import 'reverse_search_form.dart';
+import 'reverse_search_result.dart';
+import 'reverse_search_results_header.dart';
 import 'search_crop_page.dart';
 
 class ReverseSearchPage extends StatefulWidget {
@@ -29,75 +29,70 @@ class ReverseSearchPage extends StatefulWidget {
 
 class _ReverseSearchPageState extends State<ReverseSearchPage> {
   final _manager = SourceManager.instance;
-  String? _source;
+  final _searchController = ReverseSearchController();
+  final _selectedSources = <String>{};
   String _sourceSignature = '';
+  String? _resultSource;
+  bool _selectionInitialized = false;
   SearchImage? _original, _image;
-  CancelToken? _token;
   int _generation = 0;
-  bool _busy = false, _preparing = false;
-  List<ReverseSearchMatch>? _results;
-  Object? _error;
-  BrowserImageSearchRequest? _browserRequest;
-  Completer<BrowserImageSearchResult?>? _browserResult;
-  bool _browserVerification = false;
+  bool _preparing = false;
 
+  bool get _busy => _searchController.busy;
   List<InstalledSource> get _sources =>
       _manager.enabled.where((s) => s.manifest!.can('reverseSearch')).toList();
   @override
   void initState() {
     super.initState();
-    _source = widget.sourceKey;
-    _syncSource();
+    _syncSources();
     _manager.addListener(_sourcesChanged);
+    _searchController.addListener(_searchChanged);
   }
 
-  void _syncSource() {
-    final sources = _sources;
-    if (!sources.any((s) => s.key == _source)) {
-      _source = sources.firstOrNull?.key;
+  void _syncSources() {
+    final available = _sources.map((s) => s.key).toSet();
+    if (!_selectionInitialized && available.isNotEmpty) {
+      final initial = widget.sourceKey ?? 'google_lens';
+      if (available.contains(initial)) _selectedSources.add(initial);
+      _selectionInitialized = true;
     }
-    _sourceSignature = jsonEncode(
-      _source == null ? null : _manager.manifest(_source!)?.json,
-    );
+    _selectedSources.removeWhere((key) => !available.contains(key));
+    _sourceSignature = jsonEncode({
+      for (final key in _selectedSources.toList()..sort())
+        key: _manager.manifest(key)?.json,
+    });
   }
 
   void _sourcesChanged() {
     if (!mounted) return;
-    final previous = _source, signature = _sourceSignature;
-    _syncSource();
-    if (previous != _source || signature != _sourceSignature) _invalidate();
+    final signature = _sourceSignature;
+    _syncSources();
+    if (signature != _sourceSignature) _invalidate();
     setState(() {});
+  }
+
+  void _searchChanged() {
+    if (!mounted) return;
+    setState(() {
+      final successful = _searchController.successfulSources;
+      if (!successful.contains(_resultSource)) {
+        _resultSource = successful.firstOrNull;
+      }
+    });
   }
 
   void _invalidate() {
     _generation++;
-    _token?.cancel();
-    _token = null;
-    _finishBrowser(null);
-    _busy = false;
+    _searchController.reset();
+    _resultSource = null;
     _preparing = false;
-    _results = null;
-    _error = null;
-  }
-
-  void _finishBrowser(BrowserImageSearchResult? result, {Object? error}) {
-    final pending = _browserResult;
-    _browserResult = null;
-    _browserRequest = null;
-    _browserVerification = false;
-    if (pending != null && !pending.isCompleted) {
-      if (error != null) {
-        pending.completeError(error);
-      } else {
-        pending.complete(result);
-      }
-    }
   }
 
   @override
   void dispose() {
     _manager.removeListener(_sourcesChanged);
-    _invalidate();
+    _searchController.removeListener(_searchChanged);
+    _searchController.dispose();
     super.dispose();
   }
 
@@ -154,44 +149,21 @@ class _ReverseSearchPageState extends State<ReverseSearchPage> {
     }
   }
 
-  Future<void> _search() async {
-    final source = _source, image = _image;
-    if (source == null || image == null || _busy || _preparing) return;
-    setState(() {
-      _invalidate();
-      _busy = true;
-      _token = CancelToken();
-    });
-    final generation = _generation, token = _token!;
-    try {
-      final rows = await _manager.reverseSearch(
-        source,
-        image.base64,
-        cancelToken: token,
-        browserSearch: (request) async {
-          if (!mounted || token.isCancelled || generation != _generation) {
-            return null;
-          }
-          final result = Completer<BrowserImageSearchResult?>();
-          setState(() {
-            _browserRequest = request;
-            _browserResult = result;
-          });
-          final page = await result.future;
-          if (page == null) token.cancel();
-          return page;
-        },
-      );
-      if (mounted && generation == _generation && !token.isCancelled) {
-        setState(() => _results = rows);
-      }
-    } catch (error) {
-      if (mounted && generation == _generation && !token.isCancelled) {
-        setState(() => _error = error);
-      }
-    } finally {
-      if (mounted && generation == _generation) setState(() => _busy = false);
+  void _search() {
+    final image = _image;
+    if (image == null || _selectedSources.isEmpty || _busy || _preparing) {
+      return;
     }
+    final base64 = image.base64;
+    _searchController.start(
+      _sources.where((s) => _selectedSources.contains(s.key)).map((s) => s.key),
+      (source, token, browserSearch) => _manager.reverseSearch(
+        source,
+        base64,
+        cancelToken: token,
+        browserSearch: browserSearch,
+      ),
+    );
   }
 
   Future<void> _open(String url) async {
@@ -205,16 +177,114 @@ class _ReverseSearchPageState extends State<ReverseSearchPage> {
     if (!opened && mounted) context.toast(tr('无法打开原站'));
   }
 
-  String _time(double value) {
-    final seconds = value.floor();
-    return '${seconds ~/ 60}:${(seconds % 60).toString().padLeft(2, '0')}';
-  }
+  Widget _form() => ReverseSearchForm(
+    sources: _sources,
+    selectedSources: _selectedSources,
+    image: _image,
+    preparing: _preparing,
+    busy: _busy,
+    onSelect: (key) => setState(() {
+      _invalidate();
+      if (!_selectedSources.add(key)) _selectedSources.remove(key);
+      HapticFeedback.selectionClick();
+      _syncSources();
+    }),
+    onPick: _pick,
+    onCrop: _crop,
+    onRemove: () => setState(() {
+      _invalidate();
+      _original = null;
+      _image = null;
+    }),
+    onSearch: _search,
+    onCancel: _searchController.cancel,
+    onManage: () => Nav.push(context, const SourceManagePage()),
+  );
+
+  List<Widget> _resultHeader(BuildContext context) => [
+    ReverseSearchResultsHeader(
+      controller: _searchController,
+      source: _resultSource,
+      sourceName: (source) => _manager.manifest(source)?.name ?? source,
+      onSelected: (source) => setState(() {
+        if (_resultSource != source) HapticFeedback.selectionClick();
+        _resultSource = source;
+      }),
+    ),
+    const SizedBox(height: Gap.l),
+  ];
+
+  Widget _result(ReverseSearchMatch match) => ReverseSearchResult(
+    key: ValueKey((_resultSource, match)),
+    source: _resultSource!,
+    match: match,
+    onOpen: _open,
+    onSearch: (keyword) => Nav.openAggregateSearch(context, keyword: keyword),
+  );
+
+  Widget _workspace(BuildContext context) => LayoutBuilder(
+    builder: (context, constraints) {
+      final wide = constraints.maxWidth >= 840;
+      final inset = wide ? Gap.xl : Gap.page;
+      final results =
+          _searchController.results[_resultSource]?.matches ??
+          const <ReverseSearchMatch>[];
+      // 两栏各自滚动；窄屏保持一条连续的阅读与操作路径。
+      if (wide && _sources.isNotEmpty) {
+        return Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            SizedBox(
+              width: 360,
+              child: ListView(
+                padding: EdgeInsets.all(inset),
+                children: [_form()],
+              ),
+            ),
+            VerticalDivider(
+              width: Gap.xl,
+              color: context.colors.outlineVariant,
+            ),
+            Expanded(
+              child: ListView.builder(
+                padding: EdgeInsetsDirectional.fromSTEB(0, inset, inset, inset),
+                itemCount: results.length + 1,
+                itemBuilder: (context, index) => index == 0
+                    ? Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: _resultHeader(context),
+                      )
+                    : _result(results[index - 1]),
+              ),
+            ),
+          ],
+        );
+      }
+      return ListView.builder(
+        padding: EdgeInsets.all(inset),
+        itemCount: results.length + 1,
+        itemBuilder: (context, index) => index == 0
+            ? Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  _form(),
+                  if (_sources.isNotEmpty) ...[
+                    const SizedBox(height: Gap.xl),
+                    const Divider(),
+                    const SizedBox(height: Gap.xl),
+                    ..._resultHeader(context),
+                  ],
+                ],
+              )
+            : _result(results[index - 1]),
+      );
+    },
+  );
 
   @override
   Widget build(BuildContext context) {
-    final sources = _sources;
-    final manifest = _source == null ? null : _manager.manifest(_source!);
-    final generation = _generation;
+    final browser = _searchController.browser;
+    final verification = browser?.verification == true;
     return Scaffold(
       appBar: AppBar(
         title: Text(tr('图片反搜')),
@@ -224,232 +294,87 @@ class _ReverseSearchPageState extends State<ReverseSearchPage> {
             icon: const Icon(Icons.extension_outlined),
             onPressed: () => Nav.push(context, const SourceManagePage()),
           ),
+          const SizedBox(width: Gap.xs),
         ],
       ),
-      body: LayoutBuilder(
-        builder: (context, constraints) => Stack(
-          children: [
-            // 后台网页保持正常尺寸并参与绘制，前景的原生界面覆盖网页。
-            // 人机验证时只露出同一个会话，不创建新浏览器或结果路由。
-            if (_browserRequest != null)
-              Positioned(
-                left: Gap.page,
-                right: Gap.page,
-                bottom: 0,
-                height: constraints.maxHeight * 0.6,
-                child: BrowserImageSearchPanel(
-                  key: ValueKey(_generation),
-                  source: _source!,
-                  request: _browserRequest!,
-                  imageBase64: _image!.base64,
-                  cancelToken: _token!,
-                  onComplete: (result) {
-                    if (mounted && generation == _generation) {
-                      setState(() => _finishBrowser(result));
-                    }
-                  },
-                  onError: (error) {
-                    if (mounted && generation == _generation) {
-                      setState(() => _finishBrowser(null, error: error));
-                    }
-                  },
-                  onVerificationChanged: (value) {
-                    if (mounted && generation == _generation) {
-                      setState(() => _browserVerification = value);
-                    }
-                  },
-                ),
-              ),
-            Column(
-              children: [
-                Expanded(
-                  child: ColoredBox(
-                    color: Theme.of(context).colorScheme.surface,
-                    child: ListView(
-                      padding: const EdgeInsets.all(Gap.page),
-                      children: [
-                        Text(tr('从截图或插画查找出处，再用作品名或番号搜索资源')),
-                        const SizedBox(height: Gap.l),
-                        if (sources.isEmpty)
-                          EmptyState(
-                            icon: Icons.image_search_outlined,
-                            title: tr('没有启用的反搜服务'),
-                            message: tr('在站点管理中启用或安装站点'),
-                          ),
-                        if (sources.isNotEmpty)
-                          Wrap(
-                            spacing: Gap.s,
-                            runSpacing: Gap.s,
-                            children: [
-                              for (final source in sources)
-                                ChoiceChip(
-                                  label: SelectionContainer.disabled(
-                                    child: Text(source.manifest!.name),
-                                  ),
-                                  selected: source.key == _source,
-                                  onSelected: (_) => setState(() {
-                                    _invalidate();
-                                    _source = source.key;
-                                    _syncSource();
-                                  }),
-                                ),
-                            ],
-                          ),
-                        if (manifest != null) ...[
-                          const SizedBox(height: Gap.m),
-                          Text(manifest.description),
-                          if (manifest.network['vpnHint'] == true)
-                            const NetworkAccessHint(),
-                        ],
-                        const SizedBox(height: Gap.l),
-                        if (_image != null)
-                          ConstrainedBox(
-                            constraints: const BoxConstraints(maxHeight: 280),
-                            child: Image.memory(
-                              _image!.bytes,
-                              fit: BoxFit.contain,
-                              semanticLabel: tr('待反搜图片'),
-                            ),
-                          ),
-                        const SizedBox(height: Gap.s),
-                        Wrap(
-                          spacing: Gap.s,
-                          runSpacing: Gap.s,
-                          children: [
-                            OutlinedButton.icon(
-                              onPressed: _preparing ? null : _pick,
-                              icon: const Icon(
-                                Icons.add_photo_alternate_outlined,
-                              ),
-                              label: SelectionContainer.disabled(
-                                child: Text(tr('选择图片')),
-                              ),
-                            ),
-                            if (_image != null)
-                              TextButton(
-                                onPressed: _preparing ? null : _crop,
-                                child: SelectionContainer.disabled(
-                                  child: Text(tr('裁剪图片')),
-                                ),
-                              ),
-                            if (_image != null)
-                              TextButton(
-                                onPressed: () => setState(() {
-                                  _invalidate();
-                                  _original = null;
-                                  _image = null;
-                                }),
-                                child: SelectionContainer.disabled(
-                                  child: Text(tr('移除图片')),
-                                ),
-                              ),
-                          ],
-                        ),
-                        if (_preparing) const LinearProgressIndicator(),
-                        const SizedBox(height: Gap.l),
-                        Text(tr('点击搜索后，图片会上传至所选服务；请勿上传私人或敏感图片')),
-                        const SizedBox(height: Gap.s),
-                        Align(
-                          alignment: AlignmentDirectional.centerStart,
-                          child: _busy
-                              ? OutlinedButton(
-                                  onPressed: () => setState(_invalidate),
-                                  child: SelectionContainer.disabled(
-                                    child: Text(tr('取消')),
-                                  ),
-                                )
-                              : FilledButton.icon(
-                                  onPressed:
-                                      _image == null ||
-                                          _source == null ||
-                                          _preparing
-                                      ? null
-                                      : _search,
-                                  icon: const Icon(Icons.image_search_outlined),
-                                  label: SelectionContainer.disabled(
-                                    child: Text(tr('开始反搜')),
-                                  ),
-                                ),
-                        ),
-                        if (_busy) ...[
-                          const SizedBox(height: Gap.l),
-                          const LinearProgressIndicator(),
-                          const SizedBox(height: Gap.s),
-                          Text(tr('正在识别，服务繁忙时可能需要排队')),
-                        ],
-                        if (_browserVerification)
-                          Text(tr('正在反搜；如出现人机验证，请在下方页面中完成')),
-                        if (_error != null && _source != null)
-                          SourceErrorView(
-                            error: _error!,
-                            source: _source!,
-                            onRetry: _search,
-                            compact: true,
-                          ),
-                        if (_results != null) ...[
-                          const SizedBox(height: Gap.l),
-                          Text(tr('识别结果仅供核对；分数由各服务提供，不代表已确认出处')),
-                          if (_results!.isEmpty)
-                            EmptyState(
-                              icon: Icons.search_off_outlined,
-                              title: tr('未找到可靠匹配'),
-                              message: tr('尝试裁剪主体、使用更清晰的原图或切换服务'),
-                            ),
-                          for (final row in _results!) ...[
-                            const Divider(),
-                            SelectableText(
-                              row.title,
-                              style: Theme.of(context).textTheme.titleMedium,
-                            ),
-                            if (row.description.isNotEmpty)
-                              SelectableText(row.description),
-                            if (row.uncertain) Text(tr('低可信候选，请核对')),
-                            if (row.similarity != null)
-                              Text(
-                                tr('相似度 {score}%', {
-                                  'score': row.similarity!.toStringAsFixed(1),
-                                }),
-                              ),
-                            if (row.episode.isNotEmpty)
-                              Text(
-                                tr('第 {episode} 集', {'episode': row.episode}),
-                              ),
-                            if (row.from != null && row.to != null)
-                              Text('${_time(row.from!)} – ${_time(row.to!)}'),
-                            Wrap(
-                              spacing: Gap.s,
-                              runSpacing: Gap.s,
-                              children: [
-                                if (row.keyword.isNotEmpty)
-                                  TextButton(
-                                    onPressed: () => Nav.openAggregateSearch(
-                                      context,
-                                      keyword: row.keyword,
-                                    ),
-                                    child: SelectionContainer.disabled(
-                                      child: Text(tr('搜索资源')),
-                                    ),
-                                  ),
-                                if (row.url.isNotEmpty)
-                                  TextButton(
-                                    onPressed: () => _open(row.url),
-                                    child: SelectionContainer.disabled(
-                                      child: Text(tr('原站')),
-                                    ),
-                                  ),
-                              ],
-                            ),
-                          ],
-                        ],
-                      ],
+      body: SafeArea(
+        top: false,
+        child: LayoutBuilder(
+          builder: (context, constraints) => Stack(
+            children: [
+              // 后台网页保持正常尺寸并参与绘制，前景原生界面覆盖网页。
+              // 人机验证时只露出同一会话，不创建新浏览器或结果路由。
+              if (browser != null)
+                Positioned(
+                  left: Gap.page,
+                  right: Gap.page,
+                  bottom: 0,
+                  height: constraints.maxHeight * 0.6,
+                  child: BrowserImageSearchPanel(
+                    key: ValueKey(browser),
+                    source: browser.source,
+                    request: browser.request,
+                    imageBase64: _image!.base64,
+                    cancelToken: browser.token,
+                    onComplete: (result) =>
+                        _searchController.finishBrowser(browser, result),
+                    onError: (error) => _searchController.finishBrowser(
+                      browser,
+                      null,
+                      error: error,
                     ),
+                    onVerificationChanged: (value) =>
+                        _searchController.setVerification(browser, value),
                   ),
                 ),
-                if (_browserVerification)
-                  SizedBox(height: constraints.maxHeight * 0.6),
-              ],
-            ),
-          ],
+              Column(
+                children: [
+                  Expanded(
+                    child: ColoredBox(
+                      color: context.colors.surface,
+                      child: Align(
+                        alignment: Alignment.topCenter,
+                        child: ConstrainedBox(
+                          constraints: const BoxConstraints(maxWidth: 1200),
+                          child: _workspace(context),
+                        ),
+                      ),
+                    ),
+                  ),
+                  if (verification) ...[
+                    ConstrainedBox(
+                      constraints: BoxConstraints(
+                        maxHeight: constraints.maxHeight * 0.4,
+                      ),
+                      child: SingleChildScrollView(
+                        child: ColoredBox(
+                          color: context.colors.surfaceContainer,
+                          child: Padding(
+                            padding: const EdgeInsets.all(Gap.m),
+                            child: Row(
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    '${_manager.manifest(browser!.source)?.name ?? browser.source}\n${tr('正在反搜；如出现人机验证，请在下方页面中完成')}',
+                                    style: context.text.bodySmall,
+                                  ),
+                                ),
+                                TextButton(
+                                  onPressed: _searchController.cancel,
+                                  child: Text(tr('取消')),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                    SizedBox(height: constraints.maxHeight * 0.6),
+                  ],
+                ],
+              ),
+            ],
+          ),
         ),
       ),
     );

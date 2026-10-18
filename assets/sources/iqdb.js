@@ -1,6 +1,6 @@
 Park.register({
-  key: 'iqdb', name: 'IQDB', version: '0.0.1', apiVersion: 1,
-  type: 'comic', category: 'other', homepage: 'https://iqdb.org/',
+  key: 'iqdb', name: 'IQDB', version: '0.0.3', apiVersion: 1,
+  type: 'comic', category: 'other', reverseSearchCategory: 'gallery', homepage: 'https://iqdb.org/',
   description: '插画出处反搜；高峰期可能需要排队',
   domains: ['iqdb.org'], network: { vpnHint: true },
   i18n: {
@@ -34,18 +34,31 @@ Park.register({
     const doc = Park.html.parse(response.body);
     if (!doc.querySelector('#pages') && !/No relevant matches|No matches found/i.test(response.body)) throw Park.error('PARSE', '反搜服务返回无效数据');
     const results = [];
-    for (const table of doc.querySelectorAll('#pages table')) {
-      if (!/^(Best match|Additional match)$/.test(Park.html.text(table.querySelector('th')))) continue;
-      const score = Number((Park.html.text(table).match(/(\d+(?:\.\d+)?)% similarity/) || [])[1]);
-      if (!Number.isFinite(score) || score < 75) continue;
+    for (const table of doc.querySelectorAll('#pages table, #more1 table, #more2 table')) {
       const anchor = table.querySelector('td.image a');
+      if (!anchor) continue;
+      const score = Number((Park.html.text(table).match(/(\d+(?:\.\d+)?)% similarity/) || [])[1]);
+      if (!Number.isFinite(score) || score < 0 || score > 100) throw Park.error('PARSE', '反搜服务返回无效数据');
       const href = Park.html.attr(anchor, 'href');
-      if (!/^(https?:)?\/\//i.test(href)) continue;
+      if (!/^(https?:)?\/\//i.test(href)) throw Park.error('PARSE', '反搜服务返回无效数据');
       const url = href.startsWith('//') ? 'https:' + href : href;
       const label = Park.html.text(table.querySelectorAll('tr')[2]) || url;
       const tags = Park.html.attr(table.querySelector('td.image img'), 'alt').replace(/^.*?Tags:\s*/, '').replace(/^\[IMG\]$/, '');
-      results.push({ title: label, description: tags, url, similarity: score });
+      const thumbnail = Park.html.attr(table.querySelector('td.image img'), 'src');
+      const links = Array.from(table.querySelectorAll('a[href]')).map(a => ({
+        label: Park.html.text(a) || label,
+        url: new URL(Park.html.attr(a, 'href'), 'https://iqdb.org/').href,
+      })).filter(link => /^https?:\/\//i.test(link.url));
+      results.push({
+        title: label, description: tags, url, similarity: score,
+        images: thumbnail ? [{ url: new URL(thumbnail, 'https://iqdb.org/').href }] : [],
+        details: {
+          matchType: Park.html.text(table.querySelector('th')) || 'Other results',
+          metadata: Park.html.text(table), tags, links,
+        },
+      });
     }
-    return results;
+    if (!results.length && !/No relevant matches|No matches found/i.test(response.body)) throw Park.error('PARSE', '反搜服务返回无效数据');
+    return results.sort((a, b) => b.similarity - a.similarity);
   },
 });

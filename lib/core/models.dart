@@ -68,6 +68,23 @@ enum SourceCategory {
       .firstWhere((category) => category.name == value, orElse: () => other);
 }
 
+/// 反搜用途独立于作品分类，不影响发现页入口或阅读行为。
+enum ReverseSearchCategory {
+  general('通用'),
+  anime('里番'),
+  jav('JAV'),
+  gallery('美图');
+
+  const ReverseSearchCategory(this._label);
+  final String _label;
+  String get label => tr(_label);
+
+  static ReverseSearchCategory fromJson(Object? value) => values.firstWhere(
+    (category) => category.name == value,
+    orElse: () => general,
+  );
+}
+
 /// One selectable value of a feed option, search filter or setting.
 class Choice {
   Choice(this.value, String label, {this.color, PluginCopy? copy})
@@ -370,6 +387,8 @@ class SourceManifest {
   bool get rankingOnly => json['rankingOnly'] == true;
   bool get reverseSearchOnly =>
       can('reverseSearch') && feeds.isEmpty && !can('search');
+  ReverseSearchCategory get reverseSearchCategory =>
+      ReverseSearchCategory.fromJson(json['reverseSearchCategory']);
 
   /// Key of the feed the source page opens on (manifest `defaultFeed`).
   final String defaultFeed;

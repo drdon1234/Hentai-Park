@@ -1,6 +1,6 @@
 Park.register({
-  key: 'anime_trace', name: 'AnimeTrace', version: '0.0.1', apiVersion: 1,
-  type: 'comic', category: 'other', homepage: 'https://www.animetrace.com/',
+  key: 'anime_trace', name: 'AnimeTrace', version: '0.0.3', apiVersion: 1,
+  type: 'comic', category: 'other', reverseSearchCategory: 'anime', homepage: 'https://www.animetrace.com/',
   description: '识别动画与 Galgame 角色及作品；候选结果需核对',
   domains: ['animetrace.com'], network: { vpnHint: true },
   i18n: {
@@ -31,16 +31,19 @@ Park.register({
     this.http.ensureOk(response);
     const data = response.json();
     if (data.code !== 0 || !Array.isArray(data.data)) throw Park.error('PARSE', '反搜服务返回无效数据');
-    const found = new Map();
+    const found = [];
     for (const face of data.data) {
       if (!Array.isArray(face.character)) throw Park.error('PARSE', '反搜服务返回无效数据');
-      for (const row of face.character.slice(0, face.not_confident ? 3 : 5)) {
-        if (!row.work || !row.character) continue;
-        const key = row.work + '\n' + row.character;
-        const value = { title: row.work, keyword: row.work, description: row.character, uncertain: !!face.not_confident };
-        if (!found.has(key) || !value.uncertain) found.set(key, value);
+      const { character, ...detection } = face;
+      for (const row of character) {
+        if (!row.work || !row.character) throw Park.error('PARSE', '反搜服务返回无效数据');
+        found.push({
+          title: row.work, keyword: row.work, description: row.character,
+          uncertain: !!face.not_confident,
+          details: { ...row, face: detection, ...(data.ai == null ? {} : { ai: data.ai }) },
+        });
       }
     }
-    return [...found.values()].sort((a, b) => Number(a.uncertain) - Number(b.uncertain)).slice(0, 20);
+    return found;
   },
 });
