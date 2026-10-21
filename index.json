@@ -1,90 +1,97 @@
 {
   "name": "HentaiPark Rankings",
-  "apiVersion": 1,
+  "apiVersion": 2,
   "sources": [
     {
       "key": "ranking-dlsite",
       "name": "DLsite",
-      "version": "0.0.1",
+      "version": "0.0.2",
       "description": "官方销量榜",
       "category": "doujin",
       "rankingOnly": true,
       "reverseSearchOnly": false,
-      "url": "https://raw.githubusercontent.com/drdon1234/Hentai-Park/460d835ff7fb1db8312f68554d681b2b59caac17/assets/sources/ranking-dlsite.js",
-      "sha256": "9879d0875b3f1c6fce5da49cdd17123dbc7de12cb89c059c08fecc8b5fd19581",
-      "apiVersion": 1
+      "url": "https://raw.githubusercontent.com/drdon1234/Hentai-Park/ecf43c13aa3c838fb5acce21a013cac38d771ad3/assets/sources/ranking-dlsite.js",
+      "sha256": "e91d8e79567cfd931cb4a50d39b913f0780415d53192510db8a6cff572b91125",
+      "apiVersion": 2,
+      "minAppVersion": "0.9.2"
     },
     {
       "key": "ranking-toranoana",
       "name": "虎之穴",
-      "version": "0.0.1",
+      "version": "0.0.2",
       "description": "官方销量榜",
       "category": "doujin",
       "rankingOnly": true,
       "reverseSearchOnly": false,
-      "url": "https://raw.githubusercontent.com/drdon1234/Hentai-Park/460d835ff7fb1db8312f68554d681b2b59caac17/assets/sources/ranking-toranoana.js",
-      "sha256": "7575fad6b5ada0acbdc0391c6ef005ad9d0ae65963323ca27b88745187953a63",
-      "apiVersion": 1
+      "url": "https://raw.githubusercontent.com/drdon1234/Hentai-Park/ecf43c13aa3c838fb5acce21a013cac38d771ad3/assets/sources/ranking-toranoana.js",
+      "sha256": "28bc4fda5348cbd1f7e9ee60e043b76c23e0a920901534a404f2ae1ce9272697",
+      "apiVersion": 2,
+      "minAppVersion": "0.9.2"
     },
     {
       "key": "ranking-fanza",
       "name": "FANZA",
-      "version": "0.0.2",
+      "version": "0.0.3",
       "description": "官方销量榜",
       "category": "jav",
       "rankingOnly": true,
       "reverseSearchOnly": false,
-      "url": "https://raw.githubusercontent.com/drdon1234/Hentai-Park/460d835ff7fb1db8312f68554d681b2b59caac17/assets/sources/ranking-fanza.js",
-      "sha256": "1043e6f89e6447b29bd827915275ed4fd78fefa479eb40200bb60679583062d0",
-      "apiVersion": 1
+      "url": "https://raw.githubusercontent.com/drdon1234/Hentai-Park/ecf43c13aa3c838fb5acce21a013cac38d771ad3/assets/sources/ranking-fanza.js",
+      "sha256": "250a79a903a286c4c6085503dd39dc6b569bb3c374145dafb03d01dcbbde3753",
+      "apiVersion": 2,
+      "minAppVersion": "0.9.2"
     },
     {
       "key": "ranking-mgs",
       "name": "MGStage",
-      "version": "0.0.2",
+      "version": "0.0.3",
       "description": "官方销量榜",
       "category": "jav",
       "rankingOnly": true,
       "reverseSearchOnly": false,
-      "url": "https://raw.githubusercontent.com/drdon1234/Hentai-Park/460d835ff7fb1db8312f68554d681b2b59caac17/assets/sources/ranking-mgs.js",
-      "sha256": "1c927570b8ae358ce214909789fb873d58dff47822862d6f64944d129e3f893b",
-      "apiVersion": 1
+      "url": "https://raw.githubusercontent.com/drdon1234/Hentai-Park/ecf43c13aa3c838fb5acce21a013cac38d771ad3/assets/sources/ranking-mgs.js",
+      "sha256": "be844cd6a6c0868c77d17f84ccd03f0c64d7cfd45da4c8fa3921220f6d5cb624",
+      "apiVersion": 2,
+      "minAppVersion": "0.9.2"
     },
     {
       "key": "ranking-fc2",
       "name": "FC2",
-      "version": "0.0.3",
+      "version": "0.0.4",
       "description": "官方销量榜",
       "category": "jav",
       "rankingOnly": true,
       "reverseSearchOnly": false,
-      "url": "https://raw.githubusercontent.com/drdon1234/Hentai-Park/460d835ff7fb1db8312f68554d681b2b59caac17/assets/sources/ranking-fc2.js",
-      "sha256": "e3d2881bf20a738383efbca66e709eab6ee9ed5e37842f27a2d449a0875ef472",
-      "apiVersion": 1
+      "url": "https://raw.githubusercontent.com/drdon1234/Hentai-Park/ecf43c13aa3c838fb5acce21a013cac38d771ad3/assets/sources/ranking-fc2.js",
+      "sha256": "9f4ea46b1d87ea2ba18a91176a953de10f2e6d77bc80a2276419ae7b2d475882",
+      "apiVersion": 2,
+      "minAppVersion": "0.9.2"
     },
     {
       "key": "ranking-studios",
       "name": "无码厂商",
-      "version": "0.0.3",
+      "version": "0.0.4",
       "description": "官方人气榜",
       "category": "jav",
       "rankingOnly": true,
       "reverseSearchOnly": false,
-      "url": "https://raw.githubusercontent.com/drdon1234/Hentai-Park/460d835ff7fb1db8312f68554d681b2b59caac17/assets/sources/ranking-studios.js",
-      "sha256": "2d791887022319da088b075ff21f871646d813344b7890d29a96bd8a76ceb176",
-      "apiVersion": 1
+      "url": "https://raw.githubusercontent.com/drdon1234/Hentai-Park/ecf43c13aa3c838fb5acce21a013cac38d771ad3/assets/sources/ranking-studios.js",
+      "sha256": "fbbe9472df854a30a7b9970714dcbf7aee1ec634f106d7bbb9b9a99b7bae1e16",
+      "apiVersion": 2,
+      "minAppVersion": "0.9.2"
     },
     {
       "key": "ranking-javmenu",
       "name": "JavMenu",
-      "version": "0.0.1",
+      "version": "0.0.2",
       "description": "站内热门",
       "category": "jav",
       "rankingOnly": true,
       "reverseSearchOnly": false,
-      "url": "https://raw.githubusercontent.com/drdon1234/Hentai-Park/460d835ff7fb1db8312f68554d681b2b59caac17/assets/sources/ranking-javmenu.js",
-      "sha256": "1d1f012f739a1c00dbde06fb70aa90b0d3481d1cea0c91c950df33f32bb13524",
-      "apiVersion": 1
+      "url": "https://raw.githubusercontent.com/drdon1234/Hentai-Park/ecf43c13aa3c838fb5acce21a013cac38d771ad3/assets/sources/ranking-javmenu.js",
+      "sha256": "40c94848f2e3873b84d88a1e22b61880d6aaa729af39b7a6db77fd34a1a00289",
+      "apiVersion": 2,
+      "minAppVersion": "0.9.2"
     }
   ]
 }
