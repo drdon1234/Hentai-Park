@@ -70,7 +70,7 @@ class TagSection extends StatelessWidget {
     final copy =
         SourceManager.instance.manifest(source)?.copy ?? PluginCopy.none;
     return Padding(
-      padding: const EdgeInsets.fromLTRB(Gap.page, Gap.l, Gap.page, 0),
+      padding: const EdgeInsets.symmetric(horizontal: Gap.page),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -119,26 +119,18 @@ class TagSection extends StatelessWidget {
       Padding(
         padding: const EdgeInsets.only(bottom: Gap.m),
         child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             SizedBox(
-              width: 56,
-              child: Padding(
-                padding: const EdgeInsets.only(top: Gap.xs + 1),
-                child: Text(
-                  label,
-                  style: context.text.labelMedium?.copyWith(
-                    color: context.colors.onSurfaceVariant,
-                  ),
+              width: 56 * MediaQuery.textScalerOf(context).scale(14) / 14,
+              child: Text(
+                label,
+                style: context.text.labelMedium?.copyWith(
+                  color: context.colors.onSurfaceVariant,
                 ),
               ),
             ),
             Expanded(
-              child: Wrap(
-                spacing: Gap.s - 2,
-                runSpacing: Gap.s - 2,
-                children: chips,
-              ),
+              child: Wrap(spacing: Gap.s, runSpacing: Gap.s, children: chips),
             ),
           ],
         ),
@@ -254,34 +246,44 @@ class _TagChip extends StatelessWidget {
       color: Colors.transparent,
       shape: RoundedRectangleBorder(
         borderRadius: Radii.small,
-        side: BorderSide(color: c.outlineVariant),
+        side: BorderSide(color: c.outline),
       ),
       clipBehavior: Clip.antiAlias,
       child: ActionInkWell(
         onTap: onTap,
         onLongPress: () => _menu(context),
         child: SelectionContainer.disabled(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
-            child: ContentTranslation(
-              text: label,
-              source: source,
-              namespace: namespace,
-              tag: true,
-              builder: (value) => Text.rich(
-                TextSpan(
-                  children: [
-                    TextSpan(text: value),
-                    if (count != null)
-                      TextSpan(
-                        text: '  ${formatCount(count)}',
-                        style: context.text.labelSmall?.copyWith(
-                          color: c.onSurfaceVariant,
-                        ),
-                      ),
-                  ],
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(minHeight: 48),
+            child: Center(
+              widthFactor: 1,
+              heightFactor: 1,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: Gap.m,
+                  vertical: Gap.s,
                 ),
-                style: context.text.labelLarge,
+                child: ContentTranslation(
+                  text: label,
+                  source: source,
+                  namespace: namespace,
+                  tag: true,
+                  builder: (value) => Text.rich(
+                    TextSpan(
+                      children: [
+                        TextSpan(text: value),
+                        if (count != null)
+                          TextSpan(
+                            text: '  ${formatCount(count)}',
+                            style: context.text.labelSmall?.copyWith(
+                              color: c.onSurfaceVariant,
+                            ),
+                          ),
+                      ],
+                    ),
+                    style: context.text.labelLarge,
+                  ),
+                ),
               ),
             ),
           ),

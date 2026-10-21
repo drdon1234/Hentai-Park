@@ -415,7 +415,7 @@ async function publicPosts(source, target, options) {
 Park.register({
   key: 'telegram',
   name: 'Telegram',
-  version: '0.0.5',
+  version: '0.0.6', minAppVersion: '0.9.2',
   type: 'video',
   category: 'other',
   homepage: HOME,

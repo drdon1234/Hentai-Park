@@ -94,7 +94,7 @@ class _SubscriptionsPageState extends State<SubscriptionsPage> {
                   ),
                 ],
               ),
-        floatingActionButton: store.loaded
+        floatingActionButton: store.loaded && store.items.isNotEmpty
             ? FloatingActionButton.extended(
                 onPressed: _add,
                 icon: const Icon(Icons.add),
@@ -102,17 +102,15 @@ class _SubscriptionsPageState extends State<SubscriptionsPage> {
               )
             : null,
         body: error != null
-            ? Center(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(tr('订阅记录读取失败')),
-                    TextButton(
-                      onPressed: _load,
-                      child: SelectionContainer.disabled(child: Text(tr('重试'))),
-                    ),
-                  ],
-                ),
+            ? EmptyState(
+                icon: Icons.error_outline_rounded,
+                title: tr('订阅记录读取失败'),
+                actions: [
+                  OutlinedButton(
+                    onPressed: _load,
+                    child: SelectionContainer.disabled(child: Text(tr('重试'))),
+                  ),
+                ],
               )
             : !store.loaded
             ? const Center(child: CircularProgressIndicator())
@@ -202,7 +200,7 @@ class _SubscriptionsPageState extends State<SubscriptionsPage> {
                                 setState(() {});
                               },
                             ),
-                          TextButton.icon(
+                          OutlinedButton.icon(
                             onPressed: SubscriptionUpdater.instance.running
                                 ? null
                                 : () => SubscriptionUpdater.instance.run(
@@ -237,9 +235,17 @@ class _SubscriptionsPageState extends State<SubscriptionsPage> {
                   ),
                   const SizedBox(height: 16),
                   if (store.items.isEmpty)
-                    Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 48),
-                      child: Center(child: Text(tr('还没有订阅'))),
+                    EmptyState(
+                      compact: true,
+                      icon: Icons.notifications_none_rounded,
+                      title: tr('还没有订阅'),
+                      actions: [
+                        FilledButton.icon(
+                          onPressed: _add,
+                          icon: const Icon(Icons.add),
+                          label: Text(tr('添加订阅')),
+                        ),
+                      ],
                     ),
                   for (final source
                       in store.items.map((e) => e.source).toSet()) ...[
@@ -641,14 +647,14 @@ class _SubscriptionDialogState extends State<_SubscriptionDialog> {
                     account?.loggedIn == true &&
                     manifest?.json['subscription'] is Map &&
                     manifest!.json['subscription']['joinedTargets'] == true)
-                  TextButton(
+                  OutlinedButton(
                     onPressed: busy ? null : _choose,
                     child: SelectionContainer.disabled(
                       child: Text(tr('选择已加入的频道')),
                     ),
                   ),
                 if (manifest?.account != null)
-                  TextButton.icon(
+                  OutlinedButton.icon(
                     onPressed: busy
                         ? null
                         : () async {

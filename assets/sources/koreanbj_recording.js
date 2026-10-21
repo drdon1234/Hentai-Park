@@ -36,7 +36,7 @@ Park.register({
       '录播请求失败': 'فشل طلب التسجيل', '录播数据无效': 'بيانات التسجيل غير صالحة', '录播不存在': 'التسجيل غير موجود',
     },
   },
-  key: 'koreanbj_recording', name: 'KoreanBJ.club 录播', version: '0.0.2', type: 'video', category: 'recording',
+  key: 'koreanbj_recording', name: 'KoreanBJ.club 录播', version: '0.0.3', minAppVersion: '0.9.2', type: 'video', category: 'recording',
   color: '#8d2738', description: '韩国主播录播，支持热门、分页、搜索与原生播放', language: 'ko',
   homepage: 'https://ww1.koreanbj.club/', domains: ['koreanbj.club'],
   network: {mode: 'auto', vpnHint: true},

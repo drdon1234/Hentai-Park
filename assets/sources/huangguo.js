@@ -15,7 +15,7 @@ Park.register({
   },
   key: 'huangguo',
   name: '黄果短剧',
-  version: '0.0.9',
+  version: '0.0.10', minAppVersion: '0.9.2',
   type: 'video',
   category: 'aiDrama',
   color: '#F2AD24',

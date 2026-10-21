@@ -246,7 +246,7 @@ class _ThumbnailSectionState extends State<ThumbnailSection> {
                       )
                     : _pager.automatic && _pager.error == null
                     ? const SizedBox(height: 36)
-                    : TextButton.icon(
+                    : OutlinedButton.icon(
                         onPressed: () => _more(fromUser: true),
                         icon: const Icon(Icons.expand_more_rounded),
                         label: SelectionContainer.disabled(

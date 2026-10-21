@@ -141,7 +141,7 @@ class SearchHistoryList extends StatelessWidget {
       children: [
         SectionHeader(
           tr('最近搜索'),
-          trailing: TextButton(
+          trailing: OutlinedButton(
             onPressed: () =>
                 AppSettings.instance.clearSearchHistory(scope: scope),
             child: SelectionContainer.disabled(child: Text(tr('清空'))),
@@ -190,7 +190,7 @@ class SourceResultsRow extends StatelessWidget {
     final header = SectionHeader(
       m.name,
       leading: SourceAvatar(source, size: 22),
-      trailing: TextButton(
+      trailing: OutlinedButton(
         onPressed: () => multi != null
             ? Nav.push(
                 context,

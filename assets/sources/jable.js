@@ -9,7 +9,7 @@ Park.register({
     "ru": {"JAV 视频，支持热门、搜索与 HLS 播放": "JAV: популярное, поиск и воспроизведение HLS"},
     "ar": {"JAV 视频，支持热门、搜索与 HLS 播放": "فيديوهات JAV مع قوائم شائعة وبحث وتشغيل HLS"},
   },
-  key: 'jable', name: 'JableTV', version: '0.0.7', type: 'video', category: 'jav',
+  key: 'jable', name: 'JableTV', version: '0.0.8', minAppVersion: '0.9.2', type: 'video', category: 'jav',
   color: '#14B8A6', description: 'JAV 视频，支持热门、搜索与 HLS 播放',
   homepage: 'https://jable.tv', domains: ['jable.tv'], language: 'zh-Hant',
   network: {mode: 'browser', origin: 'https://jable.tv', vpnHint: true},

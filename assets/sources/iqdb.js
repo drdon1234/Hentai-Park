@@ -1,5 +1,5 @@
 Park.register({
-  key: 'iqdb', name: 'IQDB', version: '0.0.3', apiVersion: 1,
+  key: 'iqdb', name: 'IQDB', version: '0.0.4', minAppVersion: '0.9.2', apiVersion: 2,
   type: 'comic', category: 'other', reverseSearchCategory: 'gallery', homepage: 'https://iqdb.org/',
   description: '插画出处反搜；高峰期可能需要排队',
   domains: ['iqdb.org'], network: { vpnHint: true },

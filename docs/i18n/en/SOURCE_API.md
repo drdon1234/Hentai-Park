@@ -23,6 +23,7 @@ Park.register({
   key: 'mysite',
   name: '我的站点',
   version: '0.0.1',
+  minAppVersion: '0.9.2',
   type: 'comic',
   category: 'doujin',
   homepage: 'https://example.com',
@@ -67,7 +68,8 @@ node 'test/source-smoke.mjs'
 Park.register({
   key: 'mysite',              // unique and permanent; only [A-Za-z0-9_-], 1–100 chars, not _app
   name: '我的站点',
-  version: '0.0.1',           // three numbers; the app offers an update when the repository has a higher one
+  version: '0.0.1',
+  minAppVersion: '0.9.2',           // three numbers; the app offers an update when the repository has a higher one
   type: 'comic',              // comic | video | novel | game: how works are read or played
   category: 'doujin',         // doujin | anime | aiDrama | jav | adult | shortvideo | recording | live | gallery | illustration | novel | game | other
   color: '#E5355F',           // brand color: site avatar and site page
@@ -533,16 +535,17 @@ A repository is a single `index.json` on any static host. Users enter its addres
 ```json
 {
   "name": "我的站点仓库",
-  "apiVersion": 1,
+  "apiVersion": 2,
   "sources": [
     {
       "key": "mysite",
       "name": "我的站点",
       "version": "0.0.1",
+      "minAppVersion": "0.9.2",
       "description": "一句话介绍",
       "url": "https://example.com/sources/mysite.js",
       "sha256": "64-hex-digit SHA-256 of the script's UTF-8 text",
-      "apiVersion": 1
+      "apiVersion": 2
     }
   ]
 }
@@ -551,6 +554,8 @@ A repository is a single `index.json` on any static host. Users enter its addres
 `url` is the full script address; `file` relative to `index.json` also works. Third-party repositories are installed manually after the user confirms; `sha256` is optional and checked when present.
 
 ### Versions and update rules
+
+- Plugins must declare minAppVersion (for example 0.9.2), matching the official index. The current apiVersion is 2 and requires HentaiPark 0.9.2 or later. Updates and URL installations validate compatibility before replacing an installed plugin; incompatible updates leave the installed plugin unchanged. Automatic notifications separate compatible updates from those requiring a newer app. Ignore this version only suppresses the listed app or plugin versions, persists after restart, and does not affect manual checks.
 
 - Versions are three dot-separated non-negative integers without leading zeros (e.g. `0.0.1`), compared numerically per part; missing parts, extra parts and pre-release suffixes are rejected.
 - Official updates must provide the `sha256` of the script's UTF-8 text (no trimming or newline conversion), and the script's `key` and `version` must match the index; `apiVersion` must equal the app runtime's exactly, otherwise the update is refused.

@@ -9,7 +9,7 @@ Park.register({
     "ru": {"站点年龄确认未自动完成，请重试": "Автоматическое подтверждение возраста не завершено. Повторите попытку.", "综合成人视频，支持推荐、搜索与多清晰度MP4；站点验证在后台处理": "Видео для взрослых: рекомендации, поиск и MP4 разного качества; проверка сайта в фоне"},
     "ar": {"站点年龄确认未自动完成，请重试": "لم يكتمل تأكيد العمر تلقائيًا. يرجى إعادة المحاولة.", "综合成人视频，支持推荐、搜索与多清晰度MP4；站点验证在后台处理": "فيديو للبالغين مع التوصيات والبحث وجودات MP4 متعددة؛ التحقق من الموقع في الخلفية"},
   },
-  key: 'spankbang', name: 'SpankBang', version: '0.0.8', type: 'video', category: 'adult',
+  key: 'spankbang', name: 'SpankBang', version: '0.0.9', minAppVersion: '0.9.2', type: 'video', category: 'adult',
   language: 'en', color: '#F99B1C', homepage: 'https://spankbang.com',
   description: '综合成人视频，支持推荐、搜索与多清晰度MP4；站点验证在后台处理',
   domains: ['spankbang.com'], network: {mode: 'browser', origin: 'https://spankbang.com', vpnHint: true, confirmation: {

@@ -53,6 +53,7 @@ class ChapterRow extends StatelessWidget {
           : '${state.lastPage + 1}/${state.pageCount}';
     }
     return Semantics(
+      button: true,
       selected: selected,
       label: [
         chapter.title,
@@ -118,6 +119,14 @@ class ChapterRow extends StatelessWidget {
                         color: c.onSurfaceVariant,
                       ),
                     ],
+                    const SizedBox(width: Gap.s),
+                    Icon(
+                      isVideo
+                          ? Icons.play_circle_outline_rounded
+                          : Icons.chevron_right_rounded,
+                      size: 20,
+                      color: c.onSurfaceVariant,
+                    ),
                   ],
                 ),
               ),
@@ -157,43 +166,52 @@ class ChapterSelectionBar extends StatelessWidget {
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
+        Wrap(
+          spacing: Gap.s,
+          runSpacing: Gap.s,
+          crossAxisAlignment: WrapCrossAlignment.center,
           children: [
-            IconButton(
-              tooltip: tr('取消选择'),
-              onPressed: onClear,
-              icon: const Icon(Icons.close_rounded),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                IconButton(
+                  tooltip: tr('取消选择'),
+                  onPressed: onClear,
+                  icon: const Icon(Icons.close_rounded),
+                ),
+                Text(
+                  tr('已选 {count}', {'count': count}),
+                  style: context.text.titleSmall,
+                ),
+              ],
             ),
-            Text(
-              tr('已选 {count}', {'count': count}),
-              style: context.text.titleSmall,
-            ),
-            const Spacer(),
-            TextButton(
+            OutlinedButton(
               onPressed: onSelectAll,
               child: SelectionContainer.disabled(child: Text(tr('全选'))),
             ),
             if (allowDownload)
-              TextButton(
+              OutlinedButton(
                 onPressed: onDownload,
                 child: SelectionContainer.disabled(child: Text(tr('下载'))),
               ),
           ],
         ),
-        if (!isVideo)
+        if (!isVideo) ...[
+          const SizedBox(height: Gap.s),
           Wrap(
-            spacing: Gap.xs,
+            spacing: Gap.s,
+            runSpacing: Gap.s,
             children: [
-              TextButton(
+              OutlinedButton(
                 onPressed: () => onMarkRead(true),
                 child: SelectionContainer.disabled(child: Text(tr('标为已读'))),
               ),
-              TextButton(
+              OutlinedButton(
                 onPressed: () => onMarkRead(false),
                 child: SelectionContainer.disabled(child: Text(tr('标为未读'))),
               ),
               if (onMarkPreviousRead != null)
-                TextButton(
+                OutlinedButton(
                   onPressed: onMarkPreviousRead,
                   child: SelectionContainer.disabled(
                     child: Text(tr('之前的章节标为已读')),
@@ -201,6 +219,7 @@ class ChapterSelectionBar extends StatelessWidget {
                 ),
             ],
           ),
+        ],
       ],
     ),
   );
@@ -275,7 +294,7 @@ class _ChapterPickerState extends State<ChapterPicker> {
               ),
             ),
             trailing: SelectionContainer.disabled(
-              child: TextButton(
+              child: OutlinedButton(
                 onPressed: () => setState(
                   () => all
                       ? _selected.clear()

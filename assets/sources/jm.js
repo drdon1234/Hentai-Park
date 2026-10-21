@@ -19,7 +19,7 @@ Park.register({
   },
   key: 'jm',
   name: '禁漫天堂',
-  version: '0.0.8',
+  version: '0.0.9', minAppVersion: '0.9.2',
   type: 'comic',
   category: 'doujin',
   color: '#F7841E',

@@ -58,7 +58,7 @@ Park.register({
       "百度识图拒绝了图片上传，请稍后重试或更换图片": "رفض Baidu رفع الصورة. أعد المحاولة لاحقًا أو اختر صورة أخرى"
     }
   },
-  key: 'baidu', name: 'Baidu', version: '0.0.3', apiVersion: 1,
+  key: 'baidu', name: 'Baidu', version: '0.0.4', minAppVersion: '0.9.2', apiVersion: 2,
   type: 'comic', category: 'other', reverseSearchCategory: 'general',
   homepage: 'https://graph.baidu.com/',
   description: '通用图片反搜；结果覆盖取决于百度识图索引',

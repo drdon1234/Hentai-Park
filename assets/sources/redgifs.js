@@ -3,7 +3,7 @@ Park.register({
   i18n: {
     "zh-Hant": {"短视频热门、搜索与 MP4 播放": "短影片熱門、搜尋與 MP4 播放"}, ja: {"短视频热门、搜索与 MP4 播放": "ショート動画の人気・検索・MP4再生"}, ko: {"短视频热门、搜索与 MP4 播放": "짧은 동영상 인기, 검색 및 MP4 재생"}, en: {"短视频热门、搜索与 MP4 播放": "Trending short videos, search and MP4 playback"}, es: {"短视频热门、搜索与 MP4 播放": "Vídeos cortos populares, búsqueda y reproducción MP4"}, ru: {"短视频热门、搜索与 MP4 播放": "Популярные короткие видео, поиск и воспроизведение MP4"}, ar: {"短视频热门、搜索与 MP4 播放": "مقاطع قصيرة رائجة مع البحث وتشغيل MP4"},
   },
-  key: 'redgifs', name: 'RedGifs', version: '0.0.4', type: 'video', category: 'shortvideo', language: 'en',
+  key: 'redgifs', name: 'RedGifs', version: '0.0.5', minAppVersion: '0.9.2', type: 'video', category: 'shortvideo', language: 'en',
   color: '#e52d27', homepage: 'https://www.redgifs.com/', description: '短视频热门、搜索与 MP4 播放',
   domains: ['redgifs.com'], network: {mode: 'native', vpnHint: true}, media: {mode: 'native', origin: 'https://www.redgifs.com', domains: ['redgifs.com']},
   imageNetwork: {mode: 'browser', origin: 'https://www.redgifs.com', domains: ['redgifs.com']},

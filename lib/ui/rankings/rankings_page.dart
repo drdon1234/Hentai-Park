@@ -527,7 +527,7 @@ class _RankingListState extends State<_RankingList> {
               widget.controller.error == null)
             SliverToBoxAdapter(
               child: Center(
-                child: TextButton(
+                child: OutlinedButton(
                   onPressed: widget.controller.loadMore,
                   child: SelectionContainer.disabled(child: Text(tr('加载更多'))),
                 ),

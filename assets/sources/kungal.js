@@ -36,7 +36,7 @@
       "ru": {"游戏排行、搜索及社区分享资源": "Рейтинги игр, поиск и ресурсы сообщества"},
       "ar": {"游戏排行、搜索及社区分享资源": "تصنيفات ألعاب وبحث وموارد المجتمع"},
     },
-    key: 'kungal', name: 'KUN Galgame', version: '0.0.6', type: 'game', category: 'game', color: '#6FA7DF',
+    key: 'kungal', name: 'KUN Galgame', version: '0.0.7', minAppVersion: '0.9.2', type: 'game', category: 'game', color: '#6FA7DF',
     description: '游戏排行、搜索及社区分享资源', homepage: BASE, language: 'multi',
     domains: ['kungal.com', 'image.kungal.iloveren.link'], network: { mode: 'native', vpnHint: true },
     linkPatterns: ['https?://(?:www\\.)?kungal\\.com/(?:galgame|works)/(\\d+)'], idPattern: '^(\\d+)$', idExample: '1408',

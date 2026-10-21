@@ -11,9 +11,8 @@ mixin _SourceAccounts on _SourceRegistry {
     final checked = _accountCheckedAt[key];
     if (_accountRefreshes.containsKey(key) ||
         account == null ||
-        (account.loggedIn &&
-            (checked == null ||
-                DateTime.now().difference(checked) > _accountTtl))) {
+        checked == null ||
+        DateTime.now().difference(checked) > _accountTtl) {
       await awaitCancelled(refreshAccount(key), cancelToken);
     }
     if (cancelToken?.cancelError case final error?) throw error;
@@ -64,9 +63,28 @@ mixin _SourceAccounts on _SourceRegistry {
 
   Future<String> login(String key, Map<String, String> values) async {
     _displayOrder?.invalidate(key);
+    // 登录前已启动的状态检查不能代替这次凭证的验证。
+    try {
+      await _accountRefreshes[key];
+    } catch (_) {
+      // 旧凭证的网络失败不阻止用户重新登录。
+    }
     final wasLoggedIn = accountListenable(key)?.value?.loggedIn;
     final res = await _call(key, 'account.login', [values]);
+    // 登录过程中内容请求也可能触发检查；等它结束后再验证这次登录。
+    try {
+      await _accountRefreshes[key];
+    } catch (_) {
+      // 并发旧检查失败时，仍以接下来的新检查为准。
+    }
     await refreshAccount(key);
+    if (manifest(key)?.can('status') == true &&
+        accountListenable(key)?.value?.loggedIn != true) {
+      throw SourceError(
+        'LOGIN_REQUIRED',
+        '尚未识别到登录，请确认网页显示账号后点击完成；如有验证提示，请先完成验证',
+      );
+    }
     if (wasLoggedIn == accountListenable(key)?.value?.loggedIn) {
       authenticationChanged(key);
     }
@@ -77,6 +95,9 @@ mixin _SourceAccounts on _SourceRegistry {
     _displayOrder?.invalidate(key);
     final wasLoggedIn = accountListenable(key)?.value?.loggedIn;
     await _call(key, 'account.logout', []);
+    final source = _sources[key];
+    if (source != null) _publishAccountStatus(source, AccountStatus(false, ''));
+    _accountCheckedAt.remove(key);
     if (manifest(key)?.account?.managedAccount == true &&
         settingsOf(key)['managedAccount'] == true) {
       await setManagedAccount(key, false);
@@ -94,22 +115,19 @@ mixin _SourceAccounts on _SourceRegistry {
   Future<void> refreshAccount(String key) {
     final pending = _accountRefreshes[key];
     if (pending != null) return pending;
-    final done = Completer<void>();
-    _accountRefreshes[key] = done.future;
-    _refreshAccount(key)
-        .then(done.complete, onError: done.completeError)
-        .whenComplete(() {
-          if (identical(_accountRefreshes[key], done.future)) {
-            _accountRefreshes.remove(key);
-          }
-        });
-    return done.future;
+    late final Future<void> refresh;
+    refresh = _refreshAccount(key).whenComplete(() {
+      if (identical(_accountRefreshes[key], refresh)) {
+        _accountRefreshes.remove(key);
+      }
+    });
+    _accountRefreshes[key] = refresh;
+    return refresh;
   }
 
   Future<void> _refreshAccount(String key) async {
     final s = _sources[key];
     if (s?.manifest?.can('status') != true) return;
-    _accountCheckedAt[key] = DateTime.now();
     AccountStatus status;
     try {
       final res = (await _call(key, 'account.status', []) as Map?) ?? {};
@@ -119,18 +137,25 @@ mixin _SourceAccounts on _SourceRegistry {
         configured: res['configured'] == true || res['loggedIn'] == true,
       );
     } catch (_) {
-      status = AccountStatus(false, '');
+      // 检查失败不代表退出登录；让下一次内容重试重新确认账号。
+      _accountCheckedAt.remove(key);
+      rethrow;
     }
-    final old = s!.account;
+    _accountCheckedAt[key] = DateTime.now();
+    _publishAccountStatus(s!, status);
+  }
+
+  void _publishAccountStatus(InstalledSource source, AccountStatus status) {
+    final old = source.account;
     if (old?.loggedIn == status.loggedIn &&
         old?.name == status.name &&
         old?.configured == status.configured) {
       return;
     }
-    s.accountListenable.value = status;
+    source.accountListenable.value = status;
     if (old?.loggedIn != status.loggedIn) {
-      authenticationChanged(key, initial: old == null);
+      authenticationChanged(source.key, initial: old == null);
     }
-    if (loader == null) _cacheManifest(s);
+    if (loader == null) _cacheManifest(source);
   }
 }

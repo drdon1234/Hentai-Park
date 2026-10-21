@@ -78,7 +78,7 @@ Park.register({
     "直播分页参数无效": "معلمات صفحات البث غير صالحة"
   }
 },
-  key: 'xlovecam', name: 'XloveCam', version: '0.0.4', type: 'video', category: 'live', language: 'en',
+  key: 'xlovecam', name: 'XloveCam', version: '0.0.5', minAppVersion: '0.9.2', type: 'video', category: 'live', language: 'en',
   color: '#990000', description: '公开直播间', homepage: 'https://www.xlovecam.com/en/', domains: ['xlovecam.com'],
   network: {mode: 'native', origin: 'https://www.xlovecam.com', vpnHint: true},
   media: {mode: 'native', origin: 'https://www.xlovecam.com', domains: ['wlresources.com']},

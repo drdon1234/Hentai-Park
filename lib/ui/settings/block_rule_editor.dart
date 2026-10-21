@@ -178,7 +178,7 @@ class _BlockRuleEditorState extends State<_BlockRuleEditor> {
                         : null,
                   ),
                   Text(tr('别名沿用原词的标题或分类范围；保存后离线生效，删除原词时一起移除。')),
-                  TextButton.icon(
+                  OutlinedButton.icon(
                     onPressed: _busy ? null : _suggest,
                     icon: _busy
                         ? const SizedBox(

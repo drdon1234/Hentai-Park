@@ -111,13 +111,11 @@ class _ScopeMenu<T> extends StatelessWidget {
       ],
       child: SelectionContainer.disabled(
         child: Container(
-          constraints: const BoxConstraints(minHeight: 36, maxWidth: 240),
+          constraints: const BoxConstraints(minHeight: 48, maxWidth: 240),
           padding: const EdgeInsets.only(left: Gap.m, right: Gap.s),
           decoration: BoxDecoration(
             color: active ? c.secondaryContainer : null,
-            border: Border.all(
-              color: active ? c.secondaryContainer : c.outlineVariant,
-            ),
+            border: Border.all(color: active ? c.primary : c.outline),
             borderRadius: Radii.small,
           ),
           child: Row(

@@ -1,5 +1,5 @@
 Park.register({
-  key: 'ranking-mgs', name: 'MGStage', version: '0.0.2',
+  key: 'ranking-mgs', name: 'MGStage', version: '0.0.3', minAppVersion: '0.9.2',
   type: 'video', category: 'jav', rankingOnly: true,
   description: '官方销量榜', homepage: 'https://www.mgstage.com/',
   domains: ['mgstage.com'],

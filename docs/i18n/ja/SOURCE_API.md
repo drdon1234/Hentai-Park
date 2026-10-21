@@ -23,6 +23,7 @@ Park.register({
   key: 'mysite',
   name: '我的站点',
   version: '0.0.1',
+  minAppVersion: '0.9.2',
   type: 'comic',
   category: 'doujin',
   homepage: 'https://example.com',
@@ -67,7 +68,8 @@ node 'test/source-smoke.mjs'
 Park.register({
   key: 'mysite',              // 一意で変更不可。[A-Za-z0-9_-] のみ、1〜100 文字、_app は不可
   name: '我的站点',
-  version: '0.0.1',           // 3 つの数字。リポジトリの方が新しいと更新を案内
+  version: '0.0.1',
+  minAppVersion: '0.9.2',           // 3 つの数字。リポジトリの方が新しいと更新を案内
   type: 'comic',              // comic | video | novel | game：読み方・再生方法を決める
   category: 'doujin',         // doujin | anime | aiDrama | jav | adult | shortvideo | recording | live | gallery | illustration | novel | game | other
   color: '#E5355F',           // ブランドカラー：サイトのアイコンとサイトページ
@@ -533,16 +535,17 @@ Park.register({
 ```json
 {
   "name": "我的站点仓库",
-  "apiVersion": 1,
+  "apiVersion": 2,
   "sources": [
     {
       "key": "mysite",
       "name": "我的站点",
       "version": "0.0.1",
+      "minAppVersion": "0.9.2",
       "description": "一句话介绍",
       "url": "https://example.com/sources/mysite.js",
       "sha256": "スクリプトの UTF-8 原文の 64 桁 16 進 SHA-256",
-      "apiVersion": 1
+      "apiVersion": 2
     }
   ]
 }
@@ -551,6 +554,8 @@ Park.register({
 `url` はスクリプトの完全なアドレスで、`index.json` からの相対の `file` も使えます。サードパーティのリポジトリはユーザーの確認後に手動でインストールします。`sha256` は任意で、ある場合はダウンロード内容を検証します。
 
 ### バージョンと更新の規則
+
+- プラグインは minAppVersion（例：0.9.2）を宣言し、公式インデックスと一致させる必要があります。現在の apiVersion は 2 で、HentaiPark 0.9.2 以降が必要です。更新と URL インストールは置き換え前に互換性を確認し、非対応の場合は既存プラグインを保持します。自動通知では更新可能なものとアプリ更新が必要なものを分けます。「このバージョンを通知しない」は表示中のアプリ・プラグインのバージョンだけに適用され、再起動後も保持されます。手動確認には影響しません。
 
 - バージョンはドット区切りで先頭ゼロのない 3 つの非負整数（例：`0.0.1`）で、各部分を数値で比較します。欠けた部分、余分な部分、プレリリースの接尾辞は受け付けません。
 - 公式の更新ではスクリプトの UTF-8 原文の `sha256`（空白の除去や改行の変換をしない）が必要で、スクリプトが宣言した `key`、`version` はインデックスと一致する必要があります。`apiVersion` は現在のアプリのランタイムと完全に一致しなければ更新を拒否します。

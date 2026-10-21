@@ -9,7 +9,7 @@ Park.register({
     "ru": {"综合成人视频搜索，常见来源优先原生播放，其他来源使用网页播放": "Поиск видео для взрослых: нативное воспроизведение популярных поддерживаемых источников, веб-плеер для остальных", "高清": "Высокое качество", "标清": "Стандартное качество"},
     "ar": {"综合成人视频搜索，常见来源优先原生播放，其他来源使用网页播放": "بحث فيديوهات للبالغين؛ تشغيل أصلي للمصادر الشائعة المدعومة وتشغيل ويب للمصادر الأخرى", "高清": "جودة عالية", "标清": "جودة قياسية"},
   },
-  key: 'tubesafari', name: 'TubeSafari', version: '0.0.7', type: 'video', category: 'adult', color: '#21B7B5',
+  key: 'tubesafari', name: 'TubeSafari', version: '0.0.8', minAppVersion: '0.9.2', type: 'video', category: 'adult', color: '#21B7B5',
   description: '综合成人视频搜索，常见来源优先原生播放，其他来源使用网页播放', homepage: 'https://tubesafari.com', language: 'en',
   domains: ['tubesafari.com', 'xhcdn.com', 'nv7s.com', 'others-cdn.com', 'txxx.tube', 'phncdn.com'],
   network: {mode: 'native', vpnHint: true}, imageHeaders: {Referer: 'https://tubesafari.com/'},

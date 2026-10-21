@@ -43,7 +43,7 @@ class ReverseSearchMore extends StatelessWidget {
                     ),
                   ),
                 ),
-                TextButton(onPressed: onLoad, child: Text(tr('重试'))),
+                OutlinedButton(onPressed: onLoad, child: Text(tr('重试'))),
               ],
             )
           else if (result.loadingAll)
@@ -61,7 +61,10 @@ class ReverseSearchMore extends StatelessWidget {
           else
             Align(
               alignment: AlignmentDirectional.centerStart,
-              child: TextButton(onPressed: onLoad, child: Text(tr('查看全部结果'))),
+              child: OutlinedButton(
+                onPressed: onLoad,
+                child: Text(tr('查看全部结果')),
+              ),
             ),
         ],
       ),

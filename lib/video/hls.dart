@@ -52,7 +52,7 @@ Uint8List decryptHlsAes128(Uint8List encrypted, Uint8List key, Uint8List iv) {
   }
 }
 
-/// 下载使用完整点播；播放会话可显式允许滚动的 MPEG-TS 直播清单。
+/// 下载使用完整点播；播放会话可显式允许滚动的 TS 或 fMP4 直播清单。
 class HlsPlaylist {
   HlsPlaylist._(this.lines, this.segments, this.initialization);
   final List<String> lines;
@@ -159,9 +159,8 @@ class HlsPlaylist {
       if (line.startsWith('#EXT-X-MAP:')) {
         final attributes = hlsAttributes(line.substring('#EXT-X-MAP:'.length));
         final address = attributes['URI'];
-        // 仅支持完整点播的单个初始化段；范围、动态切换和直播另需独立实现。
-        if (live ||
-            initialization != null ||
+        // 每次滚动窗口独立注册初始化段；单个窗口内的切换及字节范围不支持。
+        if (initialization != null ||
             segments.isNotEmpty ||
             duration != null ||
             attributes.length != 1 ||

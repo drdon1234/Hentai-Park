@@ -274,7 +274,7 @@ class _PresetCard extends StatelessWidget {
             ),
             Align(
               alignment: Alignment.centerRight,
-              child: TextButton.icon(
+              child: OutlinedButton.icon(
                 onPressed: () => confirmReset(
                   context,
                   title: '恢复默认标签',

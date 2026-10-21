@@ -1,5 +1,5 @@
 Park.register({
-  key: 'google_lens', name: 'Google Lens', version: '0.0.5', apiVersion: 1,
+  key: 'google_lens', name: 'Google Lens', version: '0.0.6', minAppVersion: '0.9.2', apiVersion: 2,
   type: 'comic', category: 'other', reverseSearchCategory: 'general', homepage: 'https://lens.google.com/',
   description: '综合图片反搜；在应用内浏览器上传并查找完全匹配出处',
   domains: ['google.com'], network: { vpnHint: true },

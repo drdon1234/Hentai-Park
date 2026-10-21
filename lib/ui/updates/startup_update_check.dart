@@ -144,7 +144,7 @@ class _StartupUpdateCheckState extends State<StartupUpdateCheck>
       final result = updater.lastResult;
       // 间隔内未实际检查时不消费旧结果或手动检查的历史结果。
       if (result == null || identical(previousResult, result)) return;
-      if (result.available.isEmpty) return;
+      if (!result.hasUpdates) return;
       _pending.add(_PendingPrompt.sources(result));
       _scheduleDrain();
     } catch (_) {
@@ -192,23 +192,31 @@ class _StartupUpdateCheckState extends State<StartupUpdateCheck>
         final latest = _appUpdater.lastResult;
         if (latest != null && !identical(app, latest)) continue;
         final version = app.release!.version;
-        if (!_appEnabled || !_seenApps.add(version)) continue;
+        if (!_appEnabled ||
+            AppSettings.instance.ignoredAppUpdate == version ||
+            !_seenApps.add(version)) {
+          continue;
+        }
       } else {
         if (!_sourcesEnabled ||
             sources == null ||
             !identical(sources, _sourceUpdater.lastResult)) {
           continue;
         }
-        final available = sources.available
-            .where(
-              (candidate) =>
-                  candidate.source.version == candidate.version &&
-                  candidate.source.origin == candidate.origin &&
-                  !_seenSources.contains(_sourceVersion(candidate)),
-            )
+        bool shouldPrompt(SourceUpdateCandidate candidate) =>
+            candidate.source.version == candidate.version &&
+            candidate.source.origin == candidate.origin &&
+            AppSettings.instance.ignoredSourceUpdates[candidate.entry.key] !=
+                candidate.entry.version &&
+            !_seenSources.contains(_sourceVersion(candidate));
+        final available = sources.available.where(shouldPrompt).toList();
+        final requiresAppUpdate = sources.requiresAppUpdate
+            .where(shouldPrompt)
             .toList();
-        if (available.isEmpty) continue;
-        _seenSources.addAll(available.map(_sourceVersion));
+        if (available.isEmpty && requiresAppUpdate.isEmpty) continue;
+        _seenSources.addAll(
+          [...available, ...requiresAppUpdate].map(_sourceVersion),
+        );
         if (!mounted) return;
         _showing = true;
         try {
@@ -216,6 +224,7 @@ class _StartupUpdateCheckState extends State<StartupUpdateCheck>
             context,
             SourceUpdateResult(
               available: available,
+              requiresAppUpdate: requiresAppUpdate,
               checked: sources.checked,
               failures: sources.failures,
             ),

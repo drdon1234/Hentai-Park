@@ -142,7 +142,7 @@ class _RelatedWorksState extends State<RelatedWorks> {
                   ? _paged.loadMore
                   : null,
               trailing: _dynamic && _paged.hasNext && !_paged.loading
-                  ? TextButton(
+                  ? OutlinedButton(
                       onPressed: _paged.loadMore,
                       child: Text(tr('加载更多')),
                     )
@@ -153,7 +153,7 @@ class _RelatedWorksState extends State<RelatedWorks> {
               _paged.hasNext &&
               !_paged.loading &&
               error == null)
-            TextButton(onPressed: _paged.loadMore, child: Text(tr('加载更多'))),
+            OutlinedButton(onPressed: _paged.loadMore, child: Text(tr('加载更多'))),
           if (_paged.loading || _extraLoading)
             const Padding(
               padding: EdgeInsets.all(Gap.m),

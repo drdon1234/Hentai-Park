@@ -22,7 +22,7 @@ class SitesPage extends StatelessWidget {
       appBar: AppBar(
         title: Text(tr('站点')),
         actions: [
-          TextButton(
+          OutlinedButton(
             onPressed: () => Nav.push(context, const SourceManagePage()),
             child: SelectionContainer.disabled(child: Text(tr('管理'))),
           ),

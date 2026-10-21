@@ -8,7 +8,7 @@ Park.register({
     ru: {'CamwhoresBay 亚洲录播': 'Азиатские записи CamwhoresBay', '韩国': 'Корея', '日本': 'Япония', '中国': 'Китай', '录播请求失败': 'Ошибка запроса записи', '录播数据无效': 'Некорректные данные записи', '录播不存在': 'Запись не найдена', '录播暂不可用': 'Запись сейчас недоступна'},
     ar: {'CamwhoresBay 亚洲录播': 'تسجيلات CamwhoresBay الآسيوية', '韩国': 'كوريا', '日本': 'اليابان', '中国': 'الصين', '录播请求失败': 'فشل طلب التسجيل', '录播数据无效': 'بيانات التسجيل غير صالحة', '录播不存在': 'التسجيل غير موجود', '录播暂不可用': 'التسجيل غير متاح حالياً'},
   },
-  key: 'camwhoresbay_recording', name: 'CamwhoresBay 亚洲录播', version: '0.0.3', type: 'video', category: 'recording',
+  key: 'camwhoresbay_recording', name: 'CamwhoresBay 亚洲录播', version: '0.0.4', minAppVersion: '0.9.2', type: 'video', category: 'recording',
   color: '#c93443', description: '韩国、日本与中国主播录播，支持搜索和 MP4 播放', language: 'en',
   homepage: 'https://www.camwhoresbay.com/', domains: ['camwhoresbay.com'],
   network: {mode: 'native', origin: 'https://www.camwhoresbay.com', vpnHint: true},

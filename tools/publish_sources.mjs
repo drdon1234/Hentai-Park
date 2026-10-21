@@ -153,11 +153,15 @@ export async function generateIndex({ root = defaultRoot, commit, previousIndex,
     if (entry.apiVersion !== undefined && entry.apiVersion !== runtimeApi) {
       throw new Error(`${key} 的清单 apiVersion 与运行时 API 不一致`);
     }
+    versionParts(entry.minAppVersion);
     const code = await readUtf8(await scriptPath(sourceRoot, entry.file));
     if (entry.file !== `${key}.js`) throw new Error(`${key} 的文件路径必须匹配 key`);
     const { apiVersion, manifest } = probeScript(runtimeCode, code, entry.file);
     if (manifest.key !== key || manifest.version !== entry.version) {
       throw new Error(`${entry.file} 注册的 key/version 与清单不一致`);
+    }
+    if (manifest.minAppVersion !== entry.minAppVersion) {
+      throw new Error(`${entry.file} 注册的 minAppVersion 与清单不一致`);
     }
     if (manifest.category !== entry.category) {
       throw new Error(`${entry.file} 注册的 category 与清单不一致`);
@@ -199,7 +203,7 @@ export async function generateIndex({ root = defaultRoot, commit, previousIndex,
       rankingOnly: manifest.rankingOnly,
       reverseSearchOnly: manifest.reverseSearchOnly,
       url: officialAssetUrl(commit, `assets/sources/${entry.file}`),
-      sha256: digest, apiVersion: runtimeApi,
+      sha256: digest, apiVersion: runtimeApi, minAppVersion: manifest.minAppVersion,
     });
   }
   const name = channel === 'rankings' ? 'HentaiPark Rankings' : channel === 'reverse-search' ? 'HentaiPark Reverse Search' : index.name;

@@ -68,7 +68,9 @@ class _BackupPageState extends State<BackupPage> {
       context: context,
       builder: (ctx) => AlertDialog(
         title: Text(tr('恢复备份？')),
-        content: Text(tr('备份会与当前数据合并：收藏取并集，已读进度保留较新的一方，设置会被备份中的值覆盖。')),
+        content: Text(
+          tr('备份会与当前数据合并：收藏与进度保留合并规则，设置会被覆盖；如果包含登录与确认状态，也会替换对应站点的当前会话。'),
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
@@ -238,7 +240,7 @@ class _BackupPageState extends State<BackupPage> {
                       ),
                       subtitle: SelectionContainer.disabled(
                         child: Text(
-                          tr('收藏、分类、阅读进度、历史、标注、订阅、设置与站点列表；不包含下载内容或 Cookie'),
+                          tr('收藏、分类、阅读进度、历史、标注、订阅、设置与站点列表；可选登录与确认状态，不包含下载内容'),
                         ),
                       ),
                       onTap: _unavailable ? null : _create,
@@ -412,38 +414,50 @@ class _OptionsDialogState extends State<_OptionsDialog> {
     return AlertDialog(
       title: Text(tr('备份内容')),
       contentPadding: const EdgeInsets.fromLTRB(8, 16, 8, 0),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          CheckboxListTile(
-            value: library,
-            title: SelectionContainer.disabled(child: Text(tr('书库'))),
-            subtitle: SelectionContainer.disabled(
-              child: Text(tr('收藏、分类、阅读进度、历史')),
-            ),
-            onChanged: (v) => setState(() => library = v!),
-          ),
-          CheckboxListTile(
-            value: settings,
-            title: SelectionContainer.disabled(child: Text(tr('应用设置'))),
-            onChanged: (v) => setState(() => settings = v!),
-          ),
-          CheckboxListTile(
-            value: sources,
-            title: SelectionContainer.disabled(child: Text(tr('站点列表与站点设置'))),
-            onChanged: (v) => setState(() => sources = v!),
-          ),
-          CheckboxListTile(
-            value: credentials,
-            title: SelectionContainer.disabled(child: Text(tr('站点登录数据'))),
-            subtitle: SelectionContainer.disabled(
-              child: Text(
-                tr('包含 Token 等凭据，请妥善保管备份文件；基于 Cookie 的登录（如 E-Hentai）需要重新登录'),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            CheckboxListTile(
+              value: library,
+              title: SelectionContainer.disabled(child: Text(tr('书库'))),
+              subtitle: SelectionContainer.disabled(
+                child: Text(tr('收藏、分类、阅读进度、历史')),
               ),
+              onChanged: (v) => setState(() => library = v!),
             ),
-            onChanged: sources ? (v) => setState(() => credentials = v!) : null,
-          ),
-        ],
+            CheckboxListTile(
+              value: settings,
+              title: SelectionContainer.disabled(child: Text(tr('应用设置'))),
+              onChanged: (v) => setState(() => settings = v!),
+            ),
+            CheckboxListTile(
+              value: sources,
+              title: SelectionContainer.disabled(child: Text(tr('站点列表与站点设置'))),
+              onChanged: (v) => setState(() => sources = v!),
+            ),
+            CheckboxListTile(
+              value: sources && credentials,
+              title: SelectionContainer.disabled(child: Text(tr('站点登录与确认状态'))),
+              onChanged: sources
+                  ? (v) => setState(() => credentials = v!)
+                  : null,
+            ),
+            if (sources && credentials)
+              Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: Gap.page,
+                  vertical: Gap.s,
+                ),
+                child: Text(
+                  tr(
+                    '包含 Cookie、Token、插件私有数据和站点验证状态。文件未加密，请妥善保管；过期或绑定设备的会话可能需要重新验证。',
+                  ),
+                  style: context.text.bodySmall,
+                ),
+              ),
+          ],
+        ),
       ),
       actions: [
         TextButton(

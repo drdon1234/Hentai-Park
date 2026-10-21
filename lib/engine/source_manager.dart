@@ -34,6 +34,7 @@ import 'http_service.dart';
 import 'js_engine.dart';
 import 'media_transport.dart';
 import 'media_transport_factory.dart';
+import 'source_compatibility.dart';
 import 'source_display_order.dart';
 import 'source_identity.dart';
 
@@ -185,6 +186,39 @@ abstract class _SourceRegistry extends ChangeNotifier {
       displayAll.where((source) => source.enabled && source.ready).toList();
   InstalledSource? operator [](String key) => _sources[key];
   SourceManifest? manifest(String key) => _sources[key]?.manifest;
+
+  /// Returns the safe public site URL used by the settings page's external-link action.
+  ///
+  /// A cached manifest is intentionally used when a source failed before its current manifest
+  /// could be attached, so the user can still inspect the site in an external browser.
+  String? webUrl(String key) {
+    final current = manifest(key);
+    final cached = current == null ? _cachedManifest(key) : null;
+    final source = current ?? cached;
+    if (source == null) return null;
+    final domains = declaredDomains(source.json);
+    for (final raw in [source.homepage, source.origin]) {
+      final uri = Uri.tryParse(raw);
+      if (uri != null &&
+          uri.fragment.isEmpty &&
+          httpsDomainAddressAllowed(uri, domains)) {
+        return uri.toString();
+      }
+    }
+    return null;
+  }
+
+  SourceManifest? _cachedManifest(String key) {
+    final entry = _manifestCache[key];
+    final raw = entry is Map ? entry['manifest'] : null;
+    if (raw is! Map) return null;
+    try {
+      return SourceManifest(raw.cast<String, dynamic>());
+    } catch (_) {
+      return null;
+    }
+  }
+
   bool isBuiltin(String key) => _builtinKeys.contains(key);
 
   Future<void> init({Set<String>? backgroundKeys}) {
@@ -378,6 +412,7 @@ abstract class _SourceRegistry extends ChangeNotifier {
   Future<void> _recoverInstall();
   Future<void> _loadSavedStates();
   Future<Map<String, dynamic>> _loadState(String key);
+  Future<void> _restorePendingCookies(String key, SourceManifest manifest);
   Future<void> _persistData(
     String key,
     Map<String, dynamic> data, {

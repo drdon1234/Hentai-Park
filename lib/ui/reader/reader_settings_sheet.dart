@@ -5,6 +5,7 @@ import '../../core/platform_capabilities.dart';
 import '../../core/settings.dart';
 import '../kit/adaptive_sheet.dart';
 import '../kit/selection_chip.dart';
+import '../kit/sheet_tabs.dart';
 import 'reader_layout.dart';
 
 /// Reader options in three tabs (Mihon's reader settings sheet). Changes apply live: the reader
@@ -52,36 +53,15 @@ class _ReaderSettingsState extends State<_ReaderSettings> {
   @override
   Widget build(BuildContext context) {
     final s = AppSettings.instance;
-    return DefaultTabController(
-      length: 3,
-      child: SizedBox(
-        height: MediaQuery.sizeOf(context).height * 0.6,
-        child: ListenableBuilder(
-          listenable: s.domain(SettingsDomain.reader),
-          builder: (context, _) => Column(
-            children: [
-              TabBar(
-                isScrollable: true,
-                tabs: [
-                  Tab(
-                    child: SelectionContainer.disabled(child: Text(tr('阅读模式'))),
-                  ),
-                  Tab(
-                    child: SelectionContainer.disabled(child: Text(tr('通用'))),
-                  ),
-                  Tab(
-                    child: SelectionContainer.disabled(child: Text(tr('滤镜'))),
-                  ),
-                ],
-              ),
-              Expanded(
-                child: TabBarView(
-                  children: [_modeTab(s), _generalTab(s), _filterTab(s)],
-                ),
-              ),
-            ],
-          ),
-        ),
+    return ListenableBuilder(
+      listenable: s.domain(SettingsDomain.reader),
+      builder: (context, _) => SheetTabs(
+        isScrollable: true,
+        tabs: [
+          for (final label in [tr('阅读模式'), tr('通用'), tr('滤镜')])
+            Tab(child: SelectionContainer.disabled(child: Text(label))),
+        ],
+        children: [_modeTab(s), _generalTab(s), _filterTab(s)],
       ),
     );
   }
@@ -106,6 +86,9 @@ class _ReaderSettingsState extends State<_ReaderSettings> {
   Widget _modeTab(AppSettings s) {
     final paged = _mode != ReaderMode.vertical;
     return ListView(
+      key: const PageStorageKey('reader-mode'),
+      shrinkWrap: true,
+      primary: false,
       padding: const EdgeInsets.only(bottom: 16),
       children: [
         RadioGroup<ReaderMode>(
@@ -140,22 +123,34 @@ class _ReaderSettingsState extends State<_ReaderSettings> {
                     : tr('使用默认阅读模式'),
                 style: Theme.of(context).textTheme.bodySmall,
               ),
-              if (_override && s.readerMode != _mode)
-                TextButton(
-                  onPressed: () => s.readerMode = _mode,
-                  child: SelectionContainer.disabled(child: Text(tr('设为默认'))),
+              if (_override) ...[
+                const SizedBox(height: 12),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    if (s.readerMode != _mode)
+                      OutlinedButton(
+                        onPressed: () => s.readerMode = _mode,
+                        child: SelectionContainer.disabled(
+                          child: Text(tr('设为默认')),
+                        ),
+                      ),
+                    OutlinedButton(
+                      onPressed: () {
+                        widget.onUseDefault();
+                        setState(() {
+                          _override = false;
+                          _mode = s.readerMode;
+                        });
+                      },
+                      child: SelectionContainer.disabled(
+                        child: Text(tr('跟随默认')),
+                      ),
+                    ),
+                  ],
                 ),
-              if (_override)
-                TextButton(
-                  onPressed: () {
-                    widget.onUseDefault();
-                    setState(() {
-                      _override = false;
-                      _mode = s.readerMode;
-                    });
-                  },
-                  child: SelectionContainer.disabled(child: Text(tr('跟随默认'))),
-                ),
+              ],
             ],
           ),
         ),
@@ -224,6 +219,9 @@ class _ReaderSettingsState extends State<_ReaderSettings> {
     final layout = TapLayout
         .values[s.readerTapLayout.clamp(0, TapLayout.values.length - 1)];
     return ListView(
+      key: const PageStorageKey('reader-general'),
+      shrinkWrap: true,
+      primary: false,
       padding: const EdgeInsets.only(bottom: 16),
       children: [
         SwitchListTile(
@@ -307,6 +305,9 @@ class _ReaderSettingsState extends State<_ReaderSettings> {
 
   Widget _filterTab(AppSettings s) {
     return ListView(
+      key: const PageStorageKey('reader-filter'),
+      shrinkWrap: true,
+      primary: false,
       padding: const EdgeInsets.only(bottom: 16),
       children: [
         ListTile(
@@ -343,8 +344,9 @@ class _ReaderSettingsState extends State<_ReaderSettings> {
           value: s.readerInvert,
           onChanged: (v) => s.readerInvert = v,
         ),
-        Center(
-          child: TextButton(
+        Padding(
+          padding: const EdgeInsets.only(top: 12, left: 16, right: 16),
+          child: OutlinedButton(
             onPressed: () {
               s.readerDim = 0;
               s.readerWarm = 0;

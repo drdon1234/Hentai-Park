@@ -5,6 +5,7 @@ import '../core/models.dart';
 import '../core/versions.dart';
 import 'http_service.dart';
 import 'official_repository.dart';
+import 'source_compatibility.dart';
 import 'source_identity.dart';
 
 /// A validated script published by the official source repository.
@@ -16,6 +17,7 @@ class SourceRepositoryEntry {
     required this.url,
     required this.sha256,
     required this.apiVersion,
+    required this.minAppVersion,
     this.rankingOnly = false,
     this.reverseSearchOnly = false,
   });
@@ -26,6 +28,7 @@ class SourceRepositoryEntry {
   final String url;
   final String sha256;
   final int apiVersion;
+  final String minAppVersion;
   final bool rankingOnly;
   final bool reverseSearchOnly;
 }
@@ -49,7 +52,7 @@ class SourceRepository {
   static const indexUrl = '$officialRawBase/sources/index.json';
   static const rankingsUrl = '$officialRawBase/rankings/index.json';
   static const reverseSearchUrl = '$officialRawBase/reverse-search/index.json';
-  static const supportedApiVersion = 1;
+  static const supportedApiVersion = SourceCompatibility.apiVersion;
   final Future<String> Function(String url) _read;
 
   static Future<String> _download(String url) async {
@@ -163,6 +166,7 @@ class SourceRepository {
         raw['name'] is! String ||
         (raw['name'] as String).trim().isEmpty ||
         !isReleaseVersion(raw['version']) ||
+        !isReleaseVersion(raw['minAppVersion']) ||
         !isSha256(raw['sha256']) ||
         raw['apiVersion'] is! int ||
         (raw['apiVersion'] as int) < 1 ||
@@ -182,6 +186,7 @@ class SourceRepository {
       url: raw['url'] as String,
       sha256: (raw['sha256'] as String).toLowerCase(),
       apiVersion: raw['apiVersion'] as int,
+      minAppVersion: raw['minAppVersion'] as String,
       rankingOnly: raw['rankingOnly'] == true,
       reverseSearchOnly: raw['reverseSearchOnly'] == true,
     );

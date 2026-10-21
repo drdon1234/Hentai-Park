@@ -232,6 +232,7 @@ class _SubscriptionPostsPageState extends State<SubscriptionPostsPage> {
           ],
         ),
         body: ParkRefresh(
+          showRefreshButton: false,
           onRefresh: () => _load(refresh: true),
           child: ListView(
             padding: const EdgeInsets.fromLTRB(
@@ -370,7 +371,7 @@ class SubscriptionPostCard extends StatelessWidget {
             if (post.url.isNotEmpty)
               Align(
                 alignment: AlignmentDirectional.centerEnd,
-                child: TextButton(
+                child: OutlinedButton(
                   onPressed: () async {
                     final u = Uri.tryParse(post.url);
                     if (u?.scheme == 'https') {

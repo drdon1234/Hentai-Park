@@ -23,6 +23,7 @@ Park.register({
   key: 'mysite',
   name: '我的站点',
   version: '0.0.1',
+  minAppVersion: '0.9.2',
   type: 'comic',
   category: 'doujin',
   homepage: 'https://example.com',
@@ -67,7 +68,8 @@ node 'test/source-smoke.mjs'
 Park.register({
   key: 'mysite',              // 고유하며 바꿀 수 없음. [A-Za-z0-9_-]만, 1~100자, _app 불가
   name: '我的站点',
-  version: '0.0.1',           // 숫자 세 개. 저장소 버전이 더 높으면 업데이트를 안내
+  version: '0.0.1',
+  minAppVersion: '0.9.2',           // 숫자 세 개. 저장소 버전이 더 높으면 업데이트를 안내
   type: 'comic',              // comic | video | novel | game: 읽기·재생 방식을 결정
   category: 'doujin',         // doujin | anime | aiDrama | jav | adult | shortvideo | recording | live | gallery | illustration | novel | game | other
   color: '#E5355F',           // 브랜드 색: 사이트 아이콘과 사이트 페이지
@@ -533,16 +535,17 @@ Park.register({
 ```json
 {
   "name": "我的站点仓库",
-  "apiVersion": 1,
+  "apiVersion": 2,
   "sources": [
     {
       "key": "mysite",
       "name": "我的站点",
       "version": "0.0.1",
+      "minAppVersion": "0.9.2",
       "description": "一句话介绍",
       "url": "https://example.com/sources/mysite.js",
       "sha256": "스크립트 UTF-8 원문의 64자리 16진 SHA-256",
-      "apiVersion": 1
+      "apiVersion": 2
     }
   ]
 }
@@ -551,6 +554,8 @@ Park.register({
 `url`은 스크립트의 전체 주소이며 `index.json` 기준 상대 경로인 `file`도 쓸 수 있습니다. 타사 저장소는 사용자가 확인한 뒤 직접 설치하며, `sha256`은 선택이고 있으면 내려받은 내용을 검증합니다.
 
 ### 버전과 업데이트 규칙
+
+- 플러그인은 공식 목록과 일치하는 minAppVersion(예: 0.9.2)을 선언해야 합니다. 현재 apiVersion은 2이며 HentaiPark 0.9.2 이상이 필요합니다. 업데이트와 URL 설치는 교체 전에 호환성을 확인하며, 호환되지 않으면 기존 플러그인을 유지합니다. 자동 알림은 바로 업데이트할 수 있는 항목과 앱 업데이트가 필요한 항목을 구분합니다. 이 버전 알림 끄기는 표시된 앱 또는 플러그인 버전에만 적용되며 재시작 후에도 유지됩니다. 수동 확인에는 영향을 주지 않습니다.
 
 - 버전은 점으로 구분하고 앞에 0이 없는 음이 아닌 정수 세 개 (예: `0.0.1`)이며 부분마다 숫자로 비교합니다. 빠진 부분, 남는 부분, 프리릴리스 접미사는 받지 않습니다.
 - 공식 업데이트에는 스크립트 UTF-8 원문의 `sha256` (공백 정리나 줄바꿈 변환 없음)이 있어야 하고, 스크립트가 선언한 `key`, `version`은 인덱스와 같아야 합니다. `apiVersion`이 현재 앱 런타임과 정확히 같지 않으면 업데이트를 거부합니다.

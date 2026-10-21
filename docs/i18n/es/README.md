@@ -28,7 +28,7 @@ Elige el modo de ahorro en Más → Red. El ahorro normal muestra sitios compact
 
 Descarga el paquete de tu plataforma desde la **[última versión](https://github.com/drdon1234/Hentai-Park/releases/latest)**. En Android, la mayoría de móviles y tabletas usan `arm64-v8a`; los emuladores suelen usar `x86_64`. Extrae por completo los paquetes de escritorio. Consulta [la instalación y los límites](../../PLATFORMS.md).
 
-Hay clientes para Android, Windows, macOS y Linux. iOS/iPadOS solo dispone de un paquete para simulador; Web no está disponible. Consulta la [instalación y limitaciones](../../PLATFORMS.md).
+Hay clientes para Android, Windows, macOS y Linux. iOS/iPadOS solo dispone de un paquete para simulador; Web no está disponible. Consulta la [instalación y limitaciones](../../PLATFORMS.md). La reproducción y grabación de directos admiten TS y fMP4.
 
 En escritorio, usa Ctrl+rueda del ratón o Ctrl/Cmd con las teclas más/menos para ajustar la escala, y Ctrl/Cmd+0 para restablecerla; también puedes hacerlo en Apariencia. El icono de la bandeja de Windows permite restaurar la ventana o salir. Al cerrar la ventana, puedes elegir ocultarla en la bandeja o salir.
 
@@ -39,6 +39,8 @@ En escritorio, usa Ctrl+rueda del ratón o Ctrl/Cmd con las teclas más/menos pa
 3. **Seguir donde lo dejaste**: Continuar, arriba en Explorar, y el Historial te llevan al punto exacto; las series que sigues se actualizan en Biblioteca → Actualizaciones.
 
 Los sitios que necesitan cuenta o proxy se configuran en Más → Sitios y Más → Red.
+
+Los avisos indican cuántos complementos se pueden actualizar y cuántos requieren una aplicación más reciente, agrupados por versión mínima. Los incompatibles conservan su versión instalada. «No volver a recordar» omite esa versión de la aplicación o del complemento; las comprobaciones manuales siguen mostrándola y las versiones posteriores vuelven a avisar.
 
 <a id="screenshots"></a>
 
@@ -199,7 +201,7 @@ Casi nunca. Los sitios que la necesitan lo indican arriba en su página, y puede
 Nunca por su cuenta. Algunos recursos del Salón de té dimensional solo se desbloquean tras responder; la app te muestra exactamente qué se publicará y solo lo envía cuando confirmas.
 
 **¿Cómo conservo favoritos y progreso al cambiar de móvil?**
-Exporta una copia en Más → Copia de seguridad y restáurala en el nuevo dispositivo. Las descargas no se incluyen y algunos sitios pueden pedir iniciar sesión de nuevo.
+Exporta y restaura archivos `.parkbak` en **Más → Copia de seguridad**. Al crear una copia, selecciona **Acceso y verificación de sitios** para incluir cookies, tokens y verificaciones. Los archivos no están cifrados; guárdalos de forma segura. No incluyen descargas y las sesiones caducadas o vinculadas al dispositivo pueden requerir otra verificación.
 
 **¿Qué se envía al traducir?**
 Al traducir títulos, descripciones, etiquetas, búsquedas, texto seleccionado o un capítulo completo, ese contenido se envía a Google Translate. No se envían cuentas, cookies ni historial de lectura. El idioma de destino sigue al de la app.

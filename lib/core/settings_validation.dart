@@ -1,5 +1,6 @@
 import 'block_rule.dart';
 import 'translation_options.dart';
+import 'versions.dart';
 
 /// 所有配置入口共用当前类型与取值规则，错误发生在任何写入之前。
 void validateSettings(Map<String, dynamic> values) {
@@ -147,6 +148,19 @@ void validateSettings(Map<String, dynamic> values) {
   for (final e in values.entries) {
     final key = e.key, value = e.value;
     var valid = true;
+    if (key == 'ignoredAppUpdate') {
+      valid = value == '' || isReleaseVersion(value);
+    }
+    if (key == 'ignoredSourceUpdates') {
+      valid =
+          value is Map &&
+          value.entries.every(
+            (entry) =>
+                entry.key is String &&
+                (entry.key as String).isNotEmpty &&
+                isReleaseVersion(entry.value),
+          );
+    }
     if (booleans.contains(key)) valid = value is bool;
     if (choices.containsKey(key)) {
       final options = choices[key]!;

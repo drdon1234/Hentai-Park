@@ -9,7 +9,7 @@ Park.register({
     "ru": {"高分推荐": "С высоким рейтингом", "黄豆短剧": "Короткие сериалы Huangdou"},
     "ar": {"高分推荐": "الأعلى تقييمًا", "黄豆短剧": "مسلسلات Huangdou القصيرة"},
   },
-  key: 'huangdou', name: '黄豆短剧', version: '0.0.8',
+  key: 'huangdou', name: '黄豆短剧', version: '0.0.9', minAppVersion: '0.9.2',
   type: 'video', category: 'aiDrama', color: '#FFC857',
   description: 'AI短剧与漫剧，支持分类、排行、搜索和分集播放',
   homepage: 'https://aihuangdou.com', domains: ['aihuangdou.com'], language: 'zh',

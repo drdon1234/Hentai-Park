@@ -7,10 +7,8 @@ import '../../core/app_log.dart';
 import '../../core/models.dart';
 import '../../core/platform_capabilities.dart';
 import '../../engine/cancellation.dart';
-import '../../engine/media_transport.dart';
-import '../../engine/media_transport_factory.dart';
 import '../../engine/source_manager.dart';
-import '../../video/hls_playback.dart';
+import '../../video/playback.dart';
 import '../video/player_initialization.dart';
 import 'post_video_feed.dart';
 import 'short_video_playback.dart';
@@ -18,7 +16,7 @@ import 'short_video_playback.dart';
 class ShortVideoPlayer implements ShortVideoHandle {
   ShortVideoPlayer._(this.controller, this._media);
   final VideoPlayerController controller;
-  final HlsPlayback? _media;
+  final Playback? _media;
   Future<void>? _closing;
   static void _check(CancelToken cancel) {
     if (cancel.isCancelled) throw SourceError('CANCELLED', '视频请求已取消');
@@ -79,36 +77,19 @@ class ShortVideoPlayer implements ShortVideoHandle {
       (s) => s.preferred,
       orElse: () => resolvedSources.first,
     );
-    final policy = MediaPolicy.fromManifest(
-      manifest,
-      initialUrl: source.format == 'hls' ? Uri.parse(source.url) : null,
-    );
     var uri = Uri.parse(source.url);
-    policy.validate(uri);
-    final headers = policy.requestHeaders(source.headers);
-    HlsPlayback? media;
+    Playback? media;
     VideoPlayerController? controller;
     StreamSubscription<DioException>? cancellation;
     try {
-      if (source.format == 'hls') {
-        media = HlsPlayback(
-          createMediaTransport(
-            manifest,
-            headers: headers,
-            initialUrl: Uri.parse(source.url),
-            hls: source.hls,
-          ),
-        );
-        final opening = media;
-        cancellation = cancel.whenCancel.asStream().listen(
-          (_) => unawaited(opening.close()),
-        );
-        uri = await awaitCancelled(media.open(uri), cancel);
-      }
+      final opening = media = Playback.network(manifest, source);
+      cancellation = cancel.whenCancel.asStream().listen(
+        (_) => unawaited(opening.close()),
+      );
+      uri = await awaitCancelled(opening.open(uri), cancel);
       _check(cancel);
       controller = VideoPlayerController.networkUrl(
         uri,
-        httpHeaders: media == null ? headers : const {},
         videoPlayerOptions: VideoPlayerOptions(),
       );
       await initializePlayer(controller, cancel);

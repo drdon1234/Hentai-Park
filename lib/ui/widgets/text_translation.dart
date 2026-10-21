@@ -227,16 +227,19 @@ class _TextTranslationSheetState extends State<_TextTranslationSheet> {
 
   @override
   Widget build(BuildContext context) => SafeArea(
-    child: SizedBox(
-      height: MediaQuery.sizeOf(context).height * .65,
+    child: ConstrainedBox(
+      constraints: BoxConstraints(
+        maxHeight: MediaQuery.sizeOf(context).height * .8,
+      ),
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
+          mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Text(tr('划词翻译'), style: Theme.of(context).textTheme.titleLarge),
             const SizedBox(height: 12),
-            Expanded(
+            Flexible(
               child: SingleChildScrollView(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -255,14 +258,17 @@ class _TextTranslationSheetState extends State<_TextTranslationSheet> {
                 ),
               ),
             ),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.end,
+            const SizedBox(height: 12),
+            Wrap(
+              alignment: WrapAlignment.end,
+              spacing: 8,
+              runSpacing: 8,
               children: [
-                TextButton(
+                OutlinedButton(
                   onPressed: busy ? null : _translate,
                   child: SelectionContainer.disabled(child: Text(tr('重试'))),
                 ),
-                TextButton(
+                OutlinedButton(
                   onPressed: result == null
                       ? null
                       : () => Clipboard.setData(ClipboardData(text: result!)),

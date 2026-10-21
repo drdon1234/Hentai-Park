@@ -93,7 +93,7 @@ Park.register({
       "熟女": "ناضجات"
     }
   },
-  key: 'rouvideo', name: '肉视频', version: '0.0.1', type: 'video', category: 'adult', color: '#E85D75',
+  key: 'rouvideo', name: '肉视频', version: '0.0.2', minAppVersion: '0.9.2', type: 'video', category: 'adult', color: '#E85D75',
   description: '成人视频库，支持分类、搜索与原生 HLS 播放', homepage: 'https://rou.video', domains: ['rou.video'], language: 'zh',
   linkPatterns: ['rou\\.video/v/([a-z0-9]+)(?:[/?#]|$)'], idPattern: '^[a-z0-9]{10,40}$',
   imageNetwork: {mode: 'browser', origin: 'https://rou.video', domains: ['v.rn252.xyz']},

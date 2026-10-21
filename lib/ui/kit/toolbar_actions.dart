@@ -41,15 +41,17 @@ class ToolbarActions extends StatelessWidget {
         text: TextSpan(
           text: action.label,
           style:
-              Theme.of(context).textButtonTheme.style?.textStyle?.resolve({}) ??
+              Theme.of(context).outlinedButtonTheme.style?.textStyle
+                  ?.resolve({}) ??
               context.text.labelLarge,
         ),
         textDirection: Directionality.of(context),
         textScaler: MediaQuery.textScalerOf(context),
       )..layout();
-      width += (painter.width + Gap.l * 2).clamp(48, double.infinity);
+      width += (painter.width + Gap.l * 2).clamp(64, double.infinity);
       painter.dispose();
     }
+    width += Gap.xs * (actions.length - 1);
     if (width > available) {
       return PopupMenuButton<int>(
         tooltip: tr('更多'),
@@ -76,18 +78,20 @@ class ToolbarActions extends StatelessWidget {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        for (final action in actions)
-          if (action.showLabel)
-            TextButton(
-              onPressed: action.onPressed,
-              child: SelectionContainer.disabled(child: Text(action.label)),
+        for (var i = 0; i < actions.length; i++) ...[
+          if (i > 0) const SizedBox(width: Gap.xs),
+          if (actions[i].showLabel)
+            OutlinedButton(
+              onPressed: actions[i].onPressed,
+              child: SelectionContainer.disabled(child: Text(actions[i].label)),
             )
           else
             IconButton(
-              tooltip: action.label,
-              onPressed: action.onPressed,
-              icon: Icon(action.icon),
+              tooltip: actions[i].label,
+              onPressed: actions[i].onPressed,
+              icon: Icon(actions[i].icon),
             ),
+        ],
       ],
     );
   }

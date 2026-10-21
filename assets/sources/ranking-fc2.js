@@ -1,5 +1,5 @@
 Park.register({
-  key: 'ranking-fc2', name: 'FC2', version: '0.0.3',
+  key: 'ranking-fc2', name: 'FC2', version: '0.0.4', minAppVersion: '0.9.2',
   type: 'video', category: 'jav', rankingOnly: true,
   description: '官方销量榜', homepage: 'https://adult.contents.fc2.com/',
   domains: ['fc2.com'], network: { vpnHint: true },

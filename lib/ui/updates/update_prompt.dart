@@ -6,11 +6,215 @@ import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/localization.dart';
+import '../../core/settings.dart';
+import '../../core/versions.dart';
 import '../../engine/app_installer.dart';
 import '../../engine/app_updater.dart';
 import '../../engine/source_updater.dart';
 import '../kit/tokens.dart';
 import '../theme.dart';
+
+/// 本体与插件共用同一提示布局，内容滚动而操作区保持可见。
+class _UpdatePromptDialog extends StatefulWidget {
+  const _UpdatePromptDialog({
+    required this.icon,
+    required this.title,
+    required this.children,
+    required this.onIgnore,
+    this.primaryLabel,
+  });
+
+  final IconData icon;
+  final String title;
+  final List<Widget> children;
+  final String? primaryLabel;
+  final Future<void> Function() onIgnore;
+
+  @override
+  State<_UpdatePromptDialog> createState() => _UpdatePromptDialogState();
+}
+
+class _UpdatePromptDialogState extends State<_UpdatePromptDialog> {
+  bool _saving = false;
+  bool _failed = false;
+
+  Future<void> _ignore() async {
+    if (_saving) return;
+    setState(() {
+      _saving = true;
+      _failed = false;
+    });
+    try {
+      await widget.onIgnore();
+      if (mounted) Navigator.pop(context, false);
+    } catch (_) {
+      if (mounted) setState(() => _failed = true);
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => AlertDialog(
+    scrollable: true,
+    insetPadding: const EdgeInsets.symmetric(
+      horizontal: Gap.page,
+      vertical: Gap.xl,
+    ),
+    titlePadding: const EdgeInsets.fromLTRB(Gap.xl, Gap.xl, Gap.xl, Gap.l),
+    contentPadding: const EdgeInsets.fromLTRB(Gap.xl, 0, Gap.xl, Gap.l),
+    actionsPadding: const EdgeInsets.fromLTRB(Gap.xl, 0, Gap.xl, Gap.l),
+    title: Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        ExcludeSemantics(
+          child: Padding(
+            padding: const EdgeInsets.only(top: Gap.xs),
+            child: Icon(widget.icon, color: context.colors.onSurfaceVariant),
+          ),
+        ),
+        const SizedBox(width: Gap.m),
+        Expanded(child: Text(widget.title, style: context.text.titleLarge)),
+      ],
+    ),
+    content: SizedBox(
+      width: 480,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          ...widget.children,
+          if (_failed) ...[
+            const SizedBox(height: Gap.m),
+            Text(
+              tr('无法保存提醒设置，请重试'),
+              style: context.text.bodyMedium?.copyWith(
+                color: context.colors.error,
+              ),
+            ),
+          ],
+        ],
+      ),
+    ),
+    actions: [
+      SizedBox(
+        width: double.infinity,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const Divider(height: Gap.l),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: TextButton(
+                    onPressed: _saving ? null : _ignore,
+                    child: SelectionContainer.disabled(
+                      child: Text(tr('不再提醒'), textAlign: TextAlign.center),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: Gap.s),
+                Expanded(
+                  child: TextButton(
+                    onPressed: _saving
+                        ? null
+                        : () => Navigator.pop(context, false),
+                    child: SelectionContainer.disabled(
+                      child: Text(tr('稍后'), textAlign: TextAlign.center),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            if (widget.primaryLabel != null) ...[
+              const SizedBox(height: Gap.s),
+              FilledButton(
+                onPressed: _saving ? null : () => Navigator.pop(context, true),
+                child: SelectionContainer.disabled(
+                  child: Text(
+                    widget.primaryLabel!,
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    ],
+  );
+}
+
+class _UpdateSection extends StatelessWidget {
+  const _UpdateSection({required this.title, required this.children});
+  final String title;
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) => Column(
+    mainAxisSize: MainAxisSize.min,
+    crossAxisAlignment: CrossAxisAlignment.stretch,
+    children: [
+      Text(title, style: context.text.titleSmall),
+      if (children.isNotEmpty) ...[
+        const SizedBox(height: Gap.s),
+        for (var i = 0; i < children.length; i++) ...[
+          if (i > 0) const Divider(height: Gap.l),
+          children[i],
+        ],
+      ],
+    ],
+  );
+}
+
+class _UpdateItem extends StatelessWidget {
+  const _UpdateItem({
+    required this.name,
+    required this.currentVersion,
+    required this.latestVersion,
+  });
+  final String name;
+  final String currentVersion;
+  final String latestVersion;
+
+  @override
+  Widget build(BuildContext context) => Column(
+    mainAxisSize: MainAxisSize.min,
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Text(name, style: context.text.bodyLarge),
+      const SizedBox(height: Gap.xs),
+      Wrap(
+        spacing: Gap.s,
+        runSpacing: Gap.xs,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        children: [
+          Text(
+            'v$currentVersion',
+            style: context.text.bodySmall?.copyWith(
+              color: context.colors.onSurfaceVariant,
+            ),
+          ),
+          ExcludeSemantics(
+            child: Icon(
+              Icons.arrow_forward_rounded,
+              size: 16,
+              color: context.colors.onSurfaceVariant,
+            ),
+          ),
+          Text(
+            'v$latestVersion',
+            style: context.text.bodySmall?.copyWith(
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    ],
+  );
+}
 
 /// 只展示可确认的操作；检查本身不会触发下载或安装。
 Future<void> showAppUpdatePrompt(
@@ -24,46 +228,36 @@ Future<void> showAppUpdatePrompt(
   final service = installer ?? AppInstaller();
   final confirmed = await showDialog<bool>(
     context: context,
-    builder: (ctx) => AlertDialog(
-      scrollable: true,
-      title: Text(tr('发现软件新版本')),
-      content: SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              tr('当前版本：{current}，最新版本：{latest}', {
-                'current': result.currentVersion ?? '',
-                'latest': release.version,
-              }),
-            ),
-            const SizedBox(height: 12),
-            Text(
-              tr(
-                service.supported
-                    ? '确认后在应用内下载安装包，再由系统提示你确认安装。'
-                    : '此平台请前往官方发布页下载并手动安装。',
-              ),
-            ),
-            for (final line in release.notesFor(
-              chinese: AppLocalizations.of(ctx).locale.languageCode == 'zh',
-            ))
-              _ReleaseNote(line),
-          ],
+    builder: (ctx) => _UpdatePromptDialog(
+      icon: Icons.system_update_alt_rounded,
+      title: tr('发现软件新版本'),
+      primaryLabel: tr(service.supported ? '下载并安装' : '前往下载'),
+      onIgnore: () async {
+        final settings = AppSettings.instance;
+        settings.ignoredAppUpdate = release.version;
+        await settings.flush();
+      },
+      children: [
+        _UpdateItem(
+          name: 'HentaiPark',
+          currentVersion: result.currentVersion ?? '',
+          latestVersion: release.version,
         ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(ctx, false),
-          child: SelectionContainer.disabled(child: Text(tr('稍后'))),
-        ),
-        FilledButton(
-          onPressed: () => Navigator.pop(ctx, true),
-          child: SelectionContainer.disabled(
-            child: Text(tr(service.supported ? '下载并安装' : '前往下载')),
+        const SizedBox(height: Gap.l),
+        Text(
+          tr(
+            service.supported
+                ? '确认后在应用内下载安装包，再由系统提示你确认安装。'
+                : '此平台请前往官方发布页下载并手动安装。',
+          ),
+          style: ctx.text.bodyMedium?.copyWith(
+            color: ctx.colors.onSurfaceVariant,
           ),
         ),
+        for (final line in release.notesFor(
+          chinese: AppLocalizations.of(ctx).locale.languageCode == 'zh',
+        ))
+          _ReleaseNote(line),
       ],
     ),
   );
@@ -306,53 +500,66 @@ Future<void> showSourceUpdatePrompt(
   SourceUpdateResult result,
   SourceUpdater updater,
 ) async {
-  if (!context.mounted || result.available.isEmpty) return;
+  if (!context.mounted || !result.hasUpdates) return;
+  final requirements = <String, List<SourceUpdateCandidate>>{};
+  for (final candidate in result.requiresAppUpdate) {
+    (requirements[candidate.entry.minAppVersion] ??= []).add(candidate);
+  }
+  final versions = requirements.keys.toList()..sort(compareReleaseVersions);
   final confirmed = await showDialog<bool>(
     context: context,
-    builder: (ctx) => AlertDialog(
-      scrollable: true,
-      title: Text(tr('发现 {count} 个插件更新', {'count': result.available.length})),
-      content: SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
+    builder: (ctx) => _UpdatePromptDialog(
+      icon: Icons.extension_outlined,
+      title: tr('发现 {count} 个插件更新', {'count': result.allUpdates.length}),
+      primaryLabel: result.available.isEmpty
+          ? null
+          : tr('更新 {count} 个插件', {'count': result.available.length}),
+      onIgnore: () => AppSettings.instance.ignoreSourceUpdates({
+        for (final candidate in result.allUpdates)
+          candidate.entry.key: candidate.entry.version,
+      }),
+      children: [
+        _UpdateSection(
+          title: tr('可直接更新 {count} 个插件', {'count': result.available.length}),
           children: [
-            Text(tr('确认后下载并安装以下官方插件，保留登录状态与设置。')),
-            const SizedBox(height: 12),
             for (final candidate in result.available)
-              // Name and versions are separate lines, so a CJK name never changes the
-              // font the arrow is drawn with.
-              Padding(
-                padding: const EdgeInsets.only(bottom: 8),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(candidate.entry.name),
-                    Text(
-                      'v${candidate.version} → v${candidate.entry.version}',
-                      style: ctx.text.bodySmall?.copyWith(
-                        color: ctx.colors.onSurfaceVariant,
-                      ),
-                    ),
-                  ],
-                ),
+              _UpdateItem(
+                name: candidate.entry.name,
+                currentVersion: candidate.version,
+                latestVersion: candidate.entry.version,
               ),
-            if (result.failures.isNotEmpty) ...[
-              const SizedBox(height: 8),
-              ..._failures(result),
-            ],
           ],
         ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(ctx, false),
-          child: SelectionContainer.disabled(child: Text(tr('稍后'))),
-        ),
-        FilledButton(
-          onPressed: () => Navigator.pop(ctx, true),
-          child: SelectionContainer.disabled(child: Text(tr('确认升级'))),
-        ),
+        for (final version in versions) ...[
+          const SizedBox(height: Gap.l),
+          _UpdateSection(
+            title: tr('{count} 个插件需要先将本体升级至 {version} 或更高版本', {
+              'count': requirements[version]!.length,
+              'version': version,
+            }),
+            children: [
+              for (final candidate in requirements[version]!)
+                _UpdateItem(
+                  name: candidate.entry.name,
+                  currentVersion: candidate.version,
+                  latestVersion: candidate.entry.version,
+                ),
+            ],
+          ),
+        ],
+        if (result.available.isNotEmpty) ...[
+          const SizedBox(height: Gap.l),
+          Text(
+            tr('确认后下载并安装以下官方插件，保留登录状态与设置。'),
+            style: ctx.text.bodyMedium?.copyWith(
+              color: ctx.colors.onSurfaceVariant,
+            ),
+          ),
+        ],
+        if (result.failures.isNotEmpty) ...[
+          const SizedBox(height: Gap.l),
+          ..._failures(result),
+        ],
       ],
     ),
   );

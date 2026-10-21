@@ -75,7 +75,7 @@ Future<int?> showChapterDirectory(
         return _ListSheet(
           title: tr('目录'),
           height: .8,
-          action: TextButton(
+          action: OutlinedButton(
             onPressed: () => update(() => reversed = !reversed),
             child: SelectionContainer.disabled(child: Text(tr('倒序'))),
           ),

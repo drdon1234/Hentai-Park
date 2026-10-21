@@ -116,7 +116,7 @@ class ParkTheme {
         surfaceContainer: const Color(0xFF1C1B19),
         surfaceContainerHigh: const Color(0xFF242320),
         surfaceContainerHighest: const Color(0xFF2E2C29),
-        outline: const Color(0xFF5A564F),
+        outline: const Color(0xFF827C72),
         outlineVariant: const Color(0xFF34322E),
         shadow: Colors.black,
         scrim: Colors.black,
@@ -160,7 +160,7 @@ class ParkTheme {
       surfaceContainer: const Color(0xFFF0EEE9),
       surfaceContainerHigh: const Color(0xFFEAE8E2),
       surfaceContainerHighest: const Color(0xFFE3E0D9),
-      outline: const Color(0xFFA8A39A),
+      outline: const Color(0xFF827C72),
       outlineVariant: const Color(0xFFE2DFD8),
       shadow: Colors.black,
       scrim: Colors.black,
@@ -283,7 +283,7 @@ class ParkTheme {
                   width: hairline.width * 2,
                   strokeAlign: BorderSide.strokeAlignCenter,
                 )
-              : hairline.copyWith(color: scheme.outline.withValues(alpha: .5)),
+              : hairline.copyWith(color: scheme.outline),
         ),
         labelStyle: text.labelLarge?.copyWith(color: scheme.onSurface),
         secondaryLabelStyle: text.labelLarge?.copyWith(
@@ -323,19 +323,30 @@ class ParkTheme {
         ),
       ),
       outlinedButtonTheme: OutlinedButtonThemeData(
-        style: OutlinedButton.styleFrom(
-          foregroundColor: scheme.onSurface,
-          side: BorderSide(color: scheme.outline.withValues(alpha: .6)),
-          shape: controlShape,
-          textStyle: text.labelLarge?.copyWith(fontWeight: FontWeight.w600),
-          minimumSize: const Size(64, 48),
-          padding: const EdgeInsets.symmetric(horizontal: Gap.l),
-        ),
+        style:
+            OutlinedButton.styleFrom(
+              foregroundColor: scheme.onSurface,
+              shape: controlShape,
+              textStyle: text.labelLarge?.copyWith(fontWeight: FontWeight.w600),
+              minimumSize: const Size(64, 48),
+              padding: const EdgeInsets.symmetric(horizontal: Gap.l),
+            ).copyWith(
+              side: WidgetStateBorderSide.resolveWith(
+                (states) => BorderSide(
+                  color: states.contains(WidgetState.disabled)
+                      ? scheme.outlineVariant
+                      : states.contains(WidgetState.focused)
+                      ? scheme.primary
+                      : scheme.outline,
+                  width: states.contains(WidgetState.focused) ? 2 : 1,
+                ),
+              ),
+            ),
       ),
       textButtonTheme: TextButtonThemeData(
         style: TextButton.styleFrom(
           minimumSize: const Size(48, 48),
-          foregroundColor: scheme.onSurface,
+          foregroundColor: scheme.primary,
           shape: controlShape,
           textStyle: text.labelLarge?.copyWith(fontWeight: FontWeight.w600),
         ),
@@ -351,7 +362,7 @@ class ParkTheme {
           foregroundColor: scheme.onSurface,
           selectedBackgroundColor: selectedTint,
           selectedForegroundColor: scheme.onSecondaryContainer,
-          side: BorderSide(color: scheme.outline.withValues(alpha: .5)),
+          side: BorderSide(color: scheme.outline),
           shape: controlShape,
         ),
       ),

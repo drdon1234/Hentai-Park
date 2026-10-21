@@ -76,7 +76,10 @@ class NovelReaderBottomBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final style = TextButton.styleFrom(foregroundColor: foreground);
+    final style = OutlinedButton.styleFrom(
+      foregroundColor: foreground,
+      side: BorderSide(color: foreground),
+    );
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -88,26 +91,38 @@ class NovelReaderBottomBar extends StatelessWidget {
           onPrevious: onPrevious,
           onNext: onNext,
         ),
-        Wrap(
-          alignment: WrapAlignment.spaceEvenly,
-          spacing: Gap.m,
-          runSpacing: Gap.xs,
-          children: [
-            TextButton(
-              style: style,
-              onPressed: onDirectory,
-              child: SelectionContainer.disabled(child: Text(tr('目录'))),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(Gap.page, Gap.s, Gap.page, Gap.s),
+          child: IntrinsicHeight(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Expanded(
+                  child: OutlinedButton(
+                    style: style,
+                    onPressed: onDirectory,
+                    child: SelectionContainer.disabled(
+                      child: Text(tr('目录'), textAlign: TextAlign.center),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: Gap.s),
+                Expanded(
+                  child: OutlinedButton(
+                    style: style,
+                    onPressed: () => showAdaptiveSheet<void>(
+                      context: context,
+                      isScrollControlled: true,
+                      builder: (_) => const NovelSettingsSheet(),
+                    ),
+                    child: SelectionContainer.disabled(
+                      child: Text(tr('阅读设置'), textAlign: TextAlign.center),
+                    ),
+                  ),
+                ),
+              ],
             ),
-            TextButton(
-              style: style,
-              onPressed: () => showAdaptiveSheet<void>(
-                context: context,
-                isScrollControlled: true,
-                builder: (_) => const NovelSettingsSheet(),
-              ),
-              child: SelectionContainer.disabled(child: Text(tr('阅读设置'))),
-            ),
-          ],
+          ),
         ),
       ],
     );

@@ -221,10 +221,17 @@ mixin _NovelLayout on _NovelReaderBase {
                           ),
                         ),
                       if (i == _pages.length - 1)
-                        TextButton(
-                          onPressed: () => _changedOffset(_text.length),
-                          child: SelectionContainer.disabled(
-                            child: Text(tr('标记本章已读')),
+                        Padding(
+                          padding: const EdgeInsets.only(top: Gap.m),
+                          child: OutlinedButton(
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: foreground,
+                              side: BorderSide(color: foreground),
+                            ),
+                            onPressed: () => _changedOffset(_text.length),
+                            child: SelectionContainer.disabled(
+                              child: Text(tr('标记本章已读')),
+                            ),
                           ),
                         ),
                     ],

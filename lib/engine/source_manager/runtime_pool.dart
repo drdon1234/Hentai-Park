@@ -53,6 +53,7 @@ mixin _RuntimePool on _SourceRegistry {
           );
         }
       }
+      await _restorePendingCookies(s.key, s.manifest!);
       s.version = s.manifest!.version;
       s.loadFailure = null;
     } catch (e) {
@@ -97,6 +98,7 @@ mixin _RuntimePool on _SourceRegistry {
     // uses cookies; setup may wait for those browser operations to finish.
     final before = s.manifest?.json;
     s.manifest = SourceManifest(info.manifest);
+    await _restorePendingCookies(s.key, s.manifest!);
     s.manifest = SourceManifest(
       await runtime.setup(state, waitForInit: waitForInit),
     );
@@ -125,7 +127,7 @@ mixin _RuntimePool on _SourceRegistry {
           s.manifest?.can('status') == true &&
           s.manifest?.account?.required != true) {
         // First use after launch: refresh the account once the runtime is up.
-        unawaited(refreshAccount(key));
+        refreshAccount(key).ignore();
       }
     }();
     _activations[key] = activation;
@@ -259,9 +261,10 @@ mixin _RuntimePool on _SourceRegistry {
       if (readToken?.isCancelled != true &&
           _backgroundKeys == null &&
           !method.startsWith('account.') &&
-          checked != null &&
-          DateTime.now().difference(checked) > _accountTtl) {
-        unawaited(refreshAccount(key));
+          manifest(key)?.can('status') == true &&
+          (checked == null ||
+              DateTime.now().difference(checked) > _accountTtl)) {
+        refreshAccount(key).ignore();
       }
     }
   }

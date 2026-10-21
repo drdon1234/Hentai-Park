@@ -9,7 +9,7 @@ Park.register({
     "ru": {"竖屏短视频推荐，上下滑动连续播放": "Рекомендации вертикальных видео с непрерывным просмотром свайпами", "请刷新短视频列表": "Обновите ленту коротких видео"},
     "ar": {"竖屏短视频推荐，上下滑动连续播放": "اقتراحات مقاطع عمودية مع تشغيل متواصل بالسحب لأعلى وأسفل", "请刷新短视频列表": "حدّث قائمة المقاطع القصيرة"},
   },
-  key: 'shorties', name: 'Pornhub Shorties', version: '0.0.7', type: 'video', category: 'shortvideo',
+  key: 'shorties', name: 'Pornhub Shorties', version: '0.0.8', minAppVersion: '0.9.2', type: 'video', category: 'shortvideo',
   color: '#FF9900', description: '竖屏短视频推荐，上下滑动连续播放', language: 'en',
   homepage: 'https://www.pornhub.com/shorties', domains: ['pornhub.com'],
   network: {mode: 'auto', origin: 'https://www.pornhub.com', vpnHint: true},

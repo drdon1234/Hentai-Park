@@ -402,7 +402,7 @@ class _FeedTabState extends State<FeedTab> with AutomaticKeepAliveClientMixin {
               SliverToBoxAdapter(
                 child: Align(
                   alignment: AlignmentDirectional.centerEnd,
-                  child: TextButton.icon(
+                  child: OutlinedButton.icon(
                     icon: const Icon(Icons.photo_library_outlined),
                     label: Text(tr('相册')),
                     onPressed: () => openMediaAlbum(
@@ -424,7 +424,7 @@ class _FeedTabState extends State<FeedTab> with AutomaticKeepAliveClientMixin {
                   alignment: AlignmentDirectional.centerEnd,
                   child: Padding(
                     padding: const EdgeInsets.symmetric(horizontal: Gap.page),
-                    child: TextButton(
+                    child: OutlinedButton(
                       onPressed: () => Nav.push(
                         context,
                         ShortVideoPage(

@@ -1,5 +1,5 @@
 Park.register({
-  key: 'ranking-fanza', name: 'FANZA', version: '0.0.2',
+  key: 'ranking-fanza', name: 'FANZA', version: '0.0.3', minAppVersion: '0.9.2',
   type: 'video', category: 'jav', rankingOnly: true,
   description: '官方销量榜', homepage: 'https://video.dmm.co.jp/',
   domains: ['dmm.co.jp'], network: { vpnHint: true },

@@ -1,5 +1,5 @@
 Park.register({
-  key: 'anime_trace', name: 'AnimeTrace', version: '0.0.3', apiVersion: 1,
+  key: 'anime_trace', name: 'AnimeTrace', version: '0.0.4', minAppVersion: '0.9.2', apiVersion: 2,
   type: 'comic', category: 'other', reverseSearchCategory: 'anime', homepage: 'https://www.animetrace.com/',
   description: '识别动画与 Galgame 角色及作品；候选结果需核对',
   domains: ['animetrace.com'], network: { vpnHint: true },

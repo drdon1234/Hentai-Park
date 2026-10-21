@@ -155,6 +155,8 @@ enum SettingsDomain {
     'logMode',
     'autoSourceUpdates',
     'autoAppUpdates',
+    'ignoredAppUpdate',
+    'ignoredSourceUpdates',
     'lastSourceUpdate',
     'autoBackupHours',
     'autoBackupKeep',
@@ -661,6 +663,18 @@ class AppSettings extends ChangeNotifier {
   /// Check the installed application's version at launch without downloading it.
   bool get autoAppUpdates => _get('autoAppUpdates', true);
   set autoAppUpdates(bool v) => _set('autoAppUpdates', v);
+
+  String get ignoredAppUpdate => _get('ignoredAppUpdate', '');
+  set ignoredAppUpdate(String v) => _set('ignoredAppUpdate', v);
+
+  Map<String, String> get ignoredSourceUpdates => Map<String, String>.from(
+    _get('ignoredSourceUpdates', <String, String>{}),
+  );
+
+  Future<void> ignoreSourceUpdates(Map<String, String> versions) async {
+    _set('ignoredSourceUpdates', {...ignoredSourceUpdates, ...versions});
+    await flush();
+  }
 
   int get lastSourceUpdate => _get('lastSourceUpdate', 0);
   set lastSourceUpdate(int v) => _set('lastSourceUpdate', v);

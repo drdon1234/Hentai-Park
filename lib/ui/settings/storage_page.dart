@@ -190,7 +190,7 @@ class _StoragePageState extends State<StoragePage> {
                       child: Text(size(_homeCache)),
                     ),
                     trailing: SelectionContainer.disabled(
-                      child: TextButton(
+                      child: OutlinedButton(
                         onPressed: () =>
                             _run(HomeCache.instance.clear, tr('缓存已清除')),
                         child: Text(tr('清除')),
@@ -204,7 +204,7 @@ class _StoragePageState extends State<StoragePage> {
                       child: Text(size(_cache)),
                     ),
                     trailing: SelectionContainer.disabled(
-                      child: TextButton(
+                      child: OutlinedButton(
                         onPressed: () => _run(() async {
                           await ImageStore.instance.clear();
                           imageCache.clear();

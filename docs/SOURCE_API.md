@@ -23,6 +23,7 @@ Park.register({
   key: 'mysite',
   name: '我的站点',
   version: '0.0.1',
+  minAppVersion: '0.9.2',
   type: 'comic',
   category: 'doujin',
   homepage: 'https://example.com',
@@ -67,7 +68,8 @@ node 'test/source-smoke.mjs'
 Park.register({
   key: 'mysite',              // 唯一标识，安装后不可更改；只允许 [A-Za-z0-9_-]，1–100 位，不能是 _app
   name: '我的站点',
-  version: '0.0.1',           // 三段数字，仓库版本更高时应用提示更新
+  version: '0.0.1',
+  minAppVersion: '0.9.2',     // 最低本体版本，三段数字；与官方清单一致
   type: 'comic',              // comic | video | novel | game：决定阅读、播放或游戏资源行为
   category: 'doujin',         // doujin | anime | aiDrama | jav | adult | shortvideo | recording | live | gallery | illustration | novel | game | other
   color: '#E5355F',           // 品牌色：站点头像与站点页
@@ -261,6 +263,7 @@ media: { mode: 'native', origin: 'https://example.com', domains: ['media.example
 - `media.mode` 为 `'native'` 或 `'browser'`。`media.origin` 必须属于插件声明的站点，使用 HTTPS 默认端口 443，不含用户凭据、查询或片段。
 - `media.domains` 是独立的媒体域名白名单（含子域），不授予站点 Cookie 权限。清单、分段和密钥都只允许 HTTPS 443，拒绝 URL 用户凭据、片段、IP、localhost（含子域）和 `.local`。
 - 所有实现 `videos()` 的插件都必须声明 `media`，包括仅返回 MP4 的插件。`scope: 'session'` 可同时声明静态 `domains`：HLS 使用本次会话的确切地址授权，MP4 仍须匹配静态域名白名单；不能用会话授权代替 MP4 白名单。官方发布检查会拒绝缺失或无效的媒体声明。
+- MP4 必须声明 `media.mode: 'native'`。播放器通过独立的本地流式会话访问远端文件，使用应用内代理并支持 `GET`、`HEAD` 和单段 `Range`，不缓存整部影片；每次重定向仍须匹配静态媒体域名白名单，关闭播放会话会终止上游请求。`media.mode: 'browser'` 用于 HLS。
 - `'native'`：使用独立、无凭据的客户端，不读写站点 Cookie、Authorization 或代理认证，每次重定向前先校验目标。只允许 `Referer`、`Origin`、`Accept`、`Accept-Language`；前两者须属于声明的站点域（含语言子域），`Origin` 只能包含来源 origin。
 - `media.referrerDomains` 可选，仅限原生视频媒体，最多 16 个有效公网域名（含子域）。它仅为 `Referer` 增加允许的来源，作为上述站点域限制的明确例外；不扩大 `Origin`、媒体地址、文档导航或 Cookie 权限，不允许用于 `imageNetwork` 或浏览器媒体。
 - 动态 HLS CDN 可声明 `media.scope: 'session'`（仅限 `mode: 'native'`）。授权只覆盖当前播放或下载会话中解析的地址、清单资源及允许的重定向，关闭会话即失效，不扩大 Cookie 权限或持久化域名白名单。请求仍受 HTTPS、无凭据、目标地址和响应大小限制；直连 MP4 与浏览器媒体继续使用静态域名白名单。
@@ -296,7 +299,7 @@ account: {
 
 - 账号状态只在首次使用、登录、退出、网页登录后以及距上次检查超过 10 分钟时刷新，不会在每次调用后检查。`configured` 表示已有账号配置，与当前是否登录成功无关。
 - `loginDomains`：插件声明站点实际使用的第三方授权域名（含子域）。只在用户打开网页登录页时放行 HTTPS 443 的跳转，拒绝 URL 用户凭据、IP、localhost 和 `.local`。站内登录页及回调同样要求 HTTPS 443，并且主机必须属于 `domains`；第三方主机不能加入 `domains` 来扩大 Cookie 权限。普通验证页、访问确认、插件请求和 Cookie 导入仍按 `domains` 校验。登录页支持原窗口跳转和保留 `window.opener` 的授权弹窗，弹窗里沿用同一检查，空白初始页不授予外部导航权限。停留在授权页时不判断登录完成，回到站点后才同步 Cookie。第三方 Cookie 不导入插件的 Cookie 罐，也不随清除站点 Cookie 删除；其浏览器登录态由系统 WebView 管理。第三方平台仍可能限制内嵌浏览器登录。
-- `localStorageKeys`：可选白名单，仅网页登录结束时从 `cookieUrl` 所属站点页面读取对应的本地存储字符串，并与 Cookie 一并交给 `account.login(values)`。未声明的键不会读取或传入插件；不得在清单、日志或诊断输出中暴露存储值。
+- `localStorageKeys`：可选白名单，仅网页登录结束时从 `cookieUrl` 所属站点页面读取对应的本地存储字符串，并与 Cookie 一并交给 `account.login(values)`。声明后须至少取得一个对应值才自动尝试登录；必需的具体键同时列入 `requiredCookies`，该字段检查合并后的凭证。未声明的键不会读取或传入插件；不得在清单、日志或诊断输出中暴露存储值。`account.login()` 必须真实校验凭证；提供 `account.status()` 时，应用仅在后续状态为 `loggedIn: true` 时报告登录成功。
 - `type: 'session'` 用于导入已有的授权会话：声明单个保密字段（如 `session`），剪贴板内容完整保留，由插件校验，不拆成账号密码或 Cookie。登录必须真实确认授权，不凭输入格式假报成功。
 - `managedAccount: true` 与 `account.enableManaged()` 提供可选的账号管理能力，只在用户知情确认后启用。手动账号与托管账号分别保存，不能覆盖已有凭据；账号数据仅在本机使用，不进入文档、诊断或发布产物。
 - 账号密码、Token 和插件状态都是用户本机数据，文档和日志里不要出现真实凭据。
@@ -406,9 +409,9 @@ WorkItem 的全部字段，再加：
 
 - 多集视频在 `detail(id).chapters` 按播放顺序返回 `[{ id, title }]`，每个 `id` 必须稳定，不能用画质或临时媒体 URL 代替。应用用同一个 ID 选集、记录进度、下载和续播，并调用 `videos(id, episodeId)` 获取该集资源。单集用 `singleChapterId`，没有时用 `'_'`。
 - 省略 `format` 时按直链 MP4 播放和下载。HLS 必须返回 `format: 'hls'`，并声明 `media` 权限。
-- HLS 主清单（`#EXT-X-STREAM-INF`）先由应用展开成各路分段清单，按 `RESOLUTION` 得到真实清晰度。返回主清单时 `quality` 表示期望清晰度：默认选不高于它的最高实际清晰度，没有符合项时选最高档。每路必须是音视频复用的 MPEG-TS 或点播 fMP4；独立的 `AUDIO`、`VIDEO`、`SUBTITLES` 和未通过静态域名或会话授权的地址一律拒绝。`#EXT-X-I-FRAME-STREAM-INF` 预览轨道被忽略。单路清单无法确定分辨率时提供 `label: '原画'`，不要把期望画质当成真实分辨率。 主清单省略 `RESOLUTION` 时必须提供有效 `BANDWIDTH`，应用保留各码率并显示 kbps，默认选择最高码率，不把码率当作分辨率。
-- `type: 'video', category: 'live'` 表示公开直播，归入三次元，主页和域页仅展示图片卡片。实现 `videos()` 返回当前公开房间的 HLS 地址；私密、收费或下线房间不得返回伪造可播结果。应用为直播启用滚动清单播放，不恢复或保存点播进度，也不提供下载。录制由用户显式开始，只保存初始直播窗口之后的新分片，用户停止或应用退出后结束，重启不续录。录制复用独立媒体会话与后台任务，逐段验证、解密并保存本地完整清单；断线重新解析媒体，编码边界与长录制可分卷，失败保留已提交内容。仅支持音视频复用的 MPEG-TS；不支持 MAP/fMP4、低延迟 PART、BYTERANGE 或 GAP。
-- 点播要求带 `#EXT-X-ENDLIST` 的完整、连续 MPEG-TS 或 fMP4 清单；fMP4 只支持媒体分片之前的单个 `#EXT-X-MAP` 初始化段，不支持初始化段切换或范围读取。初始化段与媒体分片都经过地址授权、内容校验及本地重写，离线播放与导出必须保留初始化段。直播仍只支持 MPEG-TS，允许滚动清单及 discontinuity。两者支持 `METHOD=AES-128`、`KEYFORMAT=identity` 的 CBC/PKCS7 解密，密钥恰好 16 字节，媒体 IV 显式提供或由序号推导；加密初始化段必须显式提供 IV。密钥仅留在会话内存。不支持 SAMPLE-AES、其他 KEYFORMAT、BYTERANGE、GAP；点播另不支持 discontinuity。非标准的 `#EXT-X-TOKEN` 会被移除。
+- HLS 主清单（`#EXT-X-STREAM-INF`）先由应用展开成各路分段清单，按 `RESOLUTION` 得到真实清晰度。返回主清单时 `quality` 表示期望清晰度：默认选不高于它的最高实际清晰度，没有符合项时选最高档。每路必须是音视频复用的 MPEG-TS 或 fMP4；独立的 `AUDIO`、`VIDEO`、`SUBTITLES` 和未通过静态域名或会话授权的地址一律拒绝。`#EXT-X-I-FRAME-STREAM-INF` 预览轨道被忽略。单路清单无法确定分辨率时提供 `label: '原画'`，不要把期望画质当成真实分辨率。 主清单省略 `RESOLUTION` 时必须提供有效 `BANDWIDTH`，应用保留各码率并显示 kbps，默认选择最高码率，不把码率当作分辨率。
+- `type: 'video', category: 'live'` 表示公开直播，归入三次元，主页和域页仅展示图片卡片。实现 `videos()` 返回当前公开房间的 HLS 地址；私密、收费或下线房间不得返回伪造可播结果。应用为直播启用滚动清单播放，不恢复或保存点播进度，也不提供下载。录制由用户显式开始，只保存初始直播窗口之后的新分片，用户停止或应用退出后结束，重启不续录。录制复用独立媒体会话与后台任务，逐段验证、解密并保存本地完整清单；断线重新解析媒体，编码边界与长录制可分卷，失败保留已提交内容。支持音视频复用的 MPEG-TS 和带单个 MAP 初始化段的 fMP4，fMP4 录制保留初始化段，窗口间初始化段变化时分卷；不支持低延迟 PART、BYTERANGE 或 GAP。
+- 点播要求带 `#EXT-X-ENDLIST` 的完整、连续 MPEG-TS 或 fMP4 清单；fMP4 只支持媒体分片之前的单个 `#EXT-X-MAP` 初始化段，不支持单个清单内初始化段切换或范围读取。初始化段与媒体分片都经过地址授权、内容校验及本地重写，离线播放与导出必须保留初始化段。直播允许滚动清单及 discontinuity，每次刷新独立注册并保留当前及上一窗口的初始化段与分片。两者支持 `METHOD=AES-128`、`KEYFORMAT=identity` 的 CBC/PKCS7 解密，密钥恰好 16 字节，媒体 IV 显式提供或由序号推导；加密初始化段必须显式提供 IV。密钥仅留在会话内存。不支持 SAMPLE-AES、其他 KEYFORMAT、BYTERANGE、GAP；点播另不支持 discontinuity。非标准的 `#EXT-X-TOKEN` 会被移除。
 - HLS 清单和 MPEG-TS 分段支持 PNG `roUd` 封装（原始或 zlib 压缩）；框架先解包再解析、校验或解密，解包后仍遵守清单 2 MiB、分段 32 MiB 的限制。插件继续返回 `format: 'hls'`，无需额外权限。
 - 播放时使用只绑定 `127.0.0.1` 的随机端口和随机令牌，通过有限 URL 注册表按需读取已验证的分段，关闭会话即取消请求。HLS 离线下载目前只支持 Android：逐段验证并保存 SHA-256，可恢复、可取消，MPEG-TS 最后由 Media3 封装为 MP4，fMP4 按顺序保存初始化段与媒体分片，完整成品才进入离线库。
 
@@ -657,16 +660,17 @@ async ranking(board, { page = 1, offset = 0, cursor, options = {} }) {
 ```json
 {
   "name": "我的站点仓库",
-  "apiVersion": 1,
+  "apiVersion": 2,
   "sources": [
     {
       "key": "mysite",
       "name": "我的站点",
       "version": "0.0.1",
+      "minAppVersion": "0.9.1",
       "description": "一句话介绍",
       "url": "https://example.com/sources/mysite.js",
       "sha256": "脚本 UTF-8 原文的 64 位十六进制 SHA-256",
-      "apiVersion": 1
+      "apiVersion": 2
     }
   ]
 }
@@ -675,6 +679,10 @@ async ranking(board, { page = 1, offset = 0, cursor, options = {} }) {
 `url` 是脚本完整地址，也可以用相对 `index.json` 的 `file`。第三方仓库由用户确认后手动安装；`sha256` 可选，提供时校验下载内容。
 
 ### 版本与更新规则
+
+- 插件必须声明 `minAppVersion`（如 `0.9.1`），表示最低本体版本；官方清单与脚本声明必须一致。当前协议为 `apiVersion: 2`。官方更新与手动 URL 安装均在替换旧插件前校验，不满足要求时保留旧插件。发布器不允许缺失、格式错误或不一致的声明。
+- 自动提示分别显示可直接更新的插件数量，以及按最低本体版本分组的受限插件数量。只有兼容的插件参与安装。
+- 本体与插件更新均可选择“不再提醒”，只忽略当前提示中的版本，重启后保留；后续新版本重新提示，手动检查不受影响。
 
 - 版本必须是三段、点分隔、无前导零的非负整数（如 `0.0.1`），逐段按数字比较；不接受缺段、多段或预发布后缀。
 - 官方更新必须提供脚本 UTF-8 原文的 `sha256`（不修剪空白、不转换换行），脚本声明的 `key`、`version` 必须与索引一致；`apiVersion` 必须与当前应用运行时完全一致，否则拒绝更新。

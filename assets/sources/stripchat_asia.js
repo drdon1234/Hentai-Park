@@ -8,7 +8,7 @@ Park.register({
     ru: {'Stripchat 亚洲直播': 'Stripchat Азиатские эфиры', '中国与亚洲公开直播间': 'Открытые эфиры из Китая и Азии', '未知直播列表': 'Неизвестная лента эфиров', '直播请求失败': 'Ошибка запроса эфира', '直播数据无效': 'Некорректные данные эфира', '直播间不存在': 'Эфир не найден', '直播间暂不可用': 'Эфир сейчас недоступен', '直播间编号无效': 'Неверный ID эфира'},
     ar: {'Stripchat 亚洲直播': 'Stripchat بث آسيوي', '中国与亚洲公开直播间': 'غرف بث عامة من الصين وآسيا', '未知直播列表': 'قائمة بث غير معروفة', '直播请求失败': 'فشل طلب البث', '直播数据无效': 'بيانات البث غير صالحة', '直播间不存在': 'غرفة البث غير موجودة', '直播间暂不可用': 'البث غير متاح حالياً', '直播间编号无效': 'معرّف البث غير صالح'}
   },
-  key: 'stripchat_asia', name: 'Stripchat 亚洲直播', version: '0.0.2', type: 'video', category: 'live',
+  key: 'stripchat_asia', name: 'Stripchat 亚洲直播', version: '0.0.4', minAppVersion: '0.9.2', type: 'video', category: 'live',
   color: '#ff4d7d', description: '中国与亚洲公开直播间', language: 'en', homepage: 'https://zh.stripchat.com/',
   domains: ['stripchat.com'], network: {mode: 'auto', origin: 'https://zh.stripchat.com', vpnHint: true},
   imageHeaders: {Referer: 'https://zh.stripchat.com/'}, imageNetwork: {mode: 'browser', origin: 'https://static-proxy.strpst.com', domains: ['static-proxy.strpst.com']},
@@ -65,16 +65,26 @@ Park.register({
     }
     return {items:[...unique.values()],page,hasNext:responses.some(({data}) => data.models.length === 20)};
   },
+  async room(value) {
+    const id = this.validId(value), data = await this.json('/api/front/v2/models/' + id + '/cam');
+    const profile = data?.user, user = profile?.user, cam = data?.cam;
+    if (!user || String(user.id) !== id || user.isDeleted === true) throw Park.error('NOT_FOUND', '直播间不存在');
+    const tagged = {...user, tags: profile.tags || user.tags, tagGroups: profile.tagGroups || user.tagGroups,
+      lastTagsAliases: profile.lastTagsAliases || user.lastTagsAliases};
+    if (user.status !== 'public' || user.isLive !== true || !this.isAsian(tagged) || cam?.isCamAvailable !== true) {
+      throw Park.error('UNSUPPORTED', '直播间暂不可用');
+    }
+    return {id, user, cam};
+  },
   async detail(value) {
-    const id=this.validId(value), d=await this.json('/api/front/v2/models/'+id+'/cam'), user=d?.user?.user, cam=d?.cam;
-    if(!user||String(user.id)!==id||user.status!=='public'||user.isLive!==true||!this.isAsian(user)) throw Park.error('NOT_FOUND','直播间不存在');
+    const {id, user} = await this.room(value);
     return {id,title:String(user.username||user.name||id),cover:this.cover(user.previewUrlThumbBig||user.previewUrlThumbSmall),coverAspect:16/9,url:this.BASE+'/'+encodeURIComponent(user.username||id),description:String(user.description||''),authors:[],tags:[],chapters:null,mediaKind:'video'};
   },
   async videos(value) {
-    const id=this.validId(value), d=await this.json('/api/front/v2/models/'+id+'/cam'), user=d?.user?.user, cam=d?.cam;
-    if(!user||String(user.id)!==id||user.status!=='public'||user.isLive!==true||!this.isAsian(user)||cam?.isCamAvailable!==true) throw Park.error('UNSUPPORTED','直播间暂不可用');
+    const {id, cam} = await this.room(value);
     const stream=String(cam.streamName||id); if(!/^\d{6,12}$/.test(stream)) throw Park.error('PARSE','直播数据无效');
-    const url='https://edge-hls.doppiocdn.org/hls/'+stream+'/master/'+stream+'_auto.m3u8';
+    // 原站原生播放器的公开协议参数；主清单会将它传给各清晰度。
+    const url='https://edge-hls.doppiocdn.org/hls/'+stream+'/master/'+stream+'_auto.m3u8?pkey=B0p93vi8Uj6AYyZb';
     return [{url,format:'hls',label:'直播',preferred:true,headers:{Referer:this.BASE+'/'}}];
   }
 });

@@ -242,7 +242,11 @@ class _UpdatesPageState extends State<UpdatesPage> {
                     ),
                   ],
                 ),
-          body: ParkRefresh(onRefresh: _refresh, child: _body(context)),
+          body: ParkRefresh(
+            showRefreshButton: false,
+            onRefresh: _refresh,
+            child: _body(context),
+          ),
         );
       },
     );
@@ -256,11 +260,17 @@ class _UpdatesPageState extends State<UpdatesPage> {
     if (entries.isEmpty) {
       return ListView(
         children: [
-          const SizedBox(height: 120),
           EmptyState(
             icon: Icons.update_rounded,
             title: tr('暂无更新'),
             message: tr('下拉检查收藏中连载作品的新章节。自动检查可在“我的 → 书架与下载”中设置。'),
+            actions: [
+              OutlinedButton.icon(
+                onPressed: _refresh,
+                icon: const Icon(Icons.refresh_rounded),
+                label: Text(tr('检查更新')),
+              ),
+            ],
           ),
         ],
       );

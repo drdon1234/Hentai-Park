@@ -7,6 +7,7 @@ import '../core/localization.dart';
 import '../core/models.dart';
 import '../core/settings.dart';
 import 'background_downloads.dart';
+import 'source_compatibility.dart';
 import 'source_manager.dart';
 import 'source_repository.dart';
 
@@ -25,12 +26,19 @@ class SourceUpdateCandidate {
 class SourceUpdateResult {
   const SourceUpdateResult({
     this.available = const [],
+    this.requiresAppUpdate = const [],
     this.updated = const [],
     this.failures = const {},
     this.checked = 0,
   });
 
   final List<SourceUpdateCandidate> available;
+  final List<SourceUpdateCandidate> requiresAppUpdate;
+  bool get hasUpdates => available.isNotEmpty || requiresAppUpdate.isNotEmpty;
+  Iterable<SourceUpdateCandidate> get allUpdates => [
+    ...available,
+    ...requiresAppUpdate,
+  ];
   final List<String> updated;
   final Map<String, String> failures;
   final int checked;
@@ -48,6 +56,7 @@ class SourceUpdater extends ChangeNotifier {
     int Function()? lastAttempt,
     Future<void> Function(int timestamp)? recordAttempt,
     DateTime Function()? now,
+    Future<String> Function()? currentVersion,
   }) : _repository = repository ?? SourceRepository(),
        _ready = ready ?? (() => SourceManager.instance.ready),
        _sources = sources ?? (() => SourceManager.instance.all),
@@ -58,7 +67,8 @@ class SourceUpdater extends ChangeNotifier {
        _lastAttempt =
            lastAttempt ?? (() => AppSettings.instance.lastSourceUpdate),
        _recordAttempt = recordAttempt ?? _saveAttempt,
-       _now = now ?? DateTime.now;
+       _now = now ?? DateTime.now,
+       _currentVersion = currentVersion ?? SourceCompatibility.currentVersion;
 
   static final SourceUpdater instance = SourceUpdater();
   static const interval = Duration(hours: 12);
@@ -72,6 +82,7 @@ class SourceUpdater extends ChangeNotifier {
   final int Function() _lastAttempt;
   final Future<void> Function(int) _recordAttempt;
   final DateTime Function() _now;
+  final Future<String> Function() _currentVersion;
   Future<SourceUpdateResult>? _flight;
   List<SourceUpdateCandidate>? _applying;
   int? _attemptedAt;
@@ -212,6 +223,7 @@ class SourceUpdater extends ChangeNotifier {
 
   Future<SourceUpdateResult> _check() async {
     final available = <SourceUpdateCandidate>[];
+    final requiresAppUpdate = <SourceUpdateCandidate>[];
     final failures = <String, String>{};
     var checked = 0;
     try {
@@ -219,6 +231,7 @@ class SourceUpdater extends ChangeNotifier {
       await _recordAttempt(_attemptedAt!);
       await _ready();
       final index = await _repository.fetch();
+      final current = await _currentVersion();
       failures.addAll(index.failures);
       for (final entry in index.entries) {
         final source = _find(entry.key);
@@ -229,7 +242,12 @@ class SourceUpdater extends ChangeNotifier {
             throw SourceError('UNSUPPORTED', '此站点需要更新应用后才能更新');
           }
           if (!SourceManager.isNewer(entry.version, source.version)) continue;
-          available.add(SourceUpdateCandidate(entry: entry, source: source));
+          final candidate = SourceUpdateCandidate(entry: entry, source: source);
+          if (SourceCompatibility.supports(current, entry.minAppVersion)) {
+            available.add(candidate);
+          } else {
+            requiresAppUpdate.add(candidate);
+          }
         } catch (error) {
           failures[entry.name] = _describe(error);
         }
@@ -239,6 +257,7 @@ class SourceUpdater extends ChangeNotifier {
     }
     return SourceUpdateResult(
       available: List.unmodifiable(available),
+      requiresAppUpdate: List.unmodifiable(requiresAppUpdate),
       failures: Map.unmodifiable(failures),
       checked: checked,
     );
@@ -258,11 +277,16 @@ class SourceUpdater extends ChangeNotifier {
     try {
       check();
       await _ready();
+      final current = await _currentVersion();
       await forEachConcurrent(candidates, 3, (candidate) async {
         final entry = candidate.entry;
         try {
           check();
           _validateCandidate(candidate);
+          SourceCompatibility.validate({
+            'apiVersion': entry.apiVersion,
+            'minAppVersion': entry.minAppVersion,
+          }, current);
           final preview = await _preview(entry);
           _validatePreview(entry, preview);
           check();
@@ -280,6 +304,7 @@ class SourceUpdater extends ChangeNotifier {
     return SourceUpdateResult(
       updated: List.unmodifiable(updated),
       available: List.unmodifiable(remaining.values),
+      requiresAppUpdate: lastResult?.requiresAppUpdate ?? const [],
       failures: Map.unmodifiable(failures),
       checked: candidates.length,
     );
@@ -321,6 +346,9 @@ class SourceUpdater extends ChangeNotifier {
     final api = preview.manifest.json['apiVersion'];
     if (api is! int || api != SourceRepository.supportedApiVersion) {
       throw SourceError('UNSUPPORTED', '下载的站点 API 与当前应用不兼容');
+    }
+    if (preview.manifest.json['minAppVersion'] != entry.minAppVersion) {
+      throw SourceError('CONFIG', '下载的插件最低应用版本与官方索引不一致');
     }
     if (preview.sha256 != entry.sha256) {
       throw SourceError('CONFIG', '脚本校验失败：内容与站点仓库公布的 SHA-256 不一致，可能被篡改');

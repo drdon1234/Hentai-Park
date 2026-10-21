@@ -11,7 +11,7 @@ Park.register({
   },
   key: 'missav',
   name: 'MissAV',
-  version: '0.0.11',
+  version: '0.0.12', minAppVersion: '0.9.2',
   type: 'video',
   category: 'jav',
   color: '#EF4444',

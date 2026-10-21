@@ -109,7 +109,7 @@
     },
     key: 'cool18',
     name: 'Cool18',
-    version: '0.0.7',
+    version: '0.0.8', minAppVersion: '0.9.2',
     type: 'novel',
     category: 'novel',
     language: 'zh',

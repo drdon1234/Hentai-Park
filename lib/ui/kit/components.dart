@@ -162,7 +162,7 @@ class SectionHeader extends StatelessWidget {
     super.key,
     this.trailing,
     this.leading,
-    this.padding = const EdgeInsets.fromLTRB(Gap.page, Gap.xl, Gap.s, Gap.s),
+    this.padding = const EdgeInsets.fromLTRB(Gap.page, Gap.xl, Gap.page, Gap.s),
   });
   final String title;
   final Widget? trailing;
@@ -187,15 +187,48 @@ class SectionHeader extends StatelessWidget {
               ),
             ),
           ),
+          if (trailing != null) const SizedBox(width: Gap.m),
           if (trailing != null)
             ConstrainedBox(
               constraints: BoxConstraints(maxWidth: constraints.maxWidth * .6),
-              child: trailing,
+              child: SecondaryActionTheme(child: trailing!),
             ),
         ],
       ),
     ),
   );
+}
+
+/// 区块入口和恢复操作需要可见的按钮边界，避免与静态文字混淆。
+/// 只作用于内容区，保留导航栏、对话框和阅读控制的原生样式。
+class SecondaryActionTheme extends StatelessWidget {
+  const SecondaryActionTheme({super.key, required this.child});
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final side = theme.outlinedButtonTheme.style?.side;
+    return TextButtonTheme(
+      data: TextButtonThemeData(
+        style: theme.textButtonTheme.style?.copyWith(
+          side: side,
+          foregroundColor: theme.outlinedButtonTheme.style?.foregroundColor,
+        ),
+      ),
+      child: IconButtonTheme(
+        data: IconButtonThemeData(
+          style: theme.iconButtonTheme.style?.copyWith(
+            side: side,
+            shape: const WidgetStatePropertyAll(
+              RoundedRectangleBorder(borderRadius: Radii.small),
+            ),
+          ),
+        ),
+        child: child,
+      ),
+    );
+  }
 }
 
 /// A row in a hairline-separated list: settings, sites, chapters, downloads.
@@ -417,11 +450,13 @@ class EmptyState extends StatelessWidget {
             ],
             if (actions.isNotEmpty) ...[
               SizedBox(height: compact ? Gap.s : Gap.l),
-              Wrap(
-                spacing: Gap.s,
-                runSpacing: Gap.s,
-                alignment: WrapAlignment.center,
-                children: actions,
+              SecondaryActionTheme(
+                child: Wrap(
+                  spacing: Gap.s,
+                  runSpacing: Gap.s,
+                  alignment: WrapAlignment.center,
+                  children: actions,
+                ),
               ),
             ],
           ],
@@ -429,7 +464,8 @@ class EmptyState extends StatelessWidget {
       ),
     );
     // 同时适用于有界整页与无界列表区块；短窗口仍可滚动到恢复操作。
-    return Center(
+    return Align(
+      alignment: Alignment.topCenter,
       child: compact ? content : SingleChildScrollView(child: content),
     );
   }
@@ -768,9 +804,15 @@ Future<String?> readSearchClipboard(
 
 /// Pull to refresh, with a light tap when the refresh starts.
 class ParkRefresh extends StatefulWidget {
-  const ParkRefresh({super.key, required this.onRefresh, required this.child});
+  const ParkRefresh({
+    super.key,
+    required this.onRefresh,
+    required this.child,
+    this.showRefreshButton = true,
+  });
   final RefreshCallback onRefresh;
   final Widget child;
+  final bool showRefreshButton;
 
   @override
   State<ParkRefresh> createState() => _ParkRefreshState();
@@ -846,19 +888,21 @@ class _ParkRefreshState extends State<ParkRefresh> {
       child: Focus(
         focusNode: _focusNode,
         autofocus: true,
-        child: Column(
-          children: [
-            Align(
-              alignment: AlignmentDirectional.centerEnd,
-              child: IconButton(
-                tooltip: tr('刷新'),
-                onPressed: _refreshing ? null : _requestRefresh,
-                icon: const Icon(Icons.refresh_rounded),
-              ),
-            ),
-            Expanded(child: indicator),
-          ],
-        ),
+        child: widget.showRefreshButton
+            ? Column(
+                children: [
+                  Align(
+                    alignment: AlignmentDirectional.centerEnd,
+                    child: IconButton(
+                      tooltip: tr('刷新'),
+                      onPressed: _refreshing ? null : _requestRefresh,
+                      icon: const Icon(Icons.refresh_rounded),
+                    ),
+                  ),
+                  Expanded(child: indicator),
+                ],
+              )
+            : indicator,
       ),
     );
   }

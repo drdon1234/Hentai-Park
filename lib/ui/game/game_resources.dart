@@ -293,8 +293,10 @@ class GameResourceCardState extends State<GameResourceCard> {
                             ),
                           ),
                         ),
+                      const SizedBox(height: Gap.m),
                       Wrap(
                         spacing: 8,
+                        runSpacing: 8,
                         children: [
                           FilledButton.tonalIcon(
                             onPressed: () => _open(result.urls[i]),
@@ -303,7 +305,7 @@ class GameResourceCardState extends State<GameResourceCard> {
                               child: Text(tr('打开链接')),
                             ),
                           ),
-                          TextButton.icon(
+                          OutlinedButton.icon(
                             onPressed: () => _copy(result.urls[i]),
                             icon: const Icon(Icons.copy),
                             label: SelectionContainer.disabled(
@@ -476,23 +478,25 @@ class GameDownloadTile extends StatelessWidget {
           if (task.archivePassword.isNotEmpty)
             SelectableText('${tr('解压密码')}: ${task.archivePassword}'),
           if (done) SelectableText(task.file.path),
+          const SizedBox(height: Gap.m),
           Wrap(
             spacing: 8,
+            runSpacing: 8,
             children: [
               if (running || queued)
-                TextButton(
+                OutlinedButton(
                   onPressed: () => manager.cancel(task.key),
                   child: SelectionContainer.disabled(child: Text(tr('取消下载'))),
                 )
               else if (!done)
-                TextButton(
+                OutlinedButton(
                   onPressed: manager.isActive(task.key)
                       ? null
                       : () => manager.retry(task.key),
                   child: SelectionContainer.disabled(child: Text(tr('重新下载'))),
                 ),
               if (done)
-                TextButton(
+                OutlinedButton(
                   onPressed: () async {
                     try {
                       await shareContent(
@@ -506,7 +510,7 @@ class GameDownloadTile extends StatelessWidget {
                   child: SelectionContainer.disabled(child: Text(tr('导出游戏文件'))),
                 ),
               if (done)
-                TextButton(
+                OutlinedButton(
                   onPressed: () async {
                     await Clipboard.setData(
                       ClipboardData(text: task.file.path),
@@ -516,7 +520,7 @@ class GameDownloadTile extends StatelessWidget {
                   child: SelectionContainer.disabled(child: Text(tr('复制文件路径'))),
                 ),
               if (!running && !queued)
-                TextButton(
+                OutlinedButton(
                   onPressed: () async {
                     try {
                       await manager.remove(task.key);

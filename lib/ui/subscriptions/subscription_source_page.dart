@@ -296,7 +296,7 @@ class _SubscriptionSourceEntryState extends State<SubscriptionSourceEntry> {
           Text(tr('仅显示公开内容；会员内容请在原站登录后查看')),
           Align(
             alignment: AlignmentDirectional.centerEnd,
-            child: TextButton(
+            child: OutlinedButton(
               onPressed: () => Nav.login(context, widget.source),
               child: SelectionContainer.disabled(child: Text(tr('在原站登录'))),
             ),

@@ -29,7 +29,7 @@ Park.register({
       "成人画廊图片反搜；返回匹配画廊与原站标签": "بحث عكسي في معارض البالغين مع المعارض المطابقة والوسوم الأصلية"
     }
   },
-  key: 'ehentai_reverse', name: 'E-Hentai', version: '0.0.3', apiVersion: 1,
+  key: 'ehentai_reverse', name: 'E-Hentai', version: '0.0.4', minAppVersion: '0.9.2', apiVersion: 2,
   type: 'comic', category: 'other', reverseSearchCategory: 'gallery',
   homepage: 'https://e-hentai.org/',
   description: '成人画廊图片反搜；返回匹配画廊与原站标签',

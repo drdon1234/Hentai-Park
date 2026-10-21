@@ -65,7 +65,7 @@ Park.register({
   },
   key: 'ehentai',
   name: 'E-Hentai',
-  version: '0.0.9',
+  version: '0.0.10', minAppVersion: '0.9.2',
   type: 'comic',
   category: 'doujin',
   color: '#9C2A2A',

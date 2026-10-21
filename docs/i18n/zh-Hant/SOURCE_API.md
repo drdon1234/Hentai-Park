@@ -23,6 +23,7 @@ Park.register({
   key: 'mysite',
   name: '我的站点',
   version: '0.0.1',
+  minAppVersion: '0.9.2',
   type: 'comic',
   category: 'doujin',
   homepage: 'https://example.com',
@@ -67,7 +68,8 @@ node 'test/source-smoke.mjs'
 Park.register({
   key: 'mysite',              // 唯一标识，安装后不可更改；只允许 [A-Za-z0-9_-]，1–100 位，不能是 _app
   name: '我的站点',
-  version: '0.0.1',           // 三段数字，仓库版本更高时应用提示更新
+  version: '0.0.1',
+  minAppVersion: '0.9.2',           // 三段数字，仓库版本更高时应用提示更新
   type: 'comic',              // comic | video | novel | game：决定阅读、播放或游戏资源行为
   category: 'doujin',         // doujin | anime | aiDrama | jav | adult | shortvideo | recording | live | gallery | illustration | novel | game | other
   color: '#E5355F',           // 品牌色：站点头像与站点页
@@ -533,16 +535,17 @@ Park.register({
 ```json
 {
   "name": "我的站点仓库",
-  "apiVersion": 1,
+  "apiVersion": 2,
   "sources": [
     {
       "key": "mysite",
       "name": "我的站点",
       "version": "0.0.1",
+      "minAppVersion": "0.9.2",
       "description": "一句话介绍",
       "url": "https://example.com/sources/mysite.js",
       "sha256": "脚本 UTF-8 原文的 64 位十六进制 SHA-256",
-      "apiVersion": 1
+      "apiVersion": 2
     }
   ]
 }
@@ -551,6 +554,8 @@ Park.register({
 `url` 是指令碼完整地址，也可以用相對 `index.json` 的 `file`。第三方倉庫由使用者確認後手動安裝；`sha256` 可選，提供時校驗下載內容。
 
 ### 版本與更新規則
+
+- 外掛必須宣告 minAppVersion（例如 0.9.2），並與官方清單一致。目前 apiVersion 為 2，需要 HentaiPark 0.9.2 或更新版本。更新與網址安裝均在替換前檢查相容性；不相容時保留已安裝外掛。自動提示會區分可更新外掛與需要新版應用程式的外掛。「不再提醒」僅忽略目前列出的應用程式或外掛版本，重新啟動後保留，手動檢查不受影響。
 
 - 版本必須是三段、點分隔、無前導零的非負整數（如 `0.0.1`），逐段按數字比較；不接受缺段、多段或預發布字尾。
 - 官方更新必須提供指令碼 UTF-8 原文的 `sha256`（不修剪空白、不轉換換行），指令碼宣告的 `key`、`version` 必須與索引一致；`apiVersion` 必須與當前應用執行時完全一致，否則拒絕更新。

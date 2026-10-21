@@ -83,7 +83,7 @@
     },
     key: 'canovel',
     name: 'Canovel',
-    version: '0.0.6',
+    version: '0.0.7', minAppVersion: '0.9.2',
     type: 'novel',
     category: 'novel',
     language: 'zh',

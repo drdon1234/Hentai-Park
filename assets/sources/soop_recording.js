@@ -102,7 +102,7 @@ Park.register({
   "key": "soop_recording",
   "name": "SOOP 录播",
   "description": "韩国性感舞蹈与比基尼录播，按原站标签筛选",
-  "version": "0.0.2",
+  "version": '0.0.3', minAppVersion: '0.9.2',
   "type": "video",
   "category": "recording",
   "FILE_TYPE": "REVIEW"

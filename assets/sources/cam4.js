@@ -64,7 +64,7 @@ Park.register({
     "未知直播列表": "قائمة بث غير معروفة"
   }
 },
-  key: 'cam4', name: 'CAM4', version: '0.0.4', type: 'video', category: 'live', language: 'en',
+  key: 'cam4', name: 'CAM4', version: '0.0.5', minAppVersion: '0.9.2', type: 'video', category: 'live', language: 'en',
   color: '#ff5a5f', description: '公开直播间', homepage: 'https://www.cam4.com/',
   domains: ['cam4.com'], network: {mode: 'auto', origin: 'https://www.cam4.com', vpnHint: true},
   media: {mode: 'native', origin: 'https://www.cam4.com', domains: ['cam4-hls.xcdnpro.com', 'stackvaults-hls.xcdnpro.com']},

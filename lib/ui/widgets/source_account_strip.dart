@@ -18,7 +18,8 @@ class SourceAccountStrip extends StatelessWidget {
   final SourceManager? sourceManager;
 
   static double height(BuildContext context) =>
-      60 * (MediaQuery.textScalerOf(context).scale(16) / 16).clamp(1, 3);
+      (48 + Gap.s * 2) *
+      (MediaQuery.textScalerOf(context).scale(16) / 16).clamp(1, 3);
 
   @override
   Widget build(BuildContext context) {

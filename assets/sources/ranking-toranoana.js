@@ -1,5 +1,5 @@
 Park.register({
-  key: 'ranking-toranoana', name: '虎之穴', version: '0.0.1',
+  key: 'ranking-toranoana', name: '虎之穴', version: '0.0.2', minAppVersion: '0.9.2',
   type: 'comic', category: 'doujin', rankingOnly: true,
   description: '官方销量榜', homepage: 'https://ec.toranoana.jp/',
   domains: ['toranoana.jp'], network: { vpnHint: true },

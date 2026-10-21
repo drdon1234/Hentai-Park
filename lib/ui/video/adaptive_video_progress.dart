@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/localization.dart';
 
-/// 视觉轨道保持轻量，但整个56像素底部区域始终可触摸拖动。
+/// 轨道与底栏按钮对齐，保留完整的 48dp 拖动区域。
 class AdaptiveVideoProgress extends StatefulWidget {
   const AdaptiveVideoProgress({
     super.key,
@@ -81,7 +81,7 @@ class _AdaptiveVideoProgressState extends State<AdaptiveVideoProgress> {
         onPointerUp: (_) => _release(),
         onPointerCancel: (_) => _cancel(),
         child: SizedBox(
-          height: 56,
+          height: 48,
           child: SliderTheme(
             data: SliderTheme.of(context).copyWith(
               trackHeight: _expanded ? 8 : 2,

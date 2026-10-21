@@ -82,7 +82,7 @@ class NetworkAccessHint extends StatelessWidget {
             style: Theme.of(context).textTheme.bodySmall,
           ),
           if (showSettings)
-            TextButton(
+            OutlinedButton(
               onPressed: () => Nav.openNetworkSettings(context),
               child: SelectionContainer.disabled(child: Text(tr('网络设置'))),
             ),

@@ -28,7 +28,7 @@ Choose Data saver mode in More → Network: Data saver shows compact site entrie
 
 Get the package for your platform from the **[latest release](https://github.com/drdon1234/Hentai-Park/releases/latest)**. For Android, most phones and tablets need `arm64-v8a`; emulators usually need `x86_64`. Extract desktop packages in full. See [installation and platform limits](../../PLATFORMS.md).
 
-Clients are available for Android, Windows, macOS and Linux. iOS/iPadOS currently has a simulator package only; Web is unavailable. See [installation and platform limits](../../PLATFORMS.md).
+Clients are available for Android, Windows, macOS and Linux. iOS/iPadOS currently has a simulator package only; Web is unavailable. See [installation and platform limits](../../PLATFORMS.md). Live playback and recording support TS and fMP4 streams.
 
 On desktop, use Ctrl+mouse wheel or Ctrl/Cmd plus/minus to scale the interface, and Ctrl/Cmd+0 to reset; scaling is also available in Appearance settings. The Windows tray icon restores the window or exits the app. When closing the window, choose to hide it to the tray or exit.
 
@@ -39,6 +39,8 @@ On desktop, use Ctrl+mouse wheel or Ctrl/Cmd plus/minus to scale the interface, 
 3. **Pick up where you left off**: Continue at the top of Discover and History take you back to the exact spot; series you follow update under Library → Updates.
 
 Sites that need an account or a proxy are set up in More → Sites and More → Network.
+
+Plugin update prompts show how many plugins can update now and how many require a newer app, grouped by minimum app version. Incompatible plugins keep their installed version. Choose “Don’t remind me” for an app or plugin update to ignore that version; manual checks still show it, and newer versions prompt again.
 
 <a id="screenshots"></a>
 
@@ -197,7 +199,7 @@ Mostly not. Sites that need one say so at the top of the site page, and you can 
 Never on its own. Some Dimension Tea House resources only unlock after a reply; the app shows you exactly what will be posted and sends it only after you confirm.
 
 **How do I keep favorites and progress on a new phone?**
-Export a backup in More → Backup and restore it on the new device. Downloads aren't included, and some sites may ask you to sign in again.
+Export and restore `.parkbak` files under **More → Backup**. Select **Site sign-in and verification data** when creating a backup to include cookies, tokens and site verification state. Backup files are not encrypted; keep them safe. Downloads are not included, and expired or device-bound sessions may require verification again.
 
 **What does translation send?**
 When translating titles, descriptions, tags, search terms, selected text or a full novel chapter, that content is sent to Google Translate. Accounts, cookies and reading history are not sent. The target follows the app language.

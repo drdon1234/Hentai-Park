@@ -9,7 +9,7 @@ Park.register({
     "ru": {"中文短篇小说，支持最新与分类阅读；站点无有效搜索": "Короткие рассказы на китайском: новинки и категории; поиск на сайте недоступен", "都市生活": "Городская жизнь"},
     "ar": {"中文短篇小说，支持最新与分类阅读；站点无有效搜索": "قصص صينية قصيرة حسب الأحدث والفئات؛ لا يتوفر بحث فعال", "都市生活": "الحياة في المدينة"},
   },
-  key: 'story69', name: '69story', version: '0.0.6', type: 'novel', category: 'novel',
+  key: 'story69', name: '69story', version: '0.0.7', minAppVersion: '0.9.2', type: 'novel', category: 'novel',
   language: 'zh-Hant', color: '#D56A74', homepage: 'https://69story.com',
   description: '中文短篇小说，支持最新与分类阅读；站点无有效搜索',
   domains: ['69story.com'], network: {mode: 'native', vpnHint: true},

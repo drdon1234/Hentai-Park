@@ -99,7 +99,7 @@ Park.register({
       "直播内容不符合本站点范围": "هذا البث خارج نطاق محتوى المصدر"
     }
   },
-  key: 'soop', name: 'SOOP', version: '0.0.2', type: 'video', category: 'live', language: 'ko',
+  key: 'soop', name: 'SOOP', version: '0.0.3', minAppVersion: '0.9.2', type: 'video', category: 'live', language: 'ko',
   color: '#0569FF', description: '韩国性感舞蹈与比基尼直播，按原站标签筛选',
   homepage: 'https://www.sooplive.co.kr/', domains: ['sooplive.co.kr', 'sooplive.com'],
   network: {mode: 'auto', origin: 'https://play.sooplive.co.kr', vpnHint: true},

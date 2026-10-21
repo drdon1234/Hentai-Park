@@ -92,8 +92,7 @@ class VideoControls extends StatelessWidget {
           ?episodes,
           LayoutBuilder(
             builder: (context, constraints) {
-              // 手机上的底部操作保持两层：时间和屏幕按钮在上，进度轨道在下。
-              // 这样保留原来的操作顺序，只缩短两层之间的距离；宽屏才把轨道放到同一行。
+              // 窄屏将时间放在轨道上方；播放、拖动和屏幕按钮共用同一操作行。
               final stacked =
                   constraints.maxWidth < 600 ||
                   MediaQuery.textScalerOf(context).scale(1) > 1.3;
@@ -109,8 +108,15 @@ class VideoControls extends StatelessWidget {
                 ),
               );
               final row = Row(
+                crossAxisAlignment: stacked
+                    ? CrossAxisAlignment.end
+                    : CrossAxisAlignment.center,
                 children: [
                   IconButton(
+                    constraints: const BoxConstraints.tightFor(
+                      width: 48,
+                      height: 48,
+                    ),
                     tooltip: tr(value.isPlaying ? '暂停' : '播放'),
                     icon: Icon(
                       value.isPlaying
@@ -120,13 +126,24 @@ class VideoControls extends StatelessWidget {
                     ),
                     onPressed: onPlayPause,
                   ),
-                  if (progress == null || stacked)
+                  if (progress == null)
                     Expanded(child: time)
+                  else if (stacked)
+                    Expanded(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [time, progress!],
+                      ),
+                    )
                   else ...[
                     time,
                     Expanded(child: progress!),
                   ],
                   IconButton(
+                    constraints: const BoxConstraints.tightFor(
+                      width: 48,
+                      height: 48,
+                    ),
                     color: fg,
                     tooltip: tr(landscape ? '竖屏展开' : '横屏播放'),
                     icon: Icon(
@@ -141,6 +158,10 @@ class VideoControls extends StatelessWidget {
                     ),
                   ),
                   IconButton(
+                    constraints: const BoxConstraints.tightFor(
+                      width: 48,
+                      height: 48,
+                    ),
                     color: fg,
                     tooltip: tr(fullscreen ? '退出全屏' : '竖屏展开'),
                     icon: Icon(
@@ -152,18 +173,7 @@ class VideoControls extends StatelessWidget {
                   ),
                 ],
               );
-              return stacked && progress != null
-                  ? Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        row,
-                        Padding(
-                          padding: const EdgeInsets.only(top: Gap.xs),
-                          child: progress!,
-                        ),
-                      ],
-                    )
-                  : row;
+              return row;
             },
           ),
         ],

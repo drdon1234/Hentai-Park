@@ -401,9 +401,11 @@ class _HomePageState extends State<HomePage> {
     required bool expanded,
   }) => SectionHeader(
     domain.label,
-    padding: const EdgeInsets.fromLTRB(Gap.page, Gap.xl, Gap.s, Gap.xs),
+    padding: const EdgeInsets.fromLTRB(Gap.page, Gap.xl, Gap.page, Gap.xs),
     trailing: Wrap(
       alignment: WrapAlignment.end,
+      spacing: Gap.xs,
+      runSpacing: Gap.xs,
       children: [
         if (sources.length > 1)
           IconButton(

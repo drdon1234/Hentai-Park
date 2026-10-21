@@ -35,7 +35,7 @@ class DomainOrderPage extends StatelessWidget {
                     const SizedBox(height: 8),
                     Align(
                       alignment: AlignmentDirectional.centerEnd,
-                      child: TextButton(
+                      child: OutlinedButton(
                         onPressed: () => confirmReset(
                           context,
                           title: '恢复默认顺序',

@@ -48,7 +48,7 @@ Park.register({
   },
   key: 'hanime1',
   name: 'Hanime1',
-  version: '0.0.8',
+  version: '0.0.9', minAppVersion: '0.9.2',
   type: 'video',
   category: 'anime',
   color: '#E5355F',

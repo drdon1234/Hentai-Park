@@ -108,17 +108,31 @@ class _SubscriptionUpdatesPageState extends State<SubscriptionUpdatesPage> {
           ),
         Expanded(
           child: failed
-              ? Center(
-                  child: TextButton(
-                    onPressed: _load,
-                    child: SelectionContainer.disabled(child: Text(tr('重试'))),
-                  ),
+              ? EmptyState(
+                  icon: Icons.error_outline_rounded,
+                  title: tr('加载失败'),
+                  actions: [
+                    OutlinedButton(onPressed: _load, child: Text(tr('重试'))),
+                  ],
                 )
               : events == null
               ? const Center(child: CircularProgressIndicator())
               : events!.isEmpty
-              ? Center(child: Text(tr('暂无订阅更新')))
+              ? EmptyState(
+                  icon: Icons.notifications_none_rounded,
+                  title: tr('暂无订阅更新'),
+                  actions: [
+                    OutlinedButton.icon(
+                      onPressed: updater.running
+                          ? null
+                          : () => updater.run(force: true),
+                      icon: const Icon(Icons.refresh),
+                      label: Text(tr('检查订阅更新')),
+                    ),
+                  ],
+                )
               : ParkRefresh(
+                  showRefreshButton: false,
                   onRefresh: () async {
                     await updater.run(force: true);
                     await _load();

@@ -1,5 +1,5 @@
 Park.register({
-  key: 'ranking-javmenu', name: 'JavMenu', version: '0.0.1',
+  key: 'ranking-javmenu', name: 'JavMenu', version: '0.0.2', minAppVersion: '0.9.2',
   type: 'video', category: 'jav', rankingOnly: true,
   description: '站内热门', homepage: 'https://javmenu.com/',
   domains: ['javmenu.com'], network: { vpnHint: true },

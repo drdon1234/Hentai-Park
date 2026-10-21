@@ -53,10 +53,15 @@ class CategoryManagePage extends StatelessWidget {
     final lib = Library.instance;
     return Scaffold(
       appBar: AppBar(title: Text(tr('分类'))),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _create(context),
-        icon: const Icon(Icons.add_rounded),
-        label: SelectionContainer.disabled(child: Text(tr('新建分类'))),
+      floatingActionButton: ListenableBuilder(
+        listenable: lib,
+        builder: (context, _) => lib.categories.isEmpty
+            ? const SizedBox.shrink()
+            : FloatingActionButton.extended(
+                onPressed: () => _create(context),
+                icon: const Icon(Icons.add_rounded),
+                label: SelectionContainer.disabled(child: Text(tr('新建分类'))),
+              ),
       ),
       body: ListenableBuilder(
         listenable: lib,
@@ -67,6 +72,13 @@ class CategoryManagePage extends StatelessWidget {
               icon: Icons.label_outline_rounded,
               title: tr('还没有分类'),
               message: tr('分类用于整理书架；一部作品可以同时属于多个分类'),
+              actions: [
+                FilledButton.icon(
+                  onPressed: () => _create(context),
+                  icon: const Icon(Icons.add_rounded),
+                  label: Text(tr('新建分类')),
+                ),
+              ],
             );
           }
           return ReorderableListView.builder(

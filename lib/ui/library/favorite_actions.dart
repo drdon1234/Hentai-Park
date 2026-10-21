@@ -141,7 +141,7 @@ class _CategoryPickerState extends State<_CategoryPicker> {
                     ),
                   ),
                   trailing: SelectionContainer.disabled(
-                    child: TextButton.icon(
+                    child: OutlinedButton.icon(
                       onPressed: _create,
                       icon: const Icon(Icons.add_rounded),
                       label: Text(tr('新建')),

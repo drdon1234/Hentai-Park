@@ -3,7 +3,7 @@ Park.register({
   i18n: {
     "zh-Hant": {"动画与创作视频，支持搜索、分级与多清晰度播放": "動畫與創作影片，支援搜尋、分級與多畫質播放"}, ja: {"动画与创作视频，支持搜索、分级与多清晰度播放": "アニメ・創作動画。検索、レーティング、複数画質再生に対応"}, ko: {"动画与创作视频，支持搜索、分级与多清晰度播放": "애니메이션 및 창작 동영상, 검색·등급·다중 화질 재생 지원"}, en: {"动画与创作视频，支持搜索、分级与多清晰度播放": "Animated and creator videos with search, ratings and multi-quality playback"}, es: {"动画与创作视频，支持搜索、分级与多清晰度播放": "Vídeos de animación y creadores con búsqueda, clasificación y varias calidades"}, ru: {"动画与创作视频，支持搜索、分级与多清晰度播放": "Анимация и авторские видео с поиском, рейтингами и разным качеством"}, ar: {"动画与创作视频，支持搜索、分级与多清晰度播放": "فيديوهات رسوم وإبداع مع البحث والتصنيف وتشغيل متعدد الجودة"},
   },
-  key: 'iwara', name: 'Iwara', version: '0.0.3', type: 'video', category: 'anime', language: 'en', color: '#f06b8d',
+  key: 'iwara', name: 'Iwara', version: '0.0.4', minAppVersion: '0.9.2', type: 'video', category: 'anime', language: 'en', color: '#f06b8d',
   homepage: 'https://www.iwara.tv/', description: '动画与创作视频，支持搜索、分级与多清晰度播放', domains: ['iwara.tv'],
   network: {mode: 'browser', origin: 'https://www.iwara.tv', vpnHint: true}, media: {mode: 'native', origin: 'https://www.iwara.tv', domains: ['iwara.tv', 'filesq.iwara.tv', 'files.iwara.tv'], scope: 'session'},
   imageNetwork: {mode: 'browser', origin: 'https://www.iwara.tv', domains: ['iwara.tv']}, imageHeaders: {Referer: 'https://www.iwara.tv/'},

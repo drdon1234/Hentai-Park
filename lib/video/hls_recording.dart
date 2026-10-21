@@ -38,6 +38,7 @@ class HlsRecording {
     BigInt? last;
     var volume = 0;
     final durations = <double>[];
+    String? initializationIdentity;
     var totalDuration = 0.0;
     var totalBytes = 0;
     var failures = 0;
@@ -90,9 +91,14 @@ class HlsRecording {
               if (cancelToken.isCancelled) return;
               final data = await resources.read(segment);
               if (cancelToken.isCancelled) return;
+              final initialization = playlist.initialization;
+              final identity = initialization == null
+                  ? null
+                  : '${initialization.url}|${initialization.key}|${initialization.iv}';
               if (durations.length >= maxSegments ||
                   (durations.isNotEmpty &&
                       (boundary ||
+                          initializationIdentity != identity ||
                           discontinuities[i] ||
                           segment.sequence != last + BigInt.one))) {
                 volume++;
@@ -103,18 +109,37 @@ class HlsRecording {
                 p.join(directory.path, '$name.part.hls'),
               );
               await folder.create(recursive: true);
+              if (durations.isEmpty) {
+                if (initialization != null) {
+                  final bytes = await resources.read(initialization);
+                  if (cancelToken.isCancelled) return;
+                  await writeFileAtomic(
+                    File(p.join(folder.path, 'init.mp4')),
+                    bytes,
+                  );
+                }
+                initializationIdentity = identity;
+              }
               await writeFileAtomic(
-                File(p.join(folder.path, '${durations.length}.ts')),
+                File(
+                  p.join(
+                    folder.path,
+                    '${durations.length}.${segment.extension}',
+                  ),
+                ),
                 data,
               );
               durations.add(segment.duration);
               final target = durations.reduce(max).ceil();
               final text = StringBuffer(
-                '#EXTM3U\n#EXT-X-VERSION:3\n#EXT-X-TARGETDURATION:$target\n#EXT-X-MEDIA-SEQUENCE:0\n#EXT-X-PLAYLIST-TYPE:VOD\n',
+                '#EXTM3U\n#EXT-X-VERSION:${initialization == null ? 3 : 6}\n#EXT-X-TARGETDURATION:$target\n#EXT-X-MEDIA-SEQUENCE:0\n#EXT-X-PLAYLIST-TYPE:VOD\n',
               );
+              if (initialization != null) {
+                text.writeln('#EXT-X-MAP:URI="$name.part.hls/init.mp4"');
+              }
               for (var j = 0; j < durations.length; j++) {
                 text.writeln('#EXTINF:${durations[j]},');
-                text.writeln('$name.part.hls/$j.ts');
+                text.writeln('$name.part.hls/$j.${segment.extension}');
               }
               text.writeln('#EXT-X-ENDLIST');
               await writeFileAtomic(
@@ -143,13 +168,13 @@ class HlsRecording {
           transport.policy.retainSessionResources({
             stream.url,
             response.url,
-            for (final s in playlist.segments) ...[
+            for (final s in playlist.resources) ...[
               s.url,
               if (s.key != null) s.key!,
             ],
           });
           resources.retainKeys({
-            for (final s in playlist.segments)
+            for (final s in playlist.resources)
               if (s.key != null) s.key!,
           });
           final target = int.parse(

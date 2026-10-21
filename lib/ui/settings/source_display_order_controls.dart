@@ -73,14 +73,14 @@ class SourceDisplayOrderControls extends StatelessWidget {
                       ),
                     ),
                     if (sorter.running)
-                      TextButton(
+                      OutlinedButton(
                         onPressed: sorter.cancel,
                         child: SelectionContainer.disabled(
                           child: Text(tr('取消探测')),
                         ),
                       )
                     else if (results.isNotEmpty)
-                      TextButton(
+                      OutlinedButton(
                         onPressed: sorter.invalidate,
                         child: SelectionContainer.disabled(
                           child: Text(tr('恢复原显示顺序')),

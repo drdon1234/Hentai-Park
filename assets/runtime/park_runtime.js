@@ -15,7 +15,7 @@
 (function (global) {
   'use strict';
 
-  const API_VERSION = 1;
+  const API_VERSION = 2;
 
   class ParkError extends Error {
     constructor(code, message, extra) {
@@ -451,6 +451,7 @@
     const pick = (obj) => JSON.parse(JSON.stringify(obj === undefined ? null : obj));
     return {
       apiVersion: def.apiVersion || API_VERSION,
+      minAppVersion: def.minAppVersion,
       key: def.key,
       name: def.name,
       version: def.version || '0.0.0',

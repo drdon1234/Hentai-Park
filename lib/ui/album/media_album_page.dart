@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../../core/localization.dart';
 import '../../core/settings.dart';
 import '../../core/tag_blocklist.dart';
+import '../theme.dart';
 import '../widgets/common.dart';
 import '../widgets/error_view.dart';
 import '../widgets/on_visible.dart';
@@ -159,7 +160,7 @@ class _MediaAlbumPageState extends State<MediaAlbumPage> {
                 ),
               ),
               if (_range != null)
-                TextButton(
+                OutlinedButton(
                   onPressed: () => _filter(() => _range = null),
                   child: Text(tr('清除日期')),
                 ),
@@ -177,9 +178,25 @@ class _MediaAlbumPageState extends State<MediaAlbumPage> {
                       child: Text(tr('每行 {count} 个', {'count': i})),
                     ),
                 ],
-                child: Padding(
-                  padding: const EdgeInsets.all(Gap.m),
-                  child: Text(tr('每行 {count} 个', {'count': _columns})),
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    border: Border.all(color: context.colors.outline),
+                    borderRadius: Radii.small,
+                  ),
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(minHeight: 48),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: Gap.m),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(tr('每行 {count} 个', {'count': _columns})),
+                          const SizedBox(width: Gap.xs),
+                          const Icon(Icons.arrow_drop_down_rounded),
+                        ],
+                      ),
+                    ),
+                  ),
                 ),
               ),
             ],
@@ -244,6 +261,7 @@ class _MediaAlbumPageState extends State<MediaAlbumPage> {
       ],
     ),
     body: ParkRefresh(
+      showRefreshButton: false,
       onRefresh: _refresh,
       child: NotificationListener<UserScrollNotification>(
         onNotification: (_) {

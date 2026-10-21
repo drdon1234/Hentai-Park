@@ -148,10 +148,19 @@ class _DownloadsPageState extends State<DownloadsPage> {
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: _importing ? null : () => _import(context),
-        icon: const Icon(Icons.file_open_outlined),
-        label: SelectionContainer.disabled(child: Text(tr('导入本地漫画'))),
+      floatingActionButton: ListenableBuilder(
+        listenable: Listenable.merge([dm, games, LiveRecordings.instance]),
+        builder: (context, _) =>
+            dm.tasks.isEmpty &&
+                games.tasks.isEmpty &&
+                dm.restoreFailures.isEmpty &&
+                LiveRecordings.instance.tasks.isEmpty
+            ? const SizedBox.shrink()
+            : FloatingActionButton.extended(
+                onPressed: _importing ? null : () => _import(context),
+                icon: const Icon(Icons.file_open_outlined),
+                label: SelectionContainer.disabled(child: Text(tr('导入本地漫画'))),
+              ),
       ),
       body: FileDropRegion(
         enabled: !_importing,
@@ -189,6 +198,15 @@ class _DownloadsPageState extends State<DownloadsPage> {
                           message: tr(
                             '在作品详情页点击下载按钮，下载后可离线阅读或观看\n也可以导入本地的 CBZ / ZIP 漫画',
                           ),
+                          actions: [
+                            FilledButton.icon(
+                              onPressed: _importing
+                                  ? null
+                                  : () => _import(context),
+                              icon: const Icon(Icons.file_open_outlined),
+                              label: Text(tr('导入本地漫画')),
+                            ),
+                          ],
                         )
                       : ListView.separated(
                           padding: const EdgeInsets.only(bottom: 96),

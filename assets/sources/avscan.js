@@ -1,5 +1,5 @@
 Park.register({
-  key: 'avscan', name: 'AVScan', version: '0.0.3', apiVersion: 1,
+  key: 'avscan', name: 'AVScan', version: '0.0.4', minAppVersion: '0.9.2', apiVersion: 2,
   type: 'comic', category: 'other', reverseSearchCategory: 'jav', homepage: 'https://avscan.cc/',
   description: 'JAV 截图查番号；显示候选和相关图片，限个人非商业使用',
   domains: ['avscan.cc'], network: { vpnHint: true },

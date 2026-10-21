@@ -394,7 +394,7 @@ class TagTranslationPackStatus extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              TextButton.icon(
+              OutlinedButton.icon(
                 onPressed: () =>
                     showTagTranslationPacks(context, source: source),
                 icon: const Icon(Icons.translate_rounded),
@@ -665,7 +665,7 @@ Future<void> showTagTranslationPacks(
                             ),
                           ),
                         if (service.remoteAvailable(selected!, locale))
-                          TextButton(
+                          OutlinedButton(
                             onPressed: busy
                                 ? null
                                 : () {
@@ -683,7 +683,7 @@ Future<void> showTagTranslationPacks(
                             ),
                           ),
                         if (service.installed(selected!, locale))
-                          TextButton(
+                          OutlinedButton(
                             onPressed: busy
                                 ? null
                                 : () {
@@ -710,7 +710,7 @@ Future<void> showTagTranslationPacks(
                       padding: EdgeInsets.all(12),
                       child: CircularProgressIndicator(),
                     ),
-                  TextButton.icon(
+                  OutlinedButton.icon(
                     icon: const Icon(Icons.refresh),
                     label: SelectionContainer.disabled(
                       child: Text(tr('检查官方可用词包')),

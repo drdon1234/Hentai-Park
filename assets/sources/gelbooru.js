@@ -3,7 +3,7 @@ Park.register({
   i18n: {
     "zh-Hant": {"成人美图画廊，支持评分排序、搜索与原图": "成人美圖畫廊，支援評分排序、搜尋與原圖"}, ja: {"成人美图画廊，支持评分排序、搜索与原图": "成人イラストギャラリー。評価順・検索・原寸画像に対応"}, ko: {"成人美图画廊，支持评分排序、搜索与原图": "성인 이미지 갤러리, 점수순 정렬·검색·원본 이미지 지원"}, en: {"成人美图画廊，支持评分排序、搜索与原图": "Adult image gallery with score sorting, search and originals"}, es: {"成人美图画廊，支持评分排序、搜索与原图": "Galería de imágenes para adultos con puntuación, búsqueda y originales"}, ru: {"成人美图画廊，支持评分排序、搜索与原图": "Галерея изображений для взрослых с рейтингом, поиском и оригиналами"}, ar: {"成人美图画廊，支持评分排序、搜索与原图": "معرض صور للبالغين مع الترتيب والبحث والصور الأصلية"},
   },
-  key: 'gelbooru', name: 'Gelbooru', version: '0.0.5', type: 'comic', category: 'illustration', language: 'en', color: '#657b83',
+  key: 'gelbooru', name: 'Gelbooru', version: '0.0.7', minAppVersion: '0.9.2', type: 'comic', category: 'illustration', language: 'en', color: '#657b83',
   homepage: 'https://gelbooru.com/', description: '成人美图画廊，支持评分排序、搜索与原图', domains: ['gelbooru.com'], network: {mode: 'native', vpnHint: true},
   imageHeaders: {Referer: 'https://gelbooru.com/'},
   idPattern: '^\\d{1,12}$', defaultFeed: 'popular', feeds: [{key: 'popular', label: '热门', options: [
@@ -18,7 +18,8 @@ Park.register({
   siteUrl(v) { try { const u = new URL(String(v), 'https://gelbooru.com/'); return u.protocol === 'https:' && (u.hostname === 'gelbooru.com' || u.hostname.endsWith('.gelbooru.com')) ? u : null; } catch (_) { return null; } },
   async page(req = {}, keyword) {
     const page = Math.max(1, Math.floor(Number(req.page) || 1)), pid = (page - 1) * this.PAGE_SIZE;
-    const rating = String(req.options?.rating || ''), sort = String(req.options?.sort ?? (keyword === undefined ? 'score' : ''));
+    const options = keyword === undefined ? req.options : req.filters;
+    const rating = String(options?.rating || ''), sort = String(options?.sort ?? (keyword === undefined ? 'score' : ''));
     if (!['', 'general', 'sensitive', 'questionable', 'explicit'].includes(rating) || !['', 'score', 'date'].includes(sort)) throw Park.error('CONFIG', '筛选参数无效');
     let words = String(keyword || '').trim().split(/\s+/).filter(Boolean);
     if (rating) words = words.filter(w => !/^-?rating:/i.test(w)); if (sort) words = words.filter(w => !/^-?sort:/i.test(w));

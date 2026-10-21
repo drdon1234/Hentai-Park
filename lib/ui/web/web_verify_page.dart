@@ -321,7 +321,12 @@ class _WebVerifyPageState extends State<WebVerifyPage> {
             generation != _navigationGeneration) {
           return;
         }
+        // localStorage 凭证缺失时，广告或访客 Cookie 不能触发自动登录。
+        final hasCredentials =
+            m.localStorageKeys.isEmpty ||
+            m.localStorageKeys.any((key) => (values[key] ?? '').isNotEmpty);
         if (values.isNotEmpty &&
+            hasCredentials &&
             m.requiredCookies.every((k) => (values[k] ?? '').isNotEmpty)) {
           _done = true;
           try {

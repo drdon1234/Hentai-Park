@@ -93,7 +93,7 @@ Park.register({
       "熟女": "ناضجات"
     }
   },
-  key: 'rouvideo-drama', name: '肉视频短剧', version: '0.0.1', type: 'video', category: 'aiDrama', color: '#B58CFF',
+  key: 'rouvideo-drama', name: '肉视频短剧', version: '0.0.2', minAppVersion: '0.9.2', type: 'video', category: 'aiDrama', color: '#B58CFF',
   description: 'AI短剧，支持推荐、搜索和分集播放', homepage: 'https://rou.video/series', domains: ['rou.video'], language: 'zh',
   linkPatterns: ['rou\\.video/s/([a-z0-9]+)(?:[/?#]|$)'], idPattern: '^[a-z0-9]{10,40}$',
   imageNetwork: {mode: 'browser', origin: 'https://rou.video', domains: ['v.rn252.xyz']}, imageHeaders: {Referer: 'https://rou.video/'},

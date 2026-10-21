@@ -55,6 +55,10 @@ mixin _SourceInstaller on _SourceRegistry {
     }
     final info = await JsEngine.instance.probe(code);
     final manifest = SourceManifest(info.manifest);
+    SourceCompatibility.validate(
+      info.manifest,
+      await SourceCompatibility.currentVersion(),
+    );
     final domains = declaredDomains(info.manifest);
     final warnings = <String>[];
     final existing = _sources[info.key];
@@ -137,6 +141,10 @@ mixin _SourceInstaller on _SourceRegistry {
   }) async {
     if (cancelToken.cancelError case final error?) throw error;
     final key = preview.key;
+    SourceCompatibility.validate(
+      preview.manifest.json,
+      await SourceCompatibility.currentVersion(),
+    );
     if (!isSourceKey(key) || sha256Hex(preview.code) != preview.sha256) {
       throw SourceError('CONFIG', '站点脚本的标识或校验值无效');
     }
@@ -203,7 +211,9 @@ mixin _SourceInstaller on _SourceRegistry {
       if (s.manifest?.json['key'] != key ||
           s.version != preview.manifest.version ||
           s.manifest?.json['apiVersion'] !=
-              preview.manifest.json['apiVersion']) {
+              preview.manifest.json['apiVersion'] ||
+          s.manifest?.json['minAppVersion'] !=
+              preview.manifest.json['minAppVersion']) {
         throw SourceError('CONFIG', '站点加载结果与更新信息不一致');
       }
       s
@@ -333,7 +343,8 @@ mixin _SourceInstaller on _SourceRegistry {
           manifest: SourceManifest({
             'key': key,
             'version': entry['version'],
-            'apiVersion': 1,
+            'apiVersion': SourceCompatibility.apiVersion,
+            'minAppVersion': entry['minAppVersion'],
           }),
           sha256: sha256Hex(code),
           domains: s.manifest == null

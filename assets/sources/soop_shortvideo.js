@@ -102,7 +102,7 @@ Park.register({
   "key": "soop_shortvideo",
   "name": "SOOP 短视频",
   "description": "韩国性感舞蹈与比基尼短视频，按原站标签筛选",
-  "version": "0.0.2",
+  "version": '0.0.3', minAppVersion: '0.9.2',
   "type": "video",
   "category": "shortvideo",
   "FILE_TYPE": "CATCH"

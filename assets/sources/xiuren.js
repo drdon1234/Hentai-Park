@@ -258,7 +258,7 @@
     "工作室写真图集，支持热门、模特搜索与整套阅读": "معارض صور استوديو مع أعمال شائعة وبحث عن العارضين وعرض المجموعة كاملة"
   }
 },
-    key: SITE.key, name: SITE.name, version: '0.0.4', type: 'comic', category: 'gallery',
+    key: SITE.key, name: SITE.name, version: '0.0.5', minAppVersion: '0.9.2', type: 'comic', category: 'gallery',
     color: SITE.color, description: SITE.description, homepage: SITE.home, domains: [SITE.domain], language: SITE.language,
     network: {mode: 'native', vpnHint: true}, imageHeaders: {Referer: SITE.home + '/'},
     linkPatterns: [SITE.domain.replace(/\./g, '\\.') + '/([^/?#]+)(?:/|[?#]|$)'], idPattern: '^[1-9]\\d{0,14}$',

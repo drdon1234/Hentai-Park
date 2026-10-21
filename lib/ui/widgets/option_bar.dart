@@ -200,7 +200,7 @@ class _OptionRowState extends State<_OptionRow> {
     if (widget.choices.isEmpty && widget.error != null) {
       return Align(
         alignment: Alignment.centerLeft,
-        child: TextButton.icon(
+        child: OutlinedButton.icon(
           onPressed: widget.onRetry == null
               ? null
               : () => widget.onRetry!(o.key),

@@ -9,6 +9,7 @@ import '../core/app_log.dart';
 import '../core/models.dart';
 import '../core/storage.dart';
 import 'browser_fetcher.dart';
+import 'cookie_snapshot.dart';
 import 'domains.dart';
 import 'source_identity.dart' as identity;
 
@@ -358,18 +359,24 @@ class CookieStore {
       followLinks: false,
     )) {
       if (entry is File) {
-        snapshot[p.relative(entry.path, from: directory.path)] = await entry
+        snapshot[p
+            .relative(entry.path, from: directory.path)
+            .replaceAll('\\', '/')] = await entry
             .readAsString();
       }
     }
     return snapshot;
   }
 
+  static void validateSnapshot(Object? snapshot, {List<String>? domains}) =>
+      validateCookieSnapshot(snapshot, domains: domains);
+
   /// Restore only this native jar and the affected browser cookie identities.
   Future<void> restorePartition(
     String key,
     Map<String, String> snapshot, {
     List<String> domains = const [],
+    Map<String, String>? browserSnapshot,
   }) async {
     _invalidateSession(key);
     await _serialize(key, () async {
@@ -384,14 +391,32 @@ class CookieStore {
         }
       }
       final current = await _snapshotPartition(key);
+      if (domains.isNotEmpty) {
+        final shared = {
+          key,
+          for (final entry in _browserUris.entries)
+            if (entry.value.any((uri) => hostInDomains(uri.host, domains)))
+              entry.key,
+        };
+        await Future.wait([
+          for (final partition in shared)
+            for (final close in _browserSessions.toList()) close(partition),
+        ]);
+        await BrowserFetcher.instance.clearDomains(domains);
+      }
       // Mirror first so a failed restore can retry using the unchanged candidate files.
-      await _restoreBrowserCookies(current, snapshot, domains);
+      await _restoreBrowserCookies(
+        current,
+        snapshot,
+        domains,
+        attempted: browserSnapshot,
+      );
       _jars.remove(key.isEmpty ? appPartition : key);
       if (await directory.exists()) await directory.delete(recursive: true);
       for (final entry in snapshot.entries) {
         final file = File(p.join(directory.path, entry.key));
         await file.parent.create(recursive: true);
-        await file.writeAsString(entry.value, flush: true);
+        await writeFileAtomic(file, utf8.encode(entry.value));
       }
     });
   }
@@ -443,13 +468,20 @@ class CookieStore {
   Future<void> _restoreBrowserCookies(
     Map<String, String> current,
     Map<String, String> snapshot,
-    List<String> domains,
-  ) async {
+    List<String> domains, {
+    Map<String, String>? attempted,
+  }) async {
     if (!_webViewSupported || domains.isEmpty) return;
-    final before = _snapshotCookies(current);
+    final before = {
+      ..._snapshotCookies(current),
+      if (attempted != null) ..._snapshotCookies(attempted),
+    };
     final restored = _snapshotCookies(snapshot);
     for (final id in {...before.keys, ...restored.keys}) {
-      if (before[id]?.value.toJson() == restored[id]?.value.toJson()) continue;
+      if (attempted == null &&
+          before[id]?.value.toJson() == restored[id]?.value.toJson()) {
+        continue;
+      }
       final previous = restored[id];
       final target = previous ?? before[id]!;
       if (!hostInDomains(target.host, domains)) continue;

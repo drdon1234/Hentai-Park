@@ -52,7 +52,7 @@ class DetailSecondaryButton extends StatelessWidget {
           color: Colors.transparent,
           shape: RoundedRectangleBorder(
             borderRadius: Radii.small,
-            side: BorderSide(color: c.outline.withValues(alpha: .6)),
+            side: BorderSide(color: enabled ? c.outline : c.outlineVariant),
           ),
           clipBehavior: Clip.antiAlias,
           child: ActionInkWell(

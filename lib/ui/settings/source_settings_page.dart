@@ -34,7 +34,7 @@ class _SourceSettingsPageState extends State<SourceSettingsPage> {
   @override
   void initState() {
     super.initState();
-    sm.refreshAccount(widget.sourceKey);
+    sm.refreshAccount(widget.sourceKey).ignore();
     if (widget.showManagedAccountPrompt) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) _changeManagedAccount(true);
@@ -80,9 +80,10 @@ class _SourceSettingsPageState extends State<SourceSettingsPage> {
       builder: (context, _) {
         final s = sm[widget.sourceKey];
         final m = s?.manifest;
+        final webUrl = sm.webUrl(widget.sourceKey);
         if (s == null || m == null) {
           return Scaffold(
-            appBar: AppBar(),
+            appBar: AppBar(actions: _webActions(context, webUrl)),
             body: SettingsBody(
               child: EmptyState(
                 icon: Icons.error_outline_rounded,
@@ -113,6 +114,7 @@ class _SourceSettingsPageState extends State<SourceSettingsPage> {
                       ),
                     ],
                   ),
+                  actions: _webActions(context, webUrl),
                 ),
                 body: SettingsBody(
                   child: ListView(
@@ -140,18 +142,6 @@ class _SourceSettingsPageState extends State<SourceSettingsPage> {
                                 color: context.colors.onSurfaceVariant,
                               ),
                             ),
-                            if (m.homepage.isNotEmpty)
-                              TextButton.icon(
-                                onPressed: () => launchUrl(
-                                  Uri.parse(m.homepage),
-                                  mode: LaunchMode.externalApplication,
-                                ),
-                                icon: const Icon(
-                                  Icons.open_in_new_rounded,
-                                  size: 18,
-                                ),
-                                label: Text(Uri.parse(m.homepage).host),
-                              ),
                           ],
                         ),
                       ),
@@ -322,6 +312,25 @@ class _SourceSettingsPageState extends State<SourceSettingsPage> {
     ),
   );
 
+  List<Widget> _webActions(BuildContext context, String? url) => [
+    if (url != null)
+      IconButton(
+        tooltip: context.tr('打开原站'),
+        icon: const Icon(Icons.open_in_new_rounded),
+        onPressed: () => _openWebsite(context, url),
+      ),
+  ];
+
+  Future<void> _openWebsite(BuildContext context, String url) async {
+    final opened = await launchUrl(
+      Uri.parse(url),
+      mode: LaunchMode.externalApplication,
+    );
+    if (!opened && context.mounted) {
+      context.toast(context.tr('无法打开原站，请稍后重试'));
+    }
+  }
+
   Widget _account(BuildContext context, InstalledSource s, AccountDef a) {
     final status = s.account;
     final managed =
@@ -343,7 +352,7 @@ class _SourceSettingsPageState extends State<SourceSettingsPage> {
               child: Text(managed ? context.tr('专用自动维护账号') : a.title),
             ),
             trailing: SelectionContainer.disabled(
-              child: TextButton(
+              child: OutlinedButton(
                 onPressed: () async {
                   await sm.logout(s.key);
                   if (context.mounted) context.toast(context.tr('已退出登录'));

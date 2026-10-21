@@ -32,7 +32,7 @@ class BackupOptions {
   final bool settings;
   final bool sources;
 
-  /// Source private stores (tokens, account ids). Cookie-based logins are not included.
+  /// 完整站点会话：私有存储、Token、登录与验证 Cookie。
   final bool credentials;
   final bool automatic;
 }
@@ -283,6 +283,8 @@ class BackupService {
       final report = RestoreReport();
       final lib = json['library'];
       final files = <String, Object?>{};
+      final cookies =
+          <String, ({Map<String, String> snapshot, List<String> domains})>{};
       await Library.instance.flush();
       await AppSettings.instance.flush();
       await SourceManager.instance.flush();
@@ -307,6 +309,7 @@ class BackupService {
         final s = sources.cast<String, dynamic>();
         final plan = await SourceManager.instance.prepareImport(s);
         files.addAll(plan.files);
+        cookies.addAll(plan.cookies);
         report.sourcesToInstall = plan.missing;
         report.sources = (s['settings'] as Map?)?.length ?? 0;
       }
@@ -321,7 +324,7 @@ class BackupService {
             report,
           );
         }
-      });
+      }, cookies: cookies);
       // 文件与数据库提交成功后才发布新的内存状态；运行时加载失败由源管理界面呈现。
       await Library.instance.open(Library.instance.db);
       if (settings is Map) await AppSettings.instance.reload();
@@ -331,7 +334,14 @@ class BackupService {
       if (json.containsKey('subscriptions')) {
         await SubscriptionStore.instance.reload();
       }
-      if (sources is Map) await SourceManager.instance.reloadFromDisk();
+      if (sources is Map) {
+        await SourceManager.instance.reloadFromDisk(
+          credentialsChanged: {
+            ...(sources['data'] as Map? ?? {}).keys.cast<String>(),
+            ...(sources['cookies'] as Map? ?? {}).keys.cast<String>(),
+          },
+        );
+      }
       return report;
     }),
   );

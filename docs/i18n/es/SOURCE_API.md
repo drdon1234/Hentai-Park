@@ -23,6 +23,7 @@ Park.register({
   key: 'mysite',
   name: '我的站点',
   version: '0.0.1',
+  minAppVersion: '0.9.2',
   type: 'comic',
   category: 'doujin',
   homepage: 'https://example.com',
@@ -67,7 +68,8 @@ node 'test/source-smoke.mjs'
 Park.register({
   key: 'mysite',              // único y permanente; solo [A-Za-z0-9_-], 1–100 caracteres, no _app
   name: '我的站点',
-  version: '0.0.1',           // tres números; la app ofrece actualizar si el repositorio tiene uno mayor
+  version: '0.0.1',
+  minAppVersion: '0.9.2',           // tres números; la app ofrece actualizar si el repositorio tiene uno mayor
   type: 'comic',              // comic | video | novel | game: cómo se leen o reproducen las obras
   category: 'doujin',         // doujin | anime | aiDrama | jav | adult | shortvideo | recording | live | gallery | illustration | novel | game | other
   color: '#E5355F',           // color de marca: icono y página del sitio
@@ -533,16 +535,17 @@ Un repositorio es un solo `index.json` en cualquier alojamiento estático. Los u
 ```json
 {
   "name": "我的站点仓库",
-  "apiVersion": 1,
+  "apiVersion": 2,
   "sources": [
     {
       "key": "mysite",
       "name": "我的站点",
       "version": "0.0.1",
+      "minAppVersion": "0.9.2",
       "description": "一句话介绍",
       "url": "https://example.com/sources/mysite.js",
       "sha256": "SHA-256 en 64 dígitos hexadecimales del texto UTF-8 del script",
-      "apiVersion": 1
+      "apiVersion": 2
     }
   ]
 }
@@ -551,6 +554,8 @@ Un repositorio es un solo `index.json` en cualquier alojamiento estático. Los u
 `url` es la dirección completa del script; también vale `file` relativo a `index.json`. Los repositorios de terceros se instalan a mano tras confirmar el usuario; `sha256` es opcional y se comprueba si existe.
 
 ### Versiones y reglas de actualización
+
+- Los plugins deben declarar minAppVersion (por ejemplo, 0.9.2), coincidente con el índice oficial. El apiVersion actual es 2 y requiere HentaiPark 0.9.2 o posterior. Las actualizaciones y las instalaciones por URL comprueban la compatibilidad antes de sustituir el plugin; si no es compatible, se conserva el instalado. Los avisos automáticos separan las actualizaciones compatibles de las que requieren una app más reciente. Ignorar esta versión solo silencia las versiones de la app o de los plugins indicadas, persiste tras reiniciar y no afecta a las comprobaciones manuales.
 
 - Las versiones son tres enteros no negativos separados por puntos y sin ceros a la izquierda (p. ej. `0.0.1`), comparados numéricamente por partes; se rechazan partes de menos o de más y sufijos de prelanzamiento.
 - Las actualizaciones oficiales deben aportar el `sha256` del texto UTF-8 del script (sin recortar espacios ni convertir saltos de línea), y la `key` y la `version` del script deben coincidir con el índice; `apiVersion` debe ser exactamente la del entorno de la app o se rechaza la actualización.

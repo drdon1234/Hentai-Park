@@ -9,7 +9,7 @@ Park.register({
     ru: {"成人视频目录、搜索与多清晰度 MP4": "Каталог видео для взрослых, поиск и MP4 разных качеств"},
     ar: {"成人视频目录、搜索与多清晰度 MP4": "دليل فيديو للبالغين مع البحث وملفات MP4 متعددة الجودة"},
   },
-  key: 'eporner', name: 'Eporner', version: '0.0.6', type: 'video', category: 'adult', language: 'en',
+  key: 'eporner', name: 'Eporner', version: '0.0.7', minAppVersion: '0.9.2', type: 'video', category: 'adult', language: 'en',
   color: '#e84b39', homepage: 'https://www.eporner.com/', description: '成人视频目录、搜索与多清晰度 MP4',
   domains: ['eporner.com'], network: {mode: 'native', vpnHint: true},
   media: {mode: 'native', origin: 'https://www.eporner.com', domains: ['eporner.com']},

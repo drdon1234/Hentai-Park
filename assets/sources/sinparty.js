@@ -71,7 +71,7 @@ Park.register({
     "未知直播列表": "قائمة بث غير معروفة"
   }
 },
-  key: 'sinparty', name: 'SinParty', version: '0.0.3', type: 'video', category: 'live', language: 'en',
+  key: 'sinparty', name: 'SinParty', version: '0.0.4', minAppVersion: '0.9.2', type: 'video', category: 'live', language: 'en',
   color: '#e83e8c', description: '自营公开直播间', homepage: 'https://sinparty.com/', domains: ['sinparty.com'],
   network: {mode: 'native', origin: 'https://sinparty.com', vpnHint: true},
   media: {mode: 'native', origin: 'https://sinparty.com', domains: ['edge-cdn1.streamparty.online', 'edge-cdn2.streamparty.online']},

@@ -31,7 +31,7 @@ Park.register({
       "通用图片反搜；可查找网页出处与相似图片": "بحث عكسي عن صفحات المصدر والصور المشابهة"
     }
   },
-  key: 'yandex', name: 'Yandex', version: '0.0.2', apiVersion: 1,
+  key: 'yandex', name: 'Yandex', version: '0.0.3', minAppVersion: '0.9.2', apiVersion: 2,
   type: 'comic', category: 'other', reverseSearchCategory: 'general',
   homepage: 'https://yandex.com/images/',
   description: '通用图片反搜；可查找网页出处与相似图片',

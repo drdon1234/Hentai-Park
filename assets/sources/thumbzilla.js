@@ -9,7 +9,7 @@ Park.register({
     "ru": {"成人视频，支持热门、搜索和多清晰度 MP4 播放": "Видео для взрослых: популярное, поиск и MP4 в разных качествах"},
     "ar": {"成人视频，支持热门、搜索和多清晰度 MP4 播放": "فيديوهات البالغين مع قوائم شائعة وبحث وتشغيل MP4 بجودات متعددة"},
   },
-  key: 'thumbzilla', name: 'Thumbzilla', version: '0.0.7', type: 'video', category: 'adult', color: '#FF9900',
+  key: 'thumbzilla', name: 'Thumbzilla', version: '0.0.8', minAppVersion: '0.9.2', type: 'video', category: 'adult', color: '#FF9900',
   description: '成人视频，支持热门、搜索和多清晰度 MP4 播放', homepage: 'https://www.thumbzilla.com',
   domains: ['thumbzilla.com'], language: 'en',
   network: {mode: 'auto', origin: 'https://www.thumbzilla.com', vpnHint: true}, imageHeaders: {Referer: 'https://www.thumbzilla.com/'},

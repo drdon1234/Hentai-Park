@@ -9,7 +9,7 @@ Park.register({
     "ru": {"竖屏短视频，支持连续播放和搜索": "Вертикальные видео с непрерывным просмотром и поиском"},
     "ar": {"竖屏短视频，支持连续播放和搜索": "مقاطع عمودية تدعم التشغيل المتواصل والبحث"},
   },
-  key: 'fyptt', name: 'Fyptt', version: '0.0.5', type: 'video', category: 'shortvideo',
+  key: 'fyptt', name: 'Fyptt', version: '0.0.6', minAppVersion: '0.9.2', type: 'video', category: 'shortvideo',
   color: '#F34468', description: '竖屏短视频，支持连续播放和搜索', language: 'en',
   homepage: 'https://fyptt.to/', domains: ['fyptt.to'], network: {mode: 'native', vpnHint: true},
   imageHeaders: {Referer: 'https://fyptt.to/'},

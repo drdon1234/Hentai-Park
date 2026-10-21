@@ -120,9 +120,10 @@ class _RankingRowState extends State<RankingRow> {
                         ),
                       Wrap(
                         spacing: Gap.s,
+                        runSpacing: Gap.s,
                         children: [
                           if (widget.board.kind != 'seller')
-                            TextButton(
+                            OutlinedButton(
                               onPressed: _open,
                               child: SelectionContainer.disabled(
                                 child: Text(
@@ -133,7 +134,7 @@ class _RankingRowState extends State<RankingRow> {
                               ),
                             ),
                           if (original)
-                            TextButton(
+                            OutlinedButton(
                               onPressed: () async {
                                 var opened = false;
                                 try {

@@ -55,7 +55,7 @@ class RecentHistory extends StatelessWidget {
               leading: const Icon(Icons.history_rounded),
               trailing: onOpenHistory == null
                   ? null
-                  : TextButton(
+                  : OutlinedButton(
                       onPressed: onOpenHistory,
                       child: SelectionContainer.disabled(child: Text(tr('全部'))),
                     ),

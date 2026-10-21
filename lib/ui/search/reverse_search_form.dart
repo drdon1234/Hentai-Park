@@ -39,7 +39,7 @@ class ReverseSearchForm extends StatelessWidget {
     final allSelected = entries.every(
       (entry) => selectedSources.contains(entry.key),
     );
-    return TextButton(
+    return OutlinedButton(
       onPressed: () => onSelect({
         for (final entry in entries)
           if (allSelected || !selectedSources.contains(entry.key)) entry.key,
@@ -84,14 +84,16 @@ class ReverseSearchForm extends StatelessWidget {
             icon: Icons.extension_outlined,
             title: tr('没有启用的反搜服务'),
             message: tr('在站点管理中启用或安装站点'),
-            actions: [TextButton(onPressed: onManage, child: Text(tr('管理站点')))],
+            actions: [
+              OutlinedButton(onPressed: onManage, child: Text(tr('管理站点'))),
+            ],
           )
         else ...[
           Material(
             color: colors.surfaceContainerLow,
             shape: RoundedRectangleBorder(
               borderRadius: Radii.medium,
-              side: BorderSide(color: colors.outlineVariant),
+              side: BorderSide(color: colors.outline),
             ),
             clipBehavior: Clip.antiAlias,
             child: Stack(
@@ -158,7 +160,7 @@ class ReverseSearchForm extends StatelessWidget {
             const SizedBox(height: Gap.s),
             Align(
               alignment: AlignmentDirectional.centerStart,
-              child: TextButton.icon(
+              child: OutlinedButton.icon(
                 onPressed: preparing ? null : onPaste,
                 icon: const Icon(Icons.content_paste_rounded, size: 18),
                 label: Text(tr('粘贴图片')),
@@ -172,7 +174,7 @@ class ReverseSearchForm extends StatelessWidget {
                 spacing: Gap.xs,
                 runSpacing: Gap.xs,
                 children: [
-                  TextButton.icon(
+                  OutlinedButton.icon(
                     onPressed: preparing ? null : onPick,
                     icon: const Icon(
                       Icons.add_photo_alternate_outlined,
@@ -180,12 +182,12 @@ class ReverseSearchForm extends StatelessWidget {
                     ),
                     label: Text(tr('选择图片')),
                   ),
-                  TextButton.icon(
+                  OutlinedButton.icon(
                     onPressed: preparing ? null : onCrop,
                     icon: const Icon(Icons.crop, size: 18),
                     label: Text(tr('裁剪图片')),
                   ),
-                  TextButton(
+                  OutlinedButton(
                     onPressed: preparing ? null : onRemove,
                     child: Text(tr('移除图片')),
                   ),

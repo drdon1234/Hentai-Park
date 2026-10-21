@@ -1,5 +1,5 @@
 Park.register({
-  key: 'ranking-studios', name: '无码厂商', version: '0.0.3',
+  key: 'ranking-studios', name: '无码厂商', version: '0.0.4', minAppVersion: '0.9.2',
   type: 'video', category: 'jav', rankingOnly: true,
   description: '官方人气榜', homepage: 'https://www.1pondo.tv/',
   domains: ['1pondo.tv', '10musume.com', 'pacopacomama.com', 'caribbeancom.com'],

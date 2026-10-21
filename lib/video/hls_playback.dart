@@ -12,10 +12,11 @@ import '../engine/media_transport.dart';
 import 'hls.dart';
 import 'hls_resources.dart';
 import 'local_hls_media.dart';
+import 'playback.dart';
 import 'rou_hls_wrapper.dart';
 
 /// A private, finite URL registry. The player never supplies an upstream URL.
-class HlsPlayback {
+class HlsPlayback implements Playback {
   HlsPlayback(this.transport, {this.live = false});
   HlsPlayback.local(File playlist)
     : transport = LocalHlsMedia(playlist),
@@ -47,6 +48,7 @@ class HlsPlayback {
   int _cacheBytes = 0;
   static const _cacheLimit = 24 * 1024 * 1024;
 
+  @override
   Future<Uri> open(Uri url) async {
     if (_closed || _server != null) throw StateError('媒体会话不可重复打开');
     try {
@@ -93,11 +95,11 @@ class HlsPlayback {
     // An upstream URL can be repeated with a different IV or key. Register
     // the segment occurrence so these resources can never share plaintext.
     final identity =
-        '${segment.sequence}|${segment.url}|${segment.key}|${segment.iv}';
+        '${segment.kind}|${segment.sequence}|${segment.url}|${segment.key}|${segment.iv}';
     final path = live
         ? _segmentPaths.putIfAbsent(
             identity,
-            () => '/$_token/r${_nextRoute++}.ts',
+            () => '/$_token/r${_nextRoute++}.${segment.extension}',
           )
         : '/$_token/r${_routes.length}.${segment.extension}';
     _routes[path] = segment;
@@ -284,6 +286,7 @@ class HlsPlayback {
     );
   }
 
+  @override
   Future<void> close() => _closing ??= () async {
     _closed = true;
     _cancel.cancel('playback closed');

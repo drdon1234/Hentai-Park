@@ -1,5 +1,5 @@
 Park.register({
-  key: 'trace_moe', name: 'trace.moe', version: '0.0.3', apiVersion: 1,
+  key: 'trace_moe', name: 'trace.moe', version: '0.0.4', minAppVersion: '0.9.2', apiVersion: 2,
   type: 'comic', category: 'other', reverseSearchCategory: 'anime', homepage: 'https://trace.moe/',
   description: '动画截图定位作品、集数与时间点；免费额度有限',
   domains: ['trace.moe'], network: { vpnHint: true },

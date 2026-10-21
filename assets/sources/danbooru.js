@@ -122,7 +122,7 @@ Park.register({
       "Danbooru 帖子没有可用原图": "لا تتوفر صورة أصلية لهذا المنشور في Danbooru"
     }
   },
-  key: 'danbooru', name: 'Danbooru', version: '0.0.3', apiVersion: 1,
+  key: 'danbooru', name: 'Danbooru', version: '0.0.5', minAppVersion: '0.9.2', apiVersion: 2,
   type: 'comic', category: 'illustration', color: '#3B73AF',
   homepage: DAN_API, description: '二次元图片图集，保留站内安全、擦边与 R18 分级',
   domains: ['donmai.us'], imageHeaders: {'User-Agent': DAN_UA},
@@ -147,7 +147,7 @@ Park.register({
   async feed(key, req) {
     if (key === 'category') return this.listing('/posts.json', {tags: filterTags('', {sort: 'date', ...req.options})}, req.page);
     if (!['popular', 'latest'].includes(key)) throw Park.error('CONFIG', '未知 Danbooru 列表');
-    return this.listing(key === 'popular' ? '/explore/posts/popular.json' : '/posts.json', {}, req.page);
+    return this.listing('/posts.json', key === 'popular' ? {tags: 'order:rank'} : {}, req.page);
   },
   async search(req) {
     const keyword = filterTags(req.keyword, req.filters);

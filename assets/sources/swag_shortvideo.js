@@ -43,7 +43,7 @@ Park.register({
       '视频编号无效': 'معرّف الفيديو غير صالح', '播放器地址暂不可用': 'المشغل غير متاح', '搜索关键词过长': 'كلمة البحث طويلة جداً'
     }
   },
-  key: 'swag_shortvideo', name: 'SWAG 短视频', version: '0.0.3', type: 'video', category: 'shortvideo',
+  key: 'swag_shortvideo', name: 'SWAG 短视频', version: '0.0.4', minAppVersion: '0.9.2', type: 'video', category: 'shortvideo',
   color: '#e83e8c', description: '台湾与日本成人短视频，支持原生播放', language: 'zh-Hant',
   homepage: 'https://swag.live/', domains: ['swag.live'],
   network: {mode: 'native', origin: 'https://swag.live', vpnHint: true},

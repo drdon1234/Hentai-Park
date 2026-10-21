@@ -120,11 +120,11 @@ mixin _NovelTranslation on _NovelReaderBase {
                   style: Theme.of(context).textTheme.bodySmall,
                 ),
                 if (session.failed)
-                  TextButton(
+                  OutlinedButton(
                     onPressed: () => unawaited(session.start()),
                     child: Text(tr('重试')),
                   ),
-                TextButton(
+                OutlinedButton(
                   onPressed: _toggleFullTranslation,
                   child: Text(tr('显示原文')),
                 ),

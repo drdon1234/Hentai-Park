@@ -180,7 +180,7 @@ class _FeedShelfState extends State<FeedShelf>
     child: Center(
       child: session.loading
           ? const CircularProgressIndicator()
-          : TextButton(
+          : OutlinedButton(
               onPressed: _loadMore,
               child: SelectionContainer.disabled(
                 child: Text(tr(session.error == null ? '加载更多' : '重试')),
@@ -287,6 +287,8 @@ class _FeedShelfState extends State<FeedShelf>
             leading: SourceAvatar(widget.sourceKey, size: 22),
             trailing: Wrap(
               alignment: WrapAlignment.end,
+              spacing: Gap.xs,
+              runSpacing: Gap.xs,
               children: [
                 if (widget.onToggleVisibility != null)
                   IconButton(
@@ -308,7 +310,7 @@ class _FeedShelfState extends State<FeedShelf>
                     ),
                   ),
                 if (widget.onMore != null)
-                  TextButton(
+                  OutlinedButton(
                     onPressed: widget.onMore,
                     child: SelectionContainer.disabled(
                       child: Text(widget.moreLabel ?? tr('全部')),
@@ -422,7 +424,7 @@ class _ShelfMessage extends StatelessWidget {
                 ),
               ),
               if (onRetry != null)
-                TextButton(
+                OutlinedButton(
                   onPressed: onRetry,
                   child: SelectionContainer.disabled(child: Text(tr('重试'))),
                 ),

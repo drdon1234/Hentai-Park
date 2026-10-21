@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../kit/tokens.dart';
+
 /// Plain metadata uses text baselines, unlike the padded tag-chip rows.
 class MetadataTextRow extends StatelessWidget {
   const MetadataTextRow({super.key, required this.label, required this.value});
@@ -11,7 +13,7 @@ class MetadataTextRow extends StatelessWidget {
     final theme = Theme.of(context);
     final scale = MediaQuery.textScalerOf(context).scale(14) / 14;
     return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.only(bottom: Gap.m),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.baseline,
         textBaseline: TextBaseline.alphabetic,

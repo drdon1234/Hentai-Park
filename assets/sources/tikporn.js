@@ -9,7 +9,7 @@ Park.register({
     "ru": {"竖屏短视频推荐，支持连续播放和搜索": "Рекомендации вертикальных видео с непрерывным просмотром и поиском"},
     "ar": {"竖屏短视频推荐，支持连续播放和搜索": "اقتراحات مقاطع عمودية تدعم التشغيل المتواصل والبحث"},
   },
-  key: 'tikporn', name: 'Tik.porn', version: '0.0.6', type: 'video', category: 'shortvideo',
+  key: 'tikporn', name: 'Tik.porn', version: '0.0.7', minAppVersion: '0.9.2', type: 'video', category: 'shortvideo',
   color: '#FF427B', description: '竖屏短视频推荐，支持连续播放和搜索', language: 'en',
   homepage: 'https://tik.porn/', domains: ['tik.porn'],
   network: {mode: 'browser', origin: 'https://tik.porn', vpnHint: true},

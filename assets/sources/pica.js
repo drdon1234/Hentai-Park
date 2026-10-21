@@ -17,7 +17,7 @@ Park.register({
   },
   key: 'pica',
   name: '哔咔漫画',
-  version: '0.0.8',
+  version: '0.0.9', minAppVersion: '0.9.2',
   type: 'comic',
   category: 'doujin',
   color: '#EC97B6',

@@ -351,7 +351,7 @@ class _SourceSearchPageState extends State<SourceSearchPage> {
                             Badge(
                               isLabelVisible: _activeFilters > 0,
                               label: Text('$_activeFilters'),
-                              child: TextButton(
+                              child: OutlinedButton(
                                 onPressed: _openFilters,
                                 child: SelectionContainer.disabled(
                                   child: Text(tr('筛选')),
@@ -370,7 +370,7 @@ class _SourceSearchPageState extends State<SourceSearchPage> {
                               ),
                             )
                           else
-                            TextButton(
+                            OutlinedButton(
                               onPressed: _searchMulti,
                               child: SelectionContainer.disabled(
                                 child: Text(tr('多语言搜索')),
@@ -658,7 +658,7 @@ class _FilterSheetState extends State<FilterSheet> {
                     ),
                   ),
                   const Spacer(),
-                  TextButton(
+                  OutlinedButton(
                     onPressed: _filters.reset,
                     child: SelectionContainer.disabled(child: Text(tr('重置'))),
                   ),
@@ -771,7 +771,7 @@ class _FilterSheetState extends State<FilterSheet> {
                                 child: LinearProgressIndicator(),
                               ),
                             if (_filters.errorFor(f.key) != null)
-                              TextButton.icon(
+                              OutlinedButton.icon(
                                 onPressed: () => _filters.loadDynamic(f.key),
                                 icon: const Icon(Icons.refresh_rounded),
                                 label: Text(tr('加载失败，点击重试')),

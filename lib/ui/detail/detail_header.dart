@@ -23,12 +23,16 @@ class DetailHeader extends StatefulWidget {
     required this.detail,
     required this.manifest,
     required this.coverHeroTag,
+    this.overview = const [],
     this.body = const [],
   });
   final WorkItem item;
   final WorkDetail? detail;
   final SourceManifest? manifest;
   final Object? coverHeroTag;
+
+  /// 操作、简介与元信息在宽屏放到封面旁，窄屏按阅读顺序放在下方。
+  final List<Widget> overview;
 
   /// The rest of the page. It lives in the same group as the app bar, because a pinned
   /// header only stays pinned while its group is on screen.
@@ -175,44 +179,85 @@ class _DetailHeaderState extends State<DetailHeader> {
               padding: EdgeInsets.symmetric(horizontal: inset),
               sliver: SliverToBoxAdapter(
                 child: Padding(
-                  padding: const EdgeInsets.fromLTRB(
-                    Gap.page,
-                    Gap.xs,
-                    Gap.page,
-                    0,
-                  ),
+                  padding: const EdgeInsets.only(top: Gap.xs),
                   child: LayoutBuilder(
                     builder: (context, constraints) {
-                      if (_isNovel) return _info(context);
-                      final wide = constraints.maxWidth >= 700;
-                      final stacked =
-                          constraints.maxWidth < 440 ||
-                          constraints.maxWidth /
-                                  MediaQuery.textScalerOf(context).scale(1) <
-                              320;
+                      final available = constraints.maxWidth - Gap.page * 2;
+                      final wide =
+                          available /
+                              MediaQuery.textScalerOf(context).scale(1) >=
+                          700;
+                      const infoPadding = EdgeInsets.symmetric(
+                        horizontal: Gap.page,
+                      );
+                      final info = Padding(
+                        padding: infoPadding,
+                        child: _info(context),
+                      );
+                      final overview = Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          info,
+                          const SizedBox(height: Gap.l),
+                          ...widget.overview,
+                        ],
+                      );
+                      if (_isNovel) return overview;
                       final aspect =
                           _coverItem.coverAspect ?? (_isVideo ? 16 / 9 : 0.7);
+                      final stacked =
+                          (!wide && aspect > 1) ||
+                          available /
+                                  MediaQuery.textScalerOf(context).scale(1) <
+                              300;
                       final width = wide
-                          ? (constraints.maxWidth * (aspect > 1 ? .42 : .28))
-                                .clamp(240.0, aspect > 1 ? 440.0 : 320.0)
-                          : constraints.maxWidth * (stacked ? .65 : .32);
+                          ? (available * (aspect > 1 ? .36 : .24)).clamp(
+                              176.0,
+                              aspect > 1 ? 400.0 : 224.0,
+                            )
+                          : available *
+                                (stacked ? (aspect > 1 ? 1 : .65) : .32);
                       final cover = _coverBox(context, width);
-                      if (stacked) {
-                        return Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Center(child: cover),
-                            const SizedBox(height: Gap.l),
-                            _info(context),
-                          ],
+                      if (wide) {
+                        return Padding(
+                          padding: const EdgeInsets.only(left: Gap.page),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              cover,
+                              const SizedBox(width: Gap.l),
+                              Expanded(child: overview),
+                            ],
+                          ),
                         );
                       }
-                      return Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          cover,
-                          SizedBox(width: wide ? Gap.xxl : Gap.l),
-                          Expanded(child: _info(context)),
+                          Padding(
+                            padding: infoPadding,
+                            child: stacked
+                                ? Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Center(child: cover),
+                                      const SizedBox(height: Gap.l),
+                                      _info(context),
+                                    ],
+                                  )
+                                : Row(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      cover,
+                                      const SizedBox(width: Gap.l),
+                                      Expanded(child: _info(context)),
+                                    ],
+                                  ),
+                          ),
+                          const SizedBox(height: Gap.l),
+                          ...widget.overview,
                         ],
                       );
                     },
@@ -222,12 +267,7 @@ class _DetailHeaderState extends State<DetailHeader> {
             ),
             SliverPadding(
               padding: EdgeInsets.symmetric(horizontal: inset),
-              sliver: SliverMainAxisGroup(
-                slivers: [
-                  const SliverToBoxAdapter(child: SizedBox(height: Gap.l)),
-                  ...widget.body,
-                ],
-              ),
+              sliver: SliverMainAxisGroup(slivers: [...widget.body]),
             ),
           ],
         );
@@ -307,9 +347,8 @@ class _DetailHeaderState extends State<DetailHeader> {
           ),
         ],
         const SizedBox(height: Gap.s),
-        InkWell(
-          borderRadius: Radii.small,
-          onTap: () => Nav.openSource(context, item.source),
+        OutlinedButton(
+          onPressed: () => Nav.openSource(context, item.source),
           child: SelectionContainer.disabled(
             child: Padding(
               padding: const EdgeInsets.symmetric(vertical: 2),
@@ -331,6 +370,8 @@ class _DetailHeaderState extends State<DetailHeader> {
                     const SizedBox(width: Gap.s - 2),
                     Flexible(child: Tag(category)),
                   ],
+                  const SizedBox(width: Gap.xs),
+                  const Icon(Icons.chevron_right_rounded, size: 18),
                 ],
               ),
             ),

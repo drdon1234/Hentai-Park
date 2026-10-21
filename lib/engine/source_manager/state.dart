@@ -52,10 +52,20 @@ mixin _SourceState on _SourceRegistry {
       }, key: key);
 
   /// Installed sources and their settings; [credentials] also includes each source's private
-  /// store (tokens, account ids), which may contain secrets.
+  /// store (tokens, account ids) and partitioned cookies, which may contain secrets.
   Future<Map<String, dynamic>> exportJson({bool credentials = false}) =>
-      _mutate(
-        () async => (jsonDecode(
+      _mutate(() async {
+        final cookies = <String, Map<String, String>>{};
+        if (credentials) {
+          await _stopStateWriters(_sources.keys);
+          for (final key in {..._sources.keys, ..._state.keys}) {
+            final pending = _state[key]?['restoreCookies'];
+            cookies[key] = pending is Map
+                ? pending.cast<String, String>()
+                : await CookieStore.instance.snapshotPartition(key);
+          }
+        }
+        return (jsonDecode(
           jsonEncode({
             'sources': [
               for (final s in all)
@@ -81,20 +91,33 @@ mixin _SourceState on _SourceRegistry {
                   key: ((_state[key]?['data'] as Map?) ?? {})
                       .cast<String, dynamic>(),
               },
+            if (credentials) 'cookies': cookies,
           }),
-        ) as Map).cast<String, dynamic>(),
-      );
+        ) as Map).cast<String, dynamic>();
+      });
 
   Future<
-    ({Map<String, Object?> files, List<({String key, String url})> missing})
+    ({
+      Map<String, Object?> files,
+      List<({String key, String url})> missing,
+      Map<String, ({Map<String, String> snapshot, List<String> domains})>
+      cookies,
+    })
   >
   prepareImport(Map<String, dynamic> json) async {
     _validateImport(json);
+    await _stopStateWriters({
+      for (final name in ['settings', 'data', 'cookies'])
+        ...(json[name] as Map? ?? {}).keys.cast<String>(),
+    });
     final missing = <({String key, String url})>[];
     final files = <String, Object?>{};
     final records = {for (final s in all) s.key: s.toJson()};
     final settings = (json['settings'] as Map?)?.cast<String, dynamic>() ?? {};
     final data = (json['data'] as Map?)?.cast<String, dynamic>() ?? {};
+    final cookieData = (json['cookies'] as Map?)?.cast<String, dynamic>() ?? {};
+    final cookies =
+        <String, ({Map<String, String> snapshot, List<String> domains})>{};
     final metadata = <String, Map>{};
     for (final e in ((json['sources'] as List?) ?? const []).whereType<Map>()) {
       final key = e['key'].toString();
@@ -113,7 +136,12 @@ mixin _SourceState on _SourceRegistry {
         'order': e['order'] ?? s.order,
       };
     }
-    for (final key in {...settings.keys, ...data.keys, ...metadata.keys}) {
+    for (final key in {
+      ...settings.keys,
+      ...data.keys,
+      ...metadata.keys,
+      ...cookieData.keys,
+    }) {
       final st = settings[key];
       final d = data[key];
       final state =
@@ -125,10 +153,26 @@ mixin _SourceState on _SourceRegistry {
         };
       }
       if (d is Map) {
-        state['data'] = {
-          ...(state['data'] as Map).cast<String, dynamic>(),
-          ...d.cast<String, dynamic>(),
-        };
+        state['data'] = cookieData.containsKey(key)
+            ? d.cast<String, dynamic>()
+            : {
+                ...(state['data'] as Map).cast<String, dynamic>(),
+                ...d.cast<String, dynamic>(),
+              };
+      }
+      if (cookieData[key] case final Map snapshot) {
+        final installed = manifest(key);
+        if (installed == null) {
+          state['restoreCookies'] = snapshot;
+        } else {
+          final domains = declaredDomains(installed.json);
+          CookieStore.validateSnapshot(snapshot, domains: domains);
+          cookies[key] = (
+            snapshot: snapshot.cast<String, String>(),
+            domains: domains,
+          );
+          state.remove('restoreCookies');
+        }
       }
       if (!_sources.containsKey(key) && metadata[key] != null) {
         state['restoreMetadata'] = metadata[key];
@@ -136,10 +180,20 @@ mixin _SourceState on _SourceRegistry {
       files['source_state_$key.json'] = state;
     }
     files['sources.json'] = {'sources': records.values.toList()};
-    return (files: files, missing: missing);
+    return (files: files, missing: missing, cookies: cookies);
   }
 
-  Future<void> reloadFromDisk() async {
+  Future<void> reloadFromDisk({
+    Set<String> credentialsChanged = const {},
+  }) async {
+    for (final key in credentialsChanged) {
+      (_manifestCache[key] as Map?)?.remove('account');
+      _accountCheckedAt.remove(key);
+    }
+    if (credentialsChanged.isNotEmpty) {
+      _manifestStore.save(_manifestCache);
+      await _manifestStore.flush();
+    }
     final registry = await _registry.load();
     _sources.clear();
     if (registry is Map) {
@@ -154,7 +208,41 @@ mixin _SourceState on _SourceRegistry {
     _stateStores.clear();
     await _loadSavedStates();
     if (loaded) await loadAll();
+    for (final key in credentialsChanged) {
+      authenticationChanged(key);
+    }
     notifyListeners();
+  }
+
+  @override
+  Future<void> _restorePendingCookies(
+    String key,
+    SourceManifest manifest,
+  ) async {
+    final state = await _loadState(key);
+    if (state['restoreCookies'] case final Map snapshot) {
+      final domains = declaredDomains(manifest.json);
+      CookieStore.validateSnapshot(snapshot, domains: domains);
+      await CookieStore.instance.restorePartition(
+        key,
+        snapshot.cast<String, String>(),
+        domains: domains,
+        browserSnapshot: const {},
+      );
+      state.remove('restoreCookies');
+      final store = _stateStores[key] ??= JsonStore('source_state_$key.json');
+      store.save(state);
+      await store.flush();
+    }
+  }
+
+  /// 后台 init 也能持久化凭据；先释放并排空桥接写入，快照和恢复才不会被旧状态覆盖。
+  Future<void> _stopStateWriters(Iterable<String> keys) async {
+    for (final key in keys) {
+      _activations.remove(key)?.ignore();
+      if (loader == null) await JsEngine.instance.disposeRuntime(key);
+      await _stateStores[key]?.flush();
+    }
   }
 
   @override
@@ -183,19 +271,39 @@ mixin _SourceState on _SourceRegistry {
     Map<String, dynamic> json,
   ) => _mutate(() async {
     final plan = await prepareImport(json);
+    for (final entry in plan.cookies.entries) {
+      await CookieStore.instance.restorePartition(
+        entry.key,
+        entry.value.snapshot,
+        domains: entry.value.domains,
+      );
+    }
     for (final e in plan.files.entries) {
       await writeFileAtomic(
         AppPaths.dataFile(e.key),
         utf8.encode(jsonEncode(e.value)),
       );
     }
-    await reloadFromDisk();
+    await reloadFromDisk(
+      credentialsChanged: {
+        ...plan.cookies.keys,
+        ...(json['data'] as Map? ?? {}).keys.cast<String>(),
+      },
+    );
     return plan.missing;
   });
 }
 
 /// Rejects malformed source data in a backup before anything is written.
 void _validateImport(Map<String, dynamic> json) {
+  final cookies = json['cookies'];
+  if (cookies != null) {
+    if (cookies is! Map) throw const FormatException('备份数据无效');
+    for (final entry in cookies.entries) {
+      if (!isSourceKey(entry.key)) throw const FormatException('备份数据无效');
+      CookieStore.validateSnapshot(entry.value);
+    }
+  }
   for (final name in ['settings', 'data']) {
     final value = json[name];
     if (value == null) continue;

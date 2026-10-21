@@ -9,7 +9,7 @@ Park.register({
     "ru": {"成人视频社区，支持推荐、搜索和原画播放": "Сообщество видео для взрослых с рекомендациями, поиском и оригинальным качеством"},
     "ar": {"成人视频社区，支持推荐、搜索和原画播放": "مجتمع فيديوهات للبالغين مع توصيات وبحث وتشغيل بالجودة الأصلية"},
   },
-  key: 'porn91', name: '91porn', version: '0.0.7', type: 'video', category: 'adult', color: '#D81B60',
+  key: 'porn91', name: '91porn', version: '0.0.8', minAppVersion: '0.9.2', type: 'video', category: 'adult', color: '#D81B60',
   description: '成人视频社区，支持推荐、搜索和原画播放', homepage: 'https://91porn.com', domains: ['91porn.com'], language: 'zh',
   network: {mode: 'native', vpnHint: true}, imageHeaders: {Referer: 'https://91porn.com/'},
   media: {mode: 'native', origin: 'https://91porn.com', domains: ['la.btc620.com', '1470423830.rsc.cdn77.org']},

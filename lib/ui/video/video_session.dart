@@ -10,13 +10,13 @@ import '../../core/app_log.dart';
 import '../../core/models.dart';
 import '../../core/platform_capabilities.dart';
 import '../../engine/desktop_shutdown.dart';
-import '../../engine/media_transport_factory.dart';
 import '../../engine/source_manager.dart';
 import '../../images/image_store.dart';
 import '../../images/subscription_cache.dart';
 import '../../library/downloads.dart';
 import '../../library/library.dart';
 import '../../video/hls_playback.dart';
+import '../../video/playback.dart';
 import 'player_initialization.dart';
 import 'prepared_video.dart';
 
@@ -75,8 +75,8 @@ class VideoSession extends ChangeNotifier {
   bool _wantsPlayback = true;
   bool _completed = false;
   bool _disposed = false;
-  HlsPlayback? _media;
-  HlsPlayback? _preparingMedia;
+  Playback? _media;
+  Playback? _preparingMedia;
   Timer? _savePos;
   Future<void> _playbackUpdates = Future.value();
   int _request = 0;
@@ -297,32 +297,25 @@ class VideoSession extends ChangeNotifier {
       _update();
       return;
     }
-    HlsPlayback? media;
+    Playback? media;
     try {
       var url = Uri.parse(s.url);
-      if (s.format == 'hls') {
-        final manifest = SourceManager.instance.manifest(work.source);
-        if (manifest == null) throw SourceError('CONFIG', '视频站点未加载');
-        media = HlsPlayback(
-          createMediaTransport(
-            manifest,
-            headers: s.headers,
-            initialUrl: Uri.parse(s.url),
-            hls: s.hls,
-          ),
-          live: manifest.category == SourceCategory.live,
-        );
-        _preparingMedia = media;
-        url = await media.open(url);
-      }
+      final manifest = SourceManager.instance.manifest(work.source);
+      if (manifest == null) throw SourceError('CONFIG', '视频站点未加载');
+      media = Playback.network(
+        manifest,
+        s,
+        live: manifest.category == SourceCategory.live,
+      );
+      _preparingMedia = media;
+      url = await media.open(url);
       if (!_active || request != _request) {
-        await media?.close();
+        await media.close();
         return;
       }
       await _open(
         VideoPlayerController.networkUrl(
           url,
-          httpHeaders: media == null ? s.headers : const {},
           videoPlayerOptions: VideoPlayerOptions(allowBackgroundPlayback: true),
         ),
         at: at,
@@ -353,7 +346,7 @@ class VideoSession extends ChangeNotifier {
   Future<void> _open(
     VideoPlayerController c, {
     Duration? at,
-    HlsPlayback? media,
+    Playback? media,
     int? requestId,
   }) {
     return PendingDisposals.instance.watch(() async {
@@ -414,7 +407,7 @@ class VideoSession extends ChangeNotifier {
         return;
       }
       c.addListener(_onTick);
-      _completed = c.value.isCompleted;
+      _completed = !isLive && c.value.isCompleted;
       controller = c;
       _media = media;
       error = null;
@@ -446,7 +439,8 @@ class VideoSession extends ChangeNotifier {
   }
 
   void _onTick() {
-    final completed = controller?.value.isCompleted ?? false;
+    // 直播时长可能未知或仅代表当前窗口，不能按点播的完成状态结束播放。
+    final completed = !isLive && (controller?.value.isCompleted ?? false);
     // Completion ends playback once. Repeated notifications during a replay
     // seek must not overwrite the user's new play request.
     final newlyCompleted = completed && !_completed;

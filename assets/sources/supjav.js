@@ -9,7 +9,7 @@ Park.register({
     "ru": {"FST 播放线路暂不可用": "Сервер FST временно недоступен", "JAV 视频，支持热门、搜索与 FST 线路播放": "JAV: популярное, поиск и воспроизведение FST", "中文字幕": "Китайские субтитры", "无码": "Без цензуры", "此影片没有可用的 FST 线路": "Для этого видео нет доступного сервера FST"},
     "ar": {"FST 播放线路暂不可用": "خادم FST غير متاح مؤقتًا", "JAV 视频，支持热门、搜索与 FST 线路播放": "فيديوهات JAV مع قوائم شائعة وبحث وتشغيل FST", "中文字幕": "ترجمة صينية", "无码": "غير خاضع للرقابة", "此影片没有可用的 FST 线路": "لا يوجد خادم FST متاح لهذا الفيديو"},
   },
-  key: 'supjav', name: 'SupJav', version: '0.0.7', type: 'video', category: 'jav', color: '#F59E0B',
+  key: 'supjav', name: 'SupJav', version: '0.0.8', minAppVersion: '0.9.2', type: 'video', category: 'jav', color: '#F59E0B',
   description: 'JAV 视频，支持热门、搜索与 FST 线路播放',
   homepage: 'https://supjav.com', domains: ['supjav.com', 'lk1.supremejav.com', 'fc2stream.tv'], language: 'zh',
   network: {mode: 'browser', origin: 'https://supjav.com', vpnHint: true},

@@ -6,10 +6,10 @@ import 'package:video_player/video_player.dart';
 
 import '../../core/models.dart';
 import '../../engine/cancellation.dart';
-import '../../engine/media_transport_factory.dart';
 import '../../engine/source_manager.dart';
 import '../../library/downloads.dart';
 import '../../video/hls_playback.dart';
+import '../../video/playback.dart';
 import 'player_initialization.dart';
 
 /// 准备完成前不播放；所有过期请求都释放播放器及其独立媒体会话。
@@ -22,7 +22,7 @@ class PreparedVideo {
     this.offline,
   );
   final VideoPlayerController controller;
-  final HlsPlayback? media;
+  final Playback? media;
   final List<VideoSource> sources;
   final VideoSource? source;
   final bool offline;
@@ -45,7 +45,7 @@ class PreparedVideo {
     }
 
     VideoPlayerController? controller;
-    HlsPlayback? media;
+    Playback? media;
     StreamSubscription<DioException>? cancellation;
     try {
       final local =
@@ -96,26 +96,16 @@ class PreparedVideo {
           orElse: () => sources.first,
         );
         var url = Uri.parse(source.url);
-        if (source.format == 'hls') {
-          final manifest = SourceManager.instance.manifest(work.source);
-          if (manifest == null) throw SourceError('CONFIG', '视频站点未加载');
-          final opening = media = HlsPlayback(
-            createMediaTransport(
-              manifest,
-              headers: source.headers,
-              initialUrl: Uri.parse(source.url),
-              hls: source.hls,
-            ),
-          );
-          cancellation = cancel.whenCancel.asStream().listen(
-            (_) => unawaited(opening.close()),
-          );
-          url = await awaitCancelled(opening.open(url), cancel);
-        }
+        final manifest = SourceManager.instance.manifest(work.source);
+        if (manifest == null) throw SourceError('CONFIG', '视频站点未加载');
+        final opening = media = Playback.network(manifest, source);
+        cancellation = cancel.whenCancel.asStream().listen(
+          (_) => unawaited(opening.close()),
+        );
+        url = await awaitCancelled(opening.open(url), cancel);
         check();
         controller = VideoPlayerController.networkUrl(
           url,
-          httpHeaders: media == null ? source.headers : const {},
           videoPlayerOptions: VideoPlayerOptions(allowBackgroundPlayback: true),
         );
       }

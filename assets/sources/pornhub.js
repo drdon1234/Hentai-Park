@@ -9,7 +9,7 @@ Park.register({
     "ru": {"成人视频播放数据解析失败": "Не удалось разобрать данные воспроизведения видео для взрослых", "综合成人视频，支持推荐、搜索和多清晰度播放": "Видео для взрослых с рекомендациями, поиском и выбором качества"},
     "ar": {"成人视频播放数据解析失败": "تعذر تحليل بيانات تشغيل الفيديو للبالغين", "综合成人视频，支持推荐、搜索和多清晰度播放": "فيديوهات للبالغين مع توصيات وبحث وخيارات جودة متعددة"},
   },
-  key: 'pornhub', name: 'Pornhub', version: '0.0.8', type: 'video', category: 'adult',
+  key: 'pornhub', name: 'Pornhub', version: '0.0.9', minAppVersion: '0.9.2', type: 'video', category: 'adult',
   color: '#FF9900', description: '综合成人视频，支持推荐、搜索和多清晰度播放',
   homepage: 'https://www.pornhub.com', domains: ['pornhub.com'], language: 'en',
   network: {mode: 'auto', origin: 'https://www.pornhub.com', vpnHint: true},

@@ -147,7 +147,7 @@ class ReverseSearchResult extends StatelessWidget {
                       label: Text(tr('搜索资源')),
                     ),
                   if (match.url.isNotEmpty)
-                    TextButton.icon(
+                    OutlinedButton.icon(
                       onPressed: () => onOpen(match.url),
                       icon: const Icon(Icons.open_in_new, size: 18),
                       label: Text(tr('原站')),
@@ -244,7 +244,7 @@ class _DetailValue extends StatelessWidget {
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: Gap.xs),
         child: isLink
-            ? TextButton(
+            ? OutlinedButton(
                 onPressed: () => onOpen(text),
                 child: SelectionContainer.disabled(
                   child: Text('$label: $text'),
@@ -311,7 +311,7 @@ class _ResultImageState extends State<_ResultImage> {
     super.dispose();
   }
 
-  Widget _failure() => TextButton.icon(
+  Widget _failure() => OutlinedButton.icon(
     onPressed: () {
       _provider?.evict();
       _provider = null;

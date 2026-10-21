@@ -5,6 +5,7 @@ import '../../core/models.dart';
 import '../../core/settings.dart';
 import '../../engine/source_manager.dart';
 import '../kit/adaptive_sheet.dart';
+import '../kit/sheet_tabs.dart';
 import '../widgets/common.dart';
 
 /// Filter / sort / display options for the library (Mihon's three-tab sheet).
@@ -30,197 +31,164 @@ class _LibraryOptions extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final s = AppSettings.instance;
-    return DefaultTabController(
-      length: 3,
-      child: SizedBox(
-        height: MediaQuery.sizeOf(context).height * 0.55,
-        child: ListenableBuilder(
-          listenable: s.domain(SettingsDomain.library),
-          builder: (context, _) => Column(
+    return ListenableBuilder(
+      listenable: s.domain(SettingsDomain.library),
+      builder: (context, _) => SheetTabs(
+        tabs: [
+          for (final label in [tr('筛选'), tr('排序'), tr('显示')])
+            Tab(child: SelectionContainer.disabled(child: Text(label))),
+        ],
+        children: [
+          ListView(
+            key: const PageStorageKey('library-0'),
+            shrinkWrap: true,
+            primary: false,
+            padding: const EdgeInsets.only(bottom: 16),
             children: [
-              TabBar(
-                tabAlignment: TabAlignment.fill,
-                tabs: [
-                  Tab(
-                    child: SelectionContainer.disabled(child: Text(tr('筛选'))),
-                  ),
-                  Tab(
-                    child: SelectionContainer.disabled(child: Text(tr('排序'))),
-                  ),
-                  Tab(
-                    child: SelectionContainer.disabled(child: Text(tr('显示'))),
-                  ),
-                ],
-              ),
-              Expanded(
-                child: TabBarView(
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
                   children: [
-                    ListView(
-                      children: [
-                        Padding(
-                          padding: const EdgeInsets.all(16),
-                          child: Wrap(
-                            spacing: 8,
-                            runSpacing: 8,
-                            children: [
-                              for (final entry in {
-                                'all': tr('全部'),
-                                for (final kind in MediaKind.values)
-                                  kind.name: kind.label,
-                              }.entries)
-                                SelectionChip(
-                                  label: entry.value,
-                                  selected: s.libraryFilterKind == entry.key,
-                                  onSelected: (_) =>
-                                      s.libraryFilterKind = entry.key,
-                                ),
-                            ],
-                          ),
+                    for (final entry in {
+                      'all': tr('全部'),
+                      for (final kind in MediaKind.values)
+                        kind.name: kind.label,
+                    }.entries)
+                      SelectionChip(
+                        label: entry.value,
+                        selected: s.libraryFilterKind == entry.key,
+                        onSelected: (_) => s.libraryFilterKind = entry.key,
+                      ),
+                  ],
+                ),
+              ),
+              CheckboxListTile(
+                value: s.libraryFilterDownloaded,
+                title: SelectionContainer.disabled(child: Text(tr('已下载'))),
+                onChanged: (v) => s.libraryFilterDownloaded = v ?? false,
+              ),
+              CheckboxListTile(
+                value: s.libraryFilterUnread,
+                title: SelectionContainer.disabled(child: Text(tr('有未读'))),
+                onChanged: (v) => s.libraryFilterUnread = v ?? false,
+              ),
+              SectionHeader(
+                tr('站点'),
+                padding: const EdgeInsets.fromLTRB(
+                  Gap.page,
+                  Gap.m,
+                  Gap.page,
+                  Gap.xs,
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    for (final src in SourceManager.instance.all)
+                      FilterChip(
+                        avatar: SourceAvatar(src.key, size: 20),
+                        label: SelectionContainer.disabled(
+                          child: Text(src.name),
                         ),
-                        CheckboxListTile(
-                          value: s.libraryFilterDownloaded,
-                          title: SelectionContainer.disabled(
-                            child: Text(tr('已下载')),
-                          ),
-                          onChanged: (v) =>
-                              s.libraryFilterDownloaded = v ?? false,
-                        ),
-                        CheckboxListTile(
-                          value: s.libraryFilterUnread,
-                          title: SelectionContainer.disabled(
-                            child: Text(tr('有未读')),
-                          ),
-                          onChanged: (v) => s.libraryFilterUnread = v ?? false,
-                        ),
-                        SectionHeader(
-                          tr('站点'),
-                          padding: const EdgeInsets.fromLTRB(
-                            Gap.page,
-                            Gap.m,
-                            Gap.page,
-                            Gap.xs,
-                          ),
-                        ),
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 16),
-                          child: Wrap(
-                            spacing: 8,
-                            runSpacing: 8,
-                            children: [
-                              for (final src in SourceManager.instance.all)
-                                FilterChip(
-                                  avatar: SourceAvatar(src.key, size: 20),
-                                  label: SelectionContainer.disabled(
-                                    child: Text(src.name),
-                                  ),
-                                  selected: s.libraryFilterSources.contains(
-                                    src.key,
-                                  ),
-                                  onSelected: (on) {
-                                    final set = s.libraryFilterSources;
-                                    on ? set.add(src.key) : set.remove(src.key);
-                                    s.libraryFilterSources = set;
-                                  },
-                                ),
-                              SelectionChip(
-                                label: tr('本地'),
-                                selected: s.libraryFilterSources.contains(
-                                  'local',
-                                ),
-                                onSelected: (on) {
-                                  final set = s.libraryFilterSources;
-                                  on ? set.add('local') : set.remove('local');
-                                  s.libraryFilterSources = set;
-                                },
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                    ListView(
-                      children: [
-                        for (final (key, label, icon) in sorts)
-                          ListTile(
-                            leading: Icon(icon),
-                            title: SelectionContainer.disabled(
-                              child: Text(label),
-                            ),
-                            trailing: s.librarySort == key
-                                ? Icon(
-                                    s.librarySortAsc
-                                        ? Icons.arrow_upward_rounded
-                                        : Icons.arrow_downward_rounded,
-                                  )
-                                : null,
-                            selected: s.librarySort == key,
-                            onTap: () {
-                              if (s.librarySort == key) {
-                                s.librarySortAsc = !s.librarySortAsc;
-                              } else {
-                                s.librarySort = key;
-                                s.librarySortAsc = key == 'title';
-                              }
-                            },
-                          ),
-                      ],
-                    ),
-                    ListView(
-                      children: [
-                        Padding(
-                          padding: const EdgeInsets.all(16),
-                          child: SegmentedButton<String>(
-                            showSelectedIcon: false,
-                            segments: [
-                              ButtonSegment(
-                                value: 'grid',
-                                icon: const Icon(Icons.grid_view_rounded),
-                                label: SelectionContainer.disabled(
-                                  child: Text(tr('网格')),
-                                ),
-                              ),
-                              ButtonSegment(
-                                value: 'list',
-                                icon: const Icon(Icons.view_list_rounded),
-                                label: SelectionContainer.disabled(
-                                  child: Text(tr('列表')),
-                                ),
-                              ),
-                            ],
-                            selected: {s.libraryDisplay},
-                            onSelectionChanged: (v) =>
-                                s.libraryDisplay = v.first,
-                          ),
-                        ),
-                        CheckboxListTile(
-                          value: s.badgeUnread,
-                          title: SelectionContainer.disabled(
-                            child: Text(tr('未读数徽标')),
-                          ),
-                          onChanged: (v) => s.badgeUnread = v ?? true,
-                        ),
-                        CheckboxListTile(
-                          value: s.badgeDownloaded,
-                          title: SelectionContainer.disabled(
-                            child: Text(tr('已下载徽标')),
-                          ),
-                          onChanged: (v) => s.badgeDownloaded = v ?? true,
-                        ),
-                        CheckboxListTile(
-                          value: s.badgeSource,
-                          title: SelectionContainer.disabled(
-                            child: Text(tr('站点图标')),
-                          ),
-                          onChanged: (v) => s.badgeSource = v ?? true,
-                        ),
-                      ],
+                        selected: s.libraryFilterSources.contains(src.key),
+                        onSelected: (on) {
+                          final set = s.libraryFilterSources;
+                          on ? set.add(src.key) : set.remove(src.key);
+                          s.libraryFilterSources = set;
+                        },
+                      ),
+                    SelectionChip(
+                      label: tr('本地'),
+                      selected: s.libraryFilterSources.contains('local'),
+                      onSelected: (on) {
+                        final set = s.libraryFilterSources;
+                        on ? set.add('local') : set.remove('local');
+                        s.libraryFilterSources = set;
+                      },
                     ),
                   ],
                 ),
               ),
             ],
           ),
-        ),
+          ListView(
+            key: const PageStorageKey('library-1'),
+            shrinkWrap: true,
+            primary: false,
+            padding: const EdgeInsets.only(bottom: 16),
+            children: [
+              for (final (key, label, icon) in sorts)
+                ListTile(
+                  leading: Icon(icon),
+                  title: SelectionContainer.disabled(child: Text(label)),
+                  trailing: s.librarySort == key
+                      ? Icon(
+                          s.librarySortAsc
+                              ? Icons.arrow_upward_rounded
+                              : Icons.arrow_downward_rounded,
+                        )
+                      : null,
+                  selected: s.librarySort == key,
+                  onTap: () {
+                    if (s.librarySort == key) {
+                      s.librarySortAsc = !s.librarySortAsc;
+                    } else {
+                      s.librarySort = key;
+                      s.librarySortAsc = key == 'title';
+                    }
+                  },
+                ),
+            ],
+          ),
+          ListView(
+            key: const PageStorageKey('library-2'),
+            shrinkWrap: true,
+            primary: false,
+            padding: const EdgeInsets.only(bottom: 16),
+            children: [
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: SegmentedButton<String>(
+                  showSelectedIcon: false,
+                  segments: [
+                    ButtonSegment(
+                      value: 'grid',
+                      icon: const Icon(Icons.grid_view_rounded),
+                      label: SelectionContainer.disabled(child: Text(tr('网格'))),
+                    ),
+                    ButtonSegment(
+                      value: 'list',
+                      icon: const Icon(Icons.view_list_rounded),
+                      label: SelectionContainer.disabled(child: Text(tr('列表'))),
+                    ),
+                  ],
+                  selected: {s.libraryDisplay},
+                  onSelectionChanged: (v) => s.libraryDisplay = v.first,
+                ),
+              ),
+              CheckboxListTile(
+                value: s.badgeUnread,
+                title: SelectionContainer.disabled(child: Text(tr('未读数徽标'))),
+                onChanged: (v) => s.badgeUnread = v ?? true,
+              ),
+              CheckboxListTile(
+                value: s.badgeDownloaded,
+                title: SelectionContainer.disabled(child: Text(tr('已下载徽标'))),
+                onChanged: (v) => s.badgeDownloaded = v ?? true,
+              ),
+              CheckboxListTile(
+                value: s.badgeSource,
+                title: SelectionContainer.disabled(child: Text(tr('站点图标'))),
+                onChanged: (v) => s.badgeSource = v ?? true,
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }

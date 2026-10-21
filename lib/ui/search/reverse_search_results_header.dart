@@ -109,7 +109,7 @@ class ReverseSearchResultsHeader extends StatelessWidget {
         if (controller.failedSources.isNotEmpty)
           Align(
             alignment: AlignmentDirectional.centerStart,
-            child: TextButton.icon(
+            child: OutlinedButton.icon(
               onPressed: () => _showFailures(context),
               icon: const Icon(Icons.info_outline, size: 18),
               label: Text(

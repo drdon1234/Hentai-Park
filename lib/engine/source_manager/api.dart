@@ -601,6 +601,7 @@ mixin _SourceApi on _SourceRegistry {
     CancelToken? cancelToken,
   }) async {
     if (cancelToken?.cancelError case final error?) throw error;
+    if (sources.isEmpty) return sources;
     final sourceManifest = manifest(key);
     if (sourceManifest == null) throw SourceError('CONFIG', '视频站点未加载');
     // 磁盘地址与新接口结果都必须服从当前插件的媒体权限。

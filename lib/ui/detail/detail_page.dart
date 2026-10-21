@@ -288,42 +288,38 @@ class _DetailPageState extends State<DetailPage> {
                 detail: _detail,
                 manifest: _m,
                 coverHeroTag: widget.coverHeroTag,
-                body: [
-                  if (_refreshing && _detail != null)
-                    const SliverToBoxAdapter(child: LoadingIndicator()),
+                overview: [
+                  if (_refreshing && _detail != null) const LoadingIndicator(),
                   if (_error != null)
-                    SliverToBoxAdapter(
-                      child: SourceErrorView(
-                        error: _error!,
-                        source: widget.source,
-                        onRetry: _load,
-                        compact: true,
-                      ),
+                    SourceErrorView(
+                      error: _error!,
+                      source: widget.source,
+                      onRetry: _load,
+                      compact: true,
                     ),
-                  SliverToBoxAdapter(
-                    child: DetailActionBar(
-                      item: _item,
-                      detail: _detail,
-                      kind: _kind,
-                      allowDownload: !_isLive,
-                      onPrimary: _opensExternally && !_canOpenOriginal
-                          ? null
-                          : _continue,
-                      onDownload: () => downloadWork(
-                        context,
-                        _detail,
-                        _item,
-                        isVideo: _isVideo,
-                      ),
-                      onMore: () => _more(context),
+                  DetailActionBar(
+                    item: _item,
+                    detail: _detail,
+                    kind: _kind,
+                    allowDownload: !_isLive,
+                    onPrimary: _opensExternally && !_canOpenOriginal
+                        ? null
+                        : _continue,
+                    onDownload: () => downloadWork(
+                      context,
+                      _detail,
+                      _item,
+                      isVideo: _isVideo,
                     ),
+                    onMore: () => _more(context),
                   ),
                   if (_detail != null)
-                    ..._body(context, _detail!)
+                    ..._overview(context, _detail!)
                   else if (_error == null)
-                    SliverToBoxAdapter(
-                      child: DetailBodySkeleton(source: widget.source),
-                    ),
+                    DetailBodySkeleton(source: widget.source),
+                ],
+                body: [
+                  if (_detail != null) ..._body(context, _detail!),
                   const SliverToBoxAdapter(child: SizedBox(height: Gap.xxl)),
                 ],
               ),
@@ -427,6 +423,10 @@ class _DetailPageState extends State<DetailPage> {
               'count': chapters.length,
               'unread': unread > 0 ? tr('（未读 {count}）', {'count': unread}) : '',
             }),
+      padding: const EdgeInsets.symmetric(
+        horizontal: Gap.page,
+        vertical: Gap.m,
+      ),
       trailing: TextButton(
         onPressed: () => setState(() => _reversed = !_reversed),
         child: SelectionContainer.disabled(
@@ -436,6 +436,30 @@ class _DetailPageState extends State<DetailPage> {
     );
   }
 
+  List<Widget> _overview(BuildContext context, WorkDetail d) {
+    final blocked = TagBlocklist.current().matchDetail(d);
+    return [
+      if (_m?.can('interaction') == true)
+        Padding(
+          padding: const EdgeInsets.fromLTRB(Gap.page, Gap.m, Gap.page, 0),
+          child: OutlinedButton.icon(
+            onPressed: () =>
+                showSourceInteraction(context, d, sourceManager: _manager),
+            icon: const Icon(Icons.thumb_up_outlined),
+            label: Text(tr('原站互动')),
+          ),
+        ),
+      if (d.variants.isNotEmpty || d.workCode.isNotEmpty)
+        DetailVersions(work: d, manifest: _m),
+      if (blocked.isNotEmpty) BlockedNotice(tags: blocked),
+      if (d.description.isNotEmpty) ExpandableDescription(text: d.description),
+      if (d.tagGroups.isNotEmpty ||
+          d.authors.isNotEmpty ||
+          d.uploader.isNotEmpty)
+        TagSection(detail: d, source: widget.source),
+    ];
+  }
+
   List<Widget> _body(BuildContext context, WorkDetail d) {
     final isVideo = _isVideo;
     final chapters = _opensExternally || _webVideo || _isGame || _isLive
@@ -443,42 +467,15 @@ class _DetailPageState extends State<DetailPage> {
         : isVideo && d.hasVideoEpisodes
         ? d.videoEpisodes
         : d.chapters;
-    final blocked = TagBlocklist.current().matchDetail(d);
     final ordered = chapters == null
         ? null
         : (_reversed ? chapters.reversed.toList() : chapters);
     final current = Library.instance.historyOf(d.uid)?.chapterId;
     final isNovel = _m?.isNovel == true || d.isNovel;
     return [
-      if (_m?.can('interaction') == true)
-        SliverToBoxAdapter(
-          child: Align(
-            alignment: AlignmentDirectional.centerEnd,
-            child: TextButton.icon(
-              onPressed: () =>
-                  showSourceInteraction(context, d, sourceManager: _manager),
-              icon: const Icon(Icons.thumb_up_outlined),
-              label: Text(tr('原站互动')),
-            ),
-          ),
-        ),
-      if (d.variants.isNotEmpty || d.workCode.isNotEmpty)
-        SliverToBoxAdapter(
-          child: DetailVersions(work: d, manifest: _m),
-        ),
-      if (blocked.isNotEmpty)
-        SliverToBoxAdapter(child: BlockedNotice(tags: blocked)),
-      if (d.description.isNotEmpty)
-        SliverToBoxAdapter(child: ExpandableDescription(text: d.description)),
       if (_isGame)
         SliverToBoxAdapter(
           child: GameResources(key: _resourcesKey, work: d),
-        ),
-      if (d.tagGroups.isNotEmpty ||
-          d.authors.isNotEmpty ||
-          d.uploader.isNotEmpty)
-        SliverToBoxAdapter(
-          child: TagSection(detail: d, source: widget.source),
         ),
       if (d.hasNoChapters && !isVideo && !_isGame && !_opensExternally)
         SliverToBoxAdapter(

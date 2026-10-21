@@ -129,7 +129,7 @@ class _DomainChipState extends State<_DomainChip> {
                 ? colors.primary
                 : colors.onSurfaceVariant,
             side: BorderSide(
-              color: widget.selected ? colors.primary : colors.outlineVariant,
+              color: widget.selected ? colors.primary : colors.outline,
             ),
             shape: const RoundedRectangleBorder(borderRadius: Radii.small),
             minimumSize: const Size(0, 48),

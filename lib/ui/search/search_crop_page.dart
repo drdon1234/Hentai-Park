@@ -97,7 +97,7 @@ class _SearchCropPageState extends State<SearchCropPage> {
               spacing: Gap.m,
               runSpacing: Gap.s,
               children: [
-                TextButton(
+                OutlinedButton(
                   onPressed: () =>
                       setState(() => _crop = const Rect.fromLTWH(0, 0, 1, 1)),
                   child: SelectionContainer.disabled(child: Text(tr('重置'))),

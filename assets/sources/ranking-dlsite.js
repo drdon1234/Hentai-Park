@@ -1,5 +1,5 @@
 Park.register({
-  key: 'ranking-dlsite', name: 'DLsite', version: '0.0.1',
+  key: 'ranking-dlsite', name: 'DLsite', version: '0.0.2', minAppVersion: '0.9.2',
   type: 'comic', category: 'doujin', rankingOnly: true,
   description: '官方销量榜', homepage: 'https://www.dlsite.com/',
   domains: ['dlsite.com', 'dlsite.jp'], network: { vpnHint: true },
