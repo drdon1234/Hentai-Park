@@ -1,4 +1,4 @@
-/* 页面与 API 分别使用自己的同源浏览器会话，媒体走原生 MP4。 */
+/* 读取站点页面提供的推荐数据，媒体走原生传输。 */
 Park.register({
   i18n: {
     "zh-Hant": {"竖屏短视频推荐，支持连续播放和搜索": "直式短影片推薦，支援連續播放和搜尋"},
@@ -9,7 +9,7 @@ Park.register({
     "ru": {"竖屏短视频推荐，支持连续播放和搜索": "Рекомендации вертикальных видео с непрерывным просмотром и поиском"},
     "ar": {"竖屏短视频推荐，支持连续播放和搜索": "اقتراحات مقاطع عمودية تدعم التشغيل المتواصل والبحث"},
   },
-  key: 'tikporn', name: 'Tik.porn', version: '0.0.5', type: 'video', category: 'shortvideo',
+  key: 'tikporn', name: 'Tik.porn', version: '0.0.6', type: 'video', category: 'shortvideo',
   color: '#FF427B', description: '竖屏短视频推荐，支持连续播放和搜索', language: 'en',
   homepage: 'https://tik.porn/', domains: ['tik.porn'],
   network: {mode: 'browser', origin: 'https://tik.porn', vpnHint: true},
@@ -18,7 +18,7 @@ Park.register({
   media: {mode: 'native', origin: 'https://tik.porn', domains: ['video-cdn.tik.porn']},
   idPattern: '^[1-9]\\d{0,11}$', linkPatterns: ['tik\\.porn/video/([1-9]\\d{0,11})(?:[/?#]|$)'],
   defaultFeed: 'recommend', feeds: [{key: 'recommend', label: '推荐'}], searchHint: '搜索作品名或标签',
-  BASE: 'https://tik.porn', API: 'https://apiv2.tik.porn',
+  BASE: 'https://tik.porn',
   validId(value) {
     const id = String(value);
     if (!/^[1-9]\d{0,11}$/.test(id)) throw Park.error('NOT_FOUND', '影片编号无效');
@@ -51,8 +51,8 @@ Park.register({
       duration: v.duration ? String(v.duration) : undefined, likes: Number(v.likes ?? v.like_count) || null,
       views: Number(v.views ?? v.view_count) || null};
   },
-  cursor(ids, recommId) {
-    return JSON.stringify({ids: [...new Set(ids)].slice(-200), recommId: typeof recommId === 'string' && recommId.length <= 128 ? recommId : null});
+  cursor(ids, next) {
+    return JSON.stringify({ids: [...new Set(ids)].slice(-200), next: this.validId(next)});
   },
   async feed(key, req = {}) {
     if (key !== 'recommend') throw Park.error('CONFIG', '未知视频列表');
@@ -60,30 +60,21 @@ Park.register({
     if (!req.cursor) {
       const p = await this.page('/'), videos = p.videos?.data;
       if (!Array.isArray(videos)) throw Park.error('PARSE', '短视频数据解析失败');
-      const items = videos.map(v => this.item(v)).filter(Boolean);
+      const rows = [...videos, ...(Array.isArray(p.initialRelatedVideos?.data) ? p.initialRelatedVideos.data : [])];
+      const items = [...new Map(rows.map(v => this.item(v)).filter(Boolean).map(v => [v.id, v])).values()];
       if (!items.length) throw Park.error('PARSE', '短视频数据解析失败');
-      const first = {items, page, hasNext: true, cursor: this.cursor(items.map(v => v.id), videos[0]?.recommId)};
-      // SSR 只负责首个可播放作品；首屏还需要与原站一致地读取推荐批次。
-      if (items.length >= 10) return first;
-      const next = await this.feed(key, {page, cursor: first.cursor});
-      return {...next, page, items: [...new Map([...items, ...next.items].map(v => [v.id, v])).values()]};
+      return {items, page, hasNext: true, cursor: this.cursor(items.map(v => v.id), items[items.length - 1].id)};
     }
     let c;
     try { c = JSON.parse(req.cursor); } catch (_) { throw Park.error('CONFIG', '短视频分页数据无效'); }
     if (!c || !Array.isArray(c.ids) || !c.ids.length || c.ids.length > 200
       || c.ids.some(id => typeof id !== 'string' || !/^[1-9]\d{0,11}$/.test(id))
-      || c.recommId != null && (typeof c.recommId !== 'string' || c.recommId.length > 128)) throw Park.error('CONFIG', '短视频分页数据无效');
-    const r = await this.http.post(this.API + '/getnextvideos', {
-      origin: this.API, timeout: 30000,
-      json: {amount: 10, filter: c.ids.map(Number), sfw_mode: 0, forcerand: false, first_chunk: false, recomm_id: c.recommId || null},
-    });
-    if (!r.ok) throw Park.error('HTTP', '短视频请求失败');
-    if (new URL(r.url || this.API + '/getnextvideos').origin !== this.API || r.body.length > 4 * 1024 * 1024) throw Park.error('PARSE', '短视频数据解析失败');
-    let data;
-    try { data = JSON.parse(r.body); } catch (_) { throw Park.error('PARSE', '短视频数据解析失败'); }
-    if (data.code !== 200 || !Array.isArray(data.data)) throw Park.error('PARSE', '短视频数据解析失败');
-    const items = data.data.map(v => this.item(v)).filter(Boolean), hasNext = data.data.length > 0;
-    return {items, page, hasNext, cursor: hasNext ? this.cursor([...c.ids, ...items.map(i => i.id)], data.extradata?.recommId) : undefined};
+      || typeof c.next !== 'string' || !c.ids.includes(c.next)) throw Park.error('CONFIG', '短视频分页数据无效');
+    const p = await this.page('/video/' + this.validId(c.next)), rows = p.initialRelatedVideos?.data;
+    if (!Array.isArray(rows)) throw Park.error('PARSE', '短视频数据解析失败');
+    const items = [...new Map(rows.map(v => this.item(v)).filter(v => v && !c.ids.includes(v.id)).map(v => [v.id, v])).values()];
+    const hasNext = items.length > 0;
+    return {items, page, hasNext, cursor: hasNext ? this.cursor([...c.ids, ...items.map(i => i.id)], items[items.length - 1].id) : undefined};
   },
   async search(req = {}) {
     const keyword = String(req.keyword || '').trim(), page = Math.max(1, Math.floor(Number(req.page) || 1));
@@ -113,15 +104,17 @@ Park.register({
     try {
       const u = new URL(value);
       return u.protocol === 'https:' && u.hostname === 'video-cdn.tik.porn' && !u.port && !u.username && !u.password && !u.hash
-        && /\.mp4$/i.test(u.pathname) ? u.href : null;
+        && /\.(?:mp4|m3u8)$/i.test(u.pathname) ? u.href : null;
     } catch (_) { return null; }
   },
   async videos(id) {
     const v = await this.video(id), result = [];
-    for (const s of [v.source, ...(v.sources || [])]) {
-      const url = s?.type === 'video/mp4' && this.mediaUrl(s.src);
-      if (url && !result.some(s => s.url === url)) result.push({url, quality: 0, label: '原画', format: 'mp4',
-        headers: {Referer: this.BASE + '/'}, preferred: true});
+    for (const s of [v.source, ...(Array.isArray(v.sources) ? v.sources : [])]) {
+      const url = this.mediaUrl(s?.src);
+      if (!url || result.some(s => s.url === url)) continue;
+      const format = /\.m3u8$/i.test(new URL(url).pathname) ? 'hls' : 'mp4';
+      result.push({url, quality: 0, label: '原画', format,
+        headers: {Referer: this.BASE + '/'}, preferred: result.length === 0});
     }
     if (!result.length) throw Park.error('UNSUPPORTED', '此影片暂无可用播放地址');
     return result;

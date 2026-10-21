@@ -59,7 +59,7 @@
     {
       "key": "yandere",
       "name": "yande.re",
-      "version": "0.0.4",
+      "version": "0.0.5",
       "type": "comic",
       "category": "illustration",
       "file": "yandere.js",
@@ -68,7 +68,7 @@
     {
       "key": "gelbooru",
       "name": "Gelbooru",
-      "version": "0.0.4",
+      "version": "0.0.5",
       "type": "comic",
       "category": "illustration",
       "file": "gelbooru.js",
@@ -149,7 +149,7 @@
     {
       "key": "iwara",
       "name": "Iwara",
-      "version": "0.0.2",
+      "version": "0.0.3",
       "type": "video",
       "category": "anime",
       "file": "iwara.js",
@@ -158,7 +158,7 @@
     {
       "key": "hentaihaven",
       "name": "HentaiHaven",
-      "version": "0.0.1",
+      "version": "0.0.2",
       "type": "video",
       "category": "anime",
       "file": "hentaihaven.js",
@@ -185,7 +185,7 @@
     {
       "key": "av123",
       "name": "123AV",
-      "version": "0.0.9",
+      "version": "0.0.10",
       "type": "video",
       "category": "jav",
       "file": "av123.js",
@@ -311,7 +311,7 @@
     {
       "key": "fansly",
       "name": "Fansly",
-      "version": "0.0.3",
+      "version": "0.0.4",
       "type": "video",
       "category": "shortvideo",
       "file": "fansly.js",
@@ -320,7 +320,7 @@
     {
       "key": "tikporn",
       "name": "Tik.porn",
-      "version": "0.0.5",
+      "version": "0.0.6",
       "type": "video",
       "category": "shortvideo",
       "file": "tikporn.js",
@@ -338,7 +338,7 @@
     {
       "key": "soop_shortvideo",
       "name": "SOOP 短视频",
-      "version": "0.0.1",
+      "version": "0.0.2",
       "type": "video",
       "category": "shortvideo",
       "file": "soop_shortvideo.js",
@@ -392,7 +392,7 @@
     {
       "key": "soop_recording",
       "name": "SOOP 录播",
-      "version": "0.0.1",
+      "version": "0.0.2",
       "type": "video",
       "category": "recording",
       "file": "soop_recording.js",
@@ -679,7 +679,7 @@
     {
       "key": "galgamex",
       "name": "GalgameX",
-      "version": "0.0.7",
+      "version": "0.0.8",
       "type": "game",
       "category": "game",
       "file": "galgamex.js",
@@ -688,7 +688,7 @@
     {
       "key": "cycg",
       "name": "次元茶馆",
-      "version": "0.0.6",
+      "version": "0.0.7",
       "type": "game",
       "category": "game",
       "file": "cycg.js",

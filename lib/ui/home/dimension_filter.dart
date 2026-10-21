@@ -31,7 +31,11 @@ class DimensionFilter extends StatelessWidget {
           ),
         ),
         segments: [
-          for (final dimension in ContentDimension.values)
+          for (final dimension in const [
+            ContentDimension.all,
+            ContentDimension.twoD,
+            ContentDimension.threeD,
+          ])
             ButtonSegment(
               value: dimension,
               label: SelectionContainer.disabled(child: Text(dimension.label)),

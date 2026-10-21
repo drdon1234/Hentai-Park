@@ -3,9 +3,9 @@ Park.register({
   i18n: {
     "zh-Hant": {"成人插画图库，支持评分排序、搜索与原图": "成人插畫圖庫，支援評分排序、搜尋與原圖"}, ja: {"成人插画图库，支持评分排序、搜索与原图": "成人イラストギャラリー。評価順・検索・原寸画像に対応"}, ko: {"成人插画图库，支持评分排序、搜索与原图": "성인 일러스트 갤러리, 점수순 정렬·검색·원본 이미지 지원"}, en: {"成人插画图库，支持评分排序、搜索与原图": "Adult illustration gallery with score sorting, search and originals"}, es: {"成人插画图库，支持评分排序、搜索与原图": "Galería de ilustraciones para adultos con puntuación, búsqueda y originales"}, ru: {"成人插画图库，支持评分排序、搜索与原图": "Галерея иллюстраций для взрослых с рейтингом, поиском и оригиналами"}, ar: {"成人插画图库，支持评分排序、搜索与原图": "معرض رسوم للبالغين مع الترتيب والبحث والصور الأصلية"},
   },
-  key: 'yandere', name: 'yande.re', version: '0.0.4', type: 'comic', category: 'illustration', language: 'en', color: '#6b7ea8',
+  key: 'yandere', name: 'yande.re', version: '0.0.5', type: 'comic', category: 'illustration', language: 'en', color: '#6b7ea8',
   homepage: 'https://yande.re/', description: '成人插画图库，支持评分排序、搜索与原图', domains: ['yande.re'], network: {mode: 'native', vpnHint: true},
-  imageNetwork: {mode: 'browser', origin: 'https://yande.re', domains: ['yande.re']}, imageHeaders: {Referer: 'https://yande.re/'},
+  imageHeaders: {Referer: 'https://yande.re/'},
   idPattern: '^\\d{1,12}$', defaultFeed: 'popular', feeds: [{key: 'popular', label: '热门', options: [
     {key: 'rating', label: '站点分级', default: 'safe', values: [{value: '', label: '全部'}, {value: 'safe', label: 'Safe'}, {value: 'questionable', label: 'Questionable'}, {value: 'explicit', label: 'Explicit'}]},
     {key: 'sort', label: '排序', default: 'score', values: [{value: 'score', label: '评分'}, {value: 'date', label: '最新'}]},

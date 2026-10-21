@@ -102,7 +102,7 @@ Park.register({
   "key": "soop_shortvideo",
   "name": "SOOP 短视频",
   "description": "韩国性感舞蹈与比基尼短视频，按原站标签筛选",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "type": "video",
   "category": "shortvideo",
   "FILE_TYPE": "CATCH"
@@ -206,7 +206,7 @@ Park.register({
   parts(data) {
     if (!data.files.length || data.files.some(file => file?.hide !== 'N')) throw Park.error('UNSUPPORTED', '视频暂不可播放');
     const parts = data.files.map(file => {
-      const id = String(file.file_info_key || '');
+      const id = String(file.file_info_key || (Number.isSafeInteger(Number(file.idx)) && Number(file.idx) > 0 ? file.idx : ''));
       if (!/^[A-Za-z0-9_-]{1,128}$/.test(id) || !Number.isInteger(Number(file.file_order)) || Number(file.file_order) < 1) throw Park.error('PARSE', '视频数据无效');
       return {id, order: Number(file.file_order), file};
     }).sort((a, b) => a.order - b.order);

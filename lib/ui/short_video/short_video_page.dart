@@ -545,46 +545,77 @@ class _ShortVideoPageState extends State<ShortVideoPage>
                     constraints: BoxConstraints(
                       maxHeight: MediaQuery.sizeOf(context).height * .32,
                     ),
-                    child: SingleChildScrollView(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          GestureDetector(
-                            onLongPress: () => showWorkActions(context, item),
-                            onSecondaryTap: PlatformCapabilities.desktop
-                                ? () => showWorkActions(context, item)
-                                : null,
-                            onTap: active
-                                ? () => setState(() => _expanded = !_expanded)
-                                : null,
-                            child: ContentTranslation(
-                              text: item.title,
-                              source: item.source,
-                              builder: (value) => Text(
-                                value,
-                                maxLines: active && _expanded ? null : 3,
-                                overflow: active && _expanded
-                                    ? null
-                                    : TextOverflow.ellipsis,
-                                style: context.text.titleMedium?.copyWith(
-                                  color: Colors.white,
-                                  shadows: const [Shadow(blurRadius: 5)],
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Flexible(
+                          child: SingleChildScrollView(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                GestureDetector(
+                                  onLongPress: () =>
+                                      showWorkActions(context, item),
+                                  onSecondaryTap: PlatformCapabilities.desktop
+                                      ? () => showWorkActions(context, item)
+                                      : null,
+                                  onTap: active
+                                      ? () => setState(
+                                          () => _expanded = !_expanded,
+                                        )
+                                      : null,
+                                  child: ContentTranslation(
+                                    text: item.title,
+                                    source: item.source,
+                                    builder: (value) => Text(
+                                      value,
+                                      maxLines: active && _expanded ? null : 3,
+                                      overflow: active && _expanded
+                                          ? null
+                                          : TextOverflow.ellipsis,
+                                      style: context.text.titleMedium?.copyWith(
+                                        color: Colors.white,
+                                        shadows: const [Shadow(blurRadius: 5)],
+                                      ),
+                                    ),
+                                  ),
                                 ),
-                              ),
+                                if (item.subtitle.isNotEmpty)
+                                  ContentTranslation(
+                                    text: item.subtitle,
+                                    source: item.source,
+                                    builder: (value) => Text(
+                                      value,
+                                      maxLines: active && _expanded ? null : 2,
+                                      overflow: active && _expanded
+                                          ? null
+                                          : TextOverflow.ellipsis,
+                                      style: const TextStyle(
+                                        color: Colors.white70,
+                                      ),
+                                    ),
+                                  ),
+                              ],
                             ),
                           ),
-                          if (item.subtitle.isNotEmpty)
-                            ContentTranslation(
-                              text: item.subtitle,
-                              source: item.source,
-                              builder: (value) => Text(
-                                value,
-                                style: const TextStyle(color: Colors.white70),
-                              ),
+                        ),
+                        if (active)
+                          TextButton.icon(
+                            style: TextButton.styleFrom(
+                              foregroundColor: Scrims.onScrim,
                             ),
-                        ],
-                      ),
+                            onPressed: () =>
+                                setState(() => _expanded = !_expanded),
+                            icon: Icon(
+                              _expanded
+                                  ? Icons.expand_less_rounded
+                                  : Icons.expand_more_rounded,
+                            ),
+                            label: Text(tr(_expanded ? '收起简介' : '展开简介')),
+                          ),
+                      ],
                     ),
                   ),
                 ),

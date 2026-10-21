@@ -116,53 +116,44 @@ class _SourceSettingsPageState extends State<SourceSettingsPage> {
                 ),
                 body: SettingsBody(
                   child: ListView(
-                    padding: const EdgeInsets.fromLTRB(0, 4, 0, 32),
+                    padding: const EdgeInsets.only(bottom: Gap.xxl),
                     children: [
-                      RowGroup(
-                        children: [
-                          ListTile(
-                            title: SelectionContainer.disabled(
-                              child: Text(m.description),
-                            ),
-                            subtitle: SelectionContainer.disabled(
-                              child: Text(
-                                'v${m.version} · ${context.tr(s.origin == 'official'
-                                    ? '官方'
-                                    : s.origin == 'builtin'
-                                    ? '内置站点'
-                                    : '第三方站点')}${m.homepage.isNotEmpty ? ' · ${Uri.parse(m.homepage).host}' : ''}',
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(
+                          Gap.page,
+                          Gap.m,
+                          Gap.page,
+                          Gap.s,
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(m.description, style: context.text.bodyLarge),
+                            const SizedBox(height: Gap.s),
+                            Text(
+                              'v${m.version} · ${context.tr(s.origin == 'official'
+                                  ? '官方'
+                                  : s.origin == 'builtin'
+                                  ? '内置站点'
+                                  : '第三方站点')}',
+                              style: context.text.bodySmall?.copyWith(
+                                color: context.colors.onSurfaceVariant,
                               ),
                             ),
-                            trailing: m.homepage.isEmpty
-                                ? null
-                                : SelectionContainer.disabled(
-                                    child: IconButton(
-                                      tooltip: tr('在浏览器中打开'),
-                                      icon: const Icon(
-                                        Icons.open_in_new_rounded,
-                                      ),
-                                      onPressed: () => launchUrl(
-                                        Uri.parse(m.homepage),
-                                        mode: LaunchMode.externalApplication,
-                                      ),
-                                    ),
-                                  ),
-                          ),
-                        ],
-                      ),
-                      RowGroup(
-                        children: [
-                          ListTile(
-                            leading: const Icon(Icons.translate_rounded),
-                            title: SelectionContainer.disabled(
-                              child: Text(context.tr('官方标签翻译包')),
-                            ),
-                            onTap: () => showTagTranslationPacks(
-                              context,
-                              source: widget.sourceKey,
-                            ),
-                          ),
-                        ],
+                            if (m.homepage.isNotEmpty)
+                              TextButton.icon(
+                                onPressed: () => launchUrl(
+                                  Uri.parse(m.homepage),
+                                  mode: LaunchMode.externalApplication,
+                                ),
+                                icon: const Icon(
+                                  Icons.open_in_new_rounded,
+                                  size: 18,
+                                ),
+                                label: Text(Uri.parse(m.homepage).host),
+                              ),
+                          ],
+                        ),
                       ),
                       if (m.account != null) ...[
                         _header(context, context.tr('账号')),
@@ -176,6 +167,20 @@ class _SourceSettingsPageState extends State<SourceSettingsPage> {
                           ],
                         ),
                       ],
+                      RowGroup(
+                        title: context.tr('翻译'),
+                        children: [
+                          ListTile(
+                            leading: const Icon(Icons.translate_rounded),
+                            title: Text(context.tr('官方标签翻译包')),
+                            trailing: const Icon(Icons.chevron_right_rounded),
+                            onTap: () => showTagTranslationPacks(
+                              context,
+                              source: widget.sourceKey,
+                            ),
+                          ),
+                        ],
+                      ),
                       _header(context, context.tr('网络')),
                       RowGroup(
                         children: [
@@ -308,12 +313,11 @@ class _SourceSettingsPageState extends State<SourceSettingsPage> {
   }
 
   Widget _header(BuildContext context, String title) => Padding(
-    padding: const EdgeInsets.fromLTRB(Gap.page, 20, Gap.page, 6),
+    padding: const EdgeInsets.fromLTRB(Gap.page, Gap.xl, Gap.page, Gap.xs),
     child: Text(
       title,
       style: context.text.labelLarge?.copyWith(
-        color: context.colors.primary,
-        fontWeight: FontWeight.w600,
+        color: context.colors.onSurfaceVariant,
       ),
     ),
   );

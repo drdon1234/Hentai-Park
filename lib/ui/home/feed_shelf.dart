@@ -127,7 +127,9 @@ class _FeedShelfState extends State<FeedShelf>
       }
       if (!session.initialized) {
         unawaited(session.loadMore());
-      } else if (_fillRequests < 3 &&
+      } else if (widget.sessions.sources.manifest(widget.sourceKey)?.isNovel !=
+              true &&
+          _fillRequests < 3 &&
           (!_scroll.hasClients ||
               (_scroll.position.hasContentDimensions &&
                   _scroll.position.extentAfter <
@@ -236,21 +238,16 @@ class _FeedShelfState extends State<FeedShelf>
     } else if (items.isEmpty) {
       body = _ShelfMessage(message: tr('暂时没有内容'), onRetry: _loadMore);
     } else if (novel) {
-      // 文字卡片使用自然高度，长标题和大字体不裁切，也能向右连续浏览。
-      body = _horizontal(
-        SingleChildScrollView(
-          controller: _scroll,
-          scrollDirection: Axis.horizontal,
-          padding: const EdgeInsets.only(bottom: Gap.m),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              for (final item in items)
-                SizedBox(width: 320, child: WorkTextRow(item: item)),
-              if (more) _tail(session),
-            ],
-          ),
-        ),
+      final preview = widget.onMore == null ? items : items.take(3).toList();
+      body = Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          for (var i = 0; i < preview.length; i++) ...[
+            if (i > 0) const Divider(indent: Gap.page, endIndent: Gap.page),
+            WorkTextRow(item: preview[i]),
+          ],
+          if (more && widget.onMore == null) _tail(session),
+        ],
       );
     } else {
       final aspect = gridAspectFor(items, manifest?.kind ?? MediaKind.comic);

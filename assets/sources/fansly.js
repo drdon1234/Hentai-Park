@@ -99,7 +99,7 @@ Park.register({
       "此视频暂无可用播放地址": "لا يتوفر رابط تشغيل لهذا الفيديو"
     }
   },
-  key: 'fansly', name: 'Fansly', version: '0.0.3', type: 'video', category: 'shortvideo',
+  key: 'fansly', name: 'Fansly', version: '0.0.4', type: 'video', category: 'shortvideo',
   color: '#00AFF0', description: '匿名可看公开短视频；敏感内容需登录', language: 'en',
   homepage: 'https://fansly.com/explore/foryou', domains: ['fansly.com'],
   network: {mode: 'native', vpnHint: true},
@@ -255,11 +255,11 @@ Park.register({
   },
   account: {type: 'cookies', title: '登录 Fansly', hint: '在 Fansly 网页完成登录后返回应用；敏感内容仍由 Fansly 权限控制。',
     loginUrl: 'https://fansly.com/', cookieUrl: 'https://fansly.com/', requiredCookies: [],
-    loginDomains: ['api.twitter.com', 'x.com', 'accounts.google.com', 'id.twitch.tv', 'www.twitch.tv'],
-    localStorageKeys: ['fansly_active_session'],
+    loginDomains: ['twitter.com', 'x.com', 'accounts.google.com', 'id.twitch.tv', 'www.twitch.tv'],
+    localStorageKeys: ['session_active_session'],
     async login(values) {
       let session;
-      try { session = JSON.parse(String(values?.fansly_active_session || '')); } catch (_) { session = null; }
+      try { session = JSON.parse(String(values?.session_active_session || '')); } catch (_) { session = null; }
       const token = typeof session?.token === 'string' ? session.token.trim() : '';
       if (!token || token.length > 4096) throw Park.error('LOGIN_REQUIRED', '请先登录 Fansly 后查看此内容');
       const previous = this.store.get('fanslyToken');
@@ -267,6 +267,7 @@ Park.register({
       try {
         const status = await this.account.status.call(this);
         if (!status.loggedIn) throw Park.error('LOGIN_REQUIRED', '请先登录 Fansly 后查看此内容');
+        this.store.set('media', {});
         return {name: status.name};
       } catch (error) {
         this.store.set('fanslyToken', previous || null);

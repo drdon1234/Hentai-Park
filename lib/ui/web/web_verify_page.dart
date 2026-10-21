@@ -458,6 +458,13 @@ class _WebVerifyPageState extends State<WebVerifyPage> {
                     shouldOverrideUrlLoading: (_, action) {
                       final url = action.request.url?.toString();
                       final uri = Uri.tryParse(url ?? '');
+                      // 第三方登录按钮会创建继承父页来源的空白 iframe。
+                      if (!_sessionClosed &&
+                          !widget.confirmation &&
+                          !action.isForMainFrame &&
+                          url == 'about:blank') {
+                        return NavigationActionPolicy.ALLOW;
+                      }
                       if (!_sessionClosed &&
                           uri != null &&
                           challengeFrameNavigationAllowed(

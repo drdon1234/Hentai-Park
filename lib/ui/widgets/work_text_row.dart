@@ -48,7 +48,14 @@ class WorkTextRow extends StatelessWidget {
                 ContentTranslation(
                   text: item.subtitle,
                   source: item.source,
-                  builder: (text) => Text(text, style: context.text.bodyMedium),
+                  builder: (text) => Text(
+                    text,
+                    maxLines: 3,
+                    overflow: TextOverflow.ellipsis,
+                    style: context.text.bodyMedium?.copyWith(
+                      color: context.colors.onSurfaceVariant,
+                    ),
+                  ),
                 ),
               ],
               if (showSource ||

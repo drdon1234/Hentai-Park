@@ -6,6 +6,7 @@ import '../../core/models.dart';
 import '../../engine/source_manager.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
+import '../widgets/expandable_description.dart';
 import '../widgets/paged_grid.dart';
 import '../widgets/related_works.dart';
 import 'video_gestures.dart';
@@ -309,9 +310,9 @@ class VideoDetails extends StatelessWidget {
           ),
         if (showRelated && d.description.isNotEmpty)
           SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.all(Gap.page),
-              child: SelectableText(d.description),
+            child: ExpandableDescription(
+              key: ValueKey(d.uid),
+              text: d.description,
             ),
           ),
         if (showRelated && d.series.isNotEmpty)
