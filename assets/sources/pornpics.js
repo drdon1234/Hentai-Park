@@ -9,14 +9,68 @@ Park.register({
     "ru": {"国际写真图集，支持评分榜、热门、搜索与整套原图阅读": "Фотогалереи: рейтинг, популярное, поиск и просмотр всех оригиналов", "图集列表解析失败": "Не удалось разобрать список галерей", "图集地址无效": "Недопустимый адрес галереи"},
     "ar": {"国际写真图集，支持评分榜、热门、搜索与整套原图阅读": "معارض صور مع التقييم والشائع والبحث وعرض جميع الصور الأصلية", "图集列表解析失败": "تعذر تحليل قائمة المعارض", "图集地址无效": "عنوان المعرض غير صالح"},
   },
-  key: 'pornpics', name: 'PornPics', version: '0.0.5', type: 'comic', category: 'gallery',
+  key: 'pornpics', name: 'PornPics', version: '0.0.7', type: 'comic', category: 'gallery',
   language: 'en', color: '#F16E24', homepage: 'https://www.pornpics.com',
   description: '国际写真图集，支持评分榜、热门、搜索与整套原图阅读',
   domains: ['pornpics.com'], network: {mode: 'native', vpnHint: true},
   imageHeaders: {Referer: 'https://www.pornpics.com/'},
-  defaultFeed: 'rating', feeds: [{key: 'rating', label: '排行'}, {key: 'popular', label: '热门'}],
+  defaultFeed: 'rating', feeds: [{key: 'rating', label: '排行'}, {key: 'popular', label: '热门'},
+    {key: 'categories', label: '分类', options: [{key: 'category', label: '分类', type: 'select', default: '', dynamic: true, values: []}]}],
   linkPatterns: ['pornpics\\.com/(?:[a-z]{2}/)?galleries/([a-z0-9-]+-\\d+)/'],
   idPattern: '^[a-z0-9-]+-\\d{1,12}$',
+  // __CATALOG_START__：由 tools/build_catalog_sources.mjs 生成。
+  async categoryDirectory() {
+    if (this._categoryDirectory && Date.now() - this._categoryDirectory.time < 120000) return this._categoryDirectory.values;
+    const config = {"home":"/","leaf":"^/[a-z0-9][a-z0-9-]*/$","selector":"#tiles a.rel-link[href]","pageMethod":"page","absolute":true,"listMethod":"categoryListing"}, leaf = new RegExp(config.leaf), index = config.index ? new RegExp(config.index) : null;
+    const values = new Map(), indexes = new Set(), origin = new URL(this.BASE).origin;
+    const page = path => this[config.pageMethod || 'getPage']((config.absolute ? this.BASE : '') + path);
+    const collect = doc => {
+      for (const a of doc.querySelectorAll(config.selector || 'a[href]')) {
+        let u;
+        try { u = new URL(a.getAttribute('href'), this.BASE); } catch (_) { continue; }
+        if (u.origin !== origin || u.username || u.password || u.search || u.hash ||
+            /%2f|%5c|%2e|%00/i.test(u.pathname)) continue;
+        try { if (/[\x00-\x1f\x7f\\]/.test(decodeURIComponent(u.pathname))) continue; } catch (_) { continue; }
+        const label = Park.html.text(a).replace(/\s+/g, ' ').trim();
+        if (leaf.test(u.pathname) && label && label.length <= 256 && !values.has(u.pathname)) values.set(u.pathname, label);
+        else if (index?.test(u.pathname)) indexes.add(u.pathname);
+      }
+    };
+    collect((await page(config.home)).doc);
+    for (const path of [...indexes].slice(0, 1)) collect((await page(path)).doc);
+    if (!values.size || values.size > (config.ranges ? 10000 : 499)) throw Park.error('PARSE', '分类列表解析失败');
+    const rows = [...values].map(([value, label]) => ({value, label}));
+    this._categoryDirectory = {time: Date.now(), values: rows};
+    return rows;
+  },
+  async filterOptions(request) {
+    const config = {"home":"/","leaf":"^/[a-z0-9][a-z0-9-]*/$","selector":"#tiles a.rel-link[href]","pageMethod":"page","absolute":true,"listMethod":"categoryListing"};
+    const rows = await this.categoryDirectory();
+    if (config.ranges && request.filter === 'range') {
+      return Array.from({length: Math.ceil(rows.length / 200)}, (_, i) => ({
+        value: String(i), label: (i * 200 + 1) + '–' + Math.min((i + 1) * 200, rows.length),
+      }));
+    }
+    if (request.filter !== 'category') throw Park.error('CONFIG', '筛选参数无效');
+    let choices = rows;
+    if (config.ranges) {
+      const range = String(request.values?.range ?? '0');
+      if (!/^(?:0|[1-9]\d{0,2})$/.test(range) || Number(range) * 200 >= rows.length) throw Park.error('CONFIG', '筛选参数无效');
+      choices = rows.slice(Number(range) * 200, (Number(range) + 1) * 200);
+    }
+    return [{value: '', label: '全部'}, ...choices];
+  },
+  async categoryFeed(request) {
+    const category = String(request.options?.category || '');
+    if (!category) return this.feed(this.defaultFeed, request);
+    const choices = await this.filterOptions({filter: 'category', values: request.options || {}});
+    if (!choices.some(option => option.value === category)) {
+      throw Park.error('CONFIG', '筛选参数无效');
+    }
+    const config = {"home":"/","leaf":"^/[a-z0-9][a-z0-9-]*/$","selector":"#tiles a.rel-link[href]","pageMethod":"page","absolute":true,"listMethod":"categoryListing"};
+    return this[config.listMethod || 'listing'](category, request);
+  },
+  // __CATALOG_END__
   BASE: 'https://www.pornpics.com',
   feedParams: new Map(),
   idValue(value) {
@@ -24,19 +78,8 @@ Park.register({
     if (id.length > 500 || !/^[a-z0-9][a-z0-9-]*-\d{1,12}$/.test(id)) throw Park.error('NOT_FOUND', '图集编号无效');
     return id;
   },
-  siteUrl(value) {
-    if (typeof value !== 'string' || !value.trim()) return null;
-    try {
-      const u = new URL(value, this.BASE);
-      return u.origin === this.BASE && !u.username && !u.password && !u.hash ? u : null;
-    } catch (_) { return null; }
-  },
-  imageUrl(value) {
-    try {
-      const u = new URL(value);
-      return u.protocol === 'https:' && u.hostname === 'cdni.pornpics.com' && !u.port && !u.username && !u.password && /\.(?:jpg|jpeg|png|webp)$/i.test(u.pathname) ? u.href : '';
-    } catch (_) { return ''; }
-  },
+  siteUrl(value) { return Park.url.site(this, value); },
+  imageUrl(value) { return Park.url.parse(value, this.BASE, ['pornpics.com'])?.href || ''; },
   remember(url) {
     const u = this.siteUrl(url), m = u && /^\/galleries\/([a-z0-9-]+-\d{1,12})\/$/.exec(u.pathname);
     if (!m) return null;
@@ -69,10 +112,11 @@ Park.register({
   async page(url) {
     if (!this.siteUrl(url)) throw Park.error('CONFIG', '图集地址无效');
     const r = this.http.ensureOk(await this.http.get(url));
-    if (!this.siteUrl(r.url || url)) throw Park.error('BLOCKED', '站点需要在浏览器中确认后访问');
-    return {html: r.body, doc: Park.html.parse(r.body)};
+    const finalUrl = Park.url.response(this, r, url);
+    return {html: r.body, doc: Park.html.parse(r.body), url: finalUrl.href};
   },
   async feed(key, req) {
+    if (key === 'categories') return this.categoryFeed(req);
     if (!['rating', 'popular'].includes(key)) throw Park.error('CONFIG', '未知列表');
     const page = Math.max(1, Math.floor(Number(req.page) || 1));
     if (page === 1 || !this.feedParams.has(key)) {
@@ -84,6 +128,17 @@ Park.register({
       if (page === 1) return {items: this.cards(doc), page, hasNext: this.cards(doc).length >= 20};
     }
     const data = await this.http.json(this.BASE + '/popular/api/galleries/list/', {params: {...this.feedParams.get(key), offset: (page - 1) * 20, limit: 20}});
+    return {items: this.apiItems(data), page, hasNext: data.length >= 20};
+  },
+  async categoryListing(category, req) {
+    const page = Math.max(1, Math.floor(Number(req.page) || 1));
+    if (page === 1) {
+      const {doc} = await this.page(this.BASE + category), items = this.cards(doc);
+      return {items, page, hasNext: items.length >= 20};
+    }
+    const data = await this.http.json(this.BASE + category, {
+      headers: {'Content-Type': 'application/json'}, params: {offset: (page - 1) * 20, limit: 20},
+    });
     return {items: this.apiItems(data), page, hasNext: data.length >= 20};
   },
   async search(req) {

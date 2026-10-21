@@ -185,25 +185,29 @@ class _LibraryPageState extends State<LibraryPage> {
     ),
     title: Text(tr('已选 {value0}', {'value0': _selected.length})),
     actions: [
-      TextButton(
-        onPressed: () => _selectionAction('categories'),
-        child: SelectionContainer.disabled(child: Text(tr('分类'))),
-      ),
-      TextButton(
-        onPressed: () => _selectionAction('read'),
-        child: SelectionContainer.disabled(child: Text(tr('标为已读'))),
-      ),
-      PopupMenuButton<String>(
-        tooltip: tr('更多'),
-        onSelected: _selectionAction,
-        itemBuilder: (_) => [
-          PopupMenuItem(
-            value: 'migrate',
-            child: SelectionContainer.disabled(child: Text(tr('迁移到其他站点'))),
+      ToolbarActions(
+        actions: [
+          ToolbarAction(
+            label: tr('分类'),
+            icon: Icons.folder_outlined,
+            showLabel: true,
+            onPressed: () => _selectionAction('categories'),
           ),
-          PopupMenuItem(
-            value: 'remove',
-            child: SelectionContainer.disabled(child: Text(tr('取消收藏'))),
+          ToolbarAction(
+            label: tr('标为已读'),
+            icon: Icons.done_all_rounded,
+            showLabel: true,
+            onPressed: () => _selectionAction('read'),
+          ),
+          ToolbarAction(
+            label: tr('迁移到其他站点'),
+            icon: Icons.drive_file_move_outlined,
+            onPressed: () => _selectionAction('migrate'),
+          ),
+          ToolbarAction(
+            label: tr('取消收藏'),
+            icon: Icons.bookmark_remove_outlined,
+            onPressed: () => _selectionAction('remove'),
           ),
         ],
       ),
@@ -484,7 +488,7 @@ class _LibraryTab extends StatelessWidget {
     final h = Library.instance.historyOf(f.item.uid);
     return Material(
       color: sel ? c.secondaryContainer : Colors.transparent,
-      child: InkWell(
+      child: ActionInkWell(
         onTap: () => _tap(context, f),
         onLongPress: () => onToggle(f.item.uid),
         child: SelectionContainer.disabled(
@@ -501,7 +505,11 @@ class _LibraryTab extends StatelessWidget {
                   SizedBox(
                     width: 46,
                     height: 62,
-                    child: CoverImage(source: f.item.source, url: f.item.cover),
+                    child: CoverImage(
+                      source: f.item.source,
+                      url: f.item.cover,
+                      sourceBlurred: f.item.json['coverBlurred'] == true,
+                    ),
                   ),
                   const SizedBox(width: Gap.m),
                 ],

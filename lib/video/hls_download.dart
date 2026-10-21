@@ -12,6 +12,7 @@ import '../core/models.dart';
 import '../engine/media_transport.dart';
 import 'hls.dart';
 import 'hls_resources.dart';
+import 'rou_hls_wrapper.dart';
 
 typedef MediaRemux = Future<void> Function(
   File input,
@@ -90,10 +91,13 @@ class HlsDownload {
         cancelToken: cancelToken,
       );
       final playlist = HlsPlaylist.parse(
-        utf8.decode(response.bytes),
+        utf8.decode(
+          unwrapRouHlsIfWrapped(response.bytes, maxBytes: 2 * 1024 * 1024),
+        ),
         response.url,
       );
       resources.validate(playlist);
+      final entries = playlist.resources;
       _check(cancelToken);
       await work.create(recursive: true);
       // Reuse only the exact manifest and segment addresses, order and durations.
@@ -102,10 +106,11 @@ class HlsDownload {
             utf8.encode(
               jsonEncode([
                 url.toString(),
-                for (final s in playlist.segments)
+                for (final s in entries)
                   [
                     s.url.toString(),
                     s.duration,
+                    if (s.kind != HlsResourceKind.transportStream) s.kind.name,
                     if (s.key != null) ...[
                       s.key.toString(),
                       s.iv!.toList(),
@@ -128,28 +133,28 @@ class HlsDownload {
           ? (saved['segments'] as Map).cast<String, dynamic>()
           : <String, dynamic>{};
       final total =
-          playlist.segments.length + 1; // The last step is local remux.
+          entries.length + 1; // The last step publishes the local media.
       var bytes = 0;
       onProgress(0, total, 0);
-      for (var i = 0; i < playlist.segments.length; i++) {
+      for (var i = 0; i < entries.length; i++) {
         _check(cancelToken);
-        final segment = File(p.join(work.path, '$i.ts'));
+        final segment = File(p.join(work.path, '$i.${entries[i].extension}'));
         var valid = false;
         if (hashes['$i'] is String &&
             await segment.exists() &&
             await segment.length() <= 32 * 1024 * 1024) {
           try {
             final data = await segment.readAsBytes();
-            validateTransportStream(data);
+            validateHlsResource(data, entries[i].kind);
             valid = sha256.convert(data).toString() == hashes['$i'];
           } on SourceError {
             valid = false;
           }
         }
         if (!valid) {
-          final data = await resources.read(playlist.segments[i]);
+          final data = await resources.read(entries[i]);
           _check(cancelToken);
-          validateTransportStream(data);
+          validateHlsResource(data, entries[i].kind);
           final part = File('${segment.path}.part');
           await part.writeAsBytes(data, flush: true);
           _check(cancelToken);
@@ -172,7 +177,8 @@ class HlsDownload {
       if (keepPlaylist) {
         var index = 0;
         final text = playlist.rewrite(
-          (_) => '${Uri.encodeComponent(p.basename(work.path))}/${index++}.ts',
+          (resource) =>
+              '${Uri.encodeComponent(p.basename(work.path))}/${index++}.${resource.extension}',
         );
         await temporary.writeAsString(text, flush: true);
         _check(cancelToken);
@@ -183,9 +189,9 @@ class HlsDownload {
       }
       final sink = await input.open(mode: FileMode.write);
       try {
-        for (var i = 0; i < playlist.segments.length; i++) {
+        for (var i = 0; i < entries.length; i++) {
           await for (final chunk in File(
-            p.join(work.path, '$i.ts'),
+            p.join(work.path, '$i.${entries[i].extension}'),
           ).openRead()) {
             _check(cancelToken);
             await sink.writeFrom(chunk);
@@ -196,7 +202,12 @@ class HlsDownload {
         await sink.close();
       }
       _check(cancelToken);
-      await remux(input, temporary, cancelToken);
+      if (playlist.initialization != null) {
+        // 单初始化段的 fMP4 已是完整 MP4 容器，按顺序保留初始化段和片段。
+        await input.rename(temporary.path);
+      } else {
+        await remux(input, temporary, cancelToken);
+      }
       _check(cancelToken);
       if (!await temporary.exists() || await temporary.length() == 0) {
         throw SourceError('NETWORK', '视频封装未生成有效文件');

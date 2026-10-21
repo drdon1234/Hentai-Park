@@ -1,9 +1,12 @@
 import 'dart:math' as math;
 
+import 'package:flutter/cupertino.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../core/localization.dart';
+import '../core/platform_capabilities.dart';
 import 'kit/tokens.dart';
 
 /// The app's visual language (docs/DESIGN.md): warm neutral surfaces so covers carry the color,
@@ -22,13 +25,16 @@ class ParkTheme {
     0xFFC25878: tr('樱粉'),
   };
 
-  static final _cache = <(Brightness, int), ThemeData>{};
+  static final _cache =
+      <(Brightness, int, TargetPlatform, String), ThemeData>{};
 
   /// Themes are cached; rebuilding the app never recomputes them.
   static ThemeData of(Brightness brightness, Color accent) =>
       _cache.putIfAbsent((
         brightness,
         accent.toARGB32(),
+        defaultTargetPlatform,
+        AppLocalizations.localeKey(AppLocalizations.instance.locale),
       ), () => _build(brightness, accent));
 
   static SystemUiOverlayStyle overlayStyle(Brightness brightness) {
@@ -56,6 +62,13 @@ class ParkTheme {
       primary = accent.toARGB32() == defaultAccent
           ? const Color(0xFFD97757)
           : _lighten(accent, .08);
+    }
+    // 强调色同时用于表面上的小字号文字，不能只检查实心按钮的前景色。
+    final textSurface = dark
+        ? const Color(0xFF34322E)
+        : const Color(0xFFE3E0D9);
+    for (var i = 0; i < 100 && _contrast(primary, textSurface) < 4.5; i++) {
+      primary = _lighten(primary, dark ? .01 : -.01);
     }
     // Labels on filled accent buttons must reach WCAG AA (4.5:1) for any accent.
     const white = Color(0xFFFFFFFF);
@@ -166,6 +179,10 @@ class ParkTheme {
       colorScheme: scheme,
       brightness: brightness,
       splashFactory: InkRipple.splashFactory,
+      materialTapTargetSize: MaterialTapTargetSize.padded,
+      visualDensity: VisualDensity.standard,
+      fontFamily: ParkText.sansFamily,
+      fontFamilyFallback: ParkText.sansFallback,
     );
     final text = _text(base.textTheme, scheme);
     final card = dark ? scheme.surfaceContainer : scheme.surfaceContainerLowest;
@@ -173,6 +190,16 @@ class ParkTheme {
     const controlShape = RoundedRectangleBorder(borderRadius: Radii.small);
     final selectedTint = scheme.secondaryContainer;
     return base.copyWith(
+      cupertinoOverrideTheme: CupertinoThemeData(
+        brightness: brightness,
+        primaryColor: scheme.primary,
+        scaffoldBackgroundColor: scheme.surface,
+        barBackgroundColor: scheme.surface,
+        textTheme: CupertinoTextThemeData(
+          primaryColor: scheme.primary,
+          textStyle: text.bodyLarge?.copyWith(color: scheme.onSurface),
+        ),
+      ),
       textTheme: text,
       scaffoldBackgroundColor: scheme.surface,
       canvasColor: scheme.surface,
@@ -184,7 +211,7 @@ class ParkTheme {
         surfaceTintColor: Colors.transparent,
         elevation: 0,
         scrolledUnderElevation: 0,
-        centerTitle: false,
+        centerTitle: defaultTargetPlatform == TargetPlatform.iOS,
         titleSpacing: Gap.page,
         titleTextStyle: text.titleLarge?.copyWith(color: scheme.onSurface),
         systemOverlayStyle: overlayStyle(brightness),
@@ -246,11 +273,16 @@ class ParkTheme {
       chipTheme: base.chipTheme.copyWith(
         backgroundColor: Colors.transparent,
         selectedColor: selectedTint,
-        checkmarkColor: scheme.onSecondaryContainer,
+        showCheckmark: false,
         shape: controlShape,
         side: WidgetStateBorderSide.resolveWith(
           (states) => states.contains(WidgetState.selected)
-              ? hairline.copyWith(color: selectedTint)
+              // 加粗描边向内仍占同样宽度，避免 Ink 的边框内边距改变布局。
+              ? hairline.copyWith(
+                  color: scheme.onSecondaryContainer,
+                  width: hairline.width * 2,
+                  strokeAlign: BorderSide.strokeAlignCenter,
+                )
               : hairline.copyWith(color: scheme.outline.withValues(alpha: .5)),
         ),
         labelStyle: text.labelLarge?.copyWith(color: scheme.onSurface),
@@ -286,7 +318,7 @@ class ParkTheme {
         style: FilledButton.styleFrom(
           shape: controlShape,
           textStyle: text.labelLarge?.copyWith(fontWeight: FontWeight.w600),
-          minimumSize: const Size(64, 44),
+          minimumSize: const Size(64, 48),
           padding: const EdgeInsets.symmetric(horizontal: Gap.l),
         ),
       ),
@@ -296,19 +328,23 @@ class ParkTheme {
           side: BorderSide(color: scheme.outline.withValues(alpha: .6)),
           shape: controlShape,
           textStyle: text.labelLarge?.copyWith(fontWeight: FontWeight.w600),
-          minimumSize: const Size(64, 44),
+          minimumSize: const Size(64, 48),
           padding: const EdgeInsets.symmetric(horizontal: Gap.l),
         ),
       ),
       textButtonTheme: TextButtonThemeData(
         style: TextButton.styleFrom(
+          minimumSize: const Size(48, 48),
           foregroundColor: scheme.onSurface,
           shape: controlShape,
           textStyle: text.labelLarge?.copyWith(fontWeight: FontWeight.w600),
         ),
       ),
       iconButtonTheme: IconButtonThemeData(
-        style: IconButton.styleFrom(foregroundColor: scheme.onSurface),
+        style: IconButton.styleFrom(
+          foregroundColor: scheme.onSurface,
+          minimumSize: const Size(48, 48),
+        ),
       ),
       segmentedButtonTheme: SegmentedButtonThemeData(
         style: SegmentedButton.styleFrom(
@@ -428,7 +464,10 @@ class ParkTheme {
       pageTransitionsTheme: const PageTransitionsTheme(
         builders: {
           TargetPlatform.android: PredictiveBackPageTransitionsBuilder(),
+          TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
+          TargetPlatform.macOS: CupertinoPageTransitionsBuilder(),
           TargetPlatform.windows: FadeForwardsPageTransitionsBuilder(),
+          TargetPlatform.linux: FadeForwardsPageTransitionsBuilder(),
         },
       ),
     );
@@ -470,8 +509,66 @@ class ParkTheme {
 
 /// The reading voice: page titles, work titles and novel text.
 abstract final class ParkText {
-  static const serifFamily = 'serif';
-  static const serifFallback = [
+  static String get _script => switch (AppLocalizations.instance.locale) {
+    Locale(languageCode: 'ja') => 'JP',
+    Locale(languageCode: 'ko') => 'KR',
+    Locale(languageCode: 'zh', scriptCode: 'Hant') => 'TC',
+    _ => 'SC',
+  };
+
+  /// 直接选择具有 CJK 字形的字体，避免拉丁字体逐字回退造成笔画混杂。
+  /// 手机保留平台原有选择。
+  static String? get sansFamily => !PlatformCapabilities.desktop
+      ? null
+      : switch (defaultTargetPlatform) {
+          TargetPlatform.windows => switch (_script) {
+            'JP' => 'Yu Gothic UI',
+            'KR' => 'Malgun Gothic',
+            'TC' => 'Microsoft JhengHei',
+            _ => 'Microsoft YaHei',
+          },
+          TargetPlatform.macOS => switch (_script) {
+            'JP' => 'Hiragino Sans',
+            'KR' => 'Apple SD Gothic Neo',
+            'TC' => 'PingFang TC',
+            _ => 'PingFang SC',
+          },
+          _ => 'Noto Sans CJK $_script',
+        };
+
+  static List<String>? get sansFallback => !PlatformCapabilities.desktop
+      ? null
+      : [
+          'Noto Sans CJK $_script',
+          'Noto Sans $_script',
+          'Microsoft YaHei',
+          'PingFang SC',
+          'Noto Sans CJK SC',
+          'sans-serif',
+        ];
+
+  static String get serifFamily => !PlatformCapabilities.desktop
+      ? 'serif'
+      : switch (defaultTargetPlatform) {
+          TargetPlatform.windows => switch (_script) {
+            'JP' => 'Yu Mincho',
+            'KR' => 'Batang',
+            'TC' => 'PMingLiU',
+            _ => 'SimSun',
+          },
+          TargetPlatform.macOS => switch (_script) {
+            'JP' => 'Hiragino Mincho ProN',
+            'KR' => 'AppleMyungjo',
+            'TC' => 'Songti TC',
+            _ => 'Songti SC',
+          },
+          _ => 'Noto Serif CJK $_script',
+        };
+
+  static List<String> get serifFallback => [
+    'Noto Serif CJK $_script',
+    'Noto Serif $_script',
+    if (PlatformCapabilities.desktop) ...['SimSun', 'Songti SC'],
     'Noto Serif CJK SC',
     'Noto Serif CJK TC',
     'Noto Serif CJK JP',
@@ -486,8 +583,10 @@ abstract final class ParkText {
   );
 
   /// Logs, cookies and checksums.
-  static TextStyle? mono(TextStyle? style) =>
-      style?.copyWith(fontFamily: 'monospace');
+  static TextStyle? mono(TextStyle? style) => style?.copyWith(
+    fontFamily: 'monospace',
+    fontFamilyFallback: sansFallback,
+  );
 
   /// Novel body text; every value comes from the reader's own settings.
   static TextStyle novel({
@@ -504,11 +603,11 @@ abstract final class ParkText {
     color: color,
     fontWeight: bold ? FontWeight.w600 : FontWeight.w400,
     fontFamily: switch (font) {
-      'system' => null,
+      'system' => sansFamily,
       'serif' => serifFamily,
       _ => font,
     },
-    fontFamilyFallback: font == 'serif' ? serifFallback : null,
+    fontFamilyFallback: font == 'serif' ? serifFallback : sansFallback,
   );
 }
 

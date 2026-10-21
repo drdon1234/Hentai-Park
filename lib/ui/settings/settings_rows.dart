@@ -41,7 +41,7 @@ class SettingsSlider extends StatelessWidget {
               ),
             ],
           ),
-          Slider(
+          Slider.adaptive(
             value: value.toDouble(),
             min: min.toDouble(),
             max: max.toDouble(),
@@ -76,13 +76,14 @@ Future<String?> askSettingText(
   String initial, {
   String? hint,
 }) {
-  final c = TextEditingController(text: initial);
+  var value = initial;
   return showDialog<String>(
     context: context,
     builder: (ctx) => AlertDialog(
       title: Text(title),
-      content: TextField(
-        controller: c,
+      content: TextFormField(
+        initialValue: initial,
+        onChanged: (text) => value = text,
         autofocus: true,
         decoration: InputDecoration(hintText: hint),
       ),
@@ -92,7 +93,7 @@ Future<String?> askSettingText(
           child: SelectionContainer.disabled(child: Text(tr('取消'))),
         ),
         FilledButton(
-          onPressed: () => Navigator.pop(ctx, c.text.trim()),
+          onPressed: () => Navigator.pop(ctx, value.trim()),
           child: SelectionContainer.disabled(child: Text(tr('保存'))),
         ),
       ],

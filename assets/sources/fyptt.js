@@ -9,36 +9,45 @@ Park.register({
     "ru": {"竖屏短视频，支持连续播放和搜索": "Вертикальные видео с непрерывным просмотром и поиском"},
     "ar": {"竖屏短视频，支持连续播放和搜索": "مقاطع عمودية تدعم التشغيل المتواصل والبحث"},
   },
-  key: 'fyptt', name: 'Fyptt', version: '0.0.3', type: 'video', category: 'shortvideo',
+  key: 'fyptt', name: 'Fyptt', version: '0.0.5', type: 'video', category: 'shortvideo',
   color: '#F34468', description: '竖屏短视频，支持连续播放和搜索', language: 'en',
   homepage: 'https://fyptt.to/', domains: ['fyptt.to'], network: {mode: 'native', vpnHint: true},
   imageHeaders: {Referer: 'https://fyptt.to/'},
   media: {mode: 'native', origin: 'https://fyptt.to', domains: ['stream.fyptt.to']},
   idPattern: '^[1-9]\\d{0,11}$', linkPatterns: ['fyptt\\.to/([1-9]\\d{0,11})/'],
-  defaultFeed: 'latest', feeds: [{key: 'latest', label: '最新'}], searchHint: '搜索作品名或标签',
+  defaultFeed: 'latest', feeds: [{key: 'latest', label: '最新'}, {key: 'categories', label: '分类', options: [{key: 'category', label: '分类', default: '', dynamic: true, values: []}]}], searchHint: '搜索作品名或标签',
   BASE: 'https://fyptt.to',
+  async filterOptions(req) {
+    if (req.scope !== 'feed' || req.feed !== 'categories' || req.filter !== 'category') return [];
+    const {doc} = await this.document(this.BASE + '/'), values = [{value: '', label: '全部'}], seen = new Set();
+    for (const a of doc.querySelectorAll('nav a[href],#menu-menu-1 a[href]')) {
+      const u = Park.url.site(this, a.getAttribute('href')), label = Park.html.text(a);
+      if (!u || !/^\/(?:tiktok-[a-z-]+|instagram-porn|nsfw-tiktok|sexy-tiktok)\/$/.test(u.pathname) || !label || seen.has(u.pathname)) continue;
+      seen.add(u.pathname); values.push({value: u.pathname, label});
+    }
+    if (!seen.size) throw Park.error('PARSE', '未找到分类'); return values;
+  },
   validId(value) {
     const id = String(value);
     if (!/^[1-9]\d{0,11}$/.test(id)) throw Park.error('NOT_FOUND', '影片编号无效');
     return id;
   },
-  siteUrl(u) { return u.origin === this.BASE && !u.username && !u.password && !u.hash; },
-  listUrl(value, keyword = '') {
+  siteUrl(value) { return !!Park.url.site(this, value); },
+  listUrl(value, keyword = '', category = '') {
     let u;
     try { u = new URL(value, this.BASE); } catch (_) { throw Park.error('CONFIG', '短视频分页数据无效'); }
-    // WordPress 首页翻页会产生空的 ?0 参数；移除该已验证的无效参数。
-    if (u.searchParams.get('0') === '') u.searchParams.delete('0');
-    if (!this.siteUrl(u) || !/^\/(?:page\/[1-9]\d*\/)?$/.test(u.pathname)
-      || (u.searchParams.get('s') || '') !== keyword || [...u.searchParams.keys()].some(k => k !== 's')) throw Park.error('CONFIG', '短视频分页数据无效');
+    const path = category || '/';
+    if (!this.siteUrl(u) || !(u.pathname === path || u.pathname.startsWith(path + 'page/') && /^[1-9]\d*\/$/.test(u.pathname.slice((path + 'page/').length)))
+      || (u.searchParams.get('s') || '') !== keyword) throw Park.error('CONFIG', '短视频分页数据无效');
     return u.href;
   },
   async document(url) {
     const r = await this.http.get(url, {headers: {Referer: this.BASE + '/'}, timeout: 30000});
     if (r.status === 404) throw Park.error('NOT_FOUND', '影片不存在');
     if (!r.ok) throw Park.error('HTTP', '短视频请求失败');
-    if (!this.siteUrl(new URL(r.url || url))) throw Park.error('BLOCKED', '访问受限');
+    const finalUrl = Park.url.response(this, r, url);
     if (r.body.length > 4 * 1024 * 1024) throw Park.error('PARSE', '短视频数据解析失败');
-    return {doc: Park.html.parse(r.body), url: r.url || url};
+    return {doc: Park.html.parse(r.body), url: finalUrl.href};
   },
   cards(doc) {
     const items = [], seen = new Set();
@@ -55,17 +64,22 @@ Park.register({
     }
     return items;
   },
-  async listing(req, keyword = '') {
+  async listing(req, keyword = '', category = '') {
     const page = Math.max(1, Math.floor(Number(req.page) || 1));
-    const path = page > 1 ? '/page/' + page + '/' : '/';
-    const url = this.listUrl(req.cursor || this.BASE + path + (keyword ? '?s=' + encodeURIComponent(keyword) : ''), keyword);
+    const path = (category || '/') + (page > 1 ? 'page/' + page + '/' : '');
+    const url = this.listUrl(req.cursor || this.BASE + path + (keyword ? '?s=' + encodeURIComponent(keyword) : ''), keyword, category);
     const {doc} = await this.document(url), next = doc.querySelector('a.page-numbers.next');
-    const cursor = next ? this.listUrl(next.getAttribute('href'), keyword) : undefined;
+    const cursor = next ? this.listUrl(next.getAttribute('href'), keyword, category) : undefined;
     const items = this.cards(doc);
     if (!items.length && !doc.querySelector('.fl-post-grid, .fl-post-grid-empty')) throw Park.error('PARSE', '短视频数据解析失败');
     return {items, page, hasNext: !!cursor, cursor};
   },
   async feed(key, req = {}) {
+    if (key === 'categories') {
+      const category = String(req.options?.category || '');
+      if (category && !/^\/(?:tiktok-[a-z-]+|instagram-porn|nsfw-tiktok|sexy-tiktok)\/$/.test(category)) throw Park.error('CONFIG', '分类无效');
+      return this.listing(req, '', category);
+    }
     if (key !== 'latest') throw Park.error('CONFIG', '未知视频列表');
     return this.listing(req);
   },

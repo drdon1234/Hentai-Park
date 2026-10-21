@@ -2,7 +2,7 @@
 
 # サイトプラグイン API
 
-[クイックスタート](#クイックスタート) · [manifest のフィールド](#manifest-のフィールド) · [メソッド](#メソッド) · [ランタイム API](#ランタイム-api) · [エラーコード](#エラーコード) · [多言語対応](#多言語対応) · [公開](#公開) · [付録：公式サイトのメモ](#付録公式サイトのメモ)
+[クイックスタート](#クイックスタート) · [manifest のフィールド](#manifest-のフィールド) · [メソッド](#メソッド) · [ランタイム API](#ランタイム-api) · [エラーコード](#エラーコード) · [多言語対応](#多言語対応) · [公開](#公開)
 
 HentaiPark の各サイトは独立した JavaScript プラグインです。アプリは実行時にプラグインを読み込み、リポジトリからのインストール、更新、有効化・無効化が **アプリを再ビルドせずに** できます。公式プラグインは [`assets/sources/`](../../../assets/sources/) にあり、そのまま例として参考にできます。
 
@@ -69,7 +69,7 @@ Park.register({
   name: '我的站点',
   version: '0.0.1',           // 3 つの数字。リポジトリの方が新しいと更新を案内
   type: 'comic',              // comic | video | novel | game：読み方・再生方法を決める
-  category: 'doujin',         // doujin | anime | aiDrama | jav | adult | shortvideo | gallery | novel | game | other
+  category: 'doujin',         // doujin | anime | aiDrama | jav | adult | shortvideo | recording | live | gallery | illustration | novel | game | other
   color: '#E5355F',           // ブランドカラー：サイトのアイコンとサイトページ
   description: '一句话介绍',
   homepage: 'https://example.com',
@@ -77,8 +77,8 @@ Park.register({
   linkPatterns: ['example\\.com/g/(\\d+)'],   // 貼り付けたリンクで作品を直接開く。1 番目のグループが作品 ID
   idPattern: '^(\\d+)$',                      // 入力した ID で作品を直接開く
   imageHeaders: { Referer: 'https://example.com/' },  // 表紙と画像の既定ヘッダー
-  network: { mode: 'native', vpnHint: true },  // 「ネットワーク」参照
-  media: { mode: 'browser', origin: 'https://example.com', domains: ['media.example.com'] },  // 任意の HLS メディア権限
+  network: { mode: 'auto', vpnHint: true },  // 「ネットワーク」参照
+  media: { mode: 'browser', origin: 'https://example.com', domains: ['media.example.com'] },  // 動画と直接ファイル用のメディア権限
   imageNetwork: { mode: 'browser', origin: 'https://img.example.com', domains: ['img.example.com'] }, // 任意
   imageDecrypt: { /* 任意。「暗号化画像」参照 */ },
 
@@ -91,6 +91,7 @@ Park.register({
   i18n: { /* プラグイン独自の UI 翻訳。「多言語対応」参照 */ },
 
   subscription: { /* 任意：チャンネル・クリエイターの購読。「購読」参照 */ },
+  postShortVideos: true,
   updateSubscriptions: { /* 任意：更新の購読。「更新の購読」参照 */ },
 
   async init() {},              // 任意：ランタイム起動時に 1 回呼ばれる（ドメイン一覧の更新など）
@@ -108,17 +109,21 @@ Park.register({
 | 分類 | 内容 |
 | --- | --- |
 | `doujin` | 同人誌と漫画 |
-| `gallery` | ギャラリー：イラスト、コスプレ、写真集。画像サイトも `type: 'comic'` を宣言し、1 つのギャラリーが 1 作品、画像は `chapter()` で順に返すので、閲覧・お気に入り・ダウンロードがそのまま使えます。枚数や過激さで分けるものではありません |
+| `gallery` | 三次元美図：コスプレ、写真、実写の画像集. 画像サイトは `type: 'comic'` を宣言し、1 つの画像集が 1 作品です。`chapter()` が順に画像を返し、閲覧・お気に入り・ダウンロードを共用します。枚数や過激さでは分類しません |
+| `illustration` | 二次元美図：イラスト、アニメの画像集. 画像サイトは `type: 'comic'` を宣言し、1 つの画像集が 1 作品です。`chapter()` が順に画像を返し、閲覧・お気に入り・ダウンロードを共用します。枚数や過激さでは分類しません |
 | `anime` | 成人向けアニメ |
 | `aiDrama` | AI ショートドラマ。旧 `drama` は受け付けません。サイト自身のチャンネル名はそのまま宣言し、アプリの分類で絞り込むことはしません |
 | `jav` | JAV 専門サイト |
 | `adult` | 総合成人向け動画（Pornhub、XVideos、91porn など）、`type: 'video'`。分類はグループ分けで、サイトのタグやユーザーの絞り込みの代わりにはなりません |
 | `shortvideo` | ショート動画：全画面の縦スクロールフィード（後述） |
+| `recording` | 録画アーカイブ（オンデマンド）、`type: 'video'` |
+| `live` | ライブ配信, `type: 'video'` |
 | `novel` | 小説、`type: 'novel'` |
 | `game` | ゲーム、`type: 'game'` |
-| `other` | その他（購読系サイトなど） |
+| `other` | クリエイターコミュニティ |
 
 - **ショート動画**（`type: 'video', category: 'shortvideo'`）：作品、検索、お気に入り、履歴からフィードに直接入ります。1 作品が 1 本の動画で、`videos(id, '_')` が現在のメディアを返し、詳細ページは不要です。`feed` の `hasNext` と `cursor` で終わり付近を自動ページングします。カーソルに認証情報やメディア署名を入れてはいけません。更新すると 1 ページ目から始まり、表示中の 1 本を再生、次の 1 本を一時停止で先読みし、ほかは解放します。検索がないサイトは `search` を宣言しません。
+- **投稿動画モード**（`postShortVideos: true`）：サイトと購読対象のページで `media[]` の動画添付を個別に再生します。動画には直接の `url` または空でない `episodeId` が必要です。遅延解決は再生・先読み時に `videos(元の投稿 ID, episodeId)` を呼び、Web ページをメディア URL として扱いません。画像は再生対象外で、添付は `preview`、`format`、`headers` に対応します。ページ送りと更新は現在の feed、絞り込み、対象の `subscription.posts` の範囲を維持します。再生は添付ごとに識別し、お気に入り・履歴・原サイトでの操作は元の投稿 ID を使います。分類は変わらず、独立したランダム動画 API を意味しません。
 - **元サイトでしか再生できないまとめサイト**：`type: 'video', category: 'adult'` を宣言したまま、検証済みのメディア API がなければ `videos` を実装せず、ランタイムは `capabilities.videos: false` を出力します。詳細ページのメインボタンは `detail.url` をシステムブラウザで開き、再生・ダウンロード・エピソードは非表示、架空の章の保存や章の更新確認はしません。お気に入りと履歴は使えます。
 - **小説** と **ゲーム** は「メソッド」で説明します。
 
@@ -139,17 +144,46 @@ Park.register({
 
 `feeds` の各項目はサイトページのタブです：`{ key, label, options?: [...] }`。
 
+### 動的・連動フィルター
+
+`feeds[].options` と `searchFilters` の単一選択項目は `dynamic: true, values: []` を宣言できます。動的な子項目は `dependsOn: ['range']` で同じグループの親を参照します。key は一意、依存先は存在し循環しないことが必要です。依存関係を宣言できるのは動的項目のみです。
+
+`filterOptions(request)` は候補配列を返します。要求には `scope: 'feed' | 'search'`、`filter`、`values` を含め、一覧には `feed`、検索には任意で `keyword` を渡します。`values` は宣言した直接の親のみで、アカウント情報、設定、他の条件は含めません。親が未選択または空なら子を読み込みません。
+
+検索語に依存する候補は `keywordDependent: true` を宣言します。検索語の変更でその項目と子孫をリセットし、他の条件は保持します。`values` の親の値は文字列・数値・真偽値のみで、複数選択の配列は渡せません。取得した名称は固定UI文言ではなく、コンテンツやタグの翻訳機能を利用できます。
+
+候補は最大500件の `{value, label, color?}` です。value は一意の文字列または有限数、label は空でなく制御文字を含まない256文字以内の原サイト名、color は6桁の16進数です。大きな目録は分割して連動させ、黙って切り捨てません。取得した候補名は自動翻訳しません。
+
+選択値は `feed` の `options`、`search` の `filters` で渡します。プラグインは目録への所属を検証し、ページ送りでも条件を保持します。解析失敗は例外にします。アプリはサイト、一覧/検索、一覧キーまたは検索語、親の値ごとに2分間キャッシュします。親の変更で子の選択と古い応答を破棄し、失敗時は再試行できます。
+
+各ドメインのプラグインは自サイトの目録のみを読み取ります。同ブランドの別ドメイン間でプラグインを呼び出したりCookieを共有しません。共通解析はビルド時のテンプレートで再利用し、独立スクリプトを生成します。生成は `node tools/build_catalog_sources.mjs`、整合性確認は `--check` を使います。
+
+```js
+{key: 'category', label: '分类', type: 'select', default: '',
+ dynamic: true, dependsOn: ['range'], values: []}
+
+async filterOptions({scope, feed, filter, keyword, values}) {
+  return [{value: 'site-category-id', label: 'Site category'}];
+}
+```
+
 ### ネットワーク
 
-- `network.mode: 'native'`（既定）：永続 Cookie を使うネイティブ HTTP で、ユーザーのプロキシを通ります。Cloudflare のチャレンジを検出すると `CLOUDFLARE` を投げ、アプリが内蔵ブラウザで認証を案内し、通過用 Cookie をネイティブリクエストに同期します。
-- `network.mode: 'browser'` + `network.origin`：`origin` で開いた隠しブラウザページから同一オリジンの `fetch()` で送信し、本物のブラウザの特徴を持ちます。Cloudflare の保護が厳しいサイト向けです。同一オリジンの GET が Cloudflare のチャレンジを受けると、隠しブラウザがそのページに移動して自動認証し、元のリクエストを 1 回だけ再試行します。それでも通らなければ `CLOUDFLARE` です。
+- `network.mode: 'auto'`（既定）：まずネイティブ HTTP を使います。本文のない同一オリジン HTTPS GET / HEAD が Cloudflare チャレンジ、HTTP 403・429、または回復可能な接続エラーを受けた場合は、ブラウザで 1 回再試行します。DNS、TLS、タイムアウト、レスポンスストリーム、通常の 5xx は追加の遅延を避けるためブラウザを起動しません。対象はサイトの宣言済みドメイン内に限られ、同一オリジンとリダイレクトの制限は維持されます。
+- `network.mode: 'native'`: 永続 Cookie と設定済みプロキシでネイティブ HTTP を使用します。Cloudflare を検出した場合は `CLOUDFLARE` を返し、アプリ内で再試行できます。エラーにサイト内の認証 URL がある場合は、確認操作からページを開けます。
+- `network.mode: 'browser'` + `network.origin`: `origin` の非表示ページから同一オリジンの `fetch()` を送信します。読み取りで Cloudflare（HTTP 200 を含む）や必要な Cookie・コンテンツのない年齢確認を受けた場合は、最大1回認証ページへ移動して再読込します。書き込みは再送しません。年齢確認は `network.confirmation` に従います。Android と Windows は一意の標準 Cloudflare チェックボックスに入力し、他の環境では自動認証を待ちます。失敗時は再試行するか、サイト内の認証 URL が提供されていれば確認操作を選べます。
+
+  文書は宣言済みドメイン内で同じスキームとポートを使って移動できます。未指定のリクエスト `origin` は対象サイト URL から決まります。応答には最終 `url` が残ります。
+
+  自動フォールバックは `followRedirects: false`、`connectAddress`、原因未分類のネットワークエラーには使いません。本文のないブラウザ GET / HEAD は通常の試行は最大 3 回で、検証後の再送は別途最大 1 回です。接続障害または HTTP 408、500、502、503、504 だけを再試行します。429 とタイムアウトは再送しません。検証ページへの移動はリクエスト全体で最大 1 回です。起動、要求、文書読み取り、破棄には待機上限があります。独自 API ヘッダー付き要求は通常のページ移動で代替せず `fetch()` を実行します。再利用する HTML のエラーステータスを保持し、`responseType: 'base64'` は元のバイト列の base64 を返します。
+
 - `network.vpnHint: true`：中国本土で VPN やプロキシが必要かもしれないサイトに宣言します。8 秒を超える待機や失敗時に「VPN またはプロキシが必要な場合があります」と表示します。すべてのエラーを VPN のせいにしないでください。
-- `network.confirmation: { selector, readySelector, requiredCookies, message }`：年齢確認などユーザーの明示的な確認が必要なサイト向け。`selector` は確認ダイアログ、`readySelector` は閲覧可能な内容、`requiredCookies` は確認後に必要な Cookie 名です。未確認のページではプラグインが `Park.error('CONFIRM_REQUIRED', message, { url })` を投げ、アプリが「確認する」を表示し、ダイアログが消え、内容が現れ、Cookie が書き込まれ、遷移が落ち着いてから戻ります。アプリがユーザーの代わりに確認を押すことはありません。この宣言は汎用の認証ページが年齢確認を通過済みと誤認しないようにもします。
+- `network.confirmation: { selector, readySelector, requiredCookies, auto: { clickSelector }, message }`: サイトの年齢確認を宣言します。`selector` はダイアログ、`auto.clickSelector` はその中の一意の確認ボタン、`readySelector` は表示可能なコンテンツ、`requiredCookies` は確認後に必要な Cookie 名です。アプリの入口で成年を確認した後に限り、非表示ブラウザがクリックを模擬し、ダイアログ消失、コンテンツ表示、Cookie、画面遷移の安定を確認します。規則が不完全、不一致、または自動処理失敗の場合は再試行できます。エラーにサイト内の認証 URL があれば、ページで手動処理した後に完了を押せます。ソースのドメイン制限と Cookie 分離は維持され、操作通知から元の操作を自動再送しません。ログイン、支払い、投稿には使用できません。
 - ネットワークエラーには安全な `diagnostics` フィールド `host`、`transport`、`reason` が付き、TLS 証明書、ハンドシェイク、DNS、接続、タイムアウトを区別します。自動ログにはこれらの許可されたフィールドだけを記録します。`reason: 'TLS_HANDSHAKE_TERMINATED'` はネイティブの `HandshakeException.message` が `Connection terminated during handshake` と完全一致した場合だけで（ハンドシェイク完了前の切断であり、証明書の失敗ではありません）、本文のない HTTPS の GET / HEAD だけが 1 回再試行され、ほかは再試行しません。
 
 ### 画像
 
-- `imageNetwork: { mode: 'browser', origin, domains }`：画像 CDN にブラウザからのリクエストが必要な場合に宣言します。`origin` と画像ドメインはすべて `domains` に含まれている必要があり、HTTPS と許可リストのヘッダーのみ使えます。画像リクエストは認証情報を送らず、リダイレクトに従わず、1 枚最大 20 MiB で、復号、形式チェック、デコード、サイト別キャッシュはそのまま行われます。宣言しない場合はネイティブの画像転送を使います。
+- `imageNetwork: { mode: 'browser', origin, domains }`：画像ドメインとサブドメインはサイトの Cookie 権限から独立しています。`origin` はサイトまたは画像ドメインに属します。HTTPS 443 と許可ヘッダーを使い、origin がサイトの宣言ドメインに属する場合、同一オリジンの画像でブラウザーのサイトセッションを使用し、別オリジンの画像、外部画像オリジン、動画では認証情報を送らず、許可された画像ドメイン間のリダイレクトに対応します。上限 20 MiB、復号、形式検査、デコード、サイト別キャッシュを維持します。未指定ならネイティブ転送です。 ブラウザーのリダイレクト対応のプラットフォーム制限はメディア権限を参照してください。
 - **暗号化画像**：`imageDecrypt` を宣言すると、フレームワークが形式チェックとキャッシュの前に復号します。復号設定はキャッシュの識別に含まれ、失敗結果はキャッシュしません。AES-CBC と厳密な PKCS#7 パディングに対応し、`key` と `iv` は UTF-8 です。画像ドメインを必ず限定し、ほかのドメインは通常の経路を使います。
 
 ```js
@@ -167,6 +201,8 @@ imageDecrypt: {
 
 `media` 権限は `this.http`、`network`、サイトの Cookie から独立しています。
 
+MP4 のみを返す場合も、`videos()` を実装するプラグインは有効な `media` 宣言が必要です。`scope: 'session'` と静的な `domains` は併用できます。HLS はセッションで許可された個別 URL を使い、直接再生する MP4 は静的ドメインリストに一致する必要があります。公式の公開チェックは欠落または無効な宣言を拒否します。
+
 ```js
 domains: ['example.com'],
 network: { mode: 'native' },
@@ -175,9 +211,12 @@ media: { mode: 'native', origin: 'https://example.com', domains: ['media.example
 
 - `media.mode` は `'native'` か `'browser'`。`media.origin` はプラグインの所属サイトに含まれ、HTTPS の既定ポート 443 を使い、認証情報・クエリ・フラグメントを含めません。
 - `media.domains` はメディア専用の許可ドメイン一覧（サブドメインを含む）で、サイトの Cookie 権限は与えません。プレイリスト、セグメント、鍵は HTTPS 443 のみで、URL 内の認証情報、フラグメント、IP、localhost（サブドメインを含む）、`.local` は拒否します。
-- `'native'` は認証情報を持たない別のネイティブクライアントを使い、サイトの Cookie、Authorization、プロキシ認証を読み書きしません。リダイレクトは 1 ホップごとに先に確認します。使えるヘッダーは `Referer`、`Origin`、`Accept`、`Accept-Language` のみで、前の 2 つは `media.origin` と一致する必要があります。
-- `'browser'` は `media.origin` の隠しブラウザでメディアセッションを作り、`credentials: 'omit'`、`mode: 'cors'`、`redirect: 'error'` を使います。
+- `'native'`：サイト Cookie、Authorization、プロキシ認証を使わない独立クライアントで、接続前に各リダイレクトを検査します。許可ヘッダーは `Referer`、`Origin`、`Accept`、`Accept-Language`。最初の二つは言語サブドメインを含む宣言済みサイトに属し、`Origin` は origin のみです。
+- 任意の `media.referrerDomains` はネイティブ動画メディア専用で、有効な公開ドメインを最大 16 個指定できます（サブドメインを含む）。上記のサイトドメイン制限の例外として `Referer` の許可先だけを追加します。`Origin`、メディア URL、文書の遷移、Cookie の権限は拡張しません。`imageNetwork` とブラウザメディアでは使用できません。
+- `'browser'`：`media.origin` の非表示セッションを使い、宣言済みサイト内で文書を移動できます。`credentials: 'omit'` と `mode: 'cors'` を使い、Origin/Referer は実際の文書とブラウザーが生成します。Windows は WebView2 で接続前に各リソースドメインを検査し、許可ドメイン間のリダイレクトと最終 URL を確認します。他のエンジンには各転送先の事前検査 API がないため `redirect: 'error'` を使います。CORS とサイト CSP は有効で、最終 URL の検査だけでは転送を許可しません。
 - 応答はストリーミング中にサイズを制限し、最終アドレスを再確認します。プレイリスト最大 2 MiB、セグメント最大 32 MiB、AES-128 の鍵はちょうど 16 バイト。超過、空の応答、許可されないアドレスはすべて拒否します。
+
+- 動的 HLS CDN は `mode: 'native'` で `media.scope: 'session'` を宣言できます。許可は現在の再生・ダウンロードセッションで解決した URL、プレイリスト資源、許可された転送先に限られ、終了時に失効します。Cookie 権限や永続的なドメイン許可は拡大しません。HTTPS、認証情報を含めないリクエスト、接続先と応答サイズの制限は維持され、直接 MP4 とブラウザのメディアには静的ドメイン一覧が適用されます。
 
 ### 分離とセキュリティ
 
@@ -195,8 +234,9 @@ account: {
   type: 'password' | 'cookies' | 'session',
   title, hint, required: false,
   fields: [{ key: 'email', label: '邮箱' }, { key: 'password', label: '密码', secret: true }],
-  loginUrl?, cookieUrl?, requiredCookies?: ['ipb_member_id'],   // ウェブでログインでき、アプリが Cookie を取得
+  loginUrl?, cookieUrl?, requiredCookies?: ['session_id'],   // ウェブでログインでき、アプリが Cookie を取得
   loginDomains?: ['accounts.google.com', 'appleid.apple.com'],  // 外部ログインのドメイン（ログイン時の遷移のみ）
+  localStorageKeys?: ['session_key'],  // cookieUrl と同じオリジンから許可されたキーだけを読み取り login(values) に渡す。値のログ出力は禁止
   async login(values) { return { name } },
   async logout() {},
   async status() { return { loggedIn, name, configured } },
@@ -208,7 +248,7 @@ account: {
 - アカウントの状態は、初回使用時、ログイン・ログアウト・ウェブログインの後、前回の確認から 10 分を過ぎたときだけ更新し、呼び出しのたびには確認しません。`configured` はアカウントが設定済みであることを示し、現在ログインできているかとは別です。
 - `loginDomains`：サイトが実際に使う外部ログインのドメイン（サブドメインを含む）。ユーザーがウェブログインページを開いている間だけ、HTTPS 443 への遷移を許可し、URL 内の認証情報、IP、localhost、`.local` は拒否します。認証ページ、アクセス確認、プラグインのリクエスト、Cookie の取り込みは引き続き `domains` で確認するため、外部ログインのドメインを `domains` に加えて権限を広げてはいけません。ログインページは同じウィンドウでの遷移と `window.opener` を保つポップアップに対応し、ポップアップ内も同じ確認を行い、空白の初期ページは外部遷移を許可しません。外部ページにいる間はログイン完了とみなさず、サイトに戻ってから Cookie を同期します。外部の Cookie はプラグインの保管場所に取り込まず、サイトの Cookie 消去でも消えません。システムの WebView が管理します。外部サービスが組み込みブラウザでのログインを制限する場合もあります。
 - `type: 'session'` は既存の認証セッションを取り込みます。秘密のフィールド（例：`session`）を 1 つ宣言し、クリップボードの内容をそのまま保持してプラグインが検証します。ユーザー名・パスワード・Cookie に分割しません。ログインは実際の認可を確認する必要があり、入力形式だけで成功と報告してはいけません。
-- `managedAccount: true` は自動管理の専用アカウントを提供することを宣言し、サイト設定の同名スイッチで制御します。アプリはまず自動登録の説明を表示して同意を得てから設定を保存し、`account.enableManaged()` を呼びます。登録前に候補の認証情報を保存して `await this.store.flush()` し、失敗や再起動後も同じアカウントを復元できるようにします。手動の認証情報と専用アカウントは分けて保存し、専用アカウントが手動アカウントを上書きすることはありません。スイッチをオフにしても専用アカウントは残り、再びオンにすると再利用します。トークンの期限切れでは再ログインだけを行い、登録し直しません。
+- `managedAccount: true` と `account.enableManaged()` は任意のアカウント管理機能です。内容を説明し、ユーザーの確認後にのみ有効にします。手動アカウントと管理対象アカウントを別々に保存し、既存の認証情報を上書きしません。アカウント情報は端末内で扱い、文書、診断、配布物に含めないでください。
 - パスワード、トークン、プラグインの状態はユーザーの端末上のデータです。文書やログに実際の認証情報を書かないでください。
 
 ## メソッド
@@ -241,7 +281,7 @@ async resolveGameResource(workId, resourceId, channelId) {}
 { sections: [{ title: '连载更新', items: [WorkItem] }], hasNext: false }
 ```
 
-**WorkItem**：`{ id, title, subtitle?, cover, coverAspect?, pages?, rating?, likes?, views?, language?, category?, badge?, badgeColor?, duration?, uploaded?, tags?, mediaKind?, workCode?, editions? }`
+**WorkItem**：`{ id, title, subtitle?, cover, coverBlurred?, coverAspect?, pages?, rating?, likes?, views?, language?, category?, badge?, badgeColor?, duration?, uploaded?, tags?, mediaKind?, workCode?, editions? }`
 
 - `workCode` は配信元で確認された作品番号または共通検索コードで、同じ作品の検索にのみ使用します。`id` を置き換えず、作品の識別、お気に入り、進捗、ダウンロードを統合しません。
 - `editions` は配信元が明記する固定の版ラベル（中国語字幕、無修正版の流出など）です。ラベルがない場合に原版と推測してはいけません。表示の翻訳は元のラベルを変更しません。
@@ -287,13 +327,17 @@ WorkItem の全フィールドに加えて：
 
 ### 動画：`videos`
 
-`[{ quality: 1080, label: '1080P', url, headers?, format?, preferred? }]` を返します。直接リンクは通常期限があるため、アプリは再生やダウンロードのたびに取得し直します。
+`[{ quality: 1080, label: '1080P', url, headers?, format?, preferred?, hls? }]` を返します。直接リンクは通常期限があるため、アプリは再生やダウンロードのたびに取得し直します。
+
+- `format: 'hls'` は `hls: {manifest, keys}` を指定できます。`url` はバリアントの実際の HTTPS ベース URL、`manifest` は処理済みの完全な VOD メディアリスト（UTF-8 最大 2 MiB）、`keys` は参照された絶対鍵 URL と Base64 の 16 バイト鍵の対応（最大 32 件）です。ネイティブメディア専用で、既存のアドレス認可と内容検証は維持され、未参照の鍵は拒否します。このフィールドを含む結果はディスクにキャッシュせず、鍵はセッションメモリのみで使用し、store、ログ、作品、カーソルには保存しません。
 
 - 複数話の動画は `detail(id).chapters` で再生順の `[{ id, title }]` を返します。各 `id` は安定している必要があり、画質や一時的なメディア URL で代用してはいけません。アプリは同じ ID でエピソード選択、進捗の保存、ダウンロード、続きからの再生を行い、`videos(id, episodeId)` でその話のリソースを取得します。単話は `singleChapterId`、なければ `'_'` です。
 - `format` を省略すると MP4 の直接リンクとして再生・ダウンロードします。HLS は `format: 'hls'` を返し、`media` 権限を宣言する必要があります。
-- HLS のマスタープレイリスト（`#EXT-X-STREAM-INF`）はアプリがバリアントごとのプレイリストに展開し、`RESOLUTION` から実際の画質を得ます。マスターを返す場合、`quality` は希望画質で、それ以下で最高の実画質を選び、該当がなければ最高画質を選びます。各バリアントは音声と映像を多重化した MPEG-TS である必要があり、独立した `AUDIO`、`VIDEO`、`SUBTITLES` や `media.domains` 外のアドレスは拒否します。`#EXT-X-I-FRAME-STREAM-INF` は無視します。単一のプレイリストで解像度が分からない場合は `label: '原画'` とし、希望画質を実際の解像度として示さないでください。
-- `#EXT-X-ENDLIST` のある完全で連続した MPEG-TS の VOD プレイリストだけに対応します。`METHOD=AES-128`、`KEYFORMAT=identity` の CBC/PKCS7 を復号し、鍵はちょうど 16 バイト、IV は明示されたものかメディアシーケンスから導出したものです。鍵はセッション中のメモリだけに置きます。ライブ、SAMPLE-AES、ほかの KEYFORMAT、`EXT-X-MAP`、`EXT-X-BYTERANGE`、fMP4、discontinuity、gap には対応せず、非標準の `#EXT-X-TOKEN` は取り除きます。
-- 再生時は `127.0.0.1` だけにバインドしたランダムなポートとランダムなトークンを使い、限定された URL 登録から検証済みのセグメントを必要に応じて読み出します。セッションを閉じるとリクエストは取り消されます。HLS のオフラインダウンロードは現在 Android のみで、セグメントごとに検証して SHA-256 を保存し、再開と取り消しができ、最後に Media3 で MP4 にまとめます。完全なファイルだけがオフラインライブラリに入ります。
+- HLS のマスタープレイリスト（`#EXT-X-STREAM-INF`）はアプリがバリアントごとのプレイリストに展開し、`RESOLUTION` から実際の画質を得ます。マスターを返す場合、`quality` は希望画質で、それ以下で最高の実画質を選び、該当がなければ最高画質を選びます。各バリアントは音声と映像を多重化した MPEG-TS または VOD fMP4 である必要があり、独立した `AUDIO`、`VIDEO`、`SUBTITLES` や `media.domains` 外のアドレスは拒否します。`#EXT-X-I-FRAME-STREAM-INF` は無視します。単一のプレイリストで解像度が分からない場合は `label: '原画'` とし、希望画質を実際の解像度として示さないでください。 マスターに `RESOLUTION` がない場合は有効な `BANDWIDTH` が必要です。各ビットレートを kbps で表示し、最高値を既定にします。解像度は推測しません。
+- `type: 'video', category: 'live'` は三次元の公開ライブ配信です。ホームとカテゴリは画像カードのみ。`videos()` は現在の公開ルームの HLS を返し、非公開・有料・オフラインのルームを再生可能として返さないでください。ローリング再生に対応し、再生位置の復元・保存とダウンロードは行いません。録画は明示的な操作で開始し、初期ウィンドウより新しいセグメントのみを保存します。停止・アプリ終了で終了し、再起動後に再開しません。独立したメディアセッションとバックグラウンドタスクで各セグメントを検証・復号して完全なローカルリストを保存します。再接続時にメディアを再解決し、符号化の境界や長時間録画は分割されます。失敗時も保存済み内容は保持します。多重化 MPEG-TS のみ対応し、MAP/fMP4、低遅延 PART、BYTERANGE、GAP は非対応です。
+- VOD は `#EXT-X-ENDLIST` のある完全で連続した MPEG-TS または fMP4 が必要です。fMP4 はメディアの前にある単一の `#EXT-X-MAP` 初期化セグメントのみ対応し、切り替えやバイト範囲には非対応です。初期化とメディアを認可・検証してローカルに書き換え、オフライン再生とエクスポートにも初期化セグメントを含めます。ライブは引き続き MPEG-TS のみで、ローリングリストと discontinuity に対応します。両者は `METHOD=AES-128`、`KEYFORMAT=identity` の CBC/PKCS7 を16バイトの鍵で復号します。メディア IV は明示値またはシーケンスから導出し、暗号化された初期化セグメントは明示 IV が必要です。鍵はセッション内のメモリのみです。SAMPLE-AES、他の KEYFORMAT、BYTERANGE、GAP は非対応で、VOD は discontinuity も拒否します。`#EXT-X-TOKEN` は除去します。
+- HLS プレイリストと MPEG-TS セグメントは PNG `roUd` ラッパー（非圧縮または zlib 圧縮）に対応します。展開後に解析・検証・復号し、展開後もプレイリスト 2 MiB、セグメント 32 MiB の制限を適用します。プラグインは引き続き `format: 'hls'` を返し、追加権限は不要です。
+- 再生時は `127.0.0.1` だけにバインドしたランダムなポートとランダムなトークンを使い、限定された URL 登録から検証済みのセグメントを必要に応じて読み出します。セッションを閉じるとリクエストは取り消されます。HLS のオフラインダウンロードは現在 Android のみで、セグメントごとに検証して SHA-256 を保存し、再開と取り消しができ、最後に Media3 で MP4 にまとめます。完全なファイルだけがオフラインライブラリに入ります。 fMP4 は初期化とメディアを順に保存し、Media3 の TS 変換を使用しません。
 
 ### 小説：`textChapter`
 
@@ -355,9 +399,22 @@ subscription: {
 ```
 
 - `normalize` は端末内だけで検証し、未ログインやオフラインでも対象を保存できるようにします。このサイトのユーザー名か管理されたプロフィール URL だけを受け付けます。`resolve` と `targets` は任意で、`targets` があると manifest は `subscription.joinedTargets: true` を出力します。
+- コミュニティの独立した入口には `communities: true`、`communityHint`、`communityExample` を宣言し、ランタイムはそのまま公開します。対象は `{ id, label, kind: 'community' }` で、作者と異なる ID が必要です。`targets({ kind: 'community' })` は参加済みコミュニティ、引数なしの `targets()` は既定の対象を返します。コミュニティ API の失敗が作者一覧を壊さないよう別々に処理します。`resolve` は名前とアクセス権の読み取り確認のみで、自動参加は禁止です。
 - `posts` のカーソルは不透明な文字列で、最終ページは `hasNext: false`、メディアのないページでもページングを続けられます。`locked` は権限不足、`previewOnly` は公開プレビューであることを示します。サムネイルを全文と偽ってはいけません。
+
+### 公開アルバム：`subscription.media`
+
+アルバムは独立した機能です。読み込み済みの投稿から組み立てず、`subscription.posts` にフォールバックしません。`subscription.media(scope, { page, cursor })` を実装します。公開 feed があり購読対象がないソースでも、`subscription` にこのメソッドだけを宣言できます。ランタイムは `capabilities.subscription` と独立して `capabilities.album` を公開します。
+
+`scope` は feed と絞り込みの `{ feed, options }`、またはユーザー・コミュニティ・チャンネル・グループの `{ target }` です。対象の解決と走査はソースが担当し、UI にサイト固有条件を置きません。`{ items, cursor, hasNext }` を返し、該当メディアのないページでも続行できます。継続カーソルは必ず進め、重複はエラーです。
+
+各項目には安定した文字列 `id`、`presentation: 'post' | 'work'`、既知なら解析可能な ISO 8601 日付、原サイト順の完全な `media` 配列が必要です。各添付には一意で安定した文字列 `id`、`type: 'image' | 'video'`、実際のコンテンツの `url` または管理対象の `resource` を指定します。`preview` は画像サムネイルです。代わりに下記の管理対象添付形式の `previewResource` を使えますが、別の画像で最大 2 MiB です。表紙や動画 URL をサムネイルに偽装しません。制限付き内容は原サイトのぼかしを維持した公開プレビューのみを `previewOnly: true` で返し、投稿全体がロックされていれば `locked: true` を付けます。
+
+ソースはページをまたぐ添付の補完とメディアグループの統合を行います。クライアントは添付 `id` で同じ作品を統合し、全添付に有限数値の `order` がある場合のみ並べ替えます。日付はローカル日付の両端を含む範囲で絞り込み、範囲指定時は日付不明を除外します。画像・動画の絞り込みや投稿の折りたたみは識別情報を変えません。空の絞り込み結果を有限ページ自動取得した後は手動で続行できます。`presentation: 'work'` は作品詳細、`'post'` は投稿全文を開きます。表紙は画像または明示的なサムネイルのみで、動画再生 URL を使いません。
+
+- `coverBlurred: true` とメディアの `blurred: true` は、サムネイルと全画面の両方で元サイトのぼかしを保持します。制限付き写真をぼかしなしの完全版として表示しないでください。動画プレビューも完全版も HLS マスターを展開し、選択した画質の VOD を再生します。
 - 直接リンクを出せない認可済みの添付ファイルは `media[].resource` を使い、`mediaChunk(resource, offset)` を実装します。1 回最大 128 KiB、offset は 128 KiB 単位で、resource には整数の `size` と、認証情報や一時的な参照で変わらない安定した非秘密の文字列 `cacheKey` が必要です。フレームワークは全体サイズと各チャンクを確認し、自分のキャッシュパスにアトミックに書き込みます。1 つの添付は最大 512 MiB で、resource がローカルパスを決めることはできません。署名付きリンクと resource は購読記録に保存しません。
-- 購読の保存で自動的にフォローや参加をすることはありません。検証していない書き込み操作は元のサイトでの手動操作に誘導し、黙ってフォロー、参加、支払いをしてはいけません。
+- 元サイトでのフォローや参加を伴う購読は、保存前に操作を明示して利用者の確認を得る必要があります。未検証の書き込み操作は元サイトへ案内し、通知せずにフォロー・参加・支払いを行ってはいけません。
 
 ### 更新の購読：`updateSubscriptions`
 
@@ -390,9 +447,12 @@ subscription: {
 | `Park.crypto.sha256Hex` / `hmacSha256Hex(key, text)` / `aesEcbDecrypt(base64, key)` / `uuid()` | ネイティブ実装 |
 | `Park.crypto.digestBytes('sha1' \| 'sha256', bytes)` | 最大 2 MiB の 0〜255 の整数配列 |
 | `Park.crypto.randomBytes(length)` | 安全な乱数バイト。length は 1〜65536 |
+| `Park.url.parse(value, base, domains)` / `site(source, value, base?)` / `response(source, response, requested)` | 許可ドメインとサブドメインの HTTPS 443 URL を解析し、認証情報を拒否、フラグメントを除去、失敗時は `null`。`site` は源の `domains` を使用。`response` は最終 URL を確認し、共有された源の基底 URL を変更せず、不正なら `BLOCKED`。パス、ページ、作品、検索条件はプラグインで確認し、クエリキーや CDN ノード名の固定リストを避けます。 |
 | `Park.utils.rateLimiter(ms)` | `wait()` を返し、リクエスト間の最小間隔を保証 |
 | `Park.utils.mapLimit(items, n, fn)` / `lruMap(n)` / `parseCount('1.2万')` / `formatDate(ts)` | その他のヘルパー |
 | `Park.error(code, message, extra?)` | エラーコード付きのエラーを作る。「エラーコード」参照 |
+
+`Park.crypto.aesGcmDecrypt(ciphertext, key, iv)` は 16 進数の暗号文（末尾の 16 バイト認証タグ込み、最大 4096 バイト）、16/24/32 バイト鍵、12 バイト IV を受け取り、平文バイト配列を返します。認証失敗時は未認証の平文を返さず例外になります。
 
 ### `http.request(opts)`
 
@@ -436,7 +496,7 @@ throw Park.error('NOT_FOUND', '影片不存在');
 
 ### ホームのキャッシュとエラーの意味
 
-- `feed` のリアルタイムの結果はプラグインが返したフィールドをすべて保持します。ディスクのホームキャッシュは作品 ID、タイトル、表紙、タグ、投稿者、メディアの種類、分類、表示用の統計など許可リストのメタデータだけを保存し、`url`、認証情報、メディア一覧、投稿は書き込みません。ID、表紙のアドレス、カーソルに認証情報を入れないでください。動的なメディアや投稿の表示が必要な結果はキャッシュしません。
+- `feed` のリアルタイム結果は全フィールドを保持します。アプリ専用の再構築可能なディスクキャッシュは、許可リストの作品データ、投稿本文、添付へのアクセス情報、対応する詳細フィールドを保存し、更新前にも内容を開けます。有効期限付きメディア URL やリソース参照を含むことがあり、期限切れは更新が必要です。ダウンロードやバックアップの代わりではありません。キャッシュ識別はサイト、アカウント、設定、要求範囲を分離します。認証情報を返却内容・ID・カーソルに入れず、キャッシュのアクセス情報を診断や購読記録へ転記しません。
 - 古いキャッシュは明確な `NETWORK` / `TIMEOUT` エラーのときだけオフラインの内容として表示し、キャッシュであることを示します。ログイン、確認、人による認証、解析、設定の失敗はそれぞれのエラーを投げる必要があり、フレームワークがネットワーク障害に見せかけることはありません。ユーザーが自分で更新して失敗した場合も実際のエラーを表示します。
 
 ## 多言語対応
@@ -504,22 +564,7 @@ Park.register({
 
 ### 公式プラグインの公開
 
-公式プラグインはメインリポジトリ [drdon1234/Hentai-Park](https://github.com/drdon1234/Hentai-Park) から公開し、アプリは次を読みます。
-
-```text
-https://raw.githubusercontent.com/drdon1234/Hentai-Park/sources/index.json
-https://raw.githubusercontent.com/drdon1234/Hentai-Park/rankings/index.json
-```
-
-- `assets/sources/index.json` が唯一の管理対象の一覧で、`file` は同じフォルダの `{key}.js` を指します（`[A-Za-z0-9_-]+.js`。サブフォルダ、シンボリックリンク、ファイル名の本体にドットは不可）。
-- `tools/publish_sources.mjs` が公開インデックスを生成し、各項目に `key`、`name`、`version`、`category`、`description`、`url`、`sha256`、`apiVersion` を含めます。スクリプトの URL はソースの完全なコミット番号に固定されます：`https://raw.githubusercontent.com/drdon1234/Hentai-Park/<コミット SHA>/assets/sources/<file>`。`sources` ブランチには生成した `index.json` だけを置きます。
-- 公開ツールは Node.js 22 以降の組み込みモジュールだけを使い、オフラインで動きます。一覧、ファイル、フォルダの境界を確認し、ネットワークと保存のない環境でランタイムとスクリプトを読み込み、インストール時のプレビューと同じ `Park.__pending` / `Park.manifest` の方法で `key`、`version`、API を確認します。`init`、ログイン、サイトのメソッドは呼ばないため、実際のリクエストでの確認の代わりにはなりません。
-
-```powershell
-node tools/publish_sources.mjs --commit '<40 桁のコミット SHA>' --output 'test/official-source-index.json'
-```
-
-ソースはメインブランチで管理し、通常プラグインは `sources`、専用ランキングは `rankings` で配信します。各ブランチは固定コミットURLとSHA-256を含む生成インデックスだけを保存します。ワークフローは各チャンネルを個別に検証・公開し、アプリは個別に読み込みます。不一致のチャンネルや重複keyを拒否し、更新確認の手順は共通です。
+公式プラグインは `assets/sources/index.json` で管理します。`tools/publish_sources.mjs` が一覧とランタイム宣言をオフラインで照合し、不変のスクリプト URL と SHA-256 を含む公開インデックスを生成します。ログインやサイトのメソッドは実行しないため、実際のリクエストによる検証は別途必要です。ビルドと公開の手順は[開発ガイド](../../DEVELOPMENT.md)を参照してください。
 
 ### ビルドで生成されるプラグイン
 
@@ -532,47 +577,13 @@ node tools/build_subscription_sources.mjs
 
 [@mtproto/core 6.3.0](https://github.com/alik0211/mtproto-core)（GPL-3.0、[ライセンス](../../licenses/mtproto-core.txt)、依存関係の一覧は [サードパーティライセンス](../../licenses/telegram-dependencies.txt)）を使います。サイトの対応部分が転送、暗号、保存を置き換え、ライブラリ既定の WebSocket、ブラウザの localStorage、デバッグログは使いません。
 
-## 付録：公式サイトのメモ
-
-公式プラグインを保守するときに知っておくべきサイトの約束事です。サイトは変わるので、プラグインのコードが正です。
-
-**ゲーム**
-
-- 既定の順序は KUN Galgame → GalgameX → 次元茶館。GalgameX と KUN は NSFW を既定でオン（それぞれゲストの `content-filter` API と `include_nsfw` パラメータ）。
-- GalgameX の既定は今週の人気。リソース更新一覧は現在のフロントエンドから動的に見つけた Next Server Action を使い、アクション ID を 15 分キャッシュし、無効になったら見つけ直します。リモートのスクリプトは実行しません。詳細は SSR Flight のデータから解析します。公開リソースはホストとパスのハッシュを安定したチャンネル ID とし、解決結果をホストとファイル名・共有 ID で照合し、不一致や重複は拒否します。一時リンクの順序には頼りません。
-- KUN の既定は 7 日間の閲覧ランキングで、公開されたネイティブ API を使います。ダウンロード API はタップ時だけ呼び、先読みでサイトのダウンロード数を増やしません。リソースのページは API の総数で巡回し、同じページの繰り返しや早すぎる空ページはエラーにします。
-- 次元茶館はブラウザモードと独自のログインを使い、既定は Galgame リソース板の人気です。一覧の表紙は最初の投稿の添付から補い、リクエスト間隔は 400ms です。リソース一覧は読み取り専用で、ユーザーが確認した後にだけ完全なフォームで「感谢分享，好人一生平安」を送信します。解除済みなら投稿せず、結果が不明な場合は状態を保持して元の投稿の確認を案内し、再起動後も再送しません。
-
-**小説**
-
-| サイト | 既定のタブ | 範囲と制限 |
-| --- | --- | --- |
-| Book18 | おすすめ | 中国語の長編・短編。目次はサイトの順序 |
-| Cool18 | 精選 | 禁忌書屋のみ。各主投稿が独立した作品で、返信や同名の投稿は結合しない。一部はアカウントの権限が必要 |
-| Canovel | 最新 | 記事内の本文ページ分割に対応 |
-| Literotica | ランキング | 英語。検索は英語以外、オーディオ、ハウツー、レビュー、エッセイを除外 |
-| Lush Stories | おすすめ | 英語。オーディオと詩を除外 |
-| StoriesOnline | 作者のおすすめ | 英語。匿名で本文が切り詰められるとログインを案内し、プレビューを完全な章として保存しない |
-| 69story | 最新 | 中国語。分類、検索、目次、章ごとの閲覧に対応 |
-
-**購読**
-
-| プラットフォーム | 内容 | ログイン |
-| --- | --- | --- |
-| X / Twitter | 匿名の公開メディア。ログイン後は認可された投稿とメディア | ウェブログイン、または `auth_token` と `ct0` |
-| Telegram | 公開チャンネルのプレビュー。ログイン後はチャンネルの履歴と添付 | 既存の Telegram WebK のローカルストレージのセッションを取り込む |
-| myfans.jp | クリエイター一覧、公開画像、公開動画、試聴プレビュー | 会員ログインは未検証 |
-| pixivFANBOX | 公開の一覧と表紙のプレビュー | 会員ログインは未検証 |
-
-- X の `ct0` は `X-CSRF-Token` と一致する必要があり、セッションは期限切れや取り消しが起こり得ます。ログイン後は現在のウェブページから操作 ID と feature flags を読み込んで UserTweets を読み、対象の作者のメディアだけを残します（リツイートと引用は除外）。匿名のサードパーティのプロキシに X の Cookie は送りません。
-- Telegram のローカルストレージは Cookie ではありません。取り込みには `dc` と対応する `dcN_auth_key`（512 桁の 16 進）が必要で、JSON か `key=value` のテキストを使えます。プラグインは既存の WebK セッションを復元するだけで、認証コードでのログインや独自クライアントの登録はしません。ログアウトはこのアプリが保存したセッションを消すだけです。添付は 128 KiB 単位で読み、1 つ最大 512 MiB。メディアの参照が期限切れなら 1 回だけ更新します。通信は分離されたネイティブ HTTP ブリッジを通り、WebView の fetch や WebSocket は開きません。
-- OnlyFans、Fantia、Patreon、Fansly はメディアの取得経路が完成しておらず、公式一覧に入っていません。トップページが開けることは購読できることを意味せず、有料の権限を回避することもありません。
-
-動的 HLS CDN は native の `media.scope: 'session'` で利用できます。解析した再生 URL、プレイリストのリソース、最大8回のリダイレクトを現在の再生・ダウンロードセッションだけに許可し、Cookie 権限は変更しません。HTTPS 443 と認証情報を含まないリクエストを維持します。直接接続では公開 DNS アドレスを確認して接続先 IP を固定し、TLS ホスト名検証を維持します。明示的な HTTP プロキシを使用する場合は、その信頼されたプロキシが名前解決と公開ネットワーク制限を担当します。終了時に許可を破棄します。MP4 の直接再生と browser モードは静的ドメイン制限を維持します。
-
 ### `webVideo(id, episodeId)`
 
-iXXX と TubeSafari はアプリ内ウェブ再生を使用します。再生ページでサイトの確認が必要な場合があります。操作は配信元のページが提供し、アプリのダウンロードと正確な続き再生には対応しません。Android では独立セッション対応の新しい Android System WebView が必要です。
+Web 再生の Cloudflare 認証は独立した一時セッションで処理します。認証フレームは正確な `challenges.cloudflare.com` のみ許可し、そのホストへのメインフレーム移動は許可しません。年齢確認の `network.confirmation` はソースが宣言したドメインだけに適用し、外部プレーヤーには適用しません。自動処理できない場合は手動操作用にページを残し、プレーヤーの Cookie は入出力しません。`CONFIRM_REQUIRED` はプラグインの説明を保持し、アプリ内の確認ページで明示的に完了した後にソースのセッションを同期します。元の操作は再送しません。
+
+iXXX と TubeSafari の対応済み配信元はネイティブ再生を優先し、続き再生とオフライン保存に対応します。未対応の配信元はアプリ内ウェブ再生を使用します。ウェブ再生ではサイトの確認が必要な場合があり、アプリのダウンロードと正確な続き再生には対応しません。Android のウェブ再生には独立セッション対応の新しい Android System WebView が必要です。
+
+ランタイムは `capabilities.webVideo` を自動で公開します。`webVideo` のみを実装する場合はアプリ内ウェブページを開きます。`videos` と `webVideo` の両方を実装する場合はネイティブ再生を優先し、`videos` が `UNSUPPORTED` を返した場合だけウェブ再生に切り替えます。HTTP、ネットワーク、Cloudflare、ログイン、解析、削除、キャンセルのエラーはそのまま表示します。ダウンロードには解析できたネイティブメディアが必要で、ウェブページには切り替えません。
 
 ```js
 return { url: "https://player.example.com/watch/1", navigationDomains: ["player.example.com"], frameDomains: [] };
@@ -583,7 +594,7 @@ return { url: "https://player.example.com/watch/1", navigationDomains: ["player.
 
 `rankings` は `key`、`label`、`category`、`metric`、`options` で定義します。専用プラグインは `rankingOnly: true` とし、`feeds` を宣言しません。`ranking(board, {page, offset, cursor, options})` は作品ページを返し、項目には `id`、元の `rank`、`title`、`cover`、任意の `keyword`、`subtitle`、HTTPS商品 `url` を含めます。同順位を保持します。既存ソースは `feed` を指定して選択肢を継承し、`feed()` を再利用できます。作品フィールドを保持し、`workId` と不足する順位を補って詳細を開きます。販売ランキングは指定カテゴリを検索します。
 
-ソースはメインブランチで管理し、通常プラグインは `sources`、専用ランキングは `rankings` で配信します。各ブランチは固定コミットURLとSHA-256を含む生成インデックスだけを保存します。ワークフローは各チャンネルを個別に検証・公開し、アプリは個別に読み込みます。不一致のチャンネルや重複keyを拒否し、更新確認の手順は共通です。
+ソースはメインブランチで管理します。`sources`、`rankings`、`reverse-search` はそれぞれ通常サイト、ランキング専用、画像検索専用プラグインを配信します。各ブランチには固定コミットの URL と SHA-256 を持つ索引のみを保存します。アプリは各チャネルを個別に読み込み、チャネル不一致と key の重複を拒否し、更新前に確認を求めます。タグ翻訳は `tag-translations` で別途配信します。
 
 ```powershell
 node tools/publish_sources.mjs --commit '<SHA>' --channel rankings --output 'test/official-ranking-index.json'

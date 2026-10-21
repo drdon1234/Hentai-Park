@@ -6,6 +6,36 @@
  * - /download?v= lists extra qualities (data-url). Video URLs carry a short-lived `secure` token,
  *   so they are always resolved right before playback / download.
  */
+(function () {
+const browseFilters = [
+    {
+      key: 'genre',
+      label: '类型',
+      default: '全部', // searches span every genre; the setting only shapes the browse tabs
+      values: [{ value: '@setting', label: '跟随设置' }].concat(
+        ['全部', '裏番', '泡麵番', 'Motion Anime', '3DCG', '2.5D', '2D動畫', 'AI生成', 'MMD', 'Cosplay'].map((g) => ({
+          value: g,
+          label: g,
+        }))
+      ),
+    },
+    {
+      key: 'sort',
+      label: '排序',
+      default: '',
+      values: [
+        { value: '', label: '相关度' },
+        { value: '最新上市', label: '最新上市' },
+        { value: '最新上傳', label: '最新上传' },
+        { value: '本日排行', label: '今日热门' },
+        { value: '本週排行', label: '本周热门' },
+        { value: '本月排行', label: '本月热门' },
+        { value: '觀看次數', label: '观看最多' },
+        { value: '讚好比例', label: '好评最多' },
+        { value: '時長最長', label: '时长最长' },
+      ],
+    },
+  ];
 Park.register({
   i18n: {
     "zh-Hant": {"2D動畫": "2D動畫", "AI生成": "AI生成", "Hanime1 影片 {value0} 不存在或需要登录": "Hanime1 影片 {value0} 不存在或需要登入", "Hanime1 返回 HTTP {value0}": "Hanime1 返回 HTTP {value0}", "好评最多": "好評最多", "时长最长": "時長最長", "時長最長": "時長最長", "最新上传": "最新上傳", "最新上傳": "最新上傳", "本日排行": "本日排行", "本月排行": "本月排行", "本週排行": "本週排行", "没有找到可用的视频源（可能需要登录）": "沒有找到可用的影片源（可能需要登入）", "泡麵番": "泡麵番", "相关度": "相關度", "裏番": "裡番", "觀看次數": "觀看次數", "观看最多": "觀看最多", "讚好比例": "讚好比例", "里番、泡面番与 3D 动画，支持多清晰度在线播放与下载": "裡番、泡麵番與 3D 動畫，支援多清晰度線上播放與下載", "默认类型": "預設型別"},
@@ -18,7 +48,7 @@ Park.register({
   },
   key: 'hanime1',
   name: 'Hanime1',
-  version: '0.0.5',
+  version: '0.0.8',
   type: 'video',
   category: 'anime',
   color: '#E5355F',
@@ -31,6 +61,7 @@ Park.register({
   idExample: '408297',
   imageHeaders: { Referer: 'https://hanime1.me/' },
   network: { mode: 'browser', origin: 'https://hanime1.me', vpnHint: true },
+  media: { mode: 'native', origin: 'https://hanime1.me', domains: ['sb-cd.com', 'hanime1.me', 'vdownload.hembed.com'] },
 
   settings: [
     {
@@ -59,6 +90,7 @@ Park.register({
   rankings: [{ key: 'ranking', label: '排行榜', category: 'anime', metric: '站内热度', feed: 'ranking' }],
   defaultFeed: 'ranking',
   feeds: [
+    {key: 'category', label: '分类', options: browseFilters.filter(option => option.type !== 'number')},
     { key: 'latest', label: '最新上市' },
     {
       key: 'ranking',
@@ -81,36 +113,7 @@ Park.register({
   ],
 
   searchHint: '搜索作品名、标签或作者',
-  searchFilters: [
-    {
-      key: 'genre',
-      label: '类型',
-      default: '全部', // searches span every genre; the setting only shapes the browse tabs
-      values: [{ value: '@setting', label: '跟随设置' }].concat(
-        ['全部', '裏番', '泡麵番', 'Motion Anime', '3DCG', '2.5D', '2D動畫', 'AI生成', 'MMD', 'Cosplay'].map((g) => ({
-          value: g,
-          label: g,
-        }))
-      ),
-    },
-    {
-      key: 'sort',
-      label: '排序',
-      default: '',
-      values: [
-        { value: '', label: '相关度' },
-        { value: '最新上市', label: '最新上市' },
-        { value: '最新上傳', label: '最新上传' },
-        { value: '本日排行', label: '今日热门' },
-        { value: '本週排行', label: '本周热门' },
-        { value: '本月排行', label: '本月热门' },
-        { value: '觀看次數', label: '观看最多' },
-        { value: '讚好比例', label: '好评最多' },
-        { value: '時長最長', label: '时长最长' },
-      ],
-    },
-  ],
-
+  searchFilters: browseFilters,
   BASE: 'https://hanime1.me',
 
   genre(value) {
@@ -175,6 +178,7 @@ Park.register({
   },
 
   async feed(key, req) {
+    if (key === 'category') return this.search({keyword: '', page: req.page, cursor: req.cursor, filters: req.options || {}});
     const page = Math.max(1, req.page || 1);
     const genre = this.genre();
     if (key === 'ranking') return this.searchPage({ genre, sort: (req.options && req.options.period) || '本週排行' }, page);
@@ -191,16 +195,28 @@ Park.register({
     );
   },
 
+  mediaUrl(value) {
+    try {
+      const url = new URL(value, this.BASE);
+      if (url.protocol !== 'https:' || url.port || url.username || url.password || url.hash || !/\.mp4$/i.test(url.pathname)) return null;
+      return this.media.domains.some(domain => url.hostname === domain || url.hostname.endsWith('.' + domain)) ? url.href : null;
+    } catch (_) { return null; }
+  },
+
   parseSources(doc) {
     const found = new Map();
+    const add = (quality, value) => {
+      const url = this.mediaUrl(value);
+      if (url && Number.isInteger(quality) && quality >= 144 && quality <= 4320 && !found.has(quality)) found.set(quality, url);
+    };
     for (const s of doc.querySelectorAll('video source[src]')) {
       const q = Number(s.getAttribute('size')) || Number((/-(\d{3,4})p\.mp4/.exec(s.getAttribute('src')) || [])[1]);
-      if (q && !found.has(q)) found.set(q, s.getAttribute('src'));
+      add(q, s.getAttribute('src'));
     }
     for (const a of doc.querySelectorAll('[data-url*=".mp4"], a[href*=".mp4"]')) {
       const url = a.getAttribute('data-url') || a.getAttribute('href');
       const m = /-(\d{3,4})p\.mp4/.exec(url);
-      if (m && !found.has(Number(m[1]))) found.set(Number(m[1]), url);
+      if (m) add(Number(m[1]), url);
     }
     return [...found.entries()].sort((a, b) => b[0] - a[0]).map(([quality, url]) => ({ quality, url }));
   },
@@ -290,6 +306,8 @@ Park.register({
     return list;
   },
 });
+
+})();
 
 // 更新订阅维度由本站插件声明，保留原有浏览入口。
 Park.enableUpdateSubscriptions(Park.__pending, {"dimensions":[{"key":"search","label":"搜索关键词","hint":"输入作品、作者或话题关键词"},{"key":"filter","label":"标签或作者筛选","hint":"从详情页标签菜单添加"}],"searchFilters":{"sort":"最新上市"}});

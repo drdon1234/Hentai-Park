@@ -17,6 +17,7 @@ List<Widget> appearanceSettings(BuildContext context, AppSettings s) {
     ...ParkTheme.accents,
     if (!ParkTheme.accents.containsKey(s.seedColor)) s.seedColor: tr('当前'),
   };
+  final selectedAccent = accents[s.seedColor] ?? tr('当前');
   return [
     RowGroup(
       children: [
@@ -66,6 +67,7 @@ List<Widget> appearanceSettings(BuildContext context, AppSettings s) {
               Wrap(
                 spacing: Gap.m,
                 runSpacing: Gap.m,
+                crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
                   for (final e in accents.entries)
                     _AccentSwatch(
@@ -77,6 +79,7 @@ List<Widget> appearanceSettings(BuildContext context, AppSettings s) {
                       selected: s.seedColor == e.key,
                       onTap: () => s.seedColor = e.key,
                     ),
+                  _AccentPreview(label: selectedAccent),
                 ],
               ),
             ],
@@ -224,6 +227,46 @@ Future<void> _pickRefreshRate(BuildContext context, AppSettings s) async {
     for (final hz in rates) hz: '$hz Hz',
   }, s.refreshRate);
   if (v != null) s.refreshRate = v;
+}
+
+class _AccentPreview extends StatelessWidget {
+  const _AccentPreview({required this.label});
+  final String label;
+
+  @override
+  Widget build(BuildContext context) => Semantics(
+    liveRegion: true,
+    label: '${tr('预览')} · ${tr('强调色')} · $label',
+    excludeSemantics: true,
+    child: Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(minHeight: 36),
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            borderRadius: Radii.small,
+            border: Border.all(color: context.colors.primary),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(
+              horizontal: Gap.m,
+              vertical: Gap.xs,
+            ),
+            child: Center(
+              widthFactor: 1,
+              heightFactor: 1,
+              child: Text(
+                '${tr('预览')} · $label',
+                style: context.text.bodyMedium?.copyWith(
+                  color: context.colors.primary,
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    ),
+  );
 }
 
 class _AccentSwatch extends StatelessWidget {

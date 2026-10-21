@@ -11,6 +11,7 @@ import '../game/downloads.dart';
 import '../library/backup.dart';
 import '../library/downloads.dart';
 import '../library/library.dart';
+import '../library/live_recordings.dart';
 import '../library/updater.dart';
 import '../subscriptions/updater.dart';
 import 'browser_fetcher.dart';
@@ -138,6 +139,7 @@ class DesktopWindow with WindowListener {
       SubscriptionUpdater.instance.suspend(),
       BackupService.instance.suspend(),
       DownloadManager.instance.pauseAndFlush(),
+      LiveRecordings.instance.stopAll(),
       GameDownloadManager.instance.pauseAndFlush(),
     ]);
     await JsEngine.instance.suspend();

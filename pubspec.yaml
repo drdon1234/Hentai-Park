@@ -2,7 +2,7 @@ name: hentai_park
 description: "HentaiPark - pluggable multi-source comic, video, novel & game client"
 publish_to: 'none'
 
-version: 0.8.3+28
+version: 0.9.0+31
 
 environment:
   sdk: ^3.13.5
@@ -43,6 +43,9 @@ dependencies:
   media_kit_libs_linux: 1.2.1
   window_manager: 0.5.2
   flutter_local_notifications: 22.3.2
+  desktop_drop: ^0.8.0
+  pasteboard: ^0.5.0
+  cross_file: 0.3.5+5
 
 dev_dependencies:
   flutter_test:
@@ -67,14 +70,8 @@ flutter:
     - assets/tag_translations/jm/
     - assets/tag_translations/wnacg/
     - assets/tag_translations/pica/
-    - assets/tag_translations/hanime1/
-    - assets/tag_translations/missav/
-    - assets/tag_translations/huangguo/
     - assets/tag_translations/av123/
     - assets/tag_translations/cosplaytele/
-    - assets/tag_translations/drama91/
-    - assets/tag_translations/huangdou/
-    - assets/tag_translations/ixxx/
     - assets/tag_translations/ranking-fanza/
     - assets/tag_translations/jable/
     - assets/tag_translations/nudecosplay/
@@ -87,4 +84,3 @@ flutter:
     - assets/tag_translations/xiuren/
     - assets/tag_translations/xvideos/
     - assets/tag_translations/galgamex/
-    - assets/tag_translations/kungal/

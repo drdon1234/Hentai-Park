@@ -55,25 +55,55 @@ enum SourceCategory {
   jav('JAV'),
   adult('成人视频'),
   shortvideo('短视频'),
-  gallery('美图'),
-  novel('小说'),
+  recording('录播'),
+  gallery('三次元美图'),
+  illustration('二次元美图'),
   game('游戏'),
-  other('其他');
+  other('创作社区'),
+  live('直播'),
+  novel('小说');
 
   const SourceCategory(this._label);
   final String _label;
   String get label => tr(_label);
 
+  ContentDimension? get dimension => switch (this) {
+    doujin || anime || illustration || game => ContentDimension.twoD,
+    gallery ||
+    aiDrama ||
+    jav ||
+    adult ||
+    shortvideo ||
+    recording ||
+    live ||
+    novel => ContentDimension.threeD,
+    other => null,
+  };
+
   static SourceCategory fromJson(Object? value) => SourceCategory.values
       .firstWhere((category) => category.name == value, orElse: () => other);
+}
+
+/// 发现页的域筛选；创作社区不限定维度。
+enum ContentDimension {
+  twoD('二次元'),
+  threeD('三次元'),
+  all('全部');
+
+  const ContentDimension(this._label);
+  final String _label;
+  String get label => tr(_label);
+
+  bool includes(SourceCategory category) =>
+      this == all || category.dimension == null || category.dimension == this;
 }
 
 /// 反搜用途独立于作品分类，不影响发现页入口或阅读行为。
 enum ReverseSearchCategory {
   general('通用'),
+  gallery('本子'),
   anime('里番'),
-  jav('JAV'),
-  gallery('美图');
+  jav('JAV');
 
   const ReverseSearchCategory(this._label);
   final String _label;
@@ -118,6 +148,8 @@ class OptionDef {
     required this.values,
     this.defaultValue,
     this.dynamicValues = false,
+    this.keywordDependent = false,
+    this.dependsOn = const [],
     this._description = '',
     PluginCopy? copy,
   }) : _copy = copy ?? PluginCopy.none;
@@ -129,6 +161,10 @@ class OptionDef {
   final List<Choice> values;
   final Object? defaultValue;
   final bool dynamicValues;
+  final bool keywordDependent;
+
+  /// Parent option keys that must have valid values before this option loads.
+  final List<String> dependsOn;
   final String _description;
   String get description => _copy.text(_description);
 
@@ -149,6 +185,8 @@ class OptionDef {
           )
           .toList(),
       dynamicValues: j['dynamic'] == true,
+      keywordDependent: j['keywordDependent'] == true,
+      dependsOn: _strings(j['dependsOn']),
       defaultValue: j['default'],
       description: _str(j['description']),
       copy: copy,
@@ -268,6 +306,7 @@ class AccountDef {
     required this.loginUrl,
     required this.cookieUrl,
     required this.requiredCookies,
+    this.localStorageKeys = const [],
     required this.required,
     this.managedAccount = false,
     this.loginDomains = const [],
@@ -289,6 +328,7 @@ class AccountDef {
   final List<String> loginDomains;
   final String cookieUrl;
   final List<String> requiredCookies;
+  final List<String> localStorageKeys;
   final bool required;
   final bool managedAccount;
 
@@ -304,6 +344,7 @@ class AccountDef {
       loginDomains: _strings(j['loginDomains']),
       cookieUrl: _str(j['cookieUrl']),
       requiredCookies: _strings(j['requiredCookies']),
+      localStorageKeys: _strings(j['localStorageKeys']),
       required: j['required'] == true,
       managedAccount: j['managedAccount'] == true,
       copy: copy,
@@ -430,10 +471,17 @@ class SourceManifest {
 
   bool can(String capability) => capabilities[capability] == true;
   bool get isVideo => kind == MediaKind.video;
+  bool get isLive => isVideo && category == SourceCategory.live;
 
   /// 聚合视频索引不提供媒体时，作品通过系统浏览器打开。
   bool get opensExternally => isVideo && !can('videos') && !can('webVideo');
   bool get usesWebVideo => isVideo && !can('videos') && can('webVideo');
+  bool shouldFallbackToWebVideo(Object? error) =>
+      isVideo &&
+      can('videos') &&
+      can('webVideo') &&
+      error is SourceError &&
+      error.code == 'UNSUPPORTED';
   bool get isNovel => kind == MediaKind.novel;
   bool get isGame => kind == MediaKind.game;
   bool get usesBrowserNetwork => network['mode'] == 'browser';
@@ -501,7 +549,8 @@ class WorkItem {
   bool get isGame => mediaKind == MediaKind.game;
 
   /// Update-subscription posts carry their media instead of having a detail page.
-  bool get isSubscriptionPost => json['media'] is List;
+  bool get isSubscriptionPost =>
+      json['presentation'] != 'work' && json['media'] is List;
   final String id;
   final String title;
   final String subtitle;
@@ -912,7 +961,12 @@ class VideoSource {
       url = _str(j['url']),
       headers = _map(j['headers']).map((k, v) => MapEntry(k, v.toString())),
       format = _str(j['format']),
-      preferred = j['preferred'] == true;
+      preferred = j['preferred'] == true,
+      hls = j['hls'] == null ? null : HlsSourceData.fromJson(j['hls']) {
+    if (hls != null && format != 'hls') {
+      throw SourceError('PARSE', '媒体数据无效');
+    }
+  }
   final int quality;
   final String _label;
   String get label => tr(_label);
@@ -920,6 +974,32 @@ class VideoSource {
   final Map<String, String> headers;
   final String format;
   final bool preferred;
+  final HlsSourceData? hls;
+}
+
+/// 插件预处理的点播清单与 AES 密钥仅存在于当前播放/下载内存，不可持久化。
+class HlsSourceData {
+  HlsSourceData.fromJson(Object? json) {
+    if (json is! Map ||
+        json['manifest'] is! String ||
+        (json['manifest'] as String).length > 2 * 1024 * 1024 ||
+        !(json['manifest'] as String).startsWith('#EXTM3U') ||
+        json['keys'] is! Map ||
+        (json['keys'] as Map).length > 32 ||
+        (json['keys'] as Map).entries.any(
+          (entry) =>
+              entry.key is! String ||
+              (entry.key as String).length > 8192 ||
+              entry.value is! String ||
+              !RegExp(r'^[A-Za-z0-9+/]{22}==$').hasMatch(entry.value as String),
+        )) {
+      throw SourceError('PARSE', '媒体数据无效');
+    }
+    manifest = json['manifest'] as String;
+    keys = Map.unmodifiable((json['keys'] as Map).cast<String, String>());
+  }
+  late final String manifest;
+  late final Map<String, String> keys;
 }
 
 class AccountStatus {
@@ -989,7 +1069,9 @@ class SourceError implements Exception {
   String get friendly {
     switch (code) {
       case 'CLOUDFLARE':
-        return tr('站点开启了人机验证，需要在内置浏览器中通过一次');
+        return tr('站点验证未能自动完成，请稍后重试或检查网络与代理设置');
+      case 'CONFIRM_REQUIRED':
+        return message.isEmpty ? tr('站点验证暂未完成') : message;
       case 'LOGIN_REQUIRED':
         return message.isEmpty ? tr('需要登录') : message;
       case 'NETWORK':

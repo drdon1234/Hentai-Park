@@ -121,7 +121,9 @@ mixin _RuntimePool on _SourceRegistry {
     activation = () async {
       final code = decodeSourceScript(await _scriptFile(key).readAsBytes());
       await _start(s, code);
-      if (_backgroundKeys == null && s.manifest?.can('status') == true) {
+      if (_backgroundKeys == null &&
+          s.manifest?.can('status') == true &&
+          s.manifest?.account?.required != true) {
         // First use after launch: refresh the account once the runtime is up.
         unawaited(refreshAccount(key));
       }
@@ -193,6 +195,9 @@ mixin _RuntimePool on _SourceRegistry {
         break;
       }
     }
+    if (!method.startsWith('account.')) {
+      await _requireAccount(key, cancelToken: cancelToken);
+    }
     final finished = Completer<void>();
     if (cancelToken?.cancelError case final error?) throw error;
     // Registered before the runtime starts so an idle trim never releases it mid-call.
@@ -209,6 +214,7 @@ mixin _RuntimePool on _SourceRegistry {
     final isRead = const {
       'reverseSearch',
       'reverseSearchResult',
+      'reverseSearchMore',
       'ranking',
       'rankingOptions',
       'feed',
@@ -223,6 +229,10 @@ mixin _RuntimePool on _SourceRegistry {
     final cancellation = isRead
         ? cancelToken?.whenCancel.asStream().listen(readToken!.cancel)
         : null;
+    // 运行时启动期间可能已取消；不能让迟到的启动继续发出列表请求。
+    if (isRead && cancelToken?.isCancelled == true) {
+      readToken!.cancel(cancelToken!.cancelError);
+    }
     if (isRead) (_readRequests[key] ??= {}).add(readToken!);
     try {
       return await JsEngine.instance.invoke(

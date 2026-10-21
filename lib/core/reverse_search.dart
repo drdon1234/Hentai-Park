@@ -1,6 +1,22 @@
 import 'dart:convert';
 
+import 'package:dio/dio.dart';
+
 import 'models.dart';
+
+typedef ReverseSearchAllLoader = Future<List<ReverseSearchMatch>> Function(
+  CancelToken token,
+);
+
+/// 当前查询的预览与按需续载；只在页面会话内保留。
+class ReverseSearchResults {
+  ReverseSearchResults(List<ReverseSearchMatch> matches, {this.loadAll})
+    : matches = List.unmodifiable(matches);
+
+  static const previewLimit = 20;
+  final List<ReverseSearchMatch> matches;
+  final ReverseSearchAllLoader? loadAll;
+}
 
 /// 出处候选独立于作品，不能用于阅读、下载或订阅。
 class ReverseSearchMatch {

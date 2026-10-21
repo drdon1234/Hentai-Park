@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:ui' show ImageFilter;
 
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
@@ -16,9 +17,12 @@ import '../../images/park_image.dart';
 import '../../images/subscription_cache.dart';
 import '../../subscriptions/models.dart';
 import '../../subscriptions/subscription_store.dart';
+import '../album/open_album.dart';
 import '../kit/kit.dart';
 import '../nav.dart';
 import '../settings/source_settings_page.dart';
+import '../short_video/post_video_feed.dart';
+import '../short_video/short_video_page.dart';
 import '../theme.dart';
 import '../video/video_page.dart';
 import '../widgets/cover_tile.dart';
@@ -27,42 +31,60 @@ import '../widgets/on_visible.dart';
 import '../widgets/text_translation.dart';
 
 class SubscriptionWorkPage extends StatelessWidget {
-  const SubscriptionWorkPage({super.key, required this.item});
+  const SubscriptionWorkPage({super.key, required this.item, this.postScope});
   final WorkItem item;
+  final PostVideoScope? postScope;
   @override
   Widget build(BuildContext context) {
     final post = SubscriptionPost(item.json);
-    return Scaffold(
+    final page = Scaffold(
       appBar: AppBar(title: Text(post.title)),
       body: ListView(
         children: [
-          SubscriptionPostCard(
-            source: item.source,
-            post: post,
-            selectable: true,
+          Align(
+            alignment: Alignment.topCenter,
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 900),
+              child: SubscriptionPostCard(
+                source: item.source,
+                post: post,
+                selectable: true,
+              ),
+            ),
           ),
         ],
       ),
     );
+    return postScope == null
+        ? page
+        : PostVideoContext(scope: postScope!, child: page);
   }
 }
 
 class SubscriptionPostsPage extends StatefulWidget {
-  const SubscriptionPostsPage({super.key, required this.entry});
+  const SubscriptionPostsPage({
+    super.key,
+    required this.entry,
+    this.targetKind,
+    this.sourceManager,
+  });
   final SubscriptionEntry entry;
+  final String? targetKind;
+  final SourceManager? sourceManager;
   @override
   State<SubscriptionPostsPage> createState() => _SubscriptionPostsPageState();
 }
 
 class _SubscriptionPostsPageState extends State<SubscriptionPostsPage> {
+  SourceManager get _sources => widget.sourceManager ?? SourceManager.instance;
   final posts = <SubscriptionPost>[];
+  final _cursors = <String>{};
   String? cursor;
   bool loading = false, hasNext = true;
   Object? error;
   int generation = 0;
   CancelToken? request;
   String mediaType = 'all';
-  String display = 'posts';
   int _emptyPages = 0;
   late final _filters = AppSettings.instance.watch(AppSettings.filterKeys);
   void _filtersChanged() {
@@ -78,11 +100,7 @@ class _SubscriptionPostsPageState extends State<SubscriptionPostsPage> {
     'url': post.url,
     'locked': post.locked,
     'media': post.media
-        .where(
-          (m) =>
-              (mediaType == 'all' || m.type == mediaType) &&
-              (display == 'posts' || m.type == display),
-        )
+        .where((m) => (mediaType == 'all' || m.type == mediaType))
         .map((m) => m.json)
         .toList(),
   });
@@ -91,11 +109,10 @@ class _SubscriptionPostsPageState extends State<SubscriptionPostsPage> {
             WorkItem(post.json, widget.entry.source),
           ) ==
           null &&
-      ((display == 'posts' && mediaType == 'all') || post.media.isNotEmpty);
+      (mediaType == 'all' || post.media.isNotEmpty);
 
-  void _filter({String? type, String? mode}) => setState(() {
+  void _filter({String? type}) => setState(() {
     if (type != null) mediaType = type;
-    if (mode != null) display = mode;
     _emptyPages = 0;
   });
   @override
@@ -121,6 +138,7 @@ class _SubscriptionPostsPageState extends State<SubscriptionPostsPage> {
       cursor = null;
       hasNext = true;
       posts.clear();
+      _cursors.clear();
       _emptyPages = 0;
     }
     final current = ++generation;
@@ -131,7 +149,7 @@ class _SubscriptionPostsPageState extends State<SubscriptionPostsPage> {
       error = null;
     });
     try {
-      final p = await SourceManager.instance.subscriptionPosts(
+      final p = await _sources.subscriptionPosts(
         widget.entry.source,
         widget.entry.target,
         cursor: cursor,
@@ -145,7 +163,11 @@ class _SubscriptionPostsPageState extends State<SubscriptionPostsPage> {
         _emptyPages = added.any((p) => _isVisible(_visiblePost(p)))
             ? 0
             : _emptyPages + 1;
-        hasNext = p.hasNext && p.cursor != null && p.cursor != cursor;
+        final next = p.cursor;
+        final invalid =
+            p.hasNext && (next == null || next.isEmpty || !_cursors.add(next));
+        hasNext = p.hasNext && !invalid;
+        if (invalid) error = SourceError('PARSE', '分页链接无效');
         cursor = p.cursor;
       });
     } catch (e) {
@@ -164,120 +186,123 @@ class _SubscriptionPostsPageState extends State<SubscriptionPostsPage> {
 
   @override
   Widget build(BuildContext context) {
-    final manifest = SourceManager.instance.manifest(widget.entry.source);
+    final manifest = _sources.manifest(widget.entry.source);
     final visible = posts.map(_visiblePost).where(_isVisible).toList();
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(widget.entry.label),
-        actions: [
-          IconButton(
-            tooltip: tr('账号与站点设置'),
-            onPressed: _login,
-            icon: const Icon(Icons.manage_accounts),
-          ),
-          IconButton(
-            tooltip: tr('刷新'),
-            onPressed: () => _load(refresh: true),
-            icon: const Icon(Icons.refresh),
-          ),
-        ],
-      ),
-      body: ParkRefresh(
-        onRefresh: () => _load(refresh: true),
-        child: ListView(
-          padding: const EdgeInsets.fromLTRB(Gap.page, Gap.s, Gap.page, Gap.xl),
-          physics: const AlwaysScrollableScrollPhysics(),
-          children: [
-            Text(
-              tr(
-                (manifest?.json['subscription'] as Map?)?['hint']?.toString() ??
-                    '无需登录即可保存订阅；媒体访问取决于原站权限。',
-              ),
-            ),
-            const SizedBox(height: 12),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                for (final mode in const ['posts', 'image', 'video'])
-                  SelectionChip(
-                    label: tr(switch (mode) {
-                      'image' => '图集',
-                      'video' => '视频集',
-                      _ => '帖子',
-                    }),
-                    selected: display == mode,
-                    onSelected: (_) => _filter(mode: mode),
-                  ),
-              ],
-            ),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                for (final type in const ['all', 'image', 'video'])
-                  SelectionChip(
-                    label: tr(switch (type) {
-                      'image' => '图片',
-                      'video' => '视频',
-                      _ => '全部',
-                    }),
-                    selected: mediaType == type,
-                    onSelected: (_) => _filter(type: type),
-                  ),
-              ],
-            ),
-            for (final post in visible)
-              display == 'posts'
-                  ? SubscriptionPostCard(
-                      source: widget.entry.source,
-                      post: post,
-                    )
-                  : Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 8),
-                      child: Wrap(
-                        spacing: 8,
-                        runSpacing: 8,
-                        children: [
-                          for (var i = 0; i < post.media.length; i++)
-                            SubscriptionMediaTile(
-                              source: widget.entry.source,
-                              post: post,
-                              index: i,
-                            ),
-                        ],
-                      ),
-                    ),
-            if (error != null)
-              SourceErrorView(
-                error: error!,
-                source: widget.entry.source,
-                onRetry: () => _load(),
-              ),
-            if (visible.isEmpty && !loading && error == null)
-              Padding(
-                padding: const EdgeInsets.all(24),
-                child: Text(tr(hasNext ? '本页没有匹配的内容，可继续加载' : '当前筛选下没有帖子或媒体')),
-              ),
-            if (loading)
-              const Padding(
-                padding: EdgeInsets.all(20),
-                child: Center(child: CircularProgressIndicator()),
-              ),
-            if (!loading && hasNext && error == null)
-              OnVisible(
-                onVisible: (visible) {
-                  if (visible && mounted && _emptyPages < 3) _load();
-                },
-                child: OutlinedButton(
-                  onPressed: () {
-                    _emptyPages = 0;
-                    _load();
-                  },
-                  child: SelectionContainer.disabled(child: Text(tr('加载更多'))),
+    final scope = PostVideoScope(
+      source: widget.entry.source,
+      title: widget.entry.label,
+      target: widget.entry.target,
+    );
+    return PostVideoContext(
+      scope: scope,
+      child: Scaffold(
+        appBar: AppBar(
+          title: Text(widget.entry.label),
+          actions: [
+            if (manifest?.can('album') == true)
+              IconButton(
+                tooltip: tr('相册'),
+                icon: const Icon(Icons.photo_library_outlined),
+                onPressed: () => openMediaAlbum(
+                  context,
+                  source: widget.entry.source,
+                  title: widget.entry.label,
+                  scope: {'target': widget.entry.target},
                 ),
               ),
+            if (manifest?.json['postShortVideos'] == true)
+              IconButton(
+                tooltip: tr('短视频模式'),
+                onPressed: () => Nav.push(
+                  context,
+                  ShortVideoPage(source: widget.entry.source, postScope: scope),
+                ),
+                icon: const Icon(Icons.smart_display_outlined),
+              ),
+            IconButton(
+              tooltip: tr('账号与站点设置'),
+              onPressed: _login,
+              icon: const Icon(Icons.manage_accounts),
+            ),
+            IconButton(
+              tooltip: tr('刷新'),
+              onPressed: () => _load(refresh: true),
+              icon: const Icon(Icons.refresh),
+            ),
           ],
+        ),
+        body: ParkRefresh(
+          onRefresh: () => _load(refresh: true),
+          child: ListView(
+            padding: const EdgeInsets.fromLTRB(
+              Gap.page,
+              Gap.s,
+              Gap.page,
+              Gap.xl,
+            ),
+            physics: const AlwaysScrollableScrollPhysics(),
+            children: [
+              Text(
+                manifest?.copy.text(
+                      (manifest.json['subscription']
+                                  as Map?)?[widget.targetKind == 'community'
+                                  ? 'communityHint'
+                                  : 'hint']
+                              ?.toString() ??
+                          '无需登录即可保存订阅；媒体访问取决于原站权限。',
+                    ) ??
+                    tr('无需登录即可保存订阅；媒体访问取决于原站权限。'),
+              ),
+              const SizedBox(height: 12),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  for (final type in const ['all', 'image', 'video'])
+                    SelectionChip(
+                      label: tr(switch (type) {
+                        'image' => '图片',
+                        'video' => '视频',
+                        _ => '全部',
+                      }),
+                      selected: mediaType == type,
+                      onSelected: (_) => _filter(type: type),
+                    ),
+                ],
+              ),
+              for (final post in visible)
+                SubscriptionPostCard(source: widget.entry.source, post: post),
+              if (error != null)
+                SourceErrorView(
+                  error: error!,
+                  source: widget.entry.source,
+                  onRetry: () => _load(refresh: !hasNext),
+                ),
+              if (visible.isEmpty && !loading && error == null)
+                Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Text(tr(hasNext ? '本页没有匹配的内容，可继续加载' : '当前筛选下没有帖子或媒体')),
+                ),
+              if (loading)
+                const Padding(
+                  padding: EdgeInsets.all(20),
+                  child: Center(child: CircularProgressIndicator()),
+                ),
+              if (!loading && hasNext && error == null)
+                OnVisible(
+                  onVisible: (visible) {
+                    if (visible && mounted && _emptyPages < 3) _load();
+                  },
+                  child: OutlinedButton(
+                    onPressed: () {
+                      _emptyPages = 0;
+                      _load();
+                    },
+                    child: SelectionContainer.disabled(child: Text(tr('加载更多'))),
+                  ),
+                ),
+            ],
+          ),
         ),
       ),
     );
@@ -296,7 +321,7 @@ class SubscriptionPostCard extends StatelessWidget {
   final bool selectable;
   @override
   Widget build(BuildContext context) => Card(
-    child: InkWell(
+    child: ActionInkWell(
       onLongPress: selectable
           ? null
           : () => showWorkActions(context, WorkItem(post.json, source)),
@@ -387,7 +412,7 @@ class SubscriptionMediaTile extends StatelessWidget {
     return Semantics(
       button: true,
       label: tr(media.type == 'video' ? '播放视频' : '查看图片'),
-      child: InkWell(
+      child: ActionInkWell(
         onLongPress: () =>
             showWorkActions(context, WorkItem(post.json, source)),
         onTap: () async {
@@ -405,11 +430,24 @@ class SubscriptionMediaTile extends StatelessWidget {
                 'url': post.url,
                 'date': post.date,
                 'mediaKind': 'video',
+                if (SourceManager.instance
+                        .manifest(source)
+                        ?.json['postShortVideos'] ==
+                    true)
+                  'postVideoIndex': post.media
+                      .take(index)
+                      .where((m) => m.type == 'video')
+                      .length,
                 'cover': media.preview,
                 'media': [
                   media.json,
                   for (var i = 0; i < post.media.length; i++)
-                    if (i != index) post.media[i].json,
+                    if (i != index &&
+                        SourceManager.instance
+                                .manifest(source)
+                                ?.json['postShortVideos'] !=
+                            true)
+                      post.media[i].json,
                 ],
               }, source),
             );
@@ -438,11 +476,16 @@ class SubscriptionMediaTile extends StatelessWidget {
               fit: StackFit.expand,
               children: [
                 if (media.preview.isNotEmpty)
-                  Image(
-                    image: ParkImage.url(source, media.preview),
-                    fit: BoxFit.cover,
-                    errorBuilder: (_, error, stack) =>
-                        const Center(child: Icon(Icons.broken_image_outlined)),
+                  ImageFiltered(
+                    imageFilter: ImageFilter.blur(sigmaX: 6, sigmaY: 6),
+                    enabled: media.json['blurred'] == true,
+                    child: Image(
+                      image: ParkImage.url(source, media.preview),
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, error, stack) => const Center(
+                        child: Icon(Icons.broken_image_outlined),
+                      ),
+                    ),
                   )
                 else
                   ColoredBox(
@@ -659,12 +702,19 @@ class _SubscriptionMediaPageState extends State<SubscriptionMediaPage> {
         minScale: 0.5,
         maxScale: 8,
         child: Center(
-          child: file != null
-              ? Image.file(file!, errorBuilder: (_, e, s) => Text(tr('媒体数据无效')))
-              : Image(
-                  image: ParkImage.url(widget.source, media.url),
-                  errorBuilder: (_, e, s) => Text(tr('媒体数据无效')),
-                ),
+          child: ImageFiltered(
+            imageFilter: ImageFilter.blur(sigmaX: 6, sigmaY: 6),
+            enabled: media.json['blurred'] == true,
+            child: file != null
+                ? Image.file(
+                    file!,
+                    errorBuilder: (_, e, s) => Text(tr('媒体数据无效')),
+                  )
+                : Image(
+                    image: ParkImage.url(widget.source, media.url),
+                    errorBuilder: (_, e, s) => Text(tr('媒体数据无效')),
+                  ),
+          ),
         ),
       );
     }

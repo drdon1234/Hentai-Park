@@ -34,8 +34,9 @@ class LocalHlsMedia implements MediaTransport {
 
   @override
   void validate(Uri url) {
-    final segment = RegExp('^/${RegExp.escape(_segments)}/[0-9]+\\.ts\$')
-        .hasMatch(url.path);
+    final segment = RegExp(
+      '^/${RegExp.escape(_segments)}/[0-9]+\\.(?:ts|mp4)\$',
+    ).hasMatch(url.path);
     if (url.scheme != 'https' ||
         url.origin != playlistUrl.origin ||
         url.userInfo.isNotEmpty ||

@@ -1,7 +1,9 @@
 import 'dart:async';
 
+import 'package:dio/dio.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+
 import 'package:flutter/services.dart';
 import 'package:video_player/video_player.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
@@ -10,6 +12,7 @@ import '../../core/app_lock.dart';
 import '../../core/content_scope.dart';
 import '../../core/localization.dart';
 import '../../core/models.dart';
+import '../../core/platform_capabilities.dart';
 import '../../core/settings.dart';
 import '../../core/tag_blocklist.dart';
 import '../../engine/source_manager.dart';
@@ -24,8 +27,10 @@ import '../video/adaptive_video_progress.dart';
 import '../widgets/content_translation.dart';
 import '../widgets/cover_tile.dart';
 import '../widgets/error_view.dart';
+import '../widgets/source_account_strip.dart';
 import '../widgets/source_interaction.dart';
 import '../widgets/source_network_hint.dart';
+import 'post_video_feed.dart';
 import 'short_video_feed.dart';
 import 'short_video_playback.dart';
 import 'short_video_player.dart';
@@ -37,11 +42,13 @@ class ShortVideoPage extends StatefulWidget {
     this.initial,
     this.initialId,
     this.feedIndex,
+    this.postScope,
   });
   final String source;
   final WorkItem? initial;
   final String? initialId;
   final int? feedIndex;
+  final PostVideoScope? postScope;
   @override
   State<ShortVideoPage> createState() => _ShortVideoPageState();
 }
@@ -65,6 +72,7 @@ class _ShortVideoPageState extends State<ShortVideoPage>
   double _overscroll = 0;
   Object? _initialError;
   final _retrySources = <String>{};
+  CancelToken _loadCancel = CancelToken();
   DateTime _lastWheel = DateTime.fromMillisecondsSinceEpoch(0);
 
   void _step(int delta) {
@@ -101,9 +109,19 @@ class _ShortVideoPageState extends State<ShortVideoPage>
       if (key == widget.source) unawaited(_refresh());
     });
     _feed = ShortVideoFeed(
-      (page, cursor) {
+      (page, cursor) async {
         if (AppSettings.instance.searchOnlySources) {
           return Future.value(WorkPage(items: const [], page: page));
+        }
+        if (widget.postScope case final scope?) {
+          return postVideoPage(
+            await scope.load(
+              page,
+              cursor,
+              refresh: _refreshing,
+              cancelToken: _loadCancel,
+            ),
+          );
         }
         final m = SourceManager.instance.manifest(widget.source);
         if (m == null || m.feeds.isEmpty) throw SourceError('CONFIG', '站点未加载');
@@ -111,25 +129,28 @@ class _ShortVideoPageState extends State<ShortVideoPage>
             (widget.feedIndex ??
                     SourceManager.instance.entryFeedIndex(widget.source))
                 .clamp(0, m.feeds.length - 1);
-        return SourceManager.instance.feed(
+        final result = await SourceManager.instance.feed(
           widget.source,
           m.feeds[i].key,
           page: page,
           cursor: cursor,
           options: m.feeds[i].defaultOptions(),
           refresh: _refreshing,
-          onCached: page == 1 ? _feed.cachedReceiver() : null,
+          cancelToken: _loadCancel,
+          onCached: page == 1 && m.json['postShortVideos'] != true
+              ? _feed.cachedReceiver()
+              : null,
         );
+        return m.json['postShortVideos'] == true
+            ? postVideoPage(result)
+            : result;
       },
       allowItem: (item) =>
-          TagBlocklist.current().matchItem(item) == null &&
+          TagBlocklist.current().matchItem(videoPost(item)) == null &&
           (widget.initial?.isSubscriptionPost != true ||
               (item.mediaKind == MediaKind.video &&
                   (item.json['media'] as List? ?? const []).any(
-                    (media) =>
-                        media is Map &&
-                        media['type'] == 'video' &&
-                        (media['url'] as String? ?? '').isNotEmpty,
+                    isPostVideoAttachment,
                   ))),
     )..addListener(_feedChanged);
     _saveTimer = Timer.periodic(const Duration(seconds: 10), (_) => _save());
@@ -173,7 +194,7 @@ class _ShortVideoPageState extends State<ShortVideoPage>
   }
 
   Future<void> _seedInitial(WorkItem item) async {
-    final hit = TagBlocklist.current().matchItem(item);
+    final hit = TagBlocklist.current().matchItem(videoPost(item));
     if (hit != null) {
       final proceed = await showDialog<bool>(
         context: context,
@@ -194,7 +215,19 @@ class _ShortVideoPageState extends State<ShortVideoPage>
       );
       if (!mounted || proceed != true) return;
     }
-    if (mounted) _feed.seed(item, allowBlocked: hit != null);
+    if (!mounted) return;
+    if (SourceManager.instance
+            .manifest(widget.source)
+            ?.json['postShortVideos'] ==
+        true) {
+      for (final clip in postVideoPage(
+        WorkPage(items: [item], page: 1),
+      ).items.reversed) {
+        _feed.seed(clip, allowBlocked: hit != null);
+      }
+    } else {
+      _feed.seed(item, allowBlocked: hit != null);
+    }
   }
 
   @override
@@ -278,7 +311,7 @@ class _ShortVideoPageState extends State<ShortVideoPage>
     }
     final value = player.controller.value;
     Library.instance.recordVideoPosition(
-      item,
+      videoPost(item),
       value.position.inSeconds,
       duration: value.duration.inSeconds,
     );
@@ -316,6 +349,8 @@ class _ShortVideoPageState extends State<ShortVideoPage>
   Future<void> _refresh() async {
     if (_refreshing || _resolving) return;
     _refreshing = true;
+    _loadCancel.cancel();
+    _loadCancel = CancelToken();
     _sync();
     _save();
     try {
@@ -347,6 +382,7 @@ class _ShortVideoPageState extends State<ShortVideoPage>
 
   @override
   void dispose() {
+    _loadCancel.cancel();
     _authentication?.cancel();
     _save();
     _saveTimer?.cancel();
@@ -386,7 +422,7 @@ class _ShortVideoPageState extends State<ShortVideoPage>
   );
   Widget _tail() {
     if (_feed.error != null) {
-      return _error(_feed.error!, () => _feed.loadMore());
+      return _error(_feed.error!, _feed.hasNext ? _feed.loadMore : _refresh);
     }
     if (_feed.loading || _resolving) return _loading();
     return Center(
@@ -516,6 +552,9 @@ class _ShortVideoPageState extends State<ShortVideoPage>
                         children: [
                           GestureDetector(
                             onLongPress: () => showWorkActions(context, item),
+                            onSecondaryTap: PlatformCapabilities.desktop
+                                ? () => showWorkActions(context, item)
+                                : null,
                             onTap: active
                                 ? () => setState(() => _expanded = !_expanded)
                                 : null,
@@ -551,16 +590,18 @@ class _ShortVideoPageState extends State<ShortVideoPage>
                 ),
                 const SizedBox(width: 8),
                 ListenableBuilder(
-                  listenable: Library.instance.work(item.uid),
+                  listenable: Library.instance.work(videoPost(item).uid),
                   builder: (context, _) {
-                    final favorite = Library.instance.isFavorite(item.uid);
+                    final favorite = Library.instance.isFavorite(
+                      videoPost(item).uid,
+                    );
                     return IconButton(
                       tooltip: tr(favorite ? '取消应用内收藏' : '应用内收藏'),
                       onPressed: () {
                         if (favorite) {
-                          Library.instance.removeFavorite(item.uid);
+                          Library.instance.removeFavorite(videoPost(item).uid);
                         } else {
-                          Library.instance.addFavorite(item);
+                          Library.instance.addFavorite(videoPost(item));
                         }
                       },
                       icon: Icon(
@@ -577,7 +618,8 @@ class _ShortVideoPageState extends State<ShortVideoPage>
                     true)
                   IconButton(
                     tooltip: tr('原站互动'),
-                    onPressed: () => showSourceInteraction(context, item),
+                    onPressed: () =>
+                        showSourceInteraction(context, videoPost(item)),
                     icon: const Icon(
                       Icons.thumb_up_outlined,
                       color: Colors.white,
@@ -623,7 +665,10 @@ class _ShortVideoPageState extends State<ShortVideoPage>
           },
           child: TranslationPage(
             child: Theme(
-              data: ThemeData.dark(useMaterial3: true),
+              data: ParkTheme.of(
+                Brightness.dark,
+                Color(AppSettings.instance.seedColor),
+              ),
               child: Builder(
                 builder: (context) => Scaffold(
                   backgroundColor: Colors.black,
@@ -695,85 +740,97 @@ class _ShortVideoPageState extends State<ShortVideoPage>
                                 colors: [Scrims.medium, Colors.transparent],
                               ),
                             ),
-                            child: Row(
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
                               children: [
-                                const BackButton(color: Colors.white),
-                                Expanded(
-                                  child: Text(
-                                    manifest?.name ?? tr('短视频'),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: const TextStyle(color: Colors.white),
-                                  ),
-                                ),
-                                TranslationControls(source: widget.source),
-                                if (manifest?.can('search') == true)
-                                  IconButton(
-                                    tooltip: tr('搜索'),
-                                    icon: const Icon(Icons.search),
-                                    onPressed: () => Nav.openSourceSearch(
-                                      context,
-                                      widget.source,
-                                    ),
-                                  ),
-                                PopupMenuButton<String>(
-                                  icon: const Icon(
-                                    Icons.more_vert,
-                                    color: Colors.white,
-                                  ),
-                                  itemBuilder: (context) => [
-                                    PopupMenuItem(
-                                      value: 'history',
-                                      child: SelectionContainer.disabled(
-                                        child: Text(tr('浏览历史')),
+                                Row(
+                                  children: [
+                                    const BackButton(color: Colors.white),
+                                    Expanded(
+                                      child: Text(
+                                        widget.postScope?.title ??
+                                            manifest?.name ??
+                                            tr('短视频'),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                        ),
                                       ),
                                     ),
-                                    PopupMenuItem(
-                                      value: 'refresh',
-                                      child: SelectionContainer.disabled(
-                                        child: Text(tr('刷新')),
+                                    TranslationControls(source: widget.source),
+                                    if (manifest?.can('search') == true)
+                                      IconButton(
+                                        tooltip: tr('搜索'),
+                                        icon: const Icon(Icons.search),
+                                        onPressed: () => Nav.openSourceSearch(
+                                          context,
+                                          widget.source,
+                                        ),
                                       ),
-                                    ),
-                                    PopupMenuItem(
-                                      value: 'playback-settings',
-                                      child: SelectionContainer.disabled(
-                                        child: Text(tr('短视频设置')),
+                                    PopupMenuButton<String>(
+                                      icon: const Icon(
+                                        Icons.more_vert,
+                                        color: Colors.white,
                                       ),
-                                    ),
-                                    PopupMenuItem(
-                                      value: 'settings',
-                                      child: SelectionContainer.disabled(
-                                        child: Text(tr('站点设置')),
-                                      ),
-                                    ),
-                                  ],
-                                  onSelected: (action) {
-                                    if (action == 'history') {
-                                      Nav.push(
-                                        context,
-                                        HistoryPage(
-                                          scope: ContentScope.source(
-                                            widget.source,
+                                      itemBuilder: (context) => [
+                                        PopupMenuItem(
+                                          value: 'history',
+                                          child: SelectionContainer.disabled(
+                                            child: Text(tr('浏览历史')),
                                           ),
                                         ),
-                                      );
-                                    } else if (action == 'refresh') {
-                                      _refresh();
-                                    } else if (action == 'playback-settings') {
-                                      Nav.push(
-                                        context,
-                                        const SettingsSectionPage(
-                                          SettingsSection.shortVideo,
+                                        PopupMenuItem(
+                                          value: 'refresh',
+                                          child: SelectionContainer.disabled(
+                                            child: Text(tr('刷新')),
+                                          ),
                                         ),
-                                      );
-                                    } else {
-                                      Nav.openSourceSettings(
-                                        context,
-                                        widget.source,
-                                      );
-                                    }
-                                  },
+                                        PopupMenuItem(
+                                          value: 'playback-settings',
+                                          child: SelectionContainer.disabled(
+                                            child: Text(tr('短视频设置')),
+                                          ),
+                                        ),
+                                        PopupMenuItem(
+                                          value: 'settings',
+                                          child: SelectionContainer.disabled(
+                                            child: Text(tr('站点设置')),
+                                          ),
+                                        ),
+                                      ],
+                                      onSelected: (action) {
+                                        if (action == 'history') {
+                                          Nav.push(
+                                            context,
+                                            HistoryPage(
+                                              scope: ContentScope.source(
+                                                widget.source,
+                                              ),
+                                            ),
+                                          );
+                                        } else if (action == 'refresh') {
+                                          _refresh();
+                                        } else if (action ==
+                                            'playback-settings') {
+                                          Nav.push(
+                                            context,
+                                            const SettingsSectionPage(
+                                              SettingsSection.shortVideo,
+                                            ),
+                                          );
+                                        } else {
+                                          Nav.openSourceSettings(
+                                            context,
+                                            widget.source,
+                                          );
+                                        }
+                                      },
+                                    ),
+                                  ],
                                 ),
+                                if (manifest?.account != null)
+                                  SourceAccountStrip(source: widget.source),
                               ],
                             ),
                           ),

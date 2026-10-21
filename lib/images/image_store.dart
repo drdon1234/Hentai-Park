@@ -257,7 +257,9 @@ class ImageStore {
               method: 'GET',
               url: url,
               headers: {
-                'Accept': 'image/avif,image/webp,image/apng,image/*,*/*;q=0.8',
+                // 不主动协商各平台发布引擎尚未普遍支持的 AVIF。
+                // 保留通用图片类型及源自定义请求头，由实际解码决定是否可用。
+                'Accept': 'image/webp,image/apng,image/*,*/*;q=0.8',
                 ...headers,
               },
               timeout: const Duration(seconds: 45),

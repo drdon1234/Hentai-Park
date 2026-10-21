@@ -15,6 +15,55 @@ function requiredText(value, label) {
   return value;
 }
 
+const multiLabelSuffixes = new Set(['co.jp', 'ne.jp', 'or.jp', 'com.cn', 'net.cn', 'org.cn', 'com.tw', 'net.tw', 'com.hk', 'co.kr', 'co.uk', 'com.au', 'com.br']);
+const publicHost = host => typeof host === 'string' &&
+  /^[a-z0-9](?:[a-z0-9.-]*[a-z0-9])?\.[a-z]{2,}$/.test(host) &&
+  !host.split('.').some(label => !label || label.startsWith('-') || label.endsWith('-')) &&
+  host !== 'localhost' && !host.endsWith('.localhost') && !host.endsWith('.local');
+const hostInDomains = (host, domains) => domains.some(domain =>
+  host === domain.toLowerCase() || host.endsWith('.' + domain.toLowerCase()));
+
+function declaredDomains(manifest) {
+  if (manifest.domains.length) return manifest.domains.map(domain => domain.toLowerCase().trim()).filter(Boolean);
+  const domains = [];
+  for (const value of [manifest.homepage, manifest.network?.origin, manifest.account?.cookieUrl, manifest.account?.loginUrl]) {
+    let host;
+    try { host = new URL(value).hostname; } catch { continue; }
+    const labels = host.split('.');
+    domains.push(labels.slice(multiLabelSuffixes.has(labels.slice(-2).join('.')) ? -3 : -2).join('.'));
+  }
+  return domains;
+}
+
+// 发布前对照 MediaPolicy 和 createImageTransport 检查，避免播放时才发现权限缺失。
+function validateMedia(manifest) {
+  const siteDomains = declaredDomains(manifest);
+  function check(media, image = false) {
+    const fail = () => { throw new Error(`${manifest.key} 的${image ? '图片' : '媒体'}权限无效，请检查 mode、origin、scope 和 domains`); };
+    if (!media || typeof media !== 'object' || Array.isArray(media)) fail();
+    const session = media.scope === 'session';
+    const referrers = media.referrerDomains;
+    if (referrers != null && (!Array.isArray(referrers) || image || media.mode !== 'native' ||
+        referrers.length > 16 || referrers.some(domain => !publicHost(domain)))) fail();
+    if (!['native', 'browser'].includes(media.mode) ||
+        (media.scope != null && !session) || (session && media.mode !== 'native') ||
+        typeof media.origin !== 'string' || !/^https:\/\/[^/]/i.test(media.origin) || /[?#\\\s]/.test(media.origin)) fail();
+    let origin;
+    try { origin = new URL(media.origin); } catch { fail(); }
+    if (origin.protocol !== 'https:' || origin.port || origin.username || origin.password ||
+        !publicHost(origin.hostname)) fail();
+    const domains = media.domains ?? [];
+    if (!Array.isArray(domains) || (!domains.length && !session) ||
+        domains.some(domain => typeof domain !== 'string' || !publicHost(domain.toLowerCase()))) fail();
+    if (!hostInDomains(origin.hostname, siteDomains) &&
+        !(image && hostInDomains(origin.hostname, domains))) fail();
+    if (image && (media.mode !== 'browser' || session || !domains.length)) fail();
+  }
+  if (manifest.capabilities.videos || Array.isArray(manifest.media) ||
+      typeof manifest.media !== 'object' || Object.keys(manifest.media).length) check(manifest.media);
+  if (manifest.imageNetwork != null) check(manifest.imageNetwork, true);
+}
+
 function createProbe(runtimeCode) {
   // No host functions/objects, network, storage, process, or module loader are exposed.
   // This evaluates reviewed repository scripts; node:vm is not a hostile-code security boundary.
@@ -97,7 +146,7 @@ export async function generateIndex({ root = defaultRoot, commit, previousIndex,
     keys.add(key);
     requiredText(entry.name, `${key} name`);
     if (typeof entry.description !== 'string') throw new Error(`${key} description 必须是字符串`);
-    if (!['doujin', 'anime', 'aiDrama', 'jav', 'adult', 'shortvideo', 'gallery', 'novel', 'game', 'other'].includes(entry.category)) {
+    if (!['doujin', 'anime', 'aiDrama', 'jav', 'adult', 'shortvideo', 'recording', 'gallery', 'illustration', 'novel', 'game', 'other', 'live'].includes(entry.category)) {
       throw new Error(`${key} category 必须是有效的内容分类`);
     }
     versionParts(entry.version);
@@ -113,6 +162,7 @@ export async function generateIndex({ root = defaultRoot, commit, previousIndex,
     if (manifest.category !== entry.category) {
       throw new Error(`${entry.file} 注册的 category 与清单不一致`);
     }
+    validateMedia(manifest);
     if (manifest.capabilities.reverseSearch) {
       if (!['general', 'anime', 'jav', 'gallery'].includes(manifest.reverseSearchCategory) ||
           manifest.reverseSearchCategory !== (entry.reverseSearchCategory || 'general')) {

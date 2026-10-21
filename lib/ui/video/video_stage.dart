@@ -27,6 +27,7 @@ class VideoStage extends StatelessWidget {
     required this.hint,
     required this.dim,
     required this.onTap,
+    required this.onMouseTap,
     required this.onDoubleTap,
     required this.onGestureStart,
     required this.onGestureUpdate,
@@ -51,6 +52,7 @@ class VideoStage extends StatelessWidget {
   /// Darkening applied when the platform brightness cannot be changed (0 = none).
   final double dim;
   final VoidCallback onTap;
+  final VoidCallback onMouseTap;
   final ValueChanged<int> onDoubleTap;
   final void Function(Offset point, Size viewport) onGestureStart;
   final ValueChanged<Offset> onGestureUpdate;
@@ -139,6 +141,7 @@ class VideoStage extends StatelessWidget {
       pageVertically: session.scrollEpisodes,
       showLevelControls: controlsVisible,
       onTap: onTap,
+      onMouseTap: onMouseTap,
       onDoubleTap: (point) {
         final box = context.findRenderObject() as RenderBox?;
         final width = box?.size.width ?? MediaQuery.sizeOf(context).width;

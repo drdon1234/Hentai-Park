@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../core/localization.dart';
 import '../../core/models.dart';
 import '../kit/tokens.dart';
 import '../theme.dart';
@@ -14,6 +15,11 @@ class OptionBar extends StatelessWidget {
     required this.onChanged,
     this.dropdowns = false,
     this.source = '',
+    this.dynamicChoices = const {},
+    this.loadingOptions = const {},
+    this.optionErrors = const {},
+    this.enabledOptions = const {},
+    this.onRetry,
     this.padding = const EdgeInsets.fromLTRB(Gap.page, Gap.s, Gap.page, 0),
   });
   final List<OptionDef> options;
@@ -22,6 +28,11 @@ class OptionBar extends StatelessWidget {
   final EdgeInsets padding;
   final bool dropdowns;
   final String source;
+  final Map<String, List<Choice>> dynamicChoices;
+  final Set<String> loadingOptions;
+  final Map<String, String?> optionErrors;
+  final Map<String, bool> enabledOptions;
+  final ValueChanged<String>? onRetry;
 
   static Widget choiceLabel(OptionDef option, Choice choice, String source) {
     Widget text(String value) =>
@@ -44,30 +55,54 @@ class OptionBar extends StatelessWidget {
       child: Column(
         children: [
           for (final o in options)
-            if (dropdowns && o.type == 'select')
+            if (enabledOptions[o.key] == false)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Text(
+                  o.label,
+                  style: TextStyle(color: Theme.of(context).disabledColor),
+                ),
+              )
+            else if (dropdowns && o.type == 'select')
               Padding(
                 padding: const EdgeInsets.only(bottom: 8),
                 child: SelectionContainer.disabled(
                   child: DropdownButtonFormField<int>(
                     key: ValueKey('${o.key}:${values[o.key]}'),
                     initialValue:
-                        o.values.indexWhere((c) => c.value == values[o.key]) < 0
+                        (dynamicChoices[o.key] ?? o.values).indexWhere(
+                              (c) => c.value == values[o.key],
+                            ) <
+                            0
                         ? null
-                        : o.values.indexWhere((c) => c.value == values[o.key]),
+                        : (dynamicChoices[o.key] ?? o.values).indexWhere(
+                            (c) => c.value == values[o.key],
+                          ),
                     isExpanded: true,
                     decoration: InputDecoration(labelText: o.label),
                     items: [
-                      for (var i = 0; i < o.values.length; i++)
+                      for (
+                        var i = 0;
+                        i < (dynamicChoices[o.key] ?? o.values).length;
+                        i++
+                      )
                         DropdownMenuItem(
                           value: i,
                           child: SelectionContainer.disabled(
-                            child: choiceLabel(o, o.values[i], source),
+                            child: choiceLabel(
+                              o,
+                              (dynamicChoices[o.key] ?? o.values)[i],
+                              source,
+                            ),
                           ),
                         ),
                     ],
                     onChanged: (i) {
                       if (i != null) {
-                        onChanged({...values, o.key: o.values[i].value});
+                        onChanged({
+                          ...values,
+                          o.key: (dynamicChoices[o.key] ?? o.values)[i].value,
+                        });
                       }
                     },
                   ),
@@ -80,6 +115,10 @@ class OptionBar extends StatelessWidget {
                 onChanged: onChanged,
                 showLabel: options.length > 1,
                 source: source,
+                choices: dynamicChoices[o.key] ?? o.values,
+                loading: loadingOptions.contains(o.key),
+                error: optionErrors[o.key],
+                onRetry: onRetry,
               ),
         ],
       ),
@@ -96,12 +135,20 @@ class _OptionRow extends StatefulWidget {
     required this.onChanged,
     required this.showLabel,
     required this.source,
+    required this.choices,
+    required this.loading,
+    required this.error,
+    required this.onRetry,
   });
   final OptionDef option;
   final Map<String, Object?> values;
   final ValueChanged<Map<String, Object?>> onChanged;
   final bool showLabel;
   final String source;
+  final List<Choice> choices;
+  final bool loading;
+  final String? error;
+  final ValueChanged<String>? onRetry;
 
   @override
   State<_OptionRow> createState() => _OptionRowState();
@@ -135,6 +182,33 @@ class _OptionRowState extends State<_OptionRow> {
   @override
   Widget build(BuildContext context) {
     final o = widget.option;
+    if (widget.choices.isEmpty && widget.loading) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        child: Row(
+          children: [
+            Text(o.label),
+            const SizedBox(width: 10),
+            const SizedBox.square(
+              dimension: 18,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            ),
+          ],
+        ),
+      );
+    }
+    if (widget.choices.isEmpty && widget.error != null) {
+      return Align(
+        alignment: Alignment.centerLeft,
+        child: TextButton.icon(
+          onPressed: widget.onRetry == null
+              ? null
+              : () => widget.onRetry!(o.key),
+          icon: const Icon(Icons.refresh_rounded),
+          label: Text(tr('加载失败，点击重试  {value0}', {'value0': o.label})),
+        ),
+      );
+    }
     var keyed = false;
     return SizedBox(
       height: 44 * MediaQuery.textScalerOf(context).scale(1).clamp(1, 2),
@@ -153,7 +227,7 @@ class _OptionRowState extends State<_OptionRow> {
                 ),
               ),
             ),
-          for (final choice in o.values)
+          for (final choice in widget.choices)
             Padding(
               // Only the first selected chip needs a key to scroll to.
               key: !keyed && _isSelected(choice) && (keyed = true)

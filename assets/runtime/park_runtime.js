@@ -80,8 +80,64 @@
     return url + (url.includes('?') ? '&' : '?') + query;
   }
 
+  // 所有只读页面和资源共用目的域判断；作品路径、分页身份仍由源判断。
+  const url = {
+    parse(value, base, domains) {
+      if (value == null || !String(value).trim() || /[\x00-\x20\x7f\\]/.test(String(value))) return null;
+      try {
+        const u = new URL(String(value), base);
+        if (u.protocol !== 'https:' || u.port || u.username || u.password ||
+            !/^[a-z0-9](?:[a-z0-9.-]*[a-z0-9])?\.[a-z]{2,}$/.test(u.hostname) ||
+            u.hostname.split('.').some(label => !label || label.startsWith('-') || label.endsWith('-')) ||
+            /(?:^|\.)(?:localhost|local)$/.test(u.hostname) ||
+            !Array.isArray(domains) || !domains.some(domain => {
+              const d = String(domain).toLowerCase();
+              return d && (u.hostname === d || u.hostname.endsWith('.' + d));
+            })) return null;
+        u.hash = '';
+        return u;
+      } catch (_) { return null; }
+    },
+    site(source, value, base = source.BASE || source.homepage) {
+      return url.parse(value, base, source.domains);
+    },
+    response(source, response, requested) {
+      const target = url.site(source, response.url || requested, requested);
+      if (!target) throw new ParkError(ErrorCode.BLOCKED, '访问受限');
+      return target;
+    },
+  };
+
   function createHttp(source, invocation) {
     const defaults = source.network || {};
+
+    function canBrowserFallback(request) {
+      const method = String(request.method || 'GET').toUpperCase();
+      const target = url.site(source, request.url);
+      const origin = request.origin || target?.origin;
+      return request.mode === 'auto' && request.followRedirects !== false && request.connectAddress === undefined && (method === 'GET' || method === 'HEAD') &&
+        request.body === undefined && request.bodyBase64 === undefined &&
+        !!target && !!origin && target.origin === origin;
+    }
+
+    function shouldBrowserFallback(response) {
+      const status = Number(response?.status);
+      // 403/429 can be request-layer challenges or rate limits that a real
+      // browser session may clear. Ordinary 5xx responses are origin-side
+      // failures; opening a browser cannot repair them and only adds latency.
+      return status === 403 || status === 429;
+    }
+
+    function shouldRetryInBrowser(error, request) {
+      if (!canBrowserFallback(request) || !error) return false;
+      if (error.code === ErrorCode.CLOUDFLARE) return true;
+      if (error.code !== ErrorCode.NETWORK) return false;
+      // The native transport already classifies failures. Browser fallback is
+      // useful for a transient connection failure, but it cannot repair DNS,
+      // TLS, timeout, or response-stream failures and would multiply latency.
+      const reason = error.diagnostics?.reason;
+      return reason === 'CONNECTION';
+    }
 
     async function request(opts) {
       const o = Object.assign({ method: 'GET', headers: {} }, opts);
@@ -121,15 +177,34 @@
         if (!hasHeader(o.headers, 'content-type')) o.headers['Content-Type'] = 'application/x-www-form-urlencoded';
         delete o.form;
       }
-      o.mode = o.mode || defaults.mode || 'native';
-      o.origin = o.origin || defaults.origin || '';
+      // 统一采用原生请求优先；可判定的拦截由请求层回退到浏览器。
+      // 需要浏览器验证、年龄确认或动态页面的源仍可显式声明 mode: 'browser'。
+      o.mode = o.mode || defaults.mode || 'auto';
+      o.origin = o.origin || ((o.mode === 'browser' || o.mode === 'auto') && url.site(source, o.url)?.origin) || defaults.origin || '';
       o.source = source.key;
       if (invocation !== undefined) o.invocation = invocation;
       let res;
+      let fallbackAttempted = false;
       try {
-        res = await native().request(o);
+        const nativeRequest = {...o, mode: o.mode === 'auto' ? 'native' : o.mode};
+        try {
+          res = await native().request(nativeRequest);
+          if (shouldBrowserFallback(res) && canBrowserFallback(o)) {
+            fallbackAttempted = true;
+            res = await native().request({...o, mode: 'browser'});
+          }
+        } catch (err) {
+          rethrowNative(err);
+        }
       } catch (err) {
-        rethrowNative(err);
+        if (fallbackAttempted) throw err;
+        if (!shouldRetryInBrowser(err, o)) throw err;
+        try {
+          fallbackAttempted = true;
+          res = await native().request({...o, mode: 'browser'});
+        } catch (fallbackError) {
+          rethrowNative(fallbackError);
+        }
       }
       res.headers = res.headers || {};
       res.ok = res.status >= 200 && res.status < 300;
@@ -188,6 +263,7 @@
     hmacSha256Hex: (key, text) => call('crypto', 'hmacSha256Hex', { key, text }),
     /** AES-ECB decrypt base64 data with an utf8 key, PKCS7 unpadding, returns utf8 text. */
     aesEcbDecrypt: (base64, key) => call('crypto', 'aesEcbDecrypt', { base64, key }),
+    aesGcmDecrypt: (ciphertext, key, iv) => call('crypto', 'aesGcmDecrypt', { ciphertext, key, iv }),
     uuid: () => call('crypto', 'uuid', {}),
     digestBytes: (algorithm, bytes) => call('crypto', 'digestBytes', { algorithm, bytes: Array.from(bytes) }),
     randomBytes: (length) => call('crypto', 'randomBytes', { length }),
@@ -395,7 +471,8 @@
       imageDecrypt: pick(def.imageDecrypt || {}),
       network: pick(def.network || {}),
       media: pick(def.media || {}),
-      subscription: pick(def.subscription ? {hint:def.subscription.hint || '',joinedTargets:typeof def.subscription.targets === 'function'} : null),
+      postShortVideos: def.postShortVideos === true,
+      subscription: pick(def.subscription ? {hint:def.subscription.hint || '',joinedTargets:typeof def.subscription.targets === 'function',communities:def.subscription.communities === true,communityHint:def.subscription.communityHint || '',communityExample:def.subscription.communityExample || ''} : null),
       updateSubscriptions: pick(def.updateSubscriptions ? {dimensions:def.updateSubscriptions.dimensions} : null),
       settings: pick(def.settings || []),
       account: def.account
@@ -408,6 +485,7 @@
             loginDomains: Array.isArray(def.account.loginDomains) ? def.account.loginDomains.map(String) : [],
             cookieUrl: def.account.cookieUrl || '',
             requiredCookies: def.account.requiredCookies || [],
+            localStorageKeys: Array.isArray(def.account.localStorageKeys) ? def.account.localStorageKeys.map(String) : [],
             required: !!def.account.required,
             managedAccount: !!def.account.managedAccount,
           }
@@ -428,8 +506,10 @@
         interaction: typeof def.interaction === 'function',
         related: typeof def.related === 'function',
         searchSuggestions: typeof def.searchSuggestions === 'function',
+        filterOptions: typeof def.filterOptions === 'function',
         rankings: Array.isArray(def.rankings) && def.rankings.length > 0,
         subscription: !!(def.subscription && typeof def.subscription.normalize === 'function' && typeof def.subscription.posts === 'function'),
+        album: !!(def.subscription && typeof def.subscription.media === 'function'),
         subscriptionUpdates: !!(def.updateSubscriptions && typeof def.updateSubscriptions.check === 'function'),
         search: typeof def.search === 'function',
         detail: typeof def.detail === 'function',
@@ -455,6 +535,7 @@
     html,
     crypto,
     utils,
+    url,
     __native: global.Park && global.Park.__native,
     __pending: null,
 
@@ -594,6 +675,90 @@
         // Namespaced methods ("account.login") still run with the source as `this`.
         let target = entry.def;
         for (const part of String(path).split('.')) target = target ? target[part] : undefined;
+        if (path === 'subscription.media') {
+          const scope = args?.[0], options = args?.[1];
+          const targetScope = typeof scope?.target === 'string' && !!scope.target;
+          const feedScope = typeof scope?.feed === 'string' && !!scope.feed;
+          if (!scope || typeof scope !== 'object' || Array.isArray(scope) ||
+              targetScope === feedScope ||
+              Object.keys(scope).some(key => !(
+                targetScope ? key === 'target' : key === 'feed' || key === 'options'
+              )) ||
+              (scope.options !== undefined && (!scope.options || typeof scope.options !== 'object' || Array.isArray(scope.options))) ||
+              !options || !Number.isSafeInteger(options.page) || options.page < 1 ||
+              (options.cursor != null && (typeof options.cursor !== 'string' || !options.cursor))) {
+            throw new ParkError(ErrorCode.CONFIG, '相册参数无效');
+          }
+          if (scope.feed && !(entry.def.feeds || []).some(feed => feed.key === scope.feed)) {
+            throw new ParkError(ErrorCode.CONFIG, '未知列表');
+          }
+        }
+        if (path === 'filterOptions') {
+          const request = args?.[0];
+          if (!request || !['feed', 'search'].includes(request.scope) ||
+              typeof request.filter !== 'string' || !/^[a-zA-Z0-9_-]{1,64}$/.test(request.filter) ||
+              (request.scope === 'feed' && (typeof request.feed !== 'string' || !request.feed)) ||
+              (request.scope === 'search' && request.feed !== undefined) ||
+              (request.keyword !== undefined && (typeof request.keyword !== 'string' || request.keyword.length > 512)) ||
+              !request.values || typeof request.values !== 'object' || Array.isArray(request.values)) {
+            throw new ParkError(ErrorCode.CONFIG, '动态筛选请求无效');
+          }
+          const definitions = request.scope === 'search'
+            ? (entry.def.searchFilters || [])
+            : (entry.def.feeds || []).find(feed => feed.key === request.feed)?.options || [];
+          const optionMap = new Map(definitions.map(item => [item.key, item]));
+          const visiting = new Set(), visited = new Set();
+          const visit = key => {
+            if (visiting.has(key)) throw new ParkError(ErrorCode.CONFIG, '筛选项依赖存在循环');
+            if (visited.has(key)) return;
+            visiting.add(key);
+            const item = optionMap.get(key);
+            const parents = item?.dependsOn || [];
+            if (!Array.isArray(parents) || new Set(parents).size !== parents.length ||
+                parents.some(parent => typeof parent !== 'string' || !optionMap.has(parent))) {
+              throw new ParkError(ErrorCode.CONFIG, '筛选项依赖无效');
+            }
+            parents.forEach(visit);
+            visiting.delete(key);
+            visited.add(key);
+          };
+          definitions.forEach(item => visit(item.key));
+          const option = definitions.find(value => value.key === request.filter && value.dynamic === true);
+          if (!option || typeof entry.def.filterOptions !== 'function') {
+            throw new ParkError(ErrorCode.CONFIG, '未知动态筛选');
+          }
+          const allowedParents = new Set(option.dependsOn || []);
+          for (const key of Object.keys(request.values)) {
+            if (!allowedParents.has(key)) throw new ParkError(ErrorCode.CONFIG, '筛选条件无效');
+            const parent = definitions.find(value => value.key === key);
+            const value = request.values[key];
+            if (!parent || !['string', 'number', 'boolean'].includes(typeof value) ||
+                (parent.values?.length && !parent.values.some(choice => choice.value === value))) {
+              throw new ParkError(ErrorCode.CONFIG, '筛选条件无效');
+            }
+          }
+          if ([...allowedParents].some(key => request.values[key] === undefined || request.values[key] === '')) {
+            throw new ParkError(ErrorCode.CONFIG, '缺少上级筛选条件');
+          }
+          const loadFilterOptions = target;
+          target = async function (input) {
+            const rows = await loadFilterOptions.call(this, input);
+            if (!Array.isArray(rows) || rows.length > 500) throw new ParkError(ErrorCode.PARSE, '动态筛选选项无效');
+            const seen = new Set();
+            return rows.map(row => {
+              if (!row || typeof row !== 'object' || Array.isArray(row) ||
+                  !['string', 'number'].includes(typeof row.value) ||
+                  (typeof row.value === 'number' && !Number.isFinite(row.value)) ||
+                  typeof row.label !== 'string' || !row.label.trim() || row.label.length > 256 ||
+                  /[\x00-\x1f\x7f]/.test(row.label) || seen.has(JSON.stringify([typeof row.value, row.value])) ||
+                  (row.color !== undefined && (typeof row.color !== 'string' || !/^#[0-9a-f]{6}$/i.test(row.color)))) {
+                throw new ParkError(ErrorCode.PARSE, '动态筛选选项无效');
+              }
+              seen.add(JSON.stringify([typeof row.value, row.value]));
+              return {value: row.value, label: row.label, ...(row.color ? {color: row.color} : {})};
+            });
+          };
+        }
         if (path === 'ranking' || path === 'rankingOptions') {
           const board = rankingDefs(entry.def).find(b => b.key === args?.[0]);
           if (!board) throw new ParkError(ErrorCode.CONFIG, '未知列表');

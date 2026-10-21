@@ -28,7 +28,8 @@ class DiscoveryDestination {
 List<DiscoveryDestination> get discoveryDestinations => [
   const DiscoveryDestination.all(),
   for (final domain in AppSettings.instance.domainOrder)
-    DiscoveryDestination.domain(domain),
+    if (AppSettings.instance.homeDimension.includes(domain))
+      DiscoveryDestination.domain(domain),
   const DiscoveryDestination.subscriptions(),
 ];
 
@@ -65,7 +66,12 @@ class DiscoveryDomainBar extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(Gap.page, 0, Gap.page, Gap.s),
       child: Row(
         children: [
-          for (final destination in discoveryDestinations)
+          for (final destination in discoveryDestinations) ...[
+            if (destination.subscription)
+              const SizedBox(
+                height: Gap.xl,
+                child: VerticalDivider(width: Gap.l),
+              ),
             Padding(
               padding: const EdgeInsetsDirectional.only(end: Gap.s),
               child: _DomainChip(
@@ -74,6 +80,7 @@ class DiscoveryDomainBar extends StatelessWidget {
                 onSelected: onSelected,
               ),
             ),
+          ],
         ],
       ),
     ),
@@ -111,10 +118,36 @@ class _DomainChipState extends State<_DomainChip> {
   }
 
   @override
-  Widget build(BuildContext context) => ChoiceChip(
-    label: SelectionContainer.disabled(child: Text(widget.destination.label)),
-    selected: widget.selected,
-    showCheckmark: false,
-    onSelected: (_) => widget.onSelected(widget.destination),
-  );
+  Widget build(BuildContext context) {
+    if (widget.destination.subscription) {
+      final colors = Theme.of(context).colorScheme;
+      return Semantics(
+        selected: widget.selected,
+        child: OutlinedButton.icon(
+          style: OutlinedButton.styleFrom(
+            foregroundColor: widget.selected
+                ? colors.primary
+                : colors.onSurfaceVariant,
+            side: BorderSide(
+              color: widget.selected ? colors.primary : colors.outlineVariant,
+            ),
+            shape: const RoundedRectangleBorder(borderRadius: Radii.small),
+            minimumSize: const Size(0, 48),
+            padding: const EdgeInsets.symmetric(horizontal: Gap.m),
+          ),
+          onPressed: () => widget.onSelected(widget.destination),
+          icon: const Icon(Icons.subscriptions_outlined),
+          label: SelectionContainer.disabled(
+            child: Text(widget.destination.label),
+          ),
+        ),
+      );
+    }
+    return ChoiceChip(
+      label: SelectionContainer.disabled(child: Text(widget.destination.label)),
+      selected: widget.selected,
+      showCheckmark: false,
+      onSelected: (_) => widget.onSelected(widget.destination),
+    );
+  }
 }

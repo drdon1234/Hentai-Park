@@ -15,6 +15,8 @@ import '../rankings/rankings_page.dart';
 import '../search/reverse_search_page.dart';
 import '../settings/source_manage_page.dart';
 import '../subscriptions/subscriptions_page.dart';
+import 'dimension_filter.dart';
+import 'feed_sessions.dart';
 import 'feed_shelf.dart';
 import 'sites_page.dart';
 
@@ -28,6 +30,7 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
+  late final _feeds = FeedSessions(SourceManager.instance);
   final _localDestination = ValueNotifier(const DiscoveryDestination.all());
   final _destinations = <String, DiscoveryDestination>{};
   final _scrolls = <String, ScrollController>{};
@@ -35,7 +38,10 @@ class _HomePageState extends State<HomePage> {
     'domainOrder',
     'homeCategories',
     'homeSources',
+    'homeExpandedDomains',
+    'homeHiddenSources',
     'dataSavingMode',
+    'homeDimension',
   });
   ValueNotifier<DiscoveryDestination> get _destination =>
       widget.destination ?? _localDestination;
@@ -45,6 +51,8 @@ class _HomePageState extends State<HomePage> {
     super.initState();
     _destinations[_destination.value.key] = _destination.value;
     _destination.addListener(_changed);
+    _domainOrder.addListener(_filterChanged);
+    _revealDestination();
   }
 
   @override
@@ -54,13 +62,31 @@ class _HomePageState extends State<HomePage> {
       (oldWidget.destination ?? _localDestination).removeListener(_changed);
       _destination.addListener(_changed);
       _destinations[_destination.value.key] = _destination.value;
+      _revealDestination();
     }
   }
 
   void _changed() {
+    _revealDestination();
     setState(() {
       _destinations[_destination.value.key] = _destination.value;
     });
+  }
+
+  void _revealDestination() {
+    final category = _destination.value.category;
+    final settings = AppSettings.instance;
+    if (category != null && !settings.homeDimension.includes(category)) {
+      settings.homeDimension = ContentDimension.all;
+    }
+  }
+
+  void _filterChanged() {
+    final category = _destination.value.category;
+    if (category != null &&
+        !AppSettings.instance.homeDimension.includes(category)) {
+      _select(const DiscoveryDestination.all());
+    }
   }
 
   void _select(DiscoveryDestination destination) =>
@@ -76,7 +102,9 @@ class _HomePageState extends State<HomePage> {
 
   @override
   void dispose() {
+    _feeds.dispose();
     _destination.removeListener(_changed);
+    _domainOrder.removeListener(_filterChanged);
     _localDestination.dispose();
     for (final scroll in _scrolls.values) {
       scroll.dispose();
@@ -93,30 +121,38 @@ class _HomePageState extends State<HomePage> {
         appBar: PageHeader(
           title: 'HentaiPark',
           actions: [
-            IconButton(
-              tooltip: tr('图片反搜'),
-              icon: const Icon(Icons.image_search_outlined),
-              onPressed: () => Nav.push(context, const ReverseSearchPage()),
-            ),
-            IconButton(
-              tooltip: tr('排行榜'),
-              icon: const Icon(Icons.leaderboard_outlined),
-              onPressed: () =>
-                  Nav.push(context, RankingsPage(category: selected.category)),
-            ),
-            TextButton(
-              onPressed: () => Nav.push(context, const SitesPage()),
-              child: SelectionContainer.disabled(child: Text(tr('站点'))),
+            ToolbarActions(
+              actions: [
+                ToolbarAction(
+                  label: tr('图片反搜'),
+                  icon: Icons.image_search_outlined,
+                  onPressed: () => Nav.push(context, const ReverseSearchPage()),
+                ),
+                ToolbarAction(
+                  label: tr('排行榜'),
+                  icon: Icons.leaderboard_outlined,
+                  onPressed: () => Nav.push(
+                    context,
+                    RankingsPage(category: selected.category),
+                  ),
+                ),
+                ToolbarAction(
+                  label: tr('站点'),
+                  icon: Icons.public_rounded,
+                  showLabel: true,
+                  onPressed: () => Nav.push(context, const SitesPage()),
+                ),
+              ],
             ),
           ],
         ),
         body: Column(
           children: [
-            ListenableBuilder(
-              listenable: _domainOrder,
-              builder: (context, _) =>
-                  DiscoveryDomainBar(selected: selected, onSelected: _select),
+            DimensionFilter(
+              selected: AppSettings.instance.homeDimension,
+              onSelected: (value) => AppSettings.instance.homeDimension = value,
             ),
+            DiscoveryDomainBar(selected: selected, onSelected: _select),
             Expanded(
               child: IndexedStack(
                 index: _destinations.keys.toList().indexOf(selected.key),
@@ -124,9 +160,15 @@ class _HomePageState extends State<HomePage> {
                   for (final destination in _destinations.values)
                     KeyedSubtree(
                       key: ValueKey(destination.key),
-                      child: destination.subscription
-                          ? const SubscriptionsPage(embedded: true)
-                          : _content(context, destination),
+                      child: TickerMode(
+                        enabled: destination == selected,
+                        child: ExcludeFocus(
+                          excluding: destination != selected,
+                          child: destination.subscription
+                              ? const SubscriptionsPage(embedded: true)
+                              : _content(context, destination),
+                        ),
+                      ),
                     ),
                 ],
               ),
@@ -143,9 +185,9 @@ class _HomePageState extends State<HomePage> {
     final scope = selected.category == null
         ? const ContentScope.all()
         : ContentScope.domain(selected.category!);
-    return RefreshIndicator(
+    return ParkRefresh(
       onRefresh: () async {
-        if (!dataSaver) FeedShelf.refreshAll();
+        if (!dataSaver) _feeds.refreshAll();
       },
       child: CustomScrollView(
         physics: const AlwaysScrollableScrollPhysics(),
@@ -188,24 +230,6 @@ class _HomePageState extends State<HomePage> {
                       ),
                       style: Theme.of(context).textTheme.bodySmall,
                     ),
-                  ],
-                ),
-              ),
-            ),
-          if (!dataSaver && selected.category != null)
-            SliverToBoxAdapter(
-              child: ListenableBuilder(
-                listenable: sm,
-                builder: (context, _) => Column(
-                  children: [
-                    SectionHeader(tr('站点')),
-                    for (final source in sm.enabled.where(
-                      (s) =>
-                          !s.manifest!.rankingOnly &&
-                          !s.manifest!.reverseSearchOnly &&
-                          s.manifest!.category == selected.category,
-                    ))
-                      SiteRow(source: source),
                   ],
                 ),
               ),
@@ -270,25 +294,41 @@ class _HomePageState extends State<HomePage> {
     }
     final category = selected.category;
     final dataSaver = AppSettings.instance.dataSaver;
-    final sources = dataSaver
-        ? sm.enabled
-              .where(
-                (source) =>
-                    !source.manifest!.rankingOnly &&
-                    !source.manifest!.reverseSearchOnly &&
-                    (category == null || source.manifest!.category == category),
-              )
-              .toList()
-        : browsableSources(category);
+    final enabled = sm.displayEnabled
+        .where(
+          (source) =>
+              !source.manifest!.rankingOnly &&
+              !source.manifest!.reverseSearchOnly &&
+              AppSettings.instance.homeDimension.includes(
+                source.manifest!.category,
+              ) &&
+              (category == null || source.manifest!.category == category),
+        )
+        .toList();
+    final sources = enabled
+        .where(
+          (source) =>
+              (category != null || _interesting(source.manifest!.category)) &&
+              (dataSaver ||
+                  source.manifest!.feeds.isNotEmpty ||
+                  source.manifest!.can('subscription')),
+        )
+        .toList();
     if (sources.isEmpty) {
-      if (category != null &&
-          sm.enabled.any(
-            (s) =>
-                !s.manifest!.rankingOnly &&
-                !s.manifest!.reverseSearchOnly &&
-                s.manifest!.category == category,
-          )) {
-        return const SliverToBoxAdapter(child: SizedBox.shrink());
+      if (enabled.isNotEmpty) {
+        return SliverToBoxAdapter(
+          child: EmptyState(
+            icon: Icons.explore_outlined,
+            title: tr('暂时没有内容'),
+            message: tr('可切换分类，或通过站点入口浏览和搜索'),
+            actions: [
+              FilledButton(
+                onPressed: () => Nav.push(context, const SitesPage()),
+                child: SelectionContainer.disabled(child: Text(tr('站点'))),
+              ),
+            ],
+          ),
+        );
       }
       return SliverToBoxAdapter(
         child: EmptyState(
@@ -304,52 +344,129 @@ class _HomePageState extends State<HomePage> {
         ),
       );
     }
-    if (dataSaver) {
+    if (dataSaver && category != null) {
       return SliverList.list(
         children: [
-          for (final domain in AppSettings.instance.domainOrder)
-            if ((category != null || _interesting(domain)) &&
-                sources.any((source) => source.manifest!.category == domain))
-              RowGroup(
-                title: domain.label,
-                children: [
-                  for (final source in sources.where(
-                    (source) => source.manifest!.category == domain,
-                  ))
-                    SiteRow(source: source),
-                ],
-              ),
+          RowGroup(
+            title: category.label,
+            children: [for (final source in sources) _siteEntry(source)],
+          ),
         ],
       );
     }
-    // Inside a category: one shelf per site. On “全部”: the first site of each category.
-    final shelves = <({InstalledSource source, SourceCategory category})>[
-      if (category != null)
-        for (final s in sources) (source: s, category: category)
-      else
-        for (final c in AppSettings.instance.domainOrder)
-          if (_interesting(c))
-            if (_displaySource(sources, c) case final first?)
-              (source: first, category: c),
-    ];
-    return SliverList.builder(
-      itemCount: shelves.length,
-      itemBuilder: (context, i) {
-        final shelf = shelves[i];
-        final name = shelf.source.manifest!.name;
-        return FeedShelf(
-          key: ValueKey('${shelf.category.name}:${shelf.source.key}'),
-          sourceKey: shelf.source.key,
-          title: category == null ? '${shelf.category.label} · $name' : name,
-          moreLabel: category == null ? tr('更多') : tr('进入'),
-          onConfigure: category == null
-              ? () => _configure(shelf.category, shelf.source.key)
-              : null,
-          onMore: category == null
-              ? () => _select(DiscoveryDestination.domain(shelf.category))
-              : () => Nav.openSource(context, shelf.source.key),
-        );
-      },
+    final sections = <Widget>[];
+    if (category != null) {
+      sections.addAll([
+        for (final source in sources) _homeSource(context, source),
+      ]);
+    } else {
+      for (final domain in AppSettings.instance.domainOrder) {
+        final candidates = sources
+            .where((source) => source.manifest!.category == domain)
+            .toList();
+        if (candidates.isEmpty) continue;
+        final expanded = AppSettings.instance.homeDomainExpanded(domain);
+        sections.add(_domainHeader(domain, candidates, expanded: expanded));
+        if (dataSaver) {
+          sections.add(
+            RowGroup(
+              children: [
+                for (final source in _domainSources(
+                  candidates,
+                  domain,
+                  expanded: expanded,
+                ))
+                  _siteEntry(source),
+              ],
+            ),
+          );
+          continue;
+        }
+        sections.addAll([
+          for (final source in _domainSources(
+            candidates,
+            domain,
+            expanded: expanded,
+          ))
+            _homeSource(context, source),
+        ]);
+      }
+    }
+    return SliverList.list(children: sections);
+  }
+
+  Widget _domainHeader(
+    SourceCategory domain,
+    List<InstalledSource> sources, {
+    required bool expanded,
+  }) => SectionHeader(
+    domain.label,
+    padding: const EdgeInsets.fromLTRB(Gap.page, Gap.xl, Gap.s, Gap.xs),
+    trailing: Wrap(
+      alignment: WrapAlignment.end,
+      children: [
+        if (sources.length > 1)
+          IconButton(
+            tooltip: tr(expanded ? '收起为仅显示首个站点' : '展开域内全部站点'),
+            icon: Icon(
+              expanded ? Icons.unfold_less_rounded : Icons.unfold_more_rounded,
+            ),
+            onPressed: () =>
+                AppSettings.instance.setHomeDomainExpanded(domain, !expanded),
+          ),
+        if (browsableSources(domain).isNotEmpty)
+          IconButton(
+            tooltip: tr('选择展示站点'),
+            icon: const Icon(Icons.tune_rounded),
+            onPressed: () {
+              final configurable = browsableSources(domain);
+              _configure(domain, _displaySource(configurable, domain)!.key);
+            },
+          ),
+        TextButton(
+          onPressed: () => _select(DiscoveryDestination.domain(domain)),
+          child: SelectionContainer.disabled(child: Text(tr('更多'))),
+        ),
+      ],
+    ),
+  );
+
+  List<InstalledSource> _domainSources(
+    List<InstalledSource> sources,
+    SourceCategory category, {
+    required bool expanded,
+  }) {
+    final first = _displaySource(sources, category);
+    if (first == null) return const [];
+    if (!expanded) return [first];
+    return [first, ...sources.where((source) => source.key != first.key)];
+  }
+
+  Widget _homeSource(BuildContext context, InstalledSource source) {
+    final visible = AppSettings.instance.homeSourceVisible(source.key);
+    if (AppSettings.instance.dataSaver || !visible) return _siteEntry(source);
+    return FeedShelf(
+      key: ValueKey('home:${source.key}'),
+      sessions: _feeds,
+      sourceKey: source.key,
+      title: source.name,
+      moreLabel: tr('进入'),
+      onToggleVisibility: () =>
+          AppSettings.instance.setHomeSourceVisible(source.key, false),
+      onMore: () => Nav.openSource(context, source.key),
+    );
+  }
+
+  Widget _siteEntry(InstalledSource source) {
+    final visible = AppSettings.instance.homeSourceVisible(source.key);
+    return HairlineItem(
+      key: ValueKey('home:${source.key}'),
+      child: SiteRow(
+        source: source,
+        homeSourceVisible: visible,
+        onToggleWorks: () =>
+            AppSettings.instance.setHomeSourceVisible(source.key, !visible),
+      ),
     );
   }
 

@@ -12,17 +12,28 @@ import '../engine/media_transport.dart';
 import 'hls.dart';
 import 'hls_resources.dart';
 import 'local_hls_media.dart';
+import 'rou_hls_wrapper.dart';
 
 /// A private, finite URL registry. The player never supplies an upstream URL.
 class HlsPlayback {
-  HlsPlayback(this.transport);
-  HlsPlayback.local(File playlist) : transport = LocalHlsMedia(playlist);
+  HlsPlayback(this.transport, {this.live = false});
+  HlsPlayback.local(File playlist)
+    : transport = LocalHlsMedia(playlist),
+      live = false;
 
   Future<Uri> openLocal() => open(LocalHlsMedia.playlistUrl);
   final MediaTransport transport;
+  final bool live;
   final _cancel = CancelToken();
   final _routes = <String, HlsSegment>{};
   String? _playlistPath;
+  Uri? _upstream;
+  final _manifestUrls = <Uri>{};
+  final _segmentPaths = <String, String>{};
+  Set<String> _currentPaths = {};
+  Set<String> _previousPaths = {};
+  int _nextRoute = 0;
+  Future<Uint8List>? _refreshing;
   late final _resources = HlsResources(transport, _cancel);
   final Map<String, Uint8List> _cache = {};
   final _pending = <String, Future<Uint8List>>{};
@@ -40,12 +51,21 @@ class HlsPlayback {
     if (_closed || _server != null) throw StateError('媒体会话不可重复打开');
     try {
       transport.validate(url);
+      _upstream = url;
+      _manifestUrls.add(url);
       final response = await transport.fetch(
         url,
         maxBytes: 2 * 1024 * 1024,
         cancelToken: _cancel,
       );
-      final list = HlsPlaylist.parse(utf8.decode(response.bytes), response.url);
+      _manifestUrls.add(response.url);
+      final list = HlsPlaylist.parse(
+        utf8.decode(
+          unwrapRouHlsIfWrapped(response.bytes, maxBytes: 2 * 1024 * 1024),
+        ),
+        response.url,
+        live: live,
+      );
       _resources.validate(list);
       if (_closed) throw SourceError('CANCELLED', '媒体会话已关闭');
       final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
@@ -72,12 +92,81 @@ class HlsPlayback {
   Uri _register(HlsSegment segment) {
     // An upstream URL can be repeated with a different IV or key. Register
     // the segment occurrence so these resources can never share plaintext.
-    final path = '/$_token/r${_routes.length}.ts';
+    final identity =
+        '${segment.sequence}|${segment.url}|${segment.key}|${segment.iv}';
+    final path = live
+        ? _segmentPaths.putIfAbsent(
+            identity,
+            () => '/$_token/r${_nextRoute++}.ts',
+          )
+        : '/$_token/r${_routes.length}.${segment.extension}';
     _routes[path] = segment;
+    if (live) _currentPaths.add(path);
     return Uri.parse('http://127.0.0.1:${_server!.port}$path');
   }
 
+  Future<Uint8List> _livePlaylist() async {
+    if (_refreshing case final pending?) return pending;
+    final operation = () async {
+      final response = await transport.fetch(
+        _upstream!,
+        maxBytes: 2 * 1024 * 1024,
+        cancelToken: _cancel,
+      );
+      if (_closed) throw SourceError('CANCELLED', '媒体会话已关闭');
+      final playlist = HlsPlaylist.parse(
+        utf8.decode(
+          unwrapRouHlsIfWrapped(response.bytes, maxBytes: 2 * 1024 * 1024),
+        ),
+        response.url,
+        live: true,
+      );
+      _resources.validate(playlist);
+      final previous = _currentPaths;
+      _currentPaths = {};
+      final bytes = Uint8List.fromList(
+        utf8.encode(playlist.rewrite((s) => _register(s).toString())),
+      );
+      if (previous.length != _currentPaths.length ||
+          !previous.every(_currentPaths.contains)) {
+        _previousPaths = previous;
+      }
+      final retained = {..._currentPaths, ..._previousPaths, ..._pending.keys};
+      _routes.removeWhere((path, _) => !retained.contains(path));
+      _segmentPaths.removeWhere((_, path) => !retained.contains(path));
+      for (final path
+          in _cache.keys
+              .where(
+                (path) => path != _playlistPath && !retained.contains(path),
+              )
+              .toList()) {
+        _cacheBytes -= _cache.remove(path)!.length;
+      }
+      // 原入口仍可用于下次刷新；重定向目标只保留本次确切地址。
+      _manifestUrls.removeWhere((url) => url != _upstream);
+      _manifestUrls.add(response.url);
+      final keys = {
+        for (final segment in _routes.values)
+          if (segment.key != null) segment.key!,
+      };
+      transport.policy.retainSessionResources({
+        ..._manifestUrls,
+        ...keys,
+        for (final segment in _routes.values) segment.url,
+      });
+      _resources.retainKeys(keys);
+      return bytes;
+    }();
+    _refreshing = operation;
+    try {
+      return await operation;
+    } finally {
+      if (identical(_refreshing, operation)) _refreshing = null;
+    }
+  }
+
   Future<Uint8List> _resource(String path) async {
+    if (live && path == _playlistPath) return _livePlaylist();
     final cached = _cache.remove(path);
     if (cached != null) {
       _cache[path] = cached;
@@ -126,6 +215,8 @@ class HlsPlayback {
         response.headers.contentType = ContentType.parse(
           path.endsWith('.m3u8')
               ? 'application/vnd.apple.mpegurl'
+              : path.endsWith('.mp4')
+              ? 'video/mp4'
               : 'video/mp2t',
         );
         response.headers.set('Accept-Ranges', 'bytes');

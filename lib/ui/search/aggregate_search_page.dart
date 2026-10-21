@@ -84,7 +84,7 @@ class _AggregateSearchPageState extends State<AggregateSearchPage> {
     super.dispose();
   }
 
-  List<InstalledSource> get _eligible => _sources.enabled
+  List<InstalledSource> get _eligible => _sources.displayEnabled
       .where(
         (s) =>
             s.manifest!.can('search') &&
@@ -260,6 +260,7 @@ class _AggregateSearchPageState extends State<AggregateSearchPage> {
           body: ListenableBuilder(
             listenable: Listenable.merge([
               _sources,
+              AppSettings.instance.watch(AppSettings.filterKeys),
               AppSettings.instance.watch(const {
                 'aggregateExcluded',
                 'domainOrder',
@@ -269,7 +270,7 @@ class _AggregateSearchPageState extends State<AggregateSearchPage> {
             ]),
             builder: (context, _) {
               final submittedKeys = _submittedSources.map((s) => s.key).toSet();
-              final resultSources = _sources.all
+              final resultSources = _sources.displayAll
                   .where((s) => submittedKeys.contains(s.key))
                   .toList();
               final refs = typed.isEmpty
@@ -448,7 +449,7 @@ class _AggregateSearchPageState extends State<AggregateSearchPage> {
     final hasLinks = refs.isNotEmpty;
     // A bare word without digits is a keyword; several sites accept any slug as an ID.
     if (refs.isEmpty && !text.contains(' ') && RegExp(r'\d').hasMatch(text)) {
-      for (final s in sm.enabled) {
+      for (final s in sm.displayEnabled) {
         final id = s.manifest!.matchExplicitId(text);
         if (id != null) refs.add((source: s.key, id: id));
       }

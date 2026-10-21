@@ -9,7 +9,7 @@ Park.register({
     "ru": {"JAV 视频，支持推荐、热门、搜索与 HLS 播放": "Видео JAV с рекомендациями, популярными списками, поиском и воспроизведением HLS", "推荐列表暂不可用": "Рекомендации временно недоступны", "推荐配置暂不可用": "Настройки рекомендаций временно недоступны", "播放线路暂不可用": "Воспроизведение временно недоступно", "请刷新推荐列表后重试": "Обновите рекомендации и повторите попытку"},
     "ar": {"JAV 视频，支持推荐、热门、搜索与 HLS 播放": "مقاطع JAV مع توصيات وقوائم شائعة وبحث وتشغيل HLS", "推荐列表暂不可用": "التوصيات غير متاحة مؤقتًا", "推荐配置暂不可用": "إعدادات التوصيات غير متاحة مؤقتًا", "播放线路暂不可用": "التشغيل غير متاح مؤقتًا", "请刷新推荐列表后重试": "حدّث التوصيات وحاول مرة أخرى"},
   },
-  key: 'av123', name: '123AV', version: '0.0.7', type: 'video', category: 'jav', color: '#EF4444',
+  key: 'av123', name: '123AV', version: '0.0.9', type: 'video', category: 'jav', color: '#EF4444',
   description: 'JAV 视频，支持推荐、热门、搜索与 HLS 播放',
   homepage: 'https://123av.com', domains: ['123av.com', 'sadie-shop.site'], language: 'zh-Hans',
   network: {mode: 'browser', origin: 'https://123av.com', vpnHint: true},
@@ -18,7 +18,8 @@ Park.register({
   linkPatterns: ['123av\\.com/(?:en|cn|tw|ja|ko|th|ms|id|fil|hi|vi|de|fr)/v/([a-z0-9][a-z0-9_-]{1,120})(?:[/?#]|$)'],
   idPattern: '^[a-z0-9][a-z0-9_-]{1,120}$', idExample: 'ipzz-964',
   defaultFeed: 'recommended', feeds: [{key: 'recommended', label: '推荐'}, {key: 'hot', label: '热门'},
-    {key: 'new', label: '最新上市'}, {key: 'recent', label: '最近更新'}],
+    {key: 'new', label: '最新上市'}, {key: 'recent', label: '最近更新'},
+    {key: 'categories', label: '分类', options: [{key: 'category', label: '分类', type: 'select', default: '', dynamic: true, values: []}]}],
   searchHint: '搜索番号、作品名或演员',
   settings: [{key: 'quality', type: 'select', label: '默认清晰度', default: '1080', options: [
     {value: '1080', label: '1080P'}, {value: '720', label: '720P'}, {value: '480', label: '480P'}]}],
@@ -107,7 +108,7 @@ Park.register({
       cover:'https://icdn.123av.me/img2/s360/'+hashes[n].slice(0,2)+'/'+i.code.toLowerCase()+'/cover.jpg',coverAspect:16/9,duration:this.duration(i.duration)}));
   },
   // The watch page loads similar videos in the browser from rec2 ("watch-similar").
-  async related(doc, id) {
+  async relatedItems(doc, id) {
     const node=doc.querySelector('[x-data^="recommendation("]');
     const config=node && node.getAttribute('x-data') || '';
     const key=/\bkey:\s*'([a-f0-9-]{36})'/.exec(config);
@@ -140,6 +141,11 @@ Park.register({
     return {items,page,hasNext:items.length>0 && !!cursor};
   },
   async feed(key, req) {
+    if (key === 'categories') {
+      const category = String(req.options?.category || '');
+      if (category && !/^[a-z0-9-]{1,100}$/.test(category)) throw Park.error('CONFIG', '分类无效');
+      return this.listing(category ? '/cn/genres/' + category : '/cn/recent', req);
+    }
     if (key==='recommended') return this.recommendations(req);
     if (!['hot','new','recent'].includes(key)) throw Park.error('CONFIG','未知视频列表');
     return this.listing('/cn/'+key,req);
@@ -150,6 +156,19 @@ Park.register({
     const keyword=String(req.keyword || '').trim();
     if (!keyword) return {items:[],page:1,totalPages:1,hasNext:false};
     return this.listing('/cn/search',req,{keyword});
+  },
+  async filterOptions(req) {
+    if (req.scope !== 'feed' || req.feed !== 'categories' || req.filter !== 'category') return [];
+    const doc = await this.getPage('/cn/genres'), options = [{value: '', label: '全部'}], seen = new Set();
+    for (const a of doc.querySelectorAll('a[href]')) {
+      const m = /^\/cn\/genres\/([a-z0-9-]{1,100})$/.exec(a.getAttribute('href') || '');
+      const label = Park.html.text(a).replace(/\s+[\d,]+$/, '');
+      if (!m || !label || seen.has(m[1])) continue;
+      seen.add(m[1]); options.push({value: m[1], label});
+      if (options.length > 500) throw Park.error('PARSE', '分类列表解析失败');
+    }
+    if (!seen.size) throw Park.error('PARSE', '未找到分类');
+    return options;
   },
   episodes(doc) {
     const node=doc.querySelector('.watch__main[x-data]');
@@ -182,7 +201,7 @@ Park.register({
       }
     }
     return {id,title,cover,coverAspect:16/9,url:this.BASE+'/cn/v/'+id,authors,duration,uploaded, ...this.identity(id), variants:this.variants(doc,id),
-      description:Park.html.text(doc.querySelector('.watch__desc-text')),tags:tags.length?[{namespace:'tag',label:'标签',tags}]:[],related:await this.related(doc,id)};
+      description:Park.html.text(doc.querySelector('.watch__desc-text')),tags:tags.length?[{namespace:'tag',label:'标签',tags}]:[],related:await this.relatedItems(doc,id)};
   },
   async videos(id) {
     const doc=await this.getPage('/cn/v/'+this.validId(id));

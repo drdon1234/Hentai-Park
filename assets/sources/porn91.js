@@ -9,12 +9,25 @@ Park.register({
     "ru": {"成人视频社区，支持推荐、搜索和原画播放": "Сообщество видео для взрослых с рекомендациями, поиском и оригинальным качеством"},
     "ar": {"成人视频社区，支持推荐、搜索和原画播放": "مجتمع فيديوهات للبالغين مع توصيات وبحث وتشغيل بالجودة الأصلية"},
   },
-  key: 'porn91', name: '91porn', version: '0.0.4', type: 'video', category: 'adult', color: '#D81B60',
+  key: 'porn91', name: '91porn', version: '0.0.7', type: 'video', category: 'adult', color: '#D81B60',
   description: '成人视频社区，支持推荐、搜索和原画播放', homepage: 'https://91porn.com', domains: ['91porn.com'], language: 'zh',
   network: {mode: 'native', vpnHint: true}, imageHeaders: {Referer: 'https://91porn.com/'},
+  media: {mode: 'native', origin: 'https://91porn.com', domains: ['la.btc620.com', '1470423830.rsc.cdn77.org']},
   linkPatterns: ['91porn\\.com/view_video\\.php\\?(?:[^#]*&)?viewkey=([a-zA-Z0-9]{5,64})(?:&|#|$)'],
   idPattern: '^[a-zA-Z0-9]{5,64}$', idExample: '402751768',
-  defaultFeed: 'recommend', feeds: [{key: 'recommend', label: '推荐'}], searchHint: '搜索作品名或标签', BASE: 'https://91porn.com',
+  defaultFeed: 'recommend', feeds: [{key: 'recommend', label: '推荐'}, {key: 'categories', label: '分类', options: [{key: 'category', label: '分类', default: 'category=rf&viewtype=basic', dynamic: true, values: []}]}], searchHint: '搜索作品名或标签', BASE: 'https://91porn.com',
+  async filterOptions(req) {
+    if (req.scope !== 'feed' || req.feed !== 'categories' || req.filter !== 'category') return [];
+    const {doc} = await this.getPage(this.BASE + '/v.php?category=rf&viewtype=basic'), seen = new Set(), values = [];
+    for (const a of doc.querySelectorAll('.navbar a[href],nav a[href]')) {
+      const u = new URL(a.getAttribute('href'), this.BASE), label = Park.html.text(a);
+      if (!this.siteUrl(u) || u.pathname !== '/v.php' || !/^(?:ori|hot|top|long|longer|tf|rf|hd|md|mf)$/.test(u.searchParams.get('category') || '') || !label) continue;
+      const params = new URLSearchParams({category: u.searchParams.get('category'), viewtype: 'basic'});
+      if (u.searchParams.get('m') === '-1') params.set('m', '-1');
+      const value = params.toString(); if (!seen.has(value)) {seen.add(value); values.push({value, label});}
+    }
+    if (!values.length) throw Park.error('PARSE', '未找到分类'); return values;
+  },
   validId(id) {
     const value = String(id);
     if (!/^[a-zA-Z0-9]{5,64}$/.test(value)) throw Park.error('NOT_FOUND', '影片编号无效');
@@ -61,6 +74,10 @@ Park.register({
   },
   async listing(url, req, kind) {
     const page = Math.max(1, Math.floor(Number(req.page) || 1));
+    if (req.cursor && kind === 'feed') {
+      const a = new URL(url), b = new URL(this.pageUrl(req.cursor, kind));
+      for (const key of ['category', 'm']) if (a.searchParams.get(key) !== b.searchParams.get(key)) throw Park.error('CONFIG', '分页链接无效');
+    }
     url = this.pageUrl(req.cursor || url, kind);
     if (!req.cursor && page > 1) { const u = new URL(url); u.searchParams.set('page', page); url = u.href; }
     const {doc, url: finalUrl} = await this.getPage(url);
@@ -72,6 +89,11 @@ Park.register({
     return {items: this.cards(doc), page, hasNext: !!cursor, cursor};
   },
   async feed(key, req) {
+    if (key === 'categories') {
+      const value = String(req.options?.category || 'category=rf&viewtype=basic');
+      if (!/^category=(?:ori|hot|top|long|longer|tf|rf|hd|md|mf)&viewtype=basic(?:&m=-1)?$/.test(value)) throw Park.error('CONFIG', '分类无效');
+      return this.listing(this.BASE + '/v.php?' + value, req, 'feed');
+    }
     if (key !== 'recommend') throw Park.error('CONFIG', '未知视频列表');
     return this.listing(this.BASE + '/v.php?category=rf&viewtype=basic', req, 'feed');
   },

@@ -16,6 +16,9 @@ import '../../engine/source_manager.dart';
 import '../kit/adaptive_sheet.dart';
 import '../kit/components.dart';
 import '../theme.dart';
+import '../web/web_video_page.dart';
+import '../widgets/content_translation.dart';
+import 'live_recording_button.dart';
 import 'video_controls.dart';
 import 'video_episode_sheet.dart';
 import 'video_gestures.dart';
@@ -66,6 +69,7 @@ class _VideoPageState extends State<VideoPage>
   StreamSubscription<double>? _volumeSub;
   Future<void> _screenUpdates = Future.value();
   final _detailsRequest = CancelToken();
+  bool _webFallbackScheduled = false;
 
   List<Chapter> get _episodes => _session.episodes;
   int get _episodeIndex => _session.episodeIndex;
@@ -129,6 +133,32 @@ class _VideoPageState extends State<VideoPage>
 
   void _onSession() {
     if (!mounted) return;
+    final manifest = SourceManager.instance.manifest(widget.work.source);
+    if (widget.localFile == null &&
+        !_webFallbackScheduled &&
+        manifest?.shouldFallbackToWebVideo(_session.error) == true) {
+      _webFallbackScheduled = true;
+      final generation = _session.generation;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        _webFallbackScheduled = false;
+        if (generation != _session.generation ||
+            manifest?.shouldFallbackToWebVideo(_session.error) != true ||
+            ModalRoute.of(context)?.isCurrent != true) {
+          return;
+        }
+        Navigator.of(context).pushReplacement<void, void>(
+          MaterialPageRoute(
+            builder: (_) => TranslationPage(
+              child: WebVideoPage(
+                work: widget.work,
+                episodeId: _session.episode.id,
+              ),
+            ),
+          ),
+        );
+      });
+    }
     setState(() {});
     // Keep the drama pager on the playing episode, e.g. after auto-advance.
     if (_episodePages.hasClients &&
@@ -185,6 +215,11 @@ class _VideoPageState extends State<VideoPage>
   void _toggleControls() {
     setState(() => _controls = !_controls);
     if (_controls) _scheduleHide();
+  }
+
+  void _showControls() {
+    if (!_controls) setState(() => _controls = true);
+    _scheduleHide();
   }
 
   Future<void> _toggleFullscreen() => _setDisplayMode(
@@ -275,7 +310,14 @@ class _VideoPageState extends State<VideoPage>
 
   Widget _controlsLayer(VideoPlayerValue value, Widget progress) =>
       VideoControls(
-        progress: progress,
+        progress: _session.isLive ? null : progress,
+        live: _session.isLive,
+        recordingAction: _session.isLive && _fullscreen
+            ? LiveRecordingButton(
+                item: widget.work.toItem(),
+                color: Colors.white,
+              )
+            : null,
         value: value,
         position: _previewPosition ?? value.position,
         title: widget.work.title,
@@ -316,10 +358,7 @@ class _VideoPageState extends State<VideoPage>
       child: Focus(
         autofocus: true,
         child: MouseRegion(
-          onHover: (_) {
-            if (!_controls) setState(() => _controls = true);
-            _scheduleHide();
-          },
+          onHover: (_) => _showControls(),
           child: VideoStage(
             session: _session,
             fullscreen: _fullscreen,
@@ -332,6 +371,7 @@ class _VideoPageState extends State<VideoPage>
                 ? (1 - _brightness) * 0.8
                 : 0,
             onTap: _toggleControls,
+            onMouseTap: _showControls,
             onDoubleTap: _seekBy,
             onGestureStart: _startGesture,
             onGestureUpdate: _updateGesture,
@@ -366,7 +406,12 @@ class _VideoPageState extends State<VideoPage>
     }
     return Scaffold(
       backgroundColor: context.colors.surface,
-      appBar: AppBar(title: Text(tr('播放'))),
+      appBar: AppBar(
+        title: Text(tr('播放')),
+        actions: [
+          if (_session.isLive) LiveRecordingButton(item: widget.work.toItem()),
+        ],
+      ),
       body: SafeArea(
         child: VideoLayout(
           player: player,
@@ -376,12 +421,10 @@ class _VideoPageState extends State<VideoPage>
             quality: _session.current?.label,
             showRelated: false,
           ),
-          details: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (_episodes.length > 1) _episodeBar(),
-              VideoDetails(work: _details ?? widget.work, showHeader: false),
-            ],
+          sidebar: _episodes.length > 1 ? _episodeBar() : null,
+          details: VideoDetails(
+            work: _details ?? widget.work,
+            showHeader: false,
           ),
         ),
       ),

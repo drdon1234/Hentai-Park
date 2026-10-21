@@ -3,6 +3,7 @@ import 'package:video_player/video_player.dart';
 
 import '../../core/localization.dart';
 import '../../core/models.dart';
+import '../../engine/source_manager.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
 import '../widgets/paged_grid.dart';
@@ -15,7 +16,7 @@ String formatPlaybackTime(Duration d) {
   return h > 0 ? '$h:$mm:$ss' : '$mm:$ss';
 }
 
-/// The control layer over the player: title, quality and speed on top, play in the middle,
+/// The control layer over the player: title, quality and speed on top,
 /// time, progress and screen modes in one bottom control group.
 class VideoControls extends StatelessWidget {
   const VideoControls({
@@ -35,6 +36,8 @@ class VideoControls extends StatelessWidget {
     this.onQuality,
     this.episodes,
     this.progress,
+    this.live = false,
+    this.recordingAction,
   });
   final VideoPlayerValue value;
 
@@ -55,6 +58,8 @@ class VideoControls extends StatelessWidget {
   final VoidCallback? onQuality;
   final Widget? episodes;
   final Widget? progress;
+  final bool live;
+  final Widget? recordingAction;
 
   @override
   Widget build(BuildContext context) {
@@ -66,17 +71,19 @@ class VideoControls extends StatelessWidget {
       title: title,
       onBack: onBack,
       actions: [
+        ?recordingAction,
         if (quality != null)
           TextButton(
             onPressed: onQuality,
             style: TextButton.styleFrom(foregroundColor: fg),
             child: SelectionContainer.disabled(child: Text(quality!)),
           ),
-        TextButton(
-          onPressed: onSpeed,
-          style: TextButton.styleFrom(foregroundColor: fg),
-          child: SelectionContainer.disabled(child: Text('${speed}x')),
-        ),
+        if (!live)
+          TextButton(
+            onPressed: onSpeed,
+            style: TextButton.styleFrom(foregroundColor: fg),
+            child: SelectionContainer.disabled(child: Text('${speed}x')),
+          ),
       ],
       bottom: Column(
         mainAxisSize: MainAxisSize.min,
@@ -90,7 +97,9 @@ class VideoControls extends StatelessWidget {
                   constraints.maxWidth < 600 ||
                   MediaQuery.textScalerOf(context).scale(1) > 1.3;
               final time = Text(
-                '${formatPlaybackTime(position)} / ${formatPlaybackTime(value.duration)}',
+                live
+                    ? tr('直播')
+                    : '${formatPlaybackTime(position)} / ${formatPlaybackTime(value.duration)}',
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: context.text.labelMedium?.copyWith(
@@ -100,6 +109,16 @@ class VideoControls extends StatelessWidget {
               );
               final row = Row(
                 children: [
+                  IconButton(
+                    tooltip: tr(value.isPlaying ? '暂停' : '播放'),
+                    icon: Icon(
+                      value.isPlaying
+                          ? Icons.pause_circle_filled_rounded
+                          : Icons.play_circle_fill_rounded,
+                      color: fg,
+                    ),
+                    onPressed: onPlayPause,
+                  ),
                   if (progress == null || stacked)
                     Expanded(child: time)
                   else ...[
@@ -148,23 +167,7 @@ class VideoControls extends StatelessWidget {
           ),
         ],
       ),
-      child: Stack(
-        children: [
-          Center(
-            child: IconButton(
-              tooltip: tr(value.isPlaying ? '暂停' : '播放'),
-              iconSize: 48,
-              icon: Icon(
-                value.isPlaying
-                    ? Icons.pause_circle_filled_rounded
-                    : Icons.play_circle_fill_rounded,
-                color: fg,
-              ),
-              onPressed: onPlayPause,
-            ),
-          ),
-        ],
-      ),
+      child: const SizedBox.expand(),
     );
   }
 }
@@ -313,10 +316,13 @@ class VideoDetails extends StatelessWidget {
           ),
         if (showRelated && d.series.isNotEmpty)
           SliverToBoxAdapter(
-            child: WorkCarousel(title: tr('同系列'), items: d.series),
+            child: WorkRecommendations(title: tr('同系列'), items: d.series),
           ),
         if (showRelated &&
-            (d.related.isNotEmpty || d.relatedSections.isNotEmpty))
+            (d.related.isNotEmpty ||
+                d.relatedSections.isNotEmpty ||
+                SourceManager.instance.manifest(d.source)?.can('related') ==
+                    true))
           SliverToBoxAdapter(
             child: RelatedWorks(key: ObjectKey(d), detail: d),
           ),

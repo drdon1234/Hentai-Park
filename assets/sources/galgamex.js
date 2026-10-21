@@ -25,6 +25,32 @@
     for (const match of text.matchAll(pattern)) { const value = valueAt(text, match.index + name.length + 3); if (value != null) return value; }
     return null;
   }
+  function catalogue(html, namespace) {
+    const text = flight(html), found = [];
+    function visit(value) {
+      if (!value || typeof value !== 'object') return;
+      if (value.queryOptions?.namespace === namespace && Array.isArray(value.games)) found.push(value);
+      for (const child of Object.values(value)) visit(child);
+    }
+    for (const match of text.matchAll(/(?:^|\n)[0-9a-f]+:([\[{])/g)) {
+      visit(valueAt(text, match.index + match[0].length - 1));
+    }
+    if (found.length !== 1) throw fail();
+    return found[0];
+  }
+  const platforms = ['windows', 'mac', 'linux', 'android', 'ios', 'ps', 'switch', 'xbox'];
+  const languages = ['SimplifiedChinese', 'TraditionalChinese', 'English', 'Japanese', 'Korean', 'French', 'German', 'Spanish', 'Russian', 'Italian', 'Thai', 'Vietnamese'];
+  const sorts = ['resource_updated', 'newest', 'recently_added', 'rating', 'downloads'];
+  const filters = [
+    {key: 'platform', label: '平台', type: 'select', default: '', values: [{value: '', label: '全部'},
+      ...platforms.map((value, i) => ({value, label: ['Windows', 'macOS', 'Linux', 'Android', 'iOS', 'PlayStation', 'Nintendo Switch', 'Xbox'][i]}))]},
+    {key: 'language', label: '语言', type: 'select', default: '', values: [{value: '', label: '全部'},
+      ...languages.map((value, i) => ({value, label: ['简体中文', '繁體中文', 'English', '日本語', '한국어', 'Français', 'Deutsch', 'Español', 'Русский', 'Italiano', 'ไทย', 'Tiếng Việt'][i]}))]},
+    {key: 'sort', label: '排序', type: 'select', default: 'resource_updated', values:
+      sorts.map((value, i) => ({value, label: ['资源更新', '最新', '最近收录', '评分', '下载量'][i]}))},
+    {key: 'tagRange', label: '索引', type: 'select', default: '1', dynamic: true, values: []},
+    {key: 'tag', label: '标签', type: 'select', default: '', dynamic: true, dependsOn: ['tagRange'], values: []},
+  ];
   const item = g => ({ id: String(g.uniqueId), title: g.name || '', subtitle: (g.altNames || []).join(' / '),
     cover: g.coverImage || g.headerImage || '', coverAspect: g.coverImage ? 0.67 : 16 / 9,
     rating: g.ratingStats?.averageRating, views: g.viewCount, likes: g._count?.favorites,
@@ -58,13 +84,17 @@
       "ru": {"GalgameX 账号": "Аккаунт GalgameX", "无法获取游戏资源，请在原站检查权限": "Недействительный ресурс или ответ загрузки. Проверьте доступ на сайте и повторите.", "游戏目录、版本资源与直链和网盘渠道": "Каталог игр, версии, прямые и облачные загрузки", "该游戏需要登录，请在应用内登录 GalgameX 后重试": "Для этой игры нужен вход. Войдите в GalgameX через приложение и повторите попытку", "部分游戏需要登录；打开网页后点击右上角账号按钮登录，完成后返回重试。Cookie 仅保存在本机。": "Некоторые игры требуют входа. Нажмите кнопку аккаунта справа вверху страницы, войдите и повторите попытку. Cookie хранятся только на устройстве."},
       "ar": {"GalgameX 账号": "حساب GalgameX", "无法获取游戏资源，请在原站检查权限": "مورد أو استجابة تنزيل غير صالحة. تحقق من صلاحيات الموقع وأعد المحاولة.", "游戏目录、版本资源与直链和网盘渠道": "دليل ألعاب وإصدارات وتنزيلات مباشرة وسحابية", "该游戏需要登录，请在应用内登录 GalgameX 后重试": "تتطلب هذه اللعبة تسجيل الدخول. سجّل الدخول إلى GalgameX داخل التطبيق ثم أعد المحاولة", "部分游戏需要登录；打开网页后点击右上角账号按钮登录，完成后返回重试。Cookie 仅保存在本机。": "تتطلب بعض الألعاب تسجيل الدخول. افتح الصفحة واستخدم زر الحساب أعلى اليمين ثم عد وأعد المحاولة. تُحفظ ملفات تعريف الارتباط على هذا الجهاز فقط."},
     },
-    key: 'galgamex', name: 'GalgameX', version: '0.0.6', type: 'game', category: 'game', color: '#E984AE',
+    key: 'galgamex', name: 'GalgameX', version: '0.0.7', type: 'game', category: 'game', color: '#E984AE',
     description: '游戏目录、版本资源与直链和网盘渠道', homepage: BASE, language: 'chinese',
-    domains: ['galgamex.net', 'imgs.galgamex.win', 'shared.fastly.steamstatic.com', 'cdn.akamai.steamstatic.com'],
+    domains: ['galgamex.net'],
+    imageNetwork: {mode: 'browser', origin: BASE, domains: ['galgamex.net', 'imgs.galgamex.win', 'shared.fastly.steamstatic.com', 'cdn.akamai.steamstatic.com']},
     media: { mode: 'native', origin: BASE, domains: ['game.galgamex.com'] },
     network: { mode: 'native', vpnHint: true },
     linkPatterns: ['https?://(?:www\\.)?galgamex\\.net/game/([a-z0-9]{8})'], idPattern: '^([a-z0-9]{8})$', idExample: '9476825d',
-    defaultFeed: 'ranking', feeds: [{ key: 'ranking', label: '本周热门' }, { key: 'latest', label: '资源更新' }],
+    defaultFeed: 'ranking', feeds: [{ key: 'ranking', label: '本周热门' }, { key: 'latest', label: '资源更新', options: [
+      {key: 'section', label: '分区', type: 'select', default: 'gal', values: [{value: 'gal', label: 'Galgame'}, {value: 'tr', label: '同人'}]}, ...filters,
+    ] }],
+    searchFilters: filters,
     settings: [{ key: 'nsfw', type: 'switch', label: '显示 NSFW 内容', default: true }],
     account: {
       type: 'cookies', title: 'GalgameX 账号', required: false,
@@ -95,7 +125,7 @@
         return {loggedIn: !!session?.user?.id, name: session?.user?.name || ''};
       },
     },
-    async init() { this.actionCache = new Map(); this.gameIds = new Map(); },
+    async init() { this.actionCache = new Map(); this.gameIds = new Map(); this.tagCache = new Map(); },
     async filter() {
       await this.http.json(BASE + '/api/content-filter', { method: 'POST', json: { value: this.config.nsfw ? 'all' : 'sfw' } });
     },
@@ -159,30 +189,59 @@
       }
       return [{ type: 'favorite', value: data.isFavorited }];
     },
-    async list(args, retry = false) {
-      await this.filter();
-      const id = (await this.serverActions('/games', ['getGames'], retry)).getGames;
-      const response = await this.http.post(BASE + '/games', { body: JSON.stringify([args]), headers: {
-        'Next-Action': id, Accept: 'text/x-component', 'Content-Type': 'text/plain;charset=UTF-8' } });
-      if (response.status >= 400 && !retry) return this.list(args, true);
-      this.http.ensureOk(response);
-      const line = /(?:^|\n)1:/.exec(response.body);
-      const value = line ? valueAt(response.body, line.index + line[0].length) : null;
-      if (!value || !Array.isArray(value.games)) throw fail();
-      return { items: value.games.map(item), page: args.pageIndex, total: value.total,
-        hasNext: args.pageIndex * args.limit < value.total };
+    async tagPage(page) {
+      if (!Number.isInteger(page) || page < 1 || page > 500) throw Park.error('CONFIG', '筛选参数无效');
+      const cached = this.tagCache.get(page);
+      if (cached && Date.now() - cached.time < 300000) return cached.data;
+      const result = await this.http.json(BASE + '/api/game/tags', {params: {pageIndex: page, pageSize: 100}}), data = result?.data;
+      if (!Array.isArray(data?.tags) || !Number.isSafeInteger(data.total) || data.total < 0 || data.total > 50000) throw fail();
+      this.tagCache.set(page, {time: Date.now(), data});
+      while (this.tagCache.size > 8) this.tagCache.delete(this.tagCache.keys().next().value);
+      return data;
     },
-    async feed(key, { page = 1 } = {}) {
+    async filterOptions(req) {
+      if (req.filter === 'tagRange') {
+        const data = await this.tagPage(1);
+        return Array.from({length: Math.max(1, Math.ceil(data.total / 100))}, (_, i) =>
+          ({value: String(i + 1), label: (i * 100 + 1) + '–' + Math.min((i + 1) * 100, data.total)}));
+      }
+      if (req.filter !== 'tag') return [];
+      const data = await this.tagPage(Number(req.values.tagRange || '1'));
+      return [{value: '', label: '全部'}, ...data.tags.map(t => {
+        if (typeof t.slug !== 'string' || !t.slug || t.slug.length > 240 || /[,\r\n]/.test(t.slug) || !t.name) throw fail();
+        return {value: t.slug, label: String(t.name)};
+      })];
+    },
+    async list(namespace, page, values = {}, keyword) {
+      if (!Number.isInteger(page) || page < 1 || page > 1000000) throw Park.error('CONFIG', '分页参数无效');
+      const params = new URLSearchParams();
+      if (keyword !== undefined) params.set('q', String(keyword));
+      params.set(namespace + '_page', String(page));
+      for (const [key, allowed, fallback] of [['platform', platforms, ''], ['language', languages, ''], ['sort', sorts, 'resource_updated']]) {
+        const value = values[key] || fallback;
+        if (value && !allowed.includes(value)) throw Park.error('CONFIG', '筛选参数无效');
+        if (value) params.set(namespace + '_' + key, value);
+      }
+      if (values.tag) {
+        if (typeof values.tag !== 'string' || values.tag.length > 240 || /[,\r\n]/.test(values.tag)) throw Park.error('CONFIG', '筛选参数无效');
+        params.set(namespace + '_tags', values.tag);
+      }
+      const value = catalogue(await this.page((keyword === undefined ? '/games?' : '/search?') + params), namespace);
+      if (!Number.isSafeInteger(value.total) || !Number.isSafeInteger(value.limit) || value.limit < 1 || value.page !== page) throw fail();
+      return {items: value.games.map(item), page, total: value.total, hasNext: page * value.limit < value.total};
+    },
+    async feed(key, { page = 1, options = {} } = {}) {
       if (key === 'ranking') {
         if (page > 1) return { items: [], page, hasNext: false };
         const games = field(flight(await this.page('/games/ranking')), 'weekly');
         if (!Array.isArray(games)) throw fail();
         return { items: games.map(item), page: 1, hasNext: false };
       }
-      return this.list({ limit: 24, pageIndex: page, sortBy: 'resource_updated', onlyWithResources: true });
+      if (key !== 'latest' || !['gal', 'tr'].includes(options.section || 'gal')) throw Park.error('CONFIG', '未知列表');
+      return this.list(options.section || 'gal', page, options);
     },
-    async search({ keyword, page = 1 }) {
-      return this.list({ limit: 24, keyword: String(keyword), pageIndex: page, sortBy: 'resource_updated', onlyWithResources: true });
+    async search({ keyword, page = 1, filters = {} }) {
+      return this.list('game-list-search-default', page, filters, String(keyword || '').trim());
     },
     async detail(id) {
       id = idOf(id);

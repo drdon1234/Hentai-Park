@@ -2,7 +2,7 @@
 
 # Site plugin API
 
-[Quick start](#quick-start) · [Manifest fields](#manifest-fields) · [Methods](#methods) · [Runtime API](#runtime-api) · [Error codes](#error-codes) · [Localization](#localization) · [Publishing](#publishing) · [Appendix: notes on official sites](#appendix-notes-on-official-sites)
+[Quick start](#quick-start) · [Manifest fields](#manifest-fields) · [Methods](#methods) · [Runtime API](#runtime-api) · [Error codes](#error-codes) · [Localization](#localization) · [Publishing](#publishing)
 
 Every site in HentaiPark is a standalone JavaScript plugin. The app loads plugins at runtime; they can be installed from a repository, updated, enabled or disabled **without rebuilding the app**. The official plugins live in [`assets/sources/`](../../../assets/sources/) and make good examples.
 
@@ -69,7 +69,7 @@ Park.register({
   name: '我的站点',
   version: '0.0.1',           // three numbers; the app offers an update when the repository has a higher one
   type: 'comic',              // comic | video | novel | game: how works are read or played
-  category: 'doujin',         // doujin | anime | aiDrama | jav | adult | shortvideo | gallery | novel | game | other
+  category: 'doujin',         // doujin | anime | aiDrama | jav | adult | shortvideo | recording | live | gallery | illustration | novel | game | other
   color: '#E5355F',           // brand color: site avatar and site page
   description: '一句话介绍',
   homepage: 'https://example.com',
@@ -77,8 +77,8 @@ Park.register({
   linkPatterns: ['example\\.com/g/(\\d+)'],   // pasted links open the work directly; group 1 is the work ID
   idPattern: '^(\\d+)$',                      // typed IDs open the work directly
   imageHeaders: { Referer: 'https://example.com/' },  // default headers for covers and images
-  network: { mode: 'native', vpnHint: true },  // see "Network"
-  media: { mode: 'browser', origin: 'https://example.com', domains: ['media.example.com'] },  // optional HLS media permission
+  network: { mode: 'auto', vpnHint: true },  // see "Network"
+  media: { mode: 'browser', origin: 'https://example.com', domains: ['media.example.com'] },  // media permission for video and direct files
   imageNetwork: { mode: 'browser', origin: 'https://img.example.com', domains: ['img.example.com'] }, // optional
   imageDecrypt: { /* optional, see "Encrypted images" */ },
 
@@ -91,6 +91,7 @@ Park.register({
   i18n: { /* the plugin's own UI translations, see "Localization" */ },
 
   subscription: { /* optional: follow channels/creators, see "Subscriptions" */ },
+  postShortVideos: true,
   updateSubscriptions: { /* optional: update subscriptions, see "Update subscriptions" */ },
 
   async init() {},              // optional: called once when the runtime starts (e.g. refresh a domain list)
@@ -108,17 +109,21 @@ Capabilities are exported by the runtime from the methods a plugin implements; d
 | Category | Meaning |
 | --- | --- |
 | `doujin` | Doujinshi and comics |
-| `gallery` | Galleries: illustration, cosplay and photo sets. Image sites still declare `type: 'comic'`; one gallery is one work and its images come from `chapter()` in order, so reading, favorites and downloads work as usual. The category isn't about image count or explicitness |
+| `gallery` | Photo galleries: cosplay, photography and real-person image sets. Image sites use `type: 'comic'`; one image set is one work, with ordered images from `chapter()` and shared reading, favorites and downloads. Image count and explicitness do not determine the category |
+| `illustration` | Illustration galleries: drawn and anime images. Image sites use `type: 'comic'`; one image set is one work, with ordered images from `chapter()` and shared reading, favorites and downloads. Image count and explicitness do not determine the category |
 | `anime` | Adult animation |
 | `aiDrama` | AI short dramas. The old `drama` value isn't accepted; declare the site's own channel names as they are, the app category doesn't filter them |
 | `jav` | Dedicated JAV sites |
 | `adult` | General adult video (Pornhub, XVideos, 91porn…), `type: 'video'`. A category is a grouping; it doesn't replace site tags or user filters |
 | `shortvideo` | Short videos: a full-screen vertical feed, see below |
+| `recording` | Recorded video archives (video on demand), `type: 'video'` |
+| `live` | Live streams, `type: 'video'` |
 | `novel` | Novels, `type: 'novel'` |
 | `game` | Games, `type: 'game'` |
-| `other` | Everything else (subscription sites, etc.) |
+| `other` | Creator communities |
 
 - **Short videos** (`type: 'video', category: 'shortvideo'`): works, search, favorites and history open straight into the feed. Each work is one short video and `videos(id, '_')` returns its current media; no detail page is needed. `hasNext` and `cursor` from `feed` drive automatic paging near the end; cursors must not contain credentials or media signatures. Refreshing starts from page one; the current item plays, the next one is preloaded paused, the rest are released. Don't declare `search` if the site has none.
+- **Post video mode** (`postShortVideos: true`): site and subscription-target pages can play each video attachment in `media[]` separately. A video needs a direct `url` or a non-empty `episodeId`; lazy resolution calls `videos(originalPostId, episodeId)` on playback or preloading, never a web page as a media URL. Images stay out of the player. Attachments support `preview`, `format` and `headers`. Paging and refresh preserve the current feed/options or the target’s `subscription.posts` scope. Playback identifies each attachment separately; favorites, history and site interactions use the original post ID. This capability changes neither the category nor the site’s API.
 - **Aggregators that can only play on the original site**: still declare `type: 'video', category: 'adult'`; without a verified media API, don't implement `videos`, and the runtime exports `capabilities.videos: false`. The detail page's main button then opens `detail.url` in the system browser, playback, downloads and episodes are hidden, no fake chapters are stored and no chapter updates are checked; favorites and history still work.
 - **Novels** and **games** are covered under "Methods".
 
@@ -139,17 +144,46 @@ Sources that allow anonymous access but require login for recommendations declar
 
 Each `feeds` entry is a tab on the site page: `{ key, label, options?: [...] }`.
 
+### Dynamic and cascading filters
+
+Select options in `feeds[].options` and `searchFilters` may declare `dynamic: true, values: []`. A dynamic child references parents in the same group with `dependsOn: ['range']`. Keys must be unique; dependencies must exist and be acyclic. Only dynamic options may declare dependencies.
+
+`filterOptions(request)` returns a choice array. Requests contain `scope: 'feed' | 'search'`, `filter` and `values`; feed requests also include `feed`, and search requests may include `keyword`. `values` contains only declared direct parents, never account data, settings or unrelated filters. Children do not load while a parent is unselected or empty.
+
+Declare `keywordDependent: true` when search choices depend on the keyword. Changing the keyword resets that option and its descendants while preserving other filters. Parent values in `values` must be strings, numbers or booleans, not multi-select arrays. Remote labels are not fixed UI copy; content and tag translation remain available.
+
+Return at most 500 entries shaped as `{value, label, color?}`. Values are unique strings or finite numbers. Labels are nonempty original-site names without control characters and at most 256 characters; colors use six hexadecimal digits. Group large catalogs into cascading choices instead of silently truncating them. Remote choice labels are not automatically translated.
+
+Selections reach `feed` through `options` and `search` through `filters`. Plugins must validate actual catalog membership and preserve filters across pagination; catalog parsing failures must throw errors. The app caches choices for two minutes by source, feed/search scope, feed or keyword, and parent values. Parent changes clear descendants and discard stale responses; failed loads can be retried.
+
+Each domain plugin reads only its own catalog. Related domains must not call each other’s plugins or share cookies. Reuse parsing templates at build time and generate self-contained scripts. Run `node tools/build_catalog_sources.mjs` to generate navigation catalogs and `--check` to verify consistency.
+
+```js
+{key: 'category', label: '分类', type: 'select', default: '',
+ dynamic: true, dependsOn: ['range'], values: []}
+
+async filterOptions({scope, feed, filter, keyword, values}) {
+  return [{value: 'site-category-id', label: 'Site category'}];
+}
+```
+
 ### Network
 
-- `network.mode: 'native'` (default): native HTTP with persistent cookies, using the user's proxy. A Cloudflare challenge raises `CLOUDFLARE`; the app guides the user through it in the built-in browser and syncs the clearance cookies back to native requests.
-- `network.mode: 'browser'` + `network.origin`: requests are made with same-origin `fetch()` from a hidden browser page opened at `origin`, with a real browser fingerprint — for sites with strict Cloudflare protection. When a same-origin GET receives a Cloudflare challenge, the hidden browser navigates to it to pass automatically and retries once; if that fails, `CLOUDFLARE` is raised.
+- `network.mode: 'auto'` (default): try native HTTP first. For same-origin HTTPS GET/HEAD requests without a body, Cloudflare challenges, HTTP 403, 429, or recoverable connection errors trigger one browser retry. DNS, TLS, timeout, response-stream, and ordinary 5xx failures do not open the browser, avoiding extra latency. The target must be within the source's declared domains, and browser fallback keeps the same-origin and redirect restrictions.
+- `network.mode: 'native'`: Force native HTTP with persistent cookies and the configured proxy. A detected Cloudflare challenge returns `CLOUDFLARE` for in-app retry; when the error includes a site verification URL, the user can choose to open its confirmation page.
+- `network.mode: 'browser'` + `network.origin`: Send same-origin `fetch()` from a hidden page at `origin`. Read-only requests encountering Cloudflare (including HTTP 200 challenge pages), or an age gate without required cookies/content, navigate for verification at most once before reading again; writes are never replayed. Age gates follow `network.confirmation`. Android and Windows send browser input to one standard Cloudflare checkbox; other platforms wait for automatic site checks. Failures offer in-app retry or a confirmation action when a site verification URL is provided.
+
+  Documents may navigate within declared domains with the same scheme and port. Unless explicitly supplied, request `origin` comes from the target site URL. Responses preserve the final `url`.
+
+  Automatic fallback excludes `followRedirects: false`, `connectAddress`, and unclassified network errors. Browser GET/HEAD requests without a body make at most three ordinary attempts, plus at most one extra read after verification, recovering only connection failures or HTTP 408, 500, 502, 503, and 504; 429 and timeouts are not replayed. Each logical request allows at most one verification navigation across all attempts. Startup, requests, document reads, and disposal have bounded waits. Reads with custom API headers use actual `fetch()` rather than a navigation result. Reused HTML preserves its error status; `responseType: 'base64'` returns base64 of the original bytes.
+
 - `network.vpnHint: true`: declare it for sites that may need a VPN or proxy in mainland China; waits over 8 seconds and failures then mention "may need a VPN or proxy". Don't blame every error on the VPN.
-- `network.confirmation: { selector, readySelector, requiredCookies, message }`: for sites that need explicit confirmation (an age gate, for example). `selector` matches the confirmation dialog, `readySelector` the accessible content, and `requiredCookies` are the cookies that must exist afterwards. When the plugin hits an unconfirmed page it throws `Park.error('CONFIRM_REQUIRED', message, { url })`; the app offers "Confirm" and returns once the dialog is gone, content is visible, cookies are written and navigation has settled. The app never clicks confirm for the user, and this declaration also keeps generic human checks from mistaking an age gate for success.
+- `network.confirmation: { selector, readySelector, requiredCookies, auto: { clickSelector }, message }`: Declares a site age gate. `selector` matches the dialog, `auto.clickSelector` its unique confirmation button, `readySelector` accessible content, and `requiredCookies` the cookie names required after confirmation. Only after the user confirms adulthood at the app entrance does the hidden browser simulate a click, then check that the gate disappears, content appears, cookies exist and navigation settles. Incomplete or unmatched rules and failed automatic confirmation allow retry. When the error provides a site verification URL, users can open it, handle the page manually and explicitly tap Done. Source-domain and cookie-partition restrictions still apply; operation notifications never replay the original action automatically. This declaration is only for age gates, not login, payment or posting.
 - Network errors carry safe `diagnostics` fields `host`, `transport` and `reason`, distinguishing TLS certificates, handshakes, DNS, connections and timeouts; automatic logs record only these allowed fields. `reason: 'TLS_HANDSHAKE_TERMINATED'` only means the native `HandshakeException.message` is exactly `Connection terminated during handshake` (the connection dropped before the handshake completed, not a certificate failure); only HTTPS GET/HEAD requests without a body retry once on it, and nothing else is retried.
 
 ### Images
 
-- `imageNetwork: { mode: 'browser', origin, domains }`: declare it when an image CDN needs browser requests. `origin` and every image domain must be within `domains`; only HTTPS and allow-listed headers are used; image requests carry no account credentials, follow no redirects and are limited to 20 MiB each, and still go through decryption, format checks, decoding and per-site caching. Without it, the native image transport is used.
+- `imageNetwork: { mode: 'browser', origin, domains }`: Image domains and subdomains are independent of site cookie permissions. `origin` may belong to a site or image domain. Requests use HTTPS 443 and allowed headers, reuse the browser site session for same-origin images when origin belongs to a declared site domain; cross-origin images, external image origins and video requests omit credentials, and allow redirects between authorized image domains. The 20 MiB limit, decryption, format checks, decoding and per-site cache remain. Without this declaration, native image transport is used. Browser redirect support depends on the platform; see media permissions.
 - **Encrypted images**: declare `imageDecrypt` and the framework decrypts before the format check and caching; the decryption settings are part of the cache identity and failures aren't cached. AES-CBC with strict PKCS#7 padding is supported, with `key` and `iv` encoded as UTF-8; image domains must be listed, other domains use the normal path.
 
 ```js
@@ -167,6 +201,8 @@ A cover returning HTTP 200 isn't enough — verify that it decodes.
 
 The `media` permission is independent of `this.http`, `network` and site cookies:
 
+Every plugin implementing `videos()` must declare valid `media` permissions, including MP4-only plugins. `scope: 'session'` may coexist with static `domains`: HLS uses exact URLs authorized for the session, while direct MP4 must match the static domain list. Official publishing rejects missing or invalid media declarations.
+
 ```js
 domains: ['example.com'],
 network: { mode: 'native' },
@@ -175,9 +211,12 @@ media: { mode: 'native', origin: 'https://example.com', domains: ['media.example
 
 - `media.mode` is `'native'` or `'browser'`. `media.origin` must belong to the plugin's sites, use HTTPS on the default port 443, and contain no credentials, query or fragment.
 - `media.domains` is a separate allow-list for media (subdomains included) that grants no site cookie access. Playlists, segments and keys must be HTTPS on 443; URL credentials, fragments, IPs, localhost (and subdomains) and `.local` are rejected.
-- `'native'` uses a separate native client without credentials: no site cookies, Authorization or proxy auth; every redirect hop is checked first. Only `Referer`, `Origin`, `Accept` and `Accept-Language` are allowed, and the first two must match `media.origin`.
-- `'browser'` opens a media session in a hidden browser at `media.origin` with `credentials: 'omit'`, `mode: 'cors'` and `redirect: 'error'`.
+- `'native'`: Uses a separate client without site cookies, Authorization or proxy credentials, checking each redirect before connecting. Allowed headers are `Referer`, `Origin`, `Accept`, `Accept-Language`; the first two must belong to declared site domains, including language subdomains. `Origin` contains only an origin.
+- Optional `media.referrerDomains` is limited to native video media and at most 16 valid public domains (including subdomains). It explicitly extends only the allowed `Referer` origins beyond the site domains above. It grants no extra `Origin`, media URL, document navigation or cookie permissions, and is invalid for `imageNetwork` or browser media.
+- `'browser'`: Opens a hidden session at `media.origin` with document navigation inside declared site domains. Uses `credentials: 'omit'` and `mode: 'cors'`; the real document and browser generate Origin/Referer. On Windows, WebView2 checks the resource domain before each connection, permits redirects between authorized domains and validates the final URL. Other engines lack per-hop interception and use `redirect: 'error'`. CORS and the site CSP still apply; final-URL checks alone do not authorize redirects.
 - Responses are size-limited while streaming and their final address is re-checked: playlists up to 2 MiB, segments up to 32 MiB, AES-128 keys exactly 16 bytes. Oversized or empty responses and disallowed addresses are rejected.
+
+- Dynamic HLS CDNs may declare `media.scope: 'session'` with `mode: 'native'`. Authorization covers only URLs, playlist resources and allowed redirects resolved for the current playback or download session, and expires when it closes. It grants no extra cookie access or persistent domain permissions. HTTPS, credential-free requests, destination and response-size restrictions still apply; direct MP4 and browser media keep static domain allow-lists.
 
 ### Isolation and security
 
@@ -195,8 +234,9 @@ account: {
   type: 'password' | 'cookies' | 'session',
   title, hint, required: false,
   fields: [{ key: 'email', label: '邮箱' }, { key: 'password', label: '密码', secret: true }],
-  loginUrl?, cookieUrl?, requiredCookies?: ['ipb_member_id'],   // enables web sign-in; the app collects the cookies
+  loginUrl?, cookieUrl?, requiredCookies?: ['session_id'],   // enables web sign-in; the app collects the cookies
   loginDomains?: ['accounts.google.com', 'appleid.apple.com'],  // third-party sign-in domains, used only for sign-in navigation
+  localStorageKeys?: ['session_key'],  // explicitly allowlisted localStorage keys, read only from the cookieUrl origin and passed to login(values); never log their values
   async login(values) { return { name } },
   async logout() {},
   async status() { return { loggedIn, name, configured } },
@@ -208,7 +248,7 @@ account: {
 - Account status is refreshed only on first use, after sign-in, sign-out and web sign-in, and when the last check is older than 10 minutes — not after every call. `configured` means an account is set up, whether or not sign-in currently works.
 - `loginDomains`: third-party sign-in domains the site actually uses (subdomains included). They're allowed only while the user has the web sign-in page open, HTTPS on 443 only; URL credentials, IPs, localhost and `.local` are refused. Verification pages, access confirmation, plugin requests and cookie import are still checked against `domains`; don't add sign-in domains to `domains` to widen access. The sign-in page supports same-window redirects and pop-ups that keep `window.opener`, with the same checks in pop-ups; a blank initial page grants no external navigation. Sign-in isn't considered complete while on a third-party page; cookies sync once back on the site. Third-party cookies aren't imported into the plugin's jar or cleared with the site's cookies; the system WebView manages them. Third parties may still restrict sign-in in embedded browsers.
 - `type: 'session'` imports an existing authorized session: declare one secret field (such as `session`); the clipboard content is kept whole and validated by the plugin rather than split into username, password or cookies. Sign-in must really confirm authorization — never report success from the input's format alone.
-- `managedAccount: true` declares an automatically managed account, controlled by a setting with the same name. The app must first explain automatic registration and get the user's agreement, then save the setting and call `account.enableManaged()`. Save candidate credentials and `await this.store.flush()` before registering, so a failure or restart recovers the same account. Keep manual and managed credentials separate; a managed account never overwrites a manual one. Turning the setting off keeps the managed account for reuse; an expired token only signs in again and never registers another account.
+- `managedAccount: true` and `account.enableManaged()` provide optional account management, enabled only after informed user confirmation. Store manual and managed accounts separately without overwriting existing credentials. Account data stays on the device and must not appear in documentation, diagnostics or release artifacts.
 - Passwords, tokens and plugin state are the user's local data; never put real credentials in documents or logs.
 
 ## Methods
@@ -241,7 +281,7 @@ async resolveGameResource(workId, resourceId, channelId) {}
 { sections: [{ title: '连载更新', items: [WorkItem] }], hasNext: false }
 ```
 
-**WorkItem**: `{ id, title, subtitle?, cover, coverAspect?, pages?, rating?, likes?, views?, language?, category?, badge?, badgeColor?, duration?, uploaded?, tags?, mediaKind?, workCode?, editions? }`
+**WorkItem**: `{ id, title, subtitle?, cover, coverBlurred?, coverAspect?, pages?, rating?, likes?, views?, language?, category?, badge?, badgeColor?, duration?, uploaded?, tags?, mediaKind?, workCode?, editions? }`
 
 - `workCode` is a work code confirmed by the source, used only to find the same work. It never replaces `id` or merges identities, favorites, progress, or downloads.
 - `editions` contains explicit, fixed edition labels from the source, such as Chinese subtitles or an uncensored leak. Missing labels must not imply an original edition. Translated display text does not change stored labels.
@@ -287,13 +327,17 @@ All WorkItem fields, plus:
 
 ### Video: `videos`
 
-Returns `[{ quality: 1080, label: '1080P', url, headers?, format?, preferred? }]`. Direct links usually expire, so the app fetches them again before every playback or download.
+Returns `[{ quality: 1080, label: '1080P', url, headers?, format?, preferred?, hls? }]`. Direct links usually expire, so the app fetches them again before every playback or download.
+
+- `format: 'hls'` may include `hls: {manifest, keys}`: `url` is the real HTTPS base of the variant playlist; `manifest` is a prepared complete VOD media playlist (at most 2 MiB UTF-8); `keys` maps referenced absolute key URLs to Base64-encoded 16-byte keys, up to 32 entries. Native media only. Existing address authorization and content validation still apply; unreferenced keys are rejected. Results containing this field are never cached to disk; keys stay in session memory and must not enter store, logs, works or cursors.
 
 - Multi-episode videos return `[{ id, title }]` in play order from `detail(id).chapters`; each `id` must be stable, never a quality or temporary media URL. The app uses the same ID to pick episodes, store progress, download and resume, and calls `videos(id, episodeId)` for each episode. Single videos use `singleChapterId`, or `'_'` if absent.
 - Without `format`, playback and download treat the link as direct MP4. HLS must return `format: 'hls'` and declare the `media` permission.
-- An HLS master playlist (`#EXT-X-STREAM-INF`) is expanded by the app into per-variant playlists, with real quality taken from `RESOLUTION`. When you return a master playlist, `quality` is the desired quality: the highest real quality not above it is chosen, or the highest available. Each variant must be muxed audio/video MPEG-TS; separate `AUDIO`, `VIDEO`, `SUBTITLES` renditions and addresses outside `media.domains` are rejected. `#EXT-X-I-FRAME-STREAM-INF` tracks are ignored. If a single playlist has no known resolution, use `label: '原画'` rather than presenting the desired quality as real.
-- Only complete, continuous MPEG-TS VOD playlists with `#EXT-X-ENDLIST` are supported; `METHOD=AES-128` with `KEYFORMAT=identity` (CBC/PKCS7) is decrypted, with exactly 16-byte keys and an explicit IV or one derived from the media sequence. Keys stay in session memory. Live streams, SAMPLE-AES, other KEYFORMATs, `EXT-X-MAP`, `EXT-X-BYTERANGE`, fMP4, discontinuities and gaps aren't supported; the non-standard `#EXT-X-TOKEN` is removed.
-- Playback uses a random port bound to `127.0.0.1` and a random token, serving verified segments on demand from a limited URL registry; closing the session cancels requests. HLS offline downloads are Android-only for now: each segment is verified and its SHA-256 saved, downloads can resume and be cancelled, and Media3 finally muxes an MP4 — only complete files reach the offline library.
+- An HLS master playlist (`#EXT-X-STREAM-INF`) is expanded by the app into per-variant playlists, with real quality taken from `RESOLUTION`. When you return a master playlist, `quality` is the desired quality: the highest real quality not above it is chosen, or the highest available. Each variant must be muxed audio/video MPEG-TS or VOD fMP4; separate `AUDIO`, `VIDEO`, `SUBTITLES` renditions and addresses outside `media.domains` are rejected. `#EXT-X-I-FRAME-STREAM-INF` tracks are ignored. If a single playlist has no known resolution, use `label: '原画'` rather than presenting the desired quality as real. Without `RESOLUTION`, a master variant needs valid `BANDWIDTH`; variants are labeled in kbps, with the highest bitrate preferred, without inventing a resolution.
+- `type: 'video', category: 'live'` identifies public live streams in 3D, with image-only home and domain cards. `videos()` returns the current public room's HLS; never fabricate playable results for private, paid or offline rooms. Playback uses rolling playlists without VOD resume positions or downloads. Recording requires an explicit user action and saves only segments newer than the initial live window. It ends on stop or app exit and never resumes after restart. An independent media session and background task validate and decrypt each segment and commit a complete local playlist. Reconnection resolves fresh media; encoding boundaries and long recordings may start new parts. Previously committed content survives failure. Only muxed MPEG-TS is supported; MAP/fMP4, low-latency PART, BYTERANGE and GAP are unsupported.
+- VOD requires a complete, continuous MPEG-TS or fMP4 playlist with `#EXT-X-ENDLIST`. fMP4 accepts one `#EXT-X-MAP` initialization segment before media segments; changing initialization segments and byte ranges are unsupported. Initialization and media segments are authorized, validated and rewritten locally; offline playback and export retain the initialization segment. Live streams still require MPEG-TS and accept rolling playlists and discontinuities. Both decrypt `METHOD=AES-128`, `KEYFORMAT=identity` with CBC/PKCS7 and exactly 16-byte keys. Media IVs are explicit or sequence-derived; encrypted initialization segments require an explicit IV. Keys stay in session memory. SAMPLE-AES, other KEYFORMATs, BYTERANGE and GAP are unsupported; VOD also rejects discontinuities. Non-standard `#EXT-X-TOKEN` tags are removed.
+- HLS playlists and MPEG-TS segments support PNG `roUd` wrapping (raw or zlib-compressed). Unwrapping precedes parsing, validation or decryption, with decoded limits of 2 MiB per playlist and 32 MiB per segment. Plugins still return `format: 'hls'`; no extra permissions are required.
+- Playback uses a random port bound to `127.0.0.1` and a random token, serving verified segments on demand from a limited URL registry; closing the session cancels requests. HLS offline downloads are Android-only for now: each segment is verified and its SHA-256 saved, downloads can resume and be cancelled, and MPEG-TS is finally muxed with Media3 while fMP4 retains its initialization and media segments in order — only complete files reach the offline library.
 
 ### Novels: `textChapter`
 
@@ -355,9 +399,22 @@ subscription: {
 ```
 
 - `normalize` must validate locally only, so targets can be saved signed out or offline; accept only usernames or controlled profile URLs of this site. `resolve` and `targets` are optional; with `targets`, the manifest outputs `subscription.joinedTargets: true`.
+- For a separate community entry, declare `communities: true`, `communityHint` and `communityExample`; the runtime exports this metadata unchanged. Targets return `{ id, label, kind: 'community' }` with IDs distinct from creator targets. `targets({ kind: 'community' })` lists joined communities; `targets()` lists default targets. Handle them independently so a community API failure does not break creator lists. `resolve` may check names and access read-only; it must not automatically join.
 - `posts` cursors are opaque strings; the last page has `hasNext: false`, and pages without media may still continue. `locked` means insufficient permission; `previewOnly` marks public previews — never pass a thumbnail off as the full content.
+
+### Public albums: `subscription.media`
+
+Albums are an independent capability, never assembled from already loaded posts and never falling back to `subscription.posts`. Implement `subscription.media(scope, { page, cursor })`; a source with public feeds but no subscribable targets may expose only this method under `subscription`. The runtime exports `capabilities.album` independently of `capabilities.subscription`.
+
+`scope` is either `{ feed, options }` or `{ target }`, for a feed with its filters or a user, community, channel or group. The source resolves and traverses targets without site-specific conditions in the UI. Return `{ items, cursor, hasNext }`; a page without matching media may still continue, and every continuation cursor must advance. Repeated cursors are errors.
+
+Each item has a stable string `id`, `presentation: 'post' | 'work'`, a parseable ISO 8601 date when known, and the complete `media` array in site order. Every attachment has a unique stable string `id`, `type: 'image' | 'video'` and an actual content `url` or controlled `resource`. `preview` is an image thumbnail; alternatively `previewResource` uses the controlled attachment format below, limited to 2 MiB and pointing to a separate image. Covers and video URLs must not impersonate thumbnails. Restricted content exposes only public previews marked `previewOnly: true`, retaining the site's blur and `locked: true` when the whole post is locked.
+
+The source completes media across pages and merges site media groups. The client merges repeated works by attachment `id`; optional finite numeric `order` restores ordering only when supplied for every attachment of a work. Filtering uses inclusive local dates and image/video types; unknown dates are excluded when a date range is set. Collapsing a post changes display only. After a bounded number of empty filtered pages the user can load more manually. `presentation: 'work'` opens work details; `'post'` opens the complete post. Album covers load images or explicit thumbnail resources only, never video playback URLs.
+
+- `coverBlurred: true` and media `blurred: true` retain the site’s blurred covers and photos in thumbnails and full-image views. Do not present restricted photos as unblurred full content. Both previews and full videos expand HLS masters before playing the selected VOD variant.
 - Authorized attachments without a direct link use `media[].resource` and implement `mediaChunk(resource, offset)`: at most 128 KiB per call, offsets aligned to 128 KiB; the resource must contain an integer `size` and a stable, non-secret string `cacheKey` that doesn't change with credentials or temporary references. The framework checks total size and each chunk and writes atomically to its own cache path; one attachment may be up to 512 MiB and the resource can't choose the local path. Signed links and resources aren't stored in subscription records.
-- Saving a subscription never follows or joins anything. Unverified write actions must send the user to the original site; never follow, join or pay silently.
+- Subscriptions that follow or join on the original site must clearly explain the action and require user confirmation before saving. Unverified write actions must direct users to the original site; never follow, join or pay silently.
 
 ### Update subscriptions: `updateSubscriptions`
 
@@ -390,9 +447,12 @@ Global helpers:
 | `Park.crypto.sha256Hex` / `hmacSha256Hex(key, text)` / `aesEcbDecrypt(base64, key)` / `uuid()` | native implementations |
 | `Park.crypto.digestBytes('sha1' \| 'sha256', bytes)` | arrays of 0–255 integers, up to 2 MiB |
 | `Park.crypto.randomBytes(length)` | secure random bytes, length 1–65536 |
+| `Park.url.parse(value, base, domains)` / `site(source, value, base?)` / `response(source, response, requested)` | Parses HTTPS 443 URLs in authorized domains and subdomains, rejects user credentials, removes fragments and returns `null` on failure. `site` uses source `domains`; `response` validates the final URL without modifying the shared source base, or raises `BLOCKED`. Plugins retain path, page, work and search identity checks; avoid closed query-key lists and CDN node-name restrictions. |
 | `Park.utils.rateLimiter(ms)` | returns `wait()` guaranteeing a minimum gap between requests |
 | `Park.utils.mapLimit(items, n, fn)` / `lruMap(n)` / `parseCount('1.2万')` / `formatDate(ts)` | other helpers |
 | `Park.error(code, message, extra?)` | creates an error with a code, see "Error codes" |
+
+`Park.crypto.aesGcmDecrypt(ciphertext, key, iv)` takes hexadecimal ciphertext (including its final 16-byte authentication tag, at most 4096 bytes), a 16/24/32-byte key and a 12-byte IV, and returns plaintext bytes. Failed authentication throws without returning unauthenticated plaintext.
 
 ### `http.request(opts)`
 
@@ -436,7 +496,7 @@ The app translates the template with the plugin's own `i18n` first, then the app
 
 ### Home cache and error semantics
 
-- Live `feed` results keep every field the plugin returns; the home cache on disk keeps only allow-listed display metadata (ID, title, cover, tags, uploader, media type, category, display stats); `url`, credentials, media lists and posts aren't written. Don't put credentials in IDs, cover URLs or cursors. Results that need dynamic media or posts aren't cached.
+- Live `feed` results retain all returned fields. The private, rebuildable disk cache stores allow-listed work metadata, post text, attachment access data and supported detail fields so cached entries can open before refresh. It may contain expiring media URLs and resource references; it is not a download or backup, and expired links need refreshing. Cache identity separates site, account, configuration and request scope. Keep account credentials out of returned content, IDs and cursors, and never copy cached access data to diagnostics or subscription records.
 - A stale cache is shown as offline content only for explicit `NETWORK` / `TIMEOUT` errors, and is marked as cached. Sign-in, confirmation, human verification, parsing and configuration failures must throw their own errors; the framework never disguises them as network failures, and a user-triggered refresh also shows the real error.
 
 ## Localization
@@ -504,22 +564,7 @@ A repository is a single `index.json` on any static host. Users enter its addres
 
 ### Publishing official plugins
 
-Official plugins are published from the main repository [drdon1234/Hentai-Park](https://github.com/drdon1234/Hentai-Park); the app reads:
-
-```text
-https://raw.githubusercontent.com/drdon1234/Hentai-Park/sources/index.json
-https://raw.githubusercontent.com/drdon1234/Hentai-Park/rankings/index.json
-```
-
-- `assets/sources/index.json` is the only maintained list; `file` points to a script in the same folder named `{key}.js` (`[A-Za-z0-9_-]+.js`; no subfolders, symlinks or dots in the base name).
-- `tools/publish_sources.mjs` generates the published index with `key`, `name`, `version`, `category`, `description`, `url`, `sha256` and `apiVersion`; script URLs are pinned to the full source commit: `https://raw.githubusercontent.com/drdon1234/Hentai-Park/<commit SHA>/assets/sources/<file>`. The `sources` branch holds only the generated `index.json`.
-- The publisher needs only Node.js 22+ built-ins and runs offline: it checks the list, files and folder boundaries, loads the runtime and scripts without network or storage, and verifies `key`, `version` and API with the same `Park.__pending` / `Park.manifest` probe as the install preview. It doesn't call `init`, sign-in or site methods, so it can't replace real requests.
-
-```powershell
-node tools/publish_sources.mjs --commit '<full 40-character commit SHA>' --output 'test/official-source-index.json'
-```
-
-Source scripts stay on the main branch. The `sources` branch distributes regular plugins; `rankings` distributes ranking-only plugins. Both contain only a generated index pointing to immutable source commits with SHA-256. The workflow validates and publishes each channel separately; the app reads both independently, rejects mismatched channel markers and duplicate keys, and keeps the existing update confirmation flow.
+Official plugins are maintained in `assets/sources/index.json`. `tools/publish_sources.mjs` checks the index against runtime declarations offline and generates a release index with immutable script URLs and SHA-256. It does not sign in or call site methods, and cannot replace live verification. See the [development guide](../../DEVELOPMENT.md) for build and publishing steps.
 
 ### Generated plugins
 
@@ -532,47 +577,13 @@ node tools/build_subscription_sources.mjs
 
 It uses [@mtproto/core 6.3.0](https://github.com/alik0211/mtproto-core) (GPL-3.0, [license](../../licenses/mtproto-core.txt); dependency summary in [third-party licenses](../../licenses/telegram-dependencies.txt)). The site adapter replaces transport, cryptography and storage, and doesn't enable the library's default WebSocket, browser localStorage or debug logging.
 
-## Appendix: notes on official sites
-
-Conventions you need when maintaining the official plugins. Sites change; the plugin code is authoritative.
-
-**Games**
-
-- Default order is KUN Galgame → GalgameX → Dimension Tea House. GalgameX and KUN enable NSFW by default (the guest `content-filter` API and the `include_nsfw` parameter respectively).
-- GalgameX defaults to this week's popular list. The resource update list uses a Next Server Action discovered from the current front end; the action ID is cached for 15 minutes and rediscovered when it stops working, and no remote script is executed. Details are parsed from SSR Flight data. Public resources use host plus path hash as a stable channel ID; resolved results are matched by host and file name / share ID, rejecting mismatches and duplicates, without relying on the order of temporary links.
-- KUN defaults to the 7-day views ranking using its public native API; the download API is called only on tap, so prefetching never inflates the site's download count. Resource pages are walked by the API's total; repeated pages or early empty pages are errors.
-- Dimension Tea House uses browser mode with its own sign-in and defaults to the popular Galgame resource board; covers come from first-post attachments with 400 ms between requests. The resource list is read-only; the reply "感谢分享，好人一生平安" is sent with the full form only after the user confirms. Already unlocked threads are never replied to; when the result is unclear, state is kept and the user is pointed to the thread, and nothing is resent after a restart.
-
-**Novels**
-
-| Site | Default tab | Scope and limits |
-| --- | --- | --- |
-| Book18 | Recommended | Chinese long and short stories; chapters in site order |
-| Cool18 | Featured | Only the forbidden-books board; each main post is its own work, replies and same-titled posts aren't merged; some content needs account permissions |
-| Canovel | Latest | In-article pagination supported |
-| Literotica | Rankings | English; search excludes non-English, audio, how-to, reviews and essays |
-| Lush Stories | Recommended | English; audio and poetry excluded |
-| StoriesOnline | Author picks | English; truncated anonymous text asks to sign in and is never saved as a full chapter |
-| 69story | Latest | Chinese; categories, search, contents and per-chapter reading |
-
-**Subscriptions**
-
-| Platform | Content | Sign-in |
-| --- | --- | --- |
-| X / Twitter | Anonymous public media; authorized posts and media when signed in | Web sign-in, or `auth_token` and `ct0` |
-| Telegram | Public channel previews; channel history and attachments when signed in | Import an existing Telegram WebK local-storage session |
-| myfans.jp | Creator lists, public images, public videos and trial previews | Member sign-in not verified |
-| pixivFANBOX | Public lists and cover previews | Member sign-in not verified |
-
-- X's `ct0` must match `X-CSRF-Token`; sessions can expire or be revoked. After sign-in the plugin loads operation IDs and feature flags from the current web app, then reads UserTweets and keeps only the target author's media (no retweets or quotes). Anonymous third-party proxies never receive X cookies.
-- Telegram local storage isn't a cookie: the import needs `dc` and the matching `dcN_auth_key` (512 hex digits), as JSON or `key=value` text. The plugin only restores an existing WebK session — no code-based sign-in or own client registration — and signing out only deletes the session saved by this app. Attachments are read in 128 KiB chunks, up to 512 MiB each; expired media references are refreshed once. Networking goes through the isolated native HTTP bridge; WebView fetch/WebSocket isn't enabled.
-- OnlyFans, Fantia, Patreon and Fansly don't have a complete media path and aren't in the official list. A home page that opens doesn't mean media can be subscribed to, and paid access is never bypassed.
-
-Dynamic HLS CDNs: declare `media.scope: 'session'` with native media. Only the current resolved URL, playlist resources and up to 8 redirect hops are authorized, without changing cookie permissions. HTTPS 443 and credential-free headers remain required. Direct connections reject non-public DNS addresses and connect to a checked IP with normal TLS hostname verification. An explicitly configured HTTP proxy resolves upstream hosts and is trusted to enforce public-network routing. Permissions disappear when the playback/download session closes; direct MP4 and browser media retain static domain restrictions.
-
 ### `webVideo(id, episodeId)`
 
-iXXX and TubeSafari use in-app web playback. The playback page may require site confirmation; controls are provided by the upstream page. App downloads and precise playback resume are unavailable. Android requires a recent Android System WebView with isolated-session support.
+Web playback handles Cloudflare in an isolated temporary session. Only the exact `challenges.cloudflare.com` verification frame is allowed, never main-frame navigation to that host. Age confirmation uses `network.confirmation` only on source-declared domains, not external players. If automatic checks cannot finish, the page remains available for manual handling; player cookies are never imported or exported. `CONFIRM_REQUIRED` preserves the plugin message and opens an in-app confirmation page to synchronize the source session after explicit completion, without replaying the original operation.
+
+Supported providers in iXXX and TubeSafari prefer native playback, with resume and offline saving. Other providers use in-app web playback, which may require site confirmation and does not support app downloads or precise resume. Android web playback requires a recent Android System WebView with isolated-session support.
+
+The runtime exports `capabilities.webVideo` automatically. A plugin implementing only `webVideo` opens an in-app web page. When both `videos` and `webVideo` are implemented, native playback is preferred and falls back to the web page only when `videos` returns `UNSUPPORTED`. HTTP, network, Cloudflare, login, parse, removed-content and cancellation errors remain visible. Downloads require successfully resolved native media and never fall back to a web page.
 
 ```js
 return { url: "https://player.example.com/watch/1", navigationDomains: ["player.example.com"], frameDomains: [] };
@@ -583,7 +594,7 @@ return { url: "https://player.example.com/watch/1", navigationDomains: ["player.
 
 `rankings` declares boards with `key`, `label`, `category`, `metric` and `options`. A ranking-only plugin sets `rankingOnly: true` and declares no `feeds`. `ranking(board, {page, offset, cursor, options})` returns a work page; each item includes `id`, original `rank`, `title`, `cover`, optional `keyword`, `subtitle` and an HTTPS product `url`. Preserve tied ranks. An existing source may declare `feed` on its board: options are inherited when omitted, and the runtime reuses `feed()` while retaining work fields and adding `workId` and any missing rank. Those entries open work details; commercial entries search the declared category.
 
-Source scripts stay on the main branch. The `sources` branch distributes regular plugins; `rankings` distributes ranking-only plugins. Both contain only a generated index pointing to immutable source commits with SHA-256. The workflow validates and publishes each channel separately; the app reads both independently, rejects mismatched channel markers and duplicate keys, and keeps the existing update confirmation flow.
+Source scripts stay on the main branch. The `sources`, `rankings` and `reverse-search` branches distribute regular, ranking-only and reverse-search-only plugins respectively. Each contains an index with immutable source URLs and SHA-256. The app reads all three independently, rejects mismatched channel markers and duplicate keys, and asks for confirmation before updates. Tag translations use a separate `tag-translations` branch.
 
 ```powershell
 node tools/publish_sources.mjs --commit '<SHA>' --channel rankings --output 'test/official-ranking-index.json'

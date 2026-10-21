@@ -73,7 +73,7 @@
       "ru": {"Pixiv Cookie 格式无效":"Некорректный формат Cookie Pixiv","Pixiv 作品编号无效":"Некорректный ID произведения Pixiv","Pixiv 动图暂不支持，请在站点查看":"Анимации Pixiv пока не поддерживаются. Смотрите их на сайте","Pixiv 筛选参数无效":"Некорректные параметры фильтра Pixiv","Pixiv 请求失败，请检查网络后重试":"Запрос Pixiv не удался. Проверьте сеть и повторите","Pixiv 账号":"Аккаунт Pixiv","Pixiv 返回的数据无效，请稍后重试":"Pixiv вернул некорректные данные. Повторите позже","作品类型":"Тип произведения","内容分级":"Возрастной рейтинг","匹配方式":"Режим совпадения","插画":"Иллюстрация","插画与漫画社区，支持个性化推荐、排行、搜索和多页原图阅读":"Сообщество иллюстраций и манги: рекомендации, рейтинги, поиск и многостраничные оригиналы","标签完全匹配":"Точное совпадение тега","标签部分匹配":"Частичное совпадение тега","标题与简介":"Название и описание","每日":"Ежедневно","站点默认":"По умолчанию на сайте","粘贴 Pixiv 的 PHPSESSID 值":"Вставьте значение PHPSESSID Pixiv","请登录 Pixiv；Cookie 可能已过期，R-18 内容还需在站点开启显示权限":"Войдите в Pixiv. Возможно, Cookie истёк; для R-18 также разрешите показ на сайте","输入关键词或标签，可筛选漫画、插画与 R-18 内容":"Введите слова или теги; фильтруйте мангу, иллюстрации и контент R-18","默认作品类型":"Тип произведений по умолчанию","登录可获得个性化推荐、点赞与收藏；R-18 内容需开启显示权限。Cookie 仅保存在本机。":"Войдите для персональных рекомендаций, отметок «Нравится» и закладок. Включите показ R-18 в настройках. Cookie хранятся только на устройстве.","作者其他作品":"Другие работы автора","原站不支持取消点赞":"Сайт не поддерживает отмену отметки «Нравится»"},
       "ar": {"Pixiv Cookie 格式无效":"تنسيق Cookie الخاص بـ Pixiv غير صالح","Pixiv 作品编号无效":"معرّف عمل Pixiv غير صالح","Pixiv 动图暂不支持，请在站点查看":"رسوم Pixiv المتحركة غير مدعومة حالياً. شاهدها في الموقع","Pixiv 筛选参数无效":"معلمات تصفية Pixiv غير صالحة","Pixiv 请求失败，请检查网络后重试":"فشل طلب Pixiv. تحقّق من الشبكة وحاول مجدداً","Pixiv 账号":"حساب Pixiv","Pixiv 返回的数据无效，请稍后重试":"أعاد Pixiv بيانات غير صالحة. حاول لاحقاً","作品类型":"نوع العمل","内容分级":"تصنيف المحتوى","匹配方式":"طريقة المطابقة","插画":"رسوم","插画与漫画社区，支持个性化推荐、排行、搜索和多页原图阅读":"مجتمع للرسوم والمانغا مع توصيات شخصية وترتيب وبحث وقراءة الصور الأصلية متعددة الصفحات","标签完全匹配":"مطابقة تامة للوسم","标签部分匹配":"مطابقة جزئية للوسم","标题与简介":"العنوان والوصف","每日":"يومي","站点默认":"الإعداد الافتراضي للموقع","粘贴 Pixiv 的 PHPSESSID 值":"الصق قيمة PHPSESSID من Pixiv","请登录 Pixiv；Cookie 可能已过期，R-18 内容还需在站点开启显示权限":"سجّل الدخول إلى Pixiv. قد تكون صلاحية Cookie انتهت؛ يجب أيضاً تفعيل عرض R-18 في الموقع","输入关键词或标签，可筛选漫画、插画与 R-18 内容":"أدخل كلمات أو وسوماً؛ صفِّ النتائج حسب المانغا والرسوم ومحتوى R-18","默认作品类型":"نوع العمل الافتراضي","登录可获得个性化推荐、点赞与收藏；R-18 内容需开启显示权限。Cookie 仅保存在本机。":"سجّل الدخول للتوصيات الشخصية والإعجابات والمفضلة. فعّل عرض R-18 في إعدادات الحساب. تُحفظ ملفات Cookie على الجهاز فقط.","作者其他作品":"أعمال أخرى للمبدع","原站不支持取消点赞":"لا يدعم الموقع إلغاء الإعجاب"},
     },
-    key: 'pixiv', name: 'Pixiv', version: '0.0.7', type: 'comic', category: 'doujin',
+    key: 'pixiv', name: 'Pixiv', version: '0.0.10', type: 'comic', category: 'other',
     color: '#0096FA', icon: 'https://www.pixiv.net/favicon.ico',
     description: '插画与漫画社区，支持个性化推荐、排行、搜索和多页原图阅读',
     homepage: HOME, domains: ['pixiv.net'], language: 'multi',
@@ -91,7 +91,7 @@
       type: 'cookies', title: 'Pixiv 账号', required: false,
       hint: '登录可获得个性化推荐、点赞与收藏；R-18 内容需开启显示权限。Cookie 仅保存在本机。',
       loginUrl: 'https://accounts.pixiv.net/login?return_to=https%3A%2F%2Fwww.pixiv.net%2F',
-      loginDomains: ['accounts.google.com', 'appleid.apple.com', 'account.apple.com', 'facebook.com', 'api.weibo.com', 'passport.weibo.com', 'passport.weibo.cn', 'login.sina.com.cn'],
+      loginDomains: ['accounts.google.com', 'appleid.apple.com', 'account.apple.com', 'facebook.com', 'api.weibo.com', 'passport.weibo.com', 'passport.weibo.cn', 'login.sina.com.cn', 'x.com'],
 
       cookieUrl: HOME + '/', requiredCookies: ['PHPSESSID'],
       fields: [{ key: 'PHPSESSID', label: 'PHPSESSID', secret: true, hint: '粘贴 Pixiv 的 PHPSESSID 值' }],
@@ -131,6 +131,7 @@
       },
     },
     defaultFeed: 'recommended',
+    rankings: [{key:'ranking',label:'排行榜',category:'other',metric:'站内热度',feed:'ranking'}],
     feeds: [
       { key: 'recommended', label: '推荐', options: [contentOption, ratingOption] },
       { key: 'ranking', label: '排行榜', options: [contentOption, ratingOption, {
@@ -306,6 +307,23 @@
           .map(w => toItem(w))}],
         tags: [{ namespace: 'tag', label: '标签', tags }], chapters: null,
       };
+    },
+    subscription: {
+      async media(scope, options={}) {
+        // 排行游标包含日期与页号；公共相册不依赖站点私有分页语义。
+        let state={};
+        if(options.cursor){try{state=JSON.parse(options.cursor);}catch(_){throw Park.error('CONFIG','Pixiv 筛选参数无效');}}
+        const result=await this.feed(scope.feed,{page:options.page,cursor:state.token,options:scope.options});
+        const items=await Park.utils.mapLimit(result.items,3,async item=>{
+          const data=await this.artwork(item.id);
+          const images=await this.request('/ajax/illust/'+idValue(item.id)+'/pages',{lang:'zh'});
+          if(!Array.isArray(images)||images.length!==Number(data.pageCount))throw Park.error('PARSE',PARSE);
+          return {...item,presentation:'work',date:data.uploadDate||data.createDate||'',
+            media:images.map((p,i)=>({id:String(i),type:'image',url:imageUrl(p.urls?.original),preview:imageUrl(p.urls?.small||p.urls?.regular||p.urls?.original)}))};
+        });
+        const hasNext=result.hasNext;
+        return {...result,items,hasNext,cursor:hasNext?JSON.stringify({page:Number(options.page)||1,token:result.cursor}):null};
+      },
     },
     async chapter(id) {
       const data = await this.artwork(id);

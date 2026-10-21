@@ -17,13 +17,14 @@ Park.register({
   },
   key: 'pica',
   name: '哔咔漫画',
-  version: '0.0.7',
+  version: '0.0.8',
   type: 'comic',
   category: 'doujin',
   color: '#EC97B6',
   icon: 'https://manhuabika.com/favicon.ico',
   description: '分区丰富的老牌漫画社区，支持多话连载（需要账号）',
   homepage: 'https://manhuabika.com',
+  domains: ['manhuabika.com', 'picacomic.com'],
   language: 'zh',
   linkPatterns: ['(?:picacomic|manhuabika|bika)[\\w.-]*/[\\w/#?=&-]*?([0-9a-f]{24})'],
   idPattern: '^([0-9a-f]{24})$',
@@ -43,8 +44,9 @@ Park.register({
       key: 'channel',
       type: 'select',
       label: '分流',
-      default: '1',
+      default: 'auto',
       options: [
+        { value: 'auto', label: '自动' },
         { value: '1', label: '分流 1' },
         { value: '2', label: '分流 2' },
         { value: '3', label: '分流 3' },
@@ -182,7 +184,67 @@ Park.register({
   API_KEY: 'C69BAF41DA5ABD1FFEDC6D2FEA56B',
   SECRET: '~d}$Q7$eIni=V)9\\RK/P.RM4;9[7|@/CA}b~OW!3?EV`:<>M7pddUBL5n|0/*Cn',
 
-  async headersFor(method, path) {
+  async routeFingerprint() {
+    try {
+      const previous = this.store.get('route');
+      const response = await this.http.get(this.BASE + 'cdn-cgi/trace', {
+        mode: 'native', timeout: 4000, connectAddress: previous?.address || undefined, followRedirects: false,
+      });
+      const ip = response.ok && String(response.body).match(/^ip=([0-9a-fA-F:.]+)$/m)?.[1];
+      return ip ? Park.crypto.sha256Hex(ip) : null;
+    } catch (_) { return null; }
+  },
+
+  async ensureRoute() {
+    if (this.routePending) return this.routePending;
+    this.routePending = (async () => {
+      const fingerprint = await this.routeFingerprint();
+      const previous = this.store.get('route');
+      const signature = this.config.channel || 'auto';
+      const reusable = fingerprint && previous?.fingerprint === fingerprint && previous.signature === signature;
+      const route = reusable
+        ? previous : { ...await this.probeRoutes(), fingerprint, signature };
+      this.store.set('route', route);
+      if (!reusable) route.fingerprint = await this.routeFingerprint();
+      this.store.set('route', route);
+      await this.store.flush();
+      return route;
+    })();
+    try { return await this.routePending; } finally { this.routePending = null; }
+  },
+
+  async probeRoutes() {
+    // 启动配置仅作为 TCP 地址提示；凭据始终发往原 HTTPS 主机并校验证书。
+    let addresses = ['104.19.53.76'];
+    try {
+      const response = await this.http.get('http://68.183.234.72/init', { mode: 'native', timeout: 4000, followRedirects: false });
+      const data = response.ok ? response.json() : {};
+      if (Array.isArray(data.addresses)) addresses = [...new Set([...data.addresses.filter(x => typeof x === 'string' && /^(?:\d{1,3}\.){3}\d{1,3}$/.test(x)), ...addresses])].slice(0, 3);
+    } catch (_) {}
+    const fixed = this.config.channel;
+    const channels = ['1', '2', '3'].includes(fixed) ? [fixed] : ['1', '2', '3'];
+    const candidates = (await Promise.all([undefined, ...addresses].map(async address => {
+      const results = [];
+      for (const channel of channels) {
+        const start = Date.now();
+        try {
+          const response = await this.http.get(this.BASE + 'categories', {
+            mode: 'native', timeout: 6000, connectAddress: address, followRedirects: false,
+            headers: await this.headersFor('GET', 'categories', channel, true),
+          });
+          const json = response.json();
+          if ((response.status === 200 && json.code === 200) || (response.status === 401 && json.code === 401)) {
+            results.push({ address, channel, ms: Date.now() - start });
+          }
+        } catch (error) { if (['NETWORK', 'TIMEOUT'].includes(error?.code)) break; }
+      }
+      return results;
+    }))).flat().sort((a, b) => a.ms - b.ms);
+    if (!candidates.length) throw Park.error('NETWORK', '哔咔：{value0}', { params: {value0: 'NETWORK'} });
+    return candidates[0];
+  },
+
+  async headersFor(method, path, channel, anonymous = false) {
     const time = String(Math.floor(Date.now() / 1000));
     const nonce = (await Park.crypto.uuid()).replace(/-/g, '');
     const raw = `${path}${time}${nonce}${method}${this.API_KEY}`.toLowerCase();
@@ -190,7 +252,7 @@ Park.register({
       'api-key': this.API_KEY,
       accept: 'application/vnd.picacomic.com.v1+json',
       // Authentication goes directly to the API hostname: app-channel 2/3 can return 1023.
-      'app-channel': path.startsWith('auth/') ? '1' : this.config.channel || '1',
+      'app-channel': path.startsWith('auth/') ? '1' : channel || '1',
       time,
       nonce,
       signature: await Park.crypto.hmacSha256Hex(this.SECRET, raw),
@@ -202,19 +264,33 @@ Park.register({
       'User-Agent': 'okhttp/3.8.1',
       'Content-Type': 'application/json; charset=UTF-8',
     };
-    const account = this.activeAccount();
+    const account = anonymous ? null : this.activeAccount();
     const token = account && account.token;
     if (token) headers.authorization = token;
     return headers;
   },
 
   async send(method, path, body) {
-    const res = await this.http.request({
+    let route = await this.ensureRoute();
+    const request = () => this.http.request({
       url: this.BASE + path,
       method,
-      headers: await this.headersFor(method, path),
+      mode: 'native',
+      connectAddress: route.address,
+      followRedirects: false,
+      headers,
       body: body === undefined ? undefined : JSON.stringify(body),
     });
+    let headers = await this.headersFor(method, path, route.channel);
+    let res;
+    try { res = await request(); }
+    catch (error) {
+      this.store.set('route', null);
+      if (method !== 'GET' || body !== undefined) throw error;
+      route = await this.ensureRoute();
+      headers = await this.headersFor(method, path, route.channel);
+      res = await request();
+    }
     let json = {};
     try {
       json = res.json();

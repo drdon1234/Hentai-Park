@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-/// 勾选占位始终保留，避免 Wrap 内的多选项在切换状态时改变宽度。
+/// 文字居中的选择项，通过主题边框表达选中状态，不为勾号预留空间。
 class SelectionChip extends StatelessWidget {
   const SelectionChip({
     super.key,
@@ -18,12 +18,6 @@ class SelectionChip extends StatelessWidget {
     label: SelectionContainer.disabled(child: Text(label)),
     selected: selected,
     showCheckmark: false,
-    avatar: ExcludeSemantics(
-      child: SizedBox.square(
-        dimension: 18,
-        child: selected ? const Icon(Icons.check_rounded, size: 18) : null,
-      ),
-    ),
     onSelected: onSelected,
   );
 }

@@ -15,7 +15,7 @@ Park.register({
   },
   key: 'huangguo',
   name: '黄果短剧',
-  version: '0.0.8',
+  version: '0.0.9',
   type: 'video',
   category: 'aiDrama',
   color: '#F2AD24',
@@ -33,6 +33,7 @@ Park.register({
   network: { mode: 'native' },
   media: {
     mode: 'native', scope: 'session', origin: 'https://huangguoai.com',
+    domains: ['huangguoai.com', 'hzjvlo.cn'],
   },
   defaultFeed: 'recommend',
   feeds: [
@@ -275,14 +276,19 @@ Park.register({
     // 只读取当前集地址，不从其他集或预览视频回退，避免播错集或把预告当正片。
     if (!data.videoSrc) throw Park.error('NOT_FOUND', '黄果短剧该分集暂无可用播放地址');
     const url = this.absolute(data.videoSrc);
-    if (!url) throw Park.error('PARSE', '黄果短剧播放地址无效');
+    const target = url && new URL(url);
+    const hls = target && /\.m3u8$/i.test(target.pathname);
+    if (!target || target.protocol !== 'https:' || target.port || target.username || target.password || target.hash ||
+        (!hls && (!/\.mp4$/i.test(target.pathname) || !this.media.domains.some(domain => target.hostname === domain || target.hostname.endsWith('.' + domain))))) {
+      throw Park.error('PARSE', '黄果短剧播放地址无效');
+    }
     if (data.videoApi || data.videoKey || data.videoIv) {
       throw Park.error('UNSUPPORTED', '黄果短剧该分集使用暂不支持的播放方式');
     }
     return [{
       quality: 0, label: '原画', url,
       headers: { Referer: this.BASE + path }, preferred: true,
-      ...(/\.m3u8(?:[?#]|$)/i.test(url) ? { format: 'hls' } : {}),
+      format: hls ? 'hls' : 'mp4',
     }];
   },
 });

@@ -8,6 +8,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../core/app_log.dart';
 import '../../core/localization.dart';
 import '../../core/models.dart';
+import '../../core/settings.dart';
 import '../../core/tag_blocklist.dart';
 import '../../engine/desktop_shutdown.dart';
 import '../../engine/home_cache.dart';
@@ -74,6 +75,7 @@ class _DetailPageState extends State<DetailPage> {
       : _m?.isVideo ?? DownloadManager.instance.task(_uid)?.isVideo ?? false;
   bool get _opensExternally => _isVideo && _m?.opensExternally == true;
   bool get _webVideo => _isVideo && _m?.usesWebVideo == true;
+  bool get _isLive => _m?.isLive == true;
   bool get _isGame =>
       _item.mediaKind != null ? _item.isGame : _m?.isGame == true;
 
@@ -93,7 +95,7 @@ class _DetailPageState extends State<DetailPage> {
 
   /// Keeps the stored chapter list (and with it read state and library updates) in step with the site.
   Future<void> _syncChapters(WorkDetail d) async {
-    if (_opensExternally || _webVideo || _isGame) return;
+    if (_opensExternally || _webVideo || _isGame || _isLive) return;
     final chapters = _isVideo
         ? d.videoEpisodes
         : d.chapters ?? [Chapter(chapterKeyOf(d.singleChapterId), tr('全本'))];
@@ -277,6 +279,7 @@ class _DetailPageState extends State<DetailPage> {
           listenable: Listenable.merge([
             Library.instance.work(_uid),
             DownloadManager.instance,
+            AppSettings.instance.watch(AppSettings.filterKeys),
           ]),
           builder: (context, _) => CustomScrollView(
             slivers: [
@@ -302,6 +305,7 @@ class _DetailPageState extends State<DetailPage> {
                       item: _item,
                       detail: _detail,
                       kind: _kind,
+                      allowDownload: !_isLive,
                       onPrimary: _opensExternally && !_canOpenOriginal
                           ? null
                           : _continue,
@@ -377,6 +381,7 @@ class _DetailPageState extends State<DetailPage> {
       return ChapterSelectionBar(
         count: _selected.length,
         isVideo: _isVideo,
+        allowDownload: !_isLive,
         onClear: done,
         onSelectAll: () =>
             setState(() => _selected.addAll(chapters.map((c) => c.id))),
@@ -433,7 +438,7 @@ class _DetailPageState extends State<DetailPage> {
 
   List<Widget> _body(BuildContext context, WorkDetail d) {
     final isVideo = _isVideo;
-    final chapters = _opensExternally || _webVideo || _isGame
+    final chapters = _opensExternally || _webVideo || _isGame || _isLive
         ? null
         : isVideo && d.hasVideoEpisodes
         ? d.videoEpisodes
@@ -524,7 +529,7 @@ class _DetailPageState extends State<DetailPage> {
         ),
       if (d.series.isNotEmpty)
         SliverToBoxAdapter(
-          child: WorkCarousel(title: tr('同系列'), items: d.series),
+          child: WorkRecommendations(title: tr('同系列'), items: d.series),
         ),
       if (d.related.isNotEmpty ||
           d.relatedSections.isNotEmpty ||

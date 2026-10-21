@@ -10,6 +10,8 @@ import '../../core/reverse_search.dart';
 import '../../engine/http_service.dart';
 import '../kit/tokens.dart';
 import '../theme.dart';
+import '../widgets/content_translation.dart';
+import '../widgets/text_translation.dart';
 
 class ReverseSearchResult extends StatelessWidget {
   const ReverseSearchResult({
@@ -37,144 +39,172 @@ class ReverseSearchResult extends StatelessWidget {
     final metadata = context.text.bodySmall?.copyWith(
       color: colors.onSurfaceVariant,
     );
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: Gap.xl),
-      decoration: BoxDecoration(
-        border: Border(top: BorderSide(color: colors.outlineVariant)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          SelectableText(
-            match.title,
-            style: ParkText.serif(context.text.titleLarge),
-          ),
-          if (match.similarity != null ||
-              match.episode.isNotEmpty ||
-              match.from != null ||
-              match.to != null) ...[
-            const SizedBox(height: Gap.s),
-            Wrap(
-              spacing: Gap.l,
-              runSpacing: Gap.xs,
-              children: [
-                if (match.similarity != null)
-                  Text(
-                    tr('相似度 {score}%', {'score': _score(match.similarity!)}),
-                    style: metadata?.copyWith(fontWeight: FontWeight.w600),
-                  ),
-                if (match.episode.isNotEmpty)
-                  Text(
-                    tr('第 {episode} 集', {'episode': match.episode}),
-                    style: metadata,
-                  ),
-                if (match.from != null || match.to != null)
-                  Text(
-                    [
-                      if (match.from != null) _time(match.from!),
-                      if (match.to != null) _time(match.to!),
-                    ].join(' – '),
-                    style: metadata,
-                  ),
-              ],
+    return TranslationSelectionArea(
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: Gap.xl),
+        decoration: BoxDecoration(
+          border: Border(top: BorderSide(color: colors.outlineVariant)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            _ResultText(
+              text: match.title,
+              source: source,
+              style: ParkText.serif(context.text.titleLarge),
             ),
-          ],
-          if (match.uncertain) ...[
-            const SizedBox(height: Gap.m),
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Icon(
-                  Icons.info_outline,
-                  size: 18,
-                  color: colors.onSurfaceVariant,
-                ),
-                const SizedBox(width: Gap.s),
-                Expanded(child: Text(tr('服务标记为低可信候选，请核对'), style: metadata)),
-              ],
-            ),
-          ],
-          if (match.description.isNotEmpty) ...[
-            const SizedBox(height: Gap.m),
-            SelectableText(match.description, style: context.text.bodyMedium),
-          ],
-          if (match.images.isNotEmpty) ...[
-            const SizedBox(height: Gap.l),
-            LayoutBuilder(
-              builder: (context, constraints) {
-                final columns = (constraints.maxWidth / 260).floor().clamp(
-                  1,
-                  match.images.length.clamp(1, 3),
-                );
-                final width =
-                    (constraints.maxWidth - Gap.m * (columns - 1)) / columns;
-                return Wrap(
-                  spacing: Gap.m,
-                  runSpacing: Gap.m,
-                  children: [
-                    for (var i = 0; i < match.images.length; i++)
-                      SizedBox(
-                        width: width,
-                        child: _ResultImage(
-                          key: ValueKey((source, i, match.images[i].url)),
-                          source: source,
-                          image: match.images[i],
-                        ),
-                      ),
-                  ],
-                );
-              },
-            ),
-          ],
-          const SizedBox(height: Gap.m),
-          SelectionContainer.disabled(
-            child: Wrap(
-              spacing: Gap.s,
-              runSpacing: Gap.s,
-              children: [
-                if (match.keyword.isNotEmpty)
-                  OutlinedButton.icon(
-                    onPressed: () => onSearch(match.keyword),
-                    icon: const Icon(Icons.search, size: 18),
-                    label: Text(tr('搜索资源')),
-                  ),
-                if (match.url.isNotEmpty)
-                  TextButton.icon(
-                    onPressed: () => onOpen(match.url),
-                    icon: const Icon(Icons.open_in_new, size: 18),
-                    label: Text(tr('原站')),
-                  ),
-              ],
-            ),
-          ),
-          if (match.details.isNotEmpty)
-            ExpansionTile(
-              tilePadding: EdgeInsets.zero,
-              title: SelectionContainer.disabled(
-                child: Text(tr('原站信息'), style: context.text.bodySmall),
+            if (match.similarity != null ||
+                match.episode.isNotEmpty ||
+                match.from != null ||
+                match.to != null) ...[
+              const SizedBox(height: Gap.s),
+              Wrap(
+                spacing: Gap.l,
+                runSpacing: Gap.xs,
+                children: [
+                  if (match.similarity != null)
+                    Text(
+                      tr('相似度 {score}%', {'score': _score(match.similarity!)}),
+                      style: metadata?.copyWith(fontWeight: FontWeight.w600),
+                    ),
+                  if (match.episode.isNotEmpty)
+                    Text(
+                      tr('第 {episode} 集', {'episode': match.episode}),
+                      style: metadata,
+                    ),
+                  if (match.from != null || match.to != null)
+                    Text(
+                      [
+                        if (match.from != null) _time(match.from!),
+                        if (match.to != null) _time(match.to!),
+                      ].join(' – '),
+                      style: metadata,
+                    ),
+                ],
               ),
-              children: [
-                for (final entry in match.details.entries)
-                  _DetailValue(
-                    label: entry.key,
-                    value: entry.value,
-                    onOpen: onOpen,
+            ],
+            if (match.uncertain) ...[
+              const SizedBox(height: Gap.m),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(
+                    Icons.info_outline,
+                    size: 18,
+                    color: colors.onSurfaceVariant,
                   ),
-              ],
+                  const SizedBox(width: Gap.s),
+                  Expanded(child: Text(tr('服务标记为低可信候选，请核对'), style: metadata)),
+                ],
+              ),
+            ],
+            if (match.description.isNotEmpty) ...[
+              const SizedBox(height: Gap.m),
+              _ResultText(
+                text: match.description,
+                source: source,
+                style: context.text.bodyMedium,
+              ),
+            ],
+            if (match.images.isNotEmpty) ...[
+              const SizedBox(height: Gap.l),
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  final columns = (constraints.maxWidth / 260).floor().clamp(
+                    1,
+                    match.images.length.clamp(1, 3),
+                  );
+                  final width =
+                      (constraints.maxWidth - Gap.m * (columns - 1)) / columns;
+                  return Wrap(
+                    spacing: Gap.m,
+                    runSpacing: Gap.m,
+                    children: [
+                      for (var i = 0; i < match.images.length; i++)
+                        SizedBox(
+                          width: width,
+                          child: _ResultImage(
+                            key: ValueKey((source, i, match.images[i].url)),
+                            source: source,
+                            image: match.images[i],
+                          ),
+                        ),
+                    ],
+                  );
+                },
+              ),
+            ],
+            const SizedBox(height: Gap.m),
+            SelectionContainer.disabled(
+              child: Wrap(
+                spacing: Gap.s,
+                runSpacing: Gap.s,
+                children: [
+                  if (match.keyword.isNotEmpty)
+                    OutlinedButton.icon(
+                      onPressed: () => onSearch(match.keyword),
+                      icon: const Icon(Icons.search, size: 18),
+                      label: Text(tr('搜索资源')),
+                    ),
+                  if (match.url.isNotEmpty)
+                    TextButton.icon(
+                      onPressed: () => onOpen(match.url),
+                      icon: const Icon(Icons.open_in_new, size: 18),
+                      label: Text(tr('原站')),
+                    ),
+                ],
+              ),
             ),
-        ],
+            if (match.details.isNotEmpty)
+              ExpansionTile(
+                tilePadding: EdgeInsets.zero,
+                title: SelectionContainer.disabled(
+                  child: Text(tr('原站信息'), style: context.text.bodySmall),
+                ),
+                children: [
+                  for (final entry in match.details.entries)
+                    _DetailValue(
+                      source: source,
+                      label: entry.key,
+                      value: entry.value,
+                      onOpen: onOpen,
+                    ),
+                ],
+              ),
+          ],
+        ),
       ),
     );
   }
 }
 
+class _ResultText extends StatelessWidget {
+  const _ResultText({required this.text, required this.source, this.style});
+  final String text, source;
+  final TextStyle? style;
+
+  @override
+  Widget build(BuildContext context) => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      for (final chunk in translationChunks(text))
+        ContentTranslation(
+          text: chunk,
+          source: source,
+          builder: (value) => Text(value, style: style),
+        ),
+    ],
+  );
+}
+
 class _DetailValue extends StatelessWidget {
   const _DetailValue({
+    required this.source,
     required this.label,
     required this.value,
     required this.onOpen,
   });
-  final String label;
+  final String source, label;
   final Object? value;
   final void Function(String) onOpen;
 
@@ -189,11 +219,16 @@ class _DetailValue extends StatelessWidget {
     };
     if (entries != null && entries.isNotEmpty) {
       return ExpansionTile(
-        title: Text(label),
+        title: _ResultText(text: label, source: source),
         childrenPadding: const EdgeInsetsDirectional.only(start: Gap.l),
         children: [
           for (final entry in entries)
-            _DetailValue(label: entry.key, value: entry.value, onOpen: onOpen),
+            _DetailValue(
+              source: source,
+              label: entry.key,
+              value: entry.value,
+              onOpen: onOpen,
+            ),
         ],
       );
     }
@@ -215,7 +250,7 @@ class _DetailValue extends StatelessWidget {
                   child: Text('$label: $text'),
                 ),
               )
-            : SelectableText('$label: $text'),
+            : _ResultText(text: '$label: $text', source: source),
       ),
     );
   }
@@ -364,8 +399,9 @@ class _ResultImageState extends State<_ResultImage> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   if (widget.image.label.isNotEmpty)
-                    SelectableText(
-                      widget.image.label,
+                    _ResultText(
+                      text: widget.image.label,
+                      source: widget.source,
                       style: context.text.bodySmall,
                     ),
                   if (widget.image.similarity != null)

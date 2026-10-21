@@ -18,6 +18,7 @@ class BackgroundDownloads {
   final Future<void> Function(int count) _update;
   final _updates = SerialExecutor();
   final _tokens = <Object, CancelToken>{};
+  final _recordings = <Object>{};
   bool _listening = false;
   bool _interrupted = false;
 
@@ -34,11 +35,19 @@ class BackgroundDownloads {
     }
   }
 
-  Future<DownloadLease> acquire({CancelToken? cancelToken}) async {
+  Future<DownloadLease> acquire({
+    CancelToken? cancelToken,
+    bool recording = false,
+  }) async {
     if (!_listening && Platform.isAndroid) {
       _listening = true;
       _channel.setMethodCallHandler((call) async {
         if (call.method == 'interrupted') interrupt();
+        if (call.method == 'taskRemoved') {
+          for (final id in _recordings.toList()) {
+            _tokens[id]?.cancel();
+          }
+        }
       });
     }
     final token = cancelToken ?? CancelToken();
@@ -51,10 +60,12 @@ class BackgroundDownloads {
       }
       if (_tokens.isEmpty) _interrupted = false;
       _tokens[id] = token;
+      if (recording) _recordings.add(id);
       try {
         await _update(_tokens.length);
       } catch (_) {
         _tokens.remove(id);
+        _recordings.remove(id);
         throw SourceError('BACKGROUND', '无法启动后台下载，请返回应用后重试');
       }
     });
@@ -78,6 +89,7 @@ class BackgroundDownloads {
 
   Future<void> _release(Object id) => _updates.run(() async {
     if (_tokens.remove(id) == null) return;
+    _recordings.remove(id);
     try {
       await _update(_interrupted ? 0 : _tokens.length);
     } catch (error) {
@@ -90,8 +102,8 @@ class BackgroundDownloads {
     if (!Platform.isAndroid) return;
     await _channel.invokeMethod<void>('update', {
       'count': count,
-      'title': tr('下载任务'),
-      'text': tr('正在下载，切到后台后继续'),
+      'title': tr('下载与录制'),
+      'text': tr('任务进行中，切到后台后继续'),
     });
   }
 }

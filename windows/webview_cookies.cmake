@@ -1,0 +1,27 @@
+# CDP 使用 Unix 秒；Flutter Cookie 接口使用毫秒，会话 Cookie 的有效期为空。
+# 在插件边界修正单项与批量读取，仅生成构建副本，不修改共享 Pub 缓存。
+set(webview_cookie_target flutter_inappwebview_windows_plugin)
+get_target_property(webview_cookie_source_dir ${webview_cookie_target} SOURCE_DIR)
+file(READ "${webview_cookie_source_dir}/cookie_manager.cpp" webview_cookie_source)
+set(webview_cookie_expiry [=[{"expiresDate", jsonCookie["expires"].get<int64_t>()}]=])
+string(REPLACE "${webview_cookie_expiry}" "" webview_cookie_without_expiry "${webview_cookie_source}")
+string(LENGTH "${webview_cookie_source}" webview_cookie_source_length)
+string(LENGTH "${webview_cookie_without_expiry}" webview_cookie_without_expiry_length)
+string(LENGTH "${webview_cookie_expiry}" webview_cookie_expiry_length)
+math(EXPR webview_cookie_expiry_count
+  "(${webview_cookie_source_length} - ${webview_cookie_without_expiry_length}) / ${webview_cookie_expiry_length}")
+if(NOT webview_cookie_expiry_count EQUAL 2)
+  message(FATAL_ERROR "WebView Cookie 读取实现已改变，请核对有效期单位和会话语义后更新集成。")
+endif()
+string(REPLACE "${webview_cookie_expiry}" [=[{"expiresDate", jsonCookie["session"].get<bool>()
+                    ? make_fl_value()
+                    : make_fl_value(static_cast<int64_t>(jsonCookie["expires"].get<double>() * 1000))}]=]
+  webview_cookie_source "${webview_cookie_source}")
+set(webview_cookie_generated_dir "${CMAKE_CURRENT_BINARY_DIR}/webview_cookies")
+file(MAKE_DIRECTORY "${webview_cookie_generated_dir}")
+file(WRITE "${webview_cookie_generated_dir}/cookie_manager.cpp" "${webview_cookie_source}")
+target_include_directories(${webview_cookie_target} PRIVATE "${webview_cookie_source_dir}")
+get_target_property(webview_cookie_sources ${webview_cookie_target} SOURCES)
+list(REMOVE_ITEM webview_cookie_sources "cookie_manager.cpp")
+set_property(TARGET ${webview_cookie_target} PROPERTY SOURCES "${webview_cookie_sources}")
+target_sources(${webview_cookie_target} PRIVATE "${webview_cookie_generated_dir}/cookie_manager.cpp")

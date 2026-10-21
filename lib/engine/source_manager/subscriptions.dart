@@ -41,6 +41,20 @@ mixin _SubscriptionApi on _SourceRegistry {
     return target;
   }
 
+  Future<SubscriptionTarget> resolveSubscription(
+    String key,
+    String input, {
+    String dimension = 'posts',
+  }) async {
+    if (dimension != 'posts') {
+      return normalizeSubscription(key, input, dimension: dimension);
+    }
+    final result = await _call(key, 'subscription.resolve', [input]);
+    final target = SubscriptionTarget(result as Map);
+    if (target.id.isEmpty) throw SourceError('CONFIG', '订阅目标无效');
+    return target;
+  }
+
   Future<Map<String, dynamic>> checkSubscription(
     String key,
     String dimension,
@@ -52,11 +66,12 @@ mixin _SubscriptionApi on _SourceRegistry {
     {'cursor': cursor},
   ], cancelToken: cancelToken) as Map).cast<String, dynamic>();
 
-  Future<List<SubscriptionTarget>> subscriptionTargets(String key) async =>
-      ((await _call(key, 'subscription.targets', [])) as List)
-          .whereType<Map>()
-          .map(SubscriptionTarget.new)
-          .toList();
+  Future<List<SubscriptionTarget>> subscriptionTargets(
+    String key, {
+    String? kind,
+  }) async => ((await _call(key, 'subscription.targets', [
+    if (kind != null) {'kind': kind},
+  ])) as List).whereType<Map>().map(SubscriptionTarget.new).toList();
 
   Future<SubscriptionPage> subscriptionPosts(
     String key,
@@ -69,6 +84,20 @@ mixin _SubscriptionApi on _SourceRegistry {
       {'cursor': cursor},
     ], cancelToken: cancelToken)) as Map,
   );
+
+  Future<WorkPage> subscriptionAlbum(
+    String key,
+    Map<String, Object?> scope, {
+    int page = 1,
+    String? cursor,
+    CancelToken? cancelToken,
+  }) async {
+    final result = await _call(key, 'subscription.media', [
+      scope,
+      {'page': page, 'cursor': cursor},
+    ], cancelToken: cancelToken);
+    return parseAlbumPage(result, key, page);
+  }
 
   /// 源插件只返回附件块；由框架控制本地路径、大小与原子完成，取消不会留下假完整文件。
   Future<File> subscriptionMediaFile(

@@ -374,6 +374,7 @@ class _DetailHeaderState extends State<DetailHeader> {
         child: CoverImage(
           source: item.source,
           url: item.cover,
+          sourceBlurred: item.json['coverBlurred'] == true,
           title: item.title,
           mediaKind: item.isNovel ? MediaKind.novel : null,
           onReady: onReady,

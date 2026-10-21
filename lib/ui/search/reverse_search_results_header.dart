@@ -133,7 +133,7 @@ class ReverseSearchResultsHeader extends StatelessWidget {
                       key: ValueKey('reverse-result-$key'),
                       label: SelectionContainer.disabled(
                         child: Text(
-                          '${sourceName(key)} · ${results[key]!.matches.length}',
+                          '${sourceName(key)} · ${results[key]!.matches.length}${results[key]!.hasMore ? '+' : ''}',
                         ),
                       ),
                       selected: key == source,

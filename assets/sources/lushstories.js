@@ -115,7 +115,7 @@
     },
     key: 'lushstories',
     name: 'Lush Stories',
-    version: '0.0.5',
+    version: '0.0.6',
     type: 'novel',
     category: 'novel',
     language: 'en',
@@ -130,8 +130,27 @@
     feeds: [
       { key: 'recommend', label: '推荐' },
       { key: 'latest', label: '最新' },
+      {key: 'categories', label: '分类', options: [{key: 'category', label: '分类', type: 'select', default: '', dynamic: true, values: []}]},
     ],
+    async filterOptions(req) {
+      if (req.scope !== 'feed' || req.feed !== 'categories' || req.filter !== 'category') return [];
+      const d = await doc(this, HOME + '/stories'), options = [{value: '', label: '全部'}], seen = new Set();
+      const excluded = new Set(['create','audio','erotic-poems','love-poems','recommended','editors-picks','famous','legendary','competition-winners']);
+      for (const a of d.querySelectorAll('a[href]')) {
+        let u; try {u = safe(new URL(a.getAttribute('href'), HOME).href);} catch (_) {continue;}
+        const m = /^\/stories\/([a-z0-9-]+)$/.exec(u.pathname), label = Park.html.text(a);
+        if (!m || !label || excluded.has(m[1]) || seen.has(m[1])) continue;
+        seen.add(m[1]); options.push({value: m[1], label});
+      }
+      if (!seen.size) throw Park.error('PARSE', '未找到分类');
+      return options;
+    },
     async feed(key, req) {
+      if (key === 'categories') {
+        const category = String(req.options?.category || '');
+        if (category && (!/^[a-z0-9-]{1,80}$/.test(category) || ['audio','erotic-poems','love-poems'].includes(category))) throw Park.error('CONFIG', '分类无效');
+        return list(this, req, '/stories' + (category ? '/' + category : ''));
+      }
       if (!['recommend', 'latest'].includes(key))
         throw Park.error('CONFIG', '未知列表');
       return list(

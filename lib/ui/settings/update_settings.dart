@@ -20,7 +20,7 @@ class UpdateSettings extends StatelessWidget {
       builder: (context, _) => Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          SwitchListTile(
+          SwitchListTile.adaptive(
             secondary: const Icon(Icons.system_update_alt_rounded),
             title: SelectionContainer.disabled(child: Text(tr('启动时检查软件更新'))),
             subtitle: SelectionContainer.disabled(
@@ -29,7 +29,7 @@ class UpdateSettings extends StatelessWidget {
             value: settings.autoAppUpdates,
             onChanged: (value) => settings.autoAppUpdates = value,
           ),
-          SwitchListTile(
+          SwitchListTile.adaptive(
             secondary: const Icon(Icons.extension_outlined),
             title: SelectionContainer.disabled(child: Text(tr('启动时检查插件更新'))),
             subtitle: SelectionContainer.disabled(

@@ -13,6 +13,7 @@ class VideoGestureSurface extends StatefulWidget {
     this.pageVertically = false,
     this.showLevelControls = false,
     required this.onTap,
+    this.onMouseTap,
     required this.onDoubleTap,
     required this.onStart,
     required this.onUpdate,
@@ -25,6 +26,7 @@ class VideoGestureSurface extends StatefulWidget {
   final bool pageVertically;
   final bool showLevelControls;
   final VoidCallback onTap;
+  final VoidCallback? onMouseTap;
   final ValueChanged<Offset> onDoubleTap;
   final void Function(Offset point, Size viewport) onStart;
   final ValueChanged<Offset> onUpdate;
@@ -39,6 +41,7 @@ class _VideoGestureSurfaceState extends State<VideoGestureSurface> {
   Offset _down = Offset.zero;
   Offset _doubleTap = Offset.zero;
   bool _blocked = false;
+  PointerDeviceKind? _tapKind;
 
   Widget _detector(
     Size viewport, {
@@ -82,7 +85,14 @@ class _VideoGestureSurfaceState extends State<VideoGestureSurface> {
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       dragStartBehavior: DragStartBehavior.down,
-      onTap: widget.onTap,
+      onTapDown: (details) => _tapKind = details.kind,
+      onTap: () {
+        if (_tapKind == PointerDeviceKind.mouse && widget.onMouseTap != null) {
+          widget.onMouseTap!();
+        } else {
+          widget.onTap();
+        }
+      },
       onDoubleTapDown: (details) => _doubleTap = details.localPosition + origin,
       onDoubleTap: () => widget.onDoubleTap(_doubleTap),
       onPanDown: horizontalOnly || verticalOnly ? null : down,

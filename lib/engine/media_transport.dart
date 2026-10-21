@@ -7,9 +7,19 @@ import 'domains.dart';
 
 /// Media domains are independent of source cookie domains. Both transports use
 /// HTTPS rules; native HLS may explicitly authorize resources within a single session.
-/// Neither transport sends application/source credentials.
+/// 浏览器图片仅在源内同源地址使用站点会话；视频和跨域请求不携带凭据。
 class MediaPolicy {
-  MediaPolicy._(this.site, this.mode, this.origin, this.domains, this.session);
+  MediaPolicy._(
+    this.site,
+    this.mode,
+    this.origin,
+    this.domains,
+    this.session,
+    this.sourceDomains,
+    this.documentDomains,
+    this.sameOriginCredentials,
+    this.referrerDomains,
+  );
 
   /// The source key, for diagnostics.
   final String site;
@@ -18,14 +28,47 @@ class MediaPolicy {
   final String mode;
   final String origin;
   final List<String> domains;
+  final List<String> sourceDomains;
+  final List<String> documentDomains;
+  final bool sameOriginCredentials;
+  final List<String> referrerDomains;
 
-  factory MediaPolicy.fromManifest(SourceManifest manifest, {Uri? initialUrl}) {
-    final media = manifest.media;
+  bool allowsDocument(Uri? url) =>
+      httpsDomainAddressAllowed(url, documentDomains);
+
+  factory MediaPolicy.fromManifest(
+    SourceManifest manifest, {
+    Uri? initialUrl,
+    bool image = false,
+  }) {
+    final declaration = image ? manifest.json['imageNetwork'] : manifest.media;
+    if (declaration is! Map) {
+      throw SourceError('CONFIG', '站点没有声明有效的媒体权限');
+    }
+    final media = declaration;
     final mode = media['mode'];
     final session = media['scope'] == 'session';
-    final page = Uri.tryParse('${media['origin'] ?? ''}');
-    final domains = (media['domains'] as List? ?? const [])
-        .map((domain) => '$domain'.toLowerCase())
+    final rawDomains = media['domains'];
+    final rawReferrers = media['referrerDomains'];
+    if ((rawDomains != null && rawDomains is! List) ||
+        (rawDomains is List && rawDomains.any((domain) => domain is! String)) ||
+        (rawReferrers != null &&
+            (rawReferrers is! List ||
+                mode != 'native' ||
+                image ||
+                rawReferrers.length > 16 ||
+                rawReferrers.any(
+                  (domain) => domain is! String || !publicDomainHost(domain),
+                ))) ||
+        (media['scope'] != null && !session) ||
+        media['origin'] is! String) {
+      throw SourceError('CONFIG', '站点没有声明有效的媒体权限');
+    }
+    final page = Uri.tryParse(media['origin'] as String);
+    final sourceDomains = declaredDomains(manifest.json);
+    final domains = (rawDomains as List? ?? const [])
+        .cast<String>()
+        .map((domain) => domain.toLowerCase())
         .toList();
     if ((mode != 'browser' && mode != 'native') ||
         page == null ||
@@ -34,11 +77,13 @@ class MediaPolicy {
         page.userInfo.isNotEmpty ||
         page.hasQuery ||
         page.hasFragment ||
-        !_publicHost(page.host) ||
-        !hostInDomains(page.host, declaredDomains(manifest.json)) ||
+        !publicDomainHost(page.host) ||
+        !(hostInDomains(page.host, sourceDomains) ||
+            (image && hostInDomains(page.host, domains))) ||
         (domains.isEmpty && !session) ||
         (session && mode != 'native') ||
-        domains.any((domain) => !_publicHost(domain))) {
+        (image && (mode != 'browser' || session)) ||
+        domains.any((domain) => !publicDomainHost(domain))) {
       throw SourceError('CONFIG', '站点没有声明有效的媒体权限');
     }
     final policy = MediaPolicy._(
@@ -47,24 +92,23 @@ class MediaPolicy {
       page.origin,
       List.unmodifiable(domains),
       session,
+      List.unmodifiable(sourceDomains),
+      List.unmodifiable(
+        hostInDomains(page.host, sourceDomains) ? sourceDomains : domains,
+      ),
+      image && hostInDomains(page.host, sourceDomains),
+      List.unmodifiable((rawReferrers as List? ?? const []).cast<String>()),
     );
     if (session && initialUrl != null) policy.authorize(initialUrl);
     return policy;
   }
 
-  static bool _publicHost(String host) =>
-      RegExp(r'^[a-z0-9](?:[a-z0-9.-]*[a-z0-9])?\.[a-z]{2,}$').hasMatch(host) &&
-      !host
-          .split('.')
-          .any(
-            (label) =>
-                label.isEmpty || label.startsWith('-') || label.endsWith('-'),
-          ) &&
-      host != 'localhost' &&
-      !host.endsWith('.localhost') &&
-      !host.endsWith('.local');
-
   void revokeSession() => _authorized.clear();
+
+  /// 直播窗口移出后撤销旧资源，避免长时间播放积累无限授权。
+  void retainSessionResources(Set<Uri> resources) {
+    _authorized.removeWhere((url) => !resources.contains(url));
+  }
 
   void authorize(Uri url) {
     if (!session) {
@@ -79,7 +123,7 @@ class MediaPolicy {
     if (url.scheme != 'https' ||
         url.port != 443 ||
         url.userInfo.isNotEmpty ||
-        !_publicHost(url.host) ||
+        !publicDomainHost(url.host) ||
         url.hasFragment) {
       throw SourceError('CONFIG', '媒体地址必须是有效的公网 HTTPS 地址');
     }
@@ -87,9 +131,8 @@ class MediaPolicy {
 
   void validate(Uri url) {
     _validateAddress(url);
-    if (session
-        ? !_authorized.contains(url)
-        : !hostInDomains(url.host, domains)) {
+    if (!hostInDomains(url.host, domains) &&
+        !(session && _authorized.contains(url))) {
       throw SourceError(
         'CONFIG',
         session ? '媒体地址未由当前播放接口或清单授权' : '媒体地址不在站点声明的 HTTPS 域名内',
@@ -115,12 +158,13 @@ class MediaPolicy {
       if (name == 'referer' || name == 'origin') {
         final url = Uri.tryParse(entry.value);
         if (url == null ||
-            url.scheme != 'https' ||
-            !url.hasAuthority ||
-            url.origin != origin ||
-            url.userInfo.isNotEmpty ||
+            !httpsDomainAddressAllowed(url, {
+              ...sourceDomains,
+              ...documentDomains,
+              if (name == 'referer') ...referrerDomains,
+            }) ||
             url.hasFragment ||
-            (name == 'origin' && entry.value != origin)) {
+            (name == 'origin' && entry.value != url.origin)) {
           throw SourceError('CONFIG', '媒体请求头不在站点声明的地址内');
         }
       }

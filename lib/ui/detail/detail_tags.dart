@@ -257,7 +257,7 @@ class _TagChip extends StatelessWidget {
         side: BorderSide(color: c.outlineVariant),
       ),
       clipBehavior: Clip.antiAlias,
-      child: InkWell(
+      child: ActionInkWell(
         onTap: onTap,
         onLongPress: () => _menu(context),
         child: SelectionContainer.disabled(

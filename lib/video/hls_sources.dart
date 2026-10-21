@@ -5,6 +5,7 @@ import 'package:dio/dio.dart';
 import '../core/models.dart';
 import '../engine/media_transport.dart';
 import 'hls_syntax.dart';
+import 'rou_hls_wrapper.dart';
 
 /// Expand a muxed HLS master into the actual qualities offered by the CDN.
 class HlsSources {
@@ -29,7 +30,12 @@ class HlsSources {
           maxBytes: 2 * 1024 * 1024,
           cancelToken: cancelToken,
         );
-        final variants = _variants(utf8.decode(response.bytes), response.url);
+        final variants = _variants(
+          utf8.decode(
+            unwrapRouHlsIfWrapped(response.bytes, maxBytes: 2 * 1024 * 1024),
+          ),
+          response.url,
+        );
         if (variants.isEmpty) {
           resolved.add(source);
           continue;
@@ -37,20 +43,19 @@ class HlsSources {
         for (final variant in variants) {
           authorizeMediaResource(transport, Uri.parse(variant.url));
         }
-        final preferred = variants
-            .firstWhere(
-              (s) => s.quality <= source.quality,
-              orElse: () => variants.first,
-            )
-            .quality;
+        final preferred = variants.firstWhere(
+          (s) => s.quality <= source.quality,
+          orElse: () => variants.first,
+        );
         resolved.addAll(
           variants.map(
             (variant) => VideoSource({
               'url': variant.url,
               'quality': variant.quality,
+              'label': variant.label,
               'format': 'hls',
               'headers': source.headers,
-              'preferred': source.preferred && variant.quality == preferred,
+              'preferred': source.preferred && identical(variant, preferred),
             }),
           ),
         );
@@ -65,8 +70,11 @@ class HlsSources {
   List<VideoSource> _variants(String text, Uri base) {
     final lines = hlsLines(text);
     if (!lines.any((line) => line.startsWith('#EXT-X-STREAM-INF:'))) return [];
-    final variants = <int, VideoSource>{};
+    final variants = <({VideoSource source, int bandwidth})>[];
+    final seen = <String>{};
     int? quality;
+    var bandwidth = 0;
+    var count = 0;
     for (final line in lines) {
       if (line.startsWith('#')) {
         // Optional trick-play tracks are not playback variants. Their URIs
@@ -76,7 +84,7 @@ class HlsSources {
           throw SourceError('UNSUPPORTED', 'HLS 使用了不支持的媒体格式');
         }
         if (!line.startsWith('#EXT-X-STREAM-INF:')) continue;
-        if (quality != null || variants.length >= 32) {
+        if (quality != null || ++count > 32) {
           throw SourceError('UNSUPPORTED', 'HLS 使用了不支持的媒体格式');
         }
         final attributes = hlsAttributes(
@@ -89,27 +97,41 @@ class HlsSources {
         }
         final resolution = RegExp(r'^\d+x(\d+)$')
             .firstMatch(attributes['RESOLUTION'] ?? '');
-        quality = resolution == null ? null : int.tryParse(resolution[1]!);
-        if (quality == null || quality < 1 || quality > 4320) {
+        bandwidth = int.tryParse(attributes['BANDWIDTH'] ?? '') ?? 0;
+        quality = attributes.containsKey('RESOLUTION')
+            ? (resolution == null ? null : int.tryParse(resolution[1]!))
+            : 0;
+        if (quality == null ||
+            quality < 0 ||
+            quality > 4320 ||
+            (attributes.containsKey('RESOLUTION') && quality == 0) ||
+            (quality == 0 && (bandwidth <= 0 || bandwidth > 10000000000))) {
           throw SourceError('UNSUPPORTED', 'HLS 使用了不支持的媒体格式');
         }
       } else {
         if (quality == null) throw SourceError('NETWORK', 'HLS 分段不完整');
-        variants.putIfAbsent(
-          quality,
-          () => VideoSource({
-            'quality': quality,
-            'url': base.resolve(line).toString(),
-            'format': 'hls',
-          }),
-        );
+        final key = quality > 0 ? 'height:$quality' : 'bandwidth:$bandwidth';
+        if (seen.add(key)) {
+          variants.add((
+            source: VideoSource({
+              'quality': quality,
+              if (quality == 0) 'label': '${(bandwidth / 1000).round()} kbps',
+              'url': base.resolve(line).toString(),
+              'format': 'hls',
+            }),
+            bandwidth: bandwidth,
+          ));
+        }
         quality = null;
       }
     }
     if (quality != null || variants.isEmpty) {
       throw SourceError('NETWORK', 'HLS 分段不完整');
     }
-    return variants.values.toList()
-      ..sort((a, b) => b.quality.compareTo(a.quality));
+    variants.sort((a, b) {
+      final height = b.source.quality.compareTo(a.source.quality);
+      return height != 0 ? height : b.bandwidth.compareTo(a.bandwidth);
+    });
+    return variants.map((entry) => entry.source).toList();
   }
 }

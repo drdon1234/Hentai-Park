@@ -20,6 +20,41 @@
 .history
 migrate_working_dir/
 
+# 本地凭据与签名材料（示例配置只使用占位符）
+.env
+.env.*
+!.env.example
+!.env.sample
+key.properties
+*.keystore
+*.jks
+*.p12
+*.pfx
+*.p8
+*.key
+*.pem
+*.keychain
+*.keychain-db
+*.mobileprovision
+credentials.json
+credentials.*.json
+cookies.txt
+cookies.json
+cookies.*.json
+session.json
+session.*.json
+*.session
+*.session-journal
+
+# 用户数据、备份与网络抓包
+*.parkbak
+*.har
+*.pcap
+*.pcapng
+*.bak
+/backups/
+/logs/
+
 # IntelliJ related
 *.iml
 *.ipr

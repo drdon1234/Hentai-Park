@@ -9,10 +9,10 @@ Park.register({
     "ru": {"竖屏短视频推荐，上下滑动连续播放": "Рекомендации вертикальных видео с непрерывным просмотром свайпами", "请刷新短视频列表": "Обновите ленту коротких видео"},
     "ar": {"竖屏短视频推荐，上下滑动连续播放": "اقتراحات مقاطع عمودية مع تشغيل متواصل بالسحب لأعلى وأسفل", "请刷新短视频列表": "حدّث قائمة المقاطع القصيرة"},
   },
-  key: 'shorties', name: 'Pornhub Shorties', version: '0.0.3', type: 'video', category: 'shortvideo',
+  key: 'shorties', name: 'Pornhub Shorties', version: '0.0.7', type: 'video', category: 'shortvideo',
   color: '#FF9900', description: '竖屏短视频推荐，上下滑动连续播放', language: 'en',
   homepage: 'https://www.pornhub.com/shorties', domains: ['pornhub.com'],
-  network: {mode: 'native', vpnHint: true},
+  network: {mode: 'auto', origin: 'https://www.pornhub.com', vpnHint: true},
   // CDN 按 Accept 返回 AVIF；显式请求已在 Android 解码验证的 JPEG。
   imageHeaders: {Referer: 'https://www.pornhub.com/', Accept: 'image/jpeg'},
   media: {mode: 'native', origin: 'https://www.pornhub.com', domains: ['phncdn.com']},
@@ -29,9 +29,9 @@ Park.register({
   async page(path, options = {}) {
     const r = await this.http.get(this.BASE + path, {timeout: 30000, ...options});
     if (r.status === 404) throw Park.error('NOT_FOUND', '影片不存在');
-    if (!r.ok) throw Park.error('HTTP', '短视频请求失败');
-    const u = new URL(r.url || this.BASE + path);
-    if (u.origin !== this.BASE || !u.pathname.startsWith('/shorties')) throw Park.error('BLOCKED', '访问受限');
+    if (!r.ok) throw Park.error('HTTP', '短视频请求失败', {status: r.status, url: r.url || this.BASE + path});
+    const u = Park.url.response(this, r, this.BASE + path);
+    if (!u.pathname.startsWith('/shorties')) throw Park.error('BLOCKED', '访问受限');
     if (r.body.length > 4 * 1024 * 1024) throw Park.error('PARSE', '短视频数据解析失败');
     return r.body;
   },
@@ -58,10 +58,12 @@ Park.register({
     return {id: v.vkey, title: v.videoTitle, cover, coverAspect: 9/16,
       url: this.BASE + '/shorties/' + v.vkey, likes: Number(v.likeNumber) || null, subtitle: v.name || ''};
   },
-  cursor(seed, offset, session) {
+  cursor(seed, offset, session, batch) {
     if (!Number.isSafeInteger(seed) || seed < 0 || !Number.isSafeInteger(offset) || offset < 0
-      || !Number.isSafeInteger(session) || session < 1) throw Park.error('PARSE', '短视频分页数据无效');
-    return JSON.stringify({seed, offset, session});
+      || !Number.isSafeInteger(session) || session < 1
+      || !Number.isSafeInteger(batch) || batch < 1) throw Park.error('PARSE', '短视频分页数据无效');
+    // 推荐流会在同一 seed/offset 下返回不同批次，批次号标识应用中的分页进度。
+    return JSON.stringify({seed, offset, session, batch});
   },
   async feed(key, req = {}) {
     if (key !== 'recommend') throw Park.error('CONFIG', '未知视频列表');
@@ -75,11 +77,11 @@ Park.register({
       const session = ++this.nextSession;
       this.sessions.set(session, token);
       while (this.sessions.size > 8) this.sessions.delete(this.sessions.keys().next().value);
-      return {items: this.data(html).map(v => this.item(v)).filter(Boolean), page, hasNext: true, cursor: this.cursor(seed, offset, session)};
+      return {items: this.data(html).map(v => this.item(v)).filter(Boolean), page, hasNext: true, cursor: this.cursor(seed, offset, session, 1)};
     }
     let cursor;
     try { cursor = JSON.parse(req.cursor); } catch (_) { throw Park.error('CONFIG', '短视频分页数据无效'); }
-    this.cursor(cursor.seed, cursor.offset, cursor.session);
+    this.cursor(cursor.seed, cursor.offset, cursor.session, cursor.batch);
     const token = this.sessions.get(cursor.session);
     if (!token) throw Park.error('CONFIG', '请刷新短视频列表');
     const html = await this.page('/shorties/get', {params: {seed: cursor.seed, offset: cursor.offset, token, orientation: 'straight'},
@@ -89,7 +91,7 @@ Park.register({
     if (!Array.isArray(data.videos)) throw Park.error('PARSE', '短视频数据解析失败');
     const hasNext = !data.isEmpty && data.videos.length > 0;
     return {items: data.videos.map(v => this.item(v)).filter(Boolean), page, hasNext,
-      cursor: hasNext ? this.cursor(Number(data.seed), Number(data.offset), cursor.session) : undefined};
+      cursor: hasNext ? this.cursor(Number(data.seed), Number(data.offset), cursor.session, cursor.batch + 1) : undefined};
   },
   async video(id) {
     id = this.validId(id);
@@ -99,13 +101,7 @@ Park.register({
     return v;
   },
   async detail(id) { return {...this.item(await this.video(id)), tags: [], chapters: null}; },
-  mediaUrl(value) {
-    try {
-      const u = new URL(value);
-      return u.protocol === 'https:' && !u.port && !u.username && !u.password && !u.hash
-        && /^(?:[a-z0-9-]+\.)*phncdn\.com$/.test(u.hostname) && /\.m3u8$/i.test(u.pathname) ? u.href : null;
-    } catch (_) { return null; }
-  },
+  mediaUrl(value) { return Park.url.parse(value, this.BASE, this.media.domains)?.href || ''; },
   async videos(id) {
     const v = await this.video(id), videos = [], seen = new Set();
     for (const m of v.mediaDefinitions || []) {

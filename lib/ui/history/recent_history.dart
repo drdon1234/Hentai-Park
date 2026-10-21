@@ -86,6 +86,18 @@ class _ContinueCard extends StatelessWidget {
 
   static const _coverWidth = 48.0;
 
+  String get _resumeLabel {
+    final label = kindOf(entry.item) == MediaKind.video
+        ? tr('继续播放')
+        : tr('继续阅读');
+    if (entry.position != null) {
+      return '$label · ${entry.position! ~/ 60}:${(entry.position! % 60).toString().padLeft(2, '0')}';
+    }
+    return entry.pageCount > 0
+        ? '$label · ${(entry.progress * 100).round()}%'
+        : label;
+  }
+
   String get _sourceName {
     final source = entry.item.source;
     if (source == 'local') return tr('本地导入');
@@ -96,12 +108,14 @@ class _ContinueCard extends StatelessWidget {
   // 横向列表需要确定高度；逐种字号测量以兼容系统非线性字体缩放，站点全名不截断。
   double heightFor(BuildContext context, double width) {
     final textWidth = width - _coverWidth - Gap.s * 3;
-    double textHeight(String text, TextStyle? style) {
+    double textHeight(String text, TextStyle? style, {int? maxLines}) {
       final painter = TextPainter(
         text: TextSpan(text: text, style: style),
         textDirection: Directionality.of(context),
         textScaler: MediaQuery.textScalerOf(context),
         locale: Localizations.maybeLocaleOf(context),
+        maxLines: maxLines,
+        ellipsis: maxLines == null ? null : '…',
       )..layout(maxWidth: textWidth);
       final height = painter.height.ceilToDouble();
       painter.dispose();
@@ -109,27 +123,34 @@ class _ContinueCard extends StatelessWidget {
     }
 
     return Gap.s * 2 +
-        2 * textHeight('国', ParkText.serif(context.text.titleSmall)) +
+        textHeight(
+          entry.item.title,
+          ParkText.serif(context.text.titleSmall),
+          maxLines: 2,
+        ) +
         Gap.xs +
         textHeight(_sourceName, context.text.labelSmall) +
         (entry.chapterTitle?.isNotEmpty == true
-            ? Gap.xs + textHeight('国', context.text.bodySmall)
+            ? Gap.xs +
+                  textHeight(
+                    entry.chapterTitle!,
+                    context.text.bodySmall,
+                    maxLines: 1,
+                  )
             : 0) +
         Gap.s +
         (entry.progress > 0 ? 3 + Gap.xs : 0) +
-        textHeight('国', context.text.labelSmall);
+        textHeight(_resumeLabel, context.text.labelSmall, maxLines: 1);
   }
 
   @override
   Widget build(BuildContext context) {
     final item = entry.item;
-    final video = kindOf(item) == MediaKind.video;
-    final label = video ? tr('继续播放') : tr('继续阅读');
     return Material(
       color: context.colors.surfaceContainer,
       borderRadius: Radii.medium,
       clipBehavior: Clip.antiAlias,
-      child: InkWell(
+      child: ActionInkWell(
         onLongPress: () => showWorkActions(context, item),
         onTap: () => entry.position != null || entry.pageCount > 0
             ? Nav.openChapter(context, item, entry.chapterId, page: entry.page)
@@ -144,6 +165,7 @@ class _ContinueCard extends StatelessWidget {
                   borderRadius: Radii.small,
                   child: CoverImage(
                     url: item.cover,
+                    sourceBlurred: item.json['coverBlurred'] == true,
                     source: item.source,
                     title: item.title,
                   ),
@@ -188,11 +210,7 @@ class _ContinueCard extends StatelessWidget {
                       const SizedBox(height: Gap.xs),
                     ],
                     Text(
-                      entry.position != null
-                          ? '$label · ${entry.position! ~/ 60}:${(entry.position! % 60).toString().padLeft(2, '0')}'
-                          : entry.pageCount > 0
-                          ? '$label · ${(entry.progress * 100).round()}%'
-                          : label,
+                      _resumeLabel,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: context.text.labelSmall?.copyWith(

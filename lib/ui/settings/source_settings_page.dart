@@ -182,14 +182,14 @@ class _SourceSettingsPageState extends State<SourceSettingsPage> {
                           ListTile(
                             leading: const Icon(Icons.verified_user_outlined),
                             title: SelectionContainer.disabled(
-                              child: Text(context.tr('打开站点进行人机验证')),
+                              child: Text(context.tr('后台自动处理站点验证')),
                             ),
                             subtitle: SelectionContainer.disabled(
                               child: Text(
                                 context.tr(
                                   m.usesBrowserNetwork
-                                      ? '这个站点通过内置浏览器访问，遇到验证时在这里完成'
-                                      : '遇到 Cloudflare 验证时使用',
+                                      ? '受支持的站点验证会在后台自动处理'
+                                      : 'Cloudflare 验证会在后台自动尝试',
                                 ),
                               ),
                             ),
@@ -391,7 +391,7 @@ class _SourceSettingsPageState extends State<SourceSettingsPage> {
     final value = sm.settingValue(m.key, o);
     switch (o.type) {
       case 'switch':
-        return SwitchListTile(
+        return SwitchListTile.adaptive(
           title: SelectionContainer.disabled(child: Text(o.label)),
           subtitle: o.description.isEmpty
               ? null

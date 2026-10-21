@@ -1,7 +1,11 @@
+import 'dart:async';
+
+import 'package:flutter/cupertino.dart' hide RefreshCallback;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../core/localization.dart';
+import '../../core/platform_capabilities.dart';
 import '../theme.dart';
 import 'adaptive_sheet.dart';
 import 'tokens.dart';
@@ -28,6 +32,7 @@ class PageHeader extends StatelessWidget implements PreferredSizeWidget {
 
   @override
   Widget build(BuildContext context) => AppBar(
+    centerTitle: false,
     toolbarHeight: height,
     titleSpacing: Gap.page,
     title:
@@ -91,37 +96,54 @@ class HeaderTabs extends StatelessWidget {
                   if (i != selected) HapticFeedback.selectionClick();
                   onSelected(i);
                 },
-                child: SelectionContainer.disabled(
-                  child: Padding(
-                    padding: EdgeInsetsDirectional.only(
-                      start: i == 0 ? 0 : Gap.s,
-                      end: Gap.m,
-                      top: Gap.xs,
-                      bottom: Gap.xs,
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        AnimatedDefaultTextStyle(
-                          duration: Motion.of(context, Motion.short),
-                          style: style!.copyWith(
-                            color: i == selected ? c.onSurface : c.outline,
-                          ),
-                          child: Text(tabs[i].label),
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(
+                    minWidth: 48,
+                    minHeight: 48,
+                  ),
+                  child: Center(
+                    widthFactor: 1,
+                    heightFactor: 1,
+                    child: SelectionContainer.disabled(
+                      child: Padding(
+                        padding: EdgeInsetsDirectional.only(
+                          start: i == 0 ? 0 : Gap.s,
+                          end: Gap.m,
+                          top: Gap.xs,
+                          bottom: Gap.xs,
                         ),
-                        if (tabs[i].count > 0)
-                          Padding(
-                            padding: const EdgeInsetsDirectional.only(start: 2),
-                            child: Text(
-                              '${tabs[i].count}',
-                              style: context.text.labelSmall?.copyWith(
-                                color: c.primary,
-                                fontWeight: FontWeight.w600,
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            AnimatedDefaultTextStyle(
+                              duration: Motion.of(context, Motion.short),
+                              style: style!.copyWith(
+                                color: i == selected
+                                    ? c.onSurface
+                                    : c.onSurfaceVariant,
+                                fontWeight: i == selected
+                                    ? FontWeight.w600
+                                    : FontWeight.w400,
                               ),
+                              child: Text(tabs[i].label),
                             ),
-                          ),
-                      ],
+                            if (tabs[i].count > 0)
+                              Padding(
+                                padding: const EdgeInsetsDirectional.only(
+                                  start: 2,
+                                ),
+                                child: Text(
+                                  '${tabs[i].count}',
+                                  style: context.text.labelSmall?.copyWith(
+                                    color: c.primary,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
                     ),
                   ),
                 ),
@@ -216,60 +238,73 @@ class ListRow extends StatelessWidget {
       child: InkWell(
         onTap: enabled ? onTap : null,
         onLongPress: enabled ? onLongPress : null,
+        onSecondaryTap: PlatformCapabilities.desktop && enabled
+            ? onLongPress
+            : null,
         child: SelectionContainer.disabled(
           child: ConstrainedBox(
             constraints: const BoxConstraints(minHeight: 56),
             child: Padding(
               padding: padding,
-              child: Row(
-                children: [
-                  if (leading != null) ...[
-                    IconTheme.merge(
-                      data: IconThemeData(color: c.onSurfaceVariant, size: 22),
-                      child: leading!,
-                    ),
-                    const SizedBox(width: Gap.l),
-                  ],
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          title,
-                          maxLines: titleMaxLines,
-                          overflow: titleMaxLines == null
-                              ? TextOverflow.clip
-                              : TextOverflow.ellipsis,
-                          style: context.text.bodyLarge?.copyWith(color: fg),
+              child: LayoutBuilder(
+                builder: (context, constraints) => Row(
+                  children: [
+                    if (leading != null) ...[
+                      IconTheme.merge(
+                        data: IconThemeData(
+                          color: c.onSurfaceVariant,
+                          size: 22,
                         ),
-                        if (subtitle != null && subtitle!.isNotEmpty) ...[
-                          const SizedBox(height: 2),
+                        child: leading!,
+                      ),
+                      const SizedBox(width: Gap.l),
+                    ],
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
                           Text(
-                            subtitle!,
-                            maxLines: subtitleMaxLines,
-                            overflow: TextOverflow.ellipsis,
+                            title,
+                            maxLines: titleMaxLines,
+                            overflow: titleMaxLines == null
+                                ? TextOverflow.clip
+                                : TextOverflow.ellipsis,
+                            style: context.text.bodyLarge?.copyWith(color: fg),
+                          ),
+                          if (subtitle != null && subtitle!.isNotEmpty) ...[
+                            const SizedBox(height: 2),
+                            Text(
+                              subtitle!,
+                              maxLines: subtitleMaxLines,
+                              overflow: TextOverflow.ellipsis,
+                              style: context.text.bodyMedium?.copyWith(
+                                color: c.onSurfaceVariant,
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                    if (trailing != null) ...[
+                      const SizedBox(width: Gap.m),
+                      ConstrainedBox(
+                        constraints: BoxConstraints(
+                          maxWidth: constraints.maxWidth * .5,
+                        ),
+                        child: IconTheme.merge(
+                          data: IconThemeData(color: c.onSurfaceVariant),
+                          child: DefaultTextStyle.merge(
                             style: context.text.bodyMedium?.copyWith(
                               color: c.onSurfaceVariant,
                             ),
+                            child: trailing!,
                           ),
-                        ],
-                      ],
-                    ),
-                  ),
-                  if (trailing != null) ...[
-                    const SizedBox(width: Gap.m),
-                    IconTheme.merge(
-                      data: IconThemeData(color: c.onSurfaceVariant),
-                      child: DefaultTextStyle.merge(
-                        style: context.text.bodyMedium?.copyWith(
-                          color: c.onSurfaceVariant,
                         ),
-                        child: trailing!,
                       ),
-                    ),
+                    ],
                   ],
-                ],
+                ),
               ),
             ),
           ),
@@ -350,48 +385,52 @@ class EmptyState extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
-    return Center(
-      child: Padding(
-        padding: EdgeInsets.all(compact ? Gap.m : Gap.xxl),
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 420),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(icon, size: compact ? 24 : 32, color: c.outline),
-              SizedBox(height: compact ? Gap.s : Gap.m),
+    final content = Padding(
+      padding: EdgeInsets.all(compact ? Gap.m : Gap.xxl),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 420),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ExcludeSemantics(
+              child: Icon(icon, size: compact ? 24 : 32, color: c.outline),
+            ),
+            SizedBox(height: compact ? Gap.s : Gap.m),
+            Text(
+              title,
+              style: compact
+                  ? context.text.titleSmall
+                  : ParkText.serif(context.text.titleMedium),
+              textAlign: TextAlign.center,
+            ),
+            if (message != null && message!.isNotEmpty) ...[
+              const SizedBox(height: Gap.xs),
               Text(
-                title,
-                style: compact
-                    ? context.text.titleSmall
-                    : context.text.titleMedium,
+                message!,
+                style: context.text.bodyMedium?.copyWith(
+                  color: c.onSurfaceVariant,
+                ),
                 textAlign: TextAlign.center,
+                maxLines: compact ? 3 : 6,
+                overflow: TextOverflow.ellipsis,
               ),
-              if (message != null && message!.isNotEmpty) ...[
-                const SizedBox(height: Gap.xs),
-                Text(
-                  message!,
-                  style: context.text.bodyMedium?.copyWith(
-                    color: c.onSurfaceVariant,
-                  ),
-                  textAlign: TextAlign.center,
-                  maxLines: compact ? 3 : 6,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ],
-              if (actions.isNotEmpty) ...[
-                SizedBox(height: compact ? Gap.s : Gap.l),
-                Wrap(
-                  spacing: Gap.s,
-                  runSpacing: Gap.s,
-                  alignment: WrapAlignment.center,
-                  children: actions,
-                ),
-              ],
             ],
-          ),
+            if (actions.isNotEmpty) ...[
+              SizedBox(height: compact ? Gap.s : Gap.l),
+              Wrap(
+                spacing: Gap.s,
+                runSpacing: Gap.s,
+                alignment: WrapAlignment.center,
+                children: actions,
+              ),
+            ],
+          ],
         ),
       ),
+    );
+    // 同时适用于有界整页与无界列表区块；短窗口仍可滚动到恢复操作。
+    return Center(
+      child: compact ? content : SingleChildScrollView(child: content),
     );
   }
 }
@@ -474,8 +513,34 @@ Future<bool> confirmAction(
   String? cancelLabel,
   bool destructive = false,
 }) async {
+  if (Theme.of(context).platform == TargetPlatform.iOS) {
+    return await Navigator.of(context, rootNavigator: true).push<bool>(
+          CupertinoDialogRoute<bool>(
+            context: context,
+            transitionDuration: Motion.of(context, Motion.medium),
+            builder: (ctx) => CupertinoAlertDialog(
+              title: Text(title),
+              content: content ?? (message == null ? null : Text(message)),
+              actions: [
+                CupertinoDialogAction(
+                  onPressed: () => Navigator.pop(ctx, false),
+                  child: Text(cancelLabel ?? tr('取消')),
+                ),
+                CupertinoDialogAction(
+                  isDestructiveAction: destructive,
+                  isDefaultAction: !destructive,
+                  onPressed: () => Navigator.pop(ctx, true),
+                  child: Text(confirmLabel),
+                ),
+              ],
+            ),
+          ),
+        ) ==
+        true;
+  }
   final ok = await showDialog<bool>(
     context: context,
+    animationStyle: Motion.menu(context),
     builder: (ctx) => AlertDialog(
       title: Text(title),
       content:
@@ -512,42 +577,81 @@ Future<T?> showChoiceSheet<T>(
   required List<T> options,
   required T? selected,
   required String Function(T option) label,
-}) => showAdaptiveSheet<T>(
-  context: context,
-  sheetAnimationStyle: Motion.menu(context),
-  isScrollControlled: true,
-  builder: (ctx) => SafeArea(
-    child: ConstrainedBox(
-      constraints: BoxConstraints(
-        maxHeight: MediaQuery.sizeOf(ctx).height * .7,
-      ),
-      child: ListView(
-        shrinkWrap: true,
-        padding: const EdgeInsets.only(bottom: Gap.s),
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(
-              Gap.page,
-              Gap.s,
-              Gap.page,
-              Gap.xs,
-            ),
-            child: Text(title, style: ctx.text.titleMedium),
-          ),
-          for (final option in options)
-            ListTile(
-              title: SelectionContainer.disabled(child: Text(label(option))),
+}) {
+  if (Theme.of(context).platform == TargetPlatform.iOS &&
+      MediaQuery.sizeOf(context).width < 720) {
+    Widget sheet(BuildContext ctx) => CupertinoActionSheet(
+      title: Text(title),
+      actions: [
+        for (final option in options)
+          CupertinoActionSheetAction(
+            isDefaultAction: option == selected,
+            onPressed: () => Navigator.pop(ctx, option),
+            child: Semantics(
               selected: option == selected,
-              trailing: option == selected
-                  ? const Icon(Icons.check_rounded)
-                  : null,
-              onTap: () => Navigator.pop(ctx, option),
+              child: Text(label(option)),
             ),
-        ],
+          ),
+      ],
+      cancelButton: CupertinoActionSheetAction(
+        onPressed: () => Navigator.pop(ctx),
+        child: Text(tr('取消')),
+      ),
+    );
+    if (MediaQuery.disableAnimationsOf(context)) {
+      return showGeneralDialog<T>(
+        context: context,
+        barrierDismissible: true,
+        barrierLabel: CupertinoLocalizations.of(context)
+            .modalBarrierDismissLabel,
+        transitionDuration: Duration.zero,
+        pageBuilder: (ctx, _, _) =>
+            Align(alignment: Alignment.bottomCenter, child: sheet(ctx)),
+      );
+    }
+    return showCupertinoModalPopup<T>(
+      context: context,
+      semanticsDismissible: true,
+      builder: sheet,
+    );
+  }
+  return showAdaptiveSheet<T>(
+    context: context,
+    sheetAnimationStyle: Motion.menu(context),
+    isScrollControlled: true,
+    builder: (ctx) => SafeArea(
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.sizeOf(ctx).height * .7,
+        ),
+        child: ListView(
+          shrinkWrap: true,
+          padding: const EdgeInsets.only(bottom: Gap.s),
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(
+                Gap.page,
+                Gap.s,
+                Gap.page,
+                Gap.xs,
+              ),
+              child: Text(title, style: ctx.text.titleMedium),
+            ),
+            for (final option in options)
+              ListTile(
+                title: SelectionContainer.disabled(child: Text(label(option))),
+                selected: option == selected,
+                trailing: option == selected
+                    ? const Icon(Icons.check_rounded)
+                    : null,
+                onTap: () => Navigator.pop(ctx, option),
+              ),
+          ],
+        ),
       ),
     ),
-  ),
-);
+  );
+}
 
 /// The search field shared by the home page and search pages. Read-only fields act as an entry
 /// point that opens the search page.
@@ -663,17 +767,122 @@ Future<String?> readSearchClipboard(
 }
 
 /// Pull to refresh, with a light tap when the refresh starts.
-class ParkRefresh extends StatelessWidget {
+class ParkRefresh extends StatefulWidget {
   const ParkRefresh({super.key, required this.onRefresh, required this.child});
   final RefreshCallback onRefresh;
   final Widget child;
 
   @override
-  Widget build(BuildContext context) => RefreshIndicator(
-    onRefresh: () {
-      HapticFeedback.mediumImpact();
-      return onRefresh();
-    },
+  State<ParkRefresh> createState() => _ParkRefreshState();
+}
+
+class _ParkRefreshState extends State<ParkRefresh> {
+  final _indicator = GlobalKey<RefreshIndicatorState>();
+  final _focusNode = FocusNode(debugLabel: 'ParkRefresh');
+  bool _refreshing = false;
+  bool _tickerModeEnabled = true;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final enabled = TickerMode.valuesOf(context).enabled;
+    if (PlatformCapabilities.desktop && enabled && !_tickerModeEnabled) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted &&
+            TickerMode.valuesOf(context).enabled &&
+            (ModalRoute.of(context)?.isCurrent ?? true)) {
+          _focusNode.requestFocus();
+        }
+      });
+    }
+    _tickerModeEnabled = enabled;
+  }
+
+  Future<void> _refresh() async {
+    if (_refreshing) return;
+    setState(() => _refreshing = true);
+    try {
+      unawaited(HapticFeedback.mediumImpact());
+      await widget.onRefresh();
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(tr('刷新失败，请重试'))));
+      }
+    } finally {
+      if (mounted) setState(() => _refreshing = false);
+    }
+  }
+
+  void _requestRefresh() {
+    if (!_refreshing &&
+        TickerMode.valuesOf(context).enabled &&
+        (ModalRoute.of(context)?.isCurrent ?? true)) {
+      unawaited(_indicator.currentState?.show());
+    }
+  }
+
+  @override
+  void dispose() {
+    _focusNode.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final indicator = RefreshIndicator(
+      key: _indicator,
+      onRefresh: _refresh,
+      child: widget.child,
+    );
+    if (!PlatformCapabilities.desktop) return indicator;
+    final mac = Theme.of(context).platform == TargetPlatform.macOS;
+    return CallbackShortcuts(
+      bindings: {
+        const SingleActivator(LogicalKeyboardKey.f5): _requestRefresh,
+        SingleActivator(LogicalKeyboardKey.keyR, control: !mac, meta: mac):
+            _requestRefresh,
+      },
+      child: Focus(
+        focusNode: _focusNode,
+        autofocus: true,
+        child: Column(
+          children: [
+            Align(
+              alignment: AlignmentDirectional.centerEnd,
+              child: IconButton(
+                tooltip: tr('刷新'),
+                onPressed: _refreshing ? null : _requestRefresh,
+                icon: const Icon(Icons.refresh_rounded),
+              ),
+            ),
+            Expanded(child: indicator),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// 触屏长按操作同时提供桌面鼠标右键入口。
+class ActionInkWell extends StatelessWidget {
+  const ActionInkWell({
+    super.key,
+    required this.child,
+    this.onTap,
+    this.onLongPress,
+    this.borderRadius,
+  });
+  final Widget child;
+  final VoidCallback? onTap, onLongPress;
+  final BorderRadius? borderRadius;
+
+  @override
+  Widget build(BuildContext context) => InkWell(
+    onTap: onTap,
+    onLongPress: onLongPress,
+    onSecondaryTap: PlatformCapabilities.desktop ? onLongPress : null,
+    borderRadius: borderRadius,
     child: child,
   );
 }

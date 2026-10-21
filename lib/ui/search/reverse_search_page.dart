@@ -1,21 +1,27 @@
 import 'dart:convert';
 
+import 'package:desktop_drop/desktop_drop.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/localization.dart';
+import '../../core/platform_capabilities.dart';
 import '../../core/reverse_search.dart';
 import '../../engine/source_manager.dart';
+import '../../images/image_input.dart';
 import '../../images/search_image.dart';
 import '../nav.dart';
 import '../settings/source_manage_page.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
+import '../widgets/content_translation.dart';
+import '../widgets/image_input_region.dart';
 import 'browser_image_search_panel.dart';
 import 'reverse_search_controller.dart';
 import 'reverse_search_form.dart';
+import 'reverse_search_more.dart';
 import 'reverse_search_result.dart';
 import 'reverse_search_results_header.dart';
 import 'search_crop_page.dart';
@@ -96,20 +102,26 @@ class _ReverseSearchPageState extends State<ReverseSearchPage> {
     super.dispose();
   }
 
-  Future<void> _pick() async {
-    setState(_invalidate);
+  Future<void> _readImage(
+    Future<Uint8List?> Function() read, {
+    bool clipboard = false,
+  }) async {
+    setState(() {
+      _generation++;
+      _preparing = true;
+    });
     final generation = _generation;
     try {
-      final selected = await FilePicker.pickFile(type: FileType.image);
-      if (!mounted || generation != _generation || selected == null) return;
-      setState(() => _preparing = true);
-      final file = selected.xFile;
-      if (await file.length() > SearchImage.maxInputBytes) {
-        throw const FormatException();
+      final bytes = await read();
+      if (!mounted || generation != _generation) return;
+      if (bytes == null) {
+        if (clipboard) context.toast(tr('剪贴板没有可粘贴的图片'));
+        return;
       }
-      final image = await SearchImage.prepare(await file.readAsBytes());
+      final image = await SearchImage.prepare(bytes);
       if (!mounted || generation != _generation) return;
       setState(() {
+        _invalidate();
         _original = image;
         _image = image;
       });
@@ -121,6 +133,21 @@ class _ReverseSearchPageState extends State<ReverseSearchPage> {
       }
     }
   }
+
+  Future<void> _pick() => _readImage(() async {
+    final selected = await FilePicker.pickFile(type: FileType.image);
+    return selected == null ? null : ImageInput.readFile(selected.xFile);
+  });
+
+  Future<void> _paste() =>
+      _readImage(ImageInput.readClipboard, clipboard: true);
+
+  Future<void> _drop(List<DropItem> files) => _readImage(() async {
+    if (files.length != 1 || files.single is DropItemDirectory) {
+      throw const FormatException();
+    }
+    return ImageInput.readFile(files.single);
+  });
 
   Future<void> _crop() async {
     final original = _original;
@@ -183,13 +210,16 @@ class _ReverseSearchPageState extends State<ReverseSearchPage> {
     image: _image,
     preparing: _preparing,
     busy: _busy,
-    onSelect: (key) => setState(() {
+    onSelect: (keys) => setState(() {
       _invalidate();
-      if (!_selectedSources.add(key)) _selectedSources.remove(key);
+      for (final key in keys) {
+        if (!_selectedSources.add(key)) _selectedSources.remove(key);
+      }
       HapticFeedback.selectionClick();
       _syncSources();
     }),
     onPick: _pick,
+    onPaste: PlatformCapabilities.desktop ? _paste : null,
     onCrop: _crop,
     onRemove: () => setState(() {
       _invalidate();
@@ -226,9 +256,14 @@ class _ReverseSearchPageState extends State<ReverseSearchPage> {
     builder: (context, constraints) {
       final wide = constraints.maxWidth >= 840;
       final inset = wide ? Gap.xl : Gap.page;
-      final results =
-          _searchController.results[_resultSource]?.matches ??
-          const <ReverseSearchMatch>[];
+      final siteResult = _searchController.results[_resultSource];
+      final results = siteResult?.matches ?? const <ReverseSearchMatch>[];
+      final more = siteResult?.hasMore == true;
+      Widget footer() => ReverseSearchMore(
+        key: ValueKey(('reverse-more', _resultSource)),
+        result: siteResult!,
+        onLoad: () => _searchController.loadAll(_resultSource!),
+      );
       // 两栏各自滚动；窄屏保持一条连续的阅读与操作路径。
       if (wide && _sources.isNotEmpty) {
         return Row(
@@ -248,12 +283,14 @@ class _ReverseSearchPageState extends State<ReverseSearchPage> {
             Expanded(
               child: ListView.builder(
                 padding: EdgeInsetsDirectional.fromSTEB(0, inset, inset, inset),
-                itemCount: results.length + 1,
+                itemCount: results.length + 1 + (more ? 1 : 0),
                 itemBuilder: (context, index) => index == 0
                     ? Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: _resultHeader(context),
                       )
+                    : index == results.length + 1
+                    ? footer()
                     : _result(results[index - 1]),
               ),
             ),
@@ -262,7 +299,7 @@ class _ReverseSearchPageState extends State<ReverseSearchPage> {
       }
       return ListView.builder(
         padding: EdgeInsets.all(inset),
-        itemCount: results.length + 1,
+        itemCount: results.length + 1 + (more ? 1 : 0),
         itemBuilder: (context, index) => index == 0
             ? Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -276,6 +313,8 @@ class _ReverseSearchPageState extends State<ReverseSearchPage> {
                   ],
                 ],
               )
+            : index == results.length + 1
+            ? footer()
             : _result(results[index - 1]),
       );
     },
@@ -284,96 +323,69 @@ class _ReverseSearchPageState extends State<ReverseSearchPage> {
   @override
   Widget build(BuildContext context) {
     final browser = _searchController.browser;
-    final verification = browser?.verification == true;
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(tr('图片反搜')),
-        actions: [
-          IconButton(
-            tooltip: tr('管理站点'),
-            icon: const Icon(Icons.extension_outlined),
-            onPressed: () => Nav.push(context, const SourceManagePage()),
-          ),
-          const SizedBox(width: Gap.xs),
-        ],
-      ),
-      body: SafeArea(
-        top: false,
-        child: LayoutBuilder(
-          builder: (context, constraints) => Stack(
-            children: [
-              // 后台网页保持正常尺寸并参与绘制，前景原生界面覆盖网页。
-              // 人机验证时只露出同一会话，不创建新浏览器或结果路由。
-              if (browser != null)
-                Positioned(
-                  left: Gap.page,
-                  right: Gap.page,
-                  bottom: 0,
-                  height: constraints.maxHeight * 0.6,
-                  child: BrowserImageSearchPanel(
-                    key: ValueKey(browser),
-                    source: browser.source,
-                    request: browser.request,
-                    imageBase64: _image!.base64,
-                    cancelToken: browser.token,
-                    onComplete: (result) =>
-                        _searchController.finishBrowser(browser, result),
-                    onError: (error) => _searchController.finishBrowser(
-                      browser,
-                      null,
-                      error: error,
-                    ),
-                    onVerificationChanged: (value) =>
-                        _searchController.setVerification(browser, value),
-                  ),
-                ),
-              Column(
+    return TranslationPage(
+      child: Scaffold(
+        appBar: AppBar(
+          title: Text(tr('图片反搜')),
+          actions: [
+            const TranslationControls(),
+            IconButton(
+              tooltip: tr('管理站点'),
+              icon: const Icon(Icons.extension_outlined),
+              onPressed: () => Nav.push(context, const SourceManagePage()),
+            ),
+            const SizedBox(width: Gap.xs),
+          ],
+        ),
+        body: ImageInputRegion(
+          onDrop: _drop,
+          onPaste: _paste,
+          child: SafeArea(
+            top: false,
+            child: LayoutBuilder(
+              builder: (context, constraints) => Stack(
                 children: [
-                  Expanded(
-                    child: ColoredBox(
-                      color: context.colors.surface,
-                      child: Align(
-                        alignment: Alignment.topCenter,
-                        child: ConstrainedBox(
-                          constraints: const BoxConstraints(maxWidth: 1200),
-                          child: _workspace(context),
+                  // 后台网页保持正常尺寸并参与绘制，前景原生界面覆盖网页。
+                  if (browser != null)
+                    Positioned(
+                      left: Gap.page,
+                      right: Gap.page,
+                      bottom: 0,
+                      height: constraints.maxHeight * 0.6,
+                      child: BrowserImageSearchPanel(
+                        key: ValueKey(browser),
+                        source: browser.source,
+                        request: browser.request,
+                        imageBase64: _image!.base64,
+                        cancelToken: browser.token,
+                        onComplete: (result) =>
+                            _searchController.finishBrowser(browser, result),
+                        onError: (error) => _searchController.finishBrowser(
+                          browser,
+                          null,
+                          error: error,
                         ),
                       ),
                     ),
-                  ),
-                  if (verification) ...[
-                    ConstrainedBox(
-                      constraints: BoxConstraints(
-                        maxHeight: constraints.maxHeight * 0.4,
-                      ),
-                      child: SingleChildScrollView(
+                  Column(
+                    children: [
+                      Expanded(
                         child: ColoredBox(
-                          color: context.colors.surfaceContainer,
-                          child: Padding(
-                            padding: const EdgeInsets.all(Gap.m),
-                            child: Row(
-                              children: [
-                                Expanded(
-                                  child: Text(
-                                    '${_manager.manifest(browser!.source)?.name ?? browser.source}\n${tr('正在反搜；如出现人机验证，请在下方页面中完成')}',
-                                    style: context.text.bodySmall,
-                                  ),
-                                ),
-                                TextButton(
-                                  onPressed: _searchController.cancel,
-                                  child: Text(tr('取消')),
-                                ),
-                              ],
+                          color: context.colors.surface,
+                          child: Align(
+                            alignment: Alignment.topCenter,
+                            child: ConstrainedBox(
+                              constraints: const BoxConstraints(maxWidth: 1200),
+                              child: _workspace(context),
                             ),
                           ),
                         ),
                       ),
-                    ),
-                    SizedBox(height: constraints.maxHeight * 0.6),
-                  ],
+                    ],
+                  ),
                 ],
               ),
-            ],
+            ),
           ),
         ),
       ),

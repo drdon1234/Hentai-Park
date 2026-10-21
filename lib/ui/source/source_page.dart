@@ -7,14 +7,17 @@ import '../../core/localization.dart';
 import '../../core/models.dart';
 import '../../core/settings.dart';
 import '../../engine/source_manager.dart';
+import '../album/open_album.dart';
 import '../history/history_page.dart';
 import '../nav.dart';
 import '../search/source_search_page.dart';
+import '../short_video/post_video_feed.dart';
 import '../short_video/short_video_page.dart';
 import '../subscriptions/subscription_source_page.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
 import '../widgets/content_translation.dart';
+import '../widgets/filter_controller.dart';
 import '../widgets/option_bar.dart';
 import '../widgets/paged_grid.dart';
 import '../widgets/source_account_strip.dart';
@@ -147,6 +150,19 @@ class _SourcePageState extends State<SourcePage> {
                         ],
                       ),
                       actions: [
+                        if ((m.json['subscription'] as Map?)?['communities'] ==
+                            true)
+                          IconButton(
+                            tooltip: tr('社群'),
+                            onPressed: () => Nav.push(
+                              context,
+                              SubscriptionSourcePage(
+                                source: widget.sourceKey,
+                                communitiesOnly: true,
+                              ),
+                            ),
+                            icon: const Icon(Icons.groups_outlined),
+                          ),
                         TranslationControls(source: widget.sourceKey),
                         if (m.can('search'))
                           IconButton(
@@ -158,6 +174,16 @@ class _SourcePageState extends State<SourcePage> {
                         PopupMenuButton<String>(
                           tooltip: tr('更多'),
                           itemBuilder: (context) => [
+                            if (m.can('subscription'))
+                              PopupMenuItem(
+                                value: 'subscription',
+                                child: Text(tr('访问频道或作者')),
+                              ),
+                            if (m.account == null && m.can('subscription'))
+                              PopupMenuItem(
+                                value: 'login',
+                                child: Text(tr('在原站登录')),
+                              ),
                             PopupMenuItem(
                               value: 'history',
                               child: SelectionContainer.disabled(
@@ -179,7 +205,16 @@ class _SourcePageState extends State<SourcePage> {
                             ),
                           ],
                           onSelected: (action) async {
-                            if (action == 'history') {
+                            if (action == 'subscription') {
+                              await Nav.push(
+                                context,
+                                SubscriptionSourcePage(
+                                  source: widget.sourceKey,
+                                ),
+                              );
+                            } else if (action == 'login') {
+                              await Nav.login(context, widget.sourceKey);
+                            } else if (action == 'history') {
                               await Nav.push(
                                 context,
                                 HistoryPage(
@@ -276,7 +311,23 @@ class _FeedTabState extends State<FeedTab> with AutomaticKeepAliveClientMixin {
   void initState() {
     super.initState();
     _controller = PagedController(_load, source: widget.source.key);
-    _controller.loadMore();
+    _options = widget.feed.defaultOptions();
+    final sources = widget.sourceManager ?? SourceManager.instance;
+    _filters = FilterController(
+      source: widget.source.key,
+      scope: 'feed',
+      feed: widget.feed.key,
+      definitions: widget.feed.options,
+      loader: (filter, values, token) => sources.filterOptions(
+        widget.source.key,
+        scope: 'feed',
+        feed: widget.feed.key,
+        filter: filter,
+        values: values,
+        cancelToken: token,
+      ),
+    );
+    unawaited(_initializeFilters());
     _authentication = (widget.sourceManager ?? SourceManager.instance)
         .authenticationChanges
         .listen((key) {
@@ -285,8 +336,17 @@ class _FeedTabState extends State<FeedTab> with AutomaticKeepAliveClientMixin {
   }
 
   bool _forceRefresh = false;
-  late Map<String, Object?> _options = widget.feed.defaultOptions();
+  late Map<String, Object?> _options;
+  late final FilterController _filters;
   late final PagedController _controller;
+
+  Future<void> _initializeFilters() async {
+    await _filters.initialize();
+    await _filters.loadEnabledDynamic();
+    if (!mounted) return;
+    _options = _filters.values;
+    await _controller.loadMore();
+  }
 
   Future<WorkPage> _load(int page, String? cursor) =>
       (widget.sourceManager ?? SourceManager.instance).feed(
@@ -311,6 +371,7 @@ class _FeedTabState extends State<FeedTab> with AutomaticKeepAliveClientMixin {
   @override
   void dispose() {
     _authentication?.cancel();
+    _filters.dispose();
     _controller.dispose();
     super.dispose();
   }
@@ -321,74 +382,161 @@ class _FeedTabState extends State<FeedTab> with AutomaticKeepAliveClientMixin {
   @override
   Widget build(BuildContext context) {
     super.build(context);
-    return ParkRefresh(
-      onRefresh: _refresh,
-      child: CustomScrollView(
-        physics: const AlwaysScrollableScrollPhysics(),
-        key: PageStorageKey('scroll-${widget.source.key}-${widget.feed.key}'),
-        slivers: [
-          SliverOverlapInjector(
-            handle: NestedScrollView.sliverOverlapAbsorberHandleFor(context),
-          ),
-          if (widget.feed.options.isNotEmpty)
-            SliverToBoxAdapter(
-              child: OptionBar(
-                source: widget.source.key,
-                options: widget.feed.options,
-                values: _options,
-                onChanged: (values) {
-                  setState(() => _options = values);
-                  _refresh();
-                },
-              ),
+    return PostVideoContext(
+      scope: PostVideoScope(
+        source: widget.source.key,
+        title: '${widget.source.name} · ${widget.feed.label}',
+        feed: widget.feed.key,
+        options: Map.of(_options),
+      ),
+      child: ParkRefresh(
+        onRefresh: _refresh,
+        child: CustomScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          key: PageStorageKey('scroll-${widget.source.key}-${widget.feed.key}'),
+          slivers: [
+            SliverOverlapInjector(
+              handle: NestedScrollView.sliverOverlapAbsorberHandleFor(context),
             ),
-          ListenableBuilder(
-            listenable: _controller,
-            builder: (context, _) => _controller.staleCache
-                ? SliverToBoxAdapter(
-                    child: Padding(
-                      padding: const EdgeInsets.fromLTRB(
-                        Gap.page,
-                        Gap.m,
-                        Gap.page,
-                        0,
-                      ),
-                      child: Text(
-                        tr('网络暂不可用，正在显示之前缓存的主页数据'),
-                        style: context.text.bodySmall?.copyWith(
-                          color: context.colors.onSurfaceVariant,
+            if (widget.source.can('album'))
+              SliverToBoxAdapter(
+                child: Align(
+                  alignment: AlignmentDirectional.centerEnd,
+                  child: TextButton.icon(
+                    icon: const Icon(Icons.photo_library_outlined),
+                    label: Text(tr('相册')),
+                    onPressed: () => openMediaAlbum(
+                      context,
+                      source: widget.source.key,
+                      title: '${widget.source.name} · ${widget.feed.label}',
+                      scope: {
+                        'feed': widget.feed.key,
+                        'options': Map.of(_options),
+                      },
+                      sources: widget.sourceManager ?? SourceManager.instance,
+                    ),
+                  ),
+                ),
+              ),
+            if (widget.source.json['postShortVideos'] == true)
+              SliverToBoxAdapter(
+                child: Align(
+                  alignment: AlignmentDirectional.centerEnd,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: Gap.page),
+                    child: TextButton(
+                      onPressed: () => Nav.push(
+                        context,
+                        ShortVideoPage(
+                          source: widget.source.key,
+                          postScope: PostVideoScope(
+                            source: widget.source.key,
+                            title:
+                                '${widget.source.name} · ${widget.feed.label}',
+                            feed: widget.feed.key,
+                            options: Map.of(_options),
+                          ),
                         ),
                       ),
+                      child: Text(tr('短视频模式')),
                     ),
-                  )
-                : const SliverToBoxAdapter(),
-          ),
-          ListenableBuilder(
-            listenable: _controller,
-            builder: (context, _) =>
-                _controller.total != null && _controller.items.isNotEmpty
-                ? SliverToBoxAdapter(
-                    child: Padding(
-                      padding: const EdgeInsets.fromLTRB(
-                        Gap.page,
-                        Gap.s,
-                        Gap.page,
-                        0,
-                      ),
-                      child: Text(
-                        tr('约 {value0} 部作品', {
-                          'value0': formatCount(_controller.total),
-                        }),
-                        style: context.text.labelMedium?.copyWith(
-                          color: context.colors.onSurfaceVariant,
+                  ),
+                ),
+              ),
+            if (widget.feed.options.isNotEmpty)
+              SliverToBoxAdapter(
+                child: ListenableBuilder(
+                  listenable: _filters,
+                  builder: (context, _) => OptionBar(
+                    source: widget.source.key,
+                    options: widget.feed.options,
+                    values: _filters.values,
+                    dynamicChoices: {
+                      for (final option in widget.feed.options)
+                        if (option.dynamicValues)
+                          option.key: _filters.choicesFor(option.key),
+                    },
+                    loadingOptions: {
+                      for (final option in widget.feed.options)
+                        if (_filters.isLoadingOption(option.key)) option.key,
+                    },
+                    optionErrors: {
+                      for (final option in widget.feed.options)
+                        option.key: _filters.errorFor(option.key),
+                    },
+                    enabledOptions: {
+                      for (final option in widget.feed.options)
+                        option.key: _filters.isEnabled(option.key),
+                    },
+                    onRetry: (key) => _filters.loadDynamic(key),
+                    onChanged: (values) async {
+                      final previous = _filters.values;
+                      for (final entry in values.entries) {
+                        if (previous[entry.key] != entry.value) {
+                          _filters.setValue(entry.key, entry.value);
+                        }
+                      }
+                      _options = _filters.values;
+                      for (final option in widget.feed.options.where(
+                        (option) =>
+                            option.dynamicValues &&
+                            _filters.isEnabled(option.key),
+                      )) {
+                        await _filters.loadDynamic(option.key);
+                      }
+                      if (mounted) await _refresh();
+                    },
+                  ),
+                ),
+              ),
+            ListenableBuilder(
+              listenable: _controller,
+              builder: (context, _) => _controller.staleCache
+                  ? SliverToBoxAdapter(
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(
+                          Gap.page,
+                          Gap.m,
+                          Gap.page,
+                          0,
+                        ),
+                        child: Text(
+                          tr('网络暂不可用，正在显示之前缓存的主页数据'),
+                          style: context.text.bodySmall?.copyWith(
+                            color: context.colors.onSurfaceVariant,
+                          ),
                         ),
                       ),
-                    ),
-                  )
-                : const SliverToBoxAdapter(),
-          ),
-          PagedSliverGrid(controller: _controller, kind: widget.source.kind),
-        ],
+                    )
+                  : const SliverToBoxAdapter(),
+            ),
+            ListenableBuilder(
+              listenable: _controller,
+              builder: (context, _) =>
+                  _controller.total != null && _controller.items.isNotEmpty
+                  ? SliverToBoxAdapter(
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(
+                          Gap.page,
+                          Gap.s,
+                          Gap.page,
+                          0,
+                        ),
+                        child: Text(
+                          tr('约 {value0} 部作品', {
+                            'value0': formatCount(_controller.total),
+                          }),
+                          style: context.text.labelMedium?.copyWith(
+                            color: context.colors.onSurfaceVariant,
+                          ),
+                        ),
+                      ),
+                    )
+                  : const SliverToBoxAdapter(),
+            ),
+            PagedSliverGrid(controller: _controller, kind: widget.source.kind),
+          ],
+        ),
       ),
     );
   }

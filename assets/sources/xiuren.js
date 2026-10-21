@@ -1,4 +1,4 @@
-/* XiuRen — photo galleries. Site data is parsed, never executed. */
+/* 由 tools/build_gallery_sources.mjs 生成；请修改模板与站点配置。 */
 (function () {
   'use strict';
   const SITE = {
@@ -35,9 +35,7 @@
   const option = {key: 'rating', label: '站点分级', type: 'select', default: 'all', values: [
     {value: 'all', label: '全部'}, {value: 'ero', label: '非裸露分类'}, {value: 'nude', label: '裸露分类'},
   ]};
-  const filters = SITE.ero ? [option] : SITE.categories.length ? [{key: 'category', label: '分类', type: 'select', default: '', values: [
-    {value: '', label: '全部'}, {value: '10', label: 'Cosplay'}, {value: '112', label: '写真'},
-  ]}] : [];
+  const filters = [...(SITE.ero ? [option] : []), {key: 'category', label: '分类', type: 'select', default: '', dynamic: true, ...(SITE.ero ? {dependsOn: ['rating']} : {}), values: []}];
 
   function hostAllowed(url, domain = SITE.domain) {
     try {
@@ -142,6 +140,26 @@
     data.forEach(remember);
     return {data, response, ended: false};
   }
+  async function categoryOptions(source, rating = 'all') {
+    const allowedIds = SITE.ero ? (rating === 'ero' ? [SITE.ero] : rating === 'nude' ? [SITE.nude] : [SITE.ero, SITE.nude]) : SITE.categories;
+    const data = [];
+    let pages = 1;
+    for (let page = 1; page <= pages; page++) {
+      const response = source.http.ensureOk(await source.http.get(SITE.api + '/categories', {params: {
+        hide_empty: true, per_page: 100, page, orderby: 'count', order: 'desc',
+        ...(allowedIds.length ? {include: allowedIds.join(',')} : {}),
+      }}));
+      const batch = response.json();
+      if (!Array.isArray(batch)) throw Park.error('PARSE', '分类数据格式无效');
+      data.push(...batch);
+      pages = headersNumber(response, 'x-wp-totalpages') || 1;
+      if (pages > 5) throw Park.error('PARSE', '分类数据格式无效');
+    }
+    return [{value: '', label: '全部'}, ...data.filter(category => Number.isInteger(category.id) && category.count > 0 &&
+      !SITE.excludeCategories.includes(category.id) && !(source.config.blockAI && SITE.aiCategories.includes(category.id)) &&
+      (!allowedIds.length || allowedIds.includes(category.id)))
+      .map(category => ({value: String(category.id), label: text(category.name)}))];
+  }
   async function listing(source, req, filters = {}, extra = {}) {
     const page = pageNumber(req.page), query = filtersFor(source, filters);
     const {data, response, ended} = await posts(source, {per_page: PAGE_SIZE, page, ...query, ...extra});
@@ -211,15 +229,36 @@
 
   Park.register({
     i18n: {
-      "zh-Hant": {"XiuRen": "XiuRen", "工作室写真图集，支持热门、模特搜索与整套阅读": "工作室寫真圖集，支援熱門、模特兒搜尋與整套閱讀"},
-      "ja": {"XiuRen": "XiuRen", "工作室写真图集，支持热门、模特搜索与整套阅读": "スタジオ写真集。人気作品・モデル検索・全画像の閲覧に対応"},
-      "ko": {"XiuRen": "XiuRen", "工作室写真图集，支持热门、模特搜索与整套阅读": "스튜디오 화보, 인기 목록·모델 검색·전체 감상 지원"},
-      "en": {"XiuRen": "XiuRen", "工作室写真图集，支持热门、模特搜索与整套阅读": "Studio photo galleries with popular works, model search and full-set viewing"},
-      "es": {"XiuRen": "XiuRen", "工作室写真图集，支持热门、模特搜索与整套阅读": "Galerías de estudio con populares, búsqueda de modelos y lectura completa"},
-      "ru": {"XiuRen": "XiuRen", "工作室写真图集，支持热门、模特搜索与整套阅读": "Студийные фотосессии: популярные работы, поиск моделей и полный просмотр"},
-      "ar": {"XiuRen": "XiuRen", "工作室写真图集，支持热门、模特搜索与整套阅读": "معارض صور استوديو مع أعمال شائعة وبحث عن العارضين وعرض المجموعة كاملة"},
-    },
-    key: SITE.key, name: SITE.name, version: '0.0.3', type: 'comic', category: 'gallery',
+  "zh-Hant": {
+    "XiuRen": "XiuRen",
+    "工作室写真图集，支持热门、模特搜索与整套阅读": "工作室寫真圖集，支援熱門、模特兒搜尋與整套閱讀"
+  },
+  "ja": {
+    "XiuRen": "XiuRen",
+    "工作室写真图集，支持热门、模特搜索与整套阅读": "スタジオ写真集。人気作品・モデル検索・全画像の閲覧に対応"
+  },
+  "ko": {
+    "XiuRen": "XiuRen",
+    "工作室写真图集，支持热门、模特搜索与整套阅读": "스튜디오 화보, 인기 목록·모델 검색·전체 감상 지원"
+  },
+  "en": {
+    "XiuRen": "XiuRen",
+    "工作室写真图集，支持热门、模特搜索与整套阅读": "Studio photo galleries with popular works, model search and full-set viewing"
+  },
+  "es": {
+    "XiuRen": "XiuRen",
+    "工作室写真图集，支持热门、模特搜索与整套阅读": "Galerías de estudio con populares, búsqueda de modelos y lectura completa"
+  },
+  "ru": {
+    "XiuRen": "XiuRen",
+    "工作室写真图集，支持热门、模特搜索与整套阅读": "Студийные фотосессии: популярные работы, поиск моделей и полный просмотр"
+  },
+  "ar": {
+    "XiuRen": "XiuRen",
+    "工作室写真图集，支持热门、模特搜索与整套阅读": "معارض صور استوديو مع أعمال شائعة وبحث عن العارضين وعرض المجموعة كاملة"
+  }
+},
+    key: SITE.key, name: SITE.name, version: '0.0.4', type: 'comic', category: 'gallery',
     color: SITE.color, description: SITE.description, homepage: SITE.home, domains: [SITE.domain], language: SITE.language,
     network: {mode: 'native', vpnHint: true}, imageHeaders: {Referer: SITE.home + '/'},
     linkPatterns: [SITE.domain.replace(/\./g, '\\.') + '/([^/?#]+)(?:/|[?#]|$)'], idPattern: '^[1-9]\\d{0,14}$',
@@ -231,6 +270,10 @@
       {key: 'latest', label: '最新', options: filters},
     ],
     searchFilters: filters,
+    async filterOptions(request) {
+      if (request.filter !== 'category') return [];
+      return categoryOptions(this, request.values.rating || 'all');
+    },
     searchHint: '搜索角色、作品名、模特或 Coser',
     settings: [{key: 'blockAI', label: '屏蔽 AI 图片', type: 'switch', default: true}],
     async feed(key, req) {

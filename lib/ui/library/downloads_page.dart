@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:desktop_drop/desktop_drop.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:path/path.dart' as p;
@@ -12,31 +13,74 @@ import '../../game/downloads.dart';
 import '../../library/cbz.dart';
 import '../../library/comic_pdf.dart';
 import '../../library/downloads.dart';
+import '../../library/live_recordings.dart';
 import '../../video/offline_video_export.dart';
 import '../game/game_resources.dart';
 import '../kit/adaptive_sheet.dart';
 import '../nav.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
+import '../widgets/file_drop_region.dart';
 import '../widgets/platform_share.dart';
+import 'recording_tile.dart';
 
-class DownloadsPage extends StatelessWidget {
+class DownloadsPage extends StatefulWidget {
   const DownloadsPage({super.key});
 
+  @override
+  State<DownloadsPage> createState() => _DownloadsPageState();
+}
+
+class _DownloadsPageState extends State<DownloadsPage> {
+  bool _importing = false;
+
   Future<void> _import(BuildContext context) async {
-    final files = await FilePicker.pickFiles(
-      dialogTitle: tr('导入 CBZ / ZIP'),
-      type: FileType.custom,
-      allowedExtensions: const ['cbz', 'zip'],
-    );
-    if (files.isEmpty || !context.mounted) return;
+    if (_importing) return;
+    setState(() => _importing = true);
+    try {
+      final files = await FilePicker.pickFiles(
+        dialogTitle: tr('导入 CBZ / ZIP'),
+        type: FileType.custom,
+        allowedExtensions: const ['cbz', 'zip'],
+      );
+      if (files.isEmpty || !context.mounted) return;
+      await _importFiles(context, files.map((file) => file.xFile).toList());
+    } catch (_) {
+      if (context.mounted) context.toast(tr('无法读取文件，请重试'));
+    } finally {
+      if (mounted) setState(() => _importing = false);
+    }
+  }
+
+  Future<void> _drop(BuildContext context, List<DropItem> files) async {
+    if (_importing || files.isEmpty) return;
+    if (files.any(
+      (file) =>
+          file is DropItemDirectory ||
+          !const [
+            '.cbz',
+            '.zip',
+          ].contains(p.extension(file.name).toLowerCase()),
+    )) {
+      context.toast(tr('请选择 CBZ / ZIP 文件'));
+      return;
+    }
+    setState(() => _importing = true);
+    try {
+      await _importFiles(context, files);
+    } finally {
+      if (mounted) setState(() => _importing = false);
+    }
+  }
+
+  Future<void> _importFiles(BuildContext context, List<XFile> files) async {
     var ok = 0;
     final errors = <String>[];
     for (final f in files) {
       try {
         final task = await Cbz.importArchive(
           f.name,
-          await f.xFile.readAsBytes(),
+          await f.readAsBytes(),
           root: DownloadManager.instance.root,
         );
         DownloadManager.instance.addCompleted(task);
@@ -68,9 +112,12 @@ class DownloadsPage extends StatelessWidget {
               if (dm.tasks.isEmpty && games.tasks.isEmpty) {
                 return const SizedBox.shrink();
               }
-              return Row(
-                children: [
-                  TextButton(
+              return ToolbarActions(
+                actions: [
+                  ToolbarAction(
+                    label: tr('全部暂停'),
+                    icon: Icons.pause_rounded,
+                    showLabel: true,
                     onPressed: () {
                       dm.pauseAll();
                       for (final task in games.tasks) {
@@ -80,9 +127,11 @@ class DownloadsPage extends StatelessWidget {
                         }
                       }
                     },
-                    child: SelectionContainer.disabled(child: Text(tr('全部暂停'))),
                   ),
-                  TextButton(
+                  ToolbarAction(
+                    label: tr('全部继续'),
+                    icon: Icons.play_arrow_rounded,
+                    showLabel: true,
                     onPressed: () {
                       dm.resumeAll();
                       for (final task in games.tasks) {
@@ -92,7 +141,6 @@ class DownloadsPage extends StatelessWidget {
                         }
                       }
                     },
-                    child: SelectionContainer.disabled(child: Text(tr('全部继续'))),
                   ),
                 ],
               );
@@ -101,58 +149,80 @@ class DownloadsPage extends StatelessWidget {
         ],
       ),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _import(context),
+        onPressed: _importing ? null : () => _import(context),
         icon: const Icon(Icons.file_open_outlined),
         label: SelectionContainer.disabled(child: Text(tr('导入本地漫画'))),
       ),
-      body: ListenableBuilder(
-        listenable: Listenable.merge([dm, games, AppSettings.instance]),
-        builder: (context, _) {
-          final tasks = dm.tasks;
-          final gameTasks = games.tasks;
-          final failures = dm.restoreFailures;
-          return Column(
-            children: [
-              if (!dm.networkAllowed)
-                MaterialBanner(
-                  leading: const Icon(Icons.wifi_off_rounded),
-                  content: Text(tr('已开启"仅在 Wi-Fi 下下载"，连接 Wi-Fi 后自动继续')),
-                  actions: [const SizedBox.shrink()],
+      body: FileDropRegion(
+        enabled: !_importing,
+        message: tr('松开以导入本地漫画'),
+        onDrop: (files) => _drop(context, files),
+        child: ListenableBuilder(
+          listenable: Listenable.merge([
+            dm,
+            games,
+            AppSettings.instance,
+            LiveRecordings.instance,
+          ]),
+          builder: (context, _) {
+            final tasks = dm.tasks;
+            final gameTasks = games.tasks;
+            final failures = dm.restoreFailures;
+            final recordings = LiveRecordings.instance.tasks;
+            return Column(
+              children: [
+                if (!dm.networkAllowed)
+                  MaterialBanner(
+                    leading: const Icon(Icons.wifi_off_rounded),
+                    content: Text(tr('已开启"仅在 Wi-Fi 下下载"，连接 Wi-Fi 后自动继续')),
+                    actions: [const SizedBox.shrink()],
+                  ),
+                Expanded(
+                  child:
+                      tasks.isEmpty &&
+                          gameTasks.isEmpty &&
+                          failures.isEmpty &&
+                          recordings.isEmpty
+                      ? EmptyState(
+                          icon: Icons.download_for_offline_outlined,
+                          title: tr('没有下载任务'),
+                          message: tr(
+                            '在作品详情页点击下载按钮，下载后可离线阅读或观看\n也可以导入本地的 CBZ / ZIP 漫画',
+                          ),
+                        )
+                      : ListView.separated(
+                          padding: const EdgeInsets.only(bottom: 96),
+                          itemCount:
+                              recordings.length +
+                              failures.length +
+                              gameTasks.length +
+                              tasks.length,
+                          separatorBuilder: (_, _) => const Divider(
+                            indent: Gap.page,
+                            endIndent: Gap.page,
+                          ),
+                          itemBuilder: (context, i) {
+                            if (i < recordings.length) {
+                              return RecordingTile(task: recordings[i]);
+                            }
+                            i -= recordings.length;
+                            if (i < failures.length) {
+                              return _RestoreFailureTile(
+                                uid: failures[i].uid,
+                                source: failures[i].source,
+                              );
+                            }
+                            i -= failures.length;
+                            return i < gameTasks.length
+                                ? GameDownloadTile(task: gameTasks[i])
+                                : _TaskTile(task: tasks[i - gameTasks.length]);
+                          },
+                        ),
                 ),
-              Expanded(
-                child: tasks.isEmpty && gameTasks.isEmpty && failures.isEmpty
-                    ? EmptyState(
-                        icon: Icons.download_for_offline_outlined,
-                        title: tr('没有下载任务'),
-                        message: tr(
-                          '在作品详情页点击下载按钮，下载后可离线阅读或观看\n也可以导入本地的 CBZ / ZIP 漫画',
-                        ),
-                      )
-                    : ListView.separated(
-                        padding: const EdgeInsets.only(bottom: 96),
-                        itemCount:
-                            failures.length + gameTasks.length + tasks.length,
-                        separatorBuilder: (_, _) => const Divider(
-                          indent: Gap.page,
-                          endIndent: Gap.page,
-                        ),
-                        itemBuilder: (context, i) {
-                          if (i < failures.length) {
-                            return _RestoreFailureTile(
-                              uid: failures[i].uid,
-                              source: failures[i].source,
-                            );
-                          }
-                          i -= failures.length;
-                          return i < gameTasks.length
-                              ? GameDownloadTile(task: gameTasks[i])
-                              : _TaskTile(task: tasks[i - gameTasks.length]);
-                        },
-                      ),
-              ),
-            ],
-          );
-        },
+              ],
+            );
+          },
+        ),
       ),
     );
   }
@@ -454,7 +524,7 @@ class _TaskTile extends StatelessWidget {
         c.error,
       ),
     };
-    return InkWell(
+    return ActionInkWell(
       onTap: () => _open(context),
       onLongPress: () => _menu(context),
       child: SelectionContainer.disabled(
@@ -468,6 +538,7 @@ class _TaskTile extends StatelessWidget {
                 child: CoverImage(
                   source: t.item.source,
                   url: t.item.cover,
+                  sourceBlurred: t.item.json['coverBlurred'] == true,
                   title: t.item.title,
                   mediaKind: t.isNovel ? MediaKind.novel : null,
                 ),

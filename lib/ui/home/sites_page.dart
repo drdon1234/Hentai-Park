@@ -35,7 +35,7 @@ class SitesPage extends StatelessWidget {
           AppSettings.instance.watch(const {'domainOrder'}),
         ]),
         builder: (context, _) {
-          final sources = sm.enabled
+          final sources = sm.displayEnabled
               .where(
                 (source) =>
                     !source.manifest!.rankingOnly &&
@@ -80,8 +80,15 @@ class SitesPage extends StatelessWidget {
 /// One site: tap to browse it; the visible “更多” menu carries search, ranking, random and
 /// settings, so nothing depends on a long press.
 class SiteRow extends StatelessWidget {
-  const SiteRow({super.key, required this.source});
+  const SiteRow({
+    super.key,
+    required this.source,
+    this.homeSourceVisible,
+    this.onToggleWorks,
+  });
   final InstalledSource source;
+  final bool? homeSourceVisible;
+  final VoidCallback? onToggleWorks;
 
   int? get _ranking {
     final feeds = source.manifest!.feeds;
@@ -122,55 +129,75 @@ class SiteRow extends StatelessWidget {
       onTap: () => Nav.openSource(context, source.key),
       onLongPress: () => Nav.openSourceSettings(context, source.key),
       padding: const EdgeInsets.fromLTRB(Gap.page, Gap.s, Gap.xs, Gap.s),
-      trailing: PopupMenuButton<String>(
-        tooltip: tr('更多'),
-        onSelected: (action) {
-          switch (action) {
-            case 'search':
-              Nav.openSourceSearch(context, source.key);
-            case 'ranking':
-              Nav.push(
-                context,
-                SourcePage(sourceKey: source.key, initialFeed: ranking),
-              );
-            case 'random':
-              Nav.random(context, source.key);
-            case 'account':
-              Nav.push(
-                context,
-                SourceSettingsPage(
-                  sourceKey: source.key,
-                  showManagedAccountPrompt: m.account?.managedAccount == true,
+      trailing: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (onToggleWorks != null)
+            IconButton(
+              tooltip: tr(
+                homeSourceVisible == true ? '隐藏该站点的作品并停止自动加载' : '显示该站点的作品并自动加载',
+              ),
+              icon: Icon(
+                homeSourceVisible == true
+                    ? Icons.visibility_outlined
+                    : Icons.visibility_off_outlined,
+              ),
+              onPressed: onToggleWorks,
+            ),
+          PopupMenuButton<String>(
+            tooltip: tr('更多'),
+            onSelected: (action) {
+              switch (action) {
+                case 'search':
+                  Nav.openSourceSearch(context, source.key);
+                case 'ranking':
+                  Nav.push(
+                    context,
+                    SourcePage(sourceKey: source.key, initialFeed: ranking),
+                  );
+                case 'random':
+                  Nav.random(context, source.key);
+                case 'account':
+                  Nav.push(
+                    context,
+                    SourceSettingsPage(
+                      sourceKey: source.key,
+                      showManagedAccountPrompt:
+                          m.account?.managedAccount == true,
+                    ),
+                  );
+                case 'settings':
+                  Nav.openSourceSettings(context, source.key);
+              }
+            },
+            itemBuilder: (_) => [
+              if (m.can('search'))
+                PopupMenuItem(
+                  value: 'search',
+                  child: SelectionContainer.disabled(child: Text(tr('在此站点搜索'))),
                 ),
-              );
-            case 'settings':
-              Nav.openSourceSettings(context, source.key);
-          }
-        },
-        itemBuilder: (_) => [
-          if (m.can('search'))
-            PopupMenuItem(
-              value: 'search',
-              child: SelectionContainer.disabled(child: Text(tr('在此站点搜索'))),
-            ),
-          if (ranking != null && !AppSettings.instance.searchOnlySources)
-            PopupMenuItem(
-              value: 'ranking',
-              child: SelectionContainer.disabled(child: Text(tr('排行'))),
-            ),
-          if (m.can('random') && !AppSettings.instance.searchOnlySources)
-            PopupMenuItem(
-              value: 'random',
-              child: SelectionContainer.disabled(child: Text(tr('随机一部'))),
-            ),
-          if (needsAccount)
-            PopupMenuItem(
-              value: 'account',
-              child: SelectionContainer.disabled(child: Text(tr('登录或配置账号'))),
-            ),
-          PopupMenuItem(
-            value: 'settings',
-            child: SelectionContainer.disabled(child: Text(tr('站点设置'))),
+              if (ranking != null && !AppSettings.instance.searchOnlySources)
+                PopupMenuItem(
+                  value: 'ranking',
+                  child: SelectionContainer.disabled(child: Text(tr('排行'))),
+                ),
+              if (m.can('random') && !AppSettings.instance.searchOnlySources)
+                PopupMenuItem(
+                  value: 'random',
+                  child: SelectionContainer.disabled(child: Text(tr('随机一部'))),
+                ),
+              if (needsAccount)
+                PopupMenuItem(
+                  value: 'account',
+                  child: SelectionContainer.disabled(
+                    child: Text(tr('登录或配置账号')),
+                  ),
+                ),
+              PopupMenuItem(
+                value: 'settings',
+                child: SelectionContainer.disabled(child: Text(tr('站点设置'))),
+              ),
+            ],
           ),
         ],
       ),
@@ -180,10 +207,11 @@ class SiteRow extends StatelessWidget {
 
 /// Sources that can appear in a category on the home page.
 List<InstalledSource> browsableSources(SourceCategory? category) =>
-    SourceManager.instance.enabled
+    SourceManager.instance.displayEnabled
         .where(
           (s) =>
-              s.manifest!.feeds.isNotEmpty &&
+              (s.manifest!.feeds.isNotEmpty ||
+                  s.manifest!.can('subscription')) &&
               (category == null || s.manifest!.category == category),
         )
         .toList();

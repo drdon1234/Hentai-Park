@@ -19,6 +19,10 @@ class WebVideoProfiles(private val engine: FlutterEngine) {
     private fun plugin() = engine.plugins.get(InAppWebViewFlutterPlugin::class.java)
         as? InAppWebViewFlutterPlugin
 
+    fun challengeView(id: String): android.webkit.WebView? =
+        if (profiles.containsKey(id)) plugin()?.inAppWebViewManager?.keepAliveWebViews?.get(id)?.webView
+        else null
+
     fun isolate(id: String): Boolean {
         if (!WebViewFeature.isFeatureSupported(WebViewFeature.MULTI_PROFILE)) return false
         val view = plugin()?.inAppWebViewManager?.keepAliveWebViews?.get(id)?.webView

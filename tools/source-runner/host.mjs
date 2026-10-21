@@ -4,6 +4,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import vm from 'node:vm';
 import crypto from 'node:crypto';
+import https from 'node:https';
 import { fileURLToPath } from 'node:url';
 import { DOMParser } from 'linkedom';
 
@@ -69,13 +70,33 @@ const native = {
     if (cookie && !Object.keys(headers).some((k) => k.toLowerCase() === 'cookie')) headers.Cookie = cookie;
     let res;
     try {
-      res = await fetch(o.url, {
+      const options = {
         method: o.method,
         headers,
         body: o.bodyBase64 === undefined ? o.body : Buffer.from(o.bodyBase64, 'base64'),
         redirect: o.followRedirects === false ? 'manual' : 'follow',
         signal: AbortSignal.timeout(o.timeout || 30000),
-      });
+      };
+      if (o.connectAddress) {
+        // 开发宿主同样保留 URL 主机名、SNI 与 Node 默认的证书校验。
+        res = await new Promise((resolve, reject) => {
+          const request = https.request(o.url, {
+            method: options.method, headers, signal: options.signal,
+            lookup: (_host, opts, callback) => callback(null, opts.all ? [{ address: o.connectAddress, family: 4 }] : o.connectAddress, 4),
+          }, response => {
+            const chunks = [];
+            response.on('data', chunk => chunks.push(chunk));
+            response.on('error', reject);
+            response.on('end', () => {
+              const result = new Response(Buffer.concat(chunks), { status: response.statusCode, headers: response.headers });
+              Object.defineProperty(result, 'url', { value: o.url });
+              resolve(result);
+            });
+          });
+          request.on('error', reject);
+          request.end(options.body);
+        });
+      } else res = await fetch(o.url, options);
     } catch (err) {
       throw { code: 'NETWORK', message: `${o.url}: ${err.cause?.code || err.message}` };
     }
@@ -117,6 +138,19 @@ const native = {
         const pad = out[out.length - 1];
         if (pad > 0 && pad <= 16) out = out.subarray(0, out.length - pad);
         return out.toString('utf8');
+      }
+      case 'aesGcmDecrypt': {
+        const hex = (name, lengths) => {
+          const value = a[name];
+          if (typeof value !== 'string' || value.length > 8192 || value.length % 2 || !/^[0-9a-f]+$/i.test(value) ||
+              (lengths && !lengths.includes(value.length / 2))) throw new Error('AES-GCM 参数无效');
+          return Buffer.from(value, 'hex');
+        };
+        const key = hex('key', [16, 24, 32]), iv = hex('iv', [12]), data = hex('ciphertext');
+        if (data.length < 16) throw new Error('AES-GCM 密文无效');
+        const cipher = crypto.createDecipheriv(`aes-${key.length * 8}-gcm`, key, iv);
+        cipher.setAuthTag(data.subarray(-16));
+        return Array.from(Buffer.concat([cipher.update(data.subarray(0, -16)), cipher.final()]));
       }
       case 'uuid':
         return crypto.randomUUID();

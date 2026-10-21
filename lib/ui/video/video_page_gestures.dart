@@ -25,6 +25,7 @@ mixin _VideoGestures on State<VideoPage> {
   }
 
   Future<void> _seekBy(int seconds) async {
+    if (_session.isLive) return;
     final c = _session.controller;
     if (c == null) return;
     final target = (c.value.position.inMilliseconds + seconds * 1000).clamp(
@@ -65,6 +66,7 @@ mixin _VideoGestures on State<VideoPage> {
     gesture.update(point);
     final action = gesture.action;
     if (action == null) return;
+    if (_session.isLive && action == VideoGestureAction.seek) return;
     setState(() {
       switch (action) {
         case VideoGestureAction.seek:
@@ -97,7 +99,9 @@ mixin _VideoGestures on State<VideoPage> {
     final gesture = _gesture;
     final c = _session.controller;
     _gesture = null;
-    if (gesture?.action == VideoGestureAction.seek && c != null) {
+    if (!_session.isLive &&
+        gesture?.action == VideoGestureAction.seek &&
+        c != null) {
       await c.seekTo(gesture!.position);
     }
     if (!mounted || _gesture != null) return;

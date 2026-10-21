@@ -108,9 +108,15 @@ class MainActivity : FlutterFragmentActivity() {
         mediaRemuxer = MediaRemuxer(applicationContext, flutterEngine.dartExecutor.binaryMessenger)
         launchPayload = intent?.getStringExtra(EXTRA_PAYLOAD)
         val webVideoProfiles = WebVideoProfiles(flutterEngine)
+        val browserChallengeInput = BrowserChallengeInput { id ->
+            val plugin = flutterEngine.plugins.get(InAppWebViewFlutterPlugin::class.java) as? InAppWebViewFlutterPlugin
+            plugin?.headlessInAppWebViewManager?.webViews?.get(id)?.flutterWebView?.webView
+                ?: webVideoProfiles.challengeView(id)
+        }
         channel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "hentai_park/platform").also {
             it.setMethodCallHandler { call, result ->
                 when (call.method) {
+                    "clickBrowserChallenge" -> browserChallengeInput.click(call.arguments as? Map<*, *>, result)
                     "readCrashDiagnostics" -> NativeCrashLog.read(applicationContext) { entries, error ->
                         runOnUiThread {
                             if (error == null) result.success(entries)

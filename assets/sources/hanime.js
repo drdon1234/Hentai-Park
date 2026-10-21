@@ -9,13 +9,20 @@ Park.register({
     "ru": {"影片列表解析失败": "Не удалось разобрать список видео", "里番目录、排行与搜索；支持应用内网页播放": "Каталог аниме, рейтинг и поиск; веб-воспроизведение в приложении"},
     "ar": {"影片列表解析失败": "تعذر تحليل قائمة الفيديو", "里番目录、排行与搜索；支持应用内网页播放": "دليل الأنمي والترتيب والبحث؛ تشغيل الويب داخل التطبيق"},
   },
-  key: 'hanime', name: 'Hanime.tv', version: '0.0.4', type: 'video', category: 'anime',
+  key: 'hanime', name: 'Hanime.tv', version: '0.0.5', type: 'video', category: 'anime',
   language: 'en', color: '#EC407A', homepage: 'https://hanime.tv',
   description: '里番目录、排行与搜索；支持应用内网页播放',
   domains: ['hanime.tv', 'hanime-cdn.com', 'guest.freeanimehentai.net'],
   network: {mode: 'native', vpnHint: true},
   imageHeaders: {Referer: 'https://hanime.tv/'},
-  defaultFeed: 'rank', feeds: [{key: 'rank', label: '排行'}, {key: 'trending', label: '热门'}],
+  defaultFeed: 'rank', feeds: [{key: 'rank', label: '排行', options: [
+    {key: 'tag', label: '标签', default: '', dynamic: true, values: []},
+    {key: 'brand', label: '作者', default: '', dynamic: true, dependsOn: ['tag'], values: []},
+  ]}, {key: 'trending', label: '热门'}],
+  searchFilters: [
+    {key: 'tag', label: '标签', default: '', dynamic: true, values: []},
+    {key: 'brand', label: '作者', default: '', dynamic: true, dependsOn: ['tag'], values: []},
+  ],
   linkPatterns: ['hanime\\.tv/videos/hentai/([a-z0-9-]+)'], idPattern: '^[a-z0-9-]{1,220}$',
   BASE: 'https://hanime.tv', database: null, databaseAt: 0, pendingDatabase: null,
   idValue(value) {
@@ -45,9 +52,17 @@ Park.register({
     })().finally(() => { this.pendingDatabase = null; });
     return this.pendingDatabase;
   },
+  tags(row) { return (Array.isArray(row.tags) ? row.tags : []).map(t => typeof t === 'string' ? t : t?.name || '').filter(Boolean); },
+  async filterOptions(req) {
+    if (req.scope === 'feed' && req.feed !== 'rank' || !['tag', 'brand'].includes(req.filter)) throw Park.error('CONFIG', '筛选参数无效');
+    const rows = await this.records(), tag = String(req.values?.tag || '');
+    const names = req.filter === 'tag' ? rows.flatMap(r => this.tags(r)) : rows.filter(r => !tag || this.tags(r).includes(tag)).map(r => r.brand).filter(Boolean);
+    return [{value: '', label: '全部'}, ...[...new Set(names)].sort((a,b) => a.localeCompare(b)).map(value => ({value, label: value}))];
+  },
   searchData(data, req, rank = false) {
     const page = Math.max(1, Math.floor(Number(req.page) || 1)), words = String(req.keyword || '').trim().toLowerCase().split(/\s+/).filter(Boolean);
-    const rows = data.filter(x => words.every(w => [x.name, x.search_titles, x.description, x.brand, x.tags].map(v => Array.isArray(v) ? v.map(t => typeof t === 'object' ? t.name || '' : t).join(' ') : String(v || '')).join(' ').toLowerCase().includes(w)));
+    const tag = String(req.options?.tag || ''), brand = String(req.options?.brand || '');
+    const rows = data.filter(x => (!tag || this.tags(x).includes(tag)) && (!brand || x.brand === brand) && words.every(w => [x.name, x.search_titles, x.description, x.brand, x.tags].map(v => Array.isArray(v) ? v.map(t => typeof t === 'object' ? t.name || '' : t).join(' ') : String(v || '')).join(' ').toLowerCase().includes(w)));
     rows.sort((a, b) => rank ? Number(b.views || 0) - Number(a.views || 0) : Number(b.created_at_unix || 0) - Number(a.created_at_unix || 0));
     const items = rows.slice((page - 1) * 24, page * 24).map(x => this.item(x)).filter(Boolean);
     return {items, page, hasNext: page * 24 < rows.length, totalPages: Math.ceil(rows.length / 24)};
@@ -76,7 +91,7 @@ Park.register({
     return {items: this.cards(await this.page('/browse/trending')), page: 1, hasNext: false};
   },
   async search(req) {
-    if (!String(req.keyword || '').trim()) return {items: [], page: 1, hasNext: false};
+    if (!String(req.keyword || '').trim() && !req.options?.tag && !req.options?.brand) return {items: [], page: 1, hasNext: false};
     return this.searchData(await this.records(), req);
   },
   async detail(value) {

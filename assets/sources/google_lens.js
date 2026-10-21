@@ -1,5 +1,5 @@
 Park.register({
-  key: 'google_lens', name: 'Google Lens', version: '0.0.4', apiVersion: 1,
+  key: 'google_lens', name: 'Google Lens', version: '0.0.5', apiVersion: 1,
   type: 'comic', category: 'other', reverseSearchCategory: 'general', homepage: 'https://lens.google.com/',
   description: '综合图片反搜；在应用内浏览器上传并查找完全匹配出处',
   domains: ['google.com'], network: { vpnHint: true },
@@ -59,11 +59,29 @@ Park.register({
       }
       const candidate = { title: title || key, url, redirect, images: image ? [image] : [], titles: title ? [title] : [] };
       seen.set(key, candidate); candidates.push(candidate);
+      if (candidates.length > 1000) throw Park.error('PARSE', '反搜服务返回无效数据');
     }
     if (!candidates.length) {
       if (/No exact matches found|No results found|No matching images found|couldn't find any results/i.test(text)) return [];
       throw Park.error('PARSE', '反搜服务返回无效数据');
     }
+    let matches = [], offset = 0;
+    while (offset < candidates.length && matches.length < 20) {
+      const end = Math.min(candidates.length, offset + 20 - matches.length);
+      matches = await this.resolveCandidates(candidates.slice(offset, end), matches);
+      offset = end;
+    }
+    return offset < candidates.length
+      ? { matches, continuation: { candidates: candidates.slice(offset), matches } }
+      : matches;
+  },
+  async reverseSearchMore(continuation) {
+    if (!Array.isArray(continuation?.candidates) || !Array.isArray(continuation.matches)) {
+      throw Park.error('PARSE', '反搜服务返回无效数据');
+    }
+    return this.resolveCandidates(continuation.candidates, continuation.matches);
+  },
+  async resolveCandidates(candidates, previous = []) {
     const resolved = new Array(candidates.length);
     let next = 0, failure;
     // 限制并发与单次等待，个别跳板失败不丢弃已经得到的出处。
@@ -80,7 +98,9 @@ Park.register({
         } catch (error) { failure = failure || error; }
       }
     }));
-    const matches = [], urls = new Map();
+    const matches = previous.map(match => ({ ...match, images: [...match.images],
+      details: { ...match.details, titles: [...match.details.titles] } }));
+    const urls = new Map(matches.map(match => [match.url, match]));
     for (const candidate of resolved) {
       if (!candidate) continue;
       const url = candidate.url;

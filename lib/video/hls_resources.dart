@@ -4,10 +4,16 @@ import 'package:flutter/foundation.dart';
 import '../core/models.dart';
 import '../engine/media_transport.dart';
 import 'hls.dart';
+import 'rou_hls_wrapper.dart';
 
-Uint8List _decodeSegment((Uint8List, Uint8List, Uint8List) payload) {
-  final bytes = decryptHlsAes128(payload.$1, payload.$2, payload.$3);
-  validateTransportStream(bytes);
+Uint8List _decodeSegment(
+  (Uint8List, Uint8List?, Uint8List?, HlsResourceKind) payload,
+) {
+  var bytes = unwrapRouHlsIfWrapped(payload.$1);
+  if (payload.$2 case final key?) {
+    bytes = decryptHlsAes128(bytes, key, payload.$3!);
+  }
+  validateHlsResource(bytes, payload.$4);
   return bytes;
 }
 
@@ -20,7 +26,7 @@ class HlsResources {
   final _keys = <Uri, Future<Uint8List>>{};
 
   void validate(HlsPlaylist playlist) {
-    for (final segment in playlist.segments) {
+    for (final segment in playlist.resources) {
       authorizeMediaResource(transport, segment.url);
       if (segment.key case final key?) authorizeMediaResource(transport, key);
     }
@@ -38,7 +44,6 @@ class HlsResources {
       cancelToken: cancelToken,
     );
     _check();
-    var plaintext = response.bytes;
     if (segment.key case final keyUrl?) {
       final pending = _keys.putIfAbsent(keyUrl, () async {
         final response = await transport.fetch(
@@ -61,18 +66,32 @@ class HlsResources {
       }
       _check();
       // AES 分段可能达到数 MB，同步纯 Dart 解密会阻塞手势与每一帧渲染。
-      plaintext = await compute(_decodeSegment, (
+      final plaintext = await compute(_decodeSegment, (
         response.bytes,
         key,
         segment.iv!,
+        segment.kind,
       ), debugLabel: 'HLS segment decrypt');
       _check();
       return plaintext;
     }
-    _check();
-    validateTransportStream(plaintext);
-    return plaintext;
+    if (isRouHlsWrapped(response.bytes)) {
+      final plaintext = await compute(_decodeSegment, (
+        response.bytes,
+        null,
+        null,
+        segment.kind,
+      ), debugLabel: 'HLS segment unwrap');
+      _check();
+      return plaintext;
+    }
+    validateHlsResource(response.bytes, segment.kind);
+    return response.bytes;
   }
 
   void clear() => _keys.clear();
+
+  void retainKeys(Set<Uri> keys) {
+    _keys.removeWhere((url, _) => !keys.contains(url));
+  }
 }

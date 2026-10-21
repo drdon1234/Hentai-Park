@@ -57,24 +57,14 @@ class _HistoryPageState extends State<HistoryPage> {
         ? scope.label
         : SourceManager.instance.manifest(scope.sourceKey!)?.name ??
               scope.sourceKey!;
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(tr('清空历史记录？')),
-        content: Text(tr('仅清空“{scope}”的浏览与阅读位置记录，章节已读状态保留。', {'scope': label})),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: SelectionContainer.disabled(child: Text(tr('取消'))),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: SelectionContainer.disabled(child: Text(tr('清空'))),
-          ),
-        ],
-      ),
+    final ok = await confirmAction(
+      context,
+      title: tr('清空历史记录？'),
+      message: tr('仅清空“{scope}”的浏览与阅读位置记录，章节已读状态保留。', {'scope': label}),
+      confirmLabel: tr('清空'),
+      destructive: true,
     );
-    if (ok == true) Library.instance.clearHistory(scope: scope);
+    if (ok) Library.instance.clearHistory(scope: scope);
   }
 
   void _resume(HistoryEntry h) {
@@ -316,7 +306,7 @@ class _HistoryPageState extends State<HistoryPage> {
         child: Icon(Icons.delete_outline_rounded, color: c.error),
       ),
       onDismissed: (_) => Library.instance.removeHistory(h.uid),
-      child: InkWell(
+      child: ActionInkWell(
         onTap: () =>
             _selecting ? _toggleSelected(h.uid) : Nav.openWork(context, h.item),
         onLongPress: () => _toggleSelected(h.uid),
@@ -336,7 +326,11 @@ class _HistoryPageState extends State<HistoryPage> {
                   SizedBox(
                     width: 48,
                     height: 66,
-                    child: CoverImage(source: h.item.source, url: h.item.cover),
+                    child: CoverImage(
+                      source: h.item.source,
+                      url: h.item.cover,
+                      sourceBlurred: h.item.json['coverBlurred'] == true,
+                    ),
                   ),
                   const SizedBox(width: Gap.m),
                 ],

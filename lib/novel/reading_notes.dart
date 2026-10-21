@@ -57,11 +57,28 @@ class ReadingNotes extends ChangeNotifier {
   final Map<String, ReadingNote> _notes = {};
   Future<void> load() async {
     final data = await _store.load();
-    _notes.clear();
+    final parsed = <String, ReadingNote>{};
+    var invalid = data != null && data is! List;
     for (final raw in data is List ? data : const []) {
       final note = ReadingNote.parse(raw);
-      if (note != null) _notes[note.id] = note;
+      if (note == null) {
+        invalid = true;
+      } else {
+        parsed[note.id] = note;
+      }
     }
+    if (invalid) {
+      // 标注无法重建；在后续保存替换文件之前保留全部原始记录。
+      final file = AppPaths.dataFile('reading_notes.json');
+      if (await file.exists()) {
+        await file.copy(
+          '${file.path}.invalid-${DateTime.now().microsecondsSinceEpoch}',
+        );
+      }
+    }
+    _notes
+      ..clear()
+      ..addAll(parsed);
   }
 
   List<ReadingNote> forWork(String uid) =>

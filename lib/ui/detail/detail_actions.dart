@@ -55,7 +55,7 @@ class DetailSecondaryButton extends StatelessWidget {
             side: BorderSide(color: c.outline.withValues(alpha: .6)),
           ),
           clipBehavior: Clip.antiAlias,
-          child: InkWell(
+          child: ActionInkWell(
             onTap: onPressed,
             onLongPress: onLongPress,
             child: SelectionContainer.disabled(

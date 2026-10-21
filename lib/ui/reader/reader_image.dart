@@ -99,6 +99,7 @@ class _ReaderImageState extends State<ReaderImage> {
 
   @override
   Widget build(BuildContext context) {
+    final placeholderColor = Theme.of(context).colorScheme.onSurfaceVariant;
     final info = _info;
     if (info != null) {
       final img = RawImage(
@@ -120,11 +121,7 @@ class _ReaderImageState extends State<ReaderImage> {
           ? Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Icon(
-                  Icons.broken_image_outlined,
-                  color: Colors.white38,
-                  size: 40,
-                ),
+                const Icon(Icons.broken_image_outlined, size: 40),
                 const SizedBox(height: 8),
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 24),
@@ -138,9 +135,7 @@ class _ReaderImageState extends State<ReaderImage> {
                     textAlign: TextAlign.center,
                     maxLines: 4,
                     overflow: TextOverflow.ellipsis,
-                    style: context.text.bodySmall?.copyWith(
-                      color: Colors.white54,
-                    ),
+                    style: context.text.bodySmall,
                   ),
                 ),
                 const SizedBox(height: 10),
@@ -159,16 +154,13 @@ class _ReaderImageState extends State<ReaderImage> {
                 const SizedBox(
                   width: 26,
                   height: 26,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2.4,
-                    color: Colors.white38,
-                  ),
+                  child: CircularProgressIndicator(strokeWidth: 2.4),
                 ),
                 const SizedBox(height: 10),
                 Text(
                   '${widget.index + 1}',
                   style: context.text.titleLarge?.copyWith(
-                    color: Colors.white38,
+                    color: placeholderColor,
                   ),
                 ),
               ],

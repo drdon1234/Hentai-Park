@@ -5,13 +5,23 @@ import 'package:path/path.dart' as p;
 import '../core/async_tasks.dart';
 
 String exportFileName(String value) {
-  final name = value
-      .replaceAll(RegExp(r'[\\/:*?"<>|\r\n]+'), ' ')
+  var name = value
+      .replaceAll(RegExp(r'[\\/:*?"<>|\x00-\x1f]+'), ' ')
       .replaceAll(RegExp(r'\s+'), ' ')
-      .trim();
-  return name.length > 80
-      ? name.substring(0, 80).trim()
-      : (name.isEmpty ? 'untitled' : name);
+      .trim()
+      .runes
+      .take(80)
+      .map(String.fromCharCode)
+      .join()
+      .replaceFirst(RegExp(r'[. ]+$'), '');
+  if (name.isEmpty) return 'untitled';
+  if (RegExp(
+    r'^(con|prn|aux|nul|com[1-9¹²³]|lpt[1-9¹²³])(?:\.|$)',
+    caseSensitive: false,
+  ).hasMatch(name)) {
+    name = '_$name';
+  }
+  return name;
 }
 
 final _publishing = SerialExecutor();

@@ -66,7 +66,7 @@ class ChapterRow extends StatelessWidget {
       excludeSemantics: true,
       child: Material(
         color: selected ? c.secondaryContainer : Colors.transparent,
-        child: InkWell(
+        child: ActionInkWell(
           onTap: onTap,
           onLongPress: onLongPress,
           child: SelectionContainer.disabled(
@@ -139,6 +139,7 @@ class ChapterSelectionBar extends StatelessWidget {
     required this.onSelectAll,
     required this.onDownload,
     required this.onMarkRead,
+    this.allowDownload = true,
     this.onMarkPreviousRead,
   });
   final int count;
@@ -146,6 +147,7 @@ class ChapterSelectionBar extends StatelessWidget {
   final VoidCallback onClear;
   final VoidCallback onSelectAll;
   final VoidCallback onDownload;
+  final bool allowDownload;
   final ValueChanged<bool> onMarkRead;
   final VoidCallback? onMarkPreviousRead;
 
@@ -171,10 +173,11 @@ class ChapterSelectionBar extends StatelessWidget {
               onPressed: onSelectAll,
               child: SelectionContainer.disabled(child: Text(tr('全选'))),
             ),
-            TextButton(
-              onPressed: onDownload,
-              child: SelectionContainer.disabled(child: Text(tr('下载'))),
-            ),
+            if (allowDownload)
+              TextButton(
+                onPressed: onDownload,
+                child: SelectionContainer.disabled(child: Text(tr('下载'))),
+              ),
           ],
         ),
         if (!isVideo)

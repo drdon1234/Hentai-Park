@@ -19,14 +19,14 @@
   <a href="https://github.com/drdon1234/Hentai-Park/issues">Comentarios</a>
 </p>
 
-> Solo para adultos y donde la ley local lo permita. Todo el contenido procede de sitios de terceros; HentaiPark no almacena ni ofrece contenido.
+> Solo para adultos y donde la ley local lo permita. El contenido procede de terceros; HentaiPark no aloja el contenido original. La caché de navegación y las descargas que solicites se guardan en tu dispositivo.
 
 
 Elige el modo de ahorro en Más → Red. El ahorro normal muestra sitios compactos en el inicio y las categorías, y carga obras al abrir un sitio. El ahorro máximo tampoco carga automáticamente dentro del sitio: obtiene obras solo después de buscar. Los sitios sin búsqueda muestran una explicación.
 
 ## Descarga
 
-Descarga el APK para Android desde la **[última versión](https://github.com/drdon1234/Hentai-Park/releases/latest)**. La mayoría de móviles y tabletas usan `arm64-v8a`; los emuladores suelen usar `x86_64`.
+Descarga el paquete de tu plataforma desde la **[última versión](https://github.com/drdon1234/Hentai-Park/releases/latest)**. En Android, la mayoría de móviles y tabletas usan `arm64-v8a`; los emuladores suelen usar `x86_64`. Extrae por completo los paquetes de escritorio. Consulta [la instalación y los límites](../../PLATFORMS.md).
 
 Hay clientes para Android, Windows, macOS y Linux. iOS/iPadOS solo dispone de un paquete para simulador; Web no está disponible. Consulta la [instalación y limitaciones](../../PLATFORMS.md).
 
@@ -77,7 +77,7 @@ Las capturas usan datos de demostración sin conexión; los sitios, obras y port
 | Función | Qué ofrece |
 | --- | --- |
 | Clasificaciones | Abre clasificaciones de dōjinshi, anime y JAV desde Descubrir; elige sitio y período, busca obras o visita el sitio original |
-| Explorar y buscar | Navega por categorías, busca en varios sitios a la vez y amplía la búsqueda con palabras clave en otros idiomas; pega un enlace o código para ir directo a una obra |
+| Explorar y buscar | Inicio y las categorías comparten recomendaciones; desplázate a la derecha para ver más en sitios con paginación. Busca en varios sitios a la vez y amplía la búsqueda con palabras clave en otros idiomas; pega un enlace o código para ir directo a una obra |
 | Leer y ver | Cómics con desplazamiento, páginas o doble página; vídeos con episodios, velocidad y reanudación; novelas con tipografía, marcadores, notas y lectura en voz alta. Los tres lectores comparten los mismos controles |
 | Biblioteca | Favoritos con categorías y avisos de capítulos nuevos; suscríbete a creadores, canales o palabras clave |
 | Descargas | Pestaña propia en la navegación principal para gestionar descargas de cómics, vídeos, novelas y juegos; importa y exporta CBZ; exporta los capítulos de imágenes completados como PDF desde el menú de la obra, guardando solo el primer fotograma de las imágenes animadas |
@@ -87,7 +87,9 @@ Las capturas usan datos de demostración sin conexión; los sitios, obras y port
 
 En el lector de novelas, Más → Traducir texto completo traduce todo el texto y continúa al abrir otros capítulos. Puedes volver al original.
 
-Las páginas de exploración y detalles permiten abrir las obras en caché, con sus capítulos y direcciones multimedia. Si falla la actualización, el contenido accesible permanece disponible. Al volver al inicio se restaura la posición de desplazamiento. Mantén pulsada una tarjeta para bloquear la obra o al autor; puedes quitar el bloqueo en los filtros. Las clasificaciones recuerdan los filtros y consultan resultados nuevos en cada visita. Los vídeos cortos usan Pornhub Shorties de forma predeterminada. Solo las estanterías de sitios recomendados del inicio y las categorías muestran «Obteniendo las últimas obras» al actualizar el contenido en caché. Las demás cargas muestran indicadores de progreso sin texto de estado.
+Las páginas de exploración y detalles pueden mostrar primero la caché local; actualiza si los enlaces multimedia han caducado. Al volver al inicio se restaura la posición. Mantén pulsada una obra para bloquearla o bloquear al autor; puedes quitar el bloqueo en los filtros. Las clasificaciones recuerdan los filtros y consultan resultados nuevos en cada visita. Los vídeos cortos usan RedGifs de forma predeterminada.
+
+Activa el modo de vídeos cortos en el inicio de Reddit o X, en una comunidad de Reddit o en una Comunidad de X para deslizar entre vídeos de publicaciones de ese ámbito. Reddit admite vídeos alojados en su sitio y enlaces de vídeo de RedGifs. Los vídeos de una misma publicación se reproducen por separado. Abre Comunidades en la página de X para pegar un enlace o elegir una comunidad a la que te hayas unido; el acceso depende del sitio original.
 
 Los vídeos cortos precargan los próximos vídeos y conservan los vistos recientemente con su búfer, con 2 de cada tipo por defecto. Ajusta cada cantidad en Mi página → Vídeos cortos o Más → Ajustes de vídeos cortos en el reproductor; pon 0 para desactivar. La caché dura mientras la página de reproducción esté abierta. Una cantidad mayor consume más memoria y datos.
 
@@ -101,43 +103,65 @@ Temas claro y oscuro, ocho idiomas de interfaz. Las funciones de cada sitio se i
 
 ## Sitios compatibles
 
+En la gestión de sitios, «Medir velocidad y ordenar automáticamente» se ejecuta una vez al pulsarlo y ordena temporalmente los sitios de recursos por disponibilidad y tiempo de carga de listas durante la sesión actual. No cambia el orden predeterminado o manual, las clasificaciones ni la búsqueda inversa. Puedes cancelar o restaurar el orden; el sitio de inicio elegido mantiene su prioridad. No carga portadas ni vídeos. Los sitios sin lista quedan sin medir y los requisitos de acceso o verificación se indican por separado.
+
 | Categoría | Sitios |
 | --- | --- |
-| Doujinshi / cómics | E-Hentai / ExHentai, Pixiv, nhentai, JMComic, WNACG, PicACG |
-| Galería | CosplayTele, NudeCosplay, XiuRen, PixiBB, PornPics, Danbooru |
-| Anime adulto | Hanime1, Hanime.tv, Rule34Video |
-| JAV | MissAV, JableTV, SupJav, 123AV |
-| Vídeos para adultos | Pornhub, XVideos, 91porn, iXXX, Thumbzilla, TubeSafari, SpankBang |
-| Vídeos cortos | Pornhub Shorties, Fyptt, Tik.porn |
-| Dramas cortos de IA | Series cortas Huangguo, Series cortas Huangdou, Series cortas 91 |
-| Novelas | Book18, Cool18, Canovel, Literotica, Lush Stories, StoriesOnline, 69story |
+| Galerías de fotos | PixiBB, XiuRen, PornPics, CosplayTele, NudeCosplay |
+| Galerías de ilustraciones | Danbooru, yande.re, Gelbooru |
+| Doujinshi / cómics | E-Hentai / ExHentai, JMComic, nhentai, WNACG, PicACG |
+| Anime adulto | Hanime1, Hanime.tv, Rule34Video, Iwara, HentaiHaven |
+| JAV | MissAV, JableTV, 123AV, SupJav |
+| Vídeos para adultos | Pornhub, XVideos, 91porn, SpankBang, Eporner, Thumbzilla, iXXX, TubeSafari, RouVideo |
+| Vídeos cortos | RedGifs, SWAG Vídeos cortos, Pornhub Shorties, Fansly, Tik.porn, Fyptt, SOOP Vídeos cortos, PopkonTV Vídeos cortos |
+| Dramas cortos de IA | Series cortas Huangdou, Series cortas 91, Series cortas Huangguo, Series cortas RouVideo |
+| Grabaciones | SOOP Grabaciones, PopkonTV Grabaciones, Grabaciones asiáticas de CamwhoresBay, Grabaciones de KoreanBJ.club |
+| Directos | Stripchat Directos asiáticos, CAM4, SOOP, XloveCam, SinParty |
+| Comunidades de creadores | Pixiv, Reddit, X / Twitter, myfans.jp, pixivFANBOX, Telegram |
+| Novelas | Cool18, Book18, Literotica, Lush Stories, StoriesOnline, Canovel, 69story |
 | Juegos | KUN Galgame, GalgameX, Salón de té dimensional |
-| Suscripciones | X / Twitter, Telegram, myfans.jp, pixivFANBOX |
+
+SOOP ofrece entradas separadas para directos, vídeos cortos y grabaciones, filtradas por etiquetas explícitas de baile sexy, cámaras sensuales, bikini o lencería. Se excluye el entretenimiento general; algunos vídeos requieren verificación o suscripción en el sitio original.
+
+Los directos pertenecen a 3D y aparecen entre las grabaciones y las comunidades de creadores. Las tarjetas de inicio y categoría solo muestran imágenes. Los directos no se descargan. Puedes iniciar o detener una grabación en los detalles o el reproductor y gestionarla en Descargas. Solo se guardan los nuevos segmentos producidos tras iniciar la grabación. Android permite grabar en segundo plano; en escritorio continúa con la ventana oculta. Salir de la aplicación termina la grabación, que no se reanuda al volver a abrirla. Se conserva el contenido guardado antes de una interrupción. La grabación en segundo plano depende del ahorro de energía y del límite de tiempo del servicio en primer plano; se conservan los segmentos guardados. iOS no admite grabación continua en segundo plano.
+
+Abre el álbum desde el inicio y las páginas de comunidades de creadores para recorrer todas las fotos y vídeos que proporciona el sitio. Filtra por tipo o fecha, elige cuántos elementos aparecen por fila o agrupa el contenido de una publicación. Los vídeos muestran una miniatura. Al volver de una obra se conserva la posición del álbum.
+
+
+Filtra las categorías de Descubrir por 2D, 3D o Todo; se guarda tu selección. Los juegos pertenecen a 2D, las novelas a 3D y las comunidades de creadores siempre aparecen.
+
+Las comunidades aparecen en este orden: Pixiv, Reddit, X, myfans.jp, pixivFANBOX y Telegram, incluso sin iniciar sesión. Pixiv y myfans.jp ofrecen búsqueda anónima y clasificaciones. Si la búsqueda anónima de X está limitada, inicia sesión y reintenta. Introduce un nombre o enlace de creador o canal público antes de pulsar Abrir. myfans.jp reproduce el vídeo completo disponible o, en su defecto, la vista previa pública; las fotos restringidas conservan el desenfoque del sitio. Si solo se ofrece acceso al sitio original, consulta allí el contenido para miembros. myfans.jp usa el modo Adultos general de forma predeterminada, muestra la selección Pickup del sitio en el inicio y abre la clasificación diaria por defecto.
+
+Al confirmar una suscripción a una comunidad de Reddit, tu cuenta se une a ella en el sitio original. Al confirmar una suscripción a un creador de X, lo sigues en X. Visitar una Comunidad de X no te une a ella.
 
 Las listas de novelas muestran títulos, autores, resúmenes, fechas y etiquetas de categoría con un formato uniforme; se omite la información no disponible en el sitio original.
 
 Activa, ordena, actualiza o añade sitios en Más → Sitios.
 
+Las páginas de sitio ofrecen las categorías, etiquetas, clasificaciones y órdenes admitidos por cada fuente, con filtros correspondientes en la búsqueda. En catálogos grandes, elige primero un rango o grupo. Cambiar un padre borra las selecciones dependientes. Puedes reintentar una carga fallida; siguen vigentes los requisitos de sesión y verificación del sitio.
 
 ## Búsqueda inversa de imágenes
 
 | Uso | Servicio |
 | --- | --- |
 | Fuentes generales de imágenes (coincidencias exactas) | Google Lens |
-| Fuentes generales e imágenes similares | Yandex, Bing, Baidu Imágenes |
+| Fuentes generales e imágenes similares | Yandex, Baidu |
 | Títulos de anime, episodios y tiempos | trace.moe |
 | Personajes y títulos de anime y Galgame | AnimeTrace |
 | Origen de ilustraciones | IQDB |
-| Fuentes de galerías para adultos | E-Hentai Imágenes |
+| Fuentes de galerías para adultos | E-Hentai |
 | Códigos JAV a partir de capturas | AVScan |
 
-La búsqueda inversa de Bing depende de la región. Baidu puede devolver solo imágenes similares y enlaces de origen. E-Hentai Imágenes solo busca en las galerías públicas de E-Hentai y puede no encontrar imágenes redimensionadas o recortadas.
+Baidu puede devolver solo imágenes similares y enlaces de origen. E-Hentai solo busca en las galerías públicas de E-Hentai y puede no encontrar imágenes redimensionadas o recortadas.
 
-Los servicios se agrupan verticalmente en General, Anime, JAV e Imágenes y permiten seleccionar entre categorías.
+Los servicios se agrupan verticalmente en General, Dōjinshi, Anime y JAV y permiten seleccionar entre categorías.
 
 Abre la búsqueda inversa arriba de Descubrir. Por defecto solo está seleccionado Google Lens; puedes elegir varios servicios para buscar a la vez. Elige una imagen, recórtala si quieres y busca. Cambia entre sitios para ver sus resultados; solo aparecen los sitios con candidatos. Abre el origen o busca recursos por título o código. La imagen solo se sube a los servicios elegidos al pulsar Buscar.
 
-Google Lens sube imágenes y obtiene las fuentes en segundo plano. Todas las búsquedas inversas muestran el progreso y los resultados en la interfaz propia de la aplicación; el área de verificación aparece solo cuando se necesita verificación manual. Algunas redes pueden requerir VPN o proxy.
+
+Cada sitio muestra los primeros 20 candidatos; selecciona Ver todos los resultados para cargar el resto.
+
+Google Lens sube imágenes y obtiene las fuentes en segundo plano. Todas las búsquedas inversas muestran el progreso y los resultados en la app; la verificación también se intenta en segundo plano. Si no termina, reintenta en la app. Algunas redes pueden requerir VPN o proxy.
 
 Los resultados son candidatos por verificar; la similitud no confirma el origen. trace.moe tiene cuota gratuita limitada e IQDB puede tener cola. AVScan permite uso personal no comercial. Se conservan los candidatos originales, las puntuaciones disponibles y las imágenes relacionadas; amplía Información del sitio original para ver tiempos, regiones detectadas, etiquetas y otros campos originales. La cobertura no es exhaustiva; reconocer personajes no proporciona descargas de juegos.
 
@@ -146,21 +170,27 @@ Los resultados son candidatos por verificar; la similitud no confirma el origen.
 
 | Categoría | Sitios |
 | --- | --- |
-| Listas comerciales | FANZA、FC2、MGStage、一本道、天然むすめ、パコパコママ、Caribbeancom、DLsite、Toranoana |
-| Listas de sitios | JavMenu、MissAV、JableTV、SupJav、JM、E-Hentai、WNACG、nhentai、Hanime1 |
+| Listas comerciales | FANZA、MGStage、FC2、天然むすめ、パコパコママ、Caribbeancom、一本道、DLsite、Toranoana |
+| Listas de sitios | E-Hentai、JM、nhentai、WNACG、Hanime1、MissAV、JableTV、SupJav、JavMenu |
 
 Las listas comerciales incluyen obras, actrices, vendedores y categorías; las de sitios muestran contenido popular. Puedes buscar obras, ver detalles o abrir el sitio original.
 
 Las clasificaciones permiten filtrar y traducir títulos. Las portadas mantienen su proporción; pulsa un título largo para expandirlo.
 
-iXXX y TubeSafari usan reproducción web en la app. La página puede requerir confirmación del sitio; los controles los proporciona la página de origen. No se admiten las descargas de la app ni reanudar en un punto exacto. Android requiere una versión reciente de Android System WebView con sesiones aisladas.
+Los proveedores compatibles de iXXX y TubeSafari priorizan la reproducción nativa, con reanudación y guardado sin conexión. Los demás usan reproducción web integrada, que puede requerir confirmación del sitio y no permite descargas de la app ni reanudación precisa. En Android, la reproducción web requiere un Android System WebView reciente con sesiones aisladas.
+
+Los cortos gratuitos de SWAG usan el reproductor nativo con selección de calidad, reanudación y guardado sin conexión. Se excluyen los vídeos que requieren desbloqueo de pago.
 
 <a id="faq"></a>
 
 ## Preguntas frecuentes
 
 **¿Un sitio no abre o no cargan las imágenes o vídeos?**
-Revisa primero la conexión. Algunos sitios pueden requerir VPN o proxy en China continental; configura el proxy en Más → Red. Si aparece una verificación web, supérala una vez en el navegador integrado.
+Revisa la conexión. Algunos sitios pueden requerir VPN o proxy en China continental; configúralo en Más → Red. La verificación se intenta automáticamente en segundo plano; si no termina, reintenta en la app.
+
+Al iniciar por primera vez, lee el aviso y confirma la mayoría de edad; la confirmación queda en el dispositivo. Las confirmaciones de edad y Cloudflare compatibles se procesan en segundo plano; solo el inicio de sesión requiere usar el sitio. Windows admite clics automáticos en las casillas estándar de Cloudflare. Otras plataformas intentan verificarse automáticamente y permiten reintentar en la app si fallan.
+
+JM y PicACG pueden detectar automáticamente las rutas disponibles. Solo se reutiliza una ruta guardada tras confirmar que la IP de salida no ha cambiado; si cambia o no se puede confirmar, se vuelve a detectar. No se usan servicios públicos de terceros para consultar la IP. También se puede elegir el servidor manualmente.
 
 **¿Necesito cuentas en los sitios?**
 Casi nunca. Los sitios que la necesitan lo indican arriba en su página, y puedes iniciar sesión desde los ajustes del sitio en Más → Sitios. El inicio de sesión web de Pixiv, X y StoriesOnline admite cuentas de terceros como Google y Apple; que permitan el navegador integrado depende de ellos.
@@ -176,6 +206,8 @@ Al traducir títulos, descripciones, etiquetas, búsquedas, texto seleccionado o
 
 **¿Cómo informo de un problema?**
 Abre un [issue](https://github.com/drdon1234/Hentai-Park/issues) con la versión de la app, el nombre del sitio y los pasos para reproducirlo. Oculta cuentas y contenido privado en las capturas.
+
+No incluyas contraseñas, cookies, tokens, sesiones exportadas, copias de seguridad, capturas de red ni enlaces firmados completos en informes públicos. Comparte solo el informe de registro anonimizado que exporta la app.
 
 ---
 

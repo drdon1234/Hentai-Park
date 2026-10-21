@@ -8,6 +8,11 @@ mixin _ReaderViews on _ReaderBase, _ReaderNavigation, _ReaderInput {
     _ => Colors.black,
   };
 
+  Color get _readingForeground => ParkTheme.of(
+    _background.computeLuminance() > .5 ? Brightness.light : Brightness.dark,
+    Color(_settings.seedColor),
+  ).colorScheme.onSurface;
+
   String _pageLabel() {
     final n = _pages!.length;
     if (_paged && _spreads.isNotEmpty) {
@@ -37,7 +42,7 @@ mixin _ReaderViews on _ReaderBase, _ReaderNavigation, _ReaderInput {
       return Center(
         child: Text(
           tr('这一章没有图片'),
-          style: context.text.bodyLarge?.copyWith(color: Colors.white54),
+          style: context.text.bodyLarge?.copyWith(color: _readingForeground),
         ),
       );
     }
@@ -49,6 +54,9 @@ mixin _ReaderViews on _ReaderBase, _ReaderNavigation, _ReaderInput {
           onTapUp: (d) => _onTap(d, c),
           onLongPressStart: (d) =>
               _pageMenu(_pageAt(d.localPosition, c.biggest)),
+          onSecondaryTapUp: PlatformCapabilities.desktop
+              ? (d) => _pageMenu(_pageAt(d.localPosition, c.biggest))
+              : null,
           child: view,
         );
       },

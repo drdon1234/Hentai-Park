@@ -4,6 +4,7 @@ import '../../core/app_lock.dart';
 import '../../core/localization.dart';
 import '../../core/platform_capabilities.dart';
 import '../../core/settings.dart';
+import '../../core/tag_blocklist.dart';
 import '../../engine/source_manager.dart';
 import '../kit/kit.dart';
 import '../nav.dart';
@@ -30,7 +31,7 @@ class SettingsPage extends StatelessWidget {
           child: ListView(
             padding: const EdgeInsets.only(bottom: Gap.xxl),
             children: [
-              SwitchListTile(
+              SwitchListTile.adaptive(
                 secondary: const Icon(Icons.visibility_off_outlined),
                 title: SelectionContainer.disabled(child: Text(tr('无痕模式'))),
                 subtitle: SelectionContainer.disabled(
@@ -127,17 +128,7 @@ extension SettingsSectionSummary on SettingsSection {
       ].join(' · '),
       SettingsSection.subscriptions =>
         s.subscriptionUpdateHours > 0 ? tr('自动检查') : tr('已关闭'),
-      SettingsSection.filter =>
-        s.blockedTags.isEmpty &&
-                s.blockedWorks.isEmpty &&
-                s.blockedAuthors.isEmpty
-            ? tr('未屏蔽标签')
-            : tr('已屏蔽 {value0} 项', {
-                'value0':
-                    s.blockedTags.length +
-                    s.blockedWorks.length +
-                    s.blockedAuthors.length,
-              }),
+      SettingsSection.filter => _filterSummary(s),
       SettingsSection.sites => tr('{count} 个站点已启用', {
         'count': SourceManager.instance.enabled.length,
       }),
@@ -147,4 +138,19 @@ extension SettingsSectionSummary on SettingsSection {
       SettingsSection.about => tr('版本、更新、许可证与日志'),
     };
   }
+}
+
+String _filterSummary(AppSettings settings) {
+  final presets = BlockPresetConfig.current()
+      .where((preset) => preset.on)
+      .length;
+  final custom =
+      settings.blockedTags.length +
+      settings.blockedWorks.length +
+      settings.blockedAuthors.length;
+  if (presets == 0 && custom == 0) return tr('未屏蔽标签');
+  return [
+    if (presets > 0) tr('已启用 {count} 组预设', {'count': presets}),
+    if (custom > 0) tr('自定义屏蔽 {count} 项', {'count': custom}),
+  ].join(' · ');
 }

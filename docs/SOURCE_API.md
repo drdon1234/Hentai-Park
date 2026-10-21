@@ -2,7 +2,7 @@
 
 # 站点插件接口
 
-[快速开始](#快速开始) · [manifest 字段](#manifest-字段) · [方法](#方法) · [运行时 API](#运行时-api) · [错误码](#错误码) · [国际化](#国际化) · [发布](#发布) · [附录：官方站点备注](#附录官方站点备注)
+[快速开始](#快速开始) · [manifest 字段](#manifest-字段) · [方法](#方法) · [运行时 API](#运行时-api) · [错误码](#错误码) · [国际化](#国际化) · [发布](#发布)
 
 HentaiPark 的每个站点都是一个独立的 JavaScript 插件。应用在运行时加载插件，可以从仓库安装、更新、启用或停用，**不需要重新编译应用**。官方插件位于 [`assets/sources/`](../assets/sources/)，可以直接当作示例。
 
@@ -69,7 +69,7 @@ Park.register({
   name: '我的站点',
   version: '0.0.1',           // 三段数字，仓库版本更高时应用提示更新
   type: 'comic',              // comic | video | novel | game：决定阅读、播放或游戏资源行为
-  category: 'doujin',         // doujin | anime | aiDrama | jav | adult | shortvideo | gallery | novel | game | other
+  category: 'doujin',         // doujin | anime | aiDrama | jav | adult | shortvideo | recording | live | gallery | illustration | novel | game | other
   color: '#E5355F',           // 品牌色：站点头像与站点页
   description: '一句话介绍',
   homepage: 'https://example.com',
@@ -77,8 +77,8 @@ Park.register({
   linkPatterns: ['example\\.com/g/(\\d+)'],   // 搜索框粘贴链接时直达；第 1 个分组是作品 ID
   idPattern: '^(\\d+)$',                      // 直接输入编号时直达
   imageHeaders: { Referer: 'https://example.com/' },  // 封面与图片默认请求头
-  network: { mode: 'native', vpnHint: true },  // 见“网络”
-  media: { mode: 'browser', origin: 'https://example.com', domains: ['media.example.com'] },  // 可选 HLS 媒体权限
+  network: { mode: 'auto', vpnHint: true },  // 见“网络”
+  media: { mode: 'browser', origin: 'https://example.com', domains: ['media.example.com'] },  // 视频与直链媒体权限
   imageNetwork: { mode: 'browser', origin: 'https://img.example.com', domains: ['img.example.com'] }, // 可选
   imageDecrypt: { /* 可选，见“加密图片” */ },
 
@@ -91,6 +91,7 @@ Park.register({
   i18n: { /* 插件自带的界面文案翻译，见“国际化” */ },
 
   subscription: { /* 可选：订阅频道/创作者，见“订阅” */ },
+  postShortVideos: true,      // 可选：把 feed/订阅帖子内的视频作为短视频流播放
   updateSubscriptions: { /* 可选：更新订阅，见“更新订阅” */ },
 
   async init() {},              // 可选：运行时启动时调用一次（例如刷新域名列表）
@@ -105,11 +106,11 @@ Park.register({
 
 实现 `reverseSearch(image)` 自动导出 `capabilities.reverseSearch: true`，显示在独立的“图片反搜”页。仅反搜插件声明 `type: 'comic', category: 'other'` 作为清单归类，不声明 `feeds`、`search`、`detail` 或章节／媒体方法；此处的 `type` 不产生可读作品。没有首页的反搜服务不填写 `defaultFeed`。可同时为普通站点提供反搜能力。
 
-`reverseSearchCategory` 声明反搜用途，与作品 `category` 独立，可选 `general`（通用）、`anime`（里番）、`jav`（JAV）、`gallery`（美图），未声明时归入通用。脚本与官方清单使用相同值。服务选择区按此顺序纵向分组，直接显示各组，不折叠；同组保留站点排序，允许跨组多选。
+`reverseSearchCategory` 声明反搜用途，与作品 `category` 独立，可选 `general`（通用）、`gallery`（本子）、`anime`（里番）、`jav`（JAV），未声明时归入通用。脚本与官方清单使用相同值。服务选择区按此顺序纵向分组，直接显示各组，不折叠；同组保留站点排序，允许跨组多选。
 
 输入为 `{base64, mimeType: 'image/png'}`，由应用在内存中解码、缩放、可选裁剪并重新编码，大小不超过 1,800,000 字节，不含原文件名或本机路径。用户点击搜索才上传到所选服务，换图、切换服务、取消与销毁会取消请求并丢弃旧结果。图片和查询响应不持久化、不进入诊断日志。
 
-返回最多 200 条出处候选（传输保护上限，不是按置信度筛选或静默截断）：
+返回最多 1000 条出处候选。应用首次最多解析和显示前 20 条；更多候选可按需提供 `{matches, continuation}`，其中 `matches` 是首批候选，`continuation` 仅保存在当前查询内存中。实现 `reverseSearchMore(continuation)` 后，用户点击“查看全部结果”才解析和返回完整候选。普通列表响应也会先显示前 20 条，展开时才转换剩余候选。上限是传输保护，不按分数筛选或静默截断；未知结构、无效字段及超限必须报错。
 
 ```js
 [{ title: '作品名称', keyword: '用于继续搜索的作品名或番号',
@@ -122,6 +123,15 @@ Park.register({
 `title` 必填，`keyword` 和 `url` 至少提供一个，其余可省略。只有明确识别出作品名或番号才填 `keyword`；只有标签或出处链接时不要伪造作品名称，不提供资源搜索按钮。`url` 仅允许无凭据的 HTTP(S) 网页；没有明确的原站详情链接时省略，不能伪造。`similarity` 为服务提供的 0–100 相似度，服务以 0–1 返回时仅做比例转换；没有分数不填，不同服务分数不能混排为统一可信度。`uncertain` 只传递服务明确给出的低可信标记，不能自定置信度。`episode` 为字符串或数值，`from/to` 为秒。候选不是 `WorkItem`，不能直接下载、收藏或播放；用户可用 `keyword` 继续聚合搜索资源。
 
 插件只解析并诚实保留服务返回的有效候选，不增加分数门槛、不截取前几条，不跨识别区域去重或合并不同时间片段；有分数时按该服务分数降序，无分数时保留原站顺序。相同网页的重复链接可以合并，但必须合并保留其可用图片与说明。空匹配和解析失败必须区分，未知结构、无效字段或超过保护上限应报错，不能伪装成无结果。
+
+支持延迟解析的插件可仅从 `reverseSearch` 或 `reverseSearchResult(page)` 返回以下续载结构，并实现 `reverseSearchMore`。续载数据必须是可 JSON 序列化的本次查询数据，不得保存上传图、账号凭据、Cookie 或持久化：
+
+```js
+return { matches: firstTwenty, continuation: { candidates: remainingCandidates } };
+async reverseSearchMore(continuation) {
+  return parseRemaining(continuation.candidates);
+}
+```
 
 `images` 最多 50 张，保留每张相关图片、原站名称与独立分数；仅接受无凭据 HTTP(S) 图片或 PNG/JPEG/WebP/GIF 的 base64 data URL（最多 512 KiB 字符）。相关图片在当前页面使用本站 Cookie 分区及通用网络策略加载，支持放大与失败重试，不写入磁盘缓存，换图、换站或离开页面后取消并释放。`details` 为原站候选的完整 JSON 对象，保留标题变体、角色与识别区域、逐帧分数、元数据及可用链接等原始维度，在「原站信息」中按原字段展开；不包含账号凭据、上传图片、整个响应的跟踪标识或请求会话。上限为 128 KiB、12 层、4096 个节点，原始字段值不作为界面文案翻译。不要将图片或候选数据写入日志或持久存储。
 
@@ -140,7 +150,7 @@ return { browser: {
 
 应用打开可见浏览器，在初始页面加载完成后创建 multipart 表单，将同一份 PNG 上传到 `uploadUrl`。上传与结果加载保留同一浏览器会话；需要人机验证时由用户在页面内完成。`url`、`uploadUrl`、所有导航与最终页必须为源 `domains` 内无凭据的 HTTPS 地址、使用 443 端口，不授予其他域名权限。插件仅声明条件，不能提供浏览器脚本。
 
-结果页必须满足 `resultPath` 精确匹配且 `resultQuery` 参数非空，应用在现有会话参数上合并 `resultParams`，等待结果链接或明确无结果文案稳定后返回。`resultParams` 最多 8 项、值最多 256 字符；选择器最长 1024 字符，`emptyText` 最长 256 字符。浏览器返回最多 4 MiB 的 `{url, html}`，由同一插件的 `reverseSearchResult(page)` 解析为上述候选列表；它不会自动导出新能力。解析异常必须报错，不能当作无结果。上传和结果网页在后台处理，所有服务的进度、错误和候选结果统一显示在应用自建的反搜界面；只有需要手动验证时才显示当前会话的验证区域，验证完成后自动隐藏。临时网页禁用缓存；Cookie 使用本站分区，清理会话时关闭浏览器，图片与 HTML 不进入应用持久存储或日志。取消、返回及旧结果丢弃规则同普通反搜。
+结果页必须满足 `resultPath` 精确匹配且 `resultQuery` 参数非空，应用在现有会话参数上合并 `resultParams`，等待结果链接或明确无结果文案稳定后返回。`resultParams` 最多 8 项、值最多 256 字符；选择器最长 1024 字符，`emptyText` 最长 256 字符。浏览器返回最多 4 MiB 的 `{url, html}`，由同一插件的 `reverseSearchResult(page)` 解析为上述候选列表；它不会自动导出新能力。解析异常必须报错，不能当作无结果。上传和结果网页在后台处理，所有服务的进度、错误和候选结果统一显示在应用自建的反搜界面；站点验证在后台尝试完成，未完成时在应用内提示重试，不显示原站验证区域。临时网页禁用缓存；Cookie 使用本站分区，清理会话时关闭浏览器，图片与 HTML 不进入应用持久存储或日志。取消、返回及旧结果丢弃规则同普通反搜。
 
 ### 类型与分类
 
@@ -149,17 +159,21 @@ return { browser: {
 | 分类 | 说明 |
 | --- | --- |
 | `doujin` | 本子与漫画 |
-| `gallery` | 美图：插画、Cosplay、写真。图片站仍声明 `type: 'comic'`，一个图集是一个作品，图片通过 `chapter()` 按顺序返回，可复用阅读、收藏和下载。分类不按张数或尺度区分 |
+| `gallery` | 三次元美图：Cosplay、写真与真人图集。图片站声明 `type: 'comic'`，一个图集是一个作品，图片通过 `chapter()` 按顺序返回，复用阅读、收藏和下载；分类不按张数或尺度区分 |
+| `illustration` | 二次元美图：插画与动漫图片。图片站声明 `type: 'comic'`，一个图集是一个作品，图片通过 `chapter()` 按顺序返回，复用阅读、收藏和下载；分类不按张数或尺度区分 |
 | `anime` | 里番 |
 | `aiDrama` | AI 短剧。不接受旧的 `drama` 标识；站点自身的频道名照原样声明，应用分类不用来过滤站点频道 |
 | `jav` | JAV 专门站 |
 | `adult` | 综合成人视频（如 Pornhub、XVideos、91porn），`type: 'video'`。分类是内容分组，不替代站点标签和用户筛选 |
 | `shortvideo` | 短视频：全屏竖向连续流，见下 |
+| `recording` | 在线录播视频（点播归档），`type: 'video'` |
+| `live` | 直播, `type: 'video'` |
 | `novel` | 小说，`type: 'novel'` |
 | `game` | 游戏，`type: 'game'` |
-| `other` | 其他（订阅类站点等） |
+| `other` | 创作社区 |
 
 - **短视频**（`type: 'video', category: 'shortvideo'`）：作品、搜索、收藏和历史入口直接进入连续流。每个作品是一个短视频，`videos(id, '_')` 返回当前有效媒体，不需要详情页。`feed` 的 `hasNext` 和 `cursor` 用于临近末尾时自动翻页，游标不能包含账号凭据或媒体签名。刷新从第一页开始；当前条播放，下一条暂停预加载，其余释放。站点没有搜索接口时不声明 `search`。
+- **帖子短视频模式**（`postShortVideos: true`）：站点主页和订阅目标页提供入口，提取 `media[]` 中 `type: 'video'` 且有直链 `url` 或非空 `episodeId` 的附件。需要延迟解析的外链视频只返回 `episodeId`，播放或预加载时调用 `videos(原帖 id, episodeId)`，不得把网页地址当作媒体直链。同帖多个视频分别播放，图片不进入播放池；附件支持 `preview`、`format` 和 `headers`。主页沿当前 feed 和筛选分页，订阅目标始终调用该目标的 `subscription.posts`，刷新仍停留在同一范围。播放身份区分帖内视频，收藏、历史和原站互动使用原帖子 ID。此能力不改变站点分类，也不表示原站提供独立随机视频接口。
 - **只能在原站播放的聚合视频站**：仍声明 `type: 'video', category: 'adult'`；没有经过验证的媒体接口时不实现 `videos`，运行时导出 `capabilities.videos: false`。详情页主按钮改为用系统浏览器打开 `detail.url`，隐藏播放、下载和分集，不同步虚构章节、不检查章节更新；收藏与历史照常。
 - **应用内网页播放的视频站**：实现 `webVideo(id, episodeId)`，返回 `{ url, navigationDomains?, frameDomains? }`。应用在受控 WebView 中打开 `url`，仅允许 HTTPS、无凭据的声明域名主框架导航和 iframe；它不等同于 `videos`，不提供原生播放、下载或媒体嗅探能力。
 - **小说**和**游戏**的协议见“方法”中的对应小节。
@@ -181,17 +195,46 @@ return { browser: {
 
 `feeds` 的每一项是站点页的一个标签：`{ key, label, options?: [...] }`。
 
+### 动态与级联筛选
+
+`feeds[].options` 和 `searchFilters` 的单选项可声明 `dynamic: true, values: []`。动态子项用 `dependsOn: ['range']` 引用同组上级；key 必须唯一，依赖必须存在且无环，只有动态项可声明依赖。
+
+`filterOptions(request)` 返回候选数组。请求含 `scope: 'feed' | 'search'`、`filter`、`values`；浏览另传 `feed`，搜索可传 `keyword`。`values` 只包含声明的直接上级，不传账号、设置或其他筛选项。上级未选择或为空时不加载子项。
+
+搜索候选依赖关键词时声明 `keywordDependent: true`；关键词变化会重置该项及其后代，其他筛选保持选择。`values` 的上级值只能是字符串、数值或布尔值，不能是多选数组。远端候选名称不作为固定界面文案翻译，可使用应用的内容与标签翻译功能。
+
+候选最多 500 项，每项为 `{value, label, color?}`；value 为唯一字符串或有限数字，label 为非空、无控制字符且不超过 256 字符的原站名称，color 为六位十六进制颜色。大型目录应分组后级联加载，不静默截断。原站候选名称不自动翻译。
+
+选择通过 `feed` 的 `options` 或 `search` 的 `filters` 传递。插件必须校验实际目录成员并保持分页条件；目录解析失败应抛出错误。应用按站点、浏览/搜索、标签或关键词及上级值缓存两分钟；上级变化时清除下级选择并丢弃旧请求结果，加载失败可重试。
+
+每个域的插件只读取本站目录。同品牌不同域不得互相调用插件或共享 Cookie；通用解析可在构建期复用模板，再生成自包含脚本。导航目录模板使用 `node tools/build_catalog_sources.mjs` 生成，`--check` 检查产物一致性。
+
+```js
+{key: 'category', label: '分类', type: 'select', default: '',
+ dynamic: true, dependsOn: ['range'], values: []}
+
+async filterOptions({scope, feed, filter, keyword, values}) {
+  return [{value: 'site-category-id', label: 'Site category'}];
+}
+```
+
 ### 网络
 
-- `network.mode: 'native'`（默认）：原生 HTTP，使用持久化 Cookie，走用户设置的代理。检测到 Cloudflare 质询时抛 `CLOUDFLARE`，应用引导用户在内置浏览器中完成验证，并把通行 Cookie 同步回原生请求。
-- `network.mode: 'browser'` + `network.origin`：请求在打开于 `origin` 的隐藏浏览器页中以同源 `fetch()` 发出，带真实浏览器指纹，适合 Cloudflare 防护较严的站点。同源 GET 收到 Cloudflare 质询时，隐藏浏览器先导航到该文档完成自动验证，再重试一次原请求；仍未通过时抛 `CLOUDFLARE`。
+- `network.mode: 'auto'`（默认）：先使用原生 HTTP；HTTPS 同源 GET / HEAD 且无请求体的请求遇到 Cloudflare、HTTP 403、429 或可恢复的连接错误时，自动重试一次浏览器请求。DNS、TLS、超时、响应流和普通 5xx 不触发浏览器回退，避免把不可恢复的故障放大为额外等待。目标必须属于源声明的域名，浏览器回退仍受同源和重定向限制。
+- `network.mode: 'native'`: 强制使用原生 HTTP、持久化 Cookie 和用户代理。检测到 Cloudflare 时返回 `CLOUDFLARE`，应用内提供重试；错误带有站内验证地址时，可通过“去确认”打开页面。
+- `network.mode: 'browser'` + `network.origin`: 请求在 `origin` 的隐藏浏览器页中通过同源 `fetch()` 发出，使用真实浏览器会话。只读请求遇到 Cloudflare 挑战（包括 HTTP 200 挑战页），或年龄门响应缺少声明 Cookie/内容时，最多导航验证一次，通过后再读取；写请求不重放。年龄门按 `network.confirmation` 自动处理。Android 和 Windows 对唯一标准 Cloudflare 复选框发送浏览器输入，其他平台等待站点自动验证；失败可在应用内重试，或在提供站内验证地址时选择“去确认”。
+
+  文档可在声明范围内进行同协议、同端口导航。未显式传入请求 `origin` 时，共享运行时使用目标站点 URL 的 origin。响应 `url` 保留最终地址。
+
+  自动回退不用于 `followRedirects: false`、`connectAddress` 或未分类的网络错误。浏览器对无请求体的 GET / HEAD 普通请求最多尝试三次，验证通过后至多额外重发一次；仅恢复连接故障或 HTTP 408、500、502、503、504；429 和超时不重复请求。一次逻辑请求最多主动导航验证一次，外层重试不重置次数。浏览器启动、请求、文档读取和释放均有等待上限。带自定义 API 请求头的读取通过真实 `fetch()` 执行，不用普通导航结果替代；复用 HTML 文档时保留其错误状态，`responseType: 'base64'` 返回原始字节的 base64。
+
 - `network.vpnHint: true`：在中国大陆可能需要 VPN 或代理的站点声明它，等待超过 8 秒和失败时提示“可能需要 VPN 或代理”。不要把所有错误都归因于 VPN。
-- `network.confirmation: { selector, readySelector, requiredCookies, message }`：需要用户明确确认（如年龄确认）的站点声明。`selector` 匹配确认弹窗，`readySelector` 匹配可访问的页面内容，`requiredCookies` 是确认后必须落地的 Cookie 名。插件遇到未确认页面时抛 `Park.error('CONFIRM_REQUIRED', message, { url })`；应用提供“去确认”入口，等弹窗消失、内容出现、Cookie 写入且导航稳定后返回。应用不会代替用户点击确认；这项声明也约束通用人机验证页，避免把年龄确认误当成已通过。
+- `network.confirmation: { selector, readySelector, requiredCookies, auto: { clickSelector }, message }`: 站点年龄门声明。`selector` 匹配年龄弹窗，`auto.clickSelector` 匹配弹窗内唯一的确认按钮，`readySelector` 匹配可访问内容，`requiredCookies` 列出确认后必须存在的 Cookie 名。只有用户已在应用入口确认成年，隐藏浏览器才会模拟点击；随后检查弹窗消失、内容出现、Cookie 写入及导航稳定。规则不完整、不匹配或未自动完成时可重试；错误提供站内验证地址时可选择“去确认”，在页面中手动处理后点击完成。确认页仍受源域名及 Cookie 分区限制，操作提示不会自动重放原操作。仅声明年龄确认，不可用于登录、付费或回复等操作。
 - 网络异常附带安全的 `diagnostics` 字段 `host`、`transport`、`reason`，区分 TLS 证书、握手、DNS、连接和超时。框架在调用失败时自动记录站点、方法名、错误代码、HTTP 状态和这些字段；错误消息只有在属于插件 `i18n` 或应用文案键时才以模板形式记录，占位符的值不进日志。`reason: 'TLS_HANDSHAKE_TERMINATED'` 仅表示原生 `HandshakeException.message` 恰好是 `Connection terminated during handshake`（握手完成前连接中断，不是证书校验失败）；只有 HTTPS、无请求体的 GET / HEAD 遇到它时自动重试一次，其他错误都不重试。
 
 ### 图片
 
-- `imageNetwork: { mode: 'browser', origin, domains }`：图片 CDN 需要浏览器请求时声明。`origin` 和所有图片域名必须属于 `domains`，只允许 HTTPS 和白名单请求头；图片请求不带账号凭据、不跟随重定向，单图最多 20 MiB，仍经过解密、格式检查、解码和按站点分区的缓存。未声明时用原生图片传输。
+- `imageNetwork: { mode: 'browser', origin, domains }`：图片域（含子域）独立于站点 Cookie 权限，`origin` 可属于站点域或图片域。使用 HTTPS 443 和允许的请求头，当 origin 属于站点声明域时，同源图片复用浏览器站点会话，跨域请求不携带凭据；外部图片域和视频请求始终省略凭据，允许授权图片域之间的重定向。保留单图 20 MiB 上限、解密、格式检查、解码和站点分区缓存；未声明时使用原生图片传输。 浏览器重定向的平台限制见“媒体权限”。
 - **加密图片**：声明 `imageDecrypt`，框架在格式检查和缓存之前解密，解密策略参与缓存身份，失败结果不缓存。当前支持 AES-CBC 与严格 PKCS#7 填充，`key`、`iv` 按 UTF-8 编码；必须限定图片域名，其他域名走普通路径。
 
 ```js
@@ -217,9 +260,11 @@ media: { mode: 'native', origin: 'https://example.com', domains: ['media.example
 
 - `media.mode` 为 `'native'` 或 `'browser'`。`media.origin` 必须属于插件声明的站点，使用 HTTPS 默认端口 443，不含用户凭据、查询或片段。
 - `media.domains` 是独立的媒体域名白名单（含子域），不授予站点 Cookie 权限。清单、分段和密钥都只允许 HTTPS 443，拒绝 URL 用户凭据、片段、IP、localhost（含子域）和 `.local`。
-- `'native'` 使用独立、无凭据的原生客户端，不读写站点 Cookie、Authorization 或代理认证；每一跳重定向都先校验目标域名。只允许 `Referer`、`Origin`、`Accept`、`Accept-Language`，前两者必须匹配 `media.origin`。
-- 动态 HLS CDN 可声明 `media.scope: 'session'`（仅限 `mode: 'native'`）。框架授权插件本次解析的播放地址，再逐项授权清单内的子清单、分片、密钥及最多 8 跳重定向；授权仅存在于当前播放或下载会话，不写入 manifest、Cookie 权限或持久化白名单。所有地址保持 HTTPS 443、无凭据和片段，DNS 解析必须全部为公网地址；`198.18.0.0/15` 视为允许，它是不分配给局域网主机的基准测试保留段，Clash、sing-box、Surge 等系统 VPN 的 Fake-IP 模式把域名映射到这里。直连固定到检查后的 IP，同时保留原主机的 TLS 校验；解析到内网或其他保留地址时报“媒体主机解析到了内网或保留地址”，诊断原因为 `PRIVATE_ADDRESS`。显式配置 HTTP 代理时，仅连接用户指定的代理，媒体域名由代理解析；公网 DNS 检查由可信代理承担（支持 Fake-IP 网络），应用仍检查每一跳 URL 的 HTTPS、端口与主机格式。关闭会话会销毁授权。`media.domains` 继续约束静态会话及非 HLS 资源；动态授权不适用于直接交给系统播放器的 MP4。
-- `'browser'` 在 `media.origin` 的隐藏浏览器建立媒体会话，使用 `credentials: 'omit'`、`mode: 'cors'`、`redirect: 'error'`。
+- 所有实现 `videos()` 的插件都必须声明 `media`，包括仅返回 MP4 的插件。`scope: 'session'` 可同时声明静态 `domains`：HLS 使用本次会话的确切地址授权，MP4 仍须匹配静态域名白名单；不能用会话授权代替 MP4 白名单。官方发布检查会拒绝缺失或无效的媒体声明。
+- `'native'`：使用独立、无凭据的客户端，不读写站点 Cookie、Authorization 或代理认证，每次重定向前先校验目标。只允许 `Referer`、`Origin`、`Accept`、`Accept-Language`；前两者须属于声明的站点域（含语言子域），`Origin` 只能包含来源 origin。
+- `media.referrerDomains` 可选，仅限原生视频媒体，最多 16 个有效公网域名（含子域）。它仅为 `Referer` 增加允许的来源，作为上述站点域限制的明确例外；不扩大 `Origin`、媒体地址、文档导航或 Cookie 权限，不允许用于 `imageNetwork` 或浏览器媒体。
+- 动态 HLS CDN 可声明 `media.scope: 'session'`（仅限 `mode: 'native'`）。授权只覆盖当前播放或下载会话中解析的地址、清单资源及允许的重定向，关闭会话即失效，不扩大 Cookie 权限或持久化域名白名单。请求仍受 HTTPS、无凭据、目标地址和响应大小限制；直连 MP4 与浏览器媒体继续使用静态域名白名单。
+- `'browser'`：在 `media.origin` 建立隐藏会话，文档可在声明的站点域内导航。请求使用 `credentials: 'omit'`、`mode: 'cors'`，Origin/Referer 由真实文档和浏览器生成。Windows 通过 WebView2 在每次连接前校验资源域，允许授权域间重定向，并复核最终地址；其他内核缺少逐跳拦截接口，使用 `redirect: 'error'`。CORS 和原站 CSP 仍然生效，不能用只检查最终 URL 的方式放开跳转。
 - 响应流式限长并重新校验响应地址：清单最多 2 MiB，单个分段最多 32 MiB，AES-128 密钥必须 16 字节；超限、空响应或不允许的地址一律拒绝。
 
 ### 隔离与安全
@@ -238,7 +283,8 @@ account: {
   type: 'password' | 'cookies' | 'session',
   title, hint, required: false,
   fields: [{ key: 'email', label: '邮箱' }, { key: 'password', label: '密码', secret: true }],
-  loginUrl?, cookieUrl?, requiredCookies?: ['ipb_member_id'],   // 提供后可以在网页中登录，应用自动获取 Cookie
+  loginUrl?, cookieUrl?, requiredCookies?: ['session_id'],   // 提供后可以在网页中登录，应用自动获取 Cookie
+  localStorageKeys?: ['session_key'],  // 仅网页登录完成时读取这些明确列出的 localStorage 键
   loginDomains?: ['accounts.google.com', 'appleid.apple.com'],  // 第三方授权页域名，仅用于登录导航
   async login(values) { return { name } },
   async logout() {},
@@ -249,9 +295,10 @@ account: {
 ```
 
 - 账号状态只在首次使用、登录、退出、网页登录后以及距上次检查超过 10 分钟时刷新，不会在每次调用后检查。`configured` 表示已有账号配置，与当前是否登录成功无关。
-- `loginDomains`：插件声明站点实际使用的第三方授权域名（含子域）。只在用户打开网页登录页时放行 HTTPS 443 的跳转，拒绝 URL 用户凭据、IP、localhost 和 `.local`。普通验证页、访问确认、插件请求和 Cookie 导入仍按 `domains` 校验，不能把第三方授权域名加进 `domains` 扩大权限。登录页支持原窗口跳转和保留 `window.opener` 的授权弹窗，弹窗里沿用同一检查，空白初始页不授予外部导航权限。停留在授权页时不判断登录完成，回到站点后才同步 Cookie。第三方 Cookie 不导入插件的 Cookie 罐，也不随清除站点 Cookie 删除；其浏览器登录态由系统 WebView 管理。第三方平台仍可能限制内嵌浏览器登录。
+- `loginDomains`：插件声明站点实际使用的第三方授权域名（含子域）。只在用户打开网页登录页时放行 HTTPS 443 的跳转，拒绝 URL 用户凭据、IP、localhost 和 `.local`。站内登录页及回调同样要求 HTTPS 443，并且主机必须属于 `domains`；第三方主机不能加入 `domains` 来扩大 Cookie 权限。普通验证页、访问确认、插件请求和 Cookie 导入仍按 `domains` 校验。登录页支持原窗口跳转和保留 `window.opener` 的授权弹窗，弹窗里沿用同一检查，空白初始页不授予外部导航权限。停留在授权页时不判断登录完成，回到站点后才同步 Cookie。第三方 Cookie 不导入插件的 Cookie 罐，也不随清除站点 Cookie 删除；其浏览器登录态由系统 WebView 管理。第三方平台仍可能限制内嵌浏览器登录。
+- `localStorageKeys`：可选白名单，仅网页登录结束时从 `cookieUrl` 所属站点页面读取对应的本地存储字符串，并与 Cookie 一并交给 `account.login(values)`。未声明的键不会读取或传入插件；不得在清单、日志或诊断输出中暴露存储值。
 - `type: 'session'` 用于导入已有的授权会话：声明单个保密字段（如 `session`），剪贴板内容完整保留，由插件校验，不拆成账号密码或 Cookie。登录必须真实确认授权，不凭输入格式假报成功。
-- `managedAccount: true` 声明插件支持专用自动维护账号，站点设置中用同名开关。应用必须先展示自动注册说明并取得用户确认，再保存设置并调用 `account.enableManaged()`。注册前先保存候选凭据并 `await this.store.flush()`，保证失败或重启后还能恢复同一个账号。手动凭据与专用账号分开保存，专用账号不能覆盖现有手动账号；关闭开关保留专用账号，重新开启复用；Token 过期只重新登录，不重复注册。
+- `managedAccount: true` 与 `account.enableManaged()` 提供可选的账号管理能力，只在用户知情确认后启用。手动账号与托管账号分别保存，不能覆盖已有凭据；账号数据仅在本机使用，不进入文档、诊断或发布产物。
 - 账号密码、Token 和插件状态都是用户本机数据，文档和日志里不要出现真实凭据。
 
 ## 方法
@@ -302,7 +349,7 @@ async resolveGameResource(workId, resourceId, channelId) {}
 { sections: [{ title: '连载更新', items: [WorkItem] }], hasNext: false }
 ```
 
-**WorkItem**：`{ id, title, subtitle?, cover, coverAspect?, pages?, rating?, likes?, views?, language?, category?, badge?, badgeColor?, duration?, uploaded?, tags?, authors?, uploader?, mediaKind?, workCode?, editions? }`
+**WorkItem**：`{ id, title, subtitle?, cover, coverBlurred?, coverAspect?, pages?, rating?, likes?, views?, language?, category?, badge?, badgeColor?, duration?, uploaded?, tags?, authors?, uploader?, mediaKind?, workCode?, editions? }`
 
 - `authors` 为原站提供的作者名称数组，`uploader` 为上传者标识，用于源内作者屏蔽。列表应尽量提供这些字段；不得从标题或含义不明的副标题猜测作者。列表缺失时，长按屏蔽作者会尝试从详情补充。
 
@@ -353,15 +400,21 @@ WorkItem 的全部字段，再加：
 
 ### 视频：`videos`
 
-返回 `[{ quality: 1080, label: '1080P', url, headers?, format?, preferred? }]`。直链通常有时效，应用每次播放或下载前都会重新获取。
+返回 `[{ quality: 1080, label: '1080P', url, headers?, format?, preferred?, hls? }]`。直链通常有时效，应用每次播放或下载前都会重新获取。
+
+- `format: 'hls'` 可附 `hls: {manifest, keys}`：`url` 是该分段清单的真实 HTTPS 基址，`manifest` 是已解析好的完整点播分段清单（UTF-8 最多 2 MiB），`keys` 将清单引用的绝对密钥 URL 映射为 16 字节密钥的 Base64，最多 32 项。仅支持原生媒体模式；清单、分片、密钥地址仍经过原有媒体授权及内容校验，未引用的密钥被拒绝。携带此字段的播放结果不写入磁盘缓存，密钥只用于会话内存；插件不得将其写入 store、日志、作品或游标。
 
 - 多集视频在 `detail(id).chapters` 按播放顺序返回 `[{ id, title }]`，每个 `id` 必须稳定，不能用画质或临时媒体 URL 代替。应用用同一个 ID 选集、记录进度、下载和续播，并调用 `videos(id, episodeId)` 获取该集资源。单集用 `singleChapterId`，没有时用 `'_'`。
 - 省略 `format` 时按直链 MP4 播放和下载。HLS 必须返回 `format: 'hls'`，并声明 `media` 权限。
-- HLS 主清单（`#EXT-X-STREAM-INF`）先由应用展开成各路分段清单，按 `RESOLUTION` 得到真实清晰度。返回主清单时 `quality` 表示期望清晰度：默认选不高于它的最高实际清晰度，没有符合项时选最高档。每路必须是音视频复用的 MPEG-TS；独立的 `AUDIO`、`VIDEO`、`SUBTITLES` 和未通过静态域名或会话授权的地址一律拒绝。`#EXT-X-I-FRAME-STREAM-INF` 预览轨道被忽略。单路清单无法确定分辨率时提供 `label: '原画'`，不要把期望画质当成真实分辨率。
-- 只支持带 `#EXT-X-ENDLIST` 的完整、连续 MPEG-TS 点播清单；支持 `METHOD=AES-128`、`KEYFORMAT=identity` 的 CBC/PKCS7 解密，密钥恰好 16 字节，IV 可显式提供或由媒体序号推导。密钥只保存在当前会话内存。不支持直播、SAMPLE-AES、其他 KEYFORMAT、`EXT-X-MAP`、`EXT-X-BYTERANGE`、fMP4、discontinuity 和 gap；非标准的 `#EXT-X-TOKEN` 会被移除。
-- 播放时使用只绑定 `127.0.0.1` 的随机端口和随机令牌，通过有限 URL 注册表按需读取已验证的分段，关闭会话即取消请求。HLS 离线下载目前只支持 Android：逐段验证并保存 SHA-256，可恢复、可取消，最后由 Media3 封装为 MP4，完整成品才进入离线库。
+- HLS 主清单（`#EXT-X-STREAM-INF`）先由应用展开成各路分段清单，按 `RESOLUTION` 得到真实清晰度。返回主清单时 `quality` 表示期望清晰度：默认选不高于它的最高实际清晰度，没有符合项时选最高档。每路必须是音视频复用的 MPEG-TS 或点播 fMP4；独立的 `AUDIO`、`VIDEO`、`SUBTITLES` 和未通过静态域名或会话授权的地址一律拒绝。`#EXT-X-I-FRAME-STREAM-INF` 预览轨道被忽略。单路清单无法确定分辨率时提供 `label: '原画'`，不要把期望画质当成真实分辨率。 主清单省略 `RESOLUTION` 时必须提供有效 `BANDWIDTH`，应用保留各码率并显示 kbps，默认选择最高码率，不把码率当作分辨率。
+- `type: 'video', category: 'live'` 表示公开直播，归入三次元，主页和域页仅展示图片卡片。实现 `videos()` 返回当前公开房间的 HLS 地址；私密、收费或下线房间不得返回伪造可播结果。应用为直播启用滚动清单播放，不恢复或保存点播进度，也不提供下载。录制由用户显式开始，只保存初始直播窗口之后的新分片，用户停止或应用退出后结束，重启不续录。录制复用独立媒体会话与后台任务，逐段验证、解密并保存本地完整清单；断线重新解析媒体，编码边界与长录制可分卷，失败保留已提交内容。仅支持音视频复用的 MPEG-TS；不支持 MAP/fMP4、低延迟 PART、BYTERANGE 或 GAP。
+- 点播要求带 `#EXT-X-ENDLIST` 的完整、连续 MPEG-TS 或 fMP4 清单；fMP4 只支持媒体分片之前的单个 `#EXT-X-MAP` 初始化段，不支持初始化段切换或范围读取。初始化段与媒体分片都经过地址授权、内容校验及本地重写，离线播放与导出必须保留初始化段。直播仍只支持 MPEG-TS，允许滚动清单及 discontinuity。两者支持 `METHOD=AES-128`、`KEYFORMAT=identity` 的 CBC/PKCS7 解密，密钥恰好 16 字节，媒体 IV 显式提供或由序号推导；加密初始化段必须显式提供 IV。密钥仅留在会话内存。不支持 SAMPLE-AES、其他 KEYFORMAT、BYTERANGE、GAP；点播另不支持 discontinuity。非标准的 `#EXT-X-TOKEN` 会被移除。
+- HLS 清单和 MPEG-TS 分段支持 PNG `roUd` 封装（原始或 zlib 压缩）；框架先解包再解析、校验或解密，解包后仍遵守清单 2 MiB、分段 32 MiB 的限制。插件继续返回 `format: 'hls'`，无需额外权限。
+- 播放时使用只绑定 `127.0.0.1` 的随机端口和随机令牌，通过有限 URL 注册表按需读取已验证的分段，关闭会话即取消请求。HLS 离线下载目前只支持 Android：逐段验证并保存 SHA-256，可恢复、可取消，MPEG-TS 最后由 Media3 封装为 MP4，fMP4 按顺序保存初始化段与媒体分片，完整成品才进入离线库。
 
 ### 应用内网页视频：`webVideo`
+
+网页播放器在独立临时会话内处理 Cloudflare 验证，只允许精确的 `challenges.cloudflare.com` 验证子框架，不开放其主框架导航。年龄确认仅在源声明域名内使用 `network.confirmation`，不将源规则用于外部播放器。无法自动完成时保留网页供用户处理；不会导入或导出播放器 Cookie。`CONFIRM_REQUIRED` 保留插件提示，通过应用内“去确认”页面完成手动处理并同步源会话；用户点击完成后不自动重放原操作。
 
 当站点只提供真实播放网页、没有可验证的媒体资源时，实现 `webVideo(id, episodeId)`，不要虚构 `videos` 或章节。返回：
 
@@ -373,7 +426,8 @@ return {
 };
 ```
 
-- 运行时自动导出 `capabilities.webVideo`。同时实现 `videos` 时优先原生播放器。详情和历史入口均进入应用内网页，隐藏应用的下载与虚构选集，不承诺精确断点续播；页面控制由上游提供。
+- 运行时自动导出 `capabilities.webVideo`。仅实现 `webVideo` 时，详情和历史进入应用内网页，隐藏应用下载与虚构选集，不承诺精确断点续播；页面控制由上游提供。
+- 同时实现 `videos` 和 `webVideo` 时优先原生播放。只有插件返回 `UNSUPPORTED` 时自动回退网页；`HTTP`、`NETWORK`、`CLOUDFLARE`、登录、解析、下架和取消错误照常显示，不触发回退。下载只支持成功解析的原生媒体，不回退网页。
 - 地址必须为 HTTPS、公网域名、无用户凭据且仅使用 443 端口。默认允许目标注册域及子域；额外主框架跳转和 iframe 只允许返回的域及子域，必须根据真实请求声明。域声明不扩大插件 HTTP、媒体或 Cookie 权限。弹窗、下载、文件访问和页面调用原生桥接均被拒绝。
 - Android 使用独立临时 WebView Profile，不读写默认浏览器或插件 Cookie。需要设备 WebView 支持 `MULTI_PROFILE`，否则提示更新 Android System WebView。退出清除该 Profile 的 Cookie 和网站存储并销毁 WebView；若设备暂不允许删除已载入的 Profile，下一次进程启动播放时清理遗留目录。Apple 使用临时会话，其他平台暂不支持。应用进入后台或上锁时暂停播放。
 - 播放页可能需要单独完成年龄或站点确认；不导入源凭据。聚合站解析跳转时可用原生 HTTP 的 `followRedirects: false` 读取 `Location`，不携带源凭据访问上游。
@@ -438,9 +492,24 @@ subscription: {
 ```
 
 - `normalize` 必须纯本地校验：未登录、无网络时也能保存目标；只接受当前站点的用户名或受控的主页 URL。`resolve`、`targets` 可选；有 `targets` 时清单输出 `subscription.joinedTargets: true`。
+- 支持社群独立入口时声明 `communities: true`、界面说明 `communityHint` 与输入示例 `communityExample`；运行时原样导出这些元数据。社群目标返回 `{ id, label, kind: 'community' }`，ID 必须能区分作者目标。框架通过 `targets({ kind: 'community' })` 请求已加入社群，通过无参数 `targets()` 请求默认列表；插件应分别处理，不能因社群接口失败而破坏作者列表。`resolve` 可只读确认社群名称与访问权限，不应自动加入社群。
 - `posts` 的游标是不透明字符串，最后一页 `hasNext: false`，没有媒体的页面也允许继续翻页。`locked` 表示权限不足；`previewOnly` 明示只是公开预览，不能把缩略图冒充全文。
+
+### 公共相册：`subscription.media`
+
+相册是独立能力，不根据当前页面已加载的帖子拼装，也不回退调用 `subscription.posts`。源需声明 `subscription.media(scope, { page, cursor })`；拥有公开 feed、但没有可订阅目标的源也可以在 `subscription` 对象下单独声明此方法。运行时据此导出 `capabilities.album`，它与 `capabilities.subscription` 分离。
+
+`scope` 只能是 `{ feed, options }` 或 `{ target }`：前者列出指定 feed 及筛选项对应的作品，后者列出用户、社区、频道或群组目标的帖子。目标如何识别、遍历和补全由源负责；页面不按站点名称添加条件。相册返回 `{ items, cursor, hasNext }`，即使当前页没有匹配媒体，只要源还有下一页就继续返回有效游标。
+
+每个条目必须提供稳定的字符串 `id`、`presentation: 'post' | 'work'`、日期（有值时为可解析的 ISO 8601 字符串）和完整的 `media` 数组。媒体顺序遵循原站，数组内每项都有唯一稳定字符串 `id`、`type: 'image' | 'video'`，并提供实际内容 `url` 或受控 `resource`。`preview` 是预览图；无法提供图片 URL 时可返回独立的 `previewResource`。不要用作品封面、视频地址或尚未公开的全文伪装预览。受限内容仅能返回明确标注 `previewOnly: true`、保留原站模糊处理的公开预览，并设置 `locked: true`（原站锁定整帖时）。
+
+源负责将其支持的所有可访问帖子和作品转换为这一协议，包括帖子跨页时的媒体补全和源站媒体组归并。相册会在客户端按本地日期闭区间和图片/视频过滤；同帖收起只影响显示，不改变作品或媒体身份。`presentation: 'work'` 进入该作品详情，`'post'` 进入完整帖子页。相册封面只加载图片或显式缩略图资源；不可把视频播放地址用作封面。
+
+同一作品跨页返回时，客户端按媒体 `id` 合并；需要恢复附件顺序的源可提供有限数值 `order`（同一作品全部媒体都需提供）。`previewResource` 使用下述受控附件格式，最大 2 MiB，必须指向独立图片缩略图。每页的继续游标必须前进，重复游标会明确报错。未知日期的条目在指定日期范围时排除；筛选无结果时自动加载有限页数，仍可手动继续加载。
+
+- `coverBlurred: true` 与媒体的 `blurred: true` 分别保留原站封面和图片的模糊预览，适用于缩略图与完整图片查看；插件不得把受限写真作为未模糊的完整内容展示。视频预览与全片均先展开 HLS 主清单，再播放所选清晰度的点播清单。
 - 不能提供直链的授权附件使用 `media[].resource`，并实现 `mediaChunk(resource, offset)`：每次最多 128 KiB，offset 按 128 KiB 对齐；resource 必须含整数 `size` 和稳定、非秘密的字符串 `cacheKey`（不随授权凭据或临时引用变化）。框架校验总大小和每块完整性，原子写入自己的缓存路径，单个附件最大 512 MiB；资源不能决定本地路径。签名链接和 resource 不保存到订阅记录。
-- 保存订阅不会自动关注或加入；未经验证的写操作必须引导用户到原站手动操作，不执行静默关注、加入或付费操作。
+- 涉及原站关注或加入的订阅，必须在保存前明确告知用户并由用户确认；未经验证的写操作必须引导用户到原站手动操作，不得静默关注、加入或付费。
 
 ### 更新订阅：`updateSubscriptions`
 
@@ -473,9 +542,12 @@ subscription: {
 | `Park.crypto.sha256Hex` / `hmacSha256Hex(key, text)` / `aesEcbDecrypt(base64, key)` / `uuid()` | 原生实现 |
 | `Park.crypto.digestBytes('sha1' \| 'sha256', bytes)` | 最多 2 MiB 的 0–255 整数字节数组 |
 | `Park.crypto.randomBytes(length)` | 系统安全随机字节，length 为 1–65536 |
+| `Park.url.parse(value, base, domains)` / `site(source, value, base?)` / `response(source, response, requested)` | 解析授权域及子域内的 HTTPS 443 地址，拒绝用户凭据，移除片段，失败返回 `null`。`site` 使用源 `domains`；`response` 校验最终地址，不匹配时抛 `BLOCKED`，不会修改共享的源基地址。插件继续检查路径、页号、作品和搜索身份，不使用封闭查询键列表或 CDN 节点名称限制。 |
 | `Park.utils.rateLimiter(ms)` | 返回 `wait()`，保证两次请求之间的最小间隔 |
 | `Park.utils.mapLimit(items, n, fn)` / `lruMap(n)` / `parseCount('1.2万')` / `formatDate(ts)` | 其他常用工具 |
 | `Park.error(code, message, extra?)` | 创建带错误码的错误，见“错误码” |
+
+`Park.crypto.aesGcmDecrypt(ciphertext, key, iv)` 接受十六进制密文（包含末尾 16 字节认证标签，最多 4096 字节）、16/24/32 字节密钥、12 字节 IV，返回明文字节数组；认证失败即抛错，不返回未认证明文。
 
 ### `http.request(opts)`
 
@@ -486,11 +558,13 @@ await this.http.request({
   timeout: 15000,
   responseType: 'text' | 'base64',
   followRedirects: false, // 可选，默认 true；仅原生网络支持
+  connectAddress: '<站点公布的公网 IPv4>', // 可选；仅 HTTPS 443 原生请求
 });
 // → { status, headers, body, url, ok, json() }
 ```
 
 - `text()` / `json()` 遇到非 2xx 自动抛错（404 → `NOT_FOUND`）。Cookie 自动保存，并按每次重定向的目标地址重新选择。
+- `connectAddress` 仅替换声明域名的 TCP 连接地址，保留原 URL、Host、SNI、系统证书校验、Cookie 分区与重定向策略；不允许私网、保留地址、HTTP 或非 443 端口。不自动回退浏览器。设置代理时仍经代理连接，不绕过用户代理；跨主机重定向恢复正常解析。插件可使用源站公布的地址提示，不能关闭 TLS 校验或向明文地址发送凭据。
 - 原生网络设置 `followRedirects: false` 时返回原始 30x 响应和 `Location`，不访问跳转目标；浏览器网络不支持该选项并返回 `CONFIG`。需要检查 30x 时用 `request()` / `get()`，不要用要求 2xx 的 `text()` / `json()`。
 - `bodyBase64` 是原始二进制请求体（最多 2 MiB），不能与 `body` 或浏览器模式同时使用；与文本请求使用相同的域名隔离、TLS 和重定向规则。插件不能自行开放浏览器网络、WebSocket 或任意文件访问。
 - 文件上传使用 `multipart: {fields: {name: '文本'}, file: {name: 'file', filename: 'image.png', mimeType: 'image/png', base64: '...'}}`，与 `json/form/body/bodyBase64` 互斥，仅用于原生网络。运行时生成边界、编码 UTF-8 字段和二进制文件，并通过 `bodyBase64` 发送；完整请求体上限仍为 2 MiB。字段名、文件名仅允许 1–100 位 ASCII 字母、数字、下划线、点或短横线，文本字段最多 4096 字符，文件类型限 PNG、JPEG、WebP、GIF。不要上传本机路径、原始文件名或凭据。
@@ -522,7 +596,7 @@ throw Park.error('NOT_FOUND', '影片不存在');
 
 ### 主页缓存与错误语义
 
-- `feed` 的实时结果保留插件返回的全部字段；磁盘上的主页缓存只保存作品 ID、标题、封面、标签、上传者、媒体类型、分类和展示用统计等白名单元数据，`url`、访问凭据、媒体列表和帖子不落盘。不要把凭据放进 ID、封面地址或分页游标。需要动态媒体或帖子展示的结果不缓存。
+- `feed` 实时结果保留全部字段。应用私有、可重建的磁盘缓存保存白名单作品信息、帖子文字、附件访问数据及支持的详情字段，让缓存条目在刷新前也可打开；其中可能包含会过期的媒体 URL 和资源引用。缓存不替代下载或备份，过期链接需要刷新。缓存身份区分站点、账号、配置和请求范围；账号凭据不得放入返回内容、ID 或游标，也不得把缓存访问数据复制到诊断或订阅记录。
 - 过期缓存只在明确的 `NETWORK` / `TIMEOUT` 错误时作为离线内容显示，并标明是缓存。登录、确认、人机验证、解析和配置失败必须抛对应错误，框架不会把它们伪装成网络失败；用户主动刷新失败也显示真实错误。
 
 ## 国际化
@@ -568,7 +642,7 @@ async ranking(board, { page = 1, offset = 0, cursor, options = {} }) {
 },
 ```
 
-- `section` 可为 `market`（市场榜，`rankingOnly` 默认）或 `site`（站点榜，普通内容源默认），页面分区显示。`kind` 可为 `work`、`actress`、`seller`、`genre`；人物榜须返回人物或卖家条目，不可伪装成作品。动态选项标记 `dynamic: true`，由 `rankingOptions(board)` 返回真实选择项，运行时会在请求前校验。`category` 决定搜索范围，首批支持 `jav`、`doujin`、`anime`。`metric` 明确标示销量、人气或站内热度；站点默认热门不能称为销量榜。
+- `section` 可为 `market`（市场榜，`rankingOnly` 默认）或 `site`（站点榜，普通内容源默认），页面分区显示。`kind` 可为 `work`、`actress`、`seller`、`genre`；人物榜须返回人物或卖家条目，不可伪装成作品。动态选项标记 `dynamic: true`，由 `rankingOptions(board)` 返回真实选择项，运行时会在请求前校验。`category` 决定搜索范围；页面按用户的域顺序显示已有榜单的分类，包括创作社区。`metric` 明确标示销量、人气或站内热度；站点默认热门不能称为销量榜。
 - `rank` 保留原站名次，包括并列名次；官网只有有序列表时使用其原始位置。`offset` 是此前收到的原始条目数，不受本地去重和屏蔽影响。`keyword` 可选，缺省按标题搜索；`url` 是无凭据的 HTTPS 商品链接。
 - 既有内容源可声明 `{ key: 'hot', label: '排行榜', category: 'doujin', metric: '站内热度', feed: 'hot' }`。省略 `options` 时继承对应 feed 的选项；无需实现 `ranking()`，运行时复用 `feed()`，保留作品字段，补 `workId` 和缺失的 `rank`。页面由此打开真实作品详情。作品可打开详情；人物榜按姓名搜索并保留原站入口，卖家榜只打开原站。独立排行榜插件通过 `rankings` 分支发布，普通内容源（包括带排行榜声明的源）仍通过 `sources` 分支分发。
 - 运行时在请求前拒绝未声明榜单或选项值。每个榜单与选项组合独立分页、刷新与会话复用；插件版本变化后使用新会话。列表按用户已有的内容屏蔽规则过滤，保留原始名次。
@@ -614,25 +688,7 @@ async ranking(board, { page = 1, offset = 0, cursor, options = {} }) {
 
 ### 官方插件的发布
 
-官方插件发布在主仓库 [drdon1234/Hentai-Park](https://github.com/drdon1234/Hentai-Park)，应用固定读取：
-
-```text
-https://raw.githubusercontent.com/drdon1234/Hentai-Park/sources/index.json
-https://raw.githubusercontent.com/drdon1234/Hentai-Park/rankings/index.json
-https://raw.githubusercontent.com/drdon1234/Hentai-Park/reverse-search/index.json
-```
-
-- `assets/sources/index.json` 是唯一维护的清单，`file` 指向同目录下的脚本，文件名必须是 `{key}.js`（`[A-Za-z0-9_-]+.js`，不接受子目录、符号链接或文件名中的点号）。
-- `tools/publish_sources.mjs` 生成发布索引，每条记录包含 `key`、`name`、`version`、`category`、`description`、`rankingOnly`、`reverseSearchOnly`、`url`、`sha256`、`apiVersion`，脚本 URL 固定到本次源码的完整提交号：`https://raw.githubusercontent.com/drdon1234/Hentai-Park/<提交 SHA>/assets/sources/<file>`。源码始终在主分支维护；`sources`、`rankings` 和 `reverse-search` 分支各只保存生成的 `index.json`，不重复维护源码。`rankingOnly: true` 进入排行榜频道；实现反搜且没有首页与普通搜索的独立反搜插件进入反搜频道，其 `reverseSearchOnly` 由运行时导出；其余插件进入资源频道。资源站点附带排行榜或反搜能力时仍只在资源频道发布；一个插件不能同时属于独立排行榜和独立反搜频道。清单标记必须与运行时 manifest 一致。标签翻译数据包独立通过 `tag-translations` 分支发布，不使用站点脚本格式。
-- 发布器只依赖 Node.js 22+ 内置模块，可以离线运行：检查清单、文件和目录边界，在不提供网络和存储的上下文中加载运行时和脚本，用与安装预览相同的 `Park.__pending` / `Park.manifest` 方式核对 `key`、`version` 和 API。它不调用 `init`、登录或站点方法，不能代替真实请求验证。
-
-```powershell
-node tools/publish_sources.mjs --commit '<完整 40 位提交 SHA>' --output 'test/official-source-index.json'
-node tools/publish_sources.mjs --commit '<完整 40 位提交 SHA>' --channel rankings --output 'test/official-ranking-index.json'
-node tools/publish_sources.mjs --commit '<完整 40 位提交 SHA>' --channel reverse-search --output 'test/official-reverse-search-index.json'
-```
-
-需要对比已有发布时加 `--previous '旧索引路径'`，使用对应频道的旧索引；旧索引无效时校验失败。`.github/workflows/publish-sources.yml` 只在主仓库 `main` 分支相关文件推送或手动触发时运行，工作流排队，通过矩阵分别校验并用普通推送原子更新三个脚本频道；校验失败或分支有并发变更时不会覆盖线上索引。应用独立读取三个脚本索引，一个失败仍检查其他索引；频道标记不符或跨索引重复 key 的条目不能安装或覆盖其他条目。下载时仍验证固定提交 URL、SHA-256、版本、API 和频道，确认安装后才生效。
+官方插件维护 `assets/sources/index.json`，使用 `tools/publish_sources.mjs` 离线校验清单与运行时声明，再生成带不可变脚本地址和 SHA-256 的发布索引。离线校验不执行登录或站点方法，不能代替真实请求验证。构建与发布操作见 [开发说明](DEVELOPMENT.md)。
 
 ### 构建生成的插件
 
@@ -644,39 +700,3 @@ node tools/build_subscription_sources.mjs
 ```
 
 它使用 [@mtproto/core 6.3.0](https://github.com/alik0211/mtproto-core)（GPL-3.0，[许可证](licenses/mtproto-core.txt)，依赖汇总见 [第三方许可](licenses/telegram-dependencies.txt)）。站点适配替换了传输、密码学和存储，不开放库默认的 WebSocket、浏览器 localStorage 或调试日志。
-
-## 附录：官方站点备注
-
-维护官方插件时需要知道的站点约定。站点会改版，以插件代码为准。
-
-**游戏**
-
-- 默认顺序 KUN Galgame → GalgameX → 次元茶馆。GalgameX 与 KUN 默认开启 NSFW（分别用游客 `content-filter` 接口和 `include_nsfw` 参数）。
-- GalgameX 默认本周热门。资源更新列表使用前端动态发现的 Next Server Action，动作编号缓存 15 分钟，失效后重新发现，不执行远端脚本；详情从 SSR Flight 数据解析。公开资源用主机与路径哈希作为稳定渠道编号，解析后按主机及文件名/分享编号匹配，拒绝不匹配或重复匹配，不依赖临时链接的顺序。
-- KUN 默认七日浏览排行，使用公开原生 API；下载接口只在点击时调用，避免预取增加站点下载计数。按接口总数遍历资源页，重复页或提前空页报错。
-- 次元茶馆使用浏览器模式和独立登录，默认 Galgame 资源区热门；列表从首楼附件补封面，请求间隔 400ms。资源列表只读；只有用户确认回复后才按完整表单发送“感谢分享，好人一生平安”。已解锁不发帖；响应不明时保留状态并引导检查原帖，重启也不重复发送。
-
-**小说**
-
-| 站点 | 默认入口 | 范围与限制 |
-| --- | --- | --- |
-| Book18 | 推荐 | 中文长篇与短篇，目录沿站点顺序 |
-| Cool18 | 精华 | 仅禁忌书屋；每个主帖是独立作品，不合并回复或同名帖子；部分内容需要账号权限 |
-| Canovel | 最新 | 支持文章内正文分页 |
-| Literotica | 排行 | 英文；搜索排除非英文、有声、教程、评论与随笔分类 |
-| Lush Stories | 推荐 | 英文；排除有声与诗歌分类 |
-| StoriesOnline | 作者推荐 | 英文；匿名正文被截断时提示登录，不把预览存为完整章节 |
-| 69story | 最新 | 中文；支持分类、搜索、目录及分章阅读 |
-
-**订阅**
-
-| 平台 | 内容 | 登录 |
-| --- | --- | --- |
-| X / Twitter | 匿名公开媒体；登录后的授权动态与媒体 | 网页登录，或填写 `auth_token`、`ct0` |
-| Telegram | 公开频道预览；登录后的频道历史与附件 | 导入已有 Telegram WebK 本地存储会话 |
-| myfans.jp | 创作者目录、公开图片、公开视频与试看预览 | 会员登录未验证 |
-| pixivFANBOX | 公开目录与封面预览 | 会员登录未验证 |
-
-- X 的 `ct0` 必须与 `X-CSRF-Token` 对应，会话可能过期或被撤销。登录后从当前网页加载操作编号和 feature flags，再读取 UserTweets，只保留目标作者的媒体（排除转推和引用）。匿名第三方代理不会收到 X Cookie。
-- Telegram 的本地存储不是 Cookie：导入内容需要 `dc` 和对应的 `dcN_auth_key`（512 位十六进制），可以是 JSON 或 `key=value` 文本。插件只恢复已有 WebK 会话，不发起验证码登录、不注册自有客户端；退出只删除本应用保存的会话。附件按 128 KiB 分块读取，单个最多 512 MiB；媒体引用过期时刷新一次。网络走原生隔离 HTTP 桥，不开放 WebView fetch / WebSocket。
-- OnlyFans、Fantia、Patreon、Fansly 未完成媒体读取链路，没有加入官方清单。首页能打开不等于可以订阅媒体，也不提供付费权限绕过。

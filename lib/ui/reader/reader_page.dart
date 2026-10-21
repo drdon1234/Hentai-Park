@@ -252,6 +252,9 @@ class _ReaderPageState extends _ReaderBase
   Widget build(BuildContext context) {
     if (_pages != null && _paged) _relayout();
     final s = _settings;
+    final readingBrightness = _background.computeLuminance() > .5
+        ? Brightness.light
+        : Brightness.dark;
     return Theme(
       data: ParkTheme.of(Brightness.dark, Color(s.seedColor)),
       child: Focus(
@@ -302,7 +305,6 @@ class _ReaderPageState extends _ReaderBase
                 ? ReaderProgress(
                     value: _page.toDouble(),
                     max: (_pages!.length - 1).toDouble(),
-                    divisions: _pages!.length > 1 ? _pages!.length - 1 : null,
                     label: (v) => '${v.round() + 1}',
                     trailingLabel: '${_pages!.length}',
                     onSeek: (v) => _jump(v.round()),
@@ -313,12 +315,15 @@ class _ReaderPageState extends _ReaderBase
             child: Stack(
               children: [
                 Positioned.fill(
-                  child: ReaderFilters(
-                    grayscale: s.readerGrayscale,
-                    invert: s.readerInvert,
-                    dim: s.readerDim,
-                    warm: s.readerWarm,
-                    child: _content(),
+                  child: Theme(
+                    data: ParkTheme.of(readingBrightness, Color(s.seedColor)),
+                    child: ReaderFilters(
+                      grayscale: s.readerGrayscale,
+                      invert: s.readerInvert,
+                      dim: s.readerDim,
+                      warm: s.readerWarm,
+                      child: _content(),
+                    ),
                   ),
                 ),
                 if (!_overlay &&

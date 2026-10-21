@@ -44,6 +44,27 @@ bool hostInDomains(String host, Iterable<String> domains) {
   return false;
 }
 
+/// 站点文档与资源共用地址边界，具体路径和查询语义由插件判断。
+bool httpsDomainAddressAllowed(Uri? uri, Iterable<String> domains) =>
+    uri != null &&
+    uri.scheme == 'https' &&
+    uri.port == 443 &&
+    uri.userInfo.isEmpty &&
+    publicDomainHost(uri.host) &&
+    hostInDomains(uri.host, domains);
+
+bool publicDomainHost(String host) =>
+    RegExp(r'^[a-z0-9](?:[a-z0-9.-]*[a-z0-9])?\.[a-z]{2,}$').hasMatch(host) &&
+    !host
+        .split('.')
+        .any(
+          (label) =>
+              label.isEmpty || label.startsWith('-') || label.endsWith('-'),
+        ) &&
+    host != 'localhost' &&
+    !host.endsWith('.localhost') &&
+    !host.endsWith('.local');
+
 /// The sites a source may use cookies / browser pages for: its explicit `domains`, otherwise
 /// the registrable domains of its homepage, network origin and account URLs.
 List<String> declaredDomains(Map<String, dynamic> manifest) {
@@ -75,12 +96,4 @@ List<String> declaredDomains(Map<String, dynamic> manifest) {
 
 /// 登录页额外允许的授权主机；源站 Cookie 权限保持独立。
 bool loginNavigationAllowed(Uri uri, Iterable<String> domains) =>
-    uri.scheme == 'https' &&
-    uri.port == 443 &&
-    uri.userInfo.isEmpty &&
-    uri.host.isNotEmpty &&
-    !_isIp(uri.host) &&
-    uri.host != 'localhost' &&
-    !uri.host.endsWith('.localhost') &&
-    !uri.host.endsWith('.local') &&
-    hostInDomains(uri.host, domains);
+    httpsDomainAddressAllowed(uri, domains);

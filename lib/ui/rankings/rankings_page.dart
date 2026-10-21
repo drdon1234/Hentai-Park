@@ -128,11 +128,7 @@ class _RankingsPageState extends State<RankingsPage> {
               .toList();
           final available = [...commercial, ...community];
           final categories = [
-            for (final category in [
-              SourceCategory.jav,
-              SourceCategory.doujin,
-              SourceCategory.anime,
-            ])
+            for (final category in AppSettings.instance.domainOrder)
               if (available.any((entry) => entry.board.category == category))
                 category,
           ];

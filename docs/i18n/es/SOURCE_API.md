@@ -2,7 +2,7 @@
 
 # API de plugins de sitios
 
-[Inicio rápido](#inicio-rápido) · [Campos del manifest](#campos-del-manifest) · [Métodos](#métodos) · [API del entorno](#api-del-entorno) · [Códigos de error](#códigos-de-error) · [Localización](#localización) · [Publicación](#publicación) · [Apéndice: notas sobre los sitios oficiales](#apéndice-notas-sobre-los-sitios-oficiales)
+[Inicio rápido](#inicio-rápido) · [Campos del manifest](#campos-del-manifest) · [Métodos](#métodos) · [API del entorno](#api-del-entorno) · [Códigos de error](#códigos-de-error) · [Localización](#localización) · [Publicación](#publicación)
 
 Cada sitio de HentaiPark es un plugin JavaScript independiente. La app carga los plugins en tiempo de ejecución; se pueden instalar desde un repositorio, actualizar, activar o desactivar **sin recompilar la app**. Los plugins oficiales están en [`assets/sources/`](../../../assets/sources/) y sirven de ejemplo.
 
@@ -69,7 +69,7 @@ Park.register({
   name: '我的站点',
   version: '0.0.1',           // tres números; la app ofrece actualizar si el repositorio tiene uno mayor
   type: 'comic',              // comic | video | novel | game: cómo se leen o reproducen las obras
-  category: 'doujin',         // doujin | anime | aiDrama | jav | adult | shortvideo | gallery | novel | game | other
+  category: 'doujin',         // doujin | anime | aiDrama | jav | adult | shortvideo | recording | live | gallery | illustration | novel | game | other
   color: '#E5355F',           // color de marca: icono y página del sitio
   description: '一句话介绍',
   homepage: 'https://example.com',
@@ -77,8 +77,8 @@ Park.register({
   linkPatterns: ['example\\.com/g/(\\d+)'],   // los enlaces pegados abren la obra; el grupo 1 es el ID
   idPattern: '^(\\d+)$',                      // los ID escritos abren la obra
   imageHeaders: { Referer: 'https://example.com/' },  // cabeceras por defecto de portadas e imágenes
-  network: { mode: 'native', vpnHint: true },  // ver «Red»
-  media: { mode: 'browser', origin: 'https://example.com', domains: ['media.example.com'] },  // permiso opcional de medios HLS
+  network: { mode: 'auto', vpnHint: true },  // ver «Red»
+  media: { mode: 'browser', origin: 'https://example.com', domains: ['media.example.com'] },  // permiso multimedia para vídeo y archivos directos
   imageNetwork: { mode: 'browser', origin: 'https://img.example.com', domains: ['img.example.com'] }, // opcional
   imageDecrypt: { /* opcional, ver «Imágenes cifradas» */ },
 
@@ -91,6 +91,7 @@ Park.register({
   i18n: { /* traducciones propias de la interfaz, ver «Localización» */ },
 
   subscription: { /* opcional: seguir canales/creadores, ver «Suscripciones» */ },
+  postShortVideos: true,
   updateSubscriptions: { /* opcional: suscripciones de actualizaciones */ },
 
   async init() {},              // opcional: se llama una vez al arrancar el entorno (p. ej. refrescar dominios)
@@ -108,17 +109,21 @@ Las capacidades (`capabilities`) las exporta el entorno a partir de los métodos
 | Categoría | Significado |
 | --- | --- |
 | `doujin` | Doujinshi y cómics |
-| `gallery` | Galerías: ilustración, cosplay y sesiones de fotos. Los sitios de imágenes siguen declarando `type: 'comic'`; una galería es una obra y sus imágenes salen en orden de `chapter()`, así que lectura, favoritos y descargas funcionan igual. La categoría no depende del número de imágenes ni del contenido |
+| `gallery` | Galerías de fotos: cosplay, fotografía e imágenes de personas reales. Los sitios de imágenes usan `type: 'comic'`; cada conjunto es una obra y `chapter()` devuelve sus imágenes ordenadas, con lectura, favoritos y descargas compartidos. La cantidad de imágenes y su contenido no determinan la categoría |
+| `illustration` | Galerías de ilustraciones: dibujos e imágenes de anime. Los sitios de imágenes usan `type: 'comic'`; cada conjunto es una obra y `chapter()` devuelve sus imágenes ordenadas, con lectura, favoritos y descargas compartidos. La cantidad de imágenes y su contenido no determinan la categoría |
 | `anime` | Anime adulto |
 | `aiDrama` | Dramas cortos de IA. No se acepta el antiguo `drama`; declara los nombres de canal del sitio tal cual, la categoría de la app no los filtra |
 | `jav` | Sitios dedicados a JAV |
 | `adult` | Vídeo adulto general (Pornhub, XVideos, 91porn…), `type: 'video'`. Una categoría es una agrupación; no sustituye las etiquetas del sitio ni los filtros del usuario |
 | `shortvideo` | Vídeos cortos: flujo vertical a pantalla completa, ver abajo |
+| `recording` | Grabaciones y vídeo bajo demanda, `type: 'video'` |
+| `live` | Directos, `type: 'video'` |
 | `novel` | Novelas, `type: 'novel'` |
 | `game` | Juegos, `type: 'game'` |
-| `other` | Todo lo demás (sitios de suscripción, etc.) |
+| `other` | Comunidades de creadores |
 
 - **Vídeos cortos** (`type: 'video', category: 'shortvideo'`): obras, búsqueda, favoritos e historial abren directamente el flujo. Cada obra es un vídeo y `videos(id, '_')` devuelve su medio actual; no hace falta página de detalles. `hasNext` y `cursor` de `feed` cargan la página siguiente cerca del final; los cursores no deben contener credenciales ni firmas de medios. Al refrescar se empieza por la primera página; el elemento actual se reproduce, el siguiente se precarga en pausa y el resto se libera. No declares `search` si el sitio no tiene búsqueda.
+- **Vídeos de publicaciones** (`postShortVideos: true`): las páginas del sitio y de los objetivos de suscripción reproducen por separado los vídeos de `media[]`. Cada uno necesita una `url` directa o un `episodeId` no vacío; la resolución diferida llama a `videos(idOriginalDePublicación, episodeId)` al reproducir o precargar, sin usar páginas web como URL de medios. Las imágenes quedan fuera; se admiten `preview`, `format` y `headers`. La paginación y la actualización conservan el feed, los filtros o el ámbito de `subscription.posts` del objetivo. La reproducción distingue adjuntos; favoritos, historial e interacciones usan el ID original. No cambia la categoría ni implica una API aleatoria independiente.
 - **Agregadores que solo reproducen en el sitio original**: siguen declarando `type: 'video', category: 'adult'`; sin una API de medios verificada no implementan `videos` y el entorno exporta `capabilities.videos: false`. El botón principal abre `detail.url` en el navegador del sistema, se ocultan reproducción, descargas y episodios, no se guardan capítulos falsos ni se comprueban actualizaciones; favoritos e historial siguen funcionando.
 - **Novelas** y **juegos** se explican en «Métodos».
 
@@ -139,17 +144,46 @@ Las fuentes que permiten acceso anónimo pero requieren iniciar sesión para las
 
 Cada entrada de `feeds` es una pestaña de la página del sitio: `{ key, label, options?: [...] }`.
 
+### Filtros dinámicos y en cascada
+
+Las opciones de selección de `feeds[].options` y `searchFilters` pueden declarar `dynamic: true, values: []`. Los hijos dinámicos referencian padres del mismo grupo con `dependsOn: ['range']`. Las claves deben ser únicas y las dependencias existentes y sin ciclos. Solo las opciones dinámicas declaran dependencias.
+
+`filterOptions(request)` devuelve un array de opciones. La solicitud contiene `scope: 'feed' | 'search'`, `filter` y `values`; los listados incluyen `feed` y las búsquedas pueden incluir `keyword`. `values` solo contiene padres directos declarados, nunca cuentas, ajustes ni filtros ajenos. Los hijos no se cargan si un padre está vacío o sin seleccionar.
+
+Declara `keywordDependent: true` si las opciones dependen de la palabra clave. Cambiarla restablece esa opción y sus descendientes y conserva los demás filtros. Los padres de `values` deben ser cadenas, números o booleanos, nunca arrays de selección múltiple. Las etiquetas remotas no son texto fijo de interfaz; se permite la traducción de contenido y etiquetas.
+
+Devuelve como máximo 500 entradas `{value, label, color?}`. Los valores son cadenas únicas o números finitos. Las etiquetas son nombres originales no vacíos, sin caracteres de control y de hasta 256 caracteres; los colores tienen seis dígitos hexadecimales. Divide catálogos grandes en grupos en cascada sin truncarlos silenciosamente. Las etiquetas remotas no se traducen automáticamente.
+
+Las selecciones llegan a `feed` mediante `options` y a `search` mediante `filters`. El plugin valida la pertenencia real al catálogo y conserva los filtros al paginar; los fallos de análisis generan errores. La app guarda las opciones dos minutos por sitio, ámbito, listado o palabra clave y valores superiores. Cambiar un padre borra los hijos y descarta respuestas antiguas; los fallos permiten reintentar.
+
+Cada plugin de dominio lee solo su propio catálogo. Los dominios relacionados no llaman a otros plugins ni comparten cookies. Reutiliza plantillas de análisis al compilar y genera scripts independientes. Ejecuta `node tools/build_catalog_sources.mjs` para generar catálogos y `--check` para comprobar su coherencia.
+
+```js
+{key: 'category', label: '分类', type: 'select', default: '',
+ dynamic: true, dependsOn: ['range'], values: []}
+
+async filterOptions({scope, feed, filter, keyword, values}) {
+  return [{value: 'site-category-id', label: 'Site category'}];
+}
+```
+
 ### Red
 
-- `network.mode: 'native'` (por defecto): HTTP nativo con cookies persistentes, usando el proxy del usuario. Un desafío de Cloudflare lanza `CLOUDFLARE`; la app guía al usuario por la verificación en el navegador integrado y sincroniza las cookies de paso con las solicitudes nativas.
-- `network.mode: 'browser'` + `network.origin`: las solicitudes se hacen con `fetch()` del mismo origen desde una página oculta abierta en `origin`, con la huella de un navegador real — para sitios con protección estricta de Cloudflare. Si un GET del mismo origen recibe un desafío, el navegador oculto navega a él para superarlo y reintenta una vez; si falla, lanza `CLOUDFLARE`.
+- `network.mode: 'auto'` (por defecto): primero usa HTTP nativo. En solicitudes GET/HEAD HTTPS del mismo origen sin cuerpo, los desafíos de Cloudflare, HTTP 403, 429 o errores de conexión recuperables activan un único reintento en el navegador. DNS, TLS, tiempos de espera, errores de flujo de respuesta y respuestas 5xx normales no activan el navegador para evitar latencia adicional. El destino debe estar dentro de los dominios declarados por la fuente y se mantienen las restricciones de mismo origen y redirección.
+- `network.mode: 'native'`: Fuerza HTTP nativo con cookies persistentes y el proxy configurado. Una comprobación de Cloudflare devuelve `CLOUDFLARE` para reintentar en la app; si el error incluye una URL de verificación del sitio, el usuario puede abrir su página de confirmación.
+- `network.mode: 'browser'` + `network.origin`: Envía `fetch()` del mismo origen desde una página oculta en `origin`. Las lecturas con Cloudflare (incluido HTTP 200) o una confirmación de edad sin las cookies/contenido necesarios navegan para verificar como máximo una vez antes de volver a leer; las escrituras no se repiten. La edad sigue `network.confirmation`. Android y Windows envían entrada al único checkbox estándar de Cloudflare; otras plataformas esperan la comprobación automática. Los fallos permiten reintentar o abrir la confirmación si se proporciona una URL de verificación del sitio.
+
+  Los documentos navegan entre dominios declarados con el mismo protocolo y puerto. Si no se indica, el `origin` de la petición se obtiene de la URL del sitio de destino. La respuesta conserva la `url` final.
+
+  El cambio automático excluye `followRedirects: false`, `connectAddress` y errores de red sin clasificar. Las solicitudes GET/HEAD del navegador sin cuerpo tienen como máximo tres intentos ordinarios y una repetición adicional tras la verificación, solo ante fallos de conexión o HTTP 408, 500, 502, 503 y 504; no se repiten 429 ni tiempos de espera. Cada solicitud lógica admite una sola navegación de verificación entre todos sus intentos. El inicio, las solicitudes, la lectura del documento y el cierre tienen esperas limitadas. Las cabeceras API personalizadas se envían mediante `fetch()`, sin sustituir la solicitud por una navegación. El HTML reutilizado conserva su estado de error; `responseType: 'base64'` devuelve los bytes originales en base64.
+
 - `network.vpnHint: true`: decláralo en sitios que puedan necesitar VPN o proxy en China continental; las esperas de más de 8 segundos y los fallos mencionarán «puede necesitar VPN o proxy». No atribuyas todos los errores a la VPN.
-- `network.confirmation: { selector, readySelector, requiredCookies, message }`: para sitios que exigen una confirmación explícita (como una verificación de edad). `selector` encuentra el diálogo, `readySelector` el contenido accesible y `requiredCookies` las cookies que deben existir después. Ante una página sin confirmar, el plugin lanza `Park.error('CONFIRM_REQUIRED', message, { url })`; la app muestra «Confirmar» y vuelve cuando el diálogo desaparece, el contenido es visible, las cookies se han escrito y la navegación se ha estabilizado. La app nunca confirma por el usuario, y esta declaración también evita que una verificación genérica tome la de edad por superada.
+- `network.confirmation: { selector, readySelector, requiredCookies, auto: { clickSelector }, message }`: Declara la confirmación de edad. `selector` identifica el diálogo, `auto.clickSelector` su único botón de confirmación, `readySelector` el contenido accesible y `requiredCookies` los nombres de cookies necesarios tras confirmar. Solo después de confirmar la mayoría de edad al entrar en la app, el navegador oculto simula un clic y comprueba que desaparezca el diálogo, aparezca el contenido, existan las cookies y termine la navegación. Las reglas incompletas, no coincidentes o fallidas permiten reintentar. Si el error incluye una URL de verificación del sitio, se puede abrir, resolver manualmente y pulsar Hecho. Se mantienen los límites de dominio y la separación de cookies; las notificaciones de operaciones no repiten automáticamente la acción original. No sirve para iniciar sesión, pagar o publicar.
 - Los errores de red llevan los campos seguros `diagnostics` `host`, `transport` y `reason`, que distinguen certificados TLS, negociación, DNS, conexión y tiempos de espera; los registros automáticos solo guardan esos campos. `reason: 'TLS_HANDSHAKE_TERMINATED'` solo significa que `HandshakeException.message` nativo es exactamente `Connection terminated during handshake` (la conexión se cortó antes de completar la negociación, no un fallo de certificado); solo los GET/HEAD HTTPS sin cuerpo se reintentan una vez, y nada más se reintenta.
 
 ### Imágenes
 
-- `imageNetwork: { mode: 'browser', origin, domains }`: decláralo cuando una CDN de imágenes necesite solicitudes desde el navegador. `origin` y todos los dominios de imágenes deben estar en `domains`; solo HTTPS y cabeceras permitidas; las solicitudes no llevan credenciales, no siguen redirecciones y se limitan a 20 MiB por imagen, y siguen pasando por descifrado, comprobación de formato, decodificación y caché por sitio. Sin él se usa el transporte nativo.
+- `imageNetwork: { mode: 'browser', origin, domains }`: Los dominios y subdominios de imágenes son independientes de las cookies del sitio. `origin` puede pertenecer al sitio o a imágenes. Usa HTTPS 443 y cabeceras permitidas, con la sesión del navegador para imágenes del mismo origen si origin pertenece al sitio; las imágenes de otro origen, los orígenes externos y los vídeos no envían credenciales, y admite redirecciones entre dominios autorizados. Se mantienen el límite de 20 MiB, descifrado, formato, decodificación y caché por sitio. Sin declaración se usa transporte nativo. Consulte los permisos de medios para las limitaciones de redirección del navegador por plataforma.
 - **Imágenes cifradas**: declara `imageDecrypt` y el framework descifra antes de comprobar el formato y guardar en caché; los ajustes de descifrado forman parte de la identidad en caché y los fallos no se guardan. Se admite AES-CBC con relleno PKCS#7 estricto, con `key` e `iv` en UTF-8; hay que limitar los dominios de imágenes, el resto usa la ruta normal.
 
 ```js
@@ -167,6 +201,8 @@ Que una portada devuelva HTTP 200 no basta: comprueba que se decodifica.
 
 El permiso `media` es independiente de `this.http`, `network` y las cookies del sitio:
 
+Todo complemento que implemente `videos()` debe declarar permisos `media` válidos, aunque solo devuelva MP4. `scope: 'session'` puede coexistir con `domains` estáticos: HLS usa las URL exactas autorizadas para la sesión; el MP4 directo debe coincidir con la lista de dominios estáticos. La publicación oficial rechaza declaraciones ausentes o no válidas.
+
 ```js
 domains: ['example.com'],
 network: { mode: 'native' },
@@ -175,9 +211,12 @@ media: { mode: 'native', origin: 'https://example.com', domains: ['media.example
 
 - `media.mode` es `'native'` o `'browser'`. `media.origin` debe pertenecer a los sitios del plugin, usar HTTPS en el puerto 443 y no llevar credenciales, consulta ni fragmento.
 - `media.domains` es una lista aparte de dominios de medios (con subdominios) que no da acceso a cookies del sitio. Listas, segmentos y claves deben ser HTTPS en 443; se rechazan credenciales en la URL, fragmentos, IP, localhost (y subdominios) y `.local`.
-- `'native'` usa un cliente nativo aparte y sin credenciales: sin cookies del sitio, Authorization ni autenticación de proxy; cada salto de redirección se comprueba antes. Solo se permiten `Referer`, `Origin`, `Accept` y `Accept-Language`, y las dos primeras deben coincidir con `media.origin`.
-- `'browser'` abre una sesión de medios en un navegador oculto en `media.origin` con `credentials: 'omit'`, `mode: 'cors'` y `redirect: 'error'`.
+- `'native'`: Usa un cliente independiente sin cookies, Authorization ni autenticación de proxy; comprueba cada redirección antes de conectar. Permite `Referer`, `Origin`, `Accept`, `Accept-Language`; las dos primeras pertenecen a dominios declarados del sitio, incluidos subdominios de idioma. `Origin` contiene solo el origen.
+- `media.referrerDomains` es opcional, solo para medios de vídeo nativos y con un máximo de 16 dominios públicos válidos (incluidos subdominios). Amplía únicamente los orígenes permitidos de `Referer`, como excepción explícita a los dominios del sitio anteriores. No concede permisos adicionales de `Origin`, URL multimedia, navegación de documentos ni cookies, y no es válido para `imageNetwork` o medios de navegador.
+- `'browser'`: Abre una sesión oculta en `media.origin`, con navegación dentro de los dominios del sitio. Usa `credentials: 'omit'`, `mode: 'cors'`; el documento real y el navegador generan Origin/Referer. En Windows, WebView2 comprueba cada dominio antes de conectar y permite redirecciones autorizadas, comprobando también la URL final. Otros motores no permiten interceptar cada salto y usan `redirect: 'error'`. CORS y la CSP siguen vigentes; comprobar solo la URL final no autoriza redirecciones.
 - Las respuestas se limitan en tamaño mientras llegan y se vuelve a comprobar su dirección final: listas de hasta 2 MiB, segmentos de hasta 32 MiB y claves AES-128 de exactamente 16 bytes. Se rechazan respuestas demasiado grandes o vacías y direcciones no permitidas.
+
+- Los CDN HLS dinámicos pueden declarar `media.scope: 'session'` con `mode: 'native'`. La autorización solo cubre las URL, recursos de listas y redirecciones permitidas de la sesión actual de reproducción o descarga, y caduca al cerrarla. No amplía permisos de cookies ni dominios persistentes. Se mantienen HTTPS, las peticiones sin credenciales y los límites de destino y tamaño; MP4 directo y medios del navegador conservan sus listas estáticas.
 
 ### Aislamiento y seguridad
 
@@ -195,8 +234,9 @@ account: {
   type: 'password' | 'cookies' | 'session',
   title, hint, required: false,
   fields: [{ key: 'email', label: '邮箱' }, { key: 'password', label: '密码', secret: true }],
-  loginUrl?, cookieUrl?, requiredCookies?: ['ipb_member_id'],   // permite iniciar sesión en la web; la app recoge las cookies
+  loginUrl?, cookieUrl?, requiredCookies?: ['session_id'],   // permite iniciar sesión en la web; la app recoge las cookies
   loginDomains?: ['accounts.google.com', 'appleid.apple.com'],  // dominios de inicio de sesión de terceros, solo para navegar al iniciar sesión
+  localStorageKeys?: ['session_key'],  // solo claves localStorage permitidas del origen cookieUrl, pasadas a login(values); no registrar valores
   async login(values) { return { name } },
   async logout() {},
   async status() { return { loggedIn, name, configured } },
@@ -208,7 +248,7 @@ account: {
 - El estado de la cuenta se refresca solo en el primer uso, tras iniciar o cerrar sesión o tras el inicio de sesión web, y cuando la última comprobación tiene más de 10 minutos; no después de cada llamada. `configured` indica que hay una cuenta configurada, funcione o no el inicio de sesión en ese momento.
 - `loginDomains`: dominios de terceros que el sitio usa de verdad para iniciar sesión (con subdominios). Solo se permiten mientras el usuario tiene abierta la página de inicio de sesión web, y solo HTTPS en 443; se rechazan credenciales en la URL, IP, localhost y `.local`. Las páginas de verificación, la confirmación de acceso, las solicitudes del plugin y la importación de cookies se siguen comprobando contra `domains`; no añadas dominios de inicio de sesión a `domains` para ampliar el acceso. La página admite redirecciones en la misma ventana y ventanas emergentes que conservan `window.opener`, con las mismas comprobaciones; una página inicial en blanco no da navegación externa. No se considera iniciada la sesión mientras se está en una página de terceros; las cookies se sincronizan al volver al sitio. Las cookies de terceros no se importan al almacén del plugin ni se borran con las del sitio; las gestiona el WebView del sistema. Los terceros pueden seguir limitando el inicio de sesión en navegadores integrados.
 - `type: 'session'` importa una sesión ya autorizada: declara un campo secreto (como `session`); el contenido del portapapeles se conserva íntegro y lo valida el plugin, sin dividirlo en usuario, contraseña o cookies. El inicio de sesión debe confirmar la autorización de verdad; nunca informes de éxito solo por el formato de la entrada.
-- `managedAccount: true` declara una cuenta gestionada automáticamente, controlada por un ajuste con el mismo nombre. La app debe explicar primero el registro automático y obtener el consentimiento, luego guardar el ajuste y llamar a `account.enableManaged()`. Guarda las credenciales candidatas y haz `await this.store.flush()` antes de registrar, para recuperar la misma cuenta tras un fallo o reinicio. Guarda por separado las credenciales manuales y la cuenta gestionada; esta nunca sustituye a una manual. Desactivar el ajuste conserva la cuenta gestionada para reutilizarla; un token caducado solo vuelve a iniciar sesión y nunca registra otra cuenta.
+- `managedAccount: true` y `account.enableManaged()` ofrecen gestión opcional de cuentas, que solo se activa tras la confirmación informada del usuario. Guarda por separado las cuentas manuales y gestionadas sin sobrescribir credenciales existentes. Los datos de cuenta permanecen en el dispositivo y no deben aparecer en documentación, diagnósticos ni archivos de publicación.
 - Contraseñas, tokens y estado del plugin son datos locales del usuario; nunca pongas credenciales reales en documentos ni registros.
 
 ## Métodos
@@ -241,7 +281,7 @@ async resolveGameResource(workId, resourceId, channelId) {}
 { sections: [{ title: '连载更新', items: [WorkItem] }], hasNext: false }
 ```
 
-**WorkItem**: `{ id, title, subtitle?, cover, coverAspect?, pages?, rating?, likes?, views?, language?, category?, badge?, badgeColor?, duration?, uploaded?, tags?, mediaKind?, workCode?, editions? }`
+**WorkItem**: `{ id, title, subtitle?, cover, coverBlurred?, coverAspect?, pages?, rating?, likes?, views?, language?, category?, badge?, badgeColor?, duration?, uploaded?, tags?, mediaKind?, workCode?, editions? }`
 
 - `workCode` es un código de obra confirmado por la fuente y se usa solo para buscar la misma obra. No sustituye a `id` ni fusiona identidades, favoritos, progreso o descargas.
 - `editions` contiene etiquetas fijas de edición indicadas explícitamente por la fuente, como subtítulos en chino o una filtración sin censura. La ausencia de etiquetas no implica una edición original. La traducción visible no modifica las etiquetas originales.
@@ -287,13 +327,17 @@ Todos los campos de WorkItem, más:
 
 ### Vídeo: `videos`
 
-Devuelve `[{ quality: 1080, label: '1080P', url, headers?, format?, preferred? }]`. Los enlaces directos suelen caducar, así que la app los vuelve a pedir antes de cada reproducción o descarga.
+Devuelve `[{ quality: 1080, label: '1080P', url, headers?, format?, preferred?, hls? }]`. Los enlaces directos suelen caducar, así que la app los vuelve a pedir antes de cada reproducción o descarga.
+
+- `format: 'hls'` admite `hls: {manifest, keys}`: `url` es la base HTTPS real de la variante; `manifest` es una lista multimedia VOD completa ya procesada (máximo 2 MiB UTF-8); `keys` asigna las URL absolutas de claves referenciadas a claves de 16 bytes en Base64, hasta 32 entradas. Solo para medios nativos. Se mantienen la autorización de direcciones y la validación del contenido; se rechazan claves no referenciadas. Estos resultados no se guardan en la caché de disco; las claves solo permanecen en la memoria de sesión, nunca en store, registros, obras o cursores.
 
 - Los vídeos con varios episodios devuelven `[{ id, title }]` en orden de reproducción en `detail(id).chapters`; cada `id` debe ser estable, nunca una calidad ni una URL temporal. La app usa el mismo ID para elegir episodios, guardar el progreso, descargar y reanudar, y llama a `videos(id, episodeId)` para cada episodio. Los vídeos sueltos usan `singleChapterId`, o `'_'` si no existe.
 - Sin `format`, reproducción y descarga tratan el enlace como MP4 directo. HLS debe devolver `format: 'hls'` y declarar el permiso `media`.
-- La app expande una lista maestra HLS (`#EXT-X-STREAM-INF`) en listas por variante y toma la calidad real de `RESOLUTION`. Si devuelves una maestra, `quality` es la calidad deseada: se elige la mayor calidad real que no la supere o, si no hay, la más alta. Cada variante debe ser MPEG-TS con audio y vídeo multiplexados; se rechazan las versiones `AUDIO`, `VIDEO`, `SUBTITLES` separadas y las direcciones fuera de `media.domains`. Las pistas `#EXT-X-I-FRAME-STREAM-INF` se ignoran. Si una lista simple no tiene resolución conocida, usa `label: '原画'` en vez de presentar la calidad deseada como real.
-- Solo se admiten listas VOD MPEG-TS completas y continuas con `#EXT-X-ENDLIST`; se descifra `METHOD=AES-128` con `KEYFORMAT=identity` (CBC/PKCS7), con claves de exactamente 16 bytes y un IV explícito o derivado de la secuencia. Las claves solo están en la memoria de la sesión. No se admiten directos, SAMPLE-AES, otros KEYFORMAT, `EXT-X-MAP`, `EXT-X-BYTERANGE`, fMP4, discontinuidades ni huecos; se elimina el `#EXT-X-TOKEN` no estándar.
-- La reproducción usa un puerto aleatorio ligado a `127.0.0.1` y un token aleatorio, y sirve bajo demanda segmentos verificados desde un registro limitado de URL; cerrar la sesión cancela las solicitudes. Las descargas HLS sin conexión solo funcionan en Android por ahora: cada segmento se verifica y se guarda su SHA-256, se pueden reanudar y cancelar, y Media3 crea al final un MP4; solo los archivos completos llegan a la biblioteca sin conexión.
+- La app expande una lista maestra HLS (`#EXT-X-STREAM-INF`) en listas por variante y toma la calidad real de `RESOLUTION`. Si devuelves una maestra, `quality` es la calidad deseada: se elige la mayor calidad real que no la supere o, si no hay, la más alta. Cada variante debe ser MPEG-TS o fMP4 de VOD con audio y vídeo multiplexados; se rechazan las versiones `AUDIO`, `VIDEO`, `SUBTITLES` separadas y las direcciones fuera de `media.domains`. Las pistas `#EXT-X-I-FRAME-STREAM-INF` se ignoran. Si una lista simple no tiene resolución conocida, usa `label: '原画'` en vez de presentar la calidad deseada como real. Sin `RESOLUTION` se exige `BANDWIDTH` válido: se conservan las variantes en kbps y se prefiere la de mayor tasa, sin inventar resoluciones.
+- `type: 'video', category: 'live'` identifica directos públicos en 3D con tarjetas solo de imagen. `videos()` devuelve el HLS de la sala pública actual; no inventes resultados reproducibles para salas privadas, de pago o desconectadas. Se usan listas móviles sin progreso VOD ni descargas. La grabación requiere una acción explícita y solo guarda segmentos posteriores a la ventana inicial. Termina al detenerla o salir de la aplicación, sin reanudarse al reiniciar. Una sesión independiente y una tarea en segundo plano validan y descifran cada segmento y guardan una lista local completa. Al reconectar se resuelve de nuevo el medio; los cambios de codificación y las grabaciones largas pueden crear nuevas partes. Se conservan los datos guardados si falla. Solo se admite MPEG-TS multiplexado; MAP/fMP4, PART de baja latencia, BYTERANGE y GAP no se admiten.
+- VOD requiere listas MPEG-TS o fMP4 completas y continuas con `#EXT-X-ENDLIST`. fMP4 admite un solo segmento de inicialización `#EXT-X-MAP` antes de los medios, sin cambios ni rangos de bytes. Se autorizan, validan y reescriben localmente ambos tipos de segmento; la reproducción sin conexión y la exportación conservan la inicialización. Los directos siguen usando MPEG-TS con listas móviles y discontinuidades. Ambos descifran `METHOD=AES-128`, `KEYFORMAT=identity` con CBC/PKCS7 y claves de 16 bytes. El IV de los medios es explícito o derivado de la secuencia; la inicialización cifrada exige un IV explícito. Las claves permanecen en la memoria de la sesión. No se admiten SAMPLE-AES, otros KEYFORMAT, BYTERANGE ni GAP; VOD tampoco admite discontinuidades. Se elimina `#EXT-X-TOKEN`.
+- Las listas HLS y los segmentos MPEG-TS admiten envolturas PNG `roUd` (sin compresión o con zlib). Se extraen antes de analizar, validar o descifrar, con límites de 2 MiB por lista y 32 MiB por segmento extraído. Los plugins siguen devolviendo `format: 'hls'` sin permisos adicionales.
+- La reproducción usa un puerto aleatorio ligado a `127.0.0.1` y un token aleatorio, y sirve bajo demanda segmentos verificados desde un registro limitado de URL; cerrar la sesión cancela las solicitudes. Las descargas HLS sin conexión solo funcionan en Android por ahora: cada segmento se verifica y se guarda su SHA-256, se pueden reanudar y cancelar, y Media3 crea al final un MP4; solo los archivos completos llegan a la biblioteca sin conexión. fMP4 conserva la inicialización y los medios en orden, sin conversión TS mediante Media3.
 
 ### Novelas: `textChapter`
 
@@ -355,9 +399,22 @@ subscription: {
 ```
 
 - `normalize` solo valida en local, para poder guardar objetivos sin sesión o sin conexión; acepta solo nombres de usuario o URL de perfil controladas del propio sitio. `resolve` y `targets` son opcionales; con `targets`, el manifest incluye `subscription.joinedTargets: true`.
+- Para una entrada independiente de comunidades, declara `communities: true`, `communityHint` y `communityExample`; el runtime exporta esos metadatos sin cambios. Los objetivos devuelven `{ id, label, kind: 'community' }` con ID distintos de los creadores. `targets({ kind: 'community' })` lista comunidades a las que se pertenece y `targets()` los objetivos predeterminados. Trátalos por separado para que un fallo comunitario no rompa la lista de creadores. `resolve` solo comprueba nombres y acceso en lectura; nunca se une automáticamente.
 - Los cursores de `posts` son cadenas opacas; la última página tiene `hasNext: false` y las páginas sin medios pueden seguir. `locked` indica falta de permisos; `previewOnly` marca vistas previas públicas: nunca hagas pasar una miniatura por el contenido completo.
+
+### Álbumes públicos: `subscription.media`
+
+Los álbumes son una capacidad independiente: no se construyen con publicaciones ya cargadas ni recurren a `subscription.posts`. Implementa `subscription.media(scope, { page, cursor })`; una fuente con feeds públicos y sin objetivos suscribibles puede declarar solo este método en `subscription`. El runtime exporta `capabilities.album` por separado de `capabilities.subscription`.
+
+`scope` es `{ feed, options }` o `{ target }`: feed con filtros o usuario, comunidad, canal o grupo. La fuente resuelve y recorre objetivos sin condiciones por sitio en la interfaz. Devuelve `{ items, cursor, hasNext }`; una página sin medios coincidentes puede continuar y cada cursor debe avanzar. Los cursores repetidos son errores.
+
+Cada elemento lleva un `id` de cadena estable, `presentation: 'post' | 'work'`, fecha ISO 8601 interpretable si se conoce y el array `media` completo en orden del sitio. Cada adjunto tiene `id` de cadena único y estable, `type: 'image' | 'video'` y `url` de contenido real o `resource` controlado. `preview` es una miniatura de imagen; `previewResource` usa el formato controlado descrito abajo, con máximo de 2 MiB y una imagen independiente. No uses portadas ni URL de vídeo como miniaturas falsas. El contenido restringido solo muestra vistas públicas con `previewOnly: true`, conserva el desenfoque original y usa `locked: true` si toda la publicación está bloqueada.
+
+La fuente completa adjuntos entre páginas y une grupos del sitio. El cliente fusiona obras repetidas por `id` de adjunto; el `order` numérico finito opcional solo ordena si está presente en todos los adjuntos de la obra. Las fechas locales se filtran con extremos incluidos y se excluyen fechas desconocidas al fijar un rango. Los filtros de imagen/vídeo y plegar publicaciones no cambian identidades. Tras un número limitado de páginas vacías filtradas se puede continuar manualmente. `presentation: 'work'` abre detalles y `'post'` la publicación completa. Las portadas solo cargan imágenes o miniaturas explícitas, nunca URL de reproducción.
+
+- `coverBlurred: true` y `blurred: true` en medios conservan el desenfoque del sitio en miniaturas e imágenes completas. No muestres fotos restringidas como contenido completo sin desenfocar. Las vistas previas y los vídeos completos resuelven el maestro HLS antes de reproducir la variante VOD elegida.
 - Los adjuntos autorizados sin enlace directo usan `media[].resource` e implementan `mediaChunk(resource, offset)`: como mucho 128 KiB por llamada, con offsets alineados a 128 KiB; el resource debe tener un `size` entero y una cadena `cacheKey` estable y no secreta que no cambie con credenciales ni referencias temporales. El framework comprueba el tamaño total y cada fragmento y escribe de forma atómica en su propia caché; un adjunto puede ocupar hasta 512 MiB y el resource no elige la ruta local. Ni los enlaces firmados ni los resources se guardan en los registros de suscripción.
-- Guardar una suscripción nunca sigue ni se une a nada. Las acciones de escritura no verificadas deben llevar al usuario al sitio original; nunca sigas, te unas ni pagues en silencio.
+- Las suscripciones que sigan o se unan en el sitio original deben explicar la acción y pedir confirmación antes de guardar. Las escrituras no verificadas deben dirigir al usuario al sitio original; nunca seguir, unirse ni pagar de forma silenciosa.
 
 ### Suscripciones de actualizaciones: `updateSubscriptions`
 
@@ -390,9 +447,12 @@ Utilidades globales:
 | `Park.crypto.sha256Hex` / `hmacSha256Hex(key, text)` / `aesEcbDecrypt(base64, key)` / `uuid()` | implementaciones nativas |
 | `Park.crypto.digestBytes('sha1' \| 'sha256', bytes)` | arrays de enteros 0–255, hasta 2 MiB |
 | `Park.crypto.randomBytes(length)` | bytes aleatorios seguros, length de 1 a 65536 |
+| `Park.url.parse(value, base, domains)` / `site(source, value, base?)` / `response(source, response, requested)` | Analiza URL HTTPS 443 autorizadas con subdominios, rechaza credenciales, elimina fragmentos y devuelve `null` si falla. `site` usa los `domains` de la fuente; `response` valida la URL final y no modifica la base compartida de la fuente, o lanza `BLOCKED`. El plugin comprueba ruta, página, obra y búsqueda; evite listas cerradas de claves y nombres de nodos CDN. |
 | `Park.utils.rateLimiter(ms)` | devuelve `wait()` y garantiza un intervalo mínimo entre solicitudes |
 | `Park.utils.mapLimit(items, n, fn)` / `lruMap(n)` / `parseCount('1.2万')` / `formatDate(ts)` | otras utilidades |
 | `Park.error(code, message, extra?)` | crea un error con código, ver «Códigos de error» |
+
+`Park.crypto.aesGcmDecrypt(ciphertext, key, iv)` recibe texto cifrado hexadecimal (incluida la etiqueta final de autenticación de 16 bytes, máximo 4096 bytes), una clave de 16/24/32 bytes y un IV de 12 bytes; devuelve bytes en claro. Si falla la autenticación, lanza un error sin devolver texto sin autenticar.
 
 ### `http.request(opts)`
 
@@ -436,7 +496,7 @@ La app traduce la plantilla primero con el `i18n` del plugin, después con el vo
 
 ### Caché de inicio y semántica de errores
 
-- Los resultados en vivo de `feed` conservan todos los campos del plugin; la caché de inicio en disco solo guarda metadatos de visualización permitidos (ID, título, portada, etiquetas, autor de la subida, tipo de medio, categoría, estadísticas); no se escriben `url`, credenciales, listas de medios ni publicaciones. No pongas credenciales en ID, URL de portada ni cursores. Los resultados que necesitan medios dinámicos o publicaciones no se guardan en caché.
+- Los resultados en vivo de `feed` conservan todos los campos. La caché privada y reconstruible en disco guarda metadatos permitidos, texto de publicaciones, datos de acceso a adjuntos y campos de detalle admitidos para abrir entradas antes de actualizar. Puede contener URL de medios temporales y referencias de recursos; los enlaces vencidos requieren actualizar. No sustituye descargas ni copias de seguridad. La identidad de caché separa sitio, cuenta, configuración y ámbito de solicitud. No incluyas credenciales en contenido devuelto, ID ni cursores, ni copies datos de acceso a diagnósticos o registros de suscripción.
 - Una caché antigua solo se muestra como contenido sin conexión ante errores explícitos `NETWORK` / `TIMEOUT`, y se marca como tal. Los fallos de inicio de sesión, confirmación, verificación humana, análisis y configuración deben lanzar sus propios errores; el framework nunca los disfraza de fallos de red, y un refresco iniciado por el usuario también muestra el error real.
 
 ## Localización
@@ -504,22 +564,7 @@ Un repositorio es un solo `index.json` en cualquier alojamiento estático. Los u
 
 ### Publicar los plugins oficiales
 
-Los plugins oficiales se publican desde el repositorio principal [drdon1234/Hentai-Park](https://github.com/drdon1234/Hentai-Park); la app lee:
-
-```text
-https://raw.githubusercontent.com/drdon1234/Hentai-Park/sources/index.json
-https://raw.githubusercontent.com/drdon1234/Hentai-Park/rankings/index.json
-```
-
-- `assets/sources/index.json` es la única lista mantenida; `file` apunta a un script de la misma carpeta llamado `{key}.js` (`[A-Za-z0-9_-]+.js`; sin subcarpetas, enlaces simbólicos ni puntos en el nombre base).
-- `tools/publish_sources.mjs` genera el índice publicado con `key`, `name`, `version`, `category`, `description`, `url`, `sha256` y `apiVersion`; las URL de los scripts se fijan al commit completo del código: `https://raw.githubusercontent.com/drdon1234/Hentai-Park/<SHA del commit>/assets/sources/<file>`. La rama `sources` solo contiene el `index.json` generado.
-- El publicador solo necesita los módulos integrados de Node.js 22+ y funciona sin conexión: comprueba la lista, los archivos y los límites de carpeta, carga el entorno y los scripts sin red ni almacenamiento y verifica `key`, `version` y API con la misma sonda `Park.__pending` / `Park.manifest` que la vista previa de instalación. No llama a `init`, al inicio de sesión ni a métodos del sitio, así que no sustituye a las solicitudes reales.
-
-```powershell
-node tools/publish_sources.mjs --commit '<SHA completo de 40 caracteres>' --output 'test/official-source-index.json'
-```
-
-El código permanece en la rama principal. `sources` distribuye complementos normales y `rankings` los dedicados a clasificaciones. Ambas ramas contienen solo un índice generado con URL de un commit fijo y SHA-256. El flujo valida y publica cada canal por separado; la aplicación lee ambos de forma independiente, rechaza canales incorrectos y claves duplicadas y conserva la confirmación de actualización.
+Los plugins oficiales se mantienen en `assets/sources/index.json`. `tools/publish_sources.mjs` comprueba el índice y las declaraciones del entorno sin conexión y genera un índice de publicación con URL inmutables y SHA-256. No inicia sesión ni llama a métodos del sitio y no sustituye la verificación real. Los pasos de compilación y publicación están en la [guía de desarrollo](../../DEVELOPMENT.md).
 
 ### Plugins generados
 
@@ -532,47 +577,13 @@ node tools/build_subscription_sources.mjs
 
 Usa [@mtproto/core 6.3.0](https://github.com/alik0211/mtproto-core) (GPL-3.0, [licencia](../../licenses/mtproto-core.txt); resumen de dependencias en [licencias de terceros](../../licenses/telegram-dependencies.txt)). El adaptador del sitio sustituye transporte, criptografía y almacenamiento, y no activa el WebSocket predeterminado de la biblioteca, el localStorage del navegador ni los registros de depuración.
 
-## Apéndice: notas sobre los sitios oficiales
-
-Convenciones necesarias para mantener los plugins oficiales. Los sitios cambian; el código del plugin es la referencia.
-
-**Juegos**
-
-- Orden por defecto: KUN Galgame → GalgameX → Salón de té dimensional. GalgameX y KUN activan NSFW por defecto (la API de invitado `content-filter` y el parámetro `include_nsfw`, respectivamente).
-- GalgameX abre por defecto los populares de la semana. La lista de recursos actualizados usa una Next Server Action descubierta en el front-end actual; su ID se guarda 15 minutos y se vuelve a descubrir cuando deja de funcionar, sin ejecutar scripts remotos. Los detalles se analizan desde los datos SSR Flight. Los recursos públicos usan host más hash de ruta como ID de canal estable; los resultados resueltos se emparejan por host y nombre de archivo / ID de compartición, rechazando discrepancias y duplicados, sin depender del orden de los enlaces temporales.
-- KUN abre por defecto la clasificación de vistas de 7 días con su API nativa pública; la API de descarga solo se llama al tocar, para que la precarga no infle el contador de descargas del sitio. Las páginas de recursos se recorren según el total de la API; las páginas repetidas o vacías antes de tiempo son errores.
-- El Salón de té dimensional usa modo navegador con su propio inicio de sesión y abre por defecto los populares del tablón de recursos Galgame; las portadas salen de los adjuntos del primer mensaje con 400 ms entre solicitudes. La lista de recursos es de solo lectura; la respuesta «感谢分享，好人一生平安» se envía con el formulario completo solo tras confirmar el usuario. No se responde en hilos ya desbloqueados; si el resultado no está claro, se conserva el estado y se dirige al usuario al hilo, y nada se reenvía tras reiniciar.
-
-**Novelas**
-
-| Sitio | Pestaña por defecto | Alcance y límites |
-| --- | --- | --- |
-| Book18 | Recomendados | Relatos largos y cortos en chino; capítulos en el orden del sitio |
-| Cool18 | Destacados | Solo el tablón de libros prohibidos; cada mensaje principal es una obra, sin unir respuestas ni mensajes con el mismo título; parte del contenido requiere permisos de cuenta |
-| Canovel | Recientes | Admite paginación dentro del artículo |
-| Literotica | Clasificación | Inglés; la búsqueda excluye no inglés, audio, guías, reseñas y ensayos |
-| Lush Stories | Recomendados | Inglés; excluye audio y poesía |
-| StoriesOnline | Selección de autores | Inglés; el texto anónimo recortado pide iniciar sesión y nunca se guarda como capítulo completo |
-| 69story | Recientes | Chino; categorías, búsqueda, índice y lectura por capítulos |
-
-**Suscripciones**
-
-| Plataforma | Contenido | Inicio de sesión |
-| --- | --- | --- |
-| X / Twitter | Medios públicos anónimos; publicaciones y medios autorizados con sesión | Inicio de sesión web, o `auth_token` y `ct0` |
-| Telegram | Vistas previas de canales públicos; historial y adjuntos con sesión | Importar una sesión existente del almacenamiento local de Telegram WebK |
-| myfans.jp | Listas de creadores, imágenes y vídeos públicos y vistas previas de prueba | Inicio de sesión de miembro no verificado |
-| pixivFANBOX | Listas públicas y vistas previas de portadas | Inicio de sesión de miembro no verificado |
-
-- El `ct0` de X debe coincidir con `X-CSRF-Token`; las sesiones pueden caducar o revocarse. Tras iniciar sesión, el plugin carga los ID de operación y las feature flags de la web actual, lee UserTweets y conserva solo los medios del autor elegido (sin retuits ni citas). Los proxies anónimos de terceros nunca reciben cookies de X.
-- El almacenamiento local de Telegram no es una cookie: la importación necesita `dc` y el `dcN_auth_key` correspondiente (512 dígitos hexadecimales), en JSON o como texto `key=value`. El plugin solo restaura una sesión WebK existente —sin inicio de sesión por código ni registro de cliente propio— y cerrar sesión solo borra la sesión guardada por esta app. Los adjuntos se leen en fragmentos de 128 KiB, hasta 512 MiB cada uno; las referencias de medios caducadas se refrescan una vez. La red pasa por el puente HTTP nativo aislado; no se habilitan fetch ni WebSocket del WebView.
-- OnlyFans, Fantia, Patreon y Fansly no tienen una ruta de medios completa y no están en la lista oficial. Que la página principal abra no significa que se puedan suscribir sus medios, y nunca se elude el acceso de pago.
-
-Para CDN HLS dinámicas, declare `media.scope: 'session'` en modo native. Se autorizan la URL resuelta, los recursos de la lista y hasta 8 redirecciones solo durante la reproducción o descarga, sin ampliar permisos de Cookie. Se exige HTTPS 443 y solicitudes sin credenciales. La conexión directa valida DNS público y fija una IP comprobada conservando TLS. Un proxy HTTP explícito y de confianza resuelve los destinos y controla el acceso a redes públicas. Al cerrar se revocan los permisos. MP4 directo y browser mantienen la lista estática de dominios.
-
 ### `webVideo(id, episodeId)`
 
-iXXX y TubeSafari usan reproducción web en la app. La página puede requerir confirmación del sitio; los controles los proporciona la página de origen. No se admiten las descargas de la app ni reanudar en un punto exacto. Android requiere una versión reciente de Android System WebView con sesiones aisladas.
+La reproducción web resuelve Cloudflare en una sesión temporal aislada. Solo permite el marco de verificación exacto `challenges.cloudflare.com`, nunca la navegación principal a ese host. `network.confirmation` solo se aplica a los dominios declarados por la fuente, no a reproductores externos. Si la verificación automática no termina, la página permanece disponible para el usuario; no se importan ni exportan cookies del reproductor. `CONFIRM_REQUIRED` conserva el mensaje del plugin y permite completar la verificación en la app y sincronizar la sesión de la fuente, sin repetir la operación original.
+
+Los proveedores compatibles de iXXX y TubeSafari priorizan la reproducción nativa, con reanudación y guardado sin conexión. Los demás usan reproducción web integrada, que puede requerir confirmación del sitio y no permite descargas de la app ni reanudación precisa. En Android, la reproducción web requiere un Android System WebView reciente con sesiones aisladas.
+
+El entorno exporta `capabilities.webVideo` automáticamente. Si solo se implementa `webVideo`, abre una página web integrada. Si se implementan `videos` y `webVideo`, prioriza la reproducción nativa y solo pasa a la web cuando `videos` devuelve `UNSUPPORTED`. Los errores de HTTP, red, Cloudflare, inicio de sesión, análisis, contenido eliminado y cancelación se muestran sin cambios. Las descargas requieren medios nativos resueltos correctamente y nunca pasan a una página web.
 
 ```js
 return { url: "https://player.example.com/watch/1", navigationDomains: ["player.example.com"], frameDomains: [] };
@@ -583,7 +594,7 @@ return { url: "https://player.example.com/watch/1", navigationDomains: ["player.
 
 `rankings` declara listas mediante `key`, `label`, `category`, `metric` y `options`. Un complemento dedicado usa `rankingOnly: true` y no declara `feeds`. `ranking(board, {page, offset, cursor, options})` devuelve una página de obras con `id`, `rank` original, `title`, `cover` y campos opcionales `keyword`, `subtitle` y `url` HTTPS del producto. Se conservan los empates. Una fuente existente puede declarar `feed`: hereda sus opciones si se omiten y reutiliza `feed()`, conserva los campos y añade `workId` y el puesto si falta, para abrir los detalles. Las entradas comerciales buscan en la categoría declarada.
 
-El código permanece en la rama principal. `sources` distribuye complementos normales y `rankings` los dedicados a clasificaciones. Ambas ramas contienen solo un índice generado con URL de un commit fijo y SHA-256. El flujo valida y publica cada canal por separado; la aplicación lee ambos de forma independiente, rechaza canales incorrectos y claves duplicadas y conserva la confirmación de actualización.
+Los scripts se mantienen en la rama principal. Las ramas `sources`, `rankings` y `reverse-search` distribuyen complementos generales, solo de clasificaciones y solo de búsqueda inversa, respectivamente. Cada una contiene un índice con URL de commits inmutables y SHA-256. La app consulta los tres canales por separado, rechaza canales incorrectos y claves duplicadas, y pide confirmación antes de actualizar. Las traducciones de etiquetas se distribuyen por `tag-translations`.
 
 ```powershell
 node tools/publish_sources.mjs --commit '<SHA>' --channel rankings --output 'test/official-ranking-index.json'

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'block_rule.dart';
 import 'content_scope.dart';
 import 'diagnostic_entry.dart';
 import 'localization.dart';
@@ -33,9 +34,15 @@ enum SettingsDomain {
     'language',
     'refreshRate',
     'gridColumns',
+    'albumColumns',
+    'albumCollapsed',
     'desktopScale',
     'domainOrder',
     'homeCategories',
+    'homeDimension',
+    'homeSources',
+    'homeExpandedDomains',
+    'homeHiddenSources',
   }),
   reader({
     'readerMode',
@@ -137,7 +144,13 @@ enum SettingsDomain {
     'translateEngine',
     'translateTargets',
   }),
-  filter({'blockedTags', 'blockPresets', 'blockedWorks', 'blockedAuthors'}),
+  filter({
+    'blockedTags',
+    'blockedTagAliases',
+    'blockPresets',
+    'blockedWorks',
+    'blockedAuthors',
+  }),
   maintenance({
     'logMode',
     'autoSourceUpdates',
@@ -200,12 +213,43 @@ class AppSettings extends ChangeNotifier {
       _store.save(_v);
       await _store.flush();
     }
-    if (_v.containsKey('searchHistory')) {
-      final migrated = _migrateSearchHistory(_v);
+    final migrated = _migrateGalleryPreferences(_migrateSearchHistory(_v));
+    if (!identical(migrated, _v)) {
       _store.save(migrated);
       await _store.flush();
       _v = migrated;
     }
+  }
+
+  /// 拆分美图时保留兴趣选择和手动排序，并在原位置插入新域。
+  static Map<String, dynamic> _migrateGalleryPreferences(
+    Map<String, dynamic> values,
+  ) {
+    final order = values['domainOrder'];
+    if (order is List && order.contains('illustration')) return values;
+    final interests = values['homeCategories'];
+    if (!(order is List && order.contains('gallery')) &&
+        !(interests is List && interests.contains('gallery'))) {
+      return values;
+    }
+    return {
+      ...values,
+      'domainOrder': {
+        if (order is List)
+          for (final name in order) ...[
+            if (SourceCategory.values.any((c) => c.name == name)) name,
+            if (name == 'gallery') 'illustration',
+          ],
+        for (final category in defaultDomainOrder) category.name,
+      }.toList(),
+      if (interests is List && interests.contains('gallery'))
+        'homeCategories': {
+          for (final name in interests) ...[
+            name,
+            if (name == 'gallery') 'illustration',
+          ],
+        }.toList(),
+    };
   }
 
   static Map<String, dynamic> _migrateSearchHistory(
@@ -277,6 +321,7 @@ class AppSettings extends ChangeNotifier {
   /// Keys that change which works are hidden by the content filter.
   static const filterKeys = {
     'blockedTags',
+    'blockedTagAliases',
     'blockPresets',
     'blockedWorks',
     'blockedAuthors',
@@ -372,35 +417,63 @@ class AppSettings extends ChangeNotifier {
 
   int get gridColumns => _get('gridColumns', 0); // 0 = adaptive
   set gridColumns(int v) => _set('gridColumns', v);
+  int get albumColumns => _get('albumColumns', 3);
+  set albumColumns(int v) => _set('albumColumns', v.clamp(1, 6));
+  bool get albumCollapsed => _get('albumCollapsed', false);
+  set albumCollapsed(bool v) => _set('albumCollapsed', v);
 
   /// Default display order for content domains; source ranking is independent.
   static const defaultDomainOrder = [
-    SourceCategory.doujin,
     SourceCategory.gallery,
+    SourceCategory.illustration,
+    SourceCategory.doujin,
     SourceCategory.anime,
     SourceCategory.jav,
     SourceCategory.adult,
     SourceCategory.shortvideo,
     SourceCategory.aiDrama,
+    SourceCategory.recording,
+    SourceCategory.live,
+    SourceCategory.other,
     SourceCategory.novel,
     SourceCategory.game,
-    SourceCategory.other,
   ];
 
   List<SourceCategory> get domainOrder {
     final raw = _v['domainOrder'];
     final categories = {for (final c in SourceCategory.values) c.name: c};
-    return {
+    final order = {
       if (raw is List)
-        for (final name in raw)
+        for (final name in raw) ...[
           if (categories.containsKey(name)) categories[name]!,
-      ...defaultDomainOrder,
+          if (name == 'gallery' && !raw.contains('illustration'))
+            SourceCategory.illustration,
+        ],
     }.toList();
+    for (var i = 0; i < defaultDomainOrder.length; i++) {
+      final category = defaultDomainOrder[i];
+      if (order.contains(category)) continue;
+      final previous = defaultDomainOrder.take(i).toList().reversed;
+      final anchor = previous.where(order.contains).firstOrNull;
+      if (anchor != null) {
+        order.insert(order.indexOf(anchor) + 1, category);
+      } else {
+        order.insert(0, category);
+      }
+    }
+    return order;
   }
 
   set domainOrder(List<SourceCategory> value) => _set('domainOrder', [
     for (final category in {...value, ...defaultDomainOrder}) category.name,
   ]);
+
+  ContentDimension get homeDimension => ContentDimension.values.firstWhere(
+    (dimension) => dimension.name == _v['homeDimension'],
+    orElse: () => ContentDimension.all,
+  );
+  set homeDimension(ContentDimension value) =>
+      _set('homeDimension', value.name);
 
   // ── Reader ──
   ReaderMode get readerMode =>
@@ -604,7 +677,53 @@ class AppSettings extends ChangeNotifier {
   /// Tag blocklist entries (see core/tag_blocklist.dart for the syntax).
   List<String> get blockedTags =>
       ((_v['blockedTags'] as List?) ?? []).map((e) => e.toString()).toList();
-  set blockedTags(List<String> v) => _set('blockedTags', v);
+  set blockedTags(List<String> v) {
+    _set('blockedTags', v);
+    final retained = {
+      for (final entry in blockedTagAliases.entries)
+        if (v.contains(entry.key)) entry.key: entry.value,
+    };
+    if (retained.length != blockedTagAliases.length) {
+      _set('blockedTagAliases', retained);
+    }
+  }
+
+  Map<String, List<String>> get blockedTagAliases => {
+    for (final e in (_v['blockedTagAliases'] as Map? ?? {}).entries)
+      e.key as String: List<String>.from(e.value as List),
+  };
+
+  List<String> aliasesFor(String entry) =>
+      blockedTagAliases[entry] ?? BlockRule(entry).knownAliases;
+
+  void saveBlockedRule(String original, String entry, List<String> aliases) {
+    final value = entry.trim();
+    final error = BlockRule.error(value);
+    if (error != null) throw FormatException(error);
+    if (blockedTags.any(
+      (e) => e != original && e.toLowerCase() == value.toLowerCase(),
+    )) {
+      throw const FormatException('该屏蔽词已存在');
+    }
+    final cleaned = <String>{
+      for (final alias in aliases)
+        if (alias.trim().isNotEmpty) alias.trim(),
+    }.toList();
+    if (cleaned.any(
+      (alias) =>
+          !BlockRule(alias).translatable || BlockRule(alias).scope.isNotEmpty,
+    )) {
+      throw const FormatException('多语言别名只能填写普通词语');
+    }
+    final groups = blockedTagAliases..remove(original);
+    groups[value] = BlockRule(value).translatable ? cleaned : [];
+    _set('blockedTagAliases', groups);
+    blockedTags = [
+      for (final item in blockedTags)
+        if (item != original) item,
+      value,
+    ];
+  }
 
   Map<String, String> get blockedWorks =>
       Map<String, String>.from(_v['blockedWorks'] as Map? ?? {});
@@ -666,6 +785,7 @@ class AppSettings extends ChangeNotifier {
     bool? on,
     bool? title,
     List<String>? entries,
+    Map<String, List<String>>? aliases,
     bool reset = false,
   }) {
     final all = {...blockPresetState};
@@ -675,6 +795,13 @@ class AppSettings extends ChangeNotifier {
     if (on != null) cur['on'] = on;
     if (title != null) cur['title'] = title;
     if (entries != null) cur['entries'] = entries;
+    if (aliases != null) cur['aliases'] = aliases;
+    if (entries != null && cur['aliases'] is Map) {
+      cur['aliases'] = {
+        for (final e in (cur['aliases'] as Map).entries)
+          if (entries.contains(e.key)) e.key: e.value,
+      };
+    }
     if (reset) {
       final old = (all[id] as Map?) ?? {};
       cur['on'] = old['on'] ?? false;
@@ -748,6 +875,23 @@ class AppSettings extends ChangeNotifier {
   bool get adultConfirmed => _get('adultConfirmed', false);
   set adultConfirmed(bool v) => _set('adultConfirmed', v);
 
+  /// 先持久化再开放入口，避免 debounce 或写入失败丢失成年确认。
+  Future<void> confirmAdult({required bool completeOnboarding}) async {
+    _store.save({
+      ..._v,
+      'adultConfirmed': true,
+      if (completeOnboarding) 'onboarded': true,
+    });
+    try {
+      await _store.flush();
+    } catch (_) {
+      _store.save(_v);
+      rethrow;
+    }
+    if (completeOnboarding) onboarded = true;
+    adultConfirmed = true;
+  }
+
   /// The first-run flow (privacy and interests) is finished or skipped.
   bool get onboarded => _get('onboarded', false);
   set onboarded(bool v) => _set('onboarded', v);
@@ -763,9 +907,39 @@ class AppSettings extends ChangeNotifier {
   set homeCategories(List<SourceCategory> value) =>
       _set('homeCategories', [for (final c in value) c.name]);
 
+  Set<String> get _homeExpandedDomains =>
+      ((_v['homeExpandedDomains'] as List?) ?? []).whereType<String>().toSet();
+
+  bool homeDomainExpanded(SourceCategory category) =>
+      _homeExpandedDomains.contains(category.name);
+
+  void setHomeDomainExpanded(SourceCategory category, bool expanded) {
+    final domains = _homeExpandedDomains;
+    if (expanded) {
+      if (!domains.add(category.name)) return;
+    } else if (!domains.remove(category.name)) {
+      return;
+    }
+    _set('homeExpandedDomains', domains.toList());
+  }
+
+  Set<String> get _homeHiddenSources =>
+      ((_v['homeHiddenSources'] as List?) ?? []).whereType<String>().toSet();
+
+  bool homeSourceVisible(String source) => !_homeHiddenSources.contains(source);
+
+  void setHomeSourceVisible(String source, bool visible) {
+    final hidden = _homeHiddenSources;
+    if (visible) {
+      if (!hidden.remove(source)) return;
+    } else {
+      if (!hidden.add(source)) return;
+    }
+    _set('homeHiddenSources', hidden.toList());
+  }
+
   String? homeSource(SourceCategory category) =>
-      (_v['homeSources'] as Map?)?[category.name] as String? ??
-      (category == SourceCategory.shortvideo ? 'shorties' : null);
+      (_v['homeSources'] as Map?)?[category.name] as String?;
 
   void setHomeSource(SourceCategory category, String source) => _set(
     'homeSources',
@@ -885,11 +1059,13 @@ class AppSettings extends ChangeNotifier {
 
   Map<String, dynamic> prepareImport(Map<String, dynamic> values) {
     validateSettings(values);
-    return _migrateSearchHistory({
-      ..._v,
-      for (final e in values.entries)
-        if (!_localOnly.contains(e.key)) e.key: e.value,
-    });
+    return _migrateGalleryPreferences(
+      _migrateSearchHistory({
+        ..._v,
+        for (final e in values.entries)
+          if (!_localOnly.contains(e.key)) e.key: e.value,
+      }),
+    );
   }
 
   Future<void> reload() async {

@@ -9,11 +9,11 @@ Park.register({
     "ru": {"中文短篇小说，支持最新与分类阅读；站点无有效搜索": "Короткие рассказы на китайском: новинки и категории; поиск на сайте недоступен", "都市生活": "Городская жизнь"},
     "ar": {"中文短篇小说，支持最新与分类阅读；站点无有效搜索": "قصص صينية قصيرة حسب الأحدث والفئات؛ لا يتوفر بحث فعال", "都市生活": "الحياة في المدينة"},
   },
-  key: 'story69', name: '69story', version: '0.0.5', type: 'novel', category: 'novel',
+  key: 'story69', name: '69story', version: '0.0.6', type: 'novel', category: 'novel',
   language: 'zh-Hant', color: '#D56A74', homepage: 'https://69story.com',
   description: '中文短篇小说，支持最新与分类阅读；站点无有效搜索',
   domains: ['69story.com'], network: {mode: 'native', vpnHint: true},
-  defaultFeed: 'latest', feeds: [{key: 'latest', label: '最新'}, {key: 'wife', label: '人妻'}, {key: 'sex-in-the-city', label: '都市生活'}],
+  defaultFeed: 'latest', feeds: [{key: 'latest', label: '最新'}, {key: 'categories', label: '分类', options: [{key: 'category', label: '分类', type: 'select', default: '', dynamic: true, values: []}]}],
   linkPatterns: ['69story\\.com/article/(\\d+)-'], idPattern: '^\\d{1,12}$',
   BASE: 'https://69story.com',
   idValue(value) {
@@ -46,12 +46,25 @@ Park.register({
   async feed(key, req) {
     if (!this.feeds.some(x => x.key === key)) throw Park.error('CONFIG', '未知列表');
     const page = Math.max(1, Math.floor(Number(req.page) || 1));
-    const base = key === 'latest' ? '' : '/' + key;
+    const category = key === 'categories' ? String(req.options?.category || '') : '';
+    if (category && !/^(?:wife|school|family|bdsm-abuse|sex-in-the-city)$/.test(category)) throw Park.error('CONFIG', '分类无效');
+    const base = category ? '/' + category : '';
     const {doc} = await this.page(this.BASE + base + (page > 1 ? '/page/' + page + '/' : '/'));
     const items = this.cards(doc);
     const nextPath = base + '/page/' + (page + 1) + '/';
     const hasNext = [...doc.querySelectorAll('a[href]')].some(a => this.siteUrl(a.getAttribute('href'))?.pathname.replace(/\/$/, '') === nextPath.replace(/\/$/, ''));
     return {items, page, hasNext};
+  },
+  async filterOptions(req) {
+    if (req.scope !== 'feed' || req.feed !== 'categories' || req.filter !== 'category') return [];
+    const {doc} = await this.page(this.BASE), options = [{value: '', label: '全部'}], seen = new Set();
+    for (const a of doc.querySelectorAll('a[href]')) {
+      const u = this.siteUrl(a.getAttribute('href')), m = u && /^\/(wife|school|family|bdsm-abuse|sex-in-the-city)\/?$/.exec(u.pathname);
+      if (!m || seen.has(m[1])) continue;
+      seen.add(m[1]); options.push({value: m[1], label: Park.html.text(a)});
+    }
+    if (!seen.size) throw Park.error('PARSE', '未找到分类');
+    return options;
   },
   async detail(value) {
     const id = this.idValue(value), {doc, url} = await this.page(this.BASE + '/?p=' + id);

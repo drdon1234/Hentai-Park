@@ -2,11 +2,11 @@ import 'package:flutter/material.dart';
 
 import '../../core/localization.dart';
 import '../../core/models.dart';
+import '../../core/platform_capabilities.dart';
 import '../../engine/source_manager.dart';
 import '../../images/search_image.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
-import '../widgets/source_network_hint.dart';
 
 /// 所有反搜服务共用的图片准备与服务选择区，不承载站点业务规则。
 class ReverseSearchForm extends StatelessWidget {
@@ -24,20 +24,32 @@ class ReverseSearchForm extends StatelessWidget {
     required this.onSearch,
     required this.onCancel,
     required this.onManage,
+    this.onPaste,
   });
 
   final List<InstalledSource> sources;
   final Set<String> selectedSources;
   final SearchImage? image;
   final bool preparing, busy;
-  final ValueChanged<String> onSelect;
+  final ValueChanged<Set<String>> onSelect;
   final VoidCallback onPick, onCrop, onRemove, onSearch, onCancel, onManage;
+  final VoidCallback? onPaste;
+
+  Widget _selectAllButton(List<InstalledSource> entries) {
+    final allSelected = entries.every(
+      (entry) => selectedSources.contains(entry.key),
+    );
+    return TextButton(
+      onPressed: () => onSelect({
+        for (final entry in entries)
+          if (allSelected || !selectedSources.contains(entry.key)) entry.key,
+      }),
+      child: Text(tr(allSelected ? '取消全选' : '全选')),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
-    final selected = sources
-        .where((s) => selectedSources.contains(s.key))
-        .toList();
     final groups = <ReverseSearchCategory, List<InstalledSource>>{};
     for (final entry in sources) {
       final category =
@@ -85,14 +97,17 @@ class ReverseSearchForm extends StatelessWidget {
             child: Stack(
               children: [
                 if (image case final image?)
-                  Padding(
-                    padding: const EdgeInsets.all(Gap.m),
-                    child: Image.memory(
-                      image.bytes,
-                      width: double.infinity,
-                      height: 220,
-                      fit: BoxFit.contain,
-                      semanticLabel: tr('待反搜图片'),
+                  InkWell(
+                    onTap: preparing ? null : onPick,
+                    child: Padding(
+                      padding: const EdgeInsets.all(Gap.m),
+                      child: Image.memory(
+                        image.bytes,
+                        width: double.infinity,
+                        height: 220,
+                        fit: BoxFit.contain,
+                        semanticLabel: tr('待反搜图片'),
+                      ),
                     ),
                   )
                 else
@@ -118,7 +133,9 @@ class ReverseSearchForm extends StatelessWidget {
                             Text(tr('选择图片'), style: context.text.titleMedium),
                             const SizedBox(height: Gap.xs),
                             Text(
-                              tr('支持截图、插画和照片'),
+                              PlatformCapabilities.desktop
+                                  ? tr('拖入图片或使用粘贴快捷键，也可点击选择')
+                                  : tr('支持截图、插画和照片'),
                               style: secondary,
                               textAlign: TextAlign.center,
                             ),
@@ -137,6 +154,17 @@ class ReverseSearchForm extends StatelessWidget {
               ],
             ),
           ),
+          if (onPaste != null) ...[
+            const SizedBox(height: Gap.s),
+            Align(
+              alignment: AlignmentDirectional.centerStart,
+              child: TextButton.icon(
+                onPressed: preparing ? null : onPaste,
+                icon: const Icon(Icons.content_paste_rounded, size: 18),
+                label: Text(tr('粘贴图片')),
+              ),
+            ),
+          ],
           if (image != null) ...[
             const SizedBox(height: Gap.s),
             SelectionContainer.disabled(
@@ -166,16 +194,34 @@ class ReverseSearchForm extends StatelessWidget {
             ),
           ],
           const SizedBox(height: Gap.xl),
-          Semantics(
-            header: true,
-            child: Text(tr('选择服务（可多选）'), style: context.text.titleMedium),
+          OverflowBar(
+            alignment: MainAxisAlignment.spaceBetween,
+            spacing: Gap.s,
+            overflowSpacing: Gap.xs,
+            children: [
+              Semantics(
+                header: true,
+                child: Text(tr('选择服务（可多选）'), style: context.text.titleMedium),
+              ),
+              _selectAllButton(sources),
+            ],
           ),
           const SizedBox(height: Gap.m),
           for (final category in ReverseSearchCategory.values)
             if (groups[category] case final entries?) ...[
-              Semantics(
-                header: true,
-                child: Text(category.label, style: context.text.titleSmall),
+              Row(
+                children: [
+                  Expanded(
+                    child: Semantics(
+                      header: true,
+                      child: Text(
+                        category.label,
+                        style: context.text.titleSmall,
+                      ),
+                    ),
+                  ),
+                  _selectAllButton(entries),
+                ],
               ),
               const SizedBox(height: Gap.s),
               LayoutBuilder(
@@ -188,10 +234,19 @@ class ReverseSearchForm extends StatelessWidget {
                         constraints: BoxConstraints(
                           maxWidth: constraints.maxWidth,
                         ),
-                        child: SelectionChip(
-                          label: entry.name,
-                          selected: selectedSources.contains(entry.key),
-                          onSelected: (_) => onSelect(entry.key),
+                        child: Tooltip(
+                          message: [
+                            entry.name,
+                            if (entry.manifest!.description.isNotEmpty)
+                              entry.manifest!.description,
+                            if (entry.manifest!.network['vpnHint'] == true)
+                              tr('在中国大陆访问可能需要 VPN 或代理'),
+                          ].join('\n'),
+                          child: SelectionChip(
+                            label: entry.name,
+                            selected: selectedSources.contains(entry.key),
+                            onSelected: (_) => onSelect({entry.key}),
+                          ),
                         ),
                       ),
                   ],
@@ -199,18 +254,6 @@ class ReverseSearchForm extends StatelessWidget {
               ),
               const SizedBox(height: Gap.l),
             ],
-          for (final entry in selected)
-            Padding(
-              padding: const EdgeInsets.only(bottom: Gap.s),
-              child: Text(
-                '${entry.name} · ${entry.manifest!.description}',
-                style: secondary,
-              ),
-            ),
-          if (selected.any(
-            (entry) => entry.manifest!.network['vpnHint'] == true,
-          ))
-            const NetworkAccessHint(),
           const SizedBox(height: Gap.xl),
           SelectionContainer.disabled(
             child: busy

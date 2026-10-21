@@ -5,6 +5,19 @@ get_target_property(webview_source_dir ${webview_target} SOURCE_DIR)
 set(webview_manager_source "${webview_source_dir}/in_app_webview/in_app_webview_manager.cpp")
 file(READ "${webview_manager_source}" webview_manager)
 string(PREPEND webview_manager "#include <winrt/Windows.System.h>\n")
+string(PREPEND webview_manager "#include \"webview_user_agent.h\"\n")
+# 与生命周期修正共用同一生成副本，补齐插件缺失的系统浏览器标识接口。
+set(webview_agent_anchor [=[    else if (string_equals(methodName, "disposeKeepAlive")) {]=])
+string(FIND "${webview_manager}" "${webview_agent_anchor}" webview_agent_at)
+string(FIND "${webview_manager}" "\"getDefaultUserAgent\"" webview_agent_implementation_at)
+if(webview_agent_at EQUAL -1 OR NOT webview_agent_implementation_at EQUAL -1)
+  message(FATAL_ERROR "WebView 默认浏览器标识实现已改变，请核对接口后更新集成。")
+endif()
+string(REPLACE "${webview_agent_anchor}" [=[    else if (string_equals(methodName, "getDefaultUserAgent")) {
+      getDefaultWebViewUserAgent(plugin, std::move(result));
+    }
+    else if (string_equals(methodName, "disposeKeepAlive")) {]=]
+  webview_manager "${webview_manager}")
 set(webview_release_anchor "    windowWebViews.clear();")
 string(CONCAT webview_extra_reference
   "        if (compositor_) {\n"
@@ -47,7 +60,9 @@ file(MAKE_DIRECTORY "${webview_generated_dir}")
 file(WRITE "${webview_generated_dir}/in_app_webview_manager.cpp" "${webview_manager}")
 # 原文件包含相对路径；第二搜索根保持其 ../ 类型引用指向插件原目录。
 target_include_directories(${webview_target} PRIVATE
-  "${webview_source_dir}/in_app_webview")
+  "${webview_source_dir}/in_app_webview"
+  "${webview_source_dir}"
+  "${CMAKE_CURRENT_LIST_DIR}")
 get_target_property(webview_sources ${webview_target} SOURCES)
 list(REMOVE_ITEM webview_sources "in_app_webview/in_app_webview_manager.cpp")
 set_property(TARGET ${webview_target} PROPERTY SOURCES "${webview_sources}")

@@ -9,7 +9,7 @@ Park.register({
     "ru": {"FST 播放线路暂不可用": "Сервер FST временно недоступен", "JAV 视频，支持热门、搜索与 FST 线路播放": "JAV: популярное, поиск и воспроизведение FST", "中文字幕": "Китайские субтитры", "无码": "Без цензуры", "此影片没有可用的 FST 线路": "Для этого видео нет доступного сервера FST"},
     "ar": {"FST 播放线路暂不可用": "خادم FST غير متاح مؤقتًا", "JAV 视频，支持热门、搜索与 FST 线路播放": "فيديوهات JAV مع قوائم شائعة وبحث وتشغيل FST", "中文字幕": "ترجمة صينية", "无码": "غير خاضع للرقابة", "此影片没有可用的 FST 线路": "لا يوجد خادم FST متاح لهذا الفيديو"},
   },
-  key: 'supjav', name: 'SupJav', version: '0.0.6', type: 'video', category: 'jav', color: '#F59E0B',
+  key: 'supjav', name: 'SupJav', version: '0.0.7', type: 'video', category: 'jav', color: '#F59E0B',
   description: 'JAV 视频，支持热门、搜索与 FST 线路播放',
   homepage: 'https://supjav.com', domains: ['supjav.com', 'lk1.supremejav.com', 'fc2stream.tv'], language: 'zh',
   network: {mode: 'browser', origin: 'https://supjav.com', vpnHint: true},
@@ -22,10 +22,64 @@ Park.register({
     {key: 'monthly-hot', label: '本月热门', category: 'jav', section: 'site', metric: '站内热门', feed: 'monthly-hot'}],
   defaultFeed: 'hot', feeds: [{key: 'hot', label: '本周热门'}, {key: 'today-hot', label: '今日热门'},
     {key: 'monthly-hot', label: '本月热门'}, {key: 'new', label: '最近更新'},
-    {key: 'chinese', label: '中文字幕'}, {key: 'uncensored', label: '无码'}],
+    {key: 'chinese', label: '中文字幕'}, {key: 'uncensored', label: '无码'},
+    {key: 'categories', label: '分类', options: [{key: 'category', label: '分类', default: '', dynamic: true, values: []}]}],
   searchHint: '搜索番号、作品名或演员',
   settings: [{key: 'quality', type: 'select', label: '默认清晰度', default: '1080', options: [
     {value: '1080', label: '1080P'}, {value: '720', label: '720P'}, {value: '480', label: '480P'}]}],
+  // __CATALOG_START__：由 tools/build_catalog_sources.mjs 生成。
+  async categoryDirectory() {
+    if (this._categoryDirectory && Date.now() - this._categoryDirectory.time < 120000) return this._categoryDirectory.values;
+    const config = {"home":"/zh","leaf":"^/zh/category/[a-zA-Z0-9_%+-]+/?$","index":"^/zh/category/?$"}, leaf = new RegExp(config.leaf), index = config.index ? new RegExp(config.index) : null;
+    const values = new Map(), indexes = new Set(), origin = new URL(this.BASE).origin;
+    const page = path => this[config.pageMethod || 'getPage']((config.absolute ? this.BASE : '') + path);
+    const collect = doc => {
+      for (const a of doc.querySelectorAll(config.selector || 'a[href]')) {
+        let u;
+        try { u = new URL(a.getAttribute('href'), this.BASE); } catch (_) { continue; }
+        if (u.origin !== origin || u.username || u.password || u.search || u.hash ||
+            /%2f|%5c|%2e|%00/i.test(u.pathname)) continue;
+        try { if (/[\x00-\x1f\x7f\\]/.test(decodeURIComponent(u.pathname))) continue; } catch (_) { continue; }
+        const label = Park.html.text(a).replace(/\s+/g, ' ').trim();
+        if (leaf.test(u.pathname) && label && label.length <= 256 && !values.has(u.pathname)) values.set(u.pathname, label);
+        else if (index?.test(u.pathname)) indexes.add(u.pathname);
+      }
+    };
+    collect((await page(config.home)).doc);
+    for (const path of [...indexes].slice(0, 1)) collect((await page(path)).doc);
+    if (!values.size || values.size > (config.ranges ? 10000 : 499)) throw Park.error('PARSE', '分类列表解析失败');
+    const rows = [...values].map(([value, label]) => ({value, label}));
+    this._categoryDirectory = {time: Date.now(), values: rows};
+    return rows;
+  },
+  async filterOptions(request) {
+    const config = {"home":"/zh","leaf":"^/zh/category/[a-zA-Z0-9_%+-]+/?$","index":"^/zh/category/?$"};
+    const rows = await this.categoryDirectory();
+    if (config.ranges && request.filter === 'range') {
+      return Array.from({length: Math.ceil(rows.length / 200)}, (_, i) => ({
+        value: String(i), label: (i * 200 + 1) + '–' + Math.min((i + 1) * 200, rows.length),
+      }));
+    }
+    if (request.filter !== 'category') throw Park.error('CONFIG', '筛选参数无效');
+    let choices = rows;
+    if (config.ranges) {
+      const range = String(request.values?.range ?? '0');
+      if (!/^(?:0|[1-9]\d{0,2})$/.test(range) || Number(range) * 200 >= rows.length) throw Park.error('CONFIG', '筛选参数无效');
+      choices = rows.slice(Number(range) * 200, (Number(range) + 1) * 200);
+    }
+    return [{value: '', label: '全部'}, ...choices];
+  },
+  async categoryFeed(request) {
+    const category = String(request.options?.category || '');
+    if (!category) return this.feed(this.defaultFeed, request);
+    const choices = await this.filterOptions({filter: 'category', values: request.options || {}});
+    if (!choices.some(option => option.value === category)) {
+      throw Park.error('CONFIG', '筛选参数无效');
+    }
+    const config = {"home":"/zh","leaf":"^/zh/category/[a-zA-Z0-9_%+-]+/?$","index":"^/zh/category/?$"};
+    return this[config.listMethod || 'listing'](category, request);
+  },
+  // __CATALOG_END__
   BASE: 'https://supjav.com',
   validId(id) {
     const value = String(id);
@@ -85,6 +139,7 @@ Park.register({
     return {items: this.cards(doc), page, totalPages, hasNext: page < totalPages};
   },
   async feed(key, req) {
+    if (key === 'categories') return this.categoryFeed(req);
     const routes = {hot: ['/zh/popular', 'week'], 'today-hot': ['/zh/popular', 'day'], 'monthly-hot': ['/zh/popular', 'month'],
       new: ['/zh'], chinese: ['/zh/category/chinese-subtitles'], uncensored: ['/zh/category/uncensored-jav']};
     const route = routes[key];

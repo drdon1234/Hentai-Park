@@ -239,19 +239,20 @@ class _ShellState extends State<Shell> {
 
   late final Listenable _adult = AppSettings.instance.watch(const {
     'adultConfirmed',
+    'onboarded',
   });
 
   @override
   Widget build(BuildContext context) => ListenableBuilder(
     listenable: _adult,
-    builder: (context, _) => AppSettings.instance.adultConfirmed
+    builder: (context, _) =>
+        AppSettings.instance.adultConfirmed && AppSettings.instance.onboarded
         ? _shell(context)
         : const OnboardingPage(),
   );
 
   Widget _shell(BuildContext context) {
-    final width = MediaQuery.sizeOf(context).width;
-    final wide = width >= 840;
+    final wide = PlatformNavigation.expandedSidebar(context);
     // Tabs are built lazily on first visit and then kept alive. The body never changes its
     // parent, so toggling incognito keeps every tab's scroll position and state.
     final body = Column(
@@ -282,41 +283,15 @@ class _ShellState extends State<Shell> {
     final navigation = ValueListenableBuilder<int>(
       valueListenable: _unseenUpdates,
       builder: (context, unseen, _) {
-        final destinations = _destinations(unseen);
-        if (wide) {
-          return NavigationRail(
-            selectedIndex: _index,
-            onDestinationSelected: _select,
-            labelType: NavigationRailLabelType.all,
-            groupAlignment: -0.9,
-            destinations: [
-              for (final d in destinations)
-                NavigationRailDestination(
-                  icon: d.icon,
-                  selectedIcon: d.selectedIcon,
-                  label: SelectionContainer.disabled(child: Text(d.label)),
-                ),
-            ],
-          );
-        }
-        return DecoratedBox(
-          decoration: BoxDecoration(
-            border: Border(
-              top: BorderSide(color: context.colors.outlineVariant, width: .8),
-            ),
-          ),
-          child: SelectionContainer.disabled(
-            child: NavigationBar(
-              selectedIndex: _index,
-              onDestinationSelected: _select,
-              labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
-              destinations: destinations,
-            ),
-          ),
+        return PlatformNavigation(
+          destinations: _destinations(unseen),
+          selectedIndex: _index,
+          onSelected: _select,
+          wide: wide,
         );
       },
     );
-    final scaffold = wide
+    final scaffold = PlatformNavigation.usesSidebar(context)
         ? Scaffold(
             body: Row(
               children: [
@@ -335,9 +310,12 @@ class _ShellState extends State<Shell> {
       },
       child: StartupUpdateCheck(
         child: PopScope(
-          canPop: false,
+          canPop: Theme.of(context).platform != TargetPlatform.android,
           onPopInvokedWithResult: (didPop, _) {
-            if (!didPop) _onBack();
+            if (!didPop &&
+                Theme.of(context).platform == TargetPlatform.android) {
+              _onBack();
+            }
           },
           child: scaffold,
         ),

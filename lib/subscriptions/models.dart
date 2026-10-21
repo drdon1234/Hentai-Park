@@ -1,8 +1,10 @@
 class SubscriptionTarget {
   SubscriptionTarget(Map data)
     : id = (data['id'] ?? '').toString(),
+      kind = (data['kind'] ?? '').toString(),
       label = (data['label'] ?? data['id'] ?? '').toString();
   final String id;
+  final String kind;
   final String label;
 }
 

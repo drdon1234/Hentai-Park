@@ -1,3 +1,4 @@
+import '../../engine/challenge.dart';
 import '../../engine/domains.dart';
 
 /// Page navigation permissions, independent of plugin HTTP and Cookie access.
@@ -43,8 +44,9 @@ class WebPlaybackPolicy {
       safeUri(uri) && hostInDomains(uri.host, navigationDomains);
 
   bool allowsFrame(Uri uri) =>
-      safeUri(uri) &&
-      hostInDomains(uri.host, {...navigationDomains, ...frameDomains});
+      challengeFrameNavigationAllowed(uri, isForMainFrame: false) ||
+      (safeUri(uri) &&
+          hostInDomains(uri.host, {...navigationDomains, ...frameDomains}));
 
   /// Android 的异步导航回调不会拦截子框架，必须同时使用原生正则规则。
   String get blockedFramePattern {
@@ -52,6 +54,6 @@ class WebPlaybackPolicy {
       ...navigationDomains,
       ...frameDomains,
     }.map(RegExp.escape).join('|');
-    return '^(?!https://(?:[a-z0-9-]+\\.)*(?:$domains)(?::443)?(?:[/?#]|\$)).*';
+    return '^(?!https://(?:(?:[a-z0-9-]+\\.)*(?:$domains)|challenges\\.cloudflare\\.com)(?::443)?(?:[/?#]|\$)).*';
   }
 }

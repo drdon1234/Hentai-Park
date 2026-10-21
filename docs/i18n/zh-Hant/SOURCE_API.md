@@ -2,7 +2,7 @@
 
 # 站點外掛介面
 
-[快速開始](#快速開始) · [manifest 欄位](#manifest-欄位) · [方法](#方法) · [執行時 API](#執行時-api) · [錯誤碼](#錯誤碼) · [國際化](#國際化) · [發布](#發布) · [附錄：官方站點備註](#附錄官方站點備註)
+[快速開始](#快速開始) · [manifest 欄位](#manifest-欄位) · [方法](#方法) · [執行時 API](#執行時-api) · [錯誤碼](#錯誤碼) · [國際化](#國際化) · [發布](#發布)
 
 HentaiPark 的每個站點都是一個獨立的 JavaScript 外掛。應用在執行時載入外掛，可以從倉庫安裝、更新、啟用或停用，**不需要重新編譯應用**。官方外掛位於 [`assets/sources/`](../../../assets/sources/)，可以直接當作示例。
 
@@ -69,7 +69,7 @@ Park.register({
   name: '我的站点',
   version: '0.0.1',           // 三段数字，仓库版本更高时应用提示更新
   type: 'comic',              // comic | video | novel | game：决定阅读、播放或游戏资源行为
-  category: 'doujin',         // doujin | anime | aiDrama | jav | adult | shortvideo | gallery | novel | game | other
+  category: 'doujin',         // doujin | anime | aiDrama | jav | adult | shortvideo | recording | live | gallery | illustration | novel | game | other
   color: '#E5355F',           // 品牌色：站点头像与站点页
   description: '一句话介绍',
   homepage: 'https://example.com',
@@ -77,8 +77,8 @@ Park.register({
   linkPatterns: ['example\\.com/g/(\\d+)'],   // 搜索框粘贴链接时直达；第 1 个分组是作品 ID
   idPattern: '^(\\d+)$',                      // 直接输入编号时直达
   imageHeaders: { Referer: 'https://example.com/' },  // 封面与图片默认请求头
-  network: { mode: 'native', vpnHint: true },  // 见“网络”
-  media: { mode: 'browser', origin: 'https://example.com', domains: ['media.example.com'] },  // 可选 HLS 媒体权限
+  network: { mode: 'auto', vpnHint: true },  // 见“网络”
+  media: { mode: 'browser', origin: 'https://example.com', domains: ['media.example.com'] },  // 影片與直連媒體權限
   imageNetwork: { mode: 'browser', origin: 'https://img.example.com', domains: ['img.example.com'] }, // 可选
   imageDecrypt: { /* 可选，见“加密图片” */ },
 
@@ -91,6 +91,7 @@ Park.register({
   i18n: { /* 插件自带的界面文案翻译，见“国际化” */ },
 
   subscription: { /* 可选：订阅频道/创作者，见“订阅” */ },
+  postShortVideos: true,
   updateSubscriptions: { /* 可选：更新订阅，见“更新订阅” */ },
 
   async init() {},              // 可选：运行时启动时调用一次（例如刷新域名列表）
@@ -108,17 +109,21 @@ Park.register({
 | 分類 | 說明 |
 | --- | --- |
 | `doujin` | 本子與漫畫 |
-| `gallery` | 美圖：插畫、Cosplay、寫真。圖片站仍宣告 `type: 'comic'`，一個圖集是一個作品，圖片透過 `chapter()` 按順序返回，可複用閱讀、收藏和下載。分類不按張數或尺度區分 |
+| `gallery` | 三次元美圖：Cosplay、寫真與真人圖集. 圖片站宣告 `type: 'comic'`，一個圖集是一個作品，圖片由 `chapter()` 依序回傳，沿用閱讀、收藏與下載；分類不依張數或尺度區分 |
+| `illustration` | 二次元美圖：插畫與動漫圖片. 圖片站宣告 `type: 'comic'`，一個圖集是一個作品，圖片由 `chapter()` 依序回傳，沿用閱讀、收藏與下載；分類不依張數或尺度區分 |
 | `anime` | 裡番 |
 | `aiDrama` | AI 短劇。不接受舊的 `drama` 標識；站點自身的頻道名照原樣宣告，應用分類不用來過濾站點頻道 |
 | `jav` | JAV 專門站 |
 | `adult` | 綜合成人影片（如 Pornhub、XVideos、91porn），`type: 'video'`。分類是內容分組，不替代站點標籤和使用者篩選 |
 | `shortvideo` | 短影片：全屏豎向連續流，見下 |
+| `recording` | 線上錄播影片（隨選回放），`type: 'video'` |
+| `live` | 直播, `type: 'video'` |
 | `novel` | 小說，`type: 'novel'` |
 | `game` | 遊戲，`type: 'game'` |
-| `other` | 其他（訂閱類站點等） |
+| `other` | 創作社群 |
 
 - **短影片**（`type: 'video', category: 'shortvideo'`）：作品、搜尋、收藏和歷史入口直接進入連續流。每個作品是一個短影片，`videos(id, '_')` 返回當前有效媒體，不需要詳情頁。`feed` 的 `hasNext` 和 `cursor` 用於臨近末尾時自動翻頁，遊標不能包含賬號憑據或媒體簽名。重新整理從第一頁開始；當前條播放，下一條暫停預載入，其餘釋放。站點沒有搜尋介面時不宣告 `search`。
+- **帖子短影片模式**（`postShortVideos: true`）：站點及訂閱目標頁可逐一播放 `media[]` 的影片附件；影片須提供直連 `url` 或非空 `episodeId`。延遲解析在播放或預載時呼叫 `videos(原帖 id, episodeId)`，不得把網頁當作媒體直連。圖片不進入播放池，附件支援 `preview`、`format`、`headers`。分頁與重新整理保留目前 feed、篩選或目標的 `subscription.posts` 範圍。播放身分區分附件，收藏、歷史與原站互動使用原帖 ID。此能力不改變分類，也不代表原站提供獨立隨機影片 API。
 - **只能在原站播放的聚合影片站**：仍宣告 `type: 'video', category: 'adult'`；沒有經過驗證的媒體介面時不實現 `videos`，執行時匯出 `capabilities.videos: false`。詳情頁主按鈕改為用系統瀏覽器開啟 `detail.url`，隱藏播放、下載和分集，不同步虛構章節、不檢查章節更新；收藏與歷史照常。
 - **小說**和**遊戲**的協議見「方法」中的對應小節。
 
@@ -139,17 +144,46 @@ Park.register({
 
 `feeds` 的每一項是站點頁的一個標籤：`{ key, label, options?: [...] }`。
 
+### 動態與級聯篩選
+
+`feeds[].options` 和 `searchFilters` 的單選項可宣告 `dynamic: true, values: []`。動態子項用 `dependsOn: ['range']` 引用同組上級；key 必須唯一，依賴必須存在且無環，只有動態項可宣告依賴。
+
+`filterOptions(request)` 回傳候選陣列。請求含 `scope: 'feed' | 'search'`、`filter`、`values`；瀏覽另傳 `feed`，搜尋可傳 `keyword`。`values` 只包含宣告的直接上級，不傳帳號、設定或其他篩選項。上級未選擇或為空時不載入子項。
+
+搜尋候選依賴關鍵字時宣告 `keywordDependent: true`；關鍵字變化會重設該項及其後代，其他篩選保持選擇。`values` 的上級值只能是字串、數值或布林值，不能是多選陣列。遠端候選名稱不作為固定介面文案翻譯，可使用應用的內容與標籤翻譯功能。
+
+候選最多 500 項，每項為 `{value, label, color?}`；value 為唯一字串或有限數字，label 為非空、無控制字元且不超過 256 字元的原站名稱，color 為六位十六進位顏色。大型目錄應分組後級聯載入，不靜默截斷。原站候選名稱不自動翻譯。
+
+選擇透過 `feed` 的 `options` 或 `search` 的 `filters` 傳遞。外掛必須驗證實際目錄成員並保持分頁條件；目錄解析失敗應拋出錯誤。應用依站點、瀏覽/搜尋、標籤或關鍵字及上級值快取兩分鐘；上級變化時清除下級選擇並捨棄舊請求結果，載入失敗可重試。
+
+每個網域的外掛只讀取本站目錄。同品牌不同網域不得互相呼叫外掛或共用 Cookie；通用解析可於建置時重用範本，再產生獨立腳本。導覽目錄範本使用 `node tools/build_catalog_sources.mjs` 產生，`--check` 檢查產物一致性。
+
+```js
+{key: 'category', label: '分类', type: 'select', default: '',
+ dynamic: true, dependsOn: ['range'], values: []}
+
+async filterOptions({scope, feed, filter, keyword, values}) {
+  return [{value: 'site-category-id', label: 'Site category'}];
+}
+```
+
 ### 網路
 
-- `network.mode: 'native'`（預設）：原生 HTTP，使用持久化 Cookie，走使用者設定的代理。檢測到 Cloudflare 質詢時拋 `CLOUDFLARE`，應用引導使用者在內建瀏覽器中完成驗證，並把通行 Cookie 同步回原生請求。
-- `network.mode: 'browser'` + `network.origin`：請求在開啟於 `origin` 的隱藏瀏覽器頁中以同源 `fetch()` 發出，帶真實瀏覽器指紋，適合 Cloudflare 防護較嚴的站點。同源 GET 收到 Cloudflare 質詢時，隱藏瀏覽器先導航到該文件完成自動驗證，再重試一次原請求；仍未透過時拋 `CLOUDFLARE`。
+- `network.mode: 'auto'`（預設）：先使用原生 HTTP；HTTPS 同源 GET / HEAD 且無請求體的請求遇到 Cloudflare、HTTP 403、429 或可恢復的連線錯誤時，自動重試一次瀏覽器請求。DNS、TLS、逾時、回應串流及一般 5xx 不啟動瀏覽器，避免增加延遲。目標必須屬於外掛宣告的網域，瀏覽器回退仍受同源與重新導向限制。
+- `network.mode: 'native'`: 強制使用原生 HTTP、持久化 Cookie 和使用者代理。偵測到 Cloudflare 時回傳 `CLOUDFLARE`，可在應用程式內重試；錯誤附有站內驗證位址時，可選擇「去確認」開啟頁面。
+- `network.mode: 'browser'` + `network.origin`: 請求在 `origin` 的隱藏瀏覽器頁中透過同源 `fetch()` 發出。唯讀請求遇到 Cloudflare（包括 HTTP 200 挑戰頁）或年齡門缺少宣告的 Cookie/內容時，最多導覽驗證一次後再讀取；寫入請求不重播。年齡門依 `network.confirmation` 自動處理。Android 和 Windows 支援唯一標準 Cloudflare 核取方塊的瀏覽器輸入；其他平台等待網站自動驗證，失敗時可重試，或在提供站內驗證位址時選擇「去確認」。
+
+  文件可在宣告範圍內進行同協定、同連接埠導覽。未指定請求 `origin` 時，使用目標站點 URL 的 origin。回應保留最終 `url`。
+
+  自動回退不適用於 `followRedirects: false`、`connectAddress` 或未分類的網路錯誤。瀏覽器對無請求體的 GET / HEAD 一般請求最多嘗試三次，驗證通過後最多額外重發一次；僅恢復連線故障或 HTTP 408、500、502、503、504；429 與逾時不重複請求。一次邏輯請求最多主動導航驗證一次，外層重試不重設次數。瀏覽器啟動、請求、文件讀取與釋放均有等待上限。含自訂 API 請求標頭的讀取使用真正的 `fetch()`，不以一般導航結果取代；重用 HTML 文件時保留錯誤狀態，`responseType: 'base64'` 傳回原始位元組的 base64。
+
 - `network.vpnHint: true`：在中國大陸可能需要 VPN 或代理的站點宣告它，等待超過 8 秒和失敗時提示「可能需要 VPN 或代理」。不要把所有錯誤都歸因於 VPN。
-- `network.confirmation: { selector, readySelector, requiredCookies, message }`：需要使用者明確確認（如年齡確認）的站點宣告。`selector` 匹配確認彈窗，`readySelector` 匹配可訪問的頁面內容，`requiredCookies` 是確認後必須落地的 Cookie 名。外掛遇到未確認頁面時拋 `Park.error('CONFIRM_REQUIRED', message, { url })`；應用提供「去確認」入口，等彈窗消失、內容出現、Cookie 寫入且導航穩定後返回。應用不會代替使用者點選確認；這項宣告也約束通用人機驗證頁，避免把年齡確認誤當成已透過。
+- `network.confirmation: { selector, readySelector, requiredCookies, auto: { clickSelector }, message }`: 網站年齡門宣告。`selector` 比對年齡彈窗，`auto.clickSelector` 比對彈窗內唯一的確認按鈕，`readySelector` 比對可存取內容，`requiredCookies` 列出確認後必須存在的 Cookie 名稱。使用者在應用程式入口確認成年後，隱藏瀏覽器才會模擬點擊，並檢查彈窗消失、內容出現、Cookie 寫入及導覽穩定。規則不完整、不符合或無法自動完成時可重試；錯誤提供站內驗證位址時，可選擇「去確認」，手動處理後按完成。確認頁仍受來源網域與 Cookie 分區限制，操作提示不會自動重播原操作。僅限年齡確認，不可用於登入、付款或回覆。
 - 網路異常附帶安全的 `diagnostics` 欄位 `host`、`transport`、`reason`，區分 TLS 證書、握手、DNS、連線和超時；自動日誌只記錄這幾個白名單欄位。`reason: 'TLS_HANDSHAKE_TERMINATED'` 僅表示原生 `HandshakeException.message` 恰好是 `Connection terminated during handshake`（握手完成前連線中斷，不是證書校驗失敗）；只有 HTTPS、無請求體的 GET / HEAD 遇到它時自動重試一次，其他錯誤都不重試。
 
 ### 圖片
 
-- `imageNetwork: { mode: 'browser', origin, domains }`：圖片 CDN 需要瀏覽器請求時宣告。`origin` 和所有圖片域名必須屬於 `domains`，只允許 HTTPS 和白名單請求頭；圖片請求不帶賬號憑據、不跟隨重定向，單圖最多 20 MiB，仍經過解密、格式檢查、解碼和按站點分割槽的快取。未宣告時用原生圖片傳輸。
+- `imageNetwork: { mode: 'browser', origin, domains }`：圖片域及子域獨立於站點 Cookie 權限，`origin` 可屬於站點域或圖片域。使用 HTTPS 443 和允許的標頭，當 origin 屬於站點宣告域時，同源圖片沿用瀏覽器站點工作階段，跨域請求不帶憑據；外部圖片域與影片請求始終省略憑據，允許授權圖片域之間的重新導向。保留單圖 20 MiB 上限、解密、格式檢查、解碼及站點分區快取；未宣告時使用原生傳輸。 瀏覽器重新導向的平台限制見媒體權限。
 - **加密圖片**：宣告 `imageDecrypt`，框架在格式檢查和快取之前解密，解密策略參與快取身份，失敗結果不快取。當前支援 AES-CBC 與嚴格 PKCS#7 填充，`key`、`iv` 按 UTF-8 編碼；必須限定圖片域名，其他域名走普通路徑。
 
 ```js
@@ -167,6 +201,8 @@ imageDecrypt: {
 
 `media` 許可權獨立於 `this.http`、`network` 和站點 Cookie：
 
+所有實作 `videos()` 的外掛都必須宣告有效的 `media`，包括僅回傳 MP4 的外掛。`scope: 'session'` 可同時宣告靜態 `domains`：HLS 使用本次會話授權的確切網址，MP4 仍須符合靜態網域白名單。官方發布檢查會拒絕缺失或無效的媒體宣告。
+
 ```js
 domains: ['example.com'],
 network: { mode: 'native' },
@@ -175,9 +211,12 @@ media: { mode: 'native', origin: 'https://example.com', domains: ['media.example
 
 - `media.mode` 為 `'native'` 或 `'browser'`。`media.origin` 必須屬於外掛宣告的站點，使用 HTTPS 預設埠 443，不含使用者憑據、查詢或片段。
 - `media.domains` 是獨立的媒體域名白名單（含子域），不授予站點 Cookie 許可權。清單、分段和金鑰都只允許 HTTPS 443，拒絕 URL 使用者憑據、片段、IP、localhost（含子域）和 `.local`。
-- `'native'` 使用獨立、無憑據的原生客戶端，不讀寫站點 Cookie、Authorization 或代理認證；每一跳重定向都先校驗目標域名。只允許 `Referer`、`Origin`、`Accept`、`Accept-Language`，前兩者必須匹配 `media.origin`。
-- `'browser'` 在 `media.origin` 的隱藏瀏覽器建立媒體會話，使用 `credentials: 'omit'`、`mode: 'cors'`、`redirect: 'error'`。
+- `'native'`：使用獨立且無憑據的客戶端，不讀寫站點 Cookie、Authorization 或代理認證，每次重新導向前檢查目標。只允許 `Referer`、`Origin`、`Accept`、`Accept-Language`；前兩者須屬於宣告的站點域（含語言子域），`Origin` 只含來源 origin。
+- `media.referrerDomains` 為選填，僅限原生影片媒體，最多 16 個有效公網網域（含子網域）。它只為 `Referer` 增加允許的來源，作為上述站點網域限制的明確例外；不擴大 `Origin`、媒體地址、文件導覽或 Cookie 權限，不得用於 `imageNetwork` 或瀏覽器媒體。
+- `'browser'`：在 `media.origin` 建立隱藏會話，文件可在宣告的站點域內導覽。使用 `credentials: 'omit'`、`mode: 'cors'`，Origin/Referer 由實際文件和瀏覽器產生。Windows 透過 WebView2 在每次連線前檢查資源域，允許授權域間重新導向，並複核最終地址。其他核心缺少逐跳攔截介面，使用 `redirect: 'error'`。CORS 和原站 CSP 仍生效，不能只檢查最終 URL 就放行跳轉。
 - 響應流式限長並重新校驗響應地址：清單最多 2 MiB，單個分段最多 32 MiB，AES-128 金鑰必須 16 位元組；超限、空響應或不允許的地址一律拒絕。
+
+- 動態 HLS CDN 可宣告 `media.scope: 'session'`（僅限 `mode: 'native'`）。授權只涵蓋目前播放或下載工作階段解析的網址、清單資源與允許的重新導向，關閉後即失效，不擴大 Cookie 權限或持久化網域白名單。請求仍受 HTTPS、無憑據、目標網址與回應大小限制；直連 MP4 與瀏覽器媒體繼續使用靜態網域白名單。
 
 ### 隔離與安全
 
@@ -195,8 +234,9 @@ account: {
   type: 'password' | 'cookies' | 'session',
   title, hint, required: false,
   fields: [{ key: 'email', label: '邮箱' }, { key: 'password', label: '密码', secret: true }],
-  loginUrl?, cookieUrl?, requiredCookies?: ['ipb_member_id'],   // 提供后可以在网页中登录，应用自动获取 Cookie
+  loginUrl?, cookieUrl?, requiredCookies?: ['session_id'],   // 提供后可以在网页中登录，应用自动获取 Cookie
   loginDomains?: ['accounts.google.com', 'appleid.apple.com'],  // 第三方授权页域名，仅用于登录导航
+  localStorageKeys?: ['session_key'],  // 僅從 cookieUrl 同源頁面讀取明確列出的 localStorage 鍵，交給 login(values)；不得記錄值
   async login(values) { return { name } },
   async logout() {},
   async status() { return { loggedIn, name, configured } },
@@ -208,7 +248,7 @@ account: {
 - 賬號狀態只在首次使用、登入、退出、網頁登入後以及距上次檢查超過 10 分鐘時重新整理，不會在每次呼叫後檢查。`configured` 表示已有賬號配置，與當前是否登入成功無關。
 - `loginDomains`：外掛宣告站點實際使用的第三方授權域名（含子域）。只在使用者開啟網頁登入頁時放行 HTTPS 443 的跳轉，拒絕 URL 使用者憑據、IP、localhost 和 `.local`。普通驗證頁、訪問確認、外掛請求和 Cookie 匯入仍按 `domains` 校驗，不能把第三方授權域名加進 `domains` 擴大許可權。登入頁支援原視窗跳轉和保留 `window.opener` 的授權彈窗，彈窗裡沿用同一檢查，空白初始頁不授予外部導航許可權。停留在授權頁時不判斷登入完成，回到站點後才同步 Cookie。第三方 Cookie 不匯入外掛的 Cookie 罐，也不隨清除站點 Cookie 刪除；其瀏覽器登入態由系統 WebView 管理。第三方平臺仍可能限制內嵌瀏覽器登入。
 - `type: 'session'` 用於匯入已有的授權會話：宣告單個保密欄位（如 `session`），剪貼簿內容完整保留，由外掛校驗，不拆成賬號密碼或 Cookie。登入必須真實確認授權，不憑輸入格式假報成功。
-- `managedAccount: true` 宣告外掛支援專用自動維護賬號，站點設定中用同名開關。應用必須先展示自動註冊說明並取得使用者確認，再儲存設定並呼叫 `account.enableManaged()`。註冊前先儲存候選憑據並 `await this.store.flush()`，保證失敗或重啟後還能恢復同一個賬號。手動憑據與專用賬號分開儲存，專用賬號不能覆蓋現有手動賬號；關閉開關保留專用賬號，重新開啟複用；Token 過期只重新登入，不重複註冊。
+- `managedAccount: true` 與 `account.enableManaged()` 提供可選的帳號管理能力，只在使用者知情確認後啟用。手動帳號與託管帳號分開儲存，不得覆寫既有憑據；帳號資料僅在本機使用，不進入文件、診斷或發布產物。
 - 賬號密碼、Token 和外掛狀態都是使用者本機資料，文件和日誌裡不要出現真實憑據。
 
 ## 方法
@@ -241,7 +281,7 @@ async resolveGameResource(workId, resourceId, channelId) {}
 { sections: [{ title: '连载更新', items: [WorkItem] }], hasNext: false }
 ```
 
-**WorkItem**：`{ id, title, subtitle?, cover, coverAspect?, pages?, rating?, likes?, views?, language?, category?, badge?, badgeColor?, duration?, uploaded?, tags?, mediaKind?, workCode?, editions? }`
+**WorkItem**：`{ id, title, subtitle?, cover, coverBlurred?, coverAspect?, pages?, rating?, likes?, views?, language?, category?, badge?, badgeColor?, duration?, uploaded?, tags?, mediaKind?, workCode?, editions? }`
 
 - `workCode` 是原站確認的番號或共同檢索碼，僅用於查找同作品；不取代 `id`，不合併作品身分、收藏、進度或下載。
 - `editions` 是原站明確標註的固定版本標籤（如「中文字幕」「無碼流出」）；沒有標記時不得推斷為原版。顯示譯文不改變原始標籤。
@@ -287,13 +327,17 @@ WorkItem 的全部欄位，再加：
 
 ### 影片：`videos`
 
-返回 `[{ quality: 1080, label: '1080P', url, headers?, format?, preferred? }]`。直鏈通常有時效，應用每次播放或下載前都會重新獲取。
+返回 `[{ quality: 1080, label: '1080P', url, headers?, format?, preferred?, hls? }]`。直鏈通常有時效，應用每次播放或下載前都會重新獲取。
+
+- `format: 'hls'` 可附 `hls: {manifest, keys}`：`url` 為分段清單的真實 HTTPS 基址，`manifest` 為已解析的完整點播分段清單（UTF-8 最多 2 MiB），`keys` 將清單引用的絕對金鑰 URL 對應至 16 位元組金鑰的 Base64，最多 32 項。僅支援原生媒體；位址授權與內容驗證保持不變，拒絕未引用金鑰。含此欄位的播放結果不寫入磁碟快取，金鑰僅留在會話記憶體；不得寫入 store、日誌、作品或游標。
 
 - 多集影片在 `detail(id).chapters` 按播放順序返回 `[{ id, title }]`，每個 `id` 必須穩定，不能用畫質或臨時媒體 URL 代替。應用用同一個 ID 選集、記錄進度、下載和續播，並呼叫 `videos(id, episodeId)` 獲取該集資源。單集用 `singleChapterId`，沒有時用 `'_'`。
 - 省略 `format` 時按直鏈 MP4 播放和下載。HLS 必須返回 `format: 'hls'`，並宣告 `media` 許可權。
-- HLS 主清單（`#EXT-X-STREAM-INF`）先由應用展開成各路分段清單，按 `RESOLUTION` 得到真實清晰度。返回主清單時 `quality` 表示期望清晰度：預設選不高於它的最高實際清晰度，沒有符合項時選最高檔。每路必須是音影片複用的 MPEG-TS；獨立的 `AUDIO`、`VIDEO`、`SUBTITLES` 和超出 `media.domains` 的地址一律拒絕。`#EXT-X-I-FRAME-STREAM-INF` 預覽軌道被忽略。單路清單無法確定解析度時提供 `label: '原画'`，不要把期望畫質當成真實解析度。
-- 只支援帶 `#EXT-X-ENDLIST` 的完整、連續 MPEG-TS 點播清單；支援 `METHOD=AES-128`、`KEYFORMAT=identity` 的 CBC/PKCS7 解密，金鑰恰好 16 位元組，IV 可顯式提供或由媒體序號推導。金鑰只儲存在當前會話記憶體。不支援直播、SAMPLE-AES、其他 KEYFORMAT、`EXT-X-MAP`、`EXT-X-BYTERANGE`、fMP4、discontinuity 和 gap；非標準的 `#EXT-X-TOKEN` 會被移除。
-- 播放時使用只繫結 `127.0.0.1` 的隨機埠和隨機令牌，透過有限 URL 登錄檔按需讀取已驗證的分段，關閉會話即取消請求。HLS 離線下載目前只支援 Android：逐段驗證並儲存 SHA-256，可恢復、可取消，最後由 Media3 封裝為 MP4，完整成品才進入離線庫。
+- HLS 主清單（`#EXT-X-STREAM-INF`）先由應用展開成各路分段清單，按 `RESOLUTION` 得到真實清晰度。返回主清單時 `quality` 表示期望清晰度：預設選不高於它的最高實際清晰度，沒有符合項時選最高檔。每路必須是音影片複用的 MPEG-TS 或點播 fMP4；獨立的 `AUDIO`、`VIDEO`、`SUBTITLES` 和超出 `media.domains` 的地址一律拒絕。`#EXT-X-I-FRAME-STREAM-INF` 預覽軌道被忽略。單路清單無法確定解析度時提供 `label: '原画'`，不要把期望畫質當成真實解析度。 主清單省略 `RESOLUTION` 時須有有效 `BANDWIDTH`；應用保留各碼率並顯示 kbps，預設選最高碼率，不把碼率當成解析度。
+- `type: 'video', category: 'live'` 表示公開直播，歸入三次元，首頁與域頁僅顯示圖片卡片。`videos()` 只返回當前公開房間的 HLS；私密、收費或離線房間不得偽造可播放結果。應用使用滾動清單，不恢復或儲存點播進度，也不提供下載。使用者明確開始錄製後，只儲存初始視窗之後的新片段，停止或退出應用即結束，重啟不續錄。錄製使用獨立媒體會話與背景工作，逐段驗證、解密並儲存完整本地清單；斷線重新解析，編碼邊界與長錄製可分卷，失敗保留已儲存內容。僅支援音視訊多工 MPEG-TS，不支援 MAP/fMP4、低延遲 PART、BYTERANGE 或 GAP。
+- 點播要求帶 `#EXT-X-ENDLIST` 的完整、連續 MPEG-TS 或 fMP4 清單；fMP4 僅支援媒體片段之前的單個 `#EXT-X-MAP` 初始化段，不支援初始化段切換或範圍讀取。初始化段和片段都經位址授權、內容驗證與本地重寫，離線播放和匯出必須保留初始化段。直播仍僅支援 MPEG-TS，允許滾動清單與 discontinuity。兩者支援 `METHOD=AES-128`、`KEYFORMAT=identity` 的 CBC/PKCS7 解密，金鑰恰好 16 位元組，媒體 IV 明確提供或由序號推導；加密初始化段須明確提供 IV。金鑰僅留在會話記憶體。不支援 SAMPLE-AES、其他 KEYFORMAT、BYTERANGE、GAP；點播另不支援 discontinuity。非標準的 `#EXT-X-TOKEN` 會被移除。
+- HLS 清單與 MPEG-TS 分段支援 PNG `roUd` 封裝（原始或 zlib 壓縮）；框架先解包再解析、驗證或解密，解包後仍受清單 2 MiB、分段 32 MiB 限制。插件繼續回傳 `format: 'hls'`，不需額外權限。
+- 播放時使用只繫結 `127.0.0.1` 的隨機埠和隨機令牌，透過有限 URL 登錄檔按需讀取已驗證的分段，關閉會話即取消請求。HLS 離線下載目前只支援 Android：逐段驗證並儲存 SHA-256，可恢復、可取消，MPEG-TS 最後由 Media3 封裝為 MP4，fMP4 依序儲存初始化段與片段，完整成品才進入離線庫。
 
 ### 小說：`textChapter`
 
@@ -355,9 +399,22 @@ subscription: {
 ```
 
 - `normalize` 必須純本地校驗：未登入、無網路時也能儲存目標；只接受當前站點的使用者名稱或受控的主頁 URL。`resolve`、`targets` 可選；有 `targets` 時清單輸出 `subscription.joinedTargets: true`。
+- 獨立社群入口須宣告 `communities: true`、`communityHint`、`communityExample`，執行階段原樣匯出。社群目標為 `{ id, label, kind: 'community' }`，ID 必須與作者目標區分。`targets({ kind: 'community' })` 列出已加入社群，無參數 `targets()` 列出預設目標；兩者分開處理，避免社群 API 失敗影響作者列表。`resolve` 可唯讀確認名稱及存取權限，不得自動加入。
 - `posts` 的遊標是不透明字串，最後一頁 `hasNext: false`，沒有媒體的頁面也允許繼續翻頁。`locked` 表示許可權不足；`previewOnly` 明示只是公開預覽，不能把縮圖冒充全文。
+
+### 公共相簿：`subscription.media`
+
+相簿是獨立能力，不由已載入的帖子拼裝，也不回退呼叫 `subscription.posts`。實作 `subscription.media(scope, { page, cursor })`；有公開 feed、無可訂閱目標的來源也可在 `subscription` 下只宣告此方法。執行階段匯出 `capabilities.album`，與 `capabilities.subscription` 分離。
+
+`scope` 為 `{ feed, options }` 或 `{ target }`，分別指定 feed 與篩選，或使用者、社群、頻道、群組目標。目標辨識及遍歷由來源負責，介面不加入站點特例。回傳 `{ items, cursor, hasNext }`；無符合媒體的頁面仍可繼續，每次續頁遊標必須前進，重複遊標會報錯。
+
+每項須有穩定字串 `id`、`presentation: 'post' | 'work'`、已知時可解析的 ISO 8601 日期，以及依原站排序的完整 `media`。附件須有唯一穩定字串 `id`、`type: 'image' | 'video'` 及實際內容 `url` 或受控 `resource`。`preview` 是圖片縮圖；也可用下述受控附件格式的 `previewResource`，最大 2 MiB，須為獨立圖片。不得用封面或影片網址冒充縮圖。受限內容僅提供標記 `previewOnly: true`、保留原站模糊處理的公開預覽；整帖鎖定時設 `locked: true`。
+
+來源負責跨頁補全媒體及合併原站媒體組；客戶端依附件 `id` 合併重複作品，只有同作品全部附件都提供有限數值 `order` 時才據此排序。日期以本地日期閉區間篩選，指定範圍時排除未知日期；另可篩選圖片或影片。同帖收合只影響顯示。連續篩選無結果時僅自動讀取有限頁數，之後可手動繼續。`presentation: 'work'` 開啟作品詳情，`'post'` 開啟完整帖子。相簿封面僅載入圖片或明確縮圖資源，絕不載入影片播放網址。
+
+- `coverBlurred: true` 與媒體的 `blurred: true` 分別保留原站封面與圖片的模糊預覽，縮圖和完整圖片檢視均適用；不得將受限寫真作為未模糊的完整內容。影片預覽及完整影片均先展開 HLS 主清單，再播放選定畫質的點播清單。
 - 不能提供直鏈的授權附件使用 `media[].resource`，並實現 `mediaChunk(resource, offset)`：每次最多 128 KiB，offset 按 128 KiB 對齊；resource 必須含整數 `size` 和穩定、非秘密的字串 `cacheKey`（不隨授權憑據或臨時引用變化）。框架校驗總大小和每塊完整性，原子寫入自己的快取路徑，單個附件最大 512 MiB；資源不能決定本地路徑。簽名連結和 resource 不儲存到訂閱記錄。
-- 儲存訂閱不會自動關注或加入；未經驗證的寫操作必須引導使用者到原站手動操作，不執行靜默關注、加入或付費操作。
+- 涉及原站關注或加入的訂閱，必須在儲存前明確告知使用者並由使用者確認；未經驗證的寫入操作必須引導使用者到原站手動操作，不得靜默關注、加入或付費。
 
 ### 更新訂閱：`updateSubscriptions`
 
@@ -390,9 +447,12 @@ subscription: {
 | `Park.crypto.sha256Hex` / `hmacSha256Hex(key, text)` / `aesEcbDecrypt(base64, key)` / `uuid()` | 原生實現 |
 | `Park.crypto.digestBytes('sha1' \| 'sha256', bytes)` | 最多 2 MiB 的 0–255 整數字節陣列 |
 | `Park.crypto.randomBytes(length)` | 系統安全隨機位元組，length 為 1–65536 |
+| `Park.url.parse(value, base, domains)` / `site(source, value, base?)` / `response(source, response, requested)` | 解析授權域及子域內的 HTTPS 443 地址，拒絕使用者憑據、移除片段，失敗回傳 `null`。`site` 使用源 `domains`；`response` 檢查最終地址，不修改共用的源基地址，不符時拋出 `BLOCKED`。插件保留路徑、頁碼、作品與搜尋身份檢查，避免封閉查詢鍵清單及 CDN 節點名稱限制。 |
 | `Park.utils.rateLimiter(ms)` | 返回 `wait()`，保證兩次請求之間的最小間隔 |
 | `Park.utils.mapLimit(items, n, fn)` / `lruMap(n)` / `parseCount('1.2万')` / `formatDate(ts)` | 其他常用工具 |
 | `Park.error(code, message, extra?)` | 建立帶錯誤碼的錯誤，見「錯誤碼」 |
+
+`Park.crypto.aesGcmDecrypt(ciphertext, key, iv)` 接受十六進位密文（含尾端 16 位元組驗證標籤，最多 4096 位元組）、16/24/32 位元組金鑰和 12 位元組 IV，回傳明文位元組陣列；驗證失敗即拋錯，不回傳未驗證明文。
 
 ### `http.request(opts)`
 
@@ -436,7 +496,7 @@ throw Park.error('NOT_FOUND', '影片不存在');
 
 ### 主頁快取與錯誤語義
 
-- `feed` 的實時結果保留外掛返回的全部欄位；磁碟上的主頁快取只儲存作品 ID、標題、封面、標籤、上傳者、媒體型別、分類和展示用統計等白名單後設資料，`url`、訪問憑據、媒體列表和帖子不落盤。不要把憑據放進 ID、封面地址或分頁遊標。需要動態媒體或帖子展示的結果不快取。
+- `feed` 即時結果保留全部欄位。應用程式私有、可重建的磁碟快取儲存白名單作品資料、帖子文字、附件存取資料及支援的詳情欄位，讓快取內容可在重新整理前開啟；可能含會到期的媒體網址及資源參照。快取不替代下載或備份，過期連結須重新整理。快取身分區分站點、帳號、設定與請求範圍；帳號憑據不得放入回傳內容、ID 或遊標，也不得把快取存取資料複製到診斷或訂閱記錄。
 - 過期快取只在明確的 `NETWORK` / `TIMEOUT` 錯誤時作為離線內容顯示，並標明是快取。登入、確認、人機驗證、解析和配置失敗必須拋對應錯誤，框架不會把它們偽裝成網路失敗；使用者主動重新整理失敗也顯示真實錯誤。
 
 ## 國際化
@@ -504,22 +564,7 @@ Park.register({
 
 ### 官方外掛的發布
 
-官方外掛發布在主倉庫 [drdon1234/Hentai-Park](https://github.com/drdon1234/Hentai-Park)，應用固定讀取：
-
-```text
-https://raw.githubusercontent.com/drdon1234/Hentai-Park/sources/index.json
-https://raw.githubusercontent.com/drdon1234/Hentai-Park/rankings/index.json
-```
-
-- `assets/sources/index.json` 是唯一維護的清單，`file` 指向同目錄下的指令碼，檔名必須是 `{key}.js`（`[A-Za-z0-9_-]+.js`，不接受子目錄、符號連結或檔名中的點號）。
-- `tools/publish_sources.mjs` 生成發布索引，每條記錄包含 `key`、`name`、`version`、`category`、`description`、`url`、`sha256`、`apiVersion`，指令碼 URL 固定到本次原始碼的完整提交號：`https://raw.githubusercontent.com/drdon1234/Hentai-Park/<提交 SHA>/assets/sources/<file>`。`sources` 分支只儲存生成的 `index.json`。
-- 發布器只依賴 Node.js 22+ 內建模組，可以離線執行：檢查清單、檔案和目錄邊界，在不提供網路和儲存的上下文中載入執行時和指令碼，用與安裝預覽相同的 `Park.__pending` / `Park.manifest` 方式核對 `key`、`version` 和 API。它不呼叫 `init`、登入或站點方法，不能代替真實請求驗證。
-
-```powershell
-node tools/publish_sources.mjs --commit '<完整 40 位提交 SHA>' --output 'test/official-source-index.json'
-```
-
-原始碼繼續在主分支維護，普通插件由 `sources` 分發，獨立排行榜插件由 `rankings` 分發。兩分支只保存指向固定原始碼提交並含 SHA-256 的索引。工作流分別驗證和發布兩頻道；應用獨立讀取，拒絕頻道標記不符與重複 key，沿用更新確認流程。
+官方外掛維護 `assets/sources/index.json`，使用 `tools/publish_sources.mjs` 離線核對清單與執行時宣告，再產生含不可變指令碼網址和 SHA-256 的發布索引。離線檢查不執行登入或站點方法，不能取代真實請求驗證。建置與發布操作見[開發說明](../../DEVELOPMENT.md)。
 
 ### 構建生成的外掛
 
@@ -532,47 +577,13 @@ node tools/build_subscription_sources.mjs
 
 它使用 [@mtproto/core 6.3.0](https://github.com/alik0211/mtproto-core)（GPL-3.0，[許可證](../../licenses/mtproto-core.txt)，依賴彙總見 [第三方許可](../../licenses/telegram-dependencies.txt)）。站點適配替換了傳輸、密碼學和儲存，不開放庫預設的 WebSocket、瀏覽器 localStorage 或除錯日誌。
 
-## 附錄：官方站點備註
-
-維護官方外掛時需要知道的站點約定。站點會改版，以外掛程式碼為準。
-
-**遊戲**
-
-- 預設順序 KUN Galgame → GalgameX → 次元茶館。GalgameX 與 KUN 預設開啟 NSFW（分別用遊客 `content-filter` 介面和 `include_nsfw` 引數）。
-- GalgameX 預設本週熱門。資源更新列表使用前端動態發現的 Next Server Action，動作編號快取 15 分鐘，失效後重新發現，不執行遠端指令碼；詳情從 SSR Flight 資料解析。公開資源用主機與路徑雜湊作為穩定渠道編號，解析後按主機及檔名/分享編號匹配，拒絕不匹配或重複匹配，不依賴臨時連結的順序。
-- KUN 預設七日瀏覽排行，使用公開原生 API；下載介面只在點選時呼叫，避免預取增加站點下載計數。按介面總數遍歷資源頁，重複頁或提前空頁報錯。
-- 次元茶館使用瀏覽器模式和獨立登入，預設 Galgame 資源區熱門；列表從首樓附件補封面，請求間隔 400ms。資源列表只讀；只有使用者確認回覆後才按完整表單傳送「感謝分享，好人一生平安」。已解鎖不發帖；響應不明時保留狀態並引導檢查原帖，重啟也不重複傳送。
-
-**小說**
-
-| 站點 | 預設入口 | 範圍與限制 |
-| --- | --- | --- |
-| Book18 | 推薦 | 中文長篇與短篇，目錄沿站點順序 |
-| Cool18 | 精華 | 僅禁忌書屋；每個主帖是獨立作品，不合並回復或同名帖子；部分內容需要賬號許可權 |
-| Canovel | 最新 | 支援文章內正文分頁 |
-| Literotica | 排行 | 英文；搜尋排除非英文、有聲、教程、評論與隨筆分類 |
-| Lush Stories | 推薦 | 英文；排除有聲與詩歌分類 |
-| StoriesOnline | 作者推薦 | 英文；匿名正文被截斷時提示登入，不把預覽存為完整章節 |
-| 69story | 最新 | 中文；支援分類、搜尋、目錄及分章閱讀 |
-
-**訂閱**
-
-| 平臺 | 內容 | 登入 |
-| --- | --- | --- |
-| X / Twitter | 匿名公開媒體；登入後的授權動態與媒體 | 網頁登入，或填寫 `auth_token`、`ct0` |
-| Telegram | 公開頻道預覽；登入後的頻道歷史與附件 | 匯入已有 Telegram WebK 本地儲存會話 |
-| myfans.jp | 創作者目錄、公開圖片、公開影片與試看預覽 | 會員登入未驗證 |
-| pixivFANBOX | 公開目錄與封面預覽 | 會員登入未驗證 |
-
-- X 的 `ct0` 必須與 `X-CSRF-Token` 對應，會話可能過期或被撤銷。登入後從當前網頁載入操作編號和 feature flags，再讀取 UserTweets，只保留目標作者的媒體（排除轉推和引用）。匿名第三方代理不會收到 X Cookie。
-- Telegram 的本地儲存不是 Cookie：匯入內容需要 `dc` 和對應的 `dcN_auth_key`（512 位十六進位制），可以是 JSON 或 `key=value` 文字。外掛只恢復已有 WebK 會話，不發起驗證碼登入、不註冊自有客戶端；退出只刪除本應用儲存的會話。附件按 128 KiB 分塊讀取，單個最多 512 MiB；媒體引用過期時重新整理一次。網路走原生隔離 HTTP 橋，不開放 WebView fetch / WebSocket。
-- OnlyFans、Fantia、Patreon、Fansly 未完成媒體讀取鏈路，沒有加入官方清單。首頁能開啟不等於可以訂閱媒體，也不提供付費許可權繞過。
-
-動態 HLS CDN 可宣告 `media.scope: 'session'`（僅 native）。本次解析地址、清單資源與最多 8 跳重新導向僅授權給目前播放或下載工作階段，不增加 Cookie 權限。保留 HTTPS 443 與無憑據請求；直連檢查公網 DNS 並固定已驗證 IP，TLS 主機驗證保持啟用。明確設定 HTTP 代理時由可信代理解析及限制上游網路。關閉後銷毀授權；直連 MP4 與 browser 媒體仍使用靜態網域限制。
-
 ### `webVideo(id, episodeId)`
 
-iXXX、TubeSafari 使用應用程式內網頁播放。播放頁可能仍需站點確認；播放控制由上游頁面提供，暫不支援應用程式的下載與精確續播。Android 需要支援獨立工作階段的較新版本 Android System WebView。
+網頁播放器在獨立暫存工作階段內處理 Cloudflare 驗證，只允許精確的 `challenges.cloudflare.com` 驗證子框架，不開放其主框架導覽。年齡確認僅在來源宣告網域內使用 `network.confirmation`，不套用至外部播放器。無法自動完成時保留網頁供使用者處理，不匯入或匯出播放器 Cookie。`CONFIRM_REQUIRED` 保留外掛提示，透過應用程式內「去確認」頁面處理，明確完成後同步來源工作階段，不自動重播原操作。
+
+iXXX 與 TubeSafari 已適配的來源優先使用原生播放器，支援續播與離線儲存；未適配的來源使用應用程式內網頁播放。網頁播放可能需要站點確認，不支援應用程式下載與精確續播；Android 需要支援獨立工作階段的較新版本 Android System WebView。
+
+執行時自動匯出 `capabilities.webVideo`。僅實作 `webVideo` 時使用應用程式內網頁；同時實作 `videos` 和 `webVideo` 時優先原生播放。只有 `videos` 回傳 `UNSUPPORTED` 才自動轉用網頁；`HTTP`、`NETWORK`、`CLOUDFLARE`、登入、解析、下架或取消錯誤照常顯示。下載僅支援成功解析的原生媒體，不轉用網頁。
 
 ```js
 return { url: "https://player.example.com/watch/1", navigationDomains: ["player.example.com"], frameDomains: [] };
@@ -583,7 +594,7 @@ return { url: "https://player.example.com/watch/1", navigationDomains: ["player.
 
 `rankings` 以 `key`、`label`、`category`、`metric`、`options` 宣告榜單。獨立排行榜插件設定 `rankingOnly: true` 且不宣告 `feeds`。`ranking(board, {page, offset, cursor, options})` 回傳作品頁；條目包含 `id`、原站 `rank`、`title`、`cover`，以及可選的 `keyword`、`subtitle`、HTTPS 商品 `url`，保留並列名次。現有內容源可宣告 `feed`：未指定選項時繼承該 feed，執行時複用 `feed()` 並保留作品欄位、補上 `workId` 和缺失名次，開啟作品詳情。商業榜則搜尋指定分類。
 
-原始碼繼續在主分支維護，普通插件由 `sources` 分發，獨立排行榜插件由 `rankings` 分發。兩分支只保存指向固定原始碼提交並含 SHA-256 的索引。工作流分別驗證和發布兩頻道；應用獨立讀取，拒絕頻道標記不符與重複 key，沿用更新確認流程。
+原始碼在主分支維護。`sources`、`rankings`、`reverse-search` 分別分發一般站點、獨立排行榜及獨立反搜外掛；各分支只保存指向固定原始碼提交、含 SHA-256 的索引。應用程式分別讀取三個頻道，拒絕頻道標記不符與重複 key，更新前需使用者確認。標籤翻譯由 `tag-translations` 另行分發。
 
 ```powershell
 node tools/publish_sources.mjs --commit '<SHA>' --channel rankings --output 'test/official-ranking-index.json'

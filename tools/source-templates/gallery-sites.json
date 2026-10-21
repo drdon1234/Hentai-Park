@@ -1,0 +1,242 @@
+[
+  {
+    "site": {
+      "key": "pixibb",
+      "name": "PixiBB",
+      "domain": "pixibb.com",
+      "home": "https://hub.pixibb.com",
+      "api": "https://sexy.pixibb.com/wp-json/wp/v2",
+      "color": "#02B6E8",
+      "language": "en",
+      "description": "Cosplay 与写真图集，支持推荐、分类与搜索",
+      "ero": 0,
+      "nude": 0,
+      "categories": [
+        10,
+        112
+      ],
+      "excludeCategories": [
+        74,
+        209
+      ],
+      "excludeTags": [
+        3472,
+        3821
+      ],
+      "aiCategories": [
+        24,
+        119
+      ],
+      "aiTags": [
+        3535,
+        3881
+      ],
+      "popular": "/home/",
+      "popularSelector": ".featured__post-single .post-title a[href]",
+      "month": "",
+      "week": "",
+      "titleNoise": "\\s*\\(\\d+ photos?(?: \\+ \\d+ videos?)?\\)|\\s*\\bSexy (?:Cosplay|Girls?)\\s*$"
+    },
+    "i18n": {
+      "zh-Hant": {
+        "Cosplay 与写真图集，支持推荐、分类与搜索": "Cosplay 與寫真圖集，支援推薦、分類與搜尋",
+        "PixiBB": "PixiBB"
+      },
+      "ja": {
+        "Cosplay 与写真图集，支持推荐、分类与搜索": "コスプレ・写真集。おすすめ・カテゴリ・検索に対応",
+        "PixiBB": "PixiBB"
+      },
+      "ko": {
+        "Cosplay 与写真图集，支持推荐、分类与搜索": "코스플레이 및 화보, 추천·분류·검색 지원",
+        "PixiBB": "PixiBB"
+      },
+      "en": {
+        "Cosplay 与写真图集，支持推荐、分类与搜索": "Cosplay and photo galleries with recommendations, categories and search",
+        "PixiBB": "PixiBB"
+      },
+      "es": {
+        "Cosplay 与写真图集，支持推荐、分类与搜索": "Galerías de cosplay y fotografía con recomendaciones, categorías y búsqueda",
+        "PixiBB": "PixiBB"
+      },
+      "ru": {
+        "Cosplay 与写真图集，支持推荐、分类与搜索": "Косплей и фотосессии: рекомендации, категории и поиск",
+        "PixiBB": "PixiBB"
+      },
+      "ar": {
+        "Cosplay 与写真图集，支持推荐、分类与搜索": "معارض كوسبلاي وتصوير مع توصيات وتصنيفات وبحث",
+        "PixiBB": "PixiBB"
+      }
+    }
+  },
+  {
+    "site": {
+      "key": "nudecosplay",
+      "name": "NudeCosplay",
+      "domain": "nudecosplay.biz",
+      "home": "https://nudecosplay.biz",
+      "api": "https://nudecosplay.biz/wp-json/wp/v2",
+      "color": "#C957CE",
+      "language": "en",
+      "description": "Cosplay 写真图集，支持总热门、月热门与周热门",
+      "ero": 1790,
+      "nude": 1794,
+      "categories": [],
+      "excludeCategories": [],
+      "excludeTags": [],
+      "aiCategories": [
+        3373
+      ],
+      "aiTags": [],
+      "popular": "/most-popular/",
+      "popularSelector": ".jeg_main_content article .jeg_post_title a[href]",
+      "month": "/popular-this-month/",
+      "week": "/popular-this-week/",
+      "titleNoise": "\\s*/nudecosplay\\.biz/\\s*$"
+    },
+    "i18n": {
+      "zh-Hant": {
+        "Cosplay 写真图集，支持总热门、月热门与周热门": "Cosplay 寫真圖集，支援總熱門、月熱門與週熱門",
+        "NudeCosplay": "NudeCosplay"
+      },
+      "ja": {
+        "Cosplay 写真图集，支持总热门、月热门与周热门": "コスプレ写真集。総合・月間・週間の人気作品に対応",
+        "NudeCosplay": "NudeCosplay"
+      },
+      "ko": {
+        "Cosplay 写真图集，支持总热门、月热门与周热门": "코스플레이 화보, 전체·월간·주간 인기 목록 지원",
+        "NudeCosplay": "NudeCosplay"
+      },
+      "en": {
+        "Cosplay 写真图集，支持总热门、月热门与周热门": "Cosplay galleries with all-time, monthly and weekly popular works",
+        "NudeCosplay": "NudeCosplay"
+      },
+      "es": {
+        "Cosplay 写真图集，支持总热门、月热门与周热门": "Galerías de cosplay con populares de siempre, del mes y de la semana",
+        "NudeCosplay": "NudeCosplay"
+      },
+      "ru": {
+        "Cosplay 写真图集，支持总热门、月热门与周热门": "Косплей-галереи с популярными работами за всё время, месяц и неделю",
+        "NudeCosplay": "NudeCosplay"
+      },
+      "ar": {
+        "Cosplay 写真图集，支持总热门、月热门与周热门": "معارض كوسبلاي مع أعمال شائعة إجمالاً وشهرياً وأسبوعياً",
+        "NudeCosplay": "NudeCosplay"
+      }
+    }
+  },
+  {
+    "site": {
+      "key": "xiuren",
+      "name": "XiuRen",
+      "domain": "xiuren.biz",
+      "home": "https://xiuren.biz",
+      "api": "https://xiuren.biz/wp-json/wp/v2",
+      "color": "#E59637",
+      "language": "zh-Hans",
+      "description": "工作室写真图集，支持热门、模特搜索与整套阅读",
+      "ero": 0,
+      "nude": 0,
+      "categories": [],
+      "excludeCategories": [],
+      "excludeTags": [],
+      "aiCategories": [
+        1558
+      ],
+      "aiTags": [
+        1559,
+        1560
+      ],
+      "popular": "/most_popular/",
+      "popularSelector": ".jeg_main_content article .jeg_post_title a[href]",
+      "month": "/popular-this-month/",
+      "week": "/popular-this-week/",
+      "titleNoise": ""
+    },
+    "i18n": {
+      "zh-Hant": {
+        "XiuRen": "XiuRen",
+        "工作室写真图集，支持热门、模特搜索与整套阅读": "工作室寫真圖集，支援熱門、模特兒搜尋與整套閱讀"
+      },
+      "ja": {
+        "XiuRen": "XiuRen",
+        "工作室写真图集，支持热门、模特搜索与整套阅读": "スタジオ写真集。人気作品・モデル検索・全画像の閲覧に対応"
+      },
+      "ko": {
+        "XiuRen": "XiuRen",
+        "工作室写真图集，支持热门、模特搜索与整套阅读": "스튜디오 화보, 인기 목록·모델 검색·전체 감상 지원"
+      },
+      "en": {
+        "XiuRen": "XiuRen",
+        "工作室写真图集，支持热门、模特搜索与整套阅读": "Studio photo galleries with popular works, model search and full-set viewing"
+      },
+      "es": {
+        "XiuRen": "XiuRen",
+        "工作室写真图集，支持热门、模特搜索与整套阅读": "Galerías de estudio con populares, búsqueda de modelos y lectura completa"
+      },
+      "ru": {
+        "XiuRen": "XiuRen",
+        "工作室写真图集，支持热门、模特搜索与整套阅读": "Студийные фотосессии: популярные работы, поиск моделей и полный просмотр"
+      },
+      "ar": {
+        "XiuRen": "XiuRen",
+        "工作室写真图集，支持热门、模特搜索与整套阅读": "معارض صور استوديو مع أعمال شائعة وبحث عن العارضين وعرض المجموعة كاملة"
+      }
+    }
+  },
+  {
+    "site": {
+      "key": "cosplaytele",
+      "name": "CosplayTele",
+      "domain": "cosplaytele.com",
+      "home": "https://cosplaytele.com",
+      "api": "https://cosplaytele.com/wp-json/wp/v2",
+      "color": "#E94F93",
+      "language": "en",
+      "description": "Cosplay 写真图集，支持热门、角色搜索与整套阅读",
+      "ero": 194,
+      "nude": 193,
+      "categories": [],
+      "excludeCategories": [],
+      "excludeTags": [],
+      "aiCategories": [
+        589
+      ],
+      "aiTags": [],
+      "popular": "/",
+      "popularSelector": "",
+      "month": "",
+      "week": "",
+      "titleNoise": ""
+    },
+    "i18n": {
+      "zh-Hant": {
+        "Cosplay 写真图集，支持热门、角色搜索与整套阅读": "Cosplay 寫真圖集，支援熱門、角色搜尋與整套閱讀",
+        "CosplayTele": "CosplayTele"
+      },
+      "ja": {
+        "Cosplay 写真图集，支持热门、角色搜索与整套阅读": "コスプレ写真集。人気作品・キャラクター検索・全画像の閲覧に対応",
+        "CosplayTele": "CosplayTele"
+      },
+      "ko": {
+        "Cosplay 写真图集，支持热门、角色搜索与整套阅读": "코스플레이 화보, 인기 목록·캐릭터 검색·전체 감상 지원",
+        "CosplayTele": "CosplayTele"
+      },
+      "en": {
+        "Cosplay 写真图集，支持热门、角色搜索与整套阅读": "Cosplay galleries with popular works, character search and full-set viewing",
+        "CosplayTele": "CosplayTele"
+      },
+      "es": {
+        "Cosplay 写真图集，支持热门、角色搜索与整套阅读": "Galerías de cosplay con populares, búsqueda de personajes y lectura completa",
+        "CosplayTele": "CosplayTele"
+      },
+      "ru": {
+        "Cosplay 写真图集，支持热门、角色搜索与整套阅读": "Косплей-галереи: популярные работы, поиск персонажей и просмотр полного набора",
+        "CosplayTele": "CosplayTele"
+      },
+      "ar": {
+        "Cosplay 写真图集，支持热门、角色搜索与整套阅读": "معارض كوسبلاي مع أعمال شائعة وبحث عن الشخصيات وعرض المجموعة كاملة",
+        "CosplayTele": "CosplayTele"
+      }
+    }
+  }
+]

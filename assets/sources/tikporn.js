@@ -9,7 +9,7 @@ Park.register({
     "ru": {"竖屏短视频推荐，支持连续播放和搜索": "Рекомендации вертикальных видео с непрерывным просмотром и поиском"},
     "ar": {"竖屏短视频推荐，支持连续播放和搜索": "اقتراحات مقاطع عمودية تدعم التشغيل المتواصل والبحث"},
   },
-  key: 'tikporn', name: 'Tik.porn', version: '0.0.4', type: 'video', category: 'shortvideo',
+  key: 'tikporn', name: 'Tik.porn', version: '0.0.5', type: 'video', category: 'shortvideo',
   color: '#FF427B', description: '竖屏短视频推荐，支持连续播放和搜索', language: 'en',
   homepage: 'https://tik.porn/', domains: ['tik.porn'],
   network: {mode: 'browser', origin: 'https://tik.porn', vpnHint: true},
@@ -99,7 +99,16 @@ Park.register({
     if (!video || String(video.id) !== id) throw Park.error('NOT_FOUND', '影片不存在');
     return video;
   },
-  async detail(id) { return {...this.item(await this.video(id)), tags: [], chapters: null}; },
+  async detail(id) {
+    const video = await this.video(id), seen = new Set(), tags = [];
+    for (const tag of [video.action, ...(Array.isArray(video.tags) ? video.tags : [])]) {
+      const name = typeof tag?.name === 'string' ? tag.name.trim() : '';
+      if (!name || name.length > 240 || seen.has(name.toLowerCase())) continue;
+      seen.add(name.toLowerCase());
+      tags.push({name, keyword: name});
+    }
+    return {...this.item(video), tags: tags.length ? [{namespace: 'tag', label: '标签', tags}] : [], chapters: null};
+  },
   mediaUrl(value) {
     try {
       const u = new URL(value);

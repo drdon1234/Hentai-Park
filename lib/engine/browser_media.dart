@@ -1,5 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
@@ -33,6 +35,12 @@ class BrowserMedia implements MediaTransport {
   final _queue = SerialExecutor();
   Future<void>? _closing;
   int _nextId = 0;
+  bool _resourcePhase = false;
+  Timer? _startupPoll;
+
+  // WebView2 在每次连接前触发拦截；其他内核的回调不能覆盖重定向链。
+  // 没有逐跳拦截能力时让浏览器拒绝重定向，不用事后校验冒充连接边界。
+  static bool get _guardedRedirects => Platform.isWindows;
 
   @override
   void validate(Uri url) => policy.validate(url);
@@ -74,9 +82,18 @@ class BrowserMedia implements MediaTransport {
 
   Future<void> _start() async {
     _check(null);
+    _resourcePhase = false;
     final ready = Completer<void>();
+    var challenged = false;
+    var generation = 0;
+    var inspecting = false;
+    Uri? document = Uri.parse('${policy.origin}/robots.txt');
+    var documentStatus = 200;
+    var sawChallenge = false;
     void finish([Object? error]) {
       if (!ready.isCompleted) {
+        _startupPoll?.cancel();
+        _startupPoll = null;
         if (error == null) {
           ready.complete();
         } else {
@@ -85,9 +102,74 @@ class BrowserMedia implements MediaTransport {
       }
     }
 
+    Future<void> inspect(InAppWebViewController controller) async {
+      if (inspecting || ready.isCompleted || _closed.isCompleted) return;
+      inspecting = true;
+      final inspectedGeneration = generation;
+      bool current() =>
+          !_closed.isCompleted &&
+          !ready.isCompleted &&
+          inspectedGeneration == generation &&
+          _controller != null;
+      try {
+        // 同一快照读取实际文档地址和状态，用导航代次丢弃旧结果。
+        final raw = await controller
+            .evaluateJavascript(
+              source:
+                  '''JSON.stringify({url: location.href, title: document.title,
+ready: document.readyState === 'complete',
+html: document.documentElement ? document.documentElement.outerHTML.slice(0, 4194304) : ''})''',
+            )
+            .timeout(const Duration(seconds: 5));
+        if (!current()) return;
+        final state = raw is String ? jsonDecode(raw) : raw;
+        if (state is! Map || state['ready'] != true) {
+          return;
+        }
+        if (!policy.allowsDocument(Uri.tryParse('${state['url']}'))) {
+          finish(SourceError('CONFIG', '媒体浏览器离开了站点声明的地址'));
+          return;
+        }
+        document = Uri.tryParse('${state['url']}');
+        challenged = hasChallengeMarkers(
+          '${state['html'] ?? ''}',
+          title: '${state['title'] ?? ''}',
+        );
+        if (challenged) {
+          sawChallenge = true;
+          return;
+        }
+        // 启动文档只用于建立来源；站点可不提供 robots.txt。
+        final missingBootstrap =
+            documentStatus == 404 &&
+            document == Uri.parse('${policy.origin}/robots.txt');
+        if (documentStatus >= 400 && !sawChallenge && !missingBootstrap) {
+          finish(SourceError('HTTP', '浏览器请求失败', status: documentStatus));
+          return;
+        }
+        finish();
+      } catch (error) {
+        if (current()) finish(error);
+      } finally {
+        inspecting = false;
+      }
+    }
+
     final timeout = Timer(
       const Duration(seconds: 25),
-      () => finish(SourceError('CLOUDFLARE', '浏览器验证未通过', url: policy.origin)),
+      () => finish(
+        challenged
+            ? SourceError('CLOUDFLARE', '浏览器验证未通过', url: policy.origin)
+            : SourceError(
+                'NETWORK',
+                '浏览器请求超时',
+                url: policy.origin,
+                diagnostics: const {
+                  'transport': 'browser',
+                  'reason': 'CONNECT_TIMEOUT',
+                },
+              ),
+      ),
     );
     final view = HeadlessInAppWebView(
       initialUrlRequest: URLRequest(url: WebUri('${policy.origin}/robots.txt')),
@@ -95,38 +177,73 @@ class BrowserMedia implements MediaTransport {
         userAgent: HttpService.instance.userAgent,
         blockNetworkImage: true,
         useShouldOverrideUrlLoading: true,
+        useShouldInterceptRequest: _guardedRedirects,
       ),
+      shouldInterceptRequest: (controller, request) {
+        if (!_resourcePhase) return null;
+        try {
+          final url = Uri.parse(request.url.toString());
+          // WebView2 的 isForMainFrame 对子资源也可能为 true；使用浏览器
+          // 生成且 fetch 不能伪造的目标类型，保持文档域与资源域各自独立。
+          final destination = request.headers?.entries
+              .where((entry) => entry.key.toLowerCase() == 'sec-fetch-dest')
+              .firstOrNull
+              ?.value;
+          if (destination == 'document' || destination == 'iframe') {
+            if (!policy.allowsDocument(url)) {
+              throw SourceError('CONFIG', '媒体浏览器离开了站点声明的地址');
+            }
+          } else {
+            validate(url);
+          }
+          return null;
+        } catch (_) {
+          return WebResourceResponse(
+            statusCode: 403,
+            reasonPhrase: 'Forbidden',
+            contentType: 'text/plain',
+            data: Uint8List(0),
+          );
+        }
+      },
       onWebViewCreated: (controller) => _controller = controller,
+      onLoadStart: (controller, url) {
+        generation++;
+        challenged = false;
+        document = Uri.tryParse('$url');
+        documentStatus = 200;
+        sawChallenge = false;
+      },
       onRenderProcessGone: (controller, detail) {
         finish(SourceError('NETWORK', '浏览器请求失败'));
         _controller = null;
         unawaited(close());
       },
       onLoadStop: (controller, url) async {
-        if (url == null || Uri.tryParse('$url')?.origin != policy.origin) {
-          finish(SourceError('CONFIG', '媒体浏览器离开了站点声明的地址'));
-          return;
-        }
-        try {
-          final title = await controller.getTitle() ?? '';
-          final html = await controller.evaluateJavascript(
-            source: 'document.documentElement.outerHTML.slice(0,3000)',
-          );
-          if (!hasChallengeMarkers('$html', title: title)) {
-            finish();
-          }
-        } catch (e) {
-          finish(e);
-        }
+        if (ready.isCompleted || _closed.isCompleted) return;
+        // 只按检查快照中的实际地址判断，迟到的 loadStop 不能替换当前文档。
+        _startupPoll ??= Timer.periodic(
+          const Duration(milliseconds: 800),
+          (_) => unawaited(inspect(controller)),
+        );
+        await inspect(controller);
       },
       onReceivedError: (controller, request, error) {
-        if (request.isForMainFrame == true) {
+        if (request.isForMainFrame == true &&
+            document == Uri.tryParse('${request.url}')) {
           finish(SourceError('NETWORK', error.description));
+        }
+      },
+      onReceivedHttpError: (controller, request, response) {
+        if (!ready.isCompleted &&
+            request.isForMainFrame == true &&
+            document == Uri.tryParse('${request.url}')) {
+          documentStatus = response.statusCode ?? 200;
         }
       },
       shouldOverrideUrlLoading: (controller, action) =>
           action.isForMainFrame == false ||
-              Uri.tryParse('${action.request.url}')?.origin == policy.origin
+              policy.allowsDocument(Uri.tryParse('${action.request.url}'))
           ? NavigationActionPolicy.ALLOW
           : NavigationActionPolicy.CANCEL,
     );
@@ -183,6 +300,7 @@ class BrowserMedia implements MediaTransport {
       _check(cancelToken);
       await _untilClosed(_ready ??= _start(), cancelToken);
       _check(cancelToken);
+      _resourcePhase = true;
       final id = '${++_nextId}';
       var finished = false;
       final cancellation = cancelToken?.whenCancel.asStream().listen((
@@ -210,7 +328,7 @@ if (jobs.has(id)) jobs.get(id)?.abort(); else jobs.set(id, null);''',
             jobs.set(id, controller);
             const timer = setTimeout(() => controller.abort(), 40000);
             try {
-              const response = await fetch(url, {credentials: 'omit', mode: 'cors', redirect: 'error', headers, signal: controller.signal});
+              const response = await fetch(url, {credentials: credentialsMode, mode: 'cors', redirect: redirectMode, referrerPolicy: 'strict-origin-when-cross-origin', headers, signal: controller.signal});
               if (response.status !== 200) return {status: response.status};
               const size = Number(response.headers.get('content-length'));
               if (size > limit) throw new Error('媒体资源过大');
@@ -237,6 +355,10 @@ if (jobs.has(id)) jobs.get(id)?.abort(); else jobs.set(id, null);''',
                   'id': id,
                   'url': url.toString(),
                   'limit': maxBytes,
+                  'redirectMode': _guardedRedirects ? 'follow' : 'error',
+                  'credentialsMode': policy.sameOriginCredentials
+                      ? 'same-origin'
+                      : 'omit',
                   'headers': Map.of(headers)
                     ..removeWhere(
                       (name, _) => const {
@@ -267,7 +389,6 @@ if (jobs.has(id)) jobs.get(id)?.abort(); else jobs.set(id, null);''',
         final finalUrl = Uri.tryParse('${value['url']}');
         if (finalUrl == null) throw SourceError('NETWORK', '媒体响应地址缺失');
         validate(finalUrl);
-        if (finalUrl != url) throw SourceError('CONFIG', '媒体请求不允许重定向');
         final encoded = value['body'] as String;
         if (encoded.length > ((maxBytes + 2) ~/ 3) * 4) {
           throw SourceError('NETWORK', '媒体资源过大');
@@ -305,6 +426,8 @@ if (jobs.has(id)) jobs.get(id)?.abort(); else jobs.set(id, null);''',
     final view = _view;
     final starting = _starting;
     _controller = null;
+    _startupPoll?.cancel();
+    _startupPoll = null;
     try {
       await controller?.evaluateJavascript(
         source: 'globalThis.__parkMedia?.forEach(controller => controller?.abort())',

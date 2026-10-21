@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:desktop_drop/desktop_drop.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:path/path.dart' as p;
@@ -11,6 +12,7 @@ import '../../library/backup.dart';
 import '../kit/adaptive_sheet.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
+import '../widgets/file_drop_region.dart';
 import '../widgets/platform_share.dart';
 import 'source_install.dart';
 
@@ -25,6 +27,8 @@ class _BackupPageState extends State<BackupPage> {
   final s = AppSettings.instance;
   List<File> _files = [];
   bool _busy = false;
+  bool _reading = false;
+  bool get _unavailable => _busy || _reading;
 
   @override
   void initState() {
@@ -113,12 +117,34 @@ class _BackupPageState extends State<BackupPage> {
 
   Future<void> _pickAndRestore() async {
     final file = await FilePicker.pickFile(dialogTitle: tr('选择备份文件'));
-    if (file == null) return;
-    if (!file.name.endsWith(BackupService.extension) && mounted) {
+    if (file == null || !mounted) return;
+    await _restoreFile(file.xFile);
+  }
+
+  Future<void> _drop(List<DropItem> files) async {
+    if (_unavailable || files.isEmpty) return;
+    if (files.length != 1 || files.single is DropItemDirectory) {
       context.toast(tr('请选择 {value0} 文件', {'value0': BackupService.extension}));
       return;
     }
-    await _restoreBytes(await file.xFile.readAsBytes());
+    await _restoreFile(files.single);
+  }
+
+  Future<void> _restoreFile(XFile file) async {
+    if (_unavailable) return;
+    if (!file.name.toLowerCase().endsWith(BackupService.extension)) {
+      context.toast(tr('请选择 {value0} 文件', {'value0': BackupService.extension}));
+      return;
+    }
+    setState(() => _reading = true);
+    try {
+      final bytes = await file.readAsBytes();
+      if (mounted) await _restoreBytes(bytes);
+    } catch (_) {
+      if (mounted) context.toast(tr('无法读取文件，请重试'));
+    } finally {
+      if (mounted) setState(() => _reading = false);
+    }
   }
 
   Future<void> _guard(Future<void> Function() body) async {
@@ -195,160 +221,175 @@ class _BackupPageState extends State<BackupPage> {
                 )
               : null,
         ),
-        body: SettingsBody(
-          child: ListView(
-            padding: const EdgeInsets.fromLTRB(0, 8, 0, 32),
-            children: [
-              RowGroup(
-                children: [
-                  ListTile(
-                    leading: const Icon(Icons.backup_outlined),
-                    title: SelectionContainer.disabled(child: Text(tr('创建备份'))),
-                    subtitle: SelectionContainer.disabled(
-                      child: Text(
-                        tr('收藏、分类、阅读进度、历史、标注、订阅、设置与站点列表；不包含下载内容或 Cookie'),
-                      ),
-                    ),
-                    onTap: _busy ? null : _create,
-                  ),
-                  ListTile(
-                    leading: const Icon(Icons.settings_backup_restore_rounded),
-                    title: SelectionContainer.disabled(
-                      child: Text(tr('从文件恢复')),
-                    ),
-                    subtitle: SelectionContainer.disabled(
-                      child: Text(tr('选择 .parkbak 文件，与当前数据合并')),
-                    ),
-                    onTap: _busy ? null : _pickAndRestore,
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              RowGroup(
-                children: [
-                  ListTile(
-                    leading: const Icon(Icons.schedule_rounded),
-                    title: SelectionContainer.disabled(child: Text(tr('自动备份'))),
-                    subtitle: SelectionContainer.disabled(
-                      child: Text(
-                        last == 0
-                            ? tr('尚未自动备份过')
-                            : tr('上次：{value0}', {
-                                'value0': timeAgo(
-                                  DateTime.fromMillisecondsSinceEpoch(last),
-                                ),
-                              }),
-                      ),
-                    ),
-                  ),
-                  Padding(
-                    padding: const EdgeInsetsDirectional.fromSTEB(
-                      72,
-                      0,
-                      16,
-                      12,
-                    ),
-                    child: SelectionContainer.disabled(
-                      child: DropdownButton<int>(
-                        value: s.autoBackupHours,
-                        isExpanded: true,
-                        underline: const SizedBox.shrink(),
-                        items:
-                            [
-                                  (0, tr('关闭')),
-                                  (12, tr('每 12 小时')),
-                                  (24, tr('每天')),
-                                  (72, tr('每 3 天')),
-                                  (168, tr('每周')),
-                                ]
-                                .map(
-                                  (e) => DropdownMenuItem(
-                                    value: e.$1,
-                                    child: SelectionContainer.disabled(
-                                      child: Text(
-                                        e.$2,
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                    ),
-                                  ),
-                                )
-                                .toList(),
-                        onChanged: (v) => s.autoBackupHours = v ?? 24,
-                      ),
-                    ),
-                  ),
-                  ListTile(
-                    leading: const Icon(Icons.layers_outlined),
-                    title: SelectionContainer.disabled(child: Text(tr('保留份数'))),
-                    subtitle: SelectionContainer.disabled(
-                      child: Text(tr('仅清理自动备份，手工备份保留')),
-                    ),
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 8,
-                    ),
-                    child: Text(tr('打开应用或回到前台时检查备份间隔；应用关闭时不会执行后台定时备份')),
-                  ),
-                  Padding(
-                    padding: const EdgeInsetsDirectional.fromSTEB(
-                      72,
-                      0,
-                      16,
-                      12,
-                    ),
-                    child: SelectionContainer.disabled(
-                      child: DropdownButton<int>(
-                        value: s.autoBackupKeep,
-                        isExpanded: true,
-                        underline: const SizedBox.shrink(),
-                        items: const [1, 2, 3, 5, 10]
-                            .map(
-                              (v) => DropdownMenuItem(
-                                value: v,
-                                child: SelectionContainer.disabled(
-                                  child: Text('$v'),
-                                ),
-                              ),
-                            )
-                            .toList(),
-                        onChanged: (v) => s.autoBackupKeep = v ?? 3,
-                      ),
-                    ),
-                  ),
-                  ListTile(
-                    leading: const Icon(Icons.folder_outlined),
-                    title: SelectionContainer.disabled(child: Text(tr('备份目录'))),
-                    subtitle: SelectionContainer.disabled(
-                      child: SelectableText(
-                        AppPaths.backups.path,
-                        style: context.text.bodySmall,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              if (_files.isNotEmpty) ...[
+        body: FileDropRegion(
+          enabled: !_unavailable,
+          message: tr('松开以选择此备份，确认后恢复'),
+          onDrop: _drop,
+          child: SettingsBody(
+            child: ListView(
+              padding: const EdgeInsets.fromLTRB(0, 8, 0, 32),
+              children: [
                 RowGroup(
-                  title: tr('本机备份'),
                   children: [
-                    for (final f in _files)
-                      ListTile(
-                        leading: const Icon(Icons.description_outlined),
-                        title: SelectionContainer.disabled(
-                          child: Text(p.basename(f.path)),
-                        ),
-                        subtitle: SelectionContainer.disabled(
-                          child: Text(formatBytes(f.lengthSync())),
-                        ),
-                        onTap: _busy ? null : () => _fileMenu(f),
+                    ListTile(
+                      leading: const Icon(Icons.backup_outlined),
+                      title: SelectionContainer.disabled(
+                        child: Text(tr('创建备份')),
                       ),
+                      subtitle: SelectionContainer.disabled(
+                        child: Text(
+                          tr('收藏、分类、阅读进度、历史、标注、订阅、设置与站点列表；不包含下载内容或 Cookie'),
+                        ),
+                      ),
+                      onTap: _unavailable ? null : _create,
+                    ),
+                    ListTile(
+                      leading: const Icon(
+                        Icons.settings_backup_restore_rounded,
+                      ),
+                      title: SelectionContainer.disabled(
+                        child: Text(tr('从文件恢复')),
+                      ),
+                      subtitle: SelectionContainer.disabled(
+                        child: Text(tr('选择 .parkbak 文件，与当前数据合并')),
+                      ),
+                      onTap: _unavailable ? null : _pickAndRestore,
+                    ),
                   ],
                 ),
+                const SizedBox(height: 12),
+                RowGroup(
+                  children: [
+                    ListTile(
+                      leading: const Icon(Icons.schedule_rounded),
+                      title: SelectionContainer.disabled(
+                        child: Text(tr('自动备份')),
+                      ),
+                      subtitle: SelectionContainer.disabled(
+                        child: Text(
+                          last == 0
+                              ? tr('尚未自动备份过')
+                              : tr('上次：{value0}', {
+                                  'value0': timeAgo(
+                                    DateTime.fromMillisecondsSinceEpoch(last),
+                                  ),
+                                }),
+                        ),
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsetsDirectional.fromSTEB(
+                        72,
+                        0,
+                        16,
+                        12,
+                      ),
+                      child: SelectionContainer.disabled(
+                        child: DropdownButton<int>(
+                          value: s.autoBackupHours,
+                          isExpanded: true,
+                          underline: const SizedBox.shrink(),
+                          items:
+                              [
+                                    (0, tr('关闭')),
+                                    (12, tr('每 12 小时')),
+                                    (24, tr('每天')),
+                                    (72, tr('每 3 天')),
+                                    (168, tr('每周')),
+                                  ]
+                                  .map(
+                                    (e) => DropdownMenuItem(
+                                      value: e.$1,
+                                      child: SelectionContainer.disabled(
+                                        child: Text(
+                                          e.$2,
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
+                                    ),
+                                  )
+                                  .toList(),
+                          onChanged: (v) => s.autoBackupHours = v ?? 24,
+                        ),
+                      ),
+                    ),
+                    ListTile(
+                      leading: const Icon(Icons.layers_outlined),
+                      title: SelectionContainer.disabled(
+                        child: Text(tr('保留份数')),
+                      ),
+                      subtitle: SelectionContainer.disabled(
+                        child: Text(tr('仅清理自动备份，手工备份保留')),
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 8,
+                      ),
+                      child: Text(tr('打开应用或回到前台时检查备份间隔；应用关闭时不会执行后台定时备份')),
+                    ),
+                    Padding(
+                      padding: const EdgeInsetsDirectional.fromSTEB(
+                        72,
+                        0,
+                        16,
+                        12,
+                      ),
+                      child: SelectionContainer.disabled(
+                        child: DropdownButton<int>(
+                          value: s.autoBackupKeep,
+                          isExpanded: true,
+                          underline: const SizedBox.shrink(),
+                          items: const [1, 2, 3, 5, 10]
+                              .map(
+                                (v) => DropdownMenuItem(
+                                  value: v,
+                                  child: SelectionContainer.disabled(
+                                    child: Text('$v'),
+                                  ),
+                                ),
+                              )
+                              .toList(),
+                          onChanged: (v) => s.autoBackupKeep = v ?? 3,
+                        ),
+                      ),
+                    ),
+                    ListTile(
+                      leading: const Icon(Icons.folder_outlined),
+                      title: SelectionContainer.disabled(
+                        child: Text(tr('备份目录')),
+                      ),
+                      subtitle: SelectionContainer.disabled(
+                        child: SelectableText(
+                          AppPaths.backups.path,
+                          style: context.text.bodySmall,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                if (_files.isNotEmpty) ...[
+                  RowGroup(
+                    title: tr('本机备份'),
+                    children: [
+                      for (final f in _files)
+                        ListTile(
+                          leading: const Icon(Icons.description_outlined),
+                          title: SelectionContainer.disabled(
+                            child: Text(p.basename(f.path)),
+                          ),
+                          subtitle: SelectionContainer.disabled(
+                            child: Text(formatBytes(f.lengthSync())),
+                          ),
+                          onTap: _unavailable ? null : () => _fileMenu(f),
+                        ),
+                    ],
+                  ),
+                ],
               ],
-            ],
+            ),
           ),
         ),
       ),

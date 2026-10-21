@@ -8,35 +8,28 @@ const ehUrl = (value, base = 'https://e-hentai.org/', image = false) => {
 Park.register({
   i18n: {
     "zh-Hant": {
-      "E-Hentai 识图": "E-Hentai 識圖",
       "成人画廊图片反搜；返回匹配画廊与原站标签": "成人畫廊圖片反搜；傳回相符畫廊與原站標籤"
     },
     "ja": {
-      "E-Hentai 识图": "E-Hentai 画像検索",
       "成人画廊图片反搜；返回匹配画廊与原站标签": "成人向けギャラリーの逆検索。一致するギャラリーと元のタグを表示"
     },
     "ko": {
-      "E-Hentai 识图": "E-Hentai 이미지 검색",
       "成人画廊图片反搜；返回匹配画廊与原站标签": "성인 갤러리 이미지 역검색, 일치하는 갤러리와 원본 태그 표시"
     },
     "en": {
-      "E-Hentai 识图": "E-Hentai Image Search",
       "成人画廊图片反搜；返回匹配画廊与原站标签": "Reverse search adult galleries with matching galleries and original tags"
     },
     "es": {
-      "E-Hentai 识图": "E-Hentai Imágenes",
       "成人画廊图片反搜；返回匹配画廊与原站标签": "Búsqueda inversa de galerías para adultos con coincidencias y etiquetas originales"
     },
     "ru": {
-      "E-Hentai 识图": "E-Hentai Image Search",
       "成人画廊图片反搜；返回匹配画廊与原站标签": "Обратный поиск галерей для взрослых с исходными тегами"
     },
     "ar": {
-      "E-Hentai 识图": "E-Hentai Image Search",
       "成人画廊图片反搜；返回匹配画廊与原站标签": "بحث عكسي في معارض البالغين مع المعارض المطابقة والوسوم الأصلية"
     }
   },
-  key: 'ehentai_reverse', name: 'E-Hentai 识图', version: '0.0.1', apiVersion: 1,
+  key: 'ehentai_reverse', name: 'E-Hentai', version: '0.0.3', apiVersion: 1,
   type: 'comic', category: 'other', reverseSearchCategory: 'gallery',
   homepage: 'https://e-hentai.org/',
   description: '成人画廊图片反搜；返回匹配画廊与原站标签',
@@ -59,7 +52,7 @@ Park.register({
       results.push({ title, url, images: thumbnail ? [{ url: thumbnail }] : [], details: { title, tags, category: Park.html.text(node.querySelector('.cs, .cn')), date: Park.html.text(node.querySelector('[id^="posted"]')) } });
     }
     if (!results.length) throw Park.error('PARSE', '反搜服务返回无效数据');
-    if (results.length > 200) throw Park.error('PARSE', '反搜服务返回无效数据');
+    if (results.length > 1000) throw Park.error('PARSE', '反搜服务返回无效数据');
     return results;
   },
   async reverseSearch(image) {

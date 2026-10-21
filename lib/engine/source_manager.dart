@@ -11,6 +11,7 @@ import 'package:path/path.dart' as p;
 import '../core/app_log.dart';
 import '../core/async_tasks.dart';
 import '../core/localization.dart';
+import '../core/media_album.dart';
 import '../core/models.dart';
 import '../core/reverse_search.dart';
 import '../core/settings.dart';
@@ -33,6 +34,7 @@ import 'http_service.dart';
 import 'js_engine.dart';
 import 'media_transport.dart';
 import 'media_transport_factory.dart';
+import 'source_display_order.dart';
 import 'source_identity.dart';
 
 part 'source_manager/accounts.dart';
@@ -98,6 +100,7 @@ abstract class _SourceRegistry extends ChangeNotifier {
   final _activations = <String, Future<void>>{};
   final _lastUsed = <String, DateTime>{};
   final _accountCheckedAt = <String, DateTime>{};
+  final _accountRefreshes = <String, Future<void>>{};
   Timer? _trimTimer;
 
   /// Keys whose manifests were loaded, replaced or removed.
@@ -107,7 +110,10 @@ abstract class _SourceRegistry extends ChangeNotifier {
   /// 实际认证完成也可能不改变账号名，浏览页不能只依赖账号状态比较。
   final _authenticationChanges = StreamController<String>.broadcast(sync: true);
   Stream<String> get authenticationChanges => _authenticationChanges.stream;
-  void authenticationChanged(String key) => _authenticationChanges.add(key);
+  void authenticationChanged(String key, {bool initial = false}) {
+    if (!initial) _displayOrder?.invalidate(key);
+    _authenticationChanges.add(key);
+  }
 
   ValueListenable<AccountStatus?>? accountListenable(String key) =>
       _sources[key]?.accountListenable;
@@ -141,6 +147,42 @@ abstract class _SourceRegistry extends ChangeNotifier {
       _sources.values.toList()..sort((a, b) => a.order.compareTo(b.order));
   List<InstalledSource> get enabled =>
       all.where((s) => s.enabled && s.ready).toList();
+
+  SourceDisplayOrder? _displayOrder;
+  Listenable? _displayProxy;
+  SourceDisplayOrder get displayOrder =>
+      _displayOrder ??= _createDisplayOrder();
+
+  SourceDisplayOrder _createDisplayOrder() {
+    _displayProxy = AppSettings.instance.watch(const {'proxy'});
+    _displayProxy!.addListener(_invalidateDisplayOrder);
+    return SourceDisplayOrder(
+      ready: () => ready,
+      sources: () => [
+        for (final source in enabled)
+          if (_resourceSource(source)) source.key,
+      ],
+      probe: _probeDisplayOrder,
+    )..addListener(notifyListeners);
+  }
+
+  void _invalidateDisplayOrder() => _displayOrder?.invalidate();
+
+  bool _resourceSource(InstalledSource source) =>
+      source.manifest != null &&
+      !source.manifest!.rankingOnly &&
+      !source.manifest!.reverseSearchOnly;
+
+  /// 仅供资源站点展示；管理、持久化、排行榜和反搜仍使用 all/enabled。
+  List<InstalledSource> get displayAll => displayOrder.apply(
+    all,
+    key: (source) => source.key,
+    group: (source) => source.enabled && source.ready && _resourceSource(source)
+        ? source.manifest!.category.name
+        : null,
+  );
+  List<InstalledSource> get displayEnabled =>
+      displayAll.where((source) => source.enabled && source.ready).toList();
   InstalledSource? operator [](String key) => _sources[key];
   SourceManifest? manifest(String key) => _sources[key]?.manifest;
   bool isBuiltin(String key) => _builtinKeys.contains(key);
@@ -174,9 +216,9 @@ abstract class _SourceRegistry extends ChangeNotifier {
       }
       await _recoverInstall();
       await _loadSavedStates();
-      await _syncBuiltins();
       final cache = await _manifestStore.load();
       _manifestCache = cache is Map ? cache.cast<String, dynamic>() : {};
+      await _syncBuiltins();
       JsEngine.instance.onPersist = _persistData;
       // A crashed or timed-out runtime is discarded; the next call starts a fresh one.
       JsEngine.instance.onRestarted = (key) => unawaited(
@@ -201,8 +243,22 @@ abstract class _SourceRegistry extends ChangeNotifier {
     final index = jsonDecode(
       await rootBundle.loadString('assets/sources/index.json'),
     ) as Map;
+    final entries = (index['sources'] as List).cast<Map>();
+    final bundledKeys = {for (final entry in entries) entry['key'].toString()};
+    for (final source in _sources.values.toList()) {
+      if ((source.origin != 'builtin' && source.origin != 'official') ||
+          bundledKeys.contains(source.key)) {
+        continue;
+      }
+      await JsEngine.instance.disposeRuntime(source.key);
+      _sources.remove(source.key);
+      _manifestCache.remove(source.key);
+      try {
+        await _scriptFile(source.key).delete();
+      } catch (_) {}
+    }
     var order = _sources.length;
-    for (final e in (index['sources'] as List).cast<Map>()) {
+    for (final e in entries) {
       final key = e['key'].toString();
       final version = e['version'].toString();
       _builtinKeys.add(key);
@@ -221,7 +277,10 @@ abstract class _SourceRegistry extends ChangeNotifier {
         sha256: hash,
       );
     }
+    _manifestStore.save(_manifestCache);
     _saveRegistry();
+    await _registry.flush();
+    await _manifestStore.flush();
   }
 
   Future<void> loadAll() async {
@@ -284,6 +343,7 @@ abstract class _SourceRegistry extends ChangeNotifier {
 
   /// Mutations wait for existing calls; new calls wait for the queued mutations.
   Future<T> _mutate<T>(Future<T> Function() action, {String? key}) {
+    _displayOrder?.invalidate(key);
     if (key != null) {
       // 新设置不能等待旧分流或后台海报的网络超时；账号写入仍正常串行。
       for (final token in _readRequests[key]?.toList() ?? <CancelToken>[]) {
@@ -333,4 +393,14 @@ abstract class _SourceRegistry extends ChangeNotifier {
     CancelToken? cancelToken,
   });
   Future<void> refreshAccount(String key);
+  Future<void> _requireAccount(String key, {CancelToken? cancelToken});
+  Future<void> _probeDisplayOrder(String key, CancelToken token);
+
+  @override
+  void dispose() {
+    _displayProxy?.removeListener(_invalidateDisplayOrder);
+    _displayOrder?.removeListener(notifyListeners);
+    _displayOrder?.dispose();
+    super.dispose();
+  }
 }

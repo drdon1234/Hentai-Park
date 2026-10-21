@@ -76,15 +76,19 @@ class PreparedVideo {
           );
         }
       } else {
-        sources =
-            initialSources ??
-            await SourceManager.instance.videos(
-              work.source,
-              work.id,
-              episodeId: episode.id,
-              cancelToken: cancel,
-              refresh: refresh,
-            );
+        sources = initialSources != null
+            ? await SourceManager.instance.resolveVideoSources(
+                work.source,
+                initialSources,
+                cancelToken: cancel,
+              )
+            : await SourceManager.instance.videos(
+                work.source,
+                work.id,
+                episodeId: episode.id,
+                cancelToken: cancel,
+                refresh: refresh,
+              );
         check();
         if (sources.isEmpty) throw SourceError('UNSUPPORTED', '此影片暂无可用播放地址');
         source = sources.firstWhere(
@@ -100,6 +104,7 @@ class PreparedVideo {
               manifest,
               headers: source.headers,
               initialUrl: Uri.parse(source.url),
+              hls: source.hls,
             ),
           );
           cancellation = cancel.whenCancel.asStream().listen(

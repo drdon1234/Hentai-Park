@@ -8,6 +8,51 @@
  *   token so the server hands out a different H@H node. 509.gif means the image quota is exhausted.
  * - All requests are rate limited to avoid temporary IP bans.
  */
+(function () {
+const browseFilters = [
+    {
+      key: 'categories',
+      label: '分类',
+      type: 'multi',
+      default: [],
+      values: [
+        { value: 'Doujinshi', label: '同人志', color: '#9E2720' },
+        { value: 'Manga', label: '漫画', color: '#DB6C24' },
+        { value: 'Artist CG', label: '画师CG', color: '#D38F1D' },
+        { value: 'Game CG', label: '游戏CG', color: '#617C63' },
+        { value: 'Western', label: '西方', color: '#AB9F60' },
+        { value: 'Non-H', label: '非H', color: '#5FA9CF' },
+        { value: 'Image Set', label: '图集', color: '#325CA2' },
+        { value: 'Cosplay', label: 'Cosplay', color: '#6A32A2' },
+        { value: 'Asian Porn', label: '亚洲', color: '#A23282' },
+        { value: 'Misc', label: '杂项', color: '#777777' },
+      ],
+    },
+    {
+      key: 'language',
+      label: '语言',
+      default: '',
+      values: [
+        { value: '', label: '不限' },
+        { value: 'chinese', label: '中文' },
+        { value: 'japanese', label: '日文' },
+        { value: 'english', label: '英文' },
+      ],
+    },
+    {
+      key: 'minRating',
+      label: '最低评分',
+      default: '0',
+      values: [
+        { value: '0', label: '不限' },
+        { value: '2', label: '2 星' },
+        { value: '3', label: '3 星' },
+        { value: '4', label: '4 星' },
+        { value: '5', label: '5 星' },
+      ],
+    },
+    { key: 'minPages', label: '最少页数', type: 'number', default: 0 },
+  ];
 Park.register({
   i18n: {
     "zh-Hant": {"0.2 秒（激进）": "0.2 秒（激進）", "0.4 秒（推荐）": "0.4 秒（推薦）", "0.8 秒（保守）": "0.8 秒（保守）", "2 星": "2 星", "3 星": "3 星", "32 位十六进制字符": "32 位十六進位制字元", "4 星": "4 星", "5 星": "5 星", "E-Hentai 只能按顺序翻页": "E-Hentai 只能按順序翻頁", "E-Hentai 图片配额已用尽（509），请稍后再试或登录后重置配额": "E-Hentai 圖片配額已用盡（509），請稍後再試或登入後重置配額", "E-Hentai 账号": "E-Hentai 賬號", "E-Hentai（表站）": "E-Hentai（表站）", "ExHentai 返回空页面：请先登录，或该账号没有里站权限": "ExHentai 返回空頁面：請先登入，或該賬號沒有裡站許可權", "ExHentai（里站）": "ExHentai（裡站）", "IP 被 E-Hentai 临时封禁，请稍后再试或更换网络": "IP 被 E-Hentai 臨時封禁，請稍後再試或更換網路", "临时": "臨時", "亚洲": "亞洲", "会员 ID，一串数字": "會員 ID，一串數字", "会员 {value0}": "會員 {value0}", "历史最悠久的画廊站，标签体系完善；登录后可切换里站 ExHentai": "歷史最悠久的畫廊站，標籤體系完善；登入後可切換裡站 ExHentai", "女性": "女性", "当前热门": "當前熱門", "找不到第 {value0} 页": "找不到第 {value0} 頁", "支持标签语法：female:\"big breasts\"$、artist:xxx、language:chinese": "支援標籤語法：female:\"big breasts\"$、artist:xxx、language:chinese", "无效的画廊 ID：{value0}": "無效的畫廊 ID：{value0}", "昨日": "昨日", "最低评分": "最低評分", "杂项": "雜項", "没有符合条件的画廊": "沒有符合條件的畫廊", "混合": "混合", "游戏CG": "遊戲CG", "男性": "男性", "画师CG": "畫師CG", "画廊不存在或已被删除": "畫廊不存在或已被刪除", "画廊没有图片": "畫廊沒有圖片", "登录后可以访问里站 ExHentai，并解除部分画廊的访问限制。": "登入後可以訪問裡站 ExHentai，並解除部分畫廊的訪問限制。", "私有": "私有", "第 {value0} 页没有图片": "第 {value0} 頁沒有圖片", "缺少 ipb_member_id 或 ipb_pass_hash": "缺少 ipb_member_id 或 ipb_pass_hash", "西方": "西方", "访问里站时需要": "訪問裡站時需要", "请求间隔": "請求間隔", "近一年": "近一年", "近一月": "近一月", "里站 ExHentai 需要登录且账号有访问权限": "裡站 ExHentai 需要登入且賬號有訪問許可權", "重分类": "重分類", "间隔过短容易被临时封禁 IP": "間隔過短容易被臨時封禁 IP", "非H": "非H", "韩文": "韓文"},
@@ -20,7 +65,7 @@ Park.register({
   },
   key: 'ehentai',
   name: 'E-Hentai',
-  version: '0.0.8',
+  version: '0.0.9',
   type: 'comic',
   category: 'doujin',
   color: '#9C2A2A',
@@ -160,6 +205,7 @@ Park.register({
   rankings: [{ key: 'toplist', label: '排行榜', category: 'doujin', metric: '站内热度', feed: 'toplist' }],
   defaultFeed: 'toplist',
   feeds: [
+    {key: 'category', label: '分类', options: browseFilters.filter(option => option.type !== 'number')},
     { key: 'latest', label: '最新' },
     { key: 'popular', label: '当前热门' },
     {
@@ -182,51 +228,7 @@ Park.register({
   ],
 
   searchHint: '支持标签语法：female:"big breasts"$、artist:xxx、language:chinese',
-  searchFilters: [
-    {
-      key: 'categories',
-      label: '分类',
-      type: 'multi',
-      default: [],
-      values: [
-        { value: 'Doujinshi', label: '同人志', color: '#9E2720' },
-        { value: 'Manga', label: '漫画', color: '#DB6C24' },
-        { value: 'Artist CG', label: '画师CG', color: '#D38F1D' },
-        { value: 'Game CG', label: '游戏CG', color: '#617C63' },
-        { value: 'Western', label: '西方', color: '#AB9F60' },
-        { value: 'Non-H', label: '非H', color: '#5FA9CF' },
-        { value: 'Image Set', label: '图集', color: '#325CA2' },
-        { value: 'Cosplay', label: 'Cosplay', color: '#6A32A2' },
-        { value: 'Asian Porn', label: '亚洲', color: '#A23282' },
-        { value: 'Misc', label: '杂项', color: '#777777' },
-      ],
-    },
-    {
-      key: 'language',
-      label: '语言',
-      default: '',
-      values: [
-        { value: '', label: '不限' },
-        { value: 'chinese', label: '中文' },
-        { value: 'japanese', label: '日文' },
-        { value: 'english', label: '英文' },
-      ],
-    },
-    {
-      key: 'minRating',
-      label: '最低评分',
-      default: '0',
-      values: [
-        { value: '0', label: '不限' },
-        { value: '2', label: '2 星' },
-        { value: '3', label: '3 星' },
-        { value: '4', label: '4 星' },
-        { value: '5', label: '5 星' },
-      ],
-    },
-    { key: 'minPages', label: '最少页数', type: 'number', default: 0 },
-  ],
-
+  searchFilters: browseFilters,
   CATEGORY_BITS: {
     Misc: 1,
     Doujinshi: 2,
@@ -396,6 +398,7 @@ Park.register({
   },
 
   async feed(key, req) {
+    if (key === 'category') return this.search({keyword: '', page: req.page, cursor: req.cursor, filters: req.options || {}});
     const page = Math.max(1, req.page || 1);
     if (key === 'popular') {
       const res = await this.listPage(`${this.base}/popular`, null, 1);
@@ -653,6 +656,8 @@ Park.register({
     };
   },
 });
+
+})();
 
 // 更新订阅维度由本站插件声明，保留原有浏览入口。
 Park.enableUpdateSubscriptions(Park.__pending, {"dimensions":[{"key":"search","label":"搜索关键词","hint":"输入作品、作者或话题关键词"},{"key":"filter","label":"标签或作者筛选","hint":"从详情页标签菜单添加"}]});

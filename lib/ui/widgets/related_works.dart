@@ -119,7 +119,7 @@ class _RelatedWorksState extends State<RelatedWorks> {
       return Column(
         children: [
           for (final section in widget.detail.relatedSections)
-            WorkCarousel(
+            WorkRecommendations(
               title:
                   _manager
                       .manifest(widget.detail.source)
@@ -135,7 +135,7 @@ class _RelatedWorksState extends State<RelatedWorks> {
                   .toList(),
             ),
           if (items.isNotEmpty)
-            WorkCarousel(
+            WorkRecommendations(
               title: tr('相关推荐'),
               items: items,
               onEndReached: _dynamic && _paged.hasNext && error == null

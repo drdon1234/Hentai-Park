@@ -52,6 +52,32 @@ class CryptoBridge {
           base64.decode('${a['base64']}'.trim()),
           utf8.encode('${a['key']}'),
         );
+      case 'aesGcmDecrypt':
+        Uint8List hex(String name, Set<int>? lengths, {int maximum = 4096}) {
+          final value = a[name];
+          if (value is! String ||
+              value.length > maximum * 2 ||
+              value.length.isOdd ||
+              !RegExp(r'^[0-9a-fA-F]+$').hasMatch(value) ||
+              (lengths != null && !lengths.contains(value.length ~/ 2))) {
+            throw ArgumentError('AES-GCM 参数无效');
+          }
+          return Uint8List.fromList([
+            for (var i = 0; i < value.length; i += 2)
+              int.parse(value.substring(i, i + 2), radix: 16),
+          ]);
+        }
+        final key = hex('key', {16, 24, 32});
+        final iv = hex('iv', {12});
+        final data = hex('ciphertext', null);
+        if (data.length < 16) throw ArgumentError('AES-GCM 密文无效');
+        final cipher = GCMBlockCipher(AESEngine())
+          ..init(
+            false,
+            AEADParameters(KeyParameter(key), 128, iv, Uint8List(0)),
+          );
+        // 认证标签必须校验成功，不能把未认证的明文传给插件。
+        return cipher.process(data).toList();
       case 'uuid':
         return _uuid.v4();
       default:

@@ -39,6 +39,19 @@ for (const source of sources) {
         !data.tags || typeof data.tags !== 'object' || Array.isArray(data.tags)) throw new Error(`词包格式无效：${relative}`);
     const entries = Object.entries(data.tags);
     if (!entries.length || entries.length > 100000) throw new Error(`词包数量无效：${relative}`);
+    const upstream = ['ehentai','nhentai'].includes(source) && locale === 'zh-Hans';
+    if (upstream) {
+      if (!data.provenance?.some(p => p.name === 'EhTagTranslation/Database' && isCommit(p.commit) && p.license === 'CC-BY-NC-SA-3.0-CN') ||
+          entries.some(([key]) => !/^(?:artist|character|cosplayer|female|group|language|location|male|mixed|other|parody|reclass|tag):.+$/.test(key))) throw new Error(`上游词包缺少来源或混入无命名空间词：${relative}`);
+    } else {
+      const c = data.coverage;
+      const translated = entries.filter(([key,value]) => typeof value === 'string' &&
+        key.toLowerCase() !== value.toLowerCase() && !key.toLowerCase().endsWith(':'+value.toLowerCase())).length;
+      if (!c || typeof c.scope !== 'string' || !c.scope.trim() || c.scope.length > 1024 || c.complete !== false ||
+          ['observed','translated','preserved','unchanged','unreviewed'].some(k => !Number.isSafeInteger(c[k]) || c[k] < 0) ||
+          c.translated < 1 || c.translated !== translated || c.translated + c.preserved !== entries.length ||
+          c.translated + c.preserved + c.unchanged + c.unreviewed !== c.observed) throw new Error(`词包缺少可信的审校译文或覆盖范围：${relative}`);
+    }
     const seen = new Set();
     for (const [key,value] of entries) {
       const normalized = key.trim().toLowerCase();

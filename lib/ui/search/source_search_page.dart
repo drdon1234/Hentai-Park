@@ -10,6 +10,7 @@ import '../nav.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
 import '../widgets/content_translation.dart';
+import '../widgets/filter_controller.dart';
 import '../widgets/paged_grid.dart';
 import '../widgets/source_account_strip.dart';
 import 'multi_language.dart';
@@ -47,6 +48,7 @@ class _SourceSearchPageState extends State<SourceSearchPage> {
     ..._m.defaultFilters(),
     ...?widget.initialFilters,
   };
+  late String _filterKeyword = widget.initialKeyword.trim();
   late final PagedController _controller = PagedController(
     _load,
     source: widget.sourceKey,
@@ -97,11 +99,40 @@ class _SourceSearchPageState extends State<SourceSearchPage> {
   }
 
   void _textChanged() {
+    _syncFilterKeyword(_text.text.trim());
     if (_m.can('searchSuggestions')) _suggestions.update(_text.text);
     if (_text.text.isEmpty && _started) {
       _searchGeneration++;
       setState(() => _started = false);
     }
+  }
+
+  void _syncFilterKeyword(String keyword) {
+    if (_filterKeyword == keyword) return;
+    _filterKeyword = keyword;
+    final reset = {
+      for (final option in _m.searchFilters)
+        if (option.dynamicValues && option.keywordDependent) option.key,
+    };
+    var changed = true;
+    while (changed) {
+      changed = false;
+      for (final option in _m.searchFilters) {
+        if (!reset.contains(option.key) &&
+            option.dependsOn.any(reset.contains)) {
+          reset.add(option.key);
+          changed = true;
+        }
+      }
+    }
+    if (reset.isEmpty) return;
+    setState(() {
+      _filters = {
+        ..._filters,
+        for (final option in _m.searchFilters)
+          if (reset.contains(option.key)) option.key: option.defaultValue,
+      };
+    });
   }
 
   Future<WorkPage> _load(int page, String? cursor) {
@@ -127,6 +158,7 @@ class _SourceSearchPageState extends State<SourceSearchPage> {
   void _search({bool keepMulti = false}) {
     _suggestions.clear();
     final k = _text.text.trim();
+    _syncFilterKeyword(k);
     final refs = _sources
         .extractRefs(k)
         .where((ref) => _sources.manifest(ref.source)?.can('detail') == true)
@@ -199,12 +231,19 @@ class _SourceSearchPageState extends State<SourceSearchPage> {
   }
 
   Future<void> _openFilters() async {
+    final keyword = _text.text.trim();
+    _syncFilterKeyword(keyword);
     final result = await showAdaptiveSheet<Map<String, Object?>>(
       context: context,
       isScrollControlled: true,
-      builder: (_) => FilterSheet(manifest: _m, values: _filters),
+      builder: (_) => FilterSheet(
+        manifest: _m,
+        values: _filters,
+        sourceManager: _sources,
+        keyword: keyword,
+      ),
     );
-    if (mounted && result != null) {
+    if (mounted && result != null && _text.text.trim() == keyword) {
       setState(() => _filters = result);
       _search(keepMulti: true);
     }
@@ -540,130 +579,232 @@ class _ActiveFilters extends StatelessWidget {
 
 /// Bottom sheet editing a source's search filters.
 class FilterSheet extends StatefulWidget {
-  const FilterSheet({super.key, required this.manifest, required this.values});
+  const FilterSheet({
+    super.key,
+    required this.manifest,
+    required this.values,
+    required this.sourceManager,
+    required this.keyword,
+  });
   final SourceManifest manifest;
   final Map<String, Object?> values;
+  final SourceManager sourceManager;
+  final String keyword;
 
   @override
   State<FilterSheet> createState() => _FilterSheetState();
 }
 
 class _FilterSheetState extends State<FilterSheet> {
-  late final Map<String, Object?> _v = {...widget.values};
+  late final FilterController _filters = FilterController(
+    source: widget.manifest.key,
+    scope: 'search',
+    keyword: widget.keyword,
+    definitions: widget.manifest.searchFilters,
+    loader: (filter, values, token) => widget.sourceManager.filterOptions(
+      widget.manifest.key,
+      scope: 'search',
+      filter: filter,
+      keyword: widget.keyword,
+      values: values,
+      cancelToken: token,
+    ),
+  );
+
+  @override
+  void initState() {
+    super.initState();
+    _initializeFilters();
+  }
+
+  Future<void> _initializeFilters() async {
+    await _filters.initialize(initialValues: widget.values);
+    await _filters.loadEnabledDynamic();
+  }
+
+  @override
+  void dispose() {
+    _filters.dispose();
+    super.dispose();
+  }
+
+  Future<void> _change(String key, Object? value) async {
+    _filters.setValue(key, value);
+    for (final option in widget.manifest.searchFilters.where(
+      (option) => option.dynamicValues && _filters.isEnabled(option.key),
+    )) {
+      await _filters.loadDynamic(option.key);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    return DraggableScrollableSheet(
-      expand: false,
-      initialChildSize: 0.6,
-      maxChildSize: 0.92,
-      builder: (context, scroll) => Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(Gap.page, 0, Gap.page, Gap.xs),
-            child: Row(
-              children: [
-                Text(
-                  tr('筛选'),
-                  style: context.text.titleLarge?.copyWith(
-                    fontWeight: FontWeight.w600,
+    return ListenableBuilder(
+      listenable: _filters,
+      builder: (context, _) => DraggableScrollableSheet(
+        expand: false,
+        initialChildSize: 0.6,
+        maxChildSize: 0.92,
+        builder: (context, scroll) => Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(Gap.page, 0, Gap.page, Gap.xs),
+              child: Row(
+                children: [
+                  Text(
+                    tr('筛选'),
+                    style: context.text.titleLarge?.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
-                ),
-                const Spacer(),
-                TextButton(
-                  onPressed: () => setState(
-                    () => _v
-                      ..clear()
-                      ..addAll(widget.manifest.defaultFilters()),
+                  const Spacer(),
+                  TextButton(
+                    onPressed: _filters.reset,
+                    child: SelectionContainer.disabled(child: Text(tr('重置'))),
                   ),
-                  child: SelectionContainer.disabled(child: Text(tr('重置'))),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
-          Expanded(
-            child: ListView(
-              controller: scroll,
-              padding: const EdgeInsets.symmetric(horizontal: Gap.page),
-              children: [
-                for (final f in widget.manifest.searchFilters) ...[
-                  Padding(
-                    padding: const EdgeInsets.only(top: 14, bottom: 8),
-                    child: Text(
-                      f.label,
-                      style: context.text.titleSmall?.copyWith(
-                        fontWeight: FontWeight.w600,
+            Expanded(
+              child: ListView(
+                controller: scroll,
+                padding: const EdgeInsets.symmetric(horizontal: Gap.page),
+                children: [
+                  for (final f in widget.manifest.searchFilters) ...[
+                    IgnorePointer(
+                      ignoring: !_filters.isEnabled(f.key),
+                      child: Opacity(
+                        opacity: _filters.isEnabled(f.key) ? 1 : 0.45,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Padding(
+                              padding: const EdgeInsets.only(
+                                top: 14,
+                                bottom: 8,
+                              ),
+                              child: Text(
+                                f.label,
+                                style: context.text.titleSmall?.copyWith(
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                            if (f.type == 'number')
+                              _NumberField(
+                                value:
+                                    (_filters.values[f.key] as num?)?.toInt() ??
+                                    0,
+                                onChanged: (n) => _change(f.key, n),
+                              )
+                            else if (f.type == 'text')
+                              TextFormField(
+                                key: ValueKey('filter-text-${f.key}'),
+                                initialValue:
+                                    _filters.values[f.key]?.toString() ?? '',
+                                decoration: InputDecoration(labelText: f.label),
+                                onChanged: (value) =>
+                                    _filters.setValue(f.key, value),
+                              )
+                            else if (f.type == 'switch')
+                              SwitchListTile(
+                                contentPadding: EdgeInsets.zero,
+                                title: Text(f.label),
+                                value: _filters.values[f.key] == true,
+                                onChanged: (value) =>
+                                    _filters.setValue(f.key, value),
+                              )
+                            else
+                              Wrap(
+                                spacing: 8,
+                                runSpacing: 8,
+                                children: [
+                                  for (final c in _filters.choicesFor(f.key))
+                                    if (f.type == 'multi')
+                                      FilterChip(
+                                        label: SelectionContainer.disabled(
+                                          child: Text(c.label),
+                                        ),
+                                        selected:
+                                            ((_filters.values[f.key]
+                                                        as List?) ??
+                                                    [])
+                                                .contains(c.value),
+                                        avatar: c.color != null
+                                            ? CircleAvatar(
+                                                backgroundColor: parseHexColor(
+                                                  c.color!,
+                                                ),
+                                                radius: 5,
+                                              )
+                                            : null,
+                                        showCheckmark: false,
+                                        onSelected: (on) {
+                                          final list = [
+                                            ...((_filters.values[f.key]
+                                                    as List?) ??
+                                                []),
+                                          ];
+                                          on
+                                              ? list.add(c.value)
+                                              : list.remove(c.value);
+                                          _change(f.key, list);
+                                        },
+                                      )
+                                    else
+                                      ChoiceChip(
+                                        label: SelectionContainer.disabled(
+                                          child: Text(c.label),
+                                        ),
+                                        selected:
+                                            _filters.values[f.key] == c.value,
+                                        showCheckmark: false,
+                                        onSelected: (_) =>
+                                            _change(f.key, c.value),
+                                      ),
+                                ],
+                              ),
+                            if (f.dynamicValues &&
+                                _filters.isLoadingOption(f.key))
+                              const Padding(
+                                padding: EdgeInsets.all(8),
+                                child: LinearProgressIndicator(),
+                              ),
+                            if (_filters.errorFor(f.key) != null)
+                              TextButton.icon(
+                                onPressed: () => _filters.loadDynamic(f.key),
+                                icon: const Icon(Icons.refresh_rounded),
+                                label: Text(tr('加载失败，点击重试')),
+                              ),
+                          ],
+                        ),
                       ),
                     ),
-                  ),
-                  if (f.type == 'number')
-                    _NumberField(
-                      value: (_v[f.key] as num?)?.toInt() ?? 0,
-                      onChanged: (n) => setState(() => _v[f.key] = n),
-                    )
-                  else
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: [
-                        for (final c in f.values)
-                          if (f.type == 'multi')
-                            FilterChip(
-                              label: SelectionContainer.disabled(
-                                child: Text(c.label),
-                              ),
-                              selected: ((_v[f.key] as List?) ?? []).contains(
-                                c.value,
-                              ),
-                              avatar: c.color != null
-                                  ? CircleAvatar(
-                                      backgroundColor: parseHexColor(c.color!),
-                                      radius: 5,
-                                    )
-                                  : null,
-                              showCheckmark: false,
-                              onSelected: (on) => setState(() {
-                                final list = [...((_v[f.key] as List?) ?? [])];
-                                on ? list.add(c.value) : list.remove(c.value);
-                                _v[f.key] = list;
-                              }),
-                            )
-                          else
-                            ChoiceChip(
-                              label: SelectionContainer.disabled(
-                                child: Text(c.label),
-                              ),
-                              selected: _v[f.key] == c.value,
-                              showCheckmark: false,
-                              onSelected: (_) =>
-                                  setState(() => _v[f.key] = c.value),
-                            ),
-                      ],
-                    ),
+                  ],
+                  const SizedBox(height: 24),
                 ],
-                const SizedBox(height: 24),
-              ],
-            ),
-          ),
-          SafeArea(
-            top: false,
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(
-                Gap.page,
-                Gap.s,
-                Gap.page,
-                Gap.m,
               ),
-              child: SizedBox(
-                width: double.infinity,
-                child: FilledButton(
-                  onPressed: () => Navigator.pop(context, _v),
-                  child: SelectionContainer.disabled(child: Text(tr('应用筛选'))),
+            ),
+            SafeArea(
+              top: false,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(
+                  Gap.page,
+                  Gap.s,
+                  Gap.page,
+                  Gap.m,
+                ),
+                child: SizedBox(
+                  width: double.infinity,
+                  child: FilledButton(
+                    onPressed: () => Navigator.pop(context, _filters.values),
+                    child: SelectionContainer.disabled(child: Text(tr('应用筛选'))),
+                  ),
                 ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

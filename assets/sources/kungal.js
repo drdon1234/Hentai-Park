@@ -1,6 +1,17 @@
 /* KUN's public API. Resource download counters are touched only on a user click. */
 (function () {
   const BASE = 'https://www.kungal.com', API = BASE + '/api/v1';
+  const choices = rows => [{value: '', label: '全部'}, ...rows.map(([value, label]) => ({value, label}))];
+  const filters = [
+    {key: 'gameType', label: '类型', default: '', values: choices([['ba_saku', '拔作'], ['plot', '剧情'], ['moe', '萌系'], ['daily', '日常'], ['uncategorized', '未分类']])},
+    {key: 'platform', label: '平台', default: '', values: choices([['win', 'Windows'], ['and', 'Android'], ['ios', 'iOS'], ['mac', 'macOS'], ['lin', 'Linux'], ['web', 'Web'], ['mob', 'Mobile'], ['swi', 'Nintendo Switch'], ['sw2', 'Nintendo Switch 2'], ['n3d', 'Nintendo 3DS'], ['nds', 'Nintendo DS'], ['wii', 'Wii'], ['wiu', 'Wii U'], ['gba', 'Game Boy Advance'], ['gbc', 'Game Boy Color'], ['nes', 'Famicom'], ['sfc', 'Super Famicom'], ['ps1', 'PlayStation'], ['ps2', 'PlayStation 2'], ['ps3', 'PlayStation 3'], ['ps4', 'PlayStation 4'], ['ps5', 'PlayStation 5'], ['psp', 'PlayStation Portable'], ['psv', 'PlayStation Vita'], ['xb1', 'Xbox'], ['xb3', 'Xbox 360'], ['xbo', 'Xbox One'], ['xxs', 'Xbox Series X/S'], ['sat', 'Saturn'], ['smd', 'Mega Drive'], ['scd', 'Mega-CD'], ['drc', 'Dreamcast'], ['pce', 'PC Engine'], ['pcf', 'PC-FX'], ['tdo', '3DO'], ['p88', 'PC-88'], ['p98', 'PC-98'], ['x1s', 'Sharp X1'], ['x68', 'Sharp X68000'], ['fm7', 'FM-7'], ['fm8', 'FM-8'], ['fmt', 'FM Towns'], ['msx', 'MSX'], ['dos', 'DOS'], ['dvd', 'DVD'], ['bdp', 'Blu-ray'], ['vnd', 'VNDS'], ['oth', '其他']])},
+    {key: 'language', label: '语言', default: '', values: choices([['zh-cn', '简体中文'], ['zh-tw', '繁体中文'], ['ja-jp', '日本語'], ['en-us', 'English'], ['other', '其他']])},
+  ];
+  function selected(values = {}, search = false) {
+    for (const option of filters) if (!option.values.some(v => v.value === String(values[option.key] || ''))) throw Park.error('CONFIG', '筛选参数无效');
+    return {game_type: values.gameType || undefined, [search ? 'resource_platform' : 'resource_platforms']: values.platform || undefined,
+      [search ? 'resource_language' : 'resource_languages']: values.language || undefined};
+  }
   const fail = () => Park.error('PARSE', '游戏站点返回的数据无效');
   const idOf = value => { const id = String(value); if (!/^[1-9]\d{0,11}$/.test(id)) throw fail(); return id; };
   const localized = v => v?.localized?.['zh-Hans']?.value || v?.display_name || '';
@@ -25,11 +36,12 @@
       "ru": {"游戏排行、搜索及社区分享资源": "Рейтинги игр, поиск и ресурсы сообщества"},
       "ar": {"游戏排行、搜索及社区分享资源": "تصنيفات ألعاب وبحث وموارد المجتمع"},
     },
-    key: 'kungal', name: 'KUN Galgame', version: '0.0.5', type: 'game', category: 'game', color: '#6FA7DF',
+    key: 'kungal', name: 'KUN Galgame', version: '0.0.6', type: 'game', category: 'game', color: '#6FA7DF',
     description: '游戏排行、搜索及社区分享资源', homepage: BASE, language: 'multi',
     domains: ['kungal.com', 'image.kungal.iloveren.link'], network: { mode: 'native', vpnHint: true },
     linkPatterns: ['https?://(?:www\\.)?kungal\\.com/(?:galgame|works)/(\\d+)'], idPattern: '^(\\d+)$', idExample: '1408',
-    defaultFeed: 'ranking', feeds: [{ key: 'ranking', label: '本周热门' }, { key: 'latest', label: '资源更新' }],
+    defaultFeed: 'ranking', feeds: [{ key: 'ranking', label: '本周热门', options: filters }, { key: 'latest', label: '资源更新', options: filters }],
+    searchFilters: filters,
     settings: [{ key: 'nsfw', type: 'switch', label: '显示 NSFW 内容', default: true }],
     async list(path, params) {
       const page = Number(params.page || 1), limit = 24;
@@ -37,12 +49,13 @@
       if (!Array.isArray(result.items)) throw fail();
       return { items: result.items.map(item), page, total: result.total, hasNext: page * limit < result.total };
     },
-    async feed(key, { page = 1 } = {}) {
-      return this.list('/works', { page, resource_type: 'game', sort: key === 'ranking' ? 'view_7d_desc' : 'resource_updated_desc' });
+    async feed(key, { page = 1, options = {} } = {}) {
+      if (!['ranking', 'latest'].includes(key)) throw Park.error('CONFIG', '未知列表');
+      return this.list('/works', { page, ...selected(options), resource_type: 'game', sort: key === 'ranking' ? 'view_7d_desc' : 'resource_updated_desc' });
     },
-    async search({ keyword, page = 1 }) {
-      if (!String(keyword || '').trim()) return this.feed('latest', { page });
-      return this.list('/search/works', { q: String(keyword), page, resource_type: 'game' });
+    async search({ keyword, page = 1, filters = {} }) {
+      if (!String(keyword || '').trim()) return this.feed('latest', { page, options: filters });
+      return this.list('/search/works', { q: String(keyword), page, ...selected(filters, true), resource_type: 'game' });
     },
     async detail(id) {
       id = idOf(id);

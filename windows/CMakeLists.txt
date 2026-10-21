@@ -58,6 +58,8 @@ add_subdirectory("runner")
 # them to the application.
 include(flutter/generated_plugins.cmake)
 include(webview_lifecycle.cmake)
+include(webview_cookies.cmake)
+include(webview_bridge_lifetime.cmake)
 
 
 # === Installation ===

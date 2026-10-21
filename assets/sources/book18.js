@@ -38,6 +38,36 @@
     const r = source.http.ensureOk(await source.http.get(url));
     return Park.html.parse(r.body);
   }
+  function titleInfo(raw) {
+    const author = raw.match(/\s*作\s*者[：:]\s*([^\s()[\]【】（）]+)/);
+    let title = author
+      ? raw.slice(0, author.index).replace(/[（(【[]\s*$/, '').trim()
+      : raw;
+    const number = '[0-9０-９零〇一二两兩三四五六七八九十百千]+(?:[.．][0-9０-９]+)*',
+      range = number + '(?:[-－—–~～至到]' + number + ')?',
+      episode = new RegExp(
+        '^第?' + range + '[章节節回集篇部卷]?(?:完[结結本]?|全)?(?:[+＋]番外)?$',
+      );
+    // 只收紧明确的集数；书名、英文分词和普通说明中的空格保留。
+    title = title
+      .replace(
+        /\s*([(（\[【])([^()（）\[\]【】]+)([)）\]】])/g,
+        (match, open, inner, close) => {
+          if ('(（[【'.indexOf(open) !== ')）]】'.indexOf(close)) return match;
+          const compact = inner.replace(/\s+/g, '');
+          return episode.test(compact) ? open + compact + close : match;
+        },
+      )
+      .replace(
+        /第[\s0-9０-９零〇一二两兩三四五六七八九十百千.．\-－—–~～至到]+[章节節回集篇部卷]/g,
+        (match) => {
+          const compact = match.replace(/\s+/g, '');
+          return episode.test(compact) ? compact : match;
+        },
+      )
+      .trim();
+    return { title: title || raw, authors: author ? [author[1]] : [] };
+  }
   function entries(d, base) {
     const out = [],
       seen = new Set();
@@ -47,14 +77,10 @@
       const id = decodeURIComponent(u.pathname.replace(/^\/article\//, '/').slice(1));
       if (seen.has(id)) continue;
       seen.add(id);
-      const rawTitle = Park.html.text(a),
-        author = rawTitle.match(/\s*作者[：:]\s*([^\s()[\]【】（）]+)/),
-        title = author ? rawTitle.slice(0, author.index).replace(/[（(【[]\s*$/, '').trim() : rawTitle;
       out.push({
         id,
-        title,
+        ...titleInfo(Park.html.text(a)),
         subtitle: '',
-        authors: author ? [author[1]] : [],
         category: '',
         tags: [],
         uploaded: '',
@@ -86,7 +112,7 @@
     },
     key: 'book18',
     name: 'Book18',
-    version: '0.0.6',
+    version: '0.0.8',
     type: 'novel',
     category: 'novel',
     language: 'zh',
@@ -103,8 +129,26 @@
       { key: 'popular', label: '热门' },
       { key: 'latest', label: '最新' },
       { key: 'short', label: '短篇' },
+      { key: 'categories', label: '分类', options: [{key: 'category', label: '分类', type: 'select', default: '', dynamic: true, values: []}] },
     ],
+    async filterOptions(req) {
+      if (req.scope !== 'feed' || req.feed !== 'categories' || req.filter !== 'category') return [];
+      const d = await doc(this, HOME), options = [{value: '', label: '全部'}], seen = new Set();
+      for (const a of d.querySelectorAll('a[href]')) {
+        const u = href(a, HOME), m = u && /^\/category\/([1-9]\d*)$/.exec(u.pathname);
+        const label = Park.html.text(a).replace(/\s*\([\d,]+\)\s*$/, '');
+        if (!m || !label || seen.has(m[1])) continue;
+        seen.add(m[1]); options.push({value: m[1], label});
+      }
+      if (!seen.size) throw Park.error('PARSE', '未找到分类');
+      return options;
+    },
     async feed(key, req) {
+      if (key === 'categories') {
+        const category = String(req.options?.category || '');
+        if (category && !/^[1-9]\d{0,6}$/.test(category)) throw Park.error('CONFIG', '分类无效');
+        return list(this, req, category ? '/category/' + category : '/', {});
+      }
       if (!['recommend', 'popular', 'latest', 'short'].includes(key))
         throw Park.error('CONFIG', '未知列表');
       if (key === 'short') return list(this, req, '/article/index', {});
@@ -124,24 +168,23 @@
       const id = idValue(value),
         url = urlOf(id),
         d = await doc(this, url),
-        title = Park.html.text(d.querySelector('h1')) || id;
+        info = titleInfo(Park.html.text(d.querySelector('h1')) || id);
       const chapterItems = id.startsWith('chapters/')
         ? entries(d, url).filter((e) => /^\d+$/.test(e.id))
         : null;
       const chapters = chapterItems?.map((e) => ({ id: e.id, title: e.title })) ?? null;
       if (chapters && !chapters.length)
         throw Park.error('PARSE', '小说目录为空或受限');
-      const author = (title + ' ' + (chapters?.[0]?.title || '')).match(
-        /作者[：:]\s*([^\s]+)/,
-      );
       return {
         id,
-        title,
+        ...info,
         cover: '',
         url,
         language: 'zh',
         mediaKind: 'novel',
-        authors: author ? [author[1]] : chapterItems?.find(e => e.authors.length)?.authors || [],
+        authors: info.authors.length
+          ? info.authors
+          : chapterItems?.find((e) => e.authors.length)?.authors || [],
         chapters,
         singleChapterId: chapters ? null : id,
         tags: [],
@@ -158,7 +201,10 @@
       const d = await doc(this, urlOf(chapterId || id)),
         paragraphs = Park.html.paragraphs(d.querySelector('#content.reader'));
       if (!paragraphs.length) throw Park.error('PARSE', '小说正文为空或受限');
-      return { title: Park.html.text(d.querySelector('h1')), paragraphs };
+      return {
+        title: titleInfo(Park.html.text(d.querySelector('h1'))).title,
+        paragraphs,
+      };
     },
   });
 })();

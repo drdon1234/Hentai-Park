@@ -10,6 +10,7 @@ import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 
 import '../core/app_log.dart';
 import '../core/models.dart';
+import 'age_confirmation.dart';
 import 'cookie_store.dart';
 import 'crypto_bridge.dart';
 import 'domains.dart';
@@ -127,6 +128,7 @@ class SourceRuntime {
 
   /// Domains the source declared; cookie mirroring and browser-mode origins must stay inside them.
   List<String> domains = [];
+  AgeConfirmationConfig? _confirmation;
 
   HeadlessInAppWebView? _view;
   InAppWebViewController? _c;
@@ -152,7 +154,7 @@ class SourceRuntime {
   });
   async function call(name, payload) {
     await ready;
-    const r = await window.flutter_inappwebview.callHandler(name, payload);
+    const r = JSON.parse(await window.flutter_inappwebview.callHandler(name, payload));
     if (r && r.__error) throw r.__error;
     return r ? r.__value : null;
   }
@@ -189,6 +191,7 @@ class SourceRuntime {
     await engine._closingRuntimes[key];
     final runtime = await engine._runtimeSource();
     if (_disposed) throw SourceError('CONFIG', '站点运行环境已关闭');
+    var initialDocumentPending = true;
     // Each runtime gets its own origin so storage APIs are not shared between sources either.
     _view = HeadlessInAppWebView(
       initialData: InAppWebViewInitialData(
@@ -207,6 +210,7 @@ class SourceRuntime {
         _registerHandlers(c);
       },
       onLoadStop: (c, _) async {
+        initialDocumentPending = false;
         if (ready.isCompleted) return;
         try {
           await _bounded(
@@ -234,7 +238,17 @@ class SourceRuntime {
       },
       // Source code stays in the initial document, including on Windows where
       // loadData uses about:blank instead of honoring baseUrl.
-      shouldOverrideUrlLoading: (c, action) => NavigationActionPolicy.CANCEL,
+      shouldOverrideUrlLoading: (c, action) {
+        // WebKit 对 loadData 的初始隔离文档也触发导航策略；只放行这一次。
+        if (defaultTargetPlatform == TargetPlatform.linux &&
+            initialDocumentPending &&
+            action.isForMainFrame == true &&
+            action.request.url?.toString() == _origin) {
+          initialDocumentPending = false;
+          return NavigationActionPolicy.ALLOW;
+        }
+        return NavigationActionPolicy.CANCEL;
+      },
       onRenderProcessGone: (c, detail) {
         if (!_rendererGone.isCompleted) _rendererGone.complete();
         _restart();
@@ -328,7 +342,7 @@ class SourceRuntime {
   }
 
   void _registerHandlers(InAppWebViewController c) {
-    Future<Map<String, Object?>> guard(Future<Object?> Function() body) async {
+    Future<String> guard(Future<Object?> Function() body) async {
       final finished = Completer<void>();
       _bridgeCalls.add(finished.future);
       try {
@@ -337,9 +351,9 @@ class SourceRuntime {
           throw SourceError('CANCELLED', '应用正在关闭');
         }
         if (sandboxed) throw SourceError('CONFIG', '安装前预览时不允许访问网络与存储');
-        return {'__value': await body()};
+        return jsonEncode({'__value': await body()});
       } on SourceError catch (e) {
-        return {
+        return jsonEncode({
           '__error': {
             'code': e.code,
             'message': e.rawMessage,
@@ -350,11 +364,11 @@ class SourceRuntime {
             'url': e.url,
             'diagnostics': e.diagnostics,
           },
-        };
+        });
       } catch (e) {
-        return {
+        return jsonEncode({
           '__error': {'code': 'NETWORK', 'message': e.toString()},
-        };
+        });
       } finally {
         _bridgeCalls.remove(finished.future);
         finished.complete();
@@ -373,6 +387,7 @@ class SourceRuntime {
           partition: key,
           domains: domains,
           cancelToken: token,
+          confirmation: _confirmation,
         );
       }),
     );
@@ -490,6 +505,9 @@ class SourceRuntime {
       throw SourceError('CONFIG', '站点标识的长度或格式无效');
     }
     domains = declaredDomains(info.manifest);
+    _confirmation = AgeConfirmationConfig.fromNetwork(
+      (info.manifest['network'] as Map? ?? const {}).cast<String, dynamic>(),
+    );
     _code = code;
     return info;
   }
@@ -516,6 +534,9 @@ class SourceRuntime {
     }
     final manifest = (res!.value as Map).cast<String, dynamic>();
     domains = declaredDomains(manifest);
+    _confirmation = AgeConfirmationConfig.fromNetwork(
+      (manifest['network'] as Map? ?? const {}).cast<String, dynamic>(),
+    );
     _configured = true;
     return manifest;
   }

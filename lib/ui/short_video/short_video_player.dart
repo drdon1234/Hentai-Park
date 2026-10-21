@@ -12,6 +12,7 @@ import '../../engine/media_transport_factory.dart';
 import '../../engine/source_manager.dart';
 import '../../video/hls_playback.dart';
 import '../video/player_initialization.dart';
+import 'post_video_feed.dart';
 import 'short_video_playback.dart';
 
 class ShortVideoPlayer implements ShortVideoHandle {
@@ -21,6 +22,42 @@ class ShortVideoPlayer implements ShortVideoHandle {
   Future<void>? _closing;
   static void _check(CancelToken cancel) {
     if (cancel.isCancelled) throw SourceError('CANCELLED', '视频请求已取消');
+  }
+
+  static Future<List<VideoSource>> sources(
+    WorkItem item,
+    CancelToken cancel, {
+    bool refresh = false,
+    SourceManager? sourceManager,
+  }) async {
+    final manager = sourceManager ?? SourceManager.instance;
+    final media = item.json['media'];
+    final attachment = media is List
+        ? media.where(isPostVideoAttachment).cast<Map>().firstOrNull
+        : null;
+    final url = attachment?['url'] as String? ?? '';
+    if (url.isEmpty) {
+      return awaitCancelled(
+        manager.videos(
+          item.source,
+          item.id,
+          episodeId: attachment?['episodeId'] as String?,
+          cancelToken: cancel,
+          refresh: refresh,
+        ),
+        cancel,
+      );
+    }
+    return manager.resolveVideoSources(item.source, [
+      VideoSource({
+        'url': url,
+        'format':
+            attachment?['format'] ?? (url.contains('.m3u8') ? 'hls' : 'mp4'),
+        'headers': attachment?['headers'] ?? {},
+        'preferred': true,
+        'label': '原画',
+      }),
+    ], cancelToken: cancel);
   }
 
   static Future<ShortVideoHandle> open(
@@ -33,39 +70,14 @@ class ShortVideoPlayer implements ShortVideoHandle {
     }
     final manifest = SourceManager.instance.manifest(item.source);
     if (manifest == null) throw SourceError('CONFIG', '站点未加载');
-    final embeddedMedia = item.json['media'];
-    final embeddedVideo = embeddedMedia is List
-        ? embeddedMedia.whereType<Map>().cast<Map>().where((media) {
-            return media['type'] == 'video' &&
-                media['url'] is String &&
-                (media['url'] as String).isNotEmpty;
-          }).firstOrNull
-        : null;
-    final sources = embeddedVideo == null
-        ? await awaitCancelled(
-            SourceManager.instance.videos(
-              item.source,
-              item.id,
-              cancelToken: cancel,
-              refresh: refresh,
-            ),
-            cancel,
-          )
-        : [
-            VideoSource({
-              'url': embeddedVideo['url'],
-              'format': (embeddedVideo['url'] as String).contains('.m3u8')
-                  ? 'hls'
-                  : 'mp4',
-              'preferred': true,
-              'label': '原画',
-            }),
-          ];
+    final resolvedSources = await sources(item, cancel, refresh: refresh);
     _check(cancel);
-    if (sources.isEmpty) throw SourceError('UNSUPPORTED', '此影片暂无可用播放地址');
-    final source = sources.firstWhere(
+    if (resolvedSources.isEmpty) {
+      throw SourceError('UNSUPPORTED', '此影片暂无可用播放地址');
+    }
+    final source = resolvedSources.firstWhere(
       (s) => s.preferred,
-      orElse: () => sources.first,
+      orElse: () => resolvedSources.first,
     );
     final policy = MediaPolicy.fromManifest(
       manifest,
@@ -84,6 +96,7 @@ class ShortVideoPlayer implements ShortVideoHandle {
             manifest,
             headers: headers,
             initialUrl: Uri.parse(source.url),
+            hls: source.hls,
           ),
         );
         final opening = media;

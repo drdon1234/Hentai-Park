@@ -31,7 +31,7 @@ Park.register({
       "通用图片反搜；可查找网页出处与相似图片": "بحث عكسي عن صفحات المصدر والصور المشابهة"
     }
   },
-  key: 'yandex', name: 'Yandex', version: '0.0.1', apiVersion: 1,
+  key: 'yandex', name: 'Yandex', version: '0.0.2', apiVersion: 1,
   type: 'comic', category: 'other', reverseSearchCategory: 'general',
   homepage: 'https://yandex.com/images/',
   description: '通用图片反搜；可查找网页出处与相似图片',
@@ -50,7 +50,7 @@ Park.register({
     let state;
     try { state = JSON.parse(stateText); } catch (_) { throw Park.error('PARSE', '反搜服务返回无效数据'); }
     const sites = state?.initialState?.cbirSites?.sites;
-    if (!Array.isArray(sites) || sites.length > 200) throw Park.error('PARSE', '反搜服务返回无效数据');
+    if (!Array.isArray(sites) || sites.length > 1000) throw Park.error('PARSE', '反搜服务返回无效数据');
     const results = [];
     for (const site of sites) {
       if (!site || typeof site !== 'object') throw Park.error('PARSE', '反搜服务返回无效数据');

@@ -6,10 +6,12 @@ import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 
 import '../../core/models.dart';
 import '../../engine/browser_image_search.dart';
+import '../../engine/browser_interaction.dart';
+import '../../engine/challenge.dart';
 import '../../engine/cookie_store.dart';
 import '../../engine/http_service.dart';
 
-/// 后台上传并提取网页，只有需要手动验证时才显示同一会话的网页。
+/// 后台上传、验证并提取网页；用户始终在应用自建界面内操作。
 class BrowserImageSearchPanel extends StatefulWidget {
   const BrowserImageSearchPanel({
     super.key,
@@ -19,14 +21,12 @@ class BrowserImageSearchPanel extends StatefulWidget {
     required this.cancelToken,
     required this.onComplete,
     required this.onError,
-    required this.onVerificationChanged,
   });
   final String source, imageBase64;
   final BrowserImageSearchRequest request;
   final CancelToken cancelToken;
   final ValueChanged<BrowserImageSearchResult?> onComplete;
   final ValueChanged<SourceError> onError;
-  final ValueChanged<bool> onVerificationChanged;
   @override
   State<BrowserImageSearchPanel> createState() =>
       _BrowserImageSearchPanelState();
@@ -34,11 +34,11 @@ class BrowserImageSearchPanel extends StatefulWidget {
 
 class _BrowserImageSearchPanelState extends State<BrowserImageSearchPanel> {
   InAppWebViewController? _controller;
-  // 显示验证区域时复用同一个平台视图，避免重建丢失上传会话。
   InAppWebView? _webView;
   Timer? _poll, _timeout;
   bool _ready = false, _busy = false, _uploaded = false, _done = false;
-  bool _verification = false;
+  DateTime? _challengeSince;
+  int _clickedGeneration = -1;
   int _navigation = 0, _stable = 0, _stableRows = 0;
   String _lastUrl = '', _lastResult = '';
   void Function()? _unregister;
@@ -133,6 +133,7 @@ class _BrowserImageSearchPanelState extends State<BrowserImageSearchPanel> {
               style.visibility !== 'hidden' && style.display !== 'none';
           });
           return {url:location.href, ready:document.readyState, verification,
+            title:document.title, html:document.documentElement.outerHTML.slice(0,4194304),
             rows:document.querySelectorAll(resultSelector).length,
             empty:(document.querySelector(emptySelector)?.innerText||'').includes(emptyText)};
         ''',
@@ -150,19 +151,36 @@ class _BrowserImageSearchPanelState extends State<BrowserImageSearchPanel> {
         return;
       }
       if (state['url'] != uri.toString()) return;
-      final verification = state['verification'] == true;
-      if (_verification != verification) {
-        setState(() => _verification = verification);
-        // 手动验证不占用后台请求时限；通过后重新计时。
-        if (verification) {
-          _timeout?.cancel();
-        } else {
-          _startTimeout();
+      final cloudflare = hasChallengeMarkers(
+        state['html']?.toString() ?? '',
+        title: state['title']?.toString() ?? '',
+      );
+      if (state['verification'] == true || cloudflare) {
+        _challengeSince ??= DateTime.now();
+        final elapsed = DateTime.now().difference(_challengeSince!);
+        if (elapsed >= const Duration(seconds: 35)) {
+          _fail('站点验证未能自动完成，请稍后重试或检查网络与代理设置', code: 'CLOUDFLARE');
+        } else if (cloudflare &&
+            elapsed >= const Duration(seconds: 5) &&
+            _clickedGeneration != generation) {
+          try {
+            if (await clickCloudflareCheckbox(
+              c,
+              current: () =>
+                  mounted &&
+                  !_done &&
+                  identical(c, _controller) &&
+                  generation == _navigation,
+            )) {
+              _clickedGeneration = generation;
+            }
+          } catch (_) {
+            // 输入接口不可用时继续等待站点自动验证，到期后在应用内重试。
+          }
         }
-        widget.onVerificationChanged(verification);
+        return;
       }
-      // 验证页不能被当作上传表单的宿主页；验证通过后继续原请求。
-      if (verification) return;
+      _challengeSince = null;
       if (!_uploaded && state['ready'] == 'complete') {
         // 先结束桥接回调，再触发表单导航，避免页面销毁挂起回调。
         _uploaded = true;
@@ -263,12 +281,20 @@ class _BrowserImageSearchPanelState extends State<BrowserImageSearchPanel> {
         _controller = c;
       }
     },
-    shouldOverrideUrlLoading: (_, action) =>
-        _allowed(action.request.url?.toString())
-        ? NavigationActionPolicy.ALLOW
-        : NavigationActionPolicy.CANCEL,
+    shouldOverrideUrlLoading: (_, action) {
+      final uri = Uri.tryParse(action.request.url?.toString() ?? '');
+      return _allowed(action.request.url?.toString()) ||
+              (uri != null &&
+                  challengeFrameNavigationAllowed(
+                    uri,
+                    isForMainFrame: action.isForMainFrame,
+                  ))
+          ? NavigationActionPolicy.ALLOW
+          : NavigationActionPolicy.CANCEL;
+    },
     onLoadStart: (c, url) async {
       _navigation++;
+      _challengeSince = null;
       if (!_allowed(url?.toString())) {
         await c.stopLoading();
         _fail('浏览器页面已离开站点声明的同源地址', code: 'CONFIG');
@@ -284,8 +310,9 @@ class _BrowserImageSearchPanelState extends State<BrowserImageSearchPanel> {
         _fail('浏览器请求失败');
       }
     },
-    onReceivedHttpError: (_, request, _) {
-      if (request.isForMainFrame == true) {
+    onReceivedHttpError: (_, request, response) {
+      if (request.isForMainFrame == true &&
+          !{403, 429, 503}.contains(response.statusCode)) {
         _fail('浏览器请求失败');
       }
     },
@@ -294,9 +321,7 @@ class _BrowserImageSearchPanelState extends State<BrowserImageSearchPanel> {
 
   @override
   Widget build(BuildContext context) => IgnorePointer(
-    ignoring: !_verification,
     child: ExcludeSemantics(
-      excluding: !_verification,
       // 平台视图需要参与绘制才能得到真实视口；由父页面覆盖普通网页。
       child: _ready ? _webView! : const SizedBox.expand(),
     ),

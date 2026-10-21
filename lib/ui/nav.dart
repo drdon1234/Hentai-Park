@@ -1,8 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../core/content_scope.dart';
+import '../core/localization.dart';
 import '../core/models.dart';
+import '../engine/age_confirmation.dart';
+import '../engine/challenge.dart';
 import '../engine/cookie_store.dart';
+import '../engine/domains.dart';
+import '../engine/http_service.dart';
 import '../engine/source_manager.dart';
 import '../library/downloads.dart';
 import '../library/playback_resolver.dart';
@@ -15,6 +21,7 @@ import 'search/reverse_search_page.dart';
 import 'search/source_search_page.dart';
 import 'settings/settings_sections.dart';
 import 'settings/source_settings_page.dart';
+import 'short_video/post_video_feed.dart';
 import 'short_video/short_video_page.dart';
 import 'source/source_page.dart';
 import 'subscriptions/subscription_posts_page.dart';
@@ -27,16 +34,66 @@ import 'widgets/error_view.dart';
 /// Central navigation so every entry point (cards, tags, links, history…) behaves the same.
 class Nav {
   static final routeObserver = RouteObserver<ModalRoute<dynamic>>();
+  static final _accessVerifications = Expando<Map<String, Future<bool>>>();
+
+  static Future<bool> _verifyAccess(
+    BuildContext context,
+    String source,
+    String target,
+  ) async {
+    if (!context.mounted) return false;
+    final manifest = SourceManager.instance.manifest(source);
+    if (manifest == null) return false;
+    try {
+      CookieStore.instance.checkBrowserUri(Uri.parse(target), source);
+    } catch (_) {
+      return false;
+    }
+    final pendingKey = '$source\u0000$target';
+    final sessions = _accessVerifications[Navigator.of(context)] ??= {};
+    final pending = sessions[pendingKey];
+    if (pending != null) return pending;
+    final result = HttpService.instance
+        .sourceRequest(
+          {
+            'url': target,
+            'origin': manifest.origin,
+            'mode': 'browser',
+            'method': 'GET',
+          },
+          partition: source,
+          domains: declaredDomains(manifest.json),
+          confirmation: AgeConfirmationConfig.fromNetwork(manifest.network),
+        )
+        .then((response) {
+          final status = response['status'];
+          final headers = response['headers'] as Map? ?? const {};
+          final body = response['body']?.toString() ?? '';
+          return status is num &&
+              status >= 200 &&
+              status < 400 &&
+              body.isNotEmpty &&
+              headers['cf-mitigated'] != 'challenge' &&
+              !hasChallengeMarkers(body);
+        })
+        .catchError((_) => false);
+    sessions[pendingKey] = result;
+    try {
+      return await result;
+    } finally {
+      sessions.removeWhere(
+        (key, value) => key == pendingKey && identical(value, result),
+      );
+    }
+  }
+
   static bool _short(String source, [WorkItem? item]) {
     final manifest = SourceManager.instance.manifest(source);
     return manifest?.category == SourceCategory.shortvideo ||
         (item?.isSubscriptionPost == true &&
             item?.mediaKind == MediaKind.video &&
             (item?.json['media'] as List? ?? const []).any(
-              (media) =>
-                  media is Map &&
-                  media['type'] == 'video' &&
-                  (media['url'] as String? ?? '').isNotEmpty,
+              isPostVideoAttachment,
             ));
   }
 
@@ -79,9 +136,19 @@ class Nav {
             source: item.source,
             initial: item,
             feedIndex: _videoFeed(item.source),
+            postScope:
+                SourceManager.instance
+                        .manifest(item.source)
+                        ?.json['postShortVideos'] ==
+                    true
+                ? PostVideoContext.of(context)
+                : null,
           )
         : item.isSubscriptionPost
-        ? SubscriptionWorkPage(item: item)
+        ? SubscriptionWorkPage(
+            item: item,
+            postScope: PostVideoContext.of(context),
+          )
         : DetailPage(
             source: item.source,
             id: item.id,
@@ -124,27 +191,6 @@ class Nav {
       return push(context, ReverseSearchPage(sourceKey: source));
     }
     return push(context, SourcePage(sourceKey: source));
-  }
-
-  static Future<bool> confirmAccess(
-    BuildContext context,
-    String source, {
-    String? url,
-  }) async {
-    final target = url ?? SourceManager.instance.manifest(source)?.homepage;
-    if (target == null) return false;
-    try {
-      CookieStore.instance.checkBrowserUri(Uri.parse(target), source);
-    } catch (_) {
-      return false;
-    }
-    final ok =
-        await push<bool>(
-          context,
-          WebVerifyPage.confirmation(source: source, url: target),
-        ) ==
-        true;
-    return ok;
   }
 
   static Future<void> openSourceSearch(
@@ -207,6 +253,13 @@ class Nav {
                   source: work.source,
                   initial: work.toItem(),
                   feedIndex: _videoFeed(work.source),
+                  postScope:
+                      SourceManager.instance
+                              .manifest(work.source)
+                              ?.json['postShortVideos'] ==
+                          true
+                      ? PostVideoContext.of(context)
+                      : null,
                 )
               : VideoPage(
                   work: work,
@@ -251,9 +304,49 @@ class Nav {
   static Future<void> openSourceSettings(BuildContext context, String source) =>
       push(context, SourceSettingsPage(sourceKey: source));
 
+  static Future<bool> confirm(
+    BuildContext context,
+    String source,
+    SourceError error,
+  ) async {
+    final url = error.url;
+    if (!context.mounted || url == null) return false;
+    try {
+      CookieStore.instance.checkBrowserUri(Uri.parse(url), source);
+    } catch (_) {
+      return false;
+    }
+    return await push<bool>(
+          context,
+          WebVerifyPage.confirmation(
+            source: source,
+            url: url,
+            message: error.friendly,
+          ),
+        ) ==
+        true;
+  }
+
   static Future<bool> login(BuildContext context, String source) async {
-    final account = SourceManager.instance.manifest(source)?.account;
-    if (account == null || account.loginUrl.isEmpty) {
+    final manifest = SourceManager.instance.manifest(source);
+    final account = manifest?.account;
+    if (account == null) {
+      try {
+        final url = Uri.parse(manifest?.homepage ?? '');
+        CookieStore.instance.checkBrowserUri(url, source);
+        if (!await launchUrl(url, mode: LaunchMode.externalApplication)) {
+          throw const FormatException();
+        }
+      } catch (_) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context)
+              .showSnackBar(SnackBar(content: Text(tr('无法打开链接'))));
+        }
+      }
+      // 原站登录不代表应用已获得会话。
+      return false;
+    }
+    if (account.loginUrl.isEmpty) {
       await openSourceSettings(context, source);
       return SourceManager.instance[source]?.account?.loggedIn == true;
     }
@@ -267,8 +360,7 @@ class Nav {
   static Future<void> openNetworkSettings(BuildContext context) =>
       push(context, const SettingsSectionPage(SettingsSection.network));
 
-  /// Opens the site in the built-in browser so the user can pass a Cloudflare check.
-  /// Returns true once the page loads normally and the cookies have been imported.
+  /// Runs Cloudflare and declared age-gate handling in the hidden same-origin browser.
   static Future<bool> verifyCloudflare(
     BuildContext context,
     String source, {
@@ -279,16 +371,7 @@ class Nav {
         ? url
         : (m?.origin ?? m?.homepage ?? '');
     if (target.isEmpty) return false;
-    try {
-      CookieStore.instance.checkBrowserUri(Uri.parse(target), source);
-    } catch (_) {
-      return false;
-    }
-    final ok = await push<bool>(
-      context,
-      WebVerifyPage.cloudflare(source: source, url: target),
-    );
-    return ok == true;
+    return _verifyAccess(context, source, target);
   }
 
   static Future<void> random(BuildContext context, String source) async {

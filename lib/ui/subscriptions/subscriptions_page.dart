@@ -44,7 +44,7 @@ class _SubscriptionsPageState extends State<SubscriptionsPage> {
   }
 
   Future<void> _add() async {
-    final providers = manager.enabled
+    final providers = manager.displayEnabled
         .where((s) => s.manifest!.can('subscriptionUpdates'))
         .toList();
     if (providers.isEmpty) {

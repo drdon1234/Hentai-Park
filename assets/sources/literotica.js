@@ -147,7 +147,7 @@
     },
     key: 'literotica',
     name: 'Literotica',
-    version: '0.0.6',
+    version: '0.0.7',
     type: 'novel',
     category: 'novel',
     language: 'en',
@@ -159,8 +159,51 @@
     linkPatterns: ['literotica\\.com/s/([a-z0-9-]+)'],
     idPattern: '^[a-z0-9][a-z0-9-]+$',
     defaultFeed: 'rank',
-    feeds: [{ key: 'rank', label: '排行' }],
+    feeds: [{ key: 'rank', label: '排行' }, {key: 'categories', label: '分类', options: [{key: 'category', label: '分类', type: 'select', default: '', dynamic: true, values: []}]}],
+    async filterOptions(req) {
+      if (req.scope !== 'feed' || req.feed !== 'categories' || req.filter !== 'category') return [];
+      const d = await doc(this, HOME + '/stories'), options = [{value: '', label: '全部'}], seen = new Set();
+      for (const a of d.querySelectorAll('a[href]')) {
+        let u; try {u = safe(new URL(a.getAttribute('href'), HOME).href);} catch (_) {continue;}
+        const m = /^\/c\/([a-z0-9-]+)$/.exec(u.pathname), label = Park.html.text(a);
+        if (!m || !label || /audio|poetry|non-english|adult-how-to|reviews-and-essays/.test(m[1]) || seen.has(m[1])) continue;
+        seen.add(m[1]); options.push({value: m[1], label});
+      }
+      if (!seen.size) throw Park.error('PARSE', '未找到分类');
+      return options;
+    },
+    async categoryList(req, category) {
+      const page = Math.max(1, Math.floor(Number(req.page) || 1));
+      let categoryId;
+      if (category) {
+        this.categoryIds ||= new Map();
+        categoryId = this.categoryIds.get(category);
+        if (!categoryId) {
+          const html = await this.http.text(HOME + '/c/' + category);
+          const ids = [...new Set([...html.matchAll(/categoryid=(\d+)/g)].map(m => Number(m[1])))];
+          if (ids.length !== 1 || ids[0] < 1) throw Park.error('PARSE', '分类列表解析失败');
+          categoryId = ids[0];
+          this.categoryIds.set(category, categoryId);
+        }
+      }
+      const data = await this.http.json(API + '/stories/new', {params: {params: JSON.stringify({
+        ...(categoryId ? {category: categoryId} : {}), page, pageSize: 35, language: 1,
+      })}});
+      if (!Array.isArray(data?.submissions) || !Number.isSafeInteger(data.meta?.submissions_count)) throw Park.error('PARSE', '分类列表解析失败');
+      const items = data.submissions.filter(x => x.type === 'story' && x.language === 1).map(x => {
+        if (categoryId && (x.category !== categoryId || x.category_info?.pageUrl !== category)) throw Park.error('PARSE', '分类列表解析失败');
+        return {id: idValue(x.url), title: String(x.title || ''), subtitle: String(x.description || ''),
+          cover: '', mediaKind: 'novel', language: 'en', authors: x.authorname ? [String(x.authorname)] : [],
+          uploaded: String(x.date_approve || ''), category: String(x.category_info?.pageUrl || '')};
+      });
+      return {items, page, total: data.meta.submissions_count, hasNext: page * 35 < data.meta.submissions_count};
+    },
     async feed(key, req) {
+      if (key === 'categories') {
+        const category = String(req.options?.category || '');
+        if (category && (!/^[a-z0-9-]{1,80}$/.test(category) || /audio|poetry|non-english|adult-how-to|reviews-and-essays/.test(category))) throw Park.error('CONFIG', '分类无效');
+        return this.categoryList(req, category);
+      }
       if (key !== 'rank') throw Park.error('CONFIG', '未知列表');
       return list(this, req, HOME + '/top/stories');
     },

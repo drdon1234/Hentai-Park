@@ -1,6 +1,30 @@
 (function () {
   'use strict';
   const HOME = 'https://canovel.com';
+  let directory;
+  const categoryFilter = {key: 'category', label: '分类', type: 'select', default: '', dynamic: true, values: []};
+  function categoryPath(value) {
+    try {
+      const u = new URL(value, HOME);
+      if (u.origin === HOME && !u.username && !u.password && !u.search && !u.hash &&
+          /^\/article\/category\/(?:[a-zA-Z0-9_-]|%[a-fA-F0-9]{2})+\/?$/.test(u.pathname)) {
+        const slug = decodeURIComponent(u.pathname.split('/')[3]);
+        if (!/[/\\\x00-\x20\x7f]/.test(slug) && slug !== '.' && slug !== '..') return u.pathname.replace(/\/$/, '');
+      }
+    } catch (_) {}
+    return '';
+  }
+  async function categories(source) {
+    if (directory && Date.now() - directory.time < 120000) return directory.values;
+    const d = await doc(source, HOME + '/'), values = new Map();
+    for (const a of d.querySelectorAll('a[href]')) {
+      const value = categoryPath(a.getAttribute('href')), label = Park.html.text(a).replace(/\s+/g, ' ').trim();
+      if (value && label && label.length <= 256 && !values.has(value)) values.set(value, label);
+    }
+    if (!values.size || values.size > 499) throw Park.error('PARSE', '分类列表解析失败');
+    directory = {time: Date.now(), values: [...values].map(([value, label]) => ({value, label}))};
+    return directory.values;
+  }
   function idValue(id) {
     if (!/^[1-9]\d{0,12}$/.test(String(id)))
       throw Park.error('NOT_FOUND', '作品编号无效');
@@ -11,11 +35,14 @@
       source.http.ensureOk(await source.http.get(url)).body,
     );
   }
-  async function list(source, req, search) {
-    const page = Math.max(1, Number(req.page) || 1),
+  async function list(source, req, search, category = '') {
+    if (category && (!(await categories(source)).some(option => option.value === category) || categoryPath(category) !== category)) {
+      throw Park.error('CONFIG', '筛选参数无效');
+    }
+    const page = Math.max(1, Math.floor(Number(req.page) || 1)),
       url =
         HOME +
-        (page > 1 ? '/page/' + page : '/') +
+        category + (page > 1 ? '/page/' + page + '/' : '/') +
         (search ? '?s=' + encodeURIComponent(search) : ''),
       d = await doc(source, url),
       items = [],
@@ -56,7 +83,7 @@
     },
     key: 'canovel',
     name: 'Canovel',
-    version: '0.0.5',
+    version: '0.0.6',
     type: 'novel',
     category: 'novel',
     language: 'zh',
@@ -77,13 +104,19 @@
     linkPatterns: ['canovel\\.com/article/([0-9]+)'],
     idPattern: '^[1-9]\\d+$',
     defaultFeed: 'latest',
-    feeds: [{ key: 'latest', label: '最新' }],
+    feeds: [{ key: 'latest', label: '最新' }, {key: 'categories', label: '分类', options: [categoryFilter]}],
+    searchFilters: [categoryFilter],
+    async filterOptions(request) {
+      if (request.filter !== 'category') throw Park.error('CONFIG', '筛选参数无效');
+      return [{value: '', label: '全部'}, ...await categories(this)];
+    },
     async feed(key, req) {
+      if (key === 'categories') return list(this, req, '', String(req.options?.category || ''));
       if (key !== 'latest') throw Park.error('CONFIG', '未知列表');
       return list(this, req, '');
     },
     async search(req) {
-      return list(this, req, String(req.keyword || ''));
+      return list(this, req, String(req.keyword || ''), String(req.filters?.category || ''));
     },
     async detail(value) {
       const id = idValue(value),

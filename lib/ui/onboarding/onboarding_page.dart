@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -22,28 +24,40 @@ enum _Step { age, privacy, interests }
 
 class _OnboardingPageState extends State<OnboardingPage> {
   final _settings = AppSettings.instance;
-  _Step _step = _Step.age;
+  bool _saving = false;
+  late _Step _step = _settings.adultConfirmed && _fullFlow
+      ? _Step.privacy
+      : _Step.age;
   late final Set<SourceCategory> _interests = {
     ...(_settings.homeCategories.isEmpty
         ? AppSettings.defaultDomainOrder
         : _settings.homeCategories),
   };
 
-  bool get _fullFlow => !_settings.onboarded && _settings.freshInstall;
+  bool get _fullFlow =>
+      !_settings.onboarded &&
+      (_settings.freshInstall || _settings.adultConfirmed);
 
   void _back() {
+    if (_saving) return;
     if (_step == _Step.age) return;
+    if (_step == _Step.privacy && _settings.adultConfirmed) return;
     setState(() => _step = _Step.values[_step.index - 1]);
   }
 
-  void _confirmAge() {
-    HapticFeedback.lightImpact();
-    if (!_fullFlow) {
-      _settings.onboarded = true;
-      _settings.adultConfirmed = true;
-      return;
+  Future<void> _confirmAge() async {
+    if (_saving) return;
+    setState(() => _saving = true);
+    final fullFlow = _fullFlow;
+    try {
+      unawaited(HapticFeedback.lightImpact());
+      await _settings.confirmAdult(completeOnboarding: !fullFlow);
+      if (mounted && fullFlow) setState(() => _step = _Step.privacy);
+    } catch (_) {
+      if (mounted) context.toast(tr('保存失败，请重试'));
+    } finally {
+      if (mounted) setState(() => _saving = false);
     }
-    setState(() => _step = _Step.privacy);
   }
 
   void _finish() {
@@ -55,8 +69,6 @@ class _OnboardingPageState extends State<OnboardingPage> {
               if (_interests.contains(c)) c,
           ];
     _settings.onboarded = true;
-    // Confirming last keeps this page up until every step is done.
-    _settings.adultConfirmed = true;
   }
 
   @override
@@ -133,7 +145,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
           spacing: Gap.s,
           runSpacing: Gap.s,
           children: [
-            if (_step != _Step.age)
+            if (_step == _Step.interests)
               TextButton(
                 onPressed: _back,
                 child: SelectionContainer.disabled(child: Text(tr('返回'))),
@@ -154,6 +166,12 @@ class _OnboardingPageState extends State<OnboardingPage> {
     body: [
       _Point(icon: Icons.public_rounded, text: tr('应用本身不存放内容，作品都来自你启用的站点。')),
       _Point(
+        icon: Icons.info_outline_rounded,
+        text: tr(
+          '成年确认只保存在本机，后续启动无需重复确认。此声明仅用于本应用，不能替代第三方站点的独立验证；第三方内容及服务适用相应站点条款和当地法律。',
+        ),
+      ),
+      _Point(
         icon: Icons.lock_outline_rounded,
         text: tr('书架、历史和账号只保存在这台设备上，可以随时备份或删除。'),
       ),
@@ -164,7 +182,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
         child: SelectionContainer.disabled(child: Text(tr('退出'))),
       ),
       FilledButton(
-        onPressed: _confirmAge,
+        onPressed: _saving ? null : _confirmAge,
         child: SelectionContainer.disabled(child: Text(tr('我已成年，继续'))),
       ),
     ],

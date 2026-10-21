@@ -9,7 +9,7 @@ import '../engine/cancellation.dart';
 import '../engine/domains.dart';
 import '../engine/media_transport.dart';
 
-/// 源按需声明图片浏览器传输；复用有界二进制传输，不携带账号凭据。
+/// 源按需声明图片浏览器传输；同源图片复用站点会话，跨域不携带凭据。
 MediaTransport? createImageTransport(
   SourceManifest? manifest, {
   Map<String, String> headers = const {},
@@ -20,22 +20,7 @@ MediaTransport? createImageTransport(
   if (declaration is! Map || declaration['mode'] != 'browser') {
     throw SourceError('CONFIG', '站点没有声明有效的媒体权限');
   }
-  final domains = declaration['domains'];
-  final sourceDomains = declaredDomains(manifest!.json);
-  final origin = Uri.tryParse('${declaration['origin'] ?? ''}');
-  if (domains is! List ||
-      domains.isEmpty ||
-      domains.any((d) => d is! String || !hostInDomains(d, sourceDomains)) ||
-      origin == null ||
-      !hostInDomains(origin.host, domains.cast<String>())) {
-    throw SourceError('CONFIG', '站点没有声明有效的媒体权限');
-  }
-  final policy = MediaPolicy.fromManifest(
-    SourceManifest({
-      ...manifest.json,
-      'media': Map<String, dynamic>.from(declaration),
-    }),
-  );
+  final policy = MediaPolicy.fromManifest(manifest!, image: true);
   final validatedHeaders = policy.requestHeaders(headers);
   return _ImageLease(
     imageTransportIdentity(

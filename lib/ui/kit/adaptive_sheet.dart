@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 
-/// 宽窗口的操作与选择在中央完成，紧凑窗口保留底部弹层。
+import '../../core/platform_capabilities.dart';
+import 'tokens.dart';
+
+/// 桌面始终使用居中面板，触屏设备的紧凑窗口使用底部弹层。
 Future<T?> showAdaptiveSheet<T>({
   required BuildContext context,
   required WidgetBuilder builder,
@@ -8,7 +11,7 @@ Future<T?> showAdaptiveSheet<T>({
   bool? showDragHandle,
   AnimationStyle? sheetAnimationStyle,
 }) {
-  if (MediaQuery.sizeOf(context).width < 720) {
+  if (!PlatformCapabilities.desktop && MediaQuery.sizeOf(context).width < 720) {
     return showModalBottomSheet<T>(
       context: context,
       builder: (context) => isScrollControlled
@@ -16,12 +19,13 @@ Future<T?> showAdaptiveSheet<T>({
           : SingleChildScrollView(child: builder(context)),
       isScrollControlled: isScrollControlled,
       showDragHandle: showDragHandle,
-      sheetAnimationStyle: sheetAnimationStyle,
+      sheetAnimationStyle: sheetAnimationStyle ?? Motion.menu(context),
       useSafeArea: true,
     );
   }
   return showDialog<T>(
     context: context,
+    animationStyle: sheetAnimationStyle ?? Motion.menu(context),
     useRootNavigator: false,
     builder: (context) => Dialog(
       clipBehavior: Clip.antiAlias,

@@ -16,38 +16,39 @@ import '../../engine/source_manager.dart';
 import '../theme.dart';
 import '../widgets/error_view.dart';
 
-/// Built-in browser used for two flows:
-/// - Cloudflare: load the site, wait until the challenge is gone, import clearance cookies.
-/// - Web login: let the user sign in, then hand the required cookies to the source.
+/// 共享源分区的登录、OAuth 授权与需要用户处理的站点验证。
 class WebVerifyPage extends StatefulWidget {
-  const WebVerifyPage._(
-    this._mode, {
+  const WebVerifyPage._({
     required this.source,
     required this.url,
     this.windowId,
+    this.confirmation = false,
+    this.message,
   });
 
-  factory WebVerifyPage.cloudflare({
-    required String source,
-    required String url,
-  }) => WebVerifyPage._(_Mode.cloudflare, source: source, url: url);
   factory WebVerifyPage.login({required String source, required String url}) =>
-      WebVerifyPage._(_Mode.login, source: source, url: url);
+      WebVerifyPage._(source: source, url: url);
+
   factory WebVerifyPage.confirmation({
     required String source,
     required String url,
-  }) => WebVerifyPage._(_Mode.confirmation, source: source, url: url);
+    String? message,
+  }) => WebVerifyPage._(
+    source: source,
+    url: url,
+    confirmation: true,
+    message: message,
+  );
 
+  final bool confirmation;
+  final String? message;
   final String source;
   final String url;
-  final _Mode _mode;
   final int? windowId;
 
   @override
   State<WebVerifyPage> createState() => _WebVerifyPageState();
 }
-
-enum _Mode { cloudflare, login, confirmation }
 
 class _WebVerifyPageState extends State<WebVerifyPage> {
   InAppWebViewController? _c;
@@ -59,7 +60,6 @@ class _WebVerifyPageState extends State<WebVerifyPage> {
   bool _browserFailed = false;
   int _browserGeneration = 0;
   bool _checking = false;
-  bool _finishing = false;
   bool _sessionClosed = false;
   void Function()? _unregisterSession;
   int _navigationGeneration = 0;
@@ -67,15 +67,18 @@ class _WebVerifyPageState extends State<WebVerifyPage> {
   bool _popupOpen = false;
   bool _browserReady = false;
 
-  Map get _confirmation =>
-      SourceManager.instance.manifest(widget.source)?.network['confirmation']
-          as Map? ??
-      const {};
-
   bool _sourceAllowed(String? url) {
     if (_sessionClosed || url == null) return false;
     try {
-      CookieStore.instance.checkBrowserUri(Uri.parse(url), widget.source);
+      final uri = Uri.parse(url);
+      if (!widget.confirmation) {
+        final manifest = SourceManager.instance.manifest(widget.source);
+        if (manifest == null ||
+            !httpsDomainAddressAllowed(uri, declaredDomains(manifest.json))) {
+          return false;
+        }
+      }
+      CookieStore.instance.checkBrowserUri(uri, widget.source);
       return true;
     } catch (_) {
       return false;
@@ -85,7 +88,7 @@ class _WebVerifyPageState extends State<WebVerifyPage> {
   bool _allowed(String? url) {
     if (_sessionClosed || url == null) return false;
     if (_sourceAllowed(url)) return true;
-    if (widget._mode != _Mode.login) return false;
+    if (widget.confirmation) return false;
     // OAuth 新窗口可能先创建空白页，再进入真实授权地址。
     if (widget.windowId != null && url == 'about:blank') return true;
     final uri = Uri.tryParse(url);
@@ -108,10 +111,7 @@ class _WebVerifyPageState extends State<WebVerifyPage> {
   }
 
   Future<bool> _openWindow(CreateWindowAction action) async {
-    if (widget._mode != _Mode.login ||
-        _sessionClosed ||
-        _popupOpen ||
-        !mounted) {
+    if (widget.confirmation || _sessionClosed || _popupOpen || !mounted) {
       return false;
     }
     final url = action.request.url?.toString();
@@ -124,7 +124,6 @@ class _WebVerifyPageState extends State<WebVerifyPage> {
             MaterialPageRoute(
               fullscreenDialog: true,
               builder: (_) => WebVerifyPage._(
-                _Mode.login,
                 source: widget.source,
                 url: widget.url,
                 windowId: action.windowId,
@@ -163,10 +162,8 @@ class _WebVerifyPageState extends State<WebVerifyPage> {
       setState(() => _browserFailed = true);
       await controller?.stopLoading();
     });
-    _status = widget._mode == _Mode.confirmation
-        ? (_confirmation['message']?.toString() ?? '请在站点页面中完成确认后继续')
-        : widget._mode == _Mode.cloudflare
-        ? '正在打开站点，验证通常会自动完成；如出现勾选框请点一下'
+    _status = widget.confirmation
+        ? (widget.message ?? tr('站点验证暂未完成'))
         : '请在页面中登录；已看到账号或正常资源页时，可点击完成重新检查登录状态';
     _poll = Timer.periodic(const Duration(milliseconds: 1500), (_) => _check());
     unawaited(_prepareBrowser());
@@ -179,9 +176,7 @@ class _WebVerifyPageState extends State<WebVerifyPage> {
         final account = SourceManager.instance.manifest(widget.source)?.account;
         final urls = <String>{
           widget.url,
-          if (widget._mode == _Mode.login &&
-              account?.cookieUrl.isNotEmpty == true)
-            account!.cookieUrl,
+          if (account?.cookieUrl.isNotEmpty == true) account!.cookieUrl,
         };
         for (final url in urls) {
           if (!_sourceAllowed(url)) continue;
@@ -228,7 +223,8 @@ class _WebVerifyPageState extends State<WebVerifyPage> {
     super.dispose();
   }
 
-  Future<void> _check() async {
+  Future<void> _check({bool manual = false}) async {
+    if (widget.confirmation && !manual) return;
     if (_checking || _sessionClosed || _popupOpen) return;
     final c = _c;
     if (c == null || _done) return;
@@ -252,22 +248,73 @@ class _WebVerifyPageState extends State<WebVerifyPage> {
           html.length <= 200) {
         return;
       }
-      if (widget._mode != _Mode.login) {
-        if (await _confirmationReady()) {
-          if (generation == _navigationGeneration) await _finish();
+      if (widget.confirmation) {
+        if (_sessionClosed || !mounted || !identical(c, _c)) return;
+        await CookieStore.instance.importFromWebView(
+          Uri.parse(actual!),
+          partition: widget.source,
+          authoritative: true,
+        );
+        if (_sessionClosed ||
+            !mounted ||
+            _loading ||
+            generation != _navigationGeneration) {
+          return;
         }
-      } else {
+        await _refreshBrowserSessions();
+        if (_sessionClosed ||
+            !mounted ||
+            _loading ||
+            generation != _navigationGeneration) {
+          return;
+        }
+        _done = true;
+        Navigator.pop(context, true);
+        return;
+      }
+      {
         final m = SourceManager.instance.manifest(widget.source)?.account;
         if (m == null) return;
         final uri = Uri.parse(
           m.cookieUrl.isNotEmpty ? m.cookieUrl : widget.url,
         );
+        if (!_sourceAllowed(uri.toString())) return;
         CookieStore.instance.checkBrowserUri(uri, widget.source);
         final values = await CookieStore.instance.importFromWebView(
           uri,
           partition: widget.source,
           authoritative: true,
         );
+        if (_sessionClosed ||
+            !mounted ||
+            _loading ||
+            generation != _navigationGeneration) {
+          return;
+        }
+        if (m.localStorageKeys.isNotEmpty) {
+          final keys = jsonEncode(m.localStorageKeys);
+          final origin = jsonEncode(uri.origin);
+          final rawStorage = await c.evaluateJavascript(
+            source:
+                '(function(){const out={};if(location.origin!==$origin)return JSON.stringify(out);for(const key of $keys){const value=localStorage.getItem(key);if(value!==null)out[key]=value;}return JSON.stringify(out);})()',
+          );
+          Object? decodedStorage = rawStorage;
+          if (rawStorage is String) {
+            try {
+              decodedStorage = jsonDecode(rawStorage);
+            } catch (_) {
+              decodedStorage = null;
+            }
+          }
+          if (decodedStorage is Map) {
+            for (final entry in decodedStorage.entries) {
+              final key = entry.key.toString();
+              if (m.localStorageKeys.contains(key) && entry.value is String) {
+                values[key] = entry.value as String;
+              }
+            }
+          }
+        }
         if (_sessionClosed ||
             !mounted ||
             _loading ||
@@ -323,113 +370,6 @@ class _WebVerifyPageState extends State<WebVerifyPage> {
     }
   }
 
-  Future<bool> _confirmationReady() async {
-    final c = _c;
-    if (c == null || _loading || _sessionClosed || _browserFailed) return false;
-    // 自动检查和“完成”按钮必须遵守相同条件；挑战配置可能在长页面末尾。
-    final generation = _navigationGeneration;
-    final title = await c.getTitle() ?? '';
-    final html =
-        '${await c.evaluateJavascript(source: "document.documentElement ? document.documentElement.outerHTML.slice(0, 4 * 1024 * 1024) : ''") ?? ''}';
-    if (_sessionClosed ||
-        _loading ||
-        _progress < 1 ||
-        generation != _navigationGeneration ||
-        html.length <= 200 ||
-        hasChallengeMarkers(html, title: title)) {
-      return false;
-    }
-    final selector = _confirmation['selector']?.toString() ?? '';
-    final readySelector = _confirmation['readySelector']?.toString() ?? '';
-    if (selector.isNotEmpty) {
-      final visible = await c.evaluateJavascript(
-        source:
-            '''
-        Array.from(document.querySelectorAll(${jsonEncode(selector)})).some(el => {
-          const style = getComputedStyle(el);
-          return style.display !== 'none' && style.visibility !== 'hidden' && el.getClientRects().length > 0;
-        })
-      ''',
-      );
-      if (visible != false) return false;
-    }
-    if (readySelector.isNotEmpty) {
-      final ready = await c.evaluateJavascript(
-        source: '!!document.querySelector(${jsonEncode(readySelector)})',
-      );
-      if (ready != true) return false;
-    }
-    final requiredCookies =
-        (_confirmation['requiredCookies'] as List? ?? const [])
-            .whereType<String>();
-    if (requiredCookies.isNotEmpty) {
-      final actual = (await c.getUrl())?.toString();
-      if (!_allowed(actual)) return false;
-      final uri = Uri.parse(actual!)
-          .replace(path: '/', query: '', fragment: '');
-      final cookies = await CookieStore.instance.importFromWebView(
-        uri,
-        partition: widget.source,
-        authoritative: true,
-      );
-      if (!requiredCookies.every((key) => (cookies[key] ?? '').isNotEmpty)) {
-        return false;
-      }
-    }
-    return true;
-  }
-
-  Future<void> _finish() async {
-    if (_finishing || _done || _sessionClosed) return;
-    _finishing = true;
-    try {
-      final generation = _navigationGeneration;
-      if (!await _confirmationReady() || generation != _navigationGeneration) {
-        return;
-      }
-      final actual = (await _c?.getUrl())?.toString();
-      if (!_allowed(actual) || _sessionClosed) return;
-      _done = true;
-      final uri = Uri.parse(actual!);
-      await CookieStore.instance.importFromWebView(
-        uri.replace(query: '', fragment: ''),
-        partition: widget.source,
-        authoritative: true,
-      );
-      if (_sessionClosed || !mounted) return;
-      if (_loading || generation != _navigationGeneration) {
-        _done = false;
-        return;
-      }
-      final ua = await _c?.evaluateJavascript(source: 'navigator.userAgent');
-      if (ua is String && ua.isNotEmpty) HttpService.instance.userAgent = ua;
-      await _refreshBrowserSessions();
-      if (mounted &&
-          !_sessionClosed &&
-          !_loading &&
-          generation == _navigationGeneration) {
-        setState(() => _status = '验证通过');
-        await Future.delayed(const Duration(milliseconds: 400));
-        if (mounted &&
-            !_sessionClosed &&
-            !_loading &&
-            generation == _navigationGeneration) {
-          SourceManager.instance.authenticationChanged(widget.source);
-          Navigator.pop(context, true);
-        } else {
-          _done = false;
-        }
-      } else {
-        _done = false;
-      }
-    } catch (_) {
-      _done = false;
-      if (mounted && !_sessionClosed) setState(() => _browserFailed = true);
-    } finally {
-      _finishing = false;
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     final name =
@@ -437,9 +377,7 @@ class _WebVerifyPageState extends State<WebVerifyPage> {
     return Scaffold(
       appBar: AppBar(
         title: Text(
-          widget._mode != _Mode.login
-              ? tr('验证 {value0}', {'value0': name})
-              : tr('登录 {value0}', {'value0': name}),
+          widget.confirmation ? tr('去确认') : tr('登录 {value0}', {'value0': name}),
         ),
         actions: [
           IconButton(
@@ -450,9 +388,7 @@ class _WebVerifyPageState extends State<WebVerifyPage> {
           TextButton(
             onPressed: _browserFailed || _loading
                 ? null
-                : widget._mode == _Mode.login
-                ? _check
-                : _finish,
+                : () => _check(manual: true),
             child: SelectionContainer.disabled(child: Text(tr('完成'))),
           ),
         ],
@@ -472,15 +408,16 @@ class _WebVerifyPageState extends State<WebVerifyPage> {
             child: Row(
               children: [
                 Icon(
-                  widget._mode != _Mode.login
-                      ? Icons.verified_user_outlined
-                      : Icons.login_rounded,
+                  Icons.login_rounded,
                   size: 18,
                   color: context.colors.primary,
                 ),
                 const SizedBox(width: 10),
                 Expanded(
-                  child: Text(tr(_status), style: context.text.bodySmall),
+                  child: Text(
+                    widget.confirmation ? _status : tr(_status),
+                    style: context.text.bodySmall,
+                  ),
                 ),
               ],
             ),
@@ -505,9 +442,8 @@ class _WebVerifyPageState extends State<WebVerifyPage> {
                     initialSettings: InAppWebViewSettings(
                       userAgent: HttpService.instance.userAgent,
                       useShouldOverrideUrlLoading: true,
-                      supportMultipleWindows: widget._mode == _Mode.login,
-                      javaScriptCanOpenWindowsAutomatically:
-                          widget._mode == _Mode.login,
+                      supportMultipleWindows: true,
+                      javaScriptCanOpenWindowsAutomatically: true,
                     ),
                     onWebViewCreated: (c) => _c = c,
                     onCreateWindow: (_, action) => _openWindow(action),

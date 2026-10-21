@@ -8,6 +8,7 @@ import 'package:dio/io.dart';
 
 import '../core/models.dart';
 import '../core/settings.dart';
+import 'age_confirmation.dart';
 import 'browser_fetcher.dart';
 import 'challenge.dart';
 import 'cookie_store.dart';
@@ -59,7 +60,7 @@ class HttpService {
     });
   }
 
-  Dio _build() {
+  Dio _build({Uri? target, String? connectAddress}) {
     final dio = Dio(
       BaseOptions(
         connectTimeout: const Duration(seconds: 15),
@@ -70,7 +71,11 @@ class HttpService {
       ),
     );
     dio.httpClientAdapter = IOHttpClientAdapter(
-      createHttpClient: () => createHttpClient(proxy: _proxy),
+      createHttpClient: () => createHttpClient(
+        proxy: _proxy,
+        target: target,
+        connectAddress: connectAddress,
+      ),
     );
     return dio;
   }
@@ -83,8 +88,16 @@ class HttpService {
     required String partition,
     required List<String> domains,
     CancelToken? cancelToken,
+    AgeConfirmationConfig? confirmation,
   }) async {
     _throwIfCancelled(cancelToken);
+    final connectAddress = o['connectAddress'];
+    if (connectAddress != null &&
+        (connectAddress is! String ||
+            o['mode'] == 'browser' ||
+            !hostInDomains(_httpUri(o['url'].toString()).host, domains))) {
+      throw SourceError('CONFIG', '访问受限');
+    }
     if (o['bodyBase64'] != null && o['mode'] == 'browser') {
       throw SourceError('CONFIG', '二进制请求参数无效');
     }
@@ -98,7 +111,6 @@ class HttpService {
       if (!hostInDomains(page.host, domains) ||
           !hostInDomains(target.host, domains) ||
           page.scheme != target.scheme ||
-          page.host != target.host ||
           page.port != target.port) {
         throw SourceError('CONFIG', '浏览器模式只能访问站点声明的同源地址');
       }
@@ -107,11 +119,23 @@ class HttpService {
       final result = await BrowserFetcher.instance.fetch(
         origin: origin,
         request: o,
+        domains: domains,
+        partition: partition,
         cancelToken: cancelToken,
+        confirmation: confirmation,
       );
       _throwIfCancelled(cancelToken);
+      final responseUri = _httpUri(
+        (result['url'] ?? target.toString()).toString(),
+      );
+      if (!hostInDomains(responseUri.host, domains) ||
+          responseUri.scheme != page.scheme ||
+          responseUri.port != page.port ||
+          responseUri.userInfo.isNotEmpty) {
+        throw SourceError('CONFIG', '浏览器响应地址超出站点声明范围');
+      }
       await CookieStore.instance.importFromWebView(
-        target,
+        responseUri,
         partition: partition,
         authoritative: true,
       );
@@ -130,6 +154,7 @@ class HttpService {
           ? Duration(milliseconds: (o['timeout'] as num).toInt())
           : null,
       cancelToken: cancelToken,
+      connectAddress: connectAddress as String?,
     );
     final body = o['responseType'] == 'base64'
         ? base64Encode(res.bytes)
@@ -155,58 +180,68 @@ class HttpService {
     int? maxBytes,
     bool followRedirects = true,
     Future<void> Function(Uri)? beforeRequest,
+    String? connectAddress,
   }) async {
-    final resource = await _request(
-      followRedirects: followRedirects,
-      beforeRequest: beforeRequest,
-      method: method,
-      url: url,
-      headers: headers,
-      body: body,
-      timeout: timeout,
-      partition: partition,
-      cancelToken: cancelToken,
-    );
-    final res = resource.response;
+    final routed = connectAddress == null
+        ? null
+        : _build(target: _httpUri(url), connectAddress: connectAddress);
     try {
-      final bytes = BytesBuilder(copy: false);
-      await for (final chunk in _responseStream(
-        res,
-        timeout,
-        cancelToken,
-        onProgress,
-      )) {
-        if (maxBytes != null && bytes.length + chunk.length > maxBytes) {
-          throw SourceError('NETWORK', '媒体资源过大');
-        }
-        bytes.add(chunk);
-      }
-      final result = HttpResult(
-        status: res.statusCode ?? 0,
-        headers: {
-          for (final e in res.headers.map.entries)
-            e.key.toLowerCase(): e.value.join(', '),
-        },
-        bytes: bytes.takeBytes(),
-        url: res.realUri.toString(),
+      final resource = await _request(
+        client: routed,
+        followRedirects: followRedirects,
+        beforeRequest: beforeRequest,
+        method: method,
+        url: url,
+        headers: headers,
+        body: body,
+        timeout: timeout,
+        partition: partition,
+        cancelToken: cancelToken,
       );
-      if (detectCloudflare && result.isCloudflareChallenge) {
-        throw SourceError(
-          'CLOUDFLARE',
-          'Cloudflare 验证：{host}',
-          params: {'host': res.realUri.host},
-          status: result.status,
-          url: result.url,
+      final res = resource.response;
+      try {
+        final bytes = BytesBuilder(copy: false);
+        await for (final chunk in _responseStream(
+          res,
+          timeout,
+          cancelToken,
+          onProgress,
+        )) {
+          if (maxBytes != null && bytes.length + chunk.length > maxBytes) {
+            throw SourceError('NETWORK', '媒体资源过大');
+          }
+          bytes.add(chunk);
+        }
+        final result = HttpResult(
+          status: res.statusCode ?? 0,
+          headers: {
+            for (final e in res.headers.map.entries)
+              e.key.toLowerCase(): e.value.join(', '),
+          },
+          bytes: bytes.takeBytes(),
+          url: res.realUri.toString(),
         );
+        if (detectCloudflare && result.isCloudflareChallenge) {
+          throw SourceError(
+            'CLOUDFLARE',
+            'Cloudflare 验证：{host}',
+            params: {'host': res.realUri.host},
+            status: result.status,
+            url: result.url,
+          );
+        }
+        return result;
+      } finally {
+        await resource.close();
       }
-      return result;
     } finally {
-      await resource.close();
+      routed?.close(force: true);
     }
   }
 
   // Both buffered requests and file downloads use the same explicit redirect policy.
   Future<_HttpResponse> _request({
+    Dio? client,
     Future<void> Function(Uri)? beforeRequest,
     bool followRedirects = true,
     required String method,
@@ -251,7 +286,7 @@ class HttpService {
         while (true) {
           _throwIfCancelled(cancelToken);
           try {
-            res = await _dio.requestUri<ResponseBody>(
+            res = await (client ?? _dio).requestUri<ResponseBody>(
               uri,
               data: currentBody,
               cancelToken: requestToken,
@@ -526,6 +561,18 @@ class HttpService {
   }
 
   static String _failureReason(DioException e) {
+    // Dio's timeout type describes the operation; its nested socket exception
+    // must not turn a timeout into a connection failure eligible for fallback.
+    switch (e.type) {
+      case DioExceptionType.connectionTimeout:
+        return 'CONNECT_TIMEOUT';
+      case DioExceptionType.receiveTimeout:
+        return 'RECEIVE_TIMEOUT';
+      case DioExceptionType.sendTimeout:
+        return 'SEND_TIMEOUT';
+      default:
+        break;
+    }
     final cause = e.error;
     if (e.type == DioExceptionType.badCertificate ||
         (cause is TlsException &&
@@ -546,9 +593,6 @@ class HttpService {
           : 'CONNECTION';
     }
     return switch (e.type) {
-      DioExceptionType.connectionTimeout => 'CONNECT_TIMEOUT',
-      DioExceptionType.receiveTimeout => 'RECEIVE_TIMEOUT',
-      DioExceptionType.sendTimeout => 'SEND_TIMEOUT',
       DioExceptionType.connectionError => 'CONNECTION',
       _ => 'NETWORK',
     };

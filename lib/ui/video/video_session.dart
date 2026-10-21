@@ -34,8 +34,9 @@ class VideoSession extends ChangeNotifier {
     this.recordHistory = true,
   }) : episodes = work.videoEpisodes {
     if (localFile case final file?) SubscriptionCache.instance.retain(file);
-    final selected =
-        episodeId ?? Library.instance.historyOf(work.uid)?.chapterId;
+    final selected = isLive
+        ? episodeId
+        : episodeId ?? Library.instance.historyOf(work.uid)?.chapterId;
     episode = episodes.firstWhere(
       (episode) => episode.id == chapterKeyOf(selected),
       orElse: () => episodes.first,
@@ -48,6 +49,10 @@ class VideoSession extends ChangeNotifier {
   final bool recordHistory;
   final List<Chapter> episodes;
   late Chapter episode;
+
+  bool get isLive =>
+      localFile == null &&
+      SourceManager.instance.manifest(work.source)?.isLive == true;
 
   /// Called before the player is replaced, so the page can drop gestures and timers.
   VoidCallback? onInterrupt;
@@ -106,7 +111,7 @@ class VideoSession extends ChangeNotifier {
   Future<void> init() async {
     final request = ++_request;
     try {
-      if (work.hasVideoEpisodes) {
+      if (!isLive && work.hasVideoEpisodes) {
         await Library.instance.loadChapters(work.uid);
         if (!_active || request != _request) return;
         await Library.instance.syncChapters(
@@ -247,15 +252,19 @@ class VideoSession extends ChangeNotifier {
           );
           return;
         }
-        final loaded =
-            initialSources ??
-            await SourceManager.instance.videos(
-              work.source,
-              work.id,
-              episodeId: next.id,
-              cancelToken: request,
-              refresh: refreshSources,
-            );
+        final loaded = initialSources != null
+            ? await SourceManager.instance.resolveVideoSources(
+                work.source,
+                initialSources!,
+                cancelToken: request,
+              )
+            : await SourceManager.instance.videos(
+                work.source,
+                work.id,
+                episodeId: next.id,
+                cancelToken: request,
+                refresh: refreshSources,
+              );
         if (!_active || request.isCancelled || openRequest != _request) return;
         sources = loaded;
         if (loaded.isEmpty) {
@@ -299,7 +308,9 @@ class VideoSession extends ChangeNotifier {
             manifest,
             headers: s.headers,
             initialUrl: Uri.parse(s.url),
+            hls: s.hls,
           ),
+          live: manifest.category == SourceCategory.live,
         );
         _preparingMedia = media;
         url = await media.open(url);
@@ -376,7 +387,7 @@ class VideoSession extends ChangeNotifier {
           await media?.close();
           return;
         }
-        final resume = at ?? _resumePoint(c.value.duration);
+        final resume = isLive ? null : (at ?? _resumePoint(c.value.duration));
         if (resume != null) await c.seekTo(resume);
         await c.setPlaybackSpeed(speed);
       } catch (e, stack) {
@@ -410,7 +421,7 @@ class VideoSession extends ChangeNotifier {
       _update();
       await syncPlayback();
       if (!_active || request != _request) return;
-      _startSaving();
+      if (!isLive) _startSaving();
       onStarted?.call();
     }());
   }
@@ -452,7 +463,7 @@ class VideoSession extends ChangeNotifier {
   }
 
   void savePosition() {
-    if (!recordHistory) return;
+    if (!recordHistory || isLive) return;
     final c = controller;
     if (c == null || !c.value.isInitialized) return;
     Library.instance.recordVideoPosition(

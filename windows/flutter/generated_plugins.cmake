@@ -4,12 +4,14 @@
 
 list(APPEND FLUTTER_PLUGIN_LIST
   connectivity_plus
+  desktop_drop
   flutter_inappwebview_windows
   flutter_tts
   gal
   local_auth_windows
   media_kit_libs_windows_video
   media_kit_video
+  pasteboard
   screen_retriever_windows
   share_plus
   url_launcher_windows

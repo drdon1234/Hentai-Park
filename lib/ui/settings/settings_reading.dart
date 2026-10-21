@@ -28,18 +28,18 @@ List<Widget> readingSettings(BuildContext context, AppSettings s) => [
           if (m != null) s.readerMode = m;
         },
       ),
-      SwitchListTile(
+      SwitchListTile.adaptive(
         title: SelectionContainer.disabled(child: Text(tr('点击屏幕边缘翻页'))),
         value: s.tapToPage,
         onChanged: (v) => s.tapToPage = v,
       ),
       if (PlatformCapabilities.volumeKeyPaging)
-        SwitchListTile(
+        SwitchListTile.adaptive(
           title: SelectionContainer.disabled(child: Text(tr('音量键翻页'))),
           value: s.volumeKeyPaging,
           onChanged: (v) => s.volumeKeyPaging = v,
         ),
-      SwitchListTile(
+      SwitchListTile.adaptive(
         title: SelectionContainer.disabled(child: Text(tr('阅读时保持屏幕常亮'))),
         value: s.keepScreenOn,
         onChanged: (v) => s.keepScreenOn = v,
@@ -100,7 +100,7 @@ List<Widget> shelfSettings(BuildContext context, AppSettings s) => [
         trailing: const Icon(Icons.chevron_right_rounded),
         onTap: () => _editUpdatePolicy(context),
       ),
-      SwitchListTile(
+      SwitchListTile.adaptive(
         title: SelectionContainer.disabled(child: Text(tr('收藏时选择分类'))),
         value: s.askCategoryOnFavorite,
         onChanged: (v) => s.askCategoryOnFavorite = v,
@@ -115,7 +115,7 @@ List<Widget> shelfSettings(BuildContext context, AppSettings s) => [
   RowGroup(
     title: tr('下载'),
     children: [
-      SwitchListTile(
+      SwitchListTile.adaptive(
         title: SelectionContainer.disabled(child: Text(tr('仅在 Wi-Fi 下下载'))),
         subtitle: SelectionContainer.disabled(
           child: Text(tr('使用移动数据时暂停，连上 Wi-Fi 后自动继续')),
@@ -123,7 +123,7 @@ List<Widget> shelfSettings(BuildContext context, AppSettings s) => [
         value: s.downloadWifiOnly,
         onChanged: (v) => s.downloadWifiOnly = v,
       ),
-      SwitchListTile(
+      SwitchListTile.adaptive(
         title: SelectionContainer.disabled(child: Text(tr('自动下载新章节'))),
         subtitle: SelectionContainer.disabled(
           child: Text(tr('书库更新发现新章节后自动加入下载队列')),
@@ -131,7 +131,7 @@ List<Widget> shelfSettings(BuildContext context, AppSettings s) => [
         value: s.autoDownloadNew,
         onChanged: (v) => s.autoDownloadNew = v,
       ),
-      SwitchListTile(
+      SwitchListTile.adaptive(
         title: SelectionContainer.disabled(child: Text(tr('读完后删除'))),
         subtitle: SelectionContainer.disabled(
           child: Text(tr('章节被标记为已读后删除它的下载（本地导入的作品除外）')),
@@ -237,7 +237,7 @@ Future<void> _editUpdatePolicy(BuildContext context) => showAdaptiveSheet<void>(
                   ],
                 ),
               ),
-              SwitchListTile(
+              SwitchListTile.adaptive(
                 title: SelectionContainer.disabled(child: Text(tr('只检查多章节作品'))),
                 subtitle: SelectionContainer.disabled(
                   child: Text(tr('单本画廊不会出新章节，跳过可以省去大部分请求')),
@@ -247,7 +247,7 @@ Future<void> _editUpdatePolicy(BuildContext context) => showAdaptiveSheet<void>(
                     ? null
                     : (v) => s.updateOnlyMultiChapter = v,
               ),
-              SwitchListTile(
+              SwitchListTile.adaptive(
                 title: SelectionContainer.disabled(
                   child: Text(tr('跳过有未读章节的作品')),
                 ),
@@ -256,7 +256,7 @@ Future<void> _editUpdatePolicy(BuildContext context) => showAdaptiveSheet<void>(
                     ? null
                     : (v) => s.updateSkipUnread = v,
               ),
-              SwitchListTile(
+              SwitchListTile.adaptive(
                 title: SelectionContainer.disabled(
                   child: Text(tr('跳过还没开始读的作品')),
                 ),

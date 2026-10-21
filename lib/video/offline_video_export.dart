@@ -5,6 +5,7 @@ import 'package:archive/archive_io.dart';
 import 'package:path/path.dart' as p;
 
 import '../core/models.dart';
+import 'hls_syntax.dart';
 
 /// HLS 必须连同清单引用的分片一起导出，不能分享孤立 m3u8。
 Future<File> exportOfflineVideo(File file, Directory destination) async {
@@ -18,10 +19,35 @@ Future<File> exportOfflineVideo(File file, Directory destination) async {
       final root = await file.parent.resolveSymbolicLinks();
       final segments = '${p.basename(file.path)}.part.hls';
       final paths = <String>{};
-      for (final line in (await file.readAsLines()).map((s) => s.trim())) {
-        if (line.isEmpty || line.startsWith('#')) continue;
-        if (!RegExp('^${RegExp.escape(segments)}/[0-9]+\\.ts\$')
-            .hasMatch(line)) {
+      final base = Uri.parse('https://offline.park.invalid/');
+      for (final entry in hlsLines(await file.readAsString())) {
+        String address;
+        if (entry.startsWith('#EXT-X-MAP:')) {
+          final attributes = hlsAttributes(
+            entry.substring('#EXT-X-MAP:'.length),
+          );
+          if (attributes.length != 1 || !attributes.containsKey('URI')) {
+            throw SourceError('CONFIG', '离线媒体地址无效');
+          }
+          address = attributes['URI']!;
+        } else if (entry.startsWith('#')) {
+          if (RegExp(r'\bURI\s*=', caseSensitive: false).hasMatch(entry)) {
+            throw SourceError('CONFIG', '离线媒体地址无效');
+          }
+          continue;
+        } else {
+          address = entry;
+        }
+        final resource = base.resolve(address);
+        final line = resource.path.substring(1);
+        if (address.startsWith('/') ||
+            Uri.tryParse(address)?.hasScheme != false ||
+            resource.origin != base.origin ||
+            resource.userInfo.isNotEmpty ||
+            resource.hasQuery ||
+            resource.hasFragment ||
+            !RegExp('^${RegExp.escape(segments)}/[0-9]+\\.(?:ts|mp4)\$')
+                .hasMatch(line)) {
           throw SourceError('CONFIG', '离线媒体地址无效');
         }
         paths.add(line);

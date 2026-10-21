@@ -9,29 +9,48 @@ Park.register({
     "ru": {"同人动画与游戏角色短片，支持评分榜、搜索和多清晰度 MP4": "Фанатская анимация и ролики с игровыми персонажами: рейтинг, поиск и MP4 разного качества"},
     "ar": {"同人动画与游戏角色短片，支持评分榜、搜索和多清晰度 MP4": "رسوم المعجبين ومقاطع شخصيات الألعاب مع التقييم والبحث وجودات MP4 متعددة"},
   },
-  key: 'rule34video', name: 'Rule34Video', version: '0.0.4', type: 'video', category: 'anime',
+  key: 'rule34video', name: 'Rule34Video', version: '0.0.7', type: 'video', category: 'anime',
   language: 'en', color: '#88AA44', homepage: 'https://rule34video.com',
   description: '同人动画与游戏角色短片，支持评分榜、搜索和多清晰度 MP4',
   domains: ['rule34video.com'], network: {mode: 'native', vpnHint: true},
-  media: {mode: 'native', origin: 'https://rule34video.com', domains: ['rule34video.com']},
+  media: {mode: 'native', origin: 'https://rule34video.com', domains: ['rule34video.com', 'boomio-cdn.com']},
   imageHeaders: {Referer: 'https://rule34video.com/'},
-  defaultFeed: 'rating', feeds: [{key: 'rating', label: '排行'}],
+  defaultFeed: 'rating', feeds: [{key: 'rating', label: '排行'}, {key: 'categories', label: '分类', options: [
+    {key: 'group', label: '分类', default: 'categories', dynamic: true, values: []},
+    {key: 'range', label: '索引', default: '0', dynamic: true, dependsOn: ['group'], values: []},
+    {key: 'category', label: '标签', default: '', dynamic: true, dependsOn: ['group', 'range'], values: []},
+  ]}],
+  catalogCache: new Map(),
+  async catalog(group, offset = 0) {
+    if (!['body', 'positions', 'moments', 'camera', 'motion', 'sizes', 'style', 'characters', 'categories', 'other'].includes(group) || !Number.isInteger(offset) || offset < 0 || offset > 100000 || offset % 100) throw Park.error('CONFIG', '筛选参数无效');
+    const key = group + ':' + offset, old = this.catalogCache.get(key);
+    if (old && Date.now() - old.time < 600000) return old.data;
+    const data = await this.http.json(this.BASE + '/tag_wiki.php', {params: {action: 'tags', view: 'group', g: group, offset, limit: 100}});
+    if (data?.status !== 'ok' || !Array.isArray(data.items) || !Array.isArray(data.groups) || !Number.isInteger(data.total) || data.total < 0) throw Park.error('PARSE', '分类列表解析失败');
+    if (this.catalogCache.size >= 30) this.catalogCache.delete(this.catalogCache.keys().next().value);
+    this.catalogCache.set(key, {time: Date.now(), data}); return data;
+  },
+  async filterOptions(req) {
+    if (req.scope !== 'feed' || req.feed !== 'categories') return [];
+    const group = String(req.values?.group || 'categories'), offset = Number(req.values?.range || 0);
+    const data = await this.catalog(group, req.filter === 'category' ? offset : 0);
+    if (req.filter === 'group') return data.groups.map(x => ({value: x.slug, label: x.name}));
+    if (req.filter === 'range') return Array.from({length: Math.ceil(data.total / 100)}, (_, i) => ({value: String(i * 100), label: (i * 100 + 1) + '–' + Math.min((i + 1) * 100, data.total)}));
+    if (req.filter !== 'category') return [];
+    return [{value: '', label: '全部'}, ...data.items.filter(x => /^(?:\/categories\/|\/tags\/)[a-z0-9-]+\/$/.test(x.url) && x.n).map(x => ({value: x.url, label: x.n}))];
+  },
   linkPatterns: ['rule34video\\.com/video/(\\d+/[a-z0-9-]+)/'],
   idPattern: '^\\d{1,12}/[a-z0-9-]{1,240}$', BASE: 'https://rule34video.com',
   idValue(value) {
     if (!/^\d{1,12}\/[a-z0-9-]{1,240}$/.test(String(value))) throw Park.error('NOT_FOUND', '影片编号无效');
     return String(value);
   },
-  siteUrl(value) {
-    if (typeof value !== 'string' || !value.trim()) return null;
-    try { const u = new URL(value, this.BASE); return u.origin === this.BASE && !u.username && !u.password && !u.hash ? u : null; }
-    catch (_) { return null; }
-  },
+  siteUrl(value) { return Park.url.site(this, value); },
   async page(url) {
     if (!this.siteUrl(url)) throw Park.error('CONFIG', '视频列表地址无效');
     const r = this.http.ensureOk(await this.http.get(url));
-    if (!this.siteUrl(r.url || url)) throw Park.error('BLOCKED', '站点需要在浏览器中确认后访问');
-    return {html: r.body, doc: Park.html.parse(r.body), url: r.url || url};
+    const finalUrl = Park.url.response(this, r, url);
+    return {html: r.body, doc: Park.html.parse(r.body), url: finalUrl.href};
   },
   cards(doc) {
     const items = [], seen = new Set();
@@ -59,7 +78,6 @@ Park.register({
       if (block !== (keyword === undefined ? 'custom_list_videos_most_recent_videos' : 'custom_list_videos_videos_list_search')) continue;
       u.searchParams.set('block_id', block);
       for (const [key, value] of params) {
-        if (!['q', 'sort_by', 'from', 'from_videos', 'from_albums'].includes(key)) continue;
         u.searchParams.set(key, value);
       }
       return u.href;
@@ -75,14 +93,21 @@ Park.register({
       if (!u || u.pathname !== new URL(base).pathname || u.searchParams.get('q') !== (keyword ?? null) || u.searchParams.get('mode') !== 'async' || u.searchParams.get('function') !== 'get_block' ||
           u.searchParams.get('block_id') !== (keyword === undefined ? 'custom_list_videos_most_recent_videos' : 'custom_list_videos_videos_list_search') ||
           (keyword === undefined && u.searchParams.get('sort_by') !== 'rating') ||
-          ![u.searchParams.get('from_videos'), u.searchParams.get('from')].some(x => Number(x) === page) ||
-          [...u.searchParams.keys()].some(x => !['q', 'mode', 'function', 'block_id', 'sort_by', 'from', 'from_videos', 'from_albums'].includes(x))) throw Park.error('CONFIG', '分页链接无效');
+          ![u.searchParams.get('from_videos'), u.searchParams.get('from')].some(x => Number(x) === page)) throw Park.error('CONFIG', '分页链接无效');
       url = u.href;
     }
-    const result = await this.page(url), items = this.cards(result.doc), cursor = this.nextPage(result.doc, base, page + 1, keyword);
+    const result = await this.page(url), items = this.cards(result.doc), cursor = this.nextPage(result.doc, result.url, page + 1, keyword);
     return {items, page, hasNext: !!cursor, cursor};
   },
   async feed(key, req) {
+    if (key === 'categories') {
+      const category = String(req.options?.category || '');
+      if (!category) return this.listing(req);
+      if (!/^\/(?:categories|tags)\/[a-z0-9-]{1,240}\/$/.test(category)) throw Park.error('CONFIG', '分类无效');
+      const page = Math.max(1, Math.floor(Number(req.page) || 1)), {doc} = await this.page(this.BASE + category + (page > 1 ? page + '/' : ''));
+      const next = [...doc.querySelectorAll('.pagination a[href], a[rel="next"]')].some(a => this.siteUrl(a.getAttribute('href'))?.pathname === category + (page + 1) + '/');
+      return {items: this.cards(doc), page, hasNext: next};
+    }
     if (key !== 'rating') throw Park.error('CONFIG', '未知列表');
     return this.listing(req);
   },

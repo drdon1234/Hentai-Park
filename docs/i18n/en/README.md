@@ -19,14 +19,14 @@
   <a href="https://github.com/drdon1234/Hentai-Park/issues">Feedback</a>
 </p>
 
-> For adults only, where permitted by local law. All content comes from third-party sites; HentaiPark neither stores nor provides any content.
+> For adults only, where permitted by local law. Content comes from third-party sites. HentaiPark does not host source content; browsing caches and downloads you request are stored on your device.
 
 
 Choose Data saver mode in More → Network: Data saver shows compact site entries on home and category pages and loads works when you open a site. Maximum data saving also disables automatic loading on site pages and retrieves works only after a search. Sites without search show an explanation.
 
 ## Download
 
-Get the Android APK from the **[latest release](https://github.com/drdon1234/Hentai-Park/releases/latest)**. Most phones and tablets need `arm64-v8a`; emulators usually need `x86_64`.
+Get the package for your platform from the **[latest release](https://github.com/drdon1234/Hentai-Park/releases/latest)**. For Android, most phones and tablets need `arm64-v8a`; emulators usually need `x86_64`. Extract desktop packages in full. See [installation and platform limits](../../PLATFORMS.md).
 
 Clients are available for Android, Windows, macOS and Linux. iOS/iPadOS currently has a simulator package only; Web is unavailable. See [installation and platform limits](../../PLATFORMS.md).
 
@@ -77,7 +77,7 @@ Screenshots use offline demo data; the sites, works and covers shown are origina
 | Feature | What you get |
 | --- | --- |
 | Rankings | Open doujinshi, anime and JAV rankings from Discover; choose a site and period, search works or open the original site |
-| Discover and search | Browse by category, search many sites at once, widen a search with keywords in other languages; paste a link or code to jump straight to a work |
+| Discover and search | Home and category pages share recommendations; scroll right for more on sites with pagination. Search many sites at once, widen a search with keywords in other languages; paste a link or code to jump straight to a work |
 | Read and watch | Comics scroll, page or show two-page spreads; videos have episodes, speed control and resume; novels have typography settings, bookmarks, notes and read-aloud. All three readers share the same controls |
 | Library | Favorites with categories and new-chapter alerts; subscribe to creators, channels or keywords |
 | Downloads | A dedicated main navigation tab for comic, video, novel and game downloads; import and export CBZ; export completed image chapters as PDF from the work menu, using only the first frame of animated images |
@@ -87,7 +87,9 @@ Screenshots use offline demo data; the sites, works and covers shown are origina
 
 In the novel reader, More → Translate full text translates the complete text and continues with chapters as you open them. You can switch back to the original.
 
-Browse and detail pages open cached works immediately, retaining chapter and media addresses. If refreshing fails, accessible cached content remains available. Returning home restores your scroll position. Long-press a work card to block the work or its author; remove blocks in content filter settings. Ranking filters are remembered, with fresh results on every visit. Short videos default to Pornhub Shorties. Only recommended-site shelves on home and category pages show “Getting the latest works” while refreshing cached content. Other loading states use progress indicators without captions.
+Browse and detail pages can display local cached content first; refresh if media links have expired. Returning home restores your scroll position. Long-press a work to block it or its author; remove blocks in content filter settings. Ranking filters are remembered, with fresh results on each visit. Short videos default to RedGifs.
+
+Enable Short video mode on the Reddit or X source home page, in a Reddit community, or in an X Community to swipe through videos from posts in that scope. Reddit supports hosted videos and RedGifs video links. Multiple videos in a post play separately. Open Communities on the X source page to paste a community link or select a joined community; access depends on the original site.
 
 Short videos preload upcoming videos and keep recently watched videos with their buffers, with 2 of each by default. Adjust each count in My → Short videos or More → Short video settings on the player; set to 0 to disable. The cache lasts while the player page is open. Higher counts use more memory and data.
 
@@ -101,43 +103,63 @@ Light and dark themes, eight interface languages. What each site supports is sho
 
 ## Supported sites
 
+In site management, “Test speed and sort automatically” runs once when tapped, temporarily sorting resource sites by list availability and load time for the current session. Default and manual order, rankings and reverse image search stay unchanged. You can cancel or restore the display order; your chosen home site keeps priority. Checks load no covers or videos. Sites without a list entry remain unmeasured, and login or verification requirements are shown separately.
+
 | Category | Sites |
 | --- | --- |
-| Doujinshi / comics | E-Hentai / ExHentai, Pixiv, nhentai, JMComic, WNACG, PicACG |
-| Gallery | CosplayTele, NudeCosplay, XiuRen, PixiBB, PornPics, Danbooru |
-| Adult animation | Hanime1, Hanime.tv, Rule34Video |
-| JAV | MissAV, JableTV, SupJav, 123AV |
-| Adult videos | Pornhub, XVideos, 91porn, iXXX, Thumbzilla, TubeSafari, SpankBang |
-| Short videos | Pornhub Shorties, Fyptt, Tik.porn |
-| AI short dramas | Huangguo Shorts, Huangdou Shorts, 91 Shorts |
-| Novels | Book18, Cool18, Canovel, Literotica, Lush Stories, StoriesOnline, 69story |
+| Photo galleries | PixiBB, XiuRen, PornPics, CosplayTele, NudeCosplay |
+| Illustration galleries | Danbooru, yande.re, Gelbooru |
+| Doujinshi / comics | E-Hentai / ExHentai, JMComic, nhentai, WNACG, PicACG |
+| Adult animation | Hanime1, Hanime.tv, Rule34Video, Iwara, HentaiHaven |
+| JAV | MissAV, JableTV, 123AV, SupJav |
+| Adult videos | Pornhub, XVideos, 91porn, SpankBang, Eporner, Thumbzilla, iXXX, TubeSafari, RouVideo |
+| Short videos | RedGifs, SWAG Short Videos, Pornhub Shorties, Fansly, Tik.porn, Fyptt, SOOP Short Videos, PopkonTV Short Videos |
+| AI short dramas | Huangdou Shorts, 91 Shorts, Huangguo Shorts, RouVideo Shorts |
+| Recordings | SOOP Recordings, PopkonTV Recordings, CamwhoresBay Asian Recordings, KoreanBJ.club Recordings |
+| Live streams | Stripchat Asian Live, CAM4, SOOP, XloveCam, SinParty |
+| Creator communities | Pixiv, Reddit, X / Twitter, myfans.jp, pixivFANBOX, Telegram |
+| Novels | Cool18, Book18, Literotica, Lush Stories, StoriesOnline, Canovel, 69story |
 | Games | KUN Galgame, GalgameX, Dimension Tea House |
-| Subscriptions | X / Twitter, Telegram, myfans.jp, pixivFANBOX |
+
+SOOP has separate entries for live streams, short videos and recordings, filtered by explicit sexy dance, sexy cam, bikini or lingerie tags. General entertainment is excluded; some videos require verification or a subscription on the original site.
+
+Live streams belong to 3D and appear between recordings and creator communities. Home and domain cards show images only. Live streams cannot be downloaded. Start or stop recording from details or the player, and manage recordings in Downloads. Only new segments produced after recording starts are saved. Android supports background recording; desktop recording continues with the window hidden. Exiting the app ends recording; restarting does not resume it. Saved segments are retained after interruption. Background recording is subject to system power policies and foreground-service time limits; saved segments survive interruption. Continuous background recording is not supported on iOS.
+
+
+Filter Discover domains by 2D, 3D or All; your choice is remembered. Games belong to 2D, novels to 3D, and creator communities remain visible in every filter.
+
+Creator communities appear in this order: Pixiv, Reddit, X, myfans.jp, pixivFANBOX, Telegram, including sites you have not signed in to. Pixiv and myfans.jp offer anonymous search and rankings. X offers anonymous search; sign in and retry if the anonymous service is limited. Enter a public creator or channel name or link before selecting Open. myfans.jp plays an available full video first, otherwise its public preview; restricted photos retain the site’s blur. Where only original-site sign-in is available, view member content on that site. myfans.jp defaults to General Adult mode, shows the site’s Pickup selection on its home feed, and opens daily rankings by default.
+
+Confirming a Reddit community subscription joins that community on the original site using your account. Confirming an X creator subscription follows that creator on X. Browsing an X Community alone does not join it.
+
+Home and creator community pages include an album for all photos and videos returned by the source. Filter by media type or date, choose the number of items per row, or collapse media from the same post. Videos show a thumbnail in the grid. Returning from a work keeps your album position.
 
 Novel lists use a consistent layout for titles, authors, summaries, dates and category tags; information unavailable from the source is omitted.
 
 Enable, reorder, update or add sites in More → Sites.
 
+Site pages offer the categories, tags, ratings and sorting supported by each source; search pages provide corresponding filters. For large catalogs, choose a range or group before a category. Changing a parent clears child selections. Failed catalog loads can be retried; site login and verification requirements still apply.
 
 ## Reverse image search
 
 | Purpose | Service |
 | --- | --- |
 | General image sources (exact matches) | Google Lens |
-| General image sources and similar images | Yandex, Bing, Baidu Images |
+| General image sources and similar images | Yandex, Baidu |
 | Anime titles, episodes and timestamps | trace.moe |
 | Anime and Galgame characters and titles | AnimeTrace |
 | Illustration sources | IQDB |
-| Adult gallery sources | E-Hentai Image Search |
+| Adult gallery sources | E-Hentai |
 | JAV catalog numbers from screenshots | AVScan |
 
-Bing reverse image search is region-dependent. Baidu may return only similar images and source links. E-Hentai Image Search covers public E-Hentai galleries only and may not match resized or cropped images.
+Baidu may return only similar images and source links. E-Hentai covers public E-Hentai galleries only and may not match resized or cropped images.
 
-Services are grouped vertically into General, Anime, JAV and Images, with selection across categories.
+Services are grouped vertically into General, Doujinshi, Anime and JAV, with selection across categories.
 
 Open Reverse image search at the top of Discover. Only Google Lens is selected by default; you can select multiple services to search together. Choose an image, optionally crop it, then search. Switch between sites to view their results; only sites with candidates appear. Open an original source or search resources by title or catalog number. Images upload to the selected services only after you press Search.
+Each site shows the first 20 candidates by default; select View all results to load more.
 
-Google Lens uploads images and retrieves sources in the background. All reverse image searches show progress and results in the app’s own interface; a verification area appears only when manual verification is needed. Some networks may require a VPN or proxy.
+Google Lens uploads images and retrieves sources in the background. All reverse image searches show progress and results in the app interface. Site verification is attempted in the background; retry in the app if it does not complete. Some networks may require a VPN or proxy.
 
 Results are candidates to verify; similarity is not confirmation. trace.moe has a limited free quota and IQDB may queue requests. AVScan is for personal non-commercial use. Each service retains its original candidates, available scores and related images; expand Source information for timestamps, detection regions, tags and other original fields. Coverage is not exhaustive; character recognition does not provide game downloads.
 
@@ -146,21 +168,27 @@ Results are candidates to verify; similarity is not confirmation. trace.moe has 
 
 | Category | Sites |
 | --- | --- |
-| Market rankings | FANZA、FC2、MGStage、一本道、天然むすめ、パコパコママ、Caribbeancom、DLsite、Toranoana |
-| Site rankings | JavMenu、MissAV、JableTV、SupJav、JM、E-Hentai、WNACG、nhentai、Hanime1 |
+| Market rankings | FANZA、MGStage、FC2、天然むすめ、パコパコママ、Caribbeancom、一本道、DLsite、Toranoana |
+| Site rankings | E-Hentai、JM、nhentai、WNACG、Hanime1、MissAV、JableTV、SupJav、JavMenu |
 
 Market rankings include works, actresses, sellers and categories; site rankings show popular content. Search works, open details or visit the original site.
 
 Rankings support filters and title translation. Covers retain their aspect ratio; click a long title to expand it.
 
-iXXX and TubeSafari use in-app web playback. The playback page may require site confirmation; controls are provided by the upstream page. App downloads and precise playback resume are unavailable. Android requires a recent Android System WebView with isolated-session support.
+Supported providers in iXXX and TubeSafari prefer native playback, with resume and offline saving. Other providers use in-app web playback, which may require site confirmation and does not support app downloads or precise resume. Android web playback requires a recent Android System WebView with isolated-session support.
+
+Free SWAG shorts use the native player with quality selection, resume and offline saving. Videos requiring paid unlocks are excluded.
 
 <a id="faq"></a>
 
 ## FAQ
 
 **A site won't open, or images and videos fail to load?**
-Check your connection first. Some sites may need a VPN or proxy in mainland China; set a proxy in More → Network. If a web check appears, pass it once in the built-in browser.
+Check your connection first. Some sites may need a VPN or proxy in mainland China; set a proxy in More → Network. Site verification is attempted automatically in the background; retry in the app if it does not complete.
+
+On first use, confirm adulthood and read the disclaimer; confirmation stays on this device. Supported age gates and Cloudflare checks run in the background; only sign-in requires using the site page. Windows supports background clicks on standard Cloudflare checkboxes. Other platforms attempt automatic checks and offer an in-app retry if unsuccessful.
+
+JM and PicACG can probe available routes automatically. A saved route is reused only after confirming the same outbound IP; a changed or unknown IP triggers a new probe. No third-party public IP lookup service is used. Manual server selection remains available.
 
 **Do I need site accounts?**
 Mostly not. Sites that need one say so at the top of the site page, and you can sign in from that site's settings in More → Sites. Web sign-in for Pixiv, X and StoriesOnline supports third-party accounts such as Google and Apple; whether they allow the embedded browser is up to them.
@@ -176,6 +204,8 @@ When translating titles, descriptions, tags, search terms, selected text or a fu
 
 **How do I report a problem?**
 Open an [issue](https://github.com/drdon1234/Hentai-Park/issues) with the app version, site name and steps to reproduce. Hide accounts and private content in screenshots.
+
+Do not include passwords, cookies, tokens, session exports, app backups, network captures or full signed links in public reports. Share only the redacted log report exported by the app.
 
 ---
 

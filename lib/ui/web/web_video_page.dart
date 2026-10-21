@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:collection';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -8,8 +9,12 @@ import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import '../../core/app_lock.dart';
 import '../../core/localization.dart';
 import '../../core/models.dart';
+import '../../core/settings.dart';
 import '../../core/storage.dart';
+import '../../engine/age_confirmation.dart';
+import '../../engine/browser_interaction.dart';
 import '../../engine/desktop_shutdown.dart';
+import '../../engine/domains.dart';
 import '../../engine/http_service.dart';
 import '../../engine/platform_bridge.dart';
 import '../../engine/source_manager.dart';
@@ -42,6 +47,83 @@ class _WebVideoPageState extends State<WebVideoPage>
   bool _ready = false;
   bool _fullscreen = false;
   int _generation = 0;
+  int _documentGeneration = 0;
+  Timer? _accessPoll;
+  bool _accessChecking = false;
+  BrowserAccessDocument _accessDocument = BrowserAccessDocument();
+  int? _httpError;
+
+  void _resetAccess() {
+    _documentGeneration++;
+    _accessPoll?.cancel();
+    _accessPoll = null;
+    _accessDocument = BrowserAccessDocument();
+    _httpError = null;
+  }
+
+  void _checkAccess(InAppWebViewController c, InAppWebViewKeepAlive session) {
+    _accessPoll?.cancel();
+    final generation = _documentGeneration;
+    final deadline = DateTime.now().add(const Duration(seconds: 45));
+    bool current() =>
+        _active(c, session) &&
+        generation == _documentGeneration &&
+        _error == null &&
+        !AppLock.instance.locked &&
+        (WidgetsBinding.instance.lifecycleState == null ||
+            WidgetsBinding.instance.lifecycleState ==
+                AppLifecycleState.resumed);
+    Future<void> inspect() async {
+      if (!current() ||
+          _accessChecking ||
+          AppLock.instance.locked ||
+          (WidgetsBinding.instance.lifecycleState != null &&
+              WidgetsBinding.instance.lifecycleState !=
+                  AppLifecycleState.resumed)) {
+        return;
+      }
+      if (DateTime.now().isAfter(deadline)) {
+        _accessPoll?.cancel();
+        // 保留可见页面，让用户继续完成无法自动处理的验证。
+        return;
+      }
+      _accessChecking = true;
+      try {
+        final url = (await c.getUrl())?.toString();
+        final uri = Uri.tryParse(url ?? '');
+        if (!current() || uri == null || !_policy!.allowsMainFrame(uri)) return;
+        final manifest = SourceManager.instance.manifest(widget.work.source);
+        final confirmation =
+            manifest != null &&
+                hostInDomains(uri.host, declaredDomains(manifest.json))
+            ? AgeConfirmationConfig.fromNetwork(manifest.network)
+            : null;
+        final result = await _accessDocument.inspect(
+          c,
+          url: url!,
+          current: current,
+          confirmation: confirmation,
+          confirmAdult: AppSettings.instance.adultConfirmed,
+          httpError: _httpError,
+        );
+        if (!current()) return;
+        if (result != BrowserAccessState.waiting) {
+          _accessPoll?.cancel();
+          if (result == BrowserAccessState.failed) _failed();
+        }
+      } catch (_) {
+        // 不隐藏仍可由用户操作的验证页面，也不重复提交网页请求。
+      } finally {
+        _accessChecking = false;
+      }
+    }
+
+    _accessPoll = Timer.periodic(
+      const Duration(milliseconds: 1500),
+      (_) => unawaited(inspect()),
+    );
+    unawaited(inspect());
+  }
 
   @override
   void initState() {
@@ -83,6 +165,7 @@ class _WebVideoPageState extends State<WebVideoPage>
   Future<void> _load() {
     return PendingDisposals.instance.watch(() async {
       final generation = ++_generation;
+      _resetAccess();
       final old = _keepAlive;
       final oldEnvironment = _environment;
       final oldProfile = _profileDirectory;
@@ -227,6 +310,7 @@ class _WebVideoPageState extends State<WebVideoPage>
 
   void _failed() {
     if (!mounted) return;
+    _resetAccess();
     final controller = _controller;
     if (controller != null && _ready) unawaited(_setPaused(controller, true));
     setState(() => _error = SourceError('NETWORK', '浏览器请求失败'));
@@ -249,6 +333,7 @@ class _WebVideoPageState extends State<WebVideoPage>
   @override
   void dispose() {
     _generation++;
+    _resetAccess();
     WidgetsBinding.instance.removeObserver(this);
     AppLock.instance.removeListener(_lockChanged);
     final session = _keepAlive;
@@ -305,6 +390,14 @@ class _WebVideoPageState extends State<WebVideoPage>
                   keepAlive: session,
                   webViewEnvironment: _environment,
                   // 不设置初始 URL；Android 切换独立 Profile 后才允许联网。
+                  initialUserScripts: UnmodifiableListView([
+                    if (Platform.isAndroid)
+                      UserScript(
+                        source: androidChallengeDocumentScript,
+                        injectionTime:
+                            UserScriptInjectionTime.AT_DOCUMENT_START,
+                      ),
+                  ]),
                   initialSettings: InAppWebViewSettings(
                     userAgent: HttpService.instance.userAgent,
                     incognito: !Platform.isAndroid,
@@ -350,6 +443,7 @@ class _WebVideoPageState extends State<WebVideoPage>
                   },
                   onLoadStart: (c, url) async {
                     if (!_active(c, session)) return;
+                    _resetAccess();
                     final uri = Uri.tryParse(url?.toString() ?? '');
                     if (!_ready ||
                         uri == null ||
@@ -369,7 +463,10 @@ class _WebVideoPageState extends State<WebVideoPage>
                     }
                   },
                   onLoadStop: (c, url) {
-                    if (_active(c, session)) _syncLifecycle();
+                    if (_active(c, session)) {
+                      _syncLifecycle();
+                      _checkAccess(c, session);
+                    }
                   },
                   onReceivedError: (c, request, error) {
                     if (_active(c, session) && request.isForMainFrame == true) {
@@ -378,7 +475,8 @@ class _WebVideoPageState extends State<WebVideoPage>
                   },
                   onReceivedHttpError: (c, request, response) {
                     if (_active(c, session) && request.isForMainFrame == true) {
-                      _failed();
+                      // CF 的挑战页使用 403/503，等待文档检查后再决定是否显示错误。
+                      _httpError = response.statusCode;
                     }
                   },
                   onRenderProcessGone: (c, detail) {

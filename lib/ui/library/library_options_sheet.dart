@@ -170,6 +170,7 @@ class _LibraryOptions extends StatelessWidget {
                         Padding(
                           padding: const EdgeInsets.all(16),
                           child: SegmentedButton<String>(
+                            showSelectedIcon: false,
                             segments: [
                               ButtonSegment(
                                 value: 'grid',

@@ -18,7 +18,7 @@ class WorkTextRow extends StatelessWidget {
   @override
   // 整行作为一个可访问性入口，长按统一交给作品操作菜单。
   Widget build(BuildContext context) => MergeSemantics(
-    child: InkWell(
+    child: ActionInkWell(
       onTap: () => Nav.openWork(context, item),
       onLongPress: () => showWorkActions(context, item),
       child: SelectionContainer.disabled(

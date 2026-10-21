@@ -139,25 +139,29 @@ class _UpdatesPageState extends State<UpdatesPage> {
                   ),
                   title: Text(tr('已选 {value0}', {'value0': _selected.length})),
                   actions: [
-                    TextButton(
-                      onPressed: () => _markSelected(true),
-                      child: SelectionContainer.disabled(
-                        child: Text(tr('标为已读')),
-                      ),
-                    ),
-                    TextButton(
-                      onPressed: () => _markSelected(false),
-                      child: SelectionContainer.disabled(
-                        child: Text(tr('标为未读')),
-                      ),
-                    ),
-                    IconButton(
-                      tooltip: tr('下载'),
-                      icon: const Icon(Icons.download_rounded),
-                      onPressed: () {
-                        _download(_selectedEntries);
-                        setState(_selected.clear);
-                      },
+                    ToolbarActions(
+                      actions: [
+                        ToolbarAction(
+                          label: tr('标为已读'),
+                          icon: Icons.done_all_rounded,
+                          showLabel: true,
+                          onPressed: () => _markSelected(true),
+                        ),
+                        ToolbarAction(
+                          label: tr('标为未读'),
+                          icon: Icons.remove_done_rounded,
+                          showLabel: true,
+                          onPressed: () => _markSelected(false),
+                        ),
+                        ToolbarAction(
+                          label: tr('下载'),
+                          icon: Icons.download_rounded,
+                          onPressed: () {
+                            _download(_selectedEntries);
+                            setState(_selected.clear);
+                          },
+                        ),
+                      ],
                     ),
                   ],
                 )
@@ -211,23 +215,31 @@ class _UpdatesPageState extends State<UpdatesPage> {
                     ),
                   ),
                   actions: [
-                    TextButton(
-                      onPressed: () =>
-                          Nav.push(context, const SubscriptionUpdatesPage()),
-                      child: SelectionContainer.disabled(child: Text(tr('订阅'))),
+                    ToolbarActions(
+                      actions: [
+                        ToolbarAction(
+                          label: tr('订阅'),
+                          icon: Icons.notifications_none_rounded,
+                          showLabel: true,
+                          onPressed: () => Nav.push(
+                            context,
+                            const SubscriptionUpdatesPage(),
+                          ),
+                        ),
+                        if (updater.running)
+                          ToolbarAction(
+                            label: tr('停止'),
+                            icon: Icons.stop_circle_outlined,
+                            onPressed: updater.cancel,
+                          )
+                        else
+                          ToolbarAction(
+                            label: tr('检查更新'),
+                            icon: Icons.refresh_rounded,
+                            onPressed: _refresh,
+                          ),
+                      ],
                     ),
-                    if (updater.running)
-                      IconButton(
-                        tooltip: tr('停止'),
-                        icon: const Icon(Icons.stop_circle_outlined),
-                        onPressed: updater.cancel,
-                      )
-                    else
-                      IconButton(
-                        tooltip: tr('检查更新'),
-                        icon: const Icon(Icons.refresh_rounded),
-                        onPressed: _refresh,
-                      ),
                   ],
                 ),
           body: ParkRefresh(onRefresh: _refresh, child: _body(context)),
@@ -282,7 +294,7 @@ class _UpdatesPageState extends State<UpdatesPage> {
     final muted = read ? c.onSurface.withValues(alpha: 0.45) : null;
     return Material(
       color: selected ? c.secondaryContainer : Colors.transparent,
-      child: InkWell(
+      child: ActionInkWell(
         onTap: () => _selected.isNotEmpty
             ? _toggle(e)
             : Nav.openChapter(context, e.item, e.chapter.chapterId),
@@ -304,6 +316,7 @@ class _UpdatesPageState extends State<UpdatesPage> {
                       child: CoverImage(
                         source: e.item.source,
                         url: e.item.cover,
+                        sourceBlurred: e.item.json['coverBlurred'] == true,
                       ),
                     ),
                   ),

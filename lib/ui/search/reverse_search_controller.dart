@@ -7,7 +7,7 @@ import 'package:flutter/foundation.dart';
 import '../../core/reverse_search.dart';
 import '../../engine/browser_image_search.dart';
 
-typedef ReverseSearchLoader = Future<List<ReverseSearchMatch>> Function(
+typedef ReverseSearchLoader = Future<ReverseSearchResults> Function(
   String source,
   CancelToken token,
   BrowserImageSearch browserSearch,
@@ -18,6 +18,11 @@ class ReverseSearchSiteResult {
   Object? error;
   bool loading = true;
   bool cancelled = false;
+  bool loadingAll = false;
+  Object? allError;
+  ReverseSearchAllLoader? _loadAll;
+  CancelToken? _allToken;
+  bool get hasMore => _loadAll != null;
 }
 
 /// 一个网页会话完成后才展示下一个，保持上传、验证和 Cookie 分区对应。
@@ -27,7 +32,6 @@ class ReverseSearchBrowserSession {
   final BrowserImageSearchRequest request;
   final CancelToken token;
   final _result = Completer<BrowserImageSearchResult?>();
-  bool verification = false;
 }
 
 /// 请求不依赖结果列表的构建；每轮独立取消，站点失败互不影响。
@@ -37,7 +41,8 @@ class ReverseSearchController extends ChangeNotifier {
   ReverseSearchLoader? _loader;
   bool _disposed = false;
 
-  bool get busy => results.values.any((result) => result.loading);
+  bool get busy =>
+      results.values.any((result) => result.loading || result.loadingAll);
   int get completed => results.values
       .where((result) => !result.loading && !result.cancelled)
       .length;
@@ -75,6 +80,38 @@ class ReverseSearchController extends ChangeNotifier {
     _pump(run);
   }
 
+  Future<void> loadAll(String source) async {
+    final result = results[source];
+    final loader = result?._loadAll;
+    if (_disposed || result == null || loader == null || result.loadingAll) {
+      return;
+    }
+    final token = result._allToken = CancelToken();
+    bool current() =>
+        !_disposed &&
+        identical(results[source], result) &&
+        identical(result._allToken, token) &&
+        !token.isCancelled;
+    result.loadingAll = true;
+    result.allError = null;
+    notifyListeners();
+    try {
+      final matches = await loader(token);
+      if (current()) {
+        result.matches = List.unmodifiable(matches);
+        result._loadAll = null;
+      }
+    } catch (error) {
+      if (current()) result.allError = error;
+    } finally {
+      if (current()) {
+        result.loadingAll = false;
+        result._allToken = null;
+        notifyListeners();
+      }
+    }
+  }
+
   /// 用户停止搜索时保留已经返回的候选，后续回调不能再改变结果。
   void cancel() {
     if (_disposed) return;
@@ -100,6 +137,9 @@ class ReverseSearchController extends ChangeNotifier {
     for (final result in results.values) {
       if (result.loading) result.cancelled = true;
       result.loading = false;
+      result._allToken?.cancel();
+      result._allToken = null;
+      result.loadingAll = false;
     }
   }
 
@@ -116,13 +156,15 @@ class ReverseSearchController extends ChangeNotifier {
 
   Future<void> _load(_ReverseSearchRun run, String source) async {
     try {
-      final matches = await run.loader(
+      final response = await run.loader(
         source,
         run.token,
         (request) => _requestBrowser(run, source, request),
       );
       if (_current(run)) {
-        results[source]!.matches = List.unmodifiable(matches);
+        results[source]!
+          ..matches = response.matches
+          .._loadAll = response.loadAll;
       }
     } catch (error) {
       if (_current(run)) results[source]!.error = error;
@@ -146,12 +188,6 @@ class ReverseSearchController extends ChangeNotifier {
     run.browsers.add(session);
     notifyListeners();
     return session._result.future;
-  }
-
-  void setVerification(ReverseSearchBrowserSession session, bool value) {
-    if (!identical(browser, session) || session.verification == value) return;
-    session.verification = value;
-    notifyListeners();
   }
 
   void finishBrowser(

@@ -28,6 +28,7 @@ import 'images/image_store.dart';
 import 'library/backup.dart';
 import 'library/downloads.dart';
 import 'library/library.dart';
+import 'library/live_recordings.dart';
 import 'library/restore_transaction.dart';
 import 'library/updater.dart';
 import 'novel/reading_notes.dart';
@@ -126,6 +127,7 @@ Future<void> _start() async {
     },
     () => Library.instance.open(db),
     () => DownloadManager.instance.load(db),
+    LiveRecordings.instance.load,
     GameDownloadManager.instance.load,
     () async {
       AppLock.instance.init();

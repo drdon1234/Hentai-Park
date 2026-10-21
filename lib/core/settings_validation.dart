@@ -1,3 +1,4 @@
+import 'block_rule.dart';
 import 'translation_options.dart';
 
 /// 所有配置入口共用当前类型与取值规则，错误发生在任何写入之前。
@@ -6,6 +7,7 @@ void validateSettings(Map<String, dynamic> values) {
     'tagDownloadReminders',
     'subscriptionNotifications',
     'subscriptionNotificationPreview',
+    'albumCollapsed',
     'blurCovers',
     'secureScreen',
     'keepScreenOn',
@@ -52,10 +54,12 @@ void validateSettings(Map<String, dynamic> values) {
   const choices = <String, Set<Object>>{
     'logMode': {'full', 'redacted'},
     'dataSavingMode': {'off', 'standard', 'super'},
+    'homeDimension': {'all', 'twoD', 'threeD'},
     'subscriptionUpdateHours': {0, 1, 3, 6, 12, 24},
     'themeMode': {0, 1, 2},
     'readerMode': {0, 1, 2},
     'gridColumns': {0, 2, 3, 4},
+    'albumColumns': {1, 2, 3, 4, 5, 6},
     'libraryUpdateHours': {0, 6, 12, 24, 48, 168},
     'appLockAfter': {0, 60, 300, 900},
     'autoBackupHours': {0, 12, 24, 72, 168},
@@ -121,10 +125,25 @@ void validateSettings(Map<String, dynamic> values) {
     'libraryFilterSources',
     'searchHistory',
     'homeCategories',
+    'homeExpandedDomains',
+    'homeHiddenSources',
     'replyWithoutAsking',
   };
   bool stringList(Object? value) =>
       value is List && value.every((e) => e is String);
+  bool aliasGroups(Object? value) =>
+      value is Map &&
+      value.entries.every(
+        (e) =>
+            e.key is String &&
+            stringList(e.value) &&
+            (e.value as List).every(
+              (value) =>
+                  value.length <= 256 &&
+                  BlockRule(value as String).translatable &&
+                  BlockRule(value).scope.isEmpty,
+            ),
+      );
   for (final e in values.entries) {
     final key = e.key, value = e.value;
     var valid = true;
@@ -160,6 +179,9 @@ void validateSettings(Map<String, dynamic> values) {
       valid =
           value is Map &&
           value.entries.every((e) => e.key is String && e.value is String);
+    }
+    if (key == 'blockedTagAliases') {
+      valid = aliasGroups(value);
     }
     if (key == 'blockedAuthors') {
       valid =
@@ -210,7 +232,9 @@ void validateSettings(Map<String, dynamic> values) {
                 e.value is Map &&
                 (e.value['on'] == null || e.value['on'] is bool) &&
                 (e.value['title'] == null || e.value['title'] is bool) &&
-                (e.value['entries'] == null || stringList(e.value['entries'])),
+                (e.value['entries'] == null ||
+                    stringList(e.value['entries'])) &&
+                (e.value['aliases'] == null || aliasGroups(e.value['aliases'])),
           );
     }
     if (!valid) throw const FormatException('设置数据无效');

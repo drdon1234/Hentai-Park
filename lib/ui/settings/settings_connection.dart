@@ -17,7 +17,7 @@ List<Widget> searchSettings(BuildContext context, AppSettings s) => [
   RowGroup(
     title: tr('内容翻译'),
     children: [
-      SwitchListTile(
+      SwitchListTile.adaptive(
         title: SelectionContainer.disabled(child: Text(tr('自动翻译可见内容'))),
         subtitle: SelectionContainer.disabled(
           child: Text(tr('标题、简介等远端文字按界面语言显示，原文保留')),
@@ -66,7 +66,7 @@ List<Widget> searchSettings(BuildContext context, AppSettings s) => [
         trailing: const Icon(Icons.chevron_right_rounded),
         onTap: () => showTagTranslationPacks(context),
       ),
-      SwitchListTile(
+      SwitchListTile.adaptive(
         title: SelectionContainer.disabled(child: Text(tr('提醒下载标签词库'))),
         value: s.tagDownloadReminders,
         onChanged: (v) => s.tagDownloadReminders = v,
@@ -118,7 +118,7 @@ List<Widget> networkSettings(BuildContext context, AppSettings s) => [
             context,
             tr('HTTP 代理'),
             s.proxy,
-            hint: tr('例如 127.0.0.1:7890，留空表示不使用'),
+            hint: tr('填写代理主机:端口，留空表示不使用'),
           );
           if (v != null) s.proxy = v;
         },
@@ -149,13 +149,13 @@ List<Widget> networkSettings(BuildContext context, AppSettings s) => [
 List<Widget> privacySettings(BuildContext context, AppSettings s) => [
   RowGroup(
     children: [
-      SwitchListTile(
+      SwitchListTile.adaptive(
         title: SelectionContainer.disabled(child: Text(tr('模糊封面'))),
         subtitle: SelectionContainer.disabled(child: Text(tr('在列表与预览中模糊所有封面'))),
         value: s.blurCovers,
         onChanged: (v) => s.blurCovers = v,
       ),
-      SwitchListTile(
+      SwitchListTile.adaptive(
         title: SelectionContainer.disabled(child: Text(tr('应用锁'))),
         subtitle: SelectionContainer.disabled(
           child: Text(tr('打开应用时需要指纹 / 面部 / 锁屏密码验证')),
@@ -193,7 +193,7 @@ List<Widget> privacySettings(BuildContext context, AppSettings s) => [
           },
         ),
       if (PlatformCapabilities.secureScreen)
-        SwitchListTile(
+        SwitchListTile.adaptive(
           title: SelectionContainer.disabled(child: Text(tr('防截屏与多任务预览'))),
           subtitle: SelectionContainer.disabled(
             child: Text(tr('最近任务中隐藏内容，并禁止截屏（Android）')),
@@ -215,7 +215,7 @@ Map<int, String> get _relock => {
 List<Widget> subscriptionSettings(BuildContext context, AppSettings s) => [
   RowGroup(
     children: [
-      SwitchListTile(
+      SwitchListTile.adaptive(
         title: SelectionContainer.disabled(child: Text(tr('自动检查订阅更新'))),
         value: s.subscriptionUpdateHours > 0,
         onChanged: (value) => s.subscriptionUpdateHours = value ? 6 : 0,

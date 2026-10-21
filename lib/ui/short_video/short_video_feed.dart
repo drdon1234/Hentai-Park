@@ -42,6 +42,7 @@ class ShortVideoFeed extends ChangeNotifier {
 
   final List<WorkItem> items = [];
   final Set<String> _seen = {};
+  final Set<String> _cursors = {};
   int index = 0, generation = 0, _page = 1;
   String? _cursor;
   bool loading = false, hasNext = true, _disposed = false;
@@ -86,7 +87,7 @@ class ShortVideoFeed extends ChangeNotifier {
     error = null;
     notifyListeners();
     try {
-      // 空页或整页重复仍可向后，但不能无限请求坏游标。
+      // 一次最多跳过三页；图片帖很多时允许继续，重复游标另行校验。
       for (var skipped = 0; skipped < 3; skipped++) {
         final result = await _load(_page, _cursor);
         if (_disposed || request != generation) return;
@@ -109,18 +110,20 @@ class ShortVideoFeed extends ChangeNotifier {
         _loaded.addAll(added);
         final visible = added.where(_allows).toList();
         items.addAll(visible);
+        if (result.staleCache) {
+          hasNext = false;
+          throw SourceError('NETWORK', '刷新失败，请重试');
+        }
         if (result.hasNext &&
             result.cursor != null &&
-            result.cursor == _cursor) {
+            !_cursors.add(result.cursor!)) {
+          hasNext = false;
           throw SourceError('PARSE', '短视频分页数据无效');
         }
         _cursor = result.cursor;
         _page++;
         hasNext = result.hasNext;
         if (visible.isNotEmpty || !hasNext) break;
-        if (skipped == 2 && added.isEmpty) {
-          throw SourceError('PARSE', '短视频分页数据无效');
-        }
       }
     } catch (e) {
       if (!_disposed && request == generation) {
@@ -149,6 +152,7 @@ class ShortVideoFeed extends ChangeNotifier {
     _loaded.clear();
     _explicit.clear();
     _seen.clear();
+    _cursors.clear();
     index = 0;
     _page = 1;
     _cursor = null;

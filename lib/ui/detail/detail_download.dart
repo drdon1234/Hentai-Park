@@ -17,6 +17,7 @@ Future<void> downloadWork(
   WorkItem item, {
   required bool isVideo,
 }) async {
+  if (SourceManager.instance.manifest(item.source)?.isLive == true) return;
   final manager = DownloadManager.instance;
   if (manager.hasRestoreFailure(item.uid)) {
     context.toast(tr('下载记录恢复失败，请前往下载页处理'));
@@ -88,6 +89,7 @@ Future<void> downloadEpisodes(
   WorkItem item,
   List<Chapter> episodes,
 ) async {
+  if (SourceManager.instance.manifest(item.source)?.isLive == true) return;
   if (episodes.isEmpty) return;
   if (DownloadManager.instance.hasRestoreFailure(item.uid)) {
     context.toast(tr('下载记录恢复失败，请前往下载页处理'));

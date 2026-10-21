@@ -2,7 +2,35 @@ part of '../source_manager.dart';
 
 /// Typed calls into a source: feeds, search, details, chapters, media and game resources.
 mixin _SourceApi on _SourceRegistry {
-  Future<List<ReverseSearchMatch>> reverseSearch(
+  @override
+  Future<void> _probeDisplayOrder(String key, CancelToken token) async {
+    final source = manifest(key);
+    if (source == null ||
+        source.rankingOnly ||
+        source.reverseSearchOnly ||
+        source.feeds.isEmpty) {
+      throw SourceError('UNSUPPORTED', '站点没有可测速的列表入口');
+    }
+    // 不使用 HomeCache，确保计时来自真实列表加载；也不加载封面与媒体。
+    // 前台进入同一站点时可取消这次后台读取。
+    (_backgroundFeeds[key] ??= {}).add(token);
+    try {
+      await _requireAccount(key, cancelToken: token);
+      final entry = source.feeds[entryFeedIndex(key)];
+      final result = await _call(key, 'feed', [
+        entry.key,
+        {'page': 1, 'options': entry.defaultOptions()},
+      ], cancelToken: token);
+      if (result is! Map || result['items'] is! List) {
+        throw SourceError('PARSE', '媒体数据无效');
+      }
+      WorkPage.fromJson(result.cast<String, dynamic>(), key);
+    } finally {
+      _backgroundFeeds[key]?.remove(token);
+    }
+  }
+
+  Future<ReverseSearchResults> reverseSearch(
     String key,
     String imageBase64, {
     CancelToken? cancelToken,
@@ -40,18 +68,58 @@ mixin _SourceApi on _SourceRegistry {
         page.toJson(),
       ], cancelToken: cancelToken);
     }
+    if (result is Map) {
+      final matches = result['matches'];
+      final continuation = result['continuation'];
+      if (matches is! List ||
+          matches.isEmpty ||
+          matches.length > ReverseSearchResults.previewLimit ||
+          continuation is! Map<String, dynamic> ||
+          utf8.encode(jsonEncode(continuation)).length > 4 * 1024 * 1024) {
+        throw SourceError('PARSE', '反搜服务返回无效数据');
+      }
+      return ReverseSearchResults(
+        _reverseSearchMatches(matches),
+        loadAll: (token) async {
+          final all = await _call(key, 'reverseSearchMore', [
+            continuation,
+          ], cancelToken: token);
+          if (token.cancelError case final error?) throw error;
+          return _reverseSearchMatches(all);
+        },
+      );
+    }
+    final rows = _reverseSearchRows(result);
+    return ReverseSearchResults(
+      _reverseSearchMatches(
+        rows.take(ReverseSearchResults.previewLimit).toList(),
+      ),
+      loadAll: rows.length > ReverseSearchResults.previewLimit
+          ? (token) async {
+              if (token.cancelError case final error?) throw error;
+              return _reverseSearchMatches(rows);
+            }
+          : null,
+    );
+  }
+
+  List _reverseSearchRows(Object? result) {
     if (result is! List ||
-        result.length > 200 ||
+        result.length > 1000 ||
         result.any((row) => row is! Map)) {
       throw SourceError('PARSE', '反搜服务返回无效数据');
     }
-    return result
-        .map(
-          (row) =>
-              ReverseSearchMatch.fromJson((row as Map).cast<String, dynamic>()),
-        )
-        .toList();
+    return result;
   }
+
+  List<ReverseSearchMatch> _reverseSearchMatches(Object? result) =>
+      _reverseSearchRows(result)
+          .map(
+            (row) => ReverseSearchMatch.fromJson(
+              (row as Map).cast<String, dynamic>(),
+            ),
+          )
+          .toList();
 
   Future<List<Map<String, String>>> searchSuggestions(
     String key,
@@ -150,6 +218,94 @@ mixin _SourceApi on _SourceRegistry {
         .toList();
   }
 
+  /// Loads the values for a manifest-declared dynamic feed or search option.
+  Future<List<Choice>> filterOptions(
+    String key, {
+    required String scope,
+    required String filter,
+    String? feed,
+    String? keyword,
+    Map<String, Object?> values = const {},
+    CancelToken? cancelToken,
+  }) async {
+    final source = manifest(key);
+    if (source?.can('filterOptions') != true) {
+      throw SourceError('UNSUPPORTED', '本站不支持动态筛选');
+    }
+    if (scope != 'feed' && scope != 'search') {
+      throw SourceError('CONFIG', '动态筛选请求无效');
+    }
+    final definitions = scope == 'search'
+        ? source!.searchFilters
+        : source!.feeds
+              .where((candidate) => candidate.key == feed)
+              .firstOrNull
+              ?.options;
+    final selected = definitions
+        ?.where((candidate) => candidate.key == filter)
+        .firstOrNull;
+    if (selected?.dynamicValues != true ||
+        (scope == 'feed' && (feed == null || feed.isEmpty)) ||
+        (scope == 'search' && feed != null) ||
+        values.keys.any((parent) => !selected!.dependsOn.contains(parent))) {
+      throw SourceError('CONFIG', '未知动态筛选');
+    }
+    for (final parentKey in selected!.dependsOn) {
+      final parent = definitions!
+          .where((candidate) => candidate.key == parentKey)
+          .firstOrNull;
+      final value = values[parentKey];
+      if (parent == null ||
+          value == null ||
+          value == '' ||
+          value is List ||
+          value is Map ||
+          (parent.values.isNotEmpty &&
+              (!parent.dynamicValues &&
+                  !parent.values.any((choice) => choice.value == value)))) {
+        throw SourceError('CONFIG', '筛选条件无效');
+      }
+    }
+    if (values.keys.any((name) => name.isEmpty || name.length > 64)) {
+      throw SourceError('CONFIG', '筛选条件无效');
+    }
+    final result = await _call(key, 'filterOptions', [
+      {
+        'scope': scope,
+        'filter': filter,
+        'feed': ?feed,
+        'keyword': ?keyword,
+        'values': values,
+      },
+    ], cancelToken: cancelToken);
+    if (result is! List || result.length > 500) {
+      throw SourceError('PARSE', '动态筛选选项无效');
+    }
+    final seen = <Object?>{};
+    return result.map((entry) {
+      if (entry is! Map ||
+          !entry.containsKey('value') ||
+          entry['label'] is! String ||
+          (entry['label'] as String).trim().isEmpty ||
+          (entry['label'] as String).length > 256 ||
+          RegExp(r'[\x00-\x1f\x7f]').hasMatch(entry['label'] as String) ||
+          (entry['color'] != null &&
+              (entry['color'] is! String ||
+                  !RegExp(r'^#[0-9a-fA-F]{6}$')
+                      .hasMatch(entry['color'] as String)))) {
+        throw SourceError('PARSE', '动态筛选选项无效');
+      }
+      final value = entry['value'];
+      if (value == null ||
+          (value is! String && value is! num) ||
+          (value is num && !value.isFinite) ||
+          !seen.add(value)) {
+        throw SourceError('PARSE', '动态筛选选项无效');
+      }
+      return Choice.fromJson(entry.cast<String, dynamic>());
+    }).toList();
+  }
+
   Future<RankingPage> ranking(
     String key,
     String board, {
@@ -182,6 +338,7 @@ mixin _SourceApi on _SourceRegistry {
     final token = cancelToken ?? CancelToken();
     if (background) (_backgroundFeeds[key] ??= {}).add(token);
     try {
+      await _requireAccount(key, cancelToken: token);
       final source = manifest(key);
       // 每次读取摘要，登录、退出及网页登录改变身份后不能命中旧账号主页。
       final cookies = await CookieStore.instance.snapshotPartition(key);
@@ -253,6 +410,7 @@ mixin _SourceApi on _SourceRegistry {
     void Function(WorkDetail)? onCached,
   }) async {
     await ready;
+    await _requireAccount(key, cancelToken: cancelToken);
     final result = await HomeCache.instance.request(
       [
         'detail',
@@ -391,6 +549,7 @@ mixin _SourceApi on _SourceRegistry {
     bool refresh = false,
   }) async {
     await ready;
+    await _requireAccount(key, cancelToken: cancelToken);
     final result = await HomeCache.instance.request(
       [
         'videos',
@@ -414,13 +573,15 @@ mixin _SourceApi on _SourceRegistry {
       shouldCache: (data) =>
           (data['sources'] as List? ?? []).isNotEmpty &&
           (data['sources'] as List).whereType<Map>().every(
-            (source) => (source['headers'] as Map? ?? {}).keys.every(
-              (name) => !{
-                'cookie',
-                'authorization',
-                'proxy-authorization',
-              }.contains(name.toString().toLowerCase()),
-            ),
+            (source) =>
+                source['hls'] == null &&
+                (source['headers'] as Map? ?? {}).keys.every(
+                  (name) => !{
+                    'cookie',
+                    'authorization',
+                    'proxy-authorization',
+                  }.contains(name.toString().toLowerCase()),
+                ),
           ),
     );
     final sources = (result.data['sources'] as List)
@@ -430,6 +591,16 @@ mixin _SourceApi on _SourceRegistry {
     if (sources.isEmpty) {
       throw SourceError('UNSUPPORTED', '此影片暂无可用播放地址');
     }
+    return resolveVideoSources(key, sources, cancelToken: cancelToken);
+  }
+
+  /// 普通作品与订阅附件共用地址校验和 HLS 清晰度解析。
+  Future<List<VideoSource>> resolveVideoSources(
+    String key,
+    List<VideoSource> sources, {
+    CancelToken? cancelToken,
+  }) async {
+    if (cancelToken?.cancelError case final error?) throw error;
     final sourceManifest = manifest(key);
     if (sourceManifest == null) throw SourceError('CONFIG', '视频站点未加载');
     // 磁盘地址与新接口结果都必须服从当前插件的媒体权限。
@@ -455,6 +626,7 @@ mixin _SourceApi on _SourceRegistry {
             sourceManifest,
             headers: source.headers,
             initialUrl: Uri.parse(source.url),
+            hls: source.hls,
           ),
         ).resolve([source], cancelToken: cancelToken),
       );

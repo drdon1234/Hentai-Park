@@ -97,6 +97,11 @@ class DownloadService : Service() {
         super.onDestroy()
     }
 
+    override fun onTaskRemoved(rootIntent: Intent?) {
+        events?.invokeMethod("taskRemoved", null)
+        super.onTaskRemoved(rootIntent)
+    }
+
     private fun manager() = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
 
     private fun notification(title: String, text: String): Notification {

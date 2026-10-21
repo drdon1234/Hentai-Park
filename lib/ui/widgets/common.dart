@@ -83,6 +83,7 @@ class CoverImage extends StatelessWidget {
     this.fit = BoxFit.cover,
     this.radius = Radii.sm,
     this.blur,
+    this.sourceBlurred = false,
     this.title = '',
     this.mediaKind,
     this.onReady,
@@ -92,6 +93,9 @@ class CoverImage extends StatelessWidget {
   final BoxFit fit;
   final double radius;
   final bool? blur;
+
+  /// 原站受限图片的模糊效果不能被用户的封面隐私设置关闭。
+  final bool sourceBlurred;
   final String title;
   final MediaKind? mediaKind;
   final VoidCallback? onReady;
@@ -196,9 +200,11 @@ class CoverImage extends StatelessWidget {
           );
         },
       );
-      if (blur ?? AppSettings.instance.blurCovers) {
+      final privacyBlur = blur ?? AppSettings.instance.blurCovers;
+      if (sourceBlurred || privacyBlur) {
+        final sigma = privacyBlur ? 14.0 : 6.0;
         child = ImageFiltered(
-          imageFilter: ImageFilter.blur(sigmaX: 14, sigmaY: 14),
+          imageFilter: ImageFilter.blur(sigmaX: sigma, sigmaY: sigma),
           child: child,
         );
       }

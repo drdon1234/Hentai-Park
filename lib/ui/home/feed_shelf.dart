@@ -1,14 +1,15 @@
 import 'dart:async';
 
-import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 
 import '../../core/localization.dart';
 import '../../core/models.dart';
 import '../../core/settings.dart';
 import '../../core/tag_blocklist.dart';
-import '../../engine/home_cache.dart';
-import '../../engine/source_manager.dart';
+import '../../engine/shared_feed.dart';
+import '../album/open_album.dart';
+import '../subscriptions/subscription_source_page.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
 import '../widgets/cover_tile.dart';
@@ -16,44 +17,25 @@ import '../widgets/error_view.dart';
 import '../widgets/on_visible.dart';
 import '../widgets/source_network_hint.dart';
 import '../widgets/work_text_row.dart';
+import 'feed_sessions.dart';
 
-/// A horizontal shelf with the first page of a site's default feed. It requests only once it
-/// scrolls into view, so the home page never fans out to every site at launch.
+/// 主页和域页订阅同一推荐会话，滚动到右侧继续分页。
 class FeedShelf extends StatefulWidget {
   const FeedShelf({
     super.key,
+    required this.sessions,
     required this.sourceKey,
     required this.title,
     this.onMore,
     this.moreLabel,
-    this.onConfigure,
+    this.onToggleVisibility,
   });
+  final FeedSessions sessions;
   final String sourceKey;
   final String title;
   final VoidCallback? onMore;
   final String? moreLabel;
-  final VoidCallback? onConfigure;
-
-  static final _pages = <String, Future<List<WorkItem>>>{};
-  static final refreshes = ValueNotifier(0);
-  static Future<List<WorkItem>> cachedItems(
-    String key,
-    Future<List<WorkItem>> Function() load,
-  ) async {
-    final pending = _pages.putIfAbsent(key, load);
-    try {
-      return await pending;
-    } catch (_) {
-      rethrow;
-    } finally {
-      if (identical(_pages[key], pending)) _pages.remove(key)?.ignore();
-    }
-  }
-
-  static void refreshAll() {
-    _pages.clear();
-    refreshes.value++;
-  }
+  final VoidCallback? onToggleVisibility;
 
   @override
   State<FeedShelf> createState() => _FeedShelfState();
@@ -63,179 +45,237 @@ class _FeedShelfState extends State<FeedShelf>
     with AutomaticKeepAliveClientMixin {
   @override
   bool get wantKeepAlive => true;
-  List<WorkItem>? _items;
-  Object? _error;
-  bool _loading = false;
+  final _scroll = ScrollController();
+  SharedFeedSession? _session;
   bool _visible = false;
-  int _revision = 0;
-  bool _forceRefresh = false;
-  CancelToken? _request;
-  StreamSubscription<String>? _authentication;
+  bool _scheduled = false;
+  int _revision = -1;
+  int _fillRequests = 0;
   late final Listenable _filters = AppSettings.instance.watch(
     AppSettings.filterKeys,
   );
+  late final Listenable _homeVisibility = AppSettings.instance.watch(const {
+    'homeHiddenSources',
+  });
 
   @override
   void initState() {
     super.initState();
     _filters.addListener(_filtersChanged);
-    FeedShelf.refreshes.addListener(_refresh);
-    _authentication = SourceManager.instance.authenticationChanges.listen((
-      key,
-    ) {
-      if (key == widget.sourceKey) {
-        _items = null;
-        _refresh();
-      }
-    });
+    _homeVisibility.addListener(_homeVisibilityChanged);
+    _scroll.addListener(_scheduleFill);
+    _bind();
   }
 
-  @override
-  void dispose() {
-    _request?.cancel();
-    _filters.removeListener(_filtersChanged);
-    FeedShelf.refreshes.removeListener(_refresh);
-    _authentication?.cancel();
-    super.dispose();
-  }
-
-  void _filtersChanged() {
+  void _homeVisibilityChanged() {
+    _bind();
     if (mounted) setState(() {});
   }
 
-  void _refresh() {
-    if (!mounted) return;
-    _revision++;
-    _forceRefresh = true;
-    FeedShelf._pages.remove(widget.sourceKey)?.ignore();
-    setState(() {
-      _error = null;
-    });
-    if (_visible) unawaited(_load());
+  void _bind() {
+    final session = widget.sessions.session(widget.sourceKey);
+    if (identical(session, _session)) return;
+    _session?.removeListener(_changed);
+    _session = session;
+    _revision = session?.revision ?? -1;
+    _fillRequests = 0;
+    _session?.addListener(_changed);
+    _scheduleFill();
   }
 
   @override
   void didUpdateWidget(FeedShelf old) {
     super.didUpdateWidget(old);
-    if (old.sourceKey != widget.sourceKey) {
-      _revision++;
-      _items = null;
-      _error = null;
-      if (_visible) unawaited(_load());
+    _bind();
+  }
+
+  void _changed() {
+    if (!mounted) return;
+    if (_revision != _session?.revision) {
+      _revision = _session?.revision ?? -1;
+      _fillRequests = 0;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && _scroll.hasClients) _scroll.jumpTo(0);
+      });
     }
+    setState(() {});
+    _scheduleFill();
+  }
+
+  void _filtersChanged() {
+    _fillRequests = 0;
+    _changed();
   }
 
   void _onVisible(bool visible) {
     _visible = visible;
-    if (visible && _items == null && _error == null) unawaited(_load());
+    if (visible) _scheduleFill();
   }
 
-  Future<void> _load() async {
-    if (_loading || !mounted) return;
-    final request = _request = CancelToken();
-    final key = widget.sourceKey;
-    final manifest = SourceManager.instance.manifest(key);
-    if (manifest == null || manifest.feeds.isEmpty) return;
-    setState(() {
-      _loading = true;
-      _error = null;
+  void _scheduleFill() {
+    if (_scheduled || !mounted) return;
+    _scheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _scheduled = false;
+      if (!mounted || !_visible) return;
+      final session = _session;
+      if (session == null ||
+          session.loading ||
+          session.error != null ||
+          !session.hasNext) {
+        return;
+      }
+      if (!session.initialized) {
+        unawaited(session.loadMore());
+      } else if (_fillRequests < 3 &&
+          (!_scroll.hasClients ||
+              (_scroll.position.hasContentDimensions &&
+                  _scroll.position.extentAfter <
+                      _scroll.position.viewportDimension / 2))) {
+        _fillRequests++;
+        unawaited(session.loadMore());
+      }
     });
-    final generation = _revision;
-    try {
-      final feed = manifest.feeds[SourceManager.instance.entryFeedIndex(key)];
-      final page = await FeedShelf.cachedItems(key, () async {
-        final page = await SourceManager.instance.feed(
-          key,
-          feed.key,
-          options: feed.defaultOptions(),
-          refresh: _forceRefresh,
-          cancelToken: request,
-          onCached: (cached) {
-            if (mounted && generation == _revision && key == widget.sourceKey) {
-              setState(
-                () => _items = [
-                  ...?cached.sections?.expand((s) => s.items),
-                  ...cached.items,
-                ].take(24).toList(),
-              );
-            }
-          },
-        );
-        return [
-          ...?page.sections?.expand((section) => section.items),
-          ...page.items,
-        ].take(24).toList();
-      });
-      if (!mounted || key != widget.sourceKey) return;
-      if (generation != _revision) return;
-      _forceRefresh = false;
-      setState(() => _items = page);
-    } catch (error) {
-      if (mounted && key == widget.sourceKey && generation == _revision) {
-        setState(() {
-          _error = error;
-          if (HomeCache.invalidatesContent(error)) {
-            _items = null;
-          }
-        });
-      }
-    } finally {
-      if (mounted) {
-        setState(() => _loading = false);
-        if (_visible &&
-            (generation != _revision || (_items == null && _error == null))) {
-          unawaited(_load());
-        }
-      }
+  }
+
+  void _loadMore() {
+    _fillRequests = 0;
+    final session = _session;
+    if (session != null) {
+      if (!session.hasNext && session.error == null) session.reset();
+      unawaited(session.retry());
     }
   }
+
+  Widget _horizontal(Widget child) =>
+      NotificationListener<ScrollMetricsNotification>(
+        onNotification: (_) {
+          _scheduleFill();
+          return false;
+        },
+        child: NotificationListener<UserScrollNotification>(
+          onNotification: (notification) {
+            if (notification.direction != ScrollDirection.idle) {
+              _fillRequests = 0;
+              _scheduleFill();
+            }
+            return false;
+          },
+          child: ScrollConfiguration(
+            behavior: ScrollConfiguration.of(context)
+                .copyWith(scrollbars: false),
+            child: Scrollbar(
+              controller: _scroll,
+              thumbVisibility: true,
+              child: child,
+            ),
+          ),
+        ),
+      );
+
+  Widget _tail(SharedFeedSession session) => SizedBox(
+    width: 112,
+    child: Center(
+      child: session.loading
+          ? const CircularProgressIndicator()
+          : TextButton(
+              onPressed: _loadMore,
+              child: SelectionContainer.disabled(
+                child: Text(tr(session.error == null ? '加载更多' : '重试')),
+              ),
+            ),
+    ),
+  );
 
   @override
   Widget build(BuildContext context) {
     super.build(context);
-    final manifest = SourceManager.instance.manifest(widget.sourceKey);
+    if (!AppSettings.instance.homeSourceVisible(widget.sourceKey)) {
+      return const SizedBox.shrink();
+    }
+    final manifest = widget.sessions.sources.manifest(widget.sourceKey);
+    final session = _session;
     final blocklist = TagBlocklist.current();
-    final items = _items
-        ?.where((item) => blocklist.matchItem(item) == null)
-        .toList();
+    final items =
+        session?.items
+            .where((item) => blocklist.matchItem(item) == null)
+            .toList() ??
+        <WorkItem>[];
+    final ready = session?.initialized == true || items.isNotEmpty;
     final novel = manifest?.isNovel == true;
+    final more = session != null && (session.hasNext || session.error != null);
     final Widget body;
-    if (_error != null && items == null) {
-      body = _ShelfMessage(
-        error: _error!,
-        source: widget.sourceKey,
-        onRetry: _load,
+    if (manifest?.can('subscription') == true &&
+        (session == null ||
+            (ready && items.isEmpty && session.error == null) ||
+            (session.error?.asSourceError.needsLogin == true && !ready))) {
+      body = Padding(
+        padding: const EdgeInsets.fromLTRB(Gap.page, 0, Gap.page, Gap.m),
+        child: SubscriptionSourceEntry(
+          source: widget.sourceKey,
+          sourceManager: widget.sessions.sources,
+          onOpened: _loadMore,
+        ),
       );
-    } else if (items == null) {
-      // A shelf waiting to scroll into view keeps a still placeholder; only a
-      // request in flight shimmers, so an idle home page draws no frames.
+    } else if (session?.error != null && !ready) {
+      body = _ShelfMessage(
+        error: session!.error!,
+        source: widget.sourceKey,
+        onRetry: _loadMore,
+      );
+    } else if (!ready) {
       body = TickerMode(
-        enabled: _loading,
+        enabled: session?.loading == true,
         child: _ShelfSkeleton(
           aspect: manifest?.isVideo == true ? 16 / 9 : .7,
           novel: novel,
+          imageOnly: manifest?.isLive == true,
           source: widget.sourceKey,
         ),
       );
     } else if (items.isEmpty) {
-      body = _ShelfMessage(message: tr('暂时没有内容'), onRetry: _load);
+      body = _ShelfMessage(message: tr('暂时没有内容'), onRetry: _loadMore);
     } else if (novel) {
-      body = Column(
-        children: [for (final item in items.take(4)) WorkTextRow(item: item)],
+      // 文字卡片使用自然高度，长标题和大字体不裁切，也能向右连续浏览。
+      body = _horizontal(
+        SingleChildScrollView(
+          controller: _scroll,
+          scrollDirection: Axis.horizontal,
+          padding: const EdgeInsets.only(bottom: Gap.m),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              for (final item in items)
+                SizedBox(width: 320, child: WorkTextRow(item: item)),
+              if (more) _tail(session),
+            ],
+          ),
+        ),
       );
     } else {
       final aspect = gridAspectFor(items, manifest?.kind ?? MediaKind.comic);
+      final imageOnly = manifest?.category == SourceCategory.live;
       final width = aspect > 1 ? 200.0 : 112.0;
       body = SizedBox(
-        height: width / aspect + cardTextExtent(context),
-        child: ListView.separated(
-          scrollDirection: Axis.horizontal,
-          padding: const EdgeInsets.symmetric(horizontal: Gap.page),
-          itemCount: items.length,
-          separatorBuilder: (_, _) => const SizedBox(width: Gap.m),
-          itemBuilder: (context, i) => SizedBox(
-            width: width,
-            child: CoverTile(item: items[i], aspect: aspect),
+        height:
+            width / aspect + (imageOnly ? 0 : cardTextExtent(context)) + Gap.m,
+        child: _horizontal(
+          ListView.separated(
+            controller: _scroll,
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.fromLTRB(Gap.page, 0, Gap.page, Gap.m),
+            itemCount: items.length + (more ? 1 : 0),
+            separatorBuilder: (_, _) => const SizedBox(width: Gap.m),
+            itemBuilder: (context, i) => i == items.length
+                ? _tail(session!)
+                : SizedBox(
+                    width: width,
+                    child: CoverTile(
+                      item: items[i],
+                      aspect: aspect,
+                      imageOnly: imageOnly,
+                    ),
+                  ),
           ),
         ),
       );
@@ -248,14 +288,27 @@ class _FeedShelfState extends State<FeedShelf>
           SectionHeader(
             widget.title,
             leading: SourceAvatar(widget.sourceKey, size: 22),
-            trailing: Row(
-              mainAxisSize: MainAxisSize.min,
+            trailing: Wrap(
+              alignment: WrapAlignment.end,
               children: [
-                if (widget.onConfigure != null)
+                if (widget.onToggleVisibility != null)
                   IconButton(
-                    tooltip: tr('选择展示站点'),
-                    icon: const Icon(Icons.tune_rounded),
-                    onPressed: widget.onConfigure,
+                    tooltip: tr('隐藏该站点的作品并停止自动加载'),
+                    icon: const Icon(Icons.visibility_outlined),
+                    onPressed: widget.onToggleVisibility,
+                  ),
+                if (widget.sessions.albumScope(widget.sourceKey)
+                    case final scope?)
+                  IconButton(
+                    tooltip: tr('相册'),
+                    icon: const Icon(Icons.photo_library_outlined),
+                    onPressed: () => openMediaAlbum(
+                      context,
+                      source: widget.sourceKey,
+                      title: widget.title,
+                      scope: scope,
+                      sources: widget.sessions.sources,
+                    ),
                   ),
                 if (widget.onMore != null)
                   TextButton(
@@ -267,33 +320,25 @@ class _FeedShelfState extends State<FeedShelf>
               ],
             ),
           ),
-          if (_loading && items != null && items.isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(Gap.page, 0, Gap.page, Gap.s),
-              child: Text(tr('获取最新作品中'), style: context.text.bodySmall),
-            ),
-          if (_error != null && items != null)
+          if (session?.error != null && ready)
             _ShelfMessage(
-              error: _error!,
+              error: session!.error!,
               source: widget.sourceKey,
-              onRetry: _load,
+              onRetry: _loadMore,
             ),
-          AnimatedSwitcher(
-            duration: Motion.of(context, Motion.medium),
-            child: KeyedSubtree(
-              key: ValueKey(
-                _error != null
-                    ? 'error'
-                    : items == null
-                    ? 'loading'
-                    : 'items',
-              ),
-              child: body,
-            ),
-          ),
+          body,
         ],
       ),
     );
+  }
+
+  @override
+  void dispose() {
+    _filters.removeListener(_filtersChanged);
+    _homeVisibility.removeListener(_homeVisibilityChanged);
+    _session?.removeListener(_changed);
+    _scroll.dispose();
+    super.dispose();
   }
 }
 
@@ -302,9 +347,11 @@ class _ShelfSkeleton extends StatelessWidget {
     required this.aspect,
     required this.novel,
     required this.source,
+    this.imageOnly = false,
   });
   final double aspect;
   final bool novel;
+  final bool imageOnly;
   final String source;
 
   @override
@@ -326,7 +373,7 @@ class _ShelfSkeleton extends StatelessWidget {
           )
         else
           SizedBox(
-            height: width / aspect + cardTextExtent(context),
+            height: width / aspect + (imageOnly ? 0 : cardTextExtent(context)),
             child: ListView.separated(
               scrollDirection: Axis.horizontal,
               physics: const NeverScrollableScrollPhysics(),
@@ -335,7 +382,7 @@ class _ShelfSkeleton extends StatelessWidget {
               separatorBuilder: (_, _) => const SizedBox(width: Gap.m),
               itemBuilder: (_, _) => SizedBox(
                 width: width,
-                child: CoverTileSkeleton(aspect: aspect),
+                child: CoverTileSkeleton(aspect: aspect, imageOnly: imageOnly),
               ),
             ),
           ),

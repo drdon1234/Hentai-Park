@@ -7,6 +7,7 @@ import '../../library/downloads.dart';
 import '../../library/library.dart';
 import '../kit/kit.dart';
 import '../library/favorite_actions.dart';
+import '../video/live_recording_button.dart';
 import 'detail_actions.dart';
 
 /// What the detail page's primary action does for this kind of work.
@@ -22,6 +23,7 @@ class DetailActionBar extends StatelessWidget {
     required this.onPrimary,
     required this.onDownload,
     required this.onMore,
+    this.allowDownload = true,
   });
   final WorkItem item;
   final WorkDetail? detail;
@@ -31,6 +33,7 @@ class DetailActionBar extends StatelessWidget {
   final VoidCallback? onPrimary;
   final VoidCallback onDownload;
   final VoidCallback onMore;
+  final bool allowDownload;
 
   bool get _empty =>
       detail?.hasNoChapters == true &&
@@ -42,9 +45,11 @@ class DetailActionBar extends StatelessWidget {
     final fav = Library.instance.isFavorite(item.uid);
     final dl = DownloadManager.instance.task(item.uid);
     final downloads =
+        allowDownload &&
         kind != DetailKind.external &&
         kind != DetailKind.game &&
-        SourceManager.instance.manifest(item.source)?.usesWebVideo != true;
+        SourceManager.instance.manifest(item.source)?.usesWebVideo != true &&
+        SourceManager.instance.manifest(item.source)?.isLive != true;
     return Padding(
       padding: const EdgeInsets.fromLTRB(Gap.page, 0, Gap.page, Gap.xs),
       child: Row(
@@ -80,6 +85,8 @@ class DetailActionBar extends StatelessWidget {
                 ? () => editFavoriteCategories(context, item.uid)
                 : null,
           ),
+          if (SourceManager.instance.manifest(item.source)?.isLive == true)
+            LiveRecordingButton(item: item),
           if (downloads) ...[
             const SizedBox(width: Gap.s),
             DetailSecondaryButton(
@@ -114,7 +121,10 @@ class DetailActionBar extends StatelessWidget {
       case DetailKind.external:
         return tr('打开原站');
       case DetailKind.video:
-        final resumed = h?.position != null && h!.position! > 5;
+        final resumed =
+            SourceManager.instance.manifest(item.source)?.isLive != true &&
+            h?.position != null &&
+            h!.position! > 5;
         return resumed ? tr('继续播放') : tr('立即播放');
       case DetailKind.novel || DetailKind.reading:
         if (h == null || h.pageCount <= 0) return tr('开始阅读');

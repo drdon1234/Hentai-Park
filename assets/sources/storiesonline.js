@@ -80,7 +80,8 @@
     const page = Math.max(1, Number(req.page) || 1);
     if (req.cursor) {
       const c = safe(req.cursor);
-      if (!/^\/list\/|^\/library\//.test(c.pathname))
+      const base = new URL(url).pathname;
+      if (!/^\/list\/|^\/library\//.test(c.pathname) && !(base.startsWith('/stories/bytag/') && (c.pathname === base || c.pathname.startsWith(base + '/') && /^[1-9]\d*$/.test(c.pathname.slice(base.length + 1)))))
         throw Park.error('CONFIG', '分页链接无效');
       url = c.href;
     }
@@ -109,7 +110,7 @@
     },
     key: 'storiesonline',
     name: 'StoriesOnline',
-    version: '0.0.6',
+    version: '0.0.7',
     type: 'novel',
     category: 'novel',
     language: 'en',
@@ -135,8 +136,26 @@
     feeds: [
       { key: 'recommend', label: '推荐' },
       { key: 'rank', label: '排行' },
+      {key: 'categories', label: '分类', options: [{key: 'category', label: '分类', default: '', dynamic: true, values: []}]},
     ],
+    async filterOptions(req) {
+      if (req.scope !== 'feed' || req.feed !== 'categories' || req.filter !== 'category') return [];
+      const d = await doc(this, HOME + '/library/categories.php'), values = [{value: '', label: '全部'}], seen = new Set();
+      for (const a of d.querySelectorAll('form#cat a[href]')) {
+        let u; try {u = safe(new URL(a.getAttribute('href'), HOME).href);} catch (_) {continue;}
+        const m = /^\/stories\/bytag\/([a-z0-9-]+)\/?$/.exec(u.pathname), label = Park.html.text(a);
+        if (!m || !label || seen.has(m[1])) continue;
+        seen.add(m[1]); values.push({value: m[1], label});
+      }
+      if (!seen.size) throw Park.error('PARSE', '未找到分类');
+      return values;
+    },
     async feed(key, req) {
+      if (key === 'categories') {
+        const category = String(req.options?.category || '');
+        if (category && !/^[a-z0-9-]{1,100}$/.test(category)) throw Park.error('CONFIG', '分类无效');
+        return list(this, req, HOME + (category ? '/stories/bytag/' + category : '/list/9/stories_most_recommended_by_authors'));
+      }
       if (!['recommend', 'rank'].includes(key))
         throw Park.error('CONFIG', '未知列表');
       return list(

@@ -89,29 +89,34 @@ class _ContinueReadingPageState extends State<ContinueReadingPage> {
               ),
               actions: [
                 const TranslationControls(),
-                // "反选" only differs from "全选" once part of the list is selected.
-                if (partlySelected)
-                  TextButton(
-                    onPressed: () => setState(() {
-                      for (final h in list) {
-                        if (!_selected.remove(h.uid)) _selected.add(h.uid);
-                      }
-                    }),
-                    child: SelectionContainer.disabled(child: Text(tr('反选'))),
-                  ),
-                TextButton(
-                  onPressed: list.isEmpty
-                      ? null
-                      : () => setState(() {
-                          if (allSelected) {
-                            _selected.removeAll(list.map((h) => h.uid));
-                          } else {
-                            _selected.addAll(list.map((h) => h.uid));
+                ToolbarActions(
+                  actions: [
+                    if (partlySelected)
+                      ToolbarAction(
+                        label: tr('反选'),
+                        icon: Icons.swap_horiz_rounded,
+                        showLabel: true,
+                        onPressed: () => setState(() {
+                          for (final h in list) {
+                            if (!_selected.remove(h.uid)) _selected.add(h.uid);
                           }
                         }),
-                  child: SelectionContainer.disabled(
-                    child: Text(allSelected ? tr('取消全选') : tr('全选')),
-                  ),
+                      ),
+                    ToolbarAction(
+                      label: allSelected ? tr('取消全选') : tr('全选'),
+                      icon: Icons.select_all_rounded,
+                      showLabel: true,
+                      onPressed: list.isEmpty
+                          ? null
+                          : () => setState(() {
+                              if (allSelected) {
+                                _selected.removeAll(list.map((h) => h.uid));
+                              } else {
+                                _selected.addAll(list.map((h) => h.uid));
+                              }
+                            }),
+                    ),
+                  ],
                 ),
                 const SizedBox(width: 4),
               ],
@@ -211,7 +216,11 @@ class _ContinueReadingPageState extends State<ContinueReadingPage> {
                   SizedBox(
                     width: 52,
                     height: 70,
-                    child: CoverImage(source: h.item.source, url: h.item.cover),
+                    child: CoverImage(
+                      source: h.item.source,
+                      url: h.item.cover,
+                      sourceBlurred: h.item.json['coverBlurred'] == true,
+                    ),
                   ),
                   const SizedBox(width: 12),
                 ],

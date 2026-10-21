@@ -11,7 +11,7 @@ Park.register({
   },
   key: 'missav',
   name: 'MissAV',
-  version: '0.0.9',
+  version: '0.0.11',
   type: 'video',
   category: 'jav',
   color: '#EF4444',
@@ -32,12 +32,66 @@ Park.register({
     {key: 'weekly-hot', label: '本周热门', category: 'jav', section: 'site', metric: '站内热门', feed: 'weekly-hot'}],
   defaultFeed: 'today-hot',
   feeds: [{key: 'new', label: '最近更新'}, {key: 'release', label: '最新上市'},
-    {key: 'today-hot', label: '今日热门'}, {key: 'weekly-hot', label: '本周热门'}],
+    {key: 'today-hot', label: '今日热门'}, {key: 'weekly-hot', label: '本周热门'},
+    {key: 'categories', label: '分类', options: [{key: 'category', label: '分类', default: '', dynamic: true, values: []}]}],
   searchHint: '搜索番号、作品名或演员',
   searchFilters: [{key: 'sort', label: '排序', default: 'released_at', values: [
     {value: 'released_at', label: '发行日期'}, {value: 'published_at', label: '最近更新'},
     {value: 'saved', label: '收藏最多'},
   ]}],
+  // __CATALOG_START__：由 tools/build_catalog_sources.mjs 生成。
+  async categoryDirectory() {
+    if (this._categoryDirectory && Date.now() - this._categoryDirectory.time < 120000) return this._categoryDirectory.values;
+    const config = {"home":"/cn/new","leaf":"^/(?:dm\\d*/)?cn/genres/[a-zA-Z0-9_%+-]+/?$","index":"^/(?:dm\\d*/)?cn/genres/?$"}, leaf = new RegExp(config.leaf), index = config.index ? new RegExp(config.index) : null;
+    const values = new Map(), indexes = new Set(), origin = new URL(this.BASE).origin;
+    const page = path => this[config.pageMethod || 'getPage']((config.absolute ? this.BASE : '') + path);
+    const collect = doc => {
+      for (const a of doc.querySelectorAll(config.selector || 'a[href]')) {
+        let u;
+        try { u = new URL(a.getAttribute('href'), this.BASE); } catch (_) { continue; }
+        if (u.origin !== origin || u.username || u.password || u.search || u.hash ||
+            /%2f|%5c|%2e|%00/i.test(u.pathname)) continue;
+        try { if (/[\x00-\x1f\x7f\\]/.test(decodeURIComponent(u.pathname))) continue; } catch (_) { continue; }
+        const label = Park.html.text(a).replace(/\s+/g, ' ').trim();
+        if (leaf.test(u.pathname) && label && label.length <= 256 && !values.has(u.pathname)) values.set(u.pathname, label);
+        else if (index?.test(u.pathname)) indexes.add(u.pathname);
+      }
+    };
+    collect((await page(config.home)).doc);
+    for (const path of [...indexes].slice(0, 1)) collect((await page(path)).doc);
+    if (!values.size || values.size > (config.ranges ? 10000 : 499)) throw Park.error('PARSE', '分类列表解析失败');
+    const rows = [...values].map(([value, label]) => ({value, label}));
+    this._categoryDirectory = {time: Date.now(), values: rows};
+    return rows;
+  },
+  async filterOptions(request) {
+    const config = {"home":"/cn/new","leaf":"^/(?:dm\\d*/)?cn/genres/[a-zA-Z0-9_%+-]+/?$","index":"^/(?:dm\\d*/)?cn/genres/?$"};
+    const rows = await this.categoryDirectory();
+    if (config.ranges && request.filter === 'range') {
+      return Array.from({length: Math.ceil(rows.length / 200)}, (_, i) => ({
+        value: String(i), label: (i * 200 + 1) + '–' + Math.min((i + 1) * 200, rows.length),
+      }));
+    }
+    if (request.filter !== 'category') throw Park.error('CONFIG', '筛选参数无效');
+    let choices = rows;
+    if (config.ranges) {
+      const range = String(request.values?.range ?? '0');
+      if (!/^(?:0|[1-9]\d{0,2})$/.test(range) || Number(range) * 200 >= rows.length) throw Park.error('CONFIG', '筛选参数无效');
+      choices = rows.slice(Number(range) * 200, (Number(range) + 1) * 200);
+    }
+    return [{value: '', label: '全部'}, ...choices];
+  },
+  async categoryFeed(request) {
+    const category = String(request.options?.category || '');
+    if (!category) return this.feed(this.defaultFeed, request);
+    const choices = await this.filterOptions({filter: 'category', values: request.options || {}});
+    if (!choices.some(option => option.value === category)) {
+      throw Park.error('CONFIG', '筛选参数无效');
+    }
+    const config = {"home":"/cn/new","leaf":"^/(?:dm\\d*/)?cn/genres/[a-zA-Z0-9_%+-]+/?$","index":"^/(?:dm\\d*/)?cn/genres/?$"};
+    return this[config.listMethod || 'listing'](category, request);
+  },
+  // __CATALOG_END__
   BASE: 'https://missav.ai',
 
   account: {
@@ -170,6 +224,7 @@ Park.register({
   },
 
   async feed(key, req) {
+    if (key === 'categories') return this.categoryFeed(req);
     if (!this.feeds.some(feed => feed.key === key)) throw Park.error('CONFIG', '未知视频列表');
     return this.listing('/cn/' + key, req);
   },
@@ -252,7 +307,7 @@ Park.register({
     return outer.map(b => b.toString(16).padStart(2, '0')).join('');
   },
 
-  async related(doc, id) {
+  async relatedItems(doc, id) {
     const client = await this.recombee(doc);
     if (!client) return [];
     // Same request and signature as the site's recombee-js-api-client RecommendItemsToItem.
@@ -305,7 +360,7 @@ Park.register({
       authors: actors, description: meta('og:description'), uploaded: time ? time.getAttribute('datetime').slice(0,10) : '',
       duration: seconds ? `${Math.floor(seconds/3600)}:${String(Math.floor(seconds/60)%60).padStart(2,'0')}:${String(seconds%60).padStart(2,'0')}` : '',
       tags: tags.length ? [{namespace: 'tag',label: '标签',tags}] : [],
-      qualities: this.mediaSources(html).map(s => s.quality), related: await this.related(doc, id)};
+      qualities: this.mediaSources(html).map(s => s.quality), related: await this.relatedItems(doc, id)};
   },
 
   async videos(id) {

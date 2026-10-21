@@ -31,8 +31,16 @@ class GameDownloadTask {
       name = '_$name';
     }
     if (name.length > 180) {
-      name =
-          '${name.substring(0, 150)}${p.extension(name).substring(0, p.extension(name).length.clamp(0, 20))}';
+      String prefix(String text, int limit) {
+        if (text.length <= limit) return text;
+        final last = text.codeUnitAt(limit - 1);
+        return text.substring(
+          0,
+          last >= 0xd800 && last <= 0xdbff ? limit - 1 : limit,
+        );
+      }
+
+      name = '${prefix(name, 150)}${prefix(p.extension(name), 20)}';
     }
     return name;
   }

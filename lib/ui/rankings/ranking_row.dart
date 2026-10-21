@@ -75,6 +75,7 @@ class _RankingRowState extends State<RankingRow> {
                       child: CoverImage(
                         source: item.source,
                         url: item.cover,
+                        sourceBlurred: item.json['coverBlurred'] == true,
                         title: item.title,
                         fit: BoxFit.contain,
                       ),

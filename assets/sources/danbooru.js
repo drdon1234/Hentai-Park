@@ -8,6 +8,25 @@ const danImage = (value) => {
 };
 const ratingOf = rating => ({g:'safe',s:'sensitive',q:'r18',e:'r18'})[rating] || 'unknown';
 const pageOf = value => Math.max(1, Math.floor(Number(value) || 1));
+const ratingOption = {key: 'rating', label: '站点分级', default: '', values: [
+  {value: '', label: '全部'}, {value: 'g', label: 'General'}, {value: 's', label: 'Sensitive'},
+  {value: 'q', label: 'Questionable'}, {value: 'e', label: 'Explicit'},
+]};
+const sortOption = {key: 'sort', label: '排序', default: '', values: [
+  {value: '', label: '默认'}, {value: 'date', label: '最新'}, {value: 'score', label: '评分'},
+]};
+function filterTags(keyword, filters = {}) {
+  const rating = String(filters.rating || ''), sort = String(filters.sort || '');
+  if (!['', 'g', 's', 'q', 'e'].includes(rating) || !['', 'date', 'score'].includes(sort)) {
+    throw Park.error('CONFIG', '筛选参数无效');
+  }
+  let words = String(keyword || '').trim().split(/\s+/).filter(Boolean);
+  if (rating) words = words.filter(word => !/^-?rating:/i.test(word));
+  if (sort) words = words.filter(word => !/^-?order:/i.test(word));
+  if (rating) words.push('rating:' + rating);
+  if (sort) words.push('order:' + (sort === 'date' ? 'id_desc' : 'score'));
+  return words.join(' ');
+}
 const idOf = value => { const id=String(value); if (!/^[1-9]\d{0,11}$/.test(id)) throw Park.error('NOT_FOUND','内容不存在或已被删除'); return id; };
 const tagsFrom = (post) => {
   const groups = [['artist', '画师', 'tag_string_artist'], ['copyright', '作品', 'tag_string_copyright'], ['character', '角色', 'tag_string_character'], ['general', '标签', 'tag_string_general']];
@@ -103,12 +122,14 @@ Park.register({
       "Danbooru 帖子没有可用原图": "لا تتوفر صورة أصلية لهذا المنشور في Danbooru"
     }
   },
-  key: 'danbooru', name: 'Danbooru', version: '0.0.1', apiVersion: 1,
-  type: 'comic', category: 'gallery', color: '#3B73AF',
+  key: 'danbooru', name: 'Danbooru', version: '0.0.3', apiVersion: 1,
+  type: 'comic', category: 'illustration', color: '#3B73AF',
   homepage: DAN_API, description: '二次元图片图集，保留站内安全、擦边与 R18 分级',
   domains: ['donmai.us'], imageHeaders: {'User-Agent': DAN_UA},
   network: { vpnHint: true, headers: { 'User-Agent': DAN_UA, Accept: 'application/json' } },
-  defaultFeed: 'popular', feeds: [{ key: 'popular', label: '热门' }, { key: 'latest', label: '最新' }],
+  defaultFeed: 'popular', feeds: [{ key: 'popular', label: '热门' }, { key: 'latest', label: '最新' },
+    {key: 'category', label: '分类', options: [ratingOption, {...sortOption, default: 'date'}]}],
+  searchFilters: [ratingOption, sortOption],
   linkPatterns: ['danbooru\\.donmai\\.us/posts/(\\d+)'], idPattern: '^(\\d{1,12})$',
   searchHint: '支持原站标签及 rating:g/s/q/e；匿名搜索最多两个普通标签，标签内空格请用下划线',
   async listing(path, params, page) {
@@ -124,11 +145,12 @@ Park.register({
     return {items,page:pageOf(page),hasNext:data.length>=20};
   },
   async feed(key, req) {
+    if (key === 'category') return this.listing('/posts.json', {tags: filterTags('', {sort: 'date', ...req.options})}, req.page);
     if (!['popular', 'latest'].includes(key)) throw Park.error('CONFIG', '未知 Danbooru 列表');
     return this.listing(key === 'popular' ? '/explore/posts/popular.json' : '/posts.json', {}, req.page);
   },
   async search(req) {
-    const keyword = String(req.keyword || '').trim();
+    const keyword = filterTags(req.keyword, req.filters);
     if (!keyword) return { items: [], page: 1, hasNext: false };
     return this.listing('/posts.json', {tags:keyword}, req.page);
   },

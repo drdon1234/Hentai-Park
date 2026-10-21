@@ -4,9 +4,11 @@ import 'package:flutter/material.dart';
 
 import '../../core/localization.dart';
 import '../../core/models.dart';
+import '../../core/platform_capabilities.dart';
 import '../../core/settings.dart';
 import '../../core/tag_blocklist.dart';
 import '../../engine/home_cache.dart';
+import '../../engine/source_manager.dart';
 import '../../subscriptions/models.dart';
 import '../subscriptions/subscription_posts_page.dart';
 import '../theme.dart';
@@ -31,6 +33,7 @@ class PagedController extends ChangeNotifier {
   final String source;
   final List<WorkItem> items = [];
   final Set<String> _seen = {};
+  final Set<String> _cursors = {};
   final _loaded = <WorkItem>[];
   List<WorkSection>? _rawSections;
   void _rulesChanged() {
@@ -90,6 +93,7 @@ class PagedController extends ChangeNotifier {
     _generation++;
     items.clear();
     _seen.clear();
+    _cursors.clear();
     _loaded.clear();
     _rawSections = null;
     hidden = 0;
@@ -160,6 +164,15 @@ class PagedController extends ChangeNotifier {
           result.hasNext &&
           (result.items.isNotEmpty || result.cursor != null) &&
           (added > 0 || result.cursor != null);
+      if (result.staleCache) {
+        // 过期游标可能属于已回收的源运行时；重试必须从首页重新建立会话。
+        hasNext = false;
+        throw SourceError('NETWORK', '刷新失败，请重试');
+      }
+      if (hasNext && _cursor != null && !_cursors.add(_cursor!)) {
+        hasNext = false;
+        throw SourceError('PARSE', '分页链接无效');
+      }
       // A page where everything was filtered would leave nothing to scroll to; fetch on (a few times).
       _emptyPages = shown == 0 ? _emptyPages + 1 : 0;
       if (shown == 0 && hasNext && _emptyPages <= 3) {
@@ -231,7 +244,7 @@ class PagedSliverGrid extends StatelessWidget {
         if (c.items.isEmpty) {
           if (c.error != null) {
             return SliverFillRemaining(
-              hasScrollBody: false,
+              // 错误页自带滚动；不向 LayoutBuilder 请求固有高度。
               child: SourceErrorView(
                 error: c.error!,
                 source: c.source,
@@ -310,7 +323,10 @@ class PagedSliverGrid extends StatelessWidget {
                     padding.horizontal -
                     (cols - 1) * Gap.m) /
                 cols;
-            final extraText = cardTextExtent(context);
+            final imageOnly =
+                SourceManager.instance.manifest(c.source)?.category ==
+                SourceCategory.live;
+            final extraText = imageOnly ? 0.0 : cardTextExtent(context);
             return SliverMainAxisGroup(
               slivers: [
                 SliverPadding(
@@ -334,6 +350,7 @@ class PagedSliverGrid extends StatelessWidget {
                       return CoverTile(
                         item: c.items[i],
                         aspect: aspect,
+                        imageOnly: imageOnly,
                         showSource: showSource,
                       );
                     }, childCount: c.items.length),
@@ -359,7 +376,7 @@ class PagedSliverGrid extends StatelessWidget {
       return SourceErrorView(
         error: c.error!,
         source: c.source,
-        onRetry: c.loadMore,
+        onRetry: c.hasNext ? c.loadMore : c.refresh,
         compact: true,
       );
     }
@@ -422,6 +439,8 @@ class PagedSliverGrid extends StatelessWidget {
       );
     }
     final aspect = kind == MediaKind.video ? 16 / 9 : 0.7;
+    final imageOnly =
+        SourceManager.instance.manifest(controller.source)?.isLive == true;
     return SliverLayoutBuilder(
       builder: (context, constraints) {
         final cols = gridColumnsFor(constraints.crossAxisExtent);
@@ -449,10 +468,13 @@ class PagedSliverGrid extends StatelessWidget {
                   crossAxisCount: cols,
                   crossAxisSpacing: Gap.m,
                   mainAxisSpacing: Gap.l,
-                  mainAxisExtent: cardWidth / aspect + cardTextExtent(context),
+                  mainAxisExtent:
+                      cardWidth / aspect +
+                      (imageOnly ? 0 : cardTextExtent(context)),
                 ),
                 delegate: SliverChildBuilderDelegate(
-                  (_, _) => CoverTileSkeleton(aspect: aspect),
+                  (_, _) =>
+                      CoverTileSkeleton(aspect: aspect, imageOnly: imageOnly),
                   childCount: cols * 4,
                 ),
               ),
@@ -475,6 +497,82 @@ class _SectionsSliver extends StatelessWidget {
       itemCount: sections.length,
       itemBuilder: (context, i) =>
           WorkCarousel(title: sections[i].title, items: sections[i].items),
+    );
+  }
+}
+
+/// 桌面推荐随窗口排列成多行网格；手机保留横向预览，平板宽屏展开。
+class WorkRecommendations extends StatelessWidget {
+  const WorkRecommendations({
+    super.key,
+    required this.title,
+    required this.items,
+    this.trailing,
+    this.onEndReached,
+  });
+
+  final String title;
+  final List<WorkItem> items;
+  final Widget? trailing;
+  final VoidCallback? onEndReached;
+
+  @override
+  Widget build(BuildContext context) {
+    if (items.isEmpty) return const SizedBox.shrink();
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final tablet = MediaQuery.sizeOf(context).shortestSide >= 600;
+        if ((!PlatformCapabilities.desktop &&
+                (!tablet || constraints.maxWidth < 720)) ||
+            kindOf(items.first) == MediaKind.novel ||
+            items.first.isNovel) {
+          return WorkCarousel(
+            title: title,
+            items: items,
+            trailing: trailing,
+            onEndReached: onEndReached,
+          );
+        }
+        final aspect = gridAspectFor(items, kindOf(items.first));
+        final width = constraints.maxWidth - Gap.page * 2;
+        final scale = MediaQuery.textScalerOf(context).scale(14) / 14;
+        final target = (aspect > 1 ? 240.0 : 160.0) * scale.clamp(1, 1.5);
+        final columns = ((width + Gap.m) / (target + Gap.m)).floor().clamp(
+          1,
+          10,
+        );
+        final cardWidth = (width - Gap.m * (columns - 1)) / columns;
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            SectionHeader(title, trailing: trailing),
+            GridView.builder(
+              shrinkWrap: true,
+              primary: false,
+              physics: const NeverScrollableScrollPhysics(),
+              padding: const EdgeInsets.symmetric(horizontal: Gap.page),
+              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: columns,
+                crossAxisSpacing: Gap.m,
+                mainAxisSpacing: Gap.l,
+                mainAxisExtent: cardWidth / aspect + cardTextExtent(context),
+              ),
+              itemCount: items.length,
+              itemBuilder: (context, index) {
+                final card = CoverTile(item: items[index], aspect: aspect);
+                return onEndReached != null && index == items.length - 1
+                    ? OnVisible(
+                        onVisible: (visible) {
+                          if (visible) onEndReached?.call();
+                        },
+                        child: card,
+                      )
+                    : card;
+              },
+            ),
+          ],
+        );
+      },
     );
   }
 }

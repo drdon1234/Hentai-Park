@@ -31,6 +31,7 @@ class CoverTile extends StatefulWidget {
     this.onLongPress,
     this.selected = false,
     this.badges = const [],
+    this.imageOnly = false,
   });
   final WorkItem item;
   final double? aspect;
@@ -41,6 +42,7 @@ class CoverTile extends StatefulWidget {
 
   /// Library signals (unread count, downloaded) that replace the site's own badge.
   final List<CoverBadge> badges;
+  final bool imageOnly;
 
   @override
   State<CoverTile> createState() => _CoverTileState();
@@ -109,7 +111,7 @@ class _CoverTileState extends State<CoverTile> {
       onTap: onTap,
       onLongPress: onLongPress,
       excludeSemantics: true,
-      child: InkWell(
+      child: ActionInkWell(
         borderRadius: Radii.small,
         onTap: onTap,
         onLongPress: onLongPress,
@@ -128,11 +130,12 @@ class _CoverTileState extends State<CoverTile> {
                       child: CoverImage(
                         source: item.source,
                         url: item.cover,
+                        sourceBlurred: item.json['coverBlurred'] == true,
                         title: item.title,
                         mediaKind: item.isNovel ? MediaKind.novel : null,
                       ),
                     ),
-                    if (badge != null)
+                    if (!widget.imageOnly && badge != null)
                       PositionedDirectional(
                         start: Gap.xs + 2,
                         top: Gap.xs + 2,
@@ -142,13 +145,15 @@ class _CoverTileState extends State<CoverTile> {
                           child: badge,
                         ),
                       ),
-                    if (item.duration.isNotEmpty)
+                    if (!widget.imageOnly && item.duration.isNotEmpty)
                       PositionedDirectional(
                         end: Gap.xs + 2,
                         bottom: Gap.xs + 2,
                         child: Tag(item.duration, onImage: true),
                       ),
-                    if (history != null && history.progress > 0)
+                    if (!widget.imageOnly &&
+                        history != null &&
+                        history.progress > 0)
                       Positioned(
                         left: 0,
                         right: 0,
@@ -186,70 +191,73 @@ class _CoverTileState extends State<CoverTile> {
                   ],
                 ),
               ),
-              const SizedBox(height: Gap.xs + 2),
-              ContentTranslation(
-                text: item.title,
-                source: item.source,
-                builder: (value) => Text(
-                  value,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: context.text.bodySmall?.copyWith(
-                    fontWeight: FontWeight.w500,
-                    height: 1.3,
-                    color: c.onSurface,
+              if (!widget.imageOnly) ...[
+                const SizedBox(height: Gap.xs + 2),
+                ContentTranslation(
+                  text: item.title,
+                  source: item.source,
+                  builder: (value) => Text(
+                    value,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: context.text.bodySmall?.copyWith(
+                      fontWeight: FontWeight.w500,
+                      height: 1.3,
+                      color: c.onSurface,
+                    ),
                   ),
                 ),
-              ),
-              if (metadata.isNotEmpty)
-                Padding(
-                  padding: const EdgeInsets.only(top: 1),
-                  child: Text.rich(
-                    TextSpan(
-                      children: [
-                        for (var i = 0; i < metadata.length; i++) ...[
-                          if (i > 0) const TextSpan(text: ' · '),
-                          if (metadata[i].$1 case final icon?)
-                            WidgetSpan(
-                              alignment: PlaceholderAlignment.middle,
-                              child: Padding(
-                                padding: const EdgeInsetsDirectional.only(
-                                  end: 1,
-                                ),
-                                child: Icon(
-                                  icon,
-                                  size: 11,
-                                  color: c.onSurfaceVariant,
+                if (metadata.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 1),
+                    child: Text.rich(
+                      TextSpan(
+                        children: [
+                          for (var i = 0; i < metadata.length; i++) ...[
+                            if (i > 0) const TextSpan(text: ' · '),
+                            if (metadata[i].$1 case final icon?)
+                              WidgetSpan(
+                                alignment: PlaceholderAlignment.middle,
+                                child: Padding(
+                                  padding: const EdgeInsetsDirectional.only(
+                                    end: 1,
+                                  ),
+                                  child: Icon(
+                                    icon,
+                                    size: 11,
+                                    color: c.onSurfaceVariant,
+                                  ),
                                 ),
                               ),
-                            ),
-                          TextSpan(text: metadata[i].$2),
+                            TextSpan(text: metadata[i].$2),
+                          ],
                         ],
-                      ],
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: context.text.labelSmall?.copyWith(
-                      color: c.onSurfaceVariant,
-                    ),
-                  ),
-                )
-              else if (item.subtitle.isNotEmpty && item.subtitle != item.title)
-                Padding(
-                  padding: const EdgeInsets.only(top: 1),
-                  child: ContentTranslation(
-                    text: item.subtitle,
-                    source: item.source,
-                    builder: (value) => Text(
-                      value,
+                      ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: context.text.labelSmall?.copyWith(
                         color: c.onSurfaceVariant,
                       ),
                     ),
+                  )
+                else if (item.subtitle.isNotEmpty &&
+                    item.subtitle != item.title)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 1),
+                    child: ContentTranslation(
+                      text: item.subtitle,
+                      source: item.source,
+                      builder: (value) => Text(
+                        value,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: context.text.labelSmall?.copyWith(
+                          color: c.onSurfaceVariant,
+                        ),
+                      ),
+                    ),
                   ),
-                ),
+              ],
             ],
           ),
         ),
@@ -446,18 +454,26 @@ double gridAspectFor(List<WorkItem> items, MediaKind kind) {
 }
 
 class CoverTileSkeleton extends StatelessWidget {
-  const CoverTileSkeleton({super.key, this.aspect = 0.7});
+  const CoverTileSkeleton({
+    super.key,
+    this.aspect = 0.7,
+    this.imageOnly = false,
+  });
   final double aspect;
+  final bool imageOnly;
 
   @override
   Widget build(BuildContext context) => Column(
+    mainAxisSize: MainAxisSize.min,
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
       AspectRatio(aspectRatio: aspect, child: const Skeleton()),
-      const SizedBox(height: Gap.s),
-      const Skeleton(height: 10, radius: 4),
-      const SizedBox(height: Gap.xs + 1),
-      const Skeleton(height: 10, width: 60, radius: 4),
+      if (!imageOnly) ...[
+        const SizedBox(height: Gap.s),
+        const Skeleton(height: 10, radius: 4),
+        const SizedBox(height: Gap.xs + 1),
+        const Skeleton(height: 10, width: 60, radius: 4),
+      ],
     ],
   );
 }

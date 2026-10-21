@@ -33,10 +33,15 @@ const provenance = [{name:'EhTagTranslation/Database',url:'https://github.com/Eh
   attribution:'EhTagTranslation 全体编辑者',scope:'标签名称译文，不含描述或图片',sha256:hashes}];
 const ehFile = path.join(root,'assets/tag_translations/ehentai/zh-Hans.json');
 const existing = JSON.parse(await readFile(ehFile,'utf8'));
-await writeFile(ehFile,JSON.stringify({...existing,version:'1.1.0',provenance,tags:{...existing.tags,...tags}},null,2)+'\n');
+const nextVersion = pack => {
+  const parts=pack.version.split('.').map(Number);parts[2]++;return parts.join('.');
+};
+// 上游快照完整重建，不沿用早期公共词或已从上游移除的旧词。
+await writeFile(ehFile,JSON.stringify({...existing,version:nextVersion(existing),provenance,tags},null,2)+'\n');
 // nhentai 明确共享 E 站的作者、作品、角色等标签体系；普通 tag 只借用无歧义名称。
 const nhFile = path.join(root,'assets/tag_translations/nhentai/zh-Hans.json');
 const nh = JSON.parse(await readFile(nhFile,'utf8'));
+nh.tags={};
 const terms = new Map();
 for (const [key,value] of Object.entries(tags)) {
   const split = key.indexOf(':'), namespace=key.slice(0,split), label=key.slice(split+1);
@@ -47,6 +52,8 @@ for (const [key,value] of Object.entries(tags)) {
   }
 }
 for (const [key, translations] of terms) if(translations.size===1) nh.tags['tag:'+key]=[...translations][0];
-await writeFile(nhFile,JSON.stringify({...nh,version:'1.1.0',provenance},null,2)+'\n');
+const supplemental={'tag:wholesome':'温馨','tag:short-haired female':'短发女性','tag:reverse rape':'女性强迫男性','tag:story rich':'剧情丰富','tag:cousin':'堂表亲'};
+Object.assign(nh.tags,supplemental);
+await writeFile(nhFile,JSON.stringify({...nh,version:nextVersion(nh),provenance:[...provenance,{name:'HentaiPark',license:'AGPL-3.0-only',scope:'真实详情中的5个普通主题词补充'}]},null,2)+'\n');
 await writeFile(path.join(root,'docs/licenses/ehtagtranslation.txt'),license);
 console.log(`已导入 ${Object.keys(tags).length} 个有命名空间的上游译名。`);

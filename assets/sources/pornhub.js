@@ -1,4 +1,4 @@
-/* 静态解析页面 JSON 与官方 MP4 元数据，不执行远程脚本。 */
+/* 从页面 JSON 与官方 MP4 元数据提取播放地址。 */
 Park.register({
   i18n: {
     "zh-Hant": {"成人视频播放数据解析失败": "成人影片播放資料解析失敗", "综合成人视频，支持推荐、搜索和多清晰度播放": "綜合成人影片，支援推薦、搜尋和多畫質播放"},
@@ -9,13 +9,18 @@ Park.register({
     "ru": {"成人视频播放数据解析失败": "Не удалось разобрать данные воспроизведения видео для взрослых", "综合成人视频，支持推荐、搜索和多清晰度播放": "Видео для взрослых с рекомендациями, поиском и выбором качества"},
     "ar": {"成人视频播放数据解析失败": "تعذر تحليل بيانات تشغيل الفيديو للبالغين", "综合成人视频，支持推荐、搜索和多清晰度播放": "فيديوهات للبالغين مع توصيات وبحث وخيارات جودة متعددة"},
   },
-  key: 'pornhub', name: 'Pornhub', version: '0.0.3', type: 'video', category: 'adult',
+  key: 'pornhub', name: 'Pornhub', version: '0.0.8', type: 'video', category: 'adult',
   color: '#FF9900', description: '综合成人视频，支持推荐、搜索和多清晰度播放',
   homepage: 'https://www.pornhub.com', domains: ['pornhub.com'], language: 'en',
-  network: {mode: 'native', vpnHint: true}, imageHeaders: {Referer: 'https://www.pornhub.com/'},
+  network: {mode: 'auto', origin: 'https://www.pornhub.com', vpnHint: true},
+  imageHeaders: {Referer: 'https://www.pornhub.com/'},
+  media: {mode: 'native', origin: 'https://www.pornhub.com', domains: ['phncdn.com']},
   linkPatterns: ['pornhub\\.com/view_video\\.php\\?(?:[^#]*&)?viewkey=([a-z0-9]{5,64})(?:&|#|$)'],
   idPattern: '^[a-z0-9]{5,64}$', idExample: '6aa2dcb8c56d1',
-  defaultFeed: 'recommend', feeds: [{key: 'recommend', label: '推荐'}], searchHint: '搜索作品名或标签',
+  defaultFeed: 'recommend', feeds: [
+    {key: 'recommend', label: '推荐'},
+    {key: 'categories', label: '分类', options: [{key: 'category', label: '分类', type: 'select', default: '', dynamic: true, values: []}]},
+  ], searchHint: '搜索作品名或标签',
   settings: [{key: 'quality', type: 'select', label: '默认清晰度', default: '1080', options: [
     {value: '1080', label: '1080P'}, {value: '720', label: '720P'}, {value: '480', label: '480P'}, {value: '240', label: '240P'}]}],
   BASE: 'https://www.pornhub.com',
@@ -24,27 +29,23 @@ Park.register({
     if (!/^[a-z0-9]{5,64}$/.test(value)) throw Park.error('NOT_FOUND', '影片编号无效');
     return value;
   },
-  siteUrl(u) { return u.protocol === 'https:' && u.hostname === 'www.pornhub.com' && !u.port && !u.username && !u.password && !u.hash; },
+  siteUrl(value) { return !!Park.url.site(this, value); },
   pageUrl(value, kind) {
     let u;
     try { u = new URL(value, this.BASE); } catch (_) { throw Park.error('CONFIG', '视频列表地址无效'); }
-    if (!this.siteUrl(u) || u.pathname !== (kind === 'feed' ? '/recommended' : '/video/search')) throw Park.error('CONFIG', '视频列表地址无效');
+    const allowed = kind === 'feed' ? u.pathname === '/recommended' :
+      u.pathname === '/video/search' || (u.pathname === '/video' && /^\d{1,6}$/.test(u.searchParams.get('c') || '')) || /^\/categories\/[a-z0-9_-]+\/?$/i.test(u.pathname);
+    if (!this.siteUrl(u) || !allowed) throw Park.error('CONFIG', '视频列表地址无效');
     return u.href;
   },
-  mediaUrl(value) {
-    try {
-      const u = new URL(value);
-      if (u.protocol !== 'https:' || u.port || u.username || u.password || u.hash || !/^(?:[a-z0-9-]+\.)*phncdn\.com$/.test(u.hostname) || !/\.mp4$/i.test(u.pathname)) return null;
-      return u.href;
-    } catch (_) { return null; }
-  },
+  mediaUrl(value) { return Park.url.parse(value, this.BASE, this.media.domains)?.href || ''; },
   async getPage(url, headers = {}) {
     const r = await this.http.get(url, {headers, timeout: 30000});
     if (r.status === 404) throw Park.error('NOT_FOUND', '影片不存在');
-    if (!r.ok) throw Park.error('HTTP', '成人视频请求失败');
-    if (!this.siteUrl(new URL(r.url || url))) throw Park.error('BLOCKED', '站点需要在浏览器中确认后访问');
+    if (!r.ok) throw Park.error('HTTP', '成人视频请求失败', {status: r.status, url: r.url || url});
+    const finalUrl = Park.url.response(this, r, url);
     if (r.body.length > 4 * 1024 * 1024) throw Park.error('PARSE', '影片页面过大');
-    return {html: r.body, doc: Park.html.parse(r.body), url: r.url || url};
+    return {html: r.body, doc: Park.html.parse(r.body), url: finalUrl.href};
   },
   cards(doc) {
     const items = [], seen = new Set();
@@ -71,8 +72,30 @@ Park.register({
     return {items: this.cards(doc), page, hasNext: !!cursor, cursor};
   },
   async feed(key, req) {
+    if (key === 'categories') {
+      const category = String(req.options?.category || '');
+      if (!category) return this.listing(this.BASE + '/recommended', req, 'feed');
+      if (!/^\/categories\/[a-z0-9_-]+$/.test(category) && !/^\/video\?c=\d{1,6}$/.test(category)) throw Park.error('CONFIG', '视频分类无效');
+      return this.listing(this.BASE + category, req, 'search');
+    }
     if (key !== 'recommend') throw Park.error('CONFIG', '未知视频列表');
     return this.listing(this.BASE + '/recommended', req, 'feed');
+  },
+  async filterOptions(request) {
+    if (request.scope !== 'feed' || request.feed !== 'categories' || request.filter !== 'category') return [];
+    const {doc} = await this.getPage(this.BASE + '/categories');
+    const options = [{value: '', label: '全部'}], seen = new Set();
+    for (const link of doc.querySelectorAll('a[href]')) {
+      const href = link.getAttribute('href') || '';
+      if (!/^\/categories\/[a-z0-9_-]+$/.test(href) && !/^\/video\?c=\d{1,6}$/.test(href)) continue;
+      const label = Park.html.text(link).replace(/\s+[\d,]+\s+Videos?\s*$/i, '').trim();
+      if (!label || seen.has(href)) continue;
+      seen.add(href);
+      options.push({value: href, label});
+      if (options.length > 500) throw Park.error('PARSE', '分类列表解析失败');
+    }
+    if (options.length === 1) throw Park.error('PARSE', '未找到视频分类');
+    return options;
   },
   async search(req) {
     const keyword = String(req.keyword || '').trim();
@@ -81,7 +104,7 @@ Park.register({
   },
   async detail(id) {
     id = this.validId(id);
-    const url = this.BASE + '/view_video.php?viewkey=' + id, {doc} = await this.getPage(url);
+    const {doc, url} = await this.getPage(this.BASE + '/view_video.php?viewkey=' + id);
     const title = Park.html.text(doc.querySelector('h1.title')) || doc.querySelector('meta[property="og:title"]')?.getAttribute('content');
     const cover = doc.querySelector('meta[property="og:image"]')?.getAttribute('content');
     if (!title || !cover) throw Park.error('PARSE', '成人视频详情解析失败');
@@ -111,7 +134,7 @@ Park.register({
     throw Park.error('PARSE', '成人视频播放数据解析失败');
   },
   async videos(id) {
-    const referer = this.BASE + '/view_video.php?viewkey=' + this.validId(id), {html} = await this.getPage(referer);
+    const path = '/view_video.php?viewkey=' + this.validId(id), {html, url: referer} = await this.getPage(this.BASE + path);
     const data = this.playerData(html), entries = Array.isArray(data.mediaDefinitions) ? data.mediaDefinitions : [];
     const endpoint = entries.find(i => i && i.format === 'mp4' && typeof i.videoUrl === 'string');
     let u;

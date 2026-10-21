@@ -392,6 +392,7 @@ class DownloadManager extends ChangeNotifier {
   }
 
   void enqueue(WorkItem item, List<Chapter> chapters, {int? videoQuality}) {
+    if (SourceManager.instance.manifest(item.source)?.isLive == true) return;
     if (item.isGame ||
         SourceManager.instance.manifest(item.source)?.isGame == true) {
       throw SourceError('UNSUPPORTED', '游戏资源请使用独立下载渠道');
@@ -778,6 +779,9 @@ class DownloadManager extends ChangeNotifier {
       lease.check();
       await awaitCancelled(SourceManager.instance.ready, token);
       _checkRunning(t, token);
+      if (SourceManager.instance.manifest(t.item.source)?.isLive == true) {
+        throw SourceError('UNSUPPORTED', '直播不支持下载，请使用录制');
+      }
       if (!await _ownsDirectory(t, create: true)) {
         throw const FileSystemException('Invalid download directory identity');
       }
@@ -1064,6 +1068,7 @@ class DownloadManager extends ChangeNotifier {
             manifest,
             headers: src.headers,
             initialUrl: Uri.parse(src.url),
+            hls: src.hls,
           ),
           keepPlaylist: portableHls,
         ).run(

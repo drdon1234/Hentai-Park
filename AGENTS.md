@@ -14,7 +14,7 @@
 
 - `lib/core/`：模型、配置、国际化；`lib/engine/`：源加载、网络、隔离与桥接；`lib/images/`：图片处理和缓存；`lib/ui/`：界面；`assets/sources/`：唯一的源插件实现。
 - 站点业务规则留在源插件内，通用网络、缓存和图片能力留在框架内；不要在 Dart 中按源名称硬编码站点特例。
-- `type: comic|video|novel|game` 决定阅读/播放行为；`category: doujin|anime|aiDrama|jav|adult|shortvideo|gallery|novel|game|other` 决定本子、里番、AI短剧、JAV、成人视频、短视频、美图、小说、游戏、其他的入口分类。订阅按 `capabilities.subscription` 使用独立入口。新增源必须准确声明类型、分类和能力。
+- `type: comic|video|novel|game` 决定阅读/播放行为；`category: doujin|anime|aiDrama|jav|adult|shortvideo|recording|live|gallery|illustration|novel|game|other` 决定本子、里番、AI短剧、JAV、成人视频、短视频、录播、直播、三次元美图、二次元美图、小说、游戏、创作社区的入口分类。订阅按 `capabilities.subscription` 使用独立入口。新增源必须准确声明类型、分类和能力。
 - 界面文案通过 `tr()`/`context.tr()`，同步 `assets/i18n/` 八语言资源及占位符。远端标题、简介、标签和用户输入不自动当作界面文案翻译。
 - 手机布局覆盖窄屏、大字体、文本展开、跨行选择和滚动；异步状态处理重试、销毁与旧请求结果。
 
@@ -40,6 +40,7 @@
 - 所有测试、复现脚本、夹具及测试产物只放根目录 `test/`，不得跟踪、暂存、提交或推送，不得强制添加。
 - `.gitignore` 必须保留 `/test/`，在 `git add`/`git commit` 前检查有效性。若发现已跟踪测试，保留本地文件、移到根 `test/` 并从索引移除后再继续。
 - 跟踪文件不得包含本机绝对路径、系统用户名、设备序列号、代理端口、私人邮箱或真实账号数据；文档示例用 `<Android SDK 目录>` 这类占位符。以 `.` 开头的目录只跟踪 `.agents/skills/` 和 `.github/` 的标准内容（根目录文件及 `workflows/`、`actions/`、`ISSUE_TEMPLATE/`、`PULL_REQUEST_TEMPLATE/`、`DISCUSSION_TEMPLATE/`），其他点目录及 `CLAUDE.local.md` 等个人配置不提交。
+- 公开文档仅保留使用说明、插件契约及必要构建说明；不加入站点会话提取步骤、凭据导出样例或逆向调试记录。账号、会话、备份、抓包和验证产物只在被忽略的本地位置使用；截图用演示数据，第三方许可证及功能所需的公开协议常量保留。发布前检查 Git 跟踪内容与待发布附件，发现真实凭据先撤销或轮换，仅删除文本不能消除已公开凭据的风险。
 - 默认只运行与改动相关的测试，不执行全量回归；修复要有能复现原问题的针对性验证。完成声明附新鲜测试或实际请求证据，说明未复现/未验证的限制。
 - Dart/Flutter 使用仓库配置的 SDK。检查改动涉及的生产代码；JS 插件用共享运行时验证，官方清单用 `tools/publish_sources.mjs` 离线验证。
 - 未获要求不提交、推送、发布或部署。除云端环境外，本地提交不得把 `claude`（https://github.com/claude）作为联合提交人。

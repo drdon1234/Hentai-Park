@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 
+import '../../core/block_rule.dart';
 import '../../core/localization.dart';
 import '../../core/settings.dart';
 import '../../core/tag_blocklist.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
 import '../widgets/confirm_reset.dart';
+import 'block_rule_editor.dart';
 
 /// Tag / title blocklist (see core/tag_blocklist.dart for matching rules).
 class BlocklistPage extends StatefulWidget {
@@ -17,6 +19,7 @@ class BlocklistPage extends StatefulWidget {
 
 class _BlocklistPageState extends State<BlocklistPage> {
   final _input = TextEditingController();
+  String? _error;
 
   @override
   void dispose() {
@@ -27,6 +30,9 @@ class _BlocklistPageState extends State<BlocklistPage> {
   void _add() {
     final v = _input.text.trim();
     if (v.isEmpty) return;
+    final error = BlockRule.error(v);
+    setState(() => _error = error == null ? null : tr(error));
+    if (error != null) return;
     AppSettings.instance.addBlockedTag(v);
     _input.clear();
   }
@@ -53,11 +59,18 @@ class _BlocklistPageState extends State<BlocklistPage> {
                   ),
                 ),
                 const SizedBox(height: 12),
+                Text(
+                  tr(
+                    '* 匹配任意长度，? 匹配一个字符；regex: 使用正则。title: 只匹配标题，分类: 只匹配该分类标签。',
+                  ),
+                ),
+                const SizedBox(height: Gap.s),
                 TextField(
                   controller: _input,
                   onSubmitted: (_) => _add(),
                   decoration: InputDecoration(
                     hintText: tr('输入要屏蔽的标签'),
+                    errorText: _error,
                     border: const OutlineInputBorder(),
                     suffixIcon: IconButton(
                       tooltip: tr('添加'),
@@ -74,20 +87,33 @@ class _BlocklistPageState extends State<BlocklistPage> {
                     compact: true,
                   )
                 else
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: [
-                      for (final e in list)
-                        InputChip(
-                          label: SelectionContainer.disabled(child: Text(e)),
-                          onDeleted: () => s.blockedTags = [
-                            for (final x in list)
-                              if (x != e) x,
-                          ],
-                        ),
-                    ],
-                  ),
+                  for (final e in list)
+                    ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      title: Text(e),
+                      subtitle: Text(
+                        tr('{count} 个多语言别名', {'count': s.aliasesFor(e).length}),
+                      ),
+                      onTap: () async {
+                        final edit = await editBlockRule(
+                          context,
+                          initial: e,
+                          aliases: s.aliasesFor(e),
+                          existing: list,
+                        );
+                        if (edit != null) {
+                          s.saveBlockedRule(e, edit.entry, edit.aliases);
+                        }
+                      },
+                      trailing: IconButton(
+                        tooltip: tr('取消屏蔽'),
+                        icon: const Icon(Icons.close_rounded),
+                        onPressed: () => s.blockedTags = [
+                          for (final x in s.blockedTags)
+                            if (x != e) x,
+                        ],
+                      ),
+                    ),
                 const SizedBox(height: 24),
                 Text(tr('已屏蔽作品'), style: context.text.titleMedium),
                 for (final entry in s.blockedWorks.entries)
@@ -122,7 +148,7 @@ class _BlocklistPageState extends State<BlocklistPage> {
                 const SizedBox(height: 4),
                 Text(
                   tr(
-                    '默认都不启用，按需开启。每组的标签可以增删改；开启「标题正则匹配」后，每一项也会作为正则表达式匹配标题（纯英文单词按整词匹配）。',
+                    '默认关闭，按需启用。每组支持多语言词、通配符与正则；标题匹配需单独开启。*妈、*母 等规则匹配范围较宽，可自行编辑。',
                   ),
                   style: context.text.bodySmall?.copyWith(
                     color: context.colors.onSurfaceVariant,
@@ -146,35 +172,13 @@ class _PresetCard extends StatelessWidget {
 
   String get _id => config.preset.id;
 
-  Future<String?> _edit(BuildContext context, {String initial = ''}) {
-    final text = TextEditingController(text: initial);
-    return showDialog<String>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(
-          initial.isEmpty
-              ? tr('添加到「{value0}」', {'value0': config.preset.name})
-              : tr('修改'),
-        ),
-        content: TextField(
-          controller: text,
-          autofocus: true,
-          decoration: InputDecoration(hintText: tr('标签或标题正则')),
-          onSubmitted: (v) => Navigator.pop(ctx, v),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: SelectionContainer.disabled(child: Text(tr('取消'))),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(ctx, text.text),
-            child: SelectionContainer.disabled(child: Text(tr('确定'))),
-          ),
-        ],
-      ),
-    );
-  }
+  Future<BlockRuleEdit?> _edit(BuildContext context, {String initial = ''}) =>
+      editBlockRule(
+        context,
+        initial: initial,
+        existing: config.entries,
+        aliases: config.aliasesFor(initial),
+      );
 
   @override
   Widget build(BuildContext context) {
@@ -186,7 +190,7 @@ class _PresetCard extends StatelessWidget {
           tilePadding: EdgeInsets.zero,
           shape: const Border(),
           collapsedShape: const Border(),
-          leading: Switch(
+          leading: Switch.adaptive(
             value: c.on,
             onChanged: (v) => s.setBlockPreset(_id, on: v),
           ),
@@ -215,7 +219,7 @@ class _PresetCard extends StatelessWidget {
               contentPadding: EdgeInsets.zero,
               value: c.title,
               onChanged: (v) => s.setBlockPreset(_id, title: v ?? false),
-              title: SelectionContainer.disabled(child: Text(tr('标题正则匹配'))),
+              title: SelectionContainer.disabled(child: Text(tr('同时匹配标题'))),
               subtitle: SelectionContainer.disabled(
                 child: Text(tr('标题命中任意一项也会被屏蔽')),
               ),
@@ -231,12 +235,21 @@ class _PresetCard extends StatelessWidget {
                     ),
                     visualDensity: VisualDensity.compact,
                     onPressed: () async {
-                      final v = (await _edit(
-                        context,
-                        initial: c.entries[i],
-                      ))?.trim();
-                      if (v == null || v.isEmpty) return;
-                      s.setBlockPreset(_id, entries: [...c.entries]..[i] = v);
+                      final edit = await _edit(context, initial: c.entries[i]);
+                      if (edit == null) return;
+                      s.setBlockPreset(
+                        _id,
+                        entries: {
+                          for (var j = 0; j < c.entries.length; j++)
+                            if (j == i) edit.entry else c.entries[j],
+                        }.toList(),
+                        aliases: {
+                          for (final alias in c.aliases.entries)
+                            if (alias.key != c.entries[i])
+                              alias.key: alias.value,
+                          edit.entry: edit.aliases,
+                        },
+                      );
                     },
                     onDeleted: () => s.setBlockPreset(
                       _id,
@@ -248,9 +261,13 @@ class _PresetCard extends StatelessWidget {
                   label: SelectionContainer.disabled(child: Text(tr('添加'))),
                   visualDensity: VisualDensity.compact,
                   onPressed: () async {
-                    final v = (await _edit(context))?.trim();
-                    if (v == null || v.isEmpty || c.entries.contains(v)) return;
-                    s.setBlockPreset(_id, entries: [...c.entries, v]);
+                    final edit = await _edit(context);
+                    if (edit == null) return;
+                    s.setBlockPreset(
+                      _id,
+                      entries: {...c.entries, edit.entry}.toList(),
+                      aliases: {...c.aliases, edit.entry: edit.aliases},
+                    );
                   },
                 ),
               ],

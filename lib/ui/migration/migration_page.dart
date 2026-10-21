@@ -158,6 +158,7 @@ class _MigrationPageState extends State<MigrationPage> {
                   child: CoverImage(
                     source: _current.source,
                     url: _current.cover,
+                    sourceBlurred: _current.json['coverBlurred'] == true,
                     radius: 6,
                   ),
                 ),

@@ -321,6 +321,37 @@ class TagTranslations extends ChangeNotifier {
 
   bool installed(String source, String locale) =>
       _installed.contains('$source/$locale');
+
+  /// 按原词或完整译文找候选，保留来源与命名空间，不能直接参与屏蔽。
+  Future<List<({String text, String source, String namespace})>>
+  blockCandidates(String text, {String namespace = ''}) async {
+    final needle = text.trim().toLowerCase();
+    final result = <({String text, String source, String namespace})>[];
+    for (final installed in _installed.toList()) {
+      final parts = installed.split('/');
+      TagTranslationPack pack;
+      try {
+        pack = _packs[installed] ?? await _readPack(parts[0], parts[1]);
+      } on FileSystemException {
+        continue;
+      } on FormatException {
+        continue;
+      }
+      for (final entry in pack.tags.entries) {
+        final separator = entry.key.indexOf(':');
+        final scope = separator < 0 ? '' : entry.key.substring(0, separator);
+        final original = separator < 0
+            ? entry.key
+            : entry.key.substring(separator + 1);
+        if (namespace.isNotEmpty && scope != namespace) continue;
+        if (entry.value.trim().toLowerCase() == needle || original == needle) {
+          result.add((text: original, source: pack.source, namespace: scope));
+        }
+      }
+    }
+    return result;
+  }
+
   TagTranslationPack? pack(String source, String locale) =>
       _packs['$source/$locale'];
   String? lookup(

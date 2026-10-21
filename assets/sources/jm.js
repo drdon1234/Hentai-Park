@@ -19,7 +19,7 @@ Park.register({
   },
   key: 'jm',
   name: '禁漫天堂',
-  version: '0.0.7',
+  version: '0.0.8',
   type: 'comic',
   category: 'doujin',
   color: '#F7841E',
@@ -57,8 +57,9 @@ Park.register({
       key: 'imageStream',
       type: 'select',
       label: '图片分流',
-      default: '1',
+      default: 'auto',
       options: [
+        { value: 'auto', label: '自动' },
         { value: '1', label: '分流 1' },
         { value: '2', label: '分流 2' },
         { value: '3', label: '分流 3' },
@@ -209,11 +210,100 @@ Park.register({
   },
 
   async refreshImageHost() {
-    const setting = await this.api('/setting', { app_img_shunt: this.config.imageStream || '1', express: '' });
+    const automatic = !this.config.imageStream || this.config.imageStream === 'auto';
+    if (automatic && (!this.config.apiDomain || this.config.apiDomain === 'auto')) await this.ensureRoute();
+    const stream = automatic ? this.selectedStream || '1' : this.config.imageStream;
+    const setting = await this.api('/setting', { app_img_shunt: stream, express: '' });
     if (setting && setting.img_host) {
       this.imageHost = String(setting.img_host).replace(/\/$/, '');
       this.store.set('imageHost', this.imageHost);
+      const route = this.store.get('route');
+      if (route) this.store.set('route', { ...route, imageHost: this.imageHost });
     }
+  },
+
+  async routeFingerprint() {
+    const host = this.store.get('route')?.host || this.domains[0];
+    try {
+      const response = await this.http.get(`https://${host}/cdn-cgi/trace`, { mode: 'native', timeout: 4000 });
+      const ip = response.ok && String(response.body).match(/^ip=([0-9a-fA-F:.]+)$/m)?.[1];
+      return ip ? Park.crypto.sha256Hex(ip) : null;
+    } catch (_) { return null; }
+  },
+
+  async ensureRoute() {
+    if (this.routePending) return this.routePending;
+    this.routePending = (async () => {
+      const fingerprint = await this.routeFingerprint();
+      const previous = this.store.get('route');
+      const signature = `${this.domains.join('|')}:${this.config.imageStream || 'auto'}`;
+      const reusable = fingerprint && previous?.fingerprint === fingerprint && previous.signature === signature && this.domains.includes(previous.host);
+      const route = reusable
+        ? previous : { ...await this.probeRoutes(), fingerprint, signature };
+      this.preferred = this.domains.indexOf(route.host);
+      this.selectedStream = route.stream;
+      if (route.imageHost) { this.imageHost = route.imageHost; this.store.set('imageHost', route.imageHost); }
+      this.store.set('route', route);
+      if (!reusable) route.fingerprint = await this.routeFingerprint();
+      this.store.set('route', route);
+      await this.store.flush();
+      return route;
+    })();
+    try { return await this.routePending; } finally { this.routePending = null; }
+  },
+
+  async probeRoutes() {
+    const stream = this.config.imageStream && this.config.imageStream !== 'auto' ? this.config.imageStream : '1';
+    const candidates = (await Promise.all(this.domains.map(async host => {
+      const start = Date.now();
+      try {
+        const setting = await this.requestApi(host, '/setting', { app_img_shunt: stream, express: '' });
+        if (!setting || !/^https:\/\//.test(String(setting.img_host))) return null;
+        return { host, setting, ms: Date.now() - start };
+      } catch (_) { return null; }
+    }))).filter(Boolean);
+    candidates.sort((a, b) => {
+      const mainland = x => x.setting?.is_cn === 1 && x.setting?.cn_base_url === `https://${x.host}` ? 0 : 1;
+      return mainland(a) - mainland(b) || a.ms - b.ms;
+    });
+    const best = candidates[0];
+    if (!best) throw Park.error('NETWORK', '所有禁漫线路均不可用');
+    let selected = { stream, imageHost: best.setting?.img_host };
+    if (!this.config.imageStream || this.config.imageStream === 'auto') {
+      const sample = await this.requestApi(best.host, '/categories/filter', { page: 1, order: '', c: '0', o: 'mr' }).catch(() => null);
+      const sampleId = (sample?.content || sample?.list || [])[0]?.id;
+      const images = (await Promise.all(['1', '2', '3', '4'].map(async value => {
+        try {
+          if (!/^\d+$/.test(String(sampleId))) return null;
+          const setting = await this.requestApi(best.host, '/setting', { app_img_shunt: value, express: '' });
+          if (!/^https:\/\//.test(String(setting?.img_host))) return null;
+          const start = Date.now();
+          const response = await this.http.get(`${String(setting.img_host).replace(/\/$/, '')}/media/albums/${sampleId}_3x4.jpg`, {
+            mode: 'native', timeout: 6000, responseType: 'base64', headers: { Range: 'bytes=0-1023' },
+          });
+          if (!response.ok || !String(response.body).startsWith('/9j/')) return null;
+          return { stream: value, imageHost: setting.img_host, ms: Date.now() - start };
+        } catch (_) { return null; }
+      }))).filter(Boolean).sort((a, b) => a.ms - b.ms);
+      if (images.length) selected = images[0];
+    }
+    return { host: best.host, stream: selected.stream, imageHost: selected.imageHost };
+  },
+
+  async requestApi(domain, path, params, form) {
+    const ts = Math.floor(Date.now() / 1000);
+    const headers = this.headers(ts);
+    headers.token = await Park.crypto.md5Hex(`${ts}${this.TOKEN_SECRET}`);
+    const res = await this.http.request({ url: `https://${domain}${path}`, method: form ? 'POST' : 'GET', params, form, headers, timeout: 8000, mode: 'native' });
+    if (res.status >= 500 || res.status === 403) throw Park.error('NETWORK', '所有禁漫线路均不可用');
+    const json = res.json();
+    if (res.status === 401) throw Park.error('LOGIN_REQUIRED', json.errorMsg || '需要登录');
+    if (json.code !== undefined && json.code !== 200) {
+      const msg = json.errorMsg || json.message || `code ${json.code}`;
+      if (/不存在|not found|找不到/i.test(msg)) throw Park.error('NOT_FOUND', msg);
+      throw Park.error('HTTP', '禁漫：{value0}', { params: {value0: msg} });
+    }
+    return typeof json.data === 'string' ? this.decrypt(json.data, `${ts}${this.DATA_SECRET}`) : json.data;
   },
 
   domainOrder() {
@@ -239,48 +329,23 @@ Park.register({
 
   /** Calls an API path on the first working domain and returns the decrypted `data`. */
   async api(path, params, form) {
+    const automatic = !this.config.apiDomain || this.config.apiDomain === 'auto';
+    if (automatic) await this.ensureRoute();
     let lastError = null;
     let refreshed = false;
     while (true) {
       for (const index of this.domainOrder()) {
         const domain = this.domains[index];
-        const ts = Math.floor(Date.now() / 1000);
-        const headers = this.headers(ts);
-        headers.token = await Park.crypto.md5Hex(`${ts}${this.TOKEN_SECRET}`);
-        let res;
         try {
-          res = await this.http.request({
-            url: `https://${domain}${path}`,
-            method: form ? 'POST' : 'GET',
-            params,
-            form,
-            headers,
-            timeout: 15000,
-          });
+          const data = await this.requestApi(domain, path, params, form);
+          this.preferred = index;
+          return data;
         } catch (err) {
+          if (automatic) this.store.set('route', null);
+          if (form || ['LOGIN_REQUIRED', 'NOT_FOUND', 'HTTP'].includes(err?.code)) throw err;
           lastError = err;
           continue;
         }
-        if (res.status >= 500 || res.status === 403) {
-          lastError = Park.error('HTTP', '禁漫线路 {value0} 异常（HTTP {value1}）', { params: {value0: index + 1, value1: res.status}, status: res.status });
-          continue;
-        }
-        let json;
-        try {
-          json = res.json();
-        } catch (err) {
-          lastError = err;
-          continue;
-        }
-        this.preferred = index;
-        if (res.status === 401) throw Park.error('LOGIN_REQUIRED', json.errorMsg || '需要登录');
-        if (json.code !== undefined && json.code !== 200) {
-          const msg = json.errorMsg || json.message || `code ${json.code}`;
-          if (/不存在|not found|找不到/i.test(msg)) throw Park.error('NOT_FOUND', msg);
-          throw Park.error('HTTP', '禁漫：{value0}', { params: {value0: msg} });
-        }
-        if (typeof json.data !== 'string') return json.data;
-        return this.decrypt(json.data, `${ts}${this.DATA_SECRET}`);
       }
       // 线路可能在缓存到期前轮换，全部失败后刷新一次再重试。
       if (refreshed) break;

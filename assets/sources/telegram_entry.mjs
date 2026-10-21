@@ -338,8 +338,23 @@ function mediaPost(m, p, target) {
     });
   }
   if (!media.length) return null;
+  for (const item of media) {
+    item.id = String(m.id);
+    item.order = m.id;
+    const object = photo || doc;
+    const sizes = photo?.sizes || doc?.thumbs || [];
+    const thumb = sizes.filter(s => s._ === 'photoSize' && s.size > 0 && s.size <= 2097152)
+      .sort((a,b) => Math.abs((a.w || 0) - 320) - Math.abs((b.w || 0) - 320))[0];
+    if (thumb) item.previewResource = {
+      ...item.resource,
+      cacheKey: (photo ? 'photo:' : 'document:') + object.dc_id + ':' + object.id + ':' + thumb.type,
+      size: thumb.size,
+      location: {...item.resource.location, thumb_size: thumb.type},
+    };
+  }
   return {
-    id: String(m.id),
+    id: m.grouped_id ? 'group:' + m.grouped_id : String(m.id),
+    presentation: 'post',
     title: target.label,
     text: m.message || '',
     date: new Date(m.date * 1000).toISOString(),
@@ -369,21 +384,18 @@ async function publicPosts(source, target, options) {
     if (!/^\d+$/.test(id)) continue;
     before = Math.min(before || Number(id), Number(id));
     const media = [];
-    for (const photo of n.querySelectorAll('.tgme_widget_message_photo_wrap')) {
-      const url = /background-image:\s*url\(['"]?([^'"\)]+)['"]?\)/.exec(
-        photo.getAttribute('style') || '',
-      )?.[1];
-      if (url) media.push({ type: 'image', url, preview: url });
+    const background = node => /background-image:\s*url\(['"]?([^'"\)]+)['"]?\)/.exec(node?.getAttribute('style') || '')?.[1] || '';
+    for (const node of n.querySelectorAll('.tgme_widget_message_photo_wrap, video[src]')) {
+      const video = node.tagName.toLowerCase() === 'video';
+      const url = video ? node.getAttribute('src') : background(node);
+      if (!url) continue;
+      const preview = video ? node.getAttribute('poster') || background(node.closest('.tgme_widget_message_video_wrap')?.querySelector('.tgme_widget_message_video_thumb')) : url;
+      media.push({id: String(media.length), type: video ? 'video' : 'image', url, preview});
     }
-    for (const video of n.querySelectorAll('video[src]'))
-      media.push({
-        type: 'video',
-        url: video.getAttribute('src'),
-        preview: video.getAttribute('poster') || '',
-      });
     if (media.length)
       items.push({
         id,
+        presentation: 'post',
         title: target.label,
         text: n.querySelector('.tgme_widget_message_text')?.textContent || '',
         date: n.querySelector('time')?.getAttribute('datetime') || '',
@@ -403,7 +415,7 @@ async function publicPosts(source, target, options) {
 Park.register({
   key: 'telegram',
   name: 'Telegram',
-  version: '0.0.4',
+  version: '0.0.5',
   type: 'video',
   category: 'other',
   homepage: HOME,
@@ -446,6 +458,22 @@ Park.register({
     },
   },
   subscription: {
+    async media(scope, options = {}) {
+      const result = await this.subscription.posts.call(this, scope.target, options);
+      const groups = new Map();
+      for (const post of result.items) {
+        const previous = groups.get(post.id);
+        if (previous) {
+          previous.media.push(...post.media);
+          if (!previous.text) previous.text = post.text;
+          if (post.date < previous.date) { previous.date = post.date; previous.url = post.url; }
+        } else groups.set(post.id, {...post, media: [...post.media]});
+      }
+      for (const post of groups.values()) {
+        if (post.media.every(m => Number.isFinite(m.order))) post.media.sort((a,b) => a.order-b.order);
+      }
+      return {...result, items: [...groups.values()]};
+    },
     hint: '可先订阅；匿名访问可能受限。需要加入频道时请到原站手动操作。',
     normalize,
     async targets() {

@@ -12,9 +12,10 @@ import '../updates/update_prompt.dart';
 import '../widgets/common.dart';
 import '../widgets/confirm_reset.dart';
 import 'domain_order_page.dart';
+import 'source_display_order_controls.dart';
 import 'source_install.dart';
 
-/// Enable/disable and reorder sources (order is used everywhere, including aggregated search),
+/// Enable/disable and edit the persistent baseline order of sources,
 /// and install new source plugins from a URL or a repository index.
 class SourceManagePage extends StatefulWidget {
   const SourceManagePage({super.key, this.updater});
@@ -59,6 +60,10 @@ class _SourceManagePageState extends State<SourceManagePage> {
               header: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
+                  SourceDisplayOrderControls(
+                    sorter: sm.displayOrder,
+                    loaded: sm.loaded,
+                  ),
                   RowGroup(
                     children: [
                       ListTile(
@@ -91,7 +96,7 @@ class _SourceManagePageState extends State<SourceManagePage> {
                   ),
                   RowGroup(
                     children: [
-                      SwitchListTile(
+                      SwitchListTile.adaptive(
                         title: SelectionContainer.disabled(
                           child: Text(tr('启动时检查插件更新')),
                         ),
@@ -177,7 +182,7 @@ class _SourceManagePageState extends State<SourceManagePage> {
                       Gap.s,
                     ),
                     child: Text(
-                      tr('拖动调整分类内站点的顺序；发现页和全站搜索也按这个顺序。'),
+                      tr('拖动修改保存的站点顺序。测速只临时调整显示，恢复原显示顺序后按此排列。'),
                       style: context.text.bodySmall?.copyWith(
                         color: context.colors.onSurfaceVariant,
                       ),
@@ -193,6 +198,7 @@ class _SourceManagePageState extends State<SourceManagePage> {
               itemBuilder: (context, i) {
                 final s = list[i];
                 final m = s.manifest;
+                final probe = sm.displayOrder.results[s.key];
                 return HairlineItem(
                   key: ValueKey(s.key),
                   child: ListTile(
@@ -211,7 +217,7 @@ class _SourceManagePageState extends State<SourceManagePage> {
                                   ? ' · ${tr('官方')}'
                                   : s.origin == 'builtin'
                                   ? ' · ${tr('内置')}'
-                                  : ''}${s.sha256.isNotEmpty ? ' · ${s.sha256.substring(0, 8)}' : ''}',
+                                  : ''}${s.sha256.isNotEmpty ? ' · ${s.sha256.substring(0, 8)}' : ''}${probe == null ? '' : ' · ${sourceProbeLabel(probe)}'}',
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                         style: s.loadError != null
@@ -226,7 +232,7 @@ class _SourceManagePageState extends State<SourceManagePage> {
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Switch(
+                          Switch.adaptive(
                             value: s.enabled,
                             onChanged: (v) => sm.setEnabled(s.key, v),
                           ),

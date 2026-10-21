@@ -10,7 +10,7 @@ description: 新增或大改一个 HentaiPark 站点插件（assets/sources/*.js
 ## 1. 先调查，再声明
 
 - 用真实请求摸清站点：首页有哪些入口（推荐 / 排行 / 热门 / 最新）、分页方式（页号还是游标）、搜索接口、详情结构、图片或视频地址、是否需要登录、Cloudflare 或年龄确认。
-- 确定 `type`（comic / video / novel / game）和 `category`（doujin / gallery / anime / aiDrama / jav / adult / shortvideo / novel / game / other），只能二选一地准确声明。
+- 确定 `type`（comic / video / novel / game）和 `category`（doujin / gallery / illustration / anime / aiDrama / jav / adult / shortvideo / live / novel / game / other），分别准确声明。
 - `defaultFeed` 按 **推荐 > 排行榜 > 热门** 选择，真的没有才用最新或其他有效入口。不得写没有验证过的接口。
 - 中国大陆可能需要代理的站点声明 `network.vpnHint: true`。
 - `domains` 只写站点自己的可注册域名；图片 CDN、媒体域名分别放进 `imageNetwork` / `media`，不要为了省事扩大 `domains`。
