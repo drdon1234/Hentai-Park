@@ -11,7 +11,7 @@
       "reverseSearchCategory": "general",
       "rankingOnly": false,
       "reverseSearchOnly": true,
-      "url": "https://raw.githubusercontent.com/drdon1234/Hentai-Park/181fbddad4e5280586c573880b76fde147cbcdda/assets/sources/google_lens.js",
+      "url": "https://raw.githubusercontent.com/drdon1234/Hentai-Park/74ec424e46ddecaabb2b4ccf20f3bfbcbe7b2227/assets/sources/google_lens.js",
       "sha256": "f92ee9f5c8661ee487e698c38869a025386e8a4f9421b97c146821d4e79e35f5",
       "apiVersion": 1
     },
@@ -24,7 +24,7 @@
       "reverseSearchCategory": "general",
       "rankingOnly": false,
       "reverseSearchOnly": true,
-      "url": "https://raw.githubusercontent.com/drdon1234/Hentai-Park/181fbddad4e5280586c573880b76fde147cbcdda/assets/sources/yandex.js",
+      "url": "https://raw.githubusercontent.com/drdon1234/Hentai-Park/74ec424e46ddecaabb2b4ccf20f3bfbcbe7b2227/assets/sources/yandex.js",
       "sha256": "ccac52a0f3a56d56bd2d23ece210c20152334776e1ef2332507e25f7a1638a20",
       "apiVersion": 1
     },
@@ -37,7 +37,7 @@
       "reverseSearchCategory": "general",
       "rankingOnly": false,
       "reverseSearchOnly": true,
-      "url": "https://raw.githubusercontent.com/drdon1234/Hentai-Park/181fbddad4e5280586c573880b76fde147cbcdda/assets/sources/baidu.js",
+      "url": "https://raw.githubusercontent.com/drdon1234/Hentai-Park/74ec424e46ddecaabb2b4ccf20f3bfbcbe7b2227/assets/sources/baidu.js",
       "sha256": "a4486b92890e9e48fa5565ffce0bd5a4fa7d22000936284a9c1d1e2ae6b483f3",
       "apiVersion": 1
     },
@@ -50,7 +50,7 @@
       "reverseSearchCategory": "anime",
       "rankingOnly": false,
       "reverseSearchOnly": true,
-      "url": "https://raw.githubusercontent.com/drdon1234/Hentai-Park/181fbddad4e5280586c573880b76fde147cbcdda/assets/sources/trace_moe.js",
+      "url": "https://raw.githubusercontent.com/drdon1234/Hentai-Park/74ec424e46ddecaabb2b4ccf20f3bfbcbe7b2227/assets/sources/trace_moe.js",
       "sha256": "90ce5a629a911b99aff68c454b30d2c9cc0724a051469fdfaac31c15ad05ea15",
       "apiVersion": 1
     },
@@ -63,7 +63,7 @@
       "reverseSearchCategory": "anime",
       "rankingOnly": false,
       "reverseSearchOnly": true,
-      "url": "https://raw.githubusercontent.com/drdon1234/Hentai-Park/181fbddad4e5280586c573880b76fde147cbcdda/assets/sources/anime_trace.js",
+      "url": "https://raw.githubusercontent.com/drdon1234/Hentai-Park/74ec424e46ddecaabb2b4ccf20f3bfbcbe7b2227/assets/sources/anime_trace.js",
       "sha256": "ad8a63191f37d92bf53012f2ccb3d06af474c2418f0e2b45e96eaac9913e69a3",
       "apiVersion": 1
     },
@@ -76,7 +76,7 @@
       "reverseSearchCategory": "gallery",
       "rankingOnly": false,
       "reverseSearchOnly": true,
-      "url": "https://raw.githubusercontent.com/drdon1234/Hentai-Park/181fbddad4e5280586c573880b76fde147cbcdda/assets/sources/iqdb.js",
+      "url": "https://raw.githubusercontent.com/drdon1234/Hentai-Park/74ec424e46ddecaabb2b4ccf20f3bfbcbe7b2227/assets/sources/iqdb.js",
       "sha256": "e11ba76eb663b72c860b515aa613d3ee898cbff81ab572a45cb7482c3d98285b",
       "apiVersion": 1
     },
@@ -89,7 +89,7 @@
       "reverseSearchCategory": "gallery",
       "rankingOnly": false,
       "reverseSearchOnly": true,
-      "url": "https://raw.githubusercontent.com/drdon1234/Hentai-Park/181fbddad4e5280586c573880b76fde147cbcdda/assets/sources/ehentai_reverse.js",
+      "url": "https://raw.githubusercontent.com/drdon1234/Hentai-Park/74ec424e46ddecaabb2b4ccf20f3bfbcbe7b2227/assets/sources/ehentai_reverse.js",
       "sha256": "119a9174418ea9eb49ed8658f112240317df61cb393462780a4ae3e7f6bf8f0f",
       "apiVersion": 1
     },
@@ -102,7 +102,7 @@
       "reverseSearchCategory": "jav",
       "rankingOnly": false,
       "reverseSearchOnly": true,
-      "url": "https://raw.githubusercontent.com/drdon1234/Hentai-Park/181fbddad4e5280586c573880b76fde147cbcdda/assets/sources/avscan.js",
+      "url": "https://raw.githubusercontent.com/drdon1234/Hentai-Park/74ec424e46ddecaabb2b4ccf20f3bfbcbe7b2227/assets/sources/avscan.js",
       "sha256": "ca0c83768b76b8f652d65cc49fb4ec73746facebed8b968aeb5de76f6b80cd53",
       "apiVersion": 1
     }
