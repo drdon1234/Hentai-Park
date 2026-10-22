@@ -210,8 +210,12 @@ class _OptionRowState extends State<_OptionRow> {
       );
     }
     var keyed = false;
+    final labelStyle = context.text.labelMedium;
+    final labelHeight =
+        MediaQuery.textScalerOf(context).scale(labelStyle?.fontSize ?? 14) *
+        (labelStyle?.height ?? 1.4);
     return SizedBox(
-      height: 44 * MediaQuery.textScalerOf(context).scale(1).clamp(1, 2),
+      height: (labelHeight + Gap.l).clamp(48.0, double.infinity),
       child: ListView(
         scrollDirection: Axis.horizontal,
         children: [
@@ -256,7 +260,6 @@ class _OptionRowState extends State<_OptionRow> {
         avatar: color != null
             ? CircleAvatar(backgroundColor: color, radius: 5)
             : null,
-        visualDensity: VisualDensity.compact,
         onSelected: (on) {
           final next = [...current];
           on ? next.add(choice.value) : next.remove(choice.value);
@@ -270,7 +273,6 @@ class _OptionRowState extends State<_OptionRow> {
       ),
       selected: values[o.key] == choice.value,
       showCheckmark: false,
-      visualDensity: VisualDensity.compact,
       onSelected: (_) => widget.onChanged({...values, o.key: choice.value}),
     );
   }

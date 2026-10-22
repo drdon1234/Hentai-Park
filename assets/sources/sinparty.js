@@ -71,14 +71,32 @@ Park.register({
     "未知直播列表": "قائمة بث غير معروفة"
   }
 },
-  key: 'sinparty', name: 'SinParty', version: '0.0.4', minAppVersion: '0.9.2', type: 'video', category: 'live', language: 'en',
+  key: 'sinparty', name: 'SinParty', version: '0.0.5', minAppVersion: '0.9.2', type: 'video', category: 'live', language: 'en',
   color: '#e83e8c', description: '自营公开直播间', homepage: 'https://sinparty.com/', domains: ['sinparty.com'],
   network: {mode: 'native', origin: 'https://sinparty.com', vpnHint: true},
   media: {mode: 'native', origin: 'https://sinparty.com', domains: ['edge-cdn1.streamparty.online', 'edge-cdn2.streamparty.online']},
   imageHeaders: {Referer: 'https://sinparty.com/'}, idPattern: '^user[0-9a-f]{8,64}$', defaultFeed: 'popular', feeds: [{key: 'popular', label: '热门'}],
   item(x) { if (!x?.creator_user_hash || !x?.model_hash || !x?.slug || (x.live_status !== true && x.isLive !== true) || x.type !== 'public') return null; const cover = String(x.thumbnail_url || ''); if (!cover) return null; return {id: String(x.creator_user_hash), title: String(x.title || x.slug), cover, coverAspect: 16/9, subtitle: String(x.country || ''), viewers: Number(x.viewers) || 0, url: 'https://sinparty.com' + String(x.live_url || '/' + x.slug), mediaKind: 'video', chapters: null}; },
   async api(path, options = {}) { const r = await this.http.get('https://api.sinparty.com/v2/web/live-cams/web-rtc' + path, {...options, timeout: 30000}); if (!r.ok) throw Park.error('HTTP', '直播请求失败', {status: r.status}); try { return r.json()?.data; } catch (_) { throw Park.error('PARSE', '直播数据无效'); } },
-  async feed(key, req = {}) { if (key !== 'popular') throw Park.error('CONFIG', '未知直播列表'); const page = Math.max(1, Number(req.page) || 1); if (page > 1) return {items: [], page, hasNext: false}; const data = await this.api('', {params: {page: 1}}); if (!Array.isArray(data?.items)) throw Park.error('PARSE', '直播数据无效'); return {items: data.items.map(x => this.item(x)).filter(Boolean), page, hasNext: false}; },
+  async feed(key, req = {}) {
+    if (key !== 'popular') throw Park.error('CONFIG', '未知直播列表');
+    const page = Math.max(1, Number(req.page) || 1);
+    if (page > 1) return {items: [], page, hasNext: false};
+    const data = await this.api('', {params: {page: 1}});
+    if (!Array.isArray(data?.items)) throw Park.error('PARSE', '直播数据无效');
+    const candidates = data.items.map(x => this.item(x)).filter(Boolean), items = [];
+    // 推荐索引可能滞后，展示前核对房间状态；限制并发并保留推荐顺序。
+    for (let offset = 0; offset < candidates.length; offset += 4) {
+      const batch = await Promise.all(candidates.slice(offset, offset + 4).map(async item => {
+        const room = await this.api('/' + encodeURIComponent(item.id));
+        if (room?.user_hash !== item.id || room.isLive !== true || room.type !== 'public' ||
+            !Park.url.parse(room.playback_url, 'https://sinparty.com', this.media.domains)) return null;
+        return item;
+      }));
+      items.push(...batch.filter(Boolean));
+    }
+    return {items, page, hasNext: false};
+  },
   async detail(value) { const id = String(value || ''); if (!/^user[0-9a-f]{8,64}$/.test(id)) throw Park.error('NOT_FOUND', '直播间不存在'); const d = await this.api('/' + encodeURIComponent(id)); if (d?.user_hash !== id || !d.isLive || d.type !== 'public') throw Park.error('NOT_FOUND', '直播间不存在或已下线'); const path = String(d.live_url || ''); return {id, title: path.split('/').filter(Boolean).pop() || id, cover: String(d.thumbnail_url || d.snapshot || ''), coverAspect: 16 / 9, url: Park.url.parse(path, 'https://sinparty.com', this.domains)?.href || '', mediaKind: 'video', chapters: null, description: String(d.details || ''), tags: []}; },
   async videos(value) { const id = String(value || ''); if (!/^user[0-9a-f]{8,64}$/.test(id)) throw Park.error('NOT_FOUND', '直播间不存在'); const d = await this.api('/' + encodeURIComponent(id)); const url = Park.url.parse(d?.playback_url, 'https://sinparty.com', this.media.domains)?.href; if (!url || d?.user_hash !== id || d.isLive !== true || d.type !== 'public') throw Park.error('UNSUPPORTED', '直播间暂无可用播放地址'); return [{url, format: 'hls', label: '直播', preferred: true, headers: {Referer: 'https://sinparty.com/'}}]; },
 });

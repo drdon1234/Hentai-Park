@@ -49,7 +49,7 @@ Park.register({
 
 ### Trying it in Node
 
-Install the shared runner's dependencies at the repository root and create an ignored `test/source-smoke.mjs` like the one below. The example only loads the manifest; when you change a plugin, also verify with real requests the first page, the second page, search, details, cover decoding, and chapters or video media.
+Use a temporary ignored local validation script; verify the relevant source flows with real requests.
 
 ```js
 import { loadSource } from '../tools/source-runner/host.mjs';
@@ -59,7 +59,7 @@ console.log(manifest.key, manifest.version);
 
 ```powershell
 npm ci --prefix 'tools/source-runner'
-node 'test/source-smoke.mjs'
+node <local-validation-script>
 ```
 
 ## Manifest fields
@@ -602,5 +602,5 @@ return { url: "https://player.example.com/watch/1", navigationDomains: ["player.
 Source scripts stay on the main branch. The `sources`, `rankings` and `reverse-search` branches distribute regular, ranking-only and reverse-search-only plugins respectively. Each contains an index with immutable source URLs and SHA-256. The app reads all three independently, rejects mismatched channel markers and duplicate keys, and asks for confirmation before updates. Tag translations use a separate `tag-translations` branch.
 
 ```powershell
-node tools/publish_sources.mjs --commit '<SHA>' --channel rankings --output 'test/official-ranking-index.json'
+node tools/publish_sources.mjs --commit '<SHA>' --channel rankings --output '<本地输出文件>'
 ```

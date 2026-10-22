@@ -7,8 +7,21 @@ mixin _NovelTranslation on _NovelReaderBase {
 
   void _detachTranslation() {
     _translation?.removeListener(_translationChanged);
-    _translation?.cancel();
     _translation = null;
+  }
+
+  @override
+  void _setTranslationMode({required bool scroll, bool persist = false}) {
+    _scrollTranslation = scroll;
+    _persistScrollTranslation = persist;
+    _translateFullText = true;
+    _beginTranslation();
+  }
+
+  void _translateVisible() {
+    if (_translateFullText && _scrollTranslation) {
+      unawaited(_translation?.start(nearOffset: _sourceOffset(_offset)));
+    }
   }
 
   @override
@@ -18,7 +31,6 @@ mixin _NovelTranslation on _NovelReaderBase {
     if (_translateFullText) {
       _beginTranslation();
     } else {
-      _detachTranslation();
       _showDocument(null);
     }
   }
@@ -53,29 +65,39 @@ mixin _NovelTranslation on _NovelReaderBase {
       _translations.remove(_translations.keys.first)?.dispose();
     }
     _translation = session;
+    session.persist = !_scrollTranslation || _persistScrollTranslation;
     session.addListener(_translationChanged);
-    if (session.document != null) {
-      _showDocument(session.document);
-    } else {
-      unawaited(session.start());
-    }
+    final current = session;
+    unawaited(() async {
+      await current.restore();
+      if (!mounted || !identical(_translation, current)) return;
+      _translationChanged();
+      await current.start(
+        nearOffset: _scrollTranslation ? _sourceOffset(_offset) : null,
+      );
+    }());
   }
 
   void _translationChanged() {
     if (!mounted || !_translateFullText) return;
     final document = _translation?.document;
     if (document != null && !identical(document, _translationDocument)) {
-      _showDocument(document);
+      _showDocument(document, incremental: true);
     } else {
       setState(() {});
     }
   }
 
-  void _showDocument(NovelTranslationDocument? document) {
+  void _showDocument(
+    NovelTranslationDocument? document, {
+    bool incremental = false,
+  }) {
     final sourceOffset = _sourceOffset(_offset);
     _saveTimer?.cancel();
-    _setAuto(false);
-    unawaited(_speech.stop().catchError((Object _) {}));
+    if (!incremental) _setAuto(false);
+    if (!incremental || _speech.playing) {
+      unawaited(_speech.stop().catchError((Object _) {}));
+    }
     setState(() {
       _translationDocument = document;
       _text = document?.text ?? _originalText;
@@ -112,16 +134,24 @@ mixin _NovelTranslation on _NovelReaderBase {
               children: [
                 Text(
                   session.failed
-                      ? tr('全文翻译失败，已保留原文')
-                      : tr('正在翻译全文（{done}/{total}）', {
-                          'done': session.completed,
-                          'total': session.total,
-                        }),
+                      ? tr('翻译或保存失败，已保留原文和已译内容')
+                      : tr(
+                          _scrollTranslation
+                              ? '正在翻译阅读位置附近的内容（{done}/{total}）'
+                              : '正在翻译全文（{done}/{total}）',
+                          {'done': session.completed, 'total': session.total},
+                        ),
                   style: Theme.of(context).textTheme.bodySmall,
                 ),
                 if (session.failed)
                   OutlinedButton(
-                    onPressed: () => unawaited(session.start()),
+                    onPressed: () => unawaited(
+                      session.start(
+                        nearOffset: _scrollTranslation
+                            ? _sourceOffset(_offset)
+                            : null,
+                      ),
+                    ),
                     child: Text(tr('重试')),
                   ),
                 OutlinedButton(

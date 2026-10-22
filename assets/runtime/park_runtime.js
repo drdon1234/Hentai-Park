@@ -263,7 +263,8 @@
     hmacSha256Hex: (key, text) => call('crypto', 'hmacSha256Hex', { key, text }),
     /** AES-ECB decrypt base64 data with an utf8 key, PKCS7 unpadding, returns utf8 text. */
     aesEcbDecrypt: (base64, key) => call('crypto', 'aesEcbDecrypt', { base64, key }),
-    aesGcmDecrypt: (ciphertext, key, iv) => call('crypto', 'aesGcmDecrypt', { ciphertext, key, iv }),
+    aesGcmEncrypt: (plaintext, key, iv, aad = '') => call('crypto', 'aesGcmEncrypt', { plaintext, key, iv, aad }),
+    aesGcmDecrypt: (ciphertext, key, iv, aad = '') => call('crypto', 'aesGcmDecrypt', { ciphertext, key, iv, aad }),
     uuid: () => call('crypto', 'uuid', {}),
     digestBytes: (algorithm, bytes) => call('crypto', 'digestBytes', { algorithm, bytes: Array.from(bytes) }),
     randomBytes: (length) => call('crypto', 'randomBytes', { length }),

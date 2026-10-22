@@ -51,7 +51,7 @@ Park.register({
 
 ### التجربة في Node
 
-ثبّت اعتماديات المشغّل المشترك في جذر المستودع وأنشئ ملف `test/source-smoke.mjs` مُتجاهَلًا كما يلي. يحمّل المثال manifest فقط؛ وعند تعديل إضافة تحقّق أيضًا بطلبات حقيقية من الصفحة الأولى والثانية والبحث والتفاصيل وفك ترميز الأغلفة والفصول أو وسائط الفيديو.
+Use a temporary ignored local validation script; verify the relevant source flows with real requests.
 
 ```js
 import { loadSource } from '../tools/source-runner/host.mjs';
@@ -61,7 +61,7 @@ console.log(manifest.key, manifest.version);
 
 ```powershell
 npm ci --prefix 'tools/source-runner'
-node 'test/source-smoke.mjs'
+node <local-validation-script>
 ```
 
 ## حقول manifest
@@ -604,7 +604,7 @@ return { url: "https://player.example.com/watch/1", navigationDomains: ["player.
 تُحفظ الشيفرة في الفرع الرئيسي. توزّع فروع `sources` و`rankings` و`reverse-search` إضافات المواقع العامة والتصنيفات المستقلة والبحث العكسي المستقل على الترتيب. يحتوي كل فرع على فهرس بروابط إلى commits ثابتة وSHA-256. يقرأ التطبيق القنوات منفصلة ويرفض علامات القنوات الخاطئة والمفاتيح المكررة ويطلب التأكيد قبل التحديث. تُوزّع ترجمات الوسوم عبر فرع `tag-translations` مستقل.
 
 ```powershell
-node tools/publish_sources.mjs --commit '<SHA>' --channel rankings --output 'test/official-ranking-index.json'
+node tools/publish_sources.mjs --commit '<SHA>' --channel rankings --output '<本地输出文件>'
 ```
 
 </div>

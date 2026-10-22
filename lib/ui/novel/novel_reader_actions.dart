@@ -156,6 +156,12 @@ mixin _NovelActions on _NovelReaderBase {
           _readAloud();
         case 'translation':
           _toggleFullTranslation();
+        case 'translationFull':
+          _setTranslationMode(scroll: false, persist: true);
+        case 'translationScroll':
+          _setTranslationMode(scroll: true);
+        case 'translationScrollSave':
+          _setTranslationMode(scroll: true, persist: true);
       }
     },
     itemBuilder: (ctx) => [
@@ -163,8 +169,23 @@ mixin _NovelActions on _NovelReaderBase {
         value: 'translation',
         enabled: _body != null,
         child: SelectionContainer.disabled(
-          child: Text(tr(_translateFullText ? '显示原文' : '全文翻译')),
+          child: Text(tr(_translateFullText ? '显示原文' : '显示译文')),
         ),
+      ),
+      PopupMenuItem(
+        value: 'translationFull',
+        enabled: _body != null,
+        child: Text(tr('全文翻译并保存')),
+      ),
+      PopupMenuItem(
+        value: 'translationScroll',
+        enabled: _body != null,
+        child: Text(tr('随滚动翻译')),
+      ),
+      PopupMenuItem(
+        value: 'translationScrollSave',
+        enabled: _body != null,
+        child: Text(tr('随滚动翻译并保存')),
       ),
       PopupMenuItem(
         value: 'notes',

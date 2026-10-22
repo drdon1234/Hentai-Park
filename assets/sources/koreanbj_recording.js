@@ -36,11 +36,12 @@ Park.register({
       '录播请求失败': 'فشل طلب التسجيل', '录播数据无效': 'بيانات التسجيل غير صالحة', '录播不存在': 'التسجيل غير موجود',
     },
   },
-  key: 'koreanbj_recording', name: 'KoreanBJ.club 录播', version: '0.0.3', minAppVersion: '0.9.2', type: 'video', category: 'recording',
+  key: 'koreanbj_recording', name: 'KoreanBJ.club 录播', version: '0.0.4', minAppVersion: '0.9.2', type: 'video', category: 'recording',
   color: '#8d2738', description: '韩国主播录播，支持热门、分页、搜索与原生播放', language: 'ko',
   homepage: 'https://ww1.koreanbj.club/', domains: ['koreanbj.club'],
   network: {mode: 'auto', vpnHint: true},
-  media: {mode: 'native', scope: 'session', origin: 'https://ww1.koreanbj.club', domains: ['kbj.31cek.xyz']},
+  media: {mode: 'native', scope: 'session', origin: 'https://ww1.koreanbj.club', domains: ['kbj.31cek.xyz'],
+    referrerDomains: ['io12379storege.xyz']},
   imageHeaders: {Referer: 'https://ww1.koreanbj.club/'},
   idPattern: '^[A-Za-z0-9%._~-]{1,220}$',
   linkPatterns: ['koreanbj\\.club/video/([^/?#]+)'],
@@ -151,6 +152,13 @@ Park.register({
       }
     }
     if (!embed) {
+      for (const script of detail.querySelectorAll('script:not([src])')) {
+        // 只读取站点点击处理器声明的地址，不执行页面脚本。
+        const match = String(script.textContent || '').match(/\.setAttribute\(\s*['"]src['"]\s*,\s*['"](https:\/\/io12379storege\.xyz\/e\/[a-z0-9]+\/)['"]\s*\)/);
+        if (match) { embed = new URL(match[1]); break; }
+      }
+    }
+    if (!embed) {
       throw Park.error('UNSUPPORTED', '录播暂无可用播放地址');
     }
     const response = await this.http.get(embed.href, {timeout: 20000, headers: {
@@ -160,6 +168,27 @@ Park.register({
       throw Park.error('HTTP', '录播请求失败', {status: response.status});
     }
     const player = this.document(response.body);
+    if (embed.hostname === 'io12379storege.xyz') {
+      let config;
+      try {
+        const envelope = JSON.parse(player.querySelector('script[type="application/json"]')?.textContent || '');
+        if (!Array.isArray(envelope) || envelope.length !== 1 || typeof envelope[0] !== 'string' || envelope[0].length > 128 * 1024) throw new Error();
+        const encoded = envelope[0].replace(/[a-zA-Z]/g, char =>
+          String.fromCharCode(char.charCodeAt(0) + (char.toLowerCase() <= 'm' ? 13 : -13)))
+          .replace(/@\$|\^\^|~@|%\?|\*~|!!|#&/g, '');
+        const shifted = Array.from(atob(encoded), char =>
+          String.fromCharCode(char.charCodeAt(0) - 3)).reverse().join('');
+        config = JSON.parse(atob(shifted));
+      } catch (_) { throw Park.error('PARSE', '录播数据无效'); }
+      let media;
+      try { media = new URL(config.source); } catch (_) { throw Park.error('PARSE', '录播数据无效'); }
+      if (media.protocol !== 'https:' || media.username || media.password || media.port || media.hash ||
+          !/(^|\.)cloudwindow-route\.com$/i.test(media.hostname) || !/\.m3u8$/i.test(media.pathname)) {
+        throw Park.error('UNSUPPORTED', '录播暂无可用播放地址');
+      }
+      return [{url: media.href, format: 'hls', label: '原画', preferred: true,
+        headers: {Referer: embed.href}}];
+    }
     const scripts = [...player.querySelectorAll('script:not([src])')]
       .map(node => String(node.textContent || ''))
       .filter(script => /jwplayer\s*\(\s*["']player["']\s*\)\s*\.\s*setup\s*\(/.test(script)).join('\n');

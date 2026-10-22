@@ -53,7 +53,7 @@ class VideoStage extends StatelessWidget {
   final double dim;
   final VoidCallback onTap;
   final VoidCallback onMouseTap;
-  final ValueChanged<int> onDoubleTap;
+  final VoidCallback onDoubleTap;
   final void Function(Offset point, Size viewport) onGestureStart;
   final ValueChanged<Offset> onGestureUpdate;
   final VoidCallback onGestureEnd;
@@ -137,16 +137,14 @@ class VideoStage extends StatelessWidget {
     if (c == null || !c.value.isInitialized) {
       return const Center(child: LoadingIndicator(color: Colors.white70));
     }
+    final showControls =
+        controlsVisible || (!session.isLive && c.value.isCompleted);
     return VideoGestureSurface(
       pageVertically: session.scrollEpisodes,
-      showLevelControls: controlsVisible,
+      showLevelControls: showControls,
       onTap: onTap,
       onMouseTap: onMouseTap,
-      onDoubleTap: (point) {
-        final box = context.findRenderObject() as RenderBox?;
-        final width = box?.size.width ?? MediaQuery.sizeOf(context).width;
-        onDoubleTap(point.dx < width / 2 ? -10 : 10);
-      },
+      onDoubleTap: onDoubleTap,
       onStart: onGestureStart,
       onUpdate: onGestureUpdate,
       onEnd: onGestureEnd,
@@ -155,14 +153,14 @@ class VideoStage extends StatelessWidget {
         fit: StackFit.expand,
         children: [
           AnimatedOpacity(
-            opacity: controlsVisible ? 1 : 0,
+            opacity: showControls ? 1 : 0,
             duration: Motion.of(context, Motion.short),
             child: ExcludeSemantics(
-              excluding: !controlsVisible,
+              excluding: !showControls,
               child: ExcludeFocus(
-                excluding: !controlsVisible,
+                excluding: !showControls,
                 child: IgnorePointer(
-                  ignoring: !controlsVisible,
+                  ignoring: !showControls,
                   child: controls(
                     c.value,
                     Listener(

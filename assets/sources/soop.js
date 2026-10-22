@@ -99,7 +99,7 @@ Park.register({
       "直播内容不符合本站点范围": "هذا البث خارج نطاق محتوى المصدر"
     }
   },
-  key: 'soop', name: 'SOOP', version: '0.0.3', minAppVersion: '0.9.2', type: 'video', category: 'live', language: 'ko',
+  key: 'soop', name: 'SOOP', version: '0.0.4', minAppVersion: '0.9.2', type: 'video', category: 'live', language: 'ko',
   color: '#0569FF', description: '韩国性感舞蹈与比基尼直播，按原站标签筛选',
   homepage: 'https://www.sooplive.co.kr/', domains: ['sooplive.co.kr', 'sooplive.com'],
   network: {mode: 'auto', origin: 'https://play.sooplive.co.kr', vpnHint: true},
@@ -148,13 +148,16 @@ Park.register({
     const id = String(row?.user_id || '') + '/' + String(row?.broad_no || '');
     const cover = this.cover(row?.broad_thumb || row?.broad_img);
     if (!/^[A-Za-z0-9_]{1,64}\/[1-9]\d{0,11}$/.test(id) || !row?.broad_title || !cover) return null;
-    if (row.is_password === 'Y' || Number(row.subscription_only) > 0) return null;
+    if (!this.anonymous(row)) return null;
     if (!this.matchesFocus(row)) return null;
     return {id, title: String(row.broad_title), cover, coverAspect: 16 / 9,
       url: this.PLAY + id, authors: row.user_nick ? [String(row.user_nick)] : [],
       views: Number(row.total_view_cnt) || 0, tags: this.tags(row.hash_tags), mediaKind: 'video', chapters: null};
   },
   page(value) { return Math.max(1, Math.floor(Number(value) || 1)); },
+  anonymous(row) {
+    return row.is_password !== 'Y' && !(Number(row.subscription_only) > 0) && !(Number(row.broad_grade) > 0);
+  },
   list(rows, page, hasNext) {
     if (!Array.isArray(rows)) throw Park.error('PARSE', '直播数据无效');
     // 筛选后允许空页，仍按原站的 hasNext 翻页，不能把无匹配误报为解析失败。
@@ -162,7 +165,7 @@ Park.register({
       throw Park.error('PARSE', '直播数据无效');
     }
     const items = rows.map(row => this.item(row)).filter(Boolean);
-    if (rows.length && !items.length && rows.some(row => this.matchesFocus(row) && row.is_password !== 'Y' && !(Number(row.subscription_only) > 0))) {
+    if (rows.length && !items.length && rows.some(row => this.matchesFocus(row) && this.anonymous(row))) {
       throw Park.error('PARSE', '直播数据无效');
     }
     return {items, page, hasNext};

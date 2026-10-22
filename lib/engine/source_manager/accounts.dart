@@ -70,6 +70,13 @@ mixin _SourceAccounts on _SourceRegistry {
       // 旧凭证的网络失败不阻止用户重新登录。
     }
     final wasLoggedIn = accountListenable(key)?.value?.loggedIn;
+    AppLog.record({
+      'event': 'login',
+      'site': key,
+      'action': 'account.login',
+      'stage': 'verify',
+      'outcome': 'started',
+    });
     final res = await _call(key, 'account.login', [values]);
     // 登录过程中内容请求也可能触发检查；等它结束后再验证这次登录。
     try {
@@ -80,6 +87,13 @@ mixin _SourceAccounts on _SourceRegistry {
     await refreshAccount(key);
     if (manifest(key)?.can('status') == true &&
         accountListenable(key)?.value?.loggedIn != true) {
+      AppLog.record({
+        'event': 'login',
+        'site': key,
+        'action': 'account.login',
+        'stage': 'verify',
+        'outcome': 'failure',
+      });
       throw SourceError(
         'LOGIN_REQUIRED',
         '尚未识别到登录，请确认网页显示账号后点击完成；如有验证提示，请先完成验证',
@@ -88,14 +102,32 @@ mixin _SourceAccounts on _SourceRegistry {
     if (wasLoggedIn == accountListenable(key)?.value?.loggedIn) {
       authenticationChanged(key);
     }
+    AppLog.record({
+      'event': 'login',
+      'site': key,
+      'action': 'account.login',
+      'stage': 'complete',
+      'outcome': 'success',
+    });
     return res is Map ? (res['name'] ?? '').toString() : '';
   }
 
   Future<void> logout(String key) async {
     _displayOrder?.invalidate(key);
+    // 先收束旧状态检查，防止其在退出后重新发布已登录状态。
+    try {
+      await _accountRefreshes[key];
+    } catch (_) {}
     final wasLoggedIn = accountListenable(key)?.value?.loggedIn;
     await _call(key, 'account.logout', []);
+    _accountEpochs[key] = (_accountEpochs[key] ?? 0) + 1;
     final source = _sources[key];
+    if (source != null) _publishAccountStatus(source, AccountStatus(false, ''));
+    _accountCheckedAt.remove(key);
+    await CookieStore.instance.clearPartition(key);
+    try {
+      await _accountRefreshes[key];
+    } catch (_) {}
     if (source != null) _publishAccountStatus(source, AccountStatus(false, ''));
     _accountCheckedAt.remove(key);
     if (manifest(key)?.account?.managedAccount == true &&
@@ -126,6 +158,7 @@ mixin _SourceAccounts on _SourceRegistry {
   }
 
   Future<void> _refreshAccount(String key) async {
+    final epoch = _accountEpochs[key] ?? 0;
     final s = _sources[key];
     if (s?.manifest?.can('status') != true) return;
     AccountStatus status;
@@ -141,6 +174,7 @@ mixin _SourceAccounts on _SourceRegistry {
       _accountCheckedAt.remove(key);
       rethrow;
     }
+    if (epoch != (_accountEpochs[key] ?? 0)) return;
     _accountCheckedAt[key] = DateTime.now();
     _publishAccountStatus(s!, status);
   }

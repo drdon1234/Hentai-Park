@@ -49,7 +49,7 @@ Park.register({
 
 ### Node에서 실행해 보기
 
-저장소 루트에서 공유 러너의 의존성을 설치하고, 무시되는 `test/source-smoke.mjs`를 아래처럼 만듭니다. 예제는 manifest만 불러옵니다. 플러그인을 바꾸면 첫 페이지, 둘째 페이지, 검색, 상세, 표지 디코딩, 챕터나 동영상 미디어도 실제 요청으로 확인하세요.
+Use a temporary ignored local validation script; verify the relevant source flows with real requests.
 
 ```js
 import { loadSource } from '../tools/source-runner/host.mjs';
@@ -59,7 +59,7 @@ console.log(manifest.key, manifest.version);
 
 ```powershell
 npm ci --prefix 'tools/source-runner'
-node 'test/source-smoke.mjs'
+node <local-validation-script>
 ```
 
 ## manifest 필드
@@ -602,5 +602,5 @@ return { url: "https://player.example.com/watch/1", navigationDomains: ["player.
 소스는 기본 브랜치에서 관리합니다. `sources`, `rankings`, `reverse-search` 브랜치는 각각 일반 사이트, 순위 전용, 이미지 역검색 전용 플러그인을 배포합니다. 각 브랜치에는 고정 커밋 URL과 SHA-256을 담은 색인만 저장합니다. 앱은 채널을 따로 읽고 채널 불일치와 중복 key를 거부하며 업데이트 전에 확인을 요청합니다. 태그 번역은 별도 `tag-translations` 브랜치로 배포합니다.
 
 ```powershell
-node tools/publish_sources.mjs --commit '<SHA>' --channel rankings --output 'test/official-ranking-index.json'
+node tools/publish_sources.mjs --commit '<SHA>' --channel rankings --output '<本地输出文件>'
 ```

@@ -272,24 +272,33 @@ class ParkTheme {
       ),
       chipTheme: base.chipTheme.copyWith(
         backgroundColor: Colors.transparent,
-        selectedColor: selectedTint,
+        selectedColor: scheme.surfaceContainerHigh,
         showCheckmark: false,
         shape: controlShape,
         side: WidgetStateBorderSide.resolveWith(
-          (states) => states.contains(WidgetState.selected)
+          (states) => states.contains(WidgetState.disabled)
+              ? hairline
+              : states.contains(WidgetState.focused)
+              ? BorderSide(color: scheme.primary, width: 2)
+              : states.contains(WidgetState.selected)
               // 加粗描边向内仍占同样宽度，避免 Ink 的边框内边距改变布局。
               ? hairline.copyWith(
-                  color: scheme.onSecondaryContainer,
+                  color: scheme.primary,
                   width: hairline.width * 2,
                   strokeAlign: BorderSide.strokeAlignCenter,
                 )
               : hairline.copyWith(color: scheme.outline),
         ),
-        labelStyle: text.labelLarge?.copyWith(color: scheme.onSurface),
-        secondaryLabelStyle: text.labelLarge?.copyWith(
-          color: scheme.onSecondaryContainer,
+        labelStyle: text.labelMedium?.copyWith(
+          color: scheme.onSurface,
+          fontWeight: FontWeight.w600,
         ),
-        padding: const EdgeInsets.symmetric(horizontal: Gap.xs),
+        secondaryLabelStyle: text.labelMedium?.copyWith(
+          color: scheme.primary,
+          fontWeight: FontWeight.w600,
+        ),
+        padding: EdgeInsets.zero,
+        labelPadding: const EdgeInsets.symmetric(horizontal: Gap.s),
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
@@ -328,8 +337,8 @@ class ParkTheme {
               foregroundColor: scheme.onSurface,
               shape: controlShape,
               textStyle: text.labelLarge?.copyWith(fontWeight: FontWeight.w600),
-              minimumSize: const Size(64, 48),
-              padding: const EdgeInsets.symmetric(horizontal: Gap.l),
+              minimumSize: const Size(48, 40),
+              padding: const EdgeInsets.symmetric(horizontal: Gap.m),
             ).copyWith(
               side: WidgetStateBorderSide.resolveWith(
                 (states) => BorderSide(

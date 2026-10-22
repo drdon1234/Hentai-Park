@@ -49,7 +49,7 @@ Park.register({
 
 ### 在 Node 中试跑
 
-在仓库根安装共享 runner 依赖，按下例创建被忽略的 `test/source-smoke.mjs`。示例只载入 manifest；修改插件时还要用真实请求验证首页、第二页、搜索、详情、封面解码，以及章节或视频媒体。
+在本地安装共享 runner 依赖，并在被忽略的本地验证目录中创建临时冒烟脚本。示例只载入 manifest；修改插件时还要用真实请求验证首页、第二页、搜索、详情、封面解码，以及章节或视频媒体。
 
 ```js
 import { loadSource } from '../tools/source-runner/host.mjs';
@@ -59,7 +59,7 @@ console.log(manifest.key, manifest.version);
 
 ```powershell
 npm ci --prefix 'tools/source-runner'
-node 'test/source-smoke.mjs'
+node <local-validation-script>
 ```
 
 ## manifest 字段
@@ -550,7 +550,7 @@ subscription: {
 | `Park.utils.mapLimit(items, n, fn)` / `lruMap(n)` / `parseCount('1.2万')` / `formatDate(ts)` | 其他常用工具 |
 | `Park.error(code, message, extra?)` | 创建带错误码的错误，见“错误码” |
 
-`Park.crypto.aesGcmDecrypt(ciphertext, key, iv)` 接受十六进制密文（包含末尾 16 字节认证标签，最多 4096 字节）、16/24/32 字节密钥、12 字节 IV，返回明文字节数组；认证失败即抛错，不返回未认证明文。
+`Park.crypto.aesGcmEncrypt(plaintext, key, iv, aad)` / `aesGcmDecrypt(ciphertext, key, iv, aad)` 接受十六进制数据、16/24/32 字节密钥、12 字节 IV，以及可选的十六进制附加认证数据 `aad`（最多 4096 字节，默认空），返回字节数组。明文最多 4080 字节，密文包含末尾 16 字节认证标签、最多 4096 字节；每次加密必须使用新的安全随机 IV。解密认证失败即抛错，不返回未认证明文。
 
 ### `http.request(opts)`
 

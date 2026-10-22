@@ -49,7 +49,7 @@ Park.register({
 
 ### Проверка в Node
 
-Установите зависимости общего раннера в корне репозитория и создайте игнорируемый `test/source-smoke.mjs`, как ниже. Пример только загружает manifest; меняя плагин, проверяйте настоящими запросами первую и вторую страницы, поиск, описание, декодирование обложек, главы или видеомедиа.
+Use a temporary ignored local validation script; verify the relevant source flows with real requests.
 
 ```js
 import { loadSource } from '../tools/source-runner/host.mjs';
@@ -59,7 +59,7 @@ console.log(manifest.key, manifest.version);
 
 ```powershell
 npm ci --prefix 'tools/source-runner'
-node 'test/source-smoke.mjs'
+node <local-validation-script>
 ```
 
 ## Поля manifest
@@ -602,5 +602,5 @@ return { url: "https://player.example.com/watch/1", navigationDomains: ["player.
 Исходники хранятся в основной ветке. Ветки `sources`, `rankings` и `reverse-search` распространяют обычные плагины, отдельные рейтинги и отдельный обратный поиск соответственно. В каждой находится индекс с URL фиксированных коммитов и SHA-256. Приложение читает каналы отдельно, отклоняет неверные маркеры и повторяющиеся key и запрашивает подтверждение обновлений. Переводы тегов распространяются через `tag-translations`.
 
 ```powershell
-node tools/publish_sources.mjs --commit '<SHA>' --channel rankings --output 'test/official-ranking-index.json'
+node tools/publish_sources.mjs --commit '<SHA>' --channel rankings --output '<本地输出文件>'
 ```

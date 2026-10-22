@@ -114,7 +114,9 @@ class _LogsPageState extends State<_LogsPage> {
           icon: const Icon(Icons.ios_share_rounded),
           onPressed: () async {
             try {
-              final text = await _report;
+              final report = _build(_mode);
+              setState(() => _report = report);
+              final text = await report;
               final file = File(
                 p.join(AppPaths.cache.path, 'hentaipark_log.txt'),
               );

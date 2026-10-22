@@ -149,7 +149,7 @@ async function makeClient(source, session) {
   binding.client = c;
   c.updateInitConnectionParams({
     device_model: 'HentaiPark subscription',
-    system_version: '1.0',
+    system_version: '1.1',
     app_version: '1.0',
   });
   await c.setDefaultDc(session.dc);
@@ -177,10 +177,14 @@ function sessionValue(text) {
   }
   if (!data || typeof data !== 'object')
     throw Park.error('CONFIG', '授权会话格式无效');
-  const dc = Number(data.dc),
+  const scalar = value => {
+    if (typeof value !== 'string') return value;
+    try { return JSON.parse(value); } catch (_) { return value; }
+  };
+  const dc = Number(scalar(data.dc)),
     keys = {};
   for (let i = 1; i <= 5; i++) {
-    let v = data['dc' + i + '_auth_key'];
+    let v = scalar(data['dc' + i + '_auth_key']);
     if (typeof v === 'string') {
       v = v.replace(/^["']|["']$/g, '');
       if (!/^[a-fA-F0-9]{512}$/.test(v))
@@ -413,9 +417,18 @@ async function publicPosts(source, target, options) {
   };
 }
 Park.register({
+  i18n: {
+    'zh-Hant': {'登录 Telegram': '登入 Telegram', '在 Telegram 网页完成登录后返回应用；不会自动加入频道。': '在 Telegram 網頁完成登入後返回應用程式；不會自動加入頻道。'},
+    en: {'登录 Telegram': 'Sign in to Telegram', '在 Telegram 网页完成登录后返回应用；不会自动加入频道。': 'Sign in on Telegram Web, then return to the app. Channels are never joined automatically.'},
+    ja: {'登录 Telegram': 'Telegram にログイン', '在 Telegram 网页完成登录后返回应用；不会自动加入频道。': 'Telegram Web でログインしてからアプリに戻ってください。チャンネルには自動参加しません。'},
+    ko: {'登录 Telegram': 'Telegram 로그인', '在 Telegram 网页完成登录后返回应用；不会自动加入频道。': 'Telegram 웹에서 로그인한 후 앱으로 돌아오세요. 채널에 자동으로 가입하지 않습니다.'},
+    es: {'登录 Telegram': 'Iniciar sesión en Telegram', '在 Telegram 网页完成登录后返回应用；不会自动加入频道。': 'Inicia sesión en Telegram Web y vuelve a la aplicación. No se unirá a canales automáticamente.'},
+    ru: {'登录 Telegram': 'Войти в Telegram', '在 Telegram 网页完成登录后返回应用；不会自动加入频道。': 'Войдите в Telegram Web и вернитесь в приложение. Автоматического вступления в каналы нет.'},
+    ar: {'登录 Telegram': 'تسجيل الدخول إلى Telegram', '在 Telegram 网页完成登录后返回应用；不会自动加入频道。': 'سجّل الدخول في Telegram Web ثم عُد إلى التطبيق. لن يتم الانضمام إلى القنوات تلقائيًا.'},
+  },
   key: 'telegram',
   name: 'Telegram',
-  version: '0.0.6', minAppVersion: '0.9.2',
+  version: '0.0.7', minAppVersion: '0.9.2',
   type: 'video',
   category: 'other',
   homepage: HOME,
@@ -425,11 +438,14 @@ Park.register({
   idExample: 'telegram',
   account: {
     type: 'session',
-    title: '导入授权会话',
-    hint: '导入 Telegram WebK 本地存储（dc、dcN_auth_key）。这不是 Cookie；仅恢复已有会话，不会自动加入频道。',
+    title: '登录 Telegram',
+    loginUrl: 'https://web.telegram.org/k/',
+    cookieUrl: 'https://web.telegram.org/k/',
+    localStorageKeys: ['dc', 'dc1_auth_key', 'dc2_auth_key', 'dc3_auth_key', 'dc4_auth_key', 'dc5_auth_key'],
+    hint: '在 Telegram 网页完成登录后返回应用；不会自动加入频道。',
     fields: [{ key: 'session', label: '授权会话', secret: true }],
     async login(values) {
-      const session = sessionValue(values.session);
+      const session = sessionValue(values.session || JSON.stringify(values));
       stop();
       try {
         client = await makeClient(this, session);

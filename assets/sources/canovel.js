@@ -83,7 +83,7 @@
     },
     key: 'canovel',
     name: 'Canovel',
-    version: '0.0.7', minAppVersion: '0.9.2',
+    version: '0.0.8', minAppVersion: '0.9.2',
     type: 'novel',
     category: 'novel',
     language: 'zh',
@@ -122,7 +122,14 @@
       const id = idValue(value),
         url = HOME + '/article/' + id,
         d = await doc(this, url),
-        title = Park.html.text(d.querySelector('h1.post-title'));
+        main = d.querySelector('h1.post-title')?.closest('article') || d.querySelector('article'),
+        title = Park.html.text(main?.querySelector('h1.post-title'));
+      const author = Park.html.text(main?.querySelector('a[rel="author"]'));
+      const labels = [...(main?.querySelectorAll('.post-tags a,.post-category a') || [])]
+        .map(a => Park.html.text(a)).filter(Boolean);
+      const body = main?.querySelector('.entry')?.cloneNode(true);
+      body?.querySelectorAll('.page-links,.post-tags,script,style').forEach(n => n.remove());
+      const excerpt = Park.html.paragraphs(body).find(p => p.trim()) || '';
       if (!title) throw Park.error('NOT_FOUND', '小说不存在');
       return {
         id,
@@ -131,10 +138,11 @@
         url,
         language: 'zh',
         mediaKind: 'novel',
-        authors: [],
+        authors: author ? [author] : [],
+        uploaded: main?.querySelector('time.published')?.getAttribute('datetime') || '',
         chapters: null,
-        tags: [],
-        description: '',
+        tags: labels.length ? [{namespace: 'tag', label: '标签', tags: [...new Set(labels)].map(name => ({name, keyword: name}))}] : [],
+        description: excerpt.length > 400 ? excerpt.slice(0, 400) + '…' : excerpt,
       };
     },
     async textChapter(value, chapterId) {

@@ -49,7 +49,7 @@ Park.register({
 
 ### Node で試す
 
-リポジトリのルートで共有ランナーの依存関係をインストールし、無視される `test/source-smoke.mjs` を次のように作ります。この例は manifest を読むだけです。プラグインを変更したら、トップ、2 ページ目、検索、詳細、表紙のデコード、章または動画メディアも実際のリクエストで確認してください。
+Use a temporary ignored local validation script; verify the relevant source flows with real requests.
 
 ```js
 import { loadSource } from '../tools/source-runner/host.mjs';
@@ -59,7 +59,7 @@ console.log(manifest.key, manifest.version);
 
 ```powershell
 npm ci --prefix 'tools/source-runner'
-node 'test/source-smoke.mjs'
+node <local-validation-script>
 ```
 
 ## manifest のフィールド
@@ -602,5 +602,5 @@ return { url: "https://player.example.com/watch/1", navigationDomains: ["player.
 ソースはメインブランチで管理します。`sources`、`rankings`、`reverse-search` はそれぞれ通常サイト、ランキング専用、画像検索専用プラグインを配信します。各ブランチには固定コミットの URL と SHA-256 を持つ索引のみを保存します。アプリは各チャネルを個別に読み込み、チャネル不一致と key の重複を拒否し、更新前に確認を求めます。タグ翻訳は `tag-translations` で別途配信します。
 
 ```powershell
-node tools/publish_sources.mjs --commit '<SHA>' --channel rankings --output 'test/official-ranking-index.json'
+node tools/publish_sources.mjs --commit '<SHA>' --channel rankings --output '<本地输出文件>'
 ```

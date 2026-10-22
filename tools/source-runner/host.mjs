@@ -139,16 +139,23 @@ const native = {
         if (pad > 0 && pad <= 16) out = out.subarray(0, out.length - pad);
         return out.toString('utf8');
       }
+      case 'aesGcmEncrypt':
       case 'aesGcmDecrypt': {
-        const hex = (name, lengths) => {
+        const hex = (name, lengths, maximum = 4096, allowEmpty = false) => {
           const value = a[name];
-          if (typeof value !== 'string' || value.length > 8192 || value.length % 2 || !/^[0-9a-f]+$/i.test(value) ||
+          if (typeof value !== 'string' || value.length > maximum * 2 || value.length % 2 || !(allowEmpty ? /^[0-9a-f]*$/i : /^[0-9a-f]+$/i).test(value) ||
               (lengths && !lengths.includes(value.length / 2))) throw new Error('AES-GCM 参数无效');
           return Buffer.from(value, 'hex');
         };
-        const key = hex('key', [16, 24, 32]), iv = hex('iv', [12]), data = hex('ciphertext');
-        if (data.length < 16) throw new Error('AES-GCM 密文无效');
-        const cipher = crypto.createDecipheriv(`aes-${key.length * 8}-gcm`, key, iv);
+        const encrypt = op === 'aesGcmEncrypt';
+        const key = hex('key', [16, 24, 32]), iv = hex('iv', [12]);
+        const data = hex(encrypt ? 'plaintext' : 'ciphertext', null, encrypt ? 4080 : 4096, encrypt);
+        const aad = a.aad == null ? Buffer.alloc(0) : hex('aad', null, 4096, true);
+        if (!encrypt && data.length < 16) throw new Error('AES-GCM 密文无效');
+        const cipher = encrypt ? crypto.createCipheriv(`aes-${key.length * 8}-gcm`, key, iv)
+          : crypto.createDecipheriv(`aes-${key.length * 8}-gcm`, key, iv);
+        cipher.setAAD(aad);
+        if (encrypt) return Array.from(Buffer.concat([cipher.update(data), cipher.final(), cipher.getAuthTag()]));
         cipher.setAuthTag(data.subarray(-16));
         return Array.from(Buffer.concat([cipher.update(data.subarray(0, -16)), cipher.final()]));
       }

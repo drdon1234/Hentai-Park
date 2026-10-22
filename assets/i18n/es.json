@@ -1532,5 +1532,12 @@
   "可直接更新 {count} 个插件": "Se pueden actualizar {count} complementos ahora.",
   "{count} 个插件需要先将本体升级至 {version} 或更高版本": "{count} complementos requieren actualizar primero la aplicación a {version} o posterior.",
   "更新 {count} 个插件": "Actualizar {count} complementos",
-  "无法保存提醒设置，请重试": "No se pudieron guardar los avisos. Inténtalo de nuevo."
+  "无法保存提醒设置，请重试": "No se pudieron guardar los avisos. Inténtalo de nuevo.",
+  "全文翻译并保存": "Traducir y guardar todo",
+  "随滚动翻译": "Traducir al desplazarse",
+  "随滚动翻译并保存": "Traducir al desplazarse y guardar",
+  "正在翻译阅读位置附近的内容（{done}/{total}）": "Traduciendo cerca de la posición de lectura ({done}/{total})",
+  "下载、录制与翻译": "Descargas, grabaciones y traducción",
+  "显示译文": "Mostrar traducción",
+  "翻译或保存失败，已保留原文和已译内容": "Error al traducir o guardar. Se conservan el original y lo traducido."
 }

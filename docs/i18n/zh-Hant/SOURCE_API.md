@@ -49,7 +49,7 @@ Park.register({
 
 ### 在 Node 中試跑
 
-在倉庫根安裝共享 runner 依賴，按下例建立被忽略的 `test/source-smoke.mjs`。示例只載入 manifest；修改外掛時還要用真實請求驗證首頁、第二頁、搜尋、詳情、封面解碼，以及章節或影片媒體。
+Use a temporary ignored local validation script; verify the relevant source flows with real requests.
 
 ```js
 import { loadSource } from '../tools/source-runner/host.mjs';
@@ -59,7 +59,7 @@ console.log(manifest.key, manifest.version);
 
 ```powershell
 npm ci --prefix 'tools/source-runner'
-node 'test/source-smoke.mjs'
+node <local-validation-script>
 ```
 
 ## manifest 欄位
@@ -602,5 +602,5 @@ return { url: "https://player.example.com/watch/1", navigationDomains: ["player.
 原始碼在主分支維護。`sources`、`rankings`、`reverse-search` 分別分發一般站點、獨立排行榜及獨立反搜外掛；各分支只保存指向固定原始碼提交、含 SHA-256 的索引。應用程式分別讀取三個頻道，拒絕頻道標記不符與重複 key，更新前需使用者確認。標籤翻譯由 `tag-translations` 另行分發。
 
 ```powershell
-node tools/publish_sources.mjs --commit '<SHA>' --channel rankings --output 'test/official-ranking-index.json'
+node tools/publish_sources.mjs --commit '<SHA>' --channel rankings --output '<本地输出文件>'
 ```

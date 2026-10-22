@@ -26,6 +26,13 @@ object NativeCrashLog {
         "INITIALIZATION_FAILURE", "PERMISSION_CHANGE", "PACKAGE_STATE_CHANGE",
         "PACKAGE_UPDATED", "FREEZER", "OTHER", "UNKNOWN",
     )
+    private fun actionable(metadata: JSONObject): Boolean {
+        if (metadata.optString("event") != "process_exit") return true
+        val reason = metadata.optString("reason")
+        if (reason in setOf("USER_REQUESTED", "USER_STOPPED", "PACKAGE_UPDATED",
+                "PACKAGE_STATE_CHANGE", "PERMISSION_CHANGE", "EXIT_SELF")) return false
+        return reason !in setOf("OTHER", "UNKNOWN") || metadata.optInt("exitStatus", 0) != 0
+    }
 
     private fun fields(input: JSONObject): JSONObject = JSONObject().apply {
         val event = input.optString("event")
@@ -126,7 +133,7 @@ object NativeCrashLog {
                         lines.mapNotNull { line -> runCatching {
                             val value = JSONObject(line)
                             val time = value.optString("time")
-                            if (!time.matches(Regex("[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}\\.[0-9]{3}Z"))) null
+                            if (!actionable(value.getJSONObject("fields")) || !time.matches(Regex("[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}\\.[0-9]{3}Z"))) null
                             else JSONObject().put("time", time)
                                 .put("fields", fields(value.getJSONObject("fields")))
                                 .put("frames", JSONArray())
@@ -174,6 +181,10 @@ object NativeCrashLog {
                 JSONObject().put("event", "process_exit").put("library", "android")
                     .put("reason", reason).put("exitStatus", exit.status.toString()),
             )
+            if (!actionable(record.getJSONObject("fields"))) {
+                check(preferences.edit().putLong("imported_through", exit.timestamp).commit())
+                continue
+            }
             if (!known.add(record.getString("time") + reason)) continue
             // Exit descriptions, ANR traces and tombstones may contain user
             // content or paths. Only the structured reason/status are collected.

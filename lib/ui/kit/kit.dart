@@ -1,3 +1,4 @@
+export 'action_tag.dart';
 export 'components.dart';
 export 'platform_navigation.dart';
 export 'reader_chrome.dart';

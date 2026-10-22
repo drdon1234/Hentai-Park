@@ -123,8 +123,69 @@ class CrashLog {
     ]) {
       entries[entry.identity] = entry;
     }
-    final ordered = entries.values.toList()
+    final currentIds = AppLog.entries.map((entry) => entry.identity).toSet();
+    final current =
+        entries.values
+            .where(
+              (entry) =>
+                  currentIds.contains(entry.identity) && entry.actionable,
+            )
+            .toList()
+          ..sort((a, b) => b.time.compareTo(a.time));
+    final currentCrashes = <String, DiagnosticEntry>{};
+    final compactCurrent = <DiagnosticEntry>[];
+    for (final entry in current) {
+      if (entry.fields['event'] != 'crash') {
+        compactCurrent.add(entry);
+        continue;
+      }
+      final signature = jsonEncode({
+        'fields': entry.fields,
+        'frames': entry.frames,
+      });
+      final previous = currentCrashes[signature];
+      if (previous != null) {
+        previous.count += entry.count;
+      } else {
+        final grouped = DiagnosticEntry(
+          time: entry.time,
+          fields: entry.fields,
+          frames: entry.frames,
+          count: entry.count,
+        );
+        currentCrashes[signature] = grouped;
+        compactCurrent.add(grouped);
+      }
+    }
+    final cutoff = DateTime.now().subtract(const Duration(days: 7));
+    final history = <String, DiagnosticEntry>{};
+    var omitted = 0;
+    for (final entry in entries.values) {
+      if (currentIds.contains(entry.identity)) continue;
+      if (!entry.actionable || entry.time.isBefore(cutoff)) {
+        omitted++;
+        continue;
+      }
+      final signature = jsonEncode({
+        'fields': entry.fields,
+        'frames': entry.frames,
+      });
+      final previous = history[signature];
+      if (previous == null) {
+        history[signature] = DiagnosticEntry(
+          time: entry.time,
+          fields: entry.fields,
+          frames: entry.frames,
+          count: entry.count,
+        );
+      } else {
+        previous.count += entry.count;
+        if (entry.time.isAfter(previous.time)) previous.time = entry.time;
+      }
+    }
+    final earlier = history.values.toList()
       ..sort((a, b) => b.time.compareTo(a.time));
+    if (earlier.length > 30) omitted += earlier.length - 30;
     final b = StringBuffer()
       ..writeln('HentaiPark 诊断日志')
       ..writeln('时间：${DateTime.now().toIso8601String()}')
@@ -138,11 +199,24 @@ class CrashLog {
     context.forEach(b.writeln);
     b
       ..writeln()
-      ..writeln('==== 运行事件（新到旧，含此前运行的未捕获错误与系统退出信息）')
+      ..writeln('==== 当前运行（新到旧，重复事件显示最近时间与次数）')
       ..writeAll(
-        ordered.isEmpty ? ['无'] : ordered.expand((entry) => entry.lines(mode)),
+        compactCurrent.isEmpty
+            ? ['无']
+            : compactCurrent.expand((entry) => entry.lines(mode)),
         '\n',
       )
+      ..writeln()
+      ..writeln()
+      ..writeln('==== 历史异常（最近 7 天，最多 30 组，相同异常合并）')
+      ..writeAll(
+        earlier.isEmpty
+            ? ['无']
+            : earlier.take(30).expand((entry) => entry.lines(mode)),
+        '\n',
+      )
+      ..writeln()
+      ..writeln('已过滤或超出保留范围的历史记录：$omitted')
       ..writeln();
     return b.toString();
   }

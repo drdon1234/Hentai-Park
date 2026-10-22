@@ -1532,5 +1532,12 @@
   "可直接更新 {count} 个插件": "{count} plugins can be updated now.",
   "{count} 个插件需要先将本体升级至 {version} 或更高版本": "{count} plugins require updating the app to {version} or later first.",
   "更新 {count} 个插件": "Update {count} plugins",
-  "无法保存提醒设置，请重试": "Could not save reminder settings. Please retry."
+  "无法保存提醒设置，请重试": "Could not save reminder settings. Please retry.",
+  "全文翻译并保存": "Translate and save full text",
+  "随滚动翻译": "Translate as you scroll",
+  "随滚动翻译并保存": "Translate as you scroll and save",
+  "正在翻译阅读位置附近的内容（{done}/{total}）": "Translating near your reading position ({done}/{total})",
+  "下载、录制与翻译": "Downloads, recordings and translation",
+  "显示译文": "Show translation",
+  "翻译或保存失败，已保留原文和已译内容": "Translation or saving failed. Original and translated text retained."
 }

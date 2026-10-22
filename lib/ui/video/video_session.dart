@@ -72,6 +72,9 @@ class VideoSession extends ChangeNotifier {
 
   /// Whether the app is in the foreground; playback pauses while it is not.
   bool foreground = true;
+
+  /// A retained player must stay silent while another route covers its page.
+  bool visible = true;
   bool _wantsPlayback = true;
   bool _completed = false;
   bool _disposed = false;
@@ -135,7 +138,10 @@ class VideoSession extends ChangeNotifier {
     return _playbackUpdates = _playbackUpdates
         .then((_) async {
           if (!_active || c == null || !identical(c, controller)) return;
-          if (foreground && !AppLock.instance.locked && _wantsPlayback) {
+          if (foreground &&
+              visible &&
+              !AppLock.instance.locked &&
+              _wantsPlayback) {
             await c.play();
           } else {
             await c.pause();

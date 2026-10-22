@@ -80,6 +80,7 @@ abstract class _NovelReaderBase extends State<NovelReaderPage> {
   TextDirection _textDirection = TextDirection.ltr;
   CancelToken? _request;
   bool _translateFullText = false;
+  bool _scrollTranslation = false, _persistScrollTranslation = false;
   String? _translationLocale;
   NovelTranslationSession? _translation;
   NovelTranslationDocument? _translationDocument;
@@ -103,6 +104,7 @@ abstract class _NovelReaderBase extends State<NovelReaderPage> {
   void _setAuto(bool value);
   Future<void> _addNote({required bool bookmark});
   void _toggleFullTranslation();
+  void _setTranslationMode({required bool scroll, bool persist = false});
 }
 
 class _NovelReaderPageState extends _NovelReaderBase
@@ -296,6 +298,7 @@ class _NovelReaderPageState extends _NovelReaderBase
     _offset = next;
     _saveTimer?.cancel();
     _saveTimer = Timer(const Duration(milliseconds: 500), _save);
+    _translateVisible();
     if (mounted) setState(() {});
   }
 

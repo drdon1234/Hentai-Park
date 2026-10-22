@@ -356,19 +356,17 @@ class GameResourceCardState extends State<GameResourceCard> {
                   ...resource.languages,
                   if (resource.size.isNotEmpty) resource.size,
                 ])
-                  Chip(label: Text(label)),
-                Chip(
-                  label: Text(
-                    tr(
-                      resource.testStatus == 'tested'
-                          ? '原站标记已测试'
-                          : resource.testStatus == 'untested'
-                          ? '未测试'
-                          : '未提供测试状态',
-                    ),
+                  Tag(label),
+                Tag(
+                  tr(
+                    resource.testStatus == 'tested'
+                        ? '原站标记已测试'
+                        : resource.testStatus == 'untested'
+                        ? '未测试'
+                        : '未提供测试状态',
                   ),
                 ),
-                if (resource.status == 'expired') Chip(label: Text(tr('已失效'))),
+                if (resource.status == 'expired') Tag(tr('已失效')),
               ],
             ),
             if (resource.notes.isNotEmpty)

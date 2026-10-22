@@ -52,13 +52,22 @@ class CryptoBridge {
           base64.decode('${a['base64']}'.trim()),
           utf8.encode('${a['key']}'),
         );
+      case 'aesGcmEncrypt':
       case 'aesGcmDecrypt':
-        Uint8List hex(String name, Set<int>? lengths, {int maximum = 4096}) {
+        Uint8List hex(
+          String name,
+          Set<int>? lengths, {
+          int maximum = 4096,
+          bool allowEmpty = false,
+        }) {
           final value = a[name];
           if (value is! String ||
               value.length > maximum * 2 ||
               value.length.isOdd ||
-              !RegExp(r'^[0-9a-fA-F]+$').hasMatch(value) ||
+              !(allowEmpty
+                      ? RegExp(r'^[0-9a-fA-F]*$')
+                      : RegExp(r'^[0-9a-fA-F]+$'))
+                  .hasMatch(value) ||
               (lengths != null && !lengths.contains(value.length ~/ 2))) {
             throw ArgumentError('AES-GCM 参数无效');
           }
@@ -69,13 +78,21 @@ class CryptoBridge {
         }
         final key = hex('key', {16, 24, 32});
         final iv = hex('iv', {12});
-        final data = hex('ciphertext', null);
-        if (data.length < 16) throw ArgumentError('AES-GCM 密文无效');
+        final encrypt = op == 'aesGcmEncrypt';
+        final data = hex(
+          encrypt ? 'plaintext' : 'ciphertext',
+          null,
+          maximum: encrypt ? 4080 : 4096,
+          allowEmpty: encrypt,
+        );
+        final aad = a['aad'] == null
+            ? Uint8List(0)
+            : hex('aad', null, allowEmpty: true);
+        if (!encrypt && data.length < 16) {
+          throw ArgumentError('AES-GCM 密文无效');
+        }
         final cipher = GCMBlockCipher(AESEngine())
-          ..init(
-            false,
-            AEADParameters(KeyParameter(key), 128, iv, Uint8List(0)),
-          );
+          ..init(encrypt, AEADParameters(KeyParameter(key), 128, iv, aad));
         // 认证标签必须校验成功，不能把未认证的明文传给插件。
         return cipher.process(data).toList();
       case 'uuid':

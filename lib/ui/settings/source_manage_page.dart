@@ -65,6 +65,7 @@ class _SourceManagePageState extends State<SourceManagePage> {
                     loaded: sm.loaded,
                   ),
                   RowGroup(
+                    title: tr('站点设置'),
                     children: [
                       ListTile(
                         leading: const Icon(Icons.swap_vert_rounded),
@@ -76,6 +77,7 @@ class _SourceManagePageState extends State<SourceManagePage> {
                       ),
                       ListTile(
                         leading: const Icon(Icons.restore_rounded),
+                        trailing: const Icon(Icons.chevron_right_rounded),
                         title: SelectionContainer.disabled(
                           child: Text(tr('恢复站点默认顺序')),
                         ),
@@ -95,6 +97,7 @@ class _SourceManagePageState extends State<SourceManagePage> {
                     ],
                   ),
                   RowGroup(
+                    title: tr('检查更新'),
                     children: [
                       SwitchListTile.adaptive(
                         title: SelectionContainer.disabled(
@@ -109,7 +112,7 @@ class _SourceManagePageState extends State<SourceManagePage> {
                       ),
                       Padding(
                         padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-                        child: FilledButton.tonalIcon(
+                        child: OutlinedButton.icon(
                           onPressed: updates.running
                               ? null
                               : () => _update(context, updates),
@@ -132,7 +135,7 @@ class _SourceManagePageState extends State<SourceManagePage> {
                       if (updates.lastResult?.available.isNotEmpty ?? false)
                         Padding(
                           padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-                          child: FilledButton.tonalIcon(
+                          child: OutlinedButton.icon(
                             onPressed: updates.running
                                 ? null
                                 : () => _update(context, updates),
@@ -236,6 +239,8 @@ class _SourceManagePageState extends State<SourceManagePage> {
                             value: s.enabled,
                             onChanged: (v) => sm.setEnabled(s.key, v),
                           ),
+                          if (m != null)
+                            const Icon(Icons.chevron_right_rounded),
                           ReorderableDragStartListener(
                             index: i,
                             child: const Padding(

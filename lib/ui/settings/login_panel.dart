@@ -142,55 +142,53 @@ class _LoginPanelState extends State<LoginPanel> {
   Widget build(BuildContext context) {
     final c = context.colors;
     final hasWeb = a.loginUrl.isNotEmpty;
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            if (a.hint.isNotEmpty)
-              Text(
-                a.hint,
-                style: context.text.bodySmall?.copyWith(
-                  color: c.onSurfaceVariant,
-                  height: 1.45,
+    return Padding(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (a.hint.isNotEmpty)
+            Text(
+              a.hint,
+              style: context.text.bodySmall?.copyWith(
+                color: c.onSurfaceVariant,
+                height: 1.45,
+              ),
+            ),
+          if (hasWeb) ...[
+            if (a.hint.isNotEmpty) const SizedBox(height: Gap.m),
+            SegmentedButton<bool>(
+              showSelectedIcon: false,
+              segments: [
+                ButtonSegment(
+                  value: true,
+                  icon: const Icon(Icons.public_rounded, size: 18),
+                  label: SelectionContainer.disabled(
+                    child: Text(context.tr('网页登录')),
+                  ),
                 ),
-              ),
-            if (hasWeb) ...[
-              const SizedBox(height: 14),
-              SegmentedButton<bool>(
-                showSelectedIcon: false,
-                segments: [
-                  ButtonSegment(
-                    value: true,
-                    icon: const Icon(Icons.public_rounded, size: 18),
-                    label: SelectionContainer.disabled(
-                      child: Text(context.tr('网页登录')),
-                    ),
+                ButtonSegment(
+                  value: false,
+                  icon: Icon(
+                    _cookies ? Icons.cookie_outlined : Icons.password_rounded,
+                    size: 18,
                   ),
-                  ButtonSegment(
-                    value: false,
-                    icon: Icon(
-                      _cookies ? Icons.cookie_outlined : Icons.password_rounded,
-                      size: 18,
-                    ),
-                    label: SelectionContainer.disabled(
-                      child: Text(context.tr(_cookies ? '填写 Cookie' : '账号密码')),
-                    ),
+                  label: SelectionContainer.disabled(
+                    child: Text(context.tr(_cookies ? '填写 Cookie' : '账号密码')),
                   ),
-                ],
-                selected: {_web},
-                onSelectionChanged: (v) => setState(() => _web = v.first),
-              ),
-            ],
-            const SizedBox(height: 14),
-            AnimatedSize(
-              duration: const Duration(milliseconds: 200),
-              alignment: Alignment.topCenter,
-              child: _web && hasWeb ? _webPane(context) : _formPane(context),
+                ),
+              ],
+              selected: {_web},
+              onSelectionChanged: (v) => setState(() => _web = v.first),
             ),
           ],
-        ),
+          const SizedBox(height: Gap.m),
+          AnimatedSize(
+            duration: const Duration(milliseconds: 200),
+            alignment: Alignment.topCenter,
+            child: _web && hasWeb ? _webPane(context) : _formPane(context),
+          ),
+        ],
       ),
     );
   }

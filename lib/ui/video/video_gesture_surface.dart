@@ -27,7 +27,7 @@ class VideoGestureSurface extends StatefulWidget {
   final bool showLevelControls;
   final VoidCallback onTap;
   final VoidCallback? onMouseTap;
-  final ValueChanged<Offset> onDoubleTap;
+  final VoidCallback onDoubleTap;
   final void Function(Offset point, Size viewport) onStart;
   final ValueChanged<Offset> onUpdate;
   final VoidCallback onEnd;
@@ -39,7 +39,6 @@ class VideoGestureSurface extends StatefulWidget {
 
 class _VideoGestureSurfaceState extends State<VideoGestureSurface> {
   Offset _down = Offset.zero;
-  Offset _doubleTap = Offset.zero;
   bool _blocked = false;
   PointerDeviceKind? _tapKind;
 
@@ -93,8 +92,7 @@ class _VideoGestureSurfaceState extends State<VideoGestureSurface> {
           widget.onTap();
         }
       },
-      onDoubleTapDown: (details) => _doubleTap = details.localPosition + origin,
-      onDoubleTap: () => widget.onDoubleTap(_doubleTap),
+      onDoubleTap: widget.onDoubleTap,
       onPanDown: horizontalOnly || verticalOnly ? null : down,
       onPanStart: horizontalOnly || verticalOnly ? null : start,
       onPanUpdate: horizontalOnly || verticalOnly ? null : update,

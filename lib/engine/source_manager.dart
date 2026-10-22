@@ -102,6 +102,7 @@ abstract class _SourceRegistry extends ChangeNotifier {
   final _lastUsed = <String, DateTime>{};
   final _accountCheckedAt = <String, DateTime>{};
   final _accountRefreshes = <String, Future<void>>{};
+  final _accountEpochs = <String, int>{};
   Timer? _trimTimer;
 
   /// Keys whose manifests were loaded, replaced or removed.

@@ -1,6 +1,6 @@
 part of 'video_page.dart';
 
-/// Swipe and double-tap gestures on the player: seek preview, brightness and volume.
+/// Swipe gestures on the player: seek preview, brightness and volume.
 mixin _VideoGestures on State<VideoPage> {
   VideoSession get _session;
   void _scheduleHide();

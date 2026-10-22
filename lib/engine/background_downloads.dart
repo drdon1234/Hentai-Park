@@ -102,7 +102,7 @@ class BackgroundDownloads {
     if (!Platform.isAndroid) return;
     await _channel.invokeMethod<void>('update', {
       'count': count,
-      'title': tr('下载与录制'),
+      'title': tr('下载、录制与翻译'),
       'text': tr('任务进行中，切到后台后继续'),
     });
   }

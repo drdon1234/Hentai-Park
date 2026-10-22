@@ -102,7 +102,7 @@ Park.register({
   "key": "soop_shortvideo",
   "name": "SOOP 短视频",
   "description": "韩国性感舞蹈与比基尼短视频，按原站标签筛选",
-  "version": '0.0.3', minAppVersion: '0.9.2',
+  "version": '0.0.4', minAppVersion: '0.9.2',
   "type": "video",
   "category": "shortvideo",
   "FILE_TYPE": "CATCH"
@@ -157,7 +157,7 @@ Park.register({
     if (!this.matchesFocus(row)) return null;
     const id = String(row.title_no || ''), title = String(row.title || '').trim();
     if (!/^[1-9]\d{0,11}$/.test(id) || !title) return null;
-    if (row.ppv || row.ppv_yn === 'Y' || Number(row.fan_flag) > 0 || Number(row.subs_flag) > 0 || (row.auth && row.auth !== 'OPEN_ALL')) return null;
+    if (Number(row.grade) >= 19 || row.ppv || row.ppv_yn === 'Y' || Number(row.fan_flag) > 0 || Number(row.subs_flag) > 0 || (row.auth && row.auth !== 'OPEN_ALL')) return null;
     const vertical = row.v_thumb || (row.use_vertical_thumbnail ? row.vertical_thumbnail_path : '');
     const cover = this.cover(vertical || row.thumbnail_path || row.thumbnail);
     if (!cover) return null;

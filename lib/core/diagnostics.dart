@@ -89,10 +89,33 @@ class Diagnostics {
     final library = value('library')?.replaceAll(' ', '_');
     final message = value('message');
     final exitStatus = int.tryParse(value('exitStatus') ?? '');
+    final stage = value('stage');
+    final outcome = value('outcome');
     return {
       'event': event != null && _event.hasMatch(event) ? event : 'source',
       if (site != null && _name.hasMatch(site)) 'site': site,
       if (action != null && _name.hasMatch(action)) 'action': action,
+      if (const {
+        'open',
+        'navigation',
+        'page',
+        'credentials',
+        'verify',
+        'complete',
+        'close',
+      }.contains(stage))
+        'stage': stage!,
+      if (const {
+        'started',
+        'ready',
+        'missing',
+        'blocked',
+        'challenge',
+        'success',
+        'failure',
+        'cancelled',
+      }.contains(outcome))
+        'outcome': outcome!,
       if (codes.contains(code)) 'code': code!,
       if (status != null && status >= 100 && status <= 599) 'status': '$status',
       if (reasons.contains(reason)) 'reason': reason!,

@@ -21,6 +21,20 @@ class DiagnosticEntry {
   final List<String> frames;
   int count;
 
+  /// 正常退出与升级不属于故障；未知原因只有非零退出码才保留。
+  bool get actionable =>
+      fields['event'] != 'process_exit' ||
+      (!const {
+            'USER_REQUESTED',
+            'USER_STOPPED',
+            'PACKAGE_UPDATED',
+            'PACKAGE_STATE_CHANGE',
+            'PERMISSION_CHANGE',
+            'EXIT_SELF',
+          }.contains(fields['reason']) &&
+          (!const {'OTHER', 'UNKNOWN'}.contains(fields['reason']) ||
+              int.tryParse(fields['exitStatus'] ?? '0') != 0));
+
   String get identity => jsonEncode({
     'time': time.toIso8601String(),
     // Plugin-only copy keys may be dropped when history is sanitized without

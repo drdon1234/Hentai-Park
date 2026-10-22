@@ -1,9 +1,11 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 
+import '../../core/app_log.dart';
 import '../../core/localization.dart';
 import '../../core/models.dart';
 import '../../engine/browser_fetcher.dart';
@@ -66,6 +68,20 @@ class _WebVerifyPageState extends State<WebVerifyPage> {
   bool _loading = true;
   bool _popupOpen = false;
   bool _browserReady = false;
+  final _loginStages = <String, String>{};
+
+  void _logLogin(String stage, String outcome) {
+    if (widget.confirmation) return;
+    if (_loginStages[stage] == outcome) return;
+    _loginStages[stage] = outcome;
+    AppLog.record({
+      'event': 'login',
+      'site': widget.source,
+      'action': 'web',
+      'stage': stage,
+      'outcome': outcome,
+    });
+  }
 
   bool _sourceAllowed(String? url) {
     if (_sessionClosed || url == null) return false;
@@ -115,7 +131,14 @@ class _WebVerifyPageState extends State<WebVerifyPage> {
       return false;
     }
     final url = action.request.url?.toString();
-    if (url != null && url != 'about:blank' && !_allowed(url)) return false;
+    // Android 的请求地址来自点击元素的 HitTestResult，可能是账号头像，
+    // 并非 window.open 的目标。接收原生窗口，再由导航回调校验真实地址。
+    if (defaultTargetPlatform != TargetPlatform.android &&
+        url != null &&
+        url != 'about:blank' &&
+        !_allowed(url)) {
+      return false;
+    }
     _navigationGeneration++;
     _popupOpen = true;
     unawaited(
@@ -146,6 +169,7 @@ class _WebVerifyPageState extends State<WebVerifyPage> {
   @override
   void initState() {
     super.initState();
+    _logLogin('open', 'started');
     _browserFailed = !_allowed(widget.url);
     if (!_browserFailed) {
       _trackSourceUri(widget.url);
@@ -214,6 +238,7 @@ class _WebVerifyPageState extends State<WebVerifyPage> {
 
   @override
   void dispose() {
+    _logLogin('close', _done ? 'success' : 'cancelled');
     _poll?.cancel();
     _unregisterSession?.call();
     _sessionClosed = true;
@@ -233,6 +258,9 @@ class _WebVerifyPageState extends State<WebVerifyPage> {
     try {
       // 停留在第三方授权页时，不导入 Cookie 或判断源站登录完成。
       final actual = (await c.getUrl())?.toString();
+      if (!_sourceAllowed(actual) && !_loading) {
+        _logLogin('navigation', _allowed(actual) ? 'started' : 'blocked');
+      }
       if (_popupOpen ||
           generation != _navigationGeneration ||
           !_sourceAllowed(actual)) {
@@ -246,6 +274,9 @@ class _WebVerifyPageState extends State<WebVerifyPage> {
           generation != _navigationGeneration ||
           hasChallengeMarkers(html, title: title) ||
           html.length <= 200) {
+        if (hasChallengeMarkers(html, title: title)) {
+          _logLogin('page', 'challenge');
+        }
         return;
       }
       if (widget.confirmation) {
@@ -325,6 +356,11 @@ class _WebVerifyPageState extends State<WebVerifyPage> {
         final hasCredentials =
             m.localStorageKeys.isEmpty ||
             m.localStorageKeys.any((key) => (values[key] ?? '').isNotEmpty);
+        final ready =
+            values.isNotEmpty &&
+            hasCredentials &&
+            m.requiredCookies.every((k) => (values[k] ?? '').isNotEmpty);
+        _logLogin('credentials', ready ? 'ready' : 'missing');
         if (values.isNotEmpty &&
             hasCredentials &&
             m.requiredCookies.every((k) => (values[k] ?? '').isNotEmpty)) {
@@ -344,6 +380,7 @@ class _WebVerifyPageState extends State<WebVerifyPage> {
               return;
             }
             await SourceManager.instance.login(widget.source, values);
+            _logLogin('complete', 'success');
             if (mounted &&
                 !_sessionClosed &&
                 !_loading &&
@@ -352,7 +389,16 @@ class _WebVerifyPageState extends State<WebVerifyPage> {
             } else {
               _done = false;
             }
-          } catch (_) {
+          } catch (error) {
+            _logLogin('verify', 'failure');
+            if (manual) {
+              AppLog.error(
+                error,
+                event: 'login',
+                site: widget.source,
+                action: 'web',
+              );
+            }
             _done = false;
             if (mounted && !_sessionClosed) {
               setState(() => _status = '尚未识别到登录，请确认网页显示账号后点击完成；如有验证提示，请先完成验证');
@@ -369,6 +415,7 @@ class _WebVerifyPageState extends State<WebVerifyPage> {
           identical(c, _c) &&
           generation == _navigationGeneration) {
         setState(() => _browserFailed = true);
+        _logLogin('page', 'failure');
       }
     } finally {
       _checking = false;
@@ -451,6 +498,30 @@ class _WebVerifyPageState extends State<WebVerifyPage> {
                       javaScriptCanOpenWindowsAutomatically: true,
                     ),
                     onWebViewCreated: (c) => _c = c,
+                    onReceivedError: (_, request, error) {
+                      if (request.isForMainFrame != true) return;
+                      _logLogin('page', 'failure');
+                      AppLog.error(
+                        SourceError('NETWORK', '浏览器请求失败'),
+                        event: 'login',
+                        site: widget.source,
+                        action: 'web',
+                      );
+                    },
+                    onReceivedHttpError: (_, request, response) {
+                      if (request.isForMainFrame != true) return;
+                      _logLogin('page', 'failure');
+                      AppLog.error(
+                        SourceError(
+                          'HTTP',
+                          '浏览器请求失败',
+                          status: response.statusCode,
+                        ),
+                        event: 'login',
+                        site: widget.source,
+                        action: 'web',
+                      );
+                    },
                     onCreateWindow: (_, action) => _openWindow(action),
                     onCloseWindow: (_) {
                       if (widget.windowId != null && mounted) {
@@ -482,6 +553,7 @@ class _WebVerifyPageState extends State<WebVerifyPage> {
                         if (action.isForMainFrame &&
                             mounted &&
                             !_sessionClosed) {
+                          _logLogin('navigation', 'blocked');
                           setState(() => _browserFailed = true);
                         }
                         return NavigationActionPolicy.CANCEL;
@@ -500,6 +572,7 @@ class _WebVerifyPageState extends State<WebVerifyPage> {
                       _loading = true;
                       _progress = 0;
                       if (!_allowed(url?.toString())) {
+                        _logLogin('navigation', 'blocked');
                         await controller.stopLoading();
                         if (mounted) setState(() => _browserFailed = true);
                       } else {
@@ -507,6 +580,7 @@ class _WebVerifyPageState extends State<WebVerifyPage> {
                       }
                     },
                     onRenderProcessGone: (c, detail) {
+                      _logLogin('page', 'failure');
                       _c = null;
                       if (mounted) setState(() => _browserFailed = true);
                     },

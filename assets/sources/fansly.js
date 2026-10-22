@@ -99,7 +99,7 @@ Park.register({
       "此视频暂无可用播放地址": "لا يتوفر رابط تشغيل لهذا الفيديو"
     }
   },
-  key: 'fansly', name: 'Fansly', version: '0.0.6', minAppVersion: '0.9.2', type: 'video', category: 'shortvideo',
+  key: 'fansly', name: 'Fansly', version: '0.0.8', minAppVersion: '0.9.2', type: 'video', category: 'shortvideo',
   color: '#00AFF0', description: '匿名可看公开短视频；敏感内容需登录', language: 'en',
   homepage: 'https://fansly.com/explore/foryou', domains: ['fansly.com'],
   network: {mode: 'native', vpnHint: true},
@@ -124,7 +124,9 @@ Park.register({
     let data;
     try { data = r.json(); } catch (_) { throw Park.error('PARSE', 'Fansly 返回的数据无效'); }
     if (data?.success !== true || !data.response || typeof data.response !== 'object') {
-      throw Park.error(Number(data?.error?.code) === 401 ? 'LOGIN_REQUIRED' : 'PARSE', 'Fansly 返回的数据无效');
+      const unauthorized = [401, 403].includes(Number(data?.error?.code));
+      throw Park.error(unauthorized ? 'LOGIN_REQUIRED' : 'PARSE',
+        unauthorized ? '请先登录 Fansly 后查看此内容' : 'Fansly 返回的数据无效');
     }
     return data.response;
   },

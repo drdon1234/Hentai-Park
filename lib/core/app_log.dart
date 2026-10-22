@@ -20,15 +20,24 @@ class AppLog {
     final cleanFrames = Diagnostics.stack(
       StackTrace.fromString(frames.join('\n')),
     );
-    final last = _entries.lastOrNull;
+    final now = DateTime.now();
+    final last = _entries.reversed
+        .where(
+          (entry) =>
+              now.difference(entry.time) <= const Duration(seconds: 30) &&
+              Diagnostics.format(entry.fields) == text &&
+              listEquals(entry.frames, cleanFrames),
+        )
+        .firstOrNull;
     // HLS segments and retries repeat the same failure; count them instead.
     if (last != null &&
         clean['event'] != 'crash' &&
         Diagnostics.format(last.fields) == text &&
-        frames.isEmpty &&
-        last.frames.isEmpty) {
+        listEquals(last.frames, cleanFrames)) {
       last.count++;
-      last.time = DateTime.now();
+      last.time = now;
+      _entries.remove(last);
+      _entries.add(last);
     } else {
       _entries.add(
         DiagnosticEntry(

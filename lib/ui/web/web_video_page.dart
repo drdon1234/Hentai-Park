@@ -21,6 +21,7 @@ import '../../engine/source_manager.dart';
 import '../../library/library.dart';
 import '../video/video_controls.dart';
 import '../video/video_layout.dart';
+import '../widgets/content_translation.dart';
 import '../widgets/error_view.dart';
 import 'web_playback_policy.dart';
 
@@ -353,12 +354,14 @@ class _WebVideoPageState extends State<WebVideoPage>
       appBar: _fullscreen
           ? null
           : AppBar(
-              title: Text(
-                widget.work.title,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
+              title: ContentTranslation(
+                text: widget.work.title,
+                source: widget.work.source,
+                builder: (value) =>
+                    Text(value, maxLines: 1, overflow: TextOverflow.ellipsis),
               ),
               actions: [
+                TranslationControls(source: widget.work.source),
                 IconButton(
                   tooltip: tr('刷新'),
                   icon: const Icon(Icons.refresh_rounded),

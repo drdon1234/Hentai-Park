@@ -6,6 +6,7 @@ import '../../core/models.dart';
 import '../../engine/source_manager.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
+import '../widgets/content_translation.dart';
 import '../widgets/expandable_description.dart';
 import '../widgets/paged_grid.dart';
 import '../widgets/related_works.dart';
@@ -17,8 +18,7 @@ String formatPlaybackTime(Duration d) {
   return h > 0 ? '$h:$mm:$ss' : '$mm:$ss';
 }
 
-/// The control layer over the player: title, quality and speed on top,
-/// time, progress and screen modes in one bottom control group.
+/// 标题、中央播放键与底部时间轴各司其职，窄屏将次要操作收进菜单。
 class VideoControls extends StatelessWidget {
   const VideoControls({
     super.key,
@@ -35,7 +35,10 @@ class VideoControls extends StatelessWidget {
     required this.onFullscreen,
     this.quality,
     this.onQuality,
-    this.episodes,
+    this.onEpisodes,
+    this.onPrevious,
+    this.onNext,
+    this.onInteractionChanged,
     this.progress,
     this.live = false,
     this.recordingAction,
@@ -57,7 +60,10 @@ class VideoControls extends StatelessWidget {
   /// Current quality, shown only when there is more than one to pick from.
   final String? quality;
   final VoidCallback? onQuality;
-  final Widget? episodes;
+  final VoidCallback? onEpisodes;
+  final VoidCallback? onPrevious;
+  final VoidCallback? onNext;
+  final ValueChanged<bool>? onInteractionChanged;
   final Widget? progress;
   final bool live;
   final Widget? recordingAction;
@@ -66,121 +72,263 @@ class VideoControls extends StatelessWidget {
   Widget build(BuildContext context) {
     const fg = Scrims.onScrim;
     final landscape = displayMode == VideoDisplayMode.landscape;
-    return ReaderChrome(
-      visible: true,
-      fade: true,
-      title: title,
-      onBack: onBack,
-      actions: [
-        ?recordingAction,
-        if (quality != null)
-          TextButton(
-            onPressed: onQuality,
-            style: TextButton.styleFrom(foregroundColor: fg),
-            child: SelectionContainer.disabled(child: Text(quality!)),
-          ),
-        if (!live)
-          TextButton(
-            onPressed: onSpeed,
-            style: TextButton.styleFrom(foregroundColor: fg),
-            child: SelectionContainer.disabled(child: Text('${speed}x')),
-          ),
-      ],
-      bottom: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          ?episodes,
-          LayoutBuilder(
-            builder: (context, constraints) {
-              // 窄屏将时间放在轨道上方；播放、拖动和屏幕按钮共用同一操作行。
-              final stacked =
-                  constraints.maxWidth < 600 ||
-                  MediaQuery.textScalerOf(context).scale(1) > 1.3;
-              final time = Text(
-                live
-                    ? tr('直播')
-                    : '${formatPlaybackTime(position)} / ${formatPlaybackTime(value.duration)}',
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: context.text.labelMedium?.copyWith(
-                  color: fg,
-                  fontFeatures: const [FontFeature.tabularFigures()],
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final compact =
+            constraints.maxWidth < 360 ||
+            MediaQuery.textScalerOf(context).scale(1) > 1.3;
+        final showEpisodeControls =
+            fullscreen &&
+            constraints.maxHeight >= 260 &&
+            !live &&
+            (onPrevious != null || onNext != null);
+        Widget action(String label, VoidCallback? callback) => Padding(
+          padding: const EdgeInsetsDirectional.only(start: Gap.xs),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 96),
+            child: Tooltip(
+              message: label,
+              child: OutlinedButton(
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: fg,
+                  side: BorderSide(color: fg.withValues(alpha: .65)),
+                  minimumSize: const Size(48, 32),
+                  padding: const EdgeInsets.symmetric(horizontal: Gap.s),
+                  textStyle: context.text.labelMedium,
                 ),
-              );
-              final row = Row(
-                crossAxisAlignment: stacked
-                    ? CrossAxisAlignment.end
-                    : CrossAxisAlignment.center,
-                children: [
-                  IconButton(
-                    constraints: const BoxConstraints.tightFor(
-                      width: 48,
-                      height: 48,
-                    ),
-                    tooltip: tr(value.isPlaying ? '暂停' : '播放'),
-                    icon: Icon(
-                      value.isPlaying
-                          ? Icons.pause_circle_filled_rounded
-                          : Icons.play_circle_fill_rounded,
-                      color: fg,
-                    ),
-                    onPressed: onPlayPause,
-                  ),
-                  if (progress == null)
-                    Expanded(child: time)
-                  else if (stacked)
-                    Expanded(
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [time, progress!],
-                      ),
-                    )
-                  else ...[
-                    time,
-                    Expanded(child: progress!),
-                  ],
-                  IconButton(
-                    constraints: const BoxConstraints.tightFor(
-                      width: 48,
-                      height: 48,
-                    ),
-                    color: fg,
-                    tooltip: tr(landscape ? '竖屏展开' : '横屏播放'),
-                    icon: Icon(
-                      landscape
-                          ? Icons.stay_current_portrait_rounded
-                          : Icons.screen_rotation_rounded,
-                    ),
-                    onPressed: () => onDisplayMode(
-                      landscape
-                          ? VideoDisplayMode.portrait
-                          : VideoDisplayMode.landscape,
-                    ),
-                  ),
-                  IconButton(
-                    constraints: const BoxConstraints.tightFor(
-                      width: 48,
-                      height: 48,
-                    ),
-                    color: fg,
-                    tooltip: tr(fullscreen ? '退出全屏' : '竖屏展开'),
-                    icon: Icon(
-                      fullscreen
-                          ? Icons.fullscreen_exit_rounded
-                          : Icons.fullscreen_rounded,
-                    ),
-                    onPressed: onFullscreen,
-                  ),
-                ],
-              );
-              return row;
-            },
+                onPressed: callback,
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ),
           ),
-        ],
-      ),
-      child: const SizedBox.expand(),
+        );
+        return SelectionContainer.disabled(
+          child: Material(
+            type: MaterialType.transparency,
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                Center(
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (showEpisodeControls)
+                        IconButton(
+                          color: fg,
+                          disabledColor: fg.withValues(alpha: .38),
+                          tooltip: tr('上一集'),
+                          onPressed: onPrevious,
+                          icon: const Icon(Icons.skip_previous_rounded),
+                        ),
+                      if (showEpisodeControls) const SizedBox(width: Gap.xl),
+                      IconButton.filled(
+                        style: IconButton.styleFrom(
+                          backgroundColor: Scrims.medium,
+                          foregroundColor: fg,
+                          minimumSize: const Size(56, 56),
+                          iconSize: 32,
+                        ),
+                        tooltip: tr(value.isPlaying ? '暂停' : '播放'),
+                        onPressed: onPlayPause,
+                        icon: Icon(
+                          !live && value.isCompleted
+                              ? Icons.replay_rounded
+                              : value.isPlaying
+                              ? Icons.pause_rounded
+                              : Icons.play_arrow_rounded,
+                        ),
+                      ),
+                      if (showEpisodeControls) const SizedBox(width: Gap.xl),
+                      if (showEpisodeControls)
+                        IconButton(
+                          color: fg,
+                          disabledColor: fg.withValues(alpha: .38),
+                          tooltip: tr('下一集'),
+                          onPressed: onNext,
+                          icon: const Icon(Icons.skip_next_rounded),
+                        ),
+                    ],
+                  ),
+                ),
+                Positioned(
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  child: _VideoScrim(
+                    top: true,
+                    child: SafeArea(
+                      bottom: false,
+                      child: Row(
+                        children: [
+                          BackButton(color: fg, onPressed: onBack),
+                          Expanded(
+                            child: Text(
+                              title,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: context.text.titleSmall?.copyWith(
+                                color: fg,
+                              ),
+                            ),
+                          ),
+                          ?recordingAction,
+                          const SizedBox(width: Gap.s),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+                Positioned(
+                  bottom: 0,
+                  left: 0,
+                  right: 0,
+                  child: _VideoScrim(
+                    top: false,
+                    child: SafeArea(
+                      top: false,
+                      child: SizedBox(
+                        height: progress == null ? 48 : 78,
+                        child: Stack(
+                          children: [
+                            if (progress != null)
+                              Positioned(
+                                left: 0,
+                                right: 0,
+                                bottom: 30,
+                                height: 48,
+                                child: progress!,
+                              ),
+                            Positioned(
+                              left: Gap.m,
+                              right: Gap.xs,
+                              bottom: 0,
+                              height: 48,
+                              child: Row(
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      live
+                                          ? tr('直播')
+                                          : '${formatPlaybackTime(position)} / ${formatPlaybackTime(value.duration)}',
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: context.text.labelMedium?.copyWith(
+                                        color: fg,
+                                        fontFeatures: const [
+                                          FontFeature.tabularFigures(),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                  if (!compact &&
+                                      quality != null &&
+                                      onQuality != null)
+                                    action(quality!, onQuality),
+                                  if (!compact && !live)
+                                    action('${speed}x', onSpeed),
+                                  PopupMenuButton<String>(
+                                    tooltip: tr('更多'),
+                                    icon: const Icon(
+                                      Icons.more_horiz_rounded,
+                                      color: fg,
+                                    ),
+                                    onOpened: () =>
+                                        onInteractionChanged?.call(true),
+                                    onCanceled: () =>
+                                        onInteractionChanged?.call(false),
+                                    onSelected: (choice) {
+                                      onInteractionChanged?.call(false);
+                                      switch (choice) {
+                                        case 'speed':
+                                          onSpeed();
+                                        case 'quality':
+                                          onQuality?.call();
+                                        case 'episodes':
+                                          onEpisodes?.call();
+                                        case 'orientation':
+                                          onDisplayMode(
+                                            landscape
+                                                ? VideoDisplayMode.portrait
+                                                : VideoDisplayMode.landscape,
+                                          );
+                                      }
+                                    },
+                                    itemBuilder: (context) => [
+                                      if (compact && !live)
+                                        PopupMenuItem(
+                                          value: 'speed',
+                                          child: Text(
+                                            '${tr('播放速度')} · ${speed}x',
+                                          ),
+                                        ),
+                                      if (compact &&
+                                          quality != null &&
+                                          onQuality != null)
+                                        PopupMenuItem(
+                                          value: 'quality',
+                                          child: Text(quality!),
+                                        ),
+                                      if (onEpisodes != null)
+                                        PopupMenuItem(
+                                          value: 'episodes',
+                                          child: Text(tr('选集')),
+                                        ),
+                                      PopupMenuItem(
+                                        value: 'orientation',
+                                        child: Text(
+                                          tr(landscape ? '竖屏展开' : '横屏播放'),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  IconButton(
+                                    color: fg,
+                                    tooltip: tr(fullscreen ? '退出全屏' : '全屏'),
+                                    icon: Icon(
+                                      fullscreen
+                                          ? Icons.fullscreen_exit_rounded
+                                          : Icons.fullscreen_rounded,
+                                    ),
+                                    onPressed: onFullscreen,
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
+}
+
+class _VideoScrim extends StatelessWidget {
+  const _VideoScrim({required this.top, required this.child});
+  final bool top;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) => DecoratedBox(
+    decoration: BoxDecoration(
+      gradient: LinearGradient(
+        begin: top ? Alignment.topCenter : Alignment.bottomCenter,
+        end: top ? Alignment.bottomCenter : Alignment.topCenter,
+        colors: [Scrims.strong, Colors.transparent],
+      ),
+    ),
+    child: child,
+  );
 }
 
 /// Previous / current / next episode, and the episode list.
@@ -301,16 +449,24 @@ class VideoDetails extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  SelectableText(
-                    d.title,
-                    style: ParkText.serif(context.text.titleMedium),
+                  ContentTranslation(
+                    text: d.title,
+                    source: d.source,
+                    builder: (value) => SelectableText(
+                      value,
+                      style: ParkText.serif(context.text.titleMedium),
+                    ),
                   ),
                   if (meta.isNotEmpty) ...[
                     const SizedBox(height: Gap.xs),
-                    Text(
-                      meta.join(' · '),
-                      style: context.text.bodySmall?.copyWith(
-                        color: context.colors.onSurfaceVariant,
+                    ContentTranslation(
+                      text: meta.join(' · '),
+                      source: d.source,
+                      builder: (value) => Text(
+                        value,
+                        style: context.text.bodySmall?.copyWith(
+                          color: context.colors.onSurfaceVariant,
+                        ),
                       ),
                     ),
                   ],

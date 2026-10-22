@@ -1,4 +1,4 @@
-# 生产代码使用 Flutter 官方检查规则；测试文件只保存在本地 test/。
+# 生产代码使用 Flutter 官方检查规则；测试文件只保存在本地忽略目录。
 include: package:flutter_lints/flutter.yaml
 
 analyzer:

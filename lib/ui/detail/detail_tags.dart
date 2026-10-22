@@ -130,7 +130,7 @@ class TagSection extends StatelessWidget {
               ),
             ),
             Expanded(
-              child: Wrap(spacing: Gap.s, runSpacing: Gap.s, children: chips),
+              child: Wrap(spacing: Gap.s, children: chips),
             ),
           ],
         ),
@@ -242,51 +242,28 @@ class _TagChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
-    return Material(
-      color: Colors.transparent,
-      shape: RoundedRectangleBorder(
-        borderRadius: Radii.small,
-        side: BorderSide(color: c.outline),
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: ActionInkWell(
-        onTap: onTap,
-        onLongPress: () => _menu(context),
-        child: SelectionContainer.disabled(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(minHeight: 48),
-            child: Center(
-              widthFactor: 1,
-              heightFactor: 1,
-              child: Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: Gap.m,
-                  vertical: Gap.s,
-                ),
-                child: ContentTranslation(
-                  text: label,
-                  source: source,
-                  namespace: namespace,
-                  tag: true,
-                  builder: (value) => Text.rich(
-                    TextSpan(
-                      children: [
-                        TextSpan(text: value),
-                        if (count != null)
-                          TextSpan(
-                            text: '  ${formatCount(count)}',
-                            style: context.text.labelSmall?.copyWith(
-                              color: c.onSurfaceVariant,
-                            ),
-                          ),
-                      ],
-                    ),
-                    style: context.text.labelLarge,
+    return ActionTag(
+      onTap: onTap,
+      onLongPress: () => _menu(context),
+      child: ContentTranslation(
+        text: label,
+        source: source,
+        namespace: namespace,
+        tag: true,
+        builder: (value) => Text.rich(
+          TextSpan(
+            children: [
+              TextSpan(text: value),
+              if (count != null)
+                TextSpan(
+                  text: '  ${formatCount(count)}',
+                  style: context.text.labelSmall?.copyWith(
+                    color: c.onSurfaceVariant,
                   ),
                 ),
-              ),
-            ),
+            ],
           ),
+          style: context.text.labelMedium,
         ),
       ),
     );

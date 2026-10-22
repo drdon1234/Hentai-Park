@@ -63,7 +63,7 @@ class SourceDisplayOrderControls extends StatelessWidget {
                   spacing: Gap.s,
                   runSpacing: Gap.s,
                   children: [
-                    FilledButton.tonalIcon(
+                    OutlinedButton.icon(
                       onPressed: loaded && !sorter.running
                           ? sorter.checkNow
                           : null,

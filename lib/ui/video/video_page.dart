@@ -15,6 +15,7 @@ import '../../engine/platform_bridge.dart';
 import '../../engine/source_manager.dart';
 import '../kit/adaptive_sheet.dart';
 import '../kit/components.dart';
+import '../nav.dart';
 import '../theme.dart';
 import '../web/web_video_page.dart';
 import '../widgets/content_translation.dart';
@@ -23,6 +24,7 @@ import 'video_controls.dart';
 import 'video_episode_sheet.dart';
 import 'video_gestures.dart';
 import 'video_layout.dart';
+import 'video_player_input.dart';
 import 'video_session.dart';
 import 'video_stage.dart';
 
@@ -53,7 +55,7 @@ class VideoPage extends StatefulWidget {
 }
 
 class _VideoPageState extends State<VideoPage>
-    with WidgetsBindingObserver, _VideoGestures {
+    with WidgetsBindingObserver, RouteAware, _VideoGestures {
   @override
   late final VideoSession _session = VideoSession(
     work: widget.work,
@@ -70,6 +72,8 @@ class _VideoPageState extends State<VideoPage>
   Future<void> _screenUpdates = Future.value();
   final _detailsRequest = CancelToken();
   bool _webFallbackScheduled = false;
+  double _unmutedVolume = 1;
+  ModalRoute<dynamic>? _route;
 
   List<Chapter> get _episodes => _session.episodes;
   int get _episodeIndex => _session.episodeIndex;
@@ -114,7 +118,43 @@ class _VideoPageState extends State<VideoPage>
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final route = ModalRoute.of(context);
+    if (identical(route, _route)) return;
+    Nav.routeObserver.unsubscribe(this);
+    _route = route;
+    _session.visible = route?.isCurrent ?? true;
+    if (route != null) Nav.routeObserver.subscribe(this, route);
+    unawaited(_session.syncPlayback());
+  }
+
+  @override
+  void didPushNext() => _setRouteVisible(false);
+
+  @override
+  void didPopNext() => _setRouteVisible(true);
+
+  @override
+  void didPop() => _setRouteVisible(false);
+
+  void _setRouteVisible(bool visible) {
+    _session.visible = visible;
+    if (visible) {
+      unawaited(_readLevels());
+      unawaited(_updateScreen(_displayMode));
+      _scheduleHide();
+    } else {
+      _session.savePosition();
+      _cancelGesture();
+      _hide?.cancel();
+    }
+    unawaited(_session.syncPlayback());
+  }
+
+  @override
   void dispose() {
+    Nav.routeObserver.unsubscribe(this);
     _detailsRequest.cancel('video page closed');
     _episodePages.dispose();
     _hide?.cancel();
@@ -222,8 +262,53 @@ class _VideoPageState extends State<VideoPage>
     _scheduleHide();
   }
 
+  void _togglePlayback() {
+    _session.togglePlayback();
+    _showControls();
+  }
+
+  void _changeVolume(double delta) {
+    final controller = _session.controller;
+    if (controller == null || !controller.value.isInitialized) return;
+    final volume = _nativeLevels ? _volume : controller.value.volume;
+    _setVolume((volume + delta).clamp(0.0, 1.0));
+  }
+
+  void _toggleMute() {
+    final controller = _session.controller;
+    if (controller == null || !controller.value.isInitialized) return;
+    final volume = _nativeLevels ? _volume : controller.value.volume;
+    if (volume > 0) {
+      _unmutedVolume = volume;
+      _setVolume(0);
+    } else {
+      _setVolume(_unmutedVolume);
+    }
+  }
+
+  void _setVolume(double volume) {
+    setState(() {
+      _volume = volume;
+      _seekHint = tr('音量 {percent}%', {'percent': (volume * 100).round()});
+    });
+    if (_nativeLevels) {
+      PlatformBridge.setVideoVolume(volume);
+    } else {
+      _session.controller?.setVolume(volume);
+    }
+    _hintTimer?.cancel();
+    _hintTimer = Timer(const Duration(milliseconds: 700), () {
+      if (mounted) setState(() => _seekHint = null);
+    });
+    _showControls();
+  }
+
   Future<void> _toggleFullscreen() => _setDisplayMode(
-    _fullscreen ? VideoDisplayMode.inline : VideoDisplayMode.portrait,
+    _fullscreen
+        ? VideoDisplayMode.inline
+        : (_session.controller?.value.aspectRatio ?? 16 / 9) >= 1
+        ? VideoDisplayMode.landscape
+        : VideoDisplayMode.portrait,
   );
 
   Future<void> _setDisplayMode(VideoDisplayMode mode) async {
@@ -239,6 +324,7 @@ class _VideoPageState extends State<VideoPage>
   Future<void> _updateScreen(VideoDisplayMode mode) {
     return _screenUpdates = _screenUpdates
         .then((_) async {
+          if (mounted && !_session.visible) return;
           if (!mounted && mode != VideoDisplayMode.inline) return;
           await SystemChrome.setPreferredOrientations(videoOrientations(mode));
           await PlatformBridge.applyVideoFullscreen(
@@ -286,6 +372,7 @@ class _VideoPageState extends State<VideoPage>
   }
 
   Future<void> _pickSpeed() async {
+    _hide?.cancel();
     final picked = await showChoiceSheet<double>(
       context,
       title: tr('播放速度'),
@@ -294,6 +381,7 @@ class _VideoPageState extends State<VideoPage>
       label: (s) => '${s}x',
     );
     if (mounted && picked != null) await _session.setSpeed(picked);
+    if (mounted) _scheduleHide();
   }
 
   Widget _episodeBar({bool overlay = false}) => VideoEpisodeBar(
@@ -327,68 +415,67 @@ class _VideoPageState extends State<VideoPage>
         quality: _session.sources.length > 1 ? _session.current?.label : null,
         onQuality: _switchQuality,
         onSpeed: _pickSpeed,
-        episodes: _fullscreen && _episodes.length > 1
-            ? _episodeBar(overlay: true)
+        onEpisodes: _episodes.length > 1 ? _pickEpisode : null,
+        onPrevious: _episodeIndex > 0
+            ? () => _session.selectEpisode(_episodes[_episodeIndex - 1])
             : null,
+        onNext: _episodeIndex < _episodes.length - 1
+            ? () => _session.selectEpisode(_episodes[_episodeIndex + 1])
+            : null,
+        onInteractionChanged: (active) {
+          if (active) {
+            _hide?.cancel();
+          } else {
+            _scheduleHide();
+          }
+        },
         onBack: () =>
             _fullscreen ? _toggleFullscreen() : Navigator.maybePop(context),
-        onPlayPause: () {
-          _session.togglePlayback();
-          _scheduleHide();
-        },
+        onPlayPause: _togglePlayback,
         onDisplayMode: _setDisplayMode,
         onFullscreen: _toggleFullscreen,
       );
 
   @override
   Widget build(BuildContext context) {
-    final player = CallbackShortcuts(
-      bindings: {
-        const SingleActivator(LogicalKeyboardKey.space): () {
-          _session.togglePlayback();
-          _scheduleHide();
-        },
-        const SingleActivator(LogicalKeyboardKey.arrowLeft): () => _seekBy(-10),
-        const SingleActivator(LogicalKeyboardKey.arrowRight): () => _seekBy(10),
-        const SingleActivator(LogicalKeyboardKey.keyF): _toggleFullscreen,
-        const SingleActivator(LogicalKeyboardKey.escape): () {
-          if (_fullscreen) _toggleFullscreen();
-        },
+    final player = VideoPlayerInput(
+      onPlayPause: _togglePlayback,
+      onSeek: _seekBy,
+      onVolume: _changeVolume,
+      onMute: _toggleMute,
+      onFullscreen: _toggleFullscreen,
+      onExitFullscreen: () {
+        if (_fullscreen) _toggleFullscreen();
       },
-      child: Focus(
-        autofocus: true,
-        child: MouseRegion(
-          onHover: (_) => _showControls(),
-          child: VideoStage(
-            session: _session,
-            fullscreen: _fullscreen,
-            controlsVisible: _controls,
-            controls: _controlsLayer,
-            episodePages: _episodePages,
-            previewPosition: _previewPosition,
-            hint: _seekHint,
-            dim: !_nativeLevels && _brightness < 1
-                ? (1 - _brightness) * 0.8
-                : 0,
-            onTap: _toggleControls,
-            onMouseTap: _showControls,
-            onDoubleTap: _seekBy,
-            onGestureStart: _startGesture,
-            onGestureUpdate: _updateGesture,
-            onGestureEnd: _endGesture,
-            onGestureCancel: _cancelGesture,
-            onShowControls: () {
-              _hide?.cancel();
-              setState(() => _controls = true);
-            },
-            onInteract: () => _hide?.cancel(),
-            onIdle: _scheduleHide,
-            onEpisodePage: (index) {
-              if (_episodes[index] != _session.episode) {
-                _session.selectEpisode(_episodes[index]);
-              }
-            },
-          ),
+      child: MouseRegion(
+        onHover: (_) => _showControls(),
+        child: VideoStage(
+          session: _session,
+          fullscreen: _fullscreen,
+          controlsVisible: _controls,
+          controls: _controlsLayer,
+          episodePages: _episodePages,
+          previewPosition: _previewPosition,
+          hint: _seekHint,
+          dim: !_nativeLevels && _brightness < 1 ? (1 - _brightness) * 0.8 : 0,
+          onTap: _toggleControls,
+          onMouseTap: _showControls,
+          onDoubleTap: _togglePlayback,
+          onGestureStart: _startGesture,
+          onGestureUpdate: _updateGesture,
+          onGestureEnd: _endGesture,
+          onGestureCancel: _cancelGesture,
+          onShowControls: () {
+            _hide?.cancel();
+            setState(() => _controls = true);
+          },
+          onInteract: () => _hide?.cancel(),
+          onIdle: _scheduleHide,
+          onEpisodePage: (index) {
+            if (_episodes[index] != _session.episode) {
+              _session.selectEpisode(_episodes[index]);
+            }
+          },
         ),
       ),
     );
@@ -409,6 +496,7 @@ class _VideoPageState extends State<VideoPage>
       appBar: AppBar(
         title: Text(tr('播放')),
         actions: [
+          TranslationControls(source: widget.work.source),
           if (_session.isLive) LiveRecordingButton(item: widget.work.toItem()),
         ],
       ),

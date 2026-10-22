@@ -49,7 +49,7 @@ Park.register({
 
 ### Probarlo en Node
 
-Instala las dependencias del runner compartido en la raíz del repositorio y crea un `test/source-smoke.mjs` ignorado como este. El ejemplo solo carga el manifest; cuando cambies un plugin, verifica también con solicitudes reales la primera y la segunda página, la búsqueda, los detalles, la decodificación de portadas y los capítulos o los medios de vídeo.
+Use a temporary ignored local validation script; verify the relevant source flows with real requests.
 
 ```js
 import { loadSource } from '../tools/source-runner/host.mjs';
@@ -59,7 +59,7 @@ console.log(manifest.key, manifest.version);
 
 ```powershell
 npm ci --prefix 'tools/source-runner'
-node 'test/source-smoke.mjs'
+node <local-validation-script>
 ```
 
 ## Campos del manifest
@@ -602,5 +602,5 @@ return { url: "https://player.example.com/watch/1", navigationDomains: ["player.
 Los scripts se mantienen en la rama principal. Las ramas `sources`, `rankings` y `reverse-search` distribuyen complementos generales, solo de clasificaciones y solo de búsqueda inversa, respectivamente. Cada una contiene un índice con URL de commits inmutables y SHA-256. La app consulta los tres canales por separado, rechaza canales incorrectos y claves duplicadas, y pide confirmación antes de actualizar. Las traducciones de etiquetas se distribuyen por `tag-translations`.
 
 ```powershell
-node tools/publish_sources.mjs --commit '<SHA>' --channel rankings --output 'test/official-ranking-index.json'
+node tools/publish_sources.mjs --commit '<SHA>' --channel rankings --output '<本地输出文件>'
 ```

@@ -1,9 +1,13 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:math' as math;
 
+import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
 
 import '../core/content_translation.dart';
+import '../core/storage.dart';
+import '../engine/background_downloads.dart';
 import 'text_layout.dart';
 
 typedef _TranslationSpan = ({
@@ -19,7 +23,7 @@ class NovelTranslationDocument {
     final output = StringBuffer();
     for (final chunk in chunks) {
       final start = output.length;
-      output.write(chunk.result!);
+      output.write(chunk.result ?? original.substring(chunk.start, chunk.end));
       _spans.add((
         originalStart: chunk.start,
         originalEnd: chunk.end,
@@ -97,18 +101,110 @@ class NovelTranslationSession extends ChangeNotifier {
   int completed = 0;
   late final int total = _chunks.where((chunk) => chunk.translate).length;
   NovelTranslationDocument? document;
+  bool get complete => completed == total;
+  bool persist = false;
+  int? _requestedOffset;
+  bool _full = false;
+  Future<void>? _restoring;
+  int _savedCompleted = -1;
 
-  Future<void> start() async {
-    if (_disposed || busy || document != null) return;
+  String get _cacheName =>
+      'novel_translation_${sha256.convert(utf8.encode(jsonEncode([original, locale, engine])))}.json';
+
+  Future<void> restore() => _restoring ??= _restore().whenComplete(() {
+    _restoring = null;
+  });
+
+  Future<void> _restore() async {
+    if (!persist || completed != 0) return;
+    try {
+      final saved = jsonDecode(
+        await AppPaths.dataFile(_cacheName).readAsString(),
+      );
+      if (_disposed ||
+          completed != 0 ||
+          busy ||
+          saved is! List ||
+          saved.length != _chunks.length) {
+        return;
+      }
+      for (var i = 0; i < _chunks.length; i++) {
+        if (_chunks[i].translate && saved[i] is String) {
+          _chunks[i].result = saved[i] as String;
+          completed++;
+        }
+      }
+      if (completed > 0) {
+        document = NovelTranslationDocument._(original, _chunks);
+      }
+      _savedCompleted = completed;
+    } catch (_) {
+      // 没有已保存的译文时保留原文，继续在线翻译。
+    }
+  }
+
+  Future<void> _save() async {
+    if (!persist || _savedCompleted == completed) return;
+    final saving = completed;
+    await writeFileAtomic(
+      AppPaths.dataFile(_cacheName),
+      utf8.encode(jsonEncode(_chunks.map((c) => c.result).toList())),
+    );
+    _savedCompleted = saving;
+  }
+
+  Future<void> start({int? nearOffset}) async {
+    _full = nearOffset == null;
+    if (nearOffset != null) {
+      _requestedOffset = nearOffset;
+    }
+    if (_disposed || busy) return;
+    if (complete) {
+      document ??= NovelTranslationDocument._(original, _chunks);
+      try {
+        await _save();
+        failed = false;
+      } catch (_) {
+        failed = true;
+      }
+      if (!_disposed) notifyListeners();
+      return;
+    }
     final generation = ++_generation;
     bool active() => !_disposed && generation == _generation;
     busy = true;
     failed = false;
     notifyListeners();
+    DownloadLease? lease;
     try {
-      for (final chunk in _chunks) {
+      if (_full) lease = await BackgroundDownloads.instance.acquire();
+      while (active()) {
+        if (_full && lease == null) {
+          lease = await BackgroundDownloads.instance.acquire();
+        }
+        lease?.check();
+        final offset = _requestedOffset ?? 0;
+        final pending = _chunks
+            .where(
+              (chunk) =>
+                  chunk.result == null &&
+                  (_full ||
+                      (chunk.end > offset - 800 &&
+                          chunk.start < offset + 2400)),
+            )
+            .toList();
+        if (pending.isEmpty) {
+          if (completed > 0) await _save();
+          break;
+        }
+        if (!_full) {
+          pending.sort(
+            (a, b) =>
+                (a.start - offset).abs().compareTo((b.start - offset).abs()),
+          );
+        }
+        final chunk = pending.first;
         if (!active()) return;
-        if (chunk.result != null) continue;
         await _waitForCapacity(active);
         if (!active()) return;
         final result = await _queue.request(
@@ -124,10 +220,14 @@ class NovelTranslationSession extends ChangeNotifier {
         }
         chunk.result = result;
         completed++;
-        notifyListeners();
+        document = NovelTranslationDocument._(original, _chunks);
+        await _save();
+        if (active()) notifyListeners();
       }
-      if (active()) document = NovelTranslationDocument._(original, _chunks);
+    } catch (_) {
+      if (active()) failed = true;
     } finally {
+      await lease?.release();
       if (active()) {
         busy = false;
         notifyListeners();

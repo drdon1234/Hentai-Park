@@ -96,7 +96,19 @@ class _SourceSettingsPageState extends State<SourceSettingsPage> {
         final managed = s.origin == 'builtin' || s.origin == 'official';
         final canRestore = managed && sm.isBuiltin(s.key);
         return Theme(
-          data: Theme.of(context),
+          data: Theme.of(context).copyWith(
+            listTileTheme: ListTileThemeData(
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: Gap.page,
+                vertical: Gap.xs,
+              ),
+              titleTextStyle: context.text.bodyLarge,
+              subtitleTextStyle: context.text.bodySmall?.copyWith(
+                color: context.colors.onSurfaceVariant,
+              ),
+              iconColor: context.colors.onSurfaceVariant,
+            ),
+          ),
           child: Builder(
             builder: (context) {
               return Scaffold(
@@ -130,24 +142,38 @@ class _SourceSettingsPageState extends State<SourceSettingsPage> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(m.description, style: context.text.bodyLarge),
-                            const SizedBox(height: Gap.s),
-                            Text(
-                              'v${m.version} · ${context.tr(s.origin == 'official'
-                                  ? '官方'
-                                  : s.origin == 'builtin'
-                                  ? '内置站点'
-                                  : '第三方站点')}',
-                              style: context.text.bodySmall?.copyWith(
-                                color: context.colors.onSurfaceVariant,
+                            if (m.description.isNotEmpty) ...[
+                              Text(
+                                m.description,
+                                style: context.text.bodyMedium,
                               ),
+                              const SizedBox(height: Gap.m),
+                            ],
+                            Wrap(
+                              spacing: Gap.s,
+                              runSpacing: Gap.xs,
+                              children: [
+                                Tag('v${m.version}'),
+                                Tag(
+                                  context.tr(
+                                    s.origin == 'official'
+                                        ? '官方'
+                                        : s.origin == 'builtin'
+                                        ? '内置站点'
+                                        : '第三方站点',
+                                  ),
+                                ),
+                              ],
                             ),
                           ],
                         ),
                       ),
                       if (m.account != null) ...[
                         _header(context, context.tr('账号')),
-                        _account(context, s, m.account!),
+                        Padding(
+                          padding: const EdgeInsets.only(top: Gap.s),
+                          child: _account(context, s, m.account!),
+                        ),
                       ],
                       if (m.settings.isNotEmpty) ...[
                         _header(context, context.tr('站点设置')),
@@ -176,6 +202,7 @@ class _SourceSettingsPageState extends State<SourceSettingsPage> {
                         children: [
                           ListTile(
                             leading: const Icon(Icons.verified_user_outlined),
+                            trailing: const Icon(Icons.chevron_right_rounded),
                             title: SelectionContainer.disabled(
                               child: Text(context.tr('后台自动处理站点验证')),
                             ),
@@ -208,6 +235,9 @@ class _SourceSettingsPageState extends State<SourceSettingsPage> {
                             if (canRestore)
                               ListTile(
                                 leading: const Icon(Icons.restore_rounded),
+                                trailing: const Icon(
+                                  Icons.chevron_right_rounded,
+                                ),
                                 title: SelectionContainer.disabled(
                                   child: Text(context.tr('恢复内置版本')),
                                 ),
@@ -224,6 +254,9 @@ class _SourceSettingsPageState extends State<SourceSettingsPage> {
                               ListTile(
                                 leading: const Icon(
                                   Icons.system_update_alt_rounded,
+                                ),
+                                trailing: const Icon(
+                                  Icons.chevron_right_rounded,
                                 ),
                                 title: SelectionContainer.disabled(
                                   child: Text(context.tr('从原地址更新')),
@@ -242,6 +275,10 @@ class _SourceSettingsPageState extends State<SourceSettingsPage> {
                               ListTile(
                                 leading: Icon(
                                   Icons.delete_outline_rounded,
+                                  color: context.colors.error,
+                                ),
+                                trailing: Icon(
+                                  Icons.chevron_right_rounded,
                                   color: context.colors.error,
                                 ),
                                 title: SelectionContainer.disabled(
@@ -419,17 +456,11 @@ class _SourceSettingsPageState extends State<SourceSettingsPage> {
                     : sm.setSetting(m.key, o.key, v),
         );
       case 'select':
-        return ListTile(
-          title: SelectionContainer.disabled(child: Text(o.label)),
-          subtitle: SelectionContainer.disabled(
-            child: Text(
-              o.description.isEmpty
-                  ? o.labelOf(value)
-                  : '${o.labelOf(value)}\n${o.description}',
-            ),
-          ),
-          isThreeLine: o.description.isNotEmpty,
-          trailing: const Icon(Icons.unfold_more_rounded),
+        return _settingField(
+          context,
+          o,
+          o.labelOf(value),
+          icon: Icons.unfold_more_rounded,
           onTap: () async {
             final picked = await showAdaptiveSheet<Choice>(
               context: context,
@@ -469,25 +500,28 @@ class _SourceSettingsPageState extends State<SourceSettingsPage> {
           },
         );
       default:
-        return ListTile(
-          title: SelectionContainer.disabled(child: Text(o.label)),
-          subtitle: SelectionContainer.disabled(
-            child: Text(
-              '${value ?? ''}'.isEmpty
-                  ? context.tr('未设置')
-                  : (o.type == 'password' ? '••••••' : '$value'),
-            ),
-          ),
+        return _settingField(
+          context,
+          o,
+          '${value ?? ''}'.isEmpty
+              ? context.tr('未设置')
+              : (o.type == 'password' ? '••••••' : '$value'),
+          icon: Icons.edit_outlined,
           onTap: () async {
-            final c = TextEditingController(text: '${value ?? ''}');
+            var edited = '${value ?? ''}';
             final v = await showDialog<String>(
               context: context,
               builder: (ctx) => AlertDialog(
                 title: Text(o.label),
-                content: TextField(
-                  controller: c,
+                content: TextFormField(
+                  initialValue: edited,
+                  onChanged: (text) => edited = text,
                   obscureText: o.type == 'password',
                   autofocus: true,
+                  decoration: InputDecoration(
+                    helperText: o.description.isEmpty ? null : o.description,
+                    helperMaxLines: 4,
+                  ),
                 ),
                 actions: [
                   TextButton(
@@ -497,7 +531,7 @@ class _SourceSettingsPageState extends State<SourceSettingsPage> {
                     ),
                   ),
                   FilledButton(
-                    onPressed: () => Navigator.pop(ctx, c.text),
+                    onPressed: () => Navigator.pop(ctx, edited),
                     child: SelectionContainer.disabled(
                       child: Text(context.tr('保存')),
                     ),
@@ -510,6 +544,51 @@ class _SourceSettingsPageState extends State<SourceSettingsPage> {
         );
     }
   }
+
+  Widget _settingField(
+    BuildContext context,
+    OptionDef option,
+    String value, {
+    required IconData icon,
+    required VoidCallback onTap,
+  }) => Padding(
+    padding: const EdgeInsets.symmetric(horizontal: Gap.page, vertical: Gap.m),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(option.label, style: context.text.bodyLarge),
+        if (option.description.isNotEmpty) ...[
+          const SizedBox(height: Gap.xs),
+          Text(
+            option.description,
+            style: context.text.bodySmall?.copyWith(
+              color: context.colors.onSurfaceVariant,
+            ),
+          ),
+        ],
+        const SizedBox(height: Gap.s),
+        OutlinedButton(
+          onPressed: onTap,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: Gap.s),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    value,
+                    textAlign: TextAlign.start,
+                    style: context.text.bodyMedium,
+                  ),
+                ),
+                const SizedBox(width: Gap.m),
+                Icon(icon, size: 20),
+              ],
+            ),
+          ),
+        ),
+      ],
+    ),
+  );
 }
 
 Future<bool?> confirmManagedAccount(BuildContext context) => showDialog<bool>(

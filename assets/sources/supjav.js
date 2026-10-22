@@ -9,7 +9,7 @@ Park.register({
     "ru": {"FST 播放线路暂不可用": "Сервер FST временно недоступен", "JAV 视频，支持热门、搜索与 FST 线路播放": "JAV: популярное, поиск и воспроизведение FST", "中文字幕": "Китайские субтитры", "无码": "Без цензуры", "此影片没有可用的 FST 线路": "Для этого видео нет доступного сервера FST"},
     "ar": {"FST 播放线路暂不可用": "خادم FST غير متاح مؤقتًا", "JAV 视频，支持热门、搜索与 FST 线路播放": "فيديوهات JAV مع قوائم شائعة وبحث وتشغيل FST", "中文字幕": "ترجمة صينية", "无码": "غير خاضع للرقابة", "此影片没有可用的 FST 线路": "لا يوجد خادم FST متاح لهذا الفيديو"},
   },
-  key: 'supjav', name: 'SupJav', version: '0.0.8', minAppVersion: '0.9.2', type: 'video', category: 'jav', color: '#F59E0B',
+  key: 'supjav', name: 'SupJav', version: '0.0.9', minAppVersion: '0.9.2', type: 'video', category: 'jav', color: '#F59E0B',
   description: 'JAV 视频，支持热门、搜索与 FST 线路播放',
   homepage: 'https://supjav.com', domains: ['supjav.com', 'lk1.supremejav.com', 'fc2stream.tv'], language: 'zh',
   network: {mode: 'browser', origin: 'https://supjav.com', vpnHint: true},
@@ -91,7 +91,10 @@ Park.register({
     if (response.status === 404) throw Park.error('NOT_FOUND', '影片不存在');
     if (!response.ok) throw Park.error('HTTP', 'SupJav HTTP {value0}', { params: {value0: response.status},status: response.status});
     if (response.body.length > 4 * 1024 * 1024) throw Park.error('PARSE', '影片页面过大');
-    return {html: response.body, doc: Park.html.parse(response.body)};
+    const doc = Park.html.parse(response.body);
+    // 站点可能以 HTTP 200 返回 404 模板，不能将其当作空列表。
+    if (doc.querySelector('.e404')) throw Park.error('NOT_FOUND', '影片不存在');
+    return {html: response.body, doc};
   },
   identity(title, labels = '') {
     const match = /^\s*(?:\[[^\]]{1,40}\]\s*|【[^】]{1,40}】\s*)*(FC2[- ]?PPV[- ]?\d{2,12}|\d{0,4}[a-z]{2,12}-\d{2,8}[a-z]?)(?=\s|$)/i.exec(title);
@@ -193,7 +196,7 @@ Park.register({
     const token = server && server.getAttribute('data-link');
     if (!/^[a-zA-Z0-9]{32,512}$/.test(token || '')) throw Park.error('UNSUPPORTED', '此影片没有可用的 FST 线路');
     const response = await this.http.get('https://lk1.supremejav.com/supjav.php', {
-      mode: 'native', params: {c: token.split('').reverse().join('')}, headers: {Referer: this.BASE + '/'}});
+      mode: 'native', params: {l: token}, headers: {Referer: this.BASE + '/'}});
     // Only the verified FST origin can supply media and its Referer. No eval or iframe execution.
     if (!/^https:\/\/fc2stream\.tv\/[^\s]*$/.test(response.url || '') || !response.ok) throw Park.error('UNSUPPORTED', 'FST 播放线路暂不可用');
     const playerUrl = response.url.split('#')[0];
