@@ -287,7 +287,7 @@ account: {
   title, hint, required: false,
   fields: [{ key: 'email', label: '邮箱' }, { key: 'password', label: '密码', secret: true }],
   loginUrl?, cookieUrl?, requiredCookies?: ['session_id'],   // 提供后可以在网页中登录，应用自动获取 Cookie
-  localStorageKeys?: ['session_key'],  // 仅网页登录完成时读取这些明确列出的 localStorage 键
+  localStorageKeys?: ['session_key'],  // 网页登录时读取、退出登录时移除这些明确列出的 localStorage 键
   loginDomains?: ['accounts.google.com', 'appleid.apple.com'],  // 第三方授权页域名，仅用于登录导航
   async login(values) { return { name } },
   async logout() {},
@@ -299,7 +299,7 @@ account: {
 
 - 账号状态只在首次使用、登录、退出、网页登录后以及距上次检查超过 10 分钟时刷新，不会在每次调用后检查。`configured` 表示已有账号配置，与当前是否登录成功无关。
 - `loginDomains`：插件声明站点实际使用的第三方授权域名（含子域）。只在用户打开网页登录页时放行 HTTPS 443 的跳转，拒绝 URL 用户凭据、IP、localhost 和 `.local`。站内登录页及回调同样要求 HTTPS 443，并且主机必须属于 `domains`；第三方主机不能加入 `domains` 来扩大 Cookie 权限。普通验证页、访问确认、插件请求和 Cookie 导入仍按 `domains` 校验。登录页支持原窗口跳转和保留 `window.opener` 的授权弹窗，弹窗里沿用同一检查，空白初始页不授予外部导航权限。停留在授权页时不判断登录完成，回到站点后才同步 Cookie。第三方 Cookie 不导入插件的 Cookie 罐，也不随清除站点 Cookie 删除；其浏览器登录态由系统 WebView 管理。第三方平台仍可能限制内嵌浏览器登录。
-- `localStorageKeys`：可选白名单，仅网页登录结束时从 `cookieUrl` 所属站点页面读取对应的本地存储字符串，并与 Cookie 一并交给 `account.login(values)`。声明后须至少取得一个对应值才自动尝试登录；必需的具体键同时列入 `requiredCookies`，该字段检查合并后的凭证。未声明的键不会读取或传入插件；不得在清单、日志或诊断输出中暴露存储值。`account.login()` 必须真实校验凭证；提供 `account.status()` 时，应用仅在后续状态为 `loggedIn: true` 时报告登录成功。
+- `localStorageKeys`：可选白名单，网页登录结束时从 `cookieUrl` 所属站点页面读取对应的本地存储字符串，并与 Cookie 一并交给 `account.login(values)`；退出登录时移除该站点声明的这些键，其他本地存储不受影响。声明后须至少取得一个对应值才自动尝试登录；必需的具体键同时列入 `requiredCookies`，该字段检查合并后的凭证。未声明的键不会读取或传入插件；不得在清单、日志或诊断输出中暴露存储值。`account.login()` 必须真实校验凭证；提供 `account.status()` 时，应用仅在后续状态为 `loggedIn: true` 时报告登录成功。
 - `type: 'session'` 用于导入已有的授权会话：声明单个保密字段（如 `session`），剪贴板内容完整保留，由插件校验，不拆成账号密码或 Cookie。登录必须真实确认授权，不凭输入格式假报成功。
 - `managedAccount: true` 与 `account.enableManaged()` 提供可选的账号管理能力，只在用户知情确认后启用。手动账号与托管账号分别保存，不能覆盖已有凭据；账号数据仅在本机使用，不进入文档、诊断或发布产物。
 - 账号密码、Token 和插件状态都是用户本机数据，文档和日志里不要出现真实凭据。
@@ -534,6 +534,8 @@ subscription: {
 | `this.store` | 持久化键值存储：`get(key, fallback)` / `set(key, value)`，用于保存 Token、域名列表等；`await flush()` 确认写盘成功，失败抛错 |
 | `this.cookies` | `get(url)` / `set(url, { name: value })` / `clear(url)` |
 | `this.log({ code, status, host, transport, reason, action })` | 只写入这些允许的字段；自由文本不保留，避免泄露凭据与请求地址 |
+
+空列表可通过固定 `reason` 诊断：`UPSTREAM_EMPTY` 表示上游列表为空，`NO_VIDEO` 表示插件未选出视频。应用使用 `EMPTY_RESULT` 表示加载后仍无内容，`CONTENT_FILTERED` 表示内容被显示规则过滤，`SEARCH_ONLY` 表示省流设置跳过推荐请求。正常成功列表不逐页记录，应用只在空列表状态变化和恢复时记录；不得把标题、搜索词、作品编号、会话或媒体地址加入日志。
 
 全局工具：
 

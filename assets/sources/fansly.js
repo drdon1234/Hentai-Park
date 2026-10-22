@@ -99,7 +99,7 @@ Park.register({
       "此视频暂无可用播放地址": "لا يتوفر رابط تشغيل لهذا الفيديو"
     }
   },
-  key: 'fansly', name: 'Fansly', version: '0.0.8', minAppVersion: '0.9.2', type: 'video', category: 'shortvideo',
+  key: 'fansly', name: 'Fansly', version: '0.0.9', minAppVersion: '0.9.2', type: 'video', category: 'shortvideo',
   color: '#00AFF0', description: '匿名可看公开短视频；敏感内容需登录', language: 'en',
   homepage: 'https://fansly.com/explore/foryou', domains: ['fansly.com'],
   network: {mode: 'native', vpnHint: true},
@@ -176,28 +176,31 @@ Park.register({
     entry.preview = work;
     return {entry, work};
   },
-  async list(tagIds, after, limit) {
+  async list(tagIds, after, limit, action) {
     const response = await this.api('/contentdiscovery/media/suggestionsnew', {
       before: 0, after, tagIds: (tagIds || []).join(','), limit, offset: 0,
     });
     if (!Array.isArray(response.mediaOfferSuggestions)) throw Park.error('PARSE', 'Fansly 返回的数据无效');
     if (!response.mediaOfferSuggestions.length) {
       if (!this.store.get('fanslyToken')) throw Park.error('LOGIN_REQUIRED', '请先登录 Fansly 后查看此内容');
+      this.log({action, reason: 'UPSTREAM_EMPTY'});
       return {items: [], hasNext: false};
     }
     if (!Array.isArray(response.aggregationData?.accountMedia)) throw Park.error('PARSE', 'Fansly 返回的数据无效');
     const items = response.mediaOfferSuggestions.map(s => this.work(s, response.aggregationData)).filter(Boolean);
+    if (!items.length) this.log({action, reason: 'NO_VIDEO'});
     this.remember(items.map(x => x.entry));
     const cursor = String(response.mediaOfferSuggestions[response.mediaOfferSuggestions.length - 1]?.id || '');
     if (!/^[0-9]{15,21}$/.test(cursor)) throw Park.error('PARSE', 'Fansly 返回的数据无效');
-    return {items, hasNext: response.mediaOfferSuggestions.length === limit, cursor};
+    // 推荐接口按游标继续请求，短页并不代表结束；图片帖也必须推进游标。
+    return {items, hasNext: true, cursor};
   },
   async feed(key, req = {}) {
     if (key !== 'recommend') throw Park.error('CONFIG', '未知推荐列表');
     const page = Math.max(1, Math.floor(Number(req.page) || 1));
     if (page > 1 && !req.cursor) throw Park.error('CONFIG', '请按顺序加载推荐');
     const cursor = req.cursor ? this.validId(req.cursor) : '0';
-    const result = await this.list([], cursor, this.PAGE_SIZE);
+    const result = await this.list([], cursor, this.PAGE_SIZE, 'feed');
     return {items: result.items.map(x => x.work), page, hasNext: result.hasNext,
       cursor: result.hasNext ? result.cursor : undefined};
   },
@@ -227,7 +230,7 @@ Park.register({
     const match = selected ? rows.find(x => x.tag === selected) : rows.find(x => x.tag.toLowerCase() === query.toLowerCase()) || rows[0];
     if (selected && !match) throw Park.error('CONFIG', '筛选参数无效');
     if (!match?.id) return {items: [], page: Math.max(1, Number(req.page) || 1), hasNext: false};
-    const result = await this.list([String(match.id)], after, this.PAGE_SIZE);
+    const result = await this.list([String(match.id)], after, this.PAGE_SIZE, 'search');
     return {items: result.items.map(x => x.work), page: Math.max(1, Number(req.page) || 1),
       hasNext: result.hasNext, cursor: result.hasNext ? result.cursor : undefined};
   },

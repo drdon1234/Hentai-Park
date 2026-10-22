@@ -385,7 +385,7 @@
     {
       "key": "fansly",
       "name": "Fansly",
-      "version": "0.0.8",
+      "version": "0.0.9",
       "type": "video",
       "category": "shortvideo",
       "file": "fansly.js",

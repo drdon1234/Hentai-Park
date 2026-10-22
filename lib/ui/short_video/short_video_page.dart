@@ -9,6 +9,7 @@ import 'package:video_player/video_player.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 
 import '../../core/app_lock.dart';
+import '../../core/app_log.dart';
 import '../../core/content_scope.dart';
 import '../../core/localization.dart';
 import '../../core/models.dart';
@@ -111,6 +112,12 @@ class _ShortVideoPageState extends State<ShortVideoPage>
     _feed = ShortVideoFeed(
       (page, cursor) async {
         if (AppSettings.instance.searchOnlySources) {
+          AppLog.record({
+            'event': 'content',
+            'site': widget.source,
+            'action': 'feed',
+            'reason': 'SEARCH_ONLY',
+          });
           return Future.value(WorkPage(items: const [], page: page));
         }
         if (widget.postScope case final scope?) {
@@ -145,6 +152,7 @@ class _ShortVideoPageState extends State<ShortVideoPage>
             ? postVideoPage(result)
             : result;
       },
+      source: widget.source,
       allowItem: (item) =>
           TagBlocklist.current().matchItem(videoPost(item)) == null &&
           (widget.initial?.isSubscriptionPost != true ||
@@ -431,7 +439,15 @@ class _ShortVideoPageState extends State<ShortVideoPage>
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(
-              tr(_feed.hasNext ? '当前页没有可显示的短视频，可继续加载' : '暂时没有更多短视频'),
+              tr(
+                _feed.allFiltered
+                    ? '内容已屏蔽'
+                    : AppSettings.instance.searchOnlySources
+                    ? '超级省流'
+                    : _feed.hasNext
+                    ? '当前页没有可显示的短视频，可继续加载'
+                    : '暂时没有更多短视频',
+              ),
               textAlign: TextAlign.center,
             ),
             if (_feed.hasNext)

@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 
+import '../../core/app_log.dart';
 import '../../core/models.dart';
 import '../../core/settings.dart';
 import '../../core/tag_blocklist.dart';
@@ -9,7 +10,7 @@ typedef ShortVideoLoader = Future<WorkPage> Function(int page, String? cursor);
 
 /// 分页只保留作品元数据；播放器资源由独立的有界池管理。
 class ShortVideoFeed extends ChangeNotifier {
-  ShortVideoFeed(this._load, {WorkItem? initial, this.allowItem}) {
+  ShortVideoFeed(this._load, {WorkItem? initial, this.allowItem, this.source}) {
     _filters.addListener(_rulesChanged);
     if (initial != null) {
       _loaded.add(initial);
@@ -19,6 +20,8 @@ class ShortVideoFeed extends ChangeNotifier {
   }
   final ShortVideoLoader _load;
   final bool Function(WorkItem)? allowItem;
+  final String? source;
+  String? _availability;
   final _loaded = <WorkItem>[];
   final _explicit = <String>{};
   final _filters = AppSettings.instance.watch(AppSettings.filterKeys);
@@ -37,7 +40,31 @@ class ShortVideoFeed extends ChangeNotifier {
     index = kept >= 0
         ? kept
         : index.clamp(0, items.isEmpty ? 0 : items.length - 1);
+    if (!loading) _reportAvailability();
     notifyListeners();
+  }
+
+  bool get allFiltered => items.isEmpty && _loaded.isNotEmpty;
+
+  void _reportAvailability() {
+    if (source == null || error != null) return;
+    final reason = items.isNotEmpty
+        ? null
+        : allFiltered
+        ? 'CONTENT_FILTERED'
+        : 'EMPTY_RESULT';
+    final state = reason ?? 'success';
+    // 正常加载不记日志；空列表只记状态变化，恢复后记一次成功。
+    if (state == _availability || (_availability == null && reason == null)) {
+      return;
+    }
+    _availability = state;
+    AppLog.record({
+      'event': 'content',
+      'site': source,
+      'action': 'shortVideo',
+      if (reason != null) 'reason': reason else 'outcome': 'success',
+    });
   }
 
   final List<WorkItem> items = [];
@@ -139,6 +166,7 @@ class ShortVideoFeed extends ChangeNotifier {
     } finally {
       if (!_disposed && request == generation) {
         loading = false;
+        _reportAvailability();
         notifyListeners();
       }
     }

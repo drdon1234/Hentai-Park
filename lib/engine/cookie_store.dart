@@ -220,18 +220,21 @@ class CookieStore {
   }) async {
     _invalidateSession(partition);
     await _serialize(partition, () async {
-      await jar(partition).delete(uri, true);
       if (mirror && _webViewSupported) {
         try {
-          await wv.CookieManager.instance().deleteCookies(
-            url: wv.WebUri(uri.toString()),
-            domain: _cookieDomain(uri.host),
+          checkBrowserUri(uri, partition);
+          // 插件退出通常先调用 clear；必须在删除原生记录前保留路径和域身份。
+          await _clearBrowserCookies(
+            {uri},
+            _snapshotCookies(await _snapshotPartition(partition)),
+            domainsForPartition!(partition)!,
           );
         } catch (error) {
           AppLog.error(error, event: 'cookie_clear');
           rethrow;
         }
       }
+      await jar(partition).delete(uri, true);
     });
   }
 
@@ -265,48 +268,60 @@ class CookieStore {
     // 先终止旧网页请求，防止清除后迟到的响应重新建立登录态。
     await BrowserFetcher.instance.clearDomains(hosts);
     if (_webViewSupported && hosts.isNotEmpty) {
-      final manager = wv.CookieManager.instance();
       final addresses = <Uri>{
         for (final host in hosts) Uri(scheme: 'https', host: host, path: '/'),
         ...browserUris,
       };
-      for (final uri in addresses) {
-        final host = uri.host;
-        for (final cookie in await manager.getCookies(
-          url: wv.WebUri(uri.toString()),
-        )) {
-          final domain =
-              cookie.domain?.replaceFirst(RegExp(r'^\.'), '') ?? host;
-          if (!hostInDomains(host, [domain])) continue;
-          await _deleteBrowserCookie(
-            manager,
-            uri,
-            cookie.name,
-            cookie.domain,
-            cookie.path ??
-                (uri.path.endsWith('/') ? uri.path : uri.resolve('.').path),
-            domains,
-          );
-        }
-      }
-      // 已持久化的非根路径 Cookie 不能仅通过根 URL 枚举。
-      for (final entry in snapshot.values) {
-        if (!hostInDomains(entry.host, domains)) continue;
-        final cookie = entry.value.cookie;
-        await _deleteBrowserCookie(
-          manager,
-          Uri(scheme: 'https', host: entry.host, path: cookie.path ?? '/'),
-          cookie.name,
-          cookie.domain,
-          cookie.path ?? '/',
-          domains,
-        );
-      }
+      await _clearBrowserCookies(addresses, snapshot, domains);
     }
     final name = partition.isEmpty ? appPartition : partition;
     final j = _jars.remove(name) ?? jar(name);
     _jars.remove(name);
     await j.deleteAll();
+  }
+
+  Future<void> _clearBrowserCookies(
+    Set<Uri> addresses,
+    Map<String, ({String host, SerializableCookie value})> snapshot,
+    List<String> domains,
+  ) async {
+    final manager = wv.CookieManager.instance();
+    for (final uri in addresses) {
+      final host = uri.host;
+      for (final cookie in await manager.getCookies(
+        url: wv.WebUri(uri.toString()),
+      )) {
+        final domain = cookie.domain?.replaceFirst(RegExp(r'^\.'), '') ?? host;
+        if (!hostInDomains(host, [domain]) || !hostInDomains(domain, domains)) {
+          continue;
+        }
+        await _deleteBrowserCookie(
+          manager,
+          uri,
+          cookie.name,
+          cookie.domain,
+          cookie.path ??
+              (uri.path.endsWith('/') ? uri.path : uri.resolve('.').path),
+          domains,
+        );
+      }
+    }
+    // 已持久化的非根路径 Cookie 不能仅通过根 URL 枚举。
+    for (final entry in snapshot.values) {
+      if (!hostInDomains(entry.host, domains)) continue;
+      if (!addresses.any((uri) => hostInDomains(uri.host, [entry.host]))) {
+        continue;
+      }
+      final cookie = entry.value.cookie;
+      await _deleteBrowserCookie(
+        manager,
+        Uri(scheme: 'https', host: entry.host, path: cookie.path ?? '/'),
+        cookie.name,
+        cookie.domain,
+        cookie.path ?? '/',
+        domains,
+      );
+    }
   }
 
   Future<void> _deleteBrowserCookie(
@@ -317,9 +332,12 @@ class CookieStore {
     String path,
     List<String> domains,
   ) async {
-    final identities = <String?>{domain};
+    final hostPrefix = name.startsWith('__Host-');
+    final securePrefix = hostPrefix || name.startsWith('__Secure-');
+    // __Host- 必须省略 Domain；部分平台枚举时却会返回实际主机名。
+    final identities = <String?>{hostPrefix ? null : domain};
     // Android 只返回 name/value，枚举权限范围内的 host-only 和 Domain 身份。
-    if (domain == null) {
+    if (domain == null && !hostPrefix) {
       final labels = uri.host.split('.');
       for (var start = 0; start < labels.length; start++) {
         final candidate = labels.sublist(start).join('.');
@@ -329,12 +347,28 @@ class CookieStore {
       }
     }
     for (final identity in identities) {
-      await manager.deleteCookie(
-        url: wv.WebUri(uri.toString()),
-        name: name,
-        domain: identity,
-        path: path,
-      );
+      if (securePrefix) {
+        // Android 的 deleteCookie 只写 Max-Age，不带 Secure，前缀 Cookie 会被拒绝。
+        final deleted = await manager.setCookie(
+          url: wv.WebUri(uri.toString()),
+          name: name,
+          value: '',
+          domain: identity,
+          path: hostPrefix ? '/' : path,
+          expiresDate: 0,
+          maxAge: 0,
+          isSecure: true,
+          isHttpOnly: true,
+        );
+        if (!deleted) throw SourceError('NETWORK', '浏览器请求失败');
+      } else {
+        await manager.deleteCookie(
+          url: wv.WebUri(uri.toString()),
+          name: name,
+          domain: identity,
+          path: path,
+        );
+      }
     }
   }
 

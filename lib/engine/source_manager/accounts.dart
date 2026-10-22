@@ -122,9 +122,16 @@ mixin _SourceAccounts on _SourceRegistry {
     await _call(key, 'account.logout', []);
     _accountEpochs[key] = (_accountEpochs[key] ?? 0) + 1;
     final source = _sources[key];
-    if (source != null) _publishAccountStatus(source, AccountStatus(false, ''));
     _accountCheckedAt.remove(key);
     await CookieStore.instance.clearPartition(key);
+    final account = manifest(key)?.account;
+    if (account != null && account.localStorageKeys.isNotEmpty) {
+      final uri = Uri.parse(
+        account.cookieUrl.isNotEmpty ? account.cookieUrl : account.loginUrl,
+      );
+      CookieStore.instance.checkBrowserUri(uri, key);
+      await clearBrowserLocalStorage(uri, account.localStorageKeys);
+    }
     try {
       await _accountRefreshes[key];
     } catch (_) {}

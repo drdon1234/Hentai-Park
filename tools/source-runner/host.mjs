@@ -52,10 +52,11 @@ export const persisted = {};
 export const logs = [];
 
 const errorCodes = new Set(['NETWORK', 'TIMEOUT', 'AUTH', 'PARSE', 'CONFIG', 'UNSUPPORTED', 'HTTP', 'CANCELLED', 'UNKNOWN', 'CONFIRM_REQUIRED', 'CLOUDFLARE', 'LOGIN_REQUIRED', 'NOT_FOUND', 'BLOCKED']);
-const failureReasons = new Set(['TLS_CERTIFICATE', 'TLS_HANDSHAKE_TERMINATED', 'TLS_HANDSHAKE', 'CONNECT_TIMEOUT', 'RECEIVE_TIMEOUT', 'SEND_TIMEOUT', 'DNS', 'CONNECTION', 'RESPONSE_STREAM', 'NETWORK', 'CANCELLED', 'UNKNOWN']);
+const failureReasons = new Set(['TLS_CERTIFICATE', 'TLS_HANDSHAKE_TERMINATED', 'TLS_HANDSHAKE', 'CONNECT_TIMEOUT', 'RECEIVE_TIMEOUT', 'SEND_TIMEOUT', 'DNS', 'CONNECTION', 'RESPONSE_STREAM', 'NETWORK', 'CANCELLED', 'UNKNOWN', 'UPSTREAM_EMPTY', 'NO_VIDEO', 'EMPTY_RESULT', 'CONTENT_FILTERED', 'SEARCH_ONLY']);
 export function diagnosticMessage(value) {
   if (!value || typeof value !== 'object') return 'event=message';
   const fields = ['event=source'];
+  if (typeof value.action === 'string' && /^[A-Za-z][A-Za-z0-9_.-]{0,63}$/.test(value.action)) fields.push(`action=${value.action}`);
   if (errorCodes.has(value.code)) fields.push(`code=${value.code}`);
   if (['native', 'browser'].includes(value.transport)) fields.push(`transport=${value.transport}`);
   if (failureReasons.has(value.reason)) fields.push(`reason=${value.reason}`);
