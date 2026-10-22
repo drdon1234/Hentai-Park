@@ -99,7 +99,7 @@ Park.register({
       "此视频暂无可用播放地址": "لا يتوفر رابط تشغيل لهذا الفيديو"
     }
   },
-  key: 'fansly', name: 'Fansly', version: '0.0.10', minAppVersion: '0.9.2', type: 'video', category: 'shortvideo',
+  key: 'fansly', name: 'Fansly', version: '0.0.11', minAppVersion: '0.9.2', type: 'video', category: 'shortvideo',
   color: '#00AFF0', description: '匿名可看公开短视频；敏感内容需登录', language: 'en',
   homepage: 'https://fansly.com/explore/foryou', domains: ['fansly.com'],
   network: {mode: 'native', vpnHint: true},
@@ -129,29 +129,60 @@ Park.register({
     return (4294967296 * (2097151 & h2) + (h1 >>> 0)).toString(16);
   },
   clientTimestamp() {
-    const next = Date.now() + (5000 - Math.floor(Math.random() * 10000));
+    // 网页最终由 deviceService/sessionService.getNowTs 覆盖初步随机时间戳；
+    // 匿名请求编码设备 ID，登录后改为编码会话 ID。
+    const identity = String((this.store.get('fanslyToken') && this.store.get('fanslySessionId')) || this.store.get('fanslyClientId') || '');
+    if (!/^[0-9]{15,21}$/.test(identity)) throw Park.error('PARSE', 'Fansly 返回的数据无效');
+    const prefix = String(Date.now() + (this.serverTimeOffset_ || 0)).slice(0, -4);
+    let suffix = String(Number(identity.slice(-2, -1)) ^ Number(prefix.slice(-1)));
+    if (suffix.length < 2) suffix += identity.slice(-1);
+    let middle = String(Number(identity.slice(-1)) ^ Number(prefix.slice(-2, -1)));
+    if (middle.length < 2) middle += identity.slice(-3, -2);
+    const next = Number(prefix + middle + suffix);
+    if (this.timestampIdentity_ !== identity) this.clientTimestamp_ = 0;
+    this.timestampIdentity_ = identity;
     this.clientTimestamp_ = Math.max(this.clientTimestamp_ || 0, next);
     return this.clientTimestamp_;
   },
-  async api(path, params) {
+  async initializeClient() {
+    if (!this.clientInitialization_) this.clientInitialization_ = (async () => {
+      if (!this.clockInitialized_) {
+        const version = await this.api('/versioning', {}, false);
+        if (!Number.isSafeInteger(version.ts) || version.ts <= 0) throw Park.error('PARSE', 'Fansly 返回的数据无效');
+        const offset = version.ts - Date.now();
+        this.serverTimeOffset_ = Math.abs(offset) > 30000 ? offset : 0;
+        this.clockInitialized_ = true;
+      }
+      if (!/^[0-9]{15,21}$/.test(String(this.store.get('fanslyClientId') || ''))) {
+        const id = await this.api('/device/id', {}, false);
+        if (typeof id !== 'string' || !/^[0-9]{15,21}$/.test(id)) throw Park.error('PARSE', 'Fansly 返回的数据无效');
+        this.store.set('fanslyClientId', id);
+      }
+    })();
+    try { await this.clientInitialization_; }
+    finally { this.clientInitialization_ = null; }
+  },
+  async api(path, params, initialize = true) {
+    if (initialize) await this.initializeClient();
     const url = this.apiUrl(path, params);
     const token = this.store.get('fanslyToken');
     const clientId = this.store.get('fanslyClientId') || '';
     const sessionId = this.store.get('fanslySessionId') || '';
-    const headers = {
-      Accept: 'application/json',
+    const headers = {Accept: 'application/json'};
+    if (initialize) Object.assign(headers, {
       'fansly-client-ts': String(this.clientTimestamp()),
       'fansly-client-check': this.clientCheck(new URL(url).pathname, clientId),
-    };
-    if (clientId) headers['fansly-client-id'] = clientId;
-    if (sessionId) headers['fansly-session-id'] = sessionId;
-    if (typeof token === 'string' && token) headers.authorization = token;
+    });
+    if (initialize && clientId) headers['fansly-client-id'] = clientId;
+    if (initialize && sessionId) headers['fansly-session-id'] = sessionId;
+    if (initialize && typeof token === 'string' && token) headers.authorization = token;
     const r = await this.http.get(url, {timeout: 30000, headers});
     if (!r.ok) throw Park.error(r.status === 401 || r.status === 403 ? 'LOGIN_REQUIRED' : 'HTTP',
       r.status === 401 || r.status === 403 ? '请先登录 Fansly 后查看此内容' : 'Fansly 请求失败', {status: r.status});
     let data;
     try { data = r.json(); } catch (_) { throw Park.error('PARSE', 'Fansly 返回的数据无效'); }
-    if (data?.success !== true || !data.response || typeof data.response !== 'object') {
+    if (data?.success !== true || !data.response ||
+        (typeof data.response !== 'object' && !(path === '/device/id' && typeof data.response === 'string'))) {
       const unauthorized = [401, 403].includes(Number(data?.error?.code));
       throw Park.error(unauthorized ? 'LOGIN_REQUIRED' : 'PARSE',
         unauthorized ? '请先登录 Fansly 后查看此内容' : 'Fansly 返回的数据无效');
@@ -297,7 +328,9 @@ Park.register({
       let session;
       try { session = JSON.parse(String(values?.session_active_session || '')); } catch (_) { session = null; }
       const token = typeof session?.token === 'string' ? session.token.trim() : '';
-      if (!token || token.length > 4096) throw Park.error('LOGIN_REQUIRED', '请先登录 Fansly 后查看此内容');
+      if (!token || token.length > 4096 || typeof session?.id !== 'string' || !/^[0-9]{15,21}$/.test(session.id)) {
+        throw Park.error('LOGIN_REQUIRED', '请先登录 Fansly 后查看此内容');
+      }
       const previous = this.store.get('fanslyToken');
       const previousSessionId = this.store.get('fanslySessionId');
       const previousClientId = this.store.get('fanslyClientId');
@@ -305,7 +338,7 @@ Park.register({
       this.store.set('fanslyToken', token);
       this.store.set('fanslySessionId', typeof session?.id === 'string' ? session.id : null);
       const clientId = String(values?.device_device_id || '').trim();
-      this.store.set('fanslyClientId', /^[A-Za-z0-9_-]{1,128}$/.test(clientId) ? clientId : null);
+      this.store.set('fanslyClientId', /^[0-9]{15,21}$/.test(clientId) ? clientId : null);
       try {
         const status = await this.account.status.call(this);
         if (!status.loggedIn) throw Park.error('LOGIN_REQUIRED', '请先登录 Fansly 后查看此内容');
