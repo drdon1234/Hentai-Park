@@ -11,7 +11,7 @@
       "reverseSearchCategory": "general",
       "rankingOnly": false,
       "reverseSearchOnly": true,
-      "url": "https://raw.githubusercontent.com/drdon1234/Hentai-Park/a6dc6a649db1405cad4d2b4d7fe149eab9a9744e/assets/sources/google_lens.js",
+      "url": "https://raw.githubusercontent.com/drdon1234/Hentai-Park/a34a9b4470aa5372077f4618f79d917d25d545cf/assets/sources/google_lens.js",
       "sha256": "10536d0089fd5aae212644b143b0106e19473b469f80d3d7ed910069ae5d8635",
       "apiVersion": 2,
       "minAppVersion": "0.9.2"
@@ -25,7 +25,7 @@
       "reverseSearchCategory": "general",
       "rankingOnly": false,
       "reverseSearchOnly": true,
-      "url": "https://raw.githubusercontent.com/drdon1234/Hentai-Park/a6dc6a649db1405cad4d2b4d7fe149eab9a9744e/assets/sources/yandex.js",
+      "url": "https://raw.githubusercontent.com/drdon1234/Hentai-Park/a34a9b4470aa5372077f4618f79d917d25d545cf/assets/sources/yandex.js",
       "sha256": "e53388e6a35cbcfc2c45cc75e27a11de998ed65c50acdc57ffa7c43698244c76",
       "apiVersion": 2,
       "minAppVersion": "0.9.2"
@@ -39,7 +39,7 @@
       "reverseSearchCategory": "general",
       "rankingOnly": false,
       "reverseSearchOnly": true,
-      "url": "https://raw.githubusercontent.com/drdon1234/Hentai-Park/a6dc6a649db1405cad4d2b4d7fe149eab9a9744e/assets/sources/baidu.js",
+      "url": "https://raw.githubusercontent.com/drdon1234/Hentai-Park/a34a9b4470aa5372077f4618f79d917d25d545cf/assets/sources/baidu.js",
       "sha256": "4d6f891d5e2a70c8e969bd4d27db3a673d352803e11f2d964b394f6545e2a1d3",
       "apiVersion": 2,
       "minAppVersion": "0.9.2"
@@ -53,7 +53,7 @@
       "reverseSearchCategory": "anime",
       "rankingOnly": false,
       "reverseSearchOnly": true,
-      "url": "https://raw.githubusercontent.com/drdon1234/Hentai-Park/a6dc6a649db1405cad4d2b4d7fe149eab9a9744e/assets/sources/trace_moe.js",
+      "url": "https://raw.githubusercontent.com/drdon1234/Hentai-Park/a34a9b4470aa5372077f4618f79d917d25d545cf/assets/sources/trace_moe.js",
       "sha256": "89bd4d8805b91a720c99a4f9e8ee7a1c2ae5170a47249612a918ee534996b8ee",
       "apiVersion": 2,
       "minAppVersion": "0.9.2"
@@ -67,7 +67,7 @@
       "reverseSearchCategory": "anime",
       "rankingOnly": false,
       "reverseSearchOnly": true,
-      "url": "https://raw.githubusercontent.com/drdon1234/Hentai-Park/a6dc6a649db1405cad4d2b4d7fe149eab9a9744e/assets/sources/anime_trace.js",
+      "url": "https://raw.githubusercontent.com/drdon1234/Hentai-Park/a34a9b4470aa5372077f4618f79d917d25d545cf/assets/sources/anime_trace.js",
       "sha256": "f3a0865b0fbc8ed08ad124c56c4939d6e367a7853b3840693886b6c51cdb48bf",
       "apiVersion": 2,
       "minAppVersion": "0.9.2"
@@ -81,7 +81,7 @@
       "reverseSearchCategory": "gallery",
       "rankingOnly": false,
       "reverseSearchOnly": true,
-      "url": "https://raw.githubusercontent.com/drdon1234/Hentai-Park/a6dc6a649db1405cad4d2b4d7fe149eab9a9744e/assets/sources/iqdb.js",
+      "url": "https://raw.githubusercontent.com/drdon1234/Hentai-Park/a34a9b4470aa5372077f4618f79d917d25d545cf/assets/sources/iqdb.js",
       "sha256": "4b2d5d8e0b03872a82e26b28ef72b7dcc64fba57f6a91c3dd1c8e9601ae7985d",
       "apiVersion": 2,
       "minAppVersion": "0.9.2"
@@ -95,7 +95,7 @@
       "reverseSearchCategory": "gallery",
       "rankingOnly": false,
       "reverseSearchOnly": true,
-      "url": "https://raw.githubusercontent.com/drdon1234/Hentai-Park/a6dc6a649db1405cad4d2b4d7fe149eab9a9744e/assets/sources/ehentai_reverse.js",
+      "url": "https://raw.githubusercontent.com/drdon1234/Hentai-Park/a34a9b4470aa5372077f4618f79d917d25d545cf/assets/sources/ehentai_reverse.js",
       "sha256": "3665c9a76ad1a151d3a23cf0b8029f0a1354075cf3cff544519cdda45cc7875b",
       "apiVersion": 2,
       "minAppVersion": "0.9.2"
@@ -109,7 +109,7 @@
       "reverseSearchCategory": "jav",
       "rankingOnly": false,
       "reverseSearchOnly": true,
-      "url": "https://raw.githubusercontent.com/drdon1234/Hentai-Park/a6dc6a649db1405cad4d2b4d7fe149eab9a9744e/assets/sources/avscan.js",
+      "url": "https://raw.githubusercontent.com/drdon1234/Hentai-Park/a34a9b4470aa5372077f4618f79d917d25d545cf/assets/sources/avscan.js",
       "sha256": "83c775cad1e74959fbcd104887b4a5fe19854419ea1e30548782f719062703ec",
       "apiVersion": 2,
       "minAppVersion": "0.9.2"
