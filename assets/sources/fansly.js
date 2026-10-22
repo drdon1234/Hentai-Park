@@ -99,7 +99,7 @@ Park.register({
       "此视频暂无可用播放地址": "لا يتوفر رابط تشغيل لهذا الفيديو"
     }
   },
-  key: 'fansly', name: 'Fansly', version: '0.0.9', minAppVersion: '0.9.2', type: 'video', category: 'shortvideo',
+  key: 'fansly', name: 'Fansly', version: '0.0.10', minAppVersion: '0.9.2', type: 'video', category: 'shortvideo',
   color: '#00AFF0', description: '匿名可看公开短视频；敏感内容需登录', language: 'en',
   homepage: 'https://fansly.com/explore/foryou', domains: ['fansly.com'],
   network: {mode: 'native', vpnHint: true},
@@ -113,10 +113,38 @@ Park.register({
     for (const [key, value] of Object.entries({...params, 'ngsw-bypass': 'true'})) u.searchParams.set(key, String(value));
     return u.href;
   },
+  clientCheck(path, clientId = '') {
+    // Fansly's web interceptor hashes the request path and device ID with this cyrb53 key.
+    const value = 'necvac-govry3-tybkYz_' + path + '_' + clientId;
+    let h1 = 3735928559, h2 = 1103547991;
+    for (let i = 0; i < value.length; i++) {
+      const code = value.charCodeAt(i);
+      h1 = Math.imul(h1 ^ code, 2654435761);
+      h2 = Math.imul(h2 ^ code, 1597334677);
+    }
+    h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507);
+    h1 ^= Math.imul(h2 ^ (h2 >>> 13), 3266489909);
+    h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507);
+    h2 ^= Math.imul(h1 ^ (h1 >>> 13), 3266489909);
+    return (4294967296 * (2097151 & h2) + (h1 >>> 0)).toString(16);
+  },
+  clientTimestamp() {
+    const next = Date.now() + (5000 - Math.floor(Math.random() * 10000));
+    this.clientTimestamp_ = Math.max(this.clientTimestamp_ || 0, next);
+    return this.clientTimestamp_;
+  },
   async api(path, params) {
     const url = this.apiUrl(path, params);
     const token = this.store.get('fanslyToken');
-    const headers = {Accept: 'application/json'};
+    const clientId = this.store.get('fanslyClientId') || '';
+    const sessionId = this.store.get('fanslySessionId') || '';
+    const headers = {
+      Accept: 'application/json',
+      'fansly-client-ts': String(this.clientTimestamp()),
+      'fansly-client-check': this.clientCheck(new URL(url).pathname, clientId),
+    };
+    if (clientId) headers['fansly-client-id'] = clientId;
+    if (sessionId) headers['fansly-session-id'] = sessionId;
     if (typeof token === 'string' && token) headers.authorization = token;
     const r = await this.http.get(url, {timeout: 30000, headers});
     if (!r.ok) throw Park.error(r.status === 401 || r.status === 403 ? 'LOGIN_REQUIRED' : 'HTTP',
@@ -264,15 +292,20 @@ Park.register({
   account: {type: 'cookies', title: '登录 Fansly', hint: '在 Fansly 网页完成登录后返回应用；敏感内容仍由 Fansly 权限控制。',
     loginUrl: 'https://fansly.com/', cookieUrl: 'https://fansly.com/', requiredCookies: ['session_active_session'],
     loginDomains: ['twitter.com', 'x.com', 'accounts.google.com', 'id.twitch.tv', 'www.twitch.tv'],
-    localStorageKeys: ['session_active_session'],
+    localStorageKeys: ['session_active_session', 'device_device_id'],
     async login(values) {
       let session;
       try { session = JSON.parse(String(values?.session_active_session || '')); } catch (_) { session = null; }
       const token = typeof session?.token === 'string' ? session.token.trim() : '';
       if (!token || token.length > 4096) throw Park.error('LOGIN_REQUIRED', '请先登录 Fansly 后查看此内容');
       const previous = this.store.get('fanslyToken');
+      const previousSessionId = this.store.get('fanslySessionId');
+      const previousClientId = this.store.get('fanslyClientId');
       const previousLoggedIn = this.store.get('fanslyLoggedIn') === true;
       this.store.set('fanslyToken', token);
+      this.store.set('fanslySessionId', typeof session?.id === 'string' ? session.id : null);
+      const clientId = String(values?.device_device_id || '').trim();
+      this.store.set('fanslyClientId', /^[A-Za-z0-9_-]{1,128}$/.test(clientId) ? clientId : null);
       try {
         const status = await this.account.status.call(this);
         if (!status.loggedIn) throw Park.error('LOGIN_REQUIRED', '请先登录 Fansly 后查看此内容');
@@ -280,6 +313,8 @@ Park.register({
         return {name: status.name};
       } catch (error) {
         this.store.set('fanslyToken', previous || null);
+        this.store.set('fanslySessionId', previousSessionId || null);
+        this.store.set('fanslyClientId', previousClientId || null);
         this.store.set('fanslyLoggedIn', previousLoggedIn);
         throw error;
       }
@@ -309,6 +344,8 @@ Park.register({
     async logout() {
       await this.cookies.clear('https://fansly.com/');
       this.store.set('fanslyToken', null);
+      this.store.set('fanslySessionId', null);
+      this.store.set('fanslyClientId', null);
       this.store.set('fanslyLoggedIn', false);
       this.store.set('media', {});
     }},
