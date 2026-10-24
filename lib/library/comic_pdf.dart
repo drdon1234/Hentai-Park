@@ -12,11 +12,20 @@ import '../images/park_image.dart';
 import 'downloads.dart';
 import 'export_files.dart';
 
+typedef _PdfPage = ({String path, int width, int height, bool jpeg, int bytes});
+
 /// 将已下载的图片章节分别导出为 PDF。
+///
+/// PDF 在内存中组装后一次写出；章节过长时按页数上限或体积预算（先到者为准）
+/// 拆成多个文件，避免大图集导出时内存不足。
 class ComicPdf {
+  /// 单个文件内图片数据的上限；组装时还需要同等量级的内存。
+  static const volumeBytes = 160 * 1024 * 1024;
+
   static Future<List<File>> exportTask(
     DownloadTask task,
     Directory outDir, {
+    int maxPages = 0,
     void Function(int done, int total)? onProgress,
   }) async {
     if (task.isVideo || task.isNovel) {
@@ -52,7 +61,14 @@ class ComicPdf {
         final directory = Directory(
           p.join(task.dir.path, safeFileName(chapter.id)),
         );
-        final pages = <({String path, int width, int height})>[];
+        final name = chapters.length > 1
+            ? '$base - ${exportFileName(chapter.title)}'
+            : base;
+        final title = chapters.length > 1
+            ? '${task.item.title} - ${chapter.title}'
+            : task.item.title;
+        final volumes = <List<_PdfPage>>[[]];
+        var volumeSize = 0;
         for (var i = 0; i < manifests[ci].length; i++) {
           final page = manifests[ci][i];
           final relative = page['file'] as String;
@@ -60,29 +76,34 @@ class ComicPdf {
           if (p.isAbsolute(relative) || !p.isWithin(directory.path, path)) {
             throw FormatException(tr('图片文件路径无效'));
           }
-          final normalized = File(p.join(staging.path, '$ci-$i.png'));
-          final size = await _firstFrame(
+          final prepared = await _page(
             File(path),
             page['transform'],
-            normalized,
+            File(p.join(staging.path, '$ci-$i.png')),
           );
-          pages.add((path: normalized.path, width: size.$1, height: size.$2));
+          final current = volumes.last;
+          if (current.isNotEmpty &&
+              ((maxPages > 0 && current.length >= maxPages) ||
+                  volumeSize + prepared.bytes > volumeBytes)) {
+            volumes.add([]);
+            volumeSize = 0;
+          }
+          volumes.last.add(prepared);
+          volumeSize += prepared.bytes;
           onProgress?.call(++done, total);
         }
-        final pdf = File(p.join(staging.path, '$ci.pdf'));
-        final title = chapters.length > 1
-            ? '${task.item.title} - ${chapter.title}'
-            : task.item.title;
-        await Isolate.run(() => _encodeChapter(pdf.path, pages, title));
-        for (final page in pages) {
-          await File(page.path).delete();
+        for (var vi = 0; vi < volumes.length; vi++) {
+          final pdf = File(p.join(staging.path, '$ci-$vi.pdf'));
+          final pages = volumes[vi];
+          final part = volumes.length > 1
+              ? ' (${tr('第 {value0} 部分', {'value0': vi + 1})})'
+              : '';
+          await Isolate.run(() => _encode(pdf.path, pages, '$title$part'));
+          for (final page in pages) {
+            if (!page.jpeg) await File(page.path).delete();
+          }
+          staged.add((pdf, '$name$part.pdf'));
         }
-        staged.add((
-          pdf,
-          chapters.length > 1
-              ? '$base - ${exportFileName(chapter.title)}.pdf'
-              : '$base.pdf',
-        ));
       }
       for (final (file, name) in staged) {
         published.add(await publishExport(file, outDir, name));
@@ -98,13 +119,15 @@ class ComicPdf {
     }
   }
 
-  /// Flutter 与阅读器使用同一个解码器；只请求第一帧，覆盖 GIF、WebP、APNG。
-  static Future<(int, int)> _firstFrame(
+  /// JPEG 原样嵌入；其他格式或需要还原切片的图片用阅读器同一解码器取第一帧转为 PNG，
+  /// 覆盖 GIF、WebP、APNG。
+  static Future<_PdfPage> _page(
     File source,
     Object? transform,
     File output,
   ) async {
-    final codec = await ui.instantiateImageCodec(await source.readAsBytes());
+    final bytes = await source.readAsBytes();
+    final codec = await ui.instantiateImageCodec(bytes);
     late ui.FrameInfo frame;
     try {
       frame = await codec.getNextFrame();
@@ -113,9 +136,23 @@ class ComicPdf {
     }
     var image = frame.image;
     try {
-      if (transform is Map &&
+      final scrambled =
+          transform is Map &&
           transform['type'] == 'unscramble-strips' &&
-          ((transform['segments'] as num?) ?? 0) > 1) {
+          ((transform['segments'] as num?) ?? 0) > 1;
+      if (!scrambled &&
+          bytes.length > 2 &&
+          bytes[0] == 0xFF &&
+          bytes[1] == 0xD8) {
+        return (
+          path: source.path,
+          width: image.width,
+          height: image.height,
+          jpeg: true,
+          bytes: bytes.length,
+        );
+      }
+      if (scrambled) {
         image = await unscrambleStrips(
           image,
           (transform['segments'] as num).toInt(),
@@ -126,24 +163,30 @@ class ComicPdf {
       await output.writeAsBytes(
         png.buffer.asUint8List(png.offsetInBytes, png.lengthInBytes),
       );
-      return (image.width, image.height);
+      return (
+        path: output.path,
+        width: image.width,
+        height: image.height,
+        jpeg: false,
+        bytes: png.lengthInBytes,
+      );
     } finally {
       image.dispose();
     }
   }
 
-  static Future<void> _encodeChapter(
+  static Future<void> _encode(
     String path,
-    List<({String path, int width, int height})> pages,
+    List<_PdfPage> pages,
     String title,
   ) async {
     final document = PdfDocument();
     PdfInfo(document, title: title, creator: 'HentaiPark');
     for (final entry in pages) {
-      final image = PdfImage.file(
-        document,
-        bytes: await File(entry.path).readAsBytes(),
-      );
+      final bytes = await File(entry.path).readAsBytes();
+      final image = entry.jpeg
+          ? PdfImage.jpeg(document, image: bytes)
+          : PdfImage.file(document, bytes: bytes);
       // 长图等比缩小页面坐标，避免超出 PDF 页面尺寸限制；原始像素保持完整。
       final longest = entry.width > entry.height ? entry.width : entry.height;
       final scale = longest > 14400 ? 14400 / longest : 1.0;

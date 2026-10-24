@@ -9,7 +9,7 @@ Park.register({
     "ru": {"影片列表解析失败":"Не удалось разобрать список видео","里番目录、排行与搜索；支持应用内多清晰度播放":"Каталог аниме, рейтинг и поиск; воспроизведение в приложении с выбором качества","视频解析失败":"Не удалось получить видео"},
     "ar": {"影片列表解析失败":"تعذر تحليل قائمة الفيديو","里番目录、排行与搜索；支持应用内多清晰度播放":"دليل الأنمي والترتيب والبحث؛ تشغيل داخل التطبيق بجودات متعددة","视频解析失败":"تعذر تحليل الفيديو"},
   },
-  key: 'hanime', name: 'Hanime.tv', version: '0.0.8', minAppVersion: '0.9.2', type: 'video', category: 'anime',
+  key: 'hanime', name: 'Hanime.tv', version: '0.0.9', minAppVersion: '0.9.2', type: 'video', category: 'anime',
   language: 'en', color: '#EC407A', homepage: 'https://hanime.tv',
   description: '里番目录、排行与搜索；支持应用内多清晰度播放',
   domains: ['hanime.tv', 'hanime-cdn.com', 'guest.freeanimehentai.net'],
@@ -31,13 +31,14 @@ Park.register({
     return String(value);
   },
   cover(value) {
-    try { const u = new URL(value); return u.protocol === 'https:' && u.hostname === 'hanime-cdn.com' && !u.port && !u.username && !u.password ? u.href : ''; }
+    // 封面 CDN 会更换主机，只要求是公网 HTTPS 地址。
+    try { const u = new URL(String(value).trim(), this.BASE); return Park.url.parse(u.href, this.BASE, [u.hostname])?.href || ''; }
     catch (_) { return ''; }
   },
   item(row) {
     try {
       const id = this.idValue(row.slug), cover = this.cover(row.cover_url);
-      if (!row.name || !cover) return null;
+      if (!row.name) return null;
       return {id, title: row.name, cover, url: this.BASE + '/videos/hentai/' + id, uploader: row.brand || ''};
     } catch (_) { return null; }
   },
@@ -81,7 +82,7 @@ Park.register({
       const m = u.origin === this.BASE && /^\/videos\/hentai\/([a-z0-9-]+)$/.exec(u.pathname);
       const img = a.querySelector('img'), title = Park.html.text(a.querySelector('h3')) || img?.getAttribute('alt');
       const cover = this.cover(img?.getAttribute('src'));
-      if (!m || !title || !cover || seen.has(m[1])) continue;
+      if (!m || !title || !img || seen.has(m[1])) continue;
       seen.add(m[1]); out.push({id: m[1], title, cover, url: u.href});
     }
     return out;

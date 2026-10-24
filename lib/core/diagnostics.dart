@@ -28,6 +28,7 @@ class Diagnostics {
     'DNS',
     'PRIVATE_ADDRESS',
     'CONNECTION',
+    'FIREWALL_BLOCKED',
     'CONNECT_TIMEOUT',
     'RECEIVE_TIMEOUT',
     'SEND_TIMEOUT',

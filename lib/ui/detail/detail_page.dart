@@ -33,6 +33,7 @@ import 'detail_header.dart';
 import 'detail_sections.dart';
 import 'detail_tags.dart';
 import 'detail_versions.dart';
+import 'single_page_view.dart';
 import 'thumbnail_grid.dart';
 
 /// A work's page: header, one primary action, then description, tags, chapters, previews and
@@ -193,6 +194,15 @@ class _DetailPageState extends State<DetailPage> {
     super.dispose();
   }
 
+  /// 只有一页图片时在详情中直接显示，不再经过章节与预览。
+  bool get _singlePage {
+    final d = _detail;
+    return d != null &&
+        _kind == DetailKind.reading &&
+        d.pages == 1 &&
+        (d.chapters == null || d.chapters!.length == 1);
+  }
+
   DetailKind get _kind {
     if (_isGame) return DetailKind.game;
     if (_opensExternally) return DetailKind.external;
@@ -301,6 +311,7 @@ class _DetailPageState extends State<DetailPage> {
                     item: _item,
                     detail: _detail,
                     kind: _kind,
+                    singlePage: _singlePage,
                     allowDownload: !_isLive,
                     onPrimary: _opensExternally && !_canOpenOriginal
                         ? null
@@ -472,6 +483,31 @@ class _DetailPageState extends State<DetailPage> {
         : (_reversed ? chapters.reversed.toList() : chapters);
     final current = Library.instance.historyOf(d.uid)?.chapterId;
     final isNovel = _m?.isNovel == true || d.isNovel;
+    if (_singlePage) {
+      return [
+        SliverToBoxAdapter(
+          child: SinglePageView(
+            key: ObjectKey(d),
+            detail: d,
+            onOpen: () => _read(),
+          ),
+        ),
+        if (d.series.isNotEmpty)
+          SliverToBoxAdapter(
+            child: WorkRecommendations(title: tr('同系列'), items: d.series),
+          ),
+        if (d.related.isNotEmpty ||
+            d.relatedSections.isNotEmpty ||
+            _m?.can('related') == true)
+          SliverToBoxAdapter(
+            child: RelatedWorks(
+              key: ObjectKey(d),
+              detail: d,
+              sourceManager: _manager,
+            ),
+          ),
+      ];
+    }
     return [
       if (_isGame)
         SliverToBoxAdapter(

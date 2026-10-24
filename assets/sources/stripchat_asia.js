@@ -8,11 +8,11 @@ Park.register({
     ru: {'Stripchat 亚洲直播': 'Stripchat Азиатские эфиры', '中国与亚洲公开直播间': 'Открытые эфиры из Китая и Азии', '未知直播列表': 'Неизвестная лента эфиров', '直播请求失败': 'Ошибка запроса эфира', '直播数据无效': 'Некорректные данные эфира', '直播间不存在': 'Эфир не найден', '直播间暂不可用': 'Эфир сейчас недоступен', '直播间编号无效': 'Неверный ID эфира'},
     ar: {'Stripchat 亚洲直播': 'Stripchat بث آسيوي', '中国与亚洲公开直播间': 'غرف بث عامة من الصين وآسيا', '未知直播列表': 'قائمة بث غير معروفة', '直播请求失败': 'فشل طلب البث', '直播数据无效': 'بيانات البث غير صالحة', '直播间不存在': 'غرفة البث غير موجودة', '直播间暂不可用': 'البث غير متاح حالياً', '直播间编号无效': 'معرّف البث غير صالح'}
   },
-  key: 'stripchat_asia', name: 'Stripchat 亚洲直播', version: '0.0.4', minAppVersion: '0.9.2', type: 'video', category: 'live',
+  key: 'stripchat_asia', name: 'Stripchat 亚洲直播', version: '0.0.6', minAppVersion: '0.9.2', type: 'video', category: 'live',
   color: '#ff4d7d', description: '中国与亚洲公开直播间', language: 'en', homepage: 'https://zh.stripchat.com/',
   domains: ['stripchat.com'], network: {mode: 'auto', origin: 'https://zh.stripchat.com', vpnHint: true},
-  imageHeaders: {Referer: 'https://zh.stripchat.com/'}, imageNetwork: {mode: 'browser', origin: 'https://static-proxy.strpst.com', domains: ['static-proxy.strpst.com']},
-  media: {mode: 'native', origin: 'https://zh.stripchat.com', domains: ['edge-hls.doppiocdn.org', 'media-hls.doppiocdn.org']},
+  imageHeaders: {Referer: 'https://zh.stripchat.com/'},
+  media: {mode: 'native', scope: 'session', origin: 'https://zh.stripchat.com', domains: ['edge-hls.doppiocdn.org', 'media-hls.doppiocdn.org']},
   idPattern: '^[1-9]\\d{5,11}$',
   defaultFeed: 'asia', feeds: [{key: 'asia', label: '亚洲'}],
   BASE: 'https://zh.stripchat.com',
@@ -36,14 +36,16 @@ Park.register({
     return /(?:chinese|japanese|korean|taiwan|asian|hong[ -]?kong|singapore|malaysia|中国|中文|日本|韩国|台湾|亞洲|亚洲)/i.test(tags);
   },
   cover(value) {
+    // 预览图 CDN 会更换主机，只要求是公网 HTTPS 地址。
     try {
-      const u = new URL(value, 'https://static-proxy.strpst.com');
-      return u.protocol === 'https:' && u.hostname === 'static-proxy.strpst.com' && /^\/(?:avatars|previews)\//.test(u.pathname) ? u.href : '';
+      const base = 'https://static-proxy.strpst.com';
+      const url = new URL(String(value).trim(), base);
+      return Park.url.parse(url.href, base, [url.hostname])?.href || '';
     } catch (_) { return ''; }
   },
   item(row, context = '') {
     const id=String(row?.id||''), cover=this.cover(row?.previewUrlThumbSmall||row?.previewUrlThumbBig||row?.avatarUrl);
-    if(!/^[1-9]\d{5,11}$/.test(id)||!row?.username||row.status!=='public'||row.isLive!==true||!this.isAsian(row, context)||!cover) return null;
+    if(!/^[1-9]\d{5,11}$/.test(id)||!row?.username||row.status!=='public'||row.isLive!==true||!this.isAsian(row, context)) return null;
     return {id,title:String(row.username),cover,coverAspect:16/9,url:this.BASE+'/'+encodeURIComponent(row.username),mediaKind:'video',views:Number(row.viewersCount)||undefined,chapters:null};
   },
   async feed(key,req={}) {
@@ -63,7 +65,25 @@ Park.register({
       const item = this.item(entry.row, entry.context);
       if (item && !unique.has(item.id)) unique.set(item.id, item);
     }
+    this.remember(entries.map(entry => entry.row).filter(row => unique.has(String(row?.id||''))));
     return {items:[...unique.values()],page,hasNext:responses.some(({data}) => data.models.length === 20)};
+  },
+  // 单间接口常被 Cloudflare 挑战；列表接口已给出流名称和原站当前的播放主机，短时缓存后直接使用。
+  remember(rows) {
+    const saved = this.store.get('rooms') || {};
+    for (const row of rows) {
+      const id = String(row?.id || ''), stream = String(row?.streamName || id);
+      if (!/^[1-9]\d{5,11}$/.test(id) || !/^\d{6,12}$/.test(stream)) continue;
+      delete saved[id];
+      saved[id] = {stream, hls: String(row?.hlsPlaylist || ''), at: Date.now()};
+    }
+    const ids = Object.keys(saved);
+    for (const id of ids.slice(0, Math.max(0, ids.length - 300))) delete saved[id];
+    this.store.set('rooms', saved);
+  },
+  cachedRoom(id) {
+    const room = (this.store.get('rooms') || {})[id];
+    return room && Date.now() - room.at < 15 * 60 * 1000 ? room : null;
   },
   async room(value) {
     const id = this.validId(value), data = await this.json('/api/front/v2/models/' + id + '/cam');
@@ -76,15 +96,40 @@ Park.register({
     }
     return {id, user, cam};
   },
-  async detail(value) {
-    const {id, user} = await this.room(value);
+  async detail(value, preview) {
+    const id = this.validId(value);
+    if (preview?.id === id && preview.title && this.cachedRoom(id)) {
+      return {id,title:String(preview.title),cover:this.cover(preview.cover),coverAspect:16/9,url:this.BASE+'/'+encodeURIComponent(preview.title),description:'',authors:[],tags:[],chapters:null,mediaKind:'video'};
+    }
+    const {user} = await this.room(value);
     return {id,title:String(user.username||user.name||id),cover:this.cover(user.previewUrlThumbBig||user.previewUrlThumbSmall),coverAspect:16/9,url:this.BASE+'/'+encodeURIComponent(user.username||id),description:String(user.description||''),authors:[],tags:[],chapters:null,mediaKind:'video'};
   },
+  async hlsDomains() {
+    // 原站配置给出 HLS 备用域，与原站播放器一样在主域不可用时切换。
+    const cached = this.store.get('hlsDomains');
+    if (cached && Date.now() - cached.at < 6 * 3600 * 1000) return cached.domains;
+    let fallback = [];
+    try {
+      const config = JSON.stringify(await this.json('/api/front/v3/config/static'));
+      fallback = JSON.parse(config.match(/"fallbackDomains":(\[[^\]]*\])/)?.[1] || '[]')
+        .filter(d => typeof d === 'string' && /^[a-z0-9-]+(?:\.[a-z0-9-]+)+$/i.test(d));
+    } catch (_) {}
+    const domains = [...new Set([...fallback, 'doppiocdn.org'])];
+    this.store.set('hlsDomains', {at: Date.now(), domains});
+    return domains;
+  },
   async videos(value) {
-    const {id, cam} = await this.room(value);
-    const stream=String(cam.streamName||id); if(!/^\d{6,12}$/.test(stream)) throw Park.error('PARSE','直播数据无效');
-    // 原站原生播放器的公开协议参数；主清单会将它传给各清晰度。
-    const url='https://edge-hls.doppiocdn.org/hls/'+stream+'/master/'+stream+'_auto.m3u8?pkey=B0p93vi8Uj6AYyZb';
-    return [{url,format:'hls',label:'直播',preferred:true,headers:{Referer:this.BASE+'/'}}];
+    const id = this.validId(value), cached = this.cachedRoom(id);
+    const stream = cached ? cached.stream : String((await this.room(value)).cam.streamName || id);
+    if(!/^\d{6,12}$/.test(stream)) throw Park.error('PARSE','直播数据无效');
+    // 原站列表给出的播放主机优先，其次是原站配置的备用域。
+    let current = '';
+    try { const u = new URL(cached?.hls || ''); if (u.protocol === 'https:' && /^[a-z0-9.-]+$/i.test(u.hostname)) current = u.hostname; } catch (_) {}
+    const hosts = [...new Set([current, ...(await this.hlsDomains()).map(domain => 'edge-hls.' + domain)].filter(Boolean))];
+    // 原站原生播放器的公开协议参数；主清单会将它传给各清晰度。同名线路是镜像，应用按顺序取第一个可用的。
+    return hosts.map((host, index) => ({
+      url:'https://'+host+'/hls/'+stream+'/master/'+stream+'_auto.m3u8?pkey=B0p93vi8Uj6AYyZb',
+      format:'hls',label:'直播',preferred:index===0,headers:{Referer:this.BASE+'/'},
+    }));
   }
 });

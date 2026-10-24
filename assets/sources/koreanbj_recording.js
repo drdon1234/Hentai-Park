@@ -36,11 +36,11 @@ Park.register({
       '录播请求失败': 'فشل طلب التسجيل', '录播数据无效': 'بيانات التسجيل غير صالحة', '录播不存在': 'التسجيل غير موجود',
     },
   },
-  key: 'koreanbj_recording', name: 'KoreanBJ.club 录播', version: '0.0.4', minAppVersion: '0.9.2', type: 'video', category: 'recording',
+  key: 'koreanbj_recording', name: 'KoreanBJ.club 录播', version: '0.0.5', minAppVersion: '0.9.2', type: 'video', category: 'recording',
   color: '#8d2738', description: '韩国主播录播，支持热门、分页、搜索与原生播放', language: 'ko',
   homepage: 'https://ww1.koreanbj.club/', domains: ['koreanbj.club'],
   network: {mode: 'auto', vpnHint: true},
-  media: {mode: 'native', scope: 'session', origin: 'https://ww1.koreanbj.club', domains: ['kbj.31cek.xyz'],
+  media: {mode: 'native', scope: 'session', origin: 'https://ww1.koreanbj.club', domains: ['kbj.31cek.xyz', 'onlyfanleaks.me'],
     referrerDomains: ['io12379storege.xyz']},
   imageHeaders: {Referer: 'https://ww1.koreanbj.club/'},
   idPattern: '^[A-Za-z0-9%._~-]{1,220}$',
@@ -140,13 +140,27 @@ Park.register({
     const id = this.validId(value);
     const detailUrl = this.BASE + '/video/' + id + '/';
     const detail = this.document(await this.text('/video/' + id + '/'));
+    // 部分录播直接嵌入 MP4 播放器。
+    for (const source of detail.querySelectorAll('video#player source[src]')) {
+      let media;
+      try { media = new URL(source.getAttribute('src')); } catch (_) { continue; }
+      if (media.protocol === 'https:' && !media.username && !media.password && !media.port && !media.hash &&
+          Park.url.parse(media.href, detailUrl, [media.hostname]) && /^\/videos\/[0-9]+\.mp4$/i.test(media.pathname)) {
+        return [{url: media.href, format: 'mp4', label: '原画', preferred: true, headers: {Referer: detailUrl}}];
+      }
+    }
     let embed;
-    for (const iframe of detail.querySelectorAll('iframe[src]')) {
+    // 播放器 iframe 可能在点击后才由脚本插入，此时地址只出现在结构化数据中。
+    const embeds = [
+      ...[...detail.querySelectorAll('iframe[src]')].map(node => node.getAttribute('src')),
+      ...[...detail.querySelectorAll('meta[itemprop="contentURL"]')].map(node => node.getAttribute('content')),
+    ];
+    for (const value of embeds) {
       let candidate;
-      try { candidate = new URL(iframe.getAttribute('src'), this.BASE + '/'); } catch (_) { continue; }
+      try { candidate = new URL(value, this.BASE + '/'); } catch (_) { continue; }
       if (candidate.protocol === 'https:' && !candidate.username && !candidate.password && !candidate.port && !candidate.hash &&
           ((candidate.hostname === 'ww1.koreanbj.club' && candidate.pathname === '/embed/player-6w.php' && candidate.searchParams.has('token')) ||
-            (candidate.hostname === '31cek.xyz' && candidate.pathname === '/embed/kbj.php' && candidate.searchParams.has('url')))) {
+            (candidate.pathname === '/embed/kbj.php' && candidate.searchParams.has('url') && Park.url.parse(candidate.href, detailUrl, [candidate.hostname])))) {
         embed = candidate;
         break;
       }
@@ -183,7 +197,7 @@ Park.register({
       let media;
       try { media = new URL(config.source); } catch (_) { throw Park.error('PARSE', '录播数据无效'); }
       if (media.protocol !== 'https:' || media.username || media.password || media.port || media.hash ||
-          !/(^|\.)cloudwindow-route\.com$/i.test(media.hostname) || !/\.m3u8$/i.test(media.pathname)) {
+          !Park.url.parse(media.href, embed.href, [media.hostname]) || !/\.m3u8$/i.test(media.pathname)) {
         throw Park.error('UNSUPPORTED', '录播暂无可用播放地址');
       }
       return [{url: media.href, format: 'hls', label: '原画', preferred: true,
@@ -200,14 +214,15 @@ Park.register({
     if (media.protocol !== 'https:' || media.username || media.password || media.port || media.hash) {
       throw Park.error('UNSUPPORTED', '录播暂无可用播放地址');
     }
-    if (media.hostname === 'kbj.31cek.xyz' && /^\/self\/data\/[A-Za-z0-9_-]+\.mp4$/i.test(media.pathname)) {
+    // 直链与清单 CDN 会更换主机，按会话授权，只按路径识别。
+    if (/^\/self\/data\/[A-Za-z0-9_-]+\.mp4$/i.test(media.pathname)) {
       return [{url: media.href, format: 'mp4', label: '原画', preferred: true,
         headers: {Referer: detailUrl}}];
     }
-    if (!/(^|\.)bestmovietrailers\.cyou$/i.test(media.hostname) || !/\.(?:m3u8|txt)$/i.test(media.pathname)) {
+    if (!/\.(?:m3u8|txt)$/i.test(media.pathname)) {
       throw Park.error('UNSUPPORTED', '录播暂无可用播放地址');
     }
-    // CDN 清单与伪装扩展名的 TS 分片由共享 HLS 会话解析，不扩大站点 Cookie 权限。
+    // CDN 主机会轮换；清单与伪装扩展名的 TS 分片按本次会话授权，不扩大站点 Cookie 权限。
     return [{url: media.href, format: 'hls', label: '原画', preferred: true,
       headers: {Referer: detailUrl}}];
   },

@@ -8,12 +8,12 @@ Park.register({
     ru: {'CamwhoresBay 亚洲录播': 'Азиатские записи CamwhoresBay', '韩国': 'Корея', '日本': 'Япония', '中国': 'Китай', '录播请求失败': 'Ошибка запроса записи', '录播数据无效': 'Некорректные данные записи', '录播不存在': 'Запись не найдена', '录播暂不可用': 'Запись сейчас недоступна'},
     ar: {'CamwhoresBay 亚洲录播': 'تسجيلات CamwhoresBay الآسيوية', '韩国': 'كوريا', '日本': 'اليابان', '中国': 'الصين', '录播请求失败': 'فشل طلب التسجيل', '录播数据无效': 'بيانات التسجيل غير صالحة', '录播不存在': 'التسجيل غير موجود', '录播暂不可用': 'التسجيل غير متاح حالياً'},
   },
-  key: 'camwhoresbay_recording', name: 'CamwhoresBay 亚洲录播', version: '0.0.4', minAppVersion: '0.9.2', type: 'video', category: 'recording',
+  key: 'camwhoresbay_recording', name: 'CamwhoresBay 亚洲录播', version: '0.0.5', minAppVersion: '0.9.2', type: 'video', category: 'recording',
   color: '#c93443', description: '韩国、日本与中国主播录播，支持搜索和 MP4 播放', language: 'en',
   homepage: 'https://www.camwhoresbay.com/', domains: ['camwhoresbay.com'],
   network: {mode: 'native', origin: 'https://www.camwhoresbay.com', vpnHint: true},
   imageHeaders: {Referer: 'https://www.camwhoresbay.com/'},
-  media: {mode: 'native', origin: 'https://www.camwhoresbay.com', domains: ['camwhoresbay.com', 'cdntrex.com']},
+  media: {mode: 'native', scope: 'session', origin: 'https://www.camwhoresbay.com', domains: ['camwhoresbay.com', 'cdntrex.com']},
   idPattern: '^[1-9]\\d{0,8}/[a-z0-9-]+$', linkPatterns: ['camwhoresbay\\.com/videos/(([1-9]\\d{0,8})/[a-z0-9-]+)/'],
   defaultFeed: 'korean', feeds: [{key: 'korean', label: '韩国'}, {key: 'japanese', label: '日本'}, {key: 'chinese', label: '中国'}],
   BASE: 'https://www.camwhoresbay.com',
@@ -23,20 +23,21 @@ Park.register({
     return r.body;
   },
   document(html) { return Park.html.parse(html); },
+  publicUrl(value, base = this.BASE) {
+    // CDN 主机会更换，只要求是公网 HTTPS 地址；作品身份仍按站点域名校验。
+    try { const url = new URL(String(value).trim(), base); return Park.url.parse(url.href, base, [url.hostname]); } catch (_) { return null; }
+  },
   card(a) {
     const img = a?.querySelector('img');
     if (!a || !img) return null;
-    let url, cover;
-    try {
-      url = new URL(a.getAttribute('href'), this.BASE);
-      cover = new URL(img.getAttribute('data-original') || img.getAttribute('data-src') || img.getAttribute('src'), this.BASE);
-    } catch (_) { return null; }
+    let url;
+    try { url = new URL(a.getAttribute('href'), this.BASE); } catch (_) { return null; }
+    const cover = this.publicUrl(img.getAttribute('data-original') || img.getAttribute('data-src') || img.getAttribute('src'));
     const match = url.pathname.match(/^\/videos\/([1-9]\d{0,8})\/([a-z0-9-]+)\/$/);
-    if (url.hostname !== 'www.camwhoresbay.com' || !match ||
-        cover.protocol !== 'https:' || cover.hostname !== 'cwb.cdntrex.com') return null;
+    if (url.hostname !== 'www.camwhoresbay.com' || !match) return null;
     const id = match[1] + '/' + match[2], title = String(a.getAttribute('title') || img.getAttribute('alt') || '').trim();
     if (!title) return null;
-    return {id, title, cover: cover.href, coverAspect: 16/9, url: url.href, mediaKind: 'video'};
+    return {id, title, cover: cover?.href || '', coverAspect: 16/9, url: url.href, mediaKind: 'video'};
   },
   async feed(key, req = {}) {
     if (!this.feeds.some(x => x.key === key)) throw Park.error('CONFIG', '录播数据无效');
@@ -76,18 +77,17 @@ Park.register({
     const title = String(doc.querySelector('h1')?.textContent || '').trim();
     const poster = doc.querySelector('meta[property="og:image"]')?.getAttribute('content') ||
       doc.querySelector('meta[itemprop="thumbnailUrl"]')?.getAttribute('content');
-    let cover;
-    try { cover = new URL(poster, this.BASE); } catch (_) {}
-    if (!title || !cover || cover.protocol !== 'https:' || cover.hostname !== 'cwb.cdntrex.com') throw Park.error('NOT_FOUND', '录播不存在');
-    return {id: value, title, cover: cover.href, coverAspect: 16/9, url: this.BASE + path, mediaKind: 'video', chapters: null};
+    const cover = this.publicUrl(poster);
+    if (!title) throw Park.error('NOT_FOUND', '录播不存在');
+    return {id: value, title, cover: cover?.href || '', coverAspect: 16/9, url: this.BASE + path, mediaKind: 'video', chapters: null};
   },
   async videos(value) {
     const path = this.path(value);
     const html = await this.text(path);
     const match = html.match(/video_url:\s*'([^']+)'/);
     if (!match) throw Park.error('UNSUPPORTED', '录播暂不可用');
-    let url; try { url = new URL(match[1]); } catch (_) { throw Park.error('PARSE', '录播数据无效'); }
-    if (url.protocol !== 'https:' || url.hostname !== 'www.camwhoresbay.com' || !/^\/get_file\/\d+\/[a-f0-9]+\/\d+\/\d+\/[^/]+\.mp4\/$/i.test(url.pathname)) {
+    const url = this.publicUrl(match[1]);
+    if (!url || !/\.mp4\/?$/i.test(url.pathname)) {
       throw Park.error('UNSUPPORTED', '录播暂不可用');
     }
     return [{url: url.href, format: 'mp4', label: '原画', preferred: true, headers: {Referer: this.BASE + '/'}}];

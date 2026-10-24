@@ -221,6 +221,9 @@ class HttpService {
           bytes: bytes.takeBytes(),
           url: res.realUri.toString(),
         );
+        if (detectCloudflare && result.isFirewallBlock) {
+          throw firewallBlocked(res.realUri.host, url: result.url);
+        }
         if (detectCloudflare && result.isCloudflareChallenge) {
           throw SourceError(
             'CLOUDFLARE',
@@ -649,6 +652,19 @@ class HttpResult {
       if (enc != null) return enc.decode(bytes);
     }
     return utf8.decode(bytes, allowMalformed: true);
+  }
+
+  bool get isFirewallBlock {
+    if (status != 403) return false;
+    if (!(headers['server'] ?? '').toLowerCase().contains('cloudflare')) {
+      return false;
+    }
+    return hasFirewallBlockMarkers(
+      utf8.decode(
+        bytes.length > 16384 ? bytes.sublist(0, 16384) : bytes,
+        allowMalformed: true,
+      ),
+    );
   }
 
   bool get isCloudflareChallenge {

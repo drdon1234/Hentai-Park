@@ -192,7 +192,7 @@ class _DetailHeaderState extends State<DetailHeader> {
                       );
                       final info = Padding(
                         padding: infoPadding,
-                        child: _info(context),
+                        child: _info(context, large: wide),
                       );
                       final overview = Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -213,7 +213,7 @@ class _DetailHeaderState extends State<DetailHeader> {
                       final width = wide
                           ? (available * (aspect > 1 ? .36 : .24)).clamp(
                               176.0,
-                              aspect > 1 ? 400.0 : 224.0,
+                              aspect > 1 ? 420.0 : 260.0,
                             )
                           : available *
                                 (stacked ? (aspect > 1 ? 1 : .65) : .32);
@@ -283,6 +283,23 @@ class _DetailHeaderState extends State<DetailHeader> {
       child: Stack(
         fit: StackFit.expand,
         children: [
+          // 封面像一本放在桌上的书：柔和的投影把它从页面上托起来。
+          DecoratedBox(
+            decoration: BoxDecoration(
+              borderRadius: Radii.small,
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(
+                    alpha: Theme.of(context).brightness == Brightness.dark
+                        ? .45
+                        : .18,
+                  ),
+                  blurRadius: 24,
+                  offset: const Offset(0, 10),
+                ),
+              ],
+            ),
+          ),
           CoverHero(
             tag: widget.coverHeroTag,
             child: ClipRRect(
@@ -312,7 +329,7 @@ class _DetailHeaderState extends State<DetailHeader> {
     );
   }
 
-  Widget _info(BuildContext context) {
+  Widget _info(BuildContext context, {bool large = false}) {
     final item = widget.item;
     final d = widget.detail;
     final c = context.colors;
@@ -327,8 +344,9 @@ class _DetailHeaderState extends State<DetailHeader> {
           builder: (value) => SelectableText(
             value,
             minLines: 1,
-            style: ParkText.serif(context.text.titleLarge)
-                ?.copyWith(fontWeight: FontWeight.w600, height: 1.3),
+            style: ParkText.serif(
+              large ? context.text.headlineSmall : context.text.titleLarge,
+            )?.copyWith(fontWeight: FontWeight.w600, height: 1.3),
           ),
         ),
         if (item.subtitle.isNotEmpty && item.subtitle != item.title) ...[

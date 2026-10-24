@@ -40,6 +40,7 @@ enum SettingsDomain {
     'domainOrder',
     'homeCategories',
     'homeDimension',
+    'homeMedia',
     'homeSources',
     'homeExpandedDomains',
     'homeHiddenSources',
@@ -99,6 +100,7 @@ enum SettingsDomain {
     'downloadConcurrency',
     'downloadWifiOnly',
     'downloadDirectory',
+    'pdfPagesPerFile',
   }),
   privacy({
     'blurCovers',
@@ -477,6 +479,16 @@ class AppSettings extends ChangeNotifier {
   set homeDimension(ContentDimension value) =>
       _set('homeDimension', value.name);
 
+  ContentMedia get homeMedia => ContentMedia.values.firstWhere(
+    (media) => media.name == _v['homeMedia'],
+    orElse: () => ContentMedia.all,
+  );
+  set homeMedia(ContentMedia value) => _set('homeMedia', value.name);
+
+  /// 发现页筛选是否显示这个分类；搜索从首页进入时沿用同一范围。
+  bool homeIncludes(SourceCategory category) =>
+      homeDimension.includes(category) && homeMedia.includes(category);
+
   // ── Reader ──
   ReaderMode get readerMode =>
       ReaderMode.values[_get(
@@ -488,7 +500,7 @@ class AppSettings extends ChangeNotifier {
   int get preloadPages => _get('preloadPages', 4);
   set preloadPages(int v) => _set('preloadPages', v);
 
-  static const maxShortVideoPreloadCount = 3;
+  static const maxShortVideoPreloadCount = 20;
   static const maxShortVideoRetainedCount = 5;
 
   int get shortVideoPreloadCount => _get('shortVideoPreloadCount', 2);
@@ -649,6 +661,10 @@ class AppSettings extends ChangeNotifier {
 
   bool get downloadWifiOnly => _get('downloadWifiOnly', false);
   set downloadWifiOnly(bool v) => _set('downloadWifiOnly', v);
+
+  /// 导出 PDF 时每个文件的最多页数，0 表示只按体积分卷。
+  int get pdfPagesPerFile => _get('pdfPagesPerFile', 300);
+  set pdfPagesPerFile(int v) => _set('pdfPagesPerFile', v);
 
   String get downloadDirectory => _get('downloadDirectory', '');
   set downloadDirectory(String v) => _set('downloadDirectory', v);

@@ -1,5 +1,14 @@
 Park.register({
-  key: 'ranking-studios', name: '无码厂商', version: '0.0.4', minAppVersion: '0.9.2',
+  i18n: {
+    "zh-Hant": {"官方女优榜": "官方女優榜"},
+    ja: {"官方女优榜": "公式女優ランキング"},
+    ko: {"官方女优榜": "공식 배우 순위"},
+    en: {"官方女优榜": "Official actress ranking"},
+    es: {"官方女优榜": "Ranking oficial de actrices"},
+    ru: {"官方女优榜": "Официальный рейтинг актрис"},
+    ar: {"官方女优榜": "ترتيب الممثلات الرسمي"},
+  },
+  key: 'ranking-studios', name: '无码厂商', version: '0.0.5', minAppVersion: '0.9.2',
   type: 'video', category: 'jav', rankingOnly: true,
   description: '官方人气榜', homepage: 'https://www.1pondo.tv/',
   domains: ['1pondo.tv', '10musume.com', 'pacopacomama.com', 'caribbeancom.com'],

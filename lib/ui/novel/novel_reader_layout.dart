@@ -226,7 +226,7 @@ mixin _NovelLayout on _NovelReaderBase {
                           child: OutlinedButton(
                             style: OutlinedButton.styleFrom(
                               foregroundColor: foreground,
-                              side: BorderSide(color: foreground),
+                              backgroundColor: foreground.withValues(alpha: .1),
                             ),
                             onPressed: () => _changedOffset(_text.length),
                             child: SelectionContainer.disabled(

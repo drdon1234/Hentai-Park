@@ -9,7 +9,7 @@ Park.register({
     "ru": {"JAV 视频，支持推荐、热门、搜索与 HLS 播放": "Видео JAV с рекомендациями, популярными списками, поиском и воспроизведением HLS", "推荐列表暂不可用": "Рекомендации временно недоступны", "推荐配置暂不可用": "Настройки рекомендаций временно недоступны", "播放线路暂不可用": "Воспроизведение временно недоступно", "请刷新推荐列表后重试": "Обновите рекомендации и повторите попытку"},
     "ar": {"JAV 视频，支持推荐、热门、搜索与 HLS 播放": "مقاطع JAV مع توصيات وقوائم شائعة وبحث وتشغيل HLS", "推荐列表暂不可用": "التوصيات غير متاحة مؤقتًا", "推荐配置暂不可用": "إعدادات التوصيات غير متاحة مؤقتًا", "播放线路暂不可用": "التشغيل غير متاح مؤقتًا", "请刷新推荐列表后重试": "حدّث التوصيات وحاول مرة أخرى"},
   },
-  key: 'av123', name: '123AV', version: '0.0.11', minAppVersion: '0.9.2', type: 'video', category: 'jav', color: '#EF4444',
+  key: 'av123', name: '123AV', version: '0.0.12', minAppVersion: '0.9.2', type: 'video', category: 'jav', color: '#EF4444',
   description: 'JAV 视频，支持推荐、热门、搜索与 HLS 播放',
   homepage: 'https://123av.com', domains: ['123av.com', 'sadie-shop.site'], language: 'zh-Hans',
   network: {mode: 'browser', origin: 'https://123av.com', vpnHint: true},
@@ -68,13 +68,17 @@ Park.register({
     if (r.body.length>4*1024*1024) throw Park.error('PARSE','影片页面过大');
     return Park.html.parse(r.body);
   },
+  publicUrl(value, base = this.BASE) {
+    // CDN 主机会更换，只要求是公网 HTTPS 地址；作品身份仍按站点域名校验。
+    try { const url = new URL(String(value).trim(), base); return Park.url.parse(url.href, base, [url.hostname]); } catch (_) { return null; }
+  },
   cards(doc) {
     const items=[];
     for (const card of doc.querySelectorAll('.card')) {
       const a=card.querySelector('.card__title a[href]'), img=card.querySelector('img.card__img');
       const m=a && /^\/cn\/v\/([a-z0-9][a-z0-9_-]{1,120})(?:[?#]|$)/.exec(a.getAttribute('href') || '');
-      const title=Park.html.text(a), cover=img && img.getAttribute('src');
-      if (!m || !title || !/^https:\/\/icdn\.123av\.me\//.test(cover || '') || items.some(i=>i.id===m[1])) continue;
+      const title=Park.html.text(a), cover=this.publicUrl(img?.getAttribute('src'))?.href || '';
+      if (!m || !title || items.some(i=>i.id===m[1])) continue;
       items.push({id:m[1],title,cover,coverAspect:16/9,duration:this.duration(Park.html.text(card.querySelector('.card__dur'))), ...this.identity(m[1], Park.html.text(card.querySelector('.card__badge')))});
     }
     return items;
@@ -187,7 +191,7 @@ Park.register({
     const poster=episode && /[?&]poster=([^&]+)/.exec(episode.url);
     let cover='';
     try {cover=poster?decodeURIComponent(poster[1]):'';} catch (_) {}
-    if (!/^https:\/\/icdn\.123av\.me\//.test(cover)) cover='';
+    cover=this.publicUrl(cover)?.href || '';
     const authors=[],tags=[]; let duration='',uploaded='';
     for (const row of doc.querySelectorAll('.watch__info-row')) {
       const name=Park.html.text(row.querySelector('dt')), value=Park.html.text(row.querySelector('dd'));

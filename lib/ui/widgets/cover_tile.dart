@@ -9,6 +9,7 @@ import '../../library/library.dart';
 import '../kit/adaptive_sheet.dart';
 import '../library/favorite_actions.dart';
 import '../nav.dart';
+import '../short_video/short_video_sequence.dart';
 import '../theme.dart';
 import 'common.dart';
 import 'content_translation.dart';
@@ -32,6 +33,7 @@ class CoverTile extends StatefulWidget {
     this.selected = false,
     this.badges = const [],
     this.imageOnly = false,
+    this.sequence,
   });
   final WorkItem item;
   final double? aspect;
@@ -44,6 +46,9 @@ class CoverTile extends StatefulWidget {
   final List<CoverBadge> badges;
   final bool imageOnly;
 
+  /// 所在列表的播放顺序；短视频从这里按列表连续播放。
+  final ShortVideoSequence Function()? sequence;
+
   @override
   State<CoverTile> createState() => _CoverTileState();
 }
@@ -51,6 +56,7 @@ class CoverTile extends StatefulWidget {
 class _CoverTileState extends State<CoverTile> {
   // 动画属于列表中的这个入口，不能用可能重复或被详情规范化的作品 ID。
   final Object _coverHeroTag = Object();
+  bool _hovered = false;
 
   /// One muted line: text values, with small glyphs for rating and likes.
   List<(IconData?, String)> _metadata(WorkItem item) => [
@@ -89,7 +95,12 @@ class _CoverTileState extends State<CoverTile> {
     final metadata = _metadata(item);
     final onTap =
         widget.onTap ??
-        () => Nav.openWork(context, item, coverHeroTag: _coverHeroTag);
+        () => Nav.openWork(
+          context,
+          item,
+          coverHeroTag: _coverHeroTag,
+          sequence: widget.sequence?.call(),
+        );
     final onLongPress =
         widget.onLongPress ??
         () => showWorkActions(context, item, coverHeroTag: _coverHeroTag);
@@ -115,80 +126,89 @@ class _CoverTileState extends State<CoverTile> {
         borderRadius: Radii.small,
         onTap: onTap,
         onLongPress: onLongPress,
+        onHover: (hovered) => setState(() => _hovered = hovered),
         child: SelectionContainer.disabled(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              AspectRatio(
-                aspectRatio:
-                    widget.aspect ?? item.coverAspect ?? (video ? 16 / 9 : 0.7),
-                child: Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    CoverHero(
-                      tag: _coverHeroTag,
-                      child: CoverImage(
-                        source: item.source,
-                        url: item.cover,
-                        sourceBlurred: item.json['coverBlurred'] == true,
-                        title: item.title,
-                        mediaKind: item.isNovel ? MediaKind.novel : null,
-                      ),
-                    ),
-                    if (!widget.imageOnly && badge != null)
-                      PositionedDirectional(
-                        start: Gap.xs + 2,
-                        top: Gap.xs + 2,
-                        end: Gap.xs + 2,
-                        child: Align(
-                          alignment: AlignmentDirectional.centerStart,
-                          child: badge,
+              AnimatedScale(
+                // 指针悬停时封面轻微浮起，提示可以打开。
+                scale: _hovered ? 1.025 : 1,
+                duration: Motion.of(context, Motion.medium),
+                curve: Motion.emphasized,
+                child: AspectRatio(
+                  aspectRatio:
+                      widget.aspect ??
+                      item.coverAspect ??
+                      (video ? 16 / 9 : 0.7),
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      CoverHero(
+                        tag: _coverHeroTag,
+                        child: CoverImage(
+                          source: item.source,
+                          url: item.cover,
+                          sourceBlurred: item.json['coverBlurred'] == true,
+                          title: item.title,
+                          mediaKind: item.isNovel ? MediaKind.novel : null,
                         ),
                       ),
-                    if (!widget.imageOnly && item.duration.isNotEmpty)
-                      PositionedDirectional(
-                        end: Gap.xs + 2,
-                        bottom: Gap.xs + 2,
-                        child: Tag(item.duration, onImage: true),
-                      ),
-                    if (!widget.imageOnly &&
-                        history != null &&
-                        history.progress > 0)
-                      Positioned(
-                        left: 0,
-                        right: 0,
-                        bottom: 0,
-                        child: ClipRRect(
-                          borderRadius: const BorderRadius.vertical(
-                            bottom: Radius.circular(Radii.sm),
-                          ),
-                          child: LinearProgressIndicator(
-                            value: history.progress,
-                            minHeight: 3,
-                            backgroundColor: Scrims.soft,
+                      if (!widget.imageOnly && badge != null)
+                        PositionedDirectional(
+                          start: Gap.xs + 2,
+                          top: Gap.xs + 2,
+                          end: Gap.xs + 2,
+                          child: Align(
+                            alignment: AlignmentDirectional.centerStart,
+                            child: badge,
                           ),
                         ),
-                      ),
-                    if (widget.selected)
-                      DecoratedBox(
-                        decoration: BoxDecoration(
-                          color: Scrims.soft,
-                          borderRadius: Radii.small,
-                          border: Border.all(color: c.primary, width: 2),
+                      if (!widget.imageOnly && item.duration.isNotEmpty)
+                        PositionedDirectional(
+                          end: Gap.xs + 2,
+                          bottom: Gap.xs + 2,
+                          child: Tag(item.duration, onImage: true),
                         ),
-                        child: Align(
-                          alignment: AlignmentDirectional.topEnd,
-                          child: Padding(
-                            padding: const EdgeInsets.all(Gap.xs + 2),
-                            child: Icon(
-                              Icons.check_circle_rounded,
-                              color: c.primary,
-                              size: 24,
+                      if (!widget.imageOnly &&
+                          history != null &&
+                          history.progress > 0)
+                        Positioned(
+                          left: 0,
+                          right: 0,
+                          bottom: 0,
+                          child: ClipRRect(
+                            borderRadius: const BorderRadius.vertical(
+                              bottom: Radius.circular(Radii.sm),
+                            ),
+                            child: LinearProgressIndicator(
+                              value: history.progress,
+                              minHeight: 3,
+                              backgroundColor: Scrims.soft,
                             ),
                           ),
                         ),
-                      ),
-                  ],
+                      if (widget.selected)
+                        DecoratedBox(
+                          decoration: BoxDecoration(
+                            color: Scrims.soft,
+                            borderRadius: Radii.small,
+                            border: Border.all(color: c.primary, width: 2),
+                          ),
+                          child: Align(
+                            alignment: AlignmentDirectional.topEnd,
+                            child: Padding(
+                              padding: const EdgeInsets.all(Gap.xs + 2),
+                              child: Icon(
+                                Icons.check_circle_rounded,
+                                color: c.primary,
+                                size: 24,
+                              ),
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
                 ),
               ),
               if (!widget.imageOnly) ...[

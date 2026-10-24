@@ -28,7 +28,7 @@ class DiscoveryDestination {
 List<DiscoveryDestination> get discoveryDestinations => [
   const DiscoveryDestination.all(),
   for (final domain in AppSettings.instance.domainOrder)
-    if (AppSettings.instance.homeDimension.includes(domain))
+    if (AppSettings.instance.homeIncludes(domain))
       DiscoveryDestination.domain(domain),
   const DiscoveryDestination.subscriptions(),
 ];
@@ -126,13 +126,11 @@ class _DomainChipState extends State<_DomainChip> {
         child: OutlinedButton.icon(
           style: OutlinedButton.styleFrom(
             foregroundColor: widget.selected
-                ? colors.primary
-                : colors.onSurfaceVariant,
-            side: BorderSide(
-              color: widget.selected ? colors.primary : colors.outline,
-            ),
-            shape: const RoundedRectangleBorder(borderRadius: Radii.small),
-            minimumSize: const Size(0, 48),
+                ? colors.onSecondaryContainer
+                : colors.onSurface,
+            backgroundColor: widget.selected ? colors.secondaryContainer : null,
+            minimumSize: const Size(0, 32),
+            tapTargetSize: MaterialTapTargetSize.padded,
             padding: const EdgeInsets.symmetric(horizontal: Gap.m),
           ),
           onPressed: () => widget.onSelected(widget.destination),

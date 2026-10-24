@@ -8,6 +8,7 @@ import '../../core/tag_blocklist.dart';
 import '../../engine/source_manager.dart';
 import '../kit/kit.dart';
 import '../nav.dart';
+import '../theme.dart';
 import 'settings_sections.dart';
 
 /// 我的: incognito at hand, then one entry per settings section. Each section is its own page
@@ -31,14 +32,18 @@ class SettingsPage extends StatelessWidget {
           child: ListView(
             padding: const EdgeInsets.only(bottom: Gap.xxl),
             children: [
-              SwitchListTile.adaptive(
-                secondary: const Icon(Icons.visibility_off_outlined),
-                title: SelectionContainer.disabled(child: Text(tr('无痕模式'))),
-                subtitle: SelectionContainer.disabled(
-                  child: Text(tr('暂停记录历史、阅读进度与已读状态')),
-                ),
-                value: s.incognito,
-                onChanged: (v) => s.incognito = v,
+              RowGroup(
+                children: [
+                  SwitchListTile.adaptive(
+                    secondary: const Icon(Icons.visibility_off_outlined),
+                    title: SelectionContainer.disabled(child: Text(tr('无痕模式'))),
+                    subtitle: SelectionContainer.disabled(
+                      child: Text(tr('暂停记录历史、阅读进度与已读状态')),
+                    ),
+                    value: s.incognito,
+                    onChanged: (v) => s.incognito = v,
+                  ),
+                ],
               ),
               for (final group in _groups)
                 RowGroup(
@@ -46,7 +51,7 @@ class SettingsPage extends StatelessWidget {
                   children: [
                     for (final section in group.$2)
                       ListRow(
-                        leading: Icon(section.icon),
+                        leading: _SectionIcon(section.icon),
                         title: section.title,
                         titleMaxLines: null,
                         subtitle: section.summary(),
@@ -153,4 +158,21 @@ String _filterSummary(AppSettings settings) {
     if (presets > 0) tr('已启用 {count} 组预设', {'count': presets}),
     if (custom > 0) tr('自定义屏蔽 {count} 项', {'count': custom}),
   ].join(' · ');
+}
+
+/// A settings section's icon on a small accent-tinted tile, so the index scans by shape first.
+class _SectionIcon extends StatelessWidget {
+  const _SectionIcon(this.icon);
+  final IconData icon;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    width: 36,
+    height: 36,
+    decoration: BoxDecoration(
+      color: context.colors.secondaryContainer,
+      borderRadius: Radii.small,
+    ),
+    child: Icon(icon, size: 20, color: context.colors.onSecondaryContainer),
+  );
 }

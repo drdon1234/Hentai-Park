@@ -372,7 +372,10 @@ class _NovelReaderPageState extends _NovelReaderBase
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) =>
+      ImmersiveRegion(child: _buildPage(context));
+
+  Widget _buildPage(BuildContext context) {
     final (background, foreground) = _colors(context);
     final progress = _text.isEmpty
         ? 0.0

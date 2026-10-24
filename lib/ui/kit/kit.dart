@@ -1,5 +1,7 @@
 export 'action_tag.dart';
 export 'components.dart';
+export 'immersive.dart';
+export 'menu_chip.dart';
 export 'platform_navigation.dart';
 export 'reader_chrome.dart';
 export 'selection_chip.dart';

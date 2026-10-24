@@ -9,11 +9,11 @@ Park.register({
     "ru": {"同人动画与游戏角色短片，支持评分榜、搜索和多清晰度 MP4": "Фанатская анимация и ролики с игровыми персонажами: рейтинг, поиск и MP4 разного качества"},
     "ar": {"同人动画与游戏角色短片，支持评分榜、搜索和多清晰度 MP4": "رسوم المعجبين ومقاطع شخصيات الألعاب مع التقييم والبحث وجودات MP4 متعددة"},
   },
-  key: 'rule34video', name: 'Rule34Video', version: '0.0.8', minAppVersion: '0.9.2', type: 'video', category: 'anime',
+  key: 'rule34video', name: 'Rule34Video', version: '0.0.9', minAppVersion: '0.9.2', type: 'video', category: 'anime',
   language: 'en', color: '#88AA44', homepage: 'https://rule34video.com',
   description: '同人动画与游戏角色短片，支持评分榜、搜索和多清晰度 MP4',
   domains: ['rule34video.com'], network: {mode: 'native', vpnHint: true},
-  media: {mode: 'native', origin: 'https://rule34video.com', domains: ['rule34video.com', 'boomio-cdn.com']},
+  media: {mode: 'native', scope: 'session', origin: 'https://rule34video.com', domains: ['rule34video.com', 'boomio-cdn.com']},
   imageHeaders: {Referer: 'https://rule34video.com/'},
   defaultFeed: 'rating', feeds: [{key: 'rating', label: '排行'}, {key: 'categories', label: '分类', options: [
     {key: 'group', label: '分类', default: 'categories', dynamic: true, values: []},
@@ -46,6 +46,8 @@ Park.register({
     return String(value);
   },
   siteUrl(value) { return Park.url.site(this, value); },
+  // 图片与视频 CDN 会更换主机，只要求是公网 HTTPS 地址，播放按会话授权。
+  publicUrl(value) { return ((value, base) => { try { const u = new URL(String(value).trim(), base); return Park.url.parse(u.href, base, [u.hostname]); } catch (_) { return null; } })(value, this.BASE); },
   async page(url) {
     if (!this.siteUrl(url)) throw Park.error('CONFIG', '视频列表地址无效');
     const r = this.http.ensureOk(await this.http.get(url));
@@ -56,10 +58,10 @@ Park.register({
     const items = [], seen = new Set();
     for (const a of doc.querySelectorAll('a.th[href]')) {
       const u = this.siteUrl(a.getAttribute('href')), m = u && /^\/video\/(\d{1,12}\/[a-z0-9-]{1,240})\/$/.exec(u.pathname);
-      const img = a.querySelector('img'), cover = this.siteUrl(img?.getAttribute('data-rd-src') || img?.getAttribute('data-src') || img?.getAttribute('src'));
+      const img = a.querySelector('img'), cover = this.publicUrl(img?.getAttribute('data-rd-src') || img?.getAttribute('data-src') || img?.getAttribute('src'));
       const title = Park.html.text(a.querySelector('.thumb_title')) || a.getAttribute('title');
-      if (!m || !cover || !title || seen.has(m[1])) continue;
-      seen.add(m[1]); items.push({id: m[1], title, cover: cover.href, coverAspect: 16/9, duration: Park.html.text(a.querySelector('.time')), url: u.href});
+      if (!m || !title || seen.has(m[1])) continue;
+      seen.add(m[1]); items.push({id: m[1], title, cover: cover?.href || '', coverAspect: 16/9, duration: Park.html.text(a.querySelector('.time')), url: u.href});
     }
     return items;
   },
@@ -127,7 +129,7 @@ Park.register({
         } catch (_) {}
       }
     }
-    cover = this.siteUrl(cover)?.href || '';
+    cover = this.publicUrl(cover)?.href || '';
     if (!title) throw Park.error('NOT_FOUND', '影片不存在');
     return {id, title, cover, coverAspect: 16/9, url, chapters: null, tags: [], authors: [], related: this.cards(doc).filter(x => x.id !== id)};
   },
@@ -137,7 +139,7 @@ Park.register({
     const out = [], seen = new Set();
     for (const [key, value] of values) {
       if (key.endsWith('_text')) continue;
-      const u = this.siteUrl(value), quality = parseInt(values.get(key + '_text') || '', 10);
+      const u = this.publicUrl(value), quality = parseInt(values.get(key + '_text') || '', 10);
       if (!u || !/\/get_file\/.+\.mp4\/?$/i.test(u.pathname) || !Number.isInteger(quality) || quality < 1 || quality > 4320 || seen.has(quality)) continue;
       seen.add(quality); out.push({quality, label: quality + 'P', format: 'mp4', url: u.href, headers: {Referer: referer}});
     }

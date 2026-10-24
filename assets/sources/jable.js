@@ -9,11 +9,11 @@ Park.register({
     "ru": {"JAV 视频，支持热门、搜索与 HLS 播放": "JAV: популярное, поиск и воспроизведение HLS"},
     "ar": {"JAV 视频，支持热门、搜索与 HLS 播放": "فيديوهات JAV مع قوائم شائعة وبحث وتشغيل HLS"},
   },
-  key: 'jable', name: 'JableTV', version: '0.0.8', minAppVersion: '0.9.2', type: 'video', category: 'jav',
+  key: 'jable', name: 'JableTV', version: '0.0.9', minAppVersion: '0.9.2', type: 'video', category: 'jav',
   color: '#14B8A6', description: 'JAV 视频，支持热门、搜索与 HLS 播放',
   homepage: 'https://jable.tv', domains: ['jable.tv'], language: 'zh-Hant',
   network: {mode: 'browser', origin: 'https://jable.tv', vpnHint: true},
-  media: {mode: 'native', origin: 'https://jable.tv', domains: ['mushroomtrack.com']},
+  media: {mode: 'native', scope: 'session', origin: 'https://jable.tv', domains: ['mushroomtrack.com']},
   imageHeaders: {Referer: 'https://jable.tv/'},
   linkPatterns: ['jable\\.tv/videos/([a-z0-9][a-z0-9-]{1,120})(?:/|[?#]|$)'],
   idPattern: '^[a-z0-9][a-z0-9-]{1,120}$', idExample: 'ipzz-961',
@@ -164,7 +164,9 @@ Park.register({
     id = this.validId(id);
     const {html} = await this.getPage('/videos/' + id + '/');
     const match = /\bhlsUrl\s*=\s*['"](https:\/\/[^'"\s]+)['"]/.exec(html);
-    if (!match || !/^https:\/\/(?:[a-z0-9-]+\.)*mushroomtrack\.com\/[^\s]+\.m3u8(?:\?[^\s]*)?$/.test(match[1])) {
+    // 清单 CDN 会更换主机，按会话授权，只校验公网 HTTPS 与 HLS 路径。
+    const media = match && ((value, base) => { try { const u = new URL(String(value).trim(), base); return Park.url.parse(u.href, base, [u.hostname]); } catch (_) { return null; } })(match[1], this.BASE);
+    if (!media || !/\.m3u8$/i.test(media.pathname)) {
       throw Park.error('UNSUPPORTED', '此影片没有可用的 HLS 清晰度');
     }
     return [{url: match[1], quality: Number(this.config.quality) || 1080, label: '原画', format: 'hls', preferred: true,

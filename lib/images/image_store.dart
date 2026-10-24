@@ -14,7 +14,9 @@ import '../core/settings.dart';
 import '../core/storage.dart';
 import '../engine/cancellation.dart';
 import '../engine/cookie_store.dart';
+import '../engine/domains.dart';
 import '../engine/http_service.dart';
+import '../engine/media_transport.dart';
 import 'image_decryption.dart';
 import 'image_network.dart';
 import 'image_tasks.dart';
@@ -35,6 +37,9 @@ class ImageStore {
   static final ImageStore instance = ImageStore._();
 
   final _inflight = ImageTasks<Uint8List>();
+
+  /// 原生请求失败、浏览器请求成功过的站点图片主机，后续先走浏览器。
+  final _browserRoutes = <String>{};
   final _diskQueue = SerialExecutor();
   final Map<String, ({int size, DateTime modified})> _files = {};
   String? _indexedPath;
@@ -219,11 +224,19 @@ class ImageStore {
         if (!isCurrent()) throw SourceError('CANCELLED', '媒体会话已关闭');
         void Function()? release;
         try {
-          final browser = createImageTransport(
+          final uri = Uri.parse(url);
+          final declared = createImageTransport(
             manifest,
             headers: headers,
             partition: partition,
           );
+          // 浏览器图片只用于声明的图片域；其他主机按普通图片原生加载。
+          final browser =
+              declared != null &&
+                  hostInDomains(uri.host, declared.policy.domains)
+              ? declared
+              : null;
+          if (declared != null && browser == null) await declared.close();
           Future<void> acquire(Uri uri) async {
             release?.call();
             release = null;
@@ -237,22 +250,32 @@ class ImageStore {
             );
           }
 
-          late Uint8List encrypted;
-          late String finalUrl;
-          if (browser != null) {
-            try {
-              await acquire(Uri.parse(url));
-              final result = await browser.fetch(
-                Uri.parse(url),
-                maxBytes: 20 * 1024 * 1024,
-                cancelToken: token,
-              );
-              encrypted = result.bytes;
-              finalUrl = result.url.toString();
-            } finally {
-              await browser.close();
+          Uint8List checked(Uint8List encrypted, String finalUrl) {
+            final bytes =
+                decryption?.decode(
+                  encrypted,
+                  finalUrl,
+                  looksLikeImage: (data) =>
+                      data.length >= 64 && _looksLikeImage(data),
+                ) ??
+                encrypted;
+            if (bytes.length < 64 || !_looksLikeImage(bytes)) {
+              throw SourceError('PARSE', '服务器返回的不是图片', url: url);
             }
-          } else {
+            return bytes;
+          }
+
+          Future<Uint8List> viaBrowser(MediaTransport browser) async {
+            await acquire(uri);
+            final result = await browser.fetch(
+              uri,
+              maxBytes: 20 * 1024 * 1024,
+              cancelToken: token,
+            );
+            return checked(result.bytes, result.url.toString());
+          }
+
+          Future<Uint8List> viaNative() async {
             final res = await HttpService.instance.send(
               method: 'GET',
               url: url,
@@ -278,12 +301,43 @@ class ImageStore {
                 url: url,
               );
             }
-            encrypted = res.bytes;
-            finalUrl = res.url;
+            return checked(res.bytes, res.url);
           }
-          final bytes = decryption?.decode(encrypted, finalUrl) ?? encrypted;
-          if (bytes.length < 64 || !_looksLikeImage(bytes)) {
-            throw SourceError('PARSE', '服务器返回的不是图片', url: url);
+
+          final Uint8List bytes;
+          if (browser == null) {
+            bytes = await viaNative();
+          } else {
+            // 声明浏览器图片的站点也先尝试原生请求，按主机记住可用的方式；
+            // 图片主机或浏览器来源页变化时不会让所有封面一起失效。
+            final route = '${manifest!.key}|${uri.host}';
+            final browserFirst = _browserRoutes.contains(route);
+            try {
+              bytes = browserFirst
+                  ? await viaBrowser(browser)
+                  : await viaNative();
+            } on SourceError catch (first) {
+              if (first.code == 'CANCELLED') rethrow;
+              release?.call();
+              release = null;
+              final Uint8List fallback;
+              try {
+                fallback = browserFirst
+                    ? await viaNative()
+                    : await viaBrowser(browser);
+              } on SourceError catch (second) {
+                if (second.code == 'CANCELLED') rethrow;
+                throw first.status == 404 ? first : second;
+              }
+              if (browserFirst) {
+                _browserRoutes.remove(route);
+              } else {
+                _browserRoutes.add(route);
+              }
+              return fallback;
+            } finally {
+              await browser.close();
+            }
           }
           return bytes;
         } on SourceError catch (e) {

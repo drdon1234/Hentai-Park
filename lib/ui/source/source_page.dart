@@ -310,7 +310,11 @@ class _FeedTabState extends State<FeedTab> with AutomaticKeepAliveClientMixin {
   @override
   void initState() {
     super.initState();
-    _controller = PagedController(_load, source: widget.source.key);
+    _controller = PagedController(
+      _load,
+      source: widget.source.key,
+      initiallyLoading: true,
+    );
     _options = widget.feed.defaultOptions();
     final sources = widget.sourceManager ?? SourceManager.instance;
     _filters = FilterController(
@@ -345,6 +349,7 @@ class _FeedTabState extends State<FeedTab> with AutomaticKeepAliveClientMixin {
     await _filters.loadEnabledDynamic();
     if (!mounted) return;
     _options = _filters.values;
+    _controller.loading = false;
     await _controller.loadMore();
   }
 

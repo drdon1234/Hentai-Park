@@ -1,5 +1,14 @@
 Park.register({
-  key: 'ranking-mgs', name: 'MGStage', version: '0.0.3', minAppVersion: '0.9.2',
+  i18n: {
+    "zh-Hant": {"频道": "頻道"},
+    ja: {"频道": "チャンネル"},
+    ko: {"频道": "채널"},
+    en: {"频道": "Channel"},
+    es: {"频道": "Canal"},
+    ru: {"频道": "Канал"},
+    ar: {"频道": "القناة"},
+  },
+  key: 'ranking-mgs', name: 'MGStage', version: '0.0.4', minAppVersion: '0.9.2',
   type: 'video', category: 'jav', rankingOnly: true,
   description: '官方销量榜', homepage: 'https://www.mgstage.com/',
   domains: ['mgstage.com'],

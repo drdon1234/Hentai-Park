@@ -54,6 +54,11 @@
         (u.hostname === domain || u.hostname.endsWith('.' + domain));
     } catch (_) { return false; }
   }
+  // 图片可能迁到独立 CDN（如 WordPress 图片加速域名），只要求是公网 HTTPS 地址；
+  // 作品与链接身份仍用 hostAllowed 按站点域名校验。
+  function imageAllowed(url) {
+    try { const u = new URL(String(url || '').trim()); return !!Park.url.parse(u.href, u.href, [u.hostname]); } catch (_) { return false; }
+  }
   function idValue(id) {
     let value;
     try { value = decodeURIComponent(String(id)); } catch (_) { throw Park.error('NOT_FOUND', '图集编号无效'); }
@@ -92,7 +97,7 @@
     const doc = Park.html.parse(post.content && post.content.rendered || ''), out = [], seen = new Set();
     for (const img of doc.querySelectorAll('img')) {
       const url = Park.html.unescape(img.getAttribute('data-src') || img.getAttribute('src') || '').trim();
-      if (!hostAllowed(url) || !/\.(?:jpe?g|png|webp|gif)$/i.test(new URL(url).pathname)) continue;
+      if (!imageAllowed(url) || !/\.(?:jpe?g|png|webp|gif)$/i.test(new URL(url).pathname)) continue;
       if (SITE.domain !== 'pixibb.com' && !new URL(url).pathname.includes('/wp-content/uploads/')) continue;
       const width = Number(img.getAttribute('width')) || 0, height = Number(img.getAttribute('height')) || 0;
       if (width && height && Math.max(width, height) < 500 || seen.has(url)) continue;
@@ -108,9 +113,9 @@
   function item(post) {
     const pages = images(post), media = (post._embedded && post._embedded['wp:featuredmedia'] || [])[0];
     const mediaUrl = media && media.source_url;
-    const cover = hostAllowed(mediaUrl) ? mediaUrl : (pages[0] && pages[0].url || '');
-    if (!pages.length || !cover || !title(post)) return null;
-    const size = hostAllowed(mediaUrl) ? media.media_details || {} : pages[0];
+    const cover = imageAllowed(mediaUrl) ? mediaUrl : (pages[0] && pages[0].url || '');
+    if (!pages.length || !title(post)) return null;
+    const size = imageAllowed(mediaUrl) ? media.media_details || {} : pages[0];
     const category = terms(post, 'category').map(t => text(t.name)).join(' · ');
     return {id: String(post.id), title: title(post), cover, pages: pages.length, uploaded: post.date || '',
       category, ...(size.width > 0 && size.height > 0 ? {coverAspect: size.width / size.height} : {}),
@@ -268,7 +273,7 @@
     "PixiBB": "PixiBB"
   }
 },
-    key: SITE.key, name: SITE.name, version: '0.0.5', minAppVersion: '0.9.2', type: 'comic', category: 'gallery',
+    key: SITE.key, name: SITE.name, version: '0.0.6', minAppVersion: '0.9.2', type: 'comic', category: 'gallery',
     color: SITE.color, description: SITE.description, homepage: SITE.home, domains: [SITE.domain], language: SITE.language,
     network: {mode: 'native', vpnHint: true}, imageHeaders: {Referer: SITE.home + '/'},
     linkPatterns: [SITE.domain.replace(/\./g, '\\.') + '/([^/?#]+)(?:/|[?#]|$)'], idPattern: '^[1-9]\\d{0,14}$',

@@ -3,7 +3,7 @@ Park.register({
   i18n: {
     "zh-Hant": {"里番目录、搜索与 HLS 播放": "裏番目錄、搜尋與 HLS 播放"}, ja: {"里番目录、搜索与 HLS 播放": "アニメの一覧・検索・HLS再生"}, ko: {"里番目录、搜索与 HLS 播放": "리반 카탈로그, 검색 및 HLS 재생"}, en: {"里番目录、搜索与 HLS 播放": "Anime catalog, search and HLS playback"}, es: {"里番目录、搜索与 HLS 播放": "Catálogo de anime, búsqueda y reproducción HLS"}, ru: {"里番目录、搜索与 HLS 播放": "Каталог аниме, поиск и воспроизведение HLS"}, ar: {"里番目录、搜索与 HLS 播放": "دليل أنمي مع البحث وتشغيل HLS"},
   },
-  key: 'hentaihaven', name: 'HentaiHaven', version: '0.0.3', minAppVersion: '0.9.2', type: 'video', category: 'anime', language: 'en', color: '#9c4dcc',
+  key: 'hentaihaven', name: 'HentaiHaven', version: '0.0.4', minAppVersion: '0.9.2', type: 'video', category: 'anime', language: 'en', color: '#9c4dcc',
   homepage: 'https://hentaihaven.xxx/', description: '里番目录、搜索与 HLS 播放', domains: ['hentaihaven.xxx'], network: {mode: 'browser', origin: 'https://hentaihaven.xxx', vpnHint: true},
   media: {mode: 'native', origin: 'https://hentaihaven.xxx', domains: ['octopusmanifest.org'], scope: 'session'},
   imageHeaders: {Referer: 'https://hentaihaven.xxx/'}, idPattern: '^[a-z0-9-]{1,240}$', defaultFeed: 'trending', feeds: [{key: 'trending', label: '热门'}], API: 'https://hentaihaven.xxx/api/manga/',
@@ -30,7 +30,8 @@ Park.register({
     for (const script of doc.querySelectorAll('script[type="application/ld+json"]')) {
       try { visit(JSON.parse(script.textContent)); } catch (_) {}
     }
-    const url = candidates.map(value => Park.url.parse(value, episode.url, this.media.domains))
+    // 清单 CDN 会更换主机，按会话授权，只校验公网 HTTPS 与 HLS 路径。
+    const url = candidates.map(value => { try { const u = new URL(String(value).trim(), episode.url); return Park.url.parse(u.href, episode.url, [u.hostname]); } catch (_) { return null; } })
       .find(url => url?.protocol === 'https:' && /\.m3u8$/i.test(url.pathname));
     if (!url) throw Park.error('UNSUPPORTED', '此分集没有可用 HLS');
     return [{url: url.href, format: 'hls', label: episode.title, preferred: true,

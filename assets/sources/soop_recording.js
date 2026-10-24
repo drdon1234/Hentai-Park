@@ -102,7 +102,7 @@ Park.register({
   "key": "soop_recording",
   "name": "SOOP 录播",
   "description": "韩国性感舞蹈与比基尼录播，按原站标签筛选",
-  "version": '0.0.4', minAppVersion: '0.9.2',
+  "version": '0.0.5', minAppVersion: '0.9.2',
   "type": "video",
   "category": "recording",
   "FILE_TYPE": "REVIEW"
@@ -136,12 +136,12 @@ Park.register({
       (has(/^(?:여캠|남캠|신입여캠|신입남캠)$/) && has(/^섹시$/) && has(/^댄스$/));
   },
   cover(value) {
-    // 原站历史数据仍给 HTTP 图片；仅对已验证的官方图片主机升级 HTTPS。
+    // 原站历史数据仍给 HTTP 图片，统一升级 HTTPS；图片 CDN 会更换主机，只要求是公网地址。
     let image;
     try { image = new URL(value); } catch (_) { return ''; }
-    if (!['http:', 'https:'].includes(image.protocol) || !/^(?:videoimg|stimg|res|iflv\d+)\.sooplive\.(?:com|co\.kr)$/.test(image.hostname)) return '';
+    if (!['http:', 'https:'].includes(image.protocol)) return '';
     image.protocol = 'https:';
-    return Park.url.parse(image.href, this.VOD, this.domains)?.href || '';
+    return Park.url.parse(image.href, this.VOD, [image.hostname])?.href || '';
   },
   tags(values) {
     const tags = (Array.isArray(values) ? values : []).filter(x => typeof x === 'string' && x.trim()).map(x => ({name: x.trim(), keyword: x.trim()}));
@@ -160,7 +160,6 @@ Park.register({
     if (Number(row.grade) >= 19 || row.ppv || row.ppv_yn === 'Y' || Number(row.fan_flag) > 0 || Number(row.subs_flag) > 0 || (row.auth && row.auth !== 'OPEN_ALL')) return null;
     const vertical = row.v_thumb || (row.use_vertical_thumbnail ? row.vertical_thumbnail_path : '');
     const cover = this.cover(vertical || row.thumbnail_path || row.thumbnail);
-    if (!cover) return null;
     return {id, title, cover, coverBlurred: Number(row.grade) >= 19, coverAspect: vertical ? 9 / 16 : 16 / 9,
       url: this.VOD + id, mediaKind: 'video', authors: row.user_nick ? [String(row.user_nick)] : [],
       tags: this.tags(row.hash_tags), views: Number(row.view_cnt) || 0, uploaded: row.reg_date || undefined, duration: this.duration(row), chapters: null};
@@ -217,7 +216,6 @@ Park.register({
   async detail(value) {
     const id = this.validId(value), data = await this.metadata(id), parts = this.parts(data);
     const cover = this.cover(data.thumb);
-    if (!cover) throw Park.error('PARSE', '视频数据无效');
     // 详情 thumb 是横向封面，不用视频分辨率推测封面比例。
     return {id, title: String(data.title), cover, coverAspect: 16 / 9,
       url: this.VOD + id, mediaKind: 'video', authors: data.writer_nick ? [String(data.writer_nick)] : [],
@@ -230,8 +228,10 @@ Park.register({
     const data = await this.metadata(value), parts = this.parts(data);
     const part = episodeId === '_' && parts.length === 1 ? parts[0] : parts.find(x => x.id === episodeId);
     if (!part) throw Park.error('NOT_FOUND', '视频不存在');
-    const url = Park.url.parse(part.file.file, this.VOD, this.domains);
-    if (!url || url.protocol !== 'https:' || !/\.m3u8$/i.test(url.pathname)) throw Park.error('UNSUPPORTED', '视频暂不可播放');
+    // 点播 CDN 由原站决定，按会话授权，只校验公网 HTTPS 与 HLS 路径。
+    let url = null;
+    try { const u = new URL(String(part.file.file || ''), this.VOD); url = Park.url.parse(u.href, this.VOD, [u.hostname]); } catch (_) {}
+    if (!url || !/\.m3u8$/i.test(url.pathname)) throw Park.error('UNSUPPORTED', '视频暂不可播放');
     return [{url: url.href, format: 'hls', label: '原画', preferred: true, headers: {Referer: this.VOD + this.validId(value)}}];
   },
 });

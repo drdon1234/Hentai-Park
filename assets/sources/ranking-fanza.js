@@ -1,5 +1,14 @@
 Park.register({
-  key: 'ranking-fanza', name: 'FANZA', version: '0.0.3', minAppVersion: '0.9.2',
+  i18n: {
+    "zh-Hant": {"分类累计排序（非周期榜）": "分類累計排序（非週期榜）", "月度女优榜": "月度女優榜", "累计人气": "累計人氣", "累计销量": "累計銷量", "评价排序": "評價排序"},
+    ja: {"分类累计排序（非周期榜）": "ジャンル累計順（期間別ではありません）", "月度女优榜": "月間女優ランキング", "累计人气": "累計人気", "累计销量": "累計販売数", "评价排序": "レビュー順"},
+    ko: {"分类累计排序（非周期榜）": "장르 누적 순위(기간별 아님)", "月度女优榜": "월간 배우 순위", "累计人气": "누적 인기", "累计销量": "누적 판매량", "评价排序": "평점순"},
+    en: {"分类累计排序（非周期榜）": "Cumulative ranking by genre (not periodic)", "月度女优榜": "Monthly actress ranking", "累计人气": "All-time popularity", "累计销量": "All-time sales", "评价排序": "By rating"},
+    es: {"分类累计排序（非周期榜）": "Clasificación acumulada por género (no periódica)", "月度女优榜": "Ranking mensual de actrices", "累计人气": "Popularidad acumulada", "累计销量": "Ventas acumuladas", "评价排序": "Por valoración"},
+    ru: {"分类累计排序（非周期榜）": "Накопительный рейтинг по жанру (без периода)", "月度女优榜": "Ежемесячный рейтинг актрис", "累计人气": "Популярность за всё время", "累计销量": "Продажи за всё время", "评价排序": "По оценкам"},
+    ar: {"分类累计排序（非周期榜）": "ترتيب تراكمي حسب النوع (غير دوري)", "月度女优榜": "ترتيب الممثلات الشهري", "累计人气": "الشعبية الإجمالية", "累计销量": "المبيعات الإجمالية", "评价排序": "حسب التقييم"},
+  },
+  key: 'ranking-fanza', name: 'FANZA', version: '0.0.4', minAppVersion: '0.9.2',
   type: 'video', category: 'jav', rankingOnly: true,
   description: '官方销量榜', homepage: 'https://video.dmm.co.jp/',
   domains: ['dmm.co.jp'], network: { vpnHint: true },

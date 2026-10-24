@@ -16,11 +16,12 @@ import '../../core/models.dart';
 import '../../core/platform_capabilities.dart';
 import '../../core/settings.dart';
 import '../../core/tag_blocklist.dart';
+import '../../engine/cancellation.dart';
 import '../../engine/source_manager.dart';
 import '../../images/park_image.dart';
 import '../../library/library.dart';
 import '../history/history_page.dart';
-import '../kit/tokens.dart';
+import '../kit/kit.dart';
 import '../nav.dart';
 import '../settings/settings_sections.dart';
 import '../theme.dart';
@@ -35,6 +36,7 @@ import 'post_video_feed.dart';
 import 'short_video_feed.dart';
 import 'short_video_playback.dart';
 import 'short_video_player.dart';
+import 'short_video_sequence.dart';
 
 class ShortVideoPage extends StatefulWidget {
   const ShortVideoPage({
@@ -44,12 +46,16 @@ class ShortVideoPage extends StatefulWidget {
     this.initialId,
     this.feedIndex,
     this.postScope,
+    this.sequence,
   });
   final String source;
   final WorkItem? initial;
   final String? initialId;
   final int? feedIndex;
   final PostVideoScope? postScope;
+
+  /// 从列表点开时按列表顺序播放，[initial] 是被点开的作品。
+  final ShortVideoSequence? sequence;
   @override
   State<ShortVideoPage> createState() => _ShortVideoPageState();
 }
@@ -59,7 +65,7 @@ class _ShortVideoPageState extends State<ShortVideoPage>
   late final ShortVideoFeed _feed;
   late final ShortVideoPlayback _playback;
   final _preferences = AppSettings.instance.domain(SettingsDomain.shortVideo);
-  final PageController _pages = PageController();
+  late final PageController _pages;
   Timer? _saveTimer;
   StreamSubscription<String>? _authentication;
   WorkItem? _visible;
@@ -109,8 +115,23 @@ class _ShortVideoPageState extends State<ShortVideoPage>
     ) {
       if (key == widget.source) unawaited(_refresh());
     });
+    final posts =
+        SourceManager.instance
+            .manifest(widget.source)
+            ?.json['postShortVideos'] ==
+        true;
+    WorkPage clips(WorkPage page) => posts ? postVideoPage(page) : page;
+    final sequence = widget.sequence;
+    final sequenceItems = sequence == null
+        ? const <WorkItem>[]
+        : clips(WorkPage(items: sequence.items, page: sequence.page)).items;
     _feed = ShortVideoFeed(
       (page, cursor) async {
+        if (sequence != null) {
+          return clips(
+            await awaitCancelled(sequence.load(page, cursor), _loadCancel),
+          );
+        }
         if (AppSettings.instance.searchOnlySources) {
           AppLog.record({
             'event': 'content',
@@ -153,6 +174,14 @@ class _ShortVideoPageState extends State<ShortVideoPage>
             : result;
       },
       source: widget.source,
+      initialItems: sequenceItems,
+      initialUid: sequenceItems
+          .where((item) => videoPost(item).uid == widget.initial?.uid)
+          .firstOrNull
+          ?.uid,
+      initialPage: sequence?.page ?? 0,
+      initialCursor: sequence?.cursor,
+      hasMore: sequence?.hasNext ?? true,
       allowItem: (item) =>
           TagBlocklist.current().matchItem(videoPost(item)) == null &&
           (widget.initial?.isSubscriptionPost != true ||
@@ -161,8 +190,12 @@ class _ShortVideoPageState extends State<ShortVideoPage>
                     isPostVideoAttachment,
                   ))),
     )..addListener(_feedChanged);
+    _pages = PageController(initialPage: _feed.index);
     _saveTimer = Timer.periodic(const Duration(seconds: 10), (_) => _save());
-    if (widget.initial != null) {
+    if (sequence != null) {
+      _feedChanged();
+      if (_feed.items.isEmpty) unawaited(_feed.loadMore());
+    } else if (widget.initial != null) {
       _resolving = true;
       WidgetsBinding.instance.addPostFrameCallback((_) async {
         if (!mounted) return;
@@ -496,11 +529,21 @@ class _ShortVideoPageState extends State<ShortVideoPage>
               child: c == null && error == null
                   ? _loading()
                   : !_playback.wantsPlayback
-                  ? const Center(
-                      child: Icon(
-                        Icons.play_arrow_rounded,
-                        size: 80,
-                        color: Colors.white70,
+                  ? Center(
+                      child: FadeIn(
+                        child: Container(
+                          width: 76,
+                          height: 76,
+                          decoration: const BoxDecoration(
+                            color: Scrims.medium,
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(
+                            Icons.play_arrow_rounded,
+                            size: 48,
+                            color: Scrims.onScrim,
+                          ),
+                        ),
                       ),
                     )
                   : const SizedBox.expand(),
@@ -511,6 +554,24 @@ class _ShortVideoPageState extends State<ShortVideoPage>
             color: Colors.black87,
             child: _error(error, _retryPlayback),
           ),
+        const Positioned(
+          left: 0,
+          right: 0,
+          bottom: 0,
+          height: 280,
+          child: IgnorePointer(
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.bottomCenter,
+                  end: Alignment.topCenter,
+                  colors: [Scrims.strong, Scrims.faint, Colors.transparent],
+                  stops: [0, .55, 1],
+                ),
+              ),
+            ),
+          ),
+        ),
         if (active && c != null)
           Positioned(
             left: 16,
@@ -593,7 +654,13 @@ class _ShortVideoPageState extends State<ShortVideoPage>
                                           : TextOverflow.ellipsis,
                                       style: context.text.titleMedium?.copyWith(
                                         color: Colors.white,
-                                        shadows: const [Shadow(blurRadius: 5)],
+                                        height: 1.4,
+                                        shadows: const [
+                                          Shadow(
+                                            blurRadius: 8,
+                                            color: Scrims.medium,
+                                          ),
+                                        ],
                                       ),
                                     ),
                                   ),
@@ -608,8 +675,9 @@ class _ShortVideoPageState extends State<ShortVideoPage>
                                       overflow: active && _expanded
                                           ? null
                                           : TextOverflow.ellipsis,
-                                      style: const TextStyle(
+                                      style: context.text.bodyMedium?.copyWith(
                                         color: Colors.white70,
+                                        height: 1.45,
                                       ),
                                     ),
                                   ),
@@ -681,7 +749,10 @@ class _ShortVideoPageState extends State<ShortVideoPage>
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) =>
+      ImmersiveRegion(child: _buildPage(context));
+
+  Widget _buildPage(BuildContext context) {
     final manifest = SourceManager.instance.manifest(widget.source);
     return CallbackShortcuts(
       bindings: {
@@ -784,7 +855,12 @@ class _ShortVideoPageState extends State<ShortVideoPage>
                               gradient: LinearGradient(
                                 begin: Alignment.topCenter,
                                 end: Alignment.bottomCenter,
-                                colors: [Scrims.medium, Colors.transparent],
+                                colors: [
+                                  Scrims.strong,
+                                  Scrims.faint,
+                                  Colors.transparent,
+                                ],
+                                stops: [0, .6, 1],
                               ),
                             ),
                             child: Column(
@@ -800,9 +876,8 @@ class _ShortVideoPageState extends State<ShortVideoPage>
                                             tr('短视频'),
                                         maxLines: 1,
                                         overflow: TextOverflow.ellipsis,
-                                        style: const TextStyle(
-                                          color: Colors.white,
-                                        ),
+                                        style: context.text.titleMedium
+                                            ?.copyWith(color: Colors.white),
                                       ),
                                     ),
                                     TranslationControls(source: widget.source),

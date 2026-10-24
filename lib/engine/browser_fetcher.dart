@@ -337,6 +337,15 @@ class _OriginPage {
             if (!current()) return;
             if (state == null) return;
             final html = state['html']?.toString() ?? '';
+            if (hasFirewallBlockMarkers(html)) {
+              final error = firewallBlocked(
+                Uri.parse(origin).host,
+                url: document.toString(),
+              );
+              finish(error);
+              _finishNavigation(error);
+              return;
+            }
             challenged = hasChallengeMarkers(
               html,
               title: state['title']?.toString() ?? '',
@@ -798,6 +807,13 @@ class _OriginPage {
       final status = (value['status'] as num?)?.toInt() ?? 0;
       final body = value['body']?.toString() ?? '';
       final responseHeaders = value['headers'] as Map? ?? {};
+      if (status == 403 &&
+          hasFirewallBlockMarkers(value['challengeBody']?.toString() ?? body)) {
+        throw firewallBlocked(
+          Uri.parse(origin).host,
+          url: request['url'].toString(),
+        );
+      }
       final challenge =
           responseHeaders['cf-mitigated'] == 'challenge' ||
           hasChallengeMarkers(value['challengeBody']?.toString() ?? body);

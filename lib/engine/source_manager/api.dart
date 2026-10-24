@@ -607,31 +607,42 @@ mixin _SourceApi on _SourceRegistry {
     // 磁盘地址与新接口结果都必须服从当前插件的媒体权限。
     for (final source in sources) {
       final uri = Uri.parse(source.url);
-      final policy = MediaPolicy.fromManifest(
-        sourceManifest,
-        initialUrl: source.format == 'hls' ? uri : null,
-      );
+      // 会话授权覆盖本次接口返回的确切地址，CDN 换域名不需要更新插件白名单。
+      final policy = MediaPolicy.fromManifest(sourceManifest, initialUrl: uri);
       policy.validate(uri);
       policy.requestHeaders(source.headers);
     }
     if (!sources.any((s) => s.format == 'hls')) return sources;
     final resolved = <VideoSource>[];
+    final mirrors = <String>{};
+    Object? failure;
     for (final source in sources) {
       if (source.format != 'hls') {
         resolved.add(source);
         continue;
       }
-      resolved.addAll(
-        await HlsSources(
-          createMediaTransport(
-            sourceManifest,
-            headers: source.headers,
-            initialUrl: Uri.parse(source.url),
-            hls: source.hls,
-          ),
-        ).resolve([source], cancelToken: cancelToken),
-      );
+      // 同名同清晰度的多个地址是同一线路的镜像（如备用 CDN），按顺序取第一个可用的；
+      // 单个线路不可达时保留其他线路，全部失败才报告第一个错误。
+      final line = '${source.label}|${source.quality}';
+      if (mirrors.contains(line)) continue;
+      try {
+        resolved.addAll(
+          await HlsSources(
+            createMediaTransport(
+              sourceManifest,
+              headers: source.headers,
+              initialUrl: Uri.parse(source.url),
+              hls: source.hls,
+            ),
+          ).resolve([source], cancelToken: cancelToken),
+        );
+        mirrors.add(line);
+      } catch (error) {
+        if (cancelToken?.cancelError case final cancelled?) throw cancelled;
+        failure ??= error;
+      }
     }
+    if (resolved.isEmpty && failure != null) throw failure;
     return resolved;
   }
 

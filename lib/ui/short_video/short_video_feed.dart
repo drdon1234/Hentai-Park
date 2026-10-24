@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:flutter/foundation.dart';
 
 import '../../core/app_log.dart';
@@ -10,13 +12,27 @@ typedef ShortVideoLoader = Future<WorkPage> Function(int page, String? cursor);
 
 /// 分页只保留作品元数据；播放器资源由独立的有界池管理。
 class ShortVideoFeed extends ChangeNotifier {
-  ShortVideoFeed(this._load, {WorkItem? initial, this.allowItem, this.source}) {
+  ShortVideoFeed(
+    this._load, {
+    WorkItem? initial,
+    List<WorkItem> initialItems = const [],
+    String? initialUid,
+    int initialPage = 0,
+    String? initialCursor,
+    bool hasMore = true,
+    this.allowItem,
+    this.source,
+  }) : _page = initialPage + 1,
+       _cursor = initialCursor,
+       hasNext = hasMore {
     _filters.addListener(_rulesChanged);
-    if (initial != null) {
-      _loaded.add(initial);
-      if (_allows(initial)) items.add(initial);
-      _seen.add(initial.uid);
+    for (final item in [?initial, ...initialItems]) {
+      if (item.id.isEmpty || !_seen.add(item.uid)) continue;
+      _loaded.add(item);
+      if (_allows(item)) items.add(item);
     }
+    if (initialCursor != null) _cursors.add(initialCursor);
+    index = max(0, items.indexWhere((item) => item.uid == initialUid));
   }
   final ShortVideoLoader _load;
   final bool Function(WorkItem)? allowItem;
@@ -70,7 +86,7 @@ class ShortVideoFeed extends ChangeNotifier {
   final List<WorkItem> items = [];
   final Set<String> _seen = {};
   final Set<String> _cursors = {};
-  int index = 0, generation = 0, _page = 1;
+  int index = 0, generation = 0, _page;
   String? _cursor;
   bool loading = false, hasNext = true, _disposed = false;
   Object? error;

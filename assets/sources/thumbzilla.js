@@ -9,11 +9,11 @@ Park.register({
     "ru": {"成人视频，支持热门、搜索和多清晰度 MP4 播放": "Видео для взрослых: популярное, поиск и MP4 в разных качествах"},
     "ar": {"成人视频，支持热门、搜索和多清晰度 MP4 播放": "فيديوهات البالغين مع قوائم شائعة وبحث وتشغيل MP4 بجودات متعددة"},
   },
-  key: 'thumbzilla', name: 'Thumbzilla', version: '0.0.8', minAppVersion: '0.9.2', type: 'video', category: 'adult', color: '#FF9900',
+  key: 'thumbzilla', name: 'Thumbzilla', version: '0.0.9', minAppVersion: '0.9.2', type: 'video', category: 'adult', color: '#FF9900',
   description: '成人视频，支持热门、搜索和多清晰度 MP4 播放', homepage: 'https://www.thumbzilla.com',
   domains: ['thumbzilla.com'], language: 'en',
   network: {mode: 'auto', origin: 'https://www.thumbzilla.com', vpnHint: true}, imageHeaders: {Referer: 'https://www.thumbzilla.com/'},
-  media: {mode: 'native', origin: 'https://www.thumbzilla.com', domains: ['ypncdn.com']},
+  media: {mode: 'native', scope: 'session', origin: 'https://www.thumbzilla.com', domains: ['ypncdn.com']},
   linkPatterns: ['thumbzilla\\.com/watch/(\\d+)/'], idPattern: '^\\d{1,15}$',
   defaultFeed: 'popular', feeds: [
     {key: 'popular', label: '热门'},
@@ -40,7 +40,8 @@ Park.register({
     if (r.body.length > 4 * 1024 * 1024) throw Park.error('PARSE', '影片页面过大');
     return {html: r.body, doc: Park.html.parse(r.body), url: finalUrl.href};
   },
-  coverUrl(value) { return Park.url.parse(value, this.BASE, ['ypncdn.com', 'phncdn.com'])?.href || ''; },
+  // 图片与视频 CDN 会更换主机，只要求是公网 HTTPS 地址，播放按会话授权。
+  coverUrl(value) { return ((value, base) => { try { const u = new URL(String(value).trim(), base); return Park.url.parse(u.href, base, [u.hostname]); } catch (_) { return null; } })(value, this.BASE)?.href || ''; },
   cards(doc) {
     const items = [], seen = new Set();
     for (const card of doc.querySelectorAll('article.video-box')) {
@@ -48,9 +49,9 @@ Park.register({
       const u = a && this.siteUrl(a.getAttribute('href')), match = u && /^\/watch\/(\d{1,15})\/$/.exec(u.pathname);
       const title = Park.html.text(card.querySelector('a.video-title-text')) || card.getAttribute('aria-label');
       const cover = img?.getAttribute('data-src') || img?.getAttribute('src');
-      if (!match || !title || !this.coverUrl(cover) || seen.has(match[1])) continue;
+      if (!match || !title || seen.has(match[1])) continue;
       seen.add(match[1]);
-      items.push({id: match[1], title, cover, coverAspect: 16/9,
+      items.push({id: match[1], title, cover: this.coverUrl(cover), coverAspect: 16/9,
         duration: Park.html.text(card.querySelector('.video-duration')),
         uploader: Park.html.text(card.querySelector('.author-title-text'))});
     }
@@ -104,11 +105,11 @@ Park.register({
     const {doc, url} = await this.getPage(this.BASE + '/watch/' + id + '/');
     const title = doc.querySelector('meta[property="og:title"]')?.getAttribute('content');
     const cover = doc.querySelector('meta[property="og:image"]')?.getAttribute('content');
-    if (!title || !this.coverUrl(cover)) throw Park.error('PARSE', '成人视频详情解析失败');
-    return {id, title, cover, coverAspect: 16/9, url, tags: [], authors: [],
+    if (!title) throw Park.error('PARSE', '成人视频详情解析失败');
+    return {id, title, cover: this.coverUrl(cover), coverAspect: 16/9, url, tags: [], authors: [],
       related: this.cards(doc).filter(item => item.id !== id)};
   },
-  mediaUrl(value) { return Park.url.parse(value, this.BASE, this.media.domains)?.href || ''; },
+  mediaUrl(value) { return this.coverUrl(value); },
   async videos(id) {
     const {html, url: referer} = await this.getPage(this.BASE + '/watch/' + this.validId(id) + '/');
     let endpoint;

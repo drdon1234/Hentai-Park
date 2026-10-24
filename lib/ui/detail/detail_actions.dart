@@ -48,27 +48,33 @@ class DetailSecondaryButton extends StatelessWidget {
         onTap: onPressed,
         onLongPress: onLongPress,
         excludeSemantics: true,
-        child: Material(
-          color: Colors.transparent,
-          shape: RoundedRectangleBorder(
-            borderRadius: Radii.small,
-            side: BorderSide(color: enabled ? c.outline : c.outlineVariant),
+        child: AnimatedContainer(
+          duration: Motion.of(context, Motion.short),
+          decoration: ShapeDecoration(
+            shape: const CircleBorder(),
+            color: active
+                ? c.secondaryContainer
+                : Theme.of(context).chipTheme.backgroundColor
+                      ?.withValues(alpha: enabled ? 1 : .5),
           ),
           clipBehavior: Clip.antiAlias,
-          child: ActionInkWell(
-            onTap: onPressed,
-            onLongPress: onLongPress,
-            child: SelectionContainer.disabled(
-              child: SizedBox(
-                width: 48,
-                height: 48,
-                child: Icon(
-                  icon,
-                  color: !enabled
-                      ? c.onSurface.withValues(alpha: .3)
-                      : active
-                      ? c.primary
-                      : c.onSurface,
+          child: Material(
+            type: MaterialType.transparency,
+            child: ActionInkWell(
+              onTap: onPressed,
+              onLongPress: onLongPress,
+              child: SelectionContainer.disabled(
+                child: SizedBox(
+                  width: 48,
+                  height: 48,
+                  child: Icon(
+                    icon,
+                    color: !enabled
+                        ? c.onSurface.withValues(alpha: .3)
+                        : active
+                        ? c.onSecondaryContainer
+                        : c.onSurface,
+                  ),
                 ),
               ),
             ),

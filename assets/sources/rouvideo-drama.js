@@ -93,7 +93,7 @@ Park.register({
       "熟女": "ناضجات"
     }
   },
-  key: 'rouvideo-drama', name: '肉视频短剧', version: '0.0.2', minAppVersion: '0.9.2', type: 'video', category: 'aiDrama', color: '#B58CFF',
+  key: 'rouvideo-drama', name: '肉视频短剧', version: '0.0.3', minAppVersion: '0.9.2', type: 'video', category: 'aiDrama', color: '#B58CFF',
   description: 'AI短剧，支持推荐、搜索和分集播放', homepage: 'https://rou.video/series', domains: ['rou.video'], language: 'zh',
   linkPatterns: ['rou\\.video/s/([a-z0-9]+)(?:[/?#]|$)'], idPattern: '^[a-z0-9]{10,40}$',
   imageNetwork: {mode: 'browser', origin: 'https://rou.video', domains: ['v.rn252.xyz']}, imageHeaders: {Referer: 'https://rou.video/'},
@@ -105,7 +105,8 @@ Park.register({
   BASE: 'https://rou.video',
   id(value) { const id = String(value || ''); if (!/^[a-z0-9]{10,40}$/.test(id)) throw Park.error('NOT_FOUND', 'AI短剧作品或分集不存在'); return id; },
   page(value) { const page = value == null ? 1 : Number(value); if (!Number.isSafeInteger(page) || page < 1 || page > 100000) throw Park.error('CONFIG', 'AI短剧列表选项无效'); return page; },
-  absolute(value) { if (typeof value !== 'string' || !value) return ''; try { const u = new URL(value, this.BASE); return u.protocol === 'https:' && !u.username && !u.password && !u.port && ['rou.video', 'v.rn252.xyz'].includes(u.hostname) ? u.href : ''; } catch (_) { return ''; } },
+  // 图片 CDN 会更换主机，只要求是公网 HTTPS 地址。
+  absolute(value) { if (typeof value !== 'string' || !value) return ''; try { const u = new URL(value.trim(), this.BASE); return Park.url.parse(u.href, this.BASE, [u.hostname])?.href || ''; } catch (_) { return ''; } },
   async doc(path, params) {
     const r = await this.http.get(this.BASE + path, {params, headers: {Referer: this.BASE + '/'}});
     if (r.status === 404) throw Park.error('NOT_FOUND', 'AI短剧作品或分集不存在');

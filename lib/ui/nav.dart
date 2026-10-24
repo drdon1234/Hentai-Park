@@ -23,6 +23,7 @@ import 'settings/settings_sections.dart';
 import 'settings/source_settings_page.dart';
 import 'short_video/post_video_feed.dart';
 import 'short_video/short_video_page.dart';
+import 'short_video/short_video_sequence.dart';
 import 'source/source_page.dart';
 import 'subscriptions/subscription_posts_page.dart';
 import 'video/video_page.dart';
@@ -121,20 +122,23 @@ class Nav {
     BuildContext context,
     WorkItem item, {
     Object? coverHeroTag,
+    ShortVideoSequence? sequence,
   }) async {
-    await _pushWork(context, item, coverHeroTag);
+    await _pushWork(context, item, coverHeroTag, sequence);
   }
 
   static Future<void> _pushWork(
     BuildContext context,
     WorkItem item,
     Object? coverHeroTag,
+    ShortVideoSequence? sequence,
   ) => push(
     context,
     _short(item.source, item)
         ? ShortVideoPage(
             source: item.source,
             initial: item,
+            sequence: sequence,
             feedIndex: _videoFeed(item.source),
             postScope:
                 SourceManager.instance

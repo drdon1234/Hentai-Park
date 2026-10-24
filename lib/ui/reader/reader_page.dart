@@ -249,7 +249,10 @@ class _ReaderPageState extends _ReaderBase
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) =>
+      ImmersiveRegion(child: _buildPage(context));
+
+  Widget _buildPage(BuildContext context) {
     if (_pages != null && _paged) _relayout();
     final s = _settings;
     final readingBrightness = _background.computeLuminance() > .5

@@ -24,6 +24,7 @@ class DetailActionBar extends StatelessWidget {
     required this.onDownload,
     required this.onMore,
     this.allowDownload = true,
+    this.singlePage = false,
   });
   final WorkItem item;
   final WorkDetail? detail;
@@ -34,6 +35,9 @@ class DetailActionBar extends StatelessWidget {
   final VoidCallback onDownload;
   final VoidCallback onMore;
   final bool allowDownload;
+
+  /// 单页图片已在详情中显示，主操作改为全屏查看。
+  final bool singlePage;
 
   bool get _empty =>
       detail?.hasNoChapters == true &&
@@ -52,63 +56,73 @@ class DetailActionBar extends StatelessWidget {
         SourceManager.instance.manifest(item.source)?.isLive != true;
     return Padding(
       padding: const EdgeInsets.fromLTRB(Gap.page, 0, Gap.page, Gap.xs),
-      child: Row(
-        children: [
-          Expanded(
-            child: FilledButton.icon(
-              style: FilledButton.styleFrom(
-                minimumSize: const Size.fromHeight(48),
-              ),
-              onPressed: detail == null || _empty ? null : onPrimary,
-              icon: Icon(switch (kind) {
-                DetailKind.game => Icons.sports_esports_outlined,
-                DetailKind.external => Icons.open_in_browser_rounded,
-                DetailKind.video => Icons.play_arrow_rounded,
-                DetailKind.reading ||
-                DetailKind.novel => Icons.auto_stories_outlined,
-              }),
-              label: SelectionContainer.disabled(
-                child: Text(
-                  _empty ? tr('暂无章节') : _primaryLabel(),
-                  overflow: TextOverflow.ellipsis,
+      child: Align(
+        alignment: AlignmentDirectional.centerStart,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 560),
+          child: Row(
+            children: [
+              Expanded(
+                child: FilledButton.icon(
+                  style: FilledButton.styleFrom(
+                    minimumSize: const Size.fromHeight(48),
+                  ),
+                  onPressed: detail == null || _empty ? null : onPrimary,
+                  icon: Icon(switch (kind) {
+                    DetailKind.game => Icons.sports_esports_outlined,
+                    DetailKind.external => Icons.open_in_browser_rounded,
+                    DetailKind.video => Icons.play_arrow_rounded,
+                    DetailKind.reading when singlePage =>
+                      Icons.fullscreen_rounded,
+                    DetailKind.reading ||
+                    DetailKind.novel => Icons.auto_stories_outlined,
+                  }),
+                  label: SelectionContainer.disabled(
+                    child: Text(
+                      _empty ? tr('暂无章节') : _primaryLabel(),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
                 ),
               ),
-            ),
+              const SizedBox(width: Gap.s),
+              DetailSecondaryButton(
+                icon: fav
+                    ? Icons.bookmark_rounded
+                    : Icons.bookmark_border_rounded,
+                tooltip: fav ? tr('取消应用内收藏') : tr('应用内收藏'),
+                active: fav,
+                onPressed: () => toggleFavorite(context, item),
+                onLongPress: fav
+                    ? () => editFavoriteCategories(context, item.uid)
+                    : null,
+              ),
+              if (SourceManager.instance.manifest(item.source)?.isLive == true)
+                LiveRecordingButton(item: item),
+              if (downloads) ...[
+                const SizedBox(width: Gap.s),
+                DetailSecondaryButton(
+                  icon: dl == null
+                      ? Icons.download_outlined
+                      : (dl.status == DownloadStatus.done
+                            ? Icons.download_done_rounded
+                            : Icons.downloading_rounded),
+                  tooltip: dl == null ? tr('下载') : tr('移除下载项'),
+                  active: dl != null,
+                  onPressed: dl == null && (detail == null || _empty)
+                      ? null
+                      : onDownload,
+                ),
+              ],
+              const SizedBox(width: Gap.s),
+              DetailSecondaryButton(
+                icon: Icons.more_horiz_rounded,
+                tooltip: tr('更多'),
+                onPressed: detail == null ? null : onMore,
+              ),
+            ],
           ),
-          const SizedBox(width: Gap.s),
-          DetailSecondaryButton(
-            icon: fav ? Icons.bookmark_rounded : Icons.bookmark_border_rounded,
-            tooltip: fav ? tr('取消应用内收藏') : tr('应用内收藏'),
-            active: fav,
-            onPressed: () => toggleFavorite(context, item),
-            onLongPress: fav
-                ? () => editFavoriteCategories(context, item.uid)
-                : null,
-          ),
-          if (SourceManager.instance.manifest(item.source)?.isLive == true)
-            LiveRecordingButton(item: item),
-          if (downloads) ...[
-            const SizedBox(width: Gap.s),
-            DetailSecondaryButton(
-              icon: dl == null
-                  ? Icons.download_outlined
-                  : (dl.status == DownloadStatus.done
-                        ? Icons.download_done_rounded
-                        : Icons.downloading_rounded),
-              tooltip: dl == null ? tr('下载') : tr('移除下载项'),
-              active: dl != null,
-              onPressed: dl == null && (detail == null || _empty)
-                  ? null
-                  : onDownload,
-            ),
-          ],
-          const SizedBox(width: Gap.s),
-          DetailSecondaryButton(
-            icon: Icons.more_horiz_rounded,
-            tooltip: tr('更多'),
-            onPressed: detail == null ? null : onMore,
-          ),
-        ],
+        ),
       ),
     );
   }
@@ -126,6 +140,8 @@ class DetailActionBar extends StatelessWidget {
             h?.position != null &&
             h!.position! > 5;
         return resumed ? tr('继续播放') : tr('立即播放');
+      case DetailKind.reading when singlePage:
+        return tr('全屏查看');
       case DetailKind.novel || DetailKind.reading:
         if (h == null || h.pageCount <= 0) return tr('开始阅读');
         if (kind == DetailKind.novel) {

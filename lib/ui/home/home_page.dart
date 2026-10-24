@@ -42,6 +42,7 @@ class _HomePageState extends State<HomePage> {
     'homeHiddenSources',
     'dataSavingMode',
     'homeDimension',
+    'homeMedia',
   });
   ValueNotifier<DiscoveryDestination> get _destination =>
       widget.destination ?? _localDestination;
@@ -76,15 +77,15 @@ class _HomePageState extends State<HomePage> {
   void _revealDestination() {
     final category = _destination.value.category;
     final settings = AppSettings.instance;
-    if (category != null && !settings.homeDimension.includes(category)) {
+    if (category != null && !settings.homeIncludes(category)) {
       settings.homeDimension = ContentDimension.all;
+      settings.homeMedia = ContentMedia.all;
     }
   }
 
   void _filterChanged() {
     final category = _destination.value.category;
-    if (category != null &&
-        !AppSettings.instance.homeDimension.includes(category)) {
+    if (category != null && !AppSettings.instance.homeIncludes(category)) {
       _select(const DiscoveryDestination.all());
     }
   }
@@ -149,8 +150,11 @@ class _HomePageState extends State<HomePage> {
         body: Column(
           children: [
             DimensionFilter(
-              selected: AppSettings.instance.homeDimension,
-              onSelected: (value) => AppSettings.instance.homeDimension = value,
+              dimension: AppSettings.instance.homeDimension,
+              media: AppSettings.instance.homeMedia,
+              onDimension: (value) =>
+                  AppSettings.instance.homeDimension = value,
+              onMedia: (value) => AppSettings.instance.homeMedia = value,
             ),
             DiscoveryDomainBar(selected: selected, onSelected: _select),
             Expanded(
@@ -182,9 +186,16 @@ class _HomePageState extends State<HomePage> {
   Widget _content(BuildContext context, DiscoveryDestination selected) {
     final sm = SourceManager.instance;
     final dataSaver = AppSettings.instance.dataSaver;
-    final scope = selected.category == null
+    final settings = AppSettings.instance;
+    final scope = selected.category != null
+        ? ContentScope.domain(selected.category!)
+        : settings.homeDimension == ContentDimension.all &&
+              settings.homeMedia == ContentMedia.all
         ? const ContentScope.all()
-        : ContentScope.domain(selected.category!);
+        : ContentScope.domains({
+            for (final category in SourceCategory.values)
+              if (settings.homeIncludes(category)) category,
+          });
     return ParkRefresh(
       onRefresh: () async {
         if (!dataSaver) _feeds.refreshAll();
@@ -299,9 +310,7 @@ class _HomePageState extends State<HomePage> {
           (source) =>
               !source.manifest!.rankingOnly &&
               !source.manifest!.reverseSearchOnly &&
-              AppSettings.instance.homeDimension.includes(
-                source.manifest!.category,
-              ) &&
+              AppSettings.instance.homeIncludes(source.manifest!.category) &&
               (category == null || source.manifest!.category == category),
         )
         .toList();

@@ -9,7 +9,7 @@ Park.register({
     "ru": {"国际写真图集，支持评分榜、热门、搜索与整套原图阅读": "Фотогалереи: рейтинг, популярное, поиск и просмотр всех оригиналов", "图集列表解析失败": "Не удалось разобрать список галерей", "图集地址无效": "Недопустимый адрес галереи"},
     "ar": {"国际写真图集，支持评分榜、热门、搜索与整套原图阅读": "معارض صور مع التقييم والشائع والبحث وعرض جميع الصور الأصلية", "图集列表解析失败": "تعذر تحليل قائمة المعارض", "图集地址无效": "عنوان المعرض غير صالح"},
   },
-  key: 'pornpics', name: 'PornPics', version: '0.0.8', minAppVersion: '0.9.2', type: 'comic', category: 'gallery',
+  key: 'pornpics', name: 'PornPics', version: '0.0.9', minAppVersion: '0.9.2', type: 'comic', category: 'gallery',
   language: 'en', color: '#F16E24', homepage: 'https://www.pornpics.com',
   description: '国际写真图集，支持评分榜、热门、搜索与整套原图阅读',
   domains: ['pornpics.com'], network: {mode: 'native', vpnHint: true},
@@ -79,7 +79,8 @@ Park.register({
     return id;
   },
   siteUrl(value) { return Park.url.site(this, value); },
-  imageUrl(value) { return Park.url.parse(value, this.BASE, ['pornpics.com'])?.href || ''; },
+  // 图片 CDN 会更换主机，只要求是公网 HTTPS 地址；正文图片仍按页面结构选取。
+  imageUrl(value) { return ((value, base) => { try { const u = new URL(String(value).trim(), base); return Park.url.parse(u.href, base, [u.hostname]); } catch (_) { return null; } })(value, this.BASE)?.href || ''; },
   remember(url) {
     const u = this.siteUrl(url), m = u && /^\/galleries\/([a-z0-9-]+-\d{1,12})\/$/.exec(u.pathname);
     if (!m) return null;
@@ -91,7 +92,7 @@ Park.register({
       const work = this.remember(a.getAttribute('href')), img = a.querySelector('img');
       const cover = this.imageUrl(img?.getAttribute('data-src') || img?.getAttribute('src'));
       const title = a.getAttribute('title') || img?.getAttribute('alt') || Park.html.text(a.closest('li')?.querySelector('.title,.thumb-title,.gallery-name')) || work?.url.split('/').filter(Boolean).pop().replace(/-\d+$/, '').replace(/-/g, ' ');
-      if (!work || !title || !cover || seen.has(work.id)) continue;
+      if (!work || !title || seen.has(work.id)) continue;
       seen.add(work.id); items.push({...work, title, cover});
     }
     return items;
@@ -102,7 +103,7 @@ Park.register({
     for (const x of data) {
       if (!x || x.outLink) continue;
       const work = this.remember(x.g_url), cover = this.imageUrl(x.t_url_460 || x.t_url);
-      if (!work || !cover || seen.has(work.id)) continue;
+      if (!work || seen.has(work.id)) continue;
       const title = Park.html.strip(x.desc || '').trim() || new URL(work.url).pathname.split('/').filter(Boolean).pop().replace(/-\d+$/, '').replace(/-/g, ' ');
       if (!title) continue;
       seen.add(work.id); items.push({...work, title, cover});

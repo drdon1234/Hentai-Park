@@ -12,7 +12,8 @@ Park.register({
       "请按顺序加载推荐": "請按順序載入推薦",
       "请按顺序加载搜索": "請按順序載入搜尋",
       "视频不存在或已被删除": "影片不存在或已被刪除",
-      "此视频暂无可用播放地址": "此影片暫無可用播放網址"
+      "此视频暂无可用播放地址": "此影片暫無可用播放網址",
+      "此视频需要在 Fansly 订阅或购买后才能观看": "此影片需在 Fansly 訂閱或購買後才能觀看"
     },
     "ja": {
       "匿名可看公开短视频；敏感内容需登录": "公開ショート動画は匿名で視聴できます。センシティブな動画にはログインが必要です",
@@ -26,7 +27,8 @@ Park.register({
       "请按顺序加载推荐": "おすすめを順番に読み込んでください",
       "请按顺序加载搜索": "検索結果を順番に読み込んでください",
       "视频不存在或已被删除": "動画が存在しないか削除されました",
-      "此视频暂无可用播放地址": "この動画には利用可能な再生 URL がありません"
+      "此视频暂无可用播放地址": "この動画には利用可能な再生 URL がありません",
+      "此视频需要在 Fansly 订阅或购买后才能观看": "この動画は Fansly で購読または購入すると視聴できます"
     },
     "ko": {
       "匿名可看公开短视频；敏感内容需登录": "공개 짧은 동영상은 익명으로 볼 수 있으며 민감한 콘텐츠는 로그인해야 합니다",
@@ -40,7 +42,8 @@ Park.register({
       "请按顺序加载推荐": "추천 항목을 순서대로 불러오세요",
       "请按顺序加载搜索": "검색 결과를 순서대로 불러오세요",
       "视频不存在或已被删除": "동영상이 없거나 삭제되었습니다",
-      "此视频暂无可用播放地址": "이 동영상에 사용할 수 있는 재생 주소가 없습니다"
+      "此视频暂无可用播放地址": "이 동영상에 사용할 수 있는 재생 주소가 없습니다",
+      "此视频需要在 Fansly 订阅或购买后才能观看": "이 동영상은 Fansly에서 구독하거나 구매해야 볼 수 있습니다"
     },
     "en": {
       "匿名可看公开短视频；敏感内容需登录": "Public short videos are available anonymously; sensitive content requires sign-in",
@@ -54,7 +57,8 @@ Park.register({
       "请按顺序加载推荐": "Load recommendations in order",
       "请按顺序加载搜索": "Load search results in order",
       "视频不存在或已被删除": "Video not found or deleted",
-      "此视频暂无可用播放地址": "No playback URL is available for this video"
+      "此视频暂无可用播放地址": "No playback URL is available for this video",
+      "此视频需要在 Fansly 订阅或购买后才能观看": "Subscribe or purchase on Fansly to watch this video"
     },
     "es": {
       "匿名可看公开短视频；敏感内容需登录": "Los vídeos cortos públicos se pueden ver de forma anónima; el contenido sensible requiere iniciar sesión",
@@ -68,7 +72,8 @@ Park.register({
       "请按顺序加载推荐": "Carga las recomendaciones en orden",
       "请按顺序加载搜索": "Carga los resultados de búsqueda en orden",
       "视频不存在或已被删除": "El vídeo no existe o fue eliminado",
-      "此视频暂无可用播放地址": "No hay una URL de reproducción disponible para este vídeo"
+      "此视频暂无可用播放地址": "No hay una URL de reproducción disponible para este vídeo",
+      "此视频需要在 Fansly 订阅或购买后才能观看": "Suscríbete o compra en Fansly para ver este vídeo"
     },
     "ru": {
       "匿名可看公开短视频；敏感内容需登录": "Публичные короткие видео доступны анонимно; для чувствительного контента требуется вход",
@@ -82,7 +87,8 @@ Park.register({
       "请按顺序加载推荐": "Загружайте рекомендации по порядку",
       "请按顺序加载搜索": "Загружайте результаты поиска по порядку",
       "视频不存在或已被删除": "Видео не найдено или удалено",
-      "此视频暂无可用播放地址": "Для этого видео нет доступного адреса воспроизведения"
+      "此视频暂无可用播放地址": "Для этого видео нет доступного адреса воспроизведения",
+      "此视频需要在 Fansly 订阅或购买后才能观看": "Чтобы посмотреть это видео, оформите подписку или купите его на Fansly"
     },
     "ar": {
       "匿名可看公开短视频；敏感内容需登录": "يمكن مشاهدة المقاطع العامة دون تسجيل دخول؛ يتطلب المحتوى الحساس تسجيل الدخول",
@@ -96,14 +102,15 @@ Park.register({
       "请按顺序加载推荐": "حمّل التوصيات بالترتيب",
       "请按顺序加载搜索": "حمّل نتائج البحث بالترتيب",
       "视频不存在或已被删除": "الفيديو غير موجود أو تم حذفه",
-      "此视频暂无可用播放地址": "لا يتوفر رابط تشغيل لهذا الفيديو"
+      "此视频暂无可用播放地址": "لا يتوفر رابط تشغيل لهذا الفيديو",
+      "此视频需要在 Fansly 订阅或购买后才能观看": "اشترك أو اشترِ على Fansly لمشاهدة هذا الفيديو"
     }
   },
-  key: 'fansly', name: 'Fansly', version: '0.0.11', minAppVersion: '0.9.2', type: 'video', category: 'shortvideo',
+  key: 'fansly', name: 'Fansly', version: '0.0.12', minAppVersion: '0.9.2', type: 'video', category: 'shortvideo',
   color: '#00AFF0', description: '匿名可看公开短视频；敏感内容需登录', language: 'en',
   homepage: 'https://fansly.com/explore/foryou', domains: ['fansly.com'],
   network: {mode: 'native', vpnHint: true},
-  media: {mode: 'native', origin: 'https://fansly.com', domains: ['cdn3.fansly.com']},
+  media: {mode: 'native', scope: 'session', origin: 'https://fansly.com', domains: ['cdn3.fansly.com']},
   idPattern: '^[0-9]{15,21}$', defaultFeed: 'recommend',
   feeds: [{key: 'recommend', label: '推荐'}],
   searchFilters: [{key: 'tag', label: '标签', type: 'select', default: '', dynamic: true, keywordDependent: true, values: []}],
@@ -195,8 +202,11 @@ Park.register({
     return id;
   },
   cleanUrl(value) {
-    const url = Park.url.parse(value, 'https://cdn3.fansly.com', this.media.domains);
-    return url?.href || '';
+    // 媒体 CDN 会更换主机，只要求是公网 HTTPS 地址，播放按会话授权。
+    try {
+      const url = new URL(String(value).trim(), 'https://cdn3.fansly.com');
+      return Park.url.parse(url.href, 'https://cdn3.fansly.com', [url.hostname])?.href || '';
+    } catch (_) { return ''; }
   },
   remember(entries) {
     const saved = this.store.get('media') || {};
@@ -217,20 +227,23 @@ Park.register({
     const loggedIn = this.store.get('fanslyLoggedIn') === true;
     const variants = Array.isArray(raw.variants) ? raw.variants : [];
     const location = this.cleanUrl(raw.locations?.[0]?.location || '');
-    const access = media.access === true && media.deleted !== true &&
+    // access 为 false 表示需要订阅或购买，登录本身无法解锁；匿名时敏感视频不返回播放地址。
+    const paid = media.access !== true;
+    const access = !paid && media.deleted !== true &&
       (!sensitive || loggedIn) && !!location && /^video\/(?:mp4|quicktime)$/.test(raw.mimetype);
+    const needsLogin = !paid && !loggedIn && !access;
     const preview = variants.find(v => v.type === 3) || variants.find(v => v.type === 1) || variants.find(v => v.type === 4);
     const cover = this.cleanUrl(preview?.locations?.[0]?.location || '');
     const account = data?.accounts?.find(x => String(x.id) === String(media.accountId));
     const title = String(post?.content || account?.displayName || account?.username || 'Fansly 视频').trim().slice(0, 160);
     const tags = (suggestion.postTags || []).map(x => x?.tag).filter(x => typeof x === 'string' && x.length < 80);
-    const entry = {id: offer, accountId: String(media.accountId || ''), access, sensitive, fetchedAt: Date.now(),
+    const entry = {id: offer, accountId: String(media.accountId || ''), access, paid, needsLogin, sensitive, fetchedAt: Date.now(),
       media: {id: String(raw.id || ''), type: Number(raw.type), mimetype: String(raw.mimetype || ''),
         location} };
     const work = {id: offer, title, description: String(post?.content || '').trim(),
       subtitle: account?.displayName || account?.username || '', uploader: account?.username || '',
       cover, coverAspect: 9 / 16, url: 'https://fansly.com/post/' + postId,
-      locked: !access, loginRequired: !access, tags: tags.map(name => ({name, keyword: name})),
+      locked: !access, loginRequired: needsLogin, tags: tags.map(name => ({name, keyword: name})),
       mediaKind: 'video', chapters: null};
     entry.preview = work;
     return {entry, work};
@@ -246,7 +259,9 @@ Park.register({
       return {items: [], hasNext: false};
     }
     if (!Array.isArray(response.aggregationData?.accountMedia)) throw Park.error('PARSE', 'Fansly 返回的数据无效');
-    const items = response.mediaOfferSuggestions.map(s => this.work(s, response.aggregationData)).filter(Boolean);
+    // 推荐只保留可播放或登录后可播放的视频；付费锁定内容无法在应用内观看。
+    const items = response.mediaOfferSuggestions.map(s => this.work(s, response.aggregationData))
+      .filter(x => x && (x.entry.access || x.entry.needsLogin));
     if (!items.length) this.log({action, reason: 'NO_VIDEO'});
     this.remember(items.map(x => x.entry));
     const cursor = String(response.mediaOfferSuggestions[response.mediaOfferSuggestions.length - 1]?.id || '');
@@ -304,7 +319,7 @@ Park.register({
     if (!result) throw Park.error('NOT_FOUND', '视频不存在或已被删除');
     result.entry.preview = {...result.work, ...previous?.preview,
       cover: result.work.cover || previous?.preview?.cover || '',
-      locked: !result.entry.access, loginRequired: !result.entry.access};
+      locked: !result.entry.access, loginRequired: result.entry.needsLogin};
     if (!previous) result.entry.preview.url = 'https://fansly.com/media/' + id;
     this.remember([result.entry]);
     return result.entry;
@@ -315,7 +330,11 @@ Park.register({
   async videos(id) {
     id = this.validId(id);
     const entry = await this.loadMedia(id);
-    if (!entry.access || (entry.sensitive && this.store.get('fanslyLoggedIn') !== true)) throw Park.error('LOGIN_REQUIRED', '请先登录 Fansly 后查看此内容');
+    if (!entry.access) {
+      if (entry.paid) throw Park.error('UNSUPPORTED', '此视频需要在 Fansly 订阅或购买后才能观看');
+      if (this.store.get('fanslyLoggedIn') !== true) throw Park.error('LOGIN_REQUIRED', '请先登录 Fansly 后查看此内容');
+      throw Park.error('UNSUPPORTED', '此视频暂无可用播放地址');
+    }
     const mp4 = entry.media.location;
     if (!mp4) throw Park.error('UNSUPPORTED', '此视频暂无可用播放地址');
     return [{url: mp4, format: 'mp4', label: 'MP4', preferred: true, headers: {Referer: 'https://fansly.com/'}}];

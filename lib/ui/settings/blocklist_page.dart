@@ -71,7 +71,6 @@ class _BlocklistPageState extends State<BlocklistPage> {
                   decoration: InputDecoration(
                     hintText: tr('输入要屏蔽的标签'),
                     errorText: _error,
-                    border: const OutlineInputBorder(),
                     suffixIcon: IconButton(
                       tooltip: tr('添加'),
                       icon: const Icon(Icons.add_rounded),
@@ -185,9 +184,10 @@ class _PresetCard extends StatelessWidget {
     final s = AppSettings.instance;
     final c = config;
     return RowGroup(
+      margin: EdgeInsets.zero,
       children: [
         ExpansionTile(
-          tilePadding: EdgeInsets.zero,
+          tilePadding: const EdgeInsets.symmetric(horizontal: Gap.page),
           shape: const Border(),
           collapsedShape: const Border(),
           leading: Switch.adaptive(
@@ -212,7 +212,12 @@ class _PresetCard extends StatelessWidget {
               ),
             ),
           ),
-          childrenPadding: const EdgeInsets.only(bottom: Gap.m),
+          childrenPadding: const EdgeInsets.fromLTRB(
+            Gap.page,
+            0,
+            Gap.page,
+            Gap.m,
+          ),
           expandedCrossAxisAlignment: CrossAxisAlignment.start,
           children: [
             CheckboxListTile(

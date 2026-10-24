@@ -1035,6 +1035,10 @@ class DownloadManager extends ChangeNotifier {
         orElse: () =>
             sources.firstWhere((s) => s.preferred, orElse: () => sources.first),
       );
+      // 下载只合成单路媒体清单，单独存放的音轨不能静默丢失。
+      if (src.audio != null) {
+        throw SourceError('UNSUPPORTED', '此视频的音轨单独存放，暂不支持离线下载');
+      }
       // Preserve the single-video output location so existing validated HLS parts remain reusable.
       final directory = t.videoDirectory(episode.id);
       await directory.create(recursive: true);

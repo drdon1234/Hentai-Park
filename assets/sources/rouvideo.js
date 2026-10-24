@@ -93,7 +93,7 @@ Park.register({
       "熟女": "ناضجات"
     }
   },
-  key: 'rouvideo', name: '肉视频', version: '0.0.2', minAppVersion: '0.9.2', type: 'video', category: 'adult', color: '#E85D75',
+  key: 'rouvideo', name: '肉视频', version: '0.0.3', minAppVersion: '0.9.2', type: 'video', category: 'adult', color: '#E85D75',
   description: '成人视频库，支持分类、搜索与原生 HLS 播放', homepage: 'https://rou.video', domains: ['rou.video'], language: 'zh',
   linkPatterns: ['rou\\.video/v/([a-z0-9]+)(?:[/?#]|$)'], idPattern: '^[a-z0-9]{10,40}$',
   imageNetwork: {mode: 'browser', origin: 'https://rou.video', domains: ['v.rn252.xyz']},
@@ -110,7 +110,8 @@ Park.register({
   BASE: 'https://rou.video',
   id(value) { const id = String(value || ''); if (!/^[a-z0-9]{10,40}$/.test(id)) throw Park.error('NOT_FOUND', '影片编号无效'); return id; },
   page(value) { const page = value == null ? 1 : Number(value); if (!Number.isSafeInteger(page) || page < 1 || page > 100000) throw Park.error('CONFIG', '视频列表地址无效'); return page; },
-  absolute(value) { if (typeof value !== 'string' || !value) return ''; try { const u = new URL(value, this.BASE); return u.protocol === 'https:' && !u.username && !u.password && !u.port && ['rou.video', 'v.rn252.xyz'].includes(u.hostname) ? u.href : ''; } catch (_) { return ''; } },
+  // 图片 CDN 会更换主机，只要求是公网 HTTPS 地址。
+  absolute(value) { if (typeof value !== 'string' || !value) return ''; try { const u = new URL(value.trim(), this.BASE); return Park.url.parse(u.href, this.BASE, [u.hostname])?.href || ''; } catch (_) { return ''; } },
   async doc(path, params) {
     const r = await this.http.get(this.BASE + path, {params, headers: {Referer: this.BASE + '/'}});
     if (r.status === 404) throw Park.error('NOT_FOUND', '影片不存在');
@@ -123,7 +124,7 @@ Park.register({
     for (const a of doc.querySelectorAll('a[href]')) {
       const m = pattern.exec(a.getAttribute('href') || ''), img = a.querySelector('img'), title = Park.html.text(a.querySelector('h3')) || img?.getAttribute('alt') || '';
       const cover = img?.getAttribute('src') || img?.getAttribute('data-src') || '';
-      if (!m || !title || !cover || !a.querySelector('h3') || seen.has(m[1]) || /AI短劇/.test(a.textContent)) continue;
+      if (!m || !title || !img || !a.querySelector('h3') || seen.has(m[1]) || /AI短劇/.test(a.textContent)) continue;
       seen.add(m[1]); out.push({id: m[1], title, cover: this.absolute(cover), coverAspect: series ? 3 / 4 : 16 / 10,
         duration: [...a.querySelectorAll('span')].map(n => Park.html.text(n)).find(t => /^(?:\d+小時)?(?:\d+分)?(?:\d+秒)?$/.test(t) && t) || '', url: this.BASE + a.getAttribute('href')});
     }

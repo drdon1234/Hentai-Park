@@ -9,10 +9,10 @@ Park.register({
     "ru": {"成人视频社区，支持推荐、搜索和原画播放": "Сообщество видео для взрослых с рекомендациями, поиском и оригинальным качеством"},
     "ar": {"成人视频社区，支持推荐、搜索和原画播放": "مجتمع فيديوهات للبالغين مع توصيات وبحث وتشغيل بالجودة الأصلية"},
   },
-  key: 'porn91', name: '91porn', version: '0.0.8', minAppVersion: '0.9.2', type: 'video', category: 'adult', color: '#D81B60',
+  key: 'porn91', name: '91porn', version: '0.0.9', minAppVersion: '0.9.2', type: 'video', category: 'adult', color: '#D81B60',
   description: '成人视频社区，支持推荐、搜索和原画播放', homepage: 'https://91porn.com', domains: ['91porn.com'], language: 'zh',
   network: {mode: 'native', vpnHint: true}, imageHeaders: {Referer: 'https://91porn.com/'},
-  media: {mode: 'native', origin: 'https://91porn.com', domains: ['la.btc620.com', '1470423830.rsc.cdn77.org']},
+  media: {mode: 'native', scope: 'session', origin: 'https://91porn.com', domains: ['la.btc620.com', '1470423830.rsc.cdn77.org']},
   linkPatterns: ['91porn\\.com/view_video\\.php\\?(?:[^#]*&)?viewkey=([a-zA-Z0-9]{5,64})(?:&|#|$)'],
   idPattern: '^[a-zA-Z0-9]{5,64}$', idExample: '402751768',
   defaultFeed: 'recommend', feeds: [{key: 'recommend', label: '推荐'}, {key: 'categories', label: '分类', options: [{key: 'category', label: '分类', default: 'category=rf&viewtype=basic', dynamic: true, values: []}]}], searchHint: '搜索作品名或标签', BASE: 'https://91porn.com',
@@ -42,9 +42,9 @@ Park.register({
   },
   mediaUrl(value) {
     try {
-      const u = new URL(value);
-      if (u.protocol !== 'https:' || u.port || u.username || u.password || u.hash || !['la.btc620.com', '1470423830.rsc.cdn77.org'].includes(u.hostname) || !/\.mp4$/i.test(u.pathname)) return null;
-      return u.href;
+      // 视频 CDN 会更换主机，按会话授权，只校验公网 HTTPS 与 MP4 路径。
+      const u = new URL(String(value).trim());
+      return u.protocol === 'https:' && Park.url.parse(u.href, u.href, [u.hostname]) && /\.mp4$/i.test(u.pathname) ? u.href : null;
     } catch (_) { return null; }
   },
   async getPage(url) {

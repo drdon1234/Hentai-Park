@@ -58,8 +58,22 @@ class ImageDecryption {
 
   String cacheKey(String key) => '$key:decrypt:$identity';
 
-  Uint8List decode(Uint8List bytes, String url) {
-    if (!hostInDomains(Uri.tryParse(url)?.host ?? '', domains)) return bytes;
+  /// 声明域内的图片必须解密；图片 CDN 换到其他主机时，原始字节不是图片才尝试解密，
+  /// 结果仍需通过 [looksLikeImage] 检查，不会把普通图片误当密文。
+  Uint8List decode(
+    Uint8List bytes,
+    String url, {
+    bool Function(Uint8List)? looksLikeImage,
+  }) {
+    if (!hostInDomains(Uri.tryParse(url)?.host ?? '', domains)) {
+      if (looksLikeImage == null || looksLikeImage(bytes)) return bytes;
+      try {
+        final decoded = aesCbcDecrypt(bytes, _key, _iv);
+        return looksLikeImage(decoded) ? decoded : bytes;
+      } catch (_) {
+        return bytes;
+      }
+    }
     try {
       return aesCbcDecrypt(bytes, _key, _iv);
     } catch (_) {

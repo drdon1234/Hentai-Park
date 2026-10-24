@@ -1,5 +1,14 @@
 Park.register({
-  key: 'ranking-fc2', name: 'FC2', version: '0.0.4', minAppVersion: '0.9.2',
+  i18n: {
+    "zh-Hant": {"上月": "上月", "官方卖家榜": "官方賣家榜"},
+    ja: {"上月": "先月", "官方卖家榜": "公式販売者ランキング"},
+    ko: {"上月": "지난달", "官方卖家榜": "공식 판매자 순위"},
+    en: {"上月": "Last month", "官方卖家榜": "Official seller ranking"},
+    es: {"上月": "Mes pasado", "官方卖家榜": "Ranking oficial de vendedores"},
+    ru: {"上月": "Прошлый месяц", "官方卖家榜": "Официальный рейтинг продавцов"},
+    ar: {"上月": "الشهر الماضي", "官方卖家榜": "ترتيب البائعين الرسمي"},
+  },
+  key: 'ranking-fc2', name: 'FC2', version: '0.0.5', minAppVersion: '0.9.2',
   type: 'video', category: 'jav', rankingOnly: true,
   description: '官方销量榜', homepage: 'https://adult.contents.fc2.com/',
   domains: ['fc2.com'], network: { vpnHint: true },

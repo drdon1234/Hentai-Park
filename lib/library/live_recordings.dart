@@ -211,6 +211,9 @@ class LiveRecordings extends ChangeNotifier {
                   .firstOrNull ??
               sources.where((source) => source.format == 'hls').firstOrNull;
           if (source == null) throw SourceError('UNSUPPORTED', '直播间暂无可用播放地址');
+          if (source.audio != null) {
+            throw SourceError('UNSUPPORTED', '此直播的音轨单独存放，暂不支持录制');
+          }
           final manifest = SourceManager.instance.manifest(task.item.source);
           if (manifest == null) throw SourceError('CONFIG', '视频站点未加载');
           final url = Uri.parse(source.url);

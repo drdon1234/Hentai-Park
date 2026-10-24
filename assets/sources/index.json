@@ -5,7 +5,7 @@
     {
       "key": "pixibb",
       "name": "PixiBB",
-      "version": "0.0.5",
+      "version": "0.0.6",
       "type": "comic",
       "category": "gallery",
       "file": "pixibb.js",
@@ -15,7 +15,7 @@
     {
       "key": "xiuren",
       "name": "XiuRen",
-      "version": "0.0.5",
+      "version": "0.0.6",
       "type": "comic",
       "category": "gallery",
       "file": "xiuren.js",
@@ -25,7 +25,7 @@
     {
       "key": "pornpics",
       "name": "PornPics",
-      "version": "0.0.8",
+      "version": "0.0.9",
       "type": "comic",
       "category": "gallery",
       "file": "pornpics.js",
@@ -35,7 +35,7 @@
     {
       "key": "cosplaytele",
       "name": "CosplayTele",
-      "version": "0.0.5",
+      "version": "0.0.6",
       "type": "comic",
       "category": "gallery",
       "file": "cosplaytele.js",
@@ -45,7 +45,7 @@
     {
       "key": "nudecosplay",
       "name": "NudeCosplay",
-      "version": "0.0.5",
+      "version": "0.0.6",
       "type": "comic",
       "category": "gallery",
       "file": "nudecosplay.js",
@@ -135,7 +135,7 @@
     {
       "key": "hanime1",
       "name": "Hanime1",
-      "version": "0.0.9",
+      "version": "0.0.10",
       "type": "video",
       "category": "anime",
       "file": "hanime1.js",
@@ -145,7 +145,7 @@
     {
       "key": "hanime",
       "name": "Hanime.tv",
-      "version": "0.0.8",
+      "version": "0.0.9",
       "type": "video",
       "category": "anime",
       "file": "hanime.js",
@@ -155,7 +155,7 @@
     {
       "key": "rule34video",
       "name": "Rule34Video",
-      "version": "0.0.8",
+      "version": "0.0.9",
       "type": "video",
       "category": "anime",
       "file": "rule34video.js",
@@ -175,7 +175,7 @@
     {
       "key": "hentaihaven",
       "name": "HentaiHaven",
-      "version": "0.0.3",
+      "version": "0.0.4",
       "type": "video",
       "category": "anime",
       "file": "hentaihaven.js",
@@ -195,7 +195,7 @@
     {
       "key": "jable",
       "name": "JableTV",
-      "version": "0.0.8",
+      "version": "0.0.9",
       "type": "video",
       "category": "jav",
       "file": "jable.js",
@@ -205,7 +205,7 @@
     {
       "key": "av123",
       "name": "123AV",
-      "version": "0.0.11",
+      "version": "0.0.12",
       "type": "video",
       "category": "jav",
       "file": "av123.js",
@@ -215,11 +215,11 @@
     {
       "key": "supjav",
       "name": "SupJav",
-      "version": "0.0.9",
+      "version": "0.0.11",
       "type": "video",
       "category": "jav",
       "file": "supjav.js",
-      "description": "JAV 视频，支持热门、搜索与 FST 线路播放",
+      "description": "JAV 视频，支持热门、搜索与多线路播放",
       "minAppVersion": "0.9.2"
     },
     {
@@ -245,7 +245,7 @@
     {
       "key": "porn91",
       "name": "91porn",
-      "version": "0.0.8",
+      "version": "0.0.9",
       "type": "video",
       "category": "adult",
       "file": "porn91.js",
@@ -255,7 +255,7 @@
     {
       "key": "spankbang",
       "name": "SpankBang",
-      "version": "0.0.9",
+      "version": "0.0.10",
       "type": "video",
       "category": "adult",
       "file": "spankbang.js",
@@ -265,7 +265,7 @@
     {
       "key": "eporner",
       "name": "Eporner",
-      "version": "0.0.7",
+      "version": "0.0.8",
       "type": "video",
       "category": "adult",
       "file": "eporner.js",
@@ -275,7 +275,7 @@
     {
       "key": "thumbzilla",
       "name": "Thumbzilla",
-      "version": "0.0.8",
+      "version": "0.0.9",
       "type": "video",
       "category": "adult",
       "file": "thumbzilla.js",
@@ -285,7 +285,7 @@
     {
       "key": "ixxx",
       "name": "iXXX",
-      "version": "0.0.15",
+      "version": "0.0.16",
       "type": "video",
       "category": "adult",
       "file": "ixxx.js",
@@ -295,7 +295,7 @@
     {
       "key": "tubesafari",
       "name": "TubeSafari",
-      "version": "0.0.8",
+      "version": "0.0.9",
       "type": "video",
       "category": "adult",
       "file": "tubesafari.js",
@@ -305,7 +305,7 @@
     {
       "key": "rouvideo",
       "name": "肉视频",
-      "version": "0.0.2",
+      "version": "0.0.3",
       "type": "video",
       "category": "adult",
       "file": "rouvideo.js",
@@ -315,7 +315,7 @@
     {
       "key": "tikporn",
       "name": "Tik.porn",
-      "version": "0.0.7",
+      "version": "0.0.8",
       "type": "video",
       "category": "shortvideo",
       "file": "tikporn.js",
@@ -325,7 +325,7 @@
     {
       "key": "fyptt",
       "name": "Fyptt",
-      "version": "0.0.6",
+      "version": "0.0.7",
       "type": "video",
       "category": "shortvideo",
       "file": "fyptt.js",
@@ -335,7 +335,7 @@
     {
       "key": "soop_shortvideo",
       "name": "SOOP 短视频",
-      "version": "0.0.4",
+      "version": "0.0.5",
       "type": "video",
       "category": "shortvideo",
       "file": "soop_shortvideo.js",
@@ -355,7 +355,7 @@
     {
       "key": "swag_shortvideo",
       "name": "SWAG 短视频",
-      "version": "0.0.4",
+      "version": "0.0.5",
       "type": "video",
       "category": "shortvideo",
       "file": "swag_shortvideo.js",
@@ -365,7 +365,7 @@
     {
       "key": "popkontv_shortvideo",
       "name": "PopkonTV 短视频",
-      "version": "0.0.2",
+      "version": "0.0.3",
       "type": "video",
       "category": "shortvideo",
       "file": "popkontv_shortvideo.js",
@@ -385,7 +385,7 @@
     {
       "key": "fansly",
       "name": "Fansly",
-      "version": "0.0.11",
+      "version": "0.0.12",
       "type": "video",
       "category": "shortvideo",
       "file": "fansly.js",
@@ -415,7 +415,7 @@
     {
       "key": "huangguo",
       "name": "黄果短剧",
-      "version": "0.0.10",
+      "version": "0.0.11",
       "type": "video",
       "category": "aiDrama",
       "file": "huangguo.js",
@@ -425,7 +425,7 @@
     {
       "key": "rouvideo-drama",
       "name": "肉视频短剧",
-      "version": "0.0.2",
+      "version": "0.0.3",
       "type": "video",
       "category": "aiDrama",
       "file": "rouvideo-drama.js",
@@ -435,7 +435,7 @@
     {
       "key": "koreanbj_recording",
       "name": "KoreanBJ.club 录播",
-      "version": "0.0.4",
+      "version": "0.0.5",
       "type": "video",
       "category": "recording",
       "file": "koreanbj_recording.js",
@@ -445,7 +445,7 @@
     {
       "key": "soop_recording",
       "name": "SOOP 录播",
-      "version": "0.0.4",
+      "version": "0.0.5",
       "type": "video",
       "category": "recording",
       "file": "soop_recording.js",
@@ -455,7 +455,7 @@
     {
       "key": "popkontv_recording",
       "name": "PopkonTV 录播",
-      "version": "0.0.2",
+      "version": "0.0.3",
       "type": "video",
       "category": "recording",
       "file": "popkontv_recording.js",
@@ -465,7 +465,7 @@
     {
       "key": "camwhoresbay_recording",
       "name": "CamwhoresBay 亚洲录播",
-      "version": "0.0.4",
+      "version": "0.0.5",
       "type": "video",
       "category": "recording",
       "file": "camwhoresbay_recording.js",
@@ -475,7 +475,7 @@
     {
       "key": "stripchat_asia",
       "name": "Stripchat 亚洲直播",
-      "version": "0.0.4",
+      "version": "0.0.6",
       "type": "video",
       "category": "live",
       "file": "stripchat_asia.js",
@@ -485,7 +485,7 @@
     {
       "key": "cam4",
       "name": "CAM4",
-      "version": "0.0.5",
+      "version": "0.0.6",
       "type": "video",
       "category": "live",
       "file": "cam4.js",
@@ -495,7 +495,7 @@
     {
       "key": "soop",
       "name": "SOOP",
-      "version": "0.0.4",
+      "version": "0.0.5",
       "type": "video",
       "category": "live",
       "file": "soop.js",
@@ -505,7 +505,7 @@
     {
       "key": "xlovecam",
       "name": "XloveCam",
-      "version": "0.0.5",
+      "version": "0.0.6",
       "type": "video",
       "category": "live",
       "file": "xlovecam.js",
@@ -515,7 +515,7 @@
     {
       "key": "sinparty",
       "name": "SinParty",
-      "version": "0.0.5",
+      "version": "0.0.6",
       "type": "video",
       "category": "live",
       "file": "sinparty.js",
@@ -535,7 +535,7 @@
     {
       "key": "reddit",
       "name": "Reddit",
-      "version": "0.0.6",
+      "version": "0.0.7",
       "type": "comic",
       "category": "other",
       "file": "reddit.js",
@@ -763,7 +763,7 @@
     {
       "key": "cycg",
       "name": "次元茶馆",
-      "version": "0.0.9",
+      "version": "0.0.10",
       "type": "game",
       "category": "game",
       "file": "cycg.js",
@@ -795,7 +795,7 @@
     {
       "key": "ranking-fanza",
       "name": "FANZA",
-      "version": "0.0.3",
+      "version": "0.0.4",
       "type": "video",
       "category": "jav",
       "rankingOnly": true,
@@ -806,7 +806,7 @@
     {
       "key": "ranking-mgs",
       "name": "MGStage",
-      "version": "0.0.3",
+      "version": "0.0.4",
       "type": "video",
       "category": "jav",
       "rankingOnly": true,
@@ -817,7 +817,7 @@
     {
       "key": "ranking-fc2",
       "name": "FC2",
-      "version": "0.0.4",
+      "version": "0.0.5",
       "type": "video",
       "category": "jav",
       "rankingOnly": true,
@@ -828,7 +828,7 @@
     {
       "key": "ranking-studios",
       "name": "无码厂商",
-      "version": "0.0.4",
+      "version": "0.0.5",
       "type": "video",
       "category": "jav",
       "rankingOnly": true,

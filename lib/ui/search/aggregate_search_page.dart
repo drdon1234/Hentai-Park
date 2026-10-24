@@ -298,6 +298,7 @@ class _AggregateSearchPageState extends State<AggregateSearchPage> {
                           MenuChip<SourceCategory?>(
                             label: _range.isAll ? tr('全部分类') : _domain.label,
                             active: !_range.isAll,
+                            selected: _range.isAll ? null : _domain,
                             options: {
                               null: tr('全部分类'),
                               for (final d in AppSettings.instance.domainOrder)
@@ -429,6 +430,15 @@ class _AggregateSearchPageState extends State<AggregateSearchPage> {
                                   manifest: s.manifest!,
                                   result: _results.results[s.key]!,
                                   onRetry: () => _results.retry(s.key),
+                                  loadMore: _multi != null
+                                      ? null
+                                      : (page, cursor) => _sources.search(
+                                          s.key,
+                                          keyword: _submitted,
+                                          page: page,
+                                          cursor: cursor,
+                                          filters: s.manifest!.defaultFilters(),
+                                        ),
                                 ),
                           ],
                         ),

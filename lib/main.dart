@@ -33,6 +33,7 @@ import 'library/restore_transaction.dart';
 import 'library/updater.dart';
 import 'novel/reading_notes.dart';
 import 'subscriptions/background.dart';
+import 'ui/kit/immersive.dart';
 import 'ui/lock/lock_screen.dart';
 import 'ui/nav.dart';
 import 'ui/shell.dart';
@@ -245,12 +246,16 @@ class _LanguageRefreshState extends State<_LanguageRefresh> {
     super.didChangeDependencies();
     final locale = Localizations.localeOf(context);
     if (_locale != null && _locale != locale) {
-      void rebuild(Element element) {
-        element.markNeedsBuild();
-        element.visitChildElements(rebuild);
-      }
+      // 依赖变化发生在构建期间，待本帧的控件树稳定后再刷新现有页面。
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        void rebuild(Element element) {
+          element.markNeedsBuild();
+          element.visitChildElements(rebuild);
+        }
 
-      (context as Element).visitChildElements(rebuild);
+        context.visitChildElements(rebuild);
+      });
     }
     _locale = locale;
   }
@@ -277,27 +282,41 @@ class _SystemNavInset extends StatelessWidget {
     if (bottom <= 0) {
       return AnnotatedRegion<SystemUiOverlayStyle>(value: style, child: child);
     }
-    return AnnotatedRegion<SystemUiOverlayStyle>(
-      value: style,
-      child: ColoredBox(
-        color: ParkTheme.navigationColor(theme.colorScheme),
-        child: Padding(
-          padding: EdgeInsets.only(bottom: bottom),
-          child: MediaQuery(
-            data: mq.copyWith(
-              padding: mq.padding.copyWith(bottom: 0),
-              viewPadding: mq.viewPadding.copyWith(bottom: 0),
-              viewInsets: mq.viewInsets.copyWith(
-                bottom: (mq.viewInsets.bottom - bottom).clamp(
-                  0,
-                  double.infinity,
-                ),
+    // 沉浸页面（阅读器、短视频）自己处理底部安全区，背景延伸到系统导航栏下方；
+    // 结构保持不变，切换时不会重建页面。
+    return ValueListenableBuilder<int>(
+      valueListenable: Immersive.depth,
+      child: child,
+      builder: (context, depth, child) {
+        final immersive = depth > 0;
+        final inset = immersive ? 0.0 : bottom;
+        return AnnotatedRegion<SystemUiOverlayStyle>(
+          value: style,
+          child: ColoredBox(
+            color: immersive
+                ? Colors.transparent
+                : ParkTheme.navigationColor(theme.colorScheme),
+            child: Padding(
+              padding: EdgeInsets.only(bottom: inset),
+              child: MediaQuery(
+                data: immersive
+                    ? mq
+                    : mq.copyWith(
+                        padding: mq.padding.copyWith(bottom: 0),
+                        viewPadding: mq.viewPadding.copyWith(bottom: 0),
+                        viewInsets: mq.viewInsets.copyWith(
+                          bottom: (mq.viewInsets.bottom - bottom).clamp(
+                            0,
+                            double.infinity,
+                          ),
+                        ),
+                      ),
+                child: child!,
               ),
             ),
-            child: child,
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 }

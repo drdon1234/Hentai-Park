@@ -84,10 +84,12 @@ class _AdaptiveVideoProgressState extends State<AdaptiveVideoProgress> {
           height: 48,
           child: SliderTheme(
             data: SliderTheme.of(context).copyWith(
-              trackHeight: _expanded ? 8 : 2,
+              trackHeight: _expanded ? 5 : 3,
               thumbShape: RoundSliderThumbShape(
-                enabledThumbRadius: _expanded ? 9 : 3,
+                enabledThumbRadius: _expanded ? 8 : 5,
+                elevation: 2,
               ),
+              trackShape: const RoundedRectSliderTrackShape(),
               overlayShape: const RoundSliderOverlayShape(),
               activeTrackColor: Colors.white,
               inactiveTrackColor: Colors.white24,

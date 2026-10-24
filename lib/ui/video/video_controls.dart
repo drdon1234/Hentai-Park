@@ -82,19 +82,23 @@ class VideoControls extends StatelessWidget {
             constraints.maxHeight >= 260 &&
             !live &&
             (onPrevious != null || onNext != null);
+        // 画面上的次级操作是半透明胶囊，不画描边，避免在亮画面上形成生硬的框。
         Widget action(String label, VoidCallback? callback) => Padding(
           padding: const EdgeInsetsDirectional.only(start: Gap.xs),
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 96),
             child: Tooltip(
               message: label,
-              child: OutlinedButton(
-                style: OutlinedButton.styleFrom(
+              child: TextButton(
+                style: TextButton.styleFrom(
                   foregroundColor: fg,
-                  side: BorderSide(color: fg.withValues(alpha: .65)),
+                  backgroundColor: Scrims.control,
                   minimumSize: const Size(48, 32),
-                  padding: const EdgeInsets.symmetric(horizontal: Gap.s),
-                  textStyle: context.text.labelMedium,
+                  padding: const EdgeInsets.symmetric(horizontal: Gap.m),
+                  tapTargetSize: MaterialTapTargetSize.padded,
+                  textStyle: context.text.labelMedium?.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
                 onPressed: callback,
                 child: Text(
@@ -106,6 +110,20 @@ class VideoControls extends StatelessWidget {
             ),
           ),
         );
+        Widget skip(String tooltip, IconData icon, VoidCallback? callback) =>
+            IconButton(
+              style: IconButton.styleFrom(
+                backgroundColor: Scrims.soft,
+                foregroundColor: fg,
+                disabledForegroundColor: fg.withValues(alpha: .38),
+                disabledBackgroundColor: Scrims.faint,
+                minimumSize: const Size(48, 48),
+                iconSize: 28,
+              ),
+              tooltip: tooltip,
+              onPressed: callback,
+              icon: Icon(icon),
+            );
         return SelectionContainer.disabled(
           child: Material(
             type: MaterialType.transparency,
@@ -117,40 +135,38 @@ class VideoControls extends StatelessWidget {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       if (showEpisodeControls)
-                        IconButton(
-                          color: fg,
-                          disabledColor: fg.withValues(alpha: .38),
-                          tooltip: tr('上一集'),
-                          onPressed: onPrevious,
-                          icon: const Icon(Icons.skip_previous_rounded),
+                        skip(
+                          tr('上一集'),
+                          Icons.skip_previous_rounded,
+                          onPrevious,
                         ),
-                      if (showEpisodeControls) const SizedBox(width: Gap.xl),
+                      if (showEpisodeControls) const SizedBox(width: Gap.xxl),
                       IconButton.filled(
                         style: IconButton.styleFrom(
                           backgroundColor: Scrims.medium,
                           foregroundColor: fg,
-                          minimumSize: const Size(56, 56),
-                          iconSize: 32,
+                          minimumSize: const Size(64, 64),
+                          iconSize: 36,
                         ),
                         tooltip: tr(value.isPlaying ? '暂停' : '播放'),
                         onPressed: onPlayPause,
-                        icon: Icon(
-                          !live && value.isCompleted
-                              ? Icons.replay_rounded
-                              : value.isPlaying
-                              ? Icons.pause_rounded
-                              : Icons.play_arrow_rounded,
+                        icon: AnimatedSwitcher(
+                          duration: Motion.of(context, Motion.short),
+                          transitionBuilder: (child, animation) =>
+                              ScaleTransition(scale: animation, child: child),
+                          child: Icon(
+                            key: ValueKey((value.isPlaying, value.isCompleted)),
+                            !live && value.isCompleted
+                                ? Icons.replay_rounded
+                                : value.isPlaying
+                                ? Icons.pause_rounded
+                                : Icons.play_arrow_rounded,
+                          ),
                         ),
                       ),
-                      if (showEpisodeControls) const SizedBox(width: Gap.xl),
+                      if (showEpisodeControls) const SizedBox(width: Gap.xxl),
                       if (showEpisodeControls)
-                        IconButton(
-                          color: fg,
-                          disabledColor: fg.withValues(alpha: .38),
-                          tooltip: tr('下一集'),
-                          onPressed: onNext,
-                          icon: const Icon(Icons.skip_next_rounded),
-                        ),
+                        skip(tr('下一集'), Icons.skip_next_rounded, onNext),
                     ],
                   ),
                 ),
@@ -170,9 +186,11 @@ class VideoControls extends StatelessWidget {
                               title,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
-                              style: context.text.titleSmall?.copyWith(
-                                color: fg,
-                              ),
+                              style:
+                                  (fullscreen
+                                          ? context.text.titleMedium
+                                          : context.text.titleSmall)
+                                      ?.copyWith(color: fg),
                             ),
                           ),
                           ?recordingAction,
@@ -210,18 +228,39 @@ class VideoControls extends StatelessWidget {
                               child: Row(
                                 children: [
                                   Expanded(
-                                    child: Text(
-                                      live
-                                          ? tr('直播')
-                                          : '${formatPlaybackTime(position)} / ${formatPlaybackTime(value.duration)}',
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: context.text.labelMedium?.copyWith(
-                                        color: fg,
-                                        fontFeatures: const [
-                                          FontFeature.tabularFigures(),
-                                        ],
-                                      ),
+                                    child: Align(
+                                      alignment:
+                                          AlignmentDirectional.centerStart,
+                                      child: live
+                                          ? const _LiveBadge()
+                                          : Text.rich(
+                                              TextSpan(
+                                                text: formatPlaybackTime(
+                                                  position,
+                                                ),
+                                                children: [
+                                                  TextSpan(
+                                                    text:
+                                                        '  /  ${formatPlaybackTime(value.duration)}',
+                                                    style: TextStyle(
+                                                      color: fg.withValues(
+                                                        alpha: .7,
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                              style: context.text.labelMedium
+                                                  ?.copyWith(
+                                                    color: fg,
+                                                    fontWeight: FontWeight.w600,
+                                                    fontFeatures: const [
+                                                      FontFeature.tabularFigures(),
+                                                    ],
+                                                  ),
+                                            ),
                                     ),
                                   ),
                                   if (!compact &&
@@ -319,15 +358,71 @@ class _VideoScrim extends StatelessWidget {
   final Widget child;
 
   @override
-  Widget build(BuildContext context) => DecoratedBox(
-    decoration: BoxDecoration(
-      gradient: LinearGradient(
-        begin: top ? Alignment.topCenter : Alignment.bottomCenter,
-        end: top ? Alignment.bottomCenter : Alignment.topCenter,
-        colors: [Scrims.strong, Colors.transparent],
+  Widget build(BuildContext context) => Stack(
+    children: [
+      // 渐隐留白只负责绘制，不能挡住下层的播放按钮或手势。
+      Positioned.fill(
+        child: IgnorePointer(
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: top ? Alignment.topCenter : Alignment.bottomCenter,
+                end: top ? Alignment.bottomCenter : Alignment.topCenter,
+                colors: const [
+                  Scrims.strong,
+                  Scrims.medium,
+                  Scrims.faint,
+                  Colors.transparent,
+                ],
+                stops: const [0, .4, .75, 1],
+              ),
+            ),
+          ),
+        ),
       ),
+      Padding(
+        padding: EdgeInsets.only(
+          top: top ? 0 : Gap.xl,
+          bottom: top ? Gap.l : 0,
+        ),
+        child: child,
+      ),
+    ],
+  );
+}
+
+/// A small red-dot badge in place of the timeline while watching live.
+class _LiveBadge extends StatelessWidget {
+  const _LiveBadge();
+
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: Gap.s, vertical: 2),
+    decoration: const BoxDecoration(
+      color: Scrims.control,
+      borderRadius: Radii.tiny,
     ),
-    child: child,
+    child: Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 7,
+          height: 7,
+          decoration: BoxDecoration(
+            color: context.colors.error,
+            shape: BoxShape.circle,
+          ),
+        ),
+        const SizedBox(width: Gap.xs + 2),
+        Text(
+          tr('直播'),
+          style: context.text.labelMedium?.copyWith(
+            color: Scrims.onScrim,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ],
+    ),
   );
 }
 
@@ -397,10 +492,13 @@ class VideoHint extends StatelessWidget {
   Widget build(BuildContext context) => IgnorePointer(
     child: Center(
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: Gap.m, vertical: Gap.s),
-        decoration: const BoxDecoration(
-          color: Scrims.medium,
-          borderRadius: Radii.large,
+        padding: const EdgeInsets.symmetric(
+          horizontal: Gap.l,
+          vertical: Gap.s + 2,
+        ),
+        decoration: const ShapeDecoration(
+          color: Scrims.strong,
+          shape: StadiumBorder(),
         ),
         child: Text(
           text,

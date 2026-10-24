@@ -4,8 +4,11 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../core/content_scope.dart';
 import '../../core/localization.dart';
 import '../../core/models.dart';
+import '../../engine/domains.dart';
+import '../../engine/source_manager.dart';
 import '../nav.dart';
 import '../theme.dart';
+import '../web/source_web_page.dart';
 import '../widgets/common.dart';
 import '../widgets/content_translation.dart';
 
@@ -34,6 +37,26 @@ class _RankingRowState extends State<RankingRow> {
         scope: ContentScope.domain(widget.board.category),
       );
     }
+  }
+
+  /// 原站页面在应用内打开；不属于插件声明域的链接才交给系统浏览器。
+  Future<void> _openOriginal(Uri url) async {
+    final manifest = SourceManager.instance.manifest(widget.item.source);
+    if (manifest != null &&
+        httpsDomainAddressAllowed(url, declaredDomains(manifest.json))) {
+      await Nav.push(
+        context,
+        SourceWebPage(source: widget.item.source, url: url),
+      );
+      return;
+    }
+    var opened = false;
+    try {
+      opened = await launchUrl(url, mode: LaunchMode.externalApplication);
+    } catch (_) {
+      // 平台没有可处理链接的浏览器时也提供可重试提示。
+    }
+    if (!opened && mounted) context.toast(tr('无法打开原站'));
   }
 
   @override
@@ -135,22 +158,7 @@ class _RankingRowState extends State<RankingRow> {
                             ),
                           if (original)
                             OutlinedButton(
-                              onPressed: () async {
-                                var opened = false;
-                                try {
-                                  opened = await launchUrl(
-                                    url,
-                                    mode: LaunchMode.externalApplication,
-                                  );
-                                } catch (_) {
-                                  // 平台没有可处理链接的浏览器时也提供可重试提示。
-                                }
-                                if (!opened && context.mounted) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(content: Text(tr('无法打开原站'))),
-                                  );
-                                }
-                              },
+                              onPressed: () => _openOriginal(url),
                               child: SelectionContainer.disabled(
                                 child: Text(tr('原站')),
                               ),

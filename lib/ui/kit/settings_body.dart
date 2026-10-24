@@ -15,3 +15,19 @@ class SettingsBody extends StatelessWidget {
     ),
   );
 }
+
+/// 历史、下载等长列表在宽窗口中保持易读的行宽，不把一行拉到整个屏幕。
+class ReadableWidth extends StatelessWidget {
+  const ReadableWidth({super.key, required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) => Align(
+    alignment: Alignment.topCenter,
+    child: ConstrainedBox(
+      constraints: const BoxConstraints(maxWidth: 960),
+      child: child,
+    ),
+  );
+}

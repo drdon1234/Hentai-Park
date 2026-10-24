@@ -136,10 +136,13 @@ class _ContinueReadingPageState extends State<ContinueReadingPage> {
                           icon: Icons.history_rounded,
                           title: tr('没有继续阅读的作品'),
                         )
-                      : ListView.builder(
-                          padding: const EdgeInsets.only(bottom: 24),
-                          itemCount: list.length,
-                          itemBuilder: (context, i) => _tile(context, list[i]),
+                      : ReadableWidth(
+                          child: ListView.builder(
+                            padding: const EdgeInsets.only(bottom: 24),
+                            itemCount: list.length,
+                            itemBuilder: (context, i) =>
+                                _tile(context, list[i]),
+                          ),
                         ),
                 ),
               ],

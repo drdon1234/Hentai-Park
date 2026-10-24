@@ -78,10 +78,10 @@ Park.register({
     "直播分页参数无效": "معلمات صفحات البث غير صالحة"
   }
 },
-  key: 'xlovecam', name: 'XloveCam', version: '0.0.5', minAppVersion: '0.9.2', type: 'video', category: 'live', language: 'en',
+  key: 'xlovecam', name: 'XloveCam', version: '0.0.6', minAppVersion: '0.9.2', type: 'video', category: 'live', language: 'en',
   color: '#990000', description: '公开直播间', homepage: 'https://www.xlovecam.com/en/', domains: ['xlovecam.com'],
   network: {mode: 'native', origin: 'https://www.xlovecam.com', vpnHint: true},
-  media: {mode: 'native', origin: 'https://www.xlovecam.com', domains: ['wlresources.com']},
+  media: {mode: 'native', scope: 'session', origin: 'https://www.xlovecam.com', domains: ['wlresources.com']},
   imageHeaders: {Referer: 'https://www.xlovecam.com/en/'}, idPattern: '^[A-Za-z0-9_-]{2,80}$', defaultFeed: 'popular', feeds: [{key: 'popular', label: '热门', options: [
     {key: 'group', label: '分类', default: '10', dynamic: true, values: []},
     {key: 'category', label: '分类', default: '', dynamic: true, dependsOn: ['group'], values: []},
@@ -126,6 +126,10 @@ Park.register({
   },
   performer(data, id) { const p = data?.chat?.performerInfo?.performer || data?.bioPageData?.performer; if (!p || String(p.nickname || '').toLowerCase() !== id.toLowerCase()) return null; const stream = p.liveStreamInfo || p.streamInfo || {}; return {nickname: p.nickname, profileImg: p.profileImg || stream.profileImg, hlsPlaylist: stream.hlsPlaylist || p.hlsPlaylistFree, rating: stream.rating, showType: stream.showType ?? p.showType, online: p.online ?? p.isOnline}; },
   async detail(value) { const id = String(value || ''); if (!/^[A-Za-z0-9_-]{2,80}$/.test(id)) throw Park.error('NOT_FOUND', '直播间不存在'); const data = await this.page('/en/model/' + encodeURIComponent(id.toLowerCase()) + '/'); const x = this.performer(data, id); if (!x || x.showType !== 1 || !(x.online === 1 || x.online === true)) throw Park.error('NOT_FOUND', '直播间不存在或已下线'); const row = this.item(x) || {id, title: id, cover: String(x.profileImg || ''), url: 'https://www.xlovecam.com/en/model/' + encodeURIComponent(id.toLowerCase()) + '/', mediaKind: 'video', chapters: null}; return {...row, tags: [], description: ''}; },
-  async videos(value) { const id = String(value || ''); if (!/^[A-Za-z0-9_-]{2,80}$/.test(id)) throw Park.error('NOT_FOUND', '直播间不存在'); const data = await this.page('/en/model/' + encodeURIComponent(id.toLowerCase()) + '/'); const x = this.performer(data, id); const url = Park.url.parse(x?.hlsPlaylist, 'https://www.xlovecam.com', this.media.domains)?.href; if (!url || x.showType !== 1 || !(x.online === 1 || x.online === true)) throw Park.error('UNSUPPORTED', '直播间暂无可用播放地址'); return [{url, format: 'hls', label: '直播', preferred: true, headers: {Referer: 'https://www.xlovecam.com/en/'}}]; },
+  publicUrl(value, base = this.BASE) {
+    // CDN 主机会更换，只要求是公网 HTTPS 地址；作品身份仍按站点域名校验。
+    try { const url = new URL(String(value).trim(), base); return Park.url.parse(url.href, base, [url.hostname]); } catch (_) { return null; }
+  },
+  async videos(value) { const id = String(value || ''); if (!/^[A-Za-z0-9_-]{2,80}$/.test(id)) throw Park.error('NOT_FOUND', '直播间不存在'); const data = await this.page('/en/model/' + encodeURIComponent(id.toLowerCase()) + '/'); const x = this.performer(data, id); const url = this.publicUrl(x?.hlsPlaylist, 'https://www.xlovecam.com')?.href; if (!url || x.showType !== 1 || !(x.online === 1 || x.online === true)) throw Park.error('UNSUPPORTED', '直播间暂无可用播放地址'); return [{url, format: 'hls', label: '直播', preferred: true, headers: {Referer: 'https://www.xlovecam.com/en/'}}]; },
 });
 

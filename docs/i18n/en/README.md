@@ -78,11 +78,11 @@ Screenshots use offline demo data; the sites, works and covers shown are origina
 
 | Feature | What you get |
 | --- | --- |
-| Rankings | Open doujinshi, anime and JAV rankings from Discover; choose a site and period, search works or open the original site |
-| Discover and search | Home and category pages share recommendations; scroll right for more on sites with pagination. Search many sites at once, widen a search with keywords in other languages; paste a link or code to jump straight to a work |
+| Rankings | Open doujinshi, anime and JAV rankings from Discover; choose a site and period, search works or open the original site; product pages open inside the app |
+| Discover and search | Home and category pages share recommendations; scroll right for more on sites with pagination. Search many sites at once, widen a search with keywords in other languages; paste a link or code to jump straight to a work; filter Home by 2D/3D and by images, videos or other, and searching from Home only selects the filtered sites |
 | Read and watch | Comics scroll, page or show two-page spreads; videos have episodes, speed control and resume; novels have typography settings, bookmarks, notes and read-aloud. All three readers share the same controls |
 | Library | Favorites with categories and new-chapter alerts; subscribe to creators, channels or keywords |
-| Downloads | A dedicated main navigation tab for comic, video, novel and game downloads; import and export CBZ; export completed image chapters as PDF from the work menu, using only the first frame of animated images |
+| Downloads | A dedicated main navigation tab for comic, video, novel and game downloads; import and export CBZ; export completed image chapters as PDF from the work menu, using only the first frame of animated images; exports run in the background, long galleries are split into several PDFs, and exported files can be shared or deleted under Exported files on the Downloads page |
 | Game resources | See game details, versions and download links |
 | Translation and filters | Translate titles, descriptions and tags; hide works by tag |
 | Privacy and backup | App lock, incognito mode, blurred covers, screenshot blocking; back up favorites, progress and settings |

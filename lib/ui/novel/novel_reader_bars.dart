@@ -78,7 +78,7 @@ class NovelReaderBottomBar extends StatelessWidget {
   Widget build(BuildContext context) {
     final style = OutlinedButton.styleFrom(
       foregroundColor: foreground,
-      side: BorderSide(color: foreground),
+      backgroundColor: foreground.withValues(alpha: .1),
     );
     return Column(
       mainAxisSize: MainAxisSize.min,

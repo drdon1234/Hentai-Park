@@ -80,6 +80,18 @@ enum SourceCategory {
     other => null,
   };
 
+  ContentMedia get media => switch (this) {
+    doujin || gallery || illustration => ContentMedia.image,
+    anime ||
+    aiDrama ||
+    jav ||
+    adult ||
+    shortvideo ||
+    recording ||
+    live => ContentMedia.video,
+    novel || game || other => ContentMedia.other,
+  };
+
   static SourceCategory fromJson(Object? value) => SourceCategory.values
       .firstWhere((category) => category.name == value, orElse: () => other);
 }
@@ -96,6 +108,27 @@ enum ContentDimension {
 
   bool includes(SourceCategory category) =>
       this == all || category.dimension == null || category.dimension == this;
+}
+
+/// 发现页的媒体筛选，按分类的主要内容形式划分，与维度筛选同时生效。
+enum ContentMedia {
+  all('全部'),
+  image('图片'),
+  video('视频'),
+  other('其他');
+
+  const ContentMedia(this._label);
+  final String _label;
+  String get label => tr(_label);
+
+  bool includes(SourceCategory category) =>
+      this == all || category.media == this;
+}
+
+/// 播放候选顺序：首选源在前，其余保持插件给出的顺序，用于线路失败时切换。
+List<VideoSource> orderedVideoSources(List<VideoSource> sources) {
+  final preferred = sources.where((s) => s.preferred).firstOrNull;
+  return [?preferred, ...sources.where((s) => !identical(s, preferred))];
 }
 
 /// 反搜用途独立于作品分类，不影响发现页入口或阅读行为。
@@ -953,7 +986,7 @@ class GameResourceLink {
 }
 
 class VideoSource {
-  VideoSource(Map<String, dynamic> j)
+  VideoSource(Map<String, dynamic> j, {this.audio})
     : quality = _int(j['quality']) ?? 0,
       _label = _str(j['label']).isEmpty
           ? '${_int(j['quality']) ?? ''}P'
@@ -963,7 +996,7 @@ class VideoSource {
       format = _str(j['format']),
       preferred = j['preferred'] == true,
       hls = j['hls'] == null ? null : HlsSourceData.fromJson(j['hls']) {
-    if (hls != null && format != 'hls') {
+    if ((hls != null || audio != null) && format != 'hls') {
       throw SourceError('PARSE', '媒体数据无效');
     }
   }
@@ -975,6 +1008,25 @@ class VideoSource {
   final String format;
   final bool preferred;
   final HlsSourceData? hls;
+
+  /// 仅由应用解析主清单得到，插件返回的数据不能设置。
+  final HlsAudioVariant? audio;
+}
+
+/// 主清单中视频与音轨分开存放的清晰度：[VideoSource.url] 是视频媒体清单。
+class HlsAudioVariant {
+  const HlsAudioVariant({
+    required this.playlist,
+    required this.bandwidth,
+    this.codecs,
+    this.resolution,
+  });
+
+  /// 默认音轨的媒体清单。
+  final Uri playlist;
+  final int bandwidth;
+  final String? codecs;
+  final String? resolution;
 }
 
 /// 插件预处理的点播清单与 AES 密钥仅存在于当前播放/下载内存，不可持久化。

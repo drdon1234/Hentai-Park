@@ -13,21 +13,27 @@ import 'hls.dart';
 import 'hls_resources.dart';
 import 'local_hls_media.dart';
 import 'playback.dart';
+import 'playback_cache.dart';
 import 'rou_hls_wrapper.dart';
 
 /// A private, finite URL registry. The player never supplies an upstream URL.
 class HlsPlayback implements Playback {
-  HlsPlayback(this.transport, {this.live = false});
+  HlsPlayback(this.transport, {this.live = false, this.audio});
   HlsPlayback.local(File playlist)
     : transport = LocalHlsMedia(playlist),
-      live = false;
+      live = false,
+      audio = null;
 
   Future<Uri> openLocal() => open(LocalHlsMedia.playlistUrl);
   final MediaTransport transport;
   final bool live;
+
+  /// 视频与音轨分开存放时，本地生成只含此视频变体与默认音轨的主清单。
+  final HlsAudioVariant? audio;
   final _cancel = CancelToken();
   final _routes = <String, HlsSegment>{};
   String? _playlistPath;
+  final _playlists = <String>{};
   Uri? _upstream;
   final _manifestUrls = <Uri>{};
   final _segmentPaths = <String, String>{};
@@ -37,6 +43,9 @@ class HlsPlayback implements Playback {
   Future<Uint8List>? _refreshing;
   late final _resources = HlsResources(transport, _cancel);
   final Map<String, Uint8List> _cache = {};
+
+  /// 点播分段在内存淘汰后仍保存在本次会话的临时文件中，往回拖动不再重新下载。
+  SegmentCache? _disk;
   final _pending = <String, Future<Uint8List>>{};
   final _token = List.generate(
     24,
@@ -53,22 +62,19 @@ class HlsPlayback implements Playback {
     if (_closed || _server != null) throw StateError('媒体会话不可重复打开');
     try {
       transport.validate(url);
+      final audio = this.audio;
+      if (audio != null) {
+        // 直播窗口刷新只跟踪单个媒体清单。
+        if (live) throw SourceError('UNSUPPORTED', 'HLS 使用了不支持的媒体格式');
+        authorizeMediaResource(transport, audio.playlist);
+      }
       _upstream = url;
       _manifestUrls.add(url);
-      final response = await transport.fetch(
-        url,
-        maxBytes: 2 * 1024 * 1024,
-        cancelToken: _cancel,
-      );
-      _manifestUrls.add(response.url);
-      final list = HlsPlaylist.parse(
-        utf8.decode(
-          unwrapRouHlsIfWrapped(response.bytes, maxBytes: 2 * 1024 * 1024),
-        ),
-        response.url,
-        live: live,
-      );
-      _resources.validate(list);
+      final list = await _mediaPlaylist(url);
+      final audioList = audio == null
+          ? null
+          : await _mediaPlaylist(audio.playlist);
+      if (!live) _disk = await SegmentCache.open();
       if (_closed) throw SourceError('CANCELLED', '媒体会话已关闭');
       final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
       if (_closed) {
@@ -78,17 +84,61 @@ class HlsPlayback implements Playback {
       _server = server;
       _playlistPath = '/$_token/index.m3u8';
       final root = Uri.parse('http://127.0.0.1:${server.port}$_playlistPath');
-      final rewritten = Uint8List.fromList(
-        utf8.encode(list.rewrite((segment) => _register(segment).toString())),
-      );
-      _cache[root.path] = rewritten;
-      _cacheBytes += rewritten.length;
+      if (audioList == null || audio == null) {
+        _publish(root.path, list.rewrite((s) => _register(s).toString()));
+      } else {
+        final video = root.resolve('video.m3u8');
+        final sound = root.resolve('audio.m3u8');
+        _publish(video.path, list.rewrite((s) => _register(s).toString()));
+        _publish(sound.path, audioList.rewrite((s) => _register(s).toString()));
+        _publish(
+          root.path,
+          [
+            '#EXTM3U',
+            '#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="audio",NAME="audio",'
+                'DEFAULT=YES,AUTOSELECT=YES,URI="$sound"',
+            [
+              '#EXT-X-STREAM-INF:BANDWIDTH=${audio.bandwidth}',
+              if (audio.resolution case final value?) 'RESOLUTION=$value',
+              if (audio.codecs case final value?) 'CODECS="$value"',
+              'AUDIO="audio"',
+            ].join(','),
+            '$video',
+            '',
+          ].join('\n'),
+        );
+      }
       server.listen((request) => unawaited(_serve(request)));
       return root;
     } catch (_) {
       await close();
       rethrow;
     }
+  }
+
+  Future<HlsPlaylist> _mediaPlaylist(Uri url) async {
+    final response = await transport.fetch(
+      url,
+      maxBytes: 2 * 1024 * 1024,
+      cancelToken: _cancel,
+    );
+    _manifestUrls.add(response.url);
+    final list = HlsPlaylist.parse(
+      utf8.decode(
+        unwrapRouHlsIfWrapped(response.bytes, maxBytes: 2 * 1024 * 1024),
+      ),
+      response.url,
+      live: live,
+    );
+    _resources.validate(list);
+    return list;
+  }
+
+  void _publish(String path, String playlist) {
+    final bytes = Uint8List.fromList(utf8.encode(playlist));
+    _playlists.add(path);
+    _cache[path] = bytes;
+    _cacheBytes += bytes.length;
   }
 
   Uri _register(HlsSegment segment) {
@@ -177,14 +227,17 @@ class HlsPlayback implements Playback {
     if (_pending[path] case final future?) return future;
     if (_pending.length >= 8) throw SourceError('NETWORK', '播放器请求过多');
     final operation = () async {
-      final bytes = await _resources.read(_routes[path]!);
+      final bytes =
+          await _disk?.read(path) ?? await _resources.read(_routes[path]!);
       if (_closed) throw SourceError('CANCELLED', '媒体会话已关闭');
+      unawaited(_disk?.store(path, bytes));
       if (bytes.length <= _cacheLimit) {
-        while (_cacheBytes + bytes.length > _cacheLimit && _cache.length > 1) {
-          // Keep the rewritten manifest for retries. Segment data is a bounded LRU.
-          final victim = _cache.keys.firstWhere(
-            (key) => !key.endsWith('.m3u8'),
-          );
+        while (_cacheBytes + bytes.length > _cacheLimit) {
+          // Keep the rewritten manifests for retries. Segment data is a bounded LRU.
+          final victim = _cache.keys
+              .where((key) => !_playlists.contains(key))
+              .firstOrNull;
+          if (victim == null) break;
           _cacheBytes -= _cache.remove(victim)!.length;
         }
         if (_cacheBytes + bytes.length <= _cacheLimit) {
@@ -208,7 +261,7 @@ class HlsPlayback implements Playback {
       final path = request.uri.path;
       if (_closed ||
           request.uri.hasQuery ||
-          (path != _playlistPath && !_routes.containsKey(path))) {
+          (!_playlists.contains(path) && !_routes.containsKey(path))) {
         response.statusCode = HttpStatus.notFound;
       } else if (request.method != 'GET' && request.method != 'HEAD') {
         response.statusCode = HttpStatus.methodNotAllowed;
@@ -299,10 +352,13 @@ class HlsPlayback implements Playback {
       } finally {
         _cache.clear();
         _routes.clear();
+        _playlists.clear();
         _playlistPath = null;
         _resources.clear();
         _pending.clear();
         _cacheBytes = 0;
+        await _disk?.close();
+        _disk = null;
       }
     }
   }();

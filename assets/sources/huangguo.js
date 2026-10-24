@@ -15,7 +15,7 @@ Park.register({
   },
   key: 'huangguo',
   name: '黄果短剧',
-  version: '0.0.10', minAppVersion: '0.9.2',
+  version: '0.0.11', minAppVersion: '0.9.2',
   type: 'video',
   category: 'aiDrama',
   color: '#F2AD24',
@@ -279,7 +279,7 @@ Park.register({
     const target = url && new URL(url);
     const hls = target && /\.m3u8$/i.test(target.pathname);
     if (!target || target.protocol !== 'https:' || target.port || target.username || target.password || target.hash ||
-        (!hls && (!/\.mp4$/i.test(target.pathname) || !this.media.domains.some(domain => target.hostname === domain || target.hostname.endsWith('.' + domain))))) {
+        (!hls && !/\.mp4$/i.test(target.pathname))) {
       throw Park.error('PARSE', '黄果短剧播放地址无效');
     }
     if (data.videoApi || data.videoKey || data.videoIv) {

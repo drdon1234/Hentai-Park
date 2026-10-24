@@ -20,10 +20,11 @@ abstract interface class Playback {
           hls: source.hls,
         ),
         live: live,
+        audio: source.audio,
       );
     }
     return DirectPlayback(
-      MediaPolicy.fromManifest(manifest),
+      MediaPolicy.fromManifest(manifest, initialUrl: Uri.parse(source.url)),
       headers: source.headers,
     );
   }

@@ -209,9 +209,21 @@ class CoverImage extends StatelessWidget {
         );
       }
     }
-    return ClipRRect(
-      borderRadius: BorderRadius.all(Radius.circular(radius)),
-      child: ColoredBox(color: colors.surfaceContainerHigh, child: child),
+    final shape = BorderRadius.all(Radius.circular(radius));
+    // 极淡的内描边让浅色封面在浅色页面上也有清晰的轮廓。
+    return DecoratedBox(
+      position: DecorationPosition.foreground,
+      decoration: BoxDecoration(
+        borderRadius: shape,
+        border: Border.all(
+          color: colors.onSurface.withValues(alpha: .08),
+          width: .5,
+        ),
+      ),
+      child: ClipRRect(
+        borderRadius: shape,
+        child: ColoredBox(color: colors.surfaceContainerHigh, child: child),
+      ),
     );
   }
 

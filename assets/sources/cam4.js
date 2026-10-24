@@ -64,10 +64,10 @@ Park.register({
     "未知直播列表": "قائمة بث غير معروفة"
   }
 },
-  key: 'cam4', name: 'CAM4', version: '0.0.5', minAppVersion: '0.9.2', type: 'video', category: 'live', language: 'en',
+  key: 'cam4', name: 'CAM4', version: '0.0.6', minAppVersion: '0.9.2', type: 'video', category: 'live', language: 'en',
   color: '#ff5a5f', description: '公开直播间', homepage: 'https://www.cam4.com/',
   domains: ['cam4.com'], network: {mode: 'auto', origin: 'https://www.cam4.com', vpnHint: true},
-  media: {mode: 'native', origin: 'https://www.cam4.com', domains: ['cam4-hls.xcdnpro.com', 'stackvaults-hls.xcdnpro.com']},
+  media: {mode: 'native', scope: 'session', origin: 'https://www.cam4.com', domains: ['cam4-hls.xcdnpro.com', 'stackvaults-hls.xcdnpro.com']},
   imageHeaders: {Referer: 'https://www.cam4.com/'}, idPattern: '^[A-Za-z0-9_]{1,80}$',
   defaultFeed: 'popular', feeds: [{key: 'popular', label: '热门', options: [{key: 'gender', label: '分类', default: 'female', dynamic: true, values: []}]}],
   async filterOptions(req) {
@@ -98,18 +98,22 @@ Park.register({
     return {items: rows.map(x => this.item(x)).filter(Boolean), page, hasNext: page * 20 < Number(data.data.broadcasts.total)};
   },
   async feed(key, req = {}) { if (key !== 'popular') throw Park.error('CONFIG', '未知直播列表'); return this.list(Math.max(1, Math.floor(Number(req.page) || 1)), String(req.options?.gender || 'female')); },
+  publicUrl(value, base = this.BASE) {
+    // CDN 主机会更换，只要求是公网 HTTPS 地址；作品身份仍按站点域名校验。
+    try { const url = new URL(String(value).trim(), base); return Park.url.parse(url.href, base, [url.hostname]); } catch (_) { return null; }
+  },
   async detail(value) {
     const id = this.validId(value), r = await this.http.get('https://www.cam4.com/rest/v1.0/profile/' + encodeURIComponent(id) + '/streamInfo', {timeout: 30000});
     if (r.status === 404) throw Park.error('NOT_FOUND', '直播间不存在'); if (!r.ok) throw Park.error('HTTP', '直播请求失败', {status: r.status});
     let d; try { d = r.json(); } catch (_) { throw Park.error('PARSE', '直播数据无效'); }
-    const media = Park.url.parse(d?.cdnURL || d?.edgeURL, 'https://www.cam4.com', this.media.domains); if (!media) throw Park.error('UNSUPPORTED', '直播间暂无可用播放地址');
+    const media = this.publicUrl(d?.cdnURL || d?.edgeURL, 'https://www.cam4.com'); if (!media) throw Park.error('UNSUPPORTED', '直播间暂无可用播放地址');
     return {id, title: id, url: 'https://www.cam4.com/' + id, cover: '', description: '', tags: [], chapters: null, mediaKind: 'video'};
   },
   async videos(value) {
     const id = this.validId(value), r = await this.http.get('https://www.cam4.com/rest/v1.0/profile/' + encodeURIComponent(id) + '/streamInfo', {timeout: 30000});
     if (!r.ok) throw Park.error(r.status === 404 ? 'NOT_FOUND' : 'HTTP', r.status === 404 ? '直播间不存在' : '直播请求失败', {status: r.status});
     let d; try { d = r.json(); } catch (_) { throw Park.error('PARSE', '直播数据无效'); }
-    const url = Park.url.parse(d?.cdnURL || d?.edgeURL, 'https://www.cam4.com', this.media.domains)?.href;
+    const url = this.publicUrl(d?.cdnURL || d?.edgeURL, 'https://www.cam4.com')?.href;
     if (!url) throw Park.error('UNSUPPORTED', '直播间暂无可用播放地址');
     return [{url, format: 'hls', label: '直播', preferred: true, headers: {Referer: 'https://www.cam4.com/'}}];
   },

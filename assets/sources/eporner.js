@@ -9,10 +9,10 @@ Park.register({
     ru: {"成人视频目录、搜索与多清晰度 MP4": "Каталог видео для взрослых, поиск и MP4 разных качеств"},
     ar: {"成人视频目录、搜索与多清晰度 MP4": "دليل فيديو للبالغين مع البحث وملفات MP4 متعددة الجودة"},
   },
-  key: 'eporner', name: 'Eporner', version: '0.0.7', minAppVersion: '0.9.2', type: 'video', category: 'adult', language: 'en',
+  key: 'eporner', name: 'Eporner', version: '0.0.8', minAppVersion: '0.9.2', type: 'video', category: 'adult', language: 'en',
   color: '#e84b39', homepage: 'https://www.eporner.com/', description: '成人视频目录、搜索与多清晰度 MP4',
   domains: ['eporner.com'], network: {mode: 'native', vpnHint: true},
-  media: {mode: 'native', origin: 'https://www.eporner.com', domains: ['eporner.com']},
+  media: {mode: 'native', scope: 'session', origin: 'https://www.eporner.com', domains: ['eporner.com']},
   imageNetwork: {mode: 'browser', origin: 'https://www.eporner.com', domains: ['eporner.com']},
   imageHeaders: {Referer: 'https://www.eporner.com/'},
   idPattern: '^[A-Za-z0-9]{1,32}$', defaultFeed: 'recommended', feeds: [{key: 'recommended', label: '推荐'},
@@ -26,8 +26,8 @@ Park.register({
   },
   item(v) {
     const id = this.validId(v?.id), cover = String(v?.default_thumb?.src || v?.thumb || '');
-    if (!id || !String(v?.title || '').trim() || !/^https:\/\//i.test(cover)) return null;
-    return {id, title: String(v.title).trim(), cover, coverAspect: Number(v.default_thumb?.width) && Number(v.default_thumb?.height) ? Number(v.default_thumb.width) / Number(v.default_thumb.height) : 16 / 9, duration: String(v.length_min || ''), url: String(v.url || 'https://www.eporner.com/video-' + id + '/')};
+    if (!id || !String(v?.title || '').trim()) return null;
+    return {id, title: String(v.title).trim(), cover: /^https:\/\//i.test(cover) ? cover : '', coverAspect: Number(v.default_thumb?.width) && Number(v.default_thumb?.height) ? Number(v.default_thumb.width) / Number(v.default_thumb.height) : 16 / 9, duration: String(v.length_min || ''), url: String(v.url || 'https://www.eporner.com/video-' + id + '/')};
   },
   async listing(req = {}, keyword) {
     const page = Math.max(1, Math.floor(Number(req.page) || 1));
@@ -62,9 +62,10 @@ Park.register({
       let u; try { u = new URL(a.getAttribute('href'), 'https://www.eporner.com'); } catch (_) { continue; }
       const m = u.origin === 'https://www.eporner.com' && /^\/video-([A-Za-z0-9]{1,32})\//.exec(u.pathname), img = a.querySelector('img');
       const cover = img?.getAttribute('data-src') || img?.getAttribute('src'), title = img?.getAttribute('alt');
-      if (!m || !title || !cover || seen.has(m[1])) continue;
-      const c = new URL(cover, u); if (c.protocol !== 'https:' || !c.hostname.endsWith('.eporner.com')) continue;
-      seen.add(m[1]); items.push({id: m[1], title, cover: c.href, coverAspect: 16/9, url: u.href});
+      if (!m || !title || seen.has(m[1])) continue;
+      // 缩略图 CDN 会更换主机，只要求是公网 HTTPS 地址。
+      const c = ((value, base) => { try { const u = new URL(String(value).trim(), base); return Park.url.parse(u.href, base, [u.hostname]); } catch (_) { return null; } })(cover, u.href);
+      seen.add(m[1]); items.push({id: m[1], title, cover: c?.href || '', coverAspect: 16/9, url: u.href});
     }
     const next = doc.querySelector('a.nmnext[href]');
     return {items, page, hasNext: !!next && new URL(next.getAttribute('href'), 'https://www.eporner.com').pathname === '/cat/' + slug + '/' + (page + 1) + '/'};

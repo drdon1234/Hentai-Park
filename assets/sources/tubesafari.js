@@ -9,11 +9,11 @@ Park.register({
     "ru": {"综合成人视频搜索，常见来源优先原生播放，其他来源使用网页播放": "Поиск видео для взрослых: нативное воспроизведение популярных поддерживаемых источников, веб-плеер для остальных", "高清": "Высокое качество", "标清": "Стандартное качество"},
     "ar": {"综合成人视频搜索，常见来源优先原生播放，其他来源使用网页播放": "بحث فيديوهات للبالغين؛ تشغيل أصلي للمصادر الشائعة المدعومة وتشغيل ويب للمصادر الأخرى", "高清": "جودة عالية", "标清": "جودة قياسية"},
   },
-  key: 'tubesafari', name: 'TubeSafari', version: '0.0.8', minAppVersion: '0.9.2', type: 'video', category: 'adult', color: '#21B7B5',
+  key: 'tubesafari', name: 'TubeSafari', version: '0.0.9', minAppVersion: '0.9.2', type: 'video', category: 'adult', color: '#21B7B5',
   description: '综合成人视频搜索，常见来源优先原生播放，其他来源使用网页播放', homepage: 'https://tubesafari.com', language: 'en',
   domains: ['tubesafari.com', 'xhcdn.com', 'nv7s.com', 'others-cdn.com', 'txxx.tube', 'phncdn.com'],
   network: {mode: 'native', vpnHint: true}, imageHeaders: {Referer: 'https://tubesafari.com/'},
-  media: {mode: 'native', origin: 'https://tubesafari.com', domains: ['xvideos-cdn.com', 'phncdn.com', 'xhcdn.com', 'txxx.me', 'pornl.com', 'pornl-ah.nv7s.com', 'ahcdn.com'], referrerDomains: ['pornhub.com', 'txxx.me', 'pornl.com']},
+  media: {mode: 'native', scope: 'session', origin: 'https://tubesafari.com', domains: ['xvideos-cdn.com', 'phncdn.com', 'xhcdn.com', 'txxx.me', 'pornl.com', 'pornl-ah.nv7s.com', 'ahcdn.com'], referrerDomains: ['pornhub.com', 'txxx.me', 'pornl.com']},
   linkPatterns: ['tubesafari\\.com/video\\?(?:[^#\\s]*&)?id=([a-zA-Z0-9_-]+)(?:[&#]|$)'],
   idPattern: '^([a-zA-Z0-9_-]{1,128})$',
   defaultFeed: 'popular', feeds: [{key: 'popular', label: '热门'}, {key: 'categories', label: '分类', options: [
@@ -24,13 +24,7 @@ Park.register({
     if (!/^[a-zA-Z0-9_-]{1,128}$/.test(String(id))) throw Park.error('NOT_FOUND', '影片编号无效');
     return String(id);
   },
-  coverUrl(value) {
-    try {
-      const u = new URL(value);
-      return u.protocol === 'https:' && !u.port && !u.username && !u.password &&
-        /^(?:[a-z0-9-]+\.)*(?:xhcdn\.com|nv7s\.com|others-cdn\.com|txxx\.tube|phncdn\.com)$/.test(u.hostname);
-    } catch (_) { return false; }
-  },
+  coverUrl(value) { return !!this.mediaLink(value); },
   async getPage(url) {
     const r = await this.http.get(url, {timeout: 30000});
     if (r.status === 404) throw Park.error('NOT_FOUND', '影片不存在');
@@ -51,8 +45,8 @@ Park.register({
         if (u.origin !== this.BASE || u.pathname !== '/video') continue;
         id = this.validId(u.searchParams.get('id') || '');
       } catch (_) { continue; }
-      if (!title || !this.coverUrl(cover) || seen.has(id)) continue;
-      seen.add(id); items.push({id, title, cover, coverAspect: 16/9,
+      if (!title || seen.has(id)) continue;
+      seen.add(id); items.push({id, title, cover: this.mediaLink(cover) || '', coverAspect: 16/9,
         duration: Park.html.text(card.querySelector('.video_length')),
         url: this.BASE + '/video?id=' + encodeURIComponent(id)});
     }
@@ -107,6 +101,11 @@ Park.register({
     const title = typeof item.title === 'string' && item.title ? item.title : id;
     return {id, url, title, cover: this.coverUrl(item.cover) ? item.cover : '', coverAspect: 16/9,
       duration: typeof item.duration === 'string' ? item.duration : '', tags: [], authors: []};
+  },
+  mediaLink(value, base) {
+    // 上游站点的视频与图片 CDN 会更换主机，只要求是公网 HTTPS 地址，播放按会话授权。
+    if (typeof value !== 'string' || value.length > 16384) return null;
+    try { const u = new URL(value.trim(), base); return Park.url.parse(u.href, base, [u.hostname])?.href || null; } catch (_) { return null; }
   },
   upstreamUrl(value, domains, base, upgrade = false) {
     if (typeof value !== 'string' || value.length > 16384 || /[\x00-\x20\x7f\\]/.test(value)) return null;
@@ -216,7 +215,7 @@ Park.register({
     if (!Array.isArray(data)) throw Park.error('PARSE', '成人视频详情解析失败');
     const candidates = [];
     for (const entry of data.slice(0, 16)) {
-      const url = this.upstreamUrl(this.decodeVideoFile(entry?.video_url), [new URL(base).hostname], base);
+      const url = this.mediaLink(this.decodeVideoFile(entry?.video_url), base);
       const format = Array.isArray(entry?.format) ? entry.format[0] : entry?.format;
       if (!url || !new URL(url).pathname.startsWith('/get_file/') || !['.mp4', '_hq.mp4', '_sd.mp4', '_lq.mp4'].includes(format)) continue;
       // 接口的 hq/sd/lq 是档位名，不代表经过验证的像素高度。
@@ -277,7 +276,7 @@ Park.register({
     }
     const sources = data?.xplayerSettings?.sources, out = [];
     const add = (value, quality, format) => {
-      const url = this.upstreamUrl(this.decipherXh(value), ['xhcdn.com']);
+      const url = this.mediaLink(this.decipherXh(value));
       if (url && !out.some(x => x.url === url)) out.push({url, quality, format, label: quality ? quality + 'P' : format.toUpperCase()});
     };
     // 优先通用 H.264，避免设备不支持 AV1 时无法播放。
@@ -290,13 +289,7 @@ Park.register({
     const hls = out.filter(x => x.format === 'hls');
     return this.upstreamVariants(hls.length ? hls : out, ['xhcdn.com'], {});
   },
-  mediaUrl(value, domain) {
-    try {
-      const u = new URL(value);
-      return u.protocol === 'https:' && !u.username && !u.password && !u.port && !u.hash &&
-        (u.hostname === domain || u.hostname.endsWith('.' + domain)) ? u.href : null;
-    } catch (_) { return null; }
-  },
+  mediaUrl(value) { return this.mediaLink(value); },
   playerData(html) {
     const match = /\bvar\s+flashvars(?:_\d+)?\s*=\s*(?=\{)/.exec(html);
     if (!match) return null;

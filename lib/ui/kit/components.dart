@@ -208,21 +208,26 @@ class SecondaryActionTheme extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final side = theme.outlinedButtonTheme.style?.side;
+    final tonal = theme.outlinedButtonTheme.style;
     return TextButtonTheme(
       data: TextButtonThemeData(
         style: theme.textButtonTheme.style?.copyWith(
-          side: side,
-          foregroundColor: theme.outlinedButtonTheme.style?.foregroundColor,
+          side: tonal?.side,
+          backgroundColor: tonal?.backgroundColor,
+          foregroundColor: tonal?.foregroundColor,
+          minimumSize: const WidgetStatePropertyAll(Size(48, 40)),
+          padding: const WidgetStatePropertyAll(
+            EdgeInsets.symmetric(horizontal: Gap.l),
+          ),
         ),
       ),
       child: IconButtonTheme(
         data: IconButtonThemeData(
           style: theme.iconButtonTheme.style?.copyWith(
-            side: side,
-            shape: const WidgetStatePropertyAll(
-              RoundedRectangleBorder(borderRadius: Radii.small),
-            ),
+            side: tonal?.side,
+            backgroundColor: tonal?.backgroundColor,
+            minimumSize: const WidgetStatePropertyAll(Size(40, 40)),
+            tapTargetSize: MaterialTapTargetSize.padded,
           ),
         ),
         child: child,
@@ -347,41 +352,90 @@ class ListRow extends StatelessWidget {
   }
 }
 
-/// Rows separated by hairlines, with an optional small heading.
+//// Rows grouped on one rounded surface, with an optional small heading above it. Hairlines
+/// separate the rows inside the group; the group itself floats on the page background.
 class RowGroup extends StatelessWidget {
-  const RowGroup({super.key, this.title, required this.children});
+  const RowGroup({
+    super.key,
+    this.title,
+    required this.children,
+    this.margin = const EdgeInsets.symmetric(horizontal: Gap.page),
+    this.footer,
+  });
   final String? title;
   final List<Widget> children;
 
+  /// Space around the group; pages that already pad their content pass [EdgeInsets.zero].
+  final EdgeInsets margin;
+
+  /// A short explanation under the group.
+  final String? footer;
+
   @override
-  Widget build(BuildContext context) => Column(
-    crossAxisAlignment: CrossAxisAlignment.stretch,
-    mainAxisSize: MainAxisSize.min,
-    children: [
-      if (title != null)
-        Padding(
-          padding: const EdgeInsets.fromLTRB(
-            Gap.page,
-            Gap.xl,
-            Gap.page,
-            Gap.xs,
-          ),
-          child: Semantics(
-            header: true,
-            child: Text(
-              title!,
-              style: context.text.labelLarge?.copyWith(
-                color: context.colors.onSurfaceVariant,
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    return Padding(
+      padding: margin,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (title != null)
+            Padding(
+              padding: const EdgeInsetsDirectional.fromSTEB(
+                Gap.xs,
+                Gap.xl,
+                Gap.xs,
+                Gap.s,
+              ),
+              child: Semantics(
+                header: true,
+                child: Text(
+                  title!,
+                  style: context.text.labelLarge?.copyWith(
+                    color: c.onSurfaceVariant,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            )
+          else
+            const SizedBox(height: Gap.m),
+          if (children.isNotEmpty)
+            Material(
+              color: Theme.of(context).cardColor,
+              shape: const RoundedRectangleBorder(borderRadius: Radii.medium),
+              clipBehavior: Clip.antiAlias,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  for (var i = 0; i < children.length; i++) ...[
+                    if (i > 0) const Divider(indent: Gap.page),
+                    children[i],
+                  ],
+                ],
               ),
             ),
-          ),
-        ),
-      for (var i = 0; i < children.length; i++) ...[
-        if (i > 0) const Divider(indent: Gap.page, endIndent: Gap.page),
-        children[i],
-      ],
-    ],
-  );
+          if (footer != null)
+            Padding(
+              padding: const EdgeInsetsDirectional.fromSTEB(
+                Gap.xs,
+                Gap.s,
+                Gap.xs,
+                0,
+              ),
+              child: Text(
+                footer!,
+                style: context.text.bodySmall?.copyWith(
+                  color: c.onSurfaceVariant,
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
 }
 
 /// A row in a reorderable list: keyed, with a hairline below instead of a group divider.
@@ -399,7 +453,8 @@ class HairlineItem extends StatelessWidget {
   );
 }
 
-/// Empty and blocked states: a quiet icon, one sentence, and what to do next.
+/// Empty and blocked states: a quiet icon, one sentence, and what to do next. The block settles
+/// in with a short fade so a page that turns out empty does not flash.
 class EmptyState extends StatelessWidget {
   const EmptyState({
     super.key,
@@ -418,26 +473,41 @@ class EmptyState extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
+    final badge = compact ? 44.0 : 72.0;
     final content = Padding(
-      padding: EdgeInsets.all(compact ? Gap.m : Gap.xxl),
+      padding: compact
+          ? const EdgeInsets.all(Gap.m)
+          : const EdgeInsets.fromLTRB(Gap.xl, Gap.xxl * 2, Gap.xl, Gap.xxl),
       child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 420),
+        constraints: const BoxConstraints(maxWidth: 400),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             ExcludeSemantics(
-              child: Icon(icon, size: compact ? 24 : 32, color: c.outline),
+              child: Container(
+                width: badge,
+                height: badge,
+                decoration: BoxDecoration(
+                  color: c.surfaceContainerHigh,
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  icon,
+                  size: compact ? 22 : 32,
+                  color: c.onSurfaceVariant,
+                ),
+              ),
             ),
-            SizedBox(height: compact ? Gap.s : Gap.m),
+            SizedBox(height: compact ? Gap.s : Gap.l),
             Text(
               title,
               style: compact
                   ? context.text.titleSmall
-                  : ParkText.serif(context.text.titleMedium),
+                  : ParkText.serif(context.text.titleLarge),
               textAlign: TextAlign.center,
             ),
             if (message != null && message!.isNotEmpty) ...[
-              const SizedBox(height: Gap.xs),
+              SizedBox(height: compact ? Gap.xs : Gap.s),
               Text(
                 message!,
                 style: context.text.bodyMedium?.copyWith(
@@ -449,7 +519,7 @@ class EmptyState extends StatelessWidget {
               ),
             ],
             if (actions.isNotEmpty) ...[
-              SizedBox(height: compact ? Gap.s : Gap.l),
+              SizedBox(height: compact ? Gap.m : Gap.xl),
               SecondaryActionTheme(
                 child: Wrap(
                   spacing: Gap.s,
@@ -466,12 +536,40 @@ class EmptyState extends StatelessWidget {
     // 同时适用于有界整页与无界列表区块；短窗口仍可滚动到恢复操作。
     return Align(
       alignment: Alignment.topCenter,
-      child: compact ? content : SingleChildScrollView(child: content),
+      child: FadeIn(
+        child: compact ? content : SingleChildScrollView(child: content),
+      ),
     );
   }
 }
 
-/// Small metadata label. On covers it sits on a scrim; elsewhere it is a hairline outline.
+/// Fades and lifts its child in once when it first appears.
+class FadeIn extends StatelessWidget {
+  const FadeIn({super.key, required this.child, this.offset = 8});
+  final Widget child;
+  final double offset;
+
+  @override
+  Widget build(BuildContext context) {
+    final duration = Motion.of(context, Motion.long);
+    if (duration == Duration.zero) return child;
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0, end: 1),
+      duration: duration,
+      curve: Motion.emphasized,
+      child: child,
+      builder: (context, t, child) => Opacity(
+        opacity: t,
+        child: Transform.translate(
+          offset: Offset(0, (1 - t) * offset),
+          child: child,
+        ),
+      ),
+    );
+  }
+}
+
+/// Small metadata label. On covers it sits on a scrim; elsewhere it is a soft tonal chip.
 class Tag extends StatelessWidget {
   const Tag(
     this.label, {
@@ -493,8 +591,7 @@ class Tag extends StatelessWidget {
   Widget build(BuildContext context) {
     final c = context.colors;
     final Color fg;
-    final Color? bg;
-    BoxBorder? border;
+    final Color bg;
     if (accent) {
       fg = c.onPrimary;
       bg = c.primary;
@@ -503,16 +600,11 @@ class Tag extends StatelessWidget {
       bg = Scrims.strong;
     } else {
       fg = c.onSurfaceVariant;
-      bg = null;
-      border = Border.all(color: c.outlineVariant);
+      bg = c.surfaceContainerHigh;
     }
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
-      decoration: BoxDecoration(
-        color: bg,
-        border: border,
-        borderRadius: const BorderRadius.all(Radius.circular(4)),
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(color: bg, borderRadius: Radii.tiny),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -539,7 +631,7 @@ class Tag extends StatelessWidget {
   }
 }
 
-/// Asks before an action that cannot be undone or that acts on the user's behalf.
+// Asks before an action that cannot be undone or that acts on the user's behalf.
 Future<bool> confirmAction(
   BuildContext context, {
   required String title,
@@ -712,6 +804,11 @@ class ParkSearchField extends StatelessWidget {
   final List<Widget> trailing;
   final bool autofocus;
 
+  static const _searchBorder = OutlineInputBorder(
+    borderRadius: BorderRadius.all(Radius.circular(28)),
+    borderSide: BorderSide.none,
+  );
+
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
@@ -769,6 +866,15 @@ class ParkSearchField extends StatelessWidget {
         decoration: InputDecoration(
           hintText: hint,
           isDense: true,
+          border: _searchBorder,
+          enabledBorder: _searchBorder,
+          focusedBorder: _searchBorder.copyWith(
+            borderSide: BorderSide(color: c.primary, width: 1.5),
+          ),
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: Gap.l,
+            vertical: Gap.m,
+          ),
           prefixIcon: Icon(Icons.search_rounded, color: c.onSurfaceVariant),
           suffixIcon: trailing.isEmpty
               ? null
@@ -888,18 +994,26 @@ class _ParkRefreshState extends State<ParkRefresh> {
       child: Focus(
         focusNode: _focusNode,
         autofocus: true,
+        // 桌面没有下拉手势：刷新键浮在右下角，不占用内容上方的一整行。
         child: widget.showRefreshButton
-            ? Column(
+            ? Stack(
                 children: [
-                  Align(
-                    alignment: AlignmentDirectional.centerEnd,
-                    child: IconButton(
-                      tooltip: tr('刷新'),
-                      onPressed: _refreshing ? null : _requestRefresh,
-                      icon: const Icon(Icons.refresh_rounded),
+                  Positioned.fill(child: indicator),
+                  PositionedDirectional(
+                    end: Gap.l,
+                    bottom: Gap.l,
+                    child: Material(
+                      color: Theme.of(context).cardColor,
+                      elevation: 3,
+                      shadowColor: Colors.black.withValues(alpha: .3),
+                      shape: const CircleBorder(),
+                      child: IconButton(
+                        tooltip: tr('刷新'),
+                        onPressed: _refreshing ? null : _requestRefresh,
+                        icon: const Icon(Icons.refresh_rounded),
+                      ),
                     ),
                   ),
-                  Expanded(child: indicator),
                 ],
               )
             : indicator,
@@ -915,16 +1029,19 @@ class ActionInkWell extends StatelessWidget {
     required this.child,
     this.onTap,
     this.onLongPress,
+    this.onHover,
     this.borderRadius,
   });
   final Widget child;
   final VoidCallback? onTap, onLongPress;
+  final ValueChanged<bool>? onHover;
   final BorderRadius? borderRadius;
 
   @override
   Widget build(BuildContext context) => InkWell(
     onTap: onTap,
     onLongPress: onLongPress,
+    onHover: onHover,
     onSecondaryTap: PlatformCapabilities.desktop ? onLongPress : null,
     borderRadius: borderRadius,
     child: child,

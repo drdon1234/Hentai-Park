@@ -2,7 +2,7 @@
   "schema": 1,
   "source": "ranking-fanza",
   "locale": "zh-Hans",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "tags": {
     "genre:ハイビジョン": "高清",
     "genre:単体作品": "单体作品",
@@ -279,13 +279,26 @@
     "genre:av open 2016 人妻・熟女部門": "AV OPEN 2016 人妻与熟女组",
     "genre:av open 2016 企画部門": "AV OPEN 2016 企划组",
     "genre:av open 2016 女優部門": "AV OPEN 2016 女演员组",
-    "genre:av open 2017 ドキュメンタリー部門": "AV OPEN 2017 纪录片组"
+    "genre:av open 2017 ドキュメンタリー部門": "AV OPEN 2017 纪录片组",
+    "genre:野外・露出": "户外・露出",
+    "genre:av open 2018 素人部門": "AV OPEN 2018 素人组",
+    "genre:av open 2018 企画部門": "AV OPEN 2018 企划组",
+    "genre:イメージビデオ（男性）": "写真视频（男性）",
+    "genre:av open 2014 スーパーヘビー級": "AV OPEN 2014 超重量级",
+    "genre:av open 2015 女優部門": "AV OPEN 2015 女优组",
+    "genre:av open 2016 乙女部門": "AV OPEN 2016 少女组",
+    "genre:av open 2018 人妻・熟女部門": "AV OPEN 2018 人妻・熟女组",
+    "genre:vシネマ": "V电影",
+    "genre:アニメ": "动画",
+    "genre:極道・任侠": "黑道・任侠",
+    "genre:av open 2016 ハード部門": "AV OPEN 2016 重口组",
+    "genre:av open 2018 ハード部門": "AV OPEN 2018 重口组"
   },
   "coverage": {
     "scope": "本次genres接口返回的300个分类；不代表全部动态分类",
     "complete": false,
-    "observed": 300,
-    "translated": 276,
+    "observed": 313,
+    "translated": 289,
     "preserved": 0,
     "unchanged": 24,
     "unreviewed": 0

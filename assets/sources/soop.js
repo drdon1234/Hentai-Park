@@ -99,7 +99,7 @@ Park.register({
       "直播内容不符合本站点范围": "هذا البث خارج نطاق محتوى المصدر"
     }
   },
-  key: 'soop', name: 'SOOP', version: '0.0.4', minAppVersion: '0.9.2', type: 'video', category: 'live', language: 'ko',
+  key: 'soop', name: 'SOOP', version: '0.0.5', minAppVersion: '0.9.2', type: 'video', category: 'live', language: 'ko',
   color: '#0569FF', description: '韩国性感舞蹈与比基尼直播，按原站标签筛选',
   homepage: 'https://www.sooplive.co.kr/', domains: ['sooplive.co.kr', 'sooplive.com'],
   network: {mode: 'auto', origin: 'https://play.sooplive.co.kr', vpnHint: true},
@@ -126,7 +126,8 @@ Park.register({
     try { return r.json(); } catch (_) { throw Park.error('PARSE', '直播数据无效'); }
   },
   cover(value) {
-    return Park.url.parse(value, this.PLAY, ['liveimg.sooplive.com', 'liveimg.sooplive.co.kr'])?.href || '';
+    // 直播截图 CDN 会更换主机，只要求是公网 HTTPS 地址。
+    try { const u = new URL(String(value).trim(), this.PLAY); return Park.url.parse(u.href, this.PLAY, [u.hostname])?.href || ''; } catch (_) { return ''; }
   },
   tags(values) {
     const tags = (Array.isArray(values) ? values : []).filter(x => typeof x === 'string' && x.trim())
@@ -147,7 +148,7 @@ Park.register({
   item(row) {
     const id = String(row?.user_id || '') + '/' + String(row?.broad_no || '');
     const cover = this.cover(row?.broad_thumb || row?.broad_img);
-    if (!/^[A-Za-z0-9_]{1,64}\/[1-9]\d{0,11}$/.test(id) || !row?.broad_title || !cover) return null;
+    if (!/^[A-Za-z0-9_]{1,64}\/[1-9]\d{0,11}$/.test(id) || !row?.broad_title) return null;
     if (!this.anonymous(row)) return null;
     if (!this.matchesFocus(row)) return null;
     return {id, title: String(row.broad_title), cover, coverAspect: 16 / 9,
@@ -222,8 +223,10 @@ Park.register({
     const assigned = await this.json('https://livestream-manager.sooplive.com/broad_stream_assign.html', {params: {
       return_type: channel.CDN, broad_key: channel.BNO + '-common-master-hls',
     }});
-    const url = Park.url.parse(assigned?.view_url, this.PLAY, this.domains);
-    if (!url || url.protocol !== 'https:' || !/\.m3u8$/i.test(url.pathname)) {
+    // 分配到的直播 CDN 由原站决定，按会话授权，只校验公网 HTTPS 与 HLS 路径。
+    let url = null;
+    try { const u = new URL(String(assigned?.view_url || ''), this.PLAY); url = Park.url.parse(u.href, this.PLAY, [u.hostname]); } catch (_) {}
+    if (!url || !/\.m3u8$/i.test(url.pathname)) {
       throw Park.error('UNSUPPORTED', '直播间暂无可用播放地址');
     }
     url.searchParams.set('aid', token.AID);

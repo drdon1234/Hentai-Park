@@ -9,6 +9,7 @@ import '../../core/tag_blocklist.dart';
 import '../../engine/source_manager.dart';
 import '../../subscriptions/models.dart';
 import '../nav.dart';
+import '../short_video/short_video_sequence.dart';
 import '../subscriptions/subscription_posts_page.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
@@ -178,8 +179,12 @@ class SourceResultsRow extends StatelessWidget {
     required this.result,
     required this.onRetry,
     required this.manifest,
+    this.loadMore,
   });
   final SourceManifest manifest;
+
+  /// 该站点搜索的后续分页；为空时短视频只按已显示的结果播放。
+  final Future<WorkPage> Function(int page, String? cursor)? loadMore;
   final String source, keyword;
   final MultiKeyword? multi;
   final AggregateResult result;
@@ -323,7 +328,11 @@ class SourceResultsRow extends StatelessWidget {
                 separatorBuilder: (_, _) => const SizedBox(width: Gap.m),
                 itemBuilder: (context, i) => SizedBox(
                   width: w,
-                  child: CoverTile(item: items[i], aspect: a),
+                  child: CoverTile(
+                    item: items[i],
+                    aspect: a,
+                    sequence: () => _sequence(items),
+                  ),
                 ),
               ),
             );
@@ -333,60 +342,18 @@ class SourceResultsRow extends StatelessWidget {
       children: [header, body],
     );
   }
-}
 
-/// A compact menu in a chip, for choosing one value from a short list.
-class MenuChip<T> extends StatelessWidget {
-  const MenuChip({
-    super.key,
-    required this.label,
-    required this.active,
-    required this.options,
-    required this.onSelected,
-  });
-  final String label;
-  final bool active;
-  final Map<T, String> options;
-  final ValueChanged<T> onSelected;
-
-  @override
-  Widget build(BuildContext context) {
-    final entries = options.entries.toList();
-    return PopupMenuButton<int>(
-      popUpAnimationStyle: Motion.menu(context),
-      tooltip: label,
-      onSelected: (i) => onSelected(entries[i].key),
-      itemBuilder: (_) => [
-        for (var i = 0; i < entries.length; i++)
-          PopupMenuItem(
-            value: i,
-            child: SelectionContainer.disabled(child: Text(entries[i].value)),
-          ),
-      ],
-      child: SelectionContainer.disabled(
-        child: IgnorePointer(
-          child: FilterChip(
-            label: SelectionContainer.disabled(
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Flexible(
-                    child: Text(
-                      label,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                  const Icon(Icons.arrow_drop_down_rounded),
-                ],
-              ),
-            ),
-            selected: active,
-            showCheckmark: false,
-            onSelected: (_) {},
-          ),
-        ),
-      ),
+  ShortVideoSequence _sequence(List<WorkItem> items) {
+    final first = result.page!;
+    final more = loadMore;
+    return ShortVideoSequence(
+      items: items,
+      page: first.page,
+      cursor: first.cursor,
+      hasNext: more != null && first.hasNext,
+      load: (page, cursor) async => page <= 1 || more == null
+          ? WorkPage(items: items, page: 1)
+          : more(page, cursor),
     );
   }
 }

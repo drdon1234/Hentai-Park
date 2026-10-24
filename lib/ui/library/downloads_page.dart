@@ -11,8 +11,8 @@ import '../../core/models.dart';
 import '../../core/settings.dart';
 import '../../game/downloads.dart';
 import '../../library/cbz.dart';
-import '../../library/comic_pdf.dart';
 import '../../library/downloads.dart';
+import '../../library/exports.dart';
 import '../../library/live_recordings.dart';
 import '../../video/offline_video_export.dart';
 import '../game/game_resources.dart';
@@ -22,6 +22,7 @@ import '../theme.dart';
 import '../widgets/common.dart';
 import '../widgets/file_drop_region.dart';
 import '../widgets/platform_share.dart';
+import 'exports_page.dart';
 import 'recording_tile.dart';
 
 class DownloadsPage extends StatefulWidget {
@@ -106,6 +107,20 @@ class _DownloadsPageState extends State<DownloadsPage> {
       appBar: PageHeader(
         title: tr('下载'),
         actions: [
+          ListenableBuilder(
+            listenable: ExportManager.instance,
+            builder: (context, _) => ToolbarActions(
+              actions: [
+                ToolbarAction(
+                  label: tr('导出文件'),
+                  icon: ExportManager.instance.busy
+                      ? Icons.downloading_rounded
+                      : Icons.folder_open_outlined,
+                  onPressed: () => Nav.push(context, const ExportsPage()),
+                ),
+              ],
+            ),
+          ),
           ListenableBuilder(
             listenable: Listenable.merge([dm, games]),
             builder: (context, _) {
@@ -208,33 +223,37 @@ class _DownloadsPageState extends State<DownloadsPage> {
                             ),
                           ],
                         )
-                      : ListView.separated(
-                          padding: const EdgeInsets.only(bottom: 96),
-                          itemCount:
-                              recordings.length +
-                              failures.length +
-                              gameTasks.length +
-                              tasks.length,
-                          separatorBuilder: (_, _) => const Divider(
-                            indent: Gap.page,
-                            endIndent: Gap.page,
+                      : ReadableWidth(
+                          child: ListView.separated(
+                            padding: const EdgeInsets.only(bottom: 96),
+                            itemCount:
+                                recordings.length +
+                                failures.length +
+                                gameTasks.length +
+                                tasks.length,
+                            separatorBuilder: (_, _) => const Divider(
+                              indent: Gap.page,
+                              endIndent: Gap.page,
+                            ),
+                            itemBuilder: (context, i) {
+                              if (i < recordings.length) {
+                                return RecordingTile(task: recordings[i]);
+                              }
+                              i -= recordings.length;
+                              if (i < failures.length) {
+                                return _RestoreFailureTile(
+                                  uid: failures[i].uid,
+                                  source: failures[i].source,
+                                );
+                              }
+                              i -= failures.length;
+                              return i < gameTasks.length
+                                  ? GameDownloadTile(task: gameTasks[i])
+                                  : _TaskTile(
+                                      task: tasks[i - gameTasks.length],
+                                    );
+                            },
                           ),
-                          itemBuilder: (context, i) {
-                            if (i < recordings.length) {
-                              return RecordingTile(task: recordings[i]);
-                            }
-                            i -= recordings.length;
-                            if (i < failures.length) {
-                              return _RestoreFailureTile(
-                                uid: failures[i].uid,
-                                source: failures[i].source,
-                              );
-                            }
-                            i -= failures.length;
-                            return i < gameTasks.length
-                                ? GameDownloadTile(task: gameTasks[i])
-                                : _TaskTile(task: tasks[i - gameTasks.length]);
-                          },
                         ),
                 ),
               ],
@@ -418,64 +437,78 @@ class _TaskTile extends StatelessWidget {
   }
 
   Future<void> _exportImages(BuildContext context, {bool pdf = false}) async {
-    final progress = ValueNotifier<String>(tr('正在导出…'));
-    final nav = Navigator.of(context, rootNavigator: true);
-    final dialog = showDialog<void>(
+    if (pdf && !await _choosePdfPages(context)) return;
+    if (!context.mounted) return;
+    ExportManager.instance.start(
+      task,
+      pdf ? ExportFormat.pdf : ExportFormat.cbz,
+    );
+    context.toast(
+      tr('已在后台导出，可在“导出文件”中查看'),
+      action: SnackBarAction(
+        label: tr('查看'),
+        onPressed: () => Nav.push(context, const ExportsPage()),
+      ),
+    );
+  }
+
+  /// 长图集按页数上限拆成多个 PDF；体积过大时也会自动拆分。
+  Future<bool> _choosePdfPages(BuildContext context) async {
+    var pages = AppSettings.instance.pdfPagesPerFile;
+    const choices = [100, 300, 1000, 0];
+    if (!choices.contains(pages)) pages = 300;
+    final ok = await showDialog<bool>(
       context: context,
-      barrierDismissible: false,
-      builder: (_) => PopScope(
-        canPop: false,
-        child: AlertDialog(
-          content: Row(
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) => AlertDialog(
+          title: Text(tr('导出 PDF')),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const SizedBox(
-                width: 22,
-                height: 22,
-                child: CircularProgressIndicator(strokeWidth: 2.5),
+              Text(tr('每个文件最多页数')),
+              const SizedBox(height: Gap.s),
+              Wrap(
+                spacing: Gap.s,
+                runSpacing: Gap.s,
+                children: [
+                  for (final value in choices)
+                    ChoiceChip(
+                      label: Text(
+                        value == 0
+                            ? tr('不限')
+                            : tr('{value0} 页', {'value0': value}),
+                      ),
+                      selected: pages == value,
+                      onSelected: (_) => setState(() => pages = value),
+                    ),
+                ],
               ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: ValueListenableBuilder(
-                  valueListenable: progress,
-                  builder: (_, v, _) => Text(v),
+              const SizedBox(height: Gap.m),
+              Text(
+                tr('超过页数或单个文件过大时自动分成多个文件；导出在后台进行。'),
+                style: context.text.bodySmall?.copyWith(
+                  color: context.colors.onSurfaceVariant,
                 ),
               ),
             ],
           ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: SelectionContainer.disabled(child: Text(tr('取消'))),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: SelectionContainer.disabled(child: Text(tr('导出'))),
+            ),
+          ],
         ),
       ),
     );
-    var showingProgress = true;
-    Future<void> closeProgress() async {
-      if (!showingProgress) return;
-      showingProgress = false;
-      if (nav.mounted) nav.pop();
-      await dialog;
-    }
-
-    try {
-      final out = Directory(
-        p.join(DownloadManager.instance.root.path, 'exports'),
-      );
-      void onProgress(int done, int total) => progress.value = tr(
-        '正在导出 {value0}/{value1}…',
-        {'value0': done, 'value1': total},
-      );
-      final export = pdf ? ComicPdf.exportTask : Cbz.exportTask;
-      final files = await export(task, out, onProgress: onProgress);
-      await closeProgress();
-      if (!context.mounted) return;
-      context.toast(tr('已导出到 {value0}', {'value0': out.path}));
-      await shareContent(
-        context,
-        files: [for (final f in files) XFile(f.path)],
-      );
-    } catch (e) {
-      await closeProgress();
-      if (context.mounted) context.toast(tr('导出失败：{value0}', {'value0': e}));
-    } finally {
-      progress.dispose();
-    }
+    if (ok != true) return false;
+    AppSettings.instance.pdfPagesPerFile = pages;
+    return true;
   }
 
   Future<void> _confirmDelete(BuildContext context) async {

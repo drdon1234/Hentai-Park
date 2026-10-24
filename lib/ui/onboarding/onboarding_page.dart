@@ -83,7 +83,19 @@ class _OnboardingPageState extends State<OnboardingPage> {
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 520),
             child: AnimatedSwitcher(
-              duration: Motion.of(context, Motion.medium),
+              duration: Motion.of(context, Motion.long),
+              switchInCurve: Motion.emphasized,
+              switchOutCurve: Motion.curve,
+              transitionBuilder: (child, animation) => FadeTransition(
+                opacity: animation,
+                child: SlideTransition(
+                  position: Tween(
+                    begin: const Offset(.04, 0),
+                    end: Offset.zero,
+                  ).animate(animation),
+                  child: child,
+                ),
+              ),
               child: KeyedSubtree(
                 key: ValueKey(_step),
                 child: switch (_step) {
@@ -108,6 +120,11 @@ class _OnboardingPageState extends State<OnboardingPage> {
   }) => Column(
     crossAxisAlignment: CrossAxisAlignment.stretch,
     children: [
+      if (_fullFlow || _step != _Step.age)
+        Padding(
+          padding: const EdgeInsets.fromLTRB(Gap.page, Gap.l, Gap.page, 0),
+          child: _StepDots(count: _Step.values.length, current: _step.index),
+        ),
       Expanded(
         child: ListView(
           padding: const EdgeInsets.fromLTRB(
@@ -129,7 +146,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
               message,
               style: context.text.bodyLarge?.copyWith(
                 color: context.colors.onSurfaceVariant,
-                height: 1.5,
+                height: 1.55,
               ),
             ),
             const SizedBox(height: Gap.xl),
@@ -137,20 +154,18 @@ class _OnboardingPageState extends State<OnboardingPage> {
           ],
         ),
       ),
-      const Divider(),
       Padding(
-        padding: const EdgeInsets.fromLTRB(Gap.page, Gap.m, Gap.page, Gap.l),
-        child: Wrap(
-          alignment: WrapAlignment.end,
-          spacing: Gap.s,
-          runSpacing: Gap.s,
+        padding: const EdgeInsets.fromLTRB(Gap.page, Gap.s, Gap.page, Gap.l),
+        child: Row(
           children: [
             if (_step == _Step.interests)
               TextButton(
                 onPressed: _back,
                 child: SelectionContainer.disabled(child: Text(tr('返回'))),
               ),
-            ...actions,
+            ...actions.take(actions.length - 1),
+            const SizedBox(width: Gap.s),
+            Expanded(child: actions.last),
           ],
         ),
       ),
@@ -200,9 +215,9 @@ class _OnboardingPageState extends State<OnboardingPage> {
       message: tr('都可以稍后在“我的 → 隐私与安全”中修改。'),
       body: [
         RowGroup(
+          margin: EdgeInsets.zero,
           children: [
-            SwitchListTile(
-              contentPadding: EdgeInsets.zero,
+            SwitchListTile.adaptive(
               title: SelectionContainer.disabled(child: Text(tr('模糊封面'))),
               subtitle: SelectionContainer.disabled(
                 child: Text(tr('在列表与预览中模糊所有封面')),
@@ -211,8 +226,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
               onChanged: (v) => _settings.blurCovers = v,
             ),
             if (PlatformCapabilities.secureScreen)
-              SwitchListTile(
-                contentPadding: EdgeInsets.zero,
+              SwitchListTile.adaptive(
                 title: SelectionContainer.disabled(
                   child: Text(tr('防截屏与多任务预览')),
                 ),
@@ -223,8 +237,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
                 onChanged: (v) => _settings.secureScreen = v,
               ),
             if (AppLock.platformSupported)
-              SwitchListTile(
-                contentPadding: EdgeInsets.zero,
+              SwitchListTile.adaptive(
                 title: SelectionContainer.disabled(child: Text(tr('应用锁'))),
                 subtitle: SelectionContainer.disabled(
                   child: Text(tr('打开应用时需要指纹 / 面部 / 锁屏密码验证')),
@@ -298,13 +311,70 @@ class _Point extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.only(bottom: Gap.m),
+    padding: const EdgeInsets.only(bottom: Gap.l),
     child: Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Icon(icon, size: 20, color: context.colors.onSurfaceVariant),
+        ExcludeSemantics(
+          child: Container(
+            width: 36,
+            height: 36,
+            decoration: BoxDecoration(
+              color: context.colors.secondaryContainer,
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              icon,
+              size: 18,
+              color: context.colors.onSecondaryContainer,
+            ),
+          ),
+        ),
         const SizedBox(width: Gap.m),
-        Expanded(child: Text(text, style: context.text.bodyMedium)),
+        Expanded(
+          child: Padding(
+            padding: const EdgeInsets.only(top: Gap.xs + 2),
+            child: Text(
+              text,
+              style: context.text.bodyMedium?.copyWith(height: 1.5),
+            ),
+          ),
+        ),
+      ],
+    ),
+  );
+}
+
+/// Where the first-run flow is: one capsule per step, the current and finished ones in accent.
+class _StepDots extends StatelessWidget {
+  const _StepDots({required this.count, required this.current});
+  final int count;
+  final int current;
+
+  @override
+  Widget build(BuildContext context) => Semantics(
+    label: tr('第 {value0} 步，共 {value1} 步', {
+      'value0': current + 1,
+      'value1': count,
+    }),
+    excludeSemantics: true,
+    child: Row(
+      children: [
+        for (var i = 0; i < count; i++) ...[
+          if (i > 0) const SizedBox(width: Gap.xs + 2),
+          AnimatedContainer(
+            duration: Motion.of(context, Motion.medium),
+            curve: Motion.emphasized,
+            width: i == current ? 28 : 12,
+            height: 4,
+            decoration: BoxDecoration(
+              color: i <= current
+                  ? context.colors.primary
+                  : context.colors.surfaceContainerHighest,
+              borderRadius: Radii.tiny,
+            ),
+          ),
+        ],
       ],
     ),
   );

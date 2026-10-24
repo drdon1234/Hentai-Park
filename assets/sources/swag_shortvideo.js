@@ -43,11 +43,11 @@ Park.register({
       '视频编号无效': 'معرّف الفيديو غير صالح', '播放器地址暂不可用': 'المشغل غير متاح', '搜索关键词过长': 'كلمة البحث طويلة جداً'
     }
   },
-  key: 'swag_shortvideo', name: 'SWAG 短视频', version: '0.0.4', minAppVersion: '0.9.2', type: 'video', category: 'shortvideo',
+  key: 'swag_shortvideo', name: 'SWAG 短视频', version: '0.0.5', minAppVersion: '0.9.2', type: 'video', category: 'shortvideo',
   color: '#e83e8c', description: '台湾与日本成人短视频，支持原生播放', language: 'zh-Hant',
   homepage: 'https://swag.live/', domains: ['swag.live'],
   network: {mode: 'native', origin: 'https://swag.live', vpnHint: true},
-  media: {mode: 'native', origin: 'https://swag.live', domains: ['public.swag.live', 'api.swag.live']},
+  media: {mode: 'native', scope: 'session', origin: 'https://swag.live', domains: ['public.swag.live', 'api.swag.live']},
   imageHeaders: {Referer: 'https://swag.live/'},
   imageNetwork: {mode: 'browser', origin: 'https://public.swag.live', domains: ['public.swag.live']},
   idPattern: '^[a-f0-9]{24}$', linkPatterns: ['swag\\.live/(?:post|message)/([a-f0-9]{24})(?:[/?#]|$)'],
@@ -72,12 +72,9 @@ Park.register({
       Array.isArray(row.assets) && row.assets.some(x => /^video\/(?:mp4|quicktime)$/i.test(String(x?.['content-type'] || '')) && typeof x.url === 'string');
   },
   cover(row) {
+    // 封面 CDN 会更换主机，只要求是公网 HTTPS 地址。
     const value = row?.metadata?.thumbnail_url || row?.metadata?.thumbnail_blurred_url || '';
-    try {
-      const u = new URL(value, this.PUBLIC);
-      if (u.protocol !== 'https:' || u.hostname !== 'public.swag.live' || !/\.(?:jpe?g|png|webp)$/i.test(u.pathname)) return '';
-      return u.href;
-    } catch (_) { return ''; }
+    try { const u = new URL(String(value).trim(), this.PUBLIC); return Park.url.parse(u.href, this.PUBLIC, [u.hostname])?.href || ''; } catch (_) { return ''; }
   },
   async work(id, preview) {
     const value = this.validId(id), {data} = await this.api('/messages/' + value);
@@ -172,7 +169,7 @@ Park.register({
   },
   async mediaText(url) {
     const parsed = new URL(url);
-    if (parsed.protocol !== 'https:' || parsed.hostname !== 'public.swag.live' || parsed.port || parsed.username || parsed.password || parsed.search || parsed.hash ||
+    if (!Park.url.site(this, url) || parsed.search ||
         !/^\/assets\/[a-f0-9]{24}\/[a-z0-9_-]+\.m3u8$/i.test(parsed.pathname)) {
       throw Park.error('PARSE', '短视频数据无效');
     }

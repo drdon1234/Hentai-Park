@@ -10,6 +10,7 @@ import '../../core/tag_blocklist.dart';
 import '../../engine/home_cache.dart';
 import '../../engine/source_manager.dart';
 import '../../subscriptions/models.dart';
+import '../short_video/short_video_sequence.dart';
 import '../subscriptions/subscription_posts_page.dart';
 import '../theme.dart';
 import 'common.dart';
@@ -23,7 +24,11 @@ typedef PageLoader = Future<WorkPage> Function(int page, String? cursor);
 
 /// Infinite-scroll state for a cursor- or page-based listing.
 class PagedController extends ChangeNotifier {
-  PagedController(this.loader, {required this.source}) {
+  PagedController(
+    this.loader, {
+    required this.source,
+    bool initiallyLoading = false,
+  }) : loading = initiallyLoading {
     _filters.addListener(_rulesChanged);
   }
 
@@ -60,11 +65,20 @@ class PagedController extends ChangeNotifier {
   int _emptyPages = 0;
   List<WorkSection>? sections;
   Object? error;
-  bool loading = false;
+  bool loading;
   bool hasNext = true;
   int page = 0;
   int? totalPages;
   int? total;
+
+  /// 当前列表作为短视频播放顺序，继续使用同一个分页加载器。
+  ShortVideoSequence sequence() => ShortVideoSequence(
+    items: List.of(items),
+    load: loader,
+    page: page,
+    cursor: _cursor,
+    hasNext: hasNext,
+  );
   bool staleCache = false;
   bool _preview = false;
   void Function(WorkPage) cachedReceiver() {
@@ -352,6 +366,7 @@ class PagedSliverGrid extends StatelessWidget {
                         aspect: aspect,
                         imageOnly: imageOnly,
                         showSource: showSource,
+                        sequence: c.sequence,
                       );
                     }, childCount: c.items.length),
                   ),

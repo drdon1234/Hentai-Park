@@ -48,7 +48,7 @@ Park.register({
   },
   key: 'hanime1',
   name: 'Hanime1',
-  version: '0.0.9', minAppVersion: '0.9.2',
+  version: '0.0.10', minAppVersion: '0.9.2',
   type: 'video',
   category: 'anime',
   color: '#E5355F',
@@ -61,7 +61,7 @@ Park.register({
   idExample: '408297',
   imageHeaders: { Referer: 'https://hanime1.me/' },
   network: { mode: 'browser', origin: 'https://hanime1.me', vpnHint: true },
-  media: { mode: 'native', origin: 'https://hanime1.me', domains: ['sb-cd.com', 'hanime1.me', 'vdownload.hembed.com'] },
+  media: { mode: 'native', scope: 'session', origin: 'https://hanime1.me', domains: ['sb-cd.com', 'hanime1.me', 'vdownload.hembed.com'] },
 
   settings: [
     {
@@ -197,9 +197,9 @@ Park.register({
 
   mediaUrl(value) {
     try {
-      const url = new URL(value, this.BASE);
-      if (url.protocol !== 'https:' || url.port || url.username || url.password || url.hash || !/\.mp4$/i.test(url.pathname)) return null;
-      return this.media.domains.some(domain => url.hostname === domain || url.hostname.endsWith('.' + domain)) ? url.href : null;
+      // 视频 CDN 会更换主机，按会话授权，只校验公网 HTTPS 与 MP4 路径。
+      const url = new URL(String(value).trim(), this.BASE);
+      return Park.url.parse(url.href, this.BASE, [url.hostname]) && /\.mp4$/i.test(url.pathname) ? url.href : null;
     } catch (_) { return null; }
   },
 

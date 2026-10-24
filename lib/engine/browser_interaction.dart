@@ -74,7 +74,18 @@ Future<Map?> inspectAccessDocument(
   final result = await controller
       .callAsyncJavaScript(
         functionBody: r'''
-    if (location.href !== url || document.readyState !== 'complete') return null;
+    // Cloudflare 验证页会用 history.replaceState 追加 __cf_chl_* 参数；忽略它们，
+    // 否则验证页永远无法被识别，只能等到启动超时。
+    const clean = value => {
+      try {
+        const address = new URL(value);
+        for (const key of [...address.searchParams.keys()]) {
+          if (key.startsWith('__cf_chl_')) address.searchParams.delete(key);
+        }
+        return address.href;
+      } catch (_) { return value; }
+    };
+    if (clean(location.href) !== clean(url) || document.readyState !== 'complete') return null;
     const visible = el => el && el.getClientRects().length > 0 &&
       getComputedStyle(el).display !== 'none' && getComputedStyle(el).visibility !== 'hidden';
     const gates = gateSelector ? [...document.querySelectorAll(gateSelector)].filter(visible) : [];

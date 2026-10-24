@@ -11,26 +11,35 @@ abstract final class Gap {
   static const double page = l;
 }
 
-/// Corner radii: covers and controls, panels, bottom sheets and dialogs.
+/// Corner radii. Controls (buttons, chips, search) are capsules and use [pill]; covers and
+/// thumbnails use [small]; grouped rows, cards and panels use [medium]; sheets and dialogs use
+/// [large].
 abstract final class Radii {
-  static const double sm = 8;
-  static const double md = 12;
-  static const double lg = 20;
+  static const double xs = 6;
+  static const double sm = 10;
+  static const double md = 16;
+  static const double lg = 24;
 
+  static const tiny = BorderRadius.all(Radius.circular(xs));
   static const small = BorderRadius.all(Radius.circular(sm));
   static const medium = BorderRadius.all(Radius.circular(md));
   static const large = BorderRadius.all(Radius.circular(lg));
+  static const pill = StadiumBorder();
 }
 
 /// Short, meaningful motion; [of] honours the system "remove animations" setting.
 abstract final class Motion {
   static const short = Duration(milliseconds: 150);
   static const medium = Duration(milliseconds: 250);
+  static const long = Duration(milliseconds: 380);
   static const curve = Curves.easeOutCubic;
+
+  /// Entrances and state changes that should settle with a soft landing.
+  static const emphasized = Cubic(.2, 0, 0, 1);
   static AnimationStyle menu(BuildContext context) => AnimationStyle(
-    duration: of(context, short),
+    duration: of(context, medium),
     reverseDuration: of(context, short),
-    curve: curve,
+    curve: emphasized,
     reverseCurve: curve,
   );
 
@@ -59,5 +68,10 @@ abstract final class Scrims {
   static const Color strong = Color(0xB3000000);
   static const Color medium = Color(0x80000000);
   static const Color soft = Color(0x4D000000);
+  static const Color faint = Color(0x26000000);
   static const Color onScrim = Color(0xFFFFFFFF);
+
+  /// Translucent fill for controls floating over video and pages.
+  static const Color control = Color(0x33FFFFFF);
+  static const Color controlPressed = Color(0x4DFFFFFF);
 }

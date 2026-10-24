@@ -183,7 +183,6 @@ class _MigrationPageState extends State<MigrationPage> {
                   onSubmitted: (_) => _search(),
                   decoration: InputDecoration(
                     labelText: tr('搜索标题'),
-                    border: const OutlineInputBorder(),
                     suffixIcon: IconButton(
                       tooltip: tr('搜索'),
                       icon: const Icon(Icons.search_rounded),

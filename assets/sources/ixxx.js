@@ -9,10 +9,10 @@ Park.register({
     "ru": {"站点年龄确认未自动完成，请重试":"Автоматическое подтверждение возраста не завершено. Повторите попытку.","演员":"Исполнители","综合成人视频搜索，常见来源优先原生播放，其他来源使用网页播放":"Поиск видео для взрослых: нативное воспроизведение популярных поддерживаемых источников, веб-плеер для остальных","站点搜索表单无效":"Форма поиска на сайте недействительна","高清":"Высокое качество","标清":"Стандартное качество"},
     "ar": {"站点年龄确认未自动完成，请重试":"لم يكتمل تأكيد العمر تلقائيًا. يرجى إعادة المحاولة.","演员":"المؤدون","综合成人视频搜索，常见来源优先原生播放，其他来源使用网页播放":"بحث فيديوهات للبالغين؛ تشغيل أصلي للمصادر الشائعة المدعومة وتشغيل ويب للمصادر الأخرى","站点搜索表单无效":"نموذج البحث في الموقع غير صالح","高清":"جودة عالية","标清":"جودة قياسية"},
   },
-  key: 'ixxx', name: 'iXXX', version: '0.0.15', minAppVersion: '0.9.2', type: 'video', category: 'adult', color: '#F97316',
+  key: 'ixxx', name: 'iXXX', version: '0.0.16', minAppVersion: '0.9.2', type: 'video', category: 'adult', color: '#F97316',
   description: '综合成人视频搜索，常见来源优先原生播放，其他来源使用网页播放',
   homepage: 'https://www.ixxx.com', domains: ['ixxx.com'], language: 'en',
-  media: {mode: 'native', origin: 'https://www.ixxx.com', domains: ['eporner.com', 'xhcdn.com', 'abxxx.com', 'xmilf.com', 'txxx.me', 'pornl.com', 'pornl-ah.nv7s.com', 'porntop.com', 'ptah.m3pd.com', 'ahcdn.com', 'xozilla.xxx', 'pornid.xxx', 'theyarehuge.com', 'inxxx.com', 'dafreeporn.com', 'freeporn8.com', 'xhand.net', 'xhand.com', 'amateur8.com', 'maturetubehere.com', 'sortporn.com', 'lesbian8.com', 'pornone.com', 'ok.xxx', 'cdn.privatehost.com'], referrerDomains: ['abxxx.com', 'xmilf.com', 'txxx.me', 'pornl.com', 'porntop.com', 'xozilla.xxx', 'pornid.xxx', 'theyarehuge.com', 'inxxx.com', 'dafreeporn.com', 'xhand.net', 'amateur8.com', 'maturetubehere.com', 'sortporn.com', 'lesbian8.com', 'ok.xxx']},
+  media: {mode: 'native', scope: 'session', origin: 'https://www.ixxx.com', domains: ['eporner.com', 'xhcdn.com', 'abxxx.com', 'xmilf.com', 'txxx.me', 'pornl.com', 'pornl-ah.nv7s.com', 'porntop.com', 'ptah.m3pd.com', 'ahcdn.com', 'xozilla.xxx', 'pornid.xxx', 'theyarehuge.com', 'inxxx.com', 'dafreeporn.com', 'freeporn8.com', 'xhand.net', 'xhand.com', 'amateur8.com', 'maturetubehere.com', 'sortporn.com', 'lesbian8.com', 'pornone.com', 'ok.xxx', 'cdn.privatehost.com'], referrerDomains: ['abxxx.com', 'xmilf.com', 'txxx.me', 'pornl.com', 'porntop.com', 'xozilla.xxx', 'pornid.xxx', 'theyarehuge.com', 'inxxx.com', 'dafreeporn.com', 'xhand.net', 'amateur8.com', 'maturetubehere.com', 'sortporn.com', 'lesbian8.com', 'ok.xxx']},
   network: {mode: 'browser', origin: 'https://www.ixxx.com', vpnHint: true, confirmation: {
     selector: '#splash-page[open], #age-verification[open], #age-verification:not(dialog)', readySelector: 'a.item-link[href]',
     requiredCookies: ['splashPageAccepted'], auto: {clickSelector: '#splash-page .eighteen-plus-button'},
@@ -139,18 +139,18 @@ Park.register({
       const id = this.target(a.getAttribute('href'));
       const img = a.querySelector('img'), title = a.getAttribute('title') || img?.getAttribute('alt');
       const cover = img?.getAttribute('data-src') || img?.getAttribute('src');
-      if (!id || !title || seen.has(id) || !this.coverUrl(cover)) continue;
+      if (!id || !title || seen.has(id)) continue;
       seen.add(id);
       const card = a.closest('.card');
       const authors = [...new Set(Array.from(card?.querySelectorAll('a.pornstar-label[href]') || [])
         .map(a => Park.html.text(a).trim()).filter(name => name && name.length <= 240))];
-      items.push({id, title: Park.html.unescape(title).trim(), cover, coverAspect: 16/9,
+      items.push({id, title: Park.html.unescape(title).trim(), cover: this.coverUrl(cover), coverAspect: 16/9,
         duration: Park.html.text(a.querySelector('.badge')),
         uploader: Park.html.text(card?.querySelector('.item-source')), authors, url: id});
     }
     return items;
   },
-  coverUrl(value) { return Park.url.parse(value, this.BASE, ['ttcache.com'])?.href || ''; },
+  coverUrl(value) { return this.mediaLink(value, this.BASE) || ''; },
   result({doc, url}, page, kind) {
     let cursor;
     for (const a of doc.querySelectorAll('a[href]')) {
@@ -213,6 +213,11 @@ Park.register({
       duration: typeof item.duration === 'string' ? item.duration : '',
       uploader: typeof item.uploader === 'string' ? item.uploader : '', authors,
       tags: authors.length ? [{namespace: 'actor', label: '演员', tags: authors.map(name => ({name, keyword: name}))}] : []};
+  },
+  mediaLink(value, base) {
+    // 上游站点的视频与图片 CDN 会更换主机，只要求是公网 HTTPS 地址，播放按会话授权。
+    if (typeof value !== 'string' || value.length > 16384) return null;
+    try { const u = new URL(value.trim(), base); return Park.url.parse(u.href, base, [u.hostname])?.href || null; } catch (_) { return null; }
   },
   upstreamUrl(value, domains, base, upgrade = false) {
     if (typeof value !== 'string' || value.length > 16384 || /[\x00-\x20\x7f\\]/.test(value)) return null;
@@ -322,7 +327,7 @@ Park.register({
     if (!Array.isArray(data)) throw Park.error('PARSE', '成人视频详情解析失败');
     const candidates = [];
     for (const entry of data.slice(0, 16)) {
-      const url = this.upstreamUrl(this.decodeVideoFile(entry?.video_url), [new URL(base).hostname], base);
+      const url = this.mediaLink(this.decodeVideoFile(entry?.video_url), base);
       const format = Array.isArray(entry?.format) ? entry.format[0] : entry?.format;
       if (!url || !new URL(url).pathname.startsWith('/get_file/') || !['.mp4', '_hq.mp4', '_sd.mp4', '_lq.mp4'].includes(format)) continue;
       // 接口的 hq/sd/lq 是档位名，不代表经过验证的像素高度。
@@ -383,7 +388,7 @@ Park.register({
     }
     const sources = data?.xplayerSettings?.sources, out = [];
     const add = (value, quality, format) => {
-      const url = this.upstreamUrl(this.decipherXh(value), ['xhcdn.com']);
+      const url = this.mediaLink(this.decipherXh(value));
       if (url && !out.some(x => x.url === url)) out.push({url, quality, format, label: quality ? quality + 'P' : format.toUpperCase()});
     };
     // 优先通用 H.264，避免设备不支持 AV1 时无法播放。
@@ -479,7 +484,7 @@ Park.register({
       }
     } else {
       for (const entry of Park.html.parse(page.body).querySelectorAll('video source[src]')) {
-        const media = this.upstreamUrl(entry.getAttribute('src'), profile.media, page.url);
+        const media = this.mediaLink(entry.getAttribute('src'), page.url);
         if (!media || /preview/i.test(new URL(media).pathname)) continue;
         const quality = parseInt(entry.getAttribute('label'), 10) || 0;
         candidates.push({url: media, quality, label: quality ? quality + 'P' : 'MP4'});

@@ -24,14 +24,14 @@ class ActionTag extends StatelessWidget {
       onPressed: onTap,
       onLongPress: onLongPress,
       style: OutlinedButton.styleFrom(
-        backgroundColor: context.colors.surfaceContainerLow,
         minimumSize: const Size(48, 32),
         padding: const EdgeInsets.symmetric(
-          horizontal: Gap.s,
+          horizontal: Gap.m,
           vertical: Gap.xs,
         ),
-        textStyle: context.text.labelMedium,
-        shape: const RoundedRectangleBorder(borderRadius: Radii.small),
+        textStyle: context.text.labelLarge?.copyWith(
+          fontWeight: FontWeight.w500,
+        ),
       ),
       child: SelectionContainer.disabled(child: child),
     ),

@@ -36,7 +36,38 @@ class ReaderChrome extends StatelessWidget {
 
   Widget _bar({required bool top, required Widget child}) {
     child = SelectionContainer.disabled(child: child);
-    if (!fade) return Material(color: barColor, child: child);
+    if (!fade && top) return Material(color: barColor, child: child);
+    if (!fade) {
+      // 底栏是浮在内容上的圆角面板，离开屏幕边缘，和系统手势区分开。
+      return SafeArea(
+        top: false,
+        minimum: const EdgeInsets.fromLTRB(Gap.s, 0, Gap.s, Gap.s),
+        child: Center(
+          heightFactor: 1,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 720),
+            child: Material(
+              // 面板比遮罩略亮并带一圈细线，压在黑色页面上也能看清边界。
+              color: Color.alphaBlend(
+                foreground.withValues(alpha: .06),
+                barColor,
+              ),
+              elevation: 3,
+              shadowColor: Scrims.soft,
+              shape: RoundedRectangleBorder(
+                borderRadius: Radii.large,
+                side: BorderSide(
+                  color: foreground.withValues(alpha: .1),
+                  width: .5,
+                ),
+              ),
+              clipBehavior: Clip.antiAlias,
+              child: child,
+            ),
+          ),
+        ),
+      );
+    }
     return DecoratedBox(
       decoration: BoxDecoration(
         gradient: LinearGradient(
@@ -77,7 +108,7 @@ class ReaderChrome extends StatelessWidget {
                     child: AnimatedSlide(
                       offset: visible ? Offset.zero : const Offset(0, -1),
                       duration: duration,
-                      curve: Motion.curve,
+                      curve: Motion.emphasized,
                       child: _bar(
                         top: true,
                         child: SafeArea(
@@ -110,7 +141,7 @@ class ReaderChrome extends StatelessWidget {
                                                 title,
                                                 maxLines: 1,
                                                 overflow: TextOverflow.ellipsis,
-                                                style: text.titleSmall
+                                                style: text.titleMedium
                                                     ?.copyWith(
                                                       color: foreground,
                                                     ),
@@ -166,23 +197,30 @@ class ReaderChrome extends StatelessWidget {
                     child: IgnorePointer(
                       ignoring: !visible,
                       child: AnimatedSlide(
-                        offset: visible ? Offset.zero : const Offset(0, 1),
+                        offset: visible ? Offset.zero : const Offset(0, 1.2),
                         duration: duration,
-                        curve: Motion.curve,
-                        child: _bar(
-                          top: false,
-                          child: SafeArea(
+                        curve: Motion.emphasized,
+                        child: AnimatedOpacity(
+                          opacity: visible ? 1 : 0,
+                          duration: duration,
+                          curve: Motion.curve,
+                          child: _bar(
                             top: false,
-                            child: IconTheme.merge(
-                              data: IconThemeData(color: foreground),
-                              child: DefaultTextStyle.merge(
-                                style: TextStyle(color: foreground),
-                                child: Padding(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: Gap.xs,
-                                    vertical: Gap.s - 2,
+                            child: SafeArea(
+                              top: false,
+                              // 浮动面板已自带安全区；渐隐栏仍需避开系统栏。
+                              bottom: fade,
+                              child: IconTheme.merge(
+                                data: IconThemeData(color: foreground),
+                                child: DefaultTextStyle.merge(
+                                  style: TextStyle(color: foreground),
+                                  child: Padding(
+                                    padding: EdgeInsets.symmetric(
+                                      horizontal: Gap.xs,
+                                      vertical: fade ? Gap.s - 2 : Gap.xs,
+                                    ),
+                                    child: bottom!,
                                   ),
-                                  child: bottom!,
                                 ),
                               ),
                             ),
@@ -254,17 +292,27 @@ class _ReaderProgressState extends State<ReaderProgress> {
       disabledColor: fg.withValues(alpha: .25),
     );
     final slider = Expanded(
-      child: Slider(
-        value: value,
-        max: widget.max <= 0 ? 1 : widget.max,
-        label: widget.label(value),
-        onChanged: widget.max <= 0 ? null : (v) => setState(() => _drag = v),
-        onChangeEnd: widget.max <= 0
-            ? null
-            : (v) {
-                setState(() => _drag = null);
-                widget.onSeek(v);
-              },
+      child: SliderTheme(
+        data: SliderTheme.of(context).copyWith(
+          trackHeight: 4,
+          activeTrackColor: fg,
+          inactiveTrackColor: fg.withValues(alpha: .2),
+          thumbColor: fg,
+          overlayColor: fg.withValues(alpha: .12),
+          thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 8),
+        ),
+        child: Slider(
+          value: value,
+          max: widget.max <= 0 ? 1 : widget.max,
+          label: widget.label(value),
+          onChanged: widget.max <= 0 ? null : (v) => setState(() => _drag = v),
+          onChangeEnd: widget.max <= 0
+              ? null
+              : (v) {
+                  setState(() => _drag = null);
+                  widget.onSeek(v);
+                },
+        ),
       ),
     );
     final labels = [
@@ -307,12 +355,12 @@ class ReaderBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) => IgnorePointer(
     child: DecoratedBox(
-      decoration: const BoxDecoration(
-        color: Scrims.strong,
-        borderRadius: Radii.small,
+      decoration: const ShapeDecoration(
+        color: Scrims.medium,
+        shape: StadiumBorder(),
       ),
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: Gap.s, vertical: 3),
+        padding: const EdgeInsets.symmetric(horizontal: Gap.s + 2, vertical: 3),
         child: Text(
           label,
           style: Theme.of(context).textTheme.labelSmall?.copyWith(
@@ -351,13 +399,21 @@ class ReaderChapterEnd extends StatelessWidget {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
+                Icon(
+                  hasNext
+                      ? Icons.auto_stories_outlined
+                      : Icons.check_circle_outline_rounded,
+                  size: 28,
+                  color: color.withValues(alpha: .6),
+                ),
+                const SizedBox(height: Gap.s),
                 Text(
                   hasNext ? tr('本章完') : tr('全部读完啦'),
-                  style: Theme.of(context).textTheme.titleMedium
+                  style: Theme.of(context).textTheme.titleLarge
                       ?.copyWith(color: color),
                   textAlign: TextAlign.center,
                 ),
-                const SizedBox(height: Gap.m),
+                const SizedBox(height: Gap.l),
                 if (hasNext)
                   FilledButton.icon(
                     onPressed: onNext,
@@ -366,7 +422,10 @@ class ReaderChapterEnd extends StatelessWidget {
                   )
                 else
                   OutlinedButton(
-                    style: OutlinedButton.styleFrom(foregroundColor: color),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: color,
+                      backgroundColor: color.withValues(alpha: .1),
+                    ),
                     onPressed: () => Navigator.maybePop(context),
                     child: SelectionContainer.disabled(child: Text(tr('返回详情'))),
                   ),

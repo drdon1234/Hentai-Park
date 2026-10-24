@@ -7,7 +7,6 @@ import '../../core/settings.dart';
 import '../../engine/source_manager.dart';
 import '../../library/library.dart';
 import '../kit/kit.dart';
-import '../theme.dart';
 
 /// Narrows history to a category, then to one site within it.
 class HistoryScopeSelector extends StatelessWidget {
@@ -49,9 +48,10 @@ class HistoryScopeSelector extends StatelessWidget {
         spacing: Gap.s,
         runSpacing: Gap.s,
         children: [
-          _ScopeMenu<SourceCategory?>(
+          MenuChip<SourceCategory?>(
             label: category?.label ?? tr('全部分类'),
             active: category != null,
+            selected: category,
             options: {
               null: tr('全部分类'),
               for (final d in AppSettings.instance.domainOrder) d: d.label,
@@ -60,9 +60,10 @@ class HistoryScopeSelector extends StatelessWidget {
               d == null ? const ContentScope.all() : ContentScope.domain(d),
             ),
           ),
-          _ScopeMenu<String?>(
+          MenuChip<String?>(
             label: source == null ? tr('全部站点') : siteName(source),
             active: source != null,
+            selected: source,
             options: {
               null: tr('全部站点'),
               for (final key in keys) key: siteName(key),
@@ -76,68 +77,6 @@ class HistoryScopeSelector extends StatelessWidget {
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _ScopeMenu<T> extends StatelessWidget {
-  const _ScopeMenu({
-    required this.label,
-    required this.active,
-    required this.options,
-    required this.onSelected,
-  });
-  final String label;
-  final bool active;
-  final Map<T, String> options;
-  final ValueChanged<T> onSelected;
-
-  @override
-  Widget build(BuildContext context) {
-    final c = context.colors;
-    // Indexes rather than values: a null value would read as a cancelled menu.
-    final entries = options.entries.toList();
-    return PopupMenuButton<int>(
-      popUpAnimationStyle: Motion.menu(context),
-      tooltip: label,
-      onSelected: (i) => onSelected(entries[i].key),
-      itemBuilder: (_) => [
-        for (var i = 0; i < entries.length; i++)
-          PopupMenuItem(
-            value: i,
-            child: SelectionContainer.disabled(child: Text(entries[i].value)),
-          ),
-      ],
-      child: SelectionContainer.disabled(
-        child: Container(
-          constraints: const BoxConstraints(minHeight: 48, maxWidth: 240),
-          padding: const EdgeInsets.only(left: Gap.m, right: Gap.s),
-          decoration: BoxDecoration(
-            color: active ? c.secondaryContainer : null,
-            border: Border.all(color: active ? c.primary : c.outline),
-            borderRadius: Radii.small,
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Flexible(
-                child: Text(
-                  label,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: context.text.labelLarge?.copyWith(
-                    color: active ? c.onSecondaryContainer : c.onSurface,
-                  ),
-                ),
-              ),
-              Icon(
-                Icons.arrow_drop_down_rounded,
-                color: active ? c.onSecondaryContainer : c.onSurfaceVariant,
-              ),
-            ],
-          ),
-        ),
       ),
     );
   }

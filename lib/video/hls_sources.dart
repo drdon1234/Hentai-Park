@@ -42,6 +42,9 @@ class HlsSources {
         }
         for (final variant in variants) {
           authorizeMediaResource(transport, Uri.parse(variant.url));
+          if (variant.audio case final audio?) {
+            authorizeMediaResource(transport, audio.playlist);
+          }
         }
         final preferred = variants.firstWhere(
           (s) => s.quality <= source.quality,
@@ -56,7 +59,7 @@ class HlsSources {
               'format': 'hls',
               'headers': source.headers,
               'preferred': source.preferred && identical(variant, preferred),
-            }),
+            }, audio: variant.audio),
           ),
         );
       }
@@ -70,16 +73,22 @@ class HlsSources {
   List<VideoSource> _variants(String text, Uri base) {
     final lines = hlsLines(text);
     if (!lines.any((line) => line.startsWith('#EXT-X-STREAM-INF:'))) return [];
+    final audio = _audioGroups(lines, base);
     final variants = <({VideoSource source, int bandwidth})>[];
     final seen = <String>{};
     int? quality;
+    HlsAudioVariant? separate;
     var bandwidth = 0;
     var count = 0;
     for (final line in lines) {
       if (line.startsWith('#')) {
-        // Optional trick-play tracks are not playback variants. Their URIs
-        // are never registered or fetched; muxed audio/video remains required.
-        if (line.startsWith('#EXT-X-I-FRAME-STREAM-INF:')) continue;
+        // Optional trick-play tracks, renditions and session metadata are not
+        // playback variants. Only the selected audio rendition is registered.
+        if (line.startsWith('#EXT-X-I-FRAME-STREAM-INF:') ||
+            line.startsWith('#EXT-X-MEDIA:') ||
+            line.startsWith('#EXT-X-SESSION-DATA:')) {
+          continue;
+        }
         if (RegExp(r'\bURI\s*=', caseSensitive: false).hasMatch(line)) {
           throw SourceError('UNSUPPORTED', 'HLS 使用了不支持的媒体格式');
         }
@@ -90,9 +99,9 @@ class HlsSources {
         final attributes = hlsAttributes(
           line.substring('#EXT-X-STREAM-INF:'.length),
         );
-        if (['AUDIO', 'VIDEO', 'SUBTITLES'].any(
-          (key) => attributes.containsKey(key) && attributes[key] != 'NONE',
-        )) {
+        // 字幕与隐藏字幕不加载；视频分组的独立地址已在解析分组时拒绝。
+        final group = attributes['AUDIO'];
+        if (group != null && !audio.containsKey(group)) {
           throw SourceError('UNSUPPORTED', 'HLS 使用了不支持的媒体格式');
         }
         final resolution = RegExp(r'^\d+x(\d+)$')
@@ -108,6 +117,22 @@ class HlsSources {
             (quality == 0 && (bandwidth <= 0 || bandwidth > 10000000000))) {
           throw SourceError('UNSUPPORTED', 'HLS 使用了不支持的媒体格式');
         }
+        final codecs = attributes['CODECS'];
+        separate = switch (audio[group]) {
+          final playlist? => HlsAudioVariant(
+            playlist: playlist,
+            bandwidth: bandwidth > 0 ? bandwidth : 1,
+            codecs:
+                codecs != null &&
+                    RegExp(r'^[A-Za-z0-9.+-]+(?:,[A-Za-z0-9.+-]+)*$')
+                        .hasMatch(codecs) &&
+                    codecs.length <= 256
+                ? codecs
+                : null,
+            resolution: resolution == null ? null : attributes['RESOLUTION'],
+          ),
+          null => null,
+        };
       } else {
         if (quality == null) throw SourceError('NETWORK', 'HLS 分段不完整');
         final key = quality > 0 ? 'height:$quality' : 'bandwidth:$bandwidth';
@@ -118,11 +143,12 @@ class HlsSources {
               if (quality == 0) 'label': '${(bandwidth / 1000).round()} kbps',
               'url': base.resolve(line).toString(),
               'format': 'hls',
-            }),
+            }, audio: separate),
             bandwidth: bandwidth,
           ));
         }
         quality = null;
+        separate = null;
       }
     }
     if (quality != null || variants.isEmpty) {
@@ -133,5 +159,48 @@ class HlsSources {
       return height != 0 ? height : b.bandwidth.compareTo(a.bandwidth);
     });
     return variants.map((entry) => entry.source).toList();
+  }
+
+  /// 每个音轨分组选出默认音轨：DEFAULT 优先，其次 AUTOSELECT，最后取第一条。
+  /// 值为 null 表示默认音轨已混入视频变体，无需单独加载。
+  static Map<String, Uri?> _audioGroups(List<String> lines, Uri base) {
+    final groups = <String, List<({Uri? uri, int rank})>>{};
+    var count = 0;
+    for (final line in lines) {
+      if (!line.startsWith('#EXT-X-MEDIA:')) continue;
+      if (++count > 256) {
+        throw SourceError('UNSUPPORTED', 'HLS 使用了不支持的媒体格式');
+      }
+      final attributes = hlsAttributes(line.substring('#EXT-X-MEDIA:'.length));
+      final address = attributes['URI'];
+      switch (attributes['TYPE']) {
+        case 'SUBTITLES' || 'CLOSED-CAPTIONS':
+          break;
+        case 'AUDIO':
+          final group = attributes['GROUP-ID'];
+          if (group == null ||
+              group.isEmpty ||
+              (address != null &&
+                  (address.isEmpty || address.contains(r'{$')))) {
+            throw SourceError('UNSUPPORTED', 'HLS 使用了不支持的媒体格式');
+          }
+          groups.putIfAbsent(group, () => []).add((
+            uri: address == null ? null : base.resolve(address),
+            rank: attributes['DEFAULT'] == 'YES'
+                ? 0
+                : attributes['AUTOSELECT'] == 'YES'
+                ? 1
+                : 2,
+          ));
+        case 'VIDEO' when address == null:
+          break;
+        default:
+          throw SourceError('UNSUPPORTED', 'HLS 使用了不支持的媒体格式');
+      }
+    }
+    return {
+      for (final entry in groups.entries)
+        entry.key: entry.value.reduce((a, b) => b.rank < a.rank ? b : a).uri,
+    };
   }
 }

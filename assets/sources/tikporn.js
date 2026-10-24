@@ -9,13 +9,13 @@ Park.register({
     "ru": {"竖屏短视频推荐，支持连续播放和搜索": "Рекомендации вертикальных видео с непрерывным просмотром и поиском"},
     "ar": {"竖屏短视频推荐，支持连续播放和搜索": "اقتراحات مقاطع عمودية تدعم التشغيل المتواصل والبحث"},
   },
-  key: 'tikporn', name: 'Tik.porn', version: '0.0.7', minAppVersion: '0.9.2', type: 'video', category: 'shortvideo',
+  key: 'tikporn', name: 'Tik.porn', version: '0.0.8', minAppVersion: '0.9.2', type: 'video', category: 'shortvideo',
   color: '#FF427B', description: '竖屏短视频推荐，支持连续播放和搜索', language: 'en',
   homepage: 'https://tik.porn/', domains: ['tik.porn'],
   network: {mode: 'browser', origin: 'https://tik.porn', vpnHint: true},
   imageHeaders: {Referer: 'https://image-cdn.tik.porn/'},
   imageNetwork: {mode: 'browser', origin: 'https://image-cdn.tik.porn', domains: ['image-cdn.tik.porn']},
-  media: {mode: 'native', origin: 'https://tik.porn', domains: ['video-cdn.tik.porn']},
+  media: {mode: 'native', scope: 'session', origin: 'https://tik.porn', domains: ['video-cdn.tik.porn']},
   idPattern: '^[1-9]\\d{0,11}$', linkPatterns: ['tik\\.porn/video/([1-9]\\d{0,11})(?:[/?#]|$)'],
   defaultFeed: 'recommend', feeds: [{key: 'recommend', label: '推荐'}], searchHint: '搜索作品名或标签',
   BASE: 'https://tik.porn',
@@ -42,12 +42,9 @@ Park.register({
     const id = String(v?.id ?? v?.video_id ?? '');
     if (!/^[1-9]\d{0,11}$/.test(id)) return null;
     const title = v.metadata?.title || v.action_name || v.texts?.title;
-    const cover = v.poster || v.poster_url;
-    if (!title || typeof cover !== 'string') return null;
-    let u;
-    try { u = new URL(cover); } catch (_) { return null; }
-    if (u.protocol !== 'https:' || u.hostname !== 'image-cdn.tik.porn' || u.port || u.username || u.password || u.hash) return null;
-    return {id, title, cover: u.href, coverAspect: 9/16, url: this.BASE + '/video/' + id,
+    if (!title) return null;
+    const cover = this.publicUrl(v.poster || v.poster_url)?.href || '';
+    return {id, title, cover, coverAspect: 9/16, url: this.BASE + '/video/' + id,
       duration: v.duration ? String(v.duration) : undefined, likes: Number(v.likes ?? v.like_count) || null,
       views: Number(v.views ?? v.view_count) || null};
   },
@@ -100,12 +97,13 @@ Park.register({
     }
     return {...this.item(video), tags: tags.length ? [{namespace: 'tag', label: '标签', tags}] : [], chapters: null};
   },
+  publicUrl(value, base = this.BASE) {
+    // CDN 主机会更换，只要求是公网 HTTPS 地址；作品身份仍按站点域名校验。
+    try { const url = new URL(String(value).trim(), base); return Park.url.parse(url.href, base, [url.hostname]); } catch (_) { return null; }
+  },
   mediaUrl(value) {
-    try {
-      const u = new URL(value);
-      return u.protocol === 'https:' && u.hostname === 'video-cdn.tik.porn' && !u.port && !u.username && !u.password && !u.hash
-        && /\.(?:mp4|m3u8)$/i.test(u.pathname) ? u.href : null;
-    } catch (_) { return null; }
+    const u = this.publicUrl(value);
+    return u && /\.(?:mp4|m3u8)$/i.test(u.pathname) ? u.href : null;
   },
   async videos(id) {
     const v = await this.video(id), result = [];

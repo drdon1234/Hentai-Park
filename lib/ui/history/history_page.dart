@@ -201,31 +201,33 @@ class _HistoryPageState extends State<HistoryPage> {
                   ],
                 ],
               ),
-              body: CustomScrollView(
-                slivers: [
-                  SliverToBoxAdapter(
-                    child: HistoryScopeSelector(
-                      scope: _scope,
-                      onChanged: (scope) => setState(() {
-                        _scope = scope;
-                        _selected.clear();
-                        _selecting = false;
-                      }),
-                    ),
-                  ),
-                  if (list.isEmpty)
-                    SliverFillRemaining(
-                      hasScrollBody: false,
-                      child: EmptyState(
-                        icon: Icons.history_rounded,
-                        title: q.isEmpty ? tr('暂无浏览记录') : tr('没有匹配的记录'),
-                        message: q.isEmpty ? tr('看过的作品会按日期出现在这里') : null,
+              body: ReadableWidth(
+                child: CustomScrollView(
+                  slivers: [
+                    SliverToBoxAdapter(
+                      child: HistoryScopeSelector(
+                        scope: _scope,
+                        onChanged: (scope) => setState(() {
+                          _scope = scope;
+                          _selected.clear();
+                          _selecting = false;
+                        }),
                       ),
-                    )
-                  else
-                    _list(context, list),
-                  const SliverToBoxAdapter(child: SizedBox(height: Gap.xl)),
-                ],
+                    ),
+                    if (list.isEmpty)
+                      SliverFillRemaining(
+                        hasScrollBody: false,
+                        child: EmptyState(
+                          icon: Icons.history_rounded,
+                          title: q.isEmpty ? tr('暂无浏览记录') : tr('没有匹配的记录'),
+                          message: q.isEmpty ? tr('看过的作品会按日期出现在这里') : null,
+                        ),
+                      )
+                    else
+                      _list(context, list),
+                    const SliverToBoxAdapter(child: SizedBox(height: Gap.xl)),
+                  ],
+                ),
               ),
               bottomNavigationBar: !_selecting
                   ? null

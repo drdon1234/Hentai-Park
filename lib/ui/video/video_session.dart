@@ -276,10 +276,15 @@ class VideoSession extends ChangeNotifier {
         if (loaded.isEmpty) {
           throw SourceError('UNSUPPORTED', '此影片暂无可用播放地址');
         }
-        await _play(
-          loaded.firstWhere((s) => s.preferred, orElse: () => loaded.first),
-          requestId: openRequest,
-        );
+        // 首选线路失败时依次尝试其余候选，CDN 更换或单线路故障不直接报错。
+        for (final candidate in orderedVideoSources(loaded)) {
+          error = null;
+          await _play(candidate, requestId: openRequest);
+          if (!_active || request.isCancelled || openRequest != _request) {
+            return;
+          }
+          if (!supported || error == null) break;
+        }
       } catch (e) {
         if (_active && !request.isCancelled && openRequest == _request) {
           error = e;

@@ -236,7 +236,8 @@ async filterOptions({scope, feed, filter, keyword, values}) {
 
 ### 图片
 
-- `imageNetwork: { mode: 'browser', origin, domains }`：图片域（含子域）独立于站点 Cookie 权限，`origin` 可属于站点域或图片域。使用 HTTPS 443 和允许的请求头，当 origin 属于站点声明域时，同源图片复用浏览器站点会话，跨域请求不携带凭据；外部图片域和视频请求始终省略凭据，允许授权图片域之间的重定向。保留单图 20 MiB 上限、解密、格式检查、解码和站点分区缓存；未声明时使用原生图片传输。 浏览器重定向的平台限制见“媒体权限”。
+- 封面与图片地址只要求是公网 HTTPS（拒绝 IP、端口、用户信息、localhost 与 `.local`）。CDN 会更换主机，插件不要按图片主机名过滤封面，也不要因为封面缺失或无效丢弃作品，返回 `cover: ''` 即可；作品 ID 与详情链接仍按站点 `domains` 严格校验。为兼容旧版应用，可用 `Park.url.parse(url.href, base, [url.hostname])` 校验任意公网 HTTPS 地址（先用 `new URL()` 规范化，保留空格等需编码的字符）。
+- `imageNetwork: { mode: 'browser', origin, domains }`：图片域（含子域）独立于站点 Cookie 权限，`origin` 可属于站点域或图片域。使用 HTTPS 443 和允许的请求头，当 origin 属于站点声明域时，同源图片复用浏览器站点会话，跨域请求不携带凭据；外部图片域和视频请求始终省略凭据，允许授权图片域之间的重定向。保留单图 20 MiB 上限、解密、格式检查、解码和站点分区缓存；未声明时使用原生图片传输。 浏览器重定向的平台限制见“媒体权限”。声明后应用仍先尝试原生请求，失败（含返回非图片内容）再走浏览器，并在本次运行内按站点与主机记住可用方式；不在 `domains` 内的图片主机直接使用原生请求，因此浏览器来源页或图片主机变化不会让全部封面失效。
 - **加密图片**：声明 `imageDecrypt`，框架在格式检查和缓存之前解密，解密策略参与缓存身份，失败结果不缓存。当前支持 AES-CBC 与严格 PKCS#7 填充，`key`、`iv` 按 UTF-8 编码；必须限定图片域名，其他域名走普通路径。
 
 ```js
@@ -247,6 +248,8 @@ imageDecrypt: {
   domains: ['images.example.com'],
 },
 ```
+
+`imageDecrypt.domains` 内的图片必须解密成功；不在列表内的主机若原始内容不是图片，应用会再按同一声明尝试解密，结果通过图片格式检查才采用，避免图片 CDN 换主机后无法显示。
 
 封面 HTTP 200 不等于可用，验证时必须确认能解码。
 
@@ -262,8 +265,8 @@ media: { mode: 'native', origin: 'https://example.com', domains: ['media.example
 
 - `media.mode` 为 `'native'` 或 `'browser'`。`media.origin` 必须属于插件声明的站点，使用 HTTPS 默认端口 443，不含用户凭据、查询或片段。
 - `media.domains` 是独立的媒体域名白名单（含子域），不授予站点 Cookie 权限。清单、分段和密钥都只允许 HTTPS 443，拒绝 URL 用户凭据、片段、IP、localhost（含子域）和 `.local`。
-- 所有实现 `videos()` 的插件都必须声明 `media`，包括仅返回 MP4 的插件。`scope: 'session'` 可同时声明静态 `domains`：HLS 使用本次会话的确切地址授权，MP4 仍须匹配静态域名白名单；不能用会话授权代替 MP4 白名单。官方发布检查会拒绝缺失或无效的媒体声明。
-- MP4 必须声明 `media.mode: 'native'`。播放器通过独立的本地流式会话访问远端文件，使用应用内代理并支持 `GET`、`HEAD` 和单段 `Range`，不缓存整部影片；每次重定向仍须匹配静态媒体域名白名单，关闭播放会话会终止上游请求。`media.mode: 'browser'` 用于 HLS。
+- 所有实现 `videos()` 的插件都必须声明 `media`，包括仅返回 MP4 的插件。`scope: 'session'` 可同时声明静态 `domains`：HLS 与 MP4 都按本次 `videos()` 返回的确切地址授权，重定向逐跳按公网 HTTPS 授权；静态 `domains` 仍然有效，旧版应用只按静态列表校验 MP4，保留它可兼容。视频 CDN 会更换主机的站点应声明 `scope: 'session'`，插件只校验地址形态（公网 HTTPS、`.m3u8`/`.mp4` 等路径），不要写死 CDN 主机名。官方发布检查会拒绝缺失或无效的媒体声明。
+- MP4 必须声明 `media.mode: 'native'`。播放器通过独立的本地流式会话访问远端文件，使用应用内代理并支持 `GET`、`HEAD` 和单段 `Range`；已下载的区间保存在本次播放会话的临时文件中（单会话上限 1 GiB），往回拖动直接读取，关闭播放即删除。每次重定向须匹配静态媒体域名白名单或会话授权，关闭播放会话会终止上游请求。HLS 点播分段同样在会话内落盘缓存。`media.mode: 'browser'` 用于 HLS。
 - `'native'`：使用独立、无凭据的客户端，不读写站点 Cookie、Authorization 或代理认证，每次重定向前先校验目标。只允许 `Referer`、`Origin`、`Accept`、`Accept-Language`；前两者须属于声明的站点域（含语言子域），`Origin` 只能包含来源 origin。
 - `media.referrerDomains` 可选，仅限原生视频媒体，最多 16 个有效公网域名（含子域）。它仅为 `Referer` 增加允许的来源，作为上述站点域限制的明确例外；不扩大 `Origin`、媒体地址、文档导航或 Cookie 权限，不允许用于 `imageNetwork` 或浏览器媒体。
 - 动态 HLS CDN 可声明 `media.scope: 'session'`（仅限 `mode: 'native'`）。授权只覆盖当前播放或下载会话中解析的地址、清单资源及允许的重定向，关闭会话即失效，不扩大 Cookie 权限或持久化域名白名单。请求仍受 HTTPS、无凭据、目标地址和响应大小限制；直连 MP4 与浏览器媒体继续使用静态域名白名单。
@@ -409,7 +412,8 @@ WorkItem 的全部字段，再加：
 
 - 多集视频在 `detail(id).chapters` 按播放顺序返回 `[{ id, title }]`，每个 `id` 必须稳定，不能用画质或临时媒体 URL 代替。应用用同一个 ID 选集、记录进度、下载和续播，并调用 `videos(id, episodeId)` 获取该集资源。单集用 `singleChapterId`，没有时用 `'_'`。
 - 省略 `format` 时按直链 MP4 播放和下载。HLS 必须返回 `format: 'hls'`，并声明 `media` 权限。
-- HLS 主清单（`#EXT-X-STREAM-INF`）先由应用展开成各路分段清单，按 `RESOLUTION` 得到真实清晰度。返回主清单时 `quality` 表示期望清晰度：默认选不高于它的最高实际清晰度，没有符合项时选最高档。每路必须是音视频复用的 MPEG-TS 或 fMP4；独立的 `AUDIO`、`VIDEO`、`SUBTITLES` 和未通过静态域名或会话授权的地址一律拒绝。`#EXT-X-I-FRAME-STREAM-INF` 预览轨道被忽略。单路清单无法确定分辨率时提供 `label: '原画'`，不要把期望画质当成真实分辨率。 主清单省略 `RESOLUTION` 时必须提供有效 `BANDWIDTH`，应用保留各码率并显示 kbps，默认选择最高码率，不把码率当作分辨率。
+- 首选源无法打开时，应用依次尝试其余返回的源。同名同清晰度（`label` 与 `quality` 相同）的多个 HLS 地址视为同一线路的镜像（如原站给出的备用 CDN），按顺序取第一个可解析的，清晰度列表中只显示一次；单个线路不可达不会让整个 `videos()` 失败。
+- HLS 主清单（`#EXT-X-STREAM-INF`）先由应用展开成各路分段清单，按 `RESOLUTION` 得到真实清晰度。返回主清单时 `quality` 表示期望清晰度：默认选不高于它的最高实际清晰度，没有符合项时选最高档。每路可以是音视频复用的 MPEG-TS 或 fMP4，也可以通过 `#EXT-X-MEDIA:TYPE=AUDIO` 引用独立音轨：应用为每个清晰度选出该分组的默认音轨（`DEFAULT=YES` 优先，其次 `AUTOSELECT=YES`，否则第一条；默认音轨没有 `URI` 时视为已混入视频），播放时在本地生成只含所选视频与该音轨的主清单，音轨清单、初始化段与分段和视频一样经会话授权与本地注册表读取。字幕（`SUBTITLES`、`CLOSED-CAPTIONS`）、`#EXT-X-SESSION-DATA` 与 `#EXT-X-I-FRAME-STREAM-INF` 预览轨道被忽略，从不请求；带 `URI` 的独立 `VIDEO` 分组、其他带地址的主清单标签和未通过静态域名或会话授权的地址一律拒绝。独立音轨的清晰度目前只能在线播放，离线下载与直播录制会提示暂不支持。单路清单无法确定分辨率时提供 `label: '原画'`，不要把期望画质当成真实分辨率。 主清单省略 `RESOLUTION` 时必须提供有效 `BANDWIDTH`，应用保留各码率并显示 kbps，默认选择最高码率，不把码率当作分辨率。
 - `type: 'video', category: 'live'` 表示公开直播，归入三次元，主页和域页仅展示图片卡片。实现 `videos()` 返回当前公开房间的 HLS 地址；私密、收费或下线房间不得返回伪造可播结果。应用为直播启用滚动清单播放，不恢复或保存点播进度，也不提供下载。录制由用户显式开始，只保存初始直播窗口之后的新分片，用户停止或应用退出后结束，重启不续录。录制复用独立媒体会话与后台任务，逐段验证、解密并保存本地完整清单；断线重新解析媒体，编码边界与长录制可分卷，失败保留已提交内容。支持音视频复用的 MPEG-TS 和带单个 MAP 初始化段的 fMP4，fMP4 录制保留初始化段，窗口间初始化段变化时分卷；不支持低延迟 PART、BYTERANGE 或 GAP。
 - 点播要求带 `#EXT-X-ENDLIST` 的完整、连续 MPEG-TS 或 fMP4 清单；fMP4 只支持媒体分片之前的单个 `#EXT-X-MAP` 初始化段，不支持单个清单内初始化段切换或范围读取。初始化段与媒体分片都经过地址授权、内容校验及本地重写，离线播放与导出必须保留初始化段。直播允许滚动清单及 discontinuity，每次刷新独立注册并保留当前及上一窗口的初始化段与分片。两者支持 `METHOD=AES-128`、`KEYFORMAT=identity` 的 CBC/PKCS7 解密，密钥恰好 16 字节，媒体 IV 显式提供或由序号推导；加密初始化段必须显式提供 IV。密钥仅留在会话内存。不支持 SAMPLE-AES、其他 KEYFORMAT、BYTERANGE、GAP；点播另不支持 discontinuity。非标准的 `#EXT-X-TOKEN` 会被移除。
 - HLS 清单和 MPEG-TS 分段支持 PNG `roUd` 封装（原始或 zlib 压缩）；框架先解包再解析、校验或解密，解包后仍遵守清单 2 MiB、分段 32 MiB 的限制。插件继续返回 `format: 'hls'`，无需额外权限。
@@ -649,7 +653,7 @@ async ranking(board, { page = 1, offset = 0, cursor, options = {} }) {
 
 - `section` 可为 `market`（市场榜，`rankingOnly` 默认）或 `site`（站点榜，普通内容源默认），页面分区显示。`kind` 可为 `work`、`actress`、`seller`、`genre`；人物榜须返回人物或卖家条目，不可伪装成作品。动态选项标记 `dynamic: true`，由 `rankingOptions(board)` 返回真实选择项，运行时会在请求前校验。`category` 决定搜索范围；页面按用户的域顺序显示已有榜单的分类，包括创作社区。`metric` 明确标示销量、人气或站内热度；站点默认热门不能称为销量榜。
 - `rank` 保留原站名次，包括并列名次；官网只有有序列表时使用其原始位置。`offset` 是此前收到的原始条目数，不受本地去重和屏蔽影响。`keyword` 可选，缺省按标题搜索；`url` 是无凭据的 HTTPS 商品链接。
-- 既有内容源可声明 `{ key: 'hot', label: '排行榜', category: 'doujin', metric: '站内热度', feed: 'hot' }`。省略 `options` 时继承对应 feed 的选项；无需实现 `ranking()`，运行时复用 `feed()`，保留作品字段，补 `workId` 和缺失的 `rank`。页面由此打开真实作品详情。作品可打开详情；人物榜按姓名搜索并保留原站入口，卖家榜只打开原站。独立排行榜插件通过 `rankings` 分支发布，普通内容源（包括带排行榜声明的源）仍通过 `sources` 分支分发。
+- 既有内容源可声明 `{ key: 'hot', label: '排行榜', category: 'doujin', metric: '站内热度', feed: 'hot' }`。省略 `options` 时继承对应 feed 的选项；无需实现 `ranking()`，运行时复用 `feed()`，保留作品字段，补 `workId` 和缺失的 `rank`。页面由此打开真实作品详情。作品可打开详情；人物榜按姓名搜索并保留原站入口，卖家榜只打开原站。原站链接属于插件 `domains` 时在应用内浏览（使用该源的 Cookie 分区，离开声明域的链接交给系统浏览器），否则直接使用系统浏览器。独立排行榜插件通过 `rankings` 分支发布，普通内容源（包括带排行榜声明的源）仍通过 `sources` 分支分发。
 - 运行时在请求前拒绝未声明榜单或选项值。每个榜单与选项组合独立分页、刷新与会话复用；插件版本变化后使用新会话。列表按用户已有的内容屏蔽规则过滤，保留原始名次。
 - 排行榜结果不使用普通首页磁盘缓存，避免丢失名次、检索词和商品链接。所有站点业务规则留在插件内。
 

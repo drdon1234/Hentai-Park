@@ -73,10 +73,25 @@ class ShortVideoPlayer implements ShortVideoHandle {
     if (resolvedSources.isEmpty) {
       throw SourceError('UNSUPPORTED', '此影片暂无可用播放地址');
     }
-    final source = resolvedSources.firstWhere(
-      (s) => s.preferred,
-      orElse: () => resolvedSources.first,
-    );
+    // 首选线路失败时依次尝试其余候选。
+    Object? failure;
+    for (final source in orderedVideoSources(resolvedSources)) {
+      try {
+        return await _open(item, manifest, source, cancel);
+      } on SourceError catch (error) {
+        if (cancel.isCancelled || error.code == 'CANCELLED') rethrow;
+        failure ??= error;
+      }
+    }
+    throw failure!;
+  }
+
+  static Future<ShortVideoHandle> _open(
+    WorkItem item,
+    SourceManifest manifest,
+    VideoSource source,
+    CancelToken cancel,
+  ) async {
     var uri = Uri.parse(source.url);
     Playback? media;
     VideoPlayerController? controller;

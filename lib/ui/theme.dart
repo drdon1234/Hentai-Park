@@ -66,7 +66,7 @@ class ParkTheme {
     // 强调色同时用于表面上的小字号文字，不能只检查实心按钮的前景色。
     final textSurface = dark
         ? const Color(0xFF34322E)
-        : const Color(0xFFE3E0D9);
+        : const Color(0xFFDCD8D0);
     for (var i = 0; i < 100 && _contrast(primary, textSurface) < 4.5; i++) {
       primary = _lighten(primary, dark ? .01 : -.01);
     }
@@ -88,7 +88,7 @@ class ParkTheme {
         onPrimary: onPrimary,
         primaryContainer: Color.alphaBlend(
           primary.withValues(alpha: .18),
-          const Color(0xFF141312),
+          const Color(0xFF11100F),
         ),
         onPrimaryContainer: _lighten(primary, .18),
         secondary: const Color(0xFFBFB9AE),
@@ -106,16 +106,16 @@ class ParkTheme {
         onError: const Color(0xFF2B0B09),
         errorContainer: const Color(0xFF4A1F1C),
         onErrorContainer: const Color(0xFFFFDAD6),
-        surface: const Color(0xFF141312),
+        surface: const Color(0xFF11100F),
         onSurface: ink,
         onSurfaceVariant: const Color(0xFFA39E94),
-        surfaceDim: const Color(0xFF100F0E),
+        surfaceDim: const Color(0xFF0D0C0B),
         surfaceBright: const Color(0xFF34322E),
-        surfaceContainerLowest: const Color(0xFF0F0E0D),
-        surfaceContainerLow: const Color(0xFF1A1917),
-        surfaceContainer: const Color(0xFF1C1B19),
-        surfaceContainerHigh: const Color(0xFF242320),
-        surfaceContainerHighest: const Color(0xFF2E2C29),
+        surfaceContainerLowest: const Color(0xFF0B0A09),
+        surfaceContainerLow: const Color(0xFF181715),
+        surfaceContainer: const Color(0xFF1E1D1A),
+        surfaceContainerHigh: const Color(0xFF272522),
+        surfaceContainerHighest: const Color(0xFF312F2B),
         outline: const Color(0xFF827C72),
         outlineVariant: const Color(0xFF34322E),
         shadow: Colors.black,
@@ -132,14 +132,14 @@ class ParkTheme {
       onPrimary: onPrimary,
       primaryContainer: Color.alphaBlend(
         primary.withValues(alpha: .12),
-        const Color(0xFFFAF9F6),
+        const Color(0xFFF5F3EF),
       ),
       onPrimaryContainer: _lighten(primary, -.16),
       secondary: const Color(0xFF5E5A53),
       onSecondary: Colors.white,
       secondaryContainer: Color.alphaBlend(
         primary.withValues(alpha: .12),
-        const Color(0xFFFAF9F6),
+        const Color(0xFFF5F3EF),
       ),
       onSecondaryContainer: _lighten(primary, -.14),
       tertiary: const Color(0xFF3A3834),
@@ -150,18 +150,18 @@ class ParkTheme {
       onError: Colors.white,
       errorContainer: const Color(0xFFF9DEDC),
       onErrorContainer: const Color(0xFF410E0B),
-      surface: const Color(0xFFFAF9F6),
+      surface: const Color(0xFFF5F3EF),
       onSurface: ink,
-      onSurfaceVariant: const Color(0xFF6B6760),
-      surfaceDim: const Color(0xFFE3E0D9),
+      onSurfaceVariant: const Color(0xFF625E57),
+      surfaceDim: const Color(0xFFDCD8D0),
       surfaceBright: const Color(0xFFFFFFFF),
       surfaceContainerLowest: const Color(0xFFFFFFFF),
-      surfaceContainerLow: const Color(0xFFF5F4F0),
-      surfaceContainer: const Color(0xFFF0EEE9),
-      surfaceContainerHigh: const Color(0xFFEAE8E2),
-      surfaceContainerHighest: const Color(0xFFE3E0D9),
+      surfaceContainerLow: const Color(0xFFEFEDE8),
+      surfaceContainer: const Color(0xFFEAE7E1),
+      surfaceContainerHigh: const Color(0xFFE4E1DA),
+      surfaceContainerHighest: const Color(0xFFDCD8D0),
       outline: const Color(0xFF827C72),
-      outlineVariant: const Color(0xFFE2DFD8),
+      outlineVariant: const Color(0xFFE0DCD4),
       shadow: Colors.black,
       scrim: Colors.black,
       inverseSurface: const Color(0xFF2B2926),
@@ -186,9 +186,18 @@ class ParkTheme {
     );
     final text = _text(base.textTheme, scheme);
     final card = dark ? scheme.surfaceContainer : scheme.surfaceContainerLowest;
+    final raised = dark
+        ? scheme.surfaceContainerHigh
+        : scheme.surfaceContainerLowest;
+    final tonal = dark
+        ? scheme.surfaceContainerHighest
+        : scheme.surfaceContainerHigh;
     final hairline = BorderSide(color: scheme.outlineVariant, width: .8);
-    const controlShape = RoundedRectangleBorder(borderRadius: Radii.small);
+    const pill = StadiumBorder();
     final selectedTint = scheme.secondaryContainer;
+    final focusRing = BorderSide(color: scheme.primary, width: 2);
+    final label = text.labelLarge?.copyWith(fontWeight: FontWeight.w600);
+    final menuShadow = Colors.black.withValues(alpha: dark ? .5 : .16);
     return base.copyWith(
       cupertinoOverrideTheme: CupertinoThemeData(
         brightness: brightness,
@@ -205,6 +214,8 @@ class ParkTheme {
       canvasColor: scheme.surface,
       cardColor: card,
       dividerColor: scheme.outlineVariant,
+      hoverColor: scheme.onSurface.withValues(alpha: .05),
+      focusColor: scheme.onSurface.withValues(alpha: .08),
       appBarTheme: AppBarTheme(
         backgroundColor: scheme.surface,
         foregroundColor: scheme.onSurface,
@@ -222,7 +233,7 @@ class ParkTheme {
         elevation: 0,
         indicatorColor: selectedTint,
         indicatorShape: const StadiumBorder(),
-        height: 64,
+        height: 68,
         iconTheme: WidgetStateProperty.resolveWith(
           (states) => IconThemeData(
             size: 24,
@@ -245,6 +256,7 @@ class ParkTheme {
       navigationRailTheme: NavigationRailThemeData(
         backgroundColor: navigationColor(scheme),
         indicatorColor: selectedTint,
+        indicatorShape: const StadiumBorder(),
         selectedIconTheme: IconThemeData(color: scheme.onSecondaryContainer),
         unselectedIconTheme: IconThemeData(color: scheme.onSurfaceVariant),
         selectedLabelTextStyle: text.labelMedium?.copyWith(
@@ -259,10 +271,7 @@ class ParkTheme {
         color: card,
         elevation: 0,
         margin: EdgeInsets.zero,
-        shape: RoundedRectangleBorder(
-          borderRadius: Radii.medium,
-          side: hairline,
-        ),
+        shape: const RoundedRectangleBorder(borderRadius: Radii.medium),
         clipBehavior: Clip.antiAlias,
       ),
       dividerTheme: DividerThemeData(
@@ -270,85 +279,85 @@ class ParkTheme {
         thickness: .8,
         space: 1,
       ),
+      // 筛选项是胶囊：未选中为浅色填充，选中换成强调色调与强调色文字；两种状态都不画边框，
+      // 切换时尺寸不变。
       chipTheme: base.chipTheme.copyWith(
-        backgroundColor: Colors.transparent,
-        selectedColor: scheme.surfaceContainerHigh,
+        backgroundColor: tonal,
+        selectedColor: selectedTint,
+        disabledColor: tonal.withValues(alpha: .5),
         showCheckmark: false,
-        shape: controlShape,
+        shape: pill,
         side: WidgetStateBorderSide.resolveWith(
-          (states) => states.contains(WidgetState.disabled)
-              ? hairline
-              : states.contains(WidgetState.focused)
-              ? BorderSide(color: scheme.primary, width: 2)
-              : states.contains(WidgetState.selected)
-              // 加粗描边向内仍占同样宽度，避免 Ink 的边框内边距改变布局。
-              ? hairline.copyWith(
-                  color: scheme.primary,
-                  width: hairline.width * 2,
-                  strokeAlign: BorderSide.strokeAlignCenter,
-                )
-              : hairline.copyWith(color: scheme.outline),
+          (states) => states.contains(WidgetState.focused)
+              ? focusRing.copyWith(strokeAlign: BorderSide.strokeAlignInside)
+              : BorderSide.none,
         ),
-        labelStyle: text.labelMedium?.copyWith(
+        labelStyle: text.labelLarge?.copyWith(
           color: scheme.onSurface,
+          fontWeight: FontWeight.w500,
+        ),
+        secondaryLabelStyle: text.labelLarge?.copyWith(
+          color: scheme.onSecondaryContainer,
           fontWeight: FontWeight.w600,
         ),
-        secondaryLabelStyle: text.labelMedium?.copyWith(
-          color: scheme.primary,
-          fontWeight: FontWeight.w600,
-        ),
-        padding: EdgeInsets.zero,
-        labelPadding: const EdgeInsets.symmetric(horizontal: Gap.s),
+        padding: const EdgeInsets.symmetric(vertical: Gap.xs),
+        labelPadding: const EdgeInsets.symmetric(horizontal: Gap.m - 2),
+        iconTheme: IconThemeData(size: 18, color: scheme.onSurfaceVariant),
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: dark
-            ? scheme.surfaceContainerHigh
-            : scheme.surfaceContainerLowest,
+        fillColor: tonal,
         hintStyle: text.bodyLarge?.copyWith(color: scheme.onSurfaceVariant),
-        border: OutlineInputBorder(
+        border: const OutlineInputBorder(
           borderRadius: Radii.medium,
-          borderSide: dark ? BorderSide.none : hairline,
+          borderSide: BorderSide.none,
         ),
-        enabledBorder: OutlineInputBorder(
+        enabledBorder: const OutlineInputBorder(
           borderRadius: Radii.medium,
-          borderSide: dark ? BorderSide.none : hairline,
+          borderSide: BorderSide.none,
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: Radii.medium,
-          borderSide: BorderSide(color: scheme.outline),
+          borderSide: BorderSide(color: scheme.primary, width: 1.5),
+        ),
+        errorBorder: OutlineInputBorder(
+          borderRadius: Radii.medium,
+          borderSide: BorderSide(color: scheme.error),
+        ),
+        focusedErrorBorder: OutlineInputBorder(
+          borderRadius: Radii.medium,
+          borderSide: BorderSide(color: scheme.error, width: 1.5),
         ),
         contentPadding: const EdgeInsets.symmetric(
           horizontal: Gap.l,
-          vertical: Gap.m,
+          vertical: Gap.m + 2,
         ),
       ),
       filledButtonTheme: FilledButtonThemeData(
         style: FilledButton.styleFrom(
-          shape: controlShape,
-          textStyle: text.labelLarge?.copyWith(fontWeight: FontWeight.w600),
+          shape: pill,
+          textStyle: label,
           minimumSize: const Size(64, 48),
-          padding: const EdgeInsets.symmetric(horizontal: Gap.l),
-        ),
+          padding: const EdgeInsets.symmetric(horizontal: Gap.xl),
+        ).copyWith(side: _focusSide(scheme.onSurface)),
       ),
+      // 次级按钮是浅色填充的胶囊，靠底色而不是描边形成边界；键盘焦点加强调色描边。
       outlinedButtonTheme: OutlinedButtonThemeData(
         style:
             OutlinedButton.styleFrom(
               foregroundColor: scheme.onSurface,
-              shape: controlShape,
-              textStyle: text.labelLarge?.copyWith(fontWeight: FontWeight.w600),
+              backgroundColor: tonal,
+              disabledBackgroundColor: tonal.withValues(alpha: .45),
+              disabledForegroundColor: scheme.onSurface.withValues(alpha: .38),
+              shape: pill,
+              textStyle: label,
               minimumSize: const Size(48, 40),
-              padding: const EdgeInsets.symmetric(horizontal: Gap.m),
+              padding: const EdgeInsets.symmetric(horizontal: Gap.l),
             ).copyWith(
               side: WidgetStateBorderSide.resolveWith(
-                (states) => BorderSide(
-                  color: states.contains(WidgetState.disabled)
-                      ? scheme.outlineVariant
-                      : states.contains(WidgetState.focused)
-                      ? scheme.primary
-                      : scheme.outline,
-                  width: states.contains(WidgetState.focused) ? 2 : 1,
-                ),
+                (states) => states.contains(WidgetState.focused)
+                    ? focusRing
+                    : BorderSide.none,
               ),
             ),
       ),
@@ -356,8 +365,9 @@ class ParkTheme {
         style: TextButton.styleFrom(
           minimumSize: const Size(48, 48),
           foregroundColor: scheme.primary,
-          shape: controlShape,
-          textStyle: text.labelLarge?.copyWith(fontWeight: FontWeight.w600),
+          shape: pill,
+          padding: const EdgeInsets.symmetric(horizontal: Gap.m),
+          textStyle: label,
         ),
       ),
       iconButtonTheme: IconButtonThemeData(
@@ -371,52 +381,74 @@ class ParkTheme {
           foregroundColor: scheme.onSurface,
           selectedBackgroundColor: selectedTint,
           selectedForegroundColor: scheme.onSecondaryContainer,
-          side: BorderSide(color: scheme.outline),
-          shape: controlShape,
+          backgroundColor: tonal,
+          // 分段是一条浅色轨道，选中段用强调色调填充；不画描边和分隔线。
+          side: BorderSide.none,
+          shape: pill,
+          textStyle: text.labelLarge,
         ),
       ),
       floatingActionButtonTheme: FloatingActionButtonThemeData(
-        elevation: 0,
-        highlightElevation: 0,
-        focusElevation: 0,
-        hoverElevation: 0,
+        elevation: 2,
+        highlightElevation: 3,
+        focusElevation: 2,
+        hoverElevation: 3,
         backgroundColor: scheme.primary,
         foregroundColor: scheme.onPrimary,
         shape: const RoundedRectangleBorder(borderRadius: Radii.medium),
+        extendedTextStyle: label,
       ),
       bottomSheetTheme: BottomSheetThemeData(
-        backgroundColor: dark ? scheme.surfaceContainer : scheme.surface,
+        backgroundColor: raised,
         surfaceTintColor: Colors.transparent,
-        modalBackgroundColor: dark ? scheme.surfaceContainer : scheme.surface,
+        modalBackgroundColor: raised,
+        modalBarrierColor: Scrims.medium,
         elevation: 0,
         modalElevation: 0,
         showDragHandle: true,
         dragHandleColor: scheme.outline,
-        dragHandleSize: const Size(32, 4),
+        dragHandleSize: const Size(36, 4),
+        clipBehavior: Clip.antiAlias,
         shape: const RoundedRectangleBorder(
           borderRadius: BorderRadius.vertical(top: Radius.circular(Radii.lg)),
         ),
       ),
       dialogTheme: DialogThemeData(
-        backgroundColor: dark ? scheme.surfaceContainer : scheme.surface,
+        backgroundColor: raised,
         surfaceTintColor: Colors.transparent,
+        barrierColor: Scrims.medium,
         elevation: 0,
         shape: const RoundedRectangleBorder(borderRadius: Radii.large),
         titleTextStyle: text.titleLarge?.copyWith(color: scheme.onSurface),
+        contentTextStyle: text.bodyMedium?.copyWith(
+          color: scheme.onSurfaceVariant,
+        ),
       ),
       popupMenuTheme: PopupMenuThemeData(
-        color: scheme.surfaceContainerHigh,
+        color: raised,
         surfaceTintColor: Colors.transparent,
-        elevation: 2,
-        shape: const RoundedRectangleBorder(borderRadius: Radii.medium),
+        elevation: 6,
+        shadowColor: menuShadow,
+        shape: RoundedRectangleBorder(
+          borderRadius: Radii.medium,
+          side: dark ? hairline : BorderSide.none,
+        ),
         textStyle: text.bodyLarge,
       ),
       menuTheme: MenuThemeData(
         style: MenuStyle(
-          backgroundColor: WidgetStatePropertyAll(scheme.surfaceContainerHigh),
+          backgroundColor: WidgetStatePropertyAll(raised),
           surfaceTintColor: const WidgetStatePropertyAll(Colors.transparent),
-          shape: const WidgetStatePropertyAll(
-            RoundedRectangleBorder(borderRadius: Radii.medium),
+          elevation: const WidgetStatePropertyAll(6),
+          shadowColor: WidgetStatePropertyAll(menuShadow),
+          padding: const WidgetStatePropertyAll(
+            EdgeInsets.symmetric(vertical: Gap.xs + 2),
+          ),
+          shape: WidgetStatePropertyAll(
+            RoundedRectangleBorder(
+              borderRadius: Radii.medium,
+              side: dark ? hairline : BorderSide.none,
+            ),
           ),
         ),
       ),
@@ -428,6 +460,12 @@ class ParkTheme {
         ),
         actionTextColor: scheme.inversePrimary,
         elevation: 0,
+        insetPadding: const EdgeInsets.fromLTRB(
+          Gap.page,
+          Gap.s,
+          Gap.page,
+          Gap.m,
+        ),
         shape: const RoundedRectangleBorder(borderRadius: Radii.medium),
       ),
       listTileTheme: ListTileThemeData(
@@ -451,11 +489,16 @@ class ParkTheme {
         dividerColor: scheme.outlineVariant,
         dividerHeight: .8,
         indicatorSize: TabBarIndicatorSize.label,
-        indicatorColor: scheme.primary,
+        indicator: UnderlineTabIndicator(
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(3)),
+          borderSide: BorderSide(color: scheme.primary, width: 3),
+        ),
         labelColor: scheme.onSurface,
         unselectedLabelColor: scheme.onSurfaceVariant,
         labelStyle: text.titleSmall?.copyWith(fontWeight: FontWeight.w600),
-        unselectedLabelStyle: text.titleSmall,
+        unselectedLabelStyle: text.titleSmall?.copyWith(
+          fontWeight: FontWeight.w500,
+        ),
         tabAlignment: TabAlignment.start,
       ),
       badgeTheme: BadgeThemeData(
@@ -467,6 +510,16 @@ class ParkTheme {
         linearTrackColor: scheme.surfaceContainerHighest,
         circularTrackColor: Colors.transparent,
       ),
+      sliderTheme: SliderThemeData(
+        activeTrackColor: scheme.primary,
+        inactiveTrackColor: scheme.surfaceContainerHighest,
+        thumbColor: scheme.primary,
+        overlayColor: scheme.primary.withValues(alpha: .12),
+        valueIndicatorColor: scheme.inverseSurface,
+        valueIndicatorTextStyle: text.labelMedium?.copyWith(
+          color: scheme.onInverseSurface,
+        ),
+      ),
       switchTheme: SwitchThemeData(
         trackOutlineColor: WidgetStateProperty.resolveWith(
           (states) => states.contains(WidgetState.selected)
@@ -474,12 +527,30 @@ class ParkTheme {
               : scheme.outline,
         ),
       ),
+      checkboxTheme: CheckboxThemeData(
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.all(Radius.circular(5)),
+        ),
+        side: BorderSide(color: scheme.outline, width: 1.6),
+      ),
+      scrollbarTheme: ScrollbarThemeData(
+        radius: const Radius.circular(4),
+        thickness: const WidgetStatePropertyAll(6),
+        thumbColor: WidgetStatePropertyAll(
+          scheme.onSurfaceVariant.withValues(alpha: .4),
+        ),
+      ),
       tooltipTheme: TooltipThemeData(
         decoration: BoxDecoration(
           color: scheme.inverseSurface,
           borderRadius: Radii.small,
         ),
+        padding: const EdgeInsets.symmetric(
+          horizontal: Gap.s + 2,
+          vertical: Gap.xs + 2,
+        ),
         textStyle: text.bodySmall?.copyWith(color: scheme.onInverseSurface),
+        waitDuration: const Duration(milliseconds: 400),
       ),
       pageTransitionsTheme: const PageTransitionsTheme(
         builders: {
@@ -492,6 +563,14 @@ class ParkTheme {
       ),
     );
   }
+
+  /// Keyboard focus draws a ring around filled buttons; other states keep their own fill.
+  static WidgetStateBorderSide _focusSide(Color color) =>
+      WidgetStateBorderSide.resolveWith(
+        (states) => states.contains(WidgetState.focused)
+            ? BorderSide(color: color, width: 2)
+            : BorderSide.none,
+      );
 
   /// Material 3 type scale with weights capped at 600. Titles stay sans; [ParkText.serif]
   /// is applied where the design calls for a reading voice.

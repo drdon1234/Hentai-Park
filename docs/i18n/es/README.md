@@ -78,11 +78,11 @@ Las capturas usan datos de demostración sin conexión; los sitios, obras y port
 
 | Función | Qué ofrece |
 | --- | --- |
-| Clasificaciones | Abre clasificaciones de dōjinshi, anime y JAV desde Descubrir; elige sitio y período, busca obras o visita el sitio original |
-| Explorar y buscar | Inicio y las categorías comparten recomendaciones; desplázate a la derecha para ver más en sitios con paginación. Busca en varios sitios a la vez y amplía la búsqueda con palabras clave en otros idiomas; pega un enlace o código para ir directo a una obra |
+| Clasificaciones | Abre clasificaciones de dōjinshi, anime y JAV desde Descubrir; elige sitio y período, busca obras o visita el sitio original; las páginas de producto se abren dentro de la app |
+| Explorar y buscar | Inicio y las categorías comparten recomendaciones; desplázate a la derecha para ver más en sitios con paginación. Busca en varios sitios a la vez y amplía la búsqueda con palabras clave en otros idiomas; pega un enlace o código para ir directo a una obra; filtra Inicio por 2D/3D y por imágenes, vídeos u otros, y al buscar desde Inicio solo se seleccionan los sitios filtrados |
 | Leer y ver | Cómics con desplazamiento, páginas o doble página; vídeos con episodios, velocidad y reanudación; novelas con tipografía, marcadores, notas y lectura en voz alta. Los tres lectores comparten los mismos controles |
 | Biblioteca | Favoritos con categorías y avisos de capítulos nuevos; suscríbete a creadores, canales o palabras clave |
-| Descargas | Pestaña propia en la navegación principal para gestionar descargas de cómics, vídeos, novelas y juegos; importa y exporta CBZ; exporta los capítulos de imágenes completados como PDF desde el menú de la obra, guardando solo el primer fotograma de las imágenes animadas |
+| Descargas | Pestaña propia en la navegación principal para gestionar descargas de cómics, vídeos, novelas y juegos; importa y exporta CBZ; exporta los capítulos de imágenes completados como PDF desde el menú de la obra, guardando solo el primer fotograma de las imágenes animadas; las exportaciones se hacen en segundo plano, las galerías largas se dividen en varios PDF y los archivos exportados se comparten o eliminan en Archivos exportados, en la página Descargas |
 | Recursos de juegos | Consulta la información, versiones y enlaces de descarga de juegos |
 | Traducción y filtros | Traduce títulos, descripciones y etiquetas; oculta obras por etiqueta |
 | Privacidad y copias | Bloqueo de la app, modo incógnito, portadas difuminadas, bloqueo de capturas; copia de favoritos, progreso y ajustes |

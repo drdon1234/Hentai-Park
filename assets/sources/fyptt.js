@@ -9,11 +9,11 @@ Park.register({
     "ru": {"竖屏短视频，支持连续播放和搜索": "Вертикальные видео с непрерывным просмотром и поиском"},
     "ar": {"竖屏短视频，支持连续播放和搜索": "مقاطع عمودية تدعم التشغيل المتواصل والبحث"},
   },
-  key: 'fyptt', name: 'Fyptt', version: '0.0.6', minAppVersion: '0.9.2', type: 'video', category: 'shortvideo',
+  key: 'fyptt', name: 'Fyptt', version: '0.0.7', minAppVersion: '0.9.2', type: 'video', category: 'shortvideo',
   color: '#F34468', description: '竖屏短视频，支持连续播放和搜索', language: 'en',
   homepage: 'https://fyptt.to/', domains: ['fyptt.to'], network: {mode: 'native', vpnHint: true},
   imageHeaders: {Referer: 'https://fyptt.to/'},
-  media: {mode: 'native', origin: 'https://fyptt.to', domains: ['stream.fyptt.to']},
+  media: {mode: 'native', scope: 'session', origin: 'https://fyptt.to', domains: ['stream.fyptt.to']},
   idPattern: '^[1-9]\\d{0,11}$', linkPatterns: ['fyptt\\.to/([1-9]\\d{0,11})/'],
   defaultFeed: 'latest', feeds: [{key: 'latest', label: '最新'}, {key: 'categories', label: '分类', options: [{key: 'category', label: '分类', default: '', dynamic: true, values: []}]}], searchHint: '搜索作品名或标签',
   BASE: 'https://fyptt.to',
@@ -103,9 +103,9 @@ Park.register({
   },
   mediaUrl(value) {
     try {
-      const u = new URL(value);
-      return u.protocol === 'https:' && u.hostname === 'stream.fyptt.to' && !u.port && !u.username && !u.password && !u.hash
-        && /\.(mp4|m3u8)$/i.test(u.pathname) ? u.href : null;
+      // 视频 CDN 会更换主机，按会话授权，只校验公网 HTTPS 与媒体路径。
+      const u = new URL(String(value).trim());
+      return Park.url.parse(u.href, u.href, [u.hostname]) && /\.(mp4|m3u8)$/i.test(u.pathname) ? u.href : null;
     } catch (_) { return null; }
   },
   async videos(id) {

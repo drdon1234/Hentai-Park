@@ -9,14 +9,14 @@ Park.register({
     "ru": {"站点年龄确认未自动完成，请重试": "Автоматическое подтверждение возраста не завершено. Повторите попытку.", "综合成人视频，支持推荐、搜索与多清晰度MP4；站点验证在后台处理": "Видео для взрослых: рекомендации, поиск и MP4 разного качества; проверка сайта в фоне"},
     "ar": {"站点年龄确认未自动完成，请重试": "لم يكتمل تأكيد العمر تلقائيًا. يرجى إعادة المحاولة.", "综合成人视频，支持推荐、搜索与多清晰度MP4；站点验证在后台处理": "فيديو للبالغين مع التوصيات والبحث وجودات MP4 متعددة؛ التحقق من الموقع في الخلفية"},
   },
-  key: 'spankbang', name: 'SpankBang', version: '0.0.9', minAppVersion: '0.9.2', type: 'video', category: 'adult',
+  key: 'spankbang', name: 'SpankBang', version: '0.0.10', minAppVersion: '0.9.2', type: 'video', category: 'adult',
   language: 'en', color: '#F99B1C', homepage: 'https://spankbang.com',
   description: '综合成人视频，支持推荐、搜索与多清晰度MP4；站点验证在后台处理',
   domains: ['spankbang.com'], network: {mode: 'browser', origin: 'https://spankbang.com', vpnHint: true, confirmation: {
     selector: '#av-wrapper', readySelector: '[data-testid="video-item"] a[href*="/video/"], #new-video-page',
     requiredCookies: ['av'], auto: {clickSelector: '#age-check-yes'}, message: '站点年龄确认未自动完成，请重试',
   }},
-  media: {mode: 'native', origin: 'https://spankbang.com', domains: ['sb-cd.com']},
+  media: {mode: 'native', scope: 'session', origin: 'https://spankbang.com', domains: ['sb-cd.com']},
   imageHeaders: {Referer: 'https://spankbang.com/'},
   defaultFeed: 'recommended', feeds: [{key: 'recommended', label: '推荐'},
     {key: 'categories', label: '分类', options: [
@@ -85,8 +85,9 @@ Park.register({
     return id;
   },
   siteUrl(value) { return Park.url.site(this, value); },
-  mediaUrl(value) { return Park.url.parse(value, this.BASE, this.media.domains)?.href || ''; },
-  coverUrl(value) { return Park.url.parse(value, this.BASE, this.media.domains)?.href || ''; },
+  // 图片与视频 CDN 会更换主机，只要求是公网 HTTPS 地址，播放按会话授权。
+  mediaUrl(value) { return ((value, base) => { try { const u = new URL(String(value).trim(), base); return Park.url.parse(u.href, base, [u.hostname]); } catch (_) { return null; } })(value, this.BASE)?.href || ''; },
+  coverUrl(value) { return this.mediaUrl(value); },
   async page(url) {
     if (!this.siteUrl(url)) throw Park.error('CONFIG', '视频列表地址无效');
     const r = this.http.ensureOk(await this.http.get(url));
@@ -107,7 +108,7 @@ Park.register({
       const u = this.siteUrl(a.getAttribute('href')), m = u && /^\/([a-z0-9]{1,12})\/video\/([^/]+)\/?$/.exec(u.pathname);
       const cover = this.coverUrl(img.getAttribute('data-src') || img.getAttribute('src'));
       const title = img.getAttribute('alt') || a.getAttribute('title');
-      if (!m || !cover || !title || seen.has(m[1])) continue;
+      if (!m || !title || seen.has(m[1])) continue;
       let id; try { id = this.idValue(m[1] + '/' + m[2]); } catch (_) { continue; }
       seen.add(m[1]); items.push({id, title, cover, url: u.href, coverAspect: 16/9});
     }

@@ -1,19 +1,20 @@
-/* SupJav FST: parse bounded strings without executing remote JavaScript. */
+/* SupJav: resolve the site's servers from declared page data without executing remote JavaScript. */
 Park.register({
   i18n: {
-    "zh-Hant": {"FST 播放线路暂不可用": "FST 播放線路暫不可用", "JAV 视频，支持热门、搜索与 FST 线路播放": "JAV 影片，支援熱門、搜尋與 FST 線路播放", "中文字幕": "中文字幕", "无码": "無碼", "此影片没有可用的 FST 线路": "此影片沒有可用的 FST 線路"},
-    "ja": {"FST 播放线路暂不可用": "FST サーバーは一時的に利用できません", "JAV 视频，支持热门、搜索与 FST 线路播放": "JAV 動画、人気作品・検索・FST 再生に対応", "中文字幕": "中国語字幕", "无码": "無修正", "此影片没有可用的 FST 线路": "利用可能な FST サーバーがありません"},
-    "ko": {"FST 播放线路暂不可用": "FST 서버를 일시적으로 사용할 수 없습니다", "JAV 视频，支持热门、搜索与 FST 线路播放": "인기 목록, 검색 및 FST 재생을 지원하는 JAV 동영상", "中文字幕": "중국어 자막", "无码": "무수정", "此影片没有可用的 FST 线路": "사용 가능한 FST 서버가 없습니다"},
-    "en": {"FST 播放线路暂不可用": "The FST server is temporarily unavailable", "JAV 视频，支持热门、搜索与 FST 线路播放": "JAV videos with popular feeds, search and FST playback", "中文字幕": "Chinese subtitles", "无码": "Uncensored", "此影片没有可用的 FST 线路": "This video has no available FST server"},
-    "es": {"FST 播放线路暂不可用": "El servidor FST no está disponible temporalmente", "JAV 视频，支持热门、搜索与 FST 线路播放": "Videos JAV con populares, búsqueda y reproducción FST", "中文字幕": "Subtítulos en chino", "无码": "Sin censura", "此影片没有可用的 FST 线路": "Este video no tiene un servidor FST disponible"},
-    "ru": {"FST 播放线路暂不可用": "Сервер FST временно недоступен", "JAV 视频，支持热门、搜索与 FST 线路播放": "JAV: популярное, поиск и воспроизведение FST", "中文字幕": "Китайские субтитры", "无码": "Без цензуры", "此影片没有可用的 FST 线路": "Для этого видео нет доступного сервера FST"},
-    "ar": {"FST 播放线路暂不可用": "خادم FST غير متاح مؤقتًا", "JAV 视频，支持热门、搜索与 FST 线路播放": "فيديوهات JAV مع قوائم شائعة وبحث وتشغيل FST", "中文字幕": "ترجمة صينية", "无码": "غير خاضع للرقابة", "此影片没有可用的 FST 线路": "لا يوجد خادم FST متاح لهذا الفيديو"},
+    "zh-Hant": {"JAV 视频，支持热门、搜索与多线路播放": "JAV 影片，支援熱門、搜尋與多線路播放", "中文字幕": "中文字幕", "无码": "無碼", "此影片没有可解析的播放线路": "此影片沒有可解析的播放線路", "播放线路暂不可用": "播放線路暫不可用"},
+    "ja": {"JAV 视频，支持热门、搜索与多线路播放": "JAV 動画、人気作品・検索・複数サーバー再生に対応", "中文字幕": "中国語字幕", "无码": "無修正", "此影片没有可解析的播放线路": "この動画には再生できるサーバーがありません", "播放线路暂不可用": "再生サーバーは一時的に利用できません"},
+    "ko": {"JAV 视频，支持热门、搜索与多线路播放": "인기 목록, 검색 및 다중 서버 재생을 지원하는 JAV 동영상", "中文字幕": "중국어 자막", "无码": "무수정", "此影片没有可解析的播放线路": "이 동영상에는 재생 가능한 서버가 없습니다", "播放线路暂不可用": "재생 서버를 일시적으로 사용할 수 없습니다"},
+    "en": {"JAV 视频，支持热门、搜索与多线路播放": "JAV videos with popular feeds, search and multi-server playback", "中文字幕": "Chinese subtitles", "无码": "Uncensored", "此影片没有可解析的播放线路": "This video has no playable server", "播放线路暂不可用": "The playback servers are temporarily unavailable"},
+    "es": {"JAV 视频，支持热门、搜索与多线路播放": "Videos JAV con populares, búsqueda y reproducción con varios servidores", "中文字幕": "Subtítulos en chino", "无码": "Sin censura", "此影片没有可解析的播放线路": "Este video no tiene un servidor reproducible", "播放线路暂不可用": "Los servidores de reproducción no están disponibles temporalmente"},
+    "ru": {"JAV 视频，支持热门、搜索与多线路播放": "JAV: популярное, поиск и воспроизведение с нескольких серверов", "中文字幕": "Китайские субтитры", "无码": "Без цензуры", "此影片没有可解析的播放线路": "Для этого видео нет доступного сервера", "播放线路暂不可用": "Серверы воспроизведения временно недоступны"},
+    "ar": {"JAV 视频，支持热门、搜索与多线路播放": "فيديوهات JAV مع قوائم شائعة وبحث وتشغيل من عدة خوادم", "中文字幕": "ترجمة صينية", "无码": "غير خاضع للرقابة", "此影片没有可解析的播放线路": "لا يوجد خادم تشغيل متاح لهذا الفيديو", "播放线路暂不可用": "خوادم التشغيل غير متاحة مؤقتًا"},
   },
-  key: 'supjav', name: 'SupJav', version: '0.0.9', minAppVersion: '0.9.2', type: 'video', category: 'jav', color: '#F59E0B',
-  description: 'JAV 视频，支持热门、搜索与 FST 线路播放',
-  homepage: 'https://supjav.com', domains: ['supjav.com', 'lk1.supremejav.com', 'fc2stream.tv'], language: 'zh',
+  key: 'supjav', name: 'SupJav', version: '0.0.11', minAppVersion: '0.9.2', type: 'video', category: 'jav', color: '#F59E0B',
+  description: 'JAV 视频，支持热门、搜索与多线路播放',
+  homepage: 'https://supjav.com', domains: ['supjav.com', 'lk1.supremejav.com'], language: 'zh',
   network: {mode: 'browser', origin: 'https://supjav.com', vpnHint: true},
-  media: {mode: 'native', origin: 'https://fc2stream.tv', domains: ['cdn-centaurus.com', 'premilkyway.com']},
+  // 各线路的播放页与 CDN 都会更换主机，媒体按本次解析结果授权。
+  media: {mode: 'native', scope: 'session', origin: 'https://supjav.com'},
   imageHeaders: {Referer: 'https://supjav.com/'},
   linkPatterns: ['supjav\\.com/(?:(?:zh|en|ja)/)?([0-9]{1,12})\\.html(?:[?#]|$)'],
   idPattern: '^[0-9]{1,12}$', idExample: '455086',
@@ -171,7 +172,10 @@ Park.register({
       if (!tags.some(t => t.filters.category === m[1])) tags.push({name, keyword: '', filters: {category: m[1]}});
     }
     const editionTags = [...doc.querySelectorAll('.post-meta .cats a[href]')].map(a => a.getAttribute('href') || '').join(' ');
-    return {id, title, cover: img ? img.getAttribute('src') : '', coverAspect: 16/9, url: this.BASE + '/zh/' + id + '.html', authors,
+    // 分段影片按 CD 顺序给出各自的线路组。
+    const parts = doc.querySelectorAll('.cd-server').length;
+    const chapters = parts > 1 ? Array.from({length: Math.min(parts, 99)}, (_, i) => ({id: String(i + 1), title: 'CD ' + (i + 1)})) : null;
+    return {id, title, cover: img ? img.getAttribute('src') : '', coverAspect: 16/9, url: this.BASE + '/zh/' + id + '.html', authors, chapters,
       ...this.identity(title, editionTags), variants: this.variants(doc, id, title),
       tags: tags.length ? [{namespace: 'tag', label: '标签', tags}] : [], related: this.cards(doc).filter(i => i.id !== id)};
   },
@@ -190,26 +194,119 @@ Park.register({
     }
     return out;
   },
-  async videos(id) {
-    const {doc} = await this.getPage('/zh/' + this.validId(id) + '.html');
-    const server = [...doc.querySelectorAll('a.btn-server[data-link]')].find(a => Park.html.text(a) === 'FST');
-    const token = server && server.getAttribute('data-link');
-    if (!/^[a-zA-Z0-9]{32,512}$/.test(token || '')) throw Park.error('UNSUPPORTED', '此影片没有可用的 FST 线路');
-    const response = await this.http.get('https://lk1.supremejav.com/supjav.php', {
-      mode: 'native', params: {l: token}, headers: {Referer: this.BASE + '/'}});
-    // Only the verified FST origin can supply media and its Referer. No eval or iframe execution.
-    if (!/^https:\/\/fc2stream\.tv\/[^\s]*$/.test(response.url || '') || !response.ok) throw Park.error('UNSUPPORTED', 'FST 播放线路暂不可用');
-    const playerUrl = response.url.split('#')[0];
-    // Native redirects deliberately drop cross-origin Referer. Once the FST
-    // destination is validated, request that page explicitly with its required header.
-    const player = await this.http.get(playerUrl, {mode: 'native', headers: {Referer: this.BASE + '/'}});
-    if (!player.ok || !/^https:\/\/fc2stream\.tv\/[^\s]*$/.test(player.url || '')) throw Park.error('UNSUPPORTED', 'FST 播放线路暂不可用');
-    for (const payload of this.packedMedia(player.body)) {
-      const m = /https:\/\/(?:[a-z0-9-]+\.)*(?:cdn-centaurus\.com|premilkyway\.com)\/[^'"\s\\]+\.m3u8(?:\?[^'"\s\\]*)?/.exec(payload);
-      if (m) return [{url: m[0], quality: Number(this.config.quality) || 1080, format: 'hls', preferred: true,
-        headers: {Referer: player.url.split('#')[0], Origin: 'https://fc2stream.tv'}}];
+  // 依次为按实测可用性排序的线路；ST 的直链令牌需执行页面脚本拼接，不解析。
+  LINES: ['VAS', 'EVS', 'FST', 'LUC', 'VOE'],
+  // 各线路的播放页与 CDN 主机会轮换，只校验公网 HTTPS 与路径形态。
+  publicUrl(value, base, path) {
+    let url;
+    try { url = new URL(String(value || '').trim(), base); } catch (_) { return null; }
+    const parsed = Park.url.parse(url.href, base, [url.hostname]);
+    return parsed && path.test(parsed.pathname) ? parsed : null;
+  },
+  async linePage(url, options = {}) {
+    const response = await this.http.request({url, mode: 'native', timeout: 20000, ...options});
+    if (!response.ok || response.body.length > 4 * 1024 * 1024) throw Park.error('UNSUPPORTED', '播放线路暂不可用');
+    return response;
+  },
+  // 跳转页声明 OLID 并以其倒序请求 ?c=，原站据此 302 到线路播放页。
+  async embed(token) {
+    const resolver = 'https://lk1.supremejav.com/supjav.php?l=' + token;
+    const {body} = await this.linePage(resolver, {headers: {Referer: this.BASE + '/'}});
+    const olid = /var\s+OLID\s*=\s*'([a-zA-Z0-9]{32,512})'\s*;\s*OLID\s*=\s*OLID\.split\(''\)\.reverse\(\)\.join\(''\)/.exec(body);
+    if (!olid || !/src="\?c='\s*\+\s*OLID/.test(body)) throw Park.error('UNSUPPORTED', '播放线路暂不可用');
+    const jump = await this.http.request({url: 'https://lk1.supremejav.com/supjav.php?c=' + olid[1].split('').reverse().join(''),
+      mode: 'native', followRedirects: false, timeout: 20000, headers: {Referer: resolver}});
+    const target = jump.status >= 300 && jump.status < 400 &&
+      this.publicUrl(jump.headers.location, resolver, /^\/(?:e|embed)\/[a-zA-Z0-9]{6,64}\/?$/);
+    if (!target) throw Park.error('UNSUPPORTED', '播放线路暂不可用');
+    return target;
+  },
+  // VOE 播放页把配置 JSON 编码在 application/json 数据块中，只做固定的文本变换后解析。
+  voeConfig(html) {
+    const m = /<script type="application\/json">\s*(\["[^"<]{16,1048576}"\])\s*<\/script>/.exec(html);
+    if (!m) return null;
+    try {
+      let value = JSON.parse(m[1])[0].replace(/[a-zA-Z]/g, c => {
+        const base = c <= 'Z' ? 65 : 97;
+        return String.fromCharCode((c.charCodeAt(0) - base + 13) % 26 + base);
+      });
+      for (const mark of ['@$', '^^', '~@', '%?', '*~', '!!', '#&']) value = value.split(mark).join('');
+      value = [...atob(value)].map(c => String.fromCharCode(c.charCodeAt(0) - 3)).reverse().join('');
+      return JSON.parse(atob(value));
+    } catch (_) { return null; }
+  },
+  // 返回该线路声明的 HLS 清单地址。
+  async line(name, token) {
+    const embed = await this.embed(token), m3u8 = /\.m3u8$/;
+    const headers = {Referer: 'https://lk1.supremejav.com/'};
+    if (name === 'VAS') {
+      // 播放页脚本以文件编号向同源 /api/stream 查询播放地址。
+      const response = await this.linePage(embed.origin + '/api/stream', {method: 'POST', headers: {Referer: embed.href},
+        json: {filecode: embed.pathname.split('/')[2], device: 'android', codecs: []}});
+      let data = null;
+      try { data = JSON.parse(response.body); } catch (_) { /* 结构变化按线路不可用处理。 */ }
+      return [this.publicUrl(data && data.streaming_url, embed.href, m3u8)];
     }
-    throw Park.error('UNSUPPORTED', '此影片没有可用的 HLS 清晰度');
+    let page = await this.linePage(embed.href, {headers});
+    if (name === 'VOE') {
+      let config = this.voeConfig(page.body);
+      if (!config) {
+        // 入口页只声明跳转到当前播放域名的地址。
+        const next = [...page.body.matchAll(/window\.location\.href\s*=\s*'([^'\s]{1,512})'/g)]
+          .map(m => this.publicUrl(m[1], page.url, /^\/e\/[a-zA-Z0-9]{6,64}\/?$/)).find(Boolean);
+        if (!next) return [];
+        page = await this.linePage(next.href, {headers});
+        config = this.voeConfig(page.body);
+      }
+      return [this.publicUrl(config && config.source, page.url, m3u8)];
+    }
+    // FST、EVS、LUC 的播放器配置以 packer 字典压缩，只做字典替换后读取绝对清单地址。
+    const urls = [];
+    for (const payload of this.packedMedia(page.body)) {
+      for (const m of payload.matchAll(/https:\/\/[^'"\s\\]+?\.m3u8(?:\?[^'"\s\\]*)?/g)) urls.push(this.publicUrl(m[0], page.url, m3u8));
+    }
+    return urls.slice(0, 4);
+  },
+  // \u4E3B\u6E05\u5355\u53EF\u8BFB\u4E0D\u4EE3\u8868\u7EBF\u8DEF\u53EF\u64AD\uFF08\u5982\u4E0B\u7EBF\u7684 FST \u5206\u6BB5\u8FD4\u56DE 404\uFF09\uFF0C\u4F9D\u6B21\u786E\u8BA4\u9996\u4E2A\u5206\u6BB5\u6E05\u5355\u4E0E\u9996\u4E2A\u5206\u6BB5\u3002
+  async playable(url) {
+    const read = async target => {
+      const response = await this.http.request({url: target, mode: 'native', timeout: 15000});
+      return response.ok && /^\uFEFF?#EXTM3U/.test(response.body) ? response.body : '';
+    };
+    const uri = text => text.split('\n').map(line => line.trim()).find(line => line && !line.startsWith('#'));
+    let playlist = url, text = await read(url);
+    if (/#EXT-X-STREAM-INF/.test(text)) text = await read(playlist = new URL(uri(text), playlist).href);
+    const segment = /#EXTINF/.test(text) && uri(text);
+    if (!segment) return null;
+    const response = await this.http.request({url: new URL(segment, playlist).href, mode: 'native', timeout: 15000,
+      headers: {Range: 'bytes=0-15'}, responseType: 'base64'});
+    return response.status === 200 || response.status === 206 ? url : null;
+  },
+  async videos(id, episodeId = '_') {
+    const {doc} = await this.getPage('/zh/' + this.validId(id) + '.html');
+    // 分段影片的每个 .cd-server 是一组线路，与详情中的 CD 序号对应。
+    const parts = [...doc.querySelectorAll('.cd-server')];
+    const part = episodeId === '_' ? 1 : /^[1-9][0-9]?$/.test(String(episodeId)) ? Number(episodeId) : 0;
+    const scope = parts.length ? parts[part - 1] : part === 1 ? doc : null;
+    if (!scope) throw Park.error('NOT_FOUND', '影片不存在');
+    const tokens = new Map();
+    for (const a of scope.querySelectorAll('a.btn-server[data-link]')) {
+      const name = Park.html.text(a), token = a.getAttribute('data-link') || '';
+      if (this.LINES.includes(name) && /^[a-zA-Z0-9]{32,512}$/.test(token) && !tokens.has(name)) tokens.set(name, token);
+    }
+    if (!tokens.size) throw Park.error('UNSUPPORTED', '此影片没有可解析的播放线路');
+    // 并行解析各线路并确认清单可读；可用的线路按顺序作为同一线路的镜像返回，首选失败时应用自动切换。
+    // 最多等待 12 秒收集结果，避免个别线路拖慢播放；届时仍无可用线路才等待全部完成。
+    const names = this.LINES.filter(name => tokens.has(name)), found = names.map(() => []);
+    const tasks = names.map((name, i) => this.line(name, tokens.get(name))
+      .then(urls => Promise.all(urls.filter(Boolean).map(url => this.playable(url.href).catch(() => null))), () => [])
+      .then(urls => { found[i] = urls.filter(Boolean); }));
+    await Promise.race([Promise.all(tasks), new Promise(resolve => setTimeout(resolve, 12000))]);
+    if (!found.some(urls => urls.length)) await Promise.all(tasks);
+    const urls = [...new Set(found.flat())];
+    if (!urls.length) throw Park.error('UNSUPPORTED', '播放线路暂不可用');
+    const quality = Number(this.config.quality) || 1080;
+    return urls.map((url, i) => ({url, quality, format: 'hls', preferred: i === 0}));
   },
 });
 

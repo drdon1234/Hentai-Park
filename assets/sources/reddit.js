@@ -48,8 +48,12 @@
     if(!r.ok)throw Park.error('HTTP',FAIL,{status:r.status});
     try{return r.json();}catch{throw Park.error('PARSE',FAIL);}
   }
+  // Cookie 会话只能用 /api/me.json 识别账号；/api/v1/me 仅接受 OAuth 令牌。
+  async function me(source){const d=await json(source,'/api/me.json');return d?.data?.name?d.data:null;}
   async function post(source,path,form){
-    const r=await source.http.post(API+path,{form,headers:{Accept:'application/json'}});
+    const account=await me(source);
+    if(!account?.modhash)throw Park.error('LOGIN_REQUIRED','Reddit 登录信息无效，请重新登录');
+    const r=await source.http.post(API+path,{form:{...form,uh:account.modhash},headers:{Accept:'application/json','X-Modhash':account.modhash}});
     if(r.status===401||r.status===403)throw Park.error('LOGIN_REQUIRED','Reddit 登录信息无效，请重新登录');
     if(!r.ok)throw Park.error('AUTH','Reddit 操作未成功，请重试');
     return r;
@@ -95,7 +99,7 @@
   async function joined(source){logged(source);const d=await json(source,'/subreddits/mine/subscriber.json',{params:{limit:100}});return (d?.data?.children||[]).map(x=>({id:String(x.data?.display_name||'').toLowerCase(),label:'r/'+(x.data?.display_name||'')})).filter(x=>x.id);}
   Park.register({
     i18n:{'zh-Hant':{'请先登录 Reddit':'請先登入 Reddit','Reddit 登录信息无效，请重新登录':'Reddit 登入資訊無效，請重新登入','Reddit 推荐、社区浏览与已加入社区':'Reddit 推薦、社群瀏覽與已加入社群'},ja:{'请先登录 Reddit':'Reddit にログインしてください'},ko:{'请先登录 Reddit':'Reddit에 로그인하세요'},en:{'请先登录 Reddit':'Sign in to Reddit first'},es:{'请先登录 Reddit':'Inicia sesión en Reddit primero'},ru:{'请先登录 Reddit':'Сначала войдите в Reddit'},ar:{'请先登录 Reddit':'سجّل الدخول إلى Reddit أولاً'}},
-    key:'reddit',name:'Reddit',version: '0.0.6', minAppVersion: '0.9.2',postShortVideos:true,type:'comic',category:'other',homepage:HOME,domains:['reddit.com','www.reddit.com','old.reddit.com','accounts.reddit.com','oauth.reddit.com'],network:{vpnHint:true},media:{mode:'native',origin:HOME,domains:['v.redd.it','external-preview.redd.it','preview.redd.it','i.redd.it','redgifs.com'],referrerDomains:['redgifs.com']},description:'Reddit 推荐、社区浏览与已加入社区',idExample:'r/AskReddit',defaultFeed:'recommended',feeds:[{key:'recommended',label:'推荐'},{key:'popular',label:'热门'}],
+    key:'reddit',name:'Reddit',version: '0.0.7', minAppVersion: '0.9.2',postShortVideos:true,type:'comic',category:'other',homepage:HOME,domains:['reddit.com','www.reddit.com','old.reddit.com','accounts.reddit.com','oauth.reddit.com'],network:{vpnHint:true},media:{mode:'native',origin:HOME,domains:['v.redd.it','external-preview.redd.it','preview.redd.it','i.redd.it','redgifs.com'],referrerDomains:['redgifs.com']},description:'Reddit 推荐、社区浏览与已加入社区',idExample:'r/AskReddit',defaultFeed:'recommended',feeds:[{key:'recommended',label:'推荐'},{key:'popular',label:'热门'}],
     async feed(key,req={}){logged(this);if(!['recommended','popular'].includes(key))throw Park.error('CONFIG','未知推荐列表');const path=key==='popular'?'/r/popular/hot.json':'/best.json';return listing(await json(this,path,{params:{limit:25,after:req.cursor||undefined}}),{id:'推荐'});},
     async search(req={}){logged(this);const q=String(req.keyword||'').trim();if(!q)return {items:[],page:1,hasNext:false};return listing(await json(this,'/search.json',{params:{q,limit:25,after:req.cursor||undefined,sort:'relevance',restrict_sr:false}}),{id:'搜索'});},
     async detail(id){logged(this);const d=await json(this,'/comments/'+encodeURIComponent(String(id))+'.json',{params:{limit:1}});const p=d?.[0]?.data?.children?.[0]?.data;const target=normalize(p?.subreddit_name_prefixed||'r/unknown');const w=work(p,target);if(!w)throw Park.error('NOT_FOUND','内容不存在或已被删除');return {...w,description:w.text,chapters:[]};},
@@ -111,7 +115,7 @@
       if(!video?.url)throw Park.error('UNSUPPORTED','此影片暂无可用播放地址');
       return [{url:video.url,format:video.format||'mp4',preferred:true}];
     },
-    account:{type:'cookies',title:'登录 Reddit',hint:'请在 Reddit 页面完成登录；需允许第三方 OAuth 页面和回调。',loginUrl:HOME+'/login/',loginDomains:['reddit.com','www.reddit.com','old.reddit.com','accounts.reddit.com','oauth.reddit.com','accounts.google.com','appleid.apple.com','account.apple.com'],cookieUrl:HOME+'/',required:true,requiredCookies:['reddit_session'],fields:[{key:'reddit_session',label:'reddit_session',secret:true}],async login(values){await this.cookies.set(HOME+'/',{reddit_session:values.reddit_session});try{const d=await json(this,'/api/v1/me.json');if(!d?.name)throw Park.error('LOGIN_REQUIRED','Reddit 登录信息无效，请重新登录');this.store.set('account',{name:uName(d)});return {name:uName(d)};}catch(e){await this.cookies.clear(HOME+'/');throw e;}},async logout(){await this.cookies.clear(HOME+'/');this.store.set('account',null);},status(){const a=this.store.get('account');return {loggedIn:!!a,name:a?.name||''};}},
+    account:{type:'cookies',title:'登录 Reddit',hint:'请在 Reddit 页面完成登录；需允许第三方 OAuth 页面和回调。',loginUrl:HOME+'/login/',loginDomains:['reddit.com','www.reddit.com','old.reddit.com','accounts.reddit.com','oauth.reddit.com','accounts.google.com','appleid.apple.com','account.apple.com'],cookieUrl:HOME+'/',required:true,requiredCookies:['reddit_session'],fields:[{key:'reddit_session',label:'reddit_session',secret:true}],async login(values){await this.cookies.set(HOME+'/',{reddit_session:values.reddit_session});try{const d=await me(this);if(!d)throw Park.error('LOGIN_REQUIRED','Reddit 登录信息无效，请重新登录');this.store.set('account',{name:d.name});return {name:d.name};}catch(e){await this.cookies.clear(HOME+'/');throw e;}},async logout(){await this.cookies.clear(HOME+'/');this.store.set('account',null);},status(){const a=this.store.get('account');return {loggedIn:!!a,name:a?.name||''};}},
     subscription:{hint:'必须先登录 Reddit；输入 r/xxx 后会加入该社区。',normalize,async targets(){return joined(this);},async resolve(input){logged(this);const t=normalize(input);const s=await subreddit(this,t);await post(this,'/api/subscribe',{action:'sub',skip_initial_defaults:'true',sr:s.name||s.id});return {id:t.id,label:'r/'+(s.display_name||t.id)};},async posts(input,options){logged(this);const t=normalize(input);await subreddit(this,t);return listing(await json(this,'/r/'+t.id+'/new.json',{params:{limit:25,after:options?.cursor||undefined}}),t);},async media(scope,options={}){
       const result=scope.target
         ?await this.subscription.posts.call(this,scope.target,options)
@@ -119,5 +123,4 @@
       return {...result,items:result.items.map(p=>({...p,presentation:'post'}))};
     }}
   });
-  function uName(d){return d?.name||d?.subreddit?.display_name||'Reddit';}
 })();

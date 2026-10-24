@@ -49,10 +49,11 @@
           u.searchParams.get('mod') === 'post' && u.searchParams.get('action') === 'reply');
     } catch (_) { return false; }
   };
+  const nonGameText = value => /(?:\[|【|^|（|\()\s*(?:AI\s*)?(?:漫画|插画|图集|画集|小说|轻小说|壁纸|写真|摄影|COS|MMD|动画)(?:\]|】|）|\)|\s|$)/i.test(String(value || ''));
+  const gameText = value => /\b(?:RPG|SLG|ADV|ACT|ARPG|AVG|STG|VN|GALGAME|PC)\b|游戏|汉化|官中|新游|Steam|Windows|安卓版|游戏资源/i.test(String(value || ''));
   const checkGame = doc => {
-    if (!Array.from(doc.querySelectorAll('header a[href], .postlist a[href], .postlist input[href]')).some(a => gameForum(a.getAttribute('href')))) {
-      throw Park.error('NOT_FOUND', '该帖子不属于游戏资源区');
-    }
+    const title = titleOf(doc), body = bodyOf(doc), content = title + ' ' + text(body);
+    if (nonGameText(title) || nonGameText(text(body)) || (!Array.from(doc.querySelectorAll('header a[href], .postlist a[href], .postlist input[href]')).some(a => gameForum(a.getAttribute('href'))) && !gameText(content))) throw Park.error('NOT_FOUND', '该帖子不属于游戏资源区');
   };
   const coverOf = node => {
     for (const img of node?.querySelectorAll('img') || []) {
@@ -63,8 +64,9 @@
   };
   const rowsOf = doc => {
     const rows = [], seen = new Set();
-    for (const row of doc.querySelectorAll('.threadlist li')) {
-      for (const a of row.querySelectorAll('a[href]')) {
+    for (const row of doc.querySelectorAll('.threadlist li, #threadlist li.pbw')) {
+      const anchors = Array.from(row.querySelectorAll('h3 a[href], a[href]'));
+      for (const a of anchors) {
         let id;
         try {
           const u = sameSite(a.getAttribute('href'));
@@ -76,13 +78,23 @@
         const titleNode = a.cloneNode(true);
         titleNode.querySelectorAll('.by, .num, .icon, img').forEach(n => n.remove());
         const title = text(titleNode);
-        if (!/^(?:【(?:汉化|生肉)|\[(?:汉化|生肉))/.test(title) || seen.has(id)) continue;
+        const summary = text(Array.from(row.querySelectorAll('p')).find(p => !p.classList.contains('xg1')) || row.querySelector('.by'));
+        if (nonGameText(title) || !gameText(title + ' ' + summary) || seen.has(id)) continue;
         seen.add(id);
-        rows.push({id, title, cover: coverOf(row), subtitle: text(row.querySelector('.by'))});
+        rows.push({id, title, cover: coverOf(row), subtitle: summary || text(row.querySelector('.by'))});
         break;
       }
     }
     return rows;
+  };
+  const replyUrlOf = (value, id) => {
+    const u = mobileUrl(value);
+    const allowed = ['mod', 'action', 'fid', 'tid', 'replysubmit', 'mobile'];
+    if (u.pathname !== '/forum.php' || u.searchParams.get('mod') !== 'post' || u.searchParams.get('action') !== 'reply' ||
+        u.searchParams.get('tid') !== id || !/^[1-9]\d*$/.test(u.searchParams.get('fid') || '') ||
+        Array.from(u.searchParams.keys()).some(k => !allowed.includes(k)) ||
+        Array.from(u.searchParams.keys()).some(k => u.searchParams.getAll(k).length !== 1)) throw Park.error('PARSE', '站点表单地址无效');
+    return u;
   };
   const cursorUrl = (value, search = false, firstPage = false) => {
     const u = mobileUrl(value);
@@ -166,7 +178,7 @@
       "ru": {"115网盘": "115 Drive", "123云盘": "123 Cloud", "UC网盘": "UC Drive", "回复结果待确认，请在原帖检查，应用不会重复发送": "Результат ответа неизвестен. Проверьте публикацию; приложение не отправит ответ повторно.", "在打开的网页中登录，看到账号或退出按钮后点击完成；若已是正常资源页，无需寻找人机验证。点击回复解锁会发送“感谢分享，好人一生平安”": "Войдите на открытой странице и нажмите «Готово», когда появится аккаунт или кнопка выхода. На обычной странице ресурсов дополнительная проверка не нужна. Разблокировка ответом отправляет «感谢分享，好人一生平安».", "天翼云盘": "Tianyi Cloud", "夸克网盘": "Quark Drive", "帖子分享": "Ссылки публикации", "帖子未提供可读取的网盘链接": "Не удалось прочитать публикацию или форму. Проверьте исходную страницу и повторите.", "帖子编号无效": "Не удалось прочитать публикацию или форму. Проверьте исходную страницу и повторите.", "搜索分页无效": "Не удалось прочитать публикацию или форму. Проверьте исходную страницу и повторите.", "搜索结果无法读取": "Не удалось прочитать публикацию или форму. Проверьте исходную страницу и повторите.", "搜索表单无法读取": "Не удалось прочитать публикацию или форму. Проверьте исходную страницу и повторите.", "次元茶馆": "Чайная измерений", "次元茶馆账号": "Аккаунт чайной", "游戏列表无法读取": "Не удалось прочитать публикацию или форму. Проверьте исходную страницу и повторите.", "游戏帖子首楼无法读取": "Не удалось прочитать публикацию или форму. Проверьте исходную страницу и повторите.", "社区游戏分享，登录后按需回复解锁网盘资源": "Игры сообщества: войдите и ответьте для доступа к облачным ссылкам", "站点表单地址无效": "Не удалось прочитать публикацию или форму. Проверьте исходную страницу и повторите.", "网盘提取码不一致，请检查原帖": "Не удалось прочитать публикацию или форму. Проверьте исходную страницу и повторите.", "若已看到正常页面，请点击完成；如资源仍被隐藏，请在原帖或回复页完成验证与回复，再返回重试": "Если видна обычная страница, нажмите «Готово». Если ресурсы скрыты, пройдите проверку и ответьте в исходной теме или на странице ответа, затем повторите попытку", "蓝奏云": "Lanzou Cloud", "该帖子不属于游戏资源区": "Не удалось прочитать публикацию или форму. Проверьте исходную страницу и повторите.", "请在回复页完成验证并手动回复，返回后重试读取资源": "Пройдите проверку и ответьте вручную на странице ответа, затем вернитесь и повторите загрузку ресурсов", "请在应用内登录次元茶馆": "Войдите в чайную через приложение", "请在站点页面完成搜索验证后重试": "Пройдите проверку поиска на сайте и повторите", "资源权限已改变，请刷新资源列表": "Не удалось прочитать публикацию или форму. Проверьте исходную страницу и повторите.", "资源编号无效": "Не удалось прочитать публикацию или форму. Проверьте исходную страницу и повторите.", "迅雷云盘": "Xunlei Drive"},
       "ar": {"115网盘": "115 Drive", "123云盘": "123 Cloud", "UC网盘": "UC Drive", "回复结果待确认，请在原帖检查，应用不会重复发送": "نتيجة الرد غير مؤكدة. راجع المنشور الأصلي؛ لن يرسل التطبيق الرد مرة أخرى.", "在打开的网页中登录，看到账号或退出按钮后点击完成；若已是正常资源页，无需寻找人机验证。点击回复解锁会发送“感谢分享，好人一生平安”": "سجّل الدخول في الصفحة المفتوحة واضغط تم عند ظهور الحساب أو زر الخروج. صفحة الموارد العادية لا تحتاج إلى تحقق إضافي. الرد لفتح الموارد يرسل “感谢分享，好人一生平安”.", "天翼云盘": "Tianyi Cloud", "夸克网盘": "Quark Drive", "帖子分享": "روابط المنشور", "帖子未提供可读取的网盘链接": "تعذر قراءة منشور اللعبة أو النموذج. تحقق من الصفحة الأصلية وأعد المحاولة.", "帖子编号无效": "تعذر قراءة منشور اللعبة أو النموذج. تحقق من الصفحة الأصلية وأعد المحاولة.", "搜索分页无效": "تعذر قراءة منشور اللعبة أو النموذج. تحقق من الصفحة الأصلية وأعد المحاولة.", "搜索结果无法读取": "تعذر قراءة منشور اللعبة أو النموذج. تحقق من الصفحة الأصلية وأعد المحاولة.", "搜索表单无法读取": "تعذر قراءة منشور اللعبة أو النموذج. تحقق من الصفحة الأصلية وأعد المحاولة.", "次元茶馆": "مقهى الأبعاد", "次元茶馆账号": "حساب المقهى", "游戏列表无法读取": "تعذر قراءة منشور اللعبة أو النموذج. تحقق من الصفحة الأصلية وأعد المحاولة.", "游戏帖子首楼无法读取": "تعذر قراءة منشور اللعبة أو النموذج. تحقق من الصفحة الأصلية وأعد المحاولة.", "社区游戏分享，登录后按需回复解锁网盘资源": "ألعاب المجتمع؛ سجّل الدخول ورد لفتح الروابط السحابية", "站点表单地址无效": "تعذر قراءة منشور اللعبة أو النموذج. تحقق من الصفحة الأصلية وأعد المحاولة.", "网盘提取码不一致，请检查原帖": "تعذر قراءة منشور اللعبة أو النموذج. تحقق من الصفحة الأصلية وأعد المحاولة.", "若已看到正常页面，请点击完成；如资源仍被隐藏，请在原帖或回复页完成验证与回复，再返回重试": "إذا ظهرت الصفحة العادية، اضغط تم. إذا بقيت الموارد مخفية، أكمل التحقق والرد في الموضوع الأصلي أو صفحة الرد ثم أعد المحاولة", "蓝奏云": "Lanzou Cloud", "该帖子不属于游戏资源区": "تعذر قراءة منشور اللعبة أو النموذج. تحقق من الصفحة الأصلية وأعد المحاولة.", "请在回复页完成验证并手动回复，返回后重试读取资源": "أكمل التحقق وأرسل الرد يدوياً في صفحة الرد، ثم عد وأعد تحميل الموارد", "请在应用内登录次元茶馆": "سجّل الدخول إلى المقهى داخل التطبيق", "请在站点页面完成搜索验证后重试": "أكمل التحقق من البحث في الموقع وأعد المحاولة", "资源权限已改变，请刷新资源列表": "تعذر قراءة منشور اللعبة أو النموذج. تحقق من الصفحة الأصلية وأعد المحاولة.", "资源编号无效": "تعذر قراءة منشور اللعبة أو النموذج. تحقق من الصفحة الأصلية وأعد المحاولة.", "迅雷云盘": "Xunlei Drive"},
     },
-    key: 'cycg', name: '次元茶馆', version: '0.0.9', minAppVersion: '0.9.2', type: 'game', category: 'game', language: 'zh', color: '#BD916B',
+    key: 'cycg', name: '次元茶馆', version: '0.0.10', minAppVersion: '0.9.2', type: 'game', category: 'game', language: 'zh', color: '#BD916B',
     homepage: BASE, domains: ['cycg.xyz'], icon: BASE + '/favicon.ico',
     description: '社区游戏分享，登录后按需回复解锁网盘资源',
     network: {mode: 'browser', origin: BASE, vpnHint: true},
@@ -235,7 +247,7 @@
         url = BASE + '/';
       } else url = BASE + '/forum.php?mod=forumdisplay&fid=2&page=' + page + (key === 'latest' ? '&orderby=dateline' : '&filter=heat&orderby=heats');
       const doc = await this.page(url);
-      if (!doc.querySelector('.threadlist')) throw Park.error('PARSE', '游戏列表无法读取');
+      if (!doc.querySelector('.threadlist, #threadlist')) throw Park.error('PARSE', '游戏列表无法读取');
       const next = nextOf(doc, Number(new URL(url).searchParams.get('page')) || page);
       return {items: await this.hydrate(rowsOf(doc)), page, hasNext: !!next, cursor: next};
     },
@@ -258,7 +270,7 @@
         const action = mobileUrl(form.getAttribute('action'));
         if (action.pathname !== '/search.php' || action.searchParams.get('mod') !== 'forum') throw Park.error('PARSE', '站点表单地址无效');
         doc = await this.page(action.href, {method: 'POST', form: {
-          formhash: hash, srchtxt: String(keyword).trim(), 'srchfid[]': '2', srchfilter: 'all', searchsubmit: 'yes', orderby: 'lastpost', ascdesc: 'desc',
+          formhash: hash, srchtxt: String(keyword).trim(), srchfilter: 'all', searchsubmit: 'yes', orderby: 'lastpost', ascdesc: 'desc',
         }});
         const redirect = doc.querySelector('#messagetext a[href*="searchid="]')?.getAttribute('href');
         if (redirect) {
@@ -269,7 +281,7 @@
       if (doc.querySelector('[name^="secqa"],[name^="seccode"]') || /验证问答|验证码/.test(text(doc.querySelector('#messagetext')))) {
         throw Park.error('CONFIRM_REQUIRED', '请在站点页面完成搜索验证后重试', {url: BASE + '/search.php?mod=forum&mobile=2&srchtxt=' + encodeURIComponent(String(keyword)) + '&searchsubmit=yes'});
       }
-      if (!doc.querySelector('.threadlist')) {
+      if (!doc.querySelector('.threadlist, #threadlist')) {
         if (/登录/.test(text(doc.querySelector('#messagetext')))) throw Park.error('LOGIN_REQUIRED', '请在应用内登录次元茶馆');
         if (!/没有找到|未找到|相关内容 0|相关内容.*0 个/.test(text(doc))) throw Park.error('PARSE', '搜索结果无法读取');
       }
@@ -316,13 +328,14 @@
         const accountId = accountIdOf(doc);
         const attemptKey = accountId + ':' + id;
         if (attempts[attemptKey]) throw confirm();
-        const replyUrl = BASE + '/forum.php?mod=post&action=reply&fid=2&tid=' + id + '&mobile=2';
-        const verifyReply = () => Park.error('CONFIRM_REQUIRED', '请在回复页完成验证并手动回复，返回后重试读取资源', {url: replyUrl});
+        const replyLink = body.querySelector('a[href*="action=reply"]');
+        const replyUrl = replyUrlOf(replyLink?.getAttribute('href') || '', id);
+        const verifyReply = () => Park.error('CONFIRM_REQUIRED', '请在回复页完成验证并手动回复，返回后重试读取资源', {url: replyUrl.href});
         // Touch reply pages omit the account footer; identity comes from the thread, not its author.
-        const reply = await this.page(replyUrl, undefined, false), form = reply.querySelector('#postform');
+        const reply = await this.page(replyUrl.href, undefined, false), form = reply.querySelector('#postform');
         if (!form) throw verifyReply();
-        const action = mobileUrl(form.getAttribute('action'));
-        if (action.pathname !== '/forum.php' || action.searchParams.get('mod') !== 'post' || action.searchParams.get('action') !== 'reply' || action.searchParams.get('tid') !== id || action.searchParams.get('fid') !== '2') throw Park.error('PARSE', '站点表单地址无效');
+        const action = replyUrlOf(form.getAttribute('action'), id);
+        if (action.searchParams.get('fid') !== replyUrl.searchParams.get('fid')) throw Park.error('PARSE', '站点表单地址无效');
         const values = {};
         for (const name of ['formhash', 'posttime', 'noticeauthor', 'noticetrimstr', 'noticeauthormsg', 'subject']) {
           const input = form.querySelector(`[name="${name}"]`);
