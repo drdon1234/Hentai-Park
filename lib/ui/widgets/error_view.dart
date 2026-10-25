@@ -5,6 +5,7 @@ import '../../core/models.dart';
 import '../../engine/source_manager.dart';
 import '../nav.dart';
 import '../subscriptions/subscription_source_page.dart';
+import '../theme.dart';
 import 'common.dart';
 import 'source_network_hint.dart';
 
@@ -129,25 +130,25 @@ Future<T?> guarded<T>(
       return await action();
     } on SourceError catch (e) {
       if (!context.mounted) return null;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(e.friendly),
-          action: e.needsLogin
-              ? SnackBarAction(
-                  label: tr(
-                    SourceManager.instance.manifest(source)?.account == null
-                        ? '在原站登录'
-                        : '去登录',
-                  ),
-                  onPressed: () => Nav.login(context, source),
-                )
-              : (e.isCloudflare || e.needsConfirmation) && e.url != null
-              ? SnackBarAction(
-                  label: tr('去确认'),
-                  onPressed: () => Nav.confirm(context, source, e),
-                )
-              : null,
-        ),
+      final route = ModalRoute.of(context);
+      if (route != null && !route.isCurrent) return null;
+      context.toast(
+        e.friendly,
+        action: e.needsLogin
+            ? SnackBarAction(
+                label: tr(
+                  SourceManager.instance.manifest(source)?.account == null
+                      ? '在原站登录'
+                      : '去登录',
+                ),
+                onPressed: () => Nav.login(context, source),
+              )
+            : (e.isCloudflare || e.needsConfirmation) && e.url != null
+            ? SnackBarAction(
+                label: tr('去确认'),
+                onPressed: () => Nav.confirm(context, source, e),
+              )
+            : null,
       );
       return null;
     }

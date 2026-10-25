@@ -29,6 +29,9 @@ class VideoStage extends StatelessWidget {
     required this.onTap,
     required this.onMouseTap,
     required this.onDoubleTap,
+    required this.onLongPressStart,
+    required this.onLongPressEnd,
+    required this.onLongPressCancel,
     required this.onGestureStart,
     required this.onGestureUpdate,
     required this.onGestureEnd,
@@ -37,6 +40,7 @@ class VideoStage extends StatelessWidget {
     required this.onInteract,
     required this.onIdle,
     required this.onEpisodePage,
+    this.liveChat,
   });
 
   final VideoSession session;
@@ -54,6 +58,9 @@ class VideoStage extends StatelessWidget {
   final VoidCallback onTap;
   final VoidCallback onMouseTap;
   final VoidCallback onDoubleTap;
+  final VoidCallback onLongPressStart;
+  final VoidCallback onLongPressEnd;
+  final VoidCallback onLongPressCancel;
   final void Function(Offset point, Size viewport) onGestureStart;
   final ValueChanged<Offset> onGestureUpdate;
   final VoidCallback onGestureEnd;
@@ -68,6 +75,7 @@ class VideoStage extends StatelessWidget {
   /// The interaction ended; controls may hide again.
   final VoidCallback onIdle;
   final ValueChanged<int> onEpisodePage;
+  final Widget? liveChat;
 
   @override
   Widget build(BuildContext context) {
@@ -145,6 +153,9 @@ class VideoStage extends StatelessWidget {
       onTap: onTap,
       onMouseTap: onMouseTap,
       onDoubleTap: onDoubleTap,
+      onLongPressStart: onLongPressStart,
+      onLongPressEnd: onLongPressEnd,
+      onLongPressCancel: onLongPressCancel,
       onStart: onGestureStart,
       onUpdate: onGestureUpdate,
       onEnd: onGestureEnd,
@@ -152,6 +163,7 @@ class VideoStage extends StatelessWidget {
       overlay: Stack(
         fit: StackFit.expand,
         children: [
+          ?liveChat,
           AnimatedOpacity(
             opacity: showControls ? 1 : 0,
             duration: Motion.of(context, Motion.short),

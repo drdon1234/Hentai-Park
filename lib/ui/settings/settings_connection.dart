@@ -61,8 +61,14 @@ List<Widget> searchSettings(BuildContext context, AppSettings s) => [
           ],
         ),
       ),
+    ],
+  ),
+  RowGroup(
+    title: tr('官方标签翻译包'),
+    children: [
       ListRow(
-        title: tr('标签翻译词库'),
+        title: tr('翻译包管理'),
+        subtitle: tr('按站点和语言下载、更新或删除翻译包'),
         trailing: const Icon(Icons.chevron_right_rounded),
         onTap: () => showTagTranslationPacks(context),
       ),

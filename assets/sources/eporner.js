@@ -9,7 +9,7 @@ Park.register({
     ru: {"成人视频目录、搜索与多清晰度 MP4": "Каталог видео для взрослых, поиск и MP4 разных качеств"},
     ar: {"成人视频目录、搜索与多清晰度 MP4": "دليل فيديو للبالغين مع البحث وملفات MP4 متعددة الجودة"},
   },
-  key: 'eporner', name: 'Eporner', version: '0.0.8', minAppVersion: '0.9.2', type: 'video', category: 'adult', language: 'en',
+  key: 'eporner', name: 'Eporner', version: '0.0.9', minAppVersion: '0.9.2', type: 'video', category: 'adult', language: 'en',
   color: '#e84b39', homepage: 'https://www.eporner.com/', description: '成人视频目录、搜索与多清晰度 MP4',
   domains: ['eporner.com'], network: {mode: 'native', vpnHint: true},
   media: {mode: 'native', scope: 'session', origin: 'https://www.eporner.com', domains: ['eporner.com']},
@@ -72,6 +72,31 @@ Park.register({
   },
   async feed(key, req) { if (key === 'categories') return this.categoryFeed(req); if (key !== 'recommended') throw Park.error('CONFIG', '未知推荐列表'); return this.listing(req); },
   async search(req) { const q = String(req?.keyword || '').trim(); return q ? this.listing(req, q) : {items: [], page: 1, hasNext: false}; },
+  async comments(value, req = {}) {
+    const id = this.validId(value), page = Math.max(1, Math.floor(Number(req.page) || 1));
+    if (req.sort && req.sort !== 'default') throw Park.error('UNSUPPORTED', '评论暂不支持此操作');
+    if (page > 1) return {items: [], page, hasNext: false};
+    const url = 'https://www.eporner.com/video-' + id + '/', doc = await this.html('/video-' + id + '/');
+    const area = doc.querySelector('#commentdivleft');
+    if (!area) throw Park.error('PARSE', '评论数据无效');
+    const items = [], stack = [], seen = new Set();
+    for (const row of area.querySelectorAll('.commbox[id][itemprop="comment"]')) {
+      const id = /^c(\d+)$/.exec(row.id)?.[1], body = Park.comments.html(row.querySelector('[itemprop="commentText"]')?.innerHTML || '', url);
+      if (!id || seen.has(id) || !body.length) continue;
+      const author = row.querySelector('[itemprop="creator"]');
+      const indent = Number(/margin-left:\s*(\d+)px/.exec(row.getAttribute('style') || '')?.[1]) || 0;
+      while (stack.length && stack[stack.length - 1].indent >= indent) stack.pop();
+      const parent = stack[stack.length - 1]?.item;
+      const item = {id, parentId: parent?.id, author: {name: Park.html.text(author), url: Park.comments.url(author?.getAttribute('href'), url),
+        avatar: Park.comments.url(row.querySelector('.commboxprofile img')?.getAttribute('src'), url)}, body,
+        date: Park.html.text(row.querySelector('[itemprop="commentTime"] small')), likes: Number(Park.html.text(row.querySelector('.commboxvote'))) || 0, replies: []};
+      seen.add(id); if (parent) parent.replies.push(item); else items.push(item); stack.push({indent, item});
+    }
+    const flatten = rows => rows.flatMap(item => [item, ...flatten(item.replies)]);
+    for (const item of flatten(items)) {item.replyCount = item.replies.length; item.repliesAvailable = item.replies.length > 0;}
+    if (!items.length) throw Park.error('PARSE', '评论数据无效');
+    return {items: req.parentId ? flatten(items).find(item => item.id === String(req.parentId))?.replies || [] : items, page, hasNext: false};
+  },
   async detail(value) {
     const id = this.validId(value), data = await this.api('/id/', {id});
     const v = data?.video || data; const item = this.item(v);

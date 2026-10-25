@@ -10,6 +10,7 @@ import '../../novel/reading_notes.dart';
 import '../kit/adaptive_sheet.dart';
 import '../kit/kit.dart';
 import '../theme.dart';
+import '../widgets/content_translation.dart';
 
 /// A tall sheet with a title row, an optional field and a list below.
 class _ListSheet extends StatelessWidget {
@@ -90,7 +91,12 @@ Future<int?> showChapterDirectory(
               final index = indices[i], chapter = chapters[index];
               return ListTile(
                 selected: index == current,
-                title: SelectionContainer.disabled(child: Text(chapter.title)),
+                title: SelectionContainer.disabled(
+                  child: ContentTranslation(
+                    text: chapter.title,
+                    builder: Text.new,
+                  ),
+                ),
                 subtitle:
                     Library.instance.chapterState(uid, chapter.id)?.read == true
                     ? SelectionContainer.disabled(child: Text(tr('已读')))

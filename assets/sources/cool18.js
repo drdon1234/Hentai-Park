@@ -109,7 +109,7 @@
     },
     key: 'cool18',
     name: 'Cool18',
-    version: '0.0.8', minAppVersion: '0.9.2',
+    version: '0.0.9', minAppVersion: '0.9.2',
     type: 'novel',
     category: 'novel',
     language: 'zh',
@@ -168,6 +168,56 @@
         keywords: String(req.keyword || ''),
         submit: '查询',
       });
+    },
+    async comments(value, req = {}) {
+      const id = idValue(value), parentId = req.parentId == null ? id : idValue(req.parentId);
+      const page = Math.max(1, Math.floor(Number(req.page) || 1)), size = 20;
+      const response = this.http.ensureOk(await this.http.get(BOARD, {params: {app: 'forum', act: 'achildlist', tid: id}}));
+      let rows;
+      try { rows = response.json(); } catch (_) { throw Park.error('PARSE', '评论数据无效'); }
+      if (!Array.isArray(rows)) throw Park.error('PARSE', '评论数据无效');
+      const index = new Map();
+      for (const row of rows) {
+        if (!row || !/^[1-9]\d{0,12}$/.test(String(row.tid || '')) ||
+            String(row.rootid) !== id || !/^[1-9]\d{0,12}$/.test(String(row.uptid || '')) ||
+            typeof row.subject !== 'string') throw Park.error('PARSE', '评论数据无效');
+        if (String(row.tid) !== id) index.set(String(row.tid), row);
+      }
+      if (parentId !== id && !index.has(parentId)) throw Park.error('NOT_FOUND', '内容不存在');
+      const children = new Map();
+      for (const row of index.values()) {
+        const parent = String(row.uptid);
+        if (parent === String(row.tid) || parent !== id && !index.has(parent)) throw Park.error('PARSE', '评论数据无效');
+        const visited = new Set([String(row.tid)]);
+        let ancestor = parent;
+        while (ancestor !== id) {
+          if (visited.has(ancestor) || !index.has(ancestor)) throw Park.error('PARSE', '评论数据无效');
+          visited.add(ancestor);
+          ancestor = String(index.get(ancestor).uptid);
+        }
+        if (!children.has(parent)) children.set(parent, []);
+        children.get(parent).push(row);
+      }
+      const selected = children.get(parentId) || [], offset = (page - 1) * size;
+      const items = await Park.utils.mapLimit(selected.slice(offset, offset + size), 3, async row => {
+        const cid = String(row.tid), url = thread(cid), body = Park.comments.html(row.subject, url);
+        if (Number(row.size) > 0) {
+          const d = await doc(this, url), content = d.querySelector('#content-section > pre');
+          if (!content) {
+            if (/登录后|login to|购买/.test(Park.html.text(d.querySelector('.post-content')))) throw Park.error('LOGIN_REQUIRED', '访问受限，请在原站检查权限');
+            throw Park.error('PARSE', '评论数据无效');
+          }
+          const full = Park.comments.html(content.innerHTML, url);
+          if (!full.length) throw Park.error('PARSE', '评论数据无效');
+          body.push({type: 'text', text: '\n'}, ...full);
+        }
+        const replyCount = children.get(cid)?.length || 0, seconds = Number(row.dateline);
+        return {id: cid, parentId: parentId === id ? undefined : parentId,
+          author: {name: String(row.username || '')}, body,
+          date: Number.isFinite(seconds) && seconds > 0 && seconds < 8640000000000 ? new Date(seconds * 1000).toISOString() : String(row.dateline || ''),
+          replyCount, repliesAvailable: replyCount > 0};
+      });
+      return {items: items.filter(row => row.body.length), page, total: selected.length, hasNext: offset + size < selected.length};
     },
     async detail(value) {
       const id = idValue(value),

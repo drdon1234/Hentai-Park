@@ -48,7 +48,7 @@ Park.register({
   },
   key: 'hanime1',
   name: 'Hanime1',
-  version: '0.0.10', minAppVersion: '0.9.2',
+  version: '0.0.11', minAppVersion: '0.9.2',
   type: 'video',
   category: 'anime',
   color: '#E5355F',
@@ -221,6 +221,38 @@ Park.register({
     return [...found.entries()].sort((a, b) => b[0] - a[0]).map(([quality, url]) => ({ quality, url }));
   },
 
+  async comments(value, req = {}) {
+    const work = String(value), parent = req.parentId == null ? null : String(req.parentId), page = Math.max(1, Math.floor(Number(req.page) || 1));
+    if (!/^\d{1,8}$/.test(work) || (parent && !/^\d+$/.test(parent))) throw Park.error('CONFIG', '评论参数无效');
+    if (req.sort && req.sort !== 'default') throw Park.error('UNSUPPORTED', '评论暂不支持此操作');
+    if (page > 1) return {items: [], page, hasNext: false};
+    let path = '/loadReplies', params = {id: parent};
+    if (!parent) {
+      const detail = await this.getDoc('/watch', {v: work}), tab = detail.querySelector('#comment-tablink');
+      const foreign = tab?.getAttribute('data-foreignid'), type = tab?.getAttribute('data-type');
+      if (!/^\d+$/.test(foreign || '') || !/^[a-zA-Z]+$/.test(type || '')) throw Park.error('PARSE', '评论数据无效');
+      path = '/loadComment'; params = {id: foreign, type, content: 'comment-tablink'};
+    }
+    const response = this.http.ensureOk(await this.http.get(this.BASE + path, {params, headers: {Referer: this.BASE + '/watch?v=' + work}}));
+    let data; try { data = response.json(); } catch (_) { throw Park.error('PARSE', '评论数据无效'); }
+    const html = parent ? data.replies : data.comments;
+    if (typeof html !== 'string') throw Park.error('PARSE', '评论数据无效');
+    const doc = Park.html.parse(html), items = [], seen = new Set();
+    for (const row of doc.querySelectorAll('.report-btn-wrapper')) {
+      const actions = row.nextElementSibling;
+      const id = parent ? row.querySelector('[data-reportable-id]')?.getAttribute('data-reportable-id') : actions?.querySelector('.load-replies-btn')?.getAttribute('data-commentid');
+      const lines = row.querySelectorAll('.comment-index-text'), body = Park.comments.html(lines[1]?.innerHTML || '', this.BASE);
+      if (!/^\d+$/.test(id || '') || !body.length || seen.has(id)) continue;
+      const author = lines[0]?.querySelector('a')?.cloneNode(true), date = Park.html.text(author?.querySelector('span'));
+      for (const span of author?.querySelectorAll('span') || []) span.remove();
+      const avatar = row.querySelector('img') || row.previousElementSibling?.querySelector('img');
+      const replyText = Park.html.text(actions?.querySelector('.load-replies-btn')), replyCount = Number(/(\d+)/.exec(replyText)?.[1]) || 0;
+      seen.add(id); items.push({id, parentId: parent || undefined, author: {name: Park.html.text(author), avatar: Park.comments.url(avatar?.getAttribute('src'), this.BASE)},
+        body, date, likes: Number(Park.html.text(actions?.querySelector('div > span:last-child'))) || 0, replyCount, repliesAvailable: !parent});
+    }
+    if (!items.length) throw Park.error('PARSE', '评论数据无效');
+    return {items, page, hasNext: false};
+  },
   async detail(id) {
     const doc = await this.getDoc('/watch', { v: id });
     const og = (p) => {

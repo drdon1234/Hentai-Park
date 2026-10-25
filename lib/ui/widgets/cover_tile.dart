@@ -220,10 +220,12 @@ class _CoverTileState extends State<CoverTile> {
                     value,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
-                    style: context.text.bodySmall?.copyWith(
-                      fontWeight: FontWeight.w500,
-                      height: 1.3,
-                      color: c.onSurface,
+                    style: ParkText.serif(
+                      context.text.bodySmall?.copyWith(
+                        fontWeight: FontWeight.w500,
+                        height: 1.3,
+                        color: c.onSurface,
+                      ),
                     ),
                   ),
                 ),
@@ -257,6 +259,7 @@ class _CoverTileState extends State<CoverTile> {
                       overflow: TextOverflow.ellipsis,
                       style: context.text.labelSmall?.copyWith(
                         color: c.onSurfaceVariant,
+                        fontWeight: FontWeight.w400,
                       ),
                     ),
                   )
@@ -452,16 +455,17 @@ double cardTextExtent(BuildContext context) {
     return height;
   }
 
-  final title = context.text.bodySmall?.copyWith(
-    fontWeight: FontWeight.w500,
-    height: 1.3,
+  final title = ParkText.serif(
+    context.text.bodySmall?.copyWith(fontWeight: FontWeight.w500, height: 1.3),
   );
   // Matches the spacing in CoverTile: gap, two title lines, 1 px, one metadata line.
   return Gap.xs +
       2 +
       2 * lineHeight(title) +
       1 +
-      lineHeight(context.text.labelSmall) +
+      lineHeight(
+        context.text.labelSmall?.copyWith(fontWeight: FontWeight.w400),
+      ) +
       2;
 }
 

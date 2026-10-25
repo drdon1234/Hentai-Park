@@ -147,7 +147,7 @@
     },
     key: 'literotica',
     name: 'Literotica',
-    version: '0.0.8', minAppVersion: '0.9.2',
+    version: '0.0.9', minAppVersion: '0.9.2',
     type: 'novel',
     category: 'novel',
     language: 'en',
@@ -213,6 +213,21 @@
         req,
         SEARCH + '/?query=' + encodeURIComponent(String(req.keyword || '')),
       );
+    },
+    async comments(value, req = {}) {
+      const id = idValue(value), url = HOME + '/s/' + id + '/comments';
+      if (req.parentId || Number(req.page) > 1) return {items: [], hasNext: false};
+      const d = await doc(this, url);
+      if (!d.querySelector('[class*="comments__container_"]')) throw Park.error('PARSE', '评论数据无效');
+      const items = [...d.querySelectorAll('[data-comment-id]')].map(anchor => {
+        const row = anchor.closest('[class*="comments__item_"]'), cid = anchor.getAttribute('data-comment-id'), content = row?.querySelector('[class*="comments__content_"]'),
+          author = row.querySelector('[class*="comments__title_"]');
+        if (!cid || !content) throw Park.error('PARSE', '评论数据无效');
+        return {id: cid, author: {name: Park.html.text(author), url: Park.comments.url(author?.getAttribute('href'), url) || undefined,
+          avatar: Park.comments.url(row.querySelector('img')?.getAttribute('src'), url) || undefined},
+          body: Park.comments.html(content.innerHTML, url), date: Park.html.text(row.querySelector('[class*="comments__time_"]'))};
+      }).filter(c => c.body.length);
+      return {items, hasNext: false};
     },
     async detail(value) {
       const id = idValue(value),

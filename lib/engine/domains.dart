@@ -65,6 +65,14 @@ bool publicDomainHost(String host) =>
     !host.endsWith('.localhost') &&
     !host.endsWith('.local');
 
+/// 仅识别评论中的站点引用；网络请求仍使用 HTTPS 权限策略。
+bool contentLinkDomainAllowed(Uri uri, Iterable<String> domains) =>
+    (uri.scheme == 'https' && uri.port == 443 ||
+        uri.scheme == 'http' && uri.port == 80) &&
+    uri.userInfo.isEmpty &&
+    publicDomainHost(uri.host) &&
+    hostInDomains(uri.host, domains);
+
 /// The sites a source may use cookies / browser pages for: its explicit `domains`, otherwise
 /// the registrable domains of its homepage, network origin and account URLs.
 List<String> declaredDomains(Map<String, dynamic> manifest) {

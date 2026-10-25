@@ -4,6 +4,7 @@ import '../../core/localization.dart';
 import '../../core/models.dart';
 import '../../library/downloads.dart';
 import '../../library/library.dart';
+import '../widgets/content_translation.dart';
 
 class VideoEpisodeSheet extends StatelessWidget {
   const VideoEpisodeSheet({super.key, required this.work, this.currentId});
@@ -60,7 +61,11 @@ class VideoEpisodeSheet extends StatelessWidget {
                             : Icons.play_circle_outline_rounded,
                       ),
                       title: SelectionContainer.disabled(
-                        child: Text(episode.title),
+                        child: ContentTranslation(
+                          text: episode.title,
+                          source: work.source,
+                          builder: Text.new,
+                        ),
                       ),
                       subtitle: state != null && state.position > 0
                           ? SelectionContainer.disabled(

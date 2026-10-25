@@ -8,7 +8,7 @@ Park.register({
     ru: {"官方女优榜": "Официальный рейтинг актрис"},
     ar: {"官方女优榜": "ترتيب الممثلات الرسمي"},
   },
-  key: 'ranking-studios', name: '无码厂商', version: '0.0.5', minAppVersion: '0.9.2',
+  key: 'ranking-studios', name: '无码厂商', version: '0.0.6', minAppVersion: '0.9.2',
   type: 'video', category: 'jav', rankingOnly: true,
   description: '官方人气榜', homepage: 'https://www.1pondo.tv/',
   domains: ['1pondo.tv', '10musume.com', 'pacopacomama.com', 'caribbeancom.com'],
@@ -26,6 +26,25 @@ Park.register({
         ] },
       ] }),
   })),
+  async comments(value, req = {}) {
+    const bases = {'1pondo': 'https://www.1pondo.tv', '10musume': 'https://www.10musume.com', pacopacomama: 'https://www.pacopacomama.com'};
+    let board = req.context?.board, id = String(value);
+    if (!board && req.context?.url) {
+      const url = Park.comments.url(req.context.url);
+      if (url) board = Object.keys(bases).find(key => new URL(url).origin === bases[key]);
+    }
+    if (!bases[board]) throw Park.error('UNSUPPORTED', '此内容暂不支持评论');
+    if (!/^\d{6}_\d{2,3}$/.test(id)) throw Park.error('NOT_FOUND', '作品编号无效');
+    if (req.parentId || Number(req.page) > 1) return {items: [], hasNext: false};
+    const data = await this.http.json(bases[board] + '/dyn/phpauto/new_movie_reviews/movie_id/' + id + '.json');
+    if (!Array.isArray(data.Rows)) throw Park.error('PARSE', '评论数据无效');
+    const items = data.Rows.map(c => {
+      if (!c.ReviewID || String(c.MovieID) !== id || typeof c.UserComment !== 'string') throw Park.error('PARSE', '评论数据无效');
+      return {id: String(c.ReviewID), author: {name: String(c.Nickname || '')}, body: Park.comments.text(c.UserComment),
+        date: c.Created, rating: Number(c.UserRating) || undefined};
+    }).filter(c => c.body.length);
+    return {items, hasNext: false};
+  },
   async ranking(studio, req) {
     if (Number(req.page) > 1) return { items: [], page: Number(req.page), hasNext: false };
     const period = req.options?.period || 'weekly';

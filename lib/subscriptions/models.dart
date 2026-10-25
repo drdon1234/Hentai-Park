@@ -35,6 +35,10 @@ class SubscriptionPost {
   final String id, title, text, url, date;
   final bool locked;
   final List<SubscriptionMedia> media;
+
+  bool? get commentsAvailable => json['commentsAvailable'] is bool
+      ? json['commentsAvailable'] as bool
+      : null;
 }
 
 class SubscriptionPage {

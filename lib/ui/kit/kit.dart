@@ -5,6 +5,7 @@ export 'menu_chip.dart';
 export 'platform_navigation.dart';
 export 'reader_chrome.dart';
 export 'selection_chip.dart';
+export 'selection_menu.dart';
 export 'settings_body.dart';
 export 'tokens.dart';
 export 'toolbar_actions.dart';

@@ -65,7 +65,7 @@ Park.register({
   },
   key: 'ehentai',
   name: 'E-Hentai',
-  version: '0.0.10', minAppVersion: '0.9.2',
+  version: '0.0.12', minAppVersion: '0.9.2',
   type: 'comic',
   category: 'doujin',
   color: '#9C2A2A',
@@ -205,8 +205,8 @@ Park.register({
   rankings: [{ key: 'toplist', label: '排行榜', category: 'doujin', metric: '站内热度', feed: 'toplist' }],
   defaultFeed: 'toplist',
   feeds: [
-    {key: 'category', label: '分类', options: browseFilters.filter(option => option.type !== 'number')},
-    { key: 'latest', label: '最新' },
+    {key: 'category', label: '分类', options: browseFilters.filter(option => option.type !== 'number'), commonFilters: {pages: {range: ['min']}}},
+    { key: 'latest', label: '最新', commonFilters: {pages: {range: ['min']}} },
     { key: 'popular', label: '当前热门' },
     {
       key: 'toplist',
@@ -229,6 +229,7 @@ Park.register({
 
   searchHint: '支持标签语法：female:"big breasts"$、artist:xxx、language:chinese',
   searchFilters: browseFilters,
+  searchCommonFilters: {pages: {range: ['min']}},
   CATEGORY_BITS: {
     Misc: 1,
     Doujinshi: 2,
@@ -272,7 +273,7 @@ Park.register({
 
   init() {
     this.wait = Park.utils.rateLimiter(Number(this.config.interval) || 400);
-    this.galleries = Park.utils.lruMap(30); // gid → {perPage, links: Map(index → url), meta}
+    this.galleries = Park.utils.lruMap(30); // origin/gid/token → thumbnail state
     this.showkeys = Park.utils.lruMap(30);
     this.nls = Park.utils.lruMap(500);
   },
@@ -306,10 +307,11 @@ Park.register({
     return body;
   },
 
-  async ensureNoWarning() {
-    if (this.nwSet) return;
-    await this.cookies.set(this.base, { nw: '1' });
-    this.nwSet = true;
+  async ensureNoWarning(base = this.base) {
+    if (!(this.nwSet instanceof Set)) this.nwSet = new Set();
+    if (this.nwSet.has(base)) return;
+    await this.cookies.set(base, { nw: '1' });
+    this.nwSet.add(base);
   },
 
   parseListing(html) {
@@ -332,11 +334,11 @@ Park.register({
     };
   },
 
-  async gdata(pairs) {
+  async gdata(pairs, base = this.base) {
     const out = [];
     for (let i = 0; i < pairs.length; i += 25) {
       await this.wait();
-      const data = await this.http.json(this.apiUrl, {
+      const data = await this.http.json(base === 'https://exhentai.org' ? base + '/api.php' : 'https://api.e-hentai.org/api.php', {
         method: 'POST',
         json: { method: 'gdata', gidlist: pairs.slice(i, i + 25), namespace: 1 },
       });
@@ -398,7 +400,7 @@ Park.register({
   },
 
   async feed(key, req) {
-    if (key === 'category') return this.search({keyword: '', page: req.page, cursor: req.cursor, filters: req.options || {}});
+    if (key === 'category') return this.search({keyword: '', page: req.page, cursor: req.cursor, filters: req.options || {}, common: req.common});
     const page = Math.max(1, req.page || 1);
     if (key === 'popular') {
       const res = await this.listPage(`${this.base}/popular`, null, 1);
@@ -411,11 +413,12 @@ Park.register({
       const res = await this.listPage('https://e-hentai.org/toplist.php', params, page);
       return Object.assign(res, { hasNext: res.items.length > 0 && page < 200, cursor: null, totalPages: 200 });
     }
-    return this.search({ keyword: '', page, cursor: req.cursor, filters: {} });
+    return this.search({ keyword: '', page, cursor: req.cursor, filters: {}, common: req.common });
   },
 
   searchParams(req) {
     const f = req.filters || {};
+    const common = req.common || {};
     const params = {};
     const words = [String(req.keyword || '').trim()];
     if (f.language && !/language:/i.test(words[0])) words.push(`language:${f.language}`);
@@ -429,7 +432,8 @@ Park.register({
     }
     const rating = Number(f.minRating) || 0;
     if (rating >= 2) Object.assign(params, { advsearch: '1', f_sr: 'on', f_srdd: String(Math.min(rating, 5)) });
-    if (Number(f.minPages) > 1) Object.assign(params, { advsearch: '1', f_sp: 'on', f_spf: String(Number(f.minPages)) });
+    const minPages = common.pages?.min ?? Number(f.minPages);
+    if (minPages > 1) Object.assign(params, { advsearch: '1', f_sp: 'on', f_spf: String(minPages) });
     return params;
   },
 
@@ -458,6 +462,68 @@ Park.register({
     return this.listPage(`${this.base}/`, params, page);
   },
 
+  contentUrl(value) {
+    try {
+      const url = new URL(String(value));
+      if (!['https:', 'http:'].includes(url.protocol) || url.username || url.password || url.port ||
+          !['e-hentai.org', 'exhentai.org'].includes(url.hostname)) return null;
+      url.protocol = 'https:';
+      return url;
+    } catch (_) { return null; }
+  },
+
+  resolveContentLink(value) {
+    const url = this.contentUrl(value);
+    if (!url) return null;
+    if (/^\/g\/\d+\/[0-9a-f]{10}\/?$/.test(url.pathname))
+      return {type: 'work', id: url.origin + url.pathname.replace(/\/?$/, '/')};
+    if (url.pathname === '/' || /^\/tag\/[^/]+(?:\/\d+)?\/?$/.test(url.pathname)) {
+      // Read-only listing paths; reject query parameters used by account/write routes.
+      const allowed = /^(?:f_[a-z_]+|advsearch|next|prev|seek|range|page)$/;
+      if ([...url.searchParams.keys()].some(key => !allowed.test(key))) return {type: 'external', url: url.href};
+      url.hash = '';
+      return {type: 'search', url: url.href};
+    }
+    return {type: 'external', url: url.href};
+  },
+
+  async searchLink(value, req = {}) {
+    const target = this.resolveContentLink(value);
+    if (target?.type !== 'search') throw Park.error('CONFIG', '站点链接无效');
+    const url = new URL(target.url), page = Math.max(1, Math.floor(Number(req.page) || 1));
+    if (page > 1 && !req.cursor) throw Park.error('UNSUPPORTED', 'E-Hentai 只能按顺序翻页');
+    if (req.cursor) {
+      if (!/^\d+$/.test(String(req.cursor))) throw Park.error('CONFIG', '分页链接无效');
+      url.searchParams.delete('prev'); url.searchParams.delete('page');
+      url.searchParams.set('next', String(req.cursor));
+    }
+    await this.ensureNoWarning(url.origin);
+    const listing = this.parseListing(await this.page(url.href));
+    const metas = await this.gdata(listing.pairs, url.origin);
+    return {items: metas.map(meta => ({...this.toItem(meta), id: `${url.origin}/g/${meta.gid}/${meta.token}/`,
+      url: `${url.origin}/g/${meta.gid}/${meta.token}/`})), page, total: listing.total,
+      hasNext: !!listing.next, cursor: listing.next};
+  },
+
+  async comments(id, req = {}) {
+    if (req.parentId || Number(req.page) > 1) return {items: [], hasNext: false};
+    const [gid, token, base] = this.splitId(id), url = `${base}/g/${gid}/${token}/`;
+    await this.ensureNoWarning(base);
+    const doc = Park.html.parse(await this.page(url, {hc: '1'}));
+    if (!doc.querySelector('#cdiv')) throw Park.error('PARSE', '评论数据无效');
+    const items = [...doc.querySelectorAll('#cdiv .c1')].map(row => {
+      const content = row.querySelector('.c6'), author = row.querySelector('.c3 a'),
+        commentId = (content?.getAttribute('id') || row.getAttribute('id') || '').match(/\d+/)?.[0];
+      if (!commentId || !content) throw Park.error('PARSE', '评论数据无效');
+      const score = Park.html.text(row.querySelector('.c5'));
+      return {id: commentId, author: {name: Park.html.text(author), url: author?.getAttribute('href')},
+        body: Park.comments.html(content.innerHTML, url),
+        date: Park.html.text(row.querySelector('.c3')).replace(/Posted on\s*/i, '').split(' by:')[0].trim(),
+        likes: Number(score.match(/-?\d+/)?.[0]) || 0};
+    }).filter(c => c.body.length);
+    return {items, hasNext: false};
+  },
+
   async random(req) {
     // gid grows over time: jump to a random cursor between the newest and oldest galleries.
     const params = this.searchParams(req || {});
@@ -480,9 +546,10 @@ Park.register({
   },
 
   splitId(id) {
-    const m = /^(\d+)[_/ ]([0-9a-f]{10})/.exec(String(id));
+    const url = this.contentUrl(id);
+    const m = url ? /^\/g\/(\d+)\/([0-9a-f]{10})\/?$/.exec(url.pathname) : /^(\d+)[_/ ]([0-9a-f]{10})\/?$/.exec(String(id));
     if (!m) throw Park.error('NOT_FOUND', '无效的画廊 ID：{value0}', { params: {value0: id} });
-    return [Number(m[1]), m[2]];
+    return [Number(m[1]), m[2], url ? url.origin : this.base];
   },
 
   /** Parses one gallery thumbnail page: page links and (sprite) thumbnails keyed by 0-based index. */
@@ -520,15 +587,16 @@ Park.register({
     return { entries, thumbPages: pageNums.length ? Math.max(...pageNums) : 1, doc };
   },
 
-  async galleryPage(gid, token, p) {
-    let state = this.galleries.get(gid);
+  async galleryPage(gid, token, p, base = this.base) {
+    const key = `${base}/${gid}/${token}`;
+    let state = this.galleries.get(key);
     if (!state) {
       state = { links: new Map(), thumbs: new Map(), loaded: new Set(), perPage: 0, thumbPages: 1 };
-      this.galleries.set(gid, state);
+      this.galleries.set(key, state);
     }
     if (state.loaded.has(p)) return state;
-    await this.ensureNoWarning();
-    const html = await this.page(`${this.base}/g/${gid}/${token}/`, p ? { p: String(p) } : null);
+    await this.ensureNoWarning(base);
+    const html = await this.page(`${base}/g/${gid}/${token}/`, p ? { p: String(p) } : null);
     const parsed = this.parseGalleryPage(html, gid);
     for (const e of parsed.entries) {
       state.links.set(e.index, e.link);
@@ -544,8 +612,8 @@ Park.register({
   },
 
   async detail(id) {
-    const [gid, token] = this.splitId(id);
-    const [metas, state] = await Promise.all([this.gdata([[gid, token]]), this.galleryPage(gid, token, 0)]);
+    const [gid, token, base] = this.splitId(id);
+    const [metas, state] = await Promise.all([this.gdata([[gid, token]], base), this.galleryPage(gid, token, 0, base)]);
     const meta = metas[0];
     if (!meta) throw Park.error('NOT_FOUND', '画廊不存在或已被删除');
     const item = this.toItem(meta);
@@ -561,7 +629,8 @@ Park.register({
     const thumbs = [];
     for (let i = 0; i < state.perPage && i < item.pages; i++) thumbs.push(state.thumbs.get(i) || null);
     return Object.assign(item, {
-      url: `${this.base}/g/${gid}/${token}/`,
+      id: this.contentUrl(id) ? `${base}/g/${gid}/${token}/` : item.id,
+      url: `${base}/g/${gid}/${token}/`,
       authors: (groups.artist || []).concat(groups.group || []),
       uploader: Park.html.unescape(meta.uploader || ''),
       size: meta.filesize ? `${(meta.filesize / 1048576).toFixed(1)} MB` : '',
@@ -575,10 +644,10 @@ Park.register({
 
   /** Thumbnails for the preview grid, one gallery thumbnail page at a time. */
   async thumbnails(id, page) {
-    const [gid, token] = this.splitId(id);
-    const first = await this.galleryPage(gid, token, 0);
+    const [gid, token, base] = this.splitId(id);
+    const first = await this.galleryPage(gid, token, 0, base);
     const p = Math.max(0, Number(page) || 0);
-    const state = p === 0 ? first : await this.galleryPage(gid, token, p);
+    const state = p === 0 ? first : await this.galleryPage(gid, token, p, base);
     const start = p * state.perPage;
     const list = [];
     for (let i = start; i < start + state.perPage; i++) {
@@ -588,17 +657,17 @@ Park.register({
   },
 
   async chapter(id) {
-    const [gid, token] = this.splitId(id);
-    const [metas] = await Promise.all([this.gdata([[gid, token]]), this.galleryPage(gid, token, 0)]);
+    const [gid, token, base] = this.splitId(id);
+    const [metas] = await Promise.all([this.gdata([[gid, token]], base), this.galleryPage(gid, token, 0, base)]);
     const count = metas[0] ? Number(metas[0].filecount) : 0;
     if (!count) throw Park.error('NOT_FOUND', '画廊没有图片');
     // Images are resolved lazily one page at a time by resolveImage.
     return { pages: Array.from({ length: count }, (_, i) => ({ token: String(i) })) };
   },
 
-  async pageLink(gid, token, index) {
-    const first = await this.galleryPage(gid, token, 0);
-    if (!first.links.has(index)) await this.galleryPage(gid, token, Math.floor(index / (first.perPage || 20)));
+  async pageLink(gid, token, index, base = this.base) {
+    const first = await this.galleryPage(gid, token, 0, base);
+    if (!first.links.has(index)) await this.galleryPage(gid, token, Math.floor(index / (first.perPage || 20)), base);
     const link = first.links.get(index);
     if (!link) throw Park.error('NOT_FOUND', '找不到第 {value0} 页', { params: {value0: index + 1} });
     return link;
@@ -618,18 +687,18 @@ Park.register({
   },
 
   async resolveImage(req) {
-    const [gid, token] = this.splitId(req.id);
+    const [gid, token, base] = this.splitId(req.id);
     const index = Number(req.token !== undefined ? req.token : req.index);
-    const link = await this.pageLink(gid, token, index);
-    const nlKey = `${gid}-${index}`;
+    const link = await this.pageLink(gid, token, index, base);
+    const galleryKey = `${base}/${gid}/${token}`, nlKey = `${galleryKey}-${index}`;
     let result;
-    const showkey = this.showkeys.get(gid);
+    const showkey = this.showkeys.get(galleryKey);
     if (req.retry > 0 && this.nls.get(nlKey)) {
       result = this.parseSinglePage(await this.page(link, { nl: this.nls.get(nlKey) }));
     } else if (showkey) {
       await this.wait();
       const imgkey = /\/s\/([0-9a-f]{10})\//.exec(link)[1];
-      const res = await this.http.post(this.apiUrl, {
+      const res = await this.http.post(base === 'https://exhentai.org' ? base + '/api.php' : 'https://api.e-hentai.org/api.php', {
         json: { method: 'showpage', gid, page: index + 1, imgkey, showkey },
       });
       if (res.ok) {
@@ -641,7 +710,7 @@ Park.register({
     } else {
       result = this.parseSinglePage(await this.page(link));
     }
-    if (result.showkey) this.showkeys.set(gid, result.showkey);
+    if (result.showkey) this.showkeys.set(galleryKey, result.showkey);
     if (result.nl) this.nls.set(nlKey, result.nl);
     if (!result.url) throw Park.error('PARSE', '第 {value0} 页没有图片', { params: {value0: index + 1} });
     if (/\/509s?\.gif$/.test(result.url)) {
@@ -651,7 +720,7 @@ Park.register({
       url: result.url,
       width: result.width,
       height: result.height,
-      headers: { Referer: `${this.base}/` },
+      headers: { Referer: `${base}/` },
       cacheKey: `eh-${gid}-${index}`,
     };
   },

@@ -5,6 +5,7 @@ import '../../core/platform_capabilities.dart';
 import '../../core/settings.dart';
 import '../kit/adaptive_sheet.dart';
 import '../kit/selection_chip.dart';
+import '../kit/selection_menu.dart';
 import '../kit/sheet_tabs.dart';
 import 'reader_layout.dart';
 
@@ -233,17 +234,23 @@ class _ReaderSettingsState extends State<_ReaderSettings> {
           title: SelectionContainer.disabled(child: Text(tr('点击区域'))),
           enabled: s.tapToPage,
           subtitle: SelectionContainer.disabled(
-            child: DropdownButton<TapLayout>(
-              isExpanded: true,
-              value: layout,
-              underline: const SizedBox.shrink(),
-              items: [
-                for (final l in TapLayout.values)
-                  DropdownMenuItem(value: l, child: Text(l.label)),
-              ],
-              onChanged: s.tapToPage
-                  ? (v) => s.readerTapLayout = (v ?? TapLayout.auto).index
-                  : null,
+            child: SelectionDropdownTheme(
+              child: DropdownButton<TapLayout>(
+                isExpanded: true,
+                value: layout,
+                underline: const SizedBox.shrink(),
+                items: [
+                  for (final l in TapLayout.values)
+                    SelectionDropdownItem(
+                      value: l,
+                      selected: l == layout,
+                      child: Text(l.label),
+                    ),
+                ],
+                onChanged: s.tapToPage
+                    ? (v) => s.readerTapLayout = (v ?? TapLayout.auto).index
+                    : null,
+              ),
             ),
           ),
         ),

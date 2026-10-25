@@ -19,7 +19,7 @@ Park.register({
   },
   key: 'jm',
   name: '禁漫天堂',
-  version: '0.0.9', minAppVersion: '0.9.2',
+  version: '0.0.10', minAppVersion: '0.9.2',
   type: 'comic',
   category: 'doujin',
   color: '#F7841E',
@@ -431,6 +431,52 @@ Park.register({
     const items = listing.items.length ? listing.items : first.items;
     if (!items.length) throw Park.error('NOT_FOUND', '没有可随机的作品');
     return items[Math.floor(Math.random() * items.length)].id;
+  },
+
+  resolveContentLink(value) {
+    let url; try { url = new URL(String(value)); } catch (_) { return null; }
+    if (!['https:', 'http:'].includes(url.protocol) || url.username || url.password || url.port ||
+        !['18comic.vip', 'www.18comic.vip'].includes(url.hostname)) return null;
+    const match = /^\/albums?\/(\d{3,9})\/?$/.exec(url.pathname);
+    return match ? {type: 'work', id: match[1]} : {type: 'external', url: url.href};
+  },
+
+  commentBody(html) {
+    return Park.comments.html(html, this.homepage).flatMap(part => {
+      if (part.type !== 'text') return [part];
+      const out = [], value = part.text || '', pattern = /(?:\bJM\s*[-_:：#]?\s*|车号\s*[:：#]?\s*)([1-9]\d{2,8})(?!\d)|([1-9]\d{4,6})(?!\d)/gi;
+      let start = 0, match;
+      while ((match = pattern.exec(value))) {
+        const before = value.slice(0, match.index), after = value.slice(pattern.lastIndex);
+        const explicit = !!match[1];
+        if (/[\w./:@%?=&+\-]$/.test(before) || /^[\w./:@%?=&+\-]/.test(after)) continue;
+        if (!explicit && (/(?:^|[^\d])(?:第|楼层|楼|数量|金额|点赞|阅读|浏览|版本|日期|价格|页数)\s*$/.test(before) ||
+            /^\s*(?:年|月|日|时|分|秒|楼|层|元|个|次|张|页|赞|条|views?\b|likes?\b|pages?\b)/i.test(after))) continue;
+        if (match.index > start) out.push({type: 'text', text: value.slice(start, match.index)});
+        out.push({type: 'link', text: match[0], url: this.homepage + '/album/' + (match[1] || match[2]) + '/'});
+        start = pattern.lastIndex;
+      }
+      if (start < value.length) out.push({type: 'text', text: value.slice(start)});
+      return out;
+    });
+  },
+
+  async comments(value, req = {}) {
+    const id = String(value), page = Math.max(1, Math.floor(Number(req.page) || 1));
+    if (!/^\d{3,9}$/.test(id)) throw Park.error('NOT_FOUND', '作品编号无效');
+    if (req.parentId) throw Park.error('UNSUPPORTED', '此内容暂不支持评论');
+    const data = await this.api('/forum', {mode: 'manhua', aid: id, page});
+    if (!Array.isArray(data?.list) || !/^\d+$/.test(String(data.total))) throw Park.error('PARSE', '评论数据无效');
+    const parse = (c, parentId) => {
+      if (!c.CID || typeof c.content !== 'string') throw Park.error('PARSE', '评论数据无效');
+      const replies = (Array.isArray(c.replys) ? c.replys : []).map(r => parse(r, String(c.CID))).filter(r => r.body.length);
+      return {id: String(c.CID), author: {name: String(c.nickname || c.username || c.name || ''),
+        avatar: Park.comments.url(c.photo, this.imageHost) || undefined}, body: this.commentBody(c.content),
+        date: c.addtime || c.update_at, likes: Number(c.likes) || 0, spoiler: c.spoiler === true || String(c.spoiler) === '1',
+        parentId: parentId || (Number(c.parent_CID) ? String(c.parent_CID) : undefined), replies,
+        replyCount: replies.length};
+    };
+    return {items: data.list.map(c => parse(c)).filter(c => c.body.length), total: Number(data.total), hasNext: page * 10 < Number(data.total)};
   },
 
   async detail(id) {

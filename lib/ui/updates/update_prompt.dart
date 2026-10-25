@@ -11,141 +11,9 @@ import '../../core/versions.dart';
 import '../../engine/app_installer.dart';
 import '../../engine/app_updater.dart';
 import '../../engine/source_updater.dart';
+import '../kit/reminder_prompt.dart';
 import '../kit/tokens.dart';
 import '../theme.dart';
-
-/// 本体与插件共用同一提示布局，内容滚动而操作区保持可见。
-class _UpdatePromptDialog extends StatefulWidget {
-  const _UpdatePromptDialog({
-    required this.icon,
-    required this.title,
-    required this.children,
-    required this.onIgnore,
-    this.primaryLabel,
-  });
-
-  final IconData icon;
-  final String title;
-  final List<Widget> children;
-  final String? primaryLabel;
-  final Future<void> Function() onIgnore;
-
-  @override
-  State<_UpdatePromptDialog> createState() => _UpdatePromptDialogState();
-}
-
-class _UpdatePromptDialogState extends State<_UpdatePromptDialog> {
-  bool _saving = false;
-  bool _failed = false;
-
-  Future<void> _ignore() async {
-    if (_saving) return;
-    setState(() {
-      _saving = true;
-      _failed = false;
-    });
-    try {
-      await widget.onIgnore();
-      if (mounted) Navigator.pop(context, false);
-    } catch (_) {
-      if (mounted) setState(() => _failed = true);
-    } finally {
-      if (mounted) setState(() => _saving = false);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) => AlertDialog(
-    scrollable: true,
-    insetPadding: const EdgeInsets.symmetric(
-      horizontal: Gap.page,
-      vertical: Gap.xl,
-    ),
-    titlePadding: const EdgeInsets.fromLTRB(Gap.xl, Gap.xl, Gap.xl, Gap.l),
-    contentPadding: const EdgeInsets.fromLTRB(Gap.xl, 0, Gap.xl, Gap.l),
-    actionsPadding: const EdgeInsets.fromLTRB(Gap.xl, 0, Gap.xl, Gap.l),
-    title: Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        ExcludeSemantics(
-          child: Padding(
-            padding: const EdgeInsets.only(top: Gap.xs),
-            child: Icon(widget.icon, color: context.colors.onSurfaceVariant),
-          ),
-        ),
-        const SizedBox(width: Gap.m),
-        Expanded(child: Text(widget.title, style: context.text.titleLarge)),
-      ],
-    ),
-    content: SizedBox(
-      width: 480,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          ...widget.children,
-          if (_failed) ...[
-            const SizedBox(height: Gap.m),
-            Text(
-              tr('无法保存提醒设置，请重试'),
-              style: context.text.bodyMedium?.copyWith(
-                color: context.colors.error,
-              ),
-            ),
-          ],
-        ],
-      ),
-    ),
-    actions: [
-      SizedBox(
-        width: double.infinity,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            const Divider(height: Gap.l),
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  child: TextButton(
-                    onPressed: _saving ? null : _ignore,
-                    child: SelectionContainer.disabled(
-                      child: Text(tr('不再提醒'), textAlign: TextAlign.center),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: Gap.s),
-                Expanded(
-                  child: TextButton(
-                    onPressed: _saving
-                        ? null
-                        : () => Navigator.pop(context, false),
-                    child: SelectionContainer.disabled(
-                      child: Text(tr('稍后'), textAlign: TextAlign.center),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            if (widget.primaryLabel != null) ...[
-              const SizedBox(height: Gap.s),
-              FilledButton(
-                onPressed: _saving ? null : () => Navigator.pop(context, true),
-                child: SelectionContainer.disabled(
-                  child: Text(
-                    widget.primaryLabel!,
-                    textAlign: TextAlign.center,
-                  ),
-                ),
-              ),
-            ],
-          ],
-        ),
-      ),
-    ],
-  );
-}
 
 class _UpdateSection extends StatelessWidget {
   const _UpdateSection({required this.title, required this.children});
@@ -228,7 +96,7 @@ Future<void> showAppUpdatePrompt(
   final service = installer ?? AppInstaller();
   final confirmed = await showDialog<bool>(
     context: context,
-    builder: (ctx) => _UpdatePromptDialog(
+    builder: (ctx) => ReminderPromptDialog(
       icon: Icons.system_update_alt_rounded,
       title: tr('发现软件新版本'),
       primaryLabel: tr(service.supported ? '下载并安装' : '前往下载'),
@@ -508,7 +376,7 @@ Future<void> showSourceUpdatePrompt(
   final versions = requirements.keys.toList()..sort(compareReleaseVersions);
   final confirmed = await showDialog<bool>(
     context: context,
-    builder: (ctx) => _UpdatePromptDialog(
+    builder: (ctx) => ReminderPromptDialog(
       icon: Icons.extension_outlined,
       title: tr('发现 {count} 个插件更新', {'count': result.allUpdates.length}),
       primaryLabel: result.available.isEmpty

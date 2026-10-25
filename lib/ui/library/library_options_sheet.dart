@@ -7,6 +7,7 @@ import '../../engine/source_manager.dart';
 import '../kit/adaptive_sheet.dart';
 import '../kit/sheet_tabs.dart';
 import '../widgets/common.dart';
+import 'library_sort.dart';
 
 /// Filter / sort / display options for the library (Mihon's three-tab sheet).
 Future<void> showLibraryOptions(BuildContext context) =>
@@ -21,10 +22,9 @@ class _LibraryOptions extends StatelessWidget {
   const _LibraryOptions();
 
   static List<(String, String, IconData)> get sorts => [
-    ('added', tr('添加时间'), Icons.bookmark_added_outlined),
+    ('added', tr('最近添加'), Icons.bookmark_added_outlined),
     ('read', tr('最近阅读'), Icons.history_rounded),
-    ('updated', tr('最近更新'), Icons.new_releases_outlined),
-    ('unread', tr('未读数'), Icons.mark_email_unread_outlined),
+    ('updated', tr('最近发现更新'), Icons.new_releases_outlined),
     ('title', tr('标题'), Icons.sort_by_alpha_rounded),
   ];
 
@@ -35,7 +35,7 @@ class _LibraryOptions extends StatelessWidget {
       listenable: s.domain(SettingsDomain.library),
       builder: (context, _) => SheetTabs(
         tabs: [
-          for (final label in [tr('筛选'), tr('排序'), tr('显示')])
+          for (final label in [tr('筛选'), tr('排序'), tr('徽标')])
             Tab(child: SelectionContainer.disabled(child: Text(label))),
         ],
         children: [
@@ -139,7 +139,7 @@ class _LibraryOptions extends StatelessWidget {
                       s.librarySortAsc = !s.librarySortAsc;
                     } else {
                       s.librarySort = key;
-                      s.librarySortAsc = key == 'title';
+                      s.librarySortAsc = librarySortAscendingByDefault(key);
                     }
                   },
                 ),
@@ -151,26 +151,6 @@ class _LibraryOptions extends StatelessWidget {
             primary: false,
             padding: const EdgeInsets.only(bottom: 16),
             children: [
-              Padding(
-                padding: const EdgeInsets.all(16),
-                child: SegmentedButton<String>(
-                  showSelectedIcon: false,
-                  segments: [
-                    ButtonSegment(
-                      value: 'grid',
-                      icon: const Icon(Icons.grid_view_rounded),
-                      label: SelectionContainer.disabled(child: Text(tr('网格'))),
-                    ),
-                    ButtonSegment(
-                      value: 'list',
-                      icon: const Icon(Icons.view_list_rounded),
-                      label: SelectionContainer.disabled(child: Text(tr('列表'))),
-                    ),
-                  ],
-                  selected: {s.libraryDisplay},
-                  onSelectionChanged: (v) => s.libraryDisplay = v.first,
-                ),
-              ),
               CheckboxListTile(
                 value: s.badgeUnread,
                 title: SelectionContainer.disabled(child: Text(tr('未读数徽标'))),

@@ -171,6 +171,7 @@ class MultiKeywordSearch {
     this.source,
     this.keywords,
     this.filters, {
+    this.common = const {},
     SourceManager? sourceManager,
     this.cancelToken,
   }) : _sources = sourceManager ?? SourceManager.instance;
@@ -179,6 +180,7 @@ class MultiKeywordSearch {
   final String source;
   final List<String> keywords;
   final Map<String, Object?> filters;
+  final Map<String, Object?> common;
   final _state = <String, ({int page, String? cursor, bool hasNext})>{};
   int _page = 0;
 
@@ -197,6 +199,7 @@ class MultiKeywordSearch {
             page: prev + 1,
             cursor: st?.cursor,
             filters: filters,
+            common: common,
             cancelToken: cancelToken,
           );
           _state[k] = (

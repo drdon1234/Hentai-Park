@@ -8,11 +8,12 @@ Park.register({
     ru: {'Stripchat 亚洲直播': 'Stripchat Азиатские эфиры', '中国与亚洲公开直播间': 'Открытые эфиры из Китая и Азии', '未知直播列表': 'Неизвестная лента эфиров', '直播请求失败': 'Ошибка запроса эфира', '直播数据无效': 'Некорректные данные эфира', '直播间不存在': 'Эфир не найден', '直播间暂不可用': 'Эфир сейчас недоступен', '直播间编号无效': 'Неверный ID эфира'},
     ar: {'Stripchat 亚洲直播': 'Stripchat بث آسيوي', '中国与亚洲公开直播间': 'غرف بث عامة من الصين وآسيا', '未知直播列表': 'قائمة بث غير معروفة', '直播请求失败': 'فشل طلب البث', '直播数据无效': 'بيانات البث غير صالحة', '直播间不存在': 'غرفة البث غير موجودة', '直播间暂不可用': 'البث غير متاح حالياً', '直播间编号无效': 'معرّف البث غير صالح'}
   },
-  key: 'stripchat_asia', name: 'Stripchat 亚洲直播', version: '0.0.6', minAppVersion: '0.9.2', type: 'video', category: 'live',
+  key: 'stripchat_asia', name: 'Stripchat 亚洲直播', version: '0.0.7', minAppVersion: '0.9.2', type: 'video', category: 'live',
   color: '#ff4d7d', description: '中国与亚洲公开直播间', language: 'en', homepage: 'https://zh.stripchat.com/',
   domains: ['stripchat.com'], network: {mode: 'auto', origin: 'https://zh.stripchat.com', vpnHint: true},
   imageHeaders: {Referer: 'https://zh.stripchat.com/'},
   media: {mode: 'native', scope: 'session', origin: 'https://zh.stripchat.com', domains: ['edge-hls.doppiocdn.org', 'media-hls.doppiocdn.org']},
+  chat: {domains: ['websocket-sp-v6.stripchat.com']},
   idPattern: '^[1-9]\\d{5,11}$',
   defaultFeed: 'asia', feeds: [{key: 'asia', label: '亚洲'}],
   BASE: 'https://zh.stripchat.com',
@@ -103,6 +104,58 @@ Park.register({
     }
     const {user} = await this.room(value);
     return {id,title:String(user.username||user.name||id),cover:this.cover(user.previewUrlThumbBig||user.previewUrlThumbSmall),coverAspect:16/9,url:this.BASE+'/'+encodeURIComponent(user.username||id),description:String(user.description||''),authors:[],tags:[],chapters:null,mediaKind:'video'};
+  },
+  async liveChat(value) {
+    // 聊天每次重新核对公开房间，不使用播放缓存代替当前权限。
+    const {id, user} = await this.room(value);
+    const config = await this.json('/api/front/v3/config/initial-dynamic?requestPath=' + encodeURIComponent('/' + user.username));
+    const auth = config?.initialDynamic?.websocket;
+    let target; try { target = new URL(auth?.url); } catch (_) { throw Park.error('PARSE', '直播数据无效'); }
+    if (target.protocol !== 'wss:' || !this.chat.domains.includes(target.hostname) || target.port || target.username || target.password || target.hash ||
+        target.pathname !== '/connection/websocket' || !Park.url.parse(target.href.replace(/^wss:/, 'https:'), undefined, this.chat.domains) ||
+        typeof auth?.token !== 'string' || !auth.token || auth.token.length > 16384) throw Park.error('PARSE', '直播数据无效');
+    const history = await this.json('/api/front/v2/models/' + id + '/chat');
+    if (!Array.isArray(history?.messages)) throw Park.error('PARSE', '直播数据无效');
+    // 只保留历史身份，既不重放进房历史，也不把正文放入协议状态。
+    const seen = [...new Set(history.messages.slice(-100).filter(m => String(m?.modelId) === id)
+      .map(m => String(m?.id || '')).filter(x => x && x.length <= 256))];
+    return {transport: 'websocket', url: target.href, state: {roomId: id, channel: 'newChatMessage@' + id, token: auth.token, seen, stage: 'initial'}};
+  },
+  liveChatEvent(state, event) {
+    const out = {state: {...state, seen: [...(state.seen || [])]}, send: [], messages: []};
+    if (event.type === 'open') {
+      if (state.stage !== 'initial' || typeof state.token !== 'string' || !state.token) return {...out, error: true};
+      out.send.push(JSON.stringify({id: 1, connect: {token: state.token}}));
+      delete out.state.token;
+      out.state.stage = 'connecting';
+      return out;
+    }
+    if (event.type !== 'message' || typeof event.data !== 'string') return out;
+    for (const line of event.data.split('\n').filter(Boolean).slice(0, 100)) {
+      let packet; try { packet = JSON.parse(line); } catch (_) { continue; }
+      if (!packet || typeof packet !== 'object' || Array.isArray(packet)) continue;
+      if (!Object.keys(packet).length) {
+        if (!out.send.includes('{}')) out.send.push('{}');
+        continue;
+      }
+      if (packet.error || packet.push?.disconnect || (packet.push?.unsubscribe && packet.push.channel === state.channel)) return {...out, error: true, messages: []};
+      if (packet.id === 1 && packet.connect && out.state.stage === 'connecting') {
+        out.state.stage = 'subscribing';
+        out.send.push(JSON.stringify({id: 2, subscribe: {channel: state.channel}}));
+      } else if (packet.id === 2 && packet.subscribe && out.state.stage === 'subscribing') {
+        out.state.stage = 'connected';
+        out.connected = true;
+      }
+      if (out.state.stage !== 'connected' || packet.push?.channel !== state.channel) continue;
+      const m = packet.push.pub?.data?.message;
+      if (!m || String(m.modelId) !== state.roomId || m.type !== 'text' || m.isDeleted || typeof m.details?.body !== 'string' || !m.details.body.trim()) continue;
+      const id = String(m.id || '');
+      if (!id || id.length > 256 || out.state.seen.includes(id)) continue;
+      out.state.seen.push(id);
+      if (out.state.seen.length > 512) out.state.seen.shift();
+      out.messages.push({id: state.roomId + ':' + id, text: m.details.body.slice(0, 2000)});
+    }
+    return out;
   },
   async hlsDomains() {
     // 原站配置给出 HLS 备用域，与原站播放器一样在主域不可用时切换。

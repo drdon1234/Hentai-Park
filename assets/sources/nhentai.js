@@ -54,7 +54,7 @@ Park.register({
   },
   key: 'nhentai',
   name: 'nhentai',
-  version: '0.0.8', minAppVersion: '0.9.2',
+  version: '0.0.10', minAppVersion: '0.9.2',
   type: 'comic',
   category: 'doujin',
   color: '#ED2553',
@@ -87,11 +87,12 @@ Park.register({
   rankings: [{ key: 'popular', label: '排行榜', category: 'doujin', metric: '站内热门', feed: 'popular' }],
   defaultFeed: 'popular',
   feeds: [
-    {key: 'category', label: '分类', options: browseFilters.filter(option => option.type !== 'number')},
-    { key: 'latest', label: '最新' },
+    {key: 'category', label: '分类', options: browseFilters.filter(option => option.type !== 'number'), commonFilters: {pages: {range: ['min']} }},
+    { key: 'latest', label: '最新', commonFilters: {pages: {range: ['min']} } },
     {
       key: 'popular',
       label: '热门',
+      commonFilters: {pages: {range: ['min']}},
       options: [
         {
           key: 'period',
@@ -110,6 +111,7 @@ Park.register({
 
   searchHint: '支持 tag:"big breasts"、artist:xxx、-yaoi、pages:>20 等站内语法',
   searchFilters: browseFilters,
+  searchCommonFilters: {pages: {range: ['min']}},
   API: 'https://nhentai.net/api/v2',
   LANGUAGE_TAGS: { 29963: '中文', 6346: '日文', 12227: '英文' },
   servers: null,
@@ -179,22 +181,32 @@ Park.register({
     return `language:${lang}`;
   },
 
+  commonPageClauses(common) {
+    const pages = common?.pages || {};
+    const clauses = [];
+    if (pages.min !== undefined) clauses.push(`pages:>=${pages.min}`);
+    return clauses;
+  },
+
   async feed(key, req) {
-    if (key === 'category') return this.search({keyword: '', page: req.page, cursor: req.cursor, filters: req.options || {}});
+    if (key === 'category') return this.search({keyword: '', page: req.page, cursor: req.cursor, filters: req.options || {}, common: req.common});
     const lang = this.defaultLanguageClause('', this.config.language);
-    if (key === 'latest') return this.listing({ query: lang || '*', sort: 'date', page: req.page });
+    const clauses = this.commonPageClauses(req.common);
+    if (key === 'latest') return this.listing({ query: [lang, ...clauses].filter(Boolean).join(' ') || '*', sort: 'date', page: req.page });
     const period = (req.options && req.options.period) || 'popular-week';
-    return this.listing({ query: lang || '*', sort: period, page: req.page });
+    return this.listing({ query: [lang, ...clauses].filter(Boolean).join(' ') || '*', sort: period, page: req.page });
   },
 
   async search(req) {
     const f = req.filters || {};
     const keyword = String(req.keyword || '').trim();
+    const common = req.common || {};
     const lang = f.language === '@setting' || f.language === undefined ? this.config.language : f.language;
     const words = [keyword];
     words.push(this.defaultLanguageClause(keyword, lang));
     if (f.category) words.push(`category:${f.category}`);
-    if (Number(f.minPages) > 0) words.push(`pages:>=${Number(f.minPages)}`);
+    if (Number(f.minPages) > 0 && common.pages?.min === undefined) words.push(`pages:>=${Number(f.minPages)}`);
+    words.push(...this.commonPageClauses(common));
     const query = words.filter(Boolean).join(' ').trim();
     return this.listing({ query: query || '*', sort: f.sort || 'date', page: req.page });
   },
@@ -214,6 +226,21 @@ Park.register({
     ['category', '分类'],
     ['tag', '标签'],
   ],
+
+  async comments(value, req = {}) {
+    const id = String(value), page = Math.max(1, Math.floor(Number(req.page) || 1));
+    if (!/^\d{1,12}$/.test(id)) throw Park.error('NOT_FOUND', '作品编号无效');
+    if (req.parentId) return {items: [], hasNext: false};
+    const data = await this.http.json(`${this.API}/galleries/${id}/comments`, {params: {page}});
+    if (!Array.isArray(data.result) || !Number.isInteger(data.num_pages)) throw Park.error('PARSE', '评论数据无效');
+    const items = data.result.map(c => {
+      if (!c.id || String(c.gallery_id) !== id || typeof c.body !== 'string') throw Park.error('PARSE', '评论数据无效');
+      return {id: String(c.id), author: {name: String(c.poster?.username || ''), avatar: c.poster?.avatar_url,
+        url: c.poster?.id ? 'https://nhentai.net/users/' + c.poster.id + '/' : undefined},
+        body: Park.comments.text(c.body), date: Number(c.post_date) ? new Date(Number(c.post_date) * 1000).toISOString() : undefined};
+    }).filter(c => c.body.length);
+    return {items, total: Number(data.total) || 0, hasNext: page < data.num_pages};
+  },
 
   async detail(id) {
     return (await this.fetchDetail(id)).detail;

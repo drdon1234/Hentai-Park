@@ -146,6 +146,21 @@ Las fuentes que permiten acceso anónimo pero requieren iniciar sesión para las
 
 Cada entrada de `feeds` es una pestaña de la página del sitio: `{ key, label, options?: [...] }`.
 
+### Filtros y orden comunes
+
+Los plugins declaran `commonFilters` por feed y `searchCommonFilters` para las búsquedas. La aplicación solo muestra las operaciones declaradas y no aproxima filtros a partir de las obras ya cargadas. El plugin debe traducir las condiciones a consultas reales del sitio y conservarlas al cambiar de página.
+
+```js
+feeds: [{ key: 'latest', label: 'Más recientes', commonFilters: {
+  pages: { range: ['min'], sort: ['asc', 'desc'] },
+  likes: { range: true, sort: ['desc'] },
+  duration: { range: ['min', 'max'] },
+} }],
+searchCommonFilters: { pages: { range: ['min', 'max'] } },
+```
+
+Las dimensiones son `pages`, `likes` y `duration`. `range: true` habilita `min` y `max`; una matriz puede declarar solo los límites admitidos. `sort: true` habilita `asc` y `desc`; una matriz enumera las direcciones compatibles con el sitio. Páginas y me gusta usan enteros no negativos; la duración se expresa en segundos. El objeto de petición de `feed` o `search` recibe un mapa `common` separado, por ejemplo `{ pages: { min: 10, order: 'desc' } }`. Se omiten los límites y el orden vacíos; cualquiera de los límites puede quedar en blanco y solo se puede ordenar una dimensión a la vez. Declara únicamente capacidades que admita el sitio y rechaza las dimensiones no declaradas.
+
 ### Filtros dinámicos y en cascada
 
 Las opciones de selección de `feeds[].options` y `searchFilters` pueden declarar `dynamic: true, values: []`. Los hijos dinámicos referencian padres del mismo grupo con `dependsOn: ['range']`. Las claves deben ser únicas y las dependencias existentes y sin ciclos. Solo las opciones dinámicas declaran dependencias.
@@ -260,8 +275,8 @@ Al cerrar sesión, la aplicación elimina del origen de cookieUrl solo las clave
 `this` dentro de los métodos se describe en «API del entorno». Todos los métodos pueden ser `async`.
 
 ```js
-async feed(key, { page, cursor, options }) {}      // pestañas de la página del sitio
-async search({ keyword, page, cursor, filters }) {}
+async feed(key, { page, cursor, options, common }) {} // pestañas de la página del sitio
+async search({ keyword, page, cursor, filters, common }) {}
 async random() {}                                  // devuelve un ID de obra
 async detail(id, preview) {}
 async chapter(id, chapterId) {}                    // cómics, galerías
@@ -285,7 +300,7 @@ async resolveGameResource(workId, resourceId, channelId) {}
 { sections: [{ title: '连载更新', items: [WorkItem] }], hasNext: false }
 ```
 
-**WorkItem**: `{ id, title, subtitle?, cover, coverBlurred?, coverAspect?, pages?, rating?, likes?, views?, language?, category?, badge?, badgeColor?, duration?, uploaded?, tags?, mediaKind?, workCode?, editions? }`
+**WorkItem**: `{ id, title, subtitle?, cover, coverBlurred?, coverAspect?, pages?, rating?, likes?, views?, language?, category?, badge?, badgeColor?, duration?, uploaded?, tags?, mediaKind?, workCode?, editions?, commentsAvailable? }`
 
 - `workCode` es un código de obra confirmado por la fuente y se usa solo para buscar la misma obra. No sustituye a `id` ni fusiona identidades, favoritos, progreso o descargas.
 - `editions` contiene etiquetas fijas de edición indicadas explícitamente por la fuente, como subtítulos en chino o una filtración sin censura. La ausencia de etiquetas no implica una edición original. La traducción visible no modifica las etiquetas originales.
@@ -301,7 +316,7 @@ Todos los campos de WorkItem, más:
 
 ```js
 {
-  url, authors: [], description, uploader?, size?, comments?,
+  url, authors: [], description, uploader?, size?, comments?, commentsAvailable?,
   tags: [{ namespace: 'artist', label: '作者', tags: [{ name, keyword, filters?, count? }] }],
   chapters: [{ id, title }] | null,   // null significa un solo capítulo
   singleChapterId?,                   // ID de capítulo que necesitan las obras de un solo capítulo
@@ -393,7 +408,7 @@ subscription: {
   async resolve(input) { return { id: validatedTarget, label: displayName }; },
   async targets() { return [{ id: joinedChannelId, label: channelName }]; },
   async posts(target, { cursor }) {
-    return { items: [{ id, title, text, date, url, locked,
+    return { items: [{ id, title, text, date, url, locked, commentsAvailable,
       media: [{ type: 'image', url, preview, previewOnly: false },
               { type: 'video', url, preview, format: 'mp4', headers: {} }] }],
       cursor: nextCursor, hasNext: true };
@@ -410,7 +425,7 @@ subscription: {
 
 Los álbumes son una capacidad independiente: no se construyen con publicaciones ya cargadas ni recurren a `subscription.posts`. Implementa `subscription.media(scope, { page, cursor })`; una fuente con feeds públicos y sin objetivos suscribibles puede declarar solo este método en `subscription`. El runtime exporta `capabilities.album` por separado de `capabilities.subscription`.
 
-`scope` es `{ feed, options }` o `{ target }`: feed con filtros o usuario, comunidad, canal o grupo. La fuente resuelve y recorre objetivos sin condiciones por sitio en la interfaz. Devuelve `{ items, cursor, hasNext }`; una página sin medios coincidentes puede continuar y cada cursor debe avanzar. Los cursores repetidos son errores.
+`scope` es `{ feed, options }` o `{ target }` / `{ search: { keyword, filters } }`: feed con filtros o usuario, comunidad, canal o grupo. La fuente resuelve y recorre objetivos sin condiciones por sitio en la interfaz. Devuelve `{ items, cursor, hasNext }`; una página sin medios coincidentes puede continuar y cada cursor debe avanzar. Los cursores repetidos son errores.
 
 Cada elemento lleva un `id` de cadena estable, `presentation: 'post' | 'work'`, fecha ISO 8601 interpretable si se conoce y el array `media` completo en orden del sitio. Cada adjunto tiene `id` de cadena único y estable, `type: 'image' | 'video'` y `url` de contenido real o `resource` controlado. `preview` es una miniatura de imagen; `previewResource` usa el formato controlado descrito abajo, con máximo de 2 MiB y una imagen independiente. No uses portadas ni URL de vídeo como miniaturas falsas. El contenido restringido solo muestra vistas públicas con `previewOnly: true`, conserva el desenfoque original y usa `locked: true` si toda la publicación está bloqueada.
 
@@ -426,7 +441,8 @@ Los plugins normales pueden ofrecer «seguir actualizaciones» con un objeto `up
 
 - `normalize(dimension, input)` devuelve `{ id, label }`; `check({ dimension, target }, { cursor })` devuelve `{ items, hasNext, cursor }`. Los elementos son `{ id, title, kind, workId, chapterId }`, con `kind` limitado a `work | post | chapter`, ID estables y no vacíos y sin URL de medios, cookies ni credenciales. Los ID de capítulo incluyen la identidad de la obra para que el «Capítulo 1» de obras distintas no choque.
 - `Park.enableUpdateSubscriptions(Park.__pending, rules)` ofrece un adaptador genérico; declara las dimensiones de forma explícita al final del script, con `searchFilters` y `seriesPattern` opcionales. `work` usa la lista real de capítulos; `posts`, la API de canal existente; `search` y `filter` usan la búsqueda, `code` coincide exactamente con códigos completos y `series` usa rutas de serie validadas contra los dominios del sitio. Los cursores de búsqueda guardan el número de página y el cursor del sitio.
-- Las comprobaciones de búsqueda y publicaciones devuelven `windowed: true`, es decir, revisan las tres últimas páginas: la primera solo registra una referencia y las siguientes generan eventos de «nuevo contenido encontrado» por ID estable, sin presumir fecha de publicación. Los demás protocolos paginados revisan como mucho tres páginas por ronda, guardan cursores y candidatos y confirman en una transacción al terminar; las listas de capítulos nunca se truncan, con un máximo de 20.000 candidatos (superarlo es un error). Los fallos de red, permisos, verificación, listas vacías o análisis parcial deben lanzar errores explícitos, nunca un éxito vacío.
+- `windowed: true` establece una base de tres páginas en la primera comprobación. Después procesa hasta tres páginas por lote, guardando cursores y candidatos hasta una página totalmente conocida o el final, y entonces confirma los eventos nuevos. Los capítulos no se recortan; superar 20.000 candidatos o fallar el análisis debe producir un error.
+- `query({ dimension, target })` devuelve `{ keyword, filters }`, compartido por la navegación y las comprobaciones. Los álbumes también aceptan `{ search: { keyword, filters } }` y conservan la consulta al paginar. Los vídeos de publicaciones admiten adjuntos `resource` y continúan en la misma búsqueda.
 - Primer y segundo plano comparten el entorno del plugin, las particiones de cookies, las restricciones de dominio y el verificador. En segundo plano solo se inician los plugins necesarios y nunca se inicia sesión, se suscribe en el sitio, se descargan medios ni se saltan permisos. Un cambio de cuenta o de configuración del plugin rehace la referencia (renovar el token no).
 
 ## API del entorno
@@ -605,4 +621,62 @@ Los scripts se mantienen en la rama principal. Las ramas `sources`, `rankings` y
 
 ```powershell
 node tools/publish_sources.mjs --commit '<SHA>' --channel rankings --output '<本地输出文件>'
+```
+
+## Comentarios y enlaces de contenido
+
+Implementar `comments` exporta automáticamente `capabilities.comments`; `resolveContentLink` y `searchLink` exportan las capacidades correspondientes. Declare solo lecturas verificadas. Esta interfaz no publica comentarios ni respuestas, vota ni denuncia contenido.
+
+Las implementaciones oficiales de comentarios incluyen Reddit, myfans, Fansly, GalgameX, XVideos, Pornhub Shorties, PicACG, SpankBang, X / Twitter y Telegram; la lectura sigue sujeta a los permisos del sitio original. X / Twitter y Telegram requieren iniciar sesión; Telegram admite publicaciones con debates habilitados. Conserva el enlace exacto al comentario original para los adjuntos que no puedan mostrarse directamente.
+
+```js
+// WorkItem / WorkDetail / SubscriptionPost: { ..., commentsAvailable?: boolean }
+comments(workId, {page = 1, cursor = null, parentId = null, sort = 'default', context = {}})
+// context: {url?, episodeId?, board?}
+// result: {items, hasNext, page?, cursor?, total?, reset?, sorts?: [{value, label}]}
+// item: {id, author: {name, avatar?, url?, badges?: []}, body,
+//        date?, likes?, rating?, spoiler?, parentId?, replyCount?,
+//        repliesAvailable?, replies?: [item]}
+// body: [{type: 'text' | 'link' | 'image' | 'quote', text?, url?}]
+resolveContentLink(url) // null | {type: 'work', id} | {type: 'search', url} | {type: 'external', url}
+searchLink(url, request) // WorkPage
+```
+
+- El campo opcional de nivel superior `commentsAvailable?: boolean` de `WorkItem`, `WorkDetail` y `SubscriptionPost` indica si la obra tiene comentarios habilitados. El booleano estricto `false` oculta la entrada; `true` sigue requiriendo `capabilities.comments` de la fuente. Un valor omitido o no booleano indica un estado desconocido, por lo que la capacidad de la fuente determina su visibilidad. Un recuento de 0 no significa que estén desactivados. Si durante la lectura se descubre que la publicación original desactivó los comentarios, lanza `UNSUPPORTED` en lugar de ocultar ese estado con una lista vacía.
+- `workId` identifica la obra en la fuente; `context` conserva la página original, el episodio o la clasificación. Separe los comentarios por obra y episodio.
+- `id` es una cadena estable y no vacía de la fuente. `author.name` puede estar vacío; no invente nombres. El cuerpo necesita texto no vacío o una imagen válida; conserve los comentarios que solo contienen imágenes. `date` conserva el texto original o la hora ISO. `likes` y `replyCount` no son negativos, `rating` va de 0 a 5 y `spoiler` marca revelaciones.
+- `replies` usa la misma estructura y `parentId` identifica al padre. El cuerpo del padre no incluye las respuestas. `replyCount` es el total del sitio. Establezca `repliesAvailable: true` solo tras verificar lecturas con `parentId`; por defecto es false y el recuento por sí solo no habilita la carga. Si el sitio no proporciona un recuento, `replyCount: 0` puede coexistir con `repliesAvailable: true`. La interfaz ofrece Ver respuestas sin inventar cifras ni bloquear el acceso por el número ya cargado. Al leer respuestas anidadas, el `parentId` de la solicitud es el `id` del comentario seleccionado.
+- Determine `hasNext` a partir de la respuesta real. Los cursores no contienen credenciales y se devuelven sin cambios. Deténgase ante ID repetidos, el total alcanzado o un final explícito; use false si la paginación no está verificada. `sorts` solo incluye órdenes verificados y `label` usa claves de traducción de la interfaz.
+- Si cambia la instantánea de paginación, devuelva `reset: true`, el `page` real recargado (normalmente 1) y un cursor nuevo para sustituir la lista anterior. No presente la primera página como una posterior. Lance los errores de servicio, inicio de sesión o análisis correspondientes; no los oculte con una lista vacía.
+
+`Park.comments.html(html, baseUrl)` crea fragmentos seguros conservando texto, saltos, enlaces, imágenes y citas, y elimina contenido ejecutable. `Park.comments.text(text)` separa las URL HTTP(S) explícitas del texto. `Park.comments.url(value, baseUrl)` devuelve una URL HTTP(S) válida o null. Las URL de avatar, perfil y cuerpo no contienen userinfo. El marco muestra datos estructurados y nunca ejecuta HTML del sitio. El complemento analiza los campos propios del sitio y usa `this.http` para las solicitudes.
+
+`resolveContentLink` reconoce hosts exactos, rutas y parámetros verificados; devuelve null para destinos ajenos. Use `type: 'work'` para obras, `type: 'search'` para búsquedas originales y, opcionalmente, `type: 'external'` para otras páginas seguras. Los perfiles, anclas de comentarios, fechas, números de comentario y marcas de reproducción no son obras. `searchLink` recibe la URL original completa y devuelve WorkPage conservando palabras clave, filtros, categorías y paginación. No extraiga solo palabras clave descartando otros parámetros ni acceda a puntos de escritura. Los enlaces no reconocidos mantienen la opción de abrir la página original.
+
+## Chat en directo de solo lectura
+
+Declare `capabilities.liveChat` solo si existen `liveChat(id)` y `liveChatEvent(state, event)`. El soporte oficial incluye CAM4, XLoveCam, Stripchat y SOOP. `chat.domains` es una lista independiente de hosts y puertos; no hereda permisos de páginas, imágenes ni medios. `host` solo permite el puerto 443. Los puertos no estándar deben declararse como `host:port` y estar entre 1024 y 65535. `*.host:port` coincide con un único nivel de subdominio en ese puerto, excluyendo el host base, subdominios más profundos y otros puertos. Solo se permiten HTTPS/SSE y WSS, sin transporte en texto claro, información de usuario ni fragmentos. Los tokens de inicio de invitado no pueden redirigirse a otro host ni puerto.
+
+`liveChat` devuelve `transport: "sse" | "websocket"`, `url`, `headers` opcionales y `state`. Use `this.chatHttp.request({url, method, headers, body|json})` para iniciar la sesión de invitado dentro de la lista permitida, con la cancelación de la llamada actual. Las Cookie se separan por fuente. Tokens, URL de conexión, estado y mensajes permanecen en memoria.
+
+- `protocols`: solo WebSocket; hasta 8 cadenas RFC token únicas y no vacías, con un máximo de 128 caracteres cada una.
+- `binary: true`: solo WebSocket; envía y recibe tramas binarias UTF-8 mientras `event.data` y `send` siguen siendo cadenas para la extensión. Cada trama admite hasta 65536 bytes y se valida estrictamente como UTF-8. Por defecto se usan tramas de texto.
+- `heartbeatIntervalMs`: entero opcional entre 10000 y 60000. Tras conectar correctamente, los eventos `{type: "tick"}` entran a ese intervalo en la misma cola secuencial. Se cancelan al detenerse o salir de la página. Los ticks no amplían el plazo de negociación de conexión ni el tiempo límite de recepción SSE.
+
+Un plazo fijo de 25 segundos cubre el establecimiento de la conexión y la negociación del protocolo. Los WebSocket sin `heartbeatIntervalMs` usan ping/pong nativo cada 30 segundos. Si se declara ese campo, los ticks de la extensión mantienen la conexión en su lugar, y la desconexión se determina por errores reales de transporte o eventos de cierre. Ningún modo considera desconectada una sala sin texto de chat, y los ticks locales no demuestran que el servidor siga activo. SSE conserva un límite de 90 segundos para recibir datos del servidor.
+
+`liveChatEvent` recibe `{type: "open"}` o `{type: "message", data, event?}` o `{type: "tick"}`; SSE conserva el nombre del evento. Devuelve el nuevo `state` y, opcionalmente, `connected`, `error`, `messages` y `send`. Los mensajes incluyen `id` estable, `text` sin formato, `author` opcional e `isHistory`. El historial solo evita duplicados; no se muestra como mensajes nuevos. `send` se limita a autenticación, suscripción y latidos verificados. No hay API para publicar mensajes del usuario.
+
+El anfitrión limita tramas, colas, caché y reintentos. Al reconectar obtiene tokens nuevos y muestra una opción para reintentar los errores. Desactivar el chat, cubrir la pantalla, pasar a segundo plano, bloquear la aplicación o cerrar el reproductor cancela inmediatamente conexiones y llamadas y descarta respuestas antiguas. No incluye comentarios de obras, paginación del historial ni comentarios sincronizados de grabaciones.
+
+```js
+chat: {domains: ["chat.example.com"]},
+async liveChat(id) {
+  return {transport: "websocket", url: "wss://chat.example.com/room", state: {}};
+},
+liveChatEvent(state, event) {
+  return {state, connected: true, messages: [
+    {id: "message-id", text: "message", author: "author", isHistory: false}
+  ], send: []};
+}
 ```

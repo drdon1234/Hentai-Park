@@ -4,6 +4,7 @@ import 'package:video_player/video_player.dart';
 import '../../core/localization.dart';
 import '../../core/models.dart';
 import '../../engine/source_manager.dart';
+import '../comments/comments_page.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
 import '../widgets/content_translation.dart';
@@ -42,6 +43,10 @@ class VideoControls extends StatelessWidget {
     this.progress,
     this.live = false,
     this.recordingAction,
+    this.chatEnabled = false,
+    this.onToggleChat,
+    this.chatAreaLabel,
+    this.onChatArea,
   });
   final VideoPlayerValue value;
 
@@ -67,6 +72,10 @@ class VideoControls extends StatelessWidget {
   final Widget? progress;
   final bool live;
   final Widget? recordingAction;
+  final bool chatEnabled;
+  final VoidCallback? onToggleChat;
+  final String? chatAreaLabel;
+  final VoidCallback? onChatArea;
 
   @override
   Widget build(BuildContext context) {
@@ -263,12 +272,35 @@ class VideoControls extends StatelessWidget {
                                             ),
                                     ),
                                   ),
+                                  if (onToggleChat != null)
+                                    IconButton(
+                                      tooltip: tr(
+                                        chatEnabled ? '关闭弹幕' : '开启弹幕',
+                                      ),
+                                      onPressed: onToggleChat,
+                                      color: fg,
+                                      icon: Icon(
+                                        chatEnabled
+                                            ? Icons.subtitles_rounded
+                                            : Icons.subtitles_off_rounded,
+                                      ),
+                                    ),
                                   if (!compact &&
                                       quality != null &&
                                       onQuality != null)
                                     action(quality!, onQuality),
                                   if (!compact && !live)
                                     action('${speed}x', onSpeed),
+                                  IconButton(
+                                    color: fg,
+                                    tooltip: tr(landscape ? '竖屏展开' : '横屏播放'),
+                                    icon: const Icon(Icons.screen_rotation_rounded),
+                                    onPressed: () => onDisplayMode(
+                                      landscape
+                                          ? VideoDisplayMode.portrait
+                                          : VideoDisplayMode.landscape,
+                                    ),
+                                  ),
                                   PopupMenuButton<String>(
                                     tooltip: tr('更多'),
                                     icon: const Icon(
@@ -288,15 +320,18 @@ class VideoControls extends StatelessWidget {
                                           onQuality?.call();
                                         case 'episodes':
                                           onEpisodes?.call();
-                                        case 'orientation':
-                                          onDisplayMode(
-                                            landscape
-                                                ? VideoDisplayMode.portrait
-                                                : VideoDisplayMode.landscape,
-                                          );
+                                        case 'chatArea':
+                                          onChatArea?.call();
                                       }
                                     },
                                     itemBuilder: (context) => [
+                                      if (onChatArea != null)
+                                        PopupMenuItem(
+                                          value: 'chatArea',
+                                          child: Text(
+                                            '${tr('弹幕显示区域')} · $chatAreaLabel',
+                                          ),
+                                        ),
                                       if (compact && !live)
                                         PopupMenuItem(
                                           value: 'speed',
@@ -316,12 +351,6 @@ class VideoControls extends StatelessWidget {
                                           value: 'episodes',
                                           child: Text(tr('选集')),
                                         ),
-                                      PopupMenuItem(
-                                        value: 'orientation',
-                                        child: Text(
-                                          tr(landscape ? '竖屏展开' : '横屏播放'),
-                                        ),
-                                      ),
                                     ],
                                   ),
                                   IconButton(
@@ -518,12 +547,14 @@ class VideoDetails extends StatelessWidget {
     this.quality,
     this.showHeader = true,
     this.showRelated = true,
+    this.episodeId,
   });
   final WorkDetail work;
   final bool offline;
   final String? quality;
   final bool showHeader;
   final bool showRelated;
+  final String? episodeId;
 
   @override
   Widget build(BuildContext context) {
@@ -570,6 +601,19 @@ class VideoDetails extends StatelessWidget {
                   ],
                 ],
               ),
+            ),
+          ),
+        if (showHeader && !offline)
+          SliverToBoxAdapter(
+            child: CommentsEntry(
+              source: d.source,
+              workId: d.id,
+              count: d.comments,
+              available: d.commentsAvailable,
+              context: {
+                'url': d.url,
+                if (episodeId != null) 'episodeId': episodeId,
+              },
             ),
           ),
         if (showRelated && d.description.isNotEmpty)

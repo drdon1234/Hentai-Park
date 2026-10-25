@@ -29,6 +29,7 @@ class FeedShelf extends StatefulWidget {
     this.onMore,
     this.moreLabel,
     this.onToggleVisibility,
+    this.moreChevron = true,
   });
   final FeedSessions sessions;
   final String sourceKey;
@@ -36,6 +37,7 @@ class FeedShelf extends StatefulWidget {
   final VoidCallback? onMore;
   final String? moreLabel;
   final VoidCallback? onToggleVisibility;
+  final bool moreChevron;
 
   @override
   State<FeedShelf> createState() => _FeedShelfState();
@@ -282,42 +284,102 @@ class _FeedShelfState extends State<FeedShelf>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          SectionHeader(
-            widget.title,
-            leading: SourceAvatar(widget.sourceKey, size: 22),
-            trailing: Wrap(
-              alignment: WrapAlignment.end,
-              spacing: Gap.xs,
-              runSpacing: Gap.xs,
-              children: [
-                if (widget.onToggleVisibility != null)
-                  IconButton(
-                    tooltip: tr('隐藏该站点的作品并停止自动加载'),
-                    icon: const Icon(Icons.visibility_outlined),
-                    onPressed: widget.onToggleVisibility,
-                  ),
-                if (widget.sessions.albumScope(widget.sourceKey)
-                    case final scope?)
-                  IconButton(
-                    tooltip: tr('相册'),
-                    icon: const Icon(Icons.photo_library_outlined),
-                    onPressed: () => openMediaAlbum(
-                      context,
-                      source: widget.sourceKey,
-                      title: widget.title,
-                      scope: scope,
-                      sources: widget.sessions.sources,
-                    ),
-                  ),
-                if (widget.onMore != null)
-                  OutlinedButton(
-                    onPressed: widget.onMore,
-                    child: SelectionContainer.disabled(
-                      child: Text(widget.moreLabel ?? tr('全部')),
-                    ),
-                  ),
-              ],
-            ),
+          Column(
+            children: [
+              SectionHeader(
+                widget.title,
+                leading: SourceAvatar(widget.sourceKey, size: 26),
+                padding: const EdgeInsets.fromLTRB(
+                  Gap.page,
+                  Gap.xs,
+                  Gap.page,
+                  Gap.xs,
+                ),
+                titleStyle: context.text.bodyMedium?.copyWith(
+                  fontWeight: FontWeight.w600,
+                ),
+                emphasizeTrailing: false,
+                trailing: Wrap(
+                  alignment: WrapAlignment.end,
+                  spacing: Gap.xs,
+                  runSpacing: Gap.xs,
+                  children: [
+                    if (widget.onToggleVisibility != null)
+                      IconButton(
+                        tooltip: tr('隐藏该站点的作品并停止自动加载'),
+                        icon: const Icon(Icons.visibility_outlined, size: 20),
+                        onPressed: widget.onToggleVisibility,
+                      ),
+                    if (widget.sessions.albumScope(widget.sourceKey)
+                        case final scope?)
+                      IconButton(
+                        tooltip: tr('相册'),
+                        icon: const Icon(Icons.photo_library_outlined),
+                        onPressed: () => openMediaAlbum(
+                          context,
+                          source: widget.sourceKey,
+                          title: widget.title,
+                          scope: scope,
+                          sources: widget.sessions.sources,
+                        ),
+                      ),
+                    if (widget.onMore != null && widget.moreLabel != null)
+                      TextButton(
+                        style: TextButton.styleFrom(
+                          foregroundColor: context.colors.primary,
+                          minimumSize: const Size(48, 40),
+                          padding: EdgeInsets.zero,
+                        ),
+                        onPressed: widget.onMore,
+                        child: SelectionContainer.disabled(
+                          child: widget.moreChevron
+                              ? Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Text(
+                                      widget.moreLabel!,
+                                      style: context.text.labelLarge?.copyWith(
+                                        color: context.colors.primary,
+                                        fontWeight: FontWeight.w400,
+                                      ),
+                                    ),
+                                    const SizedBox(width: Gap.xs),
+                                    const SizedBox(
+                                      width: 40,
+                                      height: 40,
+                                      child: Center(
+                                        child: Icon(
+                                          Icons.chevron_right_rounded,
+                                          size: 18,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                )
+                              : Text(
+                                  widget.moreLabel!,
+                                  style: context.text.labelLarge?.copyWith(
+                                    color: context.colors.primary,
+                                    fontWeight: FontWeight.w400,
+                                  ),
+                                ),
+                        ),
+                      )
+                    else if (widget.onMore != null)
+                      IconButton(
+                        tooltip: tr('全部'),
+                        style: IconButton.styleFrom(
+                          minimumSize: const Size(40, 40),
+                          padding: EdgeInsets.zero,
+                        ),
+                        icon: const Icon(Icons.chevron_right_rounded),
+                        onPressed: widget.onMore,
+                      ),
+                  ],
+                ),
+              ),
+              const Divider(indent: Gap.page, endIndent: Gap.page),
+            ],
           ),
           if (session?.error != null && ready)
             _ShelfMessage(

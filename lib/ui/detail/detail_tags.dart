@@ -117,7 +117,7 @@ class TagSection extends StatelessWidget {
 
   Widget _row(BuildContext context, String label, List<Widget> chips) =>
       Padding(
-        padding: const EdgeInsets.only(bottom: Gap.m),
+        padding: const EdgeInsets.only(bottom: Gap.s),
         child: Row(
           children: [
             SizedBox(
@@ -130,7 +130,11 @@ class TagSection extends StatelessWidget {
               ),
             ),
             Expanded(
-              child: Wrap(spacing: Gap.s, children: chips),
+              child: Wrap(
+                spacing: Gap.xs,
+                runSpacing: Gap.xs,
+                children: chips,
+              ),
             ),
           ],
         ),

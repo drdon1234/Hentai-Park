@@ -67,6 +67,7 @@ session.*.json
 /build/
 /coverage/
 /test/
+/test/
 
 # Symbolication related
 app.*.symbols

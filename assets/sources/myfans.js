@@ -4,6 +4,17 @@
  function normalize(input){let s=String(input||'').trim();if(/^https?:\/\//i.test(s)){const u=new URL(s);if(u.protocol!=='https:'||!['myfans.jp','www.myfans.jp'].includes(u.hostname)||u.username||u.password)throw Park.error('CONFIG','订阅目标无效');const p=u.pathname.split('/').filter(Boolean);if(p.length!==1)throw Park.error('CONFIG','订阅目标无效');s=p[0];}s=s.replace(/^@/,'');if(!/^[a-zA-Z0-9_-]{1,64}$/.test(s))throw Park.error('CONFIG','订阅目标无效');return {id:s,label:s};}
  // 官网 General=全年龄、Woman=一般成人；统一应用到列表、搜索和详情。
  async function api(source,path,params){const r=await source.http.get(BASE+path,{params:{...params,sexual_orientation:'woman'},headers:{'Content-Type':'application/json','google-ga-data':'event328','x-vercel-env':'production','X-Mf-Locale':'ja',Origin:HOME,Referer:HOME+'/',Cookie:''}});if(!r.ok)throw Park.error(r.status===404?'NOT_FOUND':'BLOCKED','访问受限，请在原站检查权限');return r.json();}
+ const postIdPattern=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+ function comment(row,workId,parentId){
+   if(!postIdPattern.test(String(row?.id||''))||typeof row.body!=='string')throw Park.error('PARSE','站点接口已变化，请稍后重试');
+   const user=row.user||{},replyCount=Math.max(0,Number(row.replies_count)||0);
+   return {id:workId+'/'+row.id,author:{name:typeof user.name==='string'?user.name:'',
+     avatar:Park.comments.url(user.avatar_url,HOME)||undefined,
+     url:/^[a-zA-Z0-9_-]{1,64}$/.test(user.username||'')?HOME+'/'+user.username:undefined},
+     body:Park.comments.text(row.body),date:row.created_at||undefined,
+     likes:Number.isFinite(row.likes_count)?Math.max(0,row.likes_count):undefined,
+     parentId:parentId||undefined,replyCount,repliesAvailable:!parentId&&replyCount>0};
+ }
  function post(p) {
    const media = [];
    // 源站播放器优先选择 main，否则播放 trial；visible 只表示全文权限。
@@ -55,7 +66,7 @@
    const hasNext=next!=null||(d.pagination?.next===undefined&&d.data.length===10&&(d.pagination?.total_pages==null||page<d.pagination.total_pages));
    return {items,page,cursor:hasNext?String(next||page+1):null,hasNext};
  }
- Park.register({i18n:{"zh-Hant": {"创作者订阅，公开图片、视频及视频预览；会员内容需在原站授权": "創作者訂閱，公開圖片、影片及影片預覽；會員內容需在原站授權", "支持应用内查看公开图片、视频及视频预览；完整会员内容取决于原站权限。": "支援在應用程式內查看公開圖片、影片及影片預覽；完整會員內容取決於原站權限。", "精选": "精選"}, "ja": {"创作者订阅，公开图片、视频及视频预览；会员内容需在原站授权": "クリエイターの購読、公開画像・動画・動画プレビュー。会員向けコンテンツにはサイトの権限が必要です", "支持应用内查看公开图片、视频及视频预览；完整会员内容取决于原站权限。": "公開画像、動画、動画プレビューをアプリ内で閲覧できます。会員向け完全版の閲覧はサイトの権限によります。", "精选": "ピックアップ"}, "ko": {"创作者订阅，公开图片、视频及视频预览；会员内容需在原站授权": "크리에이터 구독, 공개 이미지·동영상·미리보기. 회원 콘텐츠는 원본 사이트의 권한이 필요합니다", "支持应用内查看公开图片、视频及视频预览；完整会员内容取决于原站权限。": "공개 이미지, 동영상 및 동영상 미리보기를 앱 내에서 볼 수 있습니다. 회원 전용 전체 콘텐츠는 원본 사이트의 권한에 따라 달라집니다.", "精选": "엄선"}, "en": {"创作者订阅，公开图片、视频及视频预览；会员内容需在原站授权": "Creator subscriptions with public images, videos and video previews; member content requires site authorization", "支持应用内查看公开图片、视频及视频预览；完整会员内容取决于原站权限。": "View public images, videos and video previews in the app. Full member content depends on site permissions.", "精选": "Pickup"}, "es": {"创作者订阅，公开图片、视频及视频预览；会员内容需在原站授权": "Suscripciones a creadores, imágenes, vídeos y vistas previas públicas; el contenido para miembros requiere autorización del sitio", "支持应用内查看公开图片、视频及视频预览；完整会员内容取决于原站权限。": "Puedes ver imágenes, vídeos y vistas previas públicas en la aplicación. El contenido completo para miembros depende de los permisos del sitio.", "精选": "Selección"}, "ru": {"创作者订阅，公开图片、视频及视频预览；会员内容需在原站授权": "Подписки на авторов, общедоступные изображения, видео и предпросмотры; контент для участников требует разрешения сайта", "支持应用内查看公开图片、视频及视频预览；完整会员内容取决于原站权限。": "Общедоступные изображения, видео и предпросмотры доступны в приложении. Полный контент для участников зависит от прав на сайте.", "精选": "Подборка"}, "ar": {"创作者订阅，公开图片、视频及视频预览；会员内容需在原站授权": "اشتراكات المبدعين والصور والفيديوهات والمعاينات العامة؛ يتطلب محتوى الأعضاء تفويض الموقع", "支持应用内查看公开图片、视频及视频预览；完整会员内容取决于原站权限。": "يمكن عرض الصور والفيديوهات والمعاينات العامة داخل التطبيق. يعتمد محتوى الأعضاء الكامل على صلاحيات الموقع.", "精选": "مختارات"}},key:'myfans',name:'myfans.jp',version: '0.0.9', minAppVersion: '0.9.2',type:'comic',category:'other',homepage:HOME,domains:['myfans.jp','api.myfans.jp','mfcdn.jp'],network:{vpnHint:true},media:{mode:'native',origin:HOME,domains:['mfcdn.jp']},description:'创作者订阅，公开图片、视频及视频预览；会员内容需在原站授权',idExample:'haruni',
+ Park.register({i18n:{"zh-Hant": {"创作者订阅，公开图片、视频及视频预览；会员内容需在原站授权": "創作者訂閱，公開圖片、影片及影片預覽；會員內容需在原站授權", "支持应用内查看公开图片、视频及视频预览；完整会员内容取决于原站权限。": "支援在應用程式內查看公開圖片、影片及影片預覽；完整會員內容取決於原站權限。", "精选": "精選"}, "ja": {"创作者订阅，公开图片、视频及视频预览；会员内容需在原站授权": "クリエイターの購読、公開画像・動画・動画プレビュー。会員向けコンテンツにはサイトの権限が必要です", "支持应用内查看公开图片、视频及视频预览；完整会员内容取决于原站权限。": "公開画像、動画、動画プレビューをアプリ内で閲覧できます。会員向け完全版の閲覧はサイトの権限によります。", "精选": "ピックアップ"}, "ko": {"创作者订阅，公开图片、视频及视频预览；会员内容需在原站授权": "크리에이터 구독, 공개 이미지·동영상·미리보기. 회원 콘텐츠는 원본 사이트의 권한이 필요합니다", "支持应用内查看公开图片、视频及视频预览；完整会员内容取决于原站权限。": "공개 이미지, 동영상 및 동영상 미리보기를 앱 내에서 볼 수 있습니다. 회원 전용 전체 콘텐츠는 원본 사이트의 권한에 따라 달라집니다.", "精选": "엄선"}, "en": {"创作者订阅，公开图片、视频及视频预览；会员内容需在原站授权": "Creator subscriptions with public images, videos and video previews; member content requires site authorization", "支持应用内查看公开图片、视频及视频预览；完整会员内容取决于原站权限。": "View public images, videos and video previews in the app. Full member content depends on site permissions.", "精选": "Pickup"}, "es": {"创作者订阅，公开图片、视频及视频预览；会员内容需在原站授权": "Suscripciones a creadores, imágenes, vídeos y vistas previas públicas; el contenido para miembros requiere autorización del sitio", "支持应用内查看公开图片、视频及视频预览；完整会员内容取决于原站权限。": "Puedes ver imágenes, vídeos y vistas previas públicas en la aplicación. El contenido completo para miembros depende de los permisos del sitio.", "精选": "Selección"}, "ru": {"创作者订阅，公开图片、视频及视频预览；会员内容需在原站授权": "Подписки на авторов, общедоступные изображения, видео и предпросмотры; контент для участников требует разрешения сайта", "支持应用内查看公开图片、视频及视频预览；完整会员内容取决于原站权限。": "Общедоступные изображения, видео и предпросмотры доступны в приложении. Полный контент для участников зависит от прав на сайте.", "精选": "Подборка"}, "ar": {"创作者订阅，公开图片、视频及视频预览；会员内容需在原站授权": "اشتراكات المبدعين والصور والفيديوهات والمعاينات العامة؛ يتطلب محتوى الأعضاء تفويض الموقع", "支持应用内查看公开图片、视频及视频预览；完整会员内容取决于原站权限。": "يمكن عرض الصور والفيديوهات والمعاينات العامة داخل التطبيق. يعتمد محتوى الأعضاء الكامل على صلاحيات الموقع.", "精选": "مختارات"}},key:'myfans',name:'myfans.jp',version: '0.0.11', minAppVersion: '0.9.2',postShortVideos:true,type:'comic',category:'other',homepage:HOME,domains:['myfans.jp','api.myfans.jp','mfcdn.jp'],network:{vpnHint:true},media:{mode:'native',origin:HOME,domains:['mfcdn.jp']},description:'创作者订阅，公开图片、视频及视频预览；会员内容需在原站授权',idExample:'haruni',
   defaultFeed:'recommend',feeds:[{key:'recommend',label:'精选'},{key:'ranking',label:'排行榜',options:[{key:'category',label:'分类',default:'all',dynamic:true,values:[]},{key:'term',label:'周期',default:'daily',values:[{value:'daily',label:'每天'},{value:'weekly',label:'每周'}]}]}],
   async categories(){
    if(this.categoryCache&&Date.now()-this.categoryCache.time<300000)return this.categoryCache.values;
@@ -74,6 +85,30 @@
    return this.categories();
   },
   rankings:[{key:'ranking',label:'排行榜',category:'other',metric:'站内热度',feed:'ranking'}],
+  async comments(value,req={}){
+   const workId=String(value||''),page=Number(req.cursor||req.page||1);
+   if(!postIdPattern.test(workId)||!Number.isInteger(page)||page<1||page>100000||
+      !['default',''].includes(req.sort||'default'))throw Park.error('CONFIG','分页参数无效');
+   const parentId=String(req.parentId||'');
+   if(parentId){
+    const parts=parentId.split('/');
+    if(parts.length!==2||parts[0]!==workId||!postIdPattern.test(parts[1]))throw Park.error('CONFIG','分页参数无效');
+    if(page>1)return {items:[],page,hasNext:false};
+    // 官网楼中楼接口直接返回完整数组，不接受主评论的页码分页。
+    const rows=await api(this,'/v1/comments/'+encodeURIComponent(parts[1])+'/replies');
+    if(!Array.isArray(rows))throw Park.error('PARSE','站点接口已变化，请稍后重试');
+    const items=rows.map(row=>comment(row,workId,parentId));
+    return {items,page,hasNext:false,total:items.length};
+   }
+   const data=await api(this,'/v2/posts/'+encodeURIComponent(workId)+'/comments',{page,per_page:20});
+   if(!Array.isArray(data?.data)||!data.pagination||Number(data.pagination.current)!==page)
+    throw Park.error('PARSE','站点接口已变化，请稍后重试');
+   const next=data.pagination.next;
+   if(next!=null&&(!Number.isInteger(next)||next<=page))throw Park.error('PARSE','站点接口已变化，请稍后重试');
+   const seen=new Set(),items=data.data.map(row=>comment(row,workId)).filter(row=>!seen.has(row.id)&&seen.add(row.id));
+   const hasNext=items.length>0&&next!=null;
+   return {items,page,hasNext,cursor:hasNext?String(next):undefined};
+  },
   async search(req={}){
    const keyword=String(req.keyword||'').trim();
    if(!keyword)return {items:[],page:1,hasNext:false};
@@ -108,6 +143,7 @@
    async resolve(input){const t=normalize(input),u=await api(this,'/v2/users/show_by_username',{username:t.id});if(!u.id)throw Park.error('NOT_FOUND','内容不存在或已被删除');return {id:t.id,label:u.name||t.label};},
    async posts(input,options){const t=normalize(input),u=await api(this,'/v2/users/show_by_username',{username:t.id});if(!u.id)throw Park.error('NOT_FOUND','内容不存在或已被删除');const page=Number(options?.cursor||1);if(!Number.isInteger(page)||page<1||page>100000)throw Park.error('CONFIG','分页参数无效');const d=await api(this,'/stream/users/'+encodeURIComponent(u.id)+'/posts',{page,per_page:10});return workPage(this,d,{page});},
    async media(scope,options={}){
+    if(scope.search)return this.search({...options,...scope.search});
     return scope.target?this.subscription.posts.call(this,scope.target,options):this.feed(scope.feed,{...options,options:scope.options});
    }
   }

@@ -9,7 +9,7 @@ Park.register({
     "ru": {"竖屏短视频推荐，上下滑动连续播放": "Рекомендации вертикальных видео с непрерывным просмотром свайпами", "请刷新短视频列表": "Обновите ленту коротких видео"},
     "ar": {"竖屏短视频推荐，上下滑动连续播放": "اقتراحات مقاطع عمودية مع تشغيل متواصل بالسحب لأعلى وأسفل", "请刷新短视频列表": "حدّث قائمة المقاطع القصيرة"},
   },
-  key: 'shorties', name: 'Pornhub Shorties', version: '0.0.8', minAppVersion: '0.9.2', type: 'video', category: 'shortvideo',
+  key: 'shorties', name: 'Pornhub Shorties', version: '0.0.9', minAppVersion: '0.9.2', type: 'video', category: 'shortvideo',
   color: '#FF9900', description: '竖屏短视频推荐，上下滑动连续播放', language: 'en',
   homepage: 'https://www.pornhub.com/shorties', domains: ['pornhub.com'],
   network: {mode: 'auto', origin: 'https://www.pornhub.com', vpnHint: true},
@@ -99,6 +99,47 @@ Park.register({
     const v = entries.find(v => v && v.vkey === id);
     if (!v) throw Park.error('NOT_FOUND', '影片不存在');
     return v;
+  },
+  resolveContentLink(value) {
+    const url = Park.url.site(this, value), match = url && /^\/shorties\/([a-z0-9]{5,64})\/?$/.exec(url.pathname);
+    return match && !String(value).includes('#') ? {type: 'work', id: match[1]} : null;
+  },
+  async comments(value, req = {}) {
+    const id = this.validId(value), page = Math.max(1, Math.floor(Number(req.page) || 1));
+    if (req.parentId) throw Park.error('UNSUPPORTED', '评论暂不支持此操作');
+    const sort = req.sort && req.sort !== 'default' ? String(req.sort) : 'popular';
+    if (!['popular', 'newest'].includes(sort) || !Number.isSafeInteger(page) || page > 1000000) throw Park.error('CONFIG', '评论参数无效');
+    const url = this.BASE + '/shorties/' + id, html = await this.page('/shorties/' + id), doc = Park.html.parse(html);
+    const video = this.data(html).find(row => row?.vkey === id);
+    if (!video) throw Park.error('NOT_FOUND', '影片不存在');
+    const token = doc.querySelector('.slider-container')?.getAttribute('data-token') || doc.querySelector('#shorties')?.getAttribute('data-token');
+    if (!Number.isSafeInteger(video.videoId) || video.videoId <= 0 || !token) throw Park.error('PARSE', '评论数据无效');
+    // 只使用当前 Shorties 页的作品身份与临时读取令牌，不借用普通视频页面。
+    const response = this.http.ensureOk(await this.http.get(this.BASE + '/comment/get_comments', {
+      params: {id: video.videoId, token, what: 'video', popular: sort === 'popular' ? 1 : 0, page, isSortCommentsAjax: 1},
+      headers: {Referer: url, 'Content-Type': 'application/json'},
+    }));
+    let rows; try { rows = response.json(); } catch (_) { throw Park.error('PARSE', '评论数据无效'); }
+    if (!Array.isArray(rows)) throw Park.error('PARSE', '评论数据无效');
+    const parsed = new Map();
+    for (const row of rows) {
+      if (!row || typeof row.comment_id !== 'string' || !row.comment_id.trim() || row.comment_id.length > 256 || /[\x00-\x20\x7f]/.test(row.comment_id) || typeof row.comment_text !== 'string') throw Park.error('PARSE', '评论数据无效');
+      const commentId = String(row.comment_id), parentId = row.comment_parent_id ? String(row.comment_parent_id) : undefined;
+      if (parentId && (parentId.length > 256 || /[\x00-\x20\x7f]/.test(parentId))) throw Park.error('PARSE', '评论数据无效');
+      let text = row.comment_text;
+      for (let i = 0; i < 10 && text.includes('&'); i++) {
+        const decoded = Park.html.unescape(text); if (decoded === text) break; text = decoded;
+      }
+      const body = Park.comments.html(text, url);
+      if (!body.length) throw Park.error('PARSE', '评论数据无效');
+      if (!parsed.has(commentId)) parsed.set(commentId, {id: commentId, parentId,
+        author: {name: String(row.comment_username || ''), url: Park.comments.url(row.comment_user_profile_link, url), avatar: Park.comments.url(row.avatar_url, url)},
+        body, date: String(row.date_created_ago || row.date_created || ''), likes: Math.max(0, Number(row.thumbs_up_number) || 0), repliesAvailable: false});
+    }
+    const all = [...parsed.values()], items = all.filter(row => !row.parentId);
+    // 原站每页五个主楼，响应也可能重复携带其他页的回复，只挂载本页父楼。
+    for (const item of items) { item.replies = all.filter(row => row.parentId === item.id); item.replyCount = item.replies.length; }
+    return {items, page, hasNext: items.length === 5, sorts: [{value: 'popular', label: '热门'}, {value: 'newest', label: '最新'}]};
   },
   async detail(id) { return {...this.item(await this.video(id)), tags: [], chapters: null}; },
   mediaUrl(value) { return Park.url.parse(value, this.BASE, this.media.domains)?.href || ''; },

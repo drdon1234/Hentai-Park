@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -12,6 +14,8 @@ class VideoPlayerInput extends StatefulWidget {
     required this.onMute,
     required this.onFullscreen,
     required this.onExitFullscreen,
+    required this.onTemporarySpeedStart,
+    required this.onTemporarySpeedEnd,
   });
 
   final Widget child;
@@ -21,6 +25,8 @@ class VideoPlayerInput extends StatefulWidget {
   final VoidCallback onMute;
   final VoidCallback onFullscreen;
   final VoidCallback onExitFullscreen;
+  final VoidCallback onTemporarySpeedStart;
+  final VoidCallback onTemporarySpeedEnd;
 
   @override
   State<VideoPlayerInput> createState() => _VideoPlayerInputState();
@@ -28,17 +34,55 @@ class VideoPlayerInput extends StatefulWidget {
 
 class _VideoPlayerInputState extends State<VideoPlayerInput> {
   final _focus = FocusNode();
+  Timer? _rightHoldTimer;
+  bool _rightDown = false;
+  bool _temporarySpeed = false;
+
+  static const _rightHoldDelay = Duration(milliseconds: 300);
 
   @override
   void dispose() {
+    _rightHoldTimer?.cancel();
+    if (_temporarySpeed) widget.onTemporarySpeedEnd();
     _focus.dispose();
     super.dispose();
   }
 
+  void _startRightHold() {
+    if (_rightDown) return;
+    _rightDown = true;
+    _rightHoldTimer?.cancel();
+    _rightHoldTimer = Timer(_rightHoldDelay, () {
+      if (!_rightDown || _temporarySpeed) return;
+      _temporarySpeed = true;
+      widget.onTemporarySpeedStart();
+    });
+  }
+
+  void _endRightHold() {
+    if (!_rightDown) return;
+    _rightDown = false;
+    _rightHoldTimer?.cancel();
+    _rightHoldTimer = null;
+    if (_temporarySpeed) {
+      _temporarySpeed = false;
+      widget.onTemporarySpeedEnd();
+    } else {
+      widget.onSeek(10);
+    }
+  }
+
   KeyEventResult _onKey(FocusNode node, KeyEvent event) {
-    if (event is KeyUpEvent || ModalRoute.of(context)?.isCurrent == false) {
+    if (ModalRoute.of(context)?.isCurrent == false) {
+      if (_rightDown) _endRightHold();
       return KeyEventResult.ignored;
     }
+    if (event is KeyUpEvent &&
+        event.logicalKey == LogicalKeyboardKey.arrowRight) {
+      _endRightHold();
+      return KeyEventResult.handled;
+    }
+    if (event is KeyUpEvent) return KeyEventResult.ignored;
     final keyboard = HardwareKeyboard.instance;
     if (keyboard.isControlPressed ||
         keyboard.isAltPressed ||
@@ -60,7 +104,7 @@ class _VideoPlayerInputState extends State<VideoPlayerInput> {
     } else if (key == LogicalKeyboardKey.arrowLeft) {
       widget.onSeek(-10);
     } else if (key == LogicalKeyboardKey.arrowRight) {
-      widget.onSeek(10);
+      _startRightHold();
     } else if (key == LogicalKeyboardKey.arrowUp) {
       widget.onVolume(.05);
     } else if (key == LogicalKeyboardKey.arrowDown) {

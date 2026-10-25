@@ -287,32 +287,35 @@ class _BackupPageState extends State<BackupPage> {
                         12,
                       ),
                       child: SelectionContainer.disabled(
-                        child: DropdownButton<int>(
-                          value: s.autoBackupHours,
-                          isExpanded: true,
-                          underline: const SizedBox.shrink(),
-                          items:
-                              [
-                                    (0, tr('关闭')),
-                                    (12, tr('每 12 小时')),
-                                    (24, tr('每天')),
-                                    (72, tr('每 3 天')),
-                                    (168, tr('每周')),
-                                  ]
-                                  .map(
-                                    (e) => DropdownMenuItem(
-                                      value: e.$1,
-                                      child: SelectionContainer.disabled(
-                                        child: Text(
-                                          e.$2,
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
+                        child: SelectionDropdownTheme(
+                          child: DropdownButton<int>(
+                            value: s.autoBackupHours,
+                            isExpanded: true,
+                            underline: const SizedBox.shrink(),
+                            items:
+                                [
+                                      (0, tr('关闭')),
+                                      (12, tr('每 12 小时')),
+                                      (24, tr('每天')),
+                                      (72, tr('每 3 天')),
+                                      (168, tr('每周')),
+                                    ]
+                                    .map(
+                                      (e) => SelectionDropdownItem(
+                                        value: e.$1,
+                                        selected: e.$1 == s.autoBackupHours,
+                                        child: SelectionContainer.disabled(
+                                          child: Text(
+                                            e.$2,
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
                                         ),
                                       ),
-                                    ),
-                                  )
-                                  .toList(),
-                          onChanged: (v) => s.autoBackupHours = v ?? 24,
+                                    )
+                                    .toList(),
+                            onChanged: (v) => s.autoBackupHours = v ?? 24,
+                          ),
                         ),
                       ),
                     ),
@@ -340,21 +343,24 @@ class _BackupPageState extends State<BackupPage> {
                         12,
                       ),
                       child: SelectionContainer.disabled(
-                        child: DropdownButton<int>(
-                          value: s.autoBackupKeep,
-                          isExpanded: true,
-                          underline: const SizedBox.shrink(),
-                          items: const [1, 2, 3, 5, 10]
-                              .map(
-                                (v) => DropdownMenuItem(
-                                  value: v,
-                                  child: SelectionContainer.disabled(
-                                    child: Text('$v'),
+                        child: SelectionDropdownTheme(
+                          child: DropdownButton<int>(
+                            value: s.autoBackupKeep,
+                            isExpanded: true,
+                            underline: const SizedBox.shrink(),
+                            items: const [1, 2, 3, 5, 10]
+                                .map(
+                                  (v) => SelectionDropdownItem(
+                                    value: v,
+                                    selected: v == s.autoBackupKeep,
+                                    child: SelectionContainer.disabled(
+                                      child: Text('$v'),
+                                    ),
                                   ),
-                                ),
-                              )
-                              .toList(),
-                          onChanged: (v) => s.autoBackupKeep = v ?? 3,
+                                )
+                                .toList(),
+                            onChanged: (v) => s.autoBackupKeep = v ?? 3,
+                          ),
                         ),
                       ),
                     ),

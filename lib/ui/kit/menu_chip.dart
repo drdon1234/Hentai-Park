@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../theme.dart';
+import 'selection_menu.dart';
 import 'tokens.dart';
 
 /// A capsule that opens a menu of [options] (value → label). Used for scope filters above lists:
@@ -20,7 +21,7 @@ class MenuChip<T> extends StatelessWidget {
   final ValueChanged<T> onSelected;
   final bool active;
 
-  /// The option checked in the menu, when one is.
+  /// The option selected in the menu, when one is.
   final T? selected;
   final double maxWidth;
 
@@ -37,9 +38,9 @@ class MenuChip<T> extends StatelessWidget {
       onSelected: (i) => onSelected(entries[i].key),
       itemBuilder: (_) => [
         for (var i = 0; i < entries.length; i++)
-          CheckedPopupMenuItem(
+          SelectionPopupMenuItem(
             value: i,
-            checked: entries[i].key == selected,
+            selected: entries[i].key == selected,
             child: SelectionContainer.disabled(child: Text(entries[i].value)),
           ),
       ],

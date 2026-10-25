@@ -25,6 +25,50 @@
     for (const match of text.matchAll(pattern)) { const value = valueAt(text, match.index + name.length + 3); if (value != null) return value; }
     return null;
   }
+  function commentItems(rows, gameId, workId, targetId) {
+    const raw = new Map();
+    const visit = (list, depth = 0) => {
+      if (!Array.isArray(list) || depth > 30) throw fail();
+      for (const row of list) {
+        if (!Number.isSafeInteger(row?.id) || row.id < 1 || row.gameId !== gameId ||
+            (row.parentId != null && (!Number.isSafeInteger(row.parentId) || row.parentId < 1)) ||
+            typeof row.content !== 'string' || !Array.isArray(row.children)) throw fail();
+        if (raw.has(row.id)) continue;
+        raw.set(row.id, row);
+        visit(row.children, depth + 1);
+      }
+    };
+    visit(rows);
+    if (targetId && !raw.has(targetId)) throw Park.error('NOT_FOUND', '内容不存在或已被删除');
+    const nodes = new Map();
+    for (const row of raw.values()) {
+      const path = new Set([row.id]);
+      let ancestor = row.parentId, descendant = !targetId;
+      while (ancestor != null) {
+        if (path.has(ancestor)) throw fail();
+        path.add(ancestor);
+        if (ancestor === targetId) descendant = true;
+        ancestor = raw.get(ancestor)?.parentId;
+      }
+      if (!descendant || row.isDeleted === true) continue;
+      const body = Park.comments.html(row.content, BASE + '/game/' + workId);
+      if (!body.length) continue;
+      nodes.set(row.id, {id: workId + '/' + row.id,
+        author: {name: typeof row.user?.name === 'string' ? row.user.name : '',
+          avatar: Park.comments.url(row.user?.image, BASE) || undefined},
+        body, date: row.createdAt || undefined, likes: Math.max(0, Number(row.likeCount) || 0),
+        parentId: row.parentId == null ? undefined : workId + '/' + row.parentId,
+        replyCount: 0, repliesAvailable: false, replies: []});
+    }
+    // 原站 children 同时包含直接回复和扁平孙楼，必须按 parentId 还原层级。
+    const items = [];
+    for (const [id, node] of nodes) {
+      const parent = nodes.get(raw.get(id).parentId);
+      if (parent) { parent.replies.push(node); parent.replyCount++; }
+      else items.push(node);
+    }
+    return items;
+  }
   function catalogue(html, namespace) {
     const text = flight(html), found = [];
     function visit(value) {
@@ -84,7 +128,7 @@
       "ru": {"GalgameX 账号": "Аккаунт GalgameX", "无法获取游戏资源，请在原站检查权限": "Недействительный ресурс или ответ загрузки. Проверьте доступ на сайте и повторите.", "游戏目录、版本资源与直链和网盘渠道": "Каталог игр, версии, прямые и облачные загрузки", "该游戏需要登录，请在应用内登录 GalgameX 后重试": "Для этой игры нужен вход. Войдите в GalgameX через приложение и повторите попытку", "部分游戏需要登录；打开网页后点击右上角账号按钮登录，完成后返回重试。Cookie 仅保存在本机。": "Некоторые игры требуют входа. Нажмите кнопку аккаунта справа вверху страницы, войдите и повторите попытку. Cookie хранятся только на устройстве."},
       "ar": {"GalgameX 账号": "حساب GalgameX", "无法获取游戏资源，请在原站检查权限": "مورد أو استجابة تنزيل غير صالحة. تحقق من صلاحيات الموقع وأعد المحاولة.", "游戏目录、版本资源与直链和网盘渠道": "دليل ألعاب وإصدارات وتنزيلات مباشرة وسحابية", "该游戏需要登录，请在应用内登录 GalgameX 后重试": "تتطلب هذه اللعبة تسجيل الدخول. سجّل الدخول إلى GalgameX داخل التطبيق ثم أعد المحاولة", "部分游戏需要登录；打开网页后点击右上角账号按钮登录，完成后返回重试。Cookie 仅保存在本机。": "تتطلب بعض الألعاب تسجيل الدخول. افتح الصفحة واستخدم زر الحساب أعلى اليمين ثم عد وأعد المحاولة. تُحفظ ملفات تعريف الارتباط على هذا الجهاز فقط."},
     },
-    key: 'galgamex', name: 'GalgameX', version: '0.0.9', minAppVersion: '0.9.2', type: 'game', category: 'game', color: '#E984AE',
+    key: 'galgamex', name: 'GalgameX', version: '0.0.10', minAppVersion: '0.9.2', type: 'game', category: 'game', color: '#E984AE',
     description: '游戏目录、版本资源与直链和网盘渠道', homepage: BASE, language: 'chinese',
     domains: ['galgamex.net'],
     imageHeaders: {Referer: BASE + '/'},
@@ -254,6 +298,35 @@
         description: Park.html.strip(g.detail?.detailedDesc || g.shortDesc || ''),
         authors: (g.developers || []).map(d => d.name),
         tags: [{ namespace: 'tags', label: '标签', tags: (g.tags || []).map(t => ({ name: t.name, keyword: t.name })) }] };
+    },
+    async comments(value, req = {}) {
+      const id = idOf(value), page = Number(req.cursor || req.page || 1), parentId = String(req.parentId || '');
+      if (!Number.isInteger(page) || page < 1 || page > 100000 || !['default', 'newest'].includes(req.sort || 'default')) {
+        throw Park.error('CONFIG', '分页参数无效');
+      }
+      let targetId;
+      if (parentId) {
+        const parts = parentId.split('/');
+        if (parts.length !== 2 || parts[0] !== id || !/^[1-9][0-9]{0,14}$/.test(parts[1])) throw Park.error('CONFIG', '分页参数无效');
+        targetId = Number(parts[1]);
+        if (page > 1) return {items: [], page, hasNext: false};
+      }
+      // 每次重新检查详情权限，不能因上次缓存了 gameId 而越过本次登录要求。
+      await this.detail(id);
+      const gameId = this.gameIds.get(id), path = '/game/' + id;
+      const actions = await this.serverActions(path, ['getGameComments']);
+      const response = await this.http.post(BASE + path, {body: JSON.stringify([gameId, 'newest', page, ...(targetId ? [targetId] : [])]), headers: {
+        'Next-Action': actions.getGameComments, Accept: 'text/x-component', 'Content-Type': 'text/plain;charset=UTF-8'}});
+      if ([401, 403].includes(response.status)) throw loginRequired();
+      this.http.ensureOk(response);
+      const line = /(?:^|\n)1:/.exec(response.body), data = line ? valueAt(response.body, line.index + line[0].length) : null;
+      if (!data || !Array.isArray(data.comments) || typeof data.hasMore !== 'boolean' || data.page !== page ||
+          !Number.isSafeInteger(data.totalRootComments) || data.totalRootComments < 0) throw fail();
+      const items = commentItems(data.comments, gameId, id, targetId);
+      const hasNext = !targetId && data.hasMore && data.comments.length > 0;
+      // total 仅为这页根楼和回复数量；全局分页数量应取 totalRootComments。
+      return {items, page, hasNext, cursor: hasNext ? String(page + 1) : undefined,
+        total: targetId ? items.length : data.totalRootComments};
     },
     async resources(id) {
       id = idOf(id);

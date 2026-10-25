@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:collection';
 
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
@@ -166,6 +167,7 @@ class _BrowserImageSearchPanelState extends State<BrowserImageSearchPanel> {
           try {
             if (await clickCloudflareCheckbox(
               c,
+              documentUrl: uri.toString(),
               current: () =>
                   mounted &&
                   !_done &&
@@ -268,6 +270,12 @@ class _BrowserImageSearchPanelState extends State<BrowserImageSearchPanel> {
   }
 
   InAppWebView _createWebView() => InAppWebView(
+    initialUserScripts: UnmodifiableListView([
+      UserScript(
+        source: challengeDocumentScript,
+        injectionTime: UserScriptInjectionTime.AT_DOCUMENT_START,
+      ),
+    ]),
     initialUrlRequest: URLRequest(url: WebUri(widget.request.url.toString())),
     initialSettings: InAppWebViewSettings(
       userAgent: HttpService.instance.userAgent,

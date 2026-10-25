@@ -146,6 +146,10 @@ Park.register({
 
 `feeds`의 각 항목은 사이트 페이지의 탭입니다: `{ key, label, options?: [...] }`.
 
+### 공통 필터 및 정렬
+
+플러그인은 Feed별로 `commonFilters`, 검색용으로 `searchCommonFilters`를 선언합니다. 앱은 선언된 기능만 표시하며 이미 불러온 작품 정보로 필터를 근사하지 않습니다. 조건은 실제 사이트 검색에 매핑하고 페이지를 넘겨도 유지해야 합니다. 차원은 `pages`, `likes`, `duration`이며, `range: true` 또는 배열로 지원하는 `min`/`max` 경계를 선언하고 `sort: true` 또는 배열로 지원하는 `asc`/`desc` 방향을 선언합니다. 페이지 수와 좋아요 수는 0 이상의 정수, 길이는 초 단위입니다. `feed`와 `search` 요청에는 별도의 `common` 맵을 전달하며, 빈 경계는 생략할 수 있고 한 번에 하나의 차원만 정렬할 수 있습니다. 선언하지 않은 차원은 거부해야 합니다.
+
 ### 동적 및 종속 필터
 
 `feeds[].options`와 `searchFilters`의 단일 선택 항목은 `dynamic: true, values: []`를 선언할 수 있습니다. 동적 하위 항목은 `dependsOn: ['range']`로 같은 그룹의 상위 항목을 참조합니다. key는 고유해야 하며 의존 대상이 존재하고 순환하지 않아야 합니다. 동적 항목만 의존 관계를 선언합니다.
@@ -260,8 +264,8 @@ account: {
 메서드 안의 `this`는 '런타임 API'를 참고하세요. 모든 메서드는 `async`로 쓸 수 있습니다.
 
 ```js
-async feed(key, { page, cursor, options }) {}      // 사이트 페이지 탭
-async search({ keyword, page, cursor, filters }) {}
+async feed(key, { page, cursor, options, common }) {} // 사이트 페이지 탭
+async search({ keyword, page, cursor, filters, common }) {}
 async random() {}                                  // 작품 ID 반환
 async detail(id, preview) {}
 async chapter(id, chapterId) {}                    // 만화, 갤러리
@@ -285,7 +289,7 @@ async resolveGameResource(workId, resourceId, channelId) {}
 { sections: [{ title: '连载更新', items: [WorkItem] }], hasNext: false }
 ```
 
-**WorkItem**: `{ id, title, subtitle?, cover, coverBlurred?, coverAspect?, pages?, rating?, likes?, views?, language?, category?, badge?, badgeColor?, duration?, uploaded?, tags?, mediaKind?, workCode?, editions? }`
+**WorkItem**: `{ id, title, subtitle?, cover, coverBlurred?, coverAspect?, pages?, rating?, likes?, views?, language?, category?, badge?, badgeColor?, duration?, uploaded?, tags?, mediaKind?, workCode?, editions?, commentsAvailable? }`
 
 - `workCode`는 원본 사이트에서 확인한 작품 번호 또는 공통 검색 코드이며 같은 작품을 찾는 데만 사용합니다. `id`를 대체하거나 작품 식별, 즐겨찾기, 진행 상태, 다운로드를 병합하지 않습니다.
 - `editions`는 원본 사이트가 명시한 고정 버전 라벨(중국어 자막, 무삭제 유출본 등)입니다. 라벨이 없다고 원본으로 추정하면 안 됩니다. 번역 표시는 원래 라벨을 변경하지 않습니다.
@@ -301,7 +305,7 @@ WorkItem의 모든 필드에 더해:
 
 ```js
 {
-  url, authors: [], description, uploader?, size?, comments?,
+  url, authors: [], description, uploader?, size?, comments?, commentsAvailable?,
   tags: [{ namespace: 'artist', label: '作者', tags: [{ name, keyword, filters?, count? }] }],
   chapters: [{ id, title }] | null,   // null은 단일 챕터
   singleChapterId?,                   // 단일 챕터 작품에 필요한 챕터 ID
@@ -393,7 +397,7 @@ subscription: {
   async resolve(input) { return { id: validatedTarget, label: displayName }; },
   async targets() { return [{ id: joinedChannelId, label: channelName }]; },
   async posts(target, { cursor }) {
-    return { items: [{ id, title, text, date, url, locked,
+    return { items: [{ id, title, text, date, url, locked, commentsAvailable,
       media: [{ type: 'image', url, preview, previewOnly: false },
               { type: 'video', url, preview, format: 'mp4', headers: {} }] }],
       cursor: nextCursor, hasNext: true };
@@ -410,7 +414,7 @@ subscription: {
 
 앨범은 독립 기능이며 이미 읽은 게시물로 조립하거나 `subscription.posts`로 대체하지 않습니다. `subscription.media(scope, { page, cursor })`를 구현합니다. 공개 feed만 있고 구독 대상이 없는 소스도 `subscription` 아래 이 메서드만 선언할 수 있습니다. 런타임은 `capabilities.subscription`과 독립된 `capabilities.album`을 내보냅니다.
 
-`scope`는 feed와 필터의 `{ feed, options }` 또는 사용자·커뮤니티·채널·그룹의 `{ target }`입니다. 대상 해석과 순회는 소스가 담당하며 UI에 사이트별 조건을 넣지 않습니다. `{ items, cursor, hasNext }`를 반환합니다. 일치하는 미디어가 없는 페이지도 계속할 수 있고 다음 커서는 반드시 진행해야 하며 중복은 오류입니다.
+`scope`는 feed와 필터의 `{ feed, options }` 또는 사용자·커뮤니티·채널·그룹의 `{ target }` / `{ search: { keyword, filters } }`입니다. 대상 해석과 순회는 소스가 담당하며 UI에 사이트별 조건을 넣지 않습니다. `{ items, cursor, hasNext }`를 반환합니다. 일치하는 미디어가 없는 페이지도 계속할 수 있고 다음 커서는 반드시 진행해야 하며 중복은 오류입니다.
 
 항목에는 안정적인 문자열 `id`, `presentation: 'post' | 'work'`, 날짜가 알려졌다면 해석 가능한 ISO 8601 날짜, 원본 순서의 완전한 `media` 배열이 필요합니다. 첨부마다 고유하고 안정적인 문자열 `id`, `type: 'image' | 'video'`, 실제 콘텐츠 `url` 또는 통제된 `resource`를 제공합니다. `preview`는 이미지 썸네일입니다. 대신 아래 첨부 형식의 `previewResource`를 쓸 수 있으며 별도 이미지이고 최대 2 MiB여야 합니다. 표지나 동영상 URL을 썸네일로 속이지 않습니다. 제한 콘텐츠는 원본 흐림을 유지한 공개 미리 보기만 `previewOnly: true`로 제공하고 게시물 전체가 잠기면 `locked: true`를 설정합니다.
 
@@ -426,7 +430,8 @@ subscription: {
 
 - `normalize(dimension, input)`는 `{ id, label }`을, `check({ dimension, target }, { cursor })`는 `{ items, hasNext, cursor }`를 반환합니다. 각 항목은 `{ id, title, kind, workId, chapterId }`이며 `kind`는 `work | post | chapter`만, ID는 안정적이고 비어 있지 않으며 미디어 URL, 쿠키, 인증 정보를 담지 않습니다. 챕터 ID에는 작품 식별도 넣어 서로 다른 작품의 '1화'가 겹치지 않게 합니다.
 - `Park.enableUpdateSubscriptions(Park.__pending, rules)`가 일반적인 대응을 제공합니다. 규칙은 스크립트 끝에서 차원을 명시적으로 선언하며 `searchFilters`, `seriesPattern`을 지정할 수 있습니다. `work`는 실제 챕터 목록, `posts`는 기존 채널 API, `search`와 `filter`는 검색을 쓰고, `code`는 완전한 품번에 정확히 일치하며, `series`는 사이트 도메인으로 검증한 시리즈 경로를 씁니다. 검색 커서는 페이지 번호와 사이트 커서를 함께 저장합니다.
-- 검색과 게시물 확인은 `windowed: true`를 반환하며 최근 3페이지 범위를 확인합니다. 처음에는 기준만 기록하고 이후에는 안정적인 ID로 '새로 발견한 콘텐츠' 이벤트를 만들며 게시 시각을 안다고 주장하지 않습니다. 다른 페이지 방식은 한 번에 최대 3페이지를 확인해 커서와 후보를 저장하고, 끝나면 트랜잭션으로 반영합니다. 챕터 목록은 잘라내지 않으며 후보 상한은 20,000개 (넘으면 오류)입니다. 네트워크, 권한, 인증 페이지, 빈 목록, 불완전한 해석에서는 분명한 오류를 던져야 하며 빈 성공으로 숨기면 안 됩니다.
+- `windowed: true`는 처음에 최근 3페이지를 기준으로 저장합니다. 이후에는 한 번에 최대 3페이지씩 커서와 후보를 저장하며, 모두 알려진 항목인 페이지나 마지막 페이지에 도달한 뒤 새 이벤트를 확정합니다. 챕터 목록은 자르지 않으며 후보 20,000개 초과나 파싱 실패는 오류로 처리합니다.
+- `query({ dimension, target })`는 구독 탐색과 확인이 공유하는 `{ keyword, filters }`를 반환합니다. 앨범도 `{ search: { keyword, filters } }`를 지원하며 페이지 이동 시 검색 조건을 유지합니다. 게시물 짧은 동영상은 `resource` 첨부를 지원하고 같은 검색 범위에서 계속 재생합니다.
 - 포그라운드와 백그라운드는 플러그인 런타임, 쿠키 구역, 도메인 제약, 확인 로직을 공유합니다. 백그라운드는 관련 플러그인만 시작하며 로그인, 사이트에서의 구독, 미디어 다운로드, 권한 우회를 하지 않습니다. 계정이나 플러그인 설정이 바뀌면 기준을 다시 만듭니다 (토큰 갱신은 제외).
 
 ## 런타임 API
@@ -605,4 +610,62 @@ return { url: "https://player.example.com/watch/1", navigationDomains: ["player.
 
 ```powershell
 node tools/publish_sources.mjs --commit '<SHA>' --channel rankings --output '<本地输出文件>'
+```
+
+## 댓글과 콘텐츠 링크
+
+`comments`를 구현하면 런타임이 `capabilities.comments`를 자동으로 내보냅니다. `resolveContentLink`와 `searchLink`도 같은 이름의 기능을 내보냅니다. 검증된 읽기 작업만 선언하세요. 댓글·답글 작성, 추천, 신고 작업은 포함하지 않습니다.
+
+공식 댓글 구현에는 Reddit, myfans, Fansly, GalgameX, XVideos, Pornhub Shorties, PicACG, SpankBang, X / Twitter, Telegram이 포함됩니다. 읽을 수 있는 범위는 원본 사이트 권한을 따릅니다. X / Twitter와 Telegram은 로그인이 필요하며 Telegram은 토론이 활성화된 게시물을 지원합니다. 직접 표시할 수 없는 첨부에는 정확한 원본 댓글 링크를 유지합니다.
+
+```js
+// WorkItem / WorkDetail / SubscriptionPost: { ..., commentsAvailable?: boolean }
+comments(workId, {page = 1, cursor = null, parentId = null, sort = 'default', context = {}})
+// context: {url?, episodeId?, board?}
+// result: {items, hasNext, page?, cursor?, total?, reset?, sorts?: [{value, label}]}
+// item: {id, author: {name, avatar?, url?, badges?: []}, body,
+//        date?, likes?, rating?, spoiler?, parentId?, replyCount?,
+//        repliesAvailable?, replies?: [item]}
+// body: [{type: 'text' | 'link' | 'image' | 'quote', text?, url?}]
+resolveContentLink(url) // null | {type: 'work', id} | {type: 'search', url} | {type: 'external', url}
+searchLink(url, request) // WorkPage
+```
+
+- `WorkItem`, `WorkDetail`, `SubscriptionPost`의 선택적 최상위 필드 `commentsAvailable?: boolean`은 해당 작품의 댓글 활성화 여부를 나타냅니다. 엄격한 불리언 값 `false`이면 댓글 진입 버튼을 숨기며, `true`여도 소스의 `capabilities.comments`가 필요합니다. 생략하거나 불리언이 아니면 알 수 없는 상태로 보고 소스 기능에 따라 표시합니다. 댓글 수 0은 댓글이 비활성화되었다는 뜻이 아닙니다. 읽는 중 원본 게시물의 댓글이 비활성화된 것으로 확인되면 빈 목록으로 감추지 말고 `UNSUPPORTED`를 발생시킵니다.
+- `workId`는 소스의 작품 식별자이며 `context`는 원본 페이지, 회차 또는 순위 정보를 담습니다. 작품과 회차별 댓글을 분리하세요.
+- `id`는 소스 내에서 안정적인 비어 있지 않은 문자열입니다. `author.name`은 비워 둘 수 있지만 이름을 지어내면 안 됩니다. 본문에는 비어 있지 않은 텍스트나 유효한 이미지가 필요하며 이미지 전용 댓글도 보존합니다. `date`는 원본 표시 또는 ISO 시각, `likes`와 `replyCount`는 음수가 아닌 수, `rating`은 0–5, `spoiler`는 스포일러 표시입니다.
+- `replies`는 같은 구조를 사용하고 `parentId`는 부모 댓글을 가리킵니다. 부모 본문에 자식 답글을 섞지 마세요. `replyCount`는 원본 답글 수입니다. `parentId`로 읽기를 검증한 경우에만 `repliesAvailable: true`를 설정합니다. 기본값은 false이며 수치만으로 추가 읽기를 허용하지 않습니다. 사이트가 개수를 제공하지 않으면 `replyCount: 0`과 `repliesAvailable: true`가 함께 있을 수 있습니다. 개수를 만들어 내거나 이미 읽은 수로 진입을 막지 않고 '답글 보기'를 제공합니다. 중첩 답글을 읽을 때 요청의 `parentId`에는 선택한 댓글의 `id`를 전달합니다.
+- `hasNext`는 실제 응답에 근거합니다. 커서에 인증 정보를 넣지 말고 다음 요청에 그대로 전달합니다. ID 중복, 총수 도달 또는 명시적 종료 시 멈추며 검증하지 않은 페이지 이동은 false로 반환합니다. `sorts`에는 검증된 정렬만 넣고 `label`은 UI 번역 키를 사용합니다.
+- 페이지 스냅샷이 바뀌면 `reset: true`, 다시 읽은 실제 `page`(보통 1), 새 커서를 반환하여 기존 목록을 교체합니다. 첫 페이지를 다음 페이지로 위장하지 마세요. 업무 오류, 로그인 요구, 파싱 오류는 해당 오류를 던지고 빈 목록으로 숨기지 않습니다.
+
+`Park.comments.html(html, baseUrl)`은 텍스트, 줄바꿈, 링크, 이미지, 인용을 안전한 조각으로 변환하고 실행 가능한 내용을 제거합니다. `Park.comments.text(text)`는 일반 텍스트의 명시적인 HTTP(S) URL을 링크로 나눕니다. `Park.comments.url(value, baseUrl)`은 유효한 HTTP(S) URL 또는 null을 반환합니다. 아바타, 프로필, 본문 URL에 userinfo를 포함하면 안 됩니다. 프레임워크는 구조화된 데이터만 표시하며 원본 HTML을 실행하지 않습니다. 사이트 필드 파싱은 플러그인이 담당하고 요청은 `this.http`로 보냅니다.
+
+`resolveContentLink`는 정확한 호스트, 검증된 경로와 매개변수만 식별하며 대상이 아니면 null을 반환합니다. 작품에는 `type: 'work'`, 원본 검색에는 `type: 'search'`, 다른 안전한 페이지에는 `type: 'external'`을 사용할 수 있습니다. 프로필, 댓글 앵커, 날짜, 댓글 번호, 재생 시각을 작품으로 오인하지 마세요. `searchLink`는 원본 URL 전체를 받아 검색어, 필터, 분류, 페이지 의미를 유지한 기존 WorkPage를 반환합니다. 검색어만 추출하여 다른 매개변수를 버리거나 쓰기 엔드포인트에 접근하면 안 됩니다. 인식되지 않은 링크는 원본 페이지를 열 수 있게 유지합니다.
+
+## 읽기 전용 라이브 채팅
+
+`capabilities.liveChat`은 `liveChat(id)`와 `liveChatEvent(state, event)`를 모두 구현한 경우에만 선언합니다. 공식 지원은 CAM4, XLoveCam, Stripchat, SOOP입니다. `chat.domains`는 호스트와 포트의 독립 허용 목록으로 페이지·이미지·미디어 권한을 상속하지 않습니다. `host`는 443만 허용합니다. 비표준 포트는 `host:port`로 명시해야 하며 범위는 1024–65535입니다. `*.host:port`는 해당 포트의 한 단계 하위 도메인만 허용하고 기본 호스트, 여러 단계 하위 도메인, 다른 포트는 허용하지 않습니다. HTTPS/SSE와 WSS만 허용하며 평문 통신, 사용자 정보, 프래그먼트는 금지합니다. 게스트 초기화의 임시 토큰은 다른 호스트나 포트로 리디렉션할 수 없습니다.
+
+`liveChat`은 `transport: "sse" | "websocket"`, `url`, 선택적 `headers`, `state`를 반환합니다. 게스트 초기화 요청에는 `this.chatHttp.request({url, method, headers, body|json})`를 사용하며 현재 호출의 취소 신호를 공유합니다. Cookie는 소스별로 분리하고 토큰, 연결 URL, 상태, 메시지는 메모리에만 보관합니다.
+
+- `protocols`: WebSocket 전용. 중복되지 않는 비어 있지 않은 RFC token 문자열을 최대 8개 지정하며 각각 128자 이하여야 합니다.
+- `binary: true`: WebSocket 전용. UTF-8 이진 프레임으로 송수신하지만 플러그인의 `event.data`와 `send`는 계속 문자열입니다. 프레임당 최대 65536바이트이며 UTF-8을 엄격하게 검사합니다. 기본값은 텍스트 프레임입니다.
+- `heartbeatIntervalMs`: 선택적 10000–60000 정수입니다. 연결 성공 후 해당 간격으로 `{type: "tick"}`을 같은 직렬 이벤트 큐에 넣습니다. 중지하거나 페이지를 떠나면 취소됩니다. tick은 연결 핸드셰이크나 SSE 수신 제한 시간을 연장하지 않습니다.
+
+연결 설정과 프로토콜 핸드셰이크에는 합계 25초의 고정 제한 시간이 적용됩니다. `heartbeatIntervalMs`를 선언하지 않은 WebSocket은 30초 간격의 네이티브 ping/pong을 사용합니다. 이 필드를 선언하면 대신 플러그인 tick으로 연결을 유지하고 실제 전송 오류나 종료 이벤트로 연결 끊김을 판단합니다. 두 방식 모두 채팅 텍스트가 없다는 이유만으로 연결 끊김을 판단하지 않으며, 로컬 tick도 서버가 살아 있다는 증거가 아닙니다. SSE는 서버 데이터 수신에 계속 90초 제한 시간을 사용합니다.
+
+`liveChatEvent`는 `{type: "open"}` 또는 `{type: "message", data, event?}` 또는 `{type: "tick"}`를 받으며 SSE 이벤트 이름을 보존합니다. 새 `state`와 선택적 `connected`, `error`, `messages`, `send`를 반환합니다. 메시지는 안정적인 `id`, 일반 텍스트 `text`, 선택적 `author`, `isHistory`를 사용합니다. 기록은 중복 제거에만 사용합니다. `send`는 검증된 인증·구독·하트비트 응답 전용이며 사용자 발언 API를 제공하지 않습니다.
+
+호스트는 프레임, 큐, 캐시 및 재시도 횟수를 제한합니다. 재연결 시 새 게스트 토큰을 받고 실패 시 재시도를 표시합니다. 채팅 끄기, 화면 가림, 백그라운드, 앱 잠금, 플레이어 해제 시 즉시 취소하고 오래된 콜백을 무시합니다. 작품 댓글, 기록 페이지 또는 녹화 타임라인 댓글을 의미하지 않습니다.
+
+```js
+chat: {domains: ["chat.example.com"]},
+async liveChat(id) {
+  return {transport: "websocket", url: "wss://chat.example.com/room", state: {}};
+},
+liveChatEvent(state, event) {
+  return {state, connected: true, messages: [
+    {id: "message-id", text: "message", author: "author", isHistory: false}
+  ], send: []};
+}
 ```

@@ -6,6 +6,10 @@
 
 ## 环境与构建
 
+`lib/engine/access/` 不依赖 Flutter，集中维护页面识别、年龄确认、文档状态和输入校验。原生客户端由 `WebViewInteractionHost` 接入，核心按宿主能力选择输入方式。
+
+Linux 的 `linux/browser_input.cmake` 为固定版本的 WPE 插件生成编译副本，接通后台与可见视图的原生指针输入，并补齐无头视图创建时的初始用户脚本注入；保留页面与悬停遮挡检查、一次性文档标识及导航期间取消。WPE 不使用 CDP，不能以伪造 Windows 平台替代原生能力接入。升级插件时核对该构建入口及 WPE 输入接口。
+
 Windows 的 `windows/webview_lifecycle.cmake` 将 WebView 共享图形资源的释放移到插件析构阶段，按视图、合成器、D3D、DispatcherQueue、WinRT 的顺序关闭，避免 DLL 卸载期间访问图形驱动。构建只生成一个修正后的翻译单元，不修改 Pub 缓存。依赖升级导致对应源码结构变化时构建明确失败，必须核对释放顺序后更新集成。
 
 `windows/webview_cookies.cmake` 在同一构建边界统一单项和批量 Cookie 读取：将 CDP 的 Unix 秒转换为 Flutter 接口约定的毫秒，并将会话 Cookie 的有效期设为空，避免网页认证状态在导入时被误判为过期。同样只生成构建副本；依赖升级后必须核对对应读取实现。

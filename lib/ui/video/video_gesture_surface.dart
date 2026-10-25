@@ -15,6 +15,9 @@ class VideoGestureSurface extends StatefulWidget {
     required this.onTap,
     this.onMouseTap,
     required this.onDoubleTap,
+    this.onLongPressStart,
+    this.onLongPressEnd,
+    this.onLongPressCancel,
     required this.onStart,
     required this.onUpdate,
     required this.onEnd,
@@ -28,6 +31,9 @@ class VideoGestureSurface extends StatefulWidget {
   final VoidCallback onTap;
   final VoidCallback? onMouseTap;
   final VoidCallback onDoubleTap;
+  final VoidCallback? onLongPressStart;
+  final VoidCallback? onLongPressEnd;
+  final VoidCallback? onLongPressCancel;
   final void Function(Offset point, Size viewport) onStart;
   final ValueChanged<Offset> onUpdate;
   final VoidCallback onEnd;
@@ -81,6 +87,22 @@ class _VideoGestureSurfaceState extends State<VideoGestureSurface> {
       if (!_blocked) widget.onCancel();
     }
 
+    void longPressStart(LongPressStartDetails details) {
+      final touch =
+          _tapKind == PointerDeviceKind.touch ||
+          _tapKind == PointerDeviceKind.stylus ||
+          _tapKind == PointerDeviceKind.invertedStylus;
+      if (!_blocked && touch) widget.onLongPressStart?.call();
+    }
+
+    void longPressEnd(LongPressEndDetails details) {
+      if (!_blocked) widget.onLongPressEnd?.call();
+    }
+
+    void longPressCancel() {
+      if (!_blocked) widget.onLongPressCancel?.call();
+    }
+
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       dragStartBehavior: DragStartBehavior.down,
@@ -93,6 +115,11 @@ class _VideoGestureSurfaceState extends State<VideoGestureSurface> {
         }
       },
       onDoubleTap: widget.onDoubleTap,
+      onLongPressStart: widget.onLongPressStart == null ? null : longPressStart,
+      onLongPressEnd: widget.onLongPressEnd == null ? null : longPressEnd,
+      onLongPressCancel: widget.onLongPressCancel == null
+          ? null
+          : longPressCancel,
       onPanDown: horizontalOnly || verticalOnly ? null : down,
       onPanStart: horizontalOnly || verticalOnly ? null : start,
       onPanUpdate: horizontalOnly || verticalOnly ? null : update,

@@ -15,7 +15,7 @@ Park.register({
   },
   key: 'huangguo',
   name: '黄果短剧',
-  version: '0.0.11', minAppVersion: '0.9.2',
+  version: '0.0.12', minAppVersion: '0.9.2',
   type: 'video',
   category: 'aiDrama',
   color: '#F2AD24',
@@ -244,6 +244,45 @@ Park.register({
     return chapters.length ? chapters : null;
   },
 
+  async comments(value, req = {}) {
+    const work = this.workId(value), parent = req.parentId == null ? null : String(req.parentId);
+    const episode = req.context?.episodeId;
+    const ep = episode == null || episode === '_' ? 1 : Number(episode);
+    if (!Number.isSafeInteger(ep) || ep < 1 || (parent && !/^[1-9]\d*$/.test(parent))) throw Park.error('CONFIG', '评论参数无效');
+    if (req.sort && req.sort !== 'default') throw Park.error('UNSUPPORTED', '评论暂不支持此操作');
+    let page = this.pageNumber(req.page), previous = [], revision = '';
+    if (req.cursor) {
+      let state; try { state = JSON.parse(req.cursor); } catch (_) {}
+      if (!state || state.work !== work || state.ep !== ep || state.parent !== parent || state.page !== page || !Array.isArray(state.ids) || typeof state.revision !== 'string') throw Park.error('CONFIG', '评论参数无效');
+      previous = state.ids; revision = state.revision;
+    }
+    const path = '/api/videos/' + work + '/comments' + (parent ? '/' + parent + '/replies' : '');
+    const read = async () => {
+      const response = await this.request(path, {page, size: 12, ...(parent ? {} : {ep}), ...(revision ? {revision} : {})});
+      let payload; try { payload = response.json(); } catch (_) { throw Park.error('PARSE', '评论数据无效'); }
+      const data = payload?.data;
+      if (Number(payload?.status) !== 1 || !Array.isArray(data?.items) || !data.pagination || (!parent && Number(data.ep) !== ep)) throw Park.error('PARSE', '评论数据无效');
+      return data;
+    };
+    let data = await read(), reset = false;
+    if (page > 1 && (data.reset === true || (revision && data.revision !== revision))) {
+      page = 1; previous = []; revision = ''; reset = true; data = await read();
+    }
+    if (Number(data.pagination.page) !== page || typeof data.revision !== 'string') throw Park.error('PARSE', '评论数据无效');
+    const map = (row, parentId) => {
+      const id = String(row?.id || ''), body = Park.comments.text(String(row?.content || row?.text || ''));
+      if (!/^[1-9]\d*$/.test(id) || !body.length) return null;
+      const replies = (Array.isArray(row.reply_list) ? row.reply_list : []).map(child => map(child, id)).filter(Boolean);
+      return {id, parentId: parentId || undefined, author: {name: String(row.nickname || ''), avatar: Park.comments.url(row.avatar, this.BASE)},
+        body, date: row.created_at || row.time || undefined, likes: Number(row.like_count) || 0, replyCount: Number(row.reply_count) || replies.length, replies, repliesAvailable: !parentId};
+    };
+    const seen = new Set(previous), items = [];
+    for (const row of data.items) { const item = map(row, parent); if (item && !seen.has(item.id)) {seen.add(item.id); items.push(item);} }
+    if (data.items.length && !items.length && !data.items.every(row => previous.includes(String(row.id)))) throw Park.error('PARSE', '评论数据无效');
+    const hasNext = items.length > 0 && page < Number(data.pagination.pages);
+    return {items, page, reset, total: Number(data.pagination.total) || 0, hasNext,
+      cursor: hasNext ? JSON.stringify({work, ep, parent, page: page + 1, revision: data.revision, ids: [...seen]}) : null};
+  },
   async detail(value) {
     const id = this.workId(value);
     const url = this.BASE + '/video/' + id + '/';

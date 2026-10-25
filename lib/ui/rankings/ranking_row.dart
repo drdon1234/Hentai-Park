@@ -6,6 +6,7 @@ import '../../core/localization.dart';
 import '../../core/models.dart';
 import '../../engine/domains.dart';
 import '../../engine/source_manager.dart';
+import '../comments/comments_page.dart';
 import '../nav.dart';
 import '../theme.dart';
 import '../web/source_web_page.dart';
@@ -145,6 +146,17 @@ class _RankingRowState extends State<RankingRow> {
                         spacing: Gap.s,
                         runSpacing: Gap.s,
                         children: [
+                          if (widget.board.kind == 'work')
+                            CommentsEntry(
+                              source: item.source,
+                              workId: item.id,
+                              available: item.work?.commentsAvailable,
+                              compact: true,
+                              context: {
+                                'url': '${item.json['url'] ?? ''}',
+                                'board': widget.board.key,
+                              },
+                            ),
                           if (widget.board.kind != 'seller')
                             OutlinedButton(
                               onPressed: _open,

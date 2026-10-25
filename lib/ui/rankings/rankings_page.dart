@@ -219,26 +219,29 @@ class _RankingsPageState extends State<RankingsPage> {
                       0,
                     ),
                     child: SelectionContainer.disabled(
-                      child: DropdownButtonFormField<SourceCategory>(
-                        key: ValueKey(category),
-                        initialValue: category,
-                        isExpanded: true,
-                        decoration: InputDecoration(labelText: tr('分类')),
-                        items: [
-                          for (final value in categories)
-                            DropdownMenuItem(
-                              value: value,
-                              child: SelectionContainer.disabled(
-                                child: Text(value.label),
+                      child: SelectionDropdownTheme(
+                        child: DropdownButtonFormField<SourceCategory>(
+                          key: ValueKey(category),
+                          initialValue: category,
+                          isExpanded: true,
+                          decoration: InputDecoration(labelText: tr('分类')),
+                          items: [
+                            for (final value in categories)
+                              SelectionDropdownItem(
+                                value: value,
+                                selected: value == category,
+                                child: SelectionContainer.disabled(
+                                  child: Text(value.label),
+                                ),
                               ),
-                            ),
-                        ],
-                        onChanged: (value) => setState(() {
-                          if (value == null) return;
-                          _category = value;
-                          _selected = null;
-                          _save();
-                        }),
+                          ],
+                          onChanged: (value) => setState(() {
+                            if (value == null) return;
+                            _category = value;
+                            _selected = null;
+                            _save();
+                          }),
+                        ),
                       ),
                     ),
                   ),
@@ -275,28 +278,31 @@ class _RankingsPageState extends State<RankingsPage> {
                       0,
                     ),
                     child: SelectionContainer.disabled(
-                      child: DropdownButtonFormField<String>(
-                        key: ValueKey(key),
-                        initialValue: key,
-                        isExpanded: true,
-                        decoration: InputDecoration(labelText: tr('榜单')),
-                        items: [
-                          for (final option in boards)
-                            DropdownMenuItem(
-                              value: _key(option),
-                              child: SelectionContainer.disabled(
-                                child: Text(
-                                  '${option.source.name} · ${option.board.label}',
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
+                      child: SelectionDropdownTheme(
+                        child: DropdownButtonFormField<String>(
+                          key: ValueKey(key),
+                          initialValue: key,
+                          isExpanded: true,
+                          decoration: InputDecoration(labelText: tr('榜单')),
+                          items: [
+                            for (final option in boards)
+                              SelectionDropdownItem(
+                                value: _key(option),
+                                selected: _key(option) == key,
+                                child: SelectionContainer.disabled(
+                                  child: Text(
+                                    '${option.source.name} · ${option.board.label}',
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
                                 ),
                               ),
-                            ),
-                        ],
-                        onChanged: (value) => setState(() {
-                          _selected = value;
-                          _save();
-                        }),
+                          ],
+                          onChanged: (value) => setState(() {
+                            _selected = value;
+                            _save();
+                          }),
+                        ),
                       ),
                     ),
                   ),
@@ -314,20 +320,16 @@ class _RankingsPageState extends State<RankingsPage> {
                       }),
                     ),
                   Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: Gap.page),
-                    child: Align(
-                      alignment: AlignmentDirectional.centerStart,
-                      child: TagTranslationPackStatus(source: entry.source.key),
-                    ),
-                  ),
-                  Padding(
                     padding: const EdgeInsets.symmetric(
                       horizontal: Gap.page,
                       vertical: Gap.s,
                     ),
                     child: Align(
                       alignment: AlignmentDirectional.centerStart,
-                      child: Text(entry.board.metric),
+                      child: TagTranslationPackGuide(
+                        source: entry.source.key,
+                        child: Text(entry.board.metric),
+                      ),
                     ),
                   ),
                 ],
@@ -400,21 +402,24 @@ class _RankingsPageState extends State<RankingsPage> {
   ) => Padding(
     padding: const EdgeInsets.fromLTRB(Gap.page, Gap.s, Gap.page, 0),
     child: SelectionContainer.disabled(
-      child: DropdownButtonFormField<String>(
-        key: ValueKey('$selected:${values.join(',')}'),
-        initialValue: selected,
-        isExpanded: true,
-        decoration: InputDecoration(labelText: label(selected)),
-        items: [
-          for (final value in values)
-            DropdownMenuItem(
-              value: value,
-              child: SelectionContainer.disabled(child: Text(label(value))),
-            ),
-        ],
-        onChanged: (value) {
-          if (value != null) onChanged(value);
-        },
+      child: SelectionDropdownTheme(
+        child: DropdownButtonFormField<String>(
+          key: ValueKey('$selected:${values.join(',')}'),
+          initialValue: selected,
+          isExpanded: true,
+          decoration: InputDecoration(labelText: label(selected)),
+          items: [
+            for (final value in values)
+              SelectionDropdownItem(
+                value: value,
+                selected: value == selected,
+                child: SelectionContainer.disabled(child: Text(label(value))),
+              ),
+          ],
+          onChanged: (value) {
+            if (value != null) onChanged(value);
+          },
+        ),
       ),
     ),
   );

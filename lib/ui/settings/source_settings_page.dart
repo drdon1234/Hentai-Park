@@ -9,7 +9,6 @@ import '../nav.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
 import '../widgets/confirm_reset.dart';
-import '../widgets/content_translation.dart';
 import 'login_panel.dart';
 import 'source_install.dart';
 
@@ -183,20 +182,6 @@ class _SourceSettingsPageState extends State<SourceSettingsPage> {
                           ],
                         ),
                       ],
-                      RowGroup(
-                        title: context.tr('翻译'),
-                        children: [
-                          ListTile(
-                            leading: const Icon(Icons.translate_rounded),
-                            title: Text(context.tr('官方标签翻译包')),
-                            trailing: const Icon(Icons.chevron_right_rounded),
-                            onTap: () => showTagTranslationPacks(
-                              context,
-                              source: widget.sourceKey,
-                            ),
-                          ),
-                        ],
-                      ),
                       _header(context, context.tr('网络')),
                       RowGroup(
                         children: [

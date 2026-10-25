@@ -78,7 +78,8 @@ Park.register({
     "直播分页参数无效": "معلمات صفحات البث غير صالحة"
   }
 },
-  key: 'xlovecam', name: 'XloveCam', version: '0.0.6', minAppVersion: '0.9.2', type: 'video', category: 'live', language: 'en',
+  key: 'xlovecam', name: 'XloveCam', version: '0.0.7', minAppVersion: '0.9.2', type: 'video', category: 'live', language: 'en',
+  chat: {domains: ['spg1-eu-nl.wlresources.com']},
   color: '#990000', description: '公开直播间', homepage: 'https://www.xlovecam.com/en/', domains: ['xlovecam.com'],
   network: {mode: 'native', origin: 'https://www.xlovecam.com', vpnHint: true},
   media: {mode: 'native', scope: 'session', origin: 'https://www.xlovecam.com', domains: ['wlresources.com']},
@@ -126,6 +127,41 @@ Park.register({
   },
   performer(data, id) { const p = data?.chat?.performerInfo?.performer || data?.bioPageData?.performer; if (!p || String(p.nickname || '').toLowerCase() !== id.toLowerCase()) return null; const stream = p.liveStreamInfo || p.streamInfo || {}; return {nickname: p.nickname, profileImg: p.profileImg || stream.profileImg, hlsPlaylist: stream.hlsPlaylist || p.hlsPlaylistFree, rating: stream.rating, showType: stream.showType ?? p.showType, online: p.online ?? p.isOnline}; },
   async detail(value) { const id = String(value || ''); if (!/^[A-Za-z0-9_-]{2,80}$/.test(id)) throw Park.error('NOT_FOUND', '直播间不存在'); const data = await this.page('/en/model/' + encodeURIComponent(id.toLowerCase()) + '/'); const x = this.performer(data, id); if (!x || x.showType !== 1 || !(x.online === 1 || x.online === true)) throw Park.error('NOT_FOUND', '直播间不存在或已下线'); const row = this.item(x) || {id, title: id, cover: String(x.profileImg || ''), url: 'https://www.xlovecam.com/en/model/' + encodeURIComponent(id.toLowerCase()) + '/', mediaKind: 'video', chapters: null}; return {...row, tags: [], description: ''}; },
+  async liveChat(value) {
+    const id = String(value || '');
+    if (!/^[A-Za-z0-9_-]{2,80}$/.test(id)) throw Park.error('NOT_FOUND', '直播间不存在');
+    const data = await this.page('/en/model/' + encodeURIComponent(id.toLowerCase()) + '/');
+    const auth = data?.chat?.performerInfo?.performer?.rtmpWs;
+    let target; try { target = new URL(auth?.websocketUrl); } catch (_) { throw Park.error('PARSE', '直播数据无效'); }
+    if (target.protocol !== 'wss:' || !this.chat.domains.includes(target.hostname) || !Park.url.parse(target.href.replace(/^wss:/, 'https:'), undefined, this.chat.domains) ||
+        !['nickname','tokenAccessControl','securityPayload','channelToJoin'].every(key => typeof auth[key] === 'string' && auth[key])) throw Park.error('PARSE', '直播数据无效');
+    return {transport: 'websocket', url: target.href, state: {auth: {nickname: auth.nickname, tokenAccessControl: auth.tokenAccessControl, securityPayload: auth.securityPayload, channelToJoin: auth.channelToJoin}}};
+  },
+  liveChatEvent(state, event) {
+    const out = {state: {...state}, send: [], messages: []};
+    if (event.type === 'open') {
+      const a = state.auth;
+      if (!a) return {...out, error: true};
+      out.send.push(JSON.stringify({cmd: 1, argList: [a.nickname, a.tokenAccessControl, a.securityPayload, a.channelToJoin], msg: 'WebChatSocket/1.0', tag: 256}));
+      out.state = {channel: a.channelToJoin, authenticated: false};
+      return out;
+    }
+    if (event.type !== 'message' || typeof event.data !== 'string') return out;
+    for (const line of event.data.split('\n').filter(Boolean).slice(0, 100)) {
+      let m; try { m = JSON.parse(line); } catch (_) { continue; }
+      if (m.cmd === 1 && !out.state.authenticated && Array.isArray(m.argList) && m.argList.length) {
+        out.state.authenticated = true;
+        out.send.push(JSON.stringify({cmd: 4, argList: [out.state.channel], tag: 512}));
+      } else if (m.cmd === 4) out.connected = true;
+      else if (m.cmd === 11) out.send.push(JSON.stringify({cmd: 12, tag: m.tag, msg: m.msg}));
+      else if (m.cmd === 13) out.error = true;
+      else if (m.cmd === 2 && !m.argIntList?.[0] && typeof m.msg === 'string' && m.msg.trim() && typeof m.uid === 'string' && typeof m.prefix === 'string' && m.prefix.includes('!')) {
+        if (out.state.channel && m.argList?.[0] !== out.state.channel) continue;
+        out.messages.push({id: m.uid, text: m.msg.slice(0, 2000), author: m.prefix.split('!')[0].slice(0, 100), isHistory: Number(m.ts) > 0});
+      }
+    }
+    return out;
+  },
   publicUrl(value, base = this.BASE) {
     // CDN 主机会更换，只要求是公网 HTTPS 地址；作品身份仍按站点域名校验。
     try { const url = new URL(String(value).trim(), base); return Park.url.parse(url.href, base, [url.hostname]); } catch (_) { return null; }

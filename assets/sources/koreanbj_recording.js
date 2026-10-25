@@ -36,7 +36,7 @@ Park.register({
       '录播请求失败': 'فشل طلب التسجيل', '录播数据无效': 'بيانات التسجيل غير صالحة', '录播不存在': 'التسجيل غير موجود',
     },
   },
-  key: 'koreanbj_recording', name: 'KoreanBJ.club 录播', version: '0.0.5', minAppVersion: '0.9.2', type: 'video', category: 'recording',
+  key: 'koreanbj_recording', name: 'KoreanBJ.club 录播', version: '0.0.6', minAppVersion: '0.9.2', type: 'video', category: 'recording',
   color: '#8d2738', description: '韩国主播录播，支持热门、分页、搜索与原生播放', language: 'ko',
   homepage: 'https://ww1.koreanbj.club/', domains: ['koreanbj.club'],
   network: {mode: 'auto', vpnHint: true},
@@ -118,6 +118,29 @@ Park.register({
     const params = new URLSearchParams({s: keyword});
     if (page > 1) params.set('paged', String(page));
     return this.list('/?' + params.toString(), page);
+  },
+  async comments(value, req = {}) {
+    const id = this.validId(value), page = Math.max(1, Math.floor(Number(req.page) || 1));
+    if (req.sort && req.sort !== 'default') throw Park.error('UNSUPPORTED', '评论暂不支持此操作');
+    if (page > 1) return {items: [], page, hasNext: false};
+    const url = this.BASE + '/video/' + id + '/', doc = this.document(await this.text('/video/' + id + '/'));
+    const area = doc.querySelector('#comments');
+    if (!area) throw Park.error('PARSE', '评论数据无效');
+    const items = [], map = new Map();
+    for (const row of area.querySelectorAll('li.comment[id]')) {
+      // 只取当前 article，不能读取包含 children 的 li.textContent。
+      const id = /^comment-(\d+)$/.exec(row.id)?.[1], article = [...row.children].find(n => n.tagName === 'ARTICLE');
+      const body = Park.comments.html(article?.querySelector('.comment-content')?.innerHTML || '', url);
+      if (!id || !body.length || map.has(id)) continue;
+      const author = article.querySelector('.fn'), parentId = row.parentElement?.closest('li.comment[id]')?.id.replace(/^comment-/, '');
+      const item = {id, parentId, author: {name: Park.html.text(author), url: Park.comments.url(author?.querySelector('a')?.getAttribute('href'), url),
+        avatar: Park.comments.url(article.querySelector('.avatar')?.getAttribute('src'), url)}, body, date: article.querySelector('time')?.getAttribute('datetime'), replies: []};
+      map.set(id, item);
+    }
+    for (const item of map.values()) { const parent = map.get(item.parentId); if (parent) parent.replies.push(item); else items.push(item); }
+    for (const item of map.values()) {item.replyCount = item.replies.length; item.repliesAvailable = item.replies.length > 0;}
+    if (!items.length) throw Park.error('PARSE', '评论数据无效');
+    return {items: req.parentId ? map.get(String(req.parentId))?.replies || [] : items, page, hasNext: false};
   },
   async detail(value, preview) {
     const id = this.validId(value);

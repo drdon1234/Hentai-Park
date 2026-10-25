@@ -15,6 +15,7 @@ import '../rankings/rankings_page.dart';
 import '../search/reverse_search_page.dart';
 import '../settings/source_manage_page.dart';
 import '../subscriptions/subscriptions_page.dart';
+import '../theme.dart';
 import 'dimension_filter.dart';
 import 'feed_sessions.dart';
 import 'feed_shelf.dart';
@@ -120,28 +121,38 @@ class _HomePageState extends State<HomePage> {
       listenable: _domainOrder,
       builder: (context, _) => Scaffold(
         appBar: PageHeader(
-          title: 'HentaiPark',
+          toolbarHeight: 56,
+          titleWidget: Text(
+            'HentaiPark',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: ParkText.serif(
+              context.text.headlineMedium?.copyWith(
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
           actions: [
             ToolbarActions(
               actions: [
                 ToolbarAction(
-                  label: tr('图片反搜'),
-                  icon: Icons.image_search_outlined,
-                  onPressed: () => Nav.push(context, const ReverseSearchPage()),
-                ),
-                ToolbarAction(
                   label: tr('排行榜'),
                   icon: Icons.leaderboard_outlined,
+                  showLabel: true,
+                  shortLabel: tr('排行'),
+                  compactLabel: true,
                   onPressed: () => Nav.push(
                     context,
                     RankingsPage(category: selected.category),
                   ),
                 ),
                 ToolbarAction(
-                  label: tr('站点'),
-                  icon: Icons.public_rounded,
+                  label: tr('图片反搜'),
+                  icon: Icons.image_search_outlined,
                   showLabel: true,
-                  onPressed: () => Nav.push(context, const SitesPage()),
+                  shortLabel: tr('反搜'),
+                  compactLabel: true,
+                  onPressed: () => Nav.push(context, const ReverseSearchPage()),
                 ),
               ],
             ),
@@ -156,7 +167,6 @@ class _HomePageState extends State<HomePage> {
                   AppSettings.instance.homeDimension = value,
               onMedia: (value) => AppSettings.instance.homeMedia = value,
             ),
-            DiscoveryDomainBar(selected: selected, onSelected: _select),
             Expanded(
               child: IndexedStack(
                 index: _destinations.keys.toList().indexOf(selected.key),
@@ -214,6 +224,18 @@ class _HomePageState extends State<HomePage> {
                         'category': selected.category!.label,
                       }),
                 onTap: () => Nav.openAggregateSearch(context, scope: scope),
+                outlined: true,
+              ),
+            ),
+          ),
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(Gap.page, Gap.xs, Gap.page, 0),
+              child: Text(
+                _searchScopeSummary(settings),
+                style: context.text.bodySmall?.copyWith(
+                  color: context.colors.onSurfaceVariant,
+                ),
               ),
             ),
           ),
@@ -231,7 +253,8 @@ class _HomePageState extends State<HomePage> {
                   children: [
                     Text(
                       tr('省流量模式'),
-                      style: Theme.of(context).textTheme.labelLarge,
+                      style: Theme.of(context).textTheme.labelLarge
+                          ?.copyWith(fontWeight: FontWeight.w400),
                     ),
                     Text(
                       tr(
@@ -259,6 +282,8 @@ class _HomePageState extends State<HomePage> {
                 ),
               ),
             ),
+          if (selected.category == null)
+            SliverToBoxAdapter(child: _allSitesEntry(context)),
           ListenableBuilder(
             listenable: Listenable.merge([sm, _domainOrder]),
             builder: (context, _) => _shelves(context, selected),
@@ -268,6 +293,71 @@ class _HomePageState extends State<HomePage> {
       ),
     );
   }
+
+  String _searchScopeSummary(AppSettings settings) {
+    final dimension = settings.homeDimension == ContentDimension.all
+        ? tr('全部内容')
+        : '${settings.homeDimension.label}${tr('内容')}';
+    final media = settings.homeMedia == ContentMedia.all
+        ? tr('全部类型')
+        : settings.homeMedia.label;
+    return tr('聚合搜索：{dimension}、{media}', {
+      'dimension': dimension,
+      'media': media,
+    });
+  }
+
+  // 全部站点 > 域 > 站点只用字号建立层级，三者保持同一左边界。
+  Widget _allSitesEntry(BuildContext context) => Padding(
+    padding: const EdgeInsets.fromLTRB(Gap.page, Gap.xxl, Gap.xs, Gap.xs),
+    child: Semantics(
+      button: true,
+      label: tr('全部站点'),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: Radii.small,
+          onTap: () => Nav.push(context, const SitesPage()),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(minHeight: 52),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    tr('全部站点'),
+                    style: ParkText.serif(
+                      context.text.headlineMedium?.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ),
+                Text(
+                  tr('查看全部'),
+                  style: context.text.labelLarge?.copyWith(
+                    color: context.colors.primary,
+                    fontWeight: FontWeight.w400,
+                  ),
+                ),
+                const SizedBox(width: Gap.xs),
+                SizedBox(
+                  width: 40,
+                  height: 40,
+                  child: Center(
+                    child: Icon(
+                      Icons.chevron_right_rounded,
+                      size: 18,
+                      color: context.colors.primary,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    ),
+  );
 
   /// Categories chosen in the first-run flow (or settings) get shelves on “全部”.
   bool _interesting(SourceCategory category) {
@@ -375,7 +465,9 @@ class _HomePageState extends State<HomePage> {
             .toList();
         if (candidates.isEmpty) continue;
         final expanded = AppSettings.instance.homeDomainExpanded(domain);
-        sections.add(_domainHeader(domain, candidates, expanded: expanded));
+        sections.add(
+          _domainHeader(context, domain, candidates, expanded: expanded),
+        );
         if (dataSaver) {
           sections.add(
             RowGroup(
@@ -389,6 +481,7 @@ class _HomePageState extends State<HomePage> {
               ],
             ),
           );
+          sections.add(const Divider(indent: Gap.page, endIndent: Gap.page));
           continue;
         }
         sections.addAll([
@@ -399,48 +492,96 @@ class _HomePageState extends State<HomePage> {
           ))
             _homeSource(context, source),
         ]);
+        sections.add(const Divider(indent: Gap.page, endIndent: Gap.page));
       }
     }
     return SliverList.list(children: sections);
   }
 
   Widget _domainHeader(
+    BuildContext context,
     SourceCategory domain,
     List<InstalledSource> sources, {
     required bool expanded,
-  }) => SectionHeader(
-    domain.label,
-    padding: const EdgeInsets.fromLTRB(Gap.page, Gap.xl, Gap.page, Gap.xs),
-    trailing: Wrap(
-      alignment: WrapAlignment.end,
-      spacing: Gap.xs,
-      runSpacing: Gap.xs,
+  }) {
+    final configurable = browsableSources(domain);
+    return Column(
       children: [
-        if (sources.length > 1)
-          IconButton(
-            tooltip: tr(expanded ? '收起为仅显示首个站点' : '展开域内全部站点'),
-            icon: Icon(
-              expanded ? Icons.unfold_less_rounded : Icons.unfold_more_rounded,
-            ),
-            onPressed: () =>
-                AppSettings.instance.setHomeDomainExpanded(domain, !expanded),
+        SectionHeader(
+          domain.label,
+          padding: const EdgeInsets.fromLTRB(Gap.page, Gap.l, Gap.page, Gap.xs),
+          titleStyle: ParkText.serif(
+            context.text.titleLarge?.copyWith(fontWeight: FontWeight.w600),
           ),
-        if (browsableSources(domain).isNotEmpty)
-          IconButton(
-            tooltip: tr('选择展示站点'),
-            icon: const Icon(Icons.tune_rounded),
-            onPressed: () {
-              final configurable = browsableSources(domain);
-              _configure(domain, _displaySource(configurable, domain)!.key);
-            },
+          emphasizeTrailing: false,
+          trailing: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (configurable.isNotEmpty)
+                IconButton(
+                  tooltip: tr('选择展示站点'),
+                  style: IconButton.styleFrom(
+                    minimumSize: const Size(40, 40),
+                    padding: EdgeInsets.zero,
+                  ),
+                  icon: const Icon(Icons.tune_rounded),
+                  onPressed: () => _configure(
+                    domain,
+                    _displaySource(configurable, domain)!.key,
+                  ),
+                ),
+              if (sources.length > 1)
+                TextButton(
+                  style: TextButton.styleFrom(
+                    foregroundColor: context.colors.onSurfaceVariant,
+                    minimumSize: const Size(40, 40),
+                    padding: EdgeInsets.zero,
+                    textStyle: context.text.labelLarge?.copyWith(
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  onPressed: () => AppSettings.instance.setHomeDomainExpanded(
+                    domain,
+                    !expanded,
+                  ),
+                  child: SelectionContainer.disabled(
+                    child: Text(tr(expanded ? '收起' : '展开')),
+                  ),
+                ),
+              TextButton(
+                style: TextButton.styleFrom(
+                  foregroundColor: context.colors.primary,
+                  minimumSize: const Size(48, 40),
+                  padding: EdgeInsets.zero,
+                  textStyle: context.text.labelLarge?.copyWith(
+                    fontWeight: FontWeight.w400,
+                  ),
+                ),
+                onPressed: () => _select(DiscoveryDestination.domain(domain)),
+                child: SelectionContainer.disabled(
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(tr('进入域')),
+                      const SizedBox(width: Gap.xs),
+                      const SizedBox(
+                        width: 24,
+                        height: 40,
+                        child: Center(
+                          child: Icon(Icons.chevron_right_rounded, size: 18),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
           ),
-        TextButton(
-          onPressed: () => _select(DiscoveryDestination.domain(domain)),
-          child: SelectionContainer.disabled(child: Text(tr('更多'))),
         ),
+        const Divider(indent: Gap.page, endIndent: Gap.page),
       ],
-    ),
-  );
+    );
+  }
 
   List<InstalledSource> _domainSources(
     List<InstalledSource> sources,
@@ -462,6 +603,7 @@ class _HomePageState extends State<HomePage> {
       sourceKey: source.key,
       title: source.name,
       moreLabel: tr('进入'),
+      moreChevron: false,
       onToggleVisibility: () =>
           AppSettings.instance.setHomeSourceVisible(source.key, false),
       onMore: () => Nav.openSource(context, source.key),
@@ -475,6 +617,9 @@ class _HomePageState extends State<HomePage> {
       child: SiteRow(
         source: source,
         homeSourceVisible: visible,
+        showMore: false,
+        showDetails: false,
+        showEnterButton: true,
         onToggleWorks: () =>
             AppSettings.instance.setHomeSourceVisible(source.key, !visible),
       ),

@@ -203,7 +203,9 @@ class _ContinueReadingPageState extends State<ContinueReadingPage> {
           ? c.primaryContainer.withValues(alpha: 0.35)
           : Colors.transparent,
       child: InkWell(
-        onTap: () => _setSelected(h.uid, !selected),
+        onTap: () =>
+            _selected.isEmpty ? _resume(h) : _setSelected(h.uid, !selected),
+        onLongPress: () => _setSelected(h.uid, !selected),
         child: SelectionContainer.disabled(
           child: Padding(
             padding: const EdgeInsets.fromLTRB(4, 6, 4, 6),

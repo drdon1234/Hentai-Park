@@ -19,7 +19,8 @@ bool isPostVideoAttachment(Object? value) =>
     value['type'] == 'video' &&
     ((value['url'] is String && (value['url'] as String).isNotEmpty) ||
         (value['episodeId'] is String &&
-            (value['episodeId'] as String).isNotEmpty));
+            (value['episodeId'] as String).isNotEmpty) ||
+        value['resource'] is Map);
 
 WorkPage postVideoPage(WorkPage page) => WorkPage(
   items: [
@@ -57,9 +58,15 @@ class PostVideoScope {
     this.feed,
     this.options = const {},
     this.target,
-  }) : assert(feed != null || target != null);
+    this.keyword,
+    this.filters = const {},
+    this.common = const {},
+  }) : assert(feed != null || target != null || keyword != null);
   final String source, title;
   final String? feed, target;
+  final String? keyword;
+  final Map<String, Object?> filters;
+  final Map<String, Object?> common;
   final Map<String, Object?> options;
 
   Future<WorkPage> load(
@@ -70,6 +77,17 @@ class PostVideoScope {
     SourceManager? sourceManager,
   }) async {
     final manager = sourceManager ?? SourceManager.instance;
+    if (keyword case final keyword?) {
+      return manager.search(
+        source,
+        keyword: keyword,
+        filters: filters,
+        common: common,
+        page: page,
+        cursor: cursor,
+        cancelToken: cancelToken,
+      );
+    }
     if (target case final target?) {
       final result = await manager.subscriptionPosts(
         source,
@@ -90,6 +108,7 @@ class PostVideoScope {
       page: page,
       cursor: cursor,
       options: options,
+      common: common,
       refresh: refresh,
       cancelToken: cancelToken,
     );

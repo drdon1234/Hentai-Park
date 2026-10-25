@@ -1,15 +1,15 @@
 /* Hanime.tv：公开目录检索与应用内 HLS 播放。 */
 Park.register({
   i18n: {
-    "zh-Hant": {"影片列表解析失败":"影片列表解析失敗","里番目录、排行与搜索；支持应用内多清晰度播放":"裏番目錄、排行與搜尋；支援應用內多畫質播放","视频解析失败":"影片解析失敗"},
-    "ja": {"影片列表解析失败":"動画一覧の解析に失敗しました","里番目录、排行与搜索；支持应用内多清晰度播放":"アニメのカタログ・ランキング・検索。アプリ内の複数画質再生に対応","视频解析失败":"動画の解析に失敗しました"},
-    "ko": {"影片列表解析失败":"동영상 목록 분석 실패","里番目录、排行与搜索；支持应用内多清晰度播放":"애니메이션 목록, 순위 및 검색; 앱 내 다중 화질 재생 지원","视频解析失败":"동영상 분석 실패"},
-    "en": {"影片列表解析失败":"Failed to parse video list","里番目录、排行与搜索；支持应用内多清晰度播放":"Anime catalog, rankings and search; supports in-app playback with multiple qualities","视频解析失败":"Failed to resolve video"},
-    "es": {"影片列表解析失败":"No se pudo analizar la lista de vídeos","里番目录、排行与搜索；支持应用内多清晰度播放":"Catálogo de anime, clasificación y búsqueda; reproducción en la aplicación con varias calidades","视频解析失败":"No se pudo resolver el vídeo"},
-    "ru": {"影片列表解析失败":"Не удалось разобрать список видео","里番目录、排行与搜索；支持应用内多清晰度播放":"Каталог аниме, рейтинг и поиск; воспроизведение в приложении с выбором качества","视频解析失败":"Не удалось получить видео"},
-    "ar": {"影片列表解析失败":"تعذر تحليل قائمة الفيديو","里番目录、排行与搜索；支持应用内多清晰度播放":"دليل الأنمي والترتيب والبحث؛ تشغيل داخل التطبيق بجودات متعددة","视频解析失败":"تعذر تحليل الفيديو"},
+    "zh-Hant": {"已编辑": "已編輯", "已删除": "已刪除", "影片列表解析失败":"影片列表解析失敗","里番目录、排行与搜索；支持应用内多清晰度播放":"裏番目錄、排行與搜尋；支援應用內多畫質播放","视频解析失败":"影片解析失敗"},
+    "ja": {"已编辑": "編集済み", "已删除": "削除済み", "影片列表解析失败":"動画一覧の解析に失敗しました","里番目录、排行与搜索；支持应用内多清晰度播放":"アニメのカタログ・ランキング・検索。アプリ内の複数画質再生に対応","视频解析失败":"動画の解析に失敗しました"},
+    "ko": {"已编辑": "수정됨", "已删除": "삭제됨", "影片列表解析失败":"동영상 목록 분석 실패","里番目录、排行与搜索；支持应用内多清晰度播放":"애니메이션 목록, 순위 및 검색; 앱 내 다중 화질 재생 지원","视频解析失败":"동영상 분석 실패"},
+    "en": {"已编辑": "Edited", "已删除": "Deleted", "影片列表解析失败":"Failed to parse video list","里番目录、排行与搜索；支持应用内多清晰度播放":"Anime catalog, rankings and search; supports in-app playback with multiple qualities","视频解析失败":"Failed to resolve video"},
+    "es": {"已编辑": "Editado", "已删除": "Eliminado", "影片列表解析失败":"No se pudo analizar la lista de vídeos","里番目录、排行与搜索；支持应用内多清晰度播放":"Catálogo de anime, clasificación y búsqueda; reproducción en la aplicación con varias calidades","视频解析失败":"No se pudo resolver el vídeo"},
+    "ru": {"已编辑": "Изменено", "已删除": "Удалено", "影片列表解析失败":"Не удалось разобрать список видео","里番目录、排行与搜索；支持应用内多清晰度播放":"Каталог аниме, рейтинг и поиск; воспроизведение в приложении с выбором качества","视频解析失败":"Не удалось получить видео"},
+    "ar": {"已编辑": "معدّل", "已删除": "محذوف", "影片列表解析失败":"تعذر تحليل قائمة الفيديو","里番目录、排行与搜索；支持应用内多清晰度播放":"دليل الأنمي والترتيب والبحث؛ تشغيل داخل التطبيق بجودات متعددة","视频解析失败":"تعذر تحليل الفيديو"},
   },
-  key: 'hanime', name: 'Hanime.tv', version: '0.0.9', minAppVersion: '0.9.2', type: 'video', category: 'anime',
+  key: 'hanime', name: 'Hanime.tv', version: '0.0.10', minAppVersion: '0.9.2', type: 'video', category: 'anime',
   language: 'en', color: '#EC407A', homepage: 'https://hanime.tv',
   description: '里番目录、排行与搜索；支持应用内多清晰度播放',
   domains: ['hanime.tv', 'hanime-cdn.com', 'guest.freeanimehentai.net'],
@@ -106,6 +106,70 @@ Park.register({
     if (!meta?.name) throw Park.error('NOT_FOUND', '影片不存在');
     const tags = [...doc.querySelectorAll('main a[href*="/browse/tags/"]')].map(a => ({name: Park.html.text(a), keyword: Park.html.text(a)})).filter(x => x.name);
     return {id, title: meta.name, cover: this.cover(meta.thumbnailUrl), url, description: meta.description || '', duration: meta.duration || '', chapters: null, tags, authors: [], related: this.cards(doc).filter(x => x.id !== id)};
+  },
+  commentItem(row, type, parentId) {
+    if (!row || row.type !== type || !/^\d+$/.test(String(row.id)) || typeof row.text !== 'string') {
+      throw Park.error('PARSE', '评论数据无效');
+    }
+    const body = Park.comments.text(row.text), target = row.reply_to_author;
+    if (target?.name && !row.is_deleted) {
+      const url = Park.comments.url(target.channel_url, this.BASE);
+      body.unshift(url ? {type: 'link', text: '@' + target.name, url} : {type: 'text', text: '@' + target.name}, {type: 'text', text: ' '});
+    }
+    if (!body.length) throw Park.error('PARSE', '评论数据无效');
+    const author = row.author || {}, badges = [];
+    if (row.is_deleted) badges.push('已删除');
+    else if (row.is_edited) badges.push('已编辑');
+    const time = Number(row.created_at_unix);
+    // 主楼、回复和楼中楼分别编号，不能仅用数值 ID 去重。
+    return {id: type + ':' + row.id, parentId, body,
+      author: {name: String(author.name || ''), avatar: Park.comments.url(author.avatar_url, this.BASE),
+        url: Park.comments.url(author.channel_url, this.BASE), badges},
+      date: Number.isFinite(time) && time > 0 && time < 8640000000000 ? new Date(time * 1000).toISOString() : undefined,
+      likes: Math.max(0, Number(row.upvotes) || 0), replyCount: Math.max(0, Number(row.reply_count) || 0),
+      repliesAvailable: type === 'thread' && (Number(row.reply_count) > 0 || row.has_reply_records === true)};
+  },
+  async comments(value, req = {}) {
+    const id = this.idValue(value), sort = req.sort && req.sort !== 'default' ? String(req.sort) : 'new';
+    const parent = req.parentId == null ? null : String(req.parentId);
+    if (!['new', 'top'].includes(sort)) throw Park.error('UNSUPPORTED', '评论暂不支持此操作');
+    if (parent && !/^thread:\d+$/.test(parent)) throw Park.error('CONFIG', '评论参数无效');
+    if (req.cursor != null && !/^[1-9]\d{0,8}$/.test(String(req.cursor))) throw Park.error('CONFIG', '评论参数无效');
+    const page = req.cursor == null ? Math.max(1, Math.floor(Number(req.page) || 1)) : Number(req.cursor);
+    if (!Number.isSafeInteger(page) || page > 100000000) throw Park.error('CONFIG', '评论参数无效');
+    const url = this.BASE + '/videos/hentai/' + id, headers = await this.playerHeaders(url, '');
+    delete headers['x-csrf-token'];
+    const suffix = parent ? '/' + parent.slice(7) + '/replies' : '';
+    const response = this.http.ensureOk(await this.http.get('https://guest.freeanimehentai.net/api/v11/videos/' + encodeURIComponent(id) + '/comments' + suffix,
+      {headers, params: {page, page_size: parent ? 30 : 20, sort}}));
+    let payload; try { payload = response.json(); } catch (_) { throw Park.error('PARSE', '评论数据无效'); }
+    const data = payload?.data ?? payload, rows = parent ? data?.replies : data?.comments;
+    if (!Array.isArray(rows) || rows.some(row => !row || typeof row !== 'object') || Number(data.page) !== page ||
+        (parent && (!Array.isArray(data.reply_replies) || data.reply_replies.some(row => !row || typeof row !== 'object')))) {
+      throw Park.error('PARSE', '评论数据无效');
+    }
+    const items = [], seen = new Set();
+    for (const row of rows) {
+      const children = parent ? data.reply_replies.filter(child => String(child.parent_id) === String(row.id) && !child.is_deleted) : [];
+      if (row.is_deleted && !(parent ? children.length : Number(row.reply_count) > 0 || row.has_reply_records === true)) continue;
+      const item = this.commentItem(row, parent ? 'reply' : 'thread', parent || undefined);
+      if (seen.has(item.id)) continue;
+      seen.add(item.id);
+      if (parent) {
+        const childIds = new Set();
+        item.replies = children.map(child => this.commentItem(child, 'reply_reply', item.id)).filter(child => {
+          if (childIds.has(child.id)) return false;
+          childIds.add(child.id); return true;
+        });
+      }
+      items.push(item);
+    }
+    const next = Number(data.next_page);
+    if (data.next_page != null && (!Number.isSafeInteger(next) || next < 1 || next > 100000000)) throw Park.error('PARSE', '评论数据无效');
+    const hasNext = Number.isSafeInteger(next) && next > page;
+    return {items, page, hasNext, cursor: hasNext ? String(next) : null,
+      total: !parent && Number.isFinite(Number(data.total_threads)) ? Math.max(0, Number(data.total_threads)) : undefined,
+      sorts: [{value: 'new', label: '最新'}, {value: 'top', label: '热门'}]};
   },
   hex(bytes) {
     return Array.from(bytes, byte => byte.toString(16).padStart(2, '0')).join('');

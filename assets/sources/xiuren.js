@@ -263,7 +263,7 @@
     "工作室写真图集，支持热门、模特搜索与整套阅读": "معارض صور استوديو مع أعمال شائعة وبحث عن العارضين وعرض المجموعة كاملة"
   }
 },
-    key: SITE.key, name: SITE.name, version: '0.0.6', minAppVersion: '0.9.2', type: 'comic', category: 'gallery',
+    key: SITE.key, name: SITE.name, version: '0.0.7', minAppVersion: '0.9.2', type: 'comic', category: 'gallery',
     color: SITE.color, description: SITE.description, homepage: SITE.home, domains: [SITE.domain], language: SITE.language,
     network: {mode: 'native', vpnHint: true}, imageHeaders: {Referer: SITE.home + '/'},
     linkPatterns: [SITE.domain.replace(/\./g, '\\.') + '/([^/?#]+)(?:/|[?#]|$)'], idPattern: '^[1-9]\\d{0,14}$',
@@ -300,6 +300,27 @@
       const found = data.find(p => allowed(this, p) && item(p));
       if (!found) throw Park.error('NOT_FOUND', '没有可用图集');
       return String(found.id);
+    },
+    async comments(value, req = {}) {
+      const raw = idValue(value), id = /^[1-9]\d{0,14}$/.test(raw) ? raw : String((await getPost(this, raw)).id);
+      const page = pageNumber(req.page), parent = req.parentId ? numberFilter(req.parentId) : null;
+      const response = await this.http.get(SITE.api + '/comments', {params: {
+        post: id, page, per_page: 20, ...(parent ? {parent} : {}),
+      }});
+      if (!response.ok) {
+        let code; try { code = response.json().code; } catch (_) {}
+        if (response.status === 400 && code === 'rest_comment_invalid_page_number') return {items: [], hasNext: false};
+        this.http.ensureOk(response);
+      }
+      const rows = response.json();
+      if (!Array.isArray(rows) || rows.some(c => !c.id || String(c.post) !== id || typeof c.content?.rendered !== 'string'))
+        throw Park.error('PARSE', '评论数据无效');
+      const items = rows.map(c => ({id: String(c.id), author: {name: String(c.author_name || ''),
+        avatar: c.author_avatar_urls?.['96'] || c.author_avatar_urls?.['48'], url: c.author_url || undefined},
+        body: Park.comments.html(c.content.rendered, SITE.home), date: c.date_gmt ? c.date_gmt + 'Z' : c.date,
+        parentId: c.parent ? String(c.parent) : undefined})).filter(c => c.body.length);
+      const totalPages = headersNumber(response, 'x-wp-totalpages'), total = headersNumber(response, 'x-wp-total');
+      return {items, hasNext: totalPages !== null && page < totalPages, ...(total !== null ? {total} : {})};
     },
     async detail(id) {
       const post = await getPost(this, id), entry = item(post);

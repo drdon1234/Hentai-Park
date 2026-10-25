@@ -39,6 +39,71 @@
     CONFIG: 'CONFIG',
   });
 
+  function isPublicChatHost(host) {
+    return /^[a-z0-9](?:[a-z0-9.-]*[a-z0-9])?\.[a-z]{2,}$/.test(host) &&
+      !host.split('.').some(label => !label || label.startsWith('-') || label.endsWith('-')) &&
+      !/(?:^|\.)(?:localhost|local)$/.test(host);
+  }
+
+  function parseChatEndpoint(value) {
+    if (typeof value !== 'string' || !value || /[\x00-\x20\x7f\\/?#@]/.test(value)) return null;
+    const wildcard = value.startsWith('*.');
+    const authority = wildcard ? value.slice(2) : value;
+    try {
+      const endpoint = new URL('https://' + authority);
+      if (endpoint.username || endpoint.password || endpoint.pathname !== '/' || endpoint.search || endpoint.hash ||
+          !isPublicChatHost(endpoint.hostname)) return null;
+      const port = Number(endpoint.port || 443);
+      if (port !== 443 && (port < 1024 || port > 65535)) return null;
+      return {host: endpoint.hostname, port, wildcard};
+    } catch (_) {
+      return null;
+    }
+  }
+
+  function parseChatUrl(value, domains) {
+    if (value == null || !String(value).trim() || /[\x00-\x20\x7f\\]/.test(String(value))) return null;
+    try {
+      const target = new URL(String(value));
+      if (target.protocol !== 'https:' || target.username || target.password || target.hash ||
+          !isPublicChatHost(target.hostname) || !Array.isArray(domains)) return null;
+      const port = Number(target.port || 443);
+      const allowed = domains.some(value => {
+        const endpoint = parseChatEndpoint(value);
+        if (!endpoint || endpoint.port !== port) return false;
+        if (!endpoint.wildcard) return target.hostname === endpoint.host;
+        const suffix = '.' + endpoint.host;
+        if (!target.hostname.endsWith(suffix)) return false;
+        const label = target.hostname.slice(0, -suffix.length);
+        return label.length > 0 && !label.includes('.');
+      });
+      return allowed ? target : null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  function createChatHttp(source, invocation) {
+    return {async request(opts) {
+      const target = parseChatUrl(opts?.url, source.chat?.domains || []);
+      if (!target) throw new ParkError(ErrorCode.CONFIG, '访问受限');
+      const o = {...opts, url: target.href, invocation, source: source.key};
+      if (o.json !== undefined) {
+        o.body = JSON.stringify(o.json);
+        o.headers = {...o.headers, 'Content-Type': 'application/json'};
+        delete o.json;
+      }
+      let result;
+      try { result = await native().chatRequest(o); } catch (_) {
+        throw new ParkError(ErrorCode.NETWORK, '弹幕连接失败');
+      }
+      if (!result || result.status < 200 || result.status >= 300) throw new ParkError(ErrorCode.NETWORK, '弹幕连接失败');
+      return {status: result.status, body: result.body, json() {
+        try { return JSON.parse(result.body); } catch (_) { throw new ParkError(ErrorCode.PARSE, '直播数据无效'); }
+      }};
+    }};
+  }
+
   function native() {
     if (!Park.__native) throw new ParkError(ErrorCode.CONFIG, 'Park host is not attached');
     return Park.__native;
@@ -447,6 +512,66 @@
     }));
   }
 
+  function normalizeCommonFilters(value, declaration) {
+    if (value === undefined || value === null) return {};
+    if (!value || typeof value !== 'object' || Array.isArray(value)) {
+      throw new ParkError(ErrorCode.CONFIG, '通用筛选参数无效');
+    }
+    const allowedDimensions = ['pages', 'likes', 'duration'];
+    const result = {};
+    let sorted = false;
+    for (const [key, input] of Object.entries(value)) {
+      const capability = declaration && declaration[key];
+      if (!allowedDimensions.includes(key) || !capability || typeof capability !== 'object' ||
+          Array.isArray(capability) || !input || typeof input !== 'object' || Array.isArray(input) ||
+          Object.keys(input).some(field => !['min', 'max', 'order'].includes(field))) {
+        throw new ParkError(ErrorCode.CONFIG, '通用筛选参数无效');
+      }
+      const range = capability.range === true
+        ? ['min', 'max']
+        : Array.isArray(capability.range) ? capability.range : [];
+      const sort = capability.sort === true
+        ? ['asc', 'desc']
+        : Array.isArray(capability.sort) ? capability.sort : [];
+      const validRangeDeclaration = capability.range === undefined || capability.range === false || capability.range === true ||
+        (Array.isArray(capability.range) && range.length > 0 &&
+          range.every(field => field === 'min' || field === 'max') &&
+          new Set(range).size === range.length);
+      const validSortDeclaration = capability.sort === undefined || capability.sort === false || capability.sort === true ||
+        (Array.isArray(capability.sort) && sort.length > 0 &&
+          sort.every(order => order === 'asc' || order === 'desc') &&
+          new Set(sort).size === sort.length);
+      if (!validRangeDeclaration || !validSortDeclaration) {
+        throw new ParkError(ErrorCode.CONFIG, '通用筛选声明无效');
+      }
+      const normalized = {};
+      for (const field of ['min', 'max']) {
+        const bound = input[field];
+        if (bound === undefined || bound === null || bound === '') continue;
+        const validNumber = key === 'duration'
+          ? typeof bound === 'number' && Number.isFinite(bound) && bound >= 0
+          : typeof bound === 'number' && Number.isSafeInteger(bound) && bound >= 0;
+        if (!range.includes(field) || !validNumber) {
+          throw new ParkError(ErrorCode.CONFIG, '通用筛选范围无效');
+        }
+        normalized[field] = bound;
+      }
+      const order = input.order;
+      if (order !== undefined && order !== null && order !== '') {
+        if (!sort.includes(order) || sorted) {
+          throw new ParkError(ErrorCode.CONFIG, '通用筛选排序无效');
+        }
+        normalized.order = order;
+        sorted = true;
+      }
+      if (normalized.min !== undefined && normalized.max !== undefined && normalized.min > normalized.max) {
+        throw new ParkError(ErrorCode.CONFIG, '通用筛选范围无效');
+      }
+      if (Object.keys(normalized).length) result[key] = normalized;
+    }
+    return result;
+  }
+
   /** Strips functions so that the manifest can cross the bridge as JSON. */
   function manifestOf(def) {
     const pick = (obj) => JSON.parse(JSON.stringify(obj === undefined ? null : obj));
@@ -473,6 +598,7 @@
       imageDecrypt: pick(def.imageDecrypt || {}),
       network: pick(def.network || {}),
       media: pick(def.media || {}),
+      chat: pick(def.chat || {}),
       postShortVideos: def.postShortVideos === true,
       subscription: pick(def.subscription ? {hint:def.subscription.hint || '',joinedTargets:typeof def.subscription.targets === 'function',communities:def.subscription.communities === true,communityHint:def.subscription.communityHint || '',communityExample:def.subscription.communityExample || ''} : null),
       updateSubscriptions: pick(def.updateSubscriptions ? {dimensions:def.updateSubscriptions.dimensions} : null),
@@ -502,8 +628,13 @@
       defaultFeed: def.defaultFeed || '',
       anonymousDefaultFeed: def.anonymousDefaultFeed || '',
       searchFilters: pick(def.searchFilters || []),
+      searchCommonFilters: pick(def.searchCommonFilters || {}),
       searchHint: def.searchHint || '',
       capabilities: {
+        comments: typeof def.comments === 'function',
+        resolveContentLink: typeof def.resolveContentLink === 'function',
+        searchLink: typeof def.searchLink === 'function',
+        liveChat: typeof def.liveChat === 'function' && typeof def.liveChatEvent === 'function',
         reverseSearch: typeof def.reverseSearch === 'function',
         interaction: typeof def.interaction === 'function',
         related: typeof def.related === 'function',
@@ -530,11 +661,75 @@
     };
   }
 
+  // 评论只转换成文本、链接与图片数据，绝不把原站 HTML 交给界面执行。
+  const comments = {
+    url(value, base) {
+      if (!value || /[\x00-\x20\x7f\\]/.test(String(value))) return null;
+      try {
+        const u = new URL(String(value), base);
+        return ['http:', 'https:'].includes(u.protocol) && !u.username && !u.password &&
+          u.hostname.includes('.') && !/(?:^|\.)(?:localhost|local)$/.test(u.hostname) ? u.href : null;
+      } catch (_) { return null; }
+    },
+    text(value) {
+      const text = String(value || '').slice(0, 65536), out = [];
+      let start = 0;
+      for (const m of text.matchAll(/https?:\/\/[^\s<>"\u3000]+/gi)) {
+        if (out.length >= 498) break;
+        const raw = m[0].replace(/[.,;!?，。；！？、）】》]+$/, '');
+        const link = comments.url(raw);
+        if (!link) continue;
+        if (m.index > start) out.push({type:'text',text:text.slice(start,m.index)});
+        out.push({type:'link',text:raw,url:link});
+        start = m.index + raw.length;
+      }
+      if (start < text.length) out.push({type:'text',text:text.slice(start)});
+      return out;
+    },
+    html(value, base) {
+      const root = html.parse('<!doctype html><html><body>' + String(value || '').slice(0, 524288) + '</body></html>');
+      for (const node of root.querySelectorAll('script,style,iframe,object,embed,form,svg,template')) node.remove();
+      const out = [];
+      let left = 65536;
+      function push(part) {
+        if (out.length >= 500 || left <= 0) return;
+        if (part.text != null) { part.text = part.text.slice(0,left); left -= part.text.length; }
+        if (part.text || part.type === 'image') out.push(part);
+      }
+      function walk(node, quoted = false) {
+        if (out.length >= 500 || left <= 0) return;
+        if (node.nodeType === 3) { for (const p of comments.text(node.textContent)) push(quoted && p.type === 'text' ? {...p,type:'quote'} : p); return; }
+        const tag = String(node.nodeName).toUpperCase();
+        if (tag === 'BR') { push({type:'text',text:'\n'}); return; }
+        if (tag === 'IMG') {
+          const link = comments.url(node.getAttribute('src') || node.getAttribute('data-src'),base);
+          if (link) push({type:'image',url:link,text:node.getAttribute('alt') || ''});
+          return;
+        }
+        if (tag === 'A') {
+          const link = comments.url(node.getAttribute('href'),base);
+          if (link && !node.querySelector('img')) { push({type:'link',text:node.textContent || link,url:link}); return; }
+        }
+        if (tag === 'BLOCKQUOTE') {
+          for (const child of node.childNodes || []) walk(child,true);
+          return;
+        }
+        const block = /^(P|DIV|LI|PRE|SECTION|ARTICLE|H[1-6])$/.test(tag);
+        if (block && out.length) push({type:'text',text:'\n'});
+        for (const child of node.childNodes || []) walk(child,quoted);
+        if (block) push({type:'text',text:'\n'});
+      }
+      walk(root.body || root);
+      return out;
+    },
+  };
+
   const Park = {
     API_VERSION,
     ErrorCode,
     ParkError,
     html,
+    comments,
     crypto,
     utils,
     url,
@@ -547,7 +742,11 @@
 
     /** 源显式选择维度，框架只负责规范化协议和稳定 ID。 */
     enableUpdateSubscriptions(def, rules) {
-      const dimensions = rules.dimensions;
+      const dimensions = rules.dimensions.filter(d => d.key === 'posts'
+        ? typeof def.subscription?.posts === 'function'
+        : d.key === 'work' ? typeof def.detail === 'function'
+        : typeof def.search === 'function');
+      if (!dimensions.length) return def;
       const bounded = value => {
         const text = String(value || '').trim();
         if (!text || text.length > 2048 || /[\u0000-\u001f]/.test(text)) throw Park.error('CONFIG','订阅目标无效');
@@ -556,6 +755,18 @@
       const code = value => bounded(value).toUpperCase().replace(/[_\s]/g,'-');
       def.updateSubscriptions = {
         dimensions,
+        query(target) {
+          const dimension=target.dimension;
+          if (!dimensions.some(d=>d.key===dimension) || ['posts','work'].includes(dimension)) throw Park.error('UNSUPPORTED','不支持此订阅维度');
+          let keyword=bounded(target.target),filters={...(rules.searchFilters||{})};
+          if(dimension==='series'){filters.category=keyword;keyword='';}
+          if(dimension==='filter'){
+            let data;try{data=JSON.parse(keyword);}catch{throw Park.error('CONFIG','订阅筛选无效');}
+            if(!data||typeof data.keyword!=='string'||!data.filters||typeof data.filters!=='object'||Array.isArray(data.filters))throw Park.error('CONFIG','订阅筛选无效');
+            keyword=data.keyword;filters={...filters,...data.filters};
+          }
+          return {keyword,filters};
+        },
         async normalize(dimension, input) {
           if (!dimensions.some(d => d.key === dimension)) throw Park.error('UNSUPPORTED','不支持此订阅维度');
           let id = bounded(input);
@@ -601,9 +812,7 @@
           const position=cursor ? JSON.parse(cursor) : {page:1};
           const pageNumber=position.page;
           if (!Number.isInteger(pageNumber) || pageNumber<1 || pageNumber>10000) throw Park.error('CONFIG','分页参数无效');
-          let keyword=target.target, filters={...(rules.searchFilters||{})};
-          if (dimension==='series') {keyword='';filters.category=target.target;}
-          if (dimension==='filter') {const data=JSON.parse(target.target);keyword=data.keyword;filters={...filters,...data.filters};}
+          const {keyword,filters}=this.updateSubscriptions.query.call(this,target);
           const page=await this.search({keyword,page:pageNumber,cursor:position.sourceCursor,filters});
           if (!page || !Array.isArray(page.items)) throw Park.error('PARSE','订阅列表暂不可用');
           if(page.items.some(i=>!i || i.id==null || !String(i.id).trim())) throw Park.error('PARSE','作品编号无效');
@@ -631,6 +840,7 @@
       def.settings_ = Object.assign(settingDefaults(def), (state && state.settings) || {});
       def.store = createStore(def, state && state.data);
       def.http = createHttp(def);
+      def.chatHttp = createChatHttp(def);
       def.cookies = createCookies(def);
       def.log = (...args) => {
         try {
@@ -681,11 +891,16 @@
           const scope = args?.[0], options = args?.[1];
           const targetScope = typeof scope?.target === 'string' && !!scope.target;
           const feedScope = typeof scope?.feed === 'string' && !!scope.feed;
+          const searchScope = scope?.search && typeof scope.search === 'object' && !Array.isArray(scope.search);
           if (!scope || typeof scope !== 'object' || Array.isArray(scope) ||
-              targetScope === feedScope ||
+              Number(targetScope) + Number(feedScope) + Number(!!searchScope) !== 1 ||
               Object.keys(scope).some(key => !(
-                targetScope ? key === 'target' : key === 'feed' || key === 'options'
+                targetScope ? key === 'target' : searchScope ? key === 'search' : ['feed', 'options', 'common'].includes(key)
               )) ||
+              (searchScope && (typeof entry.def.search !== 'function' ||
+                typeof scope.search.keyword !== 'string' || scope.search.keyword.length > 512 ||
+                Object.keys(scope.search).some(key => !['keyword', 'filters', 'common'].includes(key)) ||
+                !scope.search.filters || typeof scope.search.filters !== 'object' || Array.isArray(scope.search.filters))) ||
               (scope.options !== undefined && (!scope.options || typeof scope.options !== 'object' || Array.isArray(scope.options))) ||
               !options || !Number.isSafeInteger(options.page) || options.page < 1 ||
               (options.cursor != null && (typeof options.cursor !== 'string' || !options.cursor))) {
@@ -693,6 +908,15 @@
           }
           if (scope.feed && !(entry.def.feeds || []).some(feed => feed.key === scope.feed)) {
             throw new ParkError(ErrorCode.CONFIG, '未知列表');
+          }
+          if (feedScope) {
+            const feed = entry.def.feeds.find(item => item.key === scope.feed);
+            args = [{...scope, common: normalizeCommonFilters(scope.common, feed.commonFilters || {})}, options];
+          } else if (searchScope) {
+            args = [{...scope, search: {
+              ...scope.search,
+              common: normalizeCommonFilters(scope.search.common, entry.def.searchCommonFilters || {}),
+            }}, options];
           }
         }
         if (path === 'filterOptions') {
@@ -798,14 +1022,24 @@
             }))};
           };
         }
+        if (path === 'feed') {
+          const feed = (entry.def.feeds || []).find(item => item.key === args?.[0]);
+          if (!feed) throw new ParkError(ErrorCode.CONFIG, '未知列表');
+          const request = args?.[1] || {};
+          args = [args[0], {...request, common: normalizeCommonFilters(request.common, feed.commonFilters || {})}];
+        } else if (path === 'search') {
+          const request = args?.[0] || {};
+          args = [{...request, common: normalizeCommonFilters(request.common, entry.def.searchCommonFilters || {})}];
+        }
         if (typeof target !== 'function') {
           throw new ParkError(ErrorCode.UNSUPPORTED, '{site}不支持{action}', { params: { site: entry.def.name, action: path } });
         }
         // Keep the source state shared, but bind HTTP to this invocation even
         // across awaits and nested source methods. Never use a global active ID.
         const http = invocation === undefined ? entry.def.http : createHttp(entry.def, invocation);
+        const chatHttp = invocation === undefined ? entry.def.chatHttp : createChatHttp(entry.def, invocation);
         const receiver = invocation === undefined ? entry.def : new Proxy(entry.def, {
-          get: (def, property, receiver) => property === 'http' ? http : Reflect.get(def, property, receiver),
+          get: (def, property, receiver) => property === 'http' ? http : property === 'chatHttp' ? chatHttp : Reflect.get(def, property, receiver),
           set: (def, property, value) => Reflect.set(def, property, value),
         });
         const value = await target.apply(receiver, args || []);

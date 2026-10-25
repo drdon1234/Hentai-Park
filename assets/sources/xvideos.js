@@ -9,7 +9,7 @@ Park.register({
     "ru": {"标清": "Стандартное качество", "综合成人视频，支持排行、搜索和高清播放": "Видео для взрослых с рейтингами, поиском и высоким качеством", "高清": "Высокое качество"},
     "ar": {"标清": "جودة قياسية", "综合成人视频，支持排行、搜索和高清播放": "فيديوهات للبالغين مع تصنيفات وبحث وتشغيل بجودة عالية", "高清": "جودة عالية"},
   },
-  key: 'xvideos', name: 'XVideos', version: '0.0.8', minAppVersion: '0.9.2', type: 'video', category: 'adult', color: '#E31B23',
+  key: 'xvideos', name: 'XVideos', version: '0.0.9', minAppVersion: '0.9.2', type: 'video', category: 'adult', color: '#E31B23',
   description: '综合成人视频，支持排行、搜索和高清播放', homepage: 'https://www.xvideos.com', domains: ['xvideos.com'], language: 'en',
   network: {mode: 'native', vpnHint: true}, imageHeaders: {Referer: 'https://www.xvideos.com/'},
   media: {mode: 'native', origin: 'https://www.xvideos.com', domains: ['xvideos-cdn.com']},
@@ -151,6 +151,75 @@ Park.register({
         views: Park.utils.parseCount(String(v.n || '')), uploader: String(v.pn || '')});
     }
     return items;
+  },
+  resolveContentLink(value) {
+    const url = Park.url.site(this, value);
+    if (!url || String(value).includes('#') || !/^\/video\.[a-z0-9]+\//.test(url.pathname)) return null;
+    try { return {type: 'work', id: this.validId(url.pathname.slice(1))}; } catch (_) { return null; }
+  },
+  threadComments(data, ids, parentId, depth = 0) {
+    if (depth > 4) throw Park.error('PARSE', '评论数据无效');
+    return ids.map(id => {
+      const row = data.posts?.[id];
+      if (!row || typeof row !== 'object') throw Park.error('PARSE', '评论数据无效');
+      if (row.private || row.deleted) return null;
+      if (String(row.id) !== id || typeof row.message !== 'string') throw Park.error('PARSE', '评论数据无效');
+      const body = Park.comments.html(row.message, this.BASE);
+      if (!body.length) throw Park.error('PARSE', '评论数据无效');
+      const replyCount = Math.max(0, Number(data.children?.[id] ?? row.nb_children) || 0);
+      let replies = [];
+      if (row.replies && Array.isArray(row.replies.ids) && row.replies.ids.length) {
+        const ids = row.replies.ids.map(String), end = ids.indexOf(String(row.replies.id_post_end));
+        if (end < 0 || ids.some(value => !/^\d{1,40}$/.test(value)) || new Set(ids).size !== ids.length) throw Park.error('PARSE', '评论数据无效');
+        replies = this.threadComments(row.replies, ids.slice(0, end + 1), id, depth + 1);
+      }
+      return {id, parentId, author: {name: String(row.name || ''),
+        url: Park.comments.url(row.url, this.BASE), avatar: Park.comments.url(row.pic, this.BASE)},
+        body, date: typeof row.date === 'string' ? row.date : undefined,
+        likes: Math.max(0, Number(row.votes?.nb) || 0), replyCount, replies,
+        repliesAvailable: replyCount > replies.length};
+    }).filter(Boolean);
+  },
+  async comments(value, req = {}) {
+    const work = this.validId(value), parent = req.parentId == null ? '0' : String(req.parentId);
+    const sort = req.sort && req.sort !== 'default' ? String(req.sort) : 'top';
+    let page = Math.max(1, Math.floor(Number(req.page) || 1)), cursor = null;
+    if (!['top', 'new'].includes(sort) || !/^\d{1,40}$/.test(parent) || !Number.isSafeInteger(page)) throw Park.error('CONFIG', '评论参数无效');
+    if (req.cursor != null) {
+      try { cursor = JSON.parse(req.cursor); } catch (_) { throw Park.error('CONFIG', '评论参数无效'); }
+      if (!cursor || cursor.work !== work || cursor.sort !== sort || cursor.parent !== parent ||
+          !/^\d{1,40}$/.test(cursor.after) || !Array.isArray(cursor.loaded) || !cursor.loaded.length ||
+          cursor.loaded.some(id => typeof id !== 'string' || !/^\d{1,40}$/.test(id)) ||
+          new Set(cursor.loaded).size !== cursor.loaded.length || cursor.loaded[cursor.loaded.length - 1] !== cursor.after) throw Park.error('CONFIG', '评论参数无效');
+    } else if (page > 1) throw Park.error('CONFIG', '评论参数无效');
+    const url = this.BASE + '/' + work, {html} = await this.getPage(url);
+    const internal = /["']id_video["']\s*:\s*(\d+)/.exec(html)?.[1];
+    if (!internal) throw Park.error('PARSE', '评论数据无效');
+    const fetchPage = async state => {
+      const response = this.http.ensureOk(await this.http.post(this.BASE + '/threads/video-comments/get-posts/' + sort + '/' + internal + '/' + parent + '/' + (state?.after || '0'), {
+        form: {loaded_ids: state?.loaded.join(',') || '', load_all: 0}, headers: {Referer: url, 'X-Requested-With': 'XMLHttpRequest'},
+      }));
+      let data; try { data = response.json(); } catch (_) { throw Park.error('PARSE', '评论数据无效'); }
+      const posts = data?.posts;
+      if (data?.result !== true || !Array.isArray(posts?.ids) || !posts.posts || typeof posts.posts !== 'object' ||
+          posts.ids.some(id => typeof id !== 'string' || !/^\d{1,40}$/.test(id)) || new Set(posts.ids).size !== posts.ids.length ||
+          !Number.isInteger(posts.nb_after) || posts.nb_after < 0) throw Park.error('PARSE', '评论数据无效');
+      return posts;
+    };
+    let data = await fetchPage(cursor), reset = false;
+    // 原站返回完整顺序快照，但只填充未载入的正文；顺序改变时重拉首批。
+    if (cursor && cursor.loaded.some((id, index) => data.ids[index] !== id)) {
+      cursor = null; page = 1; reset = true; data = await fetchPage(null);
+    }
+    const end = data.ids.indexOf(String(data.id_post_end));
+    if (data.ids.length && end < 0) throw Park.error('PARSE', '评论数据无效');
+    const loaded = data.ids.slice(0, end + 1), previous = new Set(cursor?.loaded || []);
+    const fresh = loaded.filter(id => !previous.has(id)), items = this.threadComments(data, fresh, parent === '0' ? undefined : parent);
+    const hasNext = data.nb_after > 0 && fresh.length > 0;
+    const next = hasNext ? JSON.stringify({work, sort, parent, after: data.id_post_end, loaded}) : null;
+    if (next && next.length > 65536) throw Park.error('PARSE', '评论数据无效');
+    return {items, page, reset, hasNext, cursor: next, total: Number.isFinite(Number(data.nb_posts_total)) ? Number(data.nb_posts_total) : undefined,
+      sorts: [{value: 'top', label: '热门'}, {value: 'new', label: '最新'}]};
   },
   async detail(id) {
     id = this.validId(id);

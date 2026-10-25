@@ -32,6 +32,7 @@ class VideoSession extends ChangeNotifier {
     this.initialSources,
     this.localFile,
     this.recordHistory = true,
+    this.downloadedOnly = false,
   }) : episodes = work.videoEpisodes {
     if (localFile case final file?) SubscriptionCache.instance.retain(file);
     final selected = isLive
@@ -47,10 +48,12 @@ class VideoSession extends ChangeNotifier {
   final List<VideoSource>? initialSources;
   final File? localFile;
   final bool recordHistory;
+  final bool downloadedOnly;
   final List<Chapter> episodes;
   late Chapter episode;
 
   bool get isLive =>
+      !downloadedOnly &&
       localFile == null &&
       SourceManager.instance.manifest(work.source)?.isLive == true;
 
@@ -69,6 +72,7 @@ class VideoSession extends ChangeNotifier {
   Object? error;
   bool offline = false;
   double speed = 1;
+  double _volume = 1;
 
   /// Whether the app is in the foreground; playback pauses while it is not.
   bool foreground = true;
@@ -95,6 +99,7 @@ class VideoSession extends ChangeNotifier {
 
   /// AI dramas page vertically between episodes and preload the next one.
   bool get scrollEpisodes =>
+      !downloadedOnly &&
       episodes.length > 1 &&
       (SourceManager.instance.manifest(work.source)?.category ==
               SourceCategory.aiDrama ||
@@ -174,6 +179,7 @@ class VideoSession extends ChangeNotifier {
   }
 
   void _resetFor(Chapter next) {
+    _volume = controller?.value.volume ?? _volume;
     onInterrupt?.call();
     _savePos?.cancel();
     controller?.removeListener(_onTick);
@@ -258,6 +264,7 @@ class VideoSession extends ChangeNotifier {
           );
           return;
         }
+        if (downloadedOnly) throw SourceError('NOT_FOUND', '本地文件已被删除');
         final loaded = initialSources != null
             ? await SourceManager.instance.resolveVideoSources(
                 work.source,
@@ -372,6 +379,7 @@ class VideoSession extends ChangeNotifier {
       final old = controller;
       final oldMedia = _media;
       _media = null;
+      _volume = old?.value.volume ?? _volume;
       old?.removeListener(_onTick);
       controller = null;
       _update();
@@ -394,6 +402,7 @@ class VideoSession extends ChangeNotifier {
         final resume = isLive ? null : (at ?? _resumePoint(c.value.duration));
         if (resume != null) await c.seekTo(resume);
         await c.setPlaybackSpeed(speed);
+        await c.setVolume(_volume);
       } catch (e, stack) {
         await c.dispose();
         await media?.close();

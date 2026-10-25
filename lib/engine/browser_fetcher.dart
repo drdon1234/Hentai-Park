@@ -235,10 +235,12 @@ class _OriginPage {
     _view = HeadlessInAppWebView(
       initialSize: const Size(1024, 768),
       initialUrlRequest: URLRequest(url: WebUri(bootstrap.toString())),
-      initialUserScripts: defaultTargetPlatform == TargetPlatform.android
+      initialUserScripts:
+          (defaultTargetPlatform == TargetPlatform.android ||
+              defaultTargetPlatform == TargetPlatform.linux)
           ? UnmodifiableListView([
               UserScript(
-                source: androidChallengeDocumentScript,
+                source: challengeDocumentScript,
                 injectionTime: UserScriptInjectionTime.AT_DOCUMENT_START,
                 allowedOriginRules: {
                   for (final domain in domains) ...{

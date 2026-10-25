@@ -109,6 +109,7 @@ extension _DramaEpisodes on VideoSession {
         final resume = _resumePoint(c.value.duration);
         if (resume != null) await c.seekTo(resume);
         await c.setPlaybackSpeed(speed);
+        await c.setVolume(_volume);
         if (!_active || token.isCancelled || request != _request) {
           await prepared.close();
           return;

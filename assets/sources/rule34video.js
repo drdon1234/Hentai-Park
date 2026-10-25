@@ -9,7 +9,7 @@ Park.register({
     "ru": {"同人动画与游戏角色短片，支持评分榜、搜索和多清晰度 MP4": "Фанатская анимация и ролики с игровыми персонажами: рейтинг, поиск и MP4 разного качества"},
     "ar": {"同人动画与游戏角色短片，支持评分榜、搜索和多清晰度 MP4": "رسوم المعجبين ومقاطع شخصيات الألعاب مع التقييم والبحث وجودات MP4 متعددة"},
   },
-  key: 'rule34video', name: 'Rule34Video', version: '0.0.9', minAppVersion: '0.9.2', type: 'video', category: 'anime',
+  key: 'rule34video', name: 'Rule34Video', version: '0.0.10', minAppVersion: '0.9.2', type: 'video', category: 'anime',
   language: 'en', color: '#88AA44', homepage: 'https://rule34video.com',
   description: '同人动画与游戏角色短片，支持评分榜、搜索和多清晰度 MP4',
   domains: ['rule34video.com'], network: {mode: 'native', vpnHint: true},
@@ -116,6 +116,24 @@ Park.register({
   async search(req) {
     const keyword = String(req.keyword || '').trim();
     return keyword ? this.listing(req, keyword) : {items: [], page: 1, hasNext: false};
+  },
+  async comments(value, req = {}) {
+    const id = this.idValue(value), page = Math.max(1, Math.floor(Number(req.page) || 1));
+    if (req.parentId || (req.sort && req.sort !== 'default')) throw Park.error('UNSUPPORTED', '评论暂不支持此操作');
+    if (page > 1) return {items: [], page, hasNext: false};
+    const url = this.BASE + '/video/' + id + '/', {doc} = await this.page(url);
+    const area = doc.querySelector('#video_comments_video_comments_items');
+    if (!area) throw Park.error('PARSE', '评论数据无效');
+    const items = [], seen = new Set();
+    for (const row of area.querySelectorAll('[data-comment-id]')) {
+      const id = row.getAttribute('data-comment-id'), body = Park.comments.html(row.querySelector('.coment-text')?.innerHTML || '', url);
+      if (!id || seen.has(id) || !body.length) continue;
+      const author = row.querySelector('.comment-info .inner > a');
+      seen.add(id); items.push({id, author: {name: Park.html.text(author), url: Park.comments.url(author?.getAttribute('href'), url),
+        avatar: Park.comments.url(row.querySelector('.user-logo img')?.getAttribute('src'), url)}, body, date: Park.html.text(row.querySelector('.date'))});
+    }
+    if (!items.length && Park.html.text(doc.querySelector('#tab_comments .vp-h small')) !== '0') throw Park.error('PARSE', '评论数据无效');
+    return {items, page, hasNext: false};
   },
   async detail(value) {
     const id = this.idValue(value), url = this.BASE + '/video/' + id + '/', {doc} = await this.page(url);

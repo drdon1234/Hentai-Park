@@ -122,7 +122,7 @@ Park.register({
       "Danbooru 帖子没有可用原图": "لا تتوفر صورة أصلية لهذا المنشور في Danbooru"
     }
   },
-  key: 'danbooru', name: 'Danbooru', version: '0.0.5', minAppVersion: '0.9.2', apiVersion: 2,
+  key: 'danbooru', name: 'Danbooru', version: '0.0.6', minAppVersion: '0.9.2', apiVersion: 2,
   type: 'comic', category: 'illustration', color: '#3B73AF',
   homepage: DAN_API, description: '二次元图片图集，保留站内安全、擦边与 R18 分级',
   domains: ['donmai.us'], imageHeaders: {'User-Agent': DAN_UA},
@@ -162,6 +162,21 @@ Park.register({
     if (!danImage(post.file_url)) throw Park.error('PARSE','Danbooru 返回无效数据');
     return post;
   },
+  async comments(value, req = {}) {
+    const id = idOf(value), page = pageOf(req.page);
+    if (req.parentId) return {items: [], hasNext: false};
+    const rows = await this.http.json(DAN_API + '/comments.json', {params: {
+      group_by: 'comment', 'search[post_id]': id, limit: 20, page,
+    }});
+    if (!Array.isArray(rows) || rows.some(c => !c.id || String(c.post_id) !== id || typeof c.body !== 'string'))
+      throw Park.error('PARSE', '评论数据无效');
+    return {items: rows.filter(c => !c.is_deleted).map(c => ({id: String(c.id),
+      author: {name: String(c.creator?.name || c.creator_name || c.creator_id || ''),
+        url: c.creator_id ? DAN_API + '/users/' + c.creator_id : undefined},
+      body: Park.comments.text(c.body), date: c.created_at, likes: Number(c.score) || 0,
+    })).filter(c => c.body.length), hasNext: rows.length === 20};
+  },
+
   async detail(id) {
     const post = await this.post(id);
     const item = postItem(post);

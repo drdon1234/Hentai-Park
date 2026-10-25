@@ -178,7 +178,7 @@
       "ru": {"115网盘": "115 Drive", "123云盘": "123 Cloud", "UC网盘": "UC Drive", "回复结果待确认，请在原帖检查，应用不会重复发送": "Результат ответа неизвестен. Проверьте публикацию; приложение не отправит ответ повторно.", "在打开的网页中登录，看到账号或退出按钮后点击完成；若已是正常资源页，无需寻找人机验证。点击回复解锁会发送“感谢分享，好人一生平安”": "Войдите на открытой странице и нажмите «Готово», когда появится аккаунт или кнопка выхода. На обычной странице ресурсов дополнительная проверка не нужна. Разблокировка ответом отправляет «感谢分享，好人一生平安».", "天翼云盘": "Tianyi Cloud", "夸克网盘": "Quark Drive", "帖子分享": "Ссылки публикации", "帖子未提供可读取的网盘链接": "Не удалось прочитать публикацию или форму. Проверьте исходную страницу и повторите.", "帖子编号无效": "Не удалось прочитать публикацию или форму. Проверьте исходную страницу и повторите.", "搜索分页无效": "Не удалось прочитать публикацию или форму. Проверьте исходную страницу и повторите.", "搜索结果无法读取": "Не удалось прочитать публикацию или форму. Проверьте исходную страницу и повторите.", "搜索表单无法读取": "Не удалось прочитать публикацию или форму. Проверьте исходную страницу и повторите.", "次元茶馆": "Чайная измерений", "次元茶馆账号": "Аккаунт чайной", "游戏列表无法读取": "Не удалось прочитать публикацию или форму. Проверьте исходную страницу и повторите.", "游戏帖子首楼无法读取": "Не удалось прочитать публикацию или форму. Проверьте исходную страницу и повторите.", "社区游戏分享，登录后按需回复解锁网盘资源": "Игры сообщества: войдите и ответьте для доступа к облачным ссылкам", "站点表单地址无效": "Не удалось прочитать публикацию или форму. Проверьте исходную страницу и повторите.", "网盘提取码不一致，请检查原帖": "Не удалось прочитать публикацию или форму. Проверьте исходную страницу и повторите.", "若已看到正常页面，请点击完成；如资源仍被隐藏，请在原帖或回复页完成验证与回复，再返回重试": "Если видна обычная страница, нажмите «Готово». Если ресурсы скрыты, пройдите проверку и ответьте в исходной теме или на странице ответа, затем повторите попытку", "蓝奏云": "Lanzou Cloud", "该帖子不属于游戏资源区": "Не удалось прочитать публикацию или форму. Проверьте исходную страницу и повторите.", "请在回复页完成验证并手动回复，返回后重试读取资源": "Пройдите проверку и ответьте вручную на странице ответа, затем вернитесь и повторите загрузку ресурсов", "请在应用内登录次元茶馆": "Войдите в чайную через приложение", "请在站点页面完成搜索验证后重试": "Пройдите проверку поиска на сайте и повторите", "资源权限已改变，请刷新资源列表": "Не удалось прочитать публикацию или форму. Проверьте исходную страницу и повторите.", "资源编号无效": "Не удалось прочитать публикацию или форму. Проверьте исходную страницу и повторите.", "迅雷云盘": "Xunlei Drive"},
       "ar": {"115网盘": "115 Drive", "123云盘": "123 Cloud", "UC网盘": "UC Drive", "回复结果待确认，请在原帖检查，应用不会重复发送": "نتيجة الرد غير مؤكدة. راجع المنشور الأصلي؛ لن يرسل التطبيق الرد مرة أخرى.", "在打开的网页中登录，看到账号或退出按钮后点击完成；若已是正常资源页，无需寻找人机验证。点击回复解锁会发送“感谢分享，好人一生平安”": "سجّل الدخول في الصفحة المفتوحة واضغط تم عند ظهور الحساب أو زر الخروج. صفحة الموارد العادية لا تحتاج إلى تحقق إضافي. الرد لفتح الموارد يرسل “感谢分享，好人一生平安”.", "天翼云盘": "Tianyi Cloud", "夸克网盘": "Quark Drive", "帖子分享": "روابط المنشور", "帖子未提供可读取的网盘链接": "تعذر قراءة منشور اللعبة أو النموذج. تحقق من الصفحة الأصلية وأعد المحاولة.", "帖子编号无效": "تعذر قراءة منشور اللعبة أو النموذج. تحقق من الصفحة الأصلية وأعد المحاولة.", "搜索分页无效": "تعذر قراءة منشور اللعبة أو النموذج. تحقق من الصفحة الأصلية وأعد المحاولة.", "搜索结果无法读取": "تعذر قراءة منشور اللعبة أو النموذج. تحقق من الصفحة الأصلية وأعد المحاولة.", "搜索表单无法读取": "تعذر قراءة منشور اللعبة أو النموذج. تحقق من الصفحة الأصلية وأعد المحاولة.", "次元茶馆": "مقهى الأبعاد", "次元茶馆账号": "حساب المقهى", "游戏列表无法读取": "تعذر قراءة منشور اللعبة أو النموذج. تحقق من الصفحة الأصلية وأعد المحاولة.", "游戏帖子首楼无法读取": "تعذر قراءة منشور اللعبة أو النموذج. تحقق من الصفحة الأصلية وأعد المحاولة.", "社区游戏分享，登录后按需回复解锁网盘资源": "ألعاب المجتمع؛ سجّل الدخول ورد لفتح الروابط السحابية", "站点表单地址无效": "تعذر قراءة منشور اللعبة أو النموذج. تحقق من الصفحة الأصلية وأعد المحاولة.", "网盘提取码不一致，请检查原帖": "تعذر قراءة منشور اللعبة أو النموذج. تحقق من الصفحة الأصلية وأعد المحاولة.", "若已看到正常页面，请点击完成；如资源仍被隐藏，请在原帖或回复页完成验证与回复，再返回重试": "إذا ظهرت الصفحة العادية، اضغط تم. إذا بقيت الموارد مخفية، أكمل التحقق والرد في الموضوع الأصلي أو صفحة الرد ثم أعد المحاولة", "蓝奏云": "Lanzou Cloud", "该帖子不属于游戏资源区": "تعذر قراءة منشور اللعبة أو النموذج. تحقق من الصفحة الأصلية وأعد المحاولة.", "请在回复页完成验证并手动回复，返回后重试读取资源": "أكمل التحقق وأرسل الرد يدوياً في صفحة الرد، ثم عد وأعد تحميل الموارد", "请在应用内登录次元茶馆": "سجّل الدخول إلى المقهى داخل التطبيق", "请在站点页面完成搜索验证后重试": "أكمل التحقق من البحث في الموقع وأعد المحاولة", "资源权限已改变，请刷新资源列表": "تعذر قراءة منشور اللعبة أو النموذج. تحقق من الصفحة الأصلية وأعد المحاولة.", "资源编号无效": "تعذر قراءة منشور اللعبة أو النموذج. تحقق من الصفحة الأصلية وأعد المحاولة.", "迅雷云盘": "Xunlei Drive"},
     },
-    key: 'cycg', name: '次元茶馆', version: '0.0.10', minAppVersion: '0.9.2', type: 'game', category: 'game', language: 'zh', color: '#BD916B',
+    key: 'cycg', name: '次元茶馆', version: '0.0.11', minAppVersion: '0.9.2', type: 'game', category: 'game', language: 'zh', color: '#BD916B',
     homepage: BASE, domains: ['cycg.xyz'], icon: BASE + '/favicon.ico',
     description: '社区游戏分享，登录后按需回复解锁网盘资源',
     network: {mode: 'browser', origin: BASE, vpnHint: true},
@@ -287,6 +287,56 @@
       }
       const next = nextOf(doc, Number(page) || 1, true);
       return {items: await this.hydrate(rowsOf(doc)), page, hasNext: !!next, cursor: next};
+    },
+    async comments(value, req = {}) {
+      const id = idOf(value), page = Math.max(1, Math.floor(Number(req.page) || 1));
+      if (req.parentId) return {items: [], page, hasNext: false};
+      // 桌面帖的公开回复独立于移动版资源解锁，不进入 page() 的账号门槛或回复表单。
+      const url = BASE + '/forum.php?mod=viewthread&tid=' + id + '&page=' + page + '&mobile=no';
+      await wait();
+      const doc = parse(this.http.ensureOk(await this.http.get(url)).body);
+      const nodes = [...doc.querySelectorAll('[id^="postmessage_"]')];
+      if (!nodes.length) {
+        if (/登录|权限|无权/.test(text(doc.querySelector('#messagetext')))) throw Park.error('LOGIN_REQUIRED', '请在应用内登录次元茶馆');
+        throw Park.error('PARSE', '评论数据无效');
+      }
+      if (![...doc.querySelectorAll('#pt a[href]')].some(a => gameForum(a.getAttribute('href')))) throw Park.error('NOT_FOUND', '该帖子不属于游戏资源区');
+      const current = Number(text(doc.querySelector('.pg strong')) || 1);
+      if (current !== page) throw Park.error('PARSE', '评论数据无效');
+      const seen = new Set(), items = [];
+      for (const node of nodes.slice(page === 1 ? 1 : 0)) {
+        const cid = /^postmessage_([1-9]\d*)$/.exec(node.getAttribute('id'))?.[1], row = node.closest('[id^="post_"]');
+        if (!cid || !row) throw Park.error('PARSE', '评论数据无效');
+        if (seen.has(cid)) continue;
+        seen.add(cid);
+        const author = row.querySelector('.pls .authi a'), date = row.querySelector('[id^="authorposton"]');
+        const content = node.cloneNode(true);
+        content.querySelectorAll('.pstatus, script, style').forEach(n => n.remove());
+        // Discuz 的延迟图片用 file/zoomfile，引用正文保持为独立引用片段。
+        for (const img of content.querySelectorAll('img')) {
+          const image = img.getAttribute('file') || img.getAttribute('zoomfile');
+          if (image) img.setAttribute('src', image);
+        }
+        for (const quote of [...content.querySelectorAll('.quote')]) {
+          const block = parse('<blockquote>' + quote.innerHTML + '</blockquote>').querySelector('blockquote');
+          quote.replaceWith(block);
+        }
+        const body = Park.comments.html(content.innerHTML, url);
+        if (!body.length) continue;
+        items.push({id: cid, author: {name: text(author), url: Park.comments.url(author?.getAttribute('href'), url) || undefined,
+          avatar: Park.comments.url(row.querySelector('.pls .avatar img')?.getAttribute('src'), url) || undefined},
+          body, date: date?.querySelector('[title]')?.getAttribute('title') || text(date)});
+      }
+      const next = doc.querySelector('.pg a.nxt')?.getAttribute('href');
+      let hasNext = false;
+      if (next) {
+        const u = sameSite(next), path = /^\/thread-(\d+)-(\d+)-\d+\.html$/.exec(u.pathname);
+        const nextId = path?.[1] || (u.pathname === '/forum.php' && u.searchParams.get('mod') === 'viewthread' ? u.searchParams.get('tid') : null);
+        const nextPage = Number(path?.[2] || u.searchParams.get('page'));
+        if (nextId !== id || nextPage !== page + 1) throw Park.error('PARSE', '评论数据无效');
+        hasNext = true;
+      }
+      return {items, page, hasNext};
     },
     async detail(id) {
       id = idOf(id);

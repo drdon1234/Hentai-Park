@@ -17,9 +17,15 @@ export '../kit/kit.dart';
 /// Brand monogram for a source (favicons are .ico, which Flutter cannot decode; a monogram in the
 /// brand color is crisper and more consistent anyway).
 class SourceAvatar extends StatelessWidget {
-  const SourceAvatar(this.sourceKey, {super.key, this.size = 36});
+  const SourceAvatar(
+    this.sourceKey, {
+    super.key,
+    this.size = 36,
+    this.fontWeight = FontWeight.w600,
+  });
   final String sourceKey;
   final double size;
+  final FontWeight fontWeight;
 
   static String monogram(String name) {
     final clean = name.replaceAll(RegExp(r'[^\w一-龥]'), '');
@@ -65,7 +71,7 @@ class SourceAvatar extends StatelessWidget {
                 monogram(m?.name ?? sourceKey),
                 style: context.text.labelLarge?.copyWith(
                   color: ink,
-                  fontWeight: FontWeight.w600,
+                  fontWeight: fontWeight,
                   height: 1,
                 ),
               ),

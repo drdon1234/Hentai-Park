@@ -14,6 +14,7 @@ import '../settings/source_manage_page.dart';
 import '../settings/source_settings_page.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
+import 'subscription_content_page.dart';
 import 'subscription_posts_page.dart';
 import 'subscription_updates_page.dart';
 
@@ -140,29 +141,38 @@ class _SubscriptionsPageState extends State<SubscriptionsPage> {
                               child: Text(tr('自动检查订阅')),
                             ),
                             subtitle: SelectionContainer.disabled(
-                              child: DropdownButton<int>(
-                                isExpanded: true,
-                                value: AppSettings
-                                    .instance
-                                    .subscriptionUpdateHours,
-                                items: [
-                                  for (final hours in [0, 1, 3, 6, 12, 24])
-                                    DropdownMenuItem(
-                                      value: hours,
-                                      child: Text(
-                                        hours == 0
-                                            ? tr('关闭')
-                                            : tr('每 {hours} 小时', {
-                                                'hours': hours,
-                                              }),
+                              child: SelectionDropdownTheme(
+                                child: DropdownButton<int>(
+                                  isExpanded: true,
+                                  value: AppSettings
+                                      .instance
+                                      .subscriptionUpdateHours,
+                                  items: [
+                                    for (final hours in [0, 1, 3, 6, 12, 24])
+                                      SelectionDropdownItem(
+                                        value: hours,
+                                        selected:
+                                            hours ==
+                                            AppSettings
+                                                .instance
+                                                .subscriptionUpdateHours,
+                                        child: Text(
+                                          hours == 0
+                                              ? tr('关闭')
+                                              : tr('每 {hours} 小时', {
+                                                  'hours': hours,
+                                                }),
+                                        ),
                                       ),
-                                    ),
-                                ],
-                                onChanged: (value) {
-                                  AppSettings.instance.subscriptionUpdateHours =
-                                      value ?? 6;
-                                  setState(() {});
-                                },
+                                  ],
+                                  onChanged: (value) {
+                                    AppSettings
+                                            .instance
+                                            .subscriptionUpdateHours =
+                                        value ?? 6;
+                                    setState(() {});
+                                  },
+                                ),
                               ),
                             ),
                           ),
@@ -296,7 +306,7 @@ class _SubscriptionsPageState extends State<SubscriptionsPage> {
                               ? Nav.openRef(context, entry.source, entry.target)
                               : Nav.push(
                                   context,
-                                  const SubscriptionUpdatesPage(),
+                                  SubscriptionContentPage(entry: entry),
                                 ),
                           trailing: SelectionContainer.disabled(
                             child: PopupMenuButton<String>(
@@ -558,59 +568,65 @@ class _SubscriptionDialogState extends State<_SubscriptionDialog> {
                   Text(manifest?.name ?? source)
                 else
                   SelectionContainer.disabled(
-                    child: DropdownButtonFormField<String>(
-                      initialValue: source,
-                      isExpanded: true,
-                      items: [
-                        for (final p in widget.providers)
-                          DropdownMenuItem(
-                            value: p.key,
-                            child: SelectionContainer.disabled(
-                              child: Text(
-                                p.name,
-                                overflow: TextOverflow.ellipsis,
+                    child: SelectionDropdownTheme(
+                      child: DropdownButtonFormField<String>(
+                        initialValue: source,
+                        isExpanded: true,
+                        items: [
+                          for (final p in widget.providers)
+                            SelectionDropdownItem(
+                              value: p.key,
+                              selected: p.key == source,
+                              child: SelectionContainer.disabled(
+                                child: Text(
+                                  p.name,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
                               ),
                             ),
-                          ),
-                      ],
-                      onChanged: busy
-                          ? null
-                          : (value) => setState(() {
-                              source = value!;
-                              dimension = dimensions.first['key'].toString();
-                              target.clear();
-                              label.clear();
-                              failure = null;
-                            }),
-                      decoration: InputDecoration(labelText: tr('订阅站点')),
+                        ],
+                        onChanged: busy
+                            ? null
+                            : (value) => setState(() {
+                                source = value!;
+                                dimension = dimensions.first['key'].toString();
+                                target.clear();
+                                label.clear();
+                                failure = null;
+                              }),
+                        decoration: InputDecoration(labelText: tr('订阅站点')),
+                      ),
                     ),
                   ),
                 const SizedBox(height: 12),
                 if (widget.entry == null)
                   SelectionContainer.disabled(
-                    child: DropdownButtonFormField<String>(
-                      key: ValueKey(source),
-                      initialValue: dimension,
-                      isExpanded: true,
-                      decoration: InputDecoration(labelText: tr('订阅维度')),
-                      items: [
-                        for (final d in dimensions.where(
-                          (d) => d['key'] != 'filter',
-                        ))
-                          DropdownMenuItem(
-                            value: d['key'].toString(),
-                            child: SelectionContainer.disabled(
-                              child: Text(tr(d['label'].toString())),
+                    child: SelectionDropdownTheme(
+                      child: DropdownButtonFormField<String>(
+                        key: ValueKey(source),
+                        initialValue: dimension,
+                        isExpanded: true,
+                        decoration: InputDecoration(labelText: tr('订阅维度')),
+                        items: [
+                          for (final d in dimensions.where(
+                            (d) => d['key'] != 'filter',
+                          ))
+                            SelectionDropdownItem(
+                              value: d['key'].toString(),
+                              selected: d['key'].toString() == dimension,
+                              child: SelectionContainer.disabled(
+                                child: Text(tr(d['label'].toString())),
+                              ),
                             ),
-                          ),
-                      ],
-                      onChanged: busy
-                          ? null
-                          : (value) => setState(() {
-                              dimension = value!;
-                              target.clear();
-                              failure = null;
-                            }),
+                        ],
+                        onChanged: busy
+                            ? null
+                            : (value) => setState(() {
+                                dimension = value!;
+                                target.clear();
+                                failure = null;
+                              }),
+                      ),
                     ),
                   ),
                 const SizedBox(height: 12),

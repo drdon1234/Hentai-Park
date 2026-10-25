@@ -9,7 +9,7 @@ Park.register({
     "ru": {"站点年龄确认未自动完成，请重试": "Автоматическое подтверждение возраста не завершено. Повторите попытку.", "综合成人视频，支持推荐、搜索与多清晰度MP4；站点验证在后台处理": "Видео для взрослых: рекомендации, поиск и MP4 разного качества; проверка сайта в фоне"},
     "ar": {"站点年龄确认未自动完成，请重试": "لم يكتمل تأكيد العمر تلقائيًا. يرجى إعادة المحاولة.", "综合成人视频，支持推荐、搜索与多清晰度MP4；站点验证在后台处理": "فيديو للبالغين مع التوصيات والبحث وجودات MP4 متعددة؛ التحقق من الموقع في الخلفية"},
   },
-  key: 'spankbang', name: 'SpankBang', version: '0.0.10', minAppVersion: '0.9.2', type: 'video', category: 'adult',
+  key: 'spankbang', name: 'SpankBang', version: '0.0.11', minAppVersion: '0.9.2', type: 'video', category: 'adult',
   language: 'en', color: '#F99B1C', homepage: 'https://spankbang.com',
   description: '综合成人视频，支持推荐、搜索与多清晰度MP4；站点验证在后台处理',
   domains: ['spankbang.com'], network: {mode: 'browser', origin: 'https://spankbang.com', vpnHint: true, confirmation: {
@@ -151,6 +151,47 @@ Park.register({
   workUrl(value) {
     const id = this.idValue(value), split = id.indexOf('/');
     return this.BASE + '/' + id.slice(0, split) + '/video/' + id.slice(split + 1);
+  },
+  resolveContentLink(value) {
+    const url = this.siteUrl(value), match = url && /^\/([a-z0-9]{1,12})\/video\/([^/]+)\/?$/.exec(url.pathname);
+    if (!match || String(value).includes('#')) return null;
+    try { return {type: 'work', id: this.idValue(match[1] + '/' + match[2])}; } catch (_) { return null; }
+  },
+  async comments(value, req = {}) {
+    const id = this.idValue(value), page = Math.max(1, Math.floor(Number(req.page) || 1));
+    if (req.parentId || req.sort && req.sort !== 'default') throw Park.error('UNSUPPORTED', '评论暂不支持此操作');
+    if (!Number.isSafeInteger(page) || req.cursor != null) throw Park.error('CONFIG', '评论参数无效');
+    // 只返回详情页提供的公开评论和回复，未验证独立翻页或排序。
+    if (page > 1) return {items: [], page, hasNext: false};
+    const url = this.workUrl(id), {doc} = await this.page(url), area = doc.querySelector('#comment_box_anchor');
+    const count = /\(([\d,]+)\)/.exec(Park.html.text(area?.querySelector('h2')))?.[1];
+    if (!area || count == null) throw Park.error('PARSE', '评论数据无效');
+    const total = Number(count.replace(/,/g, '')), rows = [...area.querySelectorAll('#comment_list .comm')];
+    if (!Number.isSafeInteger(total) || total > 0 && !rows.length) throw Park.error('PARSE', '评论数据无效');
+    const parsed = new Map(), seen = new Set();
+    for (const row of rows) {
+      const content = row.querySelector('.comment_text_body'), meta = row.querySelector('.c_body');
+      const commentId = /^comment_(\d+)$/.exec(meta?.getAttribute('id') || '')?.[1];
+      if (!commentId || seen.has(commentId) || !content || content.closest('.comm') !== row) throw Park.error('PARSE', '评论数据无效');
+      const body = Park.comments.html(content.innerHTML, url);
+      if (!body.length) throw Park.error('PARSE', '评论数据无效');
+      const author = meta.querySelector('.comment-by .name'), vote = row.querySelector('.vote');
+      seen.add(commentId);
+      parsed.set(row, {id: commentId, author: {name: Park.html.text(author),
+        url: Park.comments.url(author?.querySelector('a')?.getAttribute('href'), url)},
+        body, date: Park.html.text(meta.querySelector('.comment-by .d')),
+        likes: Math.max(0, Number(vote?.getAttribute('data-votes')) || 0),
+        replies: [], replyCount: 0, repliesAvailable: false});
+    }
+    const items = [];
+    for (const [row, item] of parsed) {
+      const parent = row.parentElement?.closest('.comm');
+      if (!parent) { items.push(item); continue; }
+      const target = parsed.get(parent);
+      if (!target) throw Park.error('PARSE', '评论数据无效');
+      item.parentId = target.id; target.replies.push(item); target.replyCount++;
+    }
+    return {items, page, hasNext: false, total};
   },
   async detail(value) {
     const id = this.idValue(value), url = this.workUrl(id), {doc} = await this.page(url);

@@ -19,6 +19,7 @@ import '../../engine/http_service.dart';
 import '../../engine/platform_bridge.dart';
 import '../../engine/source_manager.dart';
 import '../../library/library.dart';
+import '../nav.dart';
 import '../video/video_controls.dart';
 import '../video/video_layout.dart';
 import '../widgets/content_translation.dart';
@@ -36,7 +37,7 @@ class WebVideoPage extends StatefulWidget {
 }
 
 class _WebVideoPageState extends State<WebVideoPage>
-    with WidgetsBindingObserver {
+    with WidgetsBindingObserver, RouteAware {
   static const _platform = MethodChannel('hentai_park/platform');
   WebPlaybackPolicy? _policy;
   InAppWebViewController? _controller;
@@ -47,6 +48,9 @@ class _WebVideoPageState extends State<WebVideoPage>
   double _progress = 0;
   bool _ready = false;
   bool _fullscreen = false;
+  ModalRoute<dynamic>? _route;
+  bool _visible = true;
+  Future<void> _playbackUpdates = Future.value();
   int _generation = 0;
   int _documentGeneration = 0;
   Timer? _accessPoll;
@@ -200,8 +204,9 @@ class _WebVideoPageState extends State<WebVideoPage>
         }
         if (Platform.isWindows) {
           // 独立用户目录保证旧 Runtime 也不能回退到站点的默认 Cookie 存储。
-          profile = await Directory('${AppPaths.cache.path}/web_video')
-              .createTemp();
+          final profiles = await Directory('${AppPaths.cache.path}/web_video')
+              .create(recursive: true);
+          profile = await profiles.createTemp();
           environment = await WebViewEnvironment.create(
             settings: WebViewEnvironmentSettings(userDataFolder: profile.path),
           );
@@ -272,15 +277,49 @@ class _WebVideoPageState extends State<WebVideoPage>
 
   void _lockChanged() => _syncLifecycle();
 
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final route = ModalRoute.of(context);
+    if (identical(route, _route)) return;
+    Nav.routeObserver.unsubscribe(this);
+    _route = route;
+    _visible = route?.isCurrent ?? true;
+    if (route is PageRoute<dynamic>) Nav.routeObserver.subscribe(this, route);
+    _syncLifecycle();
+  }
+
+  @override
+  void didPushNext() {
+    _visible = false;
+    _syncLifecycle();
+  }
+
+  @override
+  void didPopNext() {
+    _visible = true;
+    _syncLifecycle();
+  }
+
+  @override
+  void didPop() {
+    _visible = false;
+    _syncLifecycle();
+  }
+
   void _syncLifecycle() {
-    final state = WidgetsBinding.instance.lifecycleState;
-    final paused =
-        _error != null ||
-        AppLock.instance.locked ||
-        (state != null && state != AppLifecycleState.resumed);
     final controller = _controller;
     if (controller == null || !_ready) return;
-    unawaited(_setPaused(controller, paused));
+    _playbackUpdates = _playbackUpdates.then((_) async {
+      if (!mounted || !identical(controller, _controller) || !_ready) return;
+      final state = WidgetsBinding.instance.lifecycleState;
+      final paused =
+          !_visible ||
+          _error != null ||
+          AppLock.instance.locked ||
+          (state != null && state != AppLifecycleState.resumed);
+      await _setPaused(controller, paused);
+    });
   }
 
   Future<void> _setPaused(
@@ -333,6 +372,7 @@ class _WebVideoPageState extends State<WebVideoPage>
 
   @override
   void dispose() {
+    Nav.routeObserver.unsubscribe(this);
     _generation++;
     _resetAccess();
     WidgetsBinding.instance.removeObserver(this);
@@ -394,9 +434,9 @@ class _WebVideoPageState extends State<WebVideoPage>
                   webViewEnvironment: _environment,
                   // 不设置初始 URL；Android 切换独立 Profile 后才允许联网。
                   initialUserScripts: UnmodifiableListView([
-                    if (Platform.isAndroid)
+                    if (Platform.isAndroid || Platform.isLinux)
                       UserScript(
-                        source: androidChallengeDocumentScript,
+                        source: challengeDocumentScript,
                         injectionTime:
                             UserScriptInjectionTime.AT_DOCUMENT_START,
                       ),

@@ -2,6 +2,22 @@ part of '../source_manager.dart';
 
 /// Update subscriptions and their attachments.
 mixin _SubscriptionApi on _SourceRegistry {
+  Future<Map<String, dynamic>> subscriptionQuery(
+    String key,
+    String dimension,
+    String target,
+  ) async {
+    final result = await _call(key, 'updateSubscriptions.query', [
+      {'dimension': dimension, 'target': target},
+    ]);
+    if (result is! Map ||
+        result['keyword'] is! String ||
+        result['filters'] is! Map) {
+      throw SourceError('PARSE', '订阅筛选无效');
+    }
+    return result.cast<String, dynamic>();
+  }
+
   Future<String> subscriptionContext(String key) async => sha256Hex(
     jsonEncode([
       manifest(key)?.version,

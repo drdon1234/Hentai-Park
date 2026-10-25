@@ -1,14 +1,14 @@
 Park.register({
   i18n: {
-    "zh-Hant": {"分类累计排序（非周期榜）": "分類累計排序（非週期榜）", "月度女优榜": "月度女優榜", "累计人气": "累計人氣", "累计销量": "累計銷量", "评价排序": "評價排序"},
-    ja: {"分类累计排序（非周期榜）": "ジャンル累計順（期間別ではありません）", "月度女优榜": "月間女優ランキング", "累计人气": "累計人気", "累计销量": "累計販売数", "评价排序": "レビュー順"},
-    ko: {"分类累计排序（非周期榜）": "장르 누적 순위(기간별 아님)", "月度女优榜": "월간 배우 순위", "累计人气": "누적 인기", "累计销量": "누적 판매량", "评价排序": "평점순"},
-    en: {"分类累计排序（非周期榜）": "Cumulative ranking by genre (not periodic)", "月度女优榜": "Monthly actress ranking", "累计人气": "All-time popularity", "累计销量": "All-time sales", "评价排序": "By rating"},
-    es: {"分类累计排序（非周期榜）": "Clasificación acumulada por género (no periódica)", "月度女优榜": "Ranking mensual de actrices", "累计人气": "Popularidad acumulada", "累计销量": "Ventas acumuladas", "评价排序": "Por valoración"},
-    ru: {"分类累计排序（非周期榜）": "Накопительный рейтинг по жанру (без периода)", "月度女优榜": "Ежемесячный рейтинг актрис", "累计人气": "Популярность за всё время", "累计销量": "Продажи за всё время", "评价排序": "По оценкам"},
-    ar: {"分类累计排序（非周期榜）": "ترتيب تراكمي حسب النوع (غير دوري)", "月度女优榜": "ترتيب الممثلات الشهري", "累计人气": "الشعبية الإجمالية", "累计销量": "المبيعات الإجمالية", "评价排序": "حسب التقييم"},
+    "zh-Hant": {"已购买": "已購買", "分类累计排序（非周期榜）": "分類累計排序（非週期榜）", "月度女优榜": "月度女優榜", "累计人气": "累計人氣", "累计销量": "累計銷量", "评价排序": "評價排序"},
+    ja: {"已购买": "購入済み", "分类累计排序（非周期榜）": "ジャンル累計順（期間別ではありません）", "月度女优榜": "月間女優ランキング", "累计人气": "累計人気", "累计销量": "累計販売数", "评价排序": "レビュー順"},
+    ko: {"已购买": "구매함", "分类累计排序（非周期榜）": "장르 누적 순위(기간별 아님)", "月度女优榜": "월간 배우 순위", "累计人气": "누적 인기", "累计销量": "누적 판매량", "评价排序": "평점순"},
+    en: {"已购买": "Purchased", "分类累计排序（非周期榜）": "Cumulative ranking by genre (not periodic)", "月度女优榜": "Monthly actress ranking", "累计人气": "All-time popularity", "累计销量": "All-time sales", "评价排序": "By rating"},
+    es: {"已购买": "Comprado", "分类累计排序（非周期榜）": "Clasificación acumulada por género (no periódica)", "月度女优榜": "Ranking mensual de actrices", "累计人气": "Popularidad acumulada", "累计销量": "Ventas acumuladas", "评价排序": "Por valoración"},
+    ru: {"已购买": "Куплено", "分类累计排序（非周期榜）": "Накопительный рейтинг по жанру (без периода)", "月度女优榜": "Ежемесячный рейтинг актрис", "累计人气": "Популярность за всё время", "累计销量": "Продажи за всё время", "评价排序": "По оценкам"},
+    ar: {"已购买": "تم الشراء", "分类累计排序（非周期榜）": "ترتيب تراكمي حسب النوع (غير دوري)", "月度女优榜": "ترتيب الممثلات الشهري", "累计人气": "الشعبية الإجمالية", "累计销量": "المبيعات الإجمالية", "评价排序": "حسب التقييم"},
   },
-  key: 'ranking-fanza', name: 'FANZA', version: '0.0.4', minAppVersion: '0.9.2',
+  key: 'ranking-fanza', name: 'FANZA', version: '0.0.5', minAppVersion: '0.9.2',
   type: 'video', category: 'jav', rankingOnly: true,
   description: '官方销量榜', homepage: 'https://video.dmm.co.jp/',
   domains: ['dmm.co.jp'], network: { vpnHint: true },
@@ -36,6 +36,45 @@ Park.register({
     const data = this.http.ensureOk(response).json();
     if (data.errors || !data.data) throw Park.error('PARSE', '排行榜解析失败');
     return data.data;
+  },
+  async comments(value, req = {}) {
+    const id = String(value), sort = req.sort && req.sort !== 'default' ? String(req.sort) : 'HELPFUL_COUNT_DESC';
+    if (!/^[a-z0-9_]{2,60}$/i.test(id)) throw Park.error('NOT_FOUND', '作品编号无效');
+    if (req.parentId || !['HELPFUL_COUNT_DESC', 'RELEASE_DESC', 'VALUE_DESC'].includes(sort)) {
+      throw Park.error('UNSUPPORTED', '评论暂不支持此操作');
+    }
+    if (req.cursor != null && !/^\d{1,9}$/.test(String(req.cursor))) throw Park.error('CONFIG', '评论参数无效');
+    const page = Math.max(1, Math.floor(Number(req.page) || 1));
+    const offset = req.cursor == null ? (page - 1) * 10 : Number(req.cursor);
+    if (!Number.isSafeInteger(offset) || offset < 0 || offset > 100000000 || offset % 10) throw Park.error('CONFIG', '评论参数无效');
+    const response = this.http.ensureOk(await this.http.post('https://api.video.dmm.co.jp/graphql', {
+      headers: {Referer: this.homepage, Origin: 'https://video.dmm.co.jp', 'Fanza-Device': 'BROWSER'},
+      json: {query: `query UserReviews($id: ID!, $sort: ReviewSort!, $offset: Int!) {
+        reviews(contentId: $id, sort: $sort, limit: 10, offset: $offset) {
+          items { id title rating reviewerId nickname isPurchased comment helpfulCount isExposure publishDate }
+        }
+      }`, variables: {id, sort, offset}},
+    }));
+    let data; try { data = response.json(); } catch (_) { throw Park.error('PARSE', '评论数据无效'); }
+    const rows = data?.data?.reviews?.items;
+    if (data?.errors || !Array.isArray(rows)) throw Park.error('PARSE', '评论数据无效');
+    const items = [], seen = new Set();
+    for (const row of rows) {
+      if (row?.id == null || !String(row.id).trim() || typeof row.comment !== 'string') throw Park.error('PARSE', '评论数据无效');
+      const reviewId = String(row.id), body = Park.comments.text([row.title, row.comment].filter(v => typeof v === 'string' && v.trim()).join('\n'));
+      if (!body.length || seen.has(reviewId)) continue;
+      seen.add(reviewId);
+      const reviewer = String(row.reviewerId || ''), rating = row.rating;
+      items.push({id: reviewId, author: {name: String(row.nickname || ''),
+        url: /^[a-z0-9_-]{1,128}$/i.test(reviewer) ? 'https://review.dmm.co.jp/review-front/reviewer/list/' + encodeURIComponent(reviewer) : undefined,
+        badges: row.isPurchased === true ? ['已购买'] : []}, body,
+        date: typeof row.publishDate === 'string' ? row.publishDate : undefined,
+        likes: Math.max(0, Number(row.helpfulCount) || 0), rating: Number.isFinite(rating) && rating >= 0 && rating <= 5 ? rating : undefined,
+        spoiler: row.isExposure === true, repliesAvailable: false});
+    }
+    const hasNext = rows.length === 10;
+    return {items, page: offset / 10 + 1, hasNext, cursor: hasNext ? String(offset + 10) : null,
+      sorts: [{value: 'HELPFUL_COUNT_DESC', label: '热门'}, {value: 'RELEASE_DESC', label: '最新'}, {value: 'VALUE_DESC', label: '评分'}]};
   },
   async rankingOptions() {
     if (this.genreOptions) return this.genreOptions;

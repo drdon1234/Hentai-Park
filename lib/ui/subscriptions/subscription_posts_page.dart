@@ -18,6 +18,7 @@ import '../../images/subscription_cache.dart';
 import '../../subscriptions/models.dart';
 import '../../subscriptions/subscription_store.dart';
 import '../album/open_album.dart';
+import '../comments/comments_page.dart';
 import '../kit/kit.dart';
 import '../nav.dart';
 import '../settings/source_settings_page.dart';
@@ -25,6 +26,7 @@ import '../short_video/post_video_feed.dart';
 import '../short_video/short_video_page.dart';
 import '../theme.dart';
 import '../video/video_page.dart';
+import '../widgets/content_translation.dart';
 import '../widgets/cover_tile.dart';
 import '../widgets/error_view.dart';
 import '../widgets/on_visible.dart';
@@ -38,7 +40,14 @@ class SubscriptionWorkPage extends StatelessWidget {
   Widget build(BuildContext context) {
     final post = SubscriptionPost(item.json);
     final page = Scaffold(
-      appBar: AppBar(title: Text(post.title)),
+      appBar: AppBar(
+        title: ContentTranslation(
+          text: post.title,
+          source: item.source,
+          builder: Text.new,
+        ),
+        actions: [TranslationControls(source: item.source)],
+      ),
       body: ListView(
         children: [
           Align(
@@ -51,6 +60,12 @@ class SubscriptionWorkPage extends StatelessWidget {
                 selectable: true,
               ),
             ),
+          ),
+          CommentsEntry(
+            source: item.source,
+            workId: item.id,
+            available: post.commentsAvailable,
+            context: {'url': post.url},
           ),
         ],
       ),
@@ -199,6 +214,7 @@ class _SubscriptionPostsPageState extends State<SubscriptionPostsPage> {
         appBar: AppBar(
           title: Text(widget.entry.label),
           actions: [
+            TranslationControls(source: widget.entry.source),
             if (manifest?.can('album') == true)
               IconButton(
                 tooltip: tr('相册'),
@@ -332,15 +348,30 @@ class SubscriptionPostCard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             if (post.title.isNotEmpty)
-              Text(post.title, style: Theme.of(context).textTheme.titleMedium),
+              ContentTranslation(
+                text: post.title,
+                source: source,
+                builder: (value) =>
+                    Text(value, style: Theme.of(context).textTheme.titleMedium),
+              ),
             if (post.date.isNotEmpty)
               Text(post.date, style: Theme.of(context).textTheme.bodySmall),
             if (post.text.isNotEmpty)
               Padding(
                 padding: const EdgeInsets.symmetric(vertical: 8),
                 child: selectable
-                    ? TranslationSelectionArea(child: Text(post.text))
-                    : Text(post.text),
+                    ? TranslationSelectionArea(
+                        child: ContentTranslation(
+                          text: post.text,
+                          source: source,
+                          builder: Text.new,
+                        ),
+                      )
+                    : ContentTranslation(
+                        text: post.text,
+                        source: source,
+                        builder: Text.new,
+                      ),
               ),
             if (post.locked ||
                 post.media.any((m) => m.json['previewOnly'] == true))

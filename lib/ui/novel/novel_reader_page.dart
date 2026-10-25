@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
 
+import '../../core/app_lock.dart';
 import '../../core/content_translation.dart';
 import '../../core/localization.dart';
 import '../../core/models.dart';
@@ -21,6 +22,7 @@ import '../../novel/reading_notes.dart';
 import '../../novel/text_layout.dart';
 import '../kit/kit.dart';
 import '../reader/device_session.dart';
+import '../reader/reader_input_policy.dart';
 import '../theme.dart';
 import '../widgets/error_view.dart';
 import '../widgets/text_translation.dart';
@@ -38,11 +40,13 @@ class NovelReaderPage extends StatefulWidget {
     this.chapter,
     this.startOffset = 0,
     this.translationQueue,
+    this.downloadedOnly = false,
   });
   final WorkDetail work;
   final Chapter? chapter;
   final int startOffset;
   final ContentTranslationQueue? translationQueue;
+  final bool downloadedOnly;
   @override
   State<NovelReaderPage> createState() => _NovelReaderPageState();
 }
@@ -62,7 +66,9 @@ abstract class _NovelReaderBase extends State<NovelReaderPage> {
   final _speech = NovelSpeech();
   PageController? _pager;
   late final _device = ReaderDeviceSession(
-    onVolume: (value) => _move(value > 0 ? 1 : -1),
+    onVolume: (value) {
+      if (mounted && readerInputAvailable(context)) _move(value > 0 ? 1 : -1);
+    },
   );
   Timer? _saveTimer, _autoTimer;
   TextChapter? _body;
@@ -117,6 +123,7 @@ class _NovelReaderPageState extends _NovelReaderBase
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    AppLock.instance.addListener(_configureDevice);
     _chapterIndex = math.max(
       0,
       _chapters.indexWhere((c) => c.id == widget.chapter?.id),
@@ -126,7 +133,6 @@ class _NovelReaderPageState extends _NovelReaderBase
     _translationPreferences.addListener(_onTranslationPreferences);
     ReadingNotes.instance.addListener(_onNotes);
     _speech.addListener(_onNotes);
-    _configureDevice();
     unawaited(_load(widget.startOffset));
   }
 
@@ -149,6 +155,7 @@ class _NovelReaderPageState extends _NovelReaderBase
     _speech.removeListener(_onNotes);
     _speech.dispose();
     WidgetsBinding.instance.removeObserver(this);
+    AppLock.instance.removeListener(_configureDevice);
     unawaited(PlatformBridge.applyVideoFullscreen(false));
     unawaited(PlatformBridge.resetVideoBrightness());
     _pager?.dispose();
@@ -159,6 +166,7 @@ class _NovelReaderPageState extends _NovelReaderBase
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    _configureDevice();
     final locale = AppLocalizations.localeKey(
       AppLocalizations.of(context).locale,
     );
@@ -170,6 +178,7 @@ class _NovelReaderPageState extends _NovelReaderBase
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
+    _configureDevice();
     if (state != AppLifecycleState.resumed) {
       _save();
       _setAuto(false);
@@ -188,19 +197,22 @@ class _NovelReaderPageState extends _NovelReaderBase
   }
 
   void _configureDevice() {
-    unawaited(
-      _settings.novelBrightness < 0
-          ? PlatformBridge.resetVideoBrightness()
-          : PlatformBridge.setVideoBrightness(_settings.novelBrightness),
-    );
+    if (readerInputAvailable(context)) {
+      unawaited(
+        _settings.novelBrightness < 0
+            ? PlatformBridge.resetVideoBrightness()
+            : PlatformBridge.setVideoBrightness(_settings.novelBrightness),
+      );
+    }
     _device.synchronize(
+      active: readerInputAvailable(context),
       keepScreenOn: _settings.novelKeepScreenOn,
-      volumeKeys: _settings.novelVolumeKeys,
+      volumeKeys: _settings.novelVolumeKeys && readerInputAvailable(context),
       orientation: _settings.novelOrientation,
     );
   }
 
-  Future<void> _load(int offset) async {
+  Future<void> _load(int offset, {bool fromEnd = false}) async {
     final generation = ++_generation;
     _detachTranslation();
     _translationDocument = null;
@@ -224,6 +236,9 @@ class _NovelReaderPageState extends _NovelReaderBase
         key,
       );
       final offline = body != null;
+      if (body == null && widget.downloadedOnly) {
+        throw SourceError('NOT_FOUND', '本地文件已被删除');
+      }
       body ??= _cache[key];
       body ??= await SourceManager.instance.textChapter(
         widget.work.source,
@@ -239,7 +254,10 @@ class _NovelReaderPageState extends _NovelReaderBase
         _cache.remove(_cache.keys.first);
       }
       _segments = novelSegments(_text);
-      _offset = novelSafeOffset(_text, offset);
+      _offset = novelSafeOffset(
+        _text,
+        fromEnd ? math.max(0, _text.length - 1) : offset,
+      );
       _layoutKey = null;
       setState(() {
         _body = body;
@@ -263,6 +281,7 @@ class _NovelReaderPageState extends _NovelReaderBase
         widget.work.id,
         next,
       );
+      if (body == null && widget.downloadedOnly) return;
       body ??= await SourceManager.instance.textChapter(
         widget.work.source,
         widget.work.id,
@@ -303,12 +322,19 @@ class _NovelReaderPageState extends _NovelReaderBase
   }
 
   @override
-  Future<void> _switchChapter(int index, {int? offset}) async {
+  Future<void> _switchChapter(
+    int index, {
+    int? offset,
+    bool fromEnd = false,
+  }) async {
     if (index < 0 || index >= _chapters.length) return;
     _save();
     setState(() => _chapterIndex = index);
     final state = Library.instance.chapterState(widget.work.uid, _chapter.id);
-    await _load(offset ?? (state?.read == true ? 0 : state?.lastPage ?? 0));
+    await _load(
+      offset ?? (state?.read == true ? 0 : state?.lastPage ?? 0),
+      fromEnd: fromEnd,
+    );
   }
 
   @override
@@ -333,7 +359,9 @@ class _NovelReaderPageState extends _NovelReaderBase
       final target = _page + delta;
       if (target < 0 || target >= _pages.length) {
         if (target >= _pages.length) _changedOffset(_text.length);
-        unawaited(_switchChapter(_chapterIndex + delta, offset: 0));
+        unawaited(
+          _switchChapter(_chapterIndex + delta, offset: 0, fromEnd: delta < 0),
+        );
         return;
       }
       if (_pager?.hasClients != true) return;
@@ -400,7 +428,7 @@ class _NovelReaderPageState extends _NovelReaderBase
         focusNode: _focus,
         autofocus: true,
         onKeyEvent: (node, event) {
-          if (event is! KeyDownEvent) return KeyEventResult.ignored;
+          if (!readerHandlesKey(context, event)) return KeyEventResult.ignored;
           if ([
             LogicalKeyboardKey.arrowRight,
             LogicalKeyboardKey.arrowDown,

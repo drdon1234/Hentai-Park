@@ -328,6 +328,7 @@ mixin _SourceApi on _SourceRegistry {
     int page = 1,
     String? cursor,
     Map<String, Object?> options = const {},
+    Map<String, Object?> common = const {},
     bool refresh = false,
     bool background = false,
     CancelToken? cancelToken,
@@ -336,10 +337,13 @@ mixin _SourceApi on _SourceRegistry {
     await ready;
     if (!background) cancelBackgroundFeeds(key);
     final token = cancelToken ?? CancelToken();
+    final source = manifest(key);
+    final feed = source?.feeds.where((value) => value.key == feedKey).firstOrNull;
+    if (feed == null) throw SourceError('CONFIG', '未知列表');
+    final normalizedCommon = _normalizeCommonFilters(feed.commonFilters, common);
     if (background) (_backgroundFeeds[key] ??= {}).add(token);
     try {
       await _requireAccount(key, cancelToken: token);
-      final source = manifest(key);
       // 每次读取摘要，登录、退出及网页登录改变身份后不能命中旧账号主页。
       final cookies = await CookieStore.instance.snapshotPartition(key);
       final result = await HomeCache.instance.request(
@@ -355,12 +359,18 @@ mixin _SourceApi on _SourceRegistry {
           page,
           cursor,
           options,
+          normalizedCommon,
           HomeMetadata.fields.toList(),
         ],
         () async {
           return (await _call(key, 'feed', [
             feedKey,
-            {'page': page, 'cursor': cursor, 'options': options},
+            {
+              'page': page,
+              'cursor': cursor,
+              'options': options,
+              'common': normalizedCommon,
+            },
           ], cancelToken: token) as Map).cast<String, dynamic>();
         },
         refresh: refresh,
@@ -394,12 +404,34 @@ mixin _SourceApi on _SourceRegistry {
     int page = 1,
     String? cursor,
     Map<String, Object?> filters = const {},
+    Map<String, Object?> common = const {},
     CancelToken? cancelToken,
   }) async {
+    final normalizedCommon = _normalizeCommonFilters(
+      manifest(key)?.searchCommonFilters ?? const [],
+      common,
+    );
     final res = await _call(key, 'search', [
-      {'keyword': keyword, 'page': page, 'cursor': cursor, 'filters': filters},
+      {
+        'keyword': keyword,
+        'page': page,
+        'cursor': cursor,
+        'filters': filters,
+        'common': normalizedCommon,
+      },
     ], cancelToken: cancelToken);
     return WorkPage.fromJson((res as Map).cast<String, dynamic>(), key);
+  }
+
+  Map<String, Object?> _normalizeCommonFilters(
+    List<CommonFilterDef> definitions,
+    Map<String, Object?> input,
+  ) {
+    try {
+      return normalizeCommonFilters(definitions, input);
+    } on FormatException catch (error) {
+      throw SourceError('CONFIG', error.message);
+    }
   }
 
   Future<WorkDetail> detail(

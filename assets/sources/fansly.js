@@ -106,7 +106,7 @@ Park.register({
       "此视频需要在 Fansly 订阅或购买后才能观看": "اشترك أو اشترِ على Fansly لمشاهدة هذا الفيديو"
     }
   },
-  key: 'fansly', name: 'Fansly', version: '0.0.12', minAppVersion: '0.9.2', type: 'video', category: 'shortvideo',
+  key: 'fansly', name: 'Fansly', version: '0.0.13', minAppVersion: '0.9.2', type: 'video', category: 'shortvideo',
   color: '#00AFF0', description: '匿名可看公开短视频；敏感内容需登录', language: 'en',
   homepage: 'https://fansly.com/explore/foryou', domains: ['fansly.com'],
   network: {mode: 'native', vpnHint: true},
@@ -326,6 +326,75 @@ Park.register({
   },
   async detail(id) {
     return (await this.loadMedia(id)).preview;
+  },
+  async comments(value, req = {}) {
+    const mediaId = this.validId(value), page = Number(req.page || 1);
+    if (!Number.isInteger(page) || page < 1 || req.cursor || !['default', ''].includes(req.sort || 'default')) {
+      throw Park.error('CONFIG', '分页参数无效');
+    }
+    // 作品身份是 mediaOfferId；官网用媒体位置接口确认所属帖子，不能拿媒体 ID 请求评论。
+    const locations = await this.api('/mediaoffers/mediaoffers', {locationType: 1001, mediaOfferId: mediaId});
+    if (!Array.isArray(locations?.data)) throw Park.error('PARSE', 'Fansly 返回的数据无效');
+    let contextPost = '';
+    if (req.context?.url) {
+      try {
+        const url = new URL(req.context.url);
+        if (url.protocol !== 'https:' || url.hostname !== 'fansly.com' || url.username || url.password || url.port) {
+          throw new Error();
+        }
+        contextPost = /^\/post\/([0-9]{15,21})\/?$/.exec(url.pathname)?.[1] || '';
+      } catch (_) { throw Park.error('CONFIG', '视频编号无效'); }
+    }
+    const location = locations.data.find(row => String(row.mediaOfferId) === mediaId &&
+      row.locationType === 1001 && /^[0-9]{15,21}$/.test(String(row.correlationId || '')) &&
+      (!contextPost || row.correlationId === contextPost));
+    if (!location) throw Park.error('NOT_FOUND', '视频不存在或已被删除');
+    const postId = String(location.correlationId), parentId = String(req.parentId || '');
+    let targetId = postId;
+    if (parentId) {
+      const parts = parentId.split('/');
+      if (parts.length !== 2 || parts[0] !== postId) throw Park.error('CONFIG', '视频编号无效');
+      targetId = this.validId(parts[1]);
+      const parent = await this.api('/post', {ids: targetId});
+      if (!Array.isArray(parent?.posts)) throw Park.error('PARSE', 'Fansly 返回的数据无效');
+      if (!parent.posts.some(row => row.id === targetId && row.inReplyToRoot === postId)) {
+        throw Park.error('NOT_FOUND', '视频不存在或已被删除');
+      }
+    }
+    // 官网一次返回该父楼的全部回复，界面的“更多”只增加本地显示数量。
+    if (page > 1) return {items: [], page, hasNext: false};
+    const data = await this.api('/post/' + targetId + '/replies');
+    if (!Array.isArray(data?.posts) || !Array.isArray(data.accounts)) throw Park.error('PARSE', 'Fansly 返回的数据无效');
+    const accounts = new Map(data.accounts.map(row => [String(row.id), row])), seen = new Set();
+    const items = [];
+    for (const row of data.posts) {
+      if (row.inReplyTo !== targetId || row.inReplyToRoot !== postId || row.id === postId || seen.has(row.id)) continue;
+      const id = this.validId(row.id), user = accounts.get(String(row.accountId)) || {};
+      if (typeof row.content !== 'string' || !Array.isArray(row.attachments)) throw Park.error('PARSE', 'Fansly 返回的数据无效');
+      seen.add(id);
+      const body = Park.comments.text(row.content);
+      for (const attachment of row.attachments) {
+        // 只展示接口已授权的图片；付费或不支持的附件保留原评论入口。
+        const media = data.accountMedia?.find(item => item.id === attachment.contentId && item.access === true && !item.deleted);
+        if (attachment.contentType !== 2001 || media?.media?.type !== 1 || !/^image\//.test(media.media.mimetype || '')) continue;
+        const url = Park.comments.url(media.media.locations?.[0]?.location || media.media.location);
+        if (url) body.push({type: 'image', url});
+      }
+      if (row.attachments.length && !body.length) {
+        const url = 'https://fansly.com/post/' + id;
+        body.push({type: 'link', text: url, url});
+      }
+      if (!body.length) continue;
+      const replyCount = Math.max(0, Number(row.replyCount) || 0), timestamp = Number(row.createdAt) * 1000;
+      items.push({id: postId + '/' + id, author: {
+        name: typeof user.displayName === 'string' && user.displayName ? user.displayName : typeof user.username === 'string' ? user.username : '',
+        url: /^[a-zA-Z0-9_.-]{1,100}$/.test(user.username || '') ? 'https://fansly.com/' + user.username : undefined,
+        avatar: Park.comments.url(user.avatar?.locations?.[0]?.location || user.avatar?.location) || undefined,
+      }, body, parentId: parentId || undefined, replyCount, repliesAvailable: replyCount > 0,
+      likes: Math.max(0, Number(row.likeCount) || 0),
+      date: Number.isFinite(timestamp) && timestamp > 0 && timestamp < 8640000000000000 ? new Date(timestamp).toISOString() : undefined});
+    }
+    return {items, page, hasNext: false, total: items.length};
   },
   async videos(id) {
     id = this.validId(id);

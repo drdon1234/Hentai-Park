@@ -50,7 +50,7 @@ mixin _ReaderInput on _ReaderBase, _ReaderNavigation {
   }
 
   KeyEventResult _onKey(FocusNode node, KeyEvent e) {
-    if (e is! KeyDownEvent) return KeyEventResult.ignored;
+    if (!readerHandlesKey(context, e)) return KeyEventResult.ignored;
     final k = e.logicalKey;
     if (PlatformCapabilities.desktop && k == LogicalKeyboardKey.keyF) {
       unawaited(_setDesktopFullscreen(!_desktopFullscreen));

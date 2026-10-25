@@ -6,20 +6,26 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:path/path.dart' as p;
 
+import '../../core/content_scope.dart';
 import '../../core/localization.dart';
 import '../../core/models.dart';
 import '../../core/settings.dart';
+import '../../engine/source_manager.dart';
 import '../../game/downloads.dart';
 import '../../library/cbz.dart';
 import '../../library/downloads.dart';
 import '../../library/exports.dart';
+import '../../library/library.dart';
 import '../../library/live_recordings.dart';
 import '../../video/offline_video_export.dart';
+import '../detail/detail_page.dart';
 import '../game/game_resources.dart';
 import '../kit/adaptive_sheet.dart';
 import '../nav.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
+import '../widgets/content_scope_selector.dart';
+import '../widgets/cover_tile.dart';
 import '../widgets/file_drop_region.dart';
 import '../widgets/platform_share.dart';
 import 'exports_page.dart';
@@ -34,6 +40,7 @@ class DownloadsPage extends StatefulWidget {
 
 class _DownloadsPageState extends State<DownloadsPage> {
   bool _importing = false;
+  ContentScope _scope = const ContentScope.all();
 
   Future<void> _import(BuildContext context) async {
     if (_importing) return;
@@ -107,6 +114,39 @@ class _DownloadsPageState extends State<DownloadsPage> {
       appBar: PageHeader(
         title: tr('下载'),
         actions: [
+          ListenableBuilder(
+            listenable: Listenable.merge([
+              AppSettings.instance.watch(const {'downloadDisplay'}),
+              dm,
+              games,
+              LiveRecordings.instance,
+            ]),
+            builder: (context, _) {
+              final grid = AppSettings.instance.downloadDisplay == 'grid';
+              final onlySpecialTasks =
+                  dm.tasks.isEmpty &&
+                  (games.tasks.isNotEmpty ||
+                      dm.restoreFailures.isNotEmpty ||
+                      LiveRecordings.instance.tasks.isNotEmpty);
+              return IconButton(
+                tooltip: tr(
+                  onlySpecialTasks
+                      ? '特殊下载任务仅支持列表'
+                      : grid
+                      ? '切换为列表'
+                      : '切换为网格',
+                ),
+                icon: Icon(
+                  grid ? Icons.view_list_rounded : Icons.grid_view_rounded,
+                ),
+                onPressed: onlySpecialTasks
+                    ? null
+                    : () => AppSettings.instance.downloadDisplay = grid
+                          ? 'list'
+                          : 'grid',
+              );
+            },
+          ),
           ListenableBuilder(
             listenable: ExportManager.instance,
             builder: (context, _) => ToolbarActions(
@@ -187,12 +227,30 @@ class _DownloadsPageState extends State<DownloadsPage> {
             games,
             AppSettings.instance,
             LiveRecordings.instance,
+            SourceManager.instance,
           ]),
           builder: (context, _) {
             final tasks = dm.tasks;
             final gameTasks = games.tasks;
             final failures = dm.restoreFailures;
             final recordings = LiveRecordings.instance.tasks;
+            final visibleTasks = tasks
+                .where((task) => _matches(task.item))
+                .toList();
+            final visibleGameTasks = gameTasks
+                .where((task) => _matches(task.item))
+                .toList();
+            final visibleRecordings = recordings
+                .where((task) => _matches(task.item))
+                .toList();
+            final visibleFailures = failures
+                .where((failure) => _matchesSource(failure.source))
+                .toList();
+            final scopeItems = [
+              for (final task in tasks) task.item,
+              for (final task in gameTasks) task.item,
+              for (final task in recordings) task.item,
+            ];
             return Column(
               children: [
                 if (!dm.networkAllowed)
@@ -201,12 +259,17 @@ class _DownloadsPageState extends State<DownloadsPage> {
                     content: Text(tr('已开启"仅在 Wi-Fi 下下载"，连接 Wi-Fi 后自动继续')),
                     actions: [const SizedBox.shrink()],
                   ),
+                ContentScopeSelector(
+                  scope: _scope,
+                  onChanged: (scope) => setState(() => _scope = scope),
+                  items: scopeItems,
+                ),
                 Expanded(
                   child:
-                      tasks.isEmpty &&
-                          gameTasks.isEmpty &&
-                          failures.isEmpty &&
-                          recordings.isEmpty
+                      visibleTasks.isEmpty &&
+                          visibleGameTasks.isEmpty &&
+                          visibleFailures.isEmpty &&
+                          visibleRecordings.isEmpty
                       ? EmptyState(
                           icon: Icons.download_for_offline_outlined,
                           title: tr('没有下载任务'),
@@ -223,37 +286,12 @@ class _DownloadsPageState extends State<DownloadsPage> {
                             ),
                           ],
                         )
-                      : ReadableWidth(
-                          child: ListView.separated(
-                            padding: const EdgeInsets.only(bottom: 96),
-                            itemCount:
-                                recordings.length +
-                                failures.length +
-                                gameTasks.length +
-                                tasks.length,
-                            separatorBuilder: (_, _) => const Divider(
-                              indent: Gap.page,
-                              endIndent: Gap.page,
-                            ),
-                            itemBuilder: (context, i) {
-                              if (i < recordings.length) {
-                                return RecordingTile(task: recordings[i]);
-                              }
-                              i -= recordings.length;
-                              if (i < failures.length) {
-                                return _RestoreFailureTile(
-                                  uid: failures[i].uid,
-                                  source: failures[i].source,
-                                );
-                              }
-                              i -= failures.length;
-                              return i < gameTasks.length
-                                  ? GameDownloadTile(task: gameTasks[i])
-                                  : _TaskTile(
-                                      task: tasks[i - gameTasks.length],
-                                    );
-                            },
-                          ),
+                      : _content(
+                          context,
+                          visibleTasks,
+                          visibleGameTasks,
+                          visibleFailures,
+                          visibleRecordings,
                         ),
                 ),
               ],
@@ -263,6 +301,129 @@ class _DownloadsPageState extends State<DownloadsPage> {
       ),
     );
   }
+
+  bool _matches(WorkItem item) =>
+      _scope.contains(item.source, Library.instance.domainOf(item));
+
+  bool _matchesSource(String source) {
+    if (_scope.sourceKey != null && _scope.sourceKey != source) return false;
+    final category = SourceManager.instance.manifest(source)?.category;
+    return _scope.category == null || category == _scope.category;
+  }
+
+  Widget _content(
+    BuildContext context,
+    List<DownloadTask> tasks,
+    List<GameDownloadTask> gameTasks,
+    List<({String uid, String source})> failures,
+    List<LiveRecording> recordings,
+  ) {
+    final grid = AppSettings.instance.downloadDisplay == 'grid';
+    if (grid) {
+      final specialRows = <Widget>[
+        ...recordings.map((task) => RecordingTile(task: task)),
+        ...failures.map(
+          (failure) =>
+              _RestoreFailureTile(uid: failure.uid, source: failure.source),
+        ),
+        ...gameTasks.map((task) => GameDownloadTile(task: task)),
+      ];
+      final slivers = <Widget>[
+        if (specialRows.isNotEmpty)
+          SliverList.list(
+            children: [
+              for (var i = 0; i < specialRows.length; i++) ...[
+                if (i > 0) const Divider(indent: Gap.page, endIndent: Gap.page),
+                specialRows[i],
+              ],
+            ],
+          ),
+        if (tasks.isNotEmpty) _gridSliver(context, tasks),
+        const SliverToBoxAdapter(child: SizedBox(height: 96)),
+      ];
+      return CustomScrollView(slivers: slivers);
+    }
+    return Column(
+      children: [
+        Expanded(
+          child: ReadableWidth(
+            child: ListView.separated(
+              padding: const EdgeInsets.only(bottom: 96),
+              itemCount:
+                  recordings.length +
+                  failures.length +
+                  gameTasks.length +
+                  tasks.length,
+              separatorBuilder: (_, _) =>
+                  const Divider(indent: Gap.page, endIndent: Gap.page),
+              itemBuilder: (context, i) {
+                if (i < recordings.length) {
+                  return RecordingTile(task: recordings[i]);
+                }
+                i -= recordings.length;
+                if (i < failures.length) {
+                  return _RestoreFailureTile(
+                    uid: failures[i].uid,
+                    source: failures[i].source,
+                  );
+                }
+                i -= failures.length;
+                return i < gameTasks.length
+                    ? GameDownloadTile(task: gameTasks[i])
+                    : _TaskTile(task: tasks[i - gameTasks.length]);
+              },
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _gridSliver(BuildContext context, List<DownloadTask> tasks) {
+    return SliverLayoutBuilder(
+      builder: (context, constraints) {
+        final cols = gridColumnsFor(constraints.crossAxisExtent);
+        final width =
+            (constraints.crossAxisExtent - Gap.page * 2 - (cols - 1) * Gap.m) /
+            cols;
+        return SliverPadding(
+          padding: const EdgeInsets.fromLTRB(Gap.page, Gap.s, Gap.page, 0),
+          sliver: SliverGrid(
+            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: cols,
+              crossAxisSpacing: Gap.m,
+              mainAxisSpacing: Gap.l,
+              mainAxisExtent: width / 0.7 + cardTextExtent(context),
+            ),
+            delegate: SliverChildBuilderDelegate((context, index) {
+              final task = tasks[index];
+              return CoverTile(
+                item: task.item,
+                aspect: 0.7,
+                showSource: true,
+                badges: [
+                  (tag: Tag(_statusLabel(task)), label: _statusLabel(task)),
+                ],
+                onTap: () => _openTask(context, task),
+                onLongPress: () => _TaskTile(task: task)._menu(context),
+              );
+            }, childCount: tasks.length),
+          ),
+        );
+      },
+    );
+  }
+
+  String _statusLabel(DownloadTask task) => switch (task.status) {
+    DownloadStatus.queued => tr('等待下载'),
+    DownloadStatus.running => tr('正在下载'),
+    DownloadStatus.paused => tr('已暂停'),
+    DownloadStatus.done => tr('已完成'),
+    DownloadStatus.failed => tr('下载失败'),
+  };
+
+  void _openTask(BuildContext context, DownloadTask task) =>
+      Nav.openChapter(context, task.item, null, downloadedOnly: true);
 }
 
 class _RestoreFailureTile extends StatelessWidget {
@@ -333,7 +494,8 @@ class _TaskTile extends StatelessWidget {
       isScrollControlled: true,
       builder: (_) => _ChapterSheet(
         task: t,
-        onOpen: (chapter) => Nav.openChapter(context, t.item, chapter.id),
+        onOpen: (chapter) =>
+            Nav.openChapter(context, t.item, chapter.id, downloadedOnly: true),
       ),
     );
   }
@@ -341,12 +503,7 @@ class _TaskTile extends StatelessWidget {
   Future<void> _open(BuildContext context) async {
     final t = DownloadManager.instance.task(task.uid);
     if (!context.mounted || t == null) return;
-    if (!t.isVideo) return Nav.openWork(context, t.item);
-    if (t.chapters.length > 1) return _chapters(context);
-    if (t.chapters.isNotEmpty && t.completed.contains(t.chapters.first.id)) {
-      return Nav.openChapter(context, t.item, t.chapters.first.id);
-    }
-    return Nav.openWork(context, t.item);
+    return Nav.openChapter(context, t.item, null, downloadedOnly: true);
   }
 
   Future<void> _menu(BuildContext context) async {
@@ -586,12 +743,22 @@ class _TaskTile extends StatelessWidget {
               SizedBox(
                 width: 56,
                 height: 78,
-                child: CoverImage(
-                  source: t.item.source,
-                  url: t.item.cover,
-                  sourceBlurred: t.item.json['coverBlurred'] == true,
-                  title: t.item.title,
-                  mediaKind: t.isNovel ? MediaKind.novel : null,
+                child: ActionInkWell(
+                  onTap: () => Nav.push(
+                    context,
+                    DetailPage(
+                      source: t.item.source,
+                      id: t.item.id,
+                      preview: t.item,
+                    ),
+                  ),
+                  child: CoverImage(
+                    source: t.item.source,
+                    url: t.item.cover,
+                    sourceBlurred: t.item.json['coverBlurred'] == true,
+                    title: t.item.title,
+                    mediaKind: t.isNovel ? MediaKind.novel : null,
+                  ),
                 ),
               ),
               const SizedBox(width: Gap.m),
@@ -718,10 +885,19 @@ class _ChapterSheetState extends State<_ChapterSheet> {
                     onPressed: _selected.isEmpty
                         ? null
                         : () async {
+                            final chapters = _selected.toList();
+                            final confirmed = await confirmAction(
+                              context,
+                              title: tr('删除下载？'),
+                              message: tr('已下载的文件也会一并删除。'),
+                              confirmLabel: tr('删除'),
+                              destructive: true,
+                            );
+                            if (!confirmed || !context.mounted) return;
                             try {
                               await DownloadManager.instance.deleteChapters(
                                 t.uid,
-                                _selected.toList(),
+                                chapters,
                               );
                               if (context.mounted) Navigator.pop(context);
                             } catch (_) {
@@ -752,22 +928,18 @@ class _ChapterSheetState extends State<_ChapterSheet> {
                             t.completed.contains(ch.id) ? tr('已下载') : tr('未完成'),
                           ),
                         ),
-                        secondary: t.isVideo
-                            ? SelectionContainer.disabled(
-                                child: IconButton(
-                                  tooltip: tr('播放'),
-                                  icon: const Icon(
-                                    Icons.play_circle_outline_rounded,
-                                  ),
-                                  onPressed: t.completed.contains(ch.id)
-                                      ? () {
-                                          Navigator.pop(context);
-                                          widget.onOpen(ch);
-                                        }
-                                      : null,
-                                ),
-                              )
-                            : null,
+                        secondary: SelectionContainer.disabled(
+                          child: IconButton(
+                            tooltip: tr(t.isVideo ? '播放' : '阅读'),
+                            icon: const Icon(Icons.play_circle_outline_rounded),
+                            onPressed: t.completed.contains(ch.id)
+                                ? () {
+                                    Navigator.pop(context);
+                                    widget.onOpen(ch);
+                                  }
+                                : null,
+                          ),
+                        ),
                         onChanged: (v) => setState(
                           () => v == true
                               ? _selected.add(ch.id)

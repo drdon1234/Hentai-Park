@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import '../core/content_scope.dart';
 import '../core/localization.dart';
 import '../core/settings.dart';
 import '../engine/platform_bridge.dart';
@@ -25,7 +24,7 @@ import 'theme.dart';
 import 'updates/startup_update_check.dart';
 import 'widgets/content_translation.dart';
 
-/// Root navigation: 发现 / 书架 / 下载 / 历史 / 我的.
+/// Root navigation: 发现 / 收藏 / 下载 / 我的.
 class Shell extends StatefulWidget {
   const Shell({super.key});
 
@@ -36,8 +35,7 @@ class Shell extends StatefulWidget {
 class _ShellState extends State<Shell> {
   static const _shelfTab = 1;
   static const _downloadsTab = 2;
-  static const _historyTab = 3;
-  static const _tabCount = 5;
+  static const _tabCount = 4;
   static const _progressNotification = 1001;
   static const _resultNotification = 1002;
 
@@ -45,8 +43,6 @@ class _ShellState extends State<Shell> {
   final _visited = <int>{0};
   final _discovery = ValueNotifier(const DiscoveryDestination.all());
   final _shelf = ValueNotifier(ShelfSegment.favorites);
-  ContentScope _historyScope = const ContentScope.all();
-  int _historyOpenRequest = 0;
   DateTime? _lastBack;
   late final AppLifecycleListener _lifecycle;
   StreamSubscription<String>? _taps;
@@ -104,6 +100,12 @@ class _ShellState extends State<Shell> {
   void _openUpdates() {
     _shelf.value = ShelfSegment.updates;
     _select(_shelfTab);
+  }
+
+  void _openDiscovery(DiscoveryDestination destination) {
+    Navigator.of(context).popUntil((route) => route.isFirst);
+    _discovery.value = destination;
+    _select(0);
   }
 
   void _onNotificationTap(String payload) {
@@ -198,18 +200,13 @@ class _ShellState extends State<Shell> {
       NavigationDestination(
         icon: shelfIcon(Icons.collections_bookmark_outlined),
         selectedIcon: shelfIcon(Icons.collections_bookmark_rounded),
-        label: tr('书架'),
-        tooltip: unseen > 0 ? tr('书架，{value0} 个新章节', {'value0': unseen}) : null,
+        label: tr('收藏'),
+        tooltip: unseen > 0 ? tr('收藏，{value0} 个新章节', {'value0': unseen}) : null,
       ),
       NavigationDestination(
         icon: const Icon(Icons.download_outlined),
         selectedIcon: const Icon(Icons.download_rounded),
         label: tr('下载'),
-      ),
-      NavigationDestination(
-        icon: const Icon(Icons.history_outlined),
-        selectedIcon: const Icon(Icons.history_rounded),
-        label: tr('历史'),
       ),
       NavigationDestination(
         icon: const Icon(Icons.person_outline_rounded),
@@ -223,17 +220,11 @@ class _ShellState extends State<Shell> {
     0 => HomePage(
       destination: _discovery,
       onOpenHistory: (scope) {
-        _historyScope = scope;
-        _historyOpenRequest++;
-        _select(_historyTab);
+        Nav.push(context, HistoryPage(scope: scope));
       },
     ),
     _shelfTab => ShelfPage(segment: _shelf, unseenUpdates: _unseenUpdates),
     _downloadsTab => const DownloadsPage(),
-    _historyTab => HistoryPage(
-      scope: _historyScope,
-      openRequest: _historyOpenRequest,
-    ),
     _ => const SettingsPage(),
   };
 
@@ -286,7 +277,13 @@ class _ShellState extends State<Shell> {
         return PlatformNavigation(
           destinations: _destinations(unseen),
           selectedIndex: _index,
-          onSelected: _select,
+          onSelected: (index) {
+            if (index == 0) {
+              _openDiscovery(_discovery.value);
+            } else {
+              _select(index);
+            }
+          },
           wide: wide,
         );
       },
@@ -303,11 +300,7 @@ class _ShellState extends State<Shell> {
           )
         : Scaffold(body: body, bottomNavigationBar: navigation);
     return DiscoveryNavigation(
-      onSelect: (destination) {
-        Navigator.of(context).popUntil((route) => route.isFirst);
-        _discovery.value = destination;
-        _select(0);
-      },
+      onSelect: _openDiscovery,
       child: StartupUpdateCheck(
         child: PopScope(
           canPop: Theme.of(context).platform != TargetPlatform.android,

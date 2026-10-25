@@ -18,6 +18,16 @@ Future<void> openMediaAlbum(
   if (snapshot['options'] case final Map options) {
     snapshot['options'] = Map<String, Object?>.from(options);
   }
+  if (snapshot['common'] case final Map common) {
+    snapshot['common'] = Map<String, Object?>.from(common);
+  }
+  if (snapshot['search'] case final Map search) {
+    snapshot['search'] = {
+      ...search,
+      'filters': Map<String, Object?>.from(search['filters'] as Map? ?? {}),
+      'common': Map<String, Object?>.from(search['common'] as Map? ?? {}),
+    };
+  }
   return Nav.push(
     context,
     MediaAlbumPage(

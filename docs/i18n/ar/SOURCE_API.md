@@ -148,6 +148,10 @@ Park.register({
 
 كل عنصر في `feeds` تبويب في صفحة الموقع: `{ key, label, options?: [...] }`.
 
+### عوامل التصفية والترتيب العامة
+
+تعلن الإضافات عن `commonFilters` لكل موجز و`searchCommonFilters` للبحث. يعرض التطبيق القدرات المعلنة فقط ولا يصفّي الأعمال المحمّلة محليًا بالتقريب. يجب تحويل الشروط إلى استعلام حقيقي للموقع والحفاظ عليها بين الصفحات. الأبعاد هي `pages` و`likes` و`duration`؛ يعلن `range: true` أو مصفوفة الحدود `min` و`max`، ويعلن `sort: true` أو مصفوفة اتجاهات `asc` و`desc`. الصفحات والإعجابات أعداد صحيحة غير سالبة، والمدة بالثواني. تمرر طلبات `feed` و`search` خريطة `common` مستقلة، ويمكن ترك أي حد فارغًا، ولا يسمح بالترتيب إلا لبعد واحد في كل مرة. يجب رفض الأبعاد غير المعلنة.
+
 ### التصفية الديناميكية والمتسلسلة
 
 يمكن لخيارات الاختيار في `feeds[].options` و`searchFilters` إعلان `dynamic: true, values: []`. يشير الخيار التابع إلى آباء المجموعة نفسها عبر `dependsOn: ['range']`. يجب أن تكون المفاتيح فريدة والتبعيات موجودة وبلا دورات. تعلن الخيارات الديناميكية وحدها التبعيات.
@@ -262,8 +266,8 @@ account: {
 يُشرح `this` داخل الدوال في «واجهة بيئة التشغيل». يمكن أن تكون كل الدوال `async`.
 
 ```js
-async feed(key, { page, cursor, options }) {}      // تبويبات صفحة الموقع
-async search({ keyword, page, cursor, filters }) {}
+async feed(key, { page, cursor, options, common }) {} // تبويبات صفحة الموقع
+async search({ keyword, page, cursor, filters, common }) {}
 async random() {}                                  // يعيد معرّف عمل
 async detail(id, preview) {}
 async chapter(id, chapterId) {}                    // قصص مصورة ومعارض
@@ -287,7 +291,7 @@ async resolveGameResource(workId, resourceId, channelId) {}
 { sections: [{ title: '连载更新', items: [WorkItem] }], hasNext: false }
 ```
 
-**WorkItem**: `{ id, title, subtitle?, cover, coverBlurred?, coverAspect?, pages?, rating?, likes?, views?, language?, category?, badge?, badgeColor?, duration?, uploaded?, tags?, mediaKind?, workCode?, editions? }`
+**WorkItem**: `{ id, title, subtitle?, cover, coverBlurred?, coverAspect?, pages?, rating?, likes?, views?, language?, category?, badge?, badgeColor?, duration?, uploaded?, tags?, mediaKind?, workCode?, editions?, commentsAvailable? }`
 
 - `workCode` هو رمز عمل مؤكّد من المصدر، ويُستخدم فقط للعثور على العمل نفسه. لا يحل محل `id` ولا يدمج هوية الأعمال أو المفضلة أو التقدم أو التنزيلات.
 - `editions` يحتوي على تسميات إصدارات ثابتة يذكرها المصدر صراحة، مثل الترجمة الصينية أو نسخة مسرّبة غير خاضعة للرقابة. غياب التسمية لا يعني الإصدار الأصلي. عرض الترجمة لا يغيّر التسميات الأصلية.
@@ -303,7 +307,7 @@ async resolveGameResource(workId, resourceId, channelId) {}
 
 ```js
 {
-  url, authors: [], description, uploader?, size?, comments?,
+  url, authors: [], description, uploader?, size?, comments?, commentsAvailable?,
   tags: [{ namespace: 'artist', label: '作者', tags: [{ name, keyword, filters?, count? }] }],
   chapters: [{ id, title }] | null,   // null يعني فصلًا واحدًا
   singleChapterId?,                   // معرّف الفصل الذي تحتاجه الأعمال ذات الفصل الواحد
@@ -395,7 +399,7 @@ subscription: {
   async resolve(input) { return { id: validatedTarget, label: displayName }; },
   async targets() { return [{ id: joinedChannelId, label: channelName }]; },
   async posts(target, { cursor }) {
-    return { items: [{ id, title, text, date, url, locked,
+    return { items: [{ id, title, text, date, url, locked, commentsAvailable,
       media: [{ type: 'image', url, preview, previewOnly: false },
               { type: 'video', url, preview, format: 'mp4', headers: {} }] }],
       cursor: nextCursor, hasNext: true };
@@ -428,7 +432,8 @@ subscription: {
 
 - تعيد `normalize(dimension, input)` القيمة `{ id, label }`، وتعيد `check({ dimension, target }, { cursor })` القيمة `{ items, hasNext, cursor }`. العناصر هي `{ id, title, kind, workId, chapterId }` و`kind` مقتصر على `work | post | chapter`، بمعرّفات ثابتة غير فارغة دون روابط وسائط أو ملفات ارتباط أو بيانات اعتماد. تتضمن معرّفات الفصول هوية العمل كي لا يتصادم «الفصل 1» لأعمال مختلفة.
 - يوفّر `Park.enableUpdateSubscriptions(Park.__pending, rules)` محوّلًا عامًا؛ أعلن الأبعاد صراحةً في نهاية النص مع `searchFilters` و`seriesPattern` اختياريًا. يستخدم `work` قائمة الفصول الحقيقية، و`posts` واجهة القنوات الحالية، و`search` و`filter` البحث، ويطابق `code` الرموز الكاملة تمامًا، ويستخدم `series` مسارات سلاسل مُتحقَّقًا منها مقابل نطاقات الموقع. تحفظ مؤشرات البحث رقم الصفحة ومؤشر الموقع معًا.
-- تعيد فحوص البحث والمنشورات `windowed: true`، أي أنها تفحص آخر ثلاث صفحات: يسجّل الفحص الأول خط أساس فقط، وتُنشئ الفحوص التالية أحداث «محتوى جديد» حسب المعرّف الثابت دون ادعاء معرفة تاريخ النشر. تفحص بروتوكولات الصفحات الأخرى ثلاث صفحات كحد أقصى في كل جولة وتحفظ المؤشرات والمرشحين ثم تعتمدها في معاملة واحدة عند الانتهاء؛ ولا تُقتطع قوائم الفصول أبدًا، بحد أقصى 20,000 مرشح (تجاوزه خطأ). يجب أن تطلق أعطال الشبكة والأذونات والتحقق والقوائم الفارغة والتحليل الناقص أخطاءً صريحة، لا نجاحًا فارغًا.
+- ينشئ `windowed: true` خط أساس من ثلاث صفحات عند الفحص الأول. بعد ذلك تُفحص ثلاث صفحات كحد أقصى في كل دفعة مع حفظ المؤشر والعناصر حتى صفحة معروفة بالكامل أو نهاية النتائج، ثم تُحفظ الأحداث الجديدة. لا تُقتطع قائمة الفصول؛ تجاوز 20,000 عنصر أو فشل التحليل ينتج خطأ.
+- يعيد `query({ dimension, target })` القيمة `{ keyword, filters }` المشتركة بين تصفح الاشتراك وفحصه. تدعم الألبومات أيضاً `{ search: { keyword, filters } }` وتحافظ على البحث أثناء التنقل. تدعم فيديوهات المنشورات مرفقات `resource` وتتابع ضمن البحث نفسه.
 - تتشارك الواجهة والخلفية بيئة الإضافة وأقسام ملفات الارتباط وقيود النطاقات وآلية الفحص. لا تبدأ الخلفية إلا الإضافات المعنية، ولا تسجّل الدخول ولا تشترك في الموقع ولا تنزّل الوسائط ولا تتجاوز الأذونات. يعيد تغيير الحساب أو إعدادات الإضافة بناء خط الأساس (تجديد الرمز لا يفعل).
 
 ## واجهة بيئة التشغيل
@@ -610,3 +615,61 @@ node tools/publish_sources.mjs --commit '<SHA>' --channel rankings --output '<�
 ```
 
 </div>
+
+## التعليقات وروابط المحتوى
+
+يؤدي تنفيذ `comments` إلى تصدير `capabilities.comments` تلقائياً، ويصدّر `resolveContentLink` و`searchLink` القدرات المطابقة. أعلن عمليات القراءة المتحقق منها فقط. لا تتضمن الواجهة نشر التعليقات أو الردود أو التصويت أو الإبلاغ.
+
+تشمل تطبيقات التعليقات الرسمية Reddit وmyfans وFansly وGalgameX وXVideos وPornhub Shorties وPicACG وSpankBang وX / Twitter وTelegram؛ ويظل نطاق القراءة خاضعًا لصلاحيات الموقع الأصلي. يتطلب X / Twitter وTelegram تسجيل الدخول، ويدعم Telegram المنشورات التي تتيح المناقشة. احتفظ بالرابط الدقيق للتعليق الأصلي للمرفقات التي لا يمكن عرضها مباشرةً.
+
+```js
+// WorkItem / WorkDetail / SubscriptionPost: { ..., commentsAvailable?: boolean }
+comments(workId, {page = 1, cursor = null, parentId = null, sort = 'default', context = {}})
+// context: {url?, episodeId?, board?}
+// result: {items, hasNext, page?, cursor?, total?, reset?, sorts?: [{value, label}]}
+// item: {id, author: {name, avatar?, url?, badges?: []}, body,
+//        date?, likes?, rating?, spoiler?, parentId?, replyCount?,
+//        repliesAvailable?, replies?: [item]}
+// body: [{type: 'text' | 'link' | 'image' | 'quote', text?, url?}]
+resolveContentLink(url) // null | {type: 'work', id} | {type: 'search', url} | {type: 'external', url}
+searchLink(url, request) // WorkPage
+```
+
+- يشير الحقل الاختياري على المستوى الأعلى `commentsAvailable?: boolean` في `WorkItem` و`WorkDetail` و`SubscriptionPost` إلى إتاحة التعليقات للعمل. تُخفي القيمة المنطقية الصريحة `false` مدخل التعليقات؛ وتظل `true` مشروطة بدعم المصدر لـ `capabilities.comments`. يعني غياب القيمة أو كونها غير منطقية أن الحالة غير معروفة، فتُحدَّد الإتاحة وفق قدرة المصدر. لا يعني العدد 0 تعطيل التعليقات. إذا تبيّن أثناء القراءة أن المنشور الأصلي عطّل التعليقات، فأصدر `UNSUPPORTED` بدل إخفاء الحالة بقائمة فارغة.
+- يحدد `workId` العمل داخل المصدر، ويحمل `context` الصفحة الأصلية أو الحلقة أو قائمة الترتيب. افصل التعليقات حسب العمل والحلقة.
+- يجب أن يكون `id` نصاً ثابتاً وغير فارغ داخل المصدر. يمكن ترك `author.name` فارغاً دون اختلاق أسماء. يحتاج المتن إلى نص غير فارغ أو صورة صالحة، مع الاحتفاظ بالتعليقات التي تتضمن صوراً فقط. يحتفظ `date` بنص الموقع أو وقت ISO. تكون `likes` و`replyCount` غير سالبتين، و`rating` بين 0 و5، ويشير `spoiler` إلى حرق الأحداث.
+- تستخدم `replies` البنية نفسها ويحدد `parentId` التعليق الأب. يجب ألا يتضمن متن الأب نص الردود. يمثّل `replyCount` عدد الردود في الموقع. اضبط `repliesAvailable: true` فقط بعد التحقق من القراءة باستخدام `parentId`؛ القيمة الافتراضية false والعدد وحده لا يتيح التحميل. إذا لم يوفّر الموقع عددًا، يمكن الجمع بين `replyCount: 0` و`repliesAvailable: true`. تظل الواجهة تعرض خيار عرض الردود دون اختلاق عدد أو منع الوصول بسبب عدد الردود المحمّلة. عند قراءة الردود المتداخلة تكون قيمة `parentId` في الطلب هي `id` للتعليق المختار.
+- تُشتق `hasNext` من استجابة الموقع الفعلية. لا تحتوي المؤشرات على بيانات اعتماد وتُعاد كما هي في الطلب التالي. توقف عند تكرار المعرّفات أو بلوغ العدد الإجمالي أو إعلان النهاية، واستخدم false للتصفح غير المتحقق منه. تعرض `sorts` الترتيبات المتحقق منها فقط، وتستخدم `label` مفاتيح ترجمة الواجهة.
+- عند تغير لقطة الصفحات، أعد `reset: true` مع `page` الفعلية التي أُعيد تحميلها، عادةً 1، ومؤشر جديد لاستبدال القائمة. لا تعرض الصفحة الأولى على أنها صفحة لاحقة. أبلغ عن أخطاء الخدمة أو طلب تسجيل الدخول أو أخطاء التحليل بدلاً من إخفائها بقائمة فارغة.
+
+تحوّل `Park.comments.html(html, baseUrl)` محتوى HTML إلى أجزاء آمنة تحتفظ بالنص والأسطر والروابط والصور والاقتباسات وتزيل المحتوى القابل للتنفيذ. تفصل `Park.comments.text(text)` عناوين HTTP(S) الصريحة من النص. تعيد `Park.comments.url(value, baseUrl)` عنوان HTTP(S) صالحاً أو null. يجب ألا تحتوي عناوين الصور الشخصية والملفات الشخصية والمتن على userinfo. يعرض الإطار بيانات منظّمة ولا ينفّذ HTML الموقع. تتولى الإضافة تحليل حقول الموقع وتستخدم `this.http` للطلبات.
+
+يتعرف `resolveContentLink` على المضيف الدقيق والمسارات والمعاملات المتحقق منها ويعيد null للأهداف الأخرى. استخدم `type: 'work'` للأعمال و`type: 'search'` لبحث الموقع، ويمكن استخدام `type: 'external'` للصفحات الآمنة الأخرى. لا تخلط بين الأعمال والملفات الشخصية أو روابط التعليقات أو التواريخ أو أرقام التعليقات أو أوقات التشغيل. يتلقى `searchLink` عنوان الموقع الأصلي كاملاً ويعيد WorkPage مع الحفاظ على الكلمات والفلاتر والتصنيفات والصفحات. لا تستخرج الكلمات وحدها مع إسقاط المعاملات الأخرى، ولا تصل إلى نقاط كتابة البيانات. تبقى إمكانية فتح الصفحة الأصلية متاحة للروابط غير المعروفة.
+
+## دردشة البث للقراءة فقط
+
+لا تُعلن `capabilities.liveChat` إلا عند تنفيذ `liveChat(id)` و`liveChatEvent(state, event)` معًا. يشمل الدعم الرسمي CAM4 وXLoveCam وStripchat وSOOP. تمثل `chat.domains` قائمة مستقلة بالمضيفين والمنافذ ولا ترث صلاحيات الصفحات أو الصور أو الوسائط. يسمح `host` بالمنفذ 443 فقط. يجب التصريح بالمنافذ غير القياسية بصيغة `host:port` ضمن 1024–65535. تطابق `*.host:port` مستوى واحدًا فقط من النطاقات الفرعية على ذلك المنفذ، ولا تطابق المضيف الأساسي أو المستويات الأعمق أو المنافذ الأخرى. يُسمح فقط بـ HTTPS/SSE وWSS دون نقل غير مشفّر أو معلومات مستخدم أو أجزاء عنوان. لا يجوز إعادة توجيه رموز تهيئة الضيف المؤقتة إلى مضيف أو منفذ آخر.
+
+تعيد `liveChat` الحقول `transport: "sse" | "websocket"` و`url` و`state` مع `headers` اختياري. استخدم `this.chatHttp.request({url, method, headers, body|json})` لتهيئة جلسة ضيف ضمن القائمة مع إلغاء مرتبط بالاستدعاء الحالي. تُعزل Cookie حسب المصدر، وتبقى الرموز وعناوين الاتصال والحالة والرسائل في الذاكرة فقط.
+
+- `protocols`: خاص بـ WebSocket؛ حتى 8 سلاسل RFC token فريدة وغير فارغة، لا تتجاوز كل منها 128 محرفًا.
+- `binary: true`: خاص بـ WebSocket؛ إرسال واستقبال إطارات ثنائية بترميز UTF-8، مع بقاء `event.data` و`send` سلاسل نصية لدى الإضافة. الحد الأقصى لكل إطار 65536 بايت مع تحقق صارم من UTF-8. الإعداد الافتراضي يستخدم إطارات نصية.
+- `heartbeatIntervalMs`: عدد صحيح اختياري بين 10000 و60000. بعد نجاح الاتصال تدخل أحداث `{type: "tick"}` إلى الطابور المتسلسل نفسه بهذا الفاصل. تُلغى عند التوقف أو مغادرة الصفحة. لا تمدد أحداث tick مهلة مصافحة الاتصال أو مهلة استقبال SSE.
+
+تغطي مهلة ثابتة إجمالية قدرها 25 ثانية إنشاء الاتصال ومصافحة البروتوكول. يستخدم WebSocket الذي لا يصرّح بالحقل `heartbeatIntervalMs` آلية ping/pong الأصلية كل 30 ثانية. عند التصريح بهذا الحقل تتولى أحداث tick الخاصة بالإضافة إبقاء الاتصال بدلًا منها، ويُحدَّد الانقطاع بأخطاء النقل الفعلية أو أحداث الإغلاق. لا يعتبر أي من الوضعين غياب نص الدردشة انقطاعًا، كما أن أحداث tick المحلية ليست دليلًا على بقاء الخادم متصلًا. يحتفظ SSE بمهلة 90 ثانية لاستقبال بيانات الخادم.
+
+تستقبل `liveChatEvent` الحدث `{type: "open"}` أو `{type: "message", data, event?}` أو `{type: "tick"}` مع الاحتفاظ باسم حدث SSE. تعيد `state` الجديدة والحقول الاختيارية `connected` و`error` و`messages` و`send`. تتضمن الرسالة `id` ثابتًا و`text` عاديًا و`author` اختياريًا و`isHistory`. يُستخدم السجل لمنع التكرار ولا يعرض كرسائل جديدة. يقتصر `send` على إطارات المصادقة والاشتراك واستجابة نبض الاتصال التي تم التحقق منها. لا توجد واجهة لإرسال رسائل المستخدم.
+
+يحد المضيف من حجم الإطارات والطوابير والتخزين المؤقت وعدد المحاولات. تجلب إعادة الاتصال رموز ضيف جديدة وتتيح إعادة المحاولة عند الفشل. يؤدي تعطيل الدردشة أو حجب الصفحة أو الانتقال للخلفية أو قفل التطبيق أو إغلاق المشغل إلى إلغاء الاتصال والاستدعاءات فورًا ورفض النتائج القديمة. لا يشمل ذلك تعليقات الأعمال أو صفحات السجل أو تعليقات التسجيل المرتبطة بالزمن.
+
+```js
+chat: {domains: ["chat.example.com"]},
+async liveChat(id) {
+  return {transport: "websocket", url: "wss://chat.example.com/room", state: {}};
+},
+liveChatEvent(state, event) {
+  return {state, connected: true, messages: [
+    {id: "message-id", text: "message", author: "author", isHistory: false}
+  ], send: []};
+}
+```

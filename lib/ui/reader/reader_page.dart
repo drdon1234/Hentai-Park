@@ -9,6 +9,7 @@ import 'package:gal/gal.dart';
 import 'package:path/path.dart' as p;
 import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
 
+import '../../core/app_lock.dart';
 import '../../core/localization.dart';
 import '../../core/models.dart';
 import '../../core/platform_capabilities.dart';
@@ -27,6 +28,7 @@ import '../widgets/platform_share.dart';
 import 'device_session.dart';
 import 'page_preloader.dart';
 import 'reader_image.dart';
+import 'reader_input_policy.dart';
 import 'reader_layout.dart';
 import 'reader_settings_sheet.dart';
 import 'reader_views.dart';
@@ -42,10 +44,12 @@ class ReaderPage extends StatefulWidget {
     required this.work,
     this.chapter,
     this.startPage = 0,
+    this.downloadedOnly = false,
   });
   final WorkDetail work;
   final Chapter? chapter;
   final int startPage;
+  final bool downloadedOnly;
 
   @override
   State<ReaderPage> createState() => _ReaderPageState();
@@ -106,20 +110,22 @@ abstract class _ReaderBase extends State<ReaderPage> {
 class _ReaderPageState extends _ReaderBase
     with WidgetsBindingObserver, _ReaderNavigation, _ReaderInput, _ReaderViews {
   late final _device = ReaderDeviceSession(
-    onVolume: (d) => d > 0 ? _next() : _prev(),
+    onVolume: (d) {
+      if (mounted && readerInputAvailable(context)) d > 0 ? _next() : _prev();
+    },
   );
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    AppLock.instance.addListener(_configureDevice);
     _load(startPage: widget.startPage);
     _positions.itemPositions.addListener(_onScroll);
     _zoom.addListener(() {
       final z = _zoom.value.getMaxScaleOnAxis() > 1.01;
       if (z != _zoomed) setState(() => _zoomed = z);
     });
-    _configureDevice();
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
     _watched.addListener(_onSettings);
     // Mihon remembers the reading mode per series.
@@ -131,11 +137,18 @@ class _ReaderPageState extends _ReaderBase
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _configureDevice();
+  }
+
+  @override
   void dispose() {
     _loadGeneration++;
     _preloader.clear();
     _request?.cancel();
     WidgetsBinding.instance.removeObserver(this);
+    AppLock.instance.removeListener(_configureDevice);
     _saveProgress();
     _saveTimer?.cancel();
     _device.dispose();
@@ -152,6 +165,7 @@ class _ReaderPageState extends _ReaderBase
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
+    _configureDevice();
     if (state == AppLifecycleState.resumed) return;
     _saveTimer?.cancel();
     _saveProgress();
@@ -167,8 +181,9 @@ class _ReaderPageState extends _ReaderBase
 
   void _configureDevice() {
     _device.synchronize(
+      active: readerInputAvailable(context),
       keepScreenOn: _settings.keepScreenOn,
-      volumeKeys: _settings.volumeKeyPaging,
+      volumeKeys: _settings.volumeKeyPaging && readerInputAvailable(context),
       orientation: _settings.readerOrientation,
     );
   }
@@ -194,6 +209,9 @@ class _ReaderPageState extends _ReaderBase
       );
       if (!mounted || generation != _loadGeneration) return;
       final offline = pages != null;
+      if (pages == null && widget.downloadedOnly) {
+        throw SourceError('NOT_FOUND', '本地文件已被删除');
+      }
       pages ??= (await SourceManager.instance.chapter(
         _source,
         widget.work.id,
@@ -278,8 +296,9 @@ class _ReaderPageState extends _ReaderBase
                 onSelected: _setMode,
                 itemBuilder: (_) => [
                   for (final m in ReaderMode.values)
-                    PopupMenuItem(
+                    SelectionPopupMenuItem(
                       value: m,
+                      selected: m == _mode,
                       child: SelectionContainer.disabled(
                         child: Row(
                           children: [

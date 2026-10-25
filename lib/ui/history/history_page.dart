@@ -11,6 +11,7 @@ import '../nav.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
 import '../widgets/content_translation.dart';
+import '../widgets/cover_tile.dart';
 import 'history_scope_selector.dart';
 
 /// Reading / watching history grouped by day, with search, swipe-to-delete and a resume button.
@@ -112,6 +113,7 @@ class _HistoryPageState extends State<HistoryPage> {
         listenable: Listenable.merge([
           Library.instance.collection(LibraryCollection.history),
           AppSettings.instance.watch(const {'domainOrder'}),
+          AppSettings.instance.watch(const {'historyDisplay'}),
           SourceManager.instance,
         ]),
         builder: (context, _) {
@@ -184,6 +186,22 @@ class _HistoryPageState extends State<HistoryPage> {
                           : () => setState(() => _selecting = true),
                     ),
                     IconButton(
+                      tooltip: tr(
+                        AppSettings.instance.historyDisplay == 'grid'
+                            ? '切换为列表'
+                            : '切换为网格',
+                      ),
+                      icon: Icon(
+                        AppSettings.instance.historyDisplay == 'grid'
+                            ? Icons.view_list_rounded
+                            : Icons.grid_view_rounded,
+                      ),
+                      onPressed: () => AppSettings.instance.historyDisplay =
+                          AppSettings.instance.historyDisplay == 'grid'
+                          ? 'list'
+                          : 'grid',
+                    ),
+                    IconButton(
                       tooltip: _searching ? tr('关闭搜索') : tr('搜索'),
                       icon: Icon(
                         _searching ? Icons.close_rounded : Icons.search_rounded,
@@ -223,6 +241,8 @@ class _HistoryPageState extends State<HistoryPage> {
                           message: q.isEmpty ? tr('看过的作品会按日期出现在这里') : null,
                         ),
                       )
+                    else if (AppSettings.instance.historyDisplay == 'grid')
+                      _grid(context, list)
                     else
                       _list(context, list),
                     const SliverToBoxAdapter(child: SizedBox(height: Gap.xl)),
@@ -291,6 +311,39 @@ class _HistoryPageState extends State<HistoryPage> {
       rows.add(_tile(context, h));
     }
     return SliverList.list(children: rows);
+  }
+
+  Widget _grid(BuildContext context, List<HistoryEntry> list) {
+    return SliverLayoutBuilder(
+      builder: (context, constraints) {
+        final cols = gridColumnsFor(constraints.crossAxisExtent);
+        final width =
+            (constraints.crossAxisExtent - Gap.page * 2 - (cols - 1) * Gap.m) /
+            cols;
+        return SliverPadding(
+          padding: const EdgeInsets.symmetric(horizontal: Gap.page),
+          sliver: SliverGrid(
+            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: cols,
+              crossAxisSpacing: Gap.m,
+              mainAxisSpacing: Gap.l,
+              mainAxisExtent: width / 0.7 + cardTextExtent(context),
+            ),
+            delegate: SliverChildBuilderDelegate((context, index) {
+              final h = list[index];
+              return CoverTile(
+                item: h.item,
+                aspect: 0.7,
+                showSource: true,
+                onTap: () => _selecting ? _toggleSelected(h.uid) : _resume(h),
+                onLongPress: () => _toggleSelected(h.uid),
+                selected: _selected.contains(h.uid),
+              );
+            }, childCount: list.length),
+          ),
+        );
+      },
+    );
   }
 
   Widget _tile(BuildContext context, HistoryEntry h) {

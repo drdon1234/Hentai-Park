@@ -9,8 +9,12 @@ import 'package:wakelock_plus/wakelock_plus.dart';
 
 import '../../core/app_lock.dart';
 import '../../core/app_log.dart';
+import '../../core/danmaku.dart';
 import '../../core/localization.dart';
 import '../../core/models.dart';
+import '../../core/settings.dart';
+import '../../engine/live_chat.dart';
+import '../../engine/live_chat_protocol.dart';
 import '../../engine/platform_bridge.dart';
 import '../../engine/source_manager.dart';
 import '../kit/adaptive_sheet.dart';
@@ -19,7 +23,9 @@ import '../nav.dart';
 import '../theme.dart';
 import '../web/web_video_page.dart';
 import '../widgets/content_translation.dart';
+import 'live_chat_overlay.dart';
 import 'live_recording_button.dart';
+import 'temporary_playback_speed.dart';
 import 'video_controls.dart';
 import 'video_episode_sheet.dart';
 import 'video_gestures.dart';
@@ -39,6 +45,7 @@ class VideoPage extends StatefulWidget {
     this.localFile,
     this.recordHistory = true,
     this.fetchDetails = false,
+    this.downloadedOnly = false,
   });
   final WorkDetail work;
   final String? episodeId;
@@ -49,6 +56,7 @@ class VideoPage extends StatefulWidget {
   /// [work] was rebuilt from stored data (resuming from history or the shelf), so the site's
   /// detail is loaded for the panel below the player: metadata, series and related videos.
   final bool fetchDetails;
+  final bool downloadedOnly;
 
   @override
   State<VideoPage> createState() => _VideoPageState();
@@ -63,10 +71,14 @@ class _VideoPageState extends State<VideoPage>
     initialSources: widget.initialSources,
     localFile: widget.localFile,
     recordHistory: widget.recordHistory,
+    downloadedOnly: widget.downloadedOnly,
   );
   late final PageController _episodePages;
   WorkDetail? _details;
   bool _controls = true;
+  int _openPanels = 0;
+  bool _menuOpen = false;
+  bool _interacting = false;
   VideoDisplayMode _displayMode = VideoDisplayMode.inline;
   StreamSubscription<double>? _volumeSub;
   Future<void> _screenUpdates = Future.value();
@@ -74,6 +86,10 @@ class _VideoPageState extends State<VideoPage>
   bool _webFallbackScheduled = false;
   double _unmutedVolume = 1;
   ModalRoute<dynamic>? _route;
+  LiveChatSession? _liveChat;
+  bool _chatEnabled = true;
+  TemporaryPlaybackSpeed? _temporarySpeed;
+  Future<void> _speedUpdates = Future.value();
 
   List<Chapter> get _episodes => _session.episodes;
   int get _episodeIndex => _session.episodeIndex;
@@ -97,7 +113,10 @@ class _VideoPageState extends State<VideoPage>
     });
     unawaited(_readLevels());
     _session.init();
-    if (widget.fetchDetails) unawaited(_loadDetails());
+    _syncLiveChat();
+    if (widget.fetchDetails && !widget.downloadedOnly) {
+      unawaited(_loadDetails());
+    }
   }
 
   Future<void> _loadDetails() async {
@@ -125,7 +144,8 @@ class _VideoPageState extends State<VideoPage>
     Nav.routeObserver.unsubscribe(this);
     _route = route;
     _session.visible = route?.isCurrent ?? true;
-    if (route != null) Nav.routeObserver.subscribe(this, route);
+    _syncLiveChat();
+    if (route is PageRoute<dynamic>) Nav.routeObserver.subscribe(this, route);
     unawaited(_session.syncPlayback());
   }
 
@@ -140,11 +160,13 @@ class _VideoPageState extends State<VideoPage>
 
   void _setRouteVisible(bool visible) {
     _session.visible = visible;
+    _syncLiveChat();
     if (visible) {
       unawaited(_readLevels());
       unawaited(_updateScreen(_displayMode));
       _scheduleHide();
     } else {
+      _endTemporarySpeed();
       _session.savePosition();
       _cancelGesture();
       _hide?.cancel();
@@ -154,6 +176,8 @@ class _VideoPageState extends State<VideoPage>
 
   @override
   void dispose() {
+    _endTemporarySpeed();
+    _liveChat?.dispose();
     Nav.routeObserver.unsubscribe(this);
     _detailsRequest.cancel('video page closed');
     _episodePages.dispose();
@@ -173,8 +197,10 @@ class _VideoPageState extends State<VideoPage>
 
   void _onSession() {
     if (!mounted) return;
+    _syncLiveChat();
     final manifest = SourceManager.instance.manifest(widget.work.source);
     if (widget.localFile == null &&
+        !widget.downloadedOnly &&
         !_webFallbackScheduled &&
         manifest?.shouldFallbackToWebVideo(_session.error) == true) {
       _webFallbackScheduled = true;
@@ -209,22 +235,28 @@ class _VideoPageState extends State<VideoPage>
 
   /// The player is about to be replaced: drop gestures and show the controls.
   void _onInterrupt() {
+    _interacting = false;
     _hide?.cancel();
     _cancelGesture();
     _controls = true;
   }
 
   @override
-  void didChangeMetrics() => _cancelGesture();
+  void didChangeMetrics() {
+    _endTemporarySpeed();
+    _cancelGesture();
+  }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     _session.foreground = state == AppLifecycleState.resumed;
+    _syncLiveChat();
     if (state == AppLifecycleState.resumed) {
       unawaited(_readLevels());
       _updateScreen(_displayMode);
     } else if (state == AppLifecycleState.paused ||
         state == AppLifecycleState.inactive) {
+      _endTemporarySpeed();
       _session.savePosition();
       _cancelGesture();
       PlatformBridge.resetVideoBrightness();
@@ -234,14 +266,63 @@ class _VideoPageState extends State<VideoPage>
   }
 
   void _onLockChanged() {
-    if (AppLock.instance.locked) _cancelGesture();
+    _syncLiveChat();
+    if (AppLock.instance.locked) {
+      _endTemporarySpeed();
+      _cancelGesture();
+    }
     _session.syncPlayback();
+  }
+
+  void _syncLiveChat() {
+    final manifest = SourceManager.instance.manifest(widget.work.source);
+    final supported = _session.isLive && manifest?.can('liveChat') == true;
+    if (!supported) {
+      _liveChat?.dispose();
+      _liveChat = null;
+      return;
+    }
+    _liveChat ??= LiveChatSession(
+      source: widget.work.source,
+      room: widget.work.id,
+      domains: liveChatDomains(manifest!.json),
+    );
+    _liveChat!.setActive(
+      _chatEnabled &&
+          _session.foreground &&
+          _session.visible &&
+          !AppLock.instance.locked &&
+          _session.error == null,
+    );
+  }
+
+  void _toggleChat() {
+    setState(() => _chatEnabled = !_chatEnabled);
+    _syncLiveChat();
+  }
+
+  Future<void> _pickChatArea() async {
+    _hide?.cancel();
+    final picked = await _withVisibleControls(
+      () => showChoiceSheet<DanmakuArea>(
+        context,
+        title: tr('弹幕显示区域'),
+        options: DanmakuArea.values,
+        selected: AppSettings.instance.danmakuArea,
+        label: (area) => area.label,
+      ),
+    );
+    if (!mounted) return;
+    if (picked != null) {
+      setState(() => AppSettings.instance.danmakuArea = picked);
+    }
+    _scheduleHide();
   }
 
   @override
   void _scheduleHide() {
     _hide?.cancel();
-    if (!mounted) return;
+    if (!mounted || _openPanels > 0 || _menuOpen || _interacting) return;
     _hide = Timer(const Duration(seconds: 3), () {
       if (mounted &&
           _gesture == null &&
@@ -250,6 +331,17 @@ class _VideoPageState extends State<VideoPage>
         setState(() => _controls = false);
       }
     });
+  }
+
+  Future<T?> _withVisibleControls<T>(Future<T?> Function() show) async {
+    _openPanels++;
+    _hide?.cancel();
+    try {
+      return await show();
+    } finally {
+      _openPanels--;
+      if (mounted) _scheduleHide();
+    }
   }
 
   void _toggleControls() {
@@ -312,6 +404,7 @@ class _VideoPageState extends State<VideoPage>
   );
 
   Future<void> _setDisplayMode(VideoDisplayMode mode) async {
+    _interacting = false;
     _cancelGesture();
     setState(() {
       _displayMode = mode;
@@ -340,12 +433,14 @@ class _VideoPageState extends State<VideoPage>
     if (session.sources.length < 2) return;
     final episode = session.episode;
     final generation = session.generation;
-    final picked = await showChoiceSheet<VideoSource>(
-      context,
-      title: tr('清晰度'),
-      options: session.sources,
-      selected: session.current,
-      label: (s) => s.label,
+    final picked = await _withVisibleControls(
+      () => showChoiceSheet<VideoSource>(
+        context,
+        title: tr('清晰度'),
+        options: session.sources,
+        selected: session.current,
+        label: (s) => s.label,
+      ),
     );
     if (mounted &&
         episode == session.episode &&
@@ -358,11 +453,15 @@ class _VideoPageState extends State<VideoPage>
 
   Future<void> _pickEpisode() async {
     _hide?.cancel();
-    final picked = await showAdaptiveSheet<Chapter>(
-      context: context,
-      isScrollControlled: true,
-      builder: (_) =>
-          VideoEpisodeSheet(work: widget.work, currentId: _session.episode.id),
+    final picked = await _withVisibleControls(
+      () => showAdaptiveSheet<Chapter>(
+        context: context,
+        isScrollControlled: true,
+        builder: (_) => VideoEpisodeSheet(
+          work: widget.work,
+          currentId: _session.episode.id,
+        ),
+      ),
     );
     if (!mounted) return;
     if (picked != null && picked.id != _session.episode.id) {
@@ -373,15 +472,35 @@ class _VideoPageState extends State<VideoPage>
 
   Future<void> _pickSpeed() async {
     _hide?.cancel();
-    final picked = await showChoiceSheet<double>(
-      context,
-      title: tr('播放速度'),
-      options: const [0.5, 0.75, 1.0, 1.25, 1.5, 2.0],
-      selected: _session.speed,
-      label: (s) => '${s}x',
+    final picked = await _withVisibleControls(
+      () => showChoiceSheet<double>(
+        context,
+        title: tr('播放速度'),
+        options: const [0.5, 0.75, 1.0, 1.25, 1.5, 2.0],
+        selected: _session.speed,
+        label: (s) => '${s}x',
+      ),
     );
     if (mounted && picked != null) await _session.setSpeed(picked);
     if (mounted) _scheduleHide();
+  }
+
+  void _queueSpeed(double speed) {
+    _speedUpdates = _speedUpdates.then((_) => _session.setSpeed(speed));
+  }
+
+  void _startTemporarySpeed() {
+    if (_session.isLive || _temporarySpeed != null) return;
+    final temporary = TemporaryPlaybackSpeed(_session.speed);
+    _temporarySpeed = temporary;
+    _queueSpeed(temporary.press());
+  }
+
+  void _endTemporarySpeed() {
+    final temporary = _temporarySpeed;
+    if (temporary == null) return;
+    _temporarySpeed = null;
+    _queueSpeed(temporary.release());
   }
 
   Widget _episodeBar({bool overlay = false}) => VideoEpisodeBar(
@@ -400,6 +519,10 @@ class _VideoPageState extends State<VideoPage>
       VideoControls(
         progress: _session.isLive ? null : progress,
         live: _session.isLive,
+        chatEnabled: _chatEnabled,
+        onToggleChat: _liveChat == null ? null : _toggleChat,
+        chatAreaLabel: AppSettings.instance.danmakuArea.label,
+        onChatArea: _liveChat == null ? null : _pickChatArea,
         recordingAction: _session.isLive && _fullscreen
             ? LiveRecordingButton(
                 item: widget.work.toItem(),
@@ -423,6 +546,7 @@ class _VideoPageState extends State<VideoPage>
             ? () => _session.selectEpisode(_episodes[_episodeIndex + 1])
             : null,
         onInteractionChanged: (active) {
+          _menuOpen = active;
           if (active) {
             _hide?.cancel();
           } else {
@@ -447,9 +571,22 @@ class _VideoPageState extends State<VideoPage>
       onExitFullscreen: () {
         if (_fullscreen) _toggleFullscreen();
       },
+      onTemporarySpeedStart: _startTemporarySpeed,
+      onTemporarySpeedEnd: _endTemporarySpeed,
       child: MouseRegion(
         onHover: (_) => _showControls(),
         child: VideoStage(
+          liveChat: _chatEnabled && _liveChat != null
+              ? LiveChatOverlay(
+                  session: _liveChat!,
+                  area: AppSettings.instance.danmakuArea,
+                  vpnHint:
+                      SourceManager.instance
+                          .manifest(widget.work.source)
+                          ?.network['vpnHint'] ==
+                      true,
+                )
+              : null,
           session: _session,
           fullscreen: _fullscreen,
           controlsVisible: _controls,
@@ -461,6 +598,9 @@ class _VideoPageState extends State<VideoPage>
           onTap: _toggleControls,
           onMouseTap: _showControls,
           onDoubleTap: _togglePlayback,
+          onLongPressStart: _startTemporarySpeed,
+          onLongPressEnd: _endTemporarySpeed,
+          onLongPressCancel: _endTemporarySpeed,
           onGestureStart: _startGesture,
           onGestureUpdate: _updateGesture,
           onGestureEnd: _endGesture,
@@ -469,8 +609,14 @@ class _VideoPageState extends State<VideoPage>
             _hide?.cancel();
             setState(() => _controls = true);
           },
-          onInteract: () => _hide?.cancel(),
-          onIdle: _scheduleHide,
+          onInteract: () {
+            _interacting = true;
+            _hide?.cancel();
+          },
+          onIdle: () {
+            _interacting = false;
+            _scheduleHide();
+          },
           onEpisodePage: (index) {
             if (_episodes[index] != _session.episode) {
               _session.selectEpisode(_episodes[index]);
@@ -504,15 +650,19 @@ class _VideoPageState extends State<VideoPage>
         child: VideoLayout(
           player: player,
           header: VideoDetails(
+            episodeId: _session.episode.id,
             work: _details ?? widget.work,
-            offline: _session.offline,
+            offline: widget.downloadedOnly || _session.offline,
             quality: _session.current?.label,
             showRelated: false,
           ),
           sidebar: _episodes.length > 1 ? _episodeBar() : null,
           details: VideoDetails(
+            episodeId: _session.episode.id,
             work: _details ?? widget.work,
             showHeader: false,
+            offline: widget.downloadedOnly || _session.offline,
+            showRelated: !widget.downloadedOnly,
           ),
         ),
       ),

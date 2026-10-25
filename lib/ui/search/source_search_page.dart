@@ -5,10 +5,14 @@ import '../../core/localization.dart';
 import '../../core/models.dart';
 import '../../core/settings.dart';
 import '../../engine/source_manager.dart';
+import '../album/open_album.dart';
 import '../kit/adaptive_sheet.dart';
 import '../nav.dart';
+import '../short_video/post_video_feed.dart';
+import '../short_video/short_video_page.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
+import '../widgets/common_filters.dart';
 import '../widgets/content_translation.dart';
 import '../widgets/filter_controller.dart';
 import '../widgets/paged_grid.dart';
@@ -23,6 +27,7 @@ class SourceSearchPage extends StatefulWidget {
     required this.sourceKey,
     this.initialKeyword = '',
     this.initialFilters,
+    this.initialCommon,
     this.initialMulti,
     this.sourceManager,
     this.searchOnlyEntry = false,
@@ -30,6 +35,7 @@ class SourceSearchPage extends StatefulWidget {
   final String sourceKey;
   final String initialKeyword;
   final Map<String, Object?>? initialFilters;
+  final Map<String, Object?>? initialCommon;
   final SourceManager? sourceManager;
   final bool searchOnlyEntry;
 
@@ -48,6 +54,8 @@ class _SourceSearchPageState extends State<SourceSearchPage> {
     ..._m.defaultFilters(),
     ...?widget.initialFilters,
   };
+  late Map<String, Object?> _commonFilters =
+      Map<String, Object?>.from(widget.initialCommon ?? const {});
   late String _filterKeyword = widget.initialKeyword.trim();
   late final PagedController _controller = PagedController(
     _load,
@@ -67,9 +75,18 @@ class _SourceSearchPageState extends State<SourceSearchPage> {
   void _translationChanged() => setState(() {});
   String _submitted = '';
   Map<String, Object?> _submittedFilters = const {};
+  Map<String, Object?> _submittedCommon = const {};
   int _searchGeneration = 0;
   MultiKeyword? _multi;
   MultiKeywordSearch? _multiSearch;
+
+  PostVideoScope get _postScope => PostVideoScope(
+    source: widget.sourceKey,
+    title: _submitted,
+    keyword: _submitted,
+    filters: Map.of(_submittedFilters),
+    common: Map.of(_submittedCommon),
+  );
 
   @override
   void initState() {
@@ -82,7 +99,8 @@ class _SourceSearchPageState extends State<SourceSearchPage> {
         if (mounted) _search(keepMulti: true);
       });
     } else if (widget.initialKeyword.isNotEmpty ||
-        (widget.initialFilters?.isNotEmpty ?? false)) {
+        (widget.initialFilters?.isNotEmpty ?? false) ||
+        (widget.initialCommon?.isNotEmpty ?? false)) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) _search();
       });
@@ -141,6 +159,7 @@ class _SourceSearchPageState extends State<SourceSearchPage> {
         widget.sourceKey,
         _multi!.all,
         _submittedFilters,
+        common: _submittedCommon,
         sourceManager: _sources,
       );
     }
@@ -152,6 +171,7 @@ class _SourceSearchPageState extends State<SourceSearchPage> {
       page: page,
       cursor: cursor,
       filters: _submittedFilters,
+      common: _submittedCommon,
     );
   }
 
@@ -181,6 +201,10 @@ class _SourceSearchPageState extends State<SourceSearchPage> {
             ? List.unmodifiable(entry.value as List)
             : entry.value,
     });
+    _submittedCommon = normalizeCommonFilters(
+      _m.searchCommonFilters,
+      _commonFilters,
+    );
     if (k.isNotEmpty) {
       AppSettings.instance.addSearchHistory(
         k,
@@ -195,6 +219,7 @@ class _SourceSearchPageState extends State<SourceSearchPage> {
             widget.sourceKey,
             _multi!.all,
             _submittedFilters,
+            common: _submittedCommon,
             sourceManager: _sources,
           );
     setState(() => _started = true);
@@ -223,28 +248,33 @@ class _SourceSearchPageState extends State<SourceSearchPage> {
 
   int get _activeFilters {
     final defaults = _m.defaultFilters();
-    return _filters.entries.where((e) {
+    final native = _filters.entries.where((e) {
       final d = defaults[e.key];
       if (e.value is List) return (e.value as List).isNotEmpty;
       return e.value != d && !(e.value == null && d == null);
     }).length;
+    return native + (_commonFilters.isEmpty ? 0 : 1);
   }
 
   Future<void> _openFilters() async {
     final keyword = _text.text.trim();
     _syncFilterKeyword(keyword);
-    final result = await showAdaptiveSheet<Map<String, Object?>>(
+    final result = await showAdaptiveSheet<FilterSheetResult>(
       context: context,
       isScrollControlled: true,
       builder: (_) => FilterSheet(
         manifest: _m,
         values: _filters,
+        commonValues: _commonFilters,
         sourceManager: _sources,
         keyword: keyword,
       ),
     );
     if (mounted && result != null && _text.text.trim() == keyword) {
-      setState(() => _filters = result);
+      setState(() {
+        _filters = result.filters;
+        _commonFilters = result.common;
+      });
       _search(keepMulti: true);
     }
   }
@@ -347,7 +377,41 @@ class _SourceSearchPageState extends State<SourceSearchPage> {
                         spacing: Gap.s,
                         crossAxisAlignment: WrapCrossAlignment.center,
                         children: [
-                          if (_m.searchFilters.isNotEmpty)
+                          if (_started && _multi == null && _m.can('album'))
+                            OutlinedButton.icon(
+                              icon: const Icon(Icons.photo_library_outlined),
+                              label: Text(tr('相册')),
+                              onPressed: () => openMediaAlbum(
+                                context,
+                                source: widget.sourceKey,
+                                title: _submitted,
+                                sources: _sources,
+                                scope: {
+                                  'search': {
+                                    'keyword': _submitted,
+                                    'filters': Map.of(_submittedFilters),
+                                  'common': Map.of(_submittedCommon),
+                                  },
+                                },
+                              ),
+                            ),
+                          if (_started &&
+                              _multi == null &&
+                              (_m.json['postShortVideos'] == true ||
+                                  _m.kind == MediaKind.video))
+                            OutlinedButton.icon(
+                              icon: const Icon(Icons.smart_display_outlined),
+                              label: Text(tr('短视频模式')),
+                              onPressed: () => Nav.push(
+                                context,
+                                ShortVideoPage(
+                                  source: widget.sourceKey,
+                                  sequence: _controller.sequence(),
+                                ),
+                              ),
+                            ),
+                          if (_m.searchFilters.isNotEmpty ||
+                              _m.searchCommonFilters.isNotEmpty)
                             Badge(
                               isLabelVisible: _activeFilters > 0,
                               label: Text('$_activeFilters'),
@@ -440,12 +504,16 @@ class _SourceSearchPageState extends State<SourceSearchPage> {
                                   child: _ActiveFilters(
                                     manifest: _m,
                                     values: _filters,
+                                    commonValues: _commonFilters,
                                     onTap: _openFilters,
                                   ),
                                 ),
-                              PagedSliverGrid(
-                                controller: _controller,
-                                kind: _m.kind,
+                              PostVideoContext(
+                                scope: _postScope,
+                                child: PagedSliverGrid(
+                                  controller: _controller,
+                                  kind: _m.kind,
+                                ),
                               ),
                             ],
                           ),
@@ -528,10 +596,12 @@ class _ActiveFilters extends StatelessWidget {
   const _ActiveFilters({
     required this.manifest,
     required this.values,
+    this.commonValues = const {},
     required this.onTap,
   });
   final SourceManifest manifest;
   final Map<String, Object?> values;
+  final Map<String, Object?> commonValues;
   final VoidCallback onTap;
 
   @override
@@ -556,6 +626,7 @@ class _ActiveFilters extends StatelessWidget {
         chips.add(tr('标签：{tags}', {'tags': (e.value as List).join(tr('、'))}));
       }
     }
+    if (commonValues.isNotEmpty) chips.add(tr('通用筛选'));
     return SizedBox(
       height: 44,
       child: ListView(
@@ -583,16 +654,24 @@ class FilterSheet extends StatefulWidget {
     super.key,
     required this.manifest,
     required this.values,
+    required this.commonValues,
     required this.sourceManager,
     required this.keyword,
   });
   final SourceManifest manifest;
   final Map<String, Object?> values;
+  final Map<String, Object?> commonValues;
   final SourceManager sourceManager;
   final String keyword;
 
   @override
   State<FilterSheet> createState() => _FilterSheetState();
+}
+
+class FilterSheetResult {
+  const FilterSheetResult({required this.filters, required this.common});
+  final Map<String, Object?> filters;
+  final Map<String, Object?> common;
 }
 
 class _FilterSheetState extends State<FilterSheet> {
@@ -610,6 +689,18 @@ class _FilterSheetState extends State<FilterSheet> {
       cancelToken: token,
     ),
   );
+  late Map<String, Object?> _commonValues = widget.commonValues;
+  bool _commonValid = true;
+  int _commonRevision = 0;
+
+  void _reset() {
+    _filters.reset();
+    setState(() {
+      _commonValues = const {};
+      _commonValid = true;
+      _commonRevision++;
+    });
+  }
 
   @override
   void initState() {
@@ -659,7 +750,7 @@ class _FilterSheetState extends State<FilterSheet> {
                   ),
                   const Spacer(),
                   OutlinedButton(
-                    onPressed: _filters.reset,
+                    onPressed: _reset,
                     child: SelectionContainer.disabled(child: Text(tr('重置'))),
                   ),
                 ],
@@ -670,6 +761,27 @@ class _FilterSheetState extends State<FilterSheet> {
                 controller: scroll,
                 padding: const EdgeInsets.symmetric(horizontal: Gap.page),
                 children: [
+                  if (widget.manifest.searchCommonFilters.isNotEmpty) ...[
+                    Padding(
+                      padding: const EdgeInsets.only(top: Gap.m),
+                      child: Text(
+                        tr('通用筛选'),
+                        style: context.text.titleSmall?.copyWith(
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                    CommonFilterFields(
+                      key: ValueKey(_commonRevision),
+                      definitions: widget.manifest.searchCommonFilters,
+                      initialValues: _commonValues,
+                      onChanged: (values, valid) => setState(() {
+                        _commonValues = values;
+                        _commonValid = valid;
+                      }),
+                    ),
+                    const SizedBox(height: Gap.m),
+                  ],
                   for (final f in widget.manifest.searchFilters) ...[
                     IgnorePointer(
                       ignoring: !_filters.isEnabled(f.key),
@@ -797,8 +909,18 @@ class _FilterSheetState extends State<FilterSheet> {
                 child: SizedBox(
                   width: double.infinity,
                   child: FilledButton(
-                    onPressed: () => Navigator.pop(context, _filters.values),
-                    child: SelectionContainer.disabled(child: Text(tr('应用筛选'))),
+                    onPressed: _commonValid
+                        ? () => Navigator.pop(
+                            context,
+                            FilterSheetResult(
+                              filters: _filters.values,
+                              common: _commonValues,
+                            ),
+                          )
+                        : null,
+                    child: SelectionContainer.disabled(
+                      child: Text(tr('应用筛选')),
+                    ),
                   ),
                 ),
               ),

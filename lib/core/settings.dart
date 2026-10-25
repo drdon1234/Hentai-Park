@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'block_rule.dart';
 import 'content_scope.dart';
+import 'danmaku.dart';
 import 'diagnostic_entry.dart';
 import 'localization.dart';
 import 'models.dart';
@@ -92,6 +93,7 @@ enum SettingsDomain {
     'novelVolumeKeys',
   }),
   shortVideo({'shortVideoPreloadCount', 'shortVideoRetainedCount'}),
+  video({'danmakuArea'}),
   network({
     'dataSavingMode',
     'proxy',
@@ -117,6 +119,8 @@ enum SettingsDomain {
     'librarySort',
     'librarySortAsc',
     'libraryDisplay',
+    'historyDisplay',
+    'downloadDisplay',
     'libraryFilterDownloaded',
     'libraryFilterUnread',
     'libraryFilterSources',
@@ -193,7 +197,11 @@ class AppSettings extends ChangeNotifier {
 
   Future<void> load() async {
     final data = await _store.load();
-    _v = data is Map ? data.cast<String, dynamic>() : {};
+    final loaded = data is Map
+        ? data.cast<String, dynamic>()
+        : <String, dynamic>{};
+    _v = _migrateLibrarySort(loaded);
+    final migratedOnLoad = !identical(_v, loaded);
     _freshInstall = _v.isEmpty;
     final invalidKeys = <String>[];
     for (final e in _v.entries) {
@@ -218,11 +226,17 @@ class AppSettings extends ChangeNotifier {
       await _store.flush();
     }
     final migrated = _migrateGalleryPreferences(_migrateSearchHistory(_v));
-    if (!identical(migrated, _v)) {
+    if (migratedOnLoad || !identical(migrated, _v)) {
       _store.save(migrated);
       await _store.flush();
       _v = migrated;
     }
+  }
+
+  /// “未读数”曾是书架排序项，移除后保留用户的书架可用性。
+  static Map<String, dynamic> _migrateLibrarySort(Map<String, dynamic> values) {
+    if (values['librarySort'] != 'unread') return values;
+    return {...values, 'librarySort': 'added'};
   }
 
   /// 拆分美图时保留兴趣选择和手动排序，并在原位置插入新域。
@@ -508,6 +522,12 @@ class AppSettings extends ChangeNotifier {
 
   int get shortVideoRetainedCount => _get('shortVideoRetainedCount', 2);
   set shortVideoRetainedCount(int v) => _set('shortVideoRetainedCount', v);
+
+  DanmakuArea get danmakuArea => DanmakuArea.values.firstWhere(
+    (area) => area.name == _v['danmakuArea'],
+    orElse: () => DanmakuArea.topHalf,
+  );
+  set danmakuArea(DanmakuArea area) => _set('danmakuArea', area.name);
 
   bool get keepScreenOn => _get('keepScreenOn', true);
   set keepScreenOn(bool v) => _set('keepScreenOn', v);
@@ -1000,7 +1020,7 @@ class AppSettings extends ChangeNotifier {
   bool get askCategoryOnFavorite => _get('askCategoryOnFavorite', false);
   set askCategoryOnFavorite(bool v) => _set('askCategoryOnFavorite', v);
 
-  /// added | read | title | updated | unread
+  /// added | read | title | updated
   String get librarySort => _get('librarySort', 'added');
   set librarySort(String v) => _set('librarySort', v);
 
@@ -1010,6 +1030,13 @@ class AppSettings extends ChangeNotifier {
   /// grid | list
   String get libraryDisplay => _get('libraryDisplay', 'grid');
   set libraryDisplay(String v) => _set('libraryDisplay', v);
+
+  /// grid | list; stored independently because history and downloads have different defaults.
+  String get historyDisplay => _get('historyDisplay', 'list');
+  set historyDisplay(String v) => _set('historyDisplay', v);
+
+  String get downloadDisplay => _get('downloadDisplay', 'list');
+  set downloadDisplay(String v) => _set('downloadDisplay', v);
 
   bool get libraryFilterDownloaded => _get('libraryFilterDownloaded', false);
   set libraryFilterDownloaded(bool v) => _set('libraryFilterDownloaded', v);

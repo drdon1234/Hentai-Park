@@ -102,7 +102,7 @@ Park.register({
   "key": "soop_shortvideo",
   "name": "SOOP 短视频",
   "description": "韩国性感舞蹈与比基尼短视频，按原站标签筛选",
-  "version": '0.0.5', minAppVersion: '0.9.2',
+  "version": '0.0.6', minAppVersion: '0.9.2',
   "type": "video",
   "category": "shortvideo",
   "FILE_TYPE": "CATCH"
@@ -212,6 +212,37 @@ Park.register({
     if (new Set(parts.map(x => x.id)).size !== parts.length || new Set(parts.map(x => x.order)).size !== parts.length) throw Park.error('PARSE', '视频数据无效');
     if (this.FILE_TYPE === 'CATCH' && parts.length !== 1) throw Park.error('UNSUPPORTED', '视频暂不可播放');
     return parts;
+  },
+  async comments(value, req = {}) {
+    const id = this.validId(value), page = Math.max(1, Math.floor(Number(req.page) || 1));
+    if (req.parentId || (req.sort && req.sort !== 'default')) throw Park.error('UNSUPPORTED', '评论暂不支持此操作');
+    let previous = [];
+    if (req.cursor) {
+      let state; try { state = JSON.parse(req.cursor); } catch (_) {}
+      if (!state || state.work !== id || state.page !== page || !Array.isArray(state.ids)) throw Park.error('CONFIG', '评论参数无效');
+      previous = state.ids;
+    }
+    const result = await this.json('https://api.m.sooplive.co.kr/station/comment/a/list', {
+      form: {nTitleNo: id, nPageNo: page, nOrderType: '1', nRowsPerPage: 20}, headers: {Referer: this.VOD + id},
+    }, true);
+    const data = result?.data;
+    if (Number(result?.result) !== 1 || !Array.isArray(data?.list) || typeof data.has_more !== 'boolean') throw Park.error('PARSE', '评论数据无效');
+    const seen = new Set(previous), items = [];
+    for (const row of data.list) {
+      const commentId = String(row.p_comment_no || '');
+      if (!/^[1-9]\d*$/.test(commentId) || seen.has(commentId)) continue;
+      const body = Park.comments.html(String(row.comment || ''), this.VOD + id);
+      const image = Park.comments.url(row.image_url, this.VOD);
+      if (image) body.push({type: 'image', url: image});
+      if (!body.length) continue;
+      seen.add(commentId);
+      items.push({id: commentId, author: {name: String(row.user_nick || ''), avatar: Park.comments.url(row.profile_img, this.VOD)},
+        body, date: row.reg_date || undefined, likes: Number(row.like_cnt) || 0, replyCount: Number(row.c_comment_cnt) || 0});
+    }
+    if (data.list.length && !items.length && !data.list.every(row => previous.includes(String(row.p_comment_no)))) throw Park.error('PARSE', '评论数据无效');
+    const hasNext = data.has_more && items.length > 0;
+    return {items, page, total: Number(data.comment_cnt) || 0, hasNext,
+      cursor: hasNext ? JSON.stringify({work: id, page: page + 1, ids: [...seen]}) : null};
   },
   async detail(value) {
     const id = this.validId(value), data = await this.metadata(id), parts = this.parts(data);

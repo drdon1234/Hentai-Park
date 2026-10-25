@@ -8,7 +8,7 @@ Park.register({
     ru: {'PopkonTV 短视频': 'PopkonTV Короткие видео', '韩国主播短视频，支持推荐、分页与 MP4 播放': 'Короткие видео корейских авторов: рекомендации, страницы и MP4', '短视频数据无效': 'Некорректные данные короткого видео', '短视频请求失败': 'Ошибка запроса короткого видео', '短视频不存在': 'Короткое видео не найдено', '短视频暂无可用播放地址': 'Нет короткого видео для воспроизведения'},
     ar: {'PopkonTV 短视频': 'PopkonTV مقاطع قصيرة', '韩国主播短视频，支持推荐、分页与 MP4 播放': 'مقاطع قصيرة لمنشئي المحتوى الكوريين مع التوصيات والصفحات وتشغيل MP4', '短视频数据无效': 'بيانات المقطع القصير غير صالحة', '短视频请求失败': 'فشل طلب المقطع القصير', '短视频不存在': 'المقطع القصير غير موجود', '短视频暂无可用播放地址': 'لا يوجد مقطع قصير متاح للتشغيل'},
   },
-  key: 'popkontv_shortvideo', name: 'PopkonTV 短视频', version: '0.0.3', minAppVersion: '0.9.2', type: 'video', category: 'shortvideo',
+  key: 'popkontv_shortvideo', name: 'PopkonTV 短视频', version: '0.0.4', minAppVersion: '0.9.2', type: 'video', category: 'shortvideo',
   color: '#F04A55', description: '韩国主播短视频，支持推荐、分页与 MP4 播放', language: 'ko',
   homepage: 'https://www.popkontv.com/', domains: ['popkontv.com'],
   network: {mode: 'native', origin: 'https://www.popkontv.com', vpnHint: true},
@@ -45,6 +45,37 @@ Park.register({
     const items = data.vodList.map(v => this.listItem(v)).filter(Boolean);
     if (data.vodList.length && !items.length) throw Park.error('PARSE', '短视频数据无效');
     return {items, page, hasNext: page * 20 < Number(data.totalCnt)};
+  },
+  async comments(value, req = {}) {
+    const work = this.validId(value), page = Math.max(1, Math.floor(Number(req.page) || 1));
+    const parent = req.parentId == null ? null : String(req.parentId);
+    if (parent && !/^[1-9]\d*$/.test(parent)) throw Park.error('CONFIG', '评论参数无效');
+    if (req.sort && req.sort !== 'default') throw Park.error('UNSUPPORTED', '评论暂不支持此操作');
+    let previous = [];
+    if (req.cursor) {
+      let state; try { state = JSON.parse(req.cursor); } catch (_) {}
+      if (!state || state.work !== work || state.parent !== parent || state.page !== page || !Array.isArray(state.ids)) throw Park.error('CONFIG', '评论参数无效');
+      previous = state.ids;
+    }
+    // 回复接口的 ref 是原评论号；列表接口在部分作品忽略页号，按总量及已见 ID 收口。
+    const data = await this.api(parent ? '/recomments' : '/comments', {idx: Number(work), pageNum: page, pageSize: 10, ...(parent ? {ref: Number(parent)} : {})});
+    const rows = parent ? data : data?.vodCommentList;
+    if (!Array.isArray(rows) || (!parent && !Number.isFinite(Number(data.totalCnt)))) throw Park.error('PARSE', '评论数据无效');
+    const seen = new Set(previous), items = [];
+    for (const row of rows) {
+      const id = String(row.pkCode || '');
+      if (!/^[1-9]\d*$/.test(id) || seen.has(id)) continue;
+      const body = Park.comments.html(String(row.ntext || ''), this.BASE);
+      if (!body.length) continue;
+      seen.add(id);
+      items.push({id, parentId: parent || undefined, author: {name: String(row.nickName || ''), avatar: Park.comments.url(row.profileImage, this.BASE)},
+        body, date: row.ago || undefined, likes: Number(row.goodCnt) || 0, replyCount: parent ? 0 : Number(row.totalCnt) || 0, repliesAvailable: !parent});
+    }
+    if (rows.length && !items.length && !rows.every(row => previous.includes(String(row.pkCode)))) throw Park.error('PARSE', '评论数据无效');
+    const total = parent ? items.length : Number(data.totalCnt);
+    // 原站回复响应为完整数组，没有经过验证的续页标记。
+    const hasNext = !parent && items.length > 0 && seen.size < total;
+    return {items, page, total, hasNext, cursor: hasNext ? JSON.stringify({work, parent, page: page + 1, ids: [...seen]}) : null};
   },
   async detail(value) {
     const id = this.validId(value), data = await this.api('/detail', {idx: Number(id)});

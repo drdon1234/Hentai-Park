@@ -10,7 +10,6 @@ import 'package:wakelock_plus/wakelock_plus.dart';
 
 import '../../core/app_lock.dart';
 import '../../core/app_log.dart';
-import '../../core/content_scope.dart';
 import '../../core/localization.dart';
 import '../../core/models.dart';
 import '../../core/platform_capabilities.dart';
@@ -20,7 +19,7 @@ import '../../engine/cancellation.dart';
 import '../../engine/source_manager.dart';
 import '../../images/park_image.dart';
 import '../../library/library.dart';
-import '../history/history_page.dart';
+import '../comments/comments_page.dart';
 import '../kit/kit.dart';
 import '../nav.dart';
 import '../settings/settings_sections.dart';
@@ -132,7 +131,8 @@ class _ShortVideoPageState extends State<ShortVideoPage>
             await awaitCancelled(sequence.load(page, cursor), _loadCancel),
           );
         }
-        if (AppSettings.instance.searchOnlySources) {
+        if (AppSettings.instance.searchOnlySources &&
+            widget.postScope == null) {
           AppLog.record({
             'event': 'content',
             'site': widget.source,
@@ -275,7 +275,7 @@ class _ShortVideoPageState extends State<ShortVideoPage>
   void didChangeDependencies() {
     super.didChangeDependencies();
     final route = ModalRoute.of(context);
-    if (!identical(route, _route) && route != null) {
+    if (!identical(route, _route) && route is PageRoute<dynamic>) {
       Nav.routeObserver.unsubscribe(this);
       _route = route;
       Nav.routeObserver.subscribe(this, route);
@@ -704,6 +704,14 @@ class _ShortVideoPageState extends State<ShortVideoPage>
                   ),
                 ),
                 const SizedBox(width: 8),
+                CommentsEntry(
+                  source: item.source,
+                  workId: item.id,
+                  available: item.commentsAvailable,
+                  compact: true,
+                  color: Colors.white,
+                  context: {'url': item.json['url']},
+                ),
                 ListenableBuilder(
                   listenable: Library.instance.work(videoPost(item).uid),
                   builder: (context, _) {
@@ -760,7 +768,10 @@ class _ShortVideoPageState extends State<ShortVideoPage>
         const SingleActivator(LogicalKeyboardKey.pageDown): () => _step(1),
         const SingleActivator(LogicalKeyboardKey.arrowUp): () => _step(-1),
         const SingleActivator(LogicalKeyboardKey.pageUp): () => _step(-1),
-        const SingleActivator(LogicalKeyboardKey.space): () =>
+        const SingleActivator(
+          LogicalKeyboardKey.space,
+          includeRepeats: false,
+        ): () =>
             unawaited(_playback.toggle()),
       },
       child: Focus(
@@ -897,12 +908,6 @@ class _ShortVideoPageState extends State<ShortVideoPage>
                                       ),
                                       itemBuilder: (context) => [
                                         PopupMenuItem(
-                                          value: 'history',
-                                          child: SelectionContainer.disabled(
-                                            child: Text(tr('浏览历史')),
-                                          ),
-                                        ),
-                                        PopupMenuItem(
                                           value: 'refresh',
                                           child: SelectionContainer.disabled(
                                             child: Text(tr('刷新')),
@@ -922,16 +927,7 @@ class _ShortVideoPageState extends State<ShortVideoPage>
                                         ),
                                       ],
                                       onSelected: (action) {
-                                        if (action == 'history') {
-                                          Nav.push(
-                                            context,
-                                            HistoryPage(
-                                              scope: ContentScope.source(
-                                                widget.source,
-                                              ),
-                                            ),
-                                          );
-                                        } else if (action == 'refresh') {
+                                        if (action == 'refresh') {
                                           _refresh();
                                         } else if (action ==
                                             'playback-settings') {

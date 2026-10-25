@@ -172,6 +172,152 @@ class Choice {
   }
 }
 
+enum CommonFilterDimension {
+  pages,
+  likes,
+  duration;
+
+  static CommonFilterDimension? fromJson(Object? value) => values
+      .where((dimension) => dimension.name == value)
+      .cast<CommonFilterDimension?>()
+      .firstOrNull;
+}
+
+/// Common range and ordering capabilities advertised by a source.
+class CommonFilterDef {
+  const CommonFilterDef(
+    this.dimension, {
+    this.minimum = false,
+    this.maximum = false,
+    this.sortOrders = const [],
+  });
+
+  final CommonFilterDimension dimension;
+  final bool minimum;
+  final bool maximum;
+  final List<String> sortOrders;
+  bool get range => minimum || maximum;
+  bool get sort => sortOrders.isNotEmpty;
+
+  static List<CommonFilterDef> parse(Object? value) {
+    if (value is! Map) return const [];
+    final result = <CommonFilterDef>[];
+    for (final dimension in CommonFilterDimension.values) {
+      final raw = value[dimension.name];
+      if (raw is! Map) continue;
+      final range = raw['range'];
+      final sort = raw['sort'];
+      final rangeList = range is List ? range : const [];
+      final rangeKeys = range == true
+          ? const {'min', 'max'}
+          : rangeList.isNotEmpty
+          ? rangeList.whereType<String>().toSet()
+          : const <String>{};
+      final sortList = sort is List ? sort : const [];
+      final sortOrders = sort == true
+          ? const ['asc', 'desc']
+          : sortList.isNotEmpty
+          ? sortList
+                .whereType<String>()
+                .where((v) => v == 'asc' || v == 'desc')
+                .toSet()
+                .toList()
+          : const <String>[];
+      final invalidRange =
+          range != null &&
+          range != false &&
+          range != true &&
+          (range is! List ||
+              rangeList.isEmpty ||
+              rangeList.length != rangeKeys.length ||
+              rangeKeys.any((key) => key != 'min' && key != 'max'));
+      final invalidSort =
+          sort != null &&
+          sort != false &&
+          sort != true &&
+          (sort is! List ||
+              sortList.isEmpty ||
+              sortOrders.length != sortList.length ||
+              sortOrders.length != sortList.toSet().length);
+      if (invalidRange || invalidSort) continue;
+      if (rangeKeys.isNotEmpty || sortOrders.isNotEmpty) {
+        result.add(
+          CommonFilterDef(
+            dimension,
+            minimum: rangeKeys.contains('min'),
+            maximum: rangeKeys.contains('max'),
+            sortOrders: List.unmodifiable(sortOrders),
+          ),
+        );
+      }
+    }
+    return List.unmodifiable(result);
+  }
+}
+
+/// Normalizes UI values before they cross the source bridge.
+Map<String, Object?> normalizeCommonFilters(
+  List<CommonFilterDef> definitions,
+  Map<String, Object?> input,
+) {
+  final byKey = {
+    for (final definition in definitions) definition.dimension.name: definition,
+  };
+  final result = <String, Object?>{};
+  String? sortKey;
+  for (final entry in input.entries) {
+    final definition = byKey[entry.key];
+    if (definition == null) continue;
+    if (entry.value is! Map) {
+      throw const FormatException('通用筛选值无效');
+    }
+    final raw = (entry.value as Map).cast<Object?, Object?>();
+    final allowed = <Object?>{'min', 'max', 'order'};
+    if (raw.keys.any((key) => !allowed.contains(key))) {
+      throw const FormatException('通用筛选值无效');
+    }
+    final min = _commonFilterNumber(raw['min'], definition.dimension);
+    final max = _commonFilterNumber(raw['max'], definition.dimension);
+    final order = raw['order'];
+    if ((!definition.minimum && min != null) ||
+        (!definition.maximum && max != null)) {
+      throw const FormatException('该维度不支持范围筛选');
+    }
+    if (min != null && max != null && min > max) {
+      throw const FormatException('通用筛选范围无效');
+    }
+    final normalizedOrder = order == null || order == '' ? null : order;
+    if (normalizedOrder != null &&
+        !definition.sortOrders.contains(normalizedOrder)) {
+      throw const FormatException('通用筛选排序无效');
+    }
+    if (normalizedOrder != null) {
+      if (sortKey != null && sortKey != entry.key) {
+        throw const FormatException('只能按一个维度排序');
+      }
+      sortKey = entry.key;
+    }
+    final normalized = <String, Object?>{};
+    if (min != null) normalized['min'] = min;
+    if (max != null) normalized['max'] = max;
+    if (normalizedOrder != null) normalized['order'] = normalizedOrder;
+    if (normalized.isNotEmpty) result[entry.key] = normalized;
+  }
+  return Map.unmodifiable(result);
+}
+
+num? _commonFilterNumber(Object? value, CommonFilterDimension dimension) {
+  if (value == null || value == '') return null;
+  if (value is! num ||
+      !value.isFinite ||
+      value < 0 ||
+      (dimension != CommonFilterDimension.duration &&
+          value != value.truncate())) {
+    throw const FormatException('通用筛选数值无效');
+  }
+  return dimension == CommonFilterDimension.duration ? value : value.toInt();
+}
+
 /// A feed option, search filter or setting definition. `type` is select | multi | number | text | password | switch.
 class OptionDef {
   OptionDef({
@@ -239,6 +385,7 @@ class FeedDef {
     required this.key,
     required this._label,
     required this.options,
+    required this.commonFilters,
     PluginCopy? copy,
   }) : _copy = copy ?? PluginCopy.none;
   final String key;
@@ -246,6 +393,7 @@ class FeedDef {
   final PluginCopy _copy;
   String get label => _copy.text(_label);
   final List<OptionDef> options;
+  final List<CommonFilterDef> commonFilters;
 
   factory FeedDef.fromJson(Map<String, dynamic> j, [PluginCopy? copy]) =>
       FeedDef(
@@ -254,6 +402,7 @@ class FeedDef {
         options: _maps(j['options'])
             .map((o) => OptionDef.fromJson(o, copy))
             .toList(),
+        commonFilters: CommonFilterDef.parse(j['commonFilters']),
         copy: copy,
       );
 
@@ -429,6 +578,7 @@ class SourceManifest {
       searchFilters = _maps(json['searchFilters'])
           .map((o) => OptionDef.fromJson(o, copy))
           .toList(),
+      searchCommonFilters = CommonFilterDef.parse(json['searchCommonFilters']),
       _searchHint = _str(json['searchHint']),
       capabilities = _map(json['capabilities']);
 
@@ -498,6 +648,7 @@ class SourceManifest {
   }
 
   final List<OptionDef> searchFilters;
+  final List<CommonFilterDef> searchCommonFilters;
   final String _searchHint;
   String get searchHint => copy.text(_searchHint);
   final Map<String, dynamic> capabilities;
@@ -580,6 +731,11 @@ class WorkItem {
   final MediaKind? mediaKind;
   bool get isNovel => mediaKind == MediaKind.novel;
   bool get isGame => mediaKind == MediaKind.game;
+
+  /// 原站明确关闭评论时为 false；未知状态不等同于关闭。
+  bool? get commentsAvailable => json['commentsAvailable'] is bool
+      ? json['commentsAvailable'] as bool
+      : null;
 
   /// Update-subscription posts carry their media instead of having a detail page.
   bool get isSubscriptionPost =>

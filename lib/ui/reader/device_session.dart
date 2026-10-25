@@ -30,11 +30,16 @@ class ReaderDeviceSession {
   }
 
   void synchronize({
+    bool active = true,
     required bool keepScreenOn,
     required bool volumeKeys,
     required String orientation,
   }) {
     if (_disposed) return;
+    if (!active) {
+      _deactivate();
+      return;
+    }
     if (!identical(_current, this)) {
       _wake = _keys = null;
       _orientation = null;
@@ -76,10 +81,11 @@ class ReaderDeviceSession {
     }
   }
 
-  void dispose() {
-    if (_disposed) return;
-    _disposed = true;
+  void _deactivate() {
     _volume?.cancel();
+    _volume = null;
+    _wake = _keys = null;
+    _orientation = null;
     if (!identical(_current, this)) return;
     _current = null;
     _update(() => PlatformBridge.interceptVolumeKeys(false), cleanup: true);
@@ -88,5 +94,11 @@ class ReaderDeviceSession {
       () => SystemChrome.setPreferredOrientations(const []),
       cleanup: true,
     );
+  }
+
+  void dispose() {
+    if (_disposed) return;
+    _disposed = true;
+    _deactivate();
   }
 }

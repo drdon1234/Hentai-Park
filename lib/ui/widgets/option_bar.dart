@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/localization.dart';
 import '../../core/models.dart';
+import '../kit/selection_menu.dart';
 import '../kit/tokens.dart';
 import '../theme.dart';
 import 'content_translation.dart';
@@ -67,44 +68,51 @@ class OptionBar extends StatelessWidget {
               Padding(
                 padding: const EdgeInsets.only(bottom: 8),
                 child: SelectionContainer.disabled(
-                  child: DropdownButtonFormField<int>(
-                    key: ValueKey('${o.key}:${values[o.key]}'),
-                    initialValue:
-                        (dynamicChoices[o.key] ?? o.values).indexWhere(
+                  child: SelectionDropdownTheme(
+                    child: DropdownButtonFormField<int>(
+                      key: ValueKey('${o.key}:${values[o.key]}'),
+                      initialValue:
+                          (dynamicChoices[o.key] ?? o.values).indexWhere(
+                                (c) => c.value == values[o.key],
+                              ) <
+                              0
+                          ? null
+                          : (dynamicChoices[o.key] ?? o.values).indexWhere(
                               (c) => c.value == values[o.key],
-                            ) <
-                            0
-                        ? null
-                        : (dynamicChoices[o.key] ?? o.values).indexWhere(
-                            (c) => c.value == values[o.key],
-                          ),
-                    isExpanded: true,
-                    decoration: InputDecoration(labelText: o.label),
-                    items: [
-                      for (
-                        var i = 0;
-                        i < (dynamicChoices[o.key] ?? o.values).length;
-                        i++
-                      )
-                        DropdownMenuItem(
-                          value: i,
-                          child: SelectionContainer.disabled(
-                            child: choiceLabel(
-                              o,
-                              (dynamicChoices[o.key] ?? o.values)[i],
-                              source,
+                            ),
+                      isExpanded: true,
+                      decoration: InputDecoration(labelText: o.label),
+                      items: [
+                        for (
+                          var i = 0;
+                          i < (dynamicChoices[o.key] ?? o.values).length;
+                          i++
+                        )
+                          SelectionDropdownItem(
+                            value: i,
+                            selected:
+                                (dynamicChoices[o.key] ?? o.values).indexWhere(
+                                  (choice) => choice.value == values[o.key],
+                                ) ==
+                                i,
+                            child: SelectionContainer.disabled(
+                              child: choiceLabel(
+                                o,
+                                (dynamicChoices[o.key] ?? o.values)[i],
+                                source,
+                              ),
                             ),
                           ),
-                        ),
-                    ],
-                    onChanged: (i) {
-                      if (i != null) {
-                        onChanged({
-                          ...values,
-                          o.key: (dynamicChoices[o.key] ?? o.values)[i].value,
-                        });
-                      }
-                    },
+                      ],
+                      onChanged: (i) {
+                        if (i != null) {
+                          onChanged({
+                            ...values,
+                            o.key: (dynamicChoices[o.key] ?? o.values)[i].value,
+                          });
+                        }
+                      },
+                    ),
                   ),
                 ),
               )

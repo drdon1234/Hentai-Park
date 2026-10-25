@@ -80,6 +80,7 @@ include(flutter/generated_plugins.cmake)
 # Map it to the current API without modifying the shared package cache.
 target_compile_definitions(flutter_inappwebview_linux_plugin PRIVATE
   WPE_SETTING_DISABLE_ANIMATIONS=WPE_SETTING_REDUCED_MOTION)
+include(browser_input.cmake)
 
 
 # === Installation ===

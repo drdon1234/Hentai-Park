@@ -3,7 +3,7 @@ Park.register({
   i18n: {
     "zh-Hant": {"动画与创作视频，支持搜索、分级与多清晰度播放": "動畫與創作影片，支援搜尋、分級與多畫質播放"}, ja: {"动画与创作视频，支持搜索、分级与多清晰度播放": "アニメ・創作動画。検索、レーティング、複数画質再生に対応"}, ko: {"动画与创作视频，支持搜索、分级与多清晰度播放": "애니메이션 및 창작 동영상, 검색·등급·다중 화질 재생 지원"}, en: {"动画与创作视频，支持搜索、分级与多清晰度播放": "Animated and creator videos with search, ratings and multi-quality playback"}, es: {"动画与创作视频，支持搜索、分级与多清晰度播放": "Vídeos de animación y creadores con búsqueda, clasificación y varias calidades"}, ru: {"动画与创作视频，支持搜索、分级与多清晰度播放": "Анимация и авторские видео с поиском, рейтингами и разным качеством"}, ar: {"动画与创作视频，支持搜索、分级与多清晰度播放": "فيديوهات رسوم وإبداع مع البحث والتصنيف وتشغيل متعدد الجودة"},
   },
-  key: 'iwara', name: 'Iwara', version: '0.0.4', minAppVersion: '0.9.2', type: 'video', category: 'anime', language: 'en', color: '#f06b8d',
+  key: 'iwara', name: 'Iwara', version: '0.0.5', minAppVersion: '0.9.2', type: 'video', category: 'anime', language: 'en', color: '#f06b8d',
   homepage: 'https://www.iwara.tv/', description: '动画与创作视频，支持搜索、分级与多清晰度播放', domains: ['iwara.tv'],
   network: {mode: 'browser', origin: 'https://www.iwara.tv', vpnHint: true}, media: {mode: 'native', origin: 'https://www.iwara.tv', domains: ['iwara.tv', 'filesq.iwara.tv', 'files.iwara.tv'], scope: 'session'},
   imageNetwork: {mode: 'browser', origin: 'https://www.iwara.tv', domains: ['iwara.tv']}, imageHeaders: {Referer: 'https://www.iwara.tv/'},
@@ -14,6 +14,28 @@ Park.register({
   async listing(req = {}, query) { const page = Math.max(1, Number(req.page) || 1), d = query === undefined ? await this.api('/videos', {sort: 'views', page: page - 1, limit: this.PAGE_SIZE}) : await this.api('/search', {type: 'videos', query: String(query).slice(0, 100), page: page - 1, limit: this.PAGE_SIZE}); const rows = Array.isArray(d?.results) ? d.results : []; return {items: rows.map(x => this.item(x)).filter(Boolean), page, hasNext: rows.length >= this.PAGE_SIZE}; },
   async feed(key, req) { if (key !== 'popular') throw Park.error('CONFIG', '未知热门列表'); return this.listing(req); }, async search(req) { const q = String(req?.keyword || '').trim(); return q ? this.listing(req, q) : {items: [], page: 1, hasNext: false}; },
   async detail(value) { const id = this.validId(value), v = await this.api('/video/' + id), item = this.item(v); if (!item) throw Park.error('NOT_FOUND', '视频不存在'); return item; },
+  async comments(value, req = {}) {
+    const id = this.validId(value), page = Math.max(1, Math.floor(Number(req.page) || 1));
+    const parentId = req.parentId == null ? null : String(req.parentId);
+    if (parentId && !/^[a-zA-Z0-9_-]{1,64}$/.test(parentId)) throw Park.error('CONFIG', '评论数据无效');
+    const data = await this.api('/video/' + id + '/comments', {page: page - 1, ...(parentId ? {parent: parentId} : {})});
+    if (!Array.isArray(data?.results) || !Number.isSafeInteger(data.count) || data.count < 0 ||
+        !Number.isSafeInteger(data.limit) || data.limit < 1 || data.page !== page - 1) throw Park.error('PARSE', '评论数据无效');
+    const seen = new Set(), items = [];
+    for (const row of data.results) {
+      const cid = String(row?.id || ''), parent = row?.parent == null ? null : String(row.parent.id || '');
+      if (!/^[a-zA-Z0-9_-]{1,64}$/.test(cid) || typeof row.body !== 'string' ||
+          row.videoId !== id || parent !== parentId) throw Park.error('PARSE', '评论数据无效');
+      if (seen.has(cid)) continue;
+      seen.add(cid);
+      const body = Park.comments.text(row.body);
+      if (!body.length) continue;
+      const replyCount = Math.max(0, Math.floor(Number(row.numReplies) || 0));
+      items.push({id: cid, parentId: parent || undefined, author: {name: String(row.user?.name || row.user?.username || '')},
+        body, date: String(row.createdAt || ''), replyCount, repliesAvailable: replyCount > 0});
+    }
+    return {items, page, total: data.count, hasNext: data.results.length > 0 && page * data.limit < data.count};
+  },
   async mediaList(v) {
     const url = String(v?.fileUrl || '');
     if (!url) return [];

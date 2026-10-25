@@ -8,7 +8,7 @@ Park.register({
     ru: {"上月": "Прошлый месяц", "官方卖家榜": "Официальный рейтинг продавцов"},
     ar: {"上月": "الشهر الماضي", "官方卖家榜": "ترتيب البائعين الرسمي"},
   },
-  key: 'ranking-fc2', name: 'FC2', version: '0.0.5', minAppVersion: '0.9.2',
+  key: 'ranking-fc2', name: 'FC2', version: '0.0.6', minAppVersion: '0.9.2',
   type: 'video', category: 'jav', rankingOnly: true,
   description: '官方销量榜', homepage: 'https://adult.contents.fc2.com/',
   domains: ['fc2.com'], network: { vpnHint: true },
@@ -23,6 +23,28 @@ Park.register({
       { value: 'monthly', label: '上月' }, { value: 'yearly', label: '年榜' },
     ] }],
   }],
+  async comments(value, req = {}) {
+    const id = String(value);
+    if (req.context?.board === 'sellers' || req.parentId) throw Park.error('UNSUPPORTED', '此内容暂不支持评论');
+    if (!/^\d{2,9}$/.test(id)) throw Park.error('NOT_FOUND', '作品编号无效');
+    // The public server currently repeats its first page even when page=2 is requested.
+    if (Number(req.page) > 1) return {items: [], hasNext: false};
+    const url = this.homepage + 'article/' + id + '/review', doc = Park.html.parse(await this.http.text(url));
+    if (!doc.querySelector('.items_comment_reviewComp')) throw Park.error('PARSE', '评论数据无效');
+    const items = [...doc.querySelectorAll('.userIdreview')].map(author => {
+      const row = author.closest('ul'), reviewer = row?.querySelector('[data-reviewer-id]')?.getAttribute('data-reviewer-id');
+      const content = row?.children[0]?.cloneNode(true);
+      if (!content || !/^\d+$/.test(reviewer || '')) throw Park.error('PARSE', '评论数据无效');
+      // Rating-only reviews have an explicit empty-title placeholder; do not display it as a comment.
+      for (const empty of content.querySelectorAll('.items_comment_notTitle')) empty.remove();
+      const body = Park.comments.html(content.innerHTML, url);
+      if (!body.length) return null;
+      const star = row.querySelector('[class^="items_comment_Star"][class$="1"], [class^="items_comment_Star"][class$="2"], [class^="items_comment_Star"][class$="3"], [class^="items_comment_Star"][class$="4"], [class^="items_comment_Star"][class$="5"]');
+      return {id: id + ':' + reviewer, author: {name: Park.html.text(author)}, body,
+        date: Park.html.text(row.querySelector('.userDatareview')), rating: Number(star?.className.match(/(\d)$/)?.[1]) || undefined};
+    }).filter(Boolean);
+    return {items, hasNext: false};
+  },
   async ranking(board, req) {
     const page = Math.max(1, Number(req.page) || 1);
     if (page > 5) return { items: [], page, hasNext: false };

@@ -21,7 +21,6 @@
 
 > For adults only, where permitted by local law. Content comes from third-party sites. HentaiPark does not host source content; browsing caches and downloads you request are stored on your device.
 
-
 Choose Data saver mode in More → Network: Data saver shows compact site entries on home and category pages and loads works when you open a site. Maximum data saving also disables automatic loading on site pages and retrieves works only after a search. Sites without search show an explanation.
 
 ## Download
@@ -35,8 +34,8 @@ On desktop, use Ctrl+mouse wheel or Ctrl/Cmd plus/minus to scale the interface, 
 ## Get started in three steps
 
 1. **Discover**: open Discover and pick a category, or type a keyword, paste a link or a video code into the search box.
-2. **Read and watch**: open a work and tap the main button. Add the ones you like to your Library.
-3. **Pick up where you left off**: Continue at the top of Discover and History take you back to the exact spot; series you follow update under Library → Updates.
+2. **Read and watch**: open a work and tap the main button. Add the ones you like to Favorites.
+3. **Pick up where you left off**: use Continue → All on Discover to browse your history; followed series appear under Favorites → Updates.
 
 Sites that need an account or a proxy are set up in More → Sites and More → Network.
 
@@ -78,14 +77,17 @@ Screenshots use offline demo data; the sites, works and covers shown are origina
 
 | Feature | What you get |
 | --- | --- |
+| Comments and live chat | Read site comments, replies and images on supported work details, short videos, posts and work rankings, including Reddit, PicACG, myfans, Fansly, GalgameX, XVideos, Pornhub Shorties, SpankBang, Iwara, Hanime.tv, FANZA, Cool18, 次元茶馆 and free public FANBOX posts. Open E-Hentai gallery/search links and JM codes directly. Sign in to read X / Twitter replies and comments on Telegram posts with discussions enabled. Telegram image or video attachments that cannot be displayed directly can be opened through the original comment link. CAM4, XLoveCam, Stripchat and SOOP players support right-to-left scrolling live chat. Under More → Danmaku display area, select Top quarter, Top half, Bottom half or Full screen; Top half is the default and your choice is saved. |
 | Rankings | Open doujinshi, anime and JAV rankings from Discover; choose a site and period, search works or open the original site; product pages open inside the app |
 | Discover and search | Home and category pages share recommendations; scroll right for more on sites with pagination. Search many sites at once, widen a search with keywords in other languages; paste a link or code to jump straight to a work; filter Home by 2D/3D and by images, videos or other, and searching from Home only selects the filtered sites |
 | Read and watch | Comics scroll, page or show two-page spreads; videos have episodes, speed control and resume; novels have typography settings, bookmarks, notes and read-aloud. All three readers share the same controls |
-| Library | Favorites with categories and new-chapter alerts; subscribe to creators, channels or keywords |
-| Downloads | A dedicated main navigation tab for comic, video, novel and game downloads; import and export CBZ; export completed image chapters as PDF from the work menu, using only the first frame of animated images; exports run in the background, long galleries are split into several PDFs, and exported files can be shared or deleted under Exported files on the Downloads page |
+| Favorites and subscriptions | Favorite categories and new-chapter alerts; subscribe to creators, channels or keywords |
+| Downloads | A dedicated main navigation tab for comic, video, novel and game downloads; import and export CBZ; export completed image chapters as PDF from the work menu, using only the first frame of animated images; exports run in the background, long galleries are split into several PDFs, and exported files can be shared or deleted under Exported files on the Downloads page For downloaded comics, videos and novels, tap the cover for details or the title or empty area to resume downloaded content directly. |
 | Game resources | See game details, versions and download links |
 | Translation and filters | Translate titles, descriptions and tags; hide works by tag |
 | Privacy and backup | App lock, incognito mode, blurred covers, screenshot blocking; back up favorites, progress and settings |
+
+Comments and live chat are read-only; sending comments, replies or chat messages to a site is not supported. Available comments, replies and sorting depend on the site. Some content requires sign-in, age confirmation or site verification. The comment entry is hidden when the original post explicitly disables comments; posts with comments enabled remain accessible even when no one has commented yet.
 
 In the novel reader, More → Translate full text translates the complete text and continues with chapters as you open them. You can switch back to the original.
 
@@ -127,7 +129,6 @@ SOOP has separate entries for live streams, short videos and recordings, filtere
 
 Live streams belong to 3D and appear between recordings and creator communities. Home and domain cards show images only. Live streams cannot be downloaded. Start or stop recording from details or the player, and manage recordings in Downloads. Only new segments produced after recording starts are saved. Android supports background recording; desktop recording continues with the window hidden. Exiting the app ends recording; restarting does not resume it. Saved segments are retained after interruption. Background recording is subject to system power policies and foreground-service time limits; saved segments survive interruption. Continuous background recording is not supported on iOS.
 
-
 Filter Discover domains by 2D, 3D or All; your choice is remembered. Games belong to 2D, novels to 3D, and creator communities remain visible in every filter.
 
 Creator communities appear in this order: Pixiv, Reddit, X, myfans.jp, pixivFANBOX, Telegram, including sites you have not signed in to. Pixiv and myfans.jp offer anonymous search and rankings. X offers anonymous search; sign in and retry if the anonymous service is limited. Enter a public creator or channel name or link before selecting Open. myfans.jp plays an available full video first, otherwise its public preview; restricted photos retain the site’s blur. Where only original-site sign-in is available, view member content on that site. myfans.jp defaults to General Adult mode, shows the site’s Pickup selection on its home feed, and opens daily rankings by default.
@@ -164,7 +165,6 @@ Each site shows the first 20 candidates by default; select View all results to l
 Google Lens uploads images and retrieves sources in the background. All reverse image searches show progress and results in the app interface. Site verification is attempted in the background; retry in the app if it does not complete. Some networks may require a VPN or proxy.
 
 Results are candidates to verify; similarity is not confirmation. trace.moe has a limited free quota and IQDB may queue requests. AVScan is for personal non-commercial use. Each service retains its original candidates, available scores and related images; expand Source information for timestamps, detection regions, tags and other original fields. Coverage is not exhaustive; character recognition does not provide game downloads.
-
 
 ## Rankings
 

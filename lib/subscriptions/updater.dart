@@ -165,6 +165,9 @@ class SubscriptionUpdater extends ChangeNotifier {
               final identity = await fingerprint(entry);
               await updates.ensureContext(entry, lease, identity);
               final state = await updates.state(entry);
+              final seen = state.baseline
+                  ? await updates.seen(entry)
+                  : <String>{};
               var cursor = state.cursor;
               final cursors = <String>{?cursor};
               final items = <UpdateItem>[];
@@ -180,10 +183,17 @@ class SubscriptionUpdater extends ChangeNotifier {
                   if (item is! Map) throw const FormatException('订阅结果无效');
                   items.add(UpdateItem.parse(item));
                 }
-                // 搜索与动态跟踪最近三页的滚动窗口；章节目录必须完整，普通分页协议继续持久化续查。
+                // 首次只建立最近窗口。后续新增跨越三页时续查，不能把批次上限当作检查结束。
+                // 整页均已见过才接回上次窗口；混有旧条目的页面仍可能含新内容。
                 complete =
                     data['hasNext'] == false ||
-                    (data['windowed'] == true && page == 2);
+                    (data['windowed'] == true &&
+                        ((!state.baseline && page == 2) ||
+                            (state.baseline &&
+                                (data['items'] as List).isNotEmpty &&
+                                (data['items'] as List).every(
+                                  (item) => seen.contains((item as Map)['id']),
+                                ))));
                 if (complete) break;
                 final next = data['cursor'];
                 if (next is! String ||

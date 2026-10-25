@@ -9,7 +9,7 @@ Park.register({
     "ru": {"成人视频社区，支持推荐、搜索和原画播放": "Сообщество видео для взрослых с рекомендациями, поиском и оригинальным качеством"},
     "ar": {"成人视频社区，支持推荐、搜索和原画播放": "مجتمع فيديوهات للبالغين مع توصيات وبحث وتشغيل بالجودة الأصلية"},
   },
-  key: 'porn91', name: '91porn', version: '0.0.9', minAppVersion: '0.9.2', type: 'video', category: 'adult', color: '#D81B60',
+  key: 'porn91', name: '91porn', version: '0.0.10', minAppVersion: '0.9.2', type: 'video', category: 'adult', color: '#D81B60',
   description: '成人视频社区，支持推荐、搜索和原画播放', homepage: 'https://91porn.com', domains: ['91porn.com'], language: 'zh',
   network: {mode: 'native', vpnHint: true}, imageHeaders: {Referer: 'https://91porn.com/'},
   media: {mode: 'native', scope: 'session', origin: 'https://91porn.com', domains: ['la.btc620.com', '1470423830.rsc.cdn77.org']},
@@ -101,6 +101,39 @@ Park.register({
     const keyword = String(req.keyword || '').trim();
     if (!keyword) return {items: [], page: 1, hasNext: false};
     return this.listing(this.BASE + '/search_result.php?search_type=search_videos&search_id=' + encodeURIComponent(keyword), req, 'search');
+  },
+  async comments(value, req = {}) {
+    const work = this.validId(value), page = Math.max(1, Math.floor(Number(req.page) || 1));
+    if (req.parentId || (req.sort && req.sort !== 'default')) throw Park.error('UNSUPPORTED', '评论暂不支持此操作');
+    const url = this.BASE + '/view_video.php?viewkey=' + work, detail = await this.getPage(url);
+    const vid = /show_comments2\.php\?VID=(\d+)/.exec(detail.html)?.[1] || [...detail.doc.querySelectorAll('[id="VID"]')].map(n => Park.html.text(n)).find(v => /^\d+$/.test(v));
+    const maxPage = Number(/max_page\s*:\s*(\d+)/.exec(detail.html)?.[1]);
+    if (!vid) throw Park.error('PARSE', '评论数据无效');
+    const response = this.http.ensureOk(await this.http.get(this.BASE + '/show_comments2.php', {params: {VID: vid, start: page, comment_per_page: 20}, headers: {Referer: url}}));
+    const doc = Park.html.parse(response.body), items = [], seen = new Set();
+    for (const row of doc.querySelectorAll('.comment-divider')) {
+      const content = row.querySelector('.comment-body[id]'), id = /^comment_format_(\d+)$/.exec(content?.id || '')?.[1];
+      if (!id || seen.has(id)) continue;
+      const copy = content.cloneNode(true), quotes = [];
+      for (const quote of copy.querySelectorAll('.comment_quote')) {quotes.push({type: 'quote', text: Park.html.text(quote)}); quote.remove();}
+      // 原站把举报、回复操作放在正文末尾，不能展示成用户发表的链接。
+      for (const a of copy.querySelectorAll('a[href]')) {
+        const href = a.getAttribute('href') || '';
+        const target = Park.comments.url(href, url);
+        const parsed = target ? new URL(target) : null;
+        if (/javascript:|comment_reply/i.test(href) || (parsed?.origin === this.BASE && parsed.pathname === '/report.php' && parsed.searchParams.get('COMID') === id)) a.remove();
+      }
+      const body = [...quotes.filter(q => q.text), ...Park.comments.html(copy.innerHTML, url)];
+      if (!body.length) continue;
+      const author = row.querySelector('td > a'); seen.add(id);
+      items.push({id, author: {name: Park.html.text(author), url: Park.comments.url(author?.getAttribute('href'), url)}, body});
+    }
+    if (doc.querySelector('.comment-body') && !items.length) throw Park.error('PARSE', '评论数据无效');
+    if (!items.length && !(Number.isFinite(maxPage) && page > maxPage)) throw Park.error('PARSE', '评论数据无效');
+    let previous = [];
+    if (req.cursor) {let state; try {state = JSON.parse(req.cursor);} catch (_) {} if (!state || state.work !== work || state.page !== page || !Array.isArray(state.ids)) throw Park.error('CONFIG', '评论参数无效'); previous = state.ids;}
+    const fresh = items.filter(item => !previous.includes(item.id)), hasNext = fresh.length > 0 && Number.isFinite(maxPage) && page < maxPage;
+    return {items: fresh, page, hasNext, cursor: hasNext ? JSON.stringify({work, page: page + 1, ids: [...previous, ...fresh.map(x => x.id)]}) : null};
   },
   async detail(id) {
     id = this.validId(id);

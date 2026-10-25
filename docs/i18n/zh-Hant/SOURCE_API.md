@@ -146,6 +146,10 @@ Park.register({
 
 `feeds` 的每一項是站點頁的一個標籤：`{ key, label, options?: [...] }`。
 
+### 通用篩選與排序
+
+外掛可為每個 Feed 宣告 `commonFilters`，並以 `searchCommonFilters` 宣告搜尋能力。應用程式只顯示已宣告的操作，不會根據已載入作品欄位近似篩選；外掛必須映射至站點實際查詢並在分頁時保留條件。維度為 `pages`、`likes`、`duration`，`range: true` 或陣列宣告 `min`／`max` 邊界，`sort: true` 或陣列宣告 `asc`／`desc` 方向。頁數與按讚數是非負整數，時長單位為秒。`feed` 與 `search` 請求帶有獨立的 `common` 對象，任一邊界可留空，每次最多排序一個維度，未宣告的維度必須拒絕。
+
 ### 動態與級聯篩選
 
 `feeds[].options` 和 `searchFilters` 的單選項可宣告 `dynamic: true, values: []`。動態子項用 `dependsOn: ['range']` 引用同組上級；key 必須唯一，依賴必須存在且無環，只有動態項可宣告依賴。
@@ -260,8 +264,8 @@ account: {
 方法裡的 `this` 見「執行時 API」。所有方法都可以是 `async`。
 
 ```js
-async feed(key, { page, cursor, options }) {}      // 站点页标签
-async search({ keyword, page, cursor, filters }) {}
+async feed(key, { page, cursor, options, common }) {} // 站點頁標籤
+async search({ keyword, page, cursor, filters, common }) {}
 async random() {}                                  // 返回作品 ID
 async detail(id, preview) {}
 async chapter(id, chapterId) {}                    // 漫画、图集
@@ -285,7 +289,7 @@ async resolveGameResource(workId, resourceId, channelId) {}
 { sections: [{ title: '连载更新', items: [WorkItem] }], hasNext: false }
 ```
 
-**WorkItem**：`{ id, title, subtitle?, cover, coverBlurred?, coverAspect?, pages?, rating?, likes?, views?, language?, category?, badge?, badgeColor?, duration?, uploaded?, tags?, mediaKind?, workCode?, editions? }`
+**WorkItem**：`{ id, title, subtitle?, cover, coverBlurred?, coverAspect?, pages?, rating?, likes?, views?, language?, category?, badge?, badgeColor?, duration?, uploaded?, tags?, mediaKind?, workCode?, editions?, commentsAvailable? }`
 
 - `workCode` 是原站確認的番號或共同檢索碼，僅用於查找同作品；不取代 `id`，不合併作品身分、收藏、進度或下載。
 - `editions` 是原站明確標註的固定版本標籤（如「中文字幕」「無碼流出」）；沒有標記時不得推斷為原版。顯示譯文不改變原始標籤。
@@ -301,7 +305,7 @@ WorkItem 的全部欄位，再加：
 
 ```js
 {
-  url, authors: [], description, uploader?, size?, comments?,
+  url, authors: [], description, uploader?, size?, comments?, commentsAvailable?,
   tags: [{ namespace: 'artist', label: '作者', tags: [{ name, keyword, filters?, count? }] }],
   chapters: [{ id, title }] | null,   // null 表示单章
   singleChapterId?,                   // 单章作品需要的章节 ID
@@ -393,7 +397,7 @@ subscription: {
   async resolve(input) { return { id: validatedTarget, label: displayName }; },
   async targets() { return [{ id: joinedChannelId, label: channelName }]; },
   async posts(target, { cursor }) {
-    return { items: [{ id, title, text, date, url, locked,
+    return { items: [{ id, title, text, date, url, locked, commentsAvailable,
       media: [{ type: 'image', url, preview, previewOnly: false },
               { type: 'video', url, preview, format: 'mp4', headers: {} }] }],
       cursor: nextCursor, hasNext: true };
@@ -410,7 +414,7 @@ subscription: {
 
 相簿是獨立能力，不由已載入的帖子拼裝，也不回退呼叫 `subscription.posts`。實作 `subscription.media(scope, { page, cursor })`；有公開 feed、無可訂閱目標的來源也可在 `subscription` 下只宣告此方法。執行階段匯出 `capabilities.album`，與 `capabilities.subscription` 分離。
 
-`scope` 為 `{ feed, options }` 或 `{ target }`，分別指定 feed 與篩選，或使用者、社群、頻道、群組目標。目標辨識及遍歷由來源負責，介面不加入站點特例。回傳 `{ items, cursor, hasNext }`；無符合媒體的頁面仍可繼續，每次續頁遊標必須前進，重複遊標會報錯。
+`scope` 為 `{ feed, options }` 或 `{ target }` / `{ search: { keyword, filters } }`，分別指定 feed 與篩選，或使用者、社群、頻道、群組目標。目標辨識及遍歷由來源負責，介面不加入站點特例。回傳 `{ items, cursor, hasNext }`；無符合媒體的頁面仍可繼續，每次續頁遊標必須前進，重複遊標會報錯。
 
 每項須有穩定字串 `id`、`presentation: 'post' | 'work'`、已知時可解析的 ISO 8601 日期，以及依原站排序的完整 `media`。附件須有唯一穩定字串 `id`、`type: 'image' | 'video'` 及實際內容 `url` 或受控 `resource`。`preview` 是圖片縮圖；也可用下述受控附件格式的 `previewResource`，最大 2 MiB，須為獨立圖片。不得用封面或影片網址冒充縮圖。受限內容僅提供標記 `previewOnly: true`、保留原站模糊處理的公開預覽；整帖鎖定時設 `locked: true`。
 
@@ -426,7 +430,8 @@ subscription: {
 
 - `normalize(dimension, input)` 返回 `{ id, label }`；`check({ dimension, target }, { cursor })` 返回 `{ items, hasNext, cursor }`。每項為 `{ id, title, kind, workId, chapterId }`，`kind` 只能是 `work | post | chapter`，ID 穩定且非空，不攜帶媒體 URL、Cookie 或憑據。章節 ID 要包含作品身份，避免不同作品的「第 1 話」衝突。
 - `Park.enableUpdateSubscriptions(Park.__pending, rules)` 提供通用適配，規則在外掛指令碼末尾明確宣告維度，可以設定 `searchFilters`、`seriesPattern`。`work` 用真實章節目錄；`posts` 用現有頻道介面；`search` 和 `filter` 用搜尋，`code` 嚴格匹配完整番號，`series` 用經過本站域名校驗的系列路徑。搜尋遊標同時儲存頁號與站點遊標。
-- 搜尋和動態返回 `windowed: true`，表示檢查最近三頁的結果視窗：首次只建立基線，之後按穩定 ID 產生「新發現內容」事件，不聲稱知道發布時間。其他分頁協議每輪最多三頁，儲存遊標與候選項，完整結束後再事務提交；章節目錄不允許視窗截斷，候選上限 20,000，超限報錯。網路、許可權、驗證頁、空目錄或不完整解析都要拋明確錯誤，不能用空結果掩蓋。
+- `windowed: true` 首次建立最近三頁基線；後續每批最多三頁，保存游標與候選項繼續檢查，遇到整頁已知項目或末頁才提交新發現事件。章節目錄不截斷，候選上限 20,000，超限或解析失敗必須報錯。
+- `query({ dimension, target })` 回傳 `{ keyword, filters }`，訂閱瀏覽與檢查共用此查詢。相簿範圍亦支援 `{ search: { keyword, filters } }`，分頁保留查詢；貼文短影片支援 `resource` 附件，並沿同一搜尋範圍續播。
 - 前後臺共用外掛執行時、Cookie 分割槽、域名約束和檢查器。後臺只啟動相關外掛，不登入、不在原站訂閱、不下載媒體、不繞過許可權。賬號或外掛配置變化時重建基線（Token 續期不算）。
 
 ## 執行時 API
@@ -605,4 +610,62 @@ return { url: "https://player.example.com/watch/1", navigationDomains: ["player.
 
 ```powershell
 node tools/publish_sources.mjs --commit '<SHA>' --channel rankings --output '<本地输出文件>'
+```
+
+## 留言與內容連結
+
+實作 `comments` 後，執行階段自動匯出 `capabilities.comments`；`resolveContentLink` 與 `searchLink` 分別匯出同名能力。僅宣告已驗證的讀取能力。留言介面不包含發表、提交回覆、按讚或檢舉操作。
+
+官方留言實作包括 Reddit、myfans、Fansly、GalgameX、XVideos、Pornhub Shorties、嗶咔（PicACG）、SpankBang、X / Twitter 和 Telegram；可讀範圍仍由原站權限決定。X / Twitter 和 Telegram 需要登入，Telegram 僅支援開放討論的貼文；無法直接顯示的附件保留準確的原留言連結。
+
+```js
+// WorkItem / WorkDetail / SubscriptionPost: { ..., commentsAvailable?: boolean }
+comments(workId, {page = 1, cursor = null, parentId = null, sort = 'default', context = {}})
+// context: {url?, episodeId?, board?}
+// result: {items, hasNext, page?, cursor?, total?, reset?, sorts?: [{value, label}]}
+// item: {id, author: {name, avatar?, url?, badges?: []}, body,
+//        date?, likes?, rating?, spoiler?, parentId?, replyCount?,
+//        repliesAvailable?, replies?: [item]}
+// body: [{type: 'text' | 'link' | 'image' | 'quote', text?, url?}]
+resolveContentLink(url) // null | {type: 'work', id} | {type: 'search', url} | {type: 'external', url}
+searchLink(url, request) // WorkPage
+```
+
+- `WorkItem`、`WorkDetail` 和 `SubscriptionPost` 的頂層欄位 `commentsAvailable?: boolean` 表示該作品是否開放留言。嚴格布林值 `false` 隱藏留言入口；`true` 仍要求來源支援 `capabilities.comments`；省略或非布林值表示未知，依來源能力顯示。留言數為 0 不代表關閉留言。讀取時若發現原貼文已關閉留言，拋出 `UNSUPPORTED`，不得以空清單掩蓋。
+- `workId` 使用來源的作品識別；`context` 攜帶原頁面、分集或排行榜脈絡。分集留言須依作品與集數隔離，不得混入其他集。
+- `id` 是來源內穩定、非空的字串；`author.name` 可為空，不得捏造暱稱。正文至少包含非空文字或有效圖片，純圖片留言也須保留。`date` 保留原站顯示文字或 ISO 時間；`likes`、`replyCount` 為非負數，`rating` 為 0–5，`spoiler` 標記劇透。
+- `replies` 使用相同結構，`parentId` 指向父留言；父正文不得包含子回覆。`replyCount` 是原站回覆數，只有已驗證 `parentId` 讀取時才設 `repliesAvailable: true`。預設為 false，計數不代表可繼續載入。 原站未提供數量時，`replyCount: 0` 與 `repliesAvailable: true` 可同時存在；介面仍提供「檢視回覆」，不虛構數量，也不以已載入回覆數阻擋入口。讀取巢狀回覆時，請求的 `parentId` 為被點擊留言的 `id`。
+- `hasNext` 依原站分頁回應；游標不得含憑證，下次請求原樣傳回。遇重複 ID、達到總數或原站表明結束時停止；未驗證分頁時回傳 false。`sorts` 僅列已驗證排序，`label` 使用介面文案鍵。
+- 原站分頁快照改變時可回傳 `reset: true`，並附重新讀取後的實際 `page`（通常為 1）與新游標，介面會取代舊列表。不得將首屏當作後續頁；業務失敗、登入要求及解析失敗須拋出對應錯誤，不得以空列表掩蓋。
+
+`Park.comments.html(html, baseUrl)` 將 HTML 轉成安全片段，保留文字、換行、連結、圖片及引用並移除可執行內容；`Park.comments.text(text)` 將純文字中的明確 HTTP(S) 位址拆成連結；`Park.comments.url(value, baseUrl)` 回傳有效 HTTP(S) URL，否則為 null。頭像、個人頁與正文 URL 均不得含 userinfo。框架只顯示結構化內容，不執行原站 HTML；站點解析由外掛負責，請求使用 `this.http`。
+
+`resolveContentLink` 只識別準確網域、已驗證路徑與參數；非本站目標回傳 null。作品使用 `type: 'work'`、原站搜尋使用 `type: 'search'`，其他安全頁面可用 `type: 'external'`。不得將個人頁、留言錨點、日期、樓層或播放時間誤認為作品。`searchLink` 接收完整原站 URL，保留關鍵字、篩選、分類與分頁語意，回傳既有 WorkPage；不得只取關鍵字而丟失其他參數，也不得存取寫入端點。無法識別的連結保留原網頁入口。
+
+## 唯讀直播彈幕
+
+`capabilities.liveChat` 僅在同時實作 `liveChat(id)` 與 `liveChatEvent(state, event)` 時宣告。目前官方實作為 CAM4、XLoveCam、Stripchat 和 SOOP。`chat.domains` 是獨立的主機與連接埠白名單，不繼承頁面、圖片或媒體權限。`host` 僅允許 443，非標準連接埠必須以 `host:port` 明確宣告，範圍為 1024–65535；`*.host:port` 僅匹配指定連接埠的一層子網域，不匹配主網域、多層子網域或其他連接埠。僅允許 HTTPS/SSE 和 WSS，禁止明文、使用者資訊與網址片段；訪客啟動請求的短效票據不得跨主機或連接埠重新導向。
+
+`liveChat` 回傳 `transport: "sse" | "websocket"`、`url`、可選 `headers` 和 `state`。外掛透過 `this.chatHttp.request({url, method, headers, body|json})` 在聊天白名單內完成訪客啟動請求，並共用目前呼叫的取消訊號。Cookie 按來源分區，票據、連線網址、協定狀態與訊息只保存在記憶體。
+
+- `protocols`：僅用於 WebSocket，最多 8 個不重複的非空 RFC token 字串，每個最多 128 個字元。
+- `binary: true`：僅用於 WebSocket，以 UTF-8 二進位訊框收發；外掛的 `event.data` 和 `send` 仍為字串。每個訊框最多 65536 位元組，嚴格驗證 UTF-8；預設使用文字訊框。
+- `heartbeatIntervalMs`：可選的 10000–60000 整數。連線成功後依此間隔將 `{type: "tick"}` 放入同一循序事件佇列；停止或離頁時取消。tick 不延長連線握手或 SSE 接收逾時。
+
+建立連線及協定握手共用固定的 25 秒截止時間。未宣告 `heartbeatIntervalMs` 的 WebSocket 使用 30 秒間隔的原生 ping/pong；宣告該欄位時改由外掛 tick 保活，斷線依據實際傳輸錯誤或關閉事件。兩者都不因房間沒有聊天文字而判定斷線，本地 tick 也不代表伺服器仍在線。SSE 仍使用 90 秒的伺服器接收逾時。
+
+`liveChatEvent` 接收 `{type: "open"}` 或 `{type: "message", data, event?}` 或 `{type: "tick"}`；SSE 的 `event` 保留原事件名稱。回傳新 `state`，可附 `connected`、`error`、`messages` 與 `send`。訊息使用穩定 `id`、純文字 `text`、可選 `author` 與 `isHistory`；歷史只用於去重，不當作新訊息顯示。`send` 僅用於已驗證協定的驗證、訂閱及心跳回應，不提供使用者發言介面。
+
+宿主限制影格大小、解碼佇列、訊息快取與重試次數；斷線後重新取得訪客票據，失敗時提供重試。關閉彈幕、切換頁面、進入背景、應用程式鎖定或銷毀播放器時立即取消舊連線與呼叫，拒絕過期回呼。此能力不代表作品評論、歷史翻頁或錄播時間軸彈幕。
+
+```js
+chat: {domains: ["chat.example.com"]},
+async liveChat(id) {
+  return {transport: "websocket", url: "wss://chat.example.com/room", state: {}};
+},
+liveChatEvent(state, event) {
+  return {state, connected: true, messages: [
+    {id: "message-id", text: "message", author: "author", isHistory: false}
+  ], send: []};
+}
 ```

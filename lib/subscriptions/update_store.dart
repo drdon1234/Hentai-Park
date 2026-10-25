@@ -299,6 +299,18 @@ class UpdateStore {
     'UPDATE subscription_events SET unread=0 WHERE event_key=?',
     [key],
   );
+  Future<void> markAllRead() => db.customStatement(
+    'UPDATE subscription_events SET unread=0 WHERE unread=1',
+  );
+
+  // 外键级联删除事件关联；保留 subscription_seen 和检查点，防止旧内容再次推送。
+  Future<void> remove(String key) => db.customStatement(
+    'DELETE FROM subscription_events WHERE event_key=?',
+    [key],
+  );
+
+  Future<void> clear() => db.customStatement('DELETE FROM subscription_events');
+
   Future<void> delivered(String key) => db.customStatement(
     'UPDATE subscription_events SET delivered=1 WHERE event_key=?',
     [key],

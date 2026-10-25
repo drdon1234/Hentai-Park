@@ -39,9 +39,9 @@ class RecentHistory extends StatelessWidget {
     if (recent.isEmpty) return const SizedBox.shrink();
     return LayoutBuilder(
       builder: (context, constraints) {
-        final width = ((constraints.maxWidth - Gap.page * 2) * 0.64).clamp(
+        final width = ((constraints.maxWidth - Gap.page * 2) * 0.5).clamp(
           160.0,
-          224.0,
+          238.0,
         );
         final height = recent.fold(116.0, (height, entry) {
           final extent = _ContinueCard(entry: entry).heightFor(context, width);
@@ -52,12 +52,29 @@ class RecentHistory extends StatelessWidget {
           children: [
             SectionHeader(
               tr('继续看'),
-              leading: const Icon(Icons.history_rounded),
+              titleStyle: ParkText.serif(
+                context.text.headlineSmall?.copyWith(
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              emphasizeTrailing: false,
               trailing: onOpenHistory == null
                   ? null
-                  : OutlinedButton(
+                  : TextButton(
+                      style: TextButton.styleFrom(
+                        minimumSize: const Size(48, 40),
+                        padding: EdgeInsets.zero,
+                      ),
                       onPressed: onOpenHistory,
-                      child: SelectionContainer.disabled(child: Text(tr('全部'))),
+                      child: SelectionContainer.disabled(
+                        child: Text(
+                          tr('全部'),
+                          style: context.text.labelLarge?.copyWith(
+                            color: context.colors.primary,
+                            fontWeight: FontWeight.w400,
+                          ),
+                        ),
+                      ),
                     ),
             ),
             SizedBox(
@@ -86,17 +103,8 @@ class _ContinueCard extends StatelessWidget {
 
   static const _coverWidth = 48.0;
 
-  String get _resumeLabel {
-    final label = kindOf(entry.item) == MediaKind.video
-        ? tr('继续播放')
-        : tr('继续阅读');
-    if (entry.position != null) {
-      return '$label · ${entry.position! ~/ 60}:${(entry.position! % 60).toString().padLeft(2, '0')}';
-    }
-    return entry.pageCount > 0
-        ? '$label · ${(entry.progress * 100).round()}%'
-        : label;
-  }
+  String get _resumeActionLabel =>
+      kindOf(entry.item) == MediaKind.video ? tr('继续播放') : tr('继续阅读');
 
   String get _sourceName {
     final source = entry.item.source;
@@ -125,22 +133,19 @@ class _ContinueCard extends StatelessWidget {
     return Gap.s * 2 +
         textHeight(
           entry.item.title,
-          ParkText.serif(context.text.titleSmall),
+          ParkText.serif(
+            context.text.titleSmall?.copyWith(fontWeight: FontWeight.w600),
+          ),
           maxLines: 2,
         ) +
         Gap.xs +
-        textHeight(_sourceName, context.text.labelSmall) +
-        (entry.chapterTitle?.isNotEmpty == true
-            ? Gap.xs +
-                  textHeight(
-                    entry.chapterTitle!,
-                    context.text.bodySmall,
-                    maxLines: 1,
-                  )
-            : 0) +
+        textHeight(
+          '$_sourceName · $_resumeActionLabel',
+          context.text.bodySmall,
+        ) +
         Gap.s +
         (entry.progress > 0 ? 3 + Gap.xs : 0) +
-        textHeight(_resumeLabel, context.text.labelSmall, maxLines: 1);
+        Gap.xs;
   }
 
   @override
@@ -181,26 +186,21 @@ class _ContinueCard extends StatelessWidget {
                       item.title,
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
-                      style: ParkText.serif(context.text.titleSmall),
+                      style: ParkText.serif(
+                        context.text.titleSmall?.copyWith(
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
                     ),
                     const SizedBox(height: Gap.xs),
                     Text(
-                      _sourceName,
-                      style: context.text.labelSmall?.copyWith(
+                      '$_sourceName · $_resumeActionLabel',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: context.text.bodySmall?.copyWith(
                         color: context.colors.onSurfaceVariant,
                       ),
                     ),
-                    if (entry.chapterTitle?.isNotEmpty == true) ...[
-                      const SizedBox(height: Gap.xs),
-                      Text(
-                        entry.chapterTitle!,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: context.text.bodySmall?.copyWith(
-                          color: context.colors.onSurfaceVariant,
-                        ),
-                      ),
-                    ],
                     const SizedBox(height: Gap.s),
                     if (entry.progress > 0) ...[
                       LinearProgressIndicator(
@@ -209,14 +209,6 @@ class _ContinueCard extends StatelessWidget {
                       ),
                       const SizedBox(height: Gap.xs),
                     ],
-                    Text(
-                      _resumeLabel,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: context.text.labelSmall?.copyWith(
-                        color: context.colors.primary,
-                      ),
-                    ),
                   ],
                 ),
               ),

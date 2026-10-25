@@ -11,12 +11,18 @@ class ToolbarAction {
     required this.icon,
     required this.onPressed,
     this.showLabel = false,
+    this.shortLabel,
+    this.compactLabel = false,
   });
 
   final String label;
   final IconData icon;
   final VoidCallback? onPressed;
   final bool showLabel;
+  final String? shortLabel;
+  final bool compactLabel;
+
+  String get visibleLabel => shortLabel ?? label;
 }
 
 class ToolbarActions extends StatelessWidget {
@@ -31,6 +37,13 @@ class ToolbarActions extends StatelessWidget {
         (MediaQuery.sizeOf(context).width -
             MediaQuery.paddingOf(context).horizontal) /
         2;
+    TextStyle? labelStyle(ToolbarAction action) => action.compactLabel
+        ? context.text.labelSmall?.copyWith(
+            fontSize: 10,
+            fontWeight: FontWeight.w400,
+          )
+        : Theme.of(context).outlinedButtonTheme.style?.textStyle?.resolve({}) ??
+              context.text.labelLarge;
     var width = 0.0;
     for (final action in actions) {
       if (!action.showLabel) {
@@ -38,17 +51,13 @@ class ToolbarActions extends StatelessWidget {
         continue;
       }
       final painter = TextPainter(
-        text: TextSpan(
-          text: action.label,
-          style:
-              Theme.of(context).outlinedButtonTheme.style?.textStyle
-                  ?.resolve({}) ??
-              context.text.labelLarge,
-        ),
+        text: TextSpan(text: action.visibleLabel, style: labelStyle(action)),
         textDirection: Directionality.of(context),
         textScaler: MediaQuery.textScalerOf(context),
       )..layout();
-      width += (painter.width + Gap.l * 2).clamp(64, double.infinity);
+      width += action.compactLabel
+          ? painter.width + 24 + Gap.s * 2
+          : (painter.width + Gap.l * 2).clamp(64, double.infinity);
       painter.dispose();
     }
     width += Gap.xs * (actions.length - 1);
@@ -80,10 +89,26 @@ class ToolbarActions extends StatelessWidget {
       children: [
         for (var i = 0; i < actions.length; i++) ...[
           if (i > 0) const SizedBox(width: Gap.xs),
-          if (actions[i].showLabel)
+          if (actions[i].showLabel && actions[i].compactLabel)
+            TextButton.icon(
+              style: TextButton.styleFrom(
+                foregroundColor: context.colors.onSurfaceVariant,
+                minimumSize: const Size(48, 48),
+                padding: const EdgeInsets.symmetric(horizontal: Gap.s),
+                textStyle: labelStyle(actions[i]),
+              ),
+              onPressed: actions[i].onPressed,
+              icon: Icon(actions[i].icon, size: 20),
+              label: SelectionContainer.disabled(
+                child: Text(actions[i].visibleLabel),
+              ),
+            )
+          else if (actions[i].showLabel)
             OutlinedButton(
               onPressed: actions[i].onPressed,
-              child: SelectionContainer.disabled(child: Text(actions[i].label)),
+              child: SelectionContainer.disabled(
+                child: Text(actions[i].visibleLabel),
+              ),
             )
           else
             IconButton(

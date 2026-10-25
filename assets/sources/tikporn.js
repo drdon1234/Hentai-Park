@@ -9,7 +9,7 @@ Park.register({
     "ru": {"竖屏短视频推荐，支持连续播放和搜索": "Рекомендации вертикальных видео с непрерывным просмотром и поиском"},
     "ar": {"竖屏短视频推荐，支持连续播放和搜索": "اقتراحات مقاطع عمودية تدعم التشغيل المتواصل والبحث"},
   },
-  key: 'tikporn', name: 'Tik.porn', version: '0.0.8', minAppVersion: '0.9.2', type: 'video', category: 'shortvideo',
+  key: 'tikporn', name: 'Tik.porn', version: '0.0.9', minAppVersion: '0.9.2', type: 'video', category: 'shortvideo',
   color: '#FF427B', description: '竖屏短视频推荐，支持连续播放和搜索', language: 'en',
   homepage: 'https://tik.porn/', domains: ['tik.porn'],
   network: {mode: 'browser', origin: 'https://tik.porn', vpnHint: true},
@@ -86,6 +86,27 @@ Park.register({
     const p = await this.page('/video/' + id), video = p.firstVideo;
     if (!video || String(video.id) !== id) throw Park.error('NOT_FOUND', '影片不存在');
     return video;
+  },
+  async comments(value, req = {}) {
+    const id = this.validId(value), page = Math.max(1, Math.floor(Number(req.page) || 1));
+    if (req.parentId || (req.sort && req.sort !== 'default')) throw Park.error('UNSUPPORTED', '评论暂不支持此操作');
+    if (page > 1) return {items: [], page, hasNext: false};
+    const url = this.BASE + '/video/' + id, response = this.http.ensureOk(await this.http.get(url, {origin: this.BASE, timeout: 30000}));
+    const doc = Park.html.parse(response.body), area = doc.querySelector('[class*="topComments"]');
+    if (!area) throw Park.error('PARSE', '评论数据无效');
+    const items = [], seen = new Set();
+    for (const row of area.querySelectorAll('[id^="comment"]')) {
+      const id = /^comment(\d+)$/.exec(row.id)?.[1], body = Park.comments.html(row.querySelector('[class*="commentText"]')?.innerHTML || '', url);
+      if (!id || seen.has(id) || !body.length) continue;
+      const author = row.querySelector('[class*="commentName"]'); seen.add(id);
+      items.push({id, author: {name: Park.html.text(author), url: Park.comments.url(author?.getAttribute('href'), url),
+        avatar: Park.comments.url(row.querySelector('[class*="commentAvatar"] img')?.getAttribute('src'), url)}, body,
+        date: Park.html.text(row.querySelector('[class*="commentHeader"] > span:last-child')),
+        likes: Number(Park.html.text(row.querySelector('[class*="numberLikes"]'))) || 0,
+        replyCount: Number(/\d+/.exec(Park.html.text(row.querySelector('[class*="commentReplyCounter"]')))?.[0]) || 0});
+    }
+    if (!items.length) throw Park.error('PARSE', '评论数据无效');
+    return {items, page, hasNext: false};
   },
   async detail(id) {
     const video = await this.video(id), seen = new Set(), tags = [];

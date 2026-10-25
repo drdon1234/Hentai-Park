@@ -75,6 +75,25 @@ function createProbe(runtimeCode) {
   return context;
 }
 
+function validateChat(manifest) {
+  const chat = manifest.chat;
+  if (!manifest.capabilities.liveChat && chat && !Object.keys(chat).length) return;
+  const domains = chat?.domains;
+  if (!chat || typeof chat !== 'object' || Array.isArray(chat) ||
+      !Array.isArray(domains) || !domains.length || domains.length > 64 ||
+      domains.some(domain => {
+        if (typeof domain !== 'string') return true;
+        const endpoint = domain.startsWith('*.') ? domain.slice(2) : domain;
+        try {
+          const url = new URL('https://' + endpoint), port = Number(url.port || 443);
+          return url.host !== endpoint || !publicHost(url.hostname) || url.username || url.password ||
+            url.pathname !== '/' || url.search || url.hash || (port !== 443 && (port < 1024 || port > 65535));
+        } catch { return true; }
+      }) || new Set(domains).size !== domains.length) {
+    throw new Error(`${manifest.key} 的聊天权限无效，请声明独立的 TLS 主机与端口，通配符只能位于首个子域`);
+  }
+}
+
 function probeScript(runtimeCode, code, filename) {
   const context = createProbe(runtimeCode);
   const apiVersion = vm.runInContext('Park.API_VERSION', context, executionOptions);
@@ -167,6 +186,7 @@ export async function generateIndex({ root = defaultRoot, commit, previousIndex,
       throw new Error(`${entry.file} 注册的 category 与清单不一致`);
     }
     validateMedia(manifest);
+    validateChat(manifest);
     if (manifest.capabilities.reverseSearch) {
       if (!['general', 'anime', 'jav', 'gallery'].includes(manifest.reverseSearchCategory) ||
           manifest.reverseSearchCategory !== (entry.reverseSearchCategory || 'general')) {

@@ -64,7 +64,8 @@ Park.register({
     "未知直播列表": "قائمة بث غير معروفة"
   }
 },
-  key: 'cam4', name: 'CAM4', version: '0.0.6', minAppVersion: '0.9.2', type: 'video', category: 'live', language: 'en',
+  key: 'cam4', name: 'CAM4', version: '0.0.7', minAppVersion: '0.9.2', type: 'video', category: 'live', language: 'en',
+  chat: {domains: ['identitytoolkit.googleapis.com', 'cam4.firebaseio.com', ...Array.from({length: 10}, (_, i) => 'cam4-' + (i + 1) + '.firebaseio.com')]},
   color: '#ff5a5f', description: '公开直播间', homepage: 'https://www.cam4.com/',
   domains: ['cam4.com'], network: {mode: 'auto', origin: 'https://www.cam4.com', vpnHint: true},
   media: {mode: 'native', scope: 'session', origin: 'https://www.cam4.com', domains: ['cam4-hls.xcdnpro.com', 'stackvaults-hls.xcdnpro.com']},
@@ -108,6 +109,51 @@ Park.register({
     let d; try { d = r.json(); } catch (_) { throw Park.error('PARSE', '直播数据无效'); }
     const media = this.publicUrl(d?.cdnURL || d?.edgeURL, 'https://www.cam4.com'); if (!media) throw Park.error('UNSUPPORTED', '直播间暂无可用播放地址');
     return {id, title: id, url: 'https://www.cam4.com/' + id, cover: '', description: '', tags: [], chapters: null, mediaKind: 'video'};
+  },
+  async liveChat(value) {
+    const id = this.validId(value).toLowerCase();
+    const response = this.http.ensureOk(await this.http.get('https://api.cam4.com/webchat/requestAccess', {
+      params: {r: Date.now(), roomname: id, chat_history_limit: '0'}, headers: {Referer: 'https://www.cam4.com/' + id},
+    }));
+    const raw = response.json(), access = raw.data || raw;
+    const shard = Park.url.parse(access.shard, undefined, this.chat.domains.filter(x => x.endsWith('.firebaseio.com')));
+    if (!shard || !this.chat.domains.includes(shard.hostname) || typeof access.firebase_token_v2 !== 'string' || typeof access.firebase_app_config?.apiKey !== 'string') throw Park.error('PARSE', '直播数据无效');
+    const result = await this.chatHttp.request({url: 'https://identitytoolkit.googleapis.com/v1/accounts:signInWithCustomToken?key=' + encodeURIComponent(access.firebase_app_config.apiKey), method: 'POST', json: {token: access.firebase_token_v2, returnSecureToken: true}});
+    const token = result.json().idToken;
+    if (typeof token !== 'string' || !token) throw Park.error('PARSE', '直播数据无效');
+    const target = new URL('/c/' + id + '.json', shard.href);
+    target.searchParams.set('auth', token);
+    return {transport: 'sse', url: target.href, state: {initial: true, current: {}}};
+  },
+  liveChatEvent(state, event) {
+    const out = {state: {...state}, messages: []};
+    if (event.type !== 'message') return out;
+    if (event.event === 'cancel' || event.event === 'auth_revoked') return {...out, error: true};
+    if (!['put', 'patch'].includes(event.event)) return out;
+    let value; try { value = JSON.parse(event.data); } catch (_) { throw Park.error('PARSE', '直播数据无效'); }
+    const previous = state.current || {};
+    let current;
+    if (value.path === '/') current = event.event === 'patch' ? {...previous, ...(value.data || {})} : value.data || {};
+    else if (value.path === '/m' || value.path === '/p') current = {...previous, [value.path.slice(1)]: value.data};
+    else return out;
+    let pending = {...state.pending};
+    if (value.path === '/' && event.event === 'put') pending = {m: true, p: true};
+    else if (value.path === '/') {
+      if (Object.hasOwn(value.data || {}, 'm')) pending.m = true;
+      if (Object.hasOwn(value.data || {}, 'p')) pending.p = true;
+    } else pending[value.path.slice(1)] = true;
+    out.state = {initial: false, current, pending}; out.connected = true;
+    // p identifies actual light chat messages; notices and gifts have separate payloads.
+    if (typeof current.m !== 'string' || !current.m.trim() || typeof current.p !== 'string' || current.gid) return out;
+    if (current.m === previous.m && current.p === previous.p) return out;
+    // Firebase 可分开更新正文和压缩作者；凑齐同一更新后再展示，避免套用上一条作者。
+    if (!pending.m || !pending.p) return out;
+    out.state.pending = {};
+    const parts = current.p.split('$');
+    if (parts.length < 3) return out;
+    const author = parts[1], stamp = parts[2];
+    out.messages.push({id: current.p + ':' + current.m, text: current.m.slice(0, 2000), author: author.slice(0, 100), isHistory: state.initial !== false, serverTime: stamp});
+    return out;
   },
   async videos(value) {
     const id = this.validId(value), r = await this.http.get('https://www.cam4.com/rest/v1.0/profile/' + encodeURIComponent(id) + '/streamInfo', {timeout: 30000});

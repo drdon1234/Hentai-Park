@@ -265,6 +265,10 @@ function addPeer(ch) {
   };
   peers.set('channel:' + ch.id, p);
   if (ch.username) peers.set(ch.username.toLowerCase(), p);
+  for (const alias of ch.usernames || []) {
+    if (alias.active && typeof alias.username === 'string')
+      peers.set(alias.username.toLowerCase(), p);
+  }
 }
 async function joined(source) {
   const d = await rpc(source, 'messages.getDialogs', {
@@ -284,12 +288,15 @@ async function joined(source) {
 }
 async function peer(source, id) {
   if (peers.has(id)) return peers.get(id);
-  await joined(source);
-  if (peers.has(id)) return peers.get(id);
-  if (id.startsWith('channel:'))
+  if (id.startsWith('channel:')) {
+    await joined(source);
+    if (peers.has(id)) return peers.get(id);
     throw Park.error('BLOCKED', '访问受限，请在原站检查权限或手动关注、加入');
+  }
   const d = await rpc(source, 'contacts.resolveUsername', { username: id });
   for (const ch of d.chats || []) addPeer(ch);
+  const resolved = peers.get('channel:' + d.peer?.channel_id);
+  if (resolved) peers.set(id, resolved);
   if (!peers.has(id)) throw Park.error('NOT_FOUND', '内容不存在或已被删除');
   return peers.get(id);
 }
@@ -362,11 +369,152 @@ function mediaPost(m, p, target) {
     title: target.label,
     text: m.message || '',
     date: new Date(m.date * 1000).toISOString(),
-    url: target.id.startsWith('channel:')
-      ? `https://t.me/c/${target.id.slice(8)}/${m.id}`
-      : HOME + '/' + target.id + '/' + m.id,
+    url: postUrl(target.id, m.id),
+    ...(m.grouped_id && !m.replies ? {} : {commentsAvailable: m.replies?.comments === true}),
     media,
   };
+}
+function postUrl(target, messageId) {
+  return HOME + '/' + (target.startsWith('channel:') ? 'c/' + target.slice(8) : target) + '/' + messageId;
+}
+function commentRef(workId, context) {
+  let url;
+  try { url = new URL(context?.url); } catch (_) {}
+  const match = url?.pathname.match(/^\/(?:([A-Za-z][A-Za-z0-9_]{3,31})|c\/([1-9]\d{0,15}))\/([1-9]\d{0,9})\/?$/);
+  const id = String(workId || ''), grouped = /^group:[1-9]\d{0,19}$/.test(id);
+  if (!url || url.protocol !== 'https:' || url.username || url.password ||
+      !['t.me', 'www.t.me', 'telegram.me'].includes(url.hostname) || url.port ||
+      !match || Number(match[3]) > 2147483647 || (!grouped && id !== match[3]))
+    throw Park.error('CONFIG', '评论参数无效');
+  const target = match[1] ? match[1].toLowerCase() : 'channel:' + match[2];
+  return {target, messageId: Number(match[3]), grouped: grouped ? id.slice(6) : null};
+}
+function commentCursor(value, scope) {
+  if (value == null) return {offset: 0, seen: 0};
+  let data;
+  try { data = JSON.parse(value); } catch (_) {}
+  if (typeof value !== 'string' || value.length > 512 || !data ||
+      Object.keys(data).sort().join(',') !== 'offset,scope,seen' || data.scope !== scope ||
+      !Number.isSafeInteger(data.offset) || data.offset <= 0 || data.offset > 2147483647 ||
+      !Number.isSafeInteger(data.seen) || data.seen < 0)
+    throw Park.error('CONFIG', '评论参数无效');
+  return data;
+}
+async function albumCommentPost(source, originalPeer, message) {
+  if (!message.grouped_id || message.replies?.comments === true) return message;
+  // 相册可能跨订阅分页；只在读评论时围绕该成员回查同一频道的邻近消息。
+  const nearby = await rpc(source, 'messages.getHistory', {
+    peer: originalPeer, offset_id: message.id, offset_date: 0, add_offset: -20,
+    limit: 40, max_id: 0, min_id: 0, hash: '0',
+  });
+  if (!Array.isArray(nearby.messages)) throw Park.error('PARSE', '评论数据无效');
+  const messages = nearby.messages.filter(item => item._ === 'message' &&
+    Number.isSafeInteger(item.id) && item.id > 0 &&
+    String(item.peer_id?.channel_id) === String(originalPeer.channel_id));
+  const members = messages.filter(item => String(item.grouped_id) === String(message.grouped_id));
+  const anchor = members.find(item => item.replies?.comments === true);
+  if (anchor) return anchor;
+  const ids = members.map(item => item.id);
+  if (ids.length && messages.some(item => item.id > Math.max(...ids)) &&
+      messages.some(item => item.id < Math.min(...ids))) return message;
+  // 没有取得完整相册边界时仍属未知，不能把缺失的讨论成员误报为关闭评论。
+  throw Park.error('PARSE', '评论数据无效');
+}
+function commentBody(message, url) {
+  const text = typeof message.message === 'string' ? message.message : '';
+  const entities = (message.entities || []).filter(entity => entity._ === 'messageEntityTextUrl' &&
+    Number.isSafeInteger(entity.offset) && Number.isSafeInteger(entity.length) &&
+    entity.offset >= 0 && entity.length > 0 && entity.offset + entity.length <= text.length &&
+    Park.comments.url(entity.url)).sort((a,b) => a.offset - b.offset);
+  const body = [];
+  let at = 0;
+  for (const entity of entities) {
+    if (entity.offset < at) continue;
+    body.push(...Park.comments.text(text.slice(at, entity.offset)));
+    body.push({type: 'link', text: text.slice(entity.offset, entity.offset + entity.length), url: Park.comments.url(entity.url)});
+    at = entity.offset + entity.length;
+  }
+  body.push(...Park.comments.text(text.slice(at)));
+  // Telegram 附件需要授权媒体读取；评论正文不伪造公共图片地址。
+  if (message.media && !['messageMediaEmpty', 'messageMediaWebPage'].includes(message.media._))
+    body.push({type: 'link', text: url, url});
+  return body;
+}
+function commentItems(response, mapping) {
+  if (!Array.isArray(response.messages) || !Array.isArray(response.users) || !Array.isArray(response.chats))
+    throw Park.error('PARSE', '评论数据无效');
+  const users = new Map(response.users.map(user => [String(user.id), user]));
+  const chats = new Map(response.chats.map(chat => [String(chat.id), chat]));
+  const namespace = 'channel:' + mapping.channel + ':';
+  const seen = new Set(), items = [];
+  for (const message of response.messages) {
+    if (!Number.isSafeInteger(message.id) || message.id <= 0 ||
+        String(message.peer_id?.channel_id) !== mapping.channel || message.id === mapping.root || seen.has(message.id)) continue;
+    seen.add(message.id);
+    const reply = message.reply_to;
+    if (reply && (reply.reply_to_peer_id && String(reply.reply_to_peer_id.channel_id) !== mapping.channel ||
+        reply.reply_to_top_id && reply.reply_to_top_id !== mapping.root ||
+        !reply.reply_to_top_id && reply.reply_to_msg_id !== mapping.root))
+      throw Park.error('PARSE', '评论数据无效');
+    if (message._ !== 'message' || !reply) continue;
+    const id = namespace + message.id;
+    const parentId = reply.reply_to_msg_id && reply.reply_to_msg_id !== mapping.root
+      ? namespace + reply.reply_to_msg_id : undefined;
+    if (parentId === id) throw Park.error('PARSE', '评论数据无效');
+    const url = mapping.postUrl + '?comment=' + message.id;
+    const body = commentBody(message, url);
+    if (!body.some(part => part.type === 'image' || part.text?.trim())) continue;
+    const author = message.from_id?.user_id ? users.get(String(message.from_id.user_id))
+      : chats.get(String(message.from_id?.channel_id));
+    const name = author?.title || [author?.first_name, author?.last_name].filter(Boolean).join(' ');
+    const username = author?.username || (author?.usernames || []).find(value => value.active)?.username;
+    items.push({id, parentId, author: {name, ...(typeof username === 'string' && /^[A-Za-z][A-Za-z0-9_]{3,31}$/.test(username) ? {url: HOME + '/' + username} : {})},
+      body, date: Number.isSafeInteger(message.date) ? new Date(message.date * 1000).toISOString() : '',
+      spoiler: !!message.media?.spoiler || (message.entities || []).some(entity => entity._ === 'messageEntitySpoiler')});
+  }
+  return items;
+}
+async function comments(source, workId, request) {
+  if (request.parentId != null || request.sort && request.sort !== 'default')
+    throw Park.error('UNSUPPORTED', '此内容暂不支持评论');
+  const ref = commentRef(workId, request.context);
+  const originalPeer = await peer(source, ref.target);
+  const original = await rpc(source, 'channels.getMessages', {
+    channel: {_: 'inputChannel', channel_id: originalPeer.channel_id, access_hash: originalPeer.access_hash},
+    id: [{_: 'inputMessageID', id: ref.messageId}],
+  });
+  let message = original.messages?.find(item => item._ === 'message' && item.id === ref.messageId &&
+    String(item.peer_id?.channel_id) === String(originalPeer.channel_id));
+  if (!message) throw Park.error('NOT_FOUND', '内容不存在或已被删除');
+  if (ref.grouped && String(message.grouped_id) !== ref.grouped)
+    throw Park.error('CONFIG', '评论参数无效');
+  message = await albumCommentPost(source, originalPeer, message);
+  if (message.replies?.comments !== true)
+    throw Park.error('UNSUPPORTED', '此内容暂不支持评论');
+  const discussion = await rpc(source, 'messages.getDiscussionMessage', {peer: originalPeer, msg_id: message.id});
+  const channel = String(message.replies.channel_id);
+  const root = discussion.messages?.find(item => item._ === 'message' &&
+    String(item.peer_id?.channel_id) === channel && item.fwd_from?.channel_post === message.id &&
+    String(item.fwd_from?.from_id?.channel_id) === String(originalPeer.channel_id));
+  const group = discussion.chats?.find(item => item._ === 'channel' && String(item.id) === channel && item.access_hash);
+  if (!root || !group) throw Park.error('PARSE', '评论数据无效');
+  const scope = [String(originalPeer.channel_id), message.id, channel, root.id].join(':');
+  const cursor = commentCursor(request.cursor, scope);
+  const response = await rpc(source, 'messages.getReplies', {
+    peer: {_: 'inputPeerChannel', channel_id: group.id, access_hash: group.access_hash},
+    msg_id: root.id, offset_id: cursor.offset, offset_date: 0, add_offset: 0,
+    limit: 20, max_id: 0, min_id: 0, hash: '0',
+  });
+  const mapping = {channel, root: root.id, postUrl: postUrl(ref.target, message.id)};
+  const items = commentItems(response, mapping);
+  const rawIds = response.messages.filter(item => Number.isSafeInteger(item.id) && item.id > 0 &&
+    item.id !== root.id && String(item.peer_id?.channel_id) === channel).map(item => item.id);
+  const offset = rawIds.length ? Math.min(...rawIds) : 0;
+  const advanced = offset > 0 && (!cursor.offset || offset < cursor.offset);
+  const count = Number.isSafeInteger(response.count) && response.count >= 0 ? response.count : undefined;
+  const seen = cursor.seen + new Set(rawIds).size;
+  const hasNext = advanced && rawIds.length >= 20 && (count == null || seen < count);
+  return {items, hasNext, total: count, cursor: hasNext ? JSON.stringify({scope, offset, seen}) : null};
 }
 async function publicPosts(source, target, options) {
   if (target.id.startsWith('channel:'))
@@ -428,7 +576,8 @@ Park.register({
   },
   key: 'telegram',
   name: 'Telegram',
-  version: '0.0.7', minAppVersion: '0.9.2',
+  version: '0.0.9', minAppVersion: '0.9.2',
+  postShortVideos: true,
   type: 'video',
   category: 'other',
   homepage: HOME,
@@ -436,6 +585,9 @@ Park.register({
   network: { vpnHint: true },
   description: '频道订阅，公开预览与授权会话只读访问',
   idExample: 'telegram',
+  comments(workId, request = {}) {
+    return comments(this, workId, request);
+  },
   account: {
     type: 'session',
     title: '登录 Telegram',
@@ -483,6 +635,10 @@ Park.register({
           previous.media.push(...post.media);
           if (!previous.text) previous.text = post.text;
           if (post.date < previous.date) { previous.date = post.date; previous.url = post.url; }
+          if (post.commentsAvailable === true) {
+            previous.commentsAvailable = true;
+            previous.url = post.url;
+          }
         } else groups.set(post.id, {...post, media: [...post.media]});
       }
       for (const post of groups.values()) {
@@ -518,8 +674,17 @@ Park.register({
       const cursor = messages.length
         ? String(Math.min(...messages.map((m) => m.id)))
         : null;
+      const items = messages.map((m) => mediaPost(m, p, target)).filter(Boolean);
+      const discussions = new Map(items.filter(item => item.id.startsWith('group:') && item.commentsAvailable === true)
+        .map(item => [item.id, item.url]));
+      for (const item of items) {
+        if (discussions.has(item.id)) {
+          item.commentsAvailable = true;
+          item.url = discussions.get(item.id);
+        }
+      }
       return {
-        items: messages.map((m) => mediaPost(m, p, target)).filter(Boolean),
+        items,
         cursor,
         hasNext:
           !!cursor && cursor !== options?.cursor && messages.length >= 20,

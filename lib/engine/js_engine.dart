@@ -15,6 +15,8 @@ import 'cookie_store.dart';
 import 'crypto_bridge.dart';
 import 'domains.dart';
 import 'http_service.dart';
+import 'live_chat_protocol.dart';
+import 'live_chat_transport.dart';
 import 'source_identity.dart';
 
 typedef PersistCallback = Future<void> Function(
@@ -128,6 +130,7 @@ class SourceRuntime {
 
   /// Domains the source declared; cookie mirroring and browser-mode origins must stay inside them.
   List<String> domains = [];
+  List<String> chatDomains = [];
   AgeConfirmationConfig? _confirmation;
 
   HeadlessInAppWebView? _view;
@@ -161,6 +164,7 @@ class SourceRuntime {
   function post(name, payload) { ready.then(() => window.flutter_inappwebview.callHandler(name, payload)); }
   window.Park = { __native: {
     request: (o) => call('park_request', o),
+    chatRequest: (o) => call('park_chat_request', o),
     crypto: (op, args) => call('park_crypto', { op, args }),
     cookies: (op, args) => call('park_cookies', { op, args }),
     persist: (key, data, flush = false) => call('park_persist', { data, flush }),
@@ -392,6 +396,21 @@ class SourceRuntime {
       }),
     );
     c.addJavaScriptHandler(
+      handlerName: 'park_chat_request',
+      callback: (args) => guard(() {
+        final options = (args.first as Map).cast<String, dynamic>();
+        final invocation = options['invocation'];
+        final token = invocation == null ? _requests : _invocations[invocation];
+        if (token == null) throw SourceError('CANCELLED', '请求已取消');
+        return liveChatRequest(
+          options,
+          source: key,
+          domains: chatDomains,
+          cancelToken: token,
+        );
+      }),
+    );
+    c.addJavaScriptHandler(
       handlerName: 'park_crypto',
       callback: (args) => guard(() async {
         final m = (args.first as Map).cast<String, dynamic>();
@@ -505,6 +524,7 @@ class SourceRuntime {
       throw SourceError('CONFIG', '站点标识的长度或格式无效');
     }
     domains = declaredDomains(info.manifest);
+    chatDomains = liveChatDomains(info.manifest);
     _confirmation = AgeConfirmationConfig.fromNetwork(
       (info.manifest['network'] as Map? ?? const {}).cast<String, dynamic>(),
     );
@@ -534,6 +554,7 @@ class SourceRuntime {
     }
     final manifest = (res!.value as Map).cast<String, dynamic>();
     domains = declaredDomains(manifest);
+    chatDomains = liveChatDomains(manifest);
     _confirmation = AgeConfirmationConfig.fromNetwork(
       (manifest['network'] as Map? ?? const {}).cast<String, dynamic>(),
     );

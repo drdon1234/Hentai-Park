@@ -18,22 +18,22 @@ class PageHeader extends StatelessWidget implements PreferredSizeWidget {
     this.titleWidget,
     this.actions = const [],
     this.bottom,
+    this.toolbarHeight = 64,
   });
   final String? title;
   final Widget? titleWidget;
   final List<Widget> actions;
   final PreferredSizeWidget? bottom;
-
-  static const double height = 64;
+  final double toolbarHeight;
 
   @override
   Size get preferredSize =>
-      Size.fromHeight(height + (bottom?.preferredSize.height ?? 0));
+      Size.fromHeight(toolbarHeight + (bottom?.preferredSize.height ?? 0));
 
   @override
   Widget build(BuildContext context) => AppBar(
     centerTitle: false,
-    toolbarHeight: height,
+    toolbarHeight: toolbarHeight,
     titleSpacing: Gap.page,
     title:
         titleWidget ??
@@ -45,7 +45,7 @@ class PageHeader extends StatelessWidget implements PreferredSizeWidget {
         ),
     actions: [
       ...actions,
-      const SizedBox(width: Gap.xs),
+      const SizedBox(width: Gap.l),
     ],
     bottom: bottom,
   );
@@ -163,11 +163,15 @@ class SectionHeader extends StatelessWidget {
     this.trailing,
     this.leading,
     this.padding = const EdgeInsets.fromLTRB(Gap.page, Gap.xl, Gap.page, Gap.s),
+    this.titleStyle,
+    this.emphasizeTrailing = true,
   });
   final String title;
   final Widget? trailing;
   final Widget? leading;
   final EdgeInsets padding;
+  final TextStyle? titleStyle;
+  final bool emphasizeTrailing;
 
   @override
   Widget build(BuildContext context) => Padding(
@@ -181,7 +185,7 @@ class SectionHeader extends StatelessWidget {
               header: true,
               child: Text(
                 title,
-                style: context.text.titleMedium,
+                style: titleStyle ?? context.text.titleMedium,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),
@@ -191,7 +195,9 @@ class SectionHeader extends StatelessWidget {
           if (trailing != null)
             ConstrainedBox(
               constraints: BoxConstraints(maxWidth: constraints.maxWidth * .6),
-              child: SecondaryActionTheme(child: trailing!),
+              child: emphasizeTrailing
+                  ? SecondaryActionTheme(child: trailing!)
+                  : trailing!,
             ),
         ],
       ),
@@ -250,6 +256,7 @@ class ListRow extends StatelessWidget {
     this.enabled = true,
     this.titleMaxLines = 1,
     this.subtitleMaxLines = 2,
+    this.titleStyle,
     this.padding = const EdgeInsets.symmetric(
       horizontal: Gap.page,
       vertical: Gap.m,
@@ -265,6 +272,7 @@ class ListRow extends StatelessWidget {
   final bool enabled;
   final int? titleMaxLines;
   final int subtitleMaxLines;
+  final TextStyle? titleStyle;
   final EdgeInsets padding;
 
   @override
@@ -308,7 +316,8 @@ class ListRow extends StatelessWidget {
                             overflow: titleMaxLines == null
                                 ? TextOverflow.clip
                                 : TextOverflow.ellipsis,
-                            style: context.text.bodyLarge?.copyWith(color: fg),
+                            style: (titleStyle ?? context.text.bodyLarge)
+                                ?.copyWith(color: fg),
                           ),
                           if (subtitle != null && subtitle!.isNotEmpty) ...[
                             const SizedBox(height: 2),
@@ -794,6 +803,7 @@ class ParkSearchField extends StatelessWidget {
     this.onChanged,
     this.trailing = const [],
     this.autofocus = false,
+    this.outlined = false,
   });
   final TextEditingController? controller;
   final FocusNode? focusNode;
@@ -803,16 +813,21 @@ class ParkSearchField extends StatelessWidget {
   final ValueChanged<String>? onChanged;
   final List<Widget> trailing;
   final bool autofocus;
-
-  static const _searchBorder = OutlineInputBorder(
-    borderRadius: BorderRadius.all(Radius.circular(28)),
-    borderSide: BorderSide.none,
-  );
+  final bool outlined;
 
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
     final readOnly = onTap != null;
+    final radius = outlined
+        ? Radii.medium
+        : const BorderRadius.all(Radius.circular(28));
+    final border = OutlineInputBorder(
+      borderRadius: radius,
+      borderSide: outlined
+          ? BorderSide(color: c.outlineVariant)
+          : BorderSide.none,
+    );
     return Semantics(
       button: readOnly,
       textField: !readOnly,
@@ -866,16 +881,20 @@ class ParkSearchField extends StatelessWidget {
         decoration: InputDecoration(
           hintText: hint,
           isDense: true,
-          border: _searchBorder,
-          enabledBorder: _searchBorder,
-          focusedBorder: _searchBorder.copyWith(
+          fillColor: outlined ? c.surface : null,
+          border: border,
+          enabledBorder: border,
+          focusedBorder: border.copyWith(
             borderSide: BorderSide(color: c.primary, width: 1.5),
           ),
-          contentPadding: const EdgeInsets.symmetric(
-            horizontal: Gap.l,
+          contentPadding: EdgeInsets.symmetric(
+            horizontal: outlined ? Gap.s : Gap.l,
             vertical: Gap.m,
           ),
           prefixIcon: Icon(Icons.search_rounded, color: c.onSurfaceVariant),
+          prefixIconConstraints: outlined
+              ? const BoxConstraints(minWidth: 40, minHeight: 48)
+              : null,
           suffixIcon: trailing.isEmpty
               ? null
               : Row(mainAxisSize: MainAxisSize.min, children: trailing),

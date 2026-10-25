@@ -18,6 +18,7 @@ import 'novel/novel_reader_page.dart';
 import 'reader/reader_page.dart';
 import 'search/aggregate_search_page.dart';
 import 'search/reverse_search_page.dart';
+import 'search/source_link_search_page.dart';
 import 'search/source_search_page.dart';
 import 'settings/settings_sections.dart';
 import 'settings/source_settings_page.dart';
@@ -26,6 +27,7 @@ import 'short_video/short_video_page.dart';
 import 'short_video/short_video_sequence.dart';
 import 'source/source_page.dart';
 import 'subscriptions/subscription_posts_page.dart';
+import 'theme.dart';
 import 'video/video_page.dart';
 import 'web/web_verify_page.dart';
 import 'web/web_video_page.dart';
@@ -34,7 +36,44 @@ import 'widgets/error_view.dart';
 
 /// Central navigation so every entry point (cards, tags, links, history…) behaves the same.
 class Nav {
-  static final routeObserver = RouteObserver<ModalRoute<dynamic>>();
+  static Future<void> openContentLink(
+    BuildContext context,
+    String source,
+    String url, {
+    SourceManager? sourceManager,
+  }) async {
+    final manager = sourceManager ?? SourceManager.instance;
+    final link = await guarded(
+      context,
+      source,
+      () => manager.resolveContentLink(source, url),
+    );
+    if (link == null || !context.mounted) return;
+    if (link.type == 'work') {
+      await openRef(context, link.source!, link.value, sourceManager: manager);
+    } else if (link.type == 'search') {
+      await push(
+        context,
+        SourceLinkSearchPage(
+          source: link.source!,
+          url: link.value,
+          manager: manager,
+        ),
+      );
+    } else {
+      var opened = false;
+      try {
+        opened = await launchUrl(
+          Uri.parse(link.value),
+          mode: LaunchMode.externalApplication,
+        );
+      } catch (_) {}
+      if (!opened && context.mounted) context.toast(tr('无法打开原站'));
+    }
+  }
+
+  // 播放器只随页面切换暂停，菜单、对话框和底部弹层不打断播放。
+  static final routeObserver = _AppRouteObserver();
   static final _accessVerifications = Expando<Map<String, Future<bool>>>();
 
   static Future<bool> _verifyAccess(
@@ -223,21 +262,31 @@ class Nav {
     WorkDetail work, {
     Chapter? chapter,
     int startPage = 0,
+    bool downloadedOnly = false,
   }) =>
-      work.isGame ||
-          SourceManager.instance.manifest(work.source)?.isGame == true
+      !downloadedOnly &&
+          (work.isGame ||
+              SourceManager.instance.manifest(work.source)?.isGame == true)
       ? openWork(context, work.toItem())
       : push(
           context,
-          SourceManager.instance.manifest(work.source)?.isNovel == true ||
+          (!downloadedOnly &&
+                      SourceManager.instance.manifest(work.source)?.isNovel ==
+                          true) ||
                   DownloadManager.instance.task(work.uid)?.isNovel == true ||
                   work.isNovel
               ? NovelReaderPage(
                   work: work,
                   chapter: chapter,
                   startOffset: startPage,
+                  downloadedOnly: downloadedOnly,
                 )
-              : ReaderPage(work: work, chapter: chapter, startPage: startPage),
+              : ReaderPage(
+                  work: work,
+                  chapter: chapter,
+                  startPage: startPage,
+                  downloadedOnly: downloadedOnly,
+                ),
         );
 
   /// [stored]: [work] was rebuilt from stored data, not loaded from the site.
@@ -246,7 +295,13 @@ class Nav {
     WorkDetail work, {
     String? episodeId,
     bool stored = false,
-  }) => SourceManager.instance.manifest(work.source)?.opensExternally == true
+    bool downloadedOnly = false,
+  }) => downloadedOnly
+      ? push(
+          context,
+          VideoPage(work: work, episodeId: episodeId, downloadedOnly: true),
+        )
+      : SourceManager.instance.manifest(work.source)?.opensExternally == true
       ? openWork(context, work.toItem())
       : push(
           context,
@@ -278,14 +333,34 @@ class Nav {
     WorkItem item,
     String? chapterId, {
     int? page,
+    bool downloadedOnly = false,
   }) async {
-    final target = await PlaybackResolver.resolve(item, chapterId, page: page);
+    final target = await PlaybackResolver.resolve(
+      item,
+      chapterId,
+      page: page,
+      downloadedOnly: downloadedOnly,
+    );
     if (!context.mounted) return;
     switch (target) {
       case OpenWorkPage():
+        if (downloadedOnly) {
+          context.toast(tr('未完成'));
+          return;
+        }
         return openWork(context, item);
-      case PlayVideo(work: final work?, :final episodeId):
-        return openVideo(context, work, episodeId: episodeId, stored: true);
+      case PlayVideo(
+        work: final work?,
+        :final episodeId,
+        :final downloadedOnly,
+      ):
+        return openVideo(
+          context,
+          work,
+          episodeId: episodeId,
+          stored: true,
+          downloadedOnly: downloadedOnly,
+        );
       case PlayVideo(:final episodeId):
         final detail = await guarded(
           context,
@@ -295,12 +370,18 @@ class Nav {
         if (detail != null && context.mounted) {
           await openVideo(context, detail, episodeId: episodeId);
         }
-      case ReadChapter(:final work, :final chapter, :final startPage):
+      case ReadChapter(
+        :final work,
+        :final chapter,
+        :final startPage,
+        :final downloadedOnly,
+      ):
         return openReader(
           context,
           work,
           chapter: chapter,
           startPage: startPage,
+          downloadedOnly: downloadedOnly,
         );
     }
   }
@@ -385,5 +466,39 @@ class Nav {
       () => SourceManager.instance.random(source),
     );
     if (id != null && context.mounted) await openRef(context, source, id);
+  }
+}
+
+/// SnackBars are hosted above the Navigator, so they otherwise survive a page
+/// transition even though the page that created them is gone.
+class _AppRouteObserver extends RouteObserver<PageRoute<dynamic>> {
+  void _clearSnackBar(Route<dynamic>? route) {
+    final navigator = route?.navigator;
+    if (navigator == null) return;
+    ScaffoldMessenger.maybeOf(navigator.context)?.hideCurrentSnackBar();
+  }
+
+  @override
+  void didPush(Route<dynamic> route, Route<dynamic>? previousRoute) {
+    super.didPush(route, previousRoute);
+    _clearSnackBar(route);
+  }
+
+  @override
+  void didPop(Route<dynamic> route, Route<dynamic>? previousRoute) {
+    super.didPop(route, previousRoute);
+    _clearSnackBar(previousRoute ?? route);
+  }
+
+  @override
+  void didReplace({Route<dynamic>? newRoute, Route<dynamic>? oldRoute}) {
+    super.didReplace(newRoute: newRoute, oldRoute: oldRoute);
+    _clearSnackBar(newRoute ?? oldRoute);
+  }
+
+  @override
+  void didRemove(Route<dynamic> route, Route<dynamic>? previousRoute) {
+    super.didRemove(route, previousRoute);
+    _clearSnackBar(previousRoute ?? route);
   }
 }

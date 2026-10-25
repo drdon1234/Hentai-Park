@@ -8,6 +8,7 @@ import '../nav.dart';
 import '../settings/source_manage_page.dart';
 import '../settings/source_settings_page.dart';
 import '../source/source_page.dart';
+import '../theme.dart';
 import '../widgets/common.dart';
 
 /// Every enabled site, grouped by category, as a hairline list. Sites are a secondary entry:
@@ -85,10 +86,18 @@ class SiteRow extends StatelessWidget {
     required this.source,
     this.homeSourceVisible,
     this.onToggleWorks,
+    this.showMore = true,
+    this.showDetails = true,
+    this.showEnterButton = false,
+    this.avatarFontWeight = FontWeight.w600,
   });
   final InstalledSource source;
   final bool? homeSourceVisible;
   final VoidCallback? onToggleWorks;
+  final bool showMore;
+  final bool showDetails;
+  final bool showEnterButton;
+  final FontWeight avatarFontWeight;
 
   int? get _ranking {
     final feeds = source.manifest!.feeds;
@@ -119,13 +128,15 @@ class SiteRow extends StatelessWidget {
         : null;
     final ranking = _ranking;
     return ListRow(
-      leading: SourceAvatar(source.key),
+      leading: SourceAvatar(source.key, fontWeight: avatarFontWeight),
       title: m.name,
-      subtitle: [
-        ?status,
-        if (m.description.isNotEmpty) m.description,
-      ].join(' · '),
+      subtitle: showDetails
+          ? [?status, if (m.description.isNotEmpty) m.description].join(' · ')
+          : null,
       subtitleMaxLines: 1,
+      titleStyle: showDetails
+          ? null
+          : context.text.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
       onTap: () => Nav.openSource(context, source.key),
       onLongPress: () => Nav.openSourceSettings(context, source.key),
       padding: const EdgeInsets.fromLTRB(Gap.page, Gap.s, Gap.xs, Gap.s),
@@ -144,61 +155,82 @@ class SiteRow extends StatelessWidget {
               ),
               onPressed: onToggleWorks,
             ),
-          PopupMenuButton<String>(
-            tooltip: tr('更多'),
-            onSelected: (action) {
-              switch (action) {
-                case 'search':
-                  Nav.openSourceSearch(context, source.key);
-                case 'ranking':
-                  Nav.push(
-                    context,
-                    SourcePage(sourceKey: source.key, initialFeed: ranking),
-                  );
-                case 'random':
-                  Nav.random(context, source.key);
-                case 'account':
-                  Nav.push(
-                    context,
-                    SourceSettingsPage(
-                      sourceKey: source.key,
-                      showManagedAccountPrompt:
-                          m.account?.managedAccount == true,
-                    ),
-                  );
-                case 'settings':
-                  Nav.openSourceSettings(context, source.key);
-              }
-            },
-            itemBuilder: (_) => [
-              if (m.can('search'))
-                PopupMenuItem(
-                  value: 'search',
-                  child: SelectionContainer.disabled(child: Text(tr('在此站点搜索'))),
-                ),
-              if (ranking != null && !AppSettings.instance.searchOnlySources)
-                PopupMenuItem(
-                  value: 'ranking',
-                  child: SelectionContainer.disabled(child: Text(tr('排行'))),
-                ),
-              if (m.can('random') && !AppSettings.instance.searchOnlySources)
-                PopupMenuItem(
-                  value: 'random',
-                  child: SelectionContainer.disabled(child: Text(tr('随机一部'))),
-                ),
-              if (needsAccount)
-                PopupMenuItem(
-                  value: 'account',
-                  child: SelectionContainer.disabled(
-                    child: Text(tr('登录或配置账号')),
+          if (showEnterButton)
+            TextButton(
+              style: TextButton.styleFrom(
+                foregroundColor: context.colors.primary,
+                minimumSize: const Size(48, 40),
+                padding: const EdgeInsets.symmetric(horizontal: Gap.xs),
+              ),
+              onPressed: () => Nav.openSource(context, source.key),
+              child: SelectionContainer.disabled(
+                child: Text(
+                  tr('进入'),
+                  style: context.text.labelLarge?.copyWith(
+                    color: context.colors.primary,
+                    fontWeight: FontWeight.w400,
                   ),
                 ),
-              PopupMenuItem(
-                value: 'settings',
-                child: SelectionContainer.disabled(child: Text(tr('站点设置'))),
               ),
-            ],
-          ),
+            ),
+          if (showMore)
+            PopupMenuButton<String>(
+              tooltip: tr('更多'),
+              onSelected: (action) {
+                switch (action) {
+                  case 'search':
+                    Nav.openSourceSearch(context, source.key);
+                  case 'ranking':
+                    Nav.push(
+                      context,
+                      SourcePage(sourceKey: source.key, initialFeed: ranking),
+                    );
+                  case 'random':
+                    Nav.random(context, source.key);
+                  case 'account':
+                    Nav.push(
+                      context,
+                      SourceSettingsPage(
+                        sourceKey: source.key,
+                        showManagedAccountPrompt:
+                            m.account?.managedAccount == true,
+                      ),
+                    );
+                  case 'settings':
+                    Nav.openSourceSettings(context, source.key);
+                }
+              },
+              itemBuilder: (_) => [
+                if (m.can('search'))
+                  PopupMenuItem(
+                    value: 'search',
+                    child: SelectionContainer.disabled(
+                      child: Text(tr('在此站点搜索')),
+                    ),
+                  ),
+                if (ranking != null && !AppSettings.instance.searchOnlySources)
+                  PopupMenuItem(
+                    value: 'ranking',
+                    child: SelectionContainer.disabled(child: Text(tr('排行'))),
+                  ),
+                if (m.can('random') && !AppSettings.instance.searchOnlySources)
+                  PopupMenuItem(
+                    value: 'random',
+                    child: SelectionContainer.disabled(child: Text(tr('随机一部'))),
+                  ),
+                if (needsAccount)
+                  PopupMenuItem(
+                    value: 'account',
+                    child: SelectionContainer.disabled(
+                      child: Text(tr('登录或配置账号')),
+                    ),
+                  ),
+                PopupMenuItem(
+                  value: 'settings',
+                  child: SelectionContainer.disabled(child: Text(tr('站点设置'))),
+                ),
+              ],
+            ),
         ],
       ),
     );

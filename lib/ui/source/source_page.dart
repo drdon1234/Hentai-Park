@@ -2,13 +2,11 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
-import '../../core/content_scope.dart';
 import '../../core/localization.dart';
 import '../../core/models.dart';
 import '../../core/settings.dart';
 import '../../engine/source_manager.dart';
 import '../album/open_album.dart';
-import '../history/history_page.dart';
 import '../nav.dart';
 import '../search/source_search_page.dart';
 import '../short_video/post_video_feed.dart';
@@ -16,6 +14,7 @@ import '../short_video/short_video_page.dart';
 import '../subscriptions/subscription_source_page.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
+import '../widgets/common_filters.dart';
 import '../widgets/content_translation.dart';
 import '../widgets/filter_controller.dart';
 import '../widgets/option_bar.dart';
@@ -184,12 +183,6 @@ class _SourcePageState extends State<SourcePage> {
                                 value: 'login',
                                 child: Text(tr('在原站登录')),
                               ),
-                            PopupMenuItem(
-                              value: 'history',
-                              child: SelectionContainer.disabled(
-                                child: Text(tr('浏览历史')),
-                              ),
-                            ),
                             if (m.can('random'))
                               PopupMenuItem(
                                 value: 'random',
@@ -214,13 +207,6 @@ class _SourcePageState extends State<SourcePage> {
                               );
                             } else if (action == 'login') {
                               await Nav.login(context, widget.sourceKey);
-                            } else if (action == 'history') {
-                              await Nav.push(
-                                context,
-                                HistoryPage(
-                                  scope: ContentScope.source(widget.sourceKey),
-                                ),
-                              );
                             } else if (action == 'random') {
                               await Nav.random(context, widget.sourceKey);
                             } else {
@@ -341,6 +327,7 @@ class _FeedTabState extends State<FeedTab> with AutomaticKeepAliveClientMixin {
 
   bool _forceRefresh = false;
   late Map<String, Object?> _options;
+  Map<String, Object?> _common = const {};
   late final FilterController _filters;
   late final PagedController _controller;
 
@@ -360,6 +347,7 @@ class _FeedTabState extends State<FeedTab> with AutomaticKeepAliveClientMixin {
         page: page,
         cursor: cursor,
         options: _options,
+        common: _common,
         refresh: _forceRefresh,
         onCached: page == 1 ? _controller.cachedReceiver() : null,
       );
@@ -393,6 +381,7 @@ class _FeedTabState extends State<FeedTab> with AutomaticKeepAliveClientMixin {
         title: '${widget.source.name} · ${widget.feed.label}',
         feed: widget.feed.key,
         options: Map.of(_options),
+        common: Map.of(_common),
       ),
       child: ParkRefresh(
         onRefresh: _refresh,
@@ -417,8 +406,37 @@ class _FeedTabState extends State<FeedTab> with AutomaticKeepAliveClientMixin {
                       scope: {
                         'feed': widget.feed.key,
                         'options': Map.of(_options),
+                        'common': Map.of(_common),
                       },
                       sources: widget.sourceManager ?? SourceManager.instance,
+                    ),
+                  ),
+                ),
+              ),
+            if (widget.feed.commonFilters.isNotEmpty)
+              SliverToBoxAdapter(
+                child: Align(
+                  alignment: AlignmentDirectional.centerEnd,
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(
+                      Gap.page,
+                      Gap.s,
+                      Gap.page,
+                      0,
+                    ),
+                    child: OutlinedButton.icon(
+                      icon: const Icon(Icons.tune_rounded),
+                      label: Text(_common.isEmpty ? tr('筛选与排序') : tr('筛选已启用')),
+                      onPressed: () async {
+                        final result = await showCommonFilterSheet(
+                          context: context,
+                          definitions: widget.feed.commonFilters,
+                          initialValues: _common,
+                        );
+                        if (!mounted || result == null) return;
+                        setState(() => _common = result);
+                        await _refresh();
+                      },
                     ),
                   ),
                 ),
@@ -440,6 +458,7 @@ class _FeedTabState extends State<FeedTab> with AutomaticKeepAliveClientMixin {
                                 '${widget.source.name} · ${widget.feed.label}',
                             feed: widget.feed.key,
                             options: Map.of(_options),
+                            common: Map.of(_common),
                           ),
                         ),
                       ),

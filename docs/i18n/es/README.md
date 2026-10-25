@@ -21,7 +21,6 @@
 
 > Solo para adultos y donde la ley local lo permita. El contenido procede de terceros; HentaiPark no aloja el contenido original. La caché de navegación y las descargas que solicites se guardan en tu dispositivo.
 
-
 Elige el modo de ahorro en Más → Red. El ahorro normal muestra sitios compactos en el inicio y las categorías, y carga obras al abrir un sitio. El ahorro máximo tampoco carga automáticamente dentro del sitio: obtiene obras solo después de buscar. Los sitios sin búsqueda muestran una explicación.
 
 ## Descarga
@@ -35,8 +34,8 @@ En escritorio, usa Ctrl+rueda del ratón o Ctrl/Cmd con las teclas más/menos pa
 ## Empieza en tres pasos
 
 1. **Explorar**: abre Explorar y elige una categoría, o escribe una palabra clave, pega un enlace o un código en el buscador.
-2. **Leer y ver**: abre una obra y toca el botón principal. Añade las que te gusten a la Biblioteca.
-3. **Seguir donde lo dejaste**: Continuar, arriba en Explorar, y el Historial te llevan al punto exacto; las series que sigues se actualizan en Biblioteca → Actualizaciones.
+2. **Leer y ver**: abre una obra y toca el botón principal. Añade las que te gusten a Favoritos.
+3. **Seguir donde lo dejaste**: usa Continuar → Todo en Explorar para consultar el historial; los nuevos capítulos aparecen en Favoritos → Actualizaciones.
 
 Los sitios que necesitan cuenta o proxy se configuran en Más → Sitios y Más → Red.
 
@@ -78,14 +77,17 @@ Las capturas usan datos de demostración sin conexión; los sitios, obras y port
 
 | Función | Qué ofrece |
 | --- | --- |
+| Comentarios y chat en directo | Lee comentarios, respuestas e imágenes en los detalles de obras, vídeos cortos, publicaciones y clasificaciones compatibles, incluidos Reddit, PicACG, myfans, Fansly, GalgameX, XVideos, Pornhub Shorties, SpankBang, Iwara, Hanime.tv, FANZA, Cool18, 次元茶馆 y publicaciones públicas gratuitas de FANBOX. Abre enlaces de galerías o búsquedas de E-Hentai y códigos de JM directamente. Inicia sesión para leer respuestas de X / Twitter y comentarios de publicaciones de Telegram con debates habilitados. Las imágenes o los vídeos adjuntos de Telegram que no puedan mostrarse directamente se abren mediante el enlace al comentario original. CAM4, XLoveCam, Stripchat y SOOP muestran el chat de derecha a izquierda. En Más → Área de comentarios flotantes, elige Cuarto superior, Mitad superior, Mitad inferior o Pantalla completa; la opción predeterminada es Mitad superior y la selección se guarda. |
 | Clasificaciones | Abre clasificaciones de dōjinshi, anime y JAV desde Descubrir; elige sitio y período, busca obras o visita el sitio original; las páginas de producto se abren dentro de la app |
 | Explorar y buscar | Inicio y las categorías comparten recomendaciones; desplázate a la derecha para ver más en sitios con paginación. Busca en varios sitios a la vez y amplía la búsqueda con palabras clave en otros idiomas; pega un enlace o código para ir directo a una obra; filtra Inicio por 2D/3D y por imágenes, vídeos u otros, y al buscar desde Inicio solo se seleccionan los sitios filtrados |
 | Leer y ver | Cómics con desplazamiento, páginas o doble página; vídeos con episodios, velocidad y reanudación; novelas con tipografía, marcadores, notas y lectura en voz alta. Los tres lectores comparten los mismos controles |
-| Biblioteca | Favoritos con categorías y avisos de capítulos nuevos; suscríbete a creadores, canales o palabras clave |
-| Descargas | Pestaña propia en la navegación principal para gestionar descargas de cómics, vídeos, novelas y juegos; importa y exporta CBZ; exporta los capítulos de imágenes completados como PDF desde el menú de la obra, guardando solo el primer fotograma de las imágenes animadas; las exportaciones se hacen en segundo plano, las galerías largas se dividen en varios PDF y los archivos exportados se comparten o eliminan en Archivos exportados, en la página Descargas |
+| Favoritos y suscripciones | Favoritos con categorías y avisos de capítulos nuevos; suscríbete a creadores, canales o palabras clave |
+| Descargas | Pestaña propia en la navegación principal para gestionar descargas de cómics, vídeos, novelas y juegos; importa y exporta CBZ; exporta los capítulos de imágenes completados como PDF desde el menú de la obra, guardando solo el primer fotograma de las imágenes animadas; las exportaciones se hacen en segundo plano, las galerías largas se dividen en varios PDF y los archivos exportados se comparten o eliminan en Archivos exportados, en la página Descargas En los cómics, vídeos y novelas descargados, toca la portada para ver los detalles o el título o espacio vacío para continuar directamente con el contenido guardado. |
 | Recursos de juegos | Consulta la información, versiones y enlaces de descarga de juegos |
 | Traducción y filtros | Traduce títulos, descripciones y etiquetas; oculta obras por etiqueta |
 | Privacidad y copias | Bloqueo de la app, modo incógnito, portadas difuminadas, bloqueo de capturas; copia de favoritos, progreso y ajustes |
+
+Los comentarios y el chat son de solo lectura; no se pueden enviar comentarios, respuestas ni mensajes al sitio. El contenido y las opciones de ordenación disponibles dependen del sitio. Algunos contenidos requieren iniciar sesión, confirmar la edad o completar la verificación del sitio. La entrada de comentarios se oculta cuando la publicación original los desactiva explícitamente; si están habilitados, puede abrirse aunque todavía no haya comentarios.
 
 En el lector de novelas, Más → Traducir texto completo traduce todo el texto y continúa al abrir otros capítulos. Puedes volver al original.
 
@@ -129,7 +131,6 @@ Los directos pertenecen a 3D y aparecen entre las grabaciones y las comunidades 
 
 Abre el álbum desde el inicio y las páginas de comunidades de creadores para recorrer todas las fotos y vídeos que proporciona el sitio. Filtra por tipo o fecha, elige cuántos elementos aparecen por fila o agrupa el contenido de una publicación. Los vídeos muestran una miniatura. Al volver de una obra se conserva la posición del álbum.
 
-
 Filtra las categorías de Descubrir por 2D, 3D o Todo; se guarda tu selección. Los juegos pertenecen a 2D, las novelas a 3D y las comunidades de creadores siempre aparecen.
 
 Las comunidades aparecen en este orden: Pixiv, Reddit, X, myfans.jp, pixivFANBOX y Telegram, incluso sin iniciar sesión. Pixiv y myfans.jp ofrecen búsqueda anónima y clasificaciones. Si la búsqueda anónima de X está limitada, inicia sesión y reintenta. Introduce un nombre o enlace de creador o canal público antes de pulsar Abrir. myfans.jp reproduce el vídeo completo disponible o, en su defecto, la vista previa pública; las fotos restringidas conservan el desenfoque del sitio. Si solo se ofrece acceso al sitio original, consulta allí el contenido para miembros. myfans.jp usa el modo Adultos general de forma predeterminada, muestra la selección Pickup del sitio en el inicio y abre la clasificación diaria por defecto.
@@ -160,13 +161,11 @@ Los servicios se agrupan verticalmente en General, Dōjinshi, Anime y JAV y perm
 
 Abre la búsqueda inversa arriba de Descubrir. Por defecto solo está seleccionado Google Lens; puedes elegir varios servicios para buscar a la vez. Elige una imagen, recórtala si quieres y busca. Cambia entre sitios para ver sus resultados; solo aparecen los sitios con candidatos. Abre el origen o busca recursos por título o código. La imagen solo se sube a los servicios elegidos al pulsar Buscar.
 
-
 Cada sitio muestra los primeros 20 candidatos; selecciona Ver todos los resultados para cargar el resto.
 
 Google Lens sube imágenes y obtiene las fuentes en segundo plano. Todas las búsquedas inversas muestran el progreso y los resultados en la app; la verificación también se intenta en segundo plano. Si no termina, reintenta en la app. Algunas redes pueden requerir VPN o proxy.
 
 Los resultados son candidatos por verificar; la similitud no confirma el origen. trace.moe tiene cuota gratuita limitada e IQDB puede tener cola. AVScan permite uso personal no comercial. Se conservan los candidatos originales, las puntuaciones disponibles y las imágenes relacionadas; amplía Información del sitio original para ver tiempos, regiones detectadas, etiquetas y otros campos originales. La cobertura no es exhaustiva; reconocer personajes no proporciona descargas de juegos.
-
 
 ## Clasificaciones
 

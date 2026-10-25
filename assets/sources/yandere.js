@@ -3,7 +3,7 @@ Park.register({
   i18n: {
     "zh-Hant": {"成人插画图库，支持评分排序、搜索与原图": "成人插畫圖庫，支援評分排序、搜尋與原圖"}, ja: {"成人插画图库，支持评分排序、搜索与原图": "成人イラストギャラリー。評価順・検索・原寸画像に対応"}, ko: {"成人插画图库，支持评分排序、搜索与原图": "성인 일러스트 갤러리, 점수순 정렬·검색·원본 이미지 지원"}, en: {"成人插画图库，支持评分排序、搜索与原图": "Adult illustration gallery with score sorting, search and originals"}, es: {"成人插画图库，支持评分排序、搜索与原图": "Galería de ilustraciones para adultos con puntuación, búsqueda y originales"}, ru: {"成人插画图库，支持评分排序、搜索与原图": "Галерея иллюстраций для взрослых с рейтингом, поиском и оригиналами"}, ar: {"成人插画图库，支持评分排序、搜索与原图": "معرض رسوم للبالغين مع الترتيب والبحث والصور الأصلية"},
   },
-  key: 'yandere', name: 'yande.re', version: '0.0.7', minAppVersion: '0.9.2', type: 'comic', category: 'illustration', language: 'en', color: '#6b7ea8',
+  key: 'yandere', name: 'yande.re', version: '0.0.8', minAppVersion: '0.9.2', type: 'comic', category: 'illustration', language: 'en', color: '#6b7ea8',
   homepage: 'https://yande.re/', description: '成人插画图库，支持评分排序、搜索与原图', domains: ['yande.re'], network: {mode: 'native', vpnHint: true},
   imageHeaders: {Referer: 'https://yande.re/'},
   idPattern: '^\\d{1,12}$', defaultFeed: 'popular', feeds: [{key: 'popular', label: '热门', options: [
@@ -31,5 +31,15 @@ Park.register({
   async feed(key, req) { if (key !== 'popular') throw Park.error('CONFIG', '未知热门列表'); return this.listing(req, true); },
   async search(req) { return this.listing(req); },
   async detail(value) { const id = this.validId(value), rows = await this.api({tags: 'id:' + id, limit: 1}), item = rows.map(x => this.item(x)).find(Boolean); if (!item) throw Park.error('NOT_FOUND', '图片不存在'); return {...item, chapters: [{id: '_', title: '原图', count: 1}]}; },
+  async comments(value, req = {}) {
+    const id = this.validId(value);
+    if (req.parentId || Number(req.page) > 1) return {items: [], hasNext: false};
+    const rows = await this.http.json('https://yande.re/comment.json', {params: {post_id: id}});
+    if (!Array.isArray(rows) || rows.some(c => !c.id || String(c.post_id) !== id || typeof c.body !== 'string')) throw Park.error('PARSE', '评论数据无效');
+    return {items: rows.map(c => ({id: String(c.id), author: {name: String(c.creator || ''),
+      url: c.creator_id ? 'https://yande.re/user/show/' + c.creator_id : undefined},
+      body: Park.comments.text(c.body), date: typeof c.created_at === 'number' ? new Date(c.created_at * 1000).toISOString() : c.created_at,
+    })).filter(c => c.body.length), hasNext: false};
+  },
   async chapter(value) { const d = await this.detail(value); const rows = await this.api({tags: 'id:' + d.id, limit: 1}), p = rows[0]; return {pages: [{url: String(p?.file_url || p?.jpeg_url || d.cover), width: Number(p?.width) || undefined, height: Number(p?.height) || undefined}]}; },
 });

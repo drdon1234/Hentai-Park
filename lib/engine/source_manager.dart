@@ -10,6 +10,7 @@ import 'package:path/path.dart' as p;
 
 import '../core/app_log.dart';
 import '../core/async_tasks.dart';
+import '../core/comments.dart';
 import '../core/localization.dart';
 import '../core/media_album.dart';
 import '../core/models.dart';
@@ -41,6 +42,7 @@ import 'source_identity.dart';
 
 part 'source_manager/accounts.dart';
 part 'source_manager/api.dart';
+part 'source_manager/comments.dart';
 part 'source_manager/installer.dart';
 part 'source_manager/records.dart';
 part 'source_manager/runtime_pool.dart';
@@ -66,6 +68,7 @@ class SourceManager extends _SourceRegistry
         _SourceAccounts,
         _SourceInstaller,
         _SourceApi,
+        _SourceComments,
         _SubscriptionApi {
   SourceManager({super.loader});
   static final SourceManager instance = SourceManager();

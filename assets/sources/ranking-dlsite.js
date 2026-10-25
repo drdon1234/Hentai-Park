@@ -1,5 +1,5 @@
 Park.register({
-  key: 'ranking-dlsite', name: 'DLsite', version: '0.0.2', minAppVersion: '0.9.2',
+  key: 'ranking-dlsite', name: 'DLsite', version: '0.0.3', minAppVersion: '0.9.2',
   type: 'comic', category: 'doujin', rankingOnly: true,
   description: '官方销量榜', homepage: 'https://www.dlsite.com/',
   domains: ['dlsite.com', 'dlsite.jp'], network: { vpnHint: true },
@@ -11,6 +11,24 @@ Park.register({
       { value: 'month', label: '月榜' }, { value: 'total', label: '总榜' },
     ] }],
   })),
+  async comments(value, req = {}) {
+    const id = String(value), page = Math.max(1, Math.floor(Number(req.page) || 1));
+    if (!/^(?:RJ|BJ)\d+$/.test(id)) throw Park.error('NOT_FOUND', '作品编号无效');
+    if (req.parentId) return {items: [], hasNext: false};
+    const floor = id.startsWith('BJ') ? 'books' : 'maniax';
+    const data = await this.http.json(this.homepage + floor + '/api/review', {params: {
+      product_id: id, order: 'regist_d', limit: 10, page, locale: 'ja_JP',
+    }});
+    if (!data.is_success || !Array.isArray(data.review_list)) throw Park.error('PARSE', '评论数据无效');
+    const items = data.review_list.map(c => {
+      if (!c.member_review_id || typeof c.review_text !== 'string') throw Park.error('PARSE', '评论数据无效');
+      return {id: String(c.member_review_id), author: {name: String(c.nick_name || '')},
+        body: Park.comments.html(c.review_text, this.homepage), date: c.regist_date || c.entry_date,
+        likes: Number(c.good_review) || 0, rating: Number(c.rate_num ?? c.rate) || undefined,
+        spoiler: c.spoiler === true || String(c.spoiler) === '1'};
+    }).filter(c => c.body.length);
+    return {items, hasNext: data.review_list.length === 10};
+  },
   async ranking(floor, req) {
     if (Number(req.page) > 1) return { items: [], page: Number(req.page), hasNext: false };
     const period = req.options?.period || 'week';

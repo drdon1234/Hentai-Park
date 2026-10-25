@@ -42,33 +42,55 @@ class PlatformNavigation extends StatelessWidget {
                 message: destinations[i].tooltip ?? destinations[i].label,
                 child: Semantics(
                   selected: i == selectedIndex,
-                  child: DecoratedBox(
-                    decoration: BoxDecoration(
-                      border: BorderDirectional(
-                        start: BorderSide(
-                          width: 3,
-                          color: i == selectedIndex
-                              ? context.colors.primary
-                              : context.colors.surface,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: Gap.xs,
+                      vertical: Gap.xs,
+                    ),
+                    child: Material(
+                      color: i == selectedIndex
+                          ? context.colors.secondaryContainer
+                          : Colors.transparent,
+                      shape: const StadiumBorder(),
+                      clipBehavior: Clip.antiAlias,
+                      child: InkWell(
+                        customBorder: const StadiumBorder(),
+                        onTap: () => onSelected(i),
+                        child: ConstrainedBox(
+                          constraints: const BoxConstraints(minHeight: 56),
+                          child: Padding(
+                            padding: EdgeInsets.symmetric(
+                              horizontal: wide ? Gap.l : Gap.s,
+                            ),
+                            child: Row(
+                              mainAxisAlignment: wide
+                                  ? MainAxisAlignment.start
+                                  : MainAxisAlignment.center,
+                              children: [
+                                IconTheme.merge(
+                                  data: IconThemeData(
+                                    color: i == selectedIndex
+                                        ? context.colors.onSecondaryContainer
+                                        : context.colors.onSurfaceVariant,
+                                  ),
+                                  child: i == selectedIndex
+                                      ? destinations[i].selectedIcon ??
+                                            destinations[i].icon
+                                      : destinations[i].icon,
+                                ),
+                                if (wide) ...[
+                                  const SizedBox(width: Gap.m),
+                                  Expanded(
+                                    child: SelectionContainer.disabled(
+                                      child: Text(destinations[i].label),
+                                    ),
+                                  ),
+                                ],
+                              ],
+                            ),
+                          ),
                         ),
                       ),
-                    ),
-                    child: ListTile(
-                      selected: i == selectedIndex,
-                      contentPadding: EdgeInsets.symmetric(
-                        horizontal: wide ? Gap.l : Gap.m,
-                      ),
-                      minLeadingWidth: 24,
-                      horizontalTitleGap: wide ? Gap.m : 0,
-                      leading: i == selectedIndex
-                          ? destinations[i].selectedIcon ?? destinations[i].icon
-                          : destinations[i].icon,
-                      title: wide
-                          ? SelectionContainer.disabled(
-                              child: Text(destinations[i].label),
-                            )
-                          : null,
-                      onTap: () => onSelected(i),
                     ),
                   ),
                 ),

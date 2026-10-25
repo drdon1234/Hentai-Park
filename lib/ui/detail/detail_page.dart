@@ -15,6 +15,7 @@ import '../../engine/home_cache.dart';
 import '../../engine/source_manager.dart';
 import '../../library/downloads.dart';
 import '../../library/library.dart';
+import '../comments/comments_page.dart';
 import '../game/game_resources.dart';
 import '../kit/adaptive_sheet.dart';
 import '../nav.dart';
@@ -25,7 +26,6 @@ import '../widgets/error_view.dart';
 import '../widgets/expandable_description.dart';
 import '../widgets/paged_grid.dart';
 import '../widgets/related_works.dart';
-import '../widgets/source_interaction.dart';
 import 'detail_action_bar.dart';
 import 'detail_actions.dart';
 import 'detail_download.dart';
@@ -450,16 +450,14 @@ class _DetailPageState extends State<DetailPage> {
   List<Widget> _overview(BuildContext context, WorkDetail d) {
     final blocked = TagBlocklist.current().matchDetail(d);
     return [
-      if (_m?.can('interaction') == true)
-        Padding(
-          padding: const EdgeInsets.fromLTRB(Gap.page, Gap.m, Gap.page, 0),
-          child: OutlinedButton.icon(
-            onPressed: () =>
-                showSourceInteraction(context, d, sourceManager: _manager),
-            icon: const Icon(Icons.thumb_up_outlined),
-            label: Text(tr('原站互动')),
-          ),
-        ),
+      CommentsEntry(
+        source: widget.source,
+        workId: d.id,
+        manager: _manager,
+        count: d.comments,
+        available: d.commentsAvailable,
+        context: {'url': d.url},
+      ),
       if (d.variants.isNotEmpty || d.workCode.isNotEmpty)
         DetailVersions(work: d, manifest: _m),
       if (blocked.isNotEmpty) BlockedNotice(tags: blocked),

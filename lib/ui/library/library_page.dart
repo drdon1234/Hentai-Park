@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../core/content_scope.dart';
 import '../../core/localization.dart';
 import '../../core/settings.dart';
 import '../../core/titles.dart';
@@ -12,6 +13,7 @@ import '../migration/migration_page.dart';
 import '../nav.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
+import '../widgets/content_scope_selector.dart';
 import '../widgets/cover_tile.dart';
 import 'category_manage_page.dart';
 import 'favorite_actions.dart';
@@ -31,6 +33,7 @@ class _LibraryPageState extends State<LibraryPage> {
   final _query = TextEditingController();
   bool _searching = false;
   final Set<String> _selected = {};
+  ContentScope _scope = const ContentScope.all();
 
   @override
   void dispose() {
@@ -154,8 +157,10 @@ class _LibraryPageState extends State<LibraryPage> {
                   ? _LibraryTab(
                       category: null,
                       query: _query.text,
+                      scope: _scope,
                       selected: _selected,
                       onToggle: _toggle,
+                      onScopeChanged: (scope) => setState(() => _scope = scope),
                       onRefresh: () => _update(null),
                     )
                   : TabBarView(
@@ -164,8 +169,11 @@ class _LibraryPageState extends State<LibraryPage> {
                           _LibraryTab(
                             category: t,
                             query: _query.text,
+                            scope: _scope,
                             selected: _selected,
                             onToggle: _toggle,
+                            onScopeChanged: (scope) =>
+                                setState(() => _scope = scope),
                             onRefresh: () => _update(t),
                           ),
                       ],
@@ -234,7 +242,7 @@ class _LibraryPageState extends State<LibraryPage> {
               ),
               onChanged: (_) => setState(() {}),
             )
-          : ShelfTitle(tr('书架')),
+          : ShelfTitle(tr('收藏')),
       actions: [
         IconButton(
           tooltip: _searching ? tr('关闭搜索') : tr('搜索'),
@@ -243,6 +251,18 @@ class _LibraryPageState extends State<LibraryPage> {
             _searching = !_searching;
             if (!_searching) _query.clear();
           }),
+        ),
+        IconButton(
+          tooltip: tr(
+            AppSettings.instance.libraryDisplay == 'grid' ? '切换为列表' : '切换为网格',
+          ),
+          icon: Icon(
+            AppSettings.instance.libraryDisplay == 'grid'
+                ? Icons.view_list_rounded
+                : Icons.grid_view_rounded,
+          ),
+          onPressed: () => AppSettings.instance.libraryDisplay =
+              AppSettings.instance.libraryDisplay == 'grid' ? 'list' : 'grid',
         ),
         IconButton(
           tooltip: tr('筛选与排序'),
@@ -302,14 +322,18 @@ class _LibraryTab extends StatelessWidget {
   const _LibraryTab({
     required this.category,
     required this.query,
+    required this.scope,
     required this.selected,
     required this.onToggle,
+    required this.onScopeChanged,
     required this.onRefresh,
   });
   final int? category;
   final String query;
+  final ContentScope scope;
   final Set<String> selected;
   final ValueChanged<String> onToggle;
+  final ValueChanged<ContentScope> onScopeChanged;
   final Future<void> Function() onRefresh;
 
   List<FavoriteEntry> _entries() {
@@ -325,6 +349,7 @@ class _LibraryTab extends StatelessWidget {
 
     final list = lib.favorites(category: category).where((f) {
       final uid = f.item.uid;
+      if (!scope.contains(f.item.source, lib.domainOf(f.item))) return false;
       if (query.trim().isNotEmpty &&
           !normalizeTitle(f.item.title).contains(q)) {
         return false;
@@ -354,11 +379,6 @@ class _LibraryTab extends StatelessWidget {
           final y =
               lib.statsOf(b.item.uid).latestFetch?.millisecondsSinceEpoch ?? 0;
           return x.compareTo(y);
-        case 'unread':
-          return lib
-              .statsOf(a.item.uid)
-              .unread
-              .compareTo(lib.statsOf(b.item.uid).unread);
         default:
           return a.added.compareTo(b.added);
       }
@@ -414,6 +434,18 @@ class _LibraryTab extends StatelessWidget {
           child: CustomScrollView(
             physics: const AlwaysScrollableScrollPhysics(),
             slivers: [
+              SliverToBoxAdapter(
+                child: ContentScopeSelector(
+                  scope: scope,
+                  onChanged: onScopeChanged,
+                  items: [
+                    for (final f in Library.instance.favorites(
+                      category: category,
+                    ))
+                      f.item,
+                  ],
+                ),
+              ),
               const SliverToBoxAdapter(child: SizedBox(height: Gap.s)),
               content,
               const SliverToBoxAdapter(child: SizedBox(height: Gap.xl)),

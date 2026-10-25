@@ -26,10 +26,10 @@ class ActionTag extends StatelessWidget {
       style: OutlinedButton.styleFrom(
         minimumSize: const Size(48, 32),
         padding: const EdgeInsets.symmetric(
-          horizontal: Gap.m,
+          horizontal: Gap.s,
           vertical: Gap.xs,
         ),
-        textStyle: context.text.labelLarge?.copyWith(
+        textStyle: context.text.labelMedium?.copyWith(
           fontWeight: FontWeight.w500,
         ),
       ),

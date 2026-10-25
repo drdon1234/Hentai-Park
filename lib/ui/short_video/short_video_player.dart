@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:dio/dio.dart';
 import 'package:video_player/video_player.dart';
@@ -8,15 +9,18 @@ import '../../core/models.dart';
 import '../../core/platform_capabilities.dart';
 import '../../engine/cancellation.dart';
 import '../../engine/source_manager.dart';
+import '../../images/subscription_cache.dart';
+import '../../subscriptions/models.dart';
 import '../../video/playback.dart';
 import '../video/player_initialization.dart';
 import 'post_video_feed.dart';
 import 'short_video_playback.dart';
 
 class ShortVideoPlayer implements ShortVideoHandle {
-  ShortVideoPlayer._(this.controller, this._media);
+  ShortVideoPlayer._(this.controller, this._media, [this._file]);
   final VideoPlayerController controller;
   final Playback? _media;
+  final File? _file;
   Future<void>? _closing;
   static void _check(CancelToken cancel) {
     if (cancel.isCancelled) throw SourceError('CANCELLED', '视频请求已取消');
@@ -68,6 +72,32 @@ class ShortVideoPlayer implements ShortVideoHandle {
     }
     final manifest = SourceManager.instance.manifest(item.source);
     if (manifest == null) throw SourceError('CONFIG', '站点未加载');
+    final attachments = item.json['media'];
+    final attachment = attachments is List
+        ? attachments.where(isPostVideoAttachment).cast<Map>().firstOrNull
+        : null;
+    if (attachment?['resource'] is Map) {
+      final file = await SourceManager.instance.subscriptionMediaFile(
+        item.source,
+        SubscriptionMedia(attachment!.cast<String, dynamic>()),
+        cancelToken: cancel,
+      );
+      VideoPlayerController? controller;
+      try {
+        _check(cancel);
+        controller = VideoPlayerController.file(file);
+        await initializePlayer(controller, cancel);
+        _check(cancel);
+        await awaitCancelled(controller.setLooping(true), cancel);
+        _check(cancel);
+        return ShortVideoPlayer._(controller, null, file);
+      } catch (_) {
+        await (controller?.dispose() ?? Future<void>.value()).whenComplete(
+          () => SubscriptionCache.instance.release(file),
+        );
+        rethrow;
+      }
+    }
     final resolvedSources = await sources(item, cancel, refresh: refresh);
     _check(cancel);
     if (resolvedSources.isEmpty) {
@@ -143,7 +173,12 @@ class ShortVideoPlayer implements ShortVideoHandle {
   }
 
   @override
-  Future<void> close() => _closing ??= controller.dispose().whenComplete(
-    () async => _media?.close(),
-  );
+  Future<void> close() =>
+      _closing ??= controller.dispose().whenComplete(() async {
+        try {
+          await _media?.close();
+        } finally {
+          if (_file != null) SubscriptionCache.instance.release(_file);
+        }
+      });
 }

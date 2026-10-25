@@ -99,10 +99,11 @@ Park.register({
       "直播内容不符合本站点范围": "هذا البث خارج نطاق محتوى المصدر"
     }
   },
-  key: 'soop', name: 'SOOP', version: '0.0.5', minAppVersion: '0.9.2', type: 'video', category: 'live', language: 'ko',
+  key: 'soop', name: 'SOOP', version: '0.0.6', minAppVersion: '0.9.2', type: 'video', category: 'live', language: 'ko',
   color: '#0569FF', description: '韩国性感舞蹈与比基尼直播，按原站标签筛选',
   homepage: 'https://www.sooplive.co.kr/', domains: ['sooplive.co.kr', 'sooplive.com'],
   network: {mode: 'auto', origin: 'https://play.sooplive.co.kr', vpnHint: true},
+  chat: {domains: ['*.sooplive.com:8041']},
   imageHeaders: {Referer: 'https://play.sooplive.co.kr/'},
   media: {mode: 'native', scope: 'session', origin: 'https://play.sooplive.co.kr'},
   idPattern: '^[A-Za-z0-9_]{1,64}/[1-9]\\d{0,11}$',
@@ -210,6 +211,64 @@ Park.register({
     return {id, title: String(channel.TITLE), cover: this.cover('https://liveimg.sooplive.com/m/' + channel.BNO),
       coverAspect: 16 / 9, url: this.PLAY + id, authors: channel.BJNICK ? [String(channel.BJNICK)] : [],
       tags: this.tags(channel.HASH_TAGS), mediaKind: 'video', chapters: null};
+  },
+  async chatPacket(service, body) {
+    const length = unescape(encodeURIComponent(body)).length;
+    return '\x1d\t' + String(service).padStart(4, '0') + String(length).padStart(6, '0') + '00' + await Park.crypto.uuid() + body;
+  },
+  async liveChat(value) {
+    const id = this.validId(value), channel = await this.channel(id);
+    if (Number(channel.GRADE) > 0) throw Park.error('LOGIN_REQUIRED', '直播间需要原站认证或订阅');
+    const host = String(channel.CHDOMAIN || '').toLowerCase(), room = String(channel.CHATNO || '');
+    const ticket = String(channel.FTK || '');
+    // 原站按房间动态分配节点；授权只覆盖单层子域的固定端口，业务层进一步约束节点名称。
+    if (!/^chat-[0-9a-f]{8}\.sooplive\.com$/.test(host) || Number(channel.CHPT) !== 8040 ||
+        !/^[1-9]\d{0,14}$/.test(room) || ticket.length > 16384 || /[\x00-\x1f\x7f]/.test(ticket)) {
+      throw Park.error('PARSE', '直播数据无效');
+    }
+    return {transport: 'websocket', url: 'wss://' + host + ':8041/Websocket/' + id.split('/')[0],
+      headers: {Origin: 'https://play.sooplive.com', Referer: 'https://play.sooplive.com/'},
+      protocols: ['chat'], binary: true, heartbeatIntervalMs: 60000,
+      state: {id, room, ticket, stage: 'initial', seen: []}};
+  },
+  async liveChatEvent(state, event) {
+    const out = {state: {...state, seen: [...(state.seen || [])]}, send: [], messages: []};
+    if (event.type === 'open') {
+      if (state.stage !== 'initial') return {...out, error: true};
+      out.state.stage = 'login';
+      out.send.push(await this.chatPacket(1, '\f\f\f16\f'));
+      return out;
+    }
+    if (event.type === 'tick') {
+      if (state.stage === 'connected') out.send.push(await this.chatPacket(0, '\f'));
+      return out;
+    }
+    if (event.type !== 'message' || typeof event.data !== 'string') return out;
+    const raw = event.data;
+    if (raw.length < 51 || !/^\x1d\t\d{12}/.test(raw) ||
+        Number(raw.slice(6, 12)) !== unescape(encodeURIComponent(raw.slice(50))).length || raw[50] !== '\f' || !raw.endsWith('\f')) {
+      return {...out, error: true};
+    }
+    const code = Number(raw.slice(2, 6)), error = Number(raw.slice(12, 14));
+    if (error || [3, 11, 88].includes(code)) return {...out, error: true};
+    if (code === 1 && state.stage === 'login') {
+      out.state.stage = 'joining';
+      out.send.push(await this.chatPacket(2, '\f' + state.room + '\f' + state.ticket + '\f0\f\f\f'));
+      delete out.state.ticket;
+    } else if (code === 2 && state.stage === 'joining') {
+      out.state.stage = 'connected';
+      out.connected = true;
+    }
+    // 只接公开聊天消息；加入房间的名单、公告、私聊、礼物和历史通知均不转为弹幕。
+    if (code !== 5 || state.stage !== 'connected') return out;
+    const fields = raw.slice(50).split('\f').slice(1, -1), messageId = raw.slice(14, 50);
+    if (fields.length < 7 || ['1', '2'].includes(fields[3]) || !fields[0].trim() ||
+        !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(messageId) ||
+        out.state.seen.includes(messageId)) return out;
+    out.state.seen.push(messageId);
+    if (out.state.seen.length > 512) out.state.seen.shift();
+    out.messages.push({id: state.id + ':' + messageId, text: fields[0].replace(/\r/g, '').slice(0, 2000), author: fields[5].slice(0, 100)});
+    return out;
   },
   async videos(value) {
     const channel = await this.channel(value);

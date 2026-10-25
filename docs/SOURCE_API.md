@@ -197,6 +197,21 @@ return { browser: {
 
 `feeds` 的每一项是站点页的一个标签：`{ key, label, options?: [...] }`。
 
+### 通用筛选与排序
+
+插件可按 Feed 和搜索分别声明 `commonFilters`、`searchCommonFilters`。应用只显示已声明的操作，不会按已加载作品字段做本地近似筛选；插件须把条件映射到原站真实查询，并在分页时保留条件。
+
+```js
+feeds: [{ key: 'latest', label: '最新', commonFilters: {
+  pages: { range: ['min'], sort: ['asc', 'desc'] },
+  likes: { range: true, sort: ['desc'] },
+  duration: { range: ['min', 'max'] },
+} }],
+searchCommonFilters: { pages: { range: ['min', 'max'] } },
+```
+
+维度为 `pages`、`likes`、`duration`。`range: true` 表示同时支持 `min`、`max`，也可用数组只声明支持的边界；`sort: true` 表示支持 `asc`、`desc`，也可列出实际支持的方向。页数与点赞数必须是非负整数，时长单位为秒。请求在 `feed` 或 `search` 的参数对象中带 `common`，例如 `{ pages: { min: 10, order: 'desc' } }`；空边界和空排序省略，范围上下限可以任意一端留空，每次最多指定一个维度排序。Feed 通过 `commonFilters` 声明，搜索通过源级 `searchCommonFilters` 声明；未声明的维度不得接受。
+
 ### 动态与级联筛选
 
 `feeds[].options` 和 `searchFilters` 的单选项可声明 `dynamic: true, values: []`。动态子项用 `dependsOn: ['range']` 引用同组上级；key 必须唯一，依赖必须存在且无环，只有动态项可声明依赖。
@@ -312,8 +327,8 @@ account: {
 方法里的 `this` 见“运行时 API”。所有方法都可以是 `async`。
 
 ```js
-async feed(key, { page, cursor, options }) {}      // 站点页标签
-async search({ keyword, page, cursor, filters }) {}
+async feed(key, { page, cursor, options, common }) {} // 站点页标签
+async search({ keyword, page, cursor, filters, common }) {}
 async searchSuggestions(keyword) {}               // 可选：当前站点关键词联想
 async interaction(workId, { type, value } = {}) {} // 可选：读取或保存当前账号的独立原站互动
 async related(workId, { page, cursor } = {}) {}    // 可选：分页关联作品，返回 WorkPage
@@ -355,7 +370,7 @@ async resolveGameResource(workId, resourceId, channelId) {}
 { sections: [{ title: '连载更新', items: [WorkItem] }], hasNext: false }
 ```
 
-**WorkItem**：`{ id, title, subtitle?, cover, coverBlurred?, coverAspect?, pages?, rating?, likes?, views?, language?, category?, badge?, badgeColor?, duration?, uploaded?, tags?, authors?, uploader?, mediaKind?, workCode?, editions? }`
+**WorkItem**：`{ id, title, subtitle?, cover, coverBlurred?, coverAspect?, pages?, rating?, likes?, views?, language?, category?, badge?, badgeColor?, duration?, uploaded?, tags?, authors?, uploader?, mediaKind?, workCode?, editions?, commentsAvailable? }`
 
 - `authors` 为原站提供的作者名称数组，`uploader` 为上传者标识，用于源内作者屏蔽。列表应尽量提供这些字段；不得从标题或含义不明的副标题猜测作者。列表缺失时，长按屏蔽作者会尝试从详情补充。
 
@@ -375,7 +390,7 @@ WorkItem 的全部字段，再加：
 
 ```js
 {
-  url, authors: [], description, uploader?, size?, comments?,
+  url, authors: [], description, uploader?, size?, comments?, commentsAvailable?,
   tags: [{ namespace: 'artist', label: '作者', tags: [{ name, keyword, filters?, count? }] }],
   chapters: [{ id, title }] | null,   // null 表示单章
   singleChapterId?,                   // 单章作品需要的章节 ID
@@ -489,7 +504,7 @@ subscription: {
   async resolve(input) { return { id: validatedTarget, label: displayName }; },
   async targets() { return [{ id: joinedChannelId, label: channelName }]; },
   async posts(target, { cursor }) {
-    return { items: [{ id, title, text, date, url, locked,
+    return { items: [{ id, title, text, date, url, locked, commentsAvailable,
       media: [{ type: 'image', url, preview, previewOnly: false },
               { type: 'video', url, preview, format: 'mp4', headers: {} }] }],
       cursor: nextCursor, hasNext: true };
@@ -506,7 +521,7 @@ subscription: {
 
 相册是独立能力，不根据当前页面已加载的帖子拼装，也不回退调用 `subscription.posts`。源需声明 `subscription.media(scope, { page, cursor })`；拥有公开 feed、但没有可订阅目标的源也可以在 `subscription` 对象下单独声明此方法。运行时据此导出 `capabilities.album`，它与 `capabilities.subscription` 分离。
 
-`scope` 只能是 `{ feed, options }` 或 `{ target }`：前者列出指定 feed 及筛选项对应的作品，后者列出用户、社区、频道或群组目标的帖子。目标如何识别、遍历和补全由源负责；页面不按站点名称添加条件。相册返回 `{ items, cursor, hasNext }`，即使当前页没有匹配媒体，只要源还有下一页就继续返回有效游标。
+`scope` 只能是 `{ feed, options }` 或 `{ target }` / `{ search: { keyword, filters } }`：前者列出指定 feed 及筛选项对应的作品，后者列出用户、社区、频道或群组目标的帖子。目标如何识别、遍历和补全由源负责；页面不按站点名称添加条件。相册返回 `{ items, cursor, hasNext }`，即使当前页没有匹配媒体，只要源还有下一页就继续返回有效游标。
 
 每个条目必须提供稳定的字符串 `id`、`presentation: 'post' | 'work'`、日期（有值时为可解析的 ISO 8601 字符串）和完整的 `media` 数组。媒体顺序遵循原站，数组内每项都有唯一稳定字符串 `id`、`type: 'image' | 'video'`，并提供实际内容 `url` 或受控 `resource`。`preview` 是预览图；无法提供图片 URL 时可返回独立的 `previewResource`。不要用作品封面、视频地址或尚未公开的全文伪装预览。受限内容仅能返回明确标注 `previewOnly: true`、保留原站模糊处理的公开预览，并设置 `locked: true`（原站锁定整帖时）。
 
@@ -524,7 +539,8 @@ subscription: {
 
 - `normalize(dimension, input)` 返回 `{ id, label }`；`check({ dimension, target }, { cursor })` 返回 `{ items, hasNext, cursor }`。每项为 `{ id, title, kind, workId, chapterId }`，`kind` 只能是 `work | post | chapter`，ID 稳定且非空，不携带媒体 URL、Cookie 或凭据。章节 ID 要包含作品身份，避免不同作品的“第 1 话”冲突。
 - `Park.enableUpdateSubscriptions(Park.__pending, rules)` 提供通用适配，规则在插件脚本末尾明确声明维度，可以设置 `searchFilters`、`seriesPattern`。`work` 用真实章节目录；`posts` 用现有频道接口；`search` 和 `filter` 用搜索，`code` 严格匹配完整番号，`series` 用经过本站域名校验的系列路径。搜索游标同时保存页号与站点游标。
-- 搜索和动态返回 `windowed: true`，表示检查最近三页的结果窗口：首次只建立基线，之后按稳定 ID 产生“新发现内容”事件，不声称知道发布时间。其他分页协议每轮最多三页，保存游标与候选项，完整结束后再事务提交；章节目录不允许窗口截断，候选上限 20,000，超限报错。网络、权限、验证页、空目录或不完整解析都要抛明确错误，不能用空结果掩盖。
+- 搜索与动态的 `windowed: true` 表示首次建立最近三页基线；后续每批最多三页，保存游标与候选项继续检查，遇到整页已知条目或末页才提交新发现事件。章节目录不截断，候选上限 20,000，超限或解析失败必须报错。
+- `query({ dimension, target })` 返回 `{ keyword, filters }`，订阅浏览与检查共用此查询。相册范围还支持 `{ search: { keyword, filters } }`，分页必须保留查询；帖子短视频支持 `resource` 附件，并沿同一搜索范围续播。
 - 前后台共用插件运行时、Cookie 分区、域名约束和检查器。后台只启动相关插件，不登录、不在原站订阅、不下载媒体、不绕过权限。账号或插件配置变化时重建基线（Token 续期不算）。
 
 ## 运行时 API
@@ -714,3 +730,61 @@ node tools/build_subscription_sources.mjs
 ```
 
 它使用 [@mtproto/core 6.3.0](https://github.com/alik0211/mtproto-core)（GPL-3.0，[许可证](licenses/mtproto-core.txt)，依赖汇总见 [第三方许可](licenses/telegram-dependencies.txt)）。站点适配替换了传输、密码学和存储，不开放库默认的 WebSocket、浏览器 localStorage 或调试日志。
+
+## 评论与内容链接
+
+实现 `comments` 后，运行时自动导出 `capabilities.comments`；`resolveContentLink` 和 `searchLink` 分别导出同名能力。只声明已验证的读取能力。评论接口不包含发表、回复提交、点赞或举报操作。
+
+官方评论实现包括 Reddit、myfans、Fansly、GalgameX、XVideos、Pornhub Shorties、哔咔（PicACG）、SpankBang、X / Twitter 和 Telegram；具体可读范围仍由原站权限决定。X / Twitter 和 Telegram 需要登录，Telegram 仅支持开放讨论的帖子；无法直接显示的附件保留准确的原评论链接。
+
+```js
+// WorkItem / WorkDetail / SubscriptionPost: { ..., commentsAvailable?: boolean }
+comments(workId, {page = 1, cursor = null, parentId = null, sort = 'default', context = {}})
+// context: {url?, episodeId?, board?}
+// result: {items, hasNext, page?, cursor?, total?, reset?, sorts?: [{value, label}]}
+// item: {id, author: {name, avatar?, url?, badges?: []}, body,
+//        date?, likes?, rating?, spoiler?, parentId?, replyCount?,
+//        repliesAvailable?, replies?: [item]}
+// body: [{type: 'text' | 'link' | 'image' | 'quote', text?, url?}]
+resolveContentLink(url) // null | {type: 'work', id} | {type: 'search', url} | {type: 'external', url}
+searchLink(url, request) // WorkPage
+```
+
+- `WorkItem`、`WorkDetail` 和 `SubscriptionPost` 的顶层字段 `commentsAvailable?: boolean` 表示该作品是否开放评论。严格布尔值 `false` 隐藏评论入口；`true` 仍要求源支持 `capabilities.comments`；缺省或非布尔值表示未知，按源能力显示。评论数为 0 不代表关闭评论。读取时若发现原帖已关闭评论，抛出 `UNSUPPORTED`，不能用空列表掩盖。
+- `workId` 使用该源的作品身份；`context` 携带原页面、分集或榜单上下文。分集评论必须按作品与分集隔离，不能把其他集的评论拼入当前列表。
+- `id` 是源内稳定、非空字符串；`author.name` 可为空，不得造昵称。正文至少有非空文字或有效图片，纯图片评论也要保留。`date` 保留原站显示文本或 ISO 时间；`likes` 和 `replyCount` 为非负数，`rating` 为 0–5，`spoiler` 标记剧透。
+- `replies` 使用相同结构，`parentId` 指向父楼；父正文不得包含子回复正文。`replyCount` 是原站回复数，仅当 `parentId` 读取已验证时设置 `repliesAvailable: true`。缺省为 false，计数不代表能够继续加载。 当原站未提供数量时，`replyCount: 0` 与 `repliesAvailable: true` 可同时存在；界面仍提供“查看回复”，不伪造数量，也不以已加载回复数阻断入口。读取嵌套回复时，请求的 `parentId` 为被点击评论的 `id`。
+- `hasNext` 依据原站分页响应；游标不得含凭据，下一次请求原样传回。重复 ID、达到总量或原站明确无后续时停止；未验证的分页返回 false。`sorts` 只列已验证排序，`label` 使用界面文案键。
+- 原站分页快照变更时可返回 `reset: true`，同时返回重拉后的实际 `page`（通常为 1）和新游标，界面替换旧列表。普通翻页不得把首屏伪装成后续页；业务失败、登录要求和解析失败须抛出对应错误，不能返回空列表掩盖。
+
+`Park.comments.html(html, baseUrl)` 将 HTML 转成安全正文片段，保留文字、换行、链接、图片和引用，移除可执行内容；`Park.comments.text(text)` 将纯文本中的显式 HTTP(S) 地址拆成链接；`Park.comments.url(value, baseUrl)` 返回有效的 HTTP(S) URL，否则返回 null。作者头像、主页和正文 URL 均不得包含 userinfo。框架只渲染结构化内容，不执行原站 HTML；站点字段解析仍由插件负责，网络请求使用 `this.http`。
+
+`resolveContentLink` 只识别准确域名、已验证路径与参数；非本站目标返回 null。作品返回 `type: 'work'`，原站搜索返回 `type: 'search'`，其他安全页面可返回 `type: 'external'`。用户主页、评论锚点、日期、楼层与播放器时间戳不能误识别为作品。`searchLink` 接收完整原站 URL，保留关键词、筛选、分类及分页语义，返回既有 WorkPage；不能只提取关键词后丢弃其他参数，也不能访问写入端点。无法识别的链接保留原网页入口。
+
+## 只读直播弹幕
+
+`capabilities.liveChat` 仅在同时实现 `liveChat(id)` 与 `liveChatEvent(state, event)` 时声明。当前官方实现为 CAM4、XLoveCam、Stripchat 和 SOOP。`chat.domains` 是独立的主机与端口白名单，不继承页面、图片或媒体权限。`host` 仅允许 443，非标准端口必须以 `host:port` 显式声明，范围为 1024–65535；`*.host:port` 仅匹配指定端口的一层子域，不匹配主域、多层子域或其他端口。仅允许 HTTPS/SSE 和 WSS，禁止明文、用户信息与地址片段；访客启动请求的短效票据不得跨主机或端口重定向。
+
+`liveChat` 返回 `transport: "sse" | "websocket"`、`url`、可选 `headers` 和 `state`。插件通过 `this.chatHttp.request({url, method, headers, body|json})` 在聊天白名单内完成访客启动请求；该桥与当前调用共享取消信号。Cookie 按源分区，票据、连接地址、协议状态和消息只保存在内存。
+
+- `protocols`：仅用于 WebSocket，最多 8 个不重复的非空 RFC token 字符串，每个最多 128 个字符。
+- `binary: true`：仅用于 WebSocket，以 UTF-8 二进制帧收发；插件的 `event.data` 和 `send` 仍为字符串。每帧最多 65536 字节，严格校验 UTF-8；缺省使用文本帧。
+- `heartbeatIntervalMs`：可选的 10000–60000 整数。连接成功后按此间隔将 `{type: "tick"}` 放入同一串行事件队列；停止或离页时取消。tick 不延长连接握手或 SSE 接收超时。
+
+连接建立及协议握手共用固定的 25 秒截止时间。未声明 `heartbeatIntervalMs` 的 WebSocket 使用 30 秒间隔的原生 ping/pong；声明该字段时改由插件 tick 保活，断连依据实际传输错误或关闭事件。两者都不因房间没有聊天文本而判定断线，本地 tick 也不代表服务端仍在线。SSE 仍使用 90 秒的服务端接收超时。
+
+`liveChatEvent` 接收 `{type: "open"}` 或 `{type: "message", data, event?}` 或 `{type: "tick"}`；SSE 的 `event` 保留原事件名。返回新 `state`，可附 `connected`、`error`、`messages` 与 `send`。`messages` 使用稳定 `id`、纯文本 `text`、可选 `author` 与 `isHistory`；历史仅用于去重，不重新作为实时消息显示。`send` 只用于已验证协议的鉴权、订阅和心跳响应，不提供用户发言接口。
+
+宿主限制帧大小、解码队列、消息缓存和重试次数；断线后重新获取访客票据，失败显示重试入口。关闭弹幕、切换页面、进入后台、应用锁定或销毁播放器时立即取消旧连接与调用，旧回调不能更新新会话。此能力不代表作品评论、历史翻页或录播时间轴弹幕。
+
+```js
+chat: {domains: ["chat.example.com"]},
+async liveChat(id) {
+  return {transport: "websocket", url: "wss://chat.example.com/room", state: {}};
+},
+liveChatEvent(state, event) {
+  return {state, connected: true, messages: [
+    {id: "message-id", text: "message", author: "author", isHistory: false}
+  ], send: []};
+}
+```

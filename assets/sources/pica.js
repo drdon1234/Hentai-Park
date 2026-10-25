@@ -17,7 +17,7 @@ Park.register({
   },
   key: 'pica',
   name: '哔咔漫画',
-  version: '0.0.9', minAppVersion: '0.9.2',
+  version: '0.0.10', minAppVersion: '0.9.2',
   type: 'comic',
   category: 'doujin',
   color: '#EC97B6',
@@ -508,6 +508,42 @@ Park.register({
     if (f.category) body.categories = [f.category];
     const data = await this.request(`comics/advanced-search?page=${page}`, body);
     return this.pageOf(data.comics, page);
+  },
+  async comments(value, req = {}) {
+    const id = String(value), parent = req.parentId == null ? null : String(req.parentId);
+    let page = Number(req.page || 1);
+    if (req.cursor) {
+      let cursor;
+      try { cursor = JSON.parse(String(req.cursor)); } catch { throw Park.error('CONFIG', '评论数据无效'); }
+      if (cursor?.id !== id || cursor.parent !== parent || !Number.isSafeInteger(cursor.page)) throw Park.error('CONFIG', '评论数据无效');
+      page = cursor.page;
+    }
+    if (!/^[0-9a-f]{24}$/.test(id) || (parent && !/^[0-9a-f]{24}$/.test(parent)) ||
+        !Number.isSafeInteger(page) || page < 1 || page > 10000) throw Park.error('CONFIG', '评论数据无效');
+    const data = await this.request(parent ? `comments/${parent}/childrens?page=${page}` : `comics/${id}/comments?page=${page}`);
+    const comments = data?.comments;
+    if (!Array.isArray(comments?.docs) || Number(comments.page) !== page ||
+        !Number.isSafeInteger(comments.pages) || comments.pages < 0) throw Park.error('PARSE', '评论数据无效');
+    const rows = !parent && page === 1 ? [...(data.topComments || []), ...comments.docs] : comments.docs;
+    const items = [], seen = new Set();
+    for (const row of rows) {
+      const cid = row._id || row.id;
+      if (!/^[0-9a-f]{24}$/.test(cid || '') || row._comic !== id ||
+          (parent && row._parent !== parent)) throw Park.error('PARSE', '评论数据无效');
+      if (seen.has(cid) || row.hide === true) continue;
+      seen.add(cid);
+      const content = typeof row.content === 'string' ? row.content : '';
+      if (!content.trim()) continue;
+      const author = row._user || {}, replies = Number(row.commentsCount) || 0;
+      items.push({id: cid, parentId: parent || undefined,
+        author: {name: String(author.name || ''), avatar: author.avatar ? this.imageUrl(author.avatar) : undefined,
+          badges: row.isTop ? ['置顶'] : []},
+        body: Park.comments.text(content), date: String(row.created_at || ''),
+        likes: Number.isFinite(row.likesCount) && row.likesCount >= 0 ? row.likesCount : undefined,
+        replyCount: replies, repliesAvailable: !parent && replies > 0});
+    }
+    const hasNext = page < comments.pages;
+    return {items, page, hasNext, cursor: hasNext ? JSON.stringify({id, parent, page: page + 1}) : null};
   },
 
   async random() {

@@ -8,6 +8,8 @@ import '../../core/settings.dart';
 import '../../core/tag_translations.dart';
 import '../../engine/source_manager.dart';
 import '../kit/adaptive_sheet.dart';
+import '../kit/reminder_prompt.dart';
+import '../kit/selection_menu.dart';
 import 'on_visible.dart';
 
 final _translationSettings = AppSettings.instance.watch(const {
@@ -365,10 +367,15 @@ class TranslationControls extends StatelessWidget {
   }
 }
 
-/// 多站点页面用当前站点展示安装状态，不依赖列表中是否恰好有可见标签。
-class TagTranslationPackStatus extends StatelessWidget {
-  const TagTranslationPackStatus({super.key, required this.source});
+/// 在实际可见的站点内容上触发提醒，不为下载入口额外占据页面空间。
+class TagTranslationPackGuide extends StatelessWidget {
+  const TagTranslationPackGuide({
+    super.key,
+    required this.source,
+    required this.child,
+  });
   final String source;
+  final Widget child;
 
   @override
   Widget build(BuildContext context) {
@@ -376,38 +383,17 @@ class TagTranslationPackStatus extends StatelessWidget {
     final locale =
         scope?.locale ??
         AppLocalizations.localeKey(AppLocalizations.of(context).locale);
-    final service = TagTranslations.instance;
-    return ListenableBuilder(
-      listenable: service,
-      builder: (context, _) {
-        final available = service.availableLocales(source).contains(locale);
-        return OnVisible(
-          key: ValueKey('$source/$locale'),
-          onVisible: (visible) {
-            if (visible &&
-                scope?.active == true &&
-                scope?.original != true &&
-                ModalRoute.of(context)?.isCurrent != false) {
-              unawaited(showTagDownloadGuide(context, source, locale));
-            }
-          },
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              OutlinedButton.icon(
-                onPressed: () =>
-                    showTagTranslationPacks(context, source: source),
-                icon: const Icon(Icons.translate_rounded),
-                label: SelectionContainer.disabled(child: Text(tr('官方标签翻译包'))),
-              ),
-              if (service.installed(source, locale))
-                Text(tr('翻译包已安装'))
-              else if (!available)
-                Text(tr('本站暂无专用词包，开启内容翻译后可翻译标签')),
-            ],
-          ),
-        );
+    return OnVisible(
+      key: ValueKey('$source/$locale/${scope?.active}/${scope?.original}'),
+      onVisible: (visible) {
+        if (visible &&
+            scope?.active == true &&
+            scope?.original != true &&
+            ModalRoute.of(context)?.isCurrent != false) {
+          unawaited(showTagDownloadGuide(context, source, locale));
+        }
       },
+      child: child,
     );
   }
 }
@@ -421,34 +407,27 @@ Future<void> showTagDownloadGuide(
   if (!service.claimDownloadGuide(source, locale)) return;
   var deferred = false;
   try {
-    final choice = await showDialog<String>(
+    final choice = await showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(tr('下载标签翻译词库')),
-        content: Text(tr('仅下载本站当前语言的标签词库；其他站点可在各自页面或设置中独立下载。')),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, 'never'),
-            child: SelectionContainer.disabled(child: Text(tr('不再提醒'))),
+      builder: (ctx) => ReminderPromptDialog(
+        icon: Icons.translate_rounded,
+        title: tr('下载标签翻译词库'),
+        primaryLabel: tr('立即下载'),
+        onIgnore: () async {
+          AppSettings.instance.tagDownloadReminders = false;
+          await AppSettings.instance.flush();
+        },
+        children: [
+          Text(
+            '${SourceManager.instance.manifest(source)?.name ?? source} · ${AppLocalizations.languageNames[locale] ?? locale}',
           ),
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, 'later'),
-            child: SelectionContainer.disabled(child: Text(tr('下次提醒'))),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(ctx, 'download'),
-            child: SelectionContainer.disabled(child: Text(tr('立即下载'))),
-          ),
+          const SizedBox(height: 12),
+          Text(tr('仅下载本站当前语言的标签词库；可在“搜索与翻译”的“翻译包管理”中选择站点和语言，下载或删除词包。')),
         ],
       ),
     );
-    if (choice != 'download') {
+    if (choice != true) {
       deferred = true;
-      if (choice == 'never') AppSettings.instance.tagDownloadReminders = false;
-      if (context.mounted) {
-        ScaffoldMessenger.maybeOf(context)
-            ?.showSnackBar(SnackBar(content: Text(tr('可在设置中手动下载词库'))));
-      }
       return;
     }
     if (service.bundled(source, locale)) {
@@ -531,7 +510,7 @@ Future<void> showTagTranslationPacks(
               });
             }
           } catch (_) {
-            if (ctx.mounted) refresh(() => message = tr('翻译包安装失败，请重试'));
+            if (ctx.mounted) refresh(() => message = tr('操作失败，请重试'));
           } finally {
             if (ctx.mounted) refresh(() => busy = false);
           }
@@ -547,10 +526,7 @@ Future<void> showTagTranslationPacks(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text(
-                    tr('官方标签翻译包'),
-                    style: Theme.of(ctx).textTheme.titleLarge,
-                  ),
+                  Text(tr('翻译包管理'), style: Theme.of(ctx).textTheme.titleLarge),
                   if (source != null && !service.sources.contains(source))
                     Padding(
                       padding: const EdgeInsets.symmetric(vertical: 12),
@@ -559,76 +535,84 @@ Future<void> showTagTranslationPacks(
                   if (selected != null) ...[
                     const SizedBox(height: 12),
                     SelectionContainer.disabled(
-                      child: DropdownButtonFormField<String>(
-                        key: ValueKey('source-$selected'),
-                        initialValue: selected,
-                        isExpanded: true,
-                        decoration: InputDecoration(labelText: tr('站点')),
-                        items: [
-                          for (final key in service.sources)
-                            DropdownMenuItem(
-                              value: key,
-                              child: SelectionContainer.disabled(
-                                child: Text(
-                                  SourceManager.instance.manifest(key)?.name ??
-                                      key,
-                                  overflow: TextOverflow.ellipsis,
+                      child: SelectionDropdownTheme(
+                        child: DropdownButtonFormField<String>(
+                          key: ValueKey('source-$selected'),
+                          initialValue: selected,
+                          isExpanded: true,
+                          decoration: InputDecoration(labelText: tr('站点')),
+                          items: [
+                            for (final key in service.sources)
+                              SelectionDropdownItem(
+                                value: key,
+                                selected: key == selected,
+                                child: SelectionContainer.disabled(
+                                  child: Text(
+                                    SourceManager.instance
+                                            .manifest(key)
+                                            ?.name ??
+                                        key,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
                                 ),
                               ),
-                            ),
-                        ],
-                        onChanged: busy
-                            ? null
-                            : (value) {
-                                refresh(() {
-                                  selected = value;
-                                  message = null;
-                                  normalize();
-                                });
-                                final key = selected!, language = locale;
-                                unawaited(
-                                  operation(
-                                    () => service.ensureLoaded(key, language),
-                                    '',
-                                  ),
-                                );
-                              },
+                          ],
+                          onChanged: busy
+                              ? null
+                              : (value) {
+                                  refresh(() {
+                                    selected = value;
+                                    message = null;
+                                    normalize();
+                                  });
+                                  final key = selected!, language = locale;
+                                  unawaited(
+                                    operation(
+                                      () => service.ensureLoaded(key, language),
+                                      '',
+                                    ),
+                                  );
+                                },
+                        ),
                       ),
                     ),
                     const SizedBox(height: 12),
                     SelectionContainer.disabled(
-                      child: DropdownButtonFormField<String>(
-                        key: ValueKey('locale-$selected-$locale'),
-                        initialValue: locale,
-                        isExpanded: true,
-                        decoration: InputDecoration(labelText: tr('语言')),
-                        items: [
-                          for (final language in languages)
-                            DropdownMenuItem(
-                              value: language,
-                              child: SelectionContainer.disabled(
-                                child: Text(
-                                  AppLocalizations.languageNames[language] ??
-                                      language,
+                      child: SelectionDropdownTheme(
+                        child: DropdownButtonFormField<String>(
+                          key: ValueKey('locale-$selected-$locale'),
+                          initialValue: locale,
+                          isExpanded: true,
+                          decoration: InputDecoration(labelText: tr('语言')),
+                          items: [
+                            for (final language in languages)
+                              SelectionDropdownItem(
+                                value: language,
+                                selected: language == locale,
+                                child: SelectionContainer.disabled(
+                                  child: Text(
+                                    AppLocalizations.languageNames[language] ??
+                                        language,
+                                  ),
                                 ),
                               ),
-                            ),
-                        ],
-                        onChanged: busy
-                            ? null
-                            : (value) {
-                                refresh(() {
-                                  locale = value!;
-                                  message = null;
-                                });
-                                final key = selected!, language = locale;
-                                unawaited(
-                                  operation(
-                                    () => service.ensureLoaded(key, language),
-                                    '',
-                                  ),
-                                );
-                              },
+                          ],
+                          onChanged: busy
+                              ? null
+                              : (value) {
+                                  refresh(() {
+                                    locale = value!;
+                                    message = null;
+                                  });
+                                  final key = selected!, language = locale;
+                                  unawaited(
+                                    operation(
+                                      () => service.ensureLoaded(key, language),
+                                      '',
+                                    ),
+                                  );
+                                },
+                        ),
                       ),
                     ),
                     const SizedBox(height: 12),

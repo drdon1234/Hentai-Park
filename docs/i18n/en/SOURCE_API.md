@@ -146,6 +146,21 @@ Sources that allow anonymous access but require login for recommendations declar
 
 Each `feeds` entry is a tab on the site page: `{ key, label, options?: [...] }`.
 
+### Common filters and sorting
+
+Plugins declare `commonFilters` per feed and `searchCommonFilters` for search. The app only shows declared operations and never approximates filtering from already loaded work fields. Plugins must map these values to real site queries and preserve them across pages.
+
+```js
+feeds: [{ key: 'latest', label: 'Latest', commonFilters: {
+  pages: { range: ['min'], sort: ['asc', 'desc'] },
+  likes: { range: true, sort: ['desc'] },
+  duration: { range: ['min', 'max'] },
+} }],
+searchCommonFilters: { pages: { range: ['min', 'max'] } },
+```
+
+Dimensions are `pages`, `likes` and `duration`. `range: true` enables both `min` and `max`; an array can declare only supported bounds. `sort: true` enables `asc` and `desc`; an array lists the directions the site supports. Pages and likes use non-negative integers; duration is in seconds. The `feed` or `search` request object receives a separate `common` map, for example `{ pages: { min: 10, order: 'desc' } }`. Empty bounds and ordering are omitted, either range bound may be left blank, and at most one dimension may be sorted at a time. Declare capabilities only where the site supports them; undeclared dimensions must be rejected.
+
 ### Dynamic and cascading filters
 
 Select options in `feeds[].options` and `searchFilters` may declare `dynamic: true, values: []`. A dynamic child references parents in the same group with `dependsOn: ['range']`. Keys must be unique; dependencies must exist and be acyclic. Only dynamic options may declare dependencies.
@@ -260,8 +275,8 @@ On sign-out, the app removes only the localStorage keys declared by the site fro
 `this` inside methods is described in "Runtime API". All methods may be `async`.
 
 ```js
-async feed(key, { page, cursor, options }) {}      // site page tabs
-async search({ keyword, page, cursor, filters }) {}
+async feed(key, { page, cursor, options, common }) {} // site page tabs
+async search({ keyword, page, cursor, filters, common }) {}
 async random() {}                                  // returns a work ID
 async detail(id, preview) {}
 async chapter(id, chapterId) {}                    // comics, galleries
@@ -285,7 +300,7 @@ async resolveGameResource(workId, resourceId, channelId) {}
 { sections: [{ title: '连载更新', items: [WorkItem] }], hasNext: false }
 ```
 
-**WorkItem**: `{ id, title, subtitle?, cover, coverBlurred?, coverAspect?, pages?, rating?, likes?, views?, language?, category?, badge?, badgeColor?, duration?, uploaded?, tags?, mediaKind?, workCode?, editions? }`
+**WorkItem**: `{ id, title, subtitle?, cover, coverBlurred?, coverAspect?, pages?, rating?, likes?, views?, language?, category?, badge?, badgeColor?, duration?, uploaded?, tags?, mediaKind?, workCode?, editions?, commentsAvailable? }`
 
 - `workCode` is a work code confirmed by the source, used only to find the same work. It never replaces `id` or merges identities, favorites, progress, or downloads.
 - `editions` contains explicit, fixed edition labels from the source, such as Chinese subtitles or an uncensored leak. Missing labels must not imply an original edition. Translated display text does not change stored labels.
@@ -301,7 +316,7 @@ All WorkItem fields, plus:
 
 ```js
 {
-  url, authors: [], description, uploader?, size?, comments?,
+  url, authors: [], description, uploader?, size?, comments?, commentsAvailable?,
   tags: [{ namespace: 'artist', label: '作者', tags: [{ name, keyword, filters?, count? }] }],
   chapters: [{ id, title }] | null,   // null means a single chapter
   singleChapterId?,                   // chapter ID needed by single-chapter works
@@ -393,7 +408,7 @@ subscription: {
   async resolve(input) { return { id: validatedTarget, label: displayName }; },
   async targets() { return [{ id: joinedChannelId, label: channelName }]; },
   async posts(target, { cursor }) {
-    return { items: [{ id, title, text, date, url, locked,
+    return { items: [{ id, title, text, date, url, locked, commentsAvailable,
       media: [{ type: 'image', url, preview, previewOnly: false },
               { type: 'video', url, preview, format: 'mp4', headers: {} }] }],
       cursor: nextCursor, hasNext: true };
@@ -410,7 +425,7 @@ subscription: {
 
 Albums are an independent capability, never assembled from already loaded posts and never falling back to `subscription.posts`. Implement `subscription.media(scope, { page, cursor })`; a source with public feeds but no subscribable targets may expose only this method under `subscription`. The runtime exports `capabilities.album` independently of `capabilities.subscription`.
 
-`scope` is either `{ feed, options }` or `{ target }`, for a feed with its filters or a user, community, channel or group. The source resolves and traverses targets without site-specific conditions in the UI. Return `{ items, cursor, hasNext }`; a page without matching media may still continue, and every continuation cursor must advance. Repeated cursors are errors.
+`scope` is either `{ feed, options }` or `{ target }` / `{ search: { keyword, filters } }`, for a feed with its filters or a user, community, channel or group. The source resolves and traverses targets without site-specific conditions in the UI. Return `{ items, cursor, hasNext }`; a page without matching media may still continue, and every continuation cursor must advance. Repeated cursors are errors.
 
 Each item has a stable string `id`, `presentation: 'post' | 'work'`, a parseable ISO 8601 date when known, and the complete `media` array in site order. Every attachment has a unique stable string `id`, `type: 'image' | 'video'` and an actual content `url` or controlled `resource`. `preview` is an image thumbnail; alternatively `previewResource` uses the controlled attachment format below, limited to 2 MiB and pointing to a separate image. Covers and video URLs must not impersonate thumbnails. Restricted content exposes only public previews marked `previewOnly: true`, retaining the site's blur and `locked: true` when the whole post is locked.
 
@@ -426,7 +441,8 @@ Regular plugins can support "follow for updates" with a separate `updateSubscrip
 
 - `normalize(dimension, input)` returns `{ id, label }`; `check({ dimension, target }, { cursor })` returns `{ items, hasNext, cursor }`. Items are `{ id, title, kind, workId, chapterId }` with `kind` limited to `work | post | chapter`, stable non-empty IDs and no media URLs, cookies or credentials. Chapter IDs include the work's identity so "Chapter 1" of different works don't collide.
 - `Park.enableUpdateSubscriptions(Park.__pending, rules)` provides a generic adapter; declare dimensions explicitly at the end of the script, optionally with `searchFilters` and `seriesPattern`. `work` uses the real chapter list; `posts` uses the existing channel API; `search` and `filter` use search, `code` matches complete codes exactly, and `series` uses series paths validated against the site's domains. Search cursors store both page number and site cursor.
-- Search and post checks return `windowed: true`, meaning the latest three pages are checked: the first check only records a baseline, later ones raise "newly found" events by stable ID without claiming a publish date. Other paged protocols check at most three pages per round, saving cursors and candidates and committing in one transaction once complete; chapter lists are never truncated, with a cap of 20,000 candidates (exceeding it is an error). Network, permission, verification, empty-list or partial-parse failures must raise explicit errors, never empty success.
+- `windowed: true` establishes a three-page baseline on the first check. Later checks process up to three pages per batch, saving cursors and candidates until a fully known page or the end is reached, then commit newly found events. Chapter lists are not truncated; exceeding 20,000 candidates or parsing failures must raise errors.
+- `query({ dimension, target })` returns `{ keyword, filters }` shared by subscription browsing and checks. Albums also accept `{ search: { keyword, filters } }` and preserve the query while paging. Post video mode supports `resource` attachments and continues within the same search.
 - Foreground and background share the plugin runtime, cookie partitions, domain constraints and checker. Background checks only start the relevant plugins and never sign in, subscribe on the site, download media or bypass permissions. A change of account or plugin configuration rebuilds the baseline (token renewal doesn't).
 
 ## Runtime API
@@ -605,4 +621,62 @@ Source scripts stay on the main branch. The `sources`, `rankings` and `reverse-s
 
 ```powershell
 node tools/publish_sources.mjs --commit '<SHA>' --channel rankings --output '<本地输出文件>'
+```
+
+## Comments and content links
+
+Implementing `comments` automatically exports `capabilities.comments`; `resolveContentLink` and `searchLink` export their matching capabilities. Declare only verified read operations. The comment interface does not post comments or replies, vote, or report content.
+
+Official comment adapters include Reddit, myfans, Fansly, GalgameX, XVideos, Pornhub Shorties, PicACG, SpankBang, X / Twitter and Telegram; readable content remains subject to the original site's permissions. X / Twitter and Telegram require sign-in, and Telegram supports posts with discussions enabled. Preserve the exact original comment link for attachments that cannot be displayed directly.
+
+```js
+// WorkItem / WorkDetail / SubscriptionPost: { ..., commentsAvailable?: boolean }
+comments(workId, {page = 1, cursor = null, parentId = null, sort = 'default', context = {}})
+// context: {url?, episodeId?, board?}
+// result: {items, hasNext, page?, cursor?, total?, reset?, sorts?: [{value, label}]}
+// item: {id, author: {name, avatar?, url?, badges?: []}, body,
+//        date?, likes?, rating?, spoiler?, parentId?, replyCount?,
+//        repliesAvailable?, replies?: [item]}
+// body: [{type: 'text' | 'link' | 'image' | 'quote', text?, url?}]
+resolveContentLink(url) // null | {type: 'work', id} | {type: 'search', url} | {type: 'external', url}
+searchLink(url, request) // WorkPage
+```
+
+- The optional top-level `commentsAvailable?: boolean` field on `WorkItem`, `WorkDetail` and `SubscriptionPost` indicates whether comments are enabled for that work. Strict boolean `false` hides the comment entry; `true` still requires the source's `capabilities.comments`. An omitted or non-boolean value means unknown, so source capabilities determine visibility. A count of 0 does not mean comments are disabled. If a read discovers that the original post has disabled comments, throw `UNSUPPORTED` instead of hiding that state behind an empty list.
+- `workId` identifies the source work; `context` carries the original page, episode or ranking board. Keep episode comments separate by work and episode.
+- `id` is a stable, nonempty source-local string. `author.name` may be empty; never invent names. Preserve comments containing only images; each body needs nonempty text or a valid image. `date` retains the original display text or ISO time. `likes` and `replyCount` are nonnegative, `rating` is 0–5, and `spoiler` flags spoilers.
+- `replies` has the same item structure; `parentId` identifies its parent. A parent's body must exclude child reply bodies. `replyCount` is the site's reply count. Set `repliesAvailable: true` only after verifying reads using `parentId`; the default is false, and a count alone does not enable loading. When the site provides no count, `replyCount: 0` may coexist with `repliesAvailable: true`. The UI still offers View replies without inventing a count or blocking access based on the number already loaded. When reading nested replies, the request `parentId` is the selected comment's `id`.
+- Derive `hasNext` from the site response. Cursors must contain no credentials and must be passed back unchanged. Stop on repeated IDs, exhausted totals or an explicit end; use false for unverified pagination. `sorts` lists only verified orders, with UI translation keys in `label`.
+- When the site's pagination snapshot changes, return `reset: true`, the actual reloaded `page` (usually 1) and a new cursor to replace the old list. Never pass the first page off as a later page. Throw appropriate business, login or parsing errors instead of concealing them with an empty list.
+
+`Park.comments.html(html, baseUrl)` produces safe body parts, retaining text, line breaks, links, images and quotes while removing executable content. `Park.comments.text(text)` splits explicit HTTP(S) URLs from plain text. `Park.comments.url(value, baseUrl)` returns a valid HTTP(S) URL or null. Avatar, profile and body URLs must not contain userinfo. The framework renders structured data and never executes site HTML. Plugins still parse site fields and send requests through `this.http`.
+
+`resolveContentLink` recognizes exact hosts and verified paths and parameters; return null for unrelated targets. Use `type: 'work'` for works, `type: 'search'` for original-site searches and optionally `type: 'external'` for other safe pages. Profiles, comment anchors, dates, floor numbers and playback timestamps are not work IDs. `searchLink` receives the complete original URL and returns the existing WorkPage format while preserving keywords, filters, categories and pagination. Do not discard parameters by extracting only keywords, or access write endpoints. Unrecognized links retain an option to open the original page.
+
+## Read-only live chat
+
+Declare `capabilities.liveChat` only when both `liveChat(id)` and `liveChatEvent(state, event)` exist. Official support covers CAM4, XLoveCam, Stripchat and SOOP. `chat.domains` is an independent host-and-port allowlist; page, image and media permissions do not apply. `host` permits only port 443. Nonstandard ports must be explicitly declared as `host:port` and fall within 1024–65535. `*.host:port` matches exactly one subdomain level on that port, excluding the base host, deeper subdomains and other ports. Only HTTPS/SSE and WSS are allowed, without plaintext transport, user information or fragments. Guest bootstrap tickets must never follow a redirect to another host or port.
+
+`liveChat` returns `transport: "sse" | "websocket"`, `url`, optional `headers`, and `state`. Use `this.chatHttp.request({url, method, headers, body|json})` for guest bootstrap requests within the chat allowlist; cancellation belongs to the current invocation. Cookies are partitioned by source. Tickets, connection URLs, protocol state and messages remain in memory.
+
+- `protocols`: WebSocket only; at most 8 unique, nonempty RFC token strings, each no longer than 128 characters.
+- `binary: true`: WebSocket only; sends and receives UTF-8 binary frames while plugin `event.data` and `send` remain strings. Each frame is limited to 65536 bytes and UTF-8 is validated strictly. The default uses text frames.
+- `heartbeatIntervalMs`: optional integer from 10000 to 60000. After a successful connection, `{type: "tick"}` events enter the same serial event queue at this interval. Stopping or leaving the page cancels them. Ticks do not extend the connection handshake or SSE receive timeout.
+
+A fixed 25-second deadline covers connection setup and the protocol handshake. WebSockets without `heartbeatIntervalMs` use native ping/pong at 30-second intervals. When that field is declared, plugin ticks provide keepalive instead, and actual transport errors or close events determine disconnection. Neither mode treats a quiet room without chat text as disconnected, and local ticks are not proof that the server is alive. SSE retains a 90-second timeout for receiving server data.
+
+`liveChatEvent` receives `{type: "open"}` or `{type: "message", data, event?}` or `{type: "tick"}`. SSE retains its event name in `event`. Return the new `state` and optional `connected`, `error`, `messages`, and `send`. Each message has a stable `id`, plain `text`, optional `author`, and `isHistory`; history is used for deduplication and is not replayed as new chat. `send` is limited to verified authentication, subscription and heartbeat frames. No user message API is provided.
+
+The host bounds frame size, decode queues, message storage and retries. Reconnection obtains fresh guest tickets and failures expose retry. Turning chat off, covering the route, moving to the background, locking the app or disposing the player immediately cancels the connection and calls; stale callbacks cannot update a new session. This capability does not imply work comments, history pagination or timed comments for recordings.
+
+```js
+chat: {domains: ["chat.example.com"]},
+async liveChat(id) {
+  return {transport: "websocket", url: "wss://chat.example.com/room", state: {}};
+},
+liveChatEvent(state, event) {
+  return {state, connected: true, messages: [
+    {id: "message-id", text: "message", author: "author", isHistory: false}
+  ], send: []};
+}
 ```

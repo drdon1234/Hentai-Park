@@ -9,7 +9,7 @@ Park.register({
     "ru": {"成人视频播放数据解析失败": "Не удалось разобрать данные воспроизведения видео для взрослых", "综合成人视频，支持推荐、搜索和多清晰度播放": "Видео для взрослых с рекомендациями, поиском и выбором качества"},
     "ar": {"成人视频播放数据解析失败": "تعذر تحليل بيانات تشغيل الفيديو للبالغين", "综合成人视频，支持推荐、搜索和多清晰度播放": "فيديوهات للبالغين مع توصيات وبحث وخيارات جودة متعددة"},
   },
-  key: 'pornhub', name: 'Pornhub', version: '0.0.9', minAppVersion: '0.9.2', type: 'video', category: 'adult',
+  key: 'pornhub', name: 'Pornhub', version: '0.0.10', minAppVersion: '0.9.2', type: 'video', category: 'adult',
   color: '#FF9900', description: '综合成人视频，支持推荐、搜索和多清晰度播放',
   homepage: 'https://www.pornhub.com', domains: ['pornhub.com'], language: 'en',
   network: {mode: 'auto', origin: 'https://www.pornhub.com', vpnHint: true},
@@ -101,6 +101,33 @@ Park.register({
     const keyword = String(req.keyword || '').trim();
     if (!keyword) return {items: [], page: 1, hasNext: false};
     return this.listing(this.BASE + '/video/search?search=' + encodeURIComponent(keyword), req, 'search');
+  },
+  async comments(value, req = {}) {
+    const work = this.validId(value), page = Math.max(1, Math.floor(Number(req.page) || 1));
+    if (req.parentId) throw Park.error('UNSUPPORTED', '评论暂不支持此操作');
+    const sort = req.sort || 'default';
+    if (!['default', 'newest', 'popular'].includes(sort)) throw Park.error('CONFIG', '评论参数无效');
+    const sorts = [{value: 'newest', label: '最新'}, {value: 'popular', label: '热门'}];
+    if (page > 1) return {items: [], page, hasNext: false, sorts};
+    const url = this.BASE + '/view_video.php?viewkey=' + work, detail = await this.getPage(url);
+    const internal = /\/comment\/show\?id=(\d+)/.exec(detail.html)?.[1];
+    if (!internal) throw Park.error('PARSE', '评论数据无效');
+    const response = this.http.ensureOk(await this.http.get(this.BASE + '/comment/show', {params: {id: internal, popular: sort === 'popular' ? 1 : 0, what: 'video', page: 1}, headers: {Referer: url}}));
+    const doc = Park.html.parse(response.body), area = doc.querySelector('#commentsWrapper');
+    if (!area) throw Park.error('PARSE', '评论数据无效');
+    const items = [], seen = new Set();
+    for (const row of area.querySelectorAll('.commentBlock[data-id]')) {
+      const id = row.getAttribute('data-id');
+      if (!id || seen.has(id) || row.closest('#commentClone,.commentClone,[hidden]')) continue;
+      const content = row.querySelector('.commentMessage'), body = Park.comments.html(content?.innerHTML || '', url);
+      if (!body.length) continue;
+      const author = row.querySelector('.usernameLink'), parentId = row.getAttribute('data-parent-id'); seen.add(id);
+      items.push({id, parentId: parentId || undefined, author: {name: Park.html.text(author), url: Park.comments.url(author?.getAttribute('href'), url),
+        avatar: Park.comments.url(row.querySelector('.userLink img')?.getAttribute('src'), url)}, body,
+        date: Park.html.text(row.querySelector('.date')), likes: Number(Park.html.text(row.querySelector('[class*="thumbsUpVote"]'))) || 0});
+    }
+    if (!items.length) throw Park.error('PARSE', '评论数据无效');
+    return {items, page, hasNext: false, sorts};
   },
   async detail(id) {
     id = this.validId(id);

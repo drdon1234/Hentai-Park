@@ -36,7 +36,7 @@
       "ru": {"游戏排行、搜索及社区分享资源": "Рейтинги игр, поиск и ресурсы сообщества"},
       "ar": {"游戏排行、搜索及社区分享资源": "تصنيفات ألعاب وبحث وموارد المجتمع"},
     },
-    key: 'kungal', name: 'KUN Galgame', version: '0.0.7', minAppVersion: '0.9.2', type: 'game', category: 'game', color: '#6FA7DF',
+    key: 'kungal', name: 'KUN Galgame', version: '0.0.8', minAppVersion: '0.9.2', type: 'game', category: 'game', color: '#6FA7DF',
     description: '游戏排行、搜索及社区分享资源', homepage: BASE, language: 'multi',
     domains: ['kungal.com', 'image.kungal.iloveren.link'], network: { mode: 'native', vpnHint: true },
     linkPatterns: ['https?://(?:www\\.)?kungal\\.com/(?:galgame|works)/(\\d+)'], idPattern: '^(\\d+)$', idExample: '1408',
@@ -56,6 +56,36 @@
     async search({ keyword, page = 1, filters = {} }) {
       if (!String(keyword || '').trim()) return this.feed('latest', { page, options: filters });
       return this.list('/search/works', { q: String(keyword), page, ...selected(filters, true), resource_type: 'game' });
+    },
+    commentBody(document, depth = 0) {
+      if (!document || depth > 8) return [];
+      if (document.object === 'text') return Park.comments.text(document.value || '');
+      if (document.object === 'image') {
+        const url = Park.comments.url(document.url || document.image?.url, BASE);
+        return url ? [{type: 'image', url, text: String(document.alt || '')}] : [];
+      }
+      if (document.object === 'mention') return Park.comments.text(document.mentioned_user?.name ? '@' + document.mentioned_user.name : '');
+      const parts = (document.children || []).flatMap(child => this.commentBody(child, depth + 1));
+      if (document.object === 'paragraph' && parts.length) parts.push({type: 'text', text: '\n'});
+      return parts;
+    },
+    async comments(value, req = {}) {
+      const id = idOf(value);
+      // The public wall stream already includes replies; preserve their parent IDs.
+      // No independent reply endpoint has been verified.
+      if (req.parentId) throw Park.error('UNSUPPORTED', '此内容暂不支持评论');
+      if (Number(req.page) > 1 && !req.cursor) throw Park.error('CONFIG', '分页链接无效');
+      const data = await this.http.json(API + '/wall-comments', {params: {
+        subject_type: 'galgame', subject_id: id, limit: 20, cursor: req.cursor || undefined,
+      }});
+      if (!Array.isArray(data.items)) throw Park.error('PARSE', '评论数据无效');
+      const items = data.items.map(c => {
+        if (!c.id || String(c.subject_id) !== id || c.subject_type !== 'galgame') throw Park.error('PARSE', '评论数据无效');
+        return {id: String(c.id), author: {name: String(c.author?.name || ''), avatar: c.author?.avatar?.url},
+          body: this.commentBody(c.content), date: c.created_at, likes: Number(c.like_count) || 0,
+          parentId: c.parent_comment_id || undefined};
+      }).filter(c => c.body.length);
+      return {items, hasNext: !!data.next_cursor, cursor: data.next_cursor || null};
     },
     async detail(id) {
       id = idOf(id);
