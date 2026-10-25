@@ -338,9 +338,14 @@ mixin _SourceApi on _SourceRegistry {
     if (!background) cancelBackgroundFeeds(key);
     final token = cancelToken ?? CancelToken();
     final source = manifest(key);
-    final feed = source?.feeds.where((value) => value.key == feedKey).firstOrNull;
+    final feed = source?.feeds
+        .where((value) => value.key == feedKey)
+        .firstOrNull;
     if (feed == null) throw SourceError('CONFIG', '未知列表');
-    final normalizedCommon = _normalizeCommonFilters(feed.commonFilters, common);
+    final normalizedCommon = _normalizeCommonFilters(
+      feed.commonFilters,
+      common,
+    );
     if (background) (_backgroundFeeds[key] ??= {}).add(token);
     try {
       await _requireAccount(key, cancelToken: token);

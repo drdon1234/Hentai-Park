@@ -42,14 +42,13 @@ class SelectionMenuOption extends StatelessWidget {
 
 /// A native dropdown option with the same selected foreground treatment.
 class SelectionDropdownItem<T> extends DropdownMenuItem<T> {
-  SelectionDropdownItem({
+  const SelectionDropdownItem({
     super.key,
     required super.value,
-    required bool selected,
-    required Widget child,
+    required this.selected,
+    required super.child,
     super.enabled = true,
-  }) : selected = selected,
-       super(child: child);
+  });
 
   final bool selected;
 }

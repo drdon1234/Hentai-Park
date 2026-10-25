@@ -130,11 +130,7 @@ class TagSection extends StatelessWidget {
               ),
             ),
             Expanded(
-              child: Wrap(
-                spacing: Gap.xs,
-                runSpacing: Gap.xs,
-                children: chips,
-              ),
+              child: Wrap(spacing: Gap.xs, runSpacing: Gap.xs, children: chips),
             ),
           ],
         ),

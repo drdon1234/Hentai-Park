@@ -54,8 +54,9 @@ class _SourceSearchPageState extends State<SourceSearchPage> {
     ..._m.defaultFilters(),
     ...?widget.initialFilters,
   };
-  late Map<String, Object?> _commonFilters =
-      Map<String, Object?>.from(widget.initialCommon ?? const {});
+  late Map<String, Object?> _commonFilters = Map<String, Object?>.from(
+    widget.initialCommon ?? const {},
+  );
   late String _filterKeyword = widget.initialKeyword.trim();
   late final PagedController _controller = PagedController(
     _load,
@@ -390,7 +391,7 @@ class _SourceSearchPageState extends State<SourceSearchPage> {
                                   'search': {
                                     'keyword': _submitted,
                                     'filters': Map.of(_submittedFilters),
-                                  'common': Map.of(_submittedCommon),
+                                    'common': Map.of(_submittedCommon),
                                   },
                                 },
                               ),
@@ -918,9 +919,7 @@ class _FilterSheetState extends State<FilterSheet> {
                             ),
                           )
                         : null,
-                    child: SelectionContainer.disabled(
-                      child: Text(tr('应用筛选')),
-                    ),
+                    child: SelectionContainer.disabled(child: Text(tr('应用筛选'))),
                   ),
                 ),
               ),

@@ -294,7 +294,9 @@ class VideoControls extends StatelessWidget {
                                   IconButton(
                                     color: fg,
                                     tooltip: tr(landscape ? '竖屏展开' : '横屏播放'),
-                                    icon: const Icon(Icons.screen_rotation_rounded),
+                                    icon: const Icon(
+                                      Icons.screen_rotation_rounded,
+                                    ),
                                     onPressed: () => onDisplayMode(
                                       landscape
                                           ? VideoDisplayMode.portrait
