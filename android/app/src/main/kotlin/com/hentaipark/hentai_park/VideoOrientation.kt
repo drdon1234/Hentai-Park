@@ -5,6 +5,9 @@ import android.content.pm.ActivityInfo
 import android.content.res.Configuration
 import android.view.OrientationEventListener
 import android.view.Surface
+import android.os.Handler
+import android.os.Looper
+import android.os.SystemClock
 
 /** Fullscreen keeps its selected axis, including reverse portrait on phones. */
 class VideoOrientation(private val activity: Activity) {
@@ -12,12 +15,22 @@ class VideoOrientation(private val activity: Activity) {
     private var foreground = true
     private var naturalLandscape = false
     private var preferred = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
-    private var lastAngle = OrientationEventListener.ORIENTATION_UNKNOWN
+    private val handler = Handler(Looper.getMainLooper())
+    private var armedAt = 0L
+    private var candidate: Int? = null
+    private var pending: Runnable? = null
+    private fun clearCandidate() {
+        pending?.let { handler.removeCallbacks(it) }
+        pending = null
+        candidate = null
+    }
     private val sensor = object : OrientationEventListener(activity) {
         override fun onOrientationChanged(angle: Int) {
-            lastAngle = angle
             val horizontal = landscape ?: return
-            if (!foreground || angle == ORIENTATION_UNKNOWN) return
+            if (!foreground || angle == ORIENTATION_UNKNOWN || SystemClock.uptimeMillis() < armedAt) {
+                clearCandidate()
+                return
+            }
             val normal = if (horizontal) {
                 if (naturalLandscape) 0 else 270
             } else {
@@ -25,18 +38,28 @@ class VideoOrientation(private val activity: Activity) {
             }
             val delta = (angle - normal + 360) % 360
             val reverse = when {
-                delta <= 60 || delta >= 300 -> false
-                delta in 120..240 -> true
-                else -> return // Keep the current side near axis boundaries.
+                delta <= 30 || delta >= 330 -> false
+                delta in 150..210 -> true
+                else -> { clearCandidate(); return }
             }
-            preferred = if (horizontal) {
+            val target = if (horizontal) {
                 if (reverse) ActivityInfo.SCREEN_ORIENTATION_REVERSE_LANDSCAPE
                 else ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
             } else {
                 if (reverse) ActivityInfo.SCREEN_ORIENTATION_REVERSE_PORTRAIT
                 else ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
             }
-            apply()
+            if (target == preferred) { clearCandidate(); return }
+            if (candidate == target) return
+            clearCandidate()
+            candidate = target
+            pending = Runnable {
+                if (foreground && landscape != null && candidate == target) {
+                    preferred = target
+                    clearCandidate()
+                    apply()
+                }
+            }.also { handler.postDelayed(it, 700) }
         }
     }
 
@@ -49,14 +72,18 @@ class VideoOrientation(private val activity: Activity) {
                 currentLandscape
             } else !currentLandscape
             landscape = horizontal
-            // Sensor fallback for devices without a working orientation listener.
-            preferred = if (horizontal) ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
-            else ActivityInfo.SCREEN_ORIENTATION_SENSOR_PORTRAIT
+            val reverse = rotation == Surface.ROTATION_180 || rotation == Surface.ROTATION_270
+            preferred = if (horizontal) {
+                if (reverse) ActivityInfo.SCREEN_ORIENTATION_REVERSE_LANDSCAPE else ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
+            } else {
+                if (reverse) ActivityInfo.SCREEN_ORIENTATION_REVERSE_PORTRAIT else ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+            }
+            clearCandidate()
+            armedAt = SystemClock.uptimeMillis() + 1500
         }
         if (foreground) {
             apply()
             sensor.enable()
-            sensor.onOrientationChanged(lastAngle)
         }
     }
 
@@ -66,6 +93,8 @@ class VideoOrientation(private val activity: Activity) {
 
     fun resume() {
         foreground = true
+        clearCandidate()
+        armedAt = SystemClock.uptimeMillis() + 1500
         if (landscape != null) {
             apply()
             sensor.enable()
@@ -74,10 +103,12 @@ class VideoOrientation(private val activity: Activity) {
 
     fun pause() {
         foreground = false
+        clearCandidate()
         sensor.disable()
     }
 
     fun stop() {
+        clearCandidate()
         sensor.disable()
         landscape = null
         preferred = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED

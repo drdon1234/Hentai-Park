@@ -117,7 +117,16 @@ abstract class _SourceRegistry extends ChangeNotifier {
   final _authenticationChanges = StreamController<String>.broadcast(sync: true);
   Stream<String> get authenticationChanges => _authenticationChanges.stream;
   void authenticationChanged(String key, {bool initial = false}) {
-    if (!initial) _displayOrder?.invalidate(key);
+    if (!initial) {
+      _displayOrder?.invalidate(key);
+      unawaited(
+        HomeCache.instance
+            .clearSource(key)
+            .catchError(
+              (Object error) => AppLog.error(error, event: 'image_cache'),
+            ),
+      );
+    }
     _authenticationChanges.add(key);
   }
 
@@ -261,10 +270,14 @@ abstract class _SourceRegistry extends ChangeNotifier {
       JsEngine.instance.onPersist = _persistData;
       // A crashed or timed-out runtime is discarded; the next call starts a fresh one.
       JsEngine.instance.onRestarted = (key) => unawaited(
-        _mutate(() async {
-          _activations.remove(key)?.ignore();
-          await JsEngine.instance.disposeRuntime(key);
-        }, key: key),
+        _mutate(
+          () async {
+            _activations.remove(key)?.ignore();
+            await JsEngine.instance.disposeRuntime(key);
+          },
+          key: key,
+          invalidate: false,
+        ),
       );
       await loadAll();
     } catch (_) {
@@ -290,6 +303,7 @@ abstract class _SourceRegistry extends ChangeNotifier {
         continue;
       }
       await JsEngine.instance.disposeRuntime(source.key);
+      await HomeCache.instance.clearSource(source.key);
       _sources.remove(source.key);
       _manifestCache.remove(source.key);
       try {
@@ -381,8 +395,12 @@ abstract class _SourceRegistry extends ChangeNotifier {
   });
 
   /// Mutations wait for existing calls; new calls wait for the queued mutations.
-  Future<T> _mutate<T>(Future<T> Function() action, {String? key}) {
-    _displayOrder?.invalidate(key);
+  Future<T> _mutate<T>(
+    Future<T> Function() action, {
+    String? key,
+    bool invalidate = true,
+  }) {
+    if (invalidate) _displayOrder?.invalidate(key);
     if (key != null) {
       // 新设置不能等待旧分流或后台海报的网络超时；账号写入仍正常串行。
       for (final token in _readRequests[key]?.toList() ?? <CancelToken>[]) {
@@ -397,7 +415,10 @@ abstract class _SourceRegistry extends ChangeNotifier {
         );
         _changingSources.add(key);
         try {
-          await invalidateImageTransports(key);
+          if (invalidate) {
+            await HomeCache.instance.clearSource(key);
+            await invalidateImageTransports(key);
+          }
           return await action();
         } finally {
           _changingSources.remove(key);
@@ -408,7 +429,10 @@ abstract class _SourceRegistry extends ChangeNotifier {
     return _mutations.run(() async {
       await Future.wait(pendingLocal);
       await Future.wait(_activeCalls.toList());
-      await invalidateImageTransports();
+      if (invalidate) {
+        await HomeCache.instance.clear();
+        await invalidateImageTransports();
+      }
       return action();
     });
   }

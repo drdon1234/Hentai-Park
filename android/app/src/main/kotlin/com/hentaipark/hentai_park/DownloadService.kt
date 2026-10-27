@@ -22,6 +22,9 @@ class DownloadService : Service() {
     private val handler = Handler(Looper.getMainLooper())
     private var wakeLock: PowerManager.WakeLock? = null
     private var count = 0
+    private var progress: Double? = null
+    private var title = "HentaiPark"
+    private var text = ""
     private val idleStop = Runnable { if (count == 0) stopDownloads() }
 
     override fun onBind(intent: Intent?): IBinder? = null
@@ -33,8 +36,8 @@ class DownloadService : Service() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         try {
-            val title = intent?.getStringExtra("title") ?: "HentaiPark"
-            val text = intent?.getStringExtra("text") ?: ""
+            title = intent?.getStringExtra("title") ?: "HentaiPark"
+            text = intent?.getStringExtra("text") ?: ""
             count = intent?.getIntExtra("count", 0) ?: 0
             val notification = notification(title, text)
             if (Build.VERSION.SDK_INT >= 29) {
@@ -62,12 +65,19 @@ class DownloadService : Service() {
     private fun update(count: Int, title: String, text: String) {
         handler.removeCallbacks(idleStop)
         this.count = count
+        this.title = title
+        this.text = text
         if (count == 0) {
             // 队列交接和并发任务收尾期间不反复从后台重新启动前台服务。
             handler.postDelayed(idleStop, 1500)
         } else {
             manager().notify(NOTIFICATION_ID, notification(title, text))
         }
+    }
+
+    private fun updateProgress(value: Double?) {
+        progress = value?.coerceIn(0.0, 1.0)
+        if (count > 0) manager().notify(NOTIFICATION_ID, notification(title, text))
     }
 
     override fun onTimeout(startId: Int, fgsType: Int) {
@@ -114,12 +124,14 @@ class DownloadService : Service() {
         val pending = PendingIntent.getActivity(this, NOTIFICATION_ID, open, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
         @Suppress("DEPRECATION")
         val builder = if (Build.VERSION.SDK_INT >= 26) Notification.Builder(this, CHANNEL) else Notification.Builder(this)
+        val percent = progress?.let { (it * 100).toInt() }
         return builder.setSmallIcon(R.drawable.ic_launcher_fg)
-            .setContentTitle(title).setContentText(text).setContentIntent(pending)
+            .setContentTitle(title).setContentText(if (percent == null) text else "$text · $percent%")
+            .setContentIntent(pending)
             .setOngoing(true).setOnlyAlertOnce(true)
             .setCategory(Notification.CATEGORY_PROGRESS)
             .setVisibility(Notification.VISIBILITY_PRIVATE)
-            .setProgress(0, 0, true).build()
+            .setProgress(if (percent == null) 0 else 100, percent ?: 0, false).build()
     }
 
     companion object {
@@ -141,6 +153,16 @@ class DownloadService : Service() {
             val channel = MethodChannel(messenger, "hentai_park/downloads")
             events = channel
             channel.setMethodCallHandler { call, result ->
+                if (call.method == "progress") {
+                    val value = call.argument<Number>("value")?.toDouble()
+                    if (value != null && !value.isFinite()) {
+                        result.error("ARGUMENT", null, null)
+                    } else {
+                        current?.updateProgress(value)
+                        result.success(null)
+                    }
+                    return@setMethodCallHandler
+                }
                 if (call.method != "update") {
                     result.notImplemented()
                     return@setMethodCallHandler

@@ -47,15 +47,22 @@ abstract final class PlaybackResolver {
     final chapters =
         lib.chaptersCached(item.uid) ?? await lib.loadChapters(item.uid);
     final task = DownloadManager.instance.task(item.uid);
+    final allowIncomplete =
+        !downloadedOnly &&
+        task != null &&
+        !task.isVideo &&
+        !task.isNovel &&
+        item.source != localSource;
     // 下载记录本身就是本地目录，不能依赖插件、首页或另外一份章节缓存。
     if (task != null &&
         (downloadedOnly ||
+            allowIncomplete ||
             chapterId == null ||
             task.completed.contains(chapterKeyOf(chapterId)))) {
       final available = task.chapters
           .where(
             (chapter) =>
-                task.completed.contains(chapter.id) &&
+                (allowIncomplete || task.completed.contains(chapter.id)) &&
                 !(task.deletingChapters?.contains(chapter.id) ?? false) &&
                 task.deletingChapters?.isEmpty != true,
           )
@@ -91,7 +98,7 @@ abstract final class PlaybackResolver {
           work,
           chapter: selected,
           startPage: start,
-          downloadedOnly: true,
+          downloadedOnly: !allowIncomplete,
         );
       }
     }

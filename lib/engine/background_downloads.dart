@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:dio/dio.dart';
@@ -10,12 +11,18 @@ import '../core/models.dart';
 
 /// 正在执行的下载共用一个前台服务；不包含标题、站点或账号信息。
 class BackgroundDownloads {
-  BackgroundDownloads({Future<void> Function(int count)? update})
-    : _update = update ?? _updateNative;
+  BackgroundDownloads({
+    Future<void> Function(int count)? update,
+    Future<void> Function(double? value)? progress,
+  }) : _update = update ?? _updateNative,
+       _progress = progress ?? _progressNative;
 
   static final instance = BackgroundDownloads();
   static const _channel = MethodChannel('hentai_park/downloads');
   final Future<void> Function(int count) _update;
+  final Future<void> Function(double? value) _progress;
+  final _progressValues = <Object, double>{};
+  Timer? _progressTimer;
   final _updates = SerialExecutor();
   final _tokens = <Object, CancelToken>{};
   final _recordings = <Object>{};
@@ -63,6 +70,7 @@ class BackgroundDownloads {
       if (recording) _recordings.add(id);
       try {
         await _update(_tokens.length);
+        _scheduleProgress();
       } catch (_) {
         _tokens.remove(id);
         _recordings.remove(id);
@@ -89,6 +97,8 @@ class BackgroundDownloads {
 
   Future<void> _release(Object id) => _updates.run(() async {
     if (_tokens.remove(id) == null) return;
+    _progressValues.remove(id);
+    _scheduleProgress();
     _recordings.remove(id);
     try {
       await _update(_interrupted ? 0 : _tokens.length);
@@ -97,6 +107,42 @@ class BackgroundDownloads {
       AppLog.error(error, event: 'background_download');
     }
   });
+
+  void _report(Object id, int done, int total) {
+    if (!_tokens.containsKey(id)) return;
+    if (total > 0) {
+      _progressValues[id] = (done / total).clamp(0, 1);
+    } else {
+      _progressValues.remove(id);
+    }
+    _scheduleProgress();
+  }
+
+  void _scheduleProgress() {
+    _progressTimer ??= Timer(const Duration(milliseconds: 250), () {
+      _progressTimer = null;
+      unawaited(
+        _updates.run(() async {
+          // 不同任务的字节、页数不能相加；按各任务的实际完成比例汇总。
+          final value =
+              _progressValues.isEmpty ||
+                  _progressValues.length != _tokens.length
+              ? null
+              : _progressValues.values.reduce((a, b) => a + b) / _tokens.length;
+          try {
+            await _progress(value);
+          } catch (error) {
+            AppLog.error(error, event: 'background_download');
+          }
+        }),
+      );
+    });
+  }
+
+  static Future<void> _progressNative(double? value) async {
+    if (!Platform.isAndroid) return;
+    await _channel.invokeMethod<void>('progress', {'value': value});
+  }
 
   static Future<void> _updateNative(int count) async {
     if (!Platform.isAndroid) return;
@@ -118,6 +164,8 @@ class DownloadLease {
   void check() {
     if (token.cancelError case final error?) throw error;
   }
+
+  void reportProgress(int done, int total) => _owner._report(_id, done, total);
 
   Future<void> release() => _release ??= _owner._release(_id);
 }

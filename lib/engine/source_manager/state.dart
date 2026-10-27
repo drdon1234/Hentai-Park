@@ -94,7 +94,7 @@ mixin _SourceState on _SourceRegistry {
             if (credentials) 'cookies': cookies,
           }),
         ) as Map).cast<String, dynamic>();
-      });
+      }, invalidate: false);
 
   Future<
     ({

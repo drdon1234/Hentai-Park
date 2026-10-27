@@ -206,9 +206,11 @@ class _ReaderPageState extends _ReaderBase
         _source,
         widget.work.id,
         chapterId ?? '_',
+        allowIncomplete: !widget.downloadedOnly,
       );
       if (!mounted || generation != _loadGeneration) return;
-      final offline = pages != null;
+      final offline =
+          pages != null && pages.every((p) => p.url.startsWith('file://'));
       if (pages == null && widget.downloadedOnly) {
         throw SourceError('NOT_FOUND', '本地文件已被删除');
       }

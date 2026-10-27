@@ -419,6 +419,7 @@ class GameDownloadManager extends ChangeNotifier {
         task.file,
         cancelToken: token,
         onProgress: (bytes, total) {
+          lease?.reportProgress(bytes, total);
           task.bytes = bytes;
           task.total = total;
           if (DateTime.now().difference(lastUpdate).inMilliseconds > 250) {

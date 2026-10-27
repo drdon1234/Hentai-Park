@@ -55,10 +55,19 @@ class AppInstaller {
     AppRelease release,
     CancelToken token,
     void Function(int, int) progress,
-  ) => BackgroundDownloads.instance.run(
-    (_) => _prepare(release, token, progress),
-    cancelToken: token,
-  );
+  ) async {
+    final lease = await BackgroundDownloads.instance.acquire(
+      cancelToken: token,
+    );
+    try {
+      return await _prepare(release, token, (done, total) {
+        lease.reportProgress(done, total);
+        progress(done, total);
+      });
+    } finally {
+      await lease.release();
+    }
+  }
 
   Future<File> _prepare(
     AppRelease release,

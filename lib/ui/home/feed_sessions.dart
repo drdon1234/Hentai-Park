@@ -6,6 +6,8 @@ import 'package:flutter/foundation.dart';
 
 import '../../core/models.dart';
 import '../../core/settings.dart';
+import '../../engine/home_cache.dart';
+import '../../engine/home_metadata.dart';
 import '../../engine/shared_feed.dart';
 import '../../engine/source_manager.dart';
 import '../../subscriptions/subscription_store.dart';
@@ -43,6 +45,7 @@ class FeedSessions {
 
   _FeedEntry? _entry(String key, {bool refresh = false}) {
     if (AppSettings.instance.dataSaver ||
+        sources[key]?.enabled == false ||
         !AppSettings.instance.homeSourceVisible(key)) {
       return null;
     }
@@ -86,7 +89,7 @@ class FeedSessions {
     }
 
     // 配置在创建时取快照，避免旧请求读取后续选项。
-    Future<WorkPage> load(
+    Future<WorkPage> loadRemote(
       int page,
       String? cursor, {
       required bool refresh,
@@ -117,6 +120,78 @@ class FeedSessions {
       }
       return await posts(page, cursor, cancelToken) ??
           WorkPage(page: page, items: []);
+    }
+
+    Future<WorkPage> load(
+      int page,
+      String? cursor, {
+      required bool refresh,
+      required CancelToken cancelToken,
+      void Function(WorkPage)? onCached,
+    }) async {
+      if (page != 1) {
+        return loadRemote(
+          page,
+          cursor,
+          refresh: refresh,
+          cancelToken: cancelToken,
+        );
+      }
+      // 推荐快照只使用稳定的入口身份；Cookie 的更新时间、插件临时数据不属于展示身份。
+      final account = sources.accountListenable(key)?.value;
+      final result = await HomeCache.instance.request(
+        [
+          'recommendations',
+          key,
+          sources[key]?.sha256,
+          manifest.version,
+          sources.settingsOf(key),
+          feed?.key,
+          options,
+          target?.target,
+          account?.loggedIn,
+          account?.name,
+        ],
+        () async {
+          final result = await loadRemote(
+            page,
+            cursor,
+            refresh: true,
+            cancelToken: cancelToken,
+          );
+          if (cancelToken.cancelError case final error?) throw error;
+          return {
+            'items': result.items.map((item) => item.toJson()).toList(),
+            if (result.sections != null)
+              'sections': [
+                for (final section in result.sections!)
+                  {
+                    'title': section.title,
+                    'items': section.items
+                        .map((item) => item.toJson())
+                        .toList(),
+                  },
+              ],
+            'page': result.page,
+            'cursor': result.cursor,
+            'hasNext': result.hasNext,
+          };
+        },
+        source: key,
+        refresh: true,
+        serialize: HomeMetadata.serialize,
+        onCached:
+            refresh ||
+                (manifest.account?.required == true &&
+                    account?.loggedIn != true)
+            ? null
+            : (data) {
+                if (!cancelToken.isCancelled) {
+                  onCached?.call(WorkPage.fromJson(data, key));
+                }
+              },
+      );
+      return WorkPage.fromJson(result.data, key);
     }
 
     if (existing != null) {

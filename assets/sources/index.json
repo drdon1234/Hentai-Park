@@ -85,7 +85,7 @@
     {
       "key": "ehentai",
       "name": "E-Hentai",
-      "version": "0.0.12",
+      "version": "0.0.13",
       "type": "comic",
       "category": "doujin",
       "file": "ehentai.js",
@@ -525,7 +525,7 @@
     {
       "key": "pixiv",
       "name": "Pixiv",
-      "version": "0.0.13",
+      "version": "0.0.14",
       "type": "comic",
       "category": "other",
       "file": "pixiv.js",

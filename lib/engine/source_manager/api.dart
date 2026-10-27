@@ -379,6 +379,7 @@ mixin _SourceApi on _SourceRegistry {
           ], cancelToken: token) as Map).cast<String, dynamic>();
         },
         refresh: refresh,
+        source: key,
         requestGroup: background ? 'background' : 'foreground',
         shouldCache: HomeMetadata.cacheable,
         serialize: HomeMetadata.serialize,
@@ -467,6 +468,7 @@ mixin _SourceApi on _SourceRegistry {
       ], cancelToken: cancelToken) as Map).cast<String, dynamic>(),
       refresh: true,
       serialize: HomeMetadata.detail,
+      source: key,
       onCached: onCached == null
           ? null
           : (data) {
@@ -607,6 +609,7 @@ mixin _SourceApi on _SourceRegistry {
       },
       refresh: refresh,
       preferCached: true,
+      source: key,
       shouldCache: (data) =>
           (data['sources'] as List? ?? []).isNotEmpty &&
           (data['sources'] as List).whereType<Map>().every(

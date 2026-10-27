@@ -20,6 +20,7 @@ import '../engine/cancellation.dart';
 import '../engine/http_service.dart';
 import '../engine/media_transport_factory.dart';
 import '../engine/source_manager.dart';
+import '../images/image_tasks.dart';
 import '../images/park_image.dart';
 import '../video/hls_download.dart';
 import 'library.dart';
@@ -72,6 +73,7 @@ class DownloadTask {
   int bytes;
   String? error;
   CancelToken? cancel;
+  DownloadLease? lease;
 
   /// 空列表表示删除整个任务；非空列表表示待完成的章节删除。
   List<String>? deletingChapters;
@@ -388,6 +390,11 @@ class DownloadManager extends ChangeNotifier {
           )
           .catchError((Object e) => AppLog.error(e, event: 'download_save')),
     );
+    notifyListeners();
+  }
+
+  void _notifyProgress(DownloadTask task) {
+    task.lease?.reportProgress(task.done, task.total);
     notifyListeners();
   }
 
@@ -776,6 +783,7 @@ class DownloadManager extends ChangeNotifier {
     DownloadLease? lease;
     try {
       lease = await BackgroundDownloads.instance.acquire(cancelToken: token);
+      t.lease = lease;
       lease.check();
       await awaitCancelled(SourceManager.instance.ready, token);
       _checkRunning(t, token);
@@ -822,6 +830,7 @@ class DownloadManager extends ChangeNotifier {
         ..status = DownloadStatus.failed
         ..error = e is SourceError ? e.friendly : e.toString();
     } finally {
+      t.lease = null;
       await lease?.release();
     }
   }
@@ -860,7 +869,7 @@ class DownloadManager extends ChangeNotifier {
     t.total = plans.fold(0, (n, e) => n + e.$2.pages.length);
     t.done = 0;
     if (plans.isEmpty) return;
-    notifyListeners();
+    _notifyProgress(t);
     for (final (chapter, images) in plans) {
       _checkRunning(t, token);
       final dir = Directory(p.join(t.dir.path, safeFileName(chapter.id)));
@@ -870,6 +879,31 @@ class DownloadManager extends ChangeNotifier {
       }
       await dir.create(recursive: true);
       _checkRunning(t, token);
+      final pending = File(p.join(dir.path, 'pending.json'));
+      await writeFileAtomic(
+        pending,
+        utf8.encode(
+          jsonEncode({
+            'pages': [
+              for (final page in images.pages)
+                {
+                  'url': page.url,
+                  'token': page.token,
+                  'headers': page.headers,
+                  'fallbacks': page.fallbacks,
+                  'cacheKey': page.cacheKey,
+                  'transform': page.transform,
+                  'width': page.width,
+                  'height': page.height,
+                },
+            ],
+          }),
+        ),
+        canCommit: () {
+          _checkRunning(t, token);
+          return true;
+        },
+      );
       final manifest = <Map<String, dynamic>>[];
       final chapterId = chapter.id == '_' ? null : chapter.id;
       var next = 0;
@@ -887,7 +921,7 @@ class DownloadManager extends ChangeNotifier {
               chapterId,
               i,
               page,
-            ).loadBytes(cancelToken: token);
+            ).loadBytes(cancelToken: token, priority: ImagePriority.background);
             _checkRunning(t, token);
             final part = File('${file.path}.part');
             await part.writeAsBytes(bytes, flush: true);
@@ -904,7 +938,7 @@ class DownloadManager extends ChangeNotifier {
             'height': page.height,
           });
           t.done++;
-          notifyListeners();
+          _notifyProgress(t);
         }
       }
 
@@ -926,6 +960,7 @@ class DownloadManager extends ChangeNotifier {
         },
       );
       t.completed.add(chapter.id);
+      if (await pending.exists()) await pending.delete();
       _save([t]);
     }
   }
@@ -965,6 +1000,7 @@ class DownloadManager extends ChangeNotifier {
       t.completed.add(chapter.id);
       t.done++;
       t.bytes += bytes.length;
+      _notifyProgress(t);
       _save([t]);
     }
   }
@@ -1060,7 +1096,7 @@ class DownloadManager extends ChangeNotifier {
         t.bytes = beforeBytes + bytes;
         if (DateTime.now().difference(lastNotify).inMilliseconds > 300) {
           lastNotify = DateTime.now();
-          notifyListeners();
+          _notifyProgress(t);
         }
       }
 
@@ -1129,18 +1165,50 @@ class DownloadManager extends ChangeNotifier {
     return p.isWithin(actualRoot, actual) ? file : null;
   }
 
-  /// Locally downloaded pages for a chapter, or null when not (fully) downloaded.
+  /// 完整本地章节；允许未完成时按原序号合并已落盘图片和待下载页面。
   Future<List<PageImage>?> localChapter(
     String source,
     String id,
-    String? chapterId,
-  ) async {
+    String? chapterId, {
+    bool allowIncomplete = false,
+  }) async {
     final t = _tasks['$source:$id'];
     if (t == null) return null;
     final f = File(
       p.join(t.dir.path, safeFileName(chapterId ?? '_'), 'pages.json'),
     );
-    if (!await f.exists()) return null;
+    if (!await f.exists()) {
+      if (!allowIncomplete || !await _ownsDirectory(t)) return null;
+      final pending = File(p.join(f.parent.path, 'pending.json'));
+      if (!await pending.exists()) return null;
+      Map json;
+      try {
+        json = jsonDecode(await pending.readAsString()) as Map;
+      } on FileSystemException {
+        // 章节可能刚好完成：写入完整清单后会删除临时清单。
+        return await f.exists() ? localChapter(source, id, chapterId) : null;
+      } on FormatException {
+        return null;
+      }
+      final result = <PageImage>[];
+      for (final (index, entry) in (json['pages'] as List).indexed) {
+        final page = (entry as Map).cast<String, dynamic>();
+        final local = File(
+          p.join(
+            f.parent.path,
+            '${(index + 1).toString().padLeft(4, '0')}.img',
+          ),
+        );
+        result.add(
+          PageImage({
+            ...page,
+            if (await local.exists() && await local.length() > 0)
+              'url': local.uri.toString(),
+          }),
+        );
+      }
+      return result;
+    }
     final data = jsonDecode(await f.readAsString()) as Map;
     return (data['pages'] as List).cast<Map>().map((e) {
       final m = e.cast<String, dynamic>();

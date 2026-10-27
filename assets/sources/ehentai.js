@@ -65,7 +65,7 @@ Park.register({
   },
   key: 'ehentai',
   name: 'E-Hentai',
-  version: '0.0.12', minAppVersion: '0.9.2',
+  version: '0.0.13', minAppVersion: '0.9.2',
   type: 'comic',
   category: 'doujin',
   color: '#9C2A2A',
@@ -275,6 +275,7 @@ Park.register({
     this.wait = Park.utils.rateLimiter(Number(this.config.interval) || 400);
     this.galleries = Park.utils.lruMap(30); // origin/gid/token → thumbnail state
     this.showkeys = Park.utils.lruMap(30);
+    this.showkeyRequests = new Map();
     this.nls = Park.utils.lruMap(500);
   },
 
@@ -290,9 +291,9 @@ Park.register({
     return this.config.site === 'exhentai' ? 'https://exhentai.org/api.php' : 'https://api.e-hentai.org/api.php';
   },
 
-  async page(url, params) {
+  async page(url, params, headers) {
     await this.wait();
-    const res = await this.http.get(url, { params });
+    const res = await this.http.get(url, { params, headers });
     const body = String(res.body || '');
     if (body.includes('Your IP address has been temporarily banned')) {
       throw Park.error('BLOCKED', 'IP 被 E-Hentai 临时封禁，请稍后再试或更换网络');
@@ -591,24 +592,29 @@ Park.register({
     const key = `${base}/${gid}/${token}`;
     let state = this.galleries.get(key);
     if (!state) {
-      state = { links: new Map(), thumbs: new Map(), loaded: new Set(), perPage: 0, thumbPages: 1 };
+      state = { links: new Map(), thumbs: new Map(), loaded: new Set(), pending: new Map(), perPage: 0, thumbPages: 1 };
       this.galleries.set(key, state);
     }
     if (state.loaded.has(p)) return state;
-    await this.ensureNoWarning(base);
-    const html = await this.page(`${base}/g/${gid}/${token}/`, p ? { p: String(p) } : null);
-    const parsed = this.parseGalleryPage(html, gid);
-    for (const e of parsed.entries) {
-      state.links.set(e.index, e.link);
-      if (e.thumb) state.thumbs.set(e.index, e.thumb);
+    if (!state.pending.has(p)) {
+      state.pending.set(p, (async () => {
+        await this.ensureNoWarning(base);
+        const html = await this.page(`${base}/g/${gid}/${token}/`, p ? { p: String(p) } : null);
+        const parsed = this.parseGalleryPage(html, gid);
+        for (const e of parsed.entries) {
+          state.links.set(e.index, e.link);
+          if (e.thumb) state.thumbs.set(e.index, e.thumb);
+        }
+        if (p === 0) {
+          state.perPage = parsed.entries.length || 20;
+          state.thumbPages = parsed.thumbPages;
+          state.doc = parsed.doc;
+        }
+        state.loaded.add(p);
+        return state;
+      })().finally(() => state.pending.delete(p)));
     }
-    if (p === 0) {
-      state.perPage = parsed.entries.length || 20;
-      state.thumbPages = parsed.thumbPages;
-      state.doc = parsed.doc;
-    }
-    state.loaded.add(p);
-    return state;
+    return state.pending.get(p);
   },
 
   async detail(id) {
@@ -691,24 +697,39 @@ Park.register({
     const index = Number(req.token !== undefined ? req.token : req.index);
     const link = await this.pageLink(gid, token, index, base);
     const galleryKey = `${base}/${gid}/${token}`, nlKey = `${galleryKey}-${index}`;
+    const pageHeaders = { Referer: `${base}/g/${gid}/${token}/` };
     let result;
+    // 首批并发页共享一次 showkey 初始化，后续直接使用 showpage API。
+    if (!this.showkeys.has(galleryKey) && !(req.retry > 0)) {
+      if (!this.showkeyRequests.has(galleryKey)) {
+        this.showkeyRequests.set(galleryKey, (async () => {
+          const parsed = this.parseSinglePage(await this.page(link, null, pageHeaders));
+          if (parsed.showkey) this.showkeys.set(galleryKey, parsed.showkey);
+          return { index, parsed };
+        })().finally(() => this.showkeyRequests.delete(galleryKey)));
+      }
+      const initial = await this.showkeyRequests.get(galleryKey);
+      if (initial.index === index) result = initial.parsed;
+    }
     const showkey = this.showkeys.get(galleryKey);
     if (req.retry > 0 && this.nls.get(nlKey)) {
-      result = this.parseSinglePage(await this.page(link, { nl: this.nls.get(nlKey) }));
-    } else if (showkey) {
+      result = this.parseSinglePage(await this.page(link, { nl: this.nls.get(nlKey) }, pageHeaders));
+    } else if (!result && showkey) {
       await this.wait();
       const imgkey = /\/s\/([0-9a-f]{10})\//.exec(link)[1];
+      const previous = index > 0 ? await this.pageLink(gid, token, index - 1, base) : link;
       const res = await this.http.post(base === 'https://exhentai.org' ? base + '/api.php' : 'https://api.e-hentai.org/api.php', {
         json: { method: 'showpage', gid, page: index + 1, imgkey, showkey },
+        headers: { Origin: base, Referer: previous },
       });
       if (res.ok) {
         const data = res.json();
         const parsed = this.parseSinglePage(`${data.i3 || ''}${data.i6 || ''}`);
         if (parsed.url) result = Object.assign(parsed, { width: Number(data.x) || null, height: Number(data.y) || null });
       }
-      if (!result) result = this.parseSinglePage(await this.page(link));
-    } else {
-      result = this.parseSinglePage(await this.page(link));
+      if (!result) result = this.parseSinglePage(await this.page(link, null, pageHeaders));
+    } else if (!result) {
+      result = this.parseSinglePage(await this.page(link, null, pageHeaders));
     }
     if (result.showkey) this.showkeys.set(galleryKey, result.showkey);
     if (result.nl) this.nls.set(nlKey, result.nl);

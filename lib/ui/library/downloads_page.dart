@@ -422,8 +422,12 @@ class _DownloadsPageState extends State<DownloadsPage> {
     DownloadStatus.failed => tr('下载失败'),
   };
 
-  void _openTask(BuildContext context, DownloadTask task) =>
-      Nav.openChapter(context, task.item, null, downloadedOnly: true);
+  void _openTask(BuildContext context, DownloadTask task) => Nav.openChapter(
+    context,
+    task.item,
+    null,
+    downloadedOnly: task.isVideo || task.isNovel,
+  );
 }
 
 class _RestoreFailureTile extends StatelessWidget {
@@ -494,8 +498,12 @@ class _TaskTile extends StatelessWidget {
       isScrollControlled: true,
       builder: (_) => _ChapterSheet(
         task: t,
-        onOpen: (chapter) =>
-            Nav.openChapter(context, t.item, chapter.id, downloadedOnly: true),
+        onOpen: (chapter) => Nav.openChapter(
+          context,
+          t.item,
+          chapter.id,
+          downloadedOnly: t.isVideo || t.isNovel,
+        ),
       ),
     );
   }
@@ -503,7 +511,12 @@ class _TaskTile extends StatelessWidget {
   Future<void> _open(BuildContext context) async {
     final t = DownloadManager.instance.task(task.uid);
     if (!context.mounted || t == null) return;
-    return Nav.openChapter(context, t.item, null, downloadedOnly: true);
+    return Nav.openChapter(
+      context,
+      t.item,
+      null,
+      downloadedOnly: t.isVideo || t.isNovel,
+    );
   }
 
   Future<void> _menu(BuildContext context) async {
@@ -932,7 +945,9 @@ class _ChapterSheetState extends State<_ChapterSheet> {
                           child: IconButton(
                             tooltip: tr(t.isVideo ? '播放' : '阅读'),
                             icon: const Icon(Icons.play_circle_outline_rounded),
-                            onPressed: t.completed.contains(ch.id)
+                            onPressed:
+                                (!t.isVideo && !t.isNovel) ||
+                                    t.completed.contains(ch.id)
                                 ? () {
                                     Navigator.pop(context);
                                     widget.onOpen(ch);

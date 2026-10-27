@@ -39,6 +39,7 @@ class HomeCache {
   final _refreshes = <String, int>{};
   int _requestSequence = 0;
   int _generation = 0;
+  final _sourceGenerations = <String, int>{};
   Directory get directory =>
       _directory ?? Directory(p.join(AppPaths.cache.path, 'home_metadata'));
 
@@ -60,7 +61,11 @@ class HomeCache {
     Map<String, dynamic> Function(Map<String, dynamic>)? serialize,
     void Function(Map<String, dynamic>)? onCached,
     bool preferCached = false,
+    String? source,
   }) {
+    if (source != null && !RegExp(r'^[a-zA-Z0-9_-]+$').hasMatch(source)) {
+      throw ArgumentError.value(source, 'source');
+    }
     if (preferCached) {
       final cached = Completer<HomeCacheResult>();
       final latest = request(
@@ -70,6 +75,7 @@ class HomeCache {
         requestGroup: requestGroup,
         shouldCache: shouldCache,
         serialize: serialize,
+        source: source,
         onCached: refresh
             ? null
             : (data) {
@@ -82,18 +88,22 @@ class HomeCache {
     }
     // 网络/会话原值只参与摘要，不进入文件名、正文或诊断日志。
     final key = sha256
-        .convert(utf8.encode(jsonEncode(_canonical(identity))))
+        .convert(utf8.encode(jsonEncode(_canonical([source, ...identity]))))
         .toString();
     final generation = _generation;
+    final sourceGeneration = _sourceGenerations[source] ?? 0;
+    bool current() =>
+        generation == _generation &&
+        sourceGeneration == (_sourceGenerations[source] ?? 0);
     final pendingKey =
-        '${directory.path}/$generation/$key/$refresh/$requestGroup/${onCached == null ? 0 : ++_requestSequence}';
+        '${directory.path}/$generation/$source/$sourceGeneration/$key/$refresh/$requestGroup/${onCached == null ? 0 : ++_requestSequence}';
     final existing = _pending[pendingKey];
     if (existing != null) return existing;
     final sequence = ++_requestSequence;
     return _pending[pendingKey] ??=
         _request(
           key,
-          generation,
+          current,
           load,
           refresh,
           shouldCache,
@@ -101,6 +111,7 @@ class HomeCache {
           sequence,
           onCached,
           requestGroup == 'foreground' || refresh,
+          source,
         ).whenComplete(() {
           _pending.remove(pendingKey);
           if (!_pending.keys.any((pending) => pending.contains('/$key/'))) {
@@ -111,7 +122,7 @@ class HomeCache {
 
   Future<HomeCacheResult> _request(
     String key,
-    int generation,
+    bool Function() current,
     Future<Map<String, dynamic>> Function() load,
     bool refresh,
     bool Function(Map<String, dynamic>)? shouldCache,
@@ -119,8 +130,11 @@ class HomeCache {
     int sequence,
     void Function(Map<String, dynamic>)? onCached,
     bool foreground,
+    String? source,
   ) async {
-    final root = directory;
+    final root = source == null
+        ? directory
+        : Directory(p.join(directory.path, source));
     final file = File(p.join(root.path, '$key.json'));
     final cached = await _disk.run(() async {
       try {
@@ -146,11 +160,12 @@ class HomeCache {
         return null;
       }
     });
-    if (cached != null && generation == _generation) {
+    if (cached != null && current()) {
       onCached?.call(cached.data);
     }
     if (onCached == null &&
         !refresh &&
+        current() &&
         cached != null &&
         _clock().difference(cached.written) < lifetime) {
       return HomeCacheResult(cached.data);
@@ -168,7 +183,7 @@ class HomeCache {
       if (invalidatesContent(error)) {
         try {
           await _disk.run(() async {
-            if (generation == _generation &&
+            if (current() &&
                 (_refreshes[key] ?? 0) == sequence &&
                 await file.exists()) {
               await file.delete();
@@ -181,7 +196,7 @@ class HomeCache {
       if ({'NETWORK', 'TIMEOUT'}.contains(error.code) &&
           !refresh &&
           cached != null &&
-          generation == _generation) {
+          current()) {
         return HomeCacheResult(cached.data, stale: true);
       }
       rethrow;
@@ -196,7 +211,7 @@ class HomeCache {
     // 缓存写入失败不得使已成功的主页网络读取失败。
     try {
       await _disk.run(() async {
-        if (generation != _generation ||
+        if (!current() ||
             (_refreshes[key] ?? 0) != sequence ||
             bytes.length > budget) {
           return;
@@ -205,10 +220,9 @@ class HomeCache {
         await writeFileAtomic(
           file,
           bytes,
-          canCommit: () =>
-              generation == _generation && (_refreshes[key] ?? 0) == sequence,
+          canCommit: () => current() && (_refreshes[key] ?? 0) == sequence,
         );
-        await _trim(root);
+        await _trim(directory);
       });
     } on FileSystemException {
       /* 可重建缓存，保留网络结果。 */
@@ -219,7 +233,7 @@ class HomeCache {
   Future<List<(File, FileStat)>> _files(Directory root) async {
     if (!await root.exists()) return [];
     final files = <(File, FileStat)>[];
-    await for (final entity in root.list(followLinks: false)) {
+    await for (final entity in root.list(recursive: true, followLinks: false)) {
       if (entity is! File || !entity.path.endsWith('.json')) continue;
       try {
         files.add((entity, await entity.stat()));
@@ -250,6 +264,17 @@ class HomeCache {
   Future<void> clear() {
     _generation++;
     final root = directory;
+    return _disk.run(() async {
+      if (await root.exists()) await root.delete(recursive: true);
+    });
+  }
+
+  Future<void> clearSource(String source) {
+    if (!RegExp(r'^[a-zA-Z0-9_-]+$').hasMatch(source)) {
+      throw ArgumentError.value(source, 'source');
+    }
+    _sourceGenerations[source] = (_sourceGenerations[source] ?? 0) + 1;
+    final root = Directory(p.join(directory.path, source));
     return _disk.run(() async {
       if (await root.exists()) await root.delete(recursive: true);
     });
