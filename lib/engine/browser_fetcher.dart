@@ -16,6 +16,7 @@ import 'cancellation.dart';
 import 'challenge.dart';
 import 'domains.dart';
 import 'http_service.dart';
+import 'resource_pool.dart';
 
 /// Runs requests for Cloudflare-protected sites inside a hidden browser page opened on the site's
 /// origin: same-origin `fetch()` carries a genuine browser fingerprint and the clearance cookies.
@@ -23,14 +24,25 @@ class BrowserFetcher {
   BrowserFetcher._();
   static final BrowserFetcher instance = BrowserFetcher._();
 
-  final Map<(String, String, String, String), _OriginPage> _pages = {};
-  bool _closing = false;
+  final _pages = ResourcePool<_BrowserPageKey, _OriginPage>(
+    maximum: 4,
+    idleTimeout: const Duration(seconds: 30),
+    create: (key) => _OriginPage(
+      key.origin,
+      key.domains,
+      partition: key.partition,
+      confirmation: key.confirmation,
+    ),
+    destroy: (page) => page.retire(),
+    onDisposeError: (error, _) => AppLog.error(error, event: 'browser_dispose'),
+  );
+  int get retainedPages => _pages.retained;
+  int get activePages => _pages.active;
+  int get closingPages => _pages.closing;
+  int get waitingRequests => _pages.waiting;
 
   Future<void> dispose() async {
-    _closing = true;
-    final pages = _pages.values.toList();
-    _pages.clear();
-    await Future.wait([for (final page in pages) page.retire()]);
+    await _pages.close();
   }
 
   Set<String> hostsForDomains(Iterable<String> domains) => {
@@ -47,43 +59,54 @@ class BrowserFetcher {
     CancelToken? cancelToken,
     AgeConfirmationConfig? confirmation,
   }) async {
-    if (_closing) throw SourceError('CANCELLED', '应用正在关闭');
     final base = Uri.parse(
       origin.isNotEmpty ? origin : request['url'].toString(),
     );
     final allowed = (domains ?? [base.host]).toSet().toList()..sort();
-    final key = (
-      base.origin,
-      allowed.join(','),
-      partition ?? '',
-      confirmation?.signature ?? '',
+    final key = _BrowserPageKey(base.origin, allowed, partition, confirmation);
+    // 对外可立即取消，池内仍持有页面，直到队列中的真实操作结束。
+    return await awaitCancelled(
+      _pages.use(
+        key,
+        (page) => page.fetch(request, cancelToken: cancelToken),
+        cancelToken: cancelToken,
+      ),
+      cancelToken,
     );
-    final page = _pages[key] ??= _OriginPage(
-      base.origin,
-      allowed,
-      partition: partition,
-      confirmation: confirmation,
-    );
-    return page.fetch(request, cancelToken: cancelToken);
   }
 
   /// Drops the hidden page so the next request establishes a fresh document.
   Future<void> reset(String origin) async {
     final uri = Uri.parse(origin);
-    final keys = _pages.keys.where((key) => key.$1 == uri.origin).toList();
-    await Future.wait([for (final key in keys) _pages.remove(key)!.retire()]);
+    await _pages.removeWhere((key) => key.origin == uri.origin);
   }
 
   /// 浏览器凭据由进程共享，同域名的运行中页面必须一起停止。
   Future<void> clearDomains(Iterable<String> domains) async {
-    final keys = _pages.keys
-        .where(
-          (key) =>
-              _pages[key]!.hosts.any((host) => hostInDomains(host, domains)),
-        )
-        .toList();
-    await Future.wait([for (final key in keys) _pages.remove(key)!.retire()]);
+    await _pages.removeWhere(
+      (key) => key.domains.any((host) => hostInDomains(host, domains)),
+    );
   }
+}
+
+class _BrowserPageKey {
+  _BrowserPageKey(this.origin, this.domains, this.partition, this.confirmation);
+  final String origin;
+  final List<String> domains;
+  final String? partition;
+  final AgeConfirmationConfig? confirmation;
+  (String, String, String, String) get _identity => (
+    origin,
+    domains.join(','),
+    partition ?? '',
+    confirmation?.signature ?? '',
+  );
+
+  @override
+  bool operator ==(Object other) =>
+      other is _BrowserPageKey && other._identity == _identity;
+  @override
+  int get hashCode => _identity.hashCode;
 }
 
 class _OriginPage {
@@ -108,7 +131,6 @@ class _OriginPage {
   InAppWebViewController? _controller;
   Completer<void>? _ready;
   void Function(Object? error)? _finishReady;
-  Timer? _idle;
   Timer? _poll;
   bool _ageGateSeen = false;
   int _ageClickedGeneration = -1;
@@ -524,7 +546,7 @@ class _OriginPage {
     final operation = _requestQueue.run(
       () => _fetchWithRecovery(request, cancelToken),
     );
-    return awaitCancelled(operation, cancelToken);
+    return operation;
   }
 
   Future<Map<String, Object?>> _fetchWithRecovery(
@@ -539,55 +561,48 @@ class _OriginPage {
       return true;
     }
 
-    _idle?.cancel();
-    try {
-      if ({
-            'GET',
-            'HEAD',
-          }.contains((request['method'] ?? 'GET').toString().toUpperCase()) &&
-          !canRetry) {
-        throw SourceError('CONFIG', '二进制请求参数无效');
-      }
-      for (var attempt = 0; ; attempt++) {
-        _checkActive();
-        if (token?.cancelError case final error?) throw error;
-        try {
-          final result = await _fetch(
-            request,
-            cancelToken: token,
-            claimVerification: claimVerification,
-          );
-          final status = result['status'];
-          if (!canRetry ||
-              attempt >= 2 ||
-              !{408, 500, 502, 503, 504}.contains(status)) {
-            return result;
-          }
-        } on SourceError catch (error) {
-          if (token?.cancelError case final cancelled?) throw cancelled;
-          if (!canRetry ||
-              attempt >= 2 ||
-              error.code != 'NETWORK' ||
-              (error.diagnostics['reason'] != null &&
-                  error.diagnostics['reason'] != 'CONNECTION')) {
-            rethrow;
-          }
-          // A failed browser context must not poison the next read. Cookies
-          // remain in the WebView store when the hidden page is recreated.
-          await dispose();
-        }
-        final delay = Future<void>.delayed(
-          Duration(milliseconds: 500 * (attempt + 1)),
+    if ({
+          'GET',
+          'HEAD',
+        }.contains((request['method'] ?? 'GET').toString().toUpperCase()) &&
+        !canRetry) {
+      throw SourceError('CONFIG', '二进制请求参数无效');
+    }
+    for (var attempt = 0; ; attempt++) {
+      _checkActive();
+      if (token?.cancelError case final error?) throw error;
+      try {
+        final result = await _fetch(
+          request,
+          cancelToken: token,
+          claimVerification: claimVerification,
         );
-        await Future.any([
-          delay,
-          if (token != null)
-            token.whenCancel.then<void>((error) => throw error),
-        ]);
+        final status = result['status'];
+        if (!canRetry ||
+            attempt >= 2 ||
+            !{408, 500, 502, 503, 504}.contains(status)) {
+          return result;
+        }
+      } on SourceError catch (error) {
+        if (token?.cancelError case final cancelled?) throw cancelled;
+        if (!canRetry ||
+            attempt >= 2 ||
+            error.code != 'NETWORK' ||
+            (error.diagnostics['reason'] != null &&
+                error.diagnostics['reason'] != 'CONNECTION')) {
+          rethrow;
+        }
+        // A failed browser context must not poison the next read. Cookies
+        // remain in the WebView store when the hidden page is recreated.
+        await dispose();
       }
-    } finally {
-      _idle?.cancel();
-      if (!_retired) _idle = Timer(const Duration(minutes: 3), dispose);
+      final delay = Future<void>.delayed(
+        Duration(milliseconds: 500 * (attempt + 1)),
+      );
+      await Future.any([
+        delay,
+        if (token != null) token.whenCancel.then<void>((error) => throw error),
+      ]);
     }
   }
 
@@ -681,7 +696,6 @@ class _OriginPage {
       if (cancelToken?.cancelError case final error?) throw error;
       if (document != null) return document;
     }
-    _idle?.cancel();
     final controller = _controller!;
     final session = _session;
     final id = '${++_nextRequest}';
@@ -942,7 +956,6 @@ class _OriginPage {
   Future<void> dispose() async {
     _documentGeneration++;
     _documentRequest = null;
-    _idle?.cancel();
     _poll?.cancel();
     _session.cancel('browser session closed');
     _finishReady?.call(SourceError('CANCELLED', '浏览器会话已关闭'));

@@ -93,10 +93,21 @@ Future<Map?> inspectAccessDocument(
     const ready = !readySelector || !!document.querySelector(readySelector);
     let clicked = false;
     if (confirmAdult && gates.length && clickSelector) {
+      // 仅接受年龄门内唯一的复选框；不填写问答、账号或其他表单。
+      let checked = !checkSelector;
+      if (checkSelector) {
+        const checks = [...document.querySelectorAll(checkSelector)].filter(el =>
+          visible(el) && el instanceof HTMLInputElement && el.type === 'checkbox' &&
+          !el.disabled && gates.some(gate => gate.contains(el)));
+        if (checks.length === 1) {
+          if (!checks[0].checked) checks[0].click();
+          checked = checks[0].checked;
+        }
+      }
       const buttons = [...document.querySelectorAll(clickSelector)].filter(el =>
         visible(el) && !el.disabled && el.getAttribute('aria-disabled') !== 'true' &&
         gates.some(gate => gate.contains(el)));
-      if (buttons.length === 1) { buttons[0].click(); clicked = true; }
+      if (checked && buttons.length === 1) { buttons[0].click(); clicked = true; }
     }
     return {url, title: document.title, html: document.documentElement.outerHTML.slice(0, 4194304),
       gate: gates.length > 0, content: ready, clicked};
@@ -106,6 +117,7 @@ Future<Map?> inspectAccessDocument(
           'gateSelector': confirmation?.gateSelector ?? '',
           'readySelector': confirmation?.readySelector ?? '',
           'clickSelector': confirmation?.clickSelector ?? '',
+          'checkSelector': confirmation?.checkSelector ?? '',
           'confirmAdult': confirmAdult,
         },
       )

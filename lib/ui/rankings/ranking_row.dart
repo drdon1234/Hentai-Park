@@ -7,6 +7,7 @@ import '../../core/models.dart';
 import '../../engine/domains.dart';
 import '../../engine/source_manager.dart';
 import '../comments/comments_page.dart';
+import '../metadata/metadata_page.dart';
 import '../nav.dart';
 import '../theme.dart';
 import '../web/source_web_page.dart';
@@ -24,6 +25,18 @@ class RankingRow extends StatefulWidget {
 
 class _RankingRowState extends State<RankingRow> {
   bool _expanded = false;
+
+  void _openMetadata() {
+    final keyword = widget.item.json['keyword'];
+    Nav.push(
+      context,
+      MetadataPage(
+        keyword: keyword is String && keyword.trim().isNotEmpty
+            ? keyword
+            : widget.item.title,
+      ),
+    );
+  }
 
   void _open() {
     final item = widget.item;
@@ -69,6 +82,14 @@ class _RankingRowState extends State<RankingRow> {
         url.scheme == 'https' &&
         url.host.isNotEmpty &&
         url.userInfo.isEmpty;
+    final metadataDetail =
+        widget.board.kind == 'work' &&
+        widget.board.category == SourceCategory.jav;
+    final webDetail =
+        widget.board.kind == 'work' &&
+        !widget.board.opensWork &&
+        !metadataDetail &&
+        original;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: Gap.page),
       child: Column(
@@ -90,7 +111,11 @@ class _RankingRowState extends State<RankingRow> {
                 ),
                 if (item.cover.isNotEmpty) ...[
                   GestureDetector(
-                    onTap: _open,
+                    onTap: metadataDetail
+                        ? _openMetadata
+                        : webDetail
+                        ? () => _openOriginal(url)
+                        : _open,
                     child: SizedBox(
                       width: widget.board.category == SourceCategory.jav
                           ? 120
@@ -146,6 +171,15 @@ class _RankingRowState extends State<RankingRow> {
                         spacing: Gap.s,
                         runSpacing: Gap.s,
                         children: [
+                          if (webDetail || metadataDetail)
+                            OutlinedButton(
+                              onPressed: metadataDetail
+                                  ? _openMetadata
+                                  : () => _openOriginal(url!),
+                              child: SelectionContainer.disabled(
+                                child: Text(tr('打开详情')),
+                              ),
+                            ),
                           if (widget.board.kind == 'work')
                             CommentsEntry(
                               source: item.source,
@@ -157,7 +191,8 @@ class _RankingRowState extends State<RankingRow> {
                                 'board': widget.board.key,
                               },
                             ),
-                          if (widget.board.kind != 'seller')
+                          if (widget.board.kind != 'seller' &&
+                              (!metadataDetail || !widget.board.opensWork))
                             OutlinedButton(
                               onPressed: _open,
                               child: SelectionContainer.disabled(
@@ -168,7 +203,7 @@ class _RankingRowState extends State<RankingRow> {
                                 ),
                               ),
                             ),
-                          if (original)
+                          if (original && !webDetail)
                             OutlinedButton(
                               onPressed: () => _openOriginal(url),
                               child: SelectionContainer.disabled(

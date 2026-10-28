@@ -7,15 +7,22 @@ class AgeConfirmationConfig {
     required this.readySelector,
     required this.requiredCookies,
     required this.clickSelector,
+    this.checkSelector = '',
   });
 
   final String gateSelector;
   final String readySelector;
   final List<String> requiredCookies;
   final String clickSelector;
+  final String checkSelector;
 
-  String get signature =>
-      jsonEncode([gateSelector, readySelector, requiredCookies, clickSelector]);
+  String get signature => jsonEncode([
+    gateSelector,
+    readySelector,
+    requiredCookies,
+    clickSelector,
+    checkSelector,
+  ]);
 
   static AgeConfirmationConfig? fromNetwork(Map<String, dynamic> network) {
     final raw = network['confirmation'];
@@ -25,6 +32,12 @@ class AgeConfirmationConfig {
     final ready = text(raw['readySelector']);
     final auto = raw['auto'];
     final click = auto is Map ? text(auto['clickSelector']) : '';
+    final check = auto is Map ? text(auto['checkSelector']) : '';
+    if (auto is Map &&
+        auto['checkSelector'] != null &&
+        (auto['checkSelector'] is! String || check.isEmpty)) {
+      return null;
+    }
     final names = raw['requiredCookies'];
     if (names is! List ||
         names.isEmpty ||
@@ -39,7 +52,7 @@ class AgeConfirmationConfig {
     if (gate.isEmpty ||
         ready.isEmpty ||
         click.isEmpty ||
-        [gate, ready, click].any((value) => value.length > 1024)) {
+        [gate, ready, click, check].any((value) => value.length > 1024)) {
       return null;
     }
     return AgeConfirmationConfig(
@@ -47,6 +60,7 @@ class AgeConfirmationConfig {
       readySelector: ready,
       requiredCookies: cookies,
       clickSelector: click,
+      checkSelector: check,
     );
   }
 }

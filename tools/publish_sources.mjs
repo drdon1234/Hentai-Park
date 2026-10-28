@@ -142,7 +142,7 @@ function publishedSources(previousIndex) {
 }
 
 export async function generateIndex({ root = defaultRoot, commit, previousIndex, channel = 'sources' } = {}) {
-  if (!['sources', 'rankings', 'reverse-search'].includes(channel)) throw new Error('无效发布频道');
+  if (!['sources', 'rankings', 'reverse-search', 'metadata'].includes(channel)) throw new Error('无效发布频道');
   if (!isCommit(commit)) {
     throw new Error('commit 必须是源码提交的完整 40 位小写十六进制 SHA');
   }
@@ -199,14 +199,20 @@ export async function generateIndex({ root = defaultRoot, commit, previousIndex,
     if (manifest.rankingOnly && (!manifest.rankings.length || manifest.feeds.length)) {
       throw new Error(`${key} 必须仅声明排行榜，不得混入普通列表`);
     }
-    if (manifest.rankingOnly && manifest.reverseSearchOnly) {
-      throw new Error(`${key} 不得同时属于排行榜与反搜频道`);
+    if ([manifest.rankingOnly, manifest.reverseSearchOnly, manifest.metadataOnly].filter(Boolean).length > 1) {
+      throw new Error(`${key} 不得同时属于多个独立插件频道`);
+    }
+    if (manifest.metadataOnly !== (entry.metadataOnly === true) ||
+        (manifest.metadataOnly && (!manifest.capabilities.metadataSearch || !manifest.capabilities.metadataDetail ||
+          manifest.feeds.length || manifest.rankings.length || manifest.capabilities.search ||
+          manifest.capabilities.detail || manifest.capabilities.videos || manifest.capabilities.subscription))) {
+      throw new Error(`${key} 的资料插件声明无效或与清单不一致`);
     }
     if (apiVersion !== runtimeApi || manifest.apiVersion !== runtimeApi) {
       throw new Error(`${key} 的脚本 apiVersion ${manifest.apiVersion} 与运行时 API ${runtimeApi} 不一致`);
     }
     const digest = sha256(code);
-    const sourceChannel = manifest.rankingOnly ? 'rankings' : manifest.reverseSearchOnly ? 'reverse-search' : 'sources';
+    const sourceChannel = manifest.metadataOnly ? 'metadata' : manifest.rankingOnly ? 'rankings' : manifest.reverseSearchOnly ? 'reverse-search' : 'sources';
     if (channel !== sourceChannel) continue;
     const previous = published.get(key);
     if (previous) {
@@ -222,11 +228,12 @@ export async function generateIndex({ root = defaultRoot, commit, previousIndex,
       ...(manifest.capabilities.reverseSearch ? {reverseSearchCategory: manifest.reverseSearchCategory} : {}),
       rankingOnly: manifest.rankingOnly,
       reverseSearchOnly: manifest.reverseSearchOnly,
+      metadataOnly: manifest.metadataOnly,
       url: officialAssetUrl(commit, `assets/sources/${entry.file}`),
       sha256: digest, apiVersion: runtimeApi, minAppVersion: manifest.minAppVersion,
     });
   }
-  const name = channel === 'rankings' ? 'HentaiPark Rankings' : channel === 'reverse-search' ? 'HentaiPark Reverse Search' : index.name;
+  const name = channel === 'metadata' ? 'HentaiPark Metadata' : channel === 'rankings' ? 'HentaiPark Rankings' : channel === 'reverse-search' ? 'HentaiPark Reverse Search' : index.name;
   return { name, apiVersion: runtimeApi, sources };
 }
 

@@ -32,7 +32,7 @@ class PlatformNavigation extends StatelessWidget {
   Widget build(BuildContext context) {
     if (PlatformCapabilities.desktop) {
       return SizedBox(
-        width: wide ? 200 : 64,
+        width: wide ? 224 : 56,
         child: ListView(
           padding: const EdgeInsets.symmetric(vertical: Gap.l),
           children: [
@@ -50,13 +50,15 @@ class PlatformNavigation extends StatelessWidget {
                       color: i == selectedIndex
                           ? context.colors.secondaryContainer
                           : Colors.transparent,
-                      shape: const StadiumBorder(),
+                      shape: const RoundedRectangleBorder(
+                        borderRadius: Radii.tiny,
+                      ),
                       clipBehavior: Clip.antiAlias,
                       child: InkWell(
-                        customBorder: const StadiumBorder(),
+                        borderRadius: Radii.tiny,
                         onTap: () => onSelected(i),
                         child: ConstrainedBox(
-                          constraints: const BoxConstraints(minHeight: 56),
+                          constraints: const BoxConstraints(minHeight: 40),
                           child: Padding(
                             padding: EdgeInsets.symmetric(
                               horizontal: wide ? Gap.l : Gap.s,

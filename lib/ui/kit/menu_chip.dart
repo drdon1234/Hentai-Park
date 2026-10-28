@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../core/platform_capabilities.dart';
+
 import '../theme.dart';
 import 'selection_menu.dart';
 import 'tokens.dart';
@@ -60,7 +62,9 @@ class MenuChip<T> extends StatelessWidget {
                 color: active
                     ? c.secondaryContainer
                     : Theme.of(context).chipTheme.backgroundColor,
-                shape: const StadiumBorder(),
+                shape: PlatformCapabilities.desktop
+                    ? const RoundedRectangleBorder(borderRadius: Radii.tiny)
+                    : const StadiumBorder(),
               ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,

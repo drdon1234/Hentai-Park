@@ -4,11 +4,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../core/localization.dart';
+import '../core/platform_capabilities.dart';
 import '../core/settings.dart';
 import '../engine/platform_bridge.dart';
 import '../library/backup.dart';
 import '../library/updater.dart';
 import '../subscriptions/updater.dart';
+import 'desktop_workspace.dart';
 import 'discovery_navigation.dart';
 import 'history/history_page.dart';
 import 'home/home_page.dart';
@@ -54,6 +56,13 @@ class _ShellState extends State<Shell> {
   @override
   void initState() {
     super.initState();
+    if (PlatformCapabilities.desktop) {
+      DesktopNavigation.instance.onSelect = _select;
+      DesktopNavigation.instance.onRootBack = _desktopBack;
+      _discovery.addListener(_syncDesktop);
+      _unseenUpdates.addListener(_syncDesktop);
+      _syncDesktop();
+    }
     _lifecycle = AppLifecycleListener(onResume: _onResume);
     final updater = LibraryUpdater.instance;
     updater.onProgress = _notifyProgress;
@@ -72,6 +81,12 @@ class _ShellState extends State<Shell> {
 
   @override
   void dispose() {
+    if (PlatformCapabilities.desktop) {
+      DesktopNavigation.instance.onSelect = null;
+      DesktopNavigation.instance.onRootBack = null;
+      _discovery.removeListener(_syncDesktop);
+      _unseenUpdates.removeListener(_syncDesktop);
+    }
     _discovery.dispose();
     _shelf.dispose();
     _unseenUpdates.dispose();
@@ -183,6 +198,25 @@ class _ShellState extends State<Shell> {
       _visited.add(i);
     });
     _shelfChanged();
+    _syncDesktop();
+  }
+
+  void _syncDesktop() {
+    if (!PlatformCapabilities.desktop) return;
+    DesktopNavigation.instance
+      ..selected = _index
+      ..unseen = _unseenUpdates.value
+      ..rootCanGoBack =
+          _index != 0 || _discovery.value != const DiscoveryDestination.all()
+      ..changed();
+  }
+
+  void _desktopBack() {
+    if (_index != 0) {
+      _select(0);
+    } else if (_discovery.value != const DiscoveryDestination.all()) {
+      _discovery.value = const DiscoveryDestination.all();
+    }
   }
 
   List<NavigationDestination> _destinations(int unseen) {
@@ -259,9 +293,12 @@ class _ShellState extends State<Shell> {
                   _visited.contains(i)
                       ? TickerMode(
                           enabled: i == _index,
-                          child: TranslationPage(
-                            active: i == _index,
-                            child: _page(i),
+                          child: ExcludeFocus(
+                            excluding: i != _index,
+                            child: TranslationPage(
+                              active: i == _index,
+                              child: RepaintBoundary(child: _page(i)),
+                            ),
                           ),
                         )
                       : const SizedBox.shrink(),
@@ -288,7 +325,9 @@ class _ShellState extends State<Shell> {
         );
       },
     );
-    final scaffold = PlatformNavigation.usesSidebar(context)
+    final scaffold = PlatformCapabilities.desktop
+        ? Scaffold(body: body)
+        : PlatformNavigation.usesSidebar(context)
         ? Scaffold(
             body: Row(
               children: [

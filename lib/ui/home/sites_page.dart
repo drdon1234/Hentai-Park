@@ -4,6 +4,7 @@ import '../../core/localization.dart';
 import '../../core/models.dart';
 import '../../core/settings.dart';
 import '../../engine/source_manager.dart';
+import '../discovery_navigation.dart';
 import '../nav.dart';
 import '../settings/source_manage_page.dart';
 import '../settings/source_settings_page.dart';
@@ -14,11 +15,12 @@ import '../widgets/common.dart';
 /// Every enabled site, grouped by category, as a hairline list. Sites are a secondary entry:
 /// the home page leads with content.
 class SitesPage extends StatelessWidget {
-  const SitesPage({super.key});
+  const SitesPage({super.key, this.sourceManager});
+  final SourceManager? sourceManager;
 
   @override
   Widget build(BuildContext context) {
-    final sm = SourceManager.instance;
+    final sm = sourceManager ?? SourceManager.instance;
     return Scaffold(
       appBar: AppBar(
         title: Text(tr('站点')),
@@ -39,6 +41,7 @@ class SitesPage extends StatelessWidget {
           final sources = sm.displayEnabled
               .where(
                 (source) =>
+                    !source.manifest!.metadataOnly &&
                     !source.manifest!.rankingOnly &&
                     !source.manifest!.reverseSearchOnly,
               )
@@ -61,13 +64,29 @@ class SitesPage extends StatelessWidget {
             children: [
               for (final category in AppSettings.instance.domainOrder)
                 if (sources.any((s) => s.manifest!.category == category))
-                  RowGroup(
-                    title: category.label,
+                  Column(
                     children: [
-                      for (final s in sources.where(
-                        (s) => s.manifest!.category == category,
-                      ))
-                        SiteRow(source: s),
+                      SectionHeader(
+                        category.label,
+                        titleStyle: ParkText.serif(
+                          context.text.titleLarge?.copyWith(
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        emphasizeTrailing: false,
+                        trailing: DomainEntryButton(
+                          onPressed: () => DiscoveryNavigation.of(context)!
+                              .onSelect(DiscoveryDestination.domain(category)),
+                        ),
+                      ),
+                      RowGroup(
+                        children: [
+                          for (final s in sources.where(
+                            (s) => s.manifest!.category == category,
+                          ))
+                            SiteRow(source: s),
+                        ],
+                      ),
                     ],
                   ),
             ],

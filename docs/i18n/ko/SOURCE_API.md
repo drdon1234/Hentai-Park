@@ -184,7 +184,9 @@ async filterOptions({scope, feed, filter, keyword, values}) {
   자동 폴백은 `followRedirects: false`, `connectAddress`, 원인이 분류되지 않은 네트워크 오류에는 적용하지 않습니다. 본문 없는 브라우저 GET / HEAD는 일반 시도는 최대 세 번이며 인증 후 추가 재전송은 최대 한 번입니다. 연결 장애 또는 HTTP 408, 500, 502, 503, 504만 재시도합니다. 429와 시간 초과는 재전송하지 않습니다. 인증 페이지 이동은 모든 시도를 합쳐 논리 요청당 최대 한 번입니다. 시작, 요청, 문서 읽기, 해제에는 대기 제한이 있습니다. 사용자 지정 API 헤더가 있는 요청은 일반 탐색 결과로 대체하지 않고 실제 `fetch()`를 사용합니다. 재사용 HTML의 오류 상태를 유지하며 `responseType: 'base64'`는 원본 바이트의 base64를 반환합니다.
 
 - `network.vpnHint: true`: 중국 본토에서 VPN이나 프록시가 필요할 수 있는 사이트에 선언합니다. 8초 넘게 기다리거나 실패하면 'VPN 또는 프록시가 필요할 수 있습니다'라고 안내합니다. 모든 오류를 VPN 탓으로 돌리지 마세요.
-- `network.confirmation: { selector, readySelector, requiredCookies, auto: { clickSelector }, message }`: 사이트 연령 확인을 선언합니다. `selector`는 대화상자, `auto.clickSelector`는 그 안의 유일한 확인 버튼, `readySelector`는 접근 가능한 콘텐츠, `requiredCookies`는 확인 후 필요한 Cookie 이름입니다. 앱 입구에서 성인임을 확인한 뒤에만 숨겨진 브라우저가 클릭을 시뮬레이션하고 대화상자 소멸, 콘텐츠, Cookie 및 탐색 안정을 검사합니다. 규칙이 불완전하거나 일치하지 않거나 자동 확인에 실패하면 재시도할 수 있습니다. 오류에 사이트 내 인증 URL이 있으면 페이지에서 직접 처리한 뒤 완료를 누릅니다. 소스 도메인과 Cookie 분리 제한은 유지되며 작업 알림은 원래 작업을 자동 재전송하지 않습니다. 로그인, 결제 또는 게시에는 사용할 수 없습니다.
+- `network.confirmation: { selector, readySelector, requiredCookies, auto: { clickSelector, checkSelector? }, message }`: 사이트 연령 확인을 선언합니다. `selector`는 대화상자, `auto.clickSelector`는 그 안의 유일한 확인 버튼, `readySelector`는 접근 가능한 콘텐츠, `requiredCookies`는 확인 후 필요한 Cookie 이름입니다. 앱 입구에서 성인임을 확인한 뒤에만 숨겨진 브라우저가 클릭을 시뮬레이션하고 대화상자 소멸, 콘텐츠, Cookie 및 탐색 안정을 검사합니다. 규칙이 불완전하거나 일치하지 않거나 자동 확인에 실패하면 재시도할 수 있습니다. 오류에 사이트 내 인증 URL이 있으면 페이지에서 직접 처리한 뒤 완료를 누릅니다. 소스 도메인과 Cookie 분리 제한은 유지되며 작업 알림은 원래 작업을 자동 재전송하지 않습니다. 로그인, 결제 또는 게시에는 사용할 수 없습니다.
+
+선택적인 `auto.checkSelector`는 연령 확인 안의 유일한 체크박스를 먼저 선택합니다. 설문에 답하거나 로그인 등 다른 양식을 입력하지 않습니다.
 - 네트워크 오류에는 안전한 `diagnostics` 필드 `host`, `transport`, `reason`이 붙어 TLS 인증서, 핸드셰이크, DNS, 연결, 시간 초과를 구분합니다. 자동 로그에는 이 허용된 필드만 기록합니다. `reason: 'TLS_HANDSHAKE_TERMINATED'`는 네이티브 `HandshakeException.message`가 정확히 `Connection terminated during handshake`일 때만이며 (핸드셰이크 완료 전에 연결이 끊긴 것으로 인증서 실패가 아님), 본문이 없는 HTTPS GET / HEAD만 한 번 다시 시도하고 나머지는 다시 시도하지 않습니다.
 
 ### 이미지
@@ -608,7 +610,7 @@ return { url: "https://player.example.com/watch/1", navigationDomains: ["player.
 
 `rankings`는 `key`, `label`, `category`, `metric`, `options`로 정의합니다. 순위 전용 플러그인은 `rankingOnly: true`이며 `feeds`를 선언하지 않습니다. `ranking(board, {page, offset, cursor, options})`는 작품 페이지를 반환하며 항목은 `id`, 원본 `rank`, `title`, `cover`, 선택적인 `keyword`, `subtitle`, HTTPS 상품 `url`을 포함합니다. 공동 순위를 유지합니다. 기존 소스는 `feed`를 지정하여 옵션을 상속하고 `feed()`를 재사용할 수 있습니다. 작품 필드를 유지하고 `workId`와 누락된 순위를 추가하여 상세 페이지를 엽니다. 판매 순위는 지정 분류를 검색합니다.
 
-소스는 기본 브랜치에서 관리합니다. `sources`, `rankings`, `reverse-search` 브랜치는 각각 일반 사이트, 순위 전용, 이미지 역검색 전용 플러그인을 배포합니다. 각 브랜치에는 고정 커밋 URL과 SHA-256을 담은 색인만 저장합니다. 앱은 채널을 따로 읽고 채널 불일치와 중복 key를 거부하며 업데이트 전에 확인을 요청합니다. 태그 번역은 별도 `tag-translations` 브랜치로 배포합니다.
+소스와 단일 목록은 `main`에서 관리합니다. `sources`, `rankings`, `reverse-search`, `metadata`는 일반 사이트, 순위 전용, 역검색 전용, 정보 전용 플러그인을 배포합니다. 각 브랜치는 고정 커밋 URL과 SHA-256 색인만 보관합니다. 앱은 네 채널을 따로 읽고 잘못된 표시와 중복 key를 거부하며 업데이트 전에 확인을 요청합니다. 태그 번역은 `tag-translations`로 배포합니다.
 
 ```powershell
 node tools/publish_sources.mjs --commit '<SHA>' --channel rankings --output '<本地输出文件>'
@@ -671,3 +673,10 @@ liveChatEvent(state, event) {
   ], send: []};
 }
 ```
+
+## 작품 정보와 마그넷
+
+- `metadataOnly: true`는 정보 전용 플러그인입니다. `metadataSearch`, `metadataDetail`은 필수, `metadataMagnets`는 선택입니다. 일반 `feeds`, `search`, `detail`, 재생 능력을 선언하지 않고 영상 검색·즐겨찾기·다운로드에 섞지 않습니다. 파싱 규칙은 플러그인에서 관리합니다.
+- `metadataSearch(keyword)`는 최대 100개 `{id, code, title, url, cover?}` 후보를 반환합니다. `code`는 실제 품번만 사용하고 제목에서 추측하지 않습니다. 결과 없음은 `[]`, 인증·파싱 실패는 오류입니다. 여러 후보는 사용자가 선택합니다.
+- `metadataDetail(id)`는 필수 후보 필드와 선택 필드 `description`, `releaseDate`, `duration`, `director`, `studio`, `publisher`, `series`, `rating`, `actors: string[]`, `tags: string[]`, `images: string[]`를 반환합니다. 누락된 문자열과 배열은 비우며 정보를 만들지 않습니다. 작품 URL은 선언 도메인, 이미지는 인증 정보·포트 없는 공개 HTTPS여야 합니다.
+- `metadataMagnets(id)`는 최대 500개 `{url, name, size?, date?, tags?: string[]}`를 반환합니다. 유효한 `magnet:?xt=urn:btih:...`만 허용하고 해시로 중복 제거합니다. 정보와 마그넷은 별도로 로드·재시도하며 전환·닫기 시 이전 요청을 취소합니다. 복사·외부 열기는 사용자 동작 때만 수행하고 JAV 검색은 실제 품번을 사용합니다.

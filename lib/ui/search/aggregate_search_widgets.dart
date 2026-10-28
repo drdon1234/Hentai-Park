@@ -250,15 +250,17 @@ class SourceResultsRow extends StatelessWidget {
               children: [
                 SizedBox(
                   height: cardWidth / aspect + cardTextExtent(context),
-                  child: ListView.separated(
-                    scrollDirection: Axis.horizontal,
-                    padding: const EdgeInsets.symmetric(horizontal: Gap.page),
-                    itemCount: 5,
-                    physics: const NeverScrollableScrollPhysics(),
-                    separatorBuilder: (_, _) => const SizedBox(width: Gap.m),
-                    itemBuilder: (_, _) => SizedBox(
-                      width: cardWidth,
-                      child: CoverTileSkeleton(aspect: aspect),
+                  child: PageGutter(
+                    child: ListView.separated(
+                      scrollDirection: Axis.horizontal,
+                      padding: EdgeInsets.zero,
+                      itemCount: 5,
+                      physics: const NeverScrollableScrollPhysics(),
+                      separatorBuilder: (_, _) => const SizedBox(width: Gap.m),
+                      itemBuilder: (_, _) => SizedBox(
+                        width: cardWidth,
+                        child: CoverTileSkeleton(aspect: aspect),
+                      ),
                     ),
                   ),
                 ),
@@ -321,17 +323,19 @@ class SourceResultsRow extends StatelessWidget {
             )
           : SizedBox(
               height: w / a + cardTextExtent(context),
-              child: ListView.separated(
-                scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.symmetric(horizontal: Gap.page),
-                itemCount: items.length,
-                separatorBuilder: (_, _) => const SizedBox(width: Gap.m),
-                itemBuilder: (context, i) => SizedBox(
-                  width: w,
-                  child: CoverTile(
-                    item: items[i],
-                    aspect: a,
-                    sequence: () => _sequence(items),
+              child: PageGutter(
+                child: ListView.separated(
+                  scrollDirection: Axis.horizontal,
+                  padding: EdgeInsets.zero,
+                  itemCount: items.length,
+                  separatorBuilder: (_, _) => const SizedBox(width: Gap.m),
+                  itemBuilder: (context, i) => SizedBox(
+                    width: w,
+                    child: CoverTile(
+                      item: items[i],
+                      aspect: a,
+                      sequence: () => _sequence(items),
+                    ),
                   ),
                 ),
               ),

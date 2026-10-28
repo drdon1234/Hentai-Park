@@ -32,6 +32,7 @@ import 'library/restore_transaction.dart';
 import 'library/updater.dart';
 import 'novel/reading_notes.dart';
 import 'subscriptions/background.dart';
+import 'ui/desktop_workspace.dart';
 import 'ui/kit/immersive.dart';
 import 'ui/lock/lock_screen.dart';
 import 'ui/nav.dart';
@@ -190,7 +191,7 @@ class ParkApp extends StatelessWidget {
         final accent = Color(settings.seedColor);
         return MaterialApp(
           navigatorKey: DesktopWindow.navigatorKey,
-          navigatorObservers: [Nav.routeObserver],
+          navigatorObservers: [Nav.routeObserver, DesktopNavigation.instance],
           title: 'HentaiPark',
           locale: settings.locale,
           supportedLocales: AppLocalizations.supportedLocales,
@@ -211,7 +212,9 @@ class ParkApp extends StatelessWidget {
                 child: DesktopShutdownGate(
                   child: LockGate(
                     child: StorageSaveNotice(
-                      child: child ?? const SizedBox.shrink(),
+                      child: DesktopWorkspace(
+                        child: child ?? const SizedBox.shrink(),
+                      ),
                     ),
                   ),
                 ),

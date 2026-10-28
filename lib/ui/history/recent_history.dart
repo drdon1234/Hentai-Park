@@ -79,14 +79,16 @@ class RecentHistory extends StatelessWidget {
             ),
             SizedBox(
               height: height,
-              child: ListView.separated(
-                scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.symmetric(horizontal: Gap.page),
-                itemCount: recent.length,
-                separatorBuilder: (_, _) => const SizedBox(width: Gap.m),
-                itemBuilder: (context, index) => SizedBox(
-                  width: width,
-                  child: _ContinueCard(entry: recent[index]),
+              child: PageGutter(
+                child: ListView.separated(
+                  scrollDirection: Axis.horizontal,
+                  padding: EdgeInsets.zero,
+                  itemCount: recent.length,
+                  separatorBuilder: (_, _) => const SizedBox(width: Gap.m),
+                  itemBuilder: (context, index) => SizedBox(
+                    width: width,
+                    child: _ContinueCard(entry: recent[index]),
+                  ),
                 ),
               ),
             ),

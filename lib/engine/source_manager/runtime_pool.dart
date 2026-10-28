@@ -214,6 +214,9 @@ mixin _RuntimePool on _SourceRegistry {
       rethrow;
     }
     final isRead = const {
+      'metadataSearch',
+      'metadataDetail',
+      'metadataMagnets',
       'reverseSearch',
       'reverseSearchResult',
       'reverseSearchMore',

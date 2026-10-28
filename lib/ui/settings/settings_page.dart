@@ -13,11 +13,106 @@ import 'settings_sections.dart';
 
 /// 我的: incognito at hand, then one entry per settings section. Each section is its own page
 /// so no screen carries more than a handful of choices.
-class SettingsPage extends StatelessWidget {
+class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key});
 
   @override
+  State<SettingsPage> createState() => _SettingsPageState();
+}
+
+class _SettingsPageState extends State<SettingsPage> {
+  SettingsSection _selected = SettingsSection.appearance;
+
+  @override
   Widget build(BuildContext context) {
+    if (!PlatformCapabilities.desktop) return _index(context);
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final scale = MediaQuery.textScalerOf(context).scale(1);
+        if (constraints.maxWidth < 780 * scale) return _index(context);
+        return Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            SizedBox(
+              width: 240,
+              child: Material(
+                color: context.colors.surface,
+                child: ListView(
+                  padding: const EdgeInsets.all(Gap.m),
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.all(Gap.s),
+                      child: Text(tr('我的'), style: context.text.titleLarge),
+                    ),
+                    for (final group in _groups) ...[
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(
+                          Gap.s,
+                          Gap.l,
+                          Gap.s,
+                          Gap.s,
+                        ),
+                        child: Text(
+                          group.$1,
+                          style: context.text.labelMedium?.copyWith(
+                            color: context.colors.onSurfaceVariant,
+                          ),
+                        ),
+                      ),
+                      for (final section in group.$2)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: Gap.xs),
+                          child: ListTile(
+                            dense: true,
+                            selected: _selected == section,
+                            selectedTileColor:
+                                context.colors.secondaryContainer,
+                            selectedColor: context.colors.onSecondaryContainer,
+                            shape: const RoundedRectangleBorder(
+                              borderRadius: Radii.tiny,
+                            ),
+                            leading: Icon(section.icon),
+                            title: Text(section.title),
+                            onTap: () => setState(() => _selected = section),
+                          ),
+                        ),
+                    ],
+                    const Divider(),
+                    ListenableBuilder(
+                      listenable: AppSettings.instance.watch(const {
+                        'incognito',
+                      }),
+                      builder: (context, _) => SwitchListTile.adaptive(
+                        dense: true,
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: Gap.s,
+                        ),
+                        title: Text(tr('无痕模式')),
+                        value: AppSettings.instance.incognito,
+                        onChanged: (value) =>
+                            AppSettings.instance.incognito = value,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const VerticalDivider(width: 1),
+            Expanded(
+              child: RepaintBoundary(
+                child: KeyedSubtree(
+                  key: ValueKey(_selected),
+                  child: SettingsSectionPage(_selected),
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _index(BuildContext context) {
     final s = AppSettings.instance;
     return Scaffold(
       appBar: PageHeader(title: tr('我的')),

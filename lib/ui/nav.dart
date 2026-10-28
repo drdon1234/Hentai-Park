@@ -14,6 +14,7 @@ import '../library/downloads.dart';
 import '../library/playback_resolver.dart';
 import 'detail/detail_page.dart';
 import 'discovery_navigation.dart';
+import 'metadata/metadata_page.dart';
 import 'novel/novel_reader_page.dart';
 import 'reader/reader_page.dart';
 import 'search/aggregate_search_page.dart';
@@ -230,6 +231,9 @@ class Nav {
 
   static Future<void> _openSource(BuildContext context, String source) {
     SourceManager.instance.cancelBackgroundFeeds(source);
+    if (SourceManager.instance.manifest(source)?.metadataOnly == true) {
+      return push(context, MetadataPage(sourceKey: source));
+    }
     if (SourceManager.instance.manifest(source)?.reverseSearchOnly == true) {
       return push(context, ReverseSearchPage(sourceKey: source));
     }

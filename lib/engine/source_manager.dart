@@ -18,6 +18,7 @@ import '../core/reverse_search.dart';
 import '../core/settings.dart';
 import '../core/storage.dart';
 import '../core/versions.dart';
+import '../core/work_metadata.dart';
 import '../images/image_network.dart';
 import '../images/image_store.dart';
 import '../images/subscription_cache.dart';
@@ -185,6 +186,7 @@ abstract class _SourceRegistry extends ChangeNotifier {
 
   bool _resourceSource(InstalledSource source) =>
       source.manifest != null &&
+      !source.manifest!.metadataOnly &&
       !source.manifest!.rankingOnly &&
       !source.manifest!.reverseSearchOnly;
 

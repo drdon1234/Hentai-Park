@@ -8,6 +8,30 @@ import '../core/localization.dart';
 import '../core/platform_capabilities.dart';
 import 'kit/tokens.dart';
 
+/// 桌面只对进入的页面做短淡入，避免移动整张工作区。
+class DesktopPageTransitionsBuilder extends PageTransitionsBuilder {
+  const DesktopPageTransitionsBuilder();
+
+  @override
+  Duration get transitionDuration => Motion.short;
+
+  @override
+  Duration get reverseTransitionDuration => Motion.short;
+
+  @override
+  Widget buildTransitions<T>(
+    PageRoute<T> route,
+    BuildContext context,
+    Animation<double> animation,
+    Animation<double> secondaryAnimation,
+    Widget child,
+  ) {
+    if (MediaQuery.disableAnimationsOf(context)) return child;
+    // 桌面只淡入新内容，不让两个大型页面同时平移、缩放与混合。
+    return FadeTransition(opacity: animation, child: child);
+  }
+}
+
 /// The app's visual language (docs/DESIGN.md): warm neutral surfaces so covers carry the color,
 /// dark first, one accent reserved for primary actions, progress, unread and selection, hairlines
 /// instead of shadows, and weights no heavier than 600.
@@ -171,15 +195,18 @@ class ParkTheme {
   }
 
   static ThemeData _build(Brightness brightness, Color accent) {
+    final desktop = PlatformCapabilities.desktop;
     final dark = brightness == Brightness.dark;
     final scheme = ParkTheme.scheme(brightness, accent);
     final base = ThemeData(
       useMaterial3: true,
       colorScheme: scheme,
       brightness: brightness,
-      splashFactory: InkRipple.splashFactory,
-      materialTapTargetSize: MaterialTapTargetSize.padded,
-      visualDensity: VisualDensity.standard,
+      splashFactory: desktop ? NoSplash.splashFactory : InkRipple.splashFactory,
+      materialTapTargetSize: desktop
+          ? MaterialTapTargetSize.shrinkWrap
+          : MaterialTapTargetSize.padded,
+      visualDensity: desktop ? VisualDensity.compact : VisualDensity.standard,
       fontFamily: ParkText.sansFamily,
       fontFamilyFallback: ParkText.sansFallback,
     );
@@ -192,7 +219,9 @@ class ParkTheme {
         ? scheme.surfaceContainerHighest
         : scheme.surfaceContainerHigh;
     final hairline = BorderSide(color: scheme.outlineVariant, width: .8);
-    const pill = StadiumBorder();
+    final OutlinedBorder pill = desktop
+        ? const RoundedRectangleBorder(borderRadius: Radii.tiny)
+        : const StadiumBorder();
     final selectedTint = scheme.secondaryContainer;
     final focusRing = BorderSide(color: scheme.primary, width: 2);
     final label = text.labelLarge?.copyWith(fontWeight: FontWeight.w600);
@@ -206,6 +235,7 @@ class ParkTheme {
       hoverColor: scheme.onSurface.withValues(alpha: .05),
       focusColor: scheme.onSurface.withValues(alpha: .08),
       appBarTheme: AppBarTheme(
+        toolbarHeight: desktop ? 48 : null,
         backgroundColor: scheme.surface,
         foregroundColor: scheme.onSurface,
         surfaceTintColor: Colors.transparent,
@@ -289,8 +319,11 @@ class ParkTheme {
           color: scheme.onSecondaryContainer,
           fontWeight: FontWeight.w600,
         ),
-        padding: const EdgeInsets.symmetric(vertical: Gap.xs),
-        labelPadding: const EdgeInsets.symmetric(horizontal: Gap.m - 2),
+        padding: const EdgeInsets.symmetric(
+          horizontal: Gap.s,
+          vertical: Gap.xs,
+        ),
+        labelPadding: const EdgeInsets.symmetric(horizontal: Gap.xs),
         iconTheme: IconThemeData(size: 18, color: scheme.onSurfaceVariant),
       ),
       inputDecorationTheme: InputDecorationTheme(
@@ -326,7 +359,7 @@ class ParkTheme {
         style: FilledButton.styleFrom(
           shape: pill,
           textStyle: label,
-          minimumSize: const Size(64, 48),
+          minimumSize: Size(64, desktop ? 36 : 48),
           padding: const EdgeInsets.symmetric(horizontal: Gap.xl),
         ).copyWith(side: _focusSide(scheme.onSurface)),
       ),
@@ -352,7 +385,7 @@ class ParkTheme {
       ),
       textButtonTheme: TextButtonThemeData(
         style: TextButton.styleFrom(
-          minimumSize: const Size(48, 48),
+          minimumSize: Size(48, desktop ? 36 : 48),
           foregroundColor: scheme.primary,
           shape: pill,
           padding: const EdgeInsets.symmetric(horizontal: Gap.m),
@@ -362,7 +395,10 @@ class ParkTheme {
       iconButtonTheme: IconButtonThemeData(
         style: IconButton.styleFrom(
           foregroundColor: scheme.onSurface,
-          minimumSize: const Size(48, 48),
+          minimumSize: Size.square(desktop ? 36 : 48),
+          shape: desktop
+              ? const RoundedRectangleBorder(borderRadius: Radii.tiny)
+              : null,
         ),
       ),
       segmentedButtonTheme: SegmentedButtonThemeData(
@@ -407,7 +443,9 @@ class ParkTheme {
         surfaceTintColor: Colors.transparent,
         barrierColor: Scrims.medium,
         elevation: 0,
-        shape: const RoundedRectangleBorder(borderRadius: Radii.large),
+        shape: RoundedRectangleBorder(
+          borderRadius: desktop ? Radii.small : Radii.large,
+        ),
         titleTextStyle: text.titleLarge?.copyWith(color: scheme.onSurface),
         contentTextStyle: text.bodyMedium?.copyWith(
           color: scheme.onSurfaceVariant,
@@ -544,7 +582,7 @@ class ParkTheme {
       pageTransitionsTheme: const PageTransitionsTheme(
         builders: {
           TargetPlatform.android: PredictiveBackPageTransitionsBuilder(),
-          TargetPlatform.windows: FadeForwardsPageTransitionsBuilder(),
+          TargetPlatform.windows: DesktopPageTransitionsBuilder(),
         },
       ),
     );

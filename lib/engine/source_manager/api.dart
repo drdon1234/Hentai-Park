@@ -2,6 +2,86 @@ part of '../source_manager.dart';
 
 /// Typed calls into a source: feeds, search, details, chapters, media and game resources.
 mixin _SourceApi on _SourceRegistry {
+  T _validateMetadata<T extends MetadataCandidate>(String key, T item) {
+    final source = manifest(key);
+    if (source == null ||
+        !httpsDomainAddressAllowed(
+          Uri.parse(item.url),
+          declaredDomains(source.json),
+        )) {
+      throw SourceError('PARSE', '作品资料无效');
+    }
+    return item;
+  }
+
+  Future<List<MetadataCandidate>> metadataSearch(
+    String key,
+    String keyword, {
+    CancelToken? cancelToken,
+  }) async {
+    if (manifest(key)?.can('metadataSearch') != true) {
+      throw SourceError('UNSUPPORTED', '此插件不支持作品资料');
+    }
+    final result = await _call(key, 'metadataSearch', [
+      keyword,
+    ], cancelToken: cancelToken);
+    if (result is! List ||
+        result.length > 100 ||
+        result.any((row) => row is! Map)) {
+      throw SourceError('PARSE', '作品资料无效');
+    }
+    return result
+        .map(
+          (row) => _validateMetadata(
+            key,
+            MetadataCandidate.fromJson(Map<String, dynamic>.from(row as Map)),
+          ),
+        )
+        .toList();
+  }
+
+  Future<WorkMetadata> metadataDetail(
+    String key,
+    String id, {
+    CancelToken? cancelToken,
+  }) async {
+    if (manifest(key)?.can('metadataDetail') != true) {
+      throw SourceError('UNSUPPORTED', '此插件不支持作品资料');
+    }
+    final result = await _call(key, 'metadataDetail', [
+      id,
+    ], cancelToken: cancelToken);
+    if (result is! Map) throw SourceError('PARSE', '作品资料无效');
+    return _validateMetadata(
+      key,
+      WorkMetadata.fromJson(Map<String, dynamic>.from(result)),
+    );
+  }
+
+  Future<List<MetadataMagnet>> metadataMagnets(
+    String key,
+    String id, {
+    CancelToken? cancelToken,
+  }) async {
+    if (manifest(key)?.can('metadataMagnets') != true) return const [];
+    final result = await _call(key, 'metadataMagnets', [
+      id,
+    ], cancelToken: cancelToken);
+    if (result is! List ||
+        result.length > 500 ||
+        result.any((row) => row is! Map)) {
+      throw SourceError('PARSE', '作品资料无效');
+    }
+    final unique = <String, MetadataMagnet>{};
+    for (final row in result) {
+      final magnet = MetadataMagnet.fromJson(
+        Map<String, dynamic>.from(row as Map),
+      );
+      unique.putIfAbsent(magnet.hash, () => magnet);
+    }
+    return unique.values.toList();
+  }
+
   @override
   Future<void> _probeDisplayOrder(String key, CancelToken token) async {
     final source = manifest(key);

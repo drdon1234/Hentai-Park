@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../../core/models.dart';
+import '../../core/platform_capabilities.dart';
 import '../../core/settings.dart';
 import '../../engine/source_manager.dart';
 import '../../images/park_image.dart';
@@ -346,7 +347,8 @@ class _SkeletonState extends State<Skeleton>
   void didChangeDependencies() {
     super.didChangeDependencies();
     // "Remove animations" leaves a still placeholder.
-    if (MediaQuery.disableAnimationsOf(context)) {
+    if (PlatformCapabilities.desktop ||
+        MediaQuery.disableAnimationsOf(context)) {
       _c.stop();
     } else if (!_c.isAnimating) {
       _c.repeat();
@@ -363,6 +365,18 @@ class _SkeletonState extends State<Skeleton>
   Widget build(BuildContext context) {
     final base = context.colors.surfaceContainerHigh;
     final hi = context.colors.surfaceContainerHighest;
+    // 桌面首屏可同时展示数百个占位块，不为每块启动独立 ticker 和逐帧 rebuild。
+    if (PlatformCapabilities.desktop ||
+        MediaQuery.disableAnimationsOf(context)) {
+      return Container(
+        width: widget.width,
+        height: widget.height,
+        decoration: BoxDecoration(
+          color: base,
+          borderRadius: BorderRadius.all(Radius.circular(widget.radius)),
+        ),
+      );
+    }
     return AnimatedBuilder(
       animation: _c,
       builder: (_, _) => Container(

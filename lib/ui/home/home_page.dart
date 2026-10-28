@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../core/content_scope.dart';
 import '../../core/localization.dart';
 import '../../core/models.dart';
+import '../../core/platform_capabilities.dart';
 import '../../core/settings.dart';
 import '../../engine/source_manager.dart';
 import '../../library/library.dart';
@@ -123,14 +124,16 @@ class _HomePageState extends State<HomePage> {
         appBar: PageHeader(
           toolbarHeight: 56,
           titleWidget: Text(
-            'HentaiPark',
+            PlatformCapabilities.desktop ? tr('发现') : 'HentaiPark',
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: ParkText.serif(
-              context.text.headlineMedium?.copyWith(
-                fontWeight: FontWeight.w600,
-              ),
-            ),
+            style: PlatformCapabilities.desktop
+                ? context.text.titleLarge
+                : ParkText.serif(
+                    context.text.headlineMedium?.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
           ),
           actions: [
             ToolbarActions(
@@ -167,6 +170,8 @@ class _HomePageState extends State<HomePage> {
                   AppSettings.instance.homeDimension = value,
               onMedia: (value) => AppSettings.instance.homeMedia = value,
             ),
+            if (selected != const DiscoveryDestination.all())
+              DiscoveryDomainBar(selected: selected, onSelected: _select),
             Expanded(
               child: IndexedStack(
                 index: _destinations.keys.toList().indexOf(selected.key),
@@ -284,6 +289,10 @@ class _HomePageState extends State<HomePage> {
             ),
           if (selected.category == null)
             SliverToBoxAdapter(child: _allSitesEntry(context)),
+          if (selected.category == null)
+            SliverToBoxAdapter(
+              child: DiscoveryDomainCards(onSelected: _select),
+            ),
           ListenableBuilder(
             listenable: Listenable.merge([sm, _domainOrder]),
             builder: (context, _) => _shelves(context, selected),
@@ -309,7 +318,7 @@ class _HomePageState extends State<HomePage> {
 
   // 全部站点 > 域 > 站点只用字号建立层级，三者保持同一左边界。
   Widget _allSitesEntry(BuildContext context) => Padding(
-    padding: const EdgeInsets.fromLTRB(Gap.page, Gap.xxl, Gap.xs, Gap.xs),
+    padding: const EdgeInsets.fromLTRB(Gap.page, Gap.xxl, Gap.page, Gap.s),
     child: Semantics(
       button: true,
       label: tr('全部站点'),
@@ -398,6 +407,7 @@ class _HomePageState extends State<HomePage> {
     final enabled = sm.displayEnabled
         .where(
           (source) =>
+              !source.manifest!.metadataOnly &&
               !source.manifest!.rankingOnly &&
               !source.manifest!.reverseSearchOnly &&
               AppSettings.instance.homeIncludes(source.manifest!.category) &&
@@ -548,32 +558,8 @@ class _HomePageState extends State<HomePage> {
                     child: Text(tr(expanded ? '收起' : '展开')),
                   ),
                 ),
-              TextButton(
-                style: TextButton.styleFrom(
-                  foregroundColor: context.colors.primary,
-                  minimumSize: const Size(48, 40),
-                  padding: EdgeInsets.zero,
-                  textStyle: context.text.labelLarge?.copyWith(
-                    fontWeight: FontWeight.w400,
-                  ),
-                ),
+              DomainEntryButton(
                 onPressed: () => _select(DiscoveryDestination.domain(domain)),
-                child: SelectionContainer.disabled(
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(tr('进入域')),
-                      const SizedBox(width: Gap.xs),
-                      const SizedBox(
-                        width: 24,
-                        height: 40,
-                        child: Center(
-                          child: Icon(Icons.chevron_right_rounded, size: 18),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
               ),
             ],
           ),

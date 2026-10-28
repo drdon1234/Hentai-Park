@@ -20,6 +20,7 @@ class SourceRepositoryEntry {
     required this.minAppVersion,
     this.rankingOnly = false,
     this.reverseSearchOnly = false,
+    this.metadataOnly = false,
   });
 
   final String key;
@@ -31,6 +32,7 @@ class SourceRepositoryEntry {
   final String minAppVersion;
   final bool rankingOnly;
   final bool reverseSearchOnly;
+  final bool metadataOnly;
 }
 
 class SourceRepositoryIndex {
@@ -52,6 +54,7 @@ class SourceRepository {
   static const indexUrl = '$officialRawBase/sources/index.json';
   static const rankingsUrl = '$officialRawBase/rankings/index.json';
   static const reverseSearchUrl = '$officialRawBase/reverse-search/index.json';
+  static const metadataUrl = '$officialRawBase/metadata/index.json';
   static const supportedApiVersion = SourceCompatibility.apiVersion;
   final Future<String> Function(String url) _read;
 
@@ -73,7 +76,7 @@ class SourceRepository {
     final failures = <String, String>{};
     final duplicate = <String>{};
     final results = await Future.wait([
-      for (final url in [indexUrl, rankingsUrl, reverseSearchUrl])
+      for (final url in [indexUrl, rankingsUrl, reverseSearchUrl, metadataUrl])
         () async {
           try {
             return (index: parse(jsonDecode(await _read(url))), error: null);
@@ -88,7 +91,8 @@ class SourceRepository {
         failures[switch (i) {
           0 => tr('官方站点仓库'),
           1 => tr('排行榜插件'),
-          _ => tr('反搜插件'),
+          2 => tr('反搜插件'),
+          _ => tr('资料插件'),
         }] = result.error is SourceError
             ? (result.error as SourceError).message
             : tr('官方站点索引格式无效');
@@ -101,7 +105,8 @@ class SourceRepository {
           entries.remove(entry.key);
           failures[entry.name] = tr('官方站点标识重复：{key}', {'key': entry.key});
         } else if (entry.rankingOnly != (i == 1) ||
-            entry.reverseSearchOnly != (i == 2)) {
+            entry.reverseSearchOnly != (i == 2) ||
+            entry.metadataOnly != (i == 3)) {
           failures[entry.name] = tr('插件分发频道不匹配');
         } else {
           entries[entry.key] = entry;
@@ -173,7 +178,13 @@ class SourceRepository {
         (raw.containsKey('rankingOnly') && raw['rankingOnly'] is! bool) ||
         (raw.containsKey('reverseSearchOnly') &&
             raw['reverseSearchOnly'] is! bool) ||
-        (raw['rankingOnly'] == true && raw['reverseSearchOnly'] == true)) {
+        (raw.containsKey('metadataOnly') && raw['metadataOnly'] is! bool) ||
+        [
+              raw['rankingOnly'],
+              raw['reverseSearchOnly'],
+              raw['metadataOnly'],
+            ].where((v) => v == true).length >
+            1) {
       throw SourceError('CONFIG', '官方站点条目缺少有效的必填字段');
     }
     if (!isOfficialAsset(raw['url'], 'assets/sources/${raw['key']}.js')) {
@@ -189,6 +200,7 @@ class SourceRepository {
       minAppVersion: raw['minAppVersion'] as String,
       rankingOnly: raw['rankingOnly'] == true,
       reverseSearchOnly: raw['reverseSearchOnly'] == true,
+      metadataOnly: raw['metadataOnly'] == true,
     );
   }
 }

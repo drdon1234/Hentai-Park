@@ -46,43 +46,46 @@ class ContentScopeSelector extends StatelessWidget {
     }.toList();
     keys.sort((a, b) => siteName(a).compareTo(siteName(b)));
 
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(Gap.page, 0, Gap.page, Gap.s),
-      child: Wrap(
-        spacing: Gap.s,
-        runSpacing: Gap.s,
-        children: [
-          MenuChip<SourceCategory?>(
-            label: category?.label ?? tr('全部分类'),
-            active: category != null,
-            selected: category,
-            options: {
-              null: tr('全部分类'),
-              for (final d in AppSettings.instance.domainOrder) d: d.label,
-            },
-            onSelected: (value) => onChanged(
-              value == null
-                  ? const ContentScope.all()
-                  : ContentScope.domain(value),
+    return Align(
+      alignment: AlignmentDirectional.centerStart,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(Gap.page, 0, Gap.page, Gap.s),
+        child: Wrap(
+          spacing: Gap.s,
+          runSpacing: Gap.s,
+          children: [
+            MenuChip<SourceCategory?>(
+              label: category?.label ?? tr('全部分类'),
+              active: category != null,
+              selected: category,
+              options: {
+                null: tr('全部分类'),
+                for (final d in AppSettings.instance.domainOrder) d: d.label,
+              },
+              onSelected: (value) => onChanged(
+                value == null
+                    ? const ContentScope.all()
+                    : ContentScope.domain(value),
+              ),
             ),
-          ),
-          MenuChip<String?>(
-            label: source == null ? tr('全部站点') : siteName(source),
-            active: source != null,
-            selected: source,
-            options: {
-              null: tr('全部站点'),
-              for (final key in keys) key: siteName(key),
-            },
-            onSelected: (value) => onChanged(
-              value != null
-                  ? ContentScope.source(value)
-                  : category == null
-                  ? const ContentScope.all()
-                  : ContentScope.domain(category),
+            MenuChip<String?>(
+              label: source == null ? tr('全部站点') : siteName(source),
+              active: source != null,
+              selected: source,
+              options: {
+                null: tr('全部站点'),
+                for (final key in keys) key: siteName(key),
+              },
+              onSelected: (value) => onChanged(
+                value != null
+                    ? ContentScope.source(value)
+                    : category == null
+                    ? const ContentScope.all()
+                    : ContentScope.domain(category),
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

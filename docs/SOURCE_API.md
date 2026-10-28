@@ -246,7 +246,9 @@ async filterOptions({scope, feed, filter, keyword, values}) {
   自动回退不用于 `followRedirects: false`、`connectAddress` 或未分类的网络错误。浏览器对无请求体的 GET / HEAD 普通请求最多尝试三次，验证通过后至多额外重发一次；仅恢复连接故障或 HTTP 408、500、502、503、504；429 和超时不重复请求。一次逻辑请求最多主动导航验证一次，外层重试不重置次数。浏览器启动、请求、文档读取和释放均有等待上限。带自定义 API 请求头的读取通过真实 `fetch()` 执行，不用普通导航结果替代；复用 HTML 文档时保留其错误状态，`responseType: 'base64'` 返回原始字节的 base64。
 
 - `network.vpnHint: true`：在中国大陆可能需要 VPN 或代理的站点声明它，等待超过 8 秒和失败时提示“可能需要 VPN 或代理”。不要把所有错误都归因于 VPN。
-- `network.confirmation: { selector, readySelector, requiredCookies, auto: { clickSelector }, message }`: 站点年龄门声明。`selector` 匹配年龄弹窗，`auto.clickSelector` 匹配弹窗内唯一的确认按钮，`readySelector` 匹配可访问内容，`requiredCookies` 列出确认后必须存在的 Cookie 名。只有用户已在应用入口确认成年，隐藏浏览器才会模拟点击；随后检查弹窗消失、内容出现、Cookie 写入及导航稳定。规则不完整、不匹配或未自动完成时可重试；错误提供站内验证地址时可选择“去确认”，在页面中手动处理后点击完成。确认页仍受源域名及 Cookie 分区限制，操作提示不会自动重放原操作。仅声明年龄确认，不可用于登录、付费或回复等操作。
+- `network.confirmation: { selector, readySelector, requiredCookies, auto: { clickSelector, checkSelector? }, message }`: 站点年龄门声明。`selector` 匹配年龄弹窗，`auto.clickSelector` 匹配弹窗内唯一的确认按钮，`readySelector` 匹配可访问内容，`requiredCookies` 列出确认后必须存在的 Cookie 名。只有用户已在应用入口确认成年，隐藏浏览器才会模拟点击；随后检查弹窗消失、内容出现、Cookie 写入及导航稳定。规则不完整、不匹配或未自动完成时可重试；错误提供站内验证地址时可选择“去确认”，在页面中手动处理后点击完成。确认页仍受源域名及 Cookie 分区限制，操作提示不会自动重放原操作。仅声明年龄确认，不可用于登录、付费或回复等操作。
+
+可选 `auto.checkSelector` 仅匹配年龄门内唯一的复选框，先勾选再点击确认；不代答问卷、不填写登录或其他表单。
 - 网络异常附带安全的 `diagnostics` 字段 `host`、`transport`、`reason`，区分 TLS 证书、握手、DNS、连接和超时。框架在调用失败时自动记录站点、方法名、错误代码、HTTP 状态和这些字段；错误消息只有在属于插件 `i18n` 或应用文案键时才以模板形式记录，占位符的值不进日志。`reason: 'TLS_HANDSHAKE_TERMINATED'` 仅表示原生 `HandshakeException.message` 恰好是 `Connection terminated during handshake`（握手完成前连接中断，不是证书校验失败）；只有 HTTPS、无请求体的 GET / HEAD 遇到它时自动重试一次，其他错误都不重试。
 
 ### 图片
@@ -788,3 +790,10 @@ liveChatEvent(state, event) {
   ], send: []};
 }
 ```
+
+## 作品资料与磁链
+
+- `metadataOnly: true` 声明独立资料插件，必须实现 `metadataSearch` 和 `metadataDetail`，可实现 `metadataMagnets`。不声明普通 `feeds`、`search`、`detail` 或播放能力；不进入资源站点、聚合片源结果、收藏与下载链路。站点解析规则只在插件中维护。
+- `metadataSearch(keyword)` 返回最多 100 个候选：`{id, code, title, url, cover?}`。`id` 为源内身份，`code` 为真实番号；不得仅按标题猜测番号。无匹配返回 `[]`，验证页和解析异常必须抛错。多个匹配由用户选择，不默认采用第一条。
+- `metadataDetail(id)` 返回候选必填字段，以及可选的 `description`、`releaseDate`、`duration`、`director`、`studio`、`publisher`、`series`、`rating`、`actors: string[]`、`tags: string[]`、`images: string[]`。缺失文本留空，缺失集合用空数组，不伪造评分、简介或其他字段。作品 `url` 必须属于插件声明域；封面和预览图只能是无凭据、无端口的公网 HTTPS 地址。
+- `metadataMagnets(id)` 返回最多 500 条 `{url, name, size?, date?, tags?: string[]}`。`url` 仅接受有效 `magnet:?xt=urn:btih:...`，按内容哈希去重。资料与磁链独立加载和重试，切换作品、来源或关闭页面取消旧请求。界面只按用户操作复制或调用外部应用打开磁链；“搜索 JAV 站点”用资料中的真实番号继续应用内 JAV 聚合搜索。

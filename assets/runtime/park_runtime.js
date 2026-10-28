@@ -620,6 +620,7 @@
         : null,
       feeds: pick(def.feeds || []),
       rankingOnly: def.rankingOnly === true,
+      metadataOnly: def.metadataOnly === true,
       reverseSearchOnly: typeof def.reverseSearch === 'function' &&
         !(def.feeds && def.feeds.length) && typeof def.search !== 'function',
       rankings: pick(rankingDefs(def)),
@@ -631,6 +632,9 @@
       searchCommonFilters: pick(def.searchCommonFilters || {}),
       searchHint: def.searchHint || '',
       capabilities: {
+        metadataSearch: typeof def.metadataSearch === 'function',
+        metadataDetail: typeof def.metadataDetail === 'function',
+        metadataMagnets: typeof def.metadataMagnets === 'function',
         comments: typeof def.comments === 'function',
         resolveContentLink: typeof def.resolveContentLink === 'function',
         searchLink: typeof def.searchLink === 'function',

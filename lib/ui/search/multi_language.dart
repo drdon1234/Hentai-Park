@@ -8,6 +8,7 @@ import '../../core/translation_options.dart';
 import '../../core/translator.dart';
 import '../../engine/source_manager.dart';
 import '../kit/adaptive_sheet.dart';
+import '../kit/components.dart';
 import '../kit/selection_chip.dart';
 import '../kit/tokens.dart';
 import '../theme.dart';
@@ -250,66 +251,62 @@ class TranslationsBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final entries = keyword.translations.entries.toList();
-    return SizedBox(
-      height:
-          48 +
-          (MediaQuery.textScalerOf(context).scale(14) - 14).clamp(
-            0,
-            double.infinity,
-          ),
-      child: ListView(
+    return PageGutter(
+      child: SingleChildScrollView(
         scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-        children: [
-          Padding(
-            padding: const EdgeInsets.only(right: 6),
-            child: Chip(
-              avatar: Icon(
-                Icons.translate_rounded,
-                size: 16,
-                color: context.colors.primary,
-              ),
-              label: Text(
-                tr('多语言 · {count} 个关键词', {'count': keyword.all.length}),
-              ),
-              visualDensity: VisualDensity.compact,
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsetsDirectional.only(end: 6),
-            child: ActionChip(
-              avatar: const Icon(Icons.edit_note_rounded, size: 16),
-              label: SelectionContainer.disabled(
-                child: Text(
-                  keyword.sourceLanguage == null
-                      ? tr('原文：{keyword}', {'keyword': keyword.original})
-                      : tr('原文 · {language}：{keyword}', {
-                          'language': tr(
-                            translateLanguages[keyword.sourceLanguage] ??
-                                keyword.sourceLanguage!,
-                          ),
-                          'keyword': keyword.original,
-                        }),
-                ),
-              ),
-              visualDensity: VisualDensity.compact,
-              onPressed: () => onPick(keyword.original),
-            ),
-          ),
-          for (final e in entries)
+        padding: const EdgeInsets.symmetric(vertical: Gap.s),
+        child: Row(
+          children: [
             Padding(
               padding: const EdgeInsets.only(right: 6),
+              child: Chip(
+                avatar: Icon(
+                  Icons.translate_rounded,
+                  size: 16,
+                  color: context.colors.primary,
+                ),
+                label: Text(
+                  tr('多语言 · {count} 个关键词', {'count': keyword.all.length}),
+                ),
+                visualDensity: VisualDensity.compact,
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsetsDirectional.only(end: 6),
               child: ActionChip(
+                avatar: const Icon(Icons.edit_note_rounded, size: 16),
                 label: SelectionContainer.disabled(
                   child: Text(
-                    '${tr(translateLanguages[e.key] ?? e.key)}：${e.value}',
+                    keyword.sourceLanguage == null
+                        ? tr('原文：{keyword}', {'keyword': keyword.original})
+                        : tr('原文 · {language}：{keyword}', {
+                            'language': tr(
+                              translateLanguages[keyword.sourceLanguage] ??
+                                  keyword.sourceLanguage!,
+                            ),
+                            'keyword': keyword.original,
+                          }),
                   ),
                 ),
                 visualDensity: VisualDensity.compact,
-                onPressed: () => onPick(e.value),
+                onPressed: () => onPick(keyword.original),
               ),
             ),
-        ],
+            for (final e in entries)
+              Padding(
+                padding: const EdgeInsets.only(right: 6),
+                child: ActionChip(
+                  label: SelectionContainer.disabled(
+                    child: Text(
+                      '${tr(translateLanguages[e.key] ?? e.key)}：${e.value}',
+                    ),
+                  ),
+                  visualDensity: VisualDensity.compact,
+                  onPressed: () => onPick(e.value),
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }

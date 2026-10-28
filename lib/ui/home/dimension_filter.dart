@@ -51,46 +51,82 @@ class DimensionFilter extends StatelessWidget {
         button: true,
         label: '$title：${label(selected)}',
         child: Container(
-          constraints: const BoxConstraints(minHeight: 42),
-          padding: const EdgeInsets.symmetric(horizontal: Gap.m),
+          constraints: const BoxConstraints(minHeight: 48),
+          padding: const EdgeInsets.symmetric(
+            horizontal: Gap.m,
+            vertical: Gap.s,
+          ),
           decoration: BoxDecoration(
             color: colors.surfaceContainerLow,
             border: Border.all(color: colors.outlineVariant),
             borderRadius: Radii.small,
           ),
-          child: Row(
-            children: [
-              Flexible(
-                child: Text(
-                  title,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: context.text.labelMedium?.copyWith(
-                    color: colors.onSurfaceVariant,
-                    fontWeight: FontWeight.w400,
-                  ),
-                ),
-              ),
-              const SizedBox(width: Gap.s),
-              Flexible(
-                child: Text(
-                  label(selected),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  textAlign: TextAlign.end,
-                  style: context.text.labelLarge?.copyWith(
-                    color: colors.onSurface,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-              const SizedBox(width: Gap.xs),
-              Icon(
-                Icons.keyboard_arrow_down_rounded,
-                size: 20,
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final titleStyle = context.text.labelMedium?.copyWith(
                 color: colors.onSurfaceVariant,
-              ),
-            ],
+                fontWeight: FontWeight.w400,
+              );
+              final valueStyle = context.text.labelLarge?.copyWith(
+                color: colors.onSurface,
+                fontWeight: FontWeight.w600,
+              );
+              double widthOf(String text, TextStyle? style) {
+                final painter = TextPainter(
+                  text: TextSpan(text: text, style: style),
+                  textDirection: Directionality.of(context),
+                  textScaler: MediaQuery.textScalerOf(context),
+                )..layout();
+                final width = painter.width;
+                painter.dispose();
+                return width;
+              }
+
+              final stacked =
+                  widthOf(title, titleStyle) +
+                      widthOf(label(selected), valueStyle) +
+                      Gap.s +
+                      Gap.xs +
+                      20 >
+                  constraints.maxWidth;
+              final heading = Text(title, style: titleStyle);
+              final value = Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Flexible(
+                    child: Text(
+                      label(selected),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: valueStyle,
+                    ),
+                  ),
+                  const SizedBox(width: Gap.xs),
+                  Icon(
+                    Icons.keyboard_arrow_down_rounded,
+                    size: 20,
+                    color: colors.onSurfaceVariant,
+                  ),
+                ],
+              );
+              return stacked
+                  ? Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        heading,
+                        const SizedBox(height: Gap.xs),
+                        value,
+                      ],
+                    )
+                  : Row(
+                      children: [
+                        heading,
+                        const SizedBox(width: Gap.s),
+                        Flexible(child: value),
+                      ],
+                    );
+            },
           ),
         ),
       ),
@@ -99,7 +135,7 @@ class DimensionFilter extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.fromLTRB(Gap.page, Gap.s, Gap.page, 0),
+    padding: const EdgeInsets.fromLTRB(Gap.page, Gap.s, Gap.page, Gap.m),
     child: Row(
       children: [
         Expanded(

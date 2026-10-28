@@ -9,6 +9,19 @@ import '../theme.dart';
 import 'adaptive_sheet.dart';
 import 'tokens.dart';
 
+/// 页面横向视口的固定留白；内边距放在滚动视口外，滑动时内容也不会侵入。
+class PageGutter extends StatelessWidget {
+  const PageGutter({super.key, required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.symmetric(horizontal: Gap.page),
+    child: ClipRect(child: child),
+  );
+}
+
 /// Top-level page bar: a serif title (or [HeaderTabs]) and its actions.
 class PageHeader extends StatelessWidget implements PreferredSizeWidget {
   const PageHeader({
@@ -26,13 +39,15 @@ class PageHeader extends StatelessWidget implements PreferredSizeWidget {
   final double toolbarHeight;
 
   @override
-  Size get preferredSize =>
-      Size.fromHeight(toolbarHeight + (bottom?.preferredSize.height ?? 0));
+  Size get preferredSize => Size.fromHeight(
+    (PlatformCapabilities.desktop ? 48 : toolbarHeight) +
+        (bottom?.preferredSize.height ?? 0),
+  );
 
   @override
   Widget build(BuildContext context) => AppBar(
     centerTitle: false,
-    toolbarHeight: toolbarHeight,
+    toolbarHeight: PlatformCapabilities.desktop ? 48 : toolbarHeight,
     titleSpacing: Gap.page,
     title:
         titleWidget ??
@@ -40,7 +55,9 @@ class PageHeader extends StatelessWidget implements PreferredSizeWidget {
           title ?? '',
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
-          style: ParkText.serif(context.text.headlineSmall),
+          style: PlatformCapabilities.desktop
+              ? context.text.titleLarge
+              : ParkText.serif(context.text.headlineSmall),
         ),
     actions: [
       ...actions,
@@ -72,7 +89,9 @@ class HeaderTabs extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
-    final style = ParkText.serif(context.text.headlineSmall);
+    final style = PlatformCapabilities.desktop
+        ? context.text.titleLarge
+        : ParkText.serif(context.text.headlineSmall);
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       child: Row(
@@ -288,7 +307,9 @@ class ListRow extends StatelessWidget {
             : null,
         child: SelectionContainer.disabled(
           child: ConstrainedBox(
-            constraints: const BoxConstraints(minHeight: 56),
+            constraints: BoxConstraints(
+              minHeight: PlatformCapabilities.desktop ? 40 : 56,
+            ),
             child: Padding(
               padding: padding,
               child: LayoutBuilder(
@@ -412,7 +433,11 @@ class RowGroup extends StatelessWidget {
           if (children.isNotEmpty)
             Material(
               color: Theme.of(context).cardColor,
-              shape: const RoundedRectangleBorder(borderRadius: Radii.medium),
+              shape: RoundedRectangleBorder(
+                borderRadius: PlatformCapabilities.desktop
+                    ? Radii.small
+                    : Radii.medium,
+              ),
               clipBehavior: Clip.antiAlias,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -756,7 +781,9 @@ class ParkSearchField extends StatelessWidget {
   Widget build(BuildContext context) {
     final c = context.colors;
     final readOnly = onTap != null;
-    final radius = outlined
+    final radius = PlatformCapabilities.desktop
+        ? Radii.tiny
+        : outlined
         ? Radii.medium
         : const BorderRadius.all(Radius.circular(28));
     final border = OutlineInputBorder(

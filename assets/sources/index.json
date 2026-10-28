@@ -846,6 +846,28 @@
       "file": "ranking-javmenu.js",
       "description": "站内热门",
       "minAppVersion": "0.9.2"
+    },
+    {
+      "key": "metadata-javbus",
+      "name": "JavBus",
+      "version": "0.0.2",
+      "minAppVersion": "0.10.0",
+      "type": "video",
+      "category": "jav",
+      "file": "metadata-javbus.js",
+      "description": "作品资料与磁链",
+      "metadataOnly": true
+    },
+    {
+      "key": "metadata-javdb",
+      "name": "JavDB",
+      "version": "0.0.1",
+      "minAppVersion": "0.10.0",
+      "type": "video",
+      "category": "jav",
+      "file": "metadata-javdb.js",
+      "description": "作品资料与磁链",
+      "metadataOnly": true
     }
   ]
 }

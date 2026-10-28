@@ -633,29 +633,31 @@ class WorkCarousel extends StatelessWidget {
         SectionHeader(title, leading: leading, trailing: trailing),
         SizedBox(
           height: height ?? cardWidth / aspect + cardTextExtent(context),
-          child: ListView.separated(
-            scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: Gap.page),
-            itemCount: items.length,
-            separatorBuilder: (_, _) => const SizedBox(width: Gap.m),
-            itemBuilder: (context, i) {
-              final card = SizedBox(
-                width: cardWidth,
-                child: CoverTile(
-                  item: items[i],
-                  aspect: aspect,
-                  showSource: showSource,
-                ),
-              );
-              return onEndReached != null && i == items.length - 1
-                  ? OnVisible(
-                      onVisible: (visible) {
-                        if (visible) onEndReached?.call();
-                      },
-                      child: card,
-                    )
-                  : card;
-            },
+          child: PageGutter(
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              padding: EdgeInsets.zero,
+              itemCount: items.length,
+              separatorBuilder: (_, _) => const SizedBox(width: Gap.m),
+              itemBuilder: (context, i) {
+                final card = SizedBox(
+                  width: cardWidth,
+                  child: CoverTile(
+                    item: items[i],
+                    aspect: aspect,
+                    showSource: showSource,
+                  ),
+                );
+                return onEndReached != null && i == items.length - 1
+                    ? OnVisible(
+                        onVisible: (visible) {
+                          if (visible) onEndReached?.call();
+                        },
+                        child: card,
+                      )
+                    : card;
+              },
+            ),
           ),
         ),
       ],

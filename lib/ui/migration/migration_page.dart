@@ -284,17 +284,19 @@ class _TargetResultsState extends State<_TargetResults> {
           final w = a > 1 ? 200.0 : 118.0;
           body = SizedBox(
             height: w / a + cardTextExtent(context),
-            child: ListView.separated(
-              scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              itemCount: items.length,
-              separatorBuilder: (_, _) => const SizedBox(width: 10),
-              itemBuilder: (context, i) => SizedBox(
-                width: w,
-                child: CoverTile(
-                  item: items[i],
-                  aspect: a,
-                  onTap: () => widget.onPick(items[i]),
+            child: PageGutter(
+              child: ListView.separated(
+                scrollDirection: Axis.horizontal,
+                padding: EdgeInsets.zero,
+                itemCount: items.length,
+                separatorBuilder: (_, _) => const SizedBox(width: 10),
+                itemBuilder: (context, i) => SizedBox(
+                  width: w,
+                  child: CoverTile(
+                    item: items[i],
+                    aspect: a,
+                    onTap: () => widget.onPick(items[i]),
+                  ),
                 ),
               ),
             ),

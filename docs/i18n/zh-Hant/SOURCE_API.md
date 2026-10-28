@@ -184,7 +184,9 @@ async filterOptions({scope, feed, filter, keyword, values}) {
   自動回退不適用於 `followRedirects: false`、`connectAddress` 或未分類的網路錯誤。瀏覽器對無請求體的 GET / HEAD 一般請求最多嘗試三次，驗證通過後最多額外重發一次；僅恢復連線故障或 HTTP 408、500、502、503、504；429 與逾時不重複請求。一次邏輯請求最多主動導航驗證一次，外層重試不重設次數。瀏覽器啟動、請求、文件讀取與釋放均有等待上限。含自訂 API 請求標頭的讀取使用真正的 `fetch()`，不以一般導航結果取代；重用 HTML 文件時保留錯誤狀態，`responseType: 'base64'` 傳回原始位元組的 base64。
 
 - `network.vpnHint: true`：在中國大陸可能需要 VPN 或代理的站點宣告它，等待超過 8 秒和失敗時提示「可能需要 VPN 或代理」。不要把所有錯誤都歸因於 VPN。
-- `network.confirmation: { selector, readySelector, requiredCookies, auto: { clickSelector }, message }`: 網站年齡門宣告。`selector` 比對年齡彈窗，`auto.clickSelector` 比對彈窗內唯一的確認按鈕，`readySelector` 比對可存取內容，`requiredCookies` 列出確認後必須存在的 Cookie 名稱。使用者在應用程式入口確認成年後，隱藏瀏覽器才會模擬點擊，並檢查彈窗消失、內容出現、Cookie 寫入及導覽穩定。規則不完整、不符合或無法自動完成時可重試；錯誤提供站內驗證位址時，可選擇「去確認」，手動處理後按完成。確認頁仍受來源網域與 Cookie 分區限制，操作提示不會自動重播原操作。僅限年齡確認，不可用於登入、付款或回覆。
+- `network.confirmation: { selector, readySelector, requiredCookies, auto: { clickSelector, checkSelector? }, message }`: 網站年齡門宣告。`selector` 比對年齡彈窗，`auto.clickSelector` 比對彈窗內唯一的確認按鈕，`readySelector` 比對可存取內容，`requiredCookies` 列出確認後必須存在的 Cookie 名稱。使用者在應用程式入口確認成年後，隱藏瀏覽器才會模擬點擊，並檢查彈窗消失、內容出現、Cookie 寫入及導覽穩定。規則不完整、不符合或無法自動完成時可重試；錯誤提供站內驗證位址時，可選擇「去確認」，手動處理後按完成。確認頁仍受來源網域與 Cookie 分區限制，操作提示不會自動重播原操作。僅限年齡確認，不可用於登入、付款或回覆。
+
+選用的 `auto.checkSelector` 僅比對年齡門內唯一的核取方塊，先勾選再確認；不代答問卷或填寫登入等表單。
 - 網路異常附帶安全的 `diagnostics` 欄位 `host`、`transport`、`reason`，區分 TLS 證書、握手、DNS、連線和超時；自動日誌只記錄這幾個白名單欄位。`reason: 'TLS_HANDSHAKE_TERMINATED'` 僅表示原生 `HandshakeException.message` 恰好是 `Connection terminated during handshake`（握手完成前連線中斷，不是證書校驗失敗）；只有 HTTPS、無請求體的 GET / HEAD 遇到它時自動重試一次，其他錯誤都不重試。
 
 ### 圖片
@@ -608,7 +610,7 @@ return { url: "https://player.example.com/watch/1", navigationDomains: ["player.
 
 `rankings` 以 `key`、`label`、`category`、`metric`、`options` 宣告榜單。獨立排行榜插件設定 `rankingOnly: true` 且不宣告 `feeds`。`ranking(board, {page, offset, cursor, options})` 回傳作品頁；條目包含 `id`、原站 `rank`、`title`、`cover`，以及可選的 `keyword`、`subtitle`、HTTPS 商品 `url`，保留並列名次。現有內容源可宣告 `feed`：未指定選項時繼承該 feed，執行時複用 `feed()` 並保留作品欄位、補上 `workId` 和缺失名次，開啟作品詳情。商業榜則搜尋指定分類。
 
-原始碼在主分支維護。`sources`、`rankings`、`reverse-search` 分別分發一般站點、獨立排行榜及獨立反搜外掛；各分支只保存指向固定原始碼提交、含 SHA-256 的索引。應用程式分別讀取三個頻道，拒絕頻道標記不符與重複 key，更新前需使用者確認。標籤翻譯由 `tag-translations` 另行分發。
+原始碼與唯一清單在 `main` 維護。`sources`、`rankings`、`reverse-search`、`metadata` 分別分發資源站點、獨立排行榜、獨立反搜與獨立資料插件。各分支只保存固定提交 URL 與 SHA-256 的索引；應用程式獨立讀取四個頻道，拒絕標記不符與重複 key，更新前需使用者確認。標籤翻譯以 `tag-translations` 另行發布。
 
 ```powershell
 node tools/publish_sources.mjs --commit '<SHA>' --channel rankings --output '<本地输出文件>'
@@ -671,3 +673,10 @@ liveChatEvent(state, event) {
   ], send: []};
 }
 ```
+
+## 作品資料與磁鏈
+
+- `metadataOnly: true` 宣告獨立資料插件，必須實作 `metadataSearch` 與 `metadataDetail`，可實作 `metadataMagnets`。不宣告普通 `feeds`、`search`、`detail` 或播放能力，不進入片源搜尋、收藏及下載。站點解析規則留在插件內。
+- `metadataSearch(keyword)` 回傳最多 100 個 `{id, code, title, url, cover?}` 候選。`code` 必須是真實番號，不從標題猜測；無匹配回傳 `[]`，驗證及解析異常必須拋錯，多個匹配由使用者選擇。
+- `metadataDetail(id)` 回傳候選必填欄位及可選的 `description`、`releaseDate`、`duration`、`director`、`studio`、`publisher`、`series`、`rating`、`actors: string[]`、`tags: string[]`、`images: string[]`。缺失文字留空、集合為空陣列，不虛構資料。作品 `url` 屬於宣告域；圖片限無憑據、無連接埠的公網 HTTPS。
+- `metadataMagnets(id)` 回傳最多 500 條 `{url, name, size?, date?, tags?: string[]}`，僅接受有效 `magnet:?xt=urn:btih:...`，依內容雜湊去重。資料與磁鏈分別載入和重試；切換或關閉取消舊請求。只依使用者操作複製或開啟外部應用程式；JAV 搜尋使用真實番號。

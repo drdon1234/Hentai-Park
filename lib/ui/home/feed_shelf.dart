@@ -258,23 +258,25 @@ class _FeedShelfState extends State<FeedShelf>
       body = SizedBox(
         height:
             width / aspect + (imageOnly ? 0 : cardTextExtent(context)) + Gap.m,
-        child: _horizontal(
-          ListView.separated(
-            controller: _scroll,
-            scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.fromLTRB(Gap.page, 0, Gap.page, Gap.m),
-            itemCount: items.length + (more ? 1 : 0),
-            separatorBuilder: (_, _) => const SizedBox(width: Gap.m),
-            itemBuilder: (context, i) => i == items.length
-                ? _tail(session!)
-                : SizedBox(
-                    width: width,
-                    child: CoverTile(
-                      item: items[i],
-                      aspect: aspect,
-                      imageOnly: imageOnly,
+        child: PageGutter(
+          child: _horizontal(
+            ListView.separated(
+              controller: _scroll,
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.only(bottom: Gap.m),
+              itemCount: items.length + (more ? 1 : 0),
+              separatorBuilder: (_, _) => const SizedBox(width: Gap.m),
+              itemBuilder: (context, i) => i == items.length
+                  ? _tail(session!)
+                  : SizedBox(
+                      width: width,
+                      child: CoverTile(
+                        item: items[i],
+                        aspect: aspect,
+                        imageOnly: imageOnly,
+                      ),
                     ),
-                  ),
+            ),
           ),
         ),
       );
@@ -435,15 +437,20 @@ class _ShelfSkeleton extends StatelessWidget {
         else
           SizedBox(
             height: width / aspect + (imageOnly ? 0 : cardTextExtent(context)),
-            child: ListView.separated(
-              scrollDirection: Axis.horizontal,
-              physics: const NeverScrollableScrollPhysics(),
-              padding: const EdgeInsets.symmetric(horizontal: Gap.page),
-              itemCount: 6,
-              separatorBuilder: (_, _) => const SizedBox(width: Gap.m),
-              itemBuilder: (_, _) => SizedBox(
-                width: width,
-                child: CoverTileSkeleton(aspect: aspect, imageOnly: imageOnly),
+            child: PageGutter(
+              child: ListView.separated(
+                scrollDirection: Axis.horizontal,
+                physics: const NeverScrollableScrollPhysics(),
+                padding: EdgeInsets.zero,
+                itemCount: 6,
+                separatorBuilder: (_, _) => const SizedBox(width: Gap.m),
+                itemBuilder: (_, _) => SizedBox(
+                  width: width,
+                  child: CoverTileSkeleton(
+                    aspect: aspect,
+                    imageOnly: imageOnly,
+                  ),
+                ),
               ),
             ),
           ),

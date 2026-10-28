@@ -195,7 +195,9 @@ async filterOptions({scope, feed, filter, keyword, values}) {
   自動フォールバックは `followRedirects: false`、`connectAddress`、原因未分類のネットワークエラーには使いません。本文のないブラウザ GET / HEAD は通常の試行は最大 3 回で、検証後の再送は別途最大 1 回です。接続障害または HTTP 408、500、502、503、504 だけを再試行します。429 とタイムアウトは再送しません。検証ページへの移動はリクエスト全体で最大 1 回です。起動、要求、文書読み取り、破棄には待機上限があります。独自 API ヘッダー付き要求は通常のページ移動で代替せず `fetch()` を実行します。再利用する HTML のエラーステータスを保持し、`responseType: 'base64'` は元のバイト列の base64 を返します。
 
 - `network.vpnHint: true`：中国本土で VPN やプロキシが必要かもしれないサイトに宣言します。8 秒を超える待機や失敗時に「VPN またはプロキシが必要な場合があります」と表示します。すべてのエラーを VPN のせいにしないでください。
-- `network.confirmation: { selector, readySelector, requiredCookies, auto: { clickSelector }, message }`: サイトの年齢確認を宣言します。`selector` はダイアログ、`auto.clickSelector` はその中の一意の確認ボタン、`readySelector` は表示可能なコンテンツ、`requiredCookies` は確認後に必要な Cookie 名です。アプリの入口で成年を確認した後に限り、非表示ブラウザがクリックを模擬し、ダイアログ消失、コンテンツ表示、Cookie、画面遷移の安定を確認します。規則が不完全、不一致、または自動処理失敗の場合は再試行できます。エラーにサイト内の認証 URL があれば、ページで手動処理した後に完了を押せます。ソースのドメイン制限と Cookie 分離は維持され、操作通知から元の操作を自動再送しません。ログイン、支払い、投稿には使用できません。
+- `network.confirmation: { selector, readySelector, requiredCookies, auto: { clickSelector, checkSelector? }, message }`: サイトの年齢確認を宣言します。`selector` はダイアログ、`auto.clickSelector` はその中の一意の確認ボタン、`readySelector` は表示可能なコンテンツ、`requiredCookies` は確認後に必要な Cookie 名です。アプリの入口で成年を確認した後に限り、非表示ブラウザがクリックを模擬し、ダイアログ消失、コンテンツ表示、Cookie、画面遷移の安定を確認します。規則が不完全、不一致、または自動処理失敗の場合は再試行できます。エラーにサイト内の認証 URL があれば、ページで手動処理した後に完了を押せます。ソースのドメイン制限と Cookie 分離は維持され、操作通知から元の操作を自動再送しません。ログイン、支払い、投稿には使用できません。
+
+任意の `auto.checkSelector` は年齢確認内の一意のチェックボックスを確認前に選択します。質問への回答やログイン等のフォーム入力は行いません。
 - ネットワークエラーには安全な `diagnostics` フィールド `host`、`transport`、`reason` が付き、TLS 証明書、ハンドシェイク、DNS、接続、タイムアウトを区別します。自動ログにはこれらの許可されたフィールドだけを記録します。`reason: 'TLS_HANDSHAKE_TERMINATED'` はネイティブの `HandshakeException.message` が `Connection terminated during handshake` と完全一致した場合だけで（ハンドシェイク完了前の切断であり、証明書の失敗ではありません）、本文のない HTTPS の GET / HEAD だけが 1 回再試行され、ほかは再試行しません。
 
 ### 画像
@@ -619,7 +621,7 @@ return { url: "https://player.example.com/watch/1", navigationDomains: ["player.
 
 `rankings` は `key`、`label`、`category`、`metric`、`options` で定義します。専用プラグインは `rankingOnly: true` とし、`feeds` を宣言しません。`ranking(board, {page, offset, cursor, options})` は作品ページを返し、項目には `id`、元の `rank`、`title`、`cover`、任意の `keyword`、`subtitle`、HTTPS商品 `url` を含めます。同順位を保持します。既存ソースは `feed` を指定して選択肢を継承し、`feed()` を再利用できます。作品フィールドを保持し、`workId` と不足する順位を補って詳細を開きます。販売ランキングは指定カテゴリを検索します。
 
-ソースはメインブランチで管理します。`sources`、`rankings`、`reverse-search` はそれぞれ通常サイト、ランキング専用、画像検索専用プラグインを配信します。各ブランチには固定コミットの URL と SHA-256 を持つ索引のみを保存します。アプリは各チャネルを個別に読み込み、チャネル不一致と key の重複を拒否し、更新前に確認を求めます。タグ翻訳は `tag-translations` で別途配信します。
+ソースとカタログは `main` で管理します。`sources`、`rankings`、`reverse-search`、`metadata` は通常サイト、ランキング専用、画像検索専用、作品情報専用プラグインを配信します。各ブランチは固定コミット URL と SHA-256 の索引のみ保持します。アプリは4チャネルを個別に読み込み、不一致と重複 key を拒否し、更新前に確認します。タグ翻訳は `tag-translations` です。
 
 ```powershell
 node tools/publish_sources.mjs --commit '<SHA>' --channel rankings --output '<本地输出文件>'
@@ -682,3 +684,10 @@ liveChatEvent(state, event) {
   ], send: []};
 }
 ```
+
+## 作品情報とマグネットリンク
+
+- `metadataOnly: true` は作品情報専用プラグインです。`metadataSearch` と `metadataDetail` は必須、`metadataMagnets` は任意です。通常の `feeds`、`search`、`detail`、再生能力は宣言せず、動画検索・お気に入り・ダウンロードに混ぜません。解析規則はプラグイン内で管理します。
+- `metadataSearch(keyword)` は最大100件の `{id, code, title, url, cover?}` を返します。`code` は実際の品番を使い、タイトルから推測しません。該当なしは `[]`、認証・解析失敗は例外です。複数候補は利用者が選びます。
+- `metadataDetail(id)` は候補の必須項目と任意の `description`、`releaseDate`、`duration`、`director`、`studio`、`publisher`、`series`、`rating`、`actors: string[]`、`tags: string[]`、`images: string[]` を返します。不明な文字列と配列は空にし、情報を捏造しません。作品 URL は宣言ドメイン内、画像は資格情報・ポートなしの公開 HTTPS に限定します。
+- `metadataMagnets(id)` は最大500件の `{url, name, size?, date?, tags?: string[]}` を返します。有効な `magnet:?xt=urn:btih:...` のみ許可し、ハッシュで重複排除します。情報と磁力リンクは個別に読み込み・再試行し、切替や閉じる操作で旧要求を中止します。コピーと外部起動は利用者操作時のみ、JAV 検索には実際の品番を使います。

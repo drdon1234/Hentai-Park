@@ -628,22 +628,23 @@ class _ActiveFilters extends StatelessWidget {
       }
     }
     if (commonValues.isNotEmpty) chips.add(tr('通用筛选'));
-    return SizedBox(
-      height: 44,
-      child: ListView(
+    return PageGutter(
+      child: SingleChildScrollView(
         scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-        children: [
-          for (final c in chips)
-            Padding(
-              padding: const EdgeInsets.only(right: 6),
-              child: ActionChip(
-                label: SelectionContainer.disabled(child: Text(c)),
-                onPressed: onTap,
-                visualDensity: VisualDensity.compact,
+        padding: const EdgeInsets.symmetric(vertical: Gap.s),
+        child: Row(
+          children: [
+            for (final c in chips)
+              Padding(
+                padding: const EdgeInsets.only(right: 6),
+                child: ActionChip(
+                  label: SelectionContainer.disabled(child: Text(c)),
+                  onPressed: onTap,
+                  visualDensity: VisualDensity.compact,
+                ),
               ),
-            ),
-        ],
+          ],
+        ),
       ),
     );
   }

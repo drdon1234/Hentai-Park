@@ -111,98 +111,7 @@ class _DownloadsPageState extends State<DownloadsPage> {
     final dm = DownloadManager.instance;
     final games = GameDownloadManager.instance;
     return Scaffold(
-      appBar: PageHeader(
-        title: tr('下载'),
-        actions: [
-          ListenableBuilder(
-            listenable: Listenable.merge([
-              AppSettings.instance.watch(const {'downloadDisplay'}),
-              dm,
-              games,
-              LiveRecordings.instance,
-            ]),
-            builder: (context, _) {
-              final grid = AppSettings.instance.downloadDisplay == 'grid';
-              final onlySpecialTasks =
-                  dm.tasks.isEmpty &&
-                  (games.tasks.isNotEmpty ||
-                      dm.restoreFailures.isNotEmpty ||
-                      LiveRecordings.instance.tasks.isNotEmpty);
-              return IconButton(
-                tooltip: tr(
-                  onlySpecialTasks
-                      ? '特殊下载任务仅支持列表'
-                      : grid
-                      ? '切换为列表'
-                      : '切换为网格',
-                ),
-                icon: Icon(
-                  grid ? Icons.view_list_rounded : Icons.grid_view_rounded,
-                ),
-                onPressed: onlySpecialTasks
-                    ? null
-                    : () => AppSettings.instance.downloadDisplay = grid
-                          ? 'list'
-                          : 'grid',
-              );
-            },
-          ),
-          ListenableBuilder(
-            listenable: ExportManager.instance,
-            builder: (context, _) => ToolbarActions(
-              actions: [
-                ToolbarAction(
-                  label: tr('导出文件'),
-                  icon: ExportManager.instance.busy
-                      ? Icons.downloading_rounded
-                      : Icons.folder_open_outlined,
-                  onPressed: () => Nav.push(context, const ExportsPage()),
-                ),
-              ],
-            ),
-          ),
-          ListenableBuilder(
-            listenable: Listenable.merge([dm, games]),
-            builder: (context, _) {
-              if (dm.tasks.isEmpty && games.tasks.isEmpty) {
-                return const SizedBox.shrink();
-              }
-              return ToolbarActions(
-                actions: [
-                  ToolbarAction(
-                    label: tr('全部暂停'),
-                    icon: Icons.pause_rounded,
-                    showLabel: true,
-                    onPressed: () {
-                      dm.pauseAll();
-                      for (final task in games.tasks) {
-                        if (task.status == DownloadStatus.running ||
-                            task.status == DownloadStatus.queued) {
-                          games.cancel(task.key);
-                        }
-                      }
-                    },
-                  ),
-                  ToolbarAction(
-                    label: tr('全部继续'),
-                    icon: Icons.play_arrow_rounded,
-                    showLabel: true,
-                    onPressed: () {
-                      dm.resumeAll();
-                      for (final task in games.tasks) {
-                        if (task.status == DownloadStatus.paused ||
-                            task.status == DownloadStatus.failed) {
-                          games.retry(task.key);
-                        }
-                      }
-                    },
-                  ),
-                ],
-              );
-            },
-          ),
-        ],
-      ),
+      appBar: PageHeader(title: tr('下载')),
       floatingActionButton: ListenableBuilder(
         listenable: Listenable.merge([dm, games, LiveRecordings.instance]),
         builder: (context, _) =>
@@ -259,6 +168,7 @@ class _DownloadsPageState extends State<DownloadsPage> {
                     content: Text(tr('已开启"仅在 Wi-Fi 下下载"，连接 Wi-Fi 后自动继续')),
                     actions: [const SizedBox.shrink()],
                   ),
+                _toolbar(context),
                 ContentScopeSelector(
                   scope: _scope,
                   onChanged: (scope) => setState(() => _scope = scope),
@@ -301,6 +211,94 @@ class _DownloadsPageState extends State<DownloadsPage> {
       ),
     );
   }
+
+  Widget _toolbar(BuildContext context) => ListenableBuilder(
+    listenable: Listenable.merge([
+      AppSettings.instance.watch(const {'downloadDisplay'}),
+      DownloadManager.instance,
+      GameDownloadManager.instance,
+      LiveRecordings.instance,
+      ExportManager.instance,
+    ]),
+    builder: (context, _) {
+      final dm = DownloadManager.instance;
+      final games = GameDownloadManager.instance;
+      final grid = AppSettings.instance.downloadDisplay == 'grid';
+      final onlySpecialTasks =
+          dm.tasks.isEmpty &&
+          (games.tasks.isNotEmpty ||
+              dm.restoreFailures.isNotEmpty ||
+              LiveRecordings.instance.tasks.isNotEmpty);
+      final displayLabel = tr(
+        onlySpecialTasks
+            ? '特殊下载任务仅支持列表'
+            : grid
+            ? '切换为列表'
+            : '切换为网格',
+      );
+      return Align(
+        alignment: AlignmentDirectional.centerStart,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(Gap.page, Gap.s, Gap.page, Gap.s),
+          child: Wrap(
+            spacing: Gap.s,
+            runSpacing: Gap.s,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              OutlinedButton.icon(
+                onPressed: onlySpecialTasks
+                    ? null
+                    : () => AppSettings.instance.downloadDisplay = grid
+                          ? 'list'
+                          : 'grid',
+                icon: Icon(
+                  grid ? Icons.view_list_rounded : Icons.grid_view_rounded,
+                ),
+                label: Text(displayLabel),
+              ),
+              OutlinedButton.icon(
+                onPressed: () => Nav.push(context, const ExportsPage()),
+                icon: Icon(
+                  ExportManager.instance.busy
+                      ? Icons.downloading_rounded
+                      : Icons.folder_open_outlined,
+                ),
+                label: Text(tr('导出文件')),
+              ),
+              if (dm.tasks.isNotEmpty || games.tasks.isNotEmpty) ...[
+                OutlinedButton.icon(
+                  onPressed: () {
+                    dm.pauseAll();
+                    for (final task in games.tasks) {
+                      if (task.status == DownloadStatus.running ||
+                          task.status == DownloadStatus.queued) {
+                        games.cancel(task.key);
+                      }
+                    }
+                  },
+                  icon: const Icon(Icons.pause_rounded),
+                  label: Text(tr('全部暂停')),
+                ),
+                OutlinedButton.icon(
+                  onPressed: () {
+                    dm.resumeAll();
+                    for (final task in games.tasks) {
+                      if (task.status == DownloadStatus.paused ||
+                          task.status == DownloadStatus.failed) {
+                        games.retry(task.key);
+                      }
+                    }
+                  },
+                  icon: const Icon(Icons.play_arrow_rounded),
+                  label: Text(tr('全部继续')),
+                ),
+              ],
+            ],
+          ),
+        ),
+      );
+    },
+  );
 
   bool _matches(WorkItem item) =>
       _scope.contains(item.source, Library.instance.domainOf(item));
