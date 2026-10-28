@@ -5,6 +5,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 
+import '../../core/app_log.dart';
 import '../../core/models.dart';
 import '../../engine/browser_image_search.dart';
 import '../../engine/browser_interaction.dart';
@@ -42,11 +43,14 @@ class _BrowserImageSearchPanelState extends State<BrowserImageSearchPanel> {
   int _clickedGeneration = -1;
   int _navigation = 0, _stable = 0, _stableRows = 0;
   String _lastUrl = '', _lastResult = '';
+  Uri? _documentUri;
+  String _operation = 'prepare';
   void Function()? _unregister;
 
   @override
   void initState() {
     super.initState();
+    _documentUri = widget.request.url;
     _startTimeout();
     widget.cancelToken.whenCancel.then((_) => _cancel());
     _unregister = CookieStore.instance.registerBrowserSession((key) async {
@@ -74,8 +78,8 @@ class _BrowserImageSearchPanelState extends State<BrowserImageSearchPanel> {
         const Duration(milliseconds: 1200),
         (_) => _check(),
       );
-    } catch (_) {
-      _fail('浏览器请求失败');
+    } catch (error, stack) {
+      _exception(error, stack);
     }
   }
 
@@ -94,17 +98,83 @@ class _BrowserImageSearchPanelState extends State<BrowserImageSearchPanel> {
   void _startTimeout() {
     _timeout?.cancel();
     _timeout = Timer(const Duration(seconds: 90), () {
-      _fail('请求超时');
+      _fail('请求超时', code: 'TIMEOUT', reason: 'RECEIVE_TIMEOUT');
     });
   }
 
-  void _fail(String message, {String code = 'NETWORK'}) {
+  void _fail(
+    String message, {
+    String code = 'NETWORK',
+    Uri? uri,
+    String reason = 'NETWORK',
+    String? type,
+    int? status,
+    Map<String, Object?> params = const {},
+    String? action,
+    StackTrace? stack,
+  }) => _failError(
+    SourceError(
+      code,
+      message,
+      status: status,
+      params: params,
+      diagnostics: {
+        'host': (uri ?? _documentUri ?? widget.request.url).host,
+        'transport': 'browser',
+        'reason': reason,
+        'type': ?type,
+      },
+    ),
+    action: action,
+    stack: stack,
+  );
+
+  void _exception(Object error, StackTrace stack) {
+    if (error is SourceError) {
+      _failError(error, stack: stack);
+    } else {
+      _fail(
+        error is TimeoutException ? '请求超时' : '浏览器请求失败',
+        code: error is TimeoutException ? 'TIMEOUT' : 'NETWORK',
+        reason: error is TimeoutException ? 'RECEIVE_TIMEOUT' : 'UNKNOWN',
+        type: error.runtimeType.toString(),
+        stack: stack,
+      );
+    }
+  }
+
+  void _failError(SourceError error, {String? action, StackTrace? stack}) {
     if (!mounted || _done) return;
     _done = true;
     _poll?.cancel();
     _timeout?.cancel();
     unawaited(_controller?.stopLoading().catchError((_) {}));
-    widget.onError(SourceError(code, message));
+    AppLog.error(
+      error,
+      event: 'reverse_search',
+      site: widget.source,
+      action: action ?? _operation,
+      stack: stack,
+    );
+    widget.onError(error);
+  }
+
+  Future<bool> _currentFailure(
+    InAppWebViewController controller,
+    WebResourceRequest request,
+  ) async {
+    if (!mounted || _done || request.isForMainFrame != true) return false;
+    final generation = _navigation;
+    final failed = Uri.tryParse(request.url.toString());
+    if (failed == null || failed != _documentUri) return false;
+    final actual = await controller.getUrl().timeout(
+      const Duration(seconds: 8),
+    );
+    return mounted &&
+        !_done &&
+        generation == _navigation &&
+        identical(controller, _controller) &&
+        (actual == null || Uri.tryParse(actual.toString()) == failed);
   }
 
   bool _allowed(String? value) {
@@ -118,6 +188,7 @@ class _BrowserImageSearchPanelState extends State<BrowserImageSearchPanel> {
     _busy = true;
     final generation = _navigation;
     try {
+      _operation = 'inspect';
       final current = await c.getUrl().timeout(const Duration(seconds: 8));
       if (!mounted || _done || generation != _navigation) return;
       final uri = Uri.tryParse(current?.toString() ?? '');
@@ -186,6 +257,7 @@ class _BrowserImageSearchPanelState extends State<BrowserImageSearchPanel> {
       if (!_uploaded && state['ready'] == 'complete') {
         // 先结束桥接回调，再触发表单导航，避免页面销毁挂起回调。
         _uploaded = true;
+        _operation = 'upload';
         final upload = await c
             .callAsyncJavaScript(
               functionBody: '''
@@ -207,11 +279,12 @@ class _BrowserImageSearchPanelState extends State<BrowserImageSearchPanel> {
             )
             .timeout(const Duration(seconds: 8));
         if (upload?.value != true && mounted && !_done) {
-          _fail('浏览器请求失败');
+          _fail('浏览器请求失败', type: 'JavaScriptUploadError');
         }
         return;
       }
       if (widget.request.isResult(uri)) {
+        _operation = 'result';
         final url = uri.toString();
         _stable = url == _lastUrl ? _stable + 1 : 0;
         _lastUrl = url;
@@ -249,9 +322,9 @@ class _BrowserImageSearchPanelState extends State<BrowserImageSearchPanel> {
           return;
         }
       }
-    } catch (_) {
+    } catch (error, stack) {
       if (mounted && !_done && generation == _navigation) {
-        _fail('浏览器请求失败');
+        _exception(error, stack);
       }
     } finally {
       _busy = false;
@@ -302,6 +375,7 @@ class _BrowserImageSearchPanelState extends State<BrowserImageSearchPanel> {
     },
     onLoadStart: (c, url) async {
       _navigation++;
+      _documentUri = Uri.tryParse(url?.toString() ?? '');
       _challengeSince = null;
       if (!_allowed(url?.toString())) {
         await c.stopLoading();
@@ -313,18 +387,61 @@ class _BrowserImageSearchPanelState extends State<BrowserImageSearchPanel> {
         );
       }
     },
-    onReceivedError: (_, request, error) {
-      if (request.isForMainFrame == true) {
-        _fail('浏览器请求失败');
+    onReceivedError: (controller, request, error) async {
+      // 主页面跳转后，Android 仍可能交付旧页面的失败；不能终止新文档。
+      final nativeCode = RegExp(r'\bnet::ERR_[A-Z0-9_]+\b')
+          .firstMatch(error.description)
+          ?.group(0);
+      if (error.type == WebResourceErrorType.CANCELLED ||
+          nativeCode == 'net::ERR_ABORTED') {
+        return;
+      }
+      final generation = _navigation;
+      try {
+        if (!await _currentFailure(controller, request)) return;
+        final type = error.type.toString();
+        final reason = error.type == WebResourceErrorType.HOST_LOOKUP
+            ? 'DNS'
+            : error.type == WebResourceErrorType.TIMEOUT
+            ? 'RECEIVE_TIMEOUT'
+            : type.contains('CERTIFICATE')
+            ? 'TLS_CERTIFICATE'
+            : type.contains('SSL') || type == 'SECURE_CONNECTION_FAILED'
+            ? 'TLS_HANDSHAKE'
+            : 'CONNECTION';
+        _fail(
+          '浏览器请求失败：{error}',
+          uri: Uri.tryParse(request.url.toString()),
+          reason: reason,
+          type: type,
+          params: {'error': '${request.url.host}: ${nativeCode ?? type}'},
+          action: 'navigation',
+        );
+      } catch (error, stack) {
+        if (!_done && generation == _navigation) _exception(error, stack);
       }
     },
-    onReceivedHttpError: (_, request, response) {
+    onReceivedHttpError: (controller, request, response) async {
       if (request.isForMainFrame == true &&
           !{403, 429, 503}.contains(response.statusCode)) {
-        _fail('浏览器请求失败');
+        final generation = _navigation;
+        try {
+          if (!await _currentFailure(controller, request)) return;
+          _fail(
+            '浏览器请求失败：{error}',
+            code: 'HTTP',
+            status: response.statusCode,
+            params: {
+              'error': '${request.url.host}: HTTP ${response.statusCode}',
+            },
+            action: 'navigation',
+          );
+        } catch (error, stack) {
+          if (!_done && generation == _navigation) _exception(error, stack);
+        }
       }
     },
-    onRenderProcessGone: (_, _) => _fail('浏览器请求失败'),
+    onRenderProcessGone: (_, _) => _fail('浏览器请求失败', type: 'RenderProcessGone'),
   );
 
   @override
