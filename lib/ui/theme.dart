@@ -1,6 +1,5 @@
 import 'dart:math' as math;
 
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -199,16 +198,6 @@ class ParkTheme {
     final label = text.labelLarge?.copyWith(fontWeight: FontWeight.w600);
     final menuShadow = Colors.black.withValues(alpha: dark ? .5 : .16);
     return base.copyWith(
-      cupertinoOverrideTheme: CupertinoThemeData(
-        brightness: brightness,
-        primaryColor: scheme.primary,
-        scaffoldBackgroundColor: scheme.surface,
-        barBackgroundColor: scheme.surface,
-        textTheme: CupertinoTextThemeData(
-          primaryColor: scheme.primary,
-          textStyle: text.bodyLarge?.copyWith(color: scheme.onSurface),
-        ),
-      ),
       textTheme: text,
       scaffoldBackgroundColor: scheme.surface,
       canvasColor: scheme.surface,
@@ -222,7 +211,7 @@ class ParkTheme {
         surfaceTintColor: Colors.transparent,
         elevation: 0,
         scrolledUnderElevation: 0,
-        centerTitle: defaultTargetPlatform == TargetPlatform.iOS,
+        centerTitle: false,
         titleSpacing: Gap.page,
         titleTextStyle: text.titleLarge?.copyWith(color: scheme.onSurface),
         systemOverlayStyle: overlayStyle(brightness),
@@ -555,10 +544,7 @@ class ParkTheme {
       pageTransitionsTheme: const PageTransitionsTheme(
         builders: {
           TargetPlatform.android: PredictiveBackPageTransitionsBuilder(),
-          TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
-          TargetPlatform.macOS: CupertinoPageTransitionsBuilder(),
           TargetPlatform.windows: FadeForwardsPageTransitionsBuilder(),
-          TargetPlatform.linux: FadeForwardsPageTransitionsBuilder(),
         },
       ),
     );
@@ -619,20 +605,11 @@ abstract final class ParkText {
   /// 手机保留平台原有选择。
   static String? get sansFamily => !PlatformCapabilities.desktop
       ? null
-      : switch (defaultTargetPlatform) {
-          TargetPlatform.windows => switch (_script) {
-            'JP' => 'Yu Gothic UI',
-            'KR' => 'Malgun Gothic',
-            'TC' => 'Microsoft JhengHei',
-            _ => 'Microsoft YaHei',
-          },
-          TargetPlatform.macOS => switch (_script) {
-            'JP' => 'Hiragino Sans',
-            'KR' => 'Apple SD Gothic Neo',
-            'TC' => 'PingFang TC',
-            _ => 'PingFang SC',
-          },
-          _ => 'Noto Sans CJK $_script',
+      : switch (_script) {
+          'JP' => 'Yu Gothic UI',
+          'KR' => 'Malgun Gothic',
+          'TC' => 'Microsoft JhengHei',
+          _ => 'Microsoft YaHei',
         };
 
   static List<String>? get sansFallback => !PlatformCapabilities.desktop
@@ -641,33 +618,23 @@ abstract final class ParkText {
           'Noto Sans CJK $_script',
           'Noto Sans $_script',
           'Microsoft YaHei',
-          'PingFang SC',
           'Noto Sans CJK SC',
           'sans-serif',
         ];
 
   static String get serifFamily => !PlatformCapabilities.desktop
       ? 'serif'
-      : switch (defaultTargetPlatform) {
-          TargetPlatform.windows => switch (_script) {
-            'JP' => 'Yu Mincho',
-            'KR' => 'Batang',
-            'TC' => 'PMingLiU',
-            _ => 'SimSun',
-          },
-          TargetPlatform.macOS => switch (_script) {
-            'JP' => 'Hiragino Mincho ProN',
-            'KR' => 'AppleMyungjo',
-            'TC' => 'Songti TC',
-            _ => 'Songti SC',
-          },
-          _ => 'Noto Serif CJK $_script',
+      : switch (_script) {
+          'JP' => 'Yu Mincho',
+          'KR' => 'Batang',
+          'TC' => 'PMingLiU',
+          _ => 'SimSun',
         };
 
   static List<String> get serifFallback => [
     'Noto Serif CJK $_script',
     'Noto Serif $_script',
-    if (PlatformCapabilities.desktop) ...['SimSun', 'Songti SC'],
+    if (PlatformCapabilities.desktop) 'SimSun',
     'Noto Serif CJK SC',
     'Noto Serif CJK TC',
     'Noto Serif CJK JP',

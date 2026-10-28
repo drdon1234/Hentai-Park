@@ -12,7 +12,7 @@ import '../theme.dart';
 
 export 'package:share_plus/share_plus.dart' show XFile;
 
-/// 桌面文件使用目录选择和流式复制，避免 Linux 分享缺失与大文件占满内存。
+/// 桌面文件使用目录选择和流式复制，避免大文件占满内存。
 Future<void> shareContent(
   BuildContext context, {
   List<XFile>? files,

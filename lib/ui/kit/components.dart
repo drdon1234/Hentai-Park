@@ -1,6 +1,5 @@
 import 'dart:async';
 
-import 'package:flutter/cupertino.dart' hide RefreshCallback;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -650,31 +649,6 @@ Future<bool> confirmAction(
   String? cancelLabel,
   bool destructive = false,
 }) async {
-  if (Theme.of(context).platform == TargetPlatform.iOS) {
-    return await Navigator.of(context, rootNavigator: true).push<bool>(
-          CupertinoDialogRoute<bool>(
-            context: context,
-            transitionDuration: Motion.of(context, Motion.medium),
-            builder: (ctx) => CupertinoAlertDialog(
-              title: Text(title),
-              content: content ?? (message == null ? null : Text(message)),
-              actions: [
-                CupertinoDialogAction(
-                  onPressed: () => Navigator.pop(ctx, false),
-                  child: Text(cancelLabel ?? tr('取消')),
-                ),
-                CupertinoDialogAction(
-                  isDestructiveAction: destructive,
-                  isDefaultAction: !destructive,
-                  onPressed: () => Navigator.pop(ctx, true),
-                  child: Text(confirmLabel),
-                ),
-              ],
-            ),
-          ),
-        ) ==
-        true;
-  }
   final ok = await showDialog<bool>(
     context: context,
     animationStyle: Motion.menu(context),
@@ -715,43 +689,6 @@ Future<T?> showChoiceSheet<T>(
   required T? selected,
   required String Function(T option) label,
 }) {
-  if (Theme.of(context).platform == TargetPlatform.iOS &&
-      MediaQuery.sizeOf(context).width < 720) {
-    Widget sheet(BuildContext ctx) => CupertinoActionSheet(
-      title: Text(title),
-      actions: [
-        for (final option in options)
-          CupertinoActionSheetAction(
-            isDefaultAction: option == selected,
-            onPressed: () => Navigator.pop(ctx, option),
-            child: Semantics(
-              selected: option == selected,
-              child: Text(label(option)),
-            ),
-          ),
-      ],
-      cancelButton: CupertinoActionSheetAction(
-        onPressed: () => Navigator.pop(ctx),
-        child: Text(tr('取消')),
-      ),
-    );
-    if (MediaQuery.disableAnimationsOf(context)) {
-      return showGeneralDialog<T>(
-        context: context,
-        barrierDismissible: true,
-        barrierLabel: CupertinoLocalizations.of(context)
-            .modalBarrierDismissLabel,
-        transitionDuration: Duration.zero,
-        pageBuilder: (ctx, _, _) =>
-            Align(alignment: Alignment.bottomCenter, child: sheet(ctx)),
-      );
-    }
-    return showCupertinoModalPopup<T>(
-      context: context,
-      semanticsDismissible: true,
-      builder: sheet,
-    );
-  }
   return showAdaptiveSheet<T>(
     context: context,
     sheetAnimationStyle: Motion.menu(context),
@@ -1003,11 +940,10 @@ class _ParkRefreshState extends State<ParkRefresh> {
       child: widget.child,
     );
     if (!PlatformCapabilities.desktop) return indicator;
-    final mac = Theme.of(context).platform == TargetPlatform.macOS;
     return CallbackShortcuts(
       bindings: {
         const SingleActivator(LogicalKeyboardKey.f5): _requestRefresh,
-        SingleActivator(LogicalKeyboardKey.keyR, control: !mac, meta: mac):
+        const SingleActivator(LogicalKeyboardKey.keyR, control: true):
             _requestRefresh,
       },
       child: Focus(

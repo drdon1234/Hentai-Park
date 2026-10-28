@@ -12,31 +12,17 @@ abstract final class PlatformCapabilities {
       !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
 
   static bool get desktop =>
-      !kIsWeb &&
-      switch (defaultTargetPlatform) {
-        TargetPlatform.windows ||
-        TargetPlatform.macOS ||
-        TargetPlatform.linux => true,
-        _ => false,
-      };
+      !kIsWeb && defaultTargetPlatform == TargetPlatform.windows;
 
   static bool get nativeVideo =>
       !kIsWeb &&
       switch (defaultTargetPlatform) {
-        TargetPlatform.android ||
-        TargetPlatform.iOS ||
-        TargetPlatform.macOS ||
-        TargetPlatform.windows ||
-        TargetPlatform.linux => true,
+        TargetPlatform.android || TargetPlatform.windows => true,
         _ => false,
       };
 
   static bool get photoLibrary =>
-      !kIsWeb &&
-      switch (defaultTargetPlatform) {
-        TargetPlatform.android || TargetPlatform.iOS => true,
-        _ => false,
-      };
+      !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
 
   static bool get androidBackground =>
       !kIsWeb && defaultTargetPlatform == TargetPlatform.android;

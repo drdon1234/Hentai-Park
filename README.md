@@ -8,7 +8,7 @@
 
 <p align="center">
   <a href="https://github.com/drdon1234/Hentai-Park/releases/latest"><img src="https://img.shields.io/github/v/release/drdon1234/Hentai-Park?label=Download&color=C96442" alt="下载应用"></a>
-  <img src="https://img.shields.io/badge/Android-7.0%2B-C96442?logo=android&logoColor=white" alt="Android 7.0+">
+  <img src="https://img.shields.io/badge/Android_7.0%2B_%C2%B7_Windows-333333" alt="Android 7.0+ / Windows">
 </p>
 
 <p align="center"><a href="https://github.com/drdon1234/Hentai-Park/releases/latest">下载</a> · <a href="#screenshots">截图</a> · <a href="#features">功能</a> · <a href="#faq">常见问题</a> · <a href="https://github.com/drdon1234/Hentai-Park/issues">反馈</a></p>
@@ -17,7 +17,7 @@
 
 ## 下载与平台
 
-从 **[最新版本](https://github.com/drdon1234/Hentai-Park/releases/latest)** 下载对应平台的安装包。支持 Android、Windows、macOS 和 Linux；iOS/iPadOS 当前仅提供模拟器包，Web 暂不支持。Android 多数手机和平板选择 arm64-v8a，桌面包需要完整解压。平台限制和安装步骤见 [平台说明](docs/PLATFORMS.md)。
+从 **[最新版本](https://github.com/drdon1234/Hentai-Park/releases/latest)** 下载对应平台的安装包。支持 Android 7.0+ 和 Windows。Android 多数手机和平板选择 arm64-v8a，桌面包需要完整解压。平台限制和安装步骤见 [平台说明](docs/PLATFORMS.md)。
 
 ## 三步上手
 
@@ -27,7 +27,7 @@
 
 需要登录或代理的站点，在「我的 → 站点」和「我的 → 网络」设置。站点更新会提示是否需要先升级应用；每个站点实际可用的功能以应用内显示为准。
 
-Windows、macOS 和 Debian 系 Linux 支持在应用内确认更新后下载、校验并打开安装程序；应用会退出，请按系统提示完成安装。其他 Linux 发行版请手动下载压缩包。Windows 便携 ZIP 和 Linux tar.gz 解压后使用固定的 `HentaiPark` 主目录，macOS ZIP 内为 `HentaiPark.app`。
+Windows 支持在应用内确认更新后下载、校验并打开安装程序；应用会退出，请按系统提示完成安装。便携 ZIP 解压后使用固定的 `HentaiPark` 主目录。
 
 <a id="screenshots"></a>
 

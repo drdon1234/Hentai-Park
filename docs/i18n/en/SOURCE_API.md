@@ -602,6 +602,8 @@ It uses [@mtproto/core 6.3.0](https://github.com/alik0211/mtproto-core) (GPL-3.0
 
 ### `webVideo(id, episodeId)`
 
+Android uses an isolated temporary WebView Profile and requires `MULTI_PROFILE`; update Android System WebView if it is unavailable. Closing playback clears its cookies and site storage and destroys the WebView; loaded profiles that cannot yet be deleted are cleaned up when playback starts in the next app process. Windows uses a separate temporary user directory and a private session; playback is refused if private sessions are unavailable, and the directory is cleaned up on exit. Playback pauses when the app enters the background or is locked.
+
 Web playback handles Cloudflare in an isolated temporary session. Only the exact `challenges.cloudflare.com` verification frame is allowed, never main-frame navigation to that host. Age confirmation uses `network.confirmation` only on source-declared domains, not external players. If automatic checks cannot finish, the page remains available for manual handling; player cookies are never imported or exported. `CONFIRM_REQUIRED` preserves the plugin message and opens an in-app confirmation page to synchronize the source session after explicit completion, without replaying the original operation.
 
 Supported providers in iXXX and TubeSafari prefer native playback, with resume and offline saving. Other providers use in-app web playback, which may require site confirmation and does not support app downloads or precise resume. Android web playback requires a recent Android System WebView with isolated-session support.

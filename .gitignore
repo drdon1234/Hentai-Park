@@ -62,11 +62,9 @@ session.*.json
 
 # Flutter/Dart/Pub related
 **/doc/api/
-**/ios/Flutter/.last_build_id
 .flutter-plugins-dependencies
 /build/
 /coverage/
-/test/
 /test/
 
 # Symbolication related
@@ -92,13 +90,3 @@ docs/superpowers/
 .[Cc][Ll][Aa][Uu][Dd][Ee]/
 [Cc][Ll][Aa][Uu][Dd][Ee].md
 [Cc][Ll][Aa][Uu][Dd][Ee].*.md
-
-# Generated native build files
-/ios/Pods/
-/ios/Flutter/Generated.xcconfig
-/ios/Flutter/flutter_export_environment.sh
-/ios/Runner/GeneratedPluginRegistrant.*
-/macos/Pods/
-/macos/Flutter/ephemeral/
-/linux/flutter/ephemeral/
-**/xcuserdata/

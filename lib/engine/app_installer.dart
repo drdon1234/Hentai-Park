@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'dart:ffi';
 import 'dart:io';
 
@@ -52,7 +51,7 @@ class AppInstaller {
   static const _channel = MethodChannel('hentai_park/platform');
   final bool supported;
   final String _platform, _architecture;
-  bool get desktop => const {'windows', 'macos', 'linux'}.contains(_platform);
+  bool get desktop => _platform == 'windows';
   final Future<Directory> Function() _cache;
   final Future<List<String>> Function() _abis;
   final Future<void> Function(
@@ -127,8 +126,6 @@ class AppInstaller {
     if (!supported) return null;
     final suffix = switch ((_platform, _architecture)) {
       ('windows', 'x64') => '-windows-x64-setup.exe',
-      ('macos', 'x64' || 'arm64') => '-macos-universal.pkg',
-      ('linux', 'x64') => '-linux-x64.deb',
       _ => null,
     };
     if (desktop) {
@@ -165,12 +162,7 @@ class AppInstaller {
     final session = p.dirname(filePath);
     if (p.dirname(session) != rootPath ||
         !p.basename(session).startsWith('update-') ||
-        !const {
-          'update.apk',
-          'update.exe',
-          'update.pkg',
-          'update.deb',
-        }.contains(p.basename(filePath))) {
+        !const {'update.apk', 'update.exe'}.contains(p.basename(filePath))) {
       return;
     }
     await Directory(session).delete(recursive: true);
@@ -210,54 +202,15 @@ class AppInstaller {
       ], mode: ProcessStartMode.detached);
       return true;
     }
-    final (command, args) = switch (platform) {
-      'macos' when p.extension(file.path) == '.pkg' => (
-        '/usr/bin/open',
-        ['-a', 'Installer', file.path],
-      ),
-      'linux' when p.extension(file.path) == '.deb' => (
-        '/usr/bin/xdg-open',
-        [file.path],
-      ),
-      _ => throw const AppInstallFailure('没有适合此设备的安装包，请前往官方发布页下载'),
-    };
-    final result = await Process.run(command, args);
-    if (result.exitCode != 0) {
-      throw const AppInstallFailure('无法打开安装程序，请重试或前往官方发布页下载');
-    }
-    return true;
+    throw const AppInstallFailure('没有适合此设备的安装包，请前往官方发布页下载');
   }
 
   static String _currentArchitecture() => switch (Abi.current()) {
-    Abi.windowsX64 || Abi.linuxX64 || Abi.macosX64 => 'x64',
-    Abi.macosArm64 => 'arm64',
+    Abi.windowsX64 => 'x64',
     _ => '',
   };
 
-  static bool _supportsCurrentPlatform() {
-    if (Platform.isAndroid) return true;
-    if (_currentArchitecture().isEmpty) return false;
-    if (Platform.isWindows || Platform.isMacOS) return true;
-    if (!Platform.isLinux) return false;
-    try {
-      // .deb 仅交给 Debian 系桌面的软件安装器；其他发行版保持手动下载入口。
-      final release = const LineSplitter().convert(
-        File('/etc/os-release').readAsStringSync(),
-      );
-      return release
-          .where(
-            (line) => line.startsWith('ID=') || line.startsWith('ID_LIKE='),
-          )
-          .any(
-            (line) => line
-                .substring(line.indexOf('=') + 1)
-                .replaceAll('"', '')
-                .replaceAll("'", '')
-                .split(' ')
-                .any((id) => id == 'debian' || id == 'ubuntu'),
-          );
-    } catch (_) {
-      return false;
-    }
-  }
+  static bool _supportsCurrentPlatform() =>
+      Platform.isAndroid ||
+      (Platform.isWindows && _currentArchitecture() == 'x64');
 }

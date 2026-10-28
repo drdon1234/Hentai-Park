@@ -8,7 +8,7 @@
 
 <p align="center">
   <a href="https://github.com/drdon1234/Hentai-Park/releases/latest"><img src="https://img.shields.io/github/v/release/drdon1234/Hentai-Park?label=Download&color=C96442" alt="下載應用"></a>
-  <img src="https://img.shields.io/badge/Android-7.0%2B-C96442?logo=android&logoColor=white" alt="Android 7.0+">
+  <img src="https://img.shields.io/badge/Android_7.0%2B_%C2%B7_Windows-333333" alt="Android 7.0+ / Windows">
 </p>
 
 <p align="center">
@@ -25,9 +25,9 @@
 
 在 **[最新版本](https://github.com/drdon1234/Hentai-Park/releases/latest)** 下載對應平台的安裝包。Android 多數手機和平板選 `arm64-v8a`，模擬器一般選 `x86_64`。桌面包需完整解壓，安裝方法見 [平台說明](../../PLATFORMS.md)。
 
-提供 Android、Windows、macOS 和 Linux 客戶端；iOS/iPadOS 目前僅提供模擬器包，Web 暫不支援。安裝方式與平台限制見 [平台說明](../../PLATFORMS.md)。
+提供 Android 7.0+ 和 Windows 客戶端。安裝方式與平台限制見 [平台說明](../../PLATFORMS.md)。
 
-桌面支援 Ctrl+滾輪、Ctrl/Cmd 加減鍵縮放介面，Ctrl/Cmd+0 恢復預設，也可在外觀設定中調整。Windows 系統匣圖示可恢復視窗或結束；關閉視窗時可選擇收起到系統匣或結束應用程式。
+桌面支援 Ctrl+滾輪、Ctrl 加減鍵縮放介面，Ctrl+0 恢復預設，也可在外觀設定中調整。Windows 系統匣圖示可恢復視窗或結束；關閉視窗時可選擇收起到系統匣或結束應用程式。
 
 ## 三步上手
 
@@ -39,7 +39,7 @@
 
 外掛更新會分別顯示可直接更新的數量，以及需要先升級主程式的數量與最低版本。不相容的外掛會保留已安裝版本。軟體與外掛更新均可選擇「不再提醒」來忽略本次版本；手動檢查仍可查看，後續新版本會重新提醒。
 
-Windows、macOS 和 Debian 系 Linux 支援在應用程式內確認更新後下載、驗證並開啟安裝程式；應用程式會結束，請依照系統提示完成安裝。其他 Linux 發行版請手動下載壓縮包。Windows 可攜式 ZIP 和 Linux tar.gz 解壓後使用固定的 `HentaiPark` 主目錄，macOS ZIP 內為 `HentaiPark.app`。
+Windows 支援在應用程式內確認更新後下載、驗證並開啟安裝程式；應用程式會結束，請依照系統提示完成安裝。可攜式 ZIP 解壓縮後使用固定的 `HentaiPark` 主目錄。
 
 <a id="screenshots"></a>
 
@@ -129,7 +129,7 @@ JAV 作品可查看原站標註的字幕與版本差異，切換原站提供的�
 
 SOOP 的直播、短影片與錄播分別提供獨立入口，僅收錄帶明確性感舞蹈、性感主播、比基尼或內衣標籤的相關內容，不收錄全站泛娛樂內容；部分影片需要原站認證或訂閱。
 
-直播歸入三次元，位於錄播與創作社群之間。首頁與域頁的直播卡片只顯示圖片。直播不提供下載；可在詳情頁或播放器開始、停止錄製，並在下載頁管理。錄製儲存開始後新產生的直播片段，Android 支援背景錄製，桌面端收起視窗後繼續；退出應用後結束，重新啟動不會自動續錄。中斷前已儲存的片段仍保留。 背景錄製受系統電量政策與前景服務時間額度限制，系統中止時保留已儲存片段；iOS 不支援持續背景錄製。 直播支援 TS 與 fMP4 格式的播放及錄製。
+直播歸入三次元，位於錄播與創作社群之間。首頁與域頁的直播卡片只顯示圖片。直播不提供下載；可在詳情頁或播放器開始、停止錄製，並在下載頁管理。錄製儲存開始後新產生的直播片段，Android 支援背景錄製，桌面端收起視窗後繼續；退出應用後結束，重新啟動不會自動續錄。中斷前已儲存的片段仍保留。 背景錄製受系統電量政策與前景服務時間額度限制，系統中止時保留已儲存片段。 直播支援 TS 與 fMP4 格式的播放及錄製。
 
 首頁及創作社群目標頁提供相簿，可連續瀏覽原站返回的所有相片與影片，依媒體類型和日期範圍篩選，設定每列數量或收合同一作品的媒體。影片在格狀列表中只顯示封面。開啟作品後返回會保留相簿位置。
 

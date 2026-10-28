@@ -22,45 +22,28 @@ class DesktopScale extends StatelessWidget {
     final media = MediaQuery.of(context);
     return CallbackShortcuts(
       bindings: {
-        for (final modifier in [true, false]) ...{
-          SingleActivator(
-            LogicalKeyboardKey.equal,
-            control: modifier,
-            meta: !modifier,
-          ): () =>
-              change(10),
-          SingleActivator(
-            LogicalKeyboardKey.equal,
-            control: modifier,
-            meta: !modifier,
-            shift: true,
-          ): () =>
-              change(10),
-          SingleActivator(
-            LogicalKeyboardKey.numpadAdd,
-            control: modifier,
-            meta: !modifier,
-          ): () =>
-              change(10),
-          SingleActivator(
-            LogicalKeyboardKey.minus,
-            control: modifier,
-            meta: !modifier,
-          ): () =>
-              change(-10),
-          SingleActivator(
-            LogicalKeyboardKey.numpadSubtract,
-            control: modifier,
-            meta: !modifier,
-          ): () =>
-              change(-10),
-          SingleActivator(
-            LogicalKeyboardKey.digit0,
-            control: modifier,
-            meta: !modifier,
-          ): () =>
-              change(0),
-        },
+        const SingleActivator(LogicalKeyboardKey.equal, control: true): () =>
+            change(10),
+        const SingleActivator(
+          LogicalKeyboardKey.equal,
+          control: true,
+          shift: true,
+        ): () =>
+            change(10),
+        const SingleActivator(
+          LogicalKeyboardKey.numpadAdd,
+          control: true,
+        ): () =>
+            change(10),
+        const SingleActivator(LogicalKeyboardKey.minus, control: true): () =>
+            change(-10),
+        const SingleActivator(
+          LogicalKeyboardKey.numpadSubtract,
+          control: true,
+        ): () =>
+            change(-10),
+        const SingleActivator(LogicalKeyboardKey.digit0, control: true): () =>
+            change(0),
       },
       child: _ScaleWheelRegion(
         child: LayoutBuilder(

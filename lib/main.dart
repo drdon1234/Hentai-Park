@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:io';
 
-import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -76,9 +75,6 @@ Future<void> _start() async {
       );
     },
     () async {
-      if (Platform.isMacOS) await FilePicker.skipEntitlementsChecks();
-    },
-    () async {
       if (Platform.isAndroid) {
         await const MethodChannel('hentai_park/platform')
             .invokeMethod<void>('claimSourceEngine');
@@ -104,7 +100,7 @@ Future<void> _start() async {
     AppSettings.instance.load,
     () async {
       final downloadDirectory = AppSettings.instance.downloadDirectory;
-      if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) {
+      if (Platform.isWindows) {
         if (downloadDirectory.isNotEmpty) {
           try {
             await AppPaths.selectDownloadDirectory(downloadDirectory);

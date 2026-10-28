@@ -1,5 +1,3 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:window_manager/window_manager.dart';
@@ -62,17 +60,13 @@ class DesktopWindow with WindowListener {
     await windowManager.ensureInitialized();
     await windowManager.setTitle('HentaiPark');
     await windowManager.setMinimumSize(const Size(360, 480));
-    if (Platform.isWindows) {
-      await _updateTrayLabels();
-    }
+    await _updateTrayLabels();
     // 启动错误页尚无主导航；初始化成功前保留原生关闭能力。
     await windowManager.setPreventClose(true);
-    if (Platform.isWindows) {
-      _tray.setMethodCallHandler((call) async {
-        if (call.method == 'exit') await _exit();
-      });
-      AppSettings.instance.watch({'language'}).addListener(_updateTrayLabels);
-    }
+    _tray.setMethodCallHandler((call) async {
+      if (call.method == 'exit') await _exit();
+    });
+    AppSettings.instance.watch({'language'}).addListener(_updateTrayLabels);
     // 所有可能失败的初始化完成后再注册，启动重试不会重复添加监听。
     windowManager.addListener(this);
   }
@@ -80,7 +74,6 @@ class DesktopWindow with WindowListener {
   @override
   void onWindowClose() async {
     if (_closing || _choosing) return;
-    if (!Platform.isWindows) return _exit();
     final context = navigatorKey.currentContext;
     if (context == null) return;
     _choosing = true;

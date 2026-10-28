@@ -7,7 +7,7 @@ import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 import 'package:video_player_platform_interface/video_player_platform_interface.dart';
 
-/// Windows/Linux 的唯一 video_player 桥接。先交还可释放的句柄，再初始化原生资源。
+/// Windows 的 video_player 桥接。先交还可释放的句柄，再初始化原生资源。
 /// 原生创建或打开失败通过事件报告，不会困住控制器的 creating completer。
 class DesktopVideoPlayer extends VideoPlayerPlatform {
   DesktopVideoPlayer({
@@ -22,7 +22,7 @@ class DesktopVideoPlayer extends VideoPlayerPlatform {
   int _nextId = 0;
 
   static void register() {
-    if (!Platform.isWindows && !Platform.isLinux) return;
+    if (!Platform.isWindows) return;
     MediaKit.ensureInitialized();
     VideoPlayerPlatform.instance = DesktopVideoPlayer();
   }

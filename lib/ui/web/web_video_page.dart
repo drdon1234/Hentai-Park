@@ -195,11 +195,7 @@ class _WebVideoPageState extends State<WebVideoPage>
           episodeId: widget.episodeId,
         );
         final policy = WebPlaybackPolicy.fromJson(target);
-        if (!Platform.isAndroid &&
-            !Platform.isIOS &&
-            !Platform.isMacOS &&
-            !Platform.isWindows &&
-            !Platform.isLinux) {
+        if (!Platform.isAndroid && !Platform.isWindows) {
           throw SourceError('UNSUPPORTED', '当前设备暂不支持应用内网页播放');
         }
         if (Platform.isWindows) {
@@ -337,10 +333,8 @@ class _WebVideoPageState extends State<WebVideoPage>
         ''',
         );
         if (Platform.isAndroid) await controller.pause();
-        await controller.pauseAllMediaPlayback();
-      } else {
-        if (Platform.isAndroid) await controller.resume();
-        await controller.setAllMediaPlaybackSuspended(suspended: false);
+      } else if (Platform.isAndroid) {
+        await controller.resume();
       }
     } catch (_) {}
   }
@@ -434,7 +428,7 @@ class _WebVideoPageState extends State<WebVideoPage>
                   webViewEnvironment: _environment,
                   // 不设置初始 URL；Android 切换独立 Profile 后才允许联网。
                   initialUserScripts: UnmodifiableListView([
-                    if (Platform.isAndroid || Platform.isLinux)
+                    if (Platform.isAndroid)
                       UserScript(
                         source: challengeDocumentScript,
                         injectionTime:
@@ -449,8 +443,6 @@ class _WebVideoPageState extends State<WebVideoPage>
                     useShouldOverrideUrlLoading: true,
                     regexToCancelSubFramesLoading: policy.blockedFramePattern,
                     supportMultipleWindows: true,
-                    allowsInlineMediaPlayback: true,
-                    allowsPictureInPictureMediaPlayback: false,
                     allowFileAccess: false,
                     allowContentAccess: false,
                     mixedContentMode:

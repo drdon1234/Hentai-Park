@@ -602,6 +602,8 @@ Usa [@mtproto/core 6.3.0](https://github.com/alik0211/mtproto-core) (GPL-3.0, [l
 
 ### `webVideo(id, episodeId)`
 
+Android usa un WebView Profile temporal y aislado que requiere `MULTI_PROFILE`; actualiza Android System WebView si no está disponible. Al cerrar se borran sus cookies y datos del sitio y se destruye el WebView; los perfiles cargados que aún no puedan eliminarse se limpian al iniciar la reproducción en el siguiente proceso de la aplicación. Windows usa un directorio de usuario temporal separado y una sesión privada; rechaza la reproducción si la interfaz de sesiones privadas no está disponible y limpia el directorio al salir. La reproducción se pausa al pasar a segundo plano o bloquear la aplicación.
+
 La reproducción web resuelve Cloudflare en una sesión temporal aislada. Solo permite el marco de verificación exacto `challenges.cloudflare.com`, nunca la navegación principal a ese host. `network.confirmation` solo se aplica a los dominios declarados por la fuente, no a reproductores externos. Si la verificación automática no termina, la página permanece disponible para el usuario; no se importan ni exportan cookies del reproductor. `CONFIRM_REQUIRED` conserva el mensaje del plugin y permite completar la verificación en la app y sincronizar la sesión de la fuente, sin repetir la operación original.
 
 Los proveedores compatibles de iXXX y TubeSafari priorizan la reproducción nativa, con reanudación y guardado sin conexión. Los demás usan reproducción web integrada, que puede requerir confirmación del sitio y no permite descargas de la app ni reanudación precisa. En Android, la reproducción web requiere un Android System WebView reciente con sesiones aisladas.

@@ -21,9 +21,6 @@ function output(key, value) {
 const platforms = [
   { platform: 'android', os: 'ubuntu-24.04', arch: 'arm64-armv7-x64' },
   { platform: 'windows', os: 'windows-2022', arch: 'x64' },
-  { platform: 'linux', os: 'ubuntu-24.04', arch: 'x64' },
-  { platform: 'macos', os: 'macos-15', arch: 'universal' },
-  { platform: 'ios', os: 'macos-15', arch: 'simulator-x64' },
 ];
 const command = process.argv[2];
 if (command === 'metadata') {
@@ -49,26 +46,18 @@ if (command === 'metadata') {
   const arch = process.argv[4];
   if (!platforms.some(p => p.platform === platform && p.arch === arch)) throw Error('未知构建目标');
   const prefix = `HentaiPark-${name}-${number}-${platform}-${arch}`;
-  function zip(source, target, apple = false) {
+  function zip(source, target) {
     if (!existsSync(source)) throw Error(`缺少构建产物: ${source}`);
     const dest = join(out, target);
-    if (apple) {
-      run('ditto', ['-c', '-k', '--sequesterRsrc', '--keepParent', source, dest]);
-    } else {
-      // 包内固定主目录，避免解压工具以带版本号的附件名作为安装目录。
-      const staging = mkdtempSync(resolve(`test/package-${platform}-`));
-      try {
-        const bundle = join(staging, 'HentaiPark');
-        cpSync(source, bundle, { recursive: true, preserveTimestamps: true, verbatimSymlinks: true });
-        if (platform === 'windows') {
-          const quote = value => `'${value.replace(/'/g, "''")}'`;
-          run('powershell.exe', ['-NoProfile', '-Command', `Compress-Archive -LiteralPath ${quote(bundle)} -DestinationPath ${quote(dest)} -Force`]);
-        } else {
-          run('tar', ['-czf', dest, '-C', staging, 'HentaiPark']);
-        }
-      } finally {
-        rmSync(staging, { recursive: true, force: true });
-      }
+    // 包内固定主目录，避免解压工具以带版本号的附件名作为安装目录。
+    const staging = mkdtempSync(resolve('test/package-windows-'));
+    try {
+      const bundle = join(staging, 'HentaiPark');
+      cpSync(source, bundle, { recursive: true, preserveTimestamps: true, verbatimSymlinks: true });
+      const quote = value => `'${value.replace(/'/g, "''")}'`;
+      run('powershell.exe', ['-NoProfile', '-Command', `Compress-Archive -LiteralPath ${quote(bundle)} -DestinationPath ${quote(dest)} -Force`]);
+    } finally {
+      rmSync(staging, { recursive: true, force: true });
     }
   }
   if (platform === 'windows') {
@@ -99,51 +88,6 @@ if (command === 'metadata') {
       'windows/installer.iss',
     ]);
   }
-  if (platform === 'linux') {
-    const bundle = resolve('build/linux/x64/release/bundle');
-    zip(bundle, `${prefix}.tar.gz`);
-    const staging = mkdtempSync(resolve('test/package-linux-'));
-    try {
-      const root = join(staging, 'debian/hentaipark');
-      const application = join(root, 'opt/hentaipark');
-      cpSync(bundle, application, { recursive: true, preserveTimestamps: true, verbatimSymlinks: true });
-      mkdirSync(join(staging, 'debian'), { recursive: true });
-      writeFileSync(join(staging, 'debian/control'), 'Source: hentaipark\n\nPackage: hentaipark\nArchitecture: amd64\nDescription: HentaiPark desktop client\n');
-      // 从构建产物推导当前发行版的真实运行库依赖，不手写可能漂移的库包名。
-      const binaries = [join(application, 'hentai_park'), ...readdirSync(join(application, 'lib'))
-        .filter(file => /\.so(?:\.|$)/.test(file)).map(file => join(application, 'lib', file))];
-      const dependencies = run('dpkg-shlibdeps', [
-        '-O', '--ignore-missing-info', `-l${join(application, 'lib')}`,
-        ...binaries.flatMap(file => ['-e', file]),
-      ], { cwd: staging, encoding: 'utf8', stdio: ['ignore', 'pipe', 'inherit'] }).stdout
-        .split('\n').find(line => line.startsWith('shlibs:Depends='))?.slice('shlibs:Depends='.length);
-      if (!dependencies) throw Error('无法确定 Linux 安装包的运行库依赖');
-      mkdirSync(join(root, 'DEBIAN'), { recursive: true });
-      writeFileSync(join(root, 'DEBIAN/control'), [
-        'Package: hentaipark', `Version: ${name}-${number}`, 'Architecture: amd64',
-        'Maintainer: HentaiPark contributors <noreply@github.com>', 'Section: video', 'Priority: optional',
-        `Depends: ${dependencies}, xdg-utils`, 'Description: HentaiPark desktop client', '',
-      ].join('\n'));
-      mkdirSync(join(root, 'usr/share/applications'), { recursive: true });
-      writeFileSync(join(root, 'usr/share/applications/hentaipark.desktop'), [
-        '[Desktop Entry]', 'Type=Application', 'Name=HentaiPark',
-        'Exec=/opt/hentaipark/hentai_park', 'Icon=hentaipark', 'Terminal=false',
-        'Categories=AudioVideo;', '',
-      ].join('\n'));
-      mkdirSync(join(root, 'usr/share/pixmaps'), { recursive: true });
-      copyFileSync('assets/branding/app_icon.png', join(root, 'usr/share/pixmaps/hentaipark.png'));
-      run('dpkg-deb', ['--build', '--root-owner-group', root, join(out, `${prefix}.deb`)]);
-    } finally {
-      rmSync(staging, { recursive: true, force: true });
-    }
-  }
-  if (platform === 'macos') {
-    const app = 'build/macos/Build/Products/Release/HentaiPark.app';
-    zip(app, `${prefix}.zip`, true);
-    run('pkgbuild', ['--component', app, '--install-location', '/Applications',
-      '--identifier', 'com.hentaipark.installer', '--version', name, join(out, `${prefix}.pkg`)]);
-  }
-  if (platform === 'ios') zip('build/ios/iphonesimulator/Runner.app', `${prefix}.zip`, true);
   if (platform === 'android') {
     // 无签名 APK 只用于编译检查，不进入分发目录。
     if (process.env.ANDROID_SIGNED === 'true') {

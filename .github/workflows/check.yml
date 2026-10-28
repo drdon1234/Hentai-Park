@@ -2,9 +2,9 @@ name: Checks and platform builds
 on:
   push:
     branches: [main]
-    paths: ['lib/**', 'assets/**', 'android/**', 'ios/**', 'macos/**', 'linux/**', 'windows/**', 'pubspec.*', 'tools/**', '.github/workflows/**']
+    paths: ['lib/**', 'assets/**', 'android/**', 'windows/**', 'pubspec.*', 'tools/**', '.github/workflows/**']
   pull_request:
-    paths: ['lib/**', 'assets/**', 'android/**', 'ios/**', 'macos/**', 'linux/**', 'windows/**', 'pubspec.*', 'tools/**', '.github/workflows/**']
+    paths: ['lib/**', 'assets/**', 'android/**', 'windows/**', 'pubspec.*', 'tools/**', '.github/workflows/**']
   workflow_dispatch:
 permissions:
   contents: read

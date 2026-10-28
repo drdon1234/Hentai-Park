@@ -78,7 +78,7 @@ class AppReleaseAsset {
     final digest = data['digest'];
     if (name is! String ||
         !RegExp(
-          r'^HentaiPark-\d+\.\d+\.\d+-\d+-(?:android-(?:arm64-v8a|armeabi-v7a|x86_64|universal)\.apk|windows-x64-setup\.exe|macos-universal\.pkg|linux-x64\.deb)$',
+          r'^HentaiPark-\d+\.\d+\.\d+-\d+-(?:android-(?:arm64-v8a|armeabi-v7a|x86_64|universal)\.apk|windows-x64-setup\.exe)$',
         ).hasMatch(name) ||
         !name.startsWith(
           'HentaiPark-${tag.startsWith('v') ? tag.substring(1) : tag}-',

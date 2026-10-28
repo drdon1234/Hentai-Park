@@ -3,7 +3,7 @@ import 'challenge.dart';
 import 'host.dart';
 
 /// 保留 closed shadow root 的引用，不改变网页请求的 shadow 模式。
-/// Android 和 Linux WPE 没有 CDP 接口，必须在节点创建前安装。
+/// Android 没有 CDP 接口，必须在节点创建前安装。
 const challengeDocumentScript = r'''
 (() => {
   if (window !== window.top || window.__parkChallengeInput) return;

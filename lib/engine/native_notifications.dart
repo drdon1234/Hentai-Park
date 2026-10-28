@@ -3,7 +3,7 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
 import '../core/app_log.dart';
 
-/// 非 Android 原生通知；Android 保留现有原生桥。
+/// Windows 原生通知；Android 使用原生桥。
 class NativeNotifications {
   NativeNotifications._();
   static final instance = NativeNotifications._();
@@ -16,21 +16,11 @@ class NativeNotifications {
   Future<void> init() => _initializing ??= _init();
 
   Future<void> _init() async {
-    if (kIsWeb || defaultTargetPlatform == TargetPlatform.android) return;
+    if (kIsWeb || defaultTargetPlatform != TargetPlatform.windows) return;
     try {
-      const darwin = DarwinInitializationSettings(
-        requestAlertPermission: false,
-        requestBadgePermission: false,
-        requestSoundPermission: false,
-      );
       _ready =
           await _plugin.initialize(
             settings: const InitializationSettings(
-              iOS: darwin,
-              macOS: darwin,
-              linux: LinuxInitializationSettings(
-                defaultActionName: 'HentaiPark',
-              ),
               windows: WindowsInitializationSettings(
                 appName: 'HentaiPark',
                 appUserModelId: 'com.hentaipark.HentaiPark',
@@ -64,23 +54,7 @@ class NativeNotifications {
   Future<bool> _requestPermission() async {
     await init();
     if (!_ready) return false;
-    if (defaultTargetPlatform == TargetPlatform.iOS) {
-      return await _plugin
-              .resolvePlatformSpecificImplementation<
-                IOSFlutterLocalNotificationsPlugin
-              >()
-              ?.requestPermissions(alert: true, badge: true, sound: true) ??
-          false;
-    }
-    if (defaultTargetPlatform == TargetPlatform.macOS) {
-      return await _plugin
-              .resolvePlatformSpecificImplementation<
-                MacOSFlutterLocalNotificationsPlugin
-              >()
-              ?.requestPermissions(alert: true, badge: true, sound: true) ??
-          false;
-    }
-    // Desktop notification services control permission in system settings.
+    // Windows 通知权限由系统设置控制。
     return true;
   }
 
@@ -105,9 +79,6 @@ class NativeNotifications {
         body: body,
         payload: payload,
         notificationDetails: const NotificationDetails(
-          iOS: DarwinNotificationDetails(),
-          macOS: DarwinNotificationDetails(),
-          linux: LinuxNotificationDetails(),
           windows: WindowsNotificationDetails(),
         ),
       );

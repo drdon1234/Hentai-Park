@@ -8,7 +8,7 @@
 
 <p align="center">
   <a href="https://github.com/drdon1234/Hentai-Park/releases/latest"><img src="https://img.shields.io/github/v/release/drdon1234/Hentai-Park?label=Download&color=C96442" alt="Descargar"></a>
-  <img src="https://img.shields.io/badge/Android-7.0%2B-C96442?logo=android&logoColor=white" alt="Android 7.0+">
+  <img src="https://img.shields.io/badge/Android_7.0%2B_%C2%B7_Windows-333333" alt="Android 7.0+ / Windows">
 </p>
 
 <p align="center">
@@ -27,9 +27,9 @@ Elige el modo de ahorro en Más → Red. El ahorro normal muestra sitios compact
 
 Descarga el paquete de tu plataforma desde la **[última versión](https://github.com/drdon1234/Hentai-Park/releases/latest)**. En Android, la mayoría de móviles y tabletas usan `arm64-v8a`; los emuladores suelen usar `x86_64`. Extrae por completo los paquetes de escritorio. Consulta [la instalación y los límites](../../PLATFORMS.md).
 
-Hay clientes para Android, Windows, macOS y Linux. iOS/iPadOS solo dispone de un paquete para simulador; Web no está disponible. Consulta la [instalación y limitaciones](../../PLATFORMS.md). La reproducción y grabación de directos admiten TS y fMP4.
+Hay clientes para Android 7.0+ y Windows. Consulta la [instalación y limitaciones](../../PLATFORMS.md). La reproducción y grabación de directos admiten TS y fMP4.
 
-En escritorio, usa Ctrl+rueda del ratón o Ctrl/Cmd con las teclas más/menos para ajustar la escala, y Ctrl/Cmd+0 para restablecerla; también puedes hacerlo en Apariencia. El icono de la bandeja de Windows permite restaurar la ventana o salir. Al cerrar la ventana, puedes elegir ocultarla en la bandeja o salir.
+En escritorio, usa Ctrl+rueda del ratón o Ctrl con las teclas más/menos para ajustar la escala, y Ctrl+0 para restablecerla; también puedes hacerlo en Apariencia. El icono de la bandeja de Windows permite restaurar la ventana o salir. Al cerrar la ventana, puedes elegir ocultarla en la bandeja o salir.
 
 ## Empieza en tres pasos
 
@@ -41,7 +41,7 @@ Los sitios que necesitan cuenta o proxy se configuran en Más → Sitios y Más 
 
 Los avisos indican cuántos complementos se pueden actualizar y cuántos requieren una aplicación más reciente, agrupados por versión mínima. Los incompatibles conservan su versión instalada. «No volver a recordar» omite esa versión de la aplicación o del complemento; las comprobaciones manuales siguen mostrándola y las versiones posteriores vuelven a avisar.
 
-En Windows, macOS y Linux basado en Debian, al confirmar una actualización se descarga y verifica el instalador, se abre y se cierra la aplicación. Sigue las indicaciones del sistema para completar la instalación. En otras distribuciones Linux, descarga el archivo comprimido manualmente. Los archivos ZIP portátiles de Windows y tar.gz de Linux contienen una carpeta fija `HentaiPark`; los ZIP de macOS contienen `HentaiPark.app`.
+En Windows, al confirmar una actualización se descarga y verifica el instalador, se abre y se cierra la aplicación. Sigue las indicaciones del sistema para completar la instalación. Los archivos ZIP portátiles contienen una carpeta fija `HentaiPark`.
 
 <a id="screenshots"></a>
 
@@ -129,7 +129,7 @@ En la gestión de sitios, «Medir velocidad y ordenar automáticamente» se ejec
 
 SOOP ofrece entradas separadas para directos, vídeos cortos y grabaciones, filtradas por etiquetas explícitas de baile sexy, cámaras sensuales, bikini o lencería. Se excluye el entretenimiento general; algunos vídeos requieren verificación o suscripción en el sitio original.
 
-Los directos pertenecen a 3D y aparecen entre las grabaciones y las comunidades de creadores. Las tarjetas de inicio y categoría solo muestran imágenes. Los directos no se descargan. Puedes iniciar o detener una grabación en los detalles o el reproductor y gestionarla en Descargas. Solo se guardan los nuevos segmentos producidos tras iniciar la grabación. Android permite grabar en segundo plano; en escritorio continúa con la ventana oculta. Salir de la aplicación termina la grabación, que no se reanuda al volver a abrirla. Se conserva el contenido guardado antes de una interrupción. La grabación en segundo plano depende del ahorro de energía y del límite de tiempo del servicio en primer plano; se conservan los segmentos guardados. iOS no admite grabación continua en segundo plano.
+Los directos pertenecen a 3D y aparecen entre las grabaciones y las comunidades de creadores. Las tarjetas de inicio y categoría solo muestran imágenes. Los directos no se descargan. Puedes iniciar o detener una grabación en los detalles o el reproductor y gestionarla en Descargas. Solo se guardan los nuevos segmentos producidos tras iniciar la grabación. Android permite grabar en segundo plano; en escritorio continúa con la ventana oculta. Salir de la aplicación termina la grabación, que no se reanuda al volver a abrirla. Se conserva el contenido guardado antes de una interrupción. La grabación en segundo plano depende del ahorro de energía y del límite de tiempo del servicio en primer plano; se conservan los segmentos guardados.
 
 Abre el álbum desde el inicio y las páginas de comunidades de creadores para recorrer todas las fotos y vídeos que proporciona el sitio. Filtra por tipo o fecha, elige cuántos elementos aparecen por fila o agrupa el contenido de una publicación. Los vídeos muestran una miniatura. Al volver de una obra se conserva la posición del álbum.
 

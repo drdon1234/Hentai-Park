@@ -21,10 +21,9 @@ class ImageInputRegion extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (!PlatformCapabilities.desktop) return child;
-    final mac = Theme.of(context).platform == TargetPlatform.macOS;
     return Shortcuts(
       shortcuts: {
-        SingleActivator(LogicalKeyboardKey.keyV, control: !mac, meta: mac):
+        const SingleActivator(LogicalKeyboardKey.keyV, control: true):
             const PasteTextIntent(SelectionChangedCause.keyboard),
       },
       child: Actions(

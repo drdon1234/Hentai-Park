@@ -1,6 +1,5 @@
 """从项目书本与播放标识生成原生平台图标。运行前安装 Pillow。"""
 
-import json
 from pathlib import Path
 
 from PIL import Image, ImageDraw
@@ -42,13 +41,6 @@ def save(path, size):
 
 
 save(ROOT / 'assets/branding/app_icon.png', SIZE)
-for directory in ('ios', 'macos'):
-    folder = ROOT / directory / 'Runner/Assets.xcassets/AppIcon.appiconset'
-    entries = json.loads((folder / 'Contents.json').read_text(encoding='utf-8'))
-    for entry in entries['images']:
-        if 'filename' in entry:
-            size = round(float(entry['size'].split('x')[0]) * float(entry['scale'][:-1]))
-            save(folder / entry['filename'], size)
 for density, size in (('mdpi', 48), ('hdpi', 72), ('xhdpi', 96), ('xxhdpi', 144), ('xxxhdpi', 192)):
     save(ROOT / f'android/app/src/main/res/mipmap-{density}/ic_launcher.png', size)
 icon.save(ROOT / 'windows/runner/resources/app_icon.ico',

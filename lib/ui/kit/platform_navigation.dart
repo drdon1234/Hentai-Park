@@ -1,4 +1,3 @@
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
 import '../../core/platform_capabilities.dart';
@@ -114,24 +113,6 @@ class PlatformNavigation extends StatelessWidget {
               label: SelectionContainer.disabled(
                 child: Text(destination.label),
               ),
-            ),
-        ],
-      );
-    }
-    if (Theme.of(context).platform == TargetPlatform.iOS) {
-      return CupertinoTabBar(
-        currentIndex: selectedIndex,
-        onTap: onSelected,
-        backgroundColor: context.colors.surface,
-        activeColor: context.colors.primary,
-        inactiveColor: context.colors.onSurfaceVariant,
-        items: [
-          for (final destination in destinations)
-            BottomNavigationBarItem(
-              icon: destination.icon,
-              activeIcon: destination.selectedIcon,
-              label: destination.label,
-              tooltip: destination.tooltip ?? destination.label,
             ),
         ],
       );

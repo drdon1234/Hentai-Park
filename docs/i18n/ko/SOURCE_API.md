@@ -591,6 +591,8 @@ node tools/build_subscription_sources.mjs
 
 ### `webVideo(id, episodeId)`
 
+Android는 독립된 임시 WebView Profile을 사용하며 `MULTI_PROFILE` 지원이 필요합니다. 지원되지 않으면 Android System WebView를 업데이트하세요. 종료 시 Cookie와 사이트 저장소를 지우고 WebView를 종료하며, 사용 중이라 삭제할 수 없는 Profile은 다음 앱 프로세스에서 재생을 시작할 때 정리합니다. Windows는 별도의 임시 사용자 폴더와 비공개 세션을 사용합니다. 비공개 세션 인터페이스가 없으면 재생을 거부하고 종료 후 폴더를 정리합니다. 앱이 백그라운드로 이동하거나 잠기면 재생을 일시 정지합니다.
+
 웹 재생은 독립된 임시 세션에서 Cloudflare 인증을 처리합니다. 정확히 `challenges.cloudflare.com`인 인증 하위 프레임만 허용하며 해당 호스트로의 주 프레임 이동은 허용하지 않습니다. `network.confirmation`은 소스가 선언한 도메인에만 적용하고 외부 플레이어에는 적용하지 않습니다. 자동 처리가 끝나지 않으면 수동 조작을 위해 페이지를 유지하며 플레이어 Cookie는 가져오거나 내보내지 않습니다. `CONFIRM_REQUIRED`는 플러그인 안내를 유지하고 앱 내 확인 페이지에서 명시적으로 완료한 뒤 소스 세션을 동기화합니다. 원래 작업은 자동 재전송하지 않습니다.
 
 iXXX와 TubeSafari의 지원되는 출처는 네이티브 재생을 우선하며 이어 보기와 오프라인 저장을 지원합니다. 지원되지 않는 출처는 앱 내 웹 재생을 사용합니다. 웹 재생은 사이트 확인이 필요할 수 있으며 앱 다운로드와 정확한 이어 보기를 지원하지 않습니다. Android 웹 재생에는 격리 세션을 지원하는 최신 Android System WebView가 필요합니다.

@@ -40,7 +40,6 @@ dependencies:
   media_kit_video: 2.0.1
   video_player_platform_interface: 6.9.0
   media_kit_libs_windows_video: 1.0.11
-  media_kit_libs_linux: 1.2.1
   window_manager: 0.5.2
   flutter_local_notifications: 22.3.2
   desktop_drop: ^0.8.0

@@ -591,6 +591,8 @@ node tools/build_subscription_sources.mjs
 
 ### `webVideo(id, episodeId)`
 
+Android 使用獨立暫存 WebView Profile，需支援 `MULTI_PROFILE`；不支援時請更新 Android System WebView。退出時清除 Profile 的 Cookie 與網站儲存並銷毀 WebView；暫時無法刪除的已載入 Profile 會在下次啟動程序播放時清理。Windows 使用獨立暫存使用者目錄及私密工作階段；缺少私密工作階段介面時拒絕播放，退出後清理目錄。進入背景或鎖定應用程式時暫停播放。
+
 網頁播放器在獨立暫存工作階段內處理 Cloudflare 驗證，只允許精確的 `challenges.cloudflare.com` 驗證子框架，不開放其主框架導覽。年齡確認僅在來源宣告網域內使用 `network.confirmation`，不套用至外部播放器。無法自動完成時保留網頁供使用者處理，不匯入或匯出播放器 Cookie。`CONFIRM_REQUIRED` 保留外掛提示，透過應用程式內「去確認」頁面處理，明確完成後同步來源工作階段，不自動重播原操作。
 
 iXXX 與 TubeSafari 已適配的來源優先使用原生播放器，支援續播與離線儲存；未適配的來源使用應用程式內網頁播放。網頁播放可能需要站點確認，不支援應用程式下載與精確續播；Android 需要支援獨立工作階段的較新版本 Android System WebView。

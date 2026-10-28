@@ -8,8 +8,6 @@
 
 `lib/engine/access/` 不依赖 Flutter，集中维护页面识别、年龄确认、文档状态和输入校验。原生客户端由 `WebViewInteractionHost` 接入，核心按宿主能力选择输入方式。
 
-Linux 的 `linux/browser_input.cmake` 为固定版本的 WPE 插件生成编译副本，接通后台与可见视图的原生指针输入，并补齐无头视图创建时的初始用户脚本注入；保留页面与悬停遮挡检查、一次性文档标识及导航期间取消。WPE 不使用 CDP，不能以伪造 Windows 平台替代原生能力接入。升级插件时核对该构建入口及 WPE 输入接口。
-
 Windows 的 `windows/webview_lifecycle.cmake` 将 WebView 共享图形资源的释放移到插件析构阶段，按视图、合成器、D3D、DispatcherQueue、WinRT 的顺序关闭，避免 DLL 卸载期间访问图形驱动。构建只生成一个修正后的翻译单元，不修改 Pub 缓存。依赖升级导致对应源码结构变化时构建明确失败，必须核对释放顺序后更新集成。
 
 `windows/webview_cookies.cmake` 在同一构建边界统一单项和批量 Cookie 读取：将 CDP 的 Unix 秒转换为 Flutter 接口约定的毫秒，并将会话 Cookie 的有效期设为空，避免网页认证状态在导入时被误判为过期。同样只生成构建副本；依赖升级后必须核对对应读取实现。
@@ -18,11 +16,11 @@ Windows 的 `windows/webview_bridge_lifetime.cmake` 在构建副本中约束 JS 
 
 Windows 同时在管理器生成副本中接入 `windows/webview_user_agent.h`，补齐 `getDefaultUserAgent`：从未覆盖标识的临时 WebView 读取当前 WebView2 的默认值，供网页验证与后续请求共同使用，避免桌面端退回手机标识并读取到不同的页面布局。
 
-Windows/Linux 通过 `lib/video/desktop_video_player.dart` 将共享 `video_player` 控制器接入 `media_kit`；Android 与 Apple 平台使用系统实现。桌面桥先返回可释放的播放器标识，原生创建及打开结果通过事件交付；初始化失败也必须释放控制器。升级媒体依赖时需检查创建失败、切集、重播及关闭中的资源释放。
+Windows 通过 `lib/video/desktop_video_player.dart` 将共享 `video_player` 控制器接入 `media_kit`；Android 使用系统实现。桌面桥先返回可释放的播放器标识，原生创建及打开结果通过事件交付；初始化失败也必须释放控制器。升级媒体依赖时需检查创建失败、切集、重播及关闭中的资源释放。
 
 - 工具链：Flutter 3.47.7（Dart 3.13.5）、JDK 17、Node.js 22。CI 固定这个 Flutter 版本。
 - WebView 使用 beta 依赖，用于现有的浏览器桥能力；升级前必须验证 Cookie 分区、验证页和媒体传输。`flutter_tts` 仍使用外部 Kotlin 插件，升级 Flutter 前要核对插件的内置 Kotlin 支持。
-- Android、Windows、macOS、Linux 与 iOS 模拟器均由 GitHub Actions 执行构建检查；真实设备和 Linux 发行版运行仍需单独验证。Web 因浏览器文件、Cookie、CORS 与本地媒体安全边界暂不宣称完整支持，详见 [平台矩阵](PLATFORMS.md)。
+- Android 与 Windows 由 GitHub Actions 执行构建检查；实际设备运行仍需单独验证，详见 [平台矩阵](PLATFORMS.md)。
 
 ### Android SDK
 
@@ -204,20 +202,17 @@ GitHub Release 正文就是应用内“发现软件新版本”对话框里的�
 
 ### 跨平台构建与发布
 
-平台功能与安装方法见 [PLATFORMS.md](PLATFORMS.md)。原生目标由 check.yml、build.yml、release.yml 统一检查、构建、打包与发布；Web 当前不支持，不列入构建及发布目标。普通 PR 不传递发布凭据，发布使用受保护的 release 环境；手动 publish 默认 false。
-
-无付费 Apple 凭据时：macOS ad-hoc 包不公证；iOS 执行无签名真机编译和模拟器打包，不生成普通用户可安装的 IPA。TestFlight/App Store 上传尚未接入。请勿通过关闭系统全局安全保护或 TLS 校验解决安装/网络问题。
+平台功能与安装方法见 [PLATFORMS.md](PLATFORMS.md)。Android 与 Windows 由 check.yml、build.yml、release.yml 统一检查、构建、打包与发布。普通 PR 不传递发布凭据，发布使用受保护的 release 环境；手动 publish 默认 false。
 
 ## GitHub Actions
 
-工作流使用标准 GitHub 托管运行器：Android/Linux 宿主为 ubuntu-24.04（Linux 在 Debian forky（testing）容器中构建）、Windows 为 windows-2022、Apple 为 macos-15。没有收费大型运行器。Flutter 版本与项目 SDK 对齐，依赖按锁文件解析并缓存。
+工作流使用标准 GitHub 托管运行器：Android 为 ubuntu-24.04，Windows 为 windows-2022。Flutter 版本与项目 SDK 对齐，依赖按锁文件解析并缓存。
 
 - check.yml：main 推送、PR、手动触发；仅代码、资源、工具和平台文件变动触发，文档变更不触发。生产文案/样式/分析/格式、官方插件离线校验、动态写入被忽略本地目录的离线 HLS 用例；按变动范围决定平台矩阵。跨平台生产代码变动构建全部原生目标，单个平台宿主变动只构建对应平台；源脚本和翻译资源单独变动只做检查。
-- build.yml：被复用的矩阵构建，包含 Linux 系统依赖、Windows NuGet、Android 无签名编译、macOS app、iOS 无签名真机编译和模拟器 app。macOS 验证主程序含 arm64/x86_64。
+- build.yml：复用 Android 与 Windows 矩阵构建，配置 Android 签名或无签名编译、Windows NuGet 与安装器编译器。
 - release.yml：推送与 pubspec.yaml 对应的 vX.Y.Z 标签，或在 main 手动触发。手动 publish 默认 false，仅构建；启用 publish 或标签触发才创建 Release。生产检查和全部构建成功后才发布。发布前必须更新 docs/RELEASE_NOTES.md，或手动提供仓库内其他双语说明路径。
-- 临时产物位于 Actions 的 distribution-平台 artifacts，保留 7 天。正式附件放 GitHub Release，名称含版本、构建号、平台和架构，并附 SHA-256。Windows 提供完整目录 ZIP 和 Inno Setup 生成的 setup.exe；Linux 提供完整 bundle tar.gz 和 .deb，.deb 的运行库依赖由 dpkg-shlibdeps 从当前构建产物推导。Windows ZIP 和 Linux tar.gz 的包内主目录固定为 HentaiPark，不带版本号。macOS 提供 HentaiPark.app ZIP 和 pkgbuild 生成的 .pkg；iOS 是模拟器 .app ZIP，Android 是分架构签名 APK。
-- 应用内安装仅接受对应版本的官方附件地址、平台文件名、有效文件大小和 GitHub 提供的 SHA-256 摘要。Windows、macOS 与 Debian 系 Linux 在用户确认后下载并校验安装包；打开安装器成功后复用桌面正常退出流程，不强制终止进程。Windows 更新向安装器传入当前程序目录；安装与卸载不清除独立的应用数据和下载目录。Linux 其他发行版保持手动下载入口。.pkg 默认未签名，现有可选 macOS 签名与公证仅覆盖 .app。
-- iOS 只做编译与模拟器打包，不宣称模拟器运行成功。Web 当前没有构建或发布任务。
+- 临时产物位于 Actions 的 distribution-平台 artifacts，保留 7 天。正式附件放 GitHub Release，名称含版本、构建号、平台和架构，并附 SHA-256。Windows 提供完整目录 ZIP 和 Inno Setup 生成的 setup.exe，ZIP 内的主目录固定为 HentaiPark，不带版本号；Android 提供分架构签名 APK。
+- 应用内安装仅接受对应版本的官方附件地址、平台文件名、有效文件大小和 GitHub 提供的 SHA-256 摘要。Windows 在用户确认后下载并校验安装包；打开安装器成功后复用桌面正常退出流程，不强制终止进程。更新向安装器传入当前程序目录；安装与卸载不清除独立的应用数据和下载目录。
 
 版本标签必须与 pubspec.yaml 一致；没有更新版本时不要重用已有发布标签。Release 正文只含中文和 English 两节，遵守 DEVELOPMENT.md 既有格式。
 
@@ -228,9 +223,7 @@ GitHub Release 正文就是应用内“发现软件新版本”对话框里的�
 | Secrets | 用途 | 缺失时 |
 | --- | --- | --- |
 | ANDROID_KEYSTORE_BASE64、ANDROID_KEYSTORE_PASSWORD、ANDROID_KEY_ALIAS、ANDROID_KEY_PASSWORD | Android 正式签名 | 仅编译，不上传 APK |
-| MACOS_CERTIFICATE_BASE64、MACOS_CERTIFICATE_PASSWORD、MACOS_SIGN_IDENTITY | Developer ID Application p12 与身份名称 | ad-hoc app，无 Developer ID |
-| APPLE_NOTARY_KEY_ID、APPLE_NOTARY_ISSUER、APPLE_NOTARY_KEY_BASE64 | Apple 公证 API p8 | 已签名包不公证；没有 Developer ID 时也不调用公证 |
 
-Apple 付费会员不是普通构建前提。没有 iOS 分发凭据的配置项：TestFlight、App Store、真机签名及其上传流程尚未实现，不会显示为成功。Windows 商业签名也未启用，不阻断普通 ZIP 构建。
+Windows 商业签名尚未启用，不阻断普通 ZIP 构建。
 
-仓库需允许 Actions、artifact 上传和 GITHUB_TOKEN 创建 Release；Linux runner 需能安装依赖，Windows 需能下载 WebView2/NuGet 和媒体依赖，Apple 需 Xcode/插件所需 CocoaPods 或 SPM 网络访问。依赖下载和构建失败会阻止正式发布。
+仓库需允许 Actions、artifact 上传和 GITHUB_TOKEN 创建 Release；构建环境需能下载 Android 工具链、Windows WebView2/NuGet 和媒体依赖。依赖下载和构建失败会阻止正式发布。

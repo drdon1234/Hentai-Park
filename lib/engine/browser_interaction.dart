@@ -17,8 +17,7 @@ class WebViewInteractionHost implements BrowserInteractionHost {
   bool get supportsCdp => defaultTargetPlatform == TargetPlatform.windows;
   @override
   bool get supportsNativeInput =>
-      defaultTargetPlatform == TargetPlatform.android ||
-      defaultTargetPlatform == TargetPlatform.linux;
+      defaultTargetPlatform == TargetPlatform.android;
   @override
   Future<dynamic> javascript({
     required String body,
@@ -42,11 +41,10 @@ class WebViewInteractionHost implements BrowserInteractionHost {
       );
   @override
   Future<bool> nativeClick({required String url, required String token}) async {
+    if (!supportsNativeInput) return false;
     final id = headlessId ?? controller.getViewId();
     if (id == null) return false;
-    final channel = defaultTargetPlatform == TargetPlatform.android
-        ? const MethodChannel('hentai_park/platform')
-        : MethodChannel('com.pichillilorenzo/flutter_inappwebview_$id');
+    const channel = MethodChannel('hentai_park/platform');
     return await channel.invokeMethod<bool>('clickBrowserChallenge', {
           'id': id,
           'url': url,

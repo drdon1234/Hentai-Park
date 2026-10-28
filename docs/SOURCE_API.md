@@ -451,7 +451,7 @@ return {
 - 运行时自动导出 `capabilities.webVideo`。仅实现 `webVideo` 时，详情和历史进入应用内网页，隐藏应用下载与虚构选集，不承诺精确断点续播；页面控制由上游提供。
 - 同时实现 `videos` 和 `webVideo` 时优先原生播放。只有插件返回 `UNSUPPORTED` 时自动回退网页；`HTTP`、`NETWORK`、`CLOUDFLARE`、登录、解析、下架和取消错误照常显示，不触发回退。下载只支持成功解析的原生媒体，不回退网页。
 - 地址必须为 HTTPS、公网域名、无用户凭据且仅使用 443 端口。默认允许目标注册域及子域；额外主框架跳转和 iframe 只允许返回的域及子域，必须根据真实请求声明。域声明不扩大插件 HTTP、媒体或 Cookie 权限。弹窗、下载、文件访问和页面调用原生桥接均被拒绝。
-- Android 使用独立临时 WebView Profile，不读写默认浏览器或插件 Cookie。需要设备 WebView 支持 `MULTI_PROFILE`，否则提示更新 Android System WebView。退出清除该 Profile 的 Cookie 和网站存储并销毁 WebView；若设备暂不允许删除已载入的 Profile，下一次进程启动播放时清理遗留目录。Apple 使用临时会话，其他平台暂不支持。应用进入后台或上锁时暂停播放。
+- Android 使用独立临时 WebView Profile，不读写默认浏览器或插件 Cookie。需要设备 WebView 支持 `MULTI_PROFILE`，否则提示更新 Android System WebView。退出清除该 Profile 的 Cookie 和网站存储并销毁 WebView；若设备暂不允许删除已载入的 Profile，下一次进程启动播放时清理遗留目录。Windows 使用独立临时用户目录和私密会话；缺少私密会话接口时拒绝播放，退出后清理该目录。应用进入后台或上锁时暂停播放。
 - 播放页可能需要单独完成年龄或站点确认；不导入源凭据。聚合站解析跳转时可用原生 HTTP 的 `followRedirects: false` 读取 `Location`，不携带源凭据访问上游。
 
 ### 小说：`textChapter`

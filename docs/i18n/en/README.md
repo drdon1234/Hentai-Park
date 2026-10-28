@@ -8,7 +8,7 @@
 
 <p align="center">
   <a href="https://github.com/drdon1234/Hentai-Park/releases/latest"><img src="https://img.shields.io/github/v/release/drdon1234/Hentai-Park?label=Download&color=C96442" alt="Download"></a>
-  <img src="https://img.shields.io/badge/Android-7.0%2B-C96442?logo=android&logoColor=white" alt="Android 7.0+">
+  <img src="https://img.shields.io/badge/Android_7.0%2B_%C2%B7_Windows-333333" alt="Android 7.0+ / Windows">
 </p>
 
 <p align="center">
@@ -27,9 +27,9 @@ Choose Data saver mode in More → Network: Data saver shows compact site entrie
 
 Get the package for your platform from the **[latest release](https://github.com/drdon1234/Hentai-Park/releases/latest)**. For Android, most phones and tablets need `arm64-v8a`; emulators usually need `x86_64`. Extract desktop packages in full. See [installation and platform limits](../../PLATFORMS.md).
 
-Clients are available for Android, Windows, macOS and Linux. iOS/iPadOS currently has a simulator package only; Web is unavailable. See [installation and platform limits](../../PLATFORMS.md). Live playback and recording support TS and fMP4 streams.
+Clients are available for Android 7.0+ and Windows. See [installation and platform limits](../../PLATFORMS.md). Live playback and recording support TS and fMP4 streams.
 
-On desktop, use Ctrl+mouse wheel or Ctrl/Cmd plus/minus to scale the interface, and Ctrl/Cmd+0 to reset; scaling is also available in Appearance settings. The Windows tray icon restores the window or exits the app. When closing the window, choose to hide it to the tray or exit.
+On desktop, use Ctrl+mouse wheel or Ctrl plus/minus to scale the interface, and Ctrl+0 to reset; scaling is also available in Appearance settings. The Windows tray icon restores the window or exits the app. When closing the window, choose to hide it to the tray or exit.
 
 ## Get started in three steps
 
@@ -41,7 +41,7 @@ Sites that need an account or a proxy are set up in More → Sites and More → 
 
 Plugin update prompts show how many plugins can update now and how many require a newer app, grouped by minimum app version. Incompatible plugins keep their installed version. Choose “Don’t remind me” for an app or plugin update to ignore that version; manual checks still show it, and newer versions prompt again.
 
-On Windows, macOS and Debian-based Linux, confirming an update downloads and verifies the installer, opens it, and exits the app. Follow the system prompts to finish installation. On other Linux distributions, download the archive manually. Portable Windows ZIP and Linux tar.gz archives contain a fixed `HentaiPark` directory; macOS ZIP archives contain `HentaiPark.app`.
+On Windows, confirming an update downloads and verifies the installer, opens it, and exits the app. Follow the system prompts to finish installation. Portable ZIP archives contain a fixed `HentaiPark` directory.
 
 <a id="screenshots"></a>
 
@@ -129,7 +129,7 @@ In site management, “Test speed and sort automatically” runs once when tappe
 
 SOOP has separate entries for live streams, short videos and recordings, filtered by explicit sexy dance, sexy cam, bikini or lingerie tags. General entertainment is excluded; some videos require verification or a subscription on the original site.
 
-Live streams belong to 3D and appear between recordings and creator communities. Home and domain cards show images only. Live streams cannot be downloaded. Start or stop recording from details or the player, and manage recordings in Downloads. Only new segments produced after recording starts are saved. Android supports background recording; desktop recording continues with the window hidden. Exiting the app ends recording; restarting does not resume it. Saved segments are retained after interruption. Background recording is subject to system power policies and foreground-service time limits; saved segments survive interruption. Continuous background recording is not supported on iOS.
+Live streams belong to 3D and appear between recordings and creator communities. Home and domain cards show images only. Live streams cannot be downloaded. Start or stop recording from details or the player, and manage recordings in Downloads. Only new segments produced after recording starts are saved. Android supports background recording; desktop recording continues with the window hidden. Exiting the app ends recording; restarting does not resume it. Saved segments are retained after interruption. Background recording is subject to system power policies and foreground-service time limits; saved segments survive interruption.
 
 Filter Discover domains by 2D, 3D or All; your choice is remembered. Games belong to 2D, novels to 3D, and creator communities remain visible in every filter.
 

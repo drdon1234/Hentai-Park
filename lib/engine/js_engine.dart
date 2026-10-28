@@ -195,7 +195,6 @@ class SourceRuntime {
     await engine._closingRuntimes[key];
     final runtime = await engine._runtimeSource();
     if (_disposed) throw SourceError('CONFIG', '站点运行环境已关闭');
-    var initialDocumentPending = true;
     // Each runtime gets its own origin so storage APIs are not shared between sources either.
     _view = HeadlessInAppWebView(
       initialData: InAppWebViewInitialData(
@@ -214,7 +213,6 @@ class SourceRuntime {
         _registerHandlers(c);
       },
       onLoadStop: (c, _) async {
-        initialDocumentPending = false;
         if (ready.isCompleted) return;
         try {
           await _bounded(
@@ -242,17 +240,7 @@ class SourceRuntime {
       },
       // Source code stays in the initial document, including on Windows where
       // loadData uses about:blank instead of honoring baseUrl.
-      shouldOverrideUrlLoading: (c, action) {
-        // WebKit 对 loadData 的初始隔离文档也触发导航策略；只放行这一次。
-        if (defaultTargetPlatform == TargetPlatform.linux &&
-            initialDocumentPending &&
-            action.isForMainFrame == true &&
-            action.request.url?.toString() == _origin) {
-          initialDocumentPending = false;
-          return NavigationActionPolicy.ALLOW;
-        }
-        return NavigationActionPolicy.CANCEL;
-      },
+      shouldOverrideUrlLoading: (c, action) => NavigationActionPolicy.CANCEL,
       onRenderProcessGone: (c, detail) {
         if (!_rendererGone.isCompleted) _rendererGone.complete();
         _restart();

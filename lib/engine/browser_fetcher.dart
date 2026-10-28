@@ -235,9 +235,7 @@ class _OriginPage {
     _view = HeadlessInAppWebView(
       initialSize: const Size(1024, 768),
       initialUrlRequest: URLRequest(url: WebUri(bootstrap.toString())),
-      initialUserScripts:
-          (defaultTargetPlatform == TargetPlatform.android ||
-              defaultTargetPlatform == TargetPlatform.linux)
+      initialUserScripts: defaultTargetPlatform == TargetPlatform.android
           ? UnmodifiableListView([
               UserScript(
                 source: challengeDocumentScript,
