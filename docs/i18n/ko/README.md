@@ -41,6 +41,8 @@ Android, Windows, macOS, Linux 클라이언트를 제공합니다. iOS/iPadOS는
 
 플러그인 업데이트는 바로 업데이트할 수 있는 개수와 앱 업그레이드가 필요한 개수 및 최소 버전을 표시합니다. 호환되지 않으면 설치된 플러그인을 유지합니다. 앱과 플러그인 업데이트에서 다시 알리지 않기를 선택하면 해당 버전 알림만 중지합니다. 수동 확인에서는 계속 표시되며 새 버전은 다시 알립니다.
 
+Windows, macOS 및 Debian 계열 Linux에서는 앱 내 업데이트를 확인하면 설치 파일을 다운로드하고 검증한 뒤 설치 프로그램을 열고 앱을 종료합니다. 시스템 안내에 따라 설치를 완료하세요. 다른 Linux 배포판에서는 압축 파일을 직접 다운로드하세요. Windows 포터블 ZIP과 Linux tar.gz의 최상위 폴더는 `HentaiPark`이며, macOS ZIP에는 `HentaiPark.app`이 들어 있습니다.
+
 <a id="screenshots"></a>
 
 ## 스크린샷

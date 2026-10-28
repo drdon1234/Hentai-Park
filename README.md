@@ -27,6 +27,8 @@
 
 需要登录或代理的站点，在「我的 → 站点」和「我的 → 网络」设置。站点更新会提示是否需要先升级应用；每个站点实际可用的功能以应用内显示为准。
 
+Windows、macOS 和 Debian 系 Linux 支持在应用内确认更新后下载、校验并打开安装程序；应用会退出，请按系统提示完成安装。其他 Linux 发行版请手动下载压缩包。Windows 便携 ZIP 和 Linux tar.gz 解压后使用固定的 `HentaiPark` 主目录，macOS ZIP 内为 `HentaiPark.app`。
+
 <a id="screenshots"></a>
 
 ## 截图

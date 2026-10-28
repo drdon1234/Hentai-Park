@@ -1,3 +1,5 @@
+import 'dart:convert';
+import 'dart:ffi';
 import 'dart:io';
 
 import 'package:crypto/crypto.dart';
@@ -15,7 +17,7 @@ class AppInstallFailure implements Exception {
   final String message;
 }
 
-/// 检查版本不使用此服务。只有用户确认后才准备 APK 和请求系统安装。
+/// 检查版本不使用此服务。只有用户确认后才下载并打开系统安装程序。
 class AppInstaller {
   AppInstaller({
     Future<Directory> Function()? cache,
@@ -25,20 +27,32 @@ class AppInstaller {
     Future<bool> Function(File, String)? install,
     Future<void> Function()? openPermission,
     bool? supported,
-  }) : _cache = cache ?? _updateCache,
+    String? platform,
+    String? architecture,
+  }) : _platform = platform ?? Platform.operatingSystem,
+       _architecture = architecture ?? _currentArchitecture(),
+       _cache = cache ?? _updateCache,
        _abis =
            abis ??
            (() async =>
                await _channel.invokeListMethod<String>('appUpdateAbis') ?? []),
-       _download = download ?? _downloadApk,
-       _install = install ?? _installApk,
+       _download = download ?? _downloadAsset,
+       _install =
+           install ??
+           ((file, version) => _installPackage(
+             file,
+             version,
+             platform ?? Platform.operatingSystem,
+           )),
        _openPermission =
            openPermission ??
            (() => _channel.invokeMethod<void>('appUpdatePermission')),
-       supported = supported ?? Platform.isAndroid;
+       supported = supported ?? _supportsCurrentPlatform();
 
   static const _channel = MethodChannel('hentai_park/platform');
   final bool supported;
+  final String _platform, _architecture;
+  bool get desktop => const {'windows', 'macos', 'linux'}.contains(_platform);
   final Future<Directory> Function() _cache;
   final Future<List<String>> Function() _abis;
   final Future<void> Function(
@@ -74,42 +88,31 @@ class AppInstaller {
     CancelToken token,
     void Function(int, int) progress,
   ) async {
-    final abis = await _abis();
+    final asset = await selectAsset(release);
     if (token.cancelError != null) throw token.cancelError!;
-    AppApk? apk;
-    for (final abi in abis) {
-      for (final asset in release.assets) {
-        if (asset.name.endsWith('-$abi.apk')) {
-          apk = asset;
-          break;
-        }
-      }
-      if (apk != null) break;
-    }
-    apk ??= release.assets
-        .where((a) => a.name.endsWith('-universal.apk'))
-        .firstOrNull;
-    if (apk == null) throw const AppInstallFailure('没有适合此设备的安装包，请前往官方发布页下载');
+    if (asset == null) throw const AppInstallFailure('没有适合此设备的安装包，请前往官方发布页下载');
     final directory = await _cache();
     await directory.create(recursive: true);
     // 每次确认创建独立目录，取消和失败只清理自己的临时文件。
-    final session = await directory.createTemp('apk-');
+    final session = await directory.createTemp('update-');
     final partial = File(p.join(session.path, 'update.part'));
-    final complete = File(p.join(session.path, 'update.apk'));
+    final complete = File(
+      p.join(session.path, 'update${p.extension(asset.name)}'),
+    );
     try {
-      await _download(apk.url.toString(), partial.path, token, (
+      await _download(asset.url.toString(), partial.path, token, (
         received,
         total,
       ) {
-        if (received > apk!.size) {
+        if (received > asset.size) {
           throw const AppInstallFailure('安装包校验失败，请重新下载');
         }
-        progress(received, apk.size);
+        progress(received, asset.size);
       });
       if (token.cancelError != null) throw token.cancelError!;
-      if (await partial.length() != apk.size ||
+      if (await partial.length() != asset.size ||
           (await sha256.bind(partial.openRead()).first).toString() !=
-              apk.sha256) {
+              asset.sha256) {
         throw const AppInstallFailure('安装包校验失败，请重新下载');
       }
       if (token.cancelError != null) throw token.cancelError!;
@@ -118,6 +121,35 @@ class AppInstaller {
       await session.delete(recursive: true);
       rethrow;
     }
+  }
+
+  Future<AppReleaseAsset?> selectAsset(AppRelease release) async {
+    if (!supported) return null;
+    final suffix = switch ((_platform, _architecture)) {
+      ('windows', 'x64') => '-windows-x64-setup.exe',
+      ('macos', 'x64' || 'arm64') => '-macos-universal.pkg',
+      ('linux', 'x64') => '-linux-x64.deb',
+      _ => null,
+    };
+    if (desktop) {
+      return suffix == null
+          ? null
+          : release.assets
+                .where((asset) => asset.name.endsWith(suffix))
+                .firstOrNull;
+    }
+    if (_platform != 'android') return null;
+    final abis = await _abis();
+    for (final abi in abis) {
+      for (final asset in release.assets) {
+        if (asset.name.endsWith('-$abi.apk')) {
+          return asset;
+        }
+      }
+    }
+    return release.assets
+        .where((a) => a.name.endsWith('-universal.apk'))
+        .firstOrNull;
   }
 
   /// false 表示需要用户先授权，再明确点击继续安装。
@@ -132,8 +164,13 @@ class AppInstaller {
     final filePath = await file.resolveSymbolicLinks();
     final session = p.dirname(filePath);
     if (p.dirname(session) != rootPath ||
-        !p.basename(session).startsWith('apk-') ||
-        p.basename(filePath) != 'update.apk') {
+        !p.basename(session).startsWith('update-') ||
+        !const {
+          'update.apk',
+          'update.exe',
+          'update.pkg',
+          'update.deb',
+        }.contains(p.basename(filePath))) {
       return;
     }
     await Directory(session).delete(recursive: true);
@@ -142,7 +179,7 @@ class AppInstaller {
   static Future<Directory> _updateCache() async => Directory(
     p.join((await getApplicationCacheDirectory()).path, 'app_updates'),
   );
-  static Future<void> _downloadApk(
+  static Future<void> _downloadAsset(
     String url,
     String path,
     CancelToken token,
@@ -153,10 +190,74 @@ class AppInstaller {
     cancelToken: token,
     onProgress: progress,
   );
-  static Future<bool> _installApk(File file, String version) async =>
-      await _channel.invokeMethod<bool>('appUpdateInstall', {
-        'path': file.path,
-        'version': version.split('+').first,
-      }) ??
-      false;
+  static Future<bool> _installPackage(
+    File file,
+    String version,
+    String platform,
+  ) async {
+    if (platform == 'android') {
+      return await _channel.invokeMethod<bool>('appUpdateInstall', {
+            'path': file.path,
+            'version': version.split('+').first,
+          }) ??
+          false;
+    }
+    if (platform == 'windows' && p.extension(file.path) == '.exe') {
+      await Process.start(file.path, [
+        '/DIR=${p.dirname(Platform.resolvedExecutable)}',
+        '/NORESTART',
+        '/NOCLOSEAPPLICATIONS',
+      ], mode: ProcessStartMode.detached);
+      return true;
+    }
+    final (command, args) = switch (platform) {
+      'macos' when p.extension(file.path) == '.pkg' => (
+        '/usr/bin/open',
+        ['-a', 'Installer', file.path],
+      ),
+      'linux' when p.extension(file.path) == '.deb' => (
+        '/usr/bin/xdg-open',
+        [file.path],
+      ),
+      _ => throw const AppInstallFailure('没有适合此设备的安装包，请前往官方发布页下载'),
+    };
+    final result = await Process.run(command, args);
+    if (result.exitCode != 0) {
+      throw const AppInstallFailure('无法打开安装程序，请重试或前往官方发布页下载');
+    }
+    return true;
+  }
+
+  static String _currentArchitecture() => switch (Abi.current()) {
+    Abi.windowsX64 || Abi.linuxX64 || Abi.macosX64 => 'x64',
+    Abi.macosArm64 => 'arm64',
+    _ => '',
+  };
+
+  static bool _supportsCurrentPlatform() {
+    if (Platform.isAndroid) return true;
+    if (_currentArchitecture().isEmpty) return false;
+    if (Platform.isWindows || Platform.isMacOS) return true;
+    if (!Platform.isLinux) return false;
+    try {
+      // .deb 仅交给 Debian 系桌面的软件安装器；其他发行版保持手动下载入口。
+      final release = const LineSplitter().convert(
+        File('/etc/os-release').readAsStringSync(),
+      );
+      return release
+          .where(
+            (line) => line.startsWith('ID=') || line.startsWith('ID_LIKE='),
+          )
+          .any(
+            (line) => line
+                .substring(line.indexOf('=') + 1)
+                .replaceAll('"', '')
+                .replaceAll("'", '')
+                .split(' ')
+                .any((id) => id == 'debian' || id == 'ubuntu'),
+          );
+    } catch (_) {
+      return false;
+    }
+  }
 }

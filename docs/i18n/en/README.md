@@ -41,6 +41,8 @@ Sites that need an account or a proxy are set up in More → Sites and More → 
 
 Plugin update prompts show how many plugins can update now and how many require a newer app, grouped by minimum app version. Incompatible plugins keep their installed version. Choose “Don’t remind me” for an app or plugin update to ignore that version; manual checks still show it, and newer versions prompt again.
 
+On Windows, macOS and Debian-based Linux, confirming an update downloads and verifies the installer, opens it, and exits the app. Follow the system prompts to finish installation. On other Linux distributions, download the archive manually. Portable Windows ZIP and Linux tar.gz archives contain a fixed `HentaiPark` directory; macOS ZIP archives contain `HentaiPark.app`.
+
 <a id="screenshots"></a>
 
 ## Screenshots

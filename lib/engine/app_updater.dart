@@ -19,7 +19,7 @@ class AppRelease {
   final String version;
   final Uri url;
   final String notes;
-  final List<AppApk> assets;
+  final List<AppReleaseAsset> assets;
 
   /// The notes in the interface language: Chinese interfaces read the `## 中文`
   /// section, all others `## English` (format in docs/DEVELOPMENT.md). A body
@@ -58,8 +58,8 @@ enum ReleaseNoteKind { heading, item, text }
 
 typedef ReleaseNoteLine = ({ReleaseNoteKind kind, String text});
 
-class AppApk {
-  const AppApk({
+class AppReleaseAsset {
+  const AppReleaseAsset({
     required this.name,
     required this.url,
     required this.size,
@@ -70,18 +70,23 @@ class AppApk {
   final int size;
   final String sha256;
 
-  static AppApk? parse(Object? data, String tag) {
+  static AppReleaseAsset? parse(Object? data, String tag) {
     if (data is! Map) return null;
     final name = data['name'];
     final rawUrl = data['browser_download_url'];
     final size = data['size'];
     final digest = data['digest'];
     if (name is! String ||
-        !RegExp(r'^[A-Za-z0-9._-]+\.apk$').hasMatch(name) ||
+        !RegExp(
+          r'^HentaiPark-\d+\.\d+\.\d+-\d+-(?:android-(?:arm64-v8a|armeabi-v7a|x86_64|universal)\.apk|windows-x64-setup\.exe|macos-universal\.pkg|linux-x64\.deb)$',
+        ).hasMatch(name) ||
+        !name.startsWith(
+          'HentaiPark-${tag.startsWith('v') ? tag.substring(1) : tag}-',
+        ) ||
         rawUrl is! String ||
         size is! int ||
         size <= 0 ||
-        size > 512 * 1024 * 1024 ||
+        size > 2 * 1024 * 1024 * 1024 ||
         digest is! String ||
         !RegExp(r'^sha256:[a-fA-F0-9]{64}$').hasMatch(digest)) {
       return null;
@@ -99,7 +104,7 @@ class AppApk {
       ],
     );
     if (rawUrl != expected.toString()) return null;
-    return AppApk(
+    return AppReleaseAsset(
       name: name,
       url: expected,
       size: size,
@@ -224,9 +229,9 @@ class AppUpdater extends ChangeNotifier {
                 assets: List.unmodifiable(
                   data['assets'] is List
                       ? (data['assets'] as List)
-                            .map((asset) => AppApk.parse(asset, tag))
-                            .whereType<AppApk>()
-                      : <AppApk>[],
+                            .map((asset) => AppReleaseAsset.parse(asset, tag))
+                            .whereType<AppReleaseAsset>()
+                      : <AppReleaseAsset>[],
                 ),
               )
             : null,

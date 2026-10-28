@@ -10,6 +10,7 @@ import '../../core/settings.dart';
 import '../../core/versions.dart';
 import '../../engine/app_installer.dart';
 import '../../engine/app_updater.dart';
+import '../../engine/desktop_window.dart';
 import '../../engine/source_updater.dart';
 import '../kit/reminder_prompt.dart';
 import '../kit/tokens.dart';
@@ -90,6 +91,7 @@ Future<void> showAppUpdatePrompt(
   AppUpdateResult result, {
   Future<bool> Function(Uri)? openRelease,
   AppInstaller? installer,
+  Future<void> Function()? exitForUpdate,
 }) async {
   final release = result.release;
   if (release == null || !context.mounted) return;
@@ -115,7 +117,9 @@ Future<void> showAppUpdatePrompt(
         Text(
           tr(
             service.supported
-                ? '确认后在应用内下载安装包，再由系统提示你确认安装。'
+                ? service.desktop
+                      ? '确认后下载并校验安装包，打开系统安装程序并退出应用；请按安装程序提示完成升级。'
+                      : '确认后在应用内下载安装包，再由系统提示你确认安装。'
                 : '此平台请前往官方发布页下载并手动安装。',
           ),
           style: ctx.text.bodyMedium?.copyWith(
@@ -139,6 +143,7 @@ Future<void> showAppUpdatePrompt(
         release: release,
         installer: service,
         openRelease: openRelease ?? _openRelease,
+        exitForUpdate: exitForUpdate ?? DesktopWindow.instance.exitForUpdate,
       ),
     );
     return;
@@ -185,10 +190,12 @@ class _AppDownloadDialog extends StatefulWidget {
     required this.release,
     required this.installer,
     required this.openRelease,
+    required this.exitForUpdate,
   });
   final AppRelease release;
   final AppInstaller installer;
   final Future<bool> Function(Uri) openRelease;
+  final Future<void> Function() exitForUpdate;
   @override
   State<_AppDownloadDialog> createState() => _AppDownloadDialogState();
 }
@@ -199,6 +206,7 @@ class _AppDownloadDialogState extends State<_AppDownloadDialog> {
   double? _progress;
   String? _failure;
   bool _busy = false;
+  bool _installing = false;
   bool _permission = false;
   bool _handedToInstaller = false;
 
@@ -240,6 +248,7 @@ class _AppDownloadDialogState extends State<_AppDownloadDialog> {
         }
       });
       if (!mounted || token.isCancelled) return;
+      setState(() => _installing = true);
       final launched = await widget.installer.install(
         _file!,
         widget.release.version,
@@ -248,12 +257,15 @@ class _AppDownloadDialogState extends State<_AppDownloadDialog> {
       if (!mounted || token.isCancelled) return;
       if (launched) {
         Navigator.pop(context);
+        if (widget.installer.desktop) {
+          await widget.exitForUpdate();
+        }
         return;
       }
       setState(() => _permission = true);
     } catch (error) {
       // 系统拒绝或缓存文件失效时，重试重新下载并校验。
-      await _discard();
+      if (!_handedToInstaller) await _discard();
       if (mounted && !token.isCancelled) {
         setState(
           () => _failure = error is AppInstallFailure
@@ -265,7 +277,12 @@ class _AppDownloadDialogState extends State<_AppDownloadDialog> {
       if ((!mounted || token.isCancelled) && !_handedToInstaller) {
         await _discard();
       }
-      if (mounted) setState(() => _busy = false);
+      if (mounted) {
+        setState(() {
+          _busy = false;
+          _installing = false;
+        });
+      }
     }
   }
 
@@ -304,7 +321,7 @@ class _AppDownloadDialogState extends State<_AppDownloadDialog> {
           if (_busy) ...[
             LinearProgressIndicator(value: _progress),
             const SizedBox(height: 12),
-            Text(tr('正在下载并校验安装包…')),
+            Text(tr(_installing ? '正在打开安装程序…' : '正在下载并校验安装包…')),
           ],
           if (_permission) Text(tr('请在系统设置中允许安装此应用提供的更新，返回后点击“继续安装”。')),
           if (_failure != null) Text(tr(_failure!)),
@@ -312,10 +329,12 @@ class _AppDownloadDialogState extends State<_AppDownloadDialog> {
       ),
       actions: [
         TextButton(
-          onPressed: () {
-            _token?.cancel();
-            Navigator.pop(context);
-          },
+          onPressed: _installing
+              ? null
+              : () {
+                  _token?.cancel();
+                  Navigator.pop(context);
+                },
           child: SelectionContainer.disabled(
             child: Text(tr(_busy ? '取消' : '关闭')),
           ),

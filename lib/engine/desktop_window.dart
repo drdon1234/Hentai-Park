@@ -130,6 +130,9 @@ class DesktopWindow with WindowListener {
     }
   }
 
+  /// 更新安装器已启动后复用正常退出流程，跳过托盘选择，等待数据与资源释放。
+  Future<void> exitForUpdate() => _exit();
+
   Future<void> _prepareExit() async {
     WidgetsBinding.instance.handleAppLifecycleStateChanged(
       AppLifecycleState.inactive,

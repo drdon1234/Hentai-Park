@@ -215,7 +215,8 @@ GitHub Release 正文就是应用内“发现软件新版本”对话框里的�
 - check.yml：main 推送、PR、手动触发；仅代码、资源、工具和平台文件变动触发，文档变更不触发。生产文案/样式/分析/格式、官方插件离线校验、动态写入被忽略本地目录的离线 HLS 用例；按变动范围决定平台矩阵。跨平台生产代码变动构建全部原生目标，单个平台宿主变动只构建对应平台；源脚本和翻译资源单独变动只做检查。
 - build.yml：被复用的矩阵构建，包含 Linux 系统依赖、Windows NuGet、Android 无签名编译、macOS app、iOS 无签名真机编译和模拟器 app。macOS 验证主程序含 arm64/x86_64。
 - release.yml：推送与 pubspec.yaml 对应的 vX.Y.Z 标签，或在 main 手动触发。手动 publish 默认 false，仅构建；启用 publish 或标签触发才创建 Release。生产检查和全部构建成功后才发布。发布前必须更新 docs/RELEASE_NOTES.md，或手动提供仓库内其他双语说明路径。
-- 临时产物位于 Actions 的 distribution-平台 artifacts，保留 7 天。正式附件放 GitHub Release，名称含版本、构建号、平台和架构，并附 SHA-256。Windows 是完整目录 ZIP，Linux 是完整 bundle tar.gz，Apple 是完整 .app ZIP，Android 是分架构签名 APK。
+- 临时产物位于 Actions 的 distribution-平台 artifacts，保留 7 天。正式附件放 GitHub Release，名称含版本、构建号、平台和架构，并附 SHA-256。Windows 提供完整目录 ZIP 和 Inno Setup 生成的 setup.exe；Linux 提供完整 bundle tar.gz 和 .deb，.deb 的运行库依赖由 dpkg-shlibdeps 从当前构建产物推导。Windows ZIP 和 Linux tar.gz 的包内主目录固定为 HentaiPark，不带版本号。macOS 提供 HentaiPark.app ZIP 和 pkgbuild 生成的 .pkg；iOS 是模拟器 .app ZIP，Android 是分架构签名 APK。
+- 应用内安装仅接受对应版本的官方附件地址、平台文件名、有效文件大小和 GitHub 提供的 SHA-256 摘要。Windows、macOS 与 Debian 系 Linux 在用户确认后下载并校验安装包；打开安装器成功后复用桌面正常退出流程，不强制终止进程。Windows 更新向安装器传入当前程序目录；安装与卸载不清除独立的应用数据和下载目录。Linux 其他发行版保持手动下载入口。.pkg 默认未签名，现有可选 macOS 签名与公证仅覆盖 .app。
 - iOS 只做编译与模拟器打包，不宣称模拟器运行成功。Web 当前没有构建或发布任务。
 
 版本标签必须与 pubspec.yaml 一致；没有更新版本时不要重用已有发布标签。Release 正文只含中文和 English 两节，遵守 DEVELOPMENT.md 既有格式。

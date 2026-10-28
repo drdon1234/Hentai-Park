@@ -39,6 +39,8 @@
 
 外掛更新會分別顯示可直接更新的數量，以及需要先升級主程式的數量與最低版本。不相容的外掛會保留已安裝版本。軟體與外掛更新均可選擇「不再提醒」來忽略本次版本；手動檢查仍可查看，後續新版本會重新提醒。
 
+Windows、macOS 和 Debian 系 Linux 支援在應用程式內確認更新後下載、驗證並開啟安裝程式；應用程式會結束，請依照系統提示完成安裝。其他 Linux 發行版請手動下載壓縮包。Windows 可攜式 ZIP 和 Linux tar.gz 解壓後使用固定的 `HentaiPark` 主目錄，macOS ZIP 內為 `HentaiPark.app`。
+
 <a id="screenshots"></a>
 
 ## 截圖

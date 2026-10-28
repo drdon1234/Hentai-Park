@@ -1645,5 +1645,8 @@
   "全部内容": "Todo el contenido",
   "全部类型": "Todos los tipos",
   "进入域": "Entrar",
-  "聚合搜索：{dimension}、{media}": "Búsqueda agregada: {dimension}, {media}"
+  "聚合搜索：{dimension}、{media}": "Búsqueda agregada: {dimension}, {media}",
+  "确认后下载并校验安装包，打开系统安装程序并退出应用；请按安装程序提示完成升级。": "Tras confirmar, la aplicación descarga y verifica el instalador, lo abre y se cierra. Sigue las instrucciones del instalador para completar la actualización.",
+  "正在打开安装程序…": "Abriendo el instalador…",
+  "无法打开安装程序，请重试或前往官方发布页下载": "No se puede abrir el instalador. Reintenta o descárgalo desde la página oficial de versiones."
 }

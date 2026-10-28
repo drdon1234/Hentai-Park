@@ -41,6 +41,8 @@ Los sitios que necesitan cuenta o proxy se configuran en Más → Sitios y Más 
 
 Los avisos indican cuántos complementos se pueden actualizar y cuántos requieren una aplicación más reciente, agrupados por versión mínima. Los incompatibles conservan su versión instalada. «No volver a recordar» omite esa versión de la aplicación o del complemento; las comprobaciones manuales siguen mostrándola y las versiones posteriores vuelven a avisar.
 
+En Windows, macOS y Linux basado en Debian, al confirmar una actualización se descarga y verifica el instalador, se abre y se cierra la aplicación. Sigue las indicaciones del sistema para completar la instalación. En otras distribuciones Linux, descarga el archivo comprimido manualmente. Los archivos ZIP portátiles de Windows y tar.gz de Linux contienen una carpeta fija `HentaiPark`; los ZIP de macOS contienen `HentaiPark.app`.
+
 <a id="screenshots"></a>
 
 ## Capturas

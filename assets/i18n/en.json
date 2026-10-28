@@ -1645,5 +1645,8 @@
   "全部内容": "All content",
   "全部类型": "All types",
   "进入域": "Open",
-  "聚合搜索：{dimension}、{media}": "Aggregate search: {dimension}, {media}"
+  "聚合搜索：{dimension}、{media}": "Aggregate search: {dimension}, {media}",
+  "确认后下载并校验安装包，打开系统安装程序并退出应用；请按安装程序提示完成升级。": "After confirmation, the app downloads and verifies the installer, opens it, and exits. Follow the installer to finish updating.",
+  "正在打开安装程序…": "Opening installer…",
+  "无法打开安装程序，请重试或前往官方发布页下载": "Unable to open the installer. Retry or download from the official release page."
 }

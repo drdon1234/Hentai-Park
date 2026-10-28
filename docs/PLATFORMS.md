@@ -22,7 +22,7 @@ Android、Windows、macOS 和 Linux 提供原生客户端。iOS/iPadOS 当前仅
 | 防截图、音量键翻页、安装 APK | Android 原生能力 | 不适用 | 不适用 | 不适用 | 不提供 Android 专属行为 |
 | 游戏介绍、链接与资源下载 | 支持 | 支持 | 支持 | 支持 | 支持，不能安装桌面/Android 原生游戏 |
 | HTML 游戏及本地资源访问 | 外部链接与资源导出，无内置游戏执行器 | 同 Android | 同 Android | 同 Android | 同 Android；不可执行任意原生程序 |
-| 应用更新 | 下载校验与系统安装 | Release 页面下载后退出替换 | Release 页面下载后退出替换 | Release 页面下载后退出替换 | 模拟器安装；不提供普通真机 OTA |
+| 应用更新 | 下载校验与系统安装 | 下载校验并打开安装程序 | 下载校验并打开系统安装程序 | Debian 系下载校验并打开软件安装器；其他发行版手动下载 | 模拟器安装；不提供普通真机 OTA |
 
 跨平台代码保留证书校验、源域名隔离、Cookie 分区和重定向规则。离线 HLS 不保留远程签名地址；播放仅注册受限回环资源，拒绝任意路径及外部链接。导出 HLS 是包含清单和分片的 ZIP，需要解压后用支持 HLS 的播放器打开；应用尚未提供该 ZIP 的重新导入入口。
 
@@ -37,10 +37,12 @@ Android、Windows、macOS 和 Linux 提供原生客户端。iOS/iPadOS 当前仅
 ## 安装
 
 - Android：选匹配架构的正式签名 APK；多数手机选 arm64-v8a。
-- Windows x64：解压完整 ZIP 后运行 hentai_park.exe，保留全部 DLL 和 data 目录；包内包含 MSVC CRT。网页登录和插件运行需要 Microsoft Edge WebView2 Runtime；网页视频使用独立临时用户目录，并在缺少私密会话接口时拒绝播放，防止回退到站点 Cookie 存储。Windows 10/11 若未安装，使用微软官方安装器安装，应用不关闭 TLS 或绕过证书检查。
-- macOS 12+：解压后将 HentaiPark.app 放到“应用程序”。默认 ad-hoc 签名，没有 Developer ID 或 Apple 公证；系统拦截时先尝试打开，再到“系统设置 → 隐私与安全性”仅允许此应用，按系统提示操作。无需全局关闭 Gatekeeper。直接分发关闭 App Sandbox，仍受系统文件和隐私权限管理。
-- Linux x64：解压 tar.gz 并运行 hentai_park；以 Debian forky（testing）为构建基线，不保证更旧 glibc 发行版。需 GTK3、libsecret、WPE WebKit 2.54 或更新版本、WPEBackend-FDO/兼容 WPE 后端、libmpv 和可用桌面图形会话；依赖实际包名因发行版不同。小说朗读需另装 espeak-ng 和语音数据。
+- Windows x64：运行 setup.exe 安装程序，或解压完整 ZIP 后运行 HentaiPark 目录中的 hentai_park.exe，保留全部 DLL 和 data 目录；包内包含 MSVC CRT。应用内确认更新后会下载、校验并打开安装程序，然后正常退出；升级默认沿用当前程序目录，按安装程序提示完成安装。网页登录和插件运行需要 Microsoft Edge WebView2 Runtime；网页视频使用独立临时用户目录，并在缺少私密会话接口时拒绝播放，防止回退到站点 Cookie 存储。Windows 10/11 若未安装，使用微软官方安装器安装，应用不关闭 TLS 或绕过证书检查。
+- macOS 12+：打开 .pkg 按系统提示安装，或解压 ZIP 后将 HentaiPark.app 放到“应用程序”。应用内确认更新后会下载、校验并打开系统安装程序，然后正常退出；安装可能需要管理员授权。默认 .pkg 未签名，应用使用 ad-hoc 签名，没有 Developer ID 或 Apple 公证；系统拦截时按“系统设置 → 隐私与安全性”中的提示仅允许此应用或安装包。无需全局关闭 Gatekeeper。直接分发关闭 App Sandbox，仍受系统文件和隐私权限管理。
+- Linux x64：Debian 系可用桌面软件安装器打开 .deb，按系统提示授权并安装依赖；应用内确认更新后会下载、校验并打开 .deb，然后正常退出。需要已关联 .deb 的图形软件安装器；未配置时可重试或前往官方发布页手动下载安装。其他发行版解压 tar.gz 并运行 HentaiPark 目录中的 hentai_park。以 Debian forky（testing）为构建基线，不保证更旧 glibc 发行版，.deb 也不保证适用于所有 Debian 衍生发行版。需 GTK3、libsecret、WPE WebKit 2.54 或更新版本、WPEBackend-FDO/兼容 WPE 后端、libmpv 和可用桌面图形会话；依赖实际包名因发行版不同。小说朗读需另装 espeak-ng 和语音数据。
 - iOS/iPadOS 15+：当前分发为 Intel x64 模拟器 debug .app，仅供 macOS 的 Xcode Simulator，启动相同架构模拟器后通过 xcrun simctl install booted 安装。不能直接安装到 iPhone 或 iPad。真机需自行配置开发签名；TestFlight/App Store 上传尚未接入。
+
+桌面升级不会删除账号、书库、配置和下载；安装完成后重新打开应用。首次从尚不支持应用内安装的旧版升级时，仍需从官方发布页手动下载安装包；新功能随新版生效。
 
 ## Web
 
