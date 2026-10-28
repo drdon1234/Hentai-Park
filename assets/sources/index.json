@@ -585,7 +585,7 @@
     {
       "key": "google_lens",
       "name": "Google Lens",
-      "version": "0.0.6",
+      "version": "0.0.7",
       "type": "comic",
       "category": "other",
       "reverseSearchCategory": "general",
@@ -607,7 +607,7 @@
     {
       "key": "baidu",
       "name": "Baidu",
-      "version": "0.0.4",
+      "version": "0.0.5",
       "type": "comic",
       "category": "other",
       "reverseSearchCategory": "general",

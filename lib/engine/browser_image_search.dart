@@ -86,8 +86,14 @@ class BrowserImageSearchRequest {
     if (!isResult(uri)) {
       throw SourceError('CONFIG', '浏览器反搜参数无效');
     }
+    // 已处于目标视图时不重新导航；会话参数可重复，不能压成单值 Map。
+    if (resultParams.entries.every(
+      (entry) => uri.queryParametersAll[entry.key]?.singleOrNull == entry.value,
+    )) {
+      return uri;
+    }
     return uri.replace(
-      queryParameters: {...uri.queryParameters, ...resultParams},
+      queryParameters: {...uri.queryParametersAll, ...resultParams},
     );
   }
 }

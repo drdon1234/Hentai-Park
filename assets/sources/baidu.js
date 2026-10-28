@@ -5,6 +5,11 @@ const baiduUrl = (value, base = 'https://graph.baidu.com/') => {
   try { const url = new URL(value, base); return !url.username && !url.password && /^https?:\/\//i.test(url.href) ? url.href : ''; } catch (_) { return ''; }
 };
 const serviceUrl = value => { const url = baiduUrl(value); return /^https:\/\/graph\.baidu\.com\//.test(url) ? url : ''; };
+const thumbnailUrl = value => {
+  const url = baiduUrl(value, 'https://www.baidu.com/');
+  // 百度图片 CDN 的接口仍返回 HTTP；使用其 HTTPS 地址，避免明文链路被拦截。
+  return /^http:\/\/(?:[^/]+\.)?baidu\.com\//i.test(url) ? url.replace(/^http:/i, 'https:') : url;
+};
 const baiduCards = (doc) => {
   for (const script of doc.querySelectorAll('script')) {
     const text = script.textContent || '';
@@ -58,7 +63,7 @@ Park.register({
       "百度识图拒绝了图片上传，请稍后重试或更换图片": "رفض Baidu رفع الصورة. أعد المحاولة لاحقًا أو اختر صورة أخرى"
     }
   },
-  key: 'baidu', name: 'Baidu', version: '0.0.4', minAppVersion: '0.9.2', apiVersion: 2,
+  key: 'baidu', name: 'Baidu', version: '0.0.5', minAppVersion: '0.9.2', apiVersion: 2,
   type: 'comic', category: 'other', reverseSearchCategory: 'general',
   homepage: 'https://graph.baidu.com/',
   description: '通用图片反搜；结果覆盖取决于百度识图索引',
@@ -82,7 +87,7 @@ Park.register({
       // 当前相似图接口不再返回网页标题，直接显示真实出处 URL，不推断作品名。
       const title = Park.html.strip(Array.isArray(item.title) ? String(item.title[0] || '') : String(item.title || '')) || url;
       if (!url) throw Park.error('PARSE', '反搜服务返回无效数据');
-      const thumbnail = baiduUrl(item.image_src || item.thumbUrl, 'https://www.baidu.com/');
+      const thumbnail = thumbnailUrl(item.image_src) || thumbnailUrl(item.thumbUrl);
       return { title, url, images: thumbnail ? [{ url: thumbnail }] : [], details: { title: item.title, url, image: thumbnail, source: String(item.site_name || item.from || '') } };
     });
   },

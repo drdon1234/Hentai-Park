@@ -1,5 +1,5 @@
 Park.register({
-  key: 'google_lens', name: 'Google Lens', version: '0.0.6', minAppVersion: '0.9.2', apiVersion: 2,
+  key: 'google_lens', name: 'Google Lens', version: '0.0.7', minAppVersion: '0.9.2', apiVersion: 2,
   type: 'comic', category: 'other', reverseSearchCategory: 'general', homepage: 'https://lens.google.com/',
   description: '综合图片反搜；在应用内浏览器上传并查找完全匹配出处',
   domains: ['google.com'], network: { vpnHint: true },
@@ -19,11 +19,13 @@ Park.register({
       fileField: 'encoded_image', resultPath: '/search', resultQuery: 'vsrid',
       resultParams: { udm: '48', hl: 'en' },
       resultSelector: '#rso a[href], #search a[href^="/goto?"], #search a[href^="/url?"], #search a[href^="/imgres?"], #search a[href^="http"]',
-      emptySelector: 'body', emptyText: 'No exact matches found',
+      emptySelector: 'body', emptyText: 'No matches for your search',
     } };
   },
   async reverseSearchResult(page) {
     const parsed = Park.html.parse(page.html);
+    // HTML 含不可见的脚本和 noscript 文案，不能据此判定正常结果页失效。
+    for (const node of parsed.querySelectorAll('script, style, noscript, template')) node.remove();
     const text = Park.html.text(parsed.querySelector('body') || parsed.documentElement);
     if (!/^https:\/\/www\.google\.com\/search\?/.test(page.url) || !/[?&]vsrid=/.test(page.url)) {
       throw Park.error('PARSE', '反搜服务返回无效数据');
@@ -62,7 +64,7 @@ Park.register({
       if (candidates.length > 1000) throw Park.error('PARSE', '反搜服务返回无效数据');
     }
     if (!candidates.length) {
-      if (/No exact matches found|No results found|No matching images found|couldn't find any results/i.test(text)) return [];
+      if (/No matches for your search|No exact matches found|No results found|No matching images found|couldn't find any results/i.test(text)) return [];
       throw Park.error('PARSE', '反搜服务返回无效数据');
     }
     let matches = [], offset = 0;
