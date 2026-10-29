@@ -10,6 +10,7 @@ import '../../core/models.dart';
 import '../../core/settings.dart';
 import '../../core/work_metadata.dart';
 import '../../engine/source_manager.dart';
+import '../comments/comments_page.dart';
 import '../nav.dart';
 import '../settings/source_manage_page.dart';
 import '../theme.dart';
@@ -26,10 +27,12 @@ class MetadataPage extends StatefulWidget {
     this.keyword = '',
     this.sourceKey,
     this.sourceManager,
+    this.comments,
   });
   final String keyword;
   final String? sourceKey;
   final SourceManager? sourceManager;
+  final CommentsEntry? comments;
 
   @override
   State<MetadataPage> createState() => _MetadataPageState();
@@ -43,6 +46,17 @@ class _MetadataPageState extends State<MetadataPage> {
   StreamSubscription<String>? _authentication;
   String? _source;
   String _signature = '';
+
+  bool get _showComments {
+    String normalized(String value) =>
+        value.toUpperCase().replaceAll(RegExp(r'[^A-Z0-9]'), '');
+    final original = normalized(widget.keyword);
+    return widget.comments != null &&
+        original.isNotEmpty &&
+        normalized(_text.text) == original &&
+        (_controller.detail == null ||
+            normalized(_controller.detail!.code) == original);
+  }
 
   List<InstalledSource> get _sources => _manager.enabled
       .where(
@@ -221,6 +235,7 @@ class _MetadataPageState extends State<MetadataPage> {
                   ],
                 ),
                 const SizedBox(height: Gap.l),
+                if (_showComments) widget.comments!,
                 if (_source == null)
                   EmptyState(
                     icon: Icons.extension_off_outlined,

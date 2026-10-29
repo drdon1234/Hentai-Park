@@ -1,6 +1,6 @@
 # 平台支持与安装
 
-提供 Android 和 Windows 原生客户端。
+项目的平台范围仅为 Android、Windows 和 Web。目前提供 Android 和 Windows 原生客户端；Web 版处于规划阶段，尚未提供使用入口。
 
 ## 平台功能
 

@@ -1,57 +1,51 @@
 ## 中文
 
 ### 新功能
-- 支持在作品详情、短视频、帖子和作品榜单中查看原站评论、回复与图片；评论中的 E-Hentai 链接和禁漫车号可直接打开。
-- CAM4、XLoveCam、Stripchat 和 SOOP 支持直播弹幕，可选择上方四分之一、上半屏、下半屏或全屏显示，并记住选择。
-- 视频支持长按临时倍速播放，松开后恢复原速度。
-- 历史和下载列表支持切换网格与列表显示，分别记住选择。
+- 新增 JavBus 和 JavDB 资料插件，可从 JAV 排行榜的“详情”查看作品资料、演员、预览图和磁链，再搜索应用内 JAV 站点。
+- Windows 支持在应用内下载更新并打开安装程序，升级时沿用当前安装目录；同时提供安装包和便携 ZIP。
 
 ### 改进
-- 调整首页分类、筛选和全部站点入口，搜索框下显示当前聚合搜索范围。
-- “书架”更名为“收藏”；在主页“继续看 → 全部”查看浏览历史。
-- 漫画、视频和小说下载列表中，点击封面查看详情，点击标题或空白处直接继续已下载内容。
-- 改进收藏、订阅、排行榜与备份页面的布局和操作提示，筛选菜单更清楚地标记当前选择。
-- 视频切集或切换播放线路时保留音量，打开菜单和弹窗时继续播放。
+- 调整 Windows 侧边导航、设置与页面布局，支持快捷键和 Ctrl 加滚轮缩放，操作面板可用 Esc 关闭。
+- 首页推荐会保留已加载的首屏，返回浏览时更快显示内容，减少重复加载。
+- 下载列表显示实际进度，漫画可在下载过程中继续阅读已完成的页面。
+- 排行榜提供独立的“详情”和“搜索”按钮，原站入口位于作品右上角；支持站点的评论移到“详情”中查看。
+- 更新下载与平台说明、站点列表和产品演示，功能入口与使用方法更清楚。
 
 ### 修复
-- 修复阅读器被弹窗遮挡、应用锁定或切到后台后，翻页按键仍然响应的问题。
-- 修复切换页面后上一页的提示仍残留的问题。
+- 修复视频全屏旋转后的显示与方向恢复问题。
+- 修复图片反搜中浏览器错误归属不准确、失败原因不清楚的问题。
+- 修复部分后台下载的进度与状态更新问题。
 
 ### 插件更新
-- Reddit 0.0.8、哔咔漫画 0.0.10、myfans.jp 0.0.11、Fansly 0.0.13、GalgameX 0.0.10、XVideos 0.0.9、Pornhub Shorties 0.0.9、SpankBang 0.0.11、Iwara 0.0.5、Hanime.tv 0.0.10、FANZA 0.0.5、Cool18 0.0.9、次元茶馆 0.0.11、pixivFANBOX 0.0.6：支持查看原站评论与回复，实际内容和排序以站点提供为准。
-- X / Twitter 0.0.16、Telegram 0.0.9：登录后可查看回复或已开放讨论帖的评论；无法直接显示的 Telegram 附件可通过原站链接打开。
-- CAM4 0.0.7、XloveCam 0.0.7、Stripchat 亚洲直播 0.0.7、SOOP 0.0.6：支持直播弹幕。
-- E-Hentai 0.0.12、禁漫天堂 0.0.10：支持从评论中的画廊链接、搜索链接或车号跳转。
-- PixiBB 0.0.7、XiuRen 0.0.7、CosplayTele 0.0.7、NudeCosplay 0.0.7、Danbooru 0.0.6、yande.re 0.0.8、Gelbooru 0.0.8、nhentai 0.0.10、绅士漫画 0.0.8、Hanime1 0.0.11、Rule34Video 0.0.10、Pornhub 0.0.10、91porn 0.0.10、Eporner 0.0.9、Tik.porn 0.0.9、SOOP 短视频 0.0.6、PopkonTV 短视频 0.0.4、黄果短剧 0.0.12、KoreanBJ.club 录播 0.0.6、SOOP 录播 0.0.6、PopkonTV 录播 0.0.4、Pixiv 0.0.13、Literotica 0.0.9、KUN Galgame 0.0.8、DLsite 0.0.3、FC2 0.0.6、无码厂商 0.0.6。
+- E-Hentai 0.0.13：改善图集下载与图片加载，减少首批图片的重复请求。
+- Pixiv 0.0.14：修复排行榜翻页重复或无法继续加载的问题。
+- Baidu 0.0.5、Google Lens 0.0.7：改善图片反搜结果、封面地址和浏览器搜索处理。
 
 ### 注意事项
-- 评论、回复和直播弹幕仅供阅读，不支持向原站发送；部分内容需要登录、年龄确认或站点验证。
+- 本版本仅提供 Android 和 Windows 客户端，不再提供 iOS、macOS 和 Linux 客户端。
 
 ## English
 
 ### New
-- View original-site comments, replies and images in work details, short videos, posts and work rankings; open E-Hentai links and JMComic IDs directly from comments.
-- CAM4, XLoveCam, Stripchat and SOOP support live chat overlays, with a choice of the top quarter, top half, bottom half or full screen; your choice is remembered.
-- Press and hold a video to temporarily speed up playback; release to restore the previous speed.
-- History and downloads support grid and list views, with each choice saved separately.
+- Add JavBus and JavDB metadata plugins. Open Details from JAV rankings to view work information, actors, preview images and magnets, then search JAV sites in the app.
+- Windows can download updates in the app and open the installer, keeping the current installation directory during upgrades; both an installer and a portable ZIP are available.
 
 ### Improvements
-- Update Home categories, filters and the All sites entry; the current multi-site search scope appears below the search box.
-- Rename Bookshelf to Favorites; open Continue watching → All on Home to view browsing history.
-- In comic, video and novel downloads, tap a cover for details or tap the title or empty space to continue downloaded content directly.
-- Improve layouts and action prompts in Favorites, subscriptions, rankings and backups, with clearer selection marks in filter menus.
-- Keep the volume when switching episodes or playback servers, and keep playing while menus and dialogs are open.
+- Update the Windows sidebar, settings and page layouts. Support keyboard shortcuts and Ctrl plus mouse wheel zoom; press Esc to close action panels.
+- Keep the first page of loaded Home recommendations so returning to browsing shows content sooner with less repeated loading.
+- Show actual download progress and let comics continue reading completed pages while the rest downloads.
+- Rankings provide separate Details and Search buttons, with the original-site entry at the top right of each work; comments from supported sites are now available in Details.
+- Update download and platform instructions, site lists and the product demo to make features and usage clearer.
 
 ### Fixes
-- Fix reader page-turn keys still responding while a dialog covers the reader, the app is locked or the app is in the background.
-- Fix prompts from the previous page remaining after navigation.
+- Fix display and orientation restoration after rotating full-screen video.
+- Fix incorrect attribution of browser errors and unclear failure reasons in reverse image search.
+- Fix progress and status updates for some background downloads.
 
 ### Plugin updates
-- Reddit 0.0.8, Pica 0.0.10, myfans.jp 0.0.11, Fansly 0.0.13, GalgameX 0.0.10, XVideos 0.0.9, Pornhub Shorties 0.0.9, SpankBang 0.0.11, Iwara 0.0.5, Hanime.tv 0.0.10, FANZA 0.0.5, Cool18 0.0.9, 次元茶馆 0.0.11 and pixivFANBOX 0.0.6: view original-site comments and replies, with content and sorting determined by each site.
-- X / Twitter 0.0.16 and Telegram 0.0.9: view replies or comments on posts with discussion enabled after signing in; Telegram attachments that cannot be displayed directly can be opened through original-site links.
-- CAM4 0.0.7, XloveCam 0.0.7, Stripchat Asian Live 0.0.7 and SOOP 0.0.6: support live chat overlays.
-- E-Hentai 0.0.12 and JMComic 0.0.10: open gallery links, search links or comic IDs from comments.
-- PixiBB 0.0.7, XiuRen 0.0.7, CosplayTele 0.0.7, NudeCosplay 0.0.7, Danbooru 0.0.6, yande.re 0.0.8, Gelbooru 0.0.8, nhentai 0.0.10, WNACG 0.0.8, Hanime1 0.0.11, Rule34Video 0.0.10, Pornhub 0.0.10, 91porn 0.0.10, Eporner 0.0.9, Tik.porn 0.0.9, SOOP Short Videos 0.0.6, PopkonTV Short Videos 0.0.4, 黄果短剧 0.0.12, KoreanBJ.club Recordings 0.0.6, SOOP Recordings 0.0.6, PopkonTV Recordings 0.0.4, Pixiv 0.0.13, Literotica 0.0.9, KUN Galgame 0.0.8, DLsite 0.0.3, FC2 0.0.6 and 无码厂商 0.0.6.
+- E-Hentai 0.0.13: improve gallery downloads and image loading, with fewer repeated requests for the first images.
+- Pixiv 0.0.14: fix repeated ranking pages and failures to load further results.
+- Baidu 0.0.5 and Google Lens 0.0.7: improve reverse image search results, cover URLs and browser search handling.
 
 ### Notes
-- Comments, replies and live chat are read-only; sending to the original site is not supported. Some content requires sign-in, age confirmation or a site check.
+- This release provides Android and Windows clients only; iOS, macOS and Linux clients are no longer provided.
