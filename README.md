@@ -34,15 +34,6 @@ Windows 支持在应用内确认更新后下载、校验并打开安装程序；
 
 https://github.com/user-attachments/assets/165f1524-9084-4437-bebb-fa9e23ebd316
 
-<table>
-  <tr>
-    <td width="33%"><a href="docs/screenshots/home_dark.jpg"><img src="docs/screenshots/home_dark.jpg" alt="分类浏览" width="100%"></a></td>
-    <td width="33%"><a href="docs/screenshots/detail.jpg"><img src="docs/screenshots/detail.jpg" alt="作品详情 · 阅读与收藏" width="100%"></a></td>
-    <td width="33%"><a href="docs/screenshots/home_light.jpg"><img src="docs/screenshots/home_light.jpg" alt="浅色主题 · 站点入口" width="100%"></a></td>
-  </tr>
-  <tr><td align="center"><sub>分类浏览</sub></td><td align="center"><sub>作品详情 · 阅读与收藏</sub></td><td align="center"><sub>浅色主题 · 站点入口</sub></td></tr>
-</table>
-
 ## 快速上手
 
 1. 在「发现」选择内容分类，浏览站点，或搜索作品、标签、链接与番号。

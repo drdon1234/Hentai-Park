@@ -34,15 +34,6 @@ Windows 支援在應用程式內確認更新後下載、驗證並開啟安裝程
 
 https://github.com/user-attachments/assets/165f1524-9084-4437-bebb-fa9e23ebd316
 
-<table>
-  <tr>
-    <td width="33%"><a href="../../screenshots/home_dark.jpg"><img src="../../screenshots/home_dark.jpg" alt="分類瀏覽" width="100%"></a></td>
-    <td width="33%"><a href="../../screenshots/detail.jpg"><img src="../../screenshots/detail.jpg" alt="作品詳情 · 閱讀與收藏" width="100%"></a></td>
-    <td width="33%"><a href="../../screenshots/home_light.jpg"><img src="../../screenshots/home_light.jpg" alt="淺色主題 · 網站入口" width="100%"></a></td>
-  </tr>
-  <tr><td align="center"><sub>分類瀏覽</sub></td><td align="center"><sub>作品詳情 · 閱讀與收藏</sub></td><td align="center"><sub>淺色主題 · 網站入口</sub></td></tr>
-</table>
-
 ## 快速上手
 
 1. 在「發現」選擇內容分類並瀏覽網站，或搜尋作品、標籤、連結與番號。

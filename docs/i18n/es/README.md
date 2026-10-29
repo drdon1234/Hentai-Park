@@ -34,15 +34,6 @@ En Windows, al confirmar una actualización se descarga y verifica el instalador
 
 https://github.com/user-attachments/assets/d648927a-e4d6-48e8-b8c0-b77349ffd607
 
-<table>
-  <tr>
-    <td width="33%"><a href="../../screenshots/home_dark.jpg"><img src="../../screenshots/home_dark.jpg" alt="Categorías" width="100%"></a></td>
-    <td width="33%"><a href="../../screenshots/detail.jpg"><img src="../../screenshots/detail.jpg" alt="Ficha · Leer y guardar" width="100%"></a></td>
-    <td width="33%"><a href="../../screenshots/home_light.jpg"><img src="../../screenshots/home_light.jpg" alt="Tema claro · Accesos a sitios" width="100%"></a></td>
-  </tr>
-  <tr><td align="center"><sub>Categorías</sub></td><td align="center"><sub>Ficha · Leer y guardar</sub></td><td align="center"><sub>Tema claro · Accesos a sitios</sub></td></tr>
-</table>
-
 ## Primeros pasos
 
 1. En Explorar, elige una categoría y un sitio, o busca por obra, etiqueta, enlace o código.

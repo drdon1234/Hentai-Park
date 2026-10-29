@@ -34,15 +34,6 @@
 
 https://github.com/user-attachments/assets/d648927a-e4d6-48e8-b8c0-b77349ffd607
 
-<table>
-  <tr>
-    <td width="33%"><a href="../../screenshots/home_dark.jpg"><img src="../../screenshots/home_dark.jpg" alt="Категории · Открытые обложки" width="100%"></a></td>
-    <td width="33%"><a href="../../screenshots/detail.jpg"><img src="../../screenshots/detail.jpg" alt="Произведение · Чтение и сохранение" width="100%"></a></td>
-    <td width="33%"><a href="../../screenshots/home_light.jpg"><img src="../../screenshots/home_light.jpg" alt="Светлая тема · Сайты" width="100%"></a></td>
-  </tr>
-  <tr><td align="center"><sub>Категории · Открытые обложки</sub></td><td align="center"><sub>Произведение · Чтение и сохранение</sub></td><td align="center"><sub>Светлая тема · Сайты</sub></td></tr>
-</table>
-
 ## Начало работы
 
 1. В разделе «Обзор» выберите категорию и сайт или найдите произведение по названию, тегу, ссылке или коду.

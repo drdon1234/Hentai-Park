@@ -34,15 +34,6 @@ On Windows, confirming an update downloads and verifies the installer, opens it,
 
 https://github.com/user-attachments/assets/d648927a-e4d6-48e8-b8c0-b77349ffd607
 
-<table>
-  <tr>
-    <td width="33%"><a href="../../screenshots/home_dark.jpg"><img src="../../screenshots/home_dark.jpg" alt="Browse categories" width="100%"></a></td>
-    <td width="33%"><a href="../../screenshots/detail.jpg"><img src="../../screenshots/detail.jpg" alt="Work details · Read and save" width="100%"></a></td>
-    <td width="33%"><a href="../../screenshots/home_light.jpg"><img src="../../screenshots/home_light.jpg" alt="Light theme · Site entries" width="100%"></a></td>
-  </tr>
-  <tr><td align="center"><sub>Browse categories</sub></td><td align="center"><sub>Work details · Read and save</sub></td><td align="center"><sub>Light theme · Site entries</sub></td></tr>
-</table>
-
 ## Get started
 
 1. In Discover, choose a category and browse sites, or search by work, tag, link or video code.

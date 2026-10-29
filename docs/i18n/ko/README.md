@@ -34,15 +34,6 @@ Windows에서는 앱 내 업데이트를 확인하면 설치 파일을 다운로
 
 https://github.com/user-attachments/assets/d648927a-e4d6-48e8-b8c0-b77349ffd607
 
-<table>
-  <tr>
-    <td width="33%"><a href="../../screenshots/home_dark.jpg"><img src="../../screenshots/home_dark.jpg" alt="분류 탐색" width="100%"></a></td>
-    <td width="33%"><a href="../../screenshots/detail.jpg"><img src="../../screenshots/detail.jpg" alt="작품 상세 · 읽기와 저장" width="100%"></a></td>
-    <td width="33%"><a href="../../screenshots/home_light.jpg"><img src="../../screenshots/home_light.jpg" alt="밝은 테마 · 사이트 입구" width="100%"></a></td>
-  </tr>
-  <tr><td align="center"><sub>분류 탐색</sub></td><td align="center"><sub>작품 상세 · 읽기와 저장</sub></td><td align="center"><sub>밝은 테마 · 사이트 입구</sub></td></tr>
-</table>
-
 ## 시작하기
 
 1. 「탐색」에서 분류와 사이트를 선택하거나 작품, 태그, 링크 또는 품번으로 검색하세요.

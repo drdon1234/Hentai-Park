@@ -36,15 +36,6 @@
 
 https://github.com/user-attachments/assets/d648927a-e4d6-48e8-b8c0-b77349ffd607
 
-<table>
-  <tr>
-    <td width="33%"><a href="../../screenshots/home_dark.jpg"><img src="../../screenshots/home_dark.jpg" alt="تصفح الفئات" width="100%"></a></td>
-    <td width="33%"><a href="../../screenshots/detail.jpg"><img src="../../screenshots/detail.jpg" alt="تفاصيل العمل · القراءة والحفظ" width="100%"></a></td>
-    <td width="33%"><a href="../../screenshots/home_light.jpg"><img src="../../screenshots/home_light.jpg" alt="المظهر الفاتح · مداخل المواقع" width="100%"></a></td>
-  </tr>
-  <tr><td align="center"><sub>تصفح الفئات</sub></td><td align="center"><sub>تفاصيل العمل · القراءة والحفظ</sub></td><td align="center"><sub>المظهر الفاتح · مداخل المواقع</sub></td></tr>
-</table>
-
 ## البدء
 
 1. من «استكشاف»، اختر فئة وموقعاً أو ابحث بالعمل أو الوسم أو الرابط أو الرمز.

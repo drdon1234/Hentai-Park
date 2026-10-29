@@ -34,15 +34,6 @@ Windows では、アプリ内で更新を確認するとインストーラーを
 
 https://github.com/user-attachments/assets/d648927a-e4d6-48e8-b8c0-b77349ffd607
 
-<table>
-  <tr>
-    <td width="33%"><a href="../../screenshots/home_dark.jpg"><img src="../../screenshots/home_dark.jpg" alt="カテゴリ閲覧" width="100%"></a></td>
-    <td width="33%"><a href="../../screenshots/detail.jpg"><img src="../../screenshots/detail.jpg" alt="作品詳細・閲覧と保存" width="100%"></a></td>
-    <td width="33%"><a href="../../screenshots/home_light.jpg"><img src="../../screenshots/home_light.jpg" alt="ライトテーマ・サイト入口" width="100%"></a></td>
-  </tr>
-  <tr><td align="center"><sub>カテゴリ閲覧</sub></td><td align="center"><sub>作品詳細・閲覧と保存</sub></td><td align="center"><sub>ライトテーマ・サイト入口</sub></td></tr>
-</table>
-
 ## はじめ方
 
 1. 「見つける」でカテゴリとサイトを選ぶか、作品、タグ、リンク、品番で検索します。
