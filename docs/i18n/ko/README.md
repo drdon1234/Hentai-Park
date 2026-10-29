@@ -32,7 +32,7 @@ Windows에서는 앱 내 업데이트를 확인하면 설치 파일을 다운로
 
 ## 제품 소개
 
-https://github.com/user-attachments/assets/165f1524-9084-4437-bebb-fa9e23ebd316
+https://github.com/user-attachments/assets/d648927a-e4d6-48e8-b8c0-b77349ffd607
 
 <table>
   <tr>
