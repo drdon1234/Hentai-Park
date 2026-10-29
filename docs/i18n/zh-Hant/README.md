@@ -32,9 +32,7 @@ Windows 支援在應用程式內確認更新後下載、驗證並開啟安裝程
 
 ## 產品展示
 
-[![HentaiPark · 18+ · 產品展示](../../images/overview.jpg)](../../media/overview.mp4)
-
-**[觀看概念宣傳片（42 秒，MP4，簡體中文字幕）](../../media/overview.mp4)**
+https://github.com/user-attachments/assets/edbdf27e-e7df-4745-af96-a5ffa6f45ccd
 
 成人多媒體，一站聚合。獨立呈現二三次元圖片與影片，展示多封面瀏覽、圖集詳情、跨站檢索、收藏下載、訂閱通知、榜單反搜、原站評論、翻譯過濾、封面模糊與備份
 

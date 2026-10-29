@@ -32,9 +32,7 @@ En Windows, al confirmar una actualización se descarga y verifica el instalador
 
 ## Demostración
 
-[![HentaiPark · 18+ · Demostración](../../images/overview.jpg)](../../media/overview.mp4)
-
-**[Ver el vídeo conceptual (42 segundos, MP4, subtítulos en chino)](../../media/overview.mp4)**
+https://github.com/user-attachments/assets/edbdf27e-e7df-4745-af96-a5ffa6f45ccd
 
 Multimedia para adultos en un solo lugar. Ilustración, fotografía, animación y vídeo con actores, con varias portadas, detalles de galerías, búsqueda entre sitios, favoritos, descargas, notificaciones de suscripción, rankings, búsqueda inversa de imágenes, comentarios del sitio, traducción, filtros, portadas difuminadas y copias de seguridad
 
