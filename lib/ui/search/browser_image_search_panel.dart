@@ -41,8 +41,8 @@ class _BrowserImageSearchPanelState extends State<BrowserImageSearchPanel> {
   bool _ready = false, _busy = false, _uploaded = false, _done = false;
   DateTime? _challengeSince;
   int _clickedGeneration = -1;
-  int _navigation = 0, _stable = 0, _stableRows = 0;
-  String _lastUrl = '', _lastResult = '';
+  int _navigation = 0, _stableRows = 0;
+  String _lastResult = '';
   Uri? _documentUri;
   String _operation = 'prepare';
   void Function()? _unregister;
@@ -75,7 +75,7 @@ class _BrowserImageSearchPanelState extends State<BrowserImageSearchPanel> {
         _ready = true;
       });
       _poll = Timer.periodic(
-        const Duration(milliseconds: 1200),
+        const Duration(milliseconds: 600),
         (_) => _check(),
       );
     } catch (error, stack) {
@@ -286,12 +286,8 @@ class _BrowserImageSearchPanelState extends State<BrowserImageSearchPanel> {
       if (widget.request.isResult(uri)) {
         _operation = 'result';
         final url = uri.toString();
-        _stable = url == _lastUrl ? _stable + 1 : 0;
-        _lastUrl = url;
         final target = widget.request.resultUrl(uri);
-        if (_stable < 2) return;
         if (target != uri) {
-          _stable = 0;
           await c.loadUrl(
             urlRequest: URLRequest(url: WebUri(target.toString())),
           );
@@ -303,10 +299,13 @@ class _BrowserImageSearchPanelState extends State<BrowserImageSearchPanel> {
         _lastResult = signature;
         if (count is num &&
             (count > 0 || state['empty'] == true) &&
-            _stableRows >= 2) {
-          final html = await c.getHtml().timeout(const Duration(seconds: 8));
-          if (!mounted || _done || generation != _navigation) return;
-          if (html == null || html.isEmpty || html.length > 4 * 1024 * 1024) {
+            state['ready'] == 'complete' &&
+            _stableRows >= 1) {
+          // 使用同次检查的快照，避免再次跨平台传输整份 HTML。
+          final html = state['html'];
+          if (html is! String ||
+              html.isEmpty ||
+              html.length > 4 * 1024 * 1024) {
             _fail('反搜服务返回无效数据', code: 'PARSE');
             return;
           }
@@ -375,6 +374,8 @@ class _BrowserImageSearchPanelState extends State<BrowserImageSearchPanel> {
     },
     onLoadStart: (c, url) async {
       _navigation++;
+      _stableRows = 0;
+      _lastResult = '';
       _documentUri = Uri.tryParse(url?.toString() ?? '');
       _challengeSince = null;
       if (!_allowed(url?.toString())) {
@@ -387,6 +388,7 @@ class _BrowserImageSearchPanelState extends State<BrowserImageSearchPanel> {
         );
       }
     },
+    onLoadStop: (_, _) => _check(),
     onReceivedError: (controller, request, error) async {
       // 主页面跳转后，Android 仍可能交付旧页面的失败；不能终止新文档。
       final nativeCode = RegExp(r'\bnet::ERR_[A-Z0-9_]+\b')

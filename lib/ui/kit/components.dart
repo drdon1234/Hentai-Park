@@ -59,10 +59,7 @@ class PageHeader extends StatelessWidget implements PreferredSizeWidget {
               ? context.text.titleLarge
               : ParkText.serif(context.text.headlineSmall),
         ),
-    actions: [
-      ...actions,
-      const SizedBox(width: Gap.l),
-    ],
+    actions: actions,
     bottom: bottom,
   );
 }

@@ -243,6 +243,7 @@ class ParkTheme {
         scrolledUnderElevation: 0,
         centerTitle: false,
         titleSpacing: Gap.page,
+        actionsPadding: const EdgeInsetsDirectional.only(end: Gap.page),
         titleTextStyle: text.titleLarge?.copyWith(color: scheme.onSurface),
         systemOverlayStyle: overlayStyle(brightness),
       ),

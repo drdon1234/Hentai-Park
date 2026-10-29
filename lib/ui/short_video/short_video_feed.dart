@@ -20,6 +20,7 @@ class ShortVideoFeed extends ChangeNotifier {
     int initialPage = 0,
     String? initialCursor,
     bool hasMore = true,
+    this.preloadCount = 2,
     this.allowItem,
     this.source,
   }) : _page = initialPage + 1,
@@ -91,6 +92,23 @@ class ShortVideoFeed extends ChangeNotifier {
   bool loading = false, hasNext = true, _disposed = false;
   Object? error;
   bool _preview = false;
+  int preloadCount;
+
+  void setPreloadCount(int value) {
+    preloadCount = RangeError.checkNotNegative(value);
+    _ensureAhead();
+  }
+
+  void _ensureAhead() {
+    if (!_disposed &&
+        !loading &&
+        hasNext &&
+        error == null &&
+        index >= items.length - max(3, preloadCount + 1)) {
+      loadMore();
+    }
+  }
+
   bool get refreshingCached => _preview && loading;
   void Function(WorkPage) cachedReceiver() {
     final request = generation;
@@ -120,12 +138,13 @@ class ShortVideoFeed extends ChangeNotifier {
     if (_disposed) return;
     index = value.clamp(0, items.length);
     notifyListeners();
-    if (index >= items.length - 3 && error == null) loadMore();
+    _ensureAhead();
   }
 
   Future<void> loadMore() async {
     if (_disposed || loading || !hasNext) return;
     final request = generation;
+    final previousLength = items.length;
     loading = true;
     error = null;
     notifyListeners();
@@ -184,6 +203,8 @@ class ShortVideoFeed extends ChangeNotifier {
         loading = false;
         _reportAvailability();
         notifyListeners();
+        // 补齐当前视频之后的窗口；空页或重复页不自动循环请求。
+        if (items.length > previousLength) _ensureAhead();
       }
     }
   }

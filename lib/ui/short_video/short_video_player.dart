@@ -163,6 +163,39 @@ class ShortVideoPlayer implements ShortVideoHandle {
   }
 
   @override
+  Future<void> buffer(CancelToken cancel) async {
+    if (_file != null) return;
+    final ready = Completer<void>();
+    void check() {
+      final value = controller.value;
+      final target = value.duration < const Duration(seconds: 3)
+          ? value.duration
+          : const Duration(seconds: 3);
+      if (!ready.isCompleted &&
+          (value.hasError ||
+              value.buffered.any(
+                (range) =>
+                    range.start <= value.position &&
+                    range.end >= value.position + target,
+              ))) {
+        ready.complete();
+      }
+    }
+
+    controller.addListener(check);
+    try {
+      check();
+      // 暂停状态由原生播放器填充缓冲，不偷播、不改变音量或进度。
+      await awaitCancelled(
+        ready.future.timeout(const Duration(seconds: 15), onTimeout: () {}),
+        cancel,
+      );
+    } finally {
+      controller.removeListener(check);
+    }
+  }
+
+  @override
   Future<void> play() async {
     if (_closing == null) await controller.play();
   }

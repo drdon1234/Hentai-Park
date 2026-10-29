@@ -252,10 +252,7 @@ class _AggregateSearchPageState extends State<AggregateSearchPage> {
                 ),
               ],
             ),
-            actions: const [
-              TranslationControls(),
-              SizedBox(width: Gap.xs),
-            ],
+            actions: const [TranslationControls()],
           ),
           body: ListenableBuilder(
             listenable: Listenable.merge([

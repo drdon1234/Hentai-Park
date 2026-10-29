@@ -7,6 +7,8 @@ import '../../core/models.dart';
 import '../../engine/desktop_shutdown.dart';
 
 abstract interface class ShortVideoHandle {
+  /// 初始化后即可接管播放；后台名额保留到首段缓冲就绪。
+  Future<void> buffer(CancelToken cancel);
   Future<void> play();
   Future<void> pause();
   Future<void> close();
@@ -132,6 +134,8 @@ class ShortVideoPlayback extends ChangeNotifier {
     ];
     for (final slot in candidates) {
       if (slot.started || slot.cancel.isCancelled) continue;
+      // 当前视频初始化前不争抢解析、网络和解码资源。
+      if (!identical(slot, current) && current?.handle == null) continue;
       if (_live.length >= 1 + _preloadCount + _retainedCount) break;
       if (!identical(slot, current) &&
           (!_enabled ||
@@ -148,6 +152,10 @@ class ShortVideoPlayback extends ChangeNotifier {
   Future<void> _load(_Slot slot) async {
     try {
       slot.handle = await _open(slot.item, slot.cancel);
+      _notify();
+      unawaited(_sync());
+      _pump();
+      await slot.handle!.buffer(slot.cancel);
     } catch (e) {
       if (!slot.cancel.isCancelled && !_closed) {
         slot.error = e is SourceError ? e : SourceError('NETWORK', '短视频播放失败');

@@ -1,5 +1,5 @@
 Park.register({
-  key: 'google_lens', name: 'Google Lens', version: '0.0.7', minAppVersion: '0.9.2', apiVersion: 2,
+  key: 'google_lens', name: 'Google Lens', version: '0.0.8', minAppVersion: '0.9.2', apiVersion: 2,
   type: 'comic', category: 'other', reverseSearchCategory: 'general', homepage: 'https://lens.google.com/',
   description: '综合图片反搜；在应用内浏览器上传并查找完全匹配出处',
   domains: ['google.com'], network: { vpnHint: true },
@@ -51,6 +51,8 @@ Park.register({
         if (!url) redirect = 'https://www.google.com' + raw;
       } else if (/^https?:\/\//i.test(raw)) { url = raw; }
       else continue;
+      if (url && (!/^https?:\/\/(?![^/]*@)[^/\s?#]+(?:[/?#]|$)/i.test(url) ||
+          /^https?:\/\/(?:[^/]+\.)?google\.com(?:[/:?#]|$)/i.test(url))) continue;
       const key = url || redirect;
       const image = Park.html.attr(thumbnail, 'src') || Park.html.attr(thumbnail, 'data-src');
       if (seen.has(key)) {
@@ -67,14 +69,21 @@ Park.register({
       if (/No matches for your search|No exact matches found|No results found|No matching images found|couldn't find any results/i.test(text)) return [];
       throw Park.error('PARSE', '反搜服务返回无效数据');
     }
-    let matches = [], offset = 0;
-    while (offset < candidates.length && matches.length < 20) {
-      const end = Math.min(candidates.length, offset + 20 - matches.length);
-      matches = await this.resolveCandidates(candidates.slice(offset, end), matches);
+    // 已含出处的链接直接显示，跳板解析留给“加载全部”，不阻塞首批结果。
+    const direct = candidates.filter(candidate => candidate.url);
+    const ordered = [...direct, ...candidates.filter(candidate => !candidate.url)];
+    let matches = [], offset = 0, failure;
+    while (offset < ordered.length && !matches.length) {
+      const batch = offset < direct.length ? Math.min(20, direct.length - offset) : 4;
+      const end = Math.min(ordered.length, offset + batch);
+      try {
+        matches = await this.resolveCandidates(ordered.slice(offset, end), matches);
+      } catch (error) { failure = failure || error; }
       offset = end;
     }
-    return offset < candidates.length
-      ? { matches, continuation: { candidates: candidates.slice(offset), matches } }
+    if (!matches.length) throw failure || Park.error('PARSE', '反搜服务返回无效数据');
+    return offset < ordered.length
+      ? { matches, continuation: { candidates: ordered.slice(offset), matches } }
       : matches;
   },
   async reverseSearchMore(continuation) {

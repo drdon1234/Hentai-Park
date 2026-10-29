@@ -334,7 +334,6 @@ class _ReverseSearchPageState extends State<ReverseSearchPage> {
               icon: const Icon(Icons.extension_outlined),
               onPressed: () => Nav.push(context, const SourceManagePage()),
             ),
-            const SizedBox(width: Gap.xs),
           ],
         ),
         body: ImageInputRegion(

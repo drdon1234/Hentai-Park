@@ -314,10 +314,7 @@ class _SourceSearchPageState extends State<SourceSearchPage> {
                 ),
               ],
             ),
-            actions: [
-              TranslationControls(source: widget.sourceKey),
-              const SizedBox(width: Gap.xs),
-            ],
+            actions: [TranslationControls(source: widget.sourceKey)],
           ),
           body: Column(
             children: [

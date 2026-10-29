@@ -1,4 +1,6 @@
 {
+  "仅视频": "Video only",
+  "带信息": "Show info",
   "可切换分类，或通过站点入口浏览和搜索": "Switch categories, or open Sites to browse and search.",
   "内容不存在或已被删除": "This content doesn't exist or was removed",
   "启动时检查插件更新": "Check plugin updates at startup",

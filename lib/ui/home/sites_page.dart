@@ -29,7 +29,6 @@ class SitesPage extends StatelessWidget {
             onPressed: () => Nav.push(context, const SourceManagePage()),
             child: SelectionContainer.disabled(child: Text(tr('管理'))),
           ),
-          const SizedBox(width: Gap.xs),
         ],
       ),
       body: ListenableBuilder(

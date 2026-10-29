@@ -1,51 +1,33 @@
 ## 中文
 
 ### 新功能
-- 新增 JavBus 和 JavDB 资料插件，可从 JAV 排行榜的“详情”查看作品资料、演员、预览图和磁链，再搜索应用内 JAV 站点。
-- Windows 支持在应用内下载更新并打开安装程序，升级时沿用当前安装目录；同时提供安装包和便携 ZIP。
+- 短视频新增“仅视频 / 带信息”切换，可隐藏作品信息和互动按钮，切换时保留播放进度。
 
 ### 改进
-- 调整 Windows 侧边导航、设置与页面布局，支持快捷键和 Ctrl 加滚轮缩放，操作面板可用 Esc 关闭。
-- 首页推荐会保留已加载的首屏，返回浏览时更快显示内容，减少重复加载。
-- 下载列表显示实际进度，漫画可在下载过程中继续阅读已完成的页面。
-- 排行榜提供独立的“详情”和“搜索”按钮，原站入口位于作品右上角；支持站点的评论移到“详情”中查看。
-- 更新下载与平台说明、站点列表和产品演示，功能入口与使用方法更清楚。
+- 短视频优先加载当前视频，并按预加载数量提前加载后续列表与视频缓冲，减少向下滑动后的等待。
+- 加快 Google 图片反搜首批结果的展示，已有直接出处的结果无需等待其他链接解析。
+- 调整短视频窄屏与大字体下的顶部按钮布局。
 
 ### 修复
-- 修复视频全屏旋转后的显示与方向恢复问题。
-- 修复图片反搜中浏览器错误归属不准确、失败原因不清楚的问题。
-- 修复部分后台下载的进度与状态更新问题。
+- 修复预加载数量较大时，后续列表补充不及时的问题；播放期间修改数量会立即调整预加载范围。
+- 修复全部站点、搜索等页面顶部操作按钮过于贴近右侧边缘的问题。
 
 ### 插件更新
-- E-Hentai 0.0.13：改善图集下载与图片加载，减少首批图片的重复请求。
-- Pixiv 0.0.14：修复排行榜翻页重复或无法继续加载的问题。
-- Baidu 0.0.5、Google Lens 0.0.7：改善图片反搜结果、封面地址和浏览器搜索处理。
-
-### 注意事项
-- 本版本仅提供 Android 和 Windows 客户端，不再提供 iOS、macOS 和 Linux 客户端。
+- Google Lens 0.0.8：优先展示已取得的直接出处，其余候选可通过“加载全部”继续查看。
 
 ## English
 
 ### New
-- Add JavBus and JavDB metadata plugins. Open Details from JAV rankings to view work information, actors, preview images and magnets, then search JAV sites in the app.
-- Windows can download updates in the app and open the installer, keeping the current installation directory during upgrades; both an installer and a portable ZIP are available.
+- Add a Video only / Show info toggle to short videos. Hide work information and interaction buttons while keeping the playback position.
 
 ### Improvements
-- Update the Windows sidebar, settings and page layouts. Support keyboard shortcuts and Ctrl plus mouse wheel zoom; press Esc to close action panels.
-- Keep the first page of loaded Home recommendations so returning to browsing shows content sooner with less repeated loading.
-- Show actual download progress and let comics continue reading completed pages while the rest downloads.
-- Rankings provide separate Details and Search buttons, with the original-site entry at the top right of each work; comments from supported sites are now available in Details.
-- Update download and platform instructions, site lists and the product demo to make features and usage clearer.
+- Prioritize the current short video and load upcoming lists and video buffers according to the preload count, reducing waits when swiping down.
+- Show the first Google reverse image search results sooner. Results with direct source links no longer wait for other links to resolve.
+- Adjust the short video toolbar layout for narrow screens and larger text.
 
 ### Fixes
-- Fix display and orientation restoration after rotating full-screen video.
-- Fix incorrect attribution of browser errors and unclear failure reasons in reverse image search.
-- Fix progress and status updates for some background downloads.
+- Fix delayed loading of upcoming lists when using a larger preload count. Changing the count during playback immediately adjusts the preload range.
+- Fix toolbar actions sitting too close to the right edge on Sites, search and other pages.
 
 ### Plugin updates
-- E-Hentai 0.0.13: improve gallery downloads and image loading, with fewer repeated requests for the first images.
-- Pixiv 0.0.14: fix repeated ranking pages and failures to load further results.
-- Baidu 0.0.5 and Google Lens 0.0.7: improve reverse image search results, cover URLs and browser search handling.
-
-### Notes
-- This release provides Android and Windows clients only; iOS, macOS and Linux clients are no longer provided.
+- Google Lens 0.0.8: show available direct sources first; use Load all to view the remaining candidates.

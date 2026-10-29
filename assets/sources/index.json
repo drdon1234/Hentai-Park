@@ -585,7 +585,7 @@
     {
       "key": "google_lens",
       "name": "Google Lens",
-      "version": "0.0.7",
+      "version": "0.0.8",
       "type": "comic",
       "category": "other",
       "reverseSearchCategory": "general",
