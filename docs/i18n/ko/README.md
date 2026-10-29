@@ -34,8 +34,6 @@ Windows에서는 앱 내 업데이트를 확인하면 설치 파일을 다운로
 
 https://github.com/user-attachments/assets/165f1524-9084-4437-bebb-fa9e23ebd316
 
-성인 멀티미디어를 한곳에서. 2D·3D 이미지와 동영상을 각각 소개하고, 여러 표지 탐색, 갤러리 상세, 통합 검색, 즐겨찾기, 다운로드, 구독 알림, 순위, 이미지 역검색, 원본 사이트 댓글, 번역·필터링, 표지 흐림 및 백업을 보여줍니다
-
 <table>
   <tr>
     <td width="33%"><a href="../../screenshots/home_dark.jpg"><img src="../../screenshots/home_dark.jpg" alt="분류 탐색" width="100%"></a></td>

@@ -34,8 +34,6 @@ Windows では、アプリ内で更新を確認するとインストーラーを
 
 https://github.com/user-attachments/assets/165f1524-9084-4437-bebb-fa9e23ebd316
 
-成人向けマルチメディアをひとつに。二次元・三次元の画像と動画を個別に紹介し、複数作品の閲覧、ギャラリー詳細、横断検索、お気に入り、ダウンロード、購読通知、ランキング、画像逆検索、サイトのコメント、翻訳・フィルタリング、表紙ぼかし、バックアップを紹介
-
 <table>
   <tr>
     <td width="33%"><a href="../../screenshots/home_dark.jpg"><img src="../../screenshots/home_dark.jpg" alt="カテゴリ閲覧" width="100%"></a></td>

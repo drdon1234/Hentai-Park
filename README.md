@@ -34,8 +34,6 @@ Windows 支持在应用内确认更新后下载、校验并打开安装程序；
 
 https://github.com/user-attachments/assets/165f1524-9084-4437-bebb-fa9e23ebd316
 
-成人多媒体，一站聚合。独立呈现二三次元图片与视频，展示多封面浏览、图集详情、跨站检索、收藏下载、订阅通知、榜单反搜、原站评论、翻译过滤、封面模糊与备份。
-
 <table>
   <tr>
     <td width="33%"><a href="docs/screenshots/home_dark.jpg"><img src="docs/screenshots/home_dark.jpg" alt="分类浏览" width="100%"></a></td>

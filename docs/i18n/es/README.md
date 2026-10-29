@@ -34,8 +34,6 @@ En Windows, al confirmar una actualización se descarga y verifica el instalador
 
 https://github.com/user-attachments/assets/165f1524-9084-4437-bebb-fa9e23ebd316
 
-Multimedia para adultos en un solo lugar. Ilustración, fotografía, animación y vídeo con actores, con varias portadas, detalles de galerías, búsqueda entre sitios, favoritos, descargas, notificaciones de suscripción, rankings, búsqueda inversa de imágenes, comentarios del sitio, traducción, filtros, portadas difuminadas y copias de seguridad
-
 <table>
   <tr>
     <td width="33%"><a href="../../screenshots/home_dark.jpg"><img src="../../screenshots/home_dark.jpg" alt="Categorías" width="100%"></a></td>

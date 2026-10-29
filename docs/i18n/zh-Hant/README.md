@@ -34,8 +34,6 @@ Windows 支援在應用程式內確認更新後下載、驗證並開啟安裝程
 
 https://github.com/user-attachments/assets/165f1524-9084-4437-bebb-fa9e23ebd316
 
-成人多媒體，一站聚合。獨立呈現二三次元圖片與影片，展示多封面瀏覽、圖集詳情、跨站檢索、收藏下載、訂閱通知、榜單反搜、原站評論、翻譯過濾、封面模糊與備份
-
 <table>
   <tr>
     <td width="33%"><a href="../../screenshots/home_dark.jpg"><img src="../../screenshots/home_dark.jpg" alt="分類瀏覽" width="100%"></a></td>

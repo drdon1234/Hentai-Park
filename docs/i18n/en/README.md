@@ -34,8 +34,6 @@ On Windows, confirming an update downloads and verifies the installer, opens it,
 
 https://github.com/user-attachments/assets/165f1524-9084-4437-bebb-fa9e23ebd316
 
-Adult multimedia in one place. Explore illustrated and photographic galleries alongside animation and live-action video, with cover browsing, gallery details, cross-site search, favorites, downloads, subscription notifications, rankings, reverse image search, site comments, translation, filtering, cover blur and backups
-
 <table>
   <tr>
     <td width="33%"><a href="../../screenshots/home_dark.jpg"><img src="../../screenshots/home_dark.jpg" alt="Browse categories" width="100%"></a></td>
