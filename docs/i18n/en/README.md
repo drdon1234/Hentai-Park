@@ -32,7 +32,7 @@ On Windows, confirming an update downloads and verifies the installer, opens it,
 
 ## Product demo
 
-https://github.com/user-attachments/assets/edbdf27e-e7df-4745-af96-a5ffa6f45ccd
+https://github.com/user-attachments/assets/165f1524-9084-4437-bebb-fa9e23ebd316
 
 Adult multimedia in one place. Explore illustrated and photographic galleries alongside animation and live-action video, with cover browsing, gallery details, cross-site search, favorites, downloads, subscription notifications, rankings, reverse image search, site comments, translation, filtering, cover blur and backups
 

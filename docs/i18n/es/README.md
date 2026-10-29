@@ -32,7 +32,7 @@ En Windows, al confirmar una actualización se descarga y verifica el instalador
 
 ## Demostración
 
-https://github.com/user-attachments/assets/edbdf27e-e7df-4745-af96-a5ffa6f45ccd
+https://github.com/user-attachments/assets/165f1524-9084-4437-bebb-fa9e23ebd316
 
 Multimedia para adultos en un solo lugar. Ilustración, fotografía, animación y vídeo con actores, con varias portadas, detalles de galerías, búsqueda entre sitios, favoritos, descargas, notificaciones de suscripción, rankings, búsqueda inversa de imágenes, comentarios del sitio, traducción, filtros, portadas difuminadas y copias de seguridad
 
