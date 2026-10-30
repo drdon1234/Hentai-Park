@@ -65,7 +65,7 @@ Park.register({
   },
   key: 'ehentai',
   name: 'E-Hentai',
-  version: '0.0.14', minAppVersion: '0.9.2',
+  version: '0.0.15', minAppVersion: '0.9.2',
   type: 'comic',
   category: 'doujin',
   color: '#9C2A2A',
@@ -341,6 +341,7 @@ Park.register({
       await this.wait();
       const data = await this.http.json(base === 'https://exhentai.org' ? base + '/api.php' : 'https://api.e-hentai.org/api.php', {
         method: 'POST',
+        readOnly: true,
         json: { method: 'gdata', gidlist: pairs.slice(i, i + 25), namespace: 1 },
       });
       for (const meta of data.gmetadata || []) if (!meta.error) out.push(meta);
@@ -443,6 +444,7 @@ Park.register({
     if (!keyword) return [];
     await this.wait();
     const response = await this.http.post('https://api.e-hentai.org/api.php', {
+      readOnly: true,
       json: { method: 'tagsuggest', text: keyword },
     });
     if (!response.ok) throw Park.error('HTTP', 'HTTP {status}', { params: { status: response.status }, status: response.status });
@@ -719,6 +721,7 @@ Park.register({
       const imgkey = /\/s\/([0-9a-f]{10})\//.exec(link)[1];
       const previous = index > 0 ? await this.pageLink(gid, token, index - 1, base) : link;
       const res = await this.http.post(base === 'https://exhentai.org' ? base + '/api.php' : 'https://api.e-hentai.org/api.php', {
+        readOnly: true,
         json: { method: 'showpage', gid, page: index + 1, imgkey, showkey },
         headers: { Origin: base, Referer: previous },
       });

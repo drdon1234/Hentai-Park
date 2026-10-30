@@ -85,7 +85,7 @@
     {
       "key": "ehentai",
       "name": "E-Hentai",
-      "version": "0.0.14",
+      "version": "0.0.15",
       "type": "comic",
       "category": "doujin",
       "file": "ehentai.js",
@@ -285,7 +285,7 @@
     {
       "key": "ixxx",
       "name": "iXXX",
-      "version": "0.0.17",
+      "version": "0.0.18",
       "type": "video",
       "category": "adult",
       "file": "ixxx.js",

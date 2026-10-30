@@ -142,6 +142,7 @@ class HttpService {
       return result;
     }
     final res = await send(
+      readOnly: o['readOnly'] == true && o['bodyBase64'] == null,
       followRedirects: o['followRedirects'] != false,
       partition: partition,
       method: (o['method'] ?? 'GET').toString(),
@@ -168,6 +169,7 @@ class HttpService {
   }
 
   Future<HttpResult> send({
+    bool readOnly = false,
     required String method,
     required String url,
     Map<String, String> headers = const {},
@@ -187,6 +189,7 @@ class HttpService {
         : _build(target: _httpUri(url), connectAddress: connectAddress);
     try {
       final resource = await _request(
+        readOnly: readOnly,
         client: routed,
         followRedirects: followRedirects,
         beforeRequest: beforeRequest,
@@ -244,6 +247,7 @@ class HttpService {
 
   // Both buffered requests and file downloads use the same explicit redirect policy.
   Future<_HttpResponse> _request({
+    bool readOnly = false,
     Dio? client,
     Future<void> Function(Uri)? beforeRequest,
     bool followRedirects = true,
@@ -259,6 +263,9 @@ class HttpService {
     final cookieGeneration = CookieStore.instance.generation(partition);
     var currentMethod = method.toUpperCase();
     Object? currentBody = body;
+    bool replayable() =>
+        (currentBody == null && {'GET', 'HEAD'}.contains(currentMethod)) ||
+        (readOnly && currentMethod == 'POST' && currentBody is String);
     final currentHeaders = Map<String, String>.of(headers);
     var retries = 0;
     for (var hop = 0; hop < 8; hop++) {
@@ -303,8 +310,7 @@ class HttpService {
               ),
             );
             if (retries < 2 &&
-                currentBody == null &&
-                {'GET', 'HEAD'}.contains(currentMethod) &&
+                replayable() &&
                 {502, 503, 504}.contains(res.statusCode)) {
               await res.data!.stream.listen(null).cancel();
               retries++;
@@ -315,10 +321,9 @@ class HttpService {
           } on DioException catch (e) {
             if (CancelToken.isCancel(e)) rethrow;
             _throwIfCancelled(cancelToken);
-            // 仅重放无请求体的读取；认证、证书校验、写操作和取消不重试。
+            // 仅重放读取或源明确声明的只读 POST；写操作和取消不重试。
             if (retries < 2 &&
-                {'GET', 'HEAD'}.contains(currentMethod) &&
-                currentBody == null &&
+                replayable() &&
                 (_isHandshakeTerminated(e) ||
                     e.error is SocketException ||
                     e.error is HttpException ||
