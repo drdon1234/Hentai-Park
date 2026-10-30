@@ -12,7 +12,7 @@ import '../core/storage.dart';
 class _CacheFile {
   _CacheFile._(this._file, this._handle);
 
-  static const limit = 1024 * 1024 * 1024;
+  static const limit = 2 * 1024 * 1024 * 1024;
   static Future<void>? _sweep;
 
   static Future<_CacheFile?> open() async {
@@ -44,9 +44,13 @@ class _CacheFile {
 
   Future<bool> write(int offset, List<int> bytes) => _serial(() async {
     if (closed) return false;
-    await _handle.setPosition(offset);
-    await _handle.writeFrom(bytes);
-    return true;
+    try {
+      await _handle.setPosition(offset);
+      await _handle.writeFrom(bytes);
+      return true;
+    } on FileSystemException {
+      return false;
+    }
   });
 
   Future<Uint8List> read(int offset, int length) => _serial(() async {
@@ -146,31 +150,38 @@ class ByteRangeCache {
 
 /// HLS 分段按会话内路由缓存，内存淘汰后仍可从磁盘读取。
 class SegmentCache {
-  SegmentCache._(this._file);
+  SegmentCache._(this._file, this.limit);
 
-  static Future<SegmentCache?> open() async {
+  static Future<SegmentCache?> open({int limit = _CacheFile.limit}) async {
     final file = await _CacheFile.open();
-    return file == null ? null : SegmentCache._(file);
+    return file == null ? null : SegmentCache._(file, limit);
   }
 
   final _CacheFile _file;
+  final int limit;
   final Map<String, (int, int)> _entries = {};
   int _end = 0;
+  Future<void> _stores = Future.value();
 
-  Future<void> store(String key, Uint8List bytes) async {
-    if (_file.closed ||
-        _entries.containsKey(key) ||
-        _end + bytes.length > _CacheFile.limit) {
-      return;
-    }
-    final offset = _end;
-    _end += bytes.length;
-    if (await _file.write(offset, bytes)) {
-      _entries[key] = (offset, bytes.length);
-    }
-  }
+  Future<void> store(String key, Uint8List bytes) =>
+      _stores = _stores.then((_) async {
+        if (_file.closed || _entries.containsKey(key) || bytes.length > limit) {
+          return;
+        }
+        if (_end + bytes.length > limit) _end = 0;
+        final offset = _end;
+        _end += bytes.length;
+        // 容量满后覆盖最旧分段，持续保留最近播放的内容，而非永远停止缓存。
+        _entries.removeWhere(
+          (_, range) => range.$1 < _end && range.$1 + range.$2 > offset,
+        );
+        if (await _file.write(offset, bytes)) {
+          _entries[key] = (offset, bytes.length);
+        }
+      });
 
   Future<Uint8List?> read(String key) async {
+    await _stores;
     final entry = _entries[key];
     if (entry == null) return null;
     try {

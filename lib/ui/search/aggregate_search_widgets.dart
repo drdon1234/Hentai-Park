@@ -180,8 +180,15 @@ class SourceResultsRow extends StatelessWidget {
     required this.onRetry,
     required this.manifest,
     this.loadMore,
+    this.showBlocked = false,
+    this.hidePreviews = false,
+    this.sourceManager,
+    this.multiSearch,
   });
   final SourceManifest manifest;
+  final bool showBlocked, hidePreviews;
+  final SourceManager? sourceManager;
+  final MultiKeywordSearch? multiSearch;
 
   /// 该站点搜索的后续分页；为空时短视频只按已显示的结果播放。
   final Future<WorkPage> Function(int page, String? cursor)? loadMore;
@@ -196,16 +203,19 @@ class SourceResultsRow extends StatelessWidget {
       m.name,
       leading: SourceAvatar(source, size: 22),
       trailing: OutlinedButton(
-        onPressed: () => multi != null
-            ? Nav.push(
-                context,
-                SourceSearchPage(
-                  sourceKey: source,
-                  initialKeyword: keyword,
-                  initialMulti: multi,
-                ),
-              )
-            : Nav.openSourceSearch(context, source, keyword: keyword),
+        onPressed: () => Nav.push(
+          context,
+          SourceSearchPage(
+            sourceKey: source,
+            initialKeyword: keyword,
+            initialMulti: multi,
+            initialPage: result.page,
+            initialMultiSearch: multiSearch?.fork(),
+            initialShowBlocked: showBlocked,
+            initialHidePreviews: hidePreviews,
+            sourceManager: sourceManager,
+          ),
+        ),
         child: SelectionContainer.disabled(
           child: Row(
             mainAxisSize: MainAxisSize.min,
@@ -288,7 +298,11 @@ class SourceResultsRow extends StatelessWidget {
     } else {
       final blocklist = TagBlocklist.current();
       final items = result.page!.items
-          .where((e) => blocklist.matchItem(e) == null)
+          .where(
+            (e) =>
+                (showBlocked || blocklist.matchItem(e) == null) &&
+                (!hidePreviews || !e.previewOnly),
+          )
           .toList();
       if (items.isEmpty) {
         return Column(
@@ -298,7 +312,7 @@ class SourceResultsRow extends StatelessWidget {
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
               child: Text(
-                tr('（已屏蔽 {value0} 部）', {'value0': result.page!.items.length}),
+                tr('（已隐藏 {value0} 部）', {'value0': result.page!.items.length}),
                 style: context.text.bodySmall,
               ),
             ),

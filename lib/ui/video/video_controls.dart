@@ -37,6 +37,7 @@ class VideoControls extends StatelessWidget {
     this.quality,
     this.onQuality,
     this.onEpisodes,
+    this.onSeries,
     this.onPrevious,
     this.onNext,
     this.onInteractionChanged,
@@ -66,6 +67,7 @@ class VideoControls extends StatelessWidget {
   final String? quality;
   final VoidCallback? onQuality;
   final VoidCallback? onEpisodes;
+  final VoidCallback? onSeries;
   final VoidCallback? onPrevious;
   final VoidCallback? onNext;
   final ValueChanged<bool>? onInteractionChanged;
@@ -303,58 +305,70 @@ class VideoControls extends StatelessWidget {
                                           : VideoDisplayMode.landscape,
                                     ),
                                   ),
-                                  PopupMenuButton<String>(
-                                    tooltip: tr('更多'),
-                                    icon: const Icon(
-                                      Icons.more_horiz_rounded,
+                                  if (onSeries != null)
+                                    IconButton(
                                       color: fg,
+                                      tooltip: tr('同系列'),
+                                      icon: const Icon(
+                                        Icons.video_library_outlined,
+                                      ),
+                                      onPressed: onSeries,
                                     ),
-                                    onOpened: () =>
-                                        onInteractionChanged?.call(true),
-                                    onCanceled: () =>
-                                        onInteractionChanged?.call(false),
-                                    onSelected: (choice) {
-                                      onInteractionChanged?.call(false);
-                                      switch (choice) {
-                                        case 'speed':
-                                          onSpeed();
-                                        case 'quality':
-                                          onQuality?.call();
-                                        case 'episodes':
-                                          onEpisodes?.call();
-                                        case 'chatArea':
-                                          onChatArea?.call();
-                                      }
-                                    },
-                                    itemBuilder: (context) => [
-                                      if (onChatArea != null)
-                                        PopupMenuItem(
-                                          value: 'chatArea',
-                                          child: Text(
-                                            '${tr('弹幕显示区域')} · $chatAreaLabel',
+                                  if (!live ||
+                                      onEpisodes != null ||
+                                      onChatArea != null ||
+                                      (quality != null && onQuality != null))
+                                    PopupMenuButton<String>(
+                                      tooltip: tr('更多'),
+                                      icon: const Icon(
+                                        Icons.more_horiz_rounded,
+                                        color: fg,
+                                      ),
+                                      onOpened: () =>
+                                          onInteractionChanged?.call(true),
+                                      onCanceled: () =>
+                                          onInteractionChanged?.call(false),
+                                      onSelected: (choice) {
+                                        onInteractionChanged?.call(false);
+                                        switch (choice) {
+                                          case 'speed':
+                                            onSpeed();
+                                          case 'quality':
+                                            onQuality?.call();
+                                          case 'episodes':
+                                            onEpisodes?.call();
+                                          case 'chatArea':
+                                            onChatArea?.call();
+                                        }
+                                      },
+                                      itemBuilder: (context) => [
+                                        if (onChatArea != null)
+                                          PopupMenuItem(
+                                            value: 'chatArea',
+                                            child: Text(
+                                              '${tr('弹幕显示区域')} · $chatAreaLabel',
+                                            ),
                                           ),
-                                        ),
-                                      if (compact && !live)
-                                        PopupMenuItem(
-                                          value: 'speed',
-                                          child: Text(
-                                            '${tr('播放速度')} · ${speed}x',
+                                        if (!live)
+                                          PopupMenuItem(
+                                            value: 'speed',
+                                            child: Text(
+                                              '${tr('播放速度')} · ${speed}x',
+                                            ),
                                           ),
-                                        ),
-                                      if (compact &&
-                                          quality != null &&
-                                          onQuality != null)
-                                        PopupMenuItem(
-                                          value: 'quality',
-                                          child: Text(quality!),
-                                        ),
-                                      if (onEpisodes != null)
-                                        PopupMenuItem(
-                                          value: 'episodes',
-                                          child: Text(tr('选集')),
-                                        ),
-                                    ],
-                                  ),
+                                        if (quality != null &&
+                                            onQuality != null)
+                                          PopupMenuItem(
+                                            value: 'quality',
+                                            child: Text(quality!),
+                                          ),
+                                        if (onEpisodes != null)
+                                          PopupMenuItem(
+                                            value: 'episodes',
+                                            child: Text(tr('选集')),
+                                          ),
+                                      ],
+                                    ),
                                   IconButton(
                                     color: fg,
                                     tooltip: tr(fullscreen ? '退出全屏' : '全屏'),

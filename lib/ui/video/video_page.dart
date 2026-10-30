@@ -359,6 +359,35 @@ class _VideoPageState extends State<VideoPage>
     _showControls();
   }
 
+  Future<void> _pickSeries() async {
+    final item = await _withVisibleControls(
+      () => showAdaptiveSheet<WorkItem>(
+        context: context,
+        builder: (ctx) => SafeArea(
+          child: ListView(
+            shrinkWrap: true,
+            children: [
+              for (final item in (_details ?? widget.work).series)
+                ListTile(
+                  leading: Icon(
+                    item.uid == widget.work.uid
+                        ? Icons.play_circle_outline
+                        : Icons.play_arrow_rounded,
+                  ),
+                  title: Text(item.title),
+                  selected: item.uid == widget.work.uid,
+                  onTap: item.uid == widget.work.uid
+                      ? null
+                      : () => Navigator.pop(ctx, item),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+    if (item != null && mounted) await Nav.openChapter(context, item, null);
+  }
+
   void _changeVolume(double delta) {
     final controller = _session.controller;
     if (controller == null || !controller.value.isInitialized) return;
@@ -539,6 +568,7 @@ class _VideoPageState extends State<VideoPage>
         onQuality: _switchQuality,
         onSpeed: _pickSpeed,
         onEpisodes: _episodes.length > 1 ? _pickEpisode : null,
+        onSeries: (_details ?? widget.work).series.isEmpty ? null : _pickSeries,
         onPrevious: _episodeIndex > 0
             ? () => _session.selectEpisode(_episodes[_episodeIndex - 1])
             : null,

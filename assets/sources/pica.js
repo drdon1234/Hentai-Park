@@ -17,7 +17,7 @@ Park.register({
   },
   key: 'pica',
   name: '哔咔漫画',
-  version: '0.0.10', minAppVersion: '0.9.2',
+  version: '0.0.11', minAppVersion: '0.9.2',
   type: 'comic',
   category: 'doujin',
   color: '#EC97B6',
@@ -469,7 +469,7 @@ Park.register({
       views: Number(c.totalViews !== undefined ? c.totalViews : c.viewsCount) || null,
       category: (c.categories || [])[0] || '', // one category keeps the cover badge readable
       badge: c.finished ? '完结' : '',
-      tags: (c.tags || []).slice(0, 6),
+      tags: c.tags || [],
     };
   },
 

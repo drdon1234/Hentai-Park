@@ -40,20 +40,31 @@ class PagedController extends ChangeNotifier {
   final Set<String> _seen = {};
   final Set<String> _cursors = {};
   final _loaded = <WorkItem>[];
+  bool showBlocked = false;
+  bool hidePreviews = false;
+  void setVisibility({bool? blocked, bool? previews}) {
+    showBlocked = blocked ?? showBlocked;
+    hidePreviews = previews ?? hidePreviews;
+    _rulesChanged();
+  }
+
+  bool _visible(WorkItem item, TagBlocklist blocklist) =>
+      (showBlocked || blocklist.matchItem(item) == null) &&
+      (!hidePreviews || !item.previewOnly);
   List<WorkSection>? _rawSections;
   void _rulesChanged() {
     if (_disposed) return;
     final blocklist = TagBlocklist.current();
     items
       ..clear()
-      ..addAll(_loaded.where((i) => blocklist.matchItem(i) == null));
+      ..addAll(_loaded.where((i) => _visible(i, blocklist)));
     hidden = _loaded.length - items.length;
     if (_rawSections != null) {
       sections = [
         for (final s in _rawSections!)
           WorkSection(
             s.title,
-            s.items.where((i) => blocklist.matchItem(i) == null).toList(),
+            s.items.where((i) => _visible(i, blocklist)).toList(),
           ),
       ];
     }
@@ -158,7 +169,7 @@ class PagedController extends ChangeNotifier {
           for (final s in result.sections!)
             WorkSection(
               s.title,
-              s.items.where((e) => blocklist.matchItem(e) == null).toList(),
+              s.items.where((e) => _visible(e, blocklist)).toList(),
             ),
         ];
       }
@@ -166,7 +177,7 @@ class PagedController extends ChangeNotifier {
         if (_seen.add(item.id)) {
           _loaded.add(item);
           added++;
-          if (blocklist.matchItem(item) != null) {
+          if (!_visible(item, blocklist)) {
             hidden++;
             continue;
           }
@@ -283,7 +294,7 @@ class PagedSliverGrid extends StatelessWidget {
                 icon: Icons.filter_alt_outlined,
                 title: tr('这里什么都没有'),
                 message: c.hidden > 0
-                    ? tr('（已屏蔽 {value0} 部）', {'value0': c.hidden})
+                    ? tr('（已隐藏 {value0} 部）', {'value0': c.hidden})
                     : null,
                 actions: [
                   FilledButton.tonalIcon(
@@ -418,7 +429,7 @@ class PagedSliverGrid extends StatelessWidget {
             tr('· 已经到底了 · 共 {value0} 部{value1} ·', {
               'value0': c.items.length,
               'value1': c.hidden > 0
-                  ? tr('（已屏蔽 {value0} 部）', {'value0': c.hidden})
+                  ? tr('（已隐藏 {value0} 部）', {'value0': c.hidden})
                   : '',
             }),
             style: context.text.labelMedium?.copyWith(

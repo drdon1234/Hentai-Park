@@ -85,7 +85,7 @@
     {
       "key": "ehentai",
       "name": "E-Hentai",
-      "version": "0.0.13",
+      "version": "0.0.14",
       "type": "comic",
       "category": "doujin",
       "file": "ehentai.js",
@@ -125,7 +125,7 @@
     {
       "key": "pica",
       "name": "哔咔漫画",
-      "version": "0.0.10",
+      "version": "0.0.11",
       "type": "comic",
       "category": "doujin",
       "file": "pica.js",
@@ -285,7 +285,7 @@
     {
       "key": "ixxx",
       "name": "iXXX",
-      "version": "0.0.16",
+      "version": "0.0.17",
       "type": "video",
       "category": "adult",
       "file": "ixxx.js",

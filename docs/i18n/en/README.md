@@ -58,6 +58,10 @@ Configure sign-in under More → Sites and proxies under More → Network when n
 | Translation and filters | Translate titles, descriptions, tags and novel text; hide content by tag. |
 | Privacy and backup | App lock, incognito browsing, blurred covers and screenshot blocking on supported platforms; back up favorites, progress, subscriptions and settings. |
 
+Search hides blocked content by default. Use the eye icon to show it temporarily, including on individual site search pages. The filter icon hides results explicitly marked as preview-only by the site; unknown availability is preserved. Content blocking also includes an AI-generated preset group.
+
+Image search history keeps the latest 20 search images for loading and searching again, individual deletion, or clearing. Incognito mode does not record images. History is stored locally without encryption and is excluded from app backups. The player provides a series shortcut. Played media is temporarily cached locally and cleared when playback closes; cache capacity is limited, so older content may need to reload.
+
 ## Supported sites and services
 
 [View all sites, rankings and reverse image search services](SITES.md)

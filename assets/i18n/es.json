@@ -1680,5 +1680,15 @@
   "搜索作品资料": "Buscar información de obras",
   "确认后下载并校验安装包，打开系统安装程序并退出应用；请按安装程序提示完成升级。": "Tras confirmar, la aplicación descarga y verifica el instalador, lo abre y se cierra. Sigue las instrucciones del instalador para completar la actualización.",
   "正在打开安装程序…": "Abriendo el instalador…",
-  "无法打开安装程序，请重试或前往官方发布页下载": "No se puede abrir el instalador. Reintenta o descárgalo desde la página oficial de versiones."
+  "无法打开安装程序，请重试或前往官方发布页下载": "No se puede abrir el instalador. Reintenta o descárgalo desde la página oficial de versiones.",
+  "AI 生成": "Generado por IA",
+  "隐藏已屏蔽内容": "Ocultar contenido bloqueado",
+  "显示已屏蔽内容": "Mostrar contenido bloqueado",
+  "隐藏预览内容": "Ocultar solo vistas previas",
+  "显示预览内容": "Mostrar vistas previas",
+  "反搜历史": "Historial de búsqueda por imagen",
+  "清空反搜历史": "Borrar historial de imágenes",
+  "暂无反搜历史": "Sin historial de imágenes",
+  "载入图片后可重新搜索": "Cargar imagen para buscar de nuevo",
+  "（已隐藏 {value0} 部）": "({value0} ocultos)"
 }

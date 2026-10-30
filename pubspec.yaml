@@ -2,7 +2,7 @@ name: hentai_park
 description: "HentaiPark - pluggable multi-source comic, video, novel & game client"
 publish_to: 'none'
 
-version: 0.10.2+39
+version: 0.10.3+40
 
 environment:
   sdk: ^3.13.5
@@ -17,6 +17,7 @@ dependencies:
   dio: ^5.11.1
   cookie_jar: ^4.0.9
   crypto: ^3.0.7
+  image: ^4.11.1
   pointycastle: ^4.0.0
   path_provider: ^2.1.6
   video_player: ^2.14.1

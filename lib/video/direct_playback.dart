@@ -279,7 +279,7 @@ class DirectPlayback implements Playback {
             if (_closed || disconnected) return;
             output.add(chunk);
             if (offset != null && cache?.length != null) {
-              unawaited(cache!.store(offset, Uint8List.fromList(chunk)));
+              await cache!.store(offset, Uint8List.fromList(chunk));
             }
             if (offset != null) offset += chunk.length;
             await output.flush();
@@ -360,7 +360,7 @@ class DirectPlayback implements Playback {
               chunk.sublist(from - chunkStart, to - chunkStart),
             );
             output.add(bytes);
-            unawaited(cache.store(from, bytes));
+            await cache.store(from, bytes);
             position = to;
             await output.flush();
           }

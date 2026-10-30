@@ -185,6 +185,17 @@ class MultiKeywordSearch {
   final _state = <String, ({int page, String? cursor, bool hasNext})>{};
   int _page = 0;
 
+  MultiKeywordSearch fork() =>
+      MultiKeywordSearch(
+          source,
+          keywords,
+          filters,
+          common: common,
+          sourceManager: _sources,
+        )
+        .._state.addAll(_state)
+        .._page = _page;
+
   Future<WorkPage> next() async {
     final active = keywords.where((k) => _state[k]?.hasNext ?? true).toList();
     if (cancelToken?.cancelError case final error?) throw error;

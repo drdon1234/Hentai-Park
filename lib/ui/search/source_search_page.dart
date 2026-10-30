@@ -16,6 +16,7 @@ import '../widgets/common_filters.dart';
 import '../widgets/content_translation.dart';
 import '../widgets/filter_controller.dart';
 import '../widgets/paged_grid.dart';
+import '../widgets/result_visibility.dart';
 import '../widgets/source_account_strip.dart';
 import 'multi_language.dart';
 import 'search_suggestions.dart';
@@ -29,10 +30,17 @@ class SourceSearchPage extends StatefulWidget {
     this.initialFilters,
     this.initialCommon,
     this.initialMulti,
+    this.initialPage,
+    this.initialMultiSearch,
+    this.initialShowBlocked = false,
+    this.initialHidePreviews = false,
     this.sourceManager,
     this.searchOnlyEntry = false,
   });
   final String sourceKey;
+  final WorkPage? initialPage;
+  final MultiKeywordSearch? initialMultiSearch;
+  final bool initialShowBlocked, initialHidePreviews;
   final String initialKeyword;
   final Map<String, Object?>? initialFilters;
   final Map<String, Object?>? initialCommon;
@@ -63,6 +71,7 @@ class _SourceSearchPageState extends State<SourceSearchPage> {
     source: widget.sourceKey,
   );
   bool _started = false;
+  WorkPage? _initialPage;
   late final _suggestions = SearchSuggestions(
     (keyword, token) => _sources.searchSuggestions(
       widget.sourceKey,
@@ -94,6 +103,9 @@ class _SourceSearchPageState extends State<SourceSearchPage> {
     super.initState();
     _translation.addListener(_translationChanged);
     _text.addListener(_textChanged);
+    _controller.showBlocked = widget.initialShowBlocked;
+    _controller.hidePreviews = widget.initialHidePreviews;
+    _initialPage = widget.initialPage;
     if (widget.initialMulti != null) {
       _multi = widget.initialMulti;
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -155,6 +167,12 @@ class _SourceSearchPageState extends State<SourceSearchPage> {
   }
 
   Future<WorkPage> _load(int page, String? cursor) {
+    final initial = _initialPage;
+    _initialPage = null;
+    if (page == 1 && initial != null) {
+      _multiSearch = widget.initialMultiSearch;
+      return Future.value(initial);
+    }
     if (page == 1 && _multi != null) {
       _multiSearch = MultiKeywordSearch(
         widget.sourceKey,
@@ -375,6 +393,16 @@ class _SourceSearchPageState extends State<SourceSearchPage> {
                         spacing: Gap.s,
                         crossAxisAlignment: WrapCrossAlignment.center,
                         children: [
+                          ResultVisibility(
+                            showBlocked: _controller.showBlocked,
+                            hidePreviews: _controller.hidePreviews,
+                            onBlocked: (v) => setState(
+                              () => _controller.setVisibility(blocked: v),
+                            ),
+                            onPreviews: (v) => setState(
+                              () => _controller.setVisibility(previews: v),
+                            ),
+                          ),
                           if (_started && _multi == null && _m.can('album'))
                             OutlinedButton.icon(
                               icon: const Icon(Icons.photo_library_outlined),

@@ -1680,5 +1680,15 @@
   "搜索作品资料": "Search work information",
   "确认后下载并校验安装包，打开系统安装程序并退出应用；请按安装程序提示完成升级。": "After confirmation, the app downloads and verifies the installer, opens it, and exits. Follow the installer to finish updating.",
   "正在打开安装程序…": "Opening installer…",
-  "无法打开安装程序，请重试或前往官方发布页下载": "Unable to open the installer. Retry or download from the official release page."
+  "无法打开安装程序，请重试或前往官方发布页下载": "Unable to open the installer. Retry or download from the official release page.",
+  "AI 生成": "AI-generated",
+  "隐藏已屏蔽内容": "Hide blocked content",
+  "显示已屏蔽内容": "Show blocked content",
+  "隐藏预览内容": "Hide preview-only content",
+  "显示预览内容": "Show preview-only content",
+  "反搜历史": "Image search history",
+  "清空反搜历史": "Clear image search history",
+  "暂无反搜历史": "No image search history",
+  "载入图片后可重新搜索": "Load this image to search again",
+  "（已隐藏 {value0} 部）": "({value0} hidden)"
 }

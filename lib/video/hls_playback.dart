@@ -230,7 +230,7 @@ class HlsPlayback implements Playback {
       final bytes =
           await _disk?.read(path) ?? await _resources.read(_routes[path]!);
       if (_closed) throw SourceError('CANCELLED', '媒体会话已关闭');
-      unawaited(_disk?.store(path, bytes));
+      await _disk?.store(path, bytes);
       if (bytes.length <= _cacheLimit) {
         while (_cacheBytes + bytes.length > _cacheLimit) {
           // Keep the rewritten manifests for retries. Segment data is a bounded LRU.

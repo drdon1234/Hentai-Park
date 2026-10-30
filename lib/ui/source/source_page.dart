@@ -19,6 +19,7 @@ import '../widgets/content_translation.dart';
 import '../widgets/filter_controller.dart';
 import '../widgets/option_bar.dart';
 import '../widgets/paged_grid.dart';
+import '../widgets/result_visibility.dart';
 import '../widgets/source_account_strip.dart';
 
 /// A single source's own entry: one tab per feed (latest, ranking, categories…), each with the
@@ -391,6 +392,18 @@ class _FeedTabState extends State<FeedTab> with AutomaticKeepAliveClientMixin {
           slivers: [
             SliverOverlapInjector(
               handle: NestedScrollView.sliverOverlapAbsorberHandleFor(context),
+            ),
+            SliverToBoxAdapter(
+              child: Align(
+                alignment: AlignmentDirectional.centerEnd,
+                child: ListenableBuilder(
+                  listenable: _controller,
+                  builder: (context, _) => ResultVisibility(
+                    hidePreviews: _controller.hidePreviews,
+                    onPreviews: (v) => _controller.setVisibility(previews: v),
+                  ),
+                ),
+              ),
             ),
             if (widget.source.can('album'))
               SliverToBoxAdapter(

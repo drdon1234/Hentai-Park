@@ -16,6 +16,24 @@ List<Map<String, dynamic>> _maps(Object? v) => v is List
 List<String> _strings(Object? v) => v is List
     ? v.where((e) => e != null).map((e) => e.toString()).toList()
     : const [];
+
+List<String> _workTags(Object? value) {
+  if (value is! List) return const [];
+  return [
+    for (final tag in value)
+      if (tag is String)
+        tag
+      else if (tag is Map && tag['tags'] is List)
+        for (final nested in _workTags(tag['tags']))
+          if (_str(tag['namespace']).isEmpty)
+            nested
+          else
+            '${tag['namespace']}:$nested'
+      else if (tag is Map && tag['name'] is String)
+        tag['name'] as String,
+  ];
+}
+
 String _str(Object? v) => v == null ? '' : v.toString();
 int? _int(Object? v) => v is num ? v.toInt() : int.tryParse(_str(v));
 double? _double(Object? v) =>
@@ -718,7 +736,7 @@ class WorkItem {
       duration = _str(json['duration']),
       uploaded = _str(json['uploaded']),
       authors = [..._strings(json['authors'])],
-      tags = _strings(json['tags']),
+      tags = _workTags(json['tags']),
       workCode = _str(json['workCode']),
       editions = _strings(json['editions']),
       mediaKind = MediaKind.values
@@ -732,6 +750,13 @@ class WorkItem {
   final MediaKind? mediaKind;
   bool get isNovel => mediaKind == MediaKind.novel;
   bool get isGame => mediaKind == MediaKind.game;
+
+  /// 只有源明确声明为预览，或全部媒体均为预览时才过滤。
+  bool get previewOnly {
+    if (json['previewOnly'] == true) return true;
+    final media = _maps(json['media']);
+    return media.isNotEmpty && media.every((m) => m['previewOnly'] == true);
+  }
 
   /// 原站明确关闭评论时为 false；未知状态不等同于关闭。
   bool? get commentsAvailable => json['commentsAvailable'] is bool
@@ -980,7 +1005,13 @@ class WorkDetail extends WorkItem {
   WorkItem toItem() => WorkItem.fromStored({
     ...toJson(),
     'source': source,
-    'tags': tagGroups.expand((g) => g.tags.map((t) => t.name)).take(8).toList(),
+    'tags': tagGroups
+        .expand(
+          (g) => g.tags.map(
+            (t) => g.namespace.isEmpty ? t.name : '${g.namespace}:${t.name}',
+          ),
+        )
+        .toList(),
   });
 }
 

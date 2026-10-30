@@ -11,6 +11,7 @@ import '../settings/source_manage_page.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
 import '../widgets/content_translation.dart';
+import '../widgets/result_visibility.dart';
 import 'aggregate_search_controller.dart';
 import 'aggregate_search_widgets.dart';
 import 'multi_language.dart';
@@ -42,6 +43,8 @@ class _AggregateSearchPageState extends State<AggregateSearchPage> {
   final _results = AggregateSearchController();
   List<InstalledSource> _submittedSources = [];
   bool _awaitingSources = false;
+  bool _showBlocked = false, _hidePreviews = false;
+  final _multiSearches = <String, MultiKeywordSearch>{};
 
   @override
   void initState() {
@@ -125,6 +128,7 @@ class _AggregateSearchPageState extends State<AggregateSearchPage> {
 
   void _dispatch() {
     _results.reset();
+    _multiSearches.clear();
     _awaitingSources = !_sources.loaded;
     if (_awaitingSources) return;
     final k = _submitted;
@@ -154,13 +158,14 @@ class _AggregateSearchPageState extends State<AggregateSearchPage> {
     _results.start(manifests.keys, (source, token) {
       final filters = manifests[source]!.defaultFilters();
       if (multi != null && multi.all.length > 1) {
-        return MultiKeywordSearch(
+        final search = _multiSearches[source] = MultiKeywordSearch(
           source,
           multi.all,
           filters,
           sourceManager: _sources,
           cancelToken: token,
-        ).next();
+        );
+        return search.next();
       }
       return _sources.search(
         source,
@@ -320,6 +325,13 @@ class _AggregateSearchPageState extends State<AggregateSearchPage> {
                             ),
                             onPressed: _editSites,
                           ),
+                          ResultVisibility(
+                            showBlocked: _showBlocked,
+                            hidePreviews: _hidePreviews,
+                            onBlocked: (v) => setState(() => _showBlocked = v),
+                            onPreviews: (v) =>
+                                setState(() => _hidePreviews = v),
+                          ),
                           if (_translation.busy)
                             const Padding(
                               padding: EdgeInsets.all(Gap.s),
@@ -422,6 +434,10 @@ class _AggregateSearchPageState extends State<AggregateSearchPage> {
                               if (_sources.manifest(s.key) != null)
                                 SourceResultsRow(
                                   source: s.key,
+                                  showBlocked: _showBlocked,
+                                  hidePreviews: _hidePreviews,
+                                  sourceManager: _sources,
+                                  multiSearch: _multiSearches[s.key],
                                   keyword: _submitted,
                                   multi: _multi,
                                   manifest: s.manifest!,

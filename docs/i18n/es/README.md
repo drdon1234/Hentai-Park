@@ -58,6 +58,10 @@ Configura el acceso en Más → Sitios y el proxy en Más → Red cuando sea nec
 | Traducción y filtros | Traduce títulos, descripciones, etiquetas y novelas. Oculta contenido por etiquetas. |
 | Privacidad y copias | Bloqueo de la app, modo incógnito, portadas borrosas y bloqueo de capturas donde sea compatible. Copias de favoritos, progreso, suscripciones y ajustes. |
 
+La búsqueda oculta el contenido bloqueado de forma predeterminada. El icono del ojo permite mostrarlo temporalmente, también en la búsqueda de cada sitio. El filtro oculta resultados que el sitio identifica como solo vista previa; conserva los de disponibilidad desconocida. El bloqueo incluye un grupo de contenido generado por IA.
+
+El historial de imágenes conserva las últimas 20 imágenes para cargarlas y buscar de nuevo, eliminarlas individualmente o borrar todo. El modo incógnito no las registra. Se guardan localmente sin cifrado y quedan fuera de las copias de seguridad. El reproductor permite saltar a la misma serie. El contenido reproducido se almacena temporalmente y se borra al cerrar la reproducción; la capacidad es limitada y las partes antiguas pueden necesitar recargarse.
+
 ## Sitios y servicios compatibles
 
 [Ver todos los sitios, rankings y servicios de búsqueda inversa de imágenes](SITES.md)

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:desktop_drop/desktop_drop.dart';
@@ -9,6 +10,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../core/localization.dart';
 import '../../core/platform_capabilities.dart';
 import '../../core/reverse_search.dart';
+import '../../core/reverse_search_history.dart';
 import '../../engine/source_manager.dart';
 import '../../images/image_input.dart';
 import '../../images/search_image.dart';
@@ -21,6 +23,7 @@ import '../widgets/image_input_region.dart';
 import 'browser_image_search_panel.dart';
 import 'reverse_search_controller.dart';
 import 'reverse_search_form.dart';
+import 'reverse_search_history_sheet.dart';
 import 'reverse_search_more.dart';
 import 'reverse_search_result.dart';
 import 'reverse_search_results_header.dart';
@@ -182,6 +185,7 @@ class _ReverseSearchPageState extends State<ReverseSearchPage> {
       return;
     }
     final base64 = image.base64;
+    unawaited(ReverseSearchHistory.instance.add(image.bytes, _selectedSources));
     _searchController.start(
       _sources.where((s) => _selectedSources.contains(s.key)).map((s) => s.key),
       (source, token, browserSearch) => _manager.reverseSearch(
@@ -328,6 +332,28 @@ class _ReverseSearchPageState extends State<ReverseSearchPage> {
         appBar: AppBar(
           title: Text(tr('图片反搜')),
           actions: [
+            IconButton(
+              tooltip: tr('反搜历史'),
+              icon: const Icon(Icons.history_rounded),
+              onPressed: _preparing || _busy
+                  ? null
+                  : () async {
+                      final entry = await showReverseSearchHistory(context);
+                      if (entry == null || !mounted) return;
+                      await _readImage(
+                        () async => base64Decode(entry['image'] as String),
+                      );
+                      if (!mounted) return;
+                      setState(() {
+                        _selectedSources
+                          ..clear()
+                          ..addAll(
+                            (entry['sources'] as List).whereType<String>(),
+                          );
+                        _syncSources();
+                      });
+                    },
+            ),
             const TranslationControls(),
             IconButton(
               tooltip: tr('管理站点'),

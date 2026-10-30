@@ -260,7 +260,7 @@ class HttpService {
     var currentMethod = method.toUpperCase();
     Object? currentBody = body;
     final currentHeaders = Map<String, String>.of(headers);
-    var handshakeRetried = false;
+    var retries = 0;
     for (var hop = 0; hop < 8; hop++) {
       _throwIfCancelled(cancelToken);
       await beforeRequest?.call(uri);
@@ -302,29 +302,32 @@ class HttpService {
                 sendTimeout: timeout,
               ),
             );
+            if (retries < 2 &&
+                currentBody == null &&
+                {'GET', 'HEAD'}.contains(currentMethod) &&
+                {502, 503, 504}.contains(res.statusCode)) {
+              await res.data!.stream.listen(null).cancel();
+              retries++;
+              await _retryDelay(retries, cancelToken);
+              continue;
+            }
             break;
           } on DioException catch (e) {
             if (CancelToken.isCancel(e)) rethrow;
             _throwIfCancelled(cancelToken);
-            // This exact dart:io error occurs before HTTP is sent. Recover only
-            // replayable reads, once per logical request, at the failed hop.
-            if (!handshakeRetried &&
-                uri.scheme == 'https' &&
+            // 仅重放无请求体的读取；认证、证书校验、写操作和取消不重试。
+            if (retries < 2 &&
                 {'GET', 'HEAD'}.contains(currentMethod) &&
                 currentBody == null &&
-                _isHandshakeTerminated(e)) {
-              handshakeRetried = true;
-              final delay = Future<void>.delayed(
-                const Duration(milliseconds: 250),
-              );
-              if (cancelToken == null) {
-                await delay;
-              } else {
-                await Future.any<void>([
-                  delay,
-                  cancelToken.whenCancel.then<void>((error) => throw error),
-                ]);
-              }
+                (_isHandshakeTerminated(e) ||
+                    e.error is SocketException ||
+                    e.error is HttpException ||
+                    (e.type == DioExceptionType.connectionError &&
+                        e.error is! TlsException) ||
+                    e.type == DioExceptionType.connectionTimeout ||
+                    e.type == DioExceptionType.receiveTimeout)) {
+              retries++;
+              await _retryDelay(retries, cancelToken);
               continue;
             }
             throw transportError(e, uri);
@@ -415,6 +418,15 @@ class HttpService {
     'pragma',
     'content-type',
   };
+
+  static Future<void> _retryDelay(int attempt, CancelToken? token) async {
+    final delay = Future<void>.delayed(Duration(milliseconds: 300 * attempt));
+    if (token == null) return delay;
+    await Future.any<void>([
+      delay,
+      token.whenCancel.then<void>((error) => throw error),
+    ]);
+  }
 
   static Uri _httpUri(String value) {
     final uri = Uri.parse(value);

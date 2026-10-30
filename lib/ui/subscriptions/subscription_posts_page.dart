@@ -30,6 +30,7 @@ import '../widgets/content_translation.dart';
 import '../widgets/cover_tile.dart';
 import '../widgets/error_view.dart';
 import '../widgets/on_visible.dart';
+import '../widgets/result_visibility.dart';
 import '../widgets/text_translation.dart';
 
 class SubscriptionWorkPage extends StatelessWidget {
@@ -93,6 +94,7 @@ class SubscriptionPostsPage extends StatefulWidget {
 class _SubscriptionPostsPageState extends State<SubscriptionPostsPage> {
   SourceManager get _sources => widget.sourceManager ?? SourceManager.instance;
   final posts = <SubscriptionPost>[];
+  bool _hidePreviews = false;
   final _cursors = <String>{};
   String? cursor;
   bool loading = false, hasNext = true;
@@ -124,7 +126,8 @@ class _SubscriptionPostsPageState extends State<SubscriptionPostsPage> {
             WorkItem(post.json, widget.entry.source),
           ) ==
           null &&
-      (mediaType == 'all' || post.media.isNotEmpty);
+      (mediaType == 'all' || post.media.isNotEmpty) &&
+      (!_hidePreviews || !WorkItem(post.json, widget.entry.source).previewOnly);
 
   void _filter({String? type}) => setState(() {
     if (type != null) mediaType = type;
@@ -275,6 +278,13 @@ class _SubscriptionPostsPageState extends State<SubscriptionPostsPage> {
                 spacing: 8,
                 runSpacing: 8,
                 children: [
+                  ResultVisibility(
+                    hidePreviews: _hidePreviews,
+                    onPreviews: (v) => setState(() {
+                      _hidePreviews = v;
+                      _emptyPages = 0;
+                    }),
+                  ),
                   for (final type in const ['all', 'image', 'video'])
                     SelectionChip(
                       label: tr(switch (type) {

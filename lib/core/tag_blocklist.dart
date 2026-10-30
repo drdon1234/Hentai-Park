@@ -16,6 +16,15 @@ class BlockPreset {
 }
 
 const blockPresets = <BlockPreset>[
+  BlockPreset('ai', 'AI 生成', [
+    'ai',
+    r'regex:(?<![A-Za-z0-9])ai[ _-]?(?:generated|art|cg)(?![A-Za-z0-9])',
+    'regex:AI[ _-]?(?:生成|绘画|繪畫|作画|作畫|イラスト)',
+    'ai_generated',
+    '生成AI',
+    '人工智能生成',
+    '人工智慧生成',
+  ]),
   BlockPreset('guro', '重口', [
     'guro',
     'ryona',

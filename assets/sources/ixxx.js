@@ -9,7 +9,7 @@ Park.register({
     "ru": {"站点年龄确认未自动完成，请重试":"Автоматическое подтверждение возраста не завершено. Повторите попытку.","演员":"Исполнители","综合成人视频搜索，常见来源优先原生播放，其他来源使用网页播放":"Поиск видео для взрослых: нативное воспроизведение популярных поддерживаемых источников, веб-плеер для остальных","站点搜索表单无效":"Форма поиска на сайте недействительна","高清":"Высокое качество","标清":"Стандартное качество"},
     "ar": {"站点年龄确认未自动完成，请重试":"لم يكتمل تأكيد العمر تلقائيًا. يرجى إعادة المحاولة.","演员":"المؤدون","综合成人视频搜索，常见来源优先原生播放，其他来源使用网页播放":"بحث فيديوهات للبالغين؛ تشغيل أصلي للمصادر الشائعة المدعومة وتشغيل ويب للمصادر الأخرى","站点搜索表单无效":"نموذج البحث في الموقع غير صالح","高清":"جودة عالية","标清":"جودة قياسية"},
   },
-  key: 'ixxx', name: 'iXXX', version: '0.0.16', minAppVersion: '0.9.2', type: 'video', category: 'adult', color: '#F97316',
+  key: 'ixxx', name: 'iXXX', version: '0.0.17', minAppVersion: '0.9.2', type: 'video', category: 'adult', color: '#F97316',
   description: '综合成人视频搜索，常见来源优先原生播放，其他来源使用网页播放',
   homepage: 'https://www.ixxx.com', domains: ['ixxx.com'], language: 'en',
   media: {mode: 'native', scope: 'session', origin: 'https://www.ixxx.com', domains: ['eporner.com', 'xhcdn.com', 'abxxx.com', 'xmilf.com', 'txxx.me', 'pornl.com', 'pornl-ah.nv7s.com', 'porntop.com', 'ptah.m3pd.com', 'ahcdn.com', 'xozilla.xxx', 'pornid.xxx', 'theyarehuge.com', 'inxxx.com', 'dafreeporn.com', 'freeporn8.com', 'xhand.net', 'xhand.com', 'amateur8.com', 'maturetubehere.com', 'sortporn.com', 'lesbian8.com', 'pornone.com', 'ok.xxx', 'cdn.privatehost.com'], referrerDomains: ['abxxx.com', 'xmilf.com', 'txxx.me', 'pornl.com', 'porntop.com', 'xozilla.xxx', 'pornid.xxx', 'theyarehuge.com', 'inxxx.com', 'dafreeporn.com', 'xhand.net', 'amateur8.com', 'maturetubehere.com', 'sortporn.com', 'lesbian8.com', 'ok.xxx']},
@@ -146,6 +146,8 @@ Park.register({
         .map(a => Park.html.text(a).trim()).filter(name => name && name.length <= 240))];
       items.push({id, title: Park.html.unescape(title).trim(), cover: this.coverUrl(cover), coverAspect: 16/9,
         duration: Park.html.text(a.querySelector('.badge')),
+        previewOnly: Array.from(card?.querySelectorAll('.badge') || []).some(b =>
+          /^(?:preview|trailer|sample|预览|預覽)$/i.test(Park.html.text(b).trim())),
         uploader: Park.html.text(card?.querySelector('.item-source')), authors, url: id});
     }
     return items;
@@ -211,6 +213,7 @@ Park.register({
     return {id, url, title: typeof item.title === 'string' && item.title ? item.title : new URL(url).hostname,
       cover: this.coverUrl(item.cover) ? item.cover : '', coverAspect: 16/9,
       duration: typeof item.duration === 'string' ? item.duration : '',
+      previewOnly: item.previewOnly === true,
       uploader: typeof item.uploader === 'string' ? item.uploader : '', authors,
       tags: authors.length ? [{namespace: 'actor', label: '演员', tags: authors.map(name => ({name, keyword: name}))}] : []};
   },

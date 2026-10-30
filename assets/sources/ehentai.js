@@ -65,7 +65,7 @@ Park.register({
   },
   key: 'ehentai',
   name: 'E-Hentai',
-  version: '0.0.13', minAppVersion: '0.9.2',
+  version: '0.0.14', minAppVersion: '0.9.2',
   type: 'comic',
   category: 'doujin',
   color: '#9C2A2A',
@@ -382,7 +382,7 @@ Park.register({
       category: cat[0],
       badgeColor: cat[1],
       uploaded: Park.utils.formatDate(meta.posted),
-      tags: (groups.female || []).concat(groups.male || [], groups.other || []).slice(0, 6),
+      tags: (meta.tags || []).map(String),
     };
   },
 

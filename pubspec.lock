@@ -590,7 +590,7 @@ packages:
     source: hosted
     version: "4.1.2"
   image:
-    dependency: transitive
+    dependency: "direct main"
     description:
       name: image
       sha256: "677a295e8050dda81a489479c35c213f258337e2c2c88deaafd888b41efea65e"

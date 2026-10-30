@@ -797,3 +797,9 @@ liveChatEvent(state, event) {
 - `metadataSearch(keyword)` 返回最多 100 个候选：`{id, code, title, url, cover?}`。`id` 为源内身份，`code` 为真实番号；不得仅按标题猜测番号。无匹配返回 `[]`，验证页和解析异常必须抛错。多个匹配由用户选择，不默认采用第一条。
 - `metadataDetail(id)` 返回候选必填字段，以及可选的 `description`、`releaseDate`、`duration`、`director`、`studio`、`publisher`、`series`、`rating`、`actors: string[]`、`tags: string[]`、`images: string[]`。缺失文本留空，缺失集合用空数组，不伪造评分、简介或其他字段。作品 `url` 必须属于插件声明域；封面和预览图只能是无凭据、无端口的公网 HTTPS 地址。
 - `metadataMagnets(id)` 返回最多 500 条 `{url, name, size?, date?, tags?: string[]}`。`url` 仅接受有效 `magnet:?xt=urn:btih:...`，按内容哈希去重。资料与磁链独立加载和重试，切换作品、来源或关闭页面取消旧请求。界面只按用户操作复制或调用外部应用打开磁链；“搜索 JAV 站点”用资料中的真实番号继续应用内 JAV 聚合搜索。
+
+### 列表过滤语义
+
+作品列表可用 `previewOnly: true` 声明原站明确标注的仅预览内容。订阅帖的所有媒体都声明 `previewOnly: true` 时，也按仅预览处理；未知状态不推断为预览。站点列表、搜索和订阅页提供临时隐藏预览开关。
+
+列表 `tags` 必须保留完整标签，限定分类的标签使用 `namespace:tag`，不得为缩短展示而截断或丢掉分类；界面自行限制可见标签数量。搜索默认应用屏蔽规则，用户可临时显示原始结果，不修改规则或重新请求列表。
