@@ -128,7 +128,7 @@
       "ru": {"GalgameX 账号": "Аккаунт GalgameX", "无法获取游戏资源，请在原站检查权限": "Недействительный ресурс или ответ загрузки. Проверьте доступ на сайте и повторите.", "游戏目录、版本资源与直链和网盘渠道": "Каталог игр, версии, прямые и облачные загрузки", "该游戏需要登录，请在应用内登录 GalgameX 后重试": "Для этой игры нужен вход. Войдите в GalgameX через приложение и повторите попытку", "部分游戏需要登录；打开网页后点击右上角账号按钮登录，完成后返回重试。Cookie 仅保存在本机。": "Некоторые игры требуют входа. Нажмите кнопку аккаунта справа вверху страницы, войдите и повторите попытку. Cookie хранятся только на устройстве."},
       "ar": {"GalgameX 账号": "حساب GalgameX", "无法获取游戏资源，请在原站检查权限": "مورد أو استجابة تنزيل غير صالحة. تحقق من صلاحيات الموقع وأعد المحاولة.", "游戏目录、版本资源与直链和网盘渠道": "دليل ألعاب وإصدارات وتنزيلات مباشرة وسحابية", "该游戏需要登录，请在应用内登录 GalgameX 后重试": "تتطلب هذه اللعبة تسجيل الدخول. سجّل الدخول إلى GalgameX داخل التطبيق ثم أعد المحاولة", "部分游戏需要登录；打开网页后点击右上角账号按钮登录，完成后返回重试。Cookie 仅保存在本机。": "تتطلب بعض الألعاب تسجيل الدخول. افتح الصفحة واستخدم زر الحساب أعلى اليمين ثم عد وأعد المحاولة. تُحفظ ملفات تعريف الارتباط على هذا الجهاز فقط."},
     },
-    key: 'galgamex', name: 'GalgameX', version: '0.0.10', minAppVersion: '0.9.2', type: 'game', category: 'game', color: '#E984AE',
+    key: 'galgamex', name: 'GalgameX', version: '0.0.11', minAppVersion: '0.9.2', type: 'game', category: 'game', color: '#E984AE',
     description: '游戏目录、版本资源与直链和网盘渠道', homepage: BASE, language: 'chinese',
     domains: ['galgamex.net'],
     imageHeaders: {Referer: BASE + '/'},
@@ -194,7 +194,7 @@
     },
     async interactionAction(path, name, args) {
       const actions = await this.serverActions(path, ['getGameInteractionStatus', 'toggleGameFavorite', 'getUserCollections']);
-      const response = await this.http.post(BASE + path, { body: JSON.stringify(args), headers: {
+      const response = await this.http.post(BASE + path, { readOnly: ['getGameInteractionStatus', 'getUserCollections'].includes(name), body: JSON.stringify(args), headers: {
         'Next-Action': actions[name], Accept: 'text/x-component', 'Content-Type': 'text/plain;charset=UTF-8' } });
       if ([401, 403].includes(response.status)) throw loginRequired();
       this.http.ensureOk(response);
@@ -315,7 +315,7 @@
       await this.detail(id);
       const gameId = this.gameIds.get(id), path = '/game/' + id;
       const actions = await this.serverActions(path, ['getGameComments']);
-      const response = await this.http.post(BASE + path, {body: JSON.stringify([gameId, 'newest', page, ...(targetId ? [targetId] : [])]), headers: {
+      const response = await this.http.post(BASE + path, {readOnly: true, body: JSON.stringify([gameId, 'newest', page, ...(targetId ? [targetId] : [])]), headers: {
         'Next-Action': actions.getGameComments, Accept: 'text/x-component', 'Content-Type': 'text/plain;charset=UTF-8'}});
       if ([401, 403].includes(response.status)) throw loginRequired();
       this.http.ensureOk(response);

@@ -8,7 +8,7 @@ Park.register({
     ru: {'PopkonTV 短视频': 'PopkonTV Короткие видео', '韩国主播短视频，支持推荐、分页与 MP4 播放': 'Короткие видео корейских авторов: рекомендации, страницы и MP4', '短视频数据无效': 'Некорректные данные короткого видео', '短视频请求失败': 'Ошибка запроса короткого видео', '短视频不存在': 'Короткое видео не найдено', '短视频暂无可用播放地址': 'Нет короткого видео для воспроизведения'},
     ar: {'PopkonTV 短视频': 'PopkonTV مقاطع قصيرة', '韩国主播短视频，支持推荐、分页与 MP4 播放': 'مقاطع قصيرة لمنشئي المحتوى الكوريين مع التوصيات والصفحات وتشغيل MP4', '短视频数据无效': 'بيانات المقطع القصير غير صالحة', '短视频请求失败': 'فشل طلب المقطع القصير', '短视频不存在': 'المقطع القصير غير موجود', '短视频暂无可用播放地址': 'لا يوجد مقطع قصير متاح للتشغيل'},
   },
-  key: 'popkontv_shortvideo', name: 'PopkonTV 短视频', version: '0.0.4', minAppVersion: '0.9.2', type: 'video', category: 'shortvideo',
+  key: 'popkontv_shortvideo', name: 'PopkonTV 短视频', version: '0.0.5', minAppVersion: '0.9.2', type: 'video', category: 'shortvideo',
   color: '#F04A55', description: '韩国主播短视频，支持推荐、分页与 MP4 播放', language: 'ko',
   homepage: 'https://www.popkontv.com/', domains: ['popkontv.com'],
   network: {mode: 'native', origin: 'https://www.popkontv.com', vpnHint: true},
@@ -23,7 +23,7 @@ Park.register({
     try { const url = new URL(String(value).trim(), base); return Park.url.parse(url.href, base, [url.hostname]); } catch (_) { return null; }
   },
   async api(path, body) {
-    const r = await this.http.post(this.API + path, {json: {...body, partnerCode: 'P-00001', signId: ''}, headers: {Origin: this.BASE, Referer: this.BASE + '/'}, timeout: 15000});
+    const r = await this.http.post(this.API + path, {readOnly: ['/list', '/detail', '/comments', '/recomments'].includes(path), json: {...body, partnerCode: 'P-00001', signId: ''}, headers: {Origin: this.BASE, Referer: this.BASE + '/'}, timeout: 15000});
     if (!r.ok) throw Park.error('HTTP', '短视频请求失败', {status: r.status});
     let data; try { data = r.json(); } catch (_) { throw Park.error('PARSE', '短视频数据无效'); }
     if (data?.statusCd !== 'S2000') throw Park.error('PARSE', '短视频数据无效');

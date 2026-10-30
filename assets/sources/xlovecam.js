@@ -78,7 +78,7 @@ Park.register({
     "直播分页参数无效": "معلمات صفحات البث غير صالحة"
   }
 },
-  key: 'xlovecam', name: 'XloveCam', version: '0.0.7', minAppVersion: '0.9.2', type: 'video', category: 'live', language: 'en',
+  key: 'xlovecam', name: 'XloveCam', version: '0.0.8', minAppVersion: '0.9.2', type: 'video', category: 'live', language: 'en',
   chat: {domains: ['spg1-eu-nl.wlresources.com']},
   color: '#990000', description: '公开直播间', homepage: 'https://www.xlovecam.com/en/', domains: ['xlovecam.com'],
   network: {mode: 'native', origin: 'https://www.xlovecam.com', vpnHint: true},
@@ -117,7 +117,7 @@ Park.register({
       const pairs = [];
       function add(path, value) { if (value && typeof value === 'object') { for (const [k, v] of Object.entries(value)) add(path ? path + '[' + k + ']' : k, v); } else if (value !== undefined) pairs.push(encodeURIComponent(path) + '=' + encodeURIComponent(value == null ? '' : String(value))); }
       for (const [k, v] of Object.entries(input)) add(k, v);
-      const r = await this.http.post('https://www.xlovecam.com/performerAction/onlineList/?x-req=' + page + '&x-off-s=' + next.from, {body: pairs.join('&'), headers: {'Content-Type': 'application/x-www-form-urlencoded', 'X-Requested-With': 'XMLHttpRequest', Referer: 'https://www.xlovecam.com/en/'}, timeout: 30000});
+      const r = await this.http.post('https://www.xlovecam.com/performerAction/onlineList/?x-req=' + page + '&x-off-s=' + next.from, {readOnly: true, body: pairs.join('&'), headers: {'Content-Type': 'application/x-www-form-urlencoded', 'X-Requested-With': 'XMLHttpRequest', Referer: 'https://www.xlovecam.com/en/'}, timeout: 30000});
       if (!r.ok) throw Park.error('HTTP', '直播请求失败', {status: r.status});
       try { result = r.json()?.content; } catch (_) { throw Park.error('PARSE', '直播数据无效'); }
     }

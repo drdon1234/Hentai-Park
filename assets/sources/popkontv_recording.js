@@ -8,7 +8,7 @@ Park.register({
     ru: {'PopkonTV 录播': 'PopkonTV Записи', '韩国主播录播，支持推荐、分页与 MP4 播放': 'Записи корейских авторов: рекомендации, страницы и воспроизведение MP4', '录播数据无效': 'Некорректные данные записи', '录播请求失败': 'Ошибка запроса записи', '录播不存在': 'Запись не найдена', '录播暂无可用播放地址': 'Нет доступной записи для воспроизведения'},
     ar: {'PopkonTV 录播': 'PopkonTV تسجيلات', '韩国主播录播，支持推荐、分页与 MP4 播放': 'تسجيلات منشئي المحتوى الكوريين مع التوصيات والصفحات وتشغيل MP4', '录播数据无效': 'بيانات التسجيل غير صالحة', '录播请求失败': 'فشل طلب التسجيل', '录播不存在': 'التسجيل غير موجود', '录播暂无可用播放地址': 'لا يوجد تسجيل متاح للتشغيل'},
   },
-  key: 'popkontv_recording', name: 'PopkonTV 录播', version: '0.0.4', minAppVersion: '0.9.2', type: 'video', category: 'recording',
+  key: 'popkontv_recording', name: 'PopkonTV 录播', version: '0.0.5', minAppVersion: '0.9.2', type: 'video', category: 'recording',
   color: '#F04A55', description: '韩国主播录播，支持推荐、分页与 MP4 播放', language: 'ko',
   homepage: 'https://www.popkontv.com/vod', domains: ['popkontv.com'],
   network: {mode: 'native', origin: 'https://www.popkontv.com', vpnHint: true},
@@ -23,7 +23,7 @@ Park.register({
     try { const url = new URL(String(value).trim(), base); return Park.url.parse(url.href, base, [url.hostname]); } catch (_) { return null; }
   },
   async api(path, body) {
-    const r = await this.http.post(this.API + path, {json: {...body, partnerCode: 'P-00001', signId: ''}, headers: {Origin: this.BASE, Referer: this.BASE + '/'}, timeout: 15000});
+    const r = await this.http.post(this.API + path, {readOnly: ['/list', '/detail', '/comments', '/recomments'].includes(path), json: {...body, partnerCode: 'P-00001', signId: ''}, headers: {Origin: this.BASE, Referer: this.BASE + '/'}, timeout: 15000});
     if (!r.ok) throw Park.error('HTTP', '录播请求失败', {status: r.status});
     let data; try { data = r.json(); } catch (_) { throw Park.error('PARSE', '录播数据无效'); }
     if (data?.statusCd !== 'S2000') throw Park.error('PARSE', '录播数据无效');

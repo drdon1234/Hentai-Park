@@ -99,7 +99,7 @@ Park.register({
       "直播内容不符合本站点范围": "هذا البث خارج نطاق محتوى المصدر"
     }
   },
-  key: 'soop', name: 'SOOP', version: '0.0.6', minAppVersion: '0.9.2', type: 'video', category: 'live', language: 'ko',
+  key: 'soop', name: 'SOOP', version: '0.0.7', minAppVersion: '0.9.2', type: 'video', category: 'live', language: 'ko',
   color: '#0569FF', description: '韩国性感舞蹈与比基尼直播，按原站标签筛选',
   homepage: 'https://www.sooplive.co.kr/', domains: ['sooplive.co.kr', 'sooplive.com'],
   network: {mode: 'auto', origin: 'https://play.sooplive.co.kr', vpnHint: true},
@@ -121,7 +121,7 @@ Park.register({
     return id;
   },
   async json(url, options = {}, post = false) {
-    const request = {...options, headers: {Referer: this.PLAY, ...options.headers}, timeout: 15000};
+    const request = {...options, readOnly: true, headers: {Referer: this.PLAY, ...options.headers}, timeout: 15000};
     const r = post ? await this.http.post(url, request) : await this.http.get(url, request);
     if (!r.ok) throw Park.error('HTTP', '直播请求失败', {status: r.status});
     try { return r.json(); } catch (_) { throw Park.error('PARSE', '直播数据无效'); }

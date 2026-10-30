@@ -243,7 +243,7 @@ async filterOptions({scope, feed, filter, keyword, values}) {
 
   文档可在声明范围内进行同协议、同端口导航。未显式传入请求 `origin` 时，共享运行时使用目标站点 URL 的 origin。响应 `url` 保留最终地址。
 
-  自动回退不用于 `followRedirects: false`、`connectAddress` 或未分类的网络错误。浏览器对无请求体的 GET / HEAD 普通请求最多尝试三次，验证通过后至多额外重发一次；仅恢复连接故障或 HTTP 408、500、502、503、504；429 和超时不重复请求。一次逻辑请求最多主动导航验证一次，外层重试不重置次数。浏览器启动、请求、文档读取和释放均有等待上限。带自定义 API 请求头的读取通过真实 `fetch()` 执行，不用普通导航结果替代；复用 HTML 文档时保留其错误状态，`responseType: 'base64'` 返回原始字节的 base64。
+  自动回退不用于 `followRedirects: false`、`connectAddress` 或未分类的网络错误。浏览器对无请求体的 GET / HEAD，以及显式声明 `readOnly: true` 的文本 POST 查询最多尝试三次，验证通过后至多额外重发一次；仅恢复连接故障或 HTTP 408、500、502、503、504；429 和超时不重复请求。一次逻辑请求最多主动导航验证一次，外层重试不重置次数。浏览器启动、请求、文档读取和释放均有等待上限。带自定义 API 请求头的读取通过真实 `fetch()` 执行，不用普通导航结果替代；复用 HTML 文档时保留其错误状态，`responseType: 'base64'` 返回原始字节的 base64。
 
 - `network.vpnHint: true`：在中国大陆可能需要 VPN 或代理的站点声明它，等待超过 8 秒和失败时提示“可能需要 VPN 或代理”。不要把所有错误都归因于 VPN。
 - `network.confirmation: { selector, readySelector, requiredCookies, auto: { clickSelector, checkSelector? }, message }`: 站点年龄门声明。`selector` 匹配年龄弹窗，`auto.clickSelector` 匹配弹窗内唯一的确认按钮，`readySelector` 匹配可访问内容，`requiredCookies` 列出确认后必须存在的 Cookie 名。只有用户已在应用入口确认成年，隐藏浏览器才会模拟点击；随后检查弹窗消失、内容出现、Cookie 写入及导航稳定。规则不完整、不匹配或未自动完成时可重试；错误提供站内验证地址时可选择“去确认”，在页面中手动处理后点击完成。确认页仍受源域名及 Cookie 分区限制，操作提示不会自动重放原操作。仅声明年龄确认，不可用于登录、付费或回复等操作。

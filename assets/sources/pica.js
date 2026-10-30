@@ -17,7 +17,7 @@ Park.register({
   },
   key: 'pica',
   name: '哔咔漫画',
-  version: '0.0.11', minAppVersion: '0.9.2',
+  version: '0.0.12', minAppVersion: '0.9.2',
   type: 'comic',
   category: 'doujin',
   color: '#EC97B6',
@@ -275,6 +275,7 @@ Park.register({
     const request = () => this.http.request({
       url: this.BASE + path,
       method,
+      readOnly: path.startsWith('comics/advanced-search?'),
       mode: 'native',
       connectAddress: route.address,
       followRedirects: false,

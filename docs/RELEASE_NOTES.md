@@ -17,8 +17,9 @@
 - 修复部分列表标签不完整导致屏蔽规则漏匹配的问题。
 
 ### 插件更新
-- E-Hentai 0.0.15、哔咔 0.0.11：保留完整列表标签用于内容过滤。
+- E-Hentai 0.0.15、哔咔 0.0.12：保留完整列表标签用于内容过滤。
 - iXXX 0.0.18：识别列表中明确标注的预览结果。
+- FANZA、CAM4、PopkonTV、SOOP、X、XVideos、PornPics、XLoveCam、Storiesonline、次元茶馆、SupJav 和 Galgamex：改善只读查询遇到短暂网络故障时的恢复。
 
 ### 注意事项
 - 反搜历史图片保存在本机，未加密且不包含在应用备份中，可在反搜历史中删除。
@@ -43,8 +44,9 @@
 - Fixed missed blocking matches caused by incomplete tags in some listings.
 
 ### Plugin updates
-- E-Hentai 0.0.15 and Pica 0.0.11: preserve complete listing tags for content filtering.
+- E-Hentai 0.0.15 and Pica 0.0.12: preserve complete listing tags for content filtering.
 - iXXX 0.0.18: recognize explicitly labeled preview results in listings.
+- FANZA, CAM4, PopkonTV, SOOP, X, XVideos, PornPics, XLoveCam, Storiesonline, CYCG, SupJav, and Galgamex: improve recovery from temporary network failures during read-only queries.
 
 ### Notes
 - Image search history is stored locally without encryption and is excluded from app backups. Images can be deleted from history.

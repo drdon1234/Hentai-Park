@@ -16,6 +16,7 @@ import 'cancellation.dart';
 import 'challenge.dart';
 import 'domains.dart';
 import 'http_service.dart';
+import 'request_retry.dart';
 import 'resource_pool.dart';
 
 /// Runs requests for Cloudflare-protected sites inside a hidden browser page opened on the site's
@@ -152,13 +153,12 @@ class _OriginPage {
     if (_retired) throw SourceError('CANCELLED', '浏览器会话已关闭');
   }
 
-  bool _isRead(Map<String, dynamic> request) =>
-      {
-        'GET',
-        'HEAD',
-      }.contains((request['method'] ?? 'GET').toString().toUpperCase()) &&
-      request['body'] == null &&
-      request['bodyBase64'] == null;
+  bool _isRead(Map<String, dynamic> request) => isReplayableRead(
+    (request['method'] ?? 'GET').toString(),
+    body: request['body'],
+    bodyBase64: request['bodyBase64'],
+    readOnly: request['readOnly'] == true,
+  );
 
   bool _canReadDocument(Map<String, dynamic> request) {
     if (!_isRead(request) ||

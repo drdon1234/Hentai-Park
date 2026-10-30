@@ -9,7 +9,7 @@ Park.register({
     "ru": {"JAV 视频，支持热门、搜索与多线路播放": "JAV: популярное, поиск и воспроизведение с нескольких серверов", "中文字幕": "Китайские субтитры", "无码": "Без цензуры", "此影片没有可解析的播放线路": "Для этого видео нет доступного сервера", "播放线路暂不可用": "Серверы воспроизведения временно недоступны"},
     "ar": {"JAV 视频，支持热门、搜索与多线路播放": "فيديوهات JAV مع قوائم شائعة وبحث وتشغيل من عدة خوادم", "中文字幕": "ترجمة صينية", "无码": "غير خاضع للرقابة", "此影片没有可解析的播放线路": "لا يوجد خادم تشغيل متاح لهذا الفيديو", "播放线路暂不可用": "خوادم التشغيل غير متاحة مؤقتًا"},
   },
-  key: 'supjav', name: 'SupJav', version: '0.0.11', minAppVersion: '0.9.2', type: 'video', category: 'jav', color: '#F59E0B',
+  key: 'supjav', name: 'SupJav', version: '0.0.12', minAppVersion: '0.9.2', type: 'video', category: 'jav', color: '#F59E0B',
   description: 'JAV 视频，支持热门、搜索与多线路播放',
   homepage: 'https://supjav.com', domains: ['supjav.com', 'lk1.supremejav.com'], language: 'zh',
   network: {mode: 'browser', origin: 'https://supjav.com', vpnHint: true},
@@ -241,7 +241,7 @@ Park.register({
     const headers = {Referer: 'https://lk1.supremejav.com/'};
     if (name === 'VAS') {
       // 播放页脚本以文件编号向同源 /api/stream 查询播放地址。
-      const response = await this.linePage(embed.origin + '/api/stream', {method: 'POST', headers: {Referer: embed.href},
+      const response = await this.linePage(embed.origin + '/api/stream', {method: 'POST', readOnly: true, headers: {Referer: embed.href},
         json: {filecode: embed.pathname.split('/')[2], device: 'android', codecs: []}});
       let data = null;
       try { data = JSON.parse(response.body); } catch (_) { /* 结构变化按线路不可用处理。 */ }

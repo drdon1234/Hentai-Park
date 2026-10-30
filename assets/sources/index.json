@@ -25,7 +25,7 @@
     {
       "key": "pornpics",
       "name": "PornPics",
-      "version": "0.0.9",
+      "version": "0.0.10",
       "type": "comic",
       "category": "gallery",
       "file": "pornpics.js",
@@ -125,7 +125,7 @@
     {
       "key": "pica",
       "name": "哔咔漫画",
-      "version": "0.0.11",
+      "version": "0.0.12",
       "type": "comic",
       "category": "doujin",
       "file": "pica.js",
@@ -215,7 +215,7 @@
     {
       "key": "supjav",
       "name": "SupJav",
-      "version": "0.0.11",
+      "version": "0.0.12",
       "type": "video",
       "category": "jav",
       "file": "supjav.js",
@@ -235,7 +235,7 @@
     {
       "key": "xvideos",
       "name": "XVideos",
-      "version": "0.0.9",
+      "version": "0.0.10",
       "type": "video",
       "category": "adult",
       "file": "xvideos.js",
@@ -335,7 +335,7 @@
     {
       "key": "soop_shortvideo",
       "name": "SOOP 短视频",
-      "version": "0.0.6",
+      "version": "0.0.7",
       "type": "video",
       "category": "shortvideo",
       "file": "soop_shortvideo.js",
@@ -365,7 +365,7 @@
     {
       "key": "popkontv_shortvideo",
       "name": "PopkonTV 短视频",
-      "version": "0.0.4",
+      "version": "0.0.5",
       "type": "video",
       "category": "shortvideo",
       "file": "popkontv_shortvideo.js",
@@ -445,7 +445,7 @@
     {
       "key": "soop_recording",
       "name": "SOOP 录播",
-      "version": "0.0.6",
+      "version": "0.0.7",
       "type": "video",
       "category": "recording",
       "file": "soop_recording.js",
@@ -455,7 +455,7 @@
     {
       "key": "popkontv_recording",
       "name": "PopkonTV 录播",
-      "version": "0.0.4",
+      "version": "0.0.5",
       "type": "video",
       "category": "recording",
       "file": "popkontv_recording.js",
@@ -485,7 +485,7 @@
     {
       "key": "cam4",
       "name": "CAM4",
-      "version": "0.0.7",
+      "version": "0.0.8",
       "type": "video",
       "category": "live",
       "file": "cam4.js",
@@ -495,7 +495,7 @@
     {
       "key": "soop",
       "name": "SOOP",
-      "version": "0.0.6",
+      "version": "0.0.7",
       "type": "video",
       "category": "live",
       "file": "soop.js",
@@ -505,7 +505,7 @@
     {
       "key": "xlovecam",
       "name": "XloveCam",
-      "version": "0.0.7",
+      "version": "0.0.8",
       "type": "video",
       "category": "live",
       "file": "xlovecam.js",
@@ -545,7 +545,7 @@
     {
       "key": "x",
       "name": "X / Twitter",
-      "version": "0.0.16",
+      "version": "0.0.17",
       "type": "video",
       "category": "other",
       "file": "x.js",
@@ -734,7 +734,7 @@
       "key": "storiesonline",
       "name": "StoriesOnline",
       "description": "英文长短篇与连载小说，支持推荐、搜索与章节目录；部分正文需要登录",
-      "version": "0.0.8",
+      "version": "0.0.9",
       "type": "novel",
       "category": "novel",
       "file": "storiesonline.js",
@@ -753,7 +753,7 @@
     {
       "key": "galgamex",
       "name": "GalgameX",
-      "version": "0.0.10",
+      "version": "0.0.11",
       "type": "game",
       "category": "game",
       "file": "galgamex.js",
@@ -763,7 +763,7 @@
     {
       "key": "cycg",
       "name": "次元茶馆",
-      "version": "0.0.11",
+      "version": "0.0.12",
       "type": "game",
       "category": "game",
       "file": "cycg.js",
@@ -795,7 +795,7 @@
     {
       "key": "ranking-fanza",
       "name": "FANZA",
-      "version": "0.0.5",
+      "version": "0.0.6",
       "type": "video",
       "category": "jav",
       "rankingOnly": true,

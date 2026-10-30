@@ -9,7 +9,7 @@ Park.register({
     "ru": {"标清": "Стандартное качество", "综合成人视频，支持排行、搜索和高清播放": "Видео для взрослых с рейтингами, поиском и высоким качеством", "高清": "Высокое качество"},
     "ar": {"标清": "جودة قياسية", "综合成人视频，支持排行、搜索和高清播放": "فيديوهات للبالغين مع تصنيفات وبحث وتشغيل بجودة عالية", "高清": "جودة عالية"},
   },
-  key: 'xvideos', name: 'XVideos', version: '0.0.9', minAppVersion: '0.9.2', type: 'video', category: 'adult', color: '#E31B23',
+  key: 'xvideos', name: 'XVideos', version: '0.0.10', minAppVersion: '0.9.2', type: 'video', category: 'adult', color: '#E31B23',
   description: '综合成人视频，支持排行、搜索和高清播放', homepage: 'https://www.xvideos.com', domains: ['xvideos.com'], language: 'en',
   network: {mode: 'native', vpnHint: true}, imageHeaders: {Referer: 'https://www.xvideos.com/'},
   media: {mode: 'native', origin: 'https://www.xvideos.com', domains: ['xvideos-cdn.com']},
@@ -197,6 +197,7 @@ Park.register({
     if (!internal) throw Park.error('PARSE', '评论数据无效');
     const fetchPage = async state => {
       const response = this.http.ensureOk(await this.http.post(this.BASE + '/threads/video-comments/get-posts/' + sort + '/' + internal + '/' + parent + '/' + (state?.after || '0'), {
+        readOnly: true,
         form: {loaded_ids: state?.loaded.join(',') || '', load_all: 0}, headers: {Referer: url, 'X-Requested-With': 'XMLHttpRequest'},
       }));
       let data; try { data = response.json(); } catch (_) { throw Park.error('PARSE', '评论数据无效'); }

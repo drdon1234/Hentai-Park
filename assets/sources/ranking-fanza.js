@@ -8,7 +8,7 @@ Park.register({
     ru: {"已购买": "Куплено", "分类累计排序（非周期榜）": "Накопительный рейтинг по жанру (без периода)", "月度女优榜": "Ежемесячный рейтинг актрис", "累计人气": "Популярность за всё время", "累计销量": "Продажи за всё время", "评价排序": "По оценкам"},
     ar: {"已购买": "تم الشراء", "分类累计排序（非周期榜）": "ترتيب تراكمي حسب النوع (غير دوري)", "月度女优榜": "ترتيب الممثلات الشهري", "累计人气": "الشعبية الإجمالية", "累计销量": "المبيعات الإجمالية", "评价排序": "حسب التقييم"},
   },
-  key: 'ranking-fanza', name: 'FANZA', version: '0.0.5', minAppVersion: '0.9.2',
+  key: 'ranking-fanza', name: 'FANZA', version: '0.0.6', minAppVersion: '0.9.2',
   type: 'video', category: 'jav', rankingOnly: true,
   description: '官方销量榜', homepage: 'https://video.dmm.co.jp/',
   domains: ['dmm.co.jp'], network: { vpnHint: true },
@@ -30,6 +30,7 @@ Park.register({
   ] }],
   async query(query, variables = {}) {
     const response = await this.http.post('https://api.video.dmm.co.jp/graphql', {
+      readOnly: true,
       headers: { Referer: this.homepage, Origin: 'https://video.dmm.co.jp', 'Fanza-Device': 'BROWSER' },
       json: { query, variables },
     });
@@ -48,6 +49,7 @@ Park.register({
     const offset = req.cursor == null ? (page - 1) * 10 : Number(req.cursor);
     if (!Number.isSafeInteger(offset) || offset < 0 || offset > 100000000 || offset % 10) throw Park.error('CONFIG', '评论参数无效');
     const response = this.http.ensureOk(await this.http.post('https://api.video.dmm.co.jp/graphql', {
+      readOnly: true,
       headers: {Referer: this.homepage, Origin: 'https://video.dmm.co.jp', 'Fanza-Device': 'BROWSER'},
       json: {query: `query UserReviews($id: ID!, $sort: ReviewSort!, $offset: Int!) {
         reviews(contentId: $id, sort: $sort, limit: 10, offset: $offset) {
@@ -140,6 +142,7 @@ Park.register({
       }
     }`;
     const response = await this.http.post('https://api.video.dmm.co.jp/graphql', {
+      readOnly: true,
       headers: { Referer: this.homepage, Origin: 'https://video.dmm.co.jp', 'Fanza-Device': 'BROWSER' },
       json: { query, variables: {
         filter: { [req.options?.period || 'weekly']: { floor } },

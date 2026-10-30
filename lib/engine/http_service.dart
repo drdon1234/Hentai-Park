@@ -14,6 +14,7 @@ import 'challenge.dart';
 import 'cookie_store.dart';
 import 'domains.dart';
 import 'network_client.dart';
+import 'request_retry.dart';
 
 /// 二进制传输仍通过同一域名隔离、TLS 和重定向策略。
 Object? decodeSourceBody(Map<String, dynamic> request) {
@@ -264,8 +265,7 @@ class HttpService {
     var currentMethod = method.toUpperCase();
     Object? currentBody = body;
     bool replayable() =>
-        (currentBody == null && {'GET', 'HEAD'}.contains(currentMethod)) ||
-        (readOnly && currentMethod == 'POST' && currentBody is String);
+        isReplayableRead(currentMethod, body: currentBody, readOnly: readOnly);
     final currentHeaders = Map<String, String>.of(headers);
     var retries = 0;
     for (var hop = 0; hop < 8; hop++) {

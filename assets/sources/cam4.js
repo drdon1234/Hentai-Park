@@ -64,7 +64,7 @@ Park.register({
     "未知直播列表": "قائمة بث غير معروفة"
   }
 },
-  key: 'cam4', name: 'CAM4', version: '0.0.7', minAppVersion: '0.9.2', type: 'video', category: 'live', language: 'en',
+  key: 'cam4', name: 'CAM4', version: '0.0.8', minAppVersion: '0.9.2', type: 'video', category: 'live', language: 'en',
   chat: {domains: ['identitytoolkit.googleapis.com', 'cam4.firebaseio.com', ...Array.from({length: 10}, (_, i) => 'cam4-' + (i + 1) + '.firebaseio.com')]},
   color: '#ff5a5f', description: '公开直播间', homepage: 'https://www.cam4.com/',
   domains: ['cam4.com'], network: {mode: 'auto', origin: 'https://www.cam4.com', vpnHint: true},
@@ -91,7 +91,7 @@ Park.register({
   },
   async list(page = 1, gender = 'female') {
     if (!['female', 'male', 'transgender', 'couple'].includes(gender)) throw Park.error('CONFIG', '筛选参数无效');
-    const r = await this.http.post('https://www.cam4.com/graph', {json: {query: 'query getTrendingCamsData($input: BroadcastsInput) { broadcasts(input: $input) {total items {id username showType viewers preview {src poster}}} }', variables: {input: {cursor: {first: 20, offset: (page - 1) * 20}, filters: [], gender, orderBy: 'trending'}}}, timeout: 30000});
+    const r = await this.http.post('https://www.cam4.com/graph', {readOnly: true, json: {query: 'query getTrendingCamsData($input: BroadcastsInput) { broadcasts(input: $input) {total items {id username showType viewers preview {src poster}}} }', variables: {input: {cursor: {first: 20, offset: (page - 1) * 20}, filters: [], gender, orderBy: 'trending'}}}, timeout: 30000});
     if (!r.ok) throw Park.error('HTTP', '直播请求失败', {status: r.status});
     let data; try { data = r.json(); } catch (_) { throw Park.error('PARSE', '直播数据无效'); }
     const rows = data?.data?.broadcasts?.items;

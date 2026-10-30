@@ -102,7 +102,7 @@ Park.register({
   "key": "soop_shortvideo",
   "name": "SOOP 短视频",
   "description": "韩国性感舞蹈与比基尼短视频，按原站标签筛选",
-  "version": '0.0.6', minAppVersion: '0.9.2',
+  version: '0.0.7', minAppVersion: '0.9.2',
   "type": "video",
   "category": "shortvideo",
   "FILE_TYPE": "CATCH"
@@ -122,7 +122,7 @@ Park.register({
     return id;
   },
   async json(url, options = {}, post = false) {
-    const request = {...options, timeout: 15000, headers: {Referer: 'https://vod.sooplive.co.kr/', ...options.headers}};
+    const request = {...options, readOnly: true, timeout: 15000, headers: {Referer: 'https://vod.sooplive.co.kr/', ...options.headers}};
     const response = post ? await this.http.post(url, request) : await this.http.get(url, request);
     if (!response.ok) throw Park.error('HTTP', '视频请求失败', {status: response.status});
     try { return response.json(); } catch (_) { throw Park.error('PARSE', '视频数据无效'); }

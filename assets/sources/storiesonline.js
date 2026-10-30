@@ -110,7 +110,7 @@
     },
     key: 'storiesonline',
     name: 'StoriesOnline',
-    version: '0.0.8', minAppVersion: '0.9.2',
+    version: '0.0.9', minAppVersion: '0.9.2',
     type: 'novel',
     category: 'novel',
     language: 'en',
@@ -178,6 +178,7 @@
       form.q = String(req.keyword || '');
       return list(this, req, HOME + '/library/searchQuick.php', {
         method: 'POST',
+        readOnly: true,
         form,
       });
     },
