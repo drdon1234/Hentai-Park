@@ -673,6 +673,12 @@ class SourceManifest {
   final Map<String, dynamic> capabilities;
 
   bool can(String capability) => capabilities[capability] == true;
+
+  bool get supportsAlbumMode =>
+      category == SourceCategory.other && can('album');
+
+  bool get supportsShortVideoMode =>
+      category == SourceCategory.other && json['postShortVideos'] == true;
   bool get isVideo => kind == MediaKind.video;
   bool get isLive => isVideo && category == SourceCategory.live;
 

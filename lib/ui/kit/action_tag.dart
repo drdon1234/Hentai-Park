@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import '../theme.dart';
 import 'tokens.dart';
 
-/// 紧凑的可操作标签：32dp 视觉轮廓与独立的 48dp 点击区域。
+/// 紧凑排布的内容标签，保留点击、长按与键盘操作。
 /// 静态元数据使用 Tag，筛选项使用 SelectionChip，页面操作使用按钮。
 class ActionTag extends StatelessWidget {
   const ActionTag({
@@ -24,7 +24,9 @@ class ActionTag extends StatelessWidget {
       onPressed: onTap,
       onLongPress: onLongPress,
       style: OutlinedButton.styleFrom(
-        minimumSize: const Size(48, 32),
+        minimumSize: const Size(32, 28),
+        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        visualDensity: VisualDensity.standard,
         padding: const EdgeInsets.symmetric(
           horizontal: Gap.s,
           vertical: Gap.xs,

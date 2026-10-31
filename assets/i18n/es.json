@@ -1,4 +1,11 @@
 {
+  "切换为卡片": "Cambiar a tarjetas",
+  "切换为单行列表": "Cambiar a lista detallada",
+  "已隐藏屏蔽内容": "Contenido bloqueado oculto",
+  "已显示屏蔽内容": "Contenido bloqueado visible",
+  "已隐藏预览内容": "Vistas previas ocultas",
+  "已显示预览内容": "Vistas previas visibles",
+  "评分 {rating}": "Valoración {rating}",
   "仅视频": "Solo vídeo",
   "带信息": "Mostrar información",
   "可切换分类，或通过站点入口浏览和搜索": "Cambia de categoría o abre Sitios para explorar y buscar.",

@@ -204,6 +204,23 @@ class VideoControls extends StatelessWidget {
                                       ?.copyWith(color: fg),
                             ),
                           ),
+                          if (onEpisodes != null)
+                            TextButton.icon(
+                              style: TextButton.styleFrom(
+                                foregroundColor: fg,
+                                backgroundColor: Scrims.control,
+                                minimumSize: const Size(48, 32),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: Gap.m,
+                                ),
+                                textStyle: context.text.labelMedium?.copyWith(
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              onPressed: onEpisodes,
+                              icon: const Icon(Icons.playlist_play_rounded),
+                              label: Text(tr('选集')),
+                            ),
                           ?recordingAction,
                           const SizedBox(width: Gap.s),
                         ],
@@ -314,10 +331,11 @@ class VideoControls extends StatelessWidget {
                                       ),
                                       onPressed: onSeries,
                                     ),
-                                  if (!live ||
-                                      onEpisodes != null ||
+                                  if ((compact && !live) ||
                                       onChatArea != null ||
-                                      (quality != null && onQuality != null))
+                                      (compact &&
+                                          quality != null &&
+                                          onQuality != null))
                                     PopupMenuButton<String>(
                                       tooltip: tr('更多'),
                                       icon: const Icon(
@@ -335,8 +353,6 @@ class VideoControls extends StatelessWidget {
                                             onSpeed();
                                           case 'quality':
                                             onQuality?.call();
-                                          case 'episodes':
-                                            onEpisodes?.call();
                                           case 'chatArea':
                                             onChatArea?.call();
                                         }
@@ -349,23 +365,19 @@ class VideoControls extends StatelessWidget {
                                               '${tr('弹幕显示区域')} · $chatAreaLabel',
                                             ),
                                           ),
-                                        if (!live)
+                                        if (compact && !live)
                                           PopupMenuItem(
                                             value: 'speed',
                                             child: Text(
                                               '${tr('播放速度')} · ${speed}x',
                                             ),
                                           ),
-                                        if (quality != null &&
+                                        if (compact &&
+                                            quality != null &&
                                             onQuality != null)
                                           PopupMenuItem(
                                             value: 'quality',
                                             child: Text(quality!),
-                                          ),
-                                        if (onEpisodes != null)
-                                          PopupMenuItem(
-                                            value: 'episodes',
-                                            child: Text(tr('选集')),
                                           ),
                                       ],
                                     ),

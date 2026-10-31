@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../core/localization.dart';
 import '../theme.dart';
 import 'tokens.dart';
+import 'toolbar_button.dart';
 
 /// 标题栏动作保留明确名称，空间不足时统一收进可见的“更多”入口。
 class ToolbarAction {
@@ -12,7 +13,7 @@ class ToolbarAction {
     required this.onPressed,
     this.showLabel = false,
     this.shortLabel,
-    this.compactLabel = false,
+    this.showIcon = false,
   });
 
   final String label;
@@ -20,7 +21,7 @@ class ToolbarAction {
   final VoidCallback? onPressed;
   final bool showLabel;
   final String? shortLabel;
-  final bool compactLabel;
+  final bool showIcon;
 
   String get visibleLabel => shortLabel ?? label;
 }
@@ -37,13 +38,6 @@ class ToolbarActions extends StatelessWidget {
         (MediaQuery.sizeOf(context).width -
             MediaQuery.paddingOf(context).horizontal) /
         2;
-    TextStyle? labelStyle(ToolbarAction action) => action.compactLabel
-        ? context.text.labelSmall?.copyWith(
-            fontSize: 10,
-            fontWeight: FontWeight.w400,
-          )
-        : Theme.of(context).outlinedButtonTheme.style?.textStyle?.resolve({}) ??
-              context.text.labelLarge;
     var width = 0.0;
     for (final action in actions) {
       if (!action.showLabel) {
@@ -51,13 +45,17 @@ class ToolbarActions extends StatelessWidget {
         continue;
       }
       final painter = TextPainter(
-        text: TextSpan(text: action.visibleLabel, style: labelStyle(action)),
+        text: TextSpan(
+          text: action.visibleLabel,
+          style: context.text.labelMedium,
+        ),
         textDirection: Directionality.of(context),
         textScaler: MediaQuery.textScalerOf(context),
       )..layout();
-      width += action.compactLabel
-          ? painter.width + 24 + Gap.s * 2
-          : (painter.width + Gap.l * 2).clamp(64, double.infinity);
+      width += (painter.width + Gap.s * 2 + (action.showIcon ? 26 : 0)).clamp(
+        48,
+        double.infinity,
+      );
       painter.dispose();
     }
     width += Gap.xs * (actions.length - 1);
@@ -89,22 +87,16 @@ class ToolbarActions extends StatelessWidget {
       children: [
         for (var i = 0; i < actions.length; i++) ...[
           if (i > 0) const SizedBox(width: Gap.xs),
-          if (actions[i].showLabel && actions[i].compactLabel)
-            TextButton.icon(
-              style: TextButton.styleFrom(
-                foregroundColor: context.colors.onSurfaceVariant,
-                minimumSize: const Size(48, 48),
-                padding: const EdgeInsets.symmetric(horizontal: Gap.s),
-                textStyle: labelStyle(actions[i]),
-              ),
+          if (actions[i].showLabel && actions[i].showIcon)
+            ToolbarButton.icon(
               onPressed: actions[i].onPressed,
-              icon: Icon(actions[i].icon, size: 20),
+              icon: Icon(actions[i].icon),
               label: SelectionContainer.disabled(
                 child: Text(actions[i].visibleLabel),
               ),
             )
           else if (actions[i].showLabel)
-            OutlinedButton(
+            ToolbarButton(
               onPressed: actions[i].onPressed,
               child: SelectionContainer.disabled(
                 child: Text(actions[i].visibleLabel),

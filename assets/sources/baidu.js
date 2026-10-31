@@ -63,7 +63,7 @@ Park.register({
       "百度识图拒绝了图片上传，请稍后重试或更换图片": "رفض Baidu رفع الصورة. أعد المحاولة لاحقًا أو اختر صورة أخرى"
     }
   },
-  key: 'baidu', name: 'Baidu', version: '0.0.5', minAppVersion: '0.9.2', apiVersion: 2,
+  key: 'baidu', name: 'Baidu', version: '0.0.6', minAppVersion: '0.9.2', apiVersion: 2,
   type: 'comic', category: 'other', reverseSearchCategory: 'general',
   homepage: 'https://graph.baidu.com/',
   description: '通用图片反搜；结果覆盖取决于百度识图索引',
@@ -104,6 +104,7 @@ Park.register({
     if (payload?.status !== 0) throw Park.error('PARSE', '反搜服务返回无效数据');
     const resultUrl = serviceUrl(payload?.data?.url);
     if (!resultUrl) throw Park.error('PARSE', '反搜服务返回无效数据');
+    if (new URL(resultUrl).pathname === '/errpage') throw Park.error('BLOCKED', '百度识图拒绝了图片上传，请稍后重试或更换图片');
     const result = await this.http.get(resultUrl, { timeout: 80000 });
     this.http.ensureOk(result);
     const cards = baiduCards(Park.html.parse(result.body));

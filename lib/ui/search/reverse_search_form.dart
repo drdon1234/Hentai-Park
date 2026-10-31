@@ -85,7 +85,7 @@ class ReverseSearchForm extends StatelessWidget {
             title: tr('没有启用的反搜服务'),
             message: tr('在站点管理中启用或安装站点'),
             actions: [
-              OutlinedButton(onPressed: onManage, child: Text(tr('管理站点'))),
+              ToolbarButton(onPressed: onManage, child: Text(tr('管理站点'))),
             ],
           )
         else ...[
@@ -160,7 +160,7 @@ class ReverseSearchForm extends StatelessWidget {
             const SizedBox(height: Gap.s),
             Align(
               alignment: AlignmentDirectional.centerStart,
-              child: OutlinedButton.icon(
+              child: ToolbarButton.icon(
                 onPressed: preparing ? null : onPaste,
                 icon: const Icon(Icons.content_paste_rounded, size: 18),
                 label: Text(tr('粘贴图片')),
@@ -174,7 +174,7 @@ class ReverseSearchForm extends StatelessWidget {
                 spacing: Gap.xs,
                 runSpacing: Gap.xs,
                 children: [
-                  OutlinedButton.icon(
+                  ToolbarButton.icon(
                     onPressed: preparing ? null : onPick,
                     icon: const Icon(
                       Icons.add_photo_alternate_outlined,
@@ -182,12 +182,12 @@ class ReverseSearchForm extends StatelessWidget {
                     ),
                     label: Text(tr('选择图片')),
                   ),
-                  OutlinedButton.icon(
+                  ToolbarButton.icon(
                     onPressed: preparing ? null : onCrop,
                     icon: const Icon(Icons.crop, size: 18),
                     label: Text(tr('裁剪图片')),
                   ),
-                  OutlinedButton(
+                  ToolbarButton(
                     onPressed: preparing ? null : onRemove,
                     child: Text(tr('移除图片')),
                   ),

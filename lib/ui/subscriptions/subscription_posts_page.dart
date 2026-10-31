@@ -218,7 +218,7 @@ class _SubscriptionPostsPageState extends State<SubscriptionPostsPage> {
           title: Text(widget.entry.label),
           actions: [
             TranslationControls(source: widget.entry.source),
-            if (manifest?.can('album') == true)
+            if (manifest?.supportsAlbumMode == true)
               IconButton(
                 tooltip: tr('相册'),
                 icon: const Icon(Icons.photo_library_outlined),
@@ -229,7 +229,7 @@ class _SubscriptionPostsPageState extends State<SubscriptionPostsPage> {
                   scope: {'target': widget.entry.target},
                 ),
               ),
-            if (manifest?.json['postShortVideos'] == true)
+            if (manifest?.supportsShortVideoMode == true)
               IconButton(
                 tooltip: tr('短视频模式'),
                 onPressed: () => Nav.push(

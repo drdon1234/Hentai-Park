@@ -33,6 +33,7 @@ class VideoSession extends ChangeNotifier {
     this.localFile,
     this.recordHistory = true,
     this.downloadedOnly = false,
+    this.prepareVideo = PreparedVideo.open,
   }) : episodes = work.videoEpisodes {
     if (localFile case final file?) SubscriptionCache.instance.retain(file);
     final selected = isLive
@@ -49,6 +50,7 @@ class VideoSession extends ChangeNotifier {
   final File? localFile;
   final bool recordHistory;
   final bool downloadedOnly;
+  final VideoPreparer prepareVideo;
   final List<Chapter> episodes;
   late Chapter episode;
 
@@ -94,6 +96,9 @@ class VideoSession extends ChangeNotifier {
   Future<PreparedVideo>? _preloaded;
   PreparedVideo? nextPreview;
   Future<void> _preloadClosing = Future.value();
+  final _retainedEpisodes =
+      <String, ({PreparedVideo video, Future<void> paused})>{};
+  Timer? _retentionTimer;
 
   static bool get supported => PlatformCapabilities.nativeVideo;
 
@@ -151,6 +156,7 @@ class VideoSession extends ChangeNotifier {
           } else {
             await c.pause();
           }
+          _updateDramaRetention();
         })
         .catchError((Object e) {
           if (_active && c != null && identical(c, controller)) {
@@ -465,7 +471,10 @@ class VideoSession extends ChangeNotifier {
     // seek must not overwrite the user's new play request.
     final newlyCompleted = completed && !_completed;
     _completed = completed;
-    if (_active) playerUpdates.value++;
+    if (_active) {
+      playerUpdates.value++;
+      _updateDramaRetention();
+    }
     if (newlyCompleted) {
       savePosition();
       if (_wantsPlayback && episodeIndex < episodes.length - 1) {
@@ -497,7 +506,9 @@ class VideoSession extends ChangeNotifier {
     _request++;
     _sourceRequest?.cancel('video page closed');
     _openingRequest?.cancel('video page closed');
+    _retentionTimer?.cancel();
     PendingDisposals.instance.add(_discardPreload());
+    PendingDisposals.instance.add(_releaseRetainedEpisodes());
     controller?.removeListener(_onTick);
     playerUpdates.dispose();
     final media = _media;

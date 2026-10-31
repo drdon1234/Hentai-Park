@@ -9,3 +9,4 @@ export 'selection_menu.dart';
 export 'settings_body.dart';
 export 'tokens.dart';
 export 'toolbar_actions.dart';
+export 'toolbar_button.dart';

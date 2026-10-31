@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/localization.dart';
 import '../kit/tokens.dart';
+import '../kit/toolbar_button.dart';
 import '../theme.dart';
 import 'content_translation.dart';
 import 'text_translation.dart';
@@ -81,7 +82,7 @@ class _ExpandableDescriptionState extends State<ExpandableDescription> {
                   if (canExpand)
                     Semantics(
                       expanded: _open,
-                      child: OutlinedButton.icon(
+                      child: ToolbarButton.icon(
                         onPressed: _toggle,
                         icon: Icon(
                           _open

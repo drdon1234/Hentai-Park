@@ -117,15 +117,19 @@ class TagSection extends StatelessWidget {
 
   Widget _row(BuildContext context, String label, List<Widget> chips) =>
       Padding(
-        padding: const EdgeInsets.only(bottom: Gap.s),
+        padding: const EdgeInsets.only(bottom: Gap.xs),
         child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             SizedBox(
               width: 56 * MediaQuery.textScalerOf(context).scale(14) / 14,
-              child: Text(
-                label,
-                style: context.text.labelMedium?.copyWith(
-                  color: context.colors.onSurfaceVariant,
+              child: Padding(
+                padding: const EdgeInsets.only(top: Gap.xs),
+                child: Text(
+                  label,
+                  style: context.text.labelMedium?.copyWith(
+                    color: context.colors.onSurfaceVariant,
+                  ),
                 ),
               ),
             ),

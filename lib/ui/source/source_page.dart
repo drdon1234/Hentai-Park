@@ -42,6 +42,25 @@ class SourcePage extends StatefulWidget {
 }
 
 class _SourcePageState extends State<SourcePage> {
+  bool _listMode = false;
+  bool _hidePreviews = false;
+
+  Widget _displayControls() => Row(
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      ResultVisibility(
+        hidePreviews: _hidePreviews,
+        onPreviews: (value) => setState(() => _hidePreviews = value),
+      ),
+      IconButton(
+        tooltip: tr(_listMode ? '切换为卡片' : '切换为单行列表'),
+        icon: Icon(
+          _listMode ? Icons.grid_view_rounded : Icons.view_list_rounded,
+        ),
+        onPressed: () => setState(() => _listMode = !_listMode),
+      ),
+    ],
+  );
   SourceManager get _sources => widget.sourceManager ?? SourceManager.instance;
 
   @override
@@ -107,7 +126,7 @@ class _SourcePageState extends State<SourcePage> {
         feedIndex: widget.initialFeed,
       );
     }
-    final tabs = m.feeds.length > 1
+    final feedTabs = m.feeds.isNotEmpty
         ? TabBar(
             isScrollable: true,
             tabs: [
@@ -116,6 +135,18 @@ class _SourcePageState extends State<SourcePage> {
             ],
           )
         : null;
+    final tabs = feedTabs == null
+        ? null
+        : PreferredSize(
+            preferredSize: feedTabs.preferredSize,
+            child: Row(
+              children: [
+                Expanded(child: feedTabs),
+                _displayControls(),
+                const SizedBox(width: Gap.s),
+              ],
+            ),
+          );
     return TranslationPage(
       child: DefaultTabController(
         key: ValueKey((widget.sourceKey, accountStatus?.loggedIn == true)),
@@ -150,6 +181,7 @@ class _SourcePageState extends State<SourcePage> {
                         ],
                       ),
                       actions: [
+                        if (tabs == null) _displayControls(),
                         if ((m.json['subscription'] as Map?)?['communities'] ==
                             true)
                           IconButton(
@@ -265,6 +297,8 @@ class _SourcePageState extends State<SourcePage> {
                               source: m,
                               sourceManager: _sources,
                               feed: f,
+                              listMode: _listMode,
+                              hidePreviews: _hidePreviews,
                             ),
                         ],
                       ),
@@ -282,11 +316,15 @@ class FeedTab extends StatefulWidget {
     super.key,
     required this.source,
     required this.feed,
+    this.listMode = false,
+    this.hidePreviews = false,
     this.sourceManager,
   });
   final SourceManager? sourceManager;
   final SourceManifest source;
   final FeedDef feed;
+  final bool listMode;
+  final bool hidePreviews;
 
   @override
   State<FeedTab> createState() => _FeedTabState();
@@ -302,6 +340,7 @@ class _FeedTabState extends State<FeedTab> with AutomaticKeepAliveClientMixin {
       source: widget.source.key,
       initiallyLoading: true,
     );
+    _controller.hidePreviews = widget.hidePreviews;
     _options = widget.feed.defaultOptions();
     final sources = widget.sourceManager ?? SourceManager.instance;
     _filters = FilterController(
@@ -363,6 +402,14 @@ class _FeedTabState extends State<FeedTab> with AutomaticKeepAliveClientMixin {
   }
 
   @override
+  void didUpdateWidget(covariant FeedTab oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.hidePreviews != widget.hidePreviews) {
+      _controller.setVisibility(previews: widget.hidePreviews);
+    }
+  }
+
+  @override
   void dispose() {
     _authentication?.cancel();
     _filters.dispose();
@@ -393,90 +440,82 @@ class _FeedTabState extends State<FeedTab> with AutomaticKeepAliveClientMixin {
             SliverOverlapInjector(
               handle: NestedScrollView.sliverOverlapAbsorberHandleFor(context),
             ),
-            SliverToBoxAdapter(
-              child: Align(
-                alignment: AlignmentDirectional.centerEnd,
-                child: ListenableBuilder(
-                  listenable: _controller,
-                  builder: (context, _) => ResultVisibility(
-                    hidePreviews: _controller.hidePreviews,
-                    onPreviews: (v) => _controller.setVisibility(previews: v),
-                  ),
-                ),
-              ),
-            ),
-            if (widget.source.can('album'))
+            if (widget.source.supportsAlbumMode ||
+                widget.feed.commonFilters.isNotEmpty ||
+                widget.source.supportsShortVideoMode)
               SliverToBoxAdapter(
-                child: Align(
-                  alignment: AlignmentDirectional.centerEnd,
-                  child: OutlinedButton.icon(
-                    icon: const Icon(Icons.photo_library_outlined),
-                    label: Text(tr('相册')),
-                    onPressed: () => openMediaAlbum(
-                      context,
-                      source: widget.source.key,
-                      title: '${widget.source.name} · ${widget.feed.label}',
-                      scope: {
-                        'feed': widget.feed.key,
-                        'options': Map.of(_options),
-                        'common': Map.of(_common),
-                      },
-                      sources: widget.sourceManager ?? SourceManager.instance,
-                    ),
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(
+                    Gap.page,
+                    Gap.s,
+                    Gap.page,
+                    0,
                   ),
-                ),
-              ),
-            if (widget.feed.commonFilters.isNotEmpty)
-              SliverToBoxAdapter(
-                child: Align(
-                  alignment: AlignmentDirectional.centerEnd,
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(
-                      Gap.page,
-                      Gap.s,
-                      Gap.page,
-                      0,
-                    ),
-                    child: OutlinedButton.icon(
-                      icon: const Icon(Icons.tune_rounded),
-                      label: Text(_common.isEmpty ? tr('筛选与排序') : tr('筛选已启用')),
-                      onPressed: () async {
-                        final result = await showCommonFilterSheet(
-                          context: context,
-                          definitions: widget.feed.commonFilters,
-                          initialValues: _common,
-                        );
-                        if (!mounted || result == null) return;
-                        setState(() => _common = result);
-                        await _refresh();
-                      },
-                    ),
-                  ),
-                ),
-              ),
-            if (widget.source.json['postShortVideos'] == true)
-              SliverToBoxAdapter(
-                child: Align(
-                  alignment: AlignmentDirectional.centerEnd,
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: Gap.page),
-                    child: OutlinedButton(
-                      onPressed: () => Nav.push(
-                        context,
-                        ShortVideoPage(
-                          source: widget.source.key,
-                          postScope: PostVideoScope(
+                  child: Wrap(
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    spacing: Gap.s,
+                    runSpacing: Gap.xs,
+                    children: [
+                      if (widget.source.supportsAlbumMode)
+                        ToolbarButton.icon(
+                          label: Text(tr('相册')),
+                          icon: const Icon(
+                            Icons.photo_library_outlined,
+                            size: 18,
+                          ),
+                          onPressed: () => openMediaAlbum(
+                            context,
                             source: widget.source.key,
                             title:
                                 '${widget.source.name} · ${widget.feed.label}',
-                            feed: widget.feed.key,
-                            options: Map.of(_options),
-                            common: Map.of(_common),
+                            scope: {
+                              'feed': widget.feed.key,
+                              'options': Map.of(_options),
+                              'common': Map.of(_common),
+                            },
+                            sources:
+                                widget.sourceManager ?? SourceManager.instance,
                           ),
                         ),
-                      ),
-                      child: Text(tr('短视频模式')),
-                    ),
+                      if (widget.source.supportsShortVideoMode)
+                        ToolbarButton.icon(
+                          label: Text(tr('短视频模式')),
+                          icon: const Icon(
+                            Icons.smart_display_outlined,
+                            size: 18,
+                          ),
+                          onPressed: () => Nav.push(
+                            context,
+                            ShortVideoPage(
+                              source: widget.source.key,
+                              postScope: PostVideoScope(
+                                source: widget.source.key,
+                                title:
+                                    '${widget.source.name} · ${widget.feed.label}',
+                                feed: widget.feed.key,
+                                options: Map.of(_options),
+                                common: Map.of(_common),
+                              ),
+                            ),
+                          ),
+                        ),
+                      if (widget.feed.commonFilters.isNotEmpty)
+                        IconButton(
+                          tooltip: tr(_common.isEmpty ? '筛选与排序' : '筛选已启用'),
+                          isSelected: _common.isNotEmpty,
+                          icon: const Icon(Icons.tune_rounded),
+                          onPressed: () async {
+                            final result = await showCommonFilterSheet(
+                              context: context,
+                              definitions: widget.feed.commonFilters,
+                              initialValues: _common,
+                            );
+                            if (!mounted || result == null) return;
+                            setState(() => _common = result);
+                            await _refresh();
+                          },
+                        ),
+                    ],
                   ),
                 ),
               ),
@@ -571,7 +610,11 @@ class _FeedTabState extends State<FeedTab> with AutomaticKeepAliveClientMixin {
                     )
                   : const SliverToBoxAdapter(),
             ),
-            PagedSliverGrid(controller: _controller, kind: widget.source.kind),
+            PagedSliverGrid(
+              controller: _controller,
+              kind: widget.source.kind,
+              listMode: widget.listMode,
+            ),
           ],
         ),
       ),

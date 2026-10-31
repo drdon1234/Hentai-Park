@@ -310,7 +310,10 @@ class _FeedShelfState extends State<FeedShelf>
                       IconButton(
                         tooltip: tr('隐藏该站点的作品并停止自动加载'),
                         icon: const Icon(Icons.visibility_outlined, size: 20),
-                        onPressed: widget.onToggleVisibility,
+                        onPressed: () {
+                          widget.onToggleVisibility?.call();
+                          context.toast(tr('隐藏该站点的作品并停止自动加载'));
+                        },
                       ),
                     if (widget.sessions.albumScope(widget.sourceKey)
                         case final scope?)

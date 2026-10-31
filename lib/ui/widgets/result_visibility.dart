@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../core/localization.dart';
+import '../theme.dart';
 
 /// 页面级临时开关，不改变用户的屏蔽规则。
 class ResultVisibility extends StatelessWidget {
@@ -26,14 +27,20 @@ class ResultVisibility extends StatelessWidget {
           tooltip: tr(showBlocked! ? '隐藏已屏蔽内容' : '显示已屏蔽内容'),
           icon: const Icon(Icons.visibility_off_outlined),
           selectedIcon: const Icon(Icons.visibility_outlined),
-          onPressed: () => onBlocked?.call(!showBlocked!),
+          onPressed: () {
+            onBlocked?.call(!showBlocked!);
+            context.toast(tr(showBlocked! ? '已隐藏屏蔽内容' : '已显示屏蔽内容'));
+          },
         ),
       IconButton(
         isSelected: hidePreviews,
         tooltip: tr(hidePreviews ? '显示预览内容' : '隐藏预览内容'),
         icon: const Icon(Icons.filter_alt_off_outlined),
         selectedIcon: const Icon(Icons.filter_alt_outlined),
-        onPressed: () => onPreviews(!hidePreviews),
+        onPressed: () {
+          onPreviews(!hidePreviews);
+          context.toast(tr(hidePreviews ? '已显示预览内容' : '已隐藏预览内容'));
+        },
       ),
     ],
   );

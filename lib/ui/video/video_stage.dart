@@ -9,6 +9,7 @@ import '../widgets/common.dart';
 import '../widgets/error_view.dart';
 import 'adaptive_video_progress.dart';
 import 'video_controls.dart';
+import 'video_episode_pager.dart';
 import 'video_gesture_surface.dart';
 import 'video_session.dart';
 
@@ -22,10 +23,12 @@ class VideoStage extends StatelessWidget {
     required this.fullscreen,
     required this.controlsVisible,
     required this.controls,
-    required this.episodePages,
+    required this.surfaceKey,
     required this.previewPosition,
     required this.hint,
     required this.dim,
+    this.brightness = 1,
+    this.volume = 1,
     required this.onTap,
     required this.onMouseTap,
     required this.onDoubleTap,
@@ -49,12 +52,14 @@ class VideoStage extends StatelessWidget {
 
   /// The controls layer for the current player value.
   final Widget Function(VideoPlayerValue value, Widget progress) controls;
-  final PageController episodePages;
+  final GlobalKey surfaceKey;
   final Duration? previewPosition;
   final String? hint;
 
   /// Darkening applied when the platform brightness cannot be changed (0 = none).
   final double dim;
+  final double brightness;
+  final double volume;
   final VoidCallback onTap;
   final VoidCallback onMouseTap;
   final VoidCallback onDoubleTap;
@@ -80,13 +85,16 @@ class VideoStage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final box = ColoredBox(
+      key: surfaceKey,
       color: Colors.black,
       child: AnimatedBuilder(
         animation: session.playerUpdates,
         builder: (context, _) => _inner(context),
       ),
     );
-    final paged = session.scrollEpisodes ? _episodePager(box) : box;
+    final paged = fullscreen && session.scrollEpisodes
+        ? _episodePager(box)
+        : box;
     if (fullscreen) return paged;
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -148,8 +156,10 @@ class VideoStage extends StatelessWidget {
     final showControls =
         controlsVisible || (!session.isLive && c.value.isCompleted);
     return VideoGestureSurface(
-      pageVertically: session.scrollEpisodes,
+      pageVertically: fullscreen && session.scrollEpisodes,
       showLevelControls: showControls,
+      brightness: brightness,
+      volume: volume,
       onTap: onTap,
       onMouseTap: onMouseTap,
       onDoubleTap: onDoubleTap,
@@ -208,7 +218,7 @@ class VideoStage extends StatelessWidget {
           Center(
             child: AspectRatio(
               aspectRatio: c.value.aspectRatio,
-              child: VideoPlayer(c),
+              child: VideoPlayer(c, key: ObjectKey(c)),
             ),
           ),
           if (dim > 0)
@@ -226,38 +236,33 @@ class VideoStage extends StatelessWidget {
 
   Widget _episodePager(Widget active) {
     final episodes = session.episodes;
-    return NotificationListener<ScrollNotification>(
-      onNotification: (notification) {
-        if (notification.depth != 0) return false;
-        if (notification is ScrollStartNotification) onInteract();
-        if (notification is ScrollEndNotification) onIdle();
-        return false;
+    return VideoEpisodePager(
+      index: session.episodeIndex,
+      count: episodes.length,
+      onSettled: onEpisodePage,
+      onInteractionChanged: (active) {
+        if (active) {
+          onInteract();
+        } else {
+          onIdle();
+        }
       },
-      child: PageView.builder(
-        controller: episodePages,
-        scrollDirection: Axis.vertical,
-        itemCount: episodes.length,
-        onPageChanged: onEpisodePage,
-        itemBuilder: (_, index) {
-          if (index == session.episodeIndex) return active;
-          final preview = session.nextPreview;
-          return ColoredBox(
-            color: Colors.black,
-            child: Center(
-              child:
-                  session.preloadedEpisode == episodes[index] && preview != null
-                  ? AspectRatio(
-                      aspectRatio: preview.controller.value.aspectRatio,
-                      child: VideoPlayer(preview.controller),
-                    )
-                  : Text(
-                      episodes[index].title,
-                      style: const TextStyle(color: Colors.white),
-                    ),
-            ),
-          );
-        },
-      ),
+      itemBuilder: (_, index) {
+        if (index == session.episodeIndex) return active;
+        final preview = session.nextPreview;
+        return ColoredBox(
+          color: Colors.black,
+          child: Center(
+            child:
+                session.preloadedEpisode == episodes[index] && preview != null
+                ? AspectRatio(
+                    aspectRatio: preview.controller.value.aspectRatio,
+                    child: VideoPlayer(preview.controller),
+                  )
+                : const LoadingIndicator(color: Colors.white70),
+          ),
+        );
+      },
     );
   }
 }

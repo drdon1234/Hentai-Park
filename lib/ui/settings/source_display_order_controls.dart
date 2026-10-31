@@ -63,7 +63,7 @@ class SourceDisplayOrderControls extends StatelessWidget {
                   spacing: Gap.s,
                   runSpacing: Gap.s,
                   children: [
-                    OutlinedButton.icon(
+                    ToolbarButton.icon(
                       onPressed: loaded && !sorter.running
                           ? sorter.checkNow
                           : null,
@@ -73,14 +73,14 @@ class SourceDisplayOrderControls extends StatelessWidget {
                       ),
                     ),
                     if (sorter.running)
-                      OutlinedButton(
+                      ToolbarButton(
                         onPressed: sorter.cancel,
                         child: SelectionContainer.disabled(
                           child: Text(tr('取消探测')),
                         ),
                       )
                     else if (results.isNotEmpty)
-                      OutlinedButton(
+                      ToolbarButton(
                         onPressed: sorter.invalidate,
                         child: SelectionContainer.disabled(
                           child: Text(tr('恢复原显示顺序')),

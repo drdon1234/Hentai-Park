@@ -29,7 +29,7 @@ extension _DramaEpisodes on VideoSession {
     }
     final next = preloadedEpisode = episodes[episodeIndex + 1];
     final token = _preloadCancel = CancelToken();
-    final pending = _preloaded = PreparedVideo.open(
+    final pending = _preloaded = prepareVideo(
       work,
       next,
       token,
@@ -50,17 +50,59 @@ extension _DramaEpisodes on VideoSession {
     );
   }
 
+  Future<void> _releaseRetainedEpisodes() {
+    final retained = _retainedEpisodes.values.toList();
+    _retainedEpisodes.clear();
+    return _preloadClosing = Future.wait([
+      _preloadClosing,
+      for (final entry in retained)
+        entry.paused.whenComplete(entry.video.close),
+    ]).then((_) {});
+  }
+
+  void _updateDramaRetention() {
+    if (_retainedEpisodes.isEmpty) return;
+    final value = controller?.value;
+    if (!_active ||
+        !foreground ||
+        !visible ||
+        AppLock.instance.locked ||
+        value == null ||
+        !value.isPlaying ||
+        value.isBuffering) {
+      _retentionTimer?.cancel();
+      _retentionTimer = null;
+      return;
+    }
+    final request = _request;
+    _retentionTimer ??= Timer(const Duration(seconds: 2), () {
+      _retentionTimer = null;
+      if (!_active || request != _request) return;
+      PendingDisposals.instance.add(
+        _releaseRetainedEpisodes().then((_) {
+          if (_active && request == _request) _preloadNext();
+        }),
+      );
+    });
+  }
+
   Future<void> _selectDramaEpisode(Chapter next) {
     return PendingDisposals.instance.watch(() async {
+      if (!_active ||
+          (next.id == episode.id && controller != null && error == null)) {
+        return;
+      }
       final refreshSources = error != null && next.id == episode.id;
       savePosition();
+      _retentionTimer?.cancel();
+      _retentionTimer = null;
       _sourceRequest?.cancel('episode changed');
       final token = _sourceRequest = CancelToken();
       final request = ++_request;
+      final retained = _retainedEpisodes.remove(next.id);
       Future<PreparedVideo>? pending;
-      if (preloadedEpisode?.id == next.id) {
+      if (retained == null && preloadedEpisode?.id == next.id) {
         pending = _preloaded;
-        // 转移所有权，当前请求取消时也取消尚未完成的预加载。
         final preloadToken = _preloadCancel;
         unawaited(token.whenCancel.then((e) => preloadToken?.cancel(e)));
         _preloaded = null;
@@ -71,29 +113,48 @@ extension _DramaEpisodes on VideoSession {
         unawaited(_discardPreload());
       }
       final old = controller;
-      final oldMedia = _media;
-      // 只在确认换集后停止旧声音；释放与新播放器接管并行。
-      final retiring = () async {
-        try {
-          await old?.pause();
-        } finally {
-          await (old?.dispose() ?? Future<void>.value()).whenComplete(
-            () async => oldMedia?.close(),
-          );
-        }
-      }();
-      retiring.ignore();
+      Future<void> paused = Future.value();
+      if (old != null) {
+        old.removeListener(_onTick);
+        paused = old.pause();
+        paused.ignore();
+        _retainedEpisodes[episode.id] = (
+          video: PreparedVideo(old, _media, sources, current, offline),
+          paused: paused,
+        );
+      }
+      // 只保留最近两集；快速连续切集也不能无限占用解码器与媒体连接。
+      while (_retainedEpisodes.length > 2) {
+        final oldest = _retainedEpisodes.remove(_retainedEpisodes.keys.first)!;
+        _preloadClosing = Future.wait([
+          _preloadClosing,
+          oldest.paused.whenComplete(oldest.video.close),
+        ]).then((_) {});
+      }
       _resetFor(next);
       _update();
-      PreparedVideo? prepared;
+      PreparedVideo? prepared = retained?.video;
+      var adopted = false;
       try {
-        if (pending == null) {
-          await Future.wait([retiring, _preloadClosing]);
+        await paused;
+        await retained?.paused;
+        if (!_active || token.isCancelled || request != _request) {
+          await prepared?.close();
+          // 已取走的预加载仍由当前请求负责收尾。
+          if (pending != null) {
+            try {
+              await (await pending).close();
+            } catch (_) {}
+          }
+          return;
+        }
+        if (prepared == null && pending == null) {
+          await _preloadClosing;
           if (!_active || token.isCancelled || request != _request) return;
         }
-        prepared =
+        prepared ??=
             await (pending ??
-                PreparedVideo.open(
+                prepareVideo(
                   work,
                   next,
                   token,
@@ -106,7 +167,12 @@ extension _DramaEpisodes on VideoSession {
           return;
         }
         final c = prepared.controller;
-        final resume = _resumePoint(c.value.duration);
+        // 滑回保留集时直接沿用其位置，包括不足五秒的片段。
+        final resume = retained == null
+            ? _resumePoint(c.value.duration)
+            : c.value.isCompleted
+            ? Duration.zero
+            : null;
         if (resume != null) await c.seekTo(resume);
         await c.setPlaybackSpeed(speed);
         await c.setVolume(_volume);
@@ -120,16 +186,23 @@ extension _DramaEpisodes on VideoSession {
         sources = prepared.sources;
         current = prepared.source;
         offline = prepared.offline;
+        _completed = c.value.isCompleted;
+        adopted = true;
         _update();
         await syncPlayback();
         if (!_active || request != _request) return;
         _startSaving();
         onStarted?.call();
-        await retiring;
-        if (_active && request == _request) _preloadNext();
+        _updateDramaRetention();
+        if (_retainedEpisodes.isEmpty) _preloadNext();
       } catch (e) {
-        if (prepared != null && !identical(prepared.controller, controller)) {
-          await prepared.close();
+        if (!adopted) {
+          await prepared?.close();
+          if (pending != null) {
+            try {
+              await (await pending).close();
+            } catch (_) {}
+          }
         }
         if (_active && !token.isCancelled && request == _request) {
           error = e;

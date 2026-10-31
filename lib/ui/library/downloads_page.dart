@@ -245,7 +245,7 @@ class _DownloadsPageState extends State<DownloadsPage> {
             runSpacing: Gap.s,
             crossAxisAlignment: WrapCrossAlignment.center,
             children: [
-              OutlinedButton.icon(
+              ToolbarButton.icon(
                 onPressed: onlySpecialTasks
                     ? null
                     : () => AppSettings.instance.downloadDisplay = grid
@@ -256,7 +256,7 @@ class _DownloadsPageState extends State<DownloadsPage> {
                 ),
                 label: Text(displayLabel),
               ),
-              OutlinedButton.icon(
+              ToolbarButton.icon(
                 onPressed: () => Nav.push(context, const ExportsPage()),
                 icon: Icon(
                   ExportManager.instance.busy
@@ -266,7 +266,7 @@ class _DownloadsPageState extends State<DownloadsPage> {
                 label: Text(tr('导出文件')),
               ),
               if (dm.tasks.isNotEmpty || games.tasks.isNotEmpty) ...[
-                OutlinedButton.icon(
+                ToolbarButton.icon(
                   onPressed: () {
                     dm.pauseAll();
                     for (final task in games.tasks) {
@@ -279,7 +279,7 @@ class _DownloadsPageState extends State<DownloadsPage> {
                   icon: const Icon(Icons.pause_rounded),
                   label: Text(tr('全部暂停')),
                 ),
-                OutlinedButton.icon(
+                ToolbarButton.icon(
                   onPressed: () {
                     dm.resumeAll();
                     for (final task in games.tasks) {

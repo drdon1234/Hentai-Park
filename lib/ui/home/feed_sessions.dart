@@ -211,7 +211,7 @@ class FeedSessions {
 
   Map<String, Object?>? albumScope(String key) {
     final manifest = sources.manifest(key);
-    if (manifest == null || !manifest.can('album')) return null;
+    if (manifest == null || !manifest.supportsAlbumMode) return null;
     return _entry(key)?.albumScope();
   }
 

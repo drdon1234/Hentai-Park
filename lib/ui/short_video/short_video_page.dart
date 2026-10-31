@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 
@@ -16,6 +17,7 @@ import '../../core/platform_capabilities.dart';
 import '../../core/settings.dart';
 import '../../core/tag_blocklist.dart';
 import '../../engine/cancellation.dart';
+import '../../engine/platform_bridge.dart';
 import '../../engine/source_manager.dart';
 import '../../images/park_image.dart';
 import '../../library/library.dart';
@@ -33,6 +35,7 @@ import '../widgets/source_interaction.dart';
 import '../widgets/source_network_hint.dart';
 import 'post_video_feed.dart';
 import 'short_video_feed.dart';
+import 'short_video_info_button.dart';
 import 'short_video_playback.dart';
 import 'short_video_player.dart';
 import 'short_video_sequence.dart';
@@ -69,6 +72,7 @@ class _ShortVideoPageState extends State<ShortVideoPage>
   StreamSubscription<String>? _authentication;
   WorkItem? _visible;
   ModalRoute<dynamic>? _route;
+  Future<void> _systemUiUpdates = Future.value();
   bool _foreground = true,
       _covered = false,
       _scrolling = false,
@@ -281,6 +285,7 @@ class _ShortVideoPageState extends State<ShortVideoPage>
       Nav.routeObserver.unsubscribe(this);
       _route = route;
       Nav.routeObserver.subscribe(this, route);
+      unawaited(_showSystemBars());
     }
   }
 
@@ -294,6 +299,7 @@ class _ShortVideoPageState extends State<ShortVideoPage>
   @override
   void didPopNext() {
     _covered = false;
+    unawaited(_showSystemBars());
     _sync();
   }
 
@@ -308,7 +314,30 @@ class _ShortVideoPageState extends State<ShortVideoPage>
   void didChangeAppLifecycleState(AppLifecycleState state) {
     _foreground = state == AppLifecycleState.resumed;
     if (!_foreground) _save();
+    if (_foreground) unawaited(_showSystemBars());
     _sync();
+  }
+
+  Future<void> _showSystemBars() {
+    return _systemUiUpdates = _systemUiUpdates
+        .then((_) async {
+          if (!mounted ||
+              _covered ||
+              !_foreground ||
+              defaultTargetPlatform != TargetPlatform.android ||
+              ModalRoute.of(context)?.isCurrent == false) {
+            return;
+          }
+          await PlatformBridge.applyVideoFullscreen(false);
+          if (!mounted ||
+              _covered ||
+              !_foreground ||
+              ModalRoute.of(context)?.isCurrent == false) {
+            return;
+          }
+          await SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+        })
+        .catchError((Object _) {});
   }
 
   void _sync() {
@@ -576,204 +605,221 @@ class _ShortVideoPageState extends State<ShortVideoPage>
               ),
             ),
           ),
-        if (active && c != null)
-          Positioned(
-            left: 16,
-            right: 16,
-            bottom: 12,
-            child: ValueListenableBuilder<VideoPlayerValue>(
-              valueListenable: c,
-              builder: (context, value, _) {
-                return Column(
-                  mainAxisSize: MainAxisSize.min,
+        Positioned(
+          left: Gap.page,
+          right: Gap.page,
+          bottom: Gap.s,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (_showInfo)
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
-                    if (value.hasError)
-                      FilledButton.tonal(
-                        onPressed: _retryPlayback,
-                        child: SelectionContainer.disabled(
-                          child: Text(tr('重试')),
+                    Expanded(
+                      child: ConstrainedBox(
+                        constraints: BoxConstraints(
+                          maxHeight: MediaQuery.sizeOf(context).height * .32,
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Flexible(
+                              child: SingleChildScrollView(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    GestureDetector(
+                                      onLongPress: () =>
+                                          showWorkActions(context, item),
+                                      onSecondaryTap:
+                                          PlatformCapabilities.desktop
+                                          ? () => showWorkActions(context, item)
+                                          : null,
+                                      onTap: active
+                                          ? () => setState(
+                                              () => _expanded = !_expanded,
+                                            )
+                                          : null,
+                                      child: ContentTranslation(
+                                        text: item.title,
+                                        source: item.source,
+                                        builder: (value) => Text(
+                                          value,
+                                          maxLines: active && _expanded
+                                              ? null
+                                              : 3,
+                                          overflow: active && _expanded
+                                              ? null
+                                              : TextOverflow.ellipsis,
+                                          style: context.text.titleMedium
+                                              ?.copyWith(
+                                                color: Colors.white,
+                                                height: 1.4,
+                                                shadows: const [
+                                                  Shadow(
+                                                    blurRadius: 8,
+                                                    color: Scrims.medium,
+                                                  ),
+                                                ],
+                                              ),
+                                        ),
+                                      ),
+                                    ),
+                                    if (item.subtitle.isNotEmpty)
+                                      ContentTranslation(
+                                        text: item.subtitle,
+                                        source: item.source,
+                                        builder: (value) => Text(
+                                          value,
+                                          maxLines: active && _expanded
+                                              ? null
+                                              : 2,
+                                          overflow: active && _expanded
+                                              ? null
+                                              : TextOverflow.ellipsis,
+                                          style: context.text.bodyMedium
+                                              ?.copyWith(
+                                                color: Colors.white70,
+                                                height: 1.45,
+                                              ),
+                                        ),
+                                      ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                            if (active)
+                              TextButton.icon(
+                                style: TextButton.styleFrom(
+                                  foregroundColor: Scrims.onScrim,
+                                ),
+                                onPressed: () =>
+                                    setState(() => _expanded = !_expanded),
+                                icon: Icon(
+                                  _expanded
+                                      ? Icons.expand_less_rounded
+                                      : Icons.expand_more_rounded,
+                                ),
+                                label: Text(tr(_expanded ? '收起简介' : '展开简介')),
+                              ),
+                          ],
                         ),
                       ),
-                    if (value.isBuffering) const LinearProgressIndicator(),
-                    AdaptiveVideoProgress(
-                      position: value.position,
-                      duration: value.duration,
-                      buffered: value.buffered.isEmpty
-                          ? Duration.zero
-                          : value.buffered.last.end,
-                      onSeek: (position) => c.seekTo(position),
-                      onScrubbingChanged: (scrubbing) {
-                        _scrolling = scrubbing;
-                        _sync();
+                    ),
+                    const SizedBox(width: 8),
+                    CommentsEntry(
+                      source: item.source,
+                      workId: item.id,
+                      available: item.commentsAvailable,
+                      compact: true,
+                      color: Colors.white,
+                      context: {'url': item.json['url']},
+                    ),
+                    ListenableBuilder(
+                      listenable: Library.instance.work(videoPost(item).uid),
+                      builder: (context, _) {
+                        final favorite = Library.instance.isFavorite(
+                          videoPost(item).uid,
+                        );
+                        return IconButton(
+                          tooltip: tr(favorite ? '取消应用内收藏' : '应用内收藏'),
+                          onPressed: () {
+                            if (favorite) {
+                              Library.instance.removeFavorite(
+                                videoPost(item).uid,
+                              );
+                            } else {
+                              Library.instance.addFavorite(videoPost(item));
+                            }
+                          },
+                          icon: Icon(
+                            favorite ? Icons.bookmark : Icons.bookmark_border,
+                            color: favorite
+                                ? context.colors.primary
+                                : Colors.white,
+                            size: 32,
+                          ),
+                        );
                       },
                     ),
-                  ],
-                );
-              },
-            ),
-          ),
-        if (_showInfo)
-          Positioned(
-            left: Gap.page,
-            right: Gap.page,
-            bottom: 76,
-            child: SafeArea(
-              top: false,
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Expanded(
-                    child: ConstrainedBox(
-                      constraints: BoxConstraints(
-                        maxHeight: MediaQuery.sizeOf(context).height * .32,
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Flexible(
-                            child: SingleChildScrollView(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  GestureDetector(
-                                    onLongPress: () =>
-                                        showWorkActions(context, item),
-                                    onSecondaryTap: PlatformCapabilities.desktop
-                                        ? () => showWorkActions(context, item)
-                                        : null,
-                                    onTap: active
-                                        ? () => setState(
-                                            () => _expanded = !_expanded,
-                                          )
-                                        : null,
-                                    child: ContentTranslation(
-                                      text: item.title,
-                                      source: item.source,
-                                      builder: (value) => Text(
-                                        value,
-                                        maxLines: active && _expanded
-                                            ? null
-                                            : 3,
-                                        overflow: active && _expanded
-                                            ? null
-                                            : TextOverflow.ellipsis,
-                                        style: context.text.titleMedium
-                                            ?.copyWith(
-                                              color: Colors.white,
-                                              height: 1.4,
-                                              shadows: const [
-                                                Shadow(
-                                                  blurRadius: 8,
-                                                  color: Scrims.medium,
-                                                ),
-                                              ],
-                                            ),
-                                      ),
-                                    ),
-                                  ),
-                                  if (item.subtitle.isNotEmpty)
-                                    ContentTranslation(
-                                      text: item.subtitle,
-                                      source: item.source,
-                                      builder: (value) => Text(
-                                        value,
-                                        maxLines: active && _expanded
-                                            ? null
-                                            : 2,
-                                        overflow: active && _expanded
-                                            ? null
-                                            : TextOverflow.ellipsis,
-                                        style: context.text.bodyMedium
-                                            ?.copyWith(
-                                              color: Colors.white70,
-                                              height: 1.45,
-                                            ),
-                                      ),
-                                    ),
-                                ],
-                              ),
-                            ),
-                          ),
-                          if (active)
-                            TextButton.icon(
-                              style: TextButton.styleFrom(
-                                foregroundColor: Scrims.onScrim,
-                              ),
-                              onPressed: () =>
-                                  setState(() => _expanded = !_expanded),
-                              icon: Icon(
-                                _expanded
-                                    ? Icons.expand_less_rounded
-                                    : Icons.expand_more_rounded,
-                              ),
-                              label: Text(tr(_expanded ? '收起简介' : '展开简介')),
-                            ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  CommentsEntry(
-                    source: item.source,
-                    workId: item.id,
-                    available: item.commentsAvailable,
-                    compact: true,
-                    color: Colors.white,
-                    context: {'url': item.json['url']},
-                  ),
-                  ListenableBuilder(
-                    listenable: Library.instance.work(videoPost(item).uid),
-                    builder: (context, _) {
-                      final favorite = Library.instance.isFavorite(
-                        videoPost(item).uid,
-                      );
-                      return IconButton(
-                        tooltip: tr(favorite ? '取消应用内收藏' : '应用内收藏'),
-                        onPressed: () {
-                          if (favorite) {
-                            Library.instance.removeFavorite(
-                              videoPost(item).uid,
-                            );
-                          } else {
-                            Library.instance.addFavorite(videoPost(item));
-                          }
-                        },
-                        icon: Icon(
-                          favorite ? Icons.bookmark : Icons.bookmark_border,
-                          color: favorite
-                              ? context.colors.primary
-                              : Colors.white,
-                          size: 32,
+                    if (SourceManager.instance
+                            .manifest(item.source)
+                            ?.can('interaction') ==
+                        true)
+                      IconButton(
+                        tooltip: tr('原站互动'),
+                        onPressed: () =>
+                            showSourceInteraction(context, videoPost(item)),
+                        icon: const Icon(
+                          Icons.thumb_up_outlined,
+                          color: Colors.white,
                         ),
-                      );
-                    },
-                  ),
-                  if (SourceManager.instance
-                          .manifest(item.source)
-                          ?.can('interaction') ==
-                      true)
-                    IconButton(
-                      tooltip: tr('原站互动'),
-                      onPressed: () =>
-                          showSourceInteraction(context, videoPost(item)),
-                      icon: const Icon(
-                        Icons.thumb_up_outlined,
-                        color: Colors.white,
                       ),
+                  ],
+                ),
+              if (active)
+                Row(
+                  children: [
+                    Expanded(
+                      child: c == null
+                          ? const SizedBox(height: 48)
+                          : ValueListenableBuilder<VideoPlayerValue>(
+                              valueListenable: c,
+                              builder: (context, value, _) {
+                                return Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    if (value.hasError)
+                                      FilledButton.tonal(
+                                        onPressed: _retryPlayback,
+                                        child: SelectionContainer.disabled(
+                                          child: Text(tr('重试')),
+                                        ),
+                                      ),
+                                    if (value.isBuffering)
+                                      const LinearProgressIndicator(),
+                                    AdaptiveVideoProgress(
+                                      position: value.position,
+                                      duration: value.duration,
+                                      buffered: value.buffered.isEmpty
+                                          ? Duration.zero
+                                          : value.buffered.last.end,
+                                      onSeek: (position) => c.seekTo(position),
+                                      onScrubbingChanged: (scrubbing) {
+                                        _scrolling = scrubbing;
+                                        _sync();
+                                      },
+                                    ),
+                                  ],
+                                );
+                              },
+                            ),
                     ),
-                ],
-              ),
-            ),
+                    const SizedBox(width: Gap.s),
+                    ShortVideoInfoButton(
+                      showInfo: _showInfo,
+                      onPressed: () => setState(() {
+                        _showInfo = !_showInfo;
+                        _expanded = false;
+                      }),
+                    ),
+                  ],
+                ),
+            ],
           ),
+        ),
       ],
     );
   }
 
   @override
-  Widget build(BuildContext context) =>
-      ImmersiveRegion(child: _buildPage(context));
+  Widget build(BuildContext context) => AnnotatedRegion<SystemUiOverlayStyle>(
+    value: ParkTheme.overlayStyle(Brightness.dark),
+    child: ImmersiveRegion(child: _buildPage(context)),
+  );
 
   Widget _buildPage(BuildContext context) {
     final manifest = SourceManager.instance.manifest(widget.source);
@@ -892,159 +938,80 @@ class _ShortVideoPageState extends State<ShortVideoPage>
                             child: Column(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                LayoutBuilder(
-                                  builder: (context, constraints) {
-                                    final compact =
-                                        constraints.maxWidth < 480 ||
-                                        MediaQuery.textScalerOf(context)
-                                                .scale(1) >
-                                            1.3;
-                                    return Column(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        Row(
-                                          children: [
-                                            const BackButton(
-                                              color: Colors.white,
-                                            ),
-                                            Expanded(
-                                              child: Text(
-                                                widget.postScope?.title ??
-                                                    manifest?.name ??
-                                                    tr('短视频'),
-                                                maxLines: 1,
-                                                overflow: TextOverflow.ellipsis,
-                                                style: context.text.titleMedium
-                                                    ?.copyWith(
-                                                      color: Colors.white,
-                                                    ),
-                                              ),
-                                            ),
-                                            ConstrainedBox(
-                                              constraints: BoxConstraints(
-                                                maxWidth:
-                                                    constraints.maxWidth * .42,
-                                              ),
-                                              child: OutlinedButton(
-                                                style: OutlinedButton.styleFrom(
-                                                  foregroundColor:
-                                                      Scrims.onScrim,
-                                                  backgroundColor:
-                                                      Scrims.control,
-                                                ),
-                                                onPressed: () => setState(() {
-                                                  _showInfo = !_showInfo;
-                                                  _expanded = false;
-                                                }),
-                                                child: Text(
-                                                  tr(_showInfo ? '仅视频' : '带信息'),
-                                                  maxLines: 1,
-                                                  overflow:
-                                                      TextOverflow.ellipsis,
-                                                ),
-                                              ),
-                                            ),
-                                            if (_showInfo && !compact)
-                                              TranslationControls(
-                                                source: widget.source,
-                                              ),
-                                            if (_showInfo &&
-                                                !compact &&
-                                                manifest?.can('search') == true)
-                                              IconButton(
-                                                tooltip: tr('搜索'),
-                                                icon: const Icon(Icons.search),
-                                                onPressed: () =>
-                                                    Nav.openSourceSearch(
-                                                      context,
-                                                      widget.source,
-                                                    ),
-                                              ),
-                                            PopupMenuButton<String>(
-                                              icon: const Icon(
-                                                Icons.more_vert,
-                                                color: Colors.white,
-                                              ),
-                                              itemBuilder: (context) => [
-                                                PopupMenuItem(
-                                                  value: 'refresh',
-                                                  child:
-                                                      SelectionContainer.disabled(
-                                                        child: Text(tr('刷新')),
-                                                      ),
-                                                ),
-                                                PopupMenuItem(
-                                                  value: 'playback-settings',
-                                                  child:
-                                                      SelectionContainer.disabled(
-                                                        child: Text(
-                                                          tr('短视频设置'),
-                                                        ),
-                                                      ),
-                                                ),
-                                                PopupMenuItem(
-                                                  value: 'settings',
-                                                  child:
-                                                      SelectionContainer.disabled(
-                                                        child: Text(tr('站点设置')),
-                                                      ),
-                                                ),
-                                              ],
-                                              onSelected: (action) {
-                                                if (action == 'refresh') {
-                                                  _refresh();
-                                                } else if (action ==
-                                                    'playback-settings') {
-                                                  Nav.push(
-                                                    context,
-                                                    const SettingsSectionPage(
-                                                      SettingsSection
-                                                          .shortVideo,
-                                                    ),
-                                                  );
-                                                } else {
-                                                  Nav.openSourceSettings(
-                                                    context,
-                                                    widget.source,
-                                                  );
-                                                }
-                                              },
-                                            ),
-                                            const SizedBox(width: Gap.page),
-                                          ],
+                                Row(
+                                  children: [
+                                    const BackButton(color: Colors.white),
+                                    Expanded(
+                                      child: Text(
+                                        widget.postScope?.title ??
+                                            manifest?.name ??
+                                            tr('短视频'),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: context.text.titleMedium
+                                            ?.copyWith(color: Colors.white),
+                                      ),
+                                    ),
+                                    if (_showInfo)
+                                      TranslationControls(
+                                        source: widget.source,
+                                      ),
+                                    if (_showInfo &&
+                                        manifest?.can('search') == true)
+                                      IconButton(
+                                        tooltip: tr('搜索'),
+                                        icon: const Icon(Icons.search),
+                                        onPressed: () => Nav.openSourceSearch(
+                                          context,
+                                          widget.source,
                                         ),
-                                        if (_showInfo && compact)
-                                          Padding(
-                                            padding:
-                                                const EdgeInsetsDirectional.only(
-                                                  end: Gap.page,
-                                                ),
-                                            child: Row(
-                                              mainAxisAlignment:
-                                                  MainAxisAlignment.end,
-                                              children: [
-                                                TranslationControls(
-                                                  source: widget.source,
-                                                ),
-                                                if (manifest?.can('search') ==
-                                                    true)
-                                                  IconButton(
-                                                    tooltip: tr('搜索'),
-                                                    icon: const Icon(
-                                                      Icons.search,
-                                                    ),
-                                                    onPressed: () =>
-                                                        Nav.openSourceSearch(
-                                                          context,
-                                                          widget.source,
-                                                        ),
-                                                  ),
-                                              ],
-                                            ),
+                                      ),
+                                    PopupMenuButton<String>(
+                                      icon: const Icon(
+                                        Icons.more_vert,
+                                        color: Colors.white,
+                                      ),
+                                      itemBuilder: (context) => [
+                                        PopupMenuItem(
+                                          value: 'refresh',
+                                          child: SelectionContainer.disabled(
+                                            child: Text(tr('刷新')),
                                           ),
+                                        ),
+                                        PopupMenuItem(
+                                          value: 'playback-settings',
+                                          child: SelectionContainer.disabled(
+                                            child: Text(tr('短视频设置')),
+                                          ),
+                                        ),
+                                        PopupMenuItem(
+                                          value: 'settings',
+                                          child: SelectionContainer.disabled(
+                                            child: Text(tr('站点设置')),
+                                          ),
+                                        ),
                                       ],
-                                    );
-                                  },
+                                      onSelected: (action) {
+                                        if (action == 'refresh') {
+                                          _refresh();
+                                        } else if (action ==
+                                            'playback-settings') {
+                                          Nav.push(
+                                            context,
+                                            const SettingsSectionPage(
+                                              SettingsSection.shortVideo,
+                                            ),
+                                          );
+                                        } else {
+                                          Nav.openSourceSettings(
+                                            context,
+                                            widget.source,
+                                          );
+                                        }
+                                      },
+                                    ),
+                                    const SizedBox(width: Gap.s),
+                                  ],
                                 ),
                                 if (_showInfo && manifest?.account != null)
                                   SourceAccountStrip(source: widget.source),

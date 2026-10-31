@@ -60,7 +60,11 @@ Configura el acceso en Más → Sitios y el proxy en Más → Red cuando sea nec
 
 La búsqueda oculta el contenido bloqueado de forma predeterminada. El icono del ojo permite mostrarlo temporalmente, también en la búsqueda de cada sitio. El filtro oculta resultados que el sitio identifica como solo vista previa; conserva los de disponibilidad desconocida. El bloqueo incluye un grupo de contenido generado por IA.
 
+La navegación de sitios muestra tarjetas por defecto. El botón junto a las pestañas cambia a una lista detallada con autores, etiquetas y otros datos disponibles junto a la portada; el filtro contiguo muestra u oculta las vistas previas. Al cambiar los controles de ojo y filtro, su estado aparece brevemente abajo. El reproductor ofrece episodios arriba a la derecha, y velocidad y calidad en la barra inferior o en Más con pantallas estrechas o texto grande.
+
 El historial de imágenes conserva las últimas 20 imágenes para cargarlas y buscar de nuevo, eliminarlas individualmente o borrar todo. El modo incógnito no las registra. Se guardan localmente sin cifrado y quedan fuera de las copias de seguridad. El reproductor permite saltar a la misma serie. El contenido reproducido se almacena temporalmente y se borra al cerrar la reproducción; la capacidad es limitada y las partes antiguas pueden necesitar recargarse.
+
+Los sitios de comunidades de creadores ofrecen álbumes o modo de vídeos cortos cuando lo permiten. El botón de la esquina inferior derecha de un vídeo corto oculta o vuelve a mostrar su información.
 
 ## Sitios y servicios compatibles
 

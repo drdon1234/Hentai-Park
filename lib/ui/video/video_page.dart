@@ -73,7 +73,8 @@ class _VideoPageState extends State<VideoPage>
     recordHistory: widget.recordHistory,
     downloadedOnly: widget.downloadedOnly,
   );
-  late final PageController _episodePages;
+  final _playerKey = GlobalKey();
+  final _surfaceKey = GlobalKey();
   WorkDetail? _details;
   bool _controls = true;
   int _openPanels = 0;
@@ -98,7 +99,6 @@ class _VideoPageState extends State<VideoPage>
   @override
   void initState() {
     super.initState();
-    _episodePages = PageController(initialPage: _episodeIndex);
     final lifecycle = WidgetsBinding.instance.lifecycleState;
     _session
       ..foreground = lifecycle == null || lifecycle == AppLifecycleState.resumed
@@ -180,7 +180,6 @@ class _VideoPageState extends State<VideoPage>
     _liveChat?.dispose();
     Nav.routeObserver.unsubscribe(this);
     _detailsRequest.cancel('video page closed');
-    _episodePages.dispose();
     _hide?.cancel();
     _hintTimer?.cancel();
     _volumeSub?.cancel();
@@ -226,11 +225,6 @@ class _VideoPageState extends State<VideoPage>
       });
     }
     setState(() {});
-    // Keep the drama pager on the playing episode, e.g. after auto-advance.
-    if (_episodePages.hasClients &&
-        _episodePages.page?.round() != _episodeIndex) {
-      _episodePages.jumpToPage(_episodeIndex);
-    }
   }
 
   /// The player is about to be replaced: drop gestures and show the controls.
@@ -346,11 +340,17 @@ class _VideoPageState extends State<VideoPage>
 
   void _toggleControls() {
     setState(() => _controls = !_controls);
-    if (_controls) _scheduleHide();
+    if (_controls) {
+      unawaited(_readLevels());
+      _scheduleHide();
+    }
   }
 
   void _showControls() {
-    if (!_controls) setState(() => _controls = true);
+    if (!_controls) {
+      setState(() => _controls = true);
+      unawaited(_readLevels());
+    }
     _scheduleHide();
   }
 
@@ -593,6 +593,7 @@ class _VideoPageState extends State<VideoPage>
   @override
   Widget build(BuildContext context) {
     final player = VideoPlayerInput(
+      key: _playerKey,
       onPlayPause: _togglePlayback,
       onSeek: _seekBy,
       onVolume: _changeVolume,
@@ -621,9 +622,13 @@ class _VideoPageState extends State<VideoPage>
           fullscreen: _fullscreen,
           controlsVisible: _controls,
           controls: _controlsLayer,
-          episodePages: _episodePages,
+          surfaceKey: _surfaceKey,
           previewPosition: _previewPosition,
           hint: _seekHint,
+          brightness: _brightness,
+          volume: _nativeLevels
+              ? _volume
+              : (_session.controller?.value.volume ?? _volume),
           dim: !_nativeLevels && _brightness < 1 ? (1 - _brightness) * 0.8 : 0,
           onTap: _toggleControls,
           onMouseTap: _showControls,

@@ -362,49 +362,67 @@ class _SourceSearchPageState extends State<SourceSearchPage> {
                   Gap.page,
                   Gap.xs,
                 ),
-                child: LayoutBuilder(
-                  builder: (context, constraints) => OverflowBar(
-                    alignment: MainAxisAlignment.spaceBetween,
-                    overflowSpacing: Gap.xs,
-                    children: [
-                      ConstrainedBox(
-                        constraints: BoxConstraints(
-                          maxWidth: constraints.maxWidth,
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            SourceAvatar(_m.key, size: 20),
-                            const SizedBox(width: Gap.s),
-                            Flexible(
-                              child: Text(
-                                _m.name,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: context.text.labelLarge?.copyWith(
-                                  color: context.colors.onSurfaceVariant,
-                                ),
-                              ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        SourceAvatar(_m.key, size: 20),
+                        const SizedBox(width: Gap.s),
+                        Expanded(
+                          child: Text(
+                            _m.name,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: context.text.labelLarge?.copyWith(
+                              color: context.colors.onSurfaceVariant,
                             ),
-                          ],
+                          ),
                         ),
-                      ),
+                        ResultVisibility(
+                          showBlocked: _controller.showBlocked,
+                          hidePreviews: _controller.hidePreviews,
+                          onBlocked: (v) => setState(
+                            () => _controller.setVisibility(blocked: v),
+                          ),
+                          onPreviews: (v) => setState(
+                            () => _controller.setVisibility(previews: v),
+                          ),
+                        ),
+                        if (_m.searchFilters.isNotEmpty ||
+                            _m.searchCommonFilters.isNotEmpty)
+                          Badge(
+                            isLabelVisible: _activeFilters > 0,
+                            label: Text('$_activeFilters'),
+                            child: IconButton(
+                              tooltip: tr('筛选'),
+                              onPressed: _openFilters,
+                              icon: const Icon(Icons.tune_rounded),
+                            ),
+                          ),
+                        IconButton(
+                          tooltip: tr('多语言搜索'),
+                          onPressed: _translating ? null : _searchMulti,
+                          icon: _translating
+                              ? const SizedBox.square(
+                                  dimension: 18,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                  ),
+                                )
+                              : const Icon(Icons.g_translate_rounded),
+                        ),
+                      ],
+                    ),
+                    if (_started &&
+                        _multi == null &&
+                        (_m.supportsAlbumMode || _m.supportsShortVideoMode))
                       Wrap(
                         spacing: Gap.s,
                         crossAxisAlignment: WrapCrossAlignment.center,
                         children: [
-                          ResultVisibility(
-                            showBlocked: _controller.showBlocked,
-                            hidePreviews: _controller.hidePreviews,
-                            onBlocked: (v) => setState(
-                              () => _controller.setVisibility(blocked: v),
-                            ),
-                            onPreviews: (v) => setState(
-                              () => _controller.setVisibility(previews: v),
-                            ),
-                          ),
-                          if (_started && _multi == null && _m.can('album'))
-                            OutlinedButton.icon(
+                          if (_m.supportsAlbumMode)
+                            ToolbarButton.icon(
                               icon: const Icon(Icons.photo_library_outlined),
                               label: Text(tr('相册')),
                               onPressed: () => openMediaAlbum(
@@ -421,11 +439,8 @@ class _SourceSearchPageState extends State<SourceSearchPage> {
                                 },
                               ),
                             ),
-                          if (_started &&
-                              _multi == null &&
-                              (_m.json['postShortVideos'] == true ||
-                                  _m.kind == MediaKind.video))
-                            OutlinedButton.icon(
+                          if (_m.supportsShortVideoMode)
+                            ToolbarButton.icon(
                               icon: const Icon(Icons.smart_display_outlined),
                               label: Text(tr('短视频模式')),
                               onPressed: () => Nav.push(
@@ -436,40 +451,9 @@ class _SourceSearchPageState extends State<SourceSearchPage> {
                                 ),
                               ),
                             ),
-                          if (_m.searchFilters.isNotEmpty ||
-                              _m.searchCommonFilters.isNotEmpty)
-                            Badge(
-                              isLabelVisible: _activeFilters > 0,
-                              label: Text('$_activeFilters'),
-                              child: OutlinedButton(
-                                onPressed: _openFilters,
-                                child: SelectionContainer.disabled(
-                                  child: Text(tr('筛选')),
-                                ),
-                              ),
-                            ),
-                          if (_translating)
-                            const Padding(
-                              padding: EdgeInsets.all(Gap.m),
-                              child: SizedBox(
-                                width: 18,
-                                height: 18,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                ),
-                              ),
-                            )
-                          else
-                            OutlinedButton(
-                              onPressed: _searchMulti,
-                              child: SelectionContainer.disabled(
-                                child: Text(tr('多语言搜索')),
-                              ),
-                            ),
                         ],
                       ),
-                    ],
-                  ),
+                  ],
                 ),
               ),
               Expanded(
@@ -776,7 +760,7 @@ class _FilterSheetState extends State<FilterSheet> {
                     ),
                   ),
                   const Spacer(),
-                  OutlinedButton(
+                  ToolbarButton(
                     onPressed: _reset,
                     child: SelectionContainer.disabled(child: Text(tr('重置'))),
                   ),

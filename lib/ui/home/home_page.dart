@@ -143,7 +143,7 @@ class _HomePageState extends State<HomePage> {
                   icon: Icons.leaderboard_outlined,
                   showLabel: true,
                   shortLabel: tr('排行'),
-                  compactLabel: true,
+                  showIcon: true,
                   onPressed: () => Nav.push(
                     context,
                     RankingsPage(category: selected.category),
@@ -154,7 +154,7 @@ class _HomePageState extends State<HomePage> {
                   icon: Icons.image_search_outlined,
                   showLabel: true,
                   shortLabel: tr('反搜'),
-                  compactLabel: true,
+                  showIcon: true,
                   onPressed: () => Nav.push(context, const ReverseSearchPage()),
                 ),
               ],

@@ -9,6 +9,7 @@ import '../../core/models.dart';
 import '../../core/reverse_search.dart';
 import '../../engine/http_service.dart';
 import '../kit/tokens.dart';
+import '../kit/toolbar_button.dart';
 import '../theme.dart';
 import '../widgets/content_translation.dart';
 import '../widgets/text_translation.dart';
@@ -141,13 +142,13 @@ class ReverseSearchResult extends StatelessWidget {
                 runSpacing: Gap.s,
                 children: [
                   if (match.keyword.isNotEmpty)
-                    OutlinedButton.icon(
+                    ToolbarButton.icon(
                       onPressed: () => onSearch(match.keyword),
                       icon: const Icon(Icons.search, size: 18),
                       label: Text(tr('搜索资源')),
                     ),
                   if (match.url.isNotEmpty)
-                    OutlinedButton.icon(
+                    ToolbarButton.icon(
                       onPressed: () => onOpen(match.url),
                       icon: const Icon(Icons.open_in_new, size: 18),
                       label: Text(tr('原站')),

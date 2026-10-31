@@ -2,6 +2,7 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 
 import '../../core/localization.dart';
+import '../theme.dart';
 
 /// Controls sit above the detector, so their taps never enter its gesture arena.
 /// Transparent space between controls still reaches the video underneath.
@@ -12,6 +13,8 @@ class VideoGestureSurface extends StatefulWidget {
     this.overlay,
     this.pageVertically = false,
     this.showLevelControls = false,
+    this.brightness = 1,
+    this.volume = 1,
     required this.onTap,
     this.onMouseTap,
     required this.onDoubleTap,
@@ -28,6 +31,8 @@ class VideoGestureSurface extends StatefulWidget {
   final Widget? overlay;
   final bool pageVertically;
   final bool showLevelControls;
+  final double brightness;
+  final double volume;
   final VoidCallback onTap;
   final VoidCallback? onMouseTap;
   final VoidCallback onDoubleTap;
@@ -163,12 +168,33 @@ class _VideoGestureSurfaceState extends State<VideoGestureSurface> {
                 message: tr(left ? '亮度' : '音量'),
                 child: Stack(
                   fit: StackFit.expand,
+                  clipBehavior: Clip.none,
                   children: [
                     const IgnorePointer(
                       child: DecoratedBox(
                         decoration: BoxDecoration(
                           color: Colors.black38,
                           borderRadius: BorderRadius.all(Radius.circular(24)),
+                        ),
+                      ),
+                    ),
+                    Positioned(
+                      top: -30,
+                      left: -8,
+                      right: -8,
+                      height: 24,
+                      child: IgnorePointer(
+                        child: Center(
+                          child: FittedBox(
+                            fit: BoxFit.scaleDown,
+                            child: Text(
+                              '${((left ? widget.brightness : widget.volume).clamp(0, 1) * 100).round()}%',
+                              style: context.text.labelSmall?.copyWith(
+                                color: Colors.white,
+                                shadows: const [Shadow(blurRadius: 4)],
+                              ),
+                            ),
+                          ),
                         ),
                       ),
                     ),

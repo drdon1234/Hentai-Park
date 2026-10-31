@@ -18,6 +18,7 @@ import 'cover_tile.dart';
 import 'error_view.dart';
 import 'on_visible.dart';
 import 'source_network_hint.dart';
+import 'work_list_row.dart';
 import 'work_text_row.dart';
 
 typedef PageLoader = Future<WorkPage> Function(int page, String? cursor);
@@ -245,12 +246,14 @@ class PagedSliverGrid extends StatelessWidget {
     required this.controller,
     required this.kind,
     this.showSource = false,
+    this.listMode = false,
     this.padding = const EdgeInsets.fromLTRB(Gap.page, Gap.s, Gap.page, Gap.xl),
   });
   final PagedController controller;
   final MediaKind kind;
   final bool showSource;
   final EdgeInsets padding;
+  final bool listMode;
 
   @override
   Widget build(BuildContext context) {
@@ -261,7 +264,7 @@ class PagedSliverGrid extends StatelessWidget {
         if (c.sections != null) {
           return SliverMainAxisGroup(
             slivers: [
-              _SectionsSliver(controller: c),
+              _SectionsSliver(controller: c, listMode: listMode),
               SliverToBoxAdapter(child: _footer(context)),
             ],
           );
@@ -311,7 +314,8 @@ class PagedSliverGrid extends StatelessWidget {
           }
           return _skeletonGrid(context);
         }
-        if (kind == MediaKind.novel ||
+        if (listMode ||
+            kind == MediaKind.novel ||
             c.items.any((item) => item.json['presentation'] == 'post')) {
           return SliverMainAxisGroup(
             slivers: [
@@ -332,6 +336,8 @@ class PagedSliverGrid extends StatelessWidget {
                           source: item.source,
                           post: SubscriptionPost(item.json),
                         )
+                      : listMode && !item.isNovel && kind != MediaKind.novel
+                      ? WorkListRow(item: item, sequence: c.sequence)
                       : WorkTextRow(item: item, showSource: showSource);
                 },
               ),
@@ -513,12 +519,31 @@ class PagedSliverGrid extends StatelessWidget {
 }
 
 class _SectionsSliver extends StatelessWidget {
-  const _SectionsSliver({required this.controller});
+  const _SectionsSliver({required this.controller, required this.listMode});
   final PagedController controller;
+  final bool listMode;
 
   @override
   Widget build(BuildContext context) {
     final sections = controller.sections!;
+    if (listMode) {
+      return SliverMainAxisGroup(
+        slivers: [
+          for (final section in sections) ...[
+            SliverToBoxAdapter(child: SectionHeader(section.title)),
+            SliverList.builder(
+              itemCount: section.items.length,
+              itemBuilder: (context, index) {
+                final item = section.items[index];
+                return item.isNovel
+                    ? WorkTextRow(item: item)
+                    : WorkListRow(item: item);
+              },
+            ),
+          ],
+        ],
+      );
+    }
     return SliverList.builder(
       itemCount: sections.length,
       itemBuilder: (context, i) =>

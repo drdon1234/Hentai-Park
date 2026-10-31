@@ -149,7 +149,7 @@ class _MediaAlbumPageState extends State<MediaAlbumPage> {
                   selected: _type == type,
                   onSelected: (_) => _filter(() => _type = type),
                 ),
-              OutlinedButton.icon(
+              ToolbarButton.icon(
                 onPressed: _date,
                 icon: const Icon(Icons.date_range_outlined),
                 label: Text(
@@ -159,9 +159,10 @@ class _MediaAlbumPageState extends State<MediaAlbumPage> {
                 ),
               ),
               if (_range != null)
-                OutlinedButton(
+                IconButton(
                   onPressed: () => _filter(() => _range = null),
-                  child: Text(tr('清除日期')),
+                  tooltip: tr('清除日期'),
+                  icon: const Icon(Icons.close_rounded),
                 ),
               MenuChip<int>(
                 label: tr('每行 {count} 个', {'count': _columns}),

@@ -25,7 +25,7 @@ class SitesPage extends StatelessWidget {
       appBar: AppBar(
         title: Text(tr('站点')),
         actions: [
-          OutlinedButton(
+          ToolbarButton(
             onPressed: () => Nav.push(context, const SourceManagePage()),
             child: SelectionContainer.disabled(child: Text(tr('管理'))),
           ),
@@ -171,7 +171,16 @@ class SiteRow extends StatelessWidget {
                     ? Icons.visibility_outlined
                     : Icons.visibility_off_outlined,
               ),
-              onPressed: onToggleWorks,
+              onPressed: () {
+                onToggleWorks?.call();
+                context.toast(
+                  tr(
+                    homeSourceVisible == true
+                        ? '隐藏该站点的作品并停止自动加载'
+                        : '显示该站点的作品并自动加载',
+                  ),
+                );
+              },
             ),
           if (showEnterButton)
             TextButton(

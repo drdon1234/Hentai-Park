@@ -722,7 +722,7 @@ extension ContextX on BuildContext {
 
   void toast(String message, {SnackBarAction? action}) {
     ScaffoldMessenger.of(this)
-      ..hideCurrentSnackBar()
+      ..removeCurrentSnackBar()
       ..showSnackBar(
         SnackBar(
           content: Text(message),
