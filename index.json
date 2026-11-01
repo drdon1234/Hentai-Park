@@ -5,30 +5,30 @@
     {
       "key": "metadata-javbus",
       "name": "JavBus",
+      "version": "0.0.3",
+      "description": "作品资料与磁链",
+      "category": "jav",
+      "rankingOnly": false,
+      "reverseSearchOnly": false,
+      "metadataOnly": true,
+      "url": "https://raw.githubusercontent.com/drdon1234/Hentai-Park/7f5c4b70c09a773c04975334089401830b024695/assets/sources/metadata-javbus.js",
+      "sha256": "cfccb2d27cba7df8e900e59f24808fd7333896a07f4e327074c625e3ea803e74",
+      "apiVersion": 2,
+      "minAppVersion": "0.10.8"
+    },
+    {
+      "key": "metadata-javdb",
+      "name": "JavDB",
       "version": "0.0.2",
       "description": "作品资料与磁链",
       "category": "jav",
       "rankingOnly": false,
       "reverseSearchOnly": false,
       "metadataOnly": true,
-      "url": "https://raw.githubusercontent.com/drdon1234/Hentai-Park/a9e5c69b80f12e300e83a029962707a946faf244/assets/sources/metadata-javbus.js",
-      "sha256": "cfbe19aaeddb82e94918d0fbbb08c954fb036e7a418a53ddcca1dc47094b93bd",
+      "url": "https://raw.githubusercontent.com/drdon1234/Hentai-Park/7f5c4b70c09a773c04975334089401830b024695/assets/sources/metadata-javdb.js",
+      "sha256": "97f76fd2616a41673bebf13057e799e0079b8b1d736cf07d71d8fb968525a0e2",
       "apiVersion": 2,
-      "minAppVersion": "0.10.0"
-    },
-    {
-      "key": "metadata-javdb",
-      "name": "JavDB",
-      "version": "0.0.1",
-      "description": "作品资料与磁链",
-      "category": "jav",
-      "rankingOnly": false,
-      "reverseSearchOnly": false,
-      "metadataOnly": true,
-      "url": "https://raw.githubusercontent.com/drdon1234/Hentai-Park/a9e5c69b80f12e300e83a029962707a946faf244/assets/sources/metadata-javdb.js",
-      "sha256": "c1580bd0b7f5fa59081a66e7eda39e24cfaa77529d0f2b2fe222e4d581ecbeef",
-      "apiVersion": 2,
-      "minAppVersion": "0.10.0"
+      "minAppVersion": "0.10.8"
     }
   ]
 }
