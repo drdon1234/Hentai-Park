@@ -1,4 +1,4 @@
-// Keeps lib/ui on the design tokens (docs/DESIGN.md): colors come from the theme, radii from
+// Keeps lib/ui on the design tokens (docs/design/ANDROID.md): colors come from the theme, radii from
 // Radii, type sizes from TextTheme, and no weight heavier than 600. Token definitions live in
 // lib/ui/theme.dart and lib/ui/kit/, which are exempt.
 import { readFile, readdir } from 'node:fs/promises';
