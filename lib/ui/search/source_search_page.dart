@@ -60,6 +60,7 @@ class _SourceSearchPageState extends State<SourceSearchPage> {
   SourceManager get _sources => widget.sourceManager ?? SourceManager.instance;
   late final SourceManifest _m = _sources.manifest(widget.sourceKey)!;
   late final _text = TextEditingController(text: widget.initialKeyword);
+  final _focus = FocusNode();
   late Map<String, Object?> _filters = {
     ..._m.defaultFilters(),
     ...?widget.initialFilters,
@@ -75,7 +76,7 @@ class _SourceSearchPageState extends State<SourceSearchPage> {
   bool _started = false;
   WorkPage? _initialPage;
   late final _suggestions = SearchSuggestions(
-    (keyword, token) => _sources.searchSuggestions(
+    (keyword, token, _) => _sources.searchSuggestions(
       widget.sourceKey,
       keyword,
       cancelToken: token,
@@ -105,6 +106,9 @@ class _SourceSearchPageState extends State<SourceSearchPage> {
     super.initState();
     _translation.addListener(_translationChanged);
     _text.addListener(_textChanged);
+    _focus.addListener(() {
+      if (!_focus.hasFocus) _suggestions.clear();
+    });
     _controller.showBlocked = widget.initialShowBlocked;
     _controller.hidePreviews = widget.initialHidePreviews;
     _initialPage = widget.initialPage;
@@ -128,12 +132,15 @@ class _SourceSearchPageState extends State<SourceSearchPage> {
     _controller.dispose();
     _translation.dispose();
     _text.dispose();
+    _focus.dispose();
     super.dispose();
   }
 
   void _textChanged() {
     _syncFilterKeyword(_text.text.trim());
-    if (_m.can('searchSuggestions') && _text.value.composing.isCollapsed) {
+    if (_focus.hasFocus &&
+        _m.can('searchSuggestions') &&
+        _text.value.composing.isCollapsed) {
       _suggestions.update(_text.text);
     } else {
       _suggestions.clear();
@@ -325,6 +332,7 @@ class _SourceSearchPageState extends State<SourceSearchPage> {
             titleSpacing: 0,
             title: ParkSearchField(
               controller: _text,
+              focusNode: _focus,
               autofocus:
                   !widget.searchOnlyEntry &&
                   widget.initialKeyword.isEmpty &&
@@ -716,10 +724,14 @@ class _FilterSheetState extends State<FilterSheet> {
   late Map<String, Object?> _commonValues = widget.commonValues;
   bool _commonValid = true;
   int _commonRevision = 0;
+  bool _initializing = true;
+  int _initializationGeneration = 0;
 
   void _reset() {
+    _initializationGeneration++;
     _filters.reset();
     setState(() {
+      _initializing = false;
       _commonValues = const {};
       _commonValid = true;
       _commonRevision++;
@@ -733,8 +745,13 @@ class _FilterSheetState extends State<FilterSheet> {
   }
 
   Future<void> _initializeFilters() async {
+    final generation = ++_initializationGeneration;
     await _filters.initialize(initialValues: widget.values);
+    if (!mounted || generation != _initializationGeneration) return;
     await _filters.loadEnabledDynamic();
+    if (mounted && generation == _initializationGeneration) {
+      setState(() => _initializing = false);
+    }
   }
 
   @override
@@ -808,7 +825,7 @@ class _FilterSheetState extends State<FilterSheet> {
                   ],
                   for (final f in widget.definitions) ...[
                     IgnorePointer(
-                      ignoring: !_filters.isEnabled(f.key),
+                      ignoring: _initializing || !_filters.isEnabled(f.key),
                       child: Opacity(
                         opacity: _filters.isEnabled(f.key) ? 1 : 0.45,
                         child: Column(
@@ -945,7 +962,8 @@ class _FilterSheetState extends State<FilterSheet> {
                 child: SizedBox(
                   width: double.infinity,
                   child: FilledButton(
-                    onPressed: _commonValid
+                    onPressed:
+                        _commonValid && !_initializing && !_filters.isLoading
                         ? () => Navigator.pop(
                             context,
                             FilterSheetResult(

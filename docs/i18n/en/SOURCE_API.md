@@ -161,7 +161,7 @@ searchCommonFilters: { pages: { range: ['min', 'max'] } },
 
 Dimensions are `pages` / `likes` / `duration` / `score` / `favorites`. `range: true` enables both `min` and `max`; an array can declare only supported bounds. `sort: true` enables `asc` and `desc`; an array lists the directions the site supports. Pages and likes use non-negative integers; duration is in seconds. The `feed` or `search` request object receives a separate `common` map, for example `{ pages: { min: 10, order: 'desc' } }`. Empty bounds and ordering are omitted, either range bound may be left blank, and at most one dimension may be sorted at a time. Declare capabilities only where the site supports them; undeclared dimensions must be rejected.
 
-`score` is the site’s integer score and may be negative; `favorites` is a non-negative integer favorite count. Neither is a star rating or like count. Declare only bounds supported by the site; do not approximate by filtering loaded results.
+`score` is the site’s integer score and may be negative; `favorites` is a non-negative integer favorite count. Neither is a star rating or like count. Declare only bounds supported by the site; do not approximate by filtering loaded results. Plugins declaring either dimension must set `minAppVersion` to `0.10.5` or later so older apps do not install plugins whose filters they cannot fully display.
 
 ### Dynamic and cascading filters
 

@@ -128,7 +128,7 @@ Park.register({
       "Danbooru 帖子没有可用原图": "لا تتوفر صورة أصلية لهذا المنشور في Danbooru"
     }
   },
-  key: 'danbooru', name: 'Danbooru', version: '0.0.7', minAppVersion: '0.9.2', apiVersion: 2,
+  key: 'danbooru', name: 'Danbooru', version: '0.0.8', minAppVersion: '0.10.5', apiVersion: 2,
   type: 'comic', category: 'illustration', color: '#3B73AF',
   homepage: DAN_API, description: '二次元图片图集，保留站内安全、擦边与 R18 分级',
   domains: ['donmai.us'], imageHeaders: {'User-Agent': DAN_UA},

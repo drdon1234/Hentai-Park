@@ -182,6 +182,11 @@ export async function generateIndex({ root = defaultRoot, commit, previousIndex,
     if (manifest.minAppVersion !== entry.minAppVersion) {
       throw new Error(`${entry.file} 注册的 minAppVersion 与清单不一致`);
     }
+    const commonDeclarations = [manifest.searchCommonFilters, ...(manifest.feeds || []).map(feed => feed.commonFilters)];
+    if (commonDeclarations.some(filters => filters && ('score' in filters || 'favorites' in filters)) &&
+        compareVersions(manifest.minAppVersion, '0.10.5') < 0) {
+      throw new Error(`${key} 的分数或收藏数筛选要求 minAppVersion 至少为 0.10.5`);
+    }
     if (manifest.category !== entry.category) {
       throw new Error(`${entry.file} 注册的 category 与清单不一致`);
     }

@@ -111,7 +111,13 @@ class _CommonFilterFieldsState extends State<CommonFilterFields> {
       if (definition.sort && (order == 'asc' || order == 'desc')) {
         value['order'] = order;
       }
-      if (value.isNotEmpty) values[key] = value;
+      if (value.isNotEmpty) {
+        try {
+          values.addAll(normalizeCommonFilters([definition], {key: value}));
+        } on FormatException {
+          errors[key] = tr(signed ? '请输入有效的整数' : '请输入有效的非负数');
+        }
+      }
     }
     setState(() => _errors = errors);
     widget.onChanged(Map.unmodifiable(values), errors.isEmpty);
@@ -231,6 +237,10 @@ class _CommonFilterFieldsState extends State<CommonFilterFields> {
               const SizedBox(height: Gap.s),
               SelectionDropdownTheme(
                 child: DropdownButtonFormField<String>(
+                  key: ValueKey((
+                    definition.dimension,
+                    _orders[definition.dimension.name],
+                  )),
                   initialValue: _orders[definition.dimension.name] ?? '',
                   decoration: InputDecoration(labelText: tr('排序')),
                   items: [

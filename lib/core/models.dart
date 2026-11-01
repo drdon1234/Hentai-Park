@@ -332,7 +332,7 @@ num? _commonFilterNumber(Object? value, CommonFilterDimension dimension) {
       !value.isFinite ||
       (dimension != CommonFilterDimension.score && value < 0) ||
       (dimension != CommonFilterDimension.duration &&
-          value != value.truncate())) {
+          (value != value.truncate() || value.abs() > 9007199254740991))) {
     throw const FormatException('通用筛选数值无效');
   }
   return dimension == CommonFilterDimension.duration ? value : value.toInt();

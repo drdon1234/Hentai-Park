@@ -36,19 +36,41 @@ class _AggregateSearchPageState extends State<AggregateSearchPage> {
   SourceManager get _sources => widget.sourceManager ?? SourceManager.instance;
   late final _text = TextEditingController(text: widget.initialKeyword);
   final _focus = FocusNode();
-  late final _suggestions = SearchSuggestions((keyword, token) async {
-    final sources = _targets.where(
-      (source) => source.manifest!.can('searchSuggestions'),
+  late final _suggestions = SearchSuggestions((keyword, token, publish) async {
+    final sources = _targets
+        .where((source) => source.manifest!.can('searchSuggestions'))
+        .toList();
+    final results = List.generate(
+      sources.length,
+      (_) => <Map<String, String>>[],
     );
-    final results = await Future.wait(
-      sources.map((source) async {
+    List<Map<String, String>> collect() {
+      final seen = <String>{};
+      final items = <Map<String, String>>[];
+      for (var index = 0; index < 10; index++) {
+        for (final rows in results) {
+          if (index >= rows.length) continue;
+          final item = rows[index];
+          if (seen.add('${item['source']}:${item['keyword']}')) items.add(item);
+          if (items.length == 20) return items;
+        }
+      }
+      return items;
+    }
+
+    var next = 0;
+    Future<void> worker() async {
+      while (!token.isCancelled && next < sources.length) {
+        final index = next++;
+        final source = sources[index];
         try {
           final items = await _sources.searchSuggestions(
             source.key,
             keyword,
             cancelToken: token,
           );
-          return items
+          if (token.isCancelled) return;
+          results[index] = items
               .map(
                 (item) => {
                   ...item,
@@ -60,22 +82,22 @@ class _AggregateSearchPageState extends State<AggregateSearchPage> {
                 },
               )
               .toList();
+          publish(collect());
         } catch (_) {
-          return <Map<String, String>>[];
+          // 单站失败不妨碍其他站点显示候选。
         }
-      }),
+      }
+    }
+
+    await Future.wait(
+      List.generate(sources.length.clamp(0, 4), (_) => worker()),
     );
-    final seen = <String>{};
-    return results
-        .expand((items) => items)
-        .where((item) => seen.add('${item['source']}:${item['keyword']}'))
-        .take(20)
-        .toList();
+    return collect();
   });
 
   void _textChanged() {
     _changed();
-    if (_text.value.composing.isCollapsed) {
+    if (_focus.hasFocus && _text.value.composing.isCollapsed) {
       _suggestions.update(_text.text);
     } else {
       _suggestions.clear();
@@ -166,10 +188,10 @@ class _AggregateSearchPageState extends State<AggregateSearchPage> {
   }
 
   void _submit(String keyword, {MultiKeyword? multi}) {
-    _suggestions.clear();
     final k = keyword.trim();
     if (k.isEmpty) return;
     _text.text = k;
+    _suggestions.clear();
     AppSettings.instance.addSearchHistory(k, scope: _range);
     _focus.unfocus();
     setState(() {

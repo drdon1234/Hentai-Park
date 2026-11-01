@@ -68,6 +68,7 @@ class FilterController extends ChangeNotifier {
   final Map<String, int> _generations = {};
   final Map<String, _CachedChoices> _cache = {};
   bool _disposed = false;
+  int _initializationGeneration = 0;
 
   Map<String, Object?> get values => Map.unmodifiable(_values);
   List<Choice> choicesFor(String key) =>
@@ -79,14 +80,15 @@ class FilterController extends ChangeNotifier {
   Future<void> initialize({
     Map<String, Object?> initialValues = const {},
   }) async {
+    final generation = ++_initializationGeneration;
     for (final option in _topologicalOrder()) {
-      if (_disposed) return;
+      if (_disposed || generation != _initializationGeneration) return;
       if (initialValues.containsKey(option.key)) {
         if (option.dynamicValues && isEnabled(option.key)) {
           await loadDynamic(option.key);
-          if (_disposed) return;
+          if (_disposed || generation != _initializationGeneration) return;
         }
-        setValue(option.key, initialValues[option.key]);
+        _setValue(option.key, initialValues[option.key]);
       }
     }
   }
@@ -106,6 +108,11 @@ class FilterController extends ChangeNotifier {
   }
 
   void setValue(String key, Object? value) {
+    _initializationGeneration++;
+    _setValue(key, value);
+  }
+
+  void _setValue(String key, Object? value) {
     if (_disposed) return;
     final option = _byKey[key];
     if (option == null) throw ArgumentError.value(key, 'key');
@@ -201,6 +208,7 @@ class FilterController extends ChangeNotifier {
 
   void reset() {
     if (_disposed) return;
+    _initializationGeneration++;
     for (final token in _requests.values) {
       token.cancel('筛选已重置');
     }

@@ -391,7 +391,7 @@ class _FeedTabState extends State<FeedTab> with AutomaticKeepAliveClientMixin {
         cancelToken: token,
       ),
     );
-    unawaited(_initializeFilters());
+    _initialization = _initializeFilters();
     _authentication = (widget.sourceManager ?? SourceManager.instance)
         .authenticationChanges
         .listen((key) {
@@ -404,6 +404,7 @@ class _FeedTabState extends State<FeedTab> with AutomaticKeepAliveClientMixin {
   Map<String, Object?> _common = const {};
   late final PagedController _controller;
   late final FilterController _initialFilters;
+  late final Future<void> _initialization;
 
   int get _activeFilters {
     final defaults = widget.feed.defaultOptions();
@@ -417,6 +418,8 @@ class _FeedTabState extends State<FeedTab> with AutomaticKeepAliveClientMixin {
   }
 
   Future<void> _openFilters() async {
+    await _initialization;
+    if (!mounted) return;
     final result = await showAdaptiveSheet<FilterSheetResult>(
       context: context,
       isScrollControlled: true,
@@ -444,7 +447,7 @@ class _FeedTabState extends State<FeedTab> with AutomaticKeepAliveClientMixin {
     if (!mounted) return;
     _options = _initialFilters.values;
     _controller.loading = false;
-    await _controller.loadMore();
+    unawaited(_controller.loadMore());
   }
 
   Future<WorkPage> _load(int page, String? cursor) =>

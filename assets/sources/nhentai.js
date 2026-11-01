@@ -53,7 +53,7 @@ Park.register({
   },
   key: 'nhentai',
   name: 'nhentai',
-  version: '0.0.11', minAppVersion: '0.9.2',
+  version: '0.0.12', minAppVersion: '0.10.5',
   type: 'comic',
   category: 'doujin',
   color: '#ED2553',

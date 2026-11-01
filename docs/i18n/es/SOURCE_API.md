@@ -161,7 +161,7 @@ searchCommonFilters: { pages: { range: ['min', 'max'] } },
 
 Las dimensiones son `pages` / `likes` / `duration` / `score` / `favorites`. `range: true` habilita `min` y `max`; una matriz puede declarar solo los límites admitidos. `sort: true` habilita `asc` y `desc`; una matriz enumera las direcciones compatibles con el sitio. Páginas y me gusta usan enteros no negativos; la duración se expresa en segundos. El objeto de petición de `feed` o `search` recibe un mapa `common` separado, por ejemplo `{ pages: { min: 10, order: 'desc' } }`. Se omiten los límites y el orden vacíos; cualquiera de los límites puede quedar en blanco y solo se puede ordenar una dimensión a la vez. Declara únicamente capacidades que admita el sitio y rechaza las dimensiones no declaradas.
 
-`score` es la puntuación entera del sitio y admite negativos; `favorites` es el número entero no negativo de favoritos. No equivalen a estrellas ni a Me gusta. Declara solo límites admitidos por el sitio; no filtres aproximadamente los resultados cargados.
+`score` es la puntuación entera del sitio y admite negativos; `favorites` es el número entero no negativo de favoritos. No equivalen a estrellas ni a Me gusta. Declara solo límites admitidos por el sitio; no filtres aproximadamente los resultados cargados. Los complementos que declaren cualquiera de estas dimensiones deben establecer `minAppVersion` en `0.10.5` o posterior para evitar su instalación en aplicaciones antiguas que no puedan mostrar todos sus filtros.
 
 ### Filtros dinámicos y en cascada
 

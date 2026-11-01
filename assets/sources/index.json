@@ -55,32 +55,32 @@
     {
       "key": "danbooru",
       "name": "Danbooru",
-      "version": "0.0.7",
+      "version": "0.0.8",
       "type": "comic",
       "category": "illustration",
       "file": "danbooru.js",
       "description": "二次元图片图集，保留站内安全、擦边与 R18 分级",
-      "minAppVersion": "0.9.2"
+      "minAppVersion": "0.10.5"
     },
     {
       "key": "yandere",
       "name": "yande.re",
-      "version": "0.0.9",
+      "version": "0.0.10",
       "type": "comic",
       "category": "illustration",
       "file": "yandere.js",
       "description": "成人插画图库，支持评分排序、搜索与原图",
-      "minAppVersion": "0.9.2"
+      "minAppVersion": "0.10.5"
     },
     {
       "key": "gelbooru",
       "name": "Gelbooru",
-      "version": "0.0.9",
+      "version": "0.0.10",
       "type": "comic",
       "category": "illustration",
       "file": "gelbooru.js",
       "description": "成人美图画廊，支持评分排序、搜索与原图",
-      "minAppVersion": "0.9.2"
+      "minAppVersion": "0.10.5"
     },
     {
       "key": "ehentai",
@@ -105,12 +105,12 @@
     {
       "key": "nhentai",
       "name": "nhentai",
-      "version": "0.0.11",
+      "version": "0.0.12",
       "type": "comic",
       "category": "doujin",
       "file": "nhentai.js",
       "description": "海量同人志，官方 API，支持标签语法与语言过滤",
-      "minAppVersion": "0.9.2"
+      "minAppVersion": "0.10.5"
     },
     {
       "key": "wnacg",

@@ -1,31 +1,27 @@
 ## 中文
 
 ### 改进
-- 站点浏览和搜索使用漏斗打开筛选，筛选按钮与其他浏览工具同行，并显示已启用的条件数量。
-- 站内与聚合搜索的多语言搜索按钮始终位于输入框旁，搜索结果不再自动翻译。
-- 仅供预览、没有完整内容的作品使用独立预览图标控制显示，开关提示更清楚。
-- 支持的站点在输入时提供关键词联想，保留已输入的查询内容；聚合候选标注来源，选择后进入对应站点搜索。
+- 聚合搜索逐步显示各站关键词联想，并均衡展示不同站点的候选，减少慢站带来的等待。
+
+### 修复
+- 修复提交搜索或输入框失去焦点后仍可能出现旧联想的问题，输入空格确认关键词后不再继续替换该词。
+- 修复筛选加载与重置冲突时旧条件重新出现的问题；条件恢复完成前暂不可应用筛选。
+- 修复切换排序维度后其他下拉框仍显示旧排序的问题。
+- 修复超大筛选数值可输入但应用后被拒绝的问题，输入时即可提示无效范围。
 
 ### 插件更新
-- E-Hentai 0.0.16：补齐页数上下限、上传者、种子、已删除画廊及原站排除规则选项，改进带类别前缀的标签联想。
-- nhentai 0.0.11：增加页数与收藏数上下限，以及带类别前缀的关键词联想。
-- Danbooru 0.0.7、yande.re 0.0.9、Gelbooru 0.0.9：增加分数范围与标签联想，Danbooru 另支持收藏数范围。
-- PornPics 0.0.11、Eporner 0.0.10：增加关键词联想，Eporner 补充搜索排序。
-- XVideos 0.0.11、Pornhub 0.0.11：补充搜索排序、时间范围及清晰度或制作类型筛选。
-- Thumbzilla 0.0.10、Rule34Video 0.0.11、KoreanBJ.club 录播 0.0.7、123AV 0.0.13、TubeSafari 0.0.10：补充搜索排序。
+- nhentai 0.0.12、Danbooru 0.0.8、yande.re 0.0.10、Gelbooru 0.0.10：最低应用版本调整为 0.10.5，避免旧版安装无法完整显示分数或收藏数筛选的插件。
 
 ## English
 
 ### Improvements
-- Site browsing and search now use a funnel to open filters alongside other browsing tools, with a count of active conditions.
-- Multilingual search stays beside the input in both site and cross-site search. Search results are no longer translated automatically.
-- A separate preview icon controls works that only offer previews without full content, with clearer toggle feedback.
-- Supported sites suggest keywords while typing and preserve the existing query. Cross-site suggestions show their source and open that site's search when selected.
+- Cross-site search displays keyword suggestions as each site responds and balances candidates across sites, reducing delays caused by slow sites.
+
+### Fixes
+- Fixed stale suggestions appearing after submitting a search or leaving the input. A trailing space now confirms the keyword instead of continuing to replace it.
+- Fixed old filter conditions reappearing when loading conflicted with a reset. Filters cannot be applied until their conditions have finished restoring.
+- Fixed other dropdowns retaining stale sort selections after switching the sorting dimension.
+- Fixed oversized filter values being accepted in the input but rejected when applied. Invalid values are now flagged while editing.
 
 ### Plugin updates
-- E-Hentai 0.0.16: added page limits, uploader, torrent, expunged gallery and site exclusion options, and improved tag suggestions with category prefixes.
-- nhentai 0.0.11: added page and favorite count limits, plus keyword suggestions with category prefixes.
-- Danbooru 0.0.7, yande.re 0.0.9 and Gelbooru 0.0.9: added score ranges and tag suggestions. Danbooru also supports favorite count ranges.
-- PornPics 0.0.11 and Eporner 0.0.10: added keyword suggestions. Eporner also adds search sorting.
-- XVideos 0.0.11 and Pornhub 0.0.11: added search sorting, time ranges, and quality or production type filters.
-- Thumbzilla 0.0.10, Rule34Video 0.0.11, KoreanBJ.club recordings 0.0.7, 123AV 0.0.13 and TubeSafari 0.0.10: added search sorting.
+- nhentai 0.0.12, Danbooru 0.0.8, yande.re 0.0.10 and Gelbooru 0.0.10: require app version 0.10.5 or later so older apps cannot install plugins whose score or favorite count filters they cannot fully display.

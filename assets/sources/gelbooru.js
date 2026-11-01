@@ -3,7 +3,7 @@ Park.register({
   i18n: {
     "zh-Hant": {"成人美图画廊，支持评分排序、搜索与原图": "成人美圖畫廊，支援評分排序、搜尋與原圖"}, ja: {"成人美图画廊，支持评分排序、搜索与原图": "成人イラストギャラリー。評価順・検索・原寸画像に対応"}, ko: {"成人美图画廊，支持评分排序、搜索与原图": "성인 이미지 갤러리, 점수순 정렬·검색·원본 이미지 지원"}, en: {"成人美图画廊，支持评分排序、搜索与原图": "Adult image gallery with score sorting, search and originals"}, es: {"成人美图画廊，支持评分排序、搜索与原图": "Galería de imágenes para adultos con puntuación, búsqueda y originales"}, ru: {"成人美图画廊，支持评分排序、搜索与原图": "Галерея изображений для взрослых с рейтингом, поиском и оригиналами"}, ar: {"成人美图画廊，支持评分排序、搜索与原图": "معرض صور للبالغين مع الترتيب والبحث والصور الأصلية"},
   },
-  key: 'gelbooru', name: 'Gelbooru', version: '0.0.9', minAppVersion: '0.9.2', type: 'comic', category: 'illustration', language: 'en', color: '#657b83',
+  key: 'gelbooru', name: 'Gelbooru', version: '0.0.10', minAppVersion: '0.10.5', type: 'comic', category: 'illustration', language: 'en', color: '#657b83',
   homepage: 'https://gelbooru.com/', description: '成人美图画廊，支持评分排序、搜索与原图', domains: ['gelbooru.com'], network: {mode: 'native', vpnHint: true},
   imageHeaders: {Referer: 'https://gelbooru.com/'},
   idPattern: '^\\d{1,12}$', defaultFeed: 'popular', feeds: [{key: 'popular', label: '热门', commonFilters: {score: {range: true}}, options: [

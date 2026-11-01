@@ -212,7 +212,7 @@ searchCommonFilters: { pages: { range: ['min', 'max'] } },
 
 维度为 `pages` / `likes` / `duration` / `score` / `favorites`。`range: true` 表示同时支持 `min`、`max`，也可用数组只声明支持的边界；`sort: true` 表示支持 `asc`、`desc`，也可列出实际支持的方向。页数与点赞数必须是非负整数，时长单位为秒。请求在 `feed` 或 `search` 的参数对象中带 `common`，例如 `{ pages: { min: 10, order: 'desc' } }`；空边界和空排序省略，范围上下限可以任意一端留空，每次最多指定一个维度排序。Feed 通过 `commonFilters` 声明，搜索通过源级 `searchCommonFilters` 声明；未声明的维度不得接受。
 
-`score` 表示原站整数分数（允许负数），`favorites` 表示非负整数收藏数；二者不等同于星级或点赞数。只声明原站真实支持的边界，不对已加载结果做近似过滤。
+`score` 表示原站整数分数（允许负数），`favorites` 表示非负整数收藏数；二者不等同于星级或点赞数。只声明原站真实支持的边界，不对已加载结果做近似过滤。声明这两个维度的插件必须将 `minAppVersion` 设为 `0.10.5` 或更高，以免旧版应用安装无法显示完整筛选能力的插件。
 
 ### 动态与级联筛选
 
