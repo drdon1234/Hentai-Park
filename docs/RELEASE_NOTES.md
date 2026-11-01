@@ -6,7 +6,7 @@
 ### 改进
 - 统一筛选、相册、短视频和其他工具按钮样式，搜索筛选与多语言搜索不再单独占行。
 - 标签更紧凑，分组标题与首行标签对齐；显示与过滤开关增加底部即时提示。
-- 播放器提供独立选集按钮，减少重复菜单；保留亮度和音量调节条样式并显示当前数值。
+- 播放器统一使用右上角选集按钮，移除旧的同系列切换和独立选集栏，减少重复菜单；保留亮度和音量调节条样式并显示当前数值。
 - 短剧在滑动落定后切换选集，并短暂保留上一集，减少误滑返回时的等待。
 - 短视频的仅视频与带信息切换移至右下角，简介与进度条排列更紧凑。
 
@@ -26,7 +26,7 @@
 ### Improvements
 - Unified filter, album, short-video, and other toolbar buttons. Search filters and multilingual search no longer occupy separate rows.
 - Made tags more compact and aligned group headings with the first row. Display and filter toggles now show immediate feedback near the bottom.
-- Added a dedicated episode button and reduced duplicate player menus. Brightness and volume bars retain their appearance and now show current values.
+- Unified episode selection in the upper-right button, removed the old series switch and separate episode bar, and reduced duplicate player menus. Brightness and volume bars retain their appearance and now show current values.
 - Drama episodes switch after a swipe settles and briefly retain the previous episode to reduce waiting when reversing an accidental swipe.
 - Moved the video-only and information toggle to the lower right and brought descriptions closer to the progress bar.
 

@@ -359,35 +359,6 @@ class _VideoPageState extends State<VideoPage>
     _showControls();
   }
 
-  Future<void> _pickSeries() async {
-    final item = await _withVisibleControls(
-      () => showAdaptiveSheet<WorkItem>(
-        context: context,
-        builder: (ctx) => SafeArea(
-          child: ListView(
-            shrinkWrap: true,
-            children: [
-              for (final item in (_details ?? widget.work).series)
-                ListTile(
-                  leading: Icon(
-                    item.uid == widget.work.uid
-                        ? Icons.play_circle_outline
-                        : Icons.play_arrow_rounded,
-                  ),
-                  title: Text(item.title),
-                  selected: item.uid == widget.work.uid,
-                  onTap: item.uid == widget.work.uid
-                      ? null
-                      : () => Navigator.pop(ctx, item),
-                ),
-            ],
-          ),
-        ),
-      ),
-    );
-    if (item != null && mounted) await Nav.openChapter(context, item, null);
-  }
-
   void _changeVolume(double delta) {
     final controller = _session.controller;
     if (controller == null || !controller.value.isInitialized) return;
@@ -532,18 +503,6 @@ class _VideoPageState extends State<VideoPage>
     _queueSpeed(temporary.release());
   }
 
-  Widget _episodeBar({bool overlay = false}) => VideoEpisodeBar(
-    title: _session.episode.title,
-    overlay: overlay,
-    onPrevious: _episodeIndex > 0
-        ? () => _session.selectEpisode(_episodes[_episodeIndex - 1])
-        : null,
-    onNext: _episodeIndex < _episodes.length - 1
-        ? () => _session.selectEpisode(_episodes[_episodeIndex + 1])
-        : null,
-    onPick: _pickEpisode,
-  );
-
   Widget _controlsLayer(VideoPlayerValue value, Widget progress) =>
       VideoControls(
         progress: _session.isLive ? null : progress,
@@ -568,7 +527,6 @@ class _VideoPageState extends State<VideoPage>
         onQuality: _switchQuality,
         onSpeed: _pickSpeed,
         onEpisodes: _episodes.length > 1 ? _pickEpisode : null,
-        onSeries: (_details ?? widget.work).series.isEmpty ? null : _pickSeries,
         onPrevious: _episodeIndex > 0
             ? () => _session.selectEpisode(_episodes[_episodeIndex - 1])
             : null,
@@ -691,7 +649,6 @@ class _VideoPageState extends State<VideoPage>
             quality: _session.current?.label,
             showRelated: false,
           ),
-          sidebar: _episodes.length > 1 ? _episodeBar() : null,
           details: VideoDetails(
             episodeId: _session.episode.id,
             work: _details ?? widget.work,

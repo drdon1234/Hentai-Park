@@ -37,7 +37,6 @@ class VideoControls extends StatelessWidget {
     this.quality,
     this.onQuality,
     this.onEpisodes,
-    this.onSeries,
     this.onPrevious,
     this.onNext,
     this.onInteractionChanged,
@@ -67,7 +66,6 @@ class VideoControls extends StatelessWidget {
   final String? quality;
   final VoidCallback? onQuality;
   final VoidCallback? onEpisodes;
-  final VoidCallback? onSeries;
   final VoidCallback? onPrevious;
   final VoidCallback? onNext;
   final ValueChanged<bool>? onInteractionChanged;
@@ -322,15 +320,6 @@ class VideoControls extends StatelessWidget {
                                           : VideoDisplayMode.landscape,
                                     ),
                                   ),
-                                  if (onSeries != null)
-                                    IconButton(
-                                      color: fg,
-                                      tooltip: tr('同系列'),
-                                      icon: const Icon(
-                                        Icons.video_library_outlined,
-                                      ),
-                                      onPressed: onSeries,
-                                    ),
                                   if ((compact && !live) ||
                                       onChatArea != null ||
                                       (compact &&
@@ -481,63 +470,6 @@ class _LiveBadge extends StatelessWidget {
       ],
     ),
   );
-}
-
-/// Previous / current / next episode, and the episode list.
-class VideoEpisodeBar extends StatelessWidget {
-  const VideoEpisodeBar({
-    super.key,
-    required this.title,
-    required this.onPick,
-    this.onPrevious,
-    this.onNext,
-    this.overlay = false,
-  });
-  final String title;
-  final VoidCallback onPick;
-  final VoidCallback? onPrevious;
-  final VoidCallback? onNext;
-
-  /// Drawn over the video instead of on the page surface.
-  final bool overlay;
-
-  @override
-  Widget build(BuildContext context) {
-    final fg = overlay ? Scrims.onScrim : null;
-    final disabled = overlay ? Scrims.onScrim.withValues(alpha: .38) : null;
-    return Row(
-      children: [
-        IconButton(
-          tooltip: tr('上一集'),
-          color: fg,
-          disabledColor: disabled,
-          onPressed: onPrevious,
-          icon: const Icon(Icons.skip_previous_rounded),
-        ),
-        Expanded(
-          child: Text(
-            title,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(color: fg),
-          ),
-        ),
-        IconButton(
-          tooltip: tr('下一集'),
-          color: fg,
-          disabledColor: disabled,
-          onPressed: onNext,
-          icon: const Icon(Icons.skip_next_rounded),
-        ),
-        IconButton(
-          tooltip: tr('选集'),
-          color: fg,
-          onPressed: onPick,
-          icon: const Icon(Icons.playlist_play_rounded),
-        ),
-      ],
-    );
-  }
 }
 
 /// The transient hint in the middle of the player while seeking or changing levels.
