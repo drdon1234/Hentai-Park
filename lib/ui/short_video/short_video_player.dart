@@ -12,6 +12,7 @@ import '../../engine/source_manager.dart';
 import '../../images/subscription_cache.dart';
 import '../../subscriptions/models.dart';
 import '../../video/playback.dart';
+import '../../video/playback_release.dart';
 import '../video/player_initialization.dart';
 import 'post_video_feed.dart';
 import 'short_video_playback.dart';
@@ -67,6 +68,8 @@ class ShortVideoPlayer implements ShortVideoHandle {
     CancelToken cancel, {
     bool refresh = false,
   }) async {
+    await awaitCancelled(PlaybackRelease.ready, cancel);
+    _check(cancel);
     if (!PlatformCapabilities.nativeVideo) {
       throw SourceError('UNSUPPORTED', '此设备暂不支持短视频播放');
     }

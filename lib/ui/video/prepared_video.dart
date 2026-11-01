@@ -10,6 +10,7 @@ import '../../engine/source_manager.dart';
 import '../../library/downloads.dart';
 import '../../video/hls_playback.dart';
 import '../../video/playback.dart';
+import '../../video/playback_release.dart';
 import 'player_initialization.dart';
 
 typedef VideoPreparer = Future<PreparedVideo> Function(
@@ -57,6 +58,8 @@ class PreparedVideo {
     Playback? media;
     StreamSubscription<DioException>? cancellation;
     try {
+      await awaitCancelled(PlaybackRelease.ready, cancel);
+      check();
       final local =
           localFile ??
           await DownloadManager.instance.localVideo(

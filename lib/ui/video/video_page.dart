@@ -143,7 +143,7 @@ class _VideoPageState extends State<VideoPage>
     if (identical(route, _route)) return;
     Nav.routeObserver.unsubscribe(this);
     _route = route;
-    _session.visible = route?.isCurrent ?? true;
+    unawaited(_session.setRouteVisible(route?.isCurrent ?? true));
     _syncLiveChat();
     if (route is PageRoute<dynamic>) Nav.routeObserver.subscribe(this, route);
     unawaited(_session.syncPlayback());
@@ -159,7 +159,7 @@ class _VideoPageState extends State<VideoPage>
   void didPop() => _setRouteVisible(false);
 
   void _setRouteVisible(bool visible) {
-    _session.visible = visible;
+    unawaited(_session.setRouteVisible(visible));
     _syncLiveChat();
     if (visible) {
       unawaited(_readLevels());

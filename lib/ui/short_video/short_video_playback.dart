@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 
 import '../../core/models.dart';
 import '../../engine/desktop_shutdown.dart';
+import '../../video/playback_release.dart';
 
 abstract interface class ShortVideoHandle {
   /// 初始化后即可接管播放；后台名额保留到首段缓冲就绪。
@@ -47,6 +48,7 @@ class ShortVideoPlayback extends ChangeNotifier {
   WorkItem? _current;
   int _preloadCount, _retainedCount;
   bool _enabled = true, _wants = true, _closed = false, _disposed = false;
+  bool _suspended = false;
   int get count => _slots.length;
   bool get wantsPlayback => _wants;
   ShortVideoHandle? handle(String uid) => _slots[uid]?.handle;
@@ -94,7 +96,7 @@ class ShortVideoPlayback extends ChangeNotifier {
     _current = current;
     _upcoming = upcoming.toList();
     final desired = <String, WorkItem>{};
-    if (current != null) {
+    if (current != null && !_suspended) {
       desired[current.uid] = current;
       for (final item in _upcoming) {
         if (desired.length >= _preloadCount + 1) break;
@@ -124,7 +126,7 @@ class ShortVideoPlayback extends ChangeNotifier {
   }
 
   void _pump() {
-    if (_closed) return;
+    if (_closed || _suspended) return;
     final current = _slots[_current?.uid];
     final candidates = [
       ?current,
@@ -204,6 +206,7 @@ class ShortVideoPlayback extends ChangeNotifier {
         try {
           if (slot.playing &&
               (_closed ||
+                  _suspended ||
                   !_enabled ||
                   !_wants ||
                   slot.item.uid != _current?.uid ||
@@ -217,6 +220,7 @@ class ShortVideoPlayback extends ChangeNotifier {
       }
       final slot = _slots[_current?.uid];
       if (!_closed &&
+          !_suspended &&
           _enabled &&
           _wants &&
           slot != null &&
@@ -239,6 +243,15 @@ class ShortVideoPlayback extends ChangeNotifier {
     _enabled = value;
     _pump();
     return _sync();
+  }
+
+  /// 覆盖页面时释放整个窗口，返回时按当前条目重建；临时暂停仍保留缓冲。
+  Future<void> setSuspended(bool value) {
+    if (_closed || value == _suspended) return Future.value();
+    _suspended = value;
+    final pending = select(_current, _upcoming);
+    if (value) PlaybackRelease.track(pending);
+    return pending;
   }
 
   Future<void> toggle() {
@@ -268,7 +281,9 @@ class ShortVideoPlayback extends ChangeNotifier {
   @override
   void dispose() {
     _disposed = true;
-    PendingDisposals.instance.add(close());
+    final pending = close();
+    PendingDisposals.instance.add(pending);
+    PlaybackRelease.track(pending);
     super.dispose();
   }
 }

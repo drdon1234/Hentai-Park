@@ -1,7 +1,9 @@
 import 'dart:async';
 import 'dart:collection';
+import 'dart:convert';
 import 'dart:io';
 
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
@@ -19,6 +21,7 @@ import '../../engine/http_service.dart';
 import '../../engine/platform_bridge.dart';
 import '../../engine/source_manager.dart';
 import '../../library/library.dart';
+import '../../video/playback_release.dart';
 import '../nav.dart';
 import '../video/video_controls.dart';
 import '../video/video_layout.dart';
@@ -50,6 +53,9 @@ class _WebVideoPageState extends State<WebVideoPage>
   bool _fullscreen = false;
   ModalRoute<dynamic>? _route;
   bool _visible = true;
+  Future<void> _routeClosing = Future.value();
+  Map<String, dynamic>? _routePlayback;
+  CancelToken? _loadRequest;
   Future<void> _playbackUpdates = Future.value();
   int _generation = 0;
   int _documentGeneration = 0;
@@ -169,6 +175,9 @@ class _WebVideoPageState extends State<WebVideoPage>
 
   Future<void> _load() {
     return PendingDisposals.instance.watch(() async {
+      if (!_visible) return;
+      _loadRequest?.cancel('web video reloaded');
+      final request = _loadRequest = CancelToken();
       final generation = ++_generation;
       _resetAccess();
       final old = _keepAlive;
@@ -186,6 +195,9 @@ class _WebVideoPageState extends State<WebVideoPage>
         _progress = 0;
       });
       await _release(old, id, oldEnvironment, oldProfile);
+      await _routeClosing;
+      await PlaybackRelease.ready;
+      if (!mounted || !_visible || generation != _generation) return;
       WebViewEnvironment? environment;
       Directory? profile;
       try {
@@ -193,7 +205,9 @@ class _WebVideoPageState extends State<WebVideoPage>
           widget.work.source,
           widget.work.id,
           episodeId: widget.episodeId,
+          cancelToken: request,
         );
+        if (!mounted || !_visible || generation != _generation) return;
         final policy = WebPlaybackPolicy.fromJson(target);
         if (!Platform.isAndroid && !Platform.isWindows) {
           throw SourceError('UNSUPPORTED', '当前设备暂不支持应用内网页播放');
@@ -212,7 +226,7 @@ class _WebVideoPageState extends State<WebVideoPage>
             throw SourceError('UNSUPPORTED', '当前设备暂不支持应用内网页播放');
           }
         }
-        if (!mounted || generation != _generation) {
+        if (!mounted || !_visible || generation != _generation) {
           await _release(null, null, environment, profile);
           return;
         }
@@ -288,19 +302,92 @@ class _WebVideoPageState extends State<WebVideoPage>
   @override
   void didPushNext() {
     _visible = false;
-    _syncLifecycle();
+    _suspendRoute();
   }
 
   @override
   void didPopNext() {
     _visible = true;
-    _syncLifecycle();
+    unawaited(PlatformBridge.applyVideoFullscreen(_fullscreen));
+    unawaited(_load());
   }
 
   @override
   void didPop() {
     _visible = false;
-    _syncLifecycle();
+    _suspendRoute();
+  }
+
+  void _suspendRoute() {
+    _loadRequest?.cancel('web video route covered');
+    _generation++;
+    _resetAccess();
+    final controller = _controller;
+    final session = _keepAlive;
+    final environment = _environment;
+    final profile = _profileDirectory;
+    final id = controller?.getViewId();
+    _controller = null;
+    _keepAlive = null;
+    _environment = null;
+    _profileDirectory = null;
+    _policy = null;
+    _ready = false;
+    final previous = _routeClosing;
+    _routeClosing = () async {
+      await previous;
+      try {
+        final value = await controller
+            ?.evaluateJavascript(
+              source: '''
+          (() => { function read(w) {
+            try {
+              const v = w.document.querySelector('video,audio');
+              if (v) { const s = {position: v.currentTime, paused: v.paused}; v.pause(); return s; }
+              for (let i = 0; i < w.frames.length; i++) { const s = read(w.frames[i]); if (s) return s; }
+            } catch (_) {} return null;
+          } return read(window); })();
+        ''',
+            )
+            .timeout(const Duration(seconds: 2));
+        if (value is Map) _routePlayback = value.cast<String, dynamic>();
+      } catch (_) {
+        // 跨域或原站自定义播放器不能读取位置时，仍必须释放网页会话。
+      } finally {
+        await _release(session, id, environment, profile);
+      }
+    }();
+    PendingDisposals.instance.add(_routeClosing);
+    PlaybackRelease.track(_routeClosing);
+    if (mounted) setState(() {});
+  }
+
+  Future<void> _restoreRoutePlayback(InAppWebViewController controller) async {
+    final state = _routePlayback;
+    if (state == null || !_visible || !identical(controller, _controller)) {
+      return;
+    }
+    try {
+      final restored = await controller.evaluateJavascript(
+        source:
+            '''
+        (() => { const state = ${jsonEncode(state)};
+          function restore(w) { try {
+            const v = w.document.querySelector('video,audio');
+            if (v) {
+              const apply = () => { v.currentTime = state.position; if (state.paused) v.pause(); else v.play().catch(() => {}); };
+              if (v.readyState) apply(); else v.addEventListener('loadedmetadata', apply, {once: true});
+              return true;
+            }
+            for (let i = 0; i < w.frames.length; i++) if (restore(w.frames[i])) return true;
+          } catch (_) {} return false; } return restore(window);
+        })();
+      ''',
+      );
+      if (restored == true && identical(state, _routePlayback)) {
+        _routePlayback = null;
+      }
+    } catch (_) {}
   }
 
   void _syncLifecycle() {
@@ -366,6 +453,7 @@ class _WebVideoPageState extends State<WebVideoPage>
 
   @override
   void dispose() {
+    _loadRequest?.cancel('web video page closed');
     Nav.routeObserver.unsubscribe(this);
     _generation++;
     _resetAccess();
@@ -373,9 +461,9 @@ class _WebVideoPageState extends State<WebVideoPage>
     AppLock.instance.removeListener(_lockChanged);
     final session = _keepAlive;
     final id = _controller?.getViewId();
-    PendingDisposals.instance.add(
-      _release(session, id, _environment, _profileDirectory),
-    );
+    final closing = _release(session, id, _environment, _profileDirectory);
+    PendingDisposals.instance.add(closing);
+    PlaybackRelease.track(closing);
     unawaited(PlatformBridge.applyVideoFullscreen(false));
     super.dispose();
   }
@@ -500,6 +588,7 @@ class _WebVideoPageState extends State<WebVideoPage>
                   onLoadStop: (c, url) {
                     if (_active(c, session)) {
                       _syncLifecycle();
+                      unawaited(_restoreRoutePlayback(c));
                       _checkAccess(c, session);
                     }
                   },

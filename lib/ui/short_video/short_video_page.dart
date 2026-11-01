@@ -71,6 +71,7 @@ class _ShortVideoPageState extends State<ShortVideoPage>
   Timer? _saveTimer;
   StreamSubscription<String>? _authentication;
   WorkItem? _visible;
+  ({String uid, Duration position})? _routePosition;
   ModalRoute<dynamic>? _route;
   Future<void> _systemUiUpdates = Future.value();
   bool _foreground = true,
@@ -105,11 +106,25 @@ class _ShortVideoPageState extends State<ShortVideoPage>
     WidgetsBinding.instance.addObserver(this);
     AppLock.instance.addListener(_sync);
     _playback = ShortVideoPlayback(
-      (item, cancel) => ShortVideoPlayer.open(
-        item,
-        cancel,
-        refresh: _retrySources.remove(item.uid),
-      ),
+      (item, cancel) async {
+        final player = await ShortVideoPlayer.open(
+          item,
+          cancel,
+          refresh: _retrySources.remove(item.uid),
+        );
+        try {
+          final resume = _routePosition;
+          if (!cancel.isCancelled &&
+              resume?.uid == item.uid &&
+              player is ShortVideoPlayer) {
+            await player.controller.seekTo(resume!.position);
+          }
+          return player;
+        } catch (_) {
+          await player.close();
+          rethrow;
+        }
+      },
       preloadCount: AppSettings.instance.shortVideoPreloadCount,
       retainedCount: AppSettings.instance.shortVideoRetainedCount,
     )..addListener(_changed);
@@ -293,6 +308,13 @@ class _ShortVideoPageState extends State<ShortVideoPage>
   void didPushNext() {
     _covered = true;
     _save();
+    final player = _player(_visible);
+    if (player != null && _visible != null) {
+      _routePosition = (
+        uid: _visible!.uid,
+        position: player.controller.value.position,
+      );
+    }
     _sync();
   }
 
@@ -341,6 +363,7 @@ class _ShortVideoPageState extends State<ShortVideoPage>
   }
 
   void _sync() {
+    unawaited(_playback.setSuspended(_covered));
     final enabled =
         _visible != null &&
         _foreground &&

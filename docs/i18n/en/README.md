@@ -62,7 +62,7 @@ Search hides blocked content by default. Use the eye icon to show it temporarily
 
 Site browsing defaults to cards. Use the switch beside the feed tabs for a detailed list with authors, tags and other available information next to each cover; the adjacent funnel shows or hides preview content. Eye and funnel switches briefly show their new state at the bottom. The player has an episode button at the top right, with speed and quality on the bottom bar or in More on narrow screens and with large text.
 
-Image search history keeps the latest 20 search images for loading and searching again, individual deletion, or clearing. Incognito mode does not record images. History is stored locally without encryption and is excluded from app backups. The player provides a series shortcut. Played media is temporarily cached locally and cleared when playback closes; cache capacity is limited, so older content may need to reload.
+Image search history keeps the latest 20 search images for loading and searching again, individual deletion, or clearing. Incognito mode does not record images. History is stored locally without encryption and is excluded from app backups. Series and related works are available below the player. Opening another full page releases media resources from the previous page; returning reloads playback and restores progress where possible. Played media is temporarily cached locally and cleared when playback closes; cache capacity is limited, so older content may need to reload.
 
 Creator community sites offer album or short video mode when supported. Use the button at the bottom right of a short video to hide or restore its information.
 

@@ -73,7 +73,7 @@
       "ru": {"Pixiv Cookie 格式无效":"Некорректный формат Cookie Pixiv","Pixiv 作品编号无效":"Некорректный ID произведения Pixiv","Pixiv 动图暂不支持，请在站点查看":"Анимации Pixiv пока не поддерживаются. Смотрите их на сайте","Pixiv 筛选参数无效":"Некорректные параметры фильтра Pixiv","Pixiv 请求失败，请检查网络后重试":"Запрос Pixiv не удался. Проверьте сеть и повторите","Pixiv 账号":"Аккаунт Pixiv","Pixiv 返回的数据无效，请稍后重试":"Pixiv вернул некорректные данные. Повторите позже","作品类型":"Тип произведения","内容分级":"Возрастной рейтинг","匹配方式":"Режим совпадения","插画":"Иллюстрация","插画与漫画社区，支持个性化推荐、排行、搜索和多页原图阅读":"Сообщество иллюстраций и манги: рекомендации, рейтинги, поиск и многостраничные оригиналы","标签完全匹配":"Точное совпадение тега","标签部分匹配":"Частичное совпадение тега","标题与简介":"Название и описание","每日":"Ежедневно","站点默认":"По умолчанию на сайте","粘贴 Pixiv 的 PHPSESSID 值":"Вставьте значение PHPSESSID Pixiv","请登录 Pixiv；Cookie 可能已过期，R-18 内容还需在站点开启显示权限":"Войдите в Pixiv. Возможно, Cookie истёк; для R-18 также разрешите показ на сайте","输入关键词或标签，可筛选漫画、插画与 R-18 内容":"Введите слова или теги; фильтруйте мангу, иллюстрации и контент R-18","默认作品类型":"Тип произведений по умолчанию","登录可获得个性化推荐、点赞与收藏；R-18 内容需开启显示权限。Cookie 仅保存在本机。":"Войдите для персональных рекомендаций, отметок «Нравится» и закладок. Включите показ R-18 в настройках. Cookie хранятся только на устройстве.","作者其他作品":"Другие работы автора","原站不支持取消点赞":"Сайт не поддерживает отмену отметки «Нравится»"},
       "ar": {"Pixiv Cookie 格式无效":"تنسيق Cookie الخاص بـ Pixiv غير صالح","Pixiv 作品编号无效":"معرّف عمل Pixiv غير صالح","Pixiv 动图暂不支持，请在站点查看":"رسوم Pixiv المتحركة غير مدعومة حالياً. شاهدها في الموقع","Pixiv 筛选参数无效":"معلمات تصفية Pixiv غير صالحة","Pixiv 请求失败，请检查网络后重试":"فشل طلب Pixiv. تحقّق من الشبكة وحاول مجدداً","Pixiv 账号":"حساب Pixiv","Pixiv 返回的数据无效，请稍后重试":"أعاد Pixiv بيانات غير صالحة. حاول لاحقاً","作品类型":"نوع العمل","内容分级":"تصنيف المحتوى","匹配方式":"طريقة المطابقة","插画":"رسوم","插画与漫画社区，支持个性化推荐、排行、搜索和多页原图阅读":"مجتمع للرسوم والمانغا مع توصيات شخصية وترتيب وبحث وقراءة الصور الأصلية متعددة الصفحات","标签完全匹配":"مطابقة تامة للوسم","标签部分匹配":"مطابقة جزئية للوسم","标题与简介":"العنوان والوصف","每日":"يومي","站点默认":"الإعداد الافتراضي للموقع","粘贴 Pixiv 的 PHPSESSID 值":"الصق قيمة PHPSESSID من Pixiv","请登录 Pixiv；Cookie 可能已过期，R-18 内容还需在站点开启显示权限":"سجّل الدخول إلى Pixiv. قد تكون صلاحية Cookie انتهت؛ يجب أيضاً تفعيل عرض R-18 في الموقع","输入关键词或标签，可筛选漫画、插画与 R-18 内容":"أدخل كلمات أو وسوماً؛ صفِّ النتائج حسب المانغا والرسوم ومحتوى R-18","默认作品类型":"نوع العمل الافتراضي","登录可获得个性化推荐、点赞与收藏；R-18 内容需开启显示权限。Cookie 仅保存在本机。":"سجّل الدخول للتوصيات الشخصية والإعجابات والمفضلة. فعّل عرض R-18 في إعدادات الحساب. تُحفظ ملفات Cookie على الجهاز فقط.","作者其他作品":"أعمال أخرى للمبدع","原站不支持取消点赞":"لا يدعم الموقع إلغاء الإعجاب"},
     },
-    key: 'pixiv', name: 'Pixiv', version: '0.0.14', minAppVersion: '0.9.2', type: 'comic', category: 'other',
+    key: 'pixiv', name: 'Pixiv', version: '0.0.15', minAppVersion: '0.9.2', type: 'comic', category: 'other',
     color: '#0096FA', icon: 'https://www.pixiv.net/favicon.ico',
     description: '插画与漫画社区，支持个性化推荐、排行、搜索和多页原图阅读',
     homepage: HOME, domains: ['pixiv.net'], language: 'multi',
@@ -192,12 +192,31 @@
       const rating = choice(options.rating, ['all', 'r18'], 'all');
       if (key === 'recommended') {
         if (rating === 'r18') await this.requireLogin();
-        // Discovery returns a fresh recommendation batch on every request, including anonymously.
-        const data = await this.request('/ajax/illust/discovery', { mode: rating, limit: 60, lang: 'zh' }, { auth: rating === 'r18' });
-        if (!data || !Array.isArray(data.illusts)) throw Park.error('PARSE', PARSE);
-        const hasNext = data.illusts.length > 0;
-        return { items: data.illusts.filter(w => isVisible(w, content)).map(w => toItem(w)), page,
-          hasNext, cursor: hasNext ? String(page) : null };
+        // Discovery is a batch sampler, not a page-number endpoint. Carry seen IDs so
+        // cached/repeated batches cannot masquerade as endlessly advancing pages.
+        let previous = [];
+        if (req.cursor) {
+          try { previous = JSON.parse(String(req.cursor)); } catch (_) { throw Park.error('CONFIG', PARSE); }
+          if (!Array.isArray(previous) || previous.length > 2048 || previous.some(id => !/^[1-9]\d{0,11}$/.test(String(id)))) throw Park.error('CONFIG', PARSE);
+        } else if (page > 1) throw Park.error('CONFIG', PARSE);
+        const seen = new Set(previous.map(String)), items = [];
+        let hasNext = true;
+        // Filtering mixed discovery batches can leave very few manga. Fill a useful
+        // page with bounded sequential reads, stopping immediately on no progress.
+        for (let batch = 0; batch < 3 && items.length < 18; batch++) {
+          const data = await this.request('/ajax/illust/discovery', { mode: rating, limit: 60, lang: 'zh' }, { auth: rating === 'r18' });
+          if (!data || !Array.isArray(data.illusts)) throw Park.error('PARSE', PARSE);
+          let added = 0;
+          for (const work of data.illusts) {
+            const id = String(work?.id || '');
+            if (!/^[1-9]\d{0,11}$/.test(id) || seen.has(id)) continue;
+            seen.add(id);
+            added++;
+            if (isVisible(work, content)) items.push(toItem(work));
+          }
+          if (!added || seen.size >= 2048) { hasNext = false; break; }
+        }
+        return { items, page, hasNext, cursor: hasNext ? JSON.stringify([...seen]) : null };
       }
       if (key !== 'ranking') throw Park.error('CONFIG', 'Pixiv 筛选参数无效');
       if (rating === 'r18') await this.requireLogin();

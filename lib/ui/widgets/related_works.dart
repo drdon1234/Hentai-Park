@@ -53,6 +53,7 @@ class _RelatedWorksState extends State<RelatedWorks> {
   void _interactionChanged() {
     final change = sourceInteractionChanges.value;
     if (!_dynamic ||
+        ModalRoute.isCurrentOf(context) == false ||
         change == null ||
         change.item.source != widget.detail.source ||
         change.value != true) {

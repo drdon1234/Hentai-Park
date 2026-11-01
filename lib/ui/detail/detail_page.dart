@@ -58,7 +58,7 @@ class DetailPage extends StatefulWidget {
   State<DetailPage> createState() => _DetailPageState();
 }
 
-class _DetailPageState extends State<DetailPage> {
+class _DetailPageState extends State<DetailPage> with RouteAware {
   WorkDetail? _detail;
   Object? _error;
   bool _reversed = false;
@@ -67,6 +67,8 @@ class _DetailPageState extends State<DetailPage> {
   final _resourcesKey = GlobalKey();
   CancelToken? _request;
   StreamSubscription<String>? _authentication;
+  PageRoute<dynamic>? _route;
+  bool _refreshOnReturn = false;
   SourceManager get _manager => widget.sourceManager ?? SourceManager.instance;
 
   SourceManifest? get _m => _manager.manifest(widget.source);
@@ -89,9 +91,38 @@ class _DetailPageState extends State<DetailPage> {
     _load();
     _authentication = _manager.authenticationChanges.listen((source) {
       if (source != widget.source || !mounted) return;
+      if (_route?.isCurrent == false) {
+        _refreshOnReturn = true;
+        return;
+      }
       _detail = null;
       unawaited(_load());
     });
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final route = ModalRoute.of(context);
+    if (identical(route, _route)) return;
+    Nav.routeObserver.unsubscribe(this);
+    _route = route is PageRoute<dynamic> ? route : null;
+    if (_route case final route?) Nav.routeObserver.subscribe(this, route);
+  }
+
+  @override
+  void didPushNext() {
+    if (!_refreshing) return;
+    _request?.cancel('detail route covered');
+    _refreshing = false;
+    _refreshOnReturn = true;
+  }
+
+  @override
+  void didPopNext() {
+    if (!_refreshOnReturn) return;
+    _refreshOnReturn = false;
+    unawaited(_load());
   }
 
   /// Keeps the stored chapter list (and with it read state and library updates) in step with the site.
@@ -189,6 +220,7 @@ class _DetailPageState extends State<DetailPage> {
 
   @override
   void dispose() {
+    Nav.routeObserver.unsubscribe(this);
     _authentication?.cancel();
     _request?.cancel('detail page closed');
     super.dispose();
@@ -438,7 +470,7 @@ class _DetailPageState extends State<DetailPage> {
         horizontal: Gap.page,
         vertical: Gap.m,
       ),
-      trailing: TextButton(
+      trailing: ToolbarButton(
         onPressed: () => setState(() => _reversed = !_reversed),
         child: SelectionContainer.disabled(
           child: Text(_reversed ? tr('倒序') : tr('正序')),

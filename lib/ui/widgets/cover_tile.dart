@@ -306,10 +306,11 @@ Future<void> showWorkActions(
             ListTile(
               leading: SourceAvatar(item.source, size: 32),
               title: SelectionContainer.disabled(
-                child: Text(
-                  item.title,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
+                child: ContentTranslation(
+                  text: item.title,
+                  source: item.source,
+                  builder: (value) =>
+                      Text(value, maxLines: 2, overflow: TextOverflow.ellipsis),
                 ),
               ),
               subtitle: SelectionContainer.disabled(

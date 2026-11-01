@@ -21,6 +21,8 @@ extension _DramaEpisodes on VideoSession {
 
   void _preloadNext() {
     if (!_active ||
+        !visible ||
+        _suspended ||
         !scrollEpisodes ||
         !VideoSession.supported ||
         _preloaded != null ||

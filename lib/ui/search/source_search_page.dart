@@ -577,7 +577,7 @@ class _Intro extends StatelessWidget {
           SectionHeader(
             tr('最近搜索'),
             padding: const EdgeInsets.fromLTRB(0, Gap.xl, 0, Gap.s),
-            trailing: TextButton(
+            trailing: ToolbarButton(
               onPressed: () =>
                   AppSettings.instance.clearSearchHistory(scope: scope),
               child: SelectionContainer.disabled(child: Text(tr('清空'))),

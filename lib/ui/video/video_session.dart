@@ -17,6 +17,7 @@ import '../../library/downloads.dart';
 import '../../library/library.dart';
 import '../../video/hls_playback.dart';
 import '../../video/playback.dart';
+import '../../video/playback_release.dart';
 import 'player_initialization.dart';
 import 'prepared_video.dart';
 
@@ -81,6 +82,12 @@ class VideoSession extends ChangeNotifier {
 
   /// A retained player must stay silent while another route covers its page.
   bool visible = true;
+  bool _suspended = false;
+  int _routeGeneration = 0;
+  Duration? _suspendedPosition;
+  bool? _suspendedWants;
+  Future<void> _routeClosing = Future.value();
+  Future<void>? _playerOpening;
   bool _wantsPlayback = true;
   bool _completed = false;
   bool _disposed = false;
@@ -166,6 +173,55 @@ class VideoSession extends ChangeNotifier {
         });
   }
 
+  /// 页面栈只保留播放状态，隐藏页面不占用解码器、预加载和媒体连接。
+  Future<void> setRouteVisible(bool value) async {
+    if (!_active || (visible == value && _suspended == !value)) return;
+    visible = value;
+    final generation = ++_routeGeneration;
+    if (!value) {
+      _suspended = true;
+      savePosition();
+      _suspendedPosition = controller?.value.position ?? _suspendedPosition;
+      _suspendedWants = _wantsPlayback;
+      _volume = controller?.value.volume ?? _volume;
+      _request++;
+      _sourceRequest?.cancel('video route covered');
+      _openingRequest?.cancel('video route covered');
+      _savePos?.cancel();
+      _retentionTimer?.cancel();
+      _retentionTimer = null;
+      final old = controller;
+      final media = _media;
+      final preparing = _preparingMedia;
+      old?.removeListener(_onTick);
+      controller = null;
+      _media = null;
+      _preparingMedia = null;
+      _routeClosing = Future.wait([
+        _routeClosing,
+        _playerOpening ?? Future<void>.value(),
+        _playbackUpdates
+            .then((_) => old?.dispose())
+            .whenComplete(() async => media?.close()),
+        preparing?.close() ?? Future<void>.value(),
+        _discardPreload(),
+        _releaseRetainedEpisodes(),
+      ]).then((_) {});
+      PendingDisposals.instance.add(_routeClosing);
+      PlaybackRelease.track(_routeClosing);
+      _update();
+      return _routeClosing;
+    }
+    await _routeClosing;
+    if (!_active || !visible || generation != _routeGeneration) return;
+    _suspended = false;
+    await selectEpisode(episode);
+    if (_active && generation == _routeGeneration) {
+      _suspendedPosition = null;
+      _suspendedWants = null;
+    }
+  }
+
   void togglePlayback() {
     _wantsPlayback = !(controller?.value.isPlaying ?? false);
     unawaited(syncPlayback());
@@ -197,11 +253,12 @@ class VideoSession extends ChangeNotifier {
     offline = false;
     error = null;
     _completed = false;
-    _wantsPlayback = true;
+    _wantsPlayback = _suspendedWants ?? true;
   }
 
   Future<void> selectEpisode(Chapter next) {
     return PendingDisposals.instance.watch(() async {
+      if (!_active || _suspended || !visible) return;
       if (scrollEpisodes && supported) return _selectDramaEpisode(next);
       final refreshSources = error != null && next.id == episode.id;
       savePosition();
@@ -220,6 +277,7 @@ class VideoSession extends ChangeNotifier {
         await (old?.dispose() ?? Future<void>.value()).whenComplete(
           () async => oldMedia?.close(),
         );
+        await PlaybackRelease.ready;
         if (!_active || request.isCancelled || openRequest != _request) return;
         final local = await DownloadManager.instance.localVideo(
           work.source,
@@ -323,6 +381,8 @@ class VideoSession extends ChangeNotifier {
     }
     Playback? media;
     try {
+      await PlaybackRelease.ready;
+      if (!_active || !visible || request != _request) return;
       var url = Uri.parse(s.url);
       final manifest = SourceManager.instance.manifest(work.source);
       if (manifest == null) throw SourceError('CONFIG', '视频站点未加载');
@@ -373,7 +433,7 @@ class VideoSession extends ChangeNotifier {
     Playback? media,
     int? requestId,
   }) {
-    return PendingDisposals.instance.watch(() async {
+    final pending = PendingDisposals.instance.watch(() async {
       final request = requestId ?? ++_request;
       if (!_active || request != _request) {
         await c.dispose();
@@ -443,6 +503,18 @@ class VideoSession extends ChangeNotifier {
       if (!isLive) _startSaving();
       onStarted?.call();
     }());
+    _playerOpening = pending;
+    void clear() {
+      if (identical(_playerOpening, pending)) _playerOpening = null;
+    }
+
+    unawaited(
+      pending.then<void>(
+        (_) => clear(),
+        onError: (Object _, StackTrace _) => clear(),
+      ),
+    );
+    return pending;
   }
 
   void _startSaving() {
@@ -453,6 +525,9 @@ class VideoSession extends ChangeNotifier {
   }
 
   Duration? _resumePoint(Duration total) {
+    if (_suspendedPosition case final position?) {
+      return position < total ? position : Duration.zero;
+    }
     final state = Library.instance.chapterState(work.uid, episode.id);
     final history = Library.instance.historyOf(work.uid);
     final pos =
@@ -507,26 +582,32 @@ class VideoSession extends ChangeNotifier {
     _sourceRequest?.cancel('video page closed');
     _openingRequest?.cancel('video page closed');
     _retentionTimer?.cancel();
-    PendingDisposals.instance.add(_discardPreload());
-    PendingDisposals.instance.add(_releaseRetainedEpisodes());
+    final preloadClosing = Future.wait([
+      _discardPreload(),
+      _releaseRetainedEpisodes(),
+    ]).then((_) {});
+    PendingDisposals.instance.add(preloadClosing);
+    PlaybackRelease.track(preloadClosing);
+    if (_playerOpening case final opening?) PlaybackRelease.track(opening);
     controller?.removeListener(_onTick);
     playerUpdates.dispose();
     final media = _media;
-    PendingDisposals.instance.add(
-      (controller?.dispose() ?? Future<void>.value()).whenComplete(() async {
-        try {
-          await media?.close();
-        } finally {
-          if (localFile case final file?) {
-            SubscriptionCache.instance.release(file);
-            await ImageStore.instance.trim();
+    final closing = (controller?.dispose() ?? Future<void>.value())
+        .whenComplete(() async {
+          try {
+            await media?.close();
+          } finally {
+            if (localFile case final file?) {
+              SubscriptionCache.instance.release(file);
+              await ImageStore.instance.trim();
+            }
           }
-        }
-      }),
-    );
-    PendingDisposals.instance.add(
-      _preparingMedia?.close() ?? Future<void>.value(),
-    );
+        });
+    PendingDisposals.instance.add(closing);
+    PlaybackRelease.track(closing);
+    final preparing = _preparingMedia?.close() ?? Future<void>.value();
+    PendingDisposals.instance.add(preparing);
+    PlaybackRelease.track(preparing);
     super.dispose();
   }
 }

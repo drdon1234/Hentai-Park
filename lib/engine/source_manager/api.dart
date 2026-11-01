@@ -657,8 +657,11 @@ mixin _SourceApi on _SourceRegistry {
     String key,
     String id, {
     String? episodeId,
-  }) async => (await _call(key, 'webVideo', [id, episodeId ?? '_']) as Map)
-      .cast<String, dynamic>();
+    CancelToken? cancelToken,
+  }) async => (await _call(key, 'webVideo', [
+    id,
+    episodeId ?? '_',
+  ], cancelToken: cancelToken) as Map).cast<String, dynamic>();
 
   Future<List<VideoSource>> videos(
     String key,

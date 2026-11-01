@@ -16,10 +16,24 @@ class _OnVisibleState extends State<OnVisible> {
   final Set<ScrollPosition> _positions = {};
   bool? _visible;
   bool _scheduled = false;
+  bool _routeCurrent = true;
+  Animation<double>? _routeAnimation;
+  Animation<double>? _coverAnimation;
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    _routeCurrent = ModalRoute.isCurrentOf(context) ?? true;
+    final route = ModalRoute.of(context);
+    if (_routeAnimation != route?.animation ||
+        _coverAnimation != route?.secondaryAnimation) {
+      _routeAnimation?.removeListener(_schedule);
+      _coverAnimation?.removeListener(_schedule);
+      _routeAnimation = route?.animation;
+      _coverAnimation = route?.secondaryAnimation;
+      _routeAnimation?.addListener(_schedule);
+      _coverAnimation?.addListener(_schedule);
+    }
     _listen();
     _schedule();
   }
@@ -55,6 +69,13 @@ class _OnVisibleState extends State<OnVisible> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _scheduled = false;
       if (!mounted) return;
+      if (!_routeCurrent) {
+        if (_visible != false) {
+          _visible = false;
+          widget.onVisible(false);
+        }
+        return;
+      }
       _listen();
       final box = context.findRenderObject();
       if (box is! RenderBox || !box.attached || !box.hasSize) return;
@@ -102,6 +123,8 @@ class _OnVisibleState extends State<OnVisible> {
 
   @override
   void dispose() {
+    _routeAnimation?.removeListener(_schedule);
+    _coverAnimation?.removeListener(_schedule);
     for (final position in _positions) {
       position.removeListener(_schedule);
     }

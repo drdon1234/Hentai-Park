@@ -3,6 +3,7 @@ import 'dart:collection';
 
 import 'package:flutter/foundation.dart';
 
+import 'models.dart';
 import 'translator.dart';
 
 typedef ContentTranslate = Future<String?> Function(
@@ -30,6 +31,9 @@ class ContentTranslationQueue extends ChangeNotifier {
   final _queue = Queue<_Job>();
   var _running = 0;
   var _pumpScheduled = false;
+  DateTime? _rateLimitedUntil;
+  bool get _rateLimited => _rateLimitedUntil?.isAfter(DateTime.now()) ?? false;
+  bool get rateLimited => _rateLimited;
   bool get hasCapacity => _queue.length < _maxQueued;
 
   /// 可见页面恢复时读取已有译文，不占用网络队列容量。
@@ -73,6 +77,7 @@ class ContentTranslationQueue extends ChangeNotifier {
     final key = (text: text, target: target, engine: engine);
     final translated = cached(text, locale, engine);
     if (translated != null) return Future.value(translated);
+    if (_rateLimited) return Future.value();
     final existing = _pending[key];
     if (existing != null) {
       existing.waiters.add(waiter);
@@ -93,7 +98,7 @@ class ContentTranslationQueue extends ChangeNotifier {
     scheduleMicrotask(() {
       _pumpScheduled = false;
       _discardInactive();
-      while (_running < _maxConcurrent && _queue.isNotEmpty) {
+      while (!_rateLimited && _running < _maxConcurrent && _queue.isNotEmpty) {
         final job = _queue.removeFirst();
         _running++;
         unawaited(_run(job));
@@ -127,7 +132,15 @@ class ContentTranslationQueue extends ChangeNotifier {
         _cache[job.key] = translated;
         if (_cache.length > _maxCached) _cache.remove(_cache.keys.first);
       }
-    } catch (_) {
+    } catch (error) {
+      if (error is SourceError && error.status == 429) {
+        _rateLimitedUntil = DateTime.now().add(const Duration(seconds: 30));
+        for (final pending in _queue.toList()) {
+          _pending.remove(pending.key);
+          _complete(pending, null);
+        }
+        _queue.clear();
+      }
       // 失败不缓存；显式重试可再次请求，日志不包含待翻译内容。
     } finally {
       _running--;

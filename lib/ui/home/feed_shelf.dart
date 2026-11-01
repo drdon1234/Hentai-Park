@@ -329,56 +329,18 @@ class _FeedShelfState extends State<FeedShelf>
                         ),
                       ),
                     if (widget.onMore != null && widget.moreLabel != null)
-                      TextButton(
-                        style: TextButton.styleFrom(
-                          foregroundColor: context.colors.primary,
-                          minimumSize: const Size(48, 40),
-                          padding: EdgeInsets.zero,
-                        ),
+                      ToolbarButton(
                         onPressed: widget.onMore,
-                        child: SelectionContainer.disabled(
-                          child: widget.moreChevron
-                              ? Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Text(
-                                      widget.moreLabel!,
-                                      style: context.text.labelLarge?.copyWith(
-                                        color: context.colors.primary,
-                                        fontWeight: FontWeight.w400,
-                                      ),
-                                    ),
-                                    const SizedBox(width: Gap.xs),
-                                    const SizedBox(
-                                      width: 40,
-                                      height: 40,
-                                      child: Center(
-                                        child: Icon(
-                                          Icons.chevron_right_rounded,
-                                          size: 18,
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                )
-                              : Text(
-                                  widget.moreLabel!,
-                                  style: context.text.labelLarge?.copyWith(
-                                    color: context.colors.primary,
-                                    fontWeight: FontWeight.w400,
-                                  ),
-                                ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(widget.moreLabel!),
+                            if (widget.moreChevron) ...[
+                              const SizedBox(width: Gap.xs),
+                              const Icon(Icons.chevron_right_rounded, size: 18),
+                            ],
+                          ],
                         ),
-                      )
-                    else if (widget.onMore != null)
-                      IconButton(
-                        tooltip: tr('全部'),
-                        style: IconButton.styleFrom(
-                          minimumSize: const Size(40, 40),
-                          padding: EdgeInsets.zero,
-                        ),
-                        icon: const Icon(Icons.chevron_right_rounded),
-                        onPressed: widget.onMore,
                       ),
                   ],
                 ),

@@ -10,6 +10,7 @@ import '../../engine/source_manager.dart';
 import '../kit/adaptive_sheet.dart';
 import '../kit/reminder_prompt.dart';
 import '../kit/selection_menu.dart';
+import '../theme.dart';
 import 'on_visible.dart';
 
 final _translationSettings = AppSettings.instance.watch(const {
@@ -30,6 +31,17 @@ class _TranslationPageState extends State<TranslationPage> {
   bool original = false;
   bool manual = false;
   int retry = 0;
+  int _reportedFailure = -1;
+
+  void reportFailure(
+    BuildContext target,
+    int attempt, {
+    bool rateLimited = false,
+  }) {
+    if (_reportedFailure == attempt || !target.mounted) return;
+    _reportedFailure = attempt;
+    target.toast(tr(rateLimited ? '请求过于频繁或额度已用尽，请稍后重试' : '翻译失败，请重试'));
+  }
 
   void change(VoidCallback action) => setState(action);
 
@@ -184,6 +196,16 @@ class _ContentTranslationState extends State<ContentTranslation> {
         )
       : null;
 
+  String? _cached(_TranslationScope scope) {
+    final parts = widget.text.length <= ContentTranslationQueue.maxTextLength
+        ? [widget.text]
+        : translationChunks(widget.text);
+    final values = [
+      for (final part in parts) _queue.cached(part, scope.locale, scope.engine),
+    ];
+    return values.any((value) => value == null) ? null : values.join();
+  }
+
   Future<void> _request() async {
     var scope = _TranslationScope.of(context);
     if (widget.tag &&
@@ -214,7 +236,7 @@ class _ContentTranslationState extends State<ContentTranslation> {
         !_routeCurrent) {
       return;
     }
-    final cached = _queue.cached(widget.text, scope.locale, scope.engine);
+    final cached = _cached(scope);
     if (cached != null) {
       setState(() {
         _translated = cached;
@@ -228,18 +250,36 @@ class _ContentTranslationState extends State<ContentTranslation> {
     }
     _busy = true;
     final generation = _generation;
-    final result = await _queue.request(
-      widget.text,
-      scope.locale,
-      scope.engine,
-      isActive: () =>
-          mounted &&
-          _visible &&
-          generation == _generation &&
-          _dictionary(_TranslationScope.of(context)) == null &&
-          _routeCurrent,
-    );
+    bool active() =>
+        mounted &&
+        _visible &&
+        generation == _generation &&
+        _dictionary(_TranslationScope.of(context)) == null &&
+        _routeCurrent;
+    final parts = widget.text.length <= ContentTranslationQueue.maxTextLength
+        ? [widget.text]
+        : translationChunks(widget.text);
+    final values = <String>[];
+    for (final part in parts) {
+      if (!active()) break;
+      final value = await _queue.request(
+        part,
+        scope.locale,
+        scope.engine,
+        isActive: active,
+      );
+      if (value == null) break;
+      values.add(value);
+    }
+    final result = values.length == parts.length ? values.join() : null;
     if (!mounted || generation != _generation) return;
+    if (result == null && active()) {
+      scope.owner.reportFailure(
+        context,
+        scope.retry,
+        rateLimited: _queue.rateLimited,
+      );
+    }
     setState(() {
       _busy = false;
       // Network failures wait for explicit retry. Hidden/cancelled views may re-enter.
@@ -265,9 +305,7 @@ class _ContentTranslationState extends State<ContentTranslation> {
         ? widget.text
         : _dictionary(scope) ??
               _translated ??
-              (scope.enabled
-                  ? _queue.cached(widget.text, scope.locale, scope.engine)
-                  : null) ??
+              (scope.enabled ? _cached(scope) : null) ??
               widget.text;
     return OnVisible(
       onVisible: (visible) {
