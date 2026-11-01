@@ -507,7 +507,8 @@ class _SourceSearchPageState extends State<SourceSearchPage> {
                           ),
                         )
                       : ParkRefresh(
-                          onRefresh: _controller.refresh,
+                          onRefresh: () =>
+                              _controller.refresh(retainItems: true),
                           child: CustomScrollView(
                             physics: const AlwaysScrollableScrollPhysics(),
                             keyboardDismissBehavior:

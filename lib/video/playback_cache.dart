@@ -88,8 +88,6 @@ class ByteRangeCache {
   int? length;
   String? contentType;
 
-  int get cachedBytes => _bytes;
-
   /// [offset] 所在缓存区间的结束位置；未缓存时返回 [offset]。
   int cachedEnd(int offset) {
     for (final (start, end) in _ranges) {

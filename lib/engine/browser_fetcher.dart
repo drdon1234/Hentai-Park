@@ -37,10 +37,6 @@ class BrowserFetcher {
     destroy: (page) => page.retire(),
     onDisposeError: (error, _) => AppLog.error(error, event: 'browser_dispose'),
   );
-  int get retainedPages => _pages.retained;
-  int get activePages => _pages.active;
-  int get closingPages => _pages.closing;
-  int get waitingRequests => _pages.waiting;
 
   Future<void> dispose() async {
     await _pages.close();

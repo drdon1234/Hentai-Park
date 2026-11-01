@@ -48,7 +48,7 @@ class _SourceLinkSearchPageState extends State<SourceLinkSearchPage> {
   Widget build(BuildContext context) => Scaffold(
     appBar: AppBar(title: Text(tr('原站链接搜索'))),
     body: RefreshIndicator(
-      onRefresh: controller.refresh,
+      onRefresh: () => controller.refresh(retainItems: true),
       child: CustomScrollView(
         slivers: [
           PagedSliverGrid(

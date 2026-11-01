@@ -23,7 +23,4 @@ abstract final class PlatformCapabilities {
 
   static bool get photoLibrary =>
       !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
-
-  static bool get androidBackground =>
-      !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
 }

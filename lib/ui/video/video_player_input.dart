@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../core/app_lock.dart';
+
 /// Keyboard and pointer focus stay local to the player and its active route.
 class VideoPlayerInput extends StatefulWidget {
   const VideoPlayerInput({
@@ -32,7 +34,8 @@ class VideoPlayerInput extends StatefulWidget {
   State<VideoPlayerInput> createState() => _VideoPlayerInputState();
 }
 
-class _VideoPlayerInputState extends State<VideoPlayerInput> {
+class _VideoPlayerInputState extends State<VideoPlayerInput>
+    with WidgetsBindingObserver {
   final _focus = FocusNode();
   Timer? _rightHoldTimer;
   bool _rightDown = false;
@@ -40,8 +43,39 @@ class _VideoPlayerInputState extends State<VideoPlayerInput> {
 
   static const _rightHoldDelay = Duration(milliseconds: 300);
 
+  bool get _inputAvailable {
+    final lifecycle = WidgetsBinding.instance.lifecycleState;
+    return (lifecycle == null || lifecycle == AppLifecycleState.resumed) &&
+        !AppLock.instance.locked &&
+        (ModalRoute.isCurrentOf(context) ?? true);
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    AppLock.instance.addListener(_lockChanged);
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!_inputAvailable) _endRightHold(seek: false);
+  }
+
+  void _lockChanged() {
+    if (AppLock.instance.locked) _endRightHold(seek: false);
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state != AppLifecycleState.resumed) _endRightHold(seek: false);
+  }
+
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    AppLock.instance.removeListener(_lockChanged);
     _rightHoldTimer?.cancel();
     if (_temporarySpeed) widget.onTemporarySpeedEnd();
     _focus.dispose();
@@ -53,13 +87,18 @@ class _VideoPlayerInputState extends State<VideoPlayerInput> {
     _rightDown = true;
     _rightHoldTimer?.cancel();
     _rightHoldTimer = Timer(_rightHoldDelay, () {
-      if (!_rightDown || _temporarySpeed) return;
+      if (!_rightDown ||
+          _temporarySpeed ||
+          !_inputAvailable ||
+          !_focus.hasFocus) {
+        return;
+      }
       _temporarySpeed = true;
       widget.onTemporarySpeedStart();
     });
   }
 
-  void _endRightHold() {
+  void _endRightHold({bool seek = true}) {
     if (!_rightDown) return;
     _rightDown = false;
     _rightHoldTimer?.cancel();
@@ -67,14 +106,14 @@ class _VideoPlayerInputState extends State<VideoPlayerInput> {
     if (_temporarySpeed) {
       _temporarySpeed = false;
       widget.onTemporarySpeedEnd();
-    } else {
+    } else if (seek) {
       widget.onSeek(10);
     }
   }
 
   KeyEventResult _onKey(FocusNode node, KeyEvent event) {
-    if (ModalRoute.of(context)?.isCurrent == false) {
-      if (_rightDown) _endRightHold();
+    if (!_inputAvailable) {
+      _endRightHold(seek: false);
       return KeyEventResult.ignored;
     }
     if (event is KeyUpEvent &&
@@ -125,6 +164,9 @@ class _VideoPlayerInputState extends State<VideoPlayerInput> {
   Widget build(BuildContext context) => Focus(
     focusNode: _focus,
     autofocus: true,
+    onFocusChange: (focused) {
+      if (!focused) _endRightHold(seek: false);
+    },
     onKeyEvent: _onKey,
     child: Listener(
       behavior: HitTestBehavior.translucent,

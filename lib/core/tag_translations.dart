@@ -219,8 +219,6 @@ class TagTranslations extends ChangeNotifier {
     ..._remote.values.map((p) => p.source),
     ..._installed.map((key) => key.split('/').first),
   }.toList()..sort();
-  List<String> get bundledSources =>
-      _bundled.map((k) => k.split('/').first).toSet().toList()..sort();
   bool bundled(String source, String locale) =>
       _bundled.contains('$source/$locale');
   bool remoteAvailable(String source, String locale) =>

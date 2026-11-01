@@ -155,7 +155,8 @@ class _ReverseSearchPageState extends State<ReverseSearchPage> {
   Future<void> _crop() async {
     final original = _original;
     if (original == null) return;
-    setState(_invalidate);
+    // 裁剪取消或图片准备失败时，旧图和已有识别结果仍然有效。
+    setState(() => _generation++);
     final generation = _generation;
     final crop = await Nav.push<Rect>(
       context,
@@ -169,7 +170,12 @@ class _ReverseSearchPageState extends State<ReverseSearchPage> {
     setState(() => _preparing = true);
     try {
       final image = await SearchImage.prepare(original.bytes, crop: crop);
-      if (mounted && generation == _generation) setState(() => _image = image);
+      if (mounted && generation == _generation) {
+        setState(() {
+          _invalidate();
+          _image = image;
+        });
+      }
     } catch (_) {
       if (mounted && generation == _generation) context.toast(tr('图片无法处理'));
     } finally {

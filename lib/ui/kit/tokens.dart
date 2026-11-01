@@ -73,5 +73,4 @@ abstract final class Scrims {
 
   /// Translucent fill for controls floating over video and pages.
   static const Color control = Color(0x33FFFFFF);
-  static const Color controlPressed = Color(0x4DFFFFFF);
 }

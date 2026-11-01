@@ -1,27 +1,19 @@
 ## 中文
 
-### 改进
-- 聚合搜索逐步显示各站关键词联想，并均衡展示不同站点的候选，减少慢站带来的等待。
-
 ### 修复
-- 修复提交搜索或输入框失去焦点后仍可能出现旧联想的问题，输入空格确认关键词后不再继续替换该词。
-- 修复筛选加载与重置冲突时旧条件重新出现的问题；条件恢复完成前暂不可应用筛选。
-- 修复切换排序维度后其他下拉框仍显示旧排序的问题。
-- 修复超大筛选数值可输入但应用后被拒绝的问题，输入时即可提示无效范围。
-
-### 插件更新
-- nhentai 0.0.12、Danbooru 0.0.8、yande.re 0.0.10、Gelbooru 0.0.10：最低应用版本调整为 0.10.5，避免旧版安装无法完整显示分数或收藏数筛选的插件。
+- 修复隐藏页面和列表预缓存区域仍可能自动加载下一页的问题。
+- 修复多语言搜索无法继续翻页、空页后提前结束及重复分页链接的问题。
+- 修复刷新失败后已有浏览和搜索结果被清空的问题，失败时保留内容供继续阅读和重试。
+- 修复播放器失去焦点、被弹层遮挡、切到后台或锁定后临时倍速未恢复，以及取消按键时误跳进度的问题。
+- 修复取消图片反搜裁剪或图片处理失败后已有识别结果被清空的问题。
+- 修复打开已完成漫画时可能联网补充缺失内容的问题，已完成下载保持离线读取，未完成漫画仍可边下边读。
 
 ## English
 
-### Improvements
-- Cross-site search displays keyword suggestions as each site responds and balances candidates across sites, reducing delays caused by slow sites.
-
 ### Fixes
-- Fixed stale suggestions appearing after submitting a search or leaving the input. A trailing space now confirms the keyword instead of continuing to replace it.
-- Fixed old filter conditions reappearing when loading conflicted with a reset. Filters cannot be applied until their conditions have finished restoring.
-- Fixed other dropdowns retaining stale sort selections after switching the sorting dimension.
-- Fixed oversized filter values being accepted in the input but rejected when applied. Invalid values are now flagged while editing.
-
-### Plugin updates
-- nhentai 0.0.12, Danbooru 0.0.8, yande.re 0.0.10 and Gelbooru 0.0.10: require app version 0.10.5 or later so older apps cannot install plugins whose score or favorite count filters they cannot fully display.
+- Fixed hidden pages and prefetched list items triggering automatic pagination.
+- Fixed multilingual search failing to load subsequent pages, stopping after empty pages, and accepting repeated pagination links.
+- Fixed failed refreshes clearing existing browsing and search results. Content now remains available for reading and retrying.
+- Fixed temporary playback speed persisting after focus loss, an overlay, backgrounding, or app locking, and unintended seeking when a key press is cancelled.
+- Fixed existing image search results being cleared when cropping is cancelled or image processing fails.
+- Fixed completed comic downloads fetching missing content online. Completed downloads remain offline, while unfinished comics still support reading during downloads.

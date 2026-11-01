@@ -462,10 +462,10 @@ class _FeedTabState extends State<FeedTab> with AutomaticKeepAliveClientMixin {
         onCached: page == 1 ? _controller.cachedReceiver() : null,
       );
 
-  Future<void> _refresh() async {
+  Future<void> _refresh({bool retainItems = false}) async {
     _forceRefresh = true;
     try {
-      await _controller.refresh();
+      await _controller.refresh(retainItems: retainItems);
     } finally {
       _forceRefresh = false;
     }
@@ -502,7 +502,7 @@ class _FeedTabState extends State<FeedTab> with AutomaticKeepAliveClientMixin {
         common: Map.of(_common),
       ),
       child: ParkRefresh(
-        onRefresh: _refresh,
+        onRefresh: () => _refresh(retainItems: true),
         child: CustomScrollView(
           physics: const AlwaysScrollableScrollPhysics(),
           key: PageStorageKey('scroll-${widget.source.key}-${widget.feed.key}'),

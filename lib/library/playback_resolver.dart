@@ -48,11 +48,7 @@ abstract final class PlaybackResolver {
         lib.chaptersCached(item.uid) ?? await lib.loadChapters(item.uid);
     final task = DownloadManager.instance.task(item.uid);
     final allowIncomplete =
-        !downloadedOnly &&
-        task != null &&
-        !task.isVideo &&
-        !task.isNovel &&
-        item.source != localSource;
+        !downloadedOnly && task != null && task.canReadWhileDownloading;
     // 下载记录本身就是本地目录，不能依赖插件、首页或另外一份章节缓存。
     if (task != null &&
         (downloadedOnly ||

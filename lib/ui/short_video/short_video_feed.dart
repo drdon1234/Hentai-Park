@@ -109,7 +109,6 @@ class ShortVideoFeed extends ChangeNotifier {
     }
   }
 
-  bool get refreshingCached => _preview && loading;
   void Function(WorkPage) cachedReceiver() {
     final request = generation;
     return (cached) {

@@ -94,16 +94,6 @@ class AppLocalizations {
 
   void setLocale(Locale value) => locale = resolveLocale(value);
 
-  /// Used by tests to detect incomplete resources before shipping.
-  Map<String, Set<String>> get missingTranslations {
-    final base = _messages['zh-Hans']?.keys.toSet() ?? <String>{};
-    return {
-      for (final key in languageNames.keys)
-        if (base.difference(_messages[key]?.keys.toSet() ?? {}).isNotEmpty)
-          key: base.difference(_messages[key]?.keys.toSet() ?? {}),
-    };
-  }
-
   static final _placeholder = RegExp(r'\{([A-Za-z][A-Za-z0-9_]*)\}');
 
   /// Whether [message] is an application message key (fixed source text).

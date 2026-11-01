@@ -183,6 +183,7 @@ class MultiKeywordSearch {
   final Map<String, Object?> filters;
   final Map<String, Object?> common;
   final _state = <String, ({int page, String? cursor, bool hasNext})>{};
+  final _cursors = <String, Set<String>>{};
   int _page = 0;
 
   MultiKeywordSearch fork() =>
@@ -194,6 +195,9 @@ class MultiKeywordSearch {
           sourceManager: _sources,
         )
         .._state.addAll(_state)
+        .._cursors.addAll({
+          for (final entry in _cursors.entries) entry.key: Set.of(entry.value),
+        })
         .._page = _page;
 
   Future<WorkPage> next() async {
@@ -214,10 +218,16 @@ class MultiKeywordSearch {
             common: common,
             cancelToken: cancelToken,
           );
+          if (cancelToken?.cancelError case final error?) throw error;
+          if (r.hasNext &&
+              r.cursor != null &&
+              !(_cursors[k] ??= {}).add(r.cursor!)) {
+            throw SourceError('PARSE', '分页链接无效');
+          }
           _state[k] = (
             page: r.page > prev ? r.page : prev + 1,
             cursor: r.cursor,
-            hasNext: r.hasNext && r.items.isNotEmpty,
+            hasNext: r.hasNext && (r.items.isNotEmpty || r.cursor != null),
           );
           return r.items;
         } catch (e) {
@@ -244,7 +254,7 @@ class MultiKeywordSearch {
       items: merged,
       page: ++_page,
       hasNext: more,
-      cursor: more ? 'multi' : null,
+      cursor: more ? 'multi:$_page' : null,
     );
   }
 }

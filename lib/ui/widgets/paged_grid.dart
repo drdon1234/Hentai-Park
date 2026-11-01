@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 
 import '../../core/localization.dart';
@@ -102,7 +100,7 @@ class PagedController extends ChangeNotifier {
 
   /// 先显示可打开的缓存作品，不推进实时请求的页号或游标。
   void showCached(WorkPage cached) {
-    if (_disposed || page != 0 || !loading) return;
+    if (_disposed || page != 0 || !loading || _preview) return;
     _preview = true;
     _loaded
       ..clear()
@@ -115,16 +113,20 @@ class PagedController extends ChangeNotifier {
   int _generation = 0;
   bool _disposed = false;
 
-  Future<void> refresh() async {
+  Future<void> refresh({bool retainItems = false}) async {
+    if (_disposed) return;
+    final retain = retainItems && (_loaded.isNotEmpty || _rawSections != null);
     _generation++;
-    items.clear();
     _seen.clear();
     _cursors.clear();
-    _loaded.clear();
-    _rawSections = null;
-    hidden = 0;
+    if (!retain) {
+      items.clear();
+      _loaded.clear();
+      _rawSections = null;
+      hidden = 0;
+      sections = null;
+    }
     _emptyPages = 0;
-    sections = null;
     error = null;
     hasNext = true;
     page = 0;
@@ -132,7 +134,8 @@ class PagedController extends ChangeNotifier {
     totalPages = null;
     total = null;
     staleCache = false;
-    _preview = false;
+    // 同一查询的刷新保留当前内容；成功后整体替换，失败时仍可阅读和重试。
+    _preview = retain;
     loading = false;
     _notify();
     await loadMore();
@@ -199,15 +202,8 @@ class PagedController extends ChangeNotifier {
         hasNext = false;
         throw SourceError('PARSE', '分页链接无效');
       }
-      // A page where everything was filtered would leave nothing to scroll to; fetch on (a few times).
+      // 可见视图最多自动跳过三页；控制器不在隐藏期间自行发起后续请求。
       _emptyPages = shown == 0 ? _emptyPages + 1 : 0;
-      if (shown == 0 && hasNext && _emptyPages <= 3) {
-        unawaited(
-          Future.microtask(() {
-            if (gen == _generation) loadMore();
-          }),
-        );
-      }
     } catch (e) {
       if (gen != _generation) return;
       if (_preview && HomeCache.invalidatesContent(e)) {
@@ -293,22 +289,36 @@ class PagedSliverGrid extends StatelessWidget {
           if (!c.loading && c.hasNext) {
             return SliverFillRemaining(
               hasScrollBody: false,
-              child: EmptyState(
-                icon: Icons.filter_alt_outlined,
-                title: tr('这里什么都没有'),
-                message: c.hidden > 0
-                    ? tr('（已隐藏 {value0} 部）', {'value0': c.hidden})
-                    : null,
-                actions: [
-                  FilledButton.tonalIcon(
-                    onPressed: () {
-                      c._emptyPages = 0;
-                      c.loadMore();
-                    },
-                    icon: const Icon(Icons.expand_more_rounded),
-                    label: SelectionContainer.disabled(child: Text(tr('继续加载'))),
-                  ),
-                ],
+              child: OnVisible(
+                key: ValueKey(c.page),
+                onVisible: (visible) {
+                  if (visible &&
+                      !c.loading &&
+                      c.hasNext &&
+                      c.error == null &&
+                      c._emptyPages <= 3) {
+                    c.loadMore();
+                  }
+                },
+                child: EmptyState(
+                  icon: Icons.filter_alt_outlined,
+                  title: tr('这里什么都没有'),
+                  message: c.hidden > 0
+                      ? tr('（已隐藏 {value0} 部）', {'value0': c.hidden})
+                      : null,
+                  actions: [
+                    FilledButton.tonalIcon(
+                      onPressed: () {
+                        c._emptyPages = 0;
+                        c.loadMore();
+                      },
+                      icon: const Icon(Icons.expand_more_rounded),
+                      label: SelectionContainer.disabled(
+                        child: Text(tr('继续加载')),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             );
           }
@@ -322,14 +332,6 @@ class PagedSliverGrid extends StatelessWidget {
               SliverList.builder(
                 itemCount: c.items.length,
                 itemBuilder: (context, i) {
-                  if (i >= c.items.length - 3 &&
-                      c.hasNext &&
-                      !c.loading &&
-                      c.error == null) {
-                    WidgetsBinding.instance.addPostFrameCallback(
-                      (_) => c.loadMore(),
-                    );
-                  }
                   final item = c.items[i];
                   return item.json['presentation'] == 'post'
                       ? SubscriptionPostCard(
@@ -370,14 +372,6 @@ class PagedSliverGrid extends StatelessWidget {
                       mainAxisExtent: cardWidth / aspect + extraText,
                     ),
                     delegate: SliverChildBuilderDelegate((context, i) {
-                      if (i >= c.items.length - cols * 3 &&
-                          c.hasNext &&
-                          !c.loading &&
-                          c.error == null) {
-                        WidgetsBinding.instance.addPostFrameCallback(
-                          (_) => c.loadMore(),
-                        );
-                      }
                       return CoverTile(
                         item: c.items[i],
                         aspect: aspect,
@@ -445,7 +439,27 @@ class PagedSliverGrid extends StatelessWidget {
         ),
       );
     }
-    return const SizedBox(height: 40);
+    if (c._emptyPages > 3) {
+      return Center(
+        child: OutlinedButton(
+          onPressed: () {
+            c._emptyPages = 0;
+            c.loadMore();
+          },
+          child: Text(tr('继续加载')),
+        ),
+      );
+    }
+    // 构建和预缓存不代表可见；仅在当前路由实际滚到列表末端时翻页。
+    return OnVisible(
+      key: ValueKey(c.page),
+      onVisible: (visible) {
+        if (visible && !c.loading && c.hasNext && c.error == null) {
+          c.loadMore();
+        }
+      },
+      child: const SizedBox(height: 40),
+    );
   }
 
   Widget _skeletonGrid(BuildContext context) {

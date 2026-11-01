@@ -424,7 +424,7 @@ class _DownloadsPageState extends State<DownloadsPage> {
     context,
     task.item,
     null,
-    downloadedOnly: task.isVideo || task.isNovel,
+    downloadedOnly: !task.canReadWhileDownloading,
   );
 }
 
@@ -500,7 +500,8 @@ class _TaskTile extends StatelessWidget {
           context,
           t.item,
           chapter.id,
-          downloadedOnly: t.isVideo || t.isNovel,
+          downloadedOnly:
+              !t.canReadWhileDownloading || t.completed.contains(chapter.id),
         ),
       ),
     );
@@ -513,7 +514,7 @@ class _TaskTile extends StatelessWidget {
       context,
       t.item,
       null,
-      downloadedOnly: t.isVideo || t.isNovel,
+      downloadedOnly: !t.canReadWhileDownloading,
     );
   }
 

@@ -35,7 +35,6 @@ class DanmakuScheduler {
   double get speed => (_width / 6).clamp(60, 140);
   double get rowHeight => _rowHeight;
   List<DanmakuFlight> get active => List.unmodifiable(_active);
-  int get pendingCount => _pending.length;
   bool get hasWork => _active.isNotEmpty || _pending.isNotEmpty;
   bool contains(String id) => _seen.contains(id);
 

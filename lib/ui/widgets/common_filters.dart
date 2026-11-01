@@ -3,23 +3,9 @@ import 'package:flutter/services.dart';
 
 import '../../core/localization.dart';
 import '../../core/models.dart';
-import '../kit/adaptive_sheet.dart';
 import '../kit/selection_menu.dart';
 import '../kit/tokens.dart';
 import '../theme.dart';
-
-Future<Map<String, Object?>?> showCommonFilterSheet({
-  required BuildContext context,
-  required List<CommonFilterDef> definitions,
-  required Map<String, Object?> initialValues,
-}) => showAdaptiveSheet<Map<String, Object?>>(
-  context: context,
-  isScrollControlled: true,
-  builder: (_) => _CommonFilterSheet(
-    definitions: definitions,
-    initialValues: initialValues,
-  ),
-);
 
 class CommonFilterFields extends StatefulWidget {
   const CommonFilterFields({
@@ -284,90 +270,4 @@ class _CommonFilterFieldsState extends State<CommonFilterFields> {
       ),
     );
   }
-}
-
-class _CommonFilterSheet extends StatefulWidget {
-  const _CommonFilterSheet({
-    required this.definitions,
-    required this.initialValues,
-  });
-
-  final List<CommonFilterDef> definitions;
-  final Map<String, Object?> initialValues;
-
-  @override
-  State<_CommonFilterSheet> createState() => _CommonFilterSheetState();
-}
-
-class _CommonFilterSheetState extends State<_CommonFilterSheet> {
-  late Map<String, Object?> _values = widget.initialValues;
-  bool _valid = true;
-  int _revision = 0;
-
-  @override
-  Widget build(BuildContext context) => DraggableScrollableSheet(
-    expand: false,
-    initialChildSize: 0.56,
-    maxChildSize: 0.92,
-    builder: (context, scroll) => Column(
-      children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(Gap.page, 0, Gap.page, Gap.s),
-          child: Row(
-            children: [
-              Text(tr('筛选与排序'), style: context.text.titleLarge),
-              const Spacer(),
-              TextButton.icon(
-                onPressed: () => setState(() {
-                  _values = const {};
-                  _valid = true;
-                  _revision++;
-                }),
-                icon: const Icon(Icons.restart_alt_rounded),
-                label: Text(tr('重置')),
-              ),
-            ],
-          ),
-        ),
-        Expanded(
-          child: ListView(
-            controller: scroll,
-            padding: const EdgeInsets.symmetric(horizontal: Gap.page),
-            children: [
-              CommonFilterFields(
-                key: ValueKey(_revision),
-                definitions: widget.definitions,
-                initialValues: _values,
-                onChanged: (values, valid) => setState(() {
-                  _values = values;
-                  _valid = valid;
-                }),
-              ),
-              const SizedBox(height: Gap.l),
-            ],
-          ),
-        ),
-        SafeArea(
-          top: false,
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(
-              Gap.page,
-              Gap.s,
-              Gap.page,
-              Gap.m,
-            ),
-            child: SizedBox(
-              width: double.infinity,
-              child: FilledButton(
-                onPressed: _valid
-                    ? () => Navigator.pop(context, _values)
-                    : null,
-                child: Text(tr('应用筛选')),
-              ),
-            ),
-          ),
-        ),
-      ],
-    ),
-  );
 }

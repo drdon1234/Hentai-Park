@@ -12,6 +12,7 @@ import '../settings/source_manage_page.dart';
 import '../widgets/common.dart';
 import '../widgets/content_translation.dart';
 import '../widgets/error_view.dart';
+import '../widgets/on_visible.dart';
 import '../widgets/option_bar.dart';
 import '../widgets/source_network_hint.dart';
 import 'ranking_controller.dart';
@@ -484,14 +485,6 @@ class _RankingListState extends State<_RankingList> {
           SliverList.builder(
             itemCount: widget.controller.items.length,
             itemBuilder: (context, index) {
-              if (index >= widget.controller.items.length - 3 &&
-                  widget.controller.hasNext &&
-                  !widget.controller.loading &&
-                  widget.controller.error == null) {
-                WidgetsBinding.instance.addPostFrameCallback(
-                  (_) => widget.controller.loadMore(),
-                );
-              }
               final item = widget.controller.items[index];
               return RankingRow(
                 key: ValueKey(item.uid),
@@ -531,10 +524,20 @@ class _RankingListState extends State<_RankingList> {
               !widget.controller.loading &&
               widget.controller.error == null)
             SliverToBoxAdapter(
-              child: Center(
-                child: OutlinedButton(
-                  onPressed: widget.controller.loadMore,
-                  child: SelectionContainer.disabled(child: Text(tr('加载更多'))),
+              child: OnVisible(
+                onVisible: (visible) {
+                  if (visible &&
+                      widget.controller.hasNext &&
+                      !widget.controller.loading &&
+                      widget.controller.error == null) {
+                    widget.controller.loadMore();
+                  }
+                },
+                child: Center(
+                  child: OutlinedButton(
+                    onPressed: widget.controller.loadMore,
+                    child: SelectionContainer.disabled(child: Text(tr('加载更多'))),
+                  ),
                 ),
               ),
             ),

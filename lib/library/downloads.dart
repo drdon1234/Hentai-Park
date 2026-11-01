@@ -89,6 +89,12 @@ class DownloadTask {
   String get uid => item.uid;
   bool get isVideo => media == DownloadMedia.video;
   bool get isNovel => media == DownloadMedia.novel;
+
+  /// 只有未完成的在线漫画允许缺页联网；已完成下载始终按本地内容打开。
+  bool get canReadWhileDownloading =>
+      media == DownloadMedia.comic &&
+      item.source != localSource &&
+      status != DownloadStatus.done;
   double get progress => total > 0 ? done / total : 0;
 
   Map<String, dynamic> toJson() => {

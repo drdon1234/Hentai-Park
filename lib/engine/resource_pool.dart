@@ -24,12 +24,6 @@ class ResourcePool<K, V> {
   final _closing = <Future<void>>{};
   Completer<void> _changed = Completer<void>();
   bool _closed = false;
-  int _waiting = 0;
-
-  int get retained => _entries.length;
-  int get closing => _closing.length;
-  int get waiting => _waiting;
-  int get active => _entries.values.where((entry) => entry.users > 0).length;
   Iterable<K> get keys => _entries.keys;
   Iterable<V> get values => _entries.values.map((entry) => entry.value);
 
@@ -67,12 +61,7 @@ class ResourcePool<K, V> {
         await _retire(idle.key, idle.value);
         continue;
       }
-      _waiting++;
-      try {
-        await awaitCancelled(_changed.future, cancelToken);
-      } finally {
-        _waiting--;
-      }
+      await awaitCancelled(_changed.future, cancelToken);
     }
     entry.idle?.cancel();
     entry.users++;
