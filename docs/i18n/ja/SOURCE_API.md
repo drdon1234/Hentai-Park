@@ -64,6 +64,8 @@ node <local-validation-script>
 
 ## manifest のフィールド
 
+プレビュー専用作品を返すプラグインだけが `previewContent: true` を宣言します。ランタイムは `capabilities.previewContent` として公開し、サイト・検索・購読画面のプレビューフィルターを制御します。通常のサムネイルは対象外です。未宣言の場合、ボタンは表示しません。
+
 ```js
 Park.register({
   key: 'mysite',              // 一意で変更不可。[A-Za-z0-9_-] のみ、1〜100 文字、_app は不可

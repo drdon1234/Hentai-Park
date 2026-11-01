@@ -64,6 +64,8 @@ node <local-validation-script>
 
 ## manifest 字段
 
+`previewContent: true` 仅供会返回仅预览作品的插件声明；运行时将其导出为 `capabilities.previewContent`，站点、搜索与订阅页据此显示预览过滤按钮。普通缩略图不算仅预览作品，未声明时不显示该按钮。
+
 ```js
 Park.register({
   key: 'mysite',              // 唯一标识，安装后不可更改；只允许 [A-Za-z0-9_-]，1–100 位，不能是 _app

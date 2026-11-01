@@ -316,7 +316,7 @@ class _HistoryPageState extends State<HistoryPage> {
   Widget _grid(BuildContext context, List<HistoryEntry> list) {
     return SliverLayoutBuilder(
       builder: (context, constraints) {
-        final cols = gridColumnsFor(constraints.crossAxisExtent);
+        final cols = gridColumnsFor(context, constraints.crossAxisExtent);
         final width =
             (constraints.crossAxisExtent - Gap.page * 2 - (cols - 1) * Gap.m) /
             cols;
@@ -327,7 +327,14 @@ class _HistoryPageState extends State<HistoryPage> {
               crossAxisCount: cols,
               crossAxisSpacing: Gap.m,
               mainAxisSpacing: Gap.l,
-              mainAxisExtent: width / 0.7 + cardTextExtent(context),
+              mainAxisExtent:
+                  width / 0.7 +
+                  cardTextExtent(
+                    context,
+                    items: list.map((h) => h.item),
+                    showSource: true,
+                    width: width,
+                  ),
             ),
             delegate: SliverChildBuilderDelegate((context, index) {
               final h = list[index];
@@ -405,6 +412,7 @@ class _HistoryPageState extends State<HistoryPage> {
                           ),
                         ),
                       ),
+                      WorkMetadataSummary(item: h.item),
                       const SizedBox(height: 6),
                       Row(
                         children: [

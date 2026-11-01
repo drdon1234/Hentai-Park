@@ -138,6 +138,7 @@ class _LibraryPageState extends State<LibraryPage> {
   Widget build(BuildContext context) {
     return ListenableBuilder(
       listenable: Listenable.merge([
+        AppSettings.instance.watch(const {'libraryDisplay'}),
         for (final c in LibraryCollection.values)
           if (c != LibraryCollection.history) Library.instance.collection(c),
       ]),
@@ -484,7 +485,7 @@ class _LibraryTab extends StatelessWidget {
   Widget _grid(BuildContext context, List<FavoriteEntry> entries) {
     return SliverLayoutBuilder(
       builder: (context, c) {
-        final cols = gridColumnsFor(c.crossAxisExtent);
+        final cols = gridColumnsFor(context, c.crossAxisExtent);
         final width =
             (c.crossAxisExtent - Gap.page * 2 - (cols - 1) * Gap.m) / cols;
         return SliverPadding(
@@ -494,7 +495,14 @@ class _LibraryTab extends StatelessWidget {
               crossAxisCount: cols,
               crossAxisSpacing: Gap.m,
               mainAxisSpacing: Gap.l,
-              mainAxisExtent: width / 0.7 + cardTextExtent(context),
+              mainAxisExtent:
+                  width / 0.7 +
+                  cardTextExtent(
+                    context,
+                    items: entries.map((f) => f.item),
+                    showSource: AppSettings.instance.badgeSource,
+                    width: width,
+                  ),
             ),
             delegate: SliverChildBuilderDelegate((context, i) {
               final f = entries[i];
@@ -557,6 +565,7 @@ class _LibraryTab extends StatelessWidget {
                           fontWeight: FontWeight.w500,
                         ),
                       ),
+                      WorkMetadataSummary(item: f.item),
                       const SizedBox(height: Gap.xs),
                       Row(
                         children: [

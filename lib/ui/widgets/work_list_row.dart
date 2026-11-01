@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
-import '../../core/localization.dart';
 import '../../core/models.dart';
+import '../../engine/source_manager.dart';
 import '../nav.dart';
 import '../short_video/short_video_sequence.dart';
 import '../theme.dart';
@@ -18,16 +18,10 @@ class WorkListRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final metadata = [
-      if (item.category.isNotEmpty) item.category,
-      if (item.language.isNotEmpty) item.language,
-      if (item.pages != null && item.pages! > 0)
-        tr('{value0} 页', {'value0': item.pages}),
+      ...workMetadata(item),
       if (item.duration.isNotEmpty) item.duration,
-      if (item.rating != null)
-        tr('评分 {rating}', {'rating': item.rating!.toStringAsFixed(1)}),
-      if (item.views != null)
-        tr('{count} 次观看', {'count': formatCount(item.views)}),
-      if (item.badge.isNotEmpty) item.badge,
+      if (item.badge.isNotEmpty && !workMetadata(item).contains(item.badge))
+        item.badge,
     ];
     return SelectionContainer.disabled(
       child: ActionInkWell(
@@ -77,7 +71,11 @@ class WorkListRow extends StatelessWidget {
                         style: context.text.bodySmall,
                       ),
                     ],
-                    if (item.subtitle.isNotEmpty &&
+                    if (SourceManager.instance
+                                .manifest(item.source)
+                                ?.category !=
+                            SourceCategory.doujin &&
+                        item.subtitle.isNotEmpty &&
                         item.subtitle != item.title) ...[
                       const SizedBox(height: Gap.xs),
                       ContentTranslation(
@@ -100,27 +98,6 @@ class WorkListRow extends StatelessWidget {
                         style: context.text.labelSmall?.copyWith(
                           color: context.colors.onSurfaceVariant,
                         ),
-                      ),
-                    ],
-                    if (item.tags.isNotEmpty) ...[
-                      const SizedBox(height: Gap.xs),
-                      Wrap(
-                        spacing: Gap.s,
-                        runSpacing: Gap.xs,
-                        children: [
-                          for (final tag in item.tags.take(8))
-                            ContentTranslation(
-                              text: tag,
-                              source: item.source,
-                              tag: true,
-                              builder: (text) => Text(
-                                text,
-                                style: context.text.labelSmall?.copyWith(
-                                  color: context.colors.onSurfaceVariant,
-                                ),
-                              ),
-                            ),
-                        ],
                       ),
                     ],
                     if (item.uploaded.isNotEmpty) ...[

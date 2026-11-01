@@ -7,11 +7,13 @@ import '../theme.dart';
 class ResultVisibility extends StatelessWidget {
   const ResultVisibility({
     super.key,
+    this.supportsPreviews = false,
     this.showBlocked,
     this.onBlocked,
     required this.hidePreviews,
     required this.onPreviews,
   });
+  final bool supportsPreviews;
   final bool? showBlocked;
   final ValueChanged<bool>? onBlocked;
   final bool hidePreviews;
@@ -32,16 +34,17 @@ class ResultVisibility extends StatelessWidget {
             context.toast(tr(showBlocked! ? '已隐藏屏蔽内容' : '已显示屏蔽内容'));
           },
         ),
-      IconButton(
-        isSelected: hidePreviews,
-        tooltip: tr(hidePreviews ? '显示仅供预览的作品' : '隐藏仅供预览的作品'),
-        icon: const Icon(Icons.preview_outlined),
-        selectedIcon: const Icon(Icons.preview_rounded),
-        onPressed: () {
-          onPreviews(!hidePreviews);
-          context.toast(tr(hidePreviews ? '已显示仅供预览的作品' : '已隐藏仅供预览的作品'));
-        },
-      ),
+      if (supportsPreviews)
+        IconButton(
+          isSelected: hidePreviews,
+          tooltip: tr(hidePreviews ? '显示仅供预览的作品' : '隐藏仅供预览的作品'),
+          icon: const Icon(Icons.preview_outlined),
+          selectedIcon: const Icon(Icons.preview_rounded),
+          onPressed: () {
+            onPreviews(!hidePreviews);
+            context.toast(tr(hidePreviews ? '已显示仅供预览的作品' : '已隐藏仅供预览的作品'));
+          },
+        ),
     ],
   );
 }

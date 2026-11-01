@@ -283,7 +283,7 @@ class _TargetResultsState extends State<_TargetResults> {
           final a = gridAspectFor(items, m.kind);
           final w = a > 1 ? 200.0 : 118.0;
           body = SizedBox(
-            height: w / a + cardTextExtent(context),
+            height: w / a + cardTextExtent(context, items: items, width: w),
             child: PageGutter(
               child: ListView.separated(
                 scrollDirection: Axis.horizontal,

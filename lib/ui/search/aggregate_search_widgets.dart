@@ -336,7 +336,7 @@ class SourceResultsRow extends StatelessWidget {
               ],
             )
           : SizedBox(
-              height: w / a + cardTextExtent(context),
+              height: w / a + cardTextExtent(context, items: items, width: w),
               child: PageGutter(
                 child: ListView.separated(
                   scrollDirection: Axis.horizontal,

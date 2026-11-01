@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 /// Parses pasted login text into a source's account fields.
 ///
 /// Accepts the formats people actually paste:
@@ -12,17 +14,41 @@ Map<String, String> parsePastedCredentials(
 }) {
   final input = text.trim();
   if (input.isEmpty || fieldKeys.isEmpty) return {};
-  final keyed = _parseKeyed(input, fieldKeys);
+  try {
+    final data = jsonDecode(input);
+    final values = <String, String>{};
+    if (data is Map) {
+      for (final key in fieldKeys) {
+        if (data[key] case final Object value) {
+          if (value is String || value is num) values[key] = value.toString();
+        }
+      }
+    } else if (cookies && data is List) {
+      for (final cookie in data.whereType<Map>()) {
+        if (fieldKeys.contains(cookie['name']) && cookie['value'] is String) {
+          values[cookie['name'] as String] = cookie['value'] as String;
+        }
+      }
+    }
+    if (values.isNotEmpty) return values;
+  } on FormatException {
+    // 普通 Cookie 请求头和账号文本继续按其原始格式解析。
+  }
+  final keyed = _parseKeyed(input, fieldKeys, cookies: cookies);
   if (keyed.isNotEmpty || cookies) return keyed;
   return _parsePair(input, fieldKeys);
 }
 
 /// Finds every `key[:=]` occurrence; a value runs until a separator or the next known key.
-Map<String, String> _parseKeyed(String input, List<String> keys) {
+Map<String, String> _parseKeyed(
+  String input,
+  List<String> keys, {
+  required bool cookies,
+}) {
   final hits = <(int start, int valueStart, String key)>[];
   for (final key in keys) {
     final m = RegExp(
-      '${RegExp.escape(key)}\\s*[:=]\\s*',
+      '${RegExp.escape(key)}["\']?\\s*[:=：]\\s*["\']?',
       caseSensitive: false,
     ).firstMatch(input);
     if (m != null) hits.add((m.start, m.end, key));
@@ -32,9 +58,8 @@ Map<String, String> _parseKeyed(String input, List<String> keys) {
   for (var i = 0; i < hits.length; i++) {
     final end = i + 1 < hits.length ? hits[i + 1].$1 : input.length;
     final raw = input.substring(hits[i].$2, end);
-    final value = raw
-        .split(RegExp(r'[\s;,]'))
-        .firstWhere((s) => s.isNotEmpty, orElse: () => '')
+    final value = (cookies ? raw.split(RegExp(r'[\s;,]')).first : raw)
+        .replaceFirst(RegExp(r'[;,\s]+$'), '')
         .replaceAll(RegExp('^["\']|["\']\$'), '');
     if (value.isNotEmpty) out[hits[i].$3] = value;
   }

@@ -632,6 +632,7 @@
       searchCommonFilters: pick(def.searchCommonFilters || {}),
       searchHint: def.searchHint || '',
       capabilities: {
+        previewContent: def.previewContent === true,
         metadataSearch: typeof def.metadataSearch === 'function',
         metadataDetail: typeof def.metadataDetail === 'function',
         metadataMagnets: typeof def.metadataMagnets === 'function',

@@ -64,6 +64,8 @@ node <local-validation-script>
 
 ## Manifest fields
 
+Only plugins that return preview-only works declare `previewContent: true`. The runtime exports `capabilities.previewContent`; site, search and subscription pages use it to show preview filtering. Ordinary thumbnails do not count as preview-only works. The control is hidden when this declaration is absent.
+
 ```js
 Park.register({
   key: 'mysite',              // unique and permanent; only [A-Za-z0-9_-], 1–100 chars, not _app

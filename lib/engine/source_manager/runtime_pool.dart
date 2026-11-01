@@ -21,7 +21,7 @@ mixin _RuntimePool on _SourceRegistry {
         final hash = sha256Hex(code);
         final runtimeHash = await JsEngine.instance.runtimeHash();
         final cached = _manifestCache[s.key];
-        if (waitForInit) {
+        if (waitForInit && s.enabled) {
           final activation = _start(s, code, waitForInit: true);
           _activations[s.key] = activation;
           await activation;
@@ -43,6 +43,10 @@ mixin _RuntimePool on _SourceRegistry {
           }
           s.manifest = SourceManifest(info.manifest);
         }
+        SourceCompatibility.validate(
+          s.manifest!.json,
+          await SourceCompatibility.currentVersion(),
+        );
         _cacheManifest(s, hash: hash, runtime: runtimeHash);
         final account = cached is Map ? cached['account'] : null;
         if (s.account == null && account is Map) {
@@ -94,6 +98,10 @@ mixin _RuntimePool on _SourceRegistry {
     final state = await _loadState(s.key);
     final runtime = JsEngine.instance.runtime(s.key);
     final info = await runtime.loadScript(code);
+    SourceCompatibility.validate(
+      info.manifest,
+      await SourceCompatibility.currentVersion(),
+    );
     // Publish the installed script's verified declaration before its init
     // uses cookies; setup may wait for those browser operations to finish.
     final before = s.manifest?.json;

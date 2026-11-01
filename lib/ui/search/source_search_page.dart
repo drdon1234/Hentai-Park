@@ -406,6 +406,7 @@ class _SourceSearchPageState extends State<SourceSearchPage> {
                           ),
                         ),
                         ResultVisibility(
+                          supportsPreviews: _m.can('previewContent'),
                           showBlocked: _controller.showBlocked,
                           hidePreviews: _controller.hidePreviews,
                           onBlocked: (v) => setState(
@@ -832,18 +833,19 @@ class _FilterSheetState extends State<FilterSheet> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Padding(
-                              padding: const EdgeInsets.only(
-                                top: 14,
-                                bottom: 8,
-                              ),
-                              child: Text(
-                                f.label,
-                                style: context.text.titleSmall?.copyWith(
-                                  fontWeight: FontWeight.w600,
+                            if (!{'switch', 'text', 'number'}.contains(f.type))
+                              Padding(
+                                padding: const EdgeInsets.only(
+                                  top: 14,
+                                  bottom: 8,
+                                ),
+                                child: Text(
+                                  f.label,
+                                  style: context.text.titleSmall?.copyWith(
+                                    fontWeight: FontWeight.w600,
+                                  ),
                                 ),
                               ),
-                            ),
                             if (f.type == 'number')
                               TextFormField(
                                 key: ValueKey((_commonRevision, f.key)),
@@ -942,6 +944,8 @@ class _FilterSheetState extends State<FilterSheet> {
                                 icon: const Icon(Icons.refresh_rounded),
                                 label: Text(tr('加载失败，点击重试')),
                               ),
+                            if ({'text', 'number'}.contains(f.type))
+                              const SizedBox(height: Gap.m),
                           ],
                         ),
                       ),

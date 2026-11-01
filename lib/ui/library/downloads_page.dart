@@ -112,20 +112,6 @@ class _DownloadsPageState extends State<DownloadsPage> {
     final games = GameDownloadManager.instance;
     return Scaffold(
       appBar: PageHeader(title: tr('下载')),
-      floatingActionButton: ListenableBuilder(
-        listenable: Listenable.merge([dm, games, LiveRecordings.instance]),
-        builder: (context, _) =>
-            dm.tasks.isEmpty &&
-                games.tasks.isEmpty &&
-                dm.restoreFailures.isEmpty &&
-                LiveRecordings.instance.tasks.isEmpty
-            ? const SizedBox.shrink()
-            : FloatingActionButton.extended(
-                onPressed: _importing ? null : () => _import(context),
-                icon: const Icon(Icons.file_open_outlined),
-                label: SelectionContainer.disabled(child: Text(tr('导入本地漫画'))),
-              ),
-      ),
       body: FileDropRegion(
         enabled: !_importing,
         message: tr('松开以导入本地漫画'),
@@ -224,6 +210,24 @@ class _DownloadsPageState extends State<DownloadsPage> {
       final dm = DownloadManager.instance;
       final games = GameDownloadManager.instance;
       final grid = AppSettings.instance.downloadDisplay == 'grid';
+      final canPause =
+          [
+            ...dm.tasks.map((t) => t.status),
+            ...games.tasks.map((t) => t.status),
+          ].any(
+            (status) =>
+                status == DownloadStatus.running ||
+                status == DownloadStatus.queued,
+          );
+      final canResume =
+          [
+            ...dm.tasks.map((t) => t.status),
+            ...games.tasks.map((t) => t.status),
+          ].any(
+            (status) =>
+                status == DownloadStatus.paused ||
+                status == DownloadStatus.failed,
+          );
       final onlySpecialTasks =
           dm.tasks.isEmpty &&
           (games.tasks.isNotEmpty ||
@@ -245,7 +249,7 @@ class _DownloadsPageState extends State<DownloadsPage> {
             runSpacing: Gap.s,
             crossAxisAlignment: WrapCrossAlignment.center,
             children: [
-              ToolbarButton.icon(
+              IconButton(
                 onPressed: onlySpecialTasks
                     ? null
                     : () => AppSettings.instance.downloadDisplay = grid
@@ -254,43 +258,52 @@ class _DownloadsPageState extends State<DownloadsPage> {
                 icon: Icon(
                   grid ? Icons.view_list_rounded : Icons.grid_view_rounded,
                 ),
-                label: Text(displayLabel),
+                tooltip: displayLabel,
               ),
-              ToolbarButton.icon(
+              IconButton(
                 onPressed: () => Nav.push(context, const ExportsPage()),
                 icon: Icon(
                   ExportManager.instance.busy
                       ? Icons.downloading_rounded
                       : Icons.folder_open_outlined,
                 ),
-                label: Text(tr('导出文件')),
+                tooltip: tr('导出文件'),
+              ),
+              IconButton(
+                tooltip: tr('导入本地漫画'),
+                onPressed: _importing ? null : () => _import(context),
+                icon: const Icon(Icons.file_open_outlined),
               ),
               if (dm.tasks.isNotEmpty || games.tasks.isNotEmpty) ...[
-                ToolbarButton.icon(
-                  onPressed: () {
-                    dm.pauseAll();
-                    for (final task in games.tasks) {
-                      if (task.status == DownloadStatus.running ||
-                          task.status == DownloadStatus.queued) {
-                        games.cancel(task.key);
-                      }
-                    }
-                  },
+                IconButton(
+                  onPressed: !canPause
+                      ? null
+                      : () {
+                          dm.pauseAll();
+                          for (final task in games.tasks) {
+                            if (task.status == DownloadStatus.running ||
+                                task.status == DownloadStatus.queued) {
+                              games.cancel(task.key);
+                            }
+                          }
+                        },
                   icon: const Icon(Icons.pause_rounded),
-                  label: Text(tr('全部暂停')),
+                  tooltip: tr('全部暂停'),
                 ),
-                ToolbarButton.icon(
-                  onPressed: () {
-                    dm.resumeAll();
-                    for (final task in games.tasks) {
-                      if (task.status == DownloadStatus.paused ||
-                          task.status == DownloadStatus.failed) {
-                        games.retry(task.key);
-                      }
-                    }
-                  },
+                IconButton(
+                  onPressed: !canResume
+                      ? null
+                      : () {
+                          dm.resumeAll();
+                          for (final task in games.tasks) {
+                            if (task.status == DownloadStatus.paused ||
+                                task.status == DownloadStatus.failed) {
+                              games.retry(task.key);
+                            }
+                          }
+                        },
                   icon: const Icon(Icons.play_arrow_rounded),
-                  label: Text(tr('全部继续')),
+                  tooltip: tr('全部继续'),
                 ),
               ],
             ],
@@ -337,7 +350,7 @@ class _DownloadsPageState extends State<DownloadsPage> {
             ],
           ),
         if (tasks.isNotEmpty) _gridSliver(context, tasks),
-        const SliverToBoxAdapter(child: SizedBox(height: 96)),
+        const SliverToBoxAdapter(child: SizedBox(height: Gap.l)),
       ];
       return CustomScrollView(slivers: slivers);
     }
@@ -346,7 +359,7 @@ class _DownloadsPageState extends State<DownloadsPage> {
         Expanded(
           child: ReadableWidth(
             child: ListView.separated(
-              padding: const EdgeInsets.only(bottom: 96),
+              padding: const EdgeInsets.only(bottom: Gap.l),
               itemCount:
                   recordings.length +
                   failures.length +
@@ -380,7 +393,7 @@ class _DownloadsPageState extends State<DownloadsPage> {
   Widget _gridSliver(BuildContext context, List<DownloadTask> tasks) {
     return SliverLayoutBuilder(
       builder: (context, constraints) {
-        final cols = gridColumnsFor(constraints.crossAxisExtent);
+        final cols = gridColumnsFor(context, constraints.crossAxisExtent);
         final width =
             (constraints.crossAxisExtent - Gap.page * 2 - (cols - 1) * Gap.m) /
             cols;
@@ -391,7 +404,14 @@ class _DownloadsPageState extends State<DownloadsPage> {
               crossAxisCount: cols,
               crossAxisSpacing: Gap.m,
               mainAxisSpacing: Gap.l,
-              mainAxisExtent: width / 0.7 + cardTextExtent(context),
+              mainAxisExtent:
+                  width / 0.7 +
+                  cardTextExtent(
+                    context,
+                    items: tasks.map((t) => t.item),
+                    width: width,
+                    showSource: true,
+                  ),
             ),
             delegate: SliverChildBuilderDelegate((context, index) {
               final task = tasks[index];
@@ -403,6 +423,14 @@ class _DownloadsPageState extends State<DownloadsPage> {
                   (tag: Tag(_statusLabel(task)), label: _statusLabel(task)),
                 ],
                 onTap: () => _openTask(context, task),
+                onTextTap: () => Nav.push(
+                  context,
+                  DetailPage(
+                    source: task.item.source,
+                    id: task.item.id,
+                    preview: task.item,
+                  ),
+                ),
                 onLongPress: () => _TaskTile(task: task)._menu(context),
               );
             }, childCount: tasks.length),
@@ -786,6 +814,7 @@ class _TaskTile extends StatelessWidget {
                         fontWeight: FontWeight.w600,
                       ),
                     ),
+                    WorkMetadataSummary(item: t.item),
                     const SizedBox(height: 4),
                     Row(
                       children: [

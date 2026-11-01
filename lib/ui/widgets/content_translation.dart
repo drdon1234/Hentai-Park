@@ -10,6 +10,7 @@ import '../../engine/source_manager.dart';
 import '../kit/adaptive_sheet.dart';
 import '../kit/reminder_prompt.dart';
 import '../kit/selection_menu.dart';
+import '../kit/tokens.dart';
 import '../theme.dart';
 import 'on_visible.dart';
 
@@ -451,7 +452,15 @@ Future<void> showTagDownloadGuide(
         icon: Icons.translate_rounded,
         title: tr('下载标签翻译词库'),
         primaryLabel: tr('立即下载'),
+        ignoreLabel: tr('本站不再提醒'),
         onIgnore: () async {
+          AppSettings.instance.tagDownloadIgnoredSources = {
+            ...AppSettings.instance.tagDownloadIgnoredSources,
+            source,
+          };
+          await AppSettings.instance.flush();
+        },
+        onIgnoreAll: () async {
           AppSettings.instance.tagDownloadReminders = false;
           await AppSettings.instance.flush();
         },
@@ -491,7 +500,7 @@ Future<void> showTagDownloadGuide(
       );
     }
   } finally {
-    service.finishDownloadGuide(deferred: deferred);
+    service.finishDownloadGuide(source: source, deferred: deferred);
   }
 }
 
@@ -544,7 +553,7 @@ Future<void> showTagTranslationPacks(
             if (ctx.mounted) {
               refresh(() {
                 normalize();
-                message = success.isEmpty ? null : tr(success);
+                if (success.isNotEmpty) message = tr(success);
               });
             }
           } catch (_) {
@@ -565,13 +574,52 @@ Future<void> showTagTranslationPacks(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(tr('翻译包管理'), style: Theme.of(ctx).textTheme.titleLarge),
+                  const SizedBox(height: Gap.s),
+                  FilledButton.icon(
+                    style: FilledButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: Gap.l,
+                        vertical: Gap.m,
+                      ),
+                    ),
+                    icon: const Icon(Icons.download_rounded),
+                    label: Text(
+                      tr('下载全部站点的 {language} 词包', {
+                        'language':
+                            AppLocalizations.languageNames[locale] ?? locale,
+                      }),
+                    ),
+                    onPressed: busy
+                        ? null
+                        : () {
+                            final language = locale;
+                            operation(() async {
+                              final result = await service.downloadAll(
+                                language,
+                              );
+                              if (ctx.mounted) {
+                                refresh(() {
+                                  message = [
+                                    tr('已安装 {count} 个词包', {
+                                      'count': result.completed,
+                                    }),
+                                    if (result.failures.isNotEmpty)
+                                      tr('未完成：{items}', {
+                                        'items': result.failures.join('、'),
+                                      }),
+                                  ].join('\n');
+                                });
+                              }
+                            }, '');
+                          },
+                  ),
                   if (source != null && !service.sources.contains(source))
                     Padding(
                       padding: const EdgeInsets.symmetric(vertical: 12),
                       child: Text(tr('本站暂无专用词包，开启内容翻译后可翻译标签')),
                     ),
                   if (selected != null) ...[
-                    const SizedBox(height: 12),
+                    const SizedBox(height: Gap.xl),
                     SelectionContainer.disabled(
                       child: SelectionDropdownTheme(
                         child: DropdownButtonFormField<String>(

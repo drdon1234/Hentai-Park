@@ -285,7 +285,7 @@
     {
       "key": "ixxx",
       "name": "iXXX",
-      "version": "0.0.18",
+      "version": "0.0.19",
       "type": "video",
       "category": "adult",
       "file": "ixxx.js",
@@ -555,7 +555,7 @@
     {
       "key": "myfans",
       "name": "myfans.jp",
-      "version": "0.0.11",
+      "version": "0.0.12",
       "type": "comic",
       "category": "other",
       "file": "myfans.js",
@@ -565,7 +565,7 @@
     {
       "key": "fanbox",
       "name": "pixivFANBOX",
-      "version": "0.0.6",
+      "version": "0.0.7",
       "type": "comic",
       "category": "other",
       "file": "fanbox.js",

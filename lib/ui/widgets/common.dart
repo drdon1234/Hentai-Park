@@ -397,9 +397,11 @@ class _SkeletonState extends State<Skeleton>
 }
 
 /// Adaptive column count for cover grids.
-int gridColumnsFor(double width) {
+int gridColumnsFor(BuildContext context, double width) {
   final fixed = AppSettings.instance.gridColumns;
   if (fixed > 0) return fixed;
+  final scale = MediaQuery.textScalerOf(context).scale(14) / 14;
+  width /= scale.clamp(1, 1.5);
   if (width >= 1200) return 7;
   if (width >= 900) return 5;
   if (width >= 600) return 4;

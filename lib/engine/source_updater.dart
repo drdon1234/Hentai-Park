@@ -313,8 +313,7 @@ class SourceUpdater extends ChangeNotifier {
   void _validateCandidate(SourceUpdateCandidate candidate) {
     final entry = candidate.entry;
     final current = _find(entry.key);
-    if (!identical(current, candidate.source) ||
-        current == null ||
+    if (current == null ||
         current.origin != candidate.origin ||
         current.version != candidate.version ||
         !_isOfficial(current) ||

@@ -64,6 +64,8 @@ node <local-validation-script>
 
 ## manifest 欄位
 
+`previewContent: true` 僅供會回傳僅供預覽作品的外掛宣告；執行階段匯出為 `capabilities.previewContent`，站點、搜尋與訂閱頁據此顯示預覽篩選按鈕。一般縮圖不算僅供預覽作品，未宣告時不顯示該按鈕。
+
 ```js
 Park.register({
   key: 'mysite',              // 唯一标识，安装后不可更改；只允许 [A-Za-z0-9_-]，1–100 位，不能是 _app

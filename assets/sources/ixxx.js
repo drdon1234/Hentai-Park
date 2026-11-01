@@ -1,5 +1,6 @@
 /* 聚合索引与已验证上游的原生媒体；不执行外站脚本。 */
 Park.register({
+  previewContent: true,
   i18n: {
     "zh-Hant": {"站点年龄确认未自动完成，请重试":"網站年齡確認未自動完成，請重試","演员":"演員","综合成人视频搜索，常见来源优先原生播放，其他来源使用网页播放":"綜合成人影片搜尋，常見來源優先原生播放，其他來源使用網頁播放","站点搜索表单无效":"站點搜尋表單無效","高清":"高清","标清":"標清"},
     "ja": {"站点年龄确认未自动完成，请重试":"サイトの年齢確認が自動で完了しませんでした。再試行してください。","演员":"出演者","综合成人视频搜索，常见来源优先原生播放，其他来源使用网页播放":"成人動画検索。対応する主な配信元はネイティブ再生を優先し、その他はウェブ再生","站点搜索表单无效":"サイトの検索フォームが無効です","高清":"高画質","标清":"標準画質"},
@@ -9,7 +10,7 @@ Park.register({
     "ru": {"站点年龄确认未自动完成，请重试":"Автоматическое подтверждение возраста не завершено. Повторите попытку.","演员":"Исполнители","综合成人视频搜索，常见来源优先原生播放，其他来源使用网页播放":"Поиск видео для взрослых: нативное воспроизведение популярных поддерживаемых источников, веб-плеер для остальных","站点搜索表单无效":"Форма поиска на сайте недействительна","高清":"Высокое качество","标清":"Стандартное качество"},
     "ar": {"站点年龄确认未自动完成，请重试":"لم يكتمل تأكيد العمر تلقائيًا. يرجى إعادة المحاولة.","演员":"المؤدون","综合成人视频搜索，常见来源优先原生播放，其他来源使用网页播放":"بحث فيديوهات للبالغين؛ تشغيل أصلي للمصادر الشائعة المدعومة وتشغيل ويب للمصادر الأخرى","站点搜索表单无效":"نموذج البحث في الموقع غير صالح","高清":"جودة عالية","标清":"جودة قياسية"},
   },
-  key: 'ixxx', name: 'iXXX', version: '0.0.18', minAppVersion: '0.9.2', type: 'video', category: 'adult', color: '#F97316',
+  key: 'ixxx', name: 'iXXX', version: '0.0.19', minAppVersion: '0.9.2', type: 'video', category: 'adult', color: '#F97316',
   description: '综合成人视频搜索，常见来源优先原生播放，其他来源使用网页播放',
   homepage: 'https://www.ixxx.com', domains: ['ixxx.com'], language: 'en',
   media: {mode: 'native', scope: 'session', origin: 'https://www.ixxx.com', domains: ['eporner.com', 'xhcdn.com', 'abxxx.com', 'xmilf.com', 'txxx.me', 'pornl.com', 'pornl-ah.nv7s.com', 'porntop.com', 'ptah.m3pd.com', 'ahcdn.com', 'xozilla.xxx', 'pornid.xxx', 'theyarehuge.com', 'inxxx.com', 'dafreeporn.com', 'freeporn8.com', 'xhand.net', 'xhand.com', 'amateur8.com', 'maturetubehere.com', 'sortporn.com', 'lesbian8.com', 'pornone.com', 'ok.xxx', 'cdn.privatehost.com'], referrerDomains: ['abxxx.com', 'xmilf.com', 'txxx.me', 'pornl.com', 'porntop.com', 'xozilla.xxx', 'pornid.xxx', 'theyarehuge.com', 'inxxx.com', 'dafreeporn.com', 'xhand.net', 'amateur8.com', 'maturetubehere.com', 'sortporn.com', 'lesbian8.com', 'ok.xxx']},

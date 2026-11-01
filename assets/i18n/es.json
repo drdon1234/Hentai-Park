@@ -791,7 +791,7 @@
   "公开资源过大": "El recurso público es demasiado grande",
   "公开资源网络请求失败": "Error de red al solicitar el recurso público",
   "不支持的站点或语言": "Sitio o idioma no compatible",
-  "官方词包网络请求失败": "Error de red al solicitar el diccionario oficial",
+  "官方词包网络请求失败": "No se pudo acceder al repositorio oficial de diccionarios",
   "拒绝降级词包": "Se rechazó la versión anterior del diccionario",
   "标签数量无效": "Cantidad de etiquetas inválida",
   "标签格式无效": "Formato de etiqueta inválido",
@@ -1717,5 +1717,11 @@
   "清空反搜历史": "Borrar historial de imágenes",
   "暂无反搜历史": "Sin historial de imágenes",
   "载入图片后可重新搜索": "Cargar imagen para buscar de nuevo",
-  "（已隐藏 {value0} 部）": "({value0} ocultos)"
+  "（已隐藏 {value0} 部）": "({value0} ocultos)",
+  "无法读取剪贴板，请重试": "No se pudo leer el portapapeles. Inténtalo de nuevo.",
+  "本站不再提醒": "No recordar para este sitio",
+  "所有站点不再提醒": "No recordar para ningún sitio",
+  "下载全部站点的 {language} 词包": "Descargar diccionarios en {language} para todos los sitios",
+  "已安装 {count} 个词包": "Se instalaron {count} diccionarios",
+  "未完成：{items}": "Sin completar: {items}"
 }

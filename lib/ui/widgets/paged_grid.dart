@@ -350,7 +350,7 @@ class PagedSliverGrid extends StatelessWidget {
         final aspect = gridAspectFor(c.items, kind);
         return SliverLayoutBuilder(
           builder: (context, constraints) {
-            final cols = gridColumnsFor(constraints.crossAxisExtent);
+            final cols = gridColumnsFor(context, constraints.crossAxisExtent);
             final cardWidth =
                 (constraints.crossAxisExtent -
                     padding.horizontal -
@@ -359,7 +359,14 @@ class PagedSliverGrid extends StatelessWidget {
             final imageOnly =
                 SourceManager.instance.manifest(c.source)?.category ==
                 SourceCategory.live;
-            final extraText = imageOnly ? 0.0 : cardTextExtent(context);
+            final extraText = imageOnly
+                ? 0.0
+                : cardTextExtent(
+                    context,
+                    items: c.items,
+                    width: cardWidth,
+                    showSource: showSource,
+                  );
             return SliverMainAxisGroup(
               slivers: [
                 SliverPadding(
@@ -489,7 +496,7 @@ class PagedSliverGrid extends StatelessWidget {
         SourceManager.instance.manifest(controller.source)?.isLive == true;
     return SliverLayoutBuilder(
       builder: (context, constraints) {
-        final cols = gridColumnsFor(constraints.crossAxisExtent);
+        final cols = gridColumnsFor(context, constraints.crossAxisExtent);
         final cardWidth =
             (constraints.crossAxisExtent -
                 padding.horizontal -
@@ -620,7 +627,9 @@ class WorkRecommendations extends StatelessWidget {
                 crossAxisCount: columns,
                 crossAxisSpacing: Gap.m,
                 mainAxisSpacing: Gap.l,
-                mainAxisExtent: cardWidth / aspect + cardTextExtent(context),
+                mainAxisExtent:
+                    cardWidth / aspect +
+                    cardTextExtent(context, items: items, width: cardWidth),
               ),
               itemCount: items.length,
               itemBuilder: (context, index) {
@@ -682,7 +691,15 @@ class WorkCarousel extends StatelessWidget {
       children: [
         SectionHeader(title, leading: leading, trailing: trailing),
         SizedBox(
-          height: height ?? cardWidth / aspect + cardTextExtent(context),
+          height:
+              height ??
+              cardWidth / aspect +
+                  cardTextExtent(
+                    context,
+                    items: items,
+                    width: cardWidth,
+                    showSource: showSource,
+                  ),
           child: PageGutter(
             child: ListView.separated(
               scrollDirection: Axis.horizontal,

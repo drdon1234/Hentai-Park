@@ -791,7 +791,7 @@
   "公开资源过大": "Public resource is too large",
   "公开资源网络请求失败": "Public resource network request failed",
   "不支持的站点或语言": "Unsupported site or language",
-  "官方词包网络请求失败": "Official dictionary network request failed",
+  "官方词包网络请求失败": "Could not reach the official dictionary repository",
   "拒绝降级词包": "Dictionary downgrade rejected",
   "标签数量无效": "Invalid tag count",
   "标签格式无效": "Invalid tag format",
@@ -1717,5 +1717,11 @@
   "清空反搜历史": "Clear image search history",
   "暂无反搜历史": "No image search history",
   "载入图片后可重新搜索": "Load this image to search again",
-  "（已隐藏 {value0} 部）": "({value0} hidden)"
+  "（已隐藏 {value0} 部）": "({value0} hidden)",
+  "无法读取剪贴板，请重试": "Could not read the clipboard. Try again.",
+  "本站不再提醒": "Stop reminders for this site",
+  "所有站点不再提醒": "Stop reminders for all sites",
+  "下载全部站点的 {language} 词包": "Download {language} packs for all sites",
+  "已安装 {count} 个词包": "Installed {count} packs",
+  "未完成：{items}": "Not completed: {items}"
 }

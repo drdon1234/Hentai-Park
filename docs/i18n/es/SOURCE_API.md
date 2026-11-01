@@ -64,6 +64,8 @@ node <local-validation-script>
 
 ## Campos del manifest
 
+Solo los plugins que devuelven obras de vista previa declaran `previewContent: true`. El entorno lo exporta como `capabilities.previewContent`; las páginas del sitio, búsqueda y suscripciones lo usan para mostrar el filtro. Las miniaturas normales no cuentan como obras de vista previa. Sin esta declaración, el control permanece oculto.
+
 ```js
 Park.register({
   key: 'mysite',              // único y permanente; solo [A-Za-z0-9_-], 1–100 caracteres, no _app

@@ -75,7 +75,10 @@ List<Widget> searchSettings(BuildContext context, AppSettings s) => [
       SwitchListTile.adaptive(
         title: SelectionContainer.disabled(child: Text(tr('提醒下载标签词库'))),
         value: s.tagDownloadReminders,
-        onChanged: (v) => s.tagDownloadReminders = v,
+        onChanged: (v) {
+          s.tagDownloadReminders = v;
+          if (v) s.tagDownloadIgnoredSources = {};
+        },
       ),
     ],
   ),

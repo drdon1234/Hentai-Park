@@ -418,6 +418,9 @@ class _AggregateSearchPageState extends State<AggregateSearchPage> {
                             onPressed: _editSites,
                           ),
                           ResultVisibility(
+                            supportsPreviews: _targets.any(
+                              (s) => s.manifest?.can('previewContent') == true,
+                            ),
                             showBlocked: _showBlocked,
                             hidePreviews: _hidePreviews,
                             onBlocked: (v) => setState(() => _showBlocked = v),

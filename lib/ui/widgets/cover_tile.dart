@@ -17,11 +17,50 @@ import 'cover_hero.dart';
 import 'source_interaction.dart';
 import 'work_editions.dart';
 
+/// 列表摘要只展示结构化元信息；标签留在详情页。
+List<String> workMetadata(WorkItem item, {bool showSource = false}) => [
+  if (item.language.isNotEmpty) item.language,
+  if (showSource)
+    SourceManager.instance.manifest(item.source)?.name ?? item.source,
+  if (item.category.isNotEmpty) item.category,
+  if (item.editions.isNotEmpty) workEditionLabel(item),
+  if (item.pages != null && item.pages! > 0)
+    tr('{value0} 页', {'value0': item.pages}),
+  if (item.rating != null)
+    tr('评分 {rating}', {'rating': item.rating!.toStringAsFixed(1)}),
+  if (item.rating == null && item.likes != null && item.likes! > 0)
+    '${tr('点赞数')} ${formatCount(item.likes)}',
+  if (item.views != null) tr('{count} 次观看', {'count': formatCount(item.views)}),
+];
+
+/// 收藏、历史与下载列表共用的完整结构化摘要。
+class WorkMetadataSummary extends StatelessWidget {
+  const WorkMetadataSummary({super.key, required this.item});
+
+  final WorkItem item;
+
+  @override
+  Widget build(BuildContext context) {
+    final metadata = workMetadata(item);
+    if (metadata.isEmpty) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.only(top: Gap.xs),
+      child: Text(
+        metadata.join(' · '),
+        style: context.text.labelSmall?.copyWith(
+          color: context.colors.onSurfaceVariant,
+          fontWeight: FontWeight.w400,
+        ),
+      ),
+    );
+  }
+}
+
 /// A library signal on a cover, with what a screen reader announces for it.
 typedef CoverBadge = ({Widget tag, String label});
 
 /// Cover-first tile used in every grid and shelf. At most one badge sits on the cover; the
-/// title and a single metadata line live below it.
+/// title and complete metadata live below it.
 class CoverTile extends StatefulWidget {
   const CoverTile({
     super.key,
@@ -30,6 +69,7 @@ class CoverTile extends StatefulWidget {
     this.showSource = false,
     this.onTap,
     this.onLongPress,
+    this.onTextTap,
     this.selected = false,
     this.badges = const [],
     this.imageOnly = false,
@@ -40,6 +80,9 @@ class CoverTile extends StatefulWidget {
   final bool showSource;
   final VoidCallback? onTap;
   final VoidCallback? onLongPress;
+
+  /// 下载网格等场景中，文字区拥有独立于封面的入口。
+  final VoidCallback? onTextTap;
   final bool selected;
 
   /// Library signals (unread count, downloaded) that replace the site's own badge.
@@ -57,21 +100,6 @@ class _CoverTileState extends State<CoverTile> {
   // 动画属于列表中的这个入口，不能用可能重复或被详情规范化的作品 ID。
   final Object _coverHeroTag = Object();
   bool _hovered = false;
-
-  /// One muted line: text values, with small glyphs for rating and likes.
-  List<(IconData?, String)> _metadata(WorkItem item) => [
-    if (item.editions.isNotEmpty) (null, workEditionLabel(item)),
-    if (widget.showSource)
-      (null, SourceManager.instance.manifest(item.source)?.name ?? item.source),
-    if (item.category.isNotEmpty) (null, item.category),
-    if (item.pages != null && item.pages! > 0)
-      (null, tr('{value0} 页', {'value0': item.pages})),
-    if (item.rating != null)
-      (Icons.star_rounded, item.rating!.toStringAsFixed(1)),
-    if (item.rating == null && item.likes != null && item.likes! > 0)
-      (Icons.favorite_rounded, formatCount(item.likes)),
-    if (item.language.isNotEmpty) (null, item.language),
-  ];
 
   @override
   Widget build(BuildContext context) {
@@ -92,7 +120,7 @@ class _CoverTileState extends State<CoverTile> {
         : item.badge.isNotEmpty
         ? Tag(item.badge, onImage: true)
         : null;
-    final metadata = _metadata(item);
+    final metadata = workMetadata(item, showSource: widget.showSource);
     final onTap =
         widget.onTap ??
         () => Nav.openWork(
@@ -105,23 +133,27 @@ class _CoverTileState extends State<CoverTile> {
         widget.onLongPress ??
         () => showWorkActions(context, item, coverHeroTag: _coverHeroTag);
     return Semantics(
-      button: true,
+      button: widget.onTextTap == null,
       selected: widget.selected,
-      label: [
-        item.title,
-        if (widget.badges.isNotEmpty)
-          ...widget.badges.map((b) => b.label)
-        else if (item.badge.isNotEmpty)
-          item.badge,
-        ...metadata.map((m) => m.$2),
-        if (item.duration.isNotEmpty) item.duration,
-        if (history != null && history.progress > 0)
-          tr('已读 {value0}%', {'value0': (history.progress * 100).round()}),
-      ].join('，'),
+      label: widget.onTextTap != null
+          ? null
+          : [
+              item.title,
+              if (widget.badges.isNotEmpty)
+                ...widget.badges.map((b) => b.label)
+              else if (item.badge.isNotEmpty)
+                item.badge,
+              ...metadata,
+              if (item.duration.isNotEmpty) item.duration,
+              if (history != null && history.progress > 0)
+                tr('已读 {value0}%', {
+                  'value0': (history.progress * 100).round(),
+                }),
+            ].join('，'),
       // The merged label replaces the child's semantics, so the actions are restated.
-      onTap: onTap,
-      onLongPress: onLongPress,
-      excludeSemantics: true,
+      onTap: widget.onTextTap == null ? onTap : null,
+      onLongPress: widget.onTextTap == null ? onLongPress : null,
+      excludeSemantics: widget.onTextTap == null,
       child: ActionInkWell(
         borderRadius: Radii.small,
         onTap: onTap,
@@ -211,76 +243,61 @@ class _CoverTileState extends State<CoverTile> {
                   ),
                 ),
               ),
-              if (!widget.imageOnly) ...[
-                const SizedBox(height: Gap.xs + 2),
-                ContentTranslation(
-                  text: item.title,
-                  source: item.source,
-                  builder: (value) => Text(
-                    value,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: ParkText.serif(
-                      context.text.bodySmall?.copyWith(
-                        fontWeight: FontWeight.w500,
-                        height: 1.3,
-                        color: c.onSurface,
-                      ),
-                    ),
-                  ),
-                ),
-                if (metadata.isNotEmpty)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 1),
-                    child: Text.rich(
-                      TextSpan(
-                        children: [
-                          for (var i = 0; i < metadata.length; i++) ...[
-                            if (i > 0) const TextSpan(text: ' · '),
-                            if (metadata[i].$1 case final icon?)
-                              WidgetSpan(
-                                alignment: PlaceholderAlignment.middle,
-                                child: Padding(
-                                  padding: const EdgeInsetsDirectional.only(
-                                    end: 1,
-                                  ),
-                                  child: Icon(
-                                    icon,
-                                    size: 11,
-                                    color: c.onSurfaceVariant,
-                                  ),
-                                ),
-                              ),
-                            TextSpan(text: metadata[i].$2),
-                          ],
-                        ],
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: context.text.labelSmall?.copyWith(
-                        color: c.onSurfaceVariant,
-                        fontWeight: FontWeight.w400,
-                      ),
-                    ),
-                  )
-                else if (item.subtitle.isNotEmpty &&
-                    item.subtitle != item.title)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 1),
-                    child: ContentTranslation(
-                      text: item.subtitle,
-                      source: item.source,
-                      builder: (value) => Text(
-                        value,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: context.text.labelSmall?.copyWith(
-                          color: c.onSurfaceVariant,
+              if (!widget.imageOnly)
+                ActionInkWell(
+                  onTap: widget.onTextTap ?? onTap,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const SizedBox(height: Gap.xs + 2),
+                      ContentTranslation(
+                        text: item.title,
+                        source: item.source,
+                        builder: (value) => Text(
+                          value,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: ParkText.serif(
+                            context.text.bodySmall?.copyWith(
+                              fontWeight: FontWeight.w500,
+                              height: 1.3,
+                              color: c.onSurface,
+                            ),
+                          ),
                         ),
                       ),
-                    ),
+                      if (metadata.isNotEmpty)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 1),
+                          child: Text(
+                            metadata.join(' · '),
+                            style: context.text.labelSmall?.copyWith(
+                              color: c.onSurfaceVariant,
+                              fontWeight: FontWeight.w400,
+                            ),
+                          ),
+                        )
+                      else if (SourceManager.instance
+                                  .manifest(item.source)
+                                  ?.category !=
+                              SourceCategory.doujin &&
+                          item.subtitle.isNotEmpty &&
+                          item.subtitle != item.title)
+                        ContentTranslation(
+                          text: item.subtitle,
+                          source: item.source,
+                          builder: (value) => Text(
+                            value,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: context.text.labelSmall?.copyWith(
+                              color: c.onSurfaceVariant,
+                            ),
+                          ),
+                        ),
+                    ],
                   ),
-              ],
+                ),
             ],
           ),
         ),
@@ -440,10 +457,15 @@ Future<void> showWorkActions(
   );
 }
 
-/// Height reserved under a cover for two title lines and one subtitle line. The lines are
+/// Height reserved under a cover for two title lines and the complete metadata. The lines are
 /// measured with the user's text scaler: Android scales large fonts non-linearly, so scaling
 /// one total height would under-reserve at large font sizes and clip the text.
-double cardTextExtent(BuildContext context) {
+double cardTextExtent(
+  BuildContext context, {
+  Iterable<WorkItem> items = const [],
+  double? width,
+  bool showSource = false,
+}) {
   final scaler = MediaQuery.textScalerOf(context);
   double lineHeight(TextStyle? style) {
     final painter = TextPainter(
@@ -459,15 +481,27 @@ double cardTextExtent(BuildContext context) {
   final title = ParkText.serif(
     context.text.bodySmall?.copyWith(fontWeight: FontWeight.w500, height: 1.3),
   );
-  // Matches the spacing in CoverTile: gap, two title lines, 1 px, one metadata line.
-  return Gap.xs +
-      2 +
-      2 * lineHeight(title) +
-      1 +
-      lineHeight(
-        context.text.labelSmall?.copyWith(fontWeight: FontWeight.w400),
-      ) +
-      2;
+  final metadataStyle = context.text.labelSmall?.copyWith(
+    fontWeight: FontWeight.w400,
+  );
+  var metadataHeight = lineHeight(metadataStyle);
+  if (width != null) {
+    for (final item in items) {
+      final painter = TextPainter(
+        text: TextSpan(
+          text: workMetadata(item, showSource: showSource).join(' · '),
+          style: metadataStyle,
+        ),
+        textDirection: Directionality.of(context),
+        textScaler: scaler,
+      )..layout(maxWidth: width);
+      // 使用与实际摘要相同的字体、宽度和缩放计算完整高度。
+      if (painter.height > metadataHeight) metadataHeight = painter.height;
+      painter.dispose();
+    }
+  }
+  // 与 CoverTile 的间距、两行标题和完整摘要保持一致。
+  return Gap.xs + 2 + 2 * lineHeight(title) + 1 + metadataHeight + 2;
 }
 
 /// Picks a single grid aspect ratio from the items (median), so mixed covers still align.

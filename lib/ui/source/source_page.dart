@@ -74,6 +74,7 @@ class _SourcePageState extends State<SourcePage> {
           },
         ),
       ResultVisibility(
+        supportsPreviews: manifest.can('previewContent'),
         hidePreviews: _hidePreviews,
         onPreviews: (value) => setState(() => _hidePreviews = value),
       ),

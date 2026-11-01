@@ -126,6 +126,7 @@ void validateSettings(Map<String, dynamic> values) {
     'novelSpeechRate',
   };
   const stringLists = {
+    'tagDownloadIgnoredSources',
     'blockedTags',
     'aggregateExcluded',
     'libraryFilterSources',

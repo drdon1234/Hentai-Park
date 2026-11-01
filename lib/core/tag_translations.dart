@@ -135,11 +135,12 @@ class TagTranslations extends ChangeNotifier {
   final _installs = SerialExecutor();
   final _bundled = <String>{};
   bool _guideBusy = false;
-  bool _guideDeferred = false;
+  final _guideDeferred = <String>{};
   bool claimDownloadGuide(String source, String locale) {
     if (_guideBusy ||
-        _guideDeferred ||
+        _guideDeferred.contains(source) ||
         !AppSettings.instance.tagDownloadReminders ||
+        AppSettings.instance.tagDownloadIgnoredSources.contains(source) ||
         installed(source, locale) ||
         (!bundled(source, locale) && !remoteAvailable(source, locale))) {
       return false;
@@ -148,10 +149,9 @@ class TagTranslations extends ChangeNotifier {
     return true;
   }
 
-  void finishDownloadGuide({bool deferred = false, bool never = false}) {
+  void finishDownloadGuide({required String source, bool deferred = false}) {
     _guideBusy = false;
-    _guideDeferred = deferred;
-    if (never) AppSettings.instance.tagDownloadReminders = false;
+    if (deferred) _guideDeferred.add(source);
   }
 
   Directory get _directory =>
@@ -380,35 +380,70 @@ class TagTranslations extends ChangeNotifier {
       });
 
   /// User-initiated update; an unavailable repository preserves the installed pack.
-  Future<void> updateFromRepository(String source, String locale) =>
-      _run(source, locale, (revision, token) async {
-        await refreshRepository();
-        if (token.cancelError case final error?) throw error;
-        final entry = _remote['$source/$locale'];
-        if (entry == null) throw const FormatException('词包索引缺失或重复');
-        final text = await _readRemote(entry.url);
-        if (token.cancelError case final error?) throw error;
-        if (utf8.encode(text).length > TagTranslationPack.maxBytes) {
-          throw const FormatException('词包过大');
+  Future<void> updateFromRepository(
+    String source,
+    String locale, {
+    bool refresh = true,
+  }) => _run(source, locale, (revision, token) async {
+    if (refresh) await refreshRepository();
+    if (token.cancelError case final error?) throw error;
+    final entry = _remote['$source/$locale'];
+    if (entry == null) throw const FormatException('词包索引缺失或重复');
+    final text = await _readRemote(entry.url);
+    if (token.cancelError case final error?) throw error;
+    if (utf8.encode(text).length > TagTranslationPack.maxBytes) {
+      throw const FormatException('词包过大');
+    }
+    if (sha256.convert(utf8.encode(text)).toString() != entry.digest) {
+      throw const FormatException('词包完整性校验失败');
+    }
+    final pack = TagTranslationPack.parse(
+      jsonDecode(text),
+      source: source,
+      locale: locale,
+    );
+    if (pack.version != entry.version) {
+      throw const FormatException('词包版本不一致');
+    }
+    final existing = _packs['$source/$locale'];
+    if (existing != null &&
+        compareReleaseVersions(pack.version, existing.version) < 0) {
+      throw const FormatException('拒绝降级词包');
+    }
+    await _install(pack, revision);
+  });
+
+  /// 单站失败不阻断其他词包；返回实际结果，不把部分完成报告为全部成功。
+  Future<({int completed, List<String> failures})> downloadAll(
+    String locale,
+  ) async {
+    final failures = <String>[];
+    try {
+      await refreshRepository();
+    } catch (_) {
+      failures.add(tr('官方词包网络请求失败'));
+    }
+    final targets = sources
+        .where(
+          (source) =>
+              bundled(source, locale) || remoteAvailable(source, locale),
+        )
+        .toList();
+    var completed = 0;
+    for (final source in targets) {
+      try {
+        if (remoteAvailable(source, locale)) {
+          await updateFromRepository(source, locale, refresh: false);
+        } else {
+          await download(source, locale);
         }
-        if (sha256.convert(utf8.encode(text)).toString() != entry.digest) {
-          throw const FormatException('词包完整性校验失败');
-        }
-        final pack = TagTranslationPack.parse(
-          jsonDecode(text),
-          source: source,
-          locale: locale,
-        );
-        if (pack.version != entry.version) {
-          throw const FormatException('词包版本不一致');
-        }
-        final existing = _packs['$source/$locale'];
-        if (existing != null &&
-            compareReleaseVersions(pack.version, existing.version) < 0) {
-          throw const FormatException('拒绝降级词包');
-        }
-        await _install(pack, revision);
-      });
+        completed++;
+      } catch (_) {
+        failures.add(source);
+      }
+    }
+    return (completed: completed, failures: failures);
+  }
 
   Future<void> _run(
     String source,

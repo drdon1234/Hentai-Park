@@ -145,6 +145,7 @@ enum SettingsDomain {
     'rankingSelection',
     'searchHistories',
     'tagDownloadReminders',
+    'tagDownloadIgnoredSources',
     'aggregateExcluded',
     'autoTranslateContent',
     'translateEngine',
@@ -665,6 +666,11 @@ class AppSettings extends ChangeNotifier {
 
   bool get tagDownloadReminders => _get('tagDownloadReminders', true);
   set tagDownloadReminders(bool v) => _set('tagDownloadReminders', v);
+
+  Set<String> get tagDownloadIgnoredSources =>
+      Set<String>.from(_get('tagDownloadIgnoredSources', <String>[]));
+  set tagDownloadIgnoredSources(Set<String> v) =>
+      _set('tagDownloadIgnoredSources', v.toList());
 
   int get subscriptionUpdateHours => _get('subscriptionUpdateHours', 6);
   set subscriptionUpdateHours(int v) => _set('subscriptionUpdateHours', v);

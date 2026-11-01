@@ -64,6 +64,8 @@ node <local-validation-script>
 
 ## manifest 필드
 
+미리보기 전용 작품을 반환하는 플러그인만 `previewContent: true`를 선언합니다. 런타임은 이를 `capabilities.previewContent`로 내보내며 사이트, 검색, 구독 화면의 미리보기 필터를 제어합니다. 일반 썸네일은 미리보기 전용 작품이 아닙니다. 선언이 없으면 버튼을 숨깁니다.
+
 ```js
 Park.register({
   key: 'mysite',              // 고유하며 바꿀 수 없음. [A-Za-z0-9_-]만, 1~100자, _app 불가

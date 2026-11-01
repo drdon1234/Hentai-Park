@@ -27,7 +27,6 @@ class _LoginPanelState extends State<LoginPanel> {
     for (final f in widget.account.fields)
       f['key'].toString(): TextEditingController(),
   };
-  final Set<String> _revealed = {};
   bool _busy = false;
   late bool _web = widget.account.loginUrl.isNotEmpty;
 
@@ -81,52 +80,59 @@ class _LoginPanelState extends State<LoginPanel> {
   }
 
   Future<void> _paste() async {
-    final text = (await Clipboard.getData(Clipboard.kTextPlain))?.text ?? '';
+    FocusScope.of(context).unfocus();
+    await Future<void>.delayed(Duration.zero);
     if (!mounted) return;
-    if (text.trim().isEmpty) {
-      context.toast(
-        context.tr(
-          _session
-              ? '剪贴板是空的，请先复制授权会话'
-              : _cookies
-              ? '剪贴板是空的，请先复制 Cookie'
-              : '剪贴板是空的，请先复制账号和密码',
-        ),
-      );
-      return;
-    }
-    final values = _session && a.fields.length == 1
-        ? {a.fields.first['key'].toString(): text.trim()}
-        : parsePastedCredentials(
-            text,
-            _fields.keys.toList(),
-            cookies: _cookies,
-          );
-    if (values.isEmpty) {
-      context.toast(
-        context.tr(
-          _session
-              ? '授权会话格式无效'
-              : _cookies
-              ? '没有在剪贴板里识别到 Cookie'
-              : '没有在剪贴板里识别到账号和密码',
-        ),
-      );
-      return;
-    }
-    setState(() {
-      for (final e in values.entries) {
-        _fields[e.key]?.text = e.value;
+    try {
+      final text = (await Clipboard.getData(Clipboard.kTextPlain))?.text ?? '';
+      if (!mounted) return;
+      if (text.trim().isEmpty) {
+        context.toast(
+          context.tr(
+            _session
+                ? '剪贴板是空的，请先复制授权会话'
+                : _cookies
+                ? '剪贴板是空的，请先复制 Cookie'
+                : '剪贴板是空的，请先复制账号和密码',
+          ),
+        );
+        return;
       }
-    });
-    if (_missing.isEmpty) {
-      await _submit();
-    } else {
-      context.toast(
-        context.tr('已识别部分内容，还缺少：{fields}', {
-          'fields': _missing.join(context.tr('、')),
-        }),
-      );
+      final values = _session && a.fields.length == 1
+          ? {a.fields.first['key'].toString(): text.trim()}
+          : parsePastedCredentials(
+              text,
+              _fields.keys.toList(),
+              cookies: _cookies,
+            );
+      if (values.isEmpty) {
+        context.toast(
+          context.tr(
+            _session
+                ? '授权会话格式无效'
+                : _cookies
+                ? '没有在剪贴板里识别到 Cookie'
+                : '没有在剪贴板里识别到账号和密码',
+          ),
+        );
+        return;
+      }
+      setState(() {
+        for (final e in values.entries) {
+          _fields[e.key]?.text = e.value;
+        }
+      });
+      if (_missing.isEmpty) {
+        await _submit();
+      } else {
+        context.toast(
+          context.tr('已识别部分内容，还缺少：{fields}', {
+            'fields': _missing.join(context.tr('、')),
+          }),
+        );
+      }
+    } catch (_) {
+      if (mounted) context.toast(context.tr('无法读取剪贴板，请重试'));
     }
   }
 
@@ -316,19 +322,13 @@ class _LoginPanelState extends State<LoginPanel> {
   Widget _field(BuildContext context, Map<String, dynamic> f) {
     final key = f['key'].toString();
     final optional = f['optional'] == true;
-    // Cookies stay visible (they are pasted, not typed, and need checking); passwords are masked.
-    final secret = !_cookies && f['secret'] == true;
     final hint = (f['hint'] ?? '').toString();
     return TextField(
       controller: _fields[key],
-      obscureText: secret && !_revealed.contains(key),
+      keyboardType: TextInputType.text,
       autocorrect: false,
       enableSuggestions: false,
-      autofillHints: _cookies
-          ? null
-          : (secret
-                ? const [AutofillHints.password]
-                : const [AutofillHints.username]),
+      autofillHints: const [AutofillHints.username],
       style: _cookies ? ParkText.mono(context.text.bodyMedium) : null,
       textInputAction: TextInputAction.next,
       decoration: InputDecoration(
@@ -338,23 +338,6 @@ class _LoginPanelState extends State<LoginPanel> {
               })
             : a.text(f['label']?.toString() ?? ''),
         helperText: hint.isEmpty ? null : a.text(hint),
-        suffixIcon: secret
-            ? IconButton(
-                tooltip: context.tr(
-                  _revealed.contains(key) ? '隐藏输入内容' : '显示输入内容',
-                ),
-                icon: Icon(
-                  _revealed.contains(key)
-                      ? Icons.visibility_off_outlined
-                      : Icons.visibility_outlined,
-                ),
-                onPressed: () => setState(
-                  () => _revealed.contains(key)
-                      ? _revealed.remove(key)
-                      : _revealed.add(key),
-                ),
-              )
-            : null,
       ),
     );
   }

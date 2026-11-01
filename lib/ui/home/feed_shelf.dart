@@ -257,7 +257,11 @@ class _FeedShelfState extends State<FeedShelf>
       final width = aspect > 1 ? 200.0 : 112.0;
       body = SizedBox(
         height:
-            width / aspect + (imageOnly ? 0 : cardTextExtent(context)) + Gap.m,
+            width / aspect +
+            (imageOnly
+                ? 0
+                : cardTextExtent(context, items: items, width: width)) +
+            Gap.m,
         child: PageGutter(
           child: _horizontal(
             ListView.separated(

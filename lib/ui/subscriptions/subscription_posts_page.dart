@@ -279,6 +279,11 @@ class _SubscriptionPostsPageState extends State<SubscriptionPostsPage> {
                 runSpacing: 8,
                 children: [
                   ResultVisibility(
+                    supportsPreviews:
+                        _sources
+                            .manifest(widget.entry.source)
+                            ?.can('previewContent') ==
+                        true,
                     hidePreviews: _hidePreviews,
                     onPreviews: (v) => setState(() {
                       _hidePreviews = v;
