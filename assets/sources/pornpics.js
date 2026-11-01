@@ -9,7 +9,7 @@ Park.register({
     "ru": {"国际写真图集，支持评分榜、热门、搜索与整套原图阅读": "Фотогалереи: рейтинг, популярное, поиск и просмотр всех оригиналов", "图集列表解析失败": "Не удалось разобрать список галерей", "图集地址无效": "Недопустимый адрес галереи"},
     "ar": {"国际写真图集，支持评分榜、热门、搜索与整套原图阅读": "معارض صور مع التقييم والشائع والبحث وعرض جميع الصور الأصلية", "图集列表解析失败": "تعذر تحليل قائمة المعارض", "图集地址无效": "عنوان المعرض غير صالح"},
   },
-  key: 'pornpics', name: 'PornPics', version: '0.0.10', minAppVersion: '0.9.2', type: 'comic', category: 'gallery',
+  key: 'pornpics', name: 'PornPics', version: '0.0.11', minAppVersion: '0.9.2', type: 'comic', category: 'gallery',
   language: 'en', color: '#F16E24', homepage: 'https://www.pornpics.com',
   description: '国际写真图集，支持评分榜、热门、搜索与整套原图阅读',
   domains: ['pornpics.com'], network: {mode: 'native', vpnHint: true},
@@ -141,6 +141,14 @@ Park.register({
       headers: {'Content-Type': 'application/json'}, params: {offset: (page - 1) * 20, limit: 20},
     });
     return {items: this.apiItems(data), page, hasNext: data.length >= 20};
+  },
+  async searchSuggestions(keyword) {
+    const rows = await this.http.json(this.BASE + '/autocomplete.php', {params: {
+      term: String(keyword || '').trim(), lang: 'en', orientation: '3',
+    }});
+    if (!Array.isArray(rows)) throw Park.error('PARSE', '媒体数据无效');
+    return rows.filter(row => typeof row.query === 'string').slice(0, 10)
+      .map(row => ({keyword: row.query, label: row.query, subtitle: ''}));
   },
   async search(req) {
     const keyword = String(req.keyword || '').trim(), page = Math.max(1, Math.floor(Number(req.page) || 1));

@@ -3,17 +3,27 @@ Park.register({
   i18n: {
     "zh-Hant": {"成人美图画廊，支持评分排序、搜索与原图": "成人美圖畫廊，支援評分排序、搜尋與原圖"}, ja: {"成人美图画廊，支持评分排序、搜索与原图": "成人イラストギャラリー。評価順・検索・原寸画像に対応"}, ko: {"成人美图画廊，支持评分排序、搜索与原图": "성인 이미지 갤러리, 점수순 정렬·검색·원본 이미지 지원"}, en: {"成人美图画廊，支持评分排序、搜索与原图": "Adult image gallery with score sorting, search and originals"}, es: {"成人美图画廊，支持评分排序、搜索与原图": "Galería de imágenes para adultos con puntuación, búsqueda y originales"}, ru: {"成人美图画廊，支持评分排序、搜索与原图": "Галерея изображений для взрослых с рейтингом, поиском и оригиналами"}, ar: {"成人美图画廊，支持评分排序、搜索与原图": "معرض صور للبالغين مع الترتيب والبحث والصور الأصلية"},
   },
-  key: 'gelbooru', name: 'Gelbooru', version: '0.0.8', minAppVersion: '0.9.2', type: 'comic', category: 'illustration', language: 'en', color: '#657b83',
+  key: 'gelbooru', name: 'Gelbooru', version: '0.0.9', minAppVersion: '0.9.2', type: 'comic', category: 'illustration', language: 'en', color: '#657b83',
   homepage: 'https://gelbooru.com/', description: '成人美图画廊，支持评分排序、搜索与原图', domains: ['gelbooru.com'], network: {mode: 'native', vpnHint: true},
   imageHeaders: {Referer: 'https://gelbooru.com/'},
-  idPattern: '^\\d{1,12}$', defaultFeed: 'popular', feeds: [{key: 'popular', label: '热门', options: [
+  idPattern: '^\\d{1,12}$', defaultFeed: 'popular', feeds: [{key: 'popular', label: '热门', commonFilters: {score: {range: true}}, options: [
     {key: 'rating', label: '站点分级', default: '', values: [{value: '', label: '全部'}, {value: 'general', label: 'General'}, {value: 'sensitive', label: 'Sensitive'}, {value: 'questionable', label: 'Questionable'}, {value: 'explicit', label: 'Explicit'}]},
     {key: 'sort', label: '排序', default: 'score', values: [{value: 'score', label: '评分'}, {value: 'date', label: '最新'}]},
   ]}],
+  searchCommonFilters: {score: {range: true}},
   searchFilters: [
     {key: 'rating', label: '站点分级', default: '', values: [{value: '', label: '全部'}, {value: 'general', label: 'General'}, {value: 'sensitive', label: 'Sensitive'}, {value: 'questionable', label: 'Questionable'}, {value: 'explicit', label: 'Explicit'}]},
     {key: 'sort', label: '排序', default: '', values: [{value: '', label: '默认'}, {value: 'score', label: '评分'}, {value: 'date', label: '最新'}]},
   ], PAGE_SIZE: 42,
+  async searchSuggestions(keyword) {
+    const match = /^(.*\s)?(-?)([^\s:]+)$/.exec(String(keyword || ''));
+    if (!match) return [];
+    const rows = await this.http.json('https://gelbooru.com/index.php', {params: {page: 'autocomplete2', term: match[3], type: 'tag_query', limit: 10}});
+    if (!Array.isArray(rows)) throw Park.error('PARSE', '媒体数据无效');
+    return rows.filter(row => typeof row.value === 'string').slice(0, 10).map(row => ({
+      keyword: (match[1] || '') + match[2] + row.value, label: String(row.label || row.value), subtitle: '',
+    }));
+  },
   validId(v) { const id = String(v || ''); if (!/^\d{1,12}$/.test(id)) throw Park.error('NOT_FOUND', '图片编号无效'); return id; },
   siteUrl(v) { try { const u = new URL(String(v), 'https://gelbooru.com/'); return u.protocol === 'https:' && (u.hostname === 'gelbooru.com' || u.hostname.endsWith('.gelbooru.com')) ? u : null; } catch (_) { return null; } },
   async page(req = {}, keyword) {
@@ -24,6 +34,12 @@ Park.register({
     let words = String(keyword || '').trim().split(/\s+/).filter(Boolean);
     if (rating) words = words.filter(w => !/^-?rating:/i.test(w)); if (sort) words = words.filter(w => !/^-?sort:/i.test(w));
     if (rating) words.push('rating:' + rating); if (sort) words.push(sort === 'score' ? 'sort:score:desc' : 'sort:id:desc');
+    const score = req.common?.score;
+    if (score && (score.min !== undefined || score.max !== undefined)) {
+      words = words.filter(word => !/^-?score:/i.test(word));
+      if (score.min !== undefined) words.push('score:>=' + score.min);
+      if (score.max !== undefined) words.push('score:<=' + score.max);
+    }
     const u = 'https://gelbooru.com/index.php?page=post&s=list&tags=' + encodeURIComponent(words.join(' ')) + '&pid=' + pid, r = this.http.ensureOk(await this.http.get(u));
     return {doc: Park.html.parse(r.body), url: u, page};
   },

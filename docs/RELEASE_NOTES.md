@@ -1,45 +1,31 @@
 ## 中文
 
-### 新功能
-- 站点浏览新增卡片与详细单行列表切换，默认使用卡片。
-
 ### 改进
-- 统一筛选、相册、短视频和其他工具按钮样式，搜索筛选与多语言搜索不再单独占行。
-- 标签更紧凑，分组标题与首行标签对齐；显示与过滤开关增加底部即时提示。
-- 播放器统一使用右上角选集按钮，移除旧的同系列切换和独立选集栏，减少重复菜单；保留亮度和音量调节条样式并显示当前数值。
-- 短剧在滑动落定后切换选集，并短暂保留上一集，减少误滑返回时的等待。
-- 短视频的仅视频与带信息切换移至右下角，简介与进度条排列更紧凑。
-
-### 修复
-- 修复连续进入关联作品后旧播放页累积媒体资源的问题，返回时重新加载并恢复进度。
-- 长标题支持完整翻译，翻译失败时显示提示并保留原文。
-- 修复切换短剧选集后立即退出全屏时显示旧集标题或黑屏占位的问题，等待期间显示加载状态。
-- 修复短视频模式未正确显示 Android 系统导航栏的问题。
-- 相册和视频帖模式入口仅在支持对应功能的创作社区显示。
+- 站点浏览和搜索使用漏斗打开筛选，筛选按钮与其他浏览工具同行，并显示已启用的条件数量。
+- 站内与聚合搜索的多语言搜索按钮始终位于输入框旁，搜索结果不再自动翻译。
+- 仅供预览、没有完整内容的作品使用独立预览图标控制显示，开关提示更清楚。
+- 支持的站点在输入时提供关键词联想，保留已输入的查询内容；聚合候选标注来源，选择后进入对应站点搜索。
 
 ### 插件更新
-- Pixiv 0.0.15：推荐结果去重，补充稀疏漫画结果，并在推荐批次重复时停止继续加载。
-- Baidu 0.0.6：正确提示图片上传被拒绝，避免误报结果解析失败。
+- E-Hentai 0.0.16：补齐页数上下限、上传者、种子、已删除画廊及原站排除规则选项，改进带类别前缀的标签联想。
+- nhentai 0.0.11：增加页数与收藏数上下限，以及带类别前缀的关键词联想。
+- Danbooru 0.0.7、yande.re 0.0.9、Gelbooru 0.0.9：增加分数范围与标签联想，Danbooru 另支持收藏数范围。
+- PornPics 0.0.11、Eporner 0.0.10：增加关键词联想，Eporner 补充搜索排序。
+- XVideos 0.0.11、Pornhub 0.0.11：补充搜索排序、时间范围及清晰度或制作类型筛选。
+- Thumbzilla 0.0.10、Rule34Video 0.0.11、KoreanBJ.club 录播 0.0.7、123AV 0.0.13、TubeSafari 0.0.10：补充搜索排序。
 
 ## English
 
-### New
-- Site browsing now supports cards and detailed single-row lists, with cards as the default.
-
 ### Improvements
-- Unified filter, album, short-video, and other toolbar buttons. Search filters and multilingual search no longer occupy separate rows.
-- Made tags more compact and aligned group headings with the first row. Display and filter toggles now show immediate feedback near the bottom.
-- Unified episode selection in the upper-right button, removed the old series switch and separate episode bar, and reduced duplicate player menus. Brightness and volume bars retain their appearance and now show current values.
-- Drama episodes switch after a swipe settles and briefly retain the previous episode to reduce waiting when reversing an accidental swipe.
-- Moved the video-only and information toggle to the lower right and brought descriptions closer to the progress bar.
-
-### Fixes
-- Fixed media resource accumulation when opening related works repeatedly. Returning reloads playback and restores progress.
-- Long titles can be translated in full. Translation failures show feedback and preserve the original text.
-- Fixed stale episode titles or black placeholders when leaving fullscreen immediately after changing drama episodes. A loading indicator is shown while waiting.
-- Fixed Android system navigation bar visibility in short-video mode.
-- Album and video-post mode entries now appear only in creator communities that support them.
+- Site browsing and search now use a funnel to open filters alongside other browsing tools, with a count of active conditions.
+- Multilingual search stays beside the input in both site and cross-site search. Search results are no longer translated automatically.
+- A separate preview icon controls works that only offer previews without full content, with clearer toggle feedback.
+- Supported sites suggest keywords while typing and preserve the existing query. Cross-site suggestions show their source and open that site's search when selected.
 
 ### Plugin updates
-- Pixiv 0.0.15: deduplicate recommendations, fill sparse manga results, and stop loading repeated recommendation batches.
-- Baidu 0.0.6: correctly report rejected image uploads instead of a result parsing failure.
+- E-Hentai 0.0.16: added page limits, uploader, torrent, expunged gallery and site exclusion options, and improved tag suggestions with category prefixes.
+- nhentai 0.0.11: added page and favorite count limits, plus keyword suggestions with category prefixes.
+- Danbooru 0.0.7, yande.re 0.0.9 and Gelbooru 0.0.9: added score ranges and tag suggestions. Danbooru also supports favorite count ranges.
+- PornPics 0.0.11 and Eporner 0.0.10: added keyword suggestions. Eporner also adds search sorting.
+- XVideos 0.0.11 and Pornhub 0.0.11: added search sorting, time ranges, and quality or production type filters.
+- Thumbzilla 0.0.10, Rule34Video 0.0.11, KoreanBJ.club recordings 0.0.7, 123AV 0.0.13 and TubeSafari 0.0.10: added search sorting.

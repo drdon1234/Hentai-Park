@@ -12,9 +12,12 @@ class SearchSuggestions extends ChangeNotifier {
   CancelToken? _request;
   int _generation = 0;
   bool _disposed = false;
+  String? _input;
 
   void update(String text) {
+    if (_input == text) return;
     clear();
+    _input = text;
     final keyword = text.trim();
     if (keyword.isEmpty) return;
     final generation = _generation;
@@ -34,6 +37,7 @@ class SearchSuggestions extends ChangeNotifier {
   }
 
   void clear() {
+    _input = null;
     _generation++;
     _timer?.cancel();
     _request?.cancel();

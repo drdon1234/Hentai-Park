@@ -9,7 +9,7 @@ Park.register({
     "ru": {"同人动画与游戏角色短片，支持评分榜、搜索和多清晰度 MP4": "Фанатская анимация и ролики с игровыми персонажами: рейтинг, поиск и MP4 разного качества"},
     "ar": {"同人动画与游戏角色短片，支持评分榜、搜索和多清晰度 MP4": "رسوم المعجبين ومقاطع شخصيات الألعاب مع التقييم والبحث وجودات MP4 متعددة"},
   },
-  key: 'rule34video', name: 'Rule34Video', version: '0.0.10', minAppVersion: '0.9.2', type: 'video', category: 'anime',
+  key: 'rule34video', name: 'Rule34Video', version: '0.0.11', minAppVersion: '0.9.2', type: 'video', category: 'anime',
   language: 'en', color: '#88AA44', homepage: 'https://rule34video.com',
   description: '同人动画与游戏角色短片，支持评分榜、搜索和多清晰度 MP4',
   domains: ['rule34video.com'], network: {mode: 'native', vpnHint: true},
@@ -88,13 +88,15 @@ Park.register({
   },
   async listing(req, keyword) {
     const page = Math.max(1, Math.floor(Number(req.page) || 1));
-    const base = keyword === undefined ? this.BASE + '/?sort_by=rating' : this.BASE + '/search/?q=' + encodeURIComponent(keyword);
+    const sort = String(req.filters?.sort || '');
+    if (!["", "post_date", "video_viewed", "rating", "duration"].includes(sort)) throw Park.error('CONFIG', '筛选参数无效');
+    const base = keyword === undefined ? this.BASE + '/?sort_by=rating' : this.BASE + '/search/?q=' + encodeURIComponent(keyword) + (sort ? '&sort_by=' + sort : '');
     let url = base;
     if (page > 1) {
       const u = this.siteUrl(req.cursor);
       if (!u || u.pathname !== new URL(base).pathname || u.searchParams.get('q') !== (keyword ?? null) || u.searchParams.get('mode') !== 'async' || u.searchParams.get('function') !== 'get_block' ||
           u.searchParams.get('block_id') !== (keyword === undefined ? 'custom_list_videos_most_recent_videos' : 'custom_list_videos_videos_list_search') ||
-          (keyword === undefined && u.searchParams.get('sort_by') !== 'rating') ||
+          (u.searchParams.get('sort_by') || '') !== (keyword === undefined ? 'rating' : sort) ||
           ![u.searchParams.get('from_videos'), u.searchParams.get('from')].some(x => Number(x) === page)) throw Park.error('CONFIG', '分页链接无效');
       url = u.href;
     }
@@ -113,6 +115,7 @@ Park.register({
     if (key !== 'rating') throw Park.error('CONFIG', '未知列表');
     return this.listing(req);
   },
+  searchFilters: [{key: 'sort', label: '排序', default: '', values: [{value: '', label: '相关度'}, {value: 'post_date', label: '最新'}, {value: 'video_viewed', label: '最多观看'}, {value: 'rating', label: '评分'}, {value: 'duration', label: '时长'}]}],
   async search(req) {
     const keyword = String(req.keyword || '').trim();
     return keyword ? this.listing(req, keyword) : {items: [], page: 1, hasNext: false};

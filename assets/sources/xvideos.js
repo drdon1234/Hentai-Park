@@ -9,7 +9,7 @@ Park.register({
     "ru": {"标清": "Стандартное качество", "综合成人视频，支持排行、搜索和高清播放": "Видео для взрослых с рейтингами, поиском и высоким качеством", "高清": "Высокое качество"},
     "ar": {"标清": "جودة قياسية", "综合成人视频，支持排行、搜索和高清播放": "فيديوهات للبالغين مع تصنيفات وبحث وتشغيل بجودة عالية", "高清": "جودة عالية"},
   },
-  key: 'xvideos', name: 'XVideos', version: '0.0.10', minAppVersion: '0.9.2', type: 'video', category: 'adult', color: '#E31B23',
+  key: 'xvideos', name: 'XVideos', version: '0.0.11', minAppVersion: '0.9.2', type: 'video', category: 'adult', color: '#E31B23',
   description: '综合成人视频，支持排行、搜索和高清播放', homepage: 'https://www.xvideos.com', domains: ['xvideos.com'], language: 'en',
   network: {mode: 'native', vpnHint: true}, imageHeaders: {Referer: 'https://www.xvideos.com/'},
   media: {mode: 'native', origin: 'https://www.xvideos.com', domains: ['xvideos-cdn.com']},
@@ -116,6 +116,9 @@ Park.register({
     if (!Number.isInteger(page) || page < 1 || page > Math.ceil(rows.length / 100)) throw Park.error('CONFIG', '视频标签无效');
     return [{value: '', label: '全部'}, ...rows.slice((page - 1) * 100, page * 100).map(({value, label}) => ({value, label}))];
   },
+  searchFilters: [{key: 'sort', label: '排序', default: 'relevance', values: [{value: 'relevance', label: '相关度'}, {value: 'uploaddate', label: '最新'}, {value: 'rating', label: '评分'}, {value: 'length', label: '时长'}, {value: 'views', label: '最多观看'}]},
+    {key: 'datef', label: '周期', default: 'all', values: [{value: 'all', label: '不限'}, {value: 'today', label: '最近三天'}, {value: 'week', label: '本周'}, {value: 'month', label: '本月'}, {value: '3month', label: '最近三个月'}, {value: '6month', label: '最近六个月'}]},
+    {key: 'quality', label: '清晰度', default: 'all', values: [{value: 'all', label: '不限'}, {value: 'hd', label: '720P +'}, {value: '1080P', label: '1080P +'}]}],
   async search(req) {
     const keyword = String(req.keyword || '').trim(), tag = req.filters?.tag;
     if (tag !== undefined && tag !== '') {
@@ -123,7 +126,14 @@ Park.register({
       return this.listing(this.BASE + tag, req, 'search');
     }
     if (!keyword) return {items: [], page: 1, hasNext: false};
-    return this.listing(this.BASE + '/?k=' + encodeURIComponent(keyword), req, 'search');
+    const sort = String(req.filters?.sort || 'relevance');
+    if (!["relevance", "uploaddate", "rating", "length", "views"].includes(sort)) throw Park.error('CONFIG', '筛选参数无效');
+    const datef = String(req.filters?.datef || 'all');
+    if (!["all", "today", "week", "month", "3month", "6month"].includes(datef)) throw Park.error('CONFIG', '筛选参数无效');
+    const quality = String(req.filters?.quality || 'all');
+    if (!["all", "hd", "1080P"].includes(quality)) throw Park.error('CONFIG', '筛选参数无效');
+    const params = new URLSearchParams({k: keyword, sort, datef, quality});
+    return this.listing(this.BASE + '/?' + params, req, 'search');
   },
   // Related videos are not rendered as cards: the page script holds them as `var video_related=[...]`.
   related(html, id) {

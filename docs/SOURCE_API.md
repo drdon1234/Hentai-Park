@@ -210,7 +210,9 @@ feeds: [{ key: 'latest', label: '最新', commonFilters: {
 searchCommonFilters: { pages: { range: ['min', 'max'] } },
 ```
 
-维度为 `pages`、`likes`、`duration`。`range: true` 表示同时支持 `min`、`max`，也可用数组只声明支持的边界；`sort: true` 表示支持 `asc`、`desc`，也可列出实际支持的方向。页数与点赞数必须是非负整数，时长单位为秒。请求在 `feed` 或 `search` 的参数对象中带 `common`，例如 `{ pages: { min: 10, order: 'desc' } }`；空边界和空排序省略，范围上下限可以任意一端留空，每次最多指定一个维度排序。Feed 通过 `commonFilters` 声明，搜索通过源级 `searchCommonFilters` 声明；未声明的维度不得接受。
+维度为 `pages` / `likes` / `duration` / `score` / `favorites`。`range: true` 表示同时支持 `min`、`max`，也可用数组只声明支持的边界；`sort: true` 表示支持 `asc`、`desc`，也可列出实际支持的方向。页数与点赞数必须是非负整数，时长单位为秒。请求在 `feed` 或 `search` 的参数对象中带 `common`，例如 `{ pages: { min: 10, order: 'desc' } }`；空边界和空排序省略，范围上下限可以任意一端留空，每次最多指定一个维度排序。Feed 通过 `commonFilters` 声明，搜索通过源级 `searchCommonFilters` 声明；未声明的维度不得接受。
+
+`score` 表示原站整数分数（允许负数），`favorites` 表示非负整数收藏数；二者不等同于星级或点赞数。只声明原站真实支持的边界，不对已加载结果做近似过滤。
 
 ### 动态与级联筛选
 
@@ -349,6 +351,8 @@ async resolveGameResource(workId, resourceId, channelId) {}
 ### 关键词联想：`searchSuggestions`
 
 声明方法后运行时导出 `capabilities.searchSuggestions: true`。站内搜索框在输入暂停后调用，清空、提交搜索或销毁页面时取消请求；失败不打断正常搜索。只返回本站真实支持的候选，最多十条，形如 `[{keyword: '原站查询词', label: '候选标签', subtitle: '可选翻译或命名空间'}]`。点击后用 `keyword` 提交本站搜索，框架不拼接站点查询语法。Pixiv 使用原标签，EH 保留命名空间与完整匹配语法。
+
+联想返回的 `keyword` 是完整查询，包含用户已输入的其他关键词。只有原站支持时才插入类别前缀：E-Hentai 与 nhentai 保留命名空间；Danbooru、yande.re、Gelbooru、Pixiv、PornPics、Eporner 与 Fansly 使用原站关键词，不添加 EH 前缀。聚合搜索只查询已选中的支持站点，候选标注来源并进入对应站点搜索；输入法组词期间不请求候选。
 
 ### 原站互动：`interaction`
 

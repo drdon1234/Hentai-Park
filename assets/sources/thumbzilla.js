@@ -9,7 +9,7 @@ Park.register({
     "ru": {"成人视频，支持热门、搜索和多清晰度 MP4 播放": "Видео для взрослых: популярное, поиск и MP4 в разных качествах"},
     "ar": {"成人视频，支持热门、搜索和多清晰度 MP4 播放": "فيديوهات البالغين مع قوائم شائعة وبحث وتشغيل MP4 بجودات متعددة"},
   },
-  key: 'thumbzilla', name: 'Thumbzilla', version: '0.0.9', minAppVersion: '0.9.2', type: 'video', category: 'adult', color: '#FF9900',
+  key: 'thumbzilla', name: 'Thumbzilla', version: '0.0.10', minAppVersion: '0.9.2', type: 'video', category: 'adult', color: '#FF9900',
   description: '成人视频，支持热门、搜索和多清晰度 MP4 播放', homepage: 'https://www.thumbzilla.com',
   domains: ['thumbzilla.com'], language: 'en',
   network: {mode: 'auto', origin: 'https://www.thumbzilla.com', vpnHint: true}, imageHeaders: {Referer: 'https://www.thumbzilla.com/'},
@@ -27,7 +27,7 @@ Park.register({
   siteUrl(value) { return Park.url.site(this, value); },
   pageUrl(value, kind) {
     const u = this.siteUrl(value), path = kind === 'feed' ? '/most_viewed/' : '/search/';
-    if (!u || (kind === 'search' && u.pathname !== path && !/^\/category\/[a-z0-9_-]+\/$/i.test(u.pathname)) ||
+    if (!u || (kind === 'search' && !/^\/search\/(?:views\/|rating\/|date\/|duration\/)?$/.test(u.pathname) && !/^\/category\/[a-z0-9_-]+\/$/i.test(u.pathname)) ||
         (kind === 'feed' && u.pathname !== path) ||
         (u.searchParams.has('page') && !/^[1-9]\d{0,5}$/.test(u.searchParams.get('page')))) throw Park.error('CONFIG', '视频列表地址无效');
     return u.href;
@@ -95,10 +95,13 @@ Park.register({
     if (options.length === 1) throw Park.error('PARSE', '未找到视频分类');
     return options;
   },
+  searchFilters: [{key: 'sort', label: '排序', default: '', values: [{value: '', label: '相关度'}, {value: 'views', label: '最多观看'}, {value: 'rating', label: '评分'}, {value: 'date', label: '最新'}, {value: 'duration', label: '时长'}]}],
   async search(req) {
     const keyword = String(req.keyword || '').trim();
     if (!keyword) return {items: [], page: 1, hasNext: false};
-    return this.listing(this.BASE + '/search/?query=' + encodeURIComponent(keyword), req, 'search');
+    const sort = String(req.filters?.sort || '');
+    if (!["", "views", "rating", "date", "duration"].includes(sort)) throw Park.error('CONFIG', '筛选参数无效');
+    return this.listing(this.BASE + '/search/' + (sort ? sort + '/' : '') + '?query=' + encodeURIComponent(keyword), req, 'search');
   },
   async detail(id) {
     id = this.validId(id);

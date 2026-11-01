@@ -36,7 +36,7 @@ Park.register({
       '录播请求失败': 'فشل طلب التسجيل', '录播数据无效': 'بيانات التسجيل غير صالحة', '录播不存在': 'التسجيل غير موجود',
     },
   },
-  key: 'koreanbj_recording', name: 'KoreanBJ.club 录播', version: '0.0.6', minAppVersion: '0.9.2', type: 'video', category: 'recording',
+  key: 'koreanbj_recording', name: 'KoreanBJ.club 录播', version: '0.0.7', minAppVersion: '0.9.2', type: 'video', category: 'recording',
   color: '#8d2738', description: '韩国主播录播，支持热门、分页、搜索与原生播放', language: 'ko',
   homepage: 'https://ww1.koreanbj.club/', domains: ['koreanbj.club'],
   network: {mode: 'auto', vpnHint: true},
@@ -111,11 +111,14 @@ Park.register({
     const path = key === 'popular' ? '/?filter=most-viewed' : '/?filter=latest';
     return this.list(path, page);
   },
+  searchFilters: [{key: 'sort', label: '排序', default: 'latest', values: [{value: 'latest', label: '最新'}, {value: 'most-viewed', label: '最多观看'}, {value: 'longest', label: '时长'}]}],
   async search(req = {}) {
     const keyword = String(req.keyword || '').trim().slice(0, 80);
     if (!keyword) return {items: [], page: 1, hasNext: false};
     const page = Math.max(1, Math.floor(Number(req.page) || 1));
-    const params = new URLSearchParams({s: keyword});
+    const sort = String(req.filters?.sort || 'latest');
+    if (!["latest", "most-viewed", "longest"].includes(sort)) throw Park.error('CONFIG', '筛选参数无效');
+    const params = new URLSearchParams({s: keyword, filter: sort});
     if (page > 1) params.set('paged', String(page));
     return this.list('/?' + params.toString(), page);
   },

@@ -15,7 +15,7 @@ const ratingOption = {key: 'rating', label: '站点分级', default: '', values:
 const sortOption = {key: 'sort', label: '排序', default: '', values: [
   {value: '', label: '默认'}, {value: 'date', label: '最新'}, {value: 'score', label: '评分'},
 ]};
-function filterTags(keyword, filters = {}) {
+function filterTags(keyword, filters = {}, common = {}) {
   const rating = String(filters.rating || ''), sort = String(filters.sort || '');
   if (!['', 'g', 's', 'q', 'e'].includes(rating) || !['', 'date', 'score'].includes(sort)) {
     throw Park.error('CONFIG', '筛选参数无效');
@@ -25,6 +25,12 @@ function filterTags(keyword, filters = {}) {
   if (sort) words = words.filter(word => !/^-?order:/i.test(word));
   if (rating) words.push('rating:' + rating);
   if (sort) words.push('order:' + (sort === 'date' ? 'id_desc' : 'score'));
+  for (const [dimension, tag] of [['score', 'score'], ['favorites', 'favcount']]) {
+    const range = common[dimension];
+    if (!range || (range.min === undefined && range.max === undefined)) continue;
+    words = words.filter(word => !new RegExp('^-?' + tag + ':', 'i').test(word));
+    words.push(tag + ':' + (range.min ?? '') + '..' + (range.max ?? ''));
+  }
   return words.join(' ');
 }
 const idOf = value => { const id=String(value); if (!/^[1-9]\d{0,11}$/.test(id)) throw Park.error('NOT_FOUND','内容不存在或已被删除'); return id; };
@@ -122,14 +128,15 @@ Park.register({
       "Danbooru 帖子没有可用原图": "لا تتوفر صورة أصلية لهذا المنشور في Danbooru"
     }
   },
-  key: 'danbooru', name: 'Danbooru', version: '0.0.6', minAppVersion: '0.9.2', apiVersion: 2,
+  key: 'danbooru', name: 'Danbooru', version: '0.0.7', minAppVersion: '0.9.2', apiVersion: 2,
   type: 'comic', category: 'illustration', color: '#3B73AF',
   homepage: DAN_API, description: '二次元图片图集，保留站内安全、擦边与 R18 分级',
   domains: ['donmai.us'], imageHeaders: {'User-Agent': DAN_UA},
   network: { vpnHint: true, headers: { 'User-Agent': DAN_UA, Accept: 'application/json' } },
   defaultFeed: 'popular', feeds: [{ key: 'popular', label: '热门' }, { key: 'latest', label: '最新' },
-    {key: 'category', label: '分类', options: [ratingOption, {...sortOption, default: 'date'}]}],
+    {key: 'category', label: '分类', commonFilters: {score: {range: true}, favorites: {range: true}}, options: [ratingOption, {...sortOption, default: 'date'}]}],
   searchFilters: [ratingOption, sortOption],
+  searchCommonFilters: {score: {range: true}, favorites: {range: true}},
   linkPatterns: ['danbooru\\.donmai\\.us/posts/(\\d+)'], idPattern: '^(\\d{1,12})$',
   searchHint: '支持原站标签及 rating:g/s/q/e；匿名搜索最多两个普通标签，标签内空格请用下划线',
   async listing(path, params, page) {
@@ -145,14 +152,25 @@ Park.register({
     return {items,page:pageOf(page),hasNext:data.length>=20};
   },
   async feed(key, req) {
-    if (key === 'category') return this.listing('/posts.json', {tags: filterTags('', {sort: 'date', ...req.options})}, req.page);
+    if (key === 'category') return this.listing('/posts.json', {tags: filterTags('', {sort: 'date', ...req.options}, req.common)}, req.page);
     if (!['popular', 'latest'].includes(key)) throw Park.error('CONFIG', '未知 Danbooru 列表');
     return this.listing('/posts.json', key === 'popular' ? {tags: 'order:rank'} : {}, req.page);
   },
   async search(req) {
-    const keyword = filterTags(req.keyword, req.filters);
+    const keyword = filterTags(req.keyword, req.filters, req.common);
     if (!keyword) return { items: [], page: 1, hasNext: false };
     return this.listing('/posts.json', {tags:keyword}, req.page);
+  },
+  async searchSuggestions(keyword) {
+    const match = /^(.*\s)?(-?)([^\s:]+)$/.exec(String(keyword || ''));
+    if (!match) return [];
+    const rows = await this.http.json(DAN_API + '/tags.json', {params: {
+      'search[name_matches]': match[3] + '*', 'search[order]': 'count', limit: 10,
+    }});
+    if (!Array.isArray(rows)) throw Park.error('PARSE', 'Danbooru 返回无效数据');
+    return rows.filter(row => typeof row.name === 'string').slice(0, 10).map(row => ({
+      keyword: (match[1] || '') + match[2] + row.name, label: row.name.replace(/_/g, ' '), subtitle: '',
+    }));
   },
   async post(value) {
     const id = idOf(value);

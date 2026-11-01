@@ -1,4 +1,6 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../core/content_scope.dart';
 import '../../core/localization.dart';
@@ -131,7 +133,11 @@ class _SourceSearchPageState extends State<SourceSearchPage> {
 
   void _textChanged() {
     _syncFilterKeyword(_text.text.trim());
-    if (_m.can('searchSuggestions')) _suggestions.update(_text.text);
+    if (_m.can('searchSuggestions') && _text.value.composing.isCollapsed) {
+      _suggestions.update(_text.text);
+    } else {
+      _suggestions.clear();
+    }
     if (_text.text.isEmpty && _started) {
       _searchGeneration++;
       setState(() => _started = false);
@@ -269,10 +275,10 @@ class _SourceSearchPageState extends State<SourceSearchPage> {
     final defaults = _m.defaultFilters();
     final native = _filters.entries.where((e) {
       final d = defaults[e.key];
-      if (e.value is List) return (e.value as List).isNotEmpty;
+      if (e.value is List && d is List) return !listEquals(e.value as List, d);
       return e.value != d && !(e.value == null && d == null);
     }).length;
-    return native + (_commonFilters.isEmpty ? 0 : 1);
+    return native + _commonFilters.length;
   }
 
   Future<void> _openFilters() async {
@@ -301,6 +307,7 @@ class _SourceSearchPageState extends State<SourceSearchPage> {
   @override
   Widget build(BuildContext context) {
     return TranslationPage(
+      active: false,
       child: Builder(
         builder: (context) => Scaffold(
           appBar: AppBar(
@@ -332,7 +339,18 @@ class _SourceSearchPageState extends State<SourceSearchPage> {
                 ),
               ],
             ),
-            actions: [TranslationControls(source: widget.sourceKey)],
+            actions: [
+              IconButton(
+                tooltip: tr('多语言搜索'),
+                onPressed: _translating ? null : _searchMulti,
+                icon: _translating
+                    ? const SizedBox.square(
+                        dimension: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.g_translate_rounded),
+              ),
+            ],
           ),
           body: Column(
             children: [
@@ -397,21 +415,9 @@ class _SourceSearchPageState extends State<SourceSearchPage> {
                             child: IconButton(
                               tooltip: tr('筛选'),
                               onPressed: _openFilters,
-                              icon: const Icon(Icons.tune_rounded),
+                              icon: const Icon(Icons.filter_alt_outlined),
                             ),
                           ),
-                        IconButton(
-                          tooltip: tr('多语言搜索'),
-                          onPressed: _translating ? null : _searchMulti,
-                          icon: _translating
-                              ? const SizedBox.square(
-                                  dimension: 18,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                  ),
-                                )
-                              : const Icon(Icons.g_translate_rounded),
-                        ),
                       ],
                     ),
                     if (_started &&
@@ -668,7 +674,12 @@ class FilterSheet extends StatefulWidget {
     required this.commonValues,
     required this.sourceManager,
     required this.keyword,
+    this.feed,
   });
+  final FeedDef? feed;
+  List<OptionDef> get definitions => feed?.options ?? manifest.searchFilters;
+  List<CommonFilterDef> get commonDefinitions =>
+      feed?.commonFilters ?? manifest.searchCommonFilters;
   final SourceManifest manifest;
   final Map<String, Object?> values;
   final Map<String, Object?> commonValues;
@@ -688,12 +699,14 @@ class FilterSheetResult {
 class _FilterSheetState extends State<FilterSheet> {
   late final FilterController _filters = FilterController(
     source: widget.manifest.key,
-    scope: 'search',
+    scope: widget.feed == null ? 'search' : 'feed',
+    feed: widget.feed?.key,
     keyword: widget.keyword,
-    definitions: widget.manifest.searchFilters,
+    definitions: widget.definitions,
     loader: (filter, values, token) => widget.sourceManager.filterOptions(
       widget.manifest.key,
-      scope: 'search',
+      scope: widget.feed == null ? 'search' : 'feed',
+      feed: widget.feed?.key,
       filter: filter,
       keyword: widget.keyword,
       values: values,
@@ -732,7 +745,7 @@ class _FilterSheetState extends State<FilterSheet> {
 
   Future<void> _change(String key, Object? value) async {
     _filters.setValue(key, value);
-    for (final option in widget.manifest.searchFilters.where(
+    for (final option in widget.definitions.where(
       (option) => option.dynamicValues && _filters.isEnabled(option.key),
     )) {
       await _filters.loadDynamic(option.key);
@@ -772,7 +785,7 @@ class _FilterSheetState extends State<FilterSheet> {
                 controller: scroll,
                 padding: const EdgeInsets.symmetric(horizontal: Gap.page),
                 children: [
-                  if (widget.manifest.searchCommonFilters.isNotEmpty) ...[
+                  if (widget.commonDefinitions.isNotEmpty) ...[
                     Padding(
                       padding: const EdgeInsets.only(top: Gap.m),
                       child: Text(
@@ -784,7 +797,7 @@ class _FilterSheetState extends State<FilterSheet> {
                     ),
                     CommonFilterFields(
                       key: ValueKey(_commonRevision),
-                      definitions: widget.manifest.searchCommonFilters,
+                      definitions: widget.commonDefinitions,
                       initialValues: _commonValues,
                       onChanged: (values, valid) => setState(() {
                         _commonValues = values;
@@ -793,7 +806,7 @@ class _FilterSheetState extends State<FilterSheet> {
                     ),
                     const SizedBox(height: Gap.m),
                   ],
-                  for (final f in widget.manifest.searchFilters) ...[
+                  for (final f in widget.definitions) ...[
                     IgnorePointer(
                       ignoring: !_filters.isEnabled(f.key),
                       child: Opacity(
@@ -814,15 +827,27 @@ class _FilterSheetState extends State<FilterSheet> {
                               ),
                             ),
                             if (f.type == 'number')
-                              _NumberField(
-                                value:
-                                    (_filters.values[f.key] as num?)?.toInt() ??
-                                    0,
-                                onChanged: (n) => _change(f.key, n),
+                              TextFormField(
+                                key: ValueKey((_commonRevision, f.key)),
+                                initialValue:
+                                    (_filters.values[f.key] == 0
+                                        ? ''
+                                        : _filters.values[f.key]?.toString()) ??
+                                    '',
+                                keyboardType: TextInputType.number,
+                                inputFormatters: [
+                                  FilteringTextInputFormatter.digitsOnly,
+                                ],
+                                decoration: InputDecoration(
+                                  labelText: f.label,
+                                  hintText: tr('不限'),
+                                ),
+                                onChanged: (value) =>
+                                    _change(f.key, int.tryParse(value) ?? 0),
                               )
                             else if (f.type == 'text')
                               TextFormField(
-                                key: ValueKey('filter-text-${f.key}'),
+                                key: ValueKey((_commonRevision, f.key)),
                                 initialValue:
                                     _filters.values[f.key]?.toString() ?? '',
                                 decoration: InputDecoration(labelText: f.label),
@@ -937,40 +962,6 @@ class _FilterSheetState extends State<FilterSheet> {
           ],
         ),
       ),
-    );
-  }
-}
-
-class _NumberField extends StatelessWidget {
-  const _NumberField({required this.value, required this.onChanged});
-  final int value;
-  final ValueChanged<int> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        IconButton.filledTonal(
-          tooltip: '-10',
-          onPressed: value > 0
-              ? () => onChanged((value - 10).clamp(0, 9999))
-              : null,
-          icon: const Icon(Icons.remove_rounded),
-        ),
-        SizedBox(
-          width: 72,
-          child: Text(
-            value == 0 ? tr('不限') : '≥ $value',
-            textAlign: TextAlign.center,
-            style: context.text.titleMedium,
-          ),
-        ),
-        IconButton.filledTonal(
-          tooltip: '+10',
-          onPressed: () => onChanged(value + 10),
-          icon: const Icon(Icons.add_rounded),
-        ),
-      ],
     );
   }
 }

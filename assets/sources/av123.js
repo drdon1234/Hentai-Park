@@ -9,7 +9,7 @@ Park.register({
     "ru": {"JAV 视频，支持推荐、热门、搜索与 HLS 播放": "Видео JAV с рекомендациями, популярными списками, поиском и воспроизведением HLS", "推荐列表暂不可用": "Рекомендации временно недоступны", "推荐配置暂不可用": "Настройки рекомендаций временно недоступны", "播放线路暂不可用": "Воспроизведение временно недоступно", "请刷新推荐列表后重试": "Обновите рекомендации и повторите попытку"},
     "ar": {"JAV 视频，支持推荐、热门、搜索与 HLS 播放": "مقاطع JAV مع توصيات وقوائم شائعة وبحث وتشغيل HLS", "推荐列表暂不可用": "التوصيات غير متاحة مؤقتًا", "推荐配置暂不可用": "إعدادات التوصيات غير متاحة مؤقتًا", "播放线路暂不可用": "التشغيل غير متاح مؤقتًا", "请刷新推荐列表后重试": "حدّث التوصيات وحاول مرة أخرى"},
   },
-  key: 'av123', name: '123AV', version: '0.0.12', minAppVersion: '0.9.2', type: 'video', category: 'jav', color: '#EF4444',
+  key: 'av123', name: '123AV', version: '0.0.13', minAppVersion: '0.9.2', type: 'video', category: 'jav', color: '#EF4444',
   description: 'JAV 视频，支持推荐、热门、搜索与 HLS 播放',
   homepage: 'https://123av.com', domains: ['123av.com', 'sadie-shop.site'], language: 'zh-Hans',
   network: {mode: 'browser', origin: 'https://123av.com', vpnHint: true},
@@ -154,12 +154,15 @@ Park.register({
     if (!['hot','new','recent'].includes(key)) throw Park.error('CONFIG','未知视频列表');
     return this.listing('/cn/'+key,req);
   },
+  searchFilters: [{key: 'sort', label: '排序', default: 'relevant', values: [{value: 'relevant', label: '相关度'}, {value: 'release_date', label: '发行日期'}, {value: 'recent', label: '最近添加'}, {value: 'hot', label: '热门'}, {value: 'today', label: '今天'}, {value: 'week', label: '本周'}, {value: 'month', label: '本月'}]}],
   async search(req) {
     const category=(req.filters || {}).category;
     if (typeof category==='string' && /^\/cn\/(?:genres|actresses|makers|series|tags)\/[a-z0-9_%+-]+$/i.test(category)) return this.listing(category,req);
     const keyword=String(req.keyword || '').trim();
     if (!keyword) return {items:[],page:1,totalPages:1,hasNext:false};
-    return this.listing('/cn/search',req,{keyword});
+    const sort = String(req.filters?.sort || 'relevant');
+    if (!["relevant", "release_date", "recent", "hot", "today", "week", "month"].includes(sort)) throw Park.error('CONFIG', '筛选参数无效');
+    return this.listing('/cn/search',req,{keyword,sort});
   },
   async filterOptions(req) {
     if (req.scope !== 'feed' || req.feed !== 'categories' || req.filter !== 'category') return [];

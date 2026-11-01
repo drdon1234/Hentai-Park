@@ -40,7 +40,6 @@ const browseFilters = [
         { value: 'manga', label: '漫画' },
       ],
     },
-    { key: 'minPages', label: '最少页数', type: 'number', default: 0 },
   ];
 Park.register({
   i18n: {
@@ -54,7 +53,7 @@ Park.register({
   },
   key: 'nhentai',
   name: 'nhentai',
-  version: '0.0.10', minAppVersion: '0.9.2',
+  version: '0.0.11', minAppVersion: '0.9.2',
   type: 'comic',
   category: 'doujin',
   color: '#ED2553',
@@ -87,12 +86,12 @@ Park.register({
   rankings: [{ key: 'popular', label: '排行榜', category: 'doujin', metric: '站内热门', feed: 'popular' }],
   defaultFeed: 'popular',
   feeds: [
-    {key: 'category', label: '分类', options: browseFilters.filter(option => option.type !== 'number'), commonFilters: {pages: {range: ['min']} }},
-    { key: 'latest', label: '最新', commonFilters: {pages: {range: ['min']} } },
+    {key: 'category', label: '分类', options: browseFilters.filter(option => option.type !== 'number'), commonFilters: {pages: {range: true}, favorites: {range: true} }},
+    { key: 'latest', label: '最新', commonFilters: {pages: {range: true}, favorites: {range: true} } },
     {
       key: 'popular',
       label: '热门',
-      commonFilters: {pages: {range: ['min']}},
+      commonFilters: {pages: {range: true}, favorites: {range: true}},
       options: [
         {
           key: 'period',
@@ -111,7 +110,7 @@ Park.register({
 
   searchHint: '支持 tag:"big breasts"、artist:xxx、-yaoi、pages:>20 等站内语法',
   searchFilters: browseFilters,
-  searchCommonFilters: {pages: {range: ['min']}},
+  searchCommonFilters: {pages: {range: true}, favorites: {range: true}},
   API: 'https://nhentai.net/api/v2',
   LANGUAGE_TAGS: { 29963: '中文', 6346: '日文', 12227: '英文' },
   servers: null,
@@ -185,6 +184,10 @@ Park.register({
     const pages = common?.pages || {};
     const clauses = [];
     if (pages.min !== undefined) clauses.push(`pages:>=${pages.min}`);
+    if (pages.max !== undefined) clauses.push(`pages:<=${pages.max}`);
+    const favorites = common?.favorites || {};
+    if (favorites.min !== undefined) clauses.push(`favorites:>=${favorites.min}`);
+    if (favorites.max !== undefined) clauses.push(`favorites:<=${favorites.max}`);
     return clauses;
   },
 
@@ -205,10 +208,29 @@ Park.register({
     const words = [keyword];
     words.push(this.defaultLanguageClause(keyword, lang));
     if (f.category) words.push(`category:${f.category}`);
-    if (Number(f.minPages) > 0 && common.pages?.min === undefined) words.push(`pages:>=${Number(f.minPages)}`);
     words.push(...this.commonPageClauses(common));
     const query = words.filter(Boolean).join(' ').trim();
     return this.listing({ query: query || '*', sort: f.sort || 'date', page: req.page });
+  },
+
+  async searchSuggestions(keyword) {
+    keyword = String(keyword || '').trim();
+    const token = /(?:^|\s)(-?(?:[a-z]+:)?(?:"[^"]*"?|[^\s"]*))$/i.exec(keyword);
+    if (!token || !token[1]) return [];
+    const start = keyword.length - token[1].length;
+    const text = token[1].replace(/^-/, '').replace(/"/g, '');
+    const parts = text.split(':');
+    const types = ['tag', 'artist', 'character', 'parody', 'group', 'language', 'category'];
+    if (parts.length > 2 || (parts.length === 2 && !types.includes(parts[0]))) return [];
+    const body = {query: parts.at(-1), limit: 10};
+    if (!body.query) return [];
+    if (parts.length === 2) body.type = parts[0];
+    const rows = await this.http.json(this.API + '/tags/search', {method: 'POST', readOnly: true, json: body});
+    if (!Array.isArray(rows)) throw Park.error('PARSE', '媒体数据无效');
+    return rows.filter(row => types.includes(row.type) && typeof row.name === 'string').map(row => ({
+      keyword: keyword.slice(0, start) + (token[1].startsWith('-') ? '-' : '') + row.type + ':"' + row.name.replace(/["\\]/g, '') + '"',
+      label: row.type + ':' + row.name, subtitle: '',
+    }));
   },
 
   async random() {

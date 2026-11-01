@@ -159,7 +159,9 @@ feeds: [{ key: 'latest', label: 'Latest', commonFilters: {
 searchCommonFilters: { pages: { range: ['min', 'max'] } },
 ```
 
-Dimensions are `pages`, `likes` and `duration`. `range: true` enables both `min` and `max`; an array can declare only supported bounds. `sort: true` enables `asc` and `desc`; an array lists the directions the site supports. Pages and likes use non-negative integers; duration is in seconds. The `feed` or `search` request object receives a separate `common` map, for example `{ pages: { min: 10, order: 'desc' } }`. Empty bounds and ordering are omitted, either range bound may be left blank, and at most one dimension may be sorted at a time. Declare capabilities only where the site supports them; undeclared dimensions must be rejected.
+Dimensions are `pages` / `likes` / `duration` / `score` / `favorites`. `range: true` enables both `min` and `max`; an array can declare only supported bounds. `sort: true` enables `asc` and `desc`; an array lists the directions the site supports. Pages and likes use non-negative integers; duration is in seconds. The `feed` or `search` request object receives a separate `common` map, for example `{ pages: { min: 10, order: 'desc' } }`. Empty bounds and ordering are omitted, either range bound may be left blank, and at most one dimension may be sorted at a time. Declare capabilities only where the site supports them; undeclared dimensions must be rejected.
+
+`score` is the site’s integer score and may be negative; `favorites` is a non-negative integer favorite count. Neither is a star rating or like count. Declare only bounds supported by the site; do not approximate by filtering loaded results.
 
 ### Dynamic and cascading filters
 
@@ -289,6 +291,10 @@ async textChapter(id, chapterId) {}                // novels
 async gameResources(workId) {}                     // games
 async resolveGameResource(workId, resourceId, channelId) {}
 ```
+
+### `searchSuggestions`
+
+Implement `searchSuggestions(keyword)` to export `capabilities.searchSuggestions`. Return up to ten `[{keyword, label, subtitle}]` entries. Each `keyword` is a complete query preserving other typed terms. Emit category prefixes only when supported: E-Hentai and nhentai retain namespaces; other sites use their native keywords. Load after typing pauses, cancel on clear, submit or disposal, and let normal search continue on failure. Cross-site suggestions use selected sites only, show the source and open that site’s search. Do not request during IME composition.
 
 ### Lists: `feed` / `search`
 

@@ -148,7 +148,9 @@ Park.register({
 
 ### 通用篩選與排序
 
-外掛可為每個 Feed 宣告 `commonFilters`，並以 `searchCommonFilters` 宣告搜尋能力。應用程式只顯示已宣告的操作，不會根據已載入作品欄位近似篩選；外掛必須映射至站點實際查詢並在分頁時保留條件。維度為 `pages`、`likes`、`duration`，`range: true` 或陣列宣告 `min`／`max` 邊界，`sort: true` 或陣列宣告 `asc`／`desc` 方向。頁數與按讚數是非負整數，時長單位為秒。`feed` 與 `search` 請求帶有獨立的 `common` 對象，任一邊界可留空，每次最多排序一個維度，未宣告的維度必須拒絕。
+外掛可為每個 Feed 宣告 `commonFilters`，並以 `searchCommonFilters` 宣告搜尋能力。應用程式只顯示已宣告的操作，不會根據已載入作品欄位近似篩選；外掛必須映射至站點實際查詢並在分頁時保留條件。維度為 `pages` / `likes` / `duration` / `score` / `favorites`，`range: true` 或陣列宣告 `min`／`max` 邊界，`sort: true` 或陣列宣告 `asc`／`desc` 方向。頁數與按讚數是非負整數，時長單位為秒。`feed` 與 `search` 請求帶有獨立的 `common` 對象，任一邊界可留空，每次最多排序一個維度，未宣告的維度必須拒絕。
+
+`score` 表示原站整數分數（允許負數），`favorites` 表示非負整數收藏數；兩者不等同於星級或按讚數。只宣告原站實際支援的邊界，不對已載入結果做近似過濾。
 
 ### 動態與級聯篩選
 
@@ -278,6 +280,10 @@ async textChapter(id, chapterId) {}                // 小说
 async gameResources(workId) {}                     // 游戏
 async resolveGameResource(workId, resourceId, channelId) {}
 ```
+
+### `searchSuggestions`
+
+實作 `searchSuggestions(keyword)` 後匯出 `capabilities.searchSuggestions`。回傳最多十筆 `[{keyword, label, subtitle}]`，其中 `keyword` 是包含其他已輸入詞的完整查詢。只有原站支援才插入分類前綴；E-Hentai 與 nhentai 保留命名空間，其他站點使用原站關鍵字。輸入暫停後載入；清空、提交或離開時取消，失敗不阻止搜尋。聚合候選只來自已選站點，標示來源並進入該站搜尋。輸入法組字期間不請求。
 
 ### 列表：`feed` / `search`
 

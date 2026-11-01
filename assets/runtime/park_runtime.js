@@ -517,7 +517,7 @@
     if (!value || typeof value !== 'object' || Array.isArray(value)) {
       throw new ParkError(ErrorCode.CONFIG, '通用筛选参数无效');
     }
-    const allowedDimensions = ['pages', 'likes', 'duration'];
+    const allowedDimensions = ['pages', 'likes', 'duration', 'score', 'favorites'];
     const result = {};
     let sorted = false;
     for (const [key, input] of Object.entries(value)) {
@@ -550,7 +550,7 @@
         if (bound === undefined || bound === null || bound === '') continue;
         const validNumber = key === 'duration'
           ? typeof bound === 'number' && Number.isFinite(bound) && bound >= 0
-          : typeof bound === 'number' && Number.isSafeInteger(bound) && bound >= 0;
+          : typeof bound === 'number' && Number.isSafeInteger(bound) && (key === 'score' || bound >= 0);
         if (!range.includes(field) || !validNumber) {
           throw new ParkError(ErrorCode.CONFIG, '通用筛选范围无效');
         }

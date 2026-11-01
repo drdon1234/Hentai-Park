@@ -159,7 +159,9 @@ feeds: [{ key: 'latest', label: 'Más recientes', commonFilters: {
 searchCommonFilters: { pages: { range: ['min', 'max'] } },
 ```
 
-Las dimensiones son `pages`, `likes` y `duration`. `range: true` habilita `min` y `max`; una matriz puede declarar solo los límites admitidos. `sort: true` habilita `asc` y `desc`; una matriz enumera las direcciones compatibles con el sitio. Páginas y me gusta usan enteros no negativos; la duración se expresa en segundos. El objeto de petición de `feed` o `search` recibe un mapa `common` separado, por ejemplo `{ pages: { min: 10, order: 'desc' } }`. Se omiten los límites y el orden vacíos; cualquiera de los límites puede quedar en blanco y solo se puede ordenar una dimensión a la vez. Declara únicamente capacidades que admita el sitio y rechaza las dimensiones no declaradas.
+Las dimensiones son `pages` / `likes` / `duration` / `score` / `favorites`. `range: true` habilita `min` y `max`; una matriz puede declarar solo los límites admitidos. `sort: true` habilita `asc` y `desc`; una matriz enumera las direcciones compatibles con el sitio. Páginas y me gusta usan enteros no negativos; la duración se expresa en segundos. El objeto de petición de `feed` o `search` recibe un mapa `common` separado, por ejemplo `{ pages: { min: 10, order: 'desc' } }`. Se omiten los límites y el orden vacíos; cualquiera de los límites puede quedar en blanco y solo se puede ordenar una dimensión a la vez. Declara únicamente capacidades que admita el sitio y rechaza las dimensiones no declaradas.
+
+`score` es la puntuación entera del sitio y admite negativos; `favorites` es el número entero no negativo de favoritos. No equivalen a estrellas ni a Me gusta. Declara solo límites admitidos por el sitio; no filtres aproximadamente los resultados cargados.
 
 ### Filtros dinámicos y en cascada
 
@@ -289,6 +291,10 @@ async textChapter(id, chapterId) {}                // novelas
 async gameResources(workId) {}                     // juegos
 async resolveGameResource(workId, resourceId, channelId) {}
 ```
+
+### `searchSuggestions`
+
+Implementa `searchSuggestions(keyword)` para exportar `capabilities.searchSuggestions`. Devuelve hasta diez entradas `[{keyword, label, subtitle}]`; `keyword` debe ser la consulta completa conservando los demás términos. Añade prefijos solo si el sitio los admite: E-Hentai y nhentai conservan espacios de nombres; los demás usan palabras nativas. Solicita tras una pausa, cancela al borrar, enviar o cerrar y no impidas buscar si falla. Las sugerencias conjuntas usan solo sitios seleccionados, indican su origen y abren su búsqueda. No solicites durante la composición IME.
 
 ### Listas: `feed` / `search`
 

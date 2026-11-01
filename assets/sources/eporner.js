@@ -9,14 +9,15 @@ Park.register({
     ru: {"成人视频目录、搜索与多清晰度 MP4": "Каталог видео для взрослых, поиск и MP4 разных качеств"},
     ar: {"成人视频目录、搜索与多清晰度 MP4": "دليل فيديو للبالغين مع البحث وملفات MP4 متعددة الجودة"},
   },
-  key: 'eporner', name: 'Eporner', version: '0.0.9', minAppVersion: '0.9.2', type: 'video', category: 'adult', language: 'en',
+  key: 'eporner', name: 'Eporner', version: '0.0.10', minAppVersion: '0.9.2', type: 'video', category: 'adult', language: 'en',
   color: '#e84b39', homepage: 'https://www.eporner.com/', description: '成人视频目录、搜索与多清晰度 MP4',
   domains: ['eporner.com'], network: {mode: 'native', vpnHint: true},
   media: {mode: 'native', scope: 'session', origin: 'https://www.eporner.com', domains: ['eporner.com']},
   imageNetwork: {mode: 'browser', origin: 'https://www.eporner.com', domains: ['eporner.com']},
   imageHeaders: {Referer: 'https://www.eporner.com/'},
-  idPattern: '^[A-Za-z0-9]{1,32}$', defaultFeed: 'recommended', feeds: [{key: 'recommended', label: '推荐'},
+  idPattern: '^[A-Za-z0-9]{1,32}$', defaultFeed: 'recommended', feeds: [{key: 'recommended', label: '推荐', options: [{key: 'sort', label: '排序', default: 'top-weekly', values: [{value: 'top-weekly', label: '本周热门'}, {value: 'top-rated', label: '评分'}, {value: 'latest', label: '最新'}, {value: 'most-popular', label: '热门'}]}]},
     {key: 'categories', label: '分类', options: [{key: 'category', label: '分类', default: 'all', dynamic: true, values: []}]}],
+  searchFilters: [{key: 'sort', label: '排序', default: 'top-weekly', values: [{value: 'top-weekly', label: '本周热门'}, {value: 'top-rated', label: '评分'}, {value: 'latest', label: '最新'}, {value: 'most-popular', label: '热门'}]}],
   API: 'https://www.eporner.com/api/v2/video',
   validId(value) { const id = String(value || ''); if (!/^[A-Za-z0-9]{1,32}$/.test(id)) throw Park.error('NOT_FOUND', '视频编号无效'); return id; },
   async api(path, params) {
@@ -31,7 +32,9 @@ Park.register({
   },
   async listing(req = {}, keyword) {
     const page = Math.max(1, Math.floor(Number(req.page) || 1));
-    const data = await this.api('/search/', {query: keyword === undefined ? 'all' : String(keyword).slice(0, 100), per_page: 20, page, order: 'top-weekly'});
+    const order = String((keyword === undefined ? req.options : req.filters)?.sort || 'top-weekly');
+    if (!['top-weekly', 'top-rated', 'latest', 'most-popular'].includes(order)) throw Park.error('CONFIG', '筛选参数无效');
+    const data = await this.api('/search/', {query: keyword === undefined ? 'all' : String(keyword).slice(0, 100), per_page: 20, page, order});
     const rows = Array.isArray(data?.videos) ? data.videos : [];
     const items = rows.map(v => this.item(v)).filter(Boolean);
     const total = Number(data?.total_pages || data?.total_count || 0);
@@ -71,6 +74,13 @@ Park.register({
     return {items, page, hasNext: !!next && new URL(next.getAttribute('href'), 'https://www.eporner.com').pathname === '/cat/' + slug + '/' + (page + 1) + '/'};
   },
   async feed(key, req) { if (key === 'categories') return this.categoryFeed(req); if (key !== 'recommended') throw Park.error('CONFIG', '未知推荐列表'); return this.listing(req); },
+  async searchSuggestions(keyword) {
+    const doc = await this.html('/suggest/' + encodeURIComponent(String(keyword || '').trim()) + '/video/?layout=sections');
+    return [...doc.querySelectorAll('a[id^="sugga"]')].slice(0, 10).map(row => {
+      const word = row.getAttribute('title') || Park.html.text(row.querySelector('.qslabel, .qsstarname')) || Park.html.text(row);
+      return {keyword: word, label: word, subtitle: ''};
+    }).filter(row => row.keyword);
+  },
   async search(req) { const q = String(req?.keyword || '').trim(); return q ? this.listing(req, q) : {items: [], page: 1, hasNext: false}; },
   async comments(value, req = {}) {
     const id = this.validId(value), page = Math.max(1, Math.floor(Number(req.page) || 1));

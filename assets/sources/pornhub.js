@@ -9,7 +9,7 @@ Park.register({
     "ru": {"成人视频播放数据解析失败": "Не удалось разобрать данные воспроизведения видео для взрослых", "综合成人视频，支持推荐、搜索和多清晰度播放": "Видео для взрослых с рекомендациями, поиском и выбором качества"},
     "ar": {"成人视频播放数据解析失败": "تعذر تحليل بيانات تشغيل الفيديو للبالغين", "综合成人视频，支持推荐、搜索和多清晰度播放": "فيديوهات للبالغين مع توصيات وبحث وخيارات جودة متعددة"},
   },
-  key: 'pornhub', name: 'Pornhub', version: '0.0.10', minAppVersion: '0.9.2', type: 'video', category: 'adult',
+  key: 'pornhub', name: 'Pornhub', version: '0.0.11', minAppVersion: '0.9.2', type: 'video', category: 'adult',
   color: '#FF9900', description: '综合成人视频，支持推荐、搜索和多清晰度播放',
   homepage: 'https://www.pornhub.com', domains: ['pornhub.com'], language: 'en',
   network: {mode: 'auto', origin: 'https://www.pornhub.com', vpnHint: true},
@@ -97,10 +97,23 @@ Park.register({
     if (options.length === 1) throw Park.error('PARSE', '未找到视频分类');
     return options;
   },
+  searchFilters: [{key: 'sort', label: '排序', default: '', values: [{value: '', label: '相关度'}, {value: 'mr', label: '最新'}, {value: 'mv', label: '最多观看'}, {value: 'tr', label: '评分'}, {value: 'lg', label: '时长'}]},
+    {key: 'period', label: '周期', default: 'a', values: [{value: 'a', label: '不限'}, {value: 't', label: '今天'}, {value: 'w', label: '本周'}, {value: 'm', label: '本月'}, {value: 'y', label: '本年'}]},
+    {key: 'production', label: '类型', default: '', values: [{value: '', label: '不限'}, {value: 'professional', label: '专业制作'}, {value: 'homemade', label: '自制'}]}],
   async search(req) {
     const keyword = String(req.keyword || '').trim();
     if (!keyword) return {items: [], page: 1, hasNext: false};
-    return this.listing(this.BASE + '/video/search?search=' + encodeURIComponent(keyword), req, 'search');
+    const sort = String(req.filters?.sort || '');
+    if (!["", "mr", "mv", "tr", "lg"].includes(sort)) throw Park.error('CONFIG', '筛选参数无效');
+    const period = String(req.filters?.period || 'a');
+    if (!["a", "t", "w", "m", "y"].includes(period)) throw Park.error('CONFIG', '筛选参数无效');
+    const production = String(req.filters?.production || '');
+    if (!["", "professional", "homemade"].includes(production)) throw Park.error('CONFIG', '筛选参数无效');
+    const params = new URLSearchParams({search: keyword});
+    if (sort) params.set('o', sort);
+    if (period !== 'a') params.set('t', period);
+    if (production) params.set('p', production);
+    return this.listing(this.BASE + '/video/search?' + params, req, 'search');
   },
   async comments(value, req = {}) {
     const work = this.validId(value), page = Math.max(1, Math.floor(Number(req.page) || 1));

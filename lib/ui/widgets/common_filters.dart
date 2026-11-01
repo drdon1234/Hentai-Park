@@ -94,9 +94,10 @@ class _CommonFilterFieldsState extends State<CommonFilterFields> {
           : decimal
           ? num.tryParse(maxText)
           : int.tryParse(maxText);
-      if ((minText.isNotEmpty && (min == null || min < 0)) ||
-          (maxText.isNotEmpty && (max == null || max < 0))) {
-        errors[key] = tr('请输入有效的非负数');
+      final signed = definition.dimension == CommonFilterDimension.score;
+      if ((minText.isNotEmpty && (min == null || (!signed && min < 0))) ||
+          (maxText.isNotEmpty && (max == null || (!signed && max < 0)))) {
+        errors[key] = tr(signed ? '请输入有效的整数' : '请输入有效的非负数');
         continue;
       }
       if (min != null && max != null && min > max) {
@@ -132,6 +133,8 @@ class _CommonFilterFieldsState extends State<CommonFilterFields> {
   String _label(CommonFilterDimension dimension) => tr(switch (dimension) {
     CommonFilterDimension.pages => '页数',
     CommonFilterDimension.likes => '点赞数',
+    CommonFilterDimension.score => '分数',
+    CommonFilterDimension.favorites => '收藏数',
     CommonFilterDimension.duration => '时长（秒）',
   });
 
@@ -144,11 +147,14 @@ class _CommonFilterFieldsState extends State<CommonFilterFields> {
     controller: _controllers['$key:$side'],
     keyboardType: TextInputType.numberWithOptions(
       decimal: key == CommonFilterDimension.duration.name,
+      signed: key == CommonFilterDimension.score.name,
     ),
     inputFormatters: [
       FilteringTextInputFormatter.allow(
         key == CommonFilterDimension.duration.name
             ? RegExp(r'[0-9.]')
+            : key == CommonFilterDimension.score.name
+            ? RegExp(r'[0-9-]')
             : RegExp(r'[0-9]'),
       ),
     ],

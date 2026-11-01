@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../../core/localization.dart';
@@ -7,6 +8,7 @@ import '../../core/models.dart';
 import '../../core/settings.dart';
 import '../../engine/source_manager.dart';
 import '../album/open_album.dart';
+import '../kit/adaptive_sheet.dart';
 import '../nav.dart';
 import '../search/source_search_page.dart';
 import '../short_video/post_video_feed.dart';
@@ -14,16 +16,14 @@ import '../short_video/short_video_page.dart';
 import '../subscriptions/subscription_source_page.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
-import '../widgets/common_filters.dart';
 import '../widgets/content_translation.dart';
 import '../widgets/filter_controller.dart';
-import '../widgets/option_bar.dart';
 import '../widgets/paged_grid.dart';
 import '../widgets/result_visibility.dart';
 import '../widgets/source_account_strip.dart';
 
 /// A single source's own entry: one tab per feed (latest, ranking, categories…), each with the
-/// source's native options (periods, categories, sort) as chips.
+/// source's native filters in a shared sheet beside the tabs.
 class SourcePage extends StatefulWidget {
   const SourcePage({
     super.key,
@@ -45,9 +45,34 @@ class _SourcePageState extends State<SourcePage> {
   bool _listMode = false;
   bool _hidePreviews = false;
 
-  Widget _displayControls() => Row(
+  final _feedKeys = <String, GlobalKey<_FeedTabState>>{};
+
+  Widget _displayControls(BuildContext context, SourceManifest manifest) => Row(
     mainAxisSize: MainAxisSize.min,
     children: [
+      if (manifest.feeds.isNotEmpty)
+        AnimatedBuilder(
+          animation: DefaultTabController.of(context),
+          builder: (context, _) {
+            final feed = manifest.feeds[DefaultTabController.of(context).index];
+            if (feed.options.isEmpty && feed.commonFilters.isEmpty) {
+              return const SizedBox.shrink();
+            }
+            final active =
+                _feedKeys[feed.key]?.currentState?._activeFilters ?? 0;
+            return Badge(
+              isLabelVisible: active > 0,
+              label: Text('$active'),
+              child: IconButton(
+                tooltip: tr('筛选'),
+                isSelected: active > 0,
+                icon: const Icon(Icons.filter_alt_outlined),
+                onPressed: () =>
+                    _feedKeys[feed.key]?.currentState?._openFilters(),
+              ),
+            );
+          },
+        ),
       ResultVisibility(
         hidePreviews: _hidePreviews,
         onPreviews: (value) => setState(() => _hidePreviews = value),
@@ -142,7 +167,7 @@ class _SourcePageState extends State<SourcePage> {
             child: Row(
               children: [
                 Expanded(child: feedTabs),
-                _displayControls(),
+                Builder(builder: (context) => _displayControls(context, m)),
                 const SizedBox(width: Gap.s),
               ],
             ),
@@ -181,7 +206,10 @@ class _SourcePageState extends State<SourcePage> {
                         ],
                       ),
                       actions: [
-                        if (tabs == null) _displayControls(),
+                        if (tabs == null)
+                          Builder(
+                            builder: (context) => _displayControls(context, m),
+                          ),
                         if ((m.json['subscription'] as Map?)?['communities'] ==
                             true)
                           IconButton(
@@ -293,12 +321,16 @@ class _SourcePageState extends State<SourcePage> {
                         children: [
                           for (final f in m.feeds)
                             FeedTab(
-                              key: PageStorageKey('${m.key}-${f.key}'),
+                              key: _feedKeys.putIfAbsent(
+                                f.key,
+                                () => GlobalKey<_FeedTabState>(),
+                              ),
                               source: m,
                               sourceManager: _sources,
                               feed: f,
                               listMode: _listMode,
                               hidePreviews: _hidePreviews,
+                              onFiltersChanged: () => setState(() {}),
                             ),
                         ],
                       ),
@@ -319,7 +351,9 @@ class FeedTab extends StatefulWidget {
     this.listMode = false,
     this.hidePreviews = false,
     this.sourceManager,
+    this.onFiltersChanged,
   });
+  final VoidCallback? onFiltersChanged;
   final SourceManager? sourceManager;
   final SourceManifest source;
   final FeedDef feed;
@@ -343,7 +377,7 @@ class _FeedTabState extends State<FeedTab> with AutomaticKeepAliveClientMixin {
     _controller.hidePreviews = widget.hidePreviews;
     _options = widget.feed.defaultOptions();
     final sources = widget.sourceManager ?? SourceManager.instance;
-    _filters = FilterController(
+    _initialFilters = FilterController(
       source: widget.source.key,
       scope: 'feed',
       feed: widget.feed.key,
@@ -368,14 +402,47 @@ class _FeedTabState extends State<FeedTab> with AutomaticKeepAliveClientMixin {
   bool _forceRefresh = false;
   late Map<String, Object?> _options;
   Map<String, Object?> _common = const {};
-  late final FilterController _filters;
   late final PagedController _controller;
+  late final FilterController _initialFilters;
+
+  int get _activeFilters {
+    final defaults = widget.feed.defaultOptions();
+    return _common.length +
+        _options.entries.where((entry) {
+          final initial = defaults[entry.key];
+          return entry.value is List && initial is List
+              ? !listEquals(entry.value as List, initial)
+              : entry.value != initial;
+        }).length;
+  }
+
+  Future<void> _openFilters() async {
+    final result = await showAdaptiveSheet<FilterSheetResult>(
+      context: context,
+      isScrollControlled: true,
+      builder: (_) => FilterSheet(
+        manifest: widget.source,
+        feed: widget.feed,
+        values: _options,
+        commonValues: _common,
+        sourceManager: widget.sourceManager ?? SourceManager.instance,
+        keyword: '',
+      ),
+    );
+    if (!mounted || result == null) return;
+    setState(() {
+      _options = result.filters;
+      _common = result.common;
+    });
+    widget.onFiltersChanged?.call();
+    await _refresh();
+  }
 
   Future<void> _initializeFilters() async {
-    await _filters.initialize();
-    await _filters.loadEnabledDynamic();
+    await _initialFilters.initialize();
+    await _initialFilters.loadEnabledDynamic();
     if (!mounted) return;
-    _options = _filters.values;
+    _options = _initialFilters.values;
     _controller.loading = false;
     await _controller.loadMore();
   }
@@ -412,7 +479,7 @@ class _FeedTabState extends State<FeedTab> with AutomaticKeepAliveClientMixin {
   @override
   void dispose() {
     _authentication?.cancel();
-    _filters.dispose();
+    _initialFilters.dispose();
     _controller.dispose();
     super.dispose();
   }
@@ -441,7 +508,6 @@ class _FeedTabState extends State<FeedTab> with AutomaticKeepAliveClientMixin {
               handle: NestedScrollView.sliverOverlapAbsorberHandleFor(context),
             ),
             if (widget.source.supportsAlbumMode ||
-                widget.feed.commonFilters.isNotEmpty ||
                 widget.source.supportsShortVideoMode)
               SliverToBoxAdapter(
                 child: Padding(
@@ -499,69 +565,7 @@ class _FeedTabState extends State<FeedTab> with AutomaticKeepAliveClientMixin {
                             ),
                           ),
                         ),
-                      if (widget.feed.commonFilters.isNotEmpty)
-                        IconButton(
-                          tooltip: tr(_common.isEmpty ? '筛选与排序' : '筛选已启用'),
-                          isSelected: _common.isNotEmpty,
-                          icon: const Icon(Icons.tune_rounded),
-                          onPressed: () async {
-                            final result = await showCommonFilterSheet(
-                              context: context,
-                              definitions: widget.feed.commonFilters,
-                              initialValues: _common,
-                            );
-                            if (!mounted || result == null) return;
-                            setState(() => _common = result);
-                            await _refresh();
-                          },
-                        ),
                     ],
-                  ),
-                ),
-              ),
-            if (widget.feed.options.isNotEmpty)
-              SliverToBoxAdapter(
-                child: ListenableBuilder(
-                  listenable: _filters,
-                  builder: (context, _) => OptionBar(
-                    source: widget.source.key,
-                    options: widget.feed.options,
-                    values: _filters.values,
-                    dynamicChoices: {
-                      for (final option in widget.feed.options)
-                        if (option.dynamicValues)
-                          option.key: _filters.choicesFor(option.key),
-                    },
-                    loadingOptions: {
-                      for (final option in widget.feed.options)
-                        if (_filters.isLoadingOption(option.key)) option.key,
-                    },
-                    optionErrors: {
-                      for (final option in widget.feed.options)
-                        option.key: _filters.errorFor(option.key),
-                    },
-                    enabledOptions: {
-                      for (final option in widget.feed.options)
-                        option.key: _filters.isEnabled(option.key),
-                    },
-                    onRetry: (key) => _filters.loadDynamic(key),
-                    onChanged: (values) async {
-                      final previous = _filters.values;
-                      for (final entry in values.entries) {
-                        if (previous[entry.key] != entry.value) {
-                          _filters.setValue(entry.key, entry.value);
-                        }
-                      }
-                      _options = _filters.values;
-                      for (final option in widget.feed.options.where(
-                        (option) =>
-                            option.dynamicValues &&
-                            _filters.isEnabled(option.key),
-                      )) {
-                        await _filters.loadDynamic(option.key);
-                      }
-                      if (mounted) await _refresh();
-                    },
                   ),
                 ),
               ),

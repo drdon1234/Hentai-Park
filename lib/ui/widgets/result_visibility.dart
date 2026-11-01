@@ -34,12 +34,12 @@ class ResultVisibility extends StatelessWidget {
         ),
       IconButton(
         isSelected: hidePreviews,
-        tooltip: tr(hidePreviews ? '显示预览内容' : '隐藏预览内容'),
-        icon: const Icon(Icons.filter_alt_off_outlined),
-        selectedIcon: const Icon(Icons.filter_alt_outlined),
+        tooltip: tr(hidePreviews ? '显示仅供预览的作品' : '隐藏仅供预览的作品'),
+        icon: const Icon(Icons.preview_outlined),
+        selectedIcon: const Icon(Icons.preview_rounded),
         onPressed: () {
           onPreviews(!hidePreviews);
-          context.toast(tr(hidePreviews ? '已显示预览内容' : '已隐藏预览内容'));
+          context.toast(tr(hidePreviews ? '已显示仅供预览的作品' : '已隐藏仅供预览的作品'));
         },
       ),
     ],

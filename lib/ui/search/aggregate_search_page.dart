@@ -15,6 +15,8 @@ import '../widgets/result_visibility.dart';
 import 'aggregate_search_controller.dart';
 import 'aggregate_search_widgets.dart';
 import 'multi_language.dart';
+import 'search_suggestions.dart';
+import 'source_search_page.dart';
 
 class AggregateSearchPage extends StatefulWidget {
   const AggregateSearchPage({
@@ -34,6 +36,52 @@ class _AggregateSearchPageState extends State<AggregateSearchPage> {
   SourceManager get _sources => widget.sourceManager ?? SourceManager.instance;
   late final _text = TextEditingController(text: widget.initialKeyword);
   final _focus = FocusNode();
+  late final _suggestions = SearchSuggestions((keyword, token) async {
+    final sources = _targets.where(
+      (source) => source.manifest!.can('searchSuggestions'),
+    );
+    final results = await Future.wait(
+      sources.map((source) async {
+        try {
+          final items = await _sources.searchSuggestions(
+            source.key,
+            keyword,
+            cancelToken: token,
+          );
+          return items
+              .map(
+                (item) => {
+                  ...item,
+                  'source': source.key,
+                  'subtitle': [
+                    source.manifest!.name,
+                    item['subtitle'] ?? '',
+                  ].where((s) => s.isNotEmpty).join(' · '),
+                },
+              )
+              .toList();
+        } catch (_) {
+          return <Map<String, String>>[];
+        }
+      }),
+    );
+    final seen = <String>{};
+    return results
+        .expand((items) => items)
+        .where((item) => seen.add('${item['source']}:${item['keyword']}'))
+        .take(20)
+        .toList();
+  });
+
+  void _textChanged() {
+    _changed();
+    if (_text.value.composing.isCollapsed) {
+      _suggestions.update(_text.text);
+    } else {
+      _suggestions.clear();
+    }
+  }
+
   late ContentScope _range = widget.scope;
   SourceCategory _domain = SourceCategory.doujin;
   String _submitted = '';
@@ -52,7 +100,10 @@ class _AggregateSearchPageState extends State<AggregateSearchPage> {
     _domain = _range.category ?? SourceCategory.doujin;
     _translation.addListener(_changed);
     _sources.addListener(_sourcesChanged);
-    _text.addListener(_changed);
+    _text.addListener(_textChanged);
+    _focus.addListener(() {
+      if (!_focus.hasFocus) _suggestions.clear();
+    });
     if (widget.initialKeyword.isNotEmpty) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) _submit(widget.initialKeyword);
@@ -79,6 +130,7 @@ class _AggregateSearchPageState extends State<AggregateSearchPage> {
 
   @override
   void dispose() {
+    _suggestions.dispose();
     _translation.dispose();
     _sources.removeListener(_sourcesChanged);
     _results.dispose();
@@ -100,6 +152,7 @@ class _AggregateSearchPageState extends State<AggregateSearchPage> {
 
   void _changeRange(ContentScope range) {
     if (_range == range) return;
+    _suggestions.clear();
     _results.reset();
     _awaitingSources = false;
     setState(() {
@@ -113,6 +166,7 @@ class _AggregateSearchPageState extends State<AggregateSearchPage> {
   }
 
   void _submit(String keyword, {MultiKeyword? multi}) {
+    _suggestions.clear();
     final k = keyword.trim();
     if (k.isEmpty) return;
     _text.text = k;
@@ -205,6 +259,7 @@ class _AggregateSearchPageState extends State<AggregateSearchPage> {
   }
 
   void _toggleSite(String key, bool on) {
+    _suggestions.clear();
     AppSettings.instance.setAggregateIncluded(key, on);
     _generation++;
     if (_submitted.isNotEmpty && _text.text.trim() == _submitted) _dispatch();
@@ -236,6 +291,7 @@ class _AggregateSearchPageState extends State<AggregateSearchPage> {
   Widget build(BuildContext context) {
     final typed = _text.text.trim();
     return TranslationPage(
+      active: false,
       child: Builder(
         builder: (context) => Scaffold(
           appBar: AppBar(
@@ -257,11 +313,25 @@ class _AggregateSearchPageState extends State<AggregateSearchPage> {
                 ),
               ],
             ),
-            actions: const [TranslationControls()],
+            actions: [
+              IconButton(
+                tooltip: tr('多语言搜索'),
+                onPressed: typed.isEmpty || _translation.busy
+                    ? null
+                    : _submitMulti,
+                icon: _translation.busy
+                    ? const SizedBox.square(
+                        dimension: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.g_translate_rounded),
+              ),
+            ],
           ),
           body: ListenableBuilder(
             listenable: Listenable.merge([
               _sources,
+              _suggestions,
               AppSettings.instance.watch(AppSettings.filterKeys),
               AppSettings.instance.watch(const {
                 'aggregateExcluded',
@@ -332,37 +402,39 @@ class _AggregateSearchPageState extends State<AggregateSearchPage> {
                             onPreviews: (v) =>
                                 setState(() => _hidePreviews = v),
                           ),
-                          if (_translation.busy)
-                            const Padding(
-                              padding: EdgeInsets.all(Gap.s),
-                              child: SizedBox(
-                                width: 18,
-                                height: 18,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                ),
-                              ),
-                            )
-                          else
-                            ActionChip(
-                              avatar: const Icon(
-                                Icons.translate_rounded,
-                                size: 18,
-                              ),
-                              label: SelectionContainer.disabled(
-                                child: Text(tr('多语言搜索')),
-                              ),
-                              onPressed: typed.isEmpty ? null : _submitMulti,
-                            ),
                         ],
                       ),
                     ),
                   ),
+                  if (_suggestions.items.isNotEmpty)
+                    SliverList.list(
+                      children: [
+                        for (final item in _suggestions.items)
+                          ListTile(
+                            leading: const Icon(Icons.search_rounded),
+                            title: Text(item['label']!),
+                            subtitle: Text(item['subtitle']!),
+                            onTap: () {
+                              _suggestions.clear();
+                              FocusScope.of(context).unfocus();
+                              Nav.push(
+                                context,
+                                SourceSearchPage(
+                                  sourceKey: item['source']!,
+                                  initialKeyword: item['keyword']!,
+                                  sourceManager: _sources,
+                                ),
+                              );
+                            },
+                          ),
+                      ],
+                    ),
                   if (refs.isNotEmpty)
                     SliverToBoxAdapter(
                       child: DirectJump(refs: refs, sourceManager: _sources),
                     ),
-                  if (_submitted.isEmpty || typed != _submitted)
+                  if (_suggestions.items.isEmpty &&
+                      (_submitted.isEmpty || typed != _submitted))
                     SliverToBoxAdapter(
                       child: SearchHistoryList(
                         scope: _range,

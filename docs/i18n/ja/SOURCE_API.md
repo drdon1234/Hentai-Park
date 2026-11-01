@@ -159,7 +159,9 @@ feeds: [{ key: 'latest', label: '最新', commonFilters: {
 searchCommonFilters: { pages: { range: ['min', 'max'] } },
 ```
 
-対象は `pages`、`likes`、`duration` です。`range: true` は `min` と `max` の両方を有効にし、配列では対応する境界だけを宣言できます。`sort: true` は `asc` と `desc` を有効にし、配列ではサイトが対応する方向を列挙します。ページ数といいね数は 0 以上の整数、時間は秒数です。`feed` または `search` のリクエストに独立した `common` マップを渡します（例：`{ pages: { min: 10, order: 'desc' } }`）。空の境界と並べ替えは省略され、上下どちらかの境界だけでも指定できます。同時に並べ替えられる次元は 1 つです。サイトが実際に対応する能力だけを宣言し、未宣言の次元は拒否してください。
+対象は `pages` / `likes` / `duration` / `score` / `favorites` です。`range: true` は `min` と `max` の両方を有効にし、配列では対応する境界だけを宣言できます。`sort: true` は `asc` と `desc` を有効にし、配列ではサイトが対応する方向を列挙します。ページ数といいね数は 0 以上の整数、時間は秒数です。`feed` または `search` のリクエストに独立した `common` マップを渡します（例：`{ pages: { min: 10, order: 'desc' } }`）。空の境界と並べ替えは省略され、上下どちらかの境界だけでも指定できます。同時に並べ替えられる次元は 1 つです。サイトが実際に対応する能力だけを宣言し、未宣言の次元は拒否してください。
+
+`score` は負数も含むサイトの整数スコア、`favorites` は 0 以上のお気に入り数です。星評価やいいね数とは別です。サイトが対応する境界だけを宣言し、取得済みの結果を近似フィルタリングしないでください。
 
 ### 動的・連動フィルター
 
@@ -289,6 +291,10 @@ async textChapter(id, chapterId) {}                // 小説
 async gameResources(workId) {}                     // ゲーム
 async resolveGameResource(workId, resourceId, channelId) {}
 ```
+
+### `searchSuggestions`
+
+`searchSuggestions(keyword)` を実装すると `capabilities.searchSuggestions` を公開します。最大 10 件の `[{keyword, label, subtitle}]` を返し、`keyword` は入力済みの他の語も保持した完全な検索式にします。接頭辞は対応サイトだけに付け、E-Hentai と nhentai は名前空間を保持し、他は元の語を使います。入力停止後に取得し、消去・検索・破棄で中止し、失敗しても通常検索を妨げません。横断候補は選択サイトのみで、出典を表示してそのサイトで検索します。IME 変換中は取得しません。
 
 ### 一覧：`feed` / `search`
 

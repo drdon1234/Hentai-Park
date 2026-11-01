@@ -51,7 +51,12 @@ const browseFilters = [
         { value: '5', label: '5 星' },
       ],
     },
-    { key: 'minPages', label: '最少页数', type: 'number', default: 0 },
+    { key: 'uploader', label: '上传者', type: 'text', default: '' },
+    { key: 'torrent', label: '仅显示有种子的画廊', type: 'switch', default: false },
+    { key: 'expunged', label: '搜索已删除的画廊', type: 'switch', default: false },
+    { key: 'disableLanguage', label: '忽略原站语言排除规则', type: 'switch', default: false },
+    { key: 'disableUploader', label: '忽略原站上传者排除规则', type: 'switch', default: false },
+    { key: 'disableTags', label: '忽略原站标签排除规则', type: 'switch', default: false },
   ];
 Park.register({
   i18n: {
@@ -65,7 +70,7 @@ Park.register({
   },
   key: 'ehentai',
   name: 'E-Hentai',
-  version: '0.0.15', minAppVersion: '0.9.2',
+  version: '0.0.16', minAppVersion: '0.9.2',
   type: 'comic',
   category: 'doujin',
   color: '#9C2A2A',
@@ -205,8 +210,8 @@ Park.register({
   rankings: [{ key: 'toplist', label: '排行榜', category: 'doujin', metric: '站内热度', feed: 'toplist' }],
   defaultFeed: 'toplist',
   feeds: [
-    {key: 'category', label: '分类', options: browseFilters.filter(option => option.type !== 'number'), commonFilters: {pages: {range: ['min']}}},
-    { key: 'latest', label: '最新', commonFilters: {pages: {range: ['min']}} },
+    {key: 'category', label: '分类', options: browseFilters, commonFilters: {pages: {range: true}}},
+    { key: 'latest', label: '最新', commonFilters: {pages: {range: true}} },
     { key: 'popular', label: '当前热门' },
     {
       key: 'toplist',
@@ -229,7 +234,7 @@ Park.register({
 
   searchHint: '支持标签语法：female:"big breasts"$、artist:xxx、language:chinese',
   searchFilters: browseFilters,
-  searchCommonFilters: {pages: {range: ['min']}},
+  searchCommonFilters: {pages: {range: true}},
   CATEGORY_BITS: {
     Misc: 1,
     Doujinshi: 2,
@@ -424,6 +429,8 @@ Park.register({
     const params = {};
     const words = [String(req.keyword || '').trim()];
     if (f.language && !/language:/i.test(words[0])) words.push(`language:${f.language}`);
+    const uploader = String(f.uploader || '').trim().replace(/["\\]/g, '');
+    if (uploader) words.push(`uploader:"${uploader}"`);
     const search = words.filter(Boolean).join(' ');
     if (search) params.f_search = search;
     const cats = Array.isArray(f.categories) ? f.categories : f.categories ? [f.categories] : [];
@@ -433,26 +440,39 @@ Park.register({
       params.f_cats = String(mask);
     }
     const rating = Number(f.minRating) || 0;
-    if (rating >= 2) Object.assign(params, { advsearch: '1', f_sr: 'on', f_srdd: String(Math.min(rating, 5)) });
-    const minPages = common.pages?.min ?? Number(f.minPages);
-    if (minPages > 1) Object.assign(params, { advsearch: '1', f_sp: 'on', f_spf: String(minPages) });
+    if (rating >= 2) Object.assign(params, { advsearch: '1', f_srdd: String(Math.min(rating, 5)) });
+    for (const [bound, param] of [['min', 'f_spf'], ['max', 'f_spt']]) {
+      if (common.pages?.[bound] !== undefined) {
+        params.advsearch = '1';
+        params[param] = String(common.pages[bound]);
+      }
+    }
+    for (const [key, param] of [['torrent', 'f_sto'], ['expunged', 'f_sh'],
+      ['disableLanguage', 'f_sfl'], ['disableUploader', 'f_sfu'], ['disableTags', 'f_sft']]) {
+      if (f[key] === true) { params.advsearch = '1'; params[param] = 'on'; }
+    }
     return params;
   },
 
   async searchSuggestions(keyword) {
     keyword = String(keyword || '').trim();
     if (!keyword) return [];
+    const token = /(?:^|\s)(-?(?:[a-z]+:)?(?:"[^"]*"?\$?|[^\s"]*))$/i.exec(keyword);
+    if (!token || !token[1]) return [];
+    const start = keyword.length - token[1].length;
+    const negative = token[1].startsWith('-');
+    const text = token[1].replace(/^-/, '').replace(/["$]/g, '');
     await this.wait();
-    const response = await this.http.post('https://api.e-hentai.org/api.php', {
+    const response = await this.http.post(this.apiUrl, {
       readOnly: true,
-      json: { method: 'tagsuggest', text: keyword },
+      json: { method: 'tagsuggest', text },
     });
     if (!response.ok) throw Park.error('HTTP', 'HTTP {status}', { params: { status: response.status }, status: response.status });
     let data;
     try { data = JSON.parse(response.body); } catch (_) { throw Park.error('PARSE', '媒体数据无效'); }
     if (!data?.tags || typeof data.tags !== 'object') throw Park.error('PARSE', '媒体数据无效');
     return Object.values(data.tags).filter(t => typeof t.ns === 'string' && typeof t.tn === 'string').slice(0, 10)
-      .map(t => ({ keyword: t.ns + ':"' + t.tn + '"$', label: t.tn, subtitle: t.ns }));
+      .map(t => ({ keyword: keyword.slice(0, start) + (negative ? '-' : '') + t.ns + ':"' + t.tn + '"$', label: t.ns + ':' + t.tn, subtitle: '' }));
   },
 
   async search(req) {

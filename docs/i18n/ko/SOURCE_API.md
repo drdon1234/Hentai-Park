@@ -148,7 +148,9 @@ Park.register({
 
 ### 공통 필터 및 정렬
 
-플러그인은 Feed별로 `commonFilters`, 검색용으로 `searchCommonFilters`를 선언합니다. 앱은 선언된 기능만 표시하며 이미 불러온 작품 정보로 필터를 근사하지 않습니다. 조건은 실제 사이트 검색에 매핑하고 페이지를 넘겨도 유지해야 합니다. 차원은 `pages`, `likes`, `duration`이며, `range: true` 또는 배열로 지원하는 `min`/`max` 경계를 선언하고 `sort: true` 또는 배열로 지원하는 `asc`/`desc` 방향을 선언합니다. 페이지 수와 좋아요 수는 0 이상의 정수, 길이는 초 단위입니다. `feed`와 `search` 요청에는 별도의 `common` 맵을 전달하며, 빈 경계는 생략할 수 있고 한 번에 하나의 차원만 정렬할 수 있습니다. 선언하지 않은 차원은 거부해야 합니다.
+플러그인은 Feed별로 `commonFilters`, 검색용으로 `searchCommonFilters`를 선언합니다. 앱은 선언된 기능만 표시하며 이미 불러온 작품 정보로 필터를 근사하지 않습니다. 조건은 실제 사이트 검색에 매핑하고 페이지를 넘겨도 유지해야 합니다. 차원은 `pages` / `likes` / `duration` / `score` / `favorites`이며, `range: true` 또는 배열로 지원하는 `min`/`max` 경계를 선언하고 `sort: true` 또는 배열로 지원하는 `asc`/`desc` 방향을 선언합니다. 페이지 수와 좋아요 수는 0 이상의 정수, 길이는 초 단위입니다. `feed`와 `search` 요청에는 별도의 `common` 맵을 전달하며, 빈 경계는 생략할 수 있고 한 번에 하나의 차원만 정렬할 수 있습니다. 선언하지 않은 차원은 거부해야 합니다.
+
+`score`는 음수도 가능한 사이트 정수 점수이고 `favorites`는 음이 아닌 정수 즐겨찾기 수입니다. 별점이나 좋아요 수와 구분합니다. 사이트가 지원하는 경계만 선언하고 불러온 결과를 근사 필터링하지 마세요.
 
 ### 동적 및 종속 필터
 
@@ -278,6 +280,10 @@ async textChapter(id, chapterId) {}                // 소설
 async gameResources(workId) {}                     // 게임
 async resolveGameResource(workId, resourceId, channelId) {}
 ```
+
+### `searchSuggestions`
+
+`searchSuggestions(keyword)`를 구현하면 `capabilities.searchSuggestions`를 내보냅니다. 최대 10개의 `[{keyword, label, subtitle}]`를 반환하며 `keyword`는 다른 입력 단어를 보존한 전체 쿼리입니다. 지원할 때만 분류 접두사를 붙이며 E-Hentai와 nhentai는 네임스페이스를 유지하고 다른 사이트는 원래 검색어를 사용합니다. 입력이 멈추면 요청하고 비우기·검색·해제 시 취소하며 실패해도 일반 검색을 막지 않습니다. 통합 후보는 선택한 사이트만 사용하고 출처를 표시해 해당 사이트에서 검색합니다. IME 조합 중에는 요청하지 않습니다.
 
 ### 목록: `feed` / `search`
 

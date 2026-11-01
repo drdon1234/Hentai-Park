@@ -193,6 +193,8 @@ class Choice {
 enum CommonFilterDimension {
   pages,
   likes,
+  score,
+  favorites,
   duration;
 
   static CommonFilterDimension? fromJson(Object? value) => values
@@ -328,7 +330,7 @@ num? _commonFilterNumber(Object? value, CommonFilterDimension dimension) {
   if (value == null || value == '') return null;
   if (value is! num ||
       !value.isFinite ||
-      value < 0 ||
+      (dimension != CommonFilterDimension.score && value < 0) ||
       (dimension != CommonFilterDimension.duration &&
           value != value.truncate())) {
     throw const FormatException('通用筛选数值无效');

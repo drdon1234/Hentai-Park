@@ -9,7 +9,7 @@ Park.register({
     "ru": {"综合成人视频搜索，常见来源优先原生播放，其他来源使用网页播放": "Поиск видео для взрослых: нативное воспроизведение популярных поддерживаемых источников, веб-плеер для остальных", "高清": "Высокое качество", "标清": "Стандартное качество"},
     "ar": {"综合成人视频搜索，常见来源优先原生播放，其他来源使用网页播放": "بحث فيديوهات للبالغين؛ تشغيل أصلي للمصادر الشائعة المدعومة وتشغيل ويب للمصادر الأخرى", "高清": "جودة عالية", "标清": "جودة قياسية"},
   },
-  key: 'tubesafari', name: 'TubeSafari', version: '0.0.9', minAppVersion: '0.9.2', type: 'video', category: 'adult', color: '#21B7B5',
+  key: 'tubesafari', name: 'TubeSafari', version: '0.0.10', minAppVersion: '0.9.2', type: 'video', category: 'adult', color: '#21B7B5',
   description: '综合成人视频搜索，常见来源优先原生播放，其他来源使用网页播放', homepage: 'https://tubesafari.com', language: 'en',
   domains: ['tubesafari.com', 'xhcdn.com', 'nv7s.com', 'others-cdn.com', 'txxx.tube', 'phncdn.com'],
   network: {mode: 'native', vpnHint: true}, imageHeaders: {Referer: 'https://tubesafari.com/'},
@@ -66,12 +66,14 @@ Park.register({
   async listing(keyword, req, feed = false, category = '') {
     const page = Math.max(1, Math.floor(Number(req.page) || 1));
     if (!Number.isSafeInteger(page) || page > 100000) throw Park.error('CONFIG', '视频列表地址无效');
+    const sort = String(req.filters?.sort || 'best');
+    if (!["best", "new"].includes(sort)) throw Park.error('CONFIG', '筛选参数无效');
     if (page === 1 && !feed) {
-      const {doc} = await this.getPage(this.BASE + (category ? '/search/' + category : '/search?query=' + encodeURIComponent(keyword)));
+      const {doc} = await this.getPage(this.BASE + (category ? '/search/' + category : '/search?query=' + encodeURIComponent(keyword) + '&sort=' + sort));
       const items = this.cards(doc), hasNext = !!doc.querySelector('.more_videos') && items.length > 0;
       return {items, page, hasNext};
     }
-    const params = new URLSearchParams({method: 'search', query: keyword, sort: 'best', page: String(page - 1)});
+    const params = new URLSearchParams({method: 'search', query: keyword, sort, page: String(page - 1)});
     const {body} = await this.getPage(this.BASE + '/api?' + params);
     let data;
     try { data = JSON.parse(body); } catch (_) { throw Park.error('PARSE', '成人视频详情解析失败'); }
@@ -88,6 +90,7 @@ Park.register({
     if (key !== 'popular') throw Park.error('CONFIG', '未知视频列表');
     return this.listing('', req, true);
   },
+  searchFilters: [{key: 'sort', label: '排序', default: 'best', values: [{value: 'best', label: '相关度'}, {value: 'new', label: '最新'}]}],
   async search(req) {
     const keyword = String(req.keyword || '').trim();
     if (!keyword) return {items: [], page: 1, hasNext: false};
