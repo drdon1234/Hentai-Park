@@ -8,7 +8,7 @@ Park.register({
     ru: {"官方女优榜": "Официальный рейтинг актрис"},
     ar: {"官方女优榜": "ترتيب الممثلات الرسمي"},
   },
-  key: 'ranking-studios', name: '无码厂商', version: '0.0.6', minAppVersion: '0.9.2',
+  key: 'ranking-studios', name: '无码厂商', version: '0.0.7', minAppVersion: '0.10.8',
   type: 'video', category: 'jav', rankingOnly: true,
   description: '官方人气榜', homepage: 'https://www.1pondo.tv/',
   domains: ['1pondo.tv', '10musume.com', 'pacopacomama.com', 'caribbeancom.com'],
@@ -44,6 +44,44 @@ Park.register({
         date: c.Created, rating: Number(c.UserRating) || undefined};
     }).filter(c => c.body.length);
     return {items, hasNext: false};
+  },
+
+  async metadataDetail(value, context = {}) {
+    const id = String(value);
+    if (!/^\d{6}[_-]\d{2,3}$/.test(id)) throw Park.error('NOT_FOUND', '作品编号无效');
+    const origins = { '1pondo': 'https://www.1pondo.tv', '10musume': 'https://www.10musume.com',
+      pacopacomama: 'https://www.pacopacomama.com', caribbeancom: 'https://www.caribbeancom.com' };
+    const board = context.board || Object.keys(origins).find(key => {
+      try { return new URL(context.url).origin === origins[key]; } catch (_) { return false; }
+    });
+    const base = origins[board];
+    if (!base) throw Park.error('CONFIG', '作品编号无效');
+    if (board === 'caribbeancom') {
+      const url = `${base}/moviepages/${id}/index.html`;
+      const response = this.http.ensureOk(await this.http.get(url, {responseType: 'base64'}));
+      const bytes = Uint8Array.from(atob(response.body), c => c.charCodeAt(0));
+      const doc = Park.html.parse(new TextDecoder('euc-jp').decode(bytes));
+      const title = Park.html.text(doc.querySelector('.heading .heading-title, h1[itemprop="name"], #movie-info h1'));
+      if (!title) throw Park.error('PARSE', '作品资料无效');
+      const text = selector => Park.html.text(doc.querySelector(selector));
+      const images = [...doc.querySelectorAll('.gallery-item[data-is_sample="1"] img[src]')]
+        .map(img => new URL(img.getAttribute('src'), base).href);
+      // 只展示原站公开缩略图；会员大图不猜测地址。
+      return { id, code: id, title, url, images,
+        description: text('.movie-info [itemprop="description"]'),
+        releaseDate: text('.movie-info [itemprop="uploadDate"]'),
+        actors: [...doc.querySelectorAll('.movie-info [itemprop="actor"]')].map(Park.html.text),
+        tags: [...doc.querySelectorAll('.movie-info a[href*="/listpages/"]')].map(Park.html.text) };
+
+    }
+    const work = await this.http.json(`${base}/dyn/phpauto/movie_details/movie_id/${id}.json`);
+    if (work.MovieID !== id || !work.Title) throw Park.error('PARSE', '作品资料无效');
+    return { id, code: id, title: work.Title, url: `${base}/movies/${id}/`,
+      cover: work.ThumbHigh || work.MovieThumb || '', description: work.Desc || '',
+      releaseDate: work.Release || '', duration: work.Duration == null ? '' : String(work.Duration),
+      series: work.Series || '', rating: work.AvgRating == null ? '' : String(work.AvgRating),
+      actors: (work.ActressesJa || []).filter(name => typeof name === 'string'),
+      tags: Object.values(work.UcNameList || {}).map(row => typeof row === 'string' ? row : row?.NameJa || row?.NameEn).filter(Boolean) };
   },
   async ranking(studio, req) {
     if (Number(req.page) > 1) return { items: [], page: Number(req.page), hasNext: false };

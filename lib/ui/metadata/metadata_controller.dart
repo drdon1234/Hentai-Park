@@ -36,8 +36,10 @@ class MetadataController extends ChangeNotifier {
       );
       if (!_current(token)) return;
       candidates = result;
-      String normalized(String value) =>
-          value.toUpperCase().replaceAll(RegExp(r'[^A-Z0-9]'), '');
+      String normalized(String value) => value.toUpperCase().replaceAll(
+        RegExp(r'[\s_\-:：/\\.,，。!?！？()（）\[\]【】]'),
+        '',
+      );
       final exact = result
           .where((item) => normalized(item.code) == normalized(query))
           .toList();
@@ -54,7 +56,21 @@ class MetadataController extends ChangeNotifier {
     }
   }
 
-  Future<void> select(MetadataCandidate candidate) async {
+  Future<void> load(
+    String key,
+    String id, {
+    Map<String, Object?> context = const {},
+  }) async {
+    source = key;
+    await _select(id, context: context);
+  }
+
+  Future<void> select(MetadataCandidate candidate) => _select(candidate.id);
+
+  Future<void> _select(
+    String id, {
+    Map<String, Object?> context = const {},
+  }) async {
     _request?.cancel();
     _magnetsRequest?.cancel();
     final token = _request = CancelToken();
@@ -65,7 +81,7 @@ class MetadataController extends ChangeNotifier {
     magnetsLoading = false;
     notifyListeners();
     try {
-      await _load(candidate.id, token);
+      await _load(id, token, context: context);
     } catch (e) {
       if (_current(token)) error = e;
     } finally {
@@ -76,14 +92,25 @@ class MetadataController extends ChangeNotifier {
     }
   }
 
-  Future<void> _load(String id, CancelToken token) async {
-    final result = await manager.metadataDetail(source, id, cancelToken: token);
+  Future<void> _load(
+    String id,
+    CancelToken token, {
+    Map<String, Object?> context = const {},
+  }) async {
+    final result = await manager.metadataDetail(
+      source,
+      id,
+      context: context,
+      cancelToken: token,
+    );
     if (!_current(token)) return;
     detail = result;
     loading = false;
     notifyListeners();
     // 不阻塞资料展示，磁链失败只影响磁链区块。
-    await loadMagnets();
+    if (manager.manifest(source)?.can('metadataMagnets') == true) {
+      await loadMagnets();
+    }
   }
 
   Future<void> loadMagnets() async {

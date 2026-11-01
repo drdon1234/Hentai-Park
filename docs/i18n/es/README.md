@@ -22,10 +22,6 @@
 
 Disponible para **Android 7.0+ y Windows**. La mayoría de dispositivos Android usan `arm64-v8a`; extrae los archivos ZIP portátiles de Windows por completo.
 
-El proyecto se centra únicamente en Android, Windows y Web. La versión Web está prevista, pero todavía no está disponible.
-
-En Windows, al confirmar una actualización se descarga y verifica el instalador, se abre y se cierra la aplicación. Sigue las indicaciones del sistema para completar la instalación. Los archivos ZIP portátiles contienen una carpeta fija `HentaiPark`.
-
 [Plataformas e instalación](../../PLATFORMS.md)
 
 <a id="screenshots"></a>
@@ -53,22 +49,10 @@ Configura el acceso en Más → Sitios y el proxy en Más → Red cuando sea nec
 | Favoritos y novedades | Organiza grupos, guarda el progreso y consulta capítulos nuevos. Sigue autores, canales o palabras clave. |
 | Sin conexión y exportación | Descarga cómics, vídeos, novelas y recursos de juegos. Importa y exporta CBZ y exporta capítulos completos de galerías a PDF. |
 | Listas y búsqueda por imagen | Explora clasificaciones de doujinshi, anime y JAV o busca posibles obras con una imagen. |
-| Información de obras | Consulta reparto, lanzamiento, vistas previas y magnets disponibles desde listas JAV y busca después en los sitios JAV de la app. |
+| Información de obras | Explora, busca y filtra información, abre detalles de las clasificaciones en el sitio original y ordena los sitios de detalles. |
 | Comentarios y chat | Lee comentarios, respuestas e imágenes de los sitios compatibles y muestra el chat en directos compatibles. |
 | Traducción y filtros | Traduce títulos, descripciones, etiquetas y novelas. Oculta contenido por etiquetas. |
 | Privacidad y copias | Bloqueo de la app, modo incógnito, portadas borrosas y bloqueo de capturas donde sea compatible. Copias de favoritos, progreso, suscripciones y ajustes. |
-
-La búsqueda oculta el contenido bloqueado; el ojo permite mostrarlo temporalmente. El botón multilingüe junto al campo busca en los idiomas seleccionados; las páginas de búsqueda no traducen los resultados automáticamente. El embudo abre filtros admitidos por cada sitio, como tipo de obra, páginas, estrellas, puntuación o favoritos. Los sitios compatibles sugieren palabras al escribir. Las sugerencias de búsqueda conjunta indican su origen y abren la búsqueda de ese sitio al seleccionarlas. El icono de vista previa solo oculta obras que el sitio identifica como vistas previas sin contenido completo; conserva las de disponibilidad desconocida. El bloqueo incluye un grupo de contenido generado por IA.
-
-La navegación muestra tarjetas por defecto. El botón junto a las pestañas cambia a una lista con autores, idioma y otros datos junto a la portada; el embudo en esa misma zona abre los filtros. El reproductor ofrece episodios arriba a la derecha, y velocidad y calidad en la barra inferior o en Más con pantallas estrechas o texto grande.
-
-Los resúmenes de tarjetas y listas muestran completos el idioma y los metadatos disponibles; las etiquetas concretas se consultan en los detalles. Los sitios sin obras de vista previa ocultan ese filtro. La barra de Descargas permite importar cómics locales. En listas, la portada abre los detalles y el texto abre el contenido local; en cuadrícula sucede al revés.
-
-En Mi → Búsqueda y traducción → Paquetes de traducción puede descargar de una vez los diccionarios de todos los sitios para el idioma elegido. Los recordatorios automáticos pueden desactivarse para este sitio o para todos. Las cuentas, contraseñas y cookies del inicio de sesión manual se introducen como texto visible y admiten pegar; tenga cuidado con personas cercanas y al compartir pantalla.
-
-El historial de imágenes conserva las últimas 20 imágenes para cargarlas y buscar de nuevo, eliminarlas individualmente o borrar todo. El modo incógnito no las registra. Se guardan localmente sin cifrado y quedan fuera de las copias de seguridad. Las obras de la misma serie y las relacionadas están debajo del reproductor. Abrir otra página libera los recursos multimedia de la anterior; al volver, se recarga la reproducción y se restaura la posición cuando es posible. El contenido reproducido se almacena temporalmente y se borra al cerrar la reproducción; la capacidad es limitada y las partes antiguas pueden necesitar recargarse.
-
-Los sitios de comunidades de creadores ofrecen álbumes o modo de vídeos cortos cuando lo permiten. El botón de la esquina inferior derecha de un vídeo corto oculta o vuelve a mostrar su información.
 
 ## Sitios y servicios compatibles
 
@@ -79,6 +63,8 @@ Los sitios de comunidades de creadores ofrecen álbumes o modo de vídeos cortos
 ## Limitaciones y preguntas
 
 La lectura, reproducción, comentarios, suscripciones y descargas dependen de cada sitio. Consulta las opciones disponibles en la app. Las actualizaciones de sitios pueden exigir actualizar la app.
+
+La búsqueda por imagen envía imágenes al servicio elegido; el historial local no está cifrado. Las contraseñas y cookies son visibles al iniciar sesión manualmente; ten cuidado al compartir pantalla.
 
 **¿No puedes abrir un sitio o contenido?**
 

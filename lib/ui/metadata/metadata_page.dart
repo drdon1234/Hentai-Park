@@ -24,15 +24,23 @@ import 'metadata_sections.dart';
 class MetadataPage extends StatefulWidget {
   const MetadataPage({
     super.key,
+    this.id,
+    this.category = SourceCategory.jav,
+    this.detailContext = const {},
     this.keyword = '',
     this.sourceKey,
     this.sourceManager,
     this.comments,
+    this.commentsRequireCodeMatch = false,
   });
+  final String? id;
+  final SourceCategory category;
+  final Map<String, Object?> detailContext;
   final String keyword;
   final String? sourceKey;
   final SourceManager? sourceManager;
   final CommentsEntry? comments;
+  final bool commentsRequireCodeMatch;
 
   @override
   State<MetadataPage> createState() => _MetadataPageState();
@@ -50,6 +58,14 @@ class _MetadataPageState extends State<MetadataPage> {
   bool get _showComments {
     String normalized(String value) =>
         value.toUpperCase().replaceAll(RegExp(r'[^A-Z0-9]'), '');
+    if (widget.id != null) {
+      return widget.comments != null &&
+          _source == widget.sourceKey &&
+          _controller.detail?.id == widget.id &&
+          (!widget.commentsRequireCodeMatch ||
+              normalized(_controller.detail!.code) ==
+                  normalized(widget.keyword));
+    }
     final original = normalized(widget.keyword);
     return widget.comments != null &&
         original.isNotEmpty &&
@@ -61,8 +77,12 @@ class _MetadataPageState extends State<MetadataPage> {
   List<InstalledSource> get _sources => _manager.enabled
       .where(
         (source) =>
-            source.manifest!.metadataOnly &&
-            source.manifest!.can('metadataSearch') &&
+            (source.manifest!.category == widget.category ||
+                source.manifest!.rankings.any(
+                  (b) => b.category == widget.category,
+                )) &&
+            (source.key == widget.sourceKey ||
+                source.manifest!.can('metadataSearch')) &&
             source.manifest!.can('metadataDetail'),
       )
       .toList();
@@ -106,6 +126,10 @@ class _MetadataPageState extends State<MetadataPage> {
 
   Future<void> _search() async {
     final key = _source;
+    if (key != null && key == widget.sourceKey && widget.id != null) {
+      await _controller.load(key, widget.id!, context: widget.detailContext);
+      return;
+    }
     if (key == null || _text.text.trim().isEmpty) {
       _controller.reset();
       return;
@@ -113,13 +137,15 @@ class _MetadataPageState extends State<MetadataPage> {
     await _controller.search(key, _text.text);
   }
 
-  void _searchJav() {
-    final keyword = _controller.detail?.code ?? _text.text.trim();
+  void _searchWorks() {
+    final keyword = widget.category == SourceCategory.jav
+        ? _controller.detail?.code ?? _text.text.trim()
+        : _controller.detail?.title ?? _text.text.trim();
     if (keyword.isEmpty) return;
     Nav.openAggregateSearch(
       context,
       keyword: keyword,
-      scope: const ContentScope.domain(SourceCategory.jav),
+      scope: ContentScope.domain(widget.category),
     );
   }
 
@@ -170,6 +196,12 @@ class _MetadataPageState extends State<MetadataPage> {
         title: Text(tr('作品资料')),
         actions: [
           const TranslationControls(),
+          if (_sources.length > 1)
+            IconButton(
+              tooltip: tr('资料来源'),
+              onPressed: _chooseSource,
+              icon: const Icon(Icons.swap_horiz_rounded),
+            ),
           IconButton(
             tooltip: tr('管理站点'),
             onPressed: () => Nav.push(context, const SourceManagePage()),
@@ -186,56 +218,28 @@ class _MetadataPageState extends State<MetadataPage> {
             child: ListView(
               padding: const EdgeInsets.all(Gap.page),
               children: [
-                ParkSearchField(
-                  controller: _text,
-                  hint: tr('搜索番号、作品名或演员'),
-                  onSubmitted: (_) => _search(),
-                  trailing: [
-                    if (_text.text.isNotEmpty)
-                      IconButton(
-                        tooltip: tr('清空'),
-                        onPressed: () {
-                          _text.clear();
-                          _controller.reset();
-                        },
-                        icon: const Icon(Icons.close_rounded),
-                      ),
-                    IconButton(
-                      tooltip: tr('搜索资料'),
-                      onPressed: _source == null ? null : _search,
-                      icon: const Icon(Icons.arrow_forward_rounded),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: Gap.m),
-                Wrap(
-                  spacing: Gap.s,
-                  runSpacing: Gap.s,
-                  crossAxisAlignment: WrapCrossAlignment.center,
-                  children: [
-                    if (_source != null)
-                      OutlinedButton.icon(
-                        onPressed: _chooseSource,
-                        icon: const Icon(Icons.expand_more_rounded),
-                        label: Text(
-                          tr('资料来源：{name}', {
-                            'name': _manager.manifest(_source!)?.name ?? '',
-                          }),
+                if (widget.keyword.isEmpty && widget.id == null)
+                  ParkSearchField(
+                    controller: _text,
+                    hint: tr('搜索番号、作品名或演员'),
+                    onSubmitted: (_) => _search(),
+                    trailing: [
+                      if (_text.text.isNotEmpty)
+                        IconButton(
+                          tooltip: tr('清空'),
+                          onPressed: () {
+                            _text.clear();
+                            _controller.reset();
+                          },
+                          icon: const Icon(Icons.close_rounded),
                         ),
+                      IconButton(
+                        tooltip: tr('搜索资料'),
+                        onPressed: _source == null ? null : _search,
+                        icon: const Icon(Icons.arrow_forward_rounded),
                       ),
-                    FilledButton.icon(
-                      onPressed:
-                          (_controller.detail?.code ?? _text.text.trim())
-                              .isEmpty
-                          ? null
-                          : _searchJav,
-                      icon: const Icon(Icons.search_rounded),
-                      label: Text(tr('搜索 JAV 站点')),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: Gap.l),
-                if (_showComments) widget.comments!,
+                    ],
+                  ),
                 if (_source == null)
                   EmptyState(
                     icon: Icons.extension_off_outlined,
@@ -263,6 +267,9 @@ class _MetadataPageState extends State<MetadataPage> {
                 else if (_controller.detail case final detail?) ...[
                   MetadataOverview(
                     detail: detail,
+                    category: widget.category,
+                    siteName: _manager.manifest(_source!)?.name ?? '',
+                    onSearch: _searchWorks,
                     source: _source!,
                     onCopy: () => _copy(detail.code),
                     onOriginal: () => Nav.push(
@@ -281,6 +288,10 @@ class _MetadataPageState extends State<MetadataPage> {
                       onCopy: (magnet) => _copy(magnet.url),
                       onOpen: _openMagnet,
                     ),
+                  if (_showComments) ...[
+                    const SizedBox(height: Gap.xl),
+                    widget.comments!,
+                  ],
                 ] else if (_controller.query.isNotEmpty)
                   if (_controller.candidates.isEmpty)
                     EmptyState(

@@ -8,7 +8,7 @@ Park.register({
     ru: {"已购买": "Куплено", "分类累计排序（非周期榜）": "Накопительный рейтинг по жанру (без периода)", "月度女优榜": "Ежемесячный рейтинг актрис", "累计人气": "Популярность за всё время", "累计销量": "Продажи за всё время", "评价排序": "По оценкам"},
     ar: {"已购买": "تم الشراء", "分类累计排序（非周期榜）": "ترتيب تراكمي حسب النوع (غير دوري)", "月度女优榜": "ترتيب الممثلات الشهري", "累计人气": "الشعبية الإجمالية", "累计销量": "المبيعات الإجمالية", "评价排序": "حسب التقييم"},
   },
-  key: 'ranking-fanza', name: 'FANZA', version: '0.0.6', minAppVersion: '0.9.2',
+  key: 'ranking-fanza', name: 'FANZA', version: '0.0.7', minAppVersion: '0.10.8',
   type: 'video', category: 'jav', rankingOnly: true,
   description: '官方销量榜', homepage: 'https://video.dmm.co.jp/',
   domains: ['dmm.co.jp'], network: { vpnHint: true },
@@ -77,6 +77,26 @@ Park.register({
     const hasNext = rows.length === 10;
     return {items, page: offset / 10 + 1, hasNext, cursor: hasNext ? String(offset + 10) : null,
       sorts: [{value: 'HELPFUL_COUNT_DESC', label: '热门'}, {value: 'RELEASE_DESC', label: '最新'}, {value: 'VALUE_DESC', label: '评分'}]};
+  },
+
+  async metadataDetail(value, context = {}) {
+    const id = String(value);
+    if (!/^[a-z0-9_]{2,60}$/i.test(id)) throw Park.error('NOT_FOUND', '作品编号无效');
+    const data = await this.query(`query WorkInformation($id: ID!) {
+      ppvContent(id: $id) { id title makerContentId deliveryStartDate description duration packageImage { largeUrl mediumUrl }
+        actresses { name } genres { name } sampleImages { imageUrl } }
+    }`, { id });
+    const work = data.ppvContent;
+    if (!work || work.id !== id || !work.title) throw Park.error('PARSE', '作品资料无效');
+    const floor = { ANIME: 'anime', AMATEUR: 'amateur' }[context.board] || 'av';
+    return { id, code: work.makerContentId || id, title: work.title, description: work.description || '',
+      url: `${this.homepage}${floor}/content/?id=${encodeURIComponent(id)}`,
+      cover: work.packageImage?.largeUrl || work.packageImage?.mediumUrl || '',
+      releaseDate: work.deliveryStartDate || "",
+      duration: work.duration == null ? '' : String(work.duration),
+      actors: (work.actresses || []).map(row => row.name).filter(Boolean),
+      tags: (work.genres || []).map(row => row.name).filter(Boolean),
+      images: (work.sampleImages || []).map(row => row.imageUrl).filter(Boolean).slice(0, 100) };
   },
   async rankingOptions() {
     if (this.genreOptions) return this.genreOptions;

@@ -8,7 +8,7 @@ Park.register({
     ru: {"上月": "Прошлый месяц", "官方卖家榜": "Официальный рейтинг продавцов"},
     ar: {"上月": "الشهر الماضي", "官方卖家榜": "ترتيب البائعين الرسمي"},
   },
-  key: 'ranking-fc2', name: 'FC2', version: '0.0.6', minAppVersion: '0.9.2',
+  key: 'ranking-fc2', name: 'FC2', version: '0.0.7', minAppVersion: '0.10.8',
   type: 'video', category: 'jav', rankingOnly: true,
   description: '官方销量榜', homepage: 'https://adult.contents.fc2.com/',
   domains: ['fc2.com'], network: { vpnHint: true },
@@ -44,6 +44,51 @@ Park.register({
         date: Park.html.text(row.querySelector('.userDatareview')), rating: Number(star?.className.match(/(\d)$/)?.[1]) || undefined};
     }).filter(Boolean);
     return {items, hasNext: false};
+  },
+
+  async metadataDetail(value, context = {}) {
+    const id = String(value);
+    if (!/^\d{2,9}$/.test(id)) throw Park.error('NOT_FOUND', '作品编号无效');
+    let url = `${this.homepage}article/${id}/`;
+    if (context.url) {
+      const supplied = Park.url.parse(context.url, this.homepage, this.domains);
+      const expected = new URL(url);
+      if (!supplied || !supplied.pathname.includes(id) ||
+          supplied.pathname !== expected.pathname) throw Park.error('CONFIG', '作品编号无效');
+      url = supplied.href;
+    }
+    const response = await this.http.get(url, {});
+    this.http.ensureOk(response);
+    const doc = Park.html.parse(response.body);
+    const meta = key => doc.querySelector(`meta[property="${key}"]`)?.getAttribute('content') || '';
+    const text = selector => selector ? Park.html.text(doc.querySelector(selector)) : '';
+    const title = text(".items_article_headerInfo h3, .items_article_MainitemNameTitle");
+    if (!title) {
+      if (/age[_-]?(?:check|verify)|年齢認証|年齢確認/i.test(response.url + response.body.slice(0, 20000))) {
+        throw Park.error('CONFIRM_REQUIRED', '站点验证暂未完成', { url });
+      }
+      throw Park.error('PARSE', '作品资料无效');
+    }
+    const image = value => {
+      if (!value) return '';
+      try { const u = new URL(value, url); return u.protocol === 'https:' && !u.username && !u.password && !u.port ? u.href : ''; }
+      catch (_) { return ''; }
+    };
+    const fields = {};
+    for (const row of doc.querySelectorAll(".items_article_headerInfo tr")) {
+      const label = Park.html.text(row.querySelector('th')).replace(/[:：\s]/g, '');
+      const value = Park.html.text(row.querySelector('td'));
+      if (label && value) fields[label] = value;
+    }
+    const field = pattern => Object.entries(fields).find(([key]) => pattern.test(key))?.[1] || '';
+    return { id, code: id, title, url, cover: image(meta('og:image')),
+      description: meta('og:description'),
+      studio: field(/販売者/), releaseDate: field(/販売日/) || text(".items_article_Releasedate"),
+      duration: field(/収録時間|再生時間|長度|时长/),
+      series: field(/シリーズ|系列/),
+      actors: [...new Set([...doc.querySelectorAll(".detail_data a[href*=\"actor\"], main a[href*=\"/actor/\"]")].map(Park.html.text).filter(Boolean))],
+      tags: [...new Set([...doc.querySelectorAll(".items_article_headerInfo a[href*=\"tag\"]")].map(Park.html.text).filter(Boolean))],
+      images: [...new Set(([...doc.querySelectorAll('.items_article_SampleImages a[href]')].map(e => e.getAttribute('href')).concat([...doc.querySelectorAll('.items_article_modalAreaPict img[src]')].map(e => e.getAttribute('src'))).concat([...doc.querySelectorAll('[data-pdp-sample-thumbnail][data-img]')].map(e => e.getAttribute('data-img')))).map(image).filter(Boolean))].slice(0, 100) };
   },
   async ranking(board, req) {
     const page = Math.max(1, Number(req.page) || 1);

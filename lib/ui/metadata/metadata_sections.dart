@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../core/localization.dart';
+import '../../core/models.dart';
 import '../../core/work_metadata.dart';
 import '../nav.dart';
 import '../theme.dart';
@@ -17,10 +18,15 @@ class MetadataOverview extends StatelessWidget {
     required this.source,
     required this.onCopy,
     required this.onOriginal,
+    required this.onSearch,
+    required this.siteName,
+    this.category = SourceCategory.jav,
   });
   final WorkMetadata detail;
   final String source;
-  final VoidCallback onCopy, onOriginal;
+  final VoidCallback onCopy, onOriginal, onSearch;
+  final String siteName;
+  final SourceCategory category;
 
   @override
   Widget build(BuildContext context) {
@@ -28,7 +34,7 @@ class MetadataOverview extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          detail.code,
+          '${detail.code} · $siteName',
           style: context.text.labelLarge?.copyWith(
             color: context.colors.primary,
           ),
@@ -38,7 +44,7 @@ class MetadataOverview extends StatelessWidget {
           source: source,
           text: detail.title,
           builder: (value) =>
-              Text(value, style: ParkText.serif(context.text.headlineSmall)),
+              Text(value, style: ParkText.serif(context.text.titleLarge)),
         ),
         const SizedBox(height: Gap.m),
         Wrap(
@@ -48,9 +54,18 @@ class MetadataOverview extends StatelessWidget {
             OutlinedButton.icon(
               onPressed: onCopy,
               icon: const Icon(Icons.copy_outlined),
-              label: Text(tr('复制番号')),
+              label: Text(
+                category == SourceCategory.jav ? tr('复制番号') : tr('复制编号'),
+              ),
             ),
             OutlinedButton.icon(
+              onPressed: onSearch,
+              icon: const Icon(Icons.search_rounded),
+              label: Text(
+                category == SourceCategory.jav ? tr('搜索 JAV 站点') : tr('搜索'),
+              ),
+            ),
+            TextButton.icon(
               onPressed: onOriginal,
               icon: const Icon(Icons.open_in_new_rounded),
               label: Text(tr('原站')),
@@ -62,7 +77,7 @@ class MetadataOverview extends StatelessWidget {
     Widget cover() => ClipRRect(
       borderRadius: Radii.small,
       child: AspectRatio(
-        aspectRatio: 1.5,
+        aspectRatio: category == SourceCategory.doujin ? .7 : 1.5,
         child: CoverImage(
           source: source,
           url: detail.cover,
@@ -87,11 +102,20 @@ class MetadataOverview extends StatelessWidget {
           info
         else
           LayoutBuilder(
-            builder: (context, constraints) => constraints.maxWidth >= 720
+            builder: (context, constraints) =>
+                (constraints.maxWidth >= 720 ||
+                    category == SourceCategory.doujin &&
+                        constraints.maxWidth >= 340 &&
+                        MediaQuery.textScalerOf(context).scale(14) <= 20)
                 ? Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      SizedBox(width: 320, child: cover()),
+                      SizedBox(
+                        width: category == SourceCategory.doujin
+                            ? (constraints.maxWidth >= 720 ? 200 : 112)
+                            : 320,
+                        child: cover(),
+                      ),
                       const SizedBox(width: Gap.xl),
                       Expanded(child: info),
                     ],
@@ -145,6 +169,7 @@ class MetadataOverview extends StatelessWidget {
           ),
         ],
         for (final (label, values) in [
+          (tr('作者'), detail.authors),
           (tr('演员'), detail.actors),
           (tr('标签'), detail.tags),
         ])
@@ -363,12 +388,27 @@ class MetadataMagnets extends StatelessWidget {
                   [
                     magnet.size,
                     magnet.date,
-                    ...magnet.tags,
                   ].where((value) => value.isNotEmpty).join(' · '),
                   style: context.text.bodySmall?.copyWith(
                     color: context.colors.onSurfaceVariant,
                   ),
                 ),
+                if (magnet.tags.isNotEmpty) ...[
+                  const SizedBox(height: Gap.s),
+                  Wrap(
+                    spacing: Gap.s,
+                    runSpacing: Gap.s,
+                    children: [
+                      for (final tag in magnet.tags)
+                        ContentTranslation(
+                          source: controller.source,
+                          text: tag,
+                          tag: true,
+                          builder: (value) => Tag(value),
+                        ),
+                    ],
+                  ),
+                ],
                 const SizedBox(height: Gap.s),
                 Wrap(
                   spacing: Gap.s,

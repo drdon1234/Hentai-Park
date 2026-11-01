@@ -6,13 +6,12 @@ import '../../core/localization.dart';
 import '../../core/models.dart';
 import '../../engine/domains.dart';
 import '../../engine/source_manager.dart';
-import '../comments/comments_page.dart';
-import '../metadata/metadata_page.dart';
 import '../nav.dart';
 import '../theme.dart';
 import '../web/source_web_page.dart';
 import '../widgets/common.dart';
 import '../widgets/content_translation.dart';
+import 'ranking_detail_page.dart';
 
 typedef _RankingAction = ({String label, VoidCallback onPressed});
 
@@ -22,10 +21,12 @@ class RankingRow extends StatefulWidget {
     required this.item,
     required this.board,
     this.sourceManager,
+    this.detailSource,
   });
   final RankingEntry item;
   final RankingDef board;
   final SourceManager? sourceManager;
+  final String? detailSource;
 
   @override
   State<RankingRow> createState() => _RankingRowState();
@@ -35,28 +36,15 @@ class _RankingRowState extends State<RankingRow> {
   bool _expanded = false;
   SourceManager get manager => widget.sourceManager ?? SourceManager.instance;
 
-  void _openMetadata() {
-    final keyword = widget.item.json['keyword'];
-    Nav.push(
-      context,
-      MetadataPage(
-        keyword: keyword is String && keyword.trim().isNotEmpty
-            ? keyword
-            : widget.item.title,
-        sourceManager: manager,
-        comments: CommentsEntry(
-          source: widget.item.source,
-          workId: widget.item.id,
-          manager: manager,
-          available: widget.item.work?.commentsAvailable,
-          context: {
-            'url': '${widget.item.json['url'] ?? ''}',
-            'board': widget.board.key,
-          },
-        ),
-      ),
-    );
-  }
+  void _openDetail() => Nav.push(
+    context,
+    RankingDetailPage(
+      item: widget.item,
+      board: widget.board,
+      manager: manager,
+      source: widget.detailSource,
+    ),
+  );
 
   void _open() {
     final item = widget.item;
@@ -238,22 +226,10 @@ class _RankingRowState extends State<RankingRow> {
         url.scheme == 'https' &&
         url.host.isNotEmpty &&
         url.userInfo.isEmpty;
-    final metadataDetail =
-        widget.board.kind == 'work' &&
-        widget.board.category == SourceCategory.jav;
-    final webDetail =
-        widget.board.kind == 'work' &&
-        !widget.board.opensWork &&
-        !metadataDetail &&
-        original;
-    final VoidCallback? openDetail = metadataDetail
-        ? _openMetadata
-        : webDetail
-        ? () => _openOriginal(url)
-        : widget.board.opensWork && item.work != null
-        ? _open
+    final VoidCallback? openDetail = widget.board.kind == 'work'
+        ? _openDetail
         : null;
-    final VoidCallback? openOriginal = original && !webDetail
+    final VoidCallback? openOriginal = original
         ? () => _openOriginal(url)
         : null;
     final actions = <_RankingAction>[

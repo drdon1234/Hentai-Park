@@ -11,6 +11,7 @@ import '../discovery_navigation.dart';
 import '../history/history_page.dart';
 import '../history/recent_history.dart';
 import '../kit/kit.dart';
+import '../metadata/metadata_sites_page.dart';
 import '../nav.dart';
 import '../rankings/rankings_page.dart';
 import '../search/reverse_search_page.dart';
@@ -244,6 +245,36 @@ class _HomePageState extends State<HomePage> {
               ),
             ),
           ),
+          if (selected.category != null)
+            SliverToBoxAdapter(
+              child: ListenableBuilder(
+                listenable: sm,
+                builder: (context, _) =>
+                    sm.enabled.any(
+                      (source) =>
+                          source.manifest!.metadataOnly &&
+                          source.manifest!.category == selected.category,
+                    )
+                    ? Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: Gap.page,
+                          vertical: Gap.s,
+                        ),
+                        child: Align(
+                          alignment: AlignmentDirectional.centerStart,
+                          child: OutlinedButton.icon(
+                            icon: const Icon(Icons.info_outline_rounded),
+                            label: Text(tr('作品资料')),
+                            onPressed: () => Nav.push(
+                              context,
+                              MetadataSitesPage(category: selected.category!),
+                            ),
+                          ),
+                        ),
+                      )
+                    : const SizedBox.shrink(),
+              ),
+            ),
           if (dataSaver)
             SliverToBoxAdapter(
               child: Padding(

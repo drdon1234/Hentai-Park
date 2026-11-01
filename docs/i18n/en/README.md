@@ -22,10 +22,6 @@
 
 Available for **Android 7.0+ and Windows**. Most Android phones and tablets use `arm64-v8a`; extract portable Windows ZIP archives completely.
 
-The project targets only Android, Windows, and Web. The Web version is planned and is not yet available.
-
-On Windows, confirming an update downloads and verifies the installer, opens it, and exits the app. Follow the system prompts to finish installation. Portable ZIP archives contain a fixed `HentaiPark` directory.
-
 [Platforms and installation](../../PLATFORMS.md)
 
 <a id="screenshots"></a>
@@ -53,22 +49,10 @@ Configure sign-in under More → Sites and proxies under More → Network when n
 | Favorites and updates | Organize favorites, keep your progress, check new chapters and follow creators, channels or keywords. |
 | Offline and export | Download comics, videos, novels and game resources; import and export CBZ, and export completed gallery chapters as PDF. |
 | Rankings and image search | Browse doujinshi, anime and JAV rankings, or use an image to find candidate works. |
-| Work information | Open JAV ranking details for available cast, release information, preview images and magnets, then search JAV sites in the app. |
+| Work information | Browse, search and filter work information, open original-site ranking details, and set detail-site priorities. |
 | Site comments and live chat | Read comments, replies and images from supported sites, and show live chat in supported streams. |
 | Translation and filters | Translate titles, descriptions, tags and novel text; hide content by tag. |
 | Privacy and backup | App lock, incognito browsing, blurred covers and screenshot blocking on supported platforms; back up favorites, progress, subscriptions and settings. |
-
-Search hides blocked content by default; use the eye icon to show it temporarily. The multilingual search button beside the input searches in your selected languages; search pages do not automatically translate results. The funnel opens filters supported by the current site, such as work type, pages, star rating, score or favorites. Available options vary by site. Supported sites suggest keywords as you type; cross-site suggestions show their source and open that site’s search when selected. The preview icon only hides works explicitly marked by the site as previews without full content; unknown availability is preserved. Content blocking includes an AI-generated preset group.
-
-Site browsing defaults to cards. Use the switch beside the feed tabs for a detailed list with authors, language and other available information beside each cover; the funnel in the same area opens filters. The player has an episode button at the top right, with speed and quality on the bottom bar or in More on narrow screens and with large text.
-
-Card and list summaries show available language and metadata in full; specific tags remain on the detail page. Sites without preview-only works hide the preview filter. Import local comics from the Downloads toolbar. In lists, the cover opens details and the text opens local content; in grids, the cover opens local content and the text opens details.
-
-Under My → Search & Translation → Translation packs, download packs for all sites in the selected language at once. Automatic download reminders can be disabled for this site or all sites. Manual sign-in uses visible text for accounts, passwords and cookies and supports pasting; be mindful of nearby people and screen sharing.
-
-Image search history keeps the latest 20 search images for loading and searching again, individual deletion, or clearing. Incognito mode does not record images. History is stored locally without encryption and is excluded from app backups. Series and related works are available below the player. Opening another full page releases media resources from the previous page; returning reloads playback and restores progress where possible. Played media is temporarily cached locally and cleared when playback closes; cache capacity is limited, so older content may need to reload.
-
-Creator community sites offer album or short video mode when supported. Use the button at the bottom right of a short video to hide or restore its information.
 
 ## Supported sites and services
 
@@ -79,6 +63,8 @@ Creator community sites offer album or short video mode when supported. Use the 
 ## Limitations and FAQ
 
 Reading, playback, comments, subscriptions and downloads vary by site. Check what the app offers for each site. Site updates may require an app upgrade.
+
+Image search sends images to the selected service; local image search history is unencrypted. Passwords and cookies are visible during manual sign-in, so take care when sharing your screen.
 
 **A site will not open or content is unavailable?**
 

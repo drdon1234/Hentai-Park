@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import '../../core/localization.dart';
 import '../../core/models.dart';
 import '../../core/settings.dart';
+import '../../engine/ranking_details.dart';
 import '../../engine/source_manager.dart';
 import '../nav.dart';
 import '../settings/source_manage_page.dart';
@@ -62,8 +63,12 @@ class _RankingsPageState extends State<RankingsPage> {
       if (e.value is Map) '${e.key}': Map<String, Object?>.from(e.value as Map),
   };
   String? _activeSession;
+  late final _detailSources = Map<String, String>.from(
+    _saved['detailSources'] as Map? ?? {},
+  );
   void _save() => AppSettings.instance.rankingSelection = {
     'category': _category.name,
+    'detailSources': _detailSources,
     'section': _section,
     'kind': _kind,
     if (_selected != null) 'selected': _selected,
@@ -307,6 +312,60 @@ class _RankingsPageState extends State<RankingsPage> {
                       ),
                     ),
                   ),
+                  if (kind == 'work')
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(
+                        Gap.page,
+                        Gap.s,
+                        Gap.page,
+                        0,
+                      ),
+                      child: Builder(
+                        builder: (context) {
+                          final candidates = rankingDetailSources(
+                            _manager,
+                            category,
+                            origin: entry.source.key,
+                          );
+                          final stored = _detailSources[category.name];
+                          final selected =
+                              candidates.any((s) => s.key == stored)
+                              ? stored!
+                              : '';
+                          return SelectionDropdownTheme(
+                            child: DropdownButtonFormField<String>(
+                              key: ValueKey('detail-$category-$selected'),
+                              initialValue: selected,
+                              isExpanded: true,
+                              decoration: InputDecoration(
+                                labelText: tr('详情站点'),
+                              ),
+                              items: [
+                                SelectionDropdownItem(
+                                  value: '',
+                                  selected: selected.isEmpty,
+                                  child: Text(tr('按优先级')),
+                                ),
+                                for (final source in candidates)
+                                  SelectionDropdownItem(
+                                    value: source.key,
+                                    selected: selected == source.key,
+                                    child: Text(source.manifest!.name),
+                                  ),
+                              ],
+                              onChanged: (value) => setState(() {
+                                if (value == null || value.isEmpty) {
+                                  _detailSources.remove(category.name);
+                                } else {
+                                  _detailSources[category.name] = value;
+                                }
+                                _save();
+                              }),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
                   if (snapshot.hasData)
                     OptionBar(
                       key: ValueKey('options-$key'),
@@ -388,6 +447,8 @@ class _RankingsPageState extends State<RankingsPage> {
                 controller: controller,
                 entry: entry,
                 header: header,
+                detailSource: _detailSources[category.name],
+                manager: _manager,
               );
             },
           );
@@ -432,10 +493,14 @@ class _RankingList extends StatefulWidget {
     required this.controller,
     required this.entry,
     required this.header,
+    required this.manager,
+    this.detailSource,
   });
   final RankingController controller;
   final RankingSelection entry;
   final Widget header;
+  final String? detailSource;
+  final SourceManager manager;
 
   @override
   State<_RankingList> createState() => _RankingListState();
@@ -490,6 +555,8 @@ class _RankingListState extends State<_RankingList> {
                 key: ValueKey(item.uid),
                 item: item,
                 board: widget.entry.board,
+                detailSource: widget.detailSource,
+                sourceManager: widget.manager,
               );
             },
           ),

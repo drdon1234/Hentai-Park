@@ -43,6 +43,7 @@ mixin _SourceApi on _SourceRegistry {
   Future<WorkMetadata> metadataDetail(
     String key,
     String id, {
+    Map<String, Object?> context = const {},
     CancelToken? cancelToken,
   }) async {
     if (manifest(key)?.can('metadataDetail') != true) {
@@ -50,6 +51,7 @@ mixin _SourceApi on _SourceRegistry {
     }
     final result = await _call(key, 'metadataDetail', [
       id,
+      context,
     ], cancelToken: cancelToken);
     if (result is! Map) throw SourceError('PARSE', '作品资料无效');
     return _validateMetadata(

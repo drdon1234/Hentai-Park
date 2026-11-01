@@ -174,7 +174,9 @@ class Nav {
     ShortVideoSequence? sequence,
   ) => push(
     context,
-    _short(item.source, item)
+    SourceManager.instance.manifest(item.source)?.metadataOnly == true
+        ? MetadataPage(sourceKey: item.source, id: item.id, keyword: item.title)
+        : _short(item.source, item)
         ? ShortVideoPage(
             source: item.source,
             initial: item,
@@ -232,7 +234,7 @@ class Nav {
   static Future<void> _openSource(BuildContext context, String source) {
     SourceManager.instance.cancelBackgroundFeeds(source);
     if (SourceManager.instance.manifest(source)?.metadataOnly == true) {
-      return push(context, MetadataPage(sourceKey: source));
+      return push(context, SourcePage(sourceKey: source));
     }
     if (SourceManager.instance.manifest(source)?.reverseSearchOnly == true) {
       return push(context, ReverseSearchPage(sourceKey: source));

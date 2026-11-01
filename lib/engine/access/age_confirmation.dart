@@ -8,6 +8,7 @@ class AgeConfirmationConfig {
     required this.requiredCookies,
     required this.clickSelector,
     this.checkSelector = '',
+    this.questionnaire,
   });
 
   final String gateSelector;
@@ -15,6 +16,7 @@ class AgeConfirmationConfig {
   final List<String> requiredCookies;
   final String clickSelector;
   final String checkSelector;
+  final Map<String, Object?>? questionnaire;
 
   String get signature => jsonEncode([
     gateSelector,
@@ -22,6 +24,7 @@ class AgeConfirmationConfig {
     requiredCookies,
     clickSelector,
     checkSelector,
+    questionnaire,
   ]);
 
   static AgeConfirmationConfig? fromNetwork(Map<String, dynamic> network) {
@@ -33,6 +36,44 @@ class AgeConfirmationConfig {
     final auto = raw['auto'];
     final click = auto is Map ? text(auto['clickSelector']) : '';
     final check = auto is Map ? text(auto['checkSelector']) : '';
+    Map<String, Object?>? questionnaire;
+    if (auto is Map && auto['questionnaire'] != null) {
+      final rawQuestions = auto['questionnaire'];
+      if (rawQuestions is! Map) return null;
+      final rows = text(rawQuestions['rowSelector']);
+      final submit = text(rawQuestions['submitSelector']);
+      final answers = rawQuestions['answers'];
+      if (rows.isEmpty ||
+          rows.length > 1024 ||
+          submit.isEmpty ||
+          submit.length > 1024 ||
+          answers is! List ||
+          answers.isEmpty ||
+          answers.length > 256) {
+        return null;
+      }
+      final questions = <String>{};
+      final clean = <Map<String, String>>[];
+      for (final entry in answers) {
+        if (entry is! Map) return null;
+        final question = text(entry['question'])
+            .replaceAll(RegExp(r'\s+'), ' ');
+        final answer = text(entry['answer']).replaceAll(RegExp(r'\s+'), ' ');
+        if (question.isEmpty ||
+            question.length > 2048 ||
+            answer.isEmpty ||
+            answer.length > 1024 ||
+            !questions.add(question)) {
+          return null;
+        }
+        clean.add({'question': question, 'answer': answer});
+      }
+      questionnaire = {
+        'rowSelector': rows,
+        'submitSelector': submit,
+        'answers': clean,
+      };
+    }
     if (auto is Map &&
         auto['checkSelector'] != null &&
         (auto['checkSelector'] is! String || check.isEmpty)) {
@@ -61,6 +102,7 @@ class AgeConfirmationConfig {
       requiredCookies: cookies,
       clickSelector: click,
       checkSelector: check,
+      questionnaire: questionnaire,
     );
   }
 }

@@ -190,7 +190,7 @@ async filterOptions({scope, feed, filter, keyword, values}) {
 - `network.vpnHint: true`：在中國大陸可能需要 VPN 或代理的站點宣告它，等待超過 8 秒和失敗時提示「可能需要 VPN 或代理」。不要把所有錯誤都歸因於 VPN。
 - `network.confirmation: { selector, readySelector, requiredCookies, auto: { clickSelector, checkSelector? }, message }`: 網站年齡門宣告。`selector` 比對年齡彈窗，`auto.clickSelector` 比對彈窗內唯一的確認按鈕，`readySelector` 比對可存取內容，`requiredCookies` 列出確認後必須存在的 Cookie 名稱。使用者在應用程式入口確認成年後，隱藏瀏覽器才會模擬點擊，並檢查彈窗消失、內容出現、Cookie 寫入及導覽穩定。規則不完整、不符合或無法自動完成時可重試；錯誤提供站內驗證位址時，可選擇「去確認」，手動處理後按完成。確認頁仍受來源網域與 Cookie 分區限制，操作提示不會自動重播原操作。僅限年齡確認，不可用於登入、付款或回覆。
 
-選用的 `auto.checkSelector` 僅比對年齡門內唯一的核取方塊，先勾選再確認；不代答問卷或填寫登入等表單。
+可選 `auto.checkSelector` 僅勾選年齡門內唯一的核取方塊。問答年齡門可宣告 `auto.questionnaire: {rowSelector, submitSelector, answers: [{question, answer}]}`；僅在應用已確認成年、每題及完整答案精確匹配、全部屬於同一表單且提交按鈕唯一時自動提交。未知或歧義題目不猜測、不提交；不填寫登入或其他表單。
 - 網路異常附帶安全的 `diagnostics` 欄位 `host`、`transport`、`reason`，區分 TLS 證書、握手、DNS、連線和超時；自動日誌只記錄這幾個白名單欄位。`reason: 'TLS_HANDSHAKE_TERMINATED'` 僅表示原生 `HandshakeException.message` 恰好是 `Connection terminated during handshake`（握手完成前連線中斷，不是證書校驗失敗）；只有 HTTPS、無請求體的 GET / HEAD 遇到它時自動重試一次，其他錯誤都不重試。
 
 ### 圖片
@@ -684,7 +684,7 @@ liveChatEvent(state, event) {
 
 ## 作品資料與磁鏈
 
-- `metadataOnly: true` 宣告獨立資料插件，必須實作 `metadataSearch` 與 `metadataDetail`，可實作 `metadataMagnets`。不宣告普通 `feeds`、`search`、`detail` 或播放能力，不進入片源搜尋、收藏及下載。站點解析規則留在插件內。
+- `metadataOnly: true`: 獨立資料外掛必須實作 `metadataSearch`、`metadataDetail`，可實作 `metadataMagnets`，也可宣告普通 `feeds`、`search` 及其篩選協議。結果只進入資料詳情，不進入聚合片源、播放、收藏或下載；不宣告普通 `detail` 或播放能力。站點規則僅在外掛維護。
 - `metadataSearch(keyword)` 回傳最多 100 個 `{id, code, title, url, cover?}` 候選。`code` 必須是真實番號，不從標題猜測；無匹配回傳 `[]`，驗證及解析異常必須拋錯，多個匹配由使用者選擇。
-- `metadataDetail(id)` 回傳候選必填欄位及可選的 `description`、`releaseDate`、`duration`、`director`、`studio`、`publisher`、`series`、`rating`、`actors: string[]`、`tags: string[]`、`images: string[]`。缺失文字留空、集合為空陣列，不虛構資料。作品 `url` 屬於宣告域；圖片限無憑據、無連接埠的公網 HTTPS。
+- `metadataDetail(id, context?)` 回傳候選必填欄位及可選的 `description`、`releaseDate`、`duration`、`director`、`studio`、`publisher`、`series`、`rating`、`actors: string[]`、`tags: string[]`、`images: string[]`。缺失文字留空、集合為空陣列，不虛構資料。作品 `url` 屬於宣告域；圖片限無憑據、無連接埠的公網 HTTPS。 `metadataDetail(id, context?)` 接收可選排行榜上下文 `{url, board}`。獨立榜單可按本站作品 ID 回傳真實資料；必須校驗 URL 網域及其與 ID 的關聯，不信任外部 URL。可選作者欄位為 `authors: string[]`。
 - `metadataMagnets(id)` 回傳最多 500 條 `{url, name, size?, date?, tags?: string[]}`，僅接受有效 `magnet:?xt=urn:btih:...`，依內容雜湊去重。資料與磁鏈分別載入和重試；切換或關閉取消舊請求。只依使用者操作複製或開啟外部應用程式；JAV 搜尋使用真實番號。

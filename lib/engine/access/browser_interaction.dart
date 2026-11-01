@@ -93,7 +93,40 @@ Future<Map?> inspectAccessDocument(
     const ready = !readySelector || !!document.querySelector(readySelector);
     let clicked = false;
     if (confirmAdult && gates.length && clickSelector) {
-      // 仅接受年龄门内唯一的复选框；不填写问答、账号或其他表单。
+      // 问答仅接受站点声明且整组精确匹配的题目；未知题目不猜答案、不提交。
+      const rows = questionnaire
+        ? [...document.querySelectorAll(questionnaire.rowSelector)].filter(visible) : [];
+      if (rows.length) {
+        const normalize = text => String(text || '').replace(/\s+/g, ' ').trim();
+        const answers = new Map(questionnaire.answers.map(row =>
+          [normalize(row.question), normalize(row.answer)]));
+        const choices = [], groups = new Set();
+        let form = null, valid = rows.length <= 32;
+        for (const row of rows) {
+          const inputs = [...row.querySelectorAll('input[type="radio"]')].filter(input =>
+            visible(input) && !input.disabled && gates.some(gate => gate.contains(input)));
+          if (!inputs.length) { valid = false; break; }
+          const first = inputs[0], range = document.createRange();
+          range.setStart(row, 0); range.setEndBefore(first);
+          const answer = answers.get(normalize(range.toString()));
+          const matched = inputs.filter(input => normalize(input.nextSibling?.textContent) === answer);
+          if (!answer || matched.length !== 1 || !first.form ||
+              (form && form !== first.form) || !first.name || groups.has(first.name) ||
+              inputs.some(input => input.name !== first.name || input.form !== first.form)) {
+            valid = false; break;
+          }
+          form = first.form; groups.add(first.name); choices.push(matched[0]);
+        }
+        const buttons = [...document.querySelectorAll(questionnaire.submitSelector)].filter(el =>
+          visible(el) && !el.disabled && el.form === form && gates.some(gate => gate.contains(el)));
+        if (valid && choices.length === rows.length && buttons.length === 1) {
+          choices.forEach(input => { if (!input.checked) input.click(); });
+          if (choices.every(input => input.checked)) {
+            setTimeout(() => { if (buttons[0].isConnected) buttons[0].click(); }, 0); clicked = true;
+          }
+        }
+      } else {
+      // 标准年龄门只操作唯一的复选框和提交按钮，不填写账号等其他表单。
       let checked = !checkSelector;
       if (checkSelector) {
         const checks = [...document.querySelectorAll(checkSelector)].filter(el =>
@@ -107,7 +140,10 @@ Future<Map?> inspectAccessDocument(
       const buttons = [...document.querySelectorAll(clickSelector)].filter(el =>
         visible(el) && !el.disabled && el.getAttribute('aria-disabled') !== 'true' &&
         gates.some(gate => gate.contains(el)));
-      if (checked && buttons.length === 1) { buttons[0].click(); clicked = true; }
+      if (checked && buttons.length === 1) {
+        setTimeout(() => { if (buttons[0].isConnected) buttons[0].click(); }, 0); clicked = true;
+      }
+      }
     }
     return {url, title: document.title, html: document.documentElement.outerHTML.slice(0, 4194304),
       gate: gates.length > 0, content: ready, clicked};
@@ -119,9 +155,12 @@ Future<Map?> inspectAccessDocument(
           'clickSelector': confirmation?.clickSelector ?? '',
           'checkSelector': confirmation?.checkSelector ?? '',
           'confirmAdult': confirmAdult,
+          'questionnaire': confirmation?.questionnaire,
         },
       )
-      .timeout(const Duration(seconds: 5));
+      .timeout(const Duration(seconds: 5), onTimeout: () => null);
+  // 观察请求可能在页面跳转时丢失回调；返回等待状态，由访问会话总期限
+  // 判定失败，不能把单次观察超时当成整次网络请求失败。
   return result is Map ? result : null;
 }
 

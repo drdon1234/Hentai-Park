@@ -190,7 +190,7 @@ async filterOptions({scope, feed, filter, keyword, values}) {
 - `network.vpnHint: true`: 중국 본토에서 VPN이나 프록시가 필요할 수 있는 사이트에 선언합니다. 8초 넘게 기다리거나 실패하면 'VPN 또는 프록시가 필요할 수 있습니다'라고 안내합니다. 모든 오류를 VPN 탓으로 돌리지 마세요.
 - `network.confirmation: { selector, readySelector, requiredCookies, auto: { clickSelector, checkSelector? }, message }`: 사이트 연령 확인을 선언합니다. `selector`는 대화상자, `auto.clickSelector`는 그 안의 유일한 확인 버튼, `readySelector`는 접근 가능한 콘텐츠, `requiredCookies`는 확인 후 필요한 Cookie 이름입니다. 앱 입구에서 성인임을 확인한 뒤에만 숨겨진 브라우저가 클릭을 시뮬레이션하고 대화상자 소멸, 콘텐츠, Cookie 및 탐색 안정을 검사합니다. 규칙이 불완전하거나 일치하지 않거나 자동 확인에 실패하면 재시도할 수 있습니다. 오류에 사이트 내 인증 URL이 있으면 페이지에서 직접 처리한 뒤 완료를 누릅니다. 소스 도메인과 Cookie 분리 제한은 유지되며 작업 알림은 원래 작업을 자동 재전송하지 않습니다. 로그인, 결제 또는 게시에는 사용할 수 없습니다.
 
-선택적인 `auto.checkSelector`는 연령 확인 안의 유일한 체크박스를 먼저 선택합니다. 설문에 답하거나 로그인 등 다른 양식을 입력하지 않습니다.
+선택적 `auto.checkSelector`는 연령 확인 안의 유일한 체크박스를 선택합니다. 질문형 확인은 `auto.questionnaire: {rowSelector, submitSelector, answers: [{question, answer}]}`를 선언할 수 있습니다. 앱에서 성인 확인 후 모든 질문과 전체 답변이 정확히 일치하고 같은 양식이며 제출 버튼이 유일할 때만 자동 제출합니다. 모르는 질문이나 모호한 질문을 추측하지 않고 로그인 등 다른 양식을 채우지 않습니다.
 - 네트워크 오류에는 안전한 `diagnostics` 필드 `host`, `transport`, `reason`이 붙어 TLS 인증서, 핸드셰이크, DNS, 연결, 시간 초과를 구분합니다. 자동 로그에는 이 허용된 필드만 기록합니다. `reason: 'TLS_HANDSHAKE_TERMINATED'`는 네이티브 `HandshakeException.message`가 정확히 `Connection terminated during handshake`일 때만이며 (핸드셰이크 완료 전에 연결이 끊긴 것으로 인증서 실패가 아님), 본문이 없는 HTTPS GET / HEAD만 한 번 다시 시도하고 나머지는 다시 시도하지 않습니다.
 
 ### 이미지
@@ -684,7 +684,7 @@ liveChatEvent(state, event) {
 
 ## 작품 정보와 마그넷
 
-- `metadataOnly: true`는 정보 전용 플러그인입니다. `metadataSearch`, `metadataDetail`은 필수, `metadataMagnets`는 선택입니다. 일반 `feeds`, `search`, `detail`, 재생 능력을 선언하지 않고 영상 검색·즐겨찾기·다운로드에 섞지 않습니다. 파싱 규칙은 플러그인에서 관리합니다.
+- `metadataOnly: true`: 정보 전용 플러그인은 `metadataSearch`, `metadataDetail`을 구현해야 하며 `metadataMagnets`, 일반 `feeds`, `search`와 필터도 선언할 수 있습니다. 결과는 정보 상세로만 연결되며 통합 미디어·재생·즐겨찾기·다운로드에 포함되지 않습니다. 일반 `detail`과 재생 기능은 선언하지 않습니다. 사이트 분석은 플러그인에 둡니다.
 - `metadataSearch(keyword)`는 최대 100개 `{id, code, title, url, cover?}` 후보를 반환합니다. `code`는 실제 품번만 사용하고 제목에서 추측하지 않습니다. 결과 없음은 `[]`, 인증·파싱 실패는 오류입니다. 여러 후보는 사용자가 선택합니다.
-- `metadataDetail(id)`는 필수 후보 필드와 선택 필드 `description`, `releaseDate`, `duration`, `director`, `studio`, `publisher`, `series`, `rating`, `actors: string[]`, `tags: string[]`, `images: string[]`를 반환합니다. 누락된 문자열과 배열은 비우며 정보를 만들지 않습니다. 작품 URL은 선언 도메인, 이미지는 인증 정보·포트 없는 공개 HTTPS여야 합니다.
+- `metadataDetail(id, context?)`는 필수 후보 필드와 선택 필드 `description`, `releaseDate`, `duration`, `director`, `studio`, `publisher`, `series`, `rating`, `actors: string[]`, `authors: string[]`, `tags: string[]`, `images: string[]`를 반환합니다. 누락된 문자열과 배열은 비우며 정보를 만들지 않습니다. 작품 URL은 선언 도메인, 이미지는 인증 정보·포트 없는 공개 HTTPS여야 합니다. `metadataDetail(id, context?)`은 선택적 순위 컨텍스트 `{url, board}`를 받습니다. 독립 순위도 자체 작품 ID의 실제 정보를 반환할 수 있습니다. URL 도메인과 ID의 연관성을 검증하고 외부 URL을 신뢰하지 마세요. 저자는 선택적 `authors: string[]`입니다.
 - `metadataMagnets(id)`는 최대 500개 `{url, name, size?, date?, tags?: string[]}`를 반환합니다. 유효한 `magnet:?xt=urn:btih:...`만 허용하고 해시로 중복 제거합니다. 정보와 마그넷은 별도로 로드·재시도하며 전환·닫기 시 이전 요청을 취소합니다. 복사·외부 열기는 사용자 동작 때만 수행하고 JAV 검색은 실제 품번을 사용합니다.

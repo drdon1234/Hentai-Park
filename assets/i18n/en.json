@@ -1723,5 +1723,12 @@
   "所有站点不再提醒": "Stop reminders for all sites",
   "下载全部站点的 {language} 词包": "Download {language} packs for all sites",
   "已安装 {count} 个词包": "Installed {count} packs",
-  "未完成：{items}": "Not completed: {items}"
+  "未完成：{items}": "Not completed: {items}",
+  "详情站点": "Detail site",
+  "按优先级": "By priority",
+  "排行榜作品详情站点优先级": "Ranking detail site priority",
+  "无码": "Uncensored",
+  "含磁链": "With magnets",
+  "复制编号": "Copy ID",
+  "拖动排序；本站榜单默认打开本站详情，跨站查找按同域优先级，指定详情站点时使用所选站点。": "Drag to reorder. Site rankings open their own details by default. Cross-site lookup follows priorities within the same domain; an explicitly selected detail site is used directly."
 }

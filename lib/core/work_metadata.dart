@@ -70,6 +70,7 @@ class WorkMetadata extends MetadataCandidate {
       series = _text(json, 'series'),
       rating = _text(json, 'rating'),
       actors = _texts(json, 'actors'),
+      authors = _texts(json, 'authors'),
       tags = _texts(json, 'tags'),
       images = _images(json),
       super.fromJson();
@@ -82,7 +83,7 @@ class WorkMetadata extends MetadataCandidate {
       publisher,
       series,
       rating;
-  final List<String> actors, tags, images;
+  final List<String> actors, authors, tags, images;
 
   static List<String> _images(Map<String, dynamic> json) {
     final rows = json['images'] ?? const [];

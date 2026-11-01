@@ -1723,5 +1723,12 @@
   "所有站点不再提醒": "No recordar para ningún sitio",
   "下载全部站点的 {language} 词包": "Descargar diccionarios en {language} para todos los sitios",
   "已安装 {count} 个词包": "Se instalaron {count} diccionarios",
-  "未完成：{items}": "Sin completar: {items}"
+  "未完成：{items}": "Sin completar: {items}",
+  "详情站点": "Sitio de detalles",
+  "按优先级": "Por prioridad",
+  "排行榜作品详情站点优先级": "Prioridad de sitios de detalles de rankings",
+  "无码": "Sin censura",
+  "含磁链": "Con enlaces magnet",
+  "复制编号": "Copiar ID",
+  "拖动排序；本站榜单默认打开本站详情，跨站查找按同域优先级，指定详情站点时使用所选站点。": "Arrastra para ordenar. Los rankings abren los detalles de su propio sitio. La búsqueda entre sitios sigue la prioridad del mismo dominio; si eliges un sitio de detalles, se usa directamente."
 }

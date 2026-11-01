@@ -1,5 +1,5 @@
 Park.register({
-  key: 'ranking-dlsite', name: 'DLsite', version: '0.0.3', minAppVersion: '0.9.2',
+  key: 'ranking-dlsite', name: 'DLsite', version: '0.0.4', minAppVersion: '0.10.8',
   type: 'comic', category: 'doujin', rankingOnly: true,
   description: '官方销量榜', homepage: 'https://www.dlsite.com/',
   domains: ['dlsite.com', 'dlsite.jp'], network: { vpnHint: true },
@@ -28,6 +28,52 @@ Park.register({
         spoiler: c.spoiler === true || String(c.spoiler) === '1'};
     }).filter(c => c.body.length);
     return {items, hasNext: data.review_list.length === 10};
+  },
+
+  async metadataDetail(value, context = {}) {
+    const id = String(value);
+    if (!/^(?:RJ|BJ)\d+$/.test(id)) throw Park.error('NOT_FOUND', '作品编号无效');
+    let url = `${this.homepage}${id.startsWith('BJ') ? 'books' : 'maniax'}/work/=/product_id/${id}.html`;
+    if (context.url) {
+      const supplied = Park.url.parse(context.url, this.homepage, this.domains);
+      const expected = new URL(url);
+      if (!supplied || !supplied.pathname.includes(id) ||
+          supplied.pathname !== expected.pathname) throw Park.error('CONFIG', '作品编号无效');
+      url = supplied.href;
+    }
+    const response = await this.http.get(url, {});
+    this.http.ensureOk(response);
+    const doc = Park.html.parse(response.body);
+    const meta = key => doc.querySelector(`meta[property="${key}"]`)?.getAttribute('content') || '';
+    const text = selector => selector ? Park.html.text(doc.querySelector(selector)) : '';
+    const title = text("#work_name");
+    if (!title) {
+      if (/age[_-]?(?:check|verify)|年齢認証|年齢確認/i.test(response.url + response.body.slice(0, 20000))) {
+        throw Park.error('CONFIRM_REQUIRED', '站点验证暂未完成', { url });
+      }
+      throw Park.error('PARSE', '作品资料无效');
+    }
+    const image = value => {
+      if (!value) return '';
+      try { const u = new URL(value, url); return u.protocol === 'https:' && !u.username && !u.password && !u.port ? u.href : ''; }
+      catch (_) { return ''; }
+    };
+    const fields = {};
+    for (const row of doc.querySelectorAll("#work_outline tr, #work_maker tr")) {
+      const label = Park.html.text(row.querySelector('th')).replace(/[:：\s]/g, '');
+      const value = Park.html.text(row.querySelector('td'));
+      if (label && value) fields[label] = value;
+    }
+    const field = pattern => Object.entries(fields).find(([key]) => pattern.test(key))?.[1] || '';
+    return { id, code: id, title, url, cover: image(meta('og:image')),
+      description: text(".work_parts_container") || meta('og:description'),
+      studio: field(/サークル名|著者/), releaseDate: field(/販売日/),
+      authors: field(/作者|作家|著者/) ? [field(/作者|作家|著者/)] : [],
+      duration: field(/収録時間|再生時間|長度|时长/),
+      series: field(/シリーズ|系列/),
+      actors: [...new Set([...doc.querySelectorAll(".detail_data a[href*=\"actor\"], main a[href*=\"/actor/\"]")].map(Park.html.text).filter(Boolean))],
+      tags: [...new Set([...doc.querySelectorAll("#work_outline a[href*=\"/genre/\"]")].map(Park.html.text).filter(Boolean))],
+      images: [...new Set(([...doc.querySelectorAll('[data-src]')].map(e => e.getAttribute('data-src')).filter(v => /_smp\d+\./.test(v))).map(image).filter(Boolean))].slice(0, 100) };
   },
   async ranking(floor, req) {
     if (Number(req.page) > 1) return { items: [], page: Number(req.page), hasNext: false };
