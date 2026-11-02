@@ -5,7 +5,7 @@
     {
       "key": "feedmrds",
       "name": "每日大赛",
-      "version": "0.0.3",
+      "version": "0.0.4",
       "type": "article",
       "category": "feed",
       "file": "feedmrds.js",
@@ -15,7 +15,7 @@
     {
       "key": "feedheiliao",
       "name": "黑料网",
-      "version": "0.0.3",
+      "version": "0.0.4",
       "type": "article",
       "category": "feed",
       "file": "feedheiliao.js",
@@ -25,7 +25,7 @@
     {
       "key": "feed51cg",
       "name": "51吃瓜网",
-      "version": "0.0.3",
+      "version": "0.0.4",
       "type": "article",
       "category": "feed",
       "file": "feed51cg.js",
@@ -45,7 +45,7 @@
     {
       "key": "xiuren",
       "name": "秀人网",
-      "version": "0.0.8",
+      "version": "0.0.9",
       "type": "comic",
       "category": "gallery",
       "file": "xiuren.js",
@@ -275,7 +275,7 @@
     {
       "key": "porn91",
       "name": "91视频",
-      "version": "0.0.11",
+      "version": "0.0.12",
       "type": "video",
       "category": "adult",
       "file": "porn91.js",
@@ -565,7 +565,7 @@
     {
       "key": "reddit",
       "name": "红迪",
-      "version": "0.0.9",
+      "version": "0.0.10",
       "type": "comic",
       "category": "other",
       "file": "reddit.js",
@@ -575,7 +575,7 @@
     {
       "key": "x",
       "name": "推特（X）",
-      "version": "0.0.18",
+      "version": "0.0.19",
       "type": "video",
       "category": "other",
       "file": "x.js",
@@ -605,7 +605,7 @@
     {
       "key": "telegram",
       "name": "电报",
-      "version": "0.0.10",
+      "version": "0.0.11",
       "type": "video",
       "category": "other",
       "file": "telegram.js",
@@ -615,7 +615,7 @@
     {
       "key": "google_lens",
       "name": "谷歌智能镜头",
-      "version": "0.0.9",
+      "version": "0.0.10",
       "type": "comic",
       "category": "other",
       "reverseSearchCategory": "general",
@@ -637,7 +637,7 @@
     {
       "key": "baidu",
       "name": "百度",
-      "version": "0.0.7",
+      "version": "0.0.8",
       "type": "comic",
       "category": "other",
       "reverseSearchCategory": "general",
@@ -704,7 +704,7 @@
       "key": "cool18",
       "name": "禁忌书屋",
       "description": "禁忌书屋小说版，支持精华、热帖、搜索与正文阅读",
-      "version": "0.0.10",
+      "version": "0.0.11",
       "type": "novel",
       "category": "novel",
       "file": "cool18.js",
@@ -714,7 +714,7 @@
       "key": "book18",
       "name": "色文网",
       "description": "中文长篇与短篇小说，支持推荐、搜索、目录和正文阅读",
-      "version": "0.0.10",
+      "version": "0.0.11",
       "type": "novel",
       "category": "novel",
       "file": "book18.js",
@@ -724,7 +724,7 @@
       "key": "canovel",
       "name": "CA情色小说",
       "description": "中文短篇与分篇小说，支持搜索和正文阅读",
-      "version": "0.0.9",
+      "version": "0.0.10",
       "type": "novel",
       "category": "novel",
       "file": "canovel.js",
@@ -733,7 +733,7 @@
     {
       "key": "story69",
       "name": "69成人小说网",
-      "version": "0.0.8",
+      "version": "0.0.9",
       "type": "novel",
       "category": "novel",
       "file": "story69.js",
@@ -773,7 +773,7 @@
     {
       "key": "kungal",
       "name": "鲲 Galgame",
-      "version": "0.0.9",
+      "version": "0.0.10",
       "type": "game",
       "category": "game",
       "file": "kungal.js",

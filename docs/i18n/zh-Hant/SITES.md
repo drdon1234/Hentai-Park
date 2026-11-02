@@ -25,7 +25,7 @@
 | AI 短劇 | 黄豆短剧 · 91短剧 · 黄果短剧 · 肉视频短剧 |
 | 錄播 | KoreanBJ.club 录播 · SOOP 录播 · PopkonTV 录播 · CamwhoresBay 亚洲录播 |
 | 直播 | Stripchat 亚洲直播 · CAM4 · SOOP · XloveCam · SinParty |
-| 創作社群 | Pixiv · 紅迪 · 推特（X） · myfans.jp · pixivFANBOX · 電報 |
+| 創作社群 | Pixiv · Reddit · 推特（X） · myfans.jp · pixivFANBOX · Telegram |
 | 小說 | 禁忌書屋 · 色文網 · CA情色小說 · 69成人小說網 · Literotica · Lush Stories · StoriesOnline |
 | 遊戲 | 鯤 Galgame · GalgameX · 次元茶馆 |
 
@@ -40,7 +40,7 @@
 
 | 分類 | 網站 / 服務 |
 | --- | --- |
-| 以圖搜圖 | 谷歌智慧鏡頭 · Yandex · 百度 · trace.moe · AnimeTrace · IQDB · E-Hentai · AVScan |
+| 以圖搜圖 | Google 智慧鏡頭 · Yandex · 百度 · trace.moe · AnimeTrace · IQDB · E-Hentai · AVScan |
 
 點擊搜尋後，所選圖片才會上傳至對應服務。辨識結果為候選，需自行核對。
 

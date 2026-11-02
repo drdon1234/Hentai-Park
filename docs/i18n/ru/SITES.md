@@ -14,20 +14,20 @@
 
 | Категория | Сайты / сервисы |
 | --- | --- |
-| Сплетни | 每日大赛 · 黑料网 · 51吃瓜网 |
-| Фотогалереи | PixiBB · 秀人网 · PornPics · CosplayTele · NudeCosplay |
+| Сплетни | MRDS · Heiliao · 51CG |
+| Фотогалереи | PixiBB · XiuRen · PornPics · CosplayTele · NudeCosplay |
 | Иллюстрации | Danbooru · yande.re · Gelbooru |
 | Додзинси / комиксы | E-Hentai · 禁漫天堂 · nhentai · 绅士漫画 · 哔咔漫画 |
 | Хентай-аниме | Hanime1 · Hanime.tv · Rule34Video · Iwara · HentaiHaven |
 | JAV | MissAV · JableTV · 123AV · SupJav |
-| Видео для взрослых | Pornhub · XVideos · 91视频 · SpankBang · Eporner · Thumbzilla · iXXX · TubeSafari · 肉视频 |
+| Видео для взрослых | Pornhub · XVideos · 91porn · SpankBang · Eporner · Thumbzilla · iXXX · TubeSafari · 肉视频 |
 | Короткие видео | Tik.porn · Fyptt · SOOP 短视频 · Pornhub Shorties · SWAG 短视频 · PopkonTV 短视频 · RedGifs · Fansly |
 | ИИ-сериалы | 黄豆短剧 · 91短剧 · 黄果短剧 · 肉视频短剧 |
 | Записи | KoreanBJ.club 录播 · SOOP 录播 · PopkonTV 录播 · CamwhoresBay 亚洲录播 |
 | Трансляции | Stripchat 亚洲直播 · CAM4 · SOOP · XloveCam · SinParty |
-| Сообщества авторов | Pixiv · 红迪 · 推特（X） · myfans.jp · pixivFANBOX · 电报 |
-| Романы | 禁忌书屋 · 色文网 · CA情色小说 · 69成人小说网 · Literotica · Lush Stories · StoriesOnline |
-| Игры | 鲲 Galgame · GalgameX · 次元茶馆 |
+| Сообщества авторов | Pixiv · Reddit · X / Твиттер · myfans.jp · pixivFANBOX · Telegram |
+| Романы | Cool18 · Book18 · Canovel · 69story · Literotica · Lush Stories · StoriesOnline |
+| Игры | KUN Galgame · GalgameX · 次元茶馆 |
 
 ## Рейтинги
 
@@ -40,7 +40,7 @@
 
 | Категория | Сайты / сервисы |
 | --- | --- |
-| Поиск по изображению | 谷歌智能镜头 · Yandex · 百度 · trace.moe · AnimeTrace · IQDB · E-Hentai · AVScan |
+| Поиск по изображению | Google Объектив · Yandex · Baidu · trace.moe · AnimeTrace · IQDB · E-Hentai · AVScan |
 
 Изображение отправляется выбранному сервису только после запуска поиска. Результаты являются кандидатами и требуют проверки.
 

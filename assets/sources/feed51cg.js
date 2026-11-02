@@ -1,7 +1,7 @@
 /* 由 tools/build_feed_sources.mjs 生成；请修改模板与站点配置。 */
 (function () {
   'use strict';
-  const SITE = {"key":"feed51cg","name":"51吃瓜网","traditionalName":"51吃瓜網","home":"https://51cg1.com","domain":"51cg1.com","imageDomain":"pic.gyezbp.cn","hostPattern":"^(?:www\\.)?51cg[0-9]+\\.com$","linkPattern":"(?:www\\.)?51cg[0-9]+\\.com"};
+  const SITE = {"key":"feed51cg","name":"51吃瓜网","names":{"zh-Hant":"51吃瓜網","en":"51CG","ja":"51吃瓜網","ko":"51CG","es":"51CG","ru":"51CG","ar":"51CG"},"home":"https://51cg1.com","domain":"51cg1.com","imageDomain":"pic.gyezbp.cn","hostPattern":"^(?:www\\.)?51cg[0-9]+\\.com$","linkPattern":"(?:www\\.)?51cg[0-9]+\\.com"};
   const catalogCache = new Map();
   const option = (key, label) => ({key, label, type: 'select', default: '', dynamic: true, values: []});
   const text = node => Park.html.text(node);
@@ -155,17 +155,17 @@
     return result;
   }
   Park.register({
-    key: SITE.key, name: SITE.name, version: '0.0.3', minAppVersion: '0.11.0',
+    key: SITE.key, name: SITE.name, version: '0.0.4', minAppVersion: '0.11.0',
     type: 'article', category: 'feed', color: '#488A7B', language: 'zh',
     description: '吃瓜图文，支持分类、标签、搜索与视频',
     i18n: {
-      'zh-Hant': {[SITE.name]: SITE.traditionalName,'吃瓜图文，支持分类、标签、搜索与视频':'吃瓜圖文，支援分類、標籤、搜尋與影片'},
-      ja: {'吃瓜图文，支持分类、标签、搜索与视频':'画像付き記事。カテゴリ、タグ、検索、動画に対応'},
-      ko: {'吃瓜图文，支持分类、标签、搜索与视频':'이미지 기사, 분류, 태그, 검색 및 동영상 지원'},
-      en: {'吃瓜图文，支持分类、标签、搜索与视频':'Gossip articles with images, categories, tags, search and video'},
-      es: {'吃瓜图文，支持分类、标签、搜索与视频':'Artículos con imágenes, categorías, etiquetas, búsqueda y vídeo'},
-      ru: {'吃瓜图文，支持分类、标签、搜索与视频':'Статьи с изображениями, категориями, тегами, поиском и видео'},
-      ar: {'吃瓜图文，支持分类、标签、搜索与视频':'مقالات مصورة مع تصنيفات ووسوم وبحث وفيديو'},
+      'zh-Hant': {[SITE.name]: SITE.names['zh-Hant'],'吃瓜图文，支持分类、标签、搜索与视频':'吃瓜圖文，支援分類、標籤、搜尋與影片'},
+      ja: {[SITE.name]: SITE.names['ja'],'吃瓜图文，支持分类、标签、搜索与视频':'画像付き記事。カテゴリ、タグ、検索、動画に対応'},
+      ko: {[SITE.name]: SITE.names['ko'],'吃瓜图文，支持分类、标签、搜索与视频':'이미지 기사, 분류, 태그, 검색 및 동영상 지원'},
+      en: {[SITE.name]: SITE.names['en'],'吃瓜图文，支持分类、标签、搜索与视频':'Gossip articles with images, categories, tags, search and video'},
+      es: {[SITE.name]: SITE.names['es'],'吃瓜图文，支持分类、标签、搜索与视频':'Artículos con imágenes, categorías, etiquetas, búsqueda y vídeo'},
+      ru: {[SITE.name]: SITE.names['ru'],'吃瓜图文，支持分类、标签、搜索与视频':'Статьи с изображениями, категориями, тегами, поиском и видео'},
+      ar: {[SITE.name]: SITE.names['ar'],'吃瓜图文，支持分类、标签、搜索与视频':'مقالات مصورة مع تصنيفات ووسوم وبحث وفيديو'},
     },
     homepage: SITE.homepage || SITE.home, domains: [SITE.domain], network: {mode: 'native', vpnHint: true},
     imageDecrypt: {type: 'aes-cbc', key: 'f5d965df75336270', iv: '97b60394abc2fbe1', domains: [SITE.imageDomain]},

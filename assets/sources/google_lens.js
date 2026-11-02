@@ -1,16 +1,16 @@
 Park.register({
-  key: 'google_lens', name: '谷歌智能镜头', version: '0.0.9', minAppVersion: '0.9.2', apiVersion: 2,
+  key: 'google_lens', name: '谷歌智能镜头', version: '0.0.10', minAppVersion: '0.9.2', apiVersion: 2,
   type: 'comic', category: 'other', reverseSearchCategory: 'general', homepage: 'https://lens.google.com/',
   description: '综合图片反搜；在应用内浏览器上传并查找完全匹配出处',
   domains: ['google.com'], network: { vpnHint: true },
   i18n: {
-    'zh-Hant': {"谷歌智能镜头":"谷歌智慧鏡頭", '综合图片反搜；在应用内浏览器上传并查找完全匹配出处': '綜合圖片反搜；在應用程式內瀏覽器上傳並查找完全相符出處' },
-    en: { '综合图片反搜；在应用内浏览器上传并查找完全匹配出处': 'General reverse image search; upload in the in-app browser and find exact sources' },
-    ja: { '综合图片反搜；在应用内浏览器上传并查找完全匹配出处': '総合画像検索。アプリ内ブラウザでアップロードし、完全一致の出典を検索' },
-    ko: { '综合图片反搜；在应用内浏览器上传并查找完全匹配出处': '종합 이미지 역검색, 앱 내 브라우저에서 업로드하여 정확한 출처 검색' },
-    es: { '综合图片反搜；在应用内浏览器上传并查找完全匹配出处': 'Búsqueda inversa general; sube la imagen en el navegador integrado y busca fuentes exactas' },
-    ru: { '综合图片反搜；在应用内浏览器上传并查找完全匹配出处': 'Обратный поиск изображений: загрузка во встроенном браузере и поиск точных источников' },
-    ar: { '综合图片反搜；在应用内浏览器上传并查找完全匹配出处': 'بحث عكسي شامل؛ ارفع الصورة في المتصفح المدمج للعثور على مصادر مطابقة' },
+    'zh-Hant': {"谷歌智能镜头":"Google 智慧鏡頭", '综合图片反搜；在应用内浏览器上传并查找完全匹配出处': '綜合圖片反搜；在應用程式內瀏覽器上傳並查找完全相符出處' },
+    en: {"谷歌智能镜头":"Google Lens", '综合图片反搜；在应用内浏览器上传并查找完全匹配出处': 'General reverse image search; upload in the in-app browser and find exact sources' },
+    ja: {"谷歌智能镜头":"Google レンズ", '综合图片反搜；在应用内浏览器上传并查找完全匹配出处': '総合画像検索。アプリ内ブラウザでアップロードし、完全一致の出典を検索' },
+    ko: {"谷歌智能镜头":"Google 렌즈", '综合图片反搜；在应用内浏览器上传并查找完全匹配出处': '종합 이미지 역검색, 앱 내 브라우저에서 업로드하여 정확한 출처 검색' },
+    es: {"谷歌智能镜头":"Google Lens", '综合图片反搜；在应用内浏览器上传并查找完全匹配出处': 'Búsqueda inversa general; sube la imagen en el navegador integrado y busca fuentes exactas' },
+    ru: {"谷歌智能镜头":"Google Объектив", '综合图片反搜；在应用内浏览器上传并查找完全匹配出处': 'Обратный поиск изображений: загрузка во встроенном браузере и поиск точных источников' },
+    ar: {"谷歌智能镜头":"عدسة Google", '综合图片反搜；在应用内浏览器上传并查找完全匹配出处': 'بحث عكسي شامل؛ ارفع الصورة في المتصفح المدمج للعثور على مصادر مطابقة' },
   },
   reverseSearch() {
     return { browser: {

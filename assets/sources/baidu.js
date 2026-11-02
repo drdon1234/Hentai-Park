@@ -38,32 +38,32 @@ Park.register({
       "通用图片反搜；结果覆盖取决于百度识图索引": "通用圖片反搜；結果涵蓋範圍取決於百度識圖索引",
       "百度识图拒绝了图片上传，请稍后重试或更换图片": "百度識圖拒絕了圖片上傳，請稍後重試或更換圖片"
     },
-    "ja": {
+    "ja": {"百度":"Baidu",
       "通用图片反搜；结果覆盖取决于百度识图索引": "画像の逆検索。検索範囲は Baidu のインデックスに依存",
       "百度识图拒绝了图片上传，请稍后重试或更换图片": "Baidu が画像のアップロードを拒否しました。後で再試行するか別の画像をお試しください"
     },
-    "ko": {
+    "ko": {"百度":"바이두",
       "通用图片反搜；结果覆盖取决于百度识图索引": "일반 이미지 역검색, 검색 범위는 Baidu 색인에 따라 달라짐",
       "百度识图拒绝了图片上传，请稍后重试或更换图片": "Baidu에서 이미지 업로드를 거부했습니다. 나중에 다시 시도하거나 다른 이미지를 사용하세요"
     },
-    "en": {
+    "en": {"百度":"Baidu",
       "通用图片反搜；结果覆盖取决于百度识图索引": "General reverse image search; coverage depends on the Baidu index",
       "百度识图拒绝了图片上传，请稍后重试或更换图片": "Baidu rejected the image upload. Try again later or choose another image"
     },
-    "es": {
+    "es": {"百度":"Baidu",
       "通用图片反搜；结果覆盖取决于百度识图索引": "Búsqueda inversa general; la cobertura depende del índice de Baidu",
       "百度识图拒绝了图片上传，请稍后重试或更换图片": "Baidu rechazó la imagen. Inténtalo más tarde o elige otra imagen"
     },
-    "ru": {
+    "ru": {"百度":"Baidu",
       "通用图片反搜；结果覆盖取决于百度识图索引": "Обратный поиск изображений; охват зависит от индекса Baidu",
       "百度识图拒绝了图片上传，请稍后重试或更换图片": "Baidu отклонил загрузку. Повторите позже или выберите другое изображение"
     },
-    "ar": {
+    "ar": {"百度":"بايدو",
       "通用图片反搜；结果覆盖取决于百度识图索引": "بحث عكسي عام؛ تعتمد التغطية على فهرس Baidu",
       "百度识图拒绝了图片上传，请稍后重试或更换图片": "رفض Baidu رفع الصورة. أعد المحاولة لاحقًا أو اختر صورة أخرى"
     }
   },
-  key: 'baidu', name: '百度', version: '0.0.7', minAppVersion: '0.9.2', apiVersion: 2,
+  key: 'baidu', name: '百度', version: '0.0.8', minAppVersion: '0.9.2', apiVersion: 2,
   type: 'comic', category: 'other', reverseSearchCategory: 'general',
   homepage: 'https://graph.baidu.com/',
   description: '通用图片反搜；结果覆盖取决于百度识图索引',

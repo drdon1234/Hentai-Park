@@ -14,20 +14,20 @@ La comprobación de actualizaciones pide confirmación para eliminar plugins ofi
 
 | Categoría | Sitios / servicios |
 | --- | --- |
-| Cotilleos | 每日大赛 · 黑料网 · 51吃瓜网 |
-| Galerías fotográficas | PixiBB · 秀人网 · PornPics · CosplayTele · NudeCosplay |
+| Cotilleos | MRDS · Heiliao · 51CG |
+| Galerías fotográficas | PixiBB · XiuRen · PornPics · CosplayTele · NudeCosplay |
 | Ilustraciones | Danbooru · yande.re · Gelbooru |
 | Doujinshi / cómics | E-Hentai · 禁漫天堂 · nhentai · 绅士漫画 · 哔咔漫画 |
 | Anime para adultos | Hanime1 · Hanime.tv · Rule34Video · Iwara · HentaiHaven |
 | JAV | MissAV · JableTV · 123AV · SupJav |
-| Vídeos para adultos | Pornhub · XVideos · 91视频 · SpankBang · Eporner · Thumbzilla · iXXX · TubeSafari · 肉视频 |
+| Vídeos para adultos | Pornhub · XVideos · 91porn · SpankBang · Eporner · Thumbzilla · iXXX · TubeSafari · 肉视频 |
 | Vídeos cortos | Tik.porn · Fyptt · SOOP 短视频 · Pornhub Shorties · SWAG 短视频 · PopkonTV 短视频 · RedGifs · Fansly |
 | Dramas con IA | 黄豆短剧 · 91短剧 · 黄果短剧 · 肉视频短剧 |
 | Grabaciones | KoreanBJ.club 录播 · SOOP 录播 · PopkonTV 录播 · CamwhoresBay 亚洲录播 |
 | Directos | Stripchat 亚洲直播 · CAM4 · SOOP · XloveCam · SinParty |
-| Comunidades de creadores | Pixiv · 红迪 · 推特（X） · myfans.jp · pixivFANBOX · 电报 |
-| Novelas | 禁忌书屋 · 色文网 · CA情色小说 · 69成人小说网 · Literotica · Lush Stories · StoriesOnline |
-| Juegos | 鲲 Galgame · GalgameX · 次元茶馆 |
+| Comunidades de creadores | Pixiv · Reddit · X / Twitter · myfans.jp · pixivFANBOX · Telegram |
+| Novelas | Cool18 · Book18 · Canovel · 69story · Literotica · Lush Stories · StoriesOnline |
+| Juegos | KUN Galgame · GalgameX · 次元茶馆 |
 
 ## Clasificaciones
 
@@ -40,7 +40,7 @@ La comprobación de actualizaciones pide confirmación para eliminar plugins ofi
 
 | Categoría | Sitios / servicios |
 | --- | --- |
-| Búsqueda inversa de imágenes | 谷歌智能镜头 · Yandex · 百度 · trace.moe · AnimeTrace · IQDB · E-Hentai · AVScan |
+| Búsqueda inversa de imágenes | Google Lens · Yandex · Baidu · trace.moe · AnimeTrace · IQDB · E-Hentai · AVScan |
 
 La imagen elegida solo se sube al servicio cuando inicias la búsqueda. Los resultados son candidatos y deben comprobarse.
 
