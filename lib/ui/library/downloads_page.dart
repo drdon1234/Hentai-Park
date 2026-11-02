@@ -28,6 +28,7 @@ import '../widgets/content_scope_selector.dart';
 import '../widgets/cover_tile.dart';
 import '../widgets/file_drop_region.dart';
 import '../widgets/platform_share.dart';
+import 'download_status_badge.dart';
 import 'exports_page.dart';
 import 'recording_tile.dart';
 
@@ -418,14 +419,12 @@ class _DownloadsPageState extends State<DownloadsPage> {
               return CoverTile(
                 item: task.item,
                 aspect: 0.7,
-                showProgress: task.status != DownloadStatus.done,
-                progress: task.status != DownloadStatus.done && task.total > 0
-                    ? task.progress
-                    : null,
+                coverStatus: DownloadStatusBadge(
+                  status: task.status,
+                  label: _statusLabel(task),
+                  progress: task.total > 0 ? task.progress : null,
+                ),
                 showSource: true,
-                badges: [
-                  (tag: Tag(_statusLabel(task)), label: _statusLabel(task)),
-                ],
                 onTap: () => _openTask(context, task),
                 onTextTap: () => Nav.push(
                   context,
@@ -445,8 +444,10 @@ class _DownloadsPageState extends State<DownloadsPage> {
   }
 
   String _statusLabel(DownloadTask task) => switch (task.status) {
-    DownloadStatus.queued => tr('等待下载'),
-    DownloadStatus.running => tr('正在下载'),
+    DownloadStatus.queued => tr(
+      DownloadManager.instance.networkAllowed ? '等待下载' : '等待 Wi-Fi',
+    ),
+    DownloadStatus.running => tr(task.total > 0 ? '正在下载' : '准备中…'),
     DownloadStatus.paused => tr('已暂停'),
     DownloadStatus.done => tr('已完成'),
     DownloadStatus.failed => tr('下载失败'),
@@ -850,17 +851,11 @@ class _TaskTile extends StatelessWidget {
                       ],
                     ),
                     if (t.status == DownloadStatus.running ||
-                        t.status == DownloadStatus.paused) ...[
+                        t.status == DownloadStatus.paused && t.total > 0) ...[
                       const SizedBox(height: 8),
-                      ClipRRect(
-                        borderRadius: const BorderRadius.all(
-                          Radius.circular(2),
-                        ),
-                        child: LinearProgressIndicator(
-                          value: t.total > 0 ? t.progress : null,
-                          minHeight: 4,
-                          backgroundColor: c.surfaceContainerHighest,
-                        ),
+                      DownloadProgressLine(
+                        status: t.status,
+                        progress: t.total > 0 ? t.progress : null,
                       ),
                     ],
                   ],

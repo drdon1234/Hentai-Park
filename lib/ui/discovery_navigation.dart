@@ -105,7 +105,6 @@ class DiscoveryDomainCards extends StatelessWidget {
               child: _DomainChip(
                 destination: destination,
                 selected: false,
-                contained: true,
                 onSelected: onSelected,
               ),
             ),
@@ -161,9 +160,7 @@ class _DomainChip extends StatefulWidget {
     required this.destination,
     required this.selected,
     required this.onSelected,
-    this.contained = false,
   });
-  final bool contained;
   final DiscoveryDestination destination;
   final bool selected;
   final ValueChanged<DiscoveryDestination> onSelected;
@@ -196,29 +193,23 @@ class _DomainChipState extends State<_DomainChip> {
 
   @override
   Widget build(BuildContext context) {
-    if (widget.contained) {
-      return OutlinedButton(
+    return Semantics(
+      selected: widget.selected,
+      child: OutlinedButton(
         style: OutlinedButton.styleFrom(
           minimumSize: const Size(48, 48),
           padding: const EdgeInsets.symmetric(horizontal: Gap.l),
-          backgroundColor: context.colors.surfaceContainerLow,
-          side: BorderSide(color: context.colors.outlineVariant),
-        ),
-        onPressed: () => widget.onSelected(widget.destination),
-        child: SelectionContainer.disabled(
-          child: Text(widget.destination.label),
-        ),
-      );
-    }
-    return Semantics(
-      selected: widget.selected,
-      child: TextButton(
-        style: TextButton.styleFrom(
           foregroundColor: widget.selected
-              ? context.colors.primary
-              : context.colors.onSurfaceVariant,
-          minimumSize: const Size(0, 48),
-          padding: const EdgeInsets.symmetric(horizontal: Gap.s),
+              ? context.colors.onSecondaryContainer
+              : context.colors.primary,
+          backgroundColor: widget.selected
+              ? context.colors.secondaryContainer
+              : context.colors.surfaceContainerLow,
+          side: BorderSide(
+            color: widget.selected
+                ? context.colors.primary
+                : context.colors.outlineVariant,
+          ),
           textStyle: context.text.labelLarge?.copyWith(
             fontWeight: widget.selected ? FontWeight.w600 : FontWeight.w400,
           ),

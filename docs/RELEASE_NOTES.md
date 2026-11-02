@@ -1,23 +1,17 @@
 ## 中文
 
 ### 改进
-- “进入域”恢复为无边框文字入口，首页分类域按钮继续保留背景与描边。
-- 吃瓜域默认站点顺序调整为每日大赛、黑料网、51吃瓜网。
-- 简中界面中有通用中文名的站点使用中文名称，其他语言使用对应名称，涵盖吃瓜、中文小说及部分图片、社区与反搜站点。
+- 下载网格以状态图标、百分比和细线进度替代封面圆环，暂停、等待和失败状态更清晰。
+- 域页顶部分类导航与主页全部站点下的域按钮统一样式，选中状态更明确。
 
-### 插件更新
-- 每日大赛 0.0.4、黑料网 0.0.4、51吃瓜网 0.0.4：按界面语言显示站点名称。
-- 禁忌书屋 0.0.11、色文网 0.0.11、CA情色小说 0.0.10、69成人小说网 0.0.9：按界面语言显示站点名称。
-- 秀人网 0.0.9、91视频 0.0.12、红迪 0.0.10、推特（X）0.0.19、电报 0.0.11、百度 0.0.8、谷歌智能镜头 0.0.10、鲲 Galgame 0.0.10：完善各语言的站点名称。
+### 修复
+- 修复未知总量的暂停任务仍显示动态进度的问题，下载网格和列表统一状态反馈。
 
 ## English
 
 ### Improvements
-- Restored Enter Category to a borderless text action while retaining outlined category buttons on the home page.
-- Changed the default Gossip source order to MRDS, Heiliao and 51CG.
-- Simplified Chinese uses established Chinese source names, while other languages use their corresponding names, covering Gossip, Chinese novels and selected gallery, community and reverse search sources.
+- Replaced cover progress rings in the download grid with status icons, percentages and slim progress bars, with clearer paused, queued and failed states.
+- Unified category navigation on category pages with the category buttons under All Sites on the home page, with a clearer selected state.
 
-### Plugin updates
-- MRDS 0.0.4, Heiliao 0.0.4 and 51CG 0.0.4: show site names in the selected interface language.
-- Cool18 0.0.11, Book18 0.0.11, Canovel 0.0.10 and 69story 0.0.9: show site names in the selected interface language.
-- XiuRen 0.0.9, 91porn 0.0.12, Reddit 0.0.10, X 0.0.19, Telegram 0.0.11, Baidu 0.0.8, Google Lens 0.0.10 and KUN Galgame 0.0.10: improve localized display names.
+### Fixes
+- Fixed animated progress for paused downloads with unknown totals and unified status feedback between the grid and list.
