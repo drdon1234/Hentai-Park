@@ -60,7 +60,8 @@ class RepoEntry {
   final Map<String, dynamic> json;
   final String baseUrl;
   String get key => json['key'].toString();
-  String get name => (json['name'] ?? key).toString();
+  late final _copy = PluginCopy(json['i18n']);
+  String get name => _copy.text((json['name'] ?? key).toString());
   String get version => (json['version'] ?? '0.0.0').toString();
   String get description => (json['description'] ?? '').toString();
 

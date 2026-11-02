@@ -229,8 +229,15 @@ export async function generateIndex({ root = defaultRoot, commit, previousIndex,
         throw new Error(`${key} 同版本 ${entry.version} 的脚本内容已改变，请同时提升脚本和清单版本`);
       }
     }
+    const nameTranslations = Object.fromEntries(
+      Object.entries(manifest.i18n || {}).flatMap(([locale, messages]) =>
+        typeof messages?.[entry.name] === 'string'
+          ? [[locale, {[entry.name]: messages[entry.name]}]]
+          : []),
+    );
     sources.push({
       key, name: entry.name, version: entry.version, description: entry.description,
+      ...(Object.keys(nameTranslations).length ? {i18n: nameTranslations} : {}),
       category: entry.category,
       ...(manifest.capabilities.reverseSearch ? {reverseSearchCategory: manifest.reverseSearchCategory} : {}),
       rankingOnly: manifest.rankingOnly,
