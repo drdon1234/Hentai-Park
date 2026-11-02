@@ -155,11 +155,11 @@
     return result;
   }
   Park.register({
-    key: SITE.key, name: SITE.name, version: '0.0.2', minAppVersion: '0.11.0',
+    key: SITE.key, name: SITE.name, version: '0.0.3', minAppVersion: '0.11.0',
     type: 'article', category: 'feed', color: '#488A7B', language: 'zh',
     description: '吃瓜图文，支持分类、标签、搜索与视频',
     i18n: {
-      'zh-Hant': {'吃瓜图文，支持分类、标签、搜索与视频':'吃瓜圖文，支援分類、標籤、搜尋與影片'},
+      'zh-Hant': {[SITE.name]: SITE.traditionalName,'吃瓜图文，支持分类、标签、搜索与视频':'吃瓜圖文，支援分類、標籤、搜尋與影片'},
       ja: {'吃瓜图文，支持分类、标签、搜索与视频':'画像付き記事。カテゴリ、タグ、検索、動画に対応'},
       ko: {'吃瓜图文，支持分类、标签、搜索与视频':'이미지 기사, 분류, 태그, 검색 및 동영상 지원'},
       en: {'吃瓜图文，支持分类、标签、搜索与视频':'Gossip articles with images, categories, tags, search and video'},

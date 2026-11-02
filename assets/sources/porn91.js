@@ -1,7 +1,7 @@
 /* 静态解码已验证的媒体元素百分号字符串，不执行远程脚本。 */
 Park.register({
   i18n: {
-    "zh-Hant": {"成人视频社区，支持推荐、搜索和原画播放": "成人影片社群，支援推薦、搜尋和原畫播放"},
+    "zh-Hant": {"91视频":"91視頻","成人视频社区，支持推荐、搜索和原画播放": "成人影片社群，支援推薦、搜尋和原畫播放"},
     "ja": {"成人视频社区，支持推荐、搜索和原画播放": "おすすめ・検索・元画質再生に対応した成人向け動画コミュニティ"},
     "ko": {"成人视频社区，支持推荐、搜索和原画播放": "추천, 검색 및 원본 화질 재생을 지원하는 성인 동영상 커뮤니티"},
     "en": {"成人视频社区，支持推荐、搜索和原画播放": "Adult video community with recommendations, search and original-quality playback"},
@@ -9,7 +9,7 @@ Park.register({
     "ru": {"成人视频社区，支持推荐、搜索和原画播放": "Сообщество видео для взрослых с рекомендациями, поиском и оригинальным качеством"},
     "ar": {"成人视频社区，支持推荐、搜索和原画播放": "مجتمع فيديوهات للبالغين مع توصيات وبحث وتشغيل بالجودة الأصلية"},
   },
-  key: 'porn91', name: '91porn', version: '0.0.10', minAppVersion: '0.9.2', type: 'video', category: 'adult', color: '#D81B60',
+  key: 'porn91', name: '91视频', version: '0.0.11', minAppVersion: '0.9.2', type: 'video', category: 'adult', color: '#D81B60',
   description: '成人视频社区，支持推荐、搜索和原画播放', homepage: 'https://91porn.com', domains: ['91porn.com'], language: 'zh',
   network: {mode: 'native', vpnHint: true}, imageHeaders: {Referer: 'https://91porn.com/'},
   media: {mode: 'native', scope: 'session', origin: 'https://91porn.com', domains: ['la.btc620.com', '1470423830.rsc.cdn77.org']},

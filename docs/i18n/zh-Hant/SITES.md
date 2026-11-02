@@ -14,20 +14,20 @@
 
 | 分類 | 網站 / 服務 |
 | --- | --- |
-| 吃瓜 | 51cg1.com · 155.fun · mrdsk.com |
-| 三次元美圖 | PixiBB · XiuRen · PornPics · CosplayTele · NudeCosplay |
+| 吃瓜 | 每日大賽 · 黑料網 · 51吃瓜網 |
+| 三次元美圖 | PixiBB · 秀人網 · PornPics · CosplayTele · NudeCosplay |
 | 二次元美圖 | Danbooru · yande.re · Gelbooru |
 | 本子 / 漫畫 | E-Hentai · 禁漫天堂 · nhentai · 绅士漫画 · 哔咔漫画 |
 | 裏番 | Hanime1 · Hanime.tv · Rule34Video · Iwara · HentaiHaven |
 | JAV | MissAV · JableTV · 123AV · SupJav |
-| 成人影片 | Pornhub · XVideos · 91porn · SpankBang · Eporner · Thumbzilla · iXXX · TubeSafari · 肉视频 |
+| 成人影片 | Pornhub · XVideos · 91視頻 · SpankBang · Eporner · Thumbzilla · iXXX · TubeSafari · 肉视频 |
 | 短影片 | Tik.porn · Fyptt · SOOP 短视频 · Pornhub Shorties · SWAG 短视频 · PopkonTV 短视频 · RedGifs · Fansly |
 | AI 短劇 | 黄豆短剧 · 91短剧 · 黄果短剧 · 肉视频短剧 |
 | 錄播 | KoreanBJ.club 录播 · SOOP 录播 · PopkonTV 录播 · CamwhoresBay 亚洲录播 |
 | 直播 | Stripchat 亚洲直播 · CAM4 · SOOP · XloveCam · SinParty |
-| 創作社群 | Pixiv · Reddit · X / Twitter · myfans.jp · pixivFANBOX · Telegram |
-| 小說 | Cool18 · Book18 · Canovel · 69story · Literotica · Lush Stories · StoriesOnline |
-| 遊戲 | KUN Galgame · GalgameX · 次元茶馆 |
+| 創作社群 | Pixiv · 紅迪 · 推特（X） · myfans.jp · pixivFANBOX · 電報 |
+| 小說 | 禁忌書屋 · 色文網 · CA情色小說 · 69成人小說網 · Literotica · Lush Stories · StoriesOnline |
+| 遊戲 | 鯤 Galgame · GalgameX · 次元茶馆 |
 
 ## 排行榜
 
@@ -40,7 +40,7 @@
 
 | 分類 | 網站 / 服務 |
 | --- | --- |
-| 以圖搜圖 | Google Lens · Yandex · Baidu · trace.moe · AnimeTrace · IQDB · E-Hentai · AVScan |
+| 以圖搜圖 | 谷歌智慧鏡頭 · Yandex · 百度 · trace.moe · AnimeTrace · IQDB · E-Hentai · AVScan |
 
 點擊搜尋後，所選圖片才會上傳至對應服務。辨識結果為候選，需自行核對。
 

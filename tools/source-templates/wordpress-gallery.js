@@ -208,7 +208,7 @@
 
   Park.register({
     i18n: __I18N__,
-    key: SITE.key, name: SITE.name, version: '0.0.7', minAppVersion: '0.9.2', type: 'comic', category: 'gallery',
+    key: SITE.key, name: SITE.name, version: '__VERSION__', minAppVersion: '0.9.2', type: 'comic', category: 'gallery',
     color: SITE.color, description: SITE.description, homepage: SITE.home, domains: [SITE.domain], language: SITE.language,
     network: {mode: 'native', vpnHint: true}, imageHeaders: {Referer: SITE.home + '/'},
     linkPatterns: [SITE.domain.replace(/\./g, '\\.') + '/([^/?#]+)(?:/|[?#]|$)'], idPattern: '^[1-9]\\d{0,14}$',

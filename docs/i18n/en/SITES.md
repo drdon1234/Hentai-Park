@@ -14,20 +14,20 @@ Update checks ask before removing withdrawn official plugins, their settings, lo
 
 | Category | Sites / services |
 | --- | --- |
-| Gossip | 51cg1.com · 155.fun · mrdsk.com |
-| Photo galleries | PixiBB · XiuRen · PornPics · CosplayTele · NudeCosplay |
+| Gossip | 每日大赛 · 黑料网 · 51吃瓜网 |
+| Photo galleries | PixiBB · 秀人网 · PornPics · CosplayTele · NudeCosplay |
 | Illustrations | Danbooru · yande.re · Gelbooru |
 | Doujinshi / comics | E-Hentai · 禁漫天堂 · nhentai · 绅士漫画 · 哔咔漫画 |
 | Hentai anime | Hanime1 · Hanime.tv · Rule34Video · Iwara · HentaiHaven |
 | JAV | MissAV · JableTV · 123AV · SupJav |
-| Adult videos | Pornhub · XVideos · 91porn · SpankBang · Eporner · Thumbzilla · iXXX · TubeSafari · 肉视频 |
+| Adult videos | Pornhub · XVideos · 91视频 · SpankBang · Eporner · Thumbzilla · iXXX · TubeSafari · 肉视频 |
 | Short videos | Tik.porn · Fyptt · SOOP 短视频 · Pornhub Shorties · SWAG 短视频 · PopkonTV 短视频 · RedGifs · Fansly |
 | AI dramas | 黄豆短剧 · 91短剧 · 黄果短剧 · 肉视频短剧 |
 | Recordings | KoreanBJ.club 录播 · SOOP 录播 · PopkonTV 录播 · CamwhoresBay 亚洲录播 |
 | Live streams | Stripchat 亚洲直播 · CAM4 · SOOP · XloveCam · SinParty |
-| Creator communities | Pixiv · Reddit · X / Twitter · myfans.jp · pixivFANBOX · Telegram |
-| Novels | Cool18 · Book18 · Canovel · 69story · Literotica · Lush Stories · StoriesOnline |
-| Games | KUN Galgame · GalgameX · 次元茶馆 |
+| Creator communities | Pixiv · 红迪 · 推特（X） · myfans.jp · pixivFANBOX · 电报 |
+| Novels | 禁忌书屋 · 色文网 · CA情色小说 · 69成人小说网 · Literotica · Lush Stories · StoriesOnline |
+| Games | 鲲 Galgame · GalgameX · 次元茶馆 |
 
 ## Rankings
 
@@ -40,7 +40,7 @@ Update checks ask before removing withdrawn official plugins, their settings, lo
 
 | Category | Sites / services |
 | --- | --- |
-| Reverse image search | Google Lens · Yandex · Baidu · trace.moe · AnimeTrace · IQDB · E-Hentai · AVScan |
+| Reverse image search | 谷歌智能镜头 · Yandex · 百度 · trace.moe · AnimeTrace · IQDB · E-Hentai · AVScan |
 
 The selected image is uploaded to a search service only after you start the search. Results are candidates and need to be checked.
 

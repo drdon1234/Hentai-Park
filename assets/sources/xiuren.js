@@ -3,7 +3,7 @@
   'use strict';
   const SITE = {
   "key": "xiuren",
-  "name": "XiuRen",
+  "name": "秀人网",
   "domain": "xiuren.biz",
   "home": "https://xiuren.biz",
   "api": "https://xiuren.biz/wp-json/wp/v2",
@@ -235,35 +235,35 @@
   Park.register({
     i18n: {
   "zh-Hant": {
-    "XiuRen": "XiuRen",
-    "工作室写真图集，支持热门、模特搜索与整套阅读": "工作室寫真圖集，支援熱門、模特兒搜尋與整套閱讀"
+    "工作室写真图集，支持热门、模特搜索与整套阅读": "工作室寫真圖集，支援熱門、模特兒搜尋與整套閱讀",
+    "秀人网": "秀人網"
   },
   "ja": {
-    "XiuRen": "XiuRen",
-    "工作室写真图集，支持热门、模特搜索与整套阅读": "スタジオ写真集。人気作品・モデル検索・全画像の閲覧に対応"
+    "工作室写真图集，支持热门、模特搜索与整套阅读": "スタジオ写真集。人気作品・モデル検索・全画像の閲覧に対応",
+    "秀人网": "秀人网"
   },
   "ko": {
-    "XiuRen": "XiuRen",
-    "工作室写真图集，支持热门、模特搜索与整套阅读": "스튜디오 화보, 인기 목록·모델 검색·전체 감상 지원"
+    "工作室写真图集，支持热门、模特搜索与整套阅读": "스튜디오 화보, 인기 목록·모델 검색·전체 감상 지원",
+    "秀人网": "秀人网"
   },
   "en": {
-    "XiuRen": "XiuRen",
-    "工作室写真图集，支持热门、模特搜索与整套阅读": "Studio photo galleries with popular works, model search and full-set viewing"
+    "工作室写真图集，支持热门、模特搜索与整套阅读": "Studio photo galleries with popular works, model search and full-set viewing",
+    "秀人网": "秀人网"
   },
   "es": {
-    "XiuRen": "XiuRen",
-    "工作室写真图集，支持热门、模特搜索与整套阅读": "Galerías de estudio con populares, búsqueda de modelos y lectura completa"
+    "工作室写真图集，支持热门、模特搜索与整套阅读": "Galerías de estudio con populares, búsqueda de modelos y lectura completa",
+    "秀人网": "秀人网"
   },
   "ru": {
-    "XiuRen": "XiuRen",
-    "工作室写真图集，支持热门、模特搜索与整套阅读": "Студийные фотосессии: популярные работы, поиск моделей и полный просмотр"
+    "工作室写真图集，支持热门、模特搜索与整套阅读": "Студийные фотосессии: популярные работы, поиск моделей и полный просмотр",
+    "秀人网": "秀人网"
   },
   "ar": {
-    "XiuRen": "XiuRen",
-    "工作室写真图集，支持热门、模特搜索与整套阅读": "معارض صور استوديو مع أعمال شائعة وبحث عن العارضين وعرض المجموعة كاملة"
+    "工作室写真图集，支持热门、模特搜索与整套阅读": "معارض صور استوديو مع أعمال شائعة وبحث عن العارضين وعرض المجموعة كاملة",
+    "秀人网": "秀人网"
   }
 },
-    key: SITE.key, name: SITE.name, version: '0.0.7', minAppVersion: '0.9.2', type: 'comic', category: 'gallery',
+    key: SITE.key, name: SITE.name, version: '0.0.8', minAppVersion: '0.9.2', type: 'comic', category: 'gallery',
     color: SITE.color, description: SITE.description, homepage: SITE.home, domains: [SITE.domain], language: SITE.language,
     network: {mode: 'native', vpnHint: true}, imageHeaders: {Referer: SITE.home + '/'},
     linkPatterns: [SITE.domain.replace(/\./g, '\\.') + '/([^/?#]+)(?:/|[?#]|$)'], idPattern: '^[1-9]\\d{0,14}$',

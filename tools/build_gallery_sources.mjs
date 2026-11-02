@@ -7,7 +7,7 @@ const template = await readFile(new URL('tools/source-templates/wordpress-galler
 const sites = JSON.parse(await readFile(new URL('tools/source-templates/gallery-sites.json', root), 'utf8'));
 const check = process.argv.includes('--check');
 const seen = new Set();
-for (const {site, i18n} of sites) {
+for (const {site, i18n, version} of sites) {
   if (!/^[a-z0-9_-]+$/.test(site.key) || seen.has(site.key)) throw new Error('图集站点配置无效');
   seen.add(site.key);
   for (const url of [site.home, site.api]) {
@@ -16,7 +16,8 @@ for (const {site, i18n} of sites) {
         !(parsed.hostname === site.domain || parsed.hostname.endsWith('.' + site.domain))) throw new Error('图集域名配置无效');
   }
   const output = template.replace('__SITE__', () => JSON.stringify(site, null, 2))
-    .replace('__I18N__', () => JSON.stringify(i18n, null, 2));
+    .replace('__I18N__', () => JSON.stringify(i18n, null, 2))
+    .replace('__VERSION__', () => version);
   const path = new URL('assets/sources/' + site.key + '.js', root);
   if (check) {
     if (await readFile(path, 'utf8') !== output) throw new Error(site.key + ' 的生成插件需要更新');

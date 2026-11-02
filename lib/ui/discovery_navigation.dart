@@ -57,13 +57,11 @@ class DomainEntryButton extends StatelessWidget {
   final VoidCallback onPressed;
 
   @override
-  Widget build(BuildContext context) => OutlinedButton(
-    style: OutlinedButton.styleFrom(
+  Widget build(BuildContext context) => TextButton(
+    style: TextButton.styleFrom(
       minimumSize: const Size(48, 48),
-      padding: const EdgeInsets.symmetric(horizontal: Gap.m),
-      backgroundColor: context.colors.primaryContainer,
-      foregroundColor: context.colors.onPrimaryContainer,
-      side: BorderSide(color: context.colors.outlineVariant),
+      padding: EdgeInsets.zero,
+      foregroundColor: context.colors.primary,
       textStyle: Theme.of(context).textTheme.labelLarge
           ?.copyWith(fontWeight: FontWeight.w400),
     ),

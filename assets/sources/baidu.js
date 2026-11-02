@@ -34,7 +34,7 @@ const baiduCards = (doc) => {
 
 Park.register({
   i18n: {
-    "zh-Hant": {
+    "zh-Hant": {"百度":"百度",
       "通用图片反搜；结果覆盖取决于百度识图索引": "通用圖片反搜；結果涵蓋範圍取決於百度識圖索引",
       "百度识图拒绝了图片上传，请稍后重试或更换图片": "百度識圖拒絕了圖片上傳，請稍後重試或更換圖片"
     },
@@ -63,7 +63,7 @@ Park.register({
       "百度识图拒绝了图片上传，请稍后重试或更换图片": "رفض Baidu رفع الصورة. أعد المحاولة لاحقًا أو اختر صورة أخرى"
     }
   },
-  key: 'baidu', name: 'Baidu', version: '0.0.6', minAppVersion: '0.9.2', apiVersion: 2,
+  key: 'baidu', name: '百度', version: '0.0.7', minAppVersion: '0.9.2', apiVersion: 2,
   type: 'comic', category: 'other', reverseSearchCategory: 'general',
   homepage: 'https://graph.baidu.com/',
   description: '通用图片反搜；结果覆盖取决于百度识图索引',
