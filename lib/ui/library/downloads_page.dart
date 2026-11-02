@@ -28,7 +28,7 @@ import '../widgets/content_scope_selector.dart';
 import '../widgets/cover_tile.dart';
 import '../widgets/file_drop_region.dart';
 import '../widgets/platform_share.dart';
-import 'download_status_badge.dart';
+import 'download_progress.dart';
 import 'exports_page.dart';
 import 'recording_tile.dart';
 
@@ -412,6 +412,18 @@ class _DownloadsPageState extends State<DownloadsPage> {
                     items: tasks.map((t) => t.item),
                     width: width,
                     showSource: true,
+                  ) +
+                  Gap.xs +
+                  DownloadStatusLabel.extent(
+                    context,
+                    width,
+                    tasks.map(
+                      (task) => DownloadStatusLabel.description(
+                        task.status,
+                        _statusLabel(task),
+                        task.total > 0 ? task.progress : null,
+                      ),
+                    ),
                   ),
             ),
             delegate: SliverChildBuilderDelegate((context, index) {
@@ -419,7 +431,13 @@ class _DownloadsPageState extends State<DownloadsPage> {
               return CoverTile(
                 item: task.item,
                 aspect: 0.7,
-                coverStatus: DownloadStatusBadge(
+                coverFrame: (child) => DownloadCoverProgress(
+                  status: task.status,
+                  label: _statusLabel(task),
+                  progress: task.total > 0 ? task.progress : null,
+                  child: child,
+                ),
+                footer: DownloadStatusLabel(
                   status: task.status,
                   label: _statusLabel(task),
                   progress: task.total > 0 ? task.progress : null,

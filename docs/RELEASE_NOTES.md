@@ -1,17 +1,15 @@
 ## 中文
 
 ### 改进
-- 下载网格以状态图标、百分比和细线进度替代封面圆环，暂停、等待和失败状态更清晰。
-- 域页顶部分类导航与主页全部站点下的域按钮统一样式，选中状态更明确。
+- 下载网格改用封面边框表示进度，状态和百分比移到封面下方，减少对图片的遮挡。
 
 ### 修复
-- 修复未知总量的暂停任务仍显示动态进度的问题，下载网格和列表统一状态反馈。
+- 修复每日大赛及其他使用独立图片 CDN 的站点点击图片查看大图时被错误拦截的问题。
 
 ## English
 
 ### Improvements
-- Replaced cover progress rings in the download grid with status icons, percentages and slim progress bars, with clearer paused, queued and failed states.
-- Unified category navigation on category pages with the category buttons under All Sites on the home page, with a clearer selected state.
+- Download progress now follows the cover border, with status and percentages below the cover to keep the image visible.
 
 ### Fixes
-- Fixed animated progress for paused downloads with unknown totals and unified status feedback between the grid and list.
+- Fixed enlarged images being incorrectly blocked on MRDS and other sites that use separate image CDNs.

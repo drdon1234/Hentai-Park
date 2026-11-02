@@ -660,12 +660,17 @@ class _SubscriptionMediaPageState extends State<SubscriptionMediaPage> {
       if (!media.needsDownload) {
         final uri = Uri.tryParse(media.url);
         final manifest = SourceManager.instance.manifest(widget.source);
+        // 图片与文章预览共用 ParkImage，允许独立 CDN；站点域名只约束页面与视频入口。
+        // 图片仍要求公网 HTTPS，解密、请求隔离与重定向由共享图片链路处理。
         if (uri == null ||
             manifest == null ||
             uri.scheme != 'https' ||
             uri.userInfo.isNotEmpty ||
             uri.port != 443 ||
-            !hostInDomains(uri.host, declaredDomains(manifest.json))) {
+            !publicDomainHost(uri.host) ||
+            uri.hasFragment ||
+            (media.type != 'image' &&
+                !hostInDomains(uri.host, declaredDomains(manifest.json)))) {
           throw SourceError('CONFIG', '媒体地址不在站点声明的 HTTPS 域名内');
         }
       }

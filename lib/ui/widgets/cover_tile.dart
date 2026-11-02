@@ -74,7 +74,8 @@ class CoverTile extends StatefulWidget {
     this.badges = const [],
     this.imageOnly = false,
     this.sequence,
-    this.coverStatus,
+    this.coverFrame,
+    this.footer,
   });
   final WorkItem item;
   final double? aspect;
@@ -89,8 +90,9 @@ class CoverTile extends StatefulWidget {
   /// Library signals (unread count, downloaded) that replace the site's own badge.
   final List<CoverBadge> badges;
 
-  /// 下载等封面状态，由调用方提供带完整语义的状态组件。
-  final Widget? coverStatus;
+  /// 沿封面边缘显示下载等状态，避免覆盖图片内容。
+  final Widget Function(Widget child)? coverFrame;
+  final Widget? footer;
   final bool imageOnly;
 
   /// 所在列表的播放顺序；短视频从这里按列表连续播放。
@@ -101,6 +103,7 @@ class CoverTile extends StatefulWidget {
 }
 
 class _CoverTileState extends State<CoverTile> {
+  Widget _frame(Widget child) => widget.coverFrame?.call(child) ?? child;
   // 动画属于列表中的这个入口，不能用可能重复或被详情规范化的作品 ID。
   final Object _coverHeroTag = Object();
   bool _hovered = false;
@@ -180,19 +183,21 @@ class _CoverTileState extends State<CoverTile> {
                   child: Stack(
                     fit: StackFit.expand,
                     children: [
-                      CoverHero(
-                        tag: _coverHeroTag,
-                        child: CoverImage(
-                          source: item.source,
-                          url: item.cover,
-                          sourceBlurred: item.json['coverBlurred'] == true,
-                          title: item.title,
-                          mediaKind: item.isNovel ? MediaKind.novel : null,
+                      _frame(
+                        CoverHero(
+                          tag: _coverHeroTag,
+                          child: CoverImage(
+                            source: item.source,
+                            url: item.cover,
+                            sourceBlurred: item.json['coverBlurred'] == true,
+                            title: item.title,
+                            mediaKind: item.isNovel ? MediaKind.novel : null,
+                          ),
                         ),
                       ),
                       if (!widget.imageOnly &&
                           badge != null &&
-                          widget.coverStatus == null)
+                          widget.coverFrame == null)
                         PositionedDirectional(
                           start: Gap.xs + 2,
                           top: Gap.xs + 2,
@@ -208,17 +213,8 @@ class _CoverTileState extends State<CoverTile> {
                           bottom: Gap.xs + 2,
                           child: Tag(item.duration, onImage: true),
                         ),
-                      if (widget.coverStatus != null)
-                        PositionedDirectional(
-                          start: Gap.s,
-                          end: Gap.s,
-                          top: Gap.s,
-                          child: Align(
-                            alignment: AlignmentDirectional.topEnd,
-                            child: widget.coverStatus!,
-                          ),
-                        ),
                       if (!widget.imageOnly &&
+                          widget.coverFrame == null &&
                           history != null &&
                           history.progress > 0)
                         Positioned(
@@ -310,6 +306,11 @@ class _CoverTileState extends State<CoverTile> {
                               color: c.onSurfaceVariant,
                             ),
                           ),
+                        ),
+                      if (widget.footer != null)
+                        Padding(
+                          padding: const EdgeInsets.only(top: Gap.xs),
+                          child: widget.footer,
                         ),
                     ],
                   ),
