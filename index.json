@@ -11,7 +11,7 @@
       "rankingOnly": false,
       "reverseSearchOnly": false,
       "metadataOnly": true,
-      "url": "https://raw.githubusercontent.com/drdon1234/Hentai-Park/7d9d8ce83bf3e96454ba426a579fdb35737124ef/assets/sources/catalog-dlsite.js",
+      "url": "https://raw.githubusercontent.com/drdon1234/Hentai-Park/946812b2ec66a633f17394c92f3ff4bebd4f32ee/assets/sources/catalog-dlsite.js",
       "sha256": "c02c5abb9125e32085ce0caa9344f0630d47ec442185be248664e0408f35affb",
       "apiVersion": 2,
       "minAppVersion": "0.10.8"
@@ -25,7 +25,7 @@
       "rankingOnly": false,
       "reverseSearchOnly": false,
       "metadataOnly": true,
-      "url": "https://raw.githubusercontent.com/drdon1234/Hentai-Park/7d9d8ce83bf3e96454ba426a579fdb35737124ef/assets/sources/catalog-toranoana.js",
+      "url": "https://raw.githubusercontent.com/drdon1234/Hentai-Park/946812b2ec66a633f17394c92f3ff4bebd4f32ee/assets/sources/catalog-toranoana.js",
       "sha256": "5c8d6ea8cfc609cd4f2c4aa1bb5a6a7d2471e74d3a1523c9e0c229f725796bfc",
       "apiVersion": 2,
       "minAppVersion": "0.10.8"
@@ -33,14 +33,14 @@
     {
       "key": "catalog-fanza",
       "name": "FANZA",
-      "version": "0.0.10",
+      "version": "0.0.11",
       "description": "排行榜与作品资料",
       "category": "jav",
       "rankingOnly": false,
       "reverseSearchOnly": false,
       "metadataOnly": true,
-      "url": "https://raw.githubusercontent.com/drdon1234/Hentai-Park/7d9d8ce83bf3e96454ba426a579fdb35737124ef/assets/sources/catalog-fanza.js",
-      "sha256": "4dead011e25cc72edad83917ffe65047a3d14ec492f6cf03a10c5b533863f72c",
+      "url": "https://raw.githubusercontent.com/drdon1234/Hentai-Park/946812b2ec66a633f17394c92f3ff4bebd4f32ee/assets/sources/catalog-fanza.js",
+      "sha256": "959ed21cc10185b90149b809290c6e85a01299bd606661d6bd6ae7ad3afcaddd",
       "apiVersion": 2,
       "minAppVersion": "0.10.8"
     },
@@ -53,7 +53,7 @@
       "rankingOnly": false,
       "reverseSearchOnly": false,
       "metadataOnly": true,
-      "url": "https://raw.githubusercontent.com/drdon1234/Hentai-Park/7d9d8ce83bf3e96454ba426a579fdb35737124ef/assets/sources/catalog-mgs.js",
+      "url": "https://raw.githubusercontent.com/drdon1234/Hentai-Park/946812b2ec66a633f17394c92f3ff4bebd4f32ee/assets/sources/catalog-mgs.js",
       "sha256": "97607acb2d8b151bc6ed3d441b783b685413d4f226789f0281a314d2180c79ed",
       "apiVersion": 2,
       "minAppVersion": "0.10.8"
@@ -67,7 +67,7 @@
       "rankingOnly": false,
       "reverseSearchOnly": false,
       "metadataOnly": true,
-      "url": "https://raw.githubusercontent.com/drdon1234/Hentai-Park/7d9d8ce83bf3e96454ba426a579fdb35737124ef/assets/sources/catalog-fc2.js",
+      "url": "https://raw.githubusercontent.com/drdon1234/Hentai-Park/946812b2ec66a633f17394c92f3ff4bebd4f32ee/assets/sources/catalog-fc2.js",
       "sha256": "94bb197dab1e0d354bd0ad46ecb5bace2972c352dcaf03a4409b2a2b7e22e494",
       "apiVersion": 2,
       "minAppVersion": "0.10.8"
@@ -81,7 +81,7 @@
       "rankingOnly": false,
       "reverseSearchOnly": false,
       "metadataOnly": true,
-      "url": "https://raw.githubusercontent.com/drdon1234/Hentai-Park/7d9d8ce83bf3e96454ba426a579fdb35737124ef/assets/sources/catalog-studios.js",
+      "url": "https://raw.githubusercontent.com/drdon1234/Hentai-Park/946812b2ec66a633f17394c92f3ff4bebd4f32ee/assets/sources/catalog-studios.js",
       "sha256": "a5905451219ba698a0c628e80dbd34ea9a29493ccc0eee84c1326aaab15c4860",
       "apiVersion": 2,
       "minAppVersion": "0.10.8"
@@ -95,7 +95,7 @@
       "rankingOnly": false,
       "reverseSearchOnly": false,
       "metadataOnly": true,
-      "url": "https://raw.githubusercontent.com/drdon1234/Hentai-Park/7d9d8ce83bf3e96454ba426a579fdb35737124ef/assets/sources/catalog-javmenu.js",
+      "url": "https://raw.githubusercontent.com/drdon1234/Hentai-Park/946812b2ec66a633f17394c92f3ff4bebd4f32ee/assets/sources/catalog-javmenu.js",
       "sha256": "866ddcb24cb6d56a61853607eff52667f808b527f415e719f9ff11dff82680c8",
       "apiVersion": 2,
       "minAppVersion": "0.10.8"
@@ -109,7 +109,7 @@
       "rankingOnly": false,
       "reverseSearchOnly": false,
       "metadataOnly": true,
-      "url": "https://raw.githubusercontent.com/drdon1234/Hentai-Park/7d9d8ce83bf3e96454ba426a579fdb35737124ef/assets/sources/metadata-javbus.js",
+      "url": "https://raw.githubusercontent.com/drdon1234/Hentai-Park/946812b2ec66a633f17394c92f3ff4bebd4f32ee/assets/sources/metadata-javbus.js",
       "sha256": "cfccb2d27cba7df8e900e59f24808fd7333896a07f4e327074c625e3ea803e74",
       "apiVersion": 2,
       "minAppVersion": "0.10.8"
@@ -123,24 +123,10 @@
       "rankingOnly": false,
       "reverseSearchOnly": false,
       "metadataOnly": true,
-      "url": "https://raw.githubusercontent.com/drdon1234/Hentai-Park/7d9d8ce83bf3e96454ba426a579fdb35737124ef/assets/sources/metadata-javdb.js",
+      "url": "https://raw.githubusercontent.com/drdon1234/Hentai-Park/946812b2ec66a633f17394c92f3ff4bebd4f32ee/assets/sources/metadata-javdb.js",
       "sha256": "97f76fd2616a41673bebf13057e799e0079b8b1d736cf07d71d8fb968525a0e2",
       "apiVersion": 2,
       "minAppVersion": "0.10.8"
-    },
-    {
-      "key": "metadata-fc2hub",
-      "name": "FC2HUB",
-      "version": "0.0.1",
-      "description": "FC2作品资料",
-      "category": "jav",
-      "rankingOnly": false,
-      "reverseSearchOnly": false,
-      "metadataOnly": true,
-      "url": "https://raw.githubusercontent.com/drdon1234/Hentai-Park/7d9d8ce83bf3e96454ba426a579fdb35737124ef/assets/sources/metadata-fc2hub.js",
-      "sha256": "2b3e84129814303ff84a841e71594eb5564c124438cb2f6146af45ad8e13557d",
-      "apiVersion": 2,
-      "minAppVersion": "0.10.9"
     }
   ]
 }
