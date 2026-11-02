@@ -14,6 +14,7 @@ import 'challenge.dart';
 import 'cookie_store.dart';
 import 'domains.dart';
 import 'network_client.dart';
+import 'request_lifecycle.dart';
 import 'request_retry.dart';
 
 /// 二进制传输仍通过同一域名隔离、TLS 和重定向策略。
@@ -170,6 +171,44 @@ class HttpService {
   }
 
   Future<HttpResult> send({
+    bool readOnly = false,
+    required String method,
+    required String url,
+    Map<String, String> headers = const {},
+    Object? body,
+    Duration? timeout,
+    String partition = CookieStore.appPartition,
+    bool detectCloudflare = true,
+    CancelToken? cancelToken,
+    void Function(int received, int total)? onProgress,
+    int? maxBytes,
+    bool followRedirects = true,
+    Future<void> Function(Uri)? beforeRequest,
+    String? connectAddress,
+  }) async {
+    return RequestLifecycle.instance.recoverRead(
+      () => _send(
+        readOnly: readOnly,
+        method: method,
+        url: url,
+        headers: headers,
+        body: body,
+        timeout: timeout,
+        partition: partition,
+        detectCloudflare: detectCloudflare,
+        cancelToken: cancelToken,
+        onProgress: onProgress,
+        maxBytes: maxBytes,
+        followRedirects: followRedirects,
+        beforeRequest: beforeRequest,
+        connectAddress: connectAddress,
+      ),
+      replayable: isReplayableRead(method, body: body, readOnly: readOnly),
+      cancelToken: cancelToken,
+    );
+  }
+
+  Future<HttpResult> _send({
     bool readOnly = false,
     required String method,
     required String url,

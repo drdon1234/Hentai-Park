@@ -11,6 +11,7 @@ import '../data/database.dart';
 import '../engine/cookie_store.dart';
 import '../engine/http_service.dart';
 import '../engine/js_engine.dart';
+import '../engine/request_lifecycle.dart';
 import '../engine/source_manager.dart';
 import '../library/library.dart';
 import 'subscription_store.dart';
@@ -20,6 +21,7 @@ import 'updater.dart';
 @pragma('vm:entry-point')
 Future<void> subscriptionBackground() async {
   WidgetsFlutterBinding.ensureInitialized();
+  RequestLifecycle.instance.useBackgroundWorkerMode();
   const channel = MethodChannel('hentai_park/subscription_background');
   final updater = SubscriptionUpdater.instance;
   channel.setMethodCallHandler((call) async {

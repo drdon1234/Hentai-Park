@@ -300,24 +300,45 @@ mixin _SourceInstaller on _SourceRegistry {
   }
 
   /// Removes a source together with everything it stored: runtime, settings, private store and cookies.
-  Future<void> uninstall(String key) => _mutate(() async {
+  Future<void> uninstall(String key) =>
+      _mutate(() => _uninstall(key), key: key);
+
+  Future<void> _uninstall(String key) async {
+    await _stateStores[key]?.flush();
     _activations.remove(key)?.ignore();
-    _manifestCache.remove(key);
-    _manifestStore.save(_manifestCache);
     await JsEngine.instance.disposeRuntime(key);
     await CookieStore.instance.clearPartition(key);
-    _sources.remove(key);
-    try {
-      await _scriptFile(key).delete();
-    } catch (_) {}
+    await TagTranslations.instance.removeSource(key);
+    await AppSettings.instance.removeSourceReferences(key);
+    final script = _scriptFile(key);
+    if (await script.exists()) await script.delete();
+    final state = AppPaths.dataFile('source_state_$key.json');
+    if (await state.exists()) await state.delete();
     _state.remove(key);
     _stateStores.remove(key);
-    try {
-      await AppPaths.dataFile('source_state_$key.json').delete();
-    } catch (_) {}
+    _sources.remove(key);
+    _manifestCache.remove(key);
+    _manifestStore.save(_manifestCache);
     _saveRegistry();
+    await _registry.flush();
+    await _manifestStore.flush();
     _manifestChanges.add({key});
     notifyListeners();
+  }
+
+  /// 官方撤回必须由更新检查后的用户确认触发，个人插件不进入此路径。
+  Future<void> removeOfficial(String key) => _mutate(() async {
+    final source = _sources[key];
+    if (source == null || !['builtin', 'official'].contains(source.origin)) {
+      throw SourceError('CONFIG', '站点状态已改变，本次更新已跳过');
+    }
+    _removedOfficial.add(key);
+    try {
+      await _uninstall(key);
+    } catch (_) {
+      _removedOfficial.remove(key);
+      rethrow;
+    }
   }, key: key);
 
   /// Restores a built-in source to the bundled version.

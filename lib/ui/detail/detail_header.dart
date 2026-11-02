@@ -9,6 +9,7 @@ import '../../subscriptions/subscription_store.dart';
 import '../../subscriptions/updater.dart';
 import '../nav.dart';
 import '../theme.dart';
+import '../widgets/adaptive_cover.dart';
 import '../widgets/common.dart';
 import '../widgets/content_translation.dart';
 import '../widgets/cover_hero.dart';
@@ -426,9 +427,11 @@ class _DetailHeaderState extends State<DetailHeader> {
 
   Widget _cover(WorkItem item, {VoidCallback? onReady}) {
     final aspect = item.coverAspect ?? (_isVideo ? 16 / 9 : 0.7);
-    return AspectRatio(
+    return AdaptiveCover(
+      source: item.source,
+      url: item.cover,
       key: ValueKey((item.source, item.cover, aspect)),
-      aspectRatio: aspect,
+      placeholderAspect: aspect,
       child: SizedBox.expand(
         child: CoverImage(
           source: item.source,

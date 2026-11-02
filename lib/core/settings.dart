@@ -822,6 +822,51 @@ class AppSettings extends ChangeNotifier {
 
   Map<String, dynamic> get rankingSelection =>
       Map<String, dynamic>.from(_v['rankingSelection'] as Map? ?? {});
+
+  /// 清理已移除插件的偏好引用，不触碰书库、阅读历史与下载记录。
+  Future<void> removeSourceReferences(String source) async {
+    bool matches(Object? value) =>
+        value == source || value is String && value.startsWith('$source:');
+    for (final key in ['homeSources', 'ignoredSourceUpdates']) {
+      if (_v[key] case final Map value) {
+        _set(
+          key,
+          Map<String, dynamic>.from(value)
+            ..removeWhere((key, value) => matches(key) || matches(value)),
+        );
+      }
+    }
+    final histories = {..._searchHistories};
+    histories.remove(ContentScope.source(source).historyKey);
+    _set('searchHistories', histories);
+    for (final key in [
+      'homeHiddenSources',
+      'libraryFilterSources',
+      'aggregateExcluded',
+      'tagDownloadIgnoredSources',
+      'replyWithoutAsking',
+    ]) {
+      if (_v[key] case final List value) {
+        _set(key, value.where((entry) => !matches(entry)).toList());
+      }
+    }
+    final selection = rankingSelection;
+    if (matches(selection['selected'])) selection.remove('selected');
+    for (final key in [
+      'options',
+      'navigation',
+      'detailSources',
+      'searchSources',
+    ]) {
+      if (selection[key] case final Map value) {
+        selection[key] = Map<String, dynamic>.from(value)
+          ..removeWhere((key, value) => matches(key) || matches(value));
+      }
+    }
+    rankingSelection = selection;
+    await flush();
+  }
+
   set rankingSelection(Map<String, dynamic> value) =>
       _set('rankingSelection', value);
 

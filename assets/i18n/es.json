@@ -1738,5 +1738,8 @@
   "账号状态无效": "No se puede verificar el estado de la cuenta",
   "从旧到新": "Más antiguos primero",
   "排行榜配置": "Configuración de clasificaciones",
-  "排行榜与作品资料": "Clasificaciones e información de obras"
+  "排行榜与作品资料": "Clasificaciones e información de obras",
+  "官方插件已撤回": "Plugins oficiales retirados",
+  "删除这些插件及其配置、登录状态和持久化文件，已下载内容保留。个人插件不受影响。": "Eliminar estos plugins, sus ajustes, sesiones y archivos guardados. Se conserva el contenido descargado. Los plugins personales no se ven afectados.",
+  "正在删除插件": "Eliminando plugins"
 }

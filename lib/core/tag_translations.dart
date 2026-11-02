@@ -213,6 +213,21 @@ class TagTranslations extends ChangeNotifier {
     });
   }
 
+  Future<void> removeSource(String source) {
+    final directory = _file(source, locales.first).parent;
+    for (final locale in locales) {
+      final key = '$source/$locale';
+      _revisions[key] = (_revisions[key] ?? 0) + 1;
+      _pending.remove(key);
+    }
+    return _installs.run(() async {
+      if (await directory.exists()) await directory.delete(recursive: true);
+      _installed.removeWhere((key) => key.startsWith('$source/'));
+      _packs.removeWhere((key, _) => key.startsWith('$source/'));
+      notifyListeners();
+    });
+  }
+
   Map<String, TagPackAsset> _remote = {};
   List<String> get sources => {
     ..._bundled.map((k) => k.split('/').first),

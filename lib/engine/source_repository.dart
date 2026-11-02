@@ -39,11 +39,15 @@ class SourceRepositoryIndex {
   SourceRepositoryIndex({
     required List<SourceRepositoryEntry> entries,
     Map<String, String> failures = const {},
+    this.complete = false,
   }) : entries = List.unmodifiable(entries),
        failures = Map.unmodifiable(failures);
 
   final List<SourceRepositoryEntry> entries;
   final Map<String, String> failures;
+
+  /// 只有四个频道均完整、有效时，缺失条目才可解释为官方撤回。
+  final bool complete;
 }
 
 /// The repository index may move, but each script must point to a Git commit.
@@ -116,6 +120,7 @@ class SourceRepository {
     return SourceRepositoryIndex(
       entries: entries.values.toList(),
       failures: failures,
+      complete: failures.isEmpty,
     );
   }
 

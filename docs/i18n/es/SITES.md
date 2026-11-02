@@ -8,6 +8,8 @@
 
 La lectura, reproducción, comentarios, suscripciones y descargas dependen de cada sitio. Consulta las opciones disponibles en la app. Las actualizaciones de sitios pueden exigir actualizar la app.
 
+La comprobación de actualizaciones pide confirmación para eliminar plugins oficiales retirados, sus ajustes, sesiones y archivos guardados. Se conserva el contenido descargado y no se afectan los plugins personales.
+
 ## Sitios compatibles
 
 | Categoría | Sitios / servicios |
@@ -46,9 +48,8 @@ La imagen elegida solo se sube al servicio cuando inicias la búsqueda. Los resu
 | Servicio | Funciones |
 | --- | --- |
 | JavBus · JavDB | Información de obras, vistas previas, magnets |
-| FC2HUB | Búsqueda e información de obras FC2 |
 
-Usa Buscar información de obras en una categoría para acceder a sus proveedores de rankings de mercado y a sitios adicionales como JavBus y JavDB. Los proveedores de información comercial ofrecen búsqueda, filtros y detalles en la aplicación. Las obras conservan su sitio de origen; las búsquedas en catálogos públicos pueden ser más lentas. Los detalles del ranking priorizan la fuente original y permiten elegir otra. La búsqueda admite todos los sitios, el preferido de la categoría o uno concreto. Los detalles JAV permiten copiar el código y copiar o abrir magnets. Elige los sitios de detalles y búsqueda en la configuración del ranking, arriba a la derecha, separada de los filtros de contenido. FC2 puede requerir iniciar sesión para buscar y ver detalles; FC2HUB ofrece otra fuente de información.
+Usa Buscar información de obras en una categoría para acceder a sus proveedores de rankings de mercado y a sitios adicionales como JavBus y JavDB. Los proveedores de información comercial ofrecen búsqueda, filtros y detalles en la aplicación. Las obras conservan su sitio de origen; las búsquedas en catálogos públicos pueden ser más lentas. Los detalles del ranking priorizan la fuente original y permiten elegir otra. La búsqueda admite todos los sitios, el preferido de la categoría o uno concreto. Los detalles JAV permiten copiar el código y copiar o abrir magnets. Elige los sitios de detalles y búsqueda en la configuración del ranking, arriba a la derecha, separada de los filtros de contenido. La búsqueda y los detalles en FC2 pueden requerir iniciar sesión.
 
 Solo se muestran datos proporcionados por la fuente; puede no haber imágenes o magnets. Los magnets requieren una app externa compatible; esta app no descarga el contenido torrent. JavBus puede requerir VPN o proxy y verificación regional de edad dentro de la app.
 

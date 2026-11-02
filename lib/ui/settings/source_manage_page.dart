@@ -265,7 +265,7 @@ class _SourceManagePageState extends State<SourceManagePage> {
     try {
       final result = await updates.checkNow();
       if (!context.mounted) return;
-      if (result.hasUpdates) {
+      if (result.hasChanges) {
         await showSourceUpdatePrompt(context, result, updates);
       } else {
         await showSourceUpdateResult(context, result);

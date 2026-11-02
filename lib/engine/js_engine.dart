@@ -17,6 +17,7 @@ import 'domains.dart';
 import 'http_service.dart';
 import 'live_chat_protocol.dart';
 import 'live_chat_transport.dart';
+import 'request_lifecycle.dart';
 import 'source_identity.dart';
 
 typedef PersistCallback = Future<void> Function(
@@ -180,7 +181,8 @@ class SourceRuntime {
     Duration timeout,
     String code,
     String message,
-  ) => operation.timeout(
+  ) => RequestLifecycle.instance.timeout(
+    operation,
     timeout,
     onTimeout: () {
       _invalidate(timedOut: true);

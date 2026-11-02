@@ -17,6 +17,7 @@ import '../core/models.dart';
 import '../core/reverse_search.dart';
 import '../core/settings.dart';
 import '../core/storage.dart';
+import '../core/tag_translations.dart';
 import '../core/versions.dart';
 import '../core/work_metadata.dart';
 import '../images/image_network.dart';
@@ -140,6 +141,7 @@ abstract class _SourceRegistry extends ChangeNotifier {
       ) ??
       0;
   final Map<String, InstalledSource> _sources = {};
+  final Set<String> _removedOfficial = {};
   final Map<String, Map<String, dynamic>> _state = {}; // key → {settings, data}
   final Map<String, JsonStore> _stateStores = {};
   bool loaded = false;
@@ -259,6 +261,9 @@ abstract class _SourceRegistry extends ChangeNotifier {
       await _dir.create(recursive: true);
       final data = await _registry.load();
       if (data is Map && data['sources'] is List) {
+        _removedOfficial.addAll(
+          ((data['removedOfficial'] as List?) ?? []).whereType<String>(),
+        );
         for (final j in (data['sources'] as List).whereType<Map>()) {
           final s = InstalledSource.fromJson(j.cast<String, dynamic>());
           _sources[s.key] = s;
@@ -298,23 +303,10 @@ abstract class _SourceRegistry extends ChangeNotifier {
       await rootBundle.loadString('assets/sources/index.json'),
     ) as Map;
     final entries = (index['sources'] as List).cast<Map>();
-    final bundledKeys = {for (final entry in entries) entry['key'].toString()};
-    for (final source in _sources.values.toList()) {
-      if ((source.origin != 'builtin' && source.origin != 'official') ||
-          bundledKeys.contains(source.key)) {
-        continue;
-      }
-      await JsEngine.instance.disposeRuntime(source.key);
-      await HomeCache.instance.clearSource(source.key);
-      _sources.remove(source.key);
-      _manifestCache.remove(source.key);
-      try {
-        await _scriptFile(source.key).delete();
-      } catch (_) {}
-    }
     var order = _sources.length;
     for (final e in entries) {
       final key = e['key'].toString();
+      if (_removedOfficial.contains(key)) continue;
       final version = e['version'].toString();
       _builtinKeys.add(key);
       // A missing installed script may require a different version from the bundle.
@@ -393,6 +385,7 @@ abstract class _SourceRegistry extends ChangeNotifier {
   }
 
   void _saveRegistry() => _registry.save({
+    'removedOfficial': _removedOfficial.toList(),
     'sources': _sources.values.map((s) => s.toJson()).toList(),
   });
 

@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 
 import '../core/localization.dart';
 import '../core/models.dart';
-import '../core/platform_capabilities.dart';
 import '../core/settings.dart';
 import 'kit/components.dart';
 import 'kit/tokens.dart';
@@ -84,105 +83,35 @@ class DomainEntryButton extends StatelessWidget {
   );
 }
 
-/// 总览中的横向域卡片；订阅始终位于首位，不受内容筛选影响。
+/// 总览中的横向域文字导航；订阅始终位于首位，不受内容筛选影响。
 class DiscoveryDomainCards extends StatelessWidget {
   const DiscoveryDomainCards({super.key, required this.onSelected});
 
   final ValueChanged<DiscoveryDestination> onSelected;
 
-  static IconData _icon(SourceCategory? category) => switch (category) {
-    SourceCategory.doujin => Icons.menu_book_outlined,
-    SourceCategory.anime => Icons.movie_outlined,
-    SourceCategory.aiDrama => Icons.auto_awesome_outlined,
-    SourceCategory.jav => Icons.video_library_outlined,
-    SourceCategory.adult => Icons.smart_display_outlined,
-    SourceCategory.shortvideo => Icons.video_collection_outlined,
-    SourceCategory.recording => Icons.videocam_outlined,
-    SourceCategory.gallery => Icons.photo_camera_outlined,
-    SourceCategory.illustration => Icons.palette_outlined,
-    SourceCategory.game => Icons.sports_esports_outlined,
-    SourceCategory.other => Icons.forum_outlined,
-    SourceCategory.live => Icons.sensors_outlined,
-    SourceCategory.novel => Icons.auto_stories_outlined,
-    null => Icons.subscriptions_outlined,
-  };
-
   @override
-  Widget build(BuildContext context) {
-    if (PlatformCapabilities.desktop) {
-      return Padding(
-        padding: const EdgeInsets.symmetric(horizontal: Gap.page),
-        child: Wrap(
-          spacing: Gap.s,
-          runSpacing: Gap.s,
-          children: [
-            for (final destination in [
-              const DiscoveryDestination.subscriptions(),
-              ...discoveryDestinations.where((entry) => entry.category != null),
-            ])
-              OutlinedButton.icon(
-                onPressed: () => onSelected(destination),
-                icon: Icon(_icon(destination.category), size: 18),
-                label: Text(destination.label),
+  Widget build(BuildContext context) => PageGutter(
+    child: SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      padding: const EdgeInsets.only(bottom: Gap.s),
+      child: Row(
+        children: [
+          for (final destination in [
+            const DiscoveryDestination.subscriptions(),
+            ...discoveryDestinations.where((entry) => entry.category != null),
+          ])
+            Padding(
+              padding: const EdgeInsetsDirectional.only(end: Gap.s),
+              child: _DomainChip(
+                destination: destination,
+                selected: false,
+                onSelected: onSelected,
               ),
-          ],
-        ),
-      );
-    }
-    return PageGutter(
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.only(bottom: Gap.s),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            for (final destination in [
-              const DiscoveryDestination.subscriptions(),
-              ...discoveryDestinations.where((entry) => entry.category != null),
-            ])
-              Padding(
-                padding: const EdgeInsetsDirectional.only(end: Gap.s),
-                child: Semantics(
-                  button: true,
-                  child: Material(
-                    color: Theme.of(context).cardColor,
-                    borderRadius: Radii.medium,
-                    clipBehavior: Clip.antiAlias,
-                    child: InkWell(
-                      onTap: () => onSelected(destination),
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: Gap.l,
-                          vertical: Gap.m,
-                        ),
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(
-                              _icon(destination.category),
-                              color: destination.subscription
-                                  ? context.colors.primary
-                                  : context.colors.onSurfaceVariant,
-                            ),
-                            const SizedBox(height: Gap.s),
-                            SelectionContainer.disabled(
-                              child: Text(
-                                destination.label,
-                                style: context.text.labelLarge,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-          ],
-        ),
+            ),
+        ],
       ),
-    );
-  }
+    ),
+  );
 }
 
 class DiscoveryDomainBar extends StatelessWidget {
@@ -264,33 +193,24 @@ class _DomainChipState extends State<_DomainChip> {
 
   @override
   Widget build(BuildContext context) {
-    if (widget.destination.subscription) {
-      final colors = Theme.of(context).colorScheme;
-      return Semantics(
-        selected: widget.selected,
-        child: OutlinedButton.icon(
-          style: OutlinedButton.styleFrom(
-            foregroundColor: widget.selected
-                ? colors.onSecondaryContainer
-                : colors.onSurface,
-            backgroundColor: widget.selected ? colors.secondaryContainer : null,
-            minimumSize: const Size(0, 32),
-            tapTargetSize: MaterialTapTargetSize.padded,
-            padding: const EdgeInsets.symmetric(horizontal: Gap.m),
-          ),
-          onPressed: () => widget.onSelected(widget.destination),
-          icon: const Icon(Icons.subscriptions_outlined),
-          label: SelectionContainer.disabled(
-            child: Text(widget.destination.label),
+    return Semantics(
+      selected: widget.selected,
+      child: TextButton(
+        style: TextButton.styleFrom(
+          foregroundColor: widget.selected
+              ? context.colors.primary
+              : context.colors.onSurfaceVariant,
+          minimumSize: const Size(0, 48),
+          padding: const EdgeInsets.symmetric(horizontal: Gap.s),
+          textStyle: context.text.labelLarge?.copyWith(
+            fontWeight: widget.selected ? FontWeight.w600 : FontWeight.w400,
           ),
         ),
-      );
-    }
-    return ChoiceChip(
-      label: SelectionContainer.disabled(child: Text(widget.destination.label)),
-      selected: widget.selected,
-      showCheckmark: false,
-      onSelected: (_) => widget.onSelected(widget.destination),
+        onPressed: () => widget.onSelected(widget.destination),
+        child: SelectionContainer.disabled(
+          child: Text(widget.destination.label),
+        ),
+      ),
     );
   }
 }

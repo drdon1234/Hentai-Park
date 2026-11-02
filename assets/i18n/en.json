@@ -1738,5 +1738,8 @@
   "账号状态无效": "Unable to verify account status",
   "从旧到新": "Oldest first",
   "排行榜配置": "Ranking settings",
-  "排行榜与作品资料": "Rankings and work information"
+  "排行榜与作品资料": "Rankings and work information",
+  "官方插件已撤回": "Official plugins withdrawn",
+  "删除这些插件及其配置、登录状态和持久化文件，已下载内容保留。个人插件不受影响。": "Delete these plugins, their settings, login sessions and stored files. Downloaded content is retained. Personal plugins are unaffected.",
+  "正在删除插件": "Removing plugins"
 }

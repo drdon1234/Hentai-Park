@@ -8,7 +8,7 @@ Park.register({
     ru: {"已购买": "Куплено", "分类累计排序（非周期榜）": "Накопительный рейтинг по жанру (без периода)", "月度女优榜": "Ежемесячный рейтинг актрис", "累计人气": "Популярность за всё время", "累计销量": "Продажи за всё время", "评价排序": "По оценкам"},
     ar: {"已购买": "تم الشراء", "分类累计排序（非周期榜）": "ترتيب تراكمي حسب النوع (غير دوري)", "月度女优榜": "ترتيب الممثلات الشهري", "累计人气": "الشعبية الإجمالية", "累计销量": "المبيعات الإجمالية", "评价排序": "حسب التقييم"},
   },
-  key: 'catalog-fanza', name: 'FANZA', version: '0.0.10', minAppVersion: '0.10.8',
+  key: 'catalog-fanza', name: 'FANZA', version: '0.0.11', minAppVersion: '0.10.8',
   type: 'video', category: 'jav', metadataOnly: true,
   description: '排行榜与作品资料', homepage: 'https://video.dmm.co.jp/',
   domains: ['dmm.co.jp'], network: { vpnHint: true },
@@ -28,6 +28,11 @@ Park.register({
       {value: 'REVIEW_RANK_SCORE', label: '评分'},
     ]},
   ],
+  workCode(value) {
+    // 内容 ID 的数字段左侧为填充位，保留至少三位及所有四位以上实际编号。
+    const match = String(value || '').match(/^(?:h_\d+|\d+)?([a-z]{2,10})0*(\d{2,})([a-z]?)$/i);
+    return match ? match[1].toUpperCase() + '-' + match[2].padStart(3, '0') + match[3].toUpperCase() : String(value || '');
+  },
   async browse(floor, keyword, req = {}) {
     const page = Math.max(1, Number(req.page) || 1), limit = 24;
     const sort = (req.filters || req.options)?.sort || 'SALES_RANK_SCORE';
@@ -42,7 +47,7 @@ Park.register({
     if (!Array.isArray(rows)) throw Park.error('PARSE', '作品资料无效');
     const items = rows.map(row => {
       if (!/^[a-z0-9_]{2,60}$/i.test(row.id) || !row.title) throw Park.error('PARSE', '作品资料无效');
-      return {id: `${floor}:${row.id}`, code: row.id, title: row.title,
+      return {id: `${floor}:${row.id}`, code: this.workCode(row.makerContentId || row.id), title: row.title,
         category: floor === 'ANIME' ? 'anime' : 'jav',
         cover: row.packageImage?.largeUrl || row.packageImage?.mediumUrl || '',
         url: `${this.homepage}${{AV: 'av', AMATEUR: 'amateur', ANIME: 'anime'}[floor]}/content/?id=${encodeURIComponent(row.id)}`};
@@ -135,7 +140,7 @@ Park.register({
     const work = data.ppvContent;
     if (!work || work.id !== id || !work.title) throw Park.error('PARSE', '作品资料无效');
     const floor = { ANIME: 'anime', AMATEUR: 'amateur' }[scoped?.[1]?.toUpperCase() || context.board] || 'av';
-    return { id: scoped ? String(value) : id, code: work.makerContentId || id, title: work.title, description: work.description || '',
+    return { id: scoped ? String(value) : id, code: this.workCode(work.makerContentId || id), title: work.title, description: work.description || '',
       url: `${this.homepage}${floor}/content/?id=${encodeURIComponent(id)}`,
       cover: work.packageImage?.largeUrl || work.packageImage?.mediumUrl || '',
       releaseDate: work.deliveryStartDate || "",
@@ -162,9 +167,8 @@ Park.register({
   work(id, content, rank, floor = 'AV') {
     id = String(id || '');
     if (!/^[a-z0-9_]{2,60}$/i.test(id) || !content?.title || !Number.isInteger(rank) || rank < 1) return null;
-    const match = /^(?:h_\d+|\d+)?([a-z]{2,10})0*(\d{2,6})([a-z]?)$/i.exec(id);
-    const keyword = floor === 'AV' && match
-      ? `${match[1].toUpperCase()}-${String(Number(match[2])).padStart(3, '0')}${match[3].toUpperCase()}` : content.title;
+    const code = this.workCode(id);
+    const keyword = code === id ? content.title : code;
     return { id, rank, title: content.title, keyword,
       subtitle: (content.actresses || []).map(a => a.name).filter(Boolean).join(' · '),
       cover: content.packageImage?.largeUrl || content.packageImage?.mediumUrl || '',

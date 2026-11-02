@@ -5,6 +5,7 @@ import '../../core/models.dart';
 import '../../core/work_metadata.dart';
 import '../nav.dart';
 import '../theme.dart';
+import '../widgets/adaptive_cover.dart';
 import '../widgets/common.dart';
 import '../widgets/content_translation.dart';
 import '../widgets/error_view.dart';
@@ -76,8 +77,10 @@ class MetadataOverview extends StatelessWidget {
     );
     Widget cover() => ClipRRect(
       borderRadius: Radii.small,
-      child: AspectRatio(
-        aspectRatio: category == SourceCategory.doujin ? .7 : 1.5,
+      child: AdaptiveCover(
+        source: source,
+        url: detail.cover,
+        placeholderAspect: category == SourceCategory.doujin ? .7 : 1.5,
         child: CoverImage(
           source: source,
           url: detail.cover,

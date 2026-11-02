@@ -43,6 +43,7 @@ class _StartupUpdateCheckState extends State<StartupUpdateCheck>
   final _pending = Queue<_PendingPrompt>();
   final _seenApps = <String>{};
   final _seenSources = <String>{};
+  final _seenRemoved = <String>{};
   late Listenable _visibilityChanges;
   late bool _foreground;
   late bool _appEnabled;
@@ -144,7 +145,7 @@ class _StartupUpdateCheckState extends State<StartupUpdateCheck>
       final result = updater.lastResult;
       // 间隔内未实际检查时不消费旧结果或手动检查的历史结果。
       if (result == null || identical(previousResult, result)) return;
-      if (!result.hasUpdates) return;
+      if (!result.hasChanges) return;
       _pending.add(_PendingPrompt.sources(result));
       _scheduleDrain();
     } catch (_) {
@@ -213,7 +214,12 @@ class _StartupUpdateCheckState extends State<StartupUpdateCheck>
         final requiresAppUpdate = sources.requiresAppUpdate
             .where(shouldPrompt)
             .toList();
-        if (available.isEmpty && requiresAppUpdate.isEmpty) continue;
+        final removed = sources.removed
+            .where((source) => _seenRemoved.add(source.key))
+            .toList();
+        if (available.isEmpty && requiresAppUpdate.isEmpty && removed.isEmpty) {
+          continue;
+        }
         _seenSources.addAll(
           [...available, ...requiresAppUpdate].map(_sourceVersion),
         );
@@ -226,6 +232,7 @@ class _StartupUpdateCheckState extends State<StartupUpdateCheck>
               available: available,
               requiresAppUpdate: requiresAppUpdate,
               checked: sources.checked,
+              removed: removed,
               failures: sources.failures,
             ),
             _sourceUpdater,

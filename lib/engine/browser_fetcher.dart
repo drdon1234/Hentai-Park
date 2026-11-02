@@ -16,6 +16,7 @@ import 'cancellation.dart';
 import 'challenge.dart';
 import 'domains.dart';
 import 'http_service.dart';
+import 'request_lifecycle.dart';
 import 'request_retry.dart';
 import 'resource_pool.dart';
 
@@ -62,13 +63,22 @@ class BrowserFetcher {
     final allowed = (domains ?? [base.host]).toSet().toList()..sort();
     final key = _BrowserPageKey(base.origin, allowed, partition, confirmation);
     // 对外可立即取消，池内仍持有页面，直到队列中的真实操作结束。
-    return await awaitCancelled(
-      _pages.use(
-        key,
-        (page) => page.fetch(request, cancelToken: cancelToken),
-        cancelToken: cancelToken,
+    return RequestLifecycle.instance.recoverRead(
+      () => awaitCancelled(
+        _pages.use(
+          key,
+          (page) => page.fetch(request, cancelToken: cancelToken),
+          cancelToken: cancelToken,
+        ),
+        cancelToken,
       ),
-      cancelToken,
+      replayable: isReplayableRead(
+        (request['method'] ?? 'GET').toString(),
+        body: request['body'],
+        bodyBase64: request['bodyBase64'],
+        readOnly: request['readOnly'] == true,
+      ),
+      cancelToken: cancelToken,
     );
   }
 
@@ -309,7 +319,7 @@ class _OriginPage {
         unawaited(dispose());
       },
       onLoadStop: inspect = (c, url) async {
-        if (inspecting) return;
+        if (inspecting || RequestLifecycle.instance.background) return;
         inspecting = true;
         try {
           if (_navigation != null && !_navigationStarted) return;
@@ -370,16 +380,20 @@ class _OriginPage {
             );
             if (challenged) {
               stableSince = null;
-              _challengeSince ??= DateTime.now();
+              _challengeSince ??= RequestLifecycle.instance.foregroundNow;
               if (_challengeClickedGeneration != generation &&
-                  DateTime.now().difference(_challengeSince!) >=
+                  RequestLifecycle.instance.foregroundNow.difference(
+                        _challengeSince!,
+                      ) >=
                       const Duration(seconds: 5) &&
                   (lastChallengeScan == null ||
-                      DateTime.now().difference(lastChallengeScan!) >=
+                      RequestLifecycle.instance.foregroundNow.difference(
+                            lastChallengeScan!,
+                          ) >=
                           const Duration(seconds: 3))) {
                 // 每代文档最多一次输入，不反复点击挑战或站点控件。
                 try {
-                  lastChallengeScan = DateTime.now();
+                  lastChallengeScan = RequestLifecycle.instance.foregroundNow;
                   if (await clickCloudflareCheckbox(
                     c,
                     current: current,
@@ -424,8 +438,10 @@ class _OriginPage {
             }
             if (html.length > 200) {
               // DOM 关闭弹窗后可能立即导航；至少跨一轮检查仍稳定才交付页面。
-              stableSince ??= DateTime.now();
-              if (DateTime.now().difference(stableSince!) <
+              stableSince ??= RequestLifecycle.instance.foregroundNow;
+              if (RequestLifecycle.instance.foregroundNow.difference(
+                    stableSince!,
+                  ) <
                   const Duration(milliseconds: 500)) {
                 return;
               }
@@ -500,7 +516,7 @@ class _OriginPage {
     try {
       final view = _view!;
       // Managed challenges usually pass on their own within a few seconds.
-      timeout = Timer(
+      timeout = RequestLifecycle.instance.foregroundTimer(
         const Duration(seconds: 35),
         () => finish(
           challenged
@@ -622,7 +638,7 @@ class _OriginPage {
     _documentRequest = Uri.parse(url);
     final ready = _navigation = Completer<void>();
     _navigationStarted = false;
-    final timeout = Timer(
+    final timeout = RequestLifecycle.instance.foregroundTimer(
       const Duration(seconds: 35),
       () => _finishNavigation(
         _ageGateSeen
@@ -772,20 +788,24 @@ class _OriginPage {
           request['timeout'] is num && (request['timeout'] as num) > 0
           ? (request['timeout'] as num).toInt()
           : 30000;
-      final result = await Future.any([
-        operation,
-        ?cancellation,
-        Future.any<DioException?>([
-          session.whenCancel,
-          settled.future.then<DioException?>((_) => null),
-        ]).then<CallAsyncJavaScriptResult?>((error) {
-          if (error != null) {
-            if (error.error case final SourceError cause) throw cause;
-            throw error;
-          }
-          return null;
-        }),
-      ]).timeout(Duration(milliseconds: timeoutMs + 1000));
+      final result = await RequestLifecycle.instance.timeout(
+        Future.any([
+          operation,
+          ?cancellation,
+          Future.any<DioException?>([
+            session.whenCancel,
+            settled.future.then<DioException?>((_) => null),
+          ]).then<CallAsyncJavaScriptResult?>((error) {
+            if (error != null) {
+              if (error.error case final SourceError cause) throw cause;
+              throw error;
+            }
+            return null;
+          }),
+        ]),
+        Duration(milliseconds: timeoutMs + 1000),
+        onTimeout: () => throw TimeoutException('browser request'),
+      );
       if (cancelToken?.cancelError case final error?) throw error;
       if (result?.error != null) throw SourceError('NETWORK', result!.error!);
       final value = result?.value;

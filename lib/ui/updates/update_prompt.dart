@@ -12,6 +12,7 @@ import '../../engine/app_installer.dart';
 import '../../engine/app_updater.dart';
 import '../../engine/desktop_window.dart';
 import '../../engine/source_updater.dart';
+import '../kit/components.dart';
 import '../kit/reminder_prompt.dart';
 import '../kit/tokens.dart';
 import '../theme.dart';
@@ -388,6 +389,40 @@ Future<void> showSourceUpdatePrompt(
   SourceUpdateResult result,
   SourceUpdater updater,
 ) async {
+  if (!context.mounted || !result.hasChanges) return;
+  if (result.removed.isNotEmpty) {
+    final confirmed = await confirmAction(
+      context,
+      title: tr('官方插件已撤回'),
+      content: SingleChildScrollView(
+        child: Text(
+          '${result.removed.map((source) => source.name).join(tr('、'))}\n\n${tr('删除这些插件及其配置、登录状态和持久化文件，已下载内容保留。个人插件不受影响。')}',
+          style: context.text.bodyMedium,
+        ),
+      ),
+      confirmLabel: tr('删除'),
+      destructive: true,
+    );
+    if (confirmed) {
+      if (!context.mounted) return;
+      final failures = await showProgressOperation(context, tr('正在删除插件'), (
+        report,
+      ) async {
+        var completed = 0;
+        report(0, result.removed.length);
+        return updater.removeWithdrawn(
+          result.removed,
+          onProgress: () => report(++completed, result.removed.length),
+        );
+      });
+      if (failures.isNotEmpty && context.mounted) {
+        await showSourceUpdateResult(
+          context,
+          SourceUpdateResult(failures: failures),
+        );
+      }
+    }
+  }
   if (!context.mounted || !result.hasUpdates) return;
   final requirements = <String, List<SourceUpdateCandidate>>{};
   for (final candidate in result.requiresAppUpdate) {

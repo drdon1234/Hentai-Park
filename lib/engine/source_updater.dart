@@ -30,6 +30,7 @@ class SourceUpdateResult {
     this.updated = const [],
     this.failures = const {},
     this.checked = 0,
+    this.removed = const [],
   });
 
   final List<SourceUpdateCandidate> available;
@@ -42,6 +43,8 @@ class SourceUpdateResult {
   final List<String> updated;
   final Map<String, String> failures;
   final int checked;
+  final List<InstalledSource> removed;
+  bool get hasChanges => hasUpdates || removed.isNotEmpty;
 }
 
 /// Checks official sources, and installs offered updates only after confirmation.
@@ -57,6 +60,7 @@ class SourceUpdater extends ChangeNotifier {
     Future<void> Function(int timestamp)? recordAttempt,
     DateTime Function()? now,
     Future<String> Function()? currentVersion,
+    Future<void> Function(String key)? remove,
   }) : _repository = repository ?? SourceRepository(),
        _ready = ready ?? (() => SourceManager.instance.ready),
        _sources = sources ?? (() => SourceManager.instance.all),
@@ -68,7 +72,8 @@ class SourceUpdater extends ChangeNotifier {
            lastAttempt ?? (() => AppSettings.instance.lastSourceUpdate),
        _recordAttempt = recordAttempt ?? _saveAttempt,
        _now = now ?? DateTime.now,
-       _currentVersion = currentVersion ?? SourceCompatibility.currentVersion;
+       _currentVersion = currentVersion ?? SourceCompatibility.currentVersion,
+       _remove = remove ?? SourceManager.instance.removeOfficial;
 
   static final SourceUpdater instance = SourceUpdater();
   static const interval = Duration(hours: 12);
@@ -83,6 +88,7 @@ class SourceUpdater extends ChangeNotifier {
   final Future<void> Function(int) _recordAttempt;
   final DateTime Function() _now;
   final Future<String> Function() _currentVersion;
+  final Future<void> Function(String) _remove;
   Future<SourceUpdateResult>? _flight;
   List<SourceUpdateCandidate>? _applying;
   int? _attemptedAt;
@@ -228,6 +234,7 @@ class SourceUpdater extends ChangeNotifier {
     final requiresAppUpdate = <SourceUpdateCandidate>[];
     final failures = <String, String>{};
     var checked = 0;
+    final removed = <InstalledSource>[];
     try {
       _attemptedAt = _now().millisecondsSinceEpoch;
       await _recordAttempt(_attemptedAt!);
@@ -235,6 +242,14 @@ class SourceUpdater extends ChangeNotifier {
       final index = await _repository.fetch();
       final current = await _currentVersion();
       failures.addAll(index.failures);
+      if (index.complete) {
+        final keys = index.entries.map((entry) => entry.key).toSet();
+        removed.addAll(
+          _sources().where(
+            (source) => _isOfficial(source) && !keys.contains(source.key),
+          ),
+        );
+      }
       for (final entry in index.entries) {
         final source = _find(entry.key);
         if (source == null || !_isOfficial(source)) continue;
@@ -262,7 +277,62 @@ class SourceUpdater extends ChangeNotifier {
       requiresAppUpdate: List.unmodifiable(requiresAppUpdate),
       failures: Map.unmodifiable(failures),
       checked: checked,
+      removed: List.unmodifiable(removed),
     );
+  }
+
+  /// 仅处理本次完整检查发现的撤回项，确认后再次检查安装来源。
+  Future<Map<String, String>> removeWithdrawn(
+    List<InstalledSource> sources, {
+    void Function()? onProgress,
+  }) async {
+    if (_flight != null) await _flight;
+    final previous = lastResult;
+    final result = await _start(() async {
+      final failures = await _removeWithdrawn(sources, onProgress: onProgress);
+      return SourceUpdateResult(
+        available: previous?.available ?? const [],
+        requiresAppUpdate: previous?.requiresAppUpdate ?? const [],
+        removed:
+            previous?.removed
+                .where((source) => _find(source.key) != null)
+                .toList() ??
+            const [],
+        failures: failures,
+        checked: previous?.checked ?? 0,
+      );
+    });
+    return result.failures;
+  }
+
+  Future<Map<String, String>> _removeWithdrawn(
+    List<InstalledSource> sources, {
+    void Function()? onProgress,
+  }) async {
+    final failures = <String, String>{};
+    for (final source in sources) {
+      final current = _find(source.key);
+      if (current == null) {
+        onProgress?.call();
+        continue;
+      }
+      if (!(lastResult?.removed.any((entry) => identical(entry, source)) ??
+              false) ||
+          !identical(current, source) ||
+          !_isOfficial(current)) {
+        failures[source.name] = tr('站点状态已改变，本次更新已跳过');
+        onProgress?.call();
+        continue;
+      }
+      try {
+        await _remove(source.key);
+      } catch (error) {
+        failures[source.name] = _describe(error);
+      } finally {
+        onProgress?.call();
+      }
+    }
+    return failures;
   }
 
   Future<SourceUpdateResult> _apply(
