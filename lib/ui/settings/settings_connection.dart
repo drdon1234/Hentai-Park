@@ -144,13 +144,6 @@ List<Widget> networkSettings(BuildContext context, AppSettings s) => [
         max: 12,
         onChanged: (v) => s.imageConcurrency = v,
       ),
-      SettingsSlider(
-        title: tr('每个下载任务的并发页数'),
-        value: s.downloadConcurrency,
-        min: 1,
-        max: 8,
-        onChanged: (v) => s.downloadConcurrency = v,
-      ),
     ],
   ),
 ];

@@ -9,6 +9,7 @@ import '../../engine/platform_bridge.dart';
 import '../kit/adaptive_sheet.dart';
 import '../kit/kit.dart';
 import '../library/category_manage_page.dart';
+import '../library/download_settings.dart';
 import '../nav.dart';
 import '../theme.dart';
 import 'settings_rows.dart';
@@ -161,6 +162,7 @@ List<Widget> shelfSettings(BuildContext context, AppSettings s) => [
       ),
     ],
   ),
+  const DownloadConcurrencySettings(),
 ];
 
 String _updatePolicySummary(AppSettings s) {

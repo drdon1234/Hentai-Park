@@ -104,6 +104,8 @@ void validateSettings(Map<String, dynamic> values) {
     'novelSpeechRate': (.2, .8),
     'imageConcurrency': (2, 12),
     'downloadConcurrency': (1, 8),
+    'downloadSiteConcurrency': (1, 8),
+    'downloadTaskConcurrency': (1, 8),
     'pdfPagesPerFile': (0, 5000),
     'cacheLimitMb': (0, 1048576),
     'historyLimit': (0, 100000),

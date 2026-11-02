@@ -1743,5 +1743,10 @@
   "排行榜与作品资料": "Rankings and work information",
   "官方插件已撤回": "Official plugins withdrawn",
   "删除这些插件及其配置、登录状态和持久化文件，已下载内容保留。个人插件不受影响。": "Delete these plugins, their settings, login sessions and stored files. Downloaded content is retained. Personal plugins are unaffected.",
-  "正在删除插件": "Removing plugins"
+  "正在删除插件": "Removing plugins",
+  "下载并发": "Download concurrency",
+  "同时下载站点数": "Sites downloading at once",
+  "每站同时下载作品数": "Simultaneous downloads per site",
+  "下载并发设置": "Download concurrency settings",
+  "站点与作品并发适用于漫画、视频、小说和游戏直链。并发页数仅用于漫画图片。调低上限不会中断正在下载的任务。": "Site and work limits apply to comics, videos, novels and direct game downloads. Concurrent pages apply only to comic images. Lowering a limit does not interrupt active downloads."
 }

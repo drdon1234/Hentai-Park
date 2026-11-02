@@ -1743,5 +1743,10 @@
   "排行榜与作品资料": "Clasificaciones e información de obras",
   "官方插件已撤回": "Plugins oficiales retirados",
   "删除这些插件及其配置、登录状态和持久化文件，已下载内容保留。个人插件不受影响。": "Eliminar estos plugins, sus ajustes, sesiones y archivos guardados. Se conserva el contenido descargado. Los plugins personales no se ven afectados.",
-  "正在删除插件": "Eliminando plugins"
+  "正在删除插件": "Eliminando plugins",
+  "下载并发": "Descargas simultáneas",
+  "同时下载站点数": "Sitios descargando a la vez",
+  "每站同时下载作品数": "Obras simultáneas por sitio",
+  "下载并发设置": "Ajustes de descargas simultáneas",
+  "站点与作品并发适用于漫画、视频、小说和游戏直链。并发页数仅用于漫画图片。调低上限不会中断正在下载的任务。": "Los límites de sitios y obras se aplican a cómics, vídeos, novelas y descargas directas de juegos. Las páginas simultáneas solo se aplican a imágenes de cómics. Reducir un límite no interrumpe las descargas activas."
 }

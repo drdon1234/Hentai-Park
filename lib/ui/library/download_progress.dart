@@ -6,17 +6,16 @@ import '../../library/downloads.dart';
 import '../kit/tokens.dart';
 import '../theme.dart';
 
-Color _progressColor(BuildContext context, DownloadStatus status) =>
-    status == DownloadStatus.failed
-    ? context.colors.error
-    : status == DownloadStatus.running || status == DownloadStatus.done
-    ? context.colors.primary
-    : context.colors.onSurfaceVariant;
-
-String _description(DownloadStatus status, String label, double? progress) =>
-    progress == null || status == DownloadStatus.done
-    ? label
-    : '$label · ${(progress.clamp(0, 1) * 100).round()}%';
+Color _progressColor(BuildContext context, DownloadStatus status) {
+  final dark = Theme.of(context).brightness == Brightness.dark;
+  return switch (status) {
+    DownloadStatus.running => DownloadPalette.running(dark),
+    DownloadStatus.paused => DownloadPalette.paused(dark),
+    DownloadStatus.done => DownloadPalette.done(dark),
+    DownloadStatus.failed => context.colors.error,
+    DownloadStatus.queued => context.colors.onSurfaceVariant,
+  };
+}
 
 /// 只在封面边缘描绘进度，画面中央不放遮罩、底色或文字。
 class DownloadCoverProgress extends StatefulWidget {
@@ -48,7 +47,7 @@ class _DownloadCoverProgressState extends State<DownloadCoverProgress>
       widget.status == DownloadStatus.running && widget.progress == null;
 
   void _syncAnimation() {
-    if (_indeterminate && !_reducedMotion) {
+    if (widget.status == DownloadStatus.running && !_reducedMotion) {
       if (!_phase.isAnimating) _phase.repeat();
     } else {
       _phase.stop();
@@ -75,8 +74,8 @@ class _DownloadCoverProgressState extends State<DownloadCoverProgress>
   }
 
   @override
-  Widget build(BuildContext context) => Tooltip(
-    message: _description(widget.status, widget.label, widget.progress),
+  Widget build(BuildContext context) => Semantics(
+    label: widget.label,
     child: AnimatedBuilder(
       animation: _phase,
       child: widget.child,
@@ -87,8 +86,13 @@ class _DownloadCoverProgressState extends State<DownloadCoverProgress>
               : widget.progress?.clamp(0.0, 1.0),
           phase: _phase.value,
           indeterminate: _indeterminate,
+          wave: widget.status == DownloadStatus.running && !_reducedMotion,
           color: _progressColor(context, widget.status),
-          track: context.colors.outlineVariant,
+          track:
+              widget.status == DownloadStatus.paused ||
+                  widget.status == DownloadStatus.failed
+              ? _progressColor(context, widget.status).withValues(alpha: .4)
+              : context.colors.outlineVariant,
         ),
         child: child,
       ),
@@ -101,20 +105,21 @@ class _CoverProgressPainter extends CustomPainter {
     required this.progress,
     required this.phase,
     required this.indeterminate,
+    required this.wave,
     required this.color,
     required this.track,
   });
 
   final double? progress;
   final double phase;
-  final bool indeterminate;
+  final bool indeterminate, wave;
   final Color color, track;
 
   @override
   void paint(Canvas canvas, Size size) {
     if (size.isEmpty) return;
-    final rect = (Offset.zero & size).deflate(1.5);
-    final radius = math.min(Radii.sm - 1.5, rect.shortestSide / 2);
+    final rect = (Offset.zero & size).deflate(.75);
+    final radius = math.min(Radii.sm - .75, rect.shortestSide / 2);
     final path = Path()
       ..moveTo(rect.center.dx, rect.top)
       ..lineTo(rect.right - radius, rect.top)
@@ -140,10 +145,20 @@ class _CoverProgressPainter extends CustomPainter {
       ..close();
     final paint = Paint()
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 3
+      ..strokeWidth = 1.5
       ..color = track;
     canvas.drawPath(path, paint);
     paint.color = color;
+    if (wave) {
+      paint.shader = SweepGradient(
+        colors: [
+          color.withValues(alpha: .45),
+          color,
+          color.withValues(alpha: .45),
+        ],
+        transform: GradientRotation(phase * math.pi * 2),
+      ).createShader(rect);
+    }
     final metric = path.computeMetrics().first;
     if (indeterminate) {
       final start = phase * metric.length;
@@ -165,53 +180,9 @@ class _CoverProgressPainter extends CustomPainter {
       progress != oldDelegate.progress ||
       phase != oldDelegate.phase ||
       indeterminate != oldDelegate.indeterminate ||
+      wave != oldDelegate.wave ||
       color != oldDelegate.color ||
       track != oldDelegate.track;
-}
-
-/// 状态和百分比位于封面下方，与作品摘要一起自然换行。
-class DownloadStatusLabel extends StatelessWidget {
-  const DownloadStatusLabel({
-    super.key,
-    required this.status,
-    required this.label,
-    this.progress,
-  });
-  final DownloadStatus status;
-  final String label;
-  final double? progress;
-
-  static double extent(
-    BuildContext context,
-    double width,
-    Iterable<String> labels,
-  ) {
-    var height = 0.0;
-    for (final label in labels) {
-      final painter = TextPainter(
-        text: TextSpan(text: label, style: context.text.labelSmall),
-        textDirection: Directionality.of(context),
-        textScaler: MediaQuery.textScalerOf(context),
-      )..layout(maxWidth: width);
-      height = math.max(height, painter.height);
-      painter.dispose();
-    }
-    return height;
-  }
-
-  static String description(
-    DownloadStatus status,
-    String label,
-    double? progress,
-  ) => _description(status, label, progress);
-
-  @override
-  Widget build(BuildContext context) => Text(
-    _description(status, label, progress),
-    style: context.text.labelSmall?.copyWith(
-      color: _progressColor(context, status),
-    ),
-  );
 }
 
 /// 列表横向进度：暂停后冻结，未知总量仅在下载中运动。

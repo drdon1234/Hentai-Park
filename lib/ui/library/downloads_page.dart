@@ -29,6 +29,7 @@ import '../widgets/cover_tile.dart';
 import '../widgets/file_drop_region.dart';
 import '../widgets/platform_share.dart';
 import 'download_progress.dart';
+import 'download_settings.dart';
 import 'exports_page.dart';
 import 'recording_tile.dart';
 
@@ -251,6 +252,11 @@ class _DownloadsPageState extends State<DownloadsPage> {
             crossAxisAlignment: WrapCrossAlignment.center,
             children: [
               IconButton(
+                tooltip: tr('下载并发设置'),
+                icon: const Icon(Icons.tune_rounded),
+                onPressed: () => showDownloadConcurrencySettings(context),
+              ),
+              IconButton(
                 onPressed: onlySpecialTasks
                     ? null
                     : () => AppSettings.instance.downloadDisplay = grid
@@ -412,18 +418,6 @@ class _DownloadsPageState extends State<DownloadsPage> {
                     items: tasks.map((t) => t.item),
                     width: width,
                     showSource: true,
-                  ) +
-                  Gap.xs +
-                  DownloadStatusLabel.extent(
-                    context,
-                    width,
-                    tasks.map(
-                      (task) => DownloadStatusLabel.description(
-                        task.status,
-                        _statusLabel(task),
-                        task.total > 0 ? task.progress : null,
-                      ),
-                    ),
                   ),
             ),
             delegate: SliverChildBuilderDelegate((context, index) {
@@ -436,11 +430,6 @@ class _DownloadsPageState extends State<DownloadsPage> {
                   label: _statusLabel(task),
                   progress: task.total > 0 ? task.progress : null,
                   child: child,
-                ),
-                footer: DownloadStatusLabel(
-                  status: task.status,
-                  label: _statusLabel(task),
-                  progress: task.total > 0 ? task.progress : null,
                 ),
                 showSource: true,
                 onTap: () => _openTask(context, task),

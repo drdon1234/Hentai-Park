@@ -74,3 +74,13 @@ abstract final class Scrims {
   /// Translucent fill for controls floating over video and pages.
   static const Color control = Color(0x33FFFFFF);
 }
+
+/// 下载状态独立于用户强调色，明暗主题保持相同颜色语义。
+abstract final class DownloadPalette {
+  static Color running(bool dark) =>
+      dark ? const Color(0xFF91BDF4) : const Color(0xFF2861A8);
+  static Color paused(bool dark) =>
+      dark ? const Color(0xFFB6B3AE) : const Color(0xFF72716D);
+  static Color done(bool dark) =>
+      dark ? const Color(0xFFEBC476) : const Color(0xFF8A6200);
+}

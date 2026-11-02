@@ -75,7 +75,6 @@ class CoverTile extends StatefulWidget {
     this.imageOnly = false,
     this.sequence,
     this.coverFrame,
-    this.footer,
   });
   final WorkItem item;
   final double? aspect;
@@ -92,7 +91,6 @@ class CoverTile extends StatefulWidget {
 
   /// 沿封面边缘显示下载等状态，避免覆盖图片内容。
   final Widget Function(Widget child)? coverFrame;
-  final Widget? footer;
   final bool imageOnly;
 
   /// 所在列表的播放顺序；短视频从这里按列表连续播放。
@@ -306,11 +304,6 @@ class _CoverTileState extends State<CoverTile> {
                               color: c.onSurfaceVariant,
                             ),
                           ),
-                        ),
-                      if (widget.footer != null)
-                        Padding(
-                          padding: const EdgeInsets.only(top: Gap.xs),
-                          child: widget.footer,
                         ),
                     ],
                   ),

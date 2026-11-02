@@ -101,6 +101,8 @@ enum SettingsDomain {
     'imageConcurrency',
     'cacheLimitMb',
     'downloadConcurrency',
+    'downloadSiteConcurrency',
+    'downloadTaskConcurrency',
     'downloadWifiOnly',
     'downloadDirectory',
     'pdfPagesPerFile',
@@ -687,6 +689,12 @@ class AppSettings extends ChangeNotifier {
 
   int get downloadConcurrency => _get('downloadConcurrency', 3);
   set downloadConcurrency(int v) => _set('downloadConcurrency', v);
+
+  int get downloadSiteConcurrency => _get('downloadSiteConcurrency', 3);
+  set downloadSiteConcurrency(int v) => _set('downloadSiteConcurrency', v);
+
+  int get downloadTaskConcurrency => _get('downloadTaskConcurrency', 1);
+  set downloadTaskConcurrency(int v) => _set('downloadTaskConcurrency', v);
 
   bool get downloadWifiOnly => _get('downloadWifiOnly', false);
   set downloadWifiOnly(bool v) => _set('downloadWifiOnly', v);

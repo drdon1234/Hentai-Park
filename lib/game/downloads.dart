@@ -14,6 +14,7 @@ import '../engine/cancellation.dart';
 import '../engine/media_transport.dart';
 import '../engine/network_client.dart';
 import '../engine/source_manager.dart';
+import '../library/download_scheduler.dart';
 import '../library/downloads.dart' show DownloadManager, DownloadStatus;
 
 class GameDownloadTask {
@@ -254,7 +255,6 @@ class GameFileDownloader {
       if (error is SourceError) rethrow;
       throw SourceError('NETWORK', '直链下载失败，可重试或选择网盘渠道');
     } finally {
-      cancelToken.cancel('game transfer ended');
       await sink?.close();
       if (await partial.exists()) await partial.delete();
       _client.close(force: true);
@@ -267,15 +267,14 @@ class GameDownloadManager extends ChangeNotifier {
   static final instance = GameDownloadManager._();
   final _store = JsonStore('game_downloads.json');
   final _tasks = <String, GameDownloadTask>{};
-  GameDownloadTask? _active;
-  CancelToken? _cancel;
+  final _active = <String, CancelToken>{};
   bool _loaded = false;
-  Future<void>? _running;
+  final _running = <String, Future<void>>{};
   List<GameDownloadTask> get tasks =>
       _tasks.values.toList()
         ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
   GameDownloadTask? task(String key) => _tasks[key];
-  bool isActive(String key) => _active?.key == key;
+  bool isActive(String key) => _active.containsKey(key);
   Future<void> load() async {
     final raw = await _store.load();
     for (final entry in raw is List ? raw : const []) {
@@ -294,6 +293,7 @@ class GameDownloadManager extends ChangeNotifier {
     }
     _loaded = true;
     DownloadManager.instance.addListener(_networkChanged);
+    DownloadScheduler.instance.addListener(_pump);
     notifyListeners();
   }
 
@@ -306,7 +306,7 @@ class GameDownloadManager extends ChangeNotifier {
         cancel(task.key);
       }
     }
-    await _running;
+    await Future.wait(_running.values.toList());
     await flush();
   }
 
@@ -338,7 +338,7 @@ class GameDownloadManager extends ChangeNotifier {
 
   void retry(String key) {
     final task = _tasks[key];
-    if (task == null || task == _active || task.status == DownloadStatus.done) {
+    if (task == null || isActive(key) || task.status == DownloadStatus.done) {
       return;
     }
     task.status = DownloadStatus.queued;
@@ -354,13 +354,13 @@ class GameDownloadManager extends ChangeNotifier {
     final task = _tasks[key];
     if (task == null || task.status == DownloadStatus.done) return;
     task.status = DownloadStatus.paused;
-    if (task == _active) _cancel?.cancel('user cancelled');
+    _active[key]?.cancel('user cancelled');
     _save();
     notifyListeners();
   }
 
   Future<void> remove(String key) async {
-    if (_active?.key == key) throw SourceError('CONFIG', '请先取消下载并等待结束');
+    if (isActive(key)) throw SourceError('CONFIG', '请先取消下载并等待结束');
     // Removing the record keeps the user's downloaded file intact.
     _tasks.remove(key);
     _save();
@@ -369,25 +369,39 @@ class GameDownloadManager extends ChangeNotifier {
   }
 
   void _networkChanged() {
-    if (!DownloadManager.instance.networkAllowed &&
-        _active?.status == DownloadStatus.running) {
-      _active!.status = DownloadStatus.queued;
-      _cancel?.cancel('waiting for Wi-Fi');
+    if (!DownloadManager.instance.networkAllowed) {
+      for (final entry in _active.entries) {
+        final task = _tasks[entry.key];
+        if (task?.status != DownloadStatus.running) continue;
+        task!.status = DownloadStatus.queued;
+        entry.value.cancel('waiting for Wi-Fi');
+      }
     }
     _pump();
   }
 
   void _pump() {
-    if (_active != null || !DownloadManager.instance.networkAllowed) return;
-    final task = tasks
-        .where((t) => t.status == DownloadStatus.queued)
-        .firstOrNull;
-    if (task != null) unawaited(_running = _run(task));
+    if (!DownloadManager.instance.networkAllowed) return;
+    for (final task in tasks.where((t) => t.status == DownloadStatus.queued)) {
+      if (isActive(task.key)) continue;
+      final slot = DownloadScheduler.instance.tryAcquire(task.item.source);
+      if (slot == null) continue;
+      final token = CancelToken();
+      _active[task.key] = token;
+      final run = _run(task, token).whenComplete(() {
+        _active.remove(task.key);
+        _running.remove(task.key);
+        _save();
+        notifyListeners();
+        slot.release();
+        _pump();
+      });
+      _running[task.key] = run;
+      unawaited(run);
+    }
   }
 
-  Future<void> _run(GameDownloadTask task) async {
-    _active = task;
-    final token = _cancel = CancelToken();
+  Future<void> _run(GameDownloadTask task, CancelToken token) async {
     task.status = DownloadStatus.running;
     task.error = null;
     notifyListeners();
@@ -428,6 +442,7 @@ class GameDownloadManager extends ChangeNotifier {
           }
         },
       );
+      if (token.cancelError case final error?) throw error;
       task.status = DownloadStatus.done;
     } catch (error) {
       if (task.status == DownloadStatus.running) {
@@ -441,11 +456,6 @@ class GameDownloadManager extends ChangeNotifier {
       }
     } finally {
       await lease?.release();
-      _active = null;
-      _cancel = null;
-      _save();
-      notifyListeners();
-      _pump();
     }
   }
 }

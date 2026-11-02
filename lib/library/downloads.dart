@@ -23,6 +23,7 @@ import '../engine/source_manager.dart';
 import '../images/image_tasks.dart';
 import '../images/park_image.dart';
 import '../video/hls_download.dart';
+import 'download_scheduler.dart';
 import 'library.dart';
 
 enum DownloadStatus { queued, running, paused, done, failed }
@@ -178,8 +179,7 @@ class DownloadManager extends ChangeNotifier {
   StreamSubscription<List<ConnectivityResult>>? _connectivity;
   bool _onWifi = true;
 
-  /// Running task per source. Different sites download in parallel; one site runs one task at a time
-  /// so per-site rate limits (E-Hentai bans, image quotas) are respected.
+  /// 按作品身份记录运行任务；跨站和同站额度由共享调度器统一控制。
   final Map<String, DownloadTask> _active = {};
   final Map<DownloadTask, Future<void>> _runs = {};
   final Map<String, Future<void>> _deletions = {};
@@ -206,6 +206,7 @@ class DownloadManager extends ChangeNotifier {
     }
     Library.instance.onChaptersRead.add(_onChaptersRead);
     _settingsListenable.addListener(_settingsChanged);
+    DownloadScheduler.instance.addListener(_pump);
     await _watchNetwork();
     for (final task in _tasks.values.toList()) {
       if (task.deletingChapters == null) continue;
@@ -293,6 +294,8 @@ class DownloadManager extends ChangeNotifier {
 
   final _settingsListenable = AppSettings.instance.watch(const {
     'downloadConcurrency',
+    'downloadSiteConcurrency',
+    'downloadTaskConcurrency',
     'downloadWifiOnly',
   });
 
@@ -307,6 +310,7 @@ class DownloadManager extends ChangeNotifier {
       }
     }
     _pump();
+    notifyListeners();
   }
 
   /// "Delete after reading": drop downloaded chapters once they are marked read.
@@ -329,6 +333,7 @@ class DownloadManager extends ChangeNotifier {
     _disposed = true;
     _connectivity?.cancel();
     _settingsListenable.removeListener(_settingsChanged);
+    DownloadScheduler.instance.removeListener(_pump);
     Library.instance.onChaptersRead.remove(_onChaptersRead);
     for (final t in _active.values) {
       t.status = DownloadStatus.paused;
@@ -726,16 +731,19 @@ class DownloadManager extends ChangeNotifier {
             .where((t) => t.status == DownloadStatus.queued)
             .toList()) {
       final source = next.item.source;
-      if (_active.containsKey(source) ||
+      if (_active.containsKey(next.uid) ||
           _deletions.containsKey(next.uid) ||
           next.deletingChapters != null) {
         continue;
       }
-      _active[source] = next;
+      final slot = DownloadScheduler.instance.tryAcquire(source);
+      if (slot == null) continue;
+      _active[next.uid] = next;
       final run = _run(next).whenComplete(() {
-        if (identical(_active[source], next)) _active.remove(source);
+        if (identical(_active[next.uid], next)) _active.remove(next.uid);
         _runs.remove(next);
         if (identical(_tasks[next.uid], next)) _save([next]);
+        slot.release();
         _pump();
       });
       _runs[next] = run;
