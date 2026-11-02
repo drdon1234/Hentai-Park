@@ -103,6 +103,7 @@ abstract final class PlaybackResolver {
     final manifest = sources.manifest(item.source);
     final kind = sources.kindOf(item);
     if (manifest?.category == SourceCategory.shortvideo ||
+        kind == MediaKind.article ||
         kind == MediaKind.game ||
         manifest?.opensExternally == true) {
       return const OpenWorkPage();

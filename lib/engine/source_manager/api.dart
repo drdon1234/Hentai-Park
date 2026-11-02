@@ -533,6 +533,53 @@ mixin _SourceApi on _SourceRegistry {
   }) async {
     await ready;
     await _requireAccount(key, cancelToken: cancelToken);
+    if (manifest(key)?.isArticle == true) {
+      final value = await _call(key, 'detail', [
+        id,
+        if (preview?.source == key && preview?.id == id) preview!.toJson(),
+      ], cancelToken: cancelToken);
+      if (value is! Map ||
+          value['id']?.toString() != id ||
+          value['title'] is! String ||
+          (value['title'] as String).trim().isEmpty ||
+          value['blocks'] is! List ||
+          (value['blocks'] as List).isEmpty ||
+          (value['blocks'] as List).length > 2000) {
+        throw SourceError('PARSE', '媒体数据无效');
+      }
+      var characters = 0;
+      for (final block in value['blocks'] as List) {
+        if (block is! Map) throw SourceError('PARSE', '媒体数据无效');
+        switch (block['type']) {
+          case 'text':
+            final text = block['text'];
+            if (text is! String || text.trim().isEmpty) {
+              throw SourceError('PARSE', '媒体数据无效');
+            }
+            characters += text.length;
+            if (characters > 2 * 1024 * 1024) {
+              throw SourceError('PARSE', '媒体数据无效');
+            }
+          case 'image':
+            final raw = block['url'];
+            final uri = raw is String && raw.length <= 4096
+                ? Uri.tryParse(raw)
+                : null;
+            if (uri == null || !httpsDomainAddressAllowed(uri, [uri.host])) {
+              throw SourceError('PARSE', '媒体数据无效');
+            }
+          case 'video':
+            final videoId = block['id'];
+            if (videoId is! String ||
+                !RegExp(r'^[A-Za-z0-9_-]{1,128}$').hasMatch(videoId)) {
+              throw SourceError('PARSE', '媒体数据无效');
+            }
+          default:
+            throw SourceError('PARSE', '媒体数据无效');
+        }
+      }
+      return WorkDetail(value.cast<String, dynamic>(), key);
+    }
     final result = await HomeCache.instance.request(
       [
         'detail',
@@ -698,6 +745,7 @@ mixin _SourceApi on _SourceRegistry {
       preferCached: true,
       source: key,
       shouldCache: (data) =>
+          manifest(key)?.isArticle != true &&
           (data['sources'] as List? ?? []).isNotEmpty &&
           (data['sources'] as List).whereType<Map>().every(
             (source) =>

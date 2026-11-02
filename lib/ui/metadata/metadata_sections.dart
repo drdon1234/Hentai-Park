@@ -276,7 +276,7 @@ class MetadataImages extends StatelessWidget {
                             aspectRatio: 1.5,
                             child: CoverImage(
                               source: source,
-                              url: detail.images[i],
+                              url: detail.imageThumbnails[detail.images[i]]!,
                               title: detail.title,
                             ),
                           ),

@@ -8,7 +8,7 @@ Park.register({
     ru: {"频道": "Канал"},
     ar: {"频道": "القناة"},
   },
-  key: 'catalog-mgs', name: 'MGStage', version: '0.0.7', minAppVersion: '0.10.8',
+  key: 'catalog-mgs', name: 'MGStage', version: '0.0.8', minAppVersion: '0.11.0',
   type: 'video', category: 'jav', metadataOnly: true,
   description: '排行榜与作品资料', homepage: 'https://www.mgstage.com/',
   domains: ['mgstage.com'],
@@ -115,7 +115,10 @@ Park.register({
       series: field(/シリーズ|系列/),
       actors: [...new Set([...doc.querySelectorAll(".detail_data a[href*=\"actor\"], #detail a[href*=\"actor=\"], main a[href*=\"/actor/\"]")].map(Park.html.text).filter(Boolean))],
       tags: [...new Set([...doc.querySelectorAll(".detail_data a[href*=\"genre\"], #detail a[href*=\"genre=\"]")].map(Park.html.text).filter(Boolean))],
-      images: [...new Set(([...doc.querySelectorAll('#sample-photo a.sample_image, a.sample-image-wrap[href^="https:"]')].map(e => e.getAttribute('href'))).map(image).filter(Boolean))].slice(0, 100) };
+      images: [...doc.querySelectorAll('#sample-photo a.sample_image, a.sample-image-wrap[href^="https:"]')].map(row => ({
+        url: image(row.getAttribute('href')),
+        thumbnail: image(row.querySelector('img')?.getAttribute('data-src') || row.querySelector('img')?.getAttribute('src')),
+      })).filter(row => row.url).slice(0, 100) };
   },
   async ranking(_, req) {
     if (Number(req.page) > 1) return { items: [], page: Number(req.page), hasNext: false };

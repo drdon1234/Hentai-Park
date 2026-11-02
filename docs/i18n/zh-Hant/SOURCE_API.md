@@ -72,7 +72,7 @@ Park.register({
   name: '我的站点',
   version: '0.0.1',
   minAppVersion: '0.9.2',           // 三段数字，仓库版本更高时应用提示更新
-  type: 'comic',              // comic | video | novel | game：决定阅读、播放或游戏资源行为
+  type: 'comic',              // comic | video | novel | game | article：決定內容行為
   category: 'doujin',         // doujin | anime | aiDrama | jav | adult | shortvideo | recording | live | gallery | illustration | novel | game | other
   color: '#E5355F',           // 品牌色：站点头像与站点页
   description: '一句话介绍',
@@ -265,6 +265,12 @@ account: {
 - `managedAccount: true` 與 `account.enableManaged()` 提供可選的帳號管理能力，只在使用者知情確認後啟用。手動帳號與託管帳號分開儲存，不得覆寫既有憑據；帳號資料僅在本機使用，不進入文件、診斷或發布產物。
 - 賬號密碼、Token 和外掛狀態都是使用者本機資料，文件和日誌裡不要出現真實憑據。
 
+## 吃瓜圖文與網域解析
+
+吃瓜外掛宣告 `type: 'article', category: 'feed'`，列表作品填寫 `mediaKind: 'article'`。`detail(id)` 的非空 `blocks` 依原站順序使用 `{type: 'text', text}`、`{type: 'image', url}`、`{type: 'video', id}`；圖片須為公網 HTTPS，影片 ID 須穩定，播放時以 `videos(id, videoId)` 取得地址。`tagLinks` 使用 `{name, url}`，URL 須屬於宣告的源網域並由 `searchLink` 處理。正文與臨時媒體地址不進入一般詳情快取，收藏與歷史只保存摘要。
+
+`Park.createDomainResolver({initialOrigin, accept, discover, verify})` 從可信發布頁尋找候選，以 `accept` 限制站點地址並以 `verify` 檢查首頁，成功來源存入該源的私有 store。`resolver.request(this, path, options)` 回傳 `{response, origin}`；僅對 403、502/503/504、逾時及可分類連線/DNS 故障切換。GET、HEAD 與同時標記 `readOnly`、`allowDomainRetry` 的公開查詢 POST 可重放；非白名單請求標頭、憑證錯誤、取消與其他寫入不切換。跳轉須同源，瀏覽器及媒體權限不會自動擴大。
+
 ## 方法
 
 方法裡的 `this` 見「執行時 API」。所有方法都可以是 `async`。
@@ -306,7 +312,7 @@ async resolveGameResource(workId, resourceId, channelId) {}
 
 - `coverAspect`（寬 / 高）讓網格在圖片載入前就排好版。
 - `badgeColor` 用於分類角標的顏色。
-- `mediaKind: 'comic' | 'video' | 'novel' | 'game'` 描述作品本身的型別。外掛只有一種型別時可以省略；混合型別時必須填寫，不能憑外掛的 `type` 把圖片當成影片。小說和遊戲作品總是填寫，這樣解除安裝外掛後離線作品和歷史仍能用正確的閱讀器開啟。
+- `mediaKind: 'comic' | 'video' | 'novel' | 'game' | 'article'` 描述作品本身的型別。外掛只有一種型別時可以省略；混合型別時必須填寫，不能憑外掛的 `type` 把圖片當成影片。小說、遊戲和吃瓜作品總是填寫，解除安裝外掛後仍保留正確型別。
 - 帖子類結果可以帶 `presentation: 'post'`、`text`、`date`、`url` 和 `media` 陣列，以帖子卡片顯示；`presentation: 'media'` 用媒體網格顯示，點選進入作品中的媒體。帖子正文允許沒有媒體；媒體地址仍受外掛宣告的域名和許可權約束。
 
 ### 詳情：`detail`
@@ -686,5 +692,6 @@ liveChatEvent(state, event) {
 
 - `metadataOnly: true`: 獨立資料外掛必須實作 `metadataSearch`、`metadataDetail`，可實作 `metadataMagnets`，也可宣告普通 `feeds`、`search` 及其篩選協議。結果只進入資料詳情，不進入聚合片源、播放、收藏或下載；不宣告普通 `detail` 或播放能力。站點規則僅在外掛維護。 也可宣告 `rankings`；市場榜單設定 `section: 'market'`。
 - `metadataSearch(keyword, context?)` 回傳最多 100 個 `{id, code, title, url, cover?}` 候選。`code` 必須是真實番號，不從標題猜測；無匹配回傳 `[]`，驗證及解析異常必須拋錯，多個匹配由使用者選擇。 可選 `context.category` 是目前領域；跨領域市場插件依此限定搜尋，回傳 ID 必須保留原站頻道身分。排行榜插件也可提供此介面。
-- `metadataDetail(id, context?)` 回傳候選必填欄位及可選的 `description`、`releaseDate`、`duration`、`director`、`studio`、`publisher`、`series`、`rating`、`actors: string[]`、`tags: string[]`、`images: string[]`。缺失文字留空、集合為空陣列，不虛構資料。作品 `url` 屬於宣告域；圖片限無憑據、無連接埠的公網 HTTPS。 `metadataDetail(id, context?)` 接收可選排行榜上下文 `{url, board}`。獨立榜單可按本站作品 ID 回傳真實資料；必須校驗 URL 網域及其與 ID 的關聯，不信任外部 URL。可選作者欄位為 `authors: string[]`。 `description` 優先使用純文字；執行階段安全擷取 HTML 文字，保留 `br` 與區塊換行並忽略腳本及表單。
+- `metadataDetail(id, context?)` 回傳候選必填欄位及可選的 `description`、`releaseDate`、`duration`、`director`、`studio`、`publisher`、`series`、`rating`、`actors: string[]`、`tags: string[]`、`images: (string | {url: string, thumbnail?: string})[]`。缺失文字留空、集合為空陣列，不虛構資料。作品 `url` 屬於宣告域；圖片限無憑據、無連接埠的公網 HTTPS。 `metadataDetail(id, context?)` 接收可選排行榜上下文 `{url, board}`。獨立榜單可按本站作品 ID 回傳真實資料；必須校驗 URL 網域及其與 ID 的關聯，不信任外部 URL。可選作者欄位為 `authors: string[]`。 `description` 優先使用純文字；執行階段安全擷取 HTML 文字，保留 `br` 與區塊換行並忽略腳本及表單。
+- 預覽圖依來源站點用途區分：`images` 接受單一網址字串或 `{url, thumbnail?}`，`url` 是點開後的大圖，`thumbnail` 是預覽區使用的來源縮圖；只有一個網址時兩處共用。依大圖 URL 去重並保留對應縮圖，最多 100 項；兩種網址均執行相同 HTTPS 驗證。列表封面使用來源列表圖，詳情封面使用來源詳情大圖，不猜測檔名或繞過會員權限。圖片物件格式需要應用程式 0.11.0 或更新版本。
 - `metadataMagnets(id)` 回傳最多 500 條 `{url, name, size?, date?, tags?: string[]}`，僅接受有效 `magnet:?xt=urn:btih:...`，依內容雜湊去重。資料與磁鏈分別載入和重試；切換或關閉取消舊請求。只依使用者操作複製或開啟外部應用程式；JAV 搜尋使用真實番號。

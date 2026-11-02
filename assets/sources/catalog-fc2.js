@@ -8,7 +8,7 @@ Park.register({
     ru: {"上月": "Прошлый месяц", "官方卖家榜": "Официальный рейтинг продавцов"},
     ar: {"上月": "الشهر الماضي", "官方卖家榜": "ترتيب البائعين الرسمي"},
   },
-  key: 'catalog-fc2', name: 'FC2', version: '0.0.11', minAppVersion: '0.10.8',
+  key: 'catalog-fc2', name: 'FC2', version: '0.0.12', minAppVersion: '0.11.0',
   type: 'video', category: 'jav', metadataOnly: true,
   description: '排行榜与作品资料', homepage: 'https://adult.contents.fc2.com/',
   domains: ['fc2.com'],
@@ -163,7 +163,12 @@ Park.register({
       series: field(/シリーズ|系列/),
       actors: [...new Set([...doc.querySelectorAll(".detail_data a[href*=\"actor\"], main a[href*=\"/actor/\"]")].map(Park.html.text).filter(Boolean))],
       tags: [...new Set([...doc.querySelectorAll(".items_article_headerInfo a[href*=\"tag\"]")].map(Park.html.text).filter(Boolean))],
-      images: [...new Set(([...doc.querySelectorAll('.items_article_SampleImages a[href]')].map(e => e.getAttribute('href')).concat([...doc.querySelectorAll('.items_article_modalAreaPict img[src]')].map(e => e.getAttribute('src'))).concat([...doc.querySelectorAll('[data-pdp-sample-thumbnail][data-img]')].map(e => e.getAttribute('data-img')))).map(image).filter(Boolean))].slice(0, 100) };
+      images: [...doc.querySelectorAll('.items_article_SampleImages a[href], .items_article_modalAreaPict img[src], [data-pdp-sample-thumbnail][data-img]')].map(row => {
+        const img = row.querySelector('img') || row;
+        const thumbnail = image(img.getAttribute('data-src') || img.getAttribute('src'));
+        const url = image(row.getAttribute('href') || row.getAttribute('data-img') || row.getAttribute('src'));
+        return {url, thumbnail: thumbnail || url};
+      }).filter(row => row.url).slice(0, 100) };
   },
   async ranking(board, req) {
     const page = Math.max(1, Number(req.page) || 1);

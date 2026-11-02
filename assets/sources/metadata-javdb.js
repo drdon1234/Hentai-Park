@@ -1,5 +1,5 @@
 Park.register({
-  key: 'metadata-javdb', name: 'JavDB', version: '0.0.2', minAppVersion: '0.10.8',
+  key: 'metadata-javdb', name: 'JavDB', version: '0.0.3', minAppVersion: '0.11.0',
   type: 'video', category: 'jav', metadataOnly: true,
   description: '作品资料与磁链', homepage: 'https://javdb.com/',
   domains: ['javdb.com'],
@@ -150,8 +150,10 @@ Park.register({
       rating: fields['評分'] || fields['评分'] || fields.Rating || '',
       actors: names('.movie-panel-info a[href^="/actors/"]'),
       tags: names('.movie-panel-info a[href^="/tags"]'),
-      images: [...new Set([...doc.querySelectorAll('.preview-images a.tile-item[href]')]
-        .map(row => this.image(row.getAttribute('href'))).filter(Boolean))],
+      images: [...doc.querySelectorAll('.preview-images a.tile-item[href]')].map(row => ({
+        url: this.image(row.getAttribute('href')),
+        thumbnail: this.image(row.querySelector('img')?.getAttribute('data-src') || row.querySelector('img')?.getAttribute('src')),
+      })).filter(row => row.url),
     };
     const magnets = new Map();
     for (const row of doc.querySelectorAll('#magnets-content .item')) {

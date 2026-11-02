@@ -8,7 +8,7 @@ Park.register({
     ru: {"官方女优榜": "Официальный рейтинг актрис"},
     ar: {"官方女优榜": "ترتيب الممثلات الرسمي"},
   },
-  key: 'catalog-studios', name: '无码厂商', version: '0.0.9', minAppVersion: '0.10.8',
+  key: 'catalog-studios', name: '无码厂商', version: '0.0.10', minAppVersion: '0.11.0',
   type: 'video', category: 'jav', metadataOnly: true,
   description: '排行榜与作品资料', homepage: 'https://www.1pondo.tv/',
   domains: ['1pondo.tv', '10musume.com', 'pacopacomama.com', 'caribbeancom.com'],
@@ -234,9 +234,20 @@ Park.register({
       const title = Park.html.text(doc.querySelector('.heading .heading-title, h1[itemprop="name"], #movie-info h1'));
       if (!title) throw Park.error('PARSE', '作品资料无效');
       const text = selector => Park.html.text(doc.querySelector(selector));
-      const images = [...doc.querySelectorAll('.gallery-item[data-is_sample="1"] img[src]')]
-        .map(img => new URL(img.getAttribute('src'), base).href);
-      // 只展示原站公开缩略图；会员大图不猜测地址。
+      // 仅读取明确标为公开样张的链接，不包含会员图片或猜测图片地址。
+      const publicImage = value => {
+        if (!value) return '';
+        try {
+          const image = new URL(value, base);
+          return image.origin === base && !image.username && !image.password &&
+            image.pathname.startsWith(`/moviepages/${id}/images/`) ? image.href : '';
+        } catch (_) { return ''; }
+      };
+      const images = [...doc.querySelectorAll('.gallery-item[data-is_sample="1"]')].map(row => {
+        const thumbnail = publicImage(row.querySelector('img')?.getAttribute('src'));
+        const url = publicImage(row.getAttribute('href')) || thumbnail;
+        return {url, thumbnail: thumbnail || url};
+      }).filter(row => row.url);
       return { id:identity, code: id, title, url, images,
         cover: doc.querySelector('script') && /var image = '\/moviepages\/'\+movie_id\+'\/images\/l_l\.jpg'/.test(doc.toString()) ? base+'/moviepages/'+id+'/images/l_l.jpg' : '',
         duration: text('.movie-info [itemprop="duration"]'),

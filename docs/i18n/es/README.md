@@ -45,13 +45,13 @@ Configura el acceso en Más → Sitios y el proxy en Más → Red cuando sea nec
 | Función | Qué ofrece |
 | --- | --- |
 | Descubrir y buscar | Filtra por 2D, 3D y tipo de contenido; busca en varios sitios o abre una obra con un enlace o código. |
-| Leer y ver | Cómics con desplazamiento, páginas y doble página; episodios, velocidad y reanudación de vídeo; marcadores, notas y lectura de novelas en voz alta. |
+| Leer y ver | Artículos de cotilleos y vídeos; cómics con desplazamiento, páginas y doble página; episodios, velocidad y reanudación de vídeo; marcadores, notas y lectura de novelas en voz alta. |
 | Favoritos y novedades | Organiza grupos, guarda el progreso y consulta capítulos nuevos. Sigue autores, canales o palabras clave. |
 | Sin conexión y exportación | Descarga cómics, vídeos, novelas y recursos de juegos. Importa y exporta CBZ y exporta capítulos completos de galerías a PDF. |
 | Listas y búsqueda por imagen | Explora clasificaciones de doujinshi, anime y JAV o busca posibles obras con una imagen. |
 | Información de obras | Explora, busca y filtra información de obras, abre los detalles del sitio original de los rankings y elige los sitios de detalles y búsqueda. |
 | Comentarios y chat | Lee comentarios, respuestas e imágenes de los sitios compatibles y muestra el chat en directos compatibles. |
-| Traducción y filtros | Traduce títulos, descripciones, etiquetas y novelas. Oculta contenido por etiquetas. |
+| Traducción y filtros | Traduce títulos, descripciones, etiquetas, artículos y novelas. Oculta contenido por etiquetas. |
 | Privacidad y copias | Bloqueo de la app, modo incógnito, portadas borrosas y bloqueo de capturas donde sea compatible. Copias de favoritos, progreso, suscripciones y ajustes. |
 
 ## Sitios y servicios compatibles

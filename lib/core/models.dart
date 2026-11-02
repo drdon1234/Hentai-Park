@@ -50,7 +50,8 @@ enum MediaKind {
   comic,
   video,
   novel,
-  game;
+  game,
+  article;
 
   static MediaKind fromJson(Object? value) =>
       values.firstWhere((kind) => kind.name == value, orElse: () => comic);
@@ -62,11 +63,13 @@ extension MediaKindLabel on MediaKind {
     MediaKind.video => '视频',
     MediaKind.novel => '小说',
     MediaKind.game => '游戏',
+    MediaKind.article => '吃瓜',
   });
 }
 
 /// Content grouping for browsing; media kind still controls reading and playback.
 enum SourceCategory {
+  feed('吃瓜'),
   doujin('本子'),
   anime('里番'),
   aiDrama('AI短剧'),
@@ -95,7 +98,7 @@ enum SourceCategory {
     recording ||
     live ||
     novel => ContentDimension.threeD,
-    other => null,
+    other || feed => null,
   };
 
   ContentMedia get media => switch (this) {
@@ -107,7 +110,7 @@ enum SourceCategory {
     shortvideo ||
     recording ||
     live => ContentMedia.video,
-    novel || game || other => ContentMedia.other,
+    novel || game || other || feed => ContentMedia.other,
   };
 
   static SourceCategory fromJson(Object? value) => SourceCategory.values
@@ -695,6 +698,7 @@ class SourceManifest {
       error.code == 'UNSUPPORTED';
   bool get isNovel => kind == MediaKind.novel;
   bool get isGame => kind == MediaKind.game;
+  bool get isArticle => kind == MediaKind.article;
   bool get usesBrowserNetwork => network['mode'] == 'browser';
   String get origin =>
       _str(network['origin']).isNotEmpty ? _str(network['origin']) : homepage;

@@ -8,7 +8,7 @@ Park.register({
     ru: {"已购买": "Куплено", "分类累计排序（非周期榜）": "Накопительный рейтинг по жанру (без периода)", "月度女优榜": "Ежемесячный рейтинг актрис", "累计人气": "Популярность за всё время", "累计销量": "Продажи за всё время", "评价排序": "По оценкам"},
     ar: {"已购买": "تم الشراء", "分类累计排序（非周期榜）": "ترتيب تراكمي حسب النوع (غير دوري)", "月度女优榜": "ترتيب الممثلات الشهري", "累计人气": "الشعبية الإجمالية", "累计销量": "المبيعات الإجمالية", "评价排序": "حسب التقييم"},
   },
-  key: 'catalog-fanza', name: 'FANZA', version: '0.0.11', minAppVersion: '0.10.8',
+  key: 'catalog-fanza', name: 'FANZA', version: '0.0.12', minAppVersion: '0.11.0',
   type: 'video', category: 'jav', metadataOnly: true,
   description: '排行榜与作品资料', homepage: 'https://video.dmm.co.jp/',
   domains: ['dmm.co.jp'], network: { vpnHint: true },
@@ -49,7 +49,7 @@ Park.register({
       if (!/^[a-z0-9_]{2,60}$/i.test(row.id) || !row.title) throw Park.error('PARSE', '作品资料无效');
       return {id: `${floor}:${row.id}`, code: this.workCode(row.makerContentId || row.id), title: row.title,
         category: floor === 'ANIME' ? 'anime' : 'jav',
-        cover: row.packageImage?.largeUrl || row.packageImage?.mediumUrl || '',
+        cover: row.packageImage?.mediumUrl || row.packageImage?.largeUrl || '',
         url: `${this.homepage}${{AV: 'av', AMATEUR: 'amateur', ANIME: 'anime'}[floor]}/content/?id=${encodeURIComponent(row.id)}`};
     });
     return {items, page, hasNext: rows.length === limit};
@@ -135,7 +135,7 @@ Park.register({
     if (!/^[a-z0-9_]{2,60}$/i.test(id)) throw Park.error('NOT_FOUND', '作品编号无效');
     const data = await this.query(`query WorkInformation($id: ID!) {
       ppvContent(id: $id) { id title makerContentId deliveryStartDate description duration packageImage { largeUrl mediumUrl }
-        actresses { name } genres { name } sampleImages { imageUrl } }
+        actresses { name } genres { name } sampleImages { imageUrl largeImageUrl } }
     }`, { id });
     const work = data.ppvContent;
     if (!work || work.id !== id || !work.title) throw Park.error('PARSE', '作品资料无效');
@@ -147,7 +147,8 @@ Park.register({
       duration: work.duration == null ? '' : String(work.duration),
       actors: (work.actresses || []).map(row => row.name).filter(Boolean),
       tags: (work.genres || []).map(row => row.name).filter(Boolean),
-      images: (work.sampleImages || []).map(row => row.imageUrl).filter(Boolean).slice(0, 100) };
+      images: (work.sampleImages || []).filter(row => row.largeImageUrl || row.imageUrl)
+        .map(row => ({url: row.largeImageUrl || row.imageUrl, thumbnail: row.imageUrl || row.largeImageUrl})).slice(0, 100) };
   },
   async rankingOptions() {
     if (this.genreOptions) return this.genreOptions;
@@ -171,7 +172,7 @@ Park.register({
     const keyword = code === id ? content.title : code;
     return { id, rank, title: content.title, keyword,
       subtitle: (content.actresses || []).map(a => a.name).filter(Boolean).join(' · '),
-      cover: content.packageImage?.largeUrl || content.packageImage?.mediumUrl || '',
+      cover: content.packageImage?.mediumUrl || content.packageImage?.largeUrl || '',
       url: `https://video.dmm.co.jp/${{ AV: 'av', AMATEUR: 'amateur', ANIME: 'anime' }[floor]}/content/?id=${id}` };
   },
   async ranking(floor, req) {

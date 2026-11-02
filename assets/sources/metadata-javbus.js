@@ -1,5 +1,5 @@
 Park.register({
-  key: 'metadata-javbus', name: 'JavBus', version: '0.0.3', minAppVersion: '0.10.8',
+  key: 'metadata-javbus', name: 'JavBus', version: '0.0.4', minAppVersion: '0.11.0',
   type: 'video', category: 'jav', metadataOnly: true,
   description: '作品资料与磁链', homepage: 'https://www.javbus.com/',
   domains: ['javbus.com'], network: {
@@ -232,8 +232,10 @@ Park.register({
       fields[label] = Park.html.text(copy);
     }
     const names = selector => [...new Set([...doc.querySelectorAll(selector)].map(Park.html.text).filter(Boolean))];
-    const images = [...new Set([...doc.querySelectorAll('a.sample-box')]
-      .map(row => this.image(row.getAttribute('href'))).filter(Boolean))];
+    const images = [...doc.querySelectorAll('a.sample-box')].map(row => ({
+      url: this.image(row.getAttribute('href')),
+      thumbnail: this.image(row.querySelector('img')?.getAttribute('data-src') || row.querySelector('img')?.getAttribute('src')),
+    })).filter(row => row.url);
     const vars = {};
     for (const match of body.matchAll(/\bvar\s+(gid|uc|img|lang)\s*=\s*(?:'([^']*)'|"([^"]*)"|(\d+))\s*;/g)) {
       vars[match[1]] = match[2] ?? match[3] ?? match[4];

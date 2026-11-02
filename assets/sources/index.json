@@ -3,6 +3,36 @@
   "apiVersion": 2,
   "sources": [
     {
+      "key": "feed51cg",
+      "name": "51cg1.com",
+      "version": "0.0.2",
+      "type": "article",
+      "category": "feed",
+      "file": "feed51cg.js",
+      "description": "吃瓜图文，支持分类、标签、搜索与视频",
+      "minAppVersion": "0.11.0"
+    },
+    {
+      "key": "feedheiliao",
+      "name": "155.fun",
+      "version": "0.0.2",
+      "type": "article",
+      "category": "feed",
+      "file": "feedheiliao.js",
+      "description": "吃瓜图文，支持分类、标签、搜索与视频",
+      "minAppVersion": "0.11.0"
+    },
+    {
+      "key": "feedmrds",
+      "name": "mrdsk.com",
+      "version": "0.0.2",
+      "type": "article",
+      "category": "feed",
+      "file": "feedmrds.js",
+      "description": "吃瓜图文，支持分类、标签、搜索与视频",
+      "minAppVersion": "0.11.0"
+    },
+    {
       "key": "pixibb",
       "name": "PixiBB",
       "version": "0.0.7",
@@ -773,12 +803,12 @@
     {
       "key": "catalog-dlsite",
       "name": "DLsite",
-      "version": "0.0.7",
+      "version": "0.0.8",
       "type": "comic",
       "category": "doujin",
       "file": "catalog-dlsite.js",
       "description": "排行榜与作品资料",
-      "minAppVersion": "0.10.8",
+      "minAppVersion": "0.11.0",
       "metadataOnly": true
     },
     {
@@ -795,45 +825,45 @@
     {
       "key": "catalog-fanza",
       "name": "FANZA",
-      "version": "0.0.11",
+      "version": "0.0.12",
       "type": "video",
       "category": "jav",
       "file": "catalog-fanza.js",
       "description": "排行榜与作品资料",
-      "minAppVersion": "0.10.8",
+      "minAppVersion": "0.11.0",
       "metadataOnly": true
     },
     {
       "key": "catalog-mgs",
       "name": "MGStage",
-      "version": "0.0.7",
+      "version": "0.0.8",
       "type": "video",
       "category": "jav",
       "file": "catalog-mgs.js",
       "description": "排行榜与作品资料",
-      "minAppVersion": "0.10.8",
+      "minAppVersion": "0.11.0",
       "metadataOnly": true
     },
     {
       "key": "catalog-fc2",
       "name": "FC2",
-      "version": "0.0.11",
+      "version": "0.0.12",
       "type": "video",
       "category": "jav",
       "file": "catalog-fc2.js",
       "description": "排行榜与作品资料",
-      "minAppVersion": "0.10.8",
+      "minAppVersion": "0.11.0",
       "metadataOnly": true
     },
     {
       "key": "catalog-studios",
       "name": "无码厂商",
-      "version": "0.0.9",
+      "version": "0.0.10",
       "type": "video",
       "category": "jav",
       "file": "catalog-studios.js",
       "description": "排行榜与作品资料",
-      "minAppVersion": "0.10.8",
+      "minAppVersion": "0.11.0",
       "metadataOnly": true
     },
     {
@@ -850,8 +880,8 @@
     {
       "key": "metadata-javbus",
       "name": "JavBus",
-      "version": "0.0.3",
-      "minAppVersion": "0.10.8",
+      "version": "0.0.4",
+      "minAppVersion": "0.11.0",
       "type": "video",
       "category": "jav",
       "file": "metadata-javbus.js",
@@ -861,8 +891,8 @@
     {
       "key": "metadata-javdb",
       "name": "JavDB",
-      "version": "0.0.2",
-      "minAppVersion": "0.10.8",
+      "version": "0.0.3",
+      "minAppVersion": "0.11.0",
       "type": "video",
       "category": "jav",
       "file": "metadata-javdb.js",

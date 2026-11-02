@@ -14,6 +14,7 @@ La comprobación de actualizaciones pide confirmación para eliminar plugins ofi
 
 | Categoría | Sitios / servicios |
 | --- | --- |
+| Cotilleos | 51cg1.com · 155.fun · mrdsk.com |
 | Galerías fotográficas | PixiBB · XiuRen · PornPics · CosplayTele · NudeCosplay |
 | Ilustraciones | Danbooru · yande.re · Gelbooru |
 | Doujinshi / cómics | E-Hentai · 禁漫天堂 · nhentai · 绅士漫画 · 哔咔漫画 |

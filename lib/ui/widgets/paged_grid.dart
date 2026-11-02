@@ -8,6 +8,7 @@ import '../../core/tag_blocklist.dart';
 import '../../engine/home_cache.dart';
 import '../../engine/source_manager.dart';
 import '../../subscriptions/models.dart';
+import '../feed/feed_article.dart';
 import '../short_video/short_video_sequence.dart';
 import '../subscriptions/subscription_posts_page.dart';
 import '../theme.dart';
@@ -325,6 +326,7 @@ class PagedSliverGrid extends StatelessWidget {
           return _skeletonGrid(context);
         }
         if (listMode ||
+            kind == MediaKind.article ||
             kind == MediaKind.novel ||
             c.items.any((item) => item.json['presentation'] == 'post')) {
           return SliverMainAxisGroup(
@@ -333,7 +335,9 @@ class PagedSliverGrid extends StatelessWidget {
                 itemCount: c.items.length,
                 itemBuilder: (context, i) {
                   final item = c.items[i];
-                  return item.json['presentation'] == 'post'
+                  return kind == MediaKind.article
+                      ? FeedArticleTile(item: item, showSource: showSource)
+                      : item.json['presentation'] == 'post'
                       ? SubscriptionPostCard(
                           source: item.source,
                           post: SubscriptionPost(item.json),
@@ -470,7 +474,7 @@ class PagedSliverGrid extends StatelessWidget {
   }
 
   Widget _skeletonGrid(BuildContext context) {
-    if (kind == MediaKind.novel) {
+    if (kind == MediaKind.novel || kind == MediaKind.article) {
       return SliverToBoxAdapter(
         child: Column(
           children: [

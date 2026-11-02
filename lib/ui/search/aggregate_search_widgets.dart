@@ -8,6 +8,7 @@ import '../../core/settings.dart';
 import '../../core/tag_blocklist.dart';
 import '../../engine/source_manager.dart';
 import '../../subscriptions/models.dart';
+import '../feed/feed_article.dart';
 import '../nav.dart';
 import '../short_video/short_video_sequence.dart';
 import '../subscriptions/subscription_posts_page.dart';
@@ -245,7 +246,7 @@ class SourceResultsRow extends StatelessWidget {
     final cardWidth = aspect > 1 ? 200.0 : 118.0;
     Widget body;
     if (result.loading) {
-      body = kind == MediaKind.novel
+      body = kind == MediaKind.novel || kind == MediaKind.article
           ? Column(
               children: [
                 const Padding(
@@ -321,7 +322,11 @@ class SourceResultsRow extends StatelessWidget {
       }
       final a = gridAspectFor(items, kind);
       final w = a > 1 ? 200.0 : 118.0;
-      body = kind == MediaKind.novel
+      body = kind == MediaKind.article
+          ? Column(
+              children: [for (final item in items) FeedArticleTile(item: item)],
+            )
+          : kind == MediaKind.novel
           ? Column(
               children: [for (final item in items) WorkTextRow(item: item)],
             )

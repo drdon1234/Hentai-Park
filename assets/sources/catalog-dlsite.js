@@ -1,5 +1,5 @@
 Park.register({
-  key: 'catalog-dlsite', name: 'DLsite', version: '0.0.7', minAppVersion: '0.10.8',
+  key: 'catalog-dlsite', name: 'DLsite', version: '0.0.8', minAppVersion: '0.11.0',
   type: 'comic', category: 'doujin', metadataOnly: true,
   description: '排行榜与作品资料', homepage: 'https://www.dlsite.com/',
   domains: ['dlsite.com', 'dlsite.jp'], network: { vpnHint: true },
@@ -135,7 +135,9 @@ Park.register({
       series: field(/シリーズ|系列/),
       actors: [...new Set([...doc.querySelectorAll(".detail_data a[href*=\"actor\"], main a[href*=\"/actor/\"]")].map(Park.html.text).filter(Boolean))],
       tags: [...new Set([...doc.querySelectorAll("#work_outline a[href*=\"/genre/\"]")].map(Park.html.text).filter(Boolean))],
-      images: [...new Set(([...doc.querySelectorAll('[data-src]')].map(e => e.getAttribute('data-src')).filter(v => /_smp\d+\./.test(v))).map(image).filter(Boolean))].slice(0, 100) };
+      images: [...doc.querySelectorAll('[data-src]')].filter(row => /_smp\d+\./.test(row.getAttribute('data-src') || '')).map(row => ({
+        url: image(row.getAttribute('data-src')), thumbnail: image(row.getAttribute('data-thumb')),
+      })).filter(row => row.url).slice(0, 100) };
   },
   async ranking(floor, req) {
     if (Number(req.page) > 1) return { items: [], page: Number(req.page), hasNext: false };

@@ -78,13 +78,14 @@ class _SourcePageState extends State<SourcePage> {
         hidePreviews: _hidePreviews,
         onPreviews: (value) => setState(() => _hidePreviews = value),
       ),
-      IconButton(
-        tooltip: tr(_listMode ? '切换为卡片' : '切换为单行列表'),
-        icon: Icon(
-          _listMode ? Icons.grid_view_rounded : Icons.view_list_rounded,
+      if (!manifest.isArticle)
+        IconButton(
+          tooltip: tr(_listMode ? '切换为卡片' : '切换为单行列表'),
+          icon: Icon(
+            _listMode ? Icons.grid_view_rounded : Icons.view_list_rounded,
+          ),
+          onPressed: () => setState(() => _listMode = !_listMode),
         ),
-        onPressed: () => setState(() => _listMode = !_listMode),
-      ),
     ],
   );
   SourceManager get _sources => widget.sourceManager ?? SourceManager.instance;

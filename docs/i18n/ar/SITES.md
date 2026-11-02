@@ -16,6 +16,7 @@
 
 | الفئة | المواقع / الخدمات |
 | --- | --- |
+| القيل والقال | 51cg1.com · 155.fun · mrdsk.com |
 | معارض الصور | PixiBB · XiuRen · PornPics · CosplayTele · NudeCosplay |
 | الرسوم | Danbooru · yande.re · Gelbooru |
 | دوجينشي / قصص مصورة | E-Hentai · 禁漫天堂 · nhentai · 绅士漫画 · 哔咔漫画 |

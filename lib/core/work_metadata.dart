@@ -73,6 +73,7 @@ class WorkMetadata extends MetadataCandidate {
       authors = _texts(json, 'authors'),
       tags = _texts(json, 'tags'),
       images = _images(json),
+      imageThumbnails = _thumbnails(json),
       super.fromJson();
 
   final String description,
@@ -85,12 +86,30 @@ class WorkMetadata extends MetadataCandidate {
       rating;
   final List<String> actors, authors, tags, images;
 
+  /// 以大图地址关联缩略图，避免去重后两组数组错位。
+  final Map<String, String> imageThumbnails;
+
+  static String _imageUrl(Object? value) =>
+      _url({'url': value is Map ? value['url'] : value}, 'url', required: true);
+
+  static Map<String, String> _thumbnails(Map<String, dynamic> json) {
+    final rows = json['images'] ?? const [];
+    if (rows is! List || rows.length > 100) _invalid();
+    final thumbnails = <String, String>{};
+    for (final row in rows) {
+      final url = _imageUrl(row);
+      final thumbnail = row is Map
+          ? _url({'url': row['thumbnail']}, 'url')
+          : '';
+      thumbnails.putIfAbsent(url, () => thumbnail.isEmpty ? url : thumbnail);
+    }
+    return Map.unmodifiable(thumbnails);
+  }
+
   static List<String> _images(Map<String, dynamic> json) {
     final rows = json['images'] ?? const [];
     if (rows is! List || rows.length > 100) _invalid();
-    return List.unmodifiable(
-      rows.map((value) => _url({'url': value}, 'url', required: true)).toSet(),
-    );
+    return List.unmodifiable(rows.map(_imageUrl).toSet());
   }
 }
 

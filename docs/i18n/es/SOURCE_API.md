@@ -72,7 +72,7 @@ Park.register({
   name: '我的站点',
   version: '0.0.1',
   minAppVersion: '0.9.2',           // tres números; la app ofrece actualizar si el repositorio tiene uno mayor
-  type: 'comic',              // comic | video | novel | game: cómo se leen o reproducen las obras
+  type: 'comic',              // comic | video | novel | game | article: comportamiento del contenido
   category: 'doujin',         // doujin | anime | aiDrama | jav | adult | shortvideo | recording | live | gallery | illustration | novel | game | other
   color: '#E5355F',           // color de marca: icono y página del sitio
   description: '一句话介绍',
@@ -276,6 +276,12 @@ Al cerrar sesión, la aplicación elimina del origen de cookieUrl solo las clave
 - `managedAccount: true` y `account.enableManaged()` ofrecen gestión opcional de cuentas, que solo se activa tras la confirmación informada del usuario. Guarda por separado las cuentas manuales y gestionadas sin sobrescribir credenciales existentes. Los datos de cuenta permanecen en el dispositivo y no deben aparecer en documentación, diagnósticos ni archivos de publicación.
 - Contraseñas, tokens y estado del plugin son datos locales del usuario; nunca pongas credenciales reales en documentos ni registros.
 
+## Artículos y resolución de dominios
+
+Las fuentes de artículos declaran `type: 'article', category: 'feed'` y usan `mediaKind: 'article'` en las listas. `detail(id)` devuelve `blocks` no vacíos y ordenados con `{type: 'text', text}`, `{type: 'image', url}` o `{type: 'video', id}`. Las imágenes requieren HTTPS público; el ID de vídeo es estable y `videos(id, videoId)` obtiene la dirección al reproducir. Los `tagLinks` opcionales usan `{name, url}` dentro de los dominios declarados y se procesan con `searchLink`. El cuerpo y las direcciones temporales no se guardan en la caché normal; favoritos e historial conservan resúmenes.
+
+`Park.createDomainResolver({initialOrigin, accept, discover, verify})` obtiene candidatos de una página de publicación fiable, comprueba el origen y la portada, y guarda el origen válido en el store privado de la fuente. `resolver.request(this, path, options)` devuelve `{response, origin}` y cambia ante 403, 502/503/504, tiempo agotado o errores de conexión/DNS clasificados. Solo se repiten GET, HEAD y consultas POST públicas con `readOnly` y `allowDomainRetry`. No se cambia con cabeceras no permitidas, errores de certificado, cancelación u otras escrituras. Las redirecciones permanecen en el mismo origen y no se amplían permisos del navegador ni de medios.
+
 ## Métodos
 
 `this` dentro de los métodos se describe en «API del entorno». Todos los métodos pueden ser `async`.
@@ -317,7 +323,7 @@ Implementa `searchSuggestions(keyword)` para exportar `capabilities.searchSugges
 
 - `coverAspect` (ancho / alto) permite colocar la cuadrícula antes de que carguen las imágenes.
 - `badgeColor` colorea la insignia de categoría.
-- `mediaKind: 'comic' | 'video' | 'novel' | 'game'` es el tipo de la propia obra. Los plugins de un solo tipo pueden omitirlo; los de tipos mixtos deben indicarlo: nunca trates imágenes como vídeos solo por el `type` del plugin. Las obras de novela y juego siempre lo indican, para que las obras sin conexión y el historial sigan abriéndose en el lector correcto tras desinstalar el plugin.
+- `mediaKind: 'comic' | 'video' | 'novel' | 'game' | 'article'` es el tipo de la obra. Los plugins de un solo tipo pueden omitirlo; los mixtos deben indicarlo. Novelas, juegos y artículos siempre lo indican para conservar su tipo tras desinstalar el plugin.
 - Los resultados tipo publicación pueden incluir `presentation: 'post'`, `text`, `date`, `url` y un array `media` para mostrarse como tarjetas; `presentation: 'media'` muestra una cuadrícula que abre los medios dentro de la obra. Una publicación puede no tener medios; sus direcciones siguen sujetas a los dominios y permisos declarados.
 
 ### Detalles: `detail`
@@ -697,5 +703,6 @@ liveChatEvent(state, event) {
 
 - `metadataOnly: true`: Los plugins de información deben implementar `metadataSearch` y `metadataDetail`; pueden implementar `metadataMagnets` y declarar `feeds`, `search` y sus filtros. Los resultados solo abren información; no participan en medios agregados, reproducción, favoritos ni descargas. No declarar `detail` normal ni reproducción. El análisis del sitio pertenece al plugin. También se admite `rankings`; las listas de mercado declaran `section: 'market'`.
 - `metadataSearch(keyword, context?)` devuelve hasta 100 candidatos `{id, code, title, url, cover?}`. `code` debe ser real, nunca deducido del título. Sin resultados devuelve `[]`; los fallos de verificación o análisis generan errores. El usuario elige entre varios candidatos. El contexto opcional `context.category` indica la categoría actual; los plugins de varias categorías limitan la búsqueda y conservan la identidad del canal original en los ID. Los plugins de rankings también pueden implementar este método.
-- `metadataDetail(id, context?)` devuelve los campos requeridos del candidato y opcionalmente `description`, `releaseDate`, `duration`, `director`, `studio`, `publisher`, `series`, `rating`, `actors: string[]`, `authors: string[]`, `tags: string[]`, `images: string[]`. Los textos o listas ausentes quedan vacíos; no se inventan datos. Las URL de obra pertenecen a los dominios declarados; las imágenes usan HTTPS público sin credenciales ni puertos. `metadataDetail(id, context?)` acepta el contexto opcional `{url, board}`. Una clasificación independiente puede devolver información real de su propio ID. Validar el dominio de la URL y su relación con el ID; no confiar en una URL externa. Los autores opcionales usan `authors: string[]`. Se recomienda texto plano en `description`; el motor extrae el texto HTML de forma segura, conserva los saltos `br` y de bloque, e ignora scripts y formularios.
+- `metadataDetail(id, context?)` devuelve los campos requeridos del candidato y opcionalmente `description`, `releaseDate`, `duration`, `director`, `studio`, `publisher`, `series`, `rating`, `actors: string[]`, `authors: string[]`, `tags: string[]`, `images: (string | {url: string, thumbnail?: string})[]`. Los textos o listas ausentes quedan vacíos; no se inventan datos. Las URL de obra pertenecen a los dominios declarados; las imágenes usan HTTPS público sin credenciales ni puertos. `metadataDetail(id, context?)` acepta el contexto opcional `{url, board}`. Una clasificación independiente puede devolver información real de su propio ID. Validar el dominio de la URL y su relación con el ID; no confiar en una URL externa. Los autores opcionales usan `authors: string[]`. Se recomienda texto plano en `description`; el motor extrae el texto HTML de forma segura, conserva los saltos `br` y de bloque, e ignora scripts y formularios.
+- Respete el uso del sitio: `images` admite una URL o `{url, thumbnail?}`. `url` es la imagen grande del visor; `thumbnail` es la miniatura de la cuadrícula. Sin tamaños separados se reutiliza la misma URL. Elimine duplicados por URL grande y conserve su miniatura, hasta 100 entradas. Ambas URL usan la misma validación HTTPS. Las portadas de lista y detalle siguen al sitio; no adivine archivos ni evada restricciones de membresía. Los objetos de imagen requieren la aplicación 0.11.0 o posterior.
 - `metadataMagnets(id)` devuelve hasta 500 entradas `{url, name, size?, date?, tags?: string[]}`. Solo acepta `magnet:?xt=urn:btih:...` válido y elimina duplicados por hash. Información y magnets cargan y reintentan por separado; cambiar o cerrar cancela solicitudes antiguas. Copiar y abrir externamente requiere una acción del usuario. La búsqueda JAV usa el código real.

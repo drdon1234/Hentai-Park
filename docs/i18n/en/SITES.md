@@ -14,6 +14,7 @@ Update checks ask before removing withdrawn official plugins, their settings, lo
 
 | Category | Sites / services |
 | --- | --- |
+| Gossip | 51cg1.com · 155.fun · mrdsk.com |
 | Photo galleries | PixiBB · XiuRen · PornPics · CosplayTele · NudeCosplay |
 | Illustrations | Danbooru · yande.re · Gelbooru |
 | Doujinshi / comics | E-Hentai · 禁漫天堂 · nhentai · 绅士漫画 · 哔咔漫画 |

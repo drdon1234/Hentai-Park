@@ -14,6 +14,7 @@
 
 | Категория | Сайты / сервисы |
 | --- | --- |
+| Сплетни | 51cg1.com · 155.fun · mrdsk.com |
 | Фотогалереи | PixiBB · XiuRen · PornPics · CosplayTele · NudeCosplay |
 | Иллюстрации | Danbooru · yande.re · Gelbooru |
 | Додзинси / комиксы | E-Hentai · 禁漫天堂 · nhentai · 绅士漫画 · 哔咔漫画 |

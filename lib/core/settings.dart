@@ -445,6 +445,7 @@ class AppSettings extends ChangeNotifier {
 
   /// Default display order for content domains; source ranking is independent.
   static const defaultDomainOrder = [
+    SourceCategory.feed,
     SourceCategory.gallery,
     SourceCategory.illustration,
     SourceCategory.doujin,

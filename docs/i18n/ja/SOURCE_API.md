@@ -72,7 +72,7 @@ Park.register({
   name: '我的站点',
   version: '0.0.1',
   minAppVersion: '0.9.2',           // 3 つの数字。リポジトリの方が新しいと更新を案内
-  type: 'comic',              // comic | video | novel | game：読み方・再生方法を決める
+  type: 'comic',              // comic | video | novel | game | article：コンテンツの動作を決める
   category: 'doujin',         // doujin | anime | aiDrama | jav | adult | shortvideo | recording | live | gallery | illustration | novel | game | other
   color: '#E5355F',           // ブランドカラー：サイトのアイコンとサイトページ
   description: '一句话介绍',
@@ -276,6 +276,12 @@ account: {
 - `managedAccount: true` と `account.enableManaged()` は任意のアカウント管理機能です。内容を説明し、ユーザーの確認後にのみ有効にします。手動アカウントと管理対象アカウントを別々に保存し、既存の認証情報を上書きしません。アカウント情報は端末内で扱い、文書、診断、配布物に含めないでください。
 - パスワード、トークン、プラグインの状態はユーザーの端末上のデータです。文書やログに実際の認証情報を書かないでください。
 
+## 記事とドメイン解決
+
+記事ソースは `type: 'article', category: 'feed'` を宣言し、一覧に `mediaKind: 'article'` を設定します。`detail(id)` の空でない `blocks` は、元の順序で `{type: 'text', text}`、`{type: 'image', url}`、`{type: 'video', id}` を返します。画像は公開 HTTPS、動画 ID は安定した識別子とし、再生時に `videos(id, videoId)` で URL を取得します。`tagLinks` の `{name, url}` は宣言済みドメインに限定し、`searchLink` で処理します。本文と一時メディア URL は通常の詳細キャッシュに保存せず、お気に入りと履歴には概要を保存します。
+
+`Park.createDomainResolver({initialOrigin, accept, discover, verify})` は信頼できる公開ページから候補を取得し、`accept` と `verify` で検証した接続先をソース専用 store に保存します。`resolver.request(this, path, options)` は `{response, origin}` を返し、403、502/503/504、タイムアウト、分類済み接続・DNS エラーで切り替えます。GET、HEAD と `readOnly` および `allowDomainRetry` を明示した公開検索 POST のみ再送します。未許可ヘッダー、証明書エラー、キャンセル、その他の書き込みでは切り替えず、リダイレクトは同一オリジンに限定します。ブラウザとメディアの権限は拡大しません。
+
 ## メソッド
 
 メソッド内の `this` は「ランタイム API」を参照してください。すべてのメソッドは `async` にできます。
@@ -317,7 +323,7 @@ async resolveGameResource(workId, resourceId, channelId) {}
 
 - `coverAspect`（幅 / 高さ）があると画像の読み込み前にグリッドを配置できます。
 - `badgeColor` は分類バッジの色です。
-- `mediaKind: 'comic' | 'video' | 'novel' | 'game'` は作品自体の種類です。種類が 1 つのプラグインは省略できますが、混在するプラグインは必ず指定し、プラグインの `type` だけで画像を動画として扱ってはいけません。小説とゲームの作品は常に指定し、プラグインをアンインストールしてもオフライン作品と履歴が正しいリーダーで開くようにします。
+- `mediaKind: 'comic' | 'video' | 'novel' | 'game' | 'article'` は作品自体の種類です。種類が 1 つのプラグインは省略できますが、混在するプラグインは必ず指定します。小説、ゲーム、記事は常に指定し、プラグインを削除しても種類を保持します。
 - 投稿形式の結果は `presentation: 'post'`、`text`、`date`、`url` と `media` 配列を持て、投稿カードとして表示されます。`presentation: 'media'` はメディアのグリッドで表示し、タップで作品内のメディアを開きます。投稿にメディアがなくてもかまいません。メディアのアドレスはプラグインが宣言したドメインと権限に従います。
 
 ### 詳細：`detail`
@@ -697,5 +703,6 @@ liveChatEvent(state, event) {
 
 - `metadataOnly: true`: 情報専用プラグインは `metadataSearch` と `metadataDetail` が必須で、`metadataMagnets`、通常の `feeds`・`search` とフィルターも宣言できます。結果は情報詳細のみを開き、横断メディア検索・再生・お気に入り・ダウンロードには入りません。通常の `detail` や再生機能は宣言しません。サイト解析はプラグイン内に置きます。 `rankings` も宣言できます。市場ランキングは `section: 'market'` を指定します。
 - `metadataSearch(keyword, context?)` は最大100件の `{id, code, title, url, cover?}` を返します。`code` は実際の品番を使い、タイトルから推測しません。該当なしは `[]`、認証・解析失敗は例外です。複数候補は利用者が選びます。 省略可能な `context.category` は現在のカテゴリです。複数カテゴリの市場プラグインは検索範囲を限定し、返す ID に元サイトのチャンネル識別を保持します。ランキングプラグインも実装できます。
-- `metadataDetail(id, context?)` は候補の必須項目と任意の `description`、`releaseDate`、`duration`、`director`、`studio`、`publisher`、`series`、`rating`、`actors: string[]`、`tags: string[]`、`images: string[]` を返します。不明な文字列と配列は空にし、情報を捏造しません。作品 URL は宣言ドメイン内、画像は資格情報・ポートなしの公開 HTTPS に限定します。 `metadataDetail(id, context?)` は任意のランキング情報 `{url, board}` を受け取ります。独立ランキングも自サイトの作品 ID から実際の情報を返せます。URL のドメインと ID との対応を検証し、外部 URL を信用しないでください。著者は任意の `authors: string[]` です。 `description` はプレーンテキストを推奨します。ランタイムは HTML から安全にテキストを抽出し、`br` とブロックの改行を保持し、スクリプトとフォームを無視します。
+- `metadataDetail(id, context?)` は候補の必須項目と任意の `description`、`releaseDate`、`duration`、`director`、`studio`、`publisher`、`series`、`rating`、`actors: string[]`、`tags: string[]`、`images: (string | {url: string, thumbnail?: string})[]` を返します。不明な文字列と配列は空にし、情報を捏造しません。作品 URL は宣言ドメイン内、画像は資格情報・ポートなしの公開 HTTPS に限定します。 `metadataDetail(id, context?)` は任意のランキング情報 `{url, board}` を受け取ります。独立ランキングも自サイトの作品 ID から実際の情報を返せます。URL のドメインと ID との対応を検証し、外部 URL を信用しないでください。著者は任意の `authors: string[]` です。 `description` はプレーンテキストを推奨します。ランタイムは HTML から安全にテキストを抽出し、`br` とブロックの改行を保持し、スクリプトとフォームを無視します。
+- 元サイトの用途に合わせ、`images` は URL 文字列または `{url, thumbnail?}` を受け取ります。`url` は拡大表示用、`thumbnail` は一覧のサムネイルです。別サイズがない場合は同じ URL を使用します。大画像 URL で重複を除き、対応するサムネイルを保持します（最大100件）。両方に同じ HTTPS 検証を適用します。一覧と詳細の表紙も元サイトに合わせ、ファイル名の推測や会員制限の回避は行いません。画像オブジェクトにはアプリ 0.11.0 以降が必要です。
 - `metadataMagnets(id)` は最大500件の `{url, name, size?, date?, tags?: string[]}` を返します。有効な `magnet:?xt=urn:btih:...` のみ許可し、ハッシュで重複排除します。情報と磁力リンクは個別に読み込み・再試行し、切替や閉じる操作で旧要求を中止します。コピーと外部起動は利用者操作時のみ、JAV 検索には実際の品番を使います。

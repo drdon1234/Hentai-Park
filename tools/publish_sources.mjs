@@ -165,7 +165,7 @@ export async function generateIndex({ root = defaultRoot, commit, previousIndex,
     keys.add(key);
     requiredText(entry.name, `${key} name`);
     if (typeof entry.description !== 'string') throw new Error(`${key} description 必须是字符串`);
-    if (!['doujin', 'anime', 'aiDrama', 'jav', 'adult', 'shortvideo', 'recording', 'gallery', 'illustration', 'novel', 'game', 'other', 'live'].includes(entry.category)) {
+    if (!['feed', 'doujin', 'anime', 'aiDrama', 'jav', 'adult', 'shortvideo', 'recording', 'gallery', 'illustration', 'novel', 'game', 'other', 'live'].includes(entry.category)) {
       throw new Error(`${key} category 必须是有效的内容分类`);
     }
     versionParts(entry.version);
@@ -189,6 +189,9 @@ export async function generateIndex({ root = defaultRoot, commit, previousIndex,
     }
     if (manifest.category !== entry.category) {
       throw new Error(`${entry.file} 注册的 category 与清单不一致`);
+    }
+    if (entry.category === 'feed' && (entry.type !== 'article' || manifest.type !== 'article' || !manifest.capabilities.detail)) {
+      throw new Error(`${entry.file} 的资讯类型或详情能力无效`);
     }
     validateMedia(manifest);
     validateChat(manifest);

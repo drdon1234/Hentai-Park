@@ -74,7 +74,7 @@ void validateSettings(Map<String, dynamic> values) {
     'novelFont': {'system', 'serif', 'monospace'},
     'novelMode': {'scroll', 'paged'},
     'novelTheme': {'paper', 'white', 'green', 'dark', 'system'},
-    'libraryFilterKind': {'all', 'comic', 'video', 'novel', 'game'},
+    'libraryFilterKind': {'all', 'comic', 'video', 'novel', 'game', 'article'},
     'librarySort': {'added', 'read', 'title', 'updated'},
     'libraryDisplay': {'grid', 'list'},
     'historyDisplay': {'grid', 'list'},

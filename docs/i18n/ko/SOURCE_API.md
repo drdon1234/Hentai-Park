@@ -72,7 +72,7 @@ Park.register({
   name: '我的站点',
   version: '0.0.1',
   minAppVersion: '0.9.2',           // 숫자 세 개. 저장소 버전이 더 높으면 업데이트를 안내
-  type: 'comic',              // comic | video | novel | game: 읽기·재생 방식을 결정
+  type: 'comic',              // comic | video | novel | game | article: 콘텐츠 동작 결정
   category: 'doujin',         // doujin | anime | aiDrama | jav | adult | shortvideo | recording | live | gallery | illustration | novel | game | other
   color: '#E5355F',           // 브랜드 색: 사이트 아이콘과 사이트 페이지
   description: '一句话介绍',
@@ -265,6 +265,12 @@ account: {
 - `managedAccount: true`와 `account.enableManaged()`는 선택적 계정 관리 기능이며 설명을 제공하고 사용자가 확인한 후에만 활성화합니다. 수동 계정과 관리 계정을 별도로 저장하고 기존 인증 정보를 덮어쓰지 마세요. 계정 데이터는 기기에서만 사용하며 문서, 진단, 배포 파일에 포함하지 마세요.
 - 비밀번호, 토큰, 플러그인 상태는 사용자 기기의 데이터입니다. 문서나 로그에 실제 인증 정보를 쓰지 마세요.
 
+## 기사와 도메인 확인
+
+기사 소스는 `type: 'article', category: 'feed'`를 선언하고 목록 항목에 `mediaKind: 'article'`을 지정합니다. `detail(id)`의 비어 있지 않은 `blocks`는 원래 순서대로 `{type: 'text', text}`, `{type: 'image', url}`, `{type: 'video', id}`를 반환합니다. 이미지는 공개 HTTPS여야 하며 안정적인 영상 ID로 재생 시 `videos(id, videoId)`를 호출합니다. `tagLinks`의 `{name, url}`은 선언된 도메인에 속해야 하며 `searchLink`로 처리합니다. 본문과 임시 미디어 주소는 일반 상세 캐시에 저장하지 않고 즐겨찾기와 기록에는 요약만 저장합니다.
+
+`Park.createDomainResolver({initialOrigin, accept, discover, verify})`는 신뢰할 수 있는 게시 페이지의 후보를 `accept`와 `verify`로 확인하고 성공한 출처를 소스 전용 store에 저장합니다. `resolver.request(this, path, options)`는 `{response, origin}`을 반환하고 403, 502/503/504, 시간 초과 또는 분류된 연결/DNS 오류에서 전환합니다. GET, HEAD와 `readOnly`, `allowDomainRetry`가 모두 지정된 공개 검색 POST만 재전송합니다. 허용되지 않은 헤더, 인증서 오류, 취소와 다른 쓰기 작업은 전환하지 않습니다. 리디렉션은 동일 출처로 제한되며 브라우저와 미디어 권한은 확장되지 않습니다.
+
 ## 메서드
 
 메서드 안의 `this`는 '런타임 API'를 참고하세요. 모든 메서드는 `async`로 쓸 수 있습니다.
@@ -306,7 +312,7 @@ async resolveGameResource(workId, resourceId, channelId) {}
 
 - `coverAspect` (너비 / 높이)가 있으면 이미지가 로드되기 전에 격자를 배치할 수 있습니다.
 - `badgeColor`는 분류 배지의 색입니다.
-- `mediaKind: 'comic' | 'video' | 'novel' | 'game'`은 작품 자체의 유형입니다. 유형이 하나인 플러그인은 생략할 수 있지만, 섞여 있는 플러그인은 반드시 지정하고 플러그인의 `type`만 보고 이미지를 동영상으로 다루면 안 됩니다. 소설과 게임 작품은 항상 지정하여 플러그인을 제거해도 오프라인 작품과 기록이 올바른 리더로 열리게 합니다.
+- `mediaKind: 'comic' | 'video' | 'novel' | 'game' | 'article'`은 작품 자체의 유형입니다. 유형이 하나인 플러그인은 생략할 수 있지만 혼합 유형은 반드시 지정합니다. 소설, 게임, 기사는 항상 지정해 플러그인 제거 후에도 유형을 유지합니다.
 - 게시물 형식의 결과는 `presentation: 'post'`, `text`, `date`, `url`, `media` 배열을 가질 수 있으며 게시물 카드로 표시됩니다. `presentation: 'media'`는 미디어 격자로 표시하고 누르면 작품 안의 미디어를 엽니다. 게시물에 미디어가 없어도 됩니다. 미디어 주소는 플러그인이 선언한 도메인과 권한을 따릅니다.
 
 ### 상세: `detail`
@@ -686,5 +692,6 @@ liveChatEvent(state, event) {
 
 - `metadataOnly: true`: 정보 전용 플러그인은 `metadataSearch`, `metadataDetail`을 구현해야 하며 `metadataMagnets`, 일반 `feeds`, `search`와 필터도 선언할 수 있습니다. 결과는 정보 상세로만 연결되며 통합 미디어·재생·즐겨찾기·다운로드에 포함되지 않습니다. 일반 `detail`과 재생 기능은 선언하지 않습니다. 사이트 분석은 플러그인에 둡니다. `rankings`도 선언할 수 있으며 시장 순위에는 `section: 'market'`을 지정합니다.
 - `metadataSearch(keyword, context?)`는 최대 100개 `{id, code, title, url, cover?}` 후보를 반환합니다. `code`는 실제 품번만 사용하고 제목에서 추측하지 않습니다. 결과 없음은 `[]`, 인증·파싱 실패는 오류입니다. 여러 후보는 사용자가 선택합니다. 선택적 `context.category`는 현재 분류입니다. 여러 분류를 지원하는 시장 플러그인은 검색 범위를 제한하고 반환 ID에 원본 채널 식별자를 유지합니다. 순위 플러그인도 이 메서드를 구현할 수 있습니다.
-- `metadataDetail(id, context?)`는 필수 후보 필드와 선택 필드 `description`, `releaseDate`, `duration`, `director`, `studio`, `publisher`, `series`, `rating`, `actors: string[]`, `authors: string[]`, `tags: string[]`, `images: string[]`를 반환합니다. 누락된 문자열과 배열은 비우며 정보를 만들지 않습니다. 작품 URL은 선언 도메인, 이미지는 인증 정보·포트 없는 공개 HTTPS여야 합니다. `metadataDetail(id, context?)`은 선택적 순위 컨텍스트 `{url, board}`를 받습니다. 독립 순위도 자체 작품 ID의 실제 정보를 반환할 수 있습니다. URL 도메인과 ID의 연관성을 검증하고 외부 URL을 신뢰하지 마세요. 저자는 선택적 `authors: string[]`입니다. `description`은 일반 텍스트를 권장합니다. 런타임은 HTML 텍스트를 안전하게 추출하고 `br`과 블록 줄바꿈을 유지하며 스크립트와 폼을 무시합니다.
+- `metadataDetail(id, context?)`는 필수 후보 필드와 선택 필드 `description`, `releaseDate`, `duration`, `director`, `studio`, `publisher`, `series`, `rating`, `actors: string[]`, `authors: string[]`, `tags: string[]`, `images: (string | {url: string, thumbnail?: string})[]`를 반환합니다. 누락된 문자열과 배열은 비우며 정보를 만들지 않습니다. 작품 URL은 선언 도메인, 이미지는 인증 정보·포트 없는 공개 HTTPS여야 합니다. `metadataDetail(id, context?)`은 선택적 순위 컨텍스트 `{url, board}`를 받습니다. 독립 순위도 자체 작품 ID의 실제 정보를 반환할 수 있습니다. URL 도메인과 ID의 연관성을 검증하고 외부 URL을 신뢰하지 마세요. 저자는 선택적 `authors: string[]`입니다. `description`은 일반 텍스트를 권장합니다. 런타임은 HTML 텍스트를 안전하게 추출하고 `br`과 블록 줄바꿈을 유지하며 스크립트와 폼을 무시합니다.
+- 원본 사이트의 용도를 따릅니다. `images`는 URL 문자열 또는 `{url, thumbnail?}`을 받습니다. `url`은 확대 보기용 큰 이미지이며 `thumbnail`은 미리보기 목록용 썸네일입니다. 별도 크기가 없으면 같은 주소를 사용합니다. 큰 이미지 URL로 중복을 제거하고 해당 썸네일을 유지하며 최대 100개입니다. 두 주소에 동일한 HTTPS 검증을 적용합니다. 목록과 상세 표지도 원본 사이트에 맞추며 파일명을 추측하거나 회원 제한을 우회하지 않습니다. 이미지 객체는 앱 0.11.0 이상이 필요합니다.
 - `metadataMagnets(id)`는 최대 500개 `{url, name, size?, date?, tags?: string[]}`를 반환합니다. 유효한 `magnet:?xt=urn:btih:...`만 허용하고 해시로 중복 제거합니다. 정보와 마그넷은 별도로 로드·재시도하며 전환·닫기 시 이전 요청을 취소합니다. 복사·외부 열기는 사용자 동작 때만 수행하고 JAV 검색은 실제 품번을 사용합니다.

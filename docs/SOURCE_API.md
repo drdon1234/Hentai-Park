@@ -72,7 +72,7 @@ Park.register({
   name: '我的站点',
   version: '0.0.1',
   minAppVersion: '0.9.2',     // 最低本体版本，三段数字；与官方清单一致
-  type: 'comic',              // comic | video | novel | game：决定阅读、播放或游戏资源行为
+  type: 'comic',              // comic | video | novel | game | article：决定内容行为
   category: 'doujin',         // doujin | anime | aiDrama | jav | adult | shortvideo | recording | live | gallery | illustration | novel | game | other
   color: '#E5355F',           // 品牌色：站点头像与站点页
   description: '一句话介绍',
@@ -162,6 +162,7 @@ return { browser: {
 
 | 分类 | 说明 |
 | --- | --- |
+| `feed` | 吃瓜图文：声明 `type: 'article'`，正文可按顺序包含文字、图片和视频 |
 | `doujin` | 本子与漫画 |
 | `gallery` | 三次元美图：Cosplay、写真与真人图集。图片站声明 `type: 'comic'`，一个图集是一个作品，图片通过 `chapter()` 按顺序返回，复用阅读、收藏和下载；分类不按张数或尺度区分 |
 | `illustration` | 二次元美图：插画与动漫图片。图片站声明 `type: 'comic'`，一个图集是一个作品，图片通过 `chapter()` 按顺序返回，复用阅读、收藏和下载；分类不按张数或尺度区分 |
@@ -328,6 +329,12 @@ account: {
 - `managedAccount: true` 与 `account.enableManaged()` 提供可选的账号管理能力，只在用户知情确认后启用。手动账号与托管账号分别保存，不能覆盖已有凭据；账号数据仅在本机使用，不进入文档、诊断或发布产物。
 - 账号密码、Token 和插件状态都是用户本机数据，文档和日志里不要出现真实凭据。
 
+## 吃瓜图文与域名解析
+
+吃瓜插件声明 `type: 'article', category: 'feed'`，列表作品填写 `mediaKind: 'article'`。`detail(id)` 返回普通作品字段与非空 `blocks`，依原站顺序使用 `{type: 'text', text}`、`{type: 'image', url}` 或 `{type: 'video', id}`；图片必须是公网 HTTPS，视频 ID 为稳定标识，播放时通过 `videos(id, videoId)` 取得当次地址。需要标签直达时，`tagLinks` 使用 `{name, url}`，URL 必须属于已声明源域且由 `searchLink(url, {page})` 处理。正文和临时媒体地址不进入普通详情缓存，收藏与历史只保存作品摘要。
+
+`Park.createDomainResolver({initialOrigin, accept, discover, verify})` 为源提供按需分流。`discover(http)` 只能读取可信发布页并返回候选来源，`accept(origin)` 限定站点所属地址，`verify(body)` 核对候选首页；成功来源保存在该源的私有 store。`resolver.request(this, path, options)` 返回 `{response, origin}`；仅在 403、502/503/504、超时或可分类连接/DNS 故障时尝试新来源。只有 GET、HEAD 和同时声明 `readOnly: true, allowDomainRetry: true` 的公开查询 POST 可重放；含非白名单请求头的请求、证书错误、取消与其他写操作不切换。跳转必须保持同源，浏览器和媒体权限不会因新地址自动扩大。插件必须限制发布页和候选地址，禁止把页面中广告链接当作站点来源。
+
 ## 方法
 
 方法里的 `this` 见“运行时 API”。所有方法都可以是 `async`。
@@ -389,7 +396,7 @@ async resolveGameResource(workId, resourceId, channelId) {}
 
 - `coverAspect`（宽 / 高）让网格在图片加载前就排好版。
 - `badgeColor` 用于分类角标的颜色。
-- `mediaKind: 'comic' | 'video' | 'novel' | 'game'` 描述作品本身的类型。插件只有一种类型时可以省略；混合类型时必须填写，不能凭插件的 `type` 把图片当成视频。小说和游戏作品总是填写，这样卸载插件后离线作品和历史仍能用正确的阅读器打开。
+- `mediaKind: 'comic' | 'video' | 'novel' | 'game' | 'article'` 描述作品本身的类型。插件只有一种类型时可以省略；混合类型时必须填写，不能凭插件的 `type` 把图片当成视频。小说、游戏和吃瓜作品总是填写，这样卸载插件后仍保留正确类型。
 - 帖子类结果可以带 `presentation: 'post'`、`text`、`date`、`url` 和 `media` 数组，以帖子卡片显示；`presentation: 'media'` 用媒体网格显示，点击进入作品中的媒体。帖子正文允许没有媒体；媒体地址仍受插件声明的域名和权限约束。
 
 ### 详情：`detail`
@@ -801,7 +808,8 @@ liveChatEvent(state, event) {
 
 - `metadataOnly: true`: 独立资料插件必须实现 `metadataSearch`、`metadataDetail`，可实现 `metadataMagnets`，也可声明普通 `feeds`、`search` 及其筛选协议和 `rankings`；市场榜单显式声明 `section: 'market'`。浏览和搜索结果进入资料详情，不进入聚合片源、播放、收藏或下载链路；不声明普通 `detail` 或播放能力。站点解析规则仅放在插件。
 - `metadataSearch(keyword, context?)` 返回最多 100 个候选：`{id, code, title, url, cover?}`。`id` 为源内身份，`code` 为真实番号；不得仅按标题猜测番号。无匹配返回 `[]`，验证页和解析异常必须抛错。排行榜插件也可声明此能力，作为域内资料搜索入口。可选 `context.category` 为当前域，跨域市场插件应据此限制搜索范围；返回 ID 必须足以在后续详情请求中恢复原站频道身份。多个匹配由用户选择，不默认采用第一条。
-- `metadataDetail(id, context?)` 返回候选必填字段，以及可选的 `description`、`releaseDate`、`duration`、`director`、`studio`、`publisher`、`series`、`rating`、`actors: string[]`、`tags: string[]`、`images: string[]`。缺失文本留空，缺失集合用空数组，不伪造评分、简介或其他字段。`description` 优先返回纯文本；运行时对 HTML 简介安全提取文本，保留 `br` 和块级换行并忽略脚本、表单等内容。作品 `url` 必须属于插件声明域；封面和预览图只能是无凭据、无端口的公网 HTTPS 地址。 `metadataDetail(id, context?)` 接收可选榜单上下文 `{url, board}`。独立榜单和资料插件均可实现此接口，按本站作品 ID 返回真实资料；插件必须校验上下文 URL 的域名及其与作品 ID 的关联，不信任外部传入 URL。可选作者字段为 `authors: string[]`。
+- `metadataDetail(id, context?)` 返回候选必填字段，以及可选的 `description`、`releaseDate`、`duration`、`director`、`studio`、`publisher`、`series`、`rating`、`actors: string[]`、`tags: string[]`、`images: (string | {url: string, thumbnail?: string})[]`。缺失文本留空，缺失集合用空数组，不伪造评分、简介或其他字段。`description` 优先返回纯文本；运行时对 HTML 简介安全提取文本，保留 `br` 和块级换行并忽略脚本、表单等内容。作品 `url` 必须属于插件声明域；封面和预览图只能是无凭据、无端口的公网 HTTPS 地址。 `metadataDetail(id, context?)` 接收可选榜单上下文 `{url, board}`。独立榜单和资料插件均可实现此接口，按本站作品 ID 返回真实资料；插件必须校验上下文 URL 的域名及其与作品 ID 的关联，不信任外部传入 URL。可选作者字段为 `authors: string[]`。
+- 预览图按源站用途区分：`images` 接受单地址字符串或 `{url, thumbnail?}`，`url` 是点开后的大图，`thumbnail` 是预览区使用的源站缩略图；只有一个地址时两处共用。每项按大图 URL 去重并保留对应缩略图，最多 100 项；两种地址均执行相同的 HTTPS 校验。列表封面取源站列表图，详情封面取源站详情大图，不猜测文件名或绕过会员权限。图片对象格式需要应用 0.11.0 或更高版本。
 - `metadataMagnets(id)` 返回最多 500 条 `{url, name, size?, date?, tags?: string[]}`。`url` 仅接受有效 `magnet:?xt=urn:btih:...`，按内容哈希去重。资料与磁链独立加载和重试，切换作品、来源或关闭页面取消旧请求。界面只按用户操作复制或调用外部应用打开磁链；“搜索 JAV 站点”用资料中的真实番号继续应用内 JAV 聚合搜索。
 
 ### 列表过滤语义

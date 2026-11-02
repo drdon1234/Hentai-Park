@@ -14,6 +14,7 @@ import '../library/downloads.dart';
 import '../library/playback_resolver.dart';
 import 'detail/detail_page.dart';
 import 'discovery_navigation.dart';
+import 'feed/feed_article.dart';
 import 'metadata/metadata_page.dart';
 import 'novel/novel_reader_page.dart';
 import 'reader/reader_page.dart';
@@ -188,6 +189,8 @@ class Nav {
                 'url': item.json['url'],
             },
           )
+        : SourceManager.instance.kindOf(item) == MediaKind.article
+        ? FeedArticlePage(item: item)
         : _short(item.source, item)
         ? ShortVideoPage(
             source: item.source,
@@ -230,7 +233,12 @@ class Nav {
     if (resolved == null || !context.mounted) return;
     await push(
       context,
-      _short(source)
+      manager.manifest(source)?.kind == MediaKind.article
+          ? FeedArticlePage(
+              item: WorkItem({'id': resolved}, source),
+              sourceManager: manager,
+            )
+          : _short(source)
           ? ShortVideoPage(source: source, initialId: resolved)
           : DetailPage(
               source: source,

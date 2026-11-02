@@ -72,7 +72,7 @@ Park.register({
   name: '我的站点',
   version: '0.0.1',
   minAppVersion: '0.9.2',           // three numbers; the app offers an update when the repository has a higher one
-  type: 'comic',              // comic | video | novel | game: how works are read or played
+  type: 'comic',              // comic | video | novel | game | article: how content is used
   category: 'doujin',         // doujin | anime | aiDrama | jav | adult | shortvideo | recording | live | gallery | illustration | novel | game | other
   color: '#E5355F',           // brand color: site avatar and site page
   description: '一句话介绍',
@@ -276,6 +276,12 @@ On sign-out, the app removes only the localStorage keys declared by the site fro
 - `managedAccount: true` and `account.enableManaged()` provide optional account management, enabled only after informed user confirmation. Store manual and managed accounts separately without overwriting existing credentials. Account data stays on the device and must not appear in documentation, diagnostics or release artifacts.
 - Passwords, tokens and plugin state are the user's local data; never put real credentials in documents or logs.
 
+## Articles and Domain Resolution
+
+Article sources declare `type: 'article', category: 'feed'` and set `mediaKind: 'article'` on list items. `detail(id)` returns normal work fields plus nonempty ordered `blocks`: `{type: 'text', text}`, `{type: 'image', url}`, or `{type: 'video', id}`. Images require public HTTPS; video IDs are stable and `videos(id, videoId)` supplies a fresh address. Optional `tagLinks` contain `{name, url}` within declared source domains and are handled by `searchLink`. Ordinary detail caching excludes article bodies and temporary media addresses; favorites and history retain summaries.
+
+`Park.createDomainResolver({initialOrigin, accept, discover, verify})` discovers candidates from a trusted publication page, restricts their origins with `accept`, checks their homepages with `verify`, and stores the successful origin in the source's private store. `resolver.request(this, path, options)` returns `{response, origin}` and switches on 403, 502/503/504, timeouts or classified connection/DNS failures. Only GET, HEAD and public query POSTs explicitly marked `readOnly` and `allowDomainRetry` are replayed. Non-allowlisted headers, certificate failures, cancellation and other writes do not trigger switching. Redirects stay same-origin; browser and media permissions are not expanded.
+
 ## Methods
 
 `this` inside methods is described in "Runtime API". All methods may be `async`.
@@ -317,7 +323,7 @@ Implement `searchSuggestions(keyword)` to export `capabilities.searchSuggestions
 
 - `coverAspect` (width / height) lets the grid lay out before images load.
 - `badgeColor` colors the category badge.
-- `mediaKind: 'comic' | 'video' | 'novel' | 'game'` is the work's own type. Plugins with a single type may omit it; mixed-type plugins must set it — never treat images as videos just because of the plugin's `type`. Novel and game works always set it, so offline works and history still open in the right reader after the plugin is uninstalled.
+- `mediaKind: 'comic' | 'video' | 'novel' | 'game' | 'article'` is the work's own type. Plugins with a single type may omit it; mixed-type plugins must set it. Novel, game and article items always set it to retain their type after the plugin is uninstalled.
 - Post-style results may include `presentation: 'post'`, `text`, `date`, `url` and a `media` array to show as post cards; `presentation: 'media'` shows a media grid that opens the media inside the work. Posts may have no media; media URLs remain subject to the plugin's declared domains and permissions.
 
 ### Details: `detail`
@@ -697,5 +703,6 @@ liveChatEvent(state, event) {
 
 - `metadataOnly: true`: Standalone information plugins must implement `metadataSearch` and `metadataDetail`, may implement `metadataMagnets`, and may declare regular `feeds`, `search` and their filters. Results open information details and never enter aggregated media, playback, favorites or downloads. Do not declare regular `detail` or playback capabilities. Keep site parsing in plugins. Plugins may also declare `rankings`; market boards set `section: 'market'`.
 - `metadataSearch(keyword, context?)` returns up to 100 candidates: `{id, code, title, url, cover?}`. `id` is the source identity; `code` must be a real catalog code, never guessed from a title. Return `[]` for no matches and throw for verification or parsing failures. Users choose among multiple matches. Optional `context.category` is the current category; multi-category market plugins restrict searches accordingly and retain the original channel identity in returned IDs. Ranking plugins may also implement this method.
-- `metadataDetail(id, context?)` returns required candidate fields plus optional `description`, `releaseDate`, `duration`, `director`, `studio`, `publisher`, `series`, `rating`, `actors: string[]`, `authors: string[]`, `tags: string[]`, `images: string[]`. Missing text stays empty and missing lists are empty arrays; never invent ratings or descriptions. Work URLs must belong to declared domains. Images must use public HTTPS without credentials or ports. `metadataDetail(id, context?)` accepts optional ranking context `{url, board}`. Standalone rankings may implement it to return actual information for their own work ID. Validate the context URL domain and its association with the ID; never trust an external URL. Optional authors use `authors: string[]`. Prefer plain text for `description`; the runtime safely extracts HTML text, preserves `br` and block line breaks, and ignores scripts and forms.
+- `metadataDetail(id, context?)` returns required candidate fields plus optional `description`, `releaseDate`, `duration`, `director`, `studio`, `publisher`, `series`, `rating`, `actors: string[]`, `authors: string[]`, `tags: string[]`, `images: (string | {url: string, thumbnail?: string})[]`. Missing text stays empty and missing lists are empty arrays; never invent ratings or descriptions. Work URLs must belong to declared domains. Images must use public HTTPS without credentials or ports. `metadataDetail(id, context?)` accepts optional ranking context `{url, board}`. Standalone rankings may implement it to return actual information for their own work ID. Validate the context URL domain and its association with the ID; never trust an external URL. Optional authors use `authors: string[]`. Prefer plain text for `description`; the runtime safely extracts HTML text, preserves `br` and block line breaks, and ignores scripts and forms.
+- Match the source image roles: `images` accepts a single URL string or `{url, thumbnail?}`. `url` is the large image opened by the viewer; `thumbnail` is the source thumbnail displayed in the preview grid. A single address serves both roles when no separate size exists. Deduplicate by large-image URL while retaining its thumbnail, with at most 100 entries. Both addresses undergo the same HTTPS validation. Use source list covers for lists and source detail covers for details; do not guess filenames or bypass membership restrictions. Image objects require app 0.11.0 or later.
 - `metadataMagnets(id)` returns up to 500 `{url, name, size?, date?, tags?: string[]}` entries. Only valid `magnet:?xt=urn:btih:...` URLs are accepted and entries are deduplicated by content hash. Information and magnets load and retry separately; changing work or provider or closing cancels old requests. Copying and external opening require user actions. Search JAV sites uses the real code for in-app JAV aggregate search.

@@ -315,6 +315,114 @@
     return Object.keys(headers).some((k) => k.toLowerCase() === lower);
   }
 
+  // Resolve a source's origin only from its own publication page and validate
+  // candidates before storing them. Redirects must stay on the current origin.
+  function createDomainResolver(config) {
+    if (!config || typeof config.initialOrigin !== 'string' || typeof config.accept !== 'function' ||
+        typeof config.discover !== 'function' || typeof config.verify !== 'function') {
+      throw new ParkError(ErrorCode.CONFIG, '访问受限');
+    }
+    let initial;
+    function origin(value) {
+      try {
+        const u = new URL(String(value || ''));
+        if (u.protocol !== 'https:' || u.username || u.password || u.port ||
+            u.pathname !== '/' || u.search || u.hash || !url.parse(u.href, u.href, [u.hostname])) return '';
+        return u.origin;
+      } catch (_) { return ''; }
+    }
+    function initialOrigin() {
+      if (!initial) initial = origin(config.initialOrigin);
+      if (!initial) throw new ParkError(ErrorCode.CONFIG, '访问受限');
+      return initial;
+    }
+    function allowed(value) {
+      const candidate = origin(value);
+      return candidate && (candidate === initialOrigin() || config.accept(candidate)) ? candidate : '';
+    }
+    function current(source) {
+      return allowed(source.store.get('resolvedOrigin')) || initialOrigin();
+    }
+    async function requestAt(source, base, path, options) {
+      if (typeof path !== 'string' || !path.startsWith('/') || path.startsWith('//')) {
+        throw new ParkError(ErrorCode.CONFIG, '访问受限');
+      }
+      let target = new URL(path, base);
+      for (let hop = 0; hop < 5; hop++) {
+        if (target.origin !== base || target.username || target.password) throw new ParkError(ErrorCode.BLOCKED, '访问受限');
+        const response = await source.http.request({...options, url: target.href, followRedirects: false, mode: 'native'});
+        if (new URL(response.url || target.href).origin !== base) throw new ParkError(ErrorCode.BLOCKED, '访问受限');
+        if (![301, 302, 303, 307, 308].includes(response.status)) return response;
+        const location = response.headers?.location || response.headers?.Location;
+        if (!location || !['GET', 'HEAD'].includes(String(options.method || 'GET').toUpperCase())) {
+          throw new ParkError(ErrorCode.BLOCKED, '访问受限');
+        }
+        target = new URL(location, target);
+      }
+      throw new ParkError(ErrorCode.NETWORK, '访问受限');
+    }
+    function recoverable(error) {
+      if (error?.code === 'TIMEOUT') return true;
+      if (error?.code === 'CLOUDFLARE' && error.status === 403) return true;
+      if (error?.code === 'BLOCKED' && error.diagnostics?.reason === 'FIREWALL_BLOCKED') return true;
+      return error?.code === 'NETWORK' &&
+        ['DNS', 'CONNECTION', 'CONNECT_TIMEOUT', 'RECEIVE_TIMEOUT', 'SEND_TIMEOUT', 'NETWORK'].includes(error.diagnostics?.reason);
+    }
+    async function refresh(source, failed) {
+      return (async () => {
+        const values = await config.discover(source.http);
+        if (!Array.isArray(values) || values.length > 100) throw new ParkError(ErrorCode.PARSE, '加载失败');
+        for (const value of [...new Set(values)]) {
+          const candidate = allowed(value);
+          if (!candidate || candidate === failed) continue;
+          try {
+            const probe = await requestAt(source, candidate, '/', {method: 'GET', timeout: 12000});
+            if (!probe.ok || !config.verify(probe.body)) continue;
+            source.store.set('resolvedOrigin', candidate);
+            return candidate;
+          } catch (error) {
+            if (error?.code === 'CANCELLED') throw error;
+          }
+        }
+        return '';
+      })();
+    }
+    return {
+      current,
+      async request(source, path, options = {}) {
+        const method = String(options.method || 'GET').toUpperCase();
+        const safeHeaders = new Set(['accept', 'accept-language', 'cache-control', 'pragma', 'x-requested-with']);
+        const headers = {...source.network?.headers, ...options.headers};
+        const publicHeaders = Object.keys(headers).every(name => safeHeaders.has(name.toLowerCase()));
+        const noBody = ['body', 'bodyBase64', 'multipart', 'form', 'json'].every(key => options[key] === undefined);
+        const replayable = publicHeaders && ((['GET', 'HEAD'].includes(method) && noBody) ||
+          (method === 'POST' && options.bodyBase64 === undefined && options.multipart === undefined &&
+           options.readOnly === true && options.allowDomainRetry === true));
+        const requestOptions = {...options, method};
+        delete requestOptions.allowDomainRetry;
+        const base = current(source);
+        let response, failure;
+        try { response = await requestAt(source, base, path, requestOptions); }
+        catch (error) { failure = error; }
+        if (failure?.code === 'NETWORK' && failure.diagnostics?.reason === 'DNS' && !failure.status) {
+          failure = new ParkError(ErrorCode.NETWORK, '网络连接失败', {diagnostics: failure.diagnostics});
+        }
+        if (!replayable || (failure ? !recoverable(failure) : ![403, 502, 503, 504].includes(response.status))) {
+          if (failure) throw failure;
+          return {response, origin: base};
+        }
+        let next = '';
+        try { next = await refresh(source, base); }
+        catch (error) { if (error?.code === 'CANCELLED') throw error; }
+        if (!next) {
+          if (failure) throw failure;
+          return {response, origin: base};
+        }
+        return {response: await requestAt(source, next, path, requestOptions), origin: next};
+      },
+    };
+  }
+
   // ── Crypto / cookies ────────────────────────────────────
 
   function call(kind, op, args) {
@@ -738,6 +846,7 @@
     crypto,
     utils,
     url,
+    createDomainResolver,
     __native: global.Park && global.Park.__native,
     __pending: null,
 
