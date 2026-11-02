@@ -22,7 +22,9 @@ import '../../engine/platform_bridge.dart';
 import '../../engine/source_manager.dart';
 import '../../library/library.dart';
 import '../../video/playback_release.dart';
+import '../kit/immersive.dart';
 import '../nav.dart';
+import '../theme.dart';
 import '../video/video_controls.dart';
 import '../video/video_layout.dart';
 import '../widgets/content_translation.dart';
@@ -308,7 +310,13 @@ class _WebVideoPageState extends State<WebVideoPage>
   @override
   void didPopNext() {
     _visible = true;
-    unawaited(PlatformBridge.applyVideoFullscreen(_fullscreen));
+    unawaited(
+      PlatformBridge.applyVideoFullscreen(
+        _fullscreen,
+        keepNavigationBar:
+            MediaQuery.orientationOf(context) == Orientation.portrait,
+      ),
+    );
     unawaited(_load());
   }
 
@@ -448,7 +456,13 @@ class _WebVideoPageState extends State<WebVideoPage>
   void _setFullscreen(bool value) {
     if (!mounted) return;
     setState(() => _fullscreen = value);
-    unawaited(PlatformBridge.applyVideoFullscreen(value));
+    unawaited(
+      PlatformBridge.applyVideoFullscreen(
+        value,
+        keepNavigationBar:
+            MediaQuery.orientationOf(context) == Orientation.portrait,
+      ),
+    );
   }
 
   @override
@@ -469,7 +483,14 @@ class _WebVideoPageState extends State<WebVideoPage>
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) => AnnotatedRegion<SystemUiOverlayStyle>(
+    value: ParkTheme.overlayStyle(
+      _fullscreen ? Brightness.dark : Theme.of(context).brightness,
+    ),
+    child: ImmersiveRegion(enabled: _fullscreen, child: _buildPage(context)),
+  );
+
+  Widget _buildPage(BuildContext context) {
     final policy = _policy;
     final session = _keepAlive;
     return Scaffold(

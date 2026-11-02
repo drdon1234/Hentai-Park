@@ -9,7 +9,6 @@ import '../../core/settings.dart';
 import '../../core/tag_blocklist.dart';
 import '../../engine/shared_feed.dart';
 import '../album/open_album.dart';
-import '../feed/feed_article.dart';
 import '../subscriptions/subscription_source_page.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
@@ -132,8 +131,6 @@ class _FeedShelfState extends State<FeedShelf>
         unawaited(session.loadMore());
       } else if (widget.sessions.sources.manifest(widget.sourceKey)?.isNovel !=
               true &&
-          widget.sessions.sources.manifest(widget.sourceKey)?.isArticle !=
-              true &&
           _fillRequests < 3 &&
           (!_scroll.hasClients ||
               (_scroll.position.hasContentDimensions &&
@@ -230,13 +227,13 @@ class _FeedShelfState extends State<FeedShelf>
         source: widget.sourceKey,
         onRetry: _loadMore,
       );
-    } else if (!ready && manifest?.isArticle == true) {
-      body = const LoadingIndicator();
     } else if (!ready) {
       body = TickerMode(
         enabled: session?.loading == true,
         child: _ShelfSkeleton(
-          aspect: manifest?.isVideo == true ? 16 / 9 : .7,
+          aspect: manifest?.isVideo == true || manifest?.isArticle == true
+              ? 16 / 9
+              : .7,
           novel: novel,
           imageOnly: manifest?.isLive == true,
           source: widget.sourceKey,
@@ -244,14 +241,6 @@ class _FeedShelfState extends State<FeedShelf>
       );
     } else if (items.isEmpty) {
       body = _ShelfMessage(message: tr('暂时没有内容'), onRetry: _loadMore);
-    } else if (manifest?.kind == MediaKind.article) {
-      body = Column(
-        children: [
-          for (final item in widget.onMore == null ? items : items.take(3))
-            FeedArticleTile(item: item),
-          if (more && widget.onMore == null) _tail(session),
-        ],
-      );
     } else if (novel) {
       final preview = widget.onMore == null ? items : items.take(3).toList();
       body = Column(

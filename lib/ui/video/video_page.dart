@@ -19,6 +19,7 @@ import '../../engine/platform_bridge.dart';
 import '../../engine/source_manager.dart';
 import '../kit/adaptive_sheet.dart';
 import '../kit/components.dart';
+import '../kit/immersive.dart';
 import '../nav.dart';
 import '../theme.dart';
 import '../web/web_video_page.dart';
@@ -423,6 +424,7 @@ class _VideoPageState extends State<VideoPage>
           await PlatformBridge.applyVideoFullscreen(
             mode != VideoDisplayMode.inline,
             landscape: mode == VideoDisplayMode.landscape,
+            keepNavigationBar: mode == VideoDisplayMode.portrait,
           );
         })
         .catchError((Object _) {});
@@ -549,7 +551,10 @@ class _VideoPageState extends State<VideoPage>
       );
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) =>
+      ImmersiveRegion(enabled: _fullscreen, child: _buildPage(context));
+
+  Widget _buildPage(BuildContext context) {
     final player = VideoPlayerInput(
       key: _playerKey,
       onPlayPause: _togglePlayback,
@@ -626,7 +631,10 @@ class _VideoPageState extends State<VideoPage>
         },
         child: Scaffold(
           backgroundColor: Colors.black,
-          body: Center(child: player),
+          body: AnnotatedRegion<SystemUiOverlayStyle>(
+            value: ParkTheme.overlayStyle(Brightness.dark),
+            child: SafeArea(top: false, child: Center(child: player)),
+          ),
         ),
       );
     }

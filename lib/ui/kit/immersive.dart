@@ -1,6 +1,6 @@
 import 'package:flutter/widgets.dart';
 
-/// Pages that draw edge to edge (readers, the short-video feed) register here while they are
+/// Pages that draw edge to edge (readers, fullscreen players, the short-video feed) register here while they are
 /// mounted, so the app stops painting its own strip under the system navigation bar and the
 /// page's own background shows through instead.
 abstract final class Immersive {
@@ -8,7 +8,8 @@ abstract final class Immersive {
 }
 
 class ImmersiveRegion extends StatefulWidget {
-  const ImmersiveRegion({super.key, required this.child});
+  const ImmersiveRegion({super.key, required this.child, this.enabled = true});
+  final bool enabled;
   final Widget child;
 
   @override
@@ -26,12 +27,18 @@ class _ImmersiveRegionState extends State<ImmersiveRegion> {
   @override
   void initState() {
     super.initState();
-    _change(1);
+    if (widget.enabled) _change(1);
+  }
+
+  @override
+  void didUpdateWidget(ImmersiveRegion oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.enabled != widget.enabled) _change(widget.enabled ? 1 : -1);
   }
 
   @override
   void dispose() {
-    _change(-1);
+    if (widget.enabled) _change(-1);
     super.dispose();
   }
 

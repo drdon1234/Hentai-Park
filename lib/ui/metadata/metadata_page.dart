@@ -12,8 +12,8 @@ import '../../core/work_metadata.dart';
 import '../../engine/ranking_details.dart';
 import '../../engine/source_manager.dart';
 import '../comments/comments_page.dart';
+import '../home/sites_page.dart';
 import '../nav.dart';
-import '../settings/source_manage_page.dart';
 import '../theme.dart';
 import '../web/source_web_page.dart';
 import '../widgets/common.dart';
@@ -211,11 +211,6 @@ class _MetadataPageState extends State<MetadataPage> {
               onPressed: _chooseSource,
               icon: const Icon(Icons.swap_horiz_rounded),
             ),
-          IconButton(
-            tooltip: tr('管理站点'),
-            onPressed: () => Nav.push(context, const SourceManagePage()),
-            icon: const Icon(Icons.extension_outlined),
-          ),
         ],
       ),
       body: AnimatedBuilder(
@@ -260,9 +255,8 @@ class _MetadataPageState extends State<MetadataPage> {
                     message: tr('在站点管理中启用或安装资料插件'),
                     actions: [
                       OutlinedButton(
-                        onPressed: () =>
-                            Nav.push(context, const SourceManagePage()),
-                        child: Text(tr('管理站点')),
+                        onPressed: () => Nav.push(context, const SitesPage()),
+                        child: Text(tr('查看全部')),
                       ),
                     ],
                   )

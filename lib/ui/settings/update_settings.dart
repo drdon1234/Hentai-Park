@@ -3,9 +3,7 @@ import 'package:flutter/material.dart';
 import '../../core/localization.dart';
 import '../../core/settings.dart';
 import '../../engine/app_updater.dart';
-import '../nav.dart';
 import '../updates/update_prompt.dart';
-import 'source_manage_page.dart';
 
 class UpdateSettings extends StatelessWidget {
   const UpdateSettings({super.key, this.appUpdater});
@@ -65,12 +63,6 @@ class UpdateSettings extends StatelessWidget {
                 child: Text(tr(updater.running ? '正在检查软件更新…' : '检查软件更新')),
               ),
             ),
-          ),
-          ListTile(
-            leading: const Icon(Icons.extension_outlined),
-            title: SelectionContainer.disabled(child: Text(tr('站点管理'))),
-            trailing: const Icon(Icons.chevron_right_rounded),
-            onTap: () => Nav.push(context, const SourceManagePage()),
           ),
         ],
       ),

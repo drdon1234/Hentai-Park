@@ -85,7 +85,7 @@ class ReverseSearchForm extends StatelessWidget {
             title: tr('没有启用的反搜服务'),
             message: tr('在站点管理中启用或安装站点'),
             actions: [
-              ToolbarButton(onPressed: onManage, child: Text(tr('管理站点'))),
+              ToolbarButton(onPressed: onManage, child: Text(tr('查看全部'))),
             ],
           )
         else ...[

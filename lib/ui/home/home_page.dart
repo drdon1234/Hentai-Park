@@ -15,7 +15,6 @@ import '../metadata/metadata_sites_page.dart';
 import '../nav.dart';
 import '../rankings/rankings_page.dart';
 import '../search/reverse_search_page.dart';
-import '../settings/source_manage_page.dart';
 import '../subscriptions/subscriptions_page.dart';
 import '../theme.dart';
 import 'dimension_filter.dart';
@@ -484,8 +483,8 @@ class _HomePageState extends State<HomePage> {
           message: tr('在站点管理中启用或安装站点'),
           actions: [
             FilledButton(
-              onPressed: () => Nav.push(context, const SourceManagePage()),
-              child: SelectionContainer.disabled(child: Text(tr('管理站点'))),
+              onPressed: () => Nav.push(context, const SitesPage()),
+              child: SelectionContainer.disabled(child: Text(tr('查看全部'))),
             ),
           ],
         ),

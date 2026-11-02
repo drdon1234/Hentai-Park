@@ -38,11 +38,12 @@ class MainActivity : FlutterFragmentActivity() {
     private var launchPayload: String? = null
     private var videoBrightness: Float? = null
     private var videoFullscreen = false
+    private var videoKeepNavigationBar = false
     private val videoOrientation by lazy { VideoOrientation(this) }
     private var downloadsChannel: MethodChannel? = null
     private var videoSystemUi: VideoSystemUi? = null
 
-    private data class VideoSystemUi(val visibleTypes: Int, val behavior: Int)
+    private data class VideoSystemUi(val visibleTypes: Int, val behavior: Int, val lightNavigation: Boolean)
 
     /** Requested refresh rate in Hz; 0 = the highest the display offers at the current resolution. */
     private var refreshRate = 0.0
@@ -208,6 +209,7 @@ class MainActivity : FlutterFragmentActivity() {
                         try {
                             val args = call.arguments as Map<*, *>
                             videoFullscreen = args["enabled"] == true
+                            videoKeepNavigationBar = args["keepNavigationBar"] == true
                             if (videoFullscreen) videoOrientation.start(args["landscape"] == true)
                             else videoOrientation.stop()
                             if (videoFullscreen) hideVideoSystemBars()
@@ -279,10 +281,16 @@ class MainActivity : FlutterFragmentActivity() {
             if (insets?.isVisible(WindowInsetsCompat.Type.statusBars()) != false) visibleTypes = visibleTypes or WindowInsetsCompat.Type.statusBars()
             if (insets?.isVisible(WindowInsetsCompat.Type.navigationBars()) != false) visibleTypes = visibleTypes or WindowInsetsCompat.Type.navigationBars()
             if (insets?.isVisible(WindowInsetsCompat.Type.captionBar()) == true) visibleTypes = visibleTypes or WindowInsetsCompat.Type.captionBar()
-            videoSystemUi = VideoSystemUi(visibleTypes, controller.systemBarsBehavior)
+            videoSystemUi = VideoSystemUi(visibleTypes, controller.systemBarsBehavior, controller.isAppearanceLightNavigationBars)
         }
         controller.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
-        controller.hide(WindowInsetsCompat.Type.systemBars())
+        if (videoKeepNavigationBar) {
+            controller.hide(WindowInsetsCompat.Type.statusBars() or WindowInsetsCompat.Type.captionBar())
+            controller.isAppearanceLightNavigationBars = false
+            controller.show(WindowInsetsCompat.Type.navigationBars())
+        } else {
+            controller.hide(WindowInsetsCompat.Type.systemBars())
+        }
     }
 
     private fun restoreVideoSystemBars(clear: Boolean) {
@@ -290,6 +298,7 @@ class MainActivity : FlutterFragmentActivity() {
         val controller = WindowCompat.getInsetsController(window, window.decorView)
         val hiddenTypes = WindowInsetsCompat.Type.systemBars() and original.visibleTypes.inv()
         controller.systemBarsBehavior = original.behavior
+        controller.isAppearanceLightNavigationBars = original.lightNavigation
         if (original.visibleTypes != 0) controller.show(original.visibleTypes)
         if (hiddenTypes != 0) controller.hide(hiddenTypes)
         if (clear) videoSystemUi = null

@@ -5,9 +5,9 @@ import '../../core/localization.dart';
 import '../../core/models.dart';
 import '../../core/settings.dart';
 import '../../engine/source_manager.dart';
+import '../home/sites_page.dart';
 import '../kit/adaptive_sheet.dart';
 import '../nav.dart';
-import '../settings/source_manage_page.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
 import '../widgets/content_translation.dart';
@@ -483,9 +483,9 @@ class _AggregateSearchPageState extends State<AggregateSearchPage> {
                         actions: [
                           OutlinedButton(
                             onPressed: () =>
-                                Nav.push(context, const SourceManagePage()),
+                                Nav.push(context, const SitesPage()),
                             child: SelectionContainer.disabled(
-                              child: Text(tr('管理站点')),
+                              child: Text(tr('查看全部')),
                             ),
                           ),
                         ],

@@ -11,30 +11,29 @@ import '../widgets/common.dart';
 class RankingSettingsPage extends StatefulWidget {
   const RankingSettingsPage({
     super.key,
-    required this.category,
     required this.manager,
     required this.onDetailChanged,
     required this.onSearchChanged,
     this.origin,
-    this.detailSource = '',
-    this.searchSource = '',
+    required this.detailSources,
+    required this.searchSources,
   });
 
-  final SourceCategory category;
   final SourceManager manager;
   final String? origin;
-  final String detailSource, searchSource;
-  final ValueChanged<String> onDetailChanged, onSearchChanged;
+  final Map<String, String> detailSources, searchSources;
+  final void Function(SourceCategory, String) onDetailChanged, onSearchChanged;
 
   @override
   State<RankingSettingsPage> createState() => _RankingSettingsPageState();
 }
 
 class _RankingSettingsPageState extends State<RankingSettingsPage> {
-  late String _detail = widget.detailSource;
-  late String _search = widget.searchSource;
+  late final _details = Map<String, String>.of(widget.detailSources);
+  late final _searches = Map<String, String>.of(widget.searchSources);
 
   Future<void> _choose({
+    required SourceCategory category,
     required String title,
     required Map<String, String> options,
     required String selected,
@@ -50,12 +49,12 @@ class _RankingSettingsPageState extends State<RankingSettingsPage> {
     if (!mounted || value == null) return;
     setState(() {
       if (detail) {
-        _detail = value;
+        _details[category.name] = value;
       } else {
-        _search = value;
+        _searches[category.name] = value;
       }
     });
-    (detail ? widget.onDetailChanged : widget.onSearchChanged)(value);
+    (detail ? widget.onDetailChanged : widget.onSearchChanged)(category, value);
   }
 
   @override
@@ -64,59 +63,81 @@ class _RankingSettingsPageState extends State<RankingSettingsPage> {
     body: ListenableBuilder(
       listenable: widget.manager,
       builder: (context, _) {
-        final details = {
-          '': tr('源站优先'),
-          for (final source in rankingDetailSources(
-            widget.manager,
-            widget.category,
-            origin: widget.origin,
-          ))
-            source.key: source.manifest!.name,
-        };
-        final searches = {
-          '': tr('全部'),
-          'preferred': tr('域首选项'),
-          for (final source in widget.manager.displayEnabled.where(
-            (source) =>
-                source.manifest!.category == widget.category &&
-                source.manifest!.can('search') &&
-                !source.manifest!.metadataOnly &&
-                !source.manifest!.rankingOnly,
-          ))
-            source.key: source.manifest!.name,
-        };
-        final detail = details.containsKey(_detail) ? _detail : '';
-        final search = searches.containsKey(_search) ? _search : '';
+        final categories = SourceCategory.values.where(
+          (category) => widget.manager.enabled.any(
+            (source) => source.manifest!.rankings.any(
+              (board) => board.category == category,
+            ),
+          ),
+        );
+        Widget group(SourceCategory category) {
+          final details = {
+            '': tr('源站优先'),
+            for (final source in rankingDetailSources(
+              widget.manager,
+              category,
+              origin:
+                  widget.manager
+                          .manifest(widget.origin ?? '')
+                          ?.rankings
+                          .any((board) => board.category == category) ==
+                      true
+                  ? widget.origin
+                  : null,
+            ))
+              source.key: source.manifest!.name,
+          };
+          final searches = {
+            '': tr('全部'),
+            'preferred': tr('域首选项'),
+            for (final source in widget.manager.displayEnabled.where(
+              (source) =>
+                  source.manifest!.category == category &&
+                  source.manifest!.can('search') &&
+                  !source.manifest!.metadataOnly &&
+                  !source.manifest!.rankingOnly,
+            ))
+              source.key: source.manifest!.name,
+          };
+          final detail = details.containsKey(_details[category.name])
+              ? _details[category.name]!
+              : '';
+          final search = searches.containsKey(_searches[category.name])
+              ? _searches[category.name]!
+              : '';
+          return RowGroup(
+            title: category.label,
+            children: [
+              _row(
+                title: tr('详情站点'),
+                value: details[detail]!,
+                onTap: () => _choose(
+                  category: category,
+                  title: tr('详情站点'),
+                  options: details,
+                  selected: detail,
+                  detail: true,
+                ),
+              ),
+              _row(
+                title: tr('搜索站点'),
+                value: searches[search]!,
+                onTap: () => _choose(
+                  category: category,
+                  title: tr('搜索站点'),
+                  options: searches,
+                  selected: search,
+                  detail: false,
+                ),
+              ),
+            ],
+          );
+        }
+
         return SettingsBody(
           child: ListView(
             padding: const EdgeInsets.only(bottom: Gap.page),
-            children: [
-              RowGroup(
-                title: widget.category.label,
-                children: [
-                  _row(
-                    title: tr('详情站点'),
-                    value: details[detail]!,
-                    onTap: () => _choose(
-                      title: tr('详情站点'),
-                      options: details,
-                      selected: detail,
-                      detail: true,
-                    ),
-                  ),
-                  _row(
-                    title: tr('搜索站点'),
-                    value: searches[search]!,
-                    onTap: () => _choose(
-                      title: tr('搜索站点'),
-                      options: searches,
-                      selected: search,
-                      detail: false,
-                    ),
-                  ),
-                ],
-              ),
-            ],
+            children: [for (final category in categories) group(category)],
           ),
         );
       },

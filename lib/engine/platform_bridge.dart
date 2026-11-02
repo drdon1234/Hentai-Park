@@ -160,10 +160,12 @@ class PlatformBridge {
   // ── Video controls ──
 
   /// Android uses its current insets API: Flutter's immersiveSticky request is
-  /// ignored on target SDK 36. The same native session restores prior bar state.
+  /// ignored on target SDK 36. Portrait players retain navigation; readers may
+  /// still hide all bars. The same native session restores prior bar state.
   static Future<void> applyVideoFullscreen(
     bool enabled, {
     bool landscape = false,
+    bool keepNavigationBar = false,
   }) async {
     if (PlatformCapabilities.desktop) {
       await windowManager.setFullScreen(enabled);
@@ -174,12 +176,18 @@ class PlatformBridge {
         await _channel.invokeMethod('setVideoFullscreen', {
           'enabled': enabled,
           'landscape': landscape,
+          'keepNavigationBar': keepNavigationBar,
         });
         return;
       } catch (_) {}
     }
     await SystemChrome.setEnabledSystemUIMode(
-      enabled ? SystemUiMode.immersiveSticky : SystemUiMode.edgeToEdge,
+      enabled
+          ? (keepNavigationBar
+                ? SystemUiMode.manual
+                : SystemUiMode.immersiveSticky)
+          : SystemUiMode.edgeToEdge,
+      overlays: enabled && keepNavigationBar ? [SystemUiOverlay.bottom] : null,
     );
   }
 

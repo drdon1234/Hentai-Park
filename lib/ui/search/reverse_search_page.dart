@@ -14,8 +14,8 @@ import '../../core/reverse_search_history.dart';
 import '../../engine/source_manager.dart';
 import '../../images/image_input.dart';
 import '../../images/search_image.dart';
+import '../home/sites_page.dart';
 import '../nav.dart';
-import '../settings/source_manage_page.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
 import '../widgets/content_translation.dart';
@@ -238,7 +238,7 @@ class _ReverseSearchPageState extends State<ReverseSearchPage> {
     }),
     onSearch: _search,
     onCancel: _searchController.cancel,
-    onManage: () => Nav.push(context, const SourceManagePage()),
+    onManage: () => Nav.push(context, const SitesPage()),
   );
 
   List<Widget> _resultHeader(BuildContext context) => [
@@ -361,11 +361,6 @@ class _ReverseSearchPageState extends State<ReverseSearchPage> {
                     },
             ),
             const TranslationControls(),
-            IconButton(
-              tooltip: tr('管理站点'),
-              icon: const Icon(Icons.extension_outlined),
-              onPressed: () => Nav.push(context, const SourceManagePage()),
-            ),
           ],
         ),
         body: ImageInputRegion(

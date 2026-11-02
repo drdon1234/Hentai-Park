@@ -7,8 +7,8 @@ import '../../core/localization.dart';
 import '../../core/models.dart';
 import '../../core/settings.dart';
 import '../../engine/source_manager.dart';
+import '../home/sites_page.dart';
 import '../nav.dart';
-import '../settings/source_manage_page.dart';
 import '../widgets/common.dart';
 import '../widgets/content_translation.dart';
 import '../widgets/error_view.dart';
@@ -88,16 +88,14 @@ class _RankingsPageState extends State<RankingsPage> {
       '${entry.source.key}:${entry.board.key}';
 
   void _openConfiguration() {
-    final category = _category;
     Nav.push(
       context,
       RankingSettingsPage(
-        category: category,
         manager: _manager,
         origin: _selected?.split(':').first,
-        detailSource: _detailSources[category.name] ?? '',
-        searchSource: _searchSources[category.name] ?? '',
-        onDetailChanged: (value) {
+        detailSources: _detailSources,
+        searchSources: _searchSources,
+        onDetailChanged: (category, value) {
           if (!mounted) return;
           setState(() {
             if (value.isEmpty) {
@@ -108,7 +106,7 @@ class _RankingsPageState extends State<RankingsPage> {
             _save();
           });
         },
-        onSearchChanged: (value) {
+        onSearchChanged: (category, value) {
           if (!mounted) return;
           setState(() {
             _searchSources[category.name] = value;
@@ -148,11 +146,6 @@ class _RankingsPageState extends State<RankingsPage> {
                   ? _openConfiguration
                   : null,
             ),
-          ),
-          IconButton(
-            tooltip: tr('管理站点'),
-            icon: const Icon(Icons.extension_outlined),
-            onPressed: () => Nav.push(context, const SourceManagePage()),
           ),
         ],
       ),
@@ -204,8 +197,8 @@ class _RankingsPageState extends State<RankingsPage> {
               message: tr('在站点管理中启用或安装站点'),
               actions: [
                 TextButton(
-                  onPressed: () => Nav.push(context, const SourceManagePage()),
-                  child: SelectionContainer.disabled(child: Text(tr('管理站点'))),
+                  onPressed: () => Nav.push(context, const SitesPage()),
+                  child: SelectionContainer.disabled(child: Text(tr('查看全部'))),
                 ),
               ],
             );

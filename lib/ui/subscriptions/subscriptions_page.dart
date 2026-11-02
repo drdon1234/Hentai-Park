@@ -9,8 +9,8 @@ import '../../engine/source_manager.dart';
 import '../../subscriptions/subscription_store.dart';
 import '../../subscriptions/update_store.dart';
 import '../../subscriptions/updater.dart';
+import '../home/sites_page.dart';
 import '../nav.dart';
-import '../settings/source_manage_page.dart';
 import '../settings/source_settings_page.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
@@ -49,7 +49,7 @@ class _SubscriptionsPageState extends State<SubscriptionsPage> {
         .where((s) => s.manifest!.can('subscriptionUpdates'))
         .toList();
     if (providers.isEmpty) {
-      await Nav.push(context, const SourceManagePage());
+      await Nav.push(context, const SitesPage());
       return;
     }
     final saved = await showDialog<bool>(
@@ -82,19 +82,7 @@ class _SubscriptionsPageState extends State<SubscriptionsPage> {
         SubscriptionUpdater.instance,
       ]),
       builder: (context, _) => Scaffold(
-        appBar: widget.embedded
-            ? null
-            : AppBar(
-                title: Text(tr('订阅')),
-                actions: [
-                  IconButton(
-                    tooltip: tr('站点管理'),
-                    onPressed: () =>
-                        Nav.push(context, const SourceManagePage()),
-                    icon: const Icon(Icons.tune),
-                  ),
-                ],
-              ),
+        appBar: widget.embedded ? null : AppBar(title: Text(tr('订阅'))),
         floatingActionButton: store.loaded && store.items.isNotEmpty
             ? FloatingActionButton.extended(
                 onPressed: _add,

@@ -57,11 +57,13 @@ class DomainEntryButton extends StatelessWidget {
   final VoidCallback onPressed;
 
   @override
-  Widget build(BuildContext context) => TextButton(
-    style: TextButton.styleFrom(
-      foregroundColor: Theme.of(context).colorScheme.primary,
-      minimumSize: const Size(48, 40),
-      padding: EdgeInsets.zero,
+  Widget build(BuildContext context) => OutlinedButton(
+    style: OutlinedButton.styleFrom(
+      minimumSize: const Size(48, 48),
+      padding: const EdgeInsets.symmetric(horizontal: Gap.m),
+      backgroundColor: context.colors.primaryContainer,
+      foregroundColor: context.colors.onPrimaryContainer,
+      side: BorderSide(color: context.colors.outlineVariant),
       textStyle: Theme.of(context).textTheme.labelLarge
           ?.copyWith(fontWeight: FontWeight.w400),
     ),
@@ -83,7 +85,7 @@ class DomainEntryButton extends StatelessWidget {
   );
 }
 
-/// 总览中的横向域文字导航；订阅始终位于首位，不受内容筛选影响。
+/// 总览中的横向域按钮导航；订阅始终位于首位，不受内容筛选影响。
 class DiscoveryDomainCards extends StatelessWidget {
   const DiscoveryDomainCards({super.key, required this.onSelected});
 
@@ -105,6 +107,7 @@ class DiscoveryDomainCards extends StatelessWidget {
               child: _DomainChip(
                 destination: destination,
                 selected: false,
+                contained: true,
                 onSelected: onSelected,
               ),
             ),
@@ -160,7 +163,9 @@ class _DomainChip extends StatefulWidget {
     required this.destination,
     required this.selected,
     required this.onSelected,
+    this.contained = false,
   });
+  final bool contained;
   final DiscoveryDestination destination;
   final bool selected;
   final ValueChanged<DiscoveryDestination> onSelected;
@@ -193,6 +198,20 @@ class _DomainChipState extends State<_DomainChip> {
 
   @override
   Widget build(BuildContext context) {
+    if (widget.contained) {
+      return OutlinedButton(
+        style: OutlinedButton.styleFrom(
+          minimumSize: const Size(48, 48),
+          padding: const EdgeInsets.symmetric(horizontal: Gap.l),
+          backgroundColor: context.colors.surfaceContainerLow,
+          side: BorderSide(color: context.colors.outlineVariant),
+        ),
+        onPressed: () => widget.onSelected(widget.destination),
+        child: SelectionContainer.disabled(
+          child: Text(widget.destination.label),
+        ),
+      );
+    }
     return Semantics(
       selected: widget.selected,
       child: TextButton(

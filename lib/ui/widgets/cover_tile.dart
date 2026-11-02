@@ -519,7 +519,9 @@ double cardTextExtent(
 double gridAspectFor(List<WorkItem> items, MediaKind kind) {
   final aspects = items.map((e) => e.coverAspect).whereType<double>().toList()
     ..sort();
-  if (aspects.isEmpty) return kind == MediaKind.video ? 16 / 9 : 0.7;
+  if (aspects.isEmpty) {
+    return kind == MediaKind.video || kind == MediaKind.article ? 16 / 9 : 0.7;
+  }
   return aspects[aspects.length ~/ 2].clamp(0.5, 1.9);
 }
 
