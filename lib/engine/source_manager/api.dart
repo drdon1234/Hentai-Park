@@ -18,12 +18,14 @@ mixin _SourceApi on _SourceRegistry {
     String key,
     String keyword, {
     CancelToken? cancelToken,
+    SourceCategory? category,
   }) async {
     if (manifest(key)?.can('metadataSearch') != true) {
       throw SourceError('UNSUPPORTED', '此插件不支持作品资料');
     }
     final result = await _call(key, 'metadataSearch', [
       keyword,
+      if (category != null) {'category': category.name},
     ], cancelToken: cancelToken);
     if (result is! List ||
         result.length > 100 ||

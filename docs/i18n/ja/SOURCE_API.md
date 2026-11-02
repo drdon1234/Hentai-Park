@@ -695,7 +695,7 @@ liveChatEvent(state, event) {
 
 ## 作品情報とマグネットリンク
 
-- `metadataOnly: true`: 情報専用プラグインは `metadataSearch` と `metadataDetail` が必須で、`metadataMagnets`、通常の `feeds`・`search` とフィルターも宣言できます。結果は情報詳細のみを開き、横断メディア検索・再生・お気に入り・ダウンロードには入りません。通常の `detail` や再生機能は宣言しません。サイト解析はプラグイン内に置きます。
-- `metadataSearch(keyword)` は最大100件の `{id, code, title, url, cover?}` を返します。`code` は実際の品番を使い、タイトルから推測しません。該当なしは `[]`、認証・解析失敗は例外です。複数候補は利用者が選びます。
-- `metadataDetail(id, context?)` は候補の必須項目と任意の `description`、`releaseDate`、`duration`、`director`、`studio`、`publisher`、`series`、`rating`、`actors: string[]`、`tags: string[]`、`images: string[]` を返します。不明な文字列と配列は空にし、情報を捏造しません。作品 URL は宣言ドメイン内、画像は資格情報・ポートなしの公開 HTTPS に限定します。 `metadataDetail(id, context?)` は任意のランキング情報 `{url, board}` を受け取ります。独立ランキングも自サイトの作品 ID から実際の情報を返せます。URL のドメインと ID との対応を検証し、外部 URL を信用しないでください。著者は任意の `authors: string[]` です。
+- `metadataOnly: true`: 情報専用プラグインは `metadataSearch` と `metadataDetail` が必須で、`metadataMagnets`、通常の `feeds`・`search` とフィルターも宣言できます。結果は情報詳細のみを開き、横断メディア検索・再生・お気に入り・ダウンロードには入りません。通常の `detail` や再生機能は宣言しません。サイト解析はプラグイン内に置きます。 `rankings` も宣言できます。市場ランキングは `section: 'market'` を指定します。
+- `metadataSearch(keyword, context?)` は最大100件の `{id, code, title, url, cover?}` を返します。`code` は実際の品番を使い、タイトルから推測しません。該当なしは `[]`、認証・解析失敗は例外です。複数候補は利用者が選びます。 省略可能な `context.category` は現在のカテゴリです。複数カテゴリの市場プラグインは検索範囲を限定し、返す ID に元サイトのチャンネル識別を保持します。ランキングプラグインも実装できます。
+- `metadataDetail(id, context?)` は候補の必須項目と任意の `description`、`releaseDate`、`duration`、`director`、`studio`、`publisher`、`series`、`rating`、`actors: string[]`、`tags: string[]`、`images: string[]` を返します。不明な文字列と配列は空にし、情報を捏造しません。作品 URL は宣言ドメイン内、画像は資格情報・ポートなしの公開 HTTPS に限定します。 `metadataDetail(id, context?)` は任意のランキング情報 `{url, board}` を受け取ります。独立ランキングも自サイトの作品 ID から実際の情報を返せます。URL のドメインと ID との対応を検証し、外部 URL を信用しないでください。著者は任意の `authors: string[]` です。 `description` はプレーンテキストを推奨します。ランタイムは HTML から安全にテキストを抽出し、`br` とブロックの改行を保持し、スクリプトとフォームを無視します。
 - `metadataMagnets(id)` は最大500件の `{url, name, size?, date?, tags?: string[]}` を返します。有効な `magnet:?xt=urn:btih:...` のみ許可し、ハッシュで重複排除します。情報と磁力リンクは個別に読み込み・再試行し、切替や閉じる操作で旧要求を中止します。コピーと外部起動は利用者操作時のみ、JAV 検索には実際の品番を使います。

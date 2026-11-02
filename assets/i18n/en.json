@@ -1725,10 +1725,18 @@
   "已安装 {count} 个词包": "Installed {count} packs",
   "未完成：{items}": "Not completed: {items}",
   "详情站点": "Detail site",
-  "按优先级": "By priority",
-  "排行榜作品详情站点优先级": "Ranking detail site priority",
   "无码": "Uncensored",
   "含磁链": "With magnets",
   "复制编号": "Copy ID",
-  "拖动排序；本站榜单默认打开本站详情，跨站查找按同域优先级，指定详情站点时使用所选站点。": "Drag to reorder. Site rankings open their own details by default. Cross-site lookup follows priorities within the same domain; an explicitly selected detail site is used directly."
+  "源站优先": "Original site first",
+  "域首选项": "Category preference",
+  "搜索站点": "Search site",
+  "正在更新站点插件": "Updating site plugins",
+  "移除 {site} 的 {language} 词库？": "Remove the {language} dictionary for {site}?",
+  "分页游标无效": "Invalid page cursor",
+  "搜索关键词无效": "Invalid search keyword",
+  "账号状态无效": "Unable to verify account status",
+  "从旧到新": "Oldest first",
+  "排行榜配置": "Ranking settings",
+  "排行榜与作品资料": "Rankings and work information"
 }

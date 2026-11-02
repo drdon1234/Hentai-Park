@@ -684,7 +684,7 @@ liveChatEvent(state, event) {
 
 ## 作品資料與磁鏈
 
-- `metadataOnly: true`: 獨立資料外掛必須實作 `metadataSearch`、`metadataDetail`，可實作 `metadataMagnets`，也可宣告普通 `feeds`、`search` 及其篩選協議。結果只進入資料詳情，不進入聚合片源、播放、收藏或下載；不宣告普通 `detail` 或播放能力。站點規則僅在外掛維護。
-- `metadataSearch(keyword)` 回傳最多 100 個 `{id, code, title, url, cover?}` 候選。`code` 必須是真實番號，不從標題猜測；無匹配回傳 `[]`，驗證及解析異常必須拋錯，多個匹配由使用者選擇。
-- `metadataDetail(id, context?)` 回傳候選必填欄位及可選的 `description`、`releaseDate`、`duration`、`director`、`studio`、`publisher`、`series`、`rating`、`actors: string[]`、`tags: string[]`、`images: string[]`。缺失文字留空、集合為空陣列，不虛構資料。作品 `url` 屬於宣告域；圖片限無憑據、無連接埠的公網 HTTPS。 `metadataDetail(id, context?)` 接收可選排行榜上下文 `{url, board}`。獨立榜單可按本站作品 ID 回傳真實資料；必須校驗 URL 網域及其與 ID 的關聯，不信任外部 URL。可選作者欄位為 `authors: string[]`。
+- `metadataOnly: true`: 獨立資料外掛必須實作 `metadataSearch`、`metadataDetail`，可實作 `metadataMagnets`，也可宣告普通 `feeds`、`search` 及其篩選協議。結果只進入資料詳情，不進入聚合片源、播放、收藏或下載；不宣告普通 `detail` 或播放能力。站點規則僅在外掛維護。 也可宣告 `rankings`；市場榜單設定 `section: 'market'`。
+- `metadataSearch(keyword, context?)` 回傳最多 100 個 `{id, code, title, url, cover?}` 候選。`code` 必須是真實番號，不從標題猜測；無匹配回傳 `[]`，驗證及解析異常必須拋錯，多個匹配由使用者選擇。 可選 `context.category` 是目前領域；跨領域市場插件依此限定搜尋，回傳 ID 必須保留原站頻道身分。排行榜插件也可提供此介面。
+- `metadataDetail(id, context?)` 回傳候選必填欄位及可選的 `description`、`releaseDate`、`duration`、`director`、`studio`、`publisher`、`series`、`rating`、`actors: string[]`、`tags: string[]`、`images: string[]`。缺失文字留空、集合為空陣列，不虛構資料。作品 `url` 屬於宣告域；圖片限無憑據、無連接埠的公網 HTTPS。 `metadataDetail(id, context?)` 接收可選排行榜上下文 `{url, board}`。獨立榜單可按本站作品 ID 回傳真實資料；必須校驗 URL 網域及其與 ID 的關聯，不信任外部 URL。可選作者欄位為 `authors: string[]`。 `description` 優先使用純文字；執行階段安全擷取 HTML 文字，保留 `br` 與區塊換行並忽略腳本及表單。
 - `metadataMagnets(id)` 回傳最多 500 條 `{url, name, size?, date?, tags?: string[]}`，僅接受有效 `magnet:?xt=urn:btih:...`，依內容雜湊去重。資料與磁鏈分別載入和重試；切換或關閉取消舊請求。只依使用者操作複製或開啟外部應用程式；JAV 搜尋使用真實番號。

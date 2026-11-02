@@ -9,6 +9,7 @@ import '../../core/localization.dart';
 import '../../core/models.dart';
 import '../../core/settings.dart';
 import '../../core/work_metadata.dart';
+import '../../engine/ranking_details.dart';
 import '../../engine/source_manager.dart';
 import '../comments/comments_page.dart';
 import '../nav.dart';
@@ -48,7 +49,10 @@ class MetadataPage extends StatefulWidget {
 
 class _MetadataPageState extends State<MetadataPage> {
   SourceManager get _manager => widget.sourceManager ?? SourceManager.instance;
-  late final _controller = MetadataController(_manager);
+  late final _controller = MetadataController(
+    _manager,
+    category: widget.category,
+  );
   late final _text = TextEditingController(text: widget.keyword);
   final _networkSettings = AppSettings.instance.watch(const {'proxy'});
   StreamSubscription<String>? _authentication;
@@ -142,6 +146,11 @@ class _MetadataPageState extends State<MetadataPage> {
         ? _controller.detail?.code ?? _text.text.trim()
         : _controller.detail?.title ?? _text.text.trim();
     if (keyword.isEmpty) return;
+    final source = rankingSearchSource(_manager, widget.category);
+    if (source != null) {
+      Nav.openSourceSearch(context, source, keyword: keyword);
+      return;
+    }
     Nav.openAggregateSearch(
       context,
       keyword: keyword,
@@ -221,7 +230,11 @@ class _MetadataPageState extends State<MetadataPage> {
                 if (widget.keyword.isEmpty && widget.id == null)
                   ParkSearchField(
                     controller: _text,
-                    hint: tr('搜索番号、作品名或演员'),
+                    hint: tr(
+                      widget.category == SourceCategory.jav
+                          ? '搜索番号、作品名或演员'
+                          : '搜索作品名、标签或作者',
+                    ),
                     onSubmitted: (_) => _search(),
                     trailing: [
                       if (_text.text.isNotEmpty)
@@ -313,7 +326,11 @@ class _MetadataPageState extends State<MetadataPage> {
                   EmptyState(
                     icon: Icons.info_outline_rounded,
                     title: tr('搜索作品资料'),
-                    message: tr('搜索番号、作品名或演员'),
+                    message: tr(
+                      widget.category == SourceCategory.jav
+                          ? '搜索番号、作品名或演员'
+                          : '搜索作品名、标签或作者',
+                    ),
                   ),
                 const SizedBox(height: Gap.xl),
               ],

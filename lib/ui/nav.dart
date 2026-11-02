@@ -175,7 +175,19 @@ class Nav {
   ) => push(
     context,
     SourceManager.instance.manifest(item.source)?.metadataOnly == true
-        ? MetadataPage(sourceKey: item.source, id: item.id, keyword: item.title)
+        ? MetadataPage(
+            sourceKey: item.source,
+            id: item.id,
+            keyword: item.title,
+            category: SourceCategory.values.any((c) => c.name == item.category)
+                ? SourceCategory.fromJson(item.category)
+                : SourceManager.instance.manifest(item.source)!.category,
+            detailContext: {
+              if (item.json['url'] is String &&
+                  (item.json['url'] as String).isNotEmpty)
+                'url': item.json['url'],
+            },
+          )
         : _short(item.source, item)
         ? ShortVideoPage(
             source: item.source,

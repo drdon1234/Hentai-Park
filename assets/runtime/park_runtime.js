@@ -996,8 +996,14 @@
           const loadOptions = async function () {
             const declared = board.options || [];
             if (!declared.some(o => o.dynamic)) return declared;
-            if (typeof this.rankingOptions !== 'function') throw new ParkError(ErrorCode.CONFIG, '未知列表');
-            const dynamic = await this.rankingOptions(board.key);
+            const dynamic = typeof this.rankingOptions === 'function'
+              ? await this.rankingOptions(board.key)
+              : board.feed && typeof this.filterOptions === 'function'
+                ? await Promise.all(declared.filter(o => o.dynamic).map(async option => ({
+                  key: option.key,
+                  values: await this.filterOptions({scope: 'feed', feed: board.feed, filter: option.key, values: {}}),
+                })))
+                : null;
             return declared.map(option => {
               if (!option.dynamic) return option;
               const resolved = dynamic?.find(o => o.key === option.key);
@@ -1048,6 +1054,12 @@
           set: (def, property, value) => Reflect.set(def, property, value),
         });
         const value = await target.apply(receiver, args || []);
+        if (path === 'metadataDetail' && value && typeof value.description === 'string') {
+          const description = html.unescape(value.description);
+          if (/<(?:br|p|div|section|article|ul|li|script|style)\b/i.test(description)) {
+            value.description = html.paragraphs(html.parse('<html><body>' + description + '</body></html>').body).join('\n');
+          }
+        }
         return { ok: true, value: value === undefined ? null : JSON.parse(JSON.stringify(value)) };
       } catch (err) {
         const code = (err && err.code) || ErrorCode.PARSE;

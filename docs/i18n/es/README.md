@@ -49,7 +49,7 @@ Configura el acceso en Más → Sitios y el proxy en Más → Red cuando sea nec
 | Favoritos y novedades | Organiza grupos, guarda el progreso y consulta capítulos nuevos. Sigue autores, canales o palabras clave. |
 | Sin conexión y exportación | Descarga cómics, vídeos, novelas y recursos de juegos. Importa y exporta CBZ y exporta capítulos completos de galerías a PDF. |
 | Listas y búsqueda por imagen | Explora clasificaciones de doujinshi, anime y JAV o busca posibles obras con una imagen. |
-| Información de obras | Explora, busca y filtra información, abre detalles de las clasificaciones en el sitio original y ordena los sitios de detalles. |
+| Información de obras | Explora, busca y filtra información de obras, abre los detalles del sitio original de los rankings y elige los sitios de detalles y búsqueda. |
 | Comentarios y chat | Lee comentarios, respuestas e imágenes de los sitios compatibles y muestra el chat en directos compatibles. |
 | Traducción y filtros | Traduce títulos, descripciones, etiquetas y novelas. Oculta contenido por etiquetas. |
 | Privacidad y copias | Bloqueo de la app, modo incógnito, portadas borrosas y bloqueo de capturas donde sea compatible. Copias de favoritos, progreso, suscripciones y ajustes. |

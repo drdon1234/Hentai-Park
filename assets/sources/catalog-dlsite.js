@@ -1,11 +1,69 @@
 Park.register({
-  key: 'ranking-dlsite', name: 'DLsite', version: '0.0.4', minAppVersion: '0.10.8',
-  type: 'comic', category: 'doujin', rankingOnly: true,
-  description: '官方销量榜', homepage: 'https://www.dlsite.com/',
+  key: 'catalog-dlsite', name: 'DLsite', version: '0.0.7', minAppVersion: '0.10.8',
+  type: 'comic', category: 'doujin', metadataOnly: true,
+  description: '排行榜与作品资料', homepage: 'https://www.dlsite.com/',
   domains: ['dlsite.com', 'dlsite.jp'], network: { vpnHint: true },
   imageHeaders: { Referer: 'https://www.dlsite.com/' },
+  defaultFeed: 'maniax',
+  feeds: [['maniax', '同人漫画'], ['books', '成年漫画']].map(([key,label]) => ({key, label, options: [
+    {key: 'sort', label: '排序', dynamic: true, default: 'trend'},
+    {key: 'work_type_category', label: '类型', dynamic: true, default: ''},
+    {key: 'genre', label: '分类', dynamic: true, default: ''},
+  ]})),
+  searchFilters: [
+    {key: 'floor', label: '分类', default: 'maniax', values: [{value: 'maniax', label: '同人漫画'}, {value: 'books', label: '成年漫画'}]},
+    {key: 'sort', label: '排序', dynamic: true, dependsOn: ['floor'], default: 'trend'},
+    {key: 'work_type_category', label: '类型', dynamic: true, dependsOn: ['floor'], default: ''},
+    {key: 'genre', label: '分类', dynamic: true, dependsOn: ['floor'], default: ''},
+  ],
+  async filterOptions(req) {
+    const floor=req.feed || req.values?.floor || 'maniax';
+    if (!['maniax','books'].includes(floor)) throw Park.error('CONFIG','未知列表');
+    const body = await this.http.text(`${this.homepage}${floor}/fsr/=/work_category/${floor==='books'?'books':'doujin'}/order/release_d/per_page/30/`);
+    const key = req.filter === 'sort' ? 'order' : req.filter;
+    if (!['order', 'work_type_category', 'genre'].includes(key)) throw Park.error('CONFIG', '筛选参数无效');
+    const match = body.match(new RegExp('"' + key + '":(\\[[\\s\\S]*?\\])'));
+    if (!match) throw Park.error('PARSE', '动态筛选选项无效');
+    const values = new Map();
+    if (key !== 'order') values.set('', {value: '', label: '全部'});
+    for (const item of JSON.parse(match[1])) {
+      if (item.val != null && item.text) values.set(String(item.val), {value: String(item.val), label: item.text});
+    }
+    if (values.size < 2) throw Park.error('PARSE', '动态筛选选项无效');
+    return [...values.values()];
+  },
+  async browse(keyword, req = {}) {
+    const page = Math.max(1, Number(req.page) || 1), filters = req.filters || req.options || {};
+    const floor=req.floor || filters.floor || 'maniax';
+    if (!['maniax','books'].includes(floor)) throw Park.error('CONFIG','未知列表');
+    let path = `${floor}/fsr/=/work_category/${floor==='books'?'books':'doujin'}/order/${encodeURIComponent(filters.sort || 'trend')}/per_page/30/page/${page}/`;
+    if (keyword) path += `keyword/${encodeURIComponent(keyword)}/`;
+    for (const key of ['work_type_category', 'genre']) if (filters[key]) path += `${key}/${encodeURIComponent(filters[key])}/`;
+    const response = this.http.ensureOk(await this.http.get(this.homepage + path));
+    const doc = Park.html.parse(response.body), seen = new Set();
+    if (/一致する作品は見つかりませんでした|条件に一致する作品はありません/.test(Park.html.text(doc.querySelector('.work_not_found .lead')))) return {items:[],page,hasNext:false};
+    const items = [...doc.querySelectorAll('.work_name a[href]')].map(a => {
+      const url = Park.url.parse(a.getAttribute('href'), this.homepage, this.domains);
+      const id = url?.pathname.match(/\/product_id\/((?:RJ|BJ)\d+)\.html$/)?.[1];
+      if (!id || seen.has(id)) return null;
+      seen.add(id);
+      const row = a.closest('tr, .search_result_img_box_inner, .work_1col'), img = row?.querySelector('img');
+      const candidates = row?.querySelector('thumb-with-ng-filter, thumb-with-ng-filter-block')?.getAttribute(':thumb-candidates') || '';
+      const image = img?.getAttribute('data-src') || img?.getAttribute('src') || '';
+      const cover = candidates.match(/['"]((?:https?:)?\/\/[^'"]+)['"]/)?.[1] || (/^(?:https?:)?\/\//.test(image) ? image : '');
+      return {id, code: id, workCode: id, title: Park.html.text(a), cover: cover ? new URL(cover, this.homepage).href : '', url: url.href};
+    }).filter(Boolean);
+    if (!items.length && !/該当する作品がありません|作品が見つかりません|検索条件に一致する作品|見つかりませんでした/.test(Park.html.text(doc.body))) throw Park.error('PARSE', '作品资料无效');
+    const hasNext = [...doc.querySelectorAll('a[href]')].some(a => {
+      const url = Park.url.parse(a.getAttribute('href'), this.homepage, this.domains);
+      return url?.pathname.includes('/fsr/') && Number(url.pathname.match(/\/page\/(\d+)/)?.[1]) === page + 1;
+    });
+    return {items, page, hasNext};
+  },
+  async feed(floor, req) { return this.browse('', {...req,floor}); },
+  async search(req) { return this.browse(req.keyword, req); },
   rankings: [['maniax', '同人漫画'], ['books', '成年漫画']].map(([key, label]) => ({
-    key, label, category: 'doujin', metric: '官方销量榜',
+    key, label, category: 'doujin', section: 'market', metric: '官方销量榜',
     options: [{ key: 'period', label: '周期', default: 'week', values: [
       { value: 'day', label: '日榜' }, { value: 'week', label: '周榜' },
       { value: 'month', label: '月榜' }, { value: 'total', label: '总榜' },
@@ -30,6 +88,10 @@ Park.register({
     return {items, hasNext: data.review_list.length === 10};
   },
 
+  async metadataSearch(keyword) {
+    if (!String(keyword || '').trim()) throw Park.error('CONFIG', '请输入关键词');
+    return (await this.browse(keyword, {page: 1})).items;
+  },
   async metadataDetail(value, context = {}) {
     const id = String(value);
     if (!/^(?:RJ|BJ)\d+$/.test(id)) throw Park.error('NOT_FOUND', '作品编号无效');

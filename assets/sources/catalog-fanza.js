@@ -8,20 +8,59 @@ Park.register({
     ru: {"已购买": "Куплено", "分类累计排序（非周期榜）": "Накопительный рейтинг по жанру (без периода)", "月度女优榜": "Ежемесячный рейтинг актрис", "累计人气": "Популярность за всё время", "累计销量": "Продажи за всё время", "评价排序": "По оценкам"},
     ar: {"已购买": "تم الشراء", "分类累计排序（非周期榜）": "ترتيب تراكمي حسب النوع (غير دوري)", "月度女优榜": "ترتيب الممثلات الشهري", "累计人气": "الشعبية الإجمالية", "累计销量": "المبيعات الإجمالية", "评价排序": "حسب التقييم"},
   },
-  key: 'ranking-fanza', name: 'FANZA', version: '0.0.7', minAppVersion: '0.10.8',
-  type: 'video', category: 'jav', rankingOnly: true,
-  description: '官方销量榜', homepage: 'https://video.dmm.co.jp/',
+  key: 'catalog-fanza', name: 'FANZA', version: '0.0.10', minAppVersion: '0.10.8',
+  type: 'video', category: 'jav', metadataOnly: true,
+  description: '排行榜与作品资料', homepage: 'https://video.dmm.co.jp/',
   domains: ['dmm.co.jp'], network: { vpnHint: true },
+  defaultFeed: 'AV',
+  feeds: ['AV', 'AMATEUR', 'ANIME'].map(floor => ({key: floor,
+    label: {AV: 'JAV', AMATEUR: '素人', ANIME: '里番'}[floor],
+    options: [{key: 'sort', label: '排序', default: 'SALES_RANK_SCORE', values: [
+      {value: 'SALES_RANK_SCORE', label: '热门'}, {value: 'RELEASE_DATE', label: '最新'},
+      {value: 'REVIEW_RANK_SCORE', label: '评分'},
+    ]}]})),
+  searchFilters: [
+    {key: 'floor', label: '分类', default: 'AV', values: [
+      {value: 'AV', label: 'JAV'}, {value: 'AMATEUR', label: '素人'}, {value: 'ANIME', label: '里番'},
+    ]},
+    {key: 'sort', label: '排序', default: 'SALES_RANK_SCORE', values: [
+      {value: 'SALES_RANK_SCORE', label: '热门'}, {value: 'RELEASE_DATE', label: '最新'},
+      {value: 'REVIEW_RANK_SCORE', label: '评分'},
+    ]},
+  ],
+  async browse(floor, keyword, req = {}) {
+    const page = Math.max(1, Number(req.page) || 1), limit = 24;
+    const sort = (req.filters || req.options)?.sort || 'SALES_RANK_SCORE';
+    if (!['AV', 'AMATEUR', 'ANIME'].includes(floor) || !['SALES_RANK_SCORE', 'RELEASE_DATE', 'REVIEW_RANK_SCORE'].includes(sort)) throw Park.error('CONFIG', '未知列表');
+    const data = await this.query(`query SearchInformation($queryWord: String!, $floor: PPVFloor!, $offset: Int!) {
+      legacySearchPPV(queryWord: $queryWord, limit: 24, offset: $offset, floor: $floor, sort: ${sort},
+        facetLimit: 1, includeExplicit: true, excludeUndelivered: true) {
+        result { contents { id title packageImage { largeUrl mediumUrl } } }
+      }
+    }`, {queryWord: String(keyword || '').trim(), floor, offset: (page - 1) * limit});
+    const rows = data.legacySearchPPV?.result?.contents;
+    if (!Array.isArray(rows)) throw Park.error('PARSE', '作品资料无效');
+    const items = rows.map(row => {
+      if (!/^[a-z0-9_]{2,60}$/i.test(row.id) || !row.title) throw Park.error('PARSE', '作品资料无效');
+      return {id: `${floor}:${row.id}`, code: row.id, title: row.title,
+        category: floor === 'ANIME' ? 'anime' : 'jav',
+        cover: row.packageImage?.largeUrl || row.packageImage?.mediumUrl || '',
+        url: `${this.homepage}${{AV: 'av', AMATEUR: 'amateur', ANIME: 'anime'}[floor]}/content/?id=${encodeURIComponent(row.id)}`};
+    });
+    return {items, page, hasNext: rows.length === limit};
+  },
+  async feed(key, req) { return this.browse(key, '', req); },
+  async search(req) { return this.browse(req.filters?.floor || 'AV', req.keyword, req); },
   rankings: [...['AV', 'AMATEUR', 'ANIME'].map((floor) => ({
     key: floor, label: { AV: 'JAV', AMATEUR: '素人', ANIME: '里番' }[floor],
-    category: floor === 'ANIME' ? 'anime' : 'jav', metric: '官方销量榜',
+    category: floor === 'ANIME' ? 'anime' : 'jav', section: 'market', metric: '官方销量榜',
     options: [{ key: 'period', label: '周期', default: 'weekly', values: [
       { value: 'trending', label: '实时' }, { value: 'daily', label: '日榜' },
       { value: 'weekly', label: '周榜' }, { value: 'monthly', label: '月榜' },
     ] }],
   })),
-  { key: 'actresses', label: '女优榜', kind: 'actress', category: 'jav', metric: '月度女优榜' },
-  { key: 'genres', label: '分类榜', kind: 'genre', category: 'jav', metric: '分类累计排序（非周期榜）', options: [
+  { key: 'actresses', label: '女优榜', kind: 'actress', category: 'jav', section: 'market', metric: '月度女优榜' },
+  { key: 'genres', label: '分类榜', kind: 'genre', category: 'jav', section: 'market', metric: '分类累计排序（非周期榜）', options: [
     { key: 'genre', label: '分类', dynamic: true },
     { key: 'sort', label: '排序', default: 'SALES_RANK_SCORE', values: [
       { value: 'SALES_RANK_SCORE', label: '累计人气' }, { value: 'SALES_COUNT', label: '累计销量' },
@@ -39,7 +78,7 @@ Park.register({
     return data.data;
   },
   async comments(value, req = {}) {
-    const id = String(value), sort = req.sort && req.sort !== 'default' ? String(req.sort) : 'HELPFUL_COUNT_DESC';
+    const id = String(value).replace(/^(?:AV|AMATEUR|ANIME):/, ''), sort = req.sort && req.sort !== 'default' ? String(req.sort) : 'HELPFUL_COUNT_DESC';
     if (!/^[a-z0-9_]{2,60}$/i.test(id)) throw Park.error('NOT_FOUND', '作品编号无效');
     if (req.parentId || !['HELPFUL_COUNT_DESC', 'RELEASE_DESC', 'VALUE_DESC'].includes(sort)) {
       throw Park.error('UNSUPPORTED', '评论暂不支持此操作');
@@ -79,8 +118,15 @@ Park.register({
       sorts: [{value: 'HELPFUL_COUNT_DESC', label: '热门'}, {value: 'RELEASE_DESC', label: '最新'}, {value: 'VALUE_DESC', label: '评分'}]};
   },
 
+  async metadataSearch(keyword, context = {}) {
+    if (!String(keyword || '').trim()) throw Park.error('CONFIG', '请输入关键词');
+    const floors = context.category === 'anime' ? ['ANIME'] : ['AV', 'AMATEUR'];
+    const pages = await Promise.all(floors.map(floor => this.browse(floor, keyword, {page: 1})));
+    return pages.flatMap(page => page.items);
+  },
   async metadataDetail(value, context = {}) {
-    const id = String(value);
+    const scoped = /^(AV|AMATEUR|ANIME):([a-z0-9_]{2,60})$/i.exec(String(value));
+    const id = scoped ? scoped[2] : String(value);
     if (!/^[a-z0-9_]{2,60}$/i.test(id)) throw Park.error('NOT_FOUND', '作品编号无效');
     const data = await this.query(`query WorkInformation($id: ID!) {
       ppvContent(id: $id) { id title makerContentId deliveryStartDate description duration packageImage { largeUrl mediumUrl }
@@ -88,8 +134,8 @@ Park.register({
     }`, { id });
     const work = data.ppvContent;
     if (!work || work.id !== id || !work.title) throw Park.error('PARSE', '作品资料无效');
-    const floor = { ANIME: 'anime', AMATEUR: 'amateur' }[context.board] || 'av';
-    return { id, code: work.makerContentId || id, title: work.title, description: work.description || '',
+    const floor = { ANIME: 'anime', AMATEUR: 'amateur' }[scoped?.[1]?.toUpperCase() || context.board] || 'av';
+    return { id: scoped ? String(value) : id, code: work.makerContentId || id, title: work.title, description: work.description || '',
       url: `${this.homepage}${floor}/content/?id=${encodeURIComponent(id)}`,
       cover: work.packageImage?.largeUrl || work.packageImage?.mediumUrl || '',
       releaseDate: work.deliveryStartDate || "",

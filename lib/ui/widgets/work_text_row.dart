@@ -33,8 +33,10 @@ class WorkTextRow extends StatelessWidget {
               ContentTranslation(
                 text: item.title,
                 source: item.source,
-                builder: (text) =>
-                    Text(text, style: ParkText.serif(context.text.titleMedium)),
+                builder: (text) => Text(
+                  workDisplayTitle(item, text),
+                  style: ParkText.serif(context.text.titleMedium),
+                ),
               ),
               if (item.authors.isNotEmpty) ...[
                 const SizedBox(height: Gap.xs),

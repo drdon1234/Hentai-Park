@@ -46,8 +46,9 @@ The selected image is uploaded to a search service only after you start the sear
 | Service | Capabilities |
 | --- | --- |
 | JavBus · JavDB | Work information, preview images, magnets |
+| FC2HUB | FC2 work search and information |
 
-Open JAV work information from Rankings → Details. JavBus is the default provider; enable or disable information plugins under More → Sites. The page offers Search JAV sites, Copy code, Copy magnet and Open magnet.
+Use Search work information on a category page to access its market-ranking providers and additional sites such as JavBus and JavDB. Market information providers offer search, filters and details in the app. Studio works retain their site identity; public catalog searches may be slower. Ranking details prefer the original provider by default, with an option to select another provider. Search can use all sites, the category preference or one site. JAV details offer code copying and copying or opening magnets. Choose detail and search providers in the ranking settings at the top right, separately from content filters. FC2 may require login for search and details; FC2HUB offers an additional work information source.
 
 Only information supplied by the provider is shown; images and magnets may be unavailable. Magnets require a compatible external app; this app does not download torrent content. JavBus may require a VPN or proxy and regional age verification inside the app.
 

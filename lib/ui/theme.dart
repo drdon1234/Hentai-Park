@@ -374,7 +374,7 @@ class ParkTheme {
               disabledForegroundColor: scheme.onSurface.withValues(alpha: .38),
               shape: pill,
               textStyle: label,
-              minimumSize: const Size(48, 40),
+              minimumSize: Size(48, desktop ? 36 : 48),
               padding: const EdgeInsets.symmetric(horizontal: Gap.l),
             ).copyWith(
               side: WidgetStateBorderSide.resolveWith(

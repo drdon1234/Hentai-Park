@@ -24,7 +24,6 @@ class CoverHero extends StatelessWidget {
     final from = fromContext.widget as Hero;
     final to = toContext.widget as Hero;
     Widget endpoint(BuildContext context, Widget child) => FittedBox(
-      fit: BoxFit.cover,
       child: SizedBox.fromSize(
         size: (context.findRenderObject()! as RenderBox).size,
         child: child,

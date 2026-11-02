@@ -1,13 +1,15 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 
+import '../../core/models.dart';
 import '../../core/work_metadata.dart';
 import '../../engine/source_manager.dart';
 
 /// 作品资料与磁链分开加载；切换查询、来源或关闭后丢弃旧请求。
 class MetadataController extends ChangeNotifier {
-  MetadataController(this.manager);
+  MetadataController(this.manager, {this.category = SourceCategory.jav});
   final SourceManager manager;
+  final SourceCategory category;
   String source = '', query = '';
   List<MetadataCandidate> candidates = const [];
   WorkMetadata? detail;
@@ -33,6 +35,7 @@ class MetadataController extends ChangeNotifier {
         key,
         query,
         cancelToken: token,
+        category: category,
       );
       if (!_current(token)) return;
       candidates = result;

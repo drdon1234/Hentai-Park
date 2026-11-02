@@ -209,7 +209,6 @@ export async function generateIndex({ root = defaultRoot, commit, previousIndex,
     }
     if (manifest.metadataOnly !== (entry.metadataOnly === true) ||
         (manifest.metadataOnly && (!manifest.capabilities.metadataSearch || !manifest.capabilities.metadataDetail ||
-          manifest.rankings.length ||
           manifest.capabilities.detail || manifest.capabilities.videos || manifest.capabilities.subscription))) {
       throw new Error(`${key} 的资料插件声明无效或与清单不一致`);
     }

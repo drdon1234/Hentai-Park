@@ -10,20 +10,10 @@ import '../nav.dart';
 import '../subscriptions/subscriptions_page.dart';
 import '../theme.dart';
 import '../widgets/content_translation.dart';
-import 'ranking_priority_page.dart';
 import 'settings_rows.dart';
 
 // 搜索与翻译、网络、隐私与安全、订阅与通知。
 List<Widget> searchSettings(BuildContext context, AppSettings s) => [
-  RowGroup(
-    children: [
-      ListRow(
-        title: tr('排行榜作品详情站点优先级'),
-        trailing: const Icon(Icons.chevron_right_rounded),
-        onTap: () => Nav.push(context, const RankingPriorityPage()),
-      ),
-    ],
-  ),
   RowGroup(
     title: tr('内容翻译'),
     children: [

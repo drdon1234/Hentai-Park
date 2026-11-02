@@ -418,6 +418,10 @@ class _DownloadsPageState extends State<DownloadsPage> {
               return CoverTile(
                 item: task.item,
                 aspect: 0.7,
+                showProgress: task.status != DownloadStatus.done,
+                progress: task.status != DownloadStatus.done && task.total > 0
+                    ? task.progress
+                    : null,
                 showSource: true,
                 badges: [
                   (tag: Tag(_statusLabel(task)), label: _statusLabel(task)),

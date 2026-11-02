@@ -58,7 +58,7 @@ class WorkListRow extends StatelessWidget {
                       text: item.title,
                       source: item.source,
                       builder: (text) => Text(
-                        text,
+                        workDisplayTitle(item, text),
                         maxLines: 3,
                         overflow: TextOverflow.ellipsis,
                         style: ParkText.serif(context.text.titleSmall),

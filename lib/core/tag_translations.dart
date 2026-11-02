@@ -223,6 +223,15 @@ class TagTranslations extends ChangeNotifier {
       _bundled.contains('$source/$locale');
   bool remoteAvailable(String source, String locale) =>
       _remote.containsKey('$source/$locale');
+
+  bool updateAvailable(String source, String locale) {
+    final remote = _remote['$source/$locale'];
+    final local = pack(source, locale);
+    return remote != null &&
+        (local == null ||
+            compareReleaseVersions(remote.version, local.version) > 0);
+  }
+
   List<String> availableLocales(String source) => locales
       .where(
         (locale) =>
@@ -360,32 +369,40 @@ class TagTranslations extends ChangeNotifier {
   }) => _packs['$source/$locale']?.lookup(label, namespace: namespace);
 
   /// Explicit installation works offline before the repository's first publication.
-  Future<void> download(String source, String locale) =>
-      _run(source, locale, (revision, token) async {
-        final text = await rootBundle.loadString(
-          'assets/tag_translations/$source/$locale.json',
-        );
-        if (utf8.encode(text).length > TagTranslationPack.maxBytes) {
-          throw const FormatException('词包过大');
-        }
-        if (token.cancelError case final error?) throw error;
-        await _install(
-          TagTranslationPack.parse(
-            jsonDecode(text),
-            source: source,
-            locale: locale,
-          ),
-          revision,
-        );
-      });
+  Future<void> download(
+    String source,
+    String locale, {
+    void Function(int, int)? onProgress,
+  }) => _run(source, locale, (revision, token) async {
+    onProgress?.call(0, 3);
+    final text = await rootBundle.loadString(
+      'assets/tag_translations/$source/$locale.json',
+    );
+    if (utf8.encode(text).length > TagTranslationPack.maxBytes) {
+      throw const FormatException('词包过大');
+    }
+    if (token.cancelError case final error?) throw error;
+    onProgress?.call(1, 3);
+    final pack = TagTranslationPack.parse(
+      jsonDecode(text),
+      source: source,
+      locale: locale,
+    );
+    onProgress?.call(2, 3);
+    await _install(pack, revision);
+    onProgress?.call(3, 3);
+  });
 
   /// User-initiated update; an unavailable repository preserves the installed pack.
   Future<void> updateFromRepository(
     String source,
     String locale, {
     bool refresh = true,
+    void Function(int, int)? onProgress,
   }) => _run(source, locale, (revision, token) async {
+    onProgress?.call(0, 3);
     if (refresh) await refreshRepository();
+    onProgress?.call(1, 3);
     if (token.cancelError case final error?) throw error;
     final entry = _remote['$source/$locale'];
     if (entry == null) throw const FormatException('词包索引缺失或重复');
@@ -410,13 +427,16 @@ class TagTranslations extends ChangeNotifier {
         compareReleaseVersions(pack.version, existing.version) < 0) {
       throw const FormatException('拒绝降级词包');
     }
+    onProgress?.call(2, 3);
     await _install(pack, revision);
+    onProgress?.call(3, 3);
   });
 
   /// 单站失败不阻断其他词包；返回实际结果，不把部分完成报告为全部成功。
   Future<({int completed, List<String> failures})> downloadAll(
-    String locale,
-  ) async {
+    String locale, {
+    void Function(int completed, int total)? onProgress,
+  }) async {
     final failures = <String>[];
     try {
       await refreshRepository();
@@ -430,6 +450,8 @@ class TagTranslations extends ChangeNotifier {
         )
         .toList();
     var completed = 0;
+    var processed = 0;
+    onProgress?.call(0, targets.length);
     for (final source in targets) {
       try {
         if (remoteAvailable(source, locale)) {
@@ -440,6 +462,8 @@ class TagTranslations extends ChangeNotifier {
         completed++;
       } catch (_) {
         failures.add(source);
+      } finally {
+        onProgress?.call(++processed, targets.length);
       }
     }
     return (completed: completed, failures: failures);

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'block_rule.dart';
+import 'catalog_migration.dart';
 import 'content_scope.dart';
 import 'danmaku.dart';
 import 'diagnostic_entry.dart';
@@ -142,7 +143,6 @@ enum SettingsDomain {
     'subscriptionNotificationPreview',
   }),
   search({
-    'rankingDetailPriority',
     'rankingSelection',
     'searchHistories',
     'tagDownloadReminders',
@@ -198,6 +198,7 @@ class AppSettings extends ChangeNotifier {
   bool _freshInstall = false;
 
   Future<void> load() async {
+    await migrateCatalogSources();
     final data = await _store.load();
     final loaded = data is Map
         ? data.cast<String, dynamic>()
@@ -818,11 +819,6 @@ class AppSettings extends ChangeNotifier {
 
   void unblockAuthor(String identity) =>
       _set('blockedAuthors', _blockedAuthorRules..remove(identity));
-
-  List<String> get rankingDetailPriority =>
-      List<String>.from(_v['rankingDetailPriority'] as List? ?? const []);
-  set rankingDetailPriority(List<String> value) =>
-      _set('rankingDetailPriority', value.toSet().toList());
 
   Map<String, dynamic> get rankingSelection =>
       Map<String, dynamic>.from(_v['rankingSelection'] as Map? ?? {});

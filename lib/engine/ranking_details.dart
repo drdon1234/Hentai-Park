@@ -8,7 +8,6 @@ List<InstalledSource> rankingDetailSources(
   SourceCategory category, {
   String? origin,
 }) {
-  final priority = AppSettings.instance.rankingDetailPriority;
   final sources = manager.enabled.where((source) {
     final m = source.manifest!;
     return (m.category == category ||
@@ -17,18 +16,30 @@ List<InstalledSource> rankingDetailSources(
                 (m.can('metadataSearch') || source.key == origin)) ||
             (!m.rankingOnly && m.can('search') && m.can('detail')));
   }).toList();
-  int rank(String key) {
-    final index = priority.indexOf(key);
-    return index < 0 ? priority.length : index;
-  }
-
-  // 原始顺序用于尚未配置优先级的新站点。
-  final original = {for (var i = 0; i < sources.length; i++) sources[i].key: i};
-  sources.sort((a, b) {
-    final compared = rank(a.key).compareTo(rank(b.key));
-    return compared != 0
-        ? compared
-        : original[a.key]!.compareTo(original[b.key]!);
-  });
   return sources;
+}
+
+/// 榜单与资料详情共用同一搜索选择；首选站失效时使用同域首个可搜索站。
+String? rankingSearchSource(SourceManager manager, SourceCategory category) {
+  final settings = AppSettings.instance;
+  final selected =
+      (settings.rankingSelection['searchSources'] as Map?)?[category.name];
+  final candidates = manager.displayEnabled
+      .where(
+        (source) =>
+            source.manifest!.category == category &&
+            source.manifest!.can('search') &&
+            !source.manifest!.metadataOnly &&
+            !source.manifest!.rankingOnly,
+      )
+      .toList();
+  if (selected == 'preferred') {
+    final preferred = settings.homeSource(category);
+    return candidates.any((source) => source.key == preferred)
+        ? preferred
+        : candidates.firstOrNull?.key;
+  }
+  return candidates.any((source) => source.key == selected)
+      ? selected as String
+      : null;
 }

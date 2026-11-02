@@ -6,7 +6,6 @@ import 'package:flutter/material.dart';
 import '../../core/localization.dart';
 import '../../core/models.dart';
 import '../../core/settings.dart';
-import '../../engine/ranking_details.dart';
 import '../../engine/source_manager.dart';
 import '../nav.dart';
 import '../settings/source_manage_page.dart';
@@ -18,6 +17,7 @@ import '../widgets/option_bar.dart';
 import '../widgets/source_network_hint.dart';
 import 'ranking_controller.dart';
 import 'ranking_row.dart';
+import 'ranking_settings_page.dart';
 
 typedef RankingSelection = ({SourceManifest source, RankingDef board});
 
@@ -63,12 +63,21 @@ class _RankingsPageState extends State<RankingsPage> {
       if (e.value is Map) '${e.key}': Map<String, Object?>.from(e.value as Map),
   };
   String? _activeSession;
+  String? _savedSignature;
+  late final _navigation = Map<String, String>.from(
+    _saved['navigation'] as Map? ?? {},
+  );
+  late final _searchSources = Map<String, String>.from(
+    _saved['searchSources'] as Map? ?? {},
+  );
   late final _detailSources = Map<String, String>.from(
     _saved['detailSources'] as Map? ?? {},
   );
   void _save() => AppSettings.instance.rankingSelection = {
     'category': _category.name,
     'detailSources': _detailSources,
+    'searchSources': _searchSources,
+    'navigation': _navigation,
     'section': _section,
     'kind': _kind,
     if (_selected != null) 'selected': _selected,
@@ -77,6 +86,38 @@ class _RankingsPageState extends State<RankingsPage> {
   SourceManager get _manager => widget.sourceManager ?? SourceManager.instance;
   String _key(RankingSelection entry) =>
       '${entry.source.key}:${entry.board.key}';
+
+  void _openConfiguration() {
+    final category = _category;
+    Nav.push(
+      context,
+      RankingSettingsPage(
+        category: category,
+        manager: _manager,
+        origin: _selected?.split(':').first,
+        detailSource: _detailSources[category.name] ?? '',
+        searchSource: _searchSources[category.name] ?? '',
+        onDetailChanged: (value) {
+          if (!mounted) return;
+          setState(() {
+            if (value.isEmpty) {
+              _detailSources.remove(category.name);
+            } else {
+              _detailSources[category.name] = value;
+            }
+            _save();
+          });
+        },
+        onSearchChanged: (value) {
+          if (!mounted) return;
+          setState(() {
+            _searchSources[category.name] = value;
+            _save();
+          });
+        },
+      ),
+    );
+  }
 
   @override
   void dispose() {
@@ -94,6 +135,20 @@ class _RankingsPageState extends State<RankingsPage> {
         title: Text(tr('排行榜')),
         actions: [
           const TranslationControls(),
+          ListenableBuilder(
+            listenable: _manager,
+            builder: (context, _) => IconButton(
+              tooltip: tr('排行榜配置'),
+              icon: const Icon(Icons.settings_outlined),
+              onPressed:
+                  _manager.loaded &&
+                      _manager.enabled.any(
+                        (s) => s.manifest!.rankings.isNotEmpty,
+                      )
+                  ? _openConfiguration
+                  : null,
+            ),
+          ),
           IconButton(
             tooltip: tr('管理站点'),
             icon: const Icon(Icons.extension_outlined),
@@ -127,10 +182,14 @@ class _RankingsPageState extends State<RankingsPage> {
           ];
           // 商业榜优先；同一组维持官方插件清单的顺序。
           final commercial = entries
-              .where((entry) => entry.source.rankingOnly)
+              .where(
+                (entry) =>
+                    entry.board.section == 'market' ||
+                    entry.board.section.isEmpty && entry.source.rankingOnly,
+              )
               .toList();
           final community = entries
-              .where((entry) => !entry.source.rankingOnly)
+              .where((entry) => !commercial.contains(entry))
               .toList();
           final available = [...commercial, ...community];
           final categories = [
@@ -164,8 +223,10 @@ class _RankingsPageState extends State<RankingsPage> {
             'market',
             'site',
           ].where((s) => categoryBoards.any((e) => sectionOf(e) == s)).toList();
-          final section = sections.contains(_section)
-              ? _section
+          final savedSection =
+              _navigation['section-${category.name}'] ?? _section;
+          final section = sections.contains(savedSection)
+              ? savedSection
               : sections.first;
           final sectionBoards = categoryBoards
               .where((e) => sectionOf(e) == section)
@@ -176,13 +237,20 @@ class _RankingsPageState extends State<RankingsPage> {
             'genre',
             'seller',
           ].where((k) => sectionBoards.any((e) => e.board.kind == k)).toList();
-          final kind = kinds.contains(_kind) ? _kind : kinds.first;
+          final savedKind =
+              _navigation['kind-${category.name}-$section'] ?? _kind;
+          final kind = kinds.contains(savedKind) ? savedKind : kinds.first;
           final boards = sectionBoards
               .where((e) => e.board.kind == kind)
               .toList();
+          final boardSlot = 'board-${category.name}-$section-$kind';
+          final savedBoard = _navigation[boardSlot] ?? _selected;
           final entry =
-              boards.where((entry) => _key(entry) == _selected).firstOrNull ??
+              boards.where((entry) => _key(entry) == savedBoard).firstOrNull ??
               boards.first;
+          _navigation['section-${category.name}'] = section;
+          _navigation['kind-${category.name}-$section'] = kind;
+          _navigation[boardSlot] = _key(entry);
           final key = _key(entry);
           _category = category;
           _section = section;
@@ -215,6 +283,21 @@ class _RankingsPageState extends State<RankingsPage> {
               final sessionKey =
                   '$key:${entry.source.version}:${jsonEncode(options)}';
               _options[key] = options;
+              final signature = jsonEncode([
+                category.name,
+                section,
+                kind,
+                key,
+                _options,
+                _detailSources,
+                _searchSources,
+              ]);
+              if (_savedSignature != signature) {
+                _savedSignature = signature;
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  if (mounted) _save();
+                });
+              }
               final header = Column(
                 children: [
                   Padding(
@@ -257,6 +340,7 @@ class _RankingsPageState extends State<RankingsPage> {
                     (v) => v == 'market' ? tr('市场排行榜') : tr('站点排行榜'),
                     (v) => setState(() {
                       _section = v;
+                      _navigation['section-${category.name}'] = v;
                       _selected = null;
                       _save();
                     }),
@@ -272,6 +356,7 @@ class _RankingsPageState extends State<RankingsPage> {
                     }),
                     (v) => setState(() {
                       _kind = v;
+                      _navigation['kind-${category.name}-$section'] = v;
                       _selected = null;
                       _save();
                     }),
@@ -306,66 +391,13 @@ class _RankingsPageState extends State<RankingsPage> {
                           ],
                           onChanged: (value) => setState(() {
                             _selected = value;
+                            if (value != null) _navigation[boardSlot] = value;
                             _save();
                           }),
                         ),
                       ),
                     ),
                   ),
-                  if (kind == 'work')
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(
-                        Gap.page,
-                        Gap.s,
-                        Gap.page,
-                        0,
-                      ),
-                      child: Builder(
-                        builder: (context) {
-                          final candidates = rankingDetailSources(
-                            _manager,
-                            category,
-                            origin: entry.source.key,
-                          );
-                          final stored = _detailSources[category.name];
-                          final selected =
-                              candidates.any((s) => s.key == stored)
-                              ? stored!
-                              : '';
-                          return SelectionDropdownTheme(
-                            child: DropdownButtonFormField<String>(
-                              key: ValueKey('detail-$category-$selected'),
-                              initialValue: selected,
-                              isExpanded: true,
-                              decoration: InputDecoration(
-                                labelText: tr('详情站点'),
-                              ),
-                              items: [
-                                SelectionDropdownItem(
-                                  value: '',
-                                  selected: selected.isEmpty,
-                                  child: Text(tr('按优先级')),
-                                ),
-                                for (final source in candidates)
-                                  SelectionDropdownItem(
-                                    value: source.key,
-                                    selected: selected == source.key,
-                                    child: Text(source.manifest!.name),
-                                  ),
-                              ],
-                              onChanged: (value) => setState(() {
-                                if (value == null || value.isEmpty) {
-                                  _detailSources.remove(category.name);
-                                } else {
-                                  _detailSources[category.name] = value;
-                                }
-                                _save();
-                              }),
-                            ),
-                          );
-                        },
-                      ),
-                    ),
                   if (snapshot.hasData)
                     OptionBar(
                       key: ValueKey('options-$key'),

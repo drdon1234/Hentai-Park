@@ -5,6 +5,7 @@ import '../../core/content_scope.dart';
 import '../../core/localization.dart';
 import '../../core/models.dart';
 import '../../engine/domains.dart';
+import '../../engine/ranking_details.dart';
 import '../../engine/source_manager.dart';
 import '../nav.dart';
 import '../theme.dart';
@@ -53,11 +54,18 @@ class _RankingRowState extends State<RankingRow> {
       if (item.work case final work?) Nav.openWork(context, work);
     } else {
       final keyword = item.json['keyword'] as String?;
-      Nav.openAggregateSearch(
-        context,
-        keyword: keyword?.isNotEmpty == true ? keyword! : item.title,
-        scope: ContentScope.domain(widget.board.category),
-      );
+      final category = widget.board.category;
+      final key = rankingSearchSource(manager, category);
+      final query = keyword?.isNotEmpty == true ? keyword! : item.title;
+      if (key != null) {
+        Nav.openSourceSearch(context, key, keyword: query);
+      } else {
+        Nav.openAggregateSearch(
+          context,
+          keyword: query,
+          scope: ContentScope.domain(category),
+        );
+      }
     }
   }
 
@@ -226,9 +234,7 @@ class _RankingRowState extends State<RankingRow> {
         url.scheme == 'https' &&
         url.host.isNotEmpty &&
         url.userInfo.isEmpty;
-    final VoidCallback? openDetail = widget.board.kind == 'work'
-        ? _openDetail
-        : null;
+    final VoidCallback? openDetail = item.kind == 'work' ? _openDetail : null;
     final VoidCallback? openOriginal = original
         ? () => _openOriginal(url)
         : null;
@@ -309,7 +315,6 @@ class _RankingRowState extends State<RankingRow> {
                                           sourceBlurred:
                                               item.json['coverBlurred'] == true,
                                           title: item.title,
-                                          fit: BoxFit.contain,
                                         ),
                                       ),
                                     ),

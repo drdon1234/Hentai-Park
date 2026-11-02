@@ -89,6 +89,8 @@ class SourceUpdater extends ChangeNotifier {
   bool _disposed = false;
 
   bool get running => _flight != null;
+  int completedSteps = 0;
+  int totalSteps = 0;
   SourceUpdateResult? lastResult;
 
   @override
@@ -267,6 +269,9 @@ class SourceUpdater extends ChangeNotifier {
     List<SourceUpdateCandidate> candidates, {
     required void Function() check,
   }) async {
+    completedSteps = 0;
+    totalSteps = candidates.length;
+    if (!_disposed) notifyListeners();
     final updated = <String>[];
     final failures = <String, String>{};
     final remaining = <String, SourceUpdateCandidate>{
@@ -296,6 +301,9 @@ class SourceUpdater extends ChangeNotifier {
           remaining.remove(entry.key);
         } catch (error) {
           failures[entry.name] = _describe(error);
+        } finally {
+          completedSteps++;
+          if (!_disposed) notifyListeners();
         }
       });
     } catch (error) {

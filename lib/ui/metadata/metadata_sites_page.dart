@@ -15,15 +15,20 @@ class MetadataSitesPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: Text(tr('作品资料'))),
+    appBar: AppBar(title: Text(tr('搜索作品资料'))),
     body: ListenableBuilder(
       listenable: SourceManager.instance,
       builder: (context, _) {
         final sources = SourceManager.instance.enabled
             .where(
               (source) =>
-                  source.manifest!.metadataOnly &&
-                  source.manifest!.category == category,
+                  (source.manifest!.metadataOnly ||
+                      source.manifest!.rankingOnly &&
+                          source.manifest!.can('metadataDetail')) &&
+                  (source.manifest!.category == category ||
+                      source.manifest!.rankings.any(
+                        (board) => board.category == category,
+                      )),
             )
             .toList();
         return SettingsBody(

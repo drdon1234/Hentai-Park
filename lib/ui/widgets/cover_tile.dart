@@ -14,6 +14,7 @@ import '../theme.dart';
 import 'common.dart';
 import 'content_translation.dart';
 import 'cover_hero.dart';
+import 'progress_ring.dart';
 import 'source_interaction.dart';
 import 'work_editions.dart';
 
@@ -74,6 +75,8 @@ class CoverTile extends StatefulWidget {
     this.badges = const [],
     this.imageOnly = false,
     this.sequence,
+    this.progress,
+    this.showProgress = false,
   });
   final WorkItem item;
   final double? aspect;
@@ -87,6 +90,8 @@ class CoverTile extends StatefulWidget {
 
   /// Library signals (unread count, downloaded) that replace the site's own badge.
   final List<CoverBadge> badges;
+  final double? progress;
+  final bool showProgress;
   final bool imageOnly;
 
   /// 所在列表的播放顺序；短视频从这里按列表连续播放。
@@ -202,6 +207,12 @@ class _CoverTileState extends State<CoverTile> {
                           bottom: Gap.xs + 2,
                           child: Tag(item.duration, onImage: true),
                         ),
+                      if (widget.showProgress || widget.progress != null)
+                        PositionedDirectional(
+                          end: Gap.s,
+                          top: Gap.s,
+                          child: ProgressRing(value: widget.progress),
+                        ),
                       if (!widget.imageOnly &&
                           history != null &&
                           history.progress > 0)
@@ -254,7 +265,7 @@ class _CoverTileState extends State<CoverTile> {
                         text: item.title,
                         source: item.source,
                         builder: (value) => Text(
-                          value,
+                          workDisplayTitle(item, value),
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                           style: ParkText.serif(

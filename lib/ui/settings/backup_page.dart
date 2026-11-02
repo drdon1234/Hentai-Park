@@ -281,16 +281,20 @@ class _BackupPageState extends State<BackupPage> {
                     ),
                     Padding(
                       padding: const EdgeInsetsDirectional.fromSTEB(
-                        72,
-                        0,
-                        16,
-                        12,
+                        Gap.page,
+                        Gap.s,
+                        Gap.page,
+                        Gap.s,
                       ),
                       child: SelectionContainer.disabled(
                         child: SelectionDropdownTheme(
                           child: DropdownButton<int>(
                             value: s.autoBackupHours,
                             isExpanded: true,
+                            itemHeight: null,
+                            padding: const EdgeInsets.symmetric(
+                              vertical: Gap.s,
+                            ),
                             underline: const SizedBox.shrink(),
                             items:
                                 [
@@ -337,16 +341,20 @@ class _BackupPageState extends State<BackupPage> {
                     ),
                     Padding(
                       padding: const EdgeInsetsDirectional.fromSTEB(
-                        72,
-                        0,
-                        16,
-                        12,
+                        Gap.page,
+                        Gap.s,
+                        Gap.page,
+                        Gap.s,
                       ),
                       child: SelectionContainer.disabled(
                         child: SelectionDropdownTheme(
                           child: DropdownButton<int>(
                             value: s.autoBackupKeep,
                             isExpanded: true,
+                            itemHeight: null,
+                            padding: const EdgeInsets.symmetric(
+                              vertical: Gap.s,
+                            ),
                             underline: const SizedBox.shrink(),
                             items: const [1, 2, 3, 5, 10]
                                 .map(

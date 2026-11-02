@@ -528,7 +528,7 @@ class SubscriptionMediaTile extends StatelessWidget {
                     enabled: media.json['blurred'] == true,
                     child: Image(
                       image: ParkImage.url(source, media.preview),
-                      fit: BoxFit.cover,
+                      fit: BoxFit.contain,
                       errorBuilder: (_, error, stack) => const Center(
                         child: Icon(Icons.broken_image_outlined),
                       ),

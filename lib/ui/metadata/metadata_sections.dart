@@ -81,7 +81,6 @@ class MetadataOverview extends StatelessWidget {
         child: CoverImage(
           source: source,
           url: detail.cover,
-          fit: BoxFit.contain,
           title: detail.title,
         ),
       ),
@@ -221,8 +220,8 @@ class MetadataCandidateRow extends StatelessWidget {
               title: item.title,
             ),
           ),
-    title: Text(item.title, maxLines: 3, overflow: TextOverflow.ellipsis),
-    subtitle: Text(item.code),
+    title: Text(item.code, maxLines: 1, overflow: TextOverflow.ellipsis),
+    subtitle: Text(item.title, maxLines: 3, overflow: TextOverflow.ellipsis),
     trailing: const Icon(Icons.chevron_right_rounded),
     onTap: onTap,
   );
@@ -276,7 +275,6 @@ class MetadataImages extends StatelessWidget {
                               source: source,
                               url: detail.images[i],
                               title: detail.title,
-                              fit: BoxFit.contain,
                             ),
                           ),
                         ),
@@ -328,7 +326,6 @@ class _MetadataImagePageState extends State<_MetadataImagePage> {
           child: CoverImage(
             source: widget.source,
             url: widget.images[index],
-            fit: BoxFit.contain,
             title: tr('预览图'),
           ),
         ),

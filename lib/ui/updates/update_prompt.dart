@@ -15,6 +15,7 @@ import '../../engine/source_updater.dart';
 import '../kit/reminder_prompt.dart';
 import '../kit/tokens.dart';
 import '../theme.dart';
+import '../widgets/progress_ring.dart';
 
 class _UpdateSection extends StatelessWidget {
   const _UpdateSection({required this.title, required this.children});
@@ -451,7 +452,20 @@ Future<void> showSourceUpdatePrompt(
     ),
   );
   if (confirmed != true) return;
-  final applied = await updater.applyUpdates(result.available);
+  if (!context.mounted) return;
+  final applied = await showProgressOperation(context, tr('正在更新站点插件'), (
+    report,
+  ) async {
+    void changed() => report(updater.completedSteps, updater.totalSteps);
+    updater.addListener(changed);
+    try {
+      final future = updater.applyUpdates(result.available);
+      changed();
+      return await future;
+    } finally {
+      updater.removeListener(changed);
+    }
+  });
   if (context.mounted) await showSourceUpdateResult(context, applied);
 }
 

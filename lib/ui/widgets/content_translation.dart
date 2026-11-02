@@ -13,6 +13,7 @@ import '../kit/selection_menu.dart';
 import '../kit/tokens.dart';
 import '../theme.dart';
 import 'on_visible.dart';
+import 'progress_ring.dart';
 
 final _translationSettings = AppSettings.instance.watch(const {
   'autoTranslateContent',
@@ -477,11 +478,14 @@ Future<void> showTagDownloadGuide(
       deferred = true;
       return;
     }
-    if (service.bundled(source, locale)) {
-      await service.download(source, locale);
-    } else {
-      await service.updateFromRepository(source, locale);
-    }
+    if (!context.mounted) return;
+    await showProgressOperation(
+      context,
+      tr('下载标签翻译词库'),
+      (report) => service.bundled(source, locale)
+          ? service.download(source, locale, onProgress: report)
+          : service.updateFromRepository(source, locale, onProgress: report),
+    );
     if (context.mounted) {
       ScaffoldMessenger.maybeOf(context)
           ?.showSnackBar(SnackBar(content: Text(tr('翻译包已安装'))));
@@ -514,6 +518,8 @@ Future<void> showTagTranslationPacks(
       : service.sources.firstOrNull;
   var locale = AppLocalizations.localeKey(AppLocalizations.of(context).locale);
   bool busy = false;
+  int completed = 0, total = 0;
+  String? activeAction;
   String? message;
   void normalize() {
     if (selected == null || !service.sources.contains(selected)) {
@@ -541,15 +547,20 @@ Future<void> showTagTranslationPacks(
       builder: (ctx, refresh) {
         Future<void> operation(
           Future<void> Function() action,
-          String success,
-        ) async {
+          String success, {
+          String? actionKey,
+        }) async {
           if (busy) return;
           refresh(() {
             busy = true;
+            activeAction = actionKey;
+            completed = 0;
+            total = 1;
             message = null;
           });
           try {
             await action();
+            completed = total;
             if (ctx.mounted) {
               refresh(() {
                 normalize();
@@ -559,10 +570,38 @@ Future<void> showTagTranslationPacks(
           } catch (_) {
             if (ctx.mounted) refresh(() => message = tr('操作失败，请重试'));
           } finally {
-            if (ctx.mounted) refresh(() => busy = false);
+            if (ctx.mounted) {
+              refresh(() {
+                busy = false;
+                activeAction = null;
+              });
+            }
           }
         }
 
+        void reportProgress(int done, int count) {
+          if (ctx.mounted) {
+            refresh(() {
+              completed = done;
+              total = count;
+            });
+          }
+        }
+
+        final targets = service.sources
+            .where(
+              (source) =>
+                  service.bundled(source, locale) ||
+                  service.remoteAvailable(source, locale),
+            )
+            .toList();
+        final allInstalled =
+            targets.isNotEmpty &&
+            targets.every(
+              (source) =>
+                  service.installed(source, locale) &&
+                  !service.updateAvailable(source, locale),
+            );
         final languages = selected == null
             ? <String>[]
             : service.availableLocales(selected!);
@@ -572,46 +611,68 @@ Future<void> showTagTranslationPacks(
               padding: const EdgeInsets.all(16),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   Text(tr('翻译包管理'), style: Theme.of(ctx).textTheme.titleLarge),
                   const SizedBox(height: Gap.s),
-                  FilledButton.icon(
-                    style: FilledButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: Gap.l,
-                        vertical: Gap.m,
+                  ProgressOutline(
+                    active: busy && activeAction == 'all',
+                    value: total == 0 ? null : completed / total,
+                    child: FilledButton.icon(
+                      icon: busy && activeAction == 'all'
+                          ? ProgressRing(
+                              value: total == 0 ? null : completed / total,
+                            )
+                          : Icon(
+                              allInstalled
+                                  ? Icons.check_rounded
+                                  : Icons.download_rounded,
+                            ),
+                      label: Text(
+                        allInstalled
+                            ? tr('翻译包已安装')
+                            : tr('下载全部站点的 {language} 词包', {
+                                'language':
+                                    AppLocalizations.languageNames[locale] ??
+                                    locale,
+                              }),
                       ),
-                    ),
-                    icon: const Icon(Icons.download_rounded),
-                    label: Text(
-                      tr('下载全部站点的 {language} 词包', {
-                        'language':
-                            AppLocalizations.languageNames[locale] ?? locale,
-                      }),
-                    ),
-                    onPressed: busy
-                        ? null
-                        : () {
-                            final language = locale;
-                            operation(() async {
-                              final result = await service.downloadAll(
-                                language,
+                      onPressed: busy || allInstalled
+                          ? null
+                          : () {
+                              final language = locale;
+                              operation(
+                                () async {
+                                  final result = await service.downloadAll(
+                                    language,
+                                    onProgress: (done, count) {
+                                      if (ctx.mounted) {
+                                        refresh(() {
+                                          completed = done;
+                                          total = count;
+                                        });
+                                      }
+                                    },
+                                  );
+                                  if (ctx.mounted) {
+                                    refresh(() {
+                                      message = [
+                                        tr('已安装 {count} 个词包', {
+                                          'count': result.completed,
+                                        }),
+                                        if (result.failures.isNotEmpty)
+                                          tr('未完成：{items}', {
+                                            'items': result.failures.join('、'),
+                                          }),
+                                      ].join('\n');
+                                    });
+                                  }
+                                },
+                                '',
+                                actionKey: 'all',
                               );
-                              if (ctx.mounted) {
-                                refresh(() {
-                                  message = [
-                                    tr('已安装 {count} 个词包', {
-                                      'count': result.completed,
-                                    }),
-                                    if (result.failures.isNotEmpty)
-                                      tr('未完成：{items}', {
-                                        'items': result.failures.join('、'),
-                                      }),
-                                  ].join('\n');
-                                });
-                              }
-                            }, '');
-                          },
+                            },
+                    ),
                   ),
                   if (source != null && !service.sources.contains(source))
                     Padding(
@@ -703,8 +764,6 @@ Future<void> showTagTranslationPacks(
                     ),
                     const SizedBox(height: 12),
                     Text(tr('词包优先显示译文；未命中时按内容翻译开关处理，搜索与屏蔽仍使用原文')),
-                    if (service.installed(selected!, locale))
-                      Text(tr('翻译包已安装')),
                     for (final origin
                         in service.pack(selected!, locale)?.provenance ??
                             <Map<String, dynamic>>[])
@@ -715,60 +774,122 @@ Future<void> showTagTranslationPacks(
                           style: Theme.of(ctx).textTheme.bodySmall,
                         ),
                       ),
-                    Wrap(
-                      spacing: 12,
-                      runSpacing: 8,
-                      children: [
-                        if (service.bundled(selected!, locale))
-                          FilledButton(
-                            onPressed: busy
-                                ? null
-                                : () {
-                                    final key = selected!, language = locale;
-                                    operation(
-                                      () => service.download(key, language),
-                                      '翻译包已安装',
-                                    );
-                                  },
-                            child: SelectionContainer.disabled(
-                              child: Text(tr('安装内置词包')),
+                    const SizedBox(height: Gap.m),
+                    if (service.bundled(selected!, locale))
+                      ProgressOutline(
+                        active: busy && activeAction == 'bundled',
+                        value: total == 0 ? null : completed / total,
+                        child: FilledButton.icon(
+                          icon: Icon(
+                            service.installed(selected!, locale)
+                                ? Icons.check_rounded
+                                : Icons.download_rounded,
+                          ),
+                          onPressed:
+                              busy || service.installed(selected!, locale)
+                              ? null
+                              : () {
+                                  final key = selected!, language = locale;
+                                  operation(
+                                    () => service.download(
+                                      key,
+                                      language,
+                                      onProgress: reportProgress,
+                                    ),
+                                    '翻译包已安装',
+                                    actionKey: 'bundled',
+                                  );
+                                },
+                          label: Text(
+                            tr(
+                              service.installed(selected!, locale)
+                                  ? '翻译包已安装'
+                                  : '安装内置词包',
                             ),
                           ),
-                        if (service.remoteAvailable(selected!, locale))
-                          OutlinedButton(
-                            onPressed: busy
-                                ? null
-                                : () {
-                                    final key = selected!, language = locale;
-                                    operation(
-                                      () => service.updateFromRepository(
-                                        key,
-                                        language,
+                        ),
+                      ),
+                    if (service.remoteAvailable(selected!, locale)) ...[
+                      const SizedBox(height: Gap.s),
+                      ProgressOutline(
+                        active: busy && activeAction == 'remote',
+                        value: total == 0 ? null : completed / total,
+                        child: OutlinedButton.icon(
+                          icon: const Icon(Icons.download_rounded),
+                          onPressed:
+                              busy ||
+                                  !service.updateAvailable(selected!, locale)
+                              ? null
+                              : () {
+                                  final key = selected!, language = locale;
+                                  operation(
+                                    () => service.updateFromRepository(
+                                      key,
+                                      language,
+                                      onProgress: reportProgress,
+                                    ),
+                                    '翻译包已安装',
+                                    actionKey: 'remote',
+                                  );
+                                },
+                          label: Text(
+                            tr(
+                              service.updateAvailable(selected!, locale)
+                                  ? '从官方仓库下载更新'
+                                  : '翻译包已安装',
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                    if (service.installed(selected!, locale)) ...[
+                      const SizedBox(height: Gap.s),
+                      OutlinedButton.icon(
+                        icon: const Icon(Icons.delete_outline_rounded),
+                        onPressed: busy
+                            ? null
+                            : () async {
+                                final key = selected!, language = locale;
+                                final confirmed = await showDialog<bool>(
+                                  context: ctx,
+                                  builder: (dialog) => AlertDialog(
+                                    title: Text(tr('移除词库')),
+                                    content: Text(
+                                      tr('移除 {site} 的 {language} 词库？', {
+                                        'site':
+                                            SourceManager.instance
+                                                .manifest(key)
+                                                ?.name ??
+                                            key,
+                                        'language':
+                                            AppLocalizations
+                                                .languageNames[language] ??
+                                            language,
+                                      }),
+                                    ),
+                                    actions: [
+                                      TextButton(
+                                        onPressed: () =>
+                                            Navigator.pop(dialog, false),
+                                        child: Text(tr('取消')),
                                       ),
-                                      '翻译包已安装',
-                                    );
-                                  },
-                            child: SelectionContainer.disabled(
-                              child: Text(tr('从官方仓库下载更新')),
-                            ),
-                          ),
-                        if (service.installed(selected!, locale))
-                          OutlinedButton(
-                            onPressed: busy
-                                ? null
-                                : () {
-                                    final key = selected!, language = locale;
-                                    operation(
-                                      () => service.remove(key, language),
-                                      '词库已移除',
-                                    );
-                                  },
-                            child: SelectionContainer.disabled(
-                              child: Text(tr('移除词库')),
-                            ),
-                          ),
-                      ],
-                    ),
+                                      FilledButton(
+                                        onPressed: () =>
+                                            Navigator.pop(dialog, true),
+                                        child: Text(tr('移除词库')),
+                                      ),
+                                    ],
+                                  ),
+                                );
+                                if (confirmed != true || !ctx.mounted) return;
+                                await operation(
+                                  () => service.remove(key, language),
+                                  '词库已移除',
+                                );
+                              },
+                        label: Text(tr('移除词库')),
+                      ),
+                    ],
                   ] else
                     Padding(
                       padding: const EdgeInsets.all(12),
@@ -776,10 +897,20 @@ Future<void> showTagTranslationPacks(
                     ),
                   if (message != null) Text(message!),
                   if (busy)
-                    const Padding(
-                      padding: EdgeInsets.all(12),
-                      child: CircularProgressIndicator(),
+                    Padding(
+                      padding: const EdgeInsets.all(12),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          ProgressRing(
+                            value: total == 0 ? null : completed / total,
+                          ),
+                          const SizedBox(width: Gap.m),
+                          Text('$completed / $total'),
+                        ],
+                      ),
                     ),
+                  const SizedBox(height: Gap.m),
                   OutlinedButton.icon(
                     icon: const Icon(Icons.refresh),
                     label: SelectionContainer.disabled(

@@ -114,6 +114,7 @@ class _RankingDetailPageState extends State<RankingDetailPage> {
           source,
           _keyword,
           cancelToken: _cancel,
+          category: widget.board.category,
         );
         if (!mounted) return;
         String normalized(String value) => value.toLowerCase().replaceAll(

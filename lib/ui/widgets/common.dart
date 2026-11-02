@@ -15,6 +15,16 @@ import '../theme.dart';
 
 export '../kit/kit.dart';
 
+/// 编号不参与翻译；已包含编号的标题不重复添加。
+String workDisplayTitle(WorkItem item, String title) {
+  final code = item.json['code'];
+  return code is String &&
+          code.isNotEmpty &&
+          !title.toUpperCase().startsWith(code.toUpperCase())
+      ? '$code · $title'
+      : title;
+}
+
 /// Brand monogram for a source (favicons are .ico, which Flutter cannot decode; a monogram in the
 /// brand color is crisper and more consistent anyway).
 class SourceAvatar extends StatelessWidget {
@@ -87,7 +97,7 @@ class CoverImage extends StatelessWidget {
     super.key,
     required this.source,
     required this.url,
-    this.fit = BoxFit.cover,
+    this.fit = BoxFit.contain,
     this.radius = Radii.sm,
     this.blur,
     this.sourceBlurred = false,

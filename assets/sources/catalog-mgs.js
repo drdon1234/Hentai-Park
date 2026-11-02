@@ -8,16 +8,58 @@ Park.register({
     ru: {"频道": "Канал"},
     ar: {"频道": "القناة"},
   },
-  key: 'ranking-mgs', name: 'MGStage', version: '0.0.5', minAppVersion: '0.10.8',
-  type: 'video', category: 'jav', rankingOnly: true,
-  description: '官方销量榜', homepage: 'https://www.mgstage.com/',
+  key: 'catalog-mgs', name: 'MGStage', version: '0.0.7', minAppVersion: '0.10.8',
+  type: 'video', category: 'jav', metadataOnly: true,
+  description: '排行榜与作品资料', homepage: 'https://www.mgstage.com/',
   domains: ['mgstage.com'],
   network: { mode: 'browser', origin: 'https://www.mgstage.com', vpnHint: true,
     confirmation: { selector: '#entry_column:has(#AC), body#entry:has(a[href="javascript:goSite();"])',
       readySelector: '#center_column, .detail_data, #header_nav', requiredCookies: ['adc'],
       auto: { clickSelector: '#entry_column #AC, body#entry a[href="javascript:goSite();"]' }, message: '站点年龄确认未自动完成，请重试' },
   },
-  rankings: [{ key: 'sales', label: 'MGStage', category: 'jav', metric: '官方销量榜',
+  defaultFeed: 'catalog',
+  feeds: [{key: 'catalog', label: '全部', options: [
+    {key: 'sort', label: '排序', dynamic: true, default: 'popular'},
+    {key: 'genre', label: '分类', dynamic: true, default: ''},
+    {key: 'maker', label: '制作商', dynamic: true, default: ''},
+  ]}],
+  searchFilters: [
+    {key: 'sort', label: '排序', dynamic: true, default: 'popular'},
+    {key: 'genre', label: '分类', dynamic: true, default: ''},
+    {key: 'maker', label: '制作商', dynamic: true, default: ''},
+  ],
+  async filterOptions(req) {
+    const base = 'https://sp.mgstage.com/api/n/search/';
+    if (req.filter === 'sort') {
+      const data = await this.http.json(base + 'search_parts.php?type=top');
+      if (!Array.isArray(data.sort_list) || !data.sort_list.length) throw Park.error('PARSE', '动态筛选选项无效');
+      return data.sort_list.map(row => ({value: row.value, label: row.name}));
+    }
+    if (!['genre', 'maker'].includes(req.filter)) throw Park.error('CONFIG', '筛选参数无效');
+    const data = await this.http.json(base + 'facet/?type=top&facet_key=' + req.filter);
+    const rows = data.facet?.[req.filter]?.word;
+    if (!Array.isArray(rows) || !rows.length) throw Park.error('PARSE', '动态筛选选项无效');
+    return [{value: '', label: '全部'}, ...rows.map(row => ({value: String(row.id), label: row.name}))];
+  },
+  async browse(keyword, req = {}) {
+    const page = Math.max(1, Number(req.page) || 1), options = req.filters || req.options || {};
+    const query = new URLSearchParams({type: 'top', page: String(page), sort: options.sort || 'popular'});
+    if (keyword) query.set('search_word', keyword);
+    for (const key of ['genre', 'maker']) if (options[key]) query.set(key, options[key]);
+    const data = await this.http.json('https://sp.mgstage.com/api/n/search/index.php?' + query);
+    if (!Array.isArray(data.search_result) || !Number.isFinite(Number(data.all_pages_count))) throw Park.error('PARSE', '作品资料无效');
+    const items = data.search_result.map(row => {
+      const id = String(row.sku || '');
+      if (!/^[A-Za-z0-9_-]{2,40}$/.test(id) || !row.name) throw Park.error('PARSE', '作品资料无效');
+      return {id, code: id, workCode: id, title: row.name, cover: row.image_path ? new URL(row.image_path, 'https://image.mgstage.com').href : '',
+        url: `${this.homepage}product/product_detail/${id}/`};
+    });
+    return {items, page, hasNext: page < Number(data.all_pages_count)};
+  },
+  async feed(_, req) { return this.browse('', req); },
+  async search(req) { return this.browse(req.keyword, req); },
+  async metadataSearch(keyword) { return (await this.browse(keyword, {page: 1})).items; },
+  rankings: [{ key: 'sales', label: 'MGStage', category: 'jav', section: 'market', metric: '官方销量榜',
     options: [{ key: 'period', label: '周期', default: 'week', values: [
       { value: 'day', label: '日榜' }, { value: 'week', label: '周榜' }, { value: 'month', label: '月榜' },
     ] }, { key: 'channel', label: '频道', default: '', values: [

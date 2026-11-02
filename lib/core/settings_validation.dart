@@ -127,7 +127,6 @@ void validateSettings(Map<String, dynamic> values) {
   };
   const stringLists = {
     'tagDownloadIgnoredSources',
-    'rankingDetailPriority',
     'blockedTags',
     'aggregateExcluded',
     'libraryFilterSources',
@@ -222,7 +221,9 @@ void validateSettings(Map<String, dynamic> values) {
             (e) =>
                 e.key is String &&
                 (e.value is String ||
-                    e.key == 'detailSources' &&
+                    (e.key == 'detailSources' ||
+                            e.key == 'searchSources' ||
+                            e.key == 'navigation') &&
                         e.value is Map &&
                         (e.value as Map).entries.every(
                           (entry) =>

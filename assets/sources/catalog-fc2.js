@@ -8,17 +8,92 @@ Park.register({
     ru: {"上月": "Прошлый месяц", "官方卖家榜": "Официальный рейтинг продавцов"},
     ar: {"上月": "الشهر الماضي", "官方卖家榜": "ترتيب البائعين الرسمي"},
   },
-  key: 'ranking-fc2', name: 'FC2', version: '0.0.7', minAppVersion: '0.10.8',
-  type: 'video', category: 'jav', rankingOnly: true,
-  description: '官方销量榜', homepage: 'https://adult.contents.fc2.com/',
-  domains: ['fc2.com'], network: { vpnHint: true },
-  rankings: [{ key: 'sales', label: 'FC2', category: 'jav', metric: '官方销量榜',
+  key: 'catalog-fc2', name: 'FC2', version: '0.0.11', minAppVersion: '0.10.8',
+  type: 'video', category: 'jav', metadataOnly: true,
+  description: '排行榜与作品资料', homepage: 'https://adult.contents.fc2.com/',
+  domains: ['fc2.com'],
+  network: { mode: 'browser', origin: 'https://adult.contents.fc2.com', vpnHint: true,
+    confirmation: { selector: '[data-modal="agecheck"][aria-hidden="false"]',
+      readySelector: '[data-form="search"], form[action="/search/"], .items_article_headerInfo, .items_article_MainitemNameTitle',
+      requiredCookies: ['wei6H'],
+      auto: { clickSelector: '[data-modal="agecheck"] [data-button="yes"]' },
+      message: '站点年龄确认未自动完成，请重试' },
+  },
+  account: {
+    type: 'cookies', title: '登录', required: false, fields: [],
+    loginUrl: 'https://adult.contents.fc2.com/lk/services/id/login',
+    cookieUrl: 'https://adult.contents.fc2.com/',
+    async login(values) {
+      await this.cookies.set(this.homepage, values);
+      const state=await this.account.status.call(this);
+      if (!state.loggedIn) throw Park.error('LOGIN_REQUIRED','请先登录');
+      return {name:state.name};
+    },
+    async logout() { await this.cookies.clear(this.homepage); },
+    async status() {
+      const doc=Park.html.parse(await this.http.text(this.homepage+'ranking/article/weekly'));
+      if (doc.querySelector('a[data-tag="login"]')) return {loggedIn:false};
+      const logout=doc.querySelector('a[href*="/logout"], a[data-tag="logout"]');
+      if (!logout) throw Park.error('PARSE','账号状态无效');
+      return {loggedIn:true,name:''};
+    },
+  },
+  defaultFeed: 'sales',
+  feeds: [{key:'sales',label:'官方销量榜',options:[{key:'period',label:'周期',default:'weekly',values:[
+    {value:'realtime',label:'实时'},{value:'daily',label:'日榜'},{value:'weekly',label:'周榜'},
+    {value:'monthly',label:'月榜'},{value:'yearly',label:'年榜'},
+  ]}]}],
+  searchFilters: [{key:'type',label:'类型',default:'',dynamic:true}],
+  async filterOptions(req) {
+    if (req.filter!=='type') throw Park.error('CONFIG','筛选参数无效');
+    const doc=Park.html.parse(await this.http.text(this.homepage+'ranking/article/weekly'));
+    const values=[...doc.querySelectorAll('form[action="/search/"] select[name="type"] option[value]')]
+      .map(e=>({value:e.getAttribute('value'),label:Park.html.text(e)}));
+    if (!values.length) throw Park.error('PARSE','动态筛选选项无效');
+    return values;
+  },
+  async feed(_,req) {
+    const page=await this.ranking('sales',req);
+    return {...page,items:page.items.map(item=>({...item,workCode:item.keyword}))};
+  },
+  async contentPage(url) {
+    const response=await this.http.get(url);
+    const target=Park.url.parse(response.url,this.homepage,this.domains);
+    if (target?.hostname==='fc2.com' && /\/login\.php$/.test(target.pathname)) throw Park.error('LOGIN_REQUIRED','请先登录');
+    // 匿名状态不等于没有搜索权限，错误页也不能据此推断必须登录。
+    this.http.ensureOk(response);
+    return response;
+  },
+  async search(req) {
+    const page=Math.max(1,Number(req.page)||1),url=new URL('search/',this.homepage);
+    url.searchParams.set('q',String(req.keyword||'').trim());url.searchParams.set('page',page);
+    if (req.filters?.type) url.searchParams.set('type',req.filters.type);
+    const response=await this.contentPage(url.href),doc=Park.html.parse(response.body),seen=new Set();
+    const items=[...doc.querySelectorAll('a[href*="/article/"],a[href*="/article_search.php?id="]')].map(a=>{
+      const link=Park.url.parse(a.getAttribute('href'),this.homepage,this.domains);
+      if (link?.hostname!=='adult.contents.fc2.com') return null;
+      const id=link.pathname.match(/^\/article\/(\d{2,9})\/$/)?.[1] || (link.pathname==='/article_search.php'?link.searchParams.get('id'):'');
+      if (!/^\d{2,9}$/.test(id||'') || seen.has(id)) return null;
+      const img=a.querySelector('img'),title=Park.html.text(a.querySelector('h3,h4')) || img?.getAttribute('alt') || Park.html.text(a);
+      if (!title) return null;seen.add(id);
+      const image=img?.getAttribute('data-src') || img?.getAttribute('src');
+      return {id,code:'FC2-PPV-'+id,workCode:'FC2-PPV-'+id,title,cover:image?new URL(image,this.homepage).href:'',url:this.homepage+'article/'+id+'/'};
+    }).filter(Boolean);
+    if (!items.length && !/検索結果[\s\S]{0,40}0件|没有找到|該当する商品はありません/.test(Park.html.text(doc.body))) throw Park.error('PARSE','作品资料无效');
+    const hasNext=[...doc.querySelectorAll('a[href]')].some(a=>{
+      const u=Park.url.parse(a.getAttribute('href'),this.homepage,this.domains);
+      return u?.pathname===url.pathname && u.searchParams.get('q')===req.keyword && Number(u.searchParams.get('page'))===page+1;
+    });
+    return {items,page,hasNext};
+  },
+  async metadataSearch(keyword) {return (await this.search({keyword,page:1})).items;},
+  rankings: [{ key: 'sales', label: 'FC2', category: 'jav', section: 'market', metric: '官方销量榜',
     options: [{ key: 'period', label: '周期', default: 'weekly', values: [
       { value: 'realtime', label: '实时' }, { value: 'daily', label: '日榜' },
       { value: 'weekly', label: '周榜' }, { value: 'monthly', label: '月榜' },
       { value: 'yearly', label: '年榜' },
     ] }],
-  }, { key: 'sellers', label: '卖家榜', kind: 'seller', category: 'jav', metric: '官方卖家榜',
+  }, { key: 'sellers', label: '卖家榜', kind: 'seller', category: 'jav', section: 'market', metric: '官方卖家榜',
     options: [{ key: 'period', label: '周期', default: 'monthly', values: [
       { value: 'monthly', label: '上月' }, { value: 'yearly', label: '年榜' },
     ] }],
@@ -57,7 +132,7 @@ Park.register({
           supplied.pathname !== expected.pathname) throw Park.error('CONFIG', '作品编号无效');
       url = supplied.href;
     }
-    const response = await this.http.get(url, {});
+    const response = await this.contentPage(url);
     this.http.ensureOk(response);
     const doc = Park.html.parse(response.body);
     const meta = key => doc.querySelector(`meta[property="${key}"]`)?.getAttribute('content') || '';

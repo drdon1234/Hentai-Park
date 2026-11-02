@@ -252,8 +252,13 @@ class _HomePageState extends State<HomePage> {
                 builder: (context, _) =>
                     sm.enabled.any(
                       (source) =>
-                          source.manifest!.metadataOnly &&
-                          source.manifest!.category == selected.category,
+                          (source.manifest!.metadataOnly ||
+                              source.manifest!.rankingOnly &&
+                                  source.manifest!.can('metadataDetail')) &&
+                          (source.manifest!.category == selected.category ||
+                              source.manifest!.rankings.any(
+                                (board) => board.category == selected.category,
+                              )),
                     )
                     ? Padding(
                         padding: const EdgeInsets.symmetric(
@@ -262,10 +267,12 @@ class _HomePageState extends State<HomePage> {
                         ),
                         child: Align(
                           alignment: AlignmentDirectional.centerStart,
-                          child: OutlinedButton.icon(
-                            icon: const Icon(Icons.info_outline_rounded),
-                            label: Text(tr('作品资料')),
-                            onPressed: () => Nav.push(
+                          child: ListTile(
+                            contentPadding: EdgeInsets.zero,
+                            leading: const Icon(Icons.manage_search_rounded),
+                            title: Text(tr('搜索作品资料')),
+                            trailing: const Icon(Icons.chevron_right_rounded),
+                            onTap: () => Nav.push(
                               context,
                               MetadataSitesPage(category: selected.category!),
                             ),

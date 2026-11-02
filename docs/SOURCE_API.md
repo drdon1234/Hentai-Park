@@ -799,9 +799,9 @@ liveChatEvent(state, event) {
 
 ## 作品资料与磁链
 
-- `metadataOnly: true`: 独立资料插件必须实现 `metadataSearch`、`metadataDetail`，可实现 `metadataMagnets`，也可声明普通 `feeds`、`search` 及其筛选协议。浏览和搜索结果进入资料详情，不进入聚合片源、播放、收藏或下载链路；不声明普通 `detail` 或播放能力。站点解析规则仅放在插件。
-- `metadataSearch(keyword)` 返回最多 100 个候选：`{id, code, title, url, cover?}`。`id` 为源内身份，`code` 为真实番号；不得仅按标题猜测番号。无匹配返回 `[]`，验证页和解析异常必须抛错。多个匹配由用户选择，不默认采用第一条。
-- `metadataDetail(id, context?)` 返回候选必填字段，以及可选的 `description`、`releaseDate`、`duration`、`director`、`studio`、`publisher`、`series`、`rating`、`actors: string[]`、`tags: string[]`、`images: string[]`。缺失文本留空，缺失集合用空数组，不伪造评分、简介或其他字段。作品 `url` 必须属于插件声明域；封面和预览图只能是无凭据、无端口的公网 HTTPS 地址。 `metadataDetail(id, context?)` 接收可选榜单上下文 `{url, board}`。独立榜单可实现此接口，按本站作品 ID 返回真实资料；插件必须校验上下文 URL 的域名及其与作品 ID 的关联，不信任外部传入 URL。可选作者字段为 `authors: string[]`。
+- `metadataOnly: true`: 独立资料插件必须实现 `metadataSearch`、`metadataDetail`，可实现 `metadataMagnets`，也可声明普通 `feeds`、`search` 及其筛选协议和 `rankings`；市场榜单显式声明 `section: 'market'`。浏览和搜索结果进入资料详情，不进入聚合片源、播放、收藏或下载链路；不声明普通 `detail` 或播放能力。站点解析规则仅放在插件。
+- `metadataSearch(keyword, context?)` 返回最多 100 个候选：`{id, code, title, url, cover?}`。`id` 为源内身份，`code` 为真实番号；不得仅按标题猜测番号。无匹配返回 `[]`，验证页和解析异常必须抛错。排行榜插件也可声明此能力，作为域内资料搜索入口。可选 `context.category` 为当前域，跨域市场插件应据此限制搜索范围；返回 ID 必须足以在后续详情请求中恢复原站频道身份。多个匹配由用户选择，不默认采用第一条。
+- `metadataDetail(id, context?)` 返回候选必填字段，以及可选的 `description`、`releaseDate`、`duration`、`director`、`studio`、`publisher`、`series`、`rating`、`actors: string[]`、`tags: string[]`、`images: string[]`。缺失文本留空，缺失集合用空数组，不伪造评分、简介或其他字段。`description` 优先返回纯文本；运行时对 HTML 简介安全提取文本，保留 `br` 和块级换行并忽略脚本、表单等内容。作品 `url` 必须属于插件声明域；封面和预览图只能是无凭据、无端口的公网 HTTPS 地址。 `metadataDetail(id, context?)` 接收可选榜单上下文 `{url, board}`。独立榜单和资料插件均可实现此接口，按本站作品 ID 返回真实资料；插件必须校验上下文 URL 的域名及其与作品 ID 的关联，不信任外部传入 URL。可选作者字段为 `authors: string[]`。
 - `metadataMagnets(id)` 返回最多 500 条 `{url, name, size?, date?, tags?: string[]}`。`url` 仅接受有效 `magnet:?xt=urn:btih:...`，按内容哈希去重。资料与磁链独立加载和重试，切换作品、来源或关闭页面取消旧请求。界面只按用户操作复制或调用外部应用打开磁链；“搜索 JAV 站点”用资料中的真实番号继续应用内 JAV 聚合搜索。
 
 ### 列表过滤语义

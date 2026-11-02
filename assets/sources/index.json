@@ -771,81 +771,81 @@
       "minAppVersion": "0.9.2"
     },
     {
-      "key": "ranking-dlsite",
+      "key": "catalog-dlsite",
       "name": "DLsite",
-      "version": "0.0.4",
+      "version": "0.0.7",
       "type": "comic",
       "category": "doujin",
-      "rankingOnly": true,
-      "file": "ranking-dlsite.js",
-      "description": "官方销量榜",
-      "minAppVersion": "0.10.8"
+      "file": "catalog-dlsite.js",
+      "description": "排行榜与作品资料",
+      "minAppVersion": "0.10.8",
+      "metadataOnly": true
     },
     {
-      "key": "ranking-toranoana",
+      "key": "catalog-toranoana",
       "name": "虎之穴",
-      "version": "0.0.3",
+      "version": "0.0.6",
       "type": "comic",
       "category": "doujin",
-      "rankingOnly": true,
-      "file": "ranking-toranoana.js",
-      "description": "官方销量榜",
-      "minAppVersion": "0.10.8"
+      "file": "catalog-toranoana.js",
+      "description": "排行榜与作品资料",
+      "minAppVersion": "0.10.8",
+      "metadataOnly": true
     },
     {
-      "key": "ranking-fanza",
+      "key": "catalog-fanza",
       "name": "FANZA",
+      "version": "0.0.10",
+      "type": "video",
+      "category": "jav",
+      "file": "catalog-fanza.js",
+      "description": "排行榜与作品资料",
+      "minAppVersion": "0.10.8",
+      "metadataOnly": true
+    },
+    {
+      "key": "catalog-mgs",
+      "name": "MGStage",
       "version": "0.0.7",
       "type": "video",
       "category": "jav",
-      "rankingOnly": true,
-      "file": "ranking-fanza.js",
-      "description": "官方销量榜",
-      "minAppVersion": "0.10.8"
+      "file": "catalog-mgs.js",
+      "description": "排行榜与作品资料",
+      "minAppVersion": "0.10.8",
+      "metadataOnly": true
     },
     {
-      "key": "ranking-mgs",
-      "name": "MGStage",
+      "key": "catalog-fc2",
+      "name": "FC2",
+      "version": "0.0.11",
+      "type": "video",
+      "category": "jav",
+      "file": "catalog-fc2.js",
+      "description": "排行榜与作品资料",
+      "minAppVersion": "0.10.8",
+      "metadataOnly": true
+    },
+    {
+      "key": "catalog-studios",
+      "name": "无码厂商",
+      "version": "0.0.9",
+      "type": "video",
+      "category": "jav",
+      "file": "catalog-studios.js",
+      "description": "排行榜与作品资料",
+      "minAppVersion": "0.10.8",
+      "metadataOnly": true
+    },
+    {
+      "key": "catalog-javmenu",
+      "name": "JavMenu",
       "version": "0.0.5",
       "type": "video",
       "category": "jav",
-      "rankingOnly": true,
-      "file": "ranking-mgs.js",
-      "description": "官方销量榜",
-      "minAppVersion": "0.10.8"
-    },
-    {
-      "key": "ranking-fc2",
-      "name": "FC2",
-      "version": "0.0.7",
-      "type": "video",
-      "category": "jav",
-      "rankingOnly": true,
-      "file": "ranking-fc2.js",
-      "description": "官方销量榜",
-      "minAppVersion": "0.10.8"
-    },
-    {
-      "key": "ranking-studios",
-      "name": "无码厂商",
-      "version": "0.0.7",
-      "type": "video",
-      "category": "jav",
-      "rankingOnly": true,
-      "file": "ranking-studios.js",
-      "description": "官方人气榜",
-      "minAppVersion": "0.10.8"
-    },
-    {
-      "key": "ranking-javmenu",
-      "name": "JavMenu",
-      "version": "0.0.3",
-      "type": "video",
-      "category": "jav",
-      "rankingOnly": true,
-      "file": "ranking-javmenu.js",
-      "description": "站内热门",
-      "minAppVersion": "0.10.8"
+      "file": "catalog-javmenu.js",
+      "description": "排行榜与作品资料",
+      "minAppVersion": "0.10.8",
+      "metadataOnly": true
     },
     {
       "key": "metadata-javbus",
@@ -867,6 +867,17 @@
       "category": "jav",
       "file": "metadata-javdb.js",
       "description": "作品资料与磁链",
+      "metadataOnly": true
+    },
+    {
+      "key": "metadata-fc2hub",
+      "name": "FC2HUB",
+      "version": "0.0.1",
+      "minAppVersion": "0.10.9",
+      "type": "video",
+      "category": "jav",
+      "file": "metadata-fc2hub.js",
+      "description": "FC2作品资料",
       "metadataOnly": true
     }
   ]

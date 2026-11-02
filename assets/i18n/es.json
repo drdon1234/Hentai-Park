@@ -1725,10 +1725,18 @@
   "已安装 {count} 个词包": "Se instalaron {count} diccionarios",
   "未完成：{items}": "Sin completar: {items}",
   "详情站点": "Sitio de detalles",
-  "按优先级": "Por prioridad",
-  "排行榜作品详情站点优先级": "Prioridad de sitios de detalles de rankings",
   "无码": "Sin censura",
   "含磁链": "Con enlaces magnet",
   "复制编号": "Copiar ID",
-  "拖动排序；本站榜单默认打开本站详情，跨站查找按同域优先级，指定详情站点时使用所选站点。": "Arrastra para ordenar. Los rankings abren los detalles de su propio sitio. La búsqueda entre sitios sigue la prioridad del mismo dominio; si eliges un sitio de detalles, se usa directamente."
+  "源站优先": "Priorizar sitio original",
+  "域首选项": "Preferencia de categoría",
+  "搜索站点": "Sitio de búsqueda",
+  "正在更新站点插件": "Actualizando complementos de sitios",
+  "移除 {site} 的 {language} 词库？": "¿Eliminar el diccionario de {language} de {site}?",
+  "分页游标无效": "Cursor de página no válido",
+  "搜索关键词无效": "Palabra de búsqueda no válida",
+  "账号状态无效": "No se puede verificar el estado de la cuenta",
+  "从旧到新": "Más antiguos primero",
+  "排行榜配置": "Configuración de clasificaciones",
+  "排行榜与作品资料": "Clasificaciones e información de obras"
 }

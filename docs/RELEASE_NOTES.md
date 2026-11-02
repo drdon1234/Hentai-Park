@@ -1,39 +1,39 @@
 ## 中文
 
 ### 新功能
-- 各域新增作品资料入口，支持资料站点浏览、搜索、分页和筛选。
-- 排行榜支持打开本子、里番和 JAV 的原站作品详情，并可指定详情站点或配置跨站查找优先级。
+- 市场资料站点补齐应用内浏览、搜索、筛选与作品详情。
+- 新增 FC2HUB 资料站点，支持匿名搜索 FC2 作品、番号查找与完整封面。
 
 ### 改进
-- 优化作品资料详情布局，进入作品后隐藏搜索栏，评论移至全部详情之后。
-- 改善作品摘要、列表内容与翻译展示，以及词包更新提醒。
-- 登录面板支持识别更多粘贴格式，改善账号和 Cookie 信息填写体验。
+- 排行榜详情默认源站优先，可在独立配置页选择详情与搜索站点，并保存各级筛选状态。
+- 优化翻译包管理与备份界面，区分安装和删除操作，移除词库前增加确认。
+- 插件更新和词包下载显示已完成步数，下载网格中的未完成作品显示圆环进度。
+- 作品资料始终完整显示封面，JAV 站点列表优先展示番号。
 
 ### 修复
-- 修复部分场景下插件更新不及时生效的问题。
-- 改善站点年龄确认的自动处理，并修复页面跳转时可能中断确认的问题。
+- 修复 myfans.jp 排行榜动态筛选加载失败。
+- 修复 FANZA 分类榜缺少详情入口，以及资料简介中的换行标签直接显示的问题。
 
 ### 插件更新
-- JavBus 0.0.3、JavDB 0.0.2：完善站点浏览、搜索、筛选和资料详情，JavBus 磁链支持高清、超清、4K 和字幕标签。
-- FANZA 0.0.7、DLsite 0.0.4、虎之穴 0.0.3、JavMenu 0.0.3、MGStage 0.0.5、FC2 0.0.7、无码厂商 0.0.7：补充排行榜作品详情与公开预览内容。
-- iXXX 0.0.19、myfans.jp 0.0.12、pixivFANBOX 0.0.7：完善内容摘要展示。
+- FC2HUB 0.0.1：新增 FC2 作品搜索、分类浏览与资料详情。
+- FANZA 0.0.10、DLsite 0.0.7、虎之穴 0.0.6、JavMenu 0.0.5、MGStage 0.0.7、FC2 0.0.11、无码厂商 0.0.9：完善搜索、筛选和详情，统一市场榜单与作品资料入口。
 
 ## English
 
 ### New
-- Added work information entries for each category, with browsing, search, pagination, and filters for metadata sites.
-- Rankings can open original-site details for doujinshi, hentai anime, and JAV titles, with a selected detail site or configurable cross-site lookup priorities.
+- Market information sites now support in-app browsing, search, filters, and work details.
+- Added FC2HUB for anonymous FC2 work searches, catalog-code lookup, and complete cover images.
 
 ### Improvements
-- Refined work information layouts, hid the search bar after opening a title, and moved comments below all details.
-- Improved summaries, list content, translations, and tag translation package update reminders.
-- Expanded supported paste formats in login panels for easier account and Cookie entry.
+- Ranking details prefer the original site by default; detail and search sites have a dedicated settings page, and filter selections are saved.
+- Refined translation package management and backups, separated installation from deletion, and added confirmation before removing dictionaries.
+- Plugin updates and translation downloads show completed steps; unfinished titles in the download grid show circular progress.
+- Work information displays complete covers, with catalog codes shown first in JAV site lists.
 
 ### Fixes
-- Fixed plugin updates not taking effect promptly in some cases.
-- Improved automatic age confirmation and fixed confirmation being interrupted during page navigation.
+- Fixed dynamic ranking filters failing to load on myfans.jp.
+- Fixed missing details for FANZA category rankings and raw line-break tags appearing in work descriptions.
 
 ### Plugin updates
-- JavBus 0.0.3 and JavDB 0.0.2: improved browsing, search, filters, and work information; JavBus magnet links now include HD, Ultra HD, 4K, and subtitle tags.
-- FANZA 0.0.7, DLsite 0.0.4, Toranoana 0.0.3, JavMenu 0.0.3, MGStage 0.0.5, FC2 0.0.7, and Uncensored Studios 0.0.7: added ranking title details and public previews.
-- iXXX 0.0.19, myfans.jp 0.0.12, and pixivFANBOX 0.0.7: improved content summaries.
+- FC2HUB 0.0.1: added FC2 work searches, category browsing, and work information.
+- FANZA 0.0.10, DLsite 0.0.7, Toranoana 0.0.6, JavMenu 0.0.5, MGStage 0.0.7, FC2 0.0.11, and Uncensored Studios 0.0.9: improved search, filters, and details, with unified market ranking and work information entries.
