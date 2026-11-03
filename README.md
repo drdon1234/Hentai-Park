@@ -82,6 +82,8 @@ https://github.com/user-attachments/assets/165f1524-9084-4437-bebb-fa9e23ebd316
 
 通过 Issues 提供应用版本、站点名称和复现步骤。请隐藏账号、Cookie、Token、备份文件与完整签名链接。
 
+[日志说明](docs/DIAGNOSTICS.md)
+
 ---
 
 [AGPL-3.0 · 许可证](LICENSE) · [第三方声明](docs/licenses/README.md) · [平台说明](docs/PLATFORMS.md)

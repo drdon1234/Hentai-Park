@@ -158,7 +158,12 @@ class _SourcePageState extends State<SourcePage> {
             isScrollable: true,
             tabs: [
               for (final f in m.feeds)
-                Tab(child: SelectionContainer.disabled(child: Text(f.label))),
+                Tab(
+                  height:
+                      (MediaQuery.textScalerOf(context).scale(16) * 1.5 + Gap.l)
+                          .clamp(48.0, double.infinity),
+                  child: SelectionContainer.disabled(child: Text(f.label)),
+                ),
             ],
           )
         : null;

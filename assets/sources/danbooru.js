@@ -128,12 +128,14 @@ Park.register({
       "Danbooru 帖子没有可用原图": "لا تتوفر صورة أصلية لهذا المنشور في Danbooru"
     }
   },
-  key: 'danbooru', name: 'Danbooru', version: '0.0.8', minAppVersion: '0.10.5', apiVersion: 2,
+  key: 'danbooru', name: 'Danbooru', version: '0.0.9', minAppVersion: '0.10.5', apiVersion: 2,
   type: 'comic', category: 'illustration', color: '#3B73AF',
   homepage: DAN_API, description: '二次元图片图集，保留站内安全、擦边与 R18 分级',
   domains: ['donmai.us'], imageHeaders: {'User-Agent': DAN_UA},
   network: { vpnHint: true, headers: { 'User-Agent': DAN_UA, Accept: 'application/json' } },
-  defaultFeed: 'popular', feeds: [{ key: 'popular', label: '热门' }, { key: 'latest', label: '最新' },
+  defaultFeed: 'popular', feeds: [
+    { key: 'popular', label: '热门', options: [ratingOption, sortOption], commonFilters: {score: {range: true}, favorites: {range: true}} },
+    { key: 'latest', label: '最新', options: [ratingOption, {...sortOption, default: 'date'}], commonFilters: {score: {range: true}, favorites: {range: true}} },
     {key: 'category', label: '分类', commonFilters: {score: {range: true}, favorites: {range: true}}, options: [ratingOption, {...sortOption, default: 'date'}]}],
   searchFilters: [ratingOption, sortOption],
   searchCommonFilters: {score: {range: true}, favorites: {range: true}},
@@ -154,7 +156,7 @@ Park.register({
   async feed(key, req) {
     if (key === 'category') return this.listing('/posts.json', {tags: filterTags('', {sort: 'date', ...req.options}, req.common)}, req.page);
     if (!['popular', 'latest'].includes(key)) throw Park.error('CONFIG', '未知 Danbooru 列表');
-    return this.listing('/posts.json', key === 'popular' ? {tags: 'order:rank'} : {}, req.page);
+    return this.listing('/posts.json', {tags: filterTags(key === 'popular' ? 'order:rank' : '', req.options, req.common)}, req.page);
   },
   async search(req) {
     const keyword = filterTags(req.keyword, req.filters, req.common);

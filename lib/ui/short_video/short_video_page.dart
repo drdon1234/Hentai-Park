@@ -83,7 +83,6 @@ class _ShortVideoPageState extends State<ShortVideoPage>
   bool _refreshing = false;
   double _overscroll = 0;
   Object? _initialError;
-  final _retrySources = <String>{};
   CancelToken _loadCancel = CancelToken();
   DateTime _lastWheel = DateTime.fromMillisecondsSinceEpoch(0);
 
@@ -107,11 +106,7 @@ class _ShortVideoPageState extends State<ShortVideoPage>
     AppLock.instance.addListener(_sync);
     _playback = ShortVideoPlayback(
       (item, cancel) async {
-        final player = await ShortVideoPlayer.open(
-          item,
-          cancel,
-          refresh: _retrySources.remove(item.uid),
-        );
+        final player = await ShortVideoPlayer.open(item, cancel);
         try {
           final resume = _routePosition;
           if (!cancel.isCancelled &&
@@ -472,7 +467,6 @@ class _ShortVideoPageState extends State<ShortVideoPage>
       await _refresh();
       return;
     }
-    _retrySources.add(item.uid);
     await _playback.retry();
   }
 

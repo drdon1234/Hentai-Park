@@ -82,6 +82,8 @@ Export or restore .parkbak under More → Backup. Restore merges data and exclud
 
 Use Issues and include the app version, site and steps to reproduce. Redact accounts, cookies, tokens, backups and full signed URLs.
 
+[Log guide](DIAGNOSTICS.md)
+
 ---
 
 [AGPL-3.0 · License](../../../LICENSE) · [Third-party notices](../../licenses/README.md) · [Platforms](../../PLATFORMS.md)

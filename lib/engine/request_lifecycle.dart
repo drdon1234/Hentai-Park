@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:dio/dio.dart';
 import 'package:flutter/widgets.dart';
 
+import '../core/app_log.dart';
 import '../core/models.dart';
 import 'cancellation.dart';
 
@@ -25,11 +26,12 @@ class RequestLifecycle extends ChangeNotifier with WidgetsBindingObserver {
   bool get background => _background;
 
   static bool _isBackground(AppLifecycleState? state) =>
-      state == AppLifecycleState.paused || state == AppLifecycleState.hidden;
+      state != null && state != AppLifecycleState.resumed;
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (!_observing) return;
+    AppLog.record({'event': 'lifecycle', 'action': state.name});
     final next = _isBackground(state);
     if (next == _background) return;
     _background = next;
@@ -52,6 +54,7 @@ class RequestLifecycle extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   Future<void> waitForForeground(CancelToken? token) async {
+    if (token?.cancelError case final error?) throw error;
     if (!_background) return;
     final ready = Completer<void>();
     void changed() {
@@ -63,6 +66,19 @@ class RequestLifecycle extends ChangeNotifier with WidgetsBindingObserver {
       await awaitCancelled(ready.future, token);
     } finally {
       removeListener(changed);
+    }
+  }
+
+  /// 退避只消耗聚焦时间，取消立即终止，后台任务引擎不等待 UI。
+  Future<void> retryDelay(Duration delay, CancelToken? token) async {
+    await waitForForeground(token);
+    final ready = Completer<void>();
+    final timer = foregroundTimer(delay, ready.complete);
+    try {
+      await awaitCancelled(ready.future, token);
+      await waitForForeground(token);
+    } finally {
+      timer.cancel();
     }
   }
 
@@ -128,6 +144,7 @@ class RequestLifecycle extends ChangeNotifier with WidgetsBindingObserver {
         rethrow;
       }
       await waitForForeground(cancelToken);
+      AppLog.record({'event': 'request_recovery', 'outcome': 'started'});
       if (cancelToken?.isCancelled ?? false) throw cancelToken!.cancelError!;
       return operation();
     }

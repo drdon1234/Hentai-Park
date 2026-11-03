@@ -30,7 +30,6 @@ class ShortVideoPlayer implements ShortVideoHandle {
   static Future<List<VideoSource>> sources(
     WorkItem item,
     CancelToken cancel, {
-    bool refresh = false,
     SourceManager? sourceManager,
   }) async {
     final manager = sourceManager ?? SourceManager.instance;
@@ -46,7 +45,6 @@ class ShortVideoPlayer implements ShortVideoHandle {
           item.id,
           episodeId: attachment?['episodeId'] as String?,
           cancelToken: cancel,
-          refresh: refresh,
         ),
         cancel,
       );
@@ -65,9 +63,8 @@ class ShortVideoPlayer implements ShortVideoHandle {
 
   static Future<ShortVideoHandle> open(
     WorkItem item,
-    CancelToken cancel, {
-    bool refresh = false,
-  }) async {
+    CancelToken cancel,
+  ) async {
     await awaitCancelled(PlaybackRelease.ready, cancel);
     _check(cancel);
     if (!PlatformCapabilities.nativeVideo) {
@@ -101,7 +98,7 @@ class ShortVideoPlayer implements ShortVideoHandle {
         rethrow;
       }
     }
-    final resolvedSources = await sources(item, cancel, refresh: refresh);
+    final resolvedSources = await sources(item, cancel);
     _check(cancel);
     if (resolvedSources.isEmpty) {
       throw SourceError('UNSUPPORTED', '此影片暂无可用播放地址');

@@ -1,16 +1,21 @@
 import 'dart:async';
+import 'dart:collection';
 import 'dart:convert';
 import 'dart:io';
-import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart' show Size;
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 
+import '../core/app_log.dart';
 import '../core/async_tasks.dart';
 import '../core/models.dart';
+import 'browser_interaction.dart';
 import 'challenge.dart';
 import 'http_service.dart';
 import 'media_transport.dart';
+import 'request_lifecycle.dart';
 
 /// One hidden page per playback/download. Closing it aborts and releases all requests.
 class BrowserMedia implements MediaTransport {
@@ -90,6 +95,10 @@ class BrowserMedia implements MediaTransport {
     Uri? document = Uri.parse('${policy.origin}/robots.txt');
     var documentStatus = 200;
     var sawChallenge = false;
+    var clickedGeneration = -1;
+    DateTime? challengeSince;
+    DateTime? lastChallengeScan;
+    String? lastState;
     void finish([Object? error]) {
       if (!ready.isCompleted) {
         _startupPoll?.cancel();
@@ -103,7 +112,12 @@ class BrowserMedia implements MediaTransport {
     }
 
     Future<void> inspect(InAppWebViewController controller) async {
-      if (inspecting || ready.isCompleted || _closed.isCompleted) return;
+      if (inspecting ||
+          ready.isCompleted ||
+          _closed.isCompleted ||
+          RequestLifecycle.instance.background) {
+        return;
+      }
       inspecting = true;
       final inspectedGeneration = generation;
       bool current() =>
@@ -135,8 +149,40 @@ html: document.documentElement ? document.documentElement.outerHTML.slice(0, 419
           '${state['html'] ?? ''}',
           title: '${state['title'] ?? ''}',
         );
+        final nextState = challenged ? 'challenge' : 'ready';
+        if (lastState != nextState) {
+          lastState = nextState;
+          AppLog.debug({
+            'event': 'media_document',
+            'site': policy.site,
+            'generation': generation,
+            'outcome': nextState,
+            'status': documentStatus,
+          });
+        }
         if (challenged) {
           sawChallenge = true;
+          final now = RequestLifecycle.instance.foregroundNow;
+          challengeSince ??= now;
+          if (clickedGeneration != generation &&
+              now.difference(challengeSince!) >= const Duration(seconds: 5) &&
+              (lastChallengeScan == null ||
+                  now.difference(lastChallengeScan!) >=
+                      const Duration(seconds: 3))) {
+            lastChallengeScan = now;
+            try {
+              if (await clickCloudflareCheckbox(
+                controller,
+                current: current,
+                headlessId: _view?.id,
+                documentUrl: document.toString(),
+              )) {
+                clickedGeneration = inspectedGeneration;
+              }
+            } catch (_) {
+              // 输入只帮助页面继续验证；仍以当前文档实际放行为准。
+            }
+          }
           return;
         }
         // 启动文档只用于建立来源；站点可不提供 robots.txt。
@@ -155,7 +201,7 @@ html: document.documentElement ? document.documentElement.outerHTML.slice(0, 419
       }
     }
 
-    final timeout = Timer(
+    final timeout = RequestLifecycle.instance.foregroundTimer(
       const Duration(seconds: 25),
       () => finish(
         challenged
@@ -172,10 +218,24 @@ html: document.documentElement ? document.documentElement.outerHTML.slice(0, 419
       ),
     );
     final view = HeadlessInAppWebView(
+      initialSize: const Size(1024, 768),
       initialUrlRequest: URLRequest(url: WebUri('${policy.origin}/robots.txt')),
+      initialUserScripts: defaultTargetPlatform == TargetPlatform.android
+          ? UnmodifiableListView([
+              UserScript(
+                source: challengeDocumentScript,
+                injectionTime: UserScriptInjectionTime.AT_DOCUMENT_START,
+                allowedOriginRules: {
+                  for (final domain in policy.documentDomains) ...{
+                    'https://$domain',
+                    'https://*.$domain',
+                  },
+                },
+              ),
+            ])
+          : null,
       initialSettings: InAppWebViewSettings(
         userAgent: HttpService.instance.userAgent,
-        blockNetworkImage: true,
         useShouldOverrideUrlLoading: true,
         useShouldInterceptRequest: _guardedRedirects,
       ),
@@ -206,13 +266,21 @@ html: document.documentElement ? document.documentElement.outerHTML.slice(0, 419
           );
         }
       },
-      onWebViewCreated: (controller) => _controller = controller,
+      onWebViewCreated: (controller) {
+        _controller = controller;
+        _startupPoll = Timer.periodic(
+          const Duration(milliseconds: 800),
+          (_) => unawaited(inspect(controller)),
+        );
+      },
       onLoadStart: (controller, url) {
         generation++;
         challenged = false;
         document = Uri.tryParse('$url');
         documentStatus = 200;
         sawChallenge = false;
+        challengeSince = null;
+        lastChallengeScan = null;
       },
       onRenderProcessGone: (controller, detail) {
         finish(SourceError('NETWORK', '浏览器请求失败'));
@@ -222,16 +290,27 @@ html: document.documentElement ? document.documentElement.outerHTML.slice(0, 419
       onLoadStop: (controller, url) async {
         if (ready.isCompleted || _closed.isCompleted) return;
         // 只按检查快照中的实际地址判断，迟到的 loadStop 不能替换当前文档。
-        _startupPoll ??= Timer.periodic(
-          const Duration(milliseconds: 800),
-          (_) => unawaited(inspect(controller)),
-        );
         await inspect(controller);
       },
       onReceivedError: (controller, request, error) {
         if (request.isForMainFrame == true &&
             document == Uri.tryParse('${request.url}')) {
-          finish(SourceError('NETWORK', error.description));
+          finish(
+            SourceError(
+              'NETWORK',
+              '浏览器请求失败',
+              diagnostics: {
+                'transport': 'browser',
+                if ({
+                  WebResourceErrorType.CANNOT_CONNECT_TO_HOST,
+                  WebResourceErrorType.NETWORK_CONNECTION_LOST,
+                  WebResourceErrorType.CONNECTION_ABORTED,
+                  WebResourceErrorType.RESET,
+                }.contains(error.type))
+                  'reason': 'CONNECTION',
+              },
+            ),
+          );
         }
       },
       onReceivedHttpError: (controller, request, response) {
@@ -348,7 +427,7 @@ if (jobs.has(id)) jobs.get(id)?.abort(); else jobs.set(id, null);''',
                 for (let i = 0; i < chunk.length; i += 8192) binary += String.fromCharCode(...chunk.subarray(i, i + 8192));
               }
               return {status: 200, body: btoa(binary), url: response.url};
-            } catch (error) { return {error: String(error && error.message || error)}; }
+            } catch (error) { return {error: true, reason: error?.name === 'TypeError' || error?.name === 'AbortError' ? 'CONNECTION' : null}; }
             finally { clearTimeout(timer); controller.abort(); jobs.delete(id); }
           ''',
                 arguments: {
@@ -380,6 +459,13 @@ if (jobs.has(id)) jobs.get(id)?.abort(); else jobs.set(id, null);''',
           throw SourceError(
             'NETWORK',
             '媒体请求失败：{error}',
+            status: value is Map && value['status'] is int
+                ? value['status'] as int
+                : null,
+            diagnostics: {
+              if (value is Map && value['reason'] == 'CONNECTION')
+                'reason': 'CONNECTION',
+            },
             params: {
               'error':
                   '${value is Map ? value['error'] ?? value['status'] : 'empty'}',

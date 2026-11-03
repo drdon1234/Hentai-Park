@@ -117,7 +117,16 @@ class NativeMedia implements MediaTransport, MediaSessionAuthority {
         }
       },
       onError: (Object error, StackTrace stack) {
-        if (!result.isCompleted) result.completeError(error, stack);
+        if (!result.isCompleted) {
+          result.completeError(
+            SourceError(
+              'NETWORK',
+              '媒体资源为空或不完整',
+              diagnostics: {'reason': 'RESPONSE_STREAM'},
+            ),
+            stack,
+          );
+        }
       },
       onDone: () {
         if (result.isCompleted) return;

@@ -201,7 +201,6 @@ class LiveRecordings extends ChangeNotifier {
             task.item.source,
             task.item.id,
             cancelToken: task.cancel,
-            refresh: true,
           );
           lease.check();
           final source =
@@ -221,6 +220,7 @@ class LiveRecordings extends ChangeNotifier {
             url: url,
             transport: createMediaTransport(
               manifest,
+              foregroundRecovery: false,
               headers: source.headers,
               initialUrl: url,
               hls: source.hls,

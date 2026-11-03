@@ -1120,6 +1120,7 @@ class DownloadManager extends ChangeNotifier {
         await HlsDownload(
           createMediaTransport(
             manifest,
+            foregroundRecovery: false,
             headers: src.headers,
             initialUrl: Uri.parse(src.url),
             hls: src.hls,

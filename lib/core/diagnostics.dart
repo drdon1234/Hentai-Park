@@ -99,6 +99,29 @@ class Diagnostics {
     final outcome = value('outcome');
     return {
       'event': event != null && _event.hasMatch(event) ? event : 'source',
+      if (const {'normal', 'debug'}.contains(value('level')))
+        'level': value('level')!,
+      for (final key in [
+        'requestId',
+        'elapsedMs',
+        'attempt',
+        'bytes',
+        'items',
+        'generation',
+      ])
+        if (int.tryParse(value(key) ?? '') case final number?
+            when number >= 0 && number <= 9007199254740991)
+          key: '$number',
+      if (const {
+        'GET',
+        'HEAD',
+        'POST',
+        'PUT',
+        'PATCH',
+        'DELETE',
+        'OPTIONS',
+      }.contains(value('method')))
+        'method': value('method')!,
       if (site != null && _name.hasMatch(site)) 'site': site,
       if (action != null && _name.hasMatch(action)) 'action': action,
       if (const {
@@ -113,6 +136,10 @@ class Diagnostics {
         'stage': stage!,
       if (const {
         'started',
+        'complete',
+        'waiting',
+        'hit',
+        'miss',
         'ready',
         'missing',
         'blocked',

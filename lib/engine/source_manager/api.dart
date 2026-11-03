@@ -312,6 +312,8 @@ mixin _SourceApi on _SourceRegistry {
     Map<String, Object?> values = const {},
     CancelToken? cancelToken,
   }) async {
+    await awaitCancelled(ready, cancelToken);
+    await _awaitMutations(key, cancelToken);
     final source = manifest(key);
     if (source?.can('filterOptions') != true) {
       throw SourceError('UNSUPPORTED', '本站不支持动态筛选');
@@ -353,6 +355,33 @@ mixin _SourceApi on _SourceRegistry {
     if (values.keys.any((name) => name.isEmpty || name.length > 64)) {
       throw SourceError('CONFIG', '筛选条件无效');
     }
+    await _requireAccount(key, cancelToken: cancelToken);
+    if (cancelToken?.cancelError case final error?) throw error;
+    final cacheKey = sha256Hex(
+      jsonEncode([
+        key,
+        _sources[key]?.sha256,
+        scope,
+        feed,
+        keyword,
+        filter,
+        for (final parent in selected.dependsOn) [parent, values[parent]],
+        settingsOf(key),
+        _accountEpochs[key],
+        CookieStore.instance.generation(key),
+        AppSettings.instance.proxy,
+      ]),
+    );
+    final cached = _filterChoices[cacheKey];
+    if (cached != null &&
+        DateTime.now().difference(cached.time) < const Duration(minutes: 30)) {
+      AppLog.debug({
+        'event': 'filter_cache',
+        'site': key,
+        'outcome': 'success',
+      });
+      return cached.choices;
+    }
     final result = await _call(key, 'filterOptions', [
       {
         'scope': scope,
@@ -366,7 +395,7 @@ mixin _SourceApi on _SourceRegistry {
       throw SourceError('PARSE', '动态筛选选项无效');
     }
     final seen = <Object?>{};
-    return result.map((entry) {
+    final choices = result.map((entry) {
       if (entry is! Map ||
           !entry.containsKey('value') ||
           entry['label'] is! String ||
@@ -388,6 +417,19 @@ mixin _SourceApi on _SourceRegistry {
       }
       return Choice.fromJson(entry.cast<String, dynamic>());
     }).toList();
+    if (cancelToken?.cancelError case final error?) throw error;
+    _filterChoices.removeWhere(
+      (_, value) =>
+          DateTime.now().difference(value.time) >= const Duration(minutes: 30),
+    );
+    while (_filterChoices.length >= 128) {
+      _filterChoices.remove(_filterChoices.keys.first);
+    }
+    _filterChoices[cacheKey] = (
+      time: DateTime.now(),
+      choices: List.unmodifiable(choices),
+    );
+    return choices;
   }
 
   Future<RankingPage> ranking(
@@ -719,47 +761,15 @@ mixin _SourceApi on _SourceRegistry {
     String id, {
     String? episodeId,
     CancelToken? cancelToken,
-    bool refresh = false,
   }) async {
     await ready;
     await _requireAccount(key, cancelToken: cancelToken);
-    final result = await HomeCache.instance.request(
-      [
-        'videos',
-        key,
-        manifest(key)?.version,
-        id,
-        episodeId ?? '_',
-        await CookieStore.instance.snapshotPartition(key),
-        settingsOf(key),
-        _state[key]?['data'],
-        AppSettings.instance.proxy,
-      ],
-      () async => {
-        'sources': await _call(key, 'videos', [
-          id,
-          episodeId ?? '_',
-        ], cancelToken: cancelToken),
-      },
-      refresh: refresh,
-      preferCached: true,
-      source: key,
-      shouldCache: (data) =>
-          manifest(key)?.isArticle != true &&
-          (data['sources'] as List? ?? []).isNotEmpty &&
-          (data['sources'] as List).whereType<Map>().every(
-            (source) =>
-                source['hls'] == null &&
-                (source['headers'] as Map? ?? {}).keys.every(
-                  (name) => !{
-                    'cookie',
-                    'authorization',
-                    'proxy-authorization',
-                  }.contains(name.toString().toLowerCase()),
-                ),
-          ),
-    );
-    final sources = (result.data['sources'] as List)
+    // 播放签名的有效期和会话绑定由原站决定；元数据缓存不能授权播放。
+    final result = await _call(key, 'videos', [
+      id,
+      episodeId ?? '_',
+    ], cancelToken: cancelToken);
+    final sources = (result as List)
         .whereType<Map>()
         .map((e) => VideoSource(e.cast<String, dynamic>()))
         .toList();

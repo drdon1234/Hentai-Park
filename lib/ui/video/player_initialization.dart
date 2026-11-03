@@ -4,6 +4,7 @@ import 'package:dio/dio.dart';
 import 'package:video_player/video_player.dart';
 
 import '../../engine/cancellation.dart';
+import '../../engine/request_lifecycle.dart';
 
 /// 初始化超时或离开页面后停止等待；调用者负责释放播放器和媒体会话。
 Future<void> initializePlayer(
@@ -11,7 +12,7 @@ Future<void> initializePlayer(
   CancelToken cancel,
 ) async {
   final deadline = CancelToken();
-  final timer = Timer(
+  final timer = RequestLifecycle.instance.foregroundTimer(
     const Duration(seconds: 30),
     () => deadline.cancel(TimeoutException('Video initialization timed out')),
   );

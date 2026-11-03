@@ -193,18 +193,18 @@ mixin _RuntimePool on _SourceRegistry {
     List<Object?> args, {
     CancelToken? cancelToken,
   }) async {
+    final trace = AppLog.nextRequestId();
+    final watch = Stopwatch()..start();
+    AppLog.debug({
+      'event': 'source_call',
+      'site': key,
+      'action': method,
+      'requestId': trace,
+      'outcome': 'started',
+    });
     if (cancelToken?.cancelError case final error?) throw error;
     await awaitCancelled(ready, cancelToken);
-    while (true) {
-      final pending = _mutations.settled;
-      final local = _sourceMutations[key]?.settled;
-      await awaitCancelled(pending, cancelToken);
-      if (local != null) await awaitCancelled(local, cancelToken);
-      if (identical(pending, _mutations.settled) &&
-          identical(local, _sourceMutations[key]?.settled)) {
-        break;
-      }
-    }
+    await _awaitMutations(key, cancelToken);
     if (!method.startsWith('account.')) {
       await _requireAccount(key, cancelToken: cancelToken);
     }
@@ -230,6 +230,7 @@ mixin _RuntimePool on _SourceRegistry {
       'reverseSearchMore',
       'ranking',
       'rankingOptions',
+      'filterOptions',
       'feed',
       'search',
       'searchSuggestions',
@@ -248,17 +249,38 @@ mixin _RuntimePool on _SourceRegistry {
     }
     if (isRead) (_readRequests[key] ??= {}).add(readToken!);
     try {
-      return await JsEngine.instance.invoke(
+      final result = await JsEngine.instance.invoke(
         key,
         method,
         args,
         cancelToken: readToken,
       );
+      final completed = {
+        'event': 'source_call',
+        'site': key,
+        'action': method,
+        'requestId': trace,
+        'elapsedMs': watch.elapsedMilliseconds,
+        'outcome': 'success',
+      };
+      if (method == 'searchSuggestions' || method == 'filterOptions') {
+        AppLog.debug(completed);
+      } else {
+        AppLog.record(completed);
+      }
+      return result;
     } on SourceError catch (error) {
       // Errors raised by the plugin are worded in its own copy.
       final copy = manifest(key)?.copy;
       final worded = copy == null ? error : error.withCopy(copy);
-      AppLog.error(worded, event: 'source', site: key, action: method);
+      AppLog.error(
+        worded,
+        event: 'source',
+        site: key,
+        action: method,
+        requestId: trace,
+        elapsedMs: watch.elapsedMilliseconds,
+      );
       if (copy == null) rethrow;
       throw worded;
     } finally {

@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../core/app_log.dart';
 import '../core/localization.dart';
 import '../core/platform_capabilities.dart';
 import '../core/settings.dart';
@@ -56,6 +57,26 @@ class _ShellState extends State<Shell> {
   @override
   void initState() {
     super.initState();
+    if (AppLog.startupDebugNotice) {
+      AppLog.startupDebugNotice = false;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          showDialog<void>(
+            context: context,
+            builder: (context) => AlertDialog(
+              title: Text(tr('已开启 debug 模式')),
+              content: Text(tr('本次运行将记录详细诊断信息，退出后自动关闭。')),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: Text(tr('确定')),
+                ),
+              ],
+            ),
+          );
+        }
+      });
+    }
     if (PlatformCapabilities.desktop) {
       DesktopNavigation.instance.onSelect = _select;
       DesktopNavigation.instance.onRootBack = _desktopBack;

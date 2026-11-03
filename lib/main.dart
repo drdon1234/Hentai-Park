@@ -8,6 +8,7 @@ import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:path/path.dart' as p;
 
 import 'core/app_lock.dart';
+import 'core/app_log.dart';
 import 'core/crash_log.dart';
 import 'core/localization.dart';
 import 'core/models.dart';
@@ -82,6 +83,7 @@ Future<void> _start() async {
       }
     },
     AppPaths.init,
+    AppLog.initialize,
     () async {
       CrashLog.initialize();
     },

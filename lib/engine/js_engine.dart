@@ -462,7 +462,12 @@ class SourceRuntime {
         final m = (args.first as Map).cast<String, dynamic>();
         // Plugins may log structured transport facts; free text is dropped.
         if (m['message'] case final Map fields) {
-          AppLog.record({...fields, 'event': 'plugin', 'site': _tag});
+          final safe = {...fields, 'event': 'plugin', 'site': _tag};
+          if (fields['level'] == 'debug') {
+            AppLog.debug(safe);
+          } else {
+            AppLog.record(safe);
+          }
         }
         return null;
       },

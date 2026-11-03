@@ -92,7 +92,22 @@ abstract class _SourceRegistry extends ChangeNotifier {
   final _activeBySource = <String, Set<Future<void>>>{};
   final _readRequests = <String, Set<CancelToken>>{};
   final _backgroundFeeds = <String, Set<CancelToken>>{};
+  final _filterChoices = <String, ({DateTime time, List<Choice> choices})>{};
   final _sourceMutations = <String, SerialExecutor>{};
+
+  Future<void> _awaitMutations(String key, CancelToken? cancelToken) async {
+    while (true) {
+      final pending = _mutations.settled;
+      final local = _sourceMutations[key]?.settled;
+      await awaitCancelled(pending, cancelToken);
+      if (local != null) await awaitCancelled(local, cancelToken);
+      if (identical(pending, _mutations.settled) &&
+          identical(local, _sourceMutations[key]?.settled)) {
+        return;
+      }
+    }
+  }
+
   final _changingSources = <String>{};
   final _attachmentWrites = <String, SerialExecutor>{};
 
@@ -377,6 +392,7 @@ abstract class _SourceRegistry extends ChangeNotifier {
   }
 
   void _saveOrder(List<InstalledSource> list) {
+    _displayOrder?.invalidate();
     for (var i = 0; i < list.length; i++) {
       list[i].order = i;
     }

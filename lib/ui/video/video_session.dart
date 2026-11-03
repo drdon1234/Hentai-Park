@@ -260,7 +260,6 @@ class VideoSession extends ChangeNotifier {
     return PendingDisposals.instance.watch(() async {
       if (!_active || _suspended || !visible) return;
       if (scrollEpisodes && supported) return _selectDramaEpisode(next);
-      final refreshSources = error != null && next.id == episode.id;
       savePosition();
       _openingRequest?.cancel('video episode changed');
       _sourceRequest?.cancel('video source reloaded');
@@ -340,7 +339,6 @@ class VideoSession extends ChangeNotifier {
                 work.id,
                 episodeId: next.id,
                 cancelToken: request,
-                refresh: refreshSources,
               );
         if (!_active || request.isCancelled || openRequest != _request) return;
         sources = loaded;
@@ -539,7 +537,27 @@ class VideoSession extends ChangeNotifier {
     return Duration(seconds: pos);
   }
 
+  (bool, bool, bool)? _lastPlayerState;
   void _onTick() {
+    final value = controller?.value;
+    if (value != null) {
+      final state = (value.isPlaying, value.isBuffering, value.hasError);
+      if (state != _lastPlayerState) {
+        _lastPlayerState = state;
+        AppLog.debug({
+          'event': 'player_state',
+          'site': work.source,
+          'action': value.hasError
+              ? 'error'
+              : value.isBuffering
+              ? 'buffering'
+              : value.isPlaying
+              ? 'playing'
+              : 'paused',
+          'generation': _request,
+        });
+      }
+    }
     // 直播时长可能未知或仅代表当前窗口，不能按点播的完成状态结束播放。
     final completed = !isLive && (controller?.value.isCompleted ?? false);
     // Completion ends playback once. Repeated notifications during a replay

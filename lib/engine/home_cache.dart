@@ -5,6 +5,7 @@ import 'dart:io';
 import 'package:crypto/crypto.dart';
 import 'package:path/path.dart' as p;
 
+import '../core/app_log.dart';
 import '../core/async_tasks.dart';
 import '../core/models.dart';
 import '../core/storage.dart';
@@ -60,31 +61,10 @@ class HomeCache {
     bool Function(Map<String, dynamic>)? shouldCache,
     Map<String, dynamic> Function(Map<String, dynamic>)? serialize,
     void Function(Map<String, dynamic>)? onCached,
-    bool preferCached = false,
     String? source,
   }) {
     if (source != null && !RegExp(r'^[a-zA-Z0-9_-]+$').hasMatch(source)) {
       throw ArgumentError.value(source, 'source');
-    }
-    if (preferCached) {
-      final cached = Completer<HomeCacheResult>();
-      final latest = request(
-        identity,
-        load,
-        refresh: true,
-        requestGroup: requestGroup,
-        shouldCache: shouldCache,
-        serialize: serialize,
-        source: source,
-        onCached: refresh
-            ? null
-            : (data) {
-                onCached?.call(data);
-                cached.complete(HomeCacheResult(data, stale: true));
-              },
-      );
-      // 首次播放可以使用缓存，后台请求仍更新磁盘；错误已由请求层记录。
-      return refresh ? latest : Future.any([cached.future, latest]);
     }
     // 网络/会话原值只参与摘要，不进入文件名、正文或诊断日志。
     final key = sha256
@@ -161,6 +141,11 @@ class HomeCache {
       }
     });
     if (cached != null && current()) {
+      AppLog.debug({
+        'event': 'metadata_cache',
+        'site': source,
+        'outcome': 'success',
+      });
       onCached?.call(cached.data);
     }
     if (onCached == null &&
@@ -171,6 +156,11 @@ class HomeCache {
       return HomeCacheResult(cached.data);
     }
     Map<String, dynamic> data;
+    AppLog.debug({
+      'event': 'metadata_refresh',
+      'site': source,
+      'outcome': 'started',
+    });
     // 只读取已有缓存不会让正在进行的最新请求失去写入资格。
     if (foreground && sequence > (_refreshes[key] ?? 0)) {
       _refreshes[key] = sequence;

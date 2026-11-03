@@ -85,7 +85,7 @@
     {
       "key": "danbooru",
       "name": "Danbooru",
-      "version": "0.0.8",
+      "version": "0.0.9",
       "type": "comic",
       "category": "illustration",
       "file": "danbooru.js",
@@ -115,7 +115,7 @@
     {
       "key": "ehentai",
       "name": "E-Hentai",
-      "version": "0.0.16",
+      "version": "0.0.17",
       "type": "comic",
       "category": "doujin",
       "file": "ehentai.js",

@@ -6,10 +6,12 @@ import 'dart:typed_data';
 import 'package:dio/dio.dart';
 import 'package:dio/io.dart';
 
+import '../core/app_log.dart';
 import '../core/models.dart';
 import '../core/settings.dart';
 import 'age_confirmation.dart';
 import 'browser_fetcher.dart';
+import 'cancellation.dart';
 import 'challenge.dart';
 import 'cookie_store.dart';
 import 'domains.dart';
@@ -287,6 +289,7 @@ class HttpService {
 
   // Both buffered requests and file downloads use the same explicit redirect policy.
   Future<_HttpResponse> _request({
+    bool foregroundRecovery = true,
     bool readOnly = false,
     Dio? client,
     Future<void> Function(Uri)? beforeRequest,
@@ -334,6 +337,17 @@ class HttpService {
         late Response<ResponseBody> res;
         while (true) {
           _throwIfCancelled(cancelToken);
+          final trace = AppLog.nextRequestId();
+          final watch = Stopwatch()..start();
+          AppLog.debug({
+            'event': 'http',
+            'transport': 'native',
+            'host': uri.host,
+            'method': currentMethod,
+            'requestId': trace,
+            'attempt': retries,
+            'outcome': 'started',
+          });
           try {
             res = await (client ?? _dio).requestUri<ResponseBody>(
               uri,
@@ -348,12 +362,28 @@ class HttpService {
                 sendTimeout: timeout,
               ),
             );
+            AppLog.debug({
+              'event': 'http',
+              'transport': 'native',
+              'host': uri.host,
+              'requestId': trace,
+              'status': res.statusCode,
+              'elapsedMs': watch.elapsedMilliseconds,
+              'outcome': 'complete',
+            });
             if (retries < 2 &&
                 replayable() &&
-                {502, 503, 504}.contains(res.statusCode)) {
+                {408, 500, 502, 503, 504}.contains(res.statusCode)) {
               await res.data!.stream.listen(null).cancel();
               retries++;
-              await _retryDelay(retries, cancelToken);
+              AppLog.record({
+                'event': 'http_retry',
+                'transport': 'native',
+                'host': uri.host,
+                'status': res.statusCode,
+                'attempt': retries,
+              });
+              await _retryDelay(retries, cancelToken, foregroundRecovery);
               continue;
             }
             break;
@@ -371,7 +401,14 @@ class HttpService {
                     e.type == DioExceptionType.connectionTimeout ||
                     e.type == DioExceptionType.receiveTimeout)) {
               retries++;
-              await _retryDelay(retries, cancelToken);
+              AppLog.record({
+                'event': 'http_retry',
+                'transport': 'native',
+                'host': uri.host,
+                'attempt': retries,
+                'reason': _failureReason(e),
+              });
+              await _retryDelay(retries, cancelToken, foregroundRecovery);
               continue;
             }
             throw transportError(e, uri);
@@ -463,13 +500,17 @@ class HttpService {
     'content-type',
   };
 
-  static Future<void> _retryDelay(int attempt, CancelToken? token) async {
-    final delay = Future<void>.delayed(Duration(milliseconds: 300 * attempt));
-    if (token == null) return delay;
-    await Future.any<void>([
-      delay,
-      token.whenCancel.then<void>((error) => throw error),
-    ]);
+  static Future<void> _retryDelay(
+    int attempt,
+    CancelToken? token,
+    bool foreground,
+  ) async {
+    final delay = Duration(milliseconds: 300 * attempt);
+    if (foreground) {
+      await RequestLifecycle.instance.retryDelay(delay, token);
+    } else {
+      await awaitCancelled(Future<void>.delayed(delay), token);
+    }
   }
 
   static Uri _httpUri(String value) {
@@ -534,6 +575,7 @@ class HttpService {
   }) async {
     const timeout = Duration(minutes: 5);
     final resource = await _request(
+      foregroundRecovery: false,
       method: 'GET',
       url: url,
       headers: headers,
@@ -643,6 +685,7 @@ class HttpService {
     }
     if (_isHandshakeTerminated(e)) return 'TLS_HANDSHAKE_TERMINATED';
     if (cause is TlsException) return 'TLS_HANDSHAKE';
+    if (cause is HttpException) return 'CONNECTION';
     if (cause is SocketException) {
       return RegExp(
             'host lookup|name.*resolution|name.*known',

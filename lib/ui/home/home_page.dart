@@ -654,9 +654,7 @@ class _HomePageState extends State<HomePage> {
     SourceCategory category,
   ) {
     final eligible = sources.where((s) => s.manifest!.category == category);
-    final chosen = AppSettings.instance.homeSource(category);
-    return eligible.where((s) => s.key == chosen).firstOrNull ??
-        eligible.firstOrNull;
+    return eligible.firstOrNull;
   }
 
   Future<void> _configure(SourceCategory category, String selected) async {
@@ -668,6 +666,12 @@ class _HomePageState extends State<HomePage> {
       options: sources.map((source) => source.key).toList(),
       label: (key) => sources.firstWhere((source) => source.key == key).name,
     );
-    if (chosen != null) AppSettings.instance.setHomeSource(category, chosen);
+    if (chosen != null) {
+      final manager = SourceManager.instance;
+      final all = manager.all;
+      final first = all.indexWhere((s) => s.manifest?.category == category);
+      final index = all.indexWhere((s) => s.key == chosen);
+      if (first >= 0 && index >= 0) manager.reorder(index, first);
+    }
   }
 }

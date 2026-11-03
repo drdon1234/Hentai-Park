@@ -34,10 +34,7 @@ String? rankingSearchSource(SourceManager manager, SourceCategory category) {
       )
       .toList();
   if (selected == 'preferred') {
-    final preferred = settings.homeSource(category);
-    return candidates.any((source) => source.key == preferred)
-        ? preferred
-        : candidates.firstOrNull?.key;
+    return candidates.firstOrNull?.key;
   }
   return candidates.any((source) => source.key == selected)
       ? selected as String

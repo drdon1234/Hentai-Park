@@ -84,6 +84,8 @@ https://github.com/user-attachments/assets/d648927a-e4d6-48e8-b8c0-b77349ffd607
 
 استخدم Issues مع إصدار التطبيق والموقع وخطوات التكرار. أخفِ الحسابات وCookie وToken والنسخ الاحتياطية والروابط الموقعة الكاملة.
 
+[دليل السجلات](DIAGNOSTICS.md)
+
 ---
 
 [AGPL-3.0 · الترخيص](../../../LICENSE) · [إشعارات الجهات الخارجية](../../licenses/README.md) · [المنصات](../../PLATFORMS.md)

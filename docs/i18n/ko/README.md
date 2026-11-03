@@ -82,6 +82,8 @@ https://github.com/user-attachments/assets/d648927a-e4d6-48e8-b8c0-b77349ffd607
 
 Issues에 앱 버전, 사이트와 재현 단계를 알려 주세요. 계정, Cookie, Token, 백업과 전체 서명 URL은 숨겨 주세요.
 
+[로그 안내](DIAGNOSTICS.md)
+
 ---
 
 [AGPL-3.0 · 라이선스](../../../LICENSE) · [제3자 고지](../../licenses/README.md) · [플랫폼](../../PLATFORMS.md)

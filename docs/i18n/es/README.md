@@ -82,6 +82,8 @@ Exporta o restaura .parkbak en Más → Copia de seguridad. La restauración com
 
 Usa Issues e indica versión, sitio y pasos. Oculta cuentas, cookies, tokens, copias y URL firmadas completas.
 
+[Guía de registros](DIAGNOSTICS.md)
+
 ---
 
 [AGPL-3.0 · Licencia](../../../LICENSE) · [Avisos de terceros](../../licenses/README.md) · [Plataformas](../../PLATFORMS.md)

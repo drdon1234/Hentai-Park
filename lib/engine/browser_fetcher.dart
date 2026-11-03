@@ -583,6 +583,17 @@ class _OriginPage {
     for (var attempt = 0; ; attempt++) {
       _checkActive();
       if (token?.cancelError case final error?) throw error;
+      final trace = AppLog.nextRequestId();
+      final watch = Stopwatch()..start();
+      AppLog.debug({
+        'event': 'http',
+        'transport': 'browser',
+        'site': partition,
+        'host': Uri.parse(request['url'].toString()).host,
+        'requestId': trace,
+        'attempt': attempt,
+        'outcome': 'started',
+      });
       try {
         final result = await _fetch(
           request,
@@ -590,6 +601,15 @@ class _OriginPage {
           claimVerification: claimVerification,
         );
         final status = result['status'];
+        AppLog.debug({
+          'event': 'http',
+          'transport': 'browser',
+          'site': partition,
+          'requestId': trace,
+          'elapsedMs': watch.elapsedMilliseconds,
+          'status': status,
+          'outcome': 'complete',
+        });
         if (!canRetry ||
             attempt >= 2 ||
             !{408, 500, 502, 503, 504}.contains(status)) {
@@ -608,13 +628,16 @@ class _OriginPage {
         // remain in the WebView store when the hidden page is recreated.
         await dispose();
       }
-      final delay = Future<void>.delayed(
+      AppLog.record({
+        'event': 'http_retry',
+        'transport': 'browser',
+        'site': partition,
+        'attempt': attempt + 1,
+      });
+      await RequestLifecycle.instance.retryDelay(
         Duration(milliseconds: 500 * (attempt + 1)),
+        token,
       );
-      await Future.any([
-        delay,
-        if (token != null) token.whenCancel.then<void>((error) => throw error),
-      ]);
     }
   }
 

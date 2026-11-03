@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:window_manager/window_manager.dart';
 
+import '../core/app_log.dart';
 import '../core/localization.dart';
 import '../core/platform_capabilities.dart';
 import '../core/settings.dart';
@@ -143,6 +144,7 @@ class DesktopWindow with WindowListener {
   }
 
   Future<void> _flush() => Future.wait([
+    AppLog.flush(),
     AppSettings.instance.flush(),
     Library.instance.flush(),
     DownloadManager.instance.flush(),

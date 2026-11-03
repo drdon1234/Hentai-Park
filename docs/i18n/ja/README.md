@@ -82,6 +82,8 @@ https://github.com/user-attachments/assets/d648927a-e4d6-48e8-b8c0-b77349ffd607
 
 Issues にバージョン、サイト、再現手順を記載してください。アカウント、Cookie、Token、バックアップ、署名付き URL 全体は公開しないでください。
 
+[ログガイド](DIAGNOSTICS.md)
+
 ---
 
 [AGPL-3.0 · ライセンス](../../../LICENSE) · [第三者表記](../../licenses/README.md) · [対応環境](../../PLATFORMS.md)

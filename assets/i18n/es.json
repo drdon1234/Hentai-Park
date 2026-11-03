@@ -1748,5 +1748,16 @@
   "同时下载站点数": "Sitios descargando a la vez",
   "每站同时下载作品数": "Obras simultáneas por sitio",
   "下载并发设置": "Ajustes de descargas simultáneas",
-  "站点与作品并发适用于漫画、视频、小说和游戏直链。并发页数仅用于漫画图片。调低上限不会中断正在下载的任务。": "Los límites de sitios y obras se aplican a cómics, vídeos, novelas y descargas directas de juegos. Las páginas simultáneas solo se aplican a imágenes de cómics. Reducir un límite no interrumpe las descargas activas."
+  "站点与作品并发适用于漫画、视频、小说和游戏直链。并发页数仅用于漫画图片。调低上限不会中断正在下载的任务。": "Los límites de sitios y obras se aplican a cómics, vídeos, novelas y descargas directas de juegos. Las páginas simultáneas solo se aplican a imágenes de cómics. Reducir un límite no interrumpe las descargas activas.",
+  "debug 日志": "Registros de depuración",
+  "已开启，仅本次运行有效": "Activados solo para esta sesión",
+  "将在下次启动时开启": "Se activarán en el próximo inicio",
+  "记录请求耗时、重试、缓存与播放器状态，不记录私人内容": "Registra tiempos, reintentos, cachés y estados del reproductor sin contenido privado",
+  "长效日志": "Registros persistentes",
+  "追加保存运行日志，达到 100 MiB 后淘汰最早记录；关闭后立即覆盖历史，仅保留本次运行的最近日志。": "Añade registros entre sesiones y elimina los más antiguos al alcanzar 100 MiB. Al desactivar, sobrescribe el historial y conserva solo los registros recientes de esta sesión.",
+  "开启 debug 日志": "Activar registros de depuración",
+  "仅下次开启": "Solo el próximo inicio",
+  "仅本次开启": "Solo esta sesión",
+  "已开启 debug 模式": "Modo de depuración activado",
+  "本次运行将记录详细诊断信息，退出后自动关闭。": "Se registrarán diagnósticos detallados durante esta sesión y se desactivarán al salir."
 }

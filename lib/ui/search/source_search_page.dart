@@ -802,7 +802,12 @@ class _FilterSheetState extends State<FilterSheet> {
             Expanded(
               child: ListView(
                 controller: scroll,
-                padding: const EdgeInsets.symmetric(horizontal: Gap.page),
+                padding: const EdgeInsets.fromLTRB(
+                  Gap.page,
+                  Gap.m,
+                  Gap.page,
+                  Gap.m,
+                ),
                 children: [
                   if (widget.commonDefinitions.isNotEmpty) ...[
                     Padding(
@@ -833,7 +838,7 @@ class _FilterSheetState extends State<FilterSheet> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            if (!{'switch', 'text', 'number'}.contains(f.type))
+                            if (f.type != 'switch')
                               Padding(
                                 padding: const EdgeInsets.only(
                                   top: 14,
@@ -858,10 +863,7 @@ class _FilterSheetState extends State<FilterSheet> {
                                 inputFormatters: [
                                   FilteringTextInputFormatter.digitsOnly,
                                 ],
-                                decoration: InputDecoration(
-                                  labelText: f.label,
-                                  hintText: tr('不限'),
-                                ),
+                                decoration: InputDecoration(hintText: tr('不限')),
                                 onChanged: (value) =>
                                     _change(f.key, int.tryParse(value) ?? 0),
                               )
@@ -870,7 +872,6 @@ class _FilterSheetState extends State<FilterSheet> {
                                 key: ValueKey((_commonRevision, f.key)),
                                 initialValue:
                                     _filters.values[f.key]?.toString() ?? '',
-                                decoration: InputDecoration(labelText: f.label),
                                 onChanged: (value) =>
                                     _filters.setValue(f.key, value),
                               )

@@ -1748,5 +1748,16 @@
   "同时下载站点数": "Sites downloading at once",
   "每站同时下载作品数": "Simultaneous downloads per site",
   "下载并发设置": "Download concurrency settings",
-  "站点与作品并发适用于漫画、视频、小说和游戏直链。并发页数仅用于漫画图片。调低上限不会中断正在下载的任务。": "Site and work limits apply to comics, videos, novels and direct game downloads. Concurrent pages apply only to comic images. Lowering a limit does not interrupt active downloads."
+  "站点与作品并发适用于漫画、视频、小说和游戏直链。并发页数仅用于漫画图片。调低上限不会中断正在下载的任务。": "Site and work limits apply to comics, videos, novels and direct game downloads. Concurrent pages apply only to comic images. Lowering a limit does not interrupt active downloads.",
+  "debug 日志": "Debug logs",
+  "已开启，仅本次运行有效": "Enabled for this run only",
+  "将在下次启动时开启": "Will enable on next launch",
+  "记录请求耗时、重试、缓存与播放器状态，不记录私人内容": "Records request timing, retries, caches and player states without private content",
+  "长效日志": "Persistent logs",
+  "追加保存运行日志，达到 100 MiB 后淘汰最早记录；关闭后立即覆盖历史，仅保留本次运行的最近日志。": "Append logs across runs, removing the oldest records at 100 MiB. Turn off to overwrite history and keep only recent logs from this run.",
+  "开启 debug 日志": "Enable debug logs",
+  "仅下次开启": "Next launch only",
+  "仅本次开启": "This run only",
+  "已开启 debug 模式": "Debug mode is enabled",
+  "本次运行将记录详细诊断信息，退出后自动关闭。": "Detailed diagnostics will be recorded for this run and turn off automatically on exit."
 }

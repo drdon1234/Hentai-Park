@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:video_player/video_player.dart';
 
+import '../../core/app_log.dart';
 import '../../core/models.dart';
 import '../../engine/cancellation.dart';
 import '../../engine/source_manager.dart';
@@ -19,7 +20,6 @@ typedef VideoPreparer = Future<PreparedVideo> Function(
   CancelToken cancel, {
   File? localFile,
   List<VideoSource>? initialSources,
-  bool refresh,
 });
 
 /// 准备完成前不播放；所有过期请求都释放播放器及其独立媒体会话。
@@ -48,7 +48,6 @@ class PreparedVideo {
     CancelToken cancel, {
     File? localFile,
     List<VideoSource>? initialSources,
-    bool refresh = false,
   }) async {
     void check() {
       if (cancel.cancelError case final error?) throw error;
@@ -57,6 +56,14 @@ class PreparedVideo {
     VideoPlayerController? controller;
     Playback? media;
     StreamSubscription<DioException>? cancellation;
+    final watch = Stopwatch()..start();
+    final trace = AppLog.nextRequestId();
+    AppLog.debug({
+      'event': 'player_prepare',
+      'site': work.source,
+      'requestId': trace,
+      'outcome': 'started',
+    });
     try {
       await awaitCancelled(PlaybackRelease.ready, cancel);
       check();
@@ -99,7 +106,6 @@ class PreparedVideo {
                 work.id,
                 episodeId: episode.id,
                 cancelToken: cancel,
-                refresh: refresh,
               );
         check();
         if (sources.isEmpty) throw SourceError('UNSUPPORTED', '此影片暂无可用播放地址');
@@ -123,8 +129,21 @@ class PreparedVideo {
       }
       await initializePlayer(controller, cancel);
       check();
+      AppLog.debug({
+        'event': 'player_prepare',
+        'site': work.source,
+        'requestId': trace,
+        'elapsedMs': watch.elapsedMilliseconds,
+        'outcome': 'success',
+      });
       return PreparedVideo(controller, media, sources, source, local != null);
-    } catch (_) {
+    } catch (error, stack) {
+      AppLog.error(
+        error,
+        event: 'player_prepare',
+        site: work.source,
+        stack: stack,
+      );
       await (controller?.dispose() ?? Future<void>.value()).whenComplete(
         () async => media?.close(),
       );

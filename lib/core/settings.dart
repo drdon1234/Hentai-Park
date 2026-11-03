@@ -1050,14 +1050,6 @@ class AppSettings extends ChangeNotifier {
     _set('homeHiddenSources', hidden.toList());
   }
 
-  String? homeSource(SourceCategory category) =>
-      (_v['homeSources'] as Map?)?[category.name] as String?;
-
-  void setHomeSource(SourceCategory category, String source) => _set(
-    'homeSources',
-    {...?(_v['homeSources'] as Map?), category.name: source},
-  );
-
   /// Sites where posting a reply to unlock a resource no longer asks first.
   Set<String> get replyWithoutAsking =>
       ((_v['replyWithoutAsking'] as List?) ?? []).whereType<String>().toSet();

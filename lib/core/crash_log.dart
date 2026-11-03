@@ -113,55 +113,27 @@ class CrashLog {
     List<String> context = const [],
     LogMode mode = LogMode.full,
     List<DiagnosticEntry> nativeEntries = const [],
+    bool export = false,
   }) async {
     initialize();
-    final entries = <String, DiagnosticEntry>{};
-    for (final entry in [
-      ...await _earlier(),
-      ...AppLog.entries,
-      ...nativeEntries,
-    ]) {
-      entries[entry.identity] = entry;
+    final runtime = await AppLog.retained(limit: export ? null : 2000);
+    final timeline = <String, DiagnosticEntry>{
+      for (final entry in [...runtime, ...AppLog.entries])
+        entry.identity: entry,
+    };
+    final current = timeline.values.toList()
+      ..sort((a, b) => b.time.compareTo(a.time));
+    if (!export && current.length > 2000) {
+      current.removeRange(2000, current.length);
     }
-    final currentIds = AppLog.entries.map((entry) => entry.identity).toSet();
-    final current =
-        entries.values
-            .where(
-              (entry) =>
-                  currentIds.contains(entry.identity) && entry.actionable,
-            )
-            .toList()
-          ..sort((a, b) => b.time.compareTo(a.time));
-    final currentCrashes = <String, DiagnosticEntry>{};
-    final compactCurrent = <DiagnosticEntry>[];
-    for (final entry in current) {
-      if (entry.fields['event'] != 'crash') {
-        compactCurrent.add(entry);
-        continue;
-      }
-      final signature = jsonEncode({
-        'fields': entry.fields,
-        'frames': entry.frames,
-      });
-      final previous = currentCrashes[signature];
-      if (previous != null) {
-        previous.count += entry.count;
-      } else {
-        final grouped = DiagnosticEntry(
-          time: entry.time,
-          fields: entry.fields,
-          frames: entry.frames,
-          count: entry.count,
-        );
-        currentCrashes[signature] = grouped;
-        compactCurrent.add(grouped);
-      }
-    }
+    final entries = <String, DiagnosticEntry>{
+      for (final entry in [...await _earlier(), ...nativeEntries])
+        if (!timeline.containsKey(entry.identity)) entry.identity: entry,
+    };
     final cutoff = DateTime.now().subtract(const Duration(days: 7));
     final history = <String, DiagnosticEntry>{};
     var omitted = 0;
     for (final entry in entries.values) {
-      if (currentIds.contains(entry.identity)) continue;
       if (!entry.actionable || entry.time.isBefore(cutoff)) {
         omitted++;
         continue;
@@ -199,11 +171,9 @@ class CrashLog {
     context.forEach(b.writeln);
     b
       ..writeln()
-      ..writeln('==== 当前运行（新到旧，重复事件显示最近时间与次数）')
+      ..writeln('==== 运行时间线（新到旧）')
       ..writeAll(
-        compactCurrent.isEmpty
-            ? ['无']
-            : compactCurrent.expand((entry) => entry.lines(mode)),
+        current.isEmpty ? ['无'] : current.expand((entry) => entry.lines(mode)),
         '\n',
       )
       ..writeln()

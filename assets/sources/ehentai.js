@@ -70,7 +70,7 @@ Park.register({
   },
   key: 'ehentai',
   name: 'E-Hentai',
-  version: '0.0.16', minAppVersion: '0.9.2',
+  version: '0.0.17', minAppVersion: '0.9.2',
   type: 'comic',
   category: 'doujin',
   color: '#9C2A2A',
@@ -211,7 +211,7 @@ Park.register({
   defaultFeed: 'toplist',
   feeds: [
     {key: 'category', label: '分类', options: browseFilters, commonFilters: {pages: {range: true}}},
-    { key: 'latest', label: '最新', commonFilters: {pages: {range: true}} },
+    { key: 'latest', label: '最新', options: browseFilters, commonFilters: {pages: {range: true}} },
     { key: 'popular', label: '当前热门' },
     {
       key: 'toplist',
@@ -420,7 +420,7 @@ Park.register({
       const res = await this.listPage('https://e-hentai.org/toplist.php', params, page);
       return Object.assign(res, { hasNext: res.items.length > 0 && page < 200, cursor: null, totalPages: 200 });
     }
-    return this.search({ keyword: '', page, cursor: req.cursor, filters: {}, common: req.common });
+    return this.search({ keyword: '', page, cursor: req.cursor, filters: req.options || {}, common: req.common });
   },
 
   searchParams(req) {

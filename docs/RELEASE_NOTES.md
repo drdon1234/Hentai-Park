@@ -1,13 +1,41 @@
 ## 中文
 
+### 新功能
+- 运行日志新增 debug 模式，可仅本次开启或预约仅下次开启；预约生效时会在启动后提示。
+- 新增长效日志开关，跨启动追加保存，达到 100 MiB 后淘汰最早记录；关闭后立即覆盖历史运行日志。
+
 ### 改进
-- 下载封面改用更细的进度边框：蓝色波动表示下载中，灰色表示暂停，琥珀色表示完成，不再重复显示状态文字和数字进度。
-- 下载页和书架与下载设置新增并发配置，可分别调整同时下载站点数、每站同时下载作品数和漫画任务内的并发页数。
-- 漫画、视频、小说和游戏直链共用并发限制，支持跨站及同站多任务同时下载。
+- 短暂网络错误与服务器错误自动有限重试；播放在重新聚焦后恢复重试，下载和录制可继续在后台恢复。
+- 动态筛选候选跨面板缓存，统一浏览与搜索筛选的普通标题、选项和大字体布局。
+- 普通日志记录日常故障与恢复过程，debug 日志补充启动、请求耗时、缓存及播放状态，导出包含全部保留的运行日志。
+
+### 修复
+- 主页默认站点随站点顺序同步，恢复默认排序后立即更新。
+- 修复黄豆短剧等视频复用过期播放地址导致首次加载失败的问题。
+- 修复吃瓜筛选标题裁剪，补齐 EH 最新入口及 Danbooru 浏览入口实际支持的筛选条件。
+- 媒体启动页接入现有无感验证交互，减少只等待验证而无法继续加载的情况。
+
+### 插件更新
+- E-Hentai 0.0.17。
+- Danbooru 0.0.9。
 
 ## English
 
+### New
+- Added debug logging for the current session or the next launch only, with a startup notice when the scheduled mode activates.
+- Added persistent runtime logs across launches, dropping the oldest records at 100 MiB; disabling this option immediately replaces runtime history.
+
 ### Improvements
-- Download covers now use thinner progress borders: animated blue for downloading, gray for paused and amber for complete, without duplicate status text or numeric progress.
-- Added shared concurrency settings to Downloads and Shelf & downloads, with separate limits for active sites, simultaneous downloads per site and pages per comic task.
-- Comics, videos, novels and direct game downloads share concurrency limits, supporting simultaneous tasks across and within sites.
+- Transient network and server errors receive limited automatic retries; playback retries resume after focus returns, while downloads and recordings can recover in the background.
+- Dynamic filter choices are cached across panels, with consistent section headings, choices and large-text layouts in browsing and search.
+- Normal logs capture everyday failures and recovery; debug logs add startup, request timing, cache and playback state details, with all retained runtime logs included in exports.
+
+### Fixes
+- The default home site now follows site order and updates immediately when the default order is restored.
+- Fixed initial playback failures caused by expired cached video addresses, including Huangdou dramas.
+- Fixed clipped gossip filter headings and added supported filters to EH's latest feed and Danbooru's browsing feeds.
+- Connected media startup pages to the existing automatic verification interaction so verification can continue beyond passive waiting.
+
+### Plugin updates
+- E-Hentai 0.0.17.
+- Danbooru 0.0.9.

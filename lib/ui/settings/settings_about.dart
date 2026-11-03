@@ -74,7 +74,7 @@ class _LogsPageState extends State<_LogsPage> {
   late Future<String> _report = _build(_mode);
 
   /// The in-app view and the export are the same report.
-  static Future<String> _build(LogMode mode) async {
+  static Future<String> _build(LogMode mode, {bool export = false}) async {
     final info = await PackageInfo.fromPlatform();
     final nativeEntries = await PlatformBridge.readCrashDiagnostics();
     final sites = [
@@ -82,6 +82,7 @@ class _LogsPageState extends State<_LogsPage> {
         '$key ${SourceManager.instance.manifest(key)?.version ?? '-'}',
     ];
     return CrashLog.report(
+      export: export,
       mode: mode,
       nativeEntries: nativeEntries,
       context: [
@@ -114,8 +115,7 @@ class _LogsPageState extends State<_LogsPage> {
           icon: const Icon(Icons.ios_share_rounded),
           onPressed: () async {
             try {
-              final report = _build(_mode);
-              setState(() => _report = report);
+              final report = _build(_mode, export: true);
               final text = await report;
               final file = File(
                 p.join(AppPaths.cache.path, 'hentaipark_log.txt'),
@@ -134,6 +134,39 @@ class _LogsPageState extends State<_LogsPage> {
     ),
     body: CustomScrollView(
       slivers: [
+        SliverToBoxAdapter(
+          child: RowGroup(
+            children: [
+              ListRow(
+                title: tr('debug 日志'),
+                subtitle: tr(
+                  AppLog.debugEnabled
+                      ? '已开启，仅本次运行有效'
+                      : AppLog.debugNextLaunch
+                      ? '将在下次启动时开启'
+                      : '记录请求耗时、重试、缓存与播放器状态，不记录私人内容',
+                ),
+                trailing: Switch(
+                  value: AppLog.debugEnabled || AppLog.debugNextLaunch,
+                  onChanged: _debugBusy ? null : _toggleDebug,
+                ),
+                onTap: _debugBusy
+                    ? null
+                    : () => _toggleDebug(
+                        !(AppLog.debugEnabled || AppLog.debugNextLaunch),
+                      ),
+              ),
+              SwitchListTile.adaptive(
+                title: Text(tr('长效日志')),
+                subtitle: Text(
+                  tr('追加保存运行日志，达到 100 MiB 后淘汰最早记录；关闭后立即覆盖历史，仅保留本次运行的最近日志。'),
+                ),
+                value: AppLog.persistent,
+                onChanged: _retentionBusy ? null : _toggleRetention,
+              ),
+            ],
+          ),
+        ),
         SliverToBoxAdapter(
           child: ListRow(
             title: tr('日志模式'),
@@ -196,4 +229,47 @@ class _LogsPageState extends State<_LogsPage> {
       ],
     ),
   );
+
+  bool _retentionBusy = false;
+  bool _debugBusy = false;
+  Future<void> _toggleRetention(bool value) async {
+    setState(() => _retentionBusy = true);
+    try {
+      await AppLog.setPersistent(value);
+      if (mounted) setState(() => _report = _build(_mode));
+    } catch (error) {
+      AppLog.error(error, event: 'log_settings');
+      if (mounted) context.toast(tr('保存失败，请重试'));
+    } finally {
+      if (mounted) setState(() => _retentionBusy = false);
+    }
+  }
+
+  Future<void> _toggleDebug(bool value) async {
+    if (_debugBusy) return;
+    setState(() => _debugBusy = true);
+    try {
+      if (!value) {
+        AppLog.setDebug(false);
+        await AppLog.setDebugNextLaunch(false);
+      } else {
+        final next = await showChoiceSheet<bool>(
+          context,
+          title: tr('开启 debug 日志'),
+          options: const [false, true],
+          selected: false,
+          label: (next) => tr(next ? '仅下次开启' : '仅本次开启'),
+        );
+        if (next == null || !mounted) return;
+        await AppLog.setDebugNextLaunch(next);
+        if (!next) AppLog.setDebug(true);
+      }
+      if (mounted) setState(() => _report = _build(_mode));
+    } catch (error) {
+      AppLog.error(error, event: 'log_settings');
+      if (mounted) context.toast(tr('保存失败，请重试'));
+    } finally {
+      if (mounted) setState(() => _debugBusy = false);
+    }
+  }
 }

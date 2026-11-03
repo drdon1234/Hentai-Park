@@ -94,7 +94,6 @@ extension _DramaEpisodes on VideoSession {
           (next.id == episode.id && controller != null && error == null)) {
         return;
       }
-      final refreshSources = error != null && next.id == episode.id;
       savePosition();
       _retentionTimer?.cancel();
       _retentionTimer = null;
@@ -162,7 +161,6 @@ extension _DramaEpisodes on VideoSession {
                   token,
                   localFile: localFile,
                   initialSources: initialSources,
-                  refresh: refreshSources,
                 ));
         if (!_active || token.isCancelled || request != _request) {
           await prepared.close();
@@ -197,7 +195,7 @@ extension _DramaEpisodes on VideoSession {
         onStarted?.call();
         _updateDramaRetention();
         if (_retainedEpisodes.isEmpty) _preloadNext();
-      } catch (e) {
+      } catch (e, stack) {
         if (!adopted) {
           await prepared?.close();
           if (pending != null) {
@@ -207,6 +205,7 @@ extension _DramaEpisodes on VideoSession {
           }
         }
         if (_active && !token.isCancelled && request == _request) {
+          _logPlayback(e, 'episode', stack);
           error = e;
           _update();
         }
