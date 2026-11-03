@@ -374,7 +374,12 @@ class _HistoryPageState extends State<HistoryPage> {
         onLongPress: () => _toggleSelected(h.uid),
         child: SelectionContainer.disabled(
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(Gap.page, Gap.s, Gap.xs, Gap.s),
+            padding: const EdgeInsets.fromLTRB(
+              Gap.page,
+              Gap.s,
+              Gap.page,
+              Gap.s,
+            ),
             child: Row(
               children: [
                 if (_selecting)

@@ -263,7 +263,7 @@ class _MediaAlbumPageState extends State<MediaAlbumPage> {
                 ),
               ),
             SliverPadding(
-              padding: const EdgeInsets.symmetric(horizontal: Gap.xs),
+              padding: const EdgeInsets.symmetric(horizontal: Gap.page),
               sliver: SliverGrid(
                 gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                   crossAxisCount: _columns,

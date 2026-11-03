@@ -375,7 +375,7 @@ class TranslationControls extends StatelessWidget {
                       Navigator.pop(ctx);
                     },
                   ),
-                  SwitchListTile(
+                  SwitchListTile.adaptive(
                     dense: true,
                     title: SelectionContainer.disabled(
                       child: Text(tr('自动翻译可见内容')),
@@ -386,7 +386,7 @@ class TranslationControls extends StatelessWidget {
                       refresh(() {});
                     },
                   ),
-                  SwitchListTile(
+                  SwitchListTile.adaptive(
                     dense: true,
                     title: SelectionContainer.disabled(
                       child: Text(tr('显示原文（仅当前页面）')),

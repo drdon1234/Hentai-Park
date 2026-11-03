@@ -93,11 +93,6 @@ class _LogsPageState extends State<_LogsPage> {
     );
   }
 
-  static String _label(LogMode mode) => switch (mode) {
-    LogMode.full => tr('完整模式（默认）'),
-    LogMode.redacted => tr('脱敏模式'),
-  };
-
   @override
   Widget build(BuildContext context) => Scaffold(
     appBar: AppBar(
@@ -132,101 +127,88 @@ class _LogsPageState extends State<_LogsPage> {
         ),
       ],
     ),
-    body: CustomScrollView(
-      slivers: [
-        SliverToBoxAdapter(
-          child: RowGroup(
-            children: [
-              ListRow(
-                title: tr('debug 日志'),
-                subtitle: tr(
-                  AppLog.debugEnabled
-                      ? '已开启，仅本次运行有效'
-                      : AppLog.debugNextLaunch
-                      ? '将在下次启动时开启'
-                      : '记录请求耗时、重试、缓存与播放器状态，不记录私人内容',
-                ),
-                trailing: Switch(
+    body: SettingsBody(
+      child: CustomScrollView(
+        slivers: [
+          SliverToBoxAdapter(
+            child: RowGroup(
+              children: [
+                SwitchListTile.adaptive(
+                  title: Text(tr('debug 日志')),
+                  subtitle: Text(
+                    tr(
+                      AppLog.debugEnabled
+                          ? '已开启，仅本次运行有效'
+                          : AppLog.debugNextLaunch
+                          ? '将在下次启动时开启'
+                          : '记录请求耗时、重试、缓存与播放器状态，不记录私人内容',
+                    ),
+                  ),
                   value: AppLog.debugEnabled || AppLog.debugNextLaunch,
                   onChanged: _debugBusy ? null : _toggleDebug,
                 ),
-                onTap: _debugBusy
-                    ? null
-                    : () => _toggleDebug(
-                        !(AppLog.debugEnabled || AppLog.debugNextLaunch),
-                      ),
-              ),
-              SwitchListTile.adaptive(
-                title: Text(tr('长效日志')),
-                subtitle: Text(
-                  tr('追加保存运行日志，达到 100 MiB 后淘汰最早记录；关闭后立即覆盖历史，仅保留本次运行的最近日志。'),
+                SwitchListTile.adaptive(
+                  title: Text(tr('长效日志')),
+                  subtitle: Text(
+                    tr('追加保存运行日志，达到 100 MiB 后淘汰最早记录；关闭后立即覆盖历史，仅保留本次运行的最近日志。'),
+                  ),
+                  value: AppLog.persistent,
+                  onChanged: _retentionBusy ? null : _toggleRetention,
                 ),
-                value: AppLog.persistent,
-                onChanged: _retentionBusy ? null : _toggleRetention,
-              ),
-            ],
-          ),
-        ),
-        SliverToBoxAdapter(
-          child: ListRow(
-            title: tr('日志模式'),
-            subtitle: _label(_mode),
-            trailing: const Icon(Icons.expand_more_rounded),
-            onTap: () async {
-              final mode = await showChoiceSheet<LogMode>(
-                context,
-                title: tr('日志模式'),
-                options: LogMode.values,
-                selected: _mode,
-                label: _label,
-              );
-              if (mode == null || !mounted || mode == _mode) return;
-              AppSettings.instance.logMode = mode;
-              setState(() {
-                _mode = mode;
-                _report = _build(mode);
-              });
-            },
-          ),
-        ),
-        SliverToBoxAdapter(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(
-              Gap.page,
-              Gap.s,
-              Gap.page,
-              Gap.s,
+                SwitchListTile.adaptive(
+                  title: Text(tr('脱敏模式')),
+                  value: _mode == LogMode.redacted,
+                  onChanged: (redacted) {
+                    final mode = redacted ? LogMode.redacted : LogMode.full;
+                    AppSettings.instance.logMode = mode;
+                    setState(() {
+                      _mode = mode;
+                      _report = _build(mode);
+                    });
+                  },
+                ),
+              ],
             ),
-            child: Text(
-              tr(
-                _mode == LogMode.full
-                    ? '仅记录错误代码、网络原因、目标主机和安全代码位置，不记录异常正文、账号信息或本地路径。页面与导出使用相同模式。'
-                    : '在安全诊断信息的基础上隐藏目标主机和系统详细版本。页面与导出使用相同模式。',
+          ),
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(
+                Gap.page,
+                Gap.s,
+                Gap.page,
+                Gap.s,
               ),
-              style: context.text.bodySmall?.copyWith(
-                color: context.colors.onSurfaceVariant,
+              child: Text(
+                tr(
+                  _mode == LogMode.full
+                      ? '仅记录错误代码、网络原因、目标主机和安全代码位置，不记录异常正文、账号信息或本地路径。页面与导出使用相同模式。'
+                      : '在安全诊断信息的基础上隐藏目标主机和系统详细版本。页面与导出使用相同模式。',
+                ),
+                style: context.text.bodySmall?.copyWith(
+                  color: context.colors.onSurfaceVariant,
+                ),
               ),
             ),
           ),
-        ),
-        const SliverToBoxAdapter(child: Divider()),
-        SliverFillRemaining(
-          child: FutureBuilder<String>(
-            key: ValueKey(_report),
-            future: _report,
-            builder: (context, snapshot) => switch (snapshot) {
-              AsyncSnapshot(hasData: true, :final data?) => SelectableLogView(
-                text: data,
-              ),
-              AsyncSnapshot(hasError: true) => EmptyState(
-                icon: Icons.notes_rounded,
-                title: tr('日志读取失败'),
-              ),
-              _ => const Center(child: CircularProgressIndicator()),
-            },
+          const SliverToBoxAdapter(child: Divider()),
+          SliverFillRemaining(
+            child: FutureBuilder<String>(
+              key: ValueKey(_report),
+              future: _report,
+              builder: (context, snapshot) => switch (snapshot) {
+                AsyncSnapshot(hasData: true, :final data?) => SelectableLogView(
+                  text: data,
+                ),
+                AsyncSnapshot(hasError: true) => EmptyState(
+                  icon: Icons.notes_rounded,
+                  title: tr('日志读取失败'),
+                ),
+                _ => const Center(child: CircularProgressIndicator()),
+              },
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     ),
   );
 

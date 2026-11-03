@@ -14,6 +14,7 @@ import '../theme.dart';
 import '../widgets/common.dart';
 import '../widgets/file_drop_region.dart';
 import '../widgets/platform_share.dart';
+import 'settings_rows.dart';
 import 'source_install.dart';
 
 class BackupPage extends StatefulWidget {
@@ -262,115 +263,57 @@ class _BackupPageState extends State<BackupPage> {
                 const SizedBox(height: 12),
                 RowGroup(
                   children: [
-                    ListTile(
+                    SettingsChoice<int>(
                       leading: const Icon(Icons.schedule_rounded),
-                      title: SelectionContainer.disabled(
-                        child: Text(tr('自动备份')),
-                      ),
-                      subtitle: SelectionContainer.disabled(
-                        child: Text(
-                          last == 0
-                              ? tr('尚未自动备份过')
-                              : tr('上次：{value0}', {
-                                  'value0': timeAgo(
-                                    DateTime.fromMillisecondsSinceEpoch(last),
-                                  ),
-                                }),
-                        ),
-                      ),
+                      title: tr('自动备份'),
+                      value: s.autoBackupHours,
+                      options: {
+                        0: tr('关闭'),
+                        12: tr('每 12 小时'),
+                        24: tr('每天'),
+                        72: tr('每 3 天'),
+                        168: tr('每周'),
+                      },
+                      onChanged: (value) => s.autoBackupHours = value,
                     ),
                     Padding(
-                      padding: const EdgeInsetsDirectional.fromSTEB(
-                        Gap.page,
-                        Gap.s,
-                        Gap.page,
-                        Gap.s,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: Gap.page,
+                        vertical: Gap.s,
                       ),
-                      child: SelectionContainer.disabled(
-                        child: SelectionDropdownTheme(
-                          child: DropdownButton<int>(
-                            value: s.autoBackupHours,
-                            isExpanded: true,
-                            itemHeight: null,
-                            padding: const EdgeInsets.symmetric(
-                              vertical: Gap.s,
-                            ),
-                            underline: const SizedBox.shrink(),
-                            items:
-                                [
-                                      (0, tr('关闭')),
-                                      (12, tr('每 12 小时')),
-                                      (24, tr('每天')),
-                                      (72, tr('每 3 天')),
-                                      (168, tr('每周')),
-                                    ]
-                                    .map(
-                                      (e) => SelectionDropdownItem(
-                                        value: e.$1,
-                                        selected: e.$1 == s.autoBackupHours,
-                                        child: SelectionContainer.disabled(
-                                          child: Text(
-                                            e.$2,
-                                            maxLines: 1,
-                                            overflow: TextOverflow.ellipsis,
-                                          ),
-                                        ),
-                                      ),
-                                    )
-                                    .toList(),
-                            onChanged: (v) => s.autoBackupHours = v ?? 24,
-                          ),
-                        ),
-                      ),
-                    ),
-                    ListTile(
-                      leading: const Icon(Icons.layers_outlined),
-                      title: SelectionContainer.disabled(
-                        child: Text(tr('保留份数')),
-                      ),
-                      subtitle: SelectionContainer.disabled(
-                        child: Text(tr('仅清理自动备份，手工备份保留')),
+                      child: Text(
+                        last == 0
+                            ? tr('尚未自动备份过')
+                            : tr('上次：{value0}', {
+                                'value0': timeAgo(
+                                  DateTime.fromMillisecondsSinceEpoch(last),
+                                ),
+                              }),
                       ),
                     ),
                     Padding(
                       padding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 8,
+                        horizontal: Gap.page,
+                        vertical: Gap.s,
                       ),
                       child: Text(tr('打开应用或回到前台时检查备份间隔；应用关闭时不会执行后台定时备份')),
                     ),
+                    SettingsChoice<int>(
+                      leading: const Icon(Icons.layers_outlined),
+                      title: tr('保留份数'),
+                      value: s.autoBackupKeep,
+                      options: {
+                        for (final count in const [1, 2, 3, 5, 10])
+                          count: '$count',
+                      },
+                      onChanged: (value) => s.autoBackupKeep = value,
+                    ),
                     Padding(
-                      padding: const EdgeInsetsDirectional.fromSTEB(
-                        Gap.page,
-                        Gap.s,
-                        Gap.page,
-                        Gap.s,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: Gap.page,
+                        vertical: Gap.s,
                       ),
-                      child: SelectionContainer.disabled(
-                        child: SelectionDropdownTheme(
-                          child: DropdownButton<int>(
-                            value: s.autoBackupKeep,
-                            isExpanded: true,
-                            itemHeight: null,
-                            padding: const EdgeInsets.symmetric(
-                              vertical: Gap.s,
-                            ),
-                            underline: const SizedBox.shrink(),
-                            items: const [1, 2, 3, 5, 10]
-                                .map(
-                                  (v) => SelectionDropdownItem(
-                                    value: v,
-                                    selected: v == s.autoBackupKeep,
-                                    child: SelectionContainer.disabled(
-                                      child: Text('$v'),
-                                    ),
-                                  ),
-                                )
-                                .toList(),
-                            onChanged: (v) => s.autoBackupKeep = v ?? 3,
-                          ),
-                        ),
-                      ),
+                      child: Text(tr('仅清理自动备份，手工备份保留')),
                     ),
                     ListTile(
                       leading: const Icon(Icons.folder_outlined),

@@ -284,7 +284,12 @@ class _UpdatesPageState extends State<UpdatesPage> {
         rows.add(
           SectionHeader(
             label,
-            padding: const EdgeInsets.fromLTRB(16, 16, 8, 4),
+            padding: const EdgeInsets.fromLTRB(
+              Gap.page,
+              Gap.page,
+              Gap.page,
+              Gap.xs,
+            ),
           ),
         );
       }

@@ -876,7 +876,7 @@ class _FilterSheetState extends State<FilterSheet> {
                                     _filters.setValue(f.key, value),
                               )
                             else if (f.type == 'switch')
-                              SwitchListTile(
+                              SwitchListTile.adaptive(
                                 contentPadding: EdgeInsets.zero,
                                 title: Text(f.label),
                                 value: _filters.values[f.key] == true,

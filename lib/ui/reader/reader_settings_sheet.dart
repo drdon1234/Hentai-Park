@@ -5,8 +5,8 @@ import '../../core/platform_capabilities.dart';
 import '../../core/settings.dart';
 import '../kit/adaptive_sheet.dart';
 import '../kit/selection_chip.dart';
-import '../kit/selection_menu.dart';
 import '../kit/sheet_tabs.dart';
+import '../settings/settings_rows.dart';
 import 'reader_layout.dart';
 
 /// Reader options in three tabs (Mihon's reader settings sheet). Changes apply live: the reader
@@ -170,7 +170,7 @@ class _ReaderSettingsState extends State<_ReaderSettings> {
               ),
             ),
           ),
-          SwitchListTile(
+          SwitchListTile.adaptive(
             title: SelectionContainer.disabled(child: Text(tr('首页单独显示'))),
             subtitle: SelectionContainer.disabled(
               child: Text(tr('双页时让封面独占一屏，使后续页面正确配对')),
@@ -180,7 +180,7 @@ class _ReaderSettingsState extends State<_ReaderSettings> {
                 ? null
                 : (v) => s.readerCoverSingle = v,
           ),
-          SwitchListTile(
+          SwitchListTile.adaptive(
             title: SelectionContainer.disabled(child: Text(tr('拆分宽页'))),
             subtitle: SelectionContainer.disabled(
               child: Text(tr('单页显示时把跨页大图拆成两屏')),
@@ -188,7 +188,7 @@ class _ReaderSettingsState extends State<_ReaderSettings> {
             value: s.readerSplitWide,
             onChanged: (v) => s.readerSplitWide = v,
           ),
-          SwitchListTile(
+          SwitchListTile.adaptive(
             title: SelectionContainer.disabled(child: Text(tr('翻页动画'))),
             value: s.readerAnimate,
             onChanged: (v) => s.readerAnimate = v,
@@ -206,7 +206,7 @@ class _ReaderSettingsState extends State<_ReaderSettings> {
               ),
             ),
           ),
-        SwitchListTile(
+        SwitchListTile.adaptive(
           title: SelectionContainer.disabled(child: Text(tr('裁剪白边'))),
           subtitle: SelectionContainer.disabled(child: Text(tr('去掉页面四周的纯色空白'))),
           value: s.readerCrop,
@@ -225,47 +225,31 @@ class _ReaderSettingsState extends State<_ReaderSettings> {
       primary: false,
       padding: const EdgeInsets.only(bottom: 16),
       children: [
-        SwitchListTile(
+        SwitchListTile.adaptive(
           title: SelectionContainer.disabled(child: Text(tr('点击翻页'))),
           value: s.tapToPage,
           onChanged: (v) => s.tapToPage = v,
         ),
-        ListTile(
-          title: SelectionContainer.disabled(child: Text(tr('点击区域'))),
-          enabled: s.tapToPage,
-          subtitle: SelectionContainer.disabled(
-            child: SelectionDropdownTheme(
-              child: DropdownButton<TapLayout>(
-                isExpanded: true,
-                value: layout,
-                underline: const SizedBox.shrink(),
-                items: [
-                  for (final l in TapLayout.values)
-                    SelectionDropdownItem(
-                      value: l,
-                      selected: l == layout,
-                      child: Text(l.label),
-                    ),
-                ],
-                onChanged: s.tapToPage
-                    ? (v) => s.readerTapLayout = (v ?? TapLayout.auto).index
-                    : null,
-              ),
-            ),
-          ),
+        SettingsChoice<TapLayout>(
+          title: tr('点击区域'),
+          value: layout,
+          options: {for (final value in TapLayout.values) value: value.label},
+          onChanged: s.tapToPage
+              ? (value) => s.readerTapLayout = value.index
+              : null,
         ),
-        SwitchListTile(
+        SwitchListTile.adaptive(
           title: SelectionContainer.disabled(child: Text(tr('左右反转点击区域'))),
           value: s.readerTapInvertH,
           onChanged: s.tapToPage ? (v) => s.readerTapInvertH = v : null,
         ),
-        SwitchListTile(
+        SwitchListTile.adaptive(
           title: SelectionContainer.disabled(child: Text(tr('上下反转点击区域'))),
           value: s.readerTapInvertV,
           onChanged: s.tapToPage ? (v) => s.readerTapInvertV = v : null,
         ),
         if (PlatformCapabilities.volumeKeyPaging)
-          SwitchListTile(
+          SwitchListTile.adaptive(
             title: SelectionContainer.disabled(child: Text(tr('音量键翻页'))),
             value: s.volumeKeyPaging,
             onChanged: (v) => s.volumeKeyPaging = v,
@@ -296,12 +280,12 @@ class _ReaderSettingsState extends State<_ReaderSettings> {
             ),
           ),
         ),
-        SwitchListTile(
+        SwitchListTile.adaptive(
           title: SelectionContainer.disabled(child: Text(tr('显示页码'))),
           value: s.readerShowPageNumber,
           onChanged: (v) => s.readerShowPageNumber = v,
         ),
-        SwitchListTile(
+        SwitchListTile.adaptive(
           title: SelectionContainer.disabled(child: Text(tr('保持屏幕常亮'))),
           value: s.keepScreenOn,
           onChanged: (v) => s.keepScreenOn = v,
@@ -341,12 +325,12 @@ class _ReaderSettingsState extends State<_ReaderSettings> {
             ),
           ),
         ),
-        SwitchListTile(
+        SwitchListTile.adaptive(
           title: SelectionContainer.disabled(child: Text(tr('灰度'))),
           value: s.readerGrayscale,
           onChanged: (v) => s.readerGrayscale = v,
         ),
-        SwitchListTile(
+        SwitchListTile.adaptive(
           title: SelectionContainer.disabled(child: Text(tr('反色'))),
           value: s.readerInvert,
           onChanged: (v) => s.readerInvert = v,

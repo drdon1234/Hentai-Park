@@ -138,7 +138,7 @@ class NovelSettingsSheet extends StatelessWidget {
                       (v) => s.novelDim = v,
                     ),
                     if (PlatformCapabilities.screenBrightness)
-                      SwitchListTile(
+                      SwitchListTile.adaptive(
                         contentPadding: EdgeInsets.zero,
                         title: SelectionContainer.disabled(
                           child: Text(tr('亮度跟随系统')),
@@ -170,13 +170,13 @@ class NovelSettingsSheet extends StatelessWidget {
                       .8,
                       (v) => s.novelSpeechRate = v,
                     ),
-                    SwitchListTile(
+                    SwitchListTile.adaptive(
                       contentPadding: EdgeInsets.zero,
                       title: SelectionContainer.disabled(child: Text(tr('粗体'))),
                       value: s.novelBold,
                       onChanged: (v) => s.novelBold = v,
                     ),
-                    SwitchListTile(
+                    SwitchListTile.adaptive(
                       contentPadding: EdgeInsets.zero,
                       title: SelectionContainer.disabled(
                         child: Text(tr('两端对齐')),
@@ -184,7 +184,7 @@ class NovelSettingsSheet extends StatelessWidget {
                       value: s.novelJustify,
                       onChanged: (v) => s.novelJustify = v,
                     ),
-                    SwitchListTile(
+                    SwitchListTile.adaptive(
                       contentPadding: EdgeInsets.zero,
                       title: SelectionContainer.disabled(
                         child: Text(tr('首行缩进')),
@@ -192,7 +192,7 @@ class NovelSettingsSheet extends StatelessWidget {
                       value: s.novelIndent,
                       onChanged: (v) => s.novelIndent = v,
                     ),
-                    SwitchListTile(
+                    SwitchListTile.adaptive(
                       contentPadding: EdgeInsets.zero,
                       title: SelectionContainer.disabled(
                         child: Text(tr('显示阅读状态')),
@@ -200,7 +200,7 @@ class NovelSettingsSheet extends StatelessWidget {
                       value: s.novelShowStatus,
                       onChanged: (v) => s.novelShowStatus = v,
                     ),
-                    SwitchListTile(
+                    SwitchListTile.adaptive(
                       contentPadding: EdgeInsets.zero,
                       title: SelectionContainer.disabled(
                         child: Text(tr('保持屏幕常亮')),
@@ -209,7 +209,7 @@ class NovelSettingsSheet extends StatelessWidget {
                       onChanged: (v) => s.novelKeepScreenOn = v,
                     ),
                     if (PlatformCapabilities.volumeKeyPaging)
-                      SwitchListTile(
+                      SwitchListTile.adaptive(
                         contentPadding: EdgeInsets.zero,
                         title: SelectionContainer.disabled(
                           child: Text(tr('音量键翻页')),
@@ -217,7 +217,7 @@ class NovelSettingsSheet extends StatelessWidget {
                         value: s.novelVolumeKeys,
                         onChanged: (v) => s.novelVolumeKeys = v,
                       ),
-                    SwitchListTile(
+                    SwitchListTile.adaptive(
                       contentPadding: EdgeInsets.zero,
                       title: SelectionContainer.disabled(
                         child: Text(tr('点击翻页')),
@@ -225,7 +225,7 @@ class NovelSettingsSheet extends StatelessWidget {
                       value: s.novelTapToPage,
                       onChanged: (v) => s.novelTapToPage = v,
                     ),
-                    SwitchListTile(
+                    SwitchListTile.adaptive(
                       contentPadding: EdgeInsets.zero,
                       title: SelectionContainer.disabled(
                         child: Text(tr('翻页动画')),

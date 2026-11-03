@@ -157,7 +157,7 @@ class SiteRow extends StatelessWidget {
           : context.text.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
       onTap: () => Nav.openSource(context, source.key),
       onLongPress: () => Nav.openSourceSettings(context, source.key),
-      padding: const EdgeInsets.fromLTRB(Gap.page, Gap.s, Gap.xs, Gap.s),
+      padding: const EdgeInsets.fromLTRB(Gap.page, Gap.s, Gap.page, Gap.s),
       trailing: Row(
         mainAxisSize: MainAxisSize.min,
         children: [

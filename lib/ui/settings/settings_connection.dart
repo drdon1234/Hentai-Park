@@ -87,17 +87,15 @@ List<Widget> searchSettings(BuildContext context, AppSettings s) => [
 List<Widget> networkSettings(BuildContext context, AppSettings s) => [
   RowGroup(
     children: [
-      ListTile(
-        title: SelectionContainer.disabled(child: Text(tr('省流量模式'))),
-        subtitle: SelectionContainer.disabled(
-          child: Text(
-            tr(switch (s.dataSavingMode) {
-              'standard' => '主页和域页仅显示站点入口，进入站点后再加载作品',
-              'super' => '主页和域页仅显示站点入口；站点页不自动加载作品，只响应搜索',
-              _ => '关闭',
-            }),
-          ),
-        ),
+      ListRow(
+        title: tr('省流量模式'),
+        titleMaxLines: null,
+        subtitleMaxLines: 8,
+        subtitle: tr(switch (s.dataSavingMode) {
+          'standard' => '主页和域页仅显示站点入口，进入站点后再加载作品',
+          'super' => '主页和域页仅显示站点入口；站点页不自动加载作品，只响应搜索',
+          _ => '关闭',
+        }),
         trailing: const Icon(Icons.chevron_right_rounded),
         onTap: () async {
           final value = await showChoiceSheet<String>(

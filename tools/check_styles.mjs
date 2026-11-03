@@ -15,6 +15,7 @@ const rules = [
   [/\bBorderRadius\.circular\(/g, 'use Radii'],
   [/\bfontSize\s*:/g, 'use a TextTheme style'],
   [/\bFontWeight\.(w700|w800|w900|bold)\b/g, 'weights stop at w600'],
+  [/\bSwitchListTile\s*\(/g, 'use SwitchListTile.adaptive for consistent settings switches'],
 ];
 
 async function* dartFiles(folder) {
@@ -35,6 +36,10 @@ for await (const path of dartFiles(ui)) {
       for (const match of line.matchAll(pattern)) {
         failures.push(`${relative(root, path)}:${i + 1}: ${match[0]} — ${hint}`);
       }
+    }
+    if (/^(settings|subscriptions|reader)[\\/]/.test(relative(ui, path)) &&
+        /\bDropdownButton(?:<[^>]+>)?\s*\(/.test(line)) {
+      failures.push(`${relative(root, path)}:${i + 1}: use SettingsChoice for settings values`);
     }
   });
 }

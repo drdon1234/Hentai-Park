@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../kit/kit.dart';
 import '../theme.dart';
 
 class SelectableLogView extends StatelessWidget {
@@ -7,11 +8,13 @@ class SelectableLogView extends StatelessWidget {
   final String text;
 
   @override
-  Widget build(BuildContext context) => SingleChildScrollView(
-    padding: const EdgeInsets.all(12),
-    child: SelectableText(
-      text,
-      style: ParkText.mono(Theme.of(context).textTheme.bodySmall),
+  Widget build(BuildContext context) => PageGutter(
+    child: SingleChildScrollView(
+      padding: const EdgeInsets.symmetric(vertical: Gap.m),
+      child: SelectableText(
+        text,
+        style: ParkText.mono(Theme.of(context).textTheme.bodySmall),
+      ),
     ),
   );
 }

@@ -4,6 +4,40 @@ import '../../core/localization.dart';
 import '../kit/kit.dart';
 import '../theme.dart';
 
+/// 设置单选统一使用整行入口、当前值和共享选择面板。
+class SettingsChoice<T> extends StatelessWidget {
+  const SettingsChoice({
+    super.key,
+    required this.title,
+    required this.value,
+    required this.options,
+    required this.onChanged,
+    this.leading,
+  });
+
+  final String title;
+  final T value;
+  final Map<T, String> options;
+  final ValueChanged<T>? onChanged;
+  final Widget? leading;
+
+  @override
+  Widget build(BuildContext context) => ListRow(
+    title: title,
+    titleMaxLines: null,
+    subtitle: options[value] ?? '$value',
+    leading: leading,
+    trailing: const Icon(Icons.chevron_right_rounded),
+    enabled: onChanged != null,
+    onTap: () async {
+      final selected = await chooseSetting(context, title, options, value);
+      if (selected != null && context.mounted && selected != value) {
+        onChanged?.call(selected);
+      }
+    },
+  );
+}
+
 /// A labelled integer slider row used by several settings sections.
 class SettingsSlider extends StatelessWidget {
   const SettingsSlider({

@@ -789,7 +789,7 @@ class _TaskTile extends StatelessWidget {
       onLongPress: () => _menu(context),
       child: SelectionContainer.disabled(
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(Gap.page, Gap.m, Gap.xs, Gap.m),
+          padding: const EdgeInsets.fromLTRB(Gap.page, Gap.m, Gap.page, Gap.m),
           child: Row(
             children: [
               SizedBox(

@@ -553,7 +553,10 @@ class _RankingListState extends State<_RankingList> {
           if (widget.controller.hidden > 0)
             SliverToBoxAdapter(
               child: Padding(
-                padding: const EdgeInsets.all(Gap.s),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: Gap.page,
+                  vertical: Gap.s,
+                ),
                 child: Text(
                   tr('（已屏蔽 {value0} 部）', {'value0': widget.controller.hidden}),
                   textAlign: TextAlign.center,

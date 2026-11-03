@@ -11,6 +11,7 @@ import '../../subscriptions/update_store.dart';
 import '../../subscriptions/updater.dart';
 import '../home/sites_page.dart';
 import '../nav.dart';
+import '../settings/settings_rows.dart';
 import '../settings/source_settings_page.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
@@ -124,47 +125,22 @@ class _SubscriptionsPageState extends State<SubscriptionsPage> {
                         leading: const Icon(Icons.tune_rounded),
                         title: Text(tr('订阅设置')),
                         children: [
-                          ListTile(
-                            title: SelectionContainer.disabled(
-                              child: Text(tr('自动检查订阅')),
-                            ),
-                            subtitle: SelectionContainer.disabled(
-                              child: SelectionDropdownTheme(
-                                child: DropdownButton<int>(
-                                  isExpanded: true,
-                                  value: AppSettings
-                                      .instance
-                                      .subscriptionUpdateHours,
-                                  items: [
-                                    for (final hours in [0, 1, 3, 6, 12, 24])
-                                      SelectionDropdownItem(
-                                        value: hours,
-                                        selected:
-                                            hours ==
-                                            AppSettings
-                                                .instance
-                                                .subscriptionUpdateHours,
-                                        child: Text(
-                                          hours == 0
-                                              ? tr('关闭')
-                                              : tr('每 {hours} 小时', {
-                                                  'hours': hours,
-                                                }),
-                                        ),
-                                      ),
-                                  ],
-                                  onChanged: (value) {
-                                    AppSettings
-                                            .instance
-                                            .subscriptionUpdateHours =
-                                        value ?? 6;
-                                    setState(() {});
-                                  },
-                                ),
-                              ),
-                            ),
+                          SettingsChoice<int>(
+                            title: tr('自动检查订阅'),
+                            value: AppSettings.instance.subscriptionUpdateHours,
+                            options: {
+                              for (final hours in const [0, 1, 3, 6, 12, 24])
+                                hours: hours == 0
+                                    ? tr('关闭')
+                                    : tr('每 {hours} 小时', {'hours': hours}),
+                            },
+                            onChanged: (value) {
+                              AppSettings.instance.subscriptionUpdateHours =
+                                  value;
+                              setState(() {});
+                            },
                           ),
-                          SwitchListTile(
+                          SwitchListTile.adaptive(
                             title: SelectionContainer.disabled(
                               child: Text(tr('订阅系统通知')),
                             ),
@@ -180,7 +156,7 @@ class _SubscriptionsPageState extends State<SubscriptionsPage> {
                             },
                           ),
                           if (AppSettings.instance.subscriptionNotifications)
-                            SwitchListTile(
+                            SwitchListTile.adaptive(
                               title: SelectionContainer.disabled(
                                 child: Text(tr('通知中显示内容标题')),
                               ),
@@ -258,7 +234,7 @@ class _SubscriptionsPageState extends State<SubscriptionsPage> {
                         key: ValueKey(entry.identity),
                         child: ListTile(
                           contentPadding: const EdgeInsets.symmetric(
-                            horizontal: Gap.s,
+                            horizontal: Gap.page,
                             vertical: Gap.xs,
                           ),
                           leading: Icon(

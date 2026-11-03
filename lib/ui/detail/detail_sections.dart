@@ -162,7 +162,7 @@ class ChapterSelectionBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.fromLTRB(Gap.s, Gap.m, Gap.s, Gap.xs),
+    padding: const EdgeInsets.fromLTRB(Gap.page, Gap.m, Gap.page, Gap.xs),
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
