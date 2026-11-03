@@ -155,7 +155,7 @@
     return result;
   }
   Park.register({
-    key: SITE.key, name: SITE.name, version: '0.0.4', minAppVersion: '0.11.0',
+    key: SITE.key, name: SITE.name, version: '0.0.5', minAppVersion: '0.11.0',
     type: 'article', category: 'feed', color: '#488A7B', language: 'zh',
     description: '吃瓜图文，支持分类、标签、搜索与视频',
     i18n: {
@@ -290,7 +290,8 @@
     async detail(value) {
       const id = idValue(value), path = articlePath(id), doc = await this.document(path);
       const base = doc.__feedOrigin;
-      const title = text(doc.querySelector(SITE.archive ? 'h1.detail-title' : 'h1.post-title'));
+      const title = SITE.archive ? text(doc.querySelector('h1.detail-title'))
+        : text(doc.querySelector('h1.post-title')) || String(doc.querySelector('article.post meta[itemprop="headline"]')?.getAttribute('content') || '').trim();
       const root = doc.querySelector(SITE.archive ? '.detail-page .editormd-preview' : '.post-content[itemprop="articleBody"]');
       if (!title || !root) throw Park.error('PARSE', '加载失败');
       const content = blocks(root, base);

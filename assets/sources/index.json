@@ -5,7 +5,7 @@
     {
       "key": "feedmrds",
       "name": "每日大赛",
-      "version": "0.0.4",
+      "version": "0.0.5",
       "type": "article",
       "category": "feed",
       "file": "feedmrds.js",
@@ -15,7 +15,7 @@
     {
       "key": "feedheiliao",
       "name": "黑料网",
-      "version": "0.0.4",
+      "version": "0.0.5",
       "type": "article",
       "category": "feed",
       "file": "feedheiliao.js",
@@ -25,7 +25,7 @@
     {
       "key": "feed51cg",
       "name": "51吃瓜网",
-      "version": "0.0.4",
+      "version": "0.0.5",
       "type": "article",
       "category": "feed",
       "file": "feed51cg.js",

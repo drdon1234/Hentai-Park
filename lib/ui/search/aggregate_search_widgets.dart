@@ -7,17 +7,13 @@ import '../../core/models.dart';
 import '../../core/settings.dart';
 import '../../core/tag_blocklist.dart';
 import '../../engine/source_manager.dart';
-import '../../subscriptions/models.dart';
-import '../feed/feed_article.dart';
 import '../nav.dart';
 import '../short_video/short_video_sequence.dart';
-import '../subscriptions/subscription_posts_page.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
 import '../widgets/cover_tile.dart';
 import '../widgets/error_view.dart';
 import '../widgets/source_network_hint.dart';
-import '../widgets/work_text_row.dart';
 import 'aggregate_search_controller.dart';
 import 'multi_language.dart';
 import 'source_search_page.dart';
@@ -242,42 +238,34 @@ class SourceResultsRow extends StatelessWidget {
       ),
     );
     final kind = m.kind;
-    final aspect = kind == MediaKind.video ? 16 / 9 : 0.7;
+    final aspect = kind == MediaKind.video || kind == MediaKind.article
+        ? 16 / 9
+        : 0.7;
     final cardWidth = aspect > 1 ? 200.0 : 118.0;
     Widget body;
     if (result.loading) {
-      body = kind == MediaKind.novel || kind == MediaKind.article
-          ? Column(
-              children: [
-                const Padding(
-                  padding: EdgeInsets.all(16),
-                  child: Skeleton(height: 18),
+      body = Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          SizedBox(
+            height: cardWidth / aspect + cardTextExtent(context),
+            child: PageGutter(
+              child: ListView.separated(
+                scrollDirection: Axis.horizontal,
+                padding: EdgeInsets.zero,
+                itemCount: 5,
+                physics: const NeverScrollableScrollPhysics(),
+                separatorBuilder: (_, _) => const SizedBox(width: Gap.m),
+                itemBuilder: (_, _) => SizedBox(
+                  width: cardWidth,
+                  child: CoverTileSkeleton(aspect: aspect),
                 ),
-                SourceNetworkHint(source: source),
-              ],
-            )
-          : Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                SizedBox(
-                  height: cardWidth / aspect + cardTextExtent(context),
-                  child: PageGutter(
-                    child: ListView.separated(
-                      scrollDirection: Axis.horizontal,
-                      padding: EdgeInsets.zero,
-                      itemCount: 5,
-                      physics: const NeverScrollableScrollPhysics(),
-                      separatorBuilder: (_, _) => const SizedBox(width: Gap.m),
-                      itemBuilder: (_, _) => SizedBox(
-                        width: cardWidth,
-                        child: CoverTileSkeleton(aspect: aspect),
-                      ),
-                    ),
-                  ),
-                ),
-                SourceNetworkHint(source: source),
-              ],
-            );
+              ),
+            ),
+          ),
+          SourceNetworkHint(source: source),
+        ],
+      );
     } else if (result.error != null) {
       // A failing site reports in its own group; the other results stay put.
       body = SourceErrorView(
@@ -322,43 +310,25 @@ class SourceResultsRow extends StatelessWidget {
       }
       final a = gridAspectFor(items, kind);
       final w = a > 1 ? 200.0 : 118.0;
-      body = kind == MediaKind.article
-          ? Column(
-              children: [for (final item in items) FeedArticleTile(item: item)],
-            )
-          : kind == MediaKind.novel
-          ? Column(
-              children: [for (final item in items) WorkTextRow(item: item)],
-            )
-          : items.any((item) => item.json['presentation'] == 'post')
-          ? Column(
-              children: [
-                for (final item in items)
-                  SubscriptionPostCard(
-                    source: item.source,
-                    post: SubscriptionPost(item.json),
-                  ),
-              ],
-            )
-          : SizedBox(
-              height: w / a + cardTextExtent(context, items: items, width: w),
-              child: PageGutter(
-                child: ListView.separated(
-                  scrollDirection: Axis.horizontal,
-                  padding: EdgeInsets.zero,
-                  itemCount: items.length,
-                  separatorBuilder: (_, _) => const SizedBox(width: Gap.m),
-                  itemBuilder: (context, i) => SizedBox(
-                    width: w,
-                    child: CoverTile(
-                      item: items[i],
-                      aspect: a,
-                      sequence: () => _sequence(items),
-                    ),
-                  ),
-                ),
+      body = SizedBox(
+        height: w / a + cardTextExtent(context, items: items, width: w),
+        child: PageGutter(
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            padding: EdgeInsets.zero,
+            itemCount: items.length,
+            separatorBuilder: (_, _) => const SizedBox(width: Gap.m),
+            itemBuilder: (context, i) => SizedBox(
+              width: w,
+              child: CoverTile(
+                item: items[i],
+                aspect: a,
+                sequence: () => _sequence(items),
               ),
-            );
+            ),
+          ),
+        ),
+      );
     }
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,

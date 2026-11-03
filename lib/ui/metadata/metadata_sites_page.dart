@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 
+import '../../core/content_scope.dart';
 import '../../core/localization.dart';
 import '../../core/models.dart';
 import '../../engine/source_manager.dart';
 import '../kit/kit.dart';
 import '../nav.dart';
+import '../search/aggregate_search_page.dart';
 import '../source/source_page.dart';
 import '../widgets/common.dart';
 
@@ -40,6 +42,25 @@ class MetadataSitesPage extends StatelessWidget {
                 )
               : ListView(
                   children: [
+                    ParkSearchField(
+                      hint: tr(
+                        category == SourceCategory.jav
+                            ? '搜索番号、作品名或演员'
+                            : '搜索作品名、标签或作者',
+                      ),
+                      onSubmitted: (keyword) {
+                        if (keyword.trim().isEmpty) return;
+                        Nav.push(
+                          context,
+                          AggregateSearchPage(
+                            initialKeyword: keyword.trim(),
+                            scope: ContentScope.domain(category),
+                            metadataOnly: true,
+                          ),
+                        );
+                      },
+                    ),
+                    const SizedBox(height: Gap.m),
                     RowGroup(
                       children: [
                         for (final source in sources)

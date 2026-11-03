@@ -52,6 +52,9 @@ class _MigrationPageState extends State<MigrationPage> {
           (s) =>
               s.key != _current.source &&
               s.manifest!.can('search') &&
+              s.manifest!.can('detail') &&
+              !s.manifest!.metadataOnly &&
+              !s.manifest!.rankingOnly &&
               s.manifest!.kind == kind,
         )
         .toList();

@@ -24,8 +24,10 @@ class AggregateSearchPage extends StatefulWidget {
     this.initialKeyword = '',
     this.scope = const ContentScope.all(),
     this.sourceManager,
+    this.metadataOnly = false,
   });
   final SourceManager? sourceManager;
+  final bool metadataOnly;
   final String initialKeyword;
   final ContentScope scope;
   @override
@@ -165,6 +167,8 @@ class _AggregateSearchPageState extends State<AggregateSearchPage> {
       .where(
         (s) =>
             s.manifest!.can('search') &&
+            s.manifest!.metadataOnly == widget.metadataOnly &&
+            !s.manifest!.rankingOnly &&
             _range.contains(s.key, s.manifest!.category),
       )
       .toList();
@@ -210,7 +214,7 @@ class _AggregateSearchPageState extends State<AggregateSearchPage> {
     final k = _submitted;
     final refs = _sources.extractRefs(k).where((ref) {
       final manifest = _sources.manifest(ref.source);
-      return manifest != null && manifest.can('detail');
+      return !widget.metadataOnly && manifest != null && manifest.can('detail');
     }).toList();
     if (refs.isNotEmpty && _multi == null) {
       setState(() {
@@ -321,7 +325,7 @@ class _AggregateSearchPageState extends State<AggregateSearchPage> {
             title: ParkSearchField(
               controller: _text,
               focusNode: _focus,
-              hint: tr('作品、标签、链接或编号'),
+              hint: tr(widget.metadataOnly ? '搜索作品资料' : '作品、标签、链接或编号'),
               onSubmitted: _submit,
               trailing: [
                 IconButton(
@@ -564,6 +568,7 @@ class _AggregateSearchPageState extends State<AggregateSearchPage> {
   }
 
   List<({String source, String id})> _directRefs(String text) {
+    if (widget.metadataOnly) return const [];
     final sm = _sources;
     final refs = sm.extractRefs(text);
     final hasLinks = refs.isNotEmpty;

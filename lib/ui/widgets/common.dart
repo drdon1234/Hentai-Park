@@ -138,6 +138,20 @@ class CoverImage extends StatelessWidget {
               builder: (context, constraints) {
                 final compact =
                     constraints.maxWidth < 90 || constraints.maxHeight < 100;
+                final style = ParkText.serif(context.text.bodyMedium)
+                    ?.copyWith(color: colors.onSurface);
+                final painter = TextPainter(
+                  text: TextSpan(text: '国', style: style),
+                  textDirection: Directionality.of(context),
+                  textScaler: MediaQuery.textScalerOf(context),
+                )..layout();
+                final textHeight =
+                    constraints.maxHeight - (compact ? 12 : 32 + 28 + 16);
+                final lines = (textHeight / painter.height).floor().clamp(
+                  1,
+                  compact ? 3 : 6,
+                );
+                painter.dispose();
                 return Padding(
                   padding: EdgeInsets.all(compact ? 6 : 16),
                   child: Column(
@@ -154,10 +168,9 @@ class CoverImage extends StatelessWidget {
                         child: Text(
                           title,
                           textAlign: TextAlign.center,
-                          maxLines: compact ? 3 : 6,
+                          maxLines: lines,
                           overflow: TextOverflow.ellipsis,
-                          style: ParkText.serif(context.text.bodyMedium)
-                              ?.copyWith(color: colors.onSurface),
+                          style: style,
                         ),
                       ),
                     ],

@@ -3,13 +3,21 @@ import 'dart:io';
 import '../core/models.dart';
 
 /// Reject non-public addresses, including IPv4-mapped IPv6; direct connections use checked IPs.
-/// 198.18.0.0/15 is accepted: it is reserved for benchmarking and never assigned
+/// 198.18.0.0/15 and 2001:2::/48 are accepted: reserved for benchmarking, never assigned
 /// to LAN hosts, and Clash, sing-box and Surge map domains into it in fake-ip
 /// mode. The system VPN routes those connections by domain, and TLS still
 /// verifies the original host name.
 bool isPublicMediaAddress(InternetAddress address) {
   final bytes = address.rawAddress;
   if (bytes.length == 16) {
+    if (bytes[0] == 0x20 &&
+        bytes[1] == 1 &&
+        bytes[2] == 0 &&
+        bytes[3] == 2 &&
+        bytes[4] == 0 &&
+        bytes[5] == 0) {
+      return true;
+    }
     if (bytes.take(10).every((b) => b == 0) &&
         bytes[10] == 255 &&
         bytes[11] == 255) {
