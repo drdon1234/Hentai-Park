@@ -74,6 +74,7 @@ abstract class _ReaderBase extends State<ReaderPage> {
 
   final _itemScroll = ItemScrollController();
   var _positions = ItemPositionsListener.create();
+  var _positionStorage = PageStorageBucket();
   final _offsets = ScrollOffsetController();
   PageController? _pager;
   List<Spread> _spreads = const [];
@@ -198,9 +199,11 @@ class _ReaderPageState extends _ReaderBase
     _saveTimer?.cancel();
     _positions.itemPositions.removeListener(_onScroll);
     _positions = ItemPositionsListener.create();
+    _positionStorage = PageStorageBucket();
     _positions.itemPositions.addListener(_onScroll);
     setState(() {
       _pages = null;
+      _page = startPage;
       _error = null;
       _aspects.clear();
     });
@@ -233,7 +236,10 @@ class _ReaderPageState extends _ReaderBase
       final start = startPage.clamp(0, pages.isEmpty ? 0 : pages.length - 1);
       _spreads = _layout(pages.length);
       _pager?.dispose();
-      _pager = PageController(initialPage: spreadIndexOf(_spreads, start));
+      _pager = PageController(
+        initialPage: spreadIndexOf(_spreads, start),
+        keepPage: false,
+      );
       setState(() {
         _pages = pages;
         _page = start;
@@ -247,13 +253,19 @@ class _ReaderPageState extends _ReaderBase
 
   void _applyMode(ReaderMode mode) {
     final page = _page;
+    final generation = _loadGeneration;
     setState(() {
       _mode = mode;
+      _positionStorage = PageStorageBucket();
       if (_pages != null) _spreads = _layout(_pages!.length);
       _pager?.dispose();
-      _pager = PageController(initialPage: spreadIndexOf(_spreads, page));
+      _pager = PageController(
+        initialPage: spreadIndexOf(_spreads, page),
+        keepPage: false,
+      );
     });
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || generation != _loadGeneration) return;
       if (!_paged && _itemScroll.isAttached) _itemScroll.jumpTo(index: page);
     });
   }

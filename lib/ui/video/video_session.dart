@@ -535,7 +535,7 @@ class VideoSession extends ChangeNotifier {
         (chapterKeyOf(history?.chapterId) == episode.id
             ? history?.position
             : null);
-    if (pos == null || pos < 5 || pos > total.inSeconds - 10) return null;
+    if (pos == null || pos <= 0 || pos >= total.inSeconds) return null;
     return Duration(seconds: pos);
   }
 

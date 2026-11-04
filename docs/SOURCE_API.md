@@ -536,7 +536,7 @@ subscription: {
 - `normalize` 必须纯本地校验：未登录、无网络时也能保存目标；只接受当前站点的用户名或受控的主页 URL。`resolve`、`targets` 可选；有 `targets` 时清单输出 `subscription.joinedTargets: true`。
 - `joinedCreators: true` 表示无 `kind` 的目标分页是已关注的创作者；可与 `communities: true` 并存，应用会分别将创作者和已加入社群入口放在站点栏目条中。未声明时按站点既有默认目标处理。
 - 支持社群独立入口时声明 `communities: true`、界面说明 `communityHint` 与输入示例 `communityExample`；运行时原样导出这些元数据。社群目标返回 `{ id, label, kind: 'community' }`，ID 必须能区分作者目标。框架通过 `targets({ kind: 'community' })` 请求已加入社群，通过无参数 `targets()` 请求默认列表；插件应分别处理，不能因社群接口失败而破坏作者列表。`resolve` 可只读确认社群名称与访问权限，不应自动加入社群。
-- 目标数量较多时，`targets({ mode: 'page', cursor, query, kind })` 可按需返回 `{ targets, cursor, hasNext }`。首屏只返回一页；`cursor` 为不透明游标，`query` 用于原站搜索时必须调用对应搜索接口，不应先遍历全部关注目标。未声明分页实现的插件继续使用 `targets()` 数组形式。
+- 目标数量较多时，`targets({ mode: 'page', cursor, query, kind })` 可按需返回 `{ targets, cursor, hasNext, queryApplied }`。首屏只返回一页；`cursor` 为不透明游标，`query` 用于原站搜索时必须调用对应搜索接口，不应先遍历全部关注目标。已由原站执行查询时返回 `queryApplied: true`，界面保留其匹配结果，不再用名称子串二次删除；否则界面按目标 ID 与名称筛选，并保留继续分页入口。未声明分页实现的插件继续使用 `targets()` 数组形式。
 - `posts` 的游标是不透明字符串，最后一页 `hasNext: false`，没有媒体的页面也允许继续翻页。`locked` 表示权限不足；`previewOnly` 明示只是公开预览，不能把缩略图冒充全文。
 
 ### 公共相册：`subscription.media`

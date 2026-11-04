@@ -65,55 +65,65 @@ mixin _ReaderViews on _ReaderBase, _ReaderNavigation, _ReaderInput {
 
   Widget _verticalView(List<PageImage> pages) {
     final gap = _settings.readerGap;
+    final generation = _loadGeneration;
     return ReaderZoom(
       controller: _zoom,
       maxScale: 4,
       panEnabled: _zoomed,
-      child: ScrollablePositionedList.builder(
-        key: ValueKey((_chapterId, _loadGeneration)),
-        itemScrollController: _itemScroll,
-        itemPositionsListener: _positions,
-        scrollOffsetController: _offsets,
-        initialScrollIndex: _page,
-        minCacheExtent: MediaQuery.sizeOf(context).height * 2,
-        physics: _zoomed ? const NeverScrollableScrollPhysics() : null,
-        itemCount: pages.length + 1,
-        itemBuilder: (context, i) {
-          if (i == pages.length) {
-            return ReaderChapterEnd(
-              hasNext: _hasNextChapter,
-              onNext: _nextChapter,
+      child: PageStorage(
+        bucket: _positionStorage,
+        child: ScrollablePositionedList.builder(
+          key: PageStorageKey((widget.work.uid, _chapterId, _loadGeneration)),
+          itemScrollController: _itemScroll,
+          itemPositionsListener: _positions,
+          scrollOffsetController: _offsets,
+          initialScrollIndex: _page,
+          minCacheExtent: MediaQuery.sizeOf(context).height * 2,
+          physics: _zoomed ? const NeverScrollableScrollPhysics() : null,
+          itemCount: pages.length + 1,
+          itemBuilder: (context, i) {
+            if (i == pages.length) {
+              return ReaderChapterEnd(
+                hasNext: _hasNextChapter,
+                onNext: _nextChapter,
+              );
+            }
+            final image = ReaderImage(
+              key: ValueKey('v-$_chapterId-$i-${_settings.readerCrop}'),
+              provider: _provider(i),
+              index: i,
+              knownAspect: _aspects[i],
+              onAspect: (a) {
+                if (mounted && generation == _loadGeneration) _aspects[i] = a;
+              },
             );
-          }
-          final image = ReaderImage(
-            key: ValueKey('v-$_chapterId-$i-${_settings.readerCrop}'),
-            provider: _provider(i),
-            index: i,
-            knownAspect: _aspects[i],
-            onAspect: (a) => _aspects[i] = a,
-          );
-          return gap > 0
-              ? Padding(
-                  padding: EdgeInsets.only(bottom: gap),
-                  child: image,
-                )
-              : image;
-        },
+            return gap > 0
+                ? Padding(
+                    padding: EdgeInsets.only(bottom: gap),
+                    child: image,
+                  )
+                : image;
+          },
+        ),
       ),
     );
   }
 
-  Widget _pageImage(int i, {Alignment alignment = Alignment.center}) =>
-      ReaderImage(
-        key: ValueKey('p-$_chapterId-$i-${_settings.readerCrop}'),
-        provider: _provider(i),
-        index: i,
-        knownAspect: _aspects[i],
-        fit: BoxFit.contain,
-        fillHeight: true,
-        alignment: alignment,
-        onAspect: (a) => _onAspect(i, a),
-      );
+  Widget _pageImage(int i, {Alignment alignment = Alignment.center}) {
+    final generation = _loadGeneration;
+    return ReaderImage(
+      key: ValueKey('p-$_chapterId-$i-${_settings.readerCrop}'),
+      provider: _provider(i),
+      index: i,
+      knownAspect: _aspects[i],
+      fit: BoxFit.contain,
+      fillHeight: true,
+      alignment: alignment,
+      onAspect: (a) {
+        if (mounted && generation == _loadGeneration) _onAspect(i, a);
+      },
+    );
+  }
 
   Widget _spreadView(Spread spread) {
     if (spread.pages.length == 2) {
@@ -142,6 +152,7 @@ mixin _ReaderViews on _ReaderBase, _ReaderNavigation, _ReaderInput {
   }
 
   Widget _pagedView(List<PageImage> pages) {
+    final generation = _loadGeneration;
     return Directionality(
       // The UI language must not invert the selected manga reading direction.
       textDirection: TextDirection.ltr,
@@ -151,6 +162,7 @@ mixin _ReaderViews on _ReaderBase, _ReaderNavigation, _ReaderInput {
         reverse: _rtl,
         itemCount: _spreads.length + (_hasNextChapter ? 1 : 0),
         onPageChanged: (i) {
+          if (!mounted || generation != _loadGeneration) return;
           if (i < _spreads.length) _setPage(_spreads[i].first);
         },
         itemBuilder: (context, i) {

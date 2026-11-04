@@ -16,7 +16,6 @@ import '../widgets/cover_tile.dart';
 import '../widgets/error_view.dart';
 import '../widgets/on_visible.dart';
 import '../widgets/source_network_hint.dart';
-import '../widgets/work_text_row.dart';
 import 'feed_sessions.dart';
 
 /// 主页和域页订阅同一推荐会话，滚动到右侧继续分页。
@@ -129,9 +128,7 @@ class _FeedShelfState extends State<FeedShelf>
       }
       if (!session.initialized) {
         unawaited(session.loadMore());
-      } else if (widget.sessions.sources.manifest(widget.sourceKey)?.isNovel !=
-              true &&
-          _fillRequests < 3 &&
+      } else if (_fillRequests < 3 &&
           (!_scroll.hasClients ||
               (_scroll.position.hasContentDimensions &&
                   _scroll.position.extentAfter <
@@ -206,7 +203,6 @@ class _FeedShelfState extends State<FeedShelf>
             .toList() ??
         <WorkItem>[];
     final ready = session?.initialized == true || items.isNotEmpty;
-    final novel = manifest?.isNovel == true;
     final more = session != null && (session.hasNext || session.error != null);
     final Widget body;
     if (manifest?.can('subscription') == true &&
@@ -234,25 +230,12 @@ class _FeedShelfState extends State<FeedShelf>
           aspect: manifest?.isVideo == true || manifest?.isArticle == true
               ? 16 / 9
               : .7,
-          novel: novel,
           imageOnly: manifest?.isLive == true,
           source: widget.sourceKey,
         ),
       );
     } else if (items.isEmpty) {
       body = _ShelfMessage(message: tr('暂时没有内容'), onRetry: _loadMore);
-    } else if (novel) {
-      final preview = widget.onMore == null ? items : items.take(3).toList();
-      body = Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          for (var i = 0; i < preview.length; i++) ...[
-            if (i > 0) const Divider(indent: Gap.page, endIndent: Gap.page),
-            WorkTextRow(item: preview[i]),
-          ],
-          if (more && widget.onMore == null) _tail(session),
-        ],
-      );
     } else {
       final aspect = gridAspectFor(items, manifest?.kind ?? MediaKind.comic);
       final imageOnly = manifest?.category == SourceCategory.live;
@@ -379,12 +362,10 @@ class _FeedShelfState extends State<FeedShelf>
 class _ShelfSkeleton extends StatelessWidget {
   const _ShelfSkeleton({
     required this.aspect,
-    required this.novel,
     required this.source,
     this.imageOnly = false,
   });
   final double aspect;
-  final bool novel;
   final bool imageOnly;
   final String source;
 
@@ -394,37 +375,22 @@ class _ShelfSkeleton extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        if (novel)
-          const Padding(
-            padding: EdgeInsets.symmetric(horizontal: Gap.page),
-            child: Column(
-              children: [
-                Skeleton(height: 16),
-                SizedBox(height: Gap.s),
-                Skeleton(height: 16),
-              ],
-            ),
-          )
-        else
-          SizedBox(
-            height: width / aspect + (imageOnly ? 0 : cardTextExtent(context)),
-            child: PageGutter(
-              child: ListView.separated(
-                scrollDirection: Axis.horizontal,
-                physics: const NeverScrollableScrollPhysics(),
-                padding: EdgeInsets.zero,
-                itemCount: 6,
-                separatorBuilder: (_, _) => const SizedBox(width: Gap.m),
-                itemBuilder: (_, _) => SizedBox(
-                  width: width,
-                  child: CoverTileSkeleton(
-                    aspect: aspect,
-                    imageOnly: imageOnly,
-                  ),
-                ),
+        SizedBox(
+          height: width / aspect + (imageOnly ? 0 : cardTextExtent(context)),
+          child: PageGutter(
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              physics: const NeverScrollableScrollPhysics(),
+              padding: EdgeInsets.zero,
+              itemCount: 6,
+              separatorBuilder: (_, _) => const SizedBox(width: Gap.m),
+              itemBuilder: (_, _) => SizedBox(
+                width: width,
+                child: CoverTileSkeleton(aspect: aspect, imageOnly: imageOnly),
               ),
             ),
           ),
+        ),
         SourceNetworkHint(source: source),
       ],
     );

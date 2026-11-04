@@ -15,10 +15,12 @@ class SubscriptionTargetPage {
           .map(SubscriptionTarget.new)
           .toList(),
       cursor = data['cursor']?.toString(),
-      hasNext = data['hasNext'] == true;
+      hasNext = data['hasNext'] == true,
+      queryApplied = data['queryApplied'] == true;
   final List<SubscriptionTarget> targets;
   final String? cursor;
   final bool hasNext;
+  final bool queryApplied;
 }
 
 class SubscriptionMedia {

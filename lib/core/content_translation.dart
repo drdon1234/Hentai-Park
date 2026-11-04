@@ -32,6 +32,8 @@ class ContentTranslationQueue extends ChangeNotifier {
   var _running = 0;
   var _pumpScheduled = false;
   DateTime? _rateLimitedUntil;
+  int _revision = 0;
+  int get revision => _revision;
   bool get _rateLimited => _rateLimitedUntil?.isAfter(DateTime.now()) ?? false;
   bool get rateLimited => _rateLimited;
   bool get hasCapacity => _queue.length < _maxQueued;
@@ -130,6 +132,7 @@ class ContentTranslationQueue extends ChangeNotifier {
         translated = null;
       } else {
         _cache[job.key] = translated;
+        _revision++;
         if (_cache.length > _maxCached) _cache.remove(_cache.keys.first);
       }
     } catch (error) {

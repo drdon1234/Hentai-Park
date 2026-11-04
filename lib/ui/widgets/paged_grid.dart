@@ -678,16 +678,6 @@ class WorkCarousel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (items.isEmpty) return const SizedBox.shrink();
-    if (kindOf(items.first) == MediaKind.novel || items.first.isNovel) {
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SectionHeader(title, leading: leading, trailing: trailing),
-          for (final item in items)
-            WorkTextRow(item: item, showSource: showSource),
-        ],
-      );
-    }
     final aspect = gridAspectFor(items, kindOf(items.first));
     final cardWidth = aspect > 1 ? 200.0 : 118.0;
     return Column(

@@ -69,11 +69,21 @@ const browseFilters = [
       { value: '11', label: '总榜' },
     ],
   };
-  const hasBrowseFilters = (options, common) =>
-    Object.keys(common || {}).length > 0 || browseFilters.some((filter) => {
-      const initial = filter.default ?? (filter.type === 'multi' ? [] : '');
-      return JSON.stringify(options?.[filter.key] ?? initial) !== JSON.stringify(initial);
-    });
+  // 热门和榜单只能筛选原栏目已返回的作品；搜索专用排除开关不冒充栏目能力。
+  const columnFilters = browseFilters.filter(f => !['expunged', 'disableLanguage', 'disableUploader', 'disableTags'].includes(f.key));
+  function matchesColumn(meta, filters = {}, common = {}) {
+    const categories = Array.isArray(filters.categories) ? filters.categories : [];
+    if (categories.length && !categories.includes(meta.category)) return false;
+    if (filters.language && !(meta.tags || []).includes('language:' + filters.language)) return false;
+    if (Number(meta.rating || 0) < Number(filters.minRating || 0)) return false;
+    const uploader = String(filters.uploader || '').trim().toLowerCase();
+    if (uploader && String(meta.uploader || '').toLowerCase() !== uploader) return false;
+    if (filters.torrent === true && Number(meta.torrentcount || 0) < 1) return false;
+    const pages = Number(meta.filecount || 0);
+    if (common.pages?.min != null && pages < Number(common.pages.min)) return false;
+    if (common.pages?.max != null && pages > Number(common.pages.max)) return false;
+    return true;
+  }
 Park.register({
   i18n: {
     "zh-Hant": {"0.2 秒（激进）": "0.2 秒（激進）", "0.4 秒（推荐）": "0.4 秒（推薦）", "0.8 秒（保守）": "0.8 秒（保守）", "2 星": "2 星", "3 星": "3 星", "32 位十六进制字符": "32 位十六進位制字元", "4 星": "4 星", "5 星": "5 星", "E-Hentai 只能按顺序翻页": "E-Hentai 只能按順序翻頁", "E-Hentai 图片配额已用尽（509），请稍后再试或登录后重置配额": "E-Hentai 圖片配額已用盡（509），請稍後再試或登入後重置配額", "E-Hentai 账号": "E-Hentai 賬號", "E-Hentai（表站）": "E-Hentai（表站）", "ExHentai 返回空页面：请先登录，或该账号没有里站权限": "ExHentai 返回空頁面：請先登入，或該賬號沒有裡站許可權", "ExHentai（里站）": "ExHentai（裡站）", "IP 被 E-Hentai 临时封禁，请稍后再试或更换网络": "IP 被 E-Hentai 臨時封禁，請稍後再試或更換網路", "临时": "臨時", "亚洲": "亞洲", "会员 ID，一串数字": "會員 ID，一串數字", "会员 {value0}": "會員 {value0}", "历史最悠久的画廊站，标签体系完善；登录后可切换里站 ExHentai": "歷史最悠久的畫廊站，標籤體系完善；登入後可切換裡站 ExHentai", "女性": "女性", "当前热门": "當前熱門", "找不到第 {value0} 页": "找不到第 {value0} 頁", "支持标签语法：female:\"big breasts\"$、artist:xxx、language:chinese": "支援標籤語法：female:\"big breasts\"$、artist:xxx、language:chinese", "无效的画廊 ID：{value0}": "無效的畫廊 ID：{value0}", "昨日": "昨日", "最低评分": "最低評分", "杂项": "雜項", "没有符合条件的画廊": "沒有符合條件的畫廊", "混合": "混合", "游戏CG": "遊戲CG", "男性": "男性", "画师CG": "畫師CG", "画廊不存在或已被删除": "畫廊不存在或已被刪除", "画廊没有图片": "畫廊沒有圖片", "登录后可以访问里站 ExHentai，并解除部分画廊的访问限制。": "登入後可以訪問裡站 ExHentai，並解除部分畫廊的訪問限制。", "私有": "私有", "第 {value0} 页没有图片": "第 {value0} 頁沒有圖片", "缺少 ipb_member_id 或 ipb_pass_hash": "缺少 ipb_member_id 或 ipb_pass_hash", "西方": "西方", "访问里站时需要": "訪問裡站時需要", "请求间隔": "請求間隔", "近一年": "近一年", "近一月": "近一月", "里站 ExHentai 需要登录且账号有访问权限": "裡站 ExHentai 需要登入且賬號有訪問許可權", "重分类": "重分類", "间隔过短容易被临时封禁 IP": "間隔過短容易被臨時封禁 IP", "非H": "非H", "韩文": "韓文"},
@@ -86,7 +96,7 @@ Park.register({
   },
   key: 'ehentai',
   name: 'E-Hentai',
-  version: '0.0.18', minAppVersion: '0.9.2',
+  version: '0.0.19', minAppVersion: '0.9.2',
   type: 'comic',
   category: 'doujin',
   color: '#9C2A2A',
@@ -228,11 +238,11 @@ Park.register({
   feeds: [
     {key: 'category', label: '全部', options: browseFilters, commonFilters: {pages: {range: true}}},
     { key: 'latest', label: '最新', options: browseFilters, commonFilters: {pages: {range: true}} },
-    { key: 'popular', label: '当前热门', options: browseFilters, commonFilters: {pages: {range: true}} },
+    { key: 'popular', label: '当前热门', options: columnFilters, commonFilters: {pages: {range: true}} },
     {
       key: 'toplist',
       label: '排行榜',
-      options: [...browseFilters, rankingPeriod],
+      options: [...columnFilters, rankingPeriod],
       commonFilters: {pages: {range: true}},
     },
   ],
@@ -397,16 +407,16 @@ Park.register({
     };
   },
 
-  async listPage(url, params, page) {
+  async listPage(url, params, page, filters, common) {
     await this.ensureNoWarning();
     const listing = this.parseListing(await this.page(url, params));
     const metas = await this.gdata(listing.pairs);
     return {
-      items: metas.map((m) => this.toItem(m)),
+      items: metas.filter(m => !filters || matchesColumn(m, filters, common)).map((m) => this.toItem(m)),
       page,
-      totalPages: listing.total ? Math.ceil(listing.total / 25) : null,
-      total: listing.total,
-      hasNext: !!listing.next,
+      totalPages: !filters && listing.total ? Math.ceil(listing.total / 25) : null,
+      total: filters ? null : listing.total,
+      hasNext: !!listing.next || (url.includes('/toplist.php') && listing.pairs.length > 0 && page < 200),
       cursor: listing.next,
     };
   },
@@ -415,17 +425,15 @@ Park.register({
     if (key === 'category') return this.search({keyword: '', page: req.page, cursor: req.cursor, filters: req.options || {}, common: req.common});
     const page = Math.max(1, req.page || 1);
     if (key === 'popular') {
-      if (hasBrowseFilters(req.options, req.common)) return this.search({keyword: '', page, cursor: req.cursor, filters: req.options || {}, common: req.common});
-      const res = await this.listPage(`${this.base}/popular`, null, 1);
+      const res = await this.listPage(`${this.base}/popular`, null, 1, req.options || {}, req.common);
       return Object.assign(res, { hasNext: false, cursor: null, totalPages: 1 });
     }
     if (key === 'toplist') {
-      if (hasBrowseFilters(req.options, req.common)) return this.search({keyword: '', page, cursor: req.cursor, filters: req.options || {}, common: req.common});
       const tl = (req.options && req.options.period) || '15';
       const params = { tl };
       if (page > 1) params.p = String(page - 1);
-      const res = await this.listPage('https://e-hentai.org/toplist.php', params, page);
-      return Object.assign(res, { hasNext: res.items.length > 0 && page < 200, cursor: null, totalPages: 200 });
+      const res = await this.listPage('https://e-hentai.org/toplist.php', params, page, req.options || {}, req.common);
+      return Object.assign(res, { hasNext: res.hasNext && page < 200, cursor: null, totalPages: 200 });
     }
     return this.search({ keyword: '', page, cursor: req.cursor, filters: req.options || {}, common: req.common });
   },

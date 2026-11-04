@@ -647,6 +647,9 @@ double cardTextExtent(
 
 /// Picks a single grid aspect ratio from the items (median), so mixed covers still align.
 double gridAspectFor(List<WorkItem> items, MediaKind kind) {
+  if (kind == MediaKind.novel || (items.isNotEmpty && items.first.isNovel)) {
+    return .7;
+  }
   final aspects = items.map((e) => e.coverAspect).whereType<double>().toList()
     ..sort();
   if (aspects.isEmpty) {

@@ -147,7 +147,10 @@ class _SourcePageState extends State<SourcePage> {
             );
     }
     if (m.feeds.isEmpty && m.can('subscription')) {
-      return SubscriptionSourcePage(source: widget.sourceKey);
+      return SubscriptionSourcePage(
+        source: widget.sourceKey,
+        sourceManager: _sources,
+      );
     }
     if (m.category == SourceCategory.shortvideo) {
       return ShortVideoPage(
@@ -282,6 +285,7 @@ class _SourcePageState extends State<SourcePage> {
                                 context,
                                 SubscriptionSourcePage(
                                   source: widget.sourceKey,
+                                  sourceManager: _sources,
                                 ),
                               );
                             } else if (action == 'login') {
@@ -353,6 +357,7 @@ class _SourcePageState extends State<SourcePage> {
                           for (final joined in joinedTabs)
                             SubscriptionSourcePage(
                               source: widget.sourceKey,
+                              sourceManager: _sources,
                               communitiesOnly: joined.communitiesOnly,
                               embedded: true,
                             ),

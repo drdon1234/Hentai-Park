@@ -41,7 +41,9 @@ mixin _ReaderNavigation on _ReaderBase {
     if (_listEquals(next, _spreads)) return;
     _spreads = next;
     final target = spreadIndexOf(next, _page);
+    final generation = _loadGeneration;
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || generation != _loadGeneration) return;
       final pager = _pager;
       if (pager != null &&
           pager.hasClients &&

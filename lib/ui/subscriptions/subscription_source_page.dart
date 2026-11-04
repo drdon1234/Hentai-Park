@@ -19,15 +19,18 @@ class SubscriptionSourcePage extends StatefulWidget {
     required this.source,
     this.communitiesOnly = false,
     this.embedded = false,
+    this.sourceManager,
   });
   final String source;
   final bool communitiesOnly;
   final bool embedded;
+  final SourceManager? sourceManager;
   @override
   State<SubscriptionSourcePage> createState() => _SubscriptionSourcePageState();
 }
 
 class _SubscriptionSourcePageState extends State<SubscriptionSourcePage> {
+  SourceManager get _sources => widget.sourceManager ?? SourceManager.instance;
   Object? _error;
   bool _loadingTargets = false;
   @override
@@ -47,6 +50,7 @@ class _SubscriptionSourcePageState extends State<SubscriptionSourcePage> {
       var started = false;
       var searching = false;
       var serverResults = false;
+      var queryApplied = false;
       Object? pageError;
       var generation = 0;
       CancelToken? requestToken;
@@ -74,14 +78,13 @@ class _SubscriptionSourcePageState extends State<SubscriptionSourcePage> {
                   pageError = null;
                   refresh(() {});
                   try {
-                    final page = await SourceManager.instance
-                        .subscriptionTargetPage(
-                          widget.source,
-                          kind: widget.communitiesOnly ? 'community' : null,
-                          cursor: next ? cursor : null,
-                          query: requestQuery,
-                          cancelToken: request,
-                        );
+                    final page = await _sources.subscriptionTargetPage(
+                      widget.source,
+                      kind: widget.communitiesOnly ? 'community' : null,
+                      cursor: next ? cursor : null,
+                      query: requestQuery,
+                      cancelToken: request,
+                    );
                     if (request.isCancelled ||
                         !context.mounted ||
                         requestGeneration != generation) {
@@ -90,6 +93,7 @@ class _SubscriptionSourcePageState extends State<SubscriptionSourcePage> {
                     refresh(() {
                       hasLoaded = true;
                       serverResults = requestQuery != null;
+                      queryApplied = page.queryApplied;
                       if (next) {
                         final known = targets
                             .map((target) => target.id)
@@ -106,11 +110,11 @@ class _SubscriptionSourcePageState extends State<SubscriptionSourcePage> {
                       hasNext = page.hasNext;
                       pageError = null;
                     });
-                  } catch (_) {
+                  } catch (error) {
                     if (!request.isCancelled &&
                         requestGeneration == generation &&
                         context.mounted) {
-                      refresh(() => pageError = tr('加载失败，点击重试'));
+                      refresh(() => pageError = error);
                     }
                   } finally {
                     if (requestGeneration == generation) {
@@ -122,7 +126,13 @@ class _SubscriptionSourcePageState extends State<SubscriptionSourcePage> {
 
                 final query = filter.text.trim().toLowerCase();
                 final visible = targets
-                    .where((item) => item.label.toLowerCase().contains(query))
+                    .where(
+                      (item) =>
+                          (queryApplied &&
+                              activeQuery?.toLowerCase() == query) ||
+                          item.label.toLowerCase().contains(query) ||
+                          item.id.toLowerCase().contains(query),
+                    )
                     .toList();
                 if (!started) {
                   started = true;
@@ -182,13 +192,11 @@ class _SubscriptionSourcePageState extends State<SubscriptionSourcePage> {
                                   ),
                                 ),
                               if (pageError != null)
-                                ListTile(
-                                  title: Text(pageError.toString()),
-                                  trailing: IconButton(
-                                    tooltip: tr('重试'),
-                                    icon: const Icon(Icons.refresh_rounded),
-                                    onPressed: () => load(query: filter.text),
-                                  ),
+                                SourceErrorView(
+                                  error: pageError!,
+                                  source: widget.source,
+                                  compact: true,
+                                  onRetry: () => load(query: filter.text),
                                 ),
                               if (hasNext && hasLoaded)
                                 TextButton.icon(
@@ -248,12 +256,12 @@ class _SubscriptionSourcePageState extends State<SubscriptionSourcePage> {
 
   @override
   Widget build(BuildContext context) => ListenableBuilder(
-    listenable: SourceManager.instance,
+    listenable: _sources,
     builder: (context, _) => _build(context),
   );
 
   Widget _build(BuildContext context) {
-    final manifest = SourceManager.instance.manifest(widget.source);
+    final manifest = _sources.manifest(widget.source);
     if (manifest == null) {
       return Scaffold(
         appBar: AppBar(title: Text(tr('订阅'))),
@@ -272,7 +280,10 @@ class _SubscriptionSourcePageState extends State<SubscriptionSourcePage> {
                       preferredSize: Size.fromHeight(
                         SourceAccountStrip.height(context),
                       ),
-                      child: SourceAccountStrip(source: widget.source),
+                      child: SourceAccountStrip(
+                        source: widget.source,
+                        sourceManager: _sources,
+                      ),
                     )
                   : null,
               title: Text(widget.communitiesOnly ? tr('社群') : manifest.name),
@@ -287,59 +298,76 @@ class _SubscriptionSourcePageState extends State<SubscriptionSourcePage> {
             ),
       body: ListenableBuilder(
         listenable: SubscriptionStore.instance,
-        builder: (context, _) => ListView(
-          padding: const EdgeInsets.all(Gap.page),
-          children: [
-            if (widget.embedded) ...[
-              Text(
-                tr(widget.communitiesOnly ? '已加入频道' : '已关注博主'),
-                style: Theme.of(context).textTheme.titleMedium,
-              ),
-              const SizedBox(height: Gap.m),
-            ],
-            if (_error != null)
-              SourceErrorView(
-                error: _error!,
-                source: widget.source,
-                onRetry: _load,
-              ),
-            SubscriptionSourceEntry(
-              source: widget.source,
-              communitiesOnly: widget.communitiesOnly,
-              showAccount: manifest.account == null,
-            ),
-            if ((manifest.json['subscription'] as Map?)?['joinedTargets'] ==
-                true) ...[
-              const SizedBox(height: Gap.m),
-              OutlinedButton.icon(
-                onPressed: _loadingTargets ? null : _openJoinedTargets,
-                icon: const Icon(Icons.people_alt_outlined),
-                label: Text(
-                  tr(
-                    _loadingTargets
-                        ? '加载中'
-                        : widget.embedded
-                        ? widget.communitiesOnly
-                              ? '已加入频道'
-                              : '已关注博主'
-                        : '已加入或已关注',
-                  ),
+        builder: (context, _) => CustomScrollView(
+          key: PageStorageKey((widget.source, widget.communitiesOnly)),
+          slivers: [
+            if (widget.embedded)
+              SliverOverlapInjector(
+                handle: NestedScrollView.sliverOverlapAbsorberHandleFor(
+                  context,
                 ),
               ),
-            ],
-            const SizedBox(height: Gap.l),
-            for (final entry in SubscriptionStore.instance.items.where(
-              (e) =>
-                  e.source == widget.source &&
-                  e.dimension == 'posts' &&
-                  !widget.communitiesOnly,
-            ))
-              ListTile(
-                title: Text(entry.label),
-                trailing: const Icon(Icons.chevron_right),
-                onTap: () =>
-                    Nav.push(context, SubscriptionPostsPage(entry: entry)),
+            SliverPadding(
+              padding: const EdgeInsets.all(Gap.page),
+              sliver: SliverList.list(
+                children: [
+                  if (widget.embedded) ...[
+                    Text(
+                      tr(widget.communitiesOnly ? '已加入频道' : '已关注博主'),
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                    const SizedBox(height: Gap.m),
+                  ],
+                  if (_error != null)
+                    SourceErrorView(
+                      error: _error!,
+                      source: widget.source,
+                      onRetry: _load,
+                    ),
+                  SubscriptionSourceEntry(
+                    source: widget.source,
+                    sourceManager: _sources,
+                    communitiesOnly: widget.communitiesOnly,
+                    showAccount: manifest.account == null,
+                  ),
+                  if ((manifest.json['subscription']
+                          as Map?)?['joinedTargets'] ==
+                      true) ...[
+                    const SizedBox(height: Gap.m),
+                    OutlinedButton.icon(
+                      onPressed: _loadingTargets ? null : _openJoinedTargets,
+                      icon: const Icon(Icons.people_alt_outlined),
+                      label: Text(
+                        tr(
+                          _loadingTargets
+                              ? '加载中'
+                              : widget.embedded
+                              ? widget.communitiesOnly
+                                    ? '已加入频道'
+                                    : '已关注博主'
+                              : '已加入或已关注',
+                        ),
+                      ),
+                    ),
+                  ],
+                  const SizedBox(height: Gap.l),
+                  for (final entry in SubscriptionStore.instance.items.where(
+                    (e) =>
+                        e.source == widget.source &&
+                        e.dimension == 'posts' &&
+                        !widget.communitiesOnly,
+                  ))
+                    ListTile(
+                      title: Text(entry.label),
+                      trailing: const Icon(Icons.chevron_right),
+                      onTap: () => Nav.push(
+                        context,
+                        SubscriptionPostsPage(entry: entry),
+                      ),
+                    ),
+                ],
               ),
+            ),
           ],
         ),
       ),

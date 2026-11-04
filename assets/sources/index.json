@@ -115,7 +115,7 @@
     {
       "key": "ehentai",
       "name": "E-Hentai",
-      "version": "0.0.18",
+      "version": "0.0.19",
       "type": "comic",
       "category": "doujin",
       "file": "ehentai.js",
@@ -565,7 +565,7 @@
     {
       "key": "reddit",
       "name": "红迪",
-      "version": "0.0.14",
+      "version": "0.0.16",
       "type": "comic",
       "category": "other",
       "file": "reddit.js",
@@ -575,7 +575,7 @@
     {
       "key": "x",
       "name": "推特（X）",
-      "version": "0.0.24",
+      "version": "0.0.25",
       "type": "video",
       "category": "other",
       "file": "x.js",

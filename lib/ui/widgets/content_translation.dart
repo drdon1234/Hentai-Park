@@ -143,18 +143,24 @@ class _ContentTranslationState extends State<ContentTranslation> {
       widget.queue ?? ContentTranslationQueue.instance;
   String? _translated;
   Object? _identity;
+  int _cacheRevision = -1;
+  String? _cachedValue;
   List<String>? _parts;
   int _generation = 0;
 
-  @override
-  void initState() {
-    super.initState();
-    _queue.addListener(_capacityAvailable);
+  void _waitForCapacity(bool value) {
+    if (_waitingCapacity == value) return;
+    _waitingCapacity = value;
+    if (value) {
+      _queue.addListener(_capacityAvailable);
+    } else {
+      _queue.removeListener(_capacityAvailable);
+    }
   }
 
   void _capacityAvailable() {
     if (_waitingCapacity && _queue.hasCapacity) {
-      _waitingCapacity = false;
+      _waitForCapacity(false);
       unawaited(_request());
     }
   }
@@ -174,10 +180,13 @@ class _ContentTranslationState extends State<ContentTranslation> {
   void didUpdateWidget(ContentTranslation old) {
     super.didUpdateWidget(old);
     if (old.queue != widget.queue) {
-      (old.queue ?? ContentTranslationQueue.instance).removeListener(
-        _capacityAvailable,
-      );
-      _queue.addListener(_capacityAvailable);
+      if (_waitingCapacity) {
+        (old.queue ?? ContentTranslationQueue.instance).removeListener(
+          _capacityAvailable,
+        );
+        _queue.addListener(_capacityAvailable);
+      }
+      _identity = null;
     }
     _reset();
   }
@@ -198,9 +207,11 @@ class _ContentTranslationState extends State<ContentTranslation> {
     _identity = identity;
     _generation++;
     _parts = null;
+    _cacheRevision = -1;
+    _cachedValue = null;
     _translated = null;
     _busy = _attempted = false;
-    _waitingCapacity = false;
+    _waitForCapacity(false);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) _request();
     });
@@ -218,11 +229,15 @@ class _ContentTranslationState extends State<ContentTranslation> {
       : null;
 
   String? _cached(_TranslationScope scope) {
+    if (_cacheRevision == _queue.revision) return _cachedValue;
+    _cacheRevision = _queue.revision;
     final parts = _textParts();
     final values = [
       for (final part in parts) _queue.cached(part, scope.locale, scope.engine),
     ];
-    return values.any((value) => value == null) ? null : values.join();
+    return _cachedValue = values.any((value) => value == null)
+        ? null
+        : values.join();
   }
 
   List<String> _textParts() =>
@@ -269,7 +284,7 @@ class _ContentTranslationState extends State<ContentTranslation> {
       return;
     }
     if (!_queue.hasCapacity) {
-      _waitingCapacity = true;
+      _waitForCapacity(true);
       return;
     }
     _busy = true;
@@ -313,7 +328,7 @@ class _ContentTranslationState extends State<ContentTranslation> {
   @override
   void dispose() {
     _generation++;
-    _queue.removeListener(_capacityAvailable);
+    _waitForCapacity(false);
     super.dispose();
   }
 
