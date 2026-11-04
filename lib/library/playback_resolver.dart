@@ -85,11 +85,8 @@ abstract final class PlaybackResolver {
         final history = lib.historyOf(item.uid);
         final start = selected.id == chapterKeyOf(requested) && page != null
             ? page
-            : state != null
-            ? (state.read ? 0 : state.lastPage)
-            : history?.chapterId == selected.id
-            ? history!.page
-            : 0;
+            : state?.lastPage ??
+                  (history?.chapterId == selected.id ? history!.page : 0);
         return ReadChapter(
           work,
           chapter: selected,
@@ -141,7 +138,7 @@ abstract final class PlaybackResolver {
     final key = chapterKeyOf(chapterId);
     final state =
         chapters.where((c) => c.chapterId == key).firstOrNull ?? chapters.first;
-    final start = page ?? (state.read ? 0 : state.lastPage);
+    final start = page ?? state.lastPage;
     if (chapters.length == 1) {
       final only = chapters.first.chapterId;
       return ReadChapter(

@@ -5,6 +5,7 @@ import '../../core/models.dart';
 import '../../core/settings.dart';
 import '../../core/tag_blocklist.dart';
 import '../../engine/source_manager.dart';
+import '../../images/park_image.dart';
 import '../../library/library.dart';
 import '../kit/adaptive_sheet.dart';
 import '../library/favorite_actions.dart';
@@ -184,13 +185,26 @@ class _CoverTileState extends State<CoverTile> {
                       _frame(
                         CoverHero(
                           tag: _coverHeroTag,
-                          child: CoverImage(
-                            source: item.source,
-                            url: item.cover,
-                            sourceBlurred: item.json['coverBlurred'] == true,
-                            title: item.title,
-                            mediaKind: item.isNovel ? MediaKind.novel : null,
-                          ),
+                          child:
+                              item.cover.isEmpty && item.coverImages.isNotEmpty
+                              ? AdaptivePostCover(
+                                  source: item.source,
+                                  urls: item.coverImages,
+                                  fallback: item.cover,
+                                  sourceBlurred:
+                                      item.json['coverBlurred'] == true,
+                                  title: item.title,
+                                )
+                              : CoverImage(
+                                  source: item.source,
+                                  url: item.cover,
+                                  sourceBlurred:
+                                      item.json['coverBlurred'] == true,
+                                  title: item.title,
+                                  mediaKind: item.isNovel
+                                      ? MediaKind.novel
+                                      : null,
+                                ),
                         ),
                       ),
                       if (!widget.imageOnly &&
@@ -311,6 +325,123 @@ class _CoverTileState extends State<CoverTile> {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+class AdaptivePostCover extends StatefulWidget {
+  const AdaptivePostCover({
+    super.key,
+    required this.source,
+    required this.urls,
+    required this.fallback,
+    required this.title,
+    this.sourceBlurred = false,
+  });
+
+  final String source;
+  final List<String> urls;
+  final String fallback;
+  final String title;
+  final bool sourceBlurred;
+
+  @override
+  State<AdaptivePostCover> createState() => _AdaptivePostCoverState();
+}
+
+class _AdaptivePostCoverState extends State<AdaptivePostCover> {
+  ImageStream? _stream;
+  ImageStreamListener? _listener;
+  double? _aspect;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _resolve();
+  }
+
+  @override
+  void didUpdateWidget(AdaptivePostCover oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.source != widget.source ||
+        oldWidget.urls.firstOrNull != widget.urls.firstOrNull) {
+      _aspect = null;
+      _resolve();
+    }
+  }
+
+  void _resolve() {
+    _detach();
+    if (widget.urls.isEmpty) return;
+    final stream = ParkImage.url(
+      widget.source,
+      widget.urls.first,
+    ).resolve(createLocalImageConfiguration(context));
+    _stream = stream;
+    _listener = ImageStreamListener((info, _) {
+      final aspect = info.image.width / info.image.height;
+      info.dispose();
+      if (!mounted || _aspect == aspect) return;
+      setState(() => _aspect = aspect);
+    }, onError: (Object _, StackTrace? _) {});
+    stream.addListener(_listener!);
+  }
+
+  void _detach() {
+    if (_stream != null && _listener != null) {
+      _stream!.removeListener(_listener!);
+    }
+  }
+
+  @override
+  void dispose() {
+    _detach();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final aspect = _aspect;
+    final urls = widget.urls;
+    if (aspect == null || aspect > 1.12 || urls.length < 2) {
+      return CoverImage(
+        source: widget.source,
+        url: widget.fallback.isNotEmpty
+            ? widget.fallback
+            : urls.firstOrNull ?? '',
+        sourceBlurred: widget.sourceBlurred,
+        title: widget.title,
+      );
+    }
+    final count = aspect >= 0.82 ? 2 : 3;
+    final selected = urls.take(count).toList();
+    if (selected.length < 2) {
+      return CoverImage(
+        source: widget.source,
+        url: widget.fallback,
+        sourceBlurred: widget.sourceBlurred,
+        title: widget.title,
+      );
+    }
+    return ClipRRect(
+      borderRadius: const BorderRadius.all(Radius.circular(Radii.sm)),
+      child: Row(
+        children: [
+          for (final url in selected)
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsetsDirectional.only(end: 1),
+                child: CoverImage(
+                  source: widget.source,
+                  url: url,
+                  fit: BoxFit.cover,
+                  sourceBlurred: widget.sourceBlurred,
+                  title: widget.title,
+                ),
+              ),
+            ),
+        ],
       ),
     );
   }

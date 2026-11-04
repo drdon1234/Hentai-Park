@@ -44,10 +44,12 @@ class VideoStage extends StatelessWidget {
     required this.onIdle,
     required this.onEpisodePage,
     this.liveChat,
+    this.pageHorizontally = false,
   });
 
   final VideoSession session;
   final bool fullscreen;
+  final bool pageHorizontally;
   final bool controlsVisible;
 
   /// The controls layer for the current player value.
@@ -95,7 +97,7 @@ class VideoStage extends StatelessWidget {
     final paged = fullscreen && session.scrollEpisodes
         ? _episodePager(box)
         : box;
-    if (fullscreen) return paged;
+    if (fullscreen || pageHorizontally) return paged;
     return LayoutBuilder(
       builder: (context, constraints) {
         final height = (constraints.maxWidth * 9 / 16).clamp(
@@ -156,6 +158,7 @@ class VideoStage extends StatelessWidget {
     final showControls =
         controlsVisible || (!session.isLive && c.value.isCompleted);
     return VideoGestureSurface(
+      pageHorizontally: pageHorizontally,
       pageVertically: fullscreen && session.scrollEpisodes,
       showLevelControls: showControls,
       brightness: brightness,

@@ -19,13 +19,13 @@ import '../../subscriptions/models.dart';
 import '../../subscriptions/subscription_store.dart';
 import '../album/open_album.dart';
 import '../comments/comments_page.dart';
-import '../kit/kit.dart';
 import '../nav.dart';
 import '../settings/source_settings_page.dart';
 import '../short_video/post_video_feed.dart';
 import '../short_video/short_video_page.dart';
 import '../theme.dart';
 import '../video/video_page.dart';
+import '../widgets/common.dart';
 import '../widgets/content_translation.dart';
 import '../widgets/cover_tile.dart';
 import '../widgets/error_view.dart';
@@ -108,25 +108,18 @@ class _SubscriptionPostsPageState extends State<SubscriptionPostsPage> {
     if (mounted) setState(() {});
   }
 
-  SubscriptionPost _visiblePost(SubscriptionPost post) => SubscriptionPost({
-    ...post.json,
-    'id': post.id,
-    'title': post.title,
-    'text': post.text,
-    'date': post.date,
-    'url': post.url,
-    'locked': post.locked,
-    'media': post.media
-        .where((m) => (mediaType == 'all' || m.type == mediaType))
-        .map((m) => m.json)
-        .toList(),
-  });
   bool _isVisible(SubscriptionPost post) =>
       TagBlocklist.current().matchItem(
             WorkItem(post.json, widget.entry.source),
           ) ==
           null &&
-      (mediaType == 'all' || post.media.isNotEmpty) &&
+      switch (mediaType) {
+        'image' => post.media.any((m) => m.type == 'image'),
+        'video' => post.media.any((m) => m.type == 'video'),
+        'text' => post.media.isEmpty && post.text.trim().isNotEmpty,
+        'media' => post.media.isNotEmpty,
+        _ => true,
+      } &&
       (!_hidePreviews || !WorkItem(post.json, widget.entry.source).previewOnly);
 
   void _filter({String? type}) => setState(() {
@@ -178,9 +171,7 @@ class _SubscriptionPostsPageState extends State<SubscriptionPostsPage> {
         final ids = posts.map((p) => p.id).toSet();
         final added = p.items.where((p) => ids.add(p.id)).toList();
         posts.addAll(added);
-        _emptyPages = added.any((p) => _isVisible(_visiblePost(p)))
-            ? 0
-            : _emptyPages + 1;
+        _emptyPages = added.any(_isVisible) ? 0 : _emptyPages + 1;
         final next = p.cursor;
         final invalid =
             p.hasNext && (next == null || next.isEmpty || !_cursors.add(next));
@@ -205,7 +196,7 @@ class _SubscriptionPostsPageState extends State<SubscriptionPostsPage> {
   @override
   Widget build(BuildContext context) {
     final manifest = _sources.manifest(widget.entry.source);
-    final visible = posts.map(_visiblePost).where(_isVisible).toList();
+    final visible = posts.where(_isVisible).toList();
     final scope = PostVideoScope(
       source: widget.entry.source,
       title: widget.entry.label,
@@ -290,11 +281,19 @@ class _SubscriptionPostsPageState extends State<SubscriptionPostsPage> {
                       _emptyPages = 0;
                     }),
                   ),
-                  for (final type in const ['all', 'image', 'video'])
+                  for (final type in const [
+                    'all',
+                    'image',
+                    'video',
+                    'text',
+                    'media',
+                  ])
                     SelectionChip(
                       label: tr(switch (type) {
                         'image' => '图片',
                         'video' => '视频',
+                        'text' => '纯文本',
+                        'media' => '仅有媒体',
                         _ => '全部',
                       }),
                       selected: mediaType == type,
@@ -303,7 +302,11 @@ class _SubscriptionPostsPageState extends State<SubscriptionPostsPage> {
                 ],
               ),
               for (final post in visible)
-                SubscriptionPostCard(source: widget.entry.source, post: post),
+                SubscriptionPostCard(
+                  source: widget.entry.source,
+                  post: post,
+                  mediaType: mediaType,
+                ),
               if (error != null)
                 SourceErrorView(
                   error: error!,
@@ -347,10 +350,12 @@ class SubscriptionPostCard extends StatelessWidget {
     required this.source,
     required this.post,
     this.selectable = false,
+    this.mediaType = 'all',
   });
   final String source;
   final SubscriptionPost post;
   final bool selectable;
+  final String mediaType;
   @override
   Widget build(BuildContext context) => Card(
     child: ActionInkWell(
@@ -411,7 +416,9 @@ class SubscriptionPostCard extends StatelessWidget {
               runSpacing: 8,
               children: [
                 for (var i = 0; i < post.media.length; i++)
-                  SubscriptionMediaTile(source: source, post: post, index: i),
+                  if (!{'image', 'video'}.contains(mediaType) ||
+                      post.media[i].type == mediaType)
+                    SubscriptionMediaTile(source: source, post: post, index: i),
               ],
             ),
             if (post.url.isNotEmpty)
@@ -462,59 +469,10 @@ class SubscriptionMediaTile extends StatelessWidget {
       child: ActionInkWell(
         onLongPress: () =>
             showWorkActions(context, WorkItem(post.json, source)),
-        onTap: () async {
-          if (media.type == 'video' &&
-              !media.needsDownload &&
-              SourceManager.instance.manifest(source)?.feeds.isNotEmpty ==
-                  true) {
-            await Nav.openWork(
-              context,
-              WorkItem({
-                ...post.json,
-                'id': post.id,
-                'title': post.title,
-                'text': post.text,
-                'url': post.url,
-                'date': post.date,
-                'mediaKind': 'video',
-                if (SourceManager.instance
-                        .manifest(source)
-                        ?.json['postShortVideos'] ==
-                    true)
-                  'postVideoIndex': post.media
-                      .take(index)
-                      .where((m) => m.type == 'video')
-                      .length,
-                'cover': media.preview,
-                'media': [
-                  media.json,
-                  for (var i = 0; i < post.media.length; i++)
-                    if (i != index &&
-                        SourceManager.instance
-                                .manifest(source)
-                                ?.json['postShortVideos'] !=
-                            true)
-                      post.media[i].json,
-                ],
-              }, source),
-            );
-            return;
-          }
-          await Nav.push(
-            context,
-            media.type == 'image'
-                ? SubscriptionGalleryPage(
-                    source: source,
-                    post: post,
-                    index: index,
-                  )
-                : SubscriptionMediaPage(
-                    source: source,
-                    post: post,
-                    index: index,
-                  ),
-          );
-        },
+        onTap: () => Nav.push(
+          context,
+          SubscriptionGalleryPage(source: source, post: post, index: index),
+        ),
         child: SelectionContainer.disabled(
           child: SizedBox(
             width: 136,
@@ -574,11 +532,7 @@ class SubscriptionGalleryPage extends StatefulWidget {
 }
 
 class _SubscriptionGalleryPageState extends State<SubscriptionGalleryPage> {
-  late final List<int> _images = [
-    for (var i = 0; i < widget.post.media.length; i++)
-      if (widget.post.media[i].type == 'image') i,
-  ];
-  late int _index = _images.indexOf(widget.index);
+  late int _index = widget.index.clamp(0, widget.post.media.length - 1);
   late final PageController _pages = PageController(initialPage: _index);
   @override
   void dispose() {
@@ -589,19 +543,29 @@ class _SubscriptionGalleryPageState extends State<SubscriptionGalleryPage> {
   @override
   Widget build(BuildContext context) => Scaffold(
     appBar: AppBar(
-      title: Text('${widget.post.title}  ${_index + 1}/${_images.length}'),
+      title: Text(
+        '${widget.post.title}  ${_index + 1}/${widget.post.media.length}',
+      ),
     ),
     body: PageView.builder(
       controller: _pages,
-      itemCount: _images.length,
+      itemCount: widget.post.media.length,
       onPageChanged: (index) => setState(() => _index = index),
-      itemBuilder: (_, index) => SubscriptionMediaPage(
-        key: ValueKey(_images[index]),
-        source: widget.source,
-        post: widget.post,
-        index: _images[index],
-        embedded: true,
-      ),
+      itemBuilder: (_, index) => index == _index
+          ? SubscriptionMediaPage(
+              key: ValueKey(index),
+              source: widget.source,
+              post: widget.post,
+              index: index,
+              embedded: true,
+            )
+          : Center(
+              child: CoverImage(
+                source: widget.source,
+                url: widget.post.media[index].preview,
+                title: widget.post.title,
+              ),
+            ),
     ),
   );
 }
@@ -657,7 +621,7 @@ class _SubscriptionMediaPageState extends State<SubscriptionMediaPage> {
       progress = null;
     });
     try {
-      if (!media.needsDownload) {
+      if (!media.needsDownload && media.json['episodeId'] == null) {
         final uri = Uri.tryParse(media.url);
         final manifest = SourceManager.instance.manifest(widget.source);
         // 图片与文章预览共用 ParkImage，允许独立 CDN；站点域名只约束页面与视频入口。
@@ -668,9 +632,7 @@ class _SubscriptionMediaPageState extends State<SubscriptionMediaPage> {
             uri.userInfo.isNotEmpty ||
             uri.port != 443 ||
             !publicDomainHost(uri.host) ||
-            uri.hasFragment ||
-            (media.type != 'image' &&
-                !hostInDomains(uri.host, declaredDomains(manifest.json)))) {
+            uri.hasFragment) {
           throw SourceError('CONFIG', '媒体地址不在站点声明的 HTTPS 域名内');
         }
       }
@@ -689,34 +651,7 @@ class _SubscriptionMediaPageState extends State<SubscriptionMediaPage> {
         unawaited(ImageStore.instance.trim());
         return;
       }
-      if (media.type == 'video') {
-        final work = WorkDetail({
-          'id': 'subscription:${widget.post.id}:${widget.index}',
-          'title': widget.post.title,
-          'cover': media.preview,
-          'url': widget.post.url,
-        }, widget.source);
-        await Navigator.of(context).pushReplacement(
-          MaterialPageRoute<void>(
-            builder: (_) => VideoPage(
-              work: work,
-              localFile: file,
-              recordHistory: false,
-              initialSources: media.needsDownload
-                  ? null
-                  : [
-                      VideoSource({
-                        'url': media.url,
-                        'format': media.json['format'] ?? 'mp4',
-                        'headers': media.json['headers'] ?? {},
-                      }),
-                    ],
-            ),
-          ),
-        );
-      } else {
-        setState(() => loading = false);
-      }
+      setState(() => loading = false);
     } catch (e) {
       if (mounted && !request.isCancelled) {
         setState(() {
@@ -748,6 +683,29 @@ class _SubscriptionMediaPageState extends State<SubscriptionMediaPage> {
             Text(tr('正在读取媒体')),
           ],
         ),
+      );
+    } else if (media.type == 'video') {
+      body = VideoPage(
+        work: WorkDetail({
+          'id': widget.post.id,
+          'title': widget.post.title,
+          'cover': media.preview,
+          'url': widget.post.url,
+          'singleChapterId': media.json['episodeId'] ?? 'media:${widget.index}',
+        }, widget.source),
+        episodeId: media.json['episodeId']?.toString(),
+        localFile: file,
+        recordHistory: false,
+        pageHorizontally: widget.embedded,
+        initialSources: media.needsDownload || media.json['episodeId'] != null
+            ? null
+            : [
+                VideoSource({
+                  'url': media.url,
+                  'format': media.json['format'] ?? 'mp4',
+                  'headers': media.json['headers'] ?? {},
+                }),
+              ],
       );
     } else {
       body = InteractiveViewer(

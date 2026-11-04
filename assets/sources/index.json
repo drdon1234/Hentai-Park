@@ -5,7 +5,7 @@
     {
       "key": "feedmrds",
       "name": "每日大赛",
-      "version": "0.0.5",
+      "version": "0.0.8",
       "type": "article",
       "category": "feed",
       "file": "feedmrds.js",
@@ -15,7 +15,7 @@
     {
       "key": "feedheiliao",
       "name": "黑料网",
-      "version": "0.0.5",
+      "version": "0.0.8",
       "type": "article",
       "category": "feed",
       "file": "feedheiliao.js",
@@ -25,7 +25,7 @@
     {
       "key": "feed51cg",
       "name": "51吃瓜网",
-      "version": "0.0.5",
+      "version": "0.0.8",
       "type": "article",
       "category": "feed",
       "file": "feed51cg.js",
@@ -565,7 +565,7 @@
     {
       "key": "reddit",
       "name": "红迪",
-      "version": "0.0.11",
+      "version": "0.0.14",
       "type": "comic",
       "category": "other",
       "file": "reddit.js",
@@ -575,7 +575,7 @@
     {
       "key": "x",
       "name": "推特（X）",
-      "version": "0.0.20",
+      "version": "0.0.24",
       "type": "video",
       "category": "other",
       "file": "x.js",

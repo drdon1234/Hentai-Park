@@ -47,6 +47,7 @@ class VideoPage extends StatefulWidget {
     this.recordHistory = true,
     this.fetchDetails = false,
     this.downloadedOnly = false,
+    this.pageHorizontally = false,
   });
   final WorkDetail work;
   final String? episodeId;
@@ -58,6 +59,7 @@ class VideoPage extends StatefulWidget {
   /// detail is loaded for the panel below the player: metadata, series and related videos.
   final bool fetchDetails;
   final bool downloadedOnly;
+  final bool pageHorizontally;
 
   @override
   State<VideoPage> createState() => _VideoPageState();
@@ -583,6 +585,7 @@ class _VideoPageState extends State<VideoPage>
               : null,
           session: _session,
           fullscreen: _fullscreen,
+          pageHorizontally: widget.pageHorizontally && !_fullscreen,
           controlsVisible: _controls,
           controls: _controlsLayer,
           surfaceKey: _surfaceKey,
@@ -637,6 +640,9 @@ class _VideoPageState extends State<VideoPage>
           ),
         ),
       );
+    }
+    if (widget.pageHorizontally) {
+      return ColoredBox(color: Colors.black, child: player);
     }
     return Scaffold(
       backgroundColor: context.colors.surface,

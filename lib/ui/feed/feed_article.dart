@@ -12,7 +12,6 @@ import '../nav.dart';
 import '../search/source_link_search_page.dart';
 import '../subscriptions/subscription_posts_page.dart';
 import '../theme.dart';
-import '../video/video_page.dart';
 import '../widgets/common.dart';
 import '../widgets/content_translation.dart';
 import '../widgets/cover_tile.dart';
@@ -163,13 +162,14 @@ class _FeedArticlePageState extends State<FeedArticlePage> {
         .whereType<Map>()
         .map((block) => block.cast<String, dynamic>())
         .toList();
-    final imageBlocks = blocks
-        .where((block) => block['type'] == 'image')
+    final mediaBlocks = blocks
+        .where((block) => block['type'] == 'image' || block['type'] == 'video')
         .toList();
-    var nextImage = 0;
-    final imageIndices = <int, int>{
+    var nextMedia = 0;
+    final mediaIndices = <int, int>{
       for (var i = 0; i < blocks.length; i++)
-        if (blocks[i]['type'] == 'image') i: nextImage++,
+        if (blocks[i]['type'] == 'image' || blocks[i]['type'] == 'video')
+          i: nextMedia++,
     };
     final tagLinks = (detail?.json['tagLinks'] as List? ?? const [])
         .whereType<Map>()
@@ -179,8 +179,17 @@ class _FeedArticlePageState extends State<FeedArticlePage> {
       'id': widget.item.id,
       'title': detail?.title ?? widget.item.title,
       'media': [
-        for (final block in imageBlocks)
-          {'type': 'image', 'url': block['url'], 'preview': block['url']},
+        for (final block in mediaBlocks)
+          {
+            'type': block['type'],
+            if (block['type'] == 'image') ...{
+              'url': block['url'],
+              'preview': block['url'],
+            } else ...{
+              'episodeId': block['id'],
+              'preview': block['preview'] ?? '',
+            },
+          },
       ],
     });
     return Scaffold(
@@ -277,7 +286,7 @@ class _FeedArticlePageState extends State<FeedArticlePage> {
                                   SubscriptionGalleryPage(
                                     source: widget.item.source,
                                     post: post,
-                                    index: imageIndices[index]!,
+                                    index: mediaIndices[index]!,
                                   ),
                                 ),
                                 child: _ArticleImage(
@@ -293,21 +302,50 @@ class _FeedArticlePageState extends State<FeedArticlePage> {
                           return Padding(
                             padding: const EdgeInsets.only(bottom: Gap.m),
                             child: SelectionContainer.disabled(
-                              child: OutlinedButton.icon(
-                                onPressed: () => Nav.push(
+                              child: ActionInkWell(
+                                onTap: () => Nav.push(
                                   context,
-                                  VideoPage(
-                                    work: WorkDetail({
-                                      ...detail!.json,
-                                      'chapters': null,
-                                      'singleChapterId': block['id'],
-                                    }, detail.source),
-                                    episodeId: block['id']?.toString(),
-                                    recordHistory: false,
+                                  SubscriptionGalleryPage(
+                                    source: widget.item.source,
+                                    post: post,
+                                    index: mediaIndices[index]!,
                                   ),
                                 ),
-                                icon: const Icon(Icons.play_arrow_rounded),
-                                label: Text(tr('播放视频')),
+                                child: Semantics(
+                                  button: true,
+                                  label: tr('播放视频'),
+                                  child: AspectRatio(
+                                    aspectRatio: 16 / 9,
+                                    child: Stack(
+                                      fit: StackFit.expand,
+                                      children: [
+                                        CoverImage(
+                                          source: widget.item.source,
+                                          url:
+                                              block['preview']?.toString() ??
+                                              '',
+                                          title: tr('播放视频'),
+                                        ),
+                                        const Center(
+                                          child: DecoratedBox(
+                                            decoration: BoxDecoration(
+                                              color: Scrims.medium,
+                                              shape: BoxShape.circle,
+                                            ),
+                                            child: Padding(
+                                              padding: EdgeInsets.all(Gap.m),
+                                              child: Icon(
+                                                Icons.play_arrow_rounded,
+                                                color: Scrims.onScrim,
+                                                size: 40,
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
                               ),
                             ),
                           );

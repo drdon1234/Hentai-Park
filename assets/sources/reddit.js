@@ -151,9 +151,21 @@
     }while(after);
     return targets;
   }
+  async function joinedPage(source,options={}){
+    logged(source);
+    const query=String(options.query||'').trim();
+    const endpoint=query?'/subreddits/search.json':'/subreddits/mine/subscriber.json';
+    const d=await json(source,endpoint,{params:{limit:100,after:options.cursor||undefined,...(query?{q:query,include_over_18:'on'}:{})}});
+    const targets=(d?.data?.children||[]).filter(row=>!query||row.data?.user_is_subscriber===true).map(row=>{
+      const name=String(row.data?.display_name||'');
+      return name?{id:name.toLowerCase(),label:'r/'+name,kind:'community'}:null;
+    }).filter(Boolean);
+    const cursor=d?.data?.after||null;
+    return {targets,cursor,hasNext:!!cursor&&cursor!==options.cursor};
+  }
   Park.register({
     i18n:{'zh-Hant':{"红迪":"Reddit",'请先登录 Reddit':'請先登入 Reddit','Reddit 登录信息无效，请重新登录':'Reddit 登入資訊無效，請重新登入','Reddit 推荐、社区浏览与已加入社区':'Reddit 推薦、社群瀏覽與已加入社群'},ja:{"红迪":"Reddit",'请先登录 Reddit':'Reddit にログインしてください'},ko:{"红迪":"레딧",'请先登录 Reddit':'Reddit에 로그인하세요'},en:{"红迪":"Reddit",'请先登录 Reddit':'Sign in to Reddit first'},es:{"红迪":"Reddit",'请先登录 Reddit':'Inicia sesión en Reddit primero'},ru:{"红迪":"Reddit",'请先登录 Reddit':'Сначала войдите в Reddit'},ar:{"红迪":"ريديت",'请先登录 Reddit':'سجّل الدخول إلى Reddit أولاً'}},
-    key:'reddit',name:'红迪',version: '0.0.11', minAppVersion: '0.9.2',postShortVideos:true,type:'comic',category:'other',homepage:HOME,domains:['reddit.com','www.reddit.com','old.reddit.com','accounts.reddit.com','oauth.reddit.com'],network:{vpnHint:true},media:{mode:'native',origin:HOME,domains:['v.redd.it','external-preview.redd.it','preview.redd.it','i.redd.it','redgifs.com'],referrerDomains:['redgifs.com']},description:'Reddit 推荐、社区浏览与已加入社区',idExample:'r/AskReddit',defaultFeed:'recommended',feeds:[{key:'recommended',label:'推荐'},{key:'popular',label:'热门'}],
+    key:'reddit',name:'红迪',version: '0.0.14', minAppVersion: '0.9.2',postShortVideos:true,type:'comic',category:'other',homepage:HOME,domains:['reddit.com','www.reddit.com','old.reddit.com','accounts.reddit.com','oauth.reddit.com'],network:{vpnHint:true},media:{mode:'native',origin:HOME,domains:['v.redd.it','external-preview.redd.it','preview.redd.it','i.redd.it','redgifs.com'],referrerDomains:['redgifs.com']},description:'Reddit 推荐、社区浏览与已加入社区',idExample:'r/AskReddit',defaultFeed:'recommended',feeds:[{key:'recommended',label:'推荐'},{key:'popular',label:'热门'}],
     async comments(value, req = {}) {
       logged(this);
       const id = String(value), parent = req.parentId == null ? null : String(req.parentId);
@@ -226,7 +238,7 @@
       return [{url:video.url,format:video.format||'mp4',preferred:true}];
     },
     account:{type:'cookies',title:'登录 Reddit',hint:'请在 Reddit 页面完成登录；需允许第三方 OAuth 页面和回调。',loginUrl:HOME+'/login/',loginDomains:['reddit.com','www.reddit.com','old.reddit.com','accounts.reddit.com','oauth.reddit.com','accounts.google.com','appleid.apple.com','account.apple.com'],cookieUrl:HOME+'/',required:true,requiredCookies:['reddit_session'],fields:[{key:'reddit_session',label:'reddit_session',secret:true}],async login(values){await this.cookies.set(HOME+'/',{reddit_session:values.reddit_session});try{const d=await me(this);if(!d)throw Park.error('LOGIN_REQUIRED','Reddit 登录信息无效，请重新登录');this.store.set('account',{name:d.name});return {name:d.name};}catch(e){await this.cookies.clear(HOME+'/');throw e;}},async logout(){await this.cookies.clear(HOME+'/');this.store.set('account',null);},status(){const a=this.store.get('account');return {loggedIn:!!a,name:a?.name||''};}},
-    subscription:{hint:'必须先登录 Reddit；输入 r/xxx 后会加入该社区。',normalize,async targets(){return joined(this);},async resolve(input){logged(this);const t=normalize(input);const s=await subreddit(this,t);await post(this,'/api/subscribe',{action:'sub',skip_initial_defaults:'true',sr:s.name||s.id});return {id:t.id,label:'r/'+(s.display_name||t.id)};},async posts(input,options){logged(this);const t=normalize(input);await subreddit(this,t);return listing(await json(this,'/r/'+t.id+'/new.json',{params:{limit:25,after:options?.cursor||undefined}}),t);},async media(scope,options={}){
+    subscription:{communities:true,hint:'必须先登录 Reddit；输入 r/xxx 后会加入该社区。',normalize,async targets(options={}){return options.mode==='page'?joinedPage(this,options):joined(this);},async resolve(input){logged(this);const t=normalize(input);const s=await subreddit(this,t);await post(this,'/api/subscribe',{action:'sub',skip_initial_defaults:'true',sr:s.name||s.id});return {id:t.id,label:'r/'+(s.display_name||t.id)};},async posts(input,options){logged(this);const t=normalize(input);await subreddit(this,t);return listing(await json(this,'/r/'+t.id+'/new.json',{params:{limit:25,after:options?.cursor||undefined}}),t);},async media(scope,options={}){
       const result=scope.search?await this.search({...options,...scope.search}):scope.target
         ?await this.subscription.posts.call(this,scope.target,options)
         :await this.feed(scope.feed,{...options,options:scope.options});

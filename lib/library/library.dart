@@ -548,6 +548,41 @@ class Library extends ChangeNotifier {
               ..orderBy([(c) => OrderingTerm.asc(c.sort)]))
             .get();
     final list = rows.map(ChapterState.fromRow).toList();
+    for (final cached in _chapters[uid] ?? const <ChapterState>[]) {
+      final index = list.indexWhere(
+        (state) => state.chapterId == cached.chapterId,
+      );
+      if (index < 0) {
+        list.add(cached);
+        continue;
+      }
+      final loaded = list[index];
+      final cachedProgress = cached.progressUpdatedAt;
+      final loadedProgress = loaded.progressUpdatedAt;
+      final cachedPosition = cached.positionUpdatedAt;
+      final loadedPosition = loaded.positionUpdatedAt;
+      if (cachedProgress != null &&
+          (loadedProgress == null || cachedProgress.isAfter(loadedProgress))) {
+        loaded
+          ..lastPage = cached.lastPage
+          ..pageCount = cached.pageCount
+          ..progressUpdatedAt = cachedProgress;
+      }
+      if (cachedPosition != null &&
+          (loadedPosition == null || cachedPosition.isAfter(loadedPosition))) {
+        loaded
+          ..position = cached.position
+          ..duration = cached.duration
+          ..positionUpdatedAt = cachedPosition;
+      }
+      loaded.read = loaded.read || cached.read;
+      if (cached.dateRead != null &&
+          (loaded.dateRead == null ||
+              cached.dateRead!.isAfter(loaded.dateRead!))) {
+        loaded.dateRead = cached.dateRead;
+      }
+    }
+    list.sort((a, b) => a.sort.compareTo(b.sort));
     _chapters[uid] = list;
     _changed(const {LibraryCollection.chapters}, [uid]);
     return list;
@@ -939,18 +974,26 @@ class Library extends ChangeNotifier {
 
     final key = chapterKeyOf(chapterKey ?? chapterId);
     final finished = pageCount > 0 && page >= pageCount - 1;
-    final cached = chapterState(item.uid, key);
+    final states = _chapters.putIfAbsent(item.uid, () => []);
+    var cached = states.where((state) => state.chapterId == key).firstOrNull;
     final becameRead = finished && cached?.read != true;
-    if (cached != null) {
+    if (cached == null) {
+      cached = ChapterState(
+        chapterId: key,
+        title: chapterTitle ?? '',
+        sort: states.length,
+        dateFetch: h.time,
+      );
+      states.add(cached);
+    }
+    cached
+      ..lastPage = page
+      ..pageCount = pageCount
+      ..progressUpdatedAt = h.time;
+    if (finished) {
       cached
-        ..lastPage = page
-        ..pageCount = pageCount
-        ..progressUpdatedAt = h.time;
-      if (finished) {
-        cached
-          ..read = true
-          ..dateRead ??= DateTime.now();
-      }
+        ..read = true
+        ..dateRead ??= DateTime.now();
     }
     final now = h.time.millisecondsSinceEpoch;
     _run(() async {
@@ -991,6 +1034,10 @@ class Library extends ChangeNotifier {
         );
       }
     });
+    _changed(
+      const {LibraryCollection.history, LibraryCollection.chapters},
+      [item.uid],
+    );
   }
 
   void recordVideoPosition(
@@ -1007,15 +1054,23 @@ class Library extends ChangeNotifier {
     final position = seconds < 0 ? 0 : seconds;
     final length = duration != null && duration > 0 ? duration : 0;
     final finished = length > 0 && position >= length;
-    final cached = chapterState(item.uid, key);
-    if (cached != null) {
-      cached.position = position;
-      if (length > 0) cached.duration = length;
-      cached.positionUpdatedAt = now;
-      if (finished) {
-        cached.read = true;
-        cached.dateRead ??= now;
-      }
+    final states = _chapters.putIfAbsent(item.uid, () => []);
+    var cached = states.where((state) => state.chapterId == key).firstOrNull;
+    if (cached == null) {
+      cached = ChapterState(
+        chapterId: key,
+        title: episodeTitle ?? '',
+        sort: states.length,
+        dateFetch: now,
+      );
+      states.add(cached);
+    }
+    cached.position = position;
+    if (length > 0) cached.duration = length;
+    cached.positionUpdatedAt = now;
+    if (finished) {
+      cached.read = true;
+      cached.dateRead ??= now;
     }
     final h = _history[item.uid] ?? HistoryEntry(item: item, time: now);
     h

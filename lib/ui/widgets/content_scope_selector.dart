@@ -7,6 +7,8 @@ import '../../core/settings.dart';
 import '../../engine/source_manager.dart';
 import '../../library/library.dart';
 import '../kit/kit.dart';
+import '../library/favorite_actions.dart' show promptText;
+import '../theme.dart';
 
 /// Shared category/site scope selector for user-owned work collections.
 class ContentScopeSelector extends StatelessWidget {
@@ -72,23 +74,6 @@ class ContentScopeSelector extends StatelessWidget {
                     : ContentScope.domain(value),
               ),
             ),
-            if (onCategoryChanged != null)
-              MenuChip<int?>(
-                label: categoryId == null
-                    ? tr('全部分类')
-                    : categoryId == Library.defaultCategory
-                    ? tr('默认')
-                    : Library.instance.category(categoryId!)?.name ??
-                          tr('全部分类'),
-                active: categoryId != null,
-                selected: categoryId,
-                options: {
-                  null: tr('全部分类'),
-                  Library.defaultCategory: tr('默认'),
-                  for (final c in Library.instance.categories) c.id: c.name,
-                },
-                onSelected: onCategoryChanged!,
-              ),
             MenuChip<String?>(
               label: source == null ? tr('全部站点') : siteName(source),
               active: source != null,
@@ -105,6 +90,34 @@ class ContentScopeSelector extends StatelessWidget {
                     : ContentScope.domain(category),
               ),
             ),
+            if (onCategoryChanged != null)
+              MenuChip<int?>(
+                label: categoryId == null
+                    ? tr('全部分类')
+                    : categoryId == Library.defaultCategory
+                    ? tr('默认')
+                    : Library.instance.category(categoryId!)?.name ??
+                          tr('全部分类'),
+                active: categoryId != null,
+                selected: categoryId,
+                options: {
+                  null: tr('全部分类'),
+                  Library.defaultCategory: tr('默认'),
+                  for (final c in Library.instance.categories) c.id: c.name,
+                },
+                onSelected: onCategoryChanged!,
+                footerLabel: tr('新建分类'),
+                onFooterSelected: () async {
+                  final name = await promptText(context, tr('新建分类'), '');
+                  if (name == null) return;
+                  final created = await Library.instance.createCategory(name);
+                  if (created == null) {
+                    if (context.mounted) context.toast(tr('分类名称为空或已存在'));
+                    return;
+                  }
+                  if (context.mounted) onCategoryChanged!(created.id);
+                },
+              ),
           ],
         ),
       ),

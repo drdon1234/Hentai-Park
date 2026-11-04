@@ -131,14 +131,16 @@ class VideoSession extends ChangeNotifier {
   Future<void> init() async {
     final request = ++_request;
     try {
-      if (!isLive && work.hasVideoEpisodes) {
+      if (!isLive && recordHistory) {
         await Library.instance.loadChapters(work.uid);
         if (!_active || request != _request) return;
-        await Library.instance.syncChapters(
-          work.toItem(),
-          episodes,
-          complete: work.chaptersComplete,
-        );
+        if (work.hasVideoEpisodes) {
+          await Library.instance.syncChapters(
+            work.toItem(),
+            episodes,
+            complete: work.chaptersComplete,
+          );
+        }
       }
       if (!_active || request != _request) return;
       await selectEpisode(episode);

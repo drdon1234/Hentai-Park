@@ -710,6 +710,18 @@ class FilterSheetResult {
 }
 
 class _FilterSheetState extends State<FilterSheet> {
+  final _choiceQueries = <String, String>{};
+
+  Iterable<Choice> _visibleChoices(String key) {
+    final query = _choiceQueries[key]?.trim().toLowerCase() ?? '';
+    return _filters
+        .choicesFor(key)
+        .where(
+          (choice) =>
+              query.isEmpty || choice.label.toLowerCase().contains(query),
+        );
+  }
+
   late final FilterController _filters = FilterController(
     source: widget.manifest.key,
     scope: widget.feed == null ? 'search' : 'feed',
@@ -869,12 +881,23 @@ class _FilterSheetState extends State<FilterSheet> {
                                 onChanged: (value) =>
                                     _filters.setValue(f.key, value),
                               )
-                            else
+                            else ...[
+                              TextField(
+                                key: ValueKey(('choice-search', f.key)),
+                                decoration: InputDecoration(
+                                  prefixIcon: const Icon(Icons.search_rounded),
+                                  hintText: tr('搜索'),
+                                ),
+                                onChanged: (value) => setState(
+                                  () => _choiceQueries[f.key] = value,
+                                ),
+                              ),
+                              const SizedBox(height: Gap.s),
                               Wrap(
                                 spacing: 8,
                                 runSpacing: 8,
                                 children: [
-                                  for (final c in _filters.choicesFor(f.key))
+                                  for (final c in _visibleChoices(f.key))
                                     if (f.type == 'multi')
                                       FilterChip(
                                         label: SelectionContainer.disabled(
@@ -919,6 +942,7 @@ class _FilterSheetState extends State<FilterSheet> {
                                       ),
                                 ],
                               ),
+                            ],
                             if (f.dynamicValues &&
                                 _filters.isLoadingOption(f.key))
                               const Padding(

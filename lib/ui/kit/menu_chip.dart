@@ -17,6 +17,8 @@ class MenuChip<T> extends StatelessWidget {
     this.active = false,
     this.selected,
     this.maxWidth = 240,
+    this.footerLabel,
+    this.onFooterSelected,
   });
   final String label;
   final Map<T, String> options;
@@ -26,6 +28,8 @@ class MenuChip<T> extends StatelessWidget {
   /// The option selected in the menu, when one is.
   final T? selected;
   final double maxWidth;
+  final String? footerLabel;
+  final VoidCallback? onFooterSelected;
 
   @override
   Widget build(BuildContext context) {
@@ -37,7 +41,13 @@ class MenuChip<T> extends StatelessWidget {
       popUpAnimationStyle: Motion.menu(context),
       tooltip: label,
       position: PopupMenuPosition.under,
-      onSelected: (i) => onSelected(entries[i].key),
+      onSelected: (i) {
+        if (i == entries.length) {
+          onFooterSelected?.call();
+        } else {
+          onSelected(entries[i].key);
+        }
+      },
       itemBuilder: (_) => [
         for (var i = 0; i < entries.length; i++)
           SelectionPopupMenuItem(
@@ -45,6 +55,21 @@ class MenuChip<T> extends StatelessWidget {
             selected: entries[i].key == selected,
             child: SelectionContainer.disabled(child: Text(entries[i].value)),
           ),
+        if (footerLabel != null) ...[
+          const PopupMenuDivider(height: 8),
+          PopupMenuItem<int>(
+            value: entries.length,
+            child: SelectionContainer.disabled(
+              child: Row(
+                children: [
+                  const Icon(Icons.add_rounded, size: 20),
+                  const SizedBox(width: Gap.s),
+                  Text(footerLabel!),
+                ],
+              ),
+            ),
+          ),
+        ],
       ],
       child: SelectionContainer.disabled(
         child: ConstrainedBox(

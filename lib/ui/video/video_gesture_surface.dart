@@ -12,6 +12,7 @@ class VideoGestureSurface extends StatefulWidget {
     required this.child,
     this.overlay,
     this.pageVertically = false,
+    this.pageHorizontally = false,
     this.showLevelControls = false,
     this.brightness = 1,
     this.volume = 1,
@@ -30,6 +31,7 @@ class VideoGestureSurface extends StatefulWidget {
   final Widget child;
   final Widget? overlay;
   final bool pageVertically;
+  final bool pageHorizontally;
   final bool showLevelControls;
   final double brightness;
   final double volume;
@@ -150,7 +152,11 @@ class _VideoGestureSurfaceState extends State<VideoGestureSurface> {
       fit: StackFit.expand,
       children: [
         widget.child,
-        _detector(constraints.biggest, horizontalOnly: widget.pageVertically),
+        _detector(
+          constraints.biggest,
+          horizontalOnly: widget.pageVertically,
+          verticalOnly: widget.pageHorizontally,
+        ),
         if (widget.pageVertically &&
             widget.showLevelControls &&
             constraints.maxHeight >= 180)

@@ -8,6 +8,19 @@ class SubscriptionTarget {
   final String label;
 }
 
+class SubscriptionTargetPage {
+  SubscriptionTargetPage(Map data)
+    : targets = (data['targets'] as List? ?? const [])
+          .whereType<Map>()
+          .map(SubscriptionTarget.new)
+          .toList(),
+      cursor = data['cursor']?.toString(),
+      hasNext = data['hasNext'] == true;
+  final List<SubscriptionTarget> targets;
+  final String? cursor;
+  final bool hasNext;
+}
+
 class SubscriptionMedia {
   SubscriptionMedia(this.json)
     : type = (json['type'] ?? 'image').toString(),

@@ -3,7 +3,7 @@
   'use strict';
   const SITE = {"key":"feedmrds","name":"每日大赛","names":{"zh-Hant":"每日大賽","en":"MRDS","ja":"毎日大賽","ko":"매일대회","es":"MRDS","ru":"MRDS","ar":"MRDS"},"homepage":"https://mrdsk.com","home":"https://www.mrds66.com","domain":"mrds66.com","imageDomain":"pic.gyezbp.cn","release":"https://mrdsk.com/","encodedRelease":true,"releaseSelector":"a[href]","hostPattern":"^(?:www\\.)?mrds[0-9]+\\.com$","linkPattern":"(?:www\\.)?mrds[0-9]+\\.com"};
   const catalogCache = new Map();
-  const option = (key, label) => ({key, label, type: 'select', default: '', dynamic: true, values: []});
+  const option = (key, label) => ({key, label, type: 'multi', default: [], dynamic: true, values: []});
   const text = node => Park.html.text(node);
   const resolver = SITE.release ? Park.createDomainResolver({
     initialOrigin: SITE.home,
@@ -85,16 +85,26 @@
     return '';
   }
   function cover(card, base) {
-    const node = card.querySelector('[x-bg-loader-url], [z-image-loader-url], img');
-    const direct = image(node, base);
-    if (direct) return direct;
+    for (const node of card.querySelectorAll('[x-bg-loader-url], [z-image-loader-url], img')) {
+      const direct = image(node, base);
+      if (direct) return direct;
+    }
     for (const script of card.querySelectorAll('script')) {
       const match = /loadBannerDirect\(\s*['"]([^'"]+)['"]/.exec(script.textContent || '');
       if (match) return imageUrl(match[1], base);
     }
     return '';
   }
-  function player(node) {
+  function coverImages(card, base) {
+    const found = new Set();
+    for (const node of card.querySelectorAll('[x-bg-loader-url], [z-image-loader-url], img')) {
+      const url = image(node, base);
+      if (url) found.add(url);
+      if (found.size >= 6) break;
+    }
+    return [...found];
+  }
+  function player(node, base = SITE.home) {
     const id = node.getAttribute('data-video_id') || '';
     if (!/^[1-9]\d{0,20}(?:_\d{1,8})?$/.test(id)) return null;
     try {
@@ -102,7 +112,8 @@
       const url = imageUrl(data.video?.url, SITE.home);
       const parsed = url && new URL(url);
       if (!parsed || !/\.(?:m3u8|mp4)$/i.test(parsed.pathname)) return null;
-      return {id, url, format: /\.m3u8$/i.test(parsed.pathname) ? 'hls' : 'mp4'};
+      const preview = imageUrl(data.video?.pic || data.video?.poster || node.getAttribute('poster'), base);
+      return {id, url, preview, format: /\.m3u8$/i.test(parsed.pathname) ? 'hls' : 'mp4'};
     } catch (_) { return null; }
   }
   function blocks(root, base) {
@@ -113,7 +124,8 @@
       if (node.classList.contains('dplayer')) {
         const id = node.getAttribute('data-video_id') || '';
         if (!/^[1-9]\d{0,20}(?:_\d{1,8})?$/.test(id)) throw Park.error('PARSE', '加载失败');
-        result.push({type: 'video', id});
+        const video = player(node, base);
+        result.push({type: 'video', id, preview: video?.preview || ''});
         return;
       }
       if (tag === 'IMG') {
@@ -155,7 +167,7 @@
     return result;
   }
   Park.register({
-    key: SITE.key, name: SITE.name, version: '0.0.5', minAppVersion: '0.11.0',
+    key: SITE.key, name: SITE.name, version: '0.0.8', minAppVersion: '0.11.0',
     type: 'article', category: 'feed', color: '#488A7B', language: 'zh',
     description: '吃瓜图文，支持分类、标签、搜索与视频',
     i18n: {
@@ -244,22 +256,44 @@
         const title = text(clone);
         if (!title) continue;
         seen.add(id);
-        items.push({id, title, cover: cover(card, base), mediaKind: 'article',
+        items.push({id, title, cover: cover(card, base), coverImages: coverImages(card, base), mediaKind: 'article',
           uploaded: card.querySelector('[itemprop="datePublished"]')?.getAttribute('content') || ''});
       }
       if (!items.length && !doc.querySelector('#archive, .page-nav')) throw Park.error('PARSE', '加载失败');
       const next = doc.querySelector('link[rel="next"], .page-navigator .next a');
       return {items, page, hasNext: !!next};
     },
-    async feed(key, {page = 1, options = {}} = {}) {
+    async feed(key, {page = 1, cursor, options = {}} = {}) {
       page = pageValue(page);
       let path = '/';
       if (key === 'category' || key === 'tag') {
-        const value = String(options[key] || '');
-        if (value) {
+        const values = options[key] || [];
+        if (!Array.isArray(values) || values.some(value => typeof value !== 'string')) throw Park.error('CONFIG', '访问受限');
+        if (values.length) {
           const choices = await this.catalog(key, key === 'tag' ? pageValue(options.tagPage) : 1);
-          if (!choices.some(choice => choice.value === value)) throw Park.error('CONFIG', '访问受限');
-          path = value;
+          if (values.some(value => !choices.some(choice => choice.value === value))) throw Park.error('CONFIG', '访问受限');
+          const paths = [...new Set(values)];
+          let state = {paths, pages: paths.map(() => 1), seen: []};
+          if (cursor) {
+            try { state = JSON.parse(cursor); } catch (_) { throw Park.error('CONFIG', '访问受限'); }
+            if (JSON.stringify(state.paths) !== JSON.stringify(paths) ||
+                !Array.isArray(state.pages) || state.pages.length !== paths.length ||
+                state.pages.some(p => !Number.isSafeInteger(p) || p < 0 || p > 10000) ||
+                !Array.isArray(state.seen) || state.seen.some(id => !/^[1-9]\d{0,14}$/.test(id))) throw Park.error('CONFIG', '访问受限');
+          } else if (page !== 1) throw Park.error('CONFIG', '访问受限');
+          const seen = new Set(state.seen), items = [];
+          // One branch per request bounds both response size and simultaneous source connections.
+          const nextPage = Math.min(...state.pages.filter(p => p > 0));
+          const branch = state.pages.findIndex(p => p > 0 && p === nextPage);
+          if (branch < 0) return {items, page, hasNext: false};
+          const branchPage = state.pages[branch];
+          path = paths[branch] + (branchPage === 1 ? '' : (SITE.archive ? 'page/' : '') + branchPage + '/');
+          const result = this.cards(await this.document(path), page);
+          for (const item of result.items) if (!seen.has(item.id)) { seen.add(item.id); items.push(item); }
+          state.pages[branch] = result.hasNext ? branchPage + 1 : 0;
+          state.seen = [...seen];
+          const hasNext = state.pages.some(p => p > 0);
+          return {items, page, hasNext, cursor: hasNext ? JSON.stringify(state) : undefined};
         }
       } else if (key !== 'recommend') throw Park.error('CONFIG', '访问受限');
       path = page === 1 ? path : path === '/' ? '/page/' + page + '/' : path + (SITE.archive ? 'page/' : '') + page + '/';
@@ -306,9 +340,17 @@
           }
         } catch (_) { /* Ignore malformed tag links. */ }
       }
+      const standardCover = imageUrl(doc.querySelector('meta[itemprop="image"]')?.getAttribute('content'), base);
+      const bodyCover = content.find(block => block.type === 'image')?.url || '';
+      let precedingImage = '';
+      for (const block of content) {
+        if (block.type === 'image') precedingImage = block.url;
+        if (block.type === 'video' && !block.preview) block.preview = precedingImage || standardCover || bodyCover;
+      }
       return {id, title, url: base + path, blocks: content, tags: tagLinks.map(tag => tag.name), tagLinks, mediaKind: 'article',
         uploaded: doc.querySelector('meta[itemprop="datePublished"]')?.getAttribute('content') || '',
-        cover: imageUrl(doc.querySelector('meta[itemprop="image"]')?.getAttribute('content'), base)};
+        cover: standardCover || bodyCover,
+        coverImages: content.filter(block => block.type === 'image').map(block => block.url).slice(0, 6)};
     },
     async searchLink(value, {page = 1} = {}) {
       page = pageValue(page);

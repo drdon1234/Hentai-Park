@@ -565,10 +565,12 @@ class SourceManifest {
     : key = _str(json['key']),
       _name = _str(json['name']),
       version = _str(json['version']),
-      kind = MediaKind.values.firstWhere(
-        (kind) => kind.name == json['type'],
-        orElse: () => MediaKind.comic,
-      ),
+      kind = json['category'] == 'novel'
+          ? MediaKind.novel
+          : MediaKind.values.firstWhere(
+              (kind) => kind.name == json['type'],
+              orElse: () => MediaKind.comic,
+            ),
       category = SourceCategory.fromJson(json['category']),
       color = parseHexColor(_str(json['color'])),
       icon = _str(json['icon']),
@@ -784,6 +786,7 @@ class WorkItem {
       title = _str(json['title']),
       subtitle = _str(json['subtitle']),
       cover = _str(json['cover']),
+      coverImages = _strings(json['coverImages']),
       coverAspect = _double(json['coverAspect']),
       pages = _int(json['pages']),
       rating = _double(json['rating']),
@@ -808,7 +811,8 @@ class WorkItem {
 
   /// The kind declared on the item itself (sources that mix kinds); null means the source's.
   final MediaKind? mediaKind;
-  bool get isNovel => mediaKind == MediaKind.novel;
+  bool get isNovel =>
+      mediaKind == MediaKind.novel || json['contentDomain'] == 'novel';
   bool get isGame => mediaKind == MediaKind.game;
 
   /// 只有源明确声明为预览，或全部媒体均为预览时才过滤。
@@ -830,6 +834,7 @@ class WorkItem {
   final String title;
   final String subtitle;
   final String cover;
+  final List<String> coverImages;
   final double? coverAspect;
   final int? pages;
   final double? rating;

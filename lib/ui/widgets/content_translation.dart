@@ -142,7 +142,8 @@ class _ContentTranslationState extends State<ContentTranslation> {
   ContentTranslationQueue get _queue =>
       widget.queue ?? ContentTranslationQueue.instance;
   String? _translated;
-  String _identity = '';
+  Object? _identity;
+  List<String>? _parts;
   int _generation = 0;
 
   @override
@@ -183,13 +184,20 @@ class _ContentTranslationState extends State<ContentTranslation> {
 
   void _reset() {
     final scope = _TranslationScope.of(context);
-    final identity =
-        '${widget.text}\u0000${widget.source}\u0000${widget.namespace}'
-        '\u0000${scope?.locale}\u0000${scope?.engine}\u0000${scope?.enabled}'
-        '\u0000${scope?.original}\u0000${scope?.retry}';
+    final identity = (
+      widget.text,
+      widget.source,
+      widget.namespace,
+      scope?.locale,
+      scope?.engine,
+      scope?.enabled,
+      scope?.original,
+      scope?.retry,
+    );
     if (_identity == identity) return;
     _identity = identity;
     _generation++;
+    _parts = null;
     _translated = null;
     _busy = _attempted = false;
     _waitingCapacity = false;
@@ -210,14 +218,17 @@ class _ContentTranslationState extends State<ContentTranslation> {
       : null;
 
   String? _cached(_TranslationScope scope) {
-    final parts = widget.text.length <= ContentTranslationQueue.maxTextLength
-        ? [widget.text]
-        : translationChunks(widget.text);
+    final parts = _textParts();
     final values = [
       for (final part in parts) _queue.cached(part, scope.locale, scope.engine),
     ];
     return values.any((value) => value == null) ? null : values.join();
   }
+
+  List<String> _textParts() =>
+      _parts ??= widget.text.length <= ContentTranslationQueue.maxTextLength
+      ? [widget.text]
+      : translationChunks(widget.text);
 
   Future<void> _request() async {
     var scope = _TranslationScope.of(context);
@@ -269,9 +280,7 @@ class _ContentTranslationState extends State<ContentTranslation> {
         generation == _generation &&
         _dictionary(_TranslationScope.of(context)) == null &&
         _routeCurrent;
-    final parts = widget.text.length <= ContentTranslationQueue.maxTextLength
-        ? [widget.text]
-        : translationChunks(widget.text);
+    final parts = _textParts();
     final values = <String>[];
     for (final part in parts) {
       if (!active()) break;

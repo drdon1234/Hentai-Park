@@ -189,9 +189,10 @@ class Nav {
                 'url': item.json['url'],
             },
           )
-        : SourceManager.instance.kindOf(item) == MediaKind.article
+        : SourceManager.instance.kindOf(item) == MediaKind.article &&
+              !item.isSubscriptionPost
         ? FeedArticlePage(item: item)
-        : _short(item.source, item)
+        : _short(item.source, item) && !item.isSubscriptionPost
         ? ShortVideoPage(
             source: item.source,
             initial: item,

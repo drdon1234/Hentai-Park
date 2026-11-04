@@ -73,7 +73,7 @@ abstract class _ReaderBase extends State<ReaderPage> {
   final Map<int, double> _aspects = {};
 
   final _itemScroll = ItemScrollController();
-  final _positions = ItemPositionsListener.create();
+  var _positions = ItemPositionsListener.create();
   final _offsets = ScrollOffsetController();
   PageController? _pager;
   List<Spread> _spreads = const [];
@@ -121,7 +121,6 @@ class _ReaderPageState extends _ReaderBase
     WidgetsBinding.instance.addObserver(this);
     AppLock.instance.addListener(_configureDevice);
     _load(startPage: widget.startPage);
-    _positions.itemPositions.addListener(_onScroll);
     _zoom.addListener(() {
       final z = _zoom.value.getMaxScaleOnAxis() > 1.01;
       if (z != _zoomed) setState(() => _zoomed = z);
@@ -151,6 +150,7 @@ class _ReaderPageState extends _ReaderBase
     AppLock.instance.removeListener(_configureDevice);
     _saveProgress();
     _saveTimer?.cancel();
+    _positions.itemPositions.removeListener(_onScroll);
     _device.dispose();
     _watched.removeListener(_onSettings);
     if (_desktopFullscreen) {
@@ -196,6 +196,9 @@ class _ReaderPageState extends _ReaderBase
     final request = _request = CancelToken();
     final chapterId = _chapterId;
     _saveTimer?.cancel();
+    _positions.itemPositions.removeListener(_onScroll);
+    _positions = ItemPositionsListener.create();
+    _positions.itemPositions.addListener(_onScroll);
     setState(() {
       _pages = null;
       _error = null;

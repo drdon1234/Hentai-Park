@@ -708,7 +708,7 @@
       media: pick(def.media || {}),
       chat: pick(def.chat || {}),
       postShortVideos: def.postShortVideos === true,
-      subscription: pick(def.subscription ? {hint:def.subscription.hint || '',joinedTargets:typeof def.subscription.targets === 'function',communities:def.subscription.communities === true,communityHint:def.subscription.communityHint || '',communityExample:def.subscription.communityExample || ''} : null),
+      subscription: pick(def.subscription ? {hint:def.subscription.hint || '',joinedTargets:typeof def.subscription.targets === 'function',joinedCreators:def.subscription.joinedCreators === true,communities:def.subscription.communities === true,communityHint:def.subscription.communityHint || '',communityExample:def.subscription.communityExample || ''} : null),
       updateSubscriptions: pick(def.updateSubscriptions ? {dimensions:def.updateSubscriptions.dimensions} : null),
       settings: pick(def.settings || []),
       account: def.account

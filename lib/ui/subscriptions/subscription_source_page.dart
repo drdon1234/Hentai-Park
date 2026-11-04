@@ -1,3 +1,4 @@
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 
 import '../../core/localization.dart';
@@ -17,9 +18,11 @@ class SubscriptionSourcePage extends StatefulWidget {
     super.key,
     required this.source,
     this.communitiesOnly = false,
+    this.embedded = false,
   });
   final String source;
   final bool communitiesOnly;
+  final bool embedded;
   @override
   State<SubscriptionSourcePage> createState() => _SubscriptionSourcePageState();
 }
@@ -37,58 +40,184 @@ class _SubscriptionSourcePageState extends State<SubscriptionSourcePage> {
     if (_loadingTargets) return;
     setState(() => _loadingTargets = true);
     try {
-      final allTargets = await SourceManager.instance.subscriptionTargets(
-        widget.source,
-        kind: widget.communitiesOnly ? 'community' : null,
-      );
-      final targets = allTargets
-          .where((t) => !widget.communitiesOnly || t.kind == 'community')
-          .toList();
-      if (!mounted) return;
-      if (targets.isEmpty) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(tr('账号暂无已加入或已关注的目标'))));
-        return;
-      }
+      final targets = <SubscriptionTarget>[];
+      String? cursor;
+      var hasNext = true;
+      var hasLoaded = false;
+      var started = false;
+      var searching = false;
+      var serverResults = false;
+      Object? pageError;
+      var generation = 0;
+      CancelToken? requestToken;
+      String? activeQuery;
       final filter = TextEditingController();
-      final target = await showDialog<SubscriptionTarget>(
-        context: context,
-        builder: (context) => StatefulBuilder(
-          builder: (context, refresh) {
-            final query = filter.text.trim().toLowerCase();
-            final visible = targets
-                .where((item) => item.label.toLowerCase().contains(query))
-                .toList();
-            return SimpleDialog(
-              title: Text(tr('已加入或已关注')),
-              children: [
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(24, 0, 24, 8),
-                  child: TextField(
-                    controller: filter,
-                    autofocus: true,
-                    decoration: InputDecoration(
-                      prefixIcon: const Icon(Icons.search_rounded),
-                      hintText: tr('筛选频道或作者'),
+      final target =
+          await showDialog<SubscriptionTarget>(
+            context: context,
+            builder: (context) => StatefulBuilder(
+              builder: (context, refresh) {
+                Future<void> load({bool next = false, String? query}) async {
+                  final normalizedQuery = query?.trim();
+                  final requestQuery = normalizedQuery?.isNotEmpty == true
+                      ? normalizedQuery
+                      : next && serverResults
+                      ? filter.text.trim()
+                      : null;
+                  if (searching && activeQuery == requestQuery && !next) return;
+                  requestToken?.cancel('target query changed');
+                  final request = CancelToken();
+                  requestToken = request;
+                  activeQuery = requestQuery;
+                  final requestGeneration = ++generation;
+                  searching = true;
+                  pageError = null;
+                  refresh(() {});
+                  try {
+                    final page = await SourceManager.instance
+                        .subscriptionTargetPage(
+                          widget.source,
+                          kind: widget.communitiesOnly ? 'community' : null,
+                          cursor: next ? cursor : null,
+                          query: requestQuery,
+                          cancelToken: request,
+                        );
+                    if (request.isCancelled ||
+                        !context.mounted ||
+                        requestGeneration != generation) {
+                      return;
+                    }
+                    refresh(() {
+                      hasLoaded = true;
+                      serverResults = requestQuery != null;
+                      if (next) {
+                        final known = targets
+                            .map((target) => target.id)
+                            .toSet();
+                        targets.addAll(
+                          page.targets.where((target) => known.add(target.id)),
+                        );
+                      } else {
+                        targets
+                          ..clear()
+                          ..addAll(page.targets);
+                      }
+                      cursor = page.cursor;
+                      hasNext = page.hasNext;
+                      pageError = null;
+                    });
+                  } catch (_) {
+                    if (!request.isCancelled &&
+                        requestGeneration == generation &&
+                        context.mounted) {
+                      refresh(() => pageError = tr('加载失败，点击重试'));
+                    }
+                  } finally {
+                    if (requestGeneration == generation) {
+                      searching = false;
+                      if (context.mounted) refresh(() {});
+                    }
+                  }
+                }
+
+                final query = filter.text.trim().toLowerCase();
+                final visible = targets
+                    .where((item) => item.label.toLowerCase().contains(query))
+                    .toList();
+                if (!started) {
+                  started = true;
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    if (context.mounted) load();
+                  });
+                }
+                return AlertDialog(
+                  title: Text(tr('已加入或已关注')),
+                  content: SizedBox(
+                    width: 420,
+                    height: 480,
+                    child: Column(
+                      children: [
+                        TextField(
+                          controller: filter,
+                          autofocus: true,
+                          textInputAction: TextInputAction.search,
+                          decoration: InputDecoration(
+                            prefixIcon: const Icon(Icons.search_rounded),
+                            hintText: tr('筛选频道或作者'),
+                            suffixIcon: IconButton(
+                              tooltip: tr('搜索'),
+                              icon: const Icon(Icons.search_rounded),
+                              onPressed: () => load(
+                                query: filter.text.isEmpty ? null : filter.text,
+                              ),
+                            ),
+                          ),
+                          onChanged: (_) => refresh(() {}),
+                          onSubmitted: (value) => load(query: value),
+                        ),
+                        const SizedBox(height: Gap.s),
+                        Expanded(
+                          child: ListView(
+                            children: [
+                              for (final item in visible)
+                                ListTile(
+                                  title: Text(item.label),
+                                  onTap: () => Navigator.pop(context, item),
+                                ),
+                              if (visible.isEmpty &&
+                                  !searching &&
+                                  hasLoaded &&
+                                  pageError == null)
+                                Padding(
+                                  padding: const EdgeInsets.all(Gap.l),
+                                  child: Text(
+                                    pageError == null ? tr('没有匹配的频道或作者') : '',
+                                  ),
+                                ),
+                              if (searching)
+                                const Padding(
+                                  padding: EdgeInsets.all(Gap.m),
+                                  child: Center(
+                                    child: CircularProgressIndicator(),
+                                  ),
+                                ),
+                              if (pageError != null)
+                                ListTile(
+                                  title: Text(pageError.toString()),
+                                  trailing: IconButton(
+                                    tooltip: tr('重试'),
+                                    icon: const Icon(Icons.refresh_rounded),
+                                    onPressed: () => load(query: filter.text),
+                                  ),
+                                ),
+                              if (hasNext && hasLoaded)
+                                TextButton.icon(
+                                  onPressed: searching
+                                      ? null
+                                      : () => load(next: true),
+                                  icon: const Icon(Icons.expand_more_rounded),
+                                  label: Text(tr('加载更多')),
+                                ),
+                            ],
+                          ),
+                        ),
+                      ],
                     ),
-                    onChanged: (_) => refresh(() {}),
                   ),
-                ),
-                for (final item in visible)
-                  SimpleDialogOption(
-                    onPressed: () => Navigator.pop(context, item),
-                    child: Text(item.label),
-                  ),
-                if (visible.isEmpty)
-                  Padding(
-                    padding: const EdgeInsets.all(24),
-                    child: Text(tr('没有匹配的频道或作者')),
-                  ),
-              ],
-            );
-          },
-        ),
-      ).whenComplete(filter.dispose);
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(context),
+                      child: Text(tr('关闭')),
+                    ),
+                  ],
+                );
+              },
+            ),
+          ).whenComplete(() {
+            generation++;
+            requestToken?.cancel('target picker closed');
+            filter.dispose();
+          });
       if (!mounted || target == null) return;
       await Nav.push(
         context,
@@ -135,29 +264,39 @@ class _SubscriptionSourcePageState extends State<SubscriptionSourcePage> {
       );
     }
     return Scaffold(
-      appBar: AppBar(
-        bottom: manifest.account != null
-            ? PreferredSize(
-                preferredSize: Size.fromHeight(
-                  SourceAccountStrip.height(context),
+      appBar: widget.embedded
+          ? null
+          : AppBar(
+              bottom: manifest.account != null
+                  ? PreferredSize(
+                      preferredSize: Size.fromHeight(
+                        SourceAccountStrip.height(context),
+                      ),
+                      child: SourceAccountStrip(source: widget.source),
+                    )
+                  : null,
+              title: Text(widget.communitiesOnly ? tr('社群') : manifest.name),
+              actions: [
+                IconButton(
+                  tooltip: tr('站点设置'),
+                  icon: const Icon(Icons.settings_outlined),
+                  onPressed: () =>
+                      Nav.openSourceSettings(context, widget.source),
                 ),
-                child: SourceAccountStrip(source: widget.source),
-              )
-            : null,
-        title: Text(widget.communitiesOnly ? tr('社群') : manifest.name),
-        actions: [
-          IconButton(
-            tooltip: tr('站点设置'),
-            icon: const Icon(Icons.settings_outlined),
-            onPressed: () => Nav.openSourceSettings(context, widget.source),
-          ),
-        ],
-      ),
+              ],
+            ),
       body: ListenableBuilder(
         listenable: SubscriptionStore.instance,
         builder: (context, _) => ListView(
           padding: const EdgeInsets.all(Gap.page),
           children: [
+            if (widget.embedded) ...[
+              Text(
+                tr(widget.communitiesOnly ? '已加入频道' : '已关注博主'),
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
+              const SizedBox(height: Gap.m),
+            ],
             if (_error != null)
               SourceErrorView(
                 error: _error!,
@@ -175,7 +314,17 @@ class _SubscriptionSourcePageState extends State<SubscriptionSourcePage> {
               OutlinedButton.icon(
                 onPressed: _loadingTargets ? null : _openJoinedTargets,
                 icon: const Icon(Icons.people_alt_outlined),
-                label: Text(tr(_loadingTargets ? '加载中' : '已加入或已关注')),
+                label: Text(
+                  tr(
+                    _loadingTargets
+                        ? '加载中'
+                        : widget.embedded
+                        ? widget.communitiesOnly
+                              ? '已加入频道'
+                              : '已关注博主'
+                        : '已加入或已关注',
+                  ),
+                ),
               ),
             ],
             const SizedBox(height: Gap.l),

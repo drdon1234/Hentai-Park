@@ -45,6 +45,7 @@ class DownloadsPage extends StatefulWidget {
 
 class _DownloadsPageState extends State<DownloadsPage> {
   final _query = TextEditingController();
+  final Set<String> _selectedDownloads = {};
   bool _importing = false;
   bool _searching = false;
   ContentScope _scope = const ContentScope.all();
@@ -134,7 +135,7 @@ class _DownloadsPageState extends State<DownloadsPage> {
     final dm = DownloadManager.instance;
     final games = GameDownloadManager.instance;
     return Scaffold(
-      appBar: _appBar(context),
+      appBar: _selectedDownloads.isEmpty ? _appBar(context) : _selectionBar(),
       body: FileDropRegion(
         enabled: !_importing,
         message: tr('松开以导入本地漫画'),
@@ -151,6 +152,9 @@ class _DownloadsPageState extends State<DownloadsPage> {
           ]),
           builder: (context, _) {
             final tasks = dm.tasks;
+            _selectedDownloads.removeWhere(
+              (uid) => !tasks.any((task) => task.uid == uid),
+            );
             final gameTasks = games.tasks;
             final failures = dm.restoreFailures;
             final recordings = LiveRecordings.instance.tasks;
@@ -319,6 +323,65 @@ class _DownloadsPageState extends State<DownloadsPage> {
       ),
     ],
   );
+
+  PreferredSizeWidget _selectionBar() => AppBar(
+    leading: IconButton(
+      tooltip: tr('取消选择'),
+      icon: const Icon(Icons.close_rounded),
+      onPressed: () => setState(_selectedDownloads.clear),
+    ),
+    title: Text(tr('已选 {value0}', {'value0': _selectedDownloads.length})),
+    actions: [
+      IconButton(
+        tooltip: tr('暂停'),
+        icon: const Icon(Icons.pause_rounded),
+        onPressed: () {
+          for (final uid in _selectedDownloads) {
+            DownloadManager.instance.pause(uid);
+          }
+        },
+      ),
+      IconButton(
+        tooltip: tr('继续'),
+        icon: const Icon(Icons.play_arrow_rounded),
+        onPressed: () {
+          for (final uid in _selectedDownloads) {
+            DownloadManager.instance.resume(uid);
+          }
+        },
+      ),
+      IconButton(
+        tooltip: tr('删除'),
+        icon: const Icon(Icons.delete_outline_rounded),
+        onPressed: _deleteSelected,
+      ),
+    ],
+  );
+
+  void _toggleDownload(String uid) => setState(() {
+    if (!_selectedDownloads.add(uid)) _selectedDownloads.remove(uid);
+  });
+
+  Future<void> _deleteSelected() async {
+    final selected = List<String>.of(_selectedDownloads);
+    if (selected.isEmpty) return;
+    final confirmed = await confirmAction(
+      context,
+      title: tr('删除下载？'),
+      message: tr('已下载的文件也会一并删除。'),
+      confirmLabel: tr('删除'),
+      destructive: true,
+    );
+    if (!confirmed) return;
+    for (final uid in selected) {
+      try {
+        await DownloadManager.instance.delete(uid);
+      } catch (_) {
+        if (mounted) context.toast(tr('删除失败，请重试'));
+      }
+    }
+    if (mounted) setState(_selectedDownloads.clear);
+  }
 
   Future<void> _showFilters(BuildContext context) => showAdaptiveSheet<void>(
     context: context,
@@ -542,7 +605,15 @@ class _DownloadsPageState extends State<DownloadsPage> {
                 i -= failures.length;
                 return i < gameTasks.length
                     ? GameDownloadTile(task: gameTasks[i])
-                    : _TaskTile(task: tasks[i - gameTasks.length]);
+                    : _TaskTile(
+                        task: tasks[i - gameTasks.length],
+                        selecting: _selectedDownloads.isNotEmpty,
+                        selected: _selectedDownloads.contains(
+                          tasks[i - gameTasks.length].uid,
+                        ),
+                        onToggle: () =>
+                            _toggleDownload(tasks[i - gameTasks.length].uid),
+                      );
               },
             ),
           ),
@@ -586,7 +657,9 @@ class _DownloadsPageState extends State<DownloadsPage> {
                   child: child,
                 ),
                 showSource: true,
-                onTap: () => _openTask(context, task),
+                onTap: () => _selectedDownloads.isNotEmpty
+                    ? _toggleDownload(task.uid)
+                    : _openTask(context, task),
                 onTextTap: () => Nav.push(
                   context,
                   DetailPage(
@@ -595,7 +668,8 @@ class _DownloadsPageState extends State<DownloadsPage> {
                     preview: task.item,
                   ),
                 ),
-                onLongPress: () => _TaskTile(task: task)._menu(context),
+                onLongPress: () => _toggleDownload(task.uid),
+                selected: _selectedDownloads.contains(task.uid),
               );
             }, childCount: tasks.length),
           ),
@@ -615,7 +689,7 @@ class _DownloadsPageState extends State<DownloadsPage> {
   };
 
   Future<void> _openTask(BuildContext context, DownloadTask task) {
-    if (task.isVideo && task.chapters.length > 1) {
+    if (task.chapters.length > 1) {
       return _TaskTile(task: task)._chapters(context);
     }
     return Nav.openChapter(
@@ -684,8 +758,16 @@ class _RestoreFailureTile extends StatelessWidget {
 }
 
 class _TaskTile extends StatelessWidget {
-  const _TaskTile({required this.task});
+  const _TaskTile({
+    required this.task,
+    this.selected = false,
+    this.selecting = false,
+    this.onToggle,
+  });
   final DownloadTask task;
+  final bool selected;
+  final bool selecting;
+  final VoidCallback? onToggle;
 
   Future<void> _chapters(BuildContext context) async {
     final t = DownloadManager.instance.task(task.uid);
@@ -709,7 +791,7 @@ class _TaskTile extends StatelessWidget {
   Future<void> _open(BuildContext context) async {
     final t = DownloadManager.instance.task(task.uid);
     if (!context.mounted || t == null) return;
-    if (t.isVideo && t.chapters.length > 1) {
+    if (t.chapters.length > 1) {
       return _chapters(context);
     }
     return Nav.openChapter(
@@ -960,8 +1042,8 @@ class _TaskTile extends StatelessWidget {
       ),
     };
     return ActionInkWell(
-      onTap: () => _open(context),
-      onLongPress: () => _menu(context),
+      onTap: () => selecting ? onToggle?.call() : _open(context),
+      onLongPress: onToggle ?? () => _menu(context),
       child: SelectionContainer.disabled(
         child: Padding(
           padding: const EdgeInsets.fromLTRB(Gap.page, Gap.m, Gap.page, Gap.m),
@@ -988,6 +1070,13 @@ class _TaskTile extends StatelessWidget {
                   ),
                 ),
               ),
+              if (onToggle != null)
+                Semantics(
+                  selected: selected,
+                  child: IgnorePointer(
+                    child: Checkbox(value: selected, onChanged: (_) {}),
+                  ),
+                ),
               const SizedBox(width: Gap.m),
               Expanded(
                 child: Column(
@@ -1040,23 +1129,41 @@ class _TaskTile extends StatelessWidget {
                         progress: t.total > 0 ? t.progress : null,
                       ),
                     ],
+                    if (t.status == DownloadStatus.running ||
+                        t.status == DownloadStatus.paused ||
+                        t.status == DownloadStatus.failed) ...[
+                      const SizedBox(height: Gap.s),
+                      Align(
+                        alignment: AlignmentDirectional.centerStart,
+                        child: OutlinedButton.icon(
+                          style: OutlinedButton.styleFrom(
+                            minimumSize: const Size(0, 36),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: Gap.m,
+                            ),
+                            visualDensity: VisualDensity.compact,
+                          ),
+                          icon: Icon(
+                            t.status == DownloadStatus.running
+                                ? Icons.pause_rounded
+                                : Icons.play_arrow_rounded,
+                            size: 18,
+                          ),
+                          label: Text(
+                            tr(
+                              t.status == DownloadStatus.running ? '暂停' : '继续',
+                            ),
+                          ),
+                          onPressed: () => t.status == DownloadStatus.running
+                              ? DownloadManager.instance.pause(t.uid)
+                              : DownloadManager.instance.resume(t.uid),
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               ),
               const SizedBox(width: 4),
-              if (t.status == DownloadStatus.running)
-                IconButton(
-                  tooltip: tr('暂停'),
-                  icon: const Icon(Icons.pause_rounded),
-                  onPressed: () => DownloadManager.instance.pause(t.uid),
-                )
-              else if (t.status == DownloadStatus.paused ||
-                  t.status == DownloadStatus.failed)
-                IconButton(
-                  tooltip: tr('继续'),
-                  icon: const Icon(Icons.play_arrow_rounded),
-                  onPressed: () => DownloadManager.instance.resume(t.uid),
-                ),
               IconButton(
                 tooltip: tr('更多'),
                 icon: const Icon(Icons.more_vert_rounded),

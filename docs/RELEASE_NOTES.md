@@ -1,35 +1,45 @@
 ## 中文
 
 ### 新功能
-- 收藏与下载页提供统一的搜索、域、站点和自定义分类筛选；下载页还可按作品类型和任务状态筛选。
-- 下载作品可以分配自定义分类，并与收藏作品共用分类目录。
+- 同一帖子内的图片和视频支持按原顺序左右滑动浏览，适用于 Telegram、X 等混合媒体帖子。
+- 筛选选项支持搜索；51吃瓜网、黑料网和每日大赛的分类与标签支持多选。
 
 ### 改进
-- 收藏和下载的范围控件与显示切换保持一致；下载导入、导出文件管理、并发配置和分类管理收在“更多”菜单中。
-- Feed 筛选统一展示各 Feed 共有的通用筛选项，避免重复显示。
+- 下载页增加批量管理，暂停和继续按钮显示图标与文字，多集作品可进入选集。
+- 社区栏目区分已加入频道与已关注作者，优化订阅列表分页、搜索和媒体筛选。
+- 统一域、站点和分类的筛选顺序，改进分类创建入口与栏目专属筛选展示。
+- 减少长文本自动翻译时的重复计算。
 
 ### 修复
-- 修复 Reddit 已加入社区和 X 已关注用户列表只加载首批结果的问题。
+- 修复小说内容类型识别与页面分派错误。
+- 修复漫画已读后回看时页码被重置，以及切章时旧章节位置干扰新章节的问题。
+- 修复页码与视频进度合并时覆盖较新记录，以及视频未加载目录时进度未及时保存的问题。
+- 修复吃瓜帖子缺少标准封面时的图片回退，并为详情视频补充预览封面。
 
 ### 插件更新
-- E-Hentai 0.0.18：浏览、热门和排行榜支持作品筛选。
-- Reddit 0.0.11：已加入社区列表支持分页。
-- X 0.0.20：已关注用户列表支持分页。
+- 51吃瓜网、黑料网、每日大赛 0.0.8：支持分类与标签多选，补充帖子及视频封面。
+- Reddit 0.0.14：完善频道订阅声明、分页与订阅搜索。
+- X 0.0.24：区分频道和关注作者，完善分页、搜索及媒体筛选。
 
 ## English
 
 ### New
-- Favorites and downloads now share search, domain, site and custom-category filters. Downloads also support media-type and task-status filters.
-- Downloaded works can be assigned to custom categories shared with favorites.
+- Swipe through images and videos in their original order within a post, including mixed-media posts from Telegram and X.
+- Filter options are searchable. Categories and tags on 51吃瓜网, 黑料网 and 每日大赛 support multiple selections.
 
 ### Improvements
-- Favorites and downloads use consistent scope and display controls. Download import, exported-file management, concurrency settings and category management are in More.
-- Feed filters show common options shared by every feed without duplicating them.
+- Downloads support bulk management, labeled pause and resume buttons, and episode selection for multi-episode works.
+- Community feeds distinguish joined channels from followed authors, with improved subscription pagination, search and media filters.
+- Standardized domain, site and category filter ordering, category creation and feed-specific filter presentation.
+- Reduced repeated computation when automatically translating long text.
 
 ### Fixes
-- Fixed Reddit joined-community and X following lists stopping after their first page.
+- Fixed novel content-type recognition and page routing.
+- Fixed saved comic pages being reset when revisiting read chapters and old chapter positions interfering with chapter switches.
+- Fixed newer reading or video progress being overwritten during merging and delayed video progress saving before the episode list loads.
+- Fixed image fallbacks for posts without standard covers and added video previews to article details.
 
 ### Plugin updates
-- E-Hentai 0.0.18: added work filters to browse, popular and ranking feeds.
-- Reddit 0.0.11: paginated joined-community lists.
-- X 0.0.20: paginated following lists.
+- 51吃瓜网, 黑料网 and 每日大赛 0.0.8: multiple category and tag selections, plus post and video cover fallbacks.
+- Reddit 0.0.14: improved channel subscription declarations, pagination and subscription search.
+- X 0.0.24: separate channel and followed-author feeds, with improved pagination, search and media filters.

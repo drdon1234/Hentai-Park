@@ -221,6 +221,8 @@ searchCommonFilters: { pages: { range: ['min', 'max'] } },
 
 ### 动态与级联筛选
 
+筛选面板为枚举候选提供搜索，搜索只改变候选展示，不清空已选值。可组合条件声明 `type: 'multi'`，使用数组传值；排序等互斥条件继续声明 `select`。吃瓜分类和标签使用多选并集，分支交替分页，游标保存各分支进度并消除重复作品；更改选择后从第一页重新加载。
+
 `feeds[].options` 和 `searchFilters` 的单选项可声明 `dynamic: true, values: []`。动态子项用 `dependsOn: ['range']` 引用同组上级；key 必须唯一，依赖必须存在且无环，只有动态项可声明依赖。
 
 `filterOptions(request)` 返回候选数组。请求含 `scope: 'feed' | 'search'`、`filter`、`values`；浏览另传 `feed`，搜索可传 `keyword`。`values` 只包含声明的直接上级，不传账号、设置或其他筛选项。上级未选择或为空时不加载子项。
@@ -333,7 +335,7 @@ account: {
 
 ## 吃瓜图文与域名解析
 
-吃瓜插件声明 `type: 'article', category: 'feed'`，列表作品填写 `mediaKind: 'article'`。`detail(id)` 返回普通作品字段与非空 `blocks`，依原站顺序使用 `{type: 'text', text}`、`{type: 'image', url}` 或 `{type: 'video', id}`；图片必须是公网 HTTPS，视频 ID 为稳定标识，播放时通过 `videos(id, videoId)` 取得当次地址。需要标签直达时，`tagLinks` 使用 `{name, url}`，URL 必须属于已声明源域且由 `searchLink(url, {page})` 处理。正文和临时媒体地址不进入普通详情缓存，收藏与历史只保存作品摘要。
+吃瓜插件声明 `type: 'article', category: 'feed'`，列表作品填写 `mediaKind: 'article'`。`detail(id)` 返回普通作品字段与非空 `blocks`，依原站顺序使用 `{type: 'text', text}`、`{type: 'image', url}` 或 `{type: 'video', id, preview?}`；图片必须是公网 HTTPS，视频 ID 为稳定标识，播放时通过 `videos(id, videoId)` 取得当次地址。`preview` 优先使用原站播放器封面，缺失时可采用正文邻近图片或帖子封面，不虚构媒体地址。图片和视频保留正文顺序，共用帖内横向媒体浏览；视频切出当前页后释放播放器。需要标签直达时，`tagLinks` 使用 `{name, url}`，URL 必须属于已声明源域且由 `searchLink(url, {page})` 处理。正文和临时媒体地址不进入普通详情缓存，收藏与历史只保存作品摘要。
 
 `Park.createDomainResolver({initialOrigin, accept, discover, verify})` 为源提供按需分流。`discover(http)` 只能读取可信发布页并返回候选来源，`accept(origin)` 限定站点所属地址，`verify(body)` 核对候选首页；成功来源保存在该源的私有 store。`resolver.request(this, path, options)` 返回 `{response, origin}`；仅在 403、502/503/504、超时或可分类连接/DNS 故障时尝试新来源。只有 GET、HEAD 和同时声明 `readOnly: true, allowDomainRetry: true` 的公开查询 POST 可重放；含非白名单请求头的请求、证书错误、取消与其他写操作不切换。跳转必须保持同源，浏览器和媒体权限不会因新地址自动扩大。插件必须限制发布页和候选地址，禁止把页面中广告链接当作站点来源。
 
@@ -387,7 +389,7 @@ async resolveGameResource(workId, resourceId, channelId) {}
 { sections: [{ title: '连载更新', items: [WorkItem] }], hasNext: false }
 ```
 
-**WorkItem**：`{ id, title, subtitle?, cover, coverBlurred?, coverAspect?, pages?, rating?, likes?, views?, language?, category?, badge?, badgeColor?, duration?, uploaded?, tags?, authors?, uploader?, mediaKind?, workCode?, editions?, commentsAvailable? }`
+**WorkItem**：`{ id, title, subtitle?, cover, coverImages?, coverBlurred?, coverAspect?, pages?, rating?, likes?, views?, language?, category?, badge?, badgeColor?, duration?, uploaded?, tags?, authors?, uploader?, mediaKind?, workCode?, editions?, commentsAvailable? }`
 
 - `authors` 为原站提供的作者名称数组，`uploader` 为上传者标识，用于源内作者屏蔽。列表应尽量提供这些字段；不得从标题或含义不明的副标题猜测作者。列表缺失时，长按屏蔽作者会尝试从详情补充。
 
@@ -397,6 +399,7 @@ async resolveGameResource(workId, resourceId, channelId) {}
 - `editions` 是原站明确标注的固定版本标签（如“中文字幕”“无码流出”）；没有标记时不得推断为原版。显示译文不改变原始标签。
 
 - `coverAspect`（宽 / 高）让网格在图片加载前就排好版。
+- `coverImages` 是帖子内可用于封面的有序图片候选；只在原站没有标准封面且列表已提供这些图时填写。应用按首图方向自适应：横图完整对齐，竖图或方图可拼接候选图。缺图时保留 `cover` 与标准占位行为。
 - `badgeColor` 用于分类角标的颜色。
 - `mediaKind: 'comic' | 'video' | 'novel' | 'game' | 'article'` 描述作品本身的类型。插件只有一种类型时可以省略；混合类型时必须填写，不能凭插件的 `type` 把图片当成视频。小说、游戏和吃瓜作品总是填写，这样卸载插件后仍保留正确类型。
 - 帖子类结果可以带 `presentation: 'post'`、`text`、`date`、`url` 和 `media` 数组，以帖子卡片显示；`presentation: 'media'` 用媒体网格显示，点击进入作品中的媒体。帖子正文允许没有媒体；媒体地址仍受插件声明的域名和权限约束。
@@ -531,7 +534,9 @@ subscription: {
 ```
 
 - `normalize` 必须纯本地校验：未登录、无网络时也能保存目标；只接受当前站点的用户名或受控的主页 URL。`resolve`、`targets` 可选；有 `targets` 时清单输出 `subscription.joinedTargets: true`。
+- `joinedCreators: true` 表示无 `kind` 的目标分页是已关注的创作者；可与 `communities: true` 并存，应用会分别将创作者和已加入社群入口放在站点栏目条中。未声明时按站点既有默认目标处理。
 - 支持社群独立入口时声明 `communities: true`、界面说明 `communityHint` 与输入示例 `communityExample`；运行时原样导出这些元数据。社群目标返回 `{ id, label, kind: 'community' }`，ID 必须能区分作者目标。框架通过 `targets({ kind: 'community' })` 请求已加入社群，通过无参数 `targets()` 请求默认列表；插件应分别处理，不能因社群接口失败而破坏作者列表。`resolve` 可只读确认社群名称与访问权限，不应自动加入社群。
+- 目标数量较多时，`targets({ mode: 'page', cursor, query, kind })` 可按需返回 `{ targets, cursor, hasNext }`。首屏只返回一页；`cursor` 为不透明游标，`query` 用于原站搜索时必须调用对应搜索接口，不应先遍历全部关注目标。未声明分页实现的插件继续使用 `targets()` 数组形式。
 - `posts` 的游标是不透明字符串，最后一页 `hasNext: false`，没有媒体的页面也允许继续翻页。`locked` 表示权限不足；`previewOnly` 明示只是公开预览，不能把缩略图冒充全文。
 
 ### 公共相册：`subscription.media`

@@ -54,7 +54,9 @@ class _SourcePageState extends State<SourcePage> {
         AnimatedBuilder(
           animation: DefaultTabController.of(context),
           builder: (context, _) {
-            final feed = manifest.feeds[DefaultTabController.of(context).index];
+            final index = DefaultTabController.of(context).index;
+            if (index >= manifest.feeds.length) return const SizedBox.shrink();
+            final feed = manifest.feeds[index];
             if (feed.options.isEmpty && feed.commonFilters.isEmpty) {
               return const SizedBox.shrink();
             }
@@ -153,7 +155,20 @@ class _SourcePageState extends State<SourcePage> {
         feedIndex: widget.initialFeed,
       );
     }
-    final feedTabs = m.feeds.isNotEmpty
+    final subscription = m.json['subscription'] as Map?;
+    final joinedTabs = <({String label, bool communitiesOnly})>[
+      if (subscription?['joinedTargets'] == true &&
+          subscription?['joinedCreators'] == true)
+        (label: '已关注博主', communitiesOnly: false),
+      if (subscription?['joinedTargets'] == true &&
+          subscription?['communities'] == true)
+        (label: '已加入频道', communitiesOnly: true),
+      if (subscription?['joinedTargets'] == true &&
+          subscription?['joinedCreators'] != true &&
+          subscription?['communities'] != true)
+        (label: '已加入或已关注', communitiesOnly: false),
+    ];
+    final feedTabs = m.feeds.isNotEmpty || joinedTabs.isNotEmpty
         ? TabBar(
             isScrollable: true,
             tabs: [
@@ -163,6 +178,15 @@ class _SourcePageState extends State<SourcePage> {
                       (MediaQuery.textScalerOf(context).scale(16) * 1.5 + Gap.l)
                           .clamp(48.0, double.infinity),
                   child: SelectionContainer.disabled(child: Text(f.label)),
+                ),
+              for (final joined in joinedTabs)
+                Tab(
+                  height:
+                      (MediaQuery.textScalerOf(context).scale(16) * 1.5 + Gap.l)
+                          .clamp(48.0, double.infinity),
+                  child: SelectionContainer.disabled(
+                    child: Text(tr(joined.label)),
+                  ),
                 ),
             ],
           )
@@ -182,7 +206,7 @@ class _SourcePageState extends State<SourcePage> {
     return TranslationPage(
       child: DefaultTabController(
         key: ValueKey((widget.sourceKey, accountStatus?.loggedIn == true)),
-        length: m.feeds.length,
+        length: m.feeds.length + joinedTabs.length,
         initialIndex:
             (widget.initialFeed ?? _sources.entryFeedIndex(widget.sourceKey))
                 .clamp(0, m.feeds.isEmpty ? 0 : m.feeds.length - 1),
@@ -216,19 +240,6 @@ class _SourcePageState extends State<SourcePage> {
                         if (tabs == null)
                           Builder(
                             builder: (context) => _displayControls(context, m),
-                          ),
-                        if ((m.json['subscription'] as Map?)?['communities'] ==
-                            true)
-                          IconButton(
-                            tooltip: tr('社群'),
-                            onPressed: () => Nav.push(
-                              context,
-                              SubscriptionSourcePage(
-                                source: widget.sourceKey,
-                                communitiesOnly: true,
-                              ),
-                            ),
-                            icon: const Icon(Icons.groups_outlined),
                           ),
                         TranslationControls(source: widget.sourceKey),
                         if (m.can('search'))
@@ -308,7 +319,7 @@ class _SourcePageState extends State<SourcePage> {
                     ),
                   ),
                 ],
-                body: m.feeds.isEmpty
+                body: m.feeds.isEmpty && joinedTabs.isEmpty
                     ? LayoutBuilder(
                         builder: (context, constraints) =>
                             SingleChildScrollView(
@@ -338,6 +349,12 @@ class _SourcePageState extends State<SourcePage> {
                               listMode: _listMode,
                               hidePreviews: _hidePreviews,
                               onFiltersChanged: () => setState(() {}),
+                            ),
+                          for (final joined in joinedTabs)
+                            SubscriptionSourcePage(
+                              source: widget.sourceKey,
+                              communitiesOnly: joined.communitiesOnly,
+                              embedded: true,
                             ),
                         ],
                       ),

@@ -70,6 +70,7 @@ mixin _ReaderViews on _ReaderBase, _ReaderNavigation, _ReaderInput {
       maxScale: 4,
       panEnabled: _zoomed,
       child: ScrollablePositionedList.builder(
+        key: ValueKey((_chapterId, _loadGeneration)),
         itemScrollController: _itemScroll,
         itemPositionsListener: _positions,
         scrollOffsetController: _offsets,
@@ -145,6 +146,7 @@ mixin _ReaderViews on _ReaderBase, _ReaderNavigation, _ReaderInput {
       // The UI language must not invert the selected manga reading direction.
       textDirection: TextDirection.ltr,
       child: PageView.builder(
+        key: ValueKey((_chapterId, _loadGeneration)),
         controller: _pager,
         reverse: _rtl,
         itemCount: _spreads.length + (_hasNextChapter ? 1 : 0),

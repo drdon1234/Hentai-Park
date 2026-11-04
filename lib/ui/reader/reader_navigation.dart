@@ -70,7 +70,7 @@ mixin _ReaderNavigation on _ReaderBase {
   }
 
   void _onScroll() {
-    if (_paged) return;
+    if (_paged || _pages == null || _loadedChapterId != _chapterId) return;
     final visible = _positions.itemPositions.value.where(
       (p) => p.itemTrailingEdge > 0.1 && p.itemLeadingEdge < 0.9,
     );

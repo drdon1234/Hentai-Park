@@ -89,6 +89,23 @@ mixin _SubscriptionApi on _SourceRegistry {
     if (kind != null) {'kind': kind},
   ])) as List).whereType<Map>().map(SubscriptionTarget.new).toList();
 
+  Future<SubscriptionTargetPage> subscriptionTargetPage(
+    String key, {
+    String? kind,
+    String? cursor,
+    String? query,
+    CancelToken? cancelToken,
+  }) async => SubscriptionTargetPage(
+    (await _call(key, 'subscription.targets', [
+      {
+        'mode': 'page',
+        'kind': ?kind,
+        'cursor': ?cursor,
+        if (query != null && query.trim().isNotEmpty) 'query': query.trim(),
+      },
+    ], cancelToken: cancelToken)) as Map,
+  );
+
   Future<SubscriptionPage> subscriptionPosts(
     String key,
     String target, {
