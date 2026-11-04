@@ -50,19 +50,45 @@ class _SubscriptionSourcePageState extends State<SubscriptionSourcePage> {
             .showSnackBar(SnackBar(content: Text(tr('账号暂无已加入或已关注的目标'))));
         return;
       }
+      final filter = TextEditingController();
       final target = await showDialog<SubscriptionTarget>(
         context: context,
-        builder: (context) => SimpleDialog(
-          title: Text(tr('已加入或已关注')),
-          children: [
-            for (final item in targets)
-              SimpleDialogOption(
-                onPressed: () => Navigator.pop(context, item),
-                child: Text(item.label),
-              ),
-          ],
+        builder: (context) => StatefulBuilder(
+          builder: (context, refresh) {
+            final query = filter.text.trim().toLowerCase();
+            final visible = targets
+                .where((item) => item.label.toLowerCase().contains(query))
+                .toList();
+            return SimpleDialog(
+              title: Text(tr('已加入或已关注')),
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(24, 0, 24, 8),
+                  child: TextField(
+                    controller: filter,
+                    autofocus: true,
+                    decoration: InputDecoration(
+                      prefixIcon: const Icon(Icons.search_rounded),
+                      hintText: tr('筛选频道或作者'),
+                    ),
+                    onChanged: (_) => refresh(() {}),
+                  ),
+                ),
+                for (final item in visible)
+                  SimpleDialogOption(
+                    onPressed: () => Navigator.pop(context, item),
+                    child: Text(item.label),
+                  ),
+                if (visible.isEmpty)
+                  Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: Text(tr('没有匹配的频道或作者')),
+                  ),
+              ],
+            );
+          },
         ),
-      );
+      ).whenComplete(filter.dispose);
       if (!mounted || target == null) return;
       await Nav.push(
         context,

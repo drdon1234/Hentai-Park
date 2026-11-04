@@ -151,6 +151,7 @@ Cada entrada de `feeds` es una pestaña de la página del sitio: `{ key, label, 
 ### Filtros y orden comunes
 
 Los plugins declaran `commonFilters` por feed y `searchCommonFilters` para las búsquedas. La aplicación solo muestra las operaciones declaradas y no aproxima filtros a partir de las obras ya cargadas. El plugin debe traducir las condiciones a consultas reales del sitio y conservarlas al cambiar de página.
+La hoja de filtros de navegación muestra primero las opciones propias del feed. Las capacidades comunes idénticas declaradas por todos los feeds aparecen debajo en la sección común del sitio; las que varían se mantienen como específicas del feed. Los plugins solo deben declarar condiciones compatibles con las consultas reales del sitio.
 
 ```js
 feeds: [{ key: 'latest', label: 'Más recientes', commonFilters: {

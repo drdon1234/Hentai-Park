@@ -251,7 +251,7 @@ class _DetailPageState extends State<DetailPage> with RouteAware {
       widget.preview ??
       WorkItem({'id': widget.id, 'title': widget.id}, widget.source);
 
-  void _read({Chapter? chapter, int page = 0}) {
+  void _read({Chapter? chapter, int? page}) {
     final d = _detail;
     if (d == null) return;
     if (_opensExternally || _isGame) {
@@ -266,8 +266,18 @@ class _DetailPageState extends State<DetailPage> with RouteAware {
       context.toast(tr('暂无章节'));
       return;
     }
-    chapter ??= d.chapterToOpen(Library.instance.historyOf(d.uid)?.chapterId);
-    Nav.openReader(context, d, chapter: chapter, startPage: page);
+    final history = Library.instance.historyOf(d.uid);
+    chapter ??= d.chapterToOpen(history?.chapterId);
+    final chapterId = chapter?.id ?? d.singleChapterId;
+    final state = Library.instance.chapterState(d.uid, chapterId);
+    final startPage =
+        page ??
+        (history?.chapterId == chapterId
+            ? history!.page
+            : state == null || state.read
+            ? 0
+            : state.lastPage);
+    Nav.openReader(context, d, chapter: chapter, startPage: startPage);
   }
 
   void _continue() {

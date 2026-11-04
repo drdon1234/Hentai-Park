@@ -62,7 +62,7 @@ Future<void> toggleFavorite(BuildContext context, WorkItem item) async {
     }
     if (choice != 'add') return;
   }
-  var categories = <int>{};
+  Set<int>? categories;
   if (AppSettings.instance.askCategoryOnFavorite && lib.categories.isNotEmpty) {
     final picked = await pickCategories(context, title: tr('收藏到'));
     if (picked == null) return;

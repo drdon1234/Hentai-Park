@@ -638,6 +638,54 @@ class SourceManifest {
   ReverseSearchCategory get reverseSearchCategory =>
       ReverseSearchCategory.fromJson(json['reverseSearchCategory']);
 
+  /// Filter capabilities shared by every feed; feed-specific capabilities stay separate.
+  List<CommonFilterDef> get sharedFeedCommonFilters {
+    if (feeds.isEmpty) return const [];
+    return [
+      for (final dimension in CommonFilterDimension.values)
+        ?_sharedCommonFilter(dimension),
+    ];
+  }
+
+  CommonFilterDef? _sharedCommonFilter(CommonFilterDimension dimension) {
+    final definitions = [
+      for (final feed in feeds)
+        feed.commonFilters
+            .where((filter) => filter.dimension == dimension)
+            .firstOrNull,
+    ];
+    if (definitions.any((definition) => definition == null)) return null;
+    final present = definitions.cast<CommonFilterDef>();
+    final first = present.first;
+    if (present
+        .skip(1)
+        .any(
+          (definition) =>
+              definition.minimum != first.minimum ||
+              definition.maximum != first.maximum ||
+              !_sameStrings(definition.sortOrders, first.sortOrders),
+        )) {
+      return null;
+    }
+    return first;
+  }
+
+  List<CommonFilterDef> uniqueFeedCommonFilters(FeedDef feed) => [
+    for (final definition in feed.commonFilters)
+      ?_uniqueCommonFilter(definition),
+  ];
+
+  CommonFilterDef? _uniqueCommonFilter(CommonFilterDef definition) {
+    final shared = sharedFeedCommonFilters
+        .where((filter) => filter.dimension == definition.dimension)
+        .firstOrNull;
+    return shared == null ? definition : null;
+  }
+
+  bool _sameStrings(List<String> a, List<String> b) =>
+      a.length == b.length &&
+      a.indexed.every((entry) => entry.$2 == b[entry.$1]);
+
   /// Key of the feed the source page opens on (manifest `defaultFeed`).
   final String defaultFeed;
   final String anonymousDefaultFeed;

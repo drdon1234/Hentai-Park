@@ -144,6 +144,7 @@ class Library extends ChangeNotifier {
 
   late AppDatabase _db;
   final Map<String, FavoriteEntry> _favorites = {};
+  final Map<String, Set<int>> _workCategories = {};
   final Map<String, HistoryEntry> _history = {};
   final List<Category> _categories = [];
   final Map<String, List<ChapterState>> _chapters = {};
@@ -190,6 +191,7 @@ class Library extends ChangeNotifier {
     await flush();
     _db = db;
     _favorites.clear();
+    _workCategories.clear();
     _history.clear();
     _categories.clear();
     _chapters.clear();
@@ -209,6 +211,7 @@ class Library extends ChangeNotifier {
           .putIfAbsent('${m.source}:${m.workId}', () => {})
           .add(m.categoryId);
     }
+    _workCategories.addAll(memberships);
     for (final w in await (db.select(
       db.works,
     )..where((w) => w.favorite.equals(true))).get()) {
@@ -348,6 +351,10 @@ class Library extends ChangeNotifier {
   Category? category(int id) =>
       _categories.where((c) => c.id == id).firstOrNull;
 
+  int categoryCount(int id) => _workCategories.values
+      .where((categories) => categories.contains(id))
+      .length;
+
   Future<Category?> createCategory(String name) async {
     final n = name.trim();
     if (n.isEmpty || _categories.any((c) => c.name == n)) return null;
@@ -383,6 +390,9 @@ class Library extends ChangeNotifier {
 
   void deleteCategory(int id) {
     _categories.removeWhere((c) => c.id == id);
+    for (final categories in _workCategories.values) {
+      categories.remove(id);
+    }
     for (final f in _favorites.values) {
       f.categories.remove(id);
     }
@@ -430,17 +440,16 @@ class Library extends ChangeNotifier {
 
   bool isFavorite(String uid) => _favorites.containsKey(uid);
   FavoriteEntry? favorite(String uid) => _favorites[uid];
-  Set<int> categoriesOf(String uid) => {...?_favorites[uid]?.categories};
+  Set<int> categoriesOf(String uid) => {...?_workCategories[uid]};
 
-  void addFavorite(
-    WorkItem item, {
-    Set<int> categories = const {},
-    DateTime? at,
-  }) {
+  void addFavorite(WorkItem item, {Set<int>? categories, DateTime? at}) {
     item = _domainSnapshot(item);
     final now = at ?? DateTime.now();
-    final valid = categories.where((id) => category(id) != null).toSet();
+    final valid = (categories ?? _workCategories[item.uid] ?? const <int>{})
+        .where((id) => category(id) != null)
+        .toSet();
     _favorites[item.uid] = FavoriteEntry(item, now, valid);
+    _workCategories[item.uid] = valid;
     _run(() async {
       await _db.transaction(() async {
         await _saveWork(item);
@@ -472,19 +481,39 @@ class Library extends ChangeNotifier {
             favoritedAt: Value(null),
           ),
         );
-        await _writeCategories(uid, const {});
       }),
     );
     _changed(const {LibraryCollection.favorites}, [uid]);
   }
 
   void setCategories(String uid, Set<int> ids) {
-    final f = _favorites[uid];
-    if (f == null) return;
     final valid = ids.where((id) => category(id) != null).toSet();
-    f.categories = valid;
+    _workCategories[uid] = valid;
+    final favorite = _favorites[uid];
+    if (favorite != null) favorite.categories = valid;
     _run(() => _db.transaction(() => _writeCategories(uid, valid)));
-    _changed(const {LibraryCollection.favorites}, [uid]);
+    _changed(
+      const {LibraryCollection.favorites, LibraryCollection.categories},
+      [uid],
+    );
+  }
+
+  void setWorkCategories(WorkItem item, Set<int> ids) {
+    item = _domainSnapshot(item);
+    final valid = ids.where((id) => category(id) != null).toSet();
+    _workCategories[item.uid] = valid;
+    final favorite = _favorites[item.uid];
+    if (favorite != null) favorite.categories = valid;
+    _run(() async {
+      await _db.transaction(() async {
+        await _saveWork(item);
+        await _writeCategories(item.uid, valid);
+      });
+    });
+    _changed(
+      const {LibraryCollection.favorites, LibraryCollection.categories},
+      [item.uid],
+    );
   }
 
   Future<void> _writeCategories(String uid, Set<int> ids) async {

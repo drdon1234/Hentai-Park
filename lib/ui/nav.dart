@@ -296,9 +296,7 @@ class Nav {
       ? openWork(context, work.toItem())
       : push(
           context,
-          (!downloadedOnly &&
-                      SourceManager.instance.manifest(work.source)?.isNovel ==
-                          true) ||
+          SourceManager.instance.manifest(work.source)?.isNovel == true ||
                   DownloadManager.instance.task(work.uid)?.isNovel == true ||
                   work.isNovel
               ? NovelReaderPage(

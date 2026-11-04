@@ -34,29 +34,19 @@ class _LibraryPageState extends State<LibraryPage> {
   bool _searching = false;
   final Set<String> _selected = {};
   ContentScope _scope = const ContentScope.all();
+  int? _category;
+
+  int? get _activeCategory =>
+      _category != null &&
+          _category != Library.defaultCategory &&
+          Library.instance.category(_category!) == null
+      ? null
+      : _category;
 
   @override
   void dispose() {
     _query.dispose();
     super.dispose();
-  }
-
-  /// Tabs: all favorites, then "默认" (when it has items) and each category. null = all.
-  List<int?> _tabs(Library lib) {
-    if (lib.categories.isEmpty) return const [null];
-    return [
-      null,
-      if (lib.favorites(category: Library.defaultCategory).isNotEmpty)
-        Library.defaultCategory,
-      for (final c in lib.categories) c.id,
-    ];
-  }
-
-  String _tabLabel(Library lib, int? id) {
-    final n = lib.favorites(category: id).length;
-    if (id == null) return tr('全部 {value0}', {'value0': n});
-    if (id == Library.defaultCategory) return tr('默认 {value0}', {'value0': n});
-    return '${lib.category(id)?.name ?? ''} $n';
   }
 
   Future<void> _update(int? category) async {
@@ -144,42 +134,19 @@ class _LibraryPageState extends State<LibraryPage> {
       ]),
       builder: (context, _) {
         final lib = Library.instance;
-        final tabs = _tabs(lib);
         _selected.removeWhere((uid) => !lib.isFavorite(uid));
-        return DefaultTabController(
-          key: ValueKey(tabs.join(',')),
-          length: tabs.length,
-          child: Builder(
-            builder: (context) => Scaffold(
-              appBar: _selected.isNotEmpty
-                  ? _selectionBar()
-                  : _appBar(context, lib, tabs),
-              body: tabs.length == 1
-                  ? _LibraryTab(
-                      category: null,
-                      query: _query.text,
-                      scope: _scope,
-                      selected: _selected,
-                      onToggle: _toggle,
-                      onScopeChanged: (scope) => setState(() => _scope = scope),
-                      onRefresh: () => _update(null),
-                    )
-                  : TabBarView(
-                      children: [
-                        for (final t in tabs)
-                          _LibraryTab(
-                            category: t,
-                            query: _query.text,
-                            scope: _scope,
-                            selected: _selected,
-                            onToggle: _toggle,
-                            onScopeChanged: (scope) =>
-                                setState(() => _scope = scope),
-                            onRefresh: () => _update(t),
-                          ),
-                      ],
-                    ),
-            ),
+        return Scaffold(
+          appBar: _selected.isNotEmpty ? _selectionBar() : _appBar(context),
+          body: _LibraryTab(
+            category: _activeCategory,
+            query: _query.text,
+            scope: _scope,
+            selected: _selected,
+            onToggle: _toggle,
+            onScopeChanged: (scope) => setState(() => _scope = scope),
+            onCategoryChanged: (category) =>
+                setState(() => _category = category),
+            onRefresh: () => _update(_activeCategory),
           ),
         );
       },
@@ -223,12 +190,7 @@ class _LibraryPageState extends State<LibraryPage> {
     ],
   );
 
-  PreferredSizeWidget _appBar(
-    BuildContext context,
-    Library lib,
-    List<int?> tabs,
-  ) {
-    final controller = DefaultTabController.of(context);
+  PreferredSizeWidget _appBar(BuildContext context) {
     return PageHeader(
       titleWidget: _searching
           ? TextField(
@@ -274,16 +236,16 @@ class _LibraryPageState extends State<LibraryPage> {
           tooltip: tr('更多'),
           onSelected: (v) {
             switch (v) {
-              case 'update':
-                _update(tabs[controller.index]);
               case 'updateAll':
                 _update(null);
+              case 'update':
+                _update(_activeCategory);
               case 'categories':
                 Nav.push(context, const CategoryManagePage());
             }
           },
           itemBuilder: (_) => [
-            if (tabs.length > 1)
+            if (_activeCategory != null)
               PopupMenuItem(
                 value: 'update',
                 child: SelectionContainer.disabled(
@@ -301,20 +263,6 @@ class _LibraryPageState extends State<LibraryPage> {
           ],
         ),
       ],
-      bottom: tabs.length > 1
-          ? TabBar(
-              isScrollable: true,
-              tabAlignment: TabAlignment.start,
-              tabs: [
-                for (final t in tabs)
-                  Tab(
-                    child: SelectionContainer.disabled(
-                      child: Text(_tabLabel(lib, t)),
-                    ),
-                  ),
-              ],
-            )
-          : null,
     );
   }
 }
@@ -327,6 +275,7 @@ class _LibraryTab extends StatelessWidget {
     required this.selected,
     required this.onToggle,
     required this.onScopeChanged,
+    required this.onCategoryChanged,
     required this.onRefresh,
   });
   final int? category;
@@ -335,6 +284,7 @@ class _LibraryTab extends StatelessWidget {
   final Set<String> selected;
   final ValueChanged<String> onToggle;
   final ValueChanged<ContentScope> onScopeChanged;
+  final ValueChanged<int?> onCategoryChanged;
   final Future<void> Function() onRefresh;
 
   List<FavoriteEntry> _entries() {
@@ -439,6 +389,8 @@ class _LibraryTab extends StatelessWidget {
                 child: ContentScopeSelector(
                   scope: scope,
                   onChanged: onScopeChanged,
+                  categoryId: category,
+                  onCategoryChanged: onCategoryChanged,
                   items: [
                     for (final f in Library.instance.favorites(
                       category: category,

@@ -204,6 +204,8 @@ return { browser: {
 
 插件可按 Feed 和搜索分别声明 `commonFilters`、`searchCommonFilters`。应用只显示已声明的操作，不会按已加载作品字段做本地近似筛选；插件须把条件映射到原站真实查询，并在分页时保留条件。
 
+浏览筛选页先显示当前 Feed 的 `options` 与仅该 Feed 支持的通用筛选能力；所有 Feed 对同一维度声明完全相同的范围与排序能力时，该维度显示在下方“通用筛选”区域。源需在每个支持该条件的 Feed 中准确声明，应用不会把单个 Feed 的能力推断为全站能力。
+
 ```js
 feeds: [{ key: 'latest', label: '最新', commonFilters: {
   pages: { range: ['min'], sort: ['asc', 'desc'] },

@@ -15,11 +15,15 @@ class ContentScopeSelector extends StatelessWidget {
     required this.scope,
     required this.onChanged,
     required this.items,
+    this.categoryId,
+    this.onCategoryChanged,
   });
 
   final ContentScope scope;
   final ValueChanged<ContentScope> onChanged;
   final Iterable<WorkItem> items;
+  final int? categoryId;
+  final ValueChanged<int?>? onCategoryChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -55,11 +59,11 @@ class ContentScopeSelector extends StatelessWidget {
           runSpacing: Gap.s,
           children: [
             MenuChip<SourceCategory?>(
-              label: category?.label ?? tr('全部分类'),
+              label: category?.label ?? tr('全部域'),
               active: category != null,
               selected: category,
               options: {
-                null: tr('全部分类'),
+                null: tr('全部域'),
                 for (final d in AppSettings.instance.domainOrder) d: d.label,
               },
               onSelected: (value) => onChanged(
@@ -68,6 +72,23 @@ class ContentScopeSelector extends StatelessWidget {
                     : ContentScope.domain(value),
               ),
             ),
+            if (onCategoryChanged != null)
+              MenuChip<int?>(
+                label: categoryId == null
+                    ? tr('全部分类')
+                    : categoryId == Library.defaultCategory
+                    ? tr('默认')
+                    : Library.instance.category(categoryId!)?.name ??
+                          tr('全部分类'),
+                active: categoryId != null,
+                selected: categoryId,
+                options: {
+                  null: tr('全部分类'),
+                  Library.defaultCategory: tr('默认'),
+                  for (final c in Library.instance.categories) c.id: c.name,
+                },
+                onSelected: onCategoryChanged!,
+              ),
             MenuChip<String?>(
               label: source == null ? tr('全部站点') : siteName(source),
               active: source != null,

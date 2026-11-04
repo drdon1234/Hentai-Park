@@ -207,7 +207,12 @@ class BackupService {
         JOIN categories c ON c.id = m.category_id
         WHERE m.source = w.source AND m.work_id = w.id
       ) AS category_names
-      FROM works w WHERE w.rowid > ? AND (w.favorite = 1 OR w.reader_mode IS NOT NULL)
+      FROM works w WHERE w.rowid > ? AND (
+        w.favorite = 1 OR w.reader_mode IS NOT NULL OR EXISTS (
+          SELECT 1 FROM work_categories m
+          WHERE m.source = w.source AND m.work_id = w.id
+        )
+      )
       ORDER BY w.rowid LIMIT 512
     ''').map(
         (r) => {

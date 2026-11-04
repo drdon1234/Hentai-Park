@@ -65,6 +65,7 @@ class _TranslationPageState extends State<TranslationPage> {
         locale: AppLocalizations.localeKey(AppLocalizations.of(context).locale),
         engine: AppSettings.instance.translateEngine,
         retry: retry,
+        dictionaryRevision: TagTranslations.instance.revision,
         child: widget.child,
       ),
     );
@@ -80,12 +81,14 @@ class _TranslationScope extends InheritedTheme {
     required this.locale,
     required this.engine,
     required this.retry,
+    required this.dictionaryRevision,
     required super.child,
   });
   final _TranslationPageState owner;
   final bool original, enabled, active;
   final String locale, engine;
   final int retry;
+  final int dictionaryRevision;
   static _TranslationScope? of(BuildContext context) =>
       context.dependOnInheritedWidgetOfExactType<_TranslationScope>();
   @override
@@ -97,11 +100,19 @@ class _TranslationScope extends InheritedTheme {
     locale: locale,
     engine: engine,
     retry: retry,
+    dictionaryRevision: dictionaryRevision,
     child: child,
   );
   @override
   // Installed dictionaries refresh visible display without mutating source models.
-  bool updateShouldNotify(_TranslationScope old) => true;
+  bool updateShouldNotify(_TranslationScope old) =>
+      original != old.original ||
+      enabled != old.enabled ||
+      active != old.active ||
+      locale != old.locale ||
+      engine != old.engine ||
+      retry != old.retry ||
+      dictionaryRevision != old.dictionaryRevision;
 }
 
 /// One short unit of visible remote text. Builder keeps the host's layout/style.

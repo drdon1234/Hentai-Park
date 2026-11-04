@@ -10,6 +10,7 @@ import '../../core/content_scope.dart';
 import '../../core/localization.dart';
 import '../../core/models.dart';
 import '../../core/settings.dart';
+import '../../core/titles.dart';
 import '../../engine/source_manager.dart';
 import '../../game/downloads.dart';
 import '../../library/cbz.dart';
@@ -28,9 +29,11 @@ import '../widgets/content_scope_selector.dart';
 import '../widgets/cover_tile.dart';
 import '../widgets/file_drop_region.dart';
 import '../widgets/platform_share.dart';
+import 'category_manage_page.dart';
 import 'download_progress.dart';
 import 'download_settings.dart';
 import 'exports_page.dart';
+import 'favorite_actions.dart';
 import 'recording_tile.dart';
 
 class DownloadsPage extends StatefulWidget {
@@ -41,8 +44,26 @@ class DownloadsPage extends StatefulWidget {
 }
 
 class _DownloadsPageState extends State<DownloadsPage> {
+  final _query = TextEditingController();
   bool _importing = false;
+  bool _searching = false;
   ContentScope _scope = const ContentScope.all();
+  int? _category;
+  String _kind = 'all';
+  String _status = 'all';
+
+  int? get _activeCategory =>
+      _category != null &&
+          _category != Library.defaultCategory &&
+          Library.instance.category(_category!) == null
+      ? null
+      : _category;
+
+  @override
+  void dispose() {
+    _query.dispose();
+    super.dispose();
+  }
 
   Future<void> _import(BuildContext context) async {
     if (_importing) return;
@@ -113,7 +134,7 @@ class _DownloadsPageState extends State<DownloadsPage> {
     final dm = DownloadManager.instance;
     final games = GameDownloadManager.instance;
     return Scaffold(
-      appBar: PageHeader(title: tr('下载')),
+      appBar: _appBar(context),
       body: FileDropRegion(
         enabled: !_importing,
         message: tr('松开以导入本地漫画'),
@@ -125,6 +146,8 @@ class _DownloadsPageState extends State<DownloadsPage> {
             AppSettings.instance,
             LiveRecordings.instance,
             SourceManager.instance,
+            Library.instance.collection(LibraryCollection.categories),
+            Library.instance.collection(LibraryCollection.favorites),
           ]),
           builder: (context, _) {
             final tasks = dm.tasks;
@@ -132,16 +155,27 @@ class _DownloadsPageState extends State<DownloadsPage> {
             final failures = dm.restoreFailures;
             final recordings = LiveRecordings.instance.tasks;
             final visibleTasks = tasks
-                .where((task) => _matches(task.item))
+                .where((task) => _matches(task.item, task.uid))
+                .where(
+                  (task) => _status == 'all' || task.status.name == _status,
+                )
                 .toList();
             final visibleGameTasks = gameTasks
-                .where((task) => _matches(task.item))
+                .where((task) => _matches(task.item, task.item.uid))
+                .where(
+                  (task) => _status == 'all' || task.status.name == _status,
+                )
                 .toList();
             final visibleRecordings = recordings
-                .where((task) => _matches(task.item))
+                .where((task) => _matches(task.item, task.item.uid))
                 .toList();
             final visibleFailures = failures
-                .where((failure) => _matchesSource(failure.source))
+                .where(
+                  (failure) =>
+                      _matchesSource(failure.source) &&
+                      (_status == 'all' ||
+                          _status == DownloadStatus.failed.name),
+                )
                 .toList();
             final scopeItems = [
               for (final task in tasks) task.item,
@@ -160,6 +194,9 @@ class _DownloadsPageState extends State<DownloadsPage> {
                 ContentScopeSelector(
                   scope: _scope,
                   onChanged: (scope) => setState(() => _scope = scope),
+                  categoryId: _activeCategory,
+                  onCategoryChanged: (category) =>
+                      setState(() => _category = category),
                   items: scopeItems,
                 ),
                 Expanded(
@@ -170,19 +207,22 @@ class _DownloadsPageState extends State<DownloadsPage> {
                           visibleRecordings.isEmpty
                       ? EmptyState(
                           icon: Icons.download_for_offline_outlined,
-                          title: tr('没有下载任务'),
-                          message: tr(
-                            '在作品详情页点击下载按钮，下载后可离线阅读或观看\n也可以导入本地的 CBZ / ZIP 漫画',
-                          ),
-                          actions: [
-                            FilledButton.icon(
-                              onPressed: _importing
-                                  ? null
-                                  : () => _import(context),
-                              icon: const Icon(Icons.file_open_outlined),
-                              label: Text(tr('导入本地漫画')),
-                            ),
-                          ],
+                          title:
+                              tasks.isEmpty &&
+                                  gameTasks.isEmpty &&
+                                  recordings.isEmpty &&
+                                  failures.isEmpty
+                              ? tr('没有下载任务')
+                              : tr('没有符合条件的作品'),
+                          message:
+                              tasks.isEmpty &&
+                                  gameTasks.isEmpty &&
+                                  recordings.isEmpty &&
+                                  failures.isEmpty
+                              ? tr(
+                                  '在作品详情页点击下载按钮，下载后可离线阅读或观看\n也可以导入本地的 CBZ / ZIP 漫画',
+                                )
+                              : tr('调整搜索或筛选条件试试'),
                         )
                       : _content(
                           context,
@@ -200,18 +240,156 @@ class _DownloadsPageState extends State<DownloadsPage> {
     );
   }
 
+  PreferredSizeWidget _appBar(BuildContext context) => PageHeader(
+    titleWidget: _searching
+        ? TextField(
+            controller: _query,
+            autofocus: true,
+            decoration: InputDecoration(
+              hintText: tr('搜索作品'),
+              filled: false,
+              border: InputBorder.none,
+              enabledBorder: InputBorder.none,
+              focusedBorder: InputBorder.none,
+            ),
+            onChanged: (_) => setState(() {}),
+          )
+        : null,
+    title: _searching ? null : tr('下载'),
+    actions: [
+      IconButton(
+        tooltip: _searching ? tr('关闭搜索') : tr('搜索'),
+        icon: Icon(_searching ? Icons.close_rounded : Icons.search_rounded),
+        onPressed: () => setState(() {
+          _searching = !_searching;
+          if (!_searching) _query.clear();
+        }),
+      ),
+      ListenableBuilder(
+        listenable: AppSettings.instance.watch(const {'downloadDisplay'}),
+        builder: (context, _) {
+          final grid = AppSettings.instance.downloadDisplay == 'grid';
+          return IconButton(
+            tooltip: tr(grid ? '切换为列表' : '切换为网格'),
+            icon: Icon(
+              grid ? Icons.view_list_rounded : Icons.grid_view_rounded,
+            ),
+            onPressed: () =>
+                AppSettings.instance.downloadDisplay = grid ? 'list' : 'grid',
+          );
+        },
+      ),
+      IconButton(
+        tooltip: tr('筛选'),
+        icon: const Icon(Icons.filter_list_rounded),
+        onPressed: () => _showFilters(context),
+      ),
+      PopupMenuButton<String>(
+        tooltip: tr('更多'),
+        onSelected: (value) {
+          switch (value) {
+            case 'import':
+              _import(context);
+            case 'exports':
+              Nav.push(context, const ExportsPage());
+            case 'concurrency':
+              showDownloadConcurrencySettings(context);
+            case 'categories':
+              Nav.push(context, const CategoryManagePage());
+          }
+        },
+        itemBuilder: (_) => [
+          PopupMenuItem(
+            value: 'import',
+            child: SelectionContainer.disabled(child: Text(tr('导入本地漫画'))),
+          ),
+          PopupMenuItem(
+            value: 'exports',
+            child: SelectionContainer.disabled(child: Text(tr('导出文件'))),
+          ),
+          PopupMenuItem(
+            value: 'concurrency',
+            child: SelectionContainer.disabled(child: Text(tr('下载并发设置'))),
+          ),
+          PopupMenuItem(
+            value: 'categories',
+            child: SelectionContainer.disabled(child: Text(tr('管理分类'))),
+          ),
+        ],
+      ),
+    ],
+  );
+
+  Future<void> _showFilters(BuildContext context) => showAdaptiveSheet<void>(
+    context: context,
+    builder: (sheetContext) => StatefulBuilder(
+      builder: (context, setSheetState) => SafeArea(
+        child: ListView(
+          shrinkWrap: true,
+          padding: const EdgeInsets.fromLTRB(Gap.page, Gap.m, Gap.page, Gap.l),
+          children: [
+            SectionHeader(tr('类型')),
+            Wrap(
+              spacing: Gap.s,
+              runSpacing: Gap.s,
+              children: [
+                for (final value in {
+                  'all': tr('全部'),
+                  for (final kind in MediaKind.values) kind.name: kind.label,
+                }.entries)
+                  SelectionChip(
+                    label: value.value,
+                    selected: _kind == value.key,
+                    onSelected: (_) => setSheetState(() {
+                      _kind = value.key;
+                      setState(() {});
+                    }),
+                  ),
+              ],
+            ),
+            const SizedBox(height: Gap.l),
+            SectionHeader(tr('下载状态')),
+            Wrap(
+              spacing: Gap.s,
+              runSpacing: Gap.s,
+              children: [
+                for (final value in {
+                  'all': tr('全部'),
+                  for (final status in DownloadStatus.values)
+                    status.name: _statusLabelFor(status),
+                }.entries)
+                  SelectionChip(
+                    label: value.value,
+                    selected: _status == value.key,
+                    onSelected: (_) => setSheetState(() {
+                      _status = value.key;
+                      setState(() {});
+                    }),
+                  ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    ),
+  );
+
+  String _statusLabelFor(DownloadStatus status) => switch (status) {
+    DownloadStatus.queued => tr('等待中'),
+    DownloadStatus.running => tr('正在下载'),
+    DownloadStatus.paused => tr('已暂停'),
+    DownloadStatus.done => tr('已完成'),
+    DownloadStatus.failed => tr('下载失败'),
+  };
+
   Widget _toolbar(BuildContext context) => ListenableBuilder(
     listenable: Listenable.merge([
-      AppSettings.instance.watch(const {'downloadDisplay'}),
       DownloadManager.instance,
       GameDownloadManager.instance,
-      LiveRecordings.instance,
-      ExportManager.instance,
     ]),
     builder: (context, _) {
       final dm = DownloadManager.instance;
       final games = GameDownloadManager.instance;
-      final grid = AppSettings.instance.downloadDisplay == 'grid';
       final canPause =
           [
             ...dm.tasks.map((t) => t.status),
@@ -230,18 +408,6 @@ class _DownloadsPageState extends State<DownloadsPage> {
                 status == DownloadStatus.paused ||
                 status == DownloadStatus.failed,
           );
-      final onlySpecialTasks =
-          dm.tasks.isEmpty &&
-          (games.tasks.isNotEmpty ||
-              dm.restoreFailures.isNotEmpty ||
-              LiveRecordings.instance.tasks.isNotEmpty);
-      final displayLabel = tr(
-        onlySpecialTasks
-            ? '特殊下载任务仅支持列表'
-            : grid
-            ? '切换为列表'
-            : '切换为网格',
-      );
       return Align(
         alignment: AlignmentDirectional.centerStart,
         child: Padding(
@@ -251,36 +417,6 @@ class _DownloadsPageState extends State<DownloadsPage> {
             runSpacing: Gap.s,
             crossAxisAlignment: WrapCrossAlignment.center,
             children: [
-              IconButton(
-                tooltip: tr('下载并发设置'),
-                icon: const Icon(Icons.tune_rounded),
-                onPressed: () => showDownloadConcurrencySettings(context),
-              ),
-              IconButton(
-                onPressed: onlySpecialTasks
-                    ? null
-                    : () => AppSettings.instance.downloadDisplay = grid
-                          ? 'list'
-                          : 'grid',
-                icon: Icon(
-                  grid ? Icons.view_list_rounded : Icons.grid_view_rounded,
-                ),
-                tooltip: displayLabel,
-              ),
-              IconButton(
-                onPressed: () => Nav.push(context, const ExportsPage()),
-                icon: Icon(
-                  ExportManager.instance.busy
-                      ? Icons.downloading_rounded
-                      : Icons.folder_open_outlined,
-                ),
-                tooltip: tr('导出文件'),
-              ),
-              IconButton(
-                tooltip: tr('导入本地漫画'),
-                onPressed: _importing ? null : () => _import(context),
-                icon: const Icon(Icons.file_open_outlined),
-              ),
               if (dm.tasks.isNotEmpty || games.tasks.isNotEmpty) ...[
                 IconButton(
                   onPressed: !canPause
@@ -320,8 +456,26 @@ class _DownloadsPageState extends State<DownloadsPage> {
     },
   );
 
-  bool _matches(WorkItem item) =>
-      _scope.contains(item.source, Library.instance.domainOf(item));
+  bool _matches(WorkItem item, String uid) {
+    final query = normalizeTitle(_query.text.trim());
+    if (!_scope.contains(item.source, Library.instance.domainOf(item))) {
+      return false;
+    }
+    if (query.isNotEmpty && !normalizeTitle(item.title).contains(query)) {
+      return false;
+    }
+    if (_kind != 'all' && kindOf(item).name != _kind) return false;
+    final categories = Library.instance.categoriesOf(uid);
+    if (_activeCategory == Library.defaultCategory && categories.isNotEmpty) {
+      return false;
+    }
+    if (_activeCategory != null &&
+        _activeCategory != Library.defaultCategory &&
+        !categories.contains(_activeCategory)) {
+      return false;
+    }
+    return true;
+  }
 
   bool _matchesSource(String source) {
     if (_scope.sourceKey != null && _scope.sourceKey != source) return false;
@@ -460,12 +614,17 @@ class _DownloadsPageState extends State<DownloadsPage> {
     DownloadStatus.failed => tr('下载失败'),
   };
 
-  void _openTask(BuildContext context, DownloadTask task) => Nav.openChapter(
-    context,
-    task.item,
-    null,
-    downloadedOnly: !task.canReadWhileDownloading,
-  );
+  Future<void> _openTask(BuildContext context, DownloadTask task) {
+    if (task.isVideo && task.chapters.length > 1) {
+      return _TaskTile(task: task)._chapters(context);
+    }
+    return Nav.openChapter(
+      context,
+      task.item,
+      null,
+      downloadedOnly: !task.canReadWhileDownloading,
+    );
+  }
 }
 
 class _RestoreFailureTile extends StatelessWidget {
@@ -550,6 +709,9 @@ class _TaskTile extends StatelessWidget {
   Future<void> _open(BuildContext context) async {
     final t = DownloadManager.instance.task(task.uid);
     if (!context.mounted || t == null) return;
+    if (t.isVideo && t.chapters.length > 1) {
+      return _chapters(context);
+    }
     return Nav.openChapter(
       context,
       t.item,
@@ -586,6 +748,11 @@ class _TaskTile extends StatelessWidget {
                 ),
                 onTap: () => Navigator.pop(ctx, 'chapters'),
               ),
+            ListTile(
+              leading: const Icon(Icons.label_outline_rounded),
+              title: SelectionContainer.disabled(child: Text(tr('分类'))),
+              onTap: () => Navigator.pop(ctx, 'categories'),
+            ),
             if (canExport)
               ListTile(
                 leading: const Icon(Icons.archive_outlined),
@@ -622,6 +789,14 @@ class _TaskTile extends StatelessWidget {
     switch (action) {
       case 'chapters':
         await _chapters(context);
+      case 'categories':
+        final picked = await pickCategories(
+          context,
+          selected: Library.instance.categoriesOf(t.item.uid),
+        );
+        if (picked != null) {
+          Library.instance.setWorkCategories(t.item, picked);
+        }
       case 'cbz':
         await _exportImages(context);
       case 'pdf':

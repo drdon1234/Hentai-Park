@@ -688,8 +688,11 @@ class FilterSheet extends StatefulWidget {
   });
   final FeedDef? feed;
   List<OptionDef> get definitions => feed?.options ?? manifest.searchFilters;
-  List<CommonFilterDef> get commonDefinitions =>
-      feed?.commonFilters ?? manifest.searchCommonFilters;
+  List<CommonFilterDef> get commonDefinitions => feed == null
+      ? manifest.searchCommonFilters
+      : manifest.sharedFeedCommonFilters;
+  List<CommonFilterDef> get feedSpecificCommonDefinitions =>
+      feed == null ? const [] : manifest.uniqueFeedCommonFilters(feed!);
   final SourceManifest manifest;
   final Map<String, Object?> values;
   final Map<String, Object?> commonValues;
@@ -725,6 +728,8 @@ class _FilterSheetState extends State<FilterSheet> {
   );
   late Map<String, Object?> _commonValues = widget.commonValues;
   bool _commonValid = true;
+  bool _feedCommonValid = true;
+  bool _baseCommonValid = true;
   int _commonRevision = 0;
   bool _initializing = true;
   int _initializationGeneration = 0;
@@ -736,6 +741,8 @@ class _FilterSheetState extends State<FilterSheet> {
       _initializing = false;
       _commonValues = const {};
       _commonValid = true;
+      _feedCommonValid = true;
+      _baseCommonValid = true;
       _commonRevision++;
     });
   }
@@ -809,27 +816,6 @@ class _FilterSheetState extends State<FilterSheet> {
                   Gap.m,
                 ),
                 children: [
-                  if (widget.commonDefinitions.isNotEmpty) ...[
-                    Padding(
-                      padding: const EdgeInsets.only(top: Gap.m),
-                      child: Text(
-                        tr('通用筛选'),
-                        style: context.text.titleSmall?.copyWith(
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                    CommonFilterFields(
-                      key: ValueKey(_commonRevision),
-                      definitions: widget.commonDefinitions,
-                      initialValues: _commonValues,
-                      onChanged: (values, valid) => setState(() {
-                        _commonValues = values;
-                        _commonValid = valid;
-                      }),
-                    ),
-                    const SizedBox(height: Gap.m),
-                  ],
                   for (final f in widget.definitions) ...[
                     IgnorePointer(
                       ignoring: _initializing || !_filters.isEnabled(f.key),
@@ -951,6 +937,66 @@ class _FilterSheetState extends State<FilterSheet> {
                         ),
                       ),
                     ),
+                  ],
+                  if (widget.feedSpecificCommonDefinitions.isNotEmpty) ...[
+                    Padding(
+                      padding: const EdgeInsets.only(top: Gap.m),
+                      child: Text(
+                        tr('栏目筛选'),
+                        style: context.text.titleSmall?.copyWith(
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                    CommonFilterFields(
+                      key: ValueKey((_commonRevision, 'feed')),
+                      definitions: widget.feedSpecificCommonDefinitions,
+                      initialValues: _commonValues,
+                      onChanged: (values, valid) => setState(() {
+                        final dimensions = widget.feedSpecificCommonDefinitions
+                            .map((definition) => definition.dimension.name)
+                            .toSet();
+                        _commonValues = {
+                          for (final entry in _commonValues.entries)
+                            if (!dimensions.contains(entry.key))
+                              entry.key: entry.value,
+                          ...values,
+                        };
+                        _feedCommonValid = valid;
+                        _commonValid = _feedCommonValid && _baseCommonValid;
+                      }),
+                    ),
+                    const SizedBox(height: Gap.m),
+                  ],
+                  if (widget.commonDefinitions.isNotEmpty) ...[
+                    Padding(
+                      padding: const EdgeInsets.only(top: Gap.m),
+                      child: Text(
+                        tr('通用筛选'),
+                        style: context.text.titleSmall?.copyWith(
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                    CommonFilterFields(
+                      key: ValueKey((_commonRevision, 'base')),
+                      definitions: widget.commonDefinitions,
+                      initialValues: _commonValues,
+                      onChanged: (values, valid) => setState(() {
+                        final dimensions = widget.commonDefinitions
+                            .map((definition) => definition.dimension.name)
+                            .toSet();
+                        _commonValues = {
+                          for (final entry in _commonValues.entries)
+                            if (!dimensions.contains(entry.key))
+                              entry.key: entry.value,
+                          ...values,
+                        };
+                        _baseCommonValid = valid;
+                        _commonValid = _feedCommonValid && _baseCommonValid;
+                      }),
+                    ),
+                    const SizedBox(height: Gap.m),
                   ],
                   const SizedBox(height: 24),
                 ],

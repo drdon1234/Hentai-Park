@@ -132,6 +132,13 @@ class TagTranslations extends ChangeNotifier {
   final _loading = <String, Future<void>>{};
   final _pending = <String, Future<void>>{};
   final _revisions = <String, int>{};
+  int _revision = 0;
+  int get revision => _revision;
+  void _notifyChanged() {
+    _revision++;
+    notifyListeners();
+  }
+
   final _installs = SerialExecutor();
   final _bundled = <String>{};
   bool _guideBusy = false;
@@ -192,7 +199,7 @@ class TagTranslations extends ChangeNotifier {
         .run(() async {
           if (_packs.containsKey(key) || !_installed.contains(key)) return;
           _packs[key] = await _readPack(source, locale);
-          notifyListeners();
+          _notifyChanged();
         })
         .whenComplete(() {
           _loading.remove(key);
@@ -209,7 +216,7 @@ class TagTranslations extends ChangeNotifier {
       if (await file.exists()) await file.delete();
       _installed.remove(key);
       _packs.remove(key);
-      notifyListeners();
+      _notifyChanged();
     });
   }
 
@@ -224,7 +231,7 @@ class TagTranslations extends ChangeNotifier {
       if (await directory.exists()) await directory.delete(recursive: true);
       _installed.removeWhere((key) => key.startsWith('$source/'));
       _packs.removeWhere((key, _) => key.startsWith('$source/'));
-      notifyListeners();
+      _notifyChanged();
     });
   }
 
@@ -529,7 +536,7 @@ class TagTranslations extends ChangeNotifier {
       await writeFileAtomic(file, utf8.encode(jsonEncode(pack.toJson())));
       _installed.add(key);
       _packs[key] = pack;
-      notifyListeners();
+      _notifyChanged();
     });
   }
 
@@ -570,7 +577,7 @@ class TagTranslations extends ChangeNotifier {
   Future<void> refreshRepository() async {
     final next = parseIndex(jsonDecode(await _readRemote(indexUrl)));
     _remote = next;
-    notifyListeners();
+    _notifyChanged();
   }
 
   static Future<String> _readRemoteDefault(String url) async {

@@ -151,6 +151,7 @@ Each `feeds` entry is a tab on the site page: `{ key, label, options?: [...] }`.
 ### Common filters and sorting
 
 Plugins declare `commonFilters` per feed and `searchCommonFilters` for search. The app only shows declared operations and never approximates filtering from already loaded work fields. Plugins must map these values to real site queries and preserve them across pages.
+Browse filter sheets show feed-specific options first. An identical common-filter capability declared by every feed appears in the site's common section below; capabilities that differ by feed remain feed-specific. Plugins must declare only operations supported by the corresponding site query.
 
 ```js
 feeds: [{ key: 'latest', label: 'Latest', commonFilters: {

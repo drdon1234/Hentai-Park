@@ -71,7 +71,7 @@ class CategoryManagePage extends StatelessWidget {
             return EmptyState(
               icon: Icons.label_outline_rounded,
               title: tr('还没有分类'),
-              message: tr('分类用于整理书架；一部作品可以同时属于多个分类'),
+              message: tr('分类用于整理收藏和下载；一部作品可以同时属于多个分类'),
               actions: [
                 FilledButton.icon(
                   onPressed: () => _create(context),
@@ -99,9 +99,7 @@ class CategoryManagePage extends StatelessWidget {
                   title: SelectionContainer.disabled(child: Text(c.name)),
                   subtitle: SelectionContainer.disabled(
                     child: Text(
-                      tr('{value0} 部作品', {
-                        'value0': lib.favorites(category: c.id).length,
-                      }),
+                      tr('{value0} 部作品', {'value0': lib.categoryCount(c.id)}),
                     ),
                   ),
                   trailing: SelectionContainer.disabled(
