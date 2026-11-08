@@ -64,7 +64,10 @@ class _FeedShelfState extends State<FeedShelf>
     super.initState();
     _filters.addListener(_filtersChanged);
     _homeVisibility.addListener(_homeVisibilityChanged);
-    _scroll.addListener(_scheduleFill);
+    _scroll.addListener(() {
+      _fillRequests = 0;
+      _scheduleFill();
+    });
     _bind();
   }
 

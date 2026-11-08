@@ -481,7 +481,7 @@ class _DownloadsPageState extends State<DownloadsPage> {
             crossAxisAlignment: WrapCrossAlignment.center,
             children: [
               if (dm.tasks.isNotEmpty || games.tasks.isNotEmpty) ...[
-                IconButton(
+                ToolbarButton.icon(
                   onPressed: !canPause
                       ? null
                       : () {
@@ -494,9 +494,9 @@ class _DownloadsPageState extends State<DownloadsPage> {
                           }
                         },
                   icon: const Icon(Icons.pause_rounded),
-                  tooltip: tr('全部暂停'),
+                  label: Text(tr('全部暂停')),
                 ),
-                IconButton(
+                ToolbarButton.icon(
                   onPressed: !canResume
                       ? null
                       : () {
@@ -509,7 +509,7 @@ class _DownloadsPageState extends State<DownloadsPage> {
                           }
                         },
                   icon: const Icon(Icons.play_arrow_rounded),
-                  tooltip: tr('全部继续'),
+                  label: Text(tr('全部继续')),
                 ),
               ],
             ],

@@ -89,6 +89,7 @@ class VideoSession extends ChangeNotifier {
   Future<void> _routeClosing = Future.value();
   Future<void>? _playerOpening;
   bool _wantsPlayback = true;
+  bool get wantsPlayback => _wantsPlayback;
   bool _completed = false;
   bool _disposed = false;
   Playback? _media;
@@ -225,7 +226,7 @@ class VideoSession extends ChangeNotifier {
   }
 
   void togglePlayback() {
-    _wantsPlayback = !(controller?.value.isPlaying ?? false);
+    _wantsPlayback = !_wantsPlayback;
     unawaited(syncPlayback());
   }
 

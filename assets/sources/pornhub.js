@@ -9,7 +9,7 @@ Park.register({
     "ru": {"成人视频播放数据解析失败": "Не удалось разобрать данные воспроизведения видео для взрослых", "综合成人视频，支持推荐、搜索和多清晰度播放": "Видео для взрослых с рекомендациями, поиском и выбором качества"},
     "ar": {"成人视频播放数据解析失败": "تعذر تحليل بيانات تشغيل الفيديو للبالغين", "综合成人视频，支持推荐、搜索和多清晰度播放": "فيديوهات للبالغين مع توصيات وبحث وخيارات جودة متعددة"},
   },
-  key: 'pornhub', name: 'Pornhub', version: '0.0.11', minAppVersion: '0.9.2', type: 'video', category: 'adult',
+  key: 'pornhub', name: 'Pornhub', version: '0.0.12', minAppVersion: '0.9.2', type: 'video', category: 'adult',
   color: '#FF9900', description: '综合成人视频，支持推荐、搜索和多清晰度播放',
   homepage: 'https://www.pornhub.com', domains: ['pornhub.com'], language: 'en',
   network: {mode: 'auto', origin: 'https://www.pornhub.com', vpnHint: true},
@@ -33,7 +33,8 @@ Park.register({
   pageUrl(value, kind) {
     let u;
     try { u = new URL(value, this.BASE); } catch (_) { throw Park.error('CONFIG', '视频列表地址无效'); }
-    const allowed = kind === 'feed' ? u.pathname === '/recommended' :
+    const creator = /^\/(?:channels|model|pornstar|users)\/[a-z0-9_-]+(?:\/videos)?\/?$/i.test(u.pathname);
+    const allowed = kind === 'creator' ? creator : kind === 'feed' ? u.pathname === '/recommended' :
       u.pathname === '/video/search' || (u.pathname === '/video' && /^\d{1,6}$/.test(u.searchParams.get('c') || '')) || /^\/categories\/[a-z0-9_-]+\/?$/i.test(u.pathname);
     if (!this.siteUrl(u) || !allowed) throw Park.error('CONFIG', '视频列表地址无效');
     return u.href;
@@ -142,6 +143,17 @@ Park.register({
     if (!items.length) throw Park.error('PARSE', '评论数据无效');
     return {items, page, hasNext: false, sorts};
   },
+  resolveContentLink(value) {
+    const url = Park.url.site(this, value);
+    if (!url) return null;
+    if (/^\/(?:channels|model|pornstar|users)\/[a-z0-9_-]+(?:\/videos)?\/?$/i.test(url.pathname) && !url.search && !url.hash) {
+      return {type: 'search', url: url.href};
+    }
+    return null;
+  },
+  async searchLink(value, req = {}) {
+    return this.listing(this.pageUrl(value, 'creator'), req, 'creator');
+  },
   async detail(id) {
     id = this.validId(id);
     const {doc, url} = await this.getPage(this.BASE + '/view_video.php?viewkey=' + id);
@@ -153,8 +165,11 @@ Park.register({
       const u = new URL(a.getAttribute('href'), this.BASE), keyword = u.searchParams.get('search'), name = Park.html.text(a);
       if (this.siteUrl(u) && keyword && name && !seen.has(keyword)) { seen.add(keyword); tags.push({name, keyword}); }
     }
+    const author = doc.querySelector('.userInfoContainer .usernameWrapper a[href], .userRow .usernameWrap a[href], .video-info-row .usernameWrap a[href]');
+    const authorUrl = author && Park.url.site(this, author.getAttribute('href'));
     return {id, title, cover, coverAspect: 16/9, url, description: Park.html.text(doc.querySelector('.videoDescription')),
-      authors: [Park.html.text(doc.querySelector('.userRow .usernameWrap a'))].filter(Boolean),
+      authors: [Park.html.text(author)].filter(Boolean),
+      ...(authorUrl && /^\/(?:channels|model|pornstar|users)\/[a-z0-9_-]+\/?$/i.test(authorUrl.pathname) ? {authorSearch: {url: authorUrl.href}} : {}),
       tags: tags.length ? [{namespace: 'tag', label: '标签', tags}] : [], related: this.cards(doc).filter(i => i.id !== id)};
   },
   playerData(html) {

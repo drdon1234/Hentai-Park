@@ -16,7 +16,8 @@ import 'public_media_address.dart';
 
 /// A credential-free native media session. It owns a client rather than the
 /// source HTTP service, so cookies, authentication and redirects stay isolated.
-class NativeMedia implements MediaTransport, MediaSessionAuthority {
+class NativeMedia
+    implements MediaTransport, MediaSessionAuthority, MediaConnectionRecovery {
   NativeMedia(
     this.policy, {
     Map<String, String> headers = const {},
@@ -27,7 +28,7 @@ class NativeMedia implements MediaTransport, MediaSessionAuthority {
   @override
   final MediaPolicy policy;
   final Map<String, String> headers;
-  final Dio _client;
+  Dio _client;
   final String _proxy;
   final _requests = <CancelToken>{};
   bool _closed = false;
@@ -252,6 +253,15 @@ class NativeMedia implements MediaTransport, MediaSessionAuthority {
       await cancellation?.cancel();
       _requests.remove(token);
     }
+  }
+
+  @override
+  void resetConnection() {
+    if (_closed) return;
+    final previous = _client;
+    _client = _build(policy, _proxy);
+    // 关闭旧池的空闲连接；进行中的并发分段继续完成。
+    previous.close();
   }
 
   @override

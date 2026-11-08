@@ -203,3 +203,8 @@ void authorizeMediaResource(MediaTransport transport, Uri url) {
     transport.validate(url);
   }
 }
+
+/// 无副作用媒体读取失败后可重建连接池，保留当前会话授权。
+abstract interface class MediaConnectionRecovery {
+  void resetConnection();
+}

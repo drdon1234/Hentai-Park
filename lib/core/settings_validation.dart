@@ -262,6 +262,7 @@ void validateSettings(Map<String, dynamic> values) {
                 e.value is Map &&
                 (e.value['on'] == null || e.value['on'] is bool) &&
                 (e.value['title'] == null || e.value['title'] is bool) &&
+                (e.value['strong'] == null || e.value['strong'] is bool) &&
                 (e.value['entries'] == null ||
                     stringList(e.value['entries'])) &&
                 (e.value['aliases'] == null || aliasGroups(e.value['aliases'])),

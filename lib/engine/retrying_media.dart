@@ -79,6 +79,9 @@ class RetryingMedia implements MediaTransport, MediaSessionAuthority {
         } catch (error) {
           if (token.cancelError case final cancelled?) throw cancelled;
           if (attempt >= 2 || !transient(error)) rethrow;
+          if (inner case final MediaConnectionRecovery recovery) {
+            recovery.resetConnection();
+          }
           AppLog.record({
             'event': 'media_retry',
             'site': policy.site,

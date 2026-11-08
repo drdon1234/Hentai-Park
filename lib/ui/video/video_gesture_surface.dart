@@ -19,6 +19,7 @@ class VideoGestureSurface extends StatefulWidget {
     required this.onTap,
     this.onMouseTap,
     required this.onDoubleTap,
+    this.onDoubleTapSeek,
     this.onLongPressStart,
     this.onLongPressEnd,
     this.onLongPressCancel,
@@ -38,6 +39,7 @@ class VideoGestureSurface extends StatefulWidget {
   final VoidCallback onTap;
   final VoidCallback? onMouseTap;
   final VoidCallback onDoubleTap;
+  final ValueChanged<int>? onDoubleTapSeek;
   final VoidCallback? onLongPressStart;
   final VoidCallback? onLongPressEnd;
   final VoidCallback? onLongPressCancel;
@@ -52,6 +54,7 @@ class VideoGestureSurface extends StatefulWidget {
 
 class _VideoGestureSurfaceState extends State<VideoGestureSurface> {
   Offset _down = Offset.zero;
+  Offset _doubleTap = Offset.zero;
   bool _blocked = false;
   PointerDeviceKind? _tapKind;
 
@@ -121,7 +124,17 @@ class _VideoGestureSurfaceState extends State<VideoGestureSurface> {
           widget.onTap();
         }
       },
-      onDoubleTap: widget.onDoubleTap,
+      onDoubleTapDown: (details) => _doubleTap = details.localPosition + origin,
+      onDoubleTap: () {
+        final seek = widget.onDoubleTapSeek;
+        if (seek != null && _doubleTap.dx <= viewport.width * .2) {
+          seek(-5);
+        } else if (seek != null && _doubleTap.dx >= viewport.width * .8) {
+          seek(5);
+        } else {
+          widget.onDoubleTap();
+        }
+      },
       onLongPressStart: widget.onLongPressStart == null ? null : longPressStart,
       onLongPressEnd: widget.onLongPressEnd == null ? null : longPressEnd,
       onLongPressCancel: widget.onLongPressCancel == null

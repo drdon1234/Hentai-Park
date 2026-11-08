@@ -68,7 +68,7 @@
   }
   function image(node, base) {
     if (!node) return '';
-    const preferred = ['x-bg-loader-url', 'z-image-loader-url', 'data-src', 'data-original', 'src'];
+    const preferred = ['x-bg-loader-url', 'z-bg-loader-url', 'z-image-loader-url', 'data-src', 'data-original', 'src'];
     for (const name of preferred) {
       const value = node.getAttribute(name);
       if (value && !/\/(?:zw|placeholder)\.(?:png|gif)/i.test(value)) {
@@ -85,7 +85,7 @@
     return '';
   }
   function cover(card, base) {
-    for (const node of card.querySelectorAll('[x-bg-loader-url], [z-image-loader-url], img')) {
+    for (const node of card.querySelectorAll('[x-bg-loader-url], [z-bg-loader-url], [z-image-loader-url], img')) {
       const direct = image(node, base);
       if (direct) return direct;
     }
@@ -97,7 +97,7 @@
   }
   function coverImages(card, base) {
     const found = new Set();
-    for (const node of card.querySelectorAll('[x-bg-loader-url], [z-image-loader-url], img')) {
+    for (const node of card.querySelectorAll('[x-bg-loader-url], [z-bg-loader-url], [z-image-loader-url], img')) {
       const url = image(node, base);
       if (url) found.add(url);
       if (found.size >= 6) break;
@@ -112,7 +112,7 @@
       const url = imageUrl(data.video?.url, SITE.home);
       const parsed = url && new URL(url);
       if (!parsed || !/\.(?:m3u8|mp4)$/i.test(parsed.pathname)) return null;
-      const preview = imageUrl(data.video?.pic || data.video?.poster || node.getAttribute('poster'), base);
+      const preview = imageUrl(data.video?.pic || data.video?.poster || data.pic || data.poster || node.getAttribute('poster') || node.getAttribute('data-poster'), base);
       return {id, url, preview, format: /\.m3u8$/i.test(parsed.pathname) ? 'hls' : 'mp4'};
     } catch (_) { return null; }
   }
@@ -167,7 +167,7 @@
     return result;
   }
   Park.register({
-    key: SITE.key, name: SITE.name, version: '0.0.8', minAppVersion: '0.11.0',
+    key: SITE.key, name: SITE.name, version: '0.0.9', minAppVersion: '0.11.0',
     type: 'article', category: 'feed', color: '#488A7B', language: 'zh',
     description: '吃瓜图文，支持分类、标签、搜索与视频',
     i18n: {
@@ -342,11 +342,6 @@
       }
       const standardCover = imageUrl(doc.querySelector('meta[itemprop="image"]')?.getAttribute('content'), base);
       const bodyCover = content.find(block => block.type === 'image')?.url || '';
-      let precedingImage = '';
-      for (const block of content) {
-        if (block.type === 'image') precedingImage = block.url;
-        if (block.type === 'video' && !block.preview) block.preview = precedingImage || standardCover || bodyCover;
-      }
       return {id, title, url: base + path, blocks: content, tags: tagLinks.map(tag => tag.name), tagLinks, mediaKind: 'article',
         uploaded: doc.querySelector('meta[itemprop="datePublished"]')?.getAttribute('content') || '',
         cover: standardCover || bodyCover,

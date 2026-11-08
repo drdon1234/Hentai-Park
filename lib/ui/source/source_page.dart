@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -395,6 +396,16 @@ class FeedTab extends StatefulWidget {
 
 class _FeedTabState extends State<FeedTab> with AutomaticKeepAliveClientMixin {
   StreamSubscription<String>? _authentication;
+  String _configuration = '';
+  BuildContext? _scrollContext;
+  SourceManager get _sources => widget.sourceManager ?? SourceManager.instance;
+  void _configurationChanged() {
+    final next = jsonEncode(_sources.settingsOf(widget.source.key));
+    if (_configuration == next) return;
+    _configuration = next;
+    unawaited(_refresh());
+  }
+
   @override
   void initState() {
     super.initState();
@@ -420,12 +431,66 @@ class _FeedTabState extends State<FeedTab> with AutomaticKeepAliveClientMixin {
         cancelToken: token,
       ),
     );
+    _configuration = jsonEncode(sources.settingsOf(widget.source.key));
+    sources.addListener(_configurationChanged);
     _initialization = _initializeFilters();
     _authentication = (widget.sourceManager ?? SourceManager.instance)
         .authenticationChanges
         .listen((key) {
           if (key == widget.source.key) unawaited(_refresh());
         });
+  }
+
+  Future<void> _goToPage() async {
+    final input = TextEditingController(
+      text: '${_controller.page > 0 ? _controller.page : 1}',
+    );
+    final target = await showDialog<int>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(tr('跳转指定页')),
+        content: TextField(
+          controller: input,
+          autofocus: true,
+          keyboardType: TextInputType.number,
+          decoration: InputDecoration(labelText: tr('页码')),
+          onSubmitted: (value) {
+            final page = int.tryParse(value);
+            if (page != null &&
+                page > 0 &&
+                (_controller.totalPages == null ||
+                    page <= _controller.totalPages!)) {
+              Navigator.pop(context, page);
+            }
+          },
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text(tr('取消')),
+          ),
+          TextButton(
+            onPressed: () {
+              final page = int.tryParse(input.text);
+              if (page != null &&
+                  page > 0 &&
+                  (_controller.totalPages == null ||
+                      page <= _controller.totalPages!)) {
+                Navigator.pop(context, page);
+              }
+            },
+            child: Text(tr('跳转')),
+          ),
+        ],
+      ),
+    );
+    // 等弹窗离场后释放输入控制器。
+    WidgetsBinding.instance.addPostFrameCallback((_) => input.dispose());
+    if (target == null || !mounted) return;
+    await _controller.jumpToPage(target);
+    if (!mounted || _scrollContext == null || _controller.error != null) return;
+    final scroll = PrimaryScrollController.maybeOf(_scrollContext!);
+    if (scroll != null && scroll.hasClients) scroll.jumpTo(0);
   }
 
   bool _forceRefresh = false;
@@ -511,6 +576,7 @@ class _FeedTabState extends State<FeedTab> with AutomaticKeepAliveClientMixin {
   @override
   void dispose() {
     _authentication?.cancel();
+    _sources.removeListener(_configurationChanged);
     _initialFilters.dispose();
     _controller.dispose();
     super.dispose();
@@ -530,103 +596,60 @@ class _FeedTabState extends State<FeedTab> with AutomaticKeepAliveClientMixin {
         options: Map.of(_options),
         common: Map.of(_common),
       ),
-      child: ParkRefresh(
-        onRefresh: () => _refresh(retainItems: true),
-        child: CustomScrollView(
-          physics: const AlwaysScrollableScrollPhysics(),
-          key: PageStorageKey('scroll-${widget.source.key}-${widget.feed.key}'),
-          slivers: [
-            SliverOverlapInjector(
-              handle: NestedScrollView.sliverOverlapAbsorberHandleFor(context),
-            ),
-            if (widget.source.supportsAlbumMode ||
-                widget.source.supportsShortVideoMode)
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(
-                    Gap.page,
-                    Gap.s,
-                    Gap.page,
-                    0,
-                  ),
-                  child: Wrap(
-                    crossAxisAlignment: WrapCrossAlignment.center,
-                    spacing: Gap.s,
-                    runSpacing: Gap.xs,
-                    children: [
-                      if (widget.source.supportsAlbumMode)
-                        ToolbarButton.icon(
-                          label: Text(tr('相册')),
-                          icon: const Icon(
-                            Icons.photo_library_outlined,
-                            size: 18,
-                          ),
-                          onPressed: () => openMediaAlbum(
-                            context,
-                            source: widget.source.key,
-                            title:
-                                '${widget.source.name} · ${widget.feed.label}',
-                            scope: {
-                              'feed': widget.feed.key,
-                              'options': Map.of(_options),
-                              'common': Map.of(_common),
-                            },
-                            sources:
-                                widget.sourceManager ?? SourceManager.instance,
-                          ),
-                        ),
-                      if (widget.source.supportsShortVideoMode)
-                        ToolbarButton.icon(
-                          label: Text(tr('短视频模式')),
-                          icon: const Icon(
-                            Icons.smart_display_outlined,
-                            size: 18,
-                          ),
-                          onPressed: () => Nav.push(
-                            context,
-                            ShortVideoPage(
-                              source: widget.source.key,
-                              postScope: PostVideoScope(
-                                source: widget.source.key,
-                                title:
-                                    '${widget.source.name} · ${widget.feed.label}',
-                                feed: widget.feed.key,
-                                options: Map.of(_options),
-                                common: Map.of(_common),
-                              ),
-                            ),
-                          ),
-                        ),
-                    ],
-                  ),
-                ),
+      child: Scaffold(
+        floatingActionButton: ListenableBuilder(
+          listenable: _controller,
+          builder: (context, _) => Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              FloatingActionButton.small(
+                heroTag: null,
+                tooltip: tr('跳转指定页'),
+                onPressed: _controller.loading ? null : _goToPage,
+                child: const Icon(Icons.find_in_page_outlined),
               ),
-            ListenableBuilder(
-              listenable: _controller,
-              builder: (context, _) => _controller.staleCache
-                  ? SliverToBoxAdapter(
-                      child: Padding(
-                        padding: const EdgeInsets.fromLTRB(
-                          Gap.page,
-                          Gap.m,
-                          Gap.page,
-                          0,
-                        ),
-                        child: Text(
-                          tr('网络暂不可用，正在显示之前缓存的主页数据'),
-                          style: context.text.bodySmall?.copyWith(
-                            color: context.colors.onSurfaceVariant,
-                          ),
-                        ),
+              const SizedBox(height: Gap.s),
+              FloatingActionButton.small(
+                heroTag: null,
+                tooltip: tr('回到顶部'),
+                onPressed: () {
+                  final scroll = _scrollContext == null
+                      ? null
+                      : PrimaryScrollController.maybeOf(_scrollContext!);
+                  if (scroll != null && scroll.hasClients) {
+                    unawaited(
+                      scroll.animateTo(
+                        0,
+                        duration: const Duration(milliseconds: 250),
+                        curve: Curves.easeOut,
                       ),
-                    )
-                  : const SliverToBoxAdapter(),
-            ),
-            ListenableBuilder(
-              listenable: _controller,
-              builder: (context, _) =>
-                  _controller.total != null && _controller.items.isNotEmpty
-                  ? SliverToBoxAdapter(
+                    );
+                  }
+                },
+                child: const Icon(Icons.vertical_align_top_rounded),
+              ),
+            ],
+          ),
+        ),
+        body: Builder(
+          builder: (context) {
+            _scrollContext = context;
+            return ParkRefresh(
+              onRefresh: () => _refresh(retainItems: true),
+              child: CustomScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                key: PageStorageKey(
+                  'scroll-${widget.source.key}-${widget.feed.key}',
+                ),
+                slivers: [
+                  SliverOverlapInjector(
+                    handle: NestedScrollView.sliverOverlapAbsorberHandleFor(
+                      context,
+                    ),
+                  ),
+                  if (widget.source.supportsAlbumMode ||
+                      widget.source.supportsShortVideoMode)
+                    SliverToBoxAdapter(
                       child: Padding(
                         padding: const EdgeInsets.fromLTRB(
                           Gap.page,
@@ -634,24 +657,114 @@ class _FeedTabState extends State<FeedTab> with AutomaticKeepAliveClientMixin {
                           Gap.page,
                           0,
                         ),
-                        child: Text(
-                          tr('约 {value0} 部作品', {
-                            'value0': formatCount(_controller.total),
-                          }),
-                          style: context.text.labelMedium?.copyWith(
-                            color: context.colors.onSurfaceVariant,
-                          ),
+                        child: Wrap(
+                          crossAxisAlignment: WrapCrossAlignment.center,
+                          spacing: Gap.s,
+                          runSpacing: Gap.xs,
+                          children: [
+                            if (widget.source.supportsAlbumMode)
+                              ToolbarButton.icon(
+                                label: Text(tr('相册')),
+                                icon: const Icon(
+                                  Icons.photo_library_outlined,
+                                  size: 18,
+                                ),
+                                onPressed: () => openMediaAlbum(
+                                  context,
+                                  source: widget.source.key,
+                                  title:
+                                      '${widget.source.name} · ${widget.feed.label}',
+                                  scope: {
+                                    'feed': widget.feed.key,
+                                    'options': Map.of(_options),
+                                    'common': Map.of(_common),
+                                  },
+                                  sources:
+                                      widget.sourceManager ??
+                                      SourceManager.instance,
+                                ),
+                              ),
+                            if (widget.source.supportsShortVideoMode)
+                              ToolbarButton.icon(
+                                label: Text(tr('短视频模式')),
+                                icon: const Icon(
+                                  Icons.smart_display_outlined,
+                                  size: 18,
+                                ),
+                                onPressed: () => Nav.push(
+                                  context,
+                                  ShortVideoPage(
+                                    source: widget.source.key,
+                                    postScope: PostVideoScope(
+                                      source: widget.source.key,
+                                      title:
+                                          '${widget.source.name} · ${widget.feed.label}',
+                                      feed: widget.feed.key,
+                                      options: Map.of(_options),
+                                      common: Map.of(_common),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                          ],
                         ),
                       ),
-                    )
-                  : const SliverToBoxAdapter(),
-            ),
-            PagedSliverGrid(
-              controller: _controller,
-              kind: widget.source.kind,
-              listMode: widget.listMode,
-            ),
-          ],
+                    ),
+                  ListenableBuilder(
+                    listenable: _controller,
+                    builder: (context, _) => _controller.staleCache
+                        ? SliverToBoxAdapter(
+                            child: Padding(
+                              padding: const EdgeInsets.fromLTRB(
+                                Gap.page,
+                                Gap.m,
+                                Gap.page,
+                                0,
+                              ),
+                              child: Text(
+                                tr('网络暂不可用，正在显示之前缓存的主页数据'),
+                                style: context.text.bodySmall?.copyWith(
+                                  color: context.colors.onSurfaceVariant,
+                                ),
+                              ),
+                            ),
+                          )
+                        : const SliverToBoxAdapter(),
+                  ),
+                  ListenableBuilder(
+                    listenable: _controller,
+                    builder: (context, _) =>
+                        _controller.total != null &&
+                            _controller.items.isNotEmpty
+                        ? SliverToBoxAdapter(
+                            child: Padding(
+                              padding: const EdgeInsets.fromLTRB(
+                                Gap.page,
+                                Gap.s,
+                                Gap.page,
+                                0,
+                              ),
+                              child: Text(
+                                tr('约 {value0} 部作品', {
+                                  'value0': formatCount(_controller.total),
+                                }),
+                                style: context.text.labelMedium?.copyWith(
+                                  color: context.colors.onSurfaceVariant,
+                                ),
+                              ),
+                            ),
+                          )
+                        : const SliverToBoxAdapter(),
+                  ),
+                  PagedSliverGrid(
+                    controller: _controller,
+                    kind: widget.source.kind,
+                    listMode: widget.listMode,
+                  ),
+                ],
+              ),
+            );
+          },
         ),
       ),
     );

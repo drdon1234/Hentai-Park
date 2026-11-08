@@ -896,6 +896,7 @@ class AppSettings extends ChangeNotifier {
     String id, {
     bool? on,
     bool? title,
+    bool? strong,
     List<String>? entries,
     Map<String, List<String>>? aliases,
     bool reset = false,
@@ -906,6 +907,7 @@ class AppSettings extends ChangeNotifier {
         : {...((all[id] as Map?) ?? {}).cast<String, dynamic>()};
     if (on != null) cur['on'] = on;
     if (title != null) cur['title'] = title;
+    if (strong != null) cur['strong'] = strong;
     if (entries != null) cur['entries'] = entries;
     if (aliases != null) cur['aliases'] = aliases;
     if (entries != null && cur['aliases'] is Map) {
@@ -918,6 +920,7 @@ class AppSettings extends ChangeNotifier {
       final old = (all[id] as Map?) ?? {};
       cur['on'] = old['on'] ?? false;
       cur['title'] = old['title'] ?? false;
+      cur['strong'] = old['strong'] ?? false;
     }
     all[id] = cur;
     _set('blockPresets', all);

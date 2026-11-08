@@ -5,6 +5,7 @@ import '../../core/localization.dart';
 import '../../core/models.dart';
 import '../../engine/source_manager.dart';
 import '../comments/comments_page.dart';
+import '../nav.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
 import '../widgets/content_translation.dart';
@@ -520,7 +521,6 @@ class VideoDetails extends StatelessWidget {
   Widget build(BuildContext context) {
     final d = work;
     final meta = [
-      if (d.authors.isNotEmpty) d.authors.join(' / '),
       if (d.views != null) tr('{count} 次观看', {'count': formatCount(d.views)}),
       if (d.uploaded.isNotEmpty) d.uploaded,
       if (offline) tr('离线播放'),
@@ -546,6 +546,38 @@ class VideoDetails extends StatelessWidget {
                       style: ParkText.serif(context.text.titleMedium),
                     ),
                   ),
+                  if (d.authors.isNotEmpty)
+                    Wrap(
+                      spacing: Gap.s,
+                      children: [
+                        for (final author in d.authors)
+                          ToolbarButton.icon(
+                            icon: const Icon(Icons.person_outline_rounded),
+                            label: Text(author),
+                            onPressed: offline
+                                ? null
+                                : () {
+                                    final search = d.authorSearch;
+                                    if (search?['url'] is String) {
+                                      Nav.openContentLink(
+                                        context,
+                                        d.source,
+                                        search!['url'] as String,
+                                      );
+                                    } else {
+                                      Nav.openSourceSearch(
+                                        context,
+                                        d.source,
+                                        keyword: (search?['keyword'] ?? author)
+                                            .toString(),
+                                        filters: (search?['filters'] as Map?)
+                                            ?.cast<String, Object?>(),
+                                      );
+                                    }
+                                  },
+                          ),
+                      ],
+                    ),
                   if (meta.isNotEmpty) ...[
                     const SizedBox(height: Gap.xs),
                     ContentTranslation(

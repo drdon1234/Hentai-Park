@@ -1,3 +1,6 @@
+import 'dart:async';
+import 'dart:convert';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -73,6 +76,14 @@ class _SourceSearchPageState extends State<SourceSearchPage> {
     _load,
     source: widget.sourceKey,
   );
+  String _configuration = '';
+  void _configurationChanged() {
+    final next = jsonEncode(_sources.settingsOf(widget.sourceKey));
+    if (next == _configuration) return;
+    _configuration = next;
+    if (_started) unawaited(_controller.refresh());
+  }
+
   bool _started = false;
   WorkPage? _initialPage;
   late final _suggestions = SearchSuggestions(
@@ -104,6 +115,8 @@ class _SourceSearchPageState extends State<SourceSearchPage> {
   @override
   void initState() {
     super.initState();
+    _configuration = jsonEncode(_sources.settingsOf(widget.sourceKey));
+    _sources.addListener(_configurationChanged);
     _translation.addListener(_translationChanged);
     _text.addListener(_textChanged);
     _focus.addListener(() {
@@ -128,6 +141,7 @@ class _SourceSearchPageState extends State<SourceSearchPage> {
 
   @override
   void dispose() {
+    _sources.removeListener(_configurationChanged);
     _suggestions.dispose();
     _controller.dispose();
     _translation.dispose();

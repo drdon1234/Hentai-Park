@@ -5,7 +5,12 @@ import 'settings.dart';
 
 /// A ready-made group of tags users can switch on; all are off by default.
 class BlockPreset {
-  const BlockPreset(this.id, this._name, this.entries);
+  const BlockPreset(
+    this.id,
+    this._name,
+    this.entries, {
+    this.strongEntries = const [],
+  });
   final String id;
   final String _name;
   String get name => tr(_name);
@@ -13,6 +18,7 @@ class BlockPreset {
   /// 标签和标题共用规则语法；标题匹配由独立开关控制。
   /// 英文变体正则显式限制词边界，防止缩写命中普通单词。
   final List<String> entries;
+  final List<String> strongEntries;
 }
 
 const blockPresets = <BlockPreset>[
@@ -22,8 +28,6 @@ const blockPresets = <BlockPreset>[
     'regex:AI[ _-]?(?:生成|绘画|繪畫|作画|作畫|イラスト)',
     'ai_generated',
     '生成AI',
-    '人工智能生成',
-    '人工智慧生成',
   ]),
   BlockPreset('guro', '重口', [
     'guro',
@@ -52,6 +56,7 @@ const blockPresets = <BlockPreset>[
   ]),
   BlockPreset('shota', '未成年男孩', [
     r'regex:(?<![A-Za-z0-9])shota(?:[ _-]?con)?(?![A-Za-z0-9])',
+    'shota',
     '正太',
     'regex:ショタ(?:コン)?',
     'regex:쇼타(?:콘)?',
@@ -64,6 +69,10 @@ const blockPresets = <BlockPreset>[
     'regex:扶[上下]扶?',
     'regex:(?:ふたなり|フタナリ)',
     '후타나리',
+    '人妖',
+    'shemale',
+    'ladyboy',
+    'dickgirl',
   ]),
   BlockPreset('ntr', 'NTR', [
     'netorare',
@@ -78,42 +87,81 @@ const blockPresets = <BlockPreset>[
     'regex:出[轨軌]',
     'regex:네토(?:라레|리)',
   ]),
-  BlockPreset('incest', '乱伦', [
-    r'regex:(?<![A-Za-z0-9])incest(?:uous)?(?![A-Za-z0-9])',
-    'inseki',
-    'regex:[乱亂][伦倫]',
-    'regex:近[亲親](?:相[奸姦])?',
-    '근친',
-    '*妈',
-    '*媽',
-    '*母',
-  ]),
-  BlockPreset('gay', '男同性恋', [
-    'yaoi',
-    r'regex:(?<![A-Za-z0-9])males?[ _-]+only(?![A-Za-z0-9])',
+  BlockPreset(
+    'incest',
+    '乱伦',
+    [
+      r'regex:(?<![A-Za-z0-9])incest(?:uous)?(?![A-Za-z0-9])',
+      'inseki',
+      'regex:[乱亂][伦倫]',
+      'regex:近[亲親](?:相[奸姦])?',
+      '근친',
+      '母子',
+      '母女',
+      '父女',
+      '父子',
+      '兄妹',
+      '姐弟',
+      '姉弟',
+    ],
+    strongEntries: [
+      '*妈',
+      '*媽',
+      '*母',
+      '*父',
+      '父亲',
+      '父親',
+      '兄弟姐妹',
+      '母亲',
+      '母親',
+      '兄弟',
+      '姐妹',
+      '姉妹',
+      'mother',
+      'father',
+      'brother',
+      'sister',
+      'siblings',
+    ],
+  ),
+  BlockPreset(
     'gay',
-    'bara',
-    'bl',
-    '耽美',
-    'regex:男同(?:性[恋戀])?(?![学學事])',
-    '腐向',
-    'ボーイズラブ',
-    'ホモ',
-    r"regex:(?<![A-Za-z0-9])boys?['’]?[ _-]+love(?![A-Za-z0-9])",
-    '게이',
-  ]),
-  BlockPreset('lesbian', '女同性恋', [
-    'yuri',
-    r'regex:(?<![A-Za-z0-9])females?[ _-]+only(?![A-Za-z0-9])',
+    '男同性恋',
+    [
+      'yaoi',
+      'gay',
+      'bara',
+      '耽美',
+      'regex:男同(?:性[恋戀])?(?![学學事])',
+      'ボーイズラブ',
+      'ホモ',
+      r"regex:(?<![A-Za-z0-9])boys?['’]?[ _-]+love(?![A-Za-z0-9])",
+      '게이',
+    ],
+    strongEntries: [
+      r'regex:(?<![A-Za-z0-9])males?[ _-]+only(?![A-Za-z0-9])',
+      'bl',
+      '腐向',
+    ],
+  ),
+  BlockPreset(
     'lesbian',
-    '百合',
-    'regex:女同(?:性[恋戀])?(?![学學事])',
-    'regex:レズ(?:ビアン)?',
-    r'regex:^蕾[丝絲]$',
-    'ガールズラブ',
-    r"regex:(?<![A-Za-z0-9])girls?['’]?[ _-]+love(?![A-Za-z0-9])",
-    '레즈비언',
-  ]),
+    '女同性恋',
+    [
+      'yuri',
+      'lesbian',
+      'regex:女同(?:性[恋戀])?(?![学學事])',
+      'regex:レズ(?:ビアン)?',
+      r'regex:^蕾[丝絲]$',
+      'ガールズラブ',
+      r"regex:(?<![A-Za-z0-9])girls?['’]?[ _-]+love(?![A-Za-z0-9])",
+      '레즈비언',
+    ],
+    strongEntries: [
+      r'regex:(?<![A-Za-z0-9])females?[ _-]+only(?![A-Za-z0-9])',
+      '百合',
+    ],
+  ),
   BlockPreset('furry', 'Furry', [
     r'regex:(?<![A-Za-z0-9])furr(?:y|ies)(?![A-Za-z0-9])',
     'kemono',
@@ -132,10 +180,18 @@ class BlockPresetConfig {
     this.title,
     this.entries,
     this.aliases,
+    this.strong,
   );
   final BlockPreset preset;
   final bool on;
   final bool title;
+  final bool strong;
+  Iterable<String> get activeEntries => [
+    ...entries.where(
+      (entry) => strong || !preset.strongEntries.contains(entry),
+    ),
+    if (strong) ...preset.strongEntries,
+  ];
   final List<String> entries;
   final Map<String, List<String>> aliases;
   List<String> aliasesFor(String entry) => aliases[entry] ?? const [];
@@ -158,6 +214,7 @@ class BlockPresetConfig {
               for (final e in (m['aliases'] as Map? ?? {}).entries)
                 e.key as String: List<String>.from(e.value as List),
             },
+            m['strong'] == true,
           );
         }(),
     ];
@@ -195,7 +252,7 @@ class TagBlocklist {
     for (final c in BlockPresetConfig.current()) {
       if (!c.on) continue;
       final expanded = [
-        for (final entry in c.entries) ...[
+        for (final entry in c.activeEntries.toSet()) ...[
           entry,
           ...c.aliasesFor(entry).map(BlockRule(entry).aliasEntry),
         ],

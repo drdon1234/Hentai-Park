@@ -494,9 +494,9 @@ class SubscriptionMediaTile extends StatelessWidget {
                   )
                 else
                   ColoredBox(
-                    color: Theme.of(context)
-                        .colorScheme
-                        .surfaceContainerHighest,
+                    color: media.type == 'video'
+                        ? Colors.black
+                        : Theme.of(context).colorScheme.surfaceContainerHighest,
                   ),
                 if (media.type == 'video' || media.preview.isEmpty)
                   Center(
@@ -505,6 +505,7 @@ class SubscriptionMediaTile extends StatelessWidget {
                           ? Icons.play_circle
                           : Icons.image_outlined,
                       size: 40,
+                      color: media.type == 'video' ? Scrims.onScrim : null,
                     ),
                   ),
               ],
@@ -559,6 +560,9 @@ class _SubscriptionGalleryPageState extends State<SubscriptionGalleryPage> {
               index: index,
               embedded: true,
             )
+          : widget.post.media[index].type == 'video' &&
+                widget.post.media[index].preview.isEmpty
+          ? const ColoredBox(color: Colors.black)
           : Center(
               child: CoverImage(
                 source: widget.source,
@@ -695,7 +699,8 @@ class _SubscriptionMediaPageState extends State<SubscriptionMediaPage> {
         }, widget.source),
         episodeId: media.json['episodeId']?.toString(),
         localFile: file,
-        recordHistory: false,
+        recordHistory:
+            SourceManager.instance.manifest(widget.source)?.isArticle == true,
         pageHorizontally: widget.embedded,
         initialSources: media.needsDownload || media.json['episodeId'] != null
             ? null

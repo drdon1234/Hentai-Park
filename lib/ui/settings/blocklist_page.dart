@@ -146,9 +146,7 @@ class _BlocklistPageState extends State<BlocklistPage> {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  tr(
-                    '默认关闭，按需启用。每组支持多语言词、通配符与正则；标题匹配需单独开启。*妈、*母 等规则匹配范围较宽，可自行编辑。',
-                  ),
+                  tr('默认关闭，按需启用。默认只使用明确规则；强力模式会加入可能误判的宽泛词。每组可独立开启标题匹配和强力模式。'),
                   style: context.text.bodySmall?.copyWith(
                     color: context.colors.onSurfaceVariant,
                   ),
@@ -220,6 +218,15 @@ class _PresetCard extends StatelessWidget {
           ),
           expandedCrossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            CheckboxListTile(
+              contentPadding: EdgeInsets.zero,
+              value: c.strong,
+              onChanged: (v) => s.setBlockPreset(_id, strong: v ?? false),
+              title: Text(tr('强力模式')),
+              subtitle: Text(tr('加入宽泛关键词，可能误屏蔽无关作品')),
+            ),
+            if (c.preset.strongEntries.isNotEmpty)
+              Text(c.preset.strongEntries.join(' · ')),
             CheckboxListTile(
               contentPadding: EdgeInsets.zero,
               value: c.title,

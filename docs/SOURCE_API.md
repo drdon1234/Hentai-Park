@@ -335,7 +335,7 @@ account: {
 
 ## 吃瓜图文与域名解析
 
-吃瓜插件声明 `type: 'article', category: 'feed'`，列表作品填写 `mediaKind: 'article'`。`detail(id)` 返回普通作品字段与非空 `blocks`，依原站顺序使用 `{type: 'text', text}`、`{type: 'image', url}` 或 `{type: 'video', id, preview?}`；图片必须是公网 HTTPS，视频 ID 为稳定标识，播放时通过 `videos(id, videoId)` 取得当次地址。`preview` 优先使用原站播放器封面，缺失时可采用正文邻近图片或帖子封面，不虚构媒体地址。图片和视频保留正文顺序，共用帖内横向媒体浏览；视频切出当前页后释放播放器。需要标签直达时，`tagLinks` 使用 `{name, url}`，URL 必须属于已声明源域且由 `searchLink(url, {page})` 处理。正文和临时媒体地址不进入普通详情缓存，收藏与历史只保存作品摘要。
+吃瓜插件声明 `type: 'article', category: 'feed'`，列表作品填写 `mediaKind: 'article'`。`detail(id)` 返回普通作品字段与非空 `blocks`，依原站顺序使用 `{type: 'text', text}`、`{type: 'image', url}` 或 `{type: 'video', id, preview?}`；图片必须是公网 HTTPS，视频 ID 为稳定标识，播放时通过 `videos(id, videoId)` 取得当次地址。`preview` 仅使用原站明确提供的播放器封面，缺失时留空并显示视频占位，不拿正文邻近图片或帖子封面冒充视频封面，不虚构媒体地址。图片和视频保留正文顺序，共用帖内横向媒体浏览；视频切出当前页后释放播放器。需要标签直达时，`tagLinks` 使用 `{name, url}`，URL 必须属于已声明源域且由 `searchLink(url, {page})` 处理。正文和临时媒体地址不进入普通详情缓存，收藏与历史只保存作品摘要。
 
 `Park.createDomainResolver({initialOrigin, accept, discover, verify})` 为源提供按需分流。`discover(http)` 只能读取可信发布页并返回候选来源，`accept(origin)` 限定站点所属地址，`verify(body)` 核对候选首页；成功来源保存在该源的私有 store。`resolver.request(this, path, options)` 返回 `{response, origin}`；仅在 403、502/503/504、超时或可分类连接/DNS 故障时尝试新来源。只有 GET、HEAD 和同时声明 `readOnly: true, allowDomainRetry: true` 的公开查询 POST 可重放；含非白名单请求头的请求、证书错误、取消与其他写操作不切换。跳转必须保持同源，浏览器和媒体权限不会因新地址自动扩大。插件必须限制发布页和候选地址，禁止把页面中广告链接当作站点来源。
 
@@ -392,6 +392,7 @@ async resolveGameResource(workId, resourceId, channelId) {}
 **WorkItem**：`{ id, title, subtitle?, cover, coverImages?, coverBlurred?, coverAspect?, pages?, rating?, likes?, views?, language?, category?, badge?, badgeColor?, duration?, uploaded?, tags?, authors?, uploader?, mediaKind?, workCode?, editions?, commentsAvailable? }`
 
 - `authors` 为原站提供的作者名称数组，`uploader` 为上传者标识，用于源内作者屏蔽。列表应尽量提供这些字段；不得从标题或含义不明的副标题猜测作者。列表缺失时，长按屏蔽作者会尝试从详情补充。
+- 详情的 `authorSearch` 可提供 `{keyword, filters?}` 或 `{url}`：后者必须为原站明确的作者主页，经过 `resolveContentLink` 识别；支持作品列表时由 `searchLink` 分页浏览，否则保留原网页入口。多个作者不得共用一个无关作者的主页地址。
 
 - 小说列表统一提供 `id`、`title`、`cover: ''`、`mediaKind: 'novel'`、`language`、`authors: []`、`subtitle`（简介或摘要）、`category`、`tags: []`、`uploaded`（原站日期）。缺失文本用空字符串，缺失集合用空数组；不补造作者、日期、分类或简介，不为列表逐项请求详情。插件负责把原站明确标注的作者、分类从标题中分离，保留作品名和原始 ID；论坛回帖标记、字节数、导航链接与占位简介不作为作品内容。共用小说行按标题、作者、简介、日期及分类标签展示真实信息。
 

@@ -85,7 +85,10 @@ class ShortVideoPlayer implements ShortVideoHandle {
       VideoPlayerController? controller;
       try {
         _check(cancel);
-        controller = VideoPlayerController.file(file);
+        controller = VideoPlayerController.file(
+          file,
+          videoPlayerOptions: VideoPlayerOptions(allowBackgroundPlayback: true),
+        );
         await initializePlayer(controller, cancel);
         _check(cancel);
         await awaitCancelled(controller.setLooping(true), cancel);
@@ -135,7 +138,7 @@ class ShortVideoPlayer implements ShortVideoHandle {
       _check(cancel);
       controller = VideoPlayerController.networkUrl(
         uri,
-        videoPlayerOptions: VideoPlayerOptions(),
+        videoPlayerOptions: VideoPlayerOptions(allowBackgroundPlayback: true),
       );
       await initializePlayer(controller, cancel);
       _check(cancel);

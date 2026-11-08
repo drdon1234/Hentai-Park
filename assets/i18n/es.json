@@ -1422,7 +1422,7 @@
   "反搜服务返回无效数据": "El servicio devolvió datos no válidos",
   "本站不支持反搜": "Este sitio no admite búsqueda inversa",
   "反搜请求仍在处理中，请稍后重试": "La búsqueda sigue en curso. Inténtalo más tarde",
-  "请求过于频繁或额度已用尽，请稍后重试": "Demasiadas solicitudes o cuota agotada. Inténtalo más tarde",
+  "内容翻译请求过于频繁或额度已用尽，请稍后重试": "Demasiadas solicitudes de traducción de contenido o cuota agotada. Inténtalo más tarde",
   "浏览器反搜参数无效": "Parámetros de búsqueda de imágenes del navegador no válidos",
   "此反搜服务需要在应用内打开浏览器": "Este servicio requiere el navegador integrado",
   "反搜尚未完成，请在页面中完成验证或稍后重试": "La búsqueda no ha terminado. Completa la verificación en esta página o inténtalo más tarde",
@@ -1769,5 +1769,12 @@
   "仅下次开启": "Solo el próximo inicio",
   "仅本次开启": "Solo esta sesión",
   "已开启 debug 模式": "Modo de depuración activado",
-  "本次运行将记录详细诊断信息，退出后自动关闭。": "Se registrarán diagnósticos detallados durante esta sesión y se desactivarán al salir."
+  "本次运行将记录详细诊断信息，退出后自动关闭。": "Se registrarán diagnósticos detallados durante esta sesión y se desactivarán al salir.",
+  "强力模式": "Modo estricto",
+  "加入宽泛关键词，可能误屏蔽无关作品": "Incluye palabras amplias; puede bloquear obras no relacionadas",
+  "默认关闭，按需启用。默认只使用明确规则；强力模式会加入可能误判的宽泛词。每组可独立开启标题匹配和强力模式。": "Desactivado por defecto. El modo normal usa reglas explícitas; el estricto añade términos amplios que pueden dar falsos positivos. Cada grupo permite activar ambos modos de forma independiente.",
+  "跳转指定页": "Ir a la página",
+  "页码": "Número de página",
+  "跳转": "Ir",
+  "回到顶部": "Volver arriba"
 }

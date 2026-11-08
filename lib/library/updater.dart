@@ -91,6 +91,24 @@ class LibraryUpdater extends ChangeNotifier {
     if (!_canUpdate(f.item.source)) return false;
     final settings = AppSettings.instance;
     final stats = _lib.statsOf(f.item.uid);
+    final manifest = SourceManager.instance.manifest(f.item.source);
+    if (manifest != null &&
+        (manifest.isArticle ||
+            manifest.isLive ||
+            manifest.category == SourceCategory.shortvideo ||
+            manifest.isGame)) {
+      return false;
+    }
+    if (manifest != null &&
+        !{
+          SourceCategory.doujin,
+          SourceCategory.anime,
+          SourceCategory.aiDrama,
+          SourceCategory.novel,
+        }.contains(manifest.category) &&
+        stats.chapters < 2) {
+      return false;
+    }
     // Unknown chapter count (never synced) is always checked once.
     if (settings.updateOnlyMultiChapter && _lib.isOneShot(f.item.uid)) {
       return false;

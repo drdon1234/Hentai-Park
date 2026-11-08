@@ -1,5 +1,6 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/localization.dart';
 import '../../core/models.dart';
@@ -196,6 +197,25 @@ class _FeedArticlePageState extends State<FeedArticlePage> {
       appBar: AppBar(
         title: Text(_sources.manifest(widget.item.source)?.name ?? tr('吃瓜')),
         actions: [
+          if (Uri.tryParse(detail?.url ?? '') case final uri?
+              when uri.scheme == 'https' &&
+                  uri.host.isNotEmpty &&
+                  uri.userInfo.isEmpty)
+            IconButton(
+              tooltip: tr('打开原站'),
+              icon: const Icon(Icons.open_in_new_rounded),
+              onPressed: () async {
+                try {
+                  if (await launchUrl(
+                    uri,
+                    mode: LaunchMode.externalApplication,
+                  )) {
+                    return;
+                  }
+                } catch (_) {}
+                if (context.mounted) context.toast(tr('无法打开原站，请稍后重试'));
+              },
+            ),
           TranslationControls(source: widget.item.source),
           ListenableBuilder(
             listenable: Library.instance.work(widget.item.uid),
@@ -319,13 +339,17 @@ class _FeedArticlePageState extends State<FeedArticlePage> {
                                     child: Stack(
                                       fit: StackFit.expand,
                                       children: [
-                                        CoverImage(
-                                          source: widget.item.source,
-                                          url:
-                                              block['preview']?.toString() ??
-                                              '',
-                                          title: tr('播放视频'),
-                                        ),
+                                        if ((block['preview']?.toString() ?? '')
+                                            .isEmpty)
+                                          const ColoredBox(color: Colors.black)
+                                        else
+                                          CoverImage(
+                                            source: widget.item.source,
+                                            url:
+                                                block['preview']?.toString() ??
+                                                '',
+                                            title: tr('播放视频'),
+                                          ),
                                         const Center(
                                           child: DecoratedBox(
                                             decoration: BoxDecoration(

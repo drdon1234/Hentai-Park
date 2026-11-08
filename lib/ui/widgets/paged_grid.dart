@@ -112,6 +112,7 @@ class PagedController extends ChangeNotifier {
 
   String? _cursor;
   int _generation = 0;
+  int _revision = 0;
   bool _disposed = false;
 
   Future<void> refresh({bool retainItems = false}) async {
@@ -140,6 +141,41 @@ class PagedController extends ChangeNotifier {
     loading = false;
     _notify();
     await loadMore();
+  }
+
+  Future<void> jumpToPage(int target) async {
+    if (target < 1 || loading || _disposed) return;
+    final generation = ++_generation;
+    // 页码是原站分页，不按屏蔽后条目数量推算。游标源保留顺序请求契约。
+    page = 0;
+    _cursor = null;
+    hasNext = true;
+    error = null;
+    _seen.clear();
+    _cursors.clear();
+    _loaded.clear();
+    items.clear();
+    _rawSections = null;
+    sections = null;
+    hidden = 0;
+    _preview = false;
+    _emptyPages = 0;
+    _notify();
+    while (!_disposed &&
+        generation == _generation &&
+        error == null &&
+        hasNext &&
+        page < target) {
+      final previous = page;
+      await loadMore();
+      if (page <= previous) break;
+      if (page < target && hasNext) {
+        _loaded.clear();
+        items.clear();
+        hidden = 0;
+      }
+    }
+    _notify();
   }
 
   Future<void> loadMore() async {
@@ -224,7 +260,10 @@ class PagedController extends ChangeNotifier {
   }
 
   void _notify() {
-    if (!_disposed) notifyListeners();
+    if (!_disposed) {
+      _revision++;
+      notifyListeners();
+    }
   }
 
   @override
@@ -234,6 +273,8 @@ class PagedController extends ChangeNotifier {
     super.dispose();
   }
 }
+
+final _gridTextExtents = Expando<({Object key, double height})>();
 
 /// Grid of works with skeletons, end-of-list states and auto-loading near the bottom.
 /// Renders as slivers so it can live inside larger scroll views.
@@ -363,14 +404,26 @@ class PagedSliverGrid extends StatelessWidget {
             final imageOnly =
                 SourceManager.instance.manifest(c.source)?.category ==
                 SourceCategory.live;
+            final extentKey = (
+              c._revision,
+              cardWidth,
+              showSource,
+              Theme.of(context).textTheme,
+              MediaQuery.textScalerOf(context),
+              Directionality.of(context),
+            );
+            final cachedExtent = _gridTextExtents[c];
             final extraText = imageOnly
                 ? 0.0
+                : cachedExtent?.key == extentKey
+                ? cachedExtent!.height
                 : cardTextExtent(
                     context,
                     items: c.items,
                     width: cardWidth,
                     showSource: showSource,
                   );
+            _gridTextExtents[c] = (key: extentKey, height: extraText);
             return SliverMainAxisGroup(
               slivers: [
                 SliverPadding(

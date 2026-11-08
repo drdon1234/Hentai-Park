@@ -35,7 +35,8 @@ class DirectPlayback implements Playback {
 
   final MediaPolicy policy;
   final Map<String, String> headers;
-  final HttpClient _client;
+  HttpClient _client;
+  final _proxy = AppSettings.instance.proxy;
   final _requests = <HttpClientRequest>{};
   final _token = List.generate(
     24,
@@ -75,6 +76,29 @@ class DirectPlayback implements Playback {
 
   /// 打开上游请求并逐跳校验重定向；调用方用 [_release] 结束返回的请求。
   Future<(HttpClientRequest, HttpClientResponse)> _open(
+    String method,
+    String? range,
+    bool Function() disconnected,
+    void Function(HttpClientRequest) track,
+  ) async {
+    for (var attempt = 0; ; attempt++) {
+      try {
+        return await _openOnce(method, range, disconnected, track);
+      } catch (error) {
+        if (attempt > 0 ||
+            _closed ||
+            disconnected() ||
+            (error is! SocketException && error is! TimeoutException)) {
+          rethrow;
+        }
+        final previous = _client;
+        _client = createHttpClient(proxy: _proxy)..autoUncompress = false;
+        previous.close();
+      }
+    }
+  }
+
+  Future<(HttpClientRequest, HttpClientResponse)> _openOnce(
     String method,
     String? range,
     bool Function() disconnected,

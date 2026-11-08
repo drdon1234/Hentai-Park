@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
@@ -78,6 +79,14 @@ class _ShortVideoPageState extends State<ShortVideoPage>
       _covered = false,
       _scrolling = false,
       _expanded = false;
+  late String _configuration;
+  void _configurationChanged() {
+    final next = jsonEncode(SourceManager.instance.settingsOf(widget.source));
+    if (next == _configuration) return;
+    _configuration = next;
+    unawaited(_refresh());
+  }
+
   bool _resolving = false;
   bool _showInfo = true;
   bool _refreshing = false;
@@ -113,6 +122,19 @@ class _ShortVideoPageState extends State<ShortVideoPage>
               resume?.uid == item.uid &&
               player is ShortVideoPlayer) {
             await player.controller.seekTo(resume!.position);
+          } else if (!cancel.isCancelled && player is ShortVideoPlayer) {
+            final library = Library.instance;
+            final post = videoPost(item);
+            await library.loadChapters(post.uid);
+            final state = library.chapterState(
+              post.uid,
+              videoProgressKey(item),
+            );
+            final seconds = state?.position ?? 0;
+            if (seconds > 0 &&
+                seconds < player.controller.value.duration.inSeconds - 1) {
+              await player.controller.seekTo(Duration(seconds: seconds));
+            }
           }
           return player;
         } catch (_) {
@@ -123,6 +145,10 @@ class _ShortVideoPageState extends State<ShortVideoPage>
       preloadCount: AppSettings.instance.shortVideoPreloadCount,
       retainedCount: AppSettings.instance.shortVideoRetainedCount,
     )..addListener(_changed);
+    _configuration = jsonEncode(
+      SourceManager.instance.settingsOf(widget.source),
+    );
+    SourceManager.instance.addListener(_configurationChanged);
     _preferences.addListener(_limitsChanged);
     _authentication = SourceManager.instance.authenticationChanges.listen((
       key,
@@ -405,6 +431,7 @@ class _ShortVideoPageState extends State<ShortVideoPage>
       videoPost(item),
       value.position.inSeconds,
       duration: value.duration.inSeconds,
+      episodeId: videoProgressKey(item),
     );
   }
 
@@ -479,6 +506,7 @@ class _ShortVideoPageState extends State<ShortVideoPage>
     Nav.routeObserver.unsubscribe(this);
     WidgetsBinding.instance.removeObserver(this);
     AppLock.instance.removeListener(_sync);
+    SourceManager.instance.removeListener(_configurationChanged);
     _preferences.removeListener(_limitsChanged);
     _feed.removeListener(_feedChanged);
     _feed.dispose();
@@ -549,6 +577,7 @@ class _ShortVideoPageState extends State<ShortVideoPage>
     );
   }
 
+  Offset _doubleTapPosition = Offset.zero;
   Widget _video(WorkItem item, bool active) {
     final player = active ? _player(item) : null, c = player?.controller;
     final error = active ? _playback.error(item.uid) : null;
@@ -575,6 +604,21 @@ class _ShortVideoPageState extends State<ShortVideoPage>
             child: GestureDetector(
               behavior: HitTestBehavior.opaque,
               onTap: () => _playback.toggle(),
+              onDoubleTapDown: (details) =>
+                  _doubleTapPosition = details.localPosition,
+              onDoubleTap: () {
+                if (c == null) return;
+                final width = MediaQuery.sizeOf(context).width;
+                final x = _doubleTapPosition.dx;
+                if (x > width * .2 && x < width * .8) {
+                  unawaited(_playback.toggle());
+                  return;
+                }
+                final delta = x <= width * .2 ? -5 : 5;
+                final target = (c.value.position.inMilliseconds + delta * 1000)
+                    .clamp(0, c.value.duration.inMilliseconds);
+                unawaited(c.seekTo(Duration(milliseconds: target)));
+              },
               child: c == null && error == null
                   ? _loading()
                   : !_playback.wantsPlayback

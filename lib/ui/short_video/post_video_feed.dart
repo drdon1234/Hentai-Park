@@ -14,6 +14,17 @@ class PostVideoItem extends WorkItem {
 
 WorkItem videoPost(WorkItem item) => item is PostVideoItem ? item.post : item;
 
+String? videoProgressKey(WorkItem item) {
+  final media = item.json['media'];
+  final attachment = media is List && media.isNotEmpty
+      ? media.first as Map
+      : null;
+  final episode = attachment?['episodeId'];
+  if (episode is String && episode.isNotEmpty) return episode;
+  final index = item.json['postVideoMediaIndex'];
+  return index is int ? 'media:$index' : null;
+}
+
 bool isPostVideoAttachment(Object? value) =>
     value is Map &&
     value['type'] == 'video' &&
@@ -33,6 +44,7 @@ WorkPage postVideoPage(WorkPage page) => WorkPage(
               when isPostVideoAttachment(attachment))
             PostVideoItem({
               ...post.json,
+              'postVideoMediaIndex': post.json['postVideoMediaIndex'] ?? index,
               'postVideoIndex':
                   post.json['postVideoIndex'] ??
                   media

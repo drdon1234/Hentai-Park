@@ -601,6 +601,8 @@ Future<void> showWorkActions(
 /// Height reserved under a cover for two title lines and the complete metadata. The lines are
 /// measured with the user's text scaler: Android scales large fonts non-linearly, so scaling
 /// one total height would under-reserve at large font sizes and clip the text.
+final _metadataHeights = <Object, double>{};
+
 double cardTextExtent(
   BuildContext context, {
   Iterable<WorkItem> items = const [],
@@ -628,16 +630,28 @@ double cardTextExtent(
   var metadataHeight = lineHeight(metadataStyle);
   if (width != null) {
     for (final item in items) {
+      final text = workMetadata(item, showSource: showSource).join(' · ');
+      final key = (
+        text,
+        metadataStyle,
+        width,
+        scaler,
+        Directionality.of(context),
+      );
+      final cached = _metadataHeights[key];
+      if (cached != null) {
+        if (cached > metadataHeight) metadataHeight = cached;
+        continue;
+      }
       final painter = TextPainter(
-        text: TextSpan(
-          text: workMetadata(item, showSource: showSource).join(' · '),
-          style: metadataStyle,
-        ),
+        text: TextSpan(text: text, style: metadataStyle),
         textDirection: Directionality.of(context),
         textScaler: scaler,
       )..layout(maxWidth: width);
       // 使用与实际摘要相同的字体、宽度和缩放计算完整高度。
       if (painter.height > metadataHeight) metadataHeight = painter.height;
+      if (_metadataHeights.length >= 2048) _metadataHeights.clear();
+      _metadataHeights[key] = painter.height;
       painter.dispose();
     }
   }

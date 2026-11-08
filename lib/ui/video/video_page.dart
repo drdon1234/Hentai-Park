@@ -521,7 +521,9 @@ class _VideoPageState extends State<VideoPage>
                 color: Colors.white,
               )
             : null,
-        value: value,
+        value: value.isBuffering
+            ? value.copyWith(isPlaying: _session.wantsPlayback)
+            : value,
         position: _previewPosition ?? value.position,
         title: widget.work.title,
         fullscreen: _fullscreen,

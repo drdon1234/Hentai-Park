@@ -4,6 +4,7 @@ import 'package:video_player/video_player.dart';
 
 import '../../core/localization.dart';
 import '../../core/settings.dart';
+import '../../engine/source_manager.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
 import '../widgets/error_view.dart';
@@ -166,6 +167,17 @@ class VideoStage extends StatelessWidget {
       onTap: onTap,
       onMouseTap: onMouseTap,
       onDoubleTap: onDoubleTap,
+      onDoubleTapSeek:
+          !session.isLive &&
+              SourceManager.instance.manifest(session.work.source)?.isArticle ==
+                  true
+          ? (seconds) => c.seekTo(
+              Duration(
+                milliseconds: (c.value.position.inMilliseconds + seconds * 1000)
+                    .clamp(0, c.value.duration.inMilliseconds),
+              ),
+            )
+          : null,
       onLongPressStart: onLongPressStart,
       onLongPressEnd: onLongPressEnd,
       onLongPressCancel: onLongPressCancel,
@@ -229,9 +241,7 @@ class VideoStage extends StatelessWidget {
               child: ColoredBox(color: Colors.black.withValues(alpha: dim)),
             ),
           if (c.value.isBuffering)
-            const Center(
-              child: CircularProgressIndicator(color: Colors.white70),
-            ),
+            const Center(child: LoadingIndicator(color: Colors.white70)),
         ],
       ),
     );

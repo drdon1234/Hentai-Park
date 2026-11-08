@@ -1,35 +1,39 @@
 ## 中文
 
 ### 改进
-- 主页和域页的小说采用竖版书本卡片，支持横向滑动浏览。
-- 减少自动翻译完成后重复构建时的计算和刷新。
-- 频道与作者搜索保留原站搜索结果，并改进加载失败时的提示。
+- 小说书本卡片只在封面下方显示标题；主页和域页支持持续横向加载。
+- 下载页批量暂停和继续采用图标加文字按钮。
+- 收藏更新优先检查可能新增章节的作品，减少无效请求。
+- 屏蔽词组支持独立开启强力模式，补充关键词并减少默认规则的误判。
+- 站点页新增回到顶部和跳转原站页码入口，修改站点配置后自动刷新相关列表。
+- 改善长列表滚动和视频连接异常后的恢复体验。
 
 ### 修复
-- 修复漫画上下集跳转时继承当前章节页码，以及旧章节延迟回调干扰新章节的问题。
-- 修复视频开头和接近结尾的未完成进度无法准确恢复的问题。
-- 修复已加入频道和已关注作者页面顶部内容被遮挡的问题。
-- 修复 E-Hentai 热门和排行榜筛选后离开原栏目范围的问题。
+- 短视频及吃瓜视频支持左右边缘双击快退或快进五秒，并保存播放进度。
+- 修复播放器缓冲期间切换应用后的播放状态显示。
+- 吃瓜帖子增加原网页入口；没有视频封面时显示黑底，不再使用邻近图片补位。
+- 自动翻译失败保留原文，不再弹出容易与站点故障混淆的全局提示；主动翻译限流时明确提示来源。
 
 ### 插件更新
-- E-Hentai 0.0.19：热门和排行榜支持在原栏目内筛选。
-- Reddit 0.0.16：指定社区改用网页加载帖子，支持图片、视频、纯文本和分页，订阅社区不再自动执行原站加入操作。
-- X 0.0.25：修正搜索请求方式，改进账号状态检查及频道、作者搜索结果处理。
+- Pornhub 0.0.12：修复作者解析，支持进入作者主页浏览作品。
+- 51吃瓜网、黑料网、每日大赛 0.0.9：修复部分列表封面识别，改进原站视频封面解析。
 
 ## English
 
 ### Improvements
-- Novels on the home and domain pages use portrait book cards with horizontal scrolling.
-- Reduced repeated computation and refreshes when rebuilding completed automatic translations.
-- Channel and author searches preserve results returned by the site and provide clearer loading errors.
+- Novel book cards show titles only below the cover; home and domain shelves support continued horizontal loading.
+- Bulk pause and resume actions on the downloads page use icons with text.
+- Library updates focus on works that may receive new chapters, reducing unnecessary requests.
+- Each block preset has an independent strong mode, with expanded keywords and fewer ambiguous default matches.
+- Source pages add scroll-to-top and original-page navigation, and related lists refresh after source settings change.
+- Improved long-list scrolling and recovery from video connection failures.
 
 ### Fixes
-- Fixed chapter navigation inheriting the current comic chapter's page and delayed callbacks affecting the next chapter.
-- Fixed unfinished video progress near the beginning or end failing to resume accurately.
-- Fixed content being obscured at the top of joined-channel and followed-author pages.
-- Fixed E-Hentai popular and ranking filters switching away from the selected feed.
+- Short videos and feed videos support double-tapping the left or right edge to seek five seconds and retain playback progress.
+- Fixed playback state display after switching apps while a video is buffering.
+- Feed posts add an original-page action; videos without a poster use a black background instead of a nearby image.
+- Failed automatic translations retain the original text without a global error that could be mistaken for a source failure; manual translation rate limits identify the translation service.
 
 ### Plugin updates
-- E-Hentai 0.0.19: filter popular and ranking results within their original feeds.
-- Reddit 0.0.16: load community posts from webpages with images, videos, text and pagination; saving a community subscription no longer automatically joins it on Reddit.
-- X 0.0.25: corrected search requests and improved account checks and channel and author search result handling.
+- Pornhub 0.0.12: fixed author parsing and added browsing of creator pages.
+- 51Chigua, Heiliao and Meiri Dasai 0.0.9: fixed some listing covers and improved parsing of original video posters.

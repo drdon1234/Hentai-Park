@@ -40,9 +40,10 @@ class _TranslationPageState extends State<TranslationPage> {
     int attempt, {
     bool rateLimited = false,
   }) {
-    if (_reportedFailure == attempt || !target.mounted) return;
+    // 自动翻译失败保留原文，不把共享翻译服务故障冒充站点加载错误。
+    if (!manual || _reportedFailure == attempt || !target.mounted) return;
     _reportedFailure = attempt;
-    target.toast(tr(rateLimited ? '请求过于频繁或额度已用尽，请稍后重试' : '翻译失败，请重试'));
+    target.toast(tr(rateLimited ? '内容翻译请求过于频繁或额度已用尽，请稍后重试' : '翻译失败，请重试'));
   }
 
   void change(VoidCallback action) => setState(action);

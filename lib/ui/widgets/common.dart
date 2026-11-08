@@ -130,60 +130,13 @@ class CoverImage extends StatelessWidget {
     Widget child;
     if (url.isEmpty) {
       _notifyReady();
-      child =
-          title.isNotEmpty &&
-              (mediaKind == MediaKind.novel ||
-                  SourceManager.instance.manifest(source)?.isNovel == true)
-          ? LayoutBuilder(
-              builder: (context, constraints) {
-                final compact =
-                    constraints.maxWidth < 90 || constraints.maxHeight < 100;
-                final style = ParkText.serif(context.text.bodyMedium)
-                    ?.copyWith(color: colors.onSurface);
-                final painter = TextPainter(
-                  text: TextSpan(text: '国', style: style),
-                  textDirection: Directionality.of(context),
-                  textScaler: MediaQuery.textScalerOf(context),
-                )..layout();
-                final textHeight =
-                    constraints.maxHeight - (compact ? 12 : 32 + 28 + 16);
-                final lines = (textHeight / painter.height).floor().clamp(
-                  1,
-                  compact ? 3 : 6,
-                );
-                painter.dispose();
-                return Padding(
-                  padding: EdgeInsets.all(compact ? 6 : 16),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      if (!compact)
-                        Icon(
-                          Icons.menu_book_rounded,
-                          color: colors.outline,
-                          size: 28,
-                        ),
-                      if (!compact) const SizedBox(height: 16),
-                      Flexible(
-                        child: Text(
-                          title,
-                          textAlign: TextAlign.center,
-                          maxLines: lines,
-                          overflow: TextOverflow.ellipsis,
-                          style: style,
-                        ),
-                      ),
-                    ],
-                  ),
-                );
-              },
-            )
-          : _placeholder(
-              colors,
-              SourceManager.instance.manifest(source)?.isNovel == true
-                  ? Icons.menu_book_rounded
-                  : Icons.image_not_supported_outlined,
-            );
+      child = _placeholder(
+        colors,
+        mediaKind == MediaKind.novel ||
+                SourceManager.instance.manifest(source)?.isNovel == true
+            ? Icons.menu_book_rounded
+            : Icons.image_not_supported_outlined,
+      );
     } else {
       child = LayoutBuilder(
         builder: (context, constraints) {

@@ -80,13 +80,19 @@ class TagSection extends StatelessWidget {
                 _TagChip(
                   label: a,
                   source: source,
-                  onTap: () => Nav.openSourceSearch(
-                    context,
-                    source,
-                    keyword: (authorSearch?['keyword'] ?? a).toString(),
-                    filters: (authorSearch?['filters'] as Map?)
-                        ?.cast<String, Object?>(),
-                  ),
+                  onTap: () => authorSearch?['url'] is String
+                      ? Nav.openContentLink(
+                          context,
+                          source,
+                          authorSearch!['url'] as String,
+                        )
+                      : Nav.openSourceSearch(
+                          context,
+                          source,
+                          keyword: (authorSearch?['keyword'] ?? a).toString(),
+                          filters: (authorSearch?['filters'] as Map?)
+                              ?.cast<String, Object?>(),
+                        ),
                   subscriptionTag: TagRef(
                     a,
                     (authorSearch?['keyword'] ?? a).toString(),
