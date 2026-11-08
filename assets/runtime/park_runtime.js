@@ -277,7 +277,7 @@
         try {
           return JSON.parse(res.body);
         } catch (e) {
-          throw new ParkError(ErrorCode.PARSE, '响应不是 JSON（HTTP {status}）：{body}', { params: { status: res.status, body: String(res.body).slice(0, 120) } });
+          throw new ParkError(ErrorCode.PARSE, '响应不是 JSON（HTTP {status}）：{body}', { status: res.status, params: { status: res.status, body: String(res.body).slice(0, 120) } });
         }
       };
       return res;

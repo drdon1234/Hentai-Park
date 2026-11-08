@@ -956,12 +956,31 @@ class DownloadManager extends ChangeNotifier {
         }
       }
 
-      await Future.wait(
-        List.generate(
-          AppSettings.instance.downloadConcurrency.clamp(1, 8),
-          (_) => worker(),
-        ),
-      );
+      Object? firstError;
+      StackTrace? firstStack;
+      Future<void> guardedWorker() async {
+        try {
+          await worker();
+        } catch (error, stack) {
+          // 首个失败立即停止同任务的其他页；Future.wait 仍等待它们退出后归还额度。
+          // 保留首个原因，避免并发页继续联网或用取消错误覆盖原始错误。
+          firstError ??= error;
+          firstStack ??= stack;
+          if (!token.isCancelled) token.cancel(error);
+          rethrow;
+        }
+      }
+
+      try {
+        await Future.wait(
+          List.generate(
+            AppSettings.instance.downloadConcurrency.clamp(1, 8),
+            (_) => guardedWorker(),
+          ),
+        );
+      } catch (_) {
+        Error.throwWithStackTrace(firstError!, firstStack!);
+      }
       _checkRunning(t, token);
       manifest.sort((a, b) => (a['index'] as int).compareTo(b['index'] as int));
       final file = File(p.join(dir.path, 'pages.json'));

@@ -96,7 +96,7 @@ Park.register({
   },
   key: 'ehentai',
   name: 'E-Hentai',
-  version: '0.0.19', minAppVersion: '0.9.2',
+  version: '0.0.20', minAppVersion: '0.9.2',
   type: 'comic',
   category: 'doujin',
   color: '#9C2A2A',
@@ -311,9 +311,7 @@ Park.register({
     return this.config.site === 'exhentai' ? 'https://exhentai.org/api.php' : 'https://api.e-hentai.org/api.php';
   },
 
-  async page(url, params, headers) {
-    await this.wait();
-    const res = await this.http.get(url, { params, headers });
+  checkResponse(res) {
     const body = String(res.body || '');
     if (body.includes('Your IP address has been temporarily banned')) {
       throw Park.error('BLOCKED', 'IP 被 E-Hentai 临时封禁，请稍后再试或更换网络');
@@ -326,6 +324,11 @@ Park.register({
       throw Park.error('LOGIN_REQUIRED', 'ExHentai 返回空页面：请先登录，或该账号没有里站权限');
     }
     return body;
+  },
+
+  async page(url, params, headers) {
+    await this.wait();
+    return this.checkResponse(await this.http.get(url, { params, headers }));
   },
 
   async ensureNoWarning(base = this.base) {
@@ -359,11 +362,13 @@ Park.register({
     const out = [];
     for (let i = 0; i < pairs.length; i += 25) {
       await this.wait();
-      const data = await this.http.json(base === 'https://exhentai.org' ? base + '/api.php' : 'https://api.e-hentai.org/api.php', {
+      const res = await this.http.post(base === 'https://exhentai.org' ? base + '/api.php' : 'https://api.e-hentai.org/api.php', {
         method: 'POST',
         readOnly: true,
         json: { method: 'gdata', gidlist: pairs.slice(i, i + 25), namespace: 1 },
       });
+      this.checkResponse(res);
+      const data = res.json();
       for (const meta of data.gmetadata || []) if (!meta.error) out.push(meta);
     }
     const order = new Map(pairs.map(([gid], i) => [gid, i]));
@@ -638,6 +643,8 @@ Park.register({
         await this.ensureNoWarning(base);
         const html = await this.page(`${base}/g/${gid}/${token}/`, p ? { p: String(p) } : null);
         const parsed = this.parseGalleryPage(html, gid);
+        // HTTP 成功不代表画廊有效；不能把拦截页缓存为已完成，导致继续下载永远复用坏状态。
+        if (!parsed.entries.length) throw Park.error('PARSE', '媒体数据无效');
         for (const e of parsed.entries) {
           state.links.set(e.index, e.link);
           if (e.thumb) state.thumbs.set(e.index, e.thumb);
@@ -701,8 +708,12 @@ Park.register({
 
   async chapter(id) {
     const [gid, token, base] = this.splitId(id);
-    const [metas] = await Promise.all([this.gdata([[gid, token]], base), this.galleryPage(gid, token, 0, base)]);
-    const count = metas[0] ? Number(metas[0].filecount) : 0;
+    const state = await this.galleryPage(gid, token, 0, base);
+    // 下载只需要画廊页数，不再依赖额外的元数据 API；恢复时同样复用缩略图状态。
+    const lengthRow = [...state.doc.querySelectorAll('#gdd tr')].find(row =>
+      /^Length:\s*$/.test(row.querySelector('.gdt1')?.textContent.trim() || ''));
+    if (!lengthRow) throw Park.error('PARSE', '媒体数据无效');
+    const count = Number((lengthRow?.querySelector('.gdt2')?.textContent || '').replace(/,/g, '').match(/(\d+)\s+pages?\b/)?.[1]);
     if (!count) throw Park.error('NOT_FOUND', '画廊没有图片');
     // Images are resolved lazily one page at a time by resolveImage.
     return { pages: Array.from({ length: count }, (_, i) => ({ token: String(i) })) };
@@ -760,12 +771,22 @@ Park.register({
         json: { method: 'showpage', gid, page: index + 1, imgkey, showkey },
         headers: { Origin: base, Referer: previous },
       });
-      if (res.ok) {
-        const data = res.json();
+      this.checkResponse(res);
+      let data;
+      try {
+        data = res.json();
+      } catch (error) {
+        if (error.code !== 'PARSE') throw error;
+      }
+      if (data && typeof data === 'object') {
         const parsed = this.parseSinglePage(`${data.i3 || ''}${data.i6 || ''}`);
         if (parsed.url) result = Object.assign(parsed, { width: Number(data.x) || null, height: Number(data.y) || null });
       }
-      if (!result) result = this.parseSinglePage(await this.page(link, null, pageHeaders));
+      if (!result) {
+        // showkey 随会话失效；重新读取原图片页并更新 key，避免继续下载反复复用旧 key。
+        this.showkeys.delete(galleryKey);
+        result = this.parseSinglePage(await this.page(link, null, pageHeaders));
+      }
     } else if (!result) {
       result = this.parseSinglePage(await this.page(link, null, pageHeaders));
     }

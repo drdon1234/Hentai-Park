@@ -115,7 +115,7 @@
     {
       "key": "ehentai",
       "name": "E-Hentai",
-      "version": "0.0.19",
+      "version": "0.0.20",
       "type": "comic",
       "category": "doujin",
       "file": "ehentai.js",
@@ -270,6 +270,16 @@
       "category": "adult",
       "file": "xvideos.js",
       "description": "综合成人视频，支持排行、搜索和高清播放",
+      "minAppVersion": "0.9.2"
+    },
+    {
+      "key": "xhamster",
+      "name": "xHamster",
+      "version": "0.0.1",
+      "type": "video",
+      "category": "adult",
+      "file": "xhamster.js",
+      "description": "综合成人视频，支持推荐、搜索和多清晰度播放",
       "minAppVersion": "0.9.2"
     },
     {
