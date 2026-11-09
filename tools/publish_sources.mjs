@@ -142,7 +142,7 @@ function publishedSources(previousIndex) {
 }
 
 export async function generateIndex({ root = defaultRoot, commit, previousIndex, channel = 'sources' } = {}) {
-  if (!['sources', 'rankings', 'reverse-search', 'metadata'].includes(channel)) throw new Error('无效发布频道');
+  if (!['sources', 'reverse-search', 'metadata'].includes(channel)) throw new Error('无效发布频道');
   if (!isCommit(commit)) {
     throw new Error('commit 必须是源码提交的完整 40 位小写十六进制 SHA');
   }
@@ -204,8 +204,8 @@ export async function generateIndex({ root = defaultRoot, commit, previousIndex,
     if (manifest.rankingOnly !== (entry.rankingOnly === true)) {
       throw new Error(`${key} 的排行榜标记与清单不一致`);
     }
-    if (manifest.rankingOnly && (!manifest.rankings.length || manifest.feeds.length)) {
-      throw new Error(`${key} 必须仅声明排行榜，不得混入普通列表`);
+    if (manifest.rankingOnly) {
+      throw new Error(`${key} 不再支持独立排行榜发布，请使用资料插件`);
     }
     if ([manifest.rankingOnly, manifest.reverseSearchOnly, manifest.metadataOnly].filter(Boolean).length > 1) {
       throw new Error(`${key} 不得同时属于多个独立插件频道`);
@@ -219,7 +219,7 @@ export async function generateIndex({ root = defaultRoot, commit, previousIndex,
       throw new Error(`${key} 的脚本 apiVersion ${manifest.apiVersion} 与运行时 API ${runtimeApi} 不一致`);
     }
     const digest = sha256(code);
-    const sourceChannel = manifest.metadataOnly ? 'metadata' : manifest.rankingOnly ? 'rankings' : manifest.reverseSearchOnly ? 'reverse-search' : 'sources';
+    const sourceChannel = manifest.metadataOnly ? 'metadata' : manifest.reverseSearchOnly ? 'reverse-search' : 'sources';
     if (channel !== sourceChannel) continue;
     const previous = published.get(key);
     if (previous) {
@@ -247,7 +247,7 @@ export async function generateIndex({ root = defaultRoot, commit, previousIndex,
       sha256: digest, apiVersion: runtimeApi, minAppVersion: manifest.minAppVersion,
     });
   }
-  const name = channel === 'metadata' ? 'HentaiPark Metadata' : channel === 'rankings' ? 'HentaiPark Rankings' : channel === 'reverse-search' ? 'HentaiPark Reverse Search' : index.name;
+  const name = channel === 'metadata' ? 'HentaiPark Metadata' : channel === 'reverse-search' ? 'HentaiPark Reverse Search' : index.name;
   return { name, apiVersion: runtimeApi, sources };
 }
 

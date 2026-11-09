@@ -636,10 +636,10 @@ return { url: "https://player.example.com/watch/1", navigationDomains: ["player.
 
 `rankings` declara listas mediante `key`, `label`, `category`, `metric` y `options`. Un complemento dedicado usa `rankingOnly: true` y no declara `feeds`. `ranking(board, {page, offset, cursor, options})` devuelve una página de obras con `id`, `rank` original, `title`, `cover` y campos opcionales `keyword`, `subtitle` y `url` HTTPS del producto. Se conservan los empates. Una fuente existente puede declarar `feed`: hereda sus opciones si se omiten y reutiliza `feed()`, conserva los campos y añade `workId` y el puesto si falta, para abrir los detalles. Las entradas comerciales buscan en la categoría declarada.
 
-El código y catálogo único se mantienen en `main`. Las ramas `sources`, `rankings`, `reverse-search` y `metadata` distribuyen sitios, clasificaciones independientes, búsqueda inversa e información independiente. Cada una contiene un índice con URL inmutables y SHA-256. La app lee los cuatro canales por separado, rechaza marcas incorrectas y claves duplicadas y pide confirmación antes de actualizar. Las etiquetas usan `tag-translations`.
+El código y catálogo único se mantienen en `main`. Las ramas `sources`, `reverse-search` y `metadata` distribuyen sitios, búsqueda inversa e información independiente. Las clasificaciones y la información de obras comparten `metadata`; el canal independiente de clasificaciones se ha retirado. Cada rama contiene un índice con URL inmutables y SHA-256. La app lee los tres canales por separado, rechaza marcas incorrectas y claves duplicadas y pide confirmación antes de actualizar. Las etiquetas usan `tag-translations`.
 
 ```powershell
-node tools/publish_sources.mjs --commit '<SHA>' --channel rankings --output '<本地输出文件>'
+node tools/publish_sources.mjs --commit '<SHA>' --channel metadata --output '<本地输出文件>'
 ```
 
 ## Comentarios y enlaces de contenido

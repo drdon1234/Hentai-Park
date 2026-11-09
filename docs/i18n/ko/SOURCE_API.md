@@ -625,10 +625,10 @@ return { url: "https://player.example.com/watch/1", navigationDomains: ["player.
 
 `rankings`는 `key`, `label`, `category`, `metric`, `options`로 정의합니다. 순위 전용 플러그인은 `rankingOnly: true`이며 `feeds`를 선언하지 않습니다. `ranking(board, {page, offset, cursor, options})`는 작품 페이지를 반환하며 항목은 `id`, 원본 `rank`, `title`, `cover`, 선택적인 `keyword`, `subtitle`, HTTPS 상품 `url`을 포함합니다. 공동 순위를 유지합니다. 기존 소스는 `feed`를 지정하여 옵션을 상속하고 `feed()`를 재사용할 수 있습니다. 작품 필드를 유지하고 `workId`와 누락된 순위를 추가하여 상세 페이지를 엽니다. 판매 순위는 지정 분류를 검색합니다.
 
-소스와 단일 목록은 `main`에서 관리합니다. `sources`, `rankings`, `reverse-search`, `metadata`는 일반 사이트, 순위 전용, 역검색 전용, 정보 전용 플러그인을 배포합니다. 각 브랜치는 고정 커밋 URL과 SHA-256 색인만 보관합니다. 앱은 네 채널을 따로 읽고 잘못된 표시와 중복 key를 거부하며 업데이트 전에 확인을 요청합니다. 태그 번역은 `tag-translations`로 배포합니다.
+소스와 단일 목록은 `main`에서 관리합니다. `sources`, `reverse-search`, `metadata`는 일반 사이트, 역검색 전용, 정보 전용 플러그인을 배포합니다. 순위와 작품 정보는 `metadata`로 통합되었으며 독립 순위 채널은 폐지되었습니다. 각 브랜치는 고정 커밋 URL과 SHA-256 색인만 보관합니다. 앱은 세 채널을 따로 읽고 잘못된 표시와 중복 key를 거부하며 업데이트 전에 확인을 요청합니다. 태그 번역은 `tag-translations`로 배포합니다.
 
 ```powershell
-node tools/publish_sources.mjs --commit '<SHA>' --channel rankings --output '<本地输出文件>'
+node tools/publish_sources.mjs --commit '<SHA>' --channel metadata --output '<本地输出文件>'
 ```
 
 ## 댓글과 콘텐츠 링크

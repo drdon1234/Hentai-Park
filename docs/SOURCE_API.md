@@ -692,7 +692,7 @@ async ranking(board, { page = 1, offset = 0, cursor, options = {} }) {
 
 - `section` 可为 `market`（市场榜，`rankingOnly` 默认）或 `site`（站点榜，普通内容源默认），页面分区显示。`kind` 可为 `work`、`actress`、`seller`、`genre`；人物榜须返回人物或卖家条目，不可伪装成作品。动态选项标记 `dynamic: true`，由 `rankingOptions(board)` 返回真实选择项，运行时会在请求前校验。`category` 决定搜索范围；页面按用户的域顺序显示已有榜单的分类，包括创作社区。`metric` 明确标示销量、人气或站内热度；站点默认热门不能称为销量榜。
 - `rank` 保留原站名次，包括并列名次；官网只有有序列表时使用其原始位置。`offset` 是此前收到的原始条目数，不受本地去重和屏蔽影响。`keyword` 可选，缺省按标题搜索；`url` 是无凭据的 HTTPS 商品链接。
-- 既有内容源可声明 `{ key: 'hot', label: '排行榜', category: 'doujin', metric: '站内热度', feed: 'hot' }`。省略 `options` 时继承对应 feed 的选项；无需实现 `ranking()`，运行时复用 `feed()`，保留作品字段，补 `workId` 和缺失的 `rank`。页面由此打开真实作品详情。作品可打开详情；人物榜按姓名搜索并保留原站入口，卖家榜只打开原站。原站链接属于插件 `domains` 时在应用内浏览（使用该源的 Cookie 分区，离开声明域的链接交给系统浏览器），否则直接使用系统浏览器。独立排行榜插件通过 `rankings` 分支发布，普通内容源（包括带排行榜声明的源）仍通过 `sources` 分支分发。
+- 既有内容源可声明 `{ key: 'hot', label: '排行榜', category: 'doujin', metric: '站内热度', feed: 'hot' }`。省略 `options` 时继承对应 feed 的选项；无需实现 `ranking()`，运行时复用 `feed()`，保留作品字段，补 `workId` 和缺失的 `rank`。页面由此打开真实作品详情。作品可打开详情；人物榜按姓名搜索并保留原站入口，卖家榜只打开原站。原站链接属于插件 `domains` 时在应用内浏览（使用该源的 Cookie 分区，离开声明域的链接交给系统浏览器），否则直接使用系统浏览器。官方排行榜与作品资料插件统一声明 `metadataOnly: true`，通过 `metadata` 分支发布；独立 `rankings` 发布频道已停用，不再接受 `rankingOnly` 官方插件。普通内容源（包括带排行榜声明的源）仍通过 `sources` 分支分发。应用仅读取 `sources`、`reverse-search`、`metadata` 三个频道，全部有效时才将缺失插件视为官方撤回。
 - 运行时在请求前拒绝未声明榜单或选项值。每个榜单与选项组合独立分页、刷新与会话复用；插件版本变化后使用新会话。列表按用户已有的内容屏蔽规则过滤，保留原始名次。
 - 排行榜结果不使用普通首页磁盘缓存，避免丢失名次、检索词和商品链接。所有站点业务规则留在插件内。
 

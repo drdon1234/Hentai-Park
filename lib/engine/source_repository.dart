@@ -46,7 +46,7 @@ class SourceRepositoryIndex {
   final List<SourceRepositoryEntry> entries;
   final Map<String, String> failures;
 
-  /// 只有四个频道均完整、有效时，缺失条目才可解释为官方撤回。
+  /// 只有三个频道均完整、有效时，缺失条目才可解释为官方撤回。
   final bool complete;
 }
 
@@ -56,7 +56,6 @@ class SourceRepository {
     : _read = read ?? _download;
 
   static const indexUrl = '$officialRawBase/sources/index.json';
-  static const rankingsUrl = '$officialRawBase/rankings/index.json';
   static const reverseSearchUrl = '$officialRawBase/reverse-search/index.json';
   static const metadataUrl = '$officialRawBase/metadata/index.json';
   static const supportedApiVersion = SourceCompatibility.apiVersion;
@@ -80,7 +79,7 @@ class SourceRepository {
     final failures = <String, String>{};
     final duplicate = <String>{};
     final results = await Future.wait([
-      for (final url in [indexUrl, rankingsUrl, reverseSearchUrl, metadataUrl])
+      for (final url in [indexUrl, reverseSearchUrl, metadataUrl])
         () async {
           try {
             return (index: parse(jsonDecode(await _read(url))), error: null);
@@ -94,8 +93,7 @@ class SourceRepository {
       if (result.index == null) {
         failures[switch (i) {
           0 => tr('官方站点仓库'),
-          1 => tr('排行榜插件'),
-          2 => tr('反搜插件'),
+          1 => tr('反搜插件'),
           _ => tr('资料插件'),
         }] = result.error is SourceError
             ? (result.error as SourceError).message
@@ -108,9 +106,9 @@ class SourceRepository {
           duplicate.add(entry.key);
           entries.remove(entry.key);
           failures[entry.name] = tr('官方站点标识重复：{key}', {'key': entry.key});
-        } else if (entry.rankingOnly != (i == 1) ||
-            entry.reverseSearchOnly != (i == 2) ||
-            entry.metadataOnly != (i == 3)) {
+        } else if (entry.rankingOnly ||
+            entry.reverseSearchOnly != (i == 1) ||
+            entry.metadataOnly != (i == 2)) {
           failures[entry.name] = tr('插件分发频道不匹配');
         } else {
           entries[entry.key] = entry;

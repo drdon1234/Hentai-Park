@@ -625,10 +625,10 @@ return { url: "https://player.example.com/watch/1", navigationDomains: ["player.
 
 `rankings` 以 `key`、`label`、`category`、`metric`、`options` 宣告榜單。獨立排行榜插件設定 `rankingOnly: true` 且不宣告 `feeds`。`ranking(board, {page, offset, cursor, options})` 回傳作品頁；條目包含 `id`、原站 `rank`、`title`、`cover`，以及可選的 `keyword`、`subtitle`、HTTPS 商品 `url`，保留並列名次。現有內容源可宣告 `feed`：未指定選項時繼承該 feed，執行時複用 `feed()` 並保留作品欄位、補上 `workId` 和缺失名次，開啟作品詳情。商業榜則搜尋指定分類。
 
-原始碼與唯一清單在 `main` 維護。`sources`、`rankings`、`reverse-search`、`metadata` 分別分發資源站點、獨立排行榜、獨立反搜與獨立資料插件。各分支只保存固定提交 URL 與 SHA-256 的索引；應用程式獨立讀取四個頻道，拒絕標記不符與重複 key，更新前需使用者確認。標籤翻譯以 `tag-translations` 另行發布。
+原始碼與唯一清單在 `main` 維護。`sources`、`reverse-search`、`metadata` 分別分發資源站點、獨立反搜與獨立資料插件。排行榜與作品資料統一由 `metadata` 分發，獨立排行榜頻道已停用。各分支只保存固定提交 URL 與 SHA-256 的索引；應用程式獨立讀取三個頻道，拒絕標記不符與重複 key，更新前需使用者確認。標籤翻譯以 `tag-translations` 另行發布。
 
 ```powershell
-node tools/publish_sources.mjs --commit '<SHA>' --channel rankings --output '<本地输出文件>'
+node tools/publish_sources.mjs --commit '<SHA>' --channel metadata --output '<本地输出文件>'
 ```
 
 ## 留言與內容連結

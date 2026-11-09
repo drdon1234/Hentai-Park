@@ -636,10 +636,10 @@ return { url: "https://player.example.com/watch/1", navigationDomains: ["player.
 
 `rankings` は `key`、`label`、`category`、`metric`、`options` で定義します。専用プラグインは `rankingOnly: true` とし、`feeds` を宣言しません。`ranking(board, {page, offset, cursor, options})` は作品ページを返し、項目には `id`、元の `rank`、`title`、`cover`、任意の `keyword`、`subtitle`、HTTPS商品 `url` を含めます。同順位を保持します。既存ソースは `feed` を指定して選択肢を継承し、`feed()` を再利用できます。作品フィールドを保持し、`workId` と不足する順位を補って詳細を開きます。販売ランキングは指定カテゴリを検索します。
 
-ソースとカタログは `main` で管理します。`sources`、`rankings`、`reverse-search`、`metadata` は通常サイト、ランキング専用、画像検索専用、作品情報専用プラグインを配信します。各ブランチは固定コミット URL と SHA-256 の索引のみ保持します。アプリは4チャネルを個別に読み込み、不一致と重複 key を拒否し、更新前に確認します。タグ翻訳は `tag-translations` です。
+ソースとカタログは `main` で管理します。`sources`、`reverse-search`、`metadata` は通常サイト、画像検索専用、作品情報専用プラグインを配信します。ランキングと作品情報は `metadata` に統合され、独立ランキングチャネルは廃止されました。各ブランチは固定コミット URL と SHA-256 の索引のみ保持します。アプリは3チャネルを個別に読み込み、不一致と重複 key を拒否し、更新前に確認します。タグ翻訳は `tag-translations` です。
 
 ```powershell
-node tools/publish_sources.mjs --commit '<SHA>' --channel rankings --output '<本地输出文件>'
+node tools/publish_sources.mjs --commit '<SHA>' --channel metadata --output '<本地输出文件>'
 ```
 
 ## コメントとコンテンツリンク

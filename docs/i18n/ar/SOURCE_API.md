@@ -627,10 +627,10 @@ return { url: "https://player.example.com/watch/1", navigationDomains: ["player.
 
 يعرّف `rankings` القوائم عبر `key` و`label` و`category` و`metric` و`options`. تضبط الإضافة المخصصة `rankingOnly: true` دون `feeds`. تعيد `ranking(board, {page, offset, cursor, options})` صفحة أعمال تحتوي على `id` و`rank` الأصلي و`title` و`cover` وحقول اختيارية `keyword` و`subtitle` و`url` منتج HTTPS. تُحفظ المراكز المتساوية. يمكن للمصدر الحالي تحديد `feed` لتوريث الخيارات عند حذفها وإعادة استخدام `feed()`، مع حفظ الحقول وإضافة `workId` والمركز المفقود لفتح التفاصيل. تبحث النتائج التجارية ضمن الفئة المحددة.
 
-تُحفظ الشيفرة والفهرس الموحد في `main`. توزع فروع `sources` و`rankings` و`reverse-search` و`metadata` المواقع والتصنيفات المستقلة والبحث العكسي وإضافات المعلومات بالترتيب. يحتوي كل فرع على فهرس بروابط commits ثابتة وSHA-256. يقرأ التطبيق القنوات الأربع منفصلة ويرفض العلامات الخاطئة والمفاتيح المكررة ويطلب التأكيد قبل التحديث. تُنشر ترجمات الوسوم عبر `tag-translations`.
+تُحفظ الشيفرة والفهرس الموحد في `main`. توزع فروع `sources` و`reverse-search` و`metadata` المواقع والبحث العكسي وإضافات المعلومات بالترتيب. توحّدت التصنيفات ومعلومات الأعمال في `metadata` وأُوقفت قناة التصنيفات المستقلة. يحتوي كل فرع على فهرس بروابط commits ثابتة وSHA-256. يقرأ التطبيق القنوات الثلاث منفصلة ويرفض العلامات الخاطئة والمفاتيح المكررة ويطلب التأكيد قبل التحديث. تُنشر ترجمات الوسوم عبر `tag-translations`.
 
 ```powershell
-node tools/publish_sources.mjs --commit '<SHA>' --channel rankings --output '<本地输出文件>'
+node tools/publish_sources.mjs --commit '<SHA>' --channel metadata --output '<本地输出文件>'
 ```
 
 </div>

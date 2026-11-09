@@ -636,10 +636,10 @@ return { url: "https://player.example.com/watch/1", navigationDomains: ["player.
 
 `rankings` declares boards with `key`, `label`, `category`, `metric` and `options`. A ranking-only plugin sets `rankingOnly: true` and declares no `feeds`. `ranking(board, {page, offset, cursor, options})` returns a work page; each item includes `id`, original `rank`, `title`, `cover`, optional `keyword`, `subtitle` and an HTTPS product `url`. Preserve tied ranks. An existing source may declare `feed` on its board: options are inherited when omitted, and the runtime reuses `feed()` while retaining work fields and adding `workId` and any missing rank. Those entries open work details; commercial entries search the declared category.
 
-Source scripts and the single catalog stay on `main`. The `sources`, `rankings`, `reverse-search` and `metadata` branches distribute resource, ranking-only, reverse-search-only and information-only plugins respectively. Each stores an index with immutable source URLs and SHA-256. The app reads all four independently, rejects mismatched channel markers and duplicate keys, and asks for confirmation before updates. Tag translations use `tag-translations`.
+Source scripts and the single catalog stay on `main`. The `sources`, `reverse-search` and `metadata` branches distribute resource, reverse-search-only and information-only plugins respectively. Rankings and work information share `metadata`; the standalone rankings channel is retired. Each branch stores an index with immutable source URLs and SHA-256. The app reads all three independently, rejects mismatched channel markers and duplicate keys, and asks for confirmation before updates. Tag translations use `tag-translations`.
 
 ```powershell
-node tools/publish_sources.mjs --commit '<SHA>' --channel rankings --output '<本地输出文件>'
+node tools/publish_sources.mjs --commit '<SHA>' --channel metadata --output '<本地输出文件>'
 ```
 
 ## Comments and content links
