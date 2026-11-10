@@ -83,10 +83,14 @@ class SubscriptionPostsPage extends StatefulWidget {
     required this.entry,
     this.targetKind,
     this.sourceManager,
+    this.initialPostId,
+    this.onPostOpened,
   });
   final SubscriptionEntry entry;
   final String? targetKind;
   final SourceManager? sourceManager;
+  final String? initialPostId;
+  final Future<void> Function()? onPostOpened;
   @override
   State<SubscriptionPostsPage> createState() => _SubscriptionPostsPageState();
 }
@@ -94,6 +98,7 @@ class SubscriptionPostsPage extends StatefulWidget {
 class _SubscriptionPostsPageState extends State<SubscriptionPostsPage> {
   SourceManager get _sources => widget.sourceManager ?? SourceManager.instance;
   final posts = <SubscriptionPost>[];
+  SubscriptionPost? _targetPost;
   bool _hidePreviews = false;
   final _cursors = <String>{};
   String? cursor;
@@ -168,6 +173,7 @@ class _SubscriptionPostsPageState extends State<SubscriptionPostsPage> {
       );
       if (!mounted || current != generation) return;
       setState(() {
+        if (widget.initialPostId != null) posts.clear();
         final ids = posts.map((p) => p.id).toSet();
         final added = p.items.where((p) => ids.add(p.id)).toList();
         posts.addAll(added);
@@ -179,12 +185,30 @@ class _SubscriptionPostsPageState extends State<SubscriptionPostsPage> {
         if (invalid) error = SourceError('PARSE', '分页链接无效');
         cursor = p.cursor;
       });
+      if (widget.initialPostId case final id?) {
+        final target = posts.where((post) => post.id == id).firstOrNull;
+        if (target != null) {
+          await widget.onPostOpened?.call();
+          if (!mounted || current != generation) return;
+          setState(() => _targetPost = target);
+        } else if (!hasNext) {
+          setState(() => error = SourceError('NOT_FOUND', '内容不存在或已被删除'));
+        }
+      }
     } catch (e) {
       if (mounted && current == generation && !token.isCancelled) {
         setState(() => error = e);
       }
     } finally {
-      if (mounted && current == generation) setState(() => loading = false);
+      if (mounted && current == generation) {
+        setState(() => loading = false);
+        if (widget.initialPostId != null &&
+            _targetPost == null &&
+            error == null &&
+            hasNext) {
+          unawaited(_load());
+        }
+      }
     }
   }
 
@@ -195,6 +219,25 @@ class _SubscriptionPostsPageState extends State<SubscriptionPostsPage> {
 
   @override
   Widget build(BuildContext context) {
+    if (widget.initialPostId != null) {
+      if (_targetPost case final post?) {
+        return SubscriptionWorkPage(
+          item: WorkItem(post.json, widget.entry.source),
+        );
+      }
+      return Scaffold(
+        appBar: AppBar(title: Text(widget.entry.label)),
+        body: Center(
+          child: error == null
+              ? const CircularProgressIndicator()
+              : SourceErrorView(
+                  source: widget.entry.source,
+                  error: error!,
+                  onRetry: () => _load(refresh: true),
+                ),
+        ),
+      );
+    }
     final manifest = _sources.manifest(widget.entry.source);
     final visible = posts.where(_isVisible).toList();
     final scope = PostVideoScope(

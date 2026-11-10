@@ -300,15 +300,25 @@ class Library extends ChangeNotifier {
 
   Future<void> _writes = Future<void>.value();
   (Object, StackTrace)? _writeFailure;
+  final _pendingWrites = <Future<void> Function()>[];
 
   void _run(Future<void> Function() write) {
-    _writes = _writes.then((_) => write()).catchError((
-      Object e,
-      StackTrace st,
-    ) {
-      _writeFailure ??= (e, st);
-      AppLog.error(e, event: 'library_write', stack: st);
-    });
+    _pendingWrites.add(write);
+    _writes = _writes.then((_) => _drainWrites());
+  }
+
+  Future<void> _drainWrites() async {
+    _writeFailure = null;
+    while (_pendingWrites.isNotEmpty) {
+      try {
+        await _db.transaction(_pendingWrites.first);
+        _pendingWrites.removeAt(0);
+      } catch (error, stack) {
+        _writeFailure = (error, stack);
+        AppLog.error(error, event: 'library_write', stack: stack);
+        return;
+      }
+    }
   }
 
   /// Inserts or refreshes the stored snapshot of a work without touching its library flags.
@@ -541,6 +551,7 @@ class Library extends ChangeNotifier {
   List<ChapterState>? chaptersCached(String uid) => _chapters[uid];
 
   Future<List<ChapterState>> loadChapters(String uid) async {
+    await flush();
     final (source, id) = splitUid(uid);
     final rows =
         await (_db.select(_db.chapters)
@@ -553,7 +564,11 @@ class Library extends ChangeNotifier {
         (state) => state.chapterId == cached.chapterId,
       );
       if (index < 0) {
-        list.add(cached);
+        // 只有尚未落盘的阅读状态需要保留，不能复活目录已删除的空章节。
+        if (cached.progressUpdatedAt != null ||
+            cached.positionUpdatedAt != null) {
+          list.add(cached);
+        }
         continue;
       }
       final loaded = list[index];
@@ -575,10 +590,14 @@ class Library extends ChangeNotifier {
           ..duration = cached.duration
           ..positionUpdatedAt = cachedPosition;
       }
-      loaded.read = loaded.read || cached.read;
-      if (cached.dateRead != null &&
-          (loaded.dateRead == null ||
-              cached.dateRead!.isAfter(loaded.dateRead!))) {
+      final selection = selectProgress(
+        comic: cachedProgress?.millisecondsSinceEpoch,
+        video: cachedPosition?.millisecondsSinceEpoch,
+        currentComic: loadedProgress?.millisecondsSinceEpoch,
+        currentVideo: loadedPosition?.millisecondsSinceEpoch,
+      );
+      if (selection.read) {
+        loaded.read = cached.read;
         loaded.dateRead = cached.dateRead;
       }
     }
@@ -604,6 +623,7 @@ class Library extends ChangeNotifier {
     DateTime? now,
   }) async {
     final uid = item.uid;
+    await flush();
     if (complete) {
       oneShot ? _oneShots.add(uid) : _oneShots.remove(uid);
     }
@@ -703,7 +723,7 @@ class Library extends ChangeNotifier {
     if (ids.isEmpty) return;
     final now = DateTime.now();
     final (source, id) = splitUid(uid);
-    final video = SourceManager.instance.manifest(source)?.isVideo == true;
+    final video = SourceManager.instance.manifest(source)?.isPlayable == true;
     for (final c in _chapters[uid] ?? const <ChapterState>[]) {
       if (!ids.contains(c.chapterId)) continue;
       c.read = read;
@@ -767,6 +787,23 @@ class Library extends ChangeNotifier {
       SourceCategory.fromJson(item.json['contentDomain']);
 
   WorkItem _domainSnapshot(WorkItem item) {
+    // 详情刷新没有曲目表时保留最近播放的同级目录，不能用全作品章节缓存替代。
+    final previous = _history[item.uid]?.item;
+    if (item.json['voiceRoot'] is Map &&
+        item.json['chapters'] == null &&
+        previous?.json['voiceRoot'] is Map &&
+        previous?.json['chapters'] is List) {
+      item = WorkItem({
+        ...item.json,
+        for (final key in const [
+          'chapters',
+          'chaptersComplete',
+          'voiceTrackKinds',
+          'voiceSubtitles',
+        ])
+          if (previous!.json.containsKey(key)) key: previous.json[key],
+      }, item.source);
+    }
     final manifest = SourceManager.instance.manifest(item.source);
     final kind =
         item.json['mediaKind'] ??
@@ -1255,13 +1292,13 @@ class Library extends ChangeNotifier {
 
   /// Waits for queued writes (used before backups and in tests).
   Future<void> flush() async {
+    _writes = _writes.then((_) => _drainWrites());
     while (true) {
       final pending = _writes;
       await pending;
       if (identical(pending, _writes)) break;
     }
     final failure = _writeFailure;
-    _writeFailure = null;
     if (failure != null) {
       Error.throwWithStackTrace(failure.$1, failure.$2);
     }

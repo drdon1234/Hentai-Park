@@ -40,7 +40,7 @@ class WorkListRow extends StatelessWidget {
                 child: AspectRatio(
                   aspectRatio:
                       (item.coverAspect ??
-                              (kindOf(item) == MediaKind.video ? 16 / 9 : .7))
+                              (kindOf(item).isPlayable ? 16 / 9 : .7))
                           .clamp(.5, 1.9),
                   child: CoverImage(
                     source: item.source,

@@ -94,7 +94,7 @@ enum SettingsDomain {
     'novelVolumeKeys',
   }),
   shortVideo({'shortVideoPreloadCount', 'shortVideoRetainedCount'}),
-  video({'danmakuArea'}),
+  video({'danmakuArea', 'voiceBackgroundPlayback'}),
   network({
     'dataSavingMode',
     'proxy',
@@ -459,8 +459,11 @@ class AppSettings extends ChangeNotifier {
     SourceCategory.recording,
     SourceCategory.live,
     SourceCategory.other,
+    SourceCategory.asmr,
     SourceCategory.novel,
+    SourceCategory.onlineGame,
     SourceCategory.game,
+    SourceCategory.interactiveArt,
   ];
 
   List<SourceCategory> get domainOrder {
@@ -534,6 +537,10 @@ class AppSettings extends ChangeNotifier {
     orElse: () => DanmakuArea.topHalf,
   );
   set danmakuArea(DanmakuArea area) => _set('danmakuArea', area.name);
+
+  bool get voiceBackgroundPlayback => _get('voiceBackgroundPlayback', false);
+  set voiceBackgroundPlayback(bool value) =>
+      _set('voiceBackgroundPlayback', value);
 
   bool get keepScreenOn => _get('keepScreenOn', true);
   set keepScreenOn(bool v) => _set('keepScreenOn', v);

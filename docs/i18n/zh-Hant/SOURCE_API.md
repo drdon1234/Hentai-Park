@@ -72,8 +72,8 @@ Park.register({
   name: '我的站点',
   version: '0.0.1',
   minAppVersion: '0.9.2',           // 三段数字，仓库版本更高时应用提示更新
-  type: 'comic',              // comic | video | novel | game | article：決定內容行為
-  category: 'doujin',         // doujin | anime | aiDrama | jav | adult | shortvideo | recording | live | gallery | illustration | novel | game | other
+  type: 'comic',              // comic | video | voice | novel | game | interactive | article：決定內容行為
+  category: 'doujin',         // doujin | anime | aiDrama | jav | adult | asmr | shortvideo | recording | live | gallery | illustration | novel | game | other
   color: '#E5355F',           // 品牌色：站点头像与站点页
   description: '一句话介绍',
   homepage: 'https://example.com',
@@ -115,6 +115,7 @@ Park.register({
 | `doujin` | 本子與漫畫 |
 | `gallery` | 三次元美圖：Cosplay、寫真與真人圖集. 圖片站宣告 `type: 'comic'`，一個圖集是一個作品，圖片由 `chapter()` 依序回傳，沿用閱讀、收藏與下載；分類不依張數或尺度區分 |
 | `illustration` | 二次元美圖：插畫與動漫圖片. 圖片站宣告 `type: 'comic'`，一個圖集是一個作品，圖片由 `chapter()` 依序回傳，沿用閱讀、收藏與下載；分類不依張數或尺度區分 |
+| `interactiveArt` | 互動立繪檢視器，`type: 'interactive'` |
 | `anime` | 裡番 |
 | `aiDrama` | AI 短劇。不接受舊的 `drama` 標識；站點自身的頻道名照原樣宣告，應用分類不用來過濾站點頻道 |
 | `jav` | JAV 專門站 |
@@ -122,8 +123,10 @@ Park.register({
 | `shortvideo` | 短影片：全屏豎向連續流，見下 |
 | `recording` | 線上錄播影片（隨選回放），`type: 'video'` |
 | `live` | 直播, `type: 'video'` |
+| `asmr` | 音聲、同人音聲及 ASMR 影片；目錄來源使用 `type: 'voice'`，影片來源可使用 `type: 'video'` |
 | `novel` | 小說，`type: 'novel'` |
-| `game` | 遊戲，`type: 'game'` |
+| `game` | 遊戲資訊與下載資源，`type: 'game'` |
+| `onlineGame` | 線上遊戲，`type: 'game'` |
 | `other` | 創作社群 |
 
 - **短影片**（`type: 'video', category: 'shortvideo'`）：作品、搜尋、收藏和歷史入口直接進入連續流。每個作品是一個短影片，`videos(id, '_')` 返回當前有效媒體，不需要詳情頁。`feed` 的 `hasNext` 和 `cursor` 用於臨近末尾時自動翻頁，遊標不能包含賬號憑據或媒體簽名。重新整理從第一頁開始；當前條播放，下一條暫停預載入，其餘釋放。站點沒有搜尋介面時不宣告 `search`。
@@ -189,7 +192,9 @@ async filterOptions({scope, feed, filter, keyword, values}) {
   自動回退不適用於 `followRedirects: false`、`connectAddress` 或未分類的網路錯誤。瀏覽器對無請求體的 GET / HEAD 一般請求最多嘗試三次，驗證通過後最多額外重發一次；僅恢復連線故障或 HTTP 408、500、502、503、504；429 與逾時不重複請求。一次邏輯請求最多主動導航驗證一次，外層重試不重設次數。瀏覽器啟動、請求、文件讀取與釋放均有等待上限。含自訂 API 請求標頭的讀取使用真正的 `fetch()`，不以一般導航結果取代；重用 HTML 文件時保留錯誤狀態，`responseType: 'base64'` 傳回原始位元組的 base64。
 
 - `network.vpnHint: true`：在中國大陸可能需要 VPN 或代理的站點宣告它，等待超過 8 秒和失敗時提示「可能需要 VPN 或代理」。不要把所有錯誤都歸因於 VPN。
-- `network.confirmation: { selector, readySelector, requiredCookies, auto: { clickSelector, checkSelector? }, message }`: 網站年齡門宣告。`selector` 比對年齡彈窗，`auto.clickSelector` 比對彈窗內唯一的確認按鈕，`readySelector` 比對可存取內容，`requiredCookies` 列出確認後必須存在的 Cookie 名稱。使用者在應用程式入口確認成年後，隱藏瀏覽器才會模擬點擊，並檢查彈窗消失、內容出現、Cookie 寫入及導覽穩定。規則不完整、不符合或無法自動完成時可重試；錯誤提供站內驗證位址時，可選擇「去確認」，手動處理後按完成。確認頁仍受來源網域與 Cookie 分區限制，操作提示不會自動重播原操作。僅限年齡確認，不可用於登入、付款或回覆。
+- `network.confirmation: { selector, readySelector, requiredCookies, auto: { clickSelector, checkSelector?, birthDate? }, message }`: 網站年齡門宣告。`selector` 比對年齡彈窗，`auto.clickSelector` 比對彈窗內唯一的確認按鈕，`readySelector` 比對可存取內容，`requiredCookies` 列出確認後必須存在的 Cookie 名稱。使用者在應用程式入口確認成年後，隱藏瀏覽器才會模擬點擊，並檢查彈窗消失、內容出現、Cookie 寫入及導覽穩定。規則不完整、不符合或無法自動完成時可重試；錯誤提供站內驗證位址時，可選擇「去確認」，手動處理後按完成。確認頁仍受來源網域與 Cookie 分區限制，操作提示不會自動重播原操作。僅限年齡確認，不可用於登入、付款或回覆。
+
+`auto.birthDate` 可宣告 `{dateSelector}` 或 `{yearSelector, monthSelector, daySelector}`。只有本機已確認成年、日期欄位與按鈕唯一且位於同一個同源年齡表單、沒有其他可提交輸入時，框架才填入固定日期 1999-12-31 並提交；不符時不操作，不讀取真實生日。
 
 可選 `auto.checkSelector` 僅勾選年齡門內唯一的核取方塊。問答年齡門可宣告 `auto.questionnaire: {rowSelector, submitSelector, answers: [{question, answer}]}`；僅在應用已確認成年、每題及完整答案精確匹配、全部屬於同一表單且提交按鈕唯一時自動提交。未知或歧義題目不猜測、不提交；不填寫登入或其他表單。
 - 網路異常附帶安全的 `diagnostics` 欄位 `host`、`transport`、`reason`，區分 TLS 證書、握手、DNS、連線和超時；自動日誌只記錄這幾個白名單欄位。`reason: 'TLS_HANDSHAKE_TERMINATED'` 僅表示原生 `HandshakeException.message` 恰好是 `Connection terminated during handshake`（握手完成前連線中斷，不是證書校驗失敗）；只有 HTTPS、無請求體的 GET / HEAD 遇到它時自動重試一次，其他錯誤都不重試。
@@ -272,6 +277,14 @@ account: {
 
 `Park.createDomainResolver({initialOrigin, accept, discover, verify})` 從可信發布頁尋找候選，以 `accept` 限制站點地址並以 `verify` 檢查首頁，成功來源存入該源的私有 store。`resolver.request(this, path, options)` 回傳 `{response, origin}`；僅對 403、502/503/504、逾時及可分類連線/DNS 故障切換。GET、HEAD 與同時標記 `readOnly`、`allowDomainRetry` 的公開查詢 POST 可重放；非白名單請求標頭、憑證錯誤、取消與其他寫入不切換。跳轉須同源，瀏覽器及媒體權限不會自動擴大。
 
+## 音聲目錄與字幕
+
+目錄來源使用 `type: 'voice', category: 'asmr'`，影片來源可使用 `type: 'video'`。`voiceLanguageStatus` 為 `chineseSpoken`、`chineseSubtitled`、`foreignOriginal` 或 `unknown`；`voiceMediaForm` 為 `audioOnly`、`videoOnly`、`mixed` 或 `unknown`，只填來源或完整目錄可證實的值。
+
+詳情可提供 `voiceRoot: {id, name, type}`；`voiceDirectory(workId, directoryId, {page})` 回傳 `{items: [node], hasNext}`，節點類型為 `directory`、`audio`、`video`、`subtitle`、`image`、`script` 或 `other`。`voiceResource(workId, nodeId)` 回傳 `{url, format}`，`videos(workId, nodeId)` 解析曲目，均受媒體權限約束。字幕可提供來源明確標註的 `subtitleLanguage: 'zh'`；音視訊節點可用 `subtitleIds: [id]` 宣告來源明確關聯的字幕，最多 50 個非空、互不重複的穩定 ID；應用僅接受同目錄字幕，並補充配對同名 LRC、VTT、SRT。單曲詳情亦可用 `voiceSubtitles: {episodeId: [subtitleId]}` 宣告來源明確關聯的字幕，預設單曲 ID 為 `_`；每組最多 50 個非空、不重複且不含 URL 的穩定字幕 ID，並須實作 `voiceResource(workId, subtitleId)`。支援圖片及 TXT 台本檢視，音聲歸檔尚不支援下載。`Park.createVoiceArchive` 提供公開 AList 只讀目錄的共用實作；同源唯讀 POST 明確宣告 `readOnly: true` 才能在自動模式回退瀏覽器，寫入和二進位請求不得回退。
+
+目錄尚未載入完整或後續分頁失敗時，已載入曲目仍可播放；播放清單與字幕關聯取開始播放時已載入的同級節點，不得將部分目錄標記為完整。
+
 ## 方法
 
 方法裡的 `this` 見「執行時 API」。所有方法都可以是 `async`。
@@ -286,6 +299,8 @@ async resolveImage({ id, chapterId, index, token, retry }) {}  // 可选：延�
 async thumbnails(id, page) {}                      // 可选：分页加载预览缩略图
 async videos(id, episodeId = '_') {}               // 视频
 async textChapter(id, chapterId) {}                // 小说
+async onlineGame(workId) {}                        // online game
+async interactiveViewer(workId) {}                 // interactive artwork
 async gameResources(workId) {}                     // 游戏
 async resolveGameResource(workId, resourceId, channelId) {}
 ```
@@ -313,7 +328,7 @@ async resolveGameResource(workId, resourceId, channelId) {}
 
 - `coverAspect`（寬 / 高）讓網格在圖片載入前就排好版。
 - `badgeColor` 用於分類角標的顏色。
-- `mediaKind: 'comic' | 'video' | 'novel' | 'game' | 'article'` 描述作品本身的型別。外掛只有一種型別時可以省略；混合型別時必須填寫，不能憑外掛的 `type` 把圖片當成影片。小說、遊戲和吃瓜作品總是填寫，解除安裝外掛後仍保留正確型別。
+- `mediaKind: 'comic' | 'video' | 'voice' | 'novel' | 'game' | 'article'` 描述作品本身的型別。外掛只有一種型別時可以省略；混合型別時必須填寫，不能憑外掛的 `type` 把圖片當成影片。小說、遊戲和吃瓜作品總是填寫，解除安裝外掛後仍保留正確型別。
 - 帖子類結果可以帶 `presentation: 'post'`、`text`、`date`、`url` 和 `media` 陣列，以帖子卡片顯示；`presentation: 'media'` 用媒體網格顯示，點選進入作品中的媒體。帖子正文允許沒有媒體；媒體地址仍受外掛宣告的域名和許可權約束。
 
 ### 詳情：`detail`
@@ -379,6 +394,18 @@ async textChapter(id, chapterId) {
 - 正文內部分頁由外掛按順序合併，不能把下一章、論壇回覆、廣告或推薦作品併入正文。`Park.html.paragraphs(node)` 提供通用的純文字提取，站點邊界和分頁仍由外掛決定。
 - 登入、付費或許可權導致正文截斷時拋 `LOGIN_REQUIRED`，不得把預覽偽裝成完整章節。
 - 應用按章原子寫入 `text.json`，完整寫入才算下載完成。閱讀進度和標註使用 `paragraphs.join('\n\n')` 的 UTF-16 位置；字號、字型、縮排等排版隻影響顯示，不改正文和已儲存的定位。書籤和標註獨立於下載檔案，參與備份，刪除下載不會刪除它們。
+
+### 互動立繪: `interactiveViewer`
+
+外掛宣告 `type: 'interactive', category: 'interactiveArt'`，列表與詳情填寫 `mediaKind: 'interactive'`。`interactiveViewer(workId)` 回傳 `{url, storageId?}`；網址須為來源宣告網域內、不含憑證且使用 443 埠的 HTTPS 頁面，`storageId` 是不含憑證的穩定站內識別碼，省略時使用 workId。執行時依方法匯出 `capabilities.interactiveViewer`。檢視器沿用隔離網頁容器，主文件和一般 iframe 限於目標主機，不啟用 JavaScript 橋；支援範圍受原站和裝置影響。不得偽造角色直達連結或章節，未驗證搜尋能力不宣告；不提供離線下載。
+
+單入口檢視器可宣告 `interactiveEntry: 'viewer'`（值為真實 workId），從站點或該項目直接進入檢視器，仍可從檢視器開啟詳情。多角色目錄不宣告此欄位。
+
+### 線上遊戲: `onlineGame`
+
+線上遊戲外掛宣告 `type: 'game', category: 'onlineGame'`，作品填寫 `mediaKind: 'game'`。使用者開始遊玩時，`onlineGame(workId)` 回傳 `{kind: 'html', url, storageId?}`；Flash 回傳 `{kind: 'flash', url, player, storageId?}`，`url` 是 SWF，`player` 是同主機的 Ruffle 腳本。網址須為不含憑證、使用 443 埠的 HTTPS。`storageId` 是站點內穩定的作品識別碼；省略時使用 workId，不得包含憑證。
+
+用戶端依站點和識別碼隔離持久瀏覽器設定，主框架限於遊戲主機，子框架另允許精確的 `challenges.cloudflare.com` 驗證網域，拒絕彈窗、下載和網頁權限。Android 需要支援多設定檔的系統 WebView，Windows 使用獨立 WebView2 資料目錄。localStorage 和 IndexedDB 隨設定檔保留；來源主機變更時瀏覽器不會自動遷移存檔。HTTP 快取受原站策略及系統回收影響，不保證離線或秒開。
 
 ### 遊戲：`gameResources` / `resolveGameResource`
 

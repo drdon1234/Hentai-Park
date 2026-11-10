@@ -11,7 +11,15 @@ import '../video/live_recording_button.dart';
 import 'detail_actions.dart';
 
 /// What the detail page's primary action does for this kind of work.
-enum DetailKind { reading, novel, video, game, external }
+enum DetailKind {
+  reading,
+  novel,
+  video,
+  game,
+  onlineGame,
+  interactiveArt,
+  external,
+}
 
 /// One accent action (continue / read / play); favorite, download and more stay secondary.
 class DetailActionBar extends StatelessWidget {
@@ -42,7 +50,9 @@ class DetailActionBar extends StatelessWidget {
   bool get _empty =>
       detail?.hasNoChapters == true &&
       kind != DetailKind.video &&
-      kind != DetailKind.game;
+      kind != DetailKind.game &&
+      kind != DetailKind.onlineGame &&
+      kind != DetailKind.interactiveArt;
 
   @override
   Widget build(BuildContext context) {
@@ -52,6 +62,8 @@ class DetailActionBar extends StatelessWidget {
         allowDownload &&
         kind != DetailKind.external &&
         kind != DetailKind.game &&
+        kind != DetailKind.onlineGame &&
+        kind != DetailKind.interactiveArt &&
         SourceManager.instance.manifest(item.source)?.usesWebVideo != true &&
         SourceManager.instance.manifest(item.source)?.isLive != true;
     return Padding(
@@ -69,7 +81,9 @@ class DetailActionBar extends StatelessWidget {
                   ),
                   onPressed: detail == null || _empty ? null : onPrimary,
                   icon: Icon(switch (kind) {
-                    DetailKind.game => Icons.sports_esports_outlined,
+                    DetailKind.game ||
+                    DetailKind.onlineGame => Icons.sports_esports_outlined,
+                    DetailKind.interactiveArt => Icons.animation_outlined,
                     DetailKind.external => Icons.open_in_browser_rounded,
                     DetailKind.video => Icons.play_arrow_rounded,
                     DetailKind.reading when singlePage =>
@@ -132,6 +146,10 @@ class DetailActionBar extends StatelessWidget {
     switch (kind) {
       case DetailKind.game:
         return tr('查看游戏资源');
+      case DetailKind.onlineGame:
+        return tr('开始游戏');
+      case DetailKind.interactiveArt:
+        return tr('查看立绘');
       case DetailKind.external:
         return tr('打开原站');
       case DetailKind.video:

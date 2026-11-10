@@ -36,6 +36,7 @@ class BrowserMedia implements MediaTransport {
   InAppWebViewController? _controller;
   Future<void>? _ready;
   Future<void>? _starting;
+  bool _viewRunning = false;
   Future<void>? _viewDisposal;
   final _queue = SerialExecutor();
   Future<void>? _closing;
@@ -267,6 +268,7 @@ html: document.documentElement ? document.documentElement.outerHTML.slice(0, 419
         }
       },
       onWebViewCreated: (controller) {
+        if (isClosed || ready.isCompleted) return;
         _controller = controller;
         _startupPoll = Timer.periodic(
           const Duration(milliseconds: 800),
@@ -332,10 +334,12 @@ html: document.documentElement ? document.documentElement.outerHTML.slice(0, 419
     final waiting = _untilClosed(ready.future, null);
     // close may settle this while the platform is still creating its view.
     waiting.ignore();
-    final starting = _starting = view.run();
+    _viewRunning = false;
+    final starting = _starting = view.run().then((_) {
+      if (identical(_view, view)) _viewRunning = true;
+    });
     try {
-      await starting;
-      await waiting;
+      await Future.wait([starting, waiting], eagerError: true);
     } catch (error) {
       finish(error);
       try {
@@ -358,9 +362,11 @@ html: document.documentElement ? document.documentElement.outerHTML.slice(0, 419
     HeadlessInAppWebView view,
     Future<void>? starting,
   ) => _viewDisposal ??= () async {
-    try {
-      await starting;
-    } catch (_) {}
+    if (!_viewRunning && starting != null) {
+      // 创建无法取消时及时结束当前会话；迟到的原生视图仍由这里回收。
+      unawaited(starting.then((_) => view.dispose()).catchError((Object _) {}));
+      return;
+    }
     await view.dispose();
   }();
 

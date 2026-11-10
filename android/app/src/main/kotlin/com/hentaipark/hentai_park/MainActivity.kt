@@ -109,14 +109,38 @@ class MainActivity : FlutterFragmentActivity() {
         mediaRemuxer = MediaRemuxer(applicationContext, flutterEngine.dartExecutor.binaryMessenger)
         launchPayload = intent?.getStringExtra(EXTRA_PAYLOAD)
         val webVideoProfiles = WebVideoProfiles(flutterEngine)
+        val webGameProfiles = WebGameProfiles(flutterEngine)
         val browserChallengeInput = BrowserChallengeInput { id ->
             val plugin = flutterEngine.plugins.get(InAppWebViewFlutterPlugin::class.java) as? InAppWebViewFlutterPlugin
             plugin?.headlessInAppWebViewManager?.webViews?.get(id)?.flutterWebView?.webView
                 ?: webVideoProfiles.challengeView(id)
+                ?: webGameProfiles.challengeView(id)
         }
         channel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "hentai_park/platform").also {
             it.setMethodCallHandler { call, result ->
                 when (call.method) {
+                    "startVoicePlayback" -> {
+                        val args = call.arguments as? Map<*, *>
+                        val id = args?.get("id") as? String
+                        val text = args?.get("text") as? String
+                        if (id.isNullOrBlank() || text.isNullOrBlank()) result.success(false)
+                        else VoicePlaybackService.start(applicationContext, id, text,
+                            args["play"] as? String ?: text, args["pause"] as? String ?: text, result) { action ->
+                            channel?.invokeMethod("voiceControl", mapOf("id" to id, "action" to action))
+                        }
+                    }
+                    "stopVoicePlayback" -> {
+                        val id = call.arguments as? String
+                        if (id != null) VoicePlaybackService.stop(applicationContext, id)
+                        result.success(null)
+                    }
+                    "updateVoicePlayback" -> {
+                        val args = call.arguments as? Map<*, *>
+                        val id = args?.get("id") as? String
+                        val playing = args?.get("playing") as? Boolean
+                        if (id != null && playing != null) VoicePlaybackService.setPlaying(id, playing, args["available"] == true)
+                        result.success(null)
+                    }
                     "clickBrowserChallenge" -> browserChallengeInput.click(call.arguments as? Map<*, *>, result)
                     "readCrashDiagnostics" -> NativeCrashLog.read(applicationContext) { entries, error ->
                         runOnUiThread {
@@ -127,6 +151,26 @@ class MainActivity : FlutterFragmentActivity() {
                     "isolateWebVideo" -> {
                         try { result.success(webVideoProfiles.isolate(call.arguments as String)) }
                         catch (_: Exception) { result.success(false) }
+                    }
+                    "attachWebGame" -> {
+                        val args = call.arguments as? Map<*, *>
+                        val id = args?.get("id") as? String
+                        val key = args?.get("key") as? String
+                        result.success(id != null && key != null && webGameProfiles.attach(id, key))
+                    }
+                    "releaseWebGame" -> {
+                        try {
+                            webGameProfiles.release(call.arguments as String)
+                            result.success(null)
+                        } catch (_: Exception) { result.error("WEB_GAME", "WEB_GAME", null) }
+                    }
+                    "sendWebGameKey" -> {
+                        val args = call.arguments as? Map<*, *>
+                        val id = args?.get("id") as? String
+                        val code = args?.get("code") as? String
+                        val down = args?.get("down") as? Boolean
+                        val ctrl = args?.get("ctrl") == true
+                        result.success(id != null && code != null && down != null && webGameProfiles.sendKey(id, code, down, ctrl))
                     }
                     "releaseWebVideo" -> {
                         try {
@@ -305,6 +349,7 @@ class MainActivity : FlutterFragmentActivity() {
     }
 
     override fun onDestroy() {
+        VoicePlaybackService.stopAll(applicationContext)
         videoFullscreen = false
         videoOrientation.stop()
         restoreVideoSystemBars(clear = true)

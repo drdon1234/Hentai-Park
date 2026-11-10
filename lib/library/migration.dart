@@ -77,22 +77,22 @@ class Migrator {
       });
     }
     final kind = SourceManager.instance.kindOf(to);
-    final chapters = kind == MediaKind.video
+    final chapters = kind.isPlayable
         ? to.videoEpisodes
         : to.chapters ?? [Chapter(chapterKeyOf(to.singleChapterId), tr('全本'))];
     var unmatchedProgress = false;
     await lib.flush();
-    if (kind != MediaKind.game) {
+    if (kind != MediaKind.game && kind != MediaKind.interactive) {
       await lib.syncChapters(
         target,
         chapters,
-        oneShot: kind == MediaKind.video
-            ? !to.hasVideoEpisodes
-            : to.chapters == null,
+        oneShot: kind.isPlayable ? !to.hasVideoEpisodes : to.chapters == null,
         complete: to.chaptersComplete,
       );
     }
-    if (options.readState && kind != MediaKind.game) {
+    if (options.readState &&
+        kind != MediaKind.game &&
+        kind != MediaKind.interactive) {
       final old =
           lib.chaptersCached(from.uid) ?? await lib.loadChapters(from.uid);
       final map = matchChapters(old, chapters);

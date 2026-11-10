@@ -6,7 +6,9 @@ import 'package:path/path.dart' as p;
 
 import '../core/async_tasks.dart';
 import '../core/localization.dart';
+import '../core/models.dart';
 import '../core/settings.dart';
+import '../core/storage.dart';
 import '../engine/background_downloads.dart';
 import 'cbz.dart';
 import 'comic_pdf.dart';
@@ -94,6 +96,7 @@ class ExportManager extends ChangeNotifier {
           ),
         },
       );
+      if (job.files.isEmpty) throw SourceError('NOT_FOUND', '离线媒体文件缺失或不可读');
       job.status = ExportStatus.done;
     } catch (error) {
       job
@@ -114,19 +117,26 @@ class ExportManager extends ChangeNotifier {
 
   /// 已导出的文件，按修改时间从新到旧；正在写入的暂存目录不列出。
   Future<List<File>> files() async {
-    final dir = directory;
-    if (!await dir.exists()) return const [];
     final files = <(File, DateTime)>[];
-    await for (final entity in dir.list(followLinks: false)) {
-      if (entity is! File || p.basename(entity.path).startsWith('.')) continue;
-      files.add((entity, (await entity.stat()).modified));
+    final seen = <String>{};
+    for (final path in await AppPaths.exportDirectories()) {
+      final dir = Directory(path);
+      if (!await dir.exists()) continue;
+      await for (final entity in dir.list(followLinks: false)) {
+        if (entity is! File || p.basename(entity.path).startsWith('.')) {
+          continue;
+        }
+        if (!seen.add(await entity.resolveSymbolicLinks())) continue;
+        files.add((entity, (await entity.stat()).modified));
+      }
     }
     files.sort((a, b) => b.$2.compareTo(a.$2));
     return [for (final (file, _) in files) file];
   }
 
   Future<void> delete(File file) async {
-    if (!p.isWithin(directory.path, file.path)) {
+    final roots = await AppPaths.exportDirectories();
+    if (!roots.any((root) => p.equals(root, file.absolute.parent.path))) {
       throw ArgumentError(tr('只能删除导出目录中的文件'));
     }
     if (await file.exists()) await file.delete();

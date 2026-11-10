@@ -5,6 +5,7 @@ import '../../core/models.dart';
 import '../../core/platform_capabilities.dart';
 import '../../core/settings.dart';
 import '../../core/tag_blocklist.dart';
+import '../../core/voice.dart';
 import '../../engine/home_cache.dart';
 import '../../engine/source_manager.dart';
 import '../../subscriptions/models.dart';
@@ -42,6 +43,19 @@ class PagedController extends ChangeNotifier {
   final _loaded = <WorkItem>[];
   bool showBlocked = false;
   bool hidePreviews = false;
+  VoiceLanguageStatus? voiceLanguage;
+  VoiceMediaForm? voiceForm;
+
+  bool get hasVoiceFilters => voiceLanguage != null || voiceForm != null;
+
+  void setVoiceFilters({VoiceLanguageStatus? language, VoiceMediaForm? form}) {
+    if (voiceLanguage == language && voiceForm == form) return;
+    voiceLanguage = language;
+    voiceForm = form;
+    _emptyPages = 0;
+    _rulesChanged();
+  }
+
   void setVisibility({bool? blocked, bool? previews}) {
     showBlocked = blocked ?? showBlocked;
     hidePreviews = previews ?? hidePreviews;
@@ -50,7 +64,9 @@ class PagedController extends ChangeNotifier {
 
   bool _visible(WorkItem item, TagBlocklist blocklist) =>
       (showBlocked || blocklist.matchItem(item) == null) &&
-      (!hidePreviews || !item.previewOnly);
+      (!hidePreviews || !item.previewOnly) &&
+      (voiceLanguage == null || item.voiceLanguageStatus == voiceLanguage) &&
+      (voiceForm == null || item.voiceMediaForm == voiceForm);
   List<WorkSection>? _rawSections;
   void _rulesChanged() {
     if (_disposed) return;
@@ -71,7 +87,7 @@ class PagedController extends ChangeNotifier {
     _notify();
   }
 
-  /// Works hidden by the tag blocklist so far.
+  /// Works hidden by content rules, preview visibility, or voice filters.
   int hidden = 0;
   int _emptyPages = 0;
   List<WorkSection>? sections;
@@ -548,7 +564,7 @@ class PagedSliverGrid extends StatelessWidget {
         ),
       );
     }
-    final aspect = kind == MediaKind.video ? 16 / 9 : 0.7;
+    final aspect = kind.isPlayable ? 16 / 9 : 0.7;
     final imageOnly =
         SourceManager.instance.manifest(controller.source)?.isLive == true;
     return SliverLayoutBuilder(

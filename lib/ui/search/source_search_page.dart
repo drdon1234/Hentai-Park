@@ -16,6 +16,7 @@ import '../nav.dart';
 import '../short_video/post_video_feed.dart';
 import '../short_video/short_video_page.dart';
 import '../theme.dart';
+import '../voice/voice_work_filters.dart';
 import '../widgets/common.dart';
 import '../widgets/common_filters.dart';
 import '../widgets/content_translation.dart';
@@ -529,6 +530,12 @@ class _SourceSearchPageState extends State<SourceSearchPage> {
                             keyboardDismissBehavior:
                                 ScrollViewKeyboardDismissBehavior.onDrag,
                             slivers: [
+                              if (_m.category == SourceCategory.asmr)
+                                SliverToBoxAdapter(
+                                  child: VoiceWorkFilters(
+                                    controller: _controller,
+                                  ),
+                                ),
                               if (_multi != null)
                                 SliverToBoxAdapter(
                                   child: TranslationsBar(

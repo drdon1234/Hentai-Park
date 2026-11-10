@@ -28,7 +28,11 @@ class NovelSpeech extends ChangeNotifier {
     await _tts.stop();
     if (generation != _generation || _disposed) return;
     await _tts.awaitSpeakCompletion(true);
-    await _tts.setLanguage(language.startsWith('zh') ? 'zh-CN' : 'en-US');
+    final locale = language.replaceAll('_', '-');
+    if (await _tts.isLanguageAvailable(locale) != true) {
+      throw StateError('TTS language unavailable');
+    }
+    await _tts.setLanguage(locale);
     await _tts.setSpeechRate(rate);
     if (generation != _generation || _disposed) return;
     _playing = true;

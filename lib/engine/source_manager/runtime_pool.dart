@@ -238,6 +238,8 @@ mixin _RuntimePool on _SourceRegistry {
       'chapters',
       'pages',
       'videos',
+      'voiceDirectory',
+      'voiceResource',
     }.contains(method);
     final readToken = isRead ? CancelToken() : cancelToken;
     final cancellation = isRead

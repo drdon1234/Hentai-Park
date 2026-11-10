@@ -72,8 +72,8 @@ Park.register({
   name: '我的站点',
   version: '0.0.1',
   minAppVersion: '0.9.2',           // 숫자 세 개. 저장소 버전이 더 높으면 업데이트를 안내
-  type: 'comic',              // comic | video | novel | game | article: 콘텐츠 동작 결정
-  category: 'doujin',         // doujin | anime | aiDrama | jav | adult | shortvideo | recording | live | gallery | illustration | novel | game | other
+  type: 'comic',              // comic | video | voice | novel | game | interactive | article: 콘텐츠 동작 결정
+  category: 'doujin',         // doujin | anime | aiDrama | jav | adult | asmr | shortvideo | recording | live | gallery | illustration | novel | game | other
   color: '#E5355F',           // 브랜드 색: 사이트 아이콘과 사이트 페이지
   description: '一句话介绍',
   homepage: 'https://example.com',
@@ -115,6 +115,7 @@ Park.register({
 | `doujin` | 동인지와 만화 |
 | `gallery` | 실사 갤러리: 코스프레, 사진 및 실사 이미지 모음. 이미지 사이트는 `type: 'comic'`을 사용하며 이미지 모음 하나가 작품 하나입니다. `chapter()`가 이미지를 순서대로 반환하고 읽기·즐겨찾기·다운로드를 공용으로 사용합니다. 장수나 수위로 분류하지 않습니다 |
 | `illustration` | 일러스트 갤러리: 일러스트 및 애니메이션 이미지. 이미지 사이트는 `type: 'comic'`을 사용하며 이미지 모음 하나가 작품 하나입니다. `chapter()`가 이미지를 순서대로 반환하고 읽기·즐겨찾기·다운로드를 공용으로 사용합니다. 장수나 수위로 분류하지 않습니다 |
+| `interactiveArt` | 인터랙티브 일러스트 뷰어, `type: 'interactive'` |
 | `anime` | 성인 애니메이션 |
 | `aiDrama` | AI 숏드라마. 예전 `drama` 값은 받지 않습니다. 사이트 자체의 채널 이름은 그대로 선언하며, 앱의 분류로 사이트 채널을 거르지 않습니다 |
 | `jav` | JAV 전문 사이트 |
@@ -122,8 +123,10 @@ Park.register({
 | `shortvideo` | 짧은 동영상: 전체 화면 세로 피드 (아래 참고) |
 | `recording` | 다시보기 영상(주문형 재생), `type: 'video'` |
 | `live` | 라이브, `type: 'video'` |
+| `asmr` | 음성 작품과 ASMR 동영상. 폴더 소스는 `type: 'voice'`, 동영상 소스는 `type: 'video'` 사용 가능 |
 | `novel` | 소설, `type: 'novel'` |
-| `game` | 게임, `type: 'game'` |
+| `game` | 게임 정보 및 다운로드 자료, `type: 'game'` |
+| `onlineGame` | 온라인 게임, `type: 'game'` |
 | `other` | 크리에이터 커뮤니티 |
 
 - **짧은 동영상** (`type: 'video', category: 'shortvideo'`): 작품, 검색, 즐겨찾기, 기록에서 바로 피드로 들어갑니다. 작품 하나가 동영상 하나이며 `videos(id, '_')`가 현재 미디어를 반환하고 상세 페이지는 필요 없습니다. `feed`의 `hasNext`와 `cursor`로 끝에 가까워지면 자동으로 다음 페이지를 불러옵니다. 커서에 인증 정보나 미디어 서명을 넣으면 안 됩니다. 새로고침하면 첫 페이지부터 시작하며, 보고 있는 항목은 재생하고 다음 항목은 일시 정지 상태로 미리 불러오며 나머지는 해제합니다. 검색이 없는 사이트는 `search`를 선언하지 않습니다.
@@ -189,7 +192,9 @@ async filterOptions({scope, feed, filter, keyword, values}) {
   자동 폴백은 `followRedirects: false`, `connectAddress`, 원인이 분류되지 않은 네트워크 오류에는 적용하지 않습니다. 본문 없는 브라우저 GET / HEAD는 일반 시도는 최대 세 번이며 인증 후 추가 재전송은 최대 한 번입니다. 연결 장애 또는 HTTP 408, 500, 502, 503, 504만 재시도합니다. 429와 시간 초과는 재전송하지 않습니다. 인증 페이지 이동은 모든 시도를 합쳐 논리 요청당 최대 한 번입니다. 시작, 요청, 문서 읽기, 해제에는 대기 제한이 있습니다. 사용자 지정 API 헤더가 있는 요청은 일반 탐색 결과로 대체하지 않고 실제 `fetch()`를 사용합니다. 재사용 HTML의 오류 상태를 유지하며 `responseType: 'base64'`는 원본 바이트의 base64를 반환합니다.
 
 - `network.vpnHint: true`: 중국 본토에서 VPN이나 프록시가 필요할 수 있는 사이트에 선언합니다. 8초 넘게 기다리거나 실패하면 'VPN 또는 프록시가 필요할 수 있습니다'라고 안내합니다. 모든 오류를 VPN 탓으로 돌리지 마세요.
-- `network.confirmation: { selector, readySelector, requiredCookies, auto: { clickSelector, checkSelector? }, message }`: 사이트 연령 확인을 선언합니다. `selector`는 대화상자, `auto.clickSelector`는 그 안의 유일한 확인 버튼, `readySelector`는 접근 가능한 콘텐츠, `requiredCookies`는 확인 후 필요한 Cookie 이름입니다. 앱 입구에서 성인임을 확인한 뒤에만 숨겨진 브라우저가 클릭을 시뮬레이션하고 대화상자 소멸, 콘텐츠, Cookie 및 탐색 안정을 검사합니다. 규칙이 불완전하거나 일치하지 않거나 자동 확인에 실패하면 재시도할 수 있습니다. 오류에 사이트 내 인증 URL이 있으면 페이지에서 직접 처리한 뒤 완료를 누릅니다. 소스 도메인과 Cookie 분리 제한은 유지되며 작업 알림은 원래 작업을 자동 재전송하지 않습니다. 로그인, 결제 또는 게시에는 사용할 수 없습니다.
+- `network.confirmation: { selector, readySelector, requiredCookies, auto: { clickSelector, checkSelector?, birthDate? }, message }`: 사이트 연령 확인을 선언합니다. `selector`는 대화상자, `auto.clickSelector`는 그 안의 유일한 확인 버튼, `readySelector`는 접근 가능한 콘텐츠, `requiredCookies`는 확인 후 필요한 Cookie 이름입니다. 앱 입구에서 성인임을 확인한 뒤에만 숨겨진 브라우저가 클릭을 시뮬레이션하고 대화상자 소멸, 콘텐츠, Cookie 및 탐색 안정을 검사합니다. 규칙이 불완전하거나 일치하지 않거나 자동 확인에 실패하면 재시도할 수 있습니다. 오류에 사이트 내 인증 URL이 있으면 페이지에서 직접 처리한 뒤 완료를 누릅니다. 소스 도메인과 Cookie 분리 제한은 유지되며 작업 알림은 원래 작업을 자동 재전송하지 않습니다. 로그인, 결제 또는 게시에는 사용할 수 없습니다.
+
+`auto.birthDate`에 `{dateSelector}` 또는 `{yearSelector, monthSelector, daySelector}`를 선언합니다. 기기에서 성인 확인을 마쳤고 날짜 필드와 버튼이 유일한 동일 출처 연령 확인 양식에 있으며 다른 제출 가능 입력이 없을 때만 고정 날짜 1999-12-31을 입력해 제출합니다. 일치하지 않으면 조작하지 않으며 실제 생일은 읽지 않습니다.
 
 선택적 `auto.checkSelector`는 연령 확인 안의 유일한 체크박스를 선택합니다. 질문형 확인은 `auto.questionnaire: {rowSelector, submitSelector, answers: [{question, answer}]}`를 선언할 수 있습니다. 앱에서 성인 확인 후 모든 질문과 전체 답변이 정확히 일치하고 같은 양식이며 제출 버튼이 유일할 때만 자동 제출합니다. 모르는 질문이나 모호한 질문을 추측하지 않고 로그인 등 다른 양식을 채우지 않습니다.
 - 네트워크 오류에는 안전한 `diagnostics` 필드 `host`, `transport`, `reason`이 붙어 TLS 인증서, 핸드셰이크, DNS, 연결, 시간 초과를 구분합니다. 자동 로그에는 이 허용된 필드만 기록합니다. `reason: 'TLS_HANDSHAKE_TERMINATED'`는 네이티브 `HandshakeException.message`가 정확히 `Connection terminated during handshake`일 때만이며 (핸드셰이크 완료 전에 연결이 끊긴 것으로 인증서 실패가 아님), 본문이 없는 HTTPS GET / HEAD만 한 번 다시 시도하고 나머지는 다시 시도하지 않습니다.
@@ -272,6 +277,14 @@ account: {
 
 `Park.createDomainResolver({initialOrigin, accept, discover, verify})`는 신뢰할 수 있는 게시 페이지의 후보를 `accept`와 `verify`로 확인하고 성공한 출처를 소스 전용 store에 저장합니다. `resolver.request(this, path, options)`는 `{response, origin}`을 반환하고 403, 502/503/504, 시간 초과 또는 분류된 연결/DNS 오류에서 전환합니다. GET, HEAD와 `readOnly`, `allowDomainRetry`가 모두 지정된 공개 검색 POST만 재전송합니다. 허용되지 않은 헤더, 인증서 오류, 취소와 다른 쓰기 작업은 전환하지 않습니다. 리디렉션은 동일 출처로 제한되며 브라우저와 미디어 권한은 확장되지 않습니다.
 
+## 음성 폴더와 자막
+
+폴더 소스는 `type: 'voice', category: 'asmr'`, 동영상 소스는 `type: 'video'`를 사용할 수 있습니다. `voiceLanguageStatus`는 `chineseSpoken`, `chineseSubtitled`, `foreignOriginal`, `unknown`, `voiceMediaForm`은 `audioOnly`, `videoOnly`, `mixed`, `unknown`입니다. 원본 또는 전체 폴더에서 확인된 값만 사용합니다.
+
+상세는 `voiceRoot: {id, name, type}`을 제공할 수 있습니다. `voiceDirectory(workId, directoryId, {page})`는 `{items: [node], hasNext}`를 반환하며 종류는 `directory`, `audio`, `video`, `subtitle`, `image`, `script`, `other`입니다. `voiceResource(workId, nodeId)`는 `{url, format}`, `videos(workId, nodeId)`는 트랙 주소를 반환하며 미디어 권한을 따릅니다. 원본이 언어를 명시한 자막만 `subtitleLanguage: 'zh'`를 사용할 수 있습니다. 음성·영상 노드는 원본 사이트가 명시한 자막을 `subtitleIds: [id]`로 지정할 수 있습니다. 비어 있지 않은 고유한 고정 ID를 최대 50개 허용하며 같은 폴더의 자막만 연결합니다. 같은 이름의 LRC, VTT, SRT도 연결합니다. 단일 트랙 상세는 `voiceSubtitles: {episodeId: [subtitleId]}`로 원본이 명시한 자막을 지정할 수 있으며 기본 단일 트랙 ID는 `_`입니다. 각 목록은 URL이 없는 비어 있지 않은 고유한 고정 ID를 최대 50개 포함하며 `voiceResource(workId, subtitleId)`가 필요합니다. 이미지와 TXT 대본을 볼 수 있으며 음성 보관함 다운로드는 지원하지 않습니다. `Park.createVoiceArchive`는 공개 AList 읽기 전용 폴더용입니다. 같은 출처의 조회 POST만 `readOnly: true`로 브라우저 자동 대체를 사용할 수 있습니다.
+
+폴더 로딩이 완료되지 않았거나 후속 페이지가 실패해도 로드된 트랙은 재생할 수 있습니다. 재생 목록과 자막 연결은 재생 시작 시 로드된 같은 폴더의 노드를 사용하며, 일부만 로드된 폴더를 완료로 표시하면 안 됩니다.
+
 ## 메서드
 
 메서드 안의 `this`는 '런타임 API'를 참고하세요. 모든 메서드는 `async`로 쓸 수 있습니다.
@@ -286,6 +299,8 @@ async resolveImage({ id, chapterId, index, token, retry }) {}  // 선택: 이미
 async thumbnails(id, page) {}                      // 선택: 미리보기 썸네일 페이지 불러오기
 async videos(id, episodeId = '_') {}               // 동영상
 async textChapter(id, chapterId) {}                // 소설
+async onlineGame(workId) {}                        // online game
+async interactiveViewer(workId) {}                 // interactive artwork
 async gameResources(workId) {}                     // 게임
 async resolveGameResource(workId, resourceId, channelId) {}
 ```
@@ -313,7 +328,7 @@ async resolveGameResource(workId, resourceId, channelId) {}
 
 - `coverAspect` (너비 / 높이)가 있으면 이미지가 로드되기 전에 격자를 배치할 수 있습니다.
 - `badgeColor`는 분류 배지의 색입니다.
-- `mediaKind: 'comic' | 'video' | 'novel' | 'game' | 'article'`은 작품 자체의 유형입니다. 유형이 하나인 플러그인은 생략할 수 있지만 혼합 유형은 반드시 지정합니다. 소설, 게임, 기사는 항상 지정해 플러그인 제거 후에도 유형을 유지합니다.
+- `mediaKind: 'comic' | 'video' | 'voice' | 'novel' | 'game' | 'article'`은 작품 자체의 유형입니다. 유형이 하나인 플러그인은 생략할 수 있지만 혼합 유형은 반드시 지정합니다. 소설, 게임, 기사는 항상 지정해 플러그인 제거 후에도 유형을 유지합니다.
 - 게시물 형식의 결과는 `presentation: 'post'`, `text`, `date`, `url`, `media` 배열을 가질 수 있으며 게시물 카드로 표시됩니다. `presentation: 'media'`는 미디어 격자로 표시하고 누르면 작품 안의 미디어를 엽니다. 게시물에 미디어가 없어도 됩니다. 미디어 주소는 플러그인이 선언한 도메인과 권한을 따릅니다.
 
 ### 상세: `detail`
@@ -379,6 +394,18 @@ async textChapter(id, chapterId) {
 - 챕터 안의 페이지 나눔은 플러그인이 순서대로 합치며, 다음 챕터, 게시판 댓글, 광고, 추천 작품을 본문에 넣으면 안 됩니다. `Park.html.paragraphs(node)`가 일반적인 텍스트 추출을 제공하지만 사이트의 경계와 페이지 나눔은 플러그인이 정합니다.
 - 로그인, 결제, 권한 때문에 본문이 잘리면 `LOGIN_REQUIRED`를 던지며, 미리보기를 완전한 챕터로 꾸미면 안 됩니다.
 - 앱은 챕터마다 `text.json`을 원자적으로 쓰며 완전히 쓰인 경우에만 다운로드 완료로 봅니다. 읽기 진행과 메모는 `paragraphs.join('\n\n')`의 UTF-16 위치를 쓰고, 글자 크기·글꼴·들여쓰기 같은 표시 설정은 본문이나 저장된 위치를 바꾸지 않습니다. 책갈피와 메모는 다운로드와 따로 저장되어 백업에 포함되며, 다운로드를 지워도 남습니다.
+
+### 인터랙티브 일러스트: `interactiveViewer`
+
+플러그인은 `type: 'interactive', category: 'interactiveArt'`를 선언하고 목록과 상세에 `mediaKind: 'interactive'`를 설정합니다. `interactiveViewer(workId)`는 `{url, storageId?}`를 반환합니다. URL은 소스가 선언한 도메인 내의 자격 증명이 없는 443 포트 HTTPS 페이지여야 하며 `storageId`는 자격 증명이 없는 사이트 내 안정적인 ID로, 생략 시 workId를 사용합니다. 런타임은 이 메서드로 `capabilities.interactiveViewer`를 내보냅니다. 격리된 웹 컨테이너는 주 문서와 일반 iframe을 대상 호스트로 제한하고 JavaScript 브리지를 비활성화합니다. 사용 가능 여부는 사이트와 기기에 따라 다릅니다. 가짜 캐릭터 링크나 챕터를 만들거나 검증되지 않은 검색을 선언하지 않으며 오프라인 다운로드를 제공하지 않습니다.
+
+단일 진입점 뷰어는 실제 workId로 `interactiveEntry: 'viewer'`를 선언할 수 있습니다. 사이트나 해당 항목에서 뷰어를 바로 열며 상세 정보는 뷰어에서 열 수 있습니다. 여러 캐릭터 목록에는 이 필드를 선언하지 않습니다.
+
+### 온라인 게임: `onlineGame`
+
+온라인 게임 플러그인은 `type: 'game', category: 'onlineGame'`을 선언하고 작품에 `mediaKind: 'game'`을 지정합니다. 실행 시 `onlineGame(workId)`는 `{kind: 'html', url, storageId?}`를 반환합니다. Flash는 `{kind: 'flash', url, player, storageId?}`로 SWF와 같은 호스트의 Ruffle 스크립트를 지정합니다. 주소는 인증 정보가 없는 HTTPS 443이어야 합니다. `storageId`는 사이트 내 고정 작품 ID이며 생략하면 workId를 사용하고 인증 정보를 포함하지 않습니다.
+
+클라이언트는 사이트와 ID별로 영구 브라우저 프로필을 분리하고 문서는 게임 호스트로 제한하고 프레임에는 정확한 `challenges.cloudflare.com` 인증 호스트도 허용하며 팝업, 다운로드, 웹 권한을 거부합니다. Android는 다중 프로필을 지원하는 시스템 WebView가 필요하고 Windows는 별도 WebView2 데이터 폴더를 사용합니다. localStorage와 IndexedDB는 프로필에 보존되지만 출처 호스트가 바뀌면 저장이 자동 이전되지 않습니다. HTTP 캐시는 사이트 정책과 시스템 정리에 따라 달라져 오프라인 사용이나 즉시 실행을 보장하지 않습니다.
 
 ### 게임: `gameResources` / `resolveGameResource`
 

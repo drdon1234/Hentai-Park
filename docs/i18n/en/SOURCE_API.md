@@ -72,8 +72,8 @@ Park.register({
   name: '我的站点',
   version: '0.0.1',
   minAppVersion: '0.9.2',           // three numbers; the app offers an update when the repository has a higher one
-  type: 'comic',              // comic | video | novel | game | article: how content is used
-  category: 'doujin',         // doujin | anime | aiDrama | jav | adult | shortvideo | recording | live | gallery | illustration | novel | game | other
+  type: 'comic',              // comic | video | voice | novel | game | interactive | article: how content is used
+  category: 'doujin',         // doujin | anime | aiDrama | jav | adult | asmr | shortvideo | recording | live | gallery | illustration | novel | game | other
   color: '#E5355F',           // brand color: site avatar and site page
   description: '一句话介绍',
   homepage: 'https://example.com',
@@ -115,6 +115,7 @@ Capabilities are exported by the runtime from the methods a plugin implements; d
 | `doujin` | Doujinshi and comics |
 | `gallery` | Photo galleries: cosplay, photography and real-person image sets. Image sites use `type: 'comic'`; one image set is one work, with ordered images from `chapter()` and shared reading, favorites and downloads. Image count and explicitness do not determine the category |
 | `illustration` | Illustration galleries: drawn and anime images. Image sites use `type: 'comic'`; one image set is one work, with ordered images from `chapter()` and shared reading, favorites and downloads. Image count and explicitness do not determine the category |
+| `interactiveArt` | Interactive art viewers, `type: 'interactive'` |
 | `anime` | Adult animation |
 | `aiDrama` | AI short dramas. The old `drama` value isn't accepted; declare the site's own channel names as they are, the app category doesn't filter them |
 | `jav` | Dedicated JAV sites |
@@ -122,8 +123,10 @@ Capabilities are exported by the runtime from the methods a plugin implements; d
 | `shortvideo` | Short videos: a full-screen vertical feed, see below |
 | `recording` | Recorded video archives (video on demand), `type: 'video'` |
 | `live` | Live streams, `type: 'video'` |
+| `asmr` | Voice works and ASMR videos; directory sources use `type: 'voice'`, video sources may use `type: 'video'` |
 | `novel` | Novels, `type: 'novel'` |
-| `game` | Games, `type: 'game'` |
+| `game` | Game information and download resources, `type: 'game'` |
+| `onlineGame` | Online games, `type: 'game'` |
 | `other` | Creator communities |
 
 - **Short videos** (`type: 'video', category: 'shortvideo'`): works, search, favorites and history open straight into the feed. Each work is one short video and `videos(id, '_')` returns its current media; no detail page is needed. `hasNext` and `cursor` from `feed` drive automatic paging near the end; cursors must not contain credentials or media signatures. Refreshing starts from page one; the current item plays, the next one is preloaded paused, the rest are released. Don't declare `search` if the site has none.
@@ -200,7 +203,9 @@ async filterOptions({scope, feed, filter, keyword, values}) {
   Automatic fallback excludes `followRedirects: false`, `connectAddress`, and unclassified network errors. Browser GET/HEAD requests without a body make at most three ordinary attempts, plus at most one extra read after verification, recovering only connection failures or HTTP 408, 500, 502, 503, and 504; 429 and timeouts are not replayed. Each logical request allows at most one verification navigation across all attempts. Startup, requests, document reads, and disposal have bounded waits. Reads with custom API headers use actual `fetch()` rather than a navigation result. Reused HTML preserves its error status; `responseType: 'base64'` returns base64 of the original bytes.
 
 - `network.vpnHint: true`: declare it for sites that may need a VPN or proxy in mainland China; waits over 8 seconds and failures then mention "may need a VPN or proxy". Don't blame every error on the VPN.
-- `network.confirmation: { selector, readySelector, requiredCookies, auto: { clickSelector, checkSelector? }, message }`: Declares a site age gate. `selector` matches the dialog, `auto.clickSelector` its unique confirmation button, `readySelector` accessible content, and `requiredCookies` the cookie names required after confirmation. Only after the user confirms adulthood at the app entrance does the hidden browser simulate a click, then check that the gate disappears, content appears, cookies exist and navigation settles. Incomplete or unmatched rules and failed automatic confirmation allow retry. When the error provides a site verification URL, users can open it, handle the page manually and explicitly tap Done. Source-domain and cookie-partition restrictions still apply; operation notifications never replay the original action automatically. This declaration is only for age gates, not login, payment or posting.
+- `network.confirmation: { selector, readySelector, requiredCookies, auto: { clickSelector, checkSelector?, birthDate? }, message }`: Declares a site age gate. `selector` matches the dialog, `auto.clickSelector` its unique confirmation button, `readySelector` accessible content, and `requiredCookies` the cookie names required after confirmation. Only after the user confirms adulthood at the app entrance does the hidden browser simulate a click, then check that the gate disappears, content appears, cookies exist and navigation settles. Incomplete or unmatched rules and failed automatic confirmation allow retry. When the error provides a site verification URL, users can open it, handle the page manually and explicitly tap Done. Source-domain and cookie-partition restrictions still apply; operation notifications never replay the original action automatically. This declaration is only for age gates, not login, payment or posting.
+
+`auto.birthDate` declares either `{dateSelector}` or `{yearSelector, monthSelector, daySelector}`. Only after local adult confirmation, and only when the date fields and button are unique within one same-origin age form with no other submittable inputs, the framework submits the fixed date 1999-12-31. It does nothing on a mismatch and does not read a real birthday.
 
 Optional `auto.checkSelector` checks one unique checkbox inside the age gate. Questionnaire gates may declare `auto.questionnaire: {rowSelector, submitSelector, answers: [{question, answer}]}`. Submit automatically only after adulthood is confirmed in the app, every question and complete answer matches exactly, all questions share one form and the submit button is unique. Never guess or submit unknown or ambiguous questions, or fill login or other forms.
 - Network errors carry safe `diagnostics` fields `host`, `transport` and `reason`, distinguishing TLS certificates, handshakes, DNS, connections and timeouts; automatic logs record only these allowed fields. `reason: 'TLS_HANDSHAKE_TERMINATED'` only means the native `HandshakeException.message` is exactly `Connection terminated during handshake` (the connection dropped before the handshake completed, not a certificate failure); only HTTPS GET/HEAD requests without a body retry once on it, and nothing else is retried.
@@ -283,6 +288,14 @@ Article sources declare `type: 'article', category: 'feed'` and set `mediaKind: 
 
 `Park.createDomainResolver({initialOrigin, accept, discover, verify})` discovers candidates from a trusted publication page, restricts their origins with `accept`, checks their homepages with `verify`, and stores the successful origin in the source's private store. `resolver.request(this, path, options)` returns `{response, origin}` and switches on 403, 502/503/504, timeouts or classified connection/DNS failures. Only GET, HEAD and public query POSTs explicitly marked `readOnly` and `allowDomainRetry` are replayed. Non-allowlisted headers, certificate failures, cancellation and other writes do not trigger switching. Redirects stay same-origin; browser and media permissions are not expanded.
 
+## Voice directories and subtitles
+
+Directory sources use `type: 'voice', category: 'asmr'`; video sources may use `type: 'video'`. `voiceLanguageStatus` is `chineseSpoken`, `chineseSubtitled`, `foreignOriginal`, or `unknown`; `voiceMediaForm` is `audioOnly`, `videoOnly`, `mixed`, or `unknown`. Only declare values established by the source or a complete directory.
+
+Details may provide `voiceRoot: {id, name, type}`. `voiceDirectory(workId, directoryId, {page})` returns `{items: [node], hasNext}`; node types are `directory`, `audio`, `video`, `subtitle`, `image`, `script`, and `other`. `voiceResource(workId, nodeId)` returns `{url, format}` and `videos(workId, nodeId)` resolves a track, subject to media permissions. A subtitle may carry `subtitleLanguage: 'zh'` when the source identifies its language. Audio and video nodes may declare `subtitleIds: [id]` for source-provided associations: at most 50 unique, non-empty stable IDs. Only subtitles in the same folder are accepted; same-named LRC, VTT and SRT files are also paired. Single-track details may declare source-provided subtitles as `voiceSubtitles: {episodeId: [subtitleId]}`; the default single-track episode is `_`. Each list contains at most 50 unique, non-empty stable IDs without URLs and requires `voiceResource(workId, subtitleId)`. Images and TXT scripts can be viewed; archive downloads are not supported. `Park.createVoiceArchive` implements public read-only AList directories. Only same-origin, explicitly `readOnly: true` query POSTs can use the automatic browser fallback; writes and binary bodies cannot. Neither extension nor an incomplete directory proves a language or media form.
+
+Loaded tracks remain playable while a directory is incomplete or a later page fails. The playlist and subtitle associations use the sibling nodes loaded when playback starts; a partial directory must not be marked complete.
+
 ## Methods
 
 `this` inside methods is described in "Runtime API". All methods may be `async`.
@@ -297,6 +310,8 @@ async resolveImage({ id, chapterId, index, token, retry }) {}  // optional: lazy
 async thumbnails(id, page) {}                      // optional: paged preview thumbnails
 async videos(id, episodeId = '_') {}               // video
 async textChapter(id, chapterId) {}                // novels
+async onlineGame(workId) {}                        // online game
+async interactiveViewer(workId) {}                 // interactive artwork
 async gameResources(workId) {}                     // games
 async resolveGameResource(workId, resourceId, channelId) {}
 ```
@@ -324,7 +339,7 @@ Implement `searchSuggestions(keyword)` to export `capabilities.searchSuggestions
 
 - `coverAspect` (width / height) lets the grid lay out before images load.
 - `badgeColor` colors the category badge.
-- `mediaKind: 'comic' | 'video' | 'novel' | 'game' | 'article'` is the work's own type. Plugins with a single type may omit it; mixed-type plugins must set it. Novel, game and article items always set it to retain their type after the plugin is uninstalled.
+- `mediaKind: 'comic' | 'video' | 'voice' | 'novel' | 'game' | 'article'` is the work's own type. Plugins with a single type may omit it; mixed-type plugins must set it. Novel, game and article items always set it to retain their type after the plugin is uninstalled.
 - Post-style results may include `presentation: 'post'`, `text`, `date`, `url` and a `media` array to show as post cards; `presentation: 'media'` shows a media grid that opens the media inside the work. Posts may have no media; media URLs remain subject to the plugin's declared domains and permissions.
 
 ### Details: `detail`
@@ -390,6 +405,18 @@ async textChapter(id, chapterId) {
 - In-chapter pagination is merged in order by the plugin; never merge the next chapter, forum replies, ads or recommendations into the text. `Park.html.paragraphs(node)` extracts plain text generically; site boundaries and pagination are still the plugin's job.
 - Text cut short by sign-in, payment or permissions throws `LOGIN_REQUIRED`; never present a preview as a complete chapter.
 - The app writes `text.json` atomically per chapter; a download counts as complete only when fully written. Reading progress and notes use UTF-16 offsets into `paragraphs.join('\n\n')`; font size, typeface, indentation and other layout settings only affect display. Bookmarks and notes live apart from downloads, are included in backups, and survive deleting a download.
+
+### Interactive art: `interactiveViewer`
+
+Declare `type: 'interactive', category: 'interactiveArt'` and set `mediaKind: 'interactive'` on list and detail items. `interactiveViewer(workId)` returns `{url, storageId?}`: the URL must be an HTTPS page within the source’s declared domains, on port 443 and without credentials; `storageId` is a stable site identity without credentials and defaults to workId. The runtime exports `capabilities.interactiveViewer` from the method. The isolated web container restricts the main document and ordinary iframes to the target host and disables the JavaScript bridge; availability depends on the site and device. Do not invent character links or chapters, or declare unverified search; offline downloads are unavailable.
+
+A single-entry viewer may declare `interactiveEntry: 'viewer'` using its actual workId. Opening the source or that item opens the viewer directly; details remain available from the viewer. Multi-character catalogs must omit this field.
+
+### Online games: `onlineGame`
+
+Online game plugins declare `type: 'game', category: 'onlineGame'`; works set `mediaKind: 'game'`. On play, `onlineGame(workId)` returns `{kind: 'html', url, storageId?}`; Flash returns `{kind: 'flash', url, player, storageId?}`, with a SWF URL and a Ruffle script on the same host. URLs must use HTTPS on port 443 without credentials. `storageId` is the stable site-specific game identity, falling back to workId, and must not contain credentials.
+
+The client isolates persistent browser profiles by source and identity. Documents are limited to the game host; frames may also use the exact `challenges.cloudflare.com` verification host. Popups, downloads and web permissions are denied. Android requires a system WebView with multiple profiles; Windows uses a separate WebView2 data directory. localStorage and IndexedDB persist with the profile, but a change of origin does not automatically migrate saves. HTTP cache depends on site policy and system eviction; offline access and instant reopening are not guaranteed.
 
 ### Games: `gameResources` / `resolveGameResource`
 

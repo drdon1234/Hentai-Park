@@ -153,8 +153,7 @@ class _Session {
       final height = state.videoParams.dh;
       final audioOnly =
           state.tracks.video.length <= 2 && state.tracks.audio.length > 2;
-      if (state.duration <= Duration.zero ||
-          (!audioOnly && (width == null || height == null))) {
+      if (!audioOnly && (width == null || height == null)) {
         return;
       }
       initialized = true;

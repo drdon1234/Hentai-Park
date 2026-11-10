@@ -70,7 +70,29 @@ class AppPaths {
     } finally {
       if (await probe.exists()) await probe.delete();
     }
+    final roots = await exportDirectories();
+    roots.add(p.join(directory.absolute.path, 'exports'));
+    await writeFileAtomic(
+      dataFile('export_directories.json'),
+      utf8.encode(jsonEncode(roots.toList())),
+    );
     downloadRoot = directory;
+  }
+
+  /// 本机导出位置独立于可迁移配置；更换目录不移动或遗失旧文件。
+  static Future<Set<String>> exportDirectories() async {
+    final file = dataFile('export_directories.json');
+    final saved = await file.exists()
+        ? jsonDecode(await file.readAsString())
+        : const [];
+    if (saved is! List ||
+        saved.any((value) => value is! String || !p.isAbsolute(value))) {
+      throw const FormatException('导出目录记录无效');
+    }
+    return {
+      p.join(downloadRoot.absolute.path, 'exports'),
+      ...saved.cast<String>(),
+    };
   }
 
   /// App-specific external storage on Android (visible to file managers, no permission needed).

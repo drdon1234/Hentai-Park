@@ -16,6 +16,44 @@ import 'native_notifications.dart';
 class PlatformBridge {
   static const _channel = MethodChannel('hentai_park/platform');
 
+  static Future<bool> startVoicePlayback(String id) async {
+    _listen();
+    if (!Platform.isAndroid) return PlatformCapabilities.desktop;
+    try {
+      return await _channel.invokeMethod<bool>('startVoicePlayback', {
+            'id': id,
+            'text': tr('音声'),
+            'play': tr('播放'),
+            'pause': tr('暂停'),
+          }) ??
+          false;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  static Future<void> stopVoicePlayback(String id) async {
+    if (!Platform.isAndroid) return;
+    try {
+      await _channel.invokeMethod<void>('stopVoicePlayback', id);
+    } catch (_) {}
+  }
+
+  static Future<void> updateVoicePlayback(
+    String id,
+    bool playing, {
+    required bool available,
+  }) async {
+    if (!Platform.isAndroid) return;
+    try {
+      await _channel.invokeMethod<void>('updateVoicePlayback', {
+        'id': id,
+        'playing': playing,
+        'available': available,
+      });
+    } catch (_) {}
+  }
+
   static Future<List<DiagnosticEntry>> readCrashDiagnostics() async {
     if (!Platform.isAndroid) return const [];
     try {
@@ -36,6 +74,13 @@ class PlatformBridge {
   static final _volume = StreamController<int>.broadcast();
   static final _taps = StreamController<String>.broadcast();
   static final _mediaVolume = StreamController<double>.broadcast();
+  static final _voiceControls =
+      StreamController<({String id, String action})>.broadcast();
+  static Stream<({String id, String action})> get voiceControls {
+    _listen();
+    return _voiceControls.stream;
+  }
+
   static Future<void> _videoBrightnessUpdates = Future.value();
   static bool _listening = false;
   static bool _settingsBound = false;
@@ -94,6 +139,16 @@ class PlatformBridge {
           _taps.add(call.arguments.toString());
         case 'mediaVolume':
           _mediaVolume.add((call.arguments as num).toDouble().clamp(0.0, 1.0));
+        case 'voiceControl':
+          final value = call.arguments;
+          if (value is Map &&
+              value['id'] is String &&
+              value['action'] is String) {
+            _voiceControls.add((
+              id: value['id'] as String,
+              action: value['action'] as String,
+            ));
+          }
       }
     });
   }

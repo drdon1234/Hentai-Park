@@ -20,8 +20,10 @@ import '../../engine/source_manager.dart';
 import '../kit/adaptive_sheet.dart';
 import '../kit/components.dart';
 import '../kit/immersive.dart';
+import '../kit/tokens.dart';
 import '../nav.dart';
 import '../theme.dart';
+import '../voice/voice_subtitles.dart';
 import '../web/web_video_page.dart';
 import '../widgets/content_translation.dart';
 import 'live_chat_overlay.dart';
@@ -78,6 +80,7 @@ class _VideoPageState extends State<VideoPage>
   );
   final _playerKey = GlobalKey();
   final _surfaceKey = GlobalKey();
+  final _subtitleKey = GlobalKey();
   WorkDetail? _details;
   bool _controls = true;
   int _openPanels = 0;
@@ -94,6 +97,23 @@ class _VideoPageState extends State<VideoPage>
   bool _chatEnabled = true;
   TemporaryPlaybackSpeed? _temporarySpeed;
   Future<void> _speedUpdates = Future.value();
+  final String _voiceLease =
+      '${DateTime.now().microsecondsSinceEpoch}-${Object().hashCode}';
+  bool _voiceLeaseStarted = false;
+  bool? _voiceServicePlaying;
+  bool? _voiceServiceAvailable;
+  StreamSubscription<({String id, String action})>? _voiceControlSub;
+  bool _voiceDisposed = false;
+  Future<void> _voiceChanges = Future.value();
+  late final Listenable _voicePreference = AppSettings.instance.watch(const {
+    'voiceBackgroundPlayback',
+  });
+
+  bool get _isVoice =>
+      SourceManager.instance.manifest(widget.work.source)?.category ==
+          SourceCategory.asmr ||
+      widget.work.mediaKind == MediaKind.voice ||
+      widget.work.json['contentDomain'] == SourceCategory.asmr.name;
 
   List<Chapter> get _episodes => _session.episodes;
   int get _episodeIndex => _session.episodeIndex;
@@ -108,6 +128,25 @@ class _VideoPageState extends State<VideoPage>
       ..onInterrupt = _onInterrupt
       ..onStarted = _scheduleHide
       ..addListener(_onSession);
+    _session.playerUpdates.addListener(_updateVoiceService);
+    _voicePreference.addListener(_onVoicePreferenceChanged);
+    _voiceControlSub = PlatformBridge.voiceControls.listen((command) {
+      if (command.id != _voiceLease ||
+          !_voiceLeaseStarted ||
+          !AppSettings.instance.voiceBackgroundPlayback ||
+          !_session.visible ||
+          AppLock.instance.locked ||
+          _session.controller == null) {
+        return;
+      }
+      switch (command.action) {
+        case 'play':
+          _session.setPlayback(true);
+        case 'pause':
+        case 'stop':
+          _session.setPlayback(false);
+      }
+    });
     WidgetsBinding.instance.addObserver(this);
     AppLock.instance.addListener(_onLockChanged);
     WakelockPlus.enable();
@@ -116,10 +155,71 @@ class _VideoPageState extends State<VideoPage>
     });
     unawaited(_readLevels());
     _session.init();
+    if (_isVoice && AppSettings.instance.voiceBackgroundPlayback) {
+      _onVoicePreferenceChanged();
+    }
     _syncLiveChat();
     if (widget.fetchDetails && !widget.downloadedOnly) {
       unawaited(_loadDetails());
     }
+  }
+
+  void _onVoicePreferenceChanged() {
+    if (!_isVoice || _voiceDisposed) return;
+    if (!AppSettings.instance.voiceBackgroundPlayback) {
+      _session.backgroundPlayback = false;
+      unawaited(_session.syncPlayback());
+    }
+    if (mounted) setState(() {});
+    _voiceChanges = _voiceChanges.then((_) async {
+      if (_voiceDisposed) return;
+      if (!AppSettings.instance.voiceBackgroundPlayback) {
+        if (_voiceLeaseStarted) {
+          _voiceLeaseStarted = false;
+          _voiceServicePlaying = null;
+          _voiceServiceAvailable = null;
+          await PlatformBridge.stopVoicePlayback(_voiceLease);
+        }
+        return;
+      }
+      if (_voiceLeaseStarted) return;
+      final started = await PlatformBridge.startVoicePlayback(_voiceLease);
+      if (_voiceDisposed || !AppSettings.instance.voiceBackgroundPlayback) {
+        if (started) await PlatformBridge.stopVoicePlayback(_voiceLease);
+        return;
+      }
+      if (!started) {
+        if (mounted && Platform.isAndroid) context.toast(tr('后台播放不可用'));
+        AppSettings.instance.voiceBackgroundPlayback = false;
+        return;
+      }
+      _voiceLeaseStarted = true;
+      _session.backgroundPlayback = true;
+      _updateVoiceService();
+      await _session.syncPlayback();
+    });
+  }
+
+  void _updateVoiceService() {
+    if (!_voiceLeaseStarted) return;
+    final available =
+        _session.visible &&
+        !AppLock.instance.locked &&
+        _session.controller != null;
+    final playing = available && _session.wantsPlayback;
+    if (_voiceServicePlaying == playing &&
+        _voiceServiceAvailable == available) {
+      return;
+    }
+    _voiceServicePlaying = playing;
+    _voiceServiceAvailable = available;
+    unawaited(
+      PlatformBridge.updateVoicePlayback(
+        _voiceLease,
+        playing,
+        available: available,
+      ),
+    );
   }
 
   Future<void> _loadDetails() async {
@@ -179,6 +279,13 @@ class _VideoPageState extends State<VideoPage>
 
   @override
   void dispose() {
+    _voiceDisposed = true;
+    _voiceControlSub?.cancel();
+    _voicePreference.removeListener(_onVoicePreferenceChanged);
+    if (_voiceLeaseStarted) {
+      _voiceLeaseStarted = false;
+      unawaited(PlatformBridge.stopVoicePlayback(_voiceLease));
+    }
     _endTemporarySpeed();
     _liveChat?.dispose();
     Nav.routeObserver.unsubscribe(this);
@@ -189,6 +296,7 @@ class _VideoPageState extends State<VideoPage>
     WidgetsBinding.instance.removeObserver(this);
     AppLock.instance.removeListener(_onLockChanged);
     _session
+      ..playerUpdates.removeListener(_updateVoiceService)
       ..removeListener(_onSession)
       ..dispose();
     WakelockPlus.disable();
@@ -199,6 +307,7 @@ class _VideoPageState extends State<VideoPage>
 
   void _onSession() {
     if (!mounted) return;
+    _updateVoiceService();
     _syncLiveChat();
     final manifest = SourceManager.instance.manifest(widget.work.source);
     if (widget.localFile == null &&
@@ -263,6 +372,7 @@ class _VideoPageState extends State<VideoPage>
   }
 
   void _onLockChanged() {
+    _updateVoiceService();
     _syncLiveChat();
     if (AppLock.instance.locked) {
       _endTemporarySpeed();
@@ -319,7 +429,13 @@ class _VideoPageState extends State<VideoPage>
   @override
   void _scheduleHide() {
     _hide?.cancel();
-    if (!mounted || _openPanels > 0 || _menuOpen || _interacting) return;
+    if (!mounted ||
+        _session.isAudio ||
+        _openPanels > 0 ||
+        _menuOpen ||
+        _interacting) {
+      return;
+    }
     _hide = Timer(const Duration(seconds: 3), () {
       if (mounted &&
           _gesture == null &&
@@ -342,6 +458,10 @@ class _VideoPageState extends State<VideoPage>
   }
 
   void _toggleControls() {
+    if (_session.isAudio) {
+      if (!_controls) setState(() => _controls = true);
+      return;
+    }
     setState(() => _controls = !_controls);
     if (_controls) {
       unawaited(_readLevels());
@@ -539,6 +659,11 @@ class _VideoPageState extends State<VideoPage>
         onNext: _episodeIndex < _episodes.length - 1
             ? () => _session.selectEpisode(_episodes[_episodeIndex + 1])
             : null,
+        backgroundPlayback: AppSettings.instance.voiceBackgroundPlayback,
+        onToggleBackground: _isVoice
+            ? () => AppSettings.instance.voiceBackgroundPlayback =
+                  !AppSettings.instance.voiceBackgroundPlayback
+            : null,
         onInteractionChanged: (active) {
           _menuOpen = active;
           if (active) {
@@ -589,6 +714,18 @@ class _VideoPageState extends State<VideoPage>
           fullscreen: _fullscreen,
           pageHorizontally: widget.pageHorizontally && !_fullscreen,
           controlsVisible: _controls,
+          subtitles: _fullscreen
+              ? PositionedDirectional(
+                  start: Gap.l,
+                  end: Gap.l,
+                  bottom: _controls ? 84 : Gap.l,
+                  child: VoiceSubtitles(
+                    key: _subtitleKey,
+                    session: _session,
+                    overlay: true,
+                  ),
+                )
+              : null,
           controls: _controlsLayer,
           surfaceKey: _surfaceKey,
           previewPosition: _previewPosition,
@@ -665,12 +802,18 @@ class _VideoPageState extends State<VideoPage>
             quality: _session.current?.label,
             showRelated: false,
           ),
-          details: VideoDetails(
-            episodeId: _session.episode.id,
-            work: _details ?? widget.work,
-            showHeader: false,
-            offline: widget.downloadedOnly || _session.offline,
-            showRelated: !widget.downloadedOnly,
+          details: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              VoiceSubtitles(key: _subtitleKey, session: _session),
+              VideoDetails(
+                episodeId: _session.episode.id,
+                work: _details ?? widget.work,
+                showHeader: false,
+                offline: widget.downloadedOnly || _session.offline,
+                showRelated: !widget.downloadedOnly,
+              ),
+            ],
           ),
         ),
       ),

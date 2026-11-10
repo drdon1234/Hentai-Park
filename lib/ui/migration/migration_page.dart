@@ -359,7 +359,7 @@ class _OptionsDialogState extends State<_OptionsDialog> {
             title: SelectionContainer.disabled(child: Text(tr('复制分类'))),
             onChanged: (v) => setState(() => categories = v!),
           ),
-          if (!widget.to.isGame)
+          if (!widget.to.isGame && !widget.to.isInteractive)
             CheckboxListTile(
               value: readState,
               title: SelectionContainer.disabled(child: Text(tr('复制已读章节'))),

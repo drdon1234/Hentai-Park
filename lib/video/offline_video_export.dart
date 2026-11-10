@@ -6,6 +6,7 @@ import 'package:path/path.dart' as p;
 
 import '../core/models.dart';
 import 'hls_syntax.dart';
+import 'local_hls_media.dart';
 
 /// HLS 必须连同清单引用的分片一起导出，不能分享孤立 m3u8。
 Future<File> exportOfflineVideo(File file, Directory destination) async {
@@ -46,8 +47,7 @@ Future<File> exportOfflineVideo(File file, Directory destination) async {
             resource.userInfo.isNotEmpty ||
             resource.hasQuery ||
             resource.hasFragment ||
-            !RegExp('^${RegExp.escape(segments)}/[0-9]+\\.(?:ts|mp4)\$')
-                .hasMatch(line)) {
+            !isLocalHlsResource(line, segments)) {
           throw SourceError('CONFIG', '离线媒体地址无效');
         }
         paths.add(line);

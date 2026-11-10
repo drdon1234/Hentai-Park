@@ -3,6 +3,136 @@
   "apiVersion": 2,
   "sources": [
     {
+      "key": "mad_viewer",
+      "name": "MAD Viewer",
+      "version": "0.0.1",
+      "minAppVersion": "1.12.1",
+      "type": "interactive",
+      "category": "interactiveArt",
+      "file": "mad_viewer.js",
+      "description": "MAke Drama 互动立绘，支持服装和动作"
+    },
+    {
+      "key": "lomapr",
+      "name": "LOMapR",
+      "version": "0.0.1",
+      "minAppVersion": "1.12.1",
+      "type": "interactive",
+      "category": "interactiveArt",
+      "file": "lomapr.js",
+      "description": "Last Origin 角色立绘，在角色页选择 Skin 查看"
+    },
+    {
+      "key": "destiny_child_live2d",
+      "name": "Destiny Child Live2D",
+      "version": "0.0.1",
+      "minAppVersion": "1.12.1",
+      "type": "interactive",
+      "category": "interactiveArt",
+      "file": "destiny_child_live2d.js",
+      "description": "天命之子 Live2D 模型归档，支持角色和服装搜索"
+    },
+    {
+      "key": "bd2_viewer",
+      "name": "Brown Dust 2 Viewer",
+      "version": "0.0.2",
+      "minAppVersion": "1.12.1",
+      "type": "interactive",
+      "category": "interactiveArt",
+      "file": "bd2_viewer.js",
+      "description": "棕色尘埃 2 动态立绘，在查看器内选择角色和服装"
+    },
+    {
+      "key": "nikke_viewer",
+      "name": "Nikke Database",
+      "version": "0.0.2",
+      "minAppVersion": "1.12.1",
+      "type": "interactive",
+      "category": "interactiveArt",
+      "file": "nikke_viewer.js",
+      "description": "NIKKE 互动立绘，在查看器内选择角色"
+    },
+    {
+      "key": "daicore_viewer",
+      "name": "DaiCoreViewer",
+      "version": "0.0.2",
+      "minAppVersion": "1.12.1",
+      "type": "interactive",
+      "category": "interactiveArt",
+      "file": "daicore_viewer.js",
+      "description": "Daiblos Core 互动立绘，在查看器内选择角色和服装"
+    },
+    {
+      "key": "hentaiasmr",
+      "name": "Hentai ASMR",
+      "version": "0.0.1",
+      "minAppVersion": "1.12.1",
+      "type": "voice",
+      "category": "asmr",
+      "file": "hentaiasmr.js",
+      "description": "中文配音与汉化同人音声，支持多轨字幕"
+    },
+    {
+      "key": "asmrhoney",
+      "name": "ASMRHoney",
+      "version": "0.0.1",
+      "minAppVersion": "1.12.1",
+      "type": "voice",
+      "category": "asmr",
+      "file": "asmrhoney.js",
+      "description": "中文与多语 ASMR 音视频，支持创作者和标签筛选"
+    },
+    {
+      "key": "literotica_audio",
+      "name": "Literotica Audio",
+      "version": "0.0.1",
+      "minAppVersion": "1.12.1",
+      "type": "voice",
+      "category": "asmr",
+      "file": "literotica_audio.js",
+      "description": "英语原创音声与有声故事，支持排行和搜索"
+    },
+    {
+      "key": "jasmr",
+      "name": "JASMR",
+      "version": "0.0.1",
+      "minAppVersion": "1.12.1",
+      "type": "voice",
+      "category": "asmr",
+      "file": "jasmr.js",
+      "description": "日语同人音声与视频，外挂字幕暂不可用"
+    },
+    {
+      "key": "asmrgay",
+      "name": "ASMR Gay",
+      "version": "0.0.1",
+      "minAppVersion": "1.12.1",
+      "type": "voice",
+      "category": "asmr",
+      "file": "asmrgay.js",
+      "description": "中文及汉化音声归档，支持多层目录与搜索"
+    },
+    {
+      "key": "asmrmoon",
+      "name": "ASMR Moon",
+      "version": "0.0.1",
+      "minAppVersion": "1.12.1",
+      "type": "voice",
+      "category": "asmr",
+      "file": "asmrmoon.js",
+      "description": "中文、日韩与英语音声归档，支持多层目录与搜索"
+    },
+    {
+      "key": "eroasmr",
+      "name": "EroASMR",
+      "version": "0.0.1",
+      "minAppVersion": "1.12.1",
+      "type": "video",
+      "category": "asmr",
+      "file": "eroasmr.js",
+      "description": "真人 ASMR 视频，支持浏览和搜索"
+    },
+    {
       "key": "feedmrds",
       "name": "每日大赛",
       "version": "0.0.9",
@@ -615,7 +745,7 @@
     {
       "key": "telegram",
       "name": "电报",
-      "version": "0.0.11",
+      "version": "0.0.12",
       "type": "video",
       "category": "other",
       "file": "telegram.js",
@@ -779,6 +909,26 @@
       "category": "novel",
       "file": "storiesonline.js",
       "minAppVersion": "0.9.2"
+    },
+    {
+      "key": "itchio",
+      "name": "itch.io",
+      "version": "0.0.1",
+      "type": "game",
+      "category": "onlineGame",
+      "file": "itchio.js",
+      "description": "独立网页游戏，支持语言和标签浏览",
+      "minAppVersion": "1.12.1"
+    },
+    {
+      "key": "gamcore",
+      "name": "Gamcore",
+      "version": "0.0.1",
+      "type": "game",
+      "category": "onlineGame",
+      "file": "gamcore.js",
+      "description": "在线 HTML 与 Flash 游戏，支持分类和搜索",
+      "minAppVersion": "1.12.1"
     },
     {
       "key": "kungal",

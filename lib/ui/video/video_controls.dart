@@ -48,6 +48,8 @@ class VideoControls extends StatelessWidget {
     this.onToggleChat,
     this.chatAreaLabel,
     this.onChatArea,
+    this.backgroundPlayback = false,
+    this.onToggleBackground,
   });
   final VideoPlayerValue value;
 
@@ -77,6 +79,8 @@ class VideoControls extends StatelessWidget {
   final VoidCallback? onToggleChat;
   final String? chatAreaLabel;
   final VoidCallback? onChatArea;
+  final bool backgroundPlayback;
+  final VoidCallback? onToggleBackground;
 
   @override
   Widget build(BuildContext context) {
@@ -134,6 +138,39 @@ class VideoControls extends StatelessWidget {
               onPressed: callback,
               icon: Icon(icon),
             );
+        Widget background() => Semantics(
+          toggled: backgroundPlayback,
+          child: Tooltip(
+            message: tr('后台播放'),
+            child: ConstrainedBox(
+              constraints: BoxConstraints(maxWidth: compact ? 116 : 160),
+              child: TextButton.icon(
+                style: TextButton.styleFrom(
+                  foregroundColor: backgroundPlayback ? Colors.black : fg,
+                  backgroundColor: backgroundPlayback ? fg : Scrims.control,
+                  minimumSize: const Size(48, 32),
+                  padding: const EdgeInsets.symmetric(horizontal: Gap.s),
+                  tapTargetSize: MaterialTapTargetSize.padded,
+                  textStyle: context.text.labelMedium?.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                onPressed: onToggleBackground,
+                icon: Icon(
+                  backgroundPlayback
+                      ? Icons.headphones_rounded
+                      : Icons.headphones_outlined,
+                  size: 18,
+                ),
+                label: Text(
+                  tr('后台播放'),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ),
+          ),
+        );
         return SelectionContainer.disabled(
           child: Material(
             type: MaterialType.transparency,
@@ -203,6 +240,7 @@ class VideoControls extends StatelessWidget {
                                       ?.copyWith(color: fg),
                             ),
                           ),
+                          if (onToggleBackground != null) background(),
                           if (onEpisodes != null)
                             TextButton.icon(
                               style: TextButton.styleFrom(

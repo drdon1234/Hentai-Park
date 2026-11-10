@@ -14,6 +14,7 @@ import '../engine/js_engine.dart';
 import '../engine/request_lifecycle.dart';
 import '../engine/source_manager.dart';
 import '../library/library.dart';
+import '../library/restore_transaction.dart';
 import 'subscription_store.dart';
 import 'updater.dart';
 
@@ -30,6 +31,8 @@ Future<void> subscriptionBackground() async {
   AppDatabase? db;
   try {
     await AppPaths.init();
+    db = AppDatabase.file(File(p.join(AppPaths.data.path, 'park.db')));
+    await RestoreTransaction.recover(db);
     await AppSettings.instance.load();
     if (AppSettings.instance.subscriptionUpdateHours == 0 ||
         updater.cancelled) {
@@ -39,7 +42,6 @@ Future<void> subscriptionBackground() async {
     AppLocalizations.instance.setLocale(
       AppSettings.instance.locale ?? const Locale('zh', 'CN'),
     );
-    db = AppDatabase.file(File(p.join(AppPaths.data.path, 'park.db')));
     await Library.instance.open(db);
     await SubscriptionStore.instance.load();
     final keys = SubscriptionStore.instance.items

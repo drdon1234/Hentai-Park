@@ -238,9 +238,7 @@ class SourceResultsRow extends StatelessWidget {
       ),
     );
     final kind = m.kind;
-    final aspect = kind == MediaKind.video || kind == MediaKind.article
-        ? 16 / 9
-        : 0.7;
+    final aspect = kind.isPlayable || kind == MediaKind.article ? 16 / 9 : 0.7;
     final cardWidth = aspect > 1 ? 200.0 : 118.0;
     Widget body;
     if (result.loading) {

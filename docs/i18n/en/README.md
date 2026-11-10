@@ -44,9 +44,12 @@ Configure sign-in under More → Sites and proxies under More → Network when n
 
 | Feature | What you get |
 | --- | --- |
+| Voice and ASMR | Browse folders, filter by language and media type, play tracks continuously and follow subtitles. Background playback is off by default and can be enabled in the player. |
 | Discover and search | Filter by 2D, 3D and media type; search across sites, or jump to a work using a link or code. |
 | Read and watch | Gossip articles and video; scrolling, paged and two-page comics; video episodes, speed and resume; novel bookmarks, notes and read-aloud. |
 | Favorites and updates | Organize favorites, keep your progress, check new chapters and follow creators, channels or keywords. |
+| Online games | Play browser games without installing packages, with fullscreen and optional virtual controls. |
+| Interactive art | View animated artwork and interact using the site controls; offline downloads are unavailable. |
 | Offline and export | Download comics, videos, novels and game resources; import and export CBZ, and export completed gallery chapters as PDF. |
 | Rankings and image search | Browse doujinshi, anime and JAV rankings, or use an image to find candidate works. |
 | Work information | Browse, search and filter work information, open original-site ranking details, and choose detail and search sites. |
@@ -68,7 +71,7 @@ Image search sends images to the selected service; local image search history is
 
 **A site will not open or content is unavailable?**
 
-Check your connection, then sign in, confirm your age or complete site verification as prompted. Some regions may require a VPN or proxy; content and access are controlled by the original site.
+Check your connection, then sign in, confirm your age or complete site verification as prompted. Some regions may require a VPN or proxy; content and access are controlled by the original site. For supported birthday checks, the app uses the fixed date 1999-12-31 only after local adult confirmation; it does not read your real birthday.
 
 **Can I send comments or live chat?**
 
@@ -76,7 +79,7 @@ Comments, replies and live chat are read-only. When a game resource site require
 
 **How do I keep favorites and progress?**
 
-Export or restore .parkbak under More → Backup. Restore merges data and excludes downloaded files. Site sign-in and confirmation state, including cookies, can be included optionally for use on another device. Expired or device-bound sessions may require verification again. Backups are unencrypted; store them securely.
+Export or restore .parkbak under More → Backup. Restore merges data and excludes downloaded files. Site sign-in and confirmation state, including cookies, can be included optionally for use on another device. Expired or device-bound sessions may require verification again. Backups are unencrypted; store them securely. Online game saves are excluded from .parkbak. The separate in-game import/export covers localStorage only, not IndexedDB; exported files are unencrypted.
 
 **How do I report an issue?**
 

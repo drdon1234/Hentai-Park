@@ -14,9 +14,11 @@
 
 | 分類 | 網站 / 服務 |
 | --- | --- |
+| 音聲 | Hentai ASMR · ASMRHoney · Literotica Audio · ASMR Gay · ASMR Moon · EroASMR · JASMR |
 | 吃瓜 | 每日大賽 · 黑料網 · 51吃瓜網 |
 | 三次元美圖 | PixiBB · 秀人網 · PornPics · CosplayTele · NudeCosplay |
 | 二次元美圖 | Danbooru · yande.re · Gelbooru |
+| 互動立繪 | MAD Viewer · LOMapR · Destiny Child Live2D · Brown Dust 2 Viewer · Nikke Database · DaiCoreViewer |
 | 本子 / 漫畫 | E-Hentai · 禁漫天堂 · nhentai · 绅士漫画 · 哔咔漫画 |
 | 裏番 | Hanime1 · Hanime.tv · Rule34Video · Iwara · HentaiHaven |
 | JAV | MissAV · JableTV · 123AV · SupJav |
@@ -27,7 +29,8 @@
 | 直播 | Stripchat 亚洲直播 · CAM4 · SOOP · XloveCam · SinParty |
 | 創作社群 | Pixiv · Reddit · 推特（X） · myfans.jp · pixivFANBOX · Telegram |
 | 小說 | 禁忌書屋 · 色文網 · CA情色小說 · 69成人小說網 · Literotica · Lush Stories · StoriesOnline |
-| 遊戲 | 鯤 Galgame · GalgameX · 次元茶馆 |
+| 遊戲資源 | 鯤 Galgame · GalgameX · 次元茶馆 |
+| 線上遊戲 | itch.io · Gamcore |
 
 ## 排行榜
 

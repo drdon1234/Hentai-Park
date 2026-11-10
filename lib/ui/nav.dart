@@ -15,6 +15,7 @@ import '../library/playback_resolver.dart';
 import 'detail/detail_page.dart';
 import 'discovery_navigation.dart';
 import 'feed/feed_article.dart';
+import 'game/online_game_page.dart';
 import 'metadata/metadata_page.dart';
 import 'novel/novel_reader_page.dart';
 import 'reader/reader_page.dart';
@@ -141,7 +142,7 @@ class Nav {
 
   static int? _videoFeed(String source) {
     final manifest = SourceManager.instance.manifest(source);
-    if (manifest?.isVideo != true) return null;
+    if (manifest?.isPlayable != true) return null;
     final index = manifest!.feeds.indexWhere((feed) => feed.key == 'videos');
     return index < 0 ? null : index;
   }
@@ -211,6 +212,13 @@ class Nav {
             item: item,
             postScope: PostVideoContext.of(context),
           )
+        : SourceManager.instance.manifest(item.source)?.interactiveEntry ==
+              item.id
+        ? OnlineGamePage(
+            work: WorkDetail(item.json, item.source),
+            manager: SourceManager.instance,
+            interactiveArt: true,
+          )
         : DetailPage(
             source: item.source,
             id: item.id,
@@ -241,6 +249,17 @@ class Nav {
             )
           : _short(source)
           ? ShortVideoPage(source: source, initialId: resolved)
+          : manager.manifest(source)?.interactiveEntry == resolved
+          ? OnlineGamePage(
+              work: WorkDetail({
+                'id': resolved,
+                'title': manager.manifest(source)!.name,
+                'mediaKind': 'interactive',
+                'contentDomain': 'interactiveArt',
+              }, source),
+              manager: manager,
+              interactiveArt: true,
+            )
           : DetailPage(
               source: source,
               id: resolved,
@@ -293,7 +312,10 @@ class Nav {
   }) =>
       !downloadedOnly &&
           (work.isGame ||
-              SourceManager.instance.manifest(work.source)?.isGame == true)
+              work.isInteractive ||
+              SourceManager.instance.manifest(work.source)?.isGame == true ||
+              SourceManager.instance.manifest(work.source)?.isInteractive ==
+                  true)
       ? openWork(context, work.toItem())
       : push(
           context,

@@ -7,6 +7,11 @@ import 'package:path/path.dart' as p;
 import '../core/models.dart';
 import '../engine/media_transport.dart';
 
+/// 下载和录制共用的包内资源命名，禁止任意路径或外部引用。
+bool isLocalHlsResource(String path, String segments) =>
+    RegExp('^${RegExp.escape(segments)}/(?:[0-9]+\\.(?:ts|mp4)|init\\.mp4)\$')
+        .hasMatch(path);
+
 /// 只读取一个离线下载包；不发起网络请求，不接受播放器指定的文件路径。
 class LocalHlsMedia implements MediaTransport {
   LocalHlsMedia(this.playlist);
@@ -34,9 +39,7 @@ class LocalHlsMedia implements MediaTransport {
 
   @override
   void validate(Uri url) {
-    final segment = RegExp(
-      '^/${RegExp.escape(_segments)}/[0-9]+\\.(?:ts|mp4)\$',
-    ).hasMatch(url.path);
+    final segment = isLocalHlsResource(url.path, '/$_segments');
     if (url.scheme != 'https' ||
         url.origin != playlistUrl.origin ||
         url.userInfo.isNotEmpty ||

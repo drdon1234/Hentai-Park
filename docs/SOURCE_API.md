@@ -72,8 +72,8 @@ Park.register({
   name: '我的站点',
   version: '0.0.1',
   minAppVersion: '0.9.2',     // 最低本体版本，三段数字；与官方清单一致
-  type: 'comic',              // comic | video | novel | game | article：决定内容行为
-  category: 'doujin',         // doujin | anime | aiDrama | jav | adult | shortvideo | recording | live | gallery | illustration | novel | game | other
+  type: 'comic',              // comic | video | voice | novel | game | interactive | article：决定内容行为
+  category: 'doujin',         // doujin | anime | aiDrama | jav | adult | asmr | shortvideo | recording | live | gallery | illustration | novel | game | other
   color: '#E5355F',           // 品牌色：站点头像与站点页
   description: '一句话介绍',
   homepage: 'https://example.com',
@@ -166,6 +166,7 @@ return { browser: {
 | `doujin` | 本子与漫画 |
 | `gallery` | 三次元美图：Cosplay、写真与真人图集。图片站声明 `type: 'comic'`，一个图集是一个作品，图片通过 `chapter()` 按顺序返回，复用阅读、收藏和下载；分类不按张数或尺度区分 |
 | `illustration` | 二次元美图：插画与动漫图片。图片站声明 `type: 'comic'`，一个图集是一个作品，图片通过 `chapter()` 按顺序返回，复用阅读、收藏和下载；分类不按张数或尺度区分 |
+| `interactiveArt` | 互动立绘查看器，`type: 'interactive'` |
 | `anime` | 里番 |
 | `aiDrama` | AI 短剧。不接受旧的 `drama` 标识；站点自身的频道名照原样声明，应用分类不用来过滤站点频道 |
 | `jav` | JAV 专门站 |
@@ -173,8 +174,10 @@ return { browser: {
 | `shortvideo` | 短视频：全屏竖向连续流，见下 |
 | `recording` | 在线录播视频（点播归档），`type: 'video'` |
 | `live` | 直播, `type: 'video'` |
+| `asmr` | 音声、同人音声及 ASMR 视频；目录源声明 `type: 'voice'`，视频源可声明 `type: 'video'` |
 | `novel` | 小说，`type: 'novel'` |
-| `game` | 游戏，`type: 'game'` |
+| `game` | 游戏资讯与下载资源，`type: 'game'` |
+| `onlineGame` | 在线游戏，`type: 'game'` |
 | `other` | 创作社区 |
 
 - **短视频**（`type: 'video', category: 'shortvideo'`）：作品、搜索、收藏和历史入口直接进入连续流。每个作品是一个短视频，`videos(id, '_')` 返回当前有效媒体，不需要详情页。`feed` 的 `hasNext` 和 `cursor` 用于临近末尾时自动翻页，游标不能包含账号凭据或媒体签名。刷新从第一页开始；当前条播放，下一条暂停预加载，其余释放。站点没有搜索接口时不声明 `search`。
@@ -255,7 +258,9 @@ async filterOptions({scope, feed, filter, keyword, values}) {
   自动回退不用于 `followRedirects: false`、`connectAddress` 或未分类的网络错误。浏览器对无请求体的 GET / HEAD，以及显式声明 `readOnly: true` 的文本 POST 查询最多尝试三次，验证通过后至多额外重发一次；仅恢复连接故障或 HTTP 408、500、502、503、504；429 和超时不重复请求。一次逻辑请求最多主动导航验证一次，外层重试不重置次数。浏览器启动、请求、文档读取和释放均有等待上限。带自定义 API 请求头的读取通过真实 `fetch()` 执行，不用普通导航结果替代；复用 HTML 文档时保留其错误状态，`responseType: 'base64'` 返回原始字节的 base64。
 
 - `network.vpnHint: true`：在中国大陆可能需要 VPN 或代理的站点声明它，等待超过 8 秒和失败时提示“可能需要 VPN 或代理”。不要把所有错误都归因于 VPN。
-- `network.confirmation: { selector, readySelector, requiredCookies, auto: { clickSelector, checkSelector? }, message }`: 站点年龄门声明。`selector` 匹配年龄弹窗，`auto.clickSelector` 匹配弹窗内唯一的确认按钮，`readySelector` 匹配可访问内容，`requiredCookies` 列出确认后必须存在的 Cookie 名。只有用户已在应用入口确认成年，隐藏浏览器才会模拟点击；随后检查弹窗消失、内容出现、Cookie 写入及导航稳定。规则不完整、不匹配或未自动完成时可重试；错误提供站内验证地址时可选择“去确认”，在页面中手动处理后点击完成。确认页仍受源域名及 Cookie 分区限制，操作提示不会自动重放原操作。仅声明年龄确认，不可用于登录、付费或回复等操作。
+- `network.confirmation: { selector, readySelector, requiredCookies, auto: { clickSelector, checkSelector?, birthDate? }, message }`: 站点年龄门声明。`selector` 匹配年龄弹窗，`auto.clickSelector` 匹配弹窗内唯一的确认按钮，`readySelector` 匹配可访问内容，`requiredCookies` 列出确认后必须存在的 Cookie 名。只有用户已在应用入口确认成年，隐藏浏览器才会模拟点击；随后检查弹窗消失、内容出现、Cookie 写入及导航稳定。规则不完整、不匹配或未自动完成时可重试；错误提供站内验证地址时可选择“去确认”，在页面中手动处理后点击完成。确认页仍受源域名及 Cookie 分区限制，操作提示不会自动重放原操作。仅声明年龄确认，不可用于登录、付费或回复等操作。
+
+`auto.birthDate` 可声明 `{dateSelector}` 或 `{yearSelector, monthSelector, daySelector}`。仅当本机已确认成年、日期字段和按钮唯一且位于同一个同源年龄表单、没有其他可提交输入时，框架填写固定日期 1999-12-31 并提交；不匹配时不操作，不读取真实生日。
 
 可选 `auto.checkSelector` 只勾选年龄门内唯一的复选框。需要问答的年龄门可声明 `auto.questionnaire: {rowSelector, submitSelector, answers: [{question, answer}]}`；仅当应用已确认成年、题目和完整答案逐项精确匹配、整组题目属于同一表单且提交按钮唯一时自动提交，未知或歧义题目不猜测、不提交。不填写登录或其他表单。
 - 网络异常附带安全的 `diagnostics` 字段 `host`、`transport`、`reason`，区分 TLS 证书、握手、DNS、连接和超时。框架在调用失败时自动记录站点、方法名、错误代码、HTTP 状态和这些字段；错误消息只有在属于插件 `i18n` 或应用文案键时才以模板形式记录，占位符的值不进日志。`reason: 'TLS_HANDSHAKE_TERMINATED'` 仅表示原生 `HandshakeException.message` 恰好是 `Connection terminated during handshake`（握手完成前连接中断，不是证书校验失败）；原生无请求体的 GET / HEAD，以及源显式声明 `readOnly: true` 的文本 POST 查询，在临时连接故障、连接/响应超时、握手中断或 HTTP 502/503/504 时最多重试两次，等待 300/600 毫秒；证书错误、认证失败、取消和普通写操作不重试。`readOnly` 只能用于已确认无副作用的查询，不能用于登录、评分、回复、上传或下载计数接口；它不改变浏览器回退及重定向限制。
@@ -339,6 +344,18 @@ account: {
 
 `Park.createDomainResolver({initialOrigin, accept, discover, verify})` 为源提供按需分流。`discover(http)` 只能读取可信发布页并返回候选来源，`accept(origin)` 限定站点所属地址，`verify(body)` 核对候选首页；成功来源保存在该源的私有 store。`resolver.request(this, path, options)` 返回 `{response, origin}`；仅在 403、502/503/504、超时或可分类连接/DNS 故障时尝试新来源。只有 GET、HEAD 和同时声明 `readOnly: true, allowDomainRetry: true` 的公开查询 POST 可重放；含非白名单请求头的请求、证书错误、取消与其他写操作不切换。跳转必须保持同源，浏览器和媒体权限不会因新地址自动扩大。插件必须限制发布页和候选地址，禁止把页面中广告链接当作站点来源。
 
+## 音声目录与字幕
+
+目录作品声明 `type: 'voice', category: 'asmr'`；单个视频也可使用 `type: 'video', category: 'asmr'`。列表和详情可返回 `voiceLanguageStatus`（`chineseSpoken`、`chineseSubtitled`、`foreignOriginal`、`unknown`）及 `voiceMediaForm`（`audioOnly`、`videoOnly`、`mixed`、`unknown`）。仅填写原站明确提供或完整目录证实的信息；未知值不得推断为外语或纯音频。
+
+详情可提供 `voiceRoot: {id, name, type}`，节点类型为 `directory`、`audio`、`video`、`subtitle`、`image`、`script` 或 `other`。实现 `voiceDirectory(workId, directoryId, {page})` 返回 `{items: [node], hasNext}`；每页最多 1000 个节点，ID 必须稳定。`voiceResource(workId, nodeId)` 返回 `{url, format}`，资源仍受站点媒体权限和网络策略约束；播放具体曲目时调用 `videos(workId, nodeId)`。需要目录播放的源须同时实现这三个方法。字幕节点可在原站明确标注时提供 `subtitleLanguage: 'zh'`。音视频节点可用 `subtitleIds: [id]` 声明原站明确关联的字幕节点，最多 50 个非空、互不重复的稳定 ID；应用只接受同目录字幕，并补充同目录主文件名相同的 LRC、VTT 或 SRT，以来源标注确定字幕语言；图片和 TXT 台本可查看，音声归档目前不支持下载。
+
+目录未加载完整或后续分页失败时，已加载曲目仍可播放；播放列表与字幕关联取点击时已加载的同级节点，不能将部分目录标记为完整。
+
+`Park.createVoiceArchive({base, feeds, languageRoots?, subtitleRoots?})` 提供公开 AList 只读目录的通用实现，源仍须声明真实的分类、权限和筛选项。`languageRoots` 给原站明确的目录标注语言状态，`subtitleRoots` 给原站明确的字幕目录标注语言；不得仅凭文件扩展名推断语言。普通单曲音声源可直接实现 `videos()`，无需伪造目录。详情也可通过 `voiceSubtitles: {episodeId: [subtitleId]}` 声明原站明确关联的字幕；单曲默认 `episodeId` 为 `_`。每组最多 50 个非空、互不重复且不含 URL 的稳定字幕 ID，并须实现 `voiceResource(workId, subtitleId)` 解析。
+
+同源查询 POST 只有在确实只读并显式声明 `readOnly: true` 时，才可在自动网络模式下按现有验证框架回退浏览器；文本请求体上限 2 MiB，二进制、写操作、跨源、禁重定向与指定连接地址的请求不回退。不得将有副作用的操作标为只读。
+
 ## 方法
 
 方法里的 `this` 见“运行时 API”。所有方法都可以是 `async`。
@@ -357,6 +374,8 @@ async resolveImage({ id, chapterId, index, token, retry }) {}  // 可选：延�
 async thumbnails(id, page) {}                      // 可选：分页加载预览缩略图
 async videos(id, episodeId = '_') {}               // 视频
 async textChapter(id, chapterId) {}                // 小说
+async onlineGame(workId) {}                        // online game
+async interactiveViewer(workId) {}                 // interactive artwork
 async gameResources(workId) {}                     // 游戏
 async resolveGameResource(workId, resourceId, channelId) {}
 ```
@@ -402,7 +421,7 @@ async resolveGameResource(workId, resourceId, channelId) {}
 - `coverAspect`（宽 / 高）让网格在图片加载前就排好版。
 - `coverImages` 是帖子内可用于封面的有序图片候选；只在原站没有标准封面且列表已提供这些图时填写。应用按首图方向自适应：横图完整对齐，竖图或方图可拼接候选图。缺图时保留 `cover` 与标准占位行为。
 - `badgeColor` 用于分类角标的颜色。
-- `mediaKind: 'comic' | 'video' | 'novel' | 'game' | 'article'` 描述作品本身的类型。插件只有一种类型时可以省略；混合类型时必须填写，不能凭插件的 `type` 把图片当成视频。小说、游戏和吃瓜作品总是填写，这样卸载插件后仍保留正确类型。
+- `mediaKind: 'comic' | 'video' | 'voice' | 'novel' | 'game' | 'article'` 描述作品本身的类型。插件只有一种类型时可以省略；混合类型时必须填写，不能凭插件的 `type` 把图片当成视频。小说、游戏和吃瓜作品总是填写，这样卸载插件后仍保留正确类型。
 - 帖子类结果可以带 `presentation: 'post'`、`text`、`date`、`url` 和 `media` 数组，以帖子卡片显示；`presentation: 'media'` 用媒体网格显示，点击进入作品中的媒体。帖子正文允许没有媒体；媒体地址仍受插件声明的域名和权限约束。
 
 ### 详情：`detail`
@@ -490,6 +509,18 @@ async textChapter(id, chapterId) {
 - 正文内部分页由插件按顺序合并，不能把下一章、论坛回复、广告或推荐作品并入正文。`Park.html.paragraphs(node)` 提供通用的纯文本提取，站点边界和分页仍由插件决定。
 - 登录、付费或权限导致正文截断时抛 `LOGIN_REQUIRED`，不得把预览伪装成完整章节。
 - 应用按章原子写入 `text.json`，完整写入才算下载完成。阅读进度和标注使用 `paragraphs.join('\n\n')` 的 UTF-16 位置；字号、字体、缩进等排版只影响显示，不改正文和已保存的定位。书签和标注独立于下载文件，参与备份，删除下载不会删除它们。
+
+### 互动立绘: `interactiveViewer`
+
+插件声明 `type: 'interactive', category: 'interactiveArt'`，列表和详情填写 `mediaKind: 'interactive'`。`interactiveViewer(workId)` 返回 `{url, storageId?}`；地址必须为源声明域名内、不含凭据且使用 443 端口的 HTTPS 页面，`storageId` 是不含凭据的稳定站内标识，省略时使用 workId。运行时根据方法导出 `capabilities.interactiveViewer`。查看器沿用隔离网页容器，主文档和普通 iframe 限于目标主机，不启用 JavaScript 桥；支持范围受原站和设备影响。不得伪造角色直达链接或章节，未验证搜索能力不声明；不提供离线下载。
+
+单入口查看器可声明 `interactiveEntry: 'viewer'`（值为真实 workId），从站点或该条目直接进入查看器，详情仍可从查看器访问。多角色目录不声明此字段。
+
+### 在线游戏: `onlineGame`
+
+在线游戏插件声明 `type: 'game', category: 'onlineGame'`，作品填写 `mediaKind: 'game'`。`onlineGame(workId)` 在用户开始游玩时返回 `{kind: 'html', url, storageId?}`；Flash 返回 `{kind: 'flash', url, player, storageId?}`，其中 `url` 为 SWF，`player` 为同主机 Ruffle 脚本。地址必须是无凭据的 HTTPS，使用 443 端口。`storageId` 是站点内稳定的作品标识，省略时使用 workId；不得包含凭据。
+
+客户端以站点和该标识隔离持久浏览器配置，主框架限于游戏主机，子框架另允许精确的 `challenges.cloudflare.com` 验证域，拒绝弹窗、下载和网页权限。Android 需要支持多配置文件的系统 WebView，Windows 使用独立 WebView2 数据目录。localStorage 与 IndexedDB 随配置保留；来源主机变化时浏览器不会自动迁移存档。HTTP 缓存受原站策略和系统回收影响，不能保证离线或秒开。
 
 ### 游戏：`gameResources` / `resolveGameResource`
 

@@ -72,8 +72,8 @@ Park.register({
   name: '我的站点',
   version: '0.0.1',
   minAppVersion: '0.9.2',           // tres números; la app ofrece actualizar si el repositorio tiene uno mayor
-  type: 'comic',              // comic | video | novel | game | article: comportamiento del contenido
-  category: 'doujin',         // doujin | anime | aiDrama | jav | adult | shortvideo | recording | live | gallery | illustration | novel | game | other
+  type: 'comic',              // comic | video | voice | novel | game | interactive | article: comportamiento del contenido
+  category: 'doujin',         // doujin | anime | aiDrama | jav | adult | asmr | shortvideo | recording | live | gallery | illustration | novel | game | other
   color: '#E5355F',           // color de marca: icono y página del sitio
   description: '一句话介绍',
   homepage: 'https://example.com',
@@ -115,6 +115,7 @@ Las capacidades (`capabilities`) las exporta el entorno a partir de los métodos
 | `doujin` | Doujinshi y cómics |
 | `gallery` | Galerías de fotos: cosplay, fotografía e imágenes de personas reales. Los sitios de imágenes usan `type: 'comic'`; cada conjunto es una obra y `chapter()` devuelve sus imágenes ordenadas, con lectura, favoritos y descargas compartidos. La cantidad de imágenes y su contenido no determinan la categoría |
 | `illustration` | Galerías de ilustraciones: dibujos e imágenes de anime. Los sitios de imágenes usan `type: 'comic'`; cada conjunto es una obra y `chapter()` devuelve sus imágenes ordenadas, con lectura, favoritos y descargas compartidos. La cantidad de imágenes y su contenido no determinan la categoría |
+| `interactiveArt` | Visores de ilustraciones interactivas, `type: 'interactive'` |
 | `anime` | Anime adulto |
 | `aiDrama` | Dramas cortos de IA. No se acepta el antiguo `drama`; declara los nombres de canal del sitio tal cual, la categoría de la app no los filtra |
 | `jav` | Sitios dedicados a JAV |
@@ -122,8 +123,10 @@ Las capacidades (`capabilities`) las exporta el entorno a partir de los métodos
 | `shortvideo` | Vídeos cortos: flujo vertical a pantalla completa, ver abajo |
 | `recording` | Grabaciones y vídeo bajo demanda, `type: 'video'` |
 | `live` | Directos, `type: 'video'` |
+| `asmr` | Obras de voz y vídeos ASMR; las fuentes de carpetas usan `type: 'voice'` y las de vídeo pueden usar `type: 'video'` |
 | `novel` | Novelas, `type: 'novel'` |
-| `game` | Juegos, `type: 'game'` |
+| `game` | Información y recursos de descarga de juegos, `type: 'game'` |
+| `onlineGame` | Juegos en línea, `type: 'game'` |
 | `other` | Comunidades de creadores |
 
 - **Vídeos cortos** (`type: 'video', category: 'shortvideo'`): obras, búsqueda, favoritos e historial abren directamente el flujo. Cada obra es un vídeo y `videos(id, '_')` devuelve su medio actual; no hace falta página de detalles. `hasNext` y `cursor` de `feed` cargan la página siguiente cerca del final; los cursores no deben contener credenciales ni firmas de medios. Al refrescar se empieza por la primera página; el elemento actual se reproduce, el siguiente se precarga en pausa y el resto se libera. No declares `search` si el sitio no tiene búsqueda.
@@ -200,7 +203,9 @@ async filterOptions({scope, feed, filter, keyword, values}) {
   El cambio automático excluye `followRedirects: false`, `connectAddress` y errores de red sin clasificar. Las solicitudes GET/HEAD del navegador sin cuerpo tienen como máximo tres intentos ordinarios y una repetición adicional tras la verificación, solo ante fallos de conexión o HTTP 408, 500, 502, 503 y 504; no se repiten 429 ni tiempos de espera. Cada solicitud lógica admite una sola navegación de verificación entre todos sus intentos. El inicio, las solicitudes, la lectura del documento y el cierre tienen esperas limitadas. Las cabeceras API personalizadas se envían mediante `fetch()`, sin sustituir la solicitud por una navegación. El HTML reutilizado conserva su estado de error; `responseType: 'base64'` devuelve los bytes originales en base64.
 
 - `network.vpnHint: true`: decláralo en sitios que puedan necesitar VPN o proxy en China continental; las esperas de más de 8 segundos y los fallos mencionarán «puede necesitar VPN o proxy». No atribuyas todos los errores a la VPN.
-- `network.confirmation: { selector, readySelector, requiredCookies, auto: { clickSelector, checkSelector? }, message }`: Declara la confirmación de edad. `selector` identifica el diálogo, `auto.clickSelector` su único botón de confirmación, `readySelector` el contenido accesible y `requiredCookies` los nombres de cookies necesarios tras confirmar. Solo después de confirmar la mayoría de edad al entrar en la app, el navegador oculto simula un clic y comprueba que desaparezca el diálogo, aparezca el contenido, existan las cookies y termine la navegación. Las reglas incompletas, no coincidentes o fallidas permiten reintentar. Si el error incluye una URL de verificación del sitio, se puede abrir, resolver manualmente y pulsar Hecho. Se mantienen los límites de dominio y la separación de cookies; las notificaciones de operaciones no repiten automáticamente la acción original. No sirve para iniciar sesión, pagar o publicar.
+- `network.confirmation: { selector, readySelector, requiredCookies, auto: { clickSelector, checkSelector?, birthDate? }, message }`: Declara la confirmación de edad. `selector` identifica el diálogo, `auto.clickSelector` su único botón de confirmación, `readySelector` el contenido accesible y `requiredCookies` los nombres de cookies necesarios tras confirmar. Solo después de confirmar la mayoría de edad al entrar en la app, el navegador oculto simula un clic y comprueba que desaparezca el diálogo, aparezca el contenido, existan las cookies y termine la navegación. Las reglas incompletas, no coincidentes o fallidas permiten reintentar. Si el error incluye una URL de verificación del sitio, se puede abrir, resolver manualmente y pulsar Hecho. Se mantienen los límites de dominio y la separación de cookies; las notificaciones de operaciones no repiten automáticamente la acción original. No sirve para iniciar sesión, pagar o publicar.
+
+`auto.birthDate` declara `{dateSelector}` o `{yearSelector, monthSelector, daySelector}`. Solo tras confirmar localmente la mayoría de edad y si los campos y el botón son únicos en el mismo formulario de edad del mismo origen, sin otras entradas enviables, el entorno rellena y envía la fecha fija 1999-12-31. Si no coincide, no actúa ni lee la fecha real.
 
 `auto.checkSelector` opcional marca una única casilla dentro de la verificación de edad. Los cuestionarios pueden declarar `auto.questionnaire: {rowSelector, submitSelector, answers: [{question, answer}]}`. Solo enviar automáticamente tras confirmar la mayoría de edad en la aplicación, con todas las preguntas y respuestas completas coincidentes, un solo formulario y un botón de envío único. No adivinar preguntas desconocidas o ambiguas ni rellenar formularios de acceso u otros.
 - Los errores de red llevan los campos seguros `diagnostics` `host`, `transport` y `reason`, que distinguen certificados TLS, negociación, DNS, conexión y tiempos de espera; los registros automáticos solo guardan esos campos. `reason: 'TLS_HANDSHAKE_TERMINATED'` solo significa que `HandshakeException.message` nativo es exactamente `Connection terminated during handshake` (la conexión se cortó antes de completar la negociación, no un fallo de certificado); solo los GET/HEAD HTTPS sin cuerpo se reintentan una vez, y nada más se reintenta.
@@ -283,6 +288,14 @@ Las fuentes de artículos declaran `type: 'article', category: 'feed'` y usan `m
 
 `Park.createDomainResolver({initialOrigin, accept, discover, verify})` obtiene candidatos de una página de publicación fiable, comprueba el origen y la portada, y guarda el origen válido en el store privado de la fuente. `resolver.request(this, path, options)` devuelve `{response, origin}` y cambia ante 403, 502/503/504, tiempo agotado o errores de conexión/DNS clasificados. Solo se repiten GET, HEAD y consultas POST públicas con `readOnly` y `allowDomainRetry`. No se cambia con cabeceras no permitidas, errores de certificado, cancelación u otras escrituras. Las redirecciones permanecen en el mismo origen y no se amplían permisos del navegador ni de medios.
 
+## Carpetas de voz y subtítulos
+
+Las fuentes de carpetas usan `type: 'voice', category: 'asmr'`; las de vídeo pueden usar `type: 'video'`. `voiceLanguageStatus` admite `chineseSpoken`, `chineseSubtitled`, `foreignOriginal`, `unknown`, y `voiceMediaForm` admite `audioOnly`, `videoOnly`, `mixed`, `unknown`. Solo se indican valores confirmados por la fuente o una carpeta completa.
+
+El detalle puede incluir `voiceRoot: {id, name, type}`. `voiceDirectory(workId, directoryId, {page})` devuelve `{items: [node], hasNext}` con tipos `directory`, `audio`, `video`, `subtitle`, `image`, `script`, `other`. `voiceResource(workId, nodeId)` devuelve `{url, format}` y `videos(workId, nodeId)` resuelve la pista bajo los permisos de medios. Un subtítulo puede llevar `subtitleLanguage: 'zh'` si la fuente identifica su idioma. Los nodos de audio y vídeo pueden declarar asociaciones explícitas mediante `subtitleIds: [id]`: hasta 50 ID estables, únicos y no vacíos. Solo se aceptan subtítulos de la misma carpeta; también se emparejan LRC, VTT y SRT de igual nombre. El detalle de una pista puede declarar subtítulos explícitos mediante `voiceSubtitles: {episodeId: [subtitleId]}`; el episodio único predeterminado es `_`. Cada lista admite hasta 50 ID estables, únicos y no vacíos sin URL y requiere `voiceResource(workId, subtitleId)`. Se pueden ver imágenes y guiones TXT; no se admite descargar archivos de voz. `Park.createVoiceArchive` implementa carpetas AList públicas de solo lectura. Solo consultas POST del mismo origen declaradas `readOnly: true` pueden usar el navegador automáticamente.
+
+Las pistas cargadas se pueden reproducir aunque el directorio esté incompleto o falle una página posterior. La lista y los subtítulos usan los nodos de la misma carpeta cargados al iniciar la reproducción; un directorio parcial no debe marcarse como completo.
+
 ## Métodos
 
 `this` dentro de los métodos se describe en «API del entorno». Todos los métodos pueden ser `async`.
@@ -297,6 +310,8 @@ async resolveImage({ id, chapterId, index, token, retry }) {}  // opcional: reso
 async thumbnails(id, page) {}                      // opcional: miniaturas de vista previa por páginas
 async videos(id, episodeId = '_') {}               // vídeo
 async textChapter(id, chapterId) {}                // novelas
+async onlineGame(workId) {}                        // online game
+async interactiveViewer(workId) {}                 // interactive artwork
 async gameResources(workId) {}                     // juegos
 async resolveGameResource(workId, resourceId, channelId) {}
 ```
@@ -324,7 +339,7 @@ Implementa `searchSuggestions(keyword)` para exportar `capabilities.searchSugges
 
 - `coverAspect` (ancho / alto) permite colocar la cuadrícula antes de que carguen las imágenes.
 - `badgeColor` colorea la insignia de categoría.
-- `mediaKind: 'comic' | 'video' | 'novel' | 'game' | 'article'` es el tipo de la obra. Los plugins de un solo tipo pueden omitirlo; los mixtos deben indicarlo. Novelas, juegos y artículos siempre lo indican para conservar su tipo tras desinstalar el plugin.
+- `mediaKind: 'comic' | 'video' | 'voice' | 'novel' | 'game' | 'article'` es el tipo de la obra. Los plugins de un solo tipo pueden omitirlo; los mixtos deben indicarlo. Novelas, juegos y artículos siempre lo indican para conservar su tipo tras desinstalar el plugin.
 - Los resultados tipo publicación pueden incluir `presentation: 'post'`, `text`, `date`, `url` y un array `media` para mostrarse como tarjetas; `presentation: 'media'` muestra una cuadrícula que abre los medios dentro de la obra. Una publicación puede no tener medios; sus direcciones siguen sujetas a los dominios y permisos declarados.
 
 ### Detalles: `detail`
@@ -390,6 +405,18 @@ async textChapter(id, chapterId) {
 - El plugin une en orden la paginación interna del capítulo; nunca añadas al texto el capítulo siguiente, respuestas de foro, anuncios ni recomendaciones. `Park.html.paragraphs(node)` extrae texto plano de forma genérica; los límites y la paginación del sitio siguen siendo cosa del plugin.
 - Si el texto se corta por inicio de sesión, pago o permisos, lanza `LOGIN_REQUIRED`; nunca presentes una vista previa como capítulo completo.
 - La app escribe `text.json` de forma atómica por capítulo; una descarga solo cuenta como completa si se escribió entera. El progreso y las notas usan posiciones UTF-16 en `paragraphs.join('\n\n')`; tamaño de letra, tipografía, sangría y otros ajustes solo afectan a la visualización. Marcadores y notas se guardan aparte de las descargas, entran en las copias de seguridad y sobreviven a borrar una descarga.
+
+### Ilustraciones interactivas: `interactiveViewer`
+
+Declara `type: 'interactive', category: 'interactiveArt'` y usa `mediaKind: 'interactive'` en lista y detalle. `interactiveViewer(workId)` devuelve `{url, storageId?}`: la URL debe ser una página HTTPS dentro de los dominios declarados por la fuente, en el puerto 443 y sin credenciales; `storageId` es un identificador estable del sitio sin credenciales y por defecto es workId. El entorno exporta `capabilities.interactiveViewer` a partir del método. El contenedor web aislado limita el documento principal y los iframe ordinarios al host de destino y desactiva el puente JavaScript; la disponibilidad depende del sitio y del dispositivo. No inventes enlaces directos ni capítulos, ni declares búsquedas sin verificar; no hay descarga sin conexión.
+
+Un visor de entrada única puede declarar `interactiveEntry: 'viewer'` con su workId real. Al abrir el sitio o ese elemento se accede directamente al visor; los detalles siguen disponibles desde él. Los catálogos de varios personajes deben omitir este campo.
+
+### Juegos en línea: `onlineGame`
+
+Los plugins de juegos en línea declaran `type: 'game', category: 'onlineGame'` y las obras usan `mediaKind: 'game'`. Al jugar, `onlineGame(workId)` devuelve `{kind: 'html', url, storageId?}`; para Flash devuelve `{kind: 'flash', url, player, storageId?}` con un SWF y un script Ruffle del mismo host. Las URL deben ser HTTPS en el puerto 443 y no contener credenciales. `storageId` es la identidad estable del juego en el sitio; si se omite se usa workId y no debe incluir credenciales.
+
+El cliente aísla perfiles persistentes por sitio e identidad; limita los documentos al host del juego y permite además el host exacto `challenges.cloudflare.com` en marcos de verificación; bloquea ventanas emergentes, descargas y permisos web. Android necesita un WebView del sistema con varios perfiles y Windows utiliza una carpeta WebView2 independiente. localStorage e IndexedDB persisten en el perfil, pero los cambios de origen no migran las partidas automáticamente. La caché HTTP depende del sitio y de la limpieza del sistema; no se garantiza el uso sin conexión ni el inicio inmediato.
 
 ### Juegos: `gameResources` / `resolveGameResource`
 

@@ -67,6 +67,7 @@ mixin _SourceState on _SourceRegistry {
         }
         return (jsonDecode(
           jsonEncode({
+            'removedOfficial': _removedOfficial.toList(),
             'sources': [
               for (final s in all)
                 {
@@ -179,7 +180,13 @@ mixin _SourceState on _SourceRegistry {
       }
       files['source_state_$key.json'] = state;
     }
-    files['sources.json'] = {'sources': records.values.toList()};
+    files['sources.json'] = {
+      'sources': records.values.toList(),
+      'removedOfficial': {
+        ..._removedOfficial,
+        ...((json['removedOfficial'] as List?) ?? const []).cast<String>(),
+      }.toList(),
+    };
     return (files: files, missing: missing, cookies: cookies);
   }
 
@@ -196,7 +203,11 @@ mixin _SourceState on _SourceRegistry {
     }
     final registry = await _registry.load();
     _sources.clear();
+    _removedOfficial.clear();
     if (registry is Map) {
+      _removedOfficial.addAll(
+        ((registry['removedOfficial'] as List?) ?? const []).cast<String>(),
+      );
       for (final raw in (registry['sources'] as List? ?? const [])) {
         final s = InstalledSource.fromJson(
           (raw as Map).cast<String, dynamic>(),
@@ -296,6 +307,11 @@ mixin _SourceState on _SourceRegistry {
 
 /// Rejects malformed source data in a backup before anything is written.
 void _validateImport(Map<String, dynamic> json) {
+  final removed = json['removedOfficial'];
+  if (removed != null &&
+      (removed is! List || removed.any((key) => !isSourceKey(key)))) {
+    throw const FormatException('备份数据无效');
+  }
   final cookies = json['cookies'];
   if (cookies != null) {
     if (cookies is! Map) throw const FormatException('备份数据无效');

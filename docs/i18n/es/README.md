@@ -44,9 +44,12 @@ Configura el acceso en Más → Sitios y el proxy en Más → Red cuando sea nec
 
 | Función | Qué ofrece |
 | --- | --- |
+| Voz y ASMR | Carpetas, filtros por idioma y tipo de contenido, reproducción continua y subtítulos sincronizados. La reproducción en segundo plano está desactivada por defecto y se activa en el reproductor. |
 | Descubrir y buscar | Filtra por 2D, 3D y tipo de contenido; busca en varios sitios o abre una obra con un enlace o código. |
 | Leer y ver | Artículos de cotilleos y vídeos; cómics con desplazamiento, páginas y doble página; episodios, velocidad y reanudación de vídeo; marcadores, notas y lectura de novelas en voz alta. |
 | Favoritos y novedades | Organiza grupos, guarda el progreso y consulta capítulos nuevos. Sigue autores, canales o palabras clave. |
+| Juegos en línea | Juega en el navegador sin instalar paquetes, con pantalla completa y controles virtuales opcionales. |
+| Ilustraciones interactivas | Consulta ilustraciones animadas y usa los controles del sitio; no se pueden descargar sin conexión. |
 | Sin conexión y exportación | Descarga cómics, vídeos, novelas y recursos de juegos. Importa y exporta CBZ y exporta capítulos completos de galerías a PDF. |
 | Listas y búsqueda por imagen | Explora clasificaciones de doujinshi, anime y JAV o busca posibles obras con una imagen. |
 | Información de obras | Explora, busca y filtra información de obras, abre los detalles del sitio original de los rankings y elige los sitios de detalles y búsqueda. |
@@ -68,7 +71,7 @@ La búsqueda por imagen envía imágenes al servicio elegido; el historial local
 
 **¿No puedes abrir un sitio o contenido?**
 
-Comprueba la conexión y sigue las indicaciones para iniciar sesión, confirmar tu edad o superar la verificación del sitio. En algunas regiones puede ser necesario un VPN o proxy; el sitio original controla el contenido y los permisos.
+Comprueba la conexión y sigue las indicaciones para iniciar sesión, confirmar tu edad o superar la verificación del sitio. En algunas regiones puede ser necesario un VPN o proxy; el sitio original controla el contenido y los permisos. Las comprobaciones de cumpleaños compatibles usan la fecha fija 1999-12-31 solo tras confirmar la mayoría de edad en el dispositivo; no leen tu fecha real.
 
 **¿Puedo enviar comentarios o chat?**
 
@@ -76,7 +79,7 @@ Los comentarios, respuestas y chat son de solo lectura. Si un recurso de juego r
 
 **¿Cómo guardo favoritos y progreso?**
 
-Exporta o restaura .parkbak en Más → Copia de seguridad. La restauración combina los datos y excluye las descargas. Puedes incluir opcionalmente el estado de acceso y confirmación de los sitios, incluidas las cookies, para usarlo en otro dispositivo. Las sesiones caducadas o vinculadas al dispositivo pueden requerir una nueva verificación. Las copias no están cifradas; guárdalas de forma segura.
+Exporta o restaura .parkbak en Más → Copia de seguridad. La restauración combina los datos y excluye las descargas. Puedes incluir opcionalmente el estado de acceso y confirmación de los sitios, incluidas las cookies, para usarlo en otro dispositivo. Las sesiones caducadas o vinculadas al dispositivo pueden requerir una nueva verificación. Las copias no están cifradas; guárdalas de forma segura. Las partidas en línea no se incluyen en .parkbak. La importación y exportación del juego solo abarca localStorage, no IndexedDB; los archivos exportados no están cifrados.
 
 **¿Cómo informo de un problema?**
 

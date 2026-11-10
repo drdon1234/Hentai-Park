@@ -152,10 +152,15 @@ class Cbz {
       final manifest = File(
         p.join(t.dir.path, safeFileName(ch.id), 'pages.json'),
       );
-      if (!await manifest.exists()) continue;
+      if (!await manifest.exists()) {
+        throw SourceError('NOT_FOUND', '离线媒体文件缺失或不可读');
+      }
       final pages =
           ((jsonDecode(await manifest.readAsString()) as Map)['pages'] as List)
               .cast<Map>();
+      if (pages.isEmpty) {
+        throw SourceError('NOT_FOUND', '离线媒体文件缺失或不可读');
+      }
       final info = ComicInfo(
         title: chapters.length > 1 ? ch.title : t.item.title,
         series: t.item.title,

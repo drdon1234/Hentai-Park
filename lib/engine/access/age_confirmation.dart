@@ -9,6 +9,7 @@ class AgeConfirmationConfig {
     required this.clickSelector,
     this.checkSelector = '',
     this.questionnaire,
+    this.birthDate,
   });
 
   final String gateSelector;
@@ -17,6 +18,7 @@ class AgeConfirmationConfig {
   final String clickSelector;
   final String checkSelector;
   final Map<String, Object?>? questionnaire;
+  final Map<String, String>? birthDate;
 
   String get signature => jsonEncode([
     gateSelector,
@@ -25,6 +27,7 @@ class AgeConfirmationConfig {
     clickSelector,
     checkSelector,
     questionnaire,
+    birthDate,
   ]);
 
   static AgeConfirmationConfig? fromNetwork(Map<String, dynamic> network) {
@@ -37,6 +40,7 @@ class AgeConfirmationConfig {
     final click = auto is Map ? text(auto['clickSelector']) : '';
     final check = auto is Map ? text(auto['checkSelector']) : '';
     Map<String, Object?>? questionnaire;
+    Map<String, String>? birthDate;
     if (auto is Map && auto['questionnaire'] != null) {
       final rawQuestions = auto['questionnaire'];
       if (rawQuestions is! Map) return null;
@@ -74,6 +78,31 @@ class AgeConfirmationConfig {
         'answers': clean,
       };
     }
+    if (auto is Map && auto['birthDate'] != null) {
+      final rawDate = auto['birthDate'];
+      if (rawDate is! Map || questionnaire != null) return null;
+      final single = text(rawDate['dateSelector']);
+      final year = text(rawDate['yearSelector']);
+      final month = text(rawDate['monthSelector']);
+      final day = text(rawDate['daySelector']);
+      final separate = [year, month, day];
+      if (single.isNotEmpty) {
+        if (single.length > 1024 || separate.any((value) => value.isNotEmpty)) {
+          return null;
+        }
+        birthDate = {'dateSelector': single};
+      } else {
+        if (separate.any((value) => value.isEmpty || value.length > 1024) ||
+            separate.toSet().length != 3) {
+          return null;
+        }
+        birthDate = {
+          'yearSelector': year,
+          'monthSelector': month,
+          'daySelector': day,
+        };
+      }
+    }
     if (auto is Map &&
         auto['checkSelector'] != null &&
         (auto['checkSelector'] is! String || check.isEmpty)) {
@@ -103,6 +132,7 @@ class AgeConfirmationConfig {
       clickSelector: click,
       checkSelector: check,
       questionnaire: questionnaire,
+      birthDate: birthDate,
     );
   }
 }

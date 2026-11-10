@@ -14,9 +14,11 @@ Update checks ask before removing withdrawn official plugins, their settings, lo
 
 | Category | Sites / services |
 | --- | --- |
+| Voice and ASMR | Hentai ASMR · ASMRHoney · Literotica Audio · ASMR Gay · ASMR Moon · EroASMR · JASMR |
 | Gossip | MRDS · Heiliao · 51CG |
 | Photo galleries | PixiBB · XiuRen · PornPics · CosplayTele · NudeCosplay |
 | Illustrations | Danbooru · yande.re · Gelbooru |
+| Interactive art | MAD Viewer · LOMapR · Destiny Child Live2D · Brown Dust 2 Viewer · Nikke Database · DaiCoreViewer |
 | Doujinshi / comics | E-Hentai · 禁漫天堂 · nhentai · 绅士漫画 · 哔咔漫画 |
 | Hentai anime | Hanime1 · Hanime.tv · Rule34Video · Iwara · HentaiHaven |
 | JAV | MissAV · JableTV · 123AV · SupJav |
@@ -27,7 +29,8 @@ Update checks ask before removing withdrawn official plugins, their settings, lo
 | Live streams | Stripchat 亚洲直播 · CAM4 · SOOP · XloveCam · SinParty |
 | Creator communities | Pixiv · Reddit · X / Twitter · myfans.jp · pixivFANBOX · Telegram |
 | Novels | Cool18 · Book18 · Canovel · 69story · Literotica · Lush Stories · StoriesOnline |
-| Games | KUN Galgame · GalgameX · 次元茶馆 |
+| Game resources | KUN Galgame · GalgameX · 次元茶馆 |
+| Online games | itch.io · Gamcore |
 
 ## Rankings
 

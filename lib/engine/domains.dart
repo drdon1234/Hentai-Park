@@ -54,7 +54,8 @@ bool httpsDomainAddressAllowed(Uri? uri, Iterable<String> domains) =>
     hostInDomains(uri.host, domains);
 
 bool publicDomainHost(String host) =>
-    RegExp(r'^[a-z0-9](?:[a-z0-9.-]*[a-z0-9])?\.[a-z]{2,}$').hasMatch(host) &&
+    // 浏览器可访问的 CDN 主机可能含下划线；不能套用仅适用于传统主机名的字符集。
+    RegExp(r'^[a-z0-9](?:[a-z0-9._-]*[a-z0-9])?\.[a-z]{2,}$').hasMatch(host) &&
     !host
         .split('.')
         .any(

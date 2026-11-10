@@ -125,6 +125,69 @@ Future<Map?> inspectAccessDocument(
             setTimeout(() => { if (buttons[0].isConnected) buttons[0].click(); }, 0); clicked = true;
           }
         }
+      } else if (birthDate) {
+      // 只有本地成年确认有效，且整组日期控件、确认按钮属于同一年龄门时才填写。
+      // 日期是应用统一值，站点不能指定日期或填入用户真实生日。
+      const spec = birthDate.dateSelector
+        ? [[birthDate.dateSelector, '1999-12-31', 'date']]
+        : [[birthDate.yearSelector, '1999', 'part'],
+           [birthDate.monthSelector, '12', 'part'],
+           [birthDate.daySelector, '31', 'part']];
+      const find = selector => [...document.querySelectorAll(selector)].filter(el =>
+        visible(el) && !el.disabled && gates.some(gate => gate.contains(el)));
+      const matches = spec.map(([selector]) => find(selector));
+      const fields = matches.map(items => items[0]);
+      const checks = checkSelector ? find(checkSelector).filter(el =>
+        el instanceof HTMLInputElement && el.type === 'checkbox') : [];
+      const buttons = find(clickSelector).filter(el => el.getAttribute('aria-disabled') !== 'true');
+      const form = fields[0]?.form;
+      let valid = gates.length === 1 && matches.every(items => items.length === 1) &&
+        new Set(fields).size === fields.length && !!form && buttons.length === 1 &&
+        buttons[0].form === form && fields.every(el => el.form === form) &&
+        (!checkSelector || (checks.length === 1 && checks[0].form === form));
+      if (valid) {
+        try {
+          const action = new URL(form.action, location.href);
+          valid = action.protocol === 'https:' && action.origin === location.origin &&
+            !action.username && !action.password && ['get', 'post'].includes(form.method.toLowerCase());
+        } catch (_) { valid = false; }
+      }
+      if (valid) {
+        valid = spec.every(([_, value, kind], i) => {
+          const field = fields[i];
+          if (kind === 'date') return field instanceof HTMLInputElement && field.type === 'date';
+          if (field instanceof HTMLSelectElement) return [...field.options].some(option =>
+            option.value === value && !option.disabled && !option.closest('optgroup')?.disabled);
+          return field instanceof HTMLInputElement && ['text', 'number', 'tel'].includes(field.type);
+        });
+      }
+      if (valid) {
+        const allowed = new Set([...fields, ...checks]);
+        valid = [...form.querySelectorAll('input,select,textarea')].every(el =>
+          el.disabled || allowed.has(el) || (el instanceof HTMLInputElement &&
+            ['hidden', 'submit', 'button'].includes(el.type)));
+      }
+      if (valid) {
+        const previous = fields.map(field => field.value);
+        const wasChecked = checks[0]?.checked;
+        fields.forEach((field, i) => {
+          field.value = spec[i][1];
+          field.dispatchEvent(new Event('input', {bubbles: true}));
+          field.dispatchEvent(new Event('change', {bubbles: true}));
+        });
+        if (checks.length && !checks[0].checked) checks[0].click();
+        valid = fields.every((field, i) => field.isConnected && field.value === spec[i][1]) &&
+          (!checks.length || checks[0].checked) && form.isConnected && form.checkValidity();
+        if (valid) {
+          setTimeout(() => {
+            if (form.isConnected && buttons[0].isConnected && clean(location.href) === clean(url)) buttons[0].click();
+          }, 0);
+          clicked = true;
+        } else {
+          fields.forEach((field, i) => { field.value = previous[i]; });
+          if (checks.length && checks[0].checked !== wasChecked) checks[0].click();
+        }
+      }
       } else {
       // 标准年龄门只操作唯一的复选框和提交按钮，不填写账号等其他表单。
       let checked = !checkSelector;
@@ -156,6 +219,7 @@ Future<Map?> inspectAccessDocument(
           'checkSelector': confirmation?.checkSelector ?? '',
           'confirmAdult': confirmAdult,
           'questionnaire': confirmation?.questionnaire,
+          'birthDate': confirmation?.birthDate,
         },
       )
       .timeout(const Duration(seconds: 5), onTimeout: () => null);

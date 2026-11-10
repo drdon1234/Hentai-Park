@@ -16,9 +16,11 @@
 
 | الفئة | المواقع / الخدمات |
 | --- | --- |
+| الصوت وASMR | Hentai ASMR · ASMRHoney · Literotica Audio · ASMR Gay · ASMR Moon · EroASMR · JASMR |
 | القيل والقال | MRDS · Heiliao · 51CG |
 | معارض الصور | PixiBB · XiuRen · PornPics · CosplayTele · NudeCosplay |
 | الرسوم | Danbooru · yande.re · Gelbooru |
+| رسوم تفاعلية | MAD Viewer · LOMapR · Destiny Child Live2D · Brown Dust 2 Viewer · Nikke Database · DaiCoreViewer |
 | دوجينشي / قصص مصورة | E-Hentai · 禁漫天堂 · nhentai · 绅士漫画 · 哔咔漫画 |
 | أنمي البالغين | Hanime1 · Hanime.tv · Rule34Video · Iwara · HentaiHaven |
 | JAV | MissAV · JableTV · 123AV · SupJav |
@@ -29,7 +31,8 @@
 | بث مباشر | Stripchat 亚洲直播 · CAM4 · SOOP · XloveCam · SinParty |
 | مجتمعات المبدعين | Pixiv · ريديت · إكس / تويتر · myfans.jp · pixivFANBOX · تيليجرام |
 | روايات | Cool18 · Book18 · Canovel · 69story · Literotica · Lush Stories · StoriesOnline |
-| ألعاب | KUN Galgame · GalgameX · 次元茶馆 |
+| موارد الألعاب | KUN Galgame · GalgameX · 次元茶馆 |
+| ألعاب عبر الإنترنت | itch.io · Gamcore |
 
 ## التصنيفات
 

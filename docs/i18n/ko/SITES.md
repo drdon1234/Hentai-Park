@@ -14,9 +14,11 @@
 
 | 분류 | 사이트 / 서비스 |
 | --- | --- |
+| 음성·ASMR | Hentai ASMR · ASMRHoney · Literotica Audio · ASMR Gay · ASMR Moon · EroASMR · JASMR |
 | 가십 | 매일대회 · 헤이랴오 · 51CG |
 | 화보 | PixiBB · 슈런 · PornPics · CosplayTele · NudeCosplay |
 | 일러스트 | Danbooru · yande.re · Gelbooru |
+| 인터랙티브 일러스트 | MAD Viewer · LOMapR · Destiny Child Live2D · Brown Dust 2 Viewer · Nikke Database · DaiCoreViewer |
 | 동인지 / 만화 | E-Hentai · 禁漫天堂 · nhentai · 绅士漫画 · 哔咔漫画 |
 | 성인 애니메이션 | Hanime1 · Hanime.tv · Rule34Video · Iwara · HentaiHaven |
 | JAV | MissAV · JableTV · 123AV · SupJav |
@@ -27,7 +29,8 @@
 | 라이브 | Stripchat 亚洲直播 · CAM4 · SOOP · XloveCam · SinParty |
 | 창작 커뮤니티 | Pixiv · 레딧 · X / 트위터 · myfans.jp · pixivFANBOX · 텔레그램 |
 | 소설 | Cool18 · Book18 · Canovel · 69story · Literotica · Lush Stories · StoriesOnline |
-| 게임 | KUN Galgame · GalgameX · 次元茶馆 |
+| 게임 자료 | KUN Galgame · GalgameX · 次元茶馆 |
+| 온라인 게임 | itch.io · Gamcore |
 
 ## 순위
 

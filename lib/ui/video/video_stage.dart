@@ -45,6 +45,7 @@ class VideoStage extends StatelessWidget {
     required this.onIdle,
     required this.onEpisodePage,
     this.liveChat,
+    this.subtitles,
     this.pageHorizontally = false,
   });
 
@@ -52,6 +53,7 @@ class VideoStage extends StatelessWidget {
   final bool fullscreen;
   final bool pageHorizontally;
   final bool controlsVisible;
+  final Widget? subtitles;
 
   /// The controls layer for the current player value.
   final Widget Function(VideoPlayerValue value, Widget progress) controls;
@@ -188,6 +190,7 @@ class VideoStage extends StatelessWidget {
       overlay: Stack(
         fit: StackFit.expand,
         children: [
+          ?subtitles,
           ?liveChat,
           AnimatedOpacity(
             opacity: showControls ? 1 : 0,
@@ -230,12 +233,21 @@ class VideoStage extends StatelessWidget {
       child: Stack(
         fit: StackFit.expand,
         children: [
-          Center(
-            child: AspectRatio(
-              aspectRatio: c.value.aspectRatio,
-              child: VideoPlayer(c, key: ObjectKey(c)),
+          if (session.isAudio)
+            const Center(
+              child: Icon(
+                Icons.headphones_rounded,
+                color: Colors.white70,
+                size: 64,
+              ),
+            )
+          else
+            Center(
+              child: AspectRatio(
+                aspectRatio: c.value.aspectRatio,
+                child: VideoPlayer(c, key: ObjectKey(c)),
+              ),
             ),
-          ),
           if (dim > 0)
             IgnorePointer(
               child: ColoredBox(color: Colors.black.withValues(alpha: dim)),

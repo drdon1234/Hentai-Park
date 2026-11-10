@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
@@ -23,11 +25,14 @@ class WebViewInteractionHost implements BrowserInteractionHost {
     required String body,
     required Map<String, dynamic> arguments,
   }) async {
-    final result = await controller.callAsyncJavaScript(
-      functionBody: body,
-      arguments: arguments,
+    // 文档检查是同步脚本。使用原生求值返回结果，避免依赖网页可调用的
+    // JavaScript 桥（游戏与立绘页出于隔离要求禁用了该桥）。
+    final result = await controller.evaluateJavascript(
+      source:
+          'JSON.stringify((function(${arguments.keys.join(',')}) {$body})'
+          '(${arguments.values.map(jsonEncode).join(',')}))',
     );
-    return result?.error == null ? result?.value : null;
+    return result is String ? jsonDecode(result) : result;
   }
 
   @override

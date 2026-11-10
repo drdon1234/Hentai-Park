@@ -69,9 +69,7 @@ class _HistoryPageState extends State<HistoryPage> {
   }
 
   void _resume(HistoryEntry h) {
-    if (kindOf(h.item) != MediaKind.video &&
-        h.position == null &&
-        h.pageCount == 0) {
+    if (!kindOf(h.item).isPlayable && h.position == null && h.pageCount == 0) {
       Nav.openWork(context, h.item);
     } else {
       Nav.openChapter(context, h.item, h.chapterId, page: h.page);

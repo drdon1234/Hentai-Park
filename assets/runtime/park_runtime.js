@@ -180,8 +180,10 @@
       const method = String(request.method || 'GET').toUpperCase();
       const target = url.site(source, request.url);
       const origin = request.origin || target?.origin;
-      return request.mode === 'auto' && request.followRedirects !== false && request.connectAddress === undefined && (method === 'GET' || method === 'HEAD') &&
-        request.body === undefined && request.bodyBase64 === undefined &&
+      const read = ((method === 'GET' || method === 'HEAD') && request.body === undefined) ||
+        (method === 'POST' && request.readOnly === true && typeof request.body === 'string' && request.body.length <= 2097152);
+      return request.mode === 'auto' && request.followRedirects !== false && request.connectAddress === undefined && read &&
+        request.bodyBase64 === undefined &&
         !!target && !!origin && target.origin === origin;
     }
 
@@ -708,6 +710,7 @@
       media: pick(def.media || {}),
       chat: pick(def.chat || {}),
       postShortVideos: def.postShortVideos === true,
+      interactiveEntry: def.type === 'interactive' && typeof def.interactiveEntry === 'string' ? def.interactiveEntry : '',
       subscription: pick(def.subscription ? {hint:def.subscription.hint || '',joinedTargets:typeof def.subscription.targets === 'function',joinedCreators:def.subscription.joinedCreators === true,communities:def.subscription.communities === true,communityHint:def.subscription.communityHint || '',communityExample:def.subscription.communityExample || ''} : null),
       updateSubscriptions: pick(def.updateSubscriptions ? {dimensions:def.updateSubscriptions.dimensions} : null),
       settings: pick(def.settings || []),
@@ -765,7 +768,11 @@
         textChapter: typeof def.textChapter === 'function',
         resolveImage: typeof def.resolveImage === 'function',
         videos: typeof def.videos === 'function',
+        voiceDirectory: typeof def.voiceDirectory === 'function',
+        voiceResource: typeof def.voiceResource === 'function',
         webVideo: typeof def.webVideo === 'function',
+        onlineGame: typeof def.onlineGame === 'function',
+        interactiveViewer: typeof def.interactiveViewer === 'function',
         gameResources: typeof def.gameResources === 'function',
         resolveGameResource: typeof def.resolveGameResource === 'function',
         thumbnails: typeof def.thumbnails === 'function',
@@ -837,6 +844,145 @@
     },
   };
 
+  // AList 的通用只读文件协议；根目录、语言分类和界面文案仍由各源声明。
+  function createVoiceArchive(config) {
+    const base = String(config.base || '');
+    const paths = config.feeds || {};
+    const languageRoots = config.languageRoots || {};
+    const subtitleRoots = config.subtitleRoots || {};
+    const supported = new Set(['audio', 'video', 'subtitle', 'image', 'script']);
+    function path(value) {
+      const p = String(value || '');
+      if (!p.startsWith('/') || p.length > 4096 || /[\x00-\x1f\x7f\\]/.test(p) ||
+          (p !== '/' &&
+          p.split('/').some((part, i) => i > 0 && (!part || part === '.' || part === '..')))) {
+        throw new ParkError(ErrorCode.CONFIG, '媒体数据无效');
+      }
+      return p;
+    }
+    function child(parent, name) {
+      if (typeof name !== 'string' || !name || name.includes('/') || name.includes('\\') ||
+          name === '.' || name === '..' || /[\x00-\x1f\x7f]/.test(name)) {
+        throw new ParkError(ErrorCode.PARSE, '媒体数据无效');
+      }
+      return path((parent === '/' ? '' : path(parent)) + '/' + name);
+    }
+    function inside(root, value) {
+      root = path(root); value = path(value);
+      if (/\.(?:mp3|flac|wav|m4a|aac|ogg|opus|mp4|m4v|mkv|webm|m3u8)$/i.test(root)) {
+        const parent = root.slice(0, root.lastIndexOf('/')) || '/';
+        if (value === parent || (parent === '/' ? value.startsWith('/') : value.startsWith(parent + '/'))) return value;
+        throw new ParkError(ErrorCode.CONFIG, '媒体数据无效');
+      }
+      if (root !== '/' && value !== root && !value.startsWith(root + '/')) throw new ParkError(ErrorCode.CONFIG, '媒体数据无效');
+      return value;
+    }
+    function kind(entry) {
+      if (entry.is_dir === true) return 'directory';
+      const ext = String(entry.name || '').split('.').pop().toLowerCase();
+      if (['mp3', 'flac', 'wav', 'm4a', 'aac', 'ogg', 'opus'].includes(ext)) return 'audio';
+      if (['mp4', 'm4v', 'mkv', 'webm', 'm3u8'].includes(ext)) return 'video';
+      if (['lrc', 'vtt', 'srt'].includes(ext)) return 'subtitle';
+      if (['jpg', 'jpeg', 'png', 'webp', 'gif', 'avif'].includes(ext)) return 'image';
+      if (['txt', 'pdf'].includes(ext)) return 'script';
+      return 'other';
+    }
+    function node(parent, entry) {
+      const id = child(parent, entry.name);
+      const type = kind(entry);
+      const subtitleLanguage = type === 'subtitle' && Object.entries(subtitleRoots)
+        .find(([root]) => id === root || id.startsWith(root + '/'))?.[1];
+      return {id, name: entry.name, type, ...(subtitleLanguage ? {subtitleLanguage} : {})};
+    }
+    async function call(source, endpoint, body) {
+      const response = await source.http.post(base + '/api/fs/' + endpoint, {json: body, readOnly: true});
+      if (!response.ok) throw new ParkError(ErrorCode.HTTP, 'HTTP {status}', {status: response.status, params: {status: response.status}});
+      if (response.body.length > 4 * 1024 * 1024) throw new ParkError(ErrorCode.PARSE, '媒体数据无效');
+      const result = response.json();
+      if (result.code === 401 || result.code === 403) throw new ParkError(ErrorCode.LOGIN_REQUIRED, '目录需要登录或密码');
+      if (result.code !== 200 || !result.data || typeof result.data !== 'object') throw new ParkError(ErrorCode.PARSE, '媒体数据无效');
+      return result.data;
+    }
+    async function list(source, directory, page) {
+      directory = path(directory);
+      if (!Number.isSafeInteger(page) || page < 1 || page > 10000) throw new ParkError(ErrorCode.CONFIG, '分页参数无效');
+      const data = await call(source, 'list', {path: directory, password: '', page, per_page: 100, refresh: false});
+      if (data.content !== null && !Array.isArray(data.content)) throw new ParkError(ErrorCode.PARSE, '媒体数据无效');
+      const entries = data.content || [];
+      const items = entries.map(entry => node(directory, entry));
+      const total = Number(data.total);
+      return {items, page, hasNext: Number.isFinite(total) ? page * 100 < total : data.has_more === true};
+    }
+    async function resource(source, root, id) {
+      id = inside(root, id);
+      const data = await call(source, 'get', {path: id, password: ''});
+      const raw = String(data.raw_url || '');
+      let parsed;
+      try { parsed = new URL(raw); } catch (_) {}
+      if (!parsed || parsed.protocol !== 'https:' || parsed.username || parsed.password || parsed.port || parsed.hash ||
+          !url.parse(parsed.href, base, [parsed.hostname])) throw new ParkError(ErrorCode.PARSE, '媒体数据无效');
+      return parsed.href;
+    }
+    function item(entry) {
+      const id = entry.id;
+      const languageStatus = Object.entries(languageRoots).find(([root]) => id === root || id.startsWith(root + '/'))?.[1];
+      return {id, title: entry.name, cover: '', mediaKind: 'voice', voiceNodeType: entry.type,
+        ...(languageStatus ? {voiceLanguageStatus: languageStatus} : {}),
+        ...(entry.type === 'audio' ? {voiceMediaForm: 'audioOnly'} : {}),
+        ...(entry.type === 'video' ? {voiceMediaForm: 'videoOnly'} : {})};
+    }
+    return {
+      async feed(key, request) {
+        if (!Object.prototype.hasOwnProperty.call(paths, key)) throw new ParkError(ErrorCode.CONFIG, '未知列表');
+        const page = Math.max(1, Math.floor(Number(request.page) || 1));
+        const data = await list(this, paths[key], page);
+        return {...data, ...(data.hasNext ? {cursor: String(page + 1)} : {}),
+          items: data.items.filter(n => n.type === 'directory' || supported.has(n.type) && ['audio', 'video'].includes(n.type)).map(item)};
+      },
+      async search(request) {
+        const keyword = String(request.keyword || '').trim();
+        if (!keyword) return {items: [], page: 1, hasNext: false};
+        const page = Math.max(1, Math.floor(Number(request.page) || 1));
+        const section = String(request.filters?.section || 'all');
+        const scope = String(request.filters?.scope || 'all');
+        if ((section !== 'all' && !Object.prototype.hasOwnProperty.call(paths, section)) || !['all', 'directory', 'file'].includes(scope)) {
+          throw new ParkError(ErrorCode.CONFIG, '筛选参数无效');
+        }
+        const parent = section === 'all' ? '/' : paths[section];
+        const data = await call(this, 'search', {parent, keywords: keyword,
+          scope: {all: 0, directory: 1, file: 2}[scope], page, per_page: 100, password: ''});
+        if (data.content !== null && !Array.isArray(data.content)) throw new ParkError(ErrorCode.PARSE, '媒体数据无效');
+        const entries = data.content || [];
+        const items = entries.map(entry => node(path(entry.parent), entry)).filter(n => n.type === 'directory' || ['audio', 'video'].includes(n.type));
+        const hasNext = page * 100 < Number(data.total || 0);
+        return {items: items.map(item), page, hasNext, ...(hasNext ? {cursor: String(page + 1)} : {})};
+      },
+      async detail(id, preview) {
+        id = path(id);
+        const data = await call(this, 'get', {path: id, password: ''});
+        const entry = {id, name: String(data.name || id.split('/').pop()), type: kind(data)};
+        if (preview?.id === id && ['audio', 'video', 'directory'].includes(preview.voiceNodeType)) entry.type = preview.voiceNodeType;
+        return {...item(entry), url: base + '/' + id.slice(1).split('/').map(encodeURIComponent).join('/'), voiceRoot: entry};
+      },
+      async voiceDirectory(id, directory, options = {}) {
+        return list(this, inside(id, directory), Math.max(1, Math.floor(Number(options.page) || 1)));
+      },
+      async voiceResource(id, nodeId) {
+        const url = await resource(this, id, nodeId);
+        return {url, format: String(nodeId).split('.').pop().toLowerCase()};
+      },
+      async videos(id, episodeId) {
+        const selected = episodeId === '_' ? id : episodeId;
+        const url = await resource(this, id, selected);
+        const ext = String(selected).split('.').pop().toLowerCase();
+        if (!['mp3', 'flac', 'wav', 'm4a', 'aac', 'ogg', 'opus', 'mp4', 'm4v', 'mkv', 'webm', 'm3u8'].includes(ext)) {
+          throw new ParkError(ErrorCode.UNSUPPORTED, '媒体格式不支持');
+        }
+        return [{url, format: ext === 'm3u8' ? 'hls' : ext, label: '原画', preferred: true}];
+      },
+    };
+  }
+
   const Park = {
     API_VERSION,
     ErrorCode,
@@ -847,6 +993,7 @@
     utils,
     url,
     createDomainResolver,
+    createVoiceArchive,
     __native: global.Park && global.Park.__native,
     __pending: null,
 

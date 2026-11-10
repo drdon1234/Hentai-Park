@@ -9,6 +9,7 @@ import '../../subscriptions/subscription_store.dart';
 import '../../subscriptions/updater.dart';
 import '../nav.dart';
 import '../theme.dart';
+import '../voice/voice_labels.dart';
 import '../widgets/adaptive_cover.dart';
 import '../widgets/common.dart';
 import '../widgets/content_translation.dart';
@@ -93,7 +94,7 @@ class _DetailHeaderState extends State<DetailHeader> {
   }
 
   bool get _isVideo =>
-      widget.manifest?.isVideo ??
+      widget.manifest?.isPlayable ??
       DownloadManager.instance.task(widget.item.uid)?.isVideo ??
       false;
 
@@ -104,6 +105,10 @@ class _DetailHeaderState extends State<DetailHeader> {
     final item = widget.item;
     final d = widget.detail;
     return [
+      if (voiceFormLabel(item.voiceMediaForm) case final label?)
+        (Icons.headphones_rounded, label),
+      if (voiceLanguageLabel(item.voiceLanguageStatus) case final label?)
+        (Icons.translate_rounded, label),
       if (item.editions.isNotEmpty)
         (Icons.video_label_outlined, workEditionLabel(item)),
       if ((d?.pages ?? item.pages ?? 0) > 0)

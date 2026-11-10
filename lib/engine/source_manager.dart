@@ -19,6 +19,7 @@ import '../core/settings.dart';
 import '../core/storage.dart';
 import '../core/tag_translations.dart';
 import '../core/versions.dart';
+import '../core/voice.dart';
 import '../core/work_metadata.dart';
 import '../images/image_network.dart';
 import '../images/image_store.dart';

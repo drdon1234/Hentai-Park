@@ -52,12 +52,19 @@ class RestoreTransaction {
       return decoded;
     }
 
-    final oldFiles = decodeFiles(before), newFiles = decodeFiles(after);
+    final oldFiles = decodeFiles(before);
+    decodeFiles(after);
     final cookies = _decodeCookies(data['cookies']);
     final marker = await (db.select(
       db.restoreCheckpoints,
     )..where((t) => t.id.equals(1))).getSingleOrNull();
-    final decoded = marker?.token == data['token'] ? newFiles : oldFiles;
+    // 文件和 Cookie 已在数据库提交前写入。已提交日志只能清理，
+    // 重放 after 会覆盖提交后用户保存的新状态。
+    if (marker?.token == data['token']) {
+      await _journal.delete();
+      return;
+    }
+    final decoded = oldFiles;
     for (final entry in cookies.entries) {
       await CookieStore.instance.restorePartition(
         entry.key,

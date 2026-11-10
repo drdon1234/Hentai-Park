@@ -14,9 +14,11 @@
 
 | Категория | Сайты / сервисы |
 | --- | --- |
+| Аудио и ASMR | Hentai ASMR · ASMRHoney · Literotica Audio · ASMR Gay · ASMR Moon · EroASMR · JASMR |
 | Сплетни | MRDS · Heiliao · 51CG |
 | Фотогалереи | PixiBB · XiuRen · PornPics · CosplayTele · NudeCosplay |
 | Иллюстрации | Danbooru · yande.re · Gelbooru |
+| Интерактивные иллюстрации | MAD Viewer · LOMapR · Destiny Child Live2D · Brown Dust 2 Viewer · Nikke Database · DaiCoreViewer |
 | Додзинси / комиксы | E-Hentai · 禁漫天堂 · nhentai · 绅士漫画 · 哔咔漫画 |
 | Хентай-аниме | Hanime1 · Hanime.tv · Rule34Video · Iwara · HentaiHaven |
 | JAV | MissAV · JableTV · 123AV · SupJav |
@@ -27,7 +29,8 @@
 | Трансляции | Stripchat 亚洲直播 · CAM4 · SOOP · XloveCam · SinParty |
 | Сообщества авторов | Pixiv · Reddit · X / Твиттер · myfans.jp · pixivFANBOX · Telegram |
 | Романы | Cool18 · Book18 · Canovel · 69story · Literotica · Lush Stories · StoriesOnline |
-| Игры | KUN Galgame · GalgameX · 次元茶馆 |
+| Игровые ресурсы | KUN Galgame · GalgameX · 次元茶馆 |
+| Онлайн-игры | itch.io · Gamcore |
 
 ## Рейтинги
 

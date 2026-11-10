@@ -635,10 +635,18 @@ mixin _SourceApi on _SourceRegistry {
         HomeMetadata.fields.toList(),
         HomeMetadata.detailFields.toList(),
       ],
-      () async => (await _call(key, 'detail', [
-        id,
-        if (preview?.source == key && preview?.id == id) preview!.toJson(),
-      ], cancelToken: cancelToken) as Map).cast<String, dynamic>(),
+      () async {
+        final value = (await _call(key, 'detail', [
+          id,
+          if (preview?.source == key && preview?.id == id) preview!.toJson(),
+        ], cancelToken: cancelToken) as Map).cast<String, dynamic>();
+        try {
+          parseVoiceSubtitleReferences(value['voiceSubtitles']);
+        } on FormatException {
+          throw SourceError('PARSE', '媒体数据无效');
+        }
+        return value;
+      },
       refresh: true,
       serialize: HomeMetadata.detail,
       source: key,
@@ -655,6 +663,47 @@ mixin _SourceApi on _SourceRegistry {
 
   Future<String> random(String key) async =>
       (await _call(key, 'random', [{}])).toString();
+
+  /// Resolve the game only when the player is opened; transient addresses are not cached.
+  Future<Map<String, dynamic>> onlineGame(
+    String key,
+    String id, {
+    CancelToken? cancelToken,
+  }) async {
+    final source = manifest(key);
+    if (source?.category != SourceCategory.onlineGame ||
+        source?.can('onlineGame') != true) {
+      throw SourceError('UNSUPPORTED', '此站点不支持在线游戏');
+    }
+    final result = await _call(key, 'onlineGame', [
+      id,
+    ], cancelToken: cancelToken);
+    if (result is! Map) throw SourceError('PARSE', '游戏地址无效');
+    return result.cast<String, dynamic>();
+  }
+
+  /// Resolve the interactive viewer when it is opened, without caching its URL.
+  Future<Map<String, dynamic>> interactiveViewer(
+    String key,
+    String id, {
+    CancelToken? cancelToken,
+  }) async {
+    final source = manifest(key);
+    if (source == null ||
+        source.category != SourceCategory.interactiveArt ||
+        !source.can('interactiveViewer')) {
+      throw SourceError('UNSUPPORTED', '此站点不支持互动立绘');
+    }
+    final result = await _call(key, 'interactiveViewer', [
+      id,
+    ], cancelToken: cancelToken);
+    if (result is! Map) throw SourceError('PARSE', '立绘地址无效');
+    final url = Uri.tryParse(result['url']?.toString() ?? '');
+    if (!httpsDomainAddressAllowed(url, declaredDomains(source.json))) {
+      throw SourceError('PARSE', '立绘地址无效');
+    }
+    return {...result.cast<String, dynamic>(), 'kind': 'html'};
+  }
 
   Future<List<GameResource>> gameResources(String key, String id) async {
     final result = await _call(key, 'gameResources', [id]);
@@ -755,6 +804,69 @@ mixin _SourceApi on _SourceRegistry {
     id,
     episodeId ?? '_',
   ], cancelToken: cancelToken) as Map).cast<String, dynamic>();
+
+  Future<VoiceDirectoryPageData> voiceDirectory(
+    String key,
+    String workId,
+    String directoryId, {
+    required int page,
+    CancelToken? cancelToken,
+  }) async {
+    if (manifest(key)?.can('voiceDirectory') != true || page < 1) {
+      throw SourceError('UNSUPPORTED', '此站点不支持目录浏览');
+    }
+    final result = await _call(key, 'voiceDirectory', [
+      workId,
+      directoryId,
+      {'page': page},
+    ], cancelToken: cancelToken);
+    if (result is! Map ||
+        result['items'] is! List ||
+        (result['items'] as List).length > 1000) {
+      throw SourceError('PARSE', '媒体数据无效');
+    }
+    try {
+      final nodes = <VoiceNode>[];
+      final seen = <String>{};
+      for (final item in result['items'] as List) {
+        if (item is! Map) throw const FormatException();
+        final node = VoiceNode.fromJson(item.cast<String, dynamic>());
+        if (!seen.add(node.id)) throw const FormatException();
+        nodes.add(node);
+      }
+      return VoiceDirectoryPageData(
+        items: nodes,
+        hasNext: result['hasNext'] == true,
+      );
+    } on FormatException {
+      throw SourceError('PARSE', '媒体数据无效');
+    }
+  }
+
+  Future<({Uri url, String format})> voiceResource(
+    String key,
+    String workId,
+    String nodeId, {
+    CancelToken? cancelToken,
+  }) async {
+    final source = manifest(key);
+    if (source?.can('voiceResource') != true) {
+      throw SourceError('UNSUPPORTED', '此站点不支持目录浏览');
+    }
+    final result = await _call(key, 'voiceResource', [
+      workId,
+      nodeId,
+    ], cancelToken: cancelToken);
+    if (result is! Map ||
+        result['url'] is! String ||
+        result['format'] is! String) {
+      throw SourceError('PARSE', '媒体数据无效');
+    }
+    final url = Uri.tryParse(result['url'] as String);
+    if (url == null) throw SourceError('PARSE', '媒体数据无效');
+    MediaPolicy.fromManifest(source!, initialUrl: url).validate(url);
+    return (url: url, format: result['format'] as String);
+  }
 
   Future<List<VideoSource>> videos(
     String key,

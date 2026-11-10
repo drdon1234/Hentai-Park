@@ -230,7 +230,7 @@ class _FeedShelfState extends State<FeedShelf>
       body = TickerMode(
         enabled: session?.loading == true,
         child: _ShelfSkeleton(
-          aspect: manifest?.isVideo == true || manifest?.isArticle == true
+          aspect: manifest?.isPlayable == true || manifest?.isArticle == true
               ? 16 / 9
               : .7,
           imageOnly: manifest?.isLive == true,

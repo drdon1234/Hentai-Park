@@ -10,6 +10,7 @@ import '../../core/localization.dart';
 import '../../core/models.dart';
 import '../../core/settings.dart';
 import '../../core/tag_blocklist.dart';
+import '../../core/voice.dart';
 import '../../engine/desktop_shutdown.dart';
 import '../../engine/home_cache.dart';
 import '../../engine/source_manager.dart';
@@ -17,9 +18,11 @@ import '../../library/downloads.dart';
 import '../../library/library.dart';
 import '../comments/comments_page.dart';
 import '../game/game_resources.dart';
+import '../game/online_game_page.dart';
 import '../kit/adaptive_sheet.dart';
 import '../nav.dart';
 import '../theme.dart';
+import '../voice/voice_directory_page.dart';
 import '../widgets/common.dart';
 import '../widgets/content_translation.dart';
 import '../widgets/error_view.dart';
@@ -74,13 +77,19 @@ class _DetailPageState extends State<DetailPage> with RouteAware {
   SourceManifest? get _m => _manager.manifest(widget.source);
   String get _uid => '${widget.source}:${widget.id}';
   bool get _isVideo => _item.mediaKind != null
-      ? _item.mediaKind == MediaKind.video
-      : _m?.isVideo ?? DownloadManager.instance.task(_uid)?.isVideo ?? false;
+      ? _item.mediaKind!.isPlayable
+      : _m?.isPlayable ?? DownloadManager.instance.task(_uid)?.isVideo ?? false;
   bool get _opensExternally => _isVideo && _m?.opensExternally == true;
   bool get _webVideo => _isVideo && _m?.usesWebVideo == true;
   bool get _isLive => _m?.isLive == true;
+  bool get _voiceArchive => _m?.can('voiceDirectory') == true;
   bool get _isGame =>
       _item.mediaKind != null ? _item.isGame : _m?.isGame == true;
+  bool get _interactiveArt =>
+      _item.mediaKind != null ? _item.isInteractive : _m?.isInteractive == true;
+  bool get _onlineGame =>
+      _m?.category == SourceCategory.onlineGame ||
+      _item.json['contentDomain'] == SourceCategory.onlineGame.name;
 
   @override
   void initState() {
@@ -127,7 +136,14 @@ class _DetailPageState extends State<DetailPage> with RouteAware {
 
   /// Keeps the stored chapter list (and with it read state and library updates) in step with the site.
   Future<void> _syncChapters(WorkDetail d) async {
-    if (_opensExternally || _webVideo || _isGame || _isLive) return;
+    if (_opensExternally ||
+        _webVideo ||
+        _isGame ||
+        _interactiveArt ||
+        _isLive ||
+        _voiceArchive) {
+      return;
+    }
     final chapters = _isVideo
         ? d.videoEpisodes
         : d.chapters ?? [Chapter(chapterKeyOf(d.singleChapterId), tr('全本'))];
@@ -236,6 +252,8 @@ class _DetailPageState extends State<DetailPage> with RouteAware {
   }
 
   DetailKind get _kind {
+    if (_interactiveArt) return DetailKind.interactiveArt;
+    if (_onlineGame) return DetailKind.onlineGame;
     if (_isGame) return DetailKind.game;
     if (_opensExternally) return DetailKind.external;
     if (_isVideo) return DetailKind.video;
@@ -256,6 +274,10 @@ class _DetailPageState extends State<DetailPage> with RouteAware {
     if (d == null) return;
     if (_opensExternally || _isGame) {
       _openOriginal();
+      return;
+    }
+    if (_voiceArchive) {
+      _openVoiceDirectory(d);
       return;
     }
     if (_isVideo) {
@@ -281,6 +303,23 @@ class _DetailPageState extends State<DetailPage> with RouteAware {
   }
 
   void _continue() {
+    if (_interactiveArt) {
+      final detail = _detail;
+      if (detail != null) {
+        Nav.push(
+          context,
+          OnlineGamePage(work: detail, manager: _manager, interactiveArt: true),
+        );
+      }
+      return;
+    }
+    if (_onlineGame) {
+      final detail = _detail;
+      if (detail != null) {
+        Nav.push(context, OnlineGamePage(work: detail, manager: _manager));
+      }
+      return;
+    }
     if (_isGame) {
       final target = _resourcesKey.currentContext;
       if (target != null) {
@@ -310,6 +349,20 @@ class _DetailPageState extends State<DetailPage> with RouteAware {
       _openOriginal();
       return;
     }
+    if (_voiceArchive) {
+      final history = Library.instance.historyOf(d.uid);
+      final saved = history == null
+          ? null
+          : WorkDetail(history.item.json, d.source);
+      if (saved != null &&
+          history?.chapterId != null &&
+          saved.videoEpisodes.any((track) => track.id == history!.chapterId)) {
+        Nav.openVideo(context, saved, episodeId: history!.chapterId);
+      } else {
+        _openVoiceDirectory(d);
+      }
+      return;
+    }
     if (_isVideo) {
       Nav.openVideo(context, d);
       return;
@@ -320,6 +373,22 @@ class _DetailPageState extends State<DetailPage> with RouteAware {
       Nav.openReader(context, d, chapter: chapter, startPage: h.page);
     } else {
       _read();
+    }
+  }
+
+  void _openVoiceDirectory(WorkDetail work) {
+    final raw = work.json['voiceRoot'];
+    try {
+      if (raw is! Map) throw const FormatException();
+      final root = VoiceNode.fromJson(raw.cast<String, dynamic>());
+      unawaited(
+        Nav.push(
+          context,
+          VoiceDirectoryPage(work: work, root: root, sourceManager: _manager),
+        ),
+      );
+    } on FormatException {
+      context.toast(tr('媒体数据无效'));
     }
   }
 
@@ -354,7 +423,7 @@ class _DetailPageState extends State<DetailPage> with RouteAware {
                     detail: _detail,
                     kind: _kind,
                     singlePage: _singlePage,
-                    allowDownload: !_isLive,
+                    allowDownload: !_isLive && _m?.kind != MediaKind.voice,
                     onPrimary: _opensExternally && !_canOpenOriginal
                         ? null
                         : _continue,
@@ -513,7 +582,8 @@ class _DetailPageState extends State<DetailPage> with RouteAware {
 
   List<Widget> _body(BuildContext context, WorkDetail d) {
     final isVideo = _isVideo;
-    final chapters = _opensExternally || _webVideo || _isGame || _isLive
+    final chapters =
+        _opensExternally || _webVideo || _isGame || _interactiveArt || _isLive
         ? null
         : isVideo && d.hasVideoEpisodes
         ? d.videoEpisodes
@@ -549,11 +619,15 @@ class _DetailPageState extends State<DetailPage> with RouteAware {
       ];
     }
     return [
-      if (_isGame)
+      if (_isGame && !_onlineGame)
         SliverToBoxAdapter(
           child: GameResources(key: _resourcesKey, work: d),
         ),
-      if (d.hasNoChapters && !isVideo && !_isGame && !_opensExternally)
+      if (d.hasNoChapters &&
+          !isVideo &&
+          !_isGame &&
+          !_interactiveArt &&
+          !_opensExternally)
         SliverToBoxAdapter(
           child: EmptyState(
             compact: true,
@@ -593,6 +667,7 @@ class _DetailPageState extends State<DetailPage> with RouteAware {
       ],
       if (!isVideo &&
           !_isGame &&
+          !_interactiveArt &&
           (d.thumbnails.isNotEmpty || _m?.can('thumbnails') == true))
         SliverToBoxAdapter(
           child: ThumbnailSection(

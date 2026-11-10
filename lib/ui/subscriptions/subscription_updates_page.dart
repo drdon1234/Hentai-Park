@@ -28,6 +28,8 @@ class _SubscriptionUpdatesPageState extends State<SubscriptionUpdatesPage> {
   List<SubscriptionEvent>? events;
   bool failed = false;
   bool _editing = false;
+  bool _more = false, _loadingMore = false, _moreFailed = false;
+  static const _pageSize = 100;
   int _loadGeneration = 0;
   final updater = SubscriptionUpdater.instance;
   @override
@@ -48,21 +50,38 @@ class _SubscriptionUpdatesPageState extends State<SubscriptionUpdatesPage> {
     if (mounted) setState(() {});
   }
 
-  Future<void> _load() async {
+  Future<void> _load({bool more = false}) async {
+    if (!mounted) return;
+    if (more && (_loadingMore || !_more)) return;
     final generation = ++_loadGeneration;
+    setState(() {
+      _loadingMore = more;
+      _moreFailed = false;
+    });
     try {
       await SubscriptionStore.instance.load();
       final result = await UpdateStore(SubscriptionStore.instance.database)
-          .events();
+          .events(after: more ? events?.lastOrNull : null, limit: _pageSize);
       if (mounted && generation == _loadGeneration) {
         setState(() {
-          events = result;
+          events = more ? [...?events, ...result] : result;
+          _more = result.length == _pageSize;
           failed = false;
         });
       }
     } catch (_) {
       if (mounted && generation == _loadGeneration) {
-        setState(() => failed = true);
+        setState(() {
+          if (more) {
+            _moreFailed = true;
+          } else {
+            failed = true;
+          }
+        });
+      }
+    } finally {
+      if (mounted && generation == _loadGeneration) {
+        setState(() => _loadingMore = false);
       }
     }
   }
@@ -99,61 +118,96 @@ class _SubscriptionUpdatesPageState extends State<SubscriptionUpdatesPage> {
   }
 
   Future<void> _open(SubscriptionEvent event) async {
-    await UpdateStore(SubscriptionStore.instance.database).markRead(event.key);
-    if (!mounted) return;
-    if (event.route.kind == 'post') {
-      final links = await SubscriptionStore.instance.database
-          .customSelect(
-            'SELECT identity FROM subscription_event_targets WHERE event_key=?',
-            variables: [Variable(event.key)],
-          )
-          .get();
-      final identities = {
-        for (final row in links) row.read<String>('identity'),
-      };
-      final entries = SubscriptionStore.instance.items.where(
-        (e) => identities.contains(e.identity),
-      );
+    if (_editing) return;
+    setState(() => _editing = true);
+    try {
       if (!mounted) return;
-      if (entries.isNotEmpty) {
-        await Nav.push(context, SubscriptionPostsPage(entry: entries.first));
-      }
-    } else if (event.route.kind == 'chapter') {
-      if (event.route.workId.isEmpty || event.route.chapterId.isEmpty) return;
-      final detail = await guarded(
-        context,
-        event.source,
-        () => SourceManager.instance.detail(event.source, event.route.workId),
-      );
-      if (!mounted) return;
-      if (detail != null) {
-        final chapter = findUpdateChapter(
-          detail,
-          workId: event.route.workId,
-          chapterId: event.route.chapterId,
+      if (event.route.kind == 'post') {
+        final links = await SubscriptionStore.instance.database
+            .customSelect(
+              'SELECT identity FROM subscription_event_targets WHERE event_key=?',
+              variables: [Variable(event.key)],
+            )
+            .get();
+        final identities = {
+          for (final row in links) row.read<String>('identity'),
+        };
+        final entries = SubscriptionStore.instance.items.where(
+          (e) => identities.contains(e.identity),
         );
-        final kind = SourceManager.instance.kindOf(detail);
-        if (chapter == null) {
+        if (!mounted) return;
+        if (entries.isNotEmpty) {
           await Nav.push(
             context,
-            DetailPage(
-              source: event.source,
-              id: event.route.workId,
-              preview: detail,
+            SubscriptionPostsPage(
+              entry: entries.first,
+              initialPostId: event.route.id,
+              onPostOpened: () =>
+                  UpdateStore(SubscriptionStore.instance.database)
+                      .markRead(event.key),
             ),
           );
-        } else if (kind == MediaKind.video) {
-          await Nav.openVideo(context, detail, episodeId: chapter.id);
-        } else if (kind == MediaKind.comic || kind == MediaKind.novel) {
-          await Nav.openReader(context, detail, chapter: chapter);
         } else {
-          await Nav.openWork(context, detail.toItem());
+          context.toast(tr('内容不存在或已被删除'));
         }
+      } else if (event.route.kind == 'chapter') {
+        if (event.route.workId.isEmpty || event.route.chapterId.isEmpty) return;
+        final detail = await guarded(
+          context,
+          event.source,
+          () => SourceManager.instance.detail(event.source, event.route.workId),
+        );
+        if (!mounted) return;
+        if (detail != null) {
+          final chapter = findUpdateChapter(
+            detail,
+            workId: event.route.workId,
+            chapterId: event.route.chapterId,
+          );
+          if (chapter != null) {
+            await UpdateStore(SubscriptionStore.instance.database)
+                .markRead(event.key);
+            if (!mounted) return;
+          }
+          final kind = SourceManager.instance.kindOf(detail);
+          if (chapter == null) {
+            await Nav.push(
+              context,
+              DetailPage(
+                source: event.source,
+                id: event.route.workId,
+                preview: detail,
+              ),
+            );
+          } else if (kind.isPlayable) {
+            await Nav.openVideo(context, detail, episodeId: chapter.id);
+          } else if (kind == MediaKind.comic || kind == MediaKind.novel) {
+            await Nav.openReader(context, detail, chapter: chapter);
+          } else {
+            await Nav.openWork(context, detail.toItem());
+          }
+        }
+      } else {
+        final detail = await guarded(
+          context,
+          event.source,
+          () => SourceManager.instance.detail(
+            event.source,
+            event.route.workId.isEmpty ? event.route.id : event.route.workId,
+          ),
+        );
+        if (!mounted || detail == null) return;
+        await UpdateStore(SubscriptionStore.instance.database)
+            .markRead(event.key);
+        if (!mounted) return;
+        await Nav.openWork(context, detail.toItem());
       }
-    } else {
-      await Nav.openRef(context, event.source, event.route.workId);
+      await _load();
+    } catch (_) {
+      if (mounted) context.toast(tr('操作失败，请重试'));
+    } finally {
+      if (mounted) setState(() => _editing = false);
     }
-    await _load();
   }
 
   @override
@@ -220,8 +274,19 @@ class _SubscriptionUpdatesPageState extends State<SubscriptionUpdatesPage> {
                     await _load();
                   },
                   child: ListView.builder(
-                    itemCount: events!.length,
+                    itemCount: events!.length + (_more ? 1 : 0),
                     itemBuilder: (context, index) {
+                      if (index == events!.length) {
+                        return Padding(
+                          padding: const EdgeInsets.all(Gap.page),
+                          child: _loadingMore
+                              ? const Center(child: CircularProgressIndicator())
+                              : OutlinedButton(
+                                  onPressed: () => _load(more: true),
+                                  child: Text(tr(_moreFailed ? '重试' : '加载更多')),
+                                ),
+                        );
+                      }
                       final event = events![index];
                       return ListTile(
                         leading: Icon(

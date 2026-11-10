@@ -106,7 +106,7 @@ class _ContinueCard extends StatelessWidget {
   static const _coverWidth = 48.0;
 
   String get _resumeActionLabel =>
-      kindOf(entry.item) == MediaKind.video ? tr('继续播放') : tr('继续阅读');
+      kindOf(entry.item).isPlayable ? tr('继续播放') : tr('继续阅读');
 
   String get _sourceName {
     final source = entry.item.source;

@@ -269,16 +269,21 @@ class FilterController extends ChangeNotifier {
   void _pruneSelection(OptionDef option, List<Choice> choices) {
     final selected = _values[option.key];
     if (selected is List) {
-      _values[option.key] = selected
-          .where((value) => choices.any((choice) => choice.value == value))
-          .toList();
+      _setValue(
+        option.key,
+        selected
+            .where((value) => choices.any((choice) => choice.value == value))
+            .toList(),
+      );
     } else if (selected == null ||
         !choices.any((choice) => choice.value == selected)) {
-      _values[option.key] =
-          option.defaultValue != null &&
-              choices.any((choice) => choice.value == option.defaultValue)
-          ? option.defaultValue
-          : null;
+      _setValue(
+        option.key,
+        option.defaultValue != null &&
+                choices.any((choice) => choice.value == option.defaultValue)
+            ? option.defaultValue
+            : null,
+      );
     }
   }
 

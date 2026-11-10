@@ -102,10 +102,24 @@ abstract final class PlaybackResolver {
     if (manifest?.category == SourceCategory.shortvideo ||
         kind == MediaKind.article ||
         kind == MediaKind.game ||
+        kind == MediaKind.interactive ||
         manifest?.opensExternally == true) {
       return const OpenWorkPage();
     }
-    if (kind == MediaKind.video ||
+    if (manifest?.can('voiceDirectory') == true &&
+        item.json['voiceRoot'] is Map) {
+      // 目录音声的章节缓存可能包含多个文件夹。续播只能使用当前保存的
+      // 同级播放列表，否则会把不同目录的曲目和字幕错误地合并。
+      final work = WorkDetail(item.json, item.source);
+      final selected = chapterId ?? lib.historyOf(item.uid)?.chapterId;
+      if (work.hasVideoEpisodes &&
+          (selected == null ||
+              work.videoEpisodes.any((episode) => episode.id == selected))) {
+        return PlayVideo(work, selected);
+      }
+      return const OpenWorkPage();
+    }
+    if (kind.isPlayable ||
         task?.isVideo == true ||
         lib.historyOf(item.uid)?.position != null) {
       final episodes = [

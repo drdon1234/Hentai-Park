@@ -5,6 +5,7 @@ import 'dart:ui' show Color;
 
 import 'localization.dart';
 import 'plugin_copy.dart';
+import 'voice.dart';
 
 export 'plugin_copy.dart' show PluginCopy;
 
@@ -49,8 +50,10 @@ Color parseHexColor(String hex, [Color fallback = const Color(0xFF7C4DFF)]) {
 enum MediaKind {
   comic,
   video,
+  voice,
   novel,
   game,
+  interactive,
   article;
 
   static MediaKind fromJson(Object? value) =>
@@ -61,10 +64,14 @@ extension MediaKindLabel on MediaKind {
   String get label => tr(switch (this) {
     MediaKind.comic => '漫画',
     MediaKind.video => '视频',
+    MediaKind.voice => '音声',
     MediaKind.novel => '小说',
     MediaKind.game => '游戏',
+    MediaKind.interactive => '互动立绘',
     MediaKind.article => '吃瓜',
   });
+
+  bool get isPlayable => this == MediaKind.video || this == MediaKind.voice;
 }
 
 /// Content grouping for browsing; media kind still controls reading and playback.
@@ -79,10 +86,13 @@ enum SourceCategory {
   recording('录播'),
   gallery('三次元美图'),
   illustration('二次元美图'),
-  game('游戏'),
+  interactiveArt('互动立绘'),
+  game('游戏资源'),
+  onlineGame('在线游戏'),
   other('创作社区'),
   live('直播'),
-  novel('小说');
+  novel('小说'),
+  asmr('音声');
 
   const SourceCategory(this._label);
   final String _label;
@@ -98,7 +108,7 @@ enum SourceCategory {
     recording ||
     live ||
     novel => ContentDimension.threeD,
-    other || feed => null,
+    other || feed || asmr || onlineGame || interactiveArt => null,
   };
 
   ContentMedia get media => switch (this) {
@@ -110,7 +120,13 @@ enum SourceCategory {
     shortvideo ||
     recording ||
     live => ContentMedia.video,
-    novel || game || other || feed => ContentMedia.other,
+    asmr => ContentMedia.voice,
+    novel ||
+    game ||
+    onlineGame ||
+    interactiveArt ||
+    other ||
+    feed => ContentMedia.other,
   };
 
   static SourceCategory fromJson(Object? value) => SourceCategory.values
@@ -136,6 +152,7 @@ enum ContentMedia {
   all('全部'),
   image('图片'),
   video('视频'),
+  voice('音声'),
   other('其他');
 
   const ContentMedia(this._label);
@@ -734,20 +751,34 @@ class SourceManifest {
 
   bool get supportsShortVideoMode =>
       category == SourceCategory.other && json['postShortVideos'] == true;
-  bool get isVideo => kind == MediaKind.video;
-  bool get isLive => isVideo && category == SourceCategory.live;
+  bool get isPlayable => kind.isPlayable;
+  bool get isLive => kind == MediaKind.video && category == SourceCategory.live;
 
   /// 聚合视频索引不提供媒体时，作品通过系统浏览器打开。
-  bool get opensExternally => isVideo && !can('videos') && !can('webVideo');
-  bool get usesWebVideo => isVideo && !can('videos') && can('webVideo');
+  bool get opensExternally => isPlayable && !can('videos') && !can('webVideo');
+  bool get usesWebVideo => isPlayable && !can('videos') && can('webVideo');
   bool shouldFallbackToWebVideo(Object? error) =>
-      isVideo &&
+      isPlayable &&
       can('videos') &&
       can('webVideo') &&
       error is SourceError &&
       error.code == 'UNSUPPORTED';
   bool get isNovel => kind == MediaKind.novel;
   bool get isGame => kind == MediaKind.game;
+  bool get isInteractive => kind == MediaKind.interactive;
+  String? get interactiveEntry {
+    final id = json['interactiveEntry'];
+    return isInteractive &&
+            category == SourceCategory.interactiveArt &&
+            can('interactiveViewer') &&
+            id is String &&
+            id.isNotEmpty &&
+            id.length <= 256 &&
+            !RegExp(r'[\x00-\x1f\x7f]').hasMatch(id)
+        ? id
+        : null;
+  }
+
   bool get isArticle => kind == MediaKind.article;
   bool get usesBrowserNetwork => network['mode'] == 'browser';
   String get origin =>
@@ -811,9 +842,14 @@ class WorkItem {
 
   /// The kind declared on the item itself (sources that mix kinds); null means the source's.
   final MediaKind? mediaKind;
+  VoiceLanguageStatus get voiceLanguageStatus =>
+      VoiceLanguageStatus.fromJson(json['voiceLanguageStatus']);
+  VoiceMediaForm get voiceMediaForm =>
+      VoiceMediaForm.fromJson(json['voiceMediaForm']);
   bool get isNovel =>
       mediaKind == MediaKind.novel || json['contentDomain'] == 'novel';
   bool get isGame => mediaKind == MediaKind.game;
+  bool get isInteractive => mediaKind == MediaKind.interactive;
 
   /// 只有源明确声明为预览，或全部媒体均为预览时才过滤。
   bool get previewOnly {
@@ -991,6 +1027,7 @@ class WorkDetail extends WorkItem {
                 .toList()
           : null,
       singleChapterId = json['singleChapterId']?.toString(),
+      voiceSubtitles = parseVoiceSubtitleReferences(json['voiceSubtitles']),
       related = _maps(json['related']).map((e) => WorkItem(e, source)).toList(),
       relatedSections = _maps(json['relatedSections'])
           .map(
@@ -1031,6 +1068,7 @@ class WorkDetail extends WorkItem {
   final List<TagGroup> tagGroups;
   final List<Chapter>? chapters;
   final String? singleChapterId;
+  final Map<String, List<String>> voiceSubtitles;
   final List<WorkItem> related;
   final List<WorkSection> relatedSections;
   final List<WorkItem> series;

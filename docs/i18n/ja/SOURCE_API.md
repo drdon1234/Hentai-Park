@@ -72,8 +72,8 @@ Park.register({
   name: '我的站点',
   version: '0.0.1',
   minAppVersion: '0.9.2',           // 3 つの数字。リポジトリの方が新しいと更新を案内
-  type: 'comic',              // comic | video | novel | game | article：コンテンツの動作を決める
-  category: 'doujin',         // doujin | anime | aiDrama | jav | adult | shortvideo | recording | live | gallery | illustration | novel | game | other
+  type: 'comic',              // comic | video | voice | novel | game | interactive | article：コンテンツの動作を決める
+  category: 'doujin',         // doujin | anime | aiDrama | jav | adult | asmr | shortvideo | recording | live | gallery | illustration | novel | game | other
   color: '#E5355F',           // ブランドカラー：サイトのアイコンとサイトページ
   description: '一句话介绍',
   homepage: 'https://example.com',
@@ -115,6 +115,7 @@ Park.register({
 | `doujin` | 同人誌と漫画 |
 | `gallery` | 三次元美図：コスプレ、写真、実写の画像集. 画像サイトは `type: 'comic'` を宣言し、1 つの画像集が 1 作品です。`chapter()` が順に画像を返し、閲覧・お気に入り・ダウンロードを共用します。枚数や過激さでは分類しません |
 | `illustration` | 二次元美図：イラスト、アニメの画像集. 画像サイトは `type: 'comic'` を宣言し、1 つの画像集が 1 作品です。`chapter()` が順に画像を返し、閲覧・お気に入り・ダウンロードを共用します。枚数や過激さでは分類しません |
+| `interactiveArt` | インタラクティブ立ち絵ビューア、`type: 'interactive'` |
 | `anime` | 成人向けアニメ |
 | `aiDrama` | AI ショートドラマ。旧 `drama` は受け付けません。サイト自身のチャンネル名はそのまま宣言し、アプリの分類で絞り込むことはしません |
 | `jav` | JAV 専門サイト |
@@ -122,8 +123,10 @@ Park.register({
 | `shortvideo` | ショート動画：全画面の縦スクロールフィード（後述） |
 | `recording` | 録画アーカイブ（オンデマンド）、`type: 'video'` |
 | `live` | ライブ配信, `type: 'video'` |
+| `asmr` | 音声作品と ASMR 動画。フォルダー型は `type: 'voice'`、動画型は `type: 'video'` も使用可能 |
 | `novel` | 小説、`type: 'novel'` |
-| `game` | ゲーム、`type: 'game'` |
+| `game` | ゲーム情報とダウンロード資料、`type: 'game'` |
+| `onlineGame` | オンラインゲーム、`type: 'game'` |
 | `other` | クリエイターコミュニティ |
 
 - **ショート動画**（`type: 'video', category: 'shortvideo'`）：作品、検索、お気に入り、履歴からフィードに直接入ります。1 作品が 1 本の動画で、`videos(id, '_')` が現在のメディアを返し、詳細ページは不要です。`feed` の `hasNext` と `cursor` で終わり付近を自動ページングします。カーソルに認証情報やメディア署名を入れてはいけません。更新すると 1 ページ目から始まり、表示中の 1 本を再生、次の 1 本を一時停止で先読みし、ほかは解放します。検索がないサイトは `search` を宣言しません。
@@ -200,7 +203,9 @@ async filterOptions({scope, feed, filter, keyword, values}) {
   自動フォールバックは `followRedirects: false`、`connectAddress`、原因未分類のネットワークエラーには使いません。本文のないブラウザ GET / HEAD は通常の試行は最大 3 回で、検証後の再送は別途最大 1 回です。接続障害または HTTP 408、500、502、503、504 だけを再試行します。429 とタイムアウトは再送しません。検証ページへの移動はリクエスト全体で最大 1 回です。起動、要求、文書読み取り、破棄には待機上限があります。独自 API ヘッダー付き要求は通常のページ移動で代替せず `fetch()` を実行します。再利用する HTML のエラーステータスを保持し、`responseType: 'base64'` は元のバイト列の base64 を返します。
 
 - `network.vpnHint: true`：中国本土で VPN やプロキシが必要かもしれないサイトに宣言します。8 秒を超える待機や失敗時に「VPN またはプロキシが必要な場合があります」と表示します。すべてのエラーを VPN のせいにしないでください。
-- `network.confirmation: { selector, readySelector, requiredCookies, auto: { clickSelector, checkSelector? }, message }`: サイトの年齢確認を宣言します。`selector` はダイアログ、`auto.clickSelector` はその中の一意の確認ボタン、`readySelector` は表示可能なコンテンツ、`requiredCookies` は確認後に必要な Cookie 名です。アプリの入口で成年を確認した後に限り、非表示ブラウザがクリックを模擬し、ダイアログ消失、コンテンツ表示、Cookie、画面遷移の安定を確認します。規則が不完全、不一致、または自動処理失敗の場合は再試行できます。エラーにサイト内の認証 URL があれば、ページで手動処理した後に完了を押せます。ソースのドメイン制限と Cookie 分離は維持され、操作通知から元の操作を自動再送しません。ログイン、支払い、投稿には使用できません。
+- `network.confirmation: { selector, readySelector, requiredCookies, auto: { clickSelector, checkSelector?, birthDate? }, message }`: サイトの年齢確認を宣言します。`selector` はダイアログ、`auto.clickSelector` はその中の一意の確認ボタン、`readySelector` は表示可能なコンテンツ、`requiredCookies` は確認後に必要な Cookie 名です。アプリの入口で成年を確認した後に限り、非表示ブラウザがクリックを模擬し、ダイアログ消失、コンテンツ表示、Cookie、画面遷移の安定を確認します。規則が不完全、不一致、または自動処理失敗の場合は再試行できます。エラーにサイト内の認証 URL があれば、ページで手動処理した後に完了を押せます。ソースのドメイン制限と Cookie 分離は維持され、操作通知から元の操作を自動再送しません。ログイン、支払い、投稿には使用できません。
+
+`auto.birthDate` には `{dateSelector}` または `{yearSelector, monthSelector, daySelector}` を宣言します。端末内の成人確認後、日付欄とボタンが一意で同一オリジンの同じ年齢確認フォームに属し、他の送信可能な入力がない場合だけ、固定日付 1999-12-31 を入力して送信します。不一致時は操作せず、実際の誕生日は読み取りません。
 
 任意の `auto.checkSelector` は年齢確認内の一意のチェックボックスを選択します。質問形式には `auto.questionnaire: {rowSelector, submitSelector, answers: [{question, answer}]}` を宣言できます。アプリで成人確認済みで、全質問と完全な回答が厳密に一致し、同一フォームで送信ボタンが一意の場合のみ自動送信します。未知・曖昧な質問を推測せず、ログインなど他のフォームに入力しません。
 - ネットワークエラーには安全な `diagnostics` フィールド `host`、`transport`、`reason` が付き、TLS 証明書、ハンドシェイク、DNS、接続、タイムアウトを区別します。自動ログにはこれらの許可されたフィールドだけを記録します。`reason: 'TLS_HANDSHAKE_TERMINATED'` はネイティブの `HandshakeException.message` が `Connection terminated during handshake` と完全一致した場合だけで（ハンドシェイク完了前の切断であり、証明書の失敗ではありません）、本文のない HTTPS の GET / HEAD だけが 1 回再試行され、ほかは再試行しません。
@@ -283,6 +288,14 @@ account: {
 
 `Park.createDomainResolver({initialOrigin, accept, discover, verify})` は信頼できる公開ページから候補を取得し、`accept` と `verify` で検証した接続先をソース専用 store に保存します。`resolver.request(this, path, options)` は `{response, origin}` を返し、403、502/503/504、タイムアウト、分類済み接続・DNS エラーで切り替えます。GET、HEAD と `readOnly` および `allowDomainRetry` を明示した公開検索 POST のみ再送します。未許可ヘッダー、証明書エラー、キャンセル、その他の書き込みでは切り替えず、リダイレクトは同一オリジンに限定します。ブラウザとメディアの権限は拡大しません。
 
+## 音声フォルダーと字幕
+
+フォルダー型は `type: 'voice', category: 'asmr'`、動画型は `type: 'video'` を使用できます。`voiceLanguageStatus` は `chineseSpoken`、`chineseSubtitled`、`foreignOriginal`、`unknown`、`voiceMediaForm` は `audioOnly`、`videoOnly`、`mixed`、`unknown` です。出典または完全な一覧で確認できる値のみ指定します。
+
+詳細は `voiceRoot: {id, name, type}` を返せます。`voiceDirectory(workId, directoryId, {page})` は `{items: [node], hasNext}` を返し、種類は `directory`、`audio`、`video`、`subtitle`、`image`、`script`、`other` です。`voiceResource(workId, nodeId)` は `{url, format}`、`videos(workId, nodeId)` は曲の再生先を返し、メディア権限を守ります。字幕言語が明示されている場合のみ `subtitleLanguage: 'zh'` を付けます。音声・動画ノードは、原サイトが対応を明示する字幕を `subtitleIds: [id]` で指定できます。ID は重複のない空でない安定値を最大 50 件とし、同じフォルダー内の字幕のみ受け付けます。同名の LRC・VTT・SRT も対応付けます。単曲の詳細は `voiceSubtitles: {episodeId: [subtitleId]}` で原サイトが明示する字幕を指定できます。単曲の既定 episodeId は `_` です。各リストは URL を含まない空でない重複のない安定した字幕 ID を最大 50 件とし、`voiceResource(workId, subtitleId)` が必要です。画像と TXT 台本は閲覧できますが、音声アーカイブのダウンロードには未対応です。`Park.createVoiceArchive` は公開 AList の読み取り専用フォルダー用です。同一オリジンの読み取り専用 POST に限り `readOnly: true` でブラウザへの自動フォールバックが可能です。
+
+ディレクトリの読み込み途中や後続ページの失敗時も、読み込み済みの曲目は再生できます。再生リストと字幕の関連付けには再生開始時に読み込み済みの同階層ノードを使い、部分的なディレクトリを完全と扱いません。
+
 ## メソッド
 
 メソッド内の `this` は「ランタイム API」を参照してください。すべてのメソッドは `async` にできます。
@@ -297,6 +310,8 @@ async resolveImage({ id, chapterId, index, token, retry }) {}  // 任意：画�
 async thumbnails(id, page) {}                      // 任意：プレビューサムネイルのページ読み込み
 async videos(id, episodeId = '_') {}               // 動画
 async textChapter(id, chapterId) {}                // 小説
+async onlineGame(workId) {}                        // online game
+async interactiveViewer(workId) {}                 // interactive artwork
 async gameResources(workId) {}                     // ゲーム
 async resolveGameResource(workId, resourceId, channelId) {}
 ```
@@ -324,7 +339,7 @@ async resolveGameResource(workId, resourceId, channelId) {}
 
 - `coverAspect`（幅 / 高さ）があると画像の読み込み前にグリッドを配置できます。
 - `badgeColor` は分類バッジの色です。
-- `mediaKind: 'comic' | 'video' | 'novel' | 'game' | 'article'` は作品自体の種類です。種類が 1 つのプラグインは省略できますが、混在するプラグインは必ず指定します。小説、ゲーム、記事は常に指定し、プラグインを削除しても種類を保持します。
+- `mediaKind: 'comic' | 'video' | 'voice' | 'novel' | 'game' | 'article'` は作品自体の種類です。種類が 1 つのプラグインは省略できますが、混在するプラグインは必ず指定します。小説、ゲーム、記事は常に指定し、プラグインを削除しても種類を保持します。
 - 投稿形式の結果は `presentation: 'post'`、`text`、`date`、`url` と `media` 配列を持て、投稿カードとして表示されます。`presentation: 'media'` はメディアのグリッドで表示し、タップで作品内のメディアを開きます。投稿にメディアがなくてもかまいません。メディアのアドレスはプラグインが宣言したドメインと権限に従います。
 
 ### 詳細：`detail`
@@ -390,6 +405,18 @@ async textChapter(id, chapterId) {
 - 章内のページ分割はプラグインが順に結合し、次の章、掲示板の返信、広告、おすすめ作品を本文に含めてはいけません。`Park.html.paragraphs(node)` は汎用的なテキスト抽出を提供しますが、サイトの境界とページ分割はプラグインが決めます。
 - ログイン、課金、権限で本文が切り詰められる場合は `LOGIN_REQUIRED` を投げ、プレビューを完全な章と偽ってはいけません。
 - アプリは章ごとに `text.json` をアトミックに書き込み、完全に書き込めた場合だけダウンロード完了とします。読書の進捗とメモは `paragraphs.join('\n\n')` の UTF-16 の位置を使い、文字サイズ、フォント、字下げなどの表示設定は本文や保存位置を変えません。しおりとメモはダウンロードとは別に保存され、バックアップに含まれ、ダウンロードを削除しても残ります。
+
+### インタラクティブ立ち絵: `interactiveViewer`
+
+プラグインは `type: 'interactive', category: 'interactiveArt'` を宣言し、一覧と詳細に `mediaKind: 'interactive'` を指定します。`interactiveViewer(workId)` は `{url, storageId?}` を返します。URL はソースの宣言ドメイン内にある認証情報を含まない 443 ポートの HTTPS ページとし、`storageId` は認証情報を含まないサイト内の安定した ID（省略時は workId）です。ランタイムはメソッドから `capabilities.interactiveViewer` を公開します。隔離された Web コンテナでは主文書と通常の iframe を対象ホストに制限し、JavaScript ブリッジを無効にします。利用可能性はサイトと端末に依存します。架空のキャラクターリンクや章を作らず、未検証の検索を宣言しません。オフライン保存はできません。
+
+単一入口のビューアは、実際の workId を使って `interactiveEntry: 'viewer'` を宣言できます。サイトや該当項目からビューアを直接開き、詳細はビューアから参照できます。複数キャラクターのカタログでは宣言しません。
+
+### オンラインゲーム: `onlineGame`
+
+オンラインゲームのプラグインは `type: 'game', category: 'onlineGame'` を宣言し、作品に `mediaKind: 'game'` を指定します。プレイ時の `onlineGame(workId)` は `{kind: 'html', url, storageId?}` を返します。Flash は `{kind: 'flash', url, player, storageId?}` とし、SWF と同じホストの Ruffle スクリプトを指定します。URL は認証情報のない HTTPS の 443 番ポートに限定します。`storageId` はサイト内の安定した作品 ID で、省略時は workId を使い、認証情報を含めません。
+
+クライアントはサイトと ID ごとに永続ブラウザプロファイルを分離し、文書はゲームホストに限定し、フレームには検証用の正確な `challenges.cloudflare.com` も許可します。ポップアップ、ダウンロード、Web 権限は拒否します。Android は複数プロファイル対応のシステム WebView、Windows は独立した WebView2 データフォルダーを使います。localStorage と IndexedDB はプロファイルに保存されますが、オリジンが変わるとセーブは自動移行されません。HTTP キャッシュはサイトの設定とシステムによる削除に左右され、オフラインや即時起動は保証されません。
 
 ### ゲーム：`gameResources` / `resolveGameResource`
 

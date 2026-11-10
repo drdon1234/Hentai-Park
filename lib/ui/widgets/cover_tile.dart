@@ -12,6 +12,7 @@ import '../library/favorite_actions.dart';
 import '../nav.dart';
 import '../short_video/short_video_sequence.dart';
 import '../theme.dart';
+import '../voice/voice_labels.dart';
 import 'common.dart';
 import 'content_translation.dart';
 import 'cover_hero.dart';
@@ -20,6 +21,8 @@ import 'work_editions.dart';
 
 /// 列表摘要只展示结构化元信息；标签留在详情页。
 List<String> workMetadata(WorkItem item, {bool showSource = false}) => [
+  ?voiceFormLabel(item.voiceMediaForm),
+  ?voiceLanguageLabel(item.voiceLanguageStatus),
   if (item.language.isNotEmpty) item.language,
   if (showSource)
     SourceManager.instance.manifest(item.source)?.name ?? item.source,
@@ -112,7 +115,7 @@ class _CoverTileState extends State<CoverTile> {
     final item = widget.item;
     final c = context.colors;
     final history = Library.instance.historyOf(item.uid);
-    final video = kindOf(item) == MediaKind.video;
+    final video = kindOf(item).isPlayable;
     final Widget? badge = widget.badges.isNotEmpty
         ? Row(
             mainAxisSize: MainAxisSize.min,
@@ -667,7 +670,7 @@ double gridAspectFor(List<WorkItem> items, MediaKind kind) {
   final aspects = items.map((e) => e.coverAspect).whereType<double>().toList()
     ..sort();
   if (aspects.isEmpty) {
-    return kind == MediaKind.video || kind == MediaKind.article ? 16 / 9 : 0.7;
+    return kind.isPlayable || kind == MediaKind.article ? 16 / 9 : 0.7;
   }
   return aspects[aspects.length ~/ 2].clamp(0.5, 1.9);
 }

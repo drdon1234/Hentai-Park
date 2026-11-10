@@ -83,7 +83,8 @@ class LibraryUpdater extends ChangeNotifier {
         m != null &&
         !m.opensExternally &&
         !m.usesWebVideo &&
-        !m.isGame;
+        !m.isGame &&
+        !m.isInteractive;
   }
 
   /// Whether a favorite is checked under the current restrictions.
@@ -96,7 +97,8 @@ class LibraryUpdater extends ChangeNotifier {
         (manifest.isArticle ||
             manifest.isLive ||
             manifest.category == SourceCategory.shortvideo ||
-            manifest.isGame)) {
+            manifest.isGame ||
+            manifest.isInteractive)) {
       return false;
     }
     if (manifest != null &&
@@ -183,8 +185,16 @@ class LibraryUpdater extends ChangeNotifier {
         final d = await _fetch(f.item.source, f.item.id);
         if (_cancel) return;
         final item = d.toItem();
-        final isVideo =
-            SourceManager.instance.manifest(f.item.source)?.isVideo == true;
+        final source = SourceManager.instance.manifest(f.item.source);
+        if (source?.can('voiceDirectory') == true) {
+          _lib.updateSnapshot(item);
+          await _lib.markChecked(item.uid);
+          done++;
+          notifyListeners();
+          onProgress?.call(this);
+          continue;
+        }
+        final isVideo = source?.isPlayable == true;
         final chapters = isVideo
             ? d.videoEpisodes
             : d.chapters ??

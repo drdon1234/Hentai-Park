@@ -576,7 +576,7 @@ Park.register({
   },
   key: 'telegram',
   name: 'Telegram',
-  version: '0.0.9', minAppVersion: '0.9.2',
+  version: '0.0.12', minAppVersion: '0.9.2',
   postShortVideos: true,
   type: 'video',
   category: 'other',
@@ -670,9 +670,12 @@ Park.register({
         min_id: 0,
         hash: '0',
       });
-      const messages = (h.messages || []).filter((m) => m._ === 'message');
-      const cursor = messages.length
-        ? String(Math.min(...messages.map((m) => m.id)))
+      if (!Array.isArray(h.messages)) throw Park.error('PARSE', '分页链接无效');
+      const raw = h.messages;
+      const ids = raw.map(m => m.id).filter(id => Number.isSafeInteger(id) && id > 0);
+      const messages = raw.filter((m) => m._ === 'message');
+      const cursor = ids.length
+        ? String(Math.min(...ids))
         : null;
       const items = messages.map((m) => mediaPost(m, p, target)).filter(Boolean);
       const discussions = new Map(items.filter(item => item.id.startsWith('group:') && item.commentsAvailable === true)
@@ -687,7 +690,7 @@ Park.register({
         items,
         cursor,
         hasNext:
-          !!cursor && cursor !== options?.cursor && messages.length >= 20,
+          !!cursor && (!options?.cursor || Number(cursor) < Number(options.cursor)) && raw.length >= 20,
       };
     },
     async mediaChunk(resource, offset) {

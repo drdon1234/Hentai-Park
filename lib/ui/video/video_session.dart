@@ -9,6 +9,7 @@ import '../../core/app_lock.dart';
 import '../../core/app_log.dart';
 import '../../core/models.dart';
 import '../../core/platform_capabilities.dart';
+import '../../core/voice.dart';
 import '../../engine/desktop_shutdown.dart';
 import '../../engine/source_manager.dart';
 import '../../images/image_store.dart';
@@ -60,6 +61,12 @@ class VideoSession extends ChangeNotifier {
       localFile == null &&
       SourceManager.instance.manifest(work.source)?.isLive == true;
 
+  bool get isAudio {
+    final kind = (work.json['voiceTrackKinds'] as Map?)?[episode.id];
+    return kind == 'audio' ||
+        (kind == null && work.voiceMediaForm == VoiceMediaForm.audioOnly);
+  }
+
   /// Called before the player is replaced, so the page can drop gestures and timers.
   VoidCallback? onInterrupt;
 
@@ -79,6 +86,7 @@ class VideoSession extends ChangeNotifier {
 
   /// Whether the app is in the foreground; playback pauses while it is not.
   bool foreground = true;
+  bool backgroundPlayback = false;
 
   /// A retained player must stay silent while another route covers its page.
   bool visible = true;
@@ -158,7 +166,7 @@ class VideoSession extends ChangeNotifier {
     return _playbackUpdates = _playbackUpdates
         .then((_) async {
           if (!_active || c == null || !identical(c, controller)) return;
-          if (foreground &&
+          if ((foreground || backgroundPlayback) &&
               visible &&
               !AppLock.instance.locked &&
               _wantsPlayback) {
@@ -226,7 +234,12 @@ class VideoSession extends ChangeNotifier {
   }
 
   void togglePlayback() {
-    _wantsPlayback = !_wantsPlayback;
+    setPlayback(!_wantsPlayback);
+  }
+
+  void setPlayback(bool playing) {
+    _wantsPlayback = playing;
+    _update();
     unawaited(syncPlayback());
   }
 
@@ -577,6 +590,7 @@ class VideoSession extends ChangeNotifier {
         unawaited(selectEpisode(episodes[episodeIndex + 1]));
       } else {
         _wantsPlayback = false;
+        _update();
       }
     }
   }

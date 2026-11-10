@@ -12,6 +12,8 @@ class HomeMetadata {
     'thumbnailsTotal',
     'authorSearch',
     'tags',
+    'voiceRoot',
+    'voiceSubtitles',
   };
   static Map<String, dynamic> detail(Map<String, dynamic> data) => {
     ...((serialize({
@@ -62,6 +64,9 @@ class HomeMetadata {
     'locked',
     'presentation',
     'mediaKind',
+    'voiceLanguageStatus',
+    'voiceMediaForm',
+    'voiceNodeType',
     'contentDomain',
     'contentRating',
     'coverRating',

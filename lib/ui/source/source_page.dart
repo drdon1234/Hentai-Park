@@ -9,6 +9,7 @@ import '../../core/models.dart';
 import '../../core/settings.dart';
 import '../../engine/source_manager.dart';
 import '../album/open_album.dart';
+import '../game/online_game_page.dart';
 import '../kit/adaptive_sheet.dart';
 import '../nav.dart';
 import '../search/source_search_page.dart';
@@ -16,6 +17,7 @@ import '../short_video/post_video_feed.dart';
 import '../short_video/short_video_page.dart';
 import '../subscriptions/subscription_source_page.dart';
 import '../theme.dart';
+import '../voice/voice_work_filters.dart';
 import '../widgets/common.dart';
 import '../widgets/content_translation.dart';
 import '../widgets/filter_controller.dart';
@@ -116,6 +118,18 @@ class _SourcePageState extends State<SourcePage> {
           icon: Icons.extension_off_outlined,
           title: tr('站点未加载'),
         ),
+      );
+    }
+    if (m.interactiveEntry case final entry?) {
+      return OnlineGamePage(
+        work: WorkDetail({
+          'id': entry,
+          'title': m.name,
+          'mediaKind': 'interactive',
+          'contentDomain': 'interactiveArt',
+        }, m.key),
+        manager: _sources,
+        interactiveArt: true,
       );
     }
     if (AppSettings.instance.searchOnlySources) {
@@ -647,6 +661,10 @@ class _FeedTabState extends State<FeedTab> with AutomaticKeepAliveClientMixin {
                       context,
                     ),
                   ),
+                  if (widget.source.category == SourceCategory.asmr)
+                    SliverToBoxAdapter(
+                      child: VoiceWorkFilters(controller: _controller),
+                    ),
                   if (widget.source.supportsAlbumMode ||
                       widget.source.supportsShortVideoMode)
                     SliverToBoxAdapter(
@@ -735,6 +753,7 @@ class _FeedTabState extends State<FeedTab> with AutomaticKeepAliveClientMixin {
                     listenable: _controller,
                     builder: (context, _) =>
                         _controller.total != null &&
+                            !_controller.hasVoiceFilters &&
                             _controller.items.isNotEmpty
                         ? SliverToBoxAdapter(
                             child: Padding(

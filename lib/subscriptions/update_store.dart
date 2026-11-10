@@ -286,11 +286,21 @@ class UpdateStore {
   Future<List<SubscriptionEvent>> events({
     bool pending = false,
     int now = 0,
+    SubscriptionEvent? after,
+    int limit = 500,
   }) async =>
       (await db
               .customSelect(
-                'SELECT * FROM subscription_events ${pending ? 'WHERE delivered=0 AND notify=1 AND next_attempt<=? AND EXISTS(SELECT 1 FROM subscription_event_targets t JOIN subscriptions s USING(identity) WHERE t.event_key=subscription_events.event_key AND s.enabled=1 AND s.notify=1)' : ''} ORDER BY created_at DESC,event_key LIMIT 500',
-                variables: pending ? [Variable(now)] : [],
+                'SELECT * FROM subscription_events WHERE 1=1 ${pending ? 'AND delivered=0 AND notify=1 AND next_attempt<=? AND EXISTS(SELECT 1 FROM subscription_event_targets t JOIN subscriptions s USING(identity) WHERE t.event_key=subscription_events.event_key AND s.enabled=1 AND s.notify=1)' : ''} ${after == null ? '' : 'AND (created_at<? OR (created_at=? AND event_key>?))'} ORDER BY created_at DESC,event_key LIMIT ?',
+                variables: [
+                  if (pending) Variable(now),
+                  if (after != null) ...[
+                    Variable(after.createdAt),
+                    Variable(after.createdAt),
+                    Variable(after.key),
+                  ],
+                  Variable(limit.clamp(1, 500)),
+                ],
               )
               .get())
           .map(SubscriptionEvent.new)

@@ -2,7 +2,9 @@ import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 
 import '../../core/localization.dart';
+import '../../core/models.dart';
 import '../../engine/source_manager.dart';
+import '../voice/voice_work_filters.dart';
 import '../widgets/paged_grid.dart';
 
 /// 保留原站查询中的全部筛选语义，不把链接强行转换为应用的筛选表单。
@@ -51,6 +53,9 @@ class _SourceLinkSearchPageState extends State<SourceLinkSearchPage> {
       onRefresh: () => controller.refresh(retainItems: true),
       child: CustomScrollView(
         slivers: [
+          if (widget.manager.manifest(widget.source)?.category ==
+              SourceCategory.asmr)
+            SliverToBoxAdapter(child: VoiceWorkFilters(controller: controller)),
           PagedSliverGrid(
             controller: controller,
             kind: widget.manager.manifest(widget.source)!.kind,
