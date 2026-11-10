@@ -82,7 +82,7 @@ class Migrator {
         : to.chapters ?? [Chapter(chapterKeyOf(to.singleChapterId), tr('全本'))];
     var unmatchedProgress = false;
     await lib.flush();
-    if (kind != MediaKind.game && kind != MediaKind.interactive) {
+    if (kind != MediaKind.game) {
       await lib.syncChapters(
         target,
         chapters,
@@ -90,9 +90,7 @@ class Migrator {
         complete: to.chaptersComplete,
       );
     }
-    if (options.readState &&
-        kind != MediaKind.game &&
-        kind != MediaKind.interactive) {
+    if (options.readState && kind != MediaKind.game) {
       final old =
           lib.chaptersCached(from.uid) ?? await lib.loadChapters(from.uid);
       final map = matchChapters(old, chapters);

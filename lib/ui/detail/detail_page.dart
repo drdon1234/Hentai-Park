@@ -85,8 +85,6 @@ class _DetailPageState extends State<DetailPage> with RouteAware {
   bool get _voiceArchive => _m?.can('voiceDirectory') == true;
   bool get _isGame =>
       _item.mediaKind != null ? _item.isGame : _m?.isGame == true;
-  bool get _interactiveArt =>
-      _item.mediaKind != null ? _item.isInteractive : _m?.isInteractive == true;
   bool get _onlineGame =>
       _m?.category == SourceCategory.onlineGame ||
       _item.json['contentDomain'] == SourceCategory.onlineGame.name;
@@ -136,12 +134,7 @@ class _DetailPageState extends State<DetailPage> with RouteAware {
 
   /// Keeps the stored chapter list (and with it read state and library updates) in step with the site.
   Future<void> _syncChapters(WorkDetail d) async {
-    if (_opensExternally ||
-        _webVideo ||
-        _isGame ||
-        _interactiveArt ||
-        _isLive ||
-        _voiceArchive) {
+    if (_opensExternally || _webVideo || _isGame || _isLive || _voiceArchive) {
       return;
     }
     final chapters = _isVideo
@@ -252,7 +245,6 @@ class _DetailPageState extends State<DetailPage> with RouteAware {
   }
 
   DetailKind get _kind {
-    if (_interactiveArt) return DetailKind.interactiveArt;
     if (_onlineGame) return DetailKind.onlineGame;
     if (_isGame) return DetailKind.game;
     if (_opensExternally) return DetailKind.external;
@@ -303,16 +295,6 @@ class _DetailPageState extends State<DetailPage> with RouteAware {
   }
 
   void _continue() {
-    if (_interactiveArt) {
-      final detail = _detail;
-      if (detail != null) {
-        Nav.push(
-          context,
-          OnlineGamePage(work: detail, manager: _manager, interactiveArt: true),
-        );
-      }
-      return;
-    }
     if (_onlineGame) {
       final detail = _detail;
       if (detail != null) {
@@ -582,8 +564,7 @@ class _DetailPageState extends State<DetailPage> with RouteAware {
 
   List<Widget> _body(BuildContext context, WorkDetail d) {
     final isVideo = _isVideo;
-    final chapters =
-        _opensExternally || _webVideo || _isGame || _interactiveArt || _isLive
+    final chapters = _opensExternally || _webVideo || _isGame || _isLive
         ? null
         : isVideo && d.hasVideoEpisodes
         ? d.videoEpisodes
@@ -623,11 +604,7 @@ class _DetailPageState extends State<DetailPage> with RouteAware {
         SliverToBoxAdapter(
           child: GameResources(key: _resourcesKey, work: d),
         ),
-      if (d.hasNoChapters &&
-          !isVideo &&
-          !_isGame &&
-          !_interactiveArt &&
-          !_opensExternally)
+      if (d.hasNoChapters && !isVideo && !_isGame && !_opensExternally)
         SliverToBoxAdapter(
           child: EmptyState(
             compact: true,
@@ -667,7 +644,6 @@ class _DetailPageState extends State<DetailPage> with RouteAware {
       ],
       if (!isVideo &&
           !_isGame &&
-          !_interactiveArt &&
           (d.thumbnails.isNotEmpty || _m?.can('thumbnails') == true))
         SliverToBoxAdapter(
           child: ThumbnailSection(

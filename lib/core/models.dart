@@ -53,7 +53,6 @@ enum MediaKind {
   voice,
   novel,
   game,
-  interactive,
   article;
 
   static MediaKind fromJson(Object? value) =>
@@ -67,7 +66,6 @@ extension MediaKindLabel on MediaKind {
     MediaKind.voice => '音声',
     MediaKind.novel => '小说',
     MediaKind.game => '游戏',
-    MediaKind.interactive => '互动立绘',
     MediaKind.article => '吃瓜',
   });
 
@@ -86,7 +84,6 @@ enum SourceCategory {
   recording('录播'),
   gallery('三次元美图'),
   illustration('二次元美图'),
-  interactiveArt('互动立绘'),
   game('游戏资源'),
   onlineGame('在线游戏'),
   other('创作社区'),
@@ -108,7 +105,7 @@ enum SourceCategory {
     recording ||
     live ||
     novel => ContentDimension.threeD,
-    other || feed || asmr || onlineGame || interactiveArt => null,
+    other || feed || asmr || onlineGame => null,
   };
 
   ContentMedia get media => switch (this) {
@@ -121,12 +118,7 @@ enum SourceCategory {
     recording ||
     live => ContentMedia.video,
     asmr => ContentMedia.voice,
-    novel ||
-    game ||
-    onlineGame ||
-    interactiveArt ||
-    other ||
-    feed => ContentMedia.other,
+    novel || game || onlineGame || other || feed => ContentMedia.other,
   };
 
   static SourceCategory fromJson(Object? value) => SourceCategory.values
@@ -765,20 +757,6 @@ class SourceManifest {
       error.code == 'UNSUPPORTED';
   bool get isNovel => kind == MediaKind.novel;
   bool get isGame => kind == MediaKind.game;
-  bool get isInteractive => kind == MediaKind.interactive;
-  String? get interactiveEntry {
-    final id = json['interactiveEntry'];
-    return isInteractive &&
-            category == SourceCategory.interactiveArt &&
-            can('interactiveViewer') &&
-            id is String &&
-            id.isNotEmpty &&
-            id.length <= 256 &&
-            !RegExp(r'[\x00-\x1f\x7f]').hasMatch(id)
-        ? id
-        : null;
-  }
-
   bool get isArticle => kind == MediaKind.article;
   bool get usesBrowserNetwork => network['mode'] == 'browser';
   String get origin =>
@@ -849,7 +827,6 @@ class WorkItem {
   bool get isNovel =>
       mediaKind == MediaKind.novel || json['contentDomain'] == 'novel';
   bool get isGame => mediaKind == MediaKind.game;
-  bool get isInteractive => mediaKind == MediaKind.interactive;
 
   /// 只有源明确声明为预览，或全部媒体均为预览时才过滤。
   bool get previewOnly {

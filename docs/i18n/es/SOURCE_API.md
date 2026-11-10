@@ -72,7 +72,7 @@ Park.register({
   name: '我的站点',
   version: '0.0.1',
   minAppVersion: '0.9.2',           // tres números; la app ofrece actualizar si el repositorio tiene uno mayor
-  type: 'comic',              // comic | video | voice | novel | game | interactive | article: comportamiento del contenido
+  type: 'comic',              // comic | video | voice | novel | game | article: comportamiento del contenido
   category: 'doujin',         // doujin | anime | aiDrama | jav | adult | asmr | shortvideo | recording | live | gallery | illustration | novel | game | other
   color: '#E5355F',           // color de marca: icono y página del sitio
   description: '一句话介绍',
@@ -115,7 +115,6 @@ Las capacidades (`capabilities`) las exporta el entorno a partir de los métodos
 | `doujin` | Doujinshi y cómics |
 | `gallery` | Galerías de fotos: cosplay, fotografía e imágenes de personas reales. Los sitios de imágenes usan `type: 'comic'`; cada conjunto es una obra y `chapter()` devuelve sus imágenes ordenadas, con lectura, favoritos y descargas compartidos. La cantidad de imágenes y su contenido no determinan la categoría |
 | `illustration` | Galerías de ilustraciones: dibujos e imágenes de anime. Los sitios de imágenes usan `type: 'comic'`; cada conjunto es una obra y `chapter()` devuelve sus imágenes ordenadas, con lectura, favoritos y descargas compartidos. La cantidad de imágenes y su contenido no determinan la categoría |
-| `interactiveArt` | Visores de ilustraciones interactivas, `type: 'interactive'` |
 | `anime` | Anime adulto |
 | `aiDrama` | Dramas cortos de IA. No se acepta el antiguo `drama`; declara los nombres de canal del sitio tal cual, la categoría de la app no los filtra |
 | `jav` | Sitios dedicados a JAV |
@@ -311,7 +310,6 @@ async thumbnails(id, page) {}                      // opcional: miniaturas de vi
 async videos(id, episodeId = '_') {}               // vídeo
 async textChapter(id, chapterId) {}                // novelas
 async onlineGame(workId) {}                        // online game
-async interactiveViewer(workId) {}                 // interactive artwork
 async gameResources(workId) {}                     // juegos
 async resolveGameResource(workId, resourceId, channelId) {}
 ```
@@ -405,12 +403,6 @@ async textChapter(id, chapterId) {
 - El plugin une en orden la paginación interna del capítulo; nunca añadas al texto el capítulo siguiente, respuestas de foro, anuncios ni recomendaciones. `Park.html.paragraphs(node)` extrae texto plano de forma genérica; los límites y la paginación del sitio siguen siendo cosa del plugin.
 - Si el texto se corta por inicio de sesión, pago o permisos, lanza `LOGIN_REQUIRED`; nunca presentes una vista previa como capítulo completo.
 - La app escribe `text.json` de forma atómica por capítulo; una descarga solo cuenta como completa si se escribió entera. El progreso y las notas usan posiciones UTF-16 en `paragraphs.join('\n\n')`; tamaño de letra, tipografía, sangría y otros ajustes solo afectan a la visualización. Marcadores y notas se guardan aparte de las descargas, entran en las copias de seguridad y sobreviven a borrar una descarga.
-
-### Ilustraciones interactivas: `interactiveViewer`
-
-Declara `type: 'interactive', category: 'interactiveArt'` y usa `mediaKind: 'interactive'` en lista y detalle. `interactiveViewer(workId)` devuelve `{url, storageId?}`: la URL debe ser una página HTTPS dentro de los dominios declarados por la fuente, en el puerto 443 y sin credenciales; `storageId` es un identificador estable del sitio sin credenciales y por defecto es workId. El entorno exporta `capabilities.interactiveViewer` a partir del método. El contenedor web aislado limita el documento principal y los iframe ordinarios al host de destino y desactiva el puente JavaScript; la disponibilidad depende del sitio y del dispositivo. No inventes enlaces directos ni capítulos, ni declares búsquedas sin verificar; no hay descarga sin conexión.
-
-Un visor de entrada única puede declarar `interactiveEntry: 'viewer'` con su workId real. Al abrir el sitio o ese elemento se accede directamente al visor; los detalles siguen disponibles desde él. Los catálogos de varios personajes deben omitir este campo.
 
 ### Juegos en línea: `onlineGame`
 

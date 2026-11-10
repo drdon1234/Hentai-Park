@@ -74,7 +74,7 @@ Park.register({
   name: '我的站点',
   version: '0.0.1',
   minAppVersion: '0.9.2',           // ثلاثة أرقام؛ يعرض التطبيق التحديث إن كان إصدار المستودع أعلى
-  type: 'comic',              // comic | video | voice | novel | game | interactive | article: طريقة عرض المحتوى
+  type: 'comic',              // comic | video | voice | novel | game | article: طريقة عرض المحتوى
   category: 'doujin',         // doujin | anime | aiDrama | jav | adult | asmr | shortvideo | recording | live | gallery | illustration | novel | game | other
   color: '#E5355F',           // لون العلامة: أيقونة الموقع وصفحته
   description: '一句话介绍',
@@ -117,7 +117,6 @@ Park.register({
 | `doujin` | دوجينشي وقصص مصورة |
 | `gallery` | معارض الصور: كوسبلاي وتصوير ومجموعات صور لأشخاص حقيقيين. تستخدم مواقع الصور `type: 'comic'`؛ كل مجموعة عمل واحد وتعيد `chapter()` الصور بالترتيب مع مشاركة القراءة والمفضلة والتنزيل. لا يحدد عدد الصور أو جرأتها الفئة |
 | `illustration` | معارض الرسوم: الرسوم التوضيحية وصور الأنمي. تستخدم مواقع الصور `type: 'comic'`؛ كل مجموعة عمل واحد وتعيد `chapter()` الصور بالترتيب مع مشاركة القراءة والمفضلة والتنزيل. لا يحدد عدد الصور أو جرأتها الفئة |
-| `interactiveArt` | عارض الرسوم التفاعلية، `type: 'interactive'` |
 | `anime` | أنمي للبالغين |
 | `aiDrama` | دراما قصيرة بالذكاء الاصطناعي. لا تُقبل القيمة القديمة `drama`؛ أعلن أسماء قنوات الموقع كما هي، ولا تُصفّيها فئة التطبيق |
 | `jav` | مواقع JAV المتخصصة |
@@ -302,7 +301,6 @@ async thumbnails(id, page) {}                      // اختياري: صور م�
 async videos(id, episodeId = '_') {}               // فيديو
 async textChapter(id, chapterId) {}                // روايات
 async onlineGame(workId) {}                        // online game
-async interactiveViewer(workId) {}                 // interactive artwork
 async gameResources(workId) {}                     // ألعاب
 async resolveGameResource(workId, resourceId, channelId) {}
 ```
@@ -396,12 +394,6 @@ async textChapter(id, chapterId) {
 - تدمج الإضافة تقسيم الفصل إلى صفحات بالترتيب، ولا تضم إلى النص الفصل التالي أو ردود المنتدى أو الإعلانات أو التوصيات. يستخرج `Park.html.paragraphs(node)` النص الخام بشكل عام، وتظل حدود الموقع وتقسيمه مسؤولية الإضافة.
 - إذا اقتُطع النص بسبب تسجيل الدخول أو الدفع أو الأذونات فأطلق `LOGIN_REQUIRED`؛ ولا تقدّم المعاينة على أنها فصل كامل.
 - يكتب التطبيق `text.json` لكل فصل بشكل ذري، ولا يُعدّ التنزيل مكتملًا إلا بالكتابة الكاملة. يستخدم التقدم والملاحظات مواضع UTF-16 في `paragraphs.join('\n\n')`، ولا تؤثر إعدادات الحجم والخط والمسافة البادئة إلا في العرض. تُحفظ الإشارات والملاحظات منفصلة عن التنزيلات، وتدخل في النسخ الاحتياطية، وتبقى بعد حذف التنزيل.
-
-### الرسوم التفاعلية: `interactiveViewer`
-
-تعلن الإضافة `type: 'interactive', category: 'interactiveArt'` وتضع `mediaKind: 'interactive'` في القائمة والتفاصيل. تعيد `interactiveViewer(workId)` القيمة `{url, storageId?}`؛ يجب أن يكون العنوان صفحة HTTPS ضمن نطاقات المصدر المعلنة على المنفذ 443 دون بيانات اعتماد، و`storageId` معرّف ثابت في الموقع دون بيانات اعتماد، ويستخدم workId عند حذفه. تصدّر بيئة التشغيل `capabilities.interactiveViewer` من الدالة. تقيد حاوية الويب المعزولة المستند الرئيسي وإطارات iframe العادية بالمضيف المستهدف وتعطّل جسر JavaScript؛ يعتمد التوفر على الموقع والجهاز. لا تنشئ روابط شخصيات أو فصولاً وهمية ولا تعلن بحثاً غير متحقق منه؛ لا يتوفر التنزيل دون اتصال.
-
-يمكن للعارض ذي المدخل الواحد إعلان `interactiveEntry: 'viewer'` باستخدام workId الفعلي. يفتح الموقع أو العنصر العارض مباشرة، وتبقى التفاصيل متاحة منه. يجب حذف هذا الحقل من كتالوجات الشخصيات المتعددة.
 
 ### ألعاب عبر الإنترنت: `onlineGame`
 

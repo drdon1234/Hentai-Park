@@ -411,10 +411,6 @@ class DownloadManager extends ChangeNotifier {
 
   void enqueue(WorkItem item, List<Chapter> chapters, {int? videoQuality}) {
     if (SourceManager.instance.manifest(item.source)?.isLive == true) return;
-    if (item.isInteractive ||
-        SourceManager.instance.manifest(item.source)?.isInteractive == true) {
-      throw SourceError('UNSUPPORTED', '互动立绘不支持离线下载');
-    }
     if (item.isGame ||
         SourceManager.instance.manifest(item.source)?.isGame == true) {
       throw SourceError('UNSUPPORTED', '游戏资源请使用独立下载渠道');

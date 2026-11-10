@@ -165,7 +165,7 @@ export async function generateIndex({ root = defaultRoot, commit, previousIndex,
     keys.add(key);
     requiredText(entry.name, `${key} name`);
     if (typeof entry.description !== 'string') throw new Error(`${key} description 必须是字符串`);
-    if (!['feed', 'doujin', 'anime', 'aiDrama', 'jav', 'adult', 'shortvideo', 'recording', 'gallery', 'illustration', 'interactiveArt', 'novel', 'game', 'onlineGame', 'other', 'live', 'asmr'].includes(entry.category)) {
+    if (!['feed', 'doujin', 'anime', 'aiDrama', 'jav', 'adult', 'shortvideo', 'recording', 'gallery', 'illustration', 'novel', 'game', 'onlineGame', 'other', 'live', 'asmr'].includes(entry.category)) {
       throw new Error(`${key} category 必须是有效的内容分类`);
     }
     versionParts(entry.version);
@@ -195,13 +195,6 @@ export async function generateIndex({ root = defaultRoot, commit, previousIndex,
     }
     if (entry.category === 'onlineGame' && (entry.type !== 'game' || manifest.type !== 'game' || !manifest.capabilities.detail || !manifest.capabilities.onlineGame)) {
       throw new Error(`${entry.file} 的在线游戏类型或运行能力无效`);
-    }
-    if (entry.category === 'interactiveArt' && (entry.type !== 'interactive' || manifest.type !== 'interactive' || !manifest.capabilities.detail || !manifest.capabilities.interactiveViewer)) {
-      throw new Error(`${entry.file} 的互动立绘类型或查看能力无效`);
-    }
-    if (manifest.interactiveEntry && (manifest.category !== 'interactiveArt' ||
-        manifest.interactiveEntry.length > 256 || /[\x00-\x1f\x7f]/.test(manifest.interactiveEntry))) {
-      throw new Error(`${entry.file} 的立绘直达入口无效`);
     }
     validateMedia(manifest);
     validateChat(manifest);

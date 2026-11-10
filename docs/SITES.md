@@ -18,7 +18,6 @@
 | 吃瓜 | 每日大赛 · 黑料网 · 51吃瓜网 |
 | 三次元美图 | PixiBB · 秀人网 · PornPics · CosplayTele · NudeCosplay |
 | 二次元美图 | Danbooru · yande.re · Gelbooru |
-| 互动立绘 | MAD Viewer · LOMapR · Destiny Child Live2D · Brown Dust 2 Viewer · Nikke Database · DaiCoreViewer |
 | 本子 / 漫画 | E-Hentai · 禁漫天堂 · nhentai · 绅士漫画 · 哔咔漫画 |
 | 里番 | Hanime1 · Hanime.tv · Rule34Video · Iwara · HentaiHaven |
 | JAV | MissAV · JableTV · 123AV · SupJav |

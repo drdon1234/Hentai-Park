@@ -72,7 +72,7 @@ Park.register({
   name: '我的站点',
   version: '0.0.1',
   minAppVersion: '0.9.2',     // 最低本体版本，三段数字；与官方清单一致
-  type: 'comic',              // comic | video | voice | novel | game | interactive | article：决定内容行为
+  type: 'comic',              // comic | video | voice | novel | game | article：决定内容行为
   category: 'doujin',         // doujin | anime | aiDrama | jav | adult | asmr | shortvideo | recording | live | gallery | illustration | novel | game | other
   color: '#E5355F',           // 品牌色：站点头像与站点页
   description: '一句话介绍',
@@ -166,7 +166,6 @@ return { browser: {
 | `doujin` | 本子与漫画 |
 | `gallery` | 三次元美图：Cosplay、写真与真人图集。图片站声明 `type: 'comic'`，一个图集是一个作品，图片通过 `chapter()` 按顺序返回，复用阅读、收藏和下载；分类不按张数或尺度区分 |
 | `illustration` | 二次元美图：插画与动漫图片。图片站声明 `type: 'comic'`，一个图集是一个作品，图片通过 `chapter()` 按顺序返回，复用阅读、收藏和下载；分类不按张数或尺度区分 |
-| `interactiveArt` | 互动立绘查看器，`type: 'interactive'` |
 | `anime` | 里番 |
 | `aiDrama` | AI 短剧。不接受旧的 `drama` 标识；站点自身的频道名照原样声明，应用分类不用来过滤站点频道 |
 | `jav` | JAV 专门站 |
@@ -375,7 +374,6 @@ async thumbnails(id, page) {}                      // 可选：分页加载预�
 async videos(id, episodeId = '_') {}               // 视频
 async textChapter(id, chapterId) {}                // 小说
 async onlineGame(workId) {}                        // online game
-async interactiveViewer(workId) {}                 // interactive artwork
 async gameResources(workId) {}                     // 游戏
 async resolveGameResource(workId, resourceId, channelId) {}
 ```
@@ -509,12 +507,6 @@ async textChapter(id, chapterId) {
 - 正文内部分页由插件按顺序合并，不能把下一章、论坛回复、广告或推荐作品并入正文。`Park.html.paragraphs(node)` 提供通用的纯文本提取，站点边界和分页仍由插件决定。
 - 登录、付费或权限导致正文截断时抛 `LOGIN_REQUIRED`，不得把预览伪装成完整章节。
 - 应用按章原子写入 `text.json`，完整写入才算下载完成。阅读进度和标注使用 `paragraphs.join('\n\n')` 的 UTF-16 位置；字号、字体、缩进等排版只影响显示，不改正文和已保存的定位。书签和标注独立于下载文件，参与备份，删除下载不会删除它们。
-
-### 互动立绘: `interactiveViewer`
-
-插件声明 `type: 'interactive', category: 'interactiveArt'`，列表和详情填写 `mediaKind: 'interactive'`。`interactiveViewer(workId)` 返回 `{url, storageId?}`；地址必须为源声明域名内、不含凭据且使用 443 端口的 HTTPS 页面，`storageId` 是不含凭据的稳定站内标识，省略时使用 workId。运行时根据方法导出 `capabilities.interactiveViewer`。查看器沿用隔离网页容器，主文档和普通 iframe 限于目标主机，不启用 JavaScript 桥；支持范围受原站和设备影响。不得伪造角色直达链接或章节，未验证搜索能力不声明；不提供离线下载。
-
-单入口查看器可声明 `interactiveEntry: 'viewer'`（值为真实 workId），从站点或该条目直接进入查看器，详情仍可从查看器访问。多角色目录不声明此字段。
 
 ### 在线游戏: `onlineGame`
 

@@ -72,7 +72,7 @@ Park.register({
   name: '我的站点',
   version: '0.0.1',
   minAppVersion: '0.9.2',           // 3 つの数字。リポジトリの方が新しいと更新を案内
-  type: 'comic',              // comic | video | voice | novel | game | interactive | article：コンテンツの動作を決める
+  type: 'comic',              // comic | video | voice | novel | game | article：コンテンツの動作を決める
   category: 'doujin',         // doujin | anime | aiDrama | jav | adult | asmr | shortvideo | recording | live | gallery | illustration | novel | game | other
   color: '#E5355F',           // ブランドカラー：サイトのアイコンとサイトページ
   description: '一句话介绍',
@@ -115,7 +115,6 @@ Park.register({
 | `doujin` | 同人誌と漫画 |
 | `gallery` | 三次元美図：コスプレ、写真、実写の画像集. 画像サイトは `type: 'comic'` を宣言し、1 つの画像集が 1 作品です。`chapter()` が順に画像を返し、閲覧・お気に入り・ダウンロードを共用します。枚数や過激さでは分類しません |
 | `illustration` | 二次元美図：イラスト、アニメの画像集. 画像サイトは `type: 'comic'` を宣言し、1 つの画像集が 1 作品です。`chapter()` が順に画像を返し、閲覧・お気に入り・ダウンロードを共用します。枚数や過激さでは分類しません |
-| `interactiveArt` | インタラクティブ立ち絵ビューア、`type: 'interactive'` |
 | `anime` | 成人向けアニメ |
 | `aiDrama` | AI ショートドラマ。旧 `drama` は受け付けません。サイト自身のチャンネル名はそのまま宣言し、アプリの分類で絞り込むことはしません |
 | `jav` | JAV 専門サイト |
@@ -311,7 +310,6 @@ async thumbnails(id, page) {}                      // 任意：プレビュー�
 async videos(id, episodeId = '_') {}               // 動画
 async textChapter(id, chapterId) {}                // 小説
 async onlineGame(workId) {}                        // online game
-async interactiveViewer(workId) {}                 // interactive artwork
 async gameResources(workId) {}                     // ゲーム
 async resolveGameResource(workId, resourceId, channelId) {}
 ```
@@ -405,12 +403,6 @@ async textChapter(id, chapterId) {
 - 章内のページ分割はプラグインが順に結合し、次の章、掲示板の返信、広告、おすすめ作品を本文に含めてはいけません。`Park.html.paragraphs(node)` は汎用的なテキスト抽出を提供しますが、サイトの境界とページ分割はプラグインが決めます。
 - ログイン、課金、権限で本文が切り詰められる場合は `LOGIN_REQUIRED` を投げ、プレビューを完全な章と偽ってはいけません。
 - アプリは章ごとに `text.json` をアトミックに書き込み、完全に書き込めた場合だけダウンロード完了とします。読書の進捗とメモは `paragraphs.join('\n\n')` の UTF-16 の位置を使い、文字サイズ、フォント、字下げなどの表示設定は本文や保存位置を変えません。しおりとメモはダウンロードとは別に保存され、バックアップに含まれ、ダウンロードを削除しても残ります。
-
-### インタラクティブ立ち絵: `interactiveViewer`
-
-プラグインは `type: 'interactive', category: 'interactiveArt'` を宣言し、一覧と詳細に `mediaKind: 'interactive'` を指定します。`interactiveViewer(workId)` は `{url, storageId?}` を返します。URL はソースの宣言ドメイン内にある認証情報を含まない 443 ポートの HTTPS ページとし、`storageId` は認証情報を含まないサイト内の安定した ID（省略時は workId）です。ランタイムはメソッドから `capabilities.interactiveViewer` を公開します。隔離された Web コンテナでは主文書と通常の iframe を対象ホストに制限し、JavaScript ブリッジを無効にします。利用可能性はサイトと端末に依存します。架空のキャラクターリンクや章を作らず、未検証の検索を宣言しません。オフライン保存はできません。
-
-単一入口のビューアは、実際の workId を使って `interactiveEntry: 'viewer'` を宣言できます。サイトや該当項目からビューアを直接開き、詳細はビューアから参照できます。複数キャラクターのカタログでは宣言しません。
 
 ### オンラインゲーム: `onlineGame`
 

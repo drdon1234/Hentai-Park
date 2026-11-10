@@ -18,7 +18,6 @@
 | 가십 | 매일대회 · 헤이랴오 · 51CG |
 | 화보 | PixiBB · 슈런 · PornPics · CosplayTele · NudeCosplay |
 | 일러스트 | Danbooru · yande.re · Gelbooru |
-| 인터랙티브 일러스트 | MAD Viewer · LOMapR · Destiny Child Live2D · Brown Dust 2 Viewer · Nikke Database · DaiCoreViewer |
 | 동인지 / 만화 | E-Hentai · 禁漫天堂 · nhentai · 绅士漫画 · 哔咔漫画 |
 | 성인 애니메이션 | Hanime1 · Hanime.tv · Rule34Video · Iwara · HentaiHaven |
 | JAV | MissAV · JableTV · 123AV · SupJav |

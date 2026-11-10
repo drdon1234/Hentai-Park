@@ -682,29 +682,6 @@ mixin _SourceApi on _SourceRegistry {
     return result.cast<String, dynamic>();
   }
 
-  /// Resolve the interactive viewer when it is opened, without caching its URL.
-  Future<Map<String, dynamic>> interactiveViewer(
-    String key,
-    String id, {
-    CancelToken? cancelToken,
-  }) async {
-    final source = manifest(key);
-    if (source == null ||
-        source.category != SourceCategory.interactiveArt ||
-        !source.can('interactiveViewer')) {
-      throw SourceError('UNSUPPORTED', '此站点不支持互动立绘');
-    }
-    final result = await _call(key, 'interactiveViewer', [
-      id,
-    ], cancelToken: cancelToken);
-    if (result is! Map) throw SourceError('PARSE', '立绘地址无效');
-    final url = Uri.tryParse(result['url']?.toString() ?? '');
-    if (!httpsDomainAddressAllowed(url, declaredDomains(source.json))) {
-      throw SourceError('PARSE', '立绘地址无效');
-    }
-    return {...result.cast<String, dynamic>(), 'kind': 'html'};
-  }
-
   Future<List<GameResource>> gameResources(String key, String id) async {
     final result = await _call(key, 'gameResources', [id]);
     if (result is! List) throw SourceError('PARSE', '游戏资源格式无效');

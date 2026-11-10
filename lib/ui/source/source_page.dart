@@ -9,7 +9,6 @@ import '../../core/models.dart';
 import '../../core/settings.dart';
 import '../../engine/source_manager.dart';
 import '../album/open_album.dart';
-import '../game/online_game_page.dart';
 import '../kit/adaptive_sheet.dart';
 import '../nav.dart';
 import '../search/source_search_page.dart';
@@ -118,18 +117,6 @@ class _SourcePageState extends State<SourcePage> {
           icon: Icons.extension_off_outlined,
           title: tr('站点未加载'),
         ),
-      );
-    }
-    if (m.interactiveEntry case final entry?) {
-      return OnlineGamePage(
-        work: WorkDetail({
-          'id': entry,
-          'title': m.name,
-          'mediaKind': 'interactive',
-          'contentDomain': 'interactiveArt',
-        }, m.key),
-        manager: _sources,
-        interactiveArt: true,
       );
     }
     if (AppSettings.instance.searchOnlySources) {

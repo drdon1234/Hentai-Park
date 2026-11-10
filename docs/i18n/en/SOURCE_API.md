@@ -72,7 +72,7 @@ Park.register({
   name: '我的站点',
   version: '0.0.1',
   minAppVersion: '0.9.2',           // three numbers; the app offers an update when the repository has a higher one
-  type: 'comic',              // comic | video | voice | novel | game | interactive | article: how content is used
+  type: 'comic',              // comic | video | voice | novel | game | article: how content is used
   category: 'doujin',         // doujin | anime | aiDrama | jav | adult | asmr | shortvideo | recording | live | gallery | illustration | novel | game | other
   color: '#E5355F',           // brand color: site avatar and site page
   description: '一句话介绍',
@@ -115,7 +115,6 @@ Capabilities are exported by the runtime from the methods a plugin implements; d
 | `doujin` | Doujinshi and comics |
 | `gallery` | Photo galleries: cosplay, photography and real-person image sets. Image sites use `type: 'comic'`; one image set is one work, with ordered images from `chapter()` and shared reading, favorites and downloads. Image count and explicitness do not determine the category |
 | `illustration` | Illustration galleries: drawn and anime images. Image sites use `type: 'comic'`; one image set is one work, with ordered images from `chapter()` and shared reading, favorites and downloads. Image count and explicitness do not determine the category |
-| `interactiveArt` | Interactive art viewers, `type: 'interactive'` |
 | `anime` | Adult animation |
 | `aiDrama` | AI short dramas. The old `drama` value isn't accepted; declare the site's own channel names as they are, the app category doesn't filter them |
 | `jav` | Dedicated JAV sites |
@@ -311,7 +310,6 @@ async thumbnails(id, page) {}                      // optional: paged preview th
 async videos(id, episodeId = '_') {}               // video
 async textChapter(id, chapterId) {}                // novels
 async onlineGame(workId) {}                        // online game
-async interactiveViewer(workId) {}                 // interactive artwork
 async gameResources(workId) {}                     // games
 async resolveGameResource(workId, resourceId, channelId) {}
 ```
@@ -405,12 +403,6 @@ async textChapter(id, chapterId) {
 - In-chapter pagination is merged in order by the plugin; never merge the next chapter, forum replies, ads or recommendations into the text. `Park.html.paragraphs(node)` extracts plain text generically; site boundaries and pagination are still the plugin's job.
 - Text cut short by sign-in, payment or permissions throws `LOGIN_REQUIRED`; never present a preview as a complete chapter.
 - The app writes `text.json` atomically per chapter; a download counts as complete only when fully written. Reading progress and notes use UTF-16 offsets into `paragraphs.join('\n\n')`; font size, typeface, indentation and other layout settings only affect display. Bookmarks and notes live apart from downloads, are included in backups, and survive deleting a download.
-
-### Interactive art: `interactiveViewer`
-
-Declare `type: 'interactive', category: 'interactiveArt'` and set `mediaKind: 'interactive'` on list and detail items. `interactiveViewer(workId)` returns `{url, storageId?}`: the URL must be an HTTPS page within the source’s declared domains, on port 443 and without credentials; `storageId` is a stable site identity without credentials and defaults to workId. The runtime exports `capabilities.interactiveViewer` from the method. The isolated web container restricts the main document and ordinary iframes to the target host and disables the JavaScript bridge; availability depends on the site and device. Do not invent character links or chapters, or declare unverified search; offline downloads are unavailable.
-
-A single-entry viewer may declare `interactiveEntry: 'viewer'` using its actual workId. Opening the source or that item opens the viewer directly; details remain available from the viewer. Multi-character catalogs must omit this field.
 
 ### Online games: `onlineGame`
 

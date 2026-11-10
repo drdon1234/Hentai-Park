@@ -83,8 +83,7 @@ class LibraryUpdater extends ChangeNotifier {
         m != null &&
         !m.opensExternally &&
         !m.usesWebVideo &&
-        !m.isGame &&
-        !m.isInteractive;
+        !m.isGame;
   }
 
   /// Whether a favorite is checked under the current restrictions.
@@ -97,8 +96,7 @@ class LibraryUpdater extends ChangeNotifier {
         (manifest.isArticle ||
             manifest.isLive ||
             manifest.category == SourceCategory.shortvideo ||
-            manifest.isGame ||
-            manifest.isInteractive)) {
+            manifest.isGame)) {
       return false;
     }
     if (manifest != null &&

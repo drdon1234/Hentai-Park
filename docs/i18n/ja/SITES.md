@@ -18,7 +18,6 @@
 | ゴシップ | 毎日大賽 · 黒料網 · 51吃瓜網 |
 | 写真集 | PixiBB · 秀人網 · PornPics · CosplayTele · NudeCosplay |
 | イラスト | Danbooru · yande.re · Gelbooru |
-| インタラクティブ立ち絵 | MAD Viewer · LOMapR · Destiny Child Live2D · Brown Dust 2 Viewer · Nikke Database · DaiCoreViewer |
 | 同人誌 / 漫画 | E-Hentai · 禁漫天堂 · nhentai · 绅士漫画 · 哔咔漫画 |
 | 成人アニメ | Hanime1 · Hanime.tv · Rule34Video · Iwara · HentaiHaven |
 | JAV | MissAV · JableTV · 123AV · SupJav |

@@ -102,7 +102,6 @@ abstract final class PlaybackResolver {
     if (manifest?.category == SourceCategory.shortvideo ||
         kind == MediaKind.article ||
         kind == MediaKind.game ||
-        kind == MediaKind.interactive ||
         manifest?.opensExternally == true) {
       return const OpenWorkPage();
     }

@@ -72,7 +72,7 @@ Park.register({
   name: '我的站点',
   version: '0.0.1',
   minAppVersion: '0.9.2',           // 숫자 세 개. 저장소 버전이 더 높으면 업데이트를 안내
-  type: 'comic',              // comic | video | voice | novel | game | interactive | article: 콘텐츠 동작 결정
+  type: 'comic',              // comic | video | voice | novel | game | article: 콘텐츠 동작 결정
   category: 'doujin',         // doujin | anime | aiDrama | jav | adult | asmr | shortvideo | recording | live | gallery | illustration | novel | game | other
   color: '#E5355F',           // 브랜드 색: 사이트 아이콘과 사이트 페이지
   description: '一句话介绍',
@@ -115,7 +115,6 @@ Park.register({
 | `doujin` | 동인지와 만화 |
 | `gallery` | 실사 갤러리: 코스프레, 사진 및 실사 이미지 모음. 이미지 사이트는 `type: 'comic'`을 사용하며 이미지 모음 하나가 작품 하나입니다. `chapter()`가 이미지를 순서대로 반환하고 읽기·즐겨찾기·다운로드를 공용으로 사용합니다. 장수나 수위로 분류하지 않습니다 |
 | `illustration` | 일러스트 갤러리: 일러스트 및 애니메이션 이미지. 이미지 사이트는 `type: 'comic'`을 사용하며 이미지 모음 하나가 작품 하나입니다. `chapter()`가 이미지를 순서대로 반환하고 읽기·즐겨찾기·다운로드를 공용으로 사용합니다. 장수나 수위로 분류하지 않습니다 |
-| `interactiveArt` | 인터랙티브 일러스트 뷰어, `type: 'interactive'` |
 | `anime` | 성인 애니메이션 |
 | `aiDrama` | AI 숏드라마. 예전 `drama` 값은 받지 않습니다. 사이트 자체의 채널 이름은 그대로 선언하며, 앱의 분류로 사이트 채널을 거르지 않습니다 |
 | `jav` | JAV 전문 사이트 |
@@ -300,7 +299,6 @@ async thumbnails(id, page) {}                      // 선택: 미리보기 썸�
 async videos(id, episodeId = '_') {}               // 동영상
 async textChapter(id, chapterId) {}                // 소설
 async onlineGame(workId) {}                        // online game
-async interactiveViewer(workId) {}                 // interactive artwork
 async gameResources(workId) {}                     // 게임
 async resolveGameResource(workId, resourceId, channelId) {}
 ```
@@ -394,12 +392,6 @@ async textChapter(id, chapterId) {
 - 챕터 안의 페이지 나눔은 플러그인이 순서대로 합치며, 다음 챕터, 게시판 댓글, 광고, 추천 작품을 본문에 넣으면 안 됩니다. `Park.html.paragraphs(node)`가 일반적인 텍스트 추출을 제공하지만 사이트의 경계와 페이지 나눔은 플러그인이 정합니다.
 - 로그인, 결제, 권한 때문에 본문이 잘리면 `LOGIN_REQUIRED`를 던지며, 미리보기를 완전한 챕터로 꾸미면 안 됩니다.
 - 앱은 챕터마다 `text.json`을 원자적으로 쓰며 완전히 쓰인 경우에만 다운로드 완료로 봅니다. 읽기 진행과 메모는 `paragraphs.join('\n\n')`의 UTF-16 위치를 쓰고, 글자 크기·글꼴·들여쓰기 같은 표시 설정은 본문이나 저장된 위치를 바꾸지 않습니다. 책갈피와 메모는 다운로드와 따로 저장되어 백업에 포함되며, 다운로드를 지워도 남습니다.
-
-### 인터랙티브 일러스트: `interactiveViewer`
-
-플러그인은 `type: 'interactive', category: 'interactiveArt'`를 선언하고 목록과 상세에 `mediaKind: 'interactive'`를 설정합니다. `interactiveViewer(workId)`는 `{url, storageId?}`를 반환합니다. URL은 소스가 선언한 도메인 내의 자격 증명이 없는 443 포트 HTTPS 페이지여야 하며 `storageId`는 자격 증명이 없는 사이트 내 안정적인 ID로, 생략 시 workId를 사용합니다. 런타임은 이 메서드로 `capabilities.interactiveViewer`를 내보냅니다. 격리된 웹 컨테이너는 주 문서와 일반 iframe을 대상 호스트로 제한하고 JavaScript 브리지를 비활성화합니다. 사용 가능 여부는 사이트와 기기에 따라 다릅니다. 가짜 캐릭터 링크나 챕터를 만들거나 검증되지 않은 검색을 선언하지 않으며 오프라인 다운로드를 제공하지 않습니다.
-
-단일 진입점 뷰어는 실제 workId로 `interactiveEntry: 'viewer'`를 선언할 수 있습니다. 사이트나 해당 항목에서 뷰어를 바로 열며 상세 정보는 뷰어에서 열 수 있습니다. 여러 캐릭터 목록에는 이 필드를 선언하지 않습니다.
 
 ### 온라인 게임: `onlineGame`
 

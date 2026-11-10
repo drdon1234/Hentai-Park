@@ -463,7 +463,6 @@ class AppSettings extends ChangeNotifier {
     SourceCategory.novel,
     SourceCategory.onlineGame,
     SourceCategory.game,
-    SourceCategory.interactiveArt,
   ];
 
   List<SourceCategory> get domainOrder {

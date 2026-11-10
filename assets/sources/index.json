@@ -3,66 +3,6 @@
   "apiVersion": 2,
   "sources": [
     {
-      "key": "mad_viewer",
-      "name": "MAD Viewer",
-      "version": "0.0.2",
-      "minAppVersion": "0.13.0",
-      "type": "interactive",
-      "category": "interactiveArt",
-      "file": "mad_viewer.js",
-      "description": "MAke Drama 互动立绘，支持服装和动作"
-    },
-    {
-      "key": "lomapr",
-      "name": "LOMapR",
-      "version": "0.0.2",
-      "minAppVersion": "0.13.0",
-      "type": "interactive",
-      "category": "interactiveArt",
-      "file": "lomapr.js",
-      "description": "Last Origin 角色立绘，在角色页选择 Skin 查看"
-    },
-    {
-      "key": "destiny_child_live2d",
-      "name": "Destiny Child Live2D",
-      "version": "0.0.2",
-      "minAppVersion": "0.13.0",
-      "type": "interactive",
-      "category": "interactiveArt",
-      "file": "destiny_child_live2d.js",
-      "description": "天命之子 Live2D 模型归档，支持角色和服装搜索"
-    },
-    {
-      "key": "bd2_viewer",
-      "name": "Brown Dust 2 Viewer",
-      "version": "0.0.3",
-      "minAppVersion": "0.13.0",
-      "type": "interactive",
-      "category": "interactiveArt",
-      "file": "bd2_viewer.js",
-      "description": "棕色尘埃 2 动态立绘，在查看器内选择角色和服装"
-    },
-    {
-      "key": "nikke_viewer",
-      "name": "Nikke Database",
-      "version": "0.0.3",
-      "minAppVersion": "0.13.0",
-      "type": "interactive",
-      "category": "interactiveArt",
-      "file": "nikke_viewer.js",
-      "description": "NIKKE 互动立绘，在查看器内选择角色"
-    },
-    {
-      "key": "daicore_viewer",
-      "name": "DaiCoreViewer",
-      "version": "0.0.3",
-      "minAppVersion": "0.13.0",
-      "type": "interactive",
-      "category": "interactiveArt",
-      "file": "daicore_viewer.js",
-      "description": "Daiblos Core 互动立绘，在查看器内选择角色和服装"
-    },
-    {
       "key": "hentaiasmr",
       "name": "Hentai ASMR",
       "version": "0.0.2",

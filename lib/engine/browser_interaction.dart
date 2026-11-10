@@ -26,7 +26,7 @@ class WebViewInteractionHost implements BrowserInteractionHost {
     required Map<String, dynamic> arguments,
   }) async {
     // 文档检查是同步脚本。使用原生求值返回结果，避免依赖网页可调用的
-    // JavaScript 桥（游戏与立绘页出于隔离要求禁用了该桥）。
+    // JavaScript 桥（游戏页出于隔离要求禁用了该桥）。
     final result = await controller.evaluateJavascript(
       source:
           'JSON.stringify((function(${arguments.keys.join(',')}) {$body})'

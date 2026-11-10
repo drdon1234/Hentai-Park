@@ -19,8 +19,6 @@ import '../../engine/desktop_shutdown.dart';
 import '../../engine/http_service.dart';
 import '../../engine/platform_bridge.dart';
 import '../../engine/source_manager.dart';
-import '../../library/library.dart';
-import '../detail/detail_page.dart';
 import '../kit/immersive.dart';
 import '../kit/tokens.dart';
 import '../nav.dart';
@@ -29,15 +27,9 @@ import '../widgets/error_view.dart';
 import 'online_game_target.dart';
 
 class OnlineGamePage extends StatefulWidget {
-  const OnlineGamePage({
-    super.key,
-    required this.work,
-    required this.manager,
-    this.interactiveArt = false,
-  });
+  const OnlineGamePage({super.key, required this.work, required this.manager});
   final WorkDetail work;
   final SourceManager manager;
-  final bool interactiveArt;
 
   @override
   State<OnlineGamePage> createState() => _OnlineGamePageState();
@@ -175,11 +167,7 @@ class _OnlineGamePageState extends State<OnlineGamePage>
           }
           if (state == BrowserAccessState.failed) {
             setState(
-              () => _error = SourceError(
-                'HTTP',
-                widget.interactiveArt ? '立绘加载失败' : '游戏加载失败',
-                status: _httpError,
-              ),
+              () => _error = SourceError('HTTP', '游戏加载失败', status: _httpError),
             );
           }
         }
@@ -240,22 +228,13 @@ class _OnlineGamePageState extends State<OnlineGamePage>
     try {
       await closing;
       if (!Platform.isAndroid && !Platform.isWindows) {
-        throw SourceError(
-          'UNSUPPORTED',
-          widget.interactiveArt ? '当前设备暂不支持互动立绘' : '当前设备暂不支持在线游戏',
-        );
+        throw SourceError('UNSUPPORTED', '当前设备暂不支持在线游戏');
       }
-      final raw = widget.interactiveArt
-          ? await widget.manager.interactiveViewer(
-              widget.work.source,
-              widget.work.id,
-              cancelToken: request,
-            )
-          : await widget.manager.onlineGame(
-              widget.work.source,
-              widget.work.id,
-              cancelToken: request,
-            );
+      final raw = await widget.manager.onlineGame(
+        widget.work.source,
+        widget.work.id,
+        cancelToken: request,
+      );
       final target = OnlineGameTarget.fromJson(raw, widget.work.id);
       final key = onlineGameProfileKey(widget.work.source, target.storageId);
       if (Platform.isWindows) {
@@ -281,10 +260,7 @@ class _OnlineGamePageState extends State<OnlineGamePage>
       if (mounted && generation == _generation && !request.isCancelled) {
         setState(
           () => _error = error is FormatException
-              ? SourceError(
-                  'PARSE',
-                  widget.interactiveArt ? '立绘地址无效' : '游戏地址无效',
-                )
+              ? SourceError('PARSE', '游戏地址无效')
               : error,
         );
       }
@@ -311,9 +287,7 @@ class _OnlineGamePageState extends State<OnlineGamePage>
         if (attached != true) {
           throw SourceError(
             'UNSUPPORTED',
-            widget.interactiveArt
-                ? '请更新 Android System WebView 后重试互动立绘'
-                : '请更新 Android System WebView 后重试在线游戏',
+            '请更新 Android System WebView 后重试在线游戏',
           );
         }
         if (!mounted || !identical(session, _session)) {
@@ -328,18 +302,12 @@ class _OnlineGamePageState extends State<OnlineGamePage>
         urlRequest: URLRequest(url: WebUri(target.launchUrl.toString())),
       );
       _lifecycleChanged();
-      if (widget.interactiveArt) {
-        Library.instance.recordVisit(widget.work.toItem());
-      }
     } catch (error) {
       if (mounted && identical(session, _session)) {
         setState(
           () => _error = error is SourceError
               ? error
-              : SourceError(
-                  'NETWORK',
-                  widget.interactiveArt ? '立绘加载失败' : '游戏加载失败',
-                ),
+              : SourceError('NETWORK', '游戏加载失败'),
         );
       }
     }
@@ -635,50 +603,34 @@ catch(_){try{localStorage.clear();for(const [k,v] of Object.entries(old))localSt
   Widget _actions() => Row(
     mainAxisSize: MainAxisSize.min,
     children: [
-      if (widget.interactiveArt)
-        IconButton(
-          tooltip: tr('详情'),
-          onPressed: () => Nav.push(
-            context,
-            DetailPage(
-              source: widget.work.source,
-              id: widget.work.id,
-              preview: widget.work.toItem(),
-              sourceManager: widget.manager,
-            ),
+      PopupMenuButton<String>(
+        tooltip: tr('游戏存档'),
+        enabled: _ready && !_saving,
+        onSelected: (value) =>
+            value == 'export' ? _exportSave() : _importSave(),
+        itemBuilder: (_) => [
+          PopupMenuItem(
+            value: 'export',
+            child: Text(tr('导出游戏存档（仅 localStorage）')),
           ),
-          icon: const Icon(Icons.info_outline_rounded),
-        ),
-      if (!widget.interactiveArt)
-        PopupMenuButton<String>(
-          tooltip: tr('游戏存档'),
-          enabled: _ready && !_saving,
-          onSelected: (value) =>
-              value == 'export' ? _exportSave() : _importSave(),
-          itemBuilder: (_) => [
-            PopupMenuItem(
-              value: 'export',
-              child: Text(tr('导出游戏存档（仅 localStorage）')),
-            ),
-            PopupMenuItem(
-              value: 'import',
-              child: Text(tr('导入游戏存档（仅 localStorage）')),
-            ),
-          ],
-        ),
-      if (!widget.interactiveArt)
-        IconButton(
-          tooltip: tr(_keysVisible ? '隐藏虚拟按键' : '显示虚拟按键'),
-          onPressed: () {
-            if (_keysVisible) _releaseKeys();
-            setState(() => _keysVisible = !_keysVisible);
-          },
-          icon: Icon(
-            _keysVisible
-                ? Icons.keyboard_hide_outlined
-                : Icons.keyboard_alt_outlined,
+          PopupMenuItem(
+            value: 'import',
+            child: Text(tr('导入游戏存档（仅 localStorage）')),
           ),
+        ],
+      ),
+      IconButton(
+        tooltip: tr(_keysVisible ? '隐藏虚拟按键' : '显示虚拟按键'),
+        onPressed: () {
+          if (_keysVisible) _releaseKeys();
+          setState(() => _keysVisible = !_keysVisible);
+        },
+        icon: Icon(
+          _keysVisible
+              ? Icons.keyboard_hide_outlined
+              : Icons.keyboard_alt_outlined,
         ),
+      ),
       IconButton(
         tooltip: tr(_landscape ? '竖屏' : '横屏'),
         onPressed: () => _setScreen(true, landscape: !_landscape),
@@ -809,10 +761,7 @@ catch(_){try{localStorage.clear();for(const [k,v] of Object.entries(old))localSt
                           identical(session, _session) &&
                           request.isForMainFrame == true) {
                         setState(
-                          () => _error = SourceError(
-                            'NETWORK',
-                            widget.interactiveArt ? '立绘加载失败' : '游戏加载失败',
-                          ),
+                          () => _error = SourceError('NETWORK', '游戏加载失败'),
                         );
                       }
                     },

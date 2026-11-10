@@ -49,7 +49,6 @@ Configure sign-in under More → Sites and proxies under More → Network when n
 | Read and watch | Gossip articles and video; scrolling, paged and two-page comics; video episodes, speed and resume; novel bookmarks, notes and read-aloud. |
 | Favorites and updates | Organize favorites, keep your progress, check new chapters and follow creators, channels or keywords. |
 | Online games | Play browser games without installing packages, with fullscreen and optional virtual controls. |
-| Interactive art | View animated artwork and interact using the site controls; offline downloads are unavailable. |
 | Offline and export | Download comics, videos, novels and game resources; import and export CBZ, and export completed gallery chapters as PDF. |
 | Rankings and image search | Browse doujinshi, anime and JAV rankings, or use an image to find candidate works. |
 | Work information | Browse, search and filter work information, open original-site ranking details, and choose detail and search sites. |

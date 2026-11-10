@@ -15,7 +15,6 @@ import '../library/playback_resolver.dart';
 import 'detail/detail_page.dart';
 import 'discovery_navigation.dart';
 import 'feed/feed_article.dart';
-import 'game/online_game_page.dart';
 import 'metadata/metadata_page.dart';
 import 'novel/novel_reader_page.dart';
 import 'reader/reader_page.dart';
@@ -212,13 +211,6 @@ class Nav {
             item: item,
             postScope: PostVideoContext.of(context),
           )
-        : SourceManager.instance.manifest(item.source)?.interactiveEntry ==
-              item.id
-        ? OnlineGamePage(
-            work: WorkDetail(item.json, item.source),
-            manager: SourceManager.instance,
-            interactiveArt: true,
-          )
         : DetailPage(
             source: item.source,
             id: item.id,
@@ -249,17 +241,6 @@ class Nav {
             )
           : _short(source)
           ? ShortVideoPage(source: source, initialId: resolved)
-          : manager.manifest(source)?.interactiveEntry == resolved
-          ? OnlineGamePage(
-              work: WorkDetail({
-                'id': resolved,
-                'title': manager.manifest(source)!.name,
-                'mediaKind': 'interactive',
-                'contentDomain': 'interactiveArt',
-              }, source),
-              manager: manager,
-              interactiveArt: true,
-            )
           : DetailPage(
               source: source,
               id: resolved,
@@ -312,10 +293,7 @@ class Nav {
   }) =>
       !downloadedOnly &&
           (work.isGame ||
-              work.isInteractive ||
-              SourceManager.instance.manifest(work.source)?.isGame == true ||
-              SourceManager.instance.manifest(work.source)?.isInteractive ==
-                  true)
+              SourceManager.instance.manifest(work.source)?.isGame == true)
       ? openWork(context, work.toItem())
       : push(
           context,
