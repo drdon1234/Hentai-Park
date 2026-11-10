@@ -29,7 +29,7 @@
     };
   }
   Park.register({
-    key: 'mad_viewer', name: 'MAD Viewer', version: '0.0.1', minAppVersion: '1.12.1',
+    key: 'mad_viewer', name: 'MAD Viewer', version: '0.0.2', minAppVersion: '0.13.0',
     type: 'interactive', category: 'interactiveArt', color: '#C77C9C',
     description: 'MAke Drama 互动立绘，支持服装和动作',
     homepage: BASE, language: 'multi', domains: ['altterisk.cc'], network: {mode: 'auto', vpnHint: true},

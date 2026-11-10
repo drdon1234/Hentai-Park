@@ -114,11 +114,19 @@ class AppReleaseAsset {
 }
 
 class AppUpdateResult {
-  const AppUpdateResult({this.currentVersion, this.release, this.failure});
+  const AppUpdateResult({
+    this.currentVersion,
+    this.release,
+    this.failure,
+    this.isDowngrade = false,
+  });
 
   final String? currentVersion;
   final AppRelease? release;
   final String? failure;
+
+  /// 仅官方 latest 可提供版本号回退更新，确认框必须明确提示。
+  final bool isDowngrade;
 }
 
 /// 仅检查官方稳定版发布；下载和安装须由界面获得用户确认后处理。
@@ -213,15 +221,20 @@ class AppUpdater extends ChangeNotifier {
       final rawUrl = data['html_url'];
       if (rawUrl is! String) throw const FormatException();
       final url = Uri.parse(rawUrl);
-      if (!_isOfficialReleasePage(rawUrl, url)) throw const FormatException();
+      if (!_isOfficialReleasePage(rawUrl, url) ||
+          url.pathSegments.last != tag) {
+        throw const FormatException();
+      }
       final notes = data['body'];
       if (notes != null && notes is! String) throw const FormatException();
-      // pub_semver 对构建号排序；应用升级遵循 SemVer，忽略构建号。
+      // 只以官方 /releases/latest 为最新发布，不按版本号寻找历史发布。
+      // latest 允许版本号回退；相同版本不重复提示，比较时忽略构建号。
       final precedence = Version.parse(versionText.split('+').first);
       final installedPrecedence = Version.parse(installed.split('+').first);
       return AppUpdateResult(
         currentVersion: installed,
-        release: precedence > installedPrecedence
+        isDowngrade: precedence < installedPrecedence,
+        release: precedence != installedPrecedence
             ? AppRelease(
                 version: versionText,
                 url: url,

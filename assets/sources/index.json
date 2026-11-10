@@ -5,8 +5,8 @@
     {
       "key": "mad_viewer",
       "name": "MAD Viewer",
-      "version": "0.0.1",
-      "minAppVersion": "1.12.1",
+      "version": "0.0.2",
+      "minAppVersion": "0.13.0",
       "type": "interactive",
       "category": "interactiveArt",
       "file": "mad_viewer.js",
@@ -15,8 +15,8 @@
     {
       "key": "lomapr",
       "name": "LOMapR",
-      "version": "0.0.1",
-      "minAppVersion": "1.12.1",
+      "version": "0.0.2",
+      "minAppVersion": "0.13.0",
       "type": "interactive",
       "category": "interactiveArt",
       "file": "lomapr.js",
@@ -25,8 +25,8 @@
     {
       "key": "destiny_child_live2d",
       "name": "Destiny Child Live2D",
-      "version": "0.0.1",
-      "minAppVersion": "1.12.1",
+      "version": "0.0.2",
+      "minAppVersion": "0.13.0",
       "type": "interactive",
       "category": "interactiveArt",
       "file": "destiny_child_live2d.js",
@@ -35,8 +35,8 @@
     {
       "key": "bd2_viewer",
       "name": "Brown Dust 2 Viewer",
-      "version": "0.0.2",
-      "minAppVersion": "1.12.1",
+      "version": "0.0.3",
+      "minAppVersion": "0.13.0",
       "type": "interactive",
       "category": "interactiveArt",
       "file": "bd2_viewer.js",
@@ -45,8 +45,8 @@
     {
       "key": "nikke_viewer",
       "name": "Nikke Database",
-      "version": "0.0.2",
-      "minAppVersion": "1.12.1",
+      "version": "0.0.3",
+      "minAppVersion": "0.13.0",
       "type": "interactive",
       "category": "interactiveArt",
       "file": "nikke_viewer.js",
@@ -55,8 +55,8 @@
     {
       "key": "daicore_viewer",
       "name": "DaiCoreViewer",
-      "version": "0.0.2",
-      "minAppVersion": "1.12.1",
+      "version": "0.0.3",
+      "minAppVersion": "0.13.0",
       "type": "interactive",
       "category": "interactiveArt",
       "file": "daicore_viewer.js",
@@ -65,8 +65,8 @@
     {
       "key": "hentaiasmr",
       "name": "Hentai ASMR",
-      "version": "0.0.1",
-      "minAppVersion": "1.12.1",
+      "version": "0.0.2",
+      "minAppVersion": "0.13.0",
       "type": "voice",
       "category": "asmr",
       "file": "hentaiasmr.js",
@@ -75,8 +75,8 @@
     {
       "key": "asmrhoney",
       "name": "ASMRHoney",
-      "version": "0.0.1",
-      "minAppVersion": "1.12.1",
+      "version": "0.0.2",
+      "minAppVersion": "0.13.0",
       "type": "voice",
       "category": "asmr",
       "file": "asmrhoney.js",
@@ -85,8 +85,8 @@
     {
       "key": "literotica_audio",
       "name": "Literotica Audio",
-      "version": "0.0.1",
-      "minAppVersion": "1.12.1",
+      "version": "0.0.2",
+      "minAppVersion": "0.13.0",
       "type": "voice",
       "category": "asmr",
       "file": "literotica_audio.js",
@@ -95,8 +95,8 @@
     {
       "key": "jasmr",
       "name": "JASMR",
-      "version": "0.0.1",
-      "minAppVersion": "1.12.1",
+      "version": "0.0.2",
+      "minAppVersion": "0.13.0",
       "type": "voice",
       "category": "asmr",
       "file": "jasmr.js",
@@ -105,8 +105,8 @@
     {
       "key": "asmrgay",
       "name": "ASMR Gay",
-      "version": "0.0.1",
-      "minAppVersion": "1.12.1",
+      "version": "0.0.2",
+      "minAppVersion": "0.13.0",
       "type": "voice",
       "category": "asmr",
       "file": "asmrgay.js",
@@ -115,8 +115,8 @@
     {
       "key": "asmrmoon",
       "name": "ASMR Moon",
-      "version": "0.0.1",
-      "minAppVersion": "1.12.1",
+      "version": "0.0.2",
+      "minAppVersion": "0.13.0",
       "type": "voice",
       "category": "asmr",
       "file": "asmrmoon.js",
@@ -125,8 +125,8 @@
     {
       "key": "eroasmr",
       "name": "EroASMR",
-      "version": "0.0.1",
-      "minAppVersion": "1.12.1",
+      "version": "0.0.2",
+      "minAppVersion": "0.13.0",
       "type": "video",
       "category": "asmr",
       "file": "eroasmr.js",
@@ -913,22 +913,22 @@
     {
       "key": "itchio",
       "name": "itch.io",
-      "version": "0.0.1",
+      "version": "0.0.2",
       "type": "game",
       "category": "onlineGame",
       "file": "itchio.js",
       "description": "独立网页游戏，支持语言和标签浏览",
-      "minAppVersion": "1.12.1"
+      "minAppVersion": "0.13.0"
     },
     {
       "key": "gamcore",
       "name": "Gamcore",
-      "version": "0.0.1",
+      "version": "0.0.2",
       "type": "game",
       "category": "onlineGame",
       "file": "gamcore.js",
       "description": "在线 HTML 与 Flash 游戏，支持分类和搜索",
-      "minAppVersion": "1.12.1"
+      "minAppVersion": "0.13.0"
     },
     {
       "key": "kungal",

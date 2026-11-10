@@ -24,7 +24,7 @@
   const cache = new Map();
 
   Park.register({
-    i18n: copy, key: 'asmrhoney', name: 'ASMRHoney', version: '0.0.1', minAppVersion: '1.12.1',
+    i18n: copy, key: 'asmrhoney', name: 'ASMRHoney', version: '0.0.2', minAppVersion: '0.13.0',
     type: 'voice', category: 'asmr', color: '#9A6572',
     description: '中文与多语 ASMR 音视频，支持创作者和标签筛选',
     homepage: BASE, domains: ['asmrhoney.com'], network: {mode: 'auto', vpnHint: true},

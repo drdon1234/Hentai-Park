@@ -102,7 +102,7 @@ Future<void> showAppUpdatePrompt(
     context: context,
     builder: (ctx) => ReminderPromptDialog(
       icon: Icons.system_update_alt_rounded,
-      title: tr('发现软件新版本'),
+      title: tr(result.isDowngrade ? '发现官方最新版本' : '发现软件新版本'),
       primaryLabel: tr(service.supported ? '下载并安装' : '前往下载'),
       onIgnore: () async {
         final settings = AppSettings.instance;
@@ -115,6 +115,13 @@ Future<void> showAppUpdatePrompt(
           currentVersion: result.currentVersion ?? '',
           latestVersion: release.version,
         ),
+        if (result.isDowngrade) ...[
+          const SizedBox(height: Gap.l),
+          Text(
+            tr('官方最新版本的版本号低于当前已安装版本。继续将回退版本号，请确认后再安装。'),
+            style: ctx.text.bodyMedium,
+          ),
+        ],
         const SizedBox(height: Gap.l),
         Text(
           tr(

@@ -44,7 +44,7 @@
       ru: {...words.ru, '英语原创音声与有声故事，支持排行和搜索': 'Оригинальные английские аудио и рассказы с рейтингами и поиском', '评分最高': 'По рейтингу', '播放最多': 'По прослушиваниям'},
       ar: {...words.ar, '英语原创音声与有声故事，支持排行和搜索': 'صوتيات وقصص إنجليزية أصلية مع ترتيب وبحث', '评分最高': 'الأعلى تقييمًا', '播放最多': 'الأكثر تشغيلًا'},
     },
-    key: 'literotica_audio', name: 'Literotica Audio', version: '0.0.1', minAppVersion: '1.12.1',
+    key: 'literotica_audio', name: 'Literotica Audio', version: '0.0.2', minAppVersion: '0.13.0',
     type: 'voice', category: 'asmr', color: '#AE3942',
     description: '英语原创音声与有声故事，支持排行和搜索',
     homepage: HOME + '/c/audio-sex-stories', domains: ['literotica.com'],

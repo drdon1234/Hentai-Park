@@ -5,7 +5,7 @@
   const work = {id: 'viewer', title: "DaiCoreViewer", cover: '', url: URL,
     mediaKind: 'interactive', contentDomain: 'interactiveArt'};
   Park.register({
-    key: "daicore_viewer", name: "DaiCoreViewer", version: '0.0.2', minAppVersion: '1.12.1',
+    key: "daicore_viewer", name: "DaiCoreViewer", version: '0.0.3', minAppVersion: '0.13.0',
     interactiveEntry: 'viewer',
     type: 'interactive', category: 'interactiveArt', color: "#C3877E",
     description: "Daiblos Core 互动立绘，在查看器内选择角色和服装", homepage: "https://daicoreviewer.jelosus1.dev/", language: 'multi',

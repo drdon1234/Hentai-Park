@@ -1,4 +1,6 @@
 {
+  "发现官方最新版本": "Latest official release available",
+  "官方最新版本的版本号低于当前已安装版本。继续将回退版本号，请确认后再安装。": "The latest official release has a lower version number than the installed version. Continuing will roll back the version number. Please confirm before installing.",
   "互动立绘": "Interactive art",
   "查看立绘": "View artwork",
   "此站点不支持互动立绘": "This site does not support interactive art",

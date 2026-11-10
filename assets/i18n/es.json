@@ -1,4 +1,6 @@
 {
+  "发现官方最新版本": "Nueva versión oficial disponible",
+  "官方最新版本的版本号低于当前已安装版本。继续将回退版本号，请确认后再安装。": "La última versión oficial tiene un número de versión inferior al de la versión instalada. Si continúas, el número de versión se reducirá. Confirma antes de instalar.",
   "互动立绘": "Ilustraciones interactivas",
   "查看立绘": "Ver ilustración",
   "此站点不支持互动立绘": "Este sitio no admite ilustraciones interactivas",

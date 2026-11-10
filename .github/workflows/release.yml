@@ -82,3 +82,4 @@ jobs:
           body_path: test/notes/release-notes.md
           files: test/release/*
           fail_on_unmatched_files: true
+          make_latest: true

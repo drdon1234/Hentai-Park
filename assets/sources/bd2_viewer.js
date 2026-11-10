@@ -5,7 +5,7 @@
   const work = {id: 'viewer', title: "Brown Dust 2 Viewer", cover: '', url: URL,
     mediaKind: 'interactive', contentDomain: 'interactiveArt'};
   Park.register({
-    key: "bd2_viewer", name: "Brown Dust 2 Viewer", version: '0.0.2', minAppVersion: '1.12.1',
+    key: "bd2_viewer", name: "Brown Dust 2 Viewer", version: '0.0.3', minAppVersion: '0.13.0',
     interactiveEntry: 'viewer',
     type: 'interactive', category: 'interactiveArt', color: "#AA85C4",
     description: "棕色尘埃 2 动态立绘，在查看器内选择角色和服装", homepage: "https://jelosus2.github.io/BD2-L2D-Viewer/", language: 'multi',

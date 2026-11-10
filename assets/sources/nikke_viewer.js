@@ -5,7 +5,7 @@
   const work = {id: 'viewer', title: "Nikke Database", cover: '', url: URL,
     mediaKind: 'interactive', contentDomain: 'interactiveArt'};
   Park.register({
-    key: "nikke_viewer", name: "Nikke Database", version: '0.0.2', minAppVersion: '1.12.1',
+    key: "nikke_viewer", name: "Nikke Database", version: '0.0.3', minAppVersion: '0.13.0',
     interactiveEntry: 'viewer',
     type: 'interactive', category: 'interactiveArt', color: "#E584A1",
     description: "NIKKE 互动立绘，在查看器内选择角色", homepage: "https://nikke-db.pages.dev", language: 'multi',

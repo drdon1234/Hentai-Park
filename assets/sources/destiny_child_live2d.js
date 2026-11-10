@@ -21,7 +21,7 @@
       mediaKind: 'interactive', contentDomain: 'interactiveArt'};
   }
   Park.register({
-    key: 'destiny_child_live2d', name: 'Destiny Child Live2D', version: '0.0.1', minAppVersion: '1.12.1',
+    key: 'destiny_child_live2d', name: 'Destiny Child Live2D', version: '0.0.2', minAppVersion: '0.13.0',
     type: 'interactive', category: 'interactiveArt', color: '#D580AC',
     description: '天命之子 Live2D 模型归档，支持角色和服装搜索',
     homepage: BASE, language: 'multi', domains: ['live2d-dcg.github.io'], network: {mode: 'auto', vpnHint: true},

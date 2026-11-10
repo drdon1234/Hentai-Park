@@ -61,7 +61,7 @@
     return {items: rows, page, hasNext: next};
   }
   Park.register({
-    key: 'itchio', name: 'itch.io', version: '0.0.1', minAppVersion: '1.12.1',
+    key: 'itchio', name: 'itch.io', version: '0.0.2', minAppVersion: '0.13.0',
     type: 'game', category: 'onlineGame', color: '#FA5C5C',
     description: '独立网页游戏，支持语言和标签浏览', homepage: BASE, language: 'multi',
     domains: ['itch.io'], network: {mode: 'auto', vpnHint: true, confirmation: {

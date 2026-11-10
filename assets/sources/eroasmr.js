@@ -8,7 +8,7 @@ Park.register({
     ru: {'真人 ASMR 视频，支持浏览和搜索': 'Просмотр и поиск ASMR-видео с актёрами'},
     ar: {'真人 ASMR 视频，支持浏览和搜索': 'تصفح فيديوهات ASMR الحية والبحث فيها'},
   },
-  key: 'eroasmr', name: 'EroASMR', version: '0.0.1', minAppVersion: '1.12.1',
+  key: 'eroasmr', name: 'EroASMR', version: '0.0.2', minAppVersion: '0.13.0',
   type: 'video', category: 'asmr', color: '#6B5676',
   description: '真人 ASMR 视频，支持浏览和搜索',
   homepage: 'https://eroasmr.com', domains: ['eroasmr.com'],

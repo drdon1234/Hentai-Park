@@ -56,7 +56,7 @@
     return {items: rows, page, hasNext};
   }
   Park.register({
-    key: 'gamcore', name: 'Gamcore', version: '0.0.1', minAppVersion: '1.12.1',
+    key: 'gamcore', name: 'Gamcore', version: '0.0.2', minAppVersion: '0.13.0',
     type: 'game', category: 'onlineGame', color: '#F5681B',
     description: '在线 HTML 与 Flash 游戏，支持分类和搜索', homepage: BASE, language: 'multi',
     domains: ['gamcore.com'], network: {mode: 'auto', vpnHint: true},

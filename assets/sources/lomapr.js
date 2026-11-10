@@ -22,7 +22,7 @@
       mediaKind: 'interactive', contentDomain: 'interactiveArt'};
   }
   Park.register({
-    key: 'lomapr', name: 'LOMapR', version: '0.0.1', minAppVersion: '1.12.1',
+    key: 'lomapr', name: 'LOMapR', version: '0.0.2', minAppVersion: '0.13.0',
     type: 'interactive', category: 'interactiveArt', color: '#D19977',
     description: 'Last Origin 角色立绘，在角色页选择 Skin 查看',
     homepage: BASE, language: 'multi', domains: ['altterisk.cc'], network: {mode: 'auto', vpnHint: true},

@@ -11,7 +11,7 @@ Park.register({
     ru: {'中文、日韩与英语音声归档，支持多层目录与搜索': 'Архив китайских, японских, корейских и английских аудио с папками и поиском', '日韩音声': 'Японский и корейский'},
     ar: {'中文、日韩与英语音声归档，支持多层目录与搜索': 'أرشيف صوتيات صينية ويابانية وكورية وإنجليزية مع مجلدات وبحث', '日韩音声': 'اليابانية والكورية'},
   },
-  key: 'asmrmoon', name: 'ASMR Moon', version: '0.0.1', minAppVersion: '1.12.1',
+  key: 'asmrmoon', name: 'ASMR Moon', version: '0.0.2', minAppVersion: '0.13.0',
   type: 'voice', category: 'asmr', color: '#665D89',
   description: '中文、日韩与英语音声归档，支持多层目录与搜索',
   homepage: 'https://asmrmoon.com', domains: ['asmrmoon.com'],
