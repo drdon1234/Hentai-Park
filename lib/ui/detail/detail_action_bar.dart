@@ -39,7 +39,16 @@ class DetailActionBar extends StatelessWidget {
   /// 单页图片已在详情中显示，主操作改为全屏查看。
   final bool singlePage;
 
+  String? get _voiceType => detail?.json['voiceRoot'] is Map
+      ? (detail!.json['voiceRoot'] as Map)['type']?.toString()
+      : null;
+  bool get _directory => _voiceType == 'directory';
+  bool get _attachment =>
+      const {'image', 'subtitle', 'script'}.contains(_voiceType);
+
   bool get _empty =>
+      !_directory &&
+      !_attachment &&
       detail?.hasNoChapters == true &&
       kind != DetailKind.video &&
       kind != DetailKind.game &&
@@ -70,16 +79,23 @@ class DetailActionBar extends StatelessWidget {
                     minimumSize: const Size.fromHeight(48),
                   ),
                   onPressed: detail == null || _empty ? null : onPrimary,
-                  icon: Icon(switch (kind) {
-                    DetailKind.game ||
-                    DetailKind.onlineGame => Icons.sports_esports_outlined,
-                    DetailKind.external => Icons.open_in_browser_rounded,
-                    DetailKind.video => Icons.play_arrow_rounded,
-                    DetailKind.reading when singlePage =>
-                      Icons.fullscreen_rounded,
-                    DetailKind.reading ||
-                    DetailKind.novel => Icons.auto_stories_outlined,
-                  }),
+                  icon: Icon(
+                    _directory
+                        ? Icons.folder_outlined
+                        : _attachment
+                        ? Icons.description_outlined
+                        : switch (kind) {
+                            DetailKind.game || DetailKind.onlineGame =>
+                              Icons.sports_esports_outlined,
+                            DetailKind.external =>
+                              Icons.open_in_browser_rounded,
+                            DetailKind.video => Icons.play_arrow_rounded,
+                            DetailKind.reading when singlePage =>
+                              Icons.fullscreen_rounded,
+                            DetailKind.reading ||
+                            DetailKind.novel => Icons.auto_stories_outlined,
+                          },
+                  ),
                   label: SelectionContainer.disabled(
                     child: Text(
                       _empty ? tr('暂无章节') : _primaryLabel(),
@@ -131,6 +147,8 @@ class DetailActionBar extends StatelessWidget {
   }
 
   String _primaryLabel() {
+    if (_directory) return tr('打开目录');
+    if (_attachment) return tr('查看附件');
     final h = Library.instance.historyOf(item.uid);
     switch (kind) {
       case DetailKind.game:

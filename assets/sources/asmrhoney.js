@@ -9,8 +9,8 @@
       {value: 'views', label: '播放量'}, {value: 'recent', label: '最新'},
       {value: 'duration', label: '时长最长'}, {value: 'title', label: '标题'},
     ]},
-    {key: 'creator', label: '创作者', default: 'all', dynamic: true, values: []},
-    {key: 'tag', label: '标签', default: 'all', dynamic: true, values: []},
+    {key: 'creator', label: '创作者', default: 'all', dynamic: true, dependsOn: ['region'], values: []},
+    {key: 'tag', label: '标签', default: 'all', dynamic: true, dependsOn: ['region', 'creator'], values: []},
   ];
   const copy = {
     'zh-Hant': {'中文与多语 ASMR 音视频，支持创作者和标签筛选': '中文與多語 ASMR 音視訊，支援創作者和標籤篩選', '日韩音声': '日韓音聲', '欧美': '歐美', '时长最长': '時長最長', '地区': '地區', '播放量': '播放量', '创作者': '創作者'},
@@ -24,7 +24,7 @@
   const cache = new Map();
 
   Park.register({
-    i18n: copy, key: 'asmrhoney', name: 'ASMRHoney', version: '0.0.3', minAppVersion: '0.13.2',
+    i18n: copy, key: 'asmrhoney', name: 'ASMRHoney', version: '0.0.4', minAppVersion: '0.13.3',
     type: 'voice', category: 'asmr', color: '#9A6572',
     description: '中文与多语 ASMR 音视频，支持创作者和标签筛选',
     homepage: BASE, domains: ['asmrhoney.com'], network: {mode: 'auto', vpnHint: true},
@@ -39,7 +39,7 @@
       {key: 'kind', label: '类型', default: 'all', values: [
         {value: 'all', label: '全部'}, {value: 'video', label: '视频'}, {value: 'audio', label: '音频'},
       ]},
-      ...filters.map(option => option.key === 'region' ? {...option, default: 'all'} : option),
+      ...filters.map(option => option.key === 'region' ? {...option, default: 'all'} : option.dynamic ? {...option, dependsOn: [...option.dependsOn, 'kind']} : option),
     ],
 
     slug(value) {
@@ -151,21 +151,30 @@
       return this.listing(request, String(request.filters?.kind || 'all'), keyword);
     },
     async filterOptions(request) {
+      if (!['creator', 'tag'].includes(request.filter)) throw Park.error('CONFIG', '筛选参数无效');
+      const values = request.values || {};
+      const region = String(values.region || (request.scope === 'search' ? 'all' : 'zh'));
+      const kind = request.scope === 'search' ? String(values.kind || 'all') : request.feed === 'audio' ? 'audio' : 'video';
+      const {audio, clips, creators} = await this.catalog();
+      const rows = [
+        ...(kind !== 'audio' ? clips : []),
+        ...(kind !== 'video' ? [...audio.albums, ...audio.tracks.filter(row => !row.albumSlug)] : []),
+      ].filter(row => row.status === 'published' && creators.has(row.creator) &&
+        (region === 'all' || creators.get(row.creator).region === region));
       if (request.filter === 'creator') {
-        const data = await this.data('streamers');
-        if (!Array.isArray(data.streamers) || data.streamers.length > 499) throw Park.error('PARSE', '媒体数据无效');
-        return [{value: 'all', label: '全部'}, ...data.streamers.map(value => ({value: this.slug(value.slug), label: String(value.displayName || value.name || '')}))];
+        const used = new Set(rows.map(row => row.creator));
+        return [{value: 'all', label: '全部'}, ...[...creators.values()].filter(row => used.has(row.slug))
+          .map(row => ({value: this.slug(row.slug), label: String(row.displayName || row.name || '')}))];
       }
-      if (request.filter === 'tag') {
-        const data = await this.data('triggers');
-        if (!Array.isArray(data.triggers) || data.triggers.length > 499) throw Park.error('PARSE', '媒体数据无效');
-        return [{value: 'all', label: '全部'}, ...data.triggers.map(value => {
-          const slug = String(value.slug || '');
-          if (!/^[a-z0-9][a-z0-9_-]{0,180}$/.test(slug)) throw Park.error('PARSE', '媒体数据无效');
-          return {value: slug, label: String(value.label_zh || slug)};
-        })];
-      }
-      throw Park.error('CONFIG', '筛选参数无效');
+      const used = new Set(rows.filter(row => !values.creator || values.creator === 'all' || row.creator === values.creator)
+        .flatMap(row => Array.isArray(row.tags) ? row.tags : []));
+      const data = await this.data('triggers');
+      if (!Array.isArray(data.triggers) || data.triggers.length > 499) throw Park.error('PARSE', '媒体数据无效');
+      return [{value: 'all', label: '全部'}, ...data.triggers.filter(row => used.has(row.slug)).map(row => {
+        const slug = String(row.slug || '');
+        if (!/^[a-z0-9][a-z0-9_-]{0,180}$/.test(slug)) throw Park.error('PARSE', '媒体数据无效');
+        return {value: slug, label: String(row.label_zh || slug)};
+      })];
     },
     async resolve(value) {
       const id = this.parseId(value), {audio, clips, creators} = await this.catalog();

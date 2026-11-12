@@ -5,8 +5,8 @@
     {
       "key": "hentaiasmr",
       "name": "Hentai ASMR",
-      "version": "0.0.2",
-      "minAppVersion": "0.13.0",
+      "version": "0.0.3",
+      "minAppVersion": "0.13.3",
       "type": "voice",
       "category": "asmr",
       "file": "hentaiasmr.js",
@@ -15,8 +15,8 @@
     {
       "key": "asmrhoney",
       "name": "ASMRHoney",
-      "version": "0.0.3",
-      "minAppVersion": "0.13.2",
+      "version": "0.0.4",
+      "minAppVersion": "0.13.3",
       "type": "voice",
       "category": "asmr",
       "file": "asmrhoney.js",
@@ -45,8 +45,8 @@
     {
       "key": "asmrgay",
       "name": "ASMR Gay",
-      "version": "0.0.3",
-      "minAppVersion": "0.13.2",
+      "version": "0.0.4",
+      "minAppVersion": "0.13.3",
       "type": "voice",
       "category": "asmr",
       "file": "asmrgay.js",
@@ -55,8 +55,8 @@
     {
       "key": "asmrmoon",
       "name": "ASMR Moon",
-      "version": "0.0.3",
-      "minAppVersion": "0.13.2",
+      "version": "0.0.4",
+      "minAppVersion": "0.13.3",
       "type": "voice",
       "category": "asmr",
       "file": "asmrmoon.js",
@@ -65,8 +65,8 @@
     {
       "key": "eroasmr",
       "name": "EroASMR",
-      "version": "0.0.2",
-      "minAppVersion": "0.13.0",
+      "version": "0.0.3",
+      "minAppVersion": "0.13.3",
       "type": "video",
       "category": "asmr",
       "file": "eroasmr.js",
@@ -505,32 +505,32 @@
     {
       "key": "huangdou",
       "name": "黄豆短剧",
-      "version": "0.0.10",
+      "version": "0.0.11",
       "type": "video",
       "category": "aiDrama",
       "file": "huangdou.js",
       "description": "AI短剧与漫剧，支持分类、排行、搜索和分集播放",
-      "minAppVersion": "0.13.2"
+      "minAppVersion": "0.13.3"
     },
     {
       "key": "drama91",
       "name": "91短剧",
-      "version": "0.0.10",
+      "version": "0.0.11",
       "type": "video",
       "category": "aiDrama",
       "file": "drama91.js",
       "description": "AI短剧、漫剧与视频，支持推荐、分类、搜索和分集播放",
-      "minAppVersion": "0.13.2"
+      "minAppVersion": "0.13.3"
     },
     {
       "key": "huangguo",
       "name": "黄果短剧",
-      "version": "0.0.13",
+      "version": "0.0.14",
       "type": "video",
       "category": "aiDrama",
       "file": "huangguo.js",
       "description": "AI短剧与漫剧，支持分类、排行、搜索和分集播放",
-      "minAppVersion": "0.13.2"
+      "minAppVersion": "0.13.3"
     },
     {
       "key": "rouvideo-drama",

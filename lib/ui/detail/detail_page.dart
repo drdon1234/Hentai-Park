@@ -22,6 +22,7 @@ import '../game/online_game_page.dart';
 import '../kit/adaptive_sheet.dart';
 import '../nav.dart';
 import '../theme.dart';
+import '../voice/voice_attachment_page.dart';
 import '../voice/voice_directory_page.dart';
 import '../widgets/common.dart';
 import '../widgets/content_translation.dart';
@@ -82,7 +83,8 @@ class _DetailPageState extends State<DetailPage> with RouteAware {
   bool get _opensExternally => _isVideo && _m?.opensExternally == true;
   bool get _webVideo => _isVideo && _m?.usesWebVideo == true;
   bool get _isLive => _m?.isLive == true;
-  bool get _voiceArchive => _m?.can('voiceDirectory') == true;
+  bool get _voiceArchive =>
+      _m?.can('voiceDirectory') == true && _detail?.json['voiceRoot'] is Map;
   bool get _isGame =>
       _item.mediaKind != null ? _item.isGame : _m?.isGame == true;
   bool get _onlineGame =>
@@ -363,6 +365,23 @@ class _DetailPageState extends State<DetailPage> with RouteAware {
     try {
       if (raw is! Map) throw const FormatException();
       final root = VoiceNode.fromJson(raw.cast<String, dynamic>());
+      if (root.playable) {
+        unawaited(Nav.openVideo(context, work));
+        return;
+      }
+      if (root.kind != VoiceNodeKind.directory) {
+        unawaited(
+          Nav.push(
+            context,
+            VoiceAttachmentPage(
+              work: work,
+              node: root,
+              sourceManager: _manager,
+            ),
+          ),
+        );
+        return;
+      }
       unawaited(
         Nav.push(
           context,

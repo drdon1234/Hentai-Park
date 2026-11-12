@@ -11,7 +11,6 @@ import '../../core/models.dart';
 import '../../core/platform_capabilities.dart';
 import '../../core/timed_subtitles.dart';
 import '../../core/voice.dart';
-import '../../core/voice_timeline.dart';
 import '../../engine/desktop_shutdown.dart';
 import '../../engine/source_manager.dart';
 import '../../images/image_store.dart';
@@ -58,7 +57,13 @@ class VideoSession extends ChangeNotifier {
   final List<Chapter> episodes;
   late Chapter episode;
   bool joinedVoice = false;
-  ({VoiceTimeline timeline, List<TimedSubtitleCue> cues})? voiceSequence;
+  final voiceDurations = <String, Duration>{};
+  final voiceCaptions = <String, TimedSubtitles>{};
+
+  void setJoinedVoice(bool value) {
+    joinedVoice = value;
+    _update();
+  }
 
   bool get isLive =>
       !downloadedOnly &&
@@ -68,6 +73,15 @@ class VideoSession extends ChangeNotifier {
   bool get isAudio {
     final kind = (work.json['voiceTrackKinds'] as Map?)?[episode.id];
     return kind == 'audio' ||
+        const {
+          'mp3',
+          'm4a',
+          'aac',
+          'wav',
+          'flac',
+          'ogg',
+          'opus',
+        }.contains(current?.format) ||
         (kind == null && work.voiceMediaForm == VoiceMediaForm.audioOnly);
   }
 
@@ -519,6 +533,9 @@ class VideoSession extends ChangeNotifier {
       }
       c.addListener(_onTick);
       _requestedPosition = null;
+      if (c.value.duration > Duration.zero) {
+        voiceDurations[episode.id] = c.value.duration;
+      }
       _completed = !isLive && c.value.isCompleted;
       controller = c;
       _media = media;

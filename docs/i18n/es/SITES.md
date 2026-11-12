@@ -31,7 +31,7 @@ La comprobación de actualizaciones pide confirmación para eliminar plugins ofi
 | Recursos de juegos | KUN Galgame · GalgameX · 次元茶馆 |
 | Juegos en línea | itch.io · Gamcore |
 
-El audio organizado en carpetas permite navegar en árbol y expandir los resultados de búsqueda. Las obras con varias pistas ofrecen reproducción unida con una línea de tiempo y subtítulos combinados para la lista actual. La preparación inicial consulta cada pista en línea; puede haber breves pausas de carga entre pistas.
+El audio organizado en carpetas utiliza tarjetas en las listas y búsquedas, con un icono de auriculares cuando no hay portada. Al abrir una carpeta se puede explorar su jerarquía. La reproducción unida carga el audio y los subtítulos al seleccionar cada pista; la línea de tiempo completa aparece cuando se conocen todas las duraciones. Puede haber una breve espera entre pistas.
 
 ASMRHoney admite colecciones de vídeos, colecciones anidadas e imágenes adjuntas. Los juegos en línea reutilizan los recursos grandes sin cambios y necesitan conexión para comprobar su versión; algunos juegos se descomprimen o inicializan en cada inicio.
 

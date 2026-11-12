@@ -299,7 +299,7 @@ media: { mode: 'native', origin: 'https://example.com', domains: ['media.example
 - MP4 必须声明 `media.mode: 'native'`。播放器通过独立的本地流式会话访问远端文件，使用应用内代理并支持 `GET`、`HEAD` 和单段 `Range`；已下载的区间保存在本次播放会话的临时文件中（单会话上限 1 GiB），往回拖动直接读取，关闭播放即删除。每次重定向须匹配静态媒体域名白名单或会话授权，关闭播放会话会终止上游请求。HLS 点播分段同样在会话内落盘缓存。`media.mode: 'browser'` 用于 HLS。
 - `'native'`：使用独立、无凭据的客户端，不读写站点 Cookie、Authorization 或代理认证，每次重定向前先校验目标。只允许 `Referer`、`Origin`、`Accept`、`Accept-Language`；前两者须属于声明的站点域（含语言子域），`Origin` 只能包含来源 origin。
 - `media.referrerDomains` 可选，仅限原生视频媒体，最多 16 个有效公网域名（含子域）。它仅为 `Referer` 增加允许的来源，作为上述站点域限制的明确例外；不扩大 `Origin`、媒体地址、文档导航或 Cookie 权限，不允许用于 `imageNetwork` 或浏览器媒体。
-- 原生媒体可通过 `media.requestHeaders` 声明专用 CDN 请求头，例如 `{'x-cdn-auth': {domains: ['cdn.example.org'], extensions: ['m3u8']}}`。最多 8 个小写 `x-` 请求头，每项最多 16 个公网域名及 8 个扩展名；实际值由当次 `videos().headers` 提供，每值最多 4096 字符且不得包含换行。每次请求及重定向都重新匹配目标域名和路径扩展名，不匹配时移除该头；不开放 Cookie、Authorization 或浏览器媒体权限。临时值不得写入作品、日志或插件存储。使用此能力要求 `minAppVersion: '0.13.1'`。
+- 原生会话媒体可通过 `media.requestHeaders` 声明专用请求头，例如 `{'x-cdn-auth': {scope: 'playback-origin', extensions: ['m3u8']}}`。最多 8 个小写 `x-` 请求头，每项最多 8 个扩展名；实际值由当次 `videos().headers` 提供，每值最多 4096 字符且不得包含换行。请求头绑定本次接口返回的媒体 URL 的 origin，仅发送给当前会话已授权且扩展名匹配的同源资源；不维护 CDN 域名名单，换源时重新绑定，跨源重定向移除这些头。Cookie、Authorization 和浏览器媒体权限不开放，临时值不得写入作品、日志或插件存储。使用此能力要求 `minAppVersion: '0.13.3'`。
 - 动态 HLS CDN 可声明 `media.scope: 'session'`（仅限 `mode: 'native'`）。授权只覆盖当前播放或下载会话中解析的地址、清单资源及允许的重定向，关闭会话即失效，不扩大 Cookie 权限或持久化域名白名单。请求仍受 HTTPS、无凭据、目标地址和响应大小限制；直连 MP4 与浏览器媒体继续使用静态域名白名单。
 - `'browser'`：在 `media.origin` 建立隐藏会话，文档可在声明的站点域内导航。请求使用 `credentials: 'omit'`、`mode: 'cors'`，Origin/Referer 由真实文档和浏览器生成。Windows 通过 WebView2 在每次连接前校验资源域，允许授权域间重定向，并复核最终地址；其他内核缺少逐跳拦截接口，使用 `redirect: 'error'`。CORS 和原站 CSP 仍然生效，不能用只检查最终 URL 的方式放开跳转。
 - 响应流式限长并重新校验响应地址：清单最多 2 MiB，单个分段最多 32 MiB，AES-128 密钥必须 16 字节；超限、空响应或不允许的地址一律拒绝。
@@ -354,7 +354,7 @@ account: {
 
 `Park.createVoiceArchive({base, feeds, languageRoots?, subtitleRoots?})` 提供公开 AList 只读目录的通用实现，源仍须声明真实的分类、权限和筛选项。`languageRoots` 给原站明确的目录标注语言状态，`subtitleRoots` 给原站明确的字幕目录标注语言；不得仅凭文件扩展名推断语言。普通单曲音声源可直接实现 `videos()`，无需伪造目录。详情也可通过 `voiceSubtitles: {episodeId: [subtitleId]}` 声明原站明确关联的字幕；单曲默认 `episodeId` 为 `_`。每组最多 50 个非空、互不重复且不含 URL 的稳定字幕 ID，并须实现 `voiceResource(workId, subtitleId)` 解析。
 
-目录式音声列表可声明 `presentation: 'tree'`，同时提供稳定 `id`、`title` 与 `voiceNodeType`（与目录节点类型相同），并实现音声目录与资源接口。站点浏览、单站搜索、聚合搜索及首页预览共用目录行，目录可展开，文件进入同级目录播放或查看；不使用空封面作品卡模拟文件夹。共享 AList 实现自动输出该展示方式，保留目录、音视频、字幕、图片与台本。使用此展示方式要求 `minAppVersion: '0.13.1'`。
+目录式音声列表和搜索使用普通作品卡片，保留 `voiceNodeType`、稳定 `id`、`title` 与父目录 `subtitle`；无封面音声显示耳机图标。打开目录后使用目录树，文件按实际类型播放或查看附件。共享 AList 实现默认搜索目录，用户可切换全部或文件；支持目录、音视频、字幕、图片与文本台本，不将 PDF 当作文本台本。
 
 同源查询 POST 只有在确实只读并显式声明 `readOnly: true` 时，才可在自动网络模式下按现有验证框架回退浏览器；文本请求体上限 2 MiB，二进制、写操作、跨源、禁重定向与指定连接地址的请求不回退。不得将有副作用的操作标为只读。
 

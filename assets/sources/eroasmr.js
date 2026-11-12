@@ -8,15 +8,14 @@ Park.register({
     ru: {'真人 ASMR 视频，支持浏览和搜索': 'Просмотр и поиск ASMR-видео с актёрами'},
     ar: {'真人 ASMR 视频，支持浏览和搜索': 'تصفح فيديوهات ASMR الحية والبحث فيها'},
   },
-  key: 'eroasmr', name: 'EroASMR', version: '0.0.2', minAppVersion: '0.13.0',
+  key: 'eroasmr', name: 'EroASMR', version: '0.0.3', minAppVersion: '0.13.3',
   type: 'video', category: 'asmr', color: '#6B5676',
   description: '真人 ASMR 视频，支持浏览和搜索',
   homepage: 'https://eroasmr.com', domains: ['eroasmr.com'],
   network: {vpnHint: true},
   media: {mode: 'native', origin: 'https://eroasmr.com', domains: ['eroasmr.com']},
   imageHeaders: {Referer: 'https://eroasmr.com/'},
-  defaultFeed: 'latest', feeds: [{key: 'latest', label: '最新'},
-    {key: 'categories', label: '分类', options: [{key: 'category', label: '分类', default: '', dynamic: true, values: []}]}],
+  defaultFeed: 'latest', feeds: [{key: 'latest', label: '最新', options: [{key: 'category', label: '分类', default: '', dynamic: true, values: []}]}],
   searchFilters: [{key: 'category', label: '分类', default: '', dynamic: true, values: []}],
   linkPatterns: ['eroasmr\\.com/video/([a-z0-9-]+)(?:/|[?#]|$)'],
   idPattern: '^[a-z0-9][a-z0-9-]{0,199}$',
@@ -77,14 +76,13 @@ Park.register({
   },
 
   async feed(key, req) {
-    if (key === 'categories') {
+    if (key === 'latest') {
       const category = String(req.options?.category || '');
       if (!category) return this.listing(req, {post_type: 'viem_video'});
       if (!/^[a-z0-9-]{1,100}$/.test(category)) throw Park.error('CONFIG', '筛选参数无效');
       return this.listing(req, {}, '/video-category/' + category + '/');
     }
-    if (key !== 'latest') throw Park.error('CONFIG', '筛选参数无效');
-    return this.listing(req, {post_type: 'viem_video'});
+    throw Park.error('CONFIG', '筛选参数无效');
   },
 
   async search(req) {

@@ -6,7 +6,7 @@
     otome: 'category/otome', erovoice: 'category/erovoice',
   };
   const options = [
-    {key: 'category', label: '分类', default: 'subtitled', values: [
+    {key: 'category', label: '分类', default: 'all', values: [
       {value: 'subtitled', label: '中文字幕'}, {value: 'chinese', label: '中文配音'},
       {value: 'english', label: '英语'}, {value: 'otome', label: '乙女向'},
       {value: 'erovoice', label: '音声'}, {value: 'all', label: '全部'},
@@ -29,7 +29,7 @@
       ru: {'中文配音与汉化同人音声，支持多轨字幕': 'Китайские и переведённые додзин-аудио с субтитрами для дорожек', '乙女向': 'Отомэ', '时长最长': 'Самые длинные', '浏览': 'Обзор', '播放量': 'Просмотры', '随机': 'Случайно'},
       ar: {'中文配音与汉化同人音声，支持多轨字幕': 'أعمال صوتية صينية ومترجمة مع ترجمة للمقاطع المتعددة', '乙女向': 'أوتومي', '时长最长': 'الأطول', '浏览': 'تصفح', '播放量': 'المشاهدات', '随机': 'عشوائي'},
     },
-    key: 'hentaiasmr', name: 'Hentai ASMR', version: '0.0.2', minAppVersion: '0.13.0',
+    key: 'hentaiasmr', name: 'Hentai ASMR', version: '0.0.3', minAppVersion: '0.13.3',
     type: 'voice', category: 'asmr', color: '#765A80',
     description: '中文配音与汉化同人音声，支持多轨字幕',
     homepage: BASE, domains: ['hentaiasmr.moe'], network: {mode: 'auto', vpnHint: true},
@@ -77,7 +77,7 @@
     async listing(request, keyword = '') {
       const page = Math.max(1, Math.floor(Number(request.page) || 1));
       const selected = request.filters || request.options || {};
-      const category = String(selected.category || (keyword ? 'all' : 'subtitled'));
+      const category = String(selected.category || 'all');
       const sort = String(selected.sort || 'latest');
       const tag = String(selected.tag || '').trim();
       if (!Object.prototype.hasOwnProperty.call(CATEGORIES, category) ||
@@ -109,8 +109,8 @@
           ...(category === 'chinese' ? {voiceLanguageStatus: 'chineseSpoken'} : {}),
           ...(category === 'subtitled' ? {voiceLanguageStatus: 'chineseSubtitled'} : {})});
       }
-      let hasNext = false;
-      for (const a of doc.querySelectorAll('a[href]')) {
+      let hasNext = false, totalPages = page;
+      for (const a of doc.querySelectorAll('.pagination a[href]')) {
         let next;
         try { next = new URL(a.getAttribute('href'), BASE); } catch (_) { continue; }
         if (next.origin !== BASE) continue;
@@ -120,9 +120,12 @@
           nextSection = decodeURIComponent(next.pathname.replace(/\/page\/\d+\/?$/, '').replace(/\/$/, '') || '/');
           expected = decodeURIComponent(section ? '/' + section : '/');
         } catch (_) { continue; }
-        if (number > page && nextSection === expected) hasNext = true;
+        if (nextSection === expected) {
+          totalPages = Math.max(totalPages, number);
+          if (number > page) hasNext = true;
+        }
       }
-      return {items, page, hasNext};
+      return {items, page, hasNext, totalPages};
     },
     async feed(key, request) {
       if (key !== 'browse') throw Park.error('CONFIG', '未知列表');

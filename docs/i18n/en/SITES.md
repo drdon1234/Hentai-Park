@@ -31,7 +31,7 @@ Update checks ask before removing withdrawn official plugins, their settings, lo
 | Game resources | KUN Galgame · GalgameX · 次元茶馆 |
 | Online games | itch.io · Gamcore |
 
-Folder-based audio supports tree browsing, including expandable search results. Multi-track works offer joined playback with a combined timeline and subtitles for the current track list. Initial preparation reads each track online; brief buffering may occur between tracks.
+Folder-based audio uses work cards in browsing and search, with a headphone icon when no cover is available. Open a folder to browse its hierarchy. Joined playback loads audio and subtitles when you select a track; a combined timeline appears once all track durations are known. Brief buffering may occur between tracks.
 
 ASMRHoney supports video collections, nested collections, and image attachments. Online games reuse unchanged large resources and still require a network connection to check versions; some games unpack or initialize on every launch.
 

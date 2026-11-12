@@ -127,14 +127,16 @@ class CoverImage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
+    final kind = mediaKind ?? SourceManager.instance.manifest(source)?.kind;
     Widget child;
     if (url.isEmpty) {
       _notifyReady();
       child = _placeholder(
         colors,
-        mediaKind == MediaKind.novel ||
-                SourceManager.instance.manifest(source)?.isNovel == true
+        kind == MediaKind.novel
             ? Icons.menu_book_rounded
+            : kind == MediaKind.voice
+            ? Icons.headphones_rounded
             : Icons.image_not_supported_outlined,
       );
     } else {

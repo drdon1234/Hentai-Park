@@ -184,7 +184,9 @@ class LibraryUpdater extends ChangeNotifier {
         if (_cancel) return;
         final item = d.toItem();
         final source = SourceManager.instance.manifest(f.item.source);
-        if (source?.can('voiceDirectory') == true) {
+        if (source?.can('voiceDirectory') == true &&
+            d.json['voiceRoot'] is Map &&
+            (d.json['voiceRoot'] as Map)['type'] == 'directory') {
           _lib.updateSnapshot(item);
           await _lib.markChecked(item.uid);
           done++;

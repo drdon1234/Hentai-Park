@@ -19,9 +19,11 @@ class VoiceSubtitles extends StatefulWidget {
     super.key,
     required this.session,
     this.overlay = false,
+    this.height = 240,
   });
   final VideoSession session;
   final bool overlay;
+  final double? height;
 
   @override
   State<VoiceSubtitles> createState() => _VoiceSubtitlesState();
@@ -36,6 +38,7 @@ class _VoiceSubtitlesState extends State<VoiceSubtitles> {
   String? _subtitle;
   List<String> _subtitles = const [];
   int? _current;
+  bool _joined = false;
 
   @override
   void initState() {
@@ -57,7 +60,12 @@ class _VoiceSubtitlesState extends State<VoiceSubtitles> {
 
   void _changed() {
     final episode = widget.session.episode.id;
-    if (_episode == episode) return;
+    final modeChanged = _joined != widget.session.joinedVoice;
+    _joined = widget.session.joinedVoice;
+    if (_episode == episode) {
+      if (modeChanged && mounted) setState(() => _current = null);
+      return;
+    }
     _episode = episode;
     _subtitles = widget.session.work.voiceSubtitles[episode] ?? const [];
     _subtitle = _subtitles.firstOrNull;
@@ -83,6 +91,11 @@ class _VoiceSubtitlesState extends State<VoiceSubtitles> {
       _current = null;
     });
     try {
+      final cached = widget.session.voiceCaptions[subtitle];
+      if (cached != null) {
+        setState(() => _timeline = cached);
+        return;
+      }
       final work = widget.session.work;
       final source = SourceManager.instance.manifest(work.source);
       if (source == null) throw SourceError('CONFIG', '媒体数据无效');
@@ -105,7 +118,10 @@ class _VoiceSubtitlesState extends State<VoiceSubtitles> {
         );
         if (timeline.cues.isEmpty) throw SourceError('PARSE', '媒体数据无效');
         if (mounted && !cancel.isCancelled) {
-          setState(() => _timeline = timeline);
+          setState(() {
+            _timeline = timeline;
+            widget.session.voiceCaptions[subtitle] = timeline;
+          });
         }
       } finally {
         await transport.close();
@@ -122,9 +138,135 @@ class _VoiceSubtitlesState extends State<VoiceSubtitles> {
     super.dispose();
   }
 
+  Widget _joinedList() {
+    final session = widget.session;
+    final rows = <({String episode, String title, TimedSubtitleCue? cue})>[];
+    for (final episode in session.episodes) {
+      rows.add((episode: episode.id, title: episode.title, cue: null));
+      final subtitle = episode.id == session.episode.id
+          ? _subtitle
+          : session.work.voiceSubtitles[episode.id]?.firstOrNull;
+      final timeline = session.voiceCaptions[subtitle];
+      if (timeline != null) {
+        for (final cue in timeline.cues) {
+          rows.add((episode: episode.id, title: cue.text, cue: cue));
+        }
+      }
+    }
+    return SizedBox(
+      height: widget.height,
+      child: Material(
+        type: MaterialType.transparency,
+        clipBehavior: Clip.hardEdge,
+        child: AnimatedBuilder(
+          animation: session.playerUpdates,
+          builder: (context, _) {
+            final position =
+                session.controller?.value.position ?? Duration.zero;
+            var selected = rows.indexWhere(
+              (row) =>
+                  row.episode == session.episode.id &&
+                  row.cue != null &&
+                  row.cue!.start <= position &&
+                  (row.cue!.end == null || position < row.cue!.end!),
+            );
+            if (selected < 0) {
+              selected = rows.indexWhere(
+                (row) => row.episode == session.episode.id,
+              );
+            }
+            if (_current != selected) {
+              _current = selected;
+              final index = selected;
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                if (mounted &&
+                    session.joinedVoice &&
+                    _current == index &&
+                    index >= 0 &&
+                    _scroll.isAttached) {
+                  unawaited(
+                    _scroll.scrollTo(
+                      index: index,
+                      duration: const Duration(milliseconds: 250),
+                      alignment: .3,
+                    ),
+                  );
+                }
+              });
+            }
+            return ScrollablePositionedList.builder(
+              key: ValueKey(('joined', rows.length)),
+              itemScrollController: _scroll,
+              itemCount: rows.length,
+              itemBuilder: (context, index) {
+                final row = rows[index];
+                final current = row.episode == session.episode.id;
+                return Column(
+                  children: [
+                    ListTile(
+                      leading: row.cue == null
+                          ? Icon(
+                              current
+                                  ? Icons.headphones_rounded
+                                  : Icons.play_circle_outline_rounded,
+                            )
+                          : null,
+                      title: Text(
+                        row.title,
+                        maxLines: row.cue == null ? 2 : null,
+                        overflow: row.cue == null
+                            ? TextOverflow.ellipsis
+                            : null,
+                      ),
+                      selected: selected == index,
+                      onTap: () {
+                        final at = row.cue?.start ?? Duration.zero;
+                        if (current && session.controller != null) {
+                          unawaited(session.controller!.seekTo(at));
+                        } else {
+                          unawaited(
+                            session.selectEpisode(
+                              session.episodes.firstWhere(
+                                (e) => e.id == row.episode,
+                              ),
+                              at: at,
+                              wantsPlayback: session.wantsPlayback,
+                            ),
+                          );
+                        }
+                      },
+                    ),
+                    if (current && row.cue == null && _error != null)
+                      SourceErrorView(
+                        error: _error!,
+                        source: session.work.source,
+                        onRetry: _load,
+                        compact: true,
+                      ),
+                    if (current &&
+                        row.cue == null &&
+                        _subtitle != null &&
+                        _timeline == null &&
+                        _error == null)
+                      const LinearProgressIndicator(),
+                  ],
+                );
+              },
+            );
+          },
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    if (_subtitle == null) return const SizedBox.shrink();
+    final joined = widget.session.joinedVoice && !widget.overlay;
+    if (_subtitle == null && !joined) {
+      return widget.height == 240
+          ? const SizedBox.shrink()
+          : Center(child: Text(tr('暂无字幕')));
+    }
     final timeline = _timeline;
     if (widget.overlay) {
       if (timeline == null) return const SizedBox.shrink();
@@ -177,69 +319,76 @@ class _VoiceSubtitlesState extends State<VoiceSubtitles> {
             ],
           ),
         ),
-        if (_error case final error?)
-          SizedBox(
-            height: 200,
-            child: SourceErrorView(
-              error: error,
-              source: widget.session.work.source,
-              onRetry: _load,
-              compact: true,
-            ),
-          )
-        else if (timeline == null)
-          const Padding(
-            padding: EdgeInsets.all(16),
-            child: Center(child: CircularProgressIndicator()),
-          )
-        else
-          SizedBox(
-            height: 240,
-            child: Material(
-              type: MaterialType.transparency,
-              clipBehavior: Clip.hardEdge,
-              child: AnimatedBuilder(
-                animation: widget.session.playerUpdates,
-                builder: (context, _) {
-                  final active = timeline.activeAt(
-                    widget.session.controller?.value.position ?? Duration.zero,
-                  );
-                  final selected = active.firstOrNull;
-                  if (selected != _current) {
-                    _current = selected;
-                    if (selected != null) {
-                      WidgetsBinding.instance.addPostFrameCallback((_) {
-                        if (mounted &&
-                            identical(_timeline, timeline) &&
-                            _scroll.isAttached &&
-                            _current == selected) {
-                          unawaited(
-                            _scroll.scrollTo(
-                              index: selected,
-                              duration: const Duration(milliseconds: 250),
-                              alignment: .3,
-                            ),
-                          );
-                        }
-                      });
+        ...[
+          if (joined)
+            _joinedList()
+          else if (_error case final error?)
+            SizedBox(
+              height: widget.height,
+              child: SourceErrorView(
+                error: error,
+                source: widget.session.work.source,
+                onRetry: _load,
+                compact: true,
+              ),
+            )
+          else if (timeline == null)
+            const Padding(
+              padding: EdgeInsets.all(16),
+              child: Center(child: CircularProgressIndicator()),
+            )
+          else
+            SizedBox(
+              height: widget.height,
+              child: Material(
+                type: MaterialType.transparency,
+                clipBehavior: Clip.hardEdge,
+                child: AnimatedBuilder(
+                  animation: widget.session.playerUpdates,
+                  builder: (context, _) {
+                    final active = timeline.activeAt(
+                      widget.session.controller?.value.position ??
+                          Duration.zero,
+                    );
+                    final selected = active.firstOrNull;
+                    if (selected != _current) {
+                      _current = selected;
+                      if (selected != null) {
+                        WidgetsBinding.instance.addPostFrameCallback((_) {
+                          if (mounted &&
+                              identical(_timeline, timeline) &&
+                              _scroll.isAttached &&
+                              _current == selected) {
+                            unawaited(
+                              _scroll.scrollTo(
+                                index: selected,
+                                duration: const Duration(milliseconds: 250),
+                                alignment: .3,
+                              ),
+                            );
+                          }
+                        });
+                      }
                     }
-                  }
-                  return ScrollablePositionedList.builder(
-                    key: ValueKey(_subtitle),
-                    itemScrollController: _scroll,
-                    itemCount: timeline.cues.length,
-                    itemBuilder: (context, index) => ListTile(
-                      selected: active.contains(index),
-                      title: Text(timeline.cues[index].text),
-                      onTap: () => widget.session.controller?.seekTo(
-                        timeline.cues[index].start,
+                    return ScrollablePositionedList.builder(
+                      key: ValueKey(_subtitle),
+                      itemScrollController: _scroll,
+                      itemCount: timeline.cues.length,
+                      itemBuilder: (context, index) => ListTile(
+                        selected: active.contains(index),
+                        title: Text(timeline.cues[index].text),
+                        onTap: () => widget.session.controller?.seekTo(
+                          timeline.cues[index].start,
+                        ),
                       ),
-                    ),
-                  );
-                },
+                    );
+                  },
+                ),
               ),
             ),
-          ),
+        ].map(
+          (child) => widget.height == null ? Expanded(child: child) : child,
+        ),
       ],
     );
   }

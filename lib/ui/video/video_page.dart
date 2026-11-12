@@ -23,6 +23,7 @@ import '../kit/immersive.dart';
 import '../kit/tokens.dart';
 import '../nav.dart';
 import '../theme.dart';
+import '../voice/voice_audio_view.dart';
 import '../voice/voice_sequence_panel.dart';
 import '../voice/voice_subtitles.dart';
 import '../web/web_video_page.dart';
@@ -310,6 +311,10 @@ class _VideoPageState extends State<VideoPage>
     if (!mounted) return;
     _updateVoiceService();
     _syncLiveChat();
+    if (_session.isAudio && _fullscreen && !widget.pageHorizontally) {
+      _displayMode = VideoDisplayMode.inline;
+      unawaited(_updateScreen(VideoDisplayMode.inline));
+    }
     final manifest = SourceManager.instance.manifest(widget.work.source);
     if (widget.localFile == null &&
         !widget.downloadedOnly &&
@@ -590,7 +595,11 @@ class _VideoPageState extends State<VideoPage>
     );
     if (!mounted) return;
     if (picked != null && picked.id != _session.episode.id) {
-      await _session.selectEpisode(picked);
+      await _session.selectEpisode(
+        picked,
+        at: _isVoice ? Duration.zero : null,
+        wantsPlayback: _isVoice ? _session.wantsPlayback : null,
+      );
     }
     _scheduleHide();
   }
@@ -685,6 +694,34 @@ class _VideoPageState extends State<VideoPage>
       ImmersiveRegion(enabled: _fullscreen, child: _buildPage(context));
 
   Widget _buildPage(BuildContext context) {
+    if (_session.isAudio && !widget.pageHorizontally) {
+      return Scaffold(
+        appBar: AppBar(
+          title: Text(tr('播放')),
+          actions: [TranslationControls(source: widget.work.source)],
+        ),
+        body: SafeArea(
+          child: VoiceAudioView(
+            session: _session,
+            onSpeed: _pickSpeed,
+            onEpisodes: _pickEpisode,
+            onDetails: () => showAdaptiveSheet<void>(
+              context: context,
+              isScrollControlled: true,
+              builder: (_) => SafeArea(
+                child: SingleChildScrollView(
+                  child: VideoDetails(
+                    work: _details ?? widget.work,
+                    episodeId: _session.episode.id,
+                    offline: widget.downloadedOnly || _session.offline,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+    }
     final player = VideoPlayerInput(
       key: _playerKey,
       onPlayPause: _togglePlayback,
@@ -739,6 +776,7 @@ class _VideoPageState extends State<VideoPage>
           onTap: _toggleControls,
           onMouseTap: _showControls,
           onDoubleTap: _togglePlayback,
+          onDoubleTapSeek: _seekBy,
           onLongPressStart: _startTemporarySpeed,
           onLongPressEnd: _endTemporarySpeed,
           onLongPressCancel: _endTemporarySpeed,
@@ -797,6 +835,8 @@ class _VideoPageState extends State<VideoPage>
         child: VideoLayout(
           player: player,
           header: VideoDetails(
+            onEpisodes: _episodes.length > 1 ? _pickEpisode : null,
+            episodeTitle: _session.episode.title,
             episodeId: _session.episode.id,
             work: _details ?? widget.work,
             offline: widget.downloadedOnly || _session.offline,

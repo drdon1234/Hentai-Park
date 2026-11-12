@@ -2,7 +2,7 @@ name: hentai_park
 description: "HentaiPark - pluggable multi-source comic, video, novel & game client"
 publish_to: 'none'
 
-version: 0.13.2+66
+version: 0.13.3+67
 
 environment:
   sdk: ^3.13.5

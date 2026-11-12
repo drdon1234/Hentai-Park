@@ -69,7 +69,9 @@ class _VoiceAttachmentPageState extends State<VoiceAttachmentPage> {
               : 2 * 1024 * 1024,
           cancelToken: cancel,
         );
-        final text = widget.node.kind == VoiceNodeKind.script
+        final text =
+            widget.node.kind == VoiceNodeKind.script ||
+                widget.node.kind == VoiceNodeKind.subtitle
             ? utf8.decode(result.bytes)
             : null;
         if (mounted && !cancel.isCancelled) {

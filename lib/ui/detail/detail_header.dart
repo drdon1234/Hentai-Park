@@ -443,7 +443,7 @@ class _DetailHeaderState extends State<DetailHeader> {
           url: item.cover,
           sourceBlurred: item.json['coverBlurred'] == true,
           title: item.title,
-          mediaKind: item.isNovel ? MediaKind.novel : null,
+          mediaKind: item.mediaKind,
           onReady: onReady,
         ),
       ),

@@ -4,7 +4,6 @@ import 'package:video_player/video_player.dart';
 
 import '../../core/localization.dart';
 import '../../core/settings.dart';
-import '../../engine/source_manager.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
 import '../widgets/error_view.dart';
@@ -33,6 +32,7 @@ class VideoStage extends StatelessWidget {
     required this.onTap,
     required this.onMouseTap,
     required this.onDoubleTap,
+    this.onDoubleTapSeek,
     required this.onLongPressStart,
     required this.onLongPressEnd,
     required this.onLongPressCancel,
@@ -68,6 +68,7 @@ class VideoStage extends StatelessWidget {
   final VoidCallback onTap;
   final VoidCallback onMouseTap;
   final VoidCallback onDoubleTap;
+  final ValueChanged<int>? onDoubleTapSeek;
   final VoidCallback onLongPressStart;
   final VoidCallback onLongPressEnd;
   final VoidCallback onLongPressCancel;
@@ -169,17 +170,7 @@ class VideoStage extends StatelessWidget {
       onTap: onTap,
       onMouseTap: onMouseTap,
       onDoubleTap: onDoubleTap,
-      onDoubleTapSeek:
-          !session.isLive &&
-              SourceManager.instance.manifest(session.work.source)?.isArticle ==
-                  true
-          ? (seconds) => c.seekTo(
-              Duration(
-                milliseconds: (c.value.position.inMilliseconds + seconds * 1000)
-                    .clamp(0, c.value.duration.inMilliseconds),
-              ),
-            )
-          : null,
+      onDoubleTapSeek: session.isLive ? null : onDoubleTapSeek,
       onLongPressStart: onLongPressStart,
       onLongPressEnd: onLongPressEnd,
       onLongPressCancel: onLongPressCancel,

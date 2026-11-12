@@ -882,7 +882,7 @@
       if (['mp4', 'm4v', 'mkv', 'webm', 'm3u8'].includes(ext)) return 'video';
       if (['lrc', 'vtt', 'srt'].includes(ext)) return 'subtitle';
       if (['jpg', 'jpeg', 'png', 'webp', 'gif', 'avif'].includes(ext)) return 'image';
-      if (['txt', 'pdf'].includes(ext)) return 'script';
+      if (ext === 'txt') return 'script';
       return 'other';
     }
     function node(parent, entry) {
@@ -909,7 +909,8 @@
       const entries = data.content || [];
       const items = entries.map(entry => node(directory, entry));
       const total = Number(data.total);
-      return {items, page, hasNext: Number.isFinite(total) ? page * 100 < total : data.has_more === true};
+      return {items, page, ...(Number.isFinite(total) ? {total, totalPages: Math.max(1, Math.ceil(total / 100))} : {}),
+        hasNext: Number.isFinite(total) ? page * 100 < total : data.has_more === true};
     }
     async function resource(source, root, id) {
       id = inside(root, id);
@@ -924,7 +925,7 @@
     function item(entry) {
       const id = entry.id;
       const languageStatus = Object.entries(languageRoots).find(([root]) => id === root || id.startsWith(root + '/'))?.[1];
-      return {id, title: entry.name, cover: '', mediaKind: 'voice', presentation: 'tree', voiceNodeType: entry.type,
+      return {id, title: entry.name, subtitle: id.slice(0, id.lastIndexOf('/')) || '/', cover: '', coverAspect: 1, mediaKind: 'voice', voiceNodeType: entry.type,
         ...(languageStatus ? {voiceLanguageStatus: languageStatus} : {}),
         ...(entry.type === 'audio' ? {voiceMediaForm: 'audioOnly'} : {}),
         ...(entry.type === 'video' ? {voiceMediaForm: 'videoOnly'} : {})};
@@ -942,7 +943,7 @@
         if (!keyword) return {items: [], page: 1, hasNext: false};
         const page = Math.max(1, Math.floor(Number(request.page) || 1));
         const section = String(request.filters?.section || 'all');
-        const scope = String(request.filters?.scope || 'all');
+        const scope = String(request.filters?.scope || 'directory');
         if ((section !== 'all' && !Object.prototype.hasOwnProperty.call(paths, section)) || !['all', 'directory', 'file'].includes(scope)) {
           throw new ParkError(ErrorCode.CONFIG, '筛选参数无效');
         }
@@ -953,7 +954,8 @@
         const entries = data.content || [];
         const items = entries.map(entry => node(path(entry.parent), entry)).filter(n => n.type === 'directory' || supported.has(n.type));
         const hasNext = page * 100 < Number(data.total || 0);
-        return {items: items.map(item), page, hasNext, ...(hasNext ? {cursor: String(page + 1)} : {})};
+        return {items: items.map(item), page, total: Number(data.total || 0),
+          totalPages: Math.max(1, Math.ceil(Number(data.total || 0) / 100)), hasNext, ...(hasNext ? {cursor: String(page + 1)} : {})};
       },
       async detail(id, preview) {
         id = path(id);

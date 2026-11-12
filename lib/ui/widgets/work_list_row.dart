@@ -46,6 +46,7 @@ class WorkListRow extends StatelessWidget {
                     source: item.source,
                     url: item.cover,
                     title: item.title,
+                    mediaKind: item.mediaKind,
                   ),
                 ),
               ),

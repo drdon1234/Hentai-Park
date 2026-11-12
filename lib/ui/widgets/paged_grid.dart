@@ -13,7 +13,6 @@ import '../feed/feed_article.dart';
 import '../short_video/short_video_sequence.dart';
 import '../subscriptions/subscription_posts_page.dart';
 import '../theme.dart';
-import '../voice/voice_tree_tile.dart';
 import 'common.dart';
 import 'cover_tile.dart';
 import 'error_view.dart';
@@ -381,7 +380,6 @@ class PagedSliverGrid extends StatelessWidget {
           return _skeletonGrid(context);
         }
         if (listMode ||
-            c.items.any((item) => item.json['presentation'] == 'tree') ||
             kind == MediaKind.article ||
             kind == MediaKind.novel ||
             c.items.any((item) => item.json['presentation'] == 'post')) {
@@ -391,9 +389,7 @@ class PagedSliverGrid extends StatelessWidget {
                 itemCount: c.items.length,
                 itemBuilder: (context, i) {
                   final item = c.items[i];
-                  return item.json['presentation'] == 'tree'
-                      ? VoiceTreeTile(key: ValueKey(item.uid), item: item)
-                      : kind == MediaKind.article
+                  return kind == MediaKind.article
                       ? FeedArticleTile(item: item, showSource: showSource)
                       : item.json['presentation'] == 'post'
                       ? SubscriptionPostCard(

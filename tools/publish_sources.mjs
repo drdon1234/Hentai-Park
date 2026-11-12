@@ -47,8 +47,7 @@ function validateMedia(manifest) {
       const rules = media.requestHeaders;
       if (image || media.mode !== 'native' || !rules || typeof rules !== 'object' || Array.isArray(rules) || Object.keys(rules).length > 8) fail();
       for (const [name, rule] of Object.entries(rules)) {
-        if (!/^x-[a-z0-9-]{1,60}$/.test(name) || !rule || !Array.isArray(rule.domains) ||
-            !rule.domains.length || rule.domains.length > 16 || rule.domains.some(host => typeof host !== 'string' || !publicHost(host)) ||
+        if (!/^x-[a-z0-9-]{1,60}$/.test(name) || !rule || !session || rule.scope !== 'playback-origin' || 'domains' in rule ||
             !Array.isArray(rule.extensions) || !rule.extensions.length || rule.extensions.length > 8 ||
             rule.extensions.some(ext => typeof ext !== 'string' || !/^[a-z0-9]{1,8}$/.test(ext))) fail();
       }

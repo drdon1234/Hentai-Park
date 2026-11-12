@@ -50,12 +50,10 @@ class VoiceDirectoryPage extends StatefulWidget {
     required this.work,
     required this.root,
     this.sourceManager,
-    this.embedded = false,
   });
   final WorkDetail work;
   final VoiceNode root;
   final SourceManager? sourceManager;
-  final bool embedded;
 
   @override
   State<VoiceDirectoryPage> createState() => _VoiceDirectoryPageState();
@@ -282,6 +280,7 @@ class _VoiceDirectoryPageState extends State<VoiceDirectoryPage> {
         : null;
     final openAttachment =
         node.kind == VoiceNodeKind.image ||
+        node.kind == VoiceNodeKind.subtitle ||
         (node.kind == VoiceNodeKind.script &&
             node.name.toLowerCase().endsWith('.txt'));
     final icon = switch (node.kind) {
@@ -341,17 +340,6 @@ class _VoiceDirectoryPageState extends State<VoiceDirectoryPage> {
   Widget build(BuildContext context) {
     final rows = _rows();
     final root = _folders[_rootId]!;
-    if (widget.embedded) {
-      return Padding(
-        padding: const EdgeInsetsDirectional.only(start: Gap.l),
-        child: rows.isEmpty && root.complete
-            ? Padding(
-                padding: const EdgeInsets.all(Gap.l),
-                child: Text(tr('目录为空')),
-              )
-            : Column(children: [for (final row in rows) _row(row)]),
-      );
-    }
     return Scaffold(
       appBar: PageHeader(title: widget.work.title),
       body: Column(

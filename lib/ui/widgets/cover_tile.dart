@@ -205,9 +205,7 @@ class _CoverTileState extends State<CoverTile> {
                                   sourceBlurred:
                                       item.json['coverBlurred'] == true,
                                   title: item.title,
-                                  mediaKind: item.isNovel
-                                      ? MediaKind.novel
-                                      : null,
+                                  mediaKind: item.mediaKind,
                                 ),
                         ),
                       ),

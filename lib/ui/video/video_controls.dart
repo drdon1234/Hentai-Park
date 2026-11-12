@@ -547,6 +547,8 @@ class VideoDetails extends StatelessWidget {
     this.showHeader = true,
     this.showRelated = true,
     this.episodeId,
+    this.onEpisodes,
+    this.episodeTitle,
   });
   final WorkDetail work;
   final bool offline;
@@ -554,6 +556,8 @@ class VideoDetails extends StatelessWidget {
   final bool showHeader;
   final bool showRelated;
   final String? episodeId;
+  final VoidCallback? onEpisodes;
+  final String? episodeTitle;
 
   @override
   Widget build(BuildContext context) {
@@ -616,6 +620,16 @@ class VideoDetails extends StatelessWidget {
                           ),
                       ],
                     ),
+                  if (onEpisodes != null)
+                    ToolbarButton.icon(
+                      onPressed: onEpisodes,
+                      icon: const Icon(Icons.playlist_play_rounded),
+                      label: Text(
+                        '${tr('选集')} · ${episodeTitle ?? ''}',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
                   if (meta.isNotEmpty) ...[
                     const SizedBox(height: Gap.xs),
                     ContentTranslation(
@@ -665,7 +679,8 @@ class VideoDetails extends StatelessWidget {
           SliverToBoxAdapter(
             child: RelatedWorks(key: ObjectKey(d), detail: d),
           ),
-        const SliverToBoxAdapter(child: SizedBox(height: Gap.xxl)),
+        if (showRelated)
+          const SliverToBoxAdapter(child: SizedBox(height: Gap.xxl)),
       ],
     );
   }

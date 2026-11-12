@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/platform_capabilities.dart';
 
-/// 播放器与作品信息保持同列，选集统一由播放器右上角打开。
+/// 播放器与作品信息保持同列，多集作品在信息区保留选集入口。
 class VideoLayout extends StatefulWidget {
   const VideoLayout({
     super.key,
