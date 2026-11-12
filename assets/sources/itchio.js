@@ -61,7 +61,7 @@
     return {items: rows, page, hasNext: next};
   }
   Park.register({
-    key: 'itchio', name: 'itch.io', version: '0.0.2', minAppVersion: '0.13.0',
+    key: 'itchio', name: 'itch.io', version: '0.0.3', minAppVersion: '0.13.2',
     type: 'game', category: 'onlineGame', color: '#FA5C5C',
     description: '独立网页游戏，支持语言和标签浏览', homepage: BASE, language: 'multi',
     domains: ['itch.io'], network: {mode: 'auto', vpnHint: true, confirmation: {
@@ -147,6 +147,22 @@
       let url;
       try { url = new URL(iframe?.getAttribute('src') || ''); } catch (_) { throw Park.error('UNSUPPORTED', '该游戏暂不支持，请在原站打开'); }
       if (url.protocol !== 'https:' || url.port || url.username || url.password || !['html-classic.itch.zone', 'html.itch.zone'].includes(url.hostname)) throw Park.error('UNSUPPORTED', '该游戏暂不支持，请在原站打开');
+      // Some uploads are wrappers around a publisher-hosted game. Load the actual
+      // game as a first-party document so IndexedDB/CacheStorage remain available
+      // without granting third-party cookies to arbitrary embedded frames.
+      const navigationDomains = ['shorturl.at', 'www.shorturl.at', 'debatingpanda.com'];
+      const embed = await this.http.get(url.href, {mode: 'native'});
+      if (!embed.ok) throw Park.error('HTTP', 'HTTP {status}', {status: embed.status, params: {status: embed.status}});
+      if (embed.body.length > 4 * 1024 * 1024) throw fail();
+      const frames = Park.html.parse(embed.body).querySelectorAll('iframe[src]');
+      if (frames.length === 1) {
+        let nested;
+        try { nested = new URL(frames[0].getAttribute('src'), url); } catch (_) {}
+        if (nested && nested.protocol === 'https:' && !nested.port && !nested.username && !nested.password &&
+            navigationDomains.includes(nested.hostname)) {
+          return {kind: 'html', url: nested.href, storageId: stableId, navigationDomains};
+        }
+      }
       return {kind: 'html', url: url.href, storageId: stableId};
     },
   });

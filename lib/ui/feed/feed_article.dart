@@ -148,6 +148,12 @@ class _FeedArticlePageState extends State<FeedArticlePage> {
     'id': detail.id,
     'title': detail.title,
     'cover': detail.cover.isEmpty ? widget.item.cover : detail.cover,
+    'coverImages': detail.coverImages.isEmpty
+        ? widget.item.coverImages
+        : detail.coverImages,
+    'coverAspect': detail.coverAspect ?? widget.item.coverAspect,
+    'coverBlurred':
+        detail.json['coverBlurred'] ?? widget.item.json['coverBlurred'],
     'uploaded': detail.uploaded.isEmpty
         ? widget.item.uploaded
         : detail.uploaded,

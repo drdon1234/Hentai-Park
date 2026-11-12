@@ -1822,5 +1822,8 @@
   "跳转": "Ir",
   "回到顶部": "Volver arriba",
   "显示凭据": "Mostrar credenciales",
-  "隐藏凭据": "Ocultar credenciales"
+  "隐藏凭据": "Ocultar credenciales",
+  "拼接播放": "Reproducción unida",
+  "合并曲目时间轴与字幕": "Unir las líneas de tiempo y los subtítulos",
+  "正在准备曲目 {current}/{total}": "Preparando pista {current}/{total}"
 }

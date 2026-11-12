@@ -23,6 +23,7 @@ import '../kit/immersive.dart';
 import '../kit/tokens.dart';
 import '../nav.dart';
 import '../theme.dart';
+import '../voice/voice_sequence_panel.dart';
 import '../voice/voice_subtitles.dart';
 import '../web/web_video_page.dart';
 import '../widgets/content_translation.dart';
@@ -805,7 +806,13 @@ class _VideoPageState extends State<VideoPage>
           details: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              VoiceSubtitles(key: _subtitleKey, session: _session),
+              if (_isVoice &&
+                  _session.episodes.length > 1 &&
+                  !widget.downloadedOnly &&
+                  widget.localFile == null)
+                VoiceSequencePanel(session: _session)
+              else
+                VoiceSubtitles(key: _subtitleKey, session: _session),
               VideoDetails(
                 episodeId: _session.episode.id,
                 work: _details ?? widget.work,

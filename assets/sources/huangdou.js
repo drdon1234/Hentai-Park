@@ -9,7 +9,7 @@ Park.register({
     "ru": {"高分推荐": "С высоким рейтингом", "黄豆短剧": "Короткие сериалы Huangdou"},
     "ar": {"高分推荐": "الأعلى تقييمًا", "黄豆短剧": "مسلسلات Huangdou القصيرة"},
   },
-  key: 'huangdou', name: '黄豆短剧', version: '0.0.9', minAppVersion: '0.9.2',
+  key: 'huangdou', name: '黄豆短剧', version: '0.0.10', minAppVersion: '0.13.2',
   type: 'video', category: 'aiDrama', color: '#FFC857',
   description: 'AI短剧与漫剧，支持分类、排行、搜索和分集播放',
   homepage: 'https://aihuangdou.com', domains: ['aihuangdou.com'], language: 'zh',
@@ -21,7 +21,8 @@ Park.register({
     domains: ['pic.drleao.cn'],
   },
   network: { mode: 'native', vpnHint: true },
-  media: { mode: 'native', scope: 'session', origin: 'https://aihuangdou.com' },
+  media: {mode: 'native', scope: 'session', origin: 'https://aihuangdou.com', domains: ['hzjvlo.cn'],
+    requestHeaders: {'x-cdn-auth': {domains: ['hzjvlo.cn'], extensions: ['m3u8']}, 'x-cdn-app': {domains: ['hzjvlo.cn'], extensions: ['m3u8']}}},
   defaultFeed: 'recommend',
   feeds: [
     { key: 'recommend', label: '推荐' },
@@ -180,24 +181,29 @@ Park.register({
     };
   },
   async videos(value, episodeId = '_') {
-    const id = this.workId(value), ep = episodeId === '_' ? '1' : String(episodeId);
+    const id = this.workId(value), numericId = id;
+    const ep = episodeId === '_' ? '1' : String(episodeId);
     if (!/^[1-9]\d*$/.test(ep)) throw Park.error('NOT_FOUND', 'AI短剧作品或分集不存在');
-    const path = '/video/' + id + '/' + (ep === '1' ? '' : ep + '/');
-    const doc = await this.document(path), node = doc.querySelector('#ninePlayData');
-    let data;
-    try { data = JSON.parse(node ? node.textContent : ''); } catch (_) { throw Park.error('PARSE', 'AI短剧播放数据解析失败'); }
-    if (!data || String(data.id) !== id || !data.current || String(data.current.n) !== ep || String(data.startEp) !== ep) {
-      throw Park.error('NOT_FOUND', 'AI短剧作品或分集不存在');
+    const response = await this.http.post(this.BASE + '/api/videos/' + numericId + '/episodes/' + ep + '/playback', {
+      json: {}, readOnly: true, headers: {Referer: this.BASE + '/', Origin: this.BASE},
+    });
+    if (!response.ok) throw Park.error('HTTP', 'HTTP {status}', {status: response.status, params: {status: response.status}});
+    const result = response.json(), data = result?.data;
+    if (result?.status !== 1 || !data) throw Park.error('NOT_FOUND', 'AI短剧该分集暂无可用播放地址');
+    if (String(data.id) !== numericId || String(data.n ?? data.ep) !== ep || data.manifest_method !== 'GET') throw Park.error('PARSE', '媒体数据无效');
+    const raw = data.streams?.main;
+    let target;
+    try { target = new URL(raw); } catch (_) {}
+    if (!target || target.protocol !== 'https:' || target.port || target.username || target.password || target.hash ||
+        !/\.m3u8$/i.test(target.pathname)) throw Park.error('PARSE', '媒体数据无效');
+    const headers = {Referer: this.BASE + '/'};
+    if (data.cdn?.m3u8Enabled) {
+      if (data.cdn.authKey !== 'x-cdn-auth' || typeof data.cdn.authValue !== 'string' || !data.cdn.authValue ||
+          !/^[0-9]{1,12}$/.test(String(data.cdn.app))) throw Park.error('PARSE', '媒体数据无效');
+      headers['x-cdn-auth'] = data.cdn.authValue;
+      headers['x-cdn-app'] = String(data.cdn.app);
     }
-    if (data.videoApi || data.videoKey || data.videoIv) throw Park.error('UNSUPPORTED', 'AI短剧该分集使用暂不支持的播放方式');
-    if (!data.current.src) throw Park.error('NOT_FOUND', 'AI短剧该分集暂无可用播放地址');
-    const url = this.absolute(data.current.src), u = url && new URL(url);
-    if (!u || u.protocol !== 'https:' || u.port || u.username || u.password || u.hash || !/\.m3u8(?:\?|$)/i.test(url)) {
-      throw Park.error('PARSE', 'AI短剧播放地址无效');
-    }
-    return [{ quality: 0, label: '原画', url, headers: { Referer: this.BASE + path }, preferred: true,
-      format: 'hls',
-    }];
+    return [{quality: 0, label: '原画', url: target.href, headers, preferred: true, format: 'hls'}];
   },
 });
 

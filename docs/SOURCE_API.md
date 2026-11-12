@@ -299,6 +299,7 @@ media: { mode: 'native', origin: 'https://example.com', domains: ['media.example
 - MP4 必须声明 `media.mode: 'native'`。播放器通过独立的本地流式会话访问远端文件，使用应用内代理并支持 `GET`、`HEAD` 和单段 `Range`；已下载的区间保存在本次播放会话的临时文件中（单会话上限 1 GiB），往回拖动直接读取，关闭播放即删除。每次重定向须匹配静态媒体域名白名单或会话授权，关闭播放会话会终止上游请求。HLS 点播分段同样在会话内落盘缓存。`media.mode: 'browser'` 用于 HLS。
 - `'native'`：使用独立、无凭据的客户端，不读写站点 Cookie、Authorization 或代理认证，每次重定向前先校验目标。只允许 `Referer`、`Origin`、`Accept`、`Accept-Language`；前两者须属于声明的站点域（含语言子域），`Origin` 只能包含来源 origin。
 - `media.referrerDomains` 可选，仅限原生视频媒体，最多 16 个有效公网域名（含子域）。它仅为 `Referer` 增加允许的来源，作为上述站点域限制的明确例外；不扩大 `Origin`、媒体地址、文档导航或 Cookie 权限，不允许用于 `imageNetwork` 或浏览器媒体。
+- 原生媒体可通过 `media.requestHeaders` 声明专用 CDN 请求头，例如 `{'x-cdn-auth': {domains: ['cdn.example.org'], extensions: ['m3u8']}}`。最多 8 个小写 `x-` 请求头，每项最多 16 个公网域名及 8 个扩展名；实际值由当次 `videos().headers` 提供，每值最多 4096 字符且不得包含换行。每次请求及重定向都重新匹配目标域名和路径扩展名，不匹配时移除该头；不开放 Cookie、Authorization 或浏览器媒体权限。临时值不得写入作品、日志或插件存储。使用此能力要求 `minAppVersion: '0.13.1'`。
 - 动态 HLS CDN 可声明 `media.scope: 'session'`（仅限 `mode: 'native'`）。授权只覆盖当前播放或下载会话中解析的地址、清单资源及允许的重定向，关闭会话即失效，不扩大 Cookie 权限或持久化域名白名单。请求仍受 HTTPS、无凭据、目标地址和响应大小限制；直连 MP4 与浏览器媒体继续使用静态域名白名单。
 - `'browser'`：在 `media.origin` 建立隐藏会话，文档可在声明的站点域内导航。请求使用 `credentials: 'omit'`、`mode: 'cors'`，Origin/Referer 由真实文档和浏览器生成。Windows 通过 WebView2 在每次连接前校验资源域，允许授权域间重定向，并复核最终地址；其他内核缺少逐跳拦截接口，使用 `redirect: 'error'`。CORS 和原站 CSP 仍然生效，不能用只检查最终 URL 的方式放开跳转。
 - 响应流式限长并重新校验响应地址：清单最多 2 MiB，单个分段最多 32 MiB，AES-128 密钥必须 16 字节；超限、空响应或不允许的地址一律拒绝。
@@ -352,6 +353,8 @@ account: {
 目录未加载完整或后续分页失败时，已加载曲目仍可播放；播放列表与字幕关联取点击时已加载的同级节点，不能将部分目录标记为完整。
 
 `Park.createVoiceArchive({base, feeds, languageRoots?, subtitleRoots?})` 提供公开 AList 只读目录的通用实现，源仍须声明真实的分类、权限和筛选项。`languageRoots` 给原站明确的目录标注语言状态，`subtitleRoots` 给原站明确的字幕目录标注语言；不得仅凭文件扩展名推断语言。普通单曲音声源可直接实现 `videos()`，无需伪造目录。详情也可通过 `voiceSubtitles: {episodeId: [subtitleId]}` 声明原站明确关联的字幕；单曲默认 `episodeId` 为 `_`。每组最多 50 个非空、互不重复且不含 URL 的稳定字幕 ID，并须实现 `voiceResource(workId, subtitleId)` 解析。
+
+目录式音声列表可声明 `presentation: 'tree'`，同时提供稳定 `id`、`title` 与 `voiceNodeType`（与目录节点类型相同），并实现音声目录与资源接口。站点浏览、单站搜索、聚合搜索及首页预览共用目录行，目录可展开，文件进入同级目录播放或查看；不使用空封面作品卡模拟文件夹。共享 AList 实现自动输出该展示方式，保留目录、音视频、字幕、图片与台本。使用此展示方式要求 `minAppVersion: '0.13.1'`。
 
 同源查询 POST 只有在确实只读并显式声明 `readOnly: true` 时，才可在自动网络模式下按现有验证框架回退浏览器；文本请求体上限 2 MiB，二进制、写操作、跨源、禁重定向与指定连接地址的请求不回退。不得将有副作用的操作标为只读。
 
@@ -510,9 +513,9 @@ async textChapter(id, chapterId) {
 
 ### 在线游戏: `onlineGame`
 
-在线游戏插件声明 `type: 'game', category: 'onlineGame'`，作品填写 `mediaKind: 'game'`。`onlineGame(workId)` 在用户开始游玩时返回 `{kind: 'html', url, storageId?}`；Flash 返回 `{kind: 'flash', url, player, storageId?}`，其中 `url` 为 SWF，`player` 为同主机 Ruffle 脚本。地址必须是无凭据的 HTTPS，使用 443 端口。`storageId` 是站点内稳定的作品标识，省略时使用 workId；不得包含凭据。
+在线游戏插件声明 `type: 'game', category: 'onlineGame'`，作品填写 `mediaKind: 'game'`。`onlineGame(workId)` 在用户开始游玩时返回 `{kind: 'html', url, storageId?, navigationDomains?}`；Flash 返回 `{kind: 'flash', url, player, storageId?}`，其中 `url` 为 SWF，`player` 为同主机 Ruffle 脚本。地址必须是无凭据的 HTTPS，使用 443 端口。`storageId` 是站点内稳定的作品标识，省略时使用 workId；不得包含凭据。
 
-客户端以站点和该标识隔离持久浏览器配置，主框架限于游戏主机，子框架另允许精确的 `challenges.cloudflare.com` 验证域，拒绝弹窗、下载和网页权限。Android 需要支持多配置文件的系统 WebView，Windows 使用独立 WebView2 数据目录。localStorage 与 IndexedDB 随配置保留；来源主机变化时浏览器不会自动迁移存档。HTTP 缓存受原站策略和系统回收影响，不能保证离线或秒开。
+客户端以站点和该标识隔离持久浏览器配置，主框架限于游戏主机及 `navigationDomains` 中至多八个经过验证的精确 HTTPS 主机（不隐含子域权限），子框架另允许精确的 `challenges.cloudflare.com` 验证域，拒绝弹窗、下载和网页权限。Android 需要支持多配置文件的系统 WebView，Windows 使用独立 WebView2 数据目录。插件应将经过验证的外部游戏从包装 iframe 提升为主文档，保持第三方 Cookie 禁用，避免第三方存储限制阻止资源和存档写入。此导航权限不授予源站 HTTP/Cookie 权限。localStorage 与 IndexedDB 随配置保留；来源主机变化时浏览器不会自动迁移存档。大型同源游戏资源可在检查版本后复用本地副本；源站禁用缓存的响应不会保存。缓存仍受原站策略、容量与系统回收影响，不能保证离线或秒开，游戏引擎仍可能每次解压或初始化。
 
 ### 游戏：`gameResources` / `resolveGameResource`
 

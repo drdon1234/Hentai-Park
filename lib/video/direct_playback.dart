@@ -133,7 +133,7 @@ class DirectPlayback implements Playback {
         request.followRedirects = false;
         request.headers.set('User-Agent', HttpService.instance.userAgent);
         request.headers.set('Referer', '${policy.origin}/');
-        headers.forEach(request.headers.set);
+        policy.headersFor(target, headers).forEach(request.headers.set);
         request.headers.set('Accept-Encoding', 'identity');
         if (range != null && method == 'GET') {
           request.headers.set('Range', range);

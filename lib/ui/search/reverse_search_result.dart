@@ -5,9 +5,8 @@ import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 
 import '../../core/localization.dart';
-import '../../core/models.dart';
 import '../../core/reverse_search.dart';
-import '../../engine/http_service.dart';
+import '../../images/image_store.dart';
 import '../kit/tokens.dart';
 import '../kit/toolbar_button.dart';
 import '../theme.dart';
@@ -285,18 +284,12 @@ class _ResultImageState extends State<_ResultImage> {
           widget.image.url.substring(widget.image.url.indexOf(',') + 1),
         );
       } else {
-        final result = await HttpService.instance.send(
-          method: 'GET',
+        bytes = await ImageStore.instance.load(
           url: widget.image.url,
           partition: widget.source,
-          headers: const {'Accept': 'image/*', 'Cache-Control': 'no-store'},
-          timeout: const Duration(seconds: 30),
-          maxBytes: 4 * 1024 * 1024,
-          detectCloudflare: false,
+          headers: const {'Accept': 'image/*'},
           cancelToken: _token,
         );
-        if (!result.ok) throw SourceError('HTTP', '图片加载失败');
-        bytes = result.bytes;
       }
       if (!mounted || _token.isCancelled) return;
       setState(() => _provider = MemoryImage(bytes));
@@ -313,10 +306,20 @@ class _ResultImageState extends State<_ResultImage> {
   }
 
   Widget _failure() => OutlinedButton.icon(
-    onPressed: () {
-      _provider?.evict();
+    onPressed: () async {
+      await _provider?.evict();
       _provider = null;
-      _load();
+      try {
+        if (!widget.image.url.startsWith('data:')) {
+          await ImageStore.instance.invalidate(
+            widget.image.url,
+            partition: widget.source,
+          );
+        }
+        if (mounted) await _load();
+      } catch (_) {
+        if (mounted) setState(() => _failed = true);
+      }
     },
     icon: const Icon(Icons.refresh),
     label: Text(tr('图片加载失败，点击重试')),

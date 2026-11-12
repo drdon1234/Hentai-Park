@@ -867,7 +867,7 @@
     }
     function inside(root, value) {
       root = path(root); value = path(value);
-      if (/\.(?:mp3|flac|wav|m4a|aac|ogg|opus|mp4|m4v|mkv|webm|m3u8)$/i.test(root)) {
+      if (/\.(?:mp3|flac|wav|m4a|aac|ogg|opus|mp4|m4v|mkv|webm|m3u8|lrc|vtt|srt|jpg|jpeg|png|webp|gif|avif|txt|pdf)$/i.test(root)) {
         const parent = root.slice(0, root.lastIndexOf('/')) || '/';
         if (value === parent || (parent === '/' ? value.startsWith('/') : value.startsWith(parent + '/'))) return value;
         throw new ParkError(ErrorCode.CONFIG, '媒体数据无效');
@@ -924,7 +924,7 @@
     function item(entry) {
       const id = entry.id;
       const languageStatus = Object.entries(languageRoots).find(([root]) => id === root || id.startsWith(root + '/'))?.[1];
-      return {id, title: entry.name, cover: '', mediaKind: 'voice', voiceNodeType: entry.type,
+      return {id, title: entry.name, cover: '', mediaKind: 'voice', presentation: 'tree', voiceNodeType: entry.type,
         ...(languageStatus ? {voiceLanguageStatus: languageStatus} : {}),
         ...(entry.type === 'audio' ? {voiceMediaForm: 'audioOnly'} : {}),
         ...(entry.type === 'video' ? {voiceMediaForm: 'videoOnly'} : {})};
@@ -935,7 +935,7 @@
         const page = Math.max(1, Math.floor(Number(request.page) || 1));
         const data = await list(this, paths[key], page);
         return {...data, ...(data.hasNext ? {cursor: String(page + 1)} : {}),
-          items: data.items.filter(n => n.type === 'directory' || supported.has(n.type) && ['audio', 'video'].includes(n.type)).map(item)};
+          items: data.items.filter(n => n.type === 'directory' || supported.has(n.type)).map(item)};
       },
       async search(request) {
         const keyword = String(request.keyword || '').trim();
@@ -951,7 +951,7 @@
           scope: {all: 0, directory: 1, file: 2}[scope], page, per_page: 100, password: ''});
         if (data.content !== null && !Array.isArray(data.content)) throw new ParkError(ErrorCode.PARSE, '媒体数据无效');
         const entries = data.content || [];
-        const items = entries.map(entry => node(path(entry.parent), entry)).filter(n => n.type === 'directory' || ['audio', 'video'].includes(n.type));
+        const items = entries.map(entry => node(path(entry.parent), entry)).filter(n => n.type === 'directory' || supported.has(n.type));
         const hasNext = page * 100 < Number(data.total || 0);
         return {items: items.map(item), page, hasNext, ...(hasNext ? {cursor: String(page + 1)} : {})};
       },

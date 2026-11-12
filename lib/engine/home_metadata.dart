@@ -42,6 +42,7 @@ class HomeMetadata {
     'subtitle',
     'cover',
     'coverAspect',
+    'coverBlurred',
     'pages',
     'rating',
     'likes',
@@ -90,6 +91,10 @@ class HomeMetadata {
         'editions': (value['editions'] as List).whereType<String>().toList(),
       if (value['authors'] is List)
         'authors': (value['authors'] as List).whereType<String>().toList(),
+      if (value['coverImages'] is List)
+        'coverImages': (value['coverImages'] as List)
+            .whereType<String>()
+            .toList(),
       if (value['media'] is List)
         'media': (value['media'] as List).whereType<Map>().toList(),
     };

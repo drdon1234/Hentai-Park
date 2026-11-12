@@ -80,6 +80,7 @@ class _VoiceSubtitlesState extends State<VoiceSubtitles> {
     setState(() {
       _timeline = null;
       _error = null;
+      _current = null;
     });
     try {
       final work = widget.session.work;
@@ -194,43 +195,49 @@ class _VoiceSubtitlesState extends State<VoiceSubtitles> {
         else
           SizedBox(
             height: 240,
-            child: AnimatedBuilder(
-              animation: widget.session.playerUpdates,
-              builder: (context, _) {
-                final active = timeline.activeAt(
-                  widget.session.controller?.value.position ?? Duration.zero,
-                );
-                final selected = active.firstOrNull;
-                if (selected != _current) {
-                  _current = selected;
-                  if (selected != null) {
-                    WidgetsBinding.instance.addPostFrameCallback((_) {
-                      if (mounted &&
-                          _scroll.isAttached &&
-                          _current == selected) {
-                        unawaited(
-                          _scroll.scrollTo(
-                            index: selected,
-                            duration: const Duration(milliseconds: 250),
-                            alignment: .3,
-                          ),
-                        );
-                      }
-                    });
+            child: Material(
+              type: MaterialType.transparency,
+              clipBehavior: Clip.hardEdge,
+              child: AnimatedBuilder(
+                animation: widget.session.playerUpdates,
+                builder: (context, _) {
+                  final active = timeline.activeAt(
+                    widget.session.controller?.value.position ?? Duration.zero,
+                  );
+                  final selected = active.firstOrNull;
+                  if (selected != _current) {
+                    _current = selected;
+                    if (selected != null) {
+                      WidgetsBinding.instance.addPostFrameCallback((_) {
+                        if (mounted &&
+                            identical(_timeline, timeline) &&
+                            _scroll.isAttached &&
+                            _current == selected) {
+                          unawaited(
+                            _scroll.scrollTo(
+                              index: selected,
+                              duration: const Duration(milliseconds: 250),
+                              alignment: .3,
+                            ),
+                          );
+                        }
+                      });
+                    }
                   }
-                }
-                return ScrollablePositionedList.builder(
-                  itemScrollController: _scroll,
-                  itemCount: timeline.cues.length,
-                  itemBuilder: (context, index) => ListTile(
-                    selected: active.contains(index),
-                    title: Text(timeline.cues[index].text),
-                    onTap: () => widget.session.controller?.seekTo(
-                      timeline.cues[index].start,
+                  return ScrollablePositionedList.builder(
+                    key: ValueKey(_subtitle),
+                    itemScrollController: _scroll,
+                    itemCount: timeline.cues.length,
+                    itemBuilder: (context, index) => ListTile(
+                      selected: active.contains(index),
+                      title: Text(timeline.cues[index].text),
+                      onTap: () => widget.session.controller?.seekTo(
+                        timeline.cues[index].start,
+                      ),
                     ),
-                  ),
-                );
-              },
+                  );
+                },
+              ),
             ),
           ),
       ],

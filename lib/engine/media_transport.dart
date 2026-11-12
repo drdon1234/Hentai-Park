@@ -19,6 +19,7 @@ class MediaPolicy {
     this.documentDomains,
     this.sameOriginCredentials,
     this.referrerDomains,
+    this.scopedHeaders,
   );
 
   /// The source key, for diagnostics.
@@ -32,6 +33,8 @@ class MediaPolicy {
   final List<String> documentDomains;
   final bool sameOriginCredentials;
   final List<String> referrerDomains;
+  final Map<String, ({List<String> domains, List<String> extensions})>
+  scopedHeaders;
 
   bool allowsDocument(Uri? url) =>
       httpsDomainAddressAllowed(url, documentDomains);
@@ -86,6 +89,45 @@ class MediaPolicy {
         domains.any((domain) => !publicDomainHost(domain))) {
       throw SourceError('CONFIG', '站点没有声明有效的媒体权限');
     }
+    final scopedHeaders =
+        <String, ({List<String> domains, List<String> extensions})>{};
+    final rawHeaders = media['requestHeaders'];
+    if (rawHeaders != null) {
+      if (mode != 'native' ||
+          image ||
+          rawHeaders is! Map ||
+          rawHeaders.length > 8) {
+        throw SourceError('CONFIG', '站点没有声明有效的媒体权限');
+      }
+      for (final entry in rawHeaders.entries) {
+        final name = entry.key;
+        final rule = entry.value;
+        if (name is! String ||
+            !RegExp(r'^x-[a-z0-9-]{1,60}$').hasMatch(name) ||
+            rule is! Map ||
+            rule['domains'] is! List ||
+            rule['extensions'] is! List) {
+          throw SourceError('CONFIG', '站点没有声明有效的媒体权限');
+        }
+        final hosts = rule['domains'] as List;
+        final extensions = rule['extensions'] as List;
+        if (hosts.isEmpty ||
+            hosts.length > 16 ||
+            hosts.any((host) => host is! String || !publicDomainHost(host)) ||
+            extensions.isEmpty ||
+            extensions.length > 8 ||
+            extensions.any(
+              (ext) =>
+                  ext is! String || !RegExp(r'^[a-z0-9]{1,8}$').hasMatch(ext),
+            )) {
+          throw SourceError('CONFIG', '站点没有声明有效的媒体权限');
+        }
+        scopedHeaders[name] = (
+          domains: hosts.cast<String>(),
+          extensions: extensions.cast<String>(),
+        );
+      }
+    }
     final policy = MediaPolicy._(
       manifest.key,
       '$mode',
@@ -98,6 +140,7 @@ class MediaPolicy {
       ),
       image && hostInDomains(page.host, sourceDomains),
       List.unmodifiable((rawReferrers as List? ?? const []).cast<String>()),
+      Map.unmodifiable(scopedHeaders),
     );
     if (session && initialUrl != null) policy.authorize(initialUrl);
     return policy;
@@ -145,11 +188,13 @@ class MediaPolicy {
     for (final entry in supplied.entries) {
       final name = entry.key.toLowerCase();
       if (!const {
-            'referer',
-            'origin',
-            'accept',
-            'accept-language',
-          }.contains(name) ||
+                'referer',
+                'origin',
+                'accept',
+                'accept-language',
+              }.contains(name) &&
+              !scopedHeaders.containsKey(name) ||
+          entry.value.length > 4096 ||
           entry.value.contains('\r') ||
           entry.value.contains('\n') ||
           result.keys.any((existing) => existing.toLowerCase() == name)) {
@@ -172,6 +217,20 @@ class MediaPolicy {
     }
     return Map.unmodifiable(result);
   }
+
+  /// 每一跳重新计算，专用 CDN 头不会流向其他主机或资源类型。
+  Map<String, String> headersFor(Uri url, Map<String, String> supplied) => {
+    for (final entry in supplied.entries)
+      if (!scopedHeaders.containsKey(entry.key.toLowerCase()) ||
+          (hostInDomains(
+                url.host,
+                scopedHeaders[entry.key.toLowerCase()]!.domains,
+              ) &&
+              scopedHeaders[entry.key.toLowerCase()]!.extensions.contains(
+                url.path.split('.').last.toLowerCase(),
+              )))
+        entry.key: entry.value,
+  };
 }
 
 class MediaResponse {

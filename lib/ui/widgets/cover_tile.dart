@@ -189,7 +189,8 @@ class _CoverTileState extends State<CoverTile> {
                         CoverHero(
                           tag: _coverHeroTag,
                           child:
-                              item.cover.isEmpty && item.coverImages.isNotEmpty
+                              (item.json['cover'] ?? '').toString().isEmpty &&
+                                  item.coverImages.isNotEmpty
                               ? AdaptivePostCover(
                                   source: item.source,
                                   urls: item.coverImages,

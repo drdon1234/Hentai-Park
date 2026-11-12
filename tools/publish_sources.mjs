@@ -43,6 +43,16 @@ function validateMedia(manifest) {
     if (!media || typeof media !== 'object' || Array.isArray(media)) fail();
     const session = media.scope === 'session';
     const referrers = media.referrerDomains;
+    if (media.requestHeaders != null) {
+      const rules = media.requestHeaders;
+      if (image || media.mode !== 'native' || !rules || typeof rules !== 'object' || Array.isArray(rules) || Object.keys(rules).length > 8) fail();
+      for (const [name, rule] of Object.entries(rules)) {
+        if (!/^x-[a-z0-9-]{1,60}$/.test(name) || !rule || !Array.isArray(rule.domains) ||
+            !rule.domains.length || rule.domains.length > 16 || rule.domains.some(host => typeof host !== 'string' || !publicHost(host)) ||
+            !Array.isArray(rule.extensions) || !rule.extensions.length || rule.extensions.length > 8 ||
+            rule.extensions.some(ext => typeof ext !== 'string' || !/^[a-z0-9]{1,8}$/.test(ext))) fail();
+      }
+    }
     if (referrers != null && (!Array.isArray(referrers) || image || media.mode !== 'native' ||
         referrers.length > 16 || referrers.some(domain => !publicHost(domain)))) fail();
     if (!['native', 'browser'].includes(media.mode) ||

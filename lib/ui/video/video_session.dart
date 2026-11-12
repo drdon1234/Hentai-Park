@@ -9,7 +9,9 @@ import '../../core/app_lock.dart';
 import '../../core/app_log.dart';
 import '../../core/models.dart';
 import '../../core/platform_capabilities.dart';
+import '../../core/timed_subtitles.dart';
 import '../../core/voice.dart';
+import '../../core/voice_timeline.dart';
 import '../../engine/desktop_shutdown.dart';
 import '../../engine/source_manager.dart';
 import '../../images/image_store.dart';
@@ -55,6 +57,8 @@ class VideoSession extends ChangeNotifier {
   final VideoPreparer prepareVideo;
   final List<Chapter> episodes;
   late Chapter episode;
+  bool joinedVoice = false;
+  ({VoiceTimeline timeline, List<TimedSubtitleCue> cues})? voiceSequence;
 
   bool get isLive =>
       !downloadedOnly &&
@@ -93,6 +97,7 @@ class VideoSession extends ChangeNotifier {
   bool _suspended = false;
   int _routeGeneration = 0;
   Duration? _suspendedPosition;
+  Duration? _requestedPosition;
   bool? _suspendedWants;
   Future<void> _routeClosing = Future.value();
   Future<void>? _playerOpening;
@@ -272,7 +277,11 @@ class VideoSession extends ChangeNotifier {
     _wantsPlayback = _suspendedWants ?? true;
   }
 
-  Future<void> selectEpisode(Chapter next) {
+  Future<void> selectEpisode(
+    Chapter next, {
+    Duration? at,
+    bool? wantsPlayback,
+  }) {
     return PendingDisposals.instance.watch(() async {
       if (!_active || _suspended || !visible) return;
       if (scrollEpisodes && supported) return _selectDramaEpisode(next);
@@ -286,6 +295,8 @@ class VideoSession extends ChangeNotifier {
       final preparing = _preparingMedia;
       _preparingMedia = null;
       _resetFor(next);
+      _requestedPosition = at;
+      if (wantsPlayback != null) _wantsPlayback = wantsPlayback;
       _update();
       try {
         await preparing?.close();
@@ -507,6 +518,7 @@ class VideoSession extends ChangeNotifier {
         return;
       }
       c.addListener(_onTick);
+      _requestedPosition = null;
       _completed = !isLive && c.value.isCompleted;
       controller = c;
       _media = media;
@@ -539,6 +551,9 @@ class VideoSession extends ChangeNotifier {
   }
 
   Duration? _resumePoint(Duration total) {
+    if (_requestedPosition case final position?) {
+      return position > total ? total : position;
+    }
     if (_suspendedPosition case final position?) {
       return position < total ? position : Duration.zero;
     }
@@ -587,7 +602,7 @@ class VideoSession extends ChangeNotifier {
     if (newlyCompleted) {
       savePosition();
       if (_wantsPlayback && episodeIndex < episodes.length - 1) {
-        unawaited(selectEpisode(episodes[episodeIndex + 1]));
+        unawaited(selectEpisode(episodes[episodeIndex + 1], at: Duration.zero));
       } else {
         _wantsPlayback = false;
         _update();

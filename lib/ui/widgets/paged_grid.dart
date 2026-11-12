@@ -13,6 +13,7 @@ import '../feed/feed_article.dart';
 import '../short_video/short_video_sequence.dart';
 import '../subscriptions/subscription_posts_page.dart';
 import '../theme.dart';
+import '../voice/voice_tree_tile.dart';
 import 'common.dart';
 import 'cover_tile.dart';
 import 'error_view.dart';
@@ -217,7 +218,6 @@ class PagedController extends ChangeNotifier {
       totalPages = result.totalPages ?? totalPages;
       total = result.total ?? total;
       staleCache = staleCache || result.staleCache;
-      var added = 0;
       var shown = 0;
       final blocklist = TagBlocklist.current();
       if (result.sections != null) {
@@ -233,7 +233,6 @@ class PagedController extends ChangeNotifier {
       for (final item in result.items) {
         if (_seen.add(item.id)) {
           _loaded.add(item);
-          added++;
           if (!_visible(item, blocklist)) {
             hidden++;
             continue;
@@ -242,10 +241,9 @@ class PagedController extends ChangeNotifier {
           shown++;
         }
       }
-      hasNext =
-          result.hasNext &&
-          (result.items.isNotEmpty || result.cursor != null) &&
-          (added > 0 || result.cursor != null);
+      // 重叠页、筛选后的空页不代表源站已经结束。可见视图已有连续空页
+      // 的自动加载上限；保留下一页，避免收藏置顶或源站分页漂移截断内容。
+      hasNext = result.hasNext;
       if (result.staleCache) {
         // 过期游标可能属于已回收的源运行时；重试必须从首页重新建立会话。
         hasNext = false;
@@ -383,6 +381,7 @@ class PagedSliverGrid extends StatelessWidget {
           return _skeletonGrid(context);
         }
         if (listMode ||
+            c.items.any((item) => item.json['presentation'] == 'tree') ||
             kind == MediaKind.article ||
             kind == MediaKind.novel ||
             c.items.any((item) => item.json['presentation'] == 'post')) {
@@ -392,7 +391,9 @@ class PagedSliverGrid extends StatelessWidget {
                 itemCount: c.items.length,
                 itemBuilder: (context, i) {
                   final item = c.items[i];
-                  return kind == MediaKind.article
+                  return item.json['presentation'] == 'tree'
+                      ? VoiceTreeTile(key: ValueKey(item.uid), item: item)
+                      : kind == MediaKind.article
                       ? FeedArticleTile(item: item, showSource: showSource)
                       : item.json['presentation'] == 'post'
                       ? SubscriptionPostCard(

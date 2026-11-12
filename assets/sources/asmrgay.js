@@ -11,7 +11,7 @@ Park.register({
     ru: {'中文及汉化音声归档，支持多层目录与搜索': 'Архив китайских и переведённых аудио с папками и поиском', '汉化音声': 'Переводы на китайский'},
     ar: {'中文及汉化音声归档，支持多层目录与搜索': 'أرشيف صوتيات صينية ومترجمة مع مجلدات وبحث', '汉化音声': 'ترجمات صينية'},
   },
-  key: 'asmrgay', name: 'ASMR Gay', version: '0.0.2', minAppVersion: '0.13.0',
+  key: 'asmrgay', name: 'ASMR Gay', version: '0.0.3', minAppVersion: '0.13.2',
   type: 'voice', category: 'asmr', color: '#6A5E82',
   description: '中文及汉化音声归档，支持多层目录与搜索',
   homepage: 'https://www.asmrgay.com', domains: ['asmrgay.com'],

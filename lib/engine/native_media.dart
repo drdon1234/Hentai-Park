@@ -199,7 +199,7 @@ class NativeMedia
                   headers: {
                     'User-Agent': HttpService.instance.userAgent,
                     'Referer': '${policy.origin}/',
-                    ...headers,
+                    ...policy.headersFor(target, headers),
                   },
                 ),
                 cancelToken: requestToken,

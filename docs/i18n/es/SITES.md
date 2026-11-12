@@ -31,6 +31,10 @@ La comprobación de actualizaciones pide confirmación para eliminar plugins ofi
 | Recursos de juegos | KUN Galgame · GalgameX · 次元茶馆 |
 | Juegos en línea | itch.io · Gamcore |
 
+El audio organizado en carpetas permite navegar en árbol y expandir los resultados de búsqueda. Las obras con varias pistas ofrecen reproducción unida con una línea de tiempo y subtítulos combinados para la lista actual. La preparación inicial consulta cada pista en línea; puede haber breves pausas de carga entre pistas.
+
+ASMRHoney admite colecciones de vídeos, colecciones anidadas e imágenes adjuntas. Los juegos en línea reutilizan los recursos grandes sin cambios y necesitan conexión para comprobar su versión; algunos juegos se descomprimen o inicializan en cada inicio.
+
 ## Clasificaciones
 
 | Categoría | Sitios / servicios |

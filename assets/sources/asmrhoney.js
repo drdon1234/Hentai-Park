@@ -24,7 +24,7 @@
   const cache = new Map();
 
   Park.register({
-    i18n: copy, key: 'asmrhoney', name: 'ASMRHoney', version: '0.0.2', minAppVersion: '0.13.0',
+    i18n: copy, key: 'asmrhoney', name: 'ASMRHoney', version: '0.0.3', minAppVersion: '0.13.2',
     type: 'voice', category: 'asmr', color: '#9A6572',
     description: '中文与多语 ASMR 音视频，支持创作者和标签筛选',
     homepage: BASE, domains: ['asmrhoney.com'], network: {mode: 'auto', vpnHint: true},
@@ -92,7 +92,7 @@
       let cover = '';
       if (entry.coverWebpUrl || entry.coverUrl) cover = this.safeUrl(entry.coverWebpUrl || entry.coverUrl);
       return {id, title: entry.title, cover, coverAspect: kind === 'clip' ? 16 / 9 : 1,
-        mediaKind: kind === 'clip' ? 'video' : 'voice', authors: [creator.displayName || creator.name].filter(Boolean),
+        mediaKind: kind === 'clip' && entry.kind !== 'collection' ? 'video' : 'voice', authors: [creator.displayName || creator.name].filter(Boolean),
         ...(language ? {language} : {}),
         ...(language === 'zh' && kind !== 'clip' ? {voiceLanguageStatus: 'chineseSpoken'} : {}),
         ...(kind !== 'clip' ? {voiceMediaForm: 'audioOnly'} : entry.audioOnly === false ? {voiceMediaForm: 'videoOnly'} : {}),
@@ -185,6 +185,56 @@
       if (!clip || clip.slug !== slug || clip.status !== 'published') throw Park.error('PARSE', '媒体数据无效');
       return clip;
     },
+    async clipVideos(slug) {
+      const clip = await this.clip(slug);
+      if (!clip.videoUrl) throw Park.error('UNSUPPORTED', '此影片暂无可用播放地址');
+      const url = this.safeUrl(clip.videoUrl), ext = new URL(url).pathname.split('.').pop().toLowerCase();
+      if (!['mp4', 'm3u8'].includes(ext)) throw Park.error('UNSUPPORTED', '媒体格式不支持');
+      return [{url, format: ext === 'm3u8' ? 'hls' : ext, label: '原画', preferred: true, headers: {Referer: BASE + '/'}}];
+    },
+    async collection(slug) {
+      this.slug(slug);
+      const key = 'collection:' + slug, saved = cache.get(key);
+      if (saved && Date.now() - saved.time < 10 * 60 * 1000) return saved.value;
+      const response = await this.http.get(BASE + '/collection/' + slug + '/');
+      if (!response.ok) throw Park.error('HTTP', 'HTTP {status}', {status: response.status, params: {status: response.status}});
+      if (response.body.length > 4 * 1024 * 1024) throw Park.error('PARSE', '媒体数据无效');
+      const doc = Park.html.parse(response.body), rows = [], seen = new Set();
+      for (const card of doc.querySelectorAll('main .clip-grid a.clip-card[href]')) {
+        const url = new URL(card.getAttribute('href'), BASE);
+        const match = /^\/(clip|collection)\/([a-z0-9][a-z0-9-]{0,180})\/$/.exec(url.pathname);
+        if (url.origin !== BASE || !match || seen.has(match[2])) throw Park.error('PARSE', '媒体数据无效');
+        seen.add(match[2]);
+        rows.push({slug: match[2], kind: match[1] === 'collection' ? 'directory' : 'video',
+          name: Park.html.text(card.querySelector('h3')) || match[2]});
+      }
+      const pictures = [...doc.querySelectorAll('main a.photo-gallery-item[href]')].map(card => this.safeUrl(card.getAttribute('href')));
+      const hashes = pictures.length ? await Park.crypto.md5Hex(pictures) : [];
+      pictures.forEach((url, index) => rows.push({slug: hashes[index], kind: 'image', url,
+        name: decodeURIComponent(new URL(url).pathname.split('/').pop())}));
+      if (!rows.length || rows.length > 5000) throw Park.error('PARSE', '媒体数据无效');
+      cache.set(key, {time: Date.now(), value: rows});
+      return rows;
+    },
+    async collectionFolder(value, directory, entry) {
+      if (directory !== value && !String(directory).startsWith(value + '/d/')) throw Park.error('NOT_FOUND', '目录不存在');
+      const path = directory === value ? [] : directory.slice(value.length + 3).split('/d/');
+      if (path.length > 12) throw Park.error('PARSE', '媒体数据无效');
+      let rows = await this.collection(entry.collectionSlug || this.parseId(value).slug);
+      for (const slug of path) {
+        if (!rows.some(row => row.kind === 'directory' && row.slug === slug)) throw Park.error('NOT_FOUND', '目录不存在');
+        rows = await this.collection(slug);
+      }
+      return rows;
+    },
+    async collectionNode(value, nodeId, entry) {
+      const match = /^(.*)\/(v|i)\/([a-z0-9-]+)(?:\/s\/([a-z0-9-]+))?$/.exec(String(nodeId));
+      if (!match) throw Park.error('NOT_FOUND', '内容不存在或已被删除');
+      const rows = await this.collectionFolder(value, match[1], entry);
+      const row = rows.find(row => row.slug === match[3] && row.kind === (match[2] === 'v' ? 'video' : 'image'));
+      if (!row || (row.kind === 'image' && match[4])) throw Park.error('NOT_FOUND', '内容不存在或已被删除');
+      return {row, language: match[4] || ''};
+    },
     clipSubtitles(id, clip) {
       if (clip.subtitleTracks == null) return [];
       if (!Array.isArray(clip.subtitleTracks) || clip.subtitleTracks.length > 50) throw Park.error('PARSE', '媒体数据无效');
@@ -204,6 +254,10 @@
       const kind = id.kind === 'c' ? 'clip' : id.kind === 'a' ? 'album' : 'track';
       const item = this.item(entry, kind, creators);
       let description = '', subtitles = [];
+      if (entry.kind === 'collection') {
+        return {...item, url: BASE + '/collection/' + this.slug(entry.collectionSlug || id.slug) + '/',
+          voiceRoot: {id: item.id, name: item.title, type: 'directory'}};
+      }
       if (kind === 'clip') {
         const clip = await this.clip(id.slug);
         description = typeof clip.description === 'string' ? clip.description : '';
@@ -216,6 +270,25 @@
     },
     async voiceDirectory(value, directory, options = {}) {
       const resolved = await this.resolve(value), {id, entry, audio} = resolved;
+      if (entry.kind === 'collection') {
+        const rows = await this.collectionFolder(value, directory, entry);
+        const page = Math.max(1, Math.floor(Number(options.page) || 1)), nodes = [];
+        const selected = rows.slice((page - 1) * 24, page * 24);
+        // Resolve captions in small batches; large collections must not open
+        // hundreds of detail requests before the first directory page appears.
+        for (let offset = 0; offset < selected.length; offset += 4) {
+          const batch = await Promise.all(selected.slice(offset, offset + 4).map(async row => {
+            const nodeId = directory + '/' + (row.kind === 'directory' ? 'd' : row.kind === 'video' ? 'v' : 'i') + '/' + row.slug;
+            if (row.kind !== 'video') return [{id: nodeId, name: row.name, type: row.kind}];
+            const clip = await this.clip(row.slug);
+            const captions = this.clipSubtitles(row.slug, clip).map(subtitle => ({...subtitle, id: nodeId + '/s/' + subtitle.language}));
+            return [{id: nodeId, name: row.name + '.mp4', type: 'video', subtitleIds: captions.map(caption => caption.id)},
+              ...captions.map(caption => ({id: caption.id, name: caption.language + '.vtt', type: 'subtitle', subtitleLanguage: caption.language}))];
+          }));
+          nodes.push(...batch.flat());
+        }
+        return {items: nodes, hasNext: page * 24 < rows.length};
+      }
       if (id.kind !== 'a' || id.track || directory !== value) throw Park.error('NOT_FOUND', '目录不存在');
       const tracks = audio.tracks.filter(track => track.albumSlug === entry.slug && track.status === 'published');
       tracks.sort((a, b) => Number(a.trackNo || 0) - Number(b.trackNo || 0));
@@ -237,6 +310,14 @@
       return track;
     },
     async voiceResource(id, nodeId) {
+      const {entry} = await this.resolve(id);
+      if (entry.kind === 'collection') {
+        const {row, language} = await this.collectionNode(id, nodeId, entry);
+        if (row.kind === 'image') return {url: row.url, format: new URL(row.url).pathname.split('.').pop().toLowerCase()};
+        const subtitle = this.clipSubtitles(row.slug, await this.clip(row.slug)).find(subtitle => subtitle.language === language);
+        if (!subtitle) throw Park.error('NOT_FOUND', '内容不存在或已被删除');
+        return {url: subtitle.url, format: 'vtt'};
+      }
       const root = this.parseId(id);
       if (root.kind === 'c' && !root.track) {
         const subtitle = this.clipSubtitles(root.slug, await this.clip(root.slug)).find(value => value.id === nodeId);
@@ -249,12 +330,14 @@
     },
     async videos(value, episodeId) {
       const id = this.parseId(value);
+      const {entry} = await this.resolve(value);
+      if (entry.kind === 'collection') {
+        const {row, language} = await this.collectionNode(value, episodeId, entry);
+        if (row.kind !== 'video' || language) throw Park.error('NOT_FOUND', '内容不存在或已被删除');
+        return this.clipVideos(row.slug);
+      }
       if (id.kind === 'c' && !id.track) {
-        const clip = await this.clip(id.slug);
-        if (!clip.videoUrl) throw Park.error('UNSUPPORTED', '此影片暂无可用播放地址');
-        const url = this.safeUrl(clip.videoUrl), ext = new URL(url).pathname.split('.').pop().toLowerCase();
-        if (!['mp4', 'm3u8'].includes(ext)) throw Park.error('UNSUPPORTED', '媒体格式不支持');
-        return [{url, format: ext === 'm3u8' ? 'hls' : ext, label: '原画', preferred: true, headers: {Referer: BASE + '/'}}];
+        return this.clipVideos(id.slug);
       }
       const track = await this.track(value, episodeId), format = String(track.format || '').toLowerCase();
       if (!['mp3', 'm4a'].includes(format)) throw Park.error('UNSUPPORTED', '媒体格式不支持');

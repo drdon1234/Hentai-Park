@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+
 import 'package:flutter/rendering.dart';
 
 import '../../core/localization.dart';
@@ -11,11 +12,13 @@ import '../../engine/shared_feed.dart';
 import '../album/open_album.dart';
 import '../subscriptions/subscription_source_page.dart';
 import '../theme.dart';
+import '../voice/voice_tree_tile.dart';
 import '../widgets/common.dart';
 import '../widgets/cover_tile.dart';
 import '../widgets/error_view.dart';
 import '../widgets/on_visible.dart';
 import '../widgets/source_network_hint.dart';
+import '../widgets/work_list_row.dart';
 import 'feed_sessions.dart';
 
 /// 主页和域页订阅同一推荐会话，滚动到右侧继续分页。
@@ -239,6 +242,16 @@ class _FeedShelfState extends State<FeedShelf>
       );
     } else if (items.isEmpty) {
       body = _ShelfMessage(message: tr('暂时没有内容'), onRetry: _loadMore);
+    } else if (items.any((item) => item.json['presentation'] == 'tree')) {
+      body = Column(
+        children: [
+          for (final item in items.take(5))
+            if (item.json['presentation'] == 'tree')
+              VoiceTreeTile(key: ValueKey(item.uid), item: item)
+            else
+              WorkListRow(key: ValueKey(item.uid), item: item),
+        ],
+      );
     } else {
       final aspect = gridAspectFor(items, manifest?.kind ?? MediaKind.comic);
       final imageOnly = manifest?.category == SourceCategory.live;

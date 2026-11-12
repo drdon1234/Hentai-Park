@@ -50,10 +50,12 @@ class VoiceDirectoryPage extends StatefulWidget {
     required this.work,
     required this.root,
     this.sourceManager,
+    this.embedded = false,
   });
   final WorkDetail work;
   final VoiceNode root;
   final SourceManager? sourceManager;
+  final bool embedded;
 
   @override
   State<VoiceDirectoryPage> createState() => _VoiceDirectoryPageState();
@@ -125,11 +127,10 @@ class _VoiceDirectoryPageState extends State<VoiceDirectoryPage> {
               !identical(folder.cancel, cancel)) {
             return;
           }
-          if (result.items.any((node) => folder.seen.contains(node.id))) {
-            throw SourceError('PARSE', '媒体数据无效');
-          }
-          folder.items.addAll(result.items);
-          folder.seen.addAll(result.items.map((node) => node.id));
+          // 源站排序变化可能造成跨页重叠；按身份去重并继续读取后续页。
+          folder.items.addAll(
+            result.items.where((node) => folder.seen.add(node.id)),
+          );
           folder.hasAudio =
               folder.hasAudio ||
               result.items.any((node) => node.kind == VoiceNodeKind.audio);
@@ -141,9 +142,7 @@ class _VoiceDirectoryPageState extends State<VoiceDirectoryPage> {
           folder.complete = !result.hasNext;
           setState(() {});
           if (folder.complete) break;
-          if (result.items.isEmpty ||
-              folder.items.length >= 5000 ||
-              folder.page > 100) {
+          if (folder.items.length >= 5000 || folder.page > 100) {
             throw SourceError('PARSE', '媒体数据无效');
           }
         }
@@ -342,6 +341,17 @@ class _VoiceDirectoryPageState extends State<VoiceDirectoryPage> {
   Widget build(BuildContext context) {
     final rows = _rows();
     final root = _folders[_rootId]!;
+    if (widget.embedded) {
+      return Padding(
+        padding: const EdgeInsetsDirectional.only(start: Gap.l),
+        child: rows.isEmpty && root.complete
+            ? Padding(
+                padding: const EdgeInsets.all(Gap.l),
+                child: Text(tr('目录为空')),
+              )
+            : Column(children: [for (final row in rows) _row(row)]),
+      );
+    }
     return Scaffold(
       appBar: PageHeader(title: widget.work.title),
       body: Column(

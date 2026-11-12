@@ -15,8 +15,8 @@
     {
       "key": "asmrhoney",
       "name": "ASMRHoney",
-      "version": "0.0.2",
-      "minAppVersion": "0.13.0",
+      "version": "0.0.3",
+      "minAppVersion": "0.13.2",
       "type": "voice",
       "category": "asmr",
       "file": "asmrhoney.js",
@@ -45,8 +45,8 @@
     {
       "key": "asmrgay",
       "name": "ASMR Gay",
-      "version": "0.0.2",
-      "minAppVersion": "0.13.0",
+      "version": "0.0.3",
+      "minAppVersion": "0.13.2",
       "type": "voice",
       "category": "asmr",
       "file": "asmrgay.js",
@@ -55,8 +55,8 @@
     {
       "key": "asmrmoon",
       "name": "ASMR Moon",
-      "version": "0.0.2",
-      "minAppVersion": "0.13.0",
+      "version": "0.0.3",
+      "minAppVersion": "0.13.2",
       "type": "voice",
       "category": "asmr",
       "file": "asmrmoon.js",
@@ -505,32 +505,32 @@
     {
       "key": "huangdou",
       "name": "黄豆短剧",
-      "version": "0.0.9",
+      "version": "0.0.10",
       "type": "video",
       "category": "aiDrama",
       "file": "huangdou.js",
       "description": "AI短剧与漫剧，支持分类、排行、搜索和分集播放",
-      "minAppVersion": "0.9.2"
+      "minAppVersion": "0.13.2"
     },
     {
       "key": "drama91",
       "name": "91短剧",
-      "version": "0.0.9",
+      "version": "0.0.10",
       "type": "video",
       "category": "aiDrama",
       "file": "drama91.js",
       "description": "AI短剧、漫剧与视频，支持推荐、分类、搜索和分集播放",
-      "minAppVersion": "0.9.2"
+      "minAppVersion": "0.13.2"
     },
     {
       "key": "huangguo",
       "name": "黄果短剧",
-      "version": "0.0.12",
+      "version": "0.0.13",
       "type": "video",
       "category": "aiDrama",
       "file": "huangguo.js",
       "description": "AI短剧与漫剧，支持分类、排行、搜索和分集播放",
-      "minAppVersion": "0.9.2"
+      "minAppVersion": "0.13.2"
     },
     {
       "key": "rouvideo-drama",
@@ -853,12 +853,12 @@
     {
       "key": "itchio",
       "name": "itch.io",
-      "version": "0.0.2",
+      "version": "0.0.3",
       "type": "game",
       "category": "onlineGame",
       "file": "itchio.js",
       "description": "独立网页游戏，支持语言和标签浏览",
-      "minAppVersion": "0.13.0"
+      "minAppVersion": "0.13.2"
     },
     {
       "key": "gamcore",

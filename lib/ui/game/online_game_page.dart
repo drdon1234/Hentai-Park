@@ -24,6 +24,7 @@ import '../kit/tokens.dart';
 import '../nav.dart';
 import '../theme.dart';
 import '../widgets/error_view.dart';
+import 'game_resource_cache.dart';
 import 'online_game_target.dart';
 
 class OnlineGamePage extends StatefulWidget {
@@ -134,7 +135,8 @@ class _OnlineGamePageState extends State<OnlineGamePage>
         mounted &&
         identical(session, _session) &&
         // 插件在创建回调与加载回调中可能包装同一原生控制器为不同 Dart 对象。
-        identical(controller.platform, _controller?.platform) &&
+        controller.getViewId() != null &&
+        controller.getViewId() == _controller?.getViewId() &&
         generation == _documentGeneration &&
         _error == null &&
         _routeVisible &&
@@ -673,17 +675,21 @@ catch(_){try{localStorage.clear();for(const [k,v] of Object.entries(old))localSt
                     key: ValueKey(session),
                     keepAlive: session,
                     webViewEnvironment: _environment,
-                    initialUserScripts: Platform.isAndroid
-                        ? UnmodifiableListView([
-                            UserScript(
-                              groupName:
-                                  'park_game_${onlineGameProfileKey(widget.work.source, target.storageId)}',
-                              source: challengeDocumentScript,
-                              injectionTime:
-                                  UserScriptInjectionTime.AT_DOCUMENT_START,
-                            ),
-                          ])
-                        : null,
+                    initialUserScripts: UnmodifiableListView([
+                      UserScript(
+                        source: gameResourceCacheScript,
+                        injectionTime:
+                            UserScriptInjectionTime.AT_DOCUMENT_START,
+                      ),
+                      if (Platform.isAndroid)
+                        UserScript(
+                          groupName:
+                              'park_game_${onlineGameProfileKey(widget.work.source, target.storageId)}',
+                          source: challengeDocumentScript,
+                          injectionTime:
+                              UserScriptInjectionTime.AT_DOCUMENT_START,
+                        ),
+                    ]),
                     initialSettings: InAppWebViewSettings(
                       userAgent: HttpService.instance.userAgent,
                       javaScriptBridgeEnabled: false,

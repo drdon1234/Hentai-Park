@@ -9,7 +9,7 @@ Park.register({
     "ru": {"91短剧": "Короткие сериалы 91", "AI短剧、漫剧与视频，支持推荐、分类、搜索和分集播放": "ИИ-мини-драмы, анимированные комиксы и видео с рекомендациями, категориями, поиском и просмотром по сериям", "成人漫剧": "Анимированные комиксы для взрослых", "成人短剧": "Короткие сериалы для взрослых", "真人剧": "Игровые сериалы"},
     "ar": {"91短剧": "مسلسلات 91 القصيرة", "AI短剧、漫剧与视频，支持推荐、分类、搜索和分集播放": "دراما قصيرة بالذكاء الاصطناعي وقصص مصورة متحركة وفيديوهات، مع توصيات وتصنيفات وبحث وتشغيل الحلقات", "成人漫剧": "قصص مصورة متحركة للبالغين", "成人短剧": "مسلسلات قصيرة للبالغين", "真人剧": "مسلسلات تمثيلية"},
   },
-  key: 'drama91', name: '91短剧', version: '0.0.9', minAppVersion: '0.9.2',
+  key: 'drama91', name: '91短剧', version: '0.0.10', minAppVersion: '0.13.2',
   type: 'video', category: 'aiDrama', color: '#E6C87A',
   description: 'AI短剧、漫剧与视频，支持推荐、分类、搜索和分集播放',
   homepage: 'https://91crdjai.com', domains: ['91crdjai.com'], language: 'zh',
@@ -18,7 +18,8 @@ Park.register({
   imageHeaders: { Referer: 'https://91crdjai.com/' },
   imageDecrypt: { type: 'aes-cbc', key: 'f5d965df75336270', iv: '97b60394abc2fbe1', domains: ['pic.drleao.cn'] },
   network: { mode: 'native', vpnHint: true },
-  media: { mode: 'native', scope: 'session', origin: 'https://91crdjai.com' },
+  media: {mode: 'native', scope: 'session', origin: 'https://91crdjai.com', domains: ['hzjvlo.cn'],
+    requestHeaders: {'x-cdn-auth': {domains: ['hzjvlo.cn'], extensions: ['m3u8']}, 'x-cdn-app': {domains: ['hzjvlo.cn'], extensions: ['m3u8']}}},
   defaultFeed: 'recommend',
   feeds: [
     { key: 'recommend', label: '推荐' }, { key: 'ranking', label: '排行榜' },
@@ -158,23 +159,29 @@ Park.register({
     };
   },
   async videos(value, episodeId = '_') {
-    const id = this.workId(value), ep = episodeId === '_' ? '1' : String(episodeId);
+    const id = this.workId(value), numericId = id.split('/')[1];
+    const ep = episodeId === '_' ? '1' : String(episodeId);
     if (!/^[1-9]\d*$/.test(ep)) throw Park.error('NOT_FOUND', 'AI短剧作品或分集不存在');
-    // 编号入口由站点重定向到现行 slug，每次播放读取当前规范路径。
-    const { path } = await this.detailDocument(id), playPath = path + ep + '/';
-    const doc = await this.document(playPath), node = doc.querySelector('#playInitialData');
-    let data;
-    try { data = JSON.parse(node ? node.textContent : ''); } catch (_) { throw Park.error('PARSE', 'AI短剧播放数据解析失败'); }
-    if (!data || String(data.id) !== id.split('/')[1] || this.linkId(data.playBase) !== id || !data.current || String(data.current.n) !== ep || String(data.startEp) !== ep) {
-      throw Park.error('NOT_FOUND', 'AI短剧作品或分集不存在');
+    const response = await this.http.post(this.BASE + '/api/videos/' + numericId + '/episodes/' + ep + '/playback', {
+      json: {}, readOnly: true, headers: {Referer: this.BASE + '/', Origin: this.BASE},
+    });
+    if (!response.ok) throw Park.error('HTTP', 'HTTP {status}', {status: response.status, params: {status: response.status}});
+    const result = response.json(), data = result?.data;
+    if (result?.status !== 1 || !data) throw Park.error('NOT_FOUND', 'AI短剧该分集暂无可用播放地址');
+    if (String(data.id) !== numericId || String(data.n ?? data.ep) !== ep || data.manifest_method !== 'GET') throw Park.error('PARSE', '媒体数据无效');
+    const raw = data.streams?.main;
+    let target;
+    try { target = new URL(raw); } catch (_) {}
+    if (!target || target.protocol !== 'https:' || target.port || target.username || target.password || target.hash ||
+        !/\.m3u8$/i.test(target.pathname)) throw Park.error('PARSE', '媒体数据无效');
+    const headers = {Referer: this.BASE + '/'};
+    if (data.cdn?.m3u8Enabled) {
+      if (data.cdn.authKey !== 'x-cdn-auth' || typeof data.cdn.authValue !== 'string' || !data.cdn.authValue ||
+          !/^[0-9]{1,12}$/.test(String(data.cdn.app))) throw Park.error('PARSE', '媒体数据无效');
+      headers['x-cdn-auth'] = data.cdn.authValue;
+      headers['x-cdn-app'] = String(data.cdn.app);
     }
-    if (data.videoApi || data.videoKey || data.videoIv) throw Park.error('UNSUPPORTED', 'AI短剧该分集使用暂不支持的播放方式');
-    if (!data.current.src) throw Park.error('NOT_FOUND', 'AI短剧该分集暂无可用播放地址');
-    const url = this.absolute(data.current.src), u = url && new URL(url);
-    if (!u || u.protocol !== 'https:' || u.port || u.username || u.password || u.hash || !/\.m3u8(?:\?|$)/i.test(url)) throw Park.error('PARSE', 'AI短剧播放地址无效');
-    return [{ quality: 0, label: '原画', url, headers: { Referer: this.BASE + playPath }, preferred: true,
-      format: 'hls',
-    }];
+    return [{quality: 0, label: '原画', url: target.href, headers, preferred: true, format: 'hls'}];
   },
 });
 

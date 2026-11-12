@@ -794,7 +794,9 @@ class WorkItem {
     : id = _str(json['id']),
       title = _str(json['title']),
       subtitle = _str(json['subtitle']),
-      cover = _str(json['cover']),
+      cover = _str(json['cover']).isNotEmpty
+          ? _str(json['cover'])
+          : _strings(json['coverImages']).firstOrNull ?? '',
       coverImages = _strings(json['coverImages']),
       coverAspect = _double(json['coverAspect']),
       pages = _int(json['pages']),

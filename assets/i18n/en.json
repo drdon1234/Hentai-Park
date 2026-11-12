@@ -1822,5 +1822,8 @@
   "跳转": "Go",
   "回到顶部": "Back to top",
   "显示凭据": "Show credentials",
-  "隐藏凭据": "Hide credentials"
+  "隐藏凭据": "Hide credentials",
+  "拼接播放": "Joined playback",
+  "合并曲目时间轴与字幕": "Combine track timelines and subtitles",
+  "正在准备曲目 {current}/{total}": "Preparing track {current}/{total}"
 }

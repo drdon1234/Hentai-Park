@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+
 import 'package:flutter/services.dart';
 
 import '../../core/content_scope.dart';
@@ -10,10 +11,12 @@ import '../../engine/source_manager.dart';
 import '../nav.dart';
 import '../short_video/short_video_sequence.dart';
 import '../theme.dart';
+import '../voice/voice_tree_tile.dart';
 import '../widgets/common.dart';
 import '../widgets/cover_tile.dart';
 import '../widgets/error_view.dart';
 import '../widgets/source_network_hint.dart';
+import '../widgets/work_list_row.dart';
 import 'aggregate_search_controller.dart';
 import 'multi_language.dart';
 import 'source_search_page.dart';
@@ -303,6 +306,19 @@ class SourceResultsRow extends StatelessWidget {
                 style: context.text.bodySmall,
               ),
             ),
+          ],
+        );
+      }
+      if (items.any((item) => item.json['presentation'] == 'tree')) {
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            header,
+            for (final item in items.take(5))
+              if (item.json['presentation'] == 'tree')
+                VoiceTreeTile(key: ValueKey(item.uid), item: item)
+              else
+                WorkListRow(key: ValueKey(item.uid), item: item),
           ],
         );
       }
