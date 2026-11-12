@@ -1,10 +1,11 @@
-/// 仅验证浏览器中的可信验证码子框架；不授予源网络或 Cookie 权限。
+/// 允许继承父页来源的空白子框架与可信验证码子框架，不授予网络或 Cookie 权限。
 bool challengeFrameNavigationAllowed(Uri uri, {required bool isForMainFrame}) =>
     !isForMainFrame &&
-    uri.scheme == 'https' &&
-    uri.host == 'challenges.cloudflare.com' &&
-    uri.port == 443 &&
-    uri.userInfo.isEmpty;
+    (uri.toString() == 'about:blank' ||
+        (uri.scheme == 'https' &&
+            uri.host == 'challenges.cloudflare.com' &&
+            uri.port == 443 &&
+            uri.userInfo.isEmpty));
 
 /// Cloudflare 防火墙按网络拒绝访问的错误页（“you have been blocked”）。
 /// 它不是可通过的验证，浏览器重试也无法通过，需要用户更换网络或代理。

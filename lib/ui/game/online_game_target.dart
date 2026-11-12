@@ -80,5 +80,5 @@ class OnlineGameTarget {
 
   /// Android's asynchronous frame callback does not cover every subframe.
   String get blockedFramePattern =>
-      '^(?!https://(?:${{url.host, ...navigationDomains}.map(RegExp.escape).join('|')}|challenges\\.cloudflare\\.com)(?::443)?(?:[/?#]|\$)).*';
+      '^(?!(?:about:blank\$|https://(?:${{url.host, ...navigationDomains}.map(RegExp.escape).join('|')}|challenges\\.cloudflare\\.com)(?::443)?(?:[/?#]|\$))).*';
 }

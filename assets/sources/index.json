@@ -893,7 +893,7 @@
     {
       "key": "cycg",
       "name": "次元茶馆",
-      "version": "0.0.12",
+      "version": "0.0.13",
       "type": "game",
       "category": "game",
       "file": "cycg.js",

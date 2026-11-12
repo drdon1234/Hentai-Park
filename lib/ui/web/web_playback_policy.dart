@@ -54,6 +54,6 @@ class WebPlaybackPolicy {
       ...navigationDomains,
       ...frameDomains,
     }.map(RegExp.escape).join('|');
-    return '^(?!https://(?:(?:[a-z0-9-]+\\.)*(?:$domains)|challenges\\.cloudflare\\.com)(?::443)?(?:[/?#]|\$)).*';
+    return '^(?!(?:about:blank\$|https://(?:(?:[a-z0-9-]+\\.)*(?:$domains)|challenges\\.cloudflare\\.com)(?::443)?(?:[/?#]|\$))).*';
   }
 }

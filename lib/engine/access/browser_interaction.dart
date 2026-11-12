@@ -15,7 +15,7 @@ const challengeDocumentScript = r'''
     return root;
   };
   const token = [...crypto.getRandomValues(new Uint32Array(4))].join('-');
-  let consumed = false;
+  let attempts = 0, lastInput = -Infinity;
   const trusted = value => {
     try {
       const u = new URL(value);
@@ -24,7 +24,9 @@ const challengeDocumentScript = r'''
     } catch (_) { return false; }
   };
   const snapshot = (expected, take = false) => {
-    if (consumed || (expected && expected !== token) || document.readyState !== 'complete') return null;
+    const attemptToken = token + '-' + attempts;
+    if (attempts >= 3 || performance.now() - lastInput < 8000 ||
+        (expected && expected !== attemptToken) || document.readyState !== 'complete') return null;
     const frames = [];
     let budget = 10000;
     const visit = (root, depth = 0) => {
@@ -55,8 +57,8 @@ const challengeDocumentScript = r'''
       root = shadow;
     }
     if (hit !== frame) return null;
-    if (take) consumed = true;
-    return {token, url: location.href, frame: frame.src, x, y,
+    if (take) { attempts++; lastInput = performance.now(); }
+    return {token: attemptToken, url: location.href, frame: frame.src, x, y,
       width: innerWidth, height: innerHeight};
   };
   Object.defineProperty(window, '__parkChallengeInput', {
@@ -286,7 +288,9 @@ Future<bool> clickCloudflareCheckbox(
       'objectId': objectId,
       'functionDeclaration': r'''function(expected, take) {
         if (!this.isConnected || this.ownerDocument !== document || location.href !== expected ||
-            document.readyState !== 'complete' || window.__parkCdpInputConsumed) return null;
+            document.readyState !== 'complete') return null;
+        const state = window.__parkCdpInputState;
+        if (state && (state.attempts >= 3 || performance.now() - state.lastInput < 8000)) return null;
         const u = new URL(this.src);
         if (u.protocol !== 'https:' || u.hostname !== 'challenges.cloudflare.com' ||
             u.port || u.username || u.password) return null;
@@ -304,7 +308,11 @@ Future<bool> clickCloudflareCheckbox(
           const root = node.getRootNode();
           if (!root.elementFromPoint || root.elementFromPoint(x,y) !== node) return null;
           if (root === document) {
-            if (take) Object.defineProperty(window, '__parkCdpInputConsumed', {value:true});
+            if (take) {
+              if (!state) Object.defineProperty(window, '__parkCdpInputState', {value:{attempts:0,lastInput:0}});
+              window.__parkCdpInputState.attempts++;
+              window.__parkCdpInputState.lastInput = performance.now();
+            }
             return {x,y,width:innerWidth,height:innerHeight};
           }
           node = root.host;
@@ -388,7 +396,8 @@ enum BrowserAccessState { waiting, ready, failed }
 
 class BrowserAccessDocument {
   bool _ageClicked = false;
-  bool _challengeClicked = false;
+  int _challengeAttempts = 0;
+  DateTime? _challengeAttemptAt;
   bool _sawAccessGate = false;
 
   Future<BrowserAccessState> inspect(
@@ -415,14 +424,23 @@ class BrowserAccessDocument {
       title: snapshot['title']?.toString() ?? '',
     );
     if (challenge || snapshot['gate'] == true) _sawAccessGate = true;
-    if (challenge && !_challengeClicked) {
+    // 触摸被 WebView 接受不等于验证框已就绪或服务端已放行。
+    // 重试受当前文档、重新命中检查、次数和间隔共同约束。
+    if (challenge &&
+        _challengeAttempts < 3 &&
+        (_challengeAttemptAt == null ||
+            DateTime.now().difference(_challengeAttemptAt!) >=
+                const Duration(seconds: 8))) {
       final clicked = await clickCloudflareCheckbox(
         controller,
         current: current,
         documentUrl: url,
       );
       if (!current()) return BrowserAccessState.waiting;
-      _challengeClicked = clicked;
+      if (clicked) {
+        _challengeAttempts++;
+        _challengeAttemptAt = DateTime.now();
+      }
     }
     if (!current() ||
         challenge ||
