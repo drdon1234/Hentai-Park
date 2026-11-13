@@ -141,7 +141,8 @@ class _OriginPage {
   Timer? _poll;
   bool _ageGateSeen = false;
   int _ageClickedGeneration = -1;
-  int _challengeClickedGeneration = -1;
+  int _challengeAttempts = 0;
+  DateTime? _challengeAttemptAt;
   DateTime? _challengeSince;
   int _nextRequest = 0;
   Completer<void>? _navigation;
@@ -240,7 +241,8 @@ class _OriginPage {
     _documentStatus = 200;
     _ageGateSeen = false;
     _ageClickedGeneration = -1;
-    _challengeClickedGeneration = -1;
+    _challengeAttempts = 0;
+    _challengeAttemptAt = null;
     final ready = _ready = Completer<void>();
     Timer? timeout;
     var challenged = false;
@@ -306,6 +308,8 @@ class _OriginPage {
           _documentConsumed = false;
           _documentStatus = 200;
           _challengeSince = null;
+          _challengeAttempts = 0;
+          _challengeAttemptAt = null;
           stableSince = null;
           _documentUri = url == null ? null : Uri.tryParse(url.toString());
         }
@@ -381,7 +385,12 @@ class _OriginPage {
             if (challenged) {
               stableSince = null;
               _challengeSince ??= RequestLifecycle.instance.foregroundNow;
-              if (_challengeClickedGeneration != generation &&
+              if (_challengeAttempts < 3 &&
+                  (_challengeAttemptAt == null ||
+                      RequestLifecycle.instance.foregroundNow.difference(
+                            _challengeAttemptAt!,
+                          ) >=
+                          const Duration(seconds: 8)) &&
                   RequestLifecycle.instance.foregroundNow.difference(
                         _challengeSince!,
                       ) >=
@@ -391,16 +400,19 @@ class _OriginPage {
                             lastChallengeScan!,
                           ) >=
                           const Duration(seconds: 3))) {
-                // 每代文档最多一次输入，不反复点击挑战或站点控件。
+                // 同一文档最多三次；Android 文档令牌还会逐次复核并限流。
                 try {
                   lastChallengeScan = RequestLifecycle.instance.foregroundNow;
-                  if (await clickCloudflareCheckbox(
+                  final clicked = await clickCloudflareCheckbox(
                     c,
                     current: current,
                     headlessId: _view?.id,
                     documentUrl: document.toString(),
-                  )) {
-                    _challengeClickedGeneration = generation;
+                  );
+                  if (current() && clicked) {
+                    _challengeAttempts++;
+                    _challengeAttemptAt =
+                        RequestLifecycle.instance.foregroundNow;
                   }
                 } catch (_) {
                   /* 继续等待自动验证，绝不据输入结果报告通过。 */

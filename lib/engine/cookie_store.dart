@@ -336,6 +336,13 @@ class CookieStore {
     final securePrefix = hostPrefix || name.startsWith('__Secure-');
     // __Host- 必须省略 Domain；部分平台枚举时却会返回实际主机名。
     final identities = <String?>{hostPrefix ? null : domain};
+    // Android GET_COOKIE_INFO 也会为 host-only Cookie 返回主机名。
+    // 不能据非空 domain 推断它带有 Domain 属性，否则只删掉另一种身份。
+    if (!hostPrefix &&
+        domain?.replaceFirst(RegExp(r'^\.'), '').toLowerCase() ==
+            uri.host.toLowerCase()) {
+      identities.add(null);
+    }
     // Android 只返回 name/value，枚举权限范围内的 host-only 和 Domain 身份。
     if (domain == null && !hostPrefix) {
       final labels = uri.host.split('.');
@@ -362,12 +369,13 @@ class CookieStore {
         );
         if (!deleted) throw SourceError('NETWORK', '浏览器请求失败');
       } else {
-        await manager.deleteCookie(
+        final deleted = await manager.deleteCookie(
           url: wv.WebUri(uri.toString()),
           name: name,
           domain: identity,
           path: path,
         );
+        if (!deleted) throw SourceError('NETWORK', '浏览器请求失败');
       }
     }
   }

@@ -136,18 +136,18 @@ mixin _SourceAccounts on _SourceRegistry {
       await _accountRefreshes[key];
     } catch (_) {}
     if (source != null) _publishAccountStatus(source, AccountStatus(false, ''));
-    _accountCheckedAt.remove(key);
+    // 会话已清除，退出不再依赖远端验证页或网络可用性。
+    _accountCheckedAt[key] = DateTime.now();
     if (manifest(key)?.account?.managedAccount == true &&
         settingsOf(key)['managedAccount'] == true) {
       await setManagedAccount(key, false);
     }
-    await refreshAccount(key);
     if (wasLoggedIn == accountListenable(key)?.value?.loggedIn) {
       authenticationChanged(key);
     }
   }
 
-  /// Checks the account. Runs after login, logout, web login, on a source's first use after
+  /// Checks the account. Runs after login, web login, on a source's first use after
   /// launch and when the last check is older than [_accountTtl]. Required-account reads wait
   /// for confirmation before they access content or caches.
   @override

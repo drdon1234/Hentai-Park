@@ -10,6 +10,7 @@ description: 新增或大改一个 HentaiPark 站点插件（assets/sources/*.js
 ## 1. 先调查，再声明
 
 - 用真实请求摸清站点：首页有哪些入口（推荐 / 排行 / 热门 / 最新）、分页方式（页号还是游标）、搜索接口、详情结构、图片或视频地址、是否需要登录、Cloudflare 或年龄确认。
+- 必须评估是否需要项目已有的无感交互框架，并记录判断依据；结合验证页、跳转和会话要求检查，不能仅凭一次 HTTP 200 判定不需要。框架通过隐藏浏览器会话处理支持的站点验证，能力与限制见 `docs/SOURCE_API.md` 的网络章节。
 - 确定 `type`（comic / video / novel / game）和 `category`（doujin / gallery / illustration / anime / aiDrama / jav / adult / shortvideo / live / novel / game / other），分别准确声明。
 - `defaultFeed` 按 **推荐 > 排行榜 > 热门** 选择，真的没有才用最新或其他有效入口。不得写没有验证过的接口。
 - 中国大陆可能需要代理的站点声明 `network.vpnHint: true`。
@@ -19,6 +20,7 @@ description: 新增或大改一个 HentaiPark 站点插件（assets/sources/*.js
 
 - 新建 `assets/sources/<key>.js`，`key` 只用 `[A-Za-z0-9_-]`，文件名必须是 `<key>.js`；从同类型的现有插件复制结构最快。
 - 站点规则全部写在插件里，不要去 Dart 里按站点名加特例。
+- 需要无感交互时必须完成接入：按协议选择 `network.mode`、`network.origin`，并按实际年龄门实现 `network.confirmation` 的识别、自动操作与完成条件；Cloudflare 复用框架能力。通用能力缺陷在框架修复，不以手动确认提示代替应实现的接入，也不将年龄确认规则用于登录、付费或回复操作。
 - 所有界面文案（名称、说明、标签名、选项、提示、错误）用简体中文原文。只属于本插件的词写进 manifest 的 `i18n` 块（`zh-Hant`、`ja`、`ko`、`en`、`es`、`ru`、`ar` 七种），通用词（排序、最新、热门…）直接复用应用的翻译。占位符写法必须一致。
 - 错误用 `Park.error(code, '中文模板 {name}', { params: { name } })`，不要把变量拼进消息字符串。
 - 混合类型的站点给每个作品填写 `mediaKind`；小说和游戏作品总是填写。
@@ -33,6 +35,7 @@ description: 新增或大改一个 HentaiPark 站点插件（assets/sources/*.js
 ## 4. 验证
 
 - 用 `verify-source` 技能对新插件做真实请求验证（首页、第二页、搜索、详情、封面解码、章节或媒体）。封面 HTTP 200 不等于可用，必须能解码。
+- 需要无感交互的站点，在无预置验证 Cookie 的隔离设备会话中验证“触发验证 → 自动完成 → 原业务请求成功”；失败时优先修复对应站点的无感交互，再继续业务验证。Node 请求成功不能代替设备上的自动交互证据；环境不具备时明确标注未验证。
 - 运行离线校验：`node tools/publish_sources.mjs --commit <HEAD 提交号> --output test/checks/official-source-index.json`。
 - 有条件时在模拟器上实际打开一次站点页、详情和阅读/播放。
 - 完成说明里列出验证证据，以及没有验证到的部分（例如需要登录的功能）。
