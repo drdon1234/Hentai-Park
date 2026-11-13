@@ -1833,5 +1833,9 @@
   "分集播放": "Pistas separadas",
   "当前曲目": "Pista actual",
   "作品详情": "Detalles de la obra",
-  "暂无字幕": "Sin subtítulos"
+  "暂无字幕": "Sin subtítulos",
+  "获取链接": "Obtener enlaces",
+  "复制全部": "Copiar todo",
+  "复制失败，请重试": "No se pudo copiar. Inténtalo de nuevo.",
+  "复制链接和密码后，可在电脑上下载。": "Copia los enlaces y las contraseñas para descargar en tu ordenador."
 }

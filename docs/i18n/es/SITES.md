@@ -35,6 +35,8 @@ El audio organizado en carpetas utiliza tarjetas en las listas y búsquedas, con
 
 ASMRHoney admite colecciones de vídeos, colecciones anidadas e imágenes adjuntas. Los juegos en línea reutilizan los recursos grandes sin cambios y necesitan conexión para comprobar su versión; algunos juegos se descomprimen o inicializan en cada inicio.
 
+En móviles, los recursos de juegos muestran un diálogo con enlaces, códigos de acceso y contraseñas de archivos, si existen. Puedes copiar cada campo o todo para descargar en un ordenador; los enlaces directos también permiten elegir la descarga en el dispositivo actual.
+
 ## Clasificaciones
 
 | Categoría | Sitios / servicios |

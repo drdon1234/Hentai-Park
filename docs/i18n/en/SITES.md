@@ -35,6 +35,8 @@ Folder-based audio uses work cards in browsing and search, with a headphone icon
 
 ASMRHoney supports video collections, nested collections, and image attachments. Online games reuse unchanged large resources and still require a network connection to check versions; some games unpack or initialize on every launch.
 
+On mobile, game resources open in a dialog with links, extraction codes and archive passwords when available. Copy individual fields or everything to download on a computer; direct links also offer an explicit download option on the current device.
+
 ## Rankings
 
 | Category | Sites / services |

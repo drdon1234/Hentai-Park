@@ -1,18 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/localization.dart';
 import '../../core/models.dart';
+import '../../core/platform_capabilities.dart';
 import '../../core/settings.dart';
 import '../../engine/source_manager.dart';
 import '../../game/downloads.dart';
 import '../../library/downloads.dart' show DownloadStatus;
-import '../kit/adaptive_sheet.dart';
 import '../kit/kit.dart';
 import '../theme.dart';
 import '../widgets/error_view.dart';
 import '../widgets/platform_share.dart';
+import 'game_resource_links.dart';
 
 class GameResources extends StatefulWidget {
   const GameResources({super.key, required this.work});
@@ -179,7 +179,8 @@ class GameResourceCardState extends State<GameResourceCard> {
       _error = null;
     });
     try {
-      if (channel.kind == GameChannelKind.direct) {
+      if (channel.kind == GameChannelKind.direct &&
+          PlatformCapabilities.desktop) {
         await GameDownloadManager.instance.enqueue(
           widget.work.toItem(),
           widget.resource,
@@ -193,10 +194,26 @@ class GameResourceCardState extends State<GameResourceCard> {
           channel.id,
         );
         if (!mounted) return;
-        if (result.kind != GameChannelKind.external) {
+        if (result.kind != channel.kind) {
           throw SourceError('PARSE', '游戏下载地址无效');
         }
-        await _showLinks(result);
+        setState(() => _busy = false);
+        final download = await showDialog<bool>(
+          context: context,
+          builder: (_) => GameResourceLinks(
+            title: widget.work.title,
+            result: result,
+            allowDownload: result.kind == GameChannelKind.direct,
+          ),
+        );
+        if (download == true && mounted) {
+          setState(() => _busy = true);
+          await GameDownloadManager.instance.enqueue(
+            widget.work.toItem(),
+            widget.resource,
+            channel,
+          );
+        }
       }
     } catch (error) {
       if (mounted) setState(() => _error = error);
@@ -205,124 +222,6 @@ class GameResourceCardState extends State<GameResourceCard> {
     }
   }
 
-  Future<void> _copy(String value) async {
-    await Clipboard.setData(ClipboardData(text: value));
-    if (mounted) context.toast(tr('已复制'));
-  }
-
-  Future<void> _open(String url) async {
-    try {
-      if (!await launchUrl(
-        Uri.parse(url),
-        mode: LaunchMode.externalApplication,
-      )) {
-        throw const FormatException();
-      }
-    } catch (_) {
-      if (mounted) context.toast(tr('无法打开链接，请复制后手动打开'));
-    }
-  }
-
-  Future<void> _showLinks(GameResourceLink result) => showAdaptiveSheet<void>(
-    context: context,
-    isScrollControlled: true,
-    builder: (context) => SafeArea(
-      child: DraggableScrollableSheet(
-        expand: false,
-        initialChildSize: .65,
-        minChildSize: .3,
-        builder: (context, controller) => ListView(
-          controller: controller,
-          padding: const EdgeInsets.all(16),
-          children: [
-            Text(tr('网盘资源'), style: Theme.of(context).textTheme.titleLarge),
-            const SizedBox(height: 12),
-            if (result.extractionCode.isNotEmpty)
-              ListTile(
-                title: SelectionContainer.disabled(child: Text(tr('提取码'))),
-                subtitle: SelectionContainer.disabled(
-                  child: SelectableText(result.extractionCode),
-                ),
-                trailing: SelectionContainer.disabled(
-                  child: IconButton(
-                    tooltip: tr('复制'),
-                    icon: const Icon(Icons.copy),
-                    onPressed: () => _copy(result.extractionCode),
-                  ),
-                ),
-              ),
-            if (result.archivePassword.isNotEmpty)
-              ListTile(
-                title: SelectionContainer.disabled(child: Text(tr('解压密码'))),
-                subtitle: SelectionContainer.disabled(
-                  child: SelectableText(result.archivePassword),
-                ),
-                trailing: SelectionContainer.disabled(
-                  child: IconButton(
-                    tooltip: tr('复制'),
-                    icon: const Icon(Icons.copy),
-                    onPressed: () => _copy(result.archivePassword),
-                  ),
-                ),
-              ),
-            for (var i = 0; i < result.urls.length; i++)
-              Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(12),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Text(tr('链接 {number}', {'number': i + 1})),
-                      SelectableText(result.urls[i]),
-                      if (result.extractionCodes.isNotEmpty &&
-                          result.extractionCodes[i].isNotEmpty &&
-                          result.extractionCodes[i] != result.extractionCode)
-                        ListTile(
-                          contentPadding: EdgeInsets.zero,
-                          title: SelectionContainer.disabled(
-                            child: Text(tr('提取码')),
-                          ),
-                          subtitle: SelectionContainer.disabled(
-                            child: SelectableText(result.extractionCodes[i]),
-                          ),
-                          trailing: SelectionContainer.disabled(
-                            child: IconButton(
-                              tooltip: tr('复制'),
-                              icon: const Icon(Icons.copy),
-                              onPressed: () => _copy(result.extractionCodes[i]),
-                            ),
-                          ),
-                        ),
-                      const SizedBox(height: Gap.m),
-                      Wrap(
-                        spacing: 8,
-                        runSpacing: 8,
-                        children: [
-                          FilledButton.tonalIcon(
-                            onPressed: () => _open(result.urls[i]),
-                            icon: const Icon(Icons.open_in_new),
-                            label: SelectionContainer.disabled(
-                              child: Text(tr('打开链接')),
-                            ),
-                          ),
-                          OutlinedButton.icon(
-                            onPressed: () => _copy(result.urls[i]),
-                            icon: const Icon(Icons.copy),
-                            label: SelectionContainer.disabled(
-                              child: Text(tr('复制链接')),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-          ],
-        ),
-      ),
-    ),
-  );
   @override
   Widget build(BuildContext context) {
     final resource = widget.resource;
@@ -406,14 +305,17 @@ class GameResourceCardState extends State<GameResourceCard> {
                             ? null
                             : () => _choose(channel),
                         icon: Icon(
-                          channel.kind == GameChannelKind.direct
+                          channel.kind == GameChannelKind.direct &&
+                                  PlatformCapabilities.desktop
                               ? Icons.download
-                              : Icons.open_in_new,
+                              : Icons.link_rounded,
                         ),
                         label: SelectionContainer.disabled(
                           child: Text(
                             '${tr(channel.requiresReply
                                 ? '回复解锁并获取链接'
+                                : !PlatformCapabilities.desktop
+                                ? '获取链接'
                                 : channel.kind == GameChannelKind.direct
                                 ? '直链下载'
                                 : '获取网盘链接')} · ${(SourceManager.instance.manifest(widget.work.source)?.copy ?? PluginCopy.none).text(channel.label)}${channel.size.isEmpty ? '' : ' · ${channel.size}'}',

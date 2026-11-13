@@ -1833,5 +1833,9 @@
   "分集播放": "Separate tracks",
   "当前曲目": "Current track",
   "作品详情": "Work details",
-  "暂无字幕": "No subtitles"
+  "暂无字幕": "No subtitles",
+  "获取链接": "Get links",
+  "复制全部": "Copy all",
+  "复制失败，请重试": "Could not copy. Try again.",
+  "复制链接和密码后，可在电脑上下载。": "Copy the links and passwords to download on your computer."
 }
