@@ -6,6 +6,7 @@
   "dependencies": {
     "@mtproto/core": "6.3.0",
     "esbuild": "0.25.12",
-    "linkedom": "^0.18.12"
+    "linkedom": "^0.18.12",
+    "tough-cookie": "6.1.0"
   }
 }

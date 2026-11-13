@@ -453,19 +453,18 @@ class _FeedTabState extends State<FeedTab> with AutomaticKeepAliveClientMixin {
   }
 
   Future<void> _goToPage() async {
-    final input = TextEditingController(
-      text: '${_controller.page > 0 ? _controller.page : 1}',
-    );
+    var input = '${_controller.page > 0 ? _controller.page : 1}';
     final target = await showDialog<int>(
       context: context,
       builder: (context) => AlertDialog(
         title: Text(tr('跳转指定页')),
-        content: TextField(
-          controller: input,
+        content: TextFormField(
+          initialValue: input,
+          onChanged: (value) => input = value,
           autofocus: true,
           keyboardType: TextInputType.number,
           decoration: InputDecoration(labelText: tr('页码')),
-          onSubmitted: (value) {
+          onFieldSubmitted: (value) {
             final page = int.tryParse(value);
             if (page != null &&
                 page > 0 &&
@@ -482,7 +481,7 @@ class _FeedTabState extends State<FeedTab> with AutomaticKeepAliveClientMixin {
           ),
           TextButton(
             onPressed: () {
-              final page = int.tryParse(input.text);
+              final page = int.tryParse(input);
               if (page != null &&
                   page > 0 &&
                   (_controller.totalPages == null ||
@@ -495,8 +494,6 @@ class _FeedTabState extends State<FeedTab> with AutomaticKeepAliveClientMixin {
         ],
       ),
     );
-    // 等弹窗离场后释放输入控制器。
-    WidgetsBinding.instance.addPostFrameCallback((_) => input.dispose());
     if (target == null || !mounted) return;
     await _controller.jumpToPage(target);
     if (!mounted || _scrollContext == null || _controller.error != null) return;

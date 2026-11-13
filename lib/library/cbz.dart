@@ -8,6 +8,7 @@ import 'package:archive/archive_io.dart';
 import 'package:crypto/crypto.dart';
 import 'package:path/path.dart' as p;
 
+import '../core/async_tasks.dart';
 import '../core/localization.dart';
 import '../core/models.dart';
 import '../core/storage.dart';
@@ -134,6 +135,8 @@ String imageExtension(Uint8List b) {
 }
 
 class Cbz {
+  static final _imports = SerialExecutor();
+
   /// Writes one .cbz per completed chapter of a downloaded comic into [outDir]. Pages that need a
   /// transform (JM strip scrambling) are restored and re-encoded as PNG.
   static Future<List<File>> exportTask(
@@ -149,10 +152,8 @@ class Cbz {
     final base = exportFileName(t.item.title);
     for (var ci = 0; ci < chapters.length; ci++) {
       final ch = chapters[ci];
-      final manifest = File(
-        p.join(t.dir.path, safeFileName(ch.id), 'pages.json'),
-      );
-      if (!await manifest.exists()) {
+      final manifest = await t.chapterFile(ch.id, 'pages.json');
+      if (manifest == null) {
         throw SourceError('NOT_FOUND', '离线媒体文件缺失或不可读');
       }
       final pages =
@@ -177,7 +178,12 @@ class Cbz {
       try {
         for (var i = 0; i < pages.length; i++) {
           final page = pages[i].cast<String, dynamic>();
-          var file = File(p.join(manifest.parent.path, page['file'] as String));
+          final relative = page['file'] as String;
+          final source = await t.chapterFile(ch.id, relative);
+          if (source == null) {
+            throw FormatException(tr('图片文件路径无效'));
+          }
+          var file = source;
           var extension = '';
           final transform = page['transform'];
           if (transform is Map &&
@@ -258,6 +264,12 @@ class Cbz {
     String fileName,
     List<int> bytes, {
     required Directory root,
+  }) => _imports.run(() => _importArchive(fileName, bytes, root: root));
+
+  static Future<DownloadTask> _importArchive(
+    String fileName,
+    List<int> bytes, {
+    required Directory root,
   }) async {
     final archive = ZipDecoder().decodeBytes(bytes);
     final images =
@@ -289,42 +301,82 @@ class Cbz {
     final dir = Directory(
       p.join(root.path, safeFileName(localSource), safeFileName(id)),
     );
-    final chapterDir = Directory(p.join(dir.path, safeFileName('_')));
-    await chapterDir.create(recursive: true);
-    final manifest = <Map<String, dynamic>>[];
-    for (var i = 0; i < images.length; i++) {
-      final name = '${(i + 1).toString().padLeft(4, '0')}.img';
-      await File(p.join(chapterDir.path, name)).writeAsBytes(images[i].content);
-      manifest.add({'index': i, 'file': name});
+    await dir.parent.create(recursive: true);
+    final staging = await dir.parent.createTemp('.park-import-');
+    final prepared = Directory(p.join(staging.path, 'prepared'));
+    final previous = Directory(p.join(staging.path, 'previous'));
+    try {
+      final chapterDir = Directory(p.join(prepared.path, safeFileName('_')));
+      await chapterDir.create(recursive: true);
+      final manifest = <Map<String, dynamic>>[];
+      for (var i = 0; i < images.length; i++) {
+        final name = '${(i + 1).toString().padLeft(4, '0')}.img';
+        await File(p.join(chapterDir.path, name))
+            .writeAsBytes(images[i].content);
+        manifest.add({'index': i, 'file': name});
+      }
+      final title = info.title.isNotEmpty
+          ? info.title
+          : p.basenameWithoutExtension(fileName);
+      await File(p.join(chapterDir.path, 'pages.json'))
+          .writeAsString(jsonEncode({'title': title, 'pages': manifest}));
+      final item = WorkItem({
+        'id': id,
+        'title': title,
+        'cover': File(p.join(dir.path, safeFileName('_'), '0001.img')).uri
+            .toString(),
+        'pages': images.length,
+        'tags': info.tags,
+        if (info.writer.isNotEmpty)
+          'authors': info.writer.split(RegExp(r'\s*,\s*')),
+        if (info.summary.isNotEmpty) 'description': info.summary,
+        'subtitle': info.writer,
+      }, localSource);
+      await File(p.join(prepared.path, 'work.json'))
+          .writeAsString(jsonEncode(item.toJson()));
+      final type = await FileSystemEntity.type(dir.path, followLinks: false);
+      if (type != FileSystemEntityType.notFound &&
+          type != FileSystemEntityType.directory) {
+        throw FileSystemException(
+          'Import destination is not a directory',
+          dir.path,
+        );
+      }
+      if (type == FileSystemEntityType.directory) {
+        await dir.rename(previous.path);
+      }
+      try {
+        await prepared.rename(dir.path);
+      } catch (_) {
+        if (await previous.exists()) await previous.rename(dir.path);
+        rethrow;
+      }
+      // 完整新目录发布后才删除旧目录；清理失败保留旧副本，不把成功导入报成失败。
+      try {
+        if (await previous.exists()) await previous.delete(recursive: true);
+      } on FileSystemException {
+        // 保留无法清理的原目录，避免数据丢失。
+      }
+      return DownloadTask(
+        media: DownloadMedia.comic,
+        item: item,
+        chapters: [Chapter('_', tr('全本'))],
+        dir: dir.path,
+        status: DownloadStatus.done,
+        done: images.length,
+        total: images.length,
+        bytes: images.fold(0, (n, f) => n + f.size),
+        completed: {'_'},
+      );
+    } finally {
+      // 回滚失败时 previous 是唯一原件，不能随暂存目录一起删除。
+      if (!await previous.exists()) {
+        try {
+          await staging.delete(recursive: true);
+        } on FileSystemException {
+          // 暂存清理失败不覆盖解压错误，也不撤销已完整发布的作品。
+        }
+      }
     }
-    final title = info.title.isNotEmpty
-        ? info.title
-        : p.basenameWithoutExtension(fileName);
-    await File(p.join(chapterDir.path, 'pages.json'))
-        .writeAsString(jsonEncode({'title': title, 'pages': manifest}));
-    final item = WorkItem({
-      'id': id,
-      'title': title,
-      'cover': File(p.join(chapterDir.path, '0001.img')).uri.toString(),
-      'pages': images.length,
-      'tags': info.tags,
-      if (info.writer.isNotEmpty)
-        'authors': info.writer.split(RegExp(r'\s*,\s*')),
-      if (info.summary.isNotEmpty) 'description': info.summary,
-      'subtitle': info.writer,
-    }, localSource);
-    await File(p.join(dir.path, 'work.json'))
-        .writeAsString(jsonEncode(item.toJson()));
-    return DownloadTask(
-      media: DownloadMedia.comic,
-      item: item,
-      chapters: [Chapter('_', tr('全本'))],
-      dir: dir.path,
-      status: DownloadStatus.done,
-      done: images.length,
-      total: images.length,
-      bytes: images.fold(0, (n, f) => n + f.size),
-      completed: {'_'},
-    );
   }
 }

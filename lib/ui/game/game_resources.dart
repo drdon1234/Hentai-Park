@@ -92,7 +92,7 @@ class _GameResourcesState extends State<GameResources> {
         else
           for (final resource in _resources!)
             GameResourceCard(
-              key: ValueKey(resource.id),
+              key: ValueKey((widget.work.source, widget.work.id, resource.id)),
               work: widget.work,
               resource: resource,
             ),
@@ -171,47 +171,54 @@ class GameResourceCardState extends State<GameResourceCard> {
   }
 
   Future<void> _choose(GameChannel channel) async {
-    if (_busy) return;
-    if (channel.requiresReply && !await _confirmReply(channel)) return;
-    if (!mounted) return;
+    if (!mounted || _busy) return;
+    final work = widget.work;
+    final resource = widget.resource;
     _lastChannel = channel.id;
     setState(() {
       _busy = true;
       _error = null;
     });
     try {
+      if (channel.requiresReply && !await _confirmReply(channel)) return;
+      if (!mounted || widget.work != work || widget.resource != resource) {
+        return;
+      }
       if (channel.kind == GameChannelKind.direct &&
           PlatformCapabilities.desktop) {
         await GameDownloadManager.instance.enqueue(
-          widget.work.toItem(),
-          widget.resource,
+          work.toItem(),
+          resource,
           channel,
         );
       } else {
         final result = await SourceManager.instance.resolveGameResource(
-          widget.work.source,
-          widget.work.id,
-          widget.resource.id,
+          work.source,
+          work.id,
+          resource.id,
           channel.id,
         );
-        if (!mounted) return;
+        if (!mounted || widget.work != work || widget.resource != resource) {
+          return;
+        }
         if (result.kind != channel.kind) {
           throw SourceError('PARSE', '游戏下载地址无效');
         }
-        setState(() => _busy = false);
         final download = await showDialog<bool>(
           context: context,
           builder: (_) => GameResourceLinks(
-            title: widget.work.title,
+            title: work.title,
             result: result,
             allowDownload: result.kind == GameChannelKind.direct,
           ),
         );
-        if (download == true && mounted) {
-          setState(() => _busy = true);
+        if (download == true &&
+            mounted &&
+            widget.work == work &&
+            widget.resource == resource) {
           await GameDownloadManager.instance.enqueue(
-            widget.work.toItem(),
-            widget.resource,
+            work.toItem(),
+            resource,
             channel,
           );
         }

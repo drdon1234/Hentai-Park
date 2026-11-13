@@ -19,7 +19,7 @@ Park.register({
   },
   key: 'jm',
   name: '禁漫天堂',
-  version: '0.0.10', minAppVersion: '0.9.2',
+  version: '0.0.11', minAppVersion: '0.9.2',
   type: 'comic',
   category: 'doujin',
   color: '#F7841E',
@@ -236,10 +236,23 @@ Park.register({
     this.routePending = (async () => {
       const fingerprint = await this.routeFingerprint();
       const previous = this.store.get('route');
-      const signature = `${this.domains.join('|')}:${this.config.imageStream || 'auto'}`;
+      let signature = `${this.domains.join('|')}:${this.config.imageStream || 'auto'}`;
       const reusable = fingerprint && previous?.fingerprint === fingerprint && previous.signature === signature && this.domains.includes(previous.host);
-      const route = reusable
-        ? previous : { ...await this.probeRoutes(), fingerprint, signature };
+      let route = previous;
+      if (!reusable) {
+        let selected;
+        try {
+          selected = await this.probeRoutes();
+        } catch (error) {
+          if (error?.code !== 'NETWORK') throw error;
+          const before = this.domains.join('|');
+          await this.refreshDomains();
+          if (!this.domains.length || this.domains.join('|') === before) throw error;
+          selected = await this.probeRoutes();
+          signature = `${this.domains.join('|')}:${this.config.imageStream || 'auto'}`;
+        }
+        route = { ...selected, fingerprint, signature };
+      }
       this.preferred = this.domains.indexOf(route.host);
       this.selectedStream = route.stream;
       if (route.imageHost) { this.imageHost = route.imageHost; this.store.set('imageHost', route.imageHost); }

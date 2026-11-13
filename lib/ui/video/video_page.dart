@@ -27,6 +27,7 @@ import '../voice/voice_audio_view.dart';
 import '../voice/voice_sequence_panel.dart';
 import '../voice/voice_subtitles.dart';
 import '../web/web_video_page.dart';
+import '../widgets/common.dart' show SourceErrorX;
 import '../widgets/content_translation.dart';
 import 'live_chat_overlay.dart';
 import 'live_recording_button.dart';
@@ -98,7 +99,6 @@ class _VideoPageState extends State<VideoPage>
   LiveChatSession? _liveChat;
   bool _chatEnabled = true;
   TemporaryPlaybackSpeed? _temporarySpeed;
-  Future<void> _speedUpdates = Future.value();
   final String _voiceLease =
       '${DateTime.now().microsecondsSinceEpoch}-${Object().hashCode}';
   bool _voiceLeaseStarted = false;
@@ -615,12 +615,16 @@ class _VideoPageState extends State<VideoPage>
         label: (s) => '${s}x',
       ),
     );
-    if (mounted && picked != null) await _session.setSpeed(picked);
+    if (mounted && picked != null) await _queueSpeed(picked);
     if (mounted) _scheduleHide();
   }
 
-  void _queueSpeed(double speed) {
-    _speedUpdates = _speedUpdates.then((_) => _session.setSpeed(speed));
+  Future<void> _queueSpeed(double speed) async {
+    try {
+      await _session.setSpeed(speed);
+    } catch (error) {
+      if (mounted) context.toast(error.asSourceError.friendly);
+    }
   }
 
   void _startTemporarySpeed() {

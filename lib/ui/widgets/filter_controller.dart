@@ -48,7 +48,8 @@ class FilterController extends ChangeNotifier {
     }
     _checkAcyclic();
     _values = {
-      for (final option in definitions) option.key: option.defaultValue,
+      for (final option in definitions)
+        option.key: _snapshot(option.defaultValue),
     };
   }
 
@@ -71,6 +72,8 @@ class FilterController extends ChangeNotifier {
   int _initializationGeneration = 0;
 
   Map<String, Object?> get values => Map.unmodifiable(_values);
+  static Object? _snapshot(Object? value) =>
+      value is List ? List.unmodifiable(value) : value;
   List<Choice> choicesFor(String key) =>
       _choices[key] ?? _byKey[key]?.values ?? const [];
   bool get isLoading => _requests.isNotEmpty;
@@ -119,7 +122,7 @@ class FilterController extends ChangeNotifier {
     if (!isEnabled(key) && value != null) return;
     if (value != null && !_isValid(option, value)) return;
     if (_values[key] == value || _sameList(_values[key], value)) return;
-    _values[key] = value;
+    _values[key] = _snapshot(value);
     for (final child in _descendants(key)) {
       _values[child] = null;
       _choices.remove(child);
@@ -218,7 +221,9 @@ class FilterController extends ChangeNotifier {
     _values
       ..clear()
       ..addEntries(
-        definitions.map((option) => MapEntry(option.key, option.defaultValue)),
+        definitions.map(
+          (option) => MapEntry(option.key, _snapshot(option.defaultValue)),
+        ),
       );
     unawaited(loadEnabledDynamic());
     notifyListeners();
@@ -230,6 +235,7 @@ class FilterController extends ChangeNotifier {
     return parent != null &&
         value != null &&
         value != '' &&
+        (value is! List || value.isNotEmpty) &&
         _isValid(parent, value);
   }
 

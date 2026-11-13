@@ -5,13 +5,19 @@ import 'package:flutter/material.dart';
 import '../../core/localization.dart';
 import '../../core/reverse_search_history.dart';
 import '../kit/adaptive_sheet.dart';
+import '../theme.dart';
 import '../widgets/common.dart';
 
 Future<Map<String, dynamic>?> showReverseSearchHistory(
   BuildContext context,
 ) async {
   final history = ReverseSearchHistory.instance;
-  await history.load();
+  try {
+    await history.load();
+  } catch (_) {
+    if (context.mounted) context.toast(tr('加载失败'));
+    return null;
+  }
   if (!context.mounted) return null;
   return showAdaptiveSheet<Map<String, dynamic>>(
     context: context,

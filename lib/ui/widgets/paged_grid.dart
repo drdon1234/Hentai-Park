@@ -183,6 +183,7 @@ class PagedController extends ChangeNotifier {
         page < target) {
       final previous = page;
       await loadMore();
+      if (_disposed || generation != _generation) return;
       if (page <= previous) break;
       if (page < target && hasNext) {
         _loaded.clear();

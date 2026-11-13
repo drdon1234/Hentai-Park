@@ -9,7 +9,7 @@ Park.register({
     "ru": {"国际写真图集，支持评分榜、热门、搜索与整套原图阅读": "Фотогалереи: рейтинг, популярное, поиск и просмотр всех оригиналов", "图集列表解析失败": "Не удалось разобрать список галерей", "图集地址无效": "Недопустимый адрес галереи"},
     "ar": {"国际写真图集，支持评分榜、热门、搜索与整套原图阅读": "معارض صور مع التقييم والشائع والبحث وعرض جميع الصور الأصلية", "图集列表解析失败": "تعذر تحليل قائمة المعارض", "图集地址无效": "عنوان المعرض غير صالح"},
   },
-  key: 'pornpics', name: 'PornPics', version: '0.0.11', minAppVersion: '0.9.2', type: 'comic', category: 'gallery',
+  key: 'pornpics', name: 'PornPics', version: '0.0.12', minAppVersion: '0.9.2', type: 'comic', category: 'gallery',
   language: 'en', color: '#F16E24', homepage: 'https://www.pornpics.com',
   description: '国际写真图集，支持评分榜、热门、搜索与整套原图阅读',
   domains: ['pornpics.com'], network: {mode: 'native', vpnHint: true},
@@ -171,24 +171,32 @@ Park.register({
     return pages;
   },
   // Gallery pages load related galleries in the browser from rel.pornpics.com, seeded by the page's PP_REL_CONF.
-  async related(html, id) {
+  async relatedItems(html, id) {
     const conf = /\bPP_REL_CONF\s*=\s*(\[[^\]\n]{0,4000}\])/.exec(html);
     if (!conf) return [];
     let data;
-    try { data = JSON.parse(conf[1]); } catch (_) { return []; }
-    if (!Array.isArray(data) || data.length > 50) return [];
+    try { data = JSON.parse(conf[1]); } catch (_) { throw Park.error('PARSE', '图集列表解析失败'); }
+    if (!Array.isArray(data) || data.length > 50) throw Park.error('PARSE', '图集列表解析失败');
     const r = await this.http.post('https://rel.pornpics.com/related/related_json.php', {readOnly: true, params: {offset: 0, limit: 20},
       headers: {Referer: this.BASE + '/'}, json: {data, lang: 'en', gid: /-(\d{1,12})$/.exec(id)[1], limit: 30}});
-    if (!r.ok || r.body.length > 2 * 1024 * 1024) return [];
-    try { return this.apiItems(JSON.parse(r.body)).filter(item => item.id !== id).slice(0, 30); } catch (_) { return []; }
+    this.http.ensureOk(r);
+    if (r.body.length > 2 * 1024 * 1024) throw Park.error('PARSE', '图集列表解析失败');
+    try { return this.apiItems(JSON.parse(r.body)).filter(item => item.id !== id).slice(0, 30); } catch (_) { throw Park.error('PARSE', '图集列表解析失败'); }
+  },
+  async related(value, req = {}) {
+    const id = this.idValue(value), page = Number(req.page || 1);
+    if (!Number.isSafeInteger(page) || page < 1) throw Park.error('CONFIG', '图集地址无效');
+    if (page > 1) return {items: [], page, hasNext: false};
+    const {html} = await this.gallery(id);
+    return {items: await this.relatedItems(html, id), page, hasNext: false};
   },
   async detail(value, preview) {
-    const {id, url, html, doc} = await this.gallery(value, preview), pages = this.parseImages(doc);
+    const {id, url, doc} = await this.gallery(value, preview), pages = this.parseImages(doc);
     const title = Park.html.text(doc.querySelector('h1'));
     if (!title || !pages.length) throw Park.error('NOT_FOUND', '图集不存在');
     const tags = [...doc.querySelectorAll('.gallery-info .tags a[href]')].map(a => ({name: Park.html.text(a), keyword: Park.html.text(a)})).filter(x => x.name);
     const authors = [...doc.querySelectorAll('.gallery-info a[href*="/models/"]')].map(a => Park.html.text(a)).filter(Boolean);
-    return {id, title, url, cover: pages[0].url, tags, authors, chapters: [{id: '_', title, count: pages.length}], related: await this.related(html, id)};
+    return {id, title, url, cover: pages[0].url, tags, authors, chapters: [{id: '_', title, count: pages.length}]};
   },
   async chapter(value, chapterId) {
     if (chapterId && chapterId !== '_') throw Park.error('NOT_FOUND', '章节编号无效');

@@ -35,6 +35,7 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
   bool _showBlocked = false;
+  bool _revealingDestination = false;
   late final _feeds = FeedSessions(SourceManager.instance);
   final _localDestination = ValueNotifier(const DiscoveryDestination.all());
   final _destinations = <String, DiscoveryDestination>{};
@@ -83,12 +84,18 @@ class _HomePageState extends State<HomePage> {
     final category = _destination.value.category;
     final settings = AppSettings.instance;
     if (category != null && !settings.homeIncludes(category)) {
-      settings.homeDimension = ContentDimension.all;
-      settings.homeMedia = ContentMedia.all;
+      _revealingDestination = true;
+      try {
+        settings.homeDimension = ContentDimension.all;
+        settings.homeMedia = ContentMedia.all;
+      } finally {
+        _revealingDestination = false;
+      }
     }
   }
 
   void _filterChanged() {
+    if (_revealingDestination) return;
     final category = _destination.value.category;
     if (category != null && !AppSettings.instance.homeIncludes(category)) {
       _select(const DiscoveryDestination.all());

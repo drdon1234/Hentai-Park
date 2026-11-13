@@ -441,10 +441,12 @@ class _ArticleImage extends StatefulWidget {
 }
 
 class _ArticleImageState extends State<_ArticleImage> {
+  int _attempt = 0;
   @override
   Widget build(BuildContext context) => ClipRRect(
     borderRadius: Radii.small,
     child: Image(
+      key: ValueKey(_attempt),
       image: ParkImage.url(widget.source, widget.url),
       fit: BoxFit.contain,
       loadingBuilder: (context, child, progress) => progress == null
@@ -459,7 +461,7 @@ class _ArticleImageState extends State<_ArticleImage> {
               label: Text(tr('重试')),
               onPressed: () async {
                 await ParkImage.url(widget.source, widget.url).evict();
-                if (mounted) setState(() {});
+                if (mounted) setState(() => _attempt++);
               },
             ),
           ),

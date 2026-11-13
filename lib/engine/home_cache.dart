@@ -126,6 +126,8 @@ class HomeCache {
         final entry = jsonDecode(await file.readAsString());
         if (entry is! Map ||
             entry['written'] is! int ||
+            entry['written'] < -8640000000000000 ||
+            entry['written'] > 8640000000000000 ||
             entry['data'] is! Map) {
           return null;
         }
@@ -152,6 +154,7 @@ class HomeCache {
         !refresh &&
         current() &&
         cached != null &&
+        !_clock().isBefore(cached.written) &&
         _clock().difference(cached.written) < lifetime) {
       return HomeCacheResult(cached.data);
     }

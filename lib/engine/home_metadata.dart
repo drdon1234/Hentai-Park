@@ -65,6 +65,8 @@ class HomeMetadata {
     'date',
     'url',
     'locked',
+    'previewOnly',
+    'commentsAvailable',
     'presentation',
     'mediaKind',
     'voiceLanguageStatus',

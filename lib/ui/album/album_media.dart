@@ -35,8 +35,12 @@ DateTime? albumDate(WorkItem item) {
   if (value is num) {
     if (!value.isFinite) return null;
     final number = value.toInt();
-    final milliseconds = number.abs() < 100000000000 ? number * 1000 : number;
-    if (milliseconds.abs() > 8640000000000000) return null;
+    final milliseconds = number > -100000000000 && number < 100000000000
+        ? number * 1000
+        : number;
+    if (milliseconds < -8640000000000000 || milliseconds > 8640000000000000) {
+      return null;
+    }
     return DateTime.fromMillisecondsSinceEpoch(milliseconds);
   }
   final raw = value?.toString().trim() ?? '';

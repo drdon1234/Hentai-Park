@@ -17,7 +17,7 @@ Park.register({
   },
   key: 'pica',
   name: '哔咔漫画',
-  version: '0.0.12', minAppVersion: '0.9.2',
+  version: '0.0.13', minAppVersion: '0.9.2',
   type: 'comic',
   category: 'doujin',
   color: '#EC97B6',
@@ -555,12 +555,27 @@ Park.register({
   },
 
   async episodes(id) {
-    const all = [];
-    for (let page = 1; page <= 50; page++) {
+    const all = [], seen = new Set();
+    let total;
+    for (let page = 1; ; page++) {
       const data = await this.request(`comics/${id}/eps?page=${page}`);
-      const eps = data.eps || {};
-      all.push(...(eps.docs || []));
-      if (!eps.pages || page >= eps.pages) break;
+      const eps = data?.eps, pages = Number(eps?.pages);
+      if (!Number.isSafeInteger(pages) || pages < page || pages > 10000 ||
+          (total !== undefined && total !== pages) ||
+          (eps.page !== undefined && Number(eps.page) !== page) ||
+          !Array.isArray(eps.docs) || !eps.docs.length) {
+        throw Park.error('PARSE', '站点返回了无效结果');
+      }
+      total = pages;
+      for (const episode of eps.docs) {
+        const order = Number(episode?.order);
+        if (!Number.isSafeInteger(order) || order < 1 || seen.has(order)) {
+          throw Park.error('PARSE', '站点返回了无效结果');
+        }
+        seen.add(order);
+        all.push({...episode, order});
+      }
+      if (page === total) break;
     }
     // `order` is what the pages endpoint expects; the list comes newest first.
     return all.sort((a, b) => a.order - b.order).map((e) => ({ id: String(e.order), title: e.title || `第 ${e.order} 话` }));
@@ -611,15 +626,30 @@ Park.register({
 
   async chapter(id, chapterId) {
     const order = chapterId || '1';
-    const first = (await this.request(`comics/${id}/order/${order}/pages?page=1`)).pages || {};
-    const total = Number(first.pages) || 1;
+    const first = (await this.request(`comics/${id}/order/${order}/pages?page=1`))?.pages;
+    const total = Number(first?.pages);
+    if (!Number.isSafeInteger(total) || total < 1 || total > 10000) {
+      throw Park.error('PARSE', '站点返回了无效结果');
+    }
+    const readPage = (data, page) => {
+      if (!data || Number(data.pages) !== total ||
+          (data.page !== undefined && Number(data.page) !== page) ||
+          !Array.isArray(data.docs) || !data.docs.length) {
+        throw Park.error('PARSE', '站点返回了无效结果');
+      }
+      return data.docs.map(d => {
+        const url = this.imageUrl(d?.media);
+        if (!url) throw Park.error('PARSE', '站点返回了无效结果');
+        return {url};
+      });
+    };
+    const pages = readPage(first, 1);
     const rest = await Park.utils.mapLimit(
-      Array.from({ length: Math.max(0, total - 1) }, (_, i) => i + 2),
+      Array.from({ length: total - 1 }, (_, i) => i + 2),
       4,
-      (p) => this.request(`comics/${id}/order/${order}/pages?page=${p}`)
+      async p => readPage((await this.request(`comics/${id}/order/${order}/pages?page=${p}`))?.pages, p)
     );
-    const docs = (first.docs || []).concat(...rest.map((r) => (r.pages && r.pages.docs) || []));
-    return { pages: docs.map((d) => ({ url: this.imageUrl(d.media) })).filter((p) => p.url) };
+    return {pages: pages.concat(...rest)};
   },
 });
 

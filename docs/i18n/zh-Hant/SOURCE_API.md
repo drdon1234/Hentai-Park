@@ -492,7 +492,7 @@ subscription: {
 | `Park.crypto.randomBytes(length)` | 系統安全隨機位元組，length 為 1–65536 |
 | `Park.url.parse(value, base, domains)` / `site(source, value, base?)` / `response(source, response, requested)` | 解析授權域及子域內的 HTTPS 443 地址，拒絕使用者憑據、移除片段，失敗回傳 `null`。`site` 使用源 `domains`；`response` 檢查最終地址，不修改共用的源基地址，不符時拋出 `BLOCKED`。插件保留路徑、頁碼、作品與搜尋身份檢查，避免封閉查詢鍵清單及 CDN 節點名稱限制。 |
 | `Park.utils.rateLimiter(ms)` | 返回 `wait()`，保證兩次請求之間的最小間隔 |
-| `Park.utils.mapLimit(items, n, fn)` / `lruMap(n)` / `parseCount('1.2万')` / `formatDate(ts)` | 其他常用工具 |
+| `Park.utils.mapLimit(items, n, fn)` / `lruMap(n)` / `parseCount('1.2万')` / `formatDate(ts)` | `mapLimit` 的並行數須為正安全整數；`lruMap` 的容量須為非負安全整數，零容量不保留項目；無效值拋出錯誤。其餘用於計數和日期轉換。 |
 | `Park.error(code, message, extra?)` | 建立帶錯誤碼的錯誤，見「錯誤碼」 |
 
 `Park.crypto.aesGcmDecrypt(ciphertext, key, iv)` 接受十六進位密文（含尾端 16 位元組驗證標籤，最多 4096 位元組）、16/24/32 位元組金鑰和 12 位元組 IV，回傳明文位元組陣列；驗證失敗即拋錯，不回傳未驗證明文。

@@ -232,9 +232,17 @@ class Nav {
       () => manager.resolveLink(source, id),
     );
     if (resolved == null || !context.mounted) return;
+    final manifest = manager.manifest(source);
     await push(
       context,
-      manager.manifest(source)?.kind == MediaKind.article
+      manifest?.metadataOnly == true
+          ? MetadataPage(
+              sourceKey: source,
+              id: resolved,
+              category: manifest!.category,
+              sourceManager: manager,
+            )
+          : manifest?.kind == MediaKind.article
           ? FeedArticlePage(
               item: WorkItem({'id': resolved}, source),
               sourceManager: manager,

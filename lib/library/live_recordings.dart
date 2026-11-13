@@ -79,23 +79,33 @@ class LiveRecordings extends ChangeNotifier {
   final _store = JsonStore('recordings.json');
   final _tasks = <LiveRecording>[];
   final _starting = <String>{};
-  final _unrestored = <Map>[];
+  final _unrestored = <Object?>[];
   bool _loaded = false;
+  Future<void>? _loading;
   List<LiveRecording> get tasks => List.unmodifiable(_tasks);
   LiveRecording? activeFor(String uid) =>
       _tasks.where((task) => task.item.uid == uid && task.active).firstOrNull;
 
-  Future<void> load() async {
-    if (_loaded) return;
+  Future<void> load() {
+    if (_loaded) return Future.value();
+    return _loading ??= _load().whenComplete(() => _loading = null);
+  }
+
+  Future<void> _load() async {
     final data = await _store.load();
-    if (data is! List) {
+    if (data == null) {
       _loaded = true;
       return;
     }
-    for (final row in data.whereType<Map>()) {
+    if (data is! List) throw const FormatException('Invalid recordings');
+    for (final row in data) {
       try {
+        if (row is! Map) throw const FormatException('Invalid recording');
         final id = row['id'] as String;
-        if (_tasks.any((task) => task.id == id)) continue;
+        if (_tasks.any((task) => task.id == id)) {
+          _unrestored.add(row);
+          continue;
+        }
         final directory = Directory(row['directory'] as String);
         if (!RegExp(r'^[0-9a-f-]{36}$').hasMatch(id) ||
             !p.isAbsolute(directory.path) ||
@@ -145,11 +155,12 @@ class LiveRecordings extends ChangeNotifier {
   }
 
   void _save() {
-    _store.save([..._unrestored, for (final task in _tasks) task.toJson()]);
+    _store.save([for (final task in _tasks) task.toJson(), ..._unrestored]);
     notifyListeners();
   }
 
   Future<void> start(WorkItem item) async {
+    await load();
     if (activeFor(item.uid) != null || !_starting.add(item.uid)) return;
     LiveRecording? task;
     try {

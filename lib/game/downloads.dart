@@ -267,28 +267,43 @@ class GameDownloadManager extends ChangeNotifier {
   static final instance = GameDownloadManager._();
   final _store = JsonStore('game_downloads.json');
   final _tasks = <String, GameDownloadTask>{};
+  final _unrestored = <Object?>[];
   final _active = <String, CancelToken>{};
   bool _loaded = false;
+  Future<void>? _loading;
   final _running = <String, Future<void>>{};
   List<GameDownloadTask> get tasks =>
       _tasks.values.toList()
         ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
   GameDownloadTask? task(String key) => _tasks[key];
   bool isActive(String key) => _active.containsKey(key);
-  Future<void> load() async {
+  Future<void> load() {
+    if (_loaded) return Future.value();
+    return _loading ??= _load().whenComplete(() => _loading = null);
+  }
+
+  Future<void> _load() async {
     final raw = await _store.load();
+    if (raw != null && raw is! List) {
+      throw const FormatException('下载记录恢复失败，请前往下载页处理');
+    }
     for (final entry in raw is List ? raw : const []) {
       try {
         final task = GameDownloadTask.fromJson(
           (entry as Map).cast<String, dynamic>(),
         );
+        if (_tasks.containsKey(task.key)) {
+          _unrestored.add(entry);
+          continue;
+        }
         if (task.status == DownloadStatus.done && !await task.file.exists()) {
           task.status = DownloadStatus.failed;
           task.error = '本地文件已被删除';
         }
         _tasks[task.key] = task;
       } catch (_) {
-        /* Invalid records cannot define download destinations. */
+        // 无法恢复的条目不能定义下载目标，但后续保存必须保留其原始资产信息。
+        _unrestored.add(entry);
       }
     }
     _loaded = true;
@@ -297,7 +312,8 @@ class GameDownloadManager extends ChangeNotifier {
     notifyListeners();
   }
 
-  void _save() => _store.save(tasks.map((t) => t.toJson()).toList());
+  void _save() =>
+      _store.save([for (final task in tasks) task.toJson(), ..._unrestored]);
   Future<void> flush() => _store.flush();
   Future<void> pauseAndFlush() async {
     for (final task in tasks) {
@@ -442,7 +458,8 @@ class GameDownloadManager extends ChangeNotifier {
           }
         },
       );
-      if (token.cancelError case final error?) throw error;
+      // Publication is the commit point: cancellation during transport cleanup
+      // must not turn an already completed file into an unretryable paused task.
       task.status = DownloadStatus.done;
     } catch (error) {
       if (task.status == DownloadStatus.running) {

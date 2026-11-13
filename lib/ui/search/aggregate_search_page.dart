@@ -145,12 +145,27 @@ class _AggregateSearchPageState extends State<AggregateSearchPage> {
   }
 
   void _sourcesChanged() {
-    if (!mounted || !_awaitingSources || !_sources.loaded) return;
+    if (!mounted || !_awaitingSources) return;
+    if (!_sources.loaded) {
+      setState(() {});
+      return;
+    }
     _awaitingSources = false;
     final generation = _generation;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted && generation == _generation) _dispatch();
     });
+  }
+
+  Future<void> _retrySources() async {
+    final pending = _sources.init();
+    setState(() {});
+    try {
+      await pending;
+    } catch (_) {
+      // The manager exposes a localized initialization error for retry.
+    }
+    if (mounted) _sourcesChanged();
   }
 
   @override
@@ -471,7 +486,21 @@ class _AggregateSearchPageState extends State<AggregateSearchPage> {
                         onPick: (k) => _submit(k),
                       ),
                     ),
-                  if (_awaitingSources)
+                  if (_awaitingSources && _sources.initializationError != null)
+                    SliverToBoxAdapter(
+                      child: EmptyState(
+                        icon: Icons.error_outline_rounded,
+                        title: tr('加载失败'),
+                        actions: [
+                          OutlinedButton.icon(
+                            onPressed: _retrySources,
+                            icon: const Icon(Icons.refresh_rounded),
+                            label: Text(tr('重试')),
+                          ),
+                        ],
+                      ),
+                    )
+                  else if (_awaitingSources)
                     const SliverToBoxAdapter(
                       child: Padding(
                         padding: EdgeInsets.all(Gap.xl),

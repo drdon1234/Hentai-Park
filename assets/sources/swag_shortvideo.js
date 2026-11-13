@@ -43,7 +43,7 @@ Park.register({
       '视频编号无效': 'معرّف الفيديو غير صالح', '播放器地址暂不可用': 'المشغل غير متاح', '搜索关键词过长': 'كلمة البحث طويلة جداً'
     }
   },
-  key: 'swag_shortvideo', name: 'SWAG 短视频', version: '0.0.6', minAppVersion: '0.13.6', type: 'video', category: 'shortvideo',
+  key: 'swag_shortvideo', name: 'SWAG 短视频', version: '0.0.7', minAppVersion: '0.13.6', type: 'video', category: 'shortvideo',
   color: '#e83e8c', description: '台湾与日本成人短视频，支持原生播放', language: 'zh-Hant',
   homepage: 'https://swag.live/', domains: ['swag.live'],
   network: {mode: 'native', origin: 'https://swag.live', vpnHint: true},
@@ -98,7 +98,14 @@ Park.register({
     for (const row of data) {
       const id = String(row?.id || '');
       if (!/^[a-f0-9]{24}$/.test(id)) continue;
-      try { const work = await this.work(id, previewItems.find(x => x.id === id)); items.push(work); } catch (_) {}
+      try {
+        const work = await this.work(id, previewItems.find(x => x.id === id));
+        items.push(work);
+      } catch (error) {
+        // Only excluded or removed works may be skipped. Transport and parser
+        // failures must remain retryable instead of becoming an empty page.
+        if (!['NOT_FOUND', 'UNSUPPORTED', 'LOGIN_REQUIRED'].includes(error?.code)) throw error;
+      }
     }
     return {items, page, hasNext: data.length === 20};
   },

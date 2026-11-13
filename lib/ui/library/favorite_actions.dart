@@ -107,8 +107,9 @@ class _CategoryPickerState extends State<_CategoryPicker> {
 
   Future<void> _create() async {
     final name = await promptText(context, tr('新建分类'), '');
-    if (name == null) return;
+    if (name == null || !mounted) return;
     final c = await Library.instance.createCategory(name);
+    if (!mounted) return;
     if (c == null) {
       if (mounted) context.toast(tr('分类名称为空或已存在'));
       return;
@@ -216,16 +217,17 @@ Future<String?> promptText(
   String initial, {
   String? hint,
 }) {
-  final c = TextEditingController(text: initial);
+  var value = initial;
   return showDialog<String>(
     context: context,
     builder: (ctx) => AlertDialog(
       title: Text(title),
-      content: TextField(
-        controller: c,
+      content: TextFormField(
+        initialValue: initial,
+        onChanged: (text) => value = text,
         autofocus: true,
         decoration: InputDecoration(hintText: hint),
-        onSubmitted: (v) =>
+        onFieldSubmitted: (v) =>
             Navigator.pop(ctx, v.trim().isEmpty ? null : v.trim()),
       ),
       actions: [
@@ -235,7 +237,7 @@ Future<String?> promptText(
         ),
         FilledButton(
           onPressed: () =>
-              Navigator.pop(ctx, c.text.trim().isEmpty ? null : c.text.trim()),
+              Navigator.pop(ctx, value.trim().isEmpty ? null : value.trim()),
           child: SelectionContainer.disabled(child: Text(tr('确定'))),
         ),
       ],

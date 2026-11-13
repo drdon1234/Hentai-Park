@@ -59,7 +59,12 @@ class DirectPlayback implements Playback {
     try {
       _validate(url);
       _upstream = url;
-      _cache = await ByteRangeCache.open();
+      final cache = await ByteRangeCache.open();
+      if (_closed) {
+        await cache?.close();
+        throw SourceError('CANCELLED', '媒体会话已关闭');
+      }
+      _cache = cache;
       final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
       if (_closed) {
         await server.close(force: true);

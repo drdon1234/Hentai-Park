@@ -29,6 +29,7 @@ class SharedFeedSession extends ChangeNotifier {
   bool initialized = false;
   bool hasNext = true;
   bool restartRequired = false;
+  bool automaticPaused = false;
   bool _refresh = false;
   bool _preview = false;
   bool _disposed = false;
@@ -65,6 +66,7 @@ class SharedFeedSession extends ChangeNotifier {
     final generation = revision;
     final request = _request = CancelToken();
     _pending = done.future;
+    automaticPaused = false;
     error = null;
     notifyListeners();
     unawaited(
@@ -125,8 +127,7 @@ class SharedFeedSession extends ChangeNotifier {
         hasNext = result.hasNext;
         if (added > 0 || !hasNext) return;
       }
-      restartRequired = true;
-      throw SourceError('PARSE', '分页链接无效');
+      automaticPaused = true;
     } catch (failure) {
       if (_disposed || generation != revision) return;
       if (HomeCache.invalidatesContent(failure)) {
@@ -163,6 +164,7 @@ class SharedFeedSession extends ChangeNotifier {
     initialized = false;
     hasNext = true;
     restartRequired = false;
+    automaticPaused = false;
     _preview = false;
     _refresh = true;
     error = null;

@@ -371,7 +371,11 @@ html: document.documentElement ? document.documentElement.outerHTML.slice(0, 419
       unawaited(starting.then((_) => view.dispose()).catchError((Object _) {}));
       return;
     }
-    await view.dispose();
+    try {
+      await view.dispose().timeout(const Duration(seconds: 3));
+    } catch (error) {
+      AppLog.error(error, event: 'browser_dispose');
+    }
   }();
 
   @override
@@ -525,9 +529,11 @@ if (jobs.has(id)) jobs.get(id)?.abort(); else jobs.set(id, null);''',
     _startupPoll?.cancel();
     _startupPoll = null;
     try {
-      await controller?.evaluateJavascript(
-        source: 'globalThis.__parkMedia?.forEach(controller => controller?.abort())',
-      );
+      await controller
+          ?.evaluateJavascript(
+            source: 'globalThis.__parkMedia?.forEach(controller => controller?.abort())',
+          )
+          .timeout(const Duration(seconds: 3));
     } catch (_) {}
     try {
       if (view != null) await _disposeView(view, starting);

@@ -130,7 +130,9 @@ class _ReaderPageState extends _ReaderBase
     _watched.addListener(_onSettings);
     // Mihon remembers the reading mode per series.
     Library.instance.readerModeOf(widget.work.uid).then((m) {
-      if (m == null || !mounted || m >= ReaderMode.values.length) return;
+      if (m == null || !mounted || m < 0 || m >= ReaderMode.values.length) {
+        return;
+      }
       _modeOverride = true;
       _applyMode(ReaderMode.values[m]);
     });

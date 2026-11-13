@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 
 import '../../core/localization.dart';
@@ -7,6 +5,7 @@ import '../../core/models.dart';
 import '../../engine/source_manager.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
+import '../widgets/progress_ring.dart';
 
 /// Downloads a script, shows what it is and what it would be allowed to touch, and installs it only
 /// after the user confirms (Mihon's "untrusted extension" prompt). Returns the key, or null.
@@ -64,36 +63,7 @@ Future<T> _withProgress<T>(
   BuildContext context,
   String message,
   Future<T> Function() body,
-) async {
-  final nav = Navigator.of(context, rootNavigator: true);
-  unawaited(
-    showDialog<void>(
-      context: context,
-      barrierDismissible: false,
-      builder: (_) => PopScope(
-        canPop: false,
-        child: AlertDialog(
-          content: Row(
-            children: [
-              const SizedBox(
-                width: 22,
-                height: 22,
-                child: CircularProgressIndicator(strokeWidth: 2.5),
-              ),
-              const SizedBox(width: 16),
-              Expanded(child: Text(message)),
-            ],
-          ),
-        ),
-      ),
-    ),
-  );
-  try {
-    return await body();
-  } finally {
-    nav.pop();
-  }
-}
+) => showProgressOperation(context, message, (_) => body());
 
 class _TrustDialog extends StatelessWidget {
   const _TrustDialog({required this.preview});

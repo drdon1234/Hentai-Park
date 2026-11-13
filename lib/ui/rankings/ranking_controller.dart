@@ -42,6 +42,10 @@ class RankingController extends ChangeNotifier {
   }
 
   final Set<String> _seen = {};
+  final Set<String> _cursors = {};
+  int _emptyPages = 0;
+  bool _restartRequired = false;
+  bool get canAutoLoad => hasNext && _emptyPages < 3;
   Object? error;
   bool loading = false;
   bool hasNext = true;
@@ -57,6 +61,9 @@ class RankingController extends ChangeNotifier {
     items.clear();
     _loaded.clear();
     _seen.clear();
+    _cursors.clear();
+    _emptyPages = 0;
+    _restartRequired = false;
     _page = 0;
     _offset = 0;
     _cursor = null;
@@ -75,18 +82,23 @@ class RankingController extends ChangeNotifier {
     try {
       final result = await load(_page + 1, _cursor, _offset);
       if (_disposed || generation != _generation) return;
-      var added = 0;
+      final previousLength = items.length;
       for (final item in result.items) {
         if (_seen.add(item.uid)) {
           _loaded.add(item);
-          added++;
         }
       }
       _offset += result.items.length;
       _page = result.page > _page ? result.page : _page + 1;
       _cursor = result.cursor;
-      hasNext = result.hasNext && added > 0;
+      hasNext = result.hasNext;
       _applyFilters();
+      _emptyPages = items.length == previousLength ? _emptyPages + 1 : 0;
+      if (hasNext && _cursor != null && !_cursors.add(_cursor!)) {
+        hasNext = false;
+        _restartRequired = true;
+        throw SourceError('PARSE', '分页链接无效');
+      }
     } catch (failure) {
       if (_disposed || generation != _generation) return;
       error = failure;
@@ -97,6 +109,8 @@ class RankingController extends ChangeNotifier {
       }
     }
   }
+
+  Future<void> retry() => _restartRequired ? refresh() : loadMore();
 
   @override
   void dispose() {

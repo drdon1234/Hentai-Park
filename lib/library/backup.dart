@@ -11,6 +11,7 @@ import '../core/async_tasks.dart';
 import '../core/localization.dart';
 import '../core/settings.dart';
 import '../core/storage.dart';
+import '../core/time.dart';
 import '../data/database.dart';
 import '../engine/source_manager.dart';
 import '../novel/reading_notes.dart';
@@ -622,9 +623,12 @@ class BackupService {
   Future<File?> _autoBackup() async {
     final s = AppSettings.instance;
     if (s.autoBackupHours <= 0) return null;
-    final due = DateTime.fromMillisecondsSinceEpoch(s.lastAutoBackup)
-        .add(Duration(hours: s.autoBackupHours));
-    if (DateTime.now().isBefore(due)) return null;
+    if (!intervalElapsed(
+      s.lastAutoBackup,
+      Duration(hours: s.autoBackupHours),
+    )) {
+      return null;
+    }
     try {
       final file = await writeTo(
         AppPaths.backups,

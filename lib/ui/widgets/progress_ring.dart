@@ -19,10 +19,16 @@ Future<T> showProgressOperation<T>(
       context: context,
       barrierDismissible: false,
       builder: (dialog) {
+        final route = ModalRoute.of(dialog)!;
         void close() {
-          if (!closing && dialog.mounted) {
+          if (!closing && dialog.mounted && route.isActive) {
             closing = true;
-            Navigator.pop(dialog);
+            final navigator = Navigator.of(dialog);
+            if (route.isCurrent) {
+              navigator.pop();
+            } else {
+              navigator.removeRoute(route);
+            }
           }
         }
 

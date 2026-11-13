@@ -9,7 +9,7 @@ Park.register({
     "ru": {"标清": "Стандартное качество", "综合成人视频，支持排行、搜索和高清播放": "Видео для взрослых с рейтингами, поиском и высоким качеством", "高清": "Высокое качество"},
     "ar": {"标清": "جودة قياسية", "综合成人视频，支持排行、搜索和高清播放": "فيديوهات للبالغين مع تصنيفات وبحث وتشغيل بجودة عالية", "高清": "جودة عالية"},
   },
-  key: 'xvideos', name: 'XVideos', version: '0.0.12', minAppVersion: '0.13.6', type: 'video', category: 'adult', color: '#E31B23',
+  key: 'xvideos', name: 'XVideos', version: '0.0.13', minAppVersion: '0.13.6', type: 'video', category: 'adult', color: '#E31B23',
   description: '综合成人视频，支持排行、搜索和高清播放', homepage: 'https://www.xvideos.com', domains: ['xvideos.com'], language: 'en',
   network: {mode: 'native', vpnHint: true}, imageHeaders: {Referer: 'https://www.xvideos.com/'},
   media: {mode: 'native', scope: 'session', origin: 'https://www.xvideos.com'},
@@ -134,7 +134,7 @@ Park.register({
     return this.listing(this.BASE + '/?' + params, req, 'search');
   },
   // Related videos are not rendered as cards: the page script holds them as `var video_related=[...]`.
-  related(html, id) {
+  relatedItems(html, id) {
     const start = html.indexOf('video_related=[');
     if (start < 0) return [];
     let depth = 0, quoted = false, end = -1;
@@ -241,7 +241,7 @@ Park.register({
       if (name && /^\/tags\/[a-z0-9_-]+\/?$/i.test(tag) && !seen.has(tag)) { seen.add(tag); tags.push({name, keyword: '', filters: {tag}}); }
     }
     return {id, title, cover, coverAspect: 16/9, url, duration: Park.html.text(doc.querySelector('h2.page-title .duration')),
-      description: '', authors: [], tags: tags.length ? [{namespace: 'tag', label: '标签', tags}] : [], related: this.related(html, id)};
+      description: '', authors: [], tags: tags.length ? [{namespace: 'tag', label: '标签', tags}] : [], related: this.relatedItems(html, id)};
   },
   async videos(id) {
     const referer = this.BASE + '/' + this.validId(id), {html} = await this.getPage(referer);

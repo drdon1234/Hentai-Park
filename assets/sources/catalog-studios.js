@@ -8,7 +8,7 @@ Park.register({
     ru: {"官方女优榜": "Официальный рейтинг актрис"},
     ar: {"官方女优榜": "ترتيب الممثلات الرسمي"},
   },
-  key: 'catalog-studios', name: '无码厂商', version: '0.0.11', minAppVersion: '0.13.6',
+  key: 'catalog-studios', name: '无码厂商', version: '0.0.12', minAppVersion: '0.13.6',
   type: 'video', category: 'jav', metadataOnly: true,
   description: '排行榜与作品资料', homepage: 'https://www.1pondo.tv/',
   domains: ['1pondo.tv', '10musume.com', 'pacopacomama.com', 'caribbeancom.com'],
@@ -127,7 +127,8 @@ Park.register({
       const chunks=await Promise.all(starts.map(n=>this.catalogChunk(site,sort,n)));
       for (let i=0;i<chunks.length && items.length<24;i++) {
         const chunk=chunks[i];
-        if (!chunk.Rows.length && starts[i]<total) throw Park.error('PARSE','作品资料无效');
+        // 缺失分片不能跳过，否则会漏掉作品，末片还可能令 offset 永远不前进。
+        if (chunk.SplitSize!==size || chunk.Rows.length!==Math.min(size,total-starts[i])) throw Park.error('PARSE','作品资料无效');
         for (let j=Math.max(0,offset-starts[i]);j<chunk.Rows.length;j++) {
           const row=chunk.Rows[j];offset=starts[i]+j+1;
           if (category && !(row.UC||[]).some(v=>String(v)===category)) continue;

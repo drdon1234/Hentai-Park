@@ -11,7 +11,7 @@ Park.register({
   },
   key: 'missav',
   name: 'MissAV',
-  version: '0.0.13', minAppVersion: '0.13.6',
+  version: '0.0.14', minAppVersion: '0.13.6',
   type: 'video',
   category: 'jav',
   color: '#EF4444',
@@ -318,11 +318,13 @@ Park.register({
       count: 16, scenario: 'mobile-watch-next', returnProperties: true,
       includedProperties: ['title_cn', 'duration'], cascadeCreate: true,
     }});
-    if (!r.ok || r.body.length > 1024 * 1024) return [];
+    this.http.ensureOk(r);
+    if (r.body.length > 1024 * 1024) throw Park.error('PARSE', '站点返回了无效结果');
     let data;
-    try { data = JSON.parse(r.body); } catch (_) { return []; }
+    try { data = JSON.parse(r.body); } catch (_) { throw Park.error('PARSE', '站点返回了无效结果'); }
+    if (!Array.isArray(data?.recomms)) throw Park.error('PARSE', '站点返回了无效结果');
     const out = [];
-    for (const recomm of Array.isArray(data.recomms) ? data.recomms.slice(0, 50) : []) {
+    for (const recomm of data.recomms.slice(0, 50)) {
       const itemId = String(recomm && recomm.id || '').toLowerCase(), values = recomm && recomm.values || {};
       if (!/^[a-z0-9][a-z0-9-]{1,120}$/.test(itemId) || itemId === id || out.some(item => item.id === itemId)) continue;
       const code = itemId.toUpperCase().replace(/-(?:UNCENSORED-LEAK|CHINESE-SUBTITLE|ENGLISH-SUBTITLE)$/, '');
@@ -332,6 +334,14 @@ Park.register({
         duration: seconds ? `${Math.floor(seconds/3600)}:${String(Math.floor(seconds/60)%60).padStart(2,'0')}:${String(seconds%60).padStart(2,'0')}` : ''});
     }
     return out;
+  },
+
+  async related(value, req = {}) {
+    const id = this.validId(value), page = Number(req.page || 1);
+    if (!Number.isSafeInteger(page) || page < 1) throw Park.error('CONFIG', '站点返回了无效结果');
+    if (page > 1) return {items: [], page, hasNext: false};
+    const {doc} = await this.getPage('/cn/' + id);
+    return {items: await this.relatedItems(doc, id), page, hasNext: false};
   },
 
   async detail(id) {
@@ -360,7 +370,7 @@ Park.register({
       authors: actors, description: meta('og:description'), uploaded: time ? time.getAttribute('datetime').slice(0,10) : '',
       duration: seconds ? `${Math.floor(seconds/3600)}:${String(Math.floor(seconds/60)%60).padStart(2,'0')}:${String(seconds%60).padStart(2,'0')}` : '',
       tags: tags.length ? [{namespace: 'tag',label: '标签',tags}] : [],
-      qualities: this.mediaSources(html).map(s => s.quality), related: await this.relatedItems(doc, id)};
+      qualities: this.mediaSources(html).map(s => s.quality)};
   },
 
   async videos(id) {

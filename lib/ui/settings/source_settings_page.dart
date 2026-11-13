@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -253,8 +255,11 @@ class _SourceSettingsPageState extends State<SourceSettingsPage> {
                                     overflow: TextOverflow.ellipsis,
                                   ),
                                 ),
-                                onTap: () =>
-                                    installSourceFromUrl(context, s.url),
+                                onTap: () => installSourceFromUrl(
+                                  context,
+                                  s.url,
+                                  expectedKey: s.key,
+                                ),
                               ),
                             if (!managed)
                               ListTile(
@@ -442,7 +447,11 @@ class _SourceSettingsPageState extends State<SourceSettingsPage> {
         ],
       );
     }
-    return LoginPanel(source: s.key, account: a);
+    return LoginPanel(
+      key: ValueKey((s.key, a.type, a.loginUrl, jsonEncode(a.fields))),
+      source: s.key,
+      account: a,
+    );
   }
 
   Widget _setting(BuildContext context, SourceManifest m, OptionDef o) {

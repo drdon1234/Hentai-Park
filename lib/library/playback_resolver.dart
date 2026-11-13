@@ -151,7 +151,9 @@ abstract final class PlaybackResolver {
     final key = chapterKeyOf(chapterId);
     final state =
         chapters.where((c) => c.chapterId == key).firstOrNull ?? chapters.first;
-    final start = page ?? state.lastPage;
+    final start = state.chapterId == key && page != null
+        ? page
+        : state.lastPage;
     if (chapters.length == 1) {
       final only = chapters.first.chapterId;
       return ReadChapter(

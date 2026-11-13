@@ -142,7 +142,10 @@
     if (!params) return url;
     const query = encodeForm(params);
     if (!query) return url;
-    return url + (url.includes('?') ? '&' : '?') + query;
+    const hash = url.indexOf('#');
+    const base = hash < 0 ? url : url.slice(0, hash);
+    const fragment = hash < 0 ? '' : url.slice(hash);
+    return base + (base.includes('?') ? '&' : '?') + query + fragment;
   }
 
   // 所有只读页面和资源共用目的域判断；作品路径、分页身份仍由源判断。
@@ -486,15 +489,14 @@
       return node ? node.getAttribute(name) || '' : '';
     },
     unescape(text) {
-      return String(text || '')
-        .replace(/&amp;/g, '&')
-        .replace(/&lt;/g, '<')
-        .replace(/&gt;/g, '>')
-        .replace(/&quot;/g, '"')
-        .replace(/&#0?39;|&apos;/g, "'")
-        .replace(/&nbsp;/g, ' ')
-        .replace(/&#(\d+);/g, (_, d) => String.fromCharCode(Number(d)))
-        .replace(/&#x([0-9a-f]+);/gi, (_, h) => String.fromCharCode(parseInt(h, 16)));
+      const named = {amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: ' '};
+      return String(text || '').replace(/&(amp|lt|gt|quot|apos|nbsp|#\d+|#[xX][0-9a-fA-F]+);/g, (_, entity) => {
+        if (entity[0] !== '#') return named[entity];
+        const code = entity[1].toLowerCase() === 'x'
+          ? parseInt(entity.slice(2), 16) : Number(entity.slice(1));
+        return code > 0 && code <= 0x10ffff && !(code >= 0xd800 && code <= 0xdfff)
+          ? String.fromCodePoint(code) : '\ufffd';
+      });
     },
     strip(text) {
       return html.unescape(String(text || '').replace(/<[^>]+>/g, ' ')).replace(/\s+/g, ' ').trim();
@@ -547,6 +549,7 @@
     },
     /** Runs async `fn` over items with bounded concurrency, preserving order. */
     async mapLimit(items, limit, fn) {
+      if (!Number.isSafeInteger(limit) || limit < 1) throw new RangeError('Invalid concurrency limit');
       const results = new Array(items.length);
       let next = 0;
       async function worker() {
@@ -559,6 +562,7 @@
       return results;
     },
     lruMap(limit) {
+      if (!Number.isSafeInteger(limit) || limit < 0) throw new RangeError('Invalid cache capacity');
       const map = new Map();
       return {
         get(key) {

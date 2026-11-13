@@ -231,7 +231,13 @@ void validateSettings(Map<String, dynamic> values) {
           value.entries.every(
             (e) =>
                 e.key is String &&
-                (e.value is String ||
+                (const {
+                          'category',
+                          'selected',
+                          'section',
+                          'kind',
+                        }.contains(e.key) &&
+                        e.value is String ||
                     (e.key == 'detailSources' ||
                             e.key == 'searchSources' ||
                             e.key == 'navigation') &&
@@ -240,7 +246,9 @@ void validateSettings(Map<String, dynamic> values) {
                           (entry) =>
                               entry.key is String && entry.value is String,
                         ) ||
-                    e.value is Map &&
+                    e.key == 'options' &&
+                        e.value is Map &&
+                        (e.value as Map).keys.every((key) => key is String) &&
                         (e.value as Map).values.every(
                           (v) =>
                               v is Map &&
@@ -249,13 +257,13 @@ void validateSettings(Map<String, dynamic> values) {
                                     o.key is String &&
                                     (o.value == null ||
                                         o.value is String ||
-                                        o.value is num ||
+                                        o.value is num && o.value.isFinite ||
                                         o.value is bool ||
                                         o.value is List &&
                                             (o.value as List).every(
                                               (v) =>
                                                   v is String ||
-                                                  v is num ||
+                                                  v is num && v.isFinite ||
                                                   v is bool,
                                             )),
                               ),

@@ -7,7 +7,6 @@ import 'package:path/path.dart' as p;
 import 'package:pdf/pdf.dart';
 
 import '../core/localization.dart';
-import '../core/storage.dart';
 import '../images/park_image.dart';
 import 'downloads.dart';
 import 'export_files.dart';
@@ -38,9 +37,8 @@ class ComicPdf {
     // 先读取完整目录，任何已完成章节缺失或损坏都不能被静默跳过。
     final manifests = <List<Map<String, dynamic>>>[];
     for (final chapter in chapters) {
-      final manifest = File(
-        p.join(task.dir.path, safeFileName(chapter.id), 'pages.json'),
-      );
+      final manifest = await task.chapterFile(chapter.id, 'pages.json');
+      if (manifest == null) throw FormatException(tr('图片文件路径无效'));
       final json = jsonDecode(await manifest.readAsString()) as Map;
       final pages = (json['pages'] as List)
           .map((page) => (page as Map).cast<String, dynamic>())
@@ -58,9 +56,6 @@ class ComicPdf {
       final base = exportFileName(task.item.title);
       for (var ci = 0; ci < chapters.length; ci++) {
         final chapter = chapters[ci];
-        final directory = Directory(
-          p.join(task.dir.path, safeFileName(chapter.id)),
-        );
         final name = chapters.length > 1
             ? '$base - ${exportFileName(chapter.title)}'
             : base;
@@ -72,12 +67,12 @@ class ComicPdf {
         for (var i = 0; i < manifests[ci].length; i++) {
           final page = manifests[ci][i];
           final relative = page['file'] as String;
-          final path = p.normalize(p.join(directory.path, relative));
-          if (p.isAbsolute(relative) || !p.isWithin(directory.path, path)) {
+          final source = await task.chapterFile(chapter.id, relative);
+          if (source == null) {
             throw FormatException(tr('图片文件路径无效'));
           }
           final prepared = await _page(
-            File(path),
+            source,
             page['transform'],
             File(p.join(staging.path, '$ci-$i.png')),
           );

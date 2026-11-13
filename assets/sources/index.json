@@ -125,7 +125,7 @@
     {
       "key": "pornpics",
       "name": "PornPics",
-      "version": "0.0.11",
+      "version": "0.0.12",
       "type": "comic",
       "category": "gallery",
       "file": "pornpics.js",
@@ -195,7 +195,7 @@
     {
       "key": "jm",
       "name": "禁漫天堂",
-      "version": "0.0.10",
+      "version": "0.0.11",
       "type": "comic",
       "category": "doujin",
       "file": "jm.js",
@@ -225,7 +225,7 @@
     {
       "key": "pica",
       "name": "哔咔漫画",
-      "version": "0.0.12",
+      "version": "0.0.13",
       "type": "comic",
       "category": "doujin",
       "file": "pica.js",
@@ -285,7 +285,7 @@
     {
       "key": "missav",
       "name": "MissAV",
-      "version": "0.0.13",
+      "version": "0.0.14",
       "type": "video",
       "category": "jav",
       "file": "missav.js",
@@ -335,7 +335,7 @@
     {
       "key": "xvideos",
       "name": "XVideos",
-      "version": "0.0.12",
+      "version": "0.0.13",
       "type": "video",
       "category": "adult",
       "file": "xvideos.js",
@@ -375,7 +375,7 @@
     {
       "key": "eporner",
       "name": "Eporner",
-      "version": "0.0.11",
+      "version": "0.0.12",
       "type": "video",
       "category": "adult",
       "file": "eporner.js",
@@ -465,7 +465,7 @@
     {
       "key": "swag_shortvideo",
       "name": "SWAG 短视频",
-      "version": "0.0.6",
+      "version": "0.0.7",
       "type": "video",
       "category": "shortvideo",
       "file": "swag_shortvideo.js",
@@ -685,7 +685,7 @@
     {
       "key": "telegram",
       "name": "电报",
-      "version": "0.0.12",
+      "version": "0.0.13",
       "type": "video",
       "category": "other",
       "file": "telegram.js",
@@ -824,7 +824,7 @@
       "key": "literotica",
       "name": "Literotica",
       "description": "英文小说与系列故事，支持排行、搜索和完整正文分页",
-      "version": "0.0.9",
+      "version": "0.0.10",
       "type": "novel",
       "category": "novel",
       "file": "literotica.js",
@@ -958,7 +958,7 @@
     {
       "key": "catalog-studios",
       "name": "无码厂商",
-      "version": "0.0.11",
+      "version": "0.0.12",
       "type": "video",
       "category": "jav",
       "file": "catalog-studios.js",

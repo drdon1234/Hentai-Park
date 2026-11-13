@@ -268,6 +268,7 @@ class _ResultImageState extends State<_ResultImage> {
   final _token = CancelToken();
   MemoryImage? _provider;
   bool _failed = false;
+  bool _retrying = false;
 
   @override
   void initState() {
@@ -307,59 +308,71 @@ class _ResultImageState extends State<_ResultImage> {
 
   Widget _failure() => OutlinedButton.icon(
     onPressed: () async {
-      await _provider?.evict();
-      _provider = null;
+      if (!mounted || _retrying) return;
+      _retrying = true;
+      final provider = _provider;
+      final image = widget.image;
+      final source = widget.source;
+      setState(() {
+        _provider = null;
+        _failed = false;
+      });
       try {
-        if (!widget.image.url.startsWith('data:')) {
-          await ImageStore.instance.invalidate(
-            widget.image.url,
-            partition: widget.source,
-          );
+        await provider?.evict();
+        if (!mounted) return;
+        if (!image.url.startsWith('data:')) {
+          await ImageStore.instance.invalidate(image.url, partition: source);
         }
         if (mounted) await _load();
       } catch (_) {
         if (mounted) setState(() => _failed = true);
+      } finally {
+        _retrying = false;
       }
     },
     icon: const Icon(Icons.refresh),
     label: Text(tr('图片加载失败，点击重试')),
   );
 
-  void _preview() => showDialog<void>(
-    context: context,
-    builder: (context) => Dialog(
-      clipBehavior: Clip.antiAlias,
-      child: ConstrainedBox(
-        constraints: BoxConstraints(
-          maxWidth: 900,
-          maxHeight: MediaQuery.sizeOf(context).height * .8,
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Align(
-              alignment: AlignmentDirectional.centerEnd,
-              child: IconButton(
-                tooltip: tr('关闭'),
-                onPressed: () => Navigator.pop(context),
-                icon: const Icon(Icons.close),
-              ),
-            ),
-            Flexible(
-              child: InteractiveViewer(
-                child: Image(
-                  image: _provider!,
-                  fit: BoxFit.contain,
-                  errorBuilder: (_, _, _) => Text(tr('图片加载失败')),
+  void _preview() {
+    final provider = _provider;
+    if (provider == null) return;
+    showDialog<void>(
+      context: context,
+      builder: (context) => Dialog(
+        clipBehavior: Clip.antiAlias,
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            maxWidth: 900,
+            maxHeight: MediaQuery.sizeOf(context).height * .8,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Align(
+                alignment: AlignmentDirectional.centerEnd,
+                child: IconButton(
+                  tooltip: tr('关闭'),
+                  onPressed: () => Navigator.pop(context),
+                  icon: const Icon(Icons.close),
                 ),
               ),
-            ),
-          ],
+              Flexible(
+                child: InteractiveViewer(
+                  child: Image(
+                    image: provider,
+                    fit: BoxFit.contain,
+                    errorBuilder: (_, _, _) => Text(tr('图片加载失败')),
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
-    ),
-  );
+    );
+  }
 
   @override
   Widget build(BuildContext context) {

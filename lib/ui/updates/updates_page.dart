@@ -28,6 +28,8 @@ class _UpdatesPageState extends State<UpdatesPage> {
   List<UpdateEntry>? _entries;
   final Set<String> _selected = {};
   Timer? _debounce;
+  int _reloadGeneration = 0;
+  bool _loadFailed = false;
 
   static String _keyOf(UpdateEntry e) =>
       '${e.item.uid}\u0000${e.chapter.chapterId}';
@@ -60,8 +62,20 @@ class _UpdatesPageState extends State<UpdatesPage> {
   }
 
   Future<void> _reload() async {
-    final list = await Library.instance.recentUpdates();
-    if (mounted) setState(() => _entries = list);
+    final generation = ++_reloadGeneration;
+    try {
+      final list = await Library.instance.recentUpdates();
+      if (!mounted || generation != _reloadGeneration) return;
+      final available = list.map(_keyOf).toSet();
+      setState(() {
+        _entries = list;
+        _loadFailed = false;
+        _selected.removeWhere((key) => !available.contains(key));
+      });
+    } catch (_) {
+      if (!mounted || generation != _reloadGeneration) return;
+      setState(() => _loadFailed = true);
+    }
   }
 
   Future<void> _refresh() async {
@@ -257,6 +271,23 @@ class _UpdatesPageState extends State<UpdatesPage> {
 
   Widget _body(BuildContext context) {
     final entries = _entries;
+    if (_loadFailed) {
+      return ListView(
+        children: [
+          EmptyState(
+            icon: Icons.error_outline_rounded,
+            title: tr('加载失败'),
+            actions: [
+              OutlinedButton.icon(
+                onPressed: _reload,
+                icon: const Icon(Icons.refresh_rounded),
+                label: Text(tr('重试')),
+              ),
+            ],
+          ),
+        ],
+      );
+    }
     if (entries == null) {
       return const Center(child: CircularProgressIndicator());
     }

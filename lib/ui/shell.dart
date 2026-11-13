@@ -138,13 +138,14 @@ class _ShellState extends State<Shell> {
     _select(_shelfTab);
   }
 
-  void _openDiscovery(DiscoveryDestination destination) {
-    Navigator.of(context).popUntil((route) => route.isFirst);
+  Future<void> _openDiscovery(DiscoveryDestination destination) async {
+    if (!await DesktopNavigation.instance.popToRoot() || !mounted) return;
     _discovery.value = destination;
     _select(0);
   }
 
   void _onNotificationTap(String payload) {
+    if (!mounted) return;
     if (payload == 'updates') _openUpdates();
     if (payload == 'subscriptions' && mounted) {
       WidgetsBinding.instance.addPostFrameCallback((_) {

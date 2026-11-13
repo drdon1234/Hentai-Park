@@ -7,6 +7,7 @@ import crypto from 'node:crypto';
 import https from 'node:https';
 import { fileURLToPath } from 'node:url';
 import { DOMParser } from 'linkedom';
+import { Cookie, CookieJar, domainMatch } from 'tough-cookie';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 export const repoRoot = path.resolve(here, '..', '..');
@@ -14,37 +15,11 @@ export const repoRoot = path.resolve(here, '..', '..');
 const UA =
   'Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Mobile Safari/537.36';
 
-// ── Cookie jar (host-scoped, good enough for tests) ─────────
-const jar = new Map(); // host -> Map(name -> value)
-
-function hostOf(url) {
-  return new URL(url).hostname;
-}
-
-function cookiesFor(url) {
-  const host = hostOf(url);
-  const out = [];
-  for (const [domain, cookies] of jar) {
-    if (host === domain || host.endsWith('.' + domain)) {
-      for (const [k, v] of cookies) out.push(`${k}=${v}`);
-    }
-  }
-  return out.join('; ');
-}
-
-function storeCookies(url, setCookies) {
-  const host = hostOf(url);
-  for (const line of setCookies) {
-    const [pair, ...attrs] = line.split(';');
-    const eq = pair.indexOf('=');
-    if (eq < 0) continue;
-    const name = pair.slice(0, eq).trim();
-    const value = pair.slice(eq + 1).trim();
-    const domainAttr = attrs.map((a) => a.trim()).find((a) => /^domain=/i.test(a));
-    const domain = domainAttr ? domainAttr.split('=')[1].replace(/^\./, '') : host;
-    if (!jar.has(domain)) jar.set(domain, new Map());
-    jar.get(domain).set(name, value);
-  }
+// 与应用一致按源分区；域、路径、Secure 和过期语义交给标准 Cookie 容器。
+const jars = new Map();
+function cookieJar(source = '') {
+  if (!jars.has(source)) jars.set(source, new CookieJar());
+  return jars.get(source);
 }
 
 // ── Native bridge ───────────────────────────────────────────
@@ -66,42 +41,73 @@ export function diagnosticMessage(value) {
 
 const native = {
   async request(o) {
-    const headers = { 'User-Agent': UA, ...o.headers };
-    const cookie = cookiesFor(o.url);
-    if (cookie && !Object.keys(headers).some((k) => k.toLowerCase() === 'cookie')) headers.Cookie = cookie;
+    const jar = cookieJar(o.source);
+    let url = new URL(o.url), method = o.method || 'GET';
+    let bodyData = o.bodyBase64 === undefined ? o.body : Buffer.from(o.bodyBase64, 'base64');
+    const headers = new Headers({'User-Agent': UA, ...o.headers});
+    const signal = AbortSignal.timeout(o.timeout || 30000);
     let res;
     try {
-      const options = {
-        method: o.method,
-        headers,
-        body: o.bodyBase64 === undefined ? o.body : Buffer.from(o.bodyBase64, 'base64'),
-        redirect: o.followRedirects === false ? 'manual' : 'follow',
-        signal: AbortSignal.timeout(o.timeout || 30000),
-      };
-      if (o.connectAddress) {
-        // 开发宿主同样保留 URL 主机名、SNI 与 Node 默认的证书校验。
-        res = await new Promise((resolve, reject) => {
-          const request = https.request(o.url, {
-            method: options.method, headers, signal: options.signal,
-            lookup: (_host, opts, callback) => callback(null, opts.all ? [{ address: o.connectAddress, family: 4 }] : o.connectAddress, 4),
-          }, response => {
-            const chunks = [];
-            response.on('data', chunk => chunks.push(chunk));
-            response.on('error', reject);
-            response.on('end', () => {
-              const result = new Response(Buffer.concat(chunks), { status: response.statusCode, headers: response.headers });
-              Object.defineProperty(result, 'url', { value: o.url });
-              resolve(result);
+      for (let hop = 0; ; hop++) {
+        const requestHeaders = new Headers(headers);
+        if (!requestHeaders.has('cookie')) {
+          const cookie = jar.getCookieStringSync(url.href);
+          if (cookie) requestHeaders.set('cookie', cookie);
+        }
+        const options = {method, headers: requestHeaders, body: bodyData, redirect: 'manual', signal};
+        if (o.connectAddress && url.hostname === new URL(o.url).hostname) {
+          // 保留目标主机名、SNI 与证书校验；跨主机跳转不能复用指定 IP。
+          res = await new Promise((resolve, reject) => {
+            const request = https.request(url, {
+              method, headers: Object.fromEntries(requestHeaders), signal,
+              lookup: (_host, opts, callback) => callback(null, opts.all ? [{address: o.connectAddress, family: 4}] : o.connectAddress, 4),
+            }, response => {
+              const chunks = [];
+              response.on('data', chunk => chunks.push(chunk));
+              response.on('error', reject);
+              response.on('end', () => {
+                try {
+                  const empty = method === 'HEAD' || [204, 205, 304].includes(response.statusCode);
+                  const responseHeaders = new Headers();
+                  for (const [key, value] of Object.entries(response.headers)) {
+                    for (const entry of Array.isArray(value) ? value : [value]) {
+                      if (entry !== undefined) responseHeaders.append(key, entry);
+                    }
+                  }
+                  const result = new Response(empty ? null : Buffer.concat(chunks), {status: response.statusCode, headers: responseHeaders});
+                  Object.defineProperty(result, 'url', {value: url.href});
+                  resolve(result);
+                } catch (error) { reject(error); }
+              });
             });
+            request.on('error', reject);
+            request.end(bodyData);
           });
-          request.on('error', reject);
-          request.end(options.body);
-        });
-      } else res = await fetch(o.url, options);
+        } else res = await fetch(url, options);
+        for (const cookie of res.headers.getSetCookie()) {
+          jar.setCookieSync(cookie, url.href, {ignoreError: true});
+        }
+        const location = res.headers.get('location');
+        if (o.followRedirects === false || ![301, 302, 303, 307, 308].includes(res.status) || !location) break;
+        await res.body?.cancel();
+        if (hop >= 19) throw new Error('Too many redirects');
+        const next = new URL(location, url);
+        // 与应用一致允许 HTTP 跳转，只禁止 HTTPS 降级及非 HTTP 地址。
+        if (!['http:', 'https:'].includes(next.protocol) ||
+            (url.protocol === 'https:' && next.protocol !== 'https:') ||
+            next.username || next.password) throw new Error('Invalid redirect');
+        if (next.origin !== url.origin) {
+          for (const key of ['cookie', 'authorization', 'proxy-authorization', 'host']) headers.delete(key);
+        }
+        if ((res.status === 303 && method !== 'HEAD') || ([301, 302].includes(res.status) && method === 'POST')) {
+          method = 'GET'; bodyData = undefined;
+          for (const key of ['content-length', 'content-type', 'content-encoding', 'content-language', 'content-location']) headers.delete(key);
+        }
+        url = next;
+      }
     } catch (err) {
-      throw { code: 'NETWORK', message: `${o.url}: ${err.cause?.code || err.message}` };
+      throw {code: 'NETWORK', message: `${o.url}: ${err.cause?.code || err.message}`};
     }
-    storeCookies(o.url, res.headers.getSetCookie?.() || []);
     const outHeaders = {};
     res.headers.forEach((v, k) => (outHeaders[k] = v));
     let body;
@@ -168,15 +174,28 @@ const native = {
   },
 
   async cookies(op, a) {
-    const host = hostOf(a.url);
-    if (op === 'get') return Object.fromEntries(jar.get(host) || []);
+    const jar = cookieJar(a.source);
+    if (op === 'get') {
+      const cookies = {};
+      // 更具体的路径在前；与 HTTP 请求优先使用的同名 Cookie 保持一致。
+      for (const cookie of jar.getCookiesSync(a.url)) {
+        if (!Object.hasOwn(cookies, cookie.key)) Object.defineProperty(cookies, cookie.key, {value: cookie.value, enumerable: true});
+      }
+      return cookies;
+    }
     if (op === 'set') {
-      if (!jar.has(host)) jar.set(host, new Map());
-      for (const [k, v] of Object.entries(a.cookies || {})) jar.get(host).set(k, String(v));
+      for (const [key, value] of Object.entries(a.cookies || {})) {
+        jar.setCookieSync(new Cookie({key, value: String(value), path: '/', secure: new URL(a.url).protocol === 'https:'}), a.url);
+      }
       return true;
     }
     if (op === 'clear') {
-      jar.delete(host);
+      const host = new URL(a.url).hostname;
+      for (const cookie of jar.serializeSync().cookies) {
+        if (cookie.domain === host || (!cookie.hostOnly && domainMatch(host, cookie.domain))) {
+          await jar.store.removeCookie(cookie.domain, cookie.path, cookie.key);
+        }
+      }
       return true;
     }
     return null;
@@ -205,8 +224,10 @@ export const Park = globalThis.Park;
 
 export async function loadSource(file, state = {}) {
   const code = fs.readFileSync(path.join(repoRoot, 'assets/sources', file), 'utf8');
+  Park.__pending = null;
   vm.runInThisContext(code, { filename: file });
   const def = Park.__pending;
+  if (!def || typeof def.key !== 'string' || !def.key) throw new Error('插件未注册有效定义');
   const manifest = await Park.setup(def.key, state);
   const call = async (method, ...args) => {
     const res = await Park.invoke(def.key, method, args);

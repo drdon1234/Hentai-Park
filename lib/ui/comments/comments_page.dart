@@ -142,7 +142,7 @@ class _CommentsPageState extends State<CommentsPage> {
             return SourceErrorView(
               error: c.error!,
               source: widget.source,
-              onRetry: c.load,
+              onRetry: c.hasNext ? c.load : c.refresh,
             );
           }
           return RefreshIndicator(
@@ -224,7 +224,7 @@ class _CommentsPageState extends State<CommentsPage> {
                   SourceErrorView(
                     error: c.error!,
                     source: widget.source,
-                    onRetry: c.load,
+                    onRetry: c.hasNext ? c.load : c.refresh,
                     compact: true,
                   )
                 else if (!c.loading && c.hasNext)

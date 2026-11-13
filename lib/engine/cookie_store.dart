@@ -531,18 +531,20 @@ class CookieStore {
       final url = wv.WebUri('https://${target.host}${cookie.path ?? '/'}');
       final manager = wv.CookieManager.instance();
       if (previous == null || previous.value.isExpired()) {
-        await manager.deleteCookie(
-          url: url,
-          name: cookie.name,
-          domain: cookie.domain,
-          path: cookie.path ?? '/',
+        await _deleteBrowserCookie(
+          manager,
+          Uri.parse(url.toString()),
+          cookie.name,
+          cookie.domain,
+          cookie.path ?? '/',
+          domains,
         );
       } else {
         // Convert Max-Age to its original expiry instead of restarting its lifetime.
         final expiry = cookie.maxAge == null
             ? cookie.expires?.millisecondsSinceEpoch
             : (target.value.createTimeStamp + cookie.maxAge!) * 1000;
-        await manager.setCookie(
+        final restored = await manager.setCookie(
           url: url,
           name: cookie.name,
           value: cookie.value,
@@ -552,6 +554,7 @@ class CookieStore {
           isSecure: cookie.secure,
           isHttpOnly: cookie.httpOnly,
         );
+        if (!restored) throw SourceError('NETWORK', '浏览器请求失败');
       }
     }
   }

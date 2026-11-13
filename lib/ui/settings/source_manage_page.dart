@@ -278,55 +278,13 @@ class _SourceManagePageState extends State<SourceManagePage> {
   }
 
   Future<void> _install(BuildContext context) async {
-    final c = TextEditingController();
     final url = await showDialog<String>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(tr('添加站点')),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(tr('输入站点脚本（.js）或站点仓库（index.json）的地址。')),
-            const SizedBox(height: 12),
-            TextField(
-              controller: c,
-              autofocus: true,
-              keyboardType: TextInputType.url,
-              decoration: InputDecoration(
-                hintText: tr('https://…/source.js 或 …/index.json'),
-                suffixIcon: IconButton(
-                  tooltip: tr('粘贴'),
-                  icon: const Icon(Icons.content_paste_rounded),
-                  onPressed: () async => c.text =
-                      (await Clipboard.getData('text/plain'))?.text?.trim() ??
-                      c.text,
-                ),
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              tr('只安装你信任的站点：站点脚本可以访问网络，并读取它所属站点的登录信息。'),
-              style: Theme.of(ctx).textTheme.bodySmall
-                  ?.copyWith(color: Theme.of(ctx).colorScheme.error),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: SelectionContainer.disabled(child: Text(tr('取消'))),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(ctx, c.text.trim()),
-            child: SelectionContainer.disabled(child: Text(tr('下一步'))),
-          ),
-        ],
-      ),
+      builder: (_) => const _InstallDialog(),
     );
     if (url == null || url.isEmpty || !context.mounted) return;
     try {
-      if (url.endsWith('.json')) {
+      if (Uri.tryParse(url)?.path.toLowerCase().endsWith('.json') == true) {
         final entries = await SourceManager.instance.fetchRepository(url);
         if (context.mounted) {
           await Nav.push(context, _RepoPage(url: url, entries: entries));
@@ -404,6 +362,7 @@ class _RepoPageState extends State<_RepoPage> {
                                     context,
                                     e.url,
                                     expectedSha256: e.sha256,
+                                    expectedKey: e.key,
                                   );
                                 } finally {
                                   if (mounted) {
@@ -423,4 +382,73 @@ class _RepoPageState extends State<_RepoPage> {
       ),
     );
   }
+}
+
+class _InstallDialog extends StatefulWidget {
+  const _InstallDialog();
+  @override
+  State<_InstallDialog> createState() => _InstallDialogState();
+}
+
+class _InstallDialogState extends State<_InstallDialog> {
+  final c = TextEditingController();
+
+  @override
+  void dispose() {
+    c.dispose();
+    super.dispose();
+  }
+
+  Future<void> _paste() async {
+    try {
+      final text = (await Clipboard.getData(Clipboard.kTextPlain))?.text;
+      if (mounted && text != null) c.text = text.trim();
+    } catch (_) {
+      if (mounted) context.toast(tr('无法读取剪贴板，请重试'));
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => AlertDialog(
+    title: Text(tr('添加站点')),
+    content: SingleChildScrollView(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(tr('输入站点脚本（.js）或站点仓库（index.json）的地址。')),
+          const SizedBox(height: 12),
+          TextField(
+            controller: c,
+            autofocus: true,
+            keyboardType: TextInputType.url,
+            decoration: InputDecoration(
+              hintText: tr('https://…/source.js 或 …/index.json'),
+              suffixIcon: IconButton(
+                tooltip: tr('粘贴'),
+                icon: const Icon(Icons.content_paste_rounded),
+                onPressed: _paste,
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            tr('只安装你信任的站点：站点脚本可以访问网络，并读取它所属站点的登录信息。'),
+            style: Theme.of(context).textTheme.bodySmall
+                ?.copyWith(color: Theme.of(context).colorScheme.error),
+          ),
+        ],
+      ),
+    ),
+    actions: [
+      TextButton(
+        onPressed: () => Navigator.pop(context),
+        child: SelectionContainer.disabled(child: Text(tr('取消'))),
+      ),
+      FilledButton(
+        onPressed: () => Navigator.pop(context, c.text.trim()),
+        child: SelectionContainer.disabled(child: Text(tr('下一步'))),
+      ),
+    ],
+  );
 }

@@ -55,7 +55,7 @@ class _SubscriptionSourcePageState extends State<SubscriptionSourcePage> {
       var generation = 0;
       CancelToken? requestToken;
       String? activeQuery;
-      final filter = TextEditingController();
+      var filter = '';
       final target =
           await showDialog<SubscriptionTarget>(
             context: context,
@@ -66,7 +66,7 @@ class _SubscriptionSourcePageState extends State<SubscriptionSourcePage> {
                   final requestQuery = normalizedQuery?.isNotEmpty == true
                       ? normalizedQuery
                       : next && serverResults
-                      ? filter.text.trim()
+                      ? filter.trim()
                       : null;
                   if (searching && activeQuery == requestQuery && !next) return;
                   requestToken?.cancel('target query changed');
@@ -124,7 +124,7 @@ class _SubscriptionSourcePageState extends State<SubscriptionSourcePage> {
                   }
                 }
 
-                final query = filter.text.trim().toLowerCase();
+                final query = filter.trim().toLowerCase();
                 final visible = targets
                     .where(
                       (item) =>
@@ -147,8 +147,8 @@ class _SubscriptionSourcePageState extends State<SubscriptionSourcePage> {
                     height: 480,
                     child: Column(
                       children: [
-                        TextField(
-                          controller: filter,
+                        TextFormField(
+                          initialValue: filter,
                           autofocus: true,
                           textInputAction: TextInputAction.search,
                           decoration: InputDecoration(
@@ -157,13 +157,12 @@ class _SubscriptionSourcePageState extends State<SubscriptionSourcePage> {
                             suffixIcon: IconButton(
                               tooltip: tr('搜索'),
                               icon: const Icon(Icons.search_rounded),
-                              onPressed: () => load(
-                                query: filter.text.isEmpty ? null : filter.text,
-                              ),
+                              onPressed: () =>
+                                  load(query: filter.isEmpty ? null : filter),
                             ),
                           ),
-                          onChanged: (_) => refresh(() {}),
-                          onSubmitted: (value) => load(query: value),
+                          onChanged: (value) => refresh(() => filter = value),
+                          onFieldSubmitted: (value) => load(query: value),
                         ),
                         const SizedBox(height: Gap.s),
                         Expanded(
@@ -196,7 +195,7 @@ class _SubscriptionSourcePageState extends State<SubscriptionSourcePage> {
                                   error: pageError!,
                                   source: widget.source,
                                   compact: true,
-                                  onRetry: () => load(query: filter.text),
+                                  onRetry: () => load(query: filter),
                                 ),
                               if (hasNext && hasLoaded)
                                 TextButton.icon(
@@ -224,7 +223,6 @@ class _SubscriptionSourcePageState extends State<SubscriptionSourcePage> {
           ).whenComplete(() {
             generation++;
             requestToken?.cancel('target picker closed');
-            filter.dispose();
           });
       if (!mounted || target == null) return;
       await Nav.push(

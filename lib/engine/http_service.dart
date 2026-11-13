@@ -742,10 +742,11 @@ class HttpResult {
 
   String get text {
     final type = headers['content-type'] ?? '';
-    final charset = RegExp(
-      r'charset=([\w-]+)',
+    final match = RegExp(
+      r'(?:^|;)\s*charset\s*=\s*(?:"([^"]+)"|([^\s;]+))',
       caseSensitive: false,
-    ).firstMatch(type)?.group(1)?.toLowerCase();
+    ).firstMatch(type);
+    final charset = (match?.group(1) ?? match?.group(2))?.trim().toLowerCase();
     if (charset != null && charset != 'utf-8' && charset != 'utf8') {
       final enc = Encoding.getByName(charset);
       if (enc != null) return enc.decode(bytes);

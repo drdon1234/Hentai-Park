@@ -45,6 +45,7 @@ class WorkListRow extends StatelessWidget {
                   child: CoverImage(
                     source: item.source,
                     url: item.cover,
+                    sourceBlurred: item.json['coverBlurred'] == true,
                     title: item.title,
                     mediaKind: item.mediaKind,
                   ),

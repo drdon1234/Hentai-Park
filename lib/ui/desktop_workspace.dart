@@ -20,6 +20,7 @@ class DesktopNavigation extends NavigatorObserver with ChangeNotifier {
   int unseen = 0;
   bool rootCanGoBack = false;
   bool _scheduled = false;
+  bool _selecting = false;
 
   bool get canGoBack => (navigator?.canPop() ?? false) || rootCanGoBack;
   bool get modalOpen => _routes.lastOrNull is PopupRoute;
@@ -45,10 +46,30 @@ class DesktopNavigation extends NavigatorObserver with ChangeNotifier {
     }
   }
 
-  void select(int index) {
-    if (modalOpen) return;
-    navigator?.popUntil((route) => route.isFirst);
-    onSelect?.call(index);
+  Future<void> select(int index) async {
+    if (await popToRoot()) onSelect?.call(index);
+  }
+
+  Future<bool> popToRoot() async {
+    final state = navigator;
+    if (modalOpen || _selecting || state == null) return false;
+    _selecting = true;
+    try {
+      while (state.mounted && state.canPop()) {
+        final previous = _routes.lastOrNull;
+        await state.maybePop();
+        // A PopScope may close fullscreen or ask about unsaved edits. Stop
+        // here until that page actually permits leaving.
+        if (!state.mounted ||
+            navigator != state ||
+            identical(previous, _routes.lastOrNull)) {
+          return false;
+        }
+      }
+      return state.mounted && navigator == state;
+    } finally {
+      _selecting = false;
+    }
   }
 
   @override

@@ -88,10 +88,23 @@ extension _DramaEpisodes on VideoSession {
     });
   }
 
-  Future<void> _selectDramaEpisode(Chapter next) {
+  Future<void> _selectDramaEpisode(
+    Chapter next, {
+    Duration? at,
+    bool? wantsPlayback,
+  }) {
     return PendingDisposals.instance.watch(() async {
-      if (!_active ||
-          (next.id == episode.id && controller != null && error == null)) {
+      if (!_active) return;
+      final existing = controller;
+      if (next.id == episode.id && existing != null && error == null) {
+        final request = _request;
+        if (at != null) await existing.seekTo(at);
+        if (!_active || request != _request) return;
+        if (wantsPlayback != null) {
+          _wantsPlayback = wantsPlayback;
+          await syncPlayback();
+          _update();
+        }
         return;
       }
       savePosition();
@@ -133,6 +146,7 @@ extension _DramaEpisodes on VideoSession {
         ]).then((_) {});
       }
       _resetFor(next);
+      if (wantsPlayback != null) _wantsPlayback = wantsPlayback;
       _update();
       PreparedVideo? prepared = retained?.video;
       var adopted = false;
@@ -168,7 +182,9 @@ extension _DramaEpisodes on VideoSession {
         }
         final c = prepared.controller;
         // 滑回保留集时直接沿用其位置，包括不足五秒的片段。
-        final resume = retained == null
+        final resume = at != null
+            ? (at > c.value.duration ? c.value.duration : at)
+            : retained == null
             ? _resumePoint(c.value.duration)
             : c.value.isCompleted
             ? Duration.zero
@@ -181,6 +197,7 @@ extension _DramaEpisodes on VideoSession {
           return;
         }
         c.addListener(_onTick);
+        _requestedPosition = null;
         controller = c;
         _media = prepared.media;
         sources = prepared.sources;

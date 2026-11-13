@@ -26,17 +26,24 @@ class _VideoEpisodePagerState extends State<VideoEpisodePager> {
     keepPage: false,
   );
   bool _scrolling = false;
+  bool _selectionPending = false;
+
+  void _syncSelection() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || _scrolling || !_pages.hasClients) return;
+      _selectionPending = false;
+      if (_pages.page?.round() != widget.index) {
+        _pages.jumpToPage(widget.index);
+      }
+    });
+  }
 
   @override
   void didUpdateWidget(covariant VideoEpisodePager oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.index != widget.index) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted || _scrolling || !_pages.hasClients) return;
-        if (_pages.page?.round() != widget.index) {
-          _pages.jumpToPage(widget.index);
-        }
-      });
+      _selectionPending = true;
+      _syncSelection();
     }
   }
 
@@ -56,8 +63,14 @@ class _VideoEpisodePagerState extends State<VideoEpisodePager> {
             widget.onInteractionChanged(true);
           } else if (notification is ScrollEndNotification) {
             _scrolling = false;
-            final index = _pages.page?.round();
-            if (index != null && index != widget.index) widget.onSettled(index);
+            if (_selectionPending) {
+              _syncSelection();
+            } else {
+              final index = _pages.page?.round();
+              if (index != null && index != widget.index) {
+                widget.onSettled(index);
+              }
+            }
             widget.onInteractionChanged(false);
           }
           return false;

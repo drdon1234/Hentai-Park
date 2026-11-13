@@ -11,6 +11,7 @@ import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:path/path.dart' as p;
 
 import '../../core/app_lock.dart';
+import '../../core/async_tasks.dart';
 import '../../core/localization.dart';
 import '../../core/models.dart';
 import '../../core/storage.dart';
@@ -62,7 +63,7 @@ class _OnlineGamePageState extends State<OnlineGamePage>
   bool _accessChecking = false;
   BrowserAccessDocument _accessDocument = BrowserAccessDocument();
   int _generation = 0;
-  Future<void> _closing = Future.value();
+  final _closing = SerialExecutor();
   Future<void> _screenUpdates = Future.value();
   final Set<String> _pressed = {};
 
@@ -107,11 +108,9 @@ class _OnlineGamePageState extends State<OnlineGamePage>
     _attached = false;
     _ready = false;
     _navigationEnabled = false;
-    final previous = _closing;
-    return _closing = () async {
-      await previous;
-      await _disposeSession(session, id, attached, environment);
-    }();
+    return _closing.run(
+      () => _disposeSession(session, id, attached, environment),
+    );
   }
 
   void _resetAccess() {
@@ -501,11 +500,12 @@ return JSON.stringify({origin:location.origin,entries});})()''',
   }
 
   Future<void> _importSave() async {
-    if (_saving) return;
-    final file = await FilePicker.pickFile(dialogTitle: tr('选择备份文件'));
-    if (file == null || !mounted) return;
+    if (!mounted || _saving) return;
+    final generation = _generation;
     setState(() => _saving = true);
     try {
+      final file = await FilePicker.pickFile(dialogTitle: tr('选择备份文件'));
+      if (file == null || !mounted || generation != _generation) return;
       if (await file.xFile.length() > 8 * 1024 * 1024) {
         throw const FormatException();
       }
@@ -517,6 +517,8 @@ return JSON.stringify({origin:location.origin,entries});})()''',
           controller == null ||
           value['source'] != widget.work.source ||
           value['game'] != target.storageId ||
+          value['origin'] is! String ||
+          !target.allowsDocument(Uri.tryParse(value['origin'] as String)) ||
           value['localStorage'] is! Map) {
         throw const FormatException();
       }
@@ -548,6 +550,7 @@ return JSON.stringify({origin:location.origin,entries});})()''',
         return;
       }
       final current = await _localStorageSnapshot();
+      if (current['origin'] != value['origin']) throw const FormatException();
       final directory = Directory(
         p.join(AppPaths.data.path, 'online_game_saves'),
       );
@@ -562,13 +565,19 @@ return JSON.stringify({origin:location.origin,entries});})()''',
       if (!await writeFileAtomic(backup, utf8.encode(jsonEncode(current)))) {
         throw const FileSystemException();
       }
-      if (!mounted || !identical(controller, _controller)) return;
+      if (!mounted ||
+          generation != _generation ||
+          !identical(controller, _controller)) {
+        return;
+      }
+      final expectedOrigin = jsonEncode(current['origin']);
       final payload = jsonEncode(
         base64Encode(utf8.encode(jsonEncode(entries))),
       );
       final result = await controller.evaluateJavascript(
         source:
             '''(() => {
+if(location.origin!==$expectedOrigin)return 'failed';
 const incoming=JSON.parse(new TextDecoder().decode(Uint8Array.from(atob($payload),c=>c.charCodeAt(0))));
 const old=Object.create(null);for(let i=0;i<localStorage.length;i++){const k=localStorage.key(i);old[k]=localStorage.getItem(k);}
 try{localStorage.clear();for(const [k,v] of Object.entries(incoming))localStorage.setItem(k,v);return 'ok';}

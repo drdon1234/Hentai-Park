@@ -503,7 +503,7 @@ Global helpers:
 | `Park.crypto.randomBytes(length)` | secure random bytes, length 1–65536 |
 | `Park.url.parse(value, base, domains)` / `site(source, value, base?)` / `response(source, response, requested)` | Parses HTTPS 443 URLs in authorized domains and subdomains, rejects user credentials, removes fragments and returns `null` on failure. `site` uses source `domains`; `response` validates the final URL without modifying the shared source base, or raises `BLOCKED`. Plugins retain path, page, work and search identity checks; avoid closed query-key lists and CDN node-name restrictions. |
 | `Park.utils.rateLimiter(ms)` | returns `wait()` guaranteeing a minimum gap between requests |
-| `Park.utils.mapLimit(items, n, fn)` / `lruMap(n)` / `parseCount('1.2万')` / `formatDate(ts)` | other helpers |
+| `Park.utils.mapLimit(items, n, fn)` / `lruMap(n)` / `parseCount('1.2万')` / `formatDate(ts)` | `mapLimit` requires a positive safe integer concurrency; `lruMap` requires a nonnegative safe integer capacity, and zero capacity retains no entries. Invalid values throw. The other helpers convert counts and dates. |
 | `Park.error(code, message, extra?)` | creates an error with a code, see "Error codes" |
 
 `Park.crypto.aesGcmDecrypt(ciphertext, key, iv)` takes hexadecimal ciphertext (including its final 16-byte authentication tag, at most 4096 bytes), a 16/24/32-byte key and a 12-byte IV, and returns plaintext bytes. Failed authentication throws without returning unauthenticated plaintext.

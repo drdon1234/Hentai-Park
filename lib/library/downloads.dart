@@ -87,6 +87,24 @@ class DownloadTask {
   /// Where this task's files live. Recorded per task so changing the download root never orphans old downloads.
   final Directory dir;
 
+  /// 读取章节资产时同时校验相对路径与真实路径，禁止清单或链接越出章节。
+  Future<File?> chapterFile(String chapterId, String relative) async {
+    if (p.isAbsolute(relative)) return null;
+    final root = p.normalize(p.absolute(dir.path));
+    final chapter = p.join(root, safeFileName(chapterId));
+    final target = p.normalize(p.join(chapter, relative));
+    if (!p.isWithin(chapter, target)) return null;
+    final file = File(target);
+    if (!await file.exists()) return null;
+    final actualRoot = await dir.resolveSymbolicLinks();
+    final actualChapter = await Directory(chapter).resolveSymbolicLinks();
+    if (!p.equals(p.join(actualRoot, safeFileName(chapterId)), actualChapter)) {
+      return null;
+    }
+    final actual = await file.resolveSymbolicLinks();
+    return p.isWithin(actualChapter, actual) ? File(actual) : null;
+  }
+
   String get uid => item.uid;
   bool get isVideo => media == DownloadMedia.video;
   bool get isNovel => media == DownloadMedia.novel;
@@ -1207,36 +1225,33 @@ class DownloadManager extends ChangeNotifier {
     bool allowIncomplete = false,
   }) async {
     final t = _tasks['$source:$id'];
-    if (t == null) return null;
-    final f = File(
-      p.join(t.dir.path, safeFileName(chapterId ?? '_'), 'pages.json'),
-    );
-    if (!await f.exists()) {
-      if (!allowIncomplete || !await _ownsDirectory(t)) return null;
-      final pending = File(p.join(f.parent.path, 'pending.json'));
-      if (!await pending.exists()) return null;
+    if (t == null || !await _ownsDirectory(t)) return null;
+    final chapter = chapterId ?? '_';
+    final f = await t.chapterFile(chapter, 'pages.json');
+    if (f == null) {
+      if (!allowIncomplete) return null;
+      final pending = await t.chapterFile(chapter, 'pending.json');
+      if (pending == null) return null;
       Map json;
       try {
         json = jsonDecode(await pending.readAsString()) as Map;
       } on FileSystemException {
         // 章节可能刚好完成：写入完整清单后会删除临时清单。
-        return await f.exists() ? localChapter(source, id, chapterId) : null;
+        return localChapter(source, id, chapterId);
       } on FormatException {
         return null;
       }
       final result = <PageImage>[];
       for (final (index, entry) in (json['pages'] as List).indexed) {
         final page = (entry as Map).cast<String, dynamic>();
-        final local = File(
-          p.join(
-            f.parent.path,
-            '${(index + 1).toString().padLeft(4, '0')}.img',
-          ),
+        final local = await t.chapterFile(
+          chapter,
+          '${(index + 1).toString().padLeft(4, '0')}.img',
         );
         result.add(
           PageImage({
             ...page,
-            if (await local.exists() && await local.length() > 0)
+            if (local != null && await local.length() > 0)
               'url': local.uri.toString(),
           }),
         );
@@ -1244,13 +1259,14 @@ class DownloadManager extends ChangeNotifier {
       return result;
     }
     final data = jsonDecode(await f.readAsString()) as Map;
-    return (data['pages'] as List).cast<Map>().map((e) {
+    final result = <PageImage>[];
+    for (final e in (data['pages'] as List).cast<Map>()) {
       final m = e.cast<String, dynamic>();
-      return PageImage({
-        ...m,
-        'url': File(p.join(f.parent.path, m['file'] as String)).uri.toString(),
-      });
-    }).toList();
+      final file = await t.chapterFile(chapter, m['file'] as String);
+      if (file == null) return null;
+      result.add(PageImage({...m, 'url': file.uri.toString()}));
+    }
+    return result;
   }
 
   Future<File?> localVideo(

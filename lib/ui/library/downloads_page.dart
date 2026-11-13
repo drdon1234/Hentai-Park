@@ -54,6 +54,22 @@ class _DownloadsPageState extends State<DownloadsPage> {
   String _kind = 'all';
   String _status = 'all';
 
+  @override
+  void initState() {
+    super.initState();
+    DownloadManager.instance.addListener(_pruneSelection);
+  }
+
+  void _pruneSelection() {
+    if (!mounted || _selectedDownloads.isEmpty) return;
+    final existing = DownloadManager.instance.tasks
+        .map((task) => task.uid)
+        .toSet();
+    final before = _selectedDownloads.length;
+    _selectedDownloads.removeWhere((uid) => !existing.contains(uid));
+    if (_selectedDownloads.length != before) setState(() {});
+  }
+
   int? get _activeCategory =>
       _category != null &&
           _category != Library.defaultCategory &&
@@ -63,6 +79,7 @@ class _DownloadsPageState extends State<DownloadsPage> {
 
   @override
   void dispose() {
+    DownloadManager.instance.removeListener(_pruneSelection);
     _query.dispose();
     super.dispose();
   }
@@ -153,9 +170,6 @@ class _DownloadsPageState extends State<DownloadsPage> {
           ]),
           builder: (context, _) {
             final tasks = dm.tasks;
-            _selectedDownloads.removeWhere(
-              (uid) => !tasks.any((task) => task.uid == uid),
-            );
             final gameTasks = games.tasks;
             final failures = dm.restoreFailures;
             final recordings = LiveRecordings.instance.tasks;

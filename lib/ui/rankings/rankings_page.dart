@@ -607,7 +607,7 @@ class _RankingListState extends State<_RankingList> {
               child: SourceErrorView(
                 error: error,
                 source: widget.entry.source.key,
-                onRetry: widget.controller.loadMore,
+                onRetry: widget.controller.retry,
                 compact: widget.controller.items.isNotEmpty,
               ),
             )
@@ -636,7 +636,7 @@ class _RankingListState extends State<_RankingList> {
               child: OnVisible(
                 onVisible: (visible) {
                   if (visible &&
-                      widget.controller.hasNext &&
+                      widget.controller.canAutoLoad &&
                       !widget.controller.loading &&
                       widget.controller.error == null) {
                     widget.controller.loadMore();

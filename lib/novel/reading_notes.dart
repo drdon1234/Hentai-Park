@@ -35,7 +35,8 @@ class ReadingNote {
         raw['quote'] is! String ||
         raw['note'] is! String ||
         (raw['offset'] as int) < 0 ||
-        (raw['time'] as int).abs() > 8640000000000000) {
+        raw['time'] < -8640000000000000 ||
+        raw['time'] > 8640000000000000) {
       return null;
     }
     return ReadingNote(
@@ -64,6 +65,7 @@ class ReadingNotes extends ChangeNotifier {
       if (note == null) {
         invalid = true;
       } else {
+        if (parsed.containsKey(note.id)) invalid = true;
         parsed[note.id] = note;
       }
     }

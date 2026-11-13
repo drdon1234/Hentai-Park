@@ -168,9 +168,10 @@ mixin _ReaderNavigation on _ReaderBase {
   }
 
   void _prev() {
+    if (_pages == null || _pages!.isEmpty) return;
     if (_paged) {
       if (_spreadIndex > 0) _turn(-1);
-    } else {
+    } else if (_itemScroll.isAttached) {
       _offsets.animateScroll(
         offset: -MediaQuery.sizeOf(context).height * 0.85,
         duration: Duration(

@@ -55,18 +55,24 @@ class WebVideoProfiles(private val engine: FlutterEngine) {
             if (flutterView != null) {
                 // 部分 WebView 在本进程内不允许删除已载入的 Profile。
                 // 只清当前独立 Profile，绝不调用全局 CookieManager/WebStorage。
-                name?.let {
-                    val profile = ProfileStore.getInstance().getProfile(it)
-                    profile?.cookieManager?.removeAllCookies(null)
-                    profile?.webStorage?.deleteAllData()
-                    profile?.geolocationPermissions?.clearAll()
-                    if (profile != null && WebViewFeature.isFeatureSupported(WebViewFeature.DELETE_BROWSING_DATA)) {
-                        WebStorageCompat.deleteBrowsingData(profile.webStorage) {}
+                try {
+                    name?.let {
+                        val profile = ProfileStore.getInstance().getProfile(it)
+                        profile?.cookieManager?.removeAllCookies(null)
+                        profile?.webStorage?.deleteAllData()
+                        profile?.geolocationPermissions?.clearAll()
+                        if (profile != null && WebViewFeature.isFeatureSupported(WebViewFeature.DELETE_BROWSING_DATA)) {
+                            WebStorageCompat.deleteBrowsingData(profile.webStorage) {}
+                        }
+                    }
+                } finally {
+                    try {
+                        (flutterView.view?.parent as? ViewGroup)?.removeView(flutterView.view)
+                    } finally {
+                        flutterView.keepAliveId = null
+                        flutterView.dispose()
                     }
                 }
-                (flutterView.view?.parent as? ViewGroup)?.removeView(flutterView.view)
-                flutterView.keepAliveId = null
-                flutterView.dispose()
             }
         } finally {
             // 插件通常等空白页完成才 destroy；先销毁才能可靠删除 Profile。

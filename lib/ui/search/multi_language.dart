@@ -227,7 +227,7 @@ class MultiKeywordSearch {
           _state[k] = (
             page: r.page > prev ? r.page : prev + 1,
             cursor: r.cursor,
-            hasNext: r.hasNext && (r.items.isNotEmpty || r.cursor != null),
+            hasNext: r.hasNext,
           );
           return r.items;
         } catch (e) {

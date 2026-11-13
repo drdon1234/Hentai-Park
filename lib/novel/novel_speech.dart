@@ -28,11 +28,15 @@ class NovelSpeech extends ChangeNotifier {
     await _tts.stop();
     if (generation != _generation || _disposed) return;
     await _tts.awaitSpeakCompletion(true);
+    if (generation != _generation || _disposed) return;
     final locale = language.replaceAll('_', '-');
-    if (await _tts.isLanguageAvailable(locale) != true) {
+    final available = await _tts.isLanguageAvailable(locale);
+    if (generation != _generation || _disposed) return;
+    if (available != true) {
       throw StateError('TTS language unavailable');
     }
     await _tts.setLanguage(locale);
+    if (generation != _generation || _disposed) return;
     await _tts.setSpeechRate(rate);
     if (generation != _generation || _disposed) return;
     _playing = true;
@@ -50,6 +54,7 @@ class NovelSpeech extends ChangeNotifier {
         final chunk = text.substring(start, end).trim();
         if (chunk.isNotEmpty) {
           onPosition(start);
+          if (generation != _generation || _disposed) return;
           if (await _tts.speak(chunk) != 1 && generation == _generation) {
             throw StateError('TTS unavailable');
           }

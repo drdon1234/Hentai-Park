@@ -503,7 +503,7 @@ Utilidades globales:
 | `Park.crypto.randomBytes(length)` | bytes aleatorios seguros, length de 1 a 65536 |
 | `Park.url.parse(value, base, domains)` / `site(source, value, base?)` / `response(source, response, requested)` | Analiza URL HTTPS 443 autorizadas con subdominios, rechaza credenciales, elimina fragmentos y devuelve `null` si falla. `site` usa los `domains` de la fuente; `response` valida la URL final y no modifica la base compartida de la fuente, o lanza `BLOCKED`. El plugin comprueba ruta, página, obra y búsqueda; evite listas cerradas de claves y nombres de nodos CDN. |
 | `Park.utils.rateLimiter(ms)` | devuelve `wait()` y garantiza un intervalo mínimo entre solicitudes |
-| `Park.utils.mapLimit(items, n, fn)` / `lruMap(n)` / `parseCount('1.2万')` / `formatDate(ts)` | otras utilidades |
+| `Park.utils.mapLimit(items, n, fn)` / `lruMap(n)` / `parseCount('1.2万')` / `formatDate(ts)` | `mapLimit` requiere una concurrencia entera positiva y segura; `lruMap` requiere una capacidad entera no negativa y segura. Una capacidad de cero no conserva entradas. Los valores inválidos generan un error. Las otras utilidades convierten cantidades y fechas. |
 | `Park.error(code, message, extra?)` | crea un error con código, ver «Códigos de error» |
 
 `Park.crypto.aesGcmDecrypt(ciphertext, key, iv)` recibe texto cifrado hexadecimal (incluida la etiqueta final de autenticación de 16 bytes, máximo 4096 bytes), una clave de 16/24/32 bytes y un IV de 12 bytes; devuelve bytes en claro. Si falla la autenticación, lanza un error sin devolver texto sin autenticar.

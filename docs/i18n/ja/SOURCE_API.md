@@ -503,7 +503,7 @@ subscription: {
 | `Park.crypto.randomBytes(length)` | 安全な乱数バイト。length は 1〜65536 |
 | `Park.url.parse(value, base, domains)` / `site(source, value, base?)` / `response(source, response, requested)` | 許可ドメインとサブドメインの HTTPS 443 URL を解析し、認証情報を拒否、フラグメントを除去、失敗時は `null`。`site` は源の `domains` を使用。`response` は最終 URL を確認し、共有された源の基底 URL を変更せず、不正なら `BLOCKED`。パス、ページ、作品、検索条件はプラグインで確認し、クエリキーや CDN ノード名の固定リストを避けます。 |
 | `Park.utils.rateLimiter(ms)` | `wait()` を返し、リクエスト間の最小間隔を保証 |
-| `Park.utils.mapLimit(items, n, fn)` / `lruMap(n)` / `parseCount('1.2万')` / `formatDate(ts)` | その他のヘルパー |
+| `Park.utils.mapLimit(items, n, fn)` / `lruMap(n)` / `parseCount('1.2万')` / `formatDate(ts)` | `mapLimit` の並列数は正の安全な整数、`lruMap` の容量は非負の安全な整数である必要があります。容量がゼロの場合は項目を保持しません。不正な値はエラーになります。他のヘルパーは件数と日付の変換用です。 |
 | `Park.error(code, message, extra?)` | エラーコード付きのエラーを作る。「エラーコード」参照 |
 
 `Park.crypto.aesGcmDecrypt(ciphertext, key, iv)` は 16 進数の暗号文（末尾の 16 バイト認証タグ込み、最大 4096 バイト）、16/24/32 バイト鍵、12 バイト IV を受け取り、平文バイト配列を返します。認証失敗時は未認証の平文を返さず例外になります。

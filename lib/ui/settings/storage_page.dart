@@ -12,6 +12,7 @@ import '../../game/downloads.dart';
 import '../../images/image_store.dart';
 import '../../library/downloads.dart';
 import '../../library/library.dart';
+import '../../library/live_recordings.dart';
 import '../kit/adaptive_sheet.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
@@ -31,6 +32,8 @@ class _StoragePageState extends State<StoragePage> {
   int? _backups;
   Map<String, int>? _downloads; // source → bytes
   bool _busy = false;
+  bool _measureFailed = false;
+  int _measureGeneration = 0;
 
   @override
   void initState() {
@@ -56,12 +59,26 @@ class _StoragePageState extends State<StoragePage> {
   }
 
   Future<void> _measure() async {
+    if (!mounted) return;
+    final generation = ++_measureGeneration;
+    setState(() => _measureFailed = false);
+    try {
+      await _measureSizes(generation);
+    } catch (_) {
+      if (mounted && generation == _measureGeneration) {
+        setState(() => _measureFailed = true);
+      }
+    }
+  }
+
+  Future<void> _measureSizes(int generation) async {
     final cache = await ImageStore.instance.cacheSize();
     final homeCache = await HomeCache.instance.size();
     var db = 0;
     for (final name in ['park.db', 'park.db-wal', 'park.db-shm']) {
       final f = AppPaths.dataFile(name);
-      if (await f.exists()) db += await f.length();
+      final stat = await f.stat();
+      if (stat.type == FileSystemEntityType.file) db += stat.size;
     }
     final backups = await _dirSize(AppPaths.backups);
     final downloads = <String, int>{};
@@ -74,7 +91,11 @@ class _StoragePageState extends State<StoragePage> {
           (downloads[t.item.source] ?? 0) +
           await _dirSize(Directory(t.directory));
     }
-    if (!mounted) return;
+    for (final t in LiveRecordings.instance.tasks) {
+      downloads[t.item.source] =
+          (downloads[t.item.source] ?? 0) + await _dirSize(t.directory);
+    }
+    if (!mounted || generation != _measureGeneration) return;
     setState(() {
       _cache = cache;
       _homeCache = homeCache;
@@ -84,16 +105,19 @@ class _StoragePageState extends State<StoragePage> {
     });
   }
 
-  Future<void> _run(Future<void> Function() body, String done) async {
+  Future<bool> _run(Future<void> Function() body, String done) async {
+    if (!mounted || _busy) return false;
     setState(() => _busy = true);
     try {
       await body();
       if (mounted && done.isNotEmpty) context.toast(done);
+      return true;
     } catch (e) {
       if (mounted) context.toast(tr('操作失败：{value0}', {'value0': e}));
+      return false;
     } finally {
-      if (mounted) setState(() => _busy = false);
       await _measure();
+      if (mounted) setState(() => _busy = false);
     }
   }
 
@@ -179,6 +203,15 @@ class _StoragePageState extends State<StoragePage> {
           child: ListView(
             padding: const EdgeInsets.fromLTRB(0, 8, 0, 32),
             children: [
+              if (_measureFailed)
+                ListTile(
+                  leading: const Icon(Icons.error_outline),
+                  title: Text(tr('加载失败')),
+                  trailing: TextButton(
+                    onPressed: _measure,
+                    child: Text(tr('重试')),
+                  ),
+                ),
               RowGroup(
                 children: [
                   ListTile(
@@ -272,8 +305,11 @@ class _StoragePageState extends State<StoragePage> {
                     ),
                     onTap: () async {
                       var n = 0;
-                      await _run(() async => n = await _deleteRead(), '');
-                      if (context.mounted) {
+                      final success = await _run(
+                        () async => n = await _deleteRead(),
+                        '',
+                      );
+                      if (success && context.mounted) {
                         context.toast(tr('已删除 {value0} 个章节', {'value0': n}));
                       }
                     },

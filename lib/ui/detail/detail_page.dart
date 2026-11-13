@@ -351,13 +351,7 @@ class _DetailPageState extends State<DetailPage> with RouteAware {
       Nav.openVideo(context, d);
       return;
     }
-    final h = Library.instance.historyOf(d.uid);
-    if (h != null && h.pageCount > 0 && !d.hasNoChapters) {
-      final chapter = d.chapterToOpen(h.chapterId);
-      Nav.openReader(context, d, chapter: chapter, startPage: h.page);
-    } else {
-      _read();
-    }
+    _read();
   }
 
   void _openVoiceDirectory(WorkDetail work) {
@@ -672,7 +666,7 @@ class _DetailPageState extends State<DetailPage> with RouteAware {
           ),
         ),
       if (ordered != null && ordered.isNotEmpty) ...[
-        SliverToBoxAdapter(child: _chapterHeader(context, ordered)),
+        SliverToBoxAdapter(child: _chapterHeader(context, chapters!)),
         SliverList.separated(
           itemCount: ordered.length,
           separatorBuilder: (_, _) =>

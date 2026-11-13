@@ -90,6 +90,7 @@ class HlsRecording {
               if (segment.sequence <= last!) continue;
               if (cancelToken.isCancelled) return;
               final data = await resources.read(segment);
+              var committedBytes = data.length;
               if (cancelToken.isCancelled) return;
               final initialization = playlist.initialization;
               final identity = initialization == null
@@ -117,6 +118,7 @@ class HlsRecording {
                     File(p.join(folder.path, 'init.mp4')),
                     bytes,
                   );
+                  committedBytes += bytes.length;
                 }
                 initializationIdentity = identity;
               }
@@ -147,7 +149,7 @@ class HlsRecording {
                 utf8.encode(text.toString()),
               );
               totalDuration += segment.duration;
-              totalBytes += data.length;
+              totalBytes += committedBytes;
               last = segment.sequence;
               lastAdvance = DateTime.now();
               failures = 0;

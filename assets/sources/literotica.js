@@ -71,19 +71,21 @@
     const r = await source.http.get(
       API + '/stories/' + encodeURIComponent(id) + '/similar',
     );
-    if (!r.ok || r.body.length > 1024 * 1024) return [];
+    source.http.ensureOk(r);
+    if (r.body.length > 1024 * 1024) throw Park.error('PARSE', '站点返回了无效结果');
     let data;
     try {
       data = JSON.parse(r.body);
     } catch (_) {
-      return [];
+      throw Park.error('PARSE', '站点返回了无效结果');
     }
+    if (!Array.isArray(data)) throw Park.error('PARSE', '站点返回了无效结果');
     const out = [],
       seen = new Set([id]);
-    for (const x of Array.isArray(data) ? data.slice(0, 50) : []) {
+    for (const x of data.slice(0, 50)) {
       const slug = x && String(x.url || '');
       if (
-        x.type !== 'story' ||
+        !x || x.type !== 'story' ||
         x.language !== 1 ||
         !/^[a-z0-9][a-z0-9-]{0,220}$/.test(slug) ||
         !x.title ||
@@ -147,7 +149,7 @@
     },
     key: 'literotica',
     name: 'Literotica',
-    version: '0.0.9', minAppVersion: '0.9.2',
+    version: '0.0.10', minAppVersion: '0.9.2',
     type: 'novel',
     category: 'novel',
     language: 'en',
@@ -238,7 +240,6 @@
           d.querySelector('a[rel="author"],a[href*="/authors/"]'),
         );
       if (!title) throw Park.error('NOT_FOUND', '小说不存在');
-      const related = await similar(this, id);
       return {
         id,
         title,
@@ -252,9 +253,13 @@
           d
             .querySelector('meta[name="description"]')
             ?.getAttribute('content') || '',
-        related,
         tags: [],
       };
+    },
+    async related(value, req = {}) {
+      const id = idValue(value), page = Number(req.page || 1);
+      if (!Number.isSafeInteger(page) || page < 1) throw Park.error('CONFIG', '站点返回了无效结果');
+      return {items: page === 1 ? await similar(this, id) : [], page, hasNext: false};
     },
     async textChapter(value, chapterId) {
       const id = idValue(value);

@@ -271,20 +271,50 @@ function addPeer(ch) {
   }
 }
 async function joined(source) {
-  const d = await rpc(source, 'messages.getDialogs', {
-    offset_date: 0,
-    offset_id: 0,
-    offset_peer: { _: 'inputPeerEmpty' },
-    limit: 100,
-    hash: '0',
-  });
-  for (const ch of d.chats || []) addPeer(ch);
-  return (d.chats || [])
-    .filter((ch) => ch._ === 'channel' && ch.access_hash)
-    .map((ch) => ({
-      id: ch.username ? ch.username.toLowerCase() : 'channel:' + ch.id,
-      label: ch.title || ch.username || String(ch.id),
-    }));
+  const channels = new Map(), offsets = new Set();
+  let offset_date = 0, offset_id = 0, offset_peer = {_: 'inputPeerEmpty'};
+  const peerKey = p => p?.channel_id != null ? 'channel:' + p.channel_id
+    : p?.chat_id != null ? 'chat:' + p.chat_id
+    : p?.user_id != null ? 'user:' + p.user_id : '';
+  for (let page = 0; page < 1000; page++) {
+    const d = await rpc(source, 'messages.getDialogs', {
+      offset_date, offset_id, offset_peer,
+      ...(page ? {exclude_pinned: true} : {}), limit: 100, hash: '0',
+    });
+    if (!Array.isArray(d.dialogs) || !Array.isArray(d.chats))
+      throw Park.error('PARSE', '分页链接无效');
+    const listed = new Set(d.dialogs.map(dialog => peerKey(dialog.peer)));
+    for (const ch of d.chats) {
+      addPeer(ch);
+      if (ch._ === 'channel' && ch.access_hash && listed.has('channel:' + ch.id)) {
+        channels.set(String(ch.id), {
+          id: ch.username ? ch.username.toLowerCase() : 'channel:' + ch.id,
+          label: ch.title || ch.username || String(ch.id),
+        });
+      }
+    }
+    if (d._ === 'messages.dialogs' || !d.dialogs.length) return [...channels.values()];
+    const last = [...d.dialogs].reverse().find(dialog => dialog._ === 'dialog' && !dialog.pinned);
+    const key = peerKey(last?.peer);
+    const message = (d.messages || []).find(m => m.id === last?.top_message && peerKey(m.peer_id) === key);
+    if (!last || !key || !Number.isInteger(message?.date))
+      throw Park.error('PARSE', '分页链接无效');
+    if (last.peer.channel_id != null) {
+      offset_peer = peers.get(key);
+    } else if (last.peer.chat_id != null) {
+      offset_peer = {_: 'inputPeerChat', chat_id: last.peer.chat_id};
+    } else {
+      const user = (d.users || []).find(user => String(user.id) === String(last.peer.user_id));
+      offset_peer = user?.self ? {_: 'inputPeerSelf'} : user?.access_hash
+        ? {_: 'inputPeerUser', user_id: user.id, access_hash: user.access_hash} : null;
+    }
+    offset_date = message.date;
+    offset_id = last.top_message;
+    const cursor = `${key}:${offset_id}:${offset_date}`;
+    if (!offset_peer || offsets.has(cursor)) throw Park.error('PARSE', '分页链接无效');
+    offsets.add(cursor);
+  }
+  throw Park.error('PARSE', '分页链接无效');
 }
 async function peer(source, id) {
   if (peers.has(id)) return peers.get(id);
@@ -576,7 +606,7 @@ Park.register({
   },
   key: 'telegram',
   name: 'Telegram',
-  version: '0.0.12', minAppVersion: '0.9.2',
+  version: '0.0.13', minAppVersion: '0.9.2',
   postShortVideos: true,
   type: 'video',
   category: 'other',

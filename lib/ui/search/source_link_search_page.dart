@@ -24,6 +24,8 @@ class SourceLinkSearchPage extends StatefulWidget {
 
 class _SourceLinkSearchPageState extends State<SourceLinkSearchPage> {
   final token = CancelToken();
+  late final _kind =
+      widget.manager.manifest(widget.source)?.kind ?? MediaKind.comic;
   late final controller = PagedController(
     (page, cursor) => widget.manager.searchLink(
       widget.source,
@@ -60,10 +62,7 @@ class _SourceLinkSearchPageState extends State<SourceLinkSearchPage> {
           if (widget.manager.manifest(widget.source)?.category ==
               SourceCategory.asmr)
             SliverToBoxAdapter(child: VoiceWorkFilters(controller: controller)),
-          PagedSliverGrid(
-            controller: controller,
-            kind: widget.manager.manifest(widget.source)!.kind,
-          ),
+          PagedSliverGrid(controller: controller, kind: _kind),
         ],
       ),
     ),

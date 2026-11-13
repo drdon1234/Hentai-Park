@@ -7,6 +7,7 @@ import '../core/async_tasks.dart';
 import '../core/localization.dart';
 import '../core/models.dart';
 import '../core/settings.dart';
+import '../core/time.dart';
 import '../engine/source_manager.dart';
 import 'library.dart';
 
@@ -137,12 +138,16 @@ class LibraryUpdater extends ChangeNotifier {
     _running = true;
     _cancel = false;
     final result = UpdateResult(DateTime.now());
-    final targets = _lib.favorites(category: category).where(eligible).toList();
     done = 0;
-    total = targets.length;
+    total = 0;
     current = null;
-    notifyListeners();
     try {
+      final targets = _lib
+          .favorites(category: category)
+          .where(eligible)
+          .toList();
+      total = targets.length;
+      notifyListeners();
       final bySource = <String, List<FavoriteEntry>>{};
       for (final f in targets) {
         bySource.putIfAbsent(f.item.source, () => []).add(f);
@@ -236,9 +241,12 @@ class LibraryUpdater extends ChangeNotifier {
   Future<void> autoUpdateIfDue() async {
     final s = AppSettings.instance;
     if (s.libraryUpdateHours <= 0 || _running) return;
-    final due = DateTime.fromMillisecondsSinceEpoch(s.lastLibraryUpdate)
-        .add(Duration(hours: s.libraryUpdateHours));
-    if (DateTime.now().isBefore(due)) return;
+    if (!intervalElapsed(
+      s.lastLibraryUpdate,
+      Duration(hours: s.libraryUpdateHours),
+    )) {
+      return;
+    }
     await SourceManager.instance.ready;
     await run();
   }

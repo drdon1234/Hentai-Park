@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 
 import '../../core/comments.dart';
+import '../../core/models.dart';
 
 typedef CommentsLoader = Future<CommentPage> Function(
   int page,
@@ -97,18 +98,15 @@ class CommentsController extends ChangeNotifier {
       final seen = items.map((e) => e.id).toSet();
       final fresh = result.items.where((e) => seen.add(e.id)).toList();
       items.addAll(fresh);
-      final firstPage = _page == 0;
       _page = result.page ?? (result.reset ? 1 : _page + 1);
       total = result.total ?? total;
       if (result.sorts.isNotEmpty) sorts = result.sorts;
       final repeated = result.cursor != null && !_cursors.add(result.cursor!);
       _cursor = result.cursor;
-      hasNext =
-          result.hasNext &&
-          (fresh.isNotEmpty ||
-              firstPage && result.items.isNotEmpty ||
-              result.items.isEmpty && result.cursor != null) &&
-          !repeated;
+      hasNext = result.hasNext && !repeated;
+      if (result.hasNext && repeated) {
+        error = SourceError('PARSE', '分页链接无效');
+      }
     } catch (e) {
       if (_disposed || generation != _generation || token.isCancelled) return;
       error = e;

@@ -805,11 +805,7 @@ class _FilterSheetState extends State<FilterSheet> {
 
   Future<void> _change(String key, Object? value) async {
     _filters.setValue(key, value);
-    for (final option in widget.definitions.where(
-      (option) => option.dynamicValues && _filters.isEnabled(option.key),
-    )) {
-      await _filters.loadDynamic(option.key);
-    }
+    await _filters.loadEnabledDynamic();
   }
 
   @override
@@ -903,16 +899,14 @@ class _FilterSheetState extends State<FilterSheet> {
                                   key: ValueKey((_commonRevision, f.key)),
                                   initialValue:
                                       _filters.values[f.key]?.toString() ?? '',
-                                  onChanged: (value) =>
-                                      _filters.setValue(f.key, value),
+                                  onChanged: (value) => _change(f.key, value),
                                 )
                               else if (f.type == 'switch')
                                 SwitchListTile.adaptive(
                                   contentPadding: EdgeInsets.zero,
                                   title: Text(f.label),
                                   value: _filters.values[f.key] == true,
-                                  onChanged: (value) =>
-                                      _filters.setValue(f.key, value),
+                                  onChanged: (value) => _change(f.key, value),
                                 )
                               else ...[
                                 TextField(

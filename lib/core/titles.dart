@@ -42,6 +42,9 @@ const _cnDigits = {
 /// Parses simple Chinese numerals up to 9999 ("十二" → 12, "一百零五" → 105).
 int? parseChineseNumber(String s) {
   if (s.isEmpty) return null;
+  if (s.split('').every(_cnDigits.containsKey)) {
+    return int.tryParse(s.split('').map((ch) => _cnDigits[ch]!).join());
+  }
   const units = {'十': 10, '百': 100, '千': 1000};
   var total = 0;
   var current = 0;
@@ -76,7 +79,7 @@ double? parseChapterNumber(String title) {
   if (cn != null) return parseChineseNumber(cn.group(1)!)?.toDouble();
   // Fall back to the last number, ignoring volume markers like "vol.2".
   final cleaned = t.replaceAll(
-    RegExp(r'(?:vol(?:ume)?|第\s*\d+\s*[卷册冊])\.?\s*\d+'),
+    RegExp(r'vol(?:ume)?\.?\s*\d+|第\s*\d+\s*[卷册冊]'),
     ' ',
   );
   final all = RegExp(r'(\d+(?:\.\d+)?)').allMatches(cleaned).toList();

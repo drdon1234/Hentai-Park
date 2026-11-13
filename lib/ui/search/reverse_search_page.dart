@@ -191,7 +191,13 @@ class _ReverseSearchPageState extends State<ReverseSearchPage> {
       return;
     }
     final base64 = image.base64;
-    unawaited(ReverseSearchHistory.instance.add(image.bytes, _selectedSources));
+    unawaited(
+      ReverseSearchHistory.instance
+          .add(image.bytes, _selectedSources)
+          .catchError((Object _) {
+            if (mounted) context.toast(tr('保存失败，请重试'));
+          }),
+    );
     _searchController.start(
       _sources.where((s) => _selectedSources.contains(s.key)).map((s) => s.key),
       (source, token, browserSearch) => _manager.reverseSearch(

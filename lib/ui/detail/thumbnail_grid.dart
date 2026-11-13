@@ -19,7 +19,8 @@ class ThumbnailPager extends ChangeNotifier {
     hasMore =
         detail.thumbnails.length > thumbs.length ||
         (loader != null &&
-            (detail.thumbnailsTotal ?? thumbs.length) > thumbs.length);
+            (detail.thumbnailsTotal == null ||
+                detail.thumbnailsTotal! > thumbs.length));
   }
   final WorkDetail detail;
   final ThumbnailLoader? loader;
@@ -45,7 +46,8 @@ class ThumbnailPager extends ChangeNotifier {
       hasMore =
           detail.thumbnails.length > thumbs.length ||
           (loader != null &&
-              (detail.thumbnailsTotal ?? thumbs.length) > thumbs.length);
+              (detail.thumbnailsTotal == null ||
+                  detail.thumbnailsTotal! > thumbs.length));
       notifyListeners();
       return;
     }
@@ -65,7 +67,8 @@ class ThumbnailPager extends ChangeNotifier {
           .toList();
       thumbs = [...thumbs, ...added];
       _page++;
-      hasMore = result.hasNext && added.isNotEmpty;
+      hasMore = result.hasNext;
+      if (added.isEmpty) automatic = false;
     } catch (failure) {
       if (_disposed) return;
       error = failure;
@@ -158,7 +161,7 @@ class _ThumbnailSectionState extends State<ThumbnailSection> {
   @override
   Widget build(BuildContext context) {
     final thumbs = _pager.thumbs;
-    if (thumbs.isEmpty) return const SizedBox.shrink();
+    if (thumbs.isEmpty && !_pager.hasMore) return const SizedBox.shrink();
     final blur = AppSettings.instance.blurCovers;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,

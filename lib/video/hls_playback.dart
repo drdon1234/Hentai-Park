@@ -54,12 +54,14 @@ class HlsPlayback implements Playback {
   HttpServer? _server;
   Future<void>? _closing;
   bool _closed = false;
+  bool _opened = false;
   int _cacheBytes = 0;
   static const _cacheLimit = 24 * 1024 * 1024;
 
   @override
   Future<Uri> open(Uri url) async {
-    if (_closed || _server != null) throw StateError('媒体会话不可重复打开');
+    if (_closed || _opened) throw StateError('媒体会话不可重复打开');
+    _opened = true;
     try {
       transport.validate(url);
       final audio = this.audio;
@@ -74,8 +76,15 @@ class HlsPlayback implements Playback {
       final audioList = audio == null
           ? null
           : await _mediaPlaylist(audio.playlist);
-      if (!live) _disk = await SegmentCache.open();
       if (_closed) throw SourceError('CANCELLED', '媒体会话已关闭');
+      if (!live) {
+        final disk = await SegmentCache.open();
+        if (_closed) {
+          await disk?.close();
+          throw SourceError('CANCELLED', '媒体会话已关闭');
+        }
+        _disk = disk;
+      }
       final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
       if (_closed) {
         await server.close(force: true);

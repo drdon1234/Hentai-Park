@@ -144,10 +144,8 @@ class JsonStore {
     try {
       if (await _file.exists()) _data = jsonDecode(await _file.readAsString());
     } on FormatException {
-      // Corrupt file: keep a copy for diagnosis and start fresh.
-      try {
-        await _file.copy('${_file.path}.broken');
-      } catch (_) {}
+      // 每份损坏原件都可能含有可恢复资产；保留失败时停止加载，不能继续覆盖。
+      await _file.copy('${_file.path}.broken-${const Uuid().v4()}');
       _data = null;
     }
     return _data;

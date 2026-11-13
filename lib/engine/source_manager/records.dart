@@ -41,15 +41,21 @@ class InstalledSource {
     'sha256': sha256,
   };
 
-  factory InstalledSource.fromJson(Map<String, dynamic> j) => InstalledSource(
-    key: j['key'].toString(),
-    origin: (j['origin'] ?? 'builtin').toString(),
-    version: (j['version'] ?? '0.0.0').toString(),
-    url: (j['url'] ?? '').toString(),
-    enabled: j['enabled'] != false,
-    order: (j['order'] as num?)?.toInt() ?? 0,
-    sha256: (j['sha256'] ?? '').toString(),
-  );
+  factory InstalledSource.fromJson(Map<String, dynamic> j) {
+    // 磁盘登记与导入一样需要身份校验；标识会参与脚本和私有状态路径。
+    if (!isSourceKey(j['key'])) {
+      throw const FormatException('站点脚本的标识或校验值无效');
+    }
+    return InstalledSource(
+      key: j['key'] as String,
+      origin: (j['origin'] ?? 'builtin').toString(),
+      version: (j['version'] ?? '0.0.0').toString(),
+      url: (j['url'] ?? '').toString(),
+      enabled: j['enabled'] != false,
+      order: (j['order'] as num?)?.toInt() ?? 0,
+      sha256: (j['sha256'] ?? '').toString(),
+    );
+  }
 
   String get name => manifest?.name ?? key;
   bool get ready => manifest != null && loadError == null;

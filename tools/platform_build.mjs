@@ -36,7 +36,7 @@ if (command === 'metadata') {
     const diff = spawnSync('git', ['diff', '--name-only', base, 'HEAD'], { encoding: 'utf8' });
     if (diff.status !== 0) throw Error('无法确定变动范围');
     const paths = diff.stdout.trim().split(/\r?\n/);
-    const shared = paths.some(p => /^(lib\/|assets\/(?!sources\/|i18n\/)|pubspec\.|tools\/platform_build|\.github\/workflows\/)/.test(p));
+    const shared = paths.some(p => /^(lib\/|assets\/(?!sources\/)|LICENSE$|docs\/licenses\/|pubspec\.|tools\/platform_build|\.github\/workflows\/)/.test(p));
     if (!shared) selected = platforms.filter(p => paths.some(f => f.startsWith(`${p.platform}/`)));
   }
   output('build', selected.length > 0 ? 'true' : 'false');

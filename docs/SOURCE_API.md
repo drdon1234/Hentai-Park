@@ -620,7 +620,7 @@ subscription: {
 | `Park.crypto.randomBytes(length)` | 系统安全随机字节，length 为 1–65536 |
 | `Park.url.parse(value, base, domains)` / `site(source, value, base?)` / `response(source, response, requested)` | 解析授权域及子域内的 HTTPS 443 地址，拒绝用户凭据，移除片段，失败返回 `null`。`site` 使用源 `domains`；`response` 校验最终地址，不匹配时抛 `BLOCKED`，不会修改共享的源基地址。插件继续检查路径、页号、作品和搜索身份，不使用封闭查询键列表或 CDN 节点名称限制。 |
 | `Park.utils.rateLimiter(ms)` | 返回 `wait()`，保证两次请求之间的最小间隔 |
-| `Park.utils.mapLimit(items, n, fn)` / `lruMap(n)` / `parseCount('1.2万')` / `formatDate(ts)` | 其他常用工具 |
+| `Park.utils.mapLimit(items, n, fn)` / `lruMap(n)` / `parseCount('1.2万')` / `formatDate(ts)` | `mapLimit` 的并发数须为正安全整数；`lruMap` 的容量须为非负安全整数，零容量不保留条目；无效值抛错。其余用于计数和日期转换。 |
 | `Park.error(code, message, extra?)` | 创建带错误码的错误，见“错误码” |
 
 `Park.crypto.aesGcmEncrypt(plaintext, key, iv, aad)` / `aesGcmDecrypt(ciphertext, key, iv, aad)` 接受十六进制数据、16/24/32 字节密钥、12 字节 IV，以及可选的十六进制附加认证数据 `aad`（最多 4096 字节，默认空），返回字节数组。明文最多 4080 字节，密文包含末尾 16 字节认证标签、最多 4096 字节；每次加密必须使用新的安全随机 IV。解密认证失败即抛错，不返回未认证明文。

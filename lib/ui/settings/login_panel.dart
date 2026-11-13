@@ -50,6 +50,7 @@ class _LoginPanelState extends State<LoginPanel> {
   ];
 
   Future<void> _submit() async {
+    if (!mounted || _busy) return;
     final missing = _missing;
     if (missing.isNotEmpty) {
       context.toast(
@@ -81,10 +82,12 @@ class _LoginPanelState extends State<LoginPanel> {
   }
 
   Future<void> _paste() async {
+    if (!mounted || _busy) return;
+    setState(() => _busy = true);
     FocusScope.of(context).unfocus();
-    await Future<void>.delayed(Duration.zero);
-    if (!mounted) return;
     try {
+      await Future<void>.delayed(Duration.zero);
+      if (!mounted) return;
       final text = (await Clipboard.getData(Clipboard.kTextPlain))?.text ?? '';
       if (!mounted) return;
       if (text.trim().isEmpty) {
@@ -124,6 +127,7 @@ class _LoginPanelState extends State<LoginPanel> {
         }
       });
       if (_missing.isEmpty) {
+        _busy = false;
         await _submit();
       } else {
         context.toast(
@@ -134,15 +138,23 @@ class _LoginPanelState extends State<LoginPanel> {
       }
     } catch (_) {
       if (mounted) context.toast(context.tr('无法读取剪贴板，请重试'));
+    } finally {
+      if (mounted) setState(() => _busy = false);
     }
   }
 
   Future<void> _webLogin() async {
-    final ok = await Nav.push<bool>(
-      context,
-      WebVerifyPage.login(source: widget.source, url: a.loginUrl),
-    );
-    if (ok == true && mounted) context.toast(context.tr('登录成功'));
+    if (!mounted || _busy) return;
+    setState(() => _busy = true);
+    try {
+      final ok = await Nav.push<bool>(
+        context,
+        WebVerifyPage.login(source: widget.source, url: a.loginUrl),
+      );
+      if (ok == true && mounted) context.toast(context.tr('登录成功'));
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
   }
 
   @override
@@ -186,7 +198,9 @@ class _LoginPanelState extends State<LoginPanel> {
                 ),
               ],
               selected: {_web},
-              onSelectionChanged: (v) => setState(() => _web = v.first),
+              onSelectionChanged: _busy
+                  ? null
+                  : (v) => setState(() => _web = v.first),
             ),
           ],
           const SizedBox(height: Gap.m),
@@ -211,7 +225,7 @@ class _LoginPanelState extends State<LoginPanel> {
         ),
         const SizedBox(height: 12),
         FilledButton.icon(
-          onPressed: _webLogin,
+          onPressed: _busy ? null : _webLogin,
           icon: const Icon(Icons.open_in_browser_rounded),
           label: SelectionContainer.disabled(child: Text(context.tr('打开登录页'))),
         ),
@@ -256,7 +270,9 @@ class _LoginPanelState extends State<LoginPanel> {
         textDirection: Directionality.of(context),
         textScaler: MediaQuery.textScalerOf(context),
       )..layout();
-      return painter.width;
+      final width = painter.width;
+      painter.dispose();
+      return width;
     }
 
     final style = ButtonStyle(
@@ -328,6 +344,7 @@ class _LoginPanelState extends State<LoginPanel> {
     final hint = (f['hint'] ?? '').toString();
     return TextField(
       controller: _fields[key],
+      enabled: !_busy,
       keyboardType: TextInputType.text,
       autocorrect: false,
       enableSuggestions: false,

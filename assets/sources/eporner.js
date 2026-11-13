@@ -9,7 +9,7 @@ Park.register({
     ru: {"成人视频目录、搜索与多清晰度 MP4": "Каталог видео для взрослых, поиск и MP4 разных качеств"},
     ar: {"成人视频目录、搜索与多清晰度 MP4": "دليل فيديو للبالغين مع البحث وملفات MP4 متعددة الجودة"},
   },
-  key: 'eporner', name: 'Eporner', version: '0.0.11', minAppVersion: '0.13.6', type: 'video', category: 'adult', language: 'en',
+  key: 'eporner', name: 'Eporner', version: '0.0.12', minAppVersion: '0.13.6', type: 'video', category: 'adult', language: 'en',
   color: '#e84b39', homepage: 'https://www.eporner.com/', description: '成人视频目录、搜索与多清晰度 MP4',
   domains: ['eporner.com'], network: {mode: 'native', vpnHint: true},
   media: {mode: 'native', scope: 'session', origin: 'https://www.eporner.com'},
@@ -35,10 +35,11 @@ Park.register({
     const order = String((keyword === undefined ? req.options : req.filters)?.sort || 'top-weekly');
     if (!['top-weekly', 'top-rated', 'latest', 'most-popular'].includes(order)) throw Park.error('CONFIG', '筛选参数无效');
     const data = await this.api('/search/', {query: keyword === undefined ? 'all' : String(keyword).slice(0, 100), per_page: 20, page, order});
-    const rows = Array.isArray(data?.videos) ? data.videos : [];
+    if (!Array.isArray(data?.videos)) throw Park.error('PARSE', 'Eporner 返回的数据无效');
+    const rows = data.videos;
     const items = rows.map(v => this.item(v)).filter(Boolean);
-    const total = Number(data?.total_pages || data?.total_count || 0);
-    return {items, page, hasNext: total ? page < total : rows.length >= 20};
+    const totalPages = Number(data.total_pages ?? (data.total_count == null ? NaN : Math.ceil(Number(data.total_count) / 20)));
+    return {items, page, hasNext: Number.isSafeInteger(totalPages) && totalPages >= 0 ? page < totalPages : rows.length >= 20};
   },
   async html(path) {
     const url = 'https://www.eporner.com' + path, r = this.http.ensureOk(await this.http.get(url));

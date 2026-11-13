@@ -35,13 +35,21 @@ class _ReminderPromptDialogState extends State<ReminderPromptDialog> {
 
   Future<void> _ignore({bool all = false}) async {
     if (_saving) return;
+    final route = ModalRoute.of(context);
     setState(() {
       _saving = true;
       _failed = false;
     });
     try {
       await (all ? widget.onIgnoreAll! : widget.onIgnore)();
-      if (mounted) Navigator.pop(context, false);
+      if (mounted && route != null && route.isActive) {
+        final navigator = Navigator.of(context);
+        if (route.isCurrent) {
+          navigator.pop(false);
+        } else {
+          navigator.removeRoute(route, false);
+        }
+      }
     } catch (_) {
       if (mounted) setState(() => _failed = true);
     } finally {

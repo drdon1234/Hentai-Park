@@ -60,7 +60,6 @@ Future<int?> showChapterDirectory(
   required List<Chapter> chapters,
   required int current,
 }) async {
-  final controller = TextEditingController();
   var query = '', reversed = false;
   final selected = await showAdaptiveSheet<int>(
     context: context,
@@ -88,7 +87,6 @@ Future<int?> showChapterDirectory(
               ],
             ),
             field: TextField(
-              controller: controller,
               decoration: InputDecoration(hintText: tr('搜索章节')),
               onChanged: (v) => update(() => query = v),
             ),
@@ -125,13 +123,11 @@ Future<int?> showChapterDirectory(
       ),
     ),
   );
-  controller.dispose();
   return selected;
 }
 
 /// Searches [text] (the open chapter); returns the offset of the picked match.
 Future<int?> showChapterSearch(BuildContext context, String text) async {
-  final controller = TextEditingController();
   var query = '';
   final result = await showAdaptiveSheet<int>(
     context: context,
@@ -152,7 +148,6 @@ Future<int?> showChapterSearch(BuildContext context, String text) async {
         return _ListSheet(
           title: tr('本章搜索'),
           field: TextField(
-            controller: controller,
             autofocus: true,
             decoration: InputDecoration(hintText: tr('搜索正文')),
             onChanged: (v) => update(() => query = v),
@@ -178,7 +173,6 @@ Future<int?> showChapterSearch(BuildContext context, String text) async {
       },
     ),
   );
-  controller.dispose();
   return result;
 }
 
@@ -188,7 +182,7 @@ Future<String?> askNote(
   String? quote,
   String initial = '',
 }) async {
-  final controller = TextEditingController(text: initial);
+  var value = initial;
   final note = await showDialog<String>(
     context: context,
     builder: (ctx) => AlertDialog(
@@ -204,8 +198,9 @@ Future<String?> askNote(
                 overflow: TextOverflow.ellipsis,
                 style: ParkText.serif(ctx.text.bodyMedium),
               ),
-            TextField(
-              controller: controller,
+            TextFormField(
+              initialValue: initial,
+              onChanged: (text) => value = text,
               maxLines: quote == null ? 5 : 4,
               decoration: InputDecoration(hintText: tr('备注')),
             ),
@@ -218,13 +213,12 @@ Future<String?> askNote(
           child: SelectionContainer.disabled(child: Text(tr('取消'))),
         ),
         FilledButton(
-          onPressed: () => Navigator.pop(ctx, controller.text),
+          onPressed: () => Navigator.pop(ctx, value),
           child: SelectionContainer.disabled(child: Text(tr('保存'))),
         ),
       ],
     ),
   );
-  controller.dispose();
   return note;
 }
 

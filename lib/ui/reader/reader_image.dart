@@ -62,6 +62,9 @@ class _ReaderImageState extends State<ReaderImage> {
     );
     if (stream.key == _stream?.key) return;
     _stream?.removeListener(_listener);
+    _info?.dispose();
+    _info = null;
+    _error = null;
     _stream = stream..addListener(_listener);
   }
 
@@ -80,13 +83,16 @@ class _ReaderImageState extends State<ReaderImage> {
   }
 
   Future<void> _retry() async {
+    final provider = widget.provider;
     _stream?.removeListener(_listener);
     _stream = null;
-    await widget.provider.evict();
     setState(() {
       _error = null;
       _attempt++;
     });
+    final attempt = _attempt;
+    await provider.evict();
+    if (!mounted || provider != widget.provider || attempt != _attempt) return;
     _resolve();
   }
 

@@ -126,6 +126,7 @@ class _FeedShelfState extends State<FeedShelf>
       final session = _session;
       if (session == null ||
           session.loading ||
+          session.automaticPaused ||
           session.error != null ||
           !session.hasNext) {
         return;

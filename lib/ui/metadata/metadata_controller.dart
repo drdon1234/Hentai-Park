@@ -151,6 +151,7 @@ class MetadataController extends ChangeNotifier {
     _request?.cancel();
     _magnetsRequest?.cancel();
     _request = _magnetsRequest = null;
+    query = '';
     candidates = const [];
     detail = null;
     magnets = const [];

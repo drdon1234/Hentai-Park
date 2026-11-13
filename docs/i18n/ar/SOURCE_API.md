@@ -494,7 +494,7 @@ subscription: {
 | `Park.crypto.randomBytes(length)` | بايتات عشوائية آمنة، length من 1 إلى 65536 |
 | `Park.url.parse(value, base, domains)` / `site(source, value, base?)` / `response(source, response, requested)` | يحلل عناوين HTTPS 443 ضمن النطاقات المصرح بها وفروعها، ويرفض بيانات الاعتماد ويحذف الأجزاء؛ يعيد `null` عند الفشل. يستخدم `site` نطاقات `domains` للمصدر؛ يفحص `response` العنوان النهائي من دون تعديل قاعدة المصدر المشتركة، أو يرفع `BLOCKED`. يتحقق الملحق من المسار والصفحة والعمل والبحث؛ تجنب قوائم مفاتيح الاستعلام وأسماء عقد CDN المغلقة. |
 | `Park.utils.rateLimiter(ms)` | يعيد `wait()` ويضمن فاصلًا أدنى بين الطلبات |
-| `Park.utils.mapLimit(items, n, fn)` / `lruMap(n)` / `parseCount('1.2万')` / `formatDate(ts)` | أدوات أخرى |
+| `Park.utils.mapLimit(items, n, fn)` / `lruMap(n)` / `parseCount('1.2万')` / `formatDate(ts)` | يتطلب `mapLimit` عدد تزامن صحيحًا آمنًا موجبًا، ويتطلب `lruMap` سعة صحيحة آمنة غير سالبة. السعة الصفرية لا تحتفظ بأي عناصر. القيم غير الصالحة تؤدي إلى خطأ. تُستخدم الأدوات الأخرى لتحويل الأعداد والتواريخ. |
 | `Park.error(code, message, extra?)` | ينشئ خطأ برمز، راجع «رموز الأخطاء» |
 
 تستقبل `Park.crypto.aesGcmDecrypt(ciphertext, key, iv)` نصًا مشفرًا سداسيًا (مع وسم المصادقة النهائي من 16 بايت، بحد أقصى 4096 بايت) ومفتاحًا من 16/24/32 بايت وIV من 12 بايت، وتعيد بايتات النص الواضح. يؤدي فشل المصادقة إلى خطأ دون إعادة نص غير موثّق.

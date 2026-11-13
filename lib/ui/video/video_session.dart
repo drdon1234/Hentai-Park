@@ -7,6 +7,7 @@ import 'package:video_player/video_player.dart';
 
 import '../../core/app_lock.dart';
 import '../../core/app_log.dart';
+import '../../core/async_tasks.dart';
 import '../../core/models.dart';
 import '../../core/platform_capabilities.dart';
 import '../../core/timed_subtitles.dart';
@@ -123,6 +124,7 @@ class VideoSession extends ChangeNotifier {
   Playback? _preparingMedia;
   Timer? _savePos;
   Future<void> _playbackUpdates = Future.value();
+  final _speedUpdates = SerialExecutor();
   int _request = 0;
   CancelToken? _sourceRequest;
   CancelToken? _openingRequest;
@@ -227,7 +229,7 @@ class VideoSession extends ChangeNotifier {
       controller = null;
       _media = null;
       _preparingMedia = null;
-      _routeClosing = Future.wait([
+      final closing = Future.wait([
         _routeClosing,
         _playerOpening ?? Future<void>.value(),
         _playbackUpdates
@@ -237,10 +239,15 @@ class VideoSession extends ChangeNotifier {
         _discardPreload(),
         _releaseRetainedEpisodes(),
       ]).then((_) {});
-      PendingDisposals.instance.add(_routeClosing);
-      PlaybackRelease.track(_routeClosing);
+      // 当前释放失败仍报告给调用者与退出检查；等待链不能阻断后续恢复。
+      _routeClosing = closing.then<void>(
+        (_) {},
+        onError: (Object _, StackTrace _) {},
+      );
+      PendingDisposals.instance.add(closing);
+      PlaybackRelease.track(closing);
       _update();
-      return _routeClosing;
+      return closing;
     }
     await _routeClosing;
     if (!_active || !visible || generation != _routeGeneration) return;
@@ -262,10 +269,29 @@ class VideoSession extends ChangeNotifier {
     unawaited(syncPlayback());
   }
 
-  Future<void> setSpeed(double value) async {
-    speed = value;
-    await controller?.setPlaybackSpeed(value);
-    _update();
+  Future<void> setSpeed(double value) {
+    final request = _request;
+    return _speedUpdates.run(() async {
+      if (!_active || request != _request) return;
+      final c = controller;
+      final previous = speed;
+      try {
+        await c?.setPlaybackSpeed(value);
+      } catch (_) {
+        // video_player 会在原生调用前更新 value，失败时一并恢复显示状态。
+        if (_active && identical(c, controller)) {
+          try {
+            await c?.setPlaybackSpeed(previous);
+          } catch (_) {
+            // 保留首次设置失败，由调用方报告。
+          }
+        }
+        rethrow;
+      }
+      if (!_active || request != _request || !identical(c, controller)) return;
+      speed = value;
+      _update();
+    });
   }
 
   /// Plays [source] from the current position, unless the episode changed meanwhile.
@@ -298,7 +324,9 @@ class VideoSession extends ChangeNotifier {
   }) {
     return PendingDisposals.instance.watch(() async {
       if (!_active || _suspended || !visible) return;
-      if (scrollEpisodes && supported) return _selectDramaEpisode(next);
+      if (scrollEpisodes && supported) {
+        return _selectDramaEpisode(next, at: at, wantsPlayback: wantsPlayback);
+      }
       savePosition();
       _openingRequest?.cancel('video episode changed');
       _sourceRequest?.cancel('video source reloaded');
@@ -466,6 +494,17 @@ class VideoSession extends ChangeNotifier {
         stack: error is SourceError ? null : stack,
       );
 
+  static Future<void> _releasePlayer(
+    VideoPlayerController? player,
+    Playback? media,
+  ) async {
+    try {
+      await player?.dispose();
+    } finally {
+      await media?.close();
+    }
+  }
+
   Future<void> _open(
     VideoPlayerController c, {
     Duration? at,
@@ -475,8 +514,7 @@ class VideoSession extends ChangeNotifier {
     final pending = PendingDisposals.instance.watch(() async {
       final request = requestId ?? ++_request;
       if (!_active || request != _request) {
-        await c.dispose();
-        await media?.close();
+        await _releasePlayer(c, media);
         return;
       }
       _savePos?.cancel();
@@ -488,20 +526,17 @@ class VideoSession extends ChangeNotifier {
       old?.removeListener(_onTick);
       controller = null;
       _update();
-      await old?.dispose();
-      await oldMedia?.close();
-      if (!_active || request != _request) {
-        await c.dispose();
-        await media?.close();
-        return;
-      }
       _openingRequest?.cancel('video player replaced');
       final cancellation = _openingRequest = CancelToken();
       try {
+        await _releasePlayer(old, oldMedia);
+        if (!_active || request != _request) {
+          await _releasePlayer(c, media);
+          return;
+        }
         await initializePlayer(c, cancellation);
         if (!_active || request != _request) {
-          await c.dispose();
-          await media?.close();
+          await _releasePlayer(c, media);
           return;
         }
         final resume = isLive ? null : (at ?? _resumePoint(c.value.duration));
@@ -509,8 +544,7 @@ class VideoSession extends ChangeNotifier {
         await c.setPlaybackSpeed(speed);
         await c.setVolume(_volume);
       } catch (e, stack) {
-        await c.dispose();
-        await media?.close();
+        await _releasePlayer(c, media);
         if (_active && request == _request) {
           _logPlayback(e, 'player', stack);
           error = e is SourceError
@@ -527,8 +561,7 @@ class VideoSession extends ChangeNotifier {
         if (identical(_openingRequest, cancellation)) _openingRequest = null;
       }
       if (!_active || request != _request) {
-        await c.dispose();
-        await media?.close();
+        await _releasePlayer(c, media);
         return;
       }
       c.addListener(_onTick);
@@ -589,6 +622,10 @@ class VideoSession extends ChangeNotifier {
   void _onTick() {
     final value = controller?.value;
     if (value != null) {
+      if (value.hasError && error == null && _active) {
+        error = SourceError('NETWORK', '媒体播放失败');
+        _update();
+      }
       final state = (value.isPlaying, value.isBuffering, value.hasError);
       if (state != _lastPlayerState) {
         _lastPlayerState = state;
@@ -607,7 +644,8 @@ class VideoSession extends ChangeNotifier {
       }
     }
     // 直播时长可能未知或仅代表当前窗口，不能按点播的完成状态结束播放。
-    final completed = !isLive && (controller?.value.isCompleted ?? false);
+    final completed =
+        !isLive && value?.hasError != true && (value?.isCompleted ?? false);
     // Completion ends playback once. Repeated notifications during a replay
     // seek must not overwrite the user's new play request.
     final newlyCompleted = completed && !_completed;

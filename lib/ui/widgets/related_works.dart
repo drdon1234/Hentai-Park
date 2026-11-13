@@ -9,6 +9,7 @@ import '../../core/tag_blocklist.dart';
 import '../../engine/source_manager.dart';
 import '../kit/tokens.dart';
 import 'error_view.dart';
+import 'on_visible.dart';
 import 'paged_grid.dart';
 import 'source_interaction.dart';
 
@@ -40,6 +41,8 @@ class _RelatedWorksState extends State<RelatedWorks> {
     source: widget.detail.source,
   );
   final _request = CancelToken();
+  bool _visible = false;
+  bool _started = false;
   final _extra = <WorkItem>[];
   final _seeds = <String>{};
   WorkItem? _failedSeed;
@@ -53,8 +56,15 @@ class _RelatedWorksState extends State<RelatedWorks> {
   void initState() {
     super.initState();
     _paged.showBlocked = widget.showBlocked;
-    if (_dynamic) unawaited(_paged.loadMore());
     sourceInteractionChanges.addListener(_interactionChanged);
+  }
+
+  void _visibilityChanged(bool visible) {
+    _visible = visible;
+    if (visible && !_started && _dynamic) {
+      _started = true;
+      unawaited(_paged.loadMore());
+    }
   }
 
   @override
@@ -68,6 +78,7 @@ class _RelatedWorksState extends State<RelatedWorks> {
   void _interactionChanged() {
     final change = sourceInteractionChanges.value;
     if (!_dynamic ||
+        !_visible ||
         ModalRoute.isCurrentOf(context) == false ||
         change == null ||
         change.item.source != widget.detail.source ||
@@ -121,74 +132,80 @@ class _RelatedWorksState extends State<RelatedWorks> {
   }
 
   @override
-  Widget build(BuildContext context) => ListenableBuilder(
-    listenable: _paged,
-    builder: (context, _) {
-      final seen = <String>{widget.detail.id};
-      final blocklist = TagBlocklist.current();
-      final items = [...widget.detail.related, ..._paged.items, ..._extra]
-          .where(
-            (item) =>
-                seen.add(item.id) &&
-                (widget.showBlocked || blocklist.matchItem(item) == null),
-          )
-          .toList();
-      final error = _paged.error ?? _extraError;
-      return Column(
-        children: [
-          for (final section in widget.detail.relatedSections)
-            WorkRecommendations(
-              title:
-                  _manager
-                      .manifest(widget.detail.source)
-                      ?.copy
-                      .text(section.title) ??
-                  section.title,
-              items: section.items
-                  .where(
-                    (item) =>
-                        item.id != widget.detail.id &&
-                        (widget.showBlocked ||
-                            blocklist.matchItem(item) == null),
-                  )
-                  .toList(),
-            ),
-          if (items.isNotEmpty)
-            WorkRecommendations(
-              title: tr('相关推荐'),
-              items: items,
-              onEndReached: _dynamic && _paged.hasNext && error == null
-                  ? _paged.loadMore
-                  : null,
-              trailing: _dynamic && _paged.hasNext && !_paged.loading
-                  ? OutlinedButton(
-                      onPressed: _paged.loadMore,
-                      child: Text(tr('加载更多')),
+  Widget build(BuildContext context) => OnVisible(
+    onVisible: _visibilityChanged,
+    child: ListenableBuilder(
+      listenable: _paged,
+      builder: (context, _) {
+        final seen = <String>{widget.detail.id};
+        final blocklist = TagBlocklist.current();
+        final items = [...widget.detail.related, ..._paged.items, ..._extra]
+            .where(
+              (item) =>
+                  seen.add(item.id) &&
+                  (widget.showBlocked || blocklist.matchItem(item) == null),
+            )
+            .toList();
+        final error = _paged.error ?? _extraError;
+        return Column(
+          children: [
+            for (final section in widget.detail.relatedSections)
+              WorkRecommendations(
+                title:
+                    _manager
+                        .manifest(widget.detail.source)
+                        ?.copy
+                        .text(section.title) ??
+                    section.title,
+                items: section.items
+                    .where(
+                      (item) =>
+                          item.id != widget.detail.id &&
+                          (widget.showBlocked ||
+                              blocklist.matchItem(item) == null),
                     )
-                  : null,
-            ),
-          if (items.isEmpty &&
-              _dynamic &&
-              _paged.hasNext &&
-              !_paged.loading &&
-              error == null)
-            OutlinedButton(onPressed: _paged.loadMore, child: Text(tr('加载更多'))),
-          if (_paged.loading || _extraLoading)
-            const Padding(
-              padding: EdgeInsets.all(Gap.m),
-              child: LinearProgressIndicator(),
-            ),
-          if (error != null)
-            SourceErrorView(
-              error: error,
-              source: widget.detail.source,
-              compact: true,
-              onRetry: _paged.error != null
-                  ? _paged.loadMore
-                  : () => _append(_failedSeed!),
-            ),
-        ],
-      );
-    },
+                    .toList(),
+              ),
+            if (items.isNotEmpty)
+              WorkRecommendations(
+                title: tr('相关推荐'),
+                items: items,
+                onEndReached: _dynamic && _paged.hasNext && error == null
+                    ? _paged.loadMore
+                    : null,
+                trailing: _dynamic && _paged.hasNext && !_paged.loading
+                    ? OutlinedButton(
+                        onPressed: _paged.loadMore,
+                        child: Text(tr('加载更多')),
+                      )
+                    : null,
+              ),
+            if (items.isEmpty &&
+                _dynamic &&
+                _paged.hasNext &&
+                !_paged.loading &&
+                error == null)
+              OutlinedButton(
+                onPressed: _paged.loadMore,
+                child: Text(tr('加载更多')),
+              ),
+            if (_paged.loading || _extraLoading)
+              const Padding(
+                padding: EdgeInsets.all(Gap.m),
+                child: LinearProgressIndicator(),
+              ),
+            if (error != null)
+              SourceErrorView(
+                error: error,
+                source: widget.detail.source,
+                compact: true,
+                onRetry: _paged.error != null
+                    ? (_paged.hasNext ? _paged.loadMore : _paged.refresh)
+                    : () => _append(_failedSeed!),
+              ),
+          ],
+        );
+      },
+    ),
   );
 }

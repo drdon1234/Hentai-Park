@@ -26,7 +26,7 @@ class BackupPage extends StatefulWidget {
 
 class _BackupPageState extends State<BackupPage> {
   final s = AppSettings.instance;
-  List<File> _files = [];
+  List<({File file, int bytes})> _files = [];
   bool _busy = false;
   bool _reading = false;
   bool get _unavailable => _busy || _reading;
@@ -38,8 +38,19 @@ class _BackupPageState extends State<BackupPage> {
   }
 
   Future<void> _refresh() async {
-    final files = await BackupService.instance.listBackups();
-    if (mounted) setState(() => _files = files);
+    try {
+      final files = await BackupService.instance.listBackups();
+      final entries = <({File file, int bytes})>[];
+      for (final file in files) {
+        final stat = await file.stat();
+        if (stat.type == FileSystemEntityType.file) {
+          entries.add((file: file, bytes: stat.size));
+        }
+      }
+      if (mounted) setState(() => _files = entries);
+    } catch (_) {
+      if (mounted) context.toast(tr('加载失败'));
+    }
   }
 
   Future<void> _create() async {
@@ -47,7 +58,7 @@ class _BackupPageState extends State<BackupPage> {
       context: context,
       builder: (_) => const _OptionsDialog(),
     );
-    if (options == null) return;
+    if (options == null || !mounted) return;
     await _guard(() async {
       final file = await BackupService.instance.writeTo(
         AppPaths.backups,
@@ -84,7 +95,7 @@ class _BackupPageState extends State<BackupPage> {
         ],
       ),
     );
-    if (ok != true) return;
+    if (ok != true || !mounted) return;
     await _guard(() async {
       final report = await BackupService.instance.restore(bytes);
       if (!mounted) return;
@@ -151,6 +162,7 @@ class _BackupPageState extends State<BackupPage> {
   }
 
   Future<void> _guard(Future<void> Function() body) async {
+    if (!mounted || _busy) return;
     setState(() => _busy = true);
     try {
       await body();
@@ -197,21 +209,22 @@ class _BackupPageState extends State<BackupPage> {
         ),
       ),
     );
-    if (!mounted) return;
+    if (!mounted || _unavailable) return;
     switch (action) {
       case 'restore':
-        await _restoreBytes(await f.readAsBytes());
+        await _restoreFile(XFile(f.path));
       case 'share':
-        await shareContent(context, files: [XFile(f.path)]);
+        await _guard(() => shareContent(context, files: [XFile(f.path)]));
       case 'delete':
-        await f.delete();
-        await _refresh();
+        await _guard(() async {
+          await f.delete();
+          await _refresh();
+        });
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final last = s.lastAutoBackup;
     return ListenableBuilder(
       listenable: s.domain(SettingsDomain.maintenance),
       builder: (context, _) => Scaffold(
@@ -282,11 +295,13 @@ class _BackupPageState extends State<BackupPage> {
                         vertical: Gap.s,
                       ),
                       child: Text(
-                        last == 0
+                        s.lastAutoBackup == 0
                             ? tr('尚未自动备份过')
                             : tr('上次：{value0}', {
                                 'value0': timeAgo(
-                                  DateTime.fromMillisecondsSinceEpoch(last),
+                                  DateTime.fromMillisecondsSinceEpoch(
+                                    s.lastAutoBackup,
+                                  ),
                                 ),
                               }),
                       ),
@@ -337,12 +352,12 @@ class _BackupPageState extends State<BackupPage> {
                         ListTile(
                           leading: const Icon(Icons.description_outlined),
                           title: SelectionContainer.disabled(
-                            child: Text(p.basename(f.path)),
+                            child: Text(p.basename(f.file.path)),
                           ),
                           subtitle: SelectionContainer.disabled(
-                            child: Text(formatBytes(f.lengthSync())),
+                            child: Text(formatBytes(f.bytes)),
                           ),
-                          onTap: _unavailable ? null : () => _fileMenu(f),
+                          onTap: _unavailable ? null : () => _fileMenu(f.file),
                         ),
                     ],
                   ),

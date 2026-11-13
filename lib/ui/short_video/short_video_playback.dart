@@ -58,11 +58,17 @@ class ShortVideoPlayback extends ChangeNotifier {
   }
 
   Future<void> get settled async {
+    final current = _slots[_current?.uid];
+    final slots = _slots.values.toList();
+    final retiring = _retiring.toList();
+    // 后台加载依赖当前视频成功初始化；失败时未启动的任务没有完成信号。
+    await current?.ready;
     await Future.wait([
-      for (final slot in _slots.values)
-        if (slot.started || _enabled || slot.item.uid == _current?.uid)
+      for (final slot in slots)
+        if (slot.started ||
+            (_enabled && !_suspended && current?.handle != null))
           slot.ready,
-      ..._retiring,
+      ...retiring,
     ]);
     await _sync();
   }

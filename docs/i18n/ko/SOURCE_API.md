@@ -492,7 +492,7 @@ subscription: {
 | `Park.crypto.randomBytes(length)` | 안전한 무작위 바이트, length는 1~65536 |
 | `Park.url.parse(value, base, domains)` / `site(source, value, base?)` / `response(source, response, requested)` | 허용 도메인과 하위 도메인의 HTTPS 443 URL을 해석하고 인증 정보를 거부하며 조각을 제거합니다. 실패 시 `null`. `site`는 소스 `domains`를 사용하고 `response`는 최종 주소를 검사하며 공유 소스 기준 주소를 변경하지 않고 `BLOCKED`를 발생시킵니다. 경로, 페이지, 작품, 검색 조건은 플러그인에서 확인하며 쿼리 키나 CDN 노드명 고정 목록은 피합니다. |
 | `Park.utils.rateLimiter(ms)` | `wait()`를 반환해 요청 사이 최소 간격을 보장 |
-| `Park.utils.mapLimit(items, n, fn)` / `lruMap(n)` / `parseCount('1.2万')` / `formatDate(ts)` | 기타 도우미 |
+| `Park.utils.mapLimit(items, n, fn)` / `lruMap(n)` / `parseCount('1.2万')` / `formatDate(ts)` | `mapLimit`의 동시 실행 수는 양의 안전한 정수여야 하며, `lruMap`의 용량은 0 이상의 안전한 정수여야 합니다. 용량이 0이면 항목을 보관하지 않습니다. 잘못된 값은 오류를 발생시킵니다. 나머지 도우미는 수치와 날짜 변환에 사용됩니다. |
 | `Park.error(code, message, extra?)` | 오류 코드가 있는 오류를 만듦. '오류 코드' 참고 |
 
 `Park.crypto.aesGcmDecrypt(ciphertext, key, iv)`는 16진수 암호문(끝의 16바이트 인증 태그 포함, 최대 4096바이트), 16/24/32바이트 키와 12바이트 IV를 받아 평문 바이트 배열을 반환합니다. 인증 실패 시 인증되지 않은 평문 없이 오류를 발생시킵니다.
