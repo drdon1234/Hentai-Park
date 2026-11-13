@@ -28,6 +28,7 @@ Update checks ask before removing withdrawn official plugins, their settings, lo
 | Live streams | Stripchat 亚洲直播 · CAM4 · SOOP · XloveCam · SinParty |
 | Creator communities | Pixiv · Reddit · X / Twitter · myfans.jp · pixivFANBOX · Telegram |
 | Novels | Cool18 · Book18 · Canovel · 69story · Literotica · Lush Stories · StoriesOnline |
+| Tavern | Chub AI · Character Tavern |
 | Game resources | KUN Galgame · GalgameX · 次元茶馆 |
 | Online games | itch.io · Gamcore |
 
@@ -63,3 +64,13 @@ Use Search work information on a category page to access its market-ranking prov
 Only information supplied by the provider is shown; images and magnets may be unavailable. Magnets require a compatible external app; this app does not download torrent content. JavBus may require a VPN or proxy and regional age verification inside the app.
 
 Switch between JavBus and JavDB on the information page; ratings appear when supplied by the provider.
+
+## Tavern conversations
+
+Browse Chub AI and Character Tavern, or import PNG/JSON character cards, JSON lorebooks and conversation files exported by this app from Saved and conversations. Save locally retains a resource; Export original file only exports it.
+
+After configuring an OpenAI-compatible AI service, choose a greeting, set a name and persona for the conversation, and attach lorebooks. Edit messages, delete a message and those after it, branch from a message, regenerate and switch reply variants, or continue the last reply. Markdown text is supported; scripts and automatic image loading are disabled. Conversation exports include character resources, lorebooks, persona and messages, but no API key. These files are unencrypted; keep them safe.
+
+Incognito prevents changes to both new and existing conversations from being saved. Once enabled for an open conversation, disabling it does not backfill private messages. Explicit imports, exports and resource saves still write data. Messages, character settings, persona and matched lore are sent to your selected AI service and may incur charges. Context includes input and output; history is trimmed using a conservative estimate. Output-limit warnings let you adjust settings and retry or continue.
+
+Lorebooks support keywords, constant entries, case and whole-word matching, secondary-key logic, probability, scan depth, recursion, budget, priority and insertion before or after character settings. Regex keys, groups, cooldown, delay, sticky rules and other insertion positions are unsupported and trigger a warning when detected; original data is retained. Complex SillyTavern extension cards may behave differently.

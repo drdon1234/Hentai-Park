@@ -458,11 +458,12 @@ class AppSettings extends ChangeNotifier {
     SourceCategory.aiDrama,
     SourceCategory.recording,
     SourceCategory.live,
-    SourceCategory.other,
     SourceCategory.asmr,
     SourceCategory.novel,
+    SourceCategory.tavern,
     SourceCategory.onlineGame,
     SourceCategory.game,
+    SourceCategory.other,
   ];
 
   List<SourceCategory> get domainOrder {

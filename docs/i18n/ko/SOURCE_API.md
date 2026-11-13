@@ -72,8 +72,8 @@ Park.register({
   name: '我的站点',
   version: '0.0.1',
   minAppVersion: '0.9.2',           // 숫자 세 개. 저장소 버전이 더 높으면 업데이트를 안내
-  type: 'comic',              // comic | video | voice | novel | game | article: 콘텐츠 동작 결정
-  category: 'doujin',         // doujin | anime | aiDrama | jav | adult | asmr | shortvideo | recording | live | gallery | illustration | novel | game | other
+  type: 'comic',              // comic | video | voice | novel | tavern | game | article: 콘텐츠 동작 결정
+  category: 'doujin',         // doujin | anime | aiDrama | jav | adult | asmr | shortvideo | recording | live | gallery | illustration | novel | tavern | game | other
   color: '#E5355F',           // 브랜드 색: 사이트 아이콘과 사이트 페이지
   description: '一句话介绍',
   homepage: 'https://example.com',
@@ -124,6 +124,7 @@ Park.register({
 | `live` | 라이브, `type: 'video'` |
 | `asmr` | 음성 작품과 ASMR 동영상. 폴더 소스는 `type: 'voice'`, 동영상 소스는 `type: 'video'` 사용 가능 |
 | `novel` | 소설, `type: 'novel'` |
+| `tavern` | 캐릭터 카드와 세계관 설정집, `type: 'tavern'` |
 | `game` | 게임 정보 및 다운로드 자료, `type: 'game'` |
 | `onlineGame` | 온라인 게임, `type: 'game'` |
 | `other` | 크리에이터 커뮤니티 |
@@ -718,3 +719,7 @@ liveChatEvent(state, event) {
 
 
 폼 action, 숨김 필드, 페이지 이동과 리디렉션은 원본 사이트에서 읽고 고정 경로·필드·매개변수 목록으로 제한하지 않습니다. 네이티브 미디어 헤더는 `requestHeaders: {'x-cdn-auth': {scope: 'playback-origin'}}`을 사용하며 확장자와 관계없이 현재 재생 출처와 동일한 출처의 허용된 리소스에만 전송합니다.
+
+## 선술집
+
+선술집 소스는 `type: 'tavern', category: 'tavern'`을 선언하고 목록 항목에 `mediaKind: 'tavern'`과 `tavernKind: 'character' | 'lorebook'`을 지정합니다. `tavernAsset(id)`을 구현하면 해당 기능이 자동으로 공개됩니다. 전체 JSON은 `{kind, format: 'json', data}`, 표준 카드 메타데이터가 포함된 PNG는 `{kind: 'character', format: 'png', url}`을 반환합니다. URL과 모든 리디렉션은 선언된 도메인의 자격 증명이 없는 공개 HTTPS여야 하며 최대 12 MiB입니다. 표지만 있는 이미지나 외부 스크립트를 사용하지 마세요.

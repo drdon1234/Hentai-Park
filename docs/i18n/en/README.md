@@ -44,6 +44,7 @@ Configure sign-in under More → Sites and proxies under More → Network when n
 
 | Feature | What you get |
 | --- | --- |
+| Tavern | Character cards, lorebooks and your own AI service, with personas, message editing, continuation and import/export. |
 | Voice and ASMR | Browse folders, filter by language and media type, play tracks continuously and follow subtitles. Background playback is off by default and can be enabled in the player. |
 | Discover and search | Filter by 2D, 3D and media type; search across sites, or jump to a work using a link or code. |
 | Read and watch | Gossip articles and video; scrolling, paged and two-page comics; video episodes, speed and resume; novel bookmarks, notes and read-aloud. |
@@ -63,6 +64,8 @@ Configure sign-in under More → Sites and proxies under More → Network when n
 <a id="faq"></a>
 
 ## Limitations and FAQ
+
+Tavern requires your own OpenAI-compatible AI service. Messages, character settings, user persona and matched lore are sent to that service and may incur charges. See [Sites and services](SITES.md) for supported lorebook rules and import/export. Saved resources and conversations enter unencrypted library backups; AI settings and keys are excluded.
 
 Reading, playback, comments, subscriptions and downloads vary by site. Check what the app offers for each site. Site updates may require an app upgrade.
 

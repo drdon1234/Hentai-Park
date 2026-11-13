@@ -16,6 +16,7 @@ import '../nav.dart';
 import '../rankings/rankings_page.dart';
 import '../search/reverse_search_page.dart';
 import '../subscriptions/subscriptions_page.dart';
+import '../tavern/tavern_domain_notice.dart';
 import '../theme.dart';
 import '../widgets/content_translation.dart';
 import '../widgets/result_visibility.dart';
@@ -236,6 +237,8 @@ class _HomePageState extends State<HomePage> {
         physics: const AlwaysScrollableScrollPhysics(),
         controller: _scrolls.putIfAbsent(selected.key, ScrollController.new),
         slivers: [
+          if (selected.category == SourceCategory.tavern)
+            const SliverToBoxAdapter(child: TavernDomainNotice()),
           SliverToBoxAdapter(
             child: Padding(
               padding: const EdgeInsets.fromLTRB(Gap.page, Gap.s, Gap.page, 0),

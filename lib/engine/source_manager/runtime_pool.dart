@@ -235,6 +235,7 @@ mixin _RuntimePool on _SourceRegistry {
       'search',
       'searchSuggestions',
       'detail',
+      'tavernAsset',
       'chapters',
       'pages',
       'videos',

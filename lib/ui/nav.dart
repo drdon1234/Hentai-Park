@@ -29,6 +29,7 @@ import 'short_video/short_video_page.dart';
 import 'short_video/short_video_sequence.dart';
 import 'source/source_page.dart';
 import 'subscriptions/subscription_posts_page.dart';
+import 'tavern/tavern_detail_page.dart';
 import 'theme.dart';
 import 'video/video_page.dart';
 import 'web/web_verify_page.dart';
@@ -189,6 +190,8 @@ class Nav {
                 'url': item.json['url'],
             },
           )
+        : SourceManager.instance.kindOf(item) == MediaKind.tavern
+        ? TavernDetailPage(item: item)
         : SourceManager.instance.kindOf(item) == MediaKind.article &&
               !item.isSubscriptionPost
         ? FeedArticlePage(item: item)
@@ -241,6 +244,10 @@ class Nav {
               id: resolved,
               category: manifest!.category,
               sourceManager: manager,
+            )
+          : manifest?.kind == MediaKind.tavern
+          ? TavernDetailPage(
+              item: WorkItem({'id': resolved, 'mediaKind': 'tavern'}, source),
             )
           : manifest?.kind == MediaKind.article
           ? FeedArticlePage(

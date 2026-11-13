@@ -72,8 +72,8 @@ Park.register({
   name: '我的站点',
   version: '0.0.1',
   minAppVersion: '0.9.2',     // 最低本体版本，三段数字；与官方清单一致
-  type: 'comic',              // comic | video | voice | novel | game | article：决定内容行为
-  category: 'doujin',         // doujin | anime | aiDrama | jav | adult | asmr | shortvideo | recording | live | gallery | illustration | novel | game | other
+  type: 'comic',              // comic | video | voice | novel | tavern | game | article：决定内容行为
+  category: 'doujin',         // doujin | anime | aiDrama | jav | adult | asmr | shortvideo | recording | live | gallery | illustration | novel | tavern | game | other
   color: '#E5355F',           // 品牌色：站点头像与站点页
   description: '一句话介绍',
   homepage: 'https://example.com',
@@ -178,6 +178,7 @@ return { browser: {
 | `live` | 直播, `type: 'video'` |
 | `asmr` | 音声、同人音声及 ASMR 视频；目录源声明 `type: 'voice'`，视频源可声明 `type: 'video'` |
 | `novel` | 小说，`type: 'novel'` |
+| `tavern` | 角色卡与世界书，`type: 'tavern'` |
 | `game` | 游戏资讯与下载资源，`type: 'game'` |
 | `onlineGame` | 在线游戏，`type: 'game'` |
 | `other` | 创作社区 |
@@ -857,3 +858,7 @@ liveChatEvent(state, event) {
 列表 `tags` 必须保留完整标签，限定分类的标签使用 `namespace:tag`，不得为缩短展示而截断或丢掉分类；界面自行限制可见标签数量。搜索默认应用屏蔽规则，用户可临时显示原始结果，不修改规则或重新请求列表。
 
 原站返回的表单 action、隐藏字段、分页与跳转地址应按页面解析，不维护路径、参数名或字段名白名单；只在业务确实需要时解析作品身份与分页状态。请求隔离和 TLS 验证由框架统一处理。
+
+## 酒馆
+
+酒馆源声明 `type: 'tavern', category: 'tavern'`，列表作品填写 `mediaKind: 'tavern'` 和 `tavernKind: 'character' | 'lorebook'`。实现 `tavernAsset(id)` 后运行时自动导出同名能力：返回 `{kind, format: 'json', data}`（完整 JSON 对象），或 `{kind: 'character', format: 'png', url}`（含标准卡片元数据的 PNG）。下载地址及每次重定向必须属于声明域的无凭据公网 HTTPS；资源上限 12 MiB。不要返回只有封面的图片或执行外部脚本。

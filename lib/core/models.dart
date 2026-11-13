@@ -55,6 +55,7 @@ enum MediaKind {
   video,
   voice,
   novel,
+  tavern,
   game,
   article;
 
@@ -68,6 +69,7 @@ extension MediaKindLabel on MediaKind {
     MediaKind.video => '视频',
     MediaKind.voice => '音声',
     MediaKind.novel => '小说',
+    MediaKind.tavern => '酒馆',
     MediaKind.game => '游戏',
     MediaKind.article => '吃瓜',
   });
@@ -92,6 +94,7 @@ enum SourceCategory {
   other('创作社区'),
   live('直播'),
   novel('小说'),
+  tavern('酒馆'),
   asmr('音声');
 
   const SourceCategory(this._label);
@@ -108,7 +111,7 @@ enum SourceCategory {
     recording ||
     live ||
     novel => ContentDimension.threeD,
-    other || feed || asmr || onlineGame => null,
+    other || feed || asmr || onlineGame || tavern => null,
   };
 
   ContentMedia get media => switch (this) {
@@ -121,7 +124,12 @@ enum SourceCategory {
     recording ||
     live => ContentMedia.video,
     asmr => ContentMedia.voice,
-    novel || game || onlineGame || other || feed => ContentMedia.other,
+    novel ||
+    game ||
+    onlineGame ||
+    other ||
+    feed ||
+    tavern => ContentMedia.other,
   };
 
   static SourceCategory fromJson(Object? value) => SourceCategory.values

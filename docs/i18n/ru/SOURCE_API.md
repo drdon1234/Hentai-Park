@@ -72,8 +72,8 @@ Park.register({
   name: '我的站点',
   version: '0.0.1',
   minAppVersion: '0.9.2',           // три числа; если в репозитории версия выше, приложение предложит обновиться
-  type: 'comic',              // comic | video | voice | novel | game | article: поведение материала
-  category: 'doujin',         // doujin | anime | aiDrama | jav | adult | asmr | shortvideo | recording | live | gallery | illustration | novel | game | other
+  type: 'comic',              // comic | video | voice | novel | tavern | game | article: поведение материала
+  category: 'doujin',         // doujin | anime | aiDrama | jav | adult | asmr | shortvideo | recording | live | gallery | illustration | novel | tavern | game | other
   color: '#E5355F',           // фирменный цвет: значок и страница сайта
   description: '一句话介绍',
   homepage: 'https://example.com',
@@ -124,6 +124,7 @@ Park.register({
 | `live` | Прямые эфиры, `type: 'video'` |
 | `asmr` | Аудиопроизведения и видео ASMR; для каталогов используется `type: 'voice'`, для видео допустим `type: 'video'` |
 | `novel` | Новеллы, `type: 'novel'` |
+| `tavern` | Карточки персонажей и книги мира, `type: 'tavern'` |
 | `game` | Информация об играх и ресурсы для загрузки, `type: 'game'` |
 | `onlineGame` | Онлайн-игры, `type: 'game'` |
 | `other` | Сообщества авторов |
@@ -718,3 +719,7 @@ liveChatEvent(state, event) {
 
 
 Адреса форм, скрытые поля, страницы и перенаправления считываются с сайта без фиксированных списков путей, полей и параметров. Нативные заголовки используют `requestHeaders: {'x-cdn-auth': {scope: 'playback-origin'}}` и отправляются только разрешённым ресурсам текущего origin воспроизведения, независимо от расширения.
+
+## Таверна
+
+Источник таверны объявляет `type: 'tavern', category: 'tavern'` и указывает в элементах `mediaKind: 'tavern'` и `tavernKind: 'character' | 'lorebook'`. Реализация `tavernAsset(id)` автоматически включает эту возможность. Возвращайте полный JSON как `{kind, format: 'json', data}` либо PNG со стандартными метаданными карточки как `{kind: 'character', format: 'png', url}`. URL и все перенаправления должны вести на публичный HTTPS без учётных данных в объявленных доменах; предел — 12 МиБ. Не возвращайте только обложку и не выполняйте внешние скрипты.

@@ -74,8 +74,8 @@ Park.register({
   name: '我的站点',
   version: '0.0.1',
   minAppVersion: '0.9.2',           // ثلاثة أرقام؛ يعرض التطبيق التحديث إن كان إصدار المستودع أعلى
-  type: 'comic',              // comic | video | voice | novel | game | article: طريقة عرض المحتوى
-  category: 'doujin',         // doujin | anime | aiDrama | jav | adult | asmr | shortvideo | recording | live | gallery | illustration | novel | game | other
+  type: 'comic',              // comic | video | voice | novel | tavern | game | article: طريقة عرض المحتوى
+  category: 'doujin',         // doujin | anime | aiDrama | jav | adult | asmr | shortvideo | recording | live | gallery | illustration | novel | tavern | game | other
   color: '#E5355F',           // لون العلامة: أيقونة الموقع وصفحته
   description: '一句话介绍',
   homepage: 'https://example.com',
@@ -126,6 +126,7 @@ Park.register({
 | `live` | البث المباشر, `type: 'video'` |
 | `asmr` | الأعمال الصوتية وفيديو ASMR؛ تستخدم مصادر المجلدات `type: 'voice'` ويمكن للفيديو استخدام `type: 'video'` |
 | `novel` | روايات، `type: 'novel'` |
+| `tavern` | بطاقات الشخصيات وكتب العالم, `type: 'tavern'` |
 | `game` | معلومات الألعاب وموارد تنزيلها، `type: 'game'` |
 | `onlineGame` | ألعاب عبر الإنترنت، `type: 'game'` |
 | `other` | مجتمعات المبدعين |
@@ -722,3 +723,7 @@ liveChatEvent(state, event) {
 
 
 تُقرأ وجهات النماذج والحقول المخفية والصفحات وإعادة التوجيه من الموقع دون قوائم ثابتة للمسارات أو الحقول أو المعاملات. تستخدم ترويسات الوسائط الأصلية `requestHeaders: {'x-cdn-auth': {scope: 'playback-origin'}}` ولا ترسل إلا إلى الموارد المصرح بها من مصدر التشغيل الحالي بغض النظر عن الامتداد.
+
+## الحانة
+
+يعلن مصدر الحانة `type: 'tavern', category: 'tavern'` ويضع في عناصر القائمة `mediaKind: 'tavern'` و`tavernKind: 'character' | 'lorebook'`. يفعّل تنفيذ `tavernAsset(id)` هذه القدرة تلقائياً. أعِد JSON كاملاً بصيغة `{kind, format: 'json', data}` أو PNG يحوي بيانات البطاقة القياسية بصيغة `{kind: 'character', format: 'png', url}`. يجب أن يكون العنوان وكل إعادة توجيه HTTPS عاماً دون بيانات اعتماد وضمن النطاقات المعلنة؛ الحد 12 MiB. لا تُعد صورة غلاف فقط ولا تنفذ نصوصاً خارجية.

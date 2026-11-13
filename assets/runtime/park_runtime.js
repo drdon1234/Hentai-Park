@@ -766,6 +766,7 @@
         subscriptionUpdates: !!(def.updateSubscriptions && typeof def.updateSubscriptions.check === 'function'),
         search: typeof def.search === 'function',
         detail: typeof def.detail === 'function',
+        tavernAsset: typeof def.tavernAsset === 'function',
         resolveLink: typeof def.resolveLink === 'function',
         random: typeof def.random === 'function',
         chapter: typeof def.chapter === 'function',

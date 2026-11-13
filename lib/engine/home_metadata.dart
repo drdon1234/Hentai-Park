@@ -69,6 +69,7 @@ class HomeMetadata {
     'commentsAvailable',
     'presentation',
     'mediaKind',
+    'tavernKind',
     'voiceLanguageStatus',
     'voiceMediaForm',
     'voiceNodeType',

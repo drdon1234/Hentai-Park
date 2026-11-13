@@ -16,6 +16,8 @@ import '../data/database.dart';
 import '../engine/source_manager.dart';
 import '../novel/reading_notes.dart';
 import '../subscriptions/subscription_store.dart';
+import '../tavern/backup.dart';
+import '../tavern/store.dart';
 import 'backup_validation.dart';
 import 'library.dart';
 import 'progress_merge.dart';
@@ -93,6 +95,8 @@ class BackupService {
       if (options.settings) 'settings': AppSettings.instance.exportJson(),
       if (options.library) 'readingNotes': ReadingNotes.instance.exportJson(),
       if (options.library) 'subscriptions': await _subscriptions(),
+      if (options.library)
+        'tavern': await exportTavernBackup(Library.instance.db),
       if (options.sources)
         'sources': await SourceManager.instance.exportJson(
           credentials: options.credentials,
@@ -320,6 +324,9 @@ class BackupService {
         report.sources = (s['settings'] as Map?)?.length ?? 0;
       }
       await RestoreTransaction.apply(Library.instance.db, files, () async {
+        if (json['tavern'] case final data?) {
+          await mergeTavernBackup(Library.instance.db, data);
+        }
         if (json['subscriptions'] case final data?) {
           await SubscriptionStore.instance.merge(data);
         }
@@ -333,6 +340,7 @@ class BackupService {
       }, cookies: cookies);
       // 文件与数据库提交成功后才发布新的内存状态；运行时加载失败由源管理界面呈现。
       await Library.instance.open(Library.instance.db);
+      if (json.containsKey('tavern')) TavernStore.instance.restored();
       if (settings is Map) await AppSettings.instance.reload();
       if (files.containsKey('reading_notes.json')) {
         await ReadingNotes.instance.reload();

@@ -2,6 +2,68 @@ part of '../source_manager.dart';
 
 /// Typed calls into a source: feeds, search, details, chapters, media and game resources.
 mixin _SourceApi on _SourceRegistry {
+  /// 站点只提供资源数据或声明域内的下载地址；大文件由原生网络限量读取。
+  Future<({String kind, String format, Uint8List bytes})> tavernAsset(
+    String key,
+    String id, {
+    CancelToken? cancelToken,
+  }) async {
+    final source = manifest(key);
+    if (source?.kind != MediaKind.tavern ||
+        source?.can('tavernAsset') != true) {
+      throw SourceError('UNSUPPORTED', '此站点不支持酒馆资源');
+    }
+    final value = await _call(key, 'tavernAsset', [
+      id,
+    ], cancelToken: cancelToken);
+    if (value is! Map ||
+        !{'character', 'lorebook'}.contains(value['kind']) ||
+        !{'json', 'png'}.contains(value['format'])) {
+      throw SourceError('PARSE', '酒馆资源格式无效');
+    }
+    const limit = 12 * 1024 * 1024;
+    late final Uint8List bytes;
+    if (value['data'] is Map && value['format'] == 'json') {
+      bytes = Uint8List.fromList(utf8.encode(jsonEncode(value['data'])));
+      if (bytes.length > limit) throw SourceError('PARSE', '酒馆资源过大');
+    } else if (value['url'] is String) {
+      final uri = Uri.tryParse(value['url'] as String);
+      final domains = declaredDomains(source!.json);
+      if (!httpsDomainAddressAllowed(uri, domains) || uri!.hasFragment) {
+        throw SourceError('PARSE', '酒馆资源地址无效');
+      }
+      final response = await HttpService.instance.send(
+        method: 'GET',
+        url: uri.toString(),
+        partition: key,
+        maxBytes: limit,
+        cancelToken: cancelToken,
+        beforeRequest: (target) async {
+          if (!httpsDomainAddressAllowed(target, domains) ||
+              target.hasFragment) {
+            throw SourceError('CONFIG', '访问受限');
+          }
+        },
+      );
+      if (!response.ok) {
+        throw SourceError(
+          'HTTP',
+          'HTTP {status}',
+          params: {'status': response.status},
+        );
+      }
+      bytes = response.bytes;
+    } else {
+      throw SourceError('PARSE', '酒馆资源格式无效');
+    }
+    if (bytes.isEmpty) throw SourceError('PARSE', '酒馆资源格式无效');
+    return (
+      kind: value['kind'] as String,
+      format: value['format'] as String,
+      bytes: bytes,
+    );
+  }
+
   T _validateMetadata<T extends MetadataCandidate>(String key, T item) {
     final source = manifest(key);
     if (source == null ||

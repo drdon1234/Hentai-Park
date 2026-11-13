@@ -2,10 +2,12 @@ import '../core/settings_validation.dart';
 import '../engine/source_manager.dart';
 import '../novel/reading_notes.dart';
 import '../subscriptions/subscription_store.dart';
+import '../tavern/backup.dart';
 
 /// 恢复输入在任何持久化前完整校验；不静默跳过损坏的用户资产。
 void validateBackup(Map<String, dynamic> json) {
   Never invalid() => throw const FormatException('备份数据无效');
+  if (json['tavern'] case final data?) validateTavernBackup(data);
   for (final name in ['library', 'settings', 'sources']) {
     if (json[name] != null && json[name] is! Map) invalid();
   }

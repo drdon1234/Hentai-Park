@@ -172,7 +172,7 @@ export async function generateIndex({ root = defaultRoot, commit, previousIndex,
     keys.add(key);
     requiredText(entry.name, `${key} name`);
     if (typeof entry.description !== 'string') throw new Error(`${key} description 必须是字符串`);
-    if (!['feed', 'doujin', 'anime', 'aiDrama', 'jav', 'adult', 'shortvideo', 'recording', 'gallery', 'illustration', 'novel', 'game', 'onlineGame', 'other', 'live', 'asmr'].includes(entry.category)) {
+    if (!['feed', 'doujin', 'anime', 'aiDrama', 'jav', 'adult', 'shortvideo', 'recording', 'gallery', 'illustration', 'novel', 'tavern', 'game', 'onlineGame', 'other', 'live', 'asmr'].includes(entry.category)) {
       throw new Error(`${key} category 必须是有效的内容分类`);
     }
     versionParts(entry.version);
@@ -202,6 +202,9 @@ export async function generateIndex({ root = defaultRoot, commit, previousIndex,
     }
     if (entry.category === 'onlineGame' && (entry.type !== 'game' || manifest.type !== 'game' || !manifest.capabilities.detail || !manifest.capabilities.onlineGame)) {
       throw new Error(`${entry.file} 的在线游戏类型或运行能力无效`);
+    }
+    if (entry.category === 'tavern' && (entry.type !== 'tavern' || manifest.type !== 'tavern' || !manifest.capabilities.detail || !manifest.capabilities.tavernAsset)) {
+      throw new Error(`${entry.file} 的酒馆类型或资源能力无效`);
     }
     validateMedia(manifest);
     validateChat(manifest);

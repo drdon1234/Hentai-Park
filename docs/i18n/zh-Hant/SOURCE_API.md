@@ -72,8 +72,8 @@ Park.register({
   name: '我的站点',
   version: '0.0.1',
   minAppVersion: '0.9.2',           // 三段数字，仓库版本更高时应用提示更新
-  type: 'comic',              // comic | video | voice | novel | game | article：決定內容行為
-  category: 'doujin',         // doujin | anime | aiDrama | jav | adult | asmr | shortvideo | recording | live | gallery | illustration | novel | game | other
+  type: 'comic',              // comic | video | voice | novel | tavern | game | article：決定內容行為
+  category: 'doujin',         // doujin | anime | aiDrama | jav | adult | asmr | shortvideo | recording | live | gallery | illustration | novel | tavern | game | other
   color: '#E5355F',           // 品牌色：站点头像与站点页
   description: '一句话介绍',
   homepage: 'https://example.com',
@@ -124,6 +124,7 @@ Park.register({
 | `live` | 直播, `type: 'video'` |
 | `asmr` | 音聲、同人音聲及 ASMR 影片；目錄來源使用 `type: 'voice'`，影片來源可使用 `type: 'video'` |
 | `novel` | 小說，`type: 'novel'` |
+| `tavern` | 角色卡與世界書，`type: 'tavern'` |
 | `game` | 遊戲資訊與下載資源，`type: 'game'` |
 | `onlineGame` | 線上遊戲，`type: 'game'` |
 | `other` | 創作社群 |
@@ -718,3 +719,7 @@ liveChatEvent(state, event) {
 
 
 表單 action、隱藏欄位、分頁與重新導向直接依原站解析，不維護路徑、欄位或參數白名單。原生媒體標頭使用 `requestHeaders: {'x-cdn-auth': {scope: 'playback-origin'}}`，不按副檔名限制，僅傳送至目前播放來源已授權的同源資源。
+
+## 酒館
+
+酒館來源宣告 `type: 'tavern', category: 'tavern'`，列表作品填寫 `mediaKind: 'tavern'` 和 `tavernKind: 'character' | 'lorebook'`。實作 `tavernAsset(id)` 會自動匯出同名能力：回傳完整 JSON 物件 `{kind, format: 'json', data}`，或含標準卡片中繼資料的 PNG `{kind: 'character', format: 'png', url}`。下載位址與每次重新導向必須是宣告域內無憑據的公開 HTTPS；資源上限 12 MiB。不可回傳只有封面的圖片或執行外部腳本。

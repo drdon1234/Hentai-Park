@@ -72,8 +72,8 @@ Park.register({
   name: '我的站点',
   version: '0.0.1',
   minAppVersion: '0.9.2',           // 3 つの数字。リポジトリの方が新しいと更新を案内
-  type: 'comic',              // comic | video | voice | novel | game | article：コンテンツの動作を決める
-  category: 'doujin',         // doujin | anime | aiDrama | jav | adult | asmr | shortvideo | recording | live | gallery | illustration | novel | game | other
+  type: 'comic',              // comic | video | voice | novel | tavern | game | article：コンテンツの動作を決める
+  category: 'doujin',         // doujin | anime | aiDrama | jav | adult | asmr | shortvideo | recording | live | gallery | illustration | novel | tavern | game | other
   color: '#E5355F',           // ブランドカラー：サイトのアイコンとサイトページ
   description: '一句话介绍',
   homepage: 'https://example.com',
@@ -124,6 +124,7 @@ Park.register({
 | `live` | ライブ配信, `type: 'video'` |
 | `asmr` | 音声作品と ASMR 動画。フォルダー型は `type: 'voice'`、動画型は `type: 'video'` も使用可能 |
 | `novel` | 小説、`type: 'novel'` |
+| `tavern` | キャラクターカードと世界設定集、`type: 'tavern'` |
 | `game` | ゲーム情報とダウンロード資料、`type: 'game'` |
 | `onlineGame` | オンラインゲーム、`type: 'game'` |
 | `other` | クリエイターコミュニティ |
@@ -729,3 +730,7 @@ liveChatEvent(state, event) {
 
 
 フォームの action、隠しフィールド、ページ送り、リダイレクトはサイトから取得し、固定のパス・フィールド・パラメータ一覧で制限しません。ネイティブ媒体ヘッダーは `requestHeaders: {'x-cdn-auth': {scope: 'playback-origin'}}` とし、拡張子によらず現在の再生元と同一オリジンの許可済みリソースだけに送ります。
+
+## 酒場
+
+酒場ソースは `type: 'tavern', category: 'tavern'` を宣言し、一覧項目に `mediaKind: 'tavern'` と `tavernKind: 'character' | 'lorebook'` を設定します。`tavernAsset(id)` の実装で能力が自動公開されます。完全な JSON は `{kind, format: 'json', data}`、標準カード情報を含む PNG は `{kind: 'character', format: 'png', url}` を返します。URL と全リダイレクトは宣言ドメイン内の認証情報を含まない公開 HTTPS に限り、上限は 12 MiB です。表紙のみの画像や外部スクリプトを使わないでください。

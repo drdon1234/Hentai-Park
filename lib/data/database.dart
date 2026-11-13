@@ -4,6 +4,7 @@ import 'package:drift/drift.dart';
 import 'package:drift/native.dart';
 
 import '../subscriptions/schema.dart';
+import '../tavern/schema.dart';
 
 part 'database.g.dart';
 
@@ -126,13 +127,14 @@ class AppDatabase extends _$AppDatabase {
   factory AppDatabase.memory() => AppDatabase(NativeDatabase.memory());
 
   @override
-  int get schemaVersion => 6;
+  int get schemaVersion => 7;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
     onCreate: (m) async {
       await m.createAll();
       await createSubscriptionTables(this);
+      await createTavernTables(this);
       await customStatement(
         'CREATE INDEX IF NOT EXISTS idx_works_favorite ON works (favorite)',
       );
@@ -150,6 +152,7 @@ class AppDatabase extends _$AppDatabase {
       if (from < 4) await m.addColumn(chapters, chapters.progressUpdatedAt);
       if (from < 5) await m.createTable(restoreCheckpoints);
       if (from < 6) await createSubscriptionTables(this);
+      if (from < 7) await createTavernTables(this);
     },
     beforeOpen: (details) async {
       await customStatement('PRAGMA foreign_keys = ON');

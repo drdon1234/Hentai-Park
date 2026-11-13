@@ -72,8 +72,8 @@ Park.register({
   name: '我的站点',
   version: '0.0.1',
   minAppVersion: '0.9.2',           // tres números; la app ofrece actualizar si el repositorio tiene uno mayor
-  type: 'comic',              // comic | video | voice | novel | game | article: comportamiento del contenido
-  category: 'doujin',         // doujin | anime | aiDrama | jav | adult | asmr | shortvideo | recording | live | gallery | illustration | novel | game | other
+  type: 'comic',              // comic | video | voice | novel | tavern | game | article: comportamiento del contenido
+  category: 'doujin',         // doujin | anime | aiDrama | jav | adult | asmr | shortvideo | recording | live | gallery | illustration | novel | tavern | game | other
   color: '#E5355F',           // color de marca: icono y página del sitio
   description: '一句话介绍',
   homepage: 'https://example.com',
@@ -124,6 +124,7 @@ Las capacidades (`capabilities`) las exporta el entorno a partir de los métodos
 | `live` | Directos, `type: 'video'` |
 | `asmr` | Obras de voz y vídeos ASMR; las fuentes de carpetas usan `type: 'voice'` y las de vídeo pueden usar `type: 'video'` |
 | `novel` | Novelas, `type: 'novel'` |
+| `tavern` | Tarjetas y libros de mundo, `type: 'tavern'` |
 | `game` | Información y recursos de descarga de juegos, `type: 'game'` |
 | `onlineGame` | Juegos en línea, `type: 'game'` |
 | `other` | Comunidades de creadores |
@@ -729,3 +730,7 @@ liveChatEvent(state, event) {
 
 
 Lee acciones de formularios, campos ocultos, paginación y redirecciones del sitio sin listas fijas de rutas, campos o parámetros. Los encabezados nativos usan `requestHeaders: {'x-cdn-auth': {scope: 'playback-origin'}}` y solo se envían a recursos autorizados del origen de reproducción actual, sin limitar extensiones.
+
+## Taberna
+
+Una fuente de taberna declara `type: 'tavern', category: 'tavern'` y usa `mediaKind: 'tavern'` y `tavernKind: 'character' | 'lorebook'` en sus elementos. `tavernAsset(id)` publica esa capacidad: devuelve el JSON completo como `{kind, format: 'json', data}`, o un PNG con metadatos de tarjeta como `{kind: 'character', format: 'png', url}`. La URL y cada redirección deben usar HTTPS público sin credenciales dentro de los dominios declarados; límite: 12 MiB. No devuelvas una imagen que solo sea portada ni ejecutes scripts externos.

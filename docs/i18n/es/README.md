@@ -44,6 +44,7 @@ Configura el acceso en Más → Sitios y el proxy en Más → Red cuando sea nec
 
 | Función | Qué ofrece |
 | --- | --- |
+| Taberna | Tarjetas, libros de mundo y tu propio servicio de IA, con personajes de usuario, edición, continuación e importación/exportación. |
 | Voz y ASMR | Carpetas, filtros por idioma y tipo de contenido, reproducción continua y subtítulos sincronizados. La reproducción en segundo plano está desactivada por defecto y se activa en el reproductor. |
 | Descubrir y buscar | Filtra por 2D, 3D y tipo de contenido; busca en varios sitios o abre una obra con un enlace o código. |
 | Leer y ver | Artículos de cotilleos y vídeos; cómics con desplazamiento, páginas y doble página; episodios, velocidad y reanudación de vídeo; marcadores, notas y lectura de novelas en voz alta. |
@@ -63,6 +64,8 @@ Configura el acceso en Más → Sitios y el proxy en Más → Red cuando sea nec
 <a id="faq"></a>
 
 ## Limitaciones y preguntas
+
+La taberna requiere tu propio servicio de IA compatible con OpenAI. Los mensajes, ajustes del personaje, personaje del usuario y contenido coincidente de los libros se envían al servicio y pueden generar cargos. Consulta [Sitios y servicios](SITES.md) para las reglas e importación y exportación. Los recursos y conversaciones guardados se incluyen en copias sin cifrar; los ajustes de IA y las claves quedan excluidos.
 
 La lectura, reproducción, comentarios, suscripciones y descargas dependen de cada sitio. Consulta las opciones disponibles en la app. Las actualizaciones de sitios pueden exigir actualizar la app.
 

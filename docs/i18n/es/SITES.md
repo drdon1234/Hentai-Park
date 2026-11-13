@@ -28,6 +28,7 @@ La comprobación de actualizaciones pide confirmación para eliminar plugins ofi
 | Directos | Stripchat 亚洲直播 · CAM4 · SOOP · XloveCam · SinParty |
 | Comunidades de creadores | Pixiv · Reddit · X / Twitter · myfans.jp · pixivFANBOX · Telegram |
 | Novelas | Cool18 · Book18 · Canovel · 69story · Literotica · Lush Stories · StoriesOnline |
+| Taberna | Chub AI · Character Tavern |
 | Recursos de juegos | KUN Galgame · GalgameX · 次元茶馆 |
 | Juegos en línea | itch.io · Gamcore |
 
@@ -63,3 +64,13 @@ Usa Buscar información de obras en una categoría para acceder a sus proveedore
 Solo se muestran datos proporcionados por la fuente; puede no haber imágenes o magnets. Los magnets requieren una app externa compatible; esta app no descarga el contenido torrent. JavBus puede requerir VPN o proxy y verificación regional de edad dentro de la app.
 
 Cambia entre JavBus y JavDB en la página de información; se muestran las valoraciones si la fuente las ofrece.
+
+## Conversaciones de taberna
+
+Explora Chub AI y Character Tavern o importa tarjetas PNG/JSON, libros de mundo JSON y conversaciones exportadas por esta aplicación desde Guardados y conversaciones. Guardar localmente conserva el recurso; exportar el archivo original no lo guarda automáticamente.
+
+Configura un servicio de IA compatible con OpenAI para elegir saludo, nombre y personaje del usuario por conversación y libros de mundo. Puedes editar mensajes, eliminar uno y los posteriores, crear ramas, regenerar y alternar respuestas o continuar la última. Se admite Markdown sin ejecutar scripts ni cargar imágenes automáticamente. La exportación incluye recursos del personaje, libros, personaje del usuario y mensajes, pero no la clave API. Los archivos no están cifrados: guárdalos de forma segura.
+
+El modo incógnito impide guardar cambios en conversaciones nuevas y existentes. Una vez activado en una conversación abierta, desactivarlo no guarda retroactivamente los mensajes privados. Las importaciones, exportaciones y guardados explícitos sí escriben datos. Los mensajes, ajustes del personaje, personaje del usuario y contenido coincidente de los libros se envían al servicio de IA elegido y pueden generar cargos. El contexto incluye entrada y salida; el historial se recorta con una estimación conservadora. Al alcanzar el límite de salida puedes ajustar los parámetros y reintentar o continuar.
+
+Los libros admiten palabras clave, entradas constantes, mayúsculas, palabras completas, lógica secundaria, probabilidad, profundidad, recursión, presupuesto, prioridad e inserción antes o después del personaje. Las claves regex, grupos, enfriamiento, retraso, persistencia y otras posiciones no son compatibles y se advierte al detectarlas. Se conservan los datos originales. Las tarjetas con extensiones complejas de SillyTavern pueden comportarse de otra manera.

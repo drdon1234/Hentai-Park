@@ -72,8 +72,8 @@ Park.register({
   name: '我的站点',
   version: '0.0.1',
   minAppVersion: '0.9.2',           // three numbers; the app offers an update when the repository has a higher one
-  type: 'comic',              // comic | video | voice | novel | game | article: how content is used
-  category: 'doujin',         // doujin | anime | aiDrama | jav | adult | asmr | shortvideo | recording | live | gallery | illustration | novel | game | other
+  type: 'comic',              // comic | video | voice | novel | tavern | game | article: how content is used
+  category: 'doujin',         // doujin | anime | aiDrama | jav | adult | asmr | shortvideo | recording | live | gallery | illustration | novel | tavern | game | other
   color: '#E5355F',           // brand color: site avatar and site page
   description: '一句话介绍',
   homepage: 'https://example.com',
@@ -124,6 +124,7 @@ Capabilities are exported by the runtime from the methods a plugin implements; d
 | `live` | Live streams, `type: 'video'` |
 | `asmr` | Voice works and ASMR videos; directory sources use `type: 'voice'`, video sources may use `type: 'video'` |
 | `novel` | Novels, `type: 'novel'` |
+| `tavern` | Character cards and lorebooks, `type: 'tavern'` |
 | `game` | Game information and download resources, `type: 'game'` |
 | `onlineGame` | Online games, `type: 'game'` |
 | `other` | Creator communities |
@@ -729,3 +730,7 @@ liveChatEvent(state, event) {
 
 
 Read form actions, hidden fields, pagination and redirects from the site without fixed path, field or parameter allow-lists. Native media headers use `requestHeaders: {'x-cdn-auth': {scope: 'playback-origin'}}`; values apply only to authorized resources at the current playback origin, regardless of extension.
+
+## Tavern
+
+A tavern source declares `type: 'tavern', category: 'tavern'` and returns list items with `mediaKind: 'tavern'` and `tavernKind: 'character' | 'lorebook'`. Implementing `tavernAsset(id)` exports that capability. Return a complete JSON object as `{kind, format: 'json', data}`, or a PNG containing standard card metadata as `{kind: 'character', format: 'png', url}`. The URL and every redirect must use credential-free public HTTPS within declared domains; the limit is 12 MiB. Do not return a cover-only image or execute external scripts.
