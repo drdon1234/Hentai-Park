@@ -5,6 +5,7 @@ import '../../core/localization.dart';
 import '../../core/models.dart';
 import '../../engine/source_manager.dart';
 import '../voice/voice_work_filters.dart';
+import '../widgets/content_translation.dart';
 import '../widgets/paged_grid.dart';
 
 /// 保留原站查询中的全部筛选语义，不把链接强行转换为应用的筛选表单。
@@ -48,7 +49,10 @@ class _SourceLinkSearchPageState extends State<SourceLinkSearchPage> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: Text(tr('原站链接搜索'))),
+    appBar: AppBar(
+      title: Text(tr('原站链接搜索')),
+      actions: const [TranslationControls()],
+    ),
     body: RefreshIndicator(
       onRefresh: () => controller.refresh(retainItems: true),
       child: CustomScrollView(

@@ -4,6 +4,7 @@ import '../../core/localization.dart';
 import '../kit/adaptive_sheet.dart';
 import '../kit/kit.dart';
 import '../theme.dart';
+import '../widgets/content_translation.dart';
 import 'novel_settings_sheet.dart';
 
 /// Chapter title and progress under the text. It is part of the layout whether or not
@@ -44,7 +45,11 @@ class NovelStatusLine extends StatelessWidget {
                 ),
               ),
             Expanded(
-              child: Text(title, maxLines: 1, overflow: TextOverflow.ellipsis),
+              child: TranslatedText(
+                title,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
             ),
             Text(progress),
           ],

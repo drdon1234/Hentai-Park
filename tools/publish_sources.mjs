@@ -47,15 +47,13 @@ function validateMedia(manifest) {
       const rules = media.requestHeaders;
       if (image || media.mode !== 'native' || !rules || typeof rules !== 'object' || Array.isArray(rules) || Object.keys(rules).length > 8) fail();
       for (const [name, rule] of Object.entries(rules)) {
-        if (!/^x-[a-z0-9-]{1,60}$/.test(name) || !rule || !session || rule.scope !== 'playback-origin' || 'domains' in rule ||
-            !Array.isArray(rule.extensions) || !rule.extensions.length || rule.extensions.length > 8 ||
-            rule.extensions.some(ext => typeof ext !== 'string' || !/^[a-z0-9]{1,8}$/.test(ext))) fail();
+        if (!/^x-[a-z0-9-]{1,60}$/.test(name) || !rule || !session || rule.scope !== 'playback-origin' || 'domains' in rule) fail();
       }
     }
     if (referrers != null && (!Array.isArray(referrers) || image || media.mode !== 'native' ||
         referrers.length > 16 || referrers.some(domain => !publicHost(domain)))) fail();
     if (!['native', 'browser'].includes(media.mode) ||
-        (media.scope != null && !session) || (session && media.mode !== 'native') ||
+        (media.scope != null && !session) ||
         typeof media.origin !== 'string' || !/^https:\/\/[^/]/i.test(media.origin) || /[?#\\\s]/.test(media.origin)) fail();
     let origin;
     try { origin = new URL(media.origin); } catch { fail(); }

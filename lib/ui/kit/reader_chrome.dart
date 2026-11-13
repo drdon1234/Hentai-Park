@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../core/localization.dart';
+import '../widgets/content_translation.dart';
 import 'tokens.dart';
 
 /// The immersive control layer shared by the comic, novel and video readers: tap the middle to
@@ -13,6 +14,7 @@ class ReaderChrome extends StatelessWidget {
     required this.child,
     required this.title,
     this.subtitle,
+    this.subtitleNote,
     this.actions = const [],
     this.bottom,
     this.barColor = Scrims.strong,
@@ -24,6 +26,7 @@ class ReaderChrome extends StatelessWidget {
   final Widget child;
   final String title;
   final String? subtitle;
+  final String? subtitleNote;
   final List<Widget> actions;
   final Widget? bottom;
   final Color barColor;
@@ -137,7 +140,7 @@ class ReaderChrome extends StatelessWidget {
                                             mainAxisAlignment:
                                                 MainAxisAlignment.center,
                                             children: [
-                                              Text(
+                                              TranslatedText(
                                                 title,
                                                 maxLines: 1,
                                                 overflow: TextOverflow.ellipsis,
@@ -146,20 +149,28 @@ class ReaderChrome extends StatelessWidget {
                                                       color: foreground,
                                                     ),
                                               ),
-                                              if (subtitle != null &&
-                                                  subtitle!.isNotEmpty)
-                                                Text(
-                                                  subtitle!,
-                                                  maxLines: 1,
-                                                  overflow:
-                                                      TextOverflow.ellipsis,
-                                                  style: text.bodySmall
-                                                      ?.copyWith(
-                                                        color: foreground
-                                                            .withValues(
-                                                              alpha: .7,
-                                                            ),
-                                                      ),
+                                              if (subtitle?.isNotEmpty ==
+                                                      true ||
+                                                  subtitleNote != null)
+                                                ContentTranslation(
+                                                  text: subtitle ?? '',
+                                                  builder: (value) => Text(
+                                                    [
+                                                      if (value.isNotEmpty)
+                                                        value,
+                                                      ?subtitleNote,
+                                                    ].join(' · '),
+                                                    maxLines: 1,
+                                                    overflow:
+                                                        TextOverflow.ellipsis,
+                                                    style: text.bodySmall
+                                                        ?.copyWith(
+                                                          color: foreground
+                                                              .withValues(
+                                                                alpha: .7,
+                                                              ),
+                                                        ),
+                                                  ),
                                                 ),
                                             ],
                                           ),

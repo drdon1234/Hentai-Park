@@ -14,6 +14,7 @@ import '../widgets/adaptive_cover.dart';
 import '../widgets/common.dart';
 import '../widgets/content_translation.dart';
 import '../widgets/cover_hero.dart';
+import '../widgets/text_translation.dart';
 import '../widgets/work_editions.dart';
 
 /// Detail page header: a pinned bar whose title appears once the cover scrolls away, then the
@@ -27,6 +28,7 @@ class DetailHeader extends StatefulWidget {
     required this.coverHeroTag,
     this.overview = const [],
     this.body = const [],
+    this.actions = const [],
   });
   final WorkItem item;
   final WorkDetail? detail;
@@ -39,6 +41,7 @@ class DetailHeader extends StatefulWidget {
   /// The rest of the page. It lives in the same group as the app bar, because a pinned
   /// header only stays pinned while its group is on screen.
   final List<Widget> body;
+  final List<Widget> actions;
 
   @override
   State<DetailHeader> createState() => _DetailHeaderState();
@@ -171,6 +174,7 @@ class _DetailHeaderState extends State<DetailHeader> {
               pinned: true,
               title: _CollapsingTitle(item: item),
               actions: [
+                ...widget.actions,
                 if (_canSubscribe)
                   IconButton(
                     tooltip: tr('订阅作品更新'),
@@ -347,12 +351,14 @@ class _DetailHeaderState extends State<DetailHeader> {
         ContentTranslation(
           text: item.title,
           source: item.source,
-          builder: (value) => SelectableText(
-            value,
-            minLines: 1,
-            style: ParkText.serif(
-              large ? context.text.headlineSmall : context.text.titleLarge,
-            )?.copyWith(fontWeight: FontWeight.w600, height: 1.3),
+          builder: (value) => TranslationSelectionArea(
+            child: Text(
+              value,
+              softWrap: true,
+              style: ParkText.serif(
+                large ? context.text.headlineSmall : context.text.titleLarge,
+              )?.copyWith(fontWeight: FontWeight.w600, height: 1.3),
+            ),
           ),
         ),
         if (item.subtitle.isNotEmpty && item.subtitle != item.title) ...[
@@ -362,8 +368,7 @@ class _DetailHeaderState extends State<DetailHeader> {
             source: item.source,
             builder: (value) => Text(
               value,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
+              softWrap: true,
               style: context.text.bodyMedium?.copyWith(
                 color: c.onSurfaceVariant,
               ),

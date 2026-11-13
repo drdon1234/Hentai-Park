@@ -8,12 +8,12 @@ Park.register({
     ru: {'真人 ASMR 视频，支持浏览和搜索': 'Просмотр и поиск ASMR-видео с актёрами'},
     ar: {'真人 ASMR 视频，支持浏览和搜索': 'تصفح فيديوهات ASMR الحية والبحث فيها'},
   },
-  key: 'eroasmr', name: 'EroASMR', version: '0.0.3', minAppVersion: '0.13.3',
+  key: 'eroasmr', name: 'EroASMR', version: '0.0.4', minAppVersion: '0.13.6',
   type: 'video', category: 'asmr', color: '#6B5676',
   description: '真人 ASMR 视频，支持浏览和搜索',
   homepage: 'https://eroasmr.com', domains: ['eroasmr.com'],
   network: {vpnHint: true},
-  media: {mode: 'native', origin: 'https://eroasmr.com', domains: ['eroasmr.com']},
+  media: {mode: 'native', scope: 'session', origin: 'https://eroasmr.com'},
   imageHeaders: {Referer: 'https://eroasmr.com/'},
   defaultFeed: 'latest', feeds: [{key: 'latest', label: '最新', options: [{key: 'category', label: '分类', default: '', dynamic: true, values: []}]}],
   searchFilters: [{key: 'category', label: '分类', default: '', dynamic: true, values: []}],
@@ -127,7 +127,6 @@ Park.register({
     let url;
     try { url = new URL(raw, this.BASE); } catch (_) {}
     if (!url || url.protocol !== 'https:' || url.username || url.password ||
-        !(url.hostname === 'eroasmr.com' || url.hostname.endsWith('.eroasmr.com')) ||
         !/\.mp4$/i.test(url.pathname)) throw Park.error('UNSUPPORTED', '此影片暂无可用播放地址');
     return [{url: url.href, format: 'mp4', label: '原画', preferred: true,
       headers: {Referer: this.BASE + '/video/' + id + '/'}}];

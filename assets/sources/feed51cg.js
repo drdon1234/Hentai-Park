@@ -1,7 +1,7 @@
 /* 由 tools/build_feed_sources.mjs 生成；请修改模板与站点配置。 */
 (function () {
   'use strict';
-  const SITE = {"key":"feed51cg","name":"51吃瓜网","names":{"zh-Hant":"51吃瓜網","en":"51CG","ja":"51吃瓜網","ko":"51CG","es":"51CG","ru":"51CG","ar":"51CG"},"home":"https://51cg1.com","domain":"51cg1.com","imageDomain":"pic.gyezbp.cn","hostPattern":"^(?:www\\.)?51cg[0-9]+\\.com$","linkPattern":"(?:www\\.)?51cg[0-9]+\\.com"};
+  const SITE = {"key":"feed51cg","name":"51吃瓜网","names":{"zh-Hant":"51吃瓜網","en":"51CG","ja":"51吃瓜網","ko":"51CG","es":"51CG","ru":"51CG","ar":"51CG"},"home":"https://51cg1.com","domain":"51cg1.com","hostPattern":"^(?:www\\.)?51cg[0-9]+\\.com$","linkPattern":"(?:www\\.)?51cg[0-9]+\\.com"};
   const catalogCache = new Map();
   const option = (key, label) => ({key, label, type: 'multi', default: [], dynamic: true, values: []});
   const text = node => Park.html.text(node);
@@ -167,7 +167,7 @@
     return result;
   }
   Park.register({
-    key: SITE.key, name: SITE.name, version: '0.0.9', minAppVersion: '0.11.0',
+    key: SITE.key, name: SITE.name, version: '0.0.10', minAppVersion: '0.13.6',
     type: 'article', category: 'feed', color: '#488A7B', language: 'zh',
     description: '吃瓜图文，支持分类、标签、搜索与视频',
     i18n: {
@@ -180,7 +180,7 @@
       ar: {[SITE.name]: SITE.names['ar'],'吃瓜图文，支持分类、标签、搜索与视频':'مقالات مصورة مع تصنيفات ووسوم وبحث وفيديو'},
     },
     homepage: SITE.homepage || SITE.home, domains: [SITE.domain], network: {mode: 'native', vpnHint: true},
-    imageDecrypt: {type: 'aes-cbc', key: 'f5d965df75336270', iv: '97b60394abc2fbe1', domains: [SITE.imageDomain]},
+    imageDecrypt: {type: 'aes-cbc', key: 'f5d965df75336270', iv: '97b60394abc2fbe1'},
     media: {mode: 'native', scope: 'session', origin: SITE.home},
     linkPatterns: [SITE.linkPattern + '/archives/([1-9]\\d{0,14})(?:\\.html|/)(?:[?#]|$)'],
     idPattern: '^([1-9]\\d{0,14})$',

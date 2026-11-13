@@ -65,55 +65,64 @@ Future<int?> showChapterDirectory(
   final selected = await showAdaptiveSheet<int>(
     context: context,
     isScrollControlled: true,
-    builder: (ctx) => StatefulBuilder(
-      builder: (ctx, update) {
-        final indices = [
-          for (var i = 0; i < chapters.length; i++)
-            if (chapters[i].title.toLowerCase().contains(query.toLowerCase()))
-              i,
-        ];
-        if (reversed) indices.sort((a, b) => b.compareTo(a));
-        return _ListSheet(
-          title: tr('目录'),
-          height: .8,
-          action: OutlinedButton(
-            onPressed: () => update(() => reversed = !reversed),
-            child: SelectionContainer.disabled(child: Text(tr('倒序'))),
-          ),
-          field: TextField(
-            controller: controller,
-            decoration: InputDecoration(hintText: tr('搜索章节')),
-            onChanged: (v) => update(() => query = v),
-          ),
-          list: ListView.builder(
-            itemCount: indices.length,
-            itemBuilder: (ctx, i) {
-              final index = indices[i], chapter = chapters[index];
-              return ListTile(
-                selected: index == current,
-                title: SelectionContainer.disabled(
-                  child: ContentTranslation(
-                    text: chapter.title,
-                    builder: Text.new,
-                  ),
+    builder: (ctx) => TranslationPage(
+      child: StatefulBuilder(
+        builder: (ctx, update) {
+          final indices = [
+            for (var i = 0; i < chapters.length; i++)
+              if (chapters[i].title.toLowerCase().contains(query.toLowerCase()))
+                i,
+          ];
+          if (reversed) indices.sort((a, b) => b.compareTo(a));
+          return _ListSheet(
+            title: tr('目录'),
+            height: .8,
+            action: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const TranslationControls(),
+                OutlinedButton(
+                  onPressed: () => update(() => reversed = !reversed),
+                  child: SelectionContainer.disabled(child: Text(tr('倒序'))),
                 ),
-                subtitle:
-                    Library.instance.chapterState(uid, chapter.id)?.read == true
-                    ? SelectionContainer.disabled(child: Text(tr('已读')))
-                    : null,
-                trailing:
-                    DownloadManager.instance.isChapterDownloaded(
-                      uid,
-                      chapter.id,
-                    )
-                    ? Icon(Icons.download_done, semanticLabel: tr('已下载'))
-                    : null,
-                onTap: () => Navigator.pop(ctx, index),
-              );
-            },
-          ),
-        );
-      },
+              ],
+            ),
+            field: TextField(
+              controller: controller,
+              decoration: InputDecoration(hintText: tr('搜索章节')),
+              onChanged: (v) => update(() => query = v),
+            ),
+            list: ListView.builder(
+              itemCount: indices.length,
+              itemBuilder: (ctx, i) {
+                final index = indices[i], chapter = chapters[index];
+                return ListTile(
+                  selected: index == current,
+                  title: SelectionContainer.disabled(
+                    child: ContentTranslation(
+                      text: chapter.title,
+                      builder: Text.new,
+                    ),
+                  ),
+                  subtitle:
+                      Library.instance.chapterState(uid, chapter.id)?.read ==
+                          true
+                      ? SelectionContainer.disabled(child: Text(tr('已读')))
+                      : null,
+                  trailing:
+                      DownloadManager.instance.isChapterDownloaded(
+                        uid,
+                        chapter.id,
+                      )
+                      ? Icon(Icons.download_done, semanticLabel: tr('已下载'))
+                      : null,
+                  onTap: () => Navigator.pop(ctx, index),
+                );
+              },
+            ),
+          );
+        },
+      ),
     ),
   );
   controller.dispose();

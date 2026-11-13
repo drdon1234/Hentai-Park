@@ -250,11 +250,10 @@ class ImageStore {
             );
           }
 
-          Uint8List checked(Uint8List encrypted, String finalUrl) {
+          Uint8List checked(Uint8List encrypted) {
             final bytes =
                 decryption?.decode(
                   encrypted,
-                  finalUrl,
                   looksLikeImage: (data) =>
                       data.length >= 64 && _looksLikeImage(data),
                 ) ??
@@ -272,7 +271,7 @@ class ImageStore {
               maxBytes: 20 * 1024 * 1024,
               cancelToken: token,
             );
-            return checked(result.bytes, result.url.toString());
+            return checked(result.bytes);
           }
 
           Future<Uint8List> viaNative() async {
@@ -301,7 +300,7 @@ class ImageStore {
                 url: url,
               );
             }
-            return checked(res.bytes, res.url);
+            return checked(res.bytes);
           }
 
           final Uint8List bytes;

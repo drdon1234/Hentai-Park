@@ -9,6 +9,7 @@ import '../theme.dart';
 import '../video/video_controls.dart' show formatPlaybackTime;
 import '../video/video_page.dart';
 import '../widgets/common.dart';
+import '../widgets/content_translation.dart';
 
 class RecordingTile extends StatelessWidget {
   const RecordingTile({super.key, required this.task});
@@ -69,7 +70,7 @@ class RecordingTile extends StatelessWidget {
           : Icons.video_file_outlined,
       color: task.active ? context.colors.error : null,
     ),
-    title: Text(task.item.title),
+    title: TranslatedText(task.item.title),
     subtitle: Text(
       [
         tr(switch (task.status) {

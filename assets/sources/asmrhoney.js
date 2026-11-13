@@ -24,11 +24,11 @@
   const cache = new Map();
 
   Park.register({
-    i18n: copy, key: 'asmrhoney', name: 'ASMRHoney', version: '0.0.4', minAppVersion: '0.13.3',
+    i18n: copy, key: 'asmrhoney', name: 'ASMRHoney', version: '0.0.5', minAppVersion: '0.13.6',
     type: 'voice', category: 'asmr', color: '#9A6572',
     description: '中文与多语 ASMR 音视频，支持创作者和标签筛选',
     homepage: BASE, domains: ['asmrhoney.com'], network: {mode: 'auto', vpnHint: true},
-    media: {mode: 'native', origin: BASE, domains: ['asmrhoney.com']},
+    media: {mode: 'native', scope: 'session', origin: BASE},
     imageHeaders: {Referer: BASE + '/'},
     defaultFeed: 'videos', feeds: [
       {key: 'videos', label: '视频', options: filters},
@@ -55,8 +55,7 @@
     safeUrl(raw) {
       let url;
       try { url = new URL(raw, BASE); } catch (_) {}
-      if (!url || url.protocol !== 'https:' || url.username || url.password || url.port || url.hash ||
-          !(url.hostname === 'asmrhoney.com' || url.hostname.endsWith('.asmrhoney.com'))) throw Park.error('PARSE', '媒体数据无效');
+      if (!url || url.protocol !== 'https:' || url.username || url.password || url.port || url.hash) throw Park.error('PARSE', '媒体数据无效');
       return url.href;
     },
     async data(name) {

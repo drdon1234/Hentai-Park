@@ -9,7 +9,7 @@ Park.register({
     "ru": {"已编辑": "Изменено", "已删除": "Удалено", "影片列表解析失败":"Не удалось разобрать список видео","里番目录、排行与搜索；支持应用内多清晰度播放":"Каталог аниме, рейтинг и поиск; воспроизведение в приложении с выбором качества","视频解析失败":"Не удалось получить видео"},
     "ar": {"已编辑": "معدّل", "已删除": "محذوف", "影片列表解析失败":"تعذر تحليل قائمة الفيديو","里番目录、排行与搜索；支持应用内多清晰度播放":"دليل الأنمي والترتيب والبحث؛ تشغيل داخل التطبيق بجودات متعددة","视频解析失败":"تعذر تحليل الفيديو"},
   },
-  key: 'hanime', name: 'Hanime.tv', version: '0.0.10', minAppVersion: '0.9.2', type: 'video', category: 'anime',
+  key: 'hanime', name: 'Hanime.tv', version: '0.0.11', minAppVersion: '0.13.6', type: 'video', category: 'anime',
   language: 'en', color: '#EC407A', homepage: 'https://hanime.tv',
   description: '里番目录、排行与搜索；支持应用内多清晰度播放',
   domains: ['hanime.tv', 'hanime-cdn.com', 'guest.freeanimehentai.net'],
@@ -72,7 +72,6 @@ Park.register({
   },
   async page(path) {
     const r = this.http.ensureOk(await this.http.get(this.BASE + path));
-    if (new URL(r.url || this.BASE).origin !== this.BASE) throw Park.error('BLOCKED', '站点需要在浏览器中确认后访问');
     return Park.html.parse(r.body);
   },
   cards(doc) {

@@ -30,6 +30,7 @@ class FeedShelf extends StatefulWidget {
     this.moreLabel,
     this.onToggleVisibility,
     this.moreChevron = true,
+    this.showBlocked = false,
   });
   final FeedSessions sessions;
   final String sourceKey;
@@ -38,6 +39,7 @@ class FeedShelf extends StatefulWidget {
   final String? moreLabel;
   final VoidCallback? onToggleVisibility;
   final bool moreChevron;
+  final bool showBlocked;
 
   @override
   State<FeedShelf> createState() => _FeedShelfState();
@@ -53,9 +55,7 @@ class _FeedShelfState extends State<FeedShelf>
   bool _scheduled = false;
   int _revision = -1;
   int _fillRequests = 0;
-  late final Listenable _filters = AppSettings.instance.watch(
-    AppSettings.filterKeys,
-  );
+  late final Listenable _filters = TagBlocklist.changes;
   late final Listenable _homeVisibility = AppSettings.instance.watch(const {
     'homeHiddenSources',
   });
@@ -203,7 +203,9 @@ class _FeedShelfState extends State<FeedShelf>
     final blocklist = TagBlocklist.current();
     final items =
         session?.items
-            .where((item) => blocklist.matchItem(item) == null)
+            .where(
+              (item) => widget.showBlocked || blocklist.matchItem(item) == null,
+            )
             .toList() ??
         <WorkItem>[];
     final ready = session?.initialized == true || items.isNotEmpty;

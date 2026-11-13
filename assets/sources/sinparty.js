@@ -71,10 +71,10 @@ Park.register({
     "未知直播列表": "قائمة بث غير معروفة"
   }
 },
-  key: 'sinparty', name: 'SinParty', version: '0.0.6', minAppVersion: '0.9.2', type: 'video', category: 'live', language: 'en',
+  key: 'sinparty', name: 'SinParty', version: '0.0.7', minAppVersion: '0.13.6', type: 'video', category: 'live', language: 'en',
   color: '#e83e8c', description: '自营公开直播间', homepage: 'https://sinparty.com/', domains: ['sinparty.com'],
   network: {mode: 'native', origin: 'https://sinparty.com', vpnHint: true},
-  media: {mode: 'native', scope: 'session', origin: 'https://sinparty.com', domains: ['edge-cdn1.streamparty.online', 'edge-cdn2.streamparty.online']},
+  media: {mode: 'native', scope: 'session', origin: 'https://sinparty.com'},
   imageHeaders: {Referer: 'https://sinparty.com/'}, idPattern: '^user[0-9a-f]{8,64}$', defaultFeed: 'popular', feeds: [{key: 'popular', label: '热门'}],
   item(x) { if (!x?.creator_user_hash || !x?.model_hash || !x?.slug || (x.live_status !== true && x.isLive !== true) || x.type !== 'public') return null; const cover = String(x.thumbnail_url || ''); if (!cover) return null; return {id: String(x.creator_user_hash), title: String(x.title || x.slug), cover, coverAspect: 16/9, subtitle: String(x.country || ''), viewers: Number(x.viewers) || 0, url: 'https://sinparty.com' + String(x.live_url || '/' + x.slug), mediaKind: 'video', chapters: null}; },
   async api(path, options = {}) { const r = await this.http.get('https://api.sinparty.com/v2/web/live-cams/web-rtc' + path, {...options, timeout: 30000}); if (!r.ok) throw Park.error('HTTP', '直播请求失败', {status: r.status}); try { return r.json()?.data; } catch (_) { throw Park.error('PARSE', '直播数据无效'); } },

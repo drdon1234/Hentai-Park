@@ -8,6 +8,7 @@ import '../../library/library.dart';
 import '../../library/migration.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
+import '../widgets/content_translation.dart';
 import '../widgets/cover_tile.dart';
 import '../widgets/error_view.dart';
 
@@ -136,6 +137,7 @@ class _MigrationPageState extends State<MigrationPage> {
               : tr('迁移到其他站点'),
         ),
         actions: [
+          const TranslationControls(),
           if (widget.items.length > 1)
             TextButton(
               onPressed: _busy ? null : _next,
@@ -166,7 +168,7 @@ class _MigrationPageState extends State<MigrationPage> {
                   ),
                 ),
                 title: SelectionContainer.disabled(
-                  child: Text(
+                  child: TranslatedText(
                     _current.title,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,

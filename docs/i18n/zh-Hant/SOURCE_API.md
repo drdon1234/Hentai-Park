@@ -201,14 +201,13 @@ async filterOptions({scope, feed, filter, keyword, values}) {
 ### 圖片
 
 - `imageNetwork: { mode: 'browser', origin, domains }`：圖片域及子域獨立於站點 Cookie 權限，`origin` 可屬於站點域或圖片域。使用 HTTPS 443 和允許的標頭，當 origin 屬於站點宣告域時，同源圖片沿用瀏覽器站點工作階段，跨域請求不帶憑據；外部圖片域與影片請求始終省略憑據，允許授權圖片域之間的重新導向。保留單圖 20 MiB 上限、解密、格式檢查、解碼及站點分區快取；未宣告時使用原生傳輸。 瀏覽器重新導向的平台限制見媒體權限。
-- **加密圖片**：宣告 `imageDecrypt`，框架在格式檢查和快取之前解密，解密策略參與快取身份，失敗結果不快取。當前支援 AES-CBC 與嚴格 PKCS#7 填充，`key`、`iv` 按 UTF-8 編碼；必須限定圖片域名，其他域名走普通路徑。
+- `imageDecrypt` 宣告 AES-CBC、UTF-8 金鑰與 IV，不維護網域名單。明文圖片直接通過，其他內容解密後必須通過圖片格式驗證才快取。
 
 ```js
 imageDecrypt: {
   type: 'aes-cbc',
   key: '0123456789abcdef', // UTF-8 字节长度 16、24 或 32
   iv: '0123456789abcdef',  // UTF-8 字节长度 16
-  domains: ['images.example.com'],
 },
 ```
 
@@ -218,22 +217,20 @@ imageDecrypt: {
 
 `media` 許可權獨立於 `this.http`、`network` 和站點 Cookie：
 
-所有實作 `videos()` 的外掛都必須宣告有效的 `media`，包括僅回傳 MP4 的外掛。`scope: 'session'` 可同時宣告靜態 `domains`：HLS 使用本次會話授權的確切網址，MP4 仍須符合靜態網域白名單。官方發布檢查會拒絕缺失或無效的媒體宣告。
+播放使用 `media.scope: 'session'`，支援原生與瀏覽器模式，不宣告固定 CDN 網域。僅在目前工作階段授權原站返回的網址及播放中解析的資源。以 `format` 指定格式，不要求副檔名；保留 TLS 與 Cookie 隔離。
 
 ```js
 domains: ['example.com'],
 network: { mode: 'native' },
-media: { mode: 'native', origin: 'https://example.com', domains: ['media.example.com'] },
+media: { mode: 'native', scope: 'session', origin: 'https://example.com' },
 ```
 
 - `media.mode` 為 `'native'` 或 `'browser'`。`media.origin` 必須屬於外掛宣告的站點，使用 HTTPS 預設埠 443，不含使用者憑據、查詢或片段。
-- `media.domains` 是獨立的媒體域名白名單（含子域），不授予站點 Cookie 許可權。清單、分段和金鑰都只允許 HTTPS 443，拒絕 URL 使用者憑據、片段、IP、localhost（含子域）和 `.local`。
 - `'native'`：使用獨立且無憑據的客戶端，不讀寫站點 Cookie、Authorization 或代理認證，每次重新導向前檢查目標。只允許 `Referer`、`Origin`、`Accept`、`Accept-Language`；前兩者須屬於宣告的站點域（含語言子域），`Origin` 只含來源 origin。
 - `media.referrerDomains` 為選填，僅限原生影片媒體，最多 16 個有效公網網域（含子網域）。它只為 `Referer` 增加允許的來源，作為上述站點網域限制的明確例外；不擴大 `Origin`、媒體地址、文件導覽或 Cookie 權限，不得用於 `imageNetwork` 或瀏覽器媒體。
 - `'browser'`：在 `media.origin` 建立隱藏會話，文件可在宣告的站點域內導覽。使用 `credentials: 'omit'`、`mode: 'cors'`，Origin/Referer 由實際文件和瀏覽器產生。Windows 透過 WebView2 在每次連線前檢查資源域，允許授權域間重新導向，並複核最終地址。其他核心缺少逐跳攔截介面，使用 `redirect: 'error'`。CORS 和原站 CSP 仍生效，不能只檢查最終 URL 就放行跳轉。
 - 響應流式限長並重新校驗響應地址：清單最多 2 MiB，單個分段最多 32 MiB，AES-128 金鑰必須 16 位元組；超限、空響應或不允許的地址一律拒絕。
 
-- 動態 HLS CDN 可宣告 `media.scope: 'session'`（僅限 `mode: 'native'`）。授權只涵蓋目前播放或下載工作階段解析的網址、清單資源與允許的重新導向，關閉後即失效，不擴大 Cookie 權限或持久化網域白名單。請求仍受 HTTPS、無憑據、目標網址與回應大小限制；直連 MP4 與瀏覽器媒體繼續使用靜態網域白名單。
 
 ### 隔離與安全
 
@@ -305,7 +302,9 @@ async resolveGameResource(workId, resourceId, channelId) {}
 
 ### `searchSuggestions`
 
-實作 `searchSuggestions(keyword)` 後匯出 `capabilities.searchSuggestions`。回傳最多十筆 `[{keyword, label, subtitle}]`，其中 `keyword` 是包含其他已輸入詞的完整查詢。只有原站支援才插入分類前綴；E-Hentai 與 nhentai 保留命名空間，其他站點使用原站關鍵字。輸入暫停後載入；清空、提交或離開時取消，失敗不阻止搜尋。聚合候選只來自已選站點，標示來源並進入該站搜尋。輸入法組字期間不請求。
+可選的第二個參數 `context.dictionary` 提供本地詞庫候選 `[{namespace, name, translation}]`。比對原詞與譯名，搜尋時統一簡繁漢字；不改寫顯示名稱或原站查詢。插件負責轉為本站查詢語法；無本地結果時仍可請求原站建議。
+
+實作 `searchSuggestions(keyword, context = {})` 後匯出 `capabilities.searchSuggestions`。回傳最多二十筆 `[{keyword, label, subtitle}]`，其中 `keyword` 是包含其他已輸入詞的完整查詢。只有原站支援才插入分類前綴；E-Hentai 與 nhentai 保留命名空間，其他站點使用原站關鍵字。輸入暫停後載入；清空、提交或離開時取消，失敗不阻止搜尋。聚合候選只來自已選站點，標示來源並進入該站搜尋。輸入法組字期間不請求。
 
 ### 列表：`feed` / `search`
 
@@ -371,7 +370,6 @@ WorkItem 的全部欄位，再加：
 
 - 多集影片在 `detail(id).chapters` 按播放順序返回 `[{ id, title }]`，每個 `id` 必須穩定，不能用畫質或臨時媒體 URL 代替。應用用同一個 ID 選集、記錄進度、下載和續播，並呼叫 `videos(id, episodeId)` 獲取該集資源。單集用 `singleChapterId`，沒有時用 `'_'`。
 - 省略 `format` 時按直鏈 MP4 播放和下載。HLS 必須返回 `format: 'hls'`，並宣告 `media` 許可權。
-- HLS 主清單（`#EXT-X-STREAM-INF`）先由應用展開成各路分段清單，按 `RESOLUTION` 得到真實清晰度。返回主清單時 `quality` 表示期望清晰度：預設選不高於它的最高實際清晰度，沒有符合項時選最高檔。每路必須是音影片複用的 MPEG-TS 或點播 fMP4；獨立的 `AUDIO`、`VIDEO`、`SUBTITLES` 和超出 `media.domains` 的地址一律拒絕。`#EXT-X-I-FRAME-STREAM-INF` 預覽軌道被忽略。單路清單無法確定解析度時提供 `label: '原画'`，不要把期望畫質當成真實解析度。 主清單省略 `RESOLUTION` 時須有有效 `BANDWIDTH`；應用保留各碼率並顯示 kbps，預設選最高碼率，不把碼率當成解析度。
 - `type: 'video', category: 'live'` 表示公開直播，歸入三次元，首頁與域頁僅顯示圖片卡片。`videos()` 只返回當前公開房間的 HLS；私密、收費或離線房間不得偽造可播放結果。應用使用滾動清單，不恢復或儲存點播進度，也不提供下載。使用者明確開始錄製後，只儲存初始視窗之後的新片段，停止或退出應用即結束，重啟不續錄。錄製使用獨立媒體會話與背景工作，逐段驗證、解密並儲存完整本地清單；斷線重新解析，編碼邊界與長錄製可分卷，失敗保留已儲存內容。僅支援音視訊多工 MPEG-TS，不支援 MAP/fMP4、低延遲 PART、BYTERANGE 或 GAP。
 - 點播要求帶 `#EXT-X-ENDLIST` 的完整、連續 MPEG-TS 或 fMP4 清單；fMP4 僅支援媒體片段之前的單個 `#EXT-X-MAP` 初始化段，不支援初始化段切換或範圍讀取。初始化段和片段都經位址授權、內容驗證與本地重寫，離線播放和匯出必須保留初始化段。直播仍僅支援 MPEG-TS，允許滾動清單與 discontinuity。兩者支援 `METHOD=AES-128`、`KEYFORMAT=identity` 的 CBC/PKCS7 解密，金鑰恰好 16 位元組，媒體 IV 明確提供或由序號推導；加密初始化段須明確提供 IV。金鑰僅留在會話記憶體。不支援 SAMPLE-AES、其他 KEYFORMAT、BYTERANGE、GAP；點播另不支援 discontinuity。非標準的 `#EXT-X-TOKEN` 會被移除。
 - HLS 清單與 MPEG-TS 分段支援 PNG `roUd` 封裝（原始或 zlib 壓縮）；框架先解包再解析、驗證或解密，解包後仍受清單 2 MiB、分段 32 MiB 限制。插件繼續回傳 `format: 'hls'`，不需額外權限。
@@ -715,3 +713,8 @@ liveChatEvent(state, event) {
 - `metadataDetail(id, context?)` 回傳候選必填欄位及可選的 `description`、`releaseDate`、`duration`、`director`、`studio`、`publisher`、`series`、`rating`、`actors: string[]`、`tags: string[]`、`images: (string | {url: string, thumbnail?: string})[]`。缺失文字留空、集合為空陣列，不虛構資料。作品 `url` 屬於宣告域；圖片限無憑據、無連接埠的公網 HTTPS。 `metadataDetail(id, context?)` 接收可選排行榜上下文 `{url, board}`。獨立榜單可按本站作品 ID 回傳真實資料；必須校驗 URL 網域及其與 ID 的關聯，不信任外部 URL。可選作者欄位為 `authors: string[]`。 `description` 優先使用純文字；執行階段安全擷取 HTML 文字，保留 `br` 與區塊換行並忽略腳本及表單。
 - 預覽圖依來源站點用途區分：`images` 接受單一網址字串或 `{url, thumbnail?}`，`url` 是點開後的大圖，`thumbnail` 是預覽區使用的來源縮圖；只有一個網址時兩處共用。依大圖 URL 去重並保留對應縮圖，最多 100 項；兩種網址均執行相同 HTTPS 驗證。列表封面使用來源列表圖，詳情封面使用來源詳情大圖，不猜測檔名或繞過會員權限。圖片物件格式需要應用程式 0.11.0 或更新版本。
 - `metadataMagnets(id)` 回傳最多 500 條 `{url, name, size?, date?, tags?: string[]}`，僅接受有效 `magnet:?xt=urn:btih:...`，依內容雜湊去重。資料與磁鏈分別載入和重試；切換或關閉取消舊請求。只依使用者操作複製或開啟外部應用程式；JAV 搜尋使用真實番號。
+
+`browseLayout: 'list'` 或 `'grid'` 控制站內瀏覽、分類、篩選結果與搜尋。小說預設使用文字列表，文章與社群保留各自內容流，音聲目錄保留真實層級。首頁和領域頁一律使用卡片；缺少封面時使用內容圖示。
+
+
+表單 action、隱藏欄位、分頁與重新導向直接依原站解析，不維護路徑、欄位或參數白名單。原生媒體標頭使用 `requestHeaders: {'x-cdn-auth': {scope: 'playback-origin'}}`，不按副檔名限制，僅傳送至目前播放來源已授權的同源資源。

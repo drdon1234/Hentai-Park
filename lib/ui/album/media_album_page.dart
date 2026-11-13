@@ -8,6 +8,7 @@ import '../../core/tag_blocklist.dart';
 import '../widgets/common.dart';
 import '../widgets/error_view.dart';
 import '../widgets/on_visible.dart';
+import '../widgets/result_visibility.dart';
 import '../widgets/source_network_hint.dart';
 import 'album_controller.dart';
 import 'album_media.dart';
@@ -44,6 +45,7 @@ class _MediaAlbumPageState extends State<MediaAlbumPage> {
     ...AppSettings.filterKeys,
     'blurCovers',
   });
+  bool _showBlocked = false;
   String _type = 'all';
   DateTimeRange? _range;
   late int _columns = AppSettings.instance.albumColumns;
@@ -57,6 +59,7 @@ class _MediaAlbumPageState extends State<MediaAlbumPage> {
     super.initState();
     _controller.addListener(_changed);
     _settings.addListener(_changed);
+    TagBlocklist.changes.addListener(_changed);
     _scroll.addListener(_nearEnd);
     unawaited(_controller.loadMore());
   }
@@ -65,7 +68,9 @@ class _MediaAlbumPageState extends State<MediaAlbumPage> {
     if (!mounted) return;
     final blocklist = TagBlocklist.current();
     final entries = albumMedia(
-      _controller.items.where((item) => blocklist.matchItem(item) == null),
+      _controller.items.where(
+        (item) => _showBlocked || blocklist.matchItem(item) == null,
+      ),
       type: _type,
       start: _range?.start,
       end: _range?.end,
@@ -230,6 +235,12 @@ class _MediaAlbumPageState extends State<MediaAlbumPage> {
     appBar: AppBar(
       title: Text('${widget.title} · ${tr('相册')}'),
       actions: [
+        ResultVisibility(
+          showBlocked: _showBlocked,
+          onBlocked: (v) => _filter(() => _showBlocked = v),
+          hidePreviews: false,
+          onPreviews: (_) {},
+        ),
         IconButton(
           tooltip: tr('刷新'),
           onPressed: _refresh,
@@ -291,6 +302,7 @@ class _MediaAlbumPageState extends State<MediaAlbumPage> {
   @override
   void dispose() {
     _settings.removeListener(_changed);
+    TagBlocklist.changes.removeListener(_changed);
     _controller.removeListener(_changed);
     _controller.dispose();
     _scroll.dispose();

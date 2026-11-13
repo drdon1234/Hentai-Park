@@ -1,3 +1,5 @@
+import 'package:flutter/foundation.dart';
+
 import 'block_rule.dart';
 import 'localization.dart';
 import 'models.dart';
@@ -15,7 +17,7 @@ class BlockPreset {
   final String _name;
   String get name => tr(_name);
 
-  /// 标签和标题共用规则语法；标题匹配由独立开关控制。
+  /// tag: 仅匹配标签；title: 仅匹配标题；其余规则可随开关匹配标题。
   /// 英文变体正则显式限制词边界，防止缩写命中普通单词。
   final List<String> entries;
   final List<String> strongEntries;
@@ -23,7 +25,7 @@ class BlockPreset {
 
 const blockPresets = <BlockPreset>[
   BlockPreset('ai', 'AI 生成', [
-    'ai',
+    'tag:ai',
     r'regex:(?<![A-Za-z0-9])ai[ _-]?(?:generated|art|cg)(?![A-Za-z0-9])',
     'regex:AI[ _-]?(?:生成|绘画|繪畫|作画|作畫|イラスト)',
     'ai_generated',
@@ -64,14 +66,10 @@ const blockPresets = <BlockPreset>[
   BlockPreset('futa', '扶她', [
     r'regex:(?<![A-Za-z0-9])futa(?:nari)?(?![A-Za-z0-9])',
     r'regex:(?<![A-Za-z0-9])dick[ _-]?girl(?![A-Za-z0-9])',
-    r'regex:(?<![A-Za-z0-9])new[ _-]?half(?![A-Za-z0-9])',
     'regex:扶[她他]',
-    'regex:扶[上下]扶?',
+    r'tag:regex:^扶[上下]扶?$',
     'regex:(?:ふたなり|フタナリ)',
     '후타나리',
-    '人妖',
-    'shemale',
-    'ladyboy',
     'dickgirl',
   ]),
   BlockPreset('ntr', 'NTR', [
@@ -94,8 +92,11 @@ const blockPresets = <BlockPreset>[
       r'regex:(?<![A-Za-z0-9])incest(?:uous)?(?![A-Za-z0-9])',
       'inseki',
       'regex:[乱亂][伦倫]',
-      'regex:近[亲親](?:相[奸姦])?',
+      r'tag:regex:^近[亲親]$',
+      'regex:近[亲親]相[奸姦]',
       '근친',
+    ],
+    strongEntries: [
       '母子',
       '母女',
       '父女',
@@ -103,8 +104,6 @@ const blockPresets = <BlockPreset>[
       '兄妹',
       '姐弟',
       '姉弟',
-    ],
-    strongEntries: [
       '*妈',
       '*媽',
       '*母',
@@ -137,29 +136,33 @@ const blockPresets = <BlockPreset>[
       'ホモ',
       r"regex:(?<![A-Za-z0-9])boys?['’]?[ _-]+love(?![A-Za-z0-9])",
       '게이',
+      'tag:bl',
+      'tag:腐向',
     ],
     strongEntries: [
       r'regex:(?<![A-Za-z0-9])males?[ _-]+only(?![A-Za-z0-9])',
-      'bl',
-      '腐向',
+      'title:bl',
+      'title:腐向',
     ],
   ),
   BlockPreset(
     'lesbian',
     '女同性恋',
     [
-      'yuri',
+      'tag:yuri',
+      'tag:百合',
       'lesbian',
       'regex:女同(?:性[恋戀])?(?![学學事])',
       'regex:レズ(?:ビアン)?',
-      r'regex:^蕾[丝絲]$',
+      r'tag:regex:^蕾[丝絲]$',
       'ガールズラブ',
       r"regex:(?<![A-Za-z0-9])girls?['’]?[ _-]+love(?![A-Za-z0-9])",
       '레즈비언',
     ],
     strongEntries: [
       r'regex:(?<![A-Za-z0-9])females?[ _-]+only(?![A-Za-z0-9])',
-      '百合',
+      'title:百合',
+      'title:yuri',
     ],
   ),
   BlockPreset('furry', 'Furry', [
@@ -180,19 +183,27 @@ class BlockPresetConfig {
     this.title,
     this.entries,
     this.aliases,
-    this.strong,
-  );
+    this.strong, {
+    this.strongEntries = const [],
+  });
   final BlockPreset preset;
   final bool on;
   final bool title;
   final bool strong;
-  Iterable<String> get activeEntries => [
-    ...entries.where(
-      (entry) => strong || !preset.strongEntries.contains(entry),
-    ),
-    if (strong) ...preset.strongEntries,
-  ];
   final List<String> entries;
+  final List<String> strongEntries;
+  bool get hasStrongRules => strongEntries.isNotEmpty;
+  List<String> get allEntries => {...entries, ...strongEntries}.toList();
+  List<String> get activeEntries => !on
+      ? []
+      : {
+          ...entries,
+          if (strong) ...strongEntries,
+        }.where((e) => title || !BlockRule(e).title).toList();
+  List<String> get activeTagEntries =>
+      activeEntries.where((e) => !BlockRule(e).title).toList();
+  List<String> get activeTitleEntries =>
+      title ? activeEntries.where((e) => !BlockRule(e).tagOnly).toList() : [];
   final Map<String, List<String>> aliases;
   List<String> aliasesFor(String entry) => aliases[entry] ?? const [];
 
@@ -209,12 +220,25 @@ class BlockPresetConfig {
             p,
             m['on'] == true,
             m['title'] == true,
-            entries,
+            entries
+                .where(
+                  (e) =>
+                      m['strongEntries'] is List ||
+                      !p.strongEntries.contains(e),
+                )
+                .toSet()
+                .toList(),
             {
               for (final e in (m['aliases'] as Map? ?? {}).entries)
                 e.key as String: List<String>.from(e.value as List),
             },
             m['strong'] == true,
+            strongEntries:
+                (m['strongEntries'] is List
+                        ? List<String>.from(m['strongEntries'] as List)
+                        : p.strongEntries)
+                    .toSet()
+                    .toList(),
           );
         }(),
     ];
@@ -228,6 +252,37 @@ class BlockPresetConfig {
 /// - `namespace:tag` matches only within the namespace ("female:guro")
 /// - `title:word` matches works whose title contains the word
 class TagBlocklist {
+  // 列表常省略标签；复用本次运行已读取的详情，避免逐条联网补标签。
+  static final _known = <String, WorkItem>{};
+  static final _metadataRevision = ValueNotifier<int>(0);
+  static final Listenable changes = Listenable.merge([
+    AppSettings.instance.watch(AppSettings.filterKeys),
+    _metadataRevision,
+  ]);
+  static void remember(WorkDetail detail) {
+    final item = WorkItem({
+      'id': detail.id,
+      'title': detail.title,
+      'tags': detail.tags,
+      'authors': authorsOf(detail),
+    }, detail.source);
+    final previous = _known[item.uid];
+    if (previous?.title == item.title &&
+        listEquals(previous?.tags, item.tags) &&
+        listEquals(previous?.authors, item.authors)) {
+      return;
+    }
+    _known.remove(item.uid);
+    _known[item.uid] = item;
+    if (_known.length > 512) _known.remove(_known.keys.first);
+    _metadataRevision.value++;
+  }
+
+  static void forgetSource(String source) {
+    _known.removeWhere((_, item) => item.source == source);
+    _metadataRevision.value++;
+  }
+
   TagBlocklist(Iterable<String> entries, {this._titlePatterns = const []})
     : _entries = [for (final e in entries) e.trim()]
           .where((e) => e.isNotEmpty)
@@ -251,20 +306,20 @@ class TagBlocklist {
     final patterns = <(String, RegExp)>[];
     for (final c in BlockPresetConfig.current()) {
       if (!c.on) continue;
-      final expanded = [
-        for (final entry in c.activeEntries.toSet()) ...[
-          entry,
-          ...c.aliasesFor(entry).map(BlockRule(entry).aliasEntry),
-        ],
-      ];
-      entries.addAll(expanded.where((e) => !BlockRule(e).title));
-      if (c.title) {
-        for (final e in expanded) {
-          final re = titleRegex(e);
-          if (re != null) patterns.add(('${c.preset.name}：$e', re));
+      Iterable<String> expand(Iterable<String> rules) sync* {
+        for (final entry in rules) {
+          yield entry;
+          yield* c.aliasesFor(entry).map(BlockRule(entry).aliasEntry);
         }
       }
+
+      entries.addAll(expand(c.activeTagEntries));
+      for (final e in expand(c.activeTitleEntries)) {
+        final re = titleRegex(e);
+        if (re != null) patterns.add(('${c.preset.name}：$e', re));
+      }
     }
+
     return TagBlocklist(entries, titlePatterns: patterns);
   }
 
@@ -284,7 +339,7 @@ class TagBlocklist {
     if (pattern == null) return false;
     final t = tag.trim();
     final i = t.indexOf(':');
-    if (rule.scope.isNotEmpty) {
+    if (rule.scope.isNotEmpty && !rule.tagOnly) {
       return i >= 0 &&
           t.substring(0, i).trim().toLowerCase() == rule.scope &&
           pattern.hasMatch(t.substring(i + 1).trim());
@@ -322,17 +377,19 @@ class TagBlocklist {
   }.map((v) => v.trim()).where((v) => v.isNotEmpty).toList();
 
   String? matchItem(WorkItem item) {
+    final known = item is WorkDetail ? null : _known[item.uid];
     final settings = AppSettings.instance;
     if (settings.blockedWorks.containsKey(item.uid)) return tr('已屏蔽作品');
     if (settings.isBlockedAuthorWork(item) ||
-        authorsOf(item).any(
+        {...authorsOf(item), if (known != null) ...authorsOf(known)}.any(
           (a) => settings.blockedAuthors.containsKey(
             '${item.source}:${a.toLowerCase()}',
           ),
         )) {
       return tr('已屏蔽作者');
     }
-    return match(title: item.title, tags: item.tags);
+    return match(title: item.title, tags: {...item.tags, ...?known?.tags}) ??
+        (known == null ? null : match(title: known.title, tags: known.tags));
   }
 
   /// Detail pages know namespaces, so `namespace:tag` entries can match there too.

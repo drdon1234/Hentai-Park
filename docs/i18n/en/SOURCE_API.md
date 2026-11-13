@@ -212,14 +212,13 @@ Optional `auto.checkSelector` checks one unique checkbox inside the age gate. Qu
 ### Images
 
 - `imageNetwork: { mode: 'browser', origin, domains }`: Image domains and subdomains are independent of site cookie permissions. `origin` may belong to a site or image domain. Requests use HTTPS 443 and allowed headers, reuse the browser site session for same-origin images when origin belongs to a declared site domain; cross-origin images, external image origins and video requests omit credentials, and allow redirects between authorized image domains. The 20 MiB limit, decryption, format checks, decoding and per-site cache remain. Without this declaration, native image transport is used. Browser redirect support depends on the platform; see media permissions.
-- **Encrypted images**: declare `imageDecrypt` and the framework decrypts before the format check and caching; the decryption settings are part of the cache identity and failures aren't cached. AES-CBC with strict PKCS#7 padding is supported, with `key` and `iv` encoded as UTF-8; image domains must be listed, other domains use the normal path.
+- `imageDecrypt` declares AES-CBC with UTF-8 key and IV, without domain lists. Plain images pass through; other content is decrypted and must pass image-format validation before caching.
 
 ```js
 imageDecrypt: {
   type: 'aes-cbc',
   key: '0123456789abcdef', // 16, 24 or 32 UTF-8 bytes
   iv: '0123456789abcdef',  // 16 UTF-8 bytes
-  domains: ['images.example.com'],
 },
 ```
 
@@ -229,22 +228,20 @@ A cover returning HTTP 200 isn't enough — verify that it decodes.
 
 The `media` permission is independent of `this.http`, `network` and site cookies:
 
-Every plugin implementing `videos()` must declare valid `media` permissions, including MP4-only plugins. `scope: 'session'` may coexist with static `domains`: HLS uses exact URLs authorized for the session, while direct MP4 must match the static domain list. Official publishing rejects missing or invalid media declarations.
+Playback uses `media.scope: 'session'` in native or browser mode, without fixed CDN domains. Authorize URLs returned by the site and resources discovered during playback for this session only. Declare `format` instead of requiring a filename extension. Keep TLS and cookie isolation.
 
 ```js
 domains: ['example.com'],
 network: { mode: 'native' },
-media: { mode: 'native', origin: 'https://example.com', domains: ['media.example.com'] },
+media: { mode: 'native', scope: 'session', origin: 'https://example.com' },
 ```
 
 - `media.mode` is `'native'` or `'browser'`. `media.origin` must belong to the plugin's sites, use HTTPS on the default port 443, and contain no credentials, query or fragment.
-- `media.domains` is a separate allow-list for media (subdomains included) that grants no site cookie access. Playlists, segments and keys must be HTTPS on 443; URL credentials, fragments, IPs, localhost (and subdomains) and `.local` are rejected.
 - `'native'`: Uses a separate client without site cookies, Authorization or proxy credentials, checking each redirect before connecting. Allowed headers are `Referer`, `Origin`, `Accept`, `Accept-Language`; the first two must belong to declared site domains, including language subdomains. `Origin` contains only an origin.
 - Optional `media.referrerDomains` is limited to native video media and at most 16 valid public domains (including subdomains). It explicitly extends only the allowed `Referer` origins beyond the site domains above. It grants no extra `Origin`, media URL, document navigation or cookie permissions, and is invalid for `imageNetwork` or browser media.
 - `'browser'`: Opens a hidden session at `media.origin` with document navigation inside declared site domains. Uses `credentials: 'omit'` and `mode: 'cors'`; the real document and browser generate Origin/Referer. On Windows, WebView2 checks the resource domain before each connection, permits redirects between authorized domains and validates the final URL. Other engines lack per-hop interception and use `redirect: 'error'`. CORS and the site CSP still apply; final-URL checks alone do not authorize redirects.
 - Responses are size-limited while streaming and their final address is re-checked: playlists up to 2 MiB, segments up to 32 MiB, AES-128 keys exactly 16 bytes. Oversized or empty responses and disallowed addresses are rejected.
 
-- Dynamic HLS CDNs may declare `media.scope: 'session'` with `mode: 'native'`. Authorization covers only URLs, playlist resources and allowed redirects resolved for the current playback or download session, and expires when it closes. It grants no extra cookie access or persistent domain permissions. HTTPS, credential-free requests, destination and response-size restrictions still apply; direct MP4 and browser media keep static domain allow-lists.
 
 ### Isolation and security
 
@@ -316,7 +313,9 @@ async resolveGameResource(workId, resourceId, channelId) {}
 
 ### `searchSuggestions`
 
-Implement `searchSuggestions(keyword)` to export `capabilities.searchSuggestions`. Return up to ten `[{keyword, label, subtitle}]` entries. Each `keyword` is a complete query preserving other typed terms. Emit category prefixes only when supported: E-Hentai and nhentai retain namespaces; other sites use their native keywords. Load after typing pauses, cancel on clear, submit or disposal, and let normal search continue on failure. Cross-site suggestions use selected sites only, show the source and open that site’s search. Do not request during IME composition.
+The optional second argument `context.dictionary` provides local dictionary candidates `[{namespace, name, translation}]`. Matching includes original names and translations, with simplified/traditional Chinese normalization for matching only. Display names and native queries remain unchanged. Plugins format native queries and may use remote suggestions when no local match exists.
+
+Implement `searchSuggestions(keyword, context = {})` to export `capabilities.searchSuggestions`. Return up to twenty `[{keyword, label, subtitle}]` entries. Each `keyword` is a complete query preserving other typed terms. Emit category prefixes only when supported: E-Hentai and nhentai retain namespaces; other sites use their native keywords. Load after typing pauses, cancel on clear, submit or disposal, and let normal search continue on failure. Cross-site suggestions use selected sites only, show the source and open that site’s search. Do not request during IME composition.
 
 ### Lists: `feed` / `search`
 
@@ -382,7 +381,6 @@ Returns `[{ quality: 1080, label: '1080P', url, headers?, format?, preferred?, h
 
 - Multi-episode videos return `[{ id, title }]` in play order from `detail(id).chapters`; each `id` must be stable, never a quality or temporary media URL. The app uses the same ID to pick episodes, store progress, download and resume, and calls `videos(id, episodeId)` for each episode. Single videos use `singleChapterId`, or `'_'` if absent.
 - Without `format`, playback and download treat the link as direct MP4. HLS must return `format: 'hls'` and declare the `media` permission.
-- An HLS master playlist (`#EXT-X-STREAM-INF`) is expanded by the app into per-variant playlists, with real quality taken from `RESOLUTION`. When you return a master playlist, `quality` is the desired quality: the highest real quality not above it is chosen, or the highest available. Each variant must be muxed audio/video MPEG-TS or VOD fMP4; separate `AUDIO`, `VIDEO`, `SUBTITLES` renditions and addresses outside `media.domains` are rejected. `#EXT-X-I-FRAME-STREAM-INF` tracks are ignored. If a single playlist has no known resolution, use `label: '原画'` rather than presenting the desired quality as real. Without `RESOLUTION`, a master variant needs valid `BANDWIDTH`; variants are labeled in kbps, with the highest bitrate preferred, without inventing a resolution.
 - `type: 'video', category: 'live'` identifies public live streams in 3D, with image-only home and domain cards. `videos()` returns the current public room's HLS; never fabricate playable results for private, paid or offline rooms. Playback uses rolling playlists without VOD resume positions or downloads. Recording requires an explicit user action and saves only segments newer than the initial live window. It ends on stop or app exit and never resumes after restart. An independent media session and background task validate and decrypt each segment and commit a complete local playlist. Reconnection resolves fresh media; encoding boundaries and long recordings may start new parts. Previously committed content survives failure. Only muxed MPEG-TS is supported; MAP/fMP4, low-latency PART, BYTERANGE and GAP are unsupported.
 - VOD requires a complete, continuous MPEG-TS or fMP4 playlist with `#EXT-X-ENDLIST`. fMP4 accepts one `#EXT-X-MAP` initialization segment before media segments; changing initialization segments and byte ranges are unsupported. Initialization and media segments are authorized, validated and rewritten locally; offline playback and export retain the initialization segment. Live streams still require MPEG-TS and accept rolling playlists and discontinuities. Both decrypt `METHOD=AES-128`, `KEYFORMAT=identity` with CBC/PKCS7 and exactly 16-byte keys. Media IVs are explicit or sequence-derived; encrypted initialization segments require an explicit IV. Keys stay in session memory. SAMPLE-AES, other KEYFORMATs, BYTERANGE and GAP are unsupported; VOD also rejects discontinuities. Non-standard `#EXT-X-TOKEN` tags are removed.
 - HLS playlists and MPEG-TS segments support PNG `roUd` wrapping (raw or zlib-compressed). Unwrapping precedes parsing, validation or decryption, with decoded limits of 2 MiB per playlist and 32 MiB per segment. Plugins still return `format: 'hls'`; no extra permissions are required.
@@ -726,3 +724,8 @@ liveChatEvent(state, event) {
 - `metadataDetail(id, context?)` returns required candidate fields plus optional `description`, `releaseDate`, `duration`, `director`, `studio`, `publisher`, `series`, `rating`, `actors: string[]`, `authors: string[]`, `tags: string[]`, `images: (string | {url: string, thumbnail?: string})[]`. Missing text stays empty and missing lists are empty arrays; never invent ratings or descriptions. Work URLs must belong to declared domains. Images must use public HTTPS without credentials or ports. `metadataDetail(id, context?)` accepts optional ranking context `{url, board}`. Standalone rankings may implement it to return actual information for their own work ID. Validate the context URL domain and its association with the ID; never trust an external URL. Optional authors use `authors: string[]`. Prefer plain text for `description`; the runtime safely extracts HTML text, preserves `br` and block line breaks, and ignores scripts and forms.
 - Match the source image roles: `images` accepts a single URL string or `{url, thumbnail?}`. `url` is the large image opened by the viewer; `thumbnail` is the source thumbnail displayed in the preview grid. A single address serves both roles when no separate size exists. Deduplicate by large-image URL while retaining its thumbnail, with at most 100 entries. Both addresses undergo the same HTTPS validation. Use source list covers for lists and source detail covers for details; do not guess filenames or bypass membership restrictions. Image objects require app 0.11.0 or later.
 - `metadataMagnets(id)` returns up to 500 `{url, name, size?, date?, tags?: string[]}` entries. Only valid `magnet:?xt=urn:btih:...` URLs are accepted and entries are deduplicated by content hash. Information and magnets load and retry separately; changing work or provider or closing cancels old requests. Copying and external opening require user actions. Search JAV sites uses the real code for in-app JAV aggregate search.
+
+`browseLayout: 'list'` or `'grid'` controls site browsing, categories, filtered results and site search. Novels default to text lists; article and community feeds retain their own presentation. Real audio folders retain their hierarchy. Home and domain pages always use cards; missing covers use content icons.
+
+
+Read form actions, hidden fields, pagination and redirects from the site without fixed path, field or parameter allow-lists. Native media headers use `requestHeaders: {'x-cdn-auth': {scope: 'playback-origin'}}`; values apply only to authorized resources at the current playback origin, regardless of extension.

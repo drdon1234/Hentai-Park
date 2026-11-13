@@ -9,11 +9,11 @@ Park.register({
     "ru": {"综合成人视频搜索，常见来源优先原生播放，其他来源使用网页播放": "Поиск видео для взрослых: нативное воспроизведение популярных поддерживаемых источников, веб-плеер для остальных", "高清": "Высокое качество", "标清": "Стандартное качество"},
     "ar": {"综合成人视频搜索，常见来源优先原生播放，其他来源使用网页播放": "بحث فيديوهات للبالغين؛ تشغيل أصلي للمصادر الشائعة المدعومة وتشغيل ويب للمصادر الأخرى", "高清": "جودة عالية", "标清": "جودة قياسية"},
   },
-  key: 'tubesafari', name: 'TubeSafari', version: '0.0.10', minAppVersion: '0.9.2', type: 'video', category: 'adult', color: '#21B7B5',
+  key: 'tubesafari', name: 'TubeSafari', version: '0.0.11', minAppVersion: '0.13.6', type: 'video', category: 'adult', color: '#21B7B5',
   description: '综合成人视频搜索，常见来源优先原生播放，其他来源使用网页播放', homepage: 'https://tubesafari.com', language: 'en',
   domains: ['tubesafari.com', 'xhcdn.com', 'nv7s.com', 'others-cdn.com', 'txxx.tube', 'phncdn.com'],
   network: {mode: 'native', vpnHint: true}, imageHeaders: {Referer: 'https://tubesafari.com/'},
-  media: {mode: 'native', scope: 'session', origin: 'https://tubesafari.com', domains: ['xvideos-cdn.com', 'phncdn.com', 'xhcdn.com', 'txxx.me', 'pornl.com', 'pornl-ah.nv7s.com', 'ahcdn.com'], referrerDomains: ['pornhub.com', 'txxx.me', 'pornl.com']},
+  media: {mode: 'native', scope: 'session', origin: 'https://tubesafari.com', referrerDomains: ['pornhub.com', 'txxx.me', 'pornl.com']},
   linkPatterns: ['tubesafari\\.com/video\\?(?:[^#\\s]*&)?id=([a-zA-Z0-9_-]+)(?:[&#]|$)'],
   idPattern: '^([a-zA-Z0-9_-]{1,128})$',
   defaultFeed: 'popular', feeds: [{key: 'popular', label: '热门'}, {key: 'categories', label: '分类', options: [
@@ -30,7 +30,6 @@ Park.register({
     if (r.status === 404) throw Park.error('NOT_FOUND', '影片不存在');
     if (!r.ok) throw Park.error('HTTP', '成人视频请求失败');
     const final = new URL(r.url || url);
-    if (final.origin !== this.BASE || final.username || final.password) throw Park.error('BLOCKED', '站点需要在浏览器中确认后访问');
     if (r.body.length > 4 * 1024 * 1024) throw Park.error('PARSE', '影片页面过大');
     return {body: r.body, doc: Park.html.parse(r.body)};
   },
@@ -116,7 +115,7 @@ Park.register({
       const u = new URL(value, base);
       if (upgrade && u.protocol === 'http:') u.protocol = 'https:';
       if (u.protocol !== 'https:' || u.username || u.password || u.port || u.hash ||
-          !domains.some(d => u.hostname === d || u.hostname.endsWith('.' + d))) return null;
+          domains && !domains.some(d => u.hostname === d || u.hostname.endsWith('.' + d))) return null;
       return u.href;
     } catch (_) { return null; }
   },
@@ -131,7 +130,7 @@ Park.register({
       seen.add(url);
       const r = await this.http.get(url, {mode: 'native', followRedirects: false, timeout: 30000});
       if ([301, 302, 303, 307, 308].includes(r.status)) {
-        url = this.upstreamUrl(this.responseHeader(r, 'location'), domains, url);
+        url = this.upstreamUrl(this.responseHeader(r, 'location'), null, url);
         continue;
       }
       if (r.status === 404 || r.status === 410) throw Park.error('NOT_FOUND', '影片不存在');
@@ -142,8 +141,8 @@ Park.register({
     throw Park.error('BLOCKED', '播放器地址无效');
   },
   // 仅 HEAD 解析媒体跳转，避免把整部影片读进插件；每一跳都重新校验。
-  async resolveUpstreamMedia(value, domains, headers) {
-    let url = this.upstreamUrl(value, domains), seen = new Set();
+  async resolveUpstreamMedia(value, headers) {
+    let url = this.upstreamUrl(value, null), seen = new Set();
     if (!url) return null;
     for (let hop = 0; hop < 5; hop++) {
       if (seen.has(url)) throw Park.error('BLOCKED', '播放器地址无效');
@@ -151,7 +150,7 @@ Park.register({
       const r = await this.http.request({url, method: 'HEAD', headers, mode: 'native', followRedirects: false, timeout: 20000});
       if ([301, 302, 303, 307, 308].includes(r.status)) {
         // 已验证的 CDN 可能返回 HTTP Location；只访问其 HTTPS 端点。
-        url = this.upstreamUrl(this.responseHeader(r, 'location'), domains, url, true);
+        url = this.upstreamUrl(this.responseHeader(r, 'location'), null, url, true);
         if (!url) throw Park.error('BLOCKED', '播放器地址无效');
         continue;
       }
@@ -164,7 +163,7 @@ Park.register({
     }
     throw Park.error('BLOCKED', '播放器地址无效');
   },
-  async upstreamVariants(candidates, domains, headers) {
+  async upstreamVariants(candidates, headers) {
     const out = [], seen = new Set();
     let failure;
     // 不同清晰度可能跳到同一个 HLS 主清单，按最终地址去重。
@@ -172,7 +171,7 @@ Park.register({
       if (seen.has(entry.url)) continue;
       seen.add(entry.url);
       try {
-        const media = await this.resolveUpstreamMedia(entry.url, domains, headers);
+        const media = await this.resolveUpstreamMedia(entry.url, headers);
         if (media && !out.some(x => x.url === media.url)) {
           const master = media.format === 'hls' && entry.format !== 'hls';
           out.push({...entry, ...media, ...(master ? {quality: 0, label: 'HLS'} : {}), headers});
@@ -207,7 +206,7 @@ Park.register({
     const map = {'Ѕ':'S', 'І':'I', 'Ј':'J', 'А':'A', 'В':'B', 'Е':'E', 'К':'K', 'М':'M', 'Н':'H', 'О':'O', 'Р':'P', 'С':'C', 'Х':'X', ',':'/', '.':'+', '~':'='};
     try { return atob(value.replace(/[ЅІЈАВЕКМНОРСХ,.~]/g, c => map[c])); } catch (_) { return ''; }
   },
-  async videoFileVariants(base, id, mediaDomains, encoded) {
+  async videoFileVariants(base, id, encoded) {
     let data;
     if (encoded) {
       try { data = JSON.parse(this.decodeVideoFile(encoded)); } catch (_) { throw Park.error('PARSE', '成人视频详情解析失败'); }
@@ -220,13 +219,13 @@ Park.register({
     for (const entry of data.slice(0, 16)) {
       const url = this.mediaLink(this.decodeVideoFile(entry?.video_url), base);
       const format = Array.isArray(entry?.format) ? entry.format[0] : entry?.format;
-      if (!url || !new URL(url).pathname.startsWith('/get_file/') || !['.mp4', '_hq.mp4', '_sd.mp4', '_lq.mp4'].includes(format)) continue;
+      if (!url || !['.mp4', '_hq.mp4', '_sd.mp4', '_lq.mp4'].includes(format)) continue;
       // 接口的 hq/sd/lq 是档位名，不代表经过验证的像素高度。
       const rank = format === '_hq.mp4' ? 3 : format === '.mp4' ? 2 : 1;
       candidates.push({url, quality: 0, rank, label: format === '_hq.mp4' ? '高清' : format === '.mp4' ? 'MP4' : '标清'});
     }
     candidates.sort((a, b) => b.rank - a.rank);
-    return this.upstreamVariants(candidates.map(({rank, ...entry}) => entry), mediaDomains, {Referer: base + '/'});
+    return this.upstreamVariants(candidates.map(({rank, ...entry}) => entry), {Referer: base + '/'});
   },
   decipherXh(value) {
     if (typeof value !== 'string' || value.length > 16384) return '';
@@ -290,7 +289,7 @@ Park.register({
     }
     if (sources?.hls?.url) add(sources.hls.url, 0, 'hls');
     const hls = out.filter(x => x.format === 'hls');
-    return this.upstreamVariants(hls.length ? hls : out, ['xhcdn.com'], {});
+    return this.upstreamVariants(hls.length ? hls : out, {});
   },
   mediaUrl(value) { return this.mediaLink(value); },
   playerData(html) {
@@ -319,14 +318,14 @@ Park.register({
       return out;
     }
     const files = [
-      {pages: ['videopornl.com', 'pornl.com'], base: 'https://pornl.com', media: ['pornl.com', 'pornl-ah.nv7s.com', 'ahcdn.com']},
-      {pages: ['videotxxx.com', 'txxx.me'], base: 'https://txxx.me', media: ['txxx.me', 'ahcdn.com']},
+      {pages: ['videopornl.com', 'pornl.com'], base: 'https://pornl.com'},
+      {pages: ['videotxxx.com', 'txxx.me'], base: 'https://txxx.me'},
     ];
     const family = files.find(f => this.upstreamUrl(u.href, f.pages));
     if (family) {
       const videoId = /^\/(?:embed|videos?)\/(\d+)(?:\/|$)/.exec(u.pathname)?.[1];
       if (!videoId) throw Park.error('UNSUPPORTED', '此影片暂无可用播放地址');
-      const out = await this.videoFileVariants(family.base, videoId, family.media);
+      const out = await this.videoFileVariants(family.base, videoId);
       if (!out.length) throw Park.error('PARSE', '此影片暂无可用播放地址');
       out.sort((a, b) => b.quality - a.quality); out[0].preferred = true;
       return out;
@@ -344,13 +343,13 @@ Park.register({
     if (xvideos) {
       for (const [method, label] of [['setVideoUrlHigh', '高清'], ['setVideoUrlLow', '标清']]) {
         const m = new RegExp('html5player\\.' + method + '\\([\'"]([^\'"\\s]+)[\'"]\\)').exec(html);
-        const url = m && this.mediaUrl(m[1].replace(/\\\//g, '/'), 'xvideos-cdn.com');
+        const url = m && this.mediaUrl(m[1].replace(/\\\//g, '/'));
         if (url && !out.some(x => x.url === url)) out.push({url, quality: 0, label, format: 'mp4'});
       }
     } else {
       const data = this.playerData(html);
       for (const entry of Array.isArray(data?.mediaDefinitions) ? data.mediaDefinitions : []) {
-        const url = this.mediaUrl(entry?.videoUrl, 'phncdn.com'), quality = Number(entry?.quality) || 0;
+        const url = this.mediaUrl(entry?.videoUrl), quality = Number(entry?.quality) || 0;
         if (entry?.format !== 'hls' || !url || !new URL(url).pathname.endsWith('.m3u8') || out.some(x => x.url === url)) continue;
         out.push({url, quality, label: quality ? quality + 'P' : 'HLS', format: 'hls', headers: {Referer: 'https://www.pornhub.com/'}});
       }

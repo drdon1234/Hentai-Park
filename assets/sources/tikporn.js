@@ -9,13 +9,13 @@ Park.register({
     "ru": {"竖屏短视频推荐，支持连续播放和搜索": "Рекомендации вертикальных видео с непрерывным просмотром и поиском"},
     "ar": {"竖屏短视频推荐，支持连续播放和搜索": "اقتراحات مقاطع عمودية تدعم التشغيل المتواصل والبحث"},
   },
-  key: 'tikporn', name: 'Tik.porn', version: '0.0.9', minAppVersion: '0.9.2', type: 'video', category: 'shortvideo',
+  key: 'tikporn', name: 'Tik.porn', version: '0.0.10', minAppVersion: '0.13.6', type: 'video', category: 'shortvideo',
   color: '#FF427B', description: '竖屏短视频推荐，支持连续播放和搜索', language: 'en',
   homepage: 'https://tik.porn/', domains: ['tik.porn'],
   network: {mode: 'browser', origin: 'https://tik.porn', vpnHint: true},
   imageHeaders: {Referer: 'https://image-cdn.tik.porn/'},
   imageNetwork: {mode: 'browser', origin: 'https://image-cdn.tik.porn', domains: ['image-cdn.tik.porn']},
-  media: {mode: 'native', scope: 'session', origin: 'https://tik.porn', domains: ['video-cdn.tik.porn']},
+  media: {mode: 'native', scope: 'session', origin: 'https://tik.porn'},
   idPattern: '^[1-9]\\d{0,11}$', linkPatterns: ['tik\\.porn/video/([1-9]\\d{0,11})(?:[/?#]|$)'],
   defaultFeed: 'recommend', feeds: [{key: 'recommend', label: '推荐'}], searchHint: '搜索作品名或标签',
   BASE: 'https://tik.porn',
@@ -29,7 +29,6 @@ Park.register({
     if (r.status === 404) throw Park.error('NOT_FOUND', '影片不存在');
     if (!r.ok) throw Park.error('HTTP', '短视频请求失败');
     const u = new URL(r.url || this.BASE + path);
-    if (u.origin !== this.BASE || u.username || u.password || u.hash) throw Park.error('BLOCKED', '访问受限');
     if (r.body.length > 4 * 1024 * 1024) throw Park.error('PARSE', '短视频数据解析失败');
     const text = Park.html.parse(r.body).querySelector('#__NEXT_DATA__')?.textContent;
     try {

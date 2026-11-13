@@ -250,7 +250,7 @@ class _TranslationNotice extends StatelessWidget {
         Expanded(
           child: Text(
             tr(
-              '翻译时，标题、简介、标签、搜索词及你选择翻译的小说正文会发送给 Google 翻译。不会发送账号、Cookie 或阅读记录。',
+              '翻译时，所选标题、简介、标签、评论、正文、字幕、弹幕及搜索词会发送给 Google 翻译。已命中当前语言词包的内容不发送；账号凭据、Cookie 和阅读记录不作为翻译数据发送。',
             ),
             style: context.text.bodySmall?.copyWith(
               color: context.colors.onSurfaceVariant,

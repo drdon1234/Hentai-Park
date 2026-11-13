@@ -21,6 +21,7 @@ import '../widgets/common.dart';
 import '../widgets/common_filters.dart';
 import '../widgets/content_translation.dart';
 import '../widgets/filter_controller.dart';
+import '../widgets/option_bar.dart';
 import '../widgets/paged_grid.dart';
 import '../widgets/result_visibility.dart';
 import '../widgets/source_account_strip.dart';
@@ -329,7 +330,6 @@ class _SourceSearchPageState extends State<SourceSearchPage> {
   @override
   Widget build(BuildContext context) {
     return TranslationPage(
-      active: false,
       child: Builder(
         builder: (context) => Scaffold(
           appBar: AppBar(
@@ -363,6 +363,7 @@ class _SourceSearchPageState extends State<SourceSearchPage> {
               ],
             ),
             actions: [
+              const TranslationControls(),
               IconButton(
                 tooltip: tr('多语言搜索'),
                 onPressed: _translating ? null : _searchMulti,
@@ -813,268 +814,292 @@ class _FilterSheetState extends State<FilterSheet> {
 
   @override
   Widget build(BuildContext context) {
-    return ListenableBuilder(
-      listenable: _filters,
-      builder: (context, _) => DraggableScrollableSheet(
-        expand: false,
-        initialChildSize: 0.6,
-        maxChildSize: 0.92,
-        builder: (context, scroll) => Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(Gap.page, 0, Gap.page, Gap.xs),
-              child: Row(
-                children: [
-                  Text(
-                    tr('筛选'),
-                    style: context.text.titleLarge?.copyWith(
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  const Spacer(),
-                  ToolbarButton(
-                    onPressed: _reset,
-                    child: SelectionContainer.disabled(child: Text(tr('重置'))),
-                  ),
-                ],
-              ),
-            ),
-            Expanded(
-              child: ListView(
-                controller: scroll,
+    return TranslationPage(
+      child: ListenableBuilder(
+        listenable: _filters,
+        builder: (context, _) => DraggableScrollableSheet(
+          expand: false,
+          initialChildSize: 0.6,
+          maxChildSize: 0.92,
+          builder: (context, scroll) => Column(
+            children: [
+              Padding(
                 padding: const EdgeInsets.fromLTRB(
                   Gap.page,
-                  Gap.m,
+                  0,
                   Gap.page,
-                  Gap.m,
+                  Gap.xs,
                 ),
-                children: [
-                  for (final f in widget.definitions) ...[
-                    IgnorePointer(
-                      ignoring: _initializing || !_filters.isEnabled(f.key),
-                      child: Opacity(
-                        opacity: _filters.isEnabled(f.key) ? 1 : 0.45,
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            if (f.type != 'switch')
-                              Padding(
-                                padding: const EdgeInsets.only(
-                                  top: 14,
-                                  bottom: 8,
-                                ),
-                                child: Text(
-                                  f.label,
-                                  style: context.text.titleSmall?.copyWith(
-                                    fontWeight: FontWeight.w600,
+                child: Row(
+                  children: [
+                    Text(
+                      tr('筛选'),
+                      style: context.text.titleLarge?.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const Spacer(),
+                    if (widget.definitions.any((f) => f.dynamicValues))
+                      const TranslationControls(),
+                    ToolbarButton(
+                      onPressed: _reset,
+                      child: SelectionContainer.disabled(child: Text(tr('重置'))),
+                    ),
+                  ],
+                ),
+              ),
+              Expanded(
+                child: ListView(
+                  controller: scroll,
+                  padding: const EdgeInsets.fromLTRB(
+                    Gap.page,
+                    Gap.m,
+                    Gap.page,
+                    Gap.m,
+                  ),
+                  children: [
+                    for (final f in widget.definitions) ...[
+                      IgnorePointer(
+                        ignoring: _initializing || !_filters.isEnabled(f.key),
+                        child: Opacity(
+                          opacity: _filters.isEnabled(f.key) ? 1 : 0.45,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              if (f.type != 'switch')
+                                Padding(
+                                  padding: const EdgeInsets.only(
+                                    top: 14,
+                                    bottom: 8,
+                                  ),
+                                  child: Text(
+                                    f.label,
+                                    style: context.text.titleSmall?.copyWith(
+                                      fontWeight: FontWeight.w600,
+                                    ),
                                   ),
                                 ),
-                              ),
-                            if (f.type == 'number')
-                              TextFormField(
-                                key: ValueKey((_commonRevision, f.key)),
-                                initialValue:
-                                    (_filters.values[f.key] == 0
-                                        ? ''
-                                        : _filters.values[f.key]?.toString()) ??
-                                    '',
-                                keyboardType: TextInputType.number,
-                                inputFormatters: [
-                                  FilteringTextInputFormatter.digitsOnly,
-                                ],
-                                decoration: InputDecoration(hintText: tr('不限')),
-                                onChanged: (value) =>
-                                    _change(f.key, int.tryParse(value) ?? 0),
-                              )
-                            else if (f.type == 'text')
-                              TextFormField(
-                                key: ValueKey((_commonRevision, f.key)),
-                                initialValue:
-                                    _filters.values[f.key]?.toString() ?? '',
-                                onChanged: (value) =>
-                                    _filters.setValue(f.key, value),
-                              )
-                            else if (f.type == 'switch')
-                              SwitchListTile.adaptive(
-                                contentPadding: EdgeInsets.zero,
-                                title: Text(f.label),
-                                value: _filters.values[f.key] == true,
-                                onChanged: (value) =>
-                                    _filters.setValue(f.key, value),
-                              )
-                            else ...[
-                              TextField(
-                                key: ValueKey(('choice-search', f.key)),
-                                decoration: InputDecoration(
-                                  prefixIcon: const Icon(Icons.search_rounded),
-                                  hintText: tr('搜索'),
+                              if (f.type == 'number')
+                                TextFormField(
+                                  key: ValueKey((_commonRevision, f.key)),
+                                  initialValue:
+                                      (_filters.values[f.key] == 0
+                                          ? ''
+                                          : _filters.values[f.key]
+                                                ?.toString()) ??
+                                      '',
+                                  keyboardType: TextInputType.number,
+                                  inputFormatters: [
+                                    FilteringTextInputFormatter.digitsOnly,
+                                  ],
+                                  decoration: InputDecoration(
+                                    hintText: tr('不限'),
+                                  ),
+                                  onChanged: (value) =>
+                                      _change(f.key, int.tryParse(value) ?? 0),
+                                )
+                              else if (f.type == 'text')
+                                TextFormField(
+                                  key: ValueKey((_commonRevision, f.key)),
+                                  initialValue:
+                                      _filters.values[f.key]?.toString() ?? '',
+                                  onChanged: (value) =>
+                                      _filters.setValue(f.key, value),
+                                )
+                              else if (f.type == 'switch')
+                                SwitchListTile.adaptive(
+                                  contentPadding: EdgeInsets.zero,
+                                  title: Text(f.label),
+                                  value: _filters.values[f.key] == true,
+                                  onChanged: (value) =>
+                                      _filters.setValue(f.key, value),
+                                )
+                              else ...[
+                                TextField(
+                                  key: ValueKey(('choice-search', f.key)),
+                                  decoration: InputDecoration(
+                                    prefixIcon: const Icon(
+                                      Icons.search_rounded,
+                                    ),
+                                    hintText: tr('搜索'),
+                                  ),
+                                  onChanged: (value) => setState(
+                                    () => _choiceQueries[f.key] = value,
+                                  ),
                                 ),
-                                onChanged: (value) => setState(
-                                  () => _choiceQueries[f.key] = value,
+                                const SizedBox(height: Gap.s),
+                                Wrap(
+                                  spacing: 8,
+                                  runSpacing: 8,
+                                  children: [
+                                    for (final c in _visibleChoices(f.key))
+                                      if (f.type == 'multi')
+                                        FilterChip(
+                                          label: SelectionContainer.disabled(
+                                            child: OptionBar.choiceLabel(
+                                              f,
+                                              c,
+                                              widget.manifest.key,
+                                            ),
+                                          ),
+                                          selected:
+                                              ((_filters.values[f.key]
+                                                          as List?) ??
+                                                      [])
+                                                  .contains(c.value),
+                                          avatar: c.color != null
+                                              ? CircleAvatar(
+                                                  backgroundColor:
+                                                      parseHexColor(c.color!),
+                                                  radius: 5,
+                                                )
+                                              : null,
+                                          showCheckmark: false,
+                                          onSelected: (on) {
+                                            final list = [
+                                              ...((_filters.values[f.key]
+                                                      as List?) ??
+                                                  []),
+                                            ];
+                                            on
+                                                ? list.add(c.value)
+                                                : list.remove(c.value);
+                                            _change(f.key, list);
+                                          },
+                                        )
+                                      else
+                                        ChoiceChip(
+                                          label: SelectionContainer.disabled(
+                                            child: OptionBar.choiceLabel(
+                                              f,
+                                              c,
+                                              widget.manifest.key,
+                                            ),
+                                          ),
+                                          selected:
+                                              _filters.values[f.key] == c.value,
+                                          showCheckmark: false,
+                                          onSelected: (_) =>
+                                              _change(f.key, c.value),
+                                        ),
+                                  ],
                                 ),
-                              ),
-                              const SizedBox(height: Gap.s),
-                              Wrap(
-                                spacing: 8,
-                                runSpacing: 8,
-                                children: [
-                                  for (final c in _visibleChoices(f.key))
-                                    if (f.type == 'multi')
-                                      FilterChip(
-                                        label: SelectionContainer.disabled(
-                                          child: Text(c.label),
-                                        ),
-                                        selected:
-                                            ((_filters.values[f.key]
-                                                        as List?) ??
-                                                    [])
-                                                .contains(c.value),
-                                        avatar: c.color != null
-                                            ? CircleAvatar(
-                                                backgroundColor: parseHexColor(
-                                                  c.color!,
-                                                ),
-                                                radius: 5,
-                                              )
-                                            : null,
-                                        showCheckmark: false,
-                                        onSelected: (on) {
-                                          final list = [
-                                            ...((_filters.values[f.key]
-                                                    as List?) ??
-                                                []),
-                                          ];
-                                          on
-                                              ? list.add(c.value)
-                                              : list.remove(c.value);
-                                          _change(f.key, list);
-                                        },
-                                      )
-                                    else
-                                      ChoiceChip(
-                                        label: SelectionContainer.disabled(
-                                          child: Text(c.label),
-                                        ),
-                                        selected:
-                                            _filters.values[f.key] == c.value,
-                                        showCheckmark: false,
-                                        onSelected: (_) =>
-                                            _change(f.key, c.value),
-                                      ),
-                                ],
-                              ),
+                              ],
+                              if (f.dynamicValues &&
+                                  _filters.isLoadingOption(f.key))
+                                const Padding(
+                                  padding: EdgeInsets.all(8),
+                                  child: LinearProgressIndicator(),
+                                ),
+                              if (_filters.errorFor(f.key) != null)
+                                OutlinedButton.icon(
+                                  onPressed: () => _filters.loadDynamic(f.key),
+                                  icon: const Icon(Icons.refresh_rounded),
+                                  label: Text(tr('加载失败，点击重试')),
+                                ),
+                              if ({'text', 'number'}.contains(f.type))
+                                const SizedBox(height: Gap.m),
                             ],
-                            if (f.dynamicValues &&
-                                _filters.isLoadingOption(f.key))
-                              const Padding(
-                                padding: EdgeInsets.all(8),
-                                child: LinearProgressIndicator(),
-                              ),
-                            if (_filters.errorFor(f.key) != null)
-                              OutlinedButton.icon(
-                                onPressed: () => _filters.loadDynamic(f.key),
-                                icon: const Icon(Icons.refresh_rounded),
-                                label: Text(tr('加载失败，点击重试')),
-                              ),
-                            if ({'text', 'number'}.contains(f.type))
-                              const SizedBox(height: Gap.m),
-                          ],
+                          ),
                         ),
                       ),
-                    ),
-                  ],
-                  if (widget.feedSpecificCommonDefinitions.isNotEmpty) ...[
-                    Padding(
-                      padding: const EdgeInsets.only(top: Gap.m),
-                      child: Text(
-                        tr('栏目筛选'),
-                        style: context.text.titleSmall?.copyWith(
-                          fontWeight: FontWeight.w600,
+                    ],
+                    if (widget.feedSpecificCommonDefinitions.isNotEmpty) ...[
+                      Padding(
+                        padding: const EdgeInsets.only(top: Gap.m),
+                        child: Text(
+                          tr('栏目筛选'),
+                          style: context.text.titleSmall?.copyWith(
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
                       ),
-                    ),
-                    CommonFilterFields(
-                      key: ValueKey((_commonRevision, 'feed')),
-                      definitions: widget.feedSpecificCommonDefinitions,
-                      initialValues: _commonValues,
-                      onChanged: (values, valid) => setState(() {
-                        final dimensions = widget.feedSpecificCommonDefinitions
-                            .map((definition) => definition.dimension.name)
-                            .toSet();
-                        _commonValues = {
-                          for (final entry in _commonValues.entries)
-                            if (!dimensions.contains(entry.key))
-                              entry.key: entry.value,
-                          ...values,
-                        };
-                        _feedCommonValid = valid;
-                        _commonValid = _feedCommonValid && _baseCommonValid;
-                      }),
-                    ),
-                    const SizedBox(height: Gap.m),
-                  ],
-                  if (widget.commonDefinitions.isNotEmpty) ...[
-                    Padding(
-                      padding: const EdgeInsets.only(top: Gap.m),
-                      child: Text(
-                        tr('通用筛选'),
-                        style: context.text.titleSmall?.copyWith(
-                          fontWeight: FontWeight.w600,
+                      CommonFilterFields(
+                        key: ValueKey((_commonRevision, 'feed')),
+                        definitions: widget.feedSpecificCommonDefinitions,
+                        initialValues: _commonValues,
+                        onChanged: (values, valid) => setState(() {
+                          final dimensions = widget
+                              .feedSpecificCommonDefinitions
+                              .map((definition) => definition.dimension.name)
+                              .toSet();
+                          _commonValues = {
+                            for (final entry in _commonValues.entries)
+                              if (!dimensions.contains(entry.key))
+                                entry.key: entry.value,
+                            ...values,
+                          };
+                          _feedCommonValid = valid;
+                          _commonValid = _feedCommonValid && _baseCommonValid;
+                        }),
+                      ),
+                      const SizedBox(height: Gap.m),
+                    ],
+                    if (widget.commonDefinitions.isNotEmpty) ...[
+                      Padding(
+                        padding: const EdgeInsets.only(top: Gap.m),
+                        child: Text(
+                          tr('通用筛选'),
+                          style: context.text.titleSmall?.copyWith(
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
                       ),
-                    ),
-                    CommonFilterFields(
-                      key: ValueKey((_commonRevision, 'base')),
-                      definitions: widget.commonDefinitions,
-                      initialValues: _commonValues,
-                      onChanged: (values, valid) => setState(() {
-                        final dimensions = widget.commonDefinitions
-                            .map((definition) => definition.dimension.name)
-                            .toSet();
-                        _commonValues = {
-                          for (final entry in _commonValues.entries)
-                            if (!dimensions.contains(entry.key))
-                              entry.key: entry.value,
-                          ...values,
-                        };
-                        _baseCommonValid = valid;
-                        _commonValid = _feedCommonValid && _baseCommonValid;
-                      }),
-                    ),
-                    const SizedBox(height: Gap.m),
+                      CommonFilterFields(
+                        key: ValueKey((_commonRevision, 'base')),
+                        definitions: widget.commonDefinitions,
+                        initialValues: _commonValues,
+                        onChanged: (values, valid) => setState(() {
+                          final dimensions = widget.commonDefinitions
+                              .map((definition) => definition.dimension.name)
+                              .toSet();
+                          _commonValues = {
+                            for (final entry in _commonValues.entries)
+                              if (!dimensions.contains(entry.key))
+                                entry.key: entry.value,
+                            ...values,
+                          };
+                          _baseCommonValid = valid;
+                          _commonValid = _feedCommonValid && _baseCommonValid;
+                        }),
+                      ),
+                      const SizedBox(height: Gap.m),
+                    ],
+                    const SizedBox(height: 24),
                   ],
-                  const SizedBox(height: 24),
-                ],
-              ),
-            ),
-            SafeArea(
-              top: false,
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(
-                  Gap.page,
-                  Gap.s,
-                  Gap.page,
-                  Gap.m,
                 ),
-                child: SizedBox(
-                  width: double.infinity,
-                  child: FilledButton(
-                    onPressed:
-                        _commonValid && !_initializing && !_filters.isLoading
-                        ? () => Navigator.pop(
-                            context,
-                            FilterSheetResult(
-                              filters: _filters.values,
-                              common: _commonValues,
-                            ),
-                          )
-                        : null,
-                    child: SelectionContainer.disabled(child: Text(tr('应用筛选'))),
+              ),
+              SafeArea(
+                top: false,
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(
+                    Gap.page,
+                    Gap.s,
+                    Gap.page,
+                    Gap.m,
+                  ),
+                  child: SizedBox(
+                    width: double.infinity,
+                    child: FilledButton(
+                      onPressed:
+                          _commonValid && !_initializing && !_filters.isLoading
+                          ? () => Navigator.pop(
+                              context,
+                              FilterSheetResult(
+                                filters: _filters.values,
+                                common: _commonValues,
+                              ),
+                            )
+                          : null,
+                      child: SelectionContainer.disabled(
+                        child: Text(tr('应用筛选')),
+                      ),
+                    ),
                   ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

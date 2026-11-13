@@ -3,13 +3,13 @@ import 'package:flutter/material.dart';
 import '../../core/content_scope.dart';
 import '../../core/localization.dart';
 import '../../core/models.dart';
-import '../../core/settings.dart';
 import '../../core/tag_blocklist.dart';
 import '../../engine/source_manager.dart';
 import '../../library/library.dart';
 import '../nav.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
+import '../widgets/content_translation.dart';
 import '../widgets/cover_tile.dart';
 
 /// 继续看: the most recent history in the selected scope as one horizontal row. Hidden when
@@ -19,21 +19,23 @@ class RecentHistory extends StatelessWidget {
     super.key,
     this.onOpenHistory,
     this.limit,
+    this.showBlocked = false,
     this.scope = const ContentScope.all(),
   });
   final ContentScope scope;
   final VoidCallback? onOpenHistory;
   final int? limit;
+  final bool showBlocked;
   @override
   Widget build(BuildContext context) => ListenableBuilder(
-    listenable: AppSettings.instance.watch(AppSettings.filterKeys),
+    listenable: TagBlocklist.changes,
     builder: (context, _) => _build(context),
   );
   Widget _build(BuildContext context) {
     final rules = TagBlocklist.current();
     final entries = Library.instance
         .history(scope: scope)
-        .where((e) => rules.matchItem(e.item) == null)
+        .where((e) => showBlocked || rules.matchItem(e.item) == null)
         .toList();
     final recent = limit == null ? entries : entries.take(limit!).toList();
     if (recent.isEmpty) return const SizedBox.shrink();
@@ -184,7 +186,7 @@ class _ContinueCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Text(
+                    TranslatedText(
                       item.title,
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,

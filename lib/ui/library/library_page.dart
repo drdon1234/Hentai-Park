@@ -14,6 +14,7 @@ import '../nav.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
 import '../widgets/content_scope_selector.dart';
+import '../widgets/content_translation.dart';
 import '../widgets/cover_tile.dart';
 import 'category_manage_page.dart';
 import 'favorite_actions.dart';
@@ -207,6 +208,7 @@ class _LibraryPageState extends State<LibraryPage> {
             )
           : ShelfTitle(tr('收藏')),
       actions: [
+        const TranslationControls(),
         IconButton(
           tooltip: _searching ? tr('关闭搜索') : tr('搜索'),
           icon: Icon(_searching ? Icons.close_rounded : Icons.search_rounded),
@@ -509,7 +511,7 @@ class _LibraryTab extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
+                      TranslatedText(
                         f.item.title,
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,

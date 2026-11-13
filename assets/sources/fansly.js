@@ -106,11 +106,11 @@ Park.register({
       "此视频需要在 Fansly 订阅或购买后才能观看": "اشترك أو اشترِ على Fansly لمشاهدة هذا الفيديو"
     }
   },
-  key: 'fansly', name: 'Fansly', version: '0.0.13', minAppVersion: '0.9.2', type: 'video', category: 'shortvideo',
+  key: 'fansly', name: 'Fansly', version: '0.0.14', minAppVersion: '0.13.6', type: 'video', category: 'shortvideo',
   color: '#00AFF0', description: '匿名可看公开短视频；敏感内容需登录', language: 'en',
   homepage: 'https://fansly.com/explore/foryou', domains: ['fansly.com'],
   network: {mode: 'native', vpnHint: true},
-  media: {mode: 'native', scope: 'session', origin: 'https://fansly.com', domains: ['cdn3.fansly.com']},
+  media: {mode: 'native', scope: 'session', origin: 'https://fansly.com'},
   idPattern: '^[0-9]{15,21}$', defaultFeed: 'recommend',
   feeds: [{key: 'recommend', label: '推荐'}],
   searchFilters: [{key: 'tag', label: '标签', type: 'select', default: '', dynamic: true, keywordDependent: true, values: []}],

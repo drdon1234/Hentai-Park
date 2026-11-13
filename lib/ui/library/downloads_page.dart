@@ -26,6 +26,7 @@ import '../nav.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
 import '../widgets/content_scope_selector.dart';
+import '../widgets/content_translation.dart';
 import '../widgets/cover_tile.dart';
 import '../widgets/file_drop_region.dart';
 import '../widgets/platform_share.dart';
@@ -261,6 +262,7 @@ class _DownloadsPageState extends State<DownloadsPage> {
         : null,
     title: _searching ? null : tr('下载'),
     actions: [
+      const TranslationControls(),
       IconButton(
         tooltip: _searching ? tr('关闭搜索') : tr('搜索'),
         icon: Icon(_searching ? Icons.close_rounded : Icons.search_rounded),
@@ -332,6 +334,7 @@ class _DownloadsPageState extends State<DownloadsPage> {
     ),
     title: Text(tr('已选 {value0}', {'value0': _selectedDownloads.length})),
     actions: [
+      const TranslationControls(),
       IconButton(
         tooltip: tr('暂停'),
         icon: const Icon(Icons.pause_rounded),
@@ -814,7 +817,7 @@ class _TaskTile extends StatelessWidget {
           children: [
             ListTile(
               title: SelectionContainer.disabled(
-                child: Text(
+                child: TranslatedText(
                   t.item.title,
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
@@ -1082,7 +1085,7 @@ class _TaskTile extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
+                    TranslatedText(
                       t.item.title,
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
@@ -1250,7 +1253,7 @@ class _ChapterSheetState extends State<_ChapterSheet> {
                       CheckboxListTile(
                         value: _selected.contains(ch.id),
                         title: SelectionContainer.disabled(
-                          child: Text(ch.title),
+                          child: TranslatedText(ch.title),
                         ),
                         subtitle: SelectionContainer.disabled(
                           child: Text(

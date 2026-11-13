@@ -8,7 +8,6 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/localization.dart';
 import '../../core/models.dart';
-import '../../core/settings.dart';
 import '../../core/tag_blocklist.dart';
 import '../../engine/domains.dart';
 import '../../engine/source_manager.dart';
@@ -100,6 +99,7 @@ class _SubscriptionPostsPageState extends State<SubscriptionPostsPage> {
   final posts = <SubscriptionPost>[];
   SubscriptionPost? _targetPost;
   bool _hidePreviews = false;
+  bool _showBlocked = false;
   final _cursors = <String>{};
   String? cursor;
   bool loading = false, hasNext = true;
@@ -108,16 +108,17 @@ class _SubscriptionPostsPageState extends State<SubscriptionPostsPage> {
   CancelToken? request;
   String mediaType = 'all';
   int _emptyPages = 0;
-  late final _filters = AppSettings.instance.watch(AppSettings.filterKeys);
+  late final _filters = TagBlocklist.changes;
   void _filtersChanged() {
     if (mounted) setState(() {});
   }
 
   bool _isVisible(SubscriptionPost post) =>
-      TagBlocklist.current().matchItem(
-            WorkItem(post.json, widget.entry.source),
-          ) ==
-          null &&
+      (_showBlocked ||
+          TagBlocklist.current().matchItem(
+                WorkItem(post.json, widget.entry.source),
+              ) ==
+              null) &&
       switch (mediaType) {
         'image' => post.media.any((m) => m.type == 'image'),
         'video' => post.media.any((m) => m.type == 'video'),
@@ -313,6 +314,11 @@ class _SubscriptionPostsPageState extends State<SubscriptionPostsPage> {
                 runSpacing: 8,
                 children: [
                   ResultVisibility(
+                    showBlocked: _showBlocked,
+                    onBlocked: (v) => setState(() {
+                      _showBlocked = v;
+                      _emptyPages = 0;
+                    }),
                     supportsPreviews:
                         _sources
                             .manifest(widget.entry.source)
@@ -779,7 +785,12 @@ class _SubscriptionMediaPageState extends State<SubscriptionMediaPage> {
     if (widget.embedded) return body;
     return Scaffold(
       appBar: AppBar(
-        title: Text(widget.post.title.isEmpty ? tr('订阅媒体') : widget.post.title),
+        title: widget.post.title.isEmpty
+            ? Text(tr('订阅媒体'))
+            : TranslatedText(widget.post.title),
+        actions: [
+          if (widget.post.title.isNotEmpty) const TranslationControls(),
+        ],
       ),
       body: body,
     );

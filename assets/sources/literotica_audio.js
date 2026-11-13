@@ -44,13 +44,13 @@
       ru: {...words.ru, '英语原创音声与有声故事，支持排行和搜索': 'Оригинальные английские аудио и рассказы с рейтингами и поиском', '评分最高': 'По рейтингу', '播放最多': 'По прослушиваниям'},
       ar: {...words.ar, '英语原创音声与有声故事，支持排行和搜索': 'صوتيات وقصص إنجليزية أصلية مع ترتيب وبحث', '评分最高': 'الأعلى تقييمًا', '播放最多': 'الأكثر تشغيلًا'},
     },
-    key: 'literotica_audio', name: 'Literotica Audio', version: '0.0.2', minAppVersion: '0.13.0',
+    key: 'literotica_audio', name: 'Literotica Audio', version: '0.0.3', minAppVersion: '0.13.6',
     type: 'voice', category: 'asmr', color: '#AE3942',
     description: '英语原创音声与有声故事，支持排行和搜索',
     homepage: HOME + '/c/audio-sex-stories', domains: ['literotica.com'],
     network: {mode: 'auto', vpnHint: true},
-    media: {mode: 'native', origin: HOME, domains: ['literotica.com']},
-    defaultFeed: 'rank', feeds: [
+    media: {mode: 'native', scope: 'session', origin: HOME},
+    browseLayout: 'list', defaultFeed: 'rank', feeds: [
       {key: 'rank', label: '排行', options: [
         {key: 'sort', label: '排序', default: 'top-rated', values: [
           {value: 'top-rated', label: '评分最高'}, {value: 'most-read', label: '播放最多'},
@@ -78,8 +78,7 @@
     safeAudio(raw) {
       let url;
       try { url = new URL(raw, HOME); } catch (_) {}
-      if (!url || url.protocol !== 'https:' || url.username || url.password || url.port || url.hash ||
-          !(url.hostname === 'uploads.literotica.com' || url.hostname.endsWith('.uploads.literotica.com'))) throw Park.error('PARSE', '媒体数据无效');
+      if (!url || url.protocol !== 'https:' || url.username || url.password || url.port || url.hash) throw Park.error('PARSE', '媒体数据无效');
       const ext = url.pathname.split('.').pop().toLowerCase();
       if (!['mp3', 'm4a', 'mp4', 'm3u8'].includes(ext)) throw Park.error('UNSUPPORTED', '媒体格式不支持');
       return {url: url.href, format: ext === 'm3u8' ? 'hls' : ext};

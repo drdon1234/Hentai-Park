@@ -6,9 +6,9 @@ import 'package:flutter/scheduler.dart';
 import '../../core/danmaku.dart';
 import '../../core/localization.dart';
 import '../../engine/live_chat.dart';
-import '../../engine/live_chat_protocol.dart';
 import '../kit/tokens.dart';
 import '../theme.dart';
+import '../widgets/content_translation.dart';
 import 'danmaku_scheduler.dart';
 
 /// 只读滚动弹幕；独立完成出屏，不受会话短期消息缓存清理影响。
@@ -95,7 +95,7 @@ class _LiveChatOverlayState extends State<LiveChatOverlay>
   String _statusLabel(String key) =>
       widget.vpnHint ? '${tr(key)} · ${tr('在中国大陆访问可能需要 VPN 或代理')}' : tr(key);
 
-  String _text(LiveChatMessage message) {
+  String _text(String bodyText, String authorName) {
     String compact(String value, int limit) {
       final text = value.replaceAll(RegExp(r'\s+'), ' ').trim();
       return text.characters.length > limit
@@ -103,8 +103,7 @@ class _LiveChatOverlayState extends State<LiveChatOverlay>
           : text;
     }
 
-    final body = compact(message.text, 160),
-        author = compact(message.author, 6);
+    final body = compact(bodyText, 160), author = compact(authorName, 6);
     return author.isEmpty ? body : '$author: $body';
   }
 
@@ -173,7 +172,7 @@ class _LiveChatOverlayState extends State<LiveChatOverlay>
             : 0.0;
         for (final message in widget.session.messages) {
           if (_scheduler.contains(message.id)) continue;
-          final text = _text(message);
+          final text = _text(message.text, message.author);
           final painter = TextPainter(
             text: TextSpan(text: text, style: style),
             textDirection: direction,
@@ -184,7 +183,8 @@ class _LiveChatOverlayState extends State<LiveChatOverlay>
           _scheduler.add(
             DanmakuEntry(
               id: message.id,
-              text: text,
+              text: message.text,
+              author: message.author,
               width: painter.width.ceilToDouble() + 2,
             ),
           );
@@ -206,11 +206,14 @@ class _LiveChatOverlayState extends State<LiveChatOverlay>
                       top: bandTop + flight.lane * lanePitch,
                       width: flight.entry.width,
                       height: rowHeight,
-                      child: Text(
-                        flight.entry.text,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: style,
+                      child: ContentTranslation(
+                        text: flight.entry.text,
+                        builder: (body) => Text(
+                          _text(body, flight.entry.author),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: style,
+                        ),
                       ),
                     ),
                 ],
@@ -293,11 +296,14 @@ class _LiveChatOverlayState extends State<LiveChatOverlay>
                       .toList()
                       .reversed)
                 Flexible(
-                  child: Text(
-                    _text(message),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: style,
+                  child: ContentTranslation(
+                    text: message.text,
+                    builder: (body) => Text(
+                      _text(body, message.author),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: style,
+                    ),
                   ),
                 ),
             ],

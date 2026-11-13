@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../updates/updates_page.dart';
+import '../widgets/content_translation.dart';
 import 'library_page.dart';
 import 'shelf_components.dart';
 
@@ -40,10 +41,13 @@ class _ShelfPageState extends State<ShelfPage> {
               if (!_visited.contains(s))
                 const SizedBox.shrink()
               else
-                switch (s) {
-                  ShelfSegment.favorites => const LibraryPage(),
-                  ShelfSegment.updates => const UpdatesPage(),
-                },
+                TranslationPage(
+                  active: s == segment,
+                  child: switch (s) {
+                    ShelfSegment.favorites => const LibraryPage(),
+                    ShelfSegment.updates => const UpdatesPage(),
+                  },
+                ),
           ],
         ),
       );

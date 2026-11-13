@@ -53,7 +53,7 @@ Configure sign-in under More → Sites and proxies under More → Network when n
 | Rankings and image search | Browse doujinshi, anime and JAV rankings, or use an image to find candidate works. |
 | Work information | Browse, search and filter work information, open original-site ranking details, and choose detail and search sites. |
 | Site comments and live chat | Read comments, replies and images from supported sites, and show live chat in supported streams. |
-| Translation and filters | Translate titles, descriptions, tags, articles and novel text; hide content by tag. |
+| Translation and filters | Translate titles, chapter names, descriptions, tags, comments, text, text subtitles and live chat; current-language dictionaries take priority. Hide content by tag. |
 | Privacy and backup | App lock, incognito browsing, blurred covers and screenshot blocking on supported platforms; back up favorites, progress, subscriptions and settings. |
 
 ## Supported sites and services

@@ -458,7 +458,8 @@ class _NovelReaderPageState extends _NovelReaderBase
             ),
             foreground: foreground,
             title: _chapter.title,
-            subtitle: [widget.work.title, if (_offline) tr('离线阅读')].join(' · '),
+            subtitle: widget.work.title,
+            subtitleNote: _offline ? tr('离线阅读') : null,
             actions: [
               IconButton(
                 tooltip: tr('目录'),

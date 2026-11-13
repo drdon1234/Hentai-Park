@@ -1,7 +1,6 @@
 import 'package:flutter/foundation.dart';
 
 import '../../core/models.dart';
-import '../../core/settings.dart';
 import '../../core/tag_blocklist.dart';
 
 typedef RankingLoader = Future<RankingPage> Function(
@@ -15,9 +14,15 @@ class RankingController extends ChangeNotifier {
   RankingController(this.load) {
     _filters.addListener(_applyFilters);
   }
-  final _filters = AppSettings.instance.watch(AppSettings.filterKeys);
+  final _filters = TagBlocklist.changes;
   final RankingLoader load;
   final List<RankingEntry> items = [];
+  bool showBlocked = false;
+  void setVisibility(bool value) {
+    showBlocked = value;
+    _applyFilters();
+  }
+
   final List<RankingEntry> _loaded = [];
   int get hidden => _loaded.length - items.length;
   void _applyFilters() {
@@ -27,7 +32,10 @@ class RankingController extends ChangeNotifier {
       ..clear()
       ..addAll(
         _loaded.where(
-          (item) => item.work == null || rules.matchItem(item.work!) == null,
+          (item) =>
+              showBlocked ||
+              item.work == null ||
+              rules.matchItem(item.work!) == null,
         ),
       );
     notifyListeners();

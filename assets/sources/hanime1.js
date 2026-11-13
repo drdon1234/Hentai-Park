@@ -48,7 +48,7 @@ Park.register({
   },
   key: 'hanime1',
   name: 'Hanime1',
-  version: '0.0.11', minAppVersion: '0.9.2',
+  version: '0.0.12', minAppVersion: '0.13.6',
   type: 'video',
   category: 'anime',
   color: '#E5355F',
@@ -61,7 +61,7 @@ Park.register({
   idExample: '408297',
   imageHeaders: { Referer: 'https://hanime1.me/' },
   network: { mode: 'browser', origin: 'https://hanime1.me', vpnHint: true },
-  media: { mode: 'native', scope: 'session', origin: 'https://hanime1.me', domains: ['sb-cd.com', 'hanime1.me', 'vdownload.hembed.com'] },
+  media: { mode: 'native', scope: 'session', origin: 'https://hanime1.me' },
 
   settings: [
     {

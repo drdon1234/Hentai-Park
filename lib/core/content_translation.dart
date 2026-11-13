@@ -14,6 +14,23 @@ typedef ContentTranslate = Future<String?> Function(
 
 typedef _Key = ({String text, String target, String engine});
 
+/// 保守过滤独立机器值；不猜测自然语言所属语种，避免把中日文误判为已翻译。
+bool isTranslatableContent(String text) {
+  final value = text.trim();
+  if (!RegExp(r'\p{L}', unicode: true).hasMatch(value)) return false;
+  if (RegExp(
+    r'^(?:https?://|magnet:|data:|www\.)\S+$',
+    caseSensitive: false,
+  ).hasMatch(value)) {
+    return false;
+  }
+  if (RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$').hasMatch(value)) return false;
+  if (RegExp(r'^(?:[A-Za-z]{1,12}[-_])?\d+(?:[-_.]\d+)*$').hasMatch(value)) {
+    return false;
+  }
+  return true;
+}
+
 /// 页面可见内容共享的有限翻译队列，原始内容始终由调用方保留。
 class ContentTranslationQueue extends ChangeNotifier {
   ContentTranslationQueue({ContentTranslate? translate})
@@ -40,6 +57,7 @@ class ContentTranslationQueue extends ChangeNotifier {
 
   /// 可见页面恢复时读取已有译文，不占用网络队列容量。
   String? cached(String text, String locale, String engine) {
+    if (!isTranslatableContent(text)) return text;
     final target = normalizeSearchLanguage(locale);
     if (target == null) return null;
     final key = (text: text, target: target, engine: engine);
@@ -76,6 +94,7 @@ class ContentTranslationQueue extends ChangeNotifier {
         !waiter.active) {
       return Future.value();
     }
+    if (!isTranslatableContent(text)) return Future.value(text);
     final key = (text: text, target: target, engine: engine);
     final translated = cached(text, locale, engine);
     if (translated != null) return Future.value(translated);

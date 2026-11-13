@@ -64,11 +64,11 @@ Park.register({
     "未知直播列表": "قائمة بث غير معروفة"
   }
 },
-  key: 'cam4', name: 'CAM4', version: '0.0.8', minAppVersion: '0.9.2', type: 'video', category: 'live', language: 'en',
+  key: 'cam4', name: 'CAM4', version: '0.0.9', minAppVersion: '0.13.6', type: 'video', category: 'live', language: 'en',
   chat: {domains: ['identitytoolkit.googleapis.com', 'cam4.firebaseio.com', ...Array.from({length: 10}, (_, i) => 'cam4-' + (i + 1) + '.firebaseio.com')]},
   color: '#ff5a5f', description: '公开直播间', homepage: 'https://www.cam4.com/',
   domains: ['cam4.com'], network: {mode: 'auto', origin: 'https://www.cam4.com', vpnHint: true},
-  media: {mode: 'native', scope: 'session', origin: 'https://www.cam4.com', domains: ['cam4-hls.xcdnpro.com', 'stackvaults-hls.xcdnpro.com']},
+  media: {mode: 'native', scope: 'session', origin: 'https://www.cam4.com'},
   imageHeaders: {Referer: 'https://www.cam4.com/'}, idPattern: '^[A-Za-z0-9_]{1,80}$',
   defaultFeed: 'popular', feeds: [{key: 'popular', label: '热门', options: [{key: 'gender', label: '分类', default: 'female', dynamic: true, values: []}]}],
   async filterOptions(req) {

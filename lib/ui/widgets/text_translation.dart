@@ -176,11 +176,11 @@ class _TextTranslationSheetState extends State<_TextTranslationSheet> {
   @override
   void initState() {
     super.initState();
-    unawaited(_translate());
+    if (widget.dictionary == null) unawaited(_translate());
   }
 
   Future<void> _translate() async {
-    if (busy) return;
+    if (busy || widget.dictionary != null) return;
     final current = ++generation;
     final engine = AppSettings.instance.translateEngine;
     setState(() {
@@ -250,7 +250,7 @@ class _TextTranslationSheetState extends State<_TextTranslationSheet> {
                       Text(tr('词库译文')),
                       SelectableText(widget.dictionary!),
                     ],
-                    const Divider(),
+                    if (widget.dictionary == null) const Divider(),
                     if (busy) const LinearProgressIndicator(),
                     if (result != null) SelectableText(result!),
                     if (failed) Text(tr('翻译失败，请重试')),
@@ -264,14 +264,17 @@ class _TextTranslationSheetState extends State<_TextTranslationSheet> {
               spacing: 8,
               runSpacing: 8,
               children: [
+                if (widget.dictionary == null)
+                  OutlinedButton(
+                    onPressed: busy ? null : _translate,
+                    child: SelectionContainer.disabled(child: Text(tr('重试'))),
+                  ),
                 OutlinedButton(
-                  onPressed: busy ? null : _translate,
-                  child: SelectionContainer.disabled(child: Text(tr('重试'))),
-                ),
-                OutlinedButton(
-                  onPressed: result == null
+                  onPressed: (widget.dictionary ?? result) == null
                       ? null
-                      : () => Clipboard.setData(ClipboardData(text: result!)),
+                      : () => Clipboard.setData(
+                          ClipboardData(text: (widget.dictionary ?? result)!),
+                        ),
                   child: SelectionContainer.disabled(child: Text(tr('复制译文'))),
                 ),
                 TextButton(

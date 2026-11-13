@@ -1,7 +1,7 @@
 /* 由 tools/build_feed_sources.mjs 生成；请修改模板与站点配置。 */
 (function () {
   'use strict';
-  const SITE = {"key":"feedheiliao","name":"黑料网","names":{"zh-Hant":"黑料網","en":"Heiliao","ja":"黒料網","ko":"헤이랴오","es":"Heiliao","ru":"Heiliao","ar":"Heiliao"},"homepage":"https://155.fun","home":"https://heiliao.com","domain":"heiliao.com","imageDomain":"pic.hdhwqx.cn","archive":true,"release":"https://www.heiliao88.com/","releaseSelector":"a.line-long[href]","hostPattern":"^(?:www\\.)?heiliao[0-9]*\\.com$","linkPattern":"(?:www\\.)?heiliao[0-9]*\\.com"};
+  const SITE = {"key":"feedheiliao","name":"黑料网","names":{"zh-Hant":"黑料網","en":"Heiliao","ja":"黒料網","ko":"헤이랴오","es":"Heiliao","ru":"Heiliao","ar":"Heiliao"},"homepage":"https://155.fun","home":"https://heiliao.com","domain":"heiliao.com","archive":true,"release":"https://www.heiliao88.com/","releaseSelector":"a.line-long[href]","hostPattern":"^(?:www\\.)?heiliao[0-9]*\\.com$","linkPattern":"(?:www\\.)?heiliao[0-9]*\\.com"};
   const catalogCache = new Map();
   const option = (key, label) => ({key, label, type: 'multi', default: [], dynamic: true, values: []});
   const text = node => Park.html.text(node);
@@ -167,7 +167,7 @@
     return result;
   }
   Park.register({
-    key: SITE.key, name: SITE.name, version: '0.0.9', minAppVersion: '0.11.0',
+    key: SITE.key, name: SITE.name, version: '0.0.10', minAppVersion: '0.13.6',
     type: 'article', category: 'feed', color: '#488A7B', language: 'zh',
     description: '吃瓜图文，支持分类、标签、搜索与视频',
     i18n: {
@@ -180,7 +180,7 @@
       ar: {[SITE.name]: SITE.names['ar'],'吃瓜图文，支持分类、标签、搜索与视频':'مقالات مصورة مع تصنيفات ووسوم وبحث وفيديو'},
     },
     homepage: SITE.homepage || SITE.home, domains: [SITE.domain], network: {mode: 'native', vpnHint: true},
-    imageDecrypt: {type: 'aes-cbc', key: 'f5d965df75336270', iv: '97b60394abc2fbe1', domains: [SITE.imageDomain]},
+    imageDecrypt: {type: 'aes-cbc', key: 'f5d965df75336270', iv: '97b60394abc2fbe1'},
     media: {mode: 'native', scope: 'session', origin: SITE.home},
     linkPatterns: [SITE.linkPattern + '/archives/([1-9]\\d{0,14})(?:\\.html|/)(?:[?#]|$)'],
     idPattern: '^([1-9]\\d{0,14})$',

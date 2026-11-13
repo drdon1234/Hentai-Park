@@ -14,8 +14,14 @@ import 'source_interaction.dart';
 
 /// Static related lists remain usable; sources with a related method can continue loading.
 class RelatedWorks extends StatefulWidget {
-  const RelatedWorks({super.key, required this.detail, this.sourceManager});
+  const RelatedWorks({
+    super.key,
+    required this.detail,
+    this.sourceManager,
+    this.showBlocked = false,
+  });
   final WorkDetail detail;
+  final bool showBlocked;
   final SourceManager? sourceManager;
   @override
   State<RelatedWorks> createState() => _RelatedWorksState();
@@ -46,8 +52,17 @@ class _RelatedWorksState extends State<RelatedWorks> {
   @override
   void initState() {
     super.initState();
+    _paged.showBlocked = widget.showBlocked;
     if (_dynamic) unawaited(_paged.loadMore());
     sourceInteractionChanges.addListener(_interactionChanged);
+  }
+
+  @override
+  void didUpdateWidget(RelatedWorks oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.showBlocked != widget.showBlocked) {
+      _paged.setVisibility(blocked: widget.showBlocked);
+    }
   }
 
   void _interactionChanged() {
@@ -113,7 +128,9 @@ class _RelatedWorksState extends State<RelatedWorks> {
       final blocklist = TagBlocklist.current();
       final items = [...widget.detail.related, ..._paged.items, ..._extra]
           .where(
-            (item) => seen.add(item.id) && blocklist.matchItem(item) == null,
+            (item) =>
+                seen.add(item.id) &&
+                (widget.showBlocked || blocklist.matchItem(item) == null),
           )
           .toList();
       final error = _paged.error ?? _extraError;
@@ -131,7 +148,8 @@ class _RelatedWorksState extends State<RelatedWorks> {
                   .where(
                     (item) =>
                         item.id != widget.detail.id &&
-                        blocklist.matchItem(item) == null,
+                        (widget.showBlocked ||
+                            blocklist.matchItem(item) == null),
                   )
                   .toList(),
             ),

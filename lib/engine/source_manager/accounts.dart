@@ -124,6 +124,7 @@ mixin _SourceAccounts on _SourceRegistry {
     final source = _sources[key];
     _accountCheckedAt.remove(key);
     await CookieStore.instance.clearPartition(key);
+    TagBlocklist.forgetSource(key);
     final account = manifest(key)?.account;
     if (account != null && account.localStorageKeys.isNotEmpty) {
       final uri = Uri.parse(

@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import '../../core/localization.dart';
 import '../../core/models.dart';
 import '../../core/platform_capabilities.dart';
-import '../../core/settings.dart';
 import '../../core/tag_blocklist.dart';
 import '../../core/voice.dart';
 import '../../engine/home_cache.dart';
@@ -33,7 +32,7 @@ class PagedController extends ChangeNotifier {
     _filters.addListener(_rulesChanged);
   }
 
-  final _filters = AppSettings.instance.watch(AppSettings.filterKeys);
+  final _filters = TagBlocklist.changes;
 
   PageLoader loader;
   final String source;
@@ -297,14 +296,14 @@ class PagedSliverGrid extends StatelessWidget {
     required this.controller,
     required this.kind,
     this.showSource = false,
-    this.listMode = false,
+    this.listMode,
     this.padding = const EdgeInsets.fromLTRB(Gap.page, Gap.s, Gap.page, Gap.xl),
   });
   final PagedController controller;
   final MediaKind kind;
   final bool showSource;
   final EdgeInsets padding;
-  final bool listMode;
+  final bool? listMode;
 
   @override
   Widget build(BuildContext context) {
@@ -312,10 +311,14 @@ class PagedSliverGrid extends StatelessWidget {
       listenable: controller,
       builder: (context, _) {
         final c = controller;
+        final useList =
+            listMode ??
+            SourceManager.instance.manifest(c.source)?.prefersList ??
+            (kind == MediaKind.novel);
         if (c.sections != null) {
           return SliverMainAxisGroup(
             slivers: [
-              _SectionsSliver(controller: c, listMode: listMode),
+              _SectionsSliver(controller: c, listMode: useList),
               SliverToBoxAdapter(child: _footer(context)),
             ],
           );
@@ -377,11 +380,10 @@ class PagedSliverGrid extends StatelessWidget {
               ),
             );
           }
-          return _skeletonGrid(context);
+          return _skeletonGrid(context, useList);
         }
-        if (listMode ||
+        if (useList ||
             kind == MediaKind.article ||
-            kind == MediaKind.novel ||
             c.items.any((item) => item.json['presentation'] == 'post')) {
           return SliverMainAxisGroup(
             slivers: [
@@ -396,7 +398,10 @@ class PagedSliverGrid extends StatelessWidget {
                           source: item.source,
                           post: SubscriptionPost(item.json),
                         )
-                      : listMode && !item.isNovel && kind != MediaKind.novel
+                      : useList &&
+                            !item.isNovel &&
+                            kind != MediaKind.novel &&
+                            item.cover.isNotEmpty
                       ? WorkListRow(item: item, sequence: c.sequence)
                       : WorkTextRow(item: item, showSource: showSource);
                 },
@@ -539,8 +544,8 @@ class PagedSliverGrid extends StatelessWidget {
     );
   }
 
-  Widget _skeletonGrid(BuildContext context) {
-    if (kind == MediaKind.novel || kind == MediaKind.article) {
+  Widget _skeletonGrid(BuildContext context, bool useList) {
+    if (useList || kind == MediaKind.article) {
       return SliverToBoxAdapter(
         child: Column(
           children: [
@@ -626,7 +631,7 @@ class _SectionsSliver extends StatelessWidget {
               itemCount: section.items.length,
               itemBuilder: (context, index) {
                 final item = section.items[index];
-                return item.isNovel
+                return item.isNovel || item.cover.isEmpty
                     ? WorkTextRow(item: item)
                     : WorkListRow(item: item);
               },

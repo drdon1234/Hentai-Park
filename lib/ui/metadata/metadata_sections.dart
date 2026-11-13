@@ -94,7 +94,6 @@ class MetadataOverview extends StatelessWidget {
       (tr('导演'), detail.director),
       (tr('制作商'), detail.studio),
       (tr('发行商'), detail.publisher),
-      (tr('系列'), detail.series),
       (tr('评分'), detail.rating),
     ].where((entry) => entry.$2.isNotEmpty).toList();
     return Column(
@@ -158,6 +157,10 @@ class MetadataOverview extends StatelessWidget {
             ),
           ),
         ],
+        if (detail.series.isNotEmpty) ...[
+          Text(tr('系列'), style: context.text.labelMedium),
+          TranslatedText(detail.series, source: source, tag: true),
+        ],
         if (detail.description.isNotEmpty) ...[
           const SizedBox(height: Gap.l),
           SelectionArea(
@@ -188,6 +191,7 @@ class MetadataOverview extends StatelessWidget {
                     source: source,
                     text: value,
                     tag: true,
+                    machineTranslation: label == tr('标签'),
                     builder: (text) => Tag(text),
                   ),
               ],
@@ -224,7 +228,11 @@ class MetadataCandidateRow extends StatelessWidget {
             ),
           ),
     title: Text(item.code, maxLines: 1, overflow: TextOverflow.ellipsis),
-    subtitle: Text(item.title, maxLines: 3, overflow: TextOverflow.ellipsis),
+    subtitle: TranslatedText(
+      item.title,
+      maxLines: 3,
+      overflow: TextOverflow.ellipsis,
+    ),
     trailing: const Icon(Icons.chevron_right_rounded),
     onTap: onTap,
   );

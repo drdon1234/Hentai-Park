@@ -7,12 +7,15 @@ import 'package:flutter/material.dart';
 
 import '../../core/localization.dart';
 import '../../core/models.dart';
+import '../../core/timed_subtitles.dart';
 import '../../core/voice.dart';
 import '../../engine/media_transport_factory.dart';
 import '../../engine/source_manager.dart';
 import '../kit/kit.dart';
 import '../widgets/common.dart' show LoadingIndicator;
+import '../widgets/content_translation.dart';
 import '../widgets/error_view.dart';
+import '../widgets/text_translation.dart';
 
 /// 附件只在本次页面会话中读取，地址和正文不写入作品缓存。
 class VoiceAttachmentPage extends StatefulWidget {
@@ -34,6 +37,7 @@ class _VoiceAttachmentPageState extends State<VoiceAttachmentPage> {
   CancelToken? _cancel;
   Uint8List? _bytes;
   String? _text;
+  List<TimedSubtitleCue>? _cues;
   Object? _error;
 
   @override
@@ -48,6 +52,7 @@ class _VoiceAttachmentPageState extends State<VoiceAttachmentPage> {
     setState(() {
       _bytes = null;
       _text = null;
+      _cues = null;
       _error = null;
     });
     try {
@@ -74,10 +79,22 @@ class _VoiceAttachmentPageState extends State<VoiceAttachmentPage> {
                 widget.node.kind == VoiceNodeKind.subtitle
             ? utf8.decode(result.bytes)
             : null;
+        final cues = widget.node.kind == VoiceNodeKind.subtitle
+            ? TimedSubtitles.parse(
+                text!,
+                format: resource.format.isNotEmpty
+                    ? resource.format
+                    : widget.node.name.split('.').last,
+              ).cues
+            : null;
+        if (cues != null && cues.isEmpty) {
+          throw SourceError('PARSE', '媒体数据无效');
+        }
         if (mounted && !cancel.isCancelled) {
           setState(() {
             _bytes = result.bytes;
             _text = text;
+            _cues = cues;
           });
         }
       } finally {
@@ -119,13 +136,35 @@ class _VoiceAttachmentPageState extends State<VoiceAttachmentPage> {
         ),
       );
     } else {
-      body = SingleChildScrollView(
-        padding: const EdgeInsets.all(Gap.page),
-        child: SelectableText(_text ?? ''),
+      final cues = _cues;
+      final chunks = cues == null ? translationChunks(_text ?? '') : null;
+      body = TranslationSelectionArea(
+        child: ListView.builder(
+          padding: const EdgeInsets.all(Gap.page),
+          itemCount: cues?.length ?? chunks!.length,
+          itemBuilder: (context, index) => cues == null
+              ? TranslatedText(chunks![index])
+              : Padding(
+                  padding: const EdgeInsets.only(bottom: Gap.m),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(cues[index].start.toString()),
+                      TranslatedText(cues[index].text),
+                    ],
+                  ),
+                ),
+        ),
       );
     }
     return Scaffold(
-      appBar: PageHeader(title: widget.node.name),
+      appBar: PageHeader(
+        title: widget.node.name,
+        actions: [
+          if (widget.node.kind != VoiceNodeKind.image)
+            const TranslationControls(),
+        ],
+      ),
       body: body,
     );
   }

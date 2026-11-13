@@ -9,17 +9,17 @@ Park.register({
     "ru": {"91短剧": "Короткие сериалы 91", "AI短剧、漫剧与视频，支持推荐、分类、搜索和分集播放": "ИИ-мини-драмы, анимированные комиксы и видео с рекомендациями, категориями, поиском и просмотром по сериям", "成人漫剧": "Анимированные комиксы для взрослых", "成人短剧": "Короткие сериалы для взрослых", "真人剧": "Игровые сериалы"},
     "ar": {"91短剧": "مسلسلات 91 القصيرة", "AI短剧、漫剧与视频，支持推荐、分类、搜索和分集播放": "دراما قصيرة بالذكاء الاصطناعي وقصص مصورة متحركة وفيديوهات، مع توصيات وتصنيفات وبحث وتشغيل الحلقات", "成人漫剧": "قصص مصورة متحركة للبالغين", "成人短剧": "مسلسلات قصيرة للبالغين", "真人剧": "مسلسلات تمثيلية"},
   },
-  key: 'drama91', name: '91短剧', version: '0.0.11', minAppVersion: '0.13.3',
+  key: 'drama91', name: '91短剧', version: '0.0.12', minAppVersion: '0.13.6',
   type: 'video', category: 'aiDrama', color: '#E6C87A',
   description: 'AI短剧、漫剧与视频，支持推荐、分类、搜索和分集播放',
   homepage: 'https://91crdjai.com', domains: ['91crdjai.com'], language: 'zh',
   linkPatterns: ['91crdjai\\.com/((?:duanju|manju|zhenrenju|shipin)/[1-9]\\d*)(?:-[^/?#]+)?(?:/|[?#]|$)'],
   idPattern: '^((?:duanju|manju|zhenrenju|shipin)/[1-9]\\d*)$',
   imageHeaders: { Referer: 'https://91crdjai.com/' },
-  imageDecrypt: { type: 'aes-cbc', key: 'f5d965df75336270', iv: '97b60394abc2fbe1', domains: ['pic.drleao.cn'] },
+  imageDecrypt: { type: 'aes-cbc', key: 'f5d965df75336270', iv: '97b60394abc2fbe1' },
   network: { mode: 'native', vpnHint: true },
   media: {mode: 'native', scope: 'session', origin: 'https://91crdjai.com',
-    requestHeaders: {'x-cdn-auth': {scope: 'playback-origin', extensions: ['m3u8']}, 'x-cdn-app': {scope: 'playback-origin', extensions: ['m3u8']}}},
+    requestHeaders: {'x-cdn-auth': {scope: 'playback-origin'}, 'x-cdn-app': {scope: 'playback-origin'}}},
   defaultFeed: 'recommend',
   feeds: [
     { key: 'recommend', label: '推荐' }, { key: 'ranking', label: '排行榜' },
@@ -172,8 +172,7 @@ Park.register({
     const raw = data.streams?.main;
     let target;
     try { target = new URL(raw); } catch (_) {}
-    if (!target || target.protocol !== 'https:' || target.port || target.username || target.password || target.hash ||
-        !/\.m3u8$/i.test(target.pathname)) throw Park.error('PARSE', '媒体数据无效');
+    if (!target) throw Park.error('PARSE', '媒体数据无效');
     const headers = {Referer: this.BASE + '/'};
     if (data.cdn?.m3u8Enabled) {
       if (data.cdn.authKey !== 'x-cdn-auth' || typeof data.cdn.authValue !== 'string' || !data.cdn.authValue ||

@@ -1444,7 +1444,7 @@
   "主页和域页仅显示站点入口；站点页不自动加载作品，只响应搜索": "Home and category pages show site entries only; site pages do not load works automatically and respond only to searches",
   "此站点不支持搜索": "This site does not support search",
   "站点页不自动加载作品，输入关键词后搜索": "Site pages do not load works automatically; search with a keyword",
-  "翻译时，标题、简介、标签、搜索词及你选择翻译的小说正文会发送给 Google 翻译。不会发送账号、Cookie 或阅读记录。": "Titles, descriptions, tags, search terms and novel text you choose to translate are sent to Google Translate. Accounts, cookies and reading history are not sent.",
+  "翻译时，所选标题、简介、标签、评论、正文、字幕、弹幕及搜索词会发送给 Google 翻译。已命中当前语言词包的内容不发送；账号凭据、Cookie 和阅读记录不作为翻译数据发送。": "Selected titles, descriptions, tags, comments, text, subtitles, live chat messages and search terms are sent to Google Translate. Content found in the current-language dictionary is not sent; account credentials, cookies and reading history are not sent as translation data.",
   "图片反搜": "Reverse image search",
   "从截图或插画查找出处，再用作品名或番号搜索资源": "Find the source of a screenshot or illustration, then search resources by title or catalog number",
   "没有启用的反搜服务": "No reverse search services enabled",
@@ -1837,5 +1837,10 @@
   "获取链接": "Get links",
   "复制全部": "Copy all",
   "复制失败，请重试": "Could not copy. Try again.",
-  "复制链接和密码后，可在电脑上下载。": "Copy the links and passwords to download on your computer."
+  "复制链接和密码后，可在电脑上下载。": "Copy the links and passwords to download on your computer.",
+  "扩大匹配范围": "Expand matching",
+  "普通规则": "Standard rules",
+  "扩大范围规则": "Expanded rules",
+  "tag: 仅匹配标签；title: 仅在开启标题匹配时生效。其余规则同时用于标题。": "tag: matches tags only; title: applies only when title matching is enabled. Other rules also match titles.",
+  "默认关闭，按需启用。普通规则匹配明确内容；扩大范围会加入可能误判的线索。数量为当前生效的主规则数，不含别名。": "Off by default. Standard rules match explicit content; expanded rules add ambiguous clues. The count shows active primary rules, excluding aliases."
 }

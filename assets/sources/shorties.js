@@ -9,13 +9,13 @@ Park.register({
     "ru": {"竖屏短视频推荐，上下滑动连续播放": "Рекомендации вертикальных видео с непрерывным просмотром свайпами", "请刷新短视频列表": "Обновите ленту коротких видео"},
     "ar": {"竖屏短视频推荐，上下滑动连续播放": "اقتراحات مقاطع عمودية مع تشغيل متواصل بالسحب لأعلى وأسفل", "请刷新短视频列表": "حدّث قائمة المقاطع القصيرة"},
   },
-  key: 'shorties', name: 'Pornhub Shorties', version: '0.0.9', minAppVersion: '0.9.2', type: 'video', category: 'shortvideo',
+  key: 'shorties', name: 'Pornhub Shorties', version: '0.0.10', minAppVersion: '0.13.6', type: 'video', category: 'shortvideo',
   color: '#FF9900', description: '竖屏短视频推荐，上下滑动连续播放', language: 'en',
   homepage: 'https://www.pornhub.com/shorties', domains: ['pornhub.com'],
   network: {mode: 'auto', origin: 'https://www.pornhub.com', vpnHint: true},
   // CDN 按 Accept 返回 AVIF；显式请求已在 Android 解码验证的 JPEG。
   imageHeaders: {Referer: 'https://www.pornhub.com/', Accept: 'image/jpeg'},
-  media: {mode: 'native', origin: 'https://www.pornhub.com', domains: ['phncdn.com']},
+  media: {mode: 'native', scope: 'session', origin: 'https://www.pornhub.com'},
   linkPatterns: ['pornhub\\.com/shorties/([a-z0-9]{5,64})(?:[/?#]|$)'],
   idPattern: '^[a-z0-9]{5,64}$', defaultFeed: 'recommend', feeds: [{key: 'recommend', label: '推荐'}],
   settings: [{key: 'quality', type: 'select', label: '默认清晰度', default: '720', options: [
@@ -31,7 +31,6 @@ Park.register({
     if (r.status === 404) throw Park.error('NOT_FOUND', '影片不存在');
     if (!r.ok) throw Park.error('HTTP', '短视频请求失败', {status: r.status, url: r.url || this.BASE + path});
     const u = Park.url.response(this, r, this.BASE + path);
-    if (!u.pathname.startsWith('/shorties')) throw Park.error('BLOCKED', '访问受限');
     if (r.body.length > 4 * 1024 * 1024) throw Park.error('PARSE', '短视频数据解析失败');
     return r.body;
   },
@@ -142,7 +141,7 @@ Park.register({
     return {items, page, hasNext: items.length === 5, sorts: [{value: 'popular', label: '热门'}, {value: 'newest', label: '最新'}]};
   },
   async detail(id) { return {...this.item(await this.video(id)), tags: [], chapters: null}; },
-  mediaUrl(value) { return Park.url.parse(value, this.BASE, this.media.domains)?.href || ''; },
+  mediaUrl(value) { return Park.url.parse(value, this.BASE)?.href || ''; },
   async videos(id) {
     const v = await this.video(id), videos = [], seen = new Set();
     for (const m of v.mediaDefinitions || []) {

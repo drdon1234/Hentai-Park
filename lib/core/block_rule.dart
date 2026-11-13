@@ -19,6 +19,7 @@ class BlockRule {
   late final bool regex;
   late final bool wildcard;
   bool get title => scope == 'title';
+  bool get tagOnly => scope == 'tag';
   bool get translatable => !regex && !wildcard && text.isNotEmpty;
 
   static String? error(String entry) {
@@ -50,7 +51,7 @@ class BlockRule {
       .join();
 
   RegExp? pattern({required bool forTitle, bool preset = false}) {
-    if (text.isEmpty) return null;
+    if (text.isEmpty || (forTitle && tagOnly)) return null;
     final String expression;
     if (regex ||
         forTitle && preset && RegExp(r'[\[\]()+|\\^$]').hasMatch(text)) {

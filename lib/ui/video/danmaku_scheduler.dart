@@ -7,8 +7,10 @@ class DanmakuEntry {
     required this.id,
     required this.text,
     required this.width,
+    this.author = '',
   });
   final String id, text;
+  final String author;
   final double width;
 }
 

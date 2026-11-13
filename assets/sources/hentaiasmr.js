@@ -29,11 +29,11 @@
       ru: {'中文配音与汉化同人音声，支持多轨字幕': 'Китайские и переведённые додзин-аудио с субтитрами для дорожек', '乙女向': 'Отомэ', '时长最长': 'Самые длинные', '浏览': 'Обзор', '播放量': 'Просмотры', '随机': 'Случайно'},
       ar: {'中文配音与汉化同人音声，支持多轨字幕': 'أعمال صوتية صينية ومترجمة مع ترجمة للمقاطع المتعددة', '乙女向': 'أوتومي', '时长最长': 'الأطول', '浏览': 'تصفح', '播放量': 'المشاهدات', '随机': 'عشوائي'},
     },
-    key: 'hentaiasmr', name: 'Hentai ASMR', version: '0.0.3', minAppVersion: '0.13.3',
+    key: 'hentaiasmr', name: 'Hentai ASMR', version: '0.0.4', minAppVersion: '0.13.6',
     type: 'voice', category: 'asmr', color: '#765A80',
     description: '中文配音与汉化同人音声，支持多轨字幕',
     homepage: BASE, domains: ['hentaiasmr.moe'], network: {mode: 'auto', vpnHint: true},
-    media: {mode: 'native', origin: BASE, domains: ['hentaiasmr.moe', 'kiko-play-niptan.one']},
+    media: {mode: 'native', scope: 'session', origin: BASE},
     imageHeaders: {Referer: BASE + '/'},
     defaultFeed: 'browse', feeds: [{key: 'browse', label: '浏览', options}],
     searchFilters: options.map(option => option.key === 'category' ? {...option, default: 'all'} : option),
@@ -51,8 +51,7 @@
     safeMedia(raw, extensions) {
       let url;
       try { url = new URL(raw, BASE); } catch (_) {}
-      if (!url || url.protocol !== 'https:' || url.username || url.password || url.port || url.hash ||
-          !['hentaiasmr.moe', 'kiko-play-niptan.one'].some(host => url.hostname === host || url.hostname.endsWith('.' + host))) {
+      if (!url || url.protocol !== 'https:' || url.username || url.password || url.port || url.hash) {
         throw Park.error('PARSE', '媒体数据无效');
       }
       const extension = url.pathname.split('.').pop().toLowerCase();

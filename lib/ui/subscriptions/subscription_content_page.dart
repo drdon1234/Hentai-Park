@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../engine/source_manager.dart';
 import '../../subscriptions/subscription_store.dart';
 import '../search/source_search_page.dart';
+import '../widgets/content_translation.dart';
 import '../widgets/error_view.dart';
 
 /// 浏览与周期检查从插件取得同一查询，不把历史更新列表当成订阅内容。
@@ -42,7 +43,10 @@ class _SubscriptionContentPageState extends State<SubscriptionContentPage> {
         );
       }
       return Scaffold(
-        appBar: AppBar(title: Text(widget.entry.label)),
+        appBar: AppBar(
+          title: Text(widget.entry.label),
+          actions: const [TranslationControls()],
+        ),
         body: snapshot.hasError
             ? SourceErrorView(
                 error: snapshot.error!,

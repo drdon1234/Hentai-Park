@@ -9,10 +9,10 @@ Park.register({
     ru: {"成人视频目录、搜索与多清晰度 MP4": "Каталог видео для взрослых, поиск и MP4 разных качеств"},
     ar: {"成人视频目录、搜索与多清晰度 MP4": "دليل فيديو للبالغين مع البحث وملفات MP4 متعددة الجودة"},
   },
-  key: 'eporner', name: 'Eporner', version: '0.0.10', minAppVersion: '0.9.2', type: 'video', category: 'adult', language: 'en',
+  key: 'eporner', name: 'Eporner', version: '0.0.11', minAppVersion: '0.13.6', type: 'video', category: 'adult', language: 'en',
   color: '#e84b39', homepage: 'https://www.eporner.com/', description: '成人视频目录、搜索与多清晰度 MP4',
   domains: ['eporner.com'], network: {mode: 'native', vpnHint: true},
-  media: {mode: 'native', scope: 'session', origin: 'https://www.eporner.com', domains: ['eporner.com']},
+  media: {mode: 'native', scope: 'session', origin: 'https://www.eporner.com'},
   imageNetwork: {mode: 'browser', origin: 'https://www.eporner.com', domains: ['eporner.com']},
   imageHeaders: {Referer: 'https://www.eporner.com/'},
   idPattern: '^[A-Za-z0-9]{1,32}$', defaultFeed: 'recommended', feeds: [{key: 'recommended', label: '推荐', options: [{key: 'sort', label: '排序', default: 'top-weekly', values: [{value: 'top-weekly', label: '本周热门'}, {value: 'top-rated', label: '评分'}, {value: 'latest', label: '最新'}, {value: 'most-popular', label: '热门'}]}]},
@@ -42,7 +42,6 @@ Park.register({
   },
   async html(path) {
     const url = 'https://www.eporner.com' + path, r = this.http.ensureOk(await this.http.get(url));
-    if (new URL(r.url || url).origin !== 'https://www.eporner.com') throw Park.error('BLOCKED', '站点需要在浏览器中确认后访问');
     return Park.html.parse(r.body);
   },
   async filterOptions(req) {

@@ -146,7 +146,7 @@ class _BlocklistPageState extends State<BlocklistPage> {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  tr('默认关闭，按需启用。默认只使用明确规则；强力模式会加入可能误判的宽泛词。每组可独立开启标题匹配和强力模式。'),
+                  tr('默认关闭，按需启用。普通规则匹配明确内容；扩大范围会加入可能误判的线索。数量为当前生效的主规则数，不含别名。'),
                   style: context.text.bodySmall?.copyWith(
                     color: context.colors.onSurfaceVariant,
                   ),
@@ -173,9 +173,78 @@ class _PresetCard extends StatelessWidget {
       editBlockRule(
         context,
         initial: initial,
-        existing: config.entries,
+        existing: config.allEntries,
         aliases: config.aliasesFor(initial),
       );
+
+  Widget _rules(BuildContext context, {required bool strongGroup}) {
+    final c = config;
+    final s = AppSettings.instance;
+    final rules = strongGroup ? c.strongEntries : c.entries;
+    return Wrap(
+      spacing: 6,
+      runSpacing: 6,
+      children: [
+        for (var i = 0; i < rules.length; i++)
+          InputChip(
+            selected: c.activeEntries.contains(rules[i]),
+            showCheckmark: true,
+            label: SelectionContainer.disabled(child: Text(rules[i])),
+            visualDensity: VisualDensity.compact,
+            onPressed: () async {
+              final edit = await _edit(context, initial: rules[i]);
+              if (edit == null) return;
+              s.setBlockPreset(
+                _id,
+                entries: strongGroup
+                    ? c.entries
+                    : {
+                        for (var j = 0; j < rules.length; j++)
+                          if (j == i) edit.entry else rules[j],
+                      }.toList(),
+                strongEntries: strongGroup
+                    ? {
+                        for (var j = 0; j < rules.length; j++)
+                          if (j == i) edit.entry else rules[j],
+                      }.toList()
+                    : c.strongEntries,
+                aliases: {
+                  for (final alias in c.aliases.entries)
+                    if (alias.key != rules[i]) alias.key: alias.value,
+                  edit.entry: edit.aliases,
+                },
+              );
+            },
+            onDeleted: () => s.setBlockPreset(
+              _id,
+              entries: strongGroup ? c.entries : ([...rules]..removeAt(i)),
+              strongEntries: strongGroup
+                  ? ([...rules]..removeAt(i))
+                  : c.strongEntries,
+            ),
+          ),
+        ActionChip(
+          avatar: const Icon(Icons.add_rounded, size: 18),
+          label: SelectionContainer.disabled(child: Text(tr('添加'))),
+          visualDensity: VisualDensity.compact,
+          onPressed: () async {
+            final edit = await _edit(context);
+            if (edit == null) return;
+            s.setBlockPreset(
+              _id,
+              entries: strongGroup
+                  ? c.entries
+                  : {...rules, edit.entry}.toList(),
+              strongEntries: strongGroup
+                  ? {...rules, edit.entry}.toList()
+                  : c.strongEntries,
+              aliases: {...c.aliases, edit.entry: edit.aliases},
+            );
+          },
+        ),
+      ],
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -202,7 +271,7 @@ class _PresetCard extends StatelessWidget {
             child: Text(
               tr('{value0} · {value1} 项{value2}', {
                 'value0': c.on ? tr('已启用') : tr('未启用'),
-                'value1': c.entries.length,
+                'value1': c.activeEntries.length,
                 'value2': c.title ? tr(' · 匹配标题') : '',
               }),
               style: context.text.bodySmall?.copyWith(
@@ -218,72 +287,30 @@ class _PresetCard extends StatelessWidget {
           ),
           expandedCrossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            CheckboxListTile(
-              contentPadding: EdgeInsets.zero,
-              value: c.strong,
-              onChanged: (v) => s.setBlockPreset(_id, strong: v ?? false),
-              title: Text(tr('强力模式')),
-              subtitle: Text(tr('加入宽泛关键词，可能误屏蔽无关作品')),
-            ),
-            if (c.preset.strongEntries.isNotEmpty)
-              Text(c.preset.strongEntries.join(' · ')),
+            if (c.hasStrongRules)
+              CheckboxListTile(
+                contentPadding: EdgeInsets.zero,
+                value: c.strong,
+                onChanged: (v) => s.setBlockPreset(_id, strong: v ?? false),
+                title: Text(tr('扩大匹配范围')),
+                subtitle: Text(tr('加入宽泛关键词，可能误屏蔽无关作品')),
+              ),
             CheckboxListTile(
               contentPadding: EdgeInsets.zero,
               value: c.title,
               onChanged: (v) => s.setBlockPreset(_id, title: v ?? false),
               title: SelectionContainer.disabled(child: Text(tr('同时匹配标题'))),
               subtitle: SelectionContainer.disabled(
-                child: Text(tr('标题命中任意一项也会被屏蔽')),
+                child: Text(tr('tag: 仅匹配标签；title: 仅在开启标题匹配时生效。其余规则同时用于标题。')),
               ),
             ),
-            Wrap(
-              spacing: 6,
-              runSpacing: 6,
-              children: [
-                for (var i = 0; i < c.entries.length; i++)
-                  InputChip(
-                    label: SelectionContainer.disabled(
-                      child: Text(c.entries[i]),
-                    ),
-                    visualDensity: VisualDensity.compact,
-                    onPressed: () async {
-                      final edit = await _edit(context, initial: c.entries[i]);
-                      if (edit == null) return;
-                      s.setBlockPreset(
-                        _id,
-                        entries: {
-                          for (var j = 0; j < c.entries.length; j++)
-                            if (j == i) edit.entry else c.entries[j],
-                        }.toList(),
-                        aliases: {
-                          for (final alias in c.aliases.entries)
-                            if (alias.key != c.entries[i])
-                              alias.key: alias.value,
-                          edit.entry: edit.aliases,
-                        },
-                      );
-                    },
-                    onDeleted: () => s.setBlockPreset(
-                      _id,
-                      entries: [...c.entries]..removeAt(i),
-                    ),
-                  ),
-                ActionChip(
-                  avatar: const Icon(Icons.add_rounded, size: 18),
-                  label: SelectionContainer.disabled(child: Text(tr('添加'))),
-                  visualDensity: VisualDensity.compact,
-                  onPressed: () async {
-                    final edit = await _edit(context);
-                    if (edit == null) return;
-                    s.setBlockPreset(
-                      _id,
-                      entries: {...c.entries, edit.entry}.toList(),
-                      aliases: {...c.aliases, edit.entry: edit.aliases},
-                    );
-                  },
-                ),
-              ],
-            ),
+            Text(tr('普通规则')),
+            _rules(context, strongGroup: false),
+            if (c.hasStrongRules) ...[
+              const SizedBox(height: Gap.s),
+              Text(tr('扩大范围规则')),
+              _rules(context, strongGroup: true),
+            ],
             Align(
               alignment: Alignment.centerRight,
               child: OutlinedButton.icon(

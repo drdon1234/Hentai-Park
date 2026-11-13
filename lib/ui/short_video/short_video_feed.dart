@@ -4,7 +4,6 @@ import 'package:flutter/foundation.dart';
 
 import '../../core/app_log.dart';
 import '../../core/models.dart';
-import '../../core/settings.dart';
 import '../../core/tag_blocklist.dart';
 import '../../engine/home_cache.dart';
 
@@ -26,7 +25,7 @@ class ShortVideoFeed extends ChangeNotifier {
   }) : _page = initialPage + 1,
        _cursor = initialCursor,
        hasNext = hasMore {
-    _filters.addListener(_rulesChanged);
+    _filters.addListener(refreshFilters);
     for (final item in [?initial, ...initialItems]) {
       if (item.id.isEmpty || !_seen.add(item.uid)) continue;
       _loaded.add(item);
@@ -41,12 +40,12 @@ class ShortVideoFeed extends ChangeNotifier {
   String? _availability;
   final _loaded = <WorkItem>[];
   final _explicit = <String>{};
-  final _filters = AppSettings.instance.watch(AppSettings.filterKeys);
+  final _filters = TagBlocklist.changes;
   bool _allows(WorkItem item) =>
       _explicit.contains(item.uid) ||
       (allowItem?.call(item) ??
           (TagBlocklist.current().matchItem(item) == null));
-  void _rulesChanged() {
+  void refreshFilters() {
     if (_disposed) return;
     _explicit.clear();
     final current = index < items.length ? items[index].uid : null;
@@ -229,7 +228,7 @@ class ShortVideoFeed extends ChangeNotifier {
   @override
   void dispose() {
     _disposed = true;
-    _filters.removeListener(_rulesChanged);
+    _filters.removeListener(refreshFilters);
     generation++;
     super.dispose();
   }

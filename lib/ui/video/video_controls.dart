@@ -171,6 +171,25 @@ class VideoControls extends StatelessWidget {
             ),
           ),
         );
+        final headerActions = <Widget>[
+          if (onToggleBackground != null) background(),
+          if (onEpisodes != null)
+            TextButton.icon(
+              style: TextButton.styleFrom(
+                foregroundColor: fg,
+                backgroundColor: Scrims.control,
+                minimumSize: const Size(48, 32),
+                padding: const EdgeInsets.symmetric(horizontal: Gap.m),
+                textStyle: context.text.labelMedium?.copyWith(
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              onPressed: onEpisodes,
+              icon: const Icon(Icons.playlist_play_rounded),
+              label: Text(tr('选集')),
+            ),
+          ?recordingAction,
+        ];
         return SelectionContainer.disabled(
           child: Material(
             type: MaterialType.transparency,
@@ -225,41 +244,34 @@ class VideoControls extends StatelessWidget {
                     top: true,
                     child: SafeArea(
                       bottom: false,
-                      child: Row(
+                      child: Column(
                         children: [
-                          BackButton(color: fg, onPressed: onBack),
-                          Expanded(
-                            child: Text(
-                              title,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style:
-                                  (fullscreen
-                                          ? context.text.titleMedium
-                                          : context.text.titleSmall)
-                                      ?.copyWith(color: fg),
-                            ),
-                          ),
-                          if (onToggleBackground != null) background(),
-                          if (onEpisodes != null)
-                            TextButton.icon(
-                              style: TextButton.styleFrom(
-                                foregroundColor: fg,
-                                backgroundColor: Scrims.control,
-                                minimumSize: const Size(48, 32),
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: Gap.m,
-                                ),
-                                textStyle: context.text.labelMedium?.copyWith(
-                                  fontWeight: FontWeight.w600,
+                          Row(
+                            children: [
+                              BackButton(color: fg, onPressed: onBack),
+                              Expanded(
+                                child: TranslatedText(
+                                  title,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style:
+                                      (fullscreen
+                                              ? context.text.titleMedium
+                                              : context.text.titleSmall)
+                                          ?.copyWith(color: fg),
                                 ),
                               ),
-                              onPressed: onEpisodes,
-                              icon: const Icon(Icons.playlist_play_rounded),
-                              label: Text(tr('选集')),
+                              if (fullscreen)
+                                const TranslationControls(foregroundColor: fg),
+                              if (!compact) ...headerActions,
+                              const SizedBox(width: Gap.s),
+                            ],
+                          ),
+                          if (compact)
+                            Align(
+                              alignment: AlignmentDirectional.centerEnd,
+                              child: Wrap(children: headerActions),
                             ),
-                          ?recordingAction,
-                          const SizedBox(width: Gap.s),
                         ],
                       ),
                     ),

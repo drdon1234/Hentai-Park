@@ -11,7 +11,7 @@ Park.register({
   },
   key: 'missav',
   name: 'MissAV',
-  version: '0.0.12', minAppVersion: '0.9.2',
+  version: '0.0.13', minAppVersion: '0.13.6',
   type: 'video',
   category: 'jav',
   color: '#EF4444',
@@ -24,7 +24,7 @@ Park.register({
   idExample: 'bank-250',
   imageHeaders: {Referer: 'https://missav.ai/'},
   network: {mode: 'browser', origin: 'https://missav.ai', vpnHint: true},
-  media: {mode: 'browser', origin: 'https://missav.ai', domains: ['surrit.com']},
+  media: {mode: 'browser', scope: 'session', origin: 'https://missav.ai'},
   settings: [{key: 'quality', type: 'select', label: '默认清晰度', default: '1080', options: [
     {value: '1080', label: '1080P'}, {value: '720', label: '720P'}, {value: '480', label: '480P'},
   ]}],
@@ -274,7 +274,7 @@ Park.register({
     const candidates = this.packedMedia(html);
     const found = new Map();
     for (const payload of candidates) {
-      for (const match of payload.matchAll(/https:\/\/surrit\.com\/[a-f0-9-]{36}\/(\d{3,4})p\/[^'"\s;]+\.m3u8/g)) {
+      for (const match of payload.matchAll(/https:\/\/[^'"\s;]+\/(\d{3,4})p\/[^'"\s;]+\.m3u8(?:\?[^'"\s;]*)?/g)) {
         const quality = Number(match[1]);
         if (quality >= 240 && quality <= 2160) found.set(quality, match[0]);
       }
@@ -367,7 +367,7 @@ Park.register({
     const {html} = await this.getPage('/cn/' + this.validId(id));
     const wanted = Number(this.config.quality) || 1080;
     const master = this.packedMedia(html).map(payload =>
-      (payload.match(/https:\/\/surrit\.com\/[a-f0-9-]{36}\/playlist\.m3u8/) || [])[0]).find(Boolean);
+      (payload.match(/https:\/\/[^'"\s;]+\/playlist\.m3u8(?:\?[^'"\s;]*)?/) || [])[0]).find(Boolean);
     if (master) return [{url: master, quality: wanted, label: `${wanted}P`, format: 'hls', preferred: true}];
     const sources = this.mediaSources(html);
     if (!sources.length) throw Park.error('UNSUPPORTED', '此影片没有可用的 HLS 清晰度');

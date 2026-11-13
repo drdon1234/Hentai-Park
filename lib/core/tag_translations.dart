@@ -129,6 +129,7 @@ class TagTranslations extends ChangeNotifier {
   // 安装状态与词表分离；启动只发现文件，词表按源和语言按需读取。
   final _installed = <String>{};
   final _packs = <String, TagTranslationPack>{};
+  final _suggestionPacks = <String, Future<TagTranslationPack?>>{};
   final _loading = <String, Future<void>>{};
   final _pending = <String, Future<void>>{};
   final _revisions = <String, int>{};
@@ -383,6 +384,101 @@ class TagTranslations extends ChangeNotifier {
 
   TagTranslationPack? pack(String source, String locale) =>
       _packs['$source/$locale'];
+
+  /// 搜索可读取随应用附带的词库，不改变用户的词库安装与翻译开关。
+  static final _searchCharacters = () async {
+    final text = await rootBundle.loadString('assets/search/TSCharacters.txt');
+    return <int, String>{
+      for (final line in const LineSplitter().convert(text))
+        if (line.isNotEmpty && !line.startsWith('#') && line.contains('\t'))
+          line.split('\t').first.runes.single: line
+              .split('\t')[1]
+              .split(' ')
+              .first,
+    };
+  }();
+
+  Future<List<Map<String, String>>> suggestions(
+    String source,
+    String locale,
+    String keyword,
+  ) async {
+    final token =
+        RegExp(
+          r'(?:^|\s)-?((?:[a-z]+:)?(?:"[^"]*"?\$?|[^\s"]*))$',
+          caseSensitive: false,
+        ).firstMatch(keyword.trim())?.group(1) ??
+        keyword.trim();
+    final characters = await _searchCharacters;
+    String normalized(String value) => value
+        .toLowerCase()
+        .runes
+        .map((rune) => characters[rune] ?? String.fromCharCode(rune))
+        .join();
+    final needle = normalized(token.replaceAll(RegExp(r'["$]'), ''));
+    if (needle.isEmpty) return [];
+    for (final language in {locale, 'zh-Hans'}) {
+      try {
+        await ensureLoaded(source, language);
+      } catch (_) {
+        // 损坏的已安装词包不阻止内置词库或原站联想。
+      }
+      final dictionary =
+          pack(source, language) ??
+          await (_suggestionPacks['$source/$language'] ??= () async {
+            try {
+              return TagTranslationPack.parse(
+                jsonDecode(
+                  await rootBundle.loadString(
+                    'assets/tag_translations/$source/$language.json',
+                  ),
+                ),
+                source: source,
+                locale: language,
+              );
+            } catch (_) {
+              return null;
+            }
+          }());
+      if (dictionary == null) continue;
+      final colon = needle.indexOf(':');
+      final namespace = colon < 0 ? '' : needle.substring(0, colon);
+      final term = colon < 0 ? needle : needle.substring(colon + 1);
+      final matches = <({Map<String, String> item, int score})>[];
+      for (final entry in dictionary.tags.entries) {
+        final split = entry.key.indexOf(':');
+        final scope = split < 0 ? '' : entry.key.substring(0, split);
+        final name = split < 0 ? entry.key : entry.key.substring(split + 1);
+        if (namespace.isNotEmpty && scope != namespace) continue;
+        final translated = normalized(entry.value);
+        final searchableName = normalized(name);
+        if (!searchableName.contains(term) && !translated.contains(term)) {
+          continue;
+        }
+        matches.add((
+          item: {'namespace': scope, 'name': name, 'translation': entry.value},
+          score: searchableName == term || translated == term
+              ? 0
+              : searchableName.startsWith(term) || translated.startsWith(term)
+              ? 1
+              : 2,
+        ));
+      }
+      matches.sort((a, b) {
+        final rank = a.score.compareTo(b.score);
+        return rank != 0
+            ? rank
+            : '${a.item['namespace']}:${a.item['name']}'.compareTo(
+                '${b.item['namespace']}:${b.item['name']}',
+              );
+      });
+      if (matches.isNotEmpty) {
+        return matches.take(20).map((e) => e.item).toList();
+      }
+    }
+    return [];
+  }
+
   String? lookup(
     String source,
     String locale,

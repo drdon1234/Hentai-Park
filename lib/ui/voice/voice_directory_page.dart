@@ -10,6 +10,7 @@ import '../../engine/source_manager.dart';
 import '../kit/kit.dart';
 import '../nav.dart';
 import '../widgets/common.dart' show LoadingIndicator;
+import '../widgets/content_translation.dart';
 import '../widgets/error_view.dart';
 import '../widgets/option_bar.dart';
 import 'voice_attachment_page.dart';
@@ -298,7 +299,7 @@ class _VoiceDirectoryPageState extends State<VoiceDirectoryPage> {
         padding: EdgeInsetsDirectional.only(start: indent),
         child: ListTile(
           leading: Icon(icon),
-          title: Text(node.name),
+          title: isDirectory ? TranslatedText(node.name) : Text(node.name),
           subtitle: languageLabel == null ? null : Text(languageLabel),
           trailing: isDirectory
               ? Icon(
@@ -341,7 +342,10 @@ class _VoiceDirectoryPageState extends State<VoiceDirectoryPage> {
     final rows = _rows();
     final root = _folders[_rootId]!;
     return Scaffold(
-      appBar: PageHeader(title: widget.work.title),
+      appBar: PageHeader(
+        titleWidget: TranslatedText(widget.work.title),
+        actions: const [TranslationControls()],
+      ),
       body: Column(
         children: [
           OptionBar(

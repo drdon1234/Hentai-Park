@@ -44,8 +44,10 @@ class SourcePage extends StatefulWidget {
 }
 
 class _SourcePageState extends State<SourcePage> {
-  bool _listMode = false;
+  bool? _listMode;
+  bool _useList(SourceManifest manifest) => _listMode ?? manifest.prefersList;
   bool _hidePreviews = false;
+  bool _showBlocked = false;
 
   final _feedKeys = <String, GlobalKey<_FeedTabState>>{};
 
@@ -78,17 +80,21 @@ class _SourcePageState extends State<SourcePage> {
           },
         ),
       ResultVisibility(
+        showBlocked: _showBlocked,
+        onBlocked: (value) => setState(() => _showBlocked = value),
         supportsPreviews: manifest.can('previewContent'),
         hidePreviews: _hidePreviews,
         onPreviews: (value) => setState(() => _hidePreviews = value),
       ),
       if (!manifest.isArticle)
         IconButton(
-          tooltip: tr(_listMode ? '切换为卡片' : '切换为单行列表'),
+          tooltip: tr(_useList(manifest) ? '切换为卡片' : '切换为单行列表'),
           icon: Icon(
-            _listMode ? Icons.grid_view_rounded : Icons.view_list_rounded,
+            _useList(manifest)
+                ? Icons.grid_view_rounded
+                : Icons.view_list_rounded,
           ),
-          onPressed: () => setState(() => _listMode = !_listMode),
+          onPressed: () => setState(() => _listMode = !_useList(manifest)),
         ),
     ],
   );
@@ -354,6 +360,7 @@ class _SourcePageState extends State<SourcePage> {
                               feed: f,
                               listMode: _listMode,
                               hidePreviews: _hidePreviews,
+                              showBlocked: _showBlocked,
                               onFiltersChanged: () => setState(() {}),
                             ),
                           for (final joined in joinedTabs)
@@ -379,8 +386,9 @@ class FeedTab extends StatefulWidget {
     super.key,
     required this.source,
     required this.feed,
-    this.listMode = false,
+    this.listMode,
     this.hidePreviews = false,
+    this.showBlocked = false,
     this.sourceManager,
     this.onFiltersChanged,
   });
@@ -388,8 +396,9 @@ class FeedTab extends StatefulWidget {
   final SourceManager? sourceManager;
   final SourceManifest source;
   final FeedDef feed;
-  final bool listMode;
+  final bool? listMode;
   final bool hidePreviews;
+  final bool showBlocked;
 
   @override
   State<FeedTab> createState() => _FeedTabState();
@@ -416,6 +425,7 @@ class _FeedTabState extends State<FeedTab> with AutomaticKeepAliveClientMixin {
       initiallyLoading: true,
     );
     _controller.hidePreviews = widget.hidePreviews;
+    _controller.showBlocked = widget.showBlocked;
     _options = widget.feed.defaultOptions();
     final sources = widget.sourceManager ?? SourceManager.instance;
     _initialFilters = FilterController(
@@ -569,8 +579,12 @@ class _FeedTabState extends State<FeedTab> with AutomaticKeepAliveClientMixin {
   @override
   void didUpdateWidget(covariant FeedTab oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.hidePreviews != widget.hidePreviews) {
-      _controller.setVisibility(previews: widget.hidePreviews);
+    if (oldWidget.hidePreviews != widget.hidePreviews ||
+        oldWidget.showBlocked != widget.showBlocked) {
+      _controller.setVisibility(
+        previews: widget.hidePreviews,
+        blocked: widget.showBlocked,
+      );
     }
   }
 

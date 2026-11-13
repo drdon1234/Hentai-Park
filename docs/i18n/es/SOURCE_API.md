@@ -212,14 +212,13 @@ async filterOptions({scope, feed, filter, keyword, values}) {
 ### Imágenes
 
 - `imageNetwork: { mode: 'browser', origin, domains }`: Los dominios y subdominios de imágenes son independientes de las cookies del sitio. `origin` puede pertenecer al sitio o a imágenes. Usa HTTPS 443 y cabeceras permitidas, con la sesión del navegador para imágenes del mismo origen si origin pertenece al sitio; las imágenes de otro origen, los orígenes externos y los vídeos no envían credenciales, y admite redirecciones entre dominios autorizados. Se mantienen el límite de 20 MiB, descifrado, formato, decodificación y caché por sitio. Sin declaración se usa transporte nativo. Consulte los permisos de medios para las limitaciones de redirección del navegador por plataforma.
-- **Imágenes cifradas**: declara `imageDecrypt` y el framework descifra antes de comprobar el formato y guardar en caché; los ajustes de descifrado forman parte de la identidad en caché y los fallos no se guardan. Se admite AES-CBC con relleno PKCS#7 estricto, con `key` e `iv` en UTF-8; hay que limitar los dominios de imágenes, el resto usa la ruta normal.
+- `imageDecrypt` declara AES-CBC, clave e IV UTF-8, sin listas de dominios. Las imágenes normales pasan directamente; el resto se descifra y valida como imagen antes de guardarlo en caché.
 
 ```js
 imageDecrypt: {
   type: 'aes-cbc',
   key: '0123456789abcdef', // 16, 24 o 32 bytes UTF-8
   iv: '0123456789abcdef',  // 16 bytes UTF-8
-  domains: ['images.example.com'],
 },
 ```
 
@@ -229,22 +228,20 @@ Que una portada devuelva HTTP 200 no basta: comprueba que se decodifica.
 
 El permiso `media` es independiente de `this.http`, `network` y las cookies del sitio:
 
-Todo complemento que implemente `videos()` debe declarar permisos `media` válidos, aunque solo devuelva MP4. `scope: 'session'` puede coexistir con `domains` estáticos: HLS usa las URL exactas autorizadas para la sesión; el MP4 directo debe coincidir con la lista de dominios estáticos. La publicación oficial rechaza declaraciones ausentes o no válidas.
+La reproducción nativa y en navegador usa `media.scope: 'session'`, sin dominios CDN fijos. Solo autoriza durante la sesión las URL del sitio y los recursos analizados al reproducir. Usa `format` en lugar de exigir extensiones; conserva TLS y el aislamiento de cookies.
 
 ```js
 domains: ['example.com'],
 network: { mode: 'native' },
-media: { mode: 'native', origin: 'https://example.com', domains: ['media.example.com'] },
+media: { mode: 'native', scope: 'session', origin: 'https://example.com' },
 ```
 
 - `media.mode` es `'native'` o `'browser'`. `media.origin` debe pertenecer a los sitios del plugin, usar HTTPS en el puerto 443 y no llevar credenciales, consulta ni fragmento.
-- `media.domains` es una lista aparte de dominios de medios (con subdominios) que no da acceso a cookies del sitio. Listas, segmentos y claves deben ser HTTPS en 443; se rechazan credenciales en la URL, fragmentos, IP, localhost (y subdominios) y `.local`.
 - `'native'`: Usa un cliente independiente sin cookies, Authorization ni autenticación de proxy; comprueba cada redirección antes de conectar. Permite `Referer`, `Origin`, `Accept`, `Accept-Language`; las dos primeras pertenecen a dominios declarados del sitio, incluidos subdominios de idioma. `Origin` contiene solo el origen.
 - `media.referrerDomains` es opcional, solo para medios de vídeo nativos y con un máximo de 16 dominios públicos válidos (incluidos subdominios). Amplía únicamente los orígenes permitidos de `Referer`, como excepción explícita a los dominios del sitio anteriores. No concede permisos adicionales de `Origin`, URL multimedia, navegación de documentos ni cookies, y no es válido para `imageNetwork` o medios de navegador.
 - `'browser'`: Abre una sesión oculta en `media.origin`, con navegación dentro de los dominios del sitio. Usa `credentials: 'omit'`, `mode: 'cors'`; el documento real y el navegador generan Origin/Referer. En Windows, WebView2 comprueba cada dominio antes de conectar y permite redirecciones autorizadas, comprobando también la URL final. Otros motores no permiten interceptar cada salto y usan `redirect: 'error'`. CORS y la CSP siguen vigentes; comprobar solo la URL final no autoriza redirecciones.
 - Las respuestas se limitan en tamaño mientras llegan y se vuelve a comprobar su dirección final: listas de hasta 2 MiB, segmentos de hasta 32 MiB y claves AES-128 de exactamente 16 bytes. Se rechazan respuestas demasiado grandes o vacías y direcciones no permitidas.
 
-- Los CDN HLS dinámicos pueden declarar `media.scope: 'session'` con `mode: 'native'`. La autorización solo cubre las URL, recursos de listas y redirecciones permitidas de la sesión actual de reproducción o descarga, y caduca al cerrarla. No amplía permisos de cookies ni dominios persistentes. Se mantienen HTTPS, las peticiones sin credenciales y los límites de destino y tamaño; MP4 directo y medios del navegador conservan sus listas estáticas.
 
 ### Aislamiento y seguridad
 
@@ -316,7 +313,9 @@ async resolveGameResource(workId, resourceId, channelId) {}
 
 ### `searchSuggestions`
 
-Implementa `searchSuggestions(keyword)` para exportar `capabilities.searchSuggestions`. Devuelve hasta diez entradas `[{keyword, label, subtitle}]`; `keyword` debe ser la consulta completa conservando los demás términos. Añade prefijos solo si el sitio los admite: E-Hentai y nhentai conservan espacios de nombres; los demás usan palabras nativas. Solicita tras una pausa, cancela al borrar, enviar o cerrar y no impidas buscar si falla. Las sugerencias conjuntas usan solo sitios seleccionados, indican su origen y abren su búsqueda. No solicites durante la composición IME.
+El segundo argumento opcional `context.dictionary` proporciona candidatos locales `[{namespace, name, translation}]`. Busca nombres originales y traducciones, normalizando chino simplificado y tradicional solo para la comparación. No altera los nombres mostrados ni las consultas nativas. El plugin genera la sintaxis y puede consultar sugerencias remotas si no hay coincidencias locales.
+
+Implementa `searchSuggestions(keyword, context = {})` para exportar `capabilities.searchSuggestions`. Devuelve hasta veinte entradas `[{keyword, label, subtitle}]`; `keyword` debe ser la consulta completa conservando los demás términos. Añade prefijos solo si el sitio los admite: E-Hentai y nhentai conservan espacios de nombres; los demás usan palabras nativas. Solicita tras una pausa, cancela al borrar, enviar o cerrar y no impidas buscar si falla. Las sugerencias conjuntas usan solo sitios seleccionados, indican su origen y abren su búsqueda. No solicites durante la composición IME.
 
 ### Listas: `feed` / `search`
 
@@ -382,7 +381,6 @@ Devuelve `[{ quality: 1080, label: '1080P', url, headers?, format?, preferred?, 
 
 - Los vídeos con varios episodios devuelven `[{ id, title }]` en orden de reproducción en `detail(id).chapters`; cada `id` debe ser estable, nunca una calidad ni una URL temporal. La app usa el mismo ID para elegir episodios, guardar el progreso, descargar y reanudar, y llama a `videos(id, episodeId)` para cada episodio. Los vídeos sueltos usan `singleChapterId`, o `'_'` si no existe.
 - Sin `format`, reproducción y descarga tratan el enlace como MP4 directo. HLS debe devolver `format: 'hls'` y declarar el permiso `media`.
-- La app expande una lista maestra HLS (`#EXT-X-STREAM-INF`) en listas por variante y toma la calidad real de `RESOLUTION`. Si devuelves una maestra, `quality` es la calidad deseada: se elige la mayor calidad real que no la supere o, si no hay, la más alta. Cada variante debe ser MPEG-TS o fMP4 de VOD con audio y vídeo multiplexados; se rechazan las versiones `AUDIO`, `VIDEO`, `SUBTITLES` separadas y las direcciones fuera de `media.domains`. Las pistas `#EXT-X-I-FRAME-STREAM-INF` se ignoran. Si una lista simple no tiene resolución conocida, usa `label: '原画'` en vez de presentar la calidad deseada como real. Sin `RESOLUTION` se exige `BANDWIDTH` válido: se conservan las variantes en kbps y se prefiere la de mayor tasa, sin inventar resoluciones.
 - `type: 'video', category: 'live'` identifica directos públicos en 3D con tarjetas solo de imagen. `videos()` devuelve el HLS de la sala pública actual; no inventes resultados reproducibles para salas privadas, de pago o desconectadas. Se usan listas móviles sin progreso VOD ni descargas. La grabación requiere una acción explícita y solo guarda segmentos posteriores a la ventana inicial. Termina al detenerla o salir de la aplicación, sin reanudarse al reiniciar. Una sesión independiente y una tarea en segundo plano validan y descifran cada segmento y guardan una lista local completa. Al reconectar se resuelve de nuevo el medio; los cambios de codificación y las grabaciones largas pueden crear nuevas partes. Se conservan los datos guardados si falla. Solo se admite MPEG-TS multiplexado; MAP/fMP4, PART de baja latencia, BYTERANGE y GAP no se admiten.
 - VOD requiere listas MPEG-TS o fMP4 completas y continuas con `#EXT-X-ENDLIST`. fMP4 admite un solo segmento de inicialización `#EXT-X-MAP` antes de los medios, sin cambios ni rangos de bytes. Se autorizan, validan y reescriben localmente ambos tipos de segmento; la reproducción sin conexión y la exportación conservan la inicialización. Los directos siguen usando MPEG-TS con listas móviles y discontinuidades. Ambos descifran `METHOD=AES-128`, `KEYFORMAT=identity` con CBC/PKCS7 y claves de 16 bytes. El IV de los medios es explícito o derivado de la secuencia; la inicialización cifrada exige un IV explícito. Las claves permanecen en la memoria de la sesión. No se admiten SAMPLE-AES, otros KEYFORMAT, BYTERANGE ni GAP; VOD tampoco admite discontinuidades. Se elimina `#EXT-X-TOKEN`.
 - Las listas HLS y los segmentos MPEG-TS admiten envolturas PNG `roUd` (sin compresión o con zlib). Se extraen antes de analizar, validar o descifrar, con límites de 2 MiB por lista y 32 MiB por segmento extraído. Los plugins siguen devolviendo `format: 'hls'` sin permisos adicionales.
@@ -726,3 +724,8 @@ liveChatEvent(state, event) {
 - `metadataDetail(id, context?)` devuelve los campos requeridos del candidato y opcionalmente `description`, `releaseDate`, `duration`, `director`, `studio`, `publisher`, `series`, `rating`, `actors: string[]`, `authors: string[]`, `tags: string[]`, `images: (string | {url: string, thumbnail?: string})[]`. Los textos o listas ausentes quedan vacíos; no se inventan datos. Las URL de obra pertenecen a los dominios declarados; las imágenes usan HTTPS público sin credenciales ni puertos. `metadataDetail(id, context?)` acepta el contexto opcional `{url, board}`. Una clasificación independiente puede devolver información real de su propio ID. Validar el dominio de la URL y su relación con el ID; no confiar en una URL externa. Los autores opcionales usan `authors: string[]`. Se recomienda texto plano en `description`; el motor extrae el texto HTML de forma segura, conserva los saltos `br` y de bloque, e ignora scripts y formularios.
 - Respete el uso del sitio: `images` admite una URL o `{url, thumbnail?}`. `url` es la imagen grande del visor; `thumbnail` es la miniatura de la cuadrícula. Sin tamaños separados se reutiliza la misma URL. Elimine duplicados por URL grande y conserve su miniatura, hasta 100 entradas. Ambas URL usan la misma validación HTTPS. Las portadas de lista y detalle siguen al sitio; no adivine archivos ni evada restricciones de membresía. Los objetos de imagen requieren la aplicación 0.11.0 o posterior.
 - `metadataMagnets(id)` devuelve hasta 500 entradas `{url, name, size?, date?, tags?: string[]}`. Solo acepta `magnet:?xt=urn:btih:...` válido y elimina duplicados por hash. Información y magnets cargan y reintentan por separado; cambiar o cerrar cancela solicitudes antiguas. Copiar y abrir externamente requiere una acción del usuario. La búsqueda JAV usa el código real.
+
+`browseLayout: 'list'` o `'grid'` controla la navegación, categorías, resultados filtrados y búsqueda del sitio. Las novelas usan listas de texto; artículos y publicaciones conservan su presentación, y las carpetas de audio su jerarquía real. Inicio y páginas de categorías generales siempre usan tarjetas e iconos de contenido cuando falta una portada.
+
+
+Lee acciones de formularios, campos ocultos, paginación y redirecciones del sitio sin listas fijas de rutas, campos o parámetros. Los encabezados nativos usan `requestHeaders: {'x-cdn-auth': {scope: 'playback-origin'}}` y solo se envían a recursos autorizados del origen de reproducción actual, sin limitar extensiones.

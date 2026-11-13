@@ -10,6 +10,7 @@ import '../../game/downloads.dart';
 import '../../library/downloads.dart' show DownloadStatus;
 import '../kit/kit.dart';
 import '../theme.dart';
+import '../widgets/content_translation.dart';
 import '../widgets/error_view.dart';
 import '../widgets/platform_share.dart';
 import 'game_resource_links.dart';
@@ -138,7 +139,7 @@ class GameResourceCardState extends State<GameResourceCard> {
               ),
               const SizedBox(height: Gap.m),
               Text(tr('帖子'), style: ctx.text.labelLarge),
-              Text(widget.work.title, style: ctx.text.bodyMedium),
+              TranslatedText(widget.work.title, style: ctx.text.bodyMedium),
               const SizedBox(height: Gap.s),
               Text(tr('回复内容'), style: ctx.text.labelLarge),
               Text(channel.replyText, style: ctx.text.bodyMedium),
@@ -233,17 +234,20 @@ class GameResourceCardState extends State<GameResourceCard> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text(
-              [
-                    resource.title,
-                    resource.version,
-                  ].where((s) => s.isNotEmpty).join(' · ').isEmpty
-                  ? tr('资源 {id}', {'id': resource.id})
-                  : [
-                      resource.title,
+            ContentTranslation(
+              text: resource.title,
+              builder: (title) => Text(
+                [
+                      title,
                       resource.version,
-                    ].where((s) => s.isNotEmpty).join(' · '),
-              style: Theme.of(context).textTheme.titleMedium,
+                    ].where((s) => s.isNotEmpty).join(' · ').isEmpty
+                    ? tr('资源 {id}', {'id': resource.id})
+                    : [
+                        title,
+                        resource.version,
+                      ].where((s) => s.isNotEmpty).join(' · '),
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
             ),
             const SizedBox(height: 8),
             Wrap(
@@ -271,7 +275,10 @@ class GameResourceCardState extends State<GameResourceCard> {
             if (resource.notes.isNotEmpty)
               Padding(
                 padding: const EdgeInsets.symmetric(vertical: 12),
-                child: SelectableText(resource.notes),
+                child: ContentTranslation(
+                  text: resource.notes,
+                  builder: (value) => SelectableText(value),
+                ),
               ),
             for (final channel in resource.channels.where(
               (c) => c.requiresReply,
@@ -363,7 +370,10 @@ class GameDownloadTile extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text(task.item.title, style: Theme.of(context).textTheme.titleSmall),
+          TranslatedText(
+            task.item.title,
+            style: Theme.of(context).textTheme.titleSmall,
+          ),
           SelectableText(task.filename),
           Text(
             '$label · ${(task.bytes / (1024 * 1024)).toStringAsFixed(1)} MB${task.total > 0 ? ' / ${(task.total / (1024 * 1024)).toStringAsFixed(1)} MB' : ''}',

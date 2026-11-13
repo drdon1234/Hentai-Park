@@ -8,11 +8,11 @@ Park.register({
     ru: {'Stripchat 亚洲直播': 'Stripchat Азиатские эфиры', '中国与亚洲公开直播间': 'Открытые эфиры из Китая и Азии', '未知直播列表': 'Неизвестная лента эфиров', '直播请求失败': 'Ошибка запроса эфира', '直播数据无效': 'Некорректные данные эфира', '直播间不存在': 'Эфир не найден', '直播间暂不可用': 'Эфир сейчас недоступен', '直播间编号无效': 'Неверный ID эфира'},
     ar: {'Stripchat 亚洲直播': 'Stripchat بث آسيوي', '中国与亚洲公开直播间': 'غرف بث عامة من الصين وآسيا', '未知直播列表': 'قائمة بث غير معروفة', '直播请求失败': 'فشل طلب البث', '直播数据无效': 'بيانات البث غير صالحة', '直播间不存在': 'غرفة البث غير موجودة', '直播间暂不可用': 'البث غير متاح حالياً', '直播间编号无效': 'معرّف البث غير صالح'}
   },
-  key: 'stripchat_asia', name: 'Stripchat 亚洲直播', version: '0.0.7', minAppVersion: '0.9.2', type: 'video', category: 'live',
+  key: 'stripchat_asia', name: 'Stripchat 亚洲直播', version: '0.0.8', minAppVersion: '0.13.6', type: 'video', category: 'live',
   color: '#ff4d7d', description: '中国与亚洲公开直播间', language: 'en', homepage: 'https://zh.stripchat.com/',
   domains: ['stripchat.com'], network: {mode: 'auto', origin: 'https://zh.stripchat.com', vpnHint: true},
   imageHeaders: {Referer: 'https://zh.stripchat.com/'},
-  media: {mode: 'native', scope: 'session', origin: 'https://zh.stripchat.com', domains: ['edge-hls.doppiocdn.org', 'media-hls.doppiocdn.org']},
+  media: {mode: 'native', scope: 'session', origin: 'https://zh.stripchat.com'},
   chat: {domains: ['websocket-sp-v6.stripchat.com']},
   idPattern: '^[1-9]\\d{5,11}$',
   defaultFeed: 'asia', feeds: [{key: 'asia', label: '亚洲'}],

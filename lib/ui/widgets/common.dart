@@ -131,14 +131,14 @@ class CoverImage extends StatelessWidget {
     Widget child;
     if (url.isEmpty) {
       _notifyReady();
-      child = _placeholder(
-        colors,
-        kind == MediaKind.novel
-            ? Icons.menu_book_rounded
-            : kind == MediaKind.voice
-            ? Icons.headphones_rounded
-            : Icons.image_not_supported_outlined,
-      );
+      child = _placeholder(colors, switch (kind) {
+        MediaKind.novel || MediaKind.comic => Icons.menu_book_rounded,
+        MediaKind.voice => Icons.headphones_rounded,
+        MediaKind.game => Icons.sports_esports_rounded,
+        MediaKind.video => Icons.movie_outlined,
+        MediaKind.article => Icons.article_outlined,
+        _ => Icons.collections_bookmark_outlined,
+      });
     } else {
       child = LayoutBuilder(
         builder: (context, constraints) {

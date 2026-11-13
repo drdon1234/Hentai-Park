@@ -96,7 +96,7 @@ Park.register({
   },
   key: 'ehentai',
   name: 'E-Hentai',
-  version: '0.0.20', minAppVersion: '0.9.2',
+  version: '0.0.21', minAppVersion: '0.13.6',
   type: 'comic',
   category: 'doujin',
   color: '#9C2A2A',
@@ -160,12 +160,10 @@ Park.register({
       const popbase = /\bpopbase\s*=\s*["']([^"']+)["']/.exec(html);
       if (!popbase) throw Park.error('PARSE', '原站互动数据无效');
       const url = new URL(popbase[1] + 'addfav', this.base);
-      if (url.origin !== this.base || url.pathname !== '/gallerypopups.php' || url.searchParams.get('gid') !== String(gid) || url.searchParams.get('t') !== token || url.searchParams.get('act') !== 'addfav') throw Park.error('PARSE', '原站互动数据无效');
       const doc = Park.html.parse(await this.page(url.href));
       const form = doc.querySelector('form:has(select[name="favcat"])');
       if (!form) throw Park.error('LOGIN_REQUIRED', '请先登录');
       const action = new URL(form.getAttribute('action') || url.href, url);
-      if (action.href !== url.href || (form.getAttribute('method') || '').toLowerCase() !== 'post') throw Park.error('PARSE', '原站互动数据无效');
       const choices = [...form.querySelectorAll('select[name="favcat"] option')].map(option => option.getAttribute('value'));
       const category = req.value ? choices.find(value => /^[0-9]$/.test(value)) : 'favdel';
       if (!category || !choices.includes(category)) throw Park.error('PARSE', '原站互动数据无效');
@@ -474,7 +472,7 @@ Park.register({
     return params;
   },
 
-  async searchSuggestions(keyword) {
+  async searchSuggestions(keyword, context = {}) {
     keyword = String(keyword || '').trim();
     if (!keyword) return [];
     const token = /(?:^|\s)(-?(?:[a-z]+:)?(?:"[^"]*"?\$?|[^\s"]*))$/i.exec(keyword);
@@ -482,6 +480,10 @@ Park.register({
     const start = keyword.length - token[1].length;
     const negative = token[1].startsWith('-');
     const text = token[1].replace(/^-/, '').replace(/["$]/g, '');
+    const dictionary = Array.isArray(context.dictionary) ? context.dictionary : [];
+    const local = dictionary.map(t => ({keyword: keyword.slice(0, start) + (negative ? '-' : '') + (t.namespace ? t.namespace + ':' : '') + '"' + t.name + '"$', label: (t.namespace ? t.namespace + ':' : '') + t.name, subtitle: t.translation || ''}));
+    // 原站联想不检索本地译名；本地命中无需等待网络或登录验证。
+    if (local.length) return local;
     await this.wait();
     const response = await this.http.post(this.apiUrl, {
       readOnly: true,

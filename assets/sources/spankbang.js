@@ -9,14 +9,14 @@ Park.register({
     "ru": {"站点年龄确认未自动完成，请重试": "Автоматическое подтверждение возраста не завершено. Повторите попытку.", "综合成人视频，支持推荐、搜索与多清晰度MP4；站点验证在后台处理": "Видео для взрослых: рекомендации, поиск и MP4 разного качества; проверка сайта в фоне"},
     "ar": {"站点年龄确认未自动完成，请重试": "لم يكتمل تأكيد العمر تلقائيًا. يرجى إعادة المحاولة.", "综合成人视频，支持推荐、搜索与多清晰度MP4；站点验证在后台处理": "فيديو للبالغين مع التوصيات والبحث وجودات MP4 متعددة؛ التحقق من الموقع في الخلفية"},
   },
-  key: 'spankbang', name: 'SpankBang', version: '0.0.11', minAppVersion: '0.9.2', type: 'video', category: 'adult',
+  key: 'spankbang', name: 'SpankBang', version: '0.0.12', minAppVersion: '0.13.6', type: 'video', category: 'adult',
   language: 'en', color: '#F99B1C', homepage: 'https://spankbang.com',
   description: '综合成人视频，支持推荐、搜索与多清晰度MP4；站点验证在后台处理',
   domains: ['spankbang.com'], network: {mode: 'browser', origin: 'https://spankbang.com', vpnHint: true, confirmation: {
     selector: '#av-wrapper', readySelector: '[data-testid="video-item"] a[href*="/video/"], #new-video-page',
     requiredCookies: ['av'], auto: {clickSelector: '#age-check-yes'}, message: '站点年龄确认未自动完成，请重试',
   }},
-  media: {mode: 'native', scope: 'session', origin: 'https://spankbang.com', domains: ['sb-cd.com']},
+  media: {mode: 'native', scope: 'session', origin: 'https://spankbang.com'},
   imageHeaders: {Referer: 'https://spankbang.com/'},
   defaultFeed: 'recommended', feeds: [{key: 'recommended', label: '推荐'},
     {key: 'categories', label: '分类', options: [
@@ -120,8 +120,7 @@ Park.register({
     let url = this.BASE + base;
     if (page > 1) {
       const u = this.siteUrl(req.cursor);
-      const expected = (keyword === undefined ? '/trending_videos/' : base) + page;
-      if (!u || u.pathname.replace(/\/$/, '') !== expected) throw Park.error('CONFIG', '分页链接无效');
+      if (!u) throw Park.error('CONFIG', '分页链接无效');
       url = u.href;
     }
     const {doc} = await this.page(url), items = this.cards(doc);

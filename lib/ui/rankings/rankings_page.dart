@@ -14,6 +14,7 @@ import '../widgets/content_translation.dart';
 import '../widgets/error_view.dart';
 import '../widgets/on_visible.dart';
 import '../widgets/option_bar.dart';
+import '../widgets/result_visibility.dart';
 import '../widgets/source_network_hint.dart';
 import 'ranking_controller.dart';
 import 'ranking_row.dart';
@@ -31,6 +32,7 @@ class RankingsPage extends StatefulWidget {
 }
 
 class _RankingsPageState extends State<RankingsPage> {
+  bool _showBlocked = false;
   StreamSubscription<String>? _authentication;
   @override
   void initState() {
@@ -132,6 +134,17 @@ class _RankingsPageState extends State<RankingsPage> {
       appBar: AppBar(
         title: Text(tr('排行榜')),
         actions: [
+          ResultVisibility(
+            showBlocked: _showBlocked,
+            onBlocked: (v) {
+              setState(() => _showBlocked = v);
+              for (final session in _sessions.values) {
+                session.setVisibility(v);
+              }
+            },
+            hidePreviews: false,
+            onPreviews: (_) {},
+          ),
           const TranslationControls(),
           ListenableBuilder(
             listenable: _manager,
@@ -451,6 +464,7 @@ class _RankingsPageState extends State<RankingsPage> {
                     options: options,
                   ),
                 );
+                result.showBlocked = _showBlocked;
                 // 开始加载放在布局后，避免在构建过程中通知监听器。
                 WidgetsBinding.instance.addPostFrameCallback((_) {
                   if (mounted) result.loadMore();

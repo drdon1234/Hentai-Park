@@ -15,7 +15,7 @@ Park.register({
   },
   key: 'huangguo',
   name: '黄果短剧',
-  version: '0.0.14', minAppVersion: '0.13.3',
+  version: '0.0.15', minAppVersion: '0.13.6',
   type: 'video',
   category: 'aiDrama',
   color: '#F2AD24',
@@ -27,12 +27,11 @@ Park.register({
   idPattern: '^(\\d+)$',
   imageHeaders: { Referer: 'https://huangguoai.com/' },
   imageDecrypt: {
-    type: 'aes-cbc', key: 'f5d965df75336270', iv: '97b60394abc2fbe1',
-    domains: ['pic.drleao.cn'],
+    type: 'aes-cbc', key: 'f5d965df75336270', iv: '97b60394abc2fbe1'
   },
   network: { mode: 'native' },
   media: {mode: 'native', scope: 'session', origin: 'https://huangguoai.com',
-    requestHeaders: {'x-cdn-auth': {scope: 'playback-origin', extensions: ['m3u8']}, 'x-cdn-app': {scope: 'playback-origin', extensions: ['m3u8']}}},
+    requestHeaders: {'x-cdn-auth': {scope: 'playback-origin'}, 'x-cdn-app': {scope: 'playback-origin'}}},
   defaultFeed: 'recommend',
   feeds: [
     { key: 'recommend', label: '推荐' },
@@ -316,8 +315,7 @@ Park.register({
     const raw = data.streams?.main;
     let target;
     try { target = new URL(raw); } catch (_) {}
-    if (!target || target.protocol !== 'https:' || target.port || target.username || target.password || target.hash ||
-        !/\.m3u8$/i.test(target.pathname)) throw Park.error('PARSE', '媒体数据无效');
+    if (!target) throw Park.error('PARSE', '媒体数据无效');
     const headers = {Referer: this.BASE + '/'};
     if (data.cdn?.m3u8Enabled) {
       if (data.cdn.authKey !== 'x-cdn-auth' || typeof data.cdn.authValue !== 'string' || !data.cdn.authValue ||

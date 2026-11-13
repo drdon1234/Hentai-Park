@@ -53,7 +53,7 @@ Configura el acceso en Más → Sitios y el proxy en Más → Red cuando sea nec
 | Listas y búsqueda por imagen | Explora clasificaciones de doujinshi, anime y JAV o busca posibles obras con una imagen. |
 | Información de obras | Explora, busca y filtra información de obras, abre los detalles del sitio original de los rankings y elige los sitios de detalles y búsqueda. |
 | Comentarios y chat | Lee comentarios, respuestas e imágenes de los sitios compatibles y muestra el chat en directos compatibles. |
-| Traducción y filtros | Traduce títulos, descripciones, etiquetas, artículos y novelas. Oculta contenido por etiquetas. |
+| Traducción y filtros | Traduce títulos, nombres de capítulos, descripciones, etiquetas, comentarios, textos, subtítulos de texto y chat en directo; se prioriza el diccionario del idioma actual. Oculta contenido por etiquetas. |
 | Privacidad y copias | Bloqueo de la app, modo incógnito, portadas borrosas y bloqueo de capturas donde sea compatible. Copias de favoritos, progreso, suscripciones y ajustes. |
 
 ## Sitios y servicios compatibles

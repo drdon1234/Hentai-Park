@@ -9,10 +9,10 @@ Park.register({
     "ru": {"标清": "Стандартное качество", "综合成人视频，支持排行、搜索和高清播放": "Видео для взрослых с рейтингами, поиском и высоким качеством", "高清": "Высокое качество"},
     "ar": {"标清": "جودة قياسية", "综合成人视频，支持排行、搜索和高清播放": "فيديوهات للبالغين مع تصنيفات وبحث وتشغيل بجودة عالية", "高清": "جودة عالية"},
   },
-  key: 'xvideos', name: 'XVideos', version: '0.0.11', minAppVersion: '0.9.2', type: 'video', category: 'adult', color: '#E31B23',
+  key: 'xvideos', name: 'XVideos', version: '0.0.12', minAppVersion: '0.13.6', type: 'video', category: 'adult', color: '#E31B23',
   description: '综合成人视频，支持排行、搜索和高清播放', homepage: 'https://www.xvideos.com', domains: ['xvideos.com'], language: 'en',
   network: {mode: 'native', vpnHint: true}, imageHeaders: {Referer: 'https://www.xvideos.com/'},
-  media: {mode: 'native', origin: 'https://www.xvideos.com', domains: ['xvideos-cdn.com']},
+  media: {mode: 'native', scope: 'session', origin: 'https://www.xvideos.com'},
   linkPatterns: ['xvideos\\.com/(video\\.[a-z0-9]+/[^?#\\s]+)(?:[?#]|$)'],
   defaultFeed: 'ranking', feeds: [{key: 'ranking', label: '排行榜'}, {key: 'categories', label: '标签', options: [
     {key: 'tagGroup', label: '索引', type: 'select', default: 'popular', values: [
@@ -32,11 +32,9 @@ Park.register({
   pageUrl(value, kind) {
     let u;
     try { u = new URL(value, this.BASE); } catch (_) { throw Park.error('CONFIG', '视频列表地址无效'); }
-    const allowed = kind === 'feed' ? /^\/best(?:\/\d{4}-\d{2}(?:\/\d+)?)?$/.test(u.pathname) : u.pathname === '/' || /^\/tags\/[a-z0-9_-]+(?:\/\d+)?\/?$/i.test(u.pathname);
-    if (!allowed || !this.siteUrl(u)) throw Park.error('CONFIG', '视频列表地址无效');
     return u.href;
   },
-  mediaUrl(value) { return Park.url.parse(value, this.BASE, this.media.domains)?.href || ''; },
+  mediaUrl(value) { return Park.url.parse(value, this.BASE)?.href || ''; },
   async getPage(url) {
     const r = await this.http.get(url, {timeout: 30000});
     if (r.status === 404) throw Park.error('NOT_FOUND', '影片不存在');

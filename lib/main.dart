@@ -57,6 +57,9 @@ Future<void> _start() async {
   DesktopVideoPlayer.register();
   LicenseRegistry.addLicense(() async* {
     yield LicenseEntryWithLineBreaks([
+      'OpenCC',
+    ], await rootBundle.loadString('docs/licenses/opencc.txt'));
+    yield LicenseEntryWithLineBreaks([
       'HentaiPark (AGPL-3.0-only)',
     ], await rootBundle.loadString('LICENSE'));
     yield LicenseEntryWithLineBreaks([

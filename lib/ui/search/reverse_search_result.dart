@@ -219,7 +219,7 @@ class _DetailValue extends StatelessWidget {
     };
     if (entries != null && entries.isNotEmpty) {
       return ExpansionTile(
-        title: _ResultText(text: label, source: source),
+        title: Text(label),
         childrenPadding: const EdgeInsetsDirectional.only(start: Gap.l),
         children: [
           for (final entry in entries)
@@ -250,7 +250,7 @@ class _DetailValue extends StatelessWidget {
                   child: Text('$label: $text'),
                 ),
               )
-            : _ResultText(text: '$label: $text', source: source),
+            : Text('$label: $text'),
       ),
     );
   }

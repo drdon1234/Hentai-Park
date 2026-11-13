@@ -88,6 +88,7 @@ Park.register({
 
   settings: [ /* 选项，见“选项定义” */ ],
   account: { /* 可选，见“账号” */ },
+  browseLayout: 'list',      // 可选：站内列表；不影响主页/域页卡片
   defaultFeed: 'ranking',     // 打开站点页时默认进入的标签（feeds 中的 key）
   feeds: [ /* 站点页标签 */ ],
   searchFilters: [ /* 搜索筛选项 */ ],
@@ -103,6 +104,8 @@ Park.register({
   // 以及下文“方法”中的各个方法
 });
 ```
+
+`browseLayout` 可为 `list` 或 `grid`，作用于站内入口、分类筛选结果及站内搜索。未声明时小说使用文字列表，其他普通作品使用网格；资讯和社区帖子保留各自的文章流、帖子流，音声目录保留原始目录层级。主页和域页始终使用卡片，不读取此字段。无封面时按内容类型使用图标，不抓取详情首图冒充封面。
 
 能力（`capabilities`）由运行时根据实现了哪些方法自动导出，插件不手写。
 
@@ -268,18 +271,17 @@ async filterOptions({scope, feed, filter, keyword, values}) {
 
 - 封面与图片地址只要求是公网 HTTPS（拒绝 IP、端口、用户信息、localhost 与 `.local`）。CDN 会更换主机，插件不要按图片主机名过滤封面，也不要因为封面缺失或无效丢弃作品，返回 `cover: ''` 即可；作品 ID 与详情链接仍按站点 `domains` 严格校验。为兼容旧版应用，可用 `Park.url.parse(url.href, base, [url.hostname])` 校验任意公网 HTTPS 地址（先用 `new URL()` 规范化，保留空格等需编码的字符）。
 - `imageNetwork: { mode: 'browser', origin, domains }`：图片域（含子域）独立于站点 Cookie 权限，`origin` 可属于站点域或图片域。使用 HTTPS 443 和允许的请求头，当 origin 属于站点声明域时，同源图片复用浏览器站点会话，跨域请求不携带凭据；外部图片域和视频请求始终省略凭据，允许授权图片域之间的重定向。保留单图 20 MiB 上限、解密、格式检查、解码和站点分区缓存；未声明时使用原生图片传输。 浏览器重定向的平台限制见“媒体权限”。声明后应用仍先尝试原生请求，失败（含返回非图片内容）再走浏览器，并在本次运行内按站点与主机记住可用方式；不在 `domains` 内的图片主机直接使用原生请求，因此浏览器来源页或图片主机变化不会让全部封面失效。
-- **加密图片**：声明 `imageDecrypt`，框架在格式检查和缓存之前解密，解密策略参与缓存身份，失败结果不缓存。当前支持 AES-CBC 与严格 PKCS#7 填充，`key`、`iv` 按 UTF-8 编码；必须限定图片域名，其他域名走普通路径。
+- **加密图片**：声明 `imageDecrypt`，框架在格式检查和缓存之前解密，解密策略参与缓存身份，失败结果不缓存。当前支持 AES-CBC 与严格 PKCS#7 填充，`key`、`iv` 按 UTF-8 编码；框架按内容格式区分明文图片与密文，不声明图片 CDN 名单。
 
 ```js
 imageDecrypt: {
   type: 'aes-cbc',
   key: '0123456789abcdef', // UTF-8 字节长度 16、24 或 32
   iv: '0123456789abcdef',  // UTF-8 字节长度 16
-  domains: ['images.example.com'],
 },
 ```
 
-`imageDecrypt.domains` 内的图片必须解密成功；不在列表内的主机若原始内容不是图片，应用会再按同一声明尝试解密，结果通过图片格式检查才采用，避免图片 CDN 换主机后无法显示。
+明文图片直接验证与解码；非图片内容按声明解密，结果仍必须通过图片格式检查。CDN 更换主机不需要调整解密配置。
 
 封面 HTTP 200 不等于可用，验证时必须确认能解码。
 
@@ -294,13 +296,11 @@ media: { mode: 'native', origin: 'https://example.com', domains: ['media.example
 ```
 
 - `media.mode` 为 `'native'` 或 `'browser'`。`media.origin` 必须属于插件声明的站点，使用 HTTPS 默认端口 443，不含用户凭据、查询或片段。
-- `media.domains` 是独立的媒体域名白名单（含子域），不授予站点 Cookie 权限。清单、分段和密钥都只允许 HTTPS 443，拒绝 URL 用户凭据、片段、IP、localhost（含子域）和 `.local`。
-- 所有实现 `videos()` 的插件都必须声明 `media`，包括仅返回 MP4 的插件。`scope: 'session'` 可同时声明静态 `domains`：HLS 与 MP4 都按本次 `videos()` 返回的确切地址授权，重定向逐跳按公网 HTTPS 授权；静态 `domains` 仍然有效，旧版应用只按静态列表校验 MP4，保留它可兼容。视频 CDN 会更换主机的站点应声明 `scope: 'session'`，插件只校验地址形态（公网 HTTPS、`.m3u8`/`.mp4` 等路径），不要写死 CDN 主机名。官方发布检查会拒绝缺失或无效的媒体声明。
-- MP4 必须声明 `media.mode: 'native'`。播放器通过独立的本地流式会话访问远端文件，使用应用内代理并支持 `GET`、`HEAD` 和单段 `Range`；已下载的区间保存在本次播放会话的临时文件中（单会话上限 1 GiB），往回拖动直接读取，关闭播放即删除。每次重定向须匹配静态媒体域名白名单或会话授权，关闭播放会话会终止上游请求。HLS 点播分段同样在会话内落盘缓存。`media.mode: 'browser'` 用于 HLS。
+- 所有实现 `videos()` 的插件都必须声明 `media`。播放媒体使用 `scope: session`，不声明固定 CDN `domains`；框架按本次接口返回的确切 URL、清单及逐跳重定向授权公网 HTTPS 资源。播放格式通过 `format` 声明，不要求地址包含文件扩展名。浏览器媒体同样支持会话授权，文档导航仍与媒体资源分离；不支持逐跳拦截的平台不会隐式跟随浏览器重定向。
+- MP4 必须声明 `media.mode: 'native'`。播放器通过独立的本地流式会话访问远端文件，使用应用内代理并支持 `GET`、`HEAD` 和单段 `Range`；已下载的区间保存在本次播放会话的临时文件中（单会话上限 1 GiB），往回拖动直接读取，关闭播放即删除。每次重定向须经过当前会话授权，关闭播放会话会终止上游请求。HLS 点播分段同样在会话内落盘缓存。`media.mode: 'browser'` 用于 HLS。
 - `'native'`：使用独立、无凭据的客户端，不读写站点 Cookie、Authorization 或代理认证，每次重定向前先校验目标。只允许 `Referer`、`Origin`、`Accept`、`Accept-Language`；前两者须属于声明的站点域（含语言子域），`Origin` 只能包含来源 origin。
 - `media.referrerDomains` 可选，仅限原生视频媒体，最多 16 个有效公网域名（含子域）。它仅为 `Referer` 增加允许的来源，作为上述站点域限制的明确例外；不扩大 `Origin`、媒体地址、文档导航或 Cookie 权限，不允许用于 `imageNetwork` 或浏览器媒体。
-- 原生会话媒体可通过 `media.requestHeaders` 声明专用请求头，例如 `{'x-cdn-auth': {scope: 'playback-origin', extensions: ['m3u8']}}`。最多 8 个小写 `x-` 请求头，每项最多 8 个扩展名；实际值由当次 `videos().headers` 提供，每值最多 4096 字符且不得包含换行。请求头绑定本次接口返回的媒体 URL 的 origin，仅发送给当前会话已授权且扩展名匹配的同源资源；不维护 CDN 域名名单，换源时重新绑定，跨源重定向移除这些头。Cookie、Authorization 和浏览器媒体权限不开放，临时值不得写入作品、日志或插件存储。使用此能力要求 `minAppVersion: '0.13.3'`。
-- 动态 HLS CDN 可声明 `media.scope: 'session'`（仅限 `mode: 'native'`）。授权只覆盖当前播放或下载会话中解析的地址、清单资源及允许的重定向，关闭会话即失效，不扩大 Cookie 权限或持久化域名白名单。请求仍受 HTTPS、无凭据、目标地址和响应大小限制；直连 MP4 与浏览器媒体继续使用静态域名白名单。
+- 原生会话媒体可通过 `media.requestHeaders` 声明专用请求头，例如 `{'x-cdn-auth': {scope: 'playback-origin'}}`。最多 8 个小写 `x-` 请求头；值由当次 `videos().headers` 提供，每值最多 4096 字符且不得包含换行。请求头绑定本次媒体 URL 的 origin，仅发送给当前会话已授权的同源资源，不按文件后缀过滤，也不维护 CDN 名单；跨源跳转不携带专用凭据。
 - `'browser'`：在 `media.origin` 建立隐藏会话，文档可在声明的站点域内导航。请求使用 `credentials: 'omit'`、`mode: 'cors'`，Origin/Referer 由真实文档和浏览器生成。Windows 通过 WebView2 在每次连接前校验资源域，允许授权域间重定向，并复核最终地址；其他内核缺少逐跳拦截接口，使用 `redirect: 'error'`。CORS 和原站 CSP 仍然生效，不能用只检查最终 URL 的方式放开跳转。
 - 响应流式限长并重新校验响应地址：清单最多 2 MiB，单个分段最多 32 MiB，AES-128 密钥必须 16 字节；超限、空响应或不允许的地址一律拒绝。
 
@@ -365,7 +365,7 @@ account: {
 ```js
 async feed(key, { page, cursor, options, common }) {} // 站点页标签
 async search({ keyword, page, cursor, filters, common }) {}
-async searchSuggestions(keyword) {}               // 可选：当前站点关键词联想
+async searchSuggestions(keyword, context = {}) {}               // 可选：当前站点关键词联想
 async interaction(workId, { type, value } = {}) {} // 可选：读取或保存当前账号的独立原站互动
 async related(workId, { page, cursor } = {}) {}    // 可选：分页关联作品，返回 WorkPage
 resolveLink(id) {}                                // 可选：将分享跳转标识转换为规范作品 ID
@@ -383,7 +383,9 @@ async resolveGameResource(workId, resourceId, channelId) {}
 
 ### 关键词联想：`searchSuggestions`
 
-声明方法后运行时导出 `capabilities.searchSuggestions: true`。站内搜索框在输入暂停后调用，清空、提交搜索或销毁页面时取消请求；失败不打断正常搜索。只返回本站真实支持的候选，最多十条，形如 `[{keyword: '原站查询词', label: '候选标签', subtitle: '可选翻译或命名空间'}]`。点击后用 `keyword` 提交本站搜索，框架不拼接站点查询语法。Pixiv 使用原标签，EH 保留命名空间与完整匹配语法。
+可选的第二个参数 `context.dictionary` 提供本地词库候选 `[{namespace, name, translation}]`。匹配原词与译名，并在搜索匹配时归一简繁汉字；不改写展示名称或原站查询。插件负责将候选转换为本站查询语法；没有本地命中时仍可请求原站联想。
+
+声明方法后运行时导出 `capabilities.searchSuggestions: true`。站内搜索框在输入暂停后调用，清空、提交搜索或销毁页面时取消请求；失败不打断正常搜索。只返回本站真实支持的候选，最多二十条，形如 `[{keyword: '原站查询词', label: '候选标签', subtitle: '可选翻译或命名空间'}]`。点击后用 `keyword` 提交本站搜索，框架不拼接站点查询语法。Pixiv 使用原标签，EH 保留命名空间与完整匹配语法。
 
 联想返回的 `keyword` 是完整查询，包含用户已输入的其他关键词。只有原站支持时才插入类别前缀：E-Hentai 与 nhentai 保留命名空间；Danbooru、yande.re、Gelbooru、Pixiv、PornPics、Eporner 与 Fansly 使用原站关键词，不添加 EH 前缀。聚合搜索只查询已选中的支持站点，候选标注来源并进入对应站点搜索；输入法组词期间不请求候选。
 
@@ -853,3 +855,5 @@ liveChatEvent(state, event) {
 作品列表可用 `previewOnly: true` 声明原站明确标注的仅预览内容。订阅帖的所有媒体都声明 `previewOnly: true` 时，也按仅预览处理；未知状态不推断为预览。站点列表、搜索和订阅页提供临时隐藏预览开关。
 
 列表 `tags` 必须保留完整标签，限定分类的标签使用 `namespace:tag`，不得为缩短展示而截断或丢掉分类；界面自行限制可见标签数量。搜索默认应用屏蔽规则，用户可临时显示原始结果，不修改规则或重新请求列表。
+
+原站返回的表单 action、隐藏字段、分页与跳转地址应按页面解析，不维护路径、参数名或字段名白名单；只在业务确实需要时解析作品身份与分页状态。请求隔离和 TLS 验证由框架统一处理。

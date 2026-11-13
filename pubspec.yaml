@@ -2,7 +2,7 @@ name: hentai_park
 description: "HentaiPark - pluggable multi-source comic, video, novel & game client"
 publish_to: 'none'
 
-version: 0.13.5+69
+version: 0.13.6+70
 
 environment:
   sdk: ^3.13.5
@@ -62,6 +62,7 @@ flutter:
   assets:
     - LICENSE
     - docs/licenses/
+    - assets/search/
     - assets/runtime/
     - assets/sources/
     - assets/i18n/

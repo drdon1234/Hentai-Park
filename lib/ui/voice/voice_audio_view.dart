@@ -8,6 +8,7 @@ import '../../core/voice_timeline.dart';
 import '../kit/tokens.dart';
 import '../video/video_controls.dart' show formatPlaybackTime;
 import '../video/video_session.dart';
+import '../widgets/content_translation.dart';
 import '../widgets/error_view.dart';
 import 'voice_subtitles.dart';
 
@@ -71,14 +72,14 @@ class _VoiceAudioViewState extends State<VoiceAudioView> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Text(
+                  TranslatedText(
                     session.work.title,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                     style: Theme.of(context).textTheme.titleMedium,
                   ),
                   if (session.episodes.length > 1)
-                    Text(
+                    TranslatedText(
                       session.episode.title,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,

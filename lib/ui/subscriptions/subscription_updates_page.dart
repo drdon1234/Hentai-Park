@@ -14,6 +14,7 @@ import '../detail/detail_page.dart';
 import '../kit/kit.dart';
 import '../nav.dart';
 import '../theme.dart';
+import '../widgets/content_translation.dart';
 import '../widgets/error_view.dart';
 import 'subscription_posts_page.dart';
 
@@ -215,6 +216,7 @@ class _SubscriptionUpdatesPageState extends State<SubscriptionUpdatesPage> {
     appBar: AppBar(
       title: Text(tr('订阅更新')),
       actions: [
+        const TranslationControls(),
         PopupMenuButton<String>(
           tooltip: tr('管理'),
           enabled: !_editing && events?.isNotEmpty == true,
@@ -293,7 +295,7 @@ class _SubscriptionUpdatesPageState extends State<SubscriptionUpdatesPage> {
                           event.unread ? Icons.fiber_new : Icons.done,
                         ),
                         title: SelectionContainer.disabled(
-                          child: Text(
+                          child: TranslatedText(
                             event.title,
                             maxLines: 3,
                             overflow: TextOverflow.ellipsis,

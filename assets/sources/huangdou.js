@@ -9,7 +9,7 @@ Park.register({
     "ru": {"高分推荐": "С высоким рейтингом", "黄豆短剧": "Короткие сериалы Huangdou"},
     "ar": {"高分推荐": "الأعلى تقييمًا", "黄豆短剧": "مسلسلات Huangdou القصيرة"},
   },
-  key: 'huangdou', name: '黄豆短剧', version: '0.0.11', minAppVersion: '0.13.3',
+  key: 'huangdou', name: '黄豆短剧', version: '0.0.12', minAppVersion: '0.13.6',
   type: 'video', category: 'aiDrama', color: '#FFC857',
   description: 'AI短剧与漫剧，支持分类、排行、搜索和分集播放',
   homepage: 'https://aihuangdou.com', domains: ['aihuangdou.com'], language: 'zh',
@@ -17,12 +17,11 @@ Park.register({
   idPattern: '^([1-9]\\d*)$',
   imageHeaders: { Referer: 'https://aihuangdou.com/' },
   imageDecrypt: {
-    type: 'aes-cbc', key: 'f5d965df75336270', iv: '97b60394abc2fbe1',
-    domains: ['pic.drleao.cn'],
+    type: 'aes-cbc', key: 'f5d965df75336270', iv: '97b60394abc2fbe1'
   },
   network: { mode: 'native', vpnHint: true },
   media: {mode: 'native', scope: 'session', origin: 'https://aihuangdou.com',
-    requestHeaders: {'x-cdn-auth': {scope: 'playback-origin', extensions: ['m3u8']}, 'x-cdn-app': {scope: 'playback-origin', extensions: ['m3u8']}}},
+    requestHeaders: {'x-cdn-auth': {scope: 'playback-origin'}, 'x-cdn-app': {scope: 'playback-origin'}}},
   defaultFeed: 'recommend',
   feeds: [
     { key: 'recommend', label: '推荐' },
@@ -194,8 +193,7 @@ Park.register({
     const raw = data.streams?.main;
     let target;
     try { target = new URL(raw); } catch (_) {}
-    if (!target || target.protocol !== 'https:' || target.port || target.username || target.password || target.hash ||
-        !/\.m3u8$/i.test(target.pathname)) throw Park.error('PARSE', '媒体数据无效');
+    if (!target) throw Park.error('PARSE', '媒体数据无效');
     const headers = {Referer: this.BASE + '/'};
     if (data.cdn?.m3u8Enabled) {
       if (data.cdn.authKey !== 'x-cdn-auth' || typeof data.cdn.authValue !== 'string' || !data.cdn.authValue ||

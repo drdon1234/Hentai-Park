@@ -201,14 +201,13 @@ async filterOptions({scope, feed, filter, keyword, values}) {
 ### 이미지
 
 - `imageNetwork: { mode: 'browser', origin, domains }`: 이미지 도메인과 하위 도메인은 사이트 Cookie 권한과 독립적입니다. `origin`은 사이트 또는 이미지 도메인에 속합니다. HTTPS 443과 허용 헤더를 사용하고 origin이 선언된 사이트 도메인에 속하면 동일 출처 이미지에 브라우저 사이트 세션을 사용하고, 교차 출처 이미지, 외부 이미지 출처 및 동영상은 인증 정보를 보내지 않으며 허용된 이미지 도메인 간 리디렉션을 지원합니다. 이미지당 20 MiB, 복호화, 형식 검사, 디코딩, 사이트별 캐시는 유지합니다. 미지정 시 네이티브 전송입니다. 브라우저 리디렉션의 플랫폼 제한은 미디어 권한을 참고하세요.
-- **암호화된 이미지**: `imageDecrypt`를 선언하면 프레임워크가 형식 검사와 캐시 전에 복호화합니다. 복호화 설정은 캐시 식별에 포함되며 실패 결과는 캐시하지 않습니다. 엄격한 PKCS#7 패딩의 AES-CBC를 지원하며 `key`와 `iv`는 UTF-8입니다. 이미지 도메인을 반드시 한정하고 다른 도메인은 일반 경로를 씁니다.
+- `imageDecrypt`는 AES-CBC와 UTF-8 키 및 IV를 선언하며 도메인 목록을 사용하지 않습니다. 일반 이미지는 그대로 처리하고 나머지는 복호화 후 이미지 형식을 검증한 뒤 캐시합니다.
 
 ```js
 imageDecrypt: {
   type: 'aes-cbc',
   key: '0123456789abcdef', // UTF-8로 16, 24 또는 32바이트
   iv: '0123456789abcdef',  // UTF-8로 16바이트
-  domains: ['images.example.com'],
 },
 ```
 
@@ -218,22 +217,20 @@ imageDecrypt: {
 
 `media` 권한은 `this.http`, `network`, 사이트 쿠키와 별개입니다.
 
-MP4만 반환하더라도 `videos()`를 구현하는 플러그인은 유효한 `media`를 선언해야 합니다. `scope: 'session'`과 정적 `domains`를 함께 선언할 수 있습니다. HLS는 세션에서 승인된 개별 URL을 사용하며, 직접 재생하는 MP4는 정적 도메인 목록과 일치해야 합니다. 공식 게시 검사는 누락되거나 잘못된 미디어 선언을 거부합니다.
+네이티브 및 브라우저 재생은 `media.scope: 'session'`을 사용하며 고정 CDN 도메인을 선언하지 않습니다. 사이트가 반환한 URL과 재생 중 분석한 리소스만 현재 세션에 허용합니다. 확장자 대신 `format`으로 형식을 지정하고 TLS 및 Cookie 격리를 유지합니다.
 
 ```js
 domains: ['example.com'],
 network: { mode: 'native' },
-media: { mode: 'native', origin: 'https://example.com', domains: ['media.example.com'] },
+media: { mode: 'native', scope: 'session', origin: 'https://example.com' },
 ```
 
 - `media.mode`는 `'native'` 또는 `'browser'`입니다. `media.origin`은 플러그인의 소속 사이트에 속해야 하고, HTTPS 기본 포트 443을 쓰며, 인증 정보·쿼리·프래그먼트를 포함하지 않습니다.
-- `media.domains`는 미디어 전용 허용 도메인 목록 (하위 도메인 포함)이며 사이트 쿠키 권한을 주지 않습니다. 재생목록, 세그먼트, 키는 HTTPS 443만 허용하고, URL 안의 인증 정보, 프래그먼트, IP, localhost (하위 도메인 포함), `.local`은 거부합니다.
 - `'native'`: 사이트 Cookie, Authorization, 프록시 인증을 쓰지 않는 별도 클라이언트로 연결 전에 각 리디렉션을 검사합니다. `Referer`, `Origin`, `Accept`, `Accept-Language`만 허용합니다. 앞의 둘은 언어 하위 도메인을 포함한 선언된 사이트에 속하며 `Origin`에는 origin만 포함합니다.
 - 선택 항목인 `media.referrerDomains`는 네이티브 동영상 미디어에서만 사용하며 유효한 공개 도메인을 최대 16개 지정합니다(하위 도메인 포함). 위 사이트 도메인 제한의 예외로 `Referer` 허용 출처만 추가합니다. `Origin`, 미디어 URL, 문서 탐색 또는 Cookie 권한은 확장하지 않으며 `imageNetwork`나 브라우저 미디어에는 사용할 수 없습니다.
 - `'browser'`: `media.origin`에서 숨은 세션을 만들고 선언된 사이트 내 문서 이동을 허용합니다. `credentials: 'omit'`, `mode: 'cors'`를 사용하며 실제 문서와 브라우저가 Origin/Referer를 생성합니다. Windows는 WebView2로 각 연결 전에 도메인을 검사하여 허용 도메인 간 리디렉션을 지원하고 최종 URL도 확인합니다. 다른 엔진에는 단계별 차단 API가 없어 `redirect: 'error'`를 사용합니다. CORS와 사이트 CSP는 계속 적용되며 최종 URL 검사만으로 리디렉션을 허용하지 않습니다.
 - 응답은 스트리밍 중에 크기를 제한하고 최종 주소를 다시 확인합니다. 재생목록 최대 2 MiB, 세그먼트 최대 32 MiB, AES-128 키는 정확히 16바이트입니다. 초과, 빈 응답, 허용되지 않은 주소는 모두 거부합니다.
 
-- 동적 HLS CDN은 `mode: 'native'`에서 `media.scope: 'session'`을 선언할 수 있습니다. 권한은 현재 재생·다운로드 세션에서 해석한 URL, 재생 목록 리소스와 허용된 리디렉션에만 적용되며 종료 시 만료됩니다. Cookie나 영구 도메인 권한은 늘어나지 않습니다. HTTPS, 자격 증명 없는 요청, 목적지와 응답 크기 제한이 유지되며 직접 MP4와 브라우저 미디어에는 정적 도메인 허용 목록이 적용됩니다.
 
 ### 격리와 보안
 
@@ -305,7 +302,9 @@ async resolveGameResource(workId, resourceId, channelId) {}
 
 ### `searchSuggestions`
 
-`searchSuggestions(keyword)`를 구현하면 `capabilities.searchSuggestions`를 내보냅니다. 최대 10개의 `[{keyword, label, subtitle}]`를 반환하며 `keyword`는 다른 입력 단어를 보존한 전체 쿼리입니다. 지원할 때만 분류 접두사를 붙이며 E-Hentai와 nhentai는 네임스페이스를 유지하고 다른 사이트는 원래 검색어를 사용합니다. 입력이 멈추면 요청하고 비우기·검색·해제 시 취소하며 실패해도 일반 검색을 막지 않습니다. 통합 후보는 선택한 사이트만 사용하고 출처를 표시해 해당 사이트에서 검색합니다. IME 조합 중에는 요청하지 않습니다.
+선택적인 두 번째 인수 `context.dictionary`는 로컬 사전 후보 `[{namespace, name, translation}]`를 제공합니다. 원어와 번역을 검색하며 간체와 번체 정규화는 비교에만 적용합니다. 표시 이름과 사이트 검색어는 바꾸지 않습니다. 플러그인이 사이트 문법을 만들고 로컬 결과가 없으면 원격 제안을 요청할 수 있습니다.
+
+`searchSuggestions(keyword, context = {})`를 구현하면 `capabilities.searchSuggestions`를 내보냅니다. 최대 20개의 `[{keyword, label, subtitle}]`를 반환하며 `keyword`는 다른 입력 단어를 보존한 전체 쿼리입니다. 지원할 때만 분류 접두사를 붙이며 E-Hentai와 nhentai는 네임스페이스를 유지하고 다른 사이트는 원래 검색어를 사용합니다. 입력이 멈추면 요청하고 비우기·검색·해제 시 취소하며 실패해도 일반 검색을 막지 않습니다. 통합 후보는 선택한 사이트만 사용하고 출처를 표시해 해당 사이트에서 검색합니다. IME 조합 중에는 요청하지 않습니다.
 
 ### 목록: `feed` / `search`
 
@@ -371,7 +370,6 @@ WorkItem의 모든 필드에 더해:
 
 - 여러 회차인 동영상은 `detail(id).chapters`에 재생 순서대로 `[{ id, title }]`를 반환합니다. 각 `id`는 안정적이어야 하며 화질이나 임시 미디어 URL로 대신하면 안 됩니다. 앱은 같은 ID로 회차 선택, 진행 저장, 다운로드, 이어 보기를 하고 `videos(id, episodeId)`로 그 회차의 자료를 가져옵니다. 단일 회차는 `singleChapterId`를, 없으면 `'_'`를 씁니다.
 - `format`을 생략하면 MP4 직접 링크로 재생·다운로드합니다. HLS는 `format: 'hls'`를 반환하고 `media` 권한을 선언해야 합니다.
-- HLS 마스터 재생목록 (`#EXT-X-STREAM-INF`)은 앱이 변형별 재생목록으로 펼치고 `RESOLUTION`에서 실제 화질을 얻습니다. 마스터를 반환하면 `quality`는 원하는 화질이며, 그 이하에서 가장 높은 실제 화질을 고르고 해당이 없으면 가장 높은 화질을 고릅니다. 각 변형은 오디오와 비디오가 다중화된 MPEG-TS 또는 VOD fMP4여야 하며, 독립된 `AUDIO`, `VIDEO`, `SUBTITLES`와 `media.domains` 밖의 주소는 거부합니다. `#EXT-X-I-FRAME-STREAM-INF`는 무시합니다. 단일 재생목록에서 해상도를 알 수 없으면 `label: '原画'`를 쓰고, 원하는 화질을 실제 해상도처럼 보이지 마세요. 마스터에 `RESOLUTION`이 없으면 유효한 `BANDWIDTH`가 필요합니다. 각 비트레이트를 kbps로 표시하고 최고 값을 기본으로 선택하며 해상도를 추측하지 않습니다.
 - `type: 'video', category: 'live'`는 3차원 공개 라이브이며 홈과 카테고리에 이미지 카드만 표시합니다. `videos()`는 현재 공개 방송의 HLS만 반환하며 비공개·유료·오프라인 방송을 재생 가능한 것처럼 반환하지 않습니다. 갱신되는 재생 목록을 사용하며 VOD 위치 복원·저장이나 다운로드는 지원하지 않습니다. 녹화는 사용자 조작으로 시작하며 초기 창 이후의 새 세그먼트만 저장합니다. 중지나 앱 종료 시 끝나고 재실행 후 자동 재개하지 않습니다. 독립 미디어 세션과 백그라운드 작업이 세그먼트를 검증·복호화하여 완전한 로컬 목록을 저장합니다. 재연결 시 미디어를 다시 확인하며 인코딩 경계나 장시간 녹화는 분할됩니다. 실패해도 저장된 내용은 보존합니다. 다중화 MPEG-TS만 지원하며 MAP/fMP4, 저지연 PART, BYTERANGE, GAP은 지원하지 않습니다.
 - VOD는 `#EXT-X-ENDLIST`가 있는 완전하고 연속적인 MPEG-TS 또는 fMP4 목록을 요구합니다. fMP4는 미디어 앞의 단일 `#EXT-X-MAP` 초기화 세그먼트만 지원하며 초기화 변경과 바이트 범위는 지원하지 않습니다. 초기화와 미디어를 모두 주소 승인, 내용 검증 및 로컬 재작성하고 오프라인 재생과 내보내기에도 초기화를 보존합니다. 라이브는 여전히 MPEG-TS만 지원하며 순환 목록과 discontinuity를 허용합니다. 양쪽 모두 `METHOD=AES-128`, `KEYFORMAT=identity` CBC/PKCS7과 16바이트 키를 지원합니다. 미디어 IV는 명시하거나 순번에서 유도하며 암호화된 초기화는 명시 IV가 필요합니다. 키는 세션 메모리에만 남습니다. SAMPLE-AES, 다른 KEYFORMAT, BYTERANGE, GAP은 지원하지 않으며 VOD는 discontinuity도 거부합니다. `#EXT-X-TOKEN`은 제거합니다.
 - HLS 목록과 MPEG-TS 세그먼트는 PNG `roUd` 래퍼(원본 또는 zlib 압축)를 지원합니다. 래퍼 해제 후 분석·검증·복호화하며, 해제된 데이터에도 목록 2 MiB, 세그먼트 32 MiB 제한이 적용됩니다. 플러그인은 `format: 'hls'`를 반환하며 추가 권한이 필요하지 않습니다.
@@ -715,3 +713,8 @@ liveChatEvent(state, event) {
 - `metadataDetail(id, context?)`는 필수 후보 필드와 선택 필드 `description`, `releaseDate`, `duration`, `director`, `studio`, `publisher`, `series`, `rating`, `actors: string[]`, `authors: string[]`, `tags: string[]`, `images: (string | {url: string, thumbnail?: string})[]`를 반환합니다. 누락된 문자열과 배열은 비우며 정보를 만들지 않습니다. 작품 URL은 선언 도메인, 이미지는 인증 정보·포트 없는 공개 HTTPS여야 합니다. `metadataDetail(id, context?)`은 선택적 순위 컨텍스트 `{url, board}`를 받습니다. 독립 순위도 자체 작품 ID의 실제 정보를 반환할 수 있습니다. URL 도메인과 ID의 연관성을 검증하고 외부 URL을 신뢰하지 마세요. 저자는 선택적 `authors: string[]`입니다. `description`은 일반 텍스트를 권장합니다. 런타임은 HTML 텍스트를 안전하게 추출하고 `br`과 블록 줄바꿈을 유지하며 스크립트와 폼을 무시합니다.
 - 원본 사이트의 용도를 따릅니다. `images`는 URL 문자열 또는 `{url, thumbnail?}`을 받습니다. `url`은 확대 보기용 큰 이미지이며 `thumbnail`은 미리보기 목록용 썸네일입니다. 별도 크기가 없으면 같은 주소를 사용합니다. 큰 이미지 URL로 중복을 제거하고 해당 썸네일을 유지하며 최대 100개입니다. 두 주소에 동일한 HTTPS 검증을 적용합니다. 목록과 상세 표지도 원본 사이트에 맞추며 파일명을 추측하거나 회원 제한을 우회하지 않습니다. 이미지 객체는 앱 0.11.0 이상이 필요합니다.
 - `metadataMagnets(id)`는 최대 500개 `{url, name, size?, date?, tags?: string[]}`를 반환합니다. 유효한 `magnet:?xt=urn:btih:...`만 허용하고 해시로 중복 제거합니다. 정보와 마그넷은 별도로 로드·재시도하며 전환·닫기 시 이전 요청을 취소합니다. 복사·외부 열기는 사용자 동작 때만 수행하고 JAV 검색은 실제 품번을 사용합니다.
+
+`browseLayout: 'list'` 또는 `'grid'`는 사이트 탐색, 분류, 필터 결과와 검색에 적용됩니다. 소설은 텍스트 목록, 기사와 게시물은 전용 표시, 음성 폴더는 실제 계층을 유지합니다. 홈과 분야 페이지는 항상 카드를 사용하며 표지가 없으면 콘텐츠 아이콘을 표시합니다.
+
+
+폼 action, 숨김 필드, 페이지 이동과 리디렉션은 원본 사이트에서 읽고 고정 경로·필드·매개변수 목록으로 제한하지 않습니다. 네이티브 미디어 헤더는 `requestHeaders: {'x-cdn-auth': {scope: 'playback-origin'}}`을 사용하며 확장자와 관계없이 현재 재생 출처와 동일한 출처의 허용된 리소스에만 전송합니다.

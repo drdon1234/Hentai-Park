@@ -31,7 +31,10 @@ List<String> _workTags(Object? value) {
           else
             '${tag['namespace']}:$nested'
       else if (tag is Map && tag['name'] is String)
-        tag['name'] as String,
+        if (_str(tag['namespace']).isEmpty)
+          tag['name'] as String
+        else
+          '${tag['namespace']}:${tag['name']}',
   ];
 }
 
@@ -642,6 +645,12 @@ class SourceManifest {
   final AccountDef? account;
   final List<FeedDef> feeds;
   final List<RankingDef> rankings;
+
+  /// 只控制站内浏览；主页和域页始终使用卡片。
+  bool get prefersList => json['browseLayout'] == 'grid'
+      ? false
+      : json['browseLayout'] == 'list' || kind == MediaKind.novel;
+
   bool get rankingOnly => json['rankingOnly'] == true;
   bool get metadataOnly => json['metadataOnly'] == true;
   bool get reverseSearchOnly =>
@@ -1084,17 +1093,8 @@ class WorkDetail extends WorkItem {
           ),
         ];
 
-  WorkItem toItem() => WorkItem.fromStored({
-    ...toJson(),
-    'source': source,
-    'tags': tagGroups
-        .expand(
-          (g) => g.tags.map(
-            (t) => g.namespace.isEmpty ? t.name : '${g.namespace}:${t.name}',
-          ),
-        )
-        .toList(),
-  });
+  WorkItem toItem() =>
+      WorkItem.fromStored({...toJson(), 'source': source, 'tags': tags});
 }
 
 /// One page of a chapter. Either a direct [url] or a [token] resolved lazily through `resolveImage`.

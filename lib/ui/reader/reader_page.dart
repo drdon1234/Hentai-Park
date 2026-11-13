@@ -304,7 +304,8 @@ class _ReaderPageState extends _ReaderBase
           body: ReaderChrome(
             visible: _overlay,
             title: widget.work.title,
-            subtitle: [?_chapter?.title, if (_offline) tr('离线阅读')].join(' · '),
+            subtitle: _chapter?.title,
+            subtitleNote: _offline ? tr('离线阅读') : null,
             actions: [
               PopupMenuButton<ReaderMode>(
                 tooltip: tr('阅读模式（仅本作）'),

@@ -20,25 +20,57 @@ import '../widgets/text_translation.dart';
 
 /// Shown above the description when the work matches the content filter.
 class BlockedNotice extends StatelessWidget {
-  const BlockedNotice({super.key, required this.tags});
+  const BlockedNotice({super.key, required this.tags, this.onReveal});
   final List<String> tags;
+  final VoidCallback? onReveal;
 
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
     return Padding(
-      padding: const EdgeInsets.fromLTRB(Gap.page, Gap.m, Gap.page, 0),
-      child: Row(
-        children: [
-          Icon(Icons.block_rounded, color: c.error, size: 18),
-          const SizedBox(width: Gap.s),
-          Expanded(
-            child: Text(
-              tr('包含已屏蔽的内容：{tags}', {'tags': tags.join(tr('、'))}),
-              style: context.text.bodyMedium?.copyWith(color: c.error),
-            ),
+      padding: const EdgeInsets.symmetric(
+        horizontal: Gap.page,
+        vertical: Gap.s,
+      ),
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: c.surfaceContainer,
+          borderRadius: Radii.small,
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(Gap.m),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(
+                    Icons.visibility_off_outlined,
+                    color: c.onSurfaceVariant,
+                    size: 18,
+                  ),
+                  const SizedBox(width: Gap.s),
+                  Expanded(
+                    child: Text(
+                      tr('包含已屏蔽的内容：{tags}', {'tags': tags.join(tr('、'))}),
+                      style: context.text.bodyMedium?.copyWith(
+                        color: c.onSurfaceVariant,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              if (onReveal != null) ...[
+                const SizedBox(height: Gap.s),
+                TextButton.icon(
+                  onPressed: onReveal,
+                  icon: const Icon(Icons.visibility_outlined),
+                  label: Text(tr('显示已屏蔽内容')),
+                ),
+              ],
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
@@ -80,6 +112,7 @@ class TagSection extends StatelessWidget {
                 _TagChip(
                   label: a,
                   source: source,
+                  machineTranslation: false,
                   onTap: () => authorSearch?['url'] is String
                       ? Nav.openContentLink(
                           context,
@@ -111,6 +144,22 @@ class TagSection extends StatelessWidget {
                   onTap: () => _search(context, t),
                   count: t.count,
                   namespace: g.namespace,
+                  machineTranslation: !const {
+                    'artist',
+                    'author',
+                    'actor',
+                    'character',
+                    'group',
+                    'circle',
+                    'creator',
+                    'studio',
+                    'publisher',
+                    'director',
+                    'uploader',
+                    'model',
+                    'cosplayer',
+                    'performer',
+                  }.contains(g.namespace.toLowerCase()),
                   subscriptionTag: t,
                 ),
             ]),
@@ -155,6 +204,7 @@ class _TagChip extends StatelessWidget {
     this.count,
     this.namespace = '',
     this.subscriptionTag,
+    this.machineTranslation = true,
   });
   final String label;
   final String source;
@@ -162,6 +212,7 @@ class _TagChip extends StatelessWidget {
   final int? count;
   final String namespace;
   final TagRef? subscriptionTag;
+  final bool machineTranslation;
 
   Future<void> _menu(BuildContext context) async {
     final scoped = namespace.isEmpty ? null : '$namespace:$label';
@@ -260,6 +311,7 @@ class _TagChip extends StatelessWidget {
         source: source,
         namespace: namespace,
         tag: true,
+        machineTranslation: machineTranslation,
         builder: (value) => Text.rich(
           TextSpan(
             children: [

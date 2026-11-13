@@ -125,14 +125,55 @@ class ContentTranslation extends StatefulWidget {
     this.source = '',
     this.namespace = '',
     this.tag = false,
+    this.machineTranslation = true,
     this.queue,
   });
   final String text, source, namespace;
   final bool tag;
+
+  /// 专有名称可使用词包的已确认译名，但不猜测机器译名。
+  final bool machineTranslation;
   final ContentTranslationQueue? queue;
   final Widget Function(String value) builder;
   @override
   State<ContentTranslation> createState() => _ContentTranslationState();
+}
+
+/// 仅用于远端自然语言字段；编号、账号、链接和用户输入使用普通 Text。
+class TranslatedText extends StatelessWidget {
+  const TranslatedText(
+    this.text, {
+    super.key,
+    this.source = '',
+    this.tag = false,
+    this.namespace = '',
+    this.style,
+    this.maxLines,
+    this.overflow,
+    this.textAlign,
+  });
+
+  final String text, source, namespace;
+  final bool tag;
+  final TextStyle? style;
+  final int? maxLines;
+  final TextOverflow? overflow;
+  final TextAlign? textAlign;
+
+  @override
+  Widget build(BuildContext context) => ContentTranslation(
+    text: text,
+    source: source,
+    tag: tag,
+    namespace: namespace,
+    builder: (value) => Text(
+      value,
+      style: style,
+      maxLines: maxLines,
+      overflow: overflow,
+      textAlign: textAlign,
+    ),
+  );
 }
 
 class _ContentTranslationState extends State<ContentTranslation> {
@@ -198,11 +239,14 @@ class _ContentTranslationState extends State<ContentTranslation> {
       widget.text,
       widget.source,
       widget.namespace,
+      widget.tag,
+      widget.machineTranslation,
       scope?.locale,
       scope?.engine,
       scope?.enabled,
       scope?.original,
       scope?.retry,
+      scope?.dictionaryRevision,
     );
     if (_identity == identity) return;
     _identity = identity;
@@ -270,6 +314,7 @@ class _ContentTranslationState extends State<ContentTranslation> {
         _attempted ||
         scope == null ||
         !scope.enabled ||
+        !widget.machineTranslation ||
         scope.original ||
         widget.text.trim().isEmpty ||
         _dictionary(scope) != null ||
@@ -343,7 +388,9 @@ class _ContentTranslationState extends State<ContentTranslation> {
         ? widget.text
         : _dictionary(scope) ??
               _translated ??
-              (scope.enabled ? _cached(scope) : null) ??
+              (scope.enabled && widget.machineTranslation
+                  ? _cached(scope)
+                  : null) ??
               widget.text;
     return OnVisible(
       onVisible: (visible) {
@@ -374,8 +421,9 @@ List<String> translationChunks(String text) {
 }
 
 class TranslationControls extends StatelessWidget {
-  const TranslationControls({super.key, this.source});
+  const TranslationControls({super.key, this.source, this.foregroundColor});
   final String? source;
+  final Color? foregroundColor;
 
   @override
   Widget build(BuildContext context) {
@@ -385,9 +433,11 @@ class TranslationControls extends StatelessWidget {
       tooltip: tr('内容翻译'),
       icon: Icon(
         Icons.translate_rounded,
-        color: scope.enabled && !scope.original
-            ? Theme.of(context).colorScheme.primary
-            : null,
+        color:
+            foregroundColor ??
+            (scope.enabled && !scope.original
+                ? Theme.of(context).colorScheme.primary
+                : null),
       ),
       onPressed: () => showAdaptiveSheet<void>(
         context: context,

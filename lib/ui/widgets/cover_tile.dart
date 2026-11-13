@@ -474,11 +474,18 @@ Future<void> showWorkActions(
                 ),
               ),
               subtitle: SelectionContainer.disabled(
-                child: Text(
-                  item.subtitle.isNotEmpty ? item.subtitle : item.id,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
+                child: item.subtitle.isNotEmpty
+                    ? TranslatedText(
+                        item.subtitle,
+                        source: item.source,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      )
+                    : Text(
+                        item.id,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
               ),
             ),
             const Divider(height: 1),

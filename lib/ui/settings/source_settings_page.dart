@@ -375,11 +375,34 @@ class _SourceSettingsPageState extends State<SourceSettingsPage> {
             ),
             trailing: SelectionContainer.disabled(
               child: OutlinedButton(
-                onPressed: () async {
-                  await sm.logout(s.key);
-                  if (context.mounted) context.toast(context.tr('已退出登录'));
-                },
-                child: Text(context.tr('退出')),
+                onPressed: _accountBusy
+                    ? null
+                    : () async {
+                        setState(() => _accountBusy = true);
+                        try {
+                          await sm.logout(s.key);
+                          if (context.mounted) {
+                            context.toast(context.tr('已退出登录'));
+                          }
+                        } catch (e) {
+                          if (context.mounted) {
+                            context.toast(
+                              context.tr('账号操作失败：{error}', {
+                                'error': e.asSourceError.message,
+                              }),
+                            );
+                          }
+                        } finally {
+                          if (mounted) setState(() => _accountBusy = false);
+                        }
+                      },
+                child: _accountBusy
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : Text(context.tr('退出')),
               ),
             ),
           ),

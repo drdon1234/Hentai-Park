@@ -89,6 +89,7 @@ class _ShortVideoPageState extends State<ShortVideoPage>
 
   bool _resolving = false;
   bool _showInfo = true;
+  bool _showBlocked = false;
   bool _refreshing = false;
   double _overscroll = 0;
   Object? _initialError;
@@ -225,7 +226,8 @@ class _ShortVideoPageState extends State<ShortVideoPage>
       initialCursor: sequence?.cursor,
       hasMore: sequence?.hasNext ?? true,
       allowItem: (item) =>
-          TagBlocklist.current().matchItem(videoPost(item)) == null &&
+          (_showBlocked ||
+              TagBlocklist.current().matchItem(videoPost(item)) == null) &&
           (widget.initial?.isSubscriptionPost != true ||
               (item.mediaKind == MediaKind.video &&
                   (item.json['media'] as List? ?? const []).any(
@@ -1012,6 +1014,23 @@ class _ShortVideoPageState extends State<ShortVideoPage>
                                         style: context.text.titleMedium
                                             ?.copyWith(color: Colors.white),
                                       ),
+                                    ),
+                                    IconButton(
+                                      tooltip: tr(
+                                        _showBlocked ? '隐藏已屏蔽内容' : '显示已屏蔽内容',
+                                      ),
+                                      icon: Icon(
+                                        _showBlocked
+                                            ? Icons.visibility_outlined
+                                            : Icons.visibility_off_outlined,
+                                        color: Colors.white,
+                                      ),
+                                      onPressed: () {
+                                        setState(
+                                          () => _showBlocked = !_showBlocked,
+                                        );
+                                        _feed.refreshFilters();
+                                      },
                                     ),
                                     if (_showInfo)
                                       TranslationControls(

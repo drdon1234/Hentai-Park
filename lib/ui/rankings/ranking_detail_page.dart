@@ -11,6 +11,7 @@ import '../detail/detail_page.dart';
 import '../metadata/metadata_page.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
+import '../widgets/content_translation.dart';
 import '../widgets/error_view.dart';
 
 class RankingDetailPage extends StatefulWidget {
@@ -189,11 +190,14 @@ class _RankingDetailPageState extends State<RankingDetailPage> {
   Widget build(BuildContext context) {
     if (_detail != null) return _detail!;
     return Scaffold(
-      appBar: AppBar(title: Text(tr('作品资料'))),
+      appBar: AppBar(
+        title: Text(tr('作品资料')),
+        actions: const [TranslationControls()],
+      ),
       body: ListView(
         padding: const EdgeInsets.all(Gap.page),
         children: [
-          Text(widget.item.title, style: context.text.titleLarge),
+          TranslatedText(widget.item.title, style: context.text.titleLarge),
           const SizedBox(height: Gap.m),
           if (_loading)
             const Center(child: CircularProgressIndicator())
@@ -210,7 +214,7 @@ class _RankingDetailPageState extends State<RankingDetailPage> {
               Text(tr('选择作品'), style: context.text.titleMedium),
               for (final item in _candidates)
                 ListTile(
-                  title: Text(item.title),
+                  title: TranslatedText(item.title),
                   subtitle: Text(item.id),
                   trailing: const Icon(Icons.chevron_right_rounded),
                   onTap: () => setState(
@@ -224,7 +228,7 @@ class _RankingDetailPageState extends State<RankingDetailPage> {
                 ),
               for (final item in _metadataCandidates)
                 ListTile(
-                  title: Text(item.title),
+                  title: TranslatedText(item.title),
                   subtitle: Text(item.code),
                   trailing: const Icon(Icons.chevron_right_rounded),
                   onTap: () =>

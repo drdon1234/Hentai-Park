@@ -84,7 +84,6 @@
     for (const [k, v] of Object.entries(params)) u.searchParams.set(k, v);
     if (req.cursor) {
       const c = safe(req.cursor);
-      if (c.pathname !== u.pathname) throw Park.error('CONFIG', '分页链接无效');
       u.href = c.href;
     }
     const d = await doc(source, u.href),
@@ -115,7 +114,7 @@
     },
     key: 'lushstories',
     name: 'Lush Stories',
-    version: '0.0.7', minAppVersion: '0.9.2',
+    version: '0.0.8', minAppVersion: '0.13.6',
     type: 'novel',
     category: 'novel',
     language: 'en',

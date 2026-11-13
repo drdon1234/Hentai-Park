@@ -1,3 +1,5 @@
+import '../core/models.dart';
+
 /// 缓存作品的展示与访问数据；账号凭据仍由独立的会话存储管理。
 class HomeMetadata {
   static const detailFields = {
@@ -86,7 +88,7 @@ class HomeMetadata {
             value[field] is bool)
           field: value[field],
       if (value['tags'] is List)
-        'tags': (value['tags'] as List).whereType<String>().toList(),
+        'tags': WorkItem(value.cast<String, dynamic>(), '').tags,
       if (value['editions'] is List)
         'editions': (value['editions'] as List).whereType<String>().toList(),
       if (value['authors'] is List)

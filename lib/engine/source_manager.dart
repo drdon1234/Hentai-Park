@@ -17,6 +17,7 @@ import '../core/models.dart';
 import '../core/reverse_search.dart';
 import '../core/settings.dart';
 import '../core/storage.dart';
+import '../core/tag_blocklist.dart';
 import '../core/tag_translations.dart';
 import '../core/versions.dart';
 import '../core/voice.dart';

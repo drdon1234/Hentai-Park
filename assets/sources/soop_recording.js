@@ -102,7 +102,7 @@ Park.register({
   "key": "soop_recording",
   "name": "SOOP 录播",
   "description": "韩国性感舞蹈与比基尼录播，按原站标签筛选",
-  version: '0.0.7', minAppVersion: '0.9.2',
+  version: '0.0.8', minAppVersion: '0.13.6',
   "type": "video",
   "category": "recording",
   "FILE_TYPE": "REVIEW"
@@ -111,7 +111,7 @@ Park.register({
   homepage: 'https://vod.sooplive.co.kr/', domains: ['sooplive.co.kr', 'sooplive.com'],
   network: {mode: 'auto', origin: 'https://vod.sooplive.co.kr', vpnHint: true},
   imageHeaders: {Referer: 'https://vod.sooplive.co.kr/'},
-  media: {mode: 'native', scope: 'session', origin: 'https://vod.sooplive.co.kr', domains: ['sooplive.co.kr', 'sooplive.com']},
+  media: {mode: 'native', scope: 'session', origin: 'https://vod.sooplive.co.kr'},
   idPattern: '^[1-9]\\d{0,11}$',
   defaultFeed: 'sexyDance',
   feeds: [{key: 'sexyDance', label: '性感舞蹈'}, {key: 'bikini', label: '比基尼'}, {key: 'lingerie', label: '内衣'}],

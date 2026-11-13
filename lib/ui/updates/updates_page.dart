@@ -14,6 +14,7 @@ import '../nav.dart';
 import '../subscriptions/subscription_updates_page.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
+import '../widgets/content_translation.dart';
 
 /// Mihon's Updates tab: new chapters of favorites, newest first, grouped by day.
 class UpdatesPage extends StatefulWidget {
@@ -139,6 +140,7 @@ class _UpdatesPageState extends State<UpdatesPage> {
                   ),
                   title: Text(tr('已选 {value0}', {'value0': _selected.length})),
                   actions: [
+                    const TranslationControls(),
                     ToolbarActions(
                       actions: [
                         ToolbarAction(
@@ -215,6 +217,7 @@ class _UpdatesPageState extends State<UpdatesPage> {
                     ),
                   ),
                   actions: [
+                    const TranslationControls(),
                     ToolbarActions(
                       actions: [
                         ToolbarAction(
@@ -341,7 +344,7 @@ class _UpdatesPageState extends State<UpdatesPage> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
+                      TranslatedText(
                         e.item.title,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
@@ -363,21 +366,24 @@ class _UpdatesPageState extends State<UpdatesPage> {
                               ),
                             ),
                           Expanded(
-                            child: Text(
-                              [
-                                e.chapter.title,
-                                if (!read &&
-                                    e.chapter.lastPage > 0 &&
-                                    e.chapter.pageCount > 0)
-                                  tr('读到 {value0}/{value1}', {
-                                    'value0': e.chapter.lastPage + 1,
-                                    'value1': e.chapter.pageCount,
-                                  }),
-                              ].join(' · '),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: context.text.labelMedium?.copyWith(
-                                color: muted ?? c.onSurfaceVariant,
+                            child: ContentTranslation(
+                              text: e.chapter.title,
+                              builder: (title) => Text(
+                                [
+                                  title,
+                                  if (!read &&
+                                      e.chapter.lastPage > 0 &&
+                                      e.chapter.pageCount > 0)
+                                    tr('读到 {value0}/{value1}', {
+                                      'value0': e.chapter.lastPage + 1,
+                                      'value1': e.chapter.pageCount,
+                                    }),
+                                ].join(' · '),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: context.text.labelMedium?.copyWith(
+                                  color: muted ?? c.onSurfaceVariant,
+                                ),
                               ),
                             ),
                           ),

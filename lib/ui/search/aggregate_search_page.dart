@@ -4,6 +4,7 @@ import '../../core/content_scope.dart';
 import '../../core/localization.dart';
 import '../../core/models.dart';
 import '../../core/settings.dart';
+import '../../core/tag_blocklist.dart';
 import '../../engine/source_manager.dart';
 import '../home/sites_page.dart';
 import '../kit/adaptive_sheet.dart';
@@ -317,7 +318,6 @@ class _AggregateSearchPageState extends State<AggregateSearchPage> {
   Widget build(BuildContext context) {
     final typed = _text.text.trim();
     return TranslationPage(
-      active: false,
       child: Builder(
         builder: (context) => Scaffold(
           appBar: AppBar(
@@ -340,6 +340,7 @@ class _AggregateSearchPageState extends State<AggregateSearchPage> {
               ],
             ),
             actions: [
+              const TranslationControls(),
               IconButton(
                 tooltip: tr('多语言搜索'),
                 onPressed: typed.isEmpty || _translation.busy
@@ -358,7 +359,7 @@ class _AggregateSearchPageState extends State<AggregateSearchPage> {
             listenable: Listenable.merge([
               _sources,
               _suggestions,
-              AppSettings.instance.watch(AppSettings.filterKeys),
+              TagBlocklist.changes,
               AppSettings.instance.watch(const {
                 'aggregateExcluded',
                 'domainOrder',
@@ -485,6 +486,7 @@ class _AggregateSearchPageState extends State<AggregateSearchPage> {
                         icon: Icons.search_off,
                         title: tr('这个范围没有可搜索的站点'),
                         actions: [
+                          const TranslationControls(),
                           OutlinedButton(
                             onPressed: () =>
                                 Nav.push(context, const SitesPage()),

@@ -178,8 +178,12 @@ class _RankingRowState extends State<RankingRow> {
                     child: ContentTranslation(
                       source: item.source,
                       text: item.title,
-                      tag: widget.board.kind == 'genre',
-                      namespace: 'genre',
+                      tag: widget.board.kind != 'work',
+                      machineTranslation: const {
+                        'work',
+                        'genre',
+                      }.contains(widget.board.kind),
+                      namespace: widget.board.kind,
                       builder: (value) => Text(
                         value,
                         maxLines: _expanded ? null : 3,

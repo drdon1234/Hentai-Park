@@ -9,7 +9,7 @@ import 'content_translation.dart';
 import 'cover_tile.dart';
 import 'work_editions.dart';
 
-/// 小说作品不构造封面；行高随标题、简介和系统字体增长。
+/// 文字目录与无封面论坛条目；行高随标题、简介和系统字体增长。
 class WorkTextRow extends StatelessWidget {
   const WorkTextRow({super.key, required this.item, this.showSource = false});
   final WorkItem item;

@@ -78,11 +78,11 @@ Park.register({
     "直播分页参数无效": "معلمات صفحات البث غير صالحة"
   }
 },
-  key: 'xlovecam', name: 'XloveCam', version: '0.0.8', minAppVersion: '0.9.2', type: 'video', category: 'live', language: 'en',
+  key: 'xlovecam', name: 'XloveCam', version: '0.0.9', minAppVersion: '0.13.6', type: 'video', category: 'live', language: 'en',
   chat: {domains: ['spg1-eu-nl.wlresources.com']},
   color: '#990000', description: '公开直播间', homepage: 'https://www.xlovecam.com/en/', domains: ['xlovecam.com'],
   network: {mode: 'native', origin: 'https://www.xlovecam.com', vpnHint: true},
-  media: {mode: 'native', scope: 'session', origin: 'https://www.xlovecam.com', domains: ['wlresources.com']},
+  media: {mode: 'native', scope: 'session', origin: 'https://www.xlovecam.com'},
   imageHeaders: {Referer: 'https://www.xlovecam.com/en/'}, idPattern: '^[A-Za-z0-9_-]{2,80}$', defaultFeed: 'popular', feeds: [{key: 'popular', label: '热门', options: [
     {key: 'group', label: '分类', default: '10', dynamic: true, values: []},
     {key: 'category', label: '分类', default: '', dynamic: true, dependsOn: ['group'], values: []},

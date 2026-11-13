@@ -8,7 +8,7 @@ Park.register({
     ru: {"官方女优榜": "Официальный рейтинг актрис"},
     ar: {"官方女优榜": "ترتيب الممثلات الرسمي"},
   },
-  key: 'catalog-studios', name: '无码厂商', version: '0.0.10', minAppVersion: '0.11.0',
+  key: 'catalog-studios', name: '无码厂商', version: '0.0.11', minAppVersion: '0.13.6',
   type: 'video', category: 'jav', metadataOnly: true,
   description: '排行榜与作品资料', homepage: 'https://www.1pondo.tv/',
   domains: ['1pondo.tv', '10musume.com', 'pacopacomama.com', 'caribbeancom.com'],
@@ -146,8 +146,7 @@ Park.register({
     if (keyword) {
       if (req.cursor) {
         const next=Park.url.parse(req.cursor,base,['caribbeancom.com']);
-        const expected='/search/'+this.caribbeanQuery(keyword)+'/'+page+'.html';
-        if (!next || next.pathname.toUpperCase()!==expected.toUpperCase()) throw Park.error('CONFIG','分页游标无效');
+        if (!next) throw Park.error('CONFIG','分页游标无效');
         url=next.href;
       } else {
         if (page>1) throw Park.error('CONFIG','分页游标无效');

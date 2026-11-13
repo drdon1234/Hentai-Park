@@ -12,6 +12,7 @@ import '../../engine/media_transport_factory.dart';
 import '../../engine/source_manager.dart';
 import '../kit/tokens.dart';
 import '../video/video_session.dart';
+import '../widgets/content_translation.dart';
 import '../widgets/error_view.dart';
 
 class VoiceSubtitles extends StatefulWidget {
@@ -211,7 +212,7 @@ class _VoiceSubtitlesState extends State<VoiceSubtitles> {
                                   : Icons.play_circle_outline_rounded,
                             )
                           : null,
-                      title: Text(
+                      title: TranslatedText(
                         row.title,
                         maxLines: row.cue == null ? 2 : null,
                         overflow: row.cue == null
@@ -376,7 +377,7 @@ class _VoiceSubtitlesState extends State<VoiceSubtitles> {
                       itemCount: timeline.cues.length,
                       itemBuilder: (context, index) => ListTile(
                         selected: active.contains(index),
-                        title: Text(timeline.cues[index].text),
+                        title: TranslatedText(timeline.cues[index].text),
                         onTap: () => widget.session.controller?.seekTo(
                           timeline.cues[index].start,
                         ),
@@ -415,7 +416,7 @@ class VoiceSubtitleOverlay extends StatelessWidget {
               horizontal: Gap.m,
               vertical: Gap.xs,
             ),
-            child: Text(
+            child: TranslatedText(
               cues.join('\n'),
               textAlign: TextAlign.center,
               maxLines: 4,

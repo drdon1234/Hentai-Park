@@ -8,7 +8,6 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../core/app_log.dart';
 import '../../core/localization.dart';
 import '../../core/models.dart';
-import '../../core/settings.dart';
 import '../../core/tag_blocklist.dart';
 import '../../core/voice.dart';
 import '../../engine/desktop_shutdown.dart';
@@ -65,6 +64,7 @@ class DetailPage extends StatefulWidget {
 class _DetailPageState extends State<DetailPage> with RouteAware {
   WorkDetail? _detail;
   Object? _error;
+  bool _showBlocked = false;
   bool _reversed = false;
   bool _refreshing = false;
   final Set<String> _selected = {};
@@ -401,53 +401,87 @@ class _DetailPageState extends State<DetailPage> with RouteAware {
           listenable: Listenable.merge([
             Library.instance.work(_uid),
             DownloadManager.instance,
-            AppSettings.instance.watch(AppSettings.filterKeys),
+            TagBlocklist.changes,
           ]),
-          builder: (context, _) => CustomScrollView(
-            slivers: [
-              DetailHeader(
-                item: _item,
-                detail: _detail,
-                manifest: _m,
-                coverHeroTag: widget.coverHeroTag,
-                overview: [
-                  if (_refreshing && _detail != null) const LoadingIndicator(),
-                  if (_error != null)
-                    SourceErrorView(
-                      error: _error!,
-                      source: widget.source,
-                      onRetry: _load,
-                      compact: true,
-                    ),
-                  DetailActionBar(
-                    item: _item,
-                    detail: _detail,
-                    kind: _kind,
-                    singlePage: _singlePage,
-                    allowDownload: !_isLive && _m?.kind != MediaKind.voice,
-                    onPrimary: _opensExternally && !_canOpenOriginal
-                        ? null
-                        : _continue,
-                    onDownload: () => downloadWork(
-                      context,
-                      _detail,
-                      _item,
-                      isVideo: _isVideo,
-                    ),
-                    onMore: () => _more(context),
-                  ),
-                  if (_detail != null)
-                    ..._overview(context, _detail!)
-                  else if (_error == null)
-                    DetailBodySkeleton(source: widget.source),
-                ],
-                body: [
-                  if (_detail != null) ..._body(context, _detail!),
-                  const SliverToBoxAdapter(child: SizedBox(height: Gap.xxl)),
-                ],
+          builder: (context, _) {
+            final rules = TagBlocklist.current();
+            final blocked = _detail != null
+                ? rules.matchDetail(_detail!)
+                : [?rules.matchItem(_item)];
+            final visibility = IconButton(
+              tooltip: tr(_showBlocked ? '隐藏已屏蔽内容' : '显示已屏蔽内容'),
+              icon: Icon(
+                _showBlocked
+                    ? Icons.visibility_outlined
+                    : Icons.visibility_off_outlined,
               ),
-            ],
-          ),
+              onPressed: () => setState(() => _showBlocked = !_showBlocked),
+            );
+            if (blocked.isNotEmpty && !_showBlocked) {
+              return CustomScrollView(
+                slivers: [
+                  SliverAppBar(
+                    pinned: true,
+                    title: Text(tr('已屏蔽作品')),
+                    actions: [visibility],
+                  ),
+                  SliverToBoxAdapter(
+                    child: BlockedNotice(
+                      tags: blocked,
+                      onReveal: () => setState(() => _showBlocked = true),
+                    ),
+                  ),
+                ],
+              );
+            }
+            return CustomScrollView(
+              slivers: [
+                DetailHeader(
+                  item: _item,
+                  actions: [visibility],
+                  detail: _detail,
+                  manifest: _m,
+                  coverHeroTag: widget.coverHeroTag,
+                  overview: [
+                    if (_refreshing && _detail != null)
+                      const LoadingIndicator(),
+                    if (_error != null)
+                      SourceErrorView(
+                        error: _error!,
+                        source: widget.source,
+                        onRetry: _load,
+                        compact: true,
+                      ),
+                    DetailActionBar(
+                      item: _item,
+                      detail: _detail,
+                      kind: _kind,
+                      singlePage: _singlePage,
+                      allowDownload: !_isLive && _m?.kind != MediaKind.voice,
+                      onPrimary: _opensExternally && !_canOpenOriginal
+                          ? null
+                          : _continue,
+                      onDownload: () => downloadWork(
+                        context,
+                        _detail,
+                        _item,
+                        isVideo: _isVideo,
+                      ),
+                      onMore: () => _more(context),
+                    ),
+                    if (_detail != null)
+                      ..._overview(context, _detail!)
+                    else if (_error == null)
+                      DetailBodySkeleton(source: widget.source),
+                  ],
+                  body: [
+                    if (_detail != null) ..._body(context, _detail!),
+                    const SliverToBoxAdapter(child: SizedBox(height: Gap.xxl)),
+                  ],
+                ),
+              ],
+            );
+          },
         ),
       ),
     );
@@ -560,7 +594,6 @@ class _DetailPageState extends State<DetailPage> with RouteAware {
   }
 
   List<Widget> _overview(BuildContext context, WorkDetail d) {
-    final blocked = TagBlocklist.current().matchDetail(d);
     return [
       CommentsEntry(
         source: widget.source,
@@ -572,7 +605,6 @@ class _DetailPageState extends State<DetailPage> with RouteAware {
       ),
       if (d.variants.isNotEmpty || d.workCode.isNotEmpty)
         DetailVersions(work: d, manifest: _m),
-      if (blocked.isNotEmpty) BlockedNotice(tags: blocked),
       if (d.description.isNotEmpty) ExpandableDescription(text: d.description),
       if (d.tagGroups.isNotEmpty ||
           d.authors.isNotEmpty ||
@@ -611,6 +643,7 @@ class _DetailPageState extends State<DetailPage> with RouteAware {
             _m?.can('related') == true)
           SliverToBoxAdapter(
             child: RelatedWorks(
+              showBlocked: _showBlocked,
               key: ObjectKey(d),
               detail: d,
               sourceManager: _manager,
@@ -679,6 +712,7 @@ class _DetailPageState extends State<DetailPage> with RouteAware {
           _m?.can('related') == true)
         SliverToBoxAdapter(
           child: RelatedWorks(
+            showBlocked: _showBlocked,
             key: ObjectKey(d),
             detail: d,
             sourceManager: _manager,

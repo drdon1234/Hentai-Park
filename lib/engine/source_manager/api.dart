@@ -216,6 +216,13 @@ mixin _SourceApi on _SourceRegistry {
     }
     final result = await _call(key, 'searchSuggestions', [
       keyword.trim(),
+      {
+        'dictionary': await TagTranslations.instance.suggestions(
+          key,
+          AppLocalizations.localeKey(AppLocalizations.instance.locale),
+          keyword,
+        ),
+      },
     ], cancelToken: cancelToken);
     if (result is! List) throw SourceError('PARSE', '媒体数据无效');
     final seen = <String>{};
@@ -229,7 +236,7 @@ mixin _SourceApi on _SourceRegistry {
             'label': (entry['label'] ?? entry['keyword']).toString(),
             'subtitle': (entry['subtitle'] ?? '').toString(),
           },
-    ].take(10).toList();
+    ].take(20).toList();
   }
 
   Future<List<Map<String, dynamic>>> interaction(
@@ -654,11 +661,15 @@ mixin _SourceApi on _SourceRegistry {
           ? null
           : (data) {
               if (cancelToken?.isCancelled != true) {
-                onCached(WorkDetail(data, key));
+                final detail = WorkDetail(data, key);
+                TagBlocklist.remember(detail);
+                onCached(detail);
               }
             },
     );
-    return WorkDetail(result.data, key);
+    final detail = WorkDetail(result.data, key);
+    TagBlocklist.remember(detail);
+    return detail;
   }
 
   Future<String> random(String key) async =>

@@ -17,6 +17,8 @@ import '../rankings/rankings_page.dart';
 import '../search/reverse_search_page.dart';
 import '../subscriptions/subscriptions_page.dart';
 import '../theme.dart';
+import '../widgets/content_translation.dart';
+import '../widgets/result_visibility.dart';
 import 'dimension_filter.dart';
 import 'feed_sessions.dart';
 import 'feed_shelf.dart';
@@ -32,6 +34,7 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
+  bool _showBlocked = false;
   late final _feeds = FeedSessions(SourceManager.instance);
   final _localDestination = ValueNotifier(const DiscoveryDestination.all());
   final _destinations = <String, DiscoveryDestination>{};
@@ -136,6 +139,13 @@ class _HomePageState extends State<HomePage> {
                   ),
           ),
           actions: [
+            const TranslationControls(),
+            ResultVisibility(
+              showBlocked: _showBlocked,
+              onBlocked: (v) => setState(() => _showBlocked = v),
+              hidePreviews: false,
+              onPreviews: (_) {},
+            ),
             ToolbarActions(
               actions: [
                 ToolbarAction(
@@ -318,6 +328,7 @@ class _HomePageState extends State<HomePage> {
                   sm,
                 ]),
                 builder: (context, _) => RecentHistory(
+                  showBlocked: _showBlocked,
                   scope: scope,
                   limit: 20,
                   onOpenHistory: () => _history(scope),
@@ -623,6 +634,7 @@ class _HomePageState extends State<HomePage> {
     return FeedShelf(
       key: ValueKey('home:${source.key}'),
       sessions: _feeds,
+      showBlocked: _showBlocked,
       sourceKey: source.key,
       title: source.name,
       moreLabel: tr('进入'),

@@ -18,7 +18,7 @@ import 'media_transport.dart';
 import 'request_lifecycle.dart';
 
 /// One hidden page per playback/download. Closing it aborts and releases all requests.
-class BrowserMedia implements MediaTransport {
+class BrowserMedia implements MediaTransport, MediaSessionAuthority {
   BrowserMedia(
     this.policy, {
     Map<String, String> headers = const {},
@@ -50,6 +50,9 @@ class BrowserMedia implements MediaTransport {
 
   @override
   void validate(Uri url) => policy.validate(url);
+
+  @override
+  void authorize(Uri url) => policy.authorize(url);
 
   Future<T> _untilClosed<T>(Future<T> work, CancelToken? token) async {
     final result = Completer<T>();
@@ -255,6 +258,7 @@ html: document.documentElement ? document.documentElement.outerHTML.slice(0, 419
               throw SourceError('CONFIG', '媒体浏览器离开了站点声明的地址');
             }
           } else {
+            if (policy.session) policy.authorize(url);
             validate(url);
           }
           return null;
@@ -531,6 +535,7 @@ if (jobs.has(id)) jobs.get(id)?.abort(); else jobs.set(id, null);''',
       _view = null;
       await _queue.settled;
       await Future.wait(_active.toList());
+      policy.revokeSession();
       await _closingEvents.close();
     }
   }();

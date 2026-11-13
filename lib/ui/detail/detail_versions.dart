@@ -6,6 +6,7 @@ import '../../core/models.dart';
 import '../nav.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
+import '../widgets/content_translation.dart';
 import '../widgets/work_editions.dart';
 
 /// 仅展示插件确认的版本；不同版本保持各自的进度、收藏与下载身份。
@@ -39,13 +40,17 @@ class DetailVersions extends StatelessWidget {
                       constraints: BoxConstraints(
                         maxWidth: MediaQuery.sizeOf(context).width * .7,
                       ),
-                      child: Text(
-                        variant.editions.isNotEmpty
-                            ? workEditionLabel(variant)
-                            : variant.title,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                      ),
+                      child: variant.editions.isNotEmpty
+                          ? Text(
+                              workEditionLabel(variant),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                            )
+                          : TranslatedText(
+                              variant.title,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                            ),
                     ),
                   ),
                   onPressed: () => Nav.openWork(context, variant),

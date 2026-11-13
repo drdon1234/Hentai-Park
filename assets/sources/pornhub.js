@@ -9,12 +9,12 @@ Park.register({
     "ru": {"成人视频播放数据解析失败": "Не удалось разобрать данные воспроизведения видео для взрослых", "综合成人视频，支持推荐、搜索和多清晰度播放": "Видео для взрослых с рекомендациями, поиском и выбором качества"},
     "ar": {"成人视频播放数据解析失败": "تعذر تحليل بيانات تشغيل الفيديو للبالغين", "综合成人视频，支持推荐、搜索和多清晰度播放": "فيديوهات للبالغين مع توصيات وبحث وخيارات جودة متعددة"},
   },
-  key: 'pornhub', name: 'Pornhub', version: '0.0.12', minAppVersion: '0.9.2', type: 'video', category: 'adult',
+  key: 'pornhub', name: 'Pornhub', version: '0.0.13', minAppVersion: '0.13.6', type: 'video', category: 'adult',
   color: '#FF9900', description: '综合成人视频，支持推荐、搜索和多清晰度播放',
   homepage: 'https://www.pornhub.com', domains: ['pornhub.com'], language: 'en',
   network: {mode: 'auto', origin: 'https://www.pornhub.com', vpnHint: true},
   imageHeaders: {Referer: 'https://www.pornhub.com/'},
-  media: {mode: 'native', origin: 'https://www.pornhub.com', domains: ['phncdn.com']},
+  media: {mode: 'native', scope: 'session', origin: 'https://www.pornhub.com'},
   linkPatterns: ['pornhub\\.com/view_video\\.php\\?(?:[^#]*&)?viewkey=([a-z0-9]{5,64})(?:&|#|$)'],
   idPattern: '^[a-z0-9]{5,64}$', idExample: '6aa2dcb8c56d1',
   defaultFeed: 'recommend', feeds: [
@@ -33,13 +33,9 @@ Park.register({
   pageUrl(value, kind) {
     let u;
     try { u = new URL(value, this.BASE); } catch (_) { throw Park.error('CONFIG', '视频列表地址无效'); }
-    const creator = /^\/(?:channels|model|pornstar|users)\/[a-z0-9_-]+(?:\/videos)?\/?$/i.test(u.pathname);
-    const allowed = kind === 'creator' ? creator : kind === 'feed' ? u.pathname === '/recommended' :
-      u.pathname === '/video/search' || (u.pathname === '/video' && /^\d{1,6}$/.test(u.searchParams.get('c') || '')) || /^\/categories\/[a-z0-9_-]+\/?$/i.test(u.pathname);
-    if (!this.siteUrl(u) || !allowed) throw Park.error('CONFIG', '视频列表地址无效');
     return u.href;
   },
-  mediaUrl(value) { return Park.url.parse(value, this.BASE, this.media.domains)?.href || ''; },
+  mediaUrl(value) { return Park.url.parse(value, this.BASE)?.href || ''; },
   async getPage(url, headers = {}) {
     const r = await this.http.get(url, {headers, timeout: 30000});
     if (r.status === 404) throw Park.error('NOT_FOUND', '影片不存在');

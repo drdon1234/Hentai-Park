@@ -3,7 +3,6 @@
   const BASE = 'https://www.cycg.xyz';
   const REPLY = '感谢分享，好人一生平安';
   const pending = new Map();
-  const covers = new Map();
   const wait = Park.utils.rateLimiter(400);
   const text = Park.html.text;
   const parse = Park.html.parse;
@@ -13,13 +12,9 @@
     return id;
   };
   const threadUrl = id => BASE + '/forum.php?mod=viewthread&tid=' + idOf(id) + '&mobile=2';
-  const sameSite = value => {
-    const u = new URL(value, BASE + '/');
-    if (u.origin !== BASE || u.username || u.password) throw Park.error('PARSE', '站点表单地址无效');
-    return u;
-  };
+  const siteUrl = value => new URL(value, BASE + '/');
   const mobileUrl = value => {
-    const u = sameSite(value);
+    const u = siteUrl(value);
     u.searchParams.set('mobile', '2');
     u.hash = '';
     return u;
@@ -27,7 +22,7 @@
   const accountIdOf = doc => {
     for (const a of doc.querySelectorAll('header #usermsg a[href], .footer a[href]')) {
       try {
-        const u = sameSite(a.getAttribute('href'));
+        const u = siteUrl(a.getAttribute('href'));
         if (u.pathname === '/home.php' && u.searchParams.get('mod') === 'space' &&
             u.searchParams.get('mycenter') === '1' && /^[1-9]\d*$/.test(u.searchParams.get('uid') || '')) return u.searchParams.get('uid');
       } catch (_) {}
@@ -43,7 +38,7 @@
   };
   const gameForum = value => {
     try {
-      const u = sameSite(value);
+      const u = siteUrl(value);
       return /^\/forum-2-\d+\.html$/.test(u.pathname) || u.pathname === '/forum.php' &&
         u.searchParams.get('fid') === '2' && (u.searchParams.get('mod') === 'forumdisplay' ||
           u.searchParams.get('mod') === 'post' && u.searchParams.get('action') === 'reply');
@@ -58,7 +53,7 @@
   const coverOf = node => {
     for (const img of node?.querySelectorAll('img') || []) {
       const raw = img.getAttribute('file') || img.getAttribute('zoomfile') || img.getAttribute('data-src') || img.getAttribute('src');
-      try { const u = sameSite(raw || ''); if (/^\/data\/attachment\//.test(u.pathname)) return u.href; } catch (_) {}
+      try { const u = siteUrl(raw || ''); if (/^\/data\/attachment\//.test(u.pathname)) return u.href; } catch (_) {}
     }
     return '';
   };
@@ -69,7 +64,7 @@
       for (const a of anchors) {
         let id;
         try {
-          const u = sameSite(a.getAttribute('href'));
+          const u = siteUrl(a.getAttribute('href'));
           id = /^\/thread-([1-9]\d*)-\d+-\d+\.html$/.exec(u.pathname)?.[1] ||
             (u.pathname === '/forum.php' && u.searchParams.get('mod') === 'viewthread' ? u.searchParams.get('tid') : '');
           if (!id) continue;
@@ -87,33 +82,24 @@
     }
     return rows;
   };
-  const replyUrlOf = (value, id) => {
-    const u = mobileUrl(value);
-    const allowed = ['mod', 'action', 'fid', 'tid', 'replysubmit', 'mobile'];
-    if (u.pathname !== '/forum.php' || u.searchParams.get('mod') !== 'post' || u.searchParams.get('action') !== 'reply' ||
-        u.searchParams.get('tid') !== id || !/^[1-9]\d*$/.test(u.searchParams.get('fid') || '') ||
-        Array.from(u.searchParams.keys()).some(k => !allowed.includes(k)) ||
-        Array.from(u.searchParams.keys()).some(k => u.searchParams.getAll(k).length !== 1)) throw Park.error('PARSE', '站点表单地址无效');
-    return u;
-  };
-  const cursorUrl = (value, search = false, firstPage = false) => {
-    const u = mobileUrl(value);
-    if (firstPage && !u.searchParams.has('page')) u.searchParams.set('page', '1');
-    const allowed = search ? ['mod', 'searchid', 'orderby', 'ascdesc', 'page', 'mobile', 'searchsubmit'] :
-      ['mod', 'view', 'fid', 'page', 'mobile', 'filter', 'orderby'];
-    const valid = search ? u.pathname === '/search.php' && u.searchParams.get('mod') === 'forum' && /^\d+$/.test(u.searchParams.get('searchid') || '') :
-      u.pathname === '/forum.php' && (u.searchParams.get('mod') === 'guide' && ['hot', 'digest', 'new', 'newthread', 'sofa'].includes(u.searchParams.get('view')) ||
-        u.searchParams.get('mod') === 'forumdisplay' && u.searchParams.get('fid') === '2');
-    if (!valid || !/^[1-9]\d*$/.test(u.searchParams.get('page') || '') ||
-        Array.from(u.searchParams.keys()).some(k => !allowed.includes(k)) ||
-        Array.from(u.searchParams.keys()).some(k => u.searchParams.getAll(k).length !== 1)) throw Park.error('CONFIG', search ? '搜索分页无效' : '游戏列表无法读取');
-    return u;
+  // 原站返回的表单、分页和跳转地址不限定路径或参数集合。
+  const cursorUrl = value => mobileUrl(value);
+  const formValues = form => {
+    const values = {};
+    for (const input of form.querySelectorAll('input[name], textarea[name], select[name]')) {
+      const type = (input.getAttribute('type') || '').toLowerCase();
+      if (input.hasAttribute('disabled') || ['file', 'submit', 'button', 'reset'].includes(type) ||
+          ['checkbox', 'radio'].includes(type) && !input.hasAttribute('checked')) continue;
+      values[input.getAttribute('name')] = input.tagName.toLowerCase() === 'textarea' ? input.textContent :
+        input.tagName.toLowerCase() === 'select' ? ((input.querySelector('option[selected]') || input.querySelector('option'))?.getAttribute('value') || '') :
+        input.getAttribute('value') || '';
+    }
+    return values;
   };
   const nextOf = (doc, current, search = false) => {
     const href = doc.querySelector('.pg .nxt, .pg a[rel="next"]')?.getAttribute('href');
     if (!href) return null;
     const next = cursorUrl(href, search);
-    if (Number(next.searchParams.get('page')) <= current) throw Park.error('PARSE', '搜索分页无效');
     return next.href;
   };
   const hidden = body => Array.from(body?.querySelectorAll('.locked') || []).some(node =>
@@ -178,7 +164,7 @@
       "ru": {"115网盘": "115 Drive", "123云盘": "123 Cloud", "UC网盘": "UC Drive", "回复结果待确认，请在原帖检查，应用不会重复发送": "Результат ответа неизвестен. Проверьте публикацию; приложение не отправит ответ повторно.", "在打开的网页中登录，看到账号或退出按钮后点击完成；若已是正常资源页，无需寻找人机验证。点击回复解锁会发送“感谢分享，好人一生平安”": "Войдите на открытой странице и нажмите «Готово», когда появится аккаунт или кнопка выхода. На обычной странице ресурсов дополнительная проверка не нужна. Разблокировка ответом отправляет «感谢分享，好人一生平安».", "天翼云盘": "Tianyi Cloud", "夸克网盘": "Quark Drive", "帖子分享": "Ссылки публикации", "帖子未提供可读取的网盘链接": "Не удалось прочитать публикацию или форму. Проверьте исходную страницу и повторите.", "帖子编号无效": "Не удалось прочитать публикацию или форму. Проверьте исходную страницу и повторите.", "搜索分页无效": "Не удалось прочитать публикацию или форму. Проверьте исходную страницу и повторите.", "搜索结果无法读取": "Не удалось прочитать публикацию или форму. Проверьте исходную страницу и повторите.", "搜索表单无法读取": "Не удалось прочитать публикацию или форму. Проверьте исходную страницу и повторите.", "次元茶馆": "Чайная измерений", "次元茶馆账号": "Аккаунт чайной", "游戏列表无法读取": "Не удалось прочитать публикацию или форму. Проверьте исходную страницу и повторите.", "游戏帖子首楼无法读取": "Не удалось прочитать публикацию или форму. Проверьте исходную страницу и повторите.", "社区游戏分享，登录后按需回复解锁网盘资源": "Игры сообщества: войдите и ответьте для доступа к облачным ссылкам", "站点表单地址无效": "Не удалось прочитать публикацию или форму. Проверьте исходную страницу и повторите.", "网盘提取码不一致，请检查原帖": "Не удалось прочитать публикацию или форму. Проверьте исходную страницу и повторите.", "若已看到正常页面，请点击完成；如资源仍被隐藏，请在原帖或回复页完成验证与回复，再返回重试": "Если видна обычная страница, нажмите «Готово». Если ресурсы скрыты, пройдите проверку и ответьте в исходной теме или на странице ответа, затем повторите попытку", "蓝奏云": "Lanzou Cloud", "该帖子不属于游戏资源区": "Не удалось прочитать публикацию или форму. Проверьте исходную страницу и повторите.", "请在回复页完成验证并手动回复，返回后重试读取资源": "Пройдите проверку и ответьте вручную на странице ответа, затем вернитесь и повторите загрузку ресурсов", "请在应用内登录次元茶馆": "Войдите в чайную через приложение", "请在站点页面完成搜索验证后重试": "Пройдите проверку поиска на сайте и повторите", "资源权限已改变，请刷新资源列表": "Не удалось прочитать публикацию или форму. Проверьте исходную страницу и повторите.", "资源编号无效": "Не удалось прочитать публикацию или форму. Проверьте исходную страницу и повторите.", "迅雷云盘": "Xunlei Drive"},
       "ar": {"115网盘": "115 Drive", "123云盘": "123 Cloud", "UC网盘": "UC Drive", "回复结果待确认，请在原帖检查，应用不会重复发送": "نتيجة الرد غير مؤكدة. راجع المنشور الأصلي؛ لن يرسل التطبيق الرد مرة أخرى.", "在打开的网页中登录，看到账号或退出按钮后点击完成；若已是正常资源页，无需寻找人机验证。点击回复解锁会发送“感谢分享，好人一生平安”": "سجّل الدخول في الصفحة المفتوحة واضغط تم عند ظهور الحساب أو زر الخروج. صفحة الموارد العادية لا تحتاج إلى تحقق إضافي. الرد لفتح الموارد يرسل “感谢分享，好人一生平安”.", "天翼云盘": "Tianyi Cloud", "夸克网盘": "Quark Drive", "帖子分享": "روابط المنشور", "帖子未提供可读取的网盘链接": "تعذر قراءة منشور اللعبة أو النموذج. تحقق من الصفحة الأصلية وأعد المحاولة.", "帖子编号无效": "تعذر قراءة منشور اللعبة أو النموذج. تحقق من الصفحة الأصلية وأعد المحاولة.", "搜索分页无效": "تعذر قراءة منشور اللعبة أو النموذج. تحقق من الصفحة الأصلية وأعد المحاولة.", "搜索结果无法读取": "تعذر قراءة منشور اللعبة أو النموذج. تحقق من الصفحة الأصلية وأعد المحاولة.", "搜索表单无法读取": "تعذر قراءة منشور اللعبة أو النموذج. تحقق من الصفحة الأصلية وأعد المحاولة.", "次元茶馆": "مقهى الأبعاد", "次元茶馆账号": "حساب المقهى", "游戏列表无法读取": "تعذر قراءة منشور اللعبة أو النموذج. تحقق من الصفحة الأصلية وأعد المحاولة.", "游戏帖子首楼无法读取": "تعذر قراءة منشور اللعبة أو النموذج. تحقق من الصفحة الأصلية وأعد المحاولة.", "社区游戏分享，登录后按需回复解锁网盘资源": "ألعاب المجتمع؛ سجّل الدخول ورد لفتح الروابط السحابية", "站点表单地址无效": "تعذر قراءة منشور اللعبة أو النموذج. تحقق من الصفحة الأصلية وأعد المحاولة.", "网盘提取码不一致，请检查原帖": "تعذر قراءة منشور اللعبة أو النموذج. تحقق من الصفحة الأصلية وأعد المحاولة.", "若已看到正常页面，请点击完成；如资源仍被隐藏，请在原帖或回复页完成验证与回复，再返回重试": "إذا ظهرت الصفحة العادية، اضغط تم. إذا بقيت الموارد مخفية، أكمل التحقق والرد في الموضوع الأصلي أو صفحة الرد ثم أعد المحاولة", "蓝奏云": "Lanzou Cloud", "该帖子不属于游戏资源区": "تعذر قراءة منشور اللعبة أو النموذج. تحقق من الصفحة الأصلية وأعد المحاولة.", "请在回复页完成验证并手动回复，返回后重试读取资源": "أكمل التحقق وأرسل الرد يدوياً في صفحة الرد، ثم عد وأعد تحميل الموارد", "请在应用内登录次元茶馆": "سجّل الدخول إلى المقهى داخل التطبيق", "请在站点页面完成搜索验证后重试": "أكمل التحقق من البحث في الموقع وأعد المحاولة", "资源权限已改变，请刷新资源列表": "تعذر قراءة منشور اللعبة أو النموذج. تحقق من الصفحة الأصلية وأعد المحاولة.", "资源编号无效": "تعذر قراءة منشور اللعبة أو النموذج. تحقق من الصفحة الأصلية وأعد المحاولة.", "迅雷云盘": "Xunlei Drive"},
     },
-    key: 'cycg', name: '次元茶馆', version: '0.0.13', minAppVersion: '0.9.2', type: 'game', category: 'game', language: 'zh', color: '#BD916B',
+    key: 'cycg', name: '次元茶馆', version: '0.0.14', minAppVersion: '0.13.6', type: 'game', browseLayout: 'list', category: 'game', language: 'zh', color: '#BD916B',
     homepage: BASE, domains: ['cycg.xyz'], icon: BASE + '/favicon.ico',
     description: '社区游戏分享，登录后按需回复解锁网盘资源',
     network: {mode: 'browser', origin: BASE, vpnHint: true},
@@ -223,21 +209,6 @@
       if (!bodyOf(doc) && /抱歉.*(?:不存在|删除)/.test(text(doc))) throw Park.error('NOT_FOUND', '内容不存在');
       return doc;
     },
-    async hydrate(rows) {
-      const output = [];
-      for (const row of rows) {
-        let cached = row.cover ? {at: Date.now(), cover: row.cover} : covers.get(row.id);
-        if (!cached || Date.now() - cached.at > 600000) {
-          const doc = await this.page(threadUrl(row.id));
-          const metadata = item(doc, row.id, row.title);
-          cached = {at: Date.now(), cover: metadata.cover};
-          if (covers.size >= 100) covers.delete(covers.keys().next().value);
-          covers.set(row.id, cached);
-        }
-        output.push({id: row.id, title: row.title, mediaKind: 'game', contentDomain: 'game', contentRating: 'unknown', coverRating: 'unknown', coverAspect: 16 / 9, ...row, cover: cached.cover});
-      }
-      return output;
-    },
     async feed(key, {page = 1, cursor} = {}) {
       page = Math.max(1, Number(page) || 1);
       let url;
@@ -247,7 +218,7 @@
       const doc = await this.page(url);
       if (!doc.querySelector('.threadlist, #threadlist')) throw Park.error('PARSE', '游戏列表无法读取');
       const next = nextOf(doc, Number(new URL(url).searchParams.get('page')) || page);
-      return {items: await this.hydrate(rowsOf(doc)), page, hasNext: !!next, cursor: next};
+      return {items: rowsOf(doc).map(row => ({...row, mediaKind: 'game', coverAspect: 16 / 9})), page, hasNext: !!next, cursor: next};
     },
     async search({keyword, page = 1, cursor}) {
       if (!String(keyword || '').trim()) return this.feed('popular', {page, cursor});
@@ -266,9 +237,8 @@
         const hash = form.querySelector('[name="formhash"]')?.getAttribute('value');
         if (!hash) throw Park.error('LOGIN_REQUIRED', '请在应用内登录次元茶馆');
         const action = mobileUrl(form.getAttribute('action'));
-        if (action.pathname !== '/search.php' || action.searchParams.get('mod') !== 'forum') throw Park.error('PARSE', '站点表单地址无效');
         doc = await this.page(action.href, {method: 'POST', readOnly: true, form: {
-          formhash: hash, srchtxt: String(keyword).trim(), srchfilter: 'all', searchsubmit: 'yes', orderby: 'lastpost', ascdesc: 'desc',
+          ...formValues(form), formhash: hash, srchtxt: String(keyword).trim(), srchfilter: 'all', searchsubmit: 'yes', orderby: 'lastpost', ascdesc: 'desc',
         }});
         const redirect = doc.querySelector('#messagetext a[href*="searchid="]')?.getAttribute('href');
         if (redirect) {
@@ -284,7 +254,7 @@
         if (!/没有找到|未找到|相关内容 0|相关内容.*0 个/.test(text(doc))) throw Park.error('PARSE', '搜索结果无法读取');
       }
       const next = nextOf(doc, Number(page) || 1, true);
-      return {items: await this.hydrate(rowsOf(doc)), page, hasNext: !!next, cursor: next};
+      return {items: rowsOf(doc).map(row => ({...row, mediaKind: 'game', coverAspect: 16 / 9})), page, hasNext: !!next, cursor: next};
     },
     async comments(value, req = {}) {
       const id = idOf(value), page = Math.max(1, Math.floor(Number(req.page) || 1));
@@ -328,7 +298,7 @@
       const next = doc.querySelector('.pg a.nxt')?.getAttribute('href');
       let hasNext = false;
       if (next) {
-        const u = sameSite(next), path = /^\/thread-(\d+)-(\d+)-\d+\.html$/.exec(u.pathname);
+        const u = siteUrl(next), path = /^\/thread-(\d+)-(\d+)-\d+\.html$/.exec(u.pathname);
         const nextId = path?.[1] || (u.pathname === '/forum.php' && u.searchParams.get('mod') === 'viewthread' ? u.searchParams.get('tid') : null);
         const nextPage = Number(path?.[2] || u.searchParams.get('page'));
         if (nextId !== id || nextPage !== page + 1) throw Park.error('PARSE', '评论数据无效');
@@ -377,18 +347,13 @@
         const attemptKey = accountId + ':' + id;
         if (attempts[attemptKey]) throw confirm();
         const replyLink = body.querySelector('a[href*="action=reply"]');
-        const replyUrl = replyUrlOf(replyLink?.getAttribute('href') || '', id);
+        const replyUrl = mobileUrl(replyLink?.getAttribute('href') || '');
         const verifyReply = () => Park.error('CONFIRM_REQUIRED', '请在回复页完成验证并手动回复，返回后重试读取资源', {url: replyUrl.href});
         // Touch reply pages omit the account footer; identity comes from the thread, not its author.
         const reply = await this.page(replyUrl.href, undefined, false), form = reply.querySelector('#postform');
         if (!form) throw verifyReply();
-        const action = replyUrlOf(form.getAttribute('action'), id);
-        if (action.searchParams.get('fid') !== replyUrl.searchParams.get('fid')) throw Park.error('PARSE', '站点表单地址无效');
-        const values = {};
-        for (const name of ['formhash', 'posttime', 'noticeauthor', 'noticetrimstr', 'noticeauthormsg', 'subject']) {
-          const input = form.querySelector(`[name="${name}"]`);
-          if (input) values[name] = input.getAttribute('value') || '';
-        }
+        const action = new URL(form.getAttribute('action') || replyUrl.href, replyUrl);
+        const values = formValues(form);
         if (!values.formhash) throw verifyReply();
         const scripts = Array.from(reply.querySelectorAll('script')).map(s => s.textContent || '').join('\n');
         if (form.querySelector('[name^="seccode"], [name^="secanswer"]') ||

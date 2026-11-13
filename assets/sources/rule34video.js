@@ -9,11 +9,11 @@ Park.register({
     "ru": {"同人动画与游戏角色短片，支持评分榜、搜索和多清晰度 MP4": "Фанатская анимация и ролики с игровыми персонажами: рейтинг, поиск и MP4 разного качества"},
     "ar": {"同人动画与游戏角色短片，支持评分榜、搜索和多清晰度 MP4": "رسوم المعجبين ومقاطع شخصيات الألعاب مع التقييم والبحث وجودات MP4 متعددة"},
   },
-  key: 'rule34video', name: 'Rule34Video', version: '0.0.11', minAppVersion: '0.9.2', type: 'video', category: 'anime',
+  key: 'rule34video', name: 'Rule34Video', version: '0.0.12', minAppVersion: '0.13.6', type: 'video', category: 'anime',
   language: 'en', color: '#88AA44', homepage: 'https://rule34video.com',
   description: '同人动画与游戏角色短片，支持评分榜、搜索和多清晰度 MP4',
   domains: ['rule34video.com'], network: {mode: 'native', vpnHint: true},
-  media: {mode: 'native', scope: 'session', origin: 'https://rule34video.com', domains: ['rule34video.com', 'boomio-cdn.com']},
+  media: {mode: 'native', scope: 'session', origin: 'https://rule34video.com'},
   imageHeaders: {Referer: 'https://rule34video.com/'},
   defaultFeed: 'rating', feeds: [{key: 'rating', label: '排行'}, {key: 'categories', label: '分类', options: [
     {key: 'group', label: '分类', default: 'categories', dynamic: true, values: []},

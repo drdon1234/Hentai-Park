@@ -18,7 +18,7 @@ MediaTransport createMediaTransport(
   if (hls != null && (initialUrl == null || policy.mode != 'native')) {
     throw SourceError('CONFIG', '媒体数据无效');
   }
-  final inner = policy.mode == 'browser'
+  final MediaTransport inner = policy.mode == 'browser'
       ? BrowserMedia(policy, headers: headers)
       : NativeMedia(policy, headers: headers);
   final transport = RetryingMedia(

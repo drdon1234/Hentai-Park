@@ -34,7 +34,7 @@ class MediaPolicy {
   final List<String> documentDomains;
   final bool sameOriginCredentials;
   final List<String> referrerDomains;
-  final Map<String, List<String>> scopedHeaders;
+  final Set<String> scopedHeaders;
   final String? playbackOrigin;
 
   bool allowsDocument(Uri? url) =>
@@ -85,12 +85,11 @@ class MediaPolicy {
         !(hostInDomains(page.host, sourceDomains) ||
             (image && hostInDomains(page.host, domains))) ||
         (domains.isEmpty && !session) ||
-        (session && mode != 'native') ||
         (image && (mode != 'browser' || session)) ||
         domains.any((domain) => !publicDomainHost(domain))) {
       throw SourceError('CONFIG', '站点没有声明有效的媒体权限');
     }
-    final scopedHeaders = <String, List<String>>{};
+    final scopedHeaders = <String>{};
     final rawHeaders = media['requestHeaders'];
     if (rawHeaders != null) {
       if (mode != 'native' ||
@@ -107,20 +106,10 @@ class MediaPolicy {
             rule is! Map ||
             !session ||
             rule['scope'] != 'playback-origin' ||
-            rule.containsKey('domains') ||
-            rule['extensions'] is! List) {
+            rule.containsKey('domains')) {
           throw SourceError('CONFIG', '站点没有声明有效的媒体权限');
         }
-        final extensions = rule['extensions'] as List;
-        if (extensions.isEmpty ||
-            extensions.length > 8 ||
-            extensions.any(
-              (ext) =>
-                  ext is! String || !RegExp(r'^[a-z0-9]{1,8}$').hasMatch(ext),
-            )) {
-          throw SourceError('CONFIG', '站点没有声明有效的媒体权限');
-        }
-        scopedHeaders[name] = List.unmodifiable(extensions.cast<String>());
+        scopedHeaders.add(name);
       }
     }
     final policy = MediaPolicy._(
@@ -135,7 +124,7 @@ class MediaPolicy {
       ),
       image && hostInDomains(page.host, sourceDomains),
       List.unmodifiable((rawReferrers as List? ?? const []).cast<String>()),
-      Map.unmodifiable(scopedHeaders),
+      Set.unmodifiable(scopedHeaders),
       initialUrl?.origin,
     );
     if (session && initialUrl != null) policy.authorize(initialUrl);
@@ -189,7 +178,7 @@ class MediaPolicy {
                 'accept',
                 'accept-language',
               }.contains(name) &&
-              !scopedHeaders.containsKey(name) ||
+              !scopedHeaders.contains(name) ||
           entry.value.length > 4096 ||
           entry.value.contains('\r') ||
           entry.value.contains('\n') ||
@@ -217,12 +206,8 @@ class MediaPolicy {
   /// 专用头绑定接口返回的播放源站，CDN 轮换无需改名单；不随跨源跳转泄露。
   Map<String, String> headersFor(Uri url, Map<String, String> supplied) => {
     for (final entry in supplied.entries)
-      if (!scopedHeaders.containsKey(entry.key.toLowerCase()) ||
-          (url.origin == playbackOrigin &&
-              _authorized.contains(url) &&
-              scopedHeaders[entry.key.toLowerCase()]!.contains(
-                url.path.split('.').last.toLowerCase(),
-              )))
+      if (!scopedHeaders.contains(entry.key.toLowerCase()) ||
+          (url.origin == playbackOrigin && _authorized.contains(url)))
         entry.key: entry.value,
   };
 }

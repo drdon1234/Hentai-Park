@@ -7,6 +7,7 @@ import '../../core/models.dart';
 import '../../core/platform_capabilities.dart';
 import '../kit/tokens.dart';
 import '../theme.dart';
+import '../widgets/content_translation.dart';
 
 /// 解析出的链接仅在弹窗期间使用，不进入书库或配置。
 class GameResourceLinks extends StatefulWidget {
@@ -110,7 +111,7 @@ class _GameResourceLinksState extends State<GameResourceLinks> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text(widget.title, style: context.text.titleMedium),
+          TranslatedText(widget.title, style: context.text.titleMedium),
           if (!PlatformCapabilities.desktop) ...[
             const SizedBox(height: Gap.s),
             Text(tr('复制链接和密码后，可在电脑上下载。'), style: context.text.bodySmall),

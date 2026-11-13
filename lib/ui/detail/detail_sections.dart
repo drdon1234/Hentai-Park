@@ -6,6 +6,7 @@ import '../../library/downloads.dart';
 import '../../library/library.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
+import '../widgets/content_translation.dart';
 import '../widgets/source_network_hint.dart';
 
 /// One chapter or episode as a hairline row: title, progress and whether it is downloaded.
@@ -52,82 +53,85 @@ class ChapterRow extends StatelessWidget {
           ? '${((state.lastPage / (state.pageCount - 1).clamp(1, 1 << 31)) * 100).clamp(0, 100).round()}%'
           : '${state.lastPage + 1}/${state.pageCount}';
     }
-    return Semantics(
-      button: true,
-      selected: selected,
-      label: [
-        chapter.title,
-        if (current) tr('上次看到这里'),
-        if (read) tr('已读'),
-        ?progress,
-        if (downloaded) tr('已下载'),
-      ].join('，'),
-      onTap: onTap,
-      onLongPress: onLongPress,
-      excludeSemantics: true,
-      child: Material(
-        color: selected ? c.secondaryContainer : Colors.transparent,
-        child: ActionInkWell(
-          onTap: onTap,
-          onLongPress: onLongPress,
-          child: SelectionContainer.disabled(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(minHeight: 48),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: Gap.page,
-                  vertical: Gap.s,
-                ),
-                child: Row(
-                  children: [
-                    if (current)
-                      Padding(
-                        padding: const EdgeInsetsDirectional.only(end: Gap.s),
-                        child: Icon(
-                          Icons.play_arrow_rounded,
-                          size: 18,
-                          color: c.primary,
+    return ContentTranslation(
+      text: chapter.title,
+      builder: (title) => Semantics(
+        button: true,
+        selected: selected,
+        label: [
+          title,
+          if (current) tr('上次看到这里'),
+          if (read) tr('已读'),
+          ?progress,
+          if (downloaded) tr('已下载'),
+        ].join('，'),
+        onTap: onTap,
+        onLongPress: onLongPress,
+        excludeSemantics: true,
+        child: Material(
+          color: selected ? c.secondaryContainer : Colors.transparent,
+          child: ActionInkWell(
+            onTap: onTap,
+            onLongPress: onLongPress,
+            child: SelectionContainer.disabled(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(minHeight: 48),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: Gap.page,
+                    vertical: Gap.s,
+                  ),
+                  child: Row(
+                    children: [
+                      if (current)
+                        Padding(
+                          padding: const EdgeInsetsDirectional.only(end: Gap.s),
+                          child: Icon(
+                            Icons.play_arrow_rounded,
+                            size: 18,
+                            color: c.primary,
+                          ),
+                        ),
+                      Expanded(
+                        child: Text(
+                          title,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: context.text.bodyMedium?.copyWith(
+                            fontWeight: current ? FontWeight.w600 : null,
+                            color: read && !current
+                                ? c.onSurfaceVariant.withValues(alpha: .7)
+                                : c.onSurface,
+                          ),
                         ),
                       ),
-                    Expanded(
-                      child: Text(
-                        chapter.title,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: context.text.bodyMedium?.copyWith(
-                          fontWeight: current ? FontWeight.w600 : null,
-                          color: read && !current
-                              ? c.onSurfaceVariant.withValues(alpha: .7)
-                              : c.onSurface,
+                      if (progress != null) ...[
+                        const SizedBox(width: Gap.s),
+                        Text(
+                          progress,
+                          style: context.text.labelSmall?.copyWith(
+                            color: c.primary,
+                          ),
                         ),
-                      ),
-                    ),
-                    if (progress != null) ...[
-                      const SizedBox(width: Gap.s),
-                      Text(
-                        progress,
-                        style: context.text.labelSmall?.copyWith(
-                          color: c.primary,
+                      ],
+                      if (downloaded) ...[
+                        const SizedBox(width: Gap.s),
+                        Icon(
+                          Icons.download_done_rounded,
+                          size: 16,
+                          color: c.onSurfaceVariant,
                         ),
-                      ),
-                    ],
-                    if (downloaded) ...[
+                      ],
                       const SizedBox(width: Gap.s),
                       Icon(
-                        Icons.download_done_rounded,
-                        size: 16,
+                        isVideo
+                            ? Icons.play_circle_outline_rounded
+                            : Icons.chevron_right_rounded,
+                        size: 20,
                         color: c.onSurfaceVariant,
                       ),
                     ],
-                    const SizedBox(width: Gap.s),
-                    Icon(
-                      isVideo
-                          ? Icons.play_circle_outline_rounded
-                          : Icons.chevron_right_rounded,
-                      size: 20,
-                      color: c.onSurfaceVariant,
-                    ),
-                  ],
+                  ),
                 ),
               ),
             ),
@@ -313,7 +317,9 @@ class _ChapterPickerState extends State<ChapterPicker> {
                 final ch = widget.chapters[i];
                 return CheckboxListTile(
                   value: _selected.contains(ch.id),
-                  title: SelectionContainer.disabled(child: Text(ch.title)),
+                  title: SelectionContainer.disabled(
+                    child: TranslatedText(ch.title),
+                  ),
                   subtitle: widget.completed.contains(ch.id)
                       ? SelectionContainer.disabled(child: Text(tr('已下载')))
                       : null,

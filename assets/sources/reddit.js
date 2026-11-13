@@ -140,7 +140,7 @@
     let path='/r/'+target.id+'/';
     if(options.cursor){
       const next=Park.url.parse(options.cursor,HOME,['reddit.com']);
-      if(!next||next.origin!==HOME||!next.pathname.startsWith('/svc/shreddit/community-more-posts/')||next.searchParams.get('name')?.toLowerCase()!==target.id)throw Park.error('CONFIG','Reddit 分页数据无效');
+      if(!next)throw Park.error('CONFIG','Reddit 分页数据无效');
       path=next.pathname+next.search;
     }
     const r=await source.http.get(HOME+path,{mode:'browser'});
@@ -220,7 +220,7 @@
   }
   Park.register({
     i18n:{'zh-Hant':{"红迪":"Reddit",'请先登录 Reddit':'請先登入 Reddit','Reddit 登录信息无效，请重新登录':'Reddit 登入資訊無效，請重新登入','Reddit 推荐、社区浏览与已加入社区':'Reddit 推薦、社群瀏覽與已加入社群'},ja:{"红迪":"Reddit",'请先登录 Reddit':'Reddit にログインしてください'},ko:{"红迪":"레딧",'请先登录 Reddit':'Reddit에 로그인하세요'},en:{"红迪":"Reddit",'请先登录 Reddit':'Sign in to Reddit first'},es:{"红迪":"Reddit",'请先登录 Reddit':'Inicia sesión en Reddit primero'},ru:{"红迪":"Reddit",'请先登录 Reddit':'Сначала войдите в Reddit'},ar:{"红迪":"ريديت",'请先登录 Reddit':'سجّل الدخول إلى Reddit أولاً'}},
-    key:'reddit',name:'红迪',version: '0.0.16', minAppVersion: '0.9.2',postShortVideos:true,type:'comic',category:'other',homepage:HOME,domains:['reddit.com','www.reddit.com','old.reddit.com','accounts.reddit.com','oauth.reddit.com'],network:{vpnHint:true},media:{mode:'native',origin:HOME,domains:['v.redd.it','external-preview.redd.it','preview.redd.it','i.redd.it','redgifs.com'],referrerDomains:['redgifs.com']},description:'Reddit 推荐、社区浏览与已加入社区',idExample:'r/AskReddit',defaultFeed:'recommended',feeds:[{key:'recommended',label:'推荐'},{key:'popular',label:'热门'}],
+    key:'reddit',name:'红迪',version: '0.0.17', minAppVersion: '0.13.6',postShortVideos:true,type:'comic',category:'other',homepage:HOME,domains:['reddit.com','www.reddit.com','old.reddit.com','accounts.reddit.com','oauth.reddit.com'],network:{vpnHint:true},media:{mode:'native',scope:'session',origin:HOME,referrerDomains:['redgifs.com']},description:'Reddit 推荐、社区浏览与已加入社区',idExample:'r/AskReddit',defaultFeed:'recommended',feeds:[{key:'recommended',label:'推荐'},{key:'popular',label:'热门'}],
     async comments(value, req = {}) {
       logged(this);
       const id = String(value), parent = req.parentId == null ? null : String(req.parentId);

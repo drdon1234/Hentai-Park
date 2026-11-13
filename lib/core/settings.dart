@@ -904,6 +904,7 @@ class AppSettings extends ChangeNotifier {
     bool? title,
     bool? strong,
     List<String>? entries,
+    List<String>? strongEntries,
     Map<String, List<String>>? aliases,
     bool reset = false,
   }) {
@@ -911,22 +912,24 @@ class AppSettings extends ChangeNotifier {
     final cur = reset
         ? <String, dynamic>{}
         : {...((all[id] as Map?) ?? {}).cast<String, dynamic>()};
-    if (on != null) cur['on'] = on;
-    if (title != null) cur['title'] = title;
-    if (strong != null) cur['strong'] = strong;
-    if (entries != null) cur['entries'] = entries;
-    if (aliases != null) cur['aliases'] = aliases;
-    if (entries != null && cur['aliases'] is Map) {
-      cur['aliases'] = {
-        for (final e in (cur['aliases'] as Map).entries)
-          if (entries.contains(e.key)) e.key: e.value,
-      };
-    }
     if (reset) {
       final old = (all[id] as Map?) ?? {};
       cur['on'] = old['on'] ?? false;
       cur['title'] = old['title'] ?? false;
       cur['strong'] = old['strong'] ?? false;
+    }
+    if (on != null) cur['on'] = on;
+    if (title != null) cur['title'] = title;
+    if (strong != null) cur['strong'] = strong;
+    if (entries != null) cur['entries'] = entries;
+    if (strongEntries != null) cur['strongEntries'] = strongEntries;
+    if (aliases != null) cur['aliases'] = aliases;
+    if (entries != null && strongEntries != null && cur['aliases'] is Map) {
+      cur['aliases'] = {
+        for (final e in (cur['aliases'] as Map).entries)
+          if (entries.contains(e.key) || strongEntries.contains(e.key))
+            e.key: e.value,
+      };
     }
     all[id] = cur;
     _set('blockPresets', all);

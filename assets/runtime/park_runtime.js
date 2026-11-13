@@ -155,10 +155,10 @@
             !/^[a-z0-9](?:[a-z0-9.-]*[a-z0-9])?\.[a-z]{2,}$/.test(u.hostname) ||
             u.hostname.split('.').some(label => !label || label.startsWith('-') || label.endsWith('-')) ||
             /(?:^|\.)(?:localhost|local)$/.test(u.hostname) ||
-            !Array.isArray(domains) || !domains.some(domain => {
+            domains != null && (!Array.isArray(domains) || !domains.some(domain => {
               const d = String(domain).toLowerCase();
               return d && (u.hostname === d || u.hostname.endsWith('.' + d));
-            })) return null;
+            }))) return null;
         u.hash = '';
         return u;
       } catch (_) { return null; }
@@ -736,6 +736,7 @@
       rankings: pick(rankingDefs(def)),
       // The plugin's own translations, keyed by its Chinese source text: {locale: {text: translation}}.
       i18n: pick(def.i18n || {}),
+      browseLayout: def.browseLayout || '',
       defaultFeed: def.defaultFeed || '',
       anonymousDefaultFeed: def.anonymousDefaultFeed || '',
       searchFilters: pick(def.searchFilters || []),
