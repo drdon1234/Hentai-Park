@@ -1,31 +1,21 @@
 ## 中文
 
 ### 改进
-- 世界书详情页打开后直接展示条目内容，减少额外操作。
-- 支持 Chub AI 常见的嵌套世界书结构，并按每条目扫描深度解析触发内容。
+- Android HLS 播放支持更稳定的分片读取、断点续播和媒体窗口加载。
+- 改善 HLS 网络异常时的节点切换和播放恢复。
+- 停止维护 Windows 客户端，后续版本聚焦 Android，并为 Web 端保留规划空间。
 
 ### 修复
-- 修复 Chub AI 世界书选择性条目在次关键词为空时无法触发的问题。
-- 修复展开世界书条目时可能出现界面错误的问题。
-- 修复酒馆提示词、会话和网络请求处理中的兼容性问题。
-
-### 插件更新
-- Chub AI 更新至 0.0.4。
-- Character Tavern 更新至 0.0.4。
-- RisuRealm 更新至 0.0.2。
+- 修复部分 HLS 分片响应异常导致播放失败或卡住的问题。
+- 修复媒体转封装和裁剪窗口在部分音视频流上的兼容性问题。
 
 ## English
 
 ### Improvements
-- Open lorebook details directly to the entry contents with fewer extra steps.
-- Support common nested Chub AI lorebook structures and per-entry scan depth matching.
+- Improve Android HLS playback with more reliable segment reads, seeking, and media window loading.
+- Improve CDN fallback and playback recovery when HLS network requests fail.
+- End Windows client maintenance so future releases focus on Android while leaving room for a planned Web client.
 
 ### Fixes
-- Fixed Chub AI selective entries failing to trigger when secondary keywords are empty.
-- Fixed an interface error that could occur while expanding lorebook entries.
-- Fixed compatibility issues in Tavern prompts, conversations, and network request handling.
-
-### Plugin updates
-- Updated Chub AI to 0.0.4.
-- Updated Character Tavern to 0.0.4.
-- Updated RisuRealm to 0.0.2.
+- Fixed playback failures or stalls caused by malformed HLS segment responses.
+- Fixed compatibility issues with media remuxing and trimmed windows for some audio and video streams.

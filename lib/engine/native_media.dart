@@ -199,6 +199,11 @@ class NativeMedia
                   headers: {
                     'User-Agent': HttpService.instance.userAgent,
                     'Referer': '${policy.origin}/',
+                    // Media segments are validated against Content-Length.
+                    // Prevent transparent gzip negotiation from making the
+                    // advertised length differ from the bytes delivered by
+                    // Dio, which leaves Android HLS buffering indefinitely.
+                    'Accept-Encoding': 'identity',
                     ...policy.headersFor(target, headers),
                   },
                 ),

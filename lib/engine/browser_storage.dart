@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
@@ -14,14 +13,10 @@ Future<void> clearBrowserLocalStorage(Uri uri, List<String> keys) async {
   var initialDocumentPending = true;
   final address = WebUri('${uri.origin}/');
   final view = HeadlessInAppWebView(
-    // WebView2 忽略 loadData 的 baseUrl，以本地拦截响应建立真实的同源文档。
-    initialUrlRequest: Platform.isWindows ? URLRequest(url: address) : null,
-    initialData: Platform.isWindows
-        ? null
-        : InAppWebViewInitialData(
-            data: '<!doctype html><html><head></head><body></body></html>',
-            baseUrl: WebUri(uri.origin),
-          ),
+    initialData: InAppWebViewInitialData(
+      data: '<!doctype html><html><head></head><body></body></html>',
+      baseUrl: WebUri(uri.origin),
+    ),
     initialSettings: InAppWebViewSettings(
       blockNetworkLoads: true,
       useShouldOverrideUrlLoading: true,

@@ -169,7 +169,7 @@ class TagTranslations extends ChangeNotifier {
     if (!isSourceKey(source) || !locales.contains(locale)) {
       throw const FormatException('不支持的站点或语言');
     }
-    // 可逆字节编码防止 Windows 大小写不敏感文件系统混淆两个源身份。
+    // 可逆字节编码防止大小写不敏感文件系统混淆两个源身份。
     return File(
       p.join(_directory.path, sourceIdentity(source), '$locale.json'),
     );

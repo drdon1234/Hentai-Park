@@ -185,7 +185,6 @@ async filterOptions({scope, feed, filter, keyword, values}) {
 
 - `network.mode: 'auto'`（預設）：先使用原生 HTTP；HTTPS 同源 GET / HEAD 且無請求體的請求遇到 Cloudflare、HTTP 403、429 或可恢復的連線錯誤時，自動重試一次瀏覽器請求。DNS、TLS、逾時、回應串流及一般 5xx 不啟動瀏覽器，避免增加延遲。目標必須屬於外掛宣告的網域，瀏覽器回退仍受同源與重新導向限制。
 - `network.mode: 'native'`: 強制使用原生 HTTP、持久化 Cookie 和使用者代理。偵測到 Cloudflare 時回傳 `CLOUDFLARE`，可在應用程式內重試；錯誤附有站內驗證位址時，可選擇「去確認」開啟頁面。
-- `network.mode: 'browser'` + `network.origin`: 請求在 `origin` 的隱藏瀏覽器頁中透過同源 `fetch()` 發出。唯讀請求遇到 Cloudflare（包括 HTTP 200 挑戰頁）或年齡門缺少宣告的 Cookie/內容時，最多導覽驗證一次後再讀取；寫入請求不重播。年齡門依 `network.confirmation` 自動處理。Android 和 Windows 支援唯一標準 Cloudflare 核取方塊的瀏覽器輸入；其他平台等待網站自動驗證，失敗時可重試，或在提供站內驗證位址時選擇「去確認」。
 
   文件可在宣告範圍內進行同協定、同連接埠導覽。未指定請求 `origin` 時，使用目標站點 URL 的 origin。回應保留最終 `url`。
 
@@ -229,7 +228,6 @@ media: { mode: 'native', scope: 'session', origin: 'https://example.com' },
 - `media.mode` 為 `'native'` 或 `'browser'`。`media.origin` 必須屬於外掛宣告的站點，使用 HTTPS 預設埠 443，不含使用者憑據、查詢或片段。
 - `'native'`：使用獨立且無憑據的客戶端，不讀寫站點 Cookie、Authorization 或代理認證，每次重新導向前檢查目標。只允許 `Referer`、`Origin`、`Accept`、`Accept-Language`；前兩者須屬於宣告的站點域（含語言子域），`Origin` 只含來源 origin。
 - `media.referrerDomains` 為選填，僅限原生影片媒體，最多 16 個有效公網網域（含子網域）。它只為 `Referer` 增加允許的來源，作為上述站點網域限制的明確例外；不擴大 `Origin`、媒體地址、文件導覽或 Cookie 權限，不得用於 `imageNetwork` 或瀏覽器媒體。
-- `'browser'`：在 `media.origin` 建立隱藏會話，文件可在宣告的站點域內導覽。使用 `credentials: 'omit'`、`mode: 'cors'`，Origin/Referer 由實際文件和瀏覽器產生。Windows 透過 WebView2 在每次連線前檢查資源域，允許授權域間重新導向，並複核最終地址。其他核心缺少逐跳攔截介面，使用 `redirect: 'error'`。CORS 和原站 CSP 仍生效，不能只檢查最終 URL 就放行跳轉。
 - 響應流式限長並重新校驗響應地址：清單最多 2 MiB，單個分段最多 32 MiB，AES-128 金鑰必須 16 位元組；超限、空響應或不允許的地址一律拒絕。
 
 
@@ -396,7 +394,6 @@ async textChapter(id, chapterId) {
 
 線上遊戲外掛宣告 `type: 'game', category: 'onlineGame'`，作品填寫 `mediaKind: 'game'`。使用者開始遊玩時，`onlineGame(workId)` 回傳 `{kind: 'html', url, storageId?}`；Flash 回傳 `{kind: 'flash', url, player, storageId?}`，`url` 是 SWF，`player` 是同主機的 Ruffle 腳本。網址須為不含憑證、使用 443 埠的 HTTPS。`storageId` 是站點內穩定的作品識別碼；省略時使用 workId，不得包含憑證。
 
-用戶端依站點和識別碼隔離持久瀏覽器設定，主框架限於遊戲主機，子框架另允許精確的 `challenges.cloudflare.com` 驗證網域，拒絕彈窗、下載和網頁權限。Android 需要支援多設定檔的系統 WebView，Windows 使用獨立 WebView2 資料目錄。localStorage 和 IndexedDB 隨設定檔保留；來源主機變更時瀏覽器不會自動遷移存檔。HTTP 快取受原站策略及系統回收影響，不保證離線或秒開。
 
 ### 遊戲：`gameResources` / `resolveGameResource`
 
@@ -405,7 +402,6 @@ async textChapter(id, chapterId) {
 ```js
 async gameResources(workId) {
   return [{ id: 'resource-id', title: '', version: '1.2', size: '2 GB',
-    platforms: ['Windows'], languages: ['SimplifiedChinese'], notes: '原站备注',
     status: 'valid', testStatus: 'untested',
     channels: [{ id: 'stable-channel-id', kind: 'direct', label: 'game.zip', size: '2 GB' }] }];
 }
@@ -626,7 +622,6 @@ node tools/build_subscription_sources.mjs
 
 ### `webVideo(id, episodeId)`
 
-Android 使用獨立暫存 WebView Profile，需支援 `MULTI_PROFILE`；不支援時請更新 Android System WebView。退出時清除 Profile 的 Cookie 與網站儲存並銷毀 WebView；暫時無法刪除的已載入 Profile 會在下次啟動程序播放時清理。Windows 使用獨立暫存使用者目錄及私密工作階段；缺少私密工作階段介面時拒絕播放，退出後清理目錄。進入背景或鎖定應用程式時暫停播放。
 
 網頁播放器在獨立暫存工作階段內處理 Cloudflare 驗證，只允許精確的 `challenges.cloudflare.com` 驗證子框架，不開放其主框架導覽。年齡確認僅在來源宣告網域內使用 `network.confirmation`，不套用至外部播放器。無法自動完成時保留網頁供使用者處理，不匯入或匯出播放器 Cookie。`CONFIRM_REQUIRED` 保留外掛提示，透過應用程式內「去確認」頁面處理，明確完成後同步來源工作階段，不自動重播原操作。
 

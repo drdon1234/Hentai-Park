@@ -254,7 +254,6 @@ async filterOptions({scope, feed, filter, keyword, values}) {
 
 - `network.mode: 'auto'`（默认）：先使用原生 HTTP；HTTPS 同源 GET / HEAD 且无请求体的请求遇到 Cloudflare、HTTP 403、429 或可恢复的连接错误时，自动重试一次浏览器请求。DNS、TLS、超时、响应流和普通 5xx 不触发浏览器回退，避免把不可恢复的故障放大为额外等待。目标必须属于源声明的域名，浏览器回退仍受同源和重定向限制。
 - `network.mode: 'native'`: 强制使用原生 HTTP、持久化 Cookie 和用户代理。检测到 Cloudflare 时返回 `CLOUDFLARE`，应用内提供重试；错误带有站内验证地址时，可通过“去确认”打开页面。
-- `network.mode: 'browser'` + `network.origin`: 请求在 `origin` 的隐藏浏览器页中通过同源 `fetch()` 发出，使用真实浏览器会话。只读请求遇到 Cloudflare 挑战（包括 HTTP 200 挑战页），或年龄门响应缺少声明 Cookie/内容时，最多导航验证一次，通过后再读取；写请求不重放。年龄门按 `network.confirmation` 自动处理。Android 和 Windows 对唯一标准 Cloudflare 复选框发送浏览器输入，其他平台等待站点自动验证；失败可在应用内重试，或在提供站内验证地址时选择“去确认”。
 
   文档可在声明范围内进行同协议、同端口导航。未显式传入请求 `origin` 时，共享运行时使用目标站点 URL 的 origin。响应 `url` 保留最终地址。
 
@@ -302,7 +301,6 @@ media: { mode: 'native', origin: 'https://example.com', domains: ['media.example
 - `'native'`：使用独立、无凭据的客户端，不读写站点 Cookie、Authorization 或代理认证，每次重定向前先校验目标。只允许 `Referer`、`Origin`、`Accept`、`Accept-Language`；前两者须属于声明的站点域（含语言子域），`Origin` 只能包含来源 origin。
 - `media.referrerDomains` 可选，仅限原生视频媒体，最多 16 个有效公网域名（含子域）。它仅为 `Referer` 增加允许的来源，作为上述站点域限制的明确例外；不扩大 `Origin`、媒体地址、文档导航或 Cookie 权限，不允许用于 `imageNetwork` 或浏览器媒体。
 - 原生会话媒体可通过 `media.requestHeaders` 声明专用请求头，例如 `{'x-cdn-auth': {scope: 'playback-origin'}}`。最多 8 个小写 `x-` 请求头；值由当次 `videos().headers` 提供，每值最多 4096 字符且不得包含换行。请求头绑定本次媒体 URL 的 origin，仅发送给当前会话已授权的同源资源，不按文件后缀过滤，也不维护 CDN 名单；跨源跳转不携带专用凭据。
-- `'browser'`：在 `media.origin` 建立隐藏会话，文档可在声明的站点域内导航。请求使用 `credentials: 'omit'`、`mode: 'cors'`，Origin/Referer 由真实文档和浏览器生成。Windows 通过 WebView2 在每次连接前校验资源域，允许授权域间重定向，并复核最终地址；其他内核缺少逐跳拦截接口，使用 `redirect: 'error'`。CORS 和原站 CSP 仍然生效，不能用只检查最终 URL 的方式放开跳转。
 - 响应流式限长并重新校验响应地址：清单最多 2 MiB，单个分段最多 32 MiB，AES-128 密钥必须 16 字节；超限、空响应或不允许的地址一律拒绝。
 
 ### 隔离与安全
@@ -495,7 +493,6 @@ return {
 - 运行时自动导出 `capabilities.webVideo`。仅实现 `webVideo` 时，详情和历史进入应用内网页，隐藏应用下载与虚构选集，不承诺精确断点续播；页面控制由上游提供。
 - 同时实现 `videos` 和 `webVideo` 时优先原生播放。只有插件返回 `UNSUPPORTED` 时自动回退网页；`HTTP`、`NETWORK`、`CLOUDFLARE`、登录、解析、下架和取消错误照常显示，不触发回退。下载只支持成功解析的原生媒体，不回退网页。
 - 地址必须为 HTTPS、公网域名、无用户凭据且仅使用 443 端口。默认允许目标注册域及子域；额外主框架跳转和 iframe 只允许返回的域及子域，必须根据真实请求声明。域声明不扩大插件 HTTP、媒体或 Cookie 权限。弹窗、下载、文件访问和页面调用原生桥接均被拒绝。
-- Android 使用独立临时 WebView Profile，不读写默认浏览器或插件 Cookie。需要设备 WebView 支持 `MULTI_PROFILE`，否则提示更新 Android System WebView。退出清除该 Profile 的 Cookie 和网站存储并销毁 WebView；若设备暂不允许删除已载入的 Profile，下一次进程启动播放时清理遗留目录。Windows 使用独立临时用户目录和私密会话；缺少私密会话接口时拒绝播放，退出后清理该目录。应用进入后台或上锁时暂停播放。
 - 播放页可能需要单独完成年龄或站点确认；不导入源凭据。聚合站解析跳转时可用原生 HTTP 的 `followRedirects: false` 读取 `Location`，不携带源凭据访问上游。
 
 ### 小说：`textChapter`
@@ -518,7 +515,6 @@ async textChapter(id, chapterId) {
 
 在线游戏插件声明 `type: 'game', category: 'onlineGame'`，作品填写 `mediaKind: 'game'`。`onlineGame(workId)` 在用户开始游玩时返回 `{kind: 'html', url, storageId?, navigationDomains?}`；Flash 返回 `{kind: 'flash', url, player, storageId?}`，其中 `url` 为 SWF，`player` 为同主机 Ruffle 脚本。地址必须是无凭据的 HTTPS，使用 443 端口。`storageId` 是站点内稳定的作品标识，省略时使用 workId；不得包含凭据。
 
-客户端以站点和该标识隔离持久浏览器配置，主框架限于游戏主机及 `navigationDomains` 中至多八个经过验证的精确 HTTPS 主机（不隐含子域权限），子框架另允许精确的 `challenges.cloudflare.com` 验证域，拒绝弹窗、下载和网页权限。Android 需要支持多配置文件的系统 WebView，Windows 使用独立 WebView2 数据目录。插件应将经过验证的外部游戏从包装 iframe 提升为主文档，保持第三方 Cookie 禁用，避免第三方存储限制阻止资源和存档写入。此导航权限不授予源站 HTTP/Cookie 权限。localStorage 与 IndexedDB 随配置保留；来源主机变化时浏览器不会自动迁移存档。大型同源游戏资源可在检查版本后复用本地副本；源站禁用缓存的响应不会保存。缓存仍受原站策略、容量与系统回收影响，不能保证离线或秒开，游戏引擎仍可能每次解压或初始化。
 
 ### 游戏：`gameResources` / `resolveGameResource`
 
@@ -527,7 +523,6 @@ async textChapter(id, chapterId) {
 ```js
 async gameResources(workId) {
   return [{ id: 'resource-id', title: '', version: '1.2', size: '2 GB',
-    platforms: ['Windows'], languages: ['SimplifiedChinese'], notes: '原站备注',
     status: 'valid', testStatus: 'untested',
     channels: [{ id: 'stable-channel-id', kind: 'direct', label: 'game.zip', size: '2 GB' }] }];
 }

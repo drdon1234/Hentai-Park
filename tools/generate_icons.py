@@ -43,8 +43,6 @@ def save(path, size):
 save(ROOT / 'assets/branding/app_icon.png', SIZE)
 for density, size in (('mdpi', 48), ('hdpi', 72), ('xhdpi', 96), ('xxhdpi', 144), ('xxxhdpi', 192)):
     save(ROOT / f'android/app/src/main/res/mipmap-{density}/ic_launcher.png', size)
-icon.save(ROOT / 'windows/runner/resources/app_icon.ico',
-          sizes=[(size, size) for size in (16, 24, 32, 48, 64, 128, 256)])
 # 单色资源只保留书本轮廓，播放符号镂空；不能把彩色卡片当作 alpha 蒙版。
 mono = '''<?xml version="1.0" encoding="utf-8"?>
 <vector xmlns:android="http://schemas.android.com/apk/res/android"

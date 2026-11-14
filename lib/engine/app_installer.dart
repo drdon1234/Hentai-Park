@@ -1,4 +1,3 @@
-import 'dart:ffi';
 import 'dart:io';
 
 import 'package:crypto/crypto.dart';
@@ -29,7 +28,6 @@ class AppInstaller {
     String? platform,
     String? architecture,
   }) : _platform = platform ?? Platform.operatingSystem,
-       _architecture = architecture ?? _currentArchitecture(),
        _cache = cache ?? _updateCache,
        _abis =
            abis ??
@@ -50,8 +48,7 @@ class AppInstaller {
 
   static const _channel = MethodChannel('hentai_park/platform');
   final bool supported;
-  final String _platform, _architecture;
-  bool get desktop => _platform == 'windows';
+  final String _platform;
   final Future<Directory> Function() _cache;
   final Future<List<String>> Function() _abis;
   final Future<void> Function(
@@ -124,17 +121,6 @@ class AppInstaller {
 
   Future<AppReleaseAsset?> selectAsset(AppRelease release) async {
     if (!supported) return null;
-    final suffix = switch ((_platform, _architecture)) {
-      ('windows', 'x64') => '-windows-x64-setup.exe',
-      _ => null,
-    };
-    if (desktop) {
-      return suffix == null
-          ? null
-          : release.assets
-                .where((asset) => asset.name.endsWith(suffix))
-                .firstOrNull;
-    }
     if (_platform != 'android') return null;
     final abis = await _abis();
     for (final abi in abis) {
@@ -194,23 +180,8 @@ class AppInstaller {
           }) ??
           false;
     }
-    if (platform == 'windows' && p.extension(file.path) == '.exe') {
-      await Process.start(file.path, [
-        '/DIR=${p.dirname(Platform.resolvedExecutable)}',
-        '/NORESTART',
-        '/NOCLOSEAPPLICATIONS',
-      ], mode: ProcessStartMode.detached);
-      return true;
-    }
     throw const AppInstallFailure('没有适合此设备的安装包，请前往官方发布页下载');
   }
 
-  static String _currentArchitecture() => switch (Abi.current()) {
-    Abi.windowsX64 => 'x64',
-    _ => '',
-  };
-
-  static bool _supportsCurrentPlatform() =>
-      Platform.isAndroid ||
-      (Platform.isWindows && _currentArchitecture() == 'x64');
+  static bool _supportsCurrentPlatform() => Platform.isAndroid;
 }

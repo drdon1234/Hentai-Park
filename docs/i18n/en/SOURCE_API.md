@@ -196,7 +196,6 @@ async filterOptions({scope, feed, filter, keyword, values}) {
 
 - `network.mode: 'auto'` (default): try native HTTP first. For same-origin HTTPS GET/HEAD requests without a body, Cloudflare challenges, HTTP 403, 429, or recoverable connection errors trigger one browser retry. DNS, TLS, timeout, response-stream, and ordinary 5xx failures do not open the browser, avoiding extra latency. The target must be within the source's declared domains, and browser fallback keeps the same-origin and redirect restrictions.
 - `network.mode: 'native'`: Force native HTTP with persistent cookies and the configured proxy. A detected Cloudflare challenge returns `CLOUDFLARE` for in-app retry; when the error includes a site verification URL, the user can choose to open its confirmation page.
-- `network.mode: 'browser'` + `network.origin`: Send same-origin `fetch()` from a hidden page at `origin`. Read-only requests encountering Cloudflare (including HTTP 200 challenge pages), or an age gate without required cookies/content, navigate for verification at most once before reading again; writes are never replayed. Age gates follow `network.confirmation`. Android and Windows send browser input to one standard Cloudflare checkbox; other platforms wait for automatic site checks. Failures offer in-app retry or a confirmation action when a site verification URL is provided.
 
   Documents may navigate within declared domains with the same scheme and port. Unless explicitly supplied, request `origin` comes from the target site URL. Responses preserve the final `url`.
 
@@ -240,7 +239,6 @@ media: { mode: 'native', scope: 'session', origin: 'https://example.com' },
 - `media.mode` is `'native'` or `'browser'`. `media.origin` must belong to the plugin's sites, use HTTPS on the default port 443, and contain no credentials, query or fragment.
 - `'native'`: Uses a separate client without site cookies, Authorization or proxy credentials, checking each redirect before connecting. Allowed headers are `Referer`, `Origin`, `Accept`, `Accept-Language`; the first two must belong to declared site domains, including language subdomains. `Origin` contains only an origin.
 - Optional `media.referrerDomains` is limited to native video media and at most 16 valid public domains (including subdomains). It explicitly extends only the allowed `Referer` origins beyond the site domains above. It grants no extra `Origin`, media URL, document navigation or cookie permissions, and is invalid for `imageNetwork` or browser media.
-- `'browser'`: Opens a hidden session at `media.origin` with document navigation inside declared site domains. Uses `credentials: 'omit'` and `mode: 'cors'`; the real document and browser generate Origin/Referer. On Windows, WebView2 checks the resource domain before each connection, permits redirects between authorized domains and validates the final URL. Other engines lack per-hop interception and use `redirect: 'error'`. CORS and the site CSP still apply; final-URL checks alone do not authorize redirects.
 - Responses are size-limited while streaming and their final address is re-checked: playlists up to 2 MiB, segments up to 32 MiB, AES-128 keys exactly 16 bytes. Oversized or empty responses and disallowed addresses are rejected.
 
 
@@ -407,7 +405,6 @@ async textChapter(id, chapterId) {
 
 Online game plugins declare `type: 'game', category: 'onlineGame'`; works set `mediaKind: 'game'`. On play, `onlineGame(workId)` returns `{kind: 'html', url, storageId?}`; Flash returns `{kind: 'flash', url, player, storageId?}`, with a SWF URL and a Ruffle script on the same host. URLs must use HTTPS on port 443 without credentials. `storageId` is the stable site-specific game identity, falling back to workId, and must not contain credentials.
 
-The client isolates persistent browser profiles by source and identity. Documents are limited to the game host; frames may also use the exact `challenges.cloudflare.com` verification host. Popups, downloads and web permissions are denied. Android requires a system WebView with multiple profiles; Windows uses a separate WebView2 data directory. localStorage and IndexedDB persist with the profile, but a change of origin does not automatically migrate saves. HTTP cache depends on site policy and system eviction; offline access and instant reopening are not guaranteed.
 
 ### Games: `gameResources` / `resolveGameResource`
 
@@ -416,7 +413,6 @@ Game plugins declare `type: 'game', category: 'game'`; works set `mediaKind: 'ga
 ```js
 async gameResources(workId) {
   return [{ id: 'resource-id', title: '', version: '1.2', size: '2 GB',
-    platforms: ['Windows'], languages: ['SimplifiedChinese'], notes: '原站备注',
     status: 'valid', testStatus: 'untested',
     channels: [{ id: 'stable-channel-id', kind: 'direct', label: 'game.zip', size: '2 GB' }] }];
 }
@@ -637,7 +633,6 @@ It uses [@mtproto/core 6.3.0](https://github.com/alik0211/mtproto-core) (GPL-3.0
 
 ### `webVideo(id, episodeId)`
 
-Android uses an isolated temporary WebView Profile and requires `MULTI_PROFILE`; update Android System WebView if it is unavailable. Closing playback clears its cookies and site storage and destroys the WebView; loaded profiles that cannot yet be deleted are cleaned up when playback starts in the next app process. Windows uses a separate temporary user directory and a private session; playback is refused if private sessions are unavailable, and the directory is cleaned up on exit. Playback pauses when the app enters the background or is locked.
 
 Web playback handles Cloudflare in an isolated temporary session. Only the exact `challenges.cloudflare.com` verification frame is allowed, never main-frame navigation to that host. Age confirmation uses `network.confirmation` only on source-declared domains, not external players. If automatic checks cannot finish, the page remains available for manual handling; player cookies are never imported or exported. `CONFIRM_REQUIRED` preserves the plugin message and opens an in-app confirmation page to synchronize the source session after explicit completion, without replaying the original operation.
 

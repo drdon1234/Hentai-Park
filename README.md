@@ -9,7 +9,7 @@
 <p align="center">
   <a href="https://github.com/drdon1234/Hentai-Park/releases/latest"><img src="https://img.shields.io/github/v/release/drdon1234/Hentai-Park?label=Download&amp;color=C96442" alt="Download"></a>
   <img src="https://img.shields.io/badge/18%2B-Adult_content-C96442" alt="18+">
-  <img src="https://img.shields.io/badge/Android_7.0%2B_%C2%B7_Windows-333333" alt="Android 7.0+ / Windows">
+  <img src="https://img.shields.io/badge/Android_7.0%2B-333333" alt="Android 7.0+">
 </p>
 
 <p align="center"><a href="https://github.com/drdon1234/Hentai-Park/releases/latest">下载</a> · <a href="#screenshots">产品演示</a> · <a href="#features">功能</a> · <a href="#faq">常见问题</a> · <a href="https://github.com/drdon1234/Hentai-Park/issues">反馈</a></p>
@@ -20,7 +20,7 @@
 
 **[下载](https://github.com/drdon1234/Hentai-Park/releases/latest)**
 
-支持 **Android 7.0+ 和 Windows**。Android 多数手机和平板选择 `arm64-v8a`；Windows 便携 ZIP 需完整解压。
+支持 **Android 7.0+**。多数手机和平板选择 `arm64-v8a`。
 
 [平台说明与安装方法](docs/PLATFORMS.md)
 

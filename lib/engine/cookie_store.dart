@@ -751,5 +751,5 @@ class CookieStore {
       ? host
       : '.${host.toLowerCase().replaceFirst(RegExp(r'\.$'), '')}';
 
-  static bool get _webViewSupported => Platform.isAndroid || Platform.isWindows;
+  static bool get _webViewSupported => Platform.isAndroid;
 }

@@ -1,4 +1,4 @@
-import 'package:desktop_drop/desktop_drop.dart';
+import 'package:cross_file/cross_file.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -14,7 +14,7 @@ class ImageInputRegion extends StatelessWidget {
     required this.onPaste,
     required this.child,
   });
-  final ValueChanged<List<DropItem>> onDrop;
+  final ValueChanged<List<XFile>> onDrop;
   final VoidCallback onPaste;
   final Widget child;
 

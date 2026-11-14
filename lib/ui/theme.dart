@@ -583,7 +583,6 @@ class ParkTheme {
       pageTransitionsTheme: const PageTransitionsTheme(
         builders: {
           TargetPlatform.android: PredictiveBackPageTransitionsBuilder(),
-          TargetPlatform.windows: DesktopPageTransitionsBuilder(),
         },
       ),
     );

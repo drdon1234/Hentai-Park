@@ -3,12 +3,10 @@ import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
-import 'package:window_manager/window_manager.dart';
 
 import '../core/app_log.dart';
 import '../core/diagnostic_entry.dart';
 import '../core/localization.dart';
-import '../core/platform_capabilities.dart';
 import '../core/settings.dart';
 import 'native_notifications.dart';
 
@@ -18,7 +16,7 @@ class PlatformBridge {
 
   static Future<bool> startVoicePlayback(String id) async {
     _listen();
-    if (!Platform.isAndroid) return PlatformCapabilities.desktop;
+    if (!Platform.isAndroid) return false;
     try {
       return await _channel.invokeMethod<bool>('startVoicePlayback', {
             'id': id,
@@ -222,10 +220,6 @@ class PlatformBridge {
     bool landscape = false,
     bool keepNavigationBar = false,
   }) async {
-    if (PlatformCapabilities.desktop) {
-      await windowManager.setFullScreen(enabled);
-      return;
-    }
     if (defaultTargetPlatform == TargetPlatform.android) {
       try {
         await _channel.invokeMethod('setVideoFullscreen', {

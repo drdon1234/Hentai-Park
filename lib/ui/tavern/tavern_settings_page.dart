@@ -150,7 +150,6 @@ class _TavernSettingsPageState extends State<TavernSettingsPage> {
                           TextField(
                             controller: _key,
                             keyboardType: TextInputType.text,
-                            autocorrect: false,
                             decoration: InputDecoration(
                               labelText: 'API Key',
                               helperMaxLines: 4,

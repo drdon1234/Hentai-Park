@@ -196,7 +196,6 @@ async filterOptions({scope, feed, filter, keyword, values}) {
 
 - `network.mode: 'auto'` (por defecto): primero usa HTTP nativo. En solicitudes GET/HEAD HTTPS del mismo origen sin cuerpo, los desafíos de Cloudflare, HTTP 403, 429 o errores de conexión recuperables activan un único reintento en el navegador. DNS, TLS, tiempos de espera, errores de flujo de respuesta y respuestas 5xx normales no activan el navegador para evitar latencia adicional. El destino debe estar dentro de los dominios declarados por la fuente y se mantienen las restricciones de mismo origen y redirección.
 - `network.mode: 'native'`: Fuerza HTTP nativo con cookies persistentes y el proxy configurado. Una comprobación de Cloudflare devuelve `CLOUDFLARE` para reintentar en la app; si el error incluye una URL de verificación del sitio, el usuario puede abrir su página de confirmación.
-- `network.mode: 'browser'` + `network.origin`: Envía `fetch()` del mismo origen desde una página oculta en `origin`. Las lecturas con Cloudflare (incluido HTTP 200) o una confirmación de edad sin las cookies/contenido necesarios navegan para verificar como máximo una vez antes de volver a leer; las escrituras no se repiten. La edad sigue `network.confirmation`. Android y Windows envían entrada al único checkbox estándar de Cloudflare; otras plataformas esperan la comprobación automática. Los fallos permiten reintentar o abrir la confirmación si se proporciona una URL de verificación del sitio.
 
   Los documentos navegan entre dominios declarados con el mismo protocolo y puerto. Si no se indica, el `origin` de la petición se obtiene de la URL del sitio de destino. La respuesta conserva la `url` final.
 
@@ -240,7 +239,6 @@ media: { mode: 'native', scope: 'session', origin: 'https://example.com' },
 - `media.mode` es `'native'` o `'browser'`. `media.origin` debe pertenecer a los sitios del plugin, usar HTTPS en el puerto 443 y no llevar credenciales, consulta ni fragmento.
 - `'native'`: Usa un cliente independiente sin cookies, Authorization ni autenticación de proxy; comprueba cada redirección antes de conectar. Permite `Referer`, `Origin`, `Accept`, `Accept-Language`; las dos primeras pertenecen a dominios declarados del sitio, incluidos subdominios de idioma. `Origin` contiene solo el origen.
 - `media.referrerDomains` es opcional, solo para medios de vídeo nativos y con un máximo de 16 dominios públicos válidos (incluidos subdominios). Amplía únicamente los orígenes permitidos de `Referer`, como excepción explícita a los dominios del sitio anteriores. No concede permisos adicionales de `Origin`, URL multimedia, navegación de documentos ni cookies, y no es válido para `imageNetwork` o medios de navegador.
-- `'browser'`: Abre una sesión oculta en `media.origin`, con navegación dentro de los dominios del sitio. Usa `credentials: 'omit'`, `mode: 'cors'`; el documento real y el navegador generan Origin/Referer. En Windows, WebView2 comprueba cada dominio antes de conectar y permite redirecciones autorizadas, comprobando también la URL final. Otros motores no permiten interceptar cada salto y usan `redirect: 'error'`. CORS y la CSP siguen vigentes; comprobar solo la URL final no autoriza redirecciones.
 - Las respuestas se limitan en tamaño mientras llegan y se vuelve a comprobar su dirección final: listas de hasta 2 MiB, segmentos de hasta 32 MiB y claves AES-128 de exactamente 16 bytes. Se rechazan respuestas demasiado grandes o vacías y direcciones no permitidas.
 
 
@@ -407,7 +405,6 @@ async textChapter(id, chapterId) {
 
 Los plugins de juegos en línea declaran `type: 'game', category: 'onlineGame'` y las obras usan `mediaKind: 'game'`. Al jugar, `onlineGame(workId)` devuelve `{kind: 'html', url, storageId?}`; para Flash devuelve `{kind: 'flash', url, player, storageId?}` con un SWF y un script Ruffle del mismo host. Las URL deben ser HTTPS en el puerto 443 y no contener credenciales. `storageId` es la identidad estable del juego en el sitio; si se omite se usa workId y no debe incluir credenciales.
 
-El cliente aísla perfiles persistentes por sitio e identidad; limita los documentos al host del juego y permite además el host exacto `challenges.cloudflare.com` en marcos de verificación; bloquea ventanas emergentes, descargas y permisos web. Android necesita un WebView del sistema con varios perfiles y Windows utiliza una carpeta WebView2 independiente. localStorage e IndexedDB persisten en el perfil, pero los cambios de origen no migran las partidas automáticamente. La caché HTTP depende del sitio y de la limpieza del sistema; no se garantiza el uso sin conexión ni el inicio inmediato.
 
 ### Juegos: `gameResources` / `resolveGameResource`
 
@@ -416,7 +413,6 @@ Los plugins de juegos declaran `type: 'game', category: 'game'`; sus obras indic
 ```js
 async gameResources(workId) {
   return [{ id: 'resource-id', title: '', version: '1.2', size: '2 GB',
-    platforms: ['Windows'], languages: ['SimplifiedChinese'], notes: '原站备注',
     status: 'valid', testStatus: 'untested',
     channels: [{ id: 'stable-channel-id', kind: 'direct', label: 'game.zip', size: '2 GB' }] }];
 }
@@ -637,7 +633,6 @@ Usa [@mtproto/core 6.3.0](https://github.com/alik0211/mtproto-core) (GPL-3.0, [l
 
 ### `webVideo(id, episodeId)`
 
-Android usa un WebView Profile temporal y aislado que requiere `MULTI_PROFILE`; actualiza Android System WebView si no está disponible. Al cerrar se borran sus cookies y datos del sitio y se destruye el WebView; los perfiles cargados que aún no puedan eliminarse se limpian al iniciar la reproducción en el siguiente proceso de la aplicación. Windows usa un directorio de usuario temporal separado y una sesión privada; rechaza la reproducción si la interfaz de sesiones privadas no está disponible y limpia el directorio al salir. La reproducción se pausa al pasar a segundo plano o bloquear la aplicación.
 
 La reproducción web resuelve Cloudflare en una sesión temporal aislada. Solo permite el marco de verificación exacto `challenges.cloudflare.com`, nunca la navegación principal a ese host. `network.confirmation` solo se aplica a los dominios declarados por la fuente, no a reproductores externos. Si la verificación automática no termina, la página permanece disponible para el usuario; no se importan ni exportan cookies del reproductor. `CONFIRM_REQUIRED` conserva el mensaje del plugin y permite completar la verificación en la app y sincronizar la sesión de la fuente, sin repetir la operación original.
 

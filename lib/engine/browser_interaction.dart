@@ -16,7 +16,7 @@ class WebViewInteractionHost implements BrowserInteractionHost {
   final InAppWebViewController controller;
   final String? headlessId;
   @override
-  bool get supportsCdp => defaultTargetPlatform == TargetPlatform.windows;
+  bool get supportsCdp => false;
   @override
   bool get supportsNativeInput =>
       defaultTargetPlatform == TargetPlatform.android;

@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 
-import 'package:desktop_drop/desktop_drop.dart';
+import 'package:cross_file/cross_file.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -145,8 +145,8 @@ class _ReverseSearchPageState extends State<ReverseSearchPage> {
   Future<void> _paste() =>
       _readImage(ImageInput.readClipboard, clipboard: true);
 
-  Future<void> _drop(List<DropItem> files) => _readImage(() async {
-    if (files.length != 1 || files.single is DropItemDirectory) {
+  Future<void> _drop(List<XFile> files) => _readImage(() async {
+    if (files.length != 1) {
       throw const FormatException();
     }
     return ImageInput.readFile(files.single);

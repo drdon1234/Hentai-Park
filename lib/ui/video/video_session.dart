@@ -619,6 +619,64 @@ class VideoSession extends ChangeNotifier {
   }
 
   (bool, bool, bool)? _lastPlayerState;
+  Timer? _bufferingRecoveryTimer;
+  int _bufferingRecoveryAttempts = 0;
+
+  void _cancelBufferingRecovery() {
+    _bufferingRecoveryTimer?.cancel();
+    _bufferingRecoveryTimer = null;
+    _bufferingRecoveryAttempts = 0;
+  }
+
+  void _scheduleBufferingRecovery(VideoPlayerController c) {
+    if (_bufferingRecoveryTimer != null ||
+        _bufferingRecoveryAttempts >= 2 ||
+        !_wantsPlayback ||
+        !_active ||
+        !visible ||
+        _suspended) {
+      return;
+    }
+    final request = _request;
+    _bufferingRecoveryTimer = Timer(const Duration(seconds: 8), () async {
+      _bufferingRecoveryTimer = null;
+      if (!_active ||
+          request != _request ||
+          !identical(controller, c) ||
+          !_wantsPlayback ||
+          !visible ||
+          _suspended ||
+          !c.value.isBuffering) {
+        return;
+      }
+      _bufferingRecoveryAttempts++;
+      AppLog.debug({
+        'event': 'player_buffering_recovery',
+        'site': work.source,
+        'attempt': _bufferingRecoveryAttempts,
+        'generation': request,
+      });
+      try {
+        // Android's player can remain in a stale buffering state after a
+        // local HLS segment request was interrupted. Re-seeking the current
+        // timestamp forces it to reopen the next segment route.
+        final position = c.value.position;
+        await c.pause();
+        await c.seekTo(position);
+        await c.play();
+      } catch (_) {
+        // The normal player error callback remains responsible for reporting
+        // a terminal failure.
+      }
+      if (_active &&
+          request == _request &&
+          identical(controller, c) &&
+          c.value.isBuffering) {
+        _scheduleBufferingRecovery(c);
+      }
+    });
+  }
+
   void _onTick() {
     final value = controller?.value;
     if (value != null) {
@@ -627,6 +685,11 @@ class VideoSession extends ChangeNotifier {
         _update();
       }
       final state = (value.isPlaying, value.isBuffering, value.hasError);
+      if (value.isBuffering) {
+        _scheduleBufferingRecovery(controller!);
+      } else {
+        _cancelBufferingRecovery();
+      }
       if (state != _lastPlayerState) {
         _lastPlayerState = state;
         AppLog.debug({
@@ -682,6 +745,7 @@ class VideoSession extends ChangeNotifier {
   void dispose() {
     savePosition();
     _disposed = true;
+    _cancelBufferingRecovery();
     _savePos?.cancel();
     _request++;
     _sourceRequest?.cancel('video page closed');

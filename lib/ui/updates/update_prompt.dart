@@ -10,7 +10,6 @@ import '../../core/settings.dart';
 import '../../core/versions.dart';
 import '../../engine/app_installer.dart';
 import '../../engine/app_updater.dart';
-import '../../engine/desktop_window.dart';
 import '../../engine/source_updater.dart';
 import '../kit/components.dart';
 import '../kit/reminder_prompt.dart';
@@ -126,9 +125,7 @@ Future<void> showAppUpdatePrompt(
         Text(
           tr(
             service.supported
-                ? service.desktop
-                      ? '确认后下载并校验安装包，打开系统安装程序并退出应用；请按安装程序提示完成升级。'
-                      : '确认后在应用内下载安装包，再由系统提示你确认安装。'
+                ? '确认后在应用内下载安装包，再由系统提示你确认安装。'
                 : '此平台请前往官方发布页下载并手动安装。',
           ),
           style: ctx.text.bodyMedium?.copyWith(
@@ -152,7 +149,7 @@ Future<void> showAppUpdatePrompt(
         release: release,
         installer: service,
         openRelease: openRelease ?? _openRelease,
-        exitForUpdate: exitForUpdate ?? DesktopWindow.instance.exitForUpdate,
+        exitForUpdate: exitForUpdate ?? (() async {}),
       ),
     );
     return;
@@ -266,9 +263,7 @@ class _AppDownloadDialogState extends State<_AppDownloadDialog> {
       if (!mounted || token.isCancelled) return;
       if (launched) {
         Navigator.pop(context);
-        if (widget.installer.desktop) {
-          await widget.exitForUpdate();
-        }
+        await widget.exitForUpdate();
         return;
       }
       setState(() => _permission = true);

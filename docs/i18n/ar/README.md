@@ -11,7 +11,7 @@
 <p align="center">
   <a href="https://github.com/drdon1234/Hentai-Park/releases/latest"><img src="https://img.shields.io/github/v/release/drdon1234/Hentai-Park?label=Download&amp;color=C96442" alt="Download"></a>
   <img src="https://img.shields.io/badge/18%2B-Adult_content-C96442" alt="18+">
-  <img src="https://img.shields.io/badge/Android_7.0%2B_%C2%B7_Windows-333333" alt="Android 7.0+ / Windows">
+  <img src="https://img.shields.io/badge/Android_7.0%2B-333333" alt="Android 7.0+">
 </p>
 
 <p align="center"><a href="https://github.com/drdon1234/Hentai-Park/releases/latest">تنزيل</a> · <a href="#screenshots">عرض المنتج</a> · <a href="#features">المزايا</a> · <a href="#faq">الأسئلة</a> · <a href="https://github.com/drdon1234/Hentai-Park/issues">الإبلاغ</a></p>
@@ -22,7 +22,7 @@
 
 **[تنزيل](https://github.com/drdon1234/Hentai-Park/releases/latest)**
 
-يدعم **Android 7.0+ وWindows**. تستخدم معظم أجهزة Android حزمة `arm64-v8a`؛ فك ضغط أرشيفات ZIP المحمولة لـ Windows بالكامل.
+**Android 7.0+**
 
 [المنصات والتثبيت](../../PLATFORMS.md)
 

@@ -43,7 +43,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         with: {name: release-notes, path: test/release-notes.md, retention-days: 7}
   checks:
-    runs-on: windows-2022
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4

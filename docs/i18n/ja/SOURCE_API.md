@@ -196,7 +196,6 @@ async filterOptions({scope, feed, filter, keyword, values}) {
 
 - `network.mode: 'auto'`（既定）：まずネイティブ HTTP を使います。本文のない同一オリジン HTTPS GET / HEAD が Cloudflare チャレンジ、HTTP 403・429、または回復可能な接続エラーを受けた場合は、ブラウザで 1 回再試行します。DNS、TLS、タイムアウト、レスポンスストリーム、通常の 5xx は追加の遅延を避けるためブラウザを起動しません。対象はサイトの宣言済みドメイン内に限られ、同一オリジンとリダイレクトの制限は維持されます。
 - `network.mode: 'native'`: 永続 Cookie と設定済みプロキシでネイティブ HTTP を使用します。Cloudflare を検出した場合は `CLOUDFLARE` を返し、アプリ内で再試行できます。エラーにサイト内の認証 URL がある場合は、確認操作からページを開けます。
-- `network.mode: 'browser'` + `network.origin`: `origin` の非表示ページから同一オリジンの `fetch()` を送信します。読み取りで Cloudflare（HTTP 200 を含む）や必要な Cookie・コンテンツのない年齢確認を受けた場合は、最大1回認証ページへ移動して再読込します。書き込みは再送しません。年齢確認は `network.confirmation` に従います。Android と Windows は一意の標準 Cloudflare チェックボックスに入力し、他の環境では自動認証を待ちます。失敗時は再試行するか、サイト内の認証 URL が提供されていれば確認操作を選べます。
 
   文書は宣言済みドメイン内で同じスキームとポートを使って移動できます。未指定のリクエスト `origin` は対象サイト URL から決まります。応答には最終 `url` が残ります。
 
@@ -240,7 +239,6 @@ media: { mode: 'native', scope: 'session', origin: 'https://example.com' },
 - `media.mode` は `'native'` か `'browser'`。`media.origin` はプラグインの所属サイトに含まれ、HTTPS の既定ポート 443 を使い、認証情報・クエリ・フラグメントを含めません。
 - `'native'`：サイト Cookie、Authorization、プロキシ認証を使わない独立クライアントで、接続前に各リダイレクトを検査します。許可ヘッダーは `Referer`、`Origin`、`Accept`、`Accept-Language`。最初の二つは言語サブドメインを含む宣言済みサイトに属し、`Origin` は origin のみです。
 - 任意の `media.referrerDomains` はネイティブ動画メディア専用で、有効な公開ドメインを最大 16 個指定できます（サブドメインを含む）。上記のサイトドメイン制限の例外として `Referer` の許可先だけを追加します。`Origin`、メディア URL、文書の遷移、Cookie の権限は拡張しません。`imageNetwork` とブラウザメディアでは使用できません。
-- `'browser'`：`media.origin` の非表示セッションを使い、宣言済みサイト内で文書を移動できます。`credentials: 'omit'` と `mode: 'cors'` を使い、Origin/Referer は実際の文書とブラウザーが生成します。Windows は WebView2 で接続前に各リソースドメインを検査し、許可ドメイン間のリダイレクトと最終 URL を確認します。他のエンジンには各転送先の事前検査 API がないため `redirect: 'error'` を使います。CORS とサイト CSP は有効で、最終 URL の検査だけでは転送を許可しません。
 - 応答はストリーミング中にサイズを制限し、最終アドレスを再確認します。プレイリスト最大 2 MiB、セグメント最大 32 MiB、AES-128 の鍵はちょうど 16 バイト。超過、空の応答、許可されないアドレスはすべて拒否します。
 
 
@@ -407,7 +405,6 @@ async textChapter(id, chapterId) {
 
 オンラインゲームのプラグインは `type: 'game', category: 'onlineGame'` を宣言し、作品に `mediaKind: 'game'` を指定します。プレイ時の `onlineGame(workId)` は `{kind: 'html', url, storageId?}` を返します。Flash は `{kind: 'flash', url, player, storageId?}` とし、SWF と同じホストの Ruffle スクリプトを指定します。URL は認証情報のない HTTPS の 443 番ポートに限定します。`storageId` はサイト内の安定した作品 ID で、省略時は workId を使い、認証情報を含めません。
 
-クライアントはサイトと ID ごとに永続ブラウザプロファイルを分離し、文書はゲームホストに限定し、フレームには検証用の正確な `challenges.cloudflare.com` も許可します。ポップアップ、ダウンロード、Web 権限は拒否します。Android は複数プロファイル対応のシステム WebView、Windows は独立した WebView2 データフォルダーを使います。localStorage と IndexedDB はプロファイルに保存されますが、オリジンが変わるとセーブは自動移行されません。HTTP キャッシュはサイトの設定とシステムによる削除に左右され、オフラインや即時起動は保証されません。
 
 ### ゲーム：`gameResources` / `resolveGameResource`
 
@@ -416,7 +413,6 @@ async textChapter(id, chapterId) {
 ```js
 async gameResources(workId) {
   return [{ id: 'resource-id', title: '', version: '1.2', size: '2 GB',
-    platforms: ['Windows'], languages: ['SimplifiedChinese'], notes: '原站备注',
     status: 'valid', testStatus: 'untested',
     channels: [{ id: 'stable-channel-id', kind: 'direct', label: 'game.zip', size: '2 GB' }] }];
 }
@@ -637,7 +633,6 @@ node tools/build_subscription_sources.mjs
 
 ### `webVideo(id, episodeId)`
 
-Android は独立した一時 WebView Profile を使い、`MULTI_PROFILE` が必要です。未対応の場合は Android System WebView を更新してください。終了時に Cookie とサイトデータを消去して WebView を破棄し、使用中で削除できない Profile は次回のアプリ起動後の再生時に削除します。Windows は独立した一時ユーザーディレクトリとプライベートセッションを使い、プライベートセッションのインターフェースがなければ再生を拒否します。終了後にディレクトリを削除します。バックグラウンド移行時やアプリのロック時は再生を一時停止します。
 
 Web 再生の Cloudflare 認証は独立した一時セッションで処理します。認証フレームは正確な `challenges.cloudflare.com` のみ許可し、そのホストへのメインフレーム移動は許可しません。年齢確認の `network.confirmation` はソースが宣言したドメインだけに適用し、外部プレーヤーには適用しません。自動処理できない場合は手動操作用にページを残し、プレーヤーの Cookie は入出力しません。`CONFIRM_REQUIRED` はプラグインの説明を保持し、アプリ内の確認ページで明示的に完了した後にソースのセッションを同期します。元の操作は再送しません。
 

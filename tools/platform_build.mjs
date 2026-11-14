@@ -20,7 +20,6 @@ function output(key, value) {
 }
 const platforms = [
   { platform: 'android', os: 'ubuntu-24.04', arch: 'arm64-armv7-x64' },
-  { platform: 'windows', os: 'windows-2022', arch: 'x64' },
 ];
 const command = process.argv[2];
 if (command === 'metadata') {
@@ -50,7 +49,7 @@ if (command === 'metadata') {
     if (!existsSync(source)) throw Error(`缺少构建产物: ${source}`);
     const dest = join(out, target);
     // 包内固定主目录，避免解压工具以带版本号的附件名作为安装目录。
-    const staging = mkdtempSync(resolve('test/package-windows-'));
+    const staging = mkdtempSync(resolve('test/package-android-'));
     try {
       const bundle = join(staging, 'HentaiPark');
       cpSync(source, bundle, { recursive: true, preserveTimestamps: true, verbatimSymlinks: true });
@@ -59,34 +58,6 @@ if (command === 'metadata') {
     } finally {
       rmSync(staging, { recursive: true, force: true });
     }
-  }
-  if (platform === 'windows') {
-    const bundle = 'build/windows/x64/runner/Release';
-    // 将可再分发的 MSVC CRT 随包提供，不依赖构建机预装环境。
-    const vswhere = join(process.env['ProgramFiles(x86)'] ?? '', 'Microsoft Visual Studio/Installer/vswhere.exe');
-    const found = spawnSync(vswhere, ['-latest', '-products', '*', '-requires', 'Microsoft.VisualStudio.Component.VC.Tools.x86.x64', '-property', 'installationPath'], { encoding: 'utf8' });
-    if (found.status !== 0 || !found.stdout.trim()) throw Error('无法找到 MSVC 可再分发运行库');
-    const root = join(found.stdout.trim(), 'VC/Redist/MSVC');
-    const versions = readdirSync(root).filter(v => /^\d+\./.test(v)).sort((a, b) => b.localeCompare(a, undefined, { numeric: true }));
-    let crt;
-    for (const version of versions) {
-      const directory = join(root, version, 'x64');
-      if (!existsSync(directory)) continue;
-      const name = readdirSync(directory).find(n => /^Microsoft\.VC\d+\.CRT$/.test(n));
-      if (name) { crt = join(directory, name); break; }
-    }
-    if (!crt) throw Error('缺少 x64 MSVC CRT 分发目录');
-    for (const file of readdirSync(crt).filter(n => n.endsWith('.dll'))) copyFileSync(join(crt, file), join(bundle, file));
-    for (const file of ['hentai_park.exe', 'flutter_windows.dll', 'libmpv-2.dll', 'libEGL.dll', 'libGLESv2.dll', 'data/icudtl.dat', 'data/app.so', 'data/flutter_assets/AssetManifest.bin']) {
-      if (!existsSync(join(bundle, file))) throw Error(`分发目录缺少运行文件: ${file}`);
-    }
-    zip(bundle, `${prefix}.zip`);
-    const compiler = process.env.ISCC_COMMAND ?? join(process.env['ProgramFiles(x86)'] ?? '', 'Inno Setup 6/ISCC.exe');
-    run(compiler, [
-      `/DAppVersion=${name}`, `/DBundleDir=${resolve(bundle)}`,
-      `/DOutputDir=${out}`, `/DOutputName=${prefix}-setup`,
-      'windows/installer.iss',
-    ]);
   }
   if (platform === 'android') {
     // 无签名 APK 只用于编译检查，不进入分发目录。

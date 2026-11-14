@@ -2,9 +2,9 @@ name: Checks and platform builds
 on:
   push:
     branches: [main]
-    paths: ['lib/**', 'assets/**', 'android/**', 'windows/**', 'LICENSE', 'docs/licenses/**', 'pubspec.*', 'tools/**', '.github/workflows/**']
+    paths: ['lib/**', 'assets/**', 'android/**', 'LICENSE', 'docs/licenses/**', 'pubspec.*', 'tools/**', '.github/workflows/**']
   pull_request:
-    paths: ['lib/**', 'assets/**', 'android/**', 'windows/**', 'LICENSE', 'docs/licenses/**', 'pubspec.*', 'tools/**', '.github/workflows/**']
+    paths: ['lib/**', 'assets/**', 'android/**', 'LICENSE', 'docs/licenses/**', 'pubspec.*', 'tools/**', '.github/workflows/**']
   workflow_dispatch:
 permissions:
   contents: read
@@ -13,7 +13,7 @@ concurrency:
   cancel-in-progress: true
 jobs:
   checks:
-    runs-on: windows-2022
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     outputs:
       matrix: ${{ steps.plan.outputs.matrix }}

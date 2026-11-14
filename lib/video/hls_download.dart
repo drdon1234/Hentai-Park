@@ -56,6 +56,47 @@ Future<void> remuxTransportStream(
   if (token.cancelError case final error?) throw error;
 }
 
+/// 将一个有限 TS 窗口封装为 fMP4。输出包含 init.mp4 后的一个或多个
+/// `moof/mdat`，调用方可按顶层 MP4 box 切分为 HLS 资源。
+Future<void> remuxTransportStreamFragment(
+  File input,
+  File output,
+  CancelToken token, {
+  int trimUs = 0,
+}) async {
+  if (!Platform.isAndroid) {
+    throw SourceError('UNSUPPORTED', 'HLS 窗口封装目前仅支持安卓');
+  }
+  const channel = MethodChannel('hentai_park/media');
+  final id = const Uuid().v4();
+  if (token.cancelError case final error?) throw error;
+  var finished = false;
+  final operation = channel.invokeMethod<void>('remux_fragment', {
+    'id': id,
+    'input': input.path,
+    'output': output.path,
+    'trimUs': trimUs,
+  });
+  final cancelled = token.whenCancel.then((error) async {
+    if (!finished) await channel.invokeMethod<void>('cancel', {'id': id});
+    throw error;
+  });
+  try {
+    await Future.any([operation, cancelled]);
+  } finally {
+    if (token.isCancelled && !finished) {
+      try {
+        await channel.invokeMethod<void>('cancel', {'id': id});
+      } catch (_) {}
+      try {
+        await operation;
+      } catch (_) {}
+    }
+    finished = true;
+  }
+  if (token.cancelError case final error?) throw error;
+}
+
 /// Validated per-segment state survives pause/restart; no partial MP4 is published.
 class HlsDownload {
   HlsDownload(

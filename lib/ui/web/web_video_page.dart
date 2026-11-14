@@ -12,7 +12,6 @@ import '../../core/app_lock.dart';
 import '../../core/localization.dart';
 import '../../core/models.dart';
 import '../../core/settings.dart';
-import '../../core/storage.dart';
 import '../../engine/age_confirmation.dart';
 import '../../engine/browser_interaction.dart';
 import '../../engine/desktop_shutdown.dart';
@@ -153,12 +152,12 @@ class _WebVideoPageState extends State<WebVideoPage>
     Directory? profile,
   ) async {
     try {
-      if (session == null) {
-        // 也清理尚未创建视图就被取消的 Windows 环境。
-      } else if (Platform.isAndroid && id is String) {
-        await _platform.invokeMethod('releaseWebVideo', id);
-      } else {
-        await InAppWebViewController.disposeKeepAlive(session);
+      if (session != null) {
+        if (Platform.isAndroid && id is String) {
+          await _platform.invokeMethod('releaseWebVideo', id);
+        } else {
+          await InAppWebViewController.disposeKeepAlive(session);
+        }
       }
     } catch (_) {
       // 页面销毁时不得清除共享 Cookie 或默认 WebView 数据。
@@ -170,9 +169,7 @@ class _WebVideoPageState extends State<WebVideoPage>
       if (profile != null && await profile.exists()) {
         await profile.delete(recursive: true);
       }
-    } catch (_) {
-      // WebView2 进程可能尚未退出；残留仅在应用缓存内，绝不复用该目录。
-    }
+    } catch (_) {}
   }
 
   Future<void> _load() {
@@ -211,22 +208,8 @@ class _WebVideoPageState extends State<WebVideoPage>
         );
         if (!mounted || !_visible || generation != _generation) return;
         final policy = WebPlaybackPolicy.fromJson(target);
-        if (!Platform.isAndroid && !Platform.isWindows) {
+        if (!Platform.isAndroid) {
           throw SourceError('UNSUPPORTED', '当前设备暂不支持应用内网页播放');
-        }
-        if (Platform.isWindows) {
-          // 独立用户目录保证旧 Runtime 也不能回退到站点的默认 Cookie 存储。
-          final profiles = await Directory('${AppPaths.cache.path}/web_video')
-              .create(recursive: true);
-          profile = await profiles.createTemp();
-          environment = await WebViewEnvironment.create(
-            settings: WebViewEnvironmentSettings(userDataFolder: profile.path),
-          );
-          if (!await environment.isInterfaceSupported(
-            WebViewInterface.ICoreWebView2Environment10,
-          )) {
-            throw SourceError('UNSUPPORTED', '当前设备暂不支持应用内网页播放');
-          }
         }
         if (!mounted || !_visible || generation != _generation) {
           await _release(null, null, environment, profile);

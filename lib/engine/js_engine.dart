@@ -240,7 +240,6 @@ class SourceRuntime {
           if (!ready.isCompleted) ready.completeError(e);
         }
       },
-      // Source code stays in the initial document, including on Windows where
       // loadData uses about:blank instead of honoring baseUrl.
       shouldOverrideUrlLoading: (c, action) => NavigationActionPolicy.CANCEL,
       onRenderProcessGone: (c, detail) {

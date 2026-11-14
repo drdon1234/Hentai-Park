@@ -28,18 +28,6 @@ jobs:
       - uses: actions/setup-java@v4
         if: matrix.platform == 'android'
         with: {distribution: temurin, java-version: '17', cache: gradle}
-      - uses: NuGet/setup-nuget@v2
-        if: matrix.platform == 'windows'
-      - name: Windows installer compiler
-        if: matrix.platform == 'windows'
-        shell: pwsh
-        run: |
-          $installerCompiler = Join-Path ${env:ProgramFiles(x86)} 'Inno Setup 6/ISCC.exe'
-          if (-not (Test-Path -LiteralPath $installerCompiler)) {
-            Get-Command choco -ErrorAction Stop | Out-Null
-            choco install innosetup --version=6.7.3 --no-progress --yes
-            if ($LASTEXITCODE -ne 0) { throw 'Inno Setup 安装失败' }
-          }
       - uses: subosito/flutter-action@v2
         with: {channel: stable, flutter-version: '3.47.7', cache: true}
       - run: flutter pub get
@@ -78,8 +66,6 @@ jobs:
           else
             flutter build apk --release --split-per-abi --android-project-arg=verifyUnsignedBuild=true
           fi
-      - if: matrix.platform == 'windows'
-        run: flutter build windows --release
       - run: node tools/platform_build.mjs package '${{ matrix.platform }}' '${{ matrix.arch }}'
       - uses: actions/upload-artifact@v4
         with:

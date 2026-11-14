@@ -11,15 +11,10 @@ abstract final class PlatformCapabilities {
   static bool get screenBrightness =>
       !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
 
-  static bool get desktop =>
-      !kIsWeb && defaultTargetPlatform == TargetPlatform.windows;
+  static bool get desktop => false;
 
   static bool get nativeVideo =>
-      !kIsWeb &&
-      switch (defaultTargetPlatform) {
-        TargetPlatform.android || TargetPlatform.windows => true,
-        _ => false,
-      };
+      !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
 
   static bool get photoLibrary =>
       !kIsWeb && defaultTargetPlatform == TargetPlatform.android;

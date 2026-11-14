@@ -19,7 +19,7 @@ class AppLock extends ChangeNotifier with WidgetsBindingObserver {
   DateTime? _backgroundSince;
 
   bool get locked => _locked;
-  static bool get platformSupported => Platform.isAndroid || Platform.isWindows;
+  static bool get platformSupported => Platform.isAndroid;
 
   void init() {
     WidgetsBinding.instance.addObserver(this);

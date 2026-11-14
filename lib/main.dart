@@ -18,7 +18,6 @@ import 'core/storage.dart';
 import 'core/tag_translations.dart';
 import 'data/database.dart';
 import 'engine/cookie_store.dart';
-import 'engine/desktop_window.dart';
 import 'engine/http_service.dart';
 import 'engine/native_notifications.dart';
 import 'engine/platform_bridge.dart';
@@ -34,16 +33,13 @@ import 'library/updater.dart';
 import 'novel/reading_notes.dart';
 import 'subscriptions/background.dart';
 import 'tavern/worldbook_terms.dart';
-import 'ui/desktop_workspace.dart';
 import 'ui/kit/immersive.dart';
 import 'ui/lock/lock_screen.dart';
 import 'ui/nav.dart';
 import 'ui/shell.dart';
 import 'ui/startup/startup_gate.dart';
 import 'ui/theme.dart';
-import 'ui/widgets/desktop_scale.dart';
 import 'ui/widgets/storage_save_notice.dart';
-import 'video/desktop_video_player.dart';
 
 @pragma('vm:entry-point')
 Future<void> subscriptionBackgroundMain() => subscriptionBackground();
@@ -55,7 +51,6 @@ void main() {
 
 Future<void> _start() async {
   WidgetsFlutterBinding.ensureInitialized();
-  DesktopVideoPlayer.register();
   LicenseRegistry.addLicense(() async* {
     yield LicenseEntryWithLineBreaks([
       'OpenCC',
@@ -105,18 +100,6 @@ Future<void> _start() async {
       }
     },
     AppSettings.instance.load,
-    () async {
-      final downloadDirectory = AppSettings.instance.downloadDirectory;
-      if (Platform.isWindows) {
-        if (downloadDirectory.isNotEmpty) {
-          try {
-            await AppPaths.selectDownloadDirectory(downloadDirectory);
-          } catch (_) {
-            // 外置磁盘暂不可用时保留原配置；旧下载任务仍使用其已保存的绝对路径。
-          }
-        }
-      }
-    },
     TagTranslations.instance.init,
     WorldbookTerms.instance.init,
     CookieStore.instance.init,
@@ -156,7 +139,6 @@ Future<void> _start() async {
       // App lock also hides content in the recent-apps switcher.
     },
     PlatformBridge.bindSettings,
-    DesktopWindow.instance.init,
     NativeNotifications.instance.init,
     () async {
       // Sources load after the first frame; the UI shows skeletons meanwhile.
@@ -200,8 +182,7 @@ class ParkApp extends StatelessWidget {
       builder: (context, _) {
         final accent = Color(settings.seedColor);
         return MaterialApp(
-          navigatorKey: DesktopWindow.navigatorKey,
-          navigatorObservers: [Nav.routeObserver, DesktopNavigation.instance],
+          navigatorObservers: [Nav.routeObserver],
           title: 'HentaiPark',
           locale: settings.locale,
           supportedLocales: AppLocalizations.supportedLocales,
@@ -218,15 +199,9 @@ class ParkApp extends StatelessWidget {
           home: const Shell(),
           builder: (context, child) => _LanguageRefresh(
             child: _SystemNavInset(
-              child: DesktopScale(
-                child: DesktopShutdownGate(
-                  child: LockGate(
-                    child: StorageSaveNotice(
-                      child: DesktopWorkspace(
-                        child: child ?? const SizedBox.shrink(),
-                      ),
-                    ),
-                  ),
+              child: LockGate(
+                child: StorageSaveNotice(
+                  child: child ?? const SizedBox.shrink(),
                 ),
               ),
             ),

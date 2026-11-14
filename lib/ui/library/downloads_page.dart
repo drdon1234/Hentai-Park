@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:io';
 
-import 'package:desktop_drop/desktop_drop.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:path/path.dart' as p;
@@ -102,15 +101,13 @@ class _DownloadsPageState extends State<DownloadsPage> {
     }
   }
 
-  Future<void> _drop(BuildContext context, List<DropItem> files) async {
+  Future<void> _drop(BuildContext context, List<XFile> files) async {
     if (_importing || files.isEmpty) return;
     if (files.any(
-      (file) =>
-          file is DropItemDirectory ||
-          !const [
-            '.cbz',
-            '.zip',
-          ].contains(p.extension(file.name).toLowerCase()),
+      (file) => !const [
+        '.cbz',
+        '.zip',
+      ].contains(p.extension(file.name).toLowerCase()),
     )) {
       context.toast(tr('请选择 CBZ / ZIP 文件'));
       return;

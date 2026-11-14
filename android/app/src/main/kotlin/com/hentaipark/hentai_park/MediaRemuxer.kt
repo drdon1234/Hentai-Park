@@ -25,6 +25,7 @@ import androidx.media3.extractor.ts.TsExtractor
 import androidx.media3.extractor.ts.TsPayloadReader
 import androidx.media3.muxer.BufferInfo
 import androidx.media3.muxer.Mp4Muxer
+import androidx.media3.muxer.FragmentedMp4Muxer
 import androidx.media3.muxer.SeekableMuxerOutput
 import io.flutter.plugin.common.BinaryMessenger
 import io.flutter.plugin.common.MethodCall
@@ -32,6 +33,7 @@ import io.flutter.plugin.common.MethodChannel
 import java.io.EOFException
 import java.io.File
 import java.io.FileInputStream
+import java.io.FileOutputStream
 import java.nio.ByteBuffer
 import java.util.concurrent.CancellationException
 import java.util.concurrent.LinkedBlockingQueue
@@ -64,7 +66,8 @@ class MediaRemuxer(context: Context, messenger: BinaryMessenger) {
         it.setMethodCallHandler(::handle)
     }
 
-    private class Job(val id: String, val input: File, val output: File, val result: MethodChannel.Result) {
+    private class Job(val id: String, val input: File, val output: File, val result: MethodChannel.Result,
+        val fragmented: Boolean = false, val trimUs: Long = 0L) {
         val cancelled = AtomicBoolean(false)
         val cancellations = mutableListOf<MethodChannel.Result>()
         var ownsOutput = false
@@ -89,13 +92,18 @@ class MediaRemuxer(context: Context, messenger: BinaryMessenger) {
                     require(input.isFile && input.length() > 0) { "Missing TS input" }
                     require(!output.exists() && output.parentFile?.isDirectory == true) { "Output must be a new temporary file" }
                     val job = Job(id, input, output, result)
-                    synchronized(lock) {
-                        check(!stopped) { "Media service stopped" }
-                        require(!jobs.containsKey(id)) { "Duplicate media job id" }
-                        require(jobs.values.none { it.output == output || it.input == output || it.output == input }) { "Media file already in use" }
-                        jobs[id] = job
-                        worker.execute(RemuxTask(job))
-                    }
+                    enqueue(job)
+                }
+                "remux_fragment" -> {
+                    val id = argument(call, "id")
+                    val input = localFile(argument(call, "input"))
+                    val output = localFile(argument(call, "output"))
+                    require(input != output) { "Input and output must differ" }
+                    require(input.isFile && input.length() > 0) { "Missing TS input" }
+                    require(!output.exists() && output.parentFile?.isDirectory == true) { "Output must be a new temporary file" }
+                    val trimUs = (call.argument<Number>("trimUs")?.toLong() ?: 0L).coerceAtLeast(0L)
+                    val job = Job(id, input, output, result, fragmented = true, trimUs = trimUs)
+                    enqueue(job)
                 }
                 "cancel" -> {
                     val id = argument(call, "id")
@@ -114,6 +122,16 @@ class MediaRemuxer(context: Context, messenger: BinaryMessenger) {
         } catch (error: Exception) {
             result.error("REMUX_ARGUMENT", error.message, null)
         }
+    }
+
+    private fun enqueue(job: Job) {
+                    synchronized(lock) {
+                        check(!stopped) { "Media service stopped" }
+                        require(!jobs.containsKey(job.id)) { "Duplicate media job id" }
+                        require(jobs.values.none { it.output == job.output || it.input == job.output || it.output == job.input }) { "Media file already in use" }
+                        jobs[job.id] = job
+                        worker.execute(RemuxTask(job))
+                    }
     }
 
     private fun argument(call: MethodCall, name: String): String =
@@ -144,7 +162,7 @@ class MediaRemuxer(context: Context, messenger: BinaryMessenger) {
             // Never truncate or remove a pre-existing caller-owned file.
             check(job.output.createNewFile()) { "Temporary output already exists" }
             job.ownsOutput = true
-            remux(job)
+            if (job.fragmented) remuxFragment(job) else remux(job)
             null
         } catch (error: Throwable) {
             error
@@ -350,4 +368,117 @@ class MediaRemuxer(context: Context, messenger: BinaryMessenger) {
         job.checkCancelled()
         check(job.output.length() > 0) { "Empty MP4 output" }
     }
+
+    /** Creates one independently playable fMP4 window. The caller splits the
+     * output at the first moof into init.mp4 and media.m4s. */
+    private fun remuxFragment(job: Job) {
+        val tracks = linkedMapOf<Int, Track>()
+        extract(job, object : ExtractorOutput {
+            override fun track(id: Int, type: Int): TrackOutput {
+                if (type != C.TRACK_TYPE_AUDIO && type != C.TRACK_TYPE_VIDEO) return DiscardingTrackOutput()
+                val track = tracks.getOrPut(id) { Track(type) }
+                return SampleOutput(job, track) { _, _, _, _, _ -> }
+            }
+            override fun endTracks() {}
+            override fun seekMap(seekMap: SeekMap) {}
+        })
+        check(tracks.values.count { it.type == C.TRACK_TYPE_VIDEO } == 1 &&
+            tracks.values.count { it.type == C.TRACK_TYPE_AUDIO } == 1 &&
+            tracks.values.all { it.format != null && it.samples > 0 }) { "Missing or ambiguous audio/video tracks" }
+        val base = tracks.values.minOf { it.earliest }
+        FileOutputStream(job.output).use { stream ->
+            FragmentedMp4Muxer.Builder(stream).setSampleCopyingEnabled(true).build().use { writer ->
+                val destinations = tracks.mapValues { writer.addTrack(it.value.format!!) }
+                val written = linkedMapOf<Int, Track>()
+                extract(job, object : ExtractorOutput {
+                    override fun track(id: Int, type: Int): TrackOutput {
+                        if (type != C.TRACK_TYPE_AUDIO && type != C.TRACK_TYPE_VIDEO) return DiscardingTrackOutput()
+                        val source = tracks[id] ?: error("Tracks changed between passes")
+                        val actual = written.getOrPut(id) { Track(type).also { it.format = source.format } }
+                        val destination = destinations.getValue(id)
+                        return SampleOutput(job, actual) { timeUs, flags, bytes, offset, size ->
+                            // FragmentedMp4Muxer already converts Annex-B H.264
+                            // samples internally. Do not double-convert them.
+                            val sample = ByteBuffer.wrap(bytes, offset, size).slice()
+                            val trimBase = Math.addExact(base, job.trimUs)
+                            if (timeUs >= trimBase) {
+                                writer.writeSampleData(destination, sample,
+                                    BufferInfo(Math.subtractExact(timeUs, trimBase), sample.remaining(), flags and C.BUFFER_FLAG_KEY_FRAME))
+                            }
+                        }
+                    }
+                    override fun endTracks() {}
+                    override fun seekMap(seekMap: SeekMap) {}
+                })
+                check(written.keys == tracks.keys && written.values.all { it.samples > 0 }) {
+                    "Missing samples after window trim"
+                }
+            }
+        }
+        check(job.output.length() > 0) { "Empty fragmented MP4 output" }
+    }
+
+    /** FragmentedMp4Muxer writes H.264 samples as AVCC. TsExtractor emits
+     * Annex-B start codes, so convert each NAL unit to a four-byte length
+     * prefix before handing it to the muxer. */
+    private fun annexBToAvcc(bytes: ByteArray, offset: Int, size: Int): ByteBuffer {
+        val end = offset + size
+        fun startCodeAt(index: Int): Int = when {
+            index + 3 < end && bytes[index] == 0.toByte() && bytes[index + 1] == 0.toByte() &&
+                bytes[index + 2] == 0.toByte() && bytes[index + 3] == 1.toByte() -> 4
+            index + 2 < end && bytes[index] == 0.toByte() && bytes[index + 1] == 0.toByte() &&
+                bytes[index + 2] == 1.toByte() -> 3
+            else -> 0
+        }
+        // Only convert samples whose payload starts with an Annex-B delimiter
+        // (possibly after extra zero padding). A delimiter after a non-zero
+        // byte belongs to an AVCC payload and must be left untouched.
+        var first = -1
+        var probe = offset
+        while (probe < end) {
+            val code = startCodeAt(probe)
+            if (code != 0) {
+                if (bytes.copyOfRange(offset, probe).all { it == 0.toByte() }) first = probe
+                break
+            }
+            if (bytes[probe] != 0.toByte()) break
+            probe++
+        }
+        if (first < 0) return ByteBuffer.wrap(bytes, offset, size).slice()
+        val output = ByteArray(size + 4 * 32)
+        var written = 0
+        var cursor = first
+        cursor = first
+        while (cursor < end) {
+            val code = startCodeAt(cursor)
+            if (code == 0) break
+            val nalStart = cursor + code
+            var next = nalStart
+            while (next < end && startCodeAt(next) == 0) next++
+            val nalLength = next - nalStart
+            // Access-unit delimiters are useful in TS but are not media NAL
+            // units accepted by Media3's fMP4 sample validator.
+            if (nalLength > 0 && (bytes[nalStart].toInt() and 0x1f) != 9) {
+                if (written + 4 + nalLength > output.size) {
+                    val expanded = output.copyOf(maxOf(output.size * 2, written + 4 + nalLength))
+                    expanded[written++] = (nalLength ushr 24).toByte()
+                    expanded[written++] = (nalLength ushr 16).toByte()
+                    expanded[written++] = (nalLength ushr 8).toByte()
+                    expanded[written++] = nalLength.toByte()
+                    bytes.copyInto(expanded, written, nalStart, next)
+                    written += nalLength
+                    return annexBToAvcc(expanded, 0, written)
+                }
+                output[written++] = (nalLength ushr 24).toByte()
+                output[written++] = (nalLength ushr 16).toByte()
+                output[written++] = (nalLength ushr 8).toByte()
+                output[written++] = nalLength.toByte()
+                bytes.copyInto(output, written, nalStart, next)
+                written += nalLength
+            }
+            cursor = next
+        }
+        return ByteBuffer.wrap(output, 0, written).slice()
+    }
+
 }

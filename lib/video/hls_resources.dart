@@ -32,26 +32,30 @@ class HlsResources {
     }
   }
 
-  void _check() {
+  void _check([CancelToken? token]) {
     if (cancelToken.cancelError case final error?) throw error;
+    if (token?.cancelError case final error?) throw error;
   }
 
-  Future<Uint8List> read(HlsSegment segment) async {
-    _check();
+  Future<Uint8List> read(
+    HlsSegment segment, {
+    CancelToken? requestToken,
+  }) async {
+    _check(requestToken);
     final response = await transport.fetch(
       segment.url,
       maxBytes: 32 * 1024 * 1024,
-      cancelToken: cancelToken,
+      cancelToken: requestToken ?? cancelToken,
     );
-    _check();
+    _check(requestToken);
     if (segment.key case final keyUrl?) {
       final pending = _keys.putIfAbsent(keyUrl, () async {
         final response = await transport.fetch(
           keyUrl,
           maxBytes: 16,
-          cancelToken: cancelToken,
+          cancelToken: requestToken ?? cancelToken,
         );
-        _check();
+        _check(requestToken);
         if (response.bytes.length != 16) {
           throw SourceError('NETWORK', 'HLS 加密密钥无效');
         }
@@ -64,7 +68,7 @@ class HlsResources {
         if (identical(_keys[keyUrl], pending)) _keys.remove(keyUrl)?.ignore();
         rethrow;
       }
-      _check();
+      _check(requestToken);
       // AES 分段可能达到数 MB，同步纯 Dart 解密会阻塞手势与每一帧渲染。
       final plaintext = await compute(_decodeSegment, (
         response.bytes,
@@ -72,7 +76,7 @@ class HlsResources {
         segment.iv!,
         segment.kind,
       ), debugLabel: 'HLS segment decrypt');
-      _check();
+      _check(requestToken);
       return plaintext;
     }
     if (isRouHlsWrapped(response.bytes)) {

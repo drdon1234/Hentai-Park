@@ -185,7 +185,6 @@ async filterOptions({scope, feed, filter, keyword, values}) {
 
 - `network.mode: 'auto'` (기본): 먼저 네이티브 HTTP를 사용합니다. 본문이 없는 동일 출처 HTTPS GET / HEAD가 Cloudflare 챌린지, HTTP 403·429 또는 복구 가능한 연결 오류를 받으면 브라우저로 한 번 재시도합니다. DNS, TLS, 시간 초과, 응답 스트림 및 일반 5xx 오류에서는 추가 지연을 피하기 위해 브라우저를 열지 않습니다. 대상은 소스가 선언한 도메인 안에 있어야 하며 동일 출처와 리디렉션 제한을 유지합니다.
 - `network.mode: 'native'`: 영구 Cookie와 설정된 프록시로 네이티브 HTTP를 사용합니다. Cloudflare 감지 시 `CLOUDFLARE`를 반환하고 앱에서 재시도할 수 있습니다. 오류에 사이트 내 인증 URL이 있으면 확인 동작으로 페이지를 열 수 있습니다.
-- `network.mode: 'browser'` + `network.origin`: `origin`의 숨겨진 페이지에서 동일 출처 `fetch()`를 보냅니다. 읽기 요청에 Cloudflare(HTTP 200 포함) 또는 필요한 Cookie/콘텐츠가 없는 연령 확인이 나타나면 최대 한 번 인증 페이지로 이동한 뒤 다시 읽으며 쓰기는 재전송하지 않습니다. 연령 확인은 `network.confirmation`을 따릅니다. Android와 Windows는 유일한 표준 Cloudflare 체크박스에 입력하며 다른 플랫폼은 자동 인증을 기다립니다. 실패하면 재시도하거나 사이트 내 인증 URL이 제공된 경우 확인 동작을 선택할 수 있습니다.
 
   문서는 선언된 도메인 내에서 동일한 스킴과 포트로 이동합니다. 미지정 요청 `origin`은 대상 사이트 URL에서 결정하며 응답은 최종 `url`을 유지합니다.
 
@@ -229,7 +228,6 @@ media: { mode: 'native', scope: 'session', origin: 'https://example.com' },
 - `media.mode`는 `'native'` 또는 `'browser'`입니다. `media.origin`은 플러그인의 소속 사이트에 속해야 하고, HTTPS 기본 포트 443을 쓰며, 인증 정보·쿼리·프래그먼트를 포함하지 않습니다.
 - `'native'`: 사이트 Cookie, Authorization, 프록시 인증을 쓰지 않는 별도 클라이언트로 연결 전에 각 리디렉션을 검사합니다. `Referer`, `Origin`, `Accept`, `Accept-Language`만 허용합니다. 앞의 둘은 언어 하위 도메인을 포함한 선언된 사이트에 속하며 `Origin`에는 origin만 포함합니다.
 - 선택 항목인 `media.referrerDomains`는 네이티브 동영상 미디어에서만 사용하며 유효한 공개 도메인을 최대 16개 지정합니다(하위 도메인 포함). 위 사이트 도메인 제한의 예외로 `Referer` 허용 출처만 추가합니다. `Origin`, 미디어 URL, 문서 탐색 또는 Cookie 권한은 확장하지 않으며 `imageNetwork`나 브라우저 미디어에는 사용할 수 없습니다.
-- `'browser'`: `media.origin`에서 숨은 세션을 만들고 선언된 사이트 내 문서 이동을 허용합니다. `credentials: 'omit'`, `mode: 'cors'`를 사용하며 실제 문서와 브라우저가 Origin/Referer를 생성합니다. Windows는 WebView2로 각 연결 전에 도메인을 검사하여 허용 도메인 간 리디렉션을 지원하고 최종 URL도 확인합니다. 다른 엔진에는 단계별 차단 API가 없어 `redirect: 'error'`를 사용합니다. CORS와 사이트 CSP는 계속 적용되며 최종 URL 검사만으로 리디렉션을 허용하지 않습니다.
 - 응답은 스트리밍 중에 크기를 제한하고 최종 주소를 다시 확인합니다. 재생목록 최대 2 MiB, 세그먼트 최대 32 MiB, AES-128 키는 정확히 16바이트입니다. 초과, 빈 응답, 허용되지 않은 주소는 모두 거부합니다.
 
 
@@ -396,7 +394,6 @@ async textChapter(id, chapterId) {
 
 온라인 게임 플러그인은 `type: 'game', category: 'onlineGame'`을 선언하고 작품에 `mediaKind: 'game'`을 지정합니다. 실행 시 `onlineGame(workId)`는 `{kind: 'html', url, storageId?}`를 반환합니다. Flash는 `{kind: 'flash', url, player, storageId?}`로 SWF와 같은 호스트의 Ruffle 스크립트를 지정합니다. 주소는 인증 정보가 없는 HTTPS 443이어야 합니다. `storageId`는 사이트 내 고정 작품 ID이며 생략하면 workId를 사용하고 인증 정보를 포함하지 않습니다.
 
-클라이언트는 사이트와 ID별로 영구 브라우저 프로필을 분리하고 문서는 게임 호스트로 제한하고 프레임에는 정확한 `challenges.cloudflare.com` 인증 호스트도 허용하며 팝업, 다운로드, 웹 권한을 거부합니다. Android는 다중 프로필을 지원하는 시스템 WebView가 필요하고 Windows는 별도 WebView2 데이터 폴더를 사용합니다. localStorage와 IndexedDB는 프로필에 보존되지만 출처 호스트가 바뀌면 저장이 자동 이전되지 않습니다. HTTP 캐시는 사이트 정책과 시스템 정리에 따라 달라져 오프라인 사용이나 즉시 실행을 보장하지 않습니다.
 
 ### 게임: `gameResources` / `resolveGameResource`
 
@@ -405,7 +402,6 @@ async textChapter(id, chapterId) {
 ```js
 async gameResources(workId) {
   return [{ id: 'resource-id', title: '', version: '1.2', size: '2 GB',
-    platforms: ['Windows'], languages: ['SimplifiedChinese'], notes: '原站备注',
     status: 'valid', testStatus: 'untested',
     channels: [{ id: 'stable-channel-id', kind: 'direct', label: 'game.zip', size: '2 GB' }] }];
 }
@@ -626,7 +622,6 @@ node tools/build_subscription_sources.mjs
 
 ### `webVideo(id, episodeId)`
 
-Android는 독립된 임시 WebView Profile을 사용하며 `MULTI_PROFILE` 지원이 필요합니다. 지원되지 않으면 Android System WebView를 업데이트하세요. 종료 시 Cookie와 사이트 저장소를 지우고 WebView를 종료하며, 사용 중이라 삭제할 수 없는 Profile은 다음 앱 프로세스에서 재생을 시작할 때 정리합니다. Windows는 별도의 임시 사용자 폴더와 비공개 세션을 사용합니다. 비공개 세션 인터페이스가 없으면 재생을 거부하고 종료 후 폴더를 정리합니다. 앱이 백그라운드로 이동하거나 잠기면 재생을 일시 정지합니다.
 
 웹 재생은 독립된 임시 세션에서 Cloudflare 인증을 처리합니다. 정확히 `challenges.cloudflare.com`인 인증 하위 프레임만 허용하며 해당 호스트로의 주 프레임 이동은 허용하지 않습니다. `network.confirmation`은 소스가 선언한 도메인에만 적용하고 외부 플레이어에는 적용하지 않습니다. 자동 처리가 끝나지 않으면 수동 조작을 위해 페이지를 유지하며 플레이어 Cookie는 가져오거나 내보내지 않습니다. `CONFIRM_REQUIRED`는 플러그인 안내를 유지하고 앱 내 확인 페이지에서 명시적으로 완료한 뒤 소스 세션을 동기화합니다. 원래 작업은 자동 재전송하지 않습니다.
 

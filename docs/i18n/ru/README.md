@@ -9,7 +9,7 @@
 <p align="center">
   <a href="https://github.com/drdon1234/Hentai-Park/releases/latest"><img src="https://img.shields.io/github/v/release/drdon1234/Hentai-Park?label=Download&amp;color=C96442" alt="Download"></a>
   <img src="https://img.shields.io/badge/18%2B-Adult_content-C96442" alt="18+">
-  <img src="https://img.shields.io/badge/Android_7.0%2B_%C2%B7_Windows-333333" alt="Android 7.0+ / Windows">
+  <img src="https://img.shields.io/badge/Android_7.0%2B-333333" alt="Android 7.0+">
 </p>
 
 <p align="center"><a href="https://github.com/drdon1234/Hentai-Park/releases/latest">Скачать</a> · <a href="#screenshots">Демонстрация</a> · <a href="#features">Возможности</a> · <a href="#faq">Вопросы</a> · <a href="https://github.com/drdon1234/Hentai-Park/issues">Обратная связь</a></p>
@@ -20,7 +20,7 @@
 
 **[Скачать](https://github.com/drdon1234/Hentai-Park/releases/latest)**
 
-Поддерживаются **Android 7.0+ и Windows**. Для большинства устройств Android выбирайте `arm64-v8a`; портативные ZIP для Windows нужно распаковать целиком.
+**Android 7.0+**
 
 [Платформы и установка](../../PLATFORMS.md)
 

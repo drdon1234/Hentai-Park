@@ -10,19 +10,13 @@
 
 Android 的 `android/build.gradle.kts` 在构建副本中让带游戏标记的 WebView 在插件初始化前绑定作品 Profile，加载前再校验实际 Profile；不支持或绑定失败时拒绝运行。依赖升级改变创建流程时构建明确失败，需要重新核对绑定时序。此步骤不修改 Pub 缓存。
 
-Windows 的 `windows/webview_lifecycle.cmake` 将 WebView 共享图形资源的释放移到插件析构阶段，按视图、合成器、D3D、DispatcherQueue、WinRT 的顺序关闭，避免 DLL 卸载期间访问图形驱动。构建只生成一个修正后的翻译单元，不修改 Pub 缓存。依赖升级导致对应源码结构变化时构建明确失败，必须核对释放顺序后更新集成。
 
-`windows/webview_cookies.cmake` 在同一构建边界统一单项和批量 Cookie 读取：将 CDP 的 Unix 秒转换为 Flutter 接口约定的毫秒，并将会话 Cookie 的有效期设为空，避免网页认证状态在导入时被误判为过期。同样只生成构建副本；依赖升级后必须核对对应读取实现。
 
-Windows 的 `windows/webview_bridge_lifetime.cmake` 在构建副本中约束 JS 桥接回调的视图生命周期：视图销毁后忽略尚未返回的结果和错误，避免请求超时、页面关闭后回调访问已释放的原生视图。依赖升级改变回调结构时构建明确失败，需要重新核对所有权。
 
-Windows 同时在管理器生成副本中接入 `windows/webview_user_agent.h`，补齐 `getDefaultUserAgent`：从未覆盖标识的临时 WebView 读取当前 WebView2 的默认值，供网页验证与后续请求共同使用，避免桌面端退回手机标识并读取到不同的页面布局。
 
-Windows 通过 `lib/video/desktop_video_player.dart` 将共享 `video_player` 控制器接入 `media_kit`；Android 使用系统实现。桌面桥先返回可释放的播放器标识，原生创建及打开结果通过事件交付；初始化失败也必须释放控制器。升级媒体依赖时需检查创建失败、切集、重播及关闭中的资源释放。
 
 - 工具链：Flutter 3.47.7（Dart 3.13.5）、JDK 17、Node.js 22。CI 固定这个 Flutter 版本。
 - WebView 使用 beta 依赖，用于现有的浏览器桥能力；升级前必须验证 Cookie 分区、验证页和媒体传输。`flutter_tts` 仍使用外部 Kotlin 插件，升级 Flutter 前要核对插件的内置 Kotlin 支持。
-- Android 与 Windows 由 GitHub Actions 执行构建检查；实际设备运行仍需单独验证，详见 [平台矩阵](PLATFORMS.md)。
 
 ### Android SDK
 
@@ -43,8 +37,6 @@ flutter build apk --release --split-per-abi
 ```
 
 - 正式构建要求 `android/key.properties` 配置 `storeFile`、`storePassword`、`keyAlias`、`keyPassword`，缺少就失败，不回退到 debug 签名。
-- 只检查能否编译时用 `flutter build apk --release --split-per-abi --android-project-arg=verifyUnsignedBuild=true`，输出无签名 APK，不能安装或发布。显式传参是为了避免 Windows 上 Dart 把环境变量名转成大写，导致 Gradle 认不出属性。
-- `flutter pub get` 必须成功。Windows 未开启开发者模式时它会中途失败，`GeneratedPluginRegistrant` 缺失会让 APK 一启动就崩溃，不能用 `--no-pub` 绕过。
 - 在模拟器上验证时可以构建 profile 包：`flutter build apk --profile --target-platform android-x64`。设备上已装更高的 versionCode 时，加 `--build-number` 指定一个更大的值来覆盖安装，以保留应用数据；不要为此修改 `pubspec.yaml` 的版本。
 
 ## 项目结构
@@ -90,7 +82,6 @@ flutter build apk --release --split-per-abi
 - `request_retry.dart` 统一原生与浏览器传输的可重放读取判断：无请求体的 GET / HEAD，或插件显式声明只读的文本 POST；不据页面名称推断写操作安全，不重放二进制上传。
 - 吃瓜站的发布页和正文规则由各自插件声明，共用运行时负责验证候选、限制同源跳转和缓存可用来源；新来源不自动获得浏览器 Cookie 或媒体来源权限。图文正文只在当前详情会话中使用，临时媒体地址不写入普通详情或播放缓存。
 
-- 在线游戏通过 `onlineGame` 获取当次地址，以站点 key 和稳定 `storageId` 计算独立浏览器配置名。Android 在加载前绑定系统多配置文件，缺少该能力时拒绝启动；Windows 的 WebView2 配置放在应用持久数据目录。退出只销毁视图，不清除配置。Ruffle 使用拦截的同源文档加载站点提供的脚本和 SWF；游戏主框架限于该游戏主机和插件显式声明的精确导航白名单，外部游戏从包装 iframe 提升为主文档以保留第一方资源存储，子框架另允许继承父页来源的 about:blank 和精确的 Cloudflare 验证域，弹窗、下载和网页权限被拒绝。游戏文档使用共享验证交互，源会话与游戏配置不共享 Cookie。访问状态检查使用原生脚本求值，不依赖被禁用的网页 JavaScript 桥；回调按原生视图 ID 与文档代次核对，不能比较插件临时创建的 Dart 包装对象。游戏同源 fetch 的 ZIP、WASM、DATA、PCK、RPA、bundle 大资源额外保存在该配置的 CacheStorage：只缓存 1–512 MiB、带 ETag 或 Last-Modified 且未声明 private/no-store 的完整响应，每次复用先用 HEAD 比较版本和长度，每个来源总量上限 512 MiB。Range、鉴权头、跨域、强制刷新不进入该缓存；失败回到普通请求。网页及存档仍由浏览器管理，来源主机改变不会自动迁移存档。
 
 - 浏览器验证不把一次触摸分发成功视为验证完成。对同一文档的标准可信验证框最多尝试三次，间隔至少八秒，每次重新检查文档、命中位置、遮挡和权限；输入令牌逐次失效，只有验证页消失才判定就绪。空白框架仅限子框架，Dart 导航策略和 Android 原生拦截正则必须一致，不能阻断验证脚本的本地初始化。设备测试入口必须与正式启动一致，先使用当前系统 WebView 的 User-Agent 再初始化网络，避免旧默认标识造成验证差异。
 
@@ -241,7 +232,6 @@ GitHub Release 正文就是应用内“发现软件新版本”对话框里的�
 - 目录音声的详情刷新保留历史中最近播放的同级曲目表、媒体类型和字幕关联；新的目录播放替换该快照，不从整个作品的章节缓存拼装播放列表。分页未完成时允许打开已加载曲目，播放快照标记目录不完整。
 - 音声拼接模式仅打开当前曲目的播放器并读取当前字幕，不逐曲探测或下载。已读取的时长与字幕保留在播放会话中，字幕列表按曲目分组，可点击曲目或已加载字幕跳转；全部时长已知后才启用准确的总时间轴，否则显示当前曲目进度。跨曲目跳转保留暂停意图，自动续播从下一曲开头开始。纯音频使用紧凑控制区与自适应字幕主区，选集独立，后台播放和拼接放在播放设置中。
 - 文章封面集合与模糊标记进入列表缓存及历史快照，缺少独立封面时使用首张封面图。反搜远程结果图接入统一分区图片缓存及容量管理，解码失败重试会先移除对应缓存。
-- 音声后台服务使用 Android MediaSession 和媒体通知，将播放／暂停命令按会话身份送回 Flutter；页面隐藏、应用锁和关闭会话均使控制失效。通知使用通用音声文案，不包含作品信息。Windows 游戏复用 WebView2 暂停／恢复能力，页面覆盖、后台和应用锁均参与可见性判断。
 
 - 启动初始化失败时保留原有数据并显示重试和诊断信息入口；重试从失败步骤继续，已完成步骤不会重复注册监听。无法读取文件的访问错误不得当作格式损坏而覆盖原文件。
 - JSON 保存失败保留最新内存值，显示持续提示并自动重试；显式刷新仍向调用方返回错误，成功落盘后提示消失。读取到格式损坏时先以唯一文件名保留原件，不覆盖此前的恢复副本；保留失败则中止加载，交由启动重试处理。
@@ -279,17 +269,12 @@ GitHub Release 正文就是应用内“发现软件新版本”对话框里的�
 
 ## 跨平台构建与发布
 
-平台功能与安装方法见 [PLATFORMS.md](PLATFORMS.md)。Android 与 Windows 由 check.yml、build.yml、release.yml 统一检查、构建、打包与发布。普通 PR 不传递发布凭据，发布使用受保护的 release 环境；手动 publish 默认 false。
 
 ### GitHub Actions
 
-工作流使用标准 GitHub 托管运行器：Android 为 ubuntu-24.04，Windows 为 windows-2022。Flutter 版本与项目 SDK 对齐，依赖按锁文件解析并缓存。
 
 - check.yml：main 推送、PR、手动触发；代码、资源、工具、平台文件及许可证变动触发，普通文档变更不触发。执行生产文案/样式/分析/格式与官方插件离线校验；按变动范围决定平台矩阵。跨平台生产代码、界面翻译资源及许可证变动构建全部原生目标，单个平台宿主变动只构建对应平台；源脚本单独变动只做检查。针对性测试保留在本地忽略的 test/ 目录，不随 CI 检出。
-- build.yml：复用 Android 与 Windows 矩阵构建，配置 Android 签名或无签名编译、Windows NuGet 与安装器编译器。
 - release.yml：推送与 pubspec.yaml 对应的 vX.Y.Z 标签，或在 main 手动触发。手动 publish 默认 false，仅构建；启用 publish 或标签触发才创建 Release。生产检查和全部构建成功后才发布。发布前必须更新 docs/RELEASE_NOTES.md，或手动提供仓库内其他双语说明路径。
-- 临时产物位于 Actions 的 distribution-平台 artifacts，保留 7 天。正式附件放 GitHub Release，名称含版本、构建号、平台和架构，并附 SHA-256。Windows 提供完整目录 ZIP 和 Inno Setup 生成的 setup.exe，ZIP 内的主目录固定为 HentaiPark，不带版本号；Android 提供分架构签名 APK。
-- 应用内安装仅接受对应版本的官方附件地址、平台文件名、有效文件大小和 GitHub 提供的 SHA-256 摘要。Windows 在用户确认后下载并校验安装包；打开安装器成功后复用桌面正常退出流程，不强制终止进程。更新向安装器传入当前程序目录；安装与卸载不清除独立的应用数据和下载目录。
 
 版本标签必须与 pubspec.yaml 一致；没有更新版本时不要重用已有发布标签。Release 正文只含中文和 English 两节，遵守 DEVELOPMENT.md 既有格式。
 
@@ -301,9 +286,7 @@ GitHub Release 正文就是应用内“发现软件新版本”对话框里的�
 | --- | --- | --- |
 | ANDROID_KEYSTORE_BASE64、ANDROID_KEYSTORE_PASSWORD、ANDROID_KEY_ALIAS、ANDROID_KEY_PASSWORD | Android 正式签名 | 仅编译，不上传 APK |
 
-Windows 商业签名尚未启用，不阻断普通 ZIP 构建。
 
-仓库需允许 Actions、artifact 上传和 GITHUB_TOKEN 创建 Release；构建环境需能下载 Android 工具链、Windows WebView2/NuGet 和媒体依赖。依赖下载和构建失败会阻止正式发布。
 
 ## 播放缓存与反搜历史
 

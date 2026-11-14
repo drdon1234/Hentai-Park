@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:collection';
 import 'dart:convert';
-import 'dart:io';
 
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
@@ -44,9 +43,7 @@ class BrowserMedia implements MediaTransport, MediaSessionAuthority {
   bool _resourcePhase = false;
   Timer? _startupPoll;
 
-  // WebView2 在每次连接前触发拦截；其他内核的回调不能覆盖重定向链。
-  // 没有逐跳拦截能力时让浏览器拒绝重定向，不用事后校验冒充连接边界。
-  static bool get _guardedRedirects => Platform.isWindows;
+  static bool get _guardedRedirects => false;
 
   @override
   void validate(Uri url) => policy.validate(url);
@@ -247,8 +244,7 @@ html: document.documentElement ? document.documentElement.outerHTML.slice(0, 419
         if (!_resourcePhase) return null;
         try {
           final url = Uri.parse(request.url.toString());
-          // WebView2 的 isForMainFrame 对子资源也可能为 true；使用浏览器
-          // 生成且 fetch 不能伪造的目标类型，保持文档域与资源域各自独立。
+          // 使用浏览器生成且 fetch 不能伪造的目标类型，保持文档域与资源域各自独立。
           final destination = request.headers?.entries
               .where((entry) => entry.key.toLowerCase() == 'sec-fetch-dest')
               .firstOrNull

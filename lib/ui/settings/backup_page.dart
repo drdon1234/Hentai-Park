@@ -1,6 +1,5 @@
 import 'dart:io';
 
-import 'package:desktop_drop/desktop_drop.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:path/path.dart' as p;
@@ -135,9 +134,9 @@ class _BackupPageState extends State<BackupPage> {
     await _restoreFile(file.xFile);
   }
 
-  Future<void> _drop(List<DropItem> files) async {
+  Future<void> _drop(List<XFile> files) async {
     if (_unavailable || files.isEmpty) return;
-    if (files.length != 1 || files.single is DropItemDirectory) {
+    if (files.length != 1) {
       context.toast(tr('请选择 {value0} 文件', {'value0': BackupService.extension}));
       return;
     }

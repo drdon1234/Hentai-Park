@@ -43,7 +43,6 @@ class _OnlineGamePageState extends State<OnlineGamePage>
   OnlineGameTarget? _target;
   InAppWebViewKeepAlive? _session;
   InAppWebViewController? _controller;
-  WebViewEnvironment? _environment;
   CancelToken? _request;
   Object? _error;
   bool _attached = false;
@@ -79,18 +78,13 @@ class _OnlineGamePageState extends State<OnlineGamePage>
     InAppWebViewKeepAlive? session,
     dynamic id,
     bool attached,
-    WebViewEnvironment? environment,
   ) async {
-    try {
-      if (session != null) {
-        if (Platform.isAndroid && attached && id is String) {
-          await _platform.invokeMethod<void>('releaseWebGame', id);
-        } else {
-          await InAppWebViewController.disposeKeepAlive(session);
-        }
+    if (session != null) {
+      if (Platform.isAndroid && attached && id is String) {
+        await _platform.invokeMethod<void>('releaseWebGame', id);
+      } else {
+        await InAppWebViewController.disposeKeepAlive(session);
       }
-    } finally {
-      await environment?.dispose();
     }
   }
 
@@ -100,17 +94,13 @@ class _OnlineGamePageState extends State<OnlineGamePage>
     final session = _session;
     final id = _controller?.getViewId();
     final attached = _attached;
-    final environment = _environment;
     _session = null;
     _controller = null;
-    _environment = null;
     _target = null;
     _attached = false;
     _ready = false;
     _navigationEnabled = false;
-    return _closing.run(
-      () => _disposeSession(session, id, attached, environment),
-    );
+    return _closing.run(() => _disposeSession(session, id, attached));
   }
 
   void _resetAccess() {
@@ -225,10 +215,9 @@ class _OnlineGamePageState extends State<OnlineGamePage>
     final generation = ++_generation;
     final closing = _close();
     if (mounted) setState(() => _error = null);
-    WebViewEnvironment? environment;
     try {
       await closing;
-      if (!Platform.isAndroid && !Platform.isWindows) {
+      if (!Platform.isAndroid) {
         throw SourceError('UNSUPPORTED', '当前设备暂不支持在线游戏');
       }
       final raw = await widget.manager.onlineGame(
@@ -237,27 +226,14 @@ class _OnlineGamePageState extends State<OnlineGamePage>
         cancelToken: request,
       );
       final target = OnlineGameTarget.fromJson(raw, widget.work.id);
-      final key = onlineGameProfileKey(widget.work.source, target.storageId);
-      if (Platform.isWindows) {
-        final directory = Directory(
-          p.join(AppPaths.data.path, 'online_games', key),
-        );
-        await directory.create(recursive: true);
-        environment = await WebViewEnvironment.create(
-          settings: WebViewEnvironmentSettings(userDataFolder: directory.path),
-        );
-      }
       if (!mounted || generation != _generation || request.isCancelled) {
-        await environment?.dispose();
         return;
       }
       setState(() {
         _target = target;
-        _environment = environment;
         _session = InAppWebViewKeepAlive();
       });
     } catch (error) {
-      await environment?.dispose();
       if (mounted && generation == _generation && !request.isCancelled) {
         setState(
           () => _error = error is FormatException
@@ -274,7 +250,7 @@ class _OnlineGamePageState extends State<OnlineGamePage>
     OnlineGameTarget target,
   ) async {
     if (!mounted || !identical(session, _session)) {
-      await _disposeSession(session, controller.getViewId(), false, null);
+      await _disposeSession(session, controller.getViewId(), false);
       return;
     }
     _controller = controller;
@@ -292,7 +268,7 @@ class _OnlineGamePageState extends State<OnlineGamePage>
           );
         }
         if (!mounted || !identical(session, _session)) {
-          await _disposeSession(session, controller.getViewId(), true, null);
+          await _disposeSession(session, controller.getViewId(), true);
           return;
         }
         _attached = true;
@@ -419,26 +395,6 @@ document.head.appendChild(script);
               'ctrl': ctrl,
             })
             .catchError((Object _) => false),
-      );
-    } else if (Platform.isWindows) {
-      unawaited(
-        controller
-            .callDevToolsProtocolMethod(
-              methodName: 'Input.dispatchKeyEvent',
-              parameters: {
-                'type': down ? 'keyDown' : 'keyUp',
-                'key': key.key,
-                'code': key.code,
-                'windowsVirtualKeyCode': key.number,
-                'nativeVirtualKeyCode': key.number,
-                'modifiers': ctrl ? 2 : 0,
-                if (down &&
-                    !ctrl &&
-                    (key.key.length == 1 || key.key == 'Enter'))
-                  'text': key.key == 'Enter' ? '\r' : key.key,
-              },
-            )
-            .catchError((Object _) => null),
       );
     }
   }
@@ -683,7 +639,6 @@ catch(_){try{localStorage.clear();for(const [k,v] of Object.entries(old))localSt
                   InAppWebView(
                     key: ValueKey(session),
                     keepAlive: session,
-                    webViewEnvironment: _environment,
                     initialUserScripts: UnmodifiableListView([
                       UserScript(
                         source: gameResourceCacheScript,
