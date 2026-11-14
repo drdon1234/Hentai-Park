@@ -65,6 +65,7 @@
     return {
       id: kind + ':' + match[1].toLowerCase(),
       title,
+      url: url.href,
       subtitle: body.slice(0, 512),
       cover: safeImage(card.querySelector('img')?.getAttribute('src'), base),
       authors: author.replace(/^By\s+/i, '').trim() ? [author.replace(/^By\s+/i, '').trim()] : [],
@@ -195,7 +196,7 @@
     },
     key: 'risu_realm',
     name: 'RisuRealm',
-    version: '0.0.1',
+    version: '0.0.2',
     minAppVersion: '0.14.0',
     type: 'tavern',
     category: 'tavern',

@@ -3,10 +3,12 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:uuid/uuid.dart';
 
+import '../core/localization.dart';
 import '../core/settings.dart';
 import 'client.dart';
 import 'models.dart';
 import 'store.dart';
+import 'worldbook_terms.dart';
 
 /// 页面只呈现状态；生成、取消和保存共用一条有序的会话事务链。
 class TavernConversation extends ChangeNotifier {
@@ -148,7 +150,10 @@ class TavernConversation extends ChangeNotifier {
         TavernResource(kind: 'character', raw: session.card),
         ...books,
       ].any((r) => r.hasUnsupportedLore);
-      final prompt = buildTavernPrompt(
+      await WorldbookTerms.instance.ensureLoaded(
+        AppLocalizations.localeKey(AppLocalizations.instance.locale),
+      );
+      final prompt = await buildTranslatedTavernPrompt(
         promptSession,
         books,
         config: config,

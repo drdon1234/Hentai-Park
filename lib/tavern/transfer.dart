@@ -12,11 +12,15 @@ import 'store.dart';
 class TavernTransfer {
   static bool _isLorebookJson(Object? value) {
     if (value is! Map) return false;
-    if (value['entries'] is List || value['entries'] is Map) return true;
+    bool hasEntries(Object? candidate) =>
+        candidate is Map &&
+        (candidate['entries'] is List || candidate['entries'] is Map);
+    if (hasEntries(value)) return true;
     final data = value['data'];
-    if (data is Map && data['name'] is! String) {
+    if (hasEntries(data)) return true;
+    if (data is Map) {
       final book = data['character_book'];
-      return book is Map && (book['entries'] is List || book['entries'] is Map);
+      return hasEntries(book);
     }
     return false;
   }

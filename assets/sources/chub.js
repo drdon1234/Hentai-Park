@@ -25,6 +25,7 @@
     return {
       id: kind + ':' + path,
       title: node.name,
+      url: SITE + '/' + (kind === 'lorebook' ? 'lorebooks/' : 'characters/') + path,
       subtitle: typeof node.tagline === 'string' ? node.tagline : '',
       cover: kind === 'character' ? AVATARS + '/avatars/' + path + '/avatar.webp' : '',
       authors: [path.split('/')[0]],
@@ -82,7 +83,7 @@
       ru: {'角色卡与世界书': 'Карточки и книги мира', '角色卡': 'Карточки', '世界书': 'Книги мира', '类型': 'Тип', '排序': 'Сортировка', '全部': 'Все', '热门': 'Популярное', '最新': 'Новое'},
       ar: {'角色卡与世界书': 'بطاقات الشخصيات وكتب العالم', '角色卡': 'بطاقات الشخصيات', '世界书': 'كتب العالم', '类型': 'النوع', '排序': 'الترتيب', '全部': 'الكل', '热门': 'الشائع', '最新': 'الأحدث'},
     },
-    key: 'chub', name: 'Chub AI', version: '0.0.3', minAppVersion: '0.14.0',
+    key: 'chub', name: 'Chub AI', version: '0.0.4', minAppVersion: '0.14.0',
     type: 'tavern', category: 'tavern', color: '#9B5B78',
     description: '角色卡与世界书', homepage: SITE, domains: ['chub.ai', 'charhub.io'],
     network: {vpnHint: true},

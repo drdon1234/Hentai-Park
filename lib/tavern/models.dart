@@ -4,6 +4,8 @@ import 'dart:typed_data';
 
 import 'package:image/image.dart' as image;
 
+import 'worldbook_terms.dart';
+
 /// 只读取标准卡片数据；扩展脚本和 HTML 都作为普通文本保留。
 class TavernResource {
   TavernResource({required this.kind, required this.raw});
@@ -14,7 +16,22 @@ class TavernResource {
   Map<String, dynamic> get data => kind == 'character' && raw['data'] is Map
       ? Map<String, dynamic>.from(raw['data'] as Map)
       : raw;
-  String get name => (data['name'] ?? '').toString();
+  Map? get _lorebookData {
+    if (kind != 'lorebook') return null;
+    if (raw['entries'] is List || raw['entries'] is Map) return raw;
+    final nested = raw['data'];
+    if (nested is Map &&
+        (nested['entries'] is List || nested['entries'] is Map)) {
+      return nested;
+    }
+    return raw;
+  }
+
+  String get name =>
+      (kind == 'lorebook'
+              ? (_lorebookData?['name'] ?? raw['name'])
+              : data['name'] ?? '')
+          .toString();
   String text(String key) => data[key] is String ? data[key] as String : '';
   List<String> get greetings => [
     if (text('first_mes').trim().isNotEmpty) text('first_mes'),
@@ -24,7 +41,7 @@ class TavernResource {
   ];
 
   List<TavernLoreEntry> get entries {
-    final book = kind == 'lorebook' ? raw : data['character_book'];
+    final book = kind == 'lorebook' ? _lorebookData : data['character_book'];
     if (book is! Map) return const [];
     final value = book['entries'];
     final entries = value is List
@@ -39,7 +56,7 @@ class TavernResource {
   }
 
   Map get bookSettings => kind == 'lorebook'
-      ? raw
+      ? (_lorebookData ?? raw)
       : data['character_book'] is Map
       ? data['character_book'] as Map
       : const {};
@@ -125,7 +142,6 @@ class TavernLoreEntry {
         'delay',
         'group',
         'use_regex',
-        'scanDepth',
         'excludeRecursion',
         'preventRecursion',
         'delayUntilRecursion',
@@ -162,7 +178,7 @@ class TavernLoreEntry {
       (raw['order'] as num?)?.toInt() ??
       100;
 
-  bool matches(String context) {
+  bool matches(String context, {WorldbookTerms? terms}) {
     if (!enabled || content.trim().isEmpty) return false;
     if (constant) return true;
     final caseSensitive =
@@ -182,13 +198,18 @@ class TavernLoreEntry {
       ).hasMatch(context);
     }
 
-    if (!keys.any(contains)) return false;
-    if (!selective) return true;
+    final dictionary = terms ?? WorldbookTerms.instance;
+    bool containsAny(String keyword) =>
+        dictionary.aliasesFor(keyword).any(contains);
+    if (!keys.any(containsAny)) return false;
+    // Chub/SillyTavern exports commonly keep `selective: true` while leaving
+    // `secondary_keys` empty. An empty refinement list adds no restriction.
+    if (!selective || secondaryKeys.isEmpty) return true;
     return switch (number('selectiveLogic', 0)) {
-      1 => !secondaryKeys.every(contains),
-      2 => !secondaryKeys.any(contains),
-      3 => secondaryKeys.every(contains),
-      _ => secondaryKeys.any(contains),
+      1 => !secondaryKeys.every(containsAny),
+      2 => !secondaryKeys.any(containsAny),
+      3 => secondaryKeys.every(containsAny),
+      _ => secondaryKeys.any(containsAny),
     };
   }
 }
@@ -202,22 +223,40 @@ List<TavernLoreEntry> matchTavernLore(
   bool recursive = false,
   int? tokenBudget,
   double Function()? random,
+  WorldbookTerms? terms,
 }) {
   final history = messages.toList();
-  final context = history
-      .skip(
-        (history.length - scanDepth.clamp(0, 1000)).clamp(0, history.length),
-      )
-      .join('\n');
   final pending = entries.toList();
+  final baseContext = <int, String>{};
+  String contextFor(TavernLoreEntry entry, String recursiveContext) {
+    final depth = entry
+        .number('scanDepth', entry.number('scan_depth', scanDepth))
+        .clamp(0, 1000)
+        .toInt();
+    final context = baseContext.putIfAbsent(depth, () {
+      return history
+          .skip((history.length - depth).clamp(0, history.length))
+          .join('\n');
+    });
+    return recursiveContext.isEmpty ? context : '$context\n$recursiveContext';
+  }
+
   final result = <TavernLoreEntry>[];
   final decided = <TavernLoreEntry>{};
   var used = 0;
-  var scan = context;
+  var scan = '';
   for (var pass = 0; pass < (recursive ? 32 : 1); pass++) {
     final matched =
-        pending.where((e) => !decided.contains(e) && e.matches(scan)).toList()
+        pending
+            .where(
+              (e) =>
+                  !decided.contains(e) &&
+                  e.matches(contextFor(e, scan), terms: terms),
+            )
+            .toList()
           ..sort((a, b) {
+            final constant = (b.constant ? 1 : 0).compareTo(a.constant ? 1 : 0);
+            if (constant != 0) return constant;
             final priority = b
                 .number('priority', 0)
                 .compareTo(a.number('priority', 0));
@@ -238,7 +277,7 @@ List<TavernLoreEntry> matchTavernLore(
       result.add(entry);
       used += cost;
     }
-    scan = '$context\n${result.map((e) => e.content).join('\n')}';
+    scan = result.map((e) => e.content).join('\n');
   }
   result.sort((a, b) => a.order.compareTo(b.order));
   return result;

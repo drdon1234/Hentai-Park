@@ -33,6 +33,7 @@ import 'library/restore_transaction.dart';
 import 'library/updater.dart';
 import 'novel/reading_notes.dart';
 import 'subscriptions/background.dart';
+import 'tavern/worldbook_terms.dart';
 import 'ui/desktop_workspace.dart';
 import 'ui/kit/immersive.dart';
 import 'ui/lock/lock_screen.dart';
@@ -117,6 +118,7 @@ Future<void> _start() async {
       }
     },
     TagTranslations.instance.init,
+    WorldbookTerms.instance.init,
     CookieStore.instance.init,
     ReadingNotes.instance.load,
     () async {
@@ -125,6 +127,9 @@ Future<void> _start() async {
             AppLocalizations.resolveLocales(
               WidgetsBinding.instance.platformDispatcher.locales,
             ),
+      );
+      await WorldbookTerms.instance.ensureLoaded(
+        AppLocalizations.localeKey(AppLocalizations.instance.locale),
       );
       HttpService.instance.init();
     },

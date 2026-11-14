@@ -2,6 +2,7 @@ import 'dart:typed_data';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/localization.dart';
 import '../../core/models.dart';
@@ -19,6 +20,7 @@ import '../theme.dart';
 import '../widgets/common.dart';
 import '../widgets/content_translation.dart';
 import '../widgets/error_view.dart';
+import '../widgets/platform_share.dart';
 import '../widgets/text_translation.dart';
 import 'tavern_chat_page.dart';
 import 'tavern_lorebook_page.dart';
@@ -39,6 +41,7 @@ class _TavernDetailPageState extends State<TavernDetailPage> {
   bool _opening = false;
   bool _exporting = false;
   bool _saved = false;
+  String _originalUrl = '';
   Object? _error;
   int _greeting = 0;
   WorkItem get _item => WorkItem({
@@ -46,6 +49,7 @@ class _TavernDetailPageState extends State<TavernDetailPage> {
     if (widget.item.title.isEmpty && _resource?.name.isNotEmpty == true)
       'title': _resource!.name,
     if (_resource != null) 'tavernKind': _resource!.kind,
+    if (_originalUrl.isNotEmpty) 'url': _originalUrl,
   }, widget.item.source);
 
   @override
@@ -60,6 +64,19 @@ class _TavernDetailPageState extends State<TavernDetailPage> {
       _error = null;
     });
     try {
+      _originalUrl = _validOriginalUrl(widget.item.json['url']) ?? '';
+      if (_originalUrl.isEmpty) {
+        try {
+          final detail = await SourceManager.instance.detail(
+            widget.item.source,
+            widget.item.id,
+            preview: widget.item,
+          );
+          _originalUrl = _validOriginalUrl(detail.url) ?? '';
+        } catch (_) {
+          // A missing web URL must not prevent opening the downloadable asset.
+        }
+      }
       final saved = await TavernStore.instance.get(widget.item.uid);
       if (saved != null) {
         _resource = saved.resource;
@@ -79,6 +96,26 @@ class _TavernDetailPageState extends State<TavernDetailPage> {
       _error = error;
     } finally {
       if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  String? _validOriginalUrl(Object? value) {
+    final uri = Uri.tryParse(value?.toString() ?? '');
+    if (uri == null || uri.host.isEmpty || uri.userInfo.isNotEmpty) return null;
+    if (uri.scheme != 'https' && uri.scheme != 'http') return null;
+    return uri.toString();
+  }
+
+  Uri? get _originalUri => Uri.tryParse(_originalUrl);
+
+  Future<void> _openOriginal() async {
+    final uri = _originalUri;
+    if (uri == null) return;
+    try {
+      final opened = await launchUrl(uri, mode: LaunchMode.externalApplication);
+      if (!opened && mounted) context.toast(tr('无法打开原站，请稍后重试'));
+    } catch (_) {
+      if (mounted) context.toast(tr('无法打开原站，请稍后重试'));
     }
   }
 
@@ -177,6 +214,22 @@ class _TavernDetailPageState extends State<TavernDetailPage> {
       builder: (context) => SafeArea(
         child: Wrap(
           children: [
+            if (_originalUri != null)
+              ListTile(
+                leading: const Icon(Icons.open_in_browser_rounded),
+                title: Text(tr('在浏览器中打开')),
+                onTap: () {
+                  Navigator.pop(context, 'open');
+                },
+              ),
+            if (_originalUri != null)
+              ListTile(
+                leading: const Icon(Icons.share_rounded),
+                title: Text(tr('分享链接')),
+                onTap: () {
+                  Navigator.pop(context, 'share');
+                },
+              ),
             if (!_saved)
               ListTile(
                 leading: const Icon(Icons.bookmark_add_outlined),
@@ -193,7 +246,14 @@ class _TavernDetailPageState extends State<TavernDetailPage> {
       ),
     );
     if (!mounted) return;
-    if (action == 'save') {
+    if (action == 'open') {
+      await _openOriginal();
+    } else if (action == 'share') {
+      final uri = _originalUri;
+      if (uri != null) {
+        await shareContent(context, text: '${_item.title}\n$uri');
+      }
+    } else if (action == 'save') {
       if (await _save() != null && mounted) context.toast(tr('已保存'));
     } else if (action == 'export') {
       await _download();
@@ -255,6 +315,8 @@ class _TavernDetailPageState extends State<TavernDetailPage> {
                       ],
                     ),
                   )
+          : resource.kind == 'lorebook'
+          ? TavernLorebookList(source: widget.item.source, resource: resource)
           : ReadableWidth(
               child: ListView(
                 padding: const EdgeInsets.fromLTRB(

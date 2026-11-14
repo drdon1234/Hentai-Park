@@ -34,7 +34,7 @@
       const title = Park.html.text(a.querySelector('h3'));
       if (!title || seen.has(id)) continue;
       seen.add(id);
-      items.push({id, title, subtitle: Park.html.text(a.querySelector('p')),
+      items.push({id, title, url: detailUrl(id), subtitle: Park.html.text(a.querySelector('p')),
         cover: safeImage(a.querySelector('img')?.getAttribute('src'), base),
         authors: [id.split('/')[0]], mediaKind: 'tavern', tavernKind: 'character'});
     }
@@ -111,7 +111,7 @@
         '包含世界书': 'يتضمن كتاب عالم', '原创内容': 'محتوى أصلي',
       },
     },
-    key: 'character_tavern', name: 'Character Tavern', version: '0.0.3', minAppVersion: '0.14.0',
+    key: 'character_tavern', name: 'Character Tavern', version: '0.0.4', minAppVersion: '0.14.0',
     type: 'tavern', category: 'tavern', color: '#805F9A', description: '角色卡',
     homepage: SITE, domains: ['character-tavern.com'], network: {vpnHint: true},
     defaultFeed: 'popular', feeds: [{key: 'popular', label: '热门'}],

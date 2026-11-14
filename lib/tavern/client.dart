@@ -6,6 +6,7 @@ import '../core/settings.dart';
 import '../engine/network_client.dart';
 import 'models.dart';
 import 'store.dart';
+import 'worldbook_terms.dart';
 
 class TavernApiException implements Exception {
   const TavernApiException(this.code, [this.status]);
@@ -164,11 +165,98 @@ class TavernPrompt {
   final bool trimmedHistory;
 }
 
+List<TavernLoreEntry> _selectTavernLore(
+  TavernSession session,
+  List<TavernResource> books,
+  TavernApiConfig config,
+) {
+  final card = TavernResource(kind: 'character', raw: session.card);
+  final history = session.messages.map((m) => m['content'] ?? '').toList();
+  final entries = <TavernLoreEntry>[];
+  for (final book in [card, ...books]) {
+    final settings = book.bookSettings;
+    int number(String key, int fallback) =>
+        settings[key] is num ? (settings[key] as num).toInt() : fallback;
+    entries.addAll(
+      matchTavernLore(
+        book.entries,
+        history,
+        scanDepth: number('scan_depth', 4),
+        tokenBudget: number(
+          'token_budget',
+          2048,
+        ).clamp(0, config.contextTokens ~/ 2),
+        recursive: settings['recursive_scanning'] == true,
+      ),
+    );
+  }
+  return entries;
+}
+
+Future<Map<TavernLoreEntry, String>> translateTavernLore(
+  Iterable<TavernLoreEntry> entries,
+) async {
+  final result = <TavernLoreEntry, String>{};
+  final pending = entries.toList();
+  var next = 0;
+  Future<void> worker() async {
+    while (next < pending.length) {
+      final entry = pending[next++];
+      final translated = await WorldbookTerms.instance.translateText(
+        entry.content,
+      );
+      if (translated != null && translated.trim().isNotEmpty) {
+        result[entry] = translated;
+      }
+    }
+  }
+
+  final workers = pending.length < 2 ? pending.length : 2;
+  await Future.wait(List.generate(workers, (_) => worker()));
+  return result;
+}
+
 TavernPrompt buildTavernPrompt(
   TavernSession session,
   List<TavernResource> books, {
   TavernApiConfig config = const TavernApiConfig(),
   bool continuation = false,
+}) {
+  final entries = _selectTavernLore(session, books, config);
+  return _buildTavernPrompt(
+    session,
+    books,
+    config: config,
+    continuation: continuation,
+    entries: entries,
+  );
+}
+
+Future<TavernPrompt> buildTranslatedTavernPrompt(
+  TavernSession session,
+  List<TavernResource> books, {
+  TavernApiConfig config = const TavernApiConfig(),
+  bool continuation = false,
+}) async {
+  final entries = _selectTavernLore(session, books, config);
+  final translated = await translateTavernLore(entries);
+  return _buildTavernPrompt(
+    session,
+    books,
+    config: config,
+    continuation: continuation,
+    entries: entries,
+    translated: translated,
+  );
+}
+
+TavernPrompt _buildTavernPrompt(
+  TavernSession session,
+  List<TavernResource> books, {
+  required TavernApiConfig config,
+  required bool continuation,
+  required List<TavernLoreEntry> entries,
+  Map<TavernLoreEntry, String> translated = const {},
 }) {
   final card = TavernResource(kind: 'character', raw: session.card);
   String replace(String text) => text
@@ -197,28 +285,9 @@ TavernPrompt buildTavernPrompt(
           .where((f) => f.$2.trim().isNotEmpty)
           .map((f) => '${f.$1}: ${replace(f.$2)}')
           .join('\n\n');
-  final history = session.messages.map((m) => m['content'] ?? '').toList();
-  final entries = <TavernLoreEntry>[];
-  for (final book in [card, ...books]) {
-    final settings = book.bookSettings;
-    int number(String key, int fallback) =>
-        settings[key] is num ? (settings[key] as num).toInt() : fallback;
-    entries.addAll(
-      matchTavernLore(
-        book.entries,
-        history,
-        scanDepth: number('scan_depth', 4),
-        tokenBudget: number(
-          'token_budget',
-          2048,
-        ).clamp(0, config.contextTokens ~/ 2),
-        recursive: settings['recursive_scanning'] == true,
-      ),
-    );
-  }
   String world(bool before) => entries
       .where((e) => e.beforeCharacter == before)
-      .map((e) => replace(e.content))
+      .map((e) => replace(translated[e] ?? e.content))
       .join('\n\n');
   final system = [
     instructions,

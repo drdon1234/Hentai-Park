@@ -5,7 +5,7 @@
     {
       "key": "chub",
       "name": "Chub AI",
-      "version": "0.0.3",
+      "version": "0.0.4",
       "minAppVersion": "0.14.0",
       "type": "tavern",
       "category": "tavern",
@@ -15,7 +15,7 @@
     {
       "key": "character_tavern",
       "name": "Character Tavern",
-      "version": "0.0.3",
+      "version": "0.0.4",
       "minAppVersion": "0.14.0",
       "type": "tavern",
       "category": "tavern",
@@ -25,7 +25,7 @@
     {
       "key": "risu_realm",
       "name": "RisuRealm",
-      "version": "0.0.1",
+      "version": "0.0.2",
       "minAppVersion": "0.14.0",
       "type": "tavern",
       "category": "tavern",
