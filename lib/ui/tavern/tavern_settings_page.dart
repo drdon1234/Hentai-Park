@@ -149,8 +149,8 @@ class _TavernSettingsPageState extends State<TavernSettingsPage> {
                           const SizedBox(height: Gap.l),
                           TextField(
                             controller: _key,
+                            keyboardType: TextInputType.text,
                             autocorrect: false,
-                            enableSuggestions: false,
                             decoration: InputDecoration(
                               labelText: 'API Key',
                               helperMaxLines: 4,
