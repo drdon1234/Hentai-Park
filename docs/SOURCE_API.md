@@ -347,7 +347,7 @@ account: {
 
 目录作品声明 `type: 'voice', category: 'asmr'`；单个视频也可使用 `type: 'video', category: 'asmr'`。列表和详情可返回 `voiceLanguageStatus`（`chineseSpoken`、`chineseSubtitled`、`foreignOriginal`、`unknown`）及 `voiceMediaForm`（`audioOnly`、`videoOnly`、`mixed`、`unknown`）。仅填写原站明确提供或完整目录证实的信息；未知值不得推断为外语或纯音频。
 
-详情可提供 `voiceRoot: {id, name, type}`，节点类型为 `directory`、`audio`、`video`、`subtitle`、`image`、`script` 或 `other`。实现 `voiceDirectory(workId, directoryId, {page})` 返回 `{items: [node], hasNext}`；每页最多 1000 个节点，ID 必须稳定。`voiceResource(workId, nodeId)` 返回 `{url, format}`，资源仍受站点媒体权限和网络策略约束；播放具体曲目时调用 `videos(workId, nodeId)`。需要目录播放的源须同时实现这三个方法。字幕节点可在原站明确标注时提供 `subtitleLanguage: 'zh'`。音视频节点可用 `subtitleIds: [id]` 声明原站明确关联的字幕节点，最多 50 个非空、互不重复的稳定 ID；应用只接受同目录字幕，并补充同目录主文件名相同的 LRC、VTT 或 SRT，以来源标注确定字幕语言；图片和 TXT 台本可查看，音声归档目前不支持下载。
+详情可提供 `voiceRoot: {id, name, type}`，节点类型为 `directory`、`audio`、`video`、`subtitle`、`image`、`script` 或 `other`。实现 `voiceDirectory(workId, directoryId, {page})` 返回 `{items: [node], hasNext}`；每页最多 1000 个节点，ID 必须稳定。`voiceResource(workId, nodeId)` 返回 `{url, format}`，资源仍受站点媒体权限和网络策略约束；播放具体曲目时调用 `videos(workId, nodeId)`。需要目录播放的源须同时实现这三个方法。字幕节点可在原站明确标注时提供 `subtitleLanguage: 'zh'`。音视频节点可用 `subtitleIds: [id]` 声明原站明确关联的字幕节点，最多 50 个非空、互不重复的稳定 ID；应用只接受同目录字幕，并补充同目录主文件名相同的 LRC、VTT 或 SRT，以来源标注确定字幕语言；图片和 TXT 台本可查看。音声支持整部作品、目录或文件下载，完整遍历目录分页并保存同目录关联字幕；离线清单仅保留稳定节点身份和包内相对路径，不保存临时媒体地址。
 
 目录未加载完整或后续分页失败时，已加载曲目仍可播放；播放列表与字幕关联取点击时已加载的同级节点，不能将部分目录标记为完整。
 

@@ -1281,6 +1281,7 @@ class VideoSource {
   final int quality;
   final String _label;
   String get label => tr(_label);
+  String get sourceLabel => _label;
   final String url;
   final Map<String, String> headers;
   final String format;

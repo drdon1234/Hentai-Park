@@ -13,6 +13,11 @@ class OpenWorkPage extends PlaybackTarget {
   const OpenWorkPage();
 }
 
+class ReadBundle extends PlaybackTarget {
+  const ReadBundle(this.chapterId);
+  final String chapterId;
+}
+
 /// The player. [work] is null when nothing is stored locally and the detail must be fetched.
 class PlayVideo extends PlaybackTarget {
   const PlayVideo(this.work, this.episodeId, {this.downloadedOnly = false});
@@ -47,6 +52,12 @@ abstract final class PlaybackResolver {
     final chapters =
         lib.chaptersCached(item.uid) ?? await lib.loadChapters(item.uid);
     final task = DownloadManager.instance.task(item.uid);
+    if (task?.isBundle == true) {
+      final requested = task!.chapters
+          .where((c) => c.id == chapterId)
+          .firstOrNull;
+      return ReadBundle((requested ?? task.chapters.first).id);
+    }
     final allowIncomplete =
         !downloadedOnly && task != null && task.canReadWhileDownloading;
     // 下载记录本身就是本地目录，不能依赖插件、首页或另外一份章节缓存。

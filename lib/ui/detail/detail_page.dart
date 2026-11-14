@@ -451,7 +451,7 @@ class _DetailPageState extends State<DetailPage> with RouteAware {
                       detail: _detail,
                       kind: _kind,
                       singlePage: _singlePage,
-                      allowDownload: !_isLive && _m?.kind != MediaKind.voice,
+                      allowDownload: !_isLive,
                       onPrimary: _opensExternally && !_canOpenOriginal
                           ? null
                           : _continue,
@@ -535,6 +535,28 @@ class _DetailPageState extends State<DetailPage> with RouteAware {
         onDownload: () async {
           if (DownloadManager.instance.hasRestoreFailure(_item.uid)) {
             context.toast(tr('下载记录恢复失败，请前往下载页处理'));
+            return;
+          }
+          if (_m?.kind == MediaKind.voice) {
+            for (final chapter in chapters.where(
+              (c) => _selected.contains(c.id),
+            )) {
+              DownloadManager.instance.enqueueBundle(
+                _item,
+                node: {
+                  'id': chapter.id,
+                  'name': chapter.title,
+                  'type':
+                      (_detail!.json['voiceTrackKinds'] as Map?)?[chapter.id] ??
+                      (_detail!.voiceMediaForm == VoiceMediaForm.videoOnly
+                          ? 'video'
+                          : 'audio'),
+                  'subtitleIds': _detail!.voiceSubtitles[chapter.id] ?? [],
+                },
+              );
+            }
+            context.toast(tr('已加入下载队列'));
+            done();
             return;
           }
           final selected = chapters

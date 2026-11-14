@@ -8,6 +8,7 @@ import '../../engine/source_manager.dart';
 import '../../images/park_image.dart';
 import '../../library/library.dart';
 import '../../subscriptions/models.dart';
+import '../detail/detail_download.dart';
 import '../library/favorite_actions.dart';
 import '../nav.dart';
 import '../search/source_link_search_page.dart';
@@ -201,6 +202,7 @@ class _FeedArticlePageState extends State<FeedArticlePage> {
     });
     return Scaffold(
       appBar: AppBar(
+        // 正文与全部附件作为一个下载任务保存。
         title: Text(_sources.manifest(widget.item.source)?.name ?? tr('吃瓜')),
         actions: [
           if (Uri.tryParse(detail?.url ?? '') case final uri?
@@ -223,6 +225,7 @@ class _FeedArticlePageState extends State<FeedArticlePage> {
               },
             ),
           TranslationControls(source: widget.item.source),
+          WorkDownloadButton(item: widget.item, detail: detail),
           ListenableBuilder(
             listenable: Library.instance.work(widget.item.uid),
             builder: (context, _) {

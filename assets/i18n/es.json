@@ -1943,5 +1943,10 @@
   "本应用导出的会话或书库备份": "Conversaciones o copias de la biblioteca exportadas por esta aplicación",
   "导入文件类型不匹配": "El tipo de archivo importado no coincide",
   "查看世界书": "Ver libro de mundo",
-  "没有世界书词条": "No hay entradas del libro de mundo"
+  "没有世界书词条": "No hay entradas del libro de mundo",
+  "返回上级目录": "Volver a la carpeta superior",
+  "所选下载线路已不可用，请重新选择": "La fuente de descarga seleccionada ya no está disponible. Elige otra.",
+  "媒体资源过多": "Demasiados recursos multimedia",
+  "暂无内容": "No hay contenido disponible",
+  "选择下载线路": "Elegir fuente de descarga"
 }

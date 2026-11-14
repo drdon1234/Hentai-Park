@@ -48,7 +48,7 @@ Configura el acceso en Más → Sitios y el proxy en Más → Red cuando sea nec
 | Leer y ver | Artículos de cotilleos y vídeos; cómics con desplazamiento, páginas y doble página; episodios, velocidad y reanudación de vídeo; marcadores, notas y lectura de novelas en voz alta. |
 | Favoritos y novedades | Organiza grupos, guarda el progreso y consulta capítulos nuevos. Sigue autores, canales o palabras clave. |
 | Juegos en línea | Juega en el navegador sin instalar paquetes, con pantalla completa y controles virtuales opcionales. |
-| Sin conexión y exportación | Descarga cómics, vídeos, novelas y recursos de juegos. Importa y exporta CBZ y exporta capítulos completos de galerías a PDF. |
+| Sin conexión y exportación | Descarga cómics, vídeos, audio, novelas, publicaciones, adjuntos de artículos y recursos de juegos. Importa y exporta CBZ y exporta capítulos completos de galerías a PDF. |
 | Listas y búsqueda por imagen | Explora clasificaciones de doujinshi, anime y JAV o busca posibles obras con una imagen. |
 | Información de obras | Explora, busca y filtra información de obras, abre los detalles del sitio original de los rankings y elige los sitios de detalles y búsqueda. |
 | Comentarios y chat | Lee comentarios, respuestas e imágenes de los sitios compatibles y muestra el chat en directos compatibles. |

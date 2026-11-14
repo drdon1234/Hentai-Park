@@ -11,6 +11,7 @@ import 'package:uuid/uuid.dart';
 import '../core/models.dart';
 import '../engine/media_transport.dart';
 import 'hls.dart';
+import 'hls_fragment.dart';
 import 'hls_resources.dart';
 import 'rou_hls_wrapper.dart';
 
@@ -58,11 +59,11 @@ Future<void> remuxTransportStream(
 
 /// 将一个有限 TS 窗口封装为 fMP4。输出包含 init.mp4 后的一个或多个
 /// `moof/mdat`，调用方可按顶层 MP4 box 切分为 HLS 资源。
-Future<void> remuxTransportStreamFragment(
+Future<HlsFragmentTiming> remuxTransportStreamFragment(
   File input,
   File output,
   CancelToken token, {
-  int trimUs = 0,
+  int prefixBytes = 0,
 }) async {
   if (!Platform.isAndroid) {
     throw SourceError('UNSUPPORTED', 'HLS 窗口封装目前仅支持安卓');
@@ -71,18 +72,19 @@ Future<void> remuxTransportStreamFragment(
   final id = const Uuid().v4();
   if (token.cancelError case final error?) throw error;
   var finished = false;
-  final operation = channel.invokeMethod<void>('remux_fragment', {
+  final operation = channel.invokeMapMethod<String, int>('remux_fragment', {
     'id': id,
     'input': input.path,
     'output': output.path,
-    'trimUs': trimUs,
+    'prefixBytes': prefixBytes,
   });
   final cancelled = token.whenCancel.then((error) async {
     if (!finished) await channel.invokeMethod<void>('cancel', {'id': id});
     throw error;
   });
+  Map<String, int>? timing;
   try {
-    await Future.any([operation, cancelled]);
+    timing = await Future.any([operation, cancelled]);
   } finally {
     if (token.isCancelled && !finished) {
       try {
@@ -95,6 +97,15 @@ Future<void> remuxTransportStreamFragment(
     finished = true;
   }
   if (token.cancelError case final error?) throw error;
+  if (timing == null ||
+      timing['videoStartUs'] == null ||
+      timing['audioStartUs'] == null) {
+    throw SourceError('NETWORK', 'HLS 分段不完整');
+  }
+  return HlsFragmentTiming(
+    videoStartUs: timing['videoStartUs']!,
+    audioStartUs: timing['audioStartUs']!,
+  );
 }
 
 /// Validated per-segment state survives pause/restart; no partial MP4 is published.
@@ -103,10 +114,14 @@ class HlsDownload {
     this.transport, {
     this.remux = remuxTransportStream,
     this.keepPlaylist = false,
+    this.audio,
+    this.audioTransport,
   });
   final MediaTransport transport;
   final MediaRemux remux;
   final bool keepPlaylist;
+  final HlsAudioVariant? audio;
+  final MediaTransport? audioTransport;
 
   static void _check(CancelToken token) {
     if (token.cancelError case final error?) throw error;
@@ -118,6 +133,64 @@ class HlsDownload {
     required CancelToken cancelToken,
     required void Function(int done, int total, int bytes) onProgress,
   }) async {
+    if (audio != null) {
+      final soundTransport = audioTransport;
+      if (soundTransport == null) {
+        throw ArgumentError('Missing audio transport');
+      }
+      final tracks = Directory('${output.path}.tracks');
+      var videoBytes = 0;
+      var audioBytes = 0;
+      final temporary = File('${output.path}.master');
+      try {
+        await tracks.create(recursive: true);
+        // 每路独立校验、解密和恢复，任一路失败均不发布主清单。
+        for (final sound in [false, true]) {
+          final name = sound ? 'audio' : 'video';
+          final part = File(p.join(tracks.path, '$name.m3u8.part'));
+          await HlsDownload(
+            sound ? soundTransport : transport,
+            keepPlaylist: true,
+          ).run(
+            sound ? audio!.playlist : url,
+            output: part,
+            cancelToken: cancelToken,
+            onProgress: (done, total, bytes) {
+              if (sound) {
+                audioBytes = bytes;
+              } else {
+                videoBytes = bytes;
+              }
+              onProgress(
+                (sound ? 1000 : 0) + (total > 0 ? done * 1000 ~/ total : 0),
+                2000,
+                videoBytes + audioBytes,
+              );
+            },
+          );
+          _check(cancelToken);
+          await part.rename(p.join(tracks.path, '$name.m3u8'));
+        }
+        final directory = Uri.encodeComponent(p.basename(tracks.path));
+        await temporary.writeAsString(
+          [
+            '#EXTM3U',
+            '#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="audio",NAME="audio",DEFAULT=YES,AUTOSELECT=YES,URI="$directory/audio.m3u8"',
+            '#EXT-X-STREAM-INF:BANDWIDTH=${audio!.bandwidth},AUDIO="audio"',
+            '$directory/video.m3u8',
+            '',
+          ].join('\n'),
+          flush: true,
+        );
+        _check(cancelToken);
+        await temporary.rename(output.path);
+      } finally {
+        await transport.close();
+        await soundTransport.close();
+        if (await temporary.exists()) await temporary.delete();
+      }
+      return;
+    }
     final resources = HlsResources(transport, cancelToken);
     final work = Directory('${output.path}.hls');
     final input = File(p.join(work.path, 'input.ts'));

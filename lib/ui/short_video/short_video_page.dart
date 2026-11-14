@@ -23,6 +23,7 @@ import '../../engine/source_manager.dart';
 import '../../images/park_image.dart';
 import '../../library/library.dart';
 import '../comments/comments_page.dart';
+import '../detail/detail_download.dart';
 import '../kit/kit.dart';
 import '../nav.dart';
 import '../settings/settings_sections.dart';
@@ -773,6 +774,10 @@ class _ShortVideoPageState extends State<ShortVideoPage>
                       ),
                     ),
                     const SizedBox(width: 8),
+                    WorkDownloadButton(
+                      item: videoPost(item),
+                      color: Scrims.onScrim,
+                    ),
                     CommentsEntry(
                       source: item.source,
                       workId: item.id,

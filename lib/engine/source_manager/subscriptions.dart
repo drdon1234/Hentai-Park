@@ -1,5 +1,17 @@
 part of '../source_manager.dart';
 
+WorkPage _downloadScopedPage(WorkPage page, Map<String, Object?> scope) {
+  for (final item in [
+    ...page.items,
+    for (final section in page.sections ?? <WorkSection>[]) ...section.items,
+  ]) {
+    if (item.isSubscriptionPost) {
+      item.json['downloadScope'] = Map<String, Object?>.from(scope);
+    }
+  }
+  return page;
+}
+
 /// Update subscriptions and their attachments.
 mixin _SubscriptionApi on _SourceRegistry {
   Future<Map<String, dynamic>> subscriptionQuery(
@@ -111,12 +123,18 @@ mixin _SubscriptionApi on _SourceRegistry {
     String target, {
     String? cursor,
     CancelToken? cancelToken,
-  }) async => SubscriptionPage(
-    (await _call(key, 'subscription.posts', [
-      target,
-      {'cursor': cursor},
-    ], cancelToken: cancelToken)) as Map,
-  );
+  }) async {
+    final result = SubscriptionPage(
+      (await _call(key, 'subscription.posts', [
+        target,
+        {'cursor': cursor},
+      ], cancelToken: cancelToken)) as Map,
+    );
+    for (final post in result.items) {
+      post.json['downloadScope'] = {'target': target};
+    }
+    return result;
+  }
 
   Future<WorkPage> subscriptionAlbum(
     String key,
@@ -129,7 +147,62 @@ mixin _SubscriptionApi on _SourceRegistry {
       scope,
       {'page': page, 'cursor': cursor},
     ], cancelToken: cancelToken);
-    return parseAlbumPage(result, key, page);
+    final parsed = parseAlbumPage(result, key, page);
+    for (final item in parsed.items) {
+      item.json['downloadScope'] = Map<String, Object?>.from(scope);
+    }
+    return parsed;
+  }
+
+  /// 没有独立详情的帖子从原浏览范围重新定位，任务不保存临时媒体地址。
+  Future<WorkDetail> downloadPost(
+    WorkItem item, {
+    CancelToken? cancelToken,
+  }) async {
+    final scope = item.json['downloadScope'];
+    if (scope is! Map) throw SourceError('NOT_FOUND', '内容不存在或已被删除');
+    String? cursor;
+    final cursors = <String>{};
+    for (var page = 1; page <= 1000; page++) {
+      if (cancelToken?.cancelError case final error?) throw error;
+      final WorkPage result;
+      if (manifest(item.source)?.can('album') == true) {
+        result = await subscriptionAlbum(
+          item.source,
+          scope.cast<String, Object?>(),
+          page: page,
+          cursor: cursor,
+          cancelToken: cancelToken,
+        );
+      } else {
+        final target = scope['target'];
+        if (target is! String) throw SourceError('PARSE', '媒体数据无效');
+        final posts = await subscriptionPosts(
+          item.source,
+          target,
+          cursor: cursor,
+          cancelToken: cancelToken,
+        );
+        result = WorkPage(
+          items: [
+            for (final post in posts.items) WorkItem(post.json, item.source),
+          ],
+          page: page,
+          cursor: posts.cursor,
+          hasNext: posts.hasNext,
+        );
+      }
+      final found = result.items
+          .where((post) => post.id == item.id)
+          .firstOrNull;
+      if (found != null) return WorkDetail(found.json, item.source);
+      if (!result.hasNext) break;
+      cursor = result.cursor;
+      if (cursor != null && !cursors.add(cursor)) {
+        throw SourceError('PARSE', '媒体数据无效');
+      }
+    }
+    throw SourceError('NOT_FOUND', '内容不存在或已被删除');
   }
 
   /// 源插件只返回附件块；由框架控制本地路径、大小与原子完成，取消不会留下假完整文件。

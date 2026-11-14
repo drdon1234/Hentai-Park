@@ -38,6 +38,8 @@ ASMRHoney admite colecciones de vídeos, colecciones anidadas e imágenes adjunt
 
 En móviles, los recursos de juegos muestran un diálogo con enlaces, códigos de acceso y contraseñas de archivos, si existen. Puedes copiar cada campo o todo para descargar en un ordenador; los enlaces directos también permiten elegir la descarga en el dispositivo actual.
 
+El audio se puede descargar por obra, carpeta o archivo, con sus subtítulos asociados. Los vídeos cortos, publicaciones y artículos pueden guardar texto, imágenes, audio y vídeos accesibles en la fuente. Abre el contenido sin conexión desde Descargas; los archivos ausentes se indican sin recuperarlos en línea. El contenido disponible solo como vista previa se guarda como tal. HLS con audio y vídeo separados guarda ambas pistas y se exporta como ZIP; conserva todos los archivos juntos. En las tareas de vídeo pendientes puedes cambiar la fuente desde Descargas y conservar los episodios completados.
+
 ## Clasificaciones
 
 | Categoría | Sitios / servicios |

@@ -6,15 +6,13 @@ import 'dart:math';
 import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
-import 'package:path/path.dart' as p;
 
 import '../core/app_log.dart';
 import '../core/models.dart';
-import '../core/storage.dart';
 import '../engine/media_transport.dart';
 import 'hls.dart';
-import 'hls_download.dart';
 import 'hls_resources.dart';
+import 'hls_windows.dart';
 import 'local_hls_media.dart';
 import 'playback.dart';
 import 'playback_cache.dart';
@@ -49,12 +47,7 @@ class HlsPlayback implements Playback {
   int _playlistRefresh = 0;
   late final _resources = HlsResources(transport, _cancel);
   final Map<String, Uint8List> _cache = {};
-  final _windowSegments = <String, List<HlsSegment>>{};
-  final _windowPending = <String, Future<Uint8List>>{};
-  final _windowCache = <String, Uint8List>{};
-  final _windowTrimUs = <String, int>{};
-  Future<Uint8List>? _windowPriming;
-  String? _windowInitPath;
+  HlsWindows? _windows;
 
   /// 点播分段在内存淘汰后仍保存在本次会话的临时文件中，往回拖动不再重新下载。
   SegmentCache? _disk;
@@ -67,8 +60,6 @@ class HlsPlayback implements Playback {
     (_) => Random.secure().nextInt(256),
   ).map((n) => n.toRadixString(16).padLeft(2, '0')).join();
   HttpServer? _server;
-  File? _remuxedFile;
-  Uint8List? _tsPriming;
   Future<void>? _closing;
   bool _closed = false;
   bool _opened = false;
@@ -81,7 +72,14 @@ class HlsPlayback implements Playback {
     _opened = true;
     try {
       transport.validate(url);
-      final audio = this.audio;
+      var audio = this.audio;
+      if (transport case final LocalHlsMedia local) {
+        final selected = await local.variant();
+        url = selected.video;
+        if (selected.audio case final sound?) {
+          audio = HlsAudioVariant(playlist: sound, bandwidth: 1);
+        }
+      }
       if (audio != null) {
         // 直播窗口刷新只跟踪单个媒体清单。
         if (live) throw SourceError('UNSUPPORTED', 'HLS 使用了不支持的媒体格式');
@@ -89,7 +87,9 @@ class HlsPlayback implements Playback {
       }
       _upstream = url;
       _manifestUrls.add(url);
-      final playlistUrl = live ? url : _freshPlaylistUrl(url);
+      final playlistUrl = live || transport is LocalHlsMedia
+          ? url
+          : _freshPlaylistUrl(url);
       if (playlistUrl != url) authorizeMediaResource(transport, playlistUrl);
       final list = await _mediaPlaylist(playlistUrl);
       final audioList = audio == null
@@ -112,13 +112,23 @@ class HlsPlayback implements Playback {
       _server = server;
       _playlistPath = '/$_token/index.m3u8';
       final root = Uri.parse('http://127.0.0.1:${server.port}$_playlistPath');
-      if (!live &&
+      if (Platform.isAndroid &&
+          transport is! LocalHlsMedia &&
+          !live &&
           audio == null &&
           list.initialization == null &&
           list.segments.length > 120) {
-        await _openFullyRemuxedVod(list);
+        final windows = HlsWindows(list, root, _disk, (segment, token) {
+          final path = _segmentPaths.putIfAbsent(
+            '${segment.sequence}',
+            () => _register(segment).path,
+          );
+          return _readSegment(path, requestToken: token);
+        });
+        _windows = windows;
+        _publish(root.path, windows.playlist());
         server.listen((request) => unawaited(_serve(request)));
-        return root.resolve('video.mp4');
+        return root;
       }
       if (audioList == null || audio == null) {
         _publish(
@@ -158,45 +168,14 @@ class HlsPlayback implements Playback {
     }
   }
 
-  Future<void> _openFullyRemuxedVod(HlsPlaylist list) async {
-    final work = Directory(p.join(AppPaths.cache.path, 'hls_full', _token));
-    await work.create(recursive: true);
-    final input = File(p.join(work.path, 'input.ts'));
-    final output = File(p.join(work.path, 'output.mp4'));
-    if (await input.exists()) await input.delete();
-    if (await output.exists()) await output.delete();
-    try {
-      final sink = await input.open(mode: FileMode.write);
-      try {
-        const batchSize = 8;
-        for (var start = 0; start < list.segments.length; start += batchSize) {
-          final end = min(start + batchSize, list.segments.length);
-          final paths = list.segments
-              .sublist(start, end)
-              .map((segment) => _register(segment).path)
-              .toList();
-          final chunks = await Future.wait(paths.map(_readSegment));
-          for (final bytes in chunks) {
-            await sink.writeFrom(bytes);
-          }
-        }
-      } finally {
-        await sink.close();
-      }
-      await remuxTransportStream(input, output, _cancel);
-      if (_closed) throw SourceError('CANCELLED', '媒体会话已关闭');
-      _remuxedFile = output;
-    } catch (_) {
-      if (await output.exists()) await output.delete();
-      rethrow;
-    }
-  }
-
-  Future<HlsPlaylist> _mediaPlaylist(Uri url) async {
+  Future<HlsPlaylist> _mediaPlaylist(
+    Uri url, {
+    CancelToken? requestToken,
+  }) async {
     final response = await transport.fetch(
       url,
       maxBytes: 2 * 1024 * 1024,
-      cancelToken: _cancel,
+      cancelToken: requestToken ?? _cancel,
     );
     _manifestUrls.add(response.url);
     final list = HlsPlaylist.parse(
@@ -311,18 +290,9 @@ class HlsPlayback implements Playback {
   }
 
   Future<Uint8List> _resource(String path) async {
-    if (_windowSegments.containsKey(path) || path == _windowInitPath) {
-      final cached = _windowCache[path];
-      if (cached != null) return cached;
-      if (_windowPending[path] case final pending?) return pending;
-      final operation = _buildWindow(path);
-      unawaited(operation);
-      _windowPending[path] = operation;
-      try {
-        return await operation;
-      } finally {
-        unawaited(_windowPending.remove(path));
-      }
+    final windows = _windows;
+    if (windows != null && windows.contains(path)) {
+      return windows.resource(path);
     }
     if (live && path == _playlistPath) return _livePlaylist();
     final cached = _cache.remove(path);
@@ -336,7 +306,7 @@ class HlsPlayback implements Playback {
       try {
         final stored = await _disk?.read(path);
         final bytes = stored ?? await _readSegment(path);
-        final repaired = stored ?? await _repairTsSeekHeader(path, bytes);
+        final repaired = bytes;
         if (_closed) throw SourceError('CANCELLED', '媒体会话已关闭');
         await _disk?.store(path, repaired);
         if (repaired.length <= _cacheLimit) {
@@ -366,119 +336,6 @@ class HlsPlayback implements Playback {
     }
   }
 
-  Future<Uint8List> _buildWindow(String requestedPath) async {
-    final segments = requestedPath == _windowInitPath
-        ? _windowSegments.values.first
-        : _windowSegments[requestedPath];
-    if (segments == null || segments.isEmpty) {
-      throw SourceError('NETWORK', 'HLS 窗口不存在');
-    }
-    final work = Directory(p.join(AppPaths.cache.path, 'hls_windows', _token));
-    await work.create(recursive: true);
-    final input = File(p.join(work.path, 'window.ts'));
-    final output = File(p.join(work.path, 'window.mp4'));
-    try {
-      final windowIndex = requestedPath == _windowInitPath
-          ? 0
-          : _windowSegments.keys.toList().indexOf(requestedPath);
-      final prefix = windowIndex <= 0
-          ? const <Uint8List>[]
-          : <Uint8List>[
-              await _windowPrimingBytes(_windowSegments.values.first.first),
-            ];
-      final sink = await input.open(mode: FileMode.write);
-      try {
-        for (final bytes in prefix) {
-          await sink.writeFrom(bytes);
-        }
-        for (final segment in segments) {
-          final path = _register(segment).path;
-          final bytes = await _readSegment(path);
-          await sink.writeFrom(bytes);
-        }
-      } finally {
-        await sink.close();
-      }
-      await remuxTransportStreamFragment(
-        input,
-        output,
-        _cancel,
-        trimUs: _windowTrimUs[requestedPath] ?? 0,
-      );
-      final boxes = await output.readAsBytes();
-      final split = _splitFragmentedMp4(boxes);
-      _windowCache[_windowInitPath!] = split.$1;
-      final mediaPath = requestedPath == _windowInitPath
-          ? _windowSegments.keys.first
-          : requestedPath;
-      _windowCache[mediaPath] = split.$2;
-      return _windowCache[requestedPath]!;
-    } finally {
-      if (await input.exists()) await input.delete();
-      if (await output.exists()) await output.delete();
-      if (await work.exists()) await work.delete(recursive: true);
-    }
-  }
-
-  Future<Uint8List> _windowPrimingBytes(HlsSegment segment) {
-    return _windowPriming ??= () async {
-      final path = _register(segment).path;
-      return _readSegment(path);
-    }();
-  }
-
-  (Uint8List, Uint8List) _splitFragmentedMp4(Uint8List bytes) {
-    final data = ByteData.sublistView(bytes);
-    var offset = 0;
-    var firstMedia = -1;
-    while (offset < bytes.length) {
-      if (bytes.length - offset < 8) throw SourceError('NETWORK', '窗口封装已损坏');
-      var size = data.getUint32(offset);
-      final type = String.fromCharCodes(bytes.sublist(offset + 4, offset + 8));
-      var header = 8;
-      if (size == 1) {
-        if (bytes.length - offset < 16 || data.getUint32(offset + 8) != 0) {
-          throw SourceError('NETWORK', '窗口封装已损坏');
-        }
-        size = data.getUint32(offset + 12);
-        header = 16;
-      } else if (size == 0) {
-        size = bytes.length - offset;
-      }
-      if (size < header || size > bytes.length - offset) {
-        throw SourceError('NETWORK', '窗口封装已损坏');
-      }
-      if (type == 'moof' && firstMedia < 0) firstMedia = offset;
-      offset += size;
-    }
-    if (firstMedia <= 0) throw SourceError('NETWORK', '窗口缺少媒体片段');
-    return (
-      Uint8List.sublistView(bytes, 0, firstMedia),
-      Uint8List.sublistView(bytes, firstMedia),
-    );
-  }
-
-  Future<Uint8List> _repairTsSeekHeader(String path, Uint8List bytes) async {
-    final segment = _routes[path];
-    if (segment == null || segment.kind != HlsResourceKind.transportStream) {
-      return bytes;
-    }
-    if (segment.sequence == BigInt.zero) {
-      _tsPriming ??= Uint8List.fromList(
-        bytes.take(min(bytes.length, 188 * 32)).toList(),
-      );
-      return bytes;
-    }
-    final priming = _tsPriming;
-    if (priming == null || priming.isEmpty || bytes.length % 188 != 0) {
-      return bytes;
-    }
-    final output = Uint8List(priming.length + bytes.length);
-    output.setRange(0, priming.length, priming);
-    output.setRange(priming.length, output.length, bytes);
-    return output;
-  }
-
   Future<void> _acquireResourceSlot() async {
     if (_closed) throw SourceError('CANCELLED', '媒体会话已关闭');
     if (_resourceLoads < _maxResourceLoads) {
@@ -503,10 +360,21 @@ class HlsPlayback implements Playback {
     }
   }
 
-  Future<Uint8List> _readSegment(String path) async {
+  Future<Uint8List> _readSegment(
+    String path, {
+    CancelToken? requestToken,
+  }) async {
+    void check() {
+      if (_cancel.cancelError case final error?) throw error;
+      if (requestToken?.cancelError case final error?) throw error;
+    }
+
+    check();
     final segment = _routes[path];
     if (segment == null) throw SourceError('NETWORK', '媒体分片不存在');
-    if (live || _upstream == null) return _readCandidate(path, segment);
+    if (live || _upstream == null) {
+      return _readCandidate(path, segment, requestToken: requestToken);
+    }
     Object? lastError;
     final fallbackHosts = _cdnFallbackHosts(segment.url.host);
     final preferred = _preferredCdnHost;
@@ -519,24 +387,38 @@ class HlsPlayback implements Playback {
       if (host != preferred) candidates.add(_segmentOnHost(segment, host));
     }
     for (final candidate in candidates) {
+      check();
       try {
-        return await _readCandidate(path, candidate);
+        return await _readCandidate(
+          path,
+          candidate,
+          requestToken: requestToken,
+        );
       } catch (error) {
         lastError = error;
       }
     }
-    // A refreshed manifest can move the sequence to a different edge. Keep
-    // this bounded: the player must receive a response before its own load
-    // timeout, so every candidate above has its own cancellation deadline.
+    // 清单刷新可将同一分片移到其他节点。请求次数有界，网络超时由传输层
+    // 处理，不能把持续有进度的下载、解密或封装算成 CDN 停滞。
     for (var attempt = 0; attempt < 2; attempt++) {
+      check();
       try {
-        final refreshed = await _mediaPlaylist(_freshPlaylistUrl(_upstream!));
+        final refreshedUrl = _freshPlaylistUrl(_upstream!);
+        authorizeMediaResource(transport, refreshedUrl);
+        final refreshed = await _mediaPlaylist(
+          refreshedUrl,
+          requestToken: requestToken,
+        );
         final replacement = refreshed.segments.firstWhere(
           (candidate) => candidate.sequence == segment.sequence,
           orElse: () => segment,
         );
         final candidate = _withSegmentHostKey(replacement, segment);
-        return await _readCandidate(path, candidate);
+        return await _readCandidate(
+          path,
+          candidate,
+          requestToken: requestToken,
+        );
       } catch (error) {
         lastError = error;
       }
@@ -545,22 +427,29 @@ class HlsPlayback implements Playback {
     throw SourceError('NETWORK', '媒体分片读取失败');
   }
 
-  Future<Uint8List> _readCandidate(String path, HlsSegment candidate) async {
+  Future<Uint8List> _readCandidate(
+    String path,
+    HlsSegment candidate, {
+    CancelToken? requestToken,
+  }) async {
     final previousHost = _routes[path]?.url.host;
     authorizeMediaResource(transport, candidate.url);
     if (candidate.key case final key?) authorizeMediaResource(transport, key);
     final token = CancelToken();
+    var finished = false;
+    void cancel(Object? reason) {
+      if (!finished) token.cancel(reason);
+    }
+
+    unawaited(_cancel.whenCancel.then(cancel));
+    if (requestToken != null) unawaited(requestToken.whenCancel.then(cancel));
+    if (_cancel.isCancelled || (requestToken?.isCancelled ?? false)) {
+      token.cancel();
+    }
     try {
-      final bytes = await _resources
-          .read(candidate, requestToken: token)
-          .timeout(
-            const Duration(seconds: 8),
-            onTimeout: () {
-              token.cancel('HLS CDN candidate timeout');
-              throw SourceError('TIMEOUT', 'HLS CDN 节点响应超时');
-            },
-          );
-      _routes[path] = candidate;
+      final bytes = await _resources.read(candidate, requestToken: token);
+      // 保留清单中的原始路由，避免缓存淘汰后把备用主机当作唯一来源，
+      // 从而丢失这组分片原有的其他 CDN 候选。
       if (candidate.url.host != previousHost) {
         if (_cdnFallbackHosts(previousHost ?? '')
             .contains(candidate.url.host)) {
@@ -575,6 +464,7 @@ class HlsPlayback implements Playback {
       }
       return bytes;
     } finally {
+      finished = true;
       token.cancel('HLS CDN candidate finished');
     }
   }
@@ -626,18 +516,11 @@ class HlsPlayback implements Playback {
           request.uri.hasQuery ||
           (!_playlists.contains(path) &&
               !_routes.containsKey(path) &&
-              !_windowSegments.containsKey(path) &&
-              path != _windowInitPath &&
-              !(_remuxedFile != null && path == '/$_token/video.mp4'))) {
+              !(_windows?.contains(path) ?? false))) {
         response.statusCode = HttpStatus.notFound;
       } else if (request.method != 'GET' && request.method != 'HEAD') {
         response.statusCode = HttpStatus.methodNotAllowed;
       } else {
-        final remuxed = _remuxedFile;
-        if (remuxed != null && path == '/$_token/video.mp4') {
-          await _serveRemuxed(request, remuxed);
-          return;
-        }
         final bytes = await _resource(path);
         response.headers.contentType = ContentType.parse(
           path.endsWith('.m3u8')
@@ -698,47 +581,10 @@ class HlsPlayback implements Playback {
     }
   }
 
-  Future<void> _serveRemuxed(HttpRequest request, File file) async {
-    final response = request.response;
-    final length = await file.length();
-    var start = 0;
-    var end = length - 1;
-    final range = request.headers.value('range');
-    if (range != null) {
-      final match = RegExp(r'^bytes=(\d*)-(\d*)$').firstMatch(range);
-      var valid =
-          match != null && (match[1]!.isNotEmpty || match[2]!.isNotEmpty);
-      if (valid) {
-        if (match[1]!.isEmpty) {
-          final suffix = int.tryParse(match[2]!);
-          valid = suffix != null && suffix > 0;
-          if (valid) start = max(0, length - suffix);
-        } else {
-          start = int.tryParse(match[1]!) ?? length;
-          if (match[2]!.isNotEmpty) {
-            end = min(end, int.tryParse(match[2]!) ?? -1);
-          }
-          valid = start <= end && start < length;
-        }
-      }
-      if (!valid) {
-        response.statusCode = HttpStatus.requestedRangeNotSatisfiable;
-        response.headers.set('Content-Range', 'bytes */$length');
-        return;
-      }
-      response.statusCode = HttpStatus.partialContent;
-      response.headers.set('Content-Range', 'bytes $start-$end/$length');
-    }
-    response.headers.contentType = ContentType('video', 'mp4');
-    response.headers.set('Accept-Ranges', 'bytes');
-    response.contentLength = end - start + 1;
-    if (request.method != 'HEAD') {
-      await response.addStream(file.openRead(start, end + 1));
-    }
-  }
-
   void _logSegment(Object error, StackTrace stack) {
-    if (_closed || (error is DioException && CancelToken.isCancel(error))) {
+    if (_closed ||
+        (error is DioException && CancelToken.isCancel(error)) ||
+        (error is SourceError && error.code == 'CANCELLED')) {
       return;
     }
     AppLog.error(
@@ -759,22 +605,11 @@ class HlsPlayback implements Playback {
     } finally {
       _server = null;
       try {
+        await _windows?.close();
         await transport.close();
       } finally {
-        final remuxed = _remuxedFile;
-        _remuxedFile = null;
-        if (remuxed != null) {
-          try {
-            await remuxed.parent.delete(recursive: true);
-          } catch (_) {}
-        }
+        _windows = null;
         _cache.clear();
-        _windowSegments.clear();
-        _windowPending.clear();
-        _windowCache.clear();
-        _windowTrimUs.clear();
-        _windowPriming = null;
-        _windowInitPath = null;
         _routes.clear();
         _playlists.clear();
         _playlistPath = null;

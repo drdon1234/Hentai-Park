@@ -10,6 +10,7 @@ import '../../core/models.dart';
 import '../../core/timed_subtitles.dart';
 import '../../engine/media_transport_factory.dart';
 import '../../engine/source_manager.dart';
+import '../../library/downloads.dart';
 import '../kit/tokens.dart';
 import '../video/video_session.dart';
 import '../widgets/content_translation.dart';
@@ -98,6 +99,28 @@ class _VoiceSubtitlesState extends State<VoiceSubtitles> {
         return;
       }
       final work = widget.session.work;
+      final local = await DownloadManager.instance.localBundleResource(
+        work.source,
+        work.id,
+        subtitle,
+      );
+      if (local != null) {
+        final timeline = TimedSubtitles.parse(
+          await local.file.readAsString(),
+          format: local.format,
+        );
+        if (timeline.cues.isEmpty) throw SourceError('PARSE', '媒体数据无效');
+        if (mounted && !cancel.isCancelled) {
+          setState(() {
+            _timeline = timeline;
+            widget.session.voiceCaptions[subtitle] = timeline;
+          });
+        }
+        return;
+      }
+      if (widget.session.downloadedOnly) {
+        throw SourceError('NOT_FOUND', '本地文件已被删除');
+      }
       final source = SourceManager.instance.manifest(work.source);
       if (source == null) throw SourceError('CONFIG', '媒体数据无效');
       final resource = await SourceManager.instance.voiceResource(

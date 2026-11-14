@@ -32,6 +32,7 @@ class NativeMedia
   final String _proxy;
   final _requests = <CancelToken>{};
   bool _closed = false;
+  static const _readIdleTimeout = Duration(seconds: 8);
 
   static Dio _build(MediaPolicy policy, String proxy) {
     final dio = Dio(BaseOptions(connectTimeout: const Duration(seconds: 15)));
@@ -108,9 +109,27 @@ class NativeMedia
         response.headers['content-encoding']?.join(',').toLowerCase() ?? '';
     final result = Completer<Uint8List>();
     final bytes = BytesBuilder(copy: false);
+    Timer? idleTimer;
+    void expectProgress() {
+      idleTimer?.cancel();
+      idleTimer = Timer(_readIdleTimeout, () {
+        if (!result.isCompleted) {
+          result.completeError(
+            SourceError(
+              'TIMEOUT',
+              '请求超时',
+              diagnostics: {'reason': 'RECEIVE_TIMEOUT'},
+            ),
+          );
+        }
+      });
+    }
+
+    expectProgress();
     final subscription = response.stream.listen(
       (chunk) {
         if (result.isCompleted) return;
+        if (chunk.isNotEmpty) expectProgress();
         if (bytes.length + chunk.length > maxBytes) {
           result.completeError(SourceError('NETWORK', '媒体资源过大'));
         } else {
@@ -147,6 +166,7 @@ class NativeMedia
       }
       return await awaitCancelled(result.future, token);
     } finally {
+      idleTimer?.cancel();
       await subscription.cancel();
     }
   }
@@ -156,16 +176,44 @@ class NativeMedia
     Uri url, {
     required int maxBytes,
     CancelToken? cancelToken,
-  }) async {
-    validate(url);
+  }) {
     if (maxBytes < 1 || maxBytes > 32 * 1024 * 1024) {
       throw ArgumentError.value(maxBytes, 'maxBytes');
     }
-    final token = CancelToken();
-    final timeout = Timer(
-      const Duration(seconds: 45),
-      () => token.cancel('media timeout'),
+    return _request(url, maxBytes: maxBytes, cancelToken: cancelToken);
+  }
+
+  /// 大文件按流写入，沿用播放的地址、请求头和重定向隔离策略。
+  Future<void> download(
+    Uri url,
+    File output, {
+    required CancelToken cancelToken,
+    required void Function(int received, int total) onProgress,
+  }) async {
+    if (policy.mode != 'native') throw SourceError('CONFIG', '媒体数据无效');
+    await _request(
+      url,
+      output: output,
+      cancelToken: cancelToken,
+      onProgress: onProgress,
     );
+  }
+
+  Future<MediaResponse> _request(
+    Uri url, {
+    int maxBytes = 0,
+    File? output,
+    CancelToken? cancelToken,
+    void Function(int, int)? onProgress,
+  }) async {
+    validate(url);
+    final token = CancelToken();
+    final timeout = output != null
+        ? null
+        : Timer(
+            const Duration(seconds: 45),
+            () => token.cancel('media timeout'),
+          );
     if (_closed) token.cancel('media closed');
     if (cancelToken?.cancelError case final error?) token.cancel(error);
     final cancellation = cancelToken?.whenCancel.asStream().listen(
@@ -195,7 +243,7 @@ class NativeMedia
                   followRedirects: false,
                   validateStatus: (_) => true,
                   sendTimeout: const Duration(seconds: 15),
-                  receiveTimeout: const Duration(seconds: 40),
+                  receiveTimeout: _readIdleTimeout,
                   headers: {
                     'User-Agent': HttpService.instance.userAgent,
                     'Referer': '${policy.origin}/',
@@ -240,7 +288,38 @@ class NativeMedia
               diagnostics: {'host': target.host, 'transport': 'native'},
             );
           }
-          final bytes = await _read(body, maxBytes, token);
+          final Uint8List bytes;
+          if (output == null) {
+            bytes = await _read(body, maxBytes, token);
+          } else {
+            final length = int.tryParse(
+              response.headers.value('content-length') ?? '',
+            );
+            final encoding = response.headers.value('content-encoding');
+            if (encoding != null && encoding != 'identity') {
+              throw SourceError('NETWORK', '媒体资源为空或不完整');
+            }
+            final sink = await output.open(mode: FileMode.write);
+            var received = 0;
+            try {
+              await for (final chunk in body.stream.timeout(_readIdleTimeout)) {
+                _check(token);
+                await sink.writeFrom(chunk);
+                received += chunk.length;
+                if (length != null && received > length) {
+                  throw SourceError('NETWORK', '媒体资源为空或不完整');
+                }
+                onProgress?.call(received, length ?? 0);
+              }
+              await sink.flush();
+              if (received == 0 || (length != null && length != received)) {
+                throw SourceError('NETWORK', '媒体资源为空或不完整');
+              }
+            } finally {
+              await sink.close();
+            }
+            bytes = Uint8List(0);
+          }
           _check(token);
           return MediaResponse(bytes, target);
         } finally {
@@ -254,7 +333,7 @@ class NativeMedia
       }
       throw SourceError('NETWORK', '媒体重定向次数过多');
     } finally {
-      timeout.cancel();
+      timeout?.cancel();
       await cancellation?.cancel();
       _requests.remove(token);
     }

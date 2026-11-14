@@ -18,6 +18,7 @@ import '../../subscriptions/models.dart';
 import '../../subscriptions/subscription_store.dart';
 import '../album/open_album.dart';
 import '../comments/comments_page.dart';
+import '../detail/detail_download.dart';
 import '../nav.dart';
 import '../settings/source_settings_page.dart';
 import '../short_video/post_video_feed.dart';
@@ -46,7 +47,10 @@ class SubscriptionWorkPage extends StatelessWidget {
           source: item.source,
           builder: Text.new,
         ),
-        actions: [TranslationControls(source: item.source)],
+        actions: [
+          TranslationControls(source: item.source),
+          WorkDownloadButton(item: item),
+        ],
       ),
       body: ListView(
         children: [
@@ -425,6 +429,11 @@ class SubscriptionPostCard extends StatelessWidget {
               ),
             if (post.date.isNotEmpty)
               Text(post.date, style: Theme.of(context).textTheme.bodySmall),
+            if (!selectable)
+              Align(
+                alignment: AlignmentDirectional.centerEnd,
+                child: WorkDownloadButton(item: WorkItem(post.json, source)),
+              ),
             if (post.text.isNotEmpty)
               Padding(
                 padding: const EdgeInsets.symmetric(vertical: 8),
@@ -789,6 +798,7 @@ class _SubscriptionMediaPageState extends State<SubscriptionMediaPage> {
             ? Text(tr('订阅媒体'))
             : TranslatedText(widget.post.title),
         actions: [
+          WorkDownloadButton(item: WorkItem(widget.post.json, widget.source)),
           if (widget.post.title.isNotEmpty) const TranslationControls(),
         ],
       ),

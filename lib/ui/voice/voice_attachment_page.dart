@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
@@ -24,10 +25,14 @@ class VoiceAttachmentPage extends StatefulWidget {
     required this.work,
     required this.node,
     this.sourceManager,
+    this.localFile,
+    this.localFormat,
   });
   final WorkDetail work;
   final VoiceNode node;
   final SourceManager? sourceManager;
+  final File? localFile;
+  final String? localFormat;
 
   @override
   State<VoiceAttachmentPage> createState() => _VoiceAttachmentPageState();
@@ -56,6 +61,26 @@ class _VoiceAttachmentPageState extends State<VoiceAttachmentPage> {
       _error = null;
     });
     try {
+      if (widget.localFile case final file?) {
+        if (await file.length() > 20 * 1024 * 1024) {
+          throw SourceError('PARSE', '媒体资源过大');
+        }
+        final bytes = await file.readAsBytes();
+        final text = widget.node.kind == VoiceNodeKind.image
+            ? null
+            : utf8.decode(bytes);
+        final cues = widget.node.kind == VoiceNodeKind.subtitle
+            ? TimedSubtitles.parse(text!, format: widget.localFormat ?? '').cues
+            : null;
+        if (mounted && !cancel.isCancelled) {
+          setState(() {
+            _bytes = bytes;
+            _text = text;
+            _cues = cues;
+          });
+        }
+        return;
+      }
       final manager = widget.sourceManager ?? SourceManager.instance;
       final source = manager.manifest(widget.work.source);
       if (source == null) throw SourceError('CONFIG', '媒体数据无效');

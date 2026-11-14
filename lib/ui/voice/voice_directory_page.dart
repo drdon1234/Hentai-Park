@@ -7,8 +7,11 @@ import '../../core/localization.dart';
 import '../../core/models.dart';
 import '../../core/voice.dart';
 import '../../engine/source_manager.dart';
+import '../../library/downloads.dart';
+import '../detail/detail_download.dart';
 import '../kit/kit.dart';
 import '../nav.dart';
+import '../theme.dart';
 import '../widgets/common.dart' show LoadingIndicator;
 import '../widgets/content_translation.dart';
 import '../widgets/error_view.dart';
@@ -252,7 +255,10 @@ class _VoiceDirectoryPageState extends State<VoiceDirectoryPage> {
   }
 
   Widget _row(_TreeRow row) {
-    final indent = (row.depth * Gap.l).clamp(0.0, 7 * Gap.l);
+    final indent = (row.depth * Gap.l).clamp(
+      0.0,
+      (MediaQuery.sizeOf(context).width - 288).clamp(0.0, 7 * Gap.l),
+    );
     if (row.status) {
       if (row.folder.error case final error?) {
         final id = _folders.entries
@@ -301,15 +307,43 @@ class _VoiceDirectoryPageState extends State<VoiceDirectoryPage> {
           leading: Icon(icon),
           title: isDirectory ? TranslatedText(node.name) : Text(node.name),
           subtitle: languageLabel == null ? null : Text(languageLabel),
-          trailing: isDirectory
-              ? Icon(
+          trailing: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              IconButton(
+                tooltip: tr('下载'),
+                icon: const Icon(Icons.download_outlined),
+                onPressed: () {
+                  if (DownloadManager.instance.hasRestoreFailure(
+                    widget.work.uid,
+                  )) {
+                    context.toast(tr('下载记录恢复失败，请前往下载页处理'));
+                    return;
+                  }
+                  final linked = row.folder.subtitles[node.id] ?? [];
+                  DownloadManager.instance.enqueueBundle(
+                    widget.work.toItem(),
+                    node: {
+                      'id': node.id,
+                      'name': node.name,
+                      'type': node.kind.name,
+                      if (linked.isNotEmpty)
+                        'subtitleIds': linked.map((e) => e.id).toList(),
+                    },
+                  );
+                  context.toast(tr('已加入下载队列'));
+                },
+              ),
+              if (isDirectory)
+                Icon(
                   expanded
                       ? Icons.expand_less_rounded
                       : Icons.expand_more_rounded,
                 )
-              : node.playable
-              ? const Icon(Icons.play_arrow_rounded)
-              : null,
+              else if (node.playable)
+                const Icon(Icons.play_arrow_rounded),
+            ],
+          ),
           onTap: isDirectory
               ? () => _toggleFolder(node)
               : node.playable
@@ -344,7 +378,10 @@ class _VoiceDirectoryPageState extends State<VoiceDirectoryPage> {
     return Scaffold(
       appBar: PageHeader(
         titleWidget: TranslatedText(widget.work.title),
-        actions: const [TranslationControls()],
+        actions: [
+          WorkDownloadButton(item: widget.work.toItem(), detail: widget.work),
+          const TranslationControls(),
+        ],
       ),
       body: Column(
         children: [

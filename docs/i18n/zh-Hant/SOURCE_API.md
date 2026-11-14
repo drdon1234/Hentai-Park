@@ -276,7 +276,7 @@ account: {
 
 目錄來源使用 `type: 'voice', category: 'asmr'`，影片來源可使用 `type: 'video'`。`voiceLanguageStatus` 為 `chineseSpoken`、`chineseSubtitled`、`foreignOriginal` 或 `unknown`；`voiceMediaForm` 為 `audioOnly`、`videoOnly`、`mixed` 或 `unknown`，只填來源或完整目錄可證實的值。
 
-詳情可提供 `voiceRoot: {id, name, type}`；`voiceDirectory(workId, directoryId, {page})` 回傳 `{items: [node], hasNext}`，節點類型為 `directory`、`audio`、`video`、`subtitle`、`image`、`script` 或 `other`。`voiceResource(workId, nodeId)` 回傳 `{url, format}`，`videos(workId, nodeId)` 解析曲目，均受媒體權限約束。字幕可提供來源明確標註的 `subtitleLanguage: 'zh'`；音視訊節點可用 `subtitleIds: [id]` 宣告來源明確關聯的字幕，最多 50 個非空、互不重複的穩定 ID；應用僅接受同目錄字幕，並補充配對同名 LRC、VTT、SRT。單曲詳情亦可用 `voiceSubtitles: {episodeId: [subtitleId]}` 宣告來源明確關聯的字幕，預設單曲 ID 為 `_`；每組最多 50 個非空、不重複且不含 URL 的穩定字幕 ID，並須實作 `voiceResource(workId, subtitleId)`。支援圖片及 TXT 台本檢視，音聲歸檔尚不支援下載。`Park.createVoiceArchive` 提供公開 AList 只讀目錄的共用實作；同源唯讀 POST 明確宣告 `readOnly: true` 才能在自動模式回退瀏覽器，寫入和二進位請求不得回退。
+詳情可提供 `voiceRoot: {id, name, type}`；`voiceDirectory(workId, directoryId, {page})` 回傳 `{items: [node], hasNext}`，節點類型為 `directory`、`audio`、`video`、`subtitle`、`image`、`script` 或 `other`。`voiceResource(workId, nodeId)` 回傳 `{url, format}`，`videos(workId, nodeId)` 解析曲目，均受媒體權限約束。字幕可提供來源明確標註的 `subtitleLanguage: 'zh'`；音視訊節點可用 `subtitleIds: [id]` 宣告來源明確關聯的字幕，最多 50 個非空、互不重複的穩定 ID；應用僅接受同目錄字幕，並補充配對同名 LRC、VTT、SRT。單曲詳情亦可用 `voiceSubtitles: {episodeId: [subtitleId]}` 宣告來源明確關聯的字幕，預設單曲 ID 為 `_`；每組最多 50 個非空、不重複且不含 URL 的穩定字幕 ID，並須實作 `voiceResource(workId, subtitleId)`。圖片與 TXT 台本可查看。音聲支援整部作品、資料夾或檔案下載，讀取完整分頁並保存關聯字幕；離線清單只保存穩定 ID 與本地相對路徑，不保存臨時媒體網址。`Park.createVoiceArchive` 提供公開 AList 只讀目錄的共用實作；同源唯讀 POST 明確宣告 `readOnly: true` 才能在自動模式回退瀏覽器，寫入和二進位請求不得回退。
 
 目錄尚未載入完整或後續分頁失敗時，已載入曲目仍可播放；播放清單與字幕關聯取開始播放時已載入的同級節點，不得將部分目錄標記為完整。
 

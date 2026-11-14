@@ -1,21 +1,27 @@
 ## 中文
 
+### 新功能
+- 新增音声整部作品、目录与文件下载，并保存关联字幕。
+- 新增短视频下载，以及订阅帖子和吃瓜文章正文与媒体附件的离线保存。
+- 新增音画分离 HLS 视频的下载、离线播放与完整打包导出。
+
 ### 改进
-- Android HLS 播放支持更稳定的分片读取、断点续播和媒体窗口加载。
-- 改善 HLS 网络异常时的节点切换和播放恢复。
-- 停止维护 Windows 客户端，后续版本聚焦 Android，并为 Web 端保留规划空间。
+- 下载页支持重新选择未完成视频的下载线路，并保留已完成分集。
+- 改善 Android 长 HLS 视频的启动与跳转流畅度。
 
 ### 修复
-- 修复部分 HLS 分片响应异常导致播放失败或卡住的问题。
-- 修复媒体转封装和裁剪窗口在部分音视频流上的兼容性问题。
+- 修复同清晰度或零清晰度线路下载时可能选错线路的问题。
 
 ## English
 
+### New
+- Download whole audio works, folders or individual files with associated subtitles.
+- Download short videos and save subscription posts and articles with their text and media attachments for offline access.
+- Download, play offline and export complete HLS videos with separate audio and video tracks.
+
 ### Improvements
-- Improve Android HLS playback with more reliable segment reads, seeking, and media window loading.
-- Improve CDN fallback and playback recovery when HLS network requests fail.
-- End Windows client maintenance so future releases focus on Android while leaving room for a planned Web client.
+- Choose another source for unfinished video downloads while keeping completed episodes.
+- Improve startup and seeking smoothness for long HLS videos on Android.
 
 ### Fixes
-- Fixed playback failures or stalls caused by malformed HLS segment responses.
-- Fixed compatibility issues with media remuxing and trimmed windows for some audio and video streams.
+- Fixed downloads selecting the wrong source when sources share a resolution or report no resolution.

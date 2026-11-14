@@ -15,6 +15,7 @@ import '../library/playback_resolver.dart';
 import 'detail/detail_page.dart';
 import 'discovery_navigation.dart';
 import 'feed/feed_article.dart';
+import 'library/offline_bundle_page.dart';
 import 'metadata/metadata_page.dart';
 import 'novel/novel_reader_page.dart';
 import 'reader/reader_page.dart';
@@ -176,7 +177,17 @@ class Nav {
     ShortVideoSequence? sequence,
   ) => push(
     context,
-    SourceManager.instance.manifest(item.source)?.metadataOnly == true
+    DownloadManager.instance.task(item.uid)?.isBundle == true &&
+            DownloadManager.instance.task(item.uid)!.completed.isNotEmpty
+        ? OfflineBundlePage(
+            item: item,
+            chapterId: DownloadManager.instance
+                .task(item.uid)!
+                .chapters
+                .first
+                .id,
+          )
+        : SourceManager.instance.manifest(item.source)?.metadataOnly == true
         ? MetadataPage(
             sourceKey: item.source,
             id: item.id,
@@ -383,6 +394,11 @@ class Nav {
     );
     if (!context.mounted) return;
     switch (target) {
+      case ReadBundle(:final chapterId):
+        return push(
+          context,
+          OfflineBundlePage(item: item, chapterId: chapterId),
+        );
       case OpenWorkPage():
         if (downloadedOnly) {
           context.toast(tr('未完成'));

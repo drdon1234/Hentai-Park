@@ -38,6 +38,8 @@ ASMRHoney supports video collections, nested collections, and image attachments.
 
 On mobile, game resources open in a dialog with links, extraction codes and archive passwords when available. Copy individual fields or everything to download on a computer; direct links also offer an explicit download option on the current device.
 
+Audio supports downloading a whole work, a folder or a file with associated subtitles. Short videos, subscription posts and articles can save text and images, audio or video accessible from the source. Open saved content offline from Downloads; missing files are reported without fetching them online. Preview-only content remains a preview. HLS with separate audio and video saves both tracks and exports as a ZIP; keep all files together. For unfinished video tasks, choose another source in Downloads while keeping completed episodes.
+
 ## Rankings
 
 | Category | Sites / services |

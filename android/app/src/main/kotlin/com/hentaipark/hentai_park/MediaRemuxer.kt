@@ -67,10 +67,12 @@ class MediaRemuxer(context: Context, messenger: BinaryMessenger) {
     }
 
     private class Job(val id: String, val input: File, val output: File, val result: MethodChannel.Result,
-        val fragmented: Boolean = false, val trimUs: Long = 0L) {
+        val fragmented: Boolean = false, val prefixBytes: Long = 0L) {
         val cancelled = AtomicBoolean(false)
         val cancellations = mutableListOf<MethodChannel.Result>()
         var ownsOutput = false
+        var videoStartUs = 0L
+        var audioStartUs = 0L
         fun checkCancelled() {
             if (cancelled.get()) throw CancellationException("Media conversion cancelled")
         }
@@ -101,8 +103,9 @@ class MediaRemuxer(context: Context, messenger: BinaryMessenger) {
                     require(input != output) { "Input and output must differ" }
                     require(input.isFile && input.length() > 0) { "Missing TS input" }
                     require(!output.exists() && output.parentFile?.isDirectory == true) { "Output must be a new temporary file" }
-                    val trimUs = (call.argument<Number>("trimUs")?.toLong() ?: 0L).coerceAtLeast(0L)
-                    val job = Job(id, input, output, result, fragmented = true, trimUs = trimUs)
+                    val prefixBytes = call.argument<Number>("prefixBytes")?.toLong() ?: 0L
+                    require(prefixBytes >= 0L && prefixBytes < input.length() && prefixBytes % 188L == 0L) { "Invalid TS prefix boundary" }
+                    val job = Job(id, input, output, result, fragmented = true, prefixBytes = prefixBytes)
                     enqueue(job)
                 }
                 "cancel" -> {
@@ -186,7 +189,8 @@ class MediaRemuxer(context: Context, messenger: BinaryMessenger) {
             val finalError = error
             val cancellations = job.cancellations.toList()
             main.post {
-                if (finalError == null) job.result.success(null)
+                if (finalError == null) job.result.success(if (job.fragmented)
+                    mapOf("videoStartUs" to job.videoStartUs, "audioStartUs" to job.audioStartUs) else null)
                 else job.result.error(if (finalError is CancellationException) "REMUX_CANCELLED" else "REMUX", finalError.message, null)
                 cancellations.forEach {
                     if (cleanupFailed) it.error("REMUX_CLEANUP", finalError?.message, null)
@@ -200,8 +204,10 @@ class MediaRemuxer(context: Context, messenger: BinaryMessenger) {
         var format: Format? = null
         var samples = 0L
         var earliest = Long.MAX_VALUE
+        val syncTimes = mutableListOf<Long>()
         var lastAudioTime = C.TIME_UNSET
-        fun sample(time: Long) {
+        fun sample(time: Long, flags: Int) {
+            if (type == C.TRACK_TYPE_VIDEO && flags and C.BUFFER_FLAG_KEY_FRAME != 0) syncTimes.add(time)
             check(format != null && time != C.TIME_UNSET) { "Missing sample format/timestamp" }
             if (type == C.TRACK_TYPE_AUDIO) {
                 check(lastAudioTime == C.TIME_UNSET || time > lastAudioTime) { "Audio timestamps went backwards" }
@@ -257,10 +263,26 @@ class MediaRemuxer(context: Context, messenger: BinaryMessenger) {
             job.checkCancelled()
             check(cryptoData == null && flags and C.BUFFER_FLAG_ENCRYPTED == 0) { "Encrypted media unsupported" }
             check(size > 0 && offset >= 0 && offset <= used && size <= used - offset) { "Incomplete extracted sample" }
-            track.sample(timeUs)
-            consume(timeUs, flags, buffer, used - offset - size, size)
+            val start = used - offset - size
+            // Access-unit detection can emit an AUD-only sample when TS also
+            // contains explicit delimiters. Such a sample has no picture and
+            // must not become an MP4 sample (or a zero-duration decoder input).
+            if (track.type != C.TRACK_TYPE_VIDEO || containsPicture(buffer, start, size)) {
+                track.sample(timeUs, flags)
+                consume(timeUs, flags, buffer, start, size)
+            }
             buffer.copyInto(buffer, 0, used - offset, used)
             used = offset
+        }
+
+        private fun containsPicture(bytes: ByteArray, offset: Int, size: Int): Boolean {
+            val end = offset + size
+            for (index in offset until end - 3) {
+                if (bytes[index] == 0.toByte() && bytes[index + 1] == 0.toByte() && bytes[index + 2] == 1.toByte()) {
+                    if ((bytes[index + 3].toInt() and 0x1f) in 1..5) return true
+                }
+            }
+            return false
         }
     }
 
@@ -270,7 +292,7 @@ class MediaRemuxer(context: Context, messenger: BinaryMessenger) {
         val factory = object : TsPayloadReader.Factory by defaults {
             override fun createPayloadReader(streamType: Int, esInfo: TsPayloadReader.EsInfo): TsPayloadReader? {
                 if (streamType != TsExtractor.TS_STREAM_TYPE_H264) return defaults.createPayloadReader(streamType, esInfo)
-                val reader = EndAwareReader(H264Reader(SeiReader(emptyList(), MimeTypes.VIDEO_MP2T), false, false, MimeTypes.VIDEO_MP2T))
+                val reader = EndAwareReader(H264Reader(SeiReader(emptyList(), MimeTypes.VIDEO_MP2T), false, true, MimeTypes.VIDEO_MP2T))
                 videoReaders.add(reader)
                 return PesReader(reader)
             }
@@ -385,7 +407,18 @@ class MediaRemuxer(context: Context, messenger: BinaryMessenger) {
         check(tracks.values.count { it.type == C.TRACK_TYPE_VIDEO } == 1 &&
             tracks.values.count { it.type == C.TRACK_TYPE_AUDIO } == 1 &&
             tracks.values.all { it.format != null && it.samples > 0 }) { "Missing or ambiguous audio/video tracks" }
-        val base = tracks.values.minOf { it.earliest }
+        val earliest = tracks.values.minOf { it.earliest }
+        // EXTINF rounding accumulates over long playlists. Read the actual
+        // target PES timestamp instead of guessing its offset from the manifest.
+        var threshold = if (job.prefixBytes == 0L) earliest else targetVideoTime(job)
+        val wrapUs = TimestampAdjuster.ptsToUs(1L shl 33)
+        while (threshold < earliest) threshold += wrapUs
+        val video = tracks.values.single { it.type == C.TRACK_TYPE_VIDEO }
+        val base = video.syncTimes.firstOrNull { it >= threshold }
+            ?: error("Window has no independently decodable video sample")
+        job.videoStartUs = Math.subtractExact(base, earliest)
+        val counts = mutableMapOf<Int, Long>()
+        var videoStarted = false
         FileOutputStream(job.output).use { stream ->
             FragmentedMp4Muxer.Builder(stream).setSampleCopyingEnabled(true).build().use { writer ->
                 val destinations = tracks.mapValues { writer.addTrack(it.value.format!!) }
@@ -400,85 +433,59 @@ class MediaRemuxer(context: Context, messenger: BinaryMessenger) {
                             // FragmentedMp4Muxer already converts Annex-B H.264
                             // samples internally. Do not double-convert them.
                             val sample = ByteBuffer.wrap(bytes, offset, size).slice()
-                            val trimBase = Math.addExact(base, job.trimUs)
-                            if (timeUs >= trimBase) {
+                            if (timeUs >= base) {
+                                if (source.type == C.TRACK_TYPE_VIDEO && !videoStarted) {
+                                    if (flags and C.BUFFER_FLAG_KEY_FRAME == 0) return@SampleOutput
+                                    videoStarted = true
+                                }
+                                if (source.type == C.TRACK_TYPE_AUDIO && counts[id] == null) {
+                                    job.audioStartUs = Math.subtractExact(timeUs, earliest)
+                                }
+                                counts[id] = (counts[id] ?: 0L) + 1L
                                 writer.writeSampleData(destination, sample,
-                                    BufferInfo(Math.subtractExact(timeUs, trimBase), sample.remaining(), flags and C.BUFFER_FLAG_KEY_FRAME))
+                                    BufferInfo(Math.subtractExact(timeUs, base), sample.remaining(), flags and C.BUFFER_FLAG_KEY_FRAME))
                             }
                         }
                     }
                     override fun endTracks() {}
                     override fun seekMap(seekMap: SeekMap) {}
                 })
-                check(written.keys == tracks.keys && written.values.all { it.samples > 0 }) {
+                check(written.keys == tracks.keys && tracks.keys.all { (counts[it] ?: 0L) > 0L }) {
                     "Missing samples after window trim"
                 }
             }
         }
+        job.checkCancelled()
         check(job.output.length() > 0) { "Empty fragmented MP4 output" }
     }
 
-    /** FragmentedMp4Muxer writes H.264 samples as AVCC. TsExtractor emits
-     * Annex-B start codes, so convert each NAL unit to a four-byte length
-     * prefix before handing it to the muxer. */
-    private fun annexBToAvcc(bytes: ByteArray, offset: Int, size: Int): ByteBuffer {
-        val end = offset + size
-        fun startCodeAt(index: Int): Int = when {
-            index + 3 < end && bytes[index] == 0.toByte() && bytes[index + 1] == 0.toByte() &&
-                bytes[index + 2] == 0.toByte() && bytes[index + 3] == 1.toByte() -> 4
-            index + 2 < end && bytes[index] == 0.toByte() && bytes[index + 1] == 0.toByte() &&
-                bytes[index + 2] == 1.toByte() -> 3
-            else -> 0
-        }
-        // Only convert samples whose payload starts with an Annex-B delimiter
-        // (possibly after extra zero padding). A delimiter after a non-zero
-        // byte belongs to an AVCC payload and must be left untouched.
-        var first = -1
-        var probe = offset
-        while (probe < end) {
-            val code = startCodeAt(probe)
-            if (code != 0) {
-                if (bytes.copyOfRange(offset, probe).all { it == 0.toByte() }) first = probe
-                break
-            }
-            if (bytes[probe] != 0.toByte()) break
-            probe++
-        }
-        if (first < 0) return ByteBuffer.wrap(bytes, offset, size).slice()
-        val output = ByteArray(size + 4 * 32)
-        var written = 0
-        var cursor = first
-        cursor = first
-        while (cursor < end) {
-            val code = startCodeAt(cursor)
-            if (code == 0) break
-            val nalStart = cursor + code
-            var next = nalStart
-            while (next < end && startCodeAt(next) == 0) next++
-            val nalLength = next - nalStart
-            // Access-unit delimiters are useful in TS but are not media NAL
-            // units accepted by Media3's fMP4 sample validator.
-            if (nalLength > 0 && (bytes[nalStart].toInt() and 0x1f) != 9) {
-                if (written + 4 + nalLength > output.size) {
-                    val expanded = output.copyOf(maxOf(output.size * 2, written + 4 + nalLength))
-                    expanded[written++] = (nalLength ushr 24).toByte()
-                    expanded[written++] = (nalLength ushr 16).toByte()
-                    expanded[written++] = (nalLength ushr 8).toByte()
-                    expanded[written++] = nalLength.toByte()
-                    bytes.copyInto(expanded, written, nalStart, next)
-                    written += nalLength
-                    return annexBToAvcc(expanded, 0, written)
+    private fun targetVideoTime(job: Job): Long {
+        FileInputStream(job.input).use { stream ->
+            stream.channel.position(job.prefixBytes)
+            val packet = ByteArray(188)
+            while (true) {
+                job.checkCancelled()
+                var used = 0
+                while (used < packet.size) {
+                    val read = stream.read(packet, used, packet.size - used)
+                    check(read > 0) { "Missing target video timestamp" }
+                    used += read
                 }
-                output[written++] = (nalLength ushr 24).toByte()
-                output[written++] = (nalLength ushr 16).toByte()
-                output[written++] = (nalLength ushr 8).toByte()
-                output[written++] = nalLength.toByte()
-                bytes.copyInto(output, written, nalStart, next)
-                written += nalLength
+                fun byte(index: Int) = packet[index].toInt() and 0xff
+                check(byte(0) == 0x47) { "Invalid target TS packet" }
+                if (byte(1) and 0x40 == 0 || byte(3) and 0x10 == 0) continue
+                val payload = 4 + if (byte(3) and 0x20 != 0) 1 + byte(4) else 0
+                if (payload + 14 > 188 || byte(payload) != 0 || byte(payload + 1) != 0 ||
+                    byte(payload + 2) != 1 || byte(payload + 3) !in 0xe0..0xef ||
+                    byte(payload + 7) and 0x80 == 0) continue
+                val offset = payload + 9
+                val pts = ((byte(offset).toLong() and 0x0e) shl 29) or
+                    (byte(offset + 1).toLong() shl 22) or
+                    ((byte(offset + 2).toLong() and 0xfe) shl 14) or
+                    (byte(offset + 3).toLong() shl 7) or (byte(offset + 4).toLong() shr 1)
+                return TimestampAdjuster.ptsToUs(pts)
             }
-            cursor = next
         }
-        return ByteBuffer.wrap(output, 0, written).slice()
     }
 
 }

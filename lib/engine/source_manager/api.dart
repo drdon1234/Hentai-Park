@@ -541,6 +541,11 @@ mixin _SourceApi on _SourceRegistry {
       feed.commonFilters,
       common,
     );
+    final downloadScope = <String, Object?>{
+      'feed': feedKey,
+      'options': options,
+      'common': normalizedCommon,
+    };
     if (background) (_backgroundFeeds[key] ??= {}).add(token);
     try {
       await _requireAccount(key, cancelToken: token);
@@ -581,13 +586,20 @@ mixin _SourceApi on _SourceRegistry {
         onCached: onCached == null
             ? null
             : (data) {
-                if (!token.isCancelled) onCached(WorkPage.fromJson(data, key));
+                if (!token.isCancelled) {
+                  onCached(
+                    _downloadScopedPage(
+                      WorkPage.fromJson(data, key),
+                      downloadScope,
+                    ),
+                  );
+                }
               },
       );
-      return WorkPage.fromJson({
-        ...result.data,
-        '_staleCache': result.stale,
-      }, key);
+      return _downloadScopedPage(
+        WorkPage.fromJson({...result.data, '_staleCache': result.stale}, key),
+        downloadScope,
+      );
     } finally {
       if (background) _backgroundFeeds[key]?.remove(token);
     }
@@ -621,7 +633,16 @@ mixin _SourceApi on _SourceRegistry {
         'common': normalizedCommon,
       },
     ], cancelToken: cancelToken);
-    return WorkPage.fromJson((res as Map).cast<String, dynamic>(), key);
+    return _downloadScopedPage(
+      WorkPage.fromJson((res as Map).cast<String, dynamic>(), key),
+      {
+        'search': {
+          'keyword': keyword,
+          'filters': filters,
+          'common': normalizedCommon,
+        },
+      },
+    );
   }
 
   Map<String, Object?> _normalizeCommonFilters(

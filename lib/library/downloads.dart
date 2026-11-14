@@ -17,18 +17,19 @@ import '../core/storage.dart';
 import '../data/database.dart';
 import '../engine/background_downloads.dart';
 import '../engine/cancellation.dart';
-import '../engine/http_service.dart';
-import '../engine/media_transport_factory.dart';
 import '../engine/source_manager.dart';
 import '../images/image_tasks.dart';
 import '../images/park_image.dart';
-import '../video/hls_download.dart';
+import '../video/local_hls_media.dart';
+import '../video/media_download.dart';
 import 'download_scheduler.dart';
+import 'download_selection.dart';
 import 'library.dart';
+import 'offline_bundle.dart';
 
 enum DownloadStatus { queued, running, paused, done, failed }
 
-enum DownloadMedia { comic, video, novel }
+enum DownloadMedia { comic, video, novel, bundle }
 
 /// Pseudo source key of works imported from local CBZ / ZIP files.
 const localSource = 'local';
@@ -47,6 +48,8 @@ class DownloadTask {
     Set<String>? completed,
     required this.media,
     this.videoQuality,
+    this.videoSelection,
+    Map<String, Map<String, dynamic>>? bundleNodes,
     Map<String, String>? videoFiles,
     this.deletingChapters,
   }) : dir = Directory(
@@ -60,11 +63,15 @@ class DownloadTask {
        createdAt = createdAt ?? DateTime.now(),
        chapters = List.of(chapters),
        completed = completed ?? {},
-       videoFiles = videoFiles ?? {};
+       videoFiles = videoFiles ?? {},
+       bundleNodes = bundleNodes ?? {};
 
   final WorkItem item;
   final List<Chapter> chapters;
   final DownloadMedia media;
+  DownloadSelection? videoSelection;
+  final Map<String, Map<String, dynamic>> bundleNodes;
+  bool get isBundle => media == DownloadMedia.bundle;
   int? videoQuality; // 0 selects the source's preferred quality.
   final Map<String, String>
   videoFiles; // episode id -> MP4 path relative to dir.
@@ -131,6 +138,8 @@ class DownloadTask {
     'completed': completed.toList(),
     'media': media.name,
     if (videoQuality != null) 'videoQuality': videoQuality,
+    if (videoSelection != null) 'videoSelection': videoSelection!.json,
+    if (bundleNodes.isNotEmpty) 'bundleNodes': bundleNodes,
     if (videoFiles.isNotEmpty) 'videoFiles': videoFiles,
     if (deletingChapters != null) 'deletingChapters': deletingChapters,
   };
@@ -157,6 +166,14 @@ class DownloadTask {
         .toSet(),
     media: DownloadMedia.values.byName(j['media'] as String),
     videoQuality: (j['videoQuality'] as num?)?.toInt(),
+    videoSelection: j['videoSelection'] is Map
+        ? DownloadSelection(
+            (j['videoSelection'] as Map).cast<String, dynamic>(),
+          )
+        : null,
+    bundleNodes: (j['bundleNodes'] as Map? ?? {}).map(
+      (k, v) => MapEntry(k.toString(), (v as Map).cast<String, dynamic>()),
+    ),
     videoFiles: (j['videoFiles'] as Map? ?? const {}).map(
       (k, v) => MapEntry(k.toString(), v.toString()),
     ),
@@ -427,7 +444,13 @@ class DownloadManager extends ChangeNotifier {
     notifyListeners();
   }
 
-  void enqueue(WorkItem item, List<Chapter> chapters, {int? videoQuality}) {
+  void enqueue(
+    WorkItem item,
+    List<Chapter> chapters, {
+    int? videoQuality,
+    DownloadSelection? selection,
+    Map<String, Map<String, dynamic>>? bundleNodes,
+  }) {
     if (SourceManager.instance.manifest(item.source)?.isLive == true) return;
     if (item.isGame ||
         SourceManager.instance.manifest(item.source)?.isGame == true) {
@@ -438,7 +461,9 @@ class DownloadManager extends ChangeNotifier {
     if (item.source == localSource) {
       return; // imported files are already complete
     }
-    final media = videoQuality != null
+    final media = bundleNodes != null
+        ? DownloadMedia.bundle
+        : videoQuality != null
         ? DownloadMedia.video
         : SourceManager.instance.manifest(item.source)?.isNovel == true ||
               item.isNovel
@@ -462,9 +487,21 @@ class DownloadManager extends ChangeNotifier {
         deleting
             .then((_) {
               if (existing == null || removing) {
-                enqueue(item, requested, videoQuality: videoQuality);
+                enqueue(
+                  item,
+                  requested,
+                  videoQuality: videoQuality,
+                  selection: selection,
+                  bundleNodes: bundleNodes,
+                );
               } else if (!_disposed && identical(_tasks[item.uid], existing)) {
-                _addChapters(existing, requested, videoQuality: videoQuality);
+                _addChapters(
+                  existing,
+                  requested,
+                  videoQuality: videoQuality,
+                  selection: selection,
+                  bundleNodes: bundleNodes,
+                );
                 _save([existing]);
                 _pump();
               }
@@ -477,7 +514,13 @@ class DownloadManager extends ChangeNotifier {
     }
     final existing = _tasks[item.uid];
     if (existing != null) {
-      _addChapters(existing, chapters, videoQuality: videoQuality);
+      _addChapters(
+        existing,
+        chapters,
+        videoQuality: videoQuality,
+        selection: selection,
+        bundleNodes: bundleNodes,
+      );
       if (existing.status != DownloadStatus.running) {
         existing.status = DownloadStatus.queued;
       }
@@ -487,6 +530,8 @@ class DownloadManager extends ChangeNotifier {
         chapters: chapters,
         media: media,
         videoQuality: videoQuality,
+        videoSelection: selection,
+        bundleNodes: bundleNodes,
       );
     }
     _save([_tasks[item.uid]!]);
@@ -497,10 +542,14 @@ class DownloadManager extends ChangeNotifier {
     DownloadTask task,
     List<Chapter> chapters, {
     int? videoQuality,
+    DownloadSelection? selection,
+    Map<String, Map<String, dynamic>>? bundleNodes,
   }) {
     if (task.isVideo != (videoQuality != null)) {
       throw StateError('Download media type mismatch');
     }
+    if (selection != null) task.videoSelection = selection;
+    if (bundleNodes != null) task.bundleNodes.addAll(bundleNodes);
     final known = task.chapters.map((c) => c.id).toSet();
     task.chapters.addAll(chapters.where((c) => known.add(c.id)));
     if (videoQuality != null) {
@@ -508,8 +557,35 @@ class DownloadManager extends ChangeNotifier {
     }
   }
 
-  void enqueueVideo(WorkItem item, List<Chapter> episodes, {int quality = 0}) =>
-      enqueue(item, episodes, videoQuality: quality);
+  void enqueueVideo(
+    WorkItem item,
+    List<Chapter> episodes, {
+    int quality = 0,
+    DownloadSelection? selection,
+  }) => enqueue(item, episodes, videoQuality: quality, selection: selection);
+
+  void enqueueBundle(WorkItem item, {Map<String, dynamic>? node}) {
+    // 原始帖子附件在执行时重新解析；数据库不保存签名地址和媒体请求头。
+    final manifest = SourceManager.instance.manifest(item.source);
+    item = WorkItem(
+      <String, dynamic>{
+          ...item.json,
+          if (item.mediaKind == null && manifest != null)
+            'mediaKind': manifest.kind.name,
+          if (item.json['contentDomain'] == null && manifest != null)
+            'contentDomain': manifest.category.name,
+        }
+        ..remove('media')
+        ..remove('blocks'),
+      item.source,
+    );
+    final id = node?['id']?.toString() ?? '_';
+    enqueue(
+      item,
+      [Chapter(id, node?['name']?.toString() ?? item.title)],
+      bundleNodes: {id: node ?? {}},
+    );
+  }
 
   void pause(String uid) {
     final t = _tasks[uid];
@@ -517,6 +593,13 @@ class DownloadManager extends ChangeNotifier {
     t.status = DownloadStatus.paused;
     t.cancel?.cancel();
     _save([t]);
+  }
+
+  Future<void> pauseAndWait(String uid) async {
+    final task = _tasks[uid];
+    if (task == null) return;
+    pause(uid);
+    await _runs[task];
   }
 
   void resume(String uid) {
@@ -642,6 +725,8 @@ class DownloadManager extends ChangeNotifier {
         for (final c in remaining) {'id': c.id, 'title': c.title},
       ]
       ..['completed'] = completed.toList()
+      ..['bundleNodes'] = (Map<String, Map<String, dynamic>>.of(t.bundleNodes)
+        ..removeWhere((id, _) => chapterIds.contains(id)))
       ..['videoFiles'] = videoFiles;
     await _writeTask(t, json);
     t.completed
@@ -651,6 +736,7 @@ class DownloadManager extends ChangeNotifier {
       ..clear()
       ..addAll(videoFiles);
     t.chapters.removeWhere((c) => chapterIds.contains(c.id));
+    t.bundleNodes.removeWhere((id, _) => chapterIds.contains(id));
     t.deletingChapters = null;
     notifyListeners();
     // 删除期间暂停或补充下载的最新意图也必须持久化。
@@ -829,7 +915,9 @@ class DownloadManager extends ChangeNotifier {
       await File(p.join(t.dir.path, 'work.json'))
           .writeAsString(jsonEncode(t.item.toJson()));
       _checkRunning(t, token);
-      if (t.isVideo) {
+      if (t.isBundle) {
+        await _runBundle(t, token);
+      } else if (t.isVideo) {
         await _runVideo(t, token);
       } else if (t.isNovel) {
         await _runNovel(t, token);
@@ -1086,6 +1174,77 @@ class DownloadManager extends ChangeNotifier {
     }
   }
 
+  Future<void> _runBundle(DownloadTask task, CancelToken token) async {
+    task.total = task.chapters.length * 1000;
+    task.done = 0;
+    task.bytes = 0;
+    for (final chapter in task.chapters.toList()) {
+      _checkRunning(task, token);
+      final directory = Directory(
+        p.join(task.dir.path, safeFileName(chapter.id)),
+      );
+      final before = task.done;
+      final priorBytes = task.bytes;
+      var lastNotify = DateTime.now();
+      await OfflineBundle.download(
+        task.item,
+        directory,
+        node: task.bundleNodes[chapter.id],
+        cancelToken: token,
+        onProgress: (done, total, bytes) {
+          _checkRunning(task, token);
+          task.done =
+              before + (total > 0 ? (done * 1000 ~/ total).clamp(0, 999) : 0);
+          task.bytes = priorBytes + bytes;
+          final now = DateTime.now();
+          if (now.difference(lastNotify).inMilliseconds >= 300 ||
+              done == total) {
+            lastNotify = now;
+            _notifyProgress(task);
+          }
+        },
+      );
+      _checkRunning(task, token);
+      task.completed.add(chapter.id);
+      task.done = before + 1000;
+      _save([task]);
+    }
+  }
+
+  Future<OfflineBundle?> localBundle(
+    String source,
+    String id,
+    String chapterId,
+  ) async {
+    final task = _tasks['$source:$id'];
+    if (task == null || !task.isBundle || !await _ownsDirectory(task)) {
+      return null;
+    }
+    final manifest = await task.chapterFile(chapterId, 'bundle.json');
+    return manifest == null ? null : OfflineBundle.read(manifest);
+  }
+
+  Future<({File file, String format})?> localBundleResource(
+    String source,
+    String id,
+    String assetId,
+  ) async {
+    final task = _tasks['$source:$id'];
+    if (task == null || !task.isBundle) return null;
+    for (final chapter in task.chapters) {
+      final bundle = await localBundle(source, id, chapter.id);
+      final entry = bundle?.entries
+          .where((e) => e['id'] == assetId)
+          .firstOrNull;
+      if (entry == null) continue;
+      final file = await bundle!.file(entry);
+      if (file != null) {
+        return (file: file, format: entry['format']?.toString() ?? '');
+      }
+    }
+    return null;
+  }
+
   Future<void> _runVideo(DownloadTask t, CancelToken token) async {
     t.total = t.chapters.length * 1000;
     t.done = 0;
@@ -1101,7 +1260,7 @@ class DownloadManager extends ChangeNotifier {
       _checkRunning(t, token);
       if (local != null) {
         t.done += 1000;
-        t.bytes += await local.length();
+        t.bytes += await offlineMediaBytes(local);
         continue;
       }
       t.completed.remove(episode.id);
@@ -1117,25 +1276,23 @@ class DownloadManager extends ChangeNotifier {
       );
       _checkRunning(t, token);
       if (sources.isEmpty) throw SourceError('NOT_FOUND', '视频站点未加载');
-      final src = sources.firstWhere(
-        (s) => t.videoQuality != 0 && s.quality == t.videoQuality,
-        orElse: () =>
-            sources.firstWhere((s) => s.preferred, orElse: () => sources.first),
-      );
-      // 下载只合成单路媒体清单，单独存放的音轨不能静默丢失。
-      if (src.audio != null) {
-        throw SourceError('UNSUPPORTED', '此视频的音轨单独存放，暂不支持离线下载');
-      }
+      final src =
+          t.videoSelection?.resolve(sources, episodeId: episode.id) ??
+          sources.firstWhere(
+            (s) => t.videoQuality != 0 && s.quality == t.videoQuality,
+            orElse: () => sources.firstWhere(
+              (s) => s.preferred,
+              orElse: () => sources.first,
+            ),
+          );
       // Preserve the single-video output location so existing validated HLS parts remain reusable.
       final directory = t.videoDirectory(episode.id);
       await directory.create(recursive: true);
       _checkRunning(t, token);
-      final portableHls = src.format == 'hls' && !Platform.isAndroid;
-      final extension = portableHls ? 'm3u8' : 'mp4';
+      final extension = downloadMediaExtension(src);
       final file = File(
         p.join(directory.path, 'video_${src.quality}p.$extension'),
       );
-      final part = File('${file.path}.part');
       final beforeDone = t.done;
       final beforeBytes = t.bytes;
       var lastNotify = DateTime.now();
@@ -1151,51 +1308,19 @@ class DownloadManager extends ChangeNotifier {
         }
       }
 
-      if (src.format == 'hls') {
-        final manifest = SourceManager.instance.manifest(t.item.source);
-        if (manifest == null) throw SourceError('CONFIG', '视频站点未加载');
-        await HlsDownload(
-          createMediaTransport(
-            manifest,
-            foregroundRecovery: false,
-            headers: src.headers,
-            initialUrl: Uri.parse(src.url),
-            hls: src.hls,
-          ),
-          keepPlaylist: portableHls,
-        ).run(
-          Uri.parse(src.url),
-          output: part,
-          cancelToken: token,
-          onProgress: progress,
-        );
-      } else {
-        await HttpService.instance.download(
-          url: src.url,
-          savePath: part.path,
-          headers: src.headers,
-          partition: t.item.source,
-          cancelToken: token,
-          onProgress: (received, total) => progress(received, total, received),
-        );
-        _checkRunning(t, token);
-        final prefix = await part
-            .openRead(0, 64)
-            .fold<List<int>>([], (a, b) => a..addAll(b));
-        final text = utf8.decode(prefix, allowMalformed: true).trimLeft();
-        if (prefix.isEmpty ||
-            text.startsWith('<') ||
-            text.startsWith('{') ||
-            text.startsWith('#EXTM3U')) {
-          throw SourceError('PARSE', '视频响应不是可下载的媒体文件');
-        }
-      }
-      _checkRunning(t, token);
-      await part.rename(file.path);
+      final manifest = SourceManager.instance.manifest(t.item.source);
+      if (manifest == null) throw SourceError('CONFIG', '视频站点未加载');
+      await downloadMedia(
+        manifest,
+        src,
+        file,
+        cancelToken: token,
+        onProgress: progress,
+      );
       _checkRunning(t, token);
       t.videoFiles[episode.id] = p.relative(file.path, from: t.dir.path);
       t.completed.add(episode.id);
-      t.bytes = beforeBytes + await file.length();
+      t.bytes = beforeBytes + await offlineMediaBytes(file);
       t.done = beforeDone + 1000;
       _save([t]);
     }
@@ -1207,14 +1332,37 @@ class DownloadManager extends ChangeNotifier {
     final root = p.normalize(p.absolute(task.dir.path));
     final target = p.normalize(p.join(root, relative));
     if (!p.isWithin(root, target) ||
-        !const {'.mp4', '.m3u8'}.contains(p.extension(target).toLowerCase())) {
+        !const {
+          '.mp4',
+          '.m3u8',
+          '.webm',
+          '.mkv',
+          '.mov',
+          '.mp3',
+          '.m4a',
+          '.aac',
+          '.wav',
+          '.flac',
+          '.ogg',
+          '.opus',
+        }.contains(p.extension(target).toLowerCase())) {
       return null;
     }
     final file = File(target);
     if (!await file.exists() || await file.length() == 0) return null;
     final actualRoot = await task.dir.resolveSymbolicLinks();
     final actual = await file.resolveSymbolicLinks();
-    return p.isWithin(actualRoot, actual) ? file : null;
+    if (!p.isWithin(actualRoot, actual)) return null;
+    if (file.path.endsWith('.m3u8')) {
+      try {
+        await LocalHlsMedia(file).files();
+      } on SourceError {
+        return null;
+      } on FileSystemException {
+        return null;
+      }
+    }
+    return file;
   }
 
   /// 完整本地章节；允许未完成时按原序号合并已落盘图片和待下载页面。
@@ -1276,6 +1424,9 @@ class DownloadManager extends ChangeNotifier {
   }) async {
     final t = task('$source:$id');
     if (t == null) return null;
+    if (t.isBundle && episodeId != null) {
+      return (await localBundleResource(source, id, episodeId))?.file;
+    }
     final key = chapterKeyOf(episodeId);
     if (!t.completed.contains(key)) return null;
     final relative = t.videoFiles[key];
@@ -1314,6 +1465,7 @@ class DownloadManager extends ChangeNotifier {
       enqueueVideo(
         item,
         chapters,
+        selection: _tasks[item.uid]?.videoSelection,
         quality: _tasks[item.uid]?.videoQuality ?? 0,
       );
     } else {

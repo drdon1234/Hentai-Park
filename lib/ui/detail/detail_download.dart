@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../core/localization.dart';
 import '../../core/models.dart';
 import '../../engine/source_manager.dart';
+import '../../library/download_selection.dart';
 import '../../library/downloads.dart';
 import '../kit/adaptive_sheet.dart';
 import '../theme.dart';
@@ -44,7 +45,21 @@ Future<void> downloadWork(
     }
     return;
   }
-  if (detail == null) return;
+  final manifest = SourceManager.instance.manifest(item.source);
+  if (item.mediaKind == MediaKind.voice ||
+      manifest?.kind == MediaKind.voice ||
+      manifest?.isArticle == true ||
+      item.isSubscriptionPost) {
+    manager.enqueueBundle(item);
+    if (context.mounted) context.toast(tr('已加入下载队列'));
+    return;
+  }
+  detail ??= await guarded(
+    context,
+    item.source,
+    () => SourceManager.instance.detail(item.source, item.id, preview: item),
+  );
+  if (detail == null || !context.mounted) return;
   if (isVideo) {
     var episodes = detail.videoEpisodes;
     if (episodes.length > 1) {
@@ -105,6 +120,10 @@ Future<void> downloadEpisodes(
     ),
   );
   if (sources == null || !context.mounted) return;
+  if (sources.isEmpty) {
+    context.toast(tr('此影片暂无可用播放地址'));
+    return;
+  }
   final picked = await showAdaptiveSheet<VideoSource>(
     context: context,
     builder: (ctx) => SafeArea(
@@ -113,7 +132,7 @@ Future<void> downloadEpisodes(
         children: [
           ListTile(
             title: SelectionContainer.disabled(
-              child: Text(tr('选择下载清晰度'), style: ctx.text.titleMedium),
+              child: Text(tr('选择下载线路'), style: ctx.text.titleMedium),
             ),
           ),
           for (final s in sources)
@@ -130,10 +149,50 @@ Future<void> downloadEpisodes(
     ),
   );
   if (picked == null || !context.mounted) return;
+  if (DownloadManager.instance.task(item.uid)?.isVideo == true) {
+    await DownloadManager.instance.pauseAndWait(item.uid);
+  }
   DownloadManager.instance.enqueueVideo(
     item,
     episodes,
     quality: picked.quality,
+    selection: DownloadSelection.pick(
+      sources,
+      picked,
+      episodeId: episodes.first.id,
+    ),
   );
-  context.toast(tr('已加入下载队列'));
+  if (context.mounted) context.toast(tr('已加入下载队列'));
+}
+
+/// 各种独立内容页面使用同一下载状态与移除语义。
+class WorkDownloadButton extends StatelessWidget {
+  const WorkDownloadButton({
+    super.key,
+    required this.item,
+    this.detail,
+    this.color,
+  });
+  final WorkItem item;
+  final WorkDetail? detail;
+  final Color? color;
+  @override
+  Widget build(BuildContext context) => ListenableBuilder(
+    listenable: DownloadManager.instance,
+    builder: (context, _) {
+      final task = DownloadManager.instance.task(item.uid);
+      return IconButton(
+        tooltip: tr(task == null ? '下载' : '移除下载项'),
+        icon: Icon(
+          task == null
+              ? Icons.download_outlined
+              : task.status == DownloadStatus.done
+              ? Icons.download_done_rounded
+              : Icons.downloading_rounded,
+          color: color,
+        ),
+        onPressed: () => downloadWork(context, detail, item, isVideo: true),
+      );
+    },
+  );
 }

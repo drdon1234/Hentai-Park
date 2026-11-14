@@ -18,6 +18,7 @@ import '../../library/exports.dart';
 import '../../library/library.dart';
 import '../../library/live_recordings.dart';
 import '../../video/offline_video_export.dart';
+import '../detail/detail_download.dart';
 import '../detail/detail_page.dart';
 import '../game/game_resources.dart';
 import '../kit/adaptive_sheet.dart';
@@ -674,14 +675,16 @@ class _DownloadsPageState extends State<DownloadsPage> {
                 onTap: () => _selectedDownloads.isNotEmpty
                     ? _toggleDownload(task.uid)
                     : _openTask(context, task),
-                onTextTap: () => Nav.push(
-                  context,
-                  DetailPage(
-                    source: task.item.source,
-                    id: task.item.id,
-                    preview: task.item,
-                  ),
-                ),
+                onTextTap: task.isBundle
+                    ? () => _openTask(context, task)
+                    : () => Nav.push(
+                        context,
+                        DetailPage(
+                          source: task.item.source,
+                          id: task.item.id,
+                          preview: task.item,
+                        ),
+                      ),
                 onLongPress: () => _toggleDownload(task.uid),
                 selected: _selectedDownloads.contains(task.uid),
               );
@@ -819,7 +822,7 @@ class _TaskTile extends StatelessWidget {
   Future<void> _menu(BuildContext context) async {
     final t = DownloadManager.instance.task(task.uid);
     if (!context.mounted || t == null) return;
-    final canExport = !t.isVideo && !t.isNovel && t.completed.isNotEmpty;
+    final canExport = t.media == DownloadMedia.comic && t.completed.isNotEmpty;
     final action = await showAdaptiveSheet<String>(
       context: context,
       builder: (ctx) => SafeArea(
@@ -849,6 +852,12 @@ class _TaskTile extends StatelessWidget {
               title: SelectionContainer.disabled(child: Text(tr('分类'))),
               onTap: () => Navigator.pop(ctx, 'categories'),
             ),
+            if (t.isVideo && t.chapters.any((c) => !t.completed.contains(c.id)))
+              ListTile(
+                leading: const Icon(Icons.high_quality_outlined),
+                title: Text(tr('选择下载线路')),
+                onTap: () => Navigator.pop(ctx, 'source'),
+              ),
             if (canExport)
               ListTile(
                 leading: const Icon(Icons.archive_outlined),
@@ -883,6 +892,13 @@ class _TaskTile extends StatelessWidget {
     );
     if (!context.mounted) return;
     switch (action) {
+      case 'source':
+        await downloadEpisodes(
+          context,
+          WorkDetail(t.item.json, t.item.source),
+          t.item,
+          t.chapters.where((c) => !t.completed.contains(c.id)).toList(),
+        );
       case 'chapters':
         await _chapters(context);
       case 'categories':
@@ -1067,14 +1083,16 @@ class _TaskTile extends StatelessWidget {
                 width: 56,
                 height: 78,
                 child: ActionInkWell(
-                  onTap: () => Nav.push(
-                    context,
-                    DetailPage(
-                      source: t.item.source,
-                      id: t.item.id,
-                      preview: t.item,
-                    ),
-                  ),
+                  onTap: t.isBundle
+                      ? () => _open(context)
+                      : () => Nav.push(
+                          context,
+                          DetailPage(
+                            source: t.item.source,
+                            id: t.item.id,
+                            preview: t.item,
+                          ),
+                        ),
                   child: CoverImage(
                     source: t.item.source,
                     url: t.item.cover,
