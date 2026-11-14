@@ -28,7 +28,7 @@
 | 라이브 | Stripchat 亚洲直播 · CAM4 · SOOP · XloveCam · SinParty |
 | 창작 커뮤니티 | Pixiv · 레딧 · X / 트위터 · myfans.jp · pixivFANBOX · 텔레그램 |
 | 소설 | Cool18 · Book18 · Canovel · 69story · Literotica · Lush Stories · StoriesOnline |
-| 선술집 | Chub AI · Character Tavern |
+| 선술집 | Chub AI · Character Tavern · RisuRealm |
 | 게임 자료 | KUN Galgame · GalgameX · 次元茶馆 |
 | 온라인 게임 | itch.io · Gamcore |
 
@@ -67,7 +67,7 @@ ASMRHoney는 동영상 모음, 중첩 모음과 이미지 첨부를 지원합니
 
 ## 선술집 대화
 
-Chub AI와 Character Tavern을 탐색하거나 저장 항목 및 대화에서 PNG/JSON 캐릭터 카드, JSON 세계관 책, 이 앱에서 내보낸 대화 파일을 가져올 수 있습니다. 로컬 저장은 리소스를 보관하며 원본 내보내기는 자동으로 저장하지 않습니다.
+Chub AI, Character Tavern, RisuRealm에서 가져오거나 저장 항목 및 대화에서 PNG/JSON 캐릭터 카드, JSON 세계관 책과 이 앱의 대화 파일을 각각 불러올 수 있습니다. Character Tavern은 정렬, 포함·제외 태그, 토큰 길이, 세계관 책 및 오리지널 콘텐츠 필터를 지원합니다. RisuRealm은 공개 검색 페이지와 공식 게스트 다운로드 API만 사용하며 별도 NSFW 필터가 공개되지 않아 원 사이트의 성인 표시를 유지합니다.
 
 OpenAI 호환 AI 서비스를 설정한 후 인사말, 대화별 이름과 페르소나, 세계관 책을 선택하세요. 메시지 편집, 해당 메시지 이후 삭제, 분기, 재생성, 답변 후보 전환 및 마지막 답변 이어쓰기를 지원합니다. Markdown을 표시하지만 스크립트나 이미지 자동 로딩은 실행하지 않습니다. 대화 내보내기에는 캐릭터 리소스, 세계관 책, 페르소나와 메시지가 포함되며 API 키는 제외됩니다. 파일은 암호화되지 않으므로 안전하게 보관하세요.
 

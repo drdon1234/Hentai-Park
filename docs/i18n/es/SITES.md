@@ -28,7 +28,7 @@ La comprobación de actualizaciones pide confirmación para eliminar plugins ofi
 | Directos | Stripchat 亚洲直播 · CAM4 · SOOP · XloveCam · SinParty |
 | Comunidades de creadores | Pixiv · Reddit · X / Twitter · myfans.jp · pixivFANBOX · Telegram |
 | Novelas | Cool18 · Book18 · Canovel · 69story · Literotica · Lush Stories · StoriesOnline |
-| Taberna | Chub AI · Character Tavern |
+| Taberna | Chub AI · Character Tavern · RisuRealm |
 | Recursos de juegos | KUN Galgame · GalgameX · 次元茶馆 |
 | Juegos en línea | itch.io · Gamcore |
 
@@ -67,7 +67,7 @@ Cambia entre JavBus y JavDB en la página de información; se muestran las valor
 
 ## Conversaciones de taberna
 
-Explora Chub AI y Character Tavern o importa tarjetas PNG/JSON, libros de mundo JSON y conversaciones exportadas por esta aplicación desde Guardados y conversaciones. Guardar localmente conserva el recurso; exportar el archivo original no lo guarda automáticamente.
+Explora Chub AI, Character Tavern y RisuRealm, o importa por separado tarjetas PNG/JSON, libros de mundo JSON y conversaciones exportadas por esta aplicación desde Guardados y conversaciones. Character Tavern admite orden, etiquetas incluidas o excluidas, longitud de tokens y filtros de libro de mundo y contenido original. RisuRealm solo usa sus páginas públicas de búsqueda y su API documentada de descargas para invitados; no publica un filtro NSFW independiente y se conservan las marcas de adultos originales.
 
 Configura un servicio de IA compatible con OpenAI para elegir saludo, nombre y personaje del usuario por conversación y libros de mundo. Puedes editar mensajes, eliminar uno y los posteriores, crear ramas, regenerar y alternar respuestas o continuar la última. Se admite Markdown sin ejecutar scripts ni cargar imágenes automáticamente. La exportación incluye recursos del personaje, libros, personaje del usuario y mensajes, pero no la clave API. Los archivos no están cifrados: guárdalos de forma segura.
 

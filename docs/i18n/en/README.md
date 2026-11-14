@@ -44,8 +44,6 @@ Configure sign-in under More → Sites and proxies under More → Network when n
 
 | Feature | What you get |
 | --- | --- |
-| Tavern | Character cards, lorebooks and your own AI service, with personas, message editing, continuation and import/export. |
-| Voice and ASMR | Browse folders, filter by language and media type, play tracks continuously and follow subtitles. Background playback is off by default and can be enabled in the player. |
 | Discover and search | Filter by 2D, 3D and media type; search across sites, or jump to a work using a link or code. |
 | Read and watch | Gossip articles and video; scrolling, paged and two-page comics; video episodes, speed and resume; novel bookmarks, notes and read-aloud. |
 | Favorites and updates | Organize favorites, keep your progress, check new chapters and follow creators, channels or keywords. |

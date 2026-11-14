@@ -1,33 +1,35 @@
 ## 中文
 
-### 新功能
-- 新增酒馆域，接入 Chub AI 与 Character Tavern，支持浏览、搜索、收藏和导入导出角色卡与世界书。
-- 新增内置角色聊天器，支持自配 AI 服务、用户人格、开场白选择、世界书关联和流式回复。
-- 支持编辑消息、续写、重新生成与候选切换、会话分支，以及包含角色和世界书的会话导入导出。
-- 酒馆资源、人格和会话纳入书库备份，无痕模式下不自动保存对话变更。
-
 ### 改进
-- 聊天消息通过头像、名称和布局区分角色与用户，统一酒馆详情、会话与设置页面的视觉风格。
-- 生成中支持停止和回看历史，回复截断与保存失败提供明确提示和恢复入口。
-- 创作社区移至默认域顺序末尾。
+- 优化酒馆角色卡和世界书详情页操作布局，收藏保留在主操作区，保存与原文件导出移至更多菜单。
+- 世界书改用独立的分段浏览页面，大型世界书按需加载词条，减少详情页展开和滚动时的卡顿。
+- 酒馆详情、会话标题、世界书内容和已保存资源接入公共翻译能力。
+- Character Tavern 支持完整分页、排序、标签包含与排除、令牌长度、世界书和原创内容筛选。
+- 酒馆书库提供角色卡、世界书、会话与备份的分开导入入口，并校验导入类型。
+
+### 插件更新
+- 新增 RisuRealm 源 0.0.1，支持角色卡与世界书搜索、详情和访客下载。
+- 更新 Chub AI 源至 0.0.3，补充酒馆入口与筛选文案翻译。
+- 更新 Character Tavern 源至 0.0.3，支持分页、官方筛选和多语言文案。
 
 ### 注意事项
 - 酒馆需自行配置 AI 服务；消息、角色设定、用户人格及匹配的世界书内容会发送至所选服务，可能产生费用。
-- 会话导出与书库备份未加密，应妥善保管；AI 服务配置和密钥不包含在备份中。部分复杂世界书扩展暂不支持。
+- 会话导出与书库备份未加密，应妥善保管；AI 服务配置和密钥不包含在备份中。
 
 ## English
 
-### New
-- Added the Tavern domain with Chub AI and Character Tavern, including browsing, searching, favorites, and character card and lorebook import/export.
-- Added built-in character chat with your own AI service, user personas, greeting selection, attached lorebooks, and streaming replies.
-- Added message editing, continuation, regeneration and reply variants, conversation branches, and conversation import/export including character resources and lorebooks.
-- Tavern resources, personas, and conversations are included in library backups; incognito mode does not automatically save conversation changes.
-
 ### Improvements
-- Avatars, names, and layout distinguish characters from users, with consistent styling across Tavern details, conversations, and settings.
-- Stop generation or review earlier messages while streaming, with clear output-limit and save-failure feedback and recovery actions.
-- Moved Creative Community to the end of the default domain order.
+- Refined Tavern character and lorebook detail actions: favorites stay in the primary action area, while local save and original-file export move into More.
+- Moved lorebook entries to a separate segmented viewer that loads large books on demand, reducing detail-page layout and scrolling jank.
+- Added shared translation support to Tavern details, conversation titles, lorebook content, and saved resources.
+- Added full Character Tavern pagination, sorting, included and excluded tags, token-length, lorebook, and original-content filters.
+- Added separate import entry points for character cards, lorebooks, conversations, and backups with type validation.
+
+### Plugin updates
+- Added the RisuRealm source 0.0.1 with character and lorebook search, details, and guest downloads.
+- Updated Chub AI to 0.0.3 with translated Tavern entry and filter labels.
+- Updated Character Tavern to 0.0.3 with pagination, official filters, and multilingual labels.
 
 ### Notes
 - Tavern requires your own AI service. Messages, character settings, user personas, and matched lorebook content are sent to that service and may incur charges.
-- Conversation exports and library backups are unencrypted and should be stored safely. AI service settings and keys are excluded from backups. Some complex lorebook extensions are not supported.
+- Conversation exports and library backups are unencrypted and should be stored safely. AI service settings and keys are excluded from backups.

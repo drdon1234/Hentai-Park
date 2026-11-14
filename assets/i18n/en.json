@@ -1937,5 +1937,11 @@
   "续写": "Continue",
   "编辑消息": "Edit message",
   "部分世界书扩展尚不支持，已保留原始数据。": "Some lorebook extensions are unsupported. Original data is preserved.",
-  "消息操作": "Message actions"
+  "消息操作": "Message actions",
+  "PNG 或 JSON 角色卡": "PNG or JSON character cards",
+  "JSON 世界书": "JSON lorebooks",
+  "本应用导出的会话或书库备份": "Conversations or library backups exported by this app",
+  "导入文件类型不匹配": "The imported file type does not match",
+  "查看世界书": "View lorebook",
+  "没有世界书词条": "No lorebook entries"
 }

@@ -4,9 +4,11 @@ import 'package:flutter/material.dart';
 import '../../core/localization.dart';
 import '../../tavern/store.dart';
 import '../../tavern/transfer.dart';
+import '../kit/adaptive_sheet.dart';
 import '../kit/kit.dart';
 import '../nav.dart';
 import '../theme.dart';
+import '../widgets/content_translation.dart';
 import 'tavern_chat_page.dart';
 
 class TavernLibraryPage extends StatefulWidget {
@@ -18,7 +20,7 @@ class TavernLibraryPage extends StatefulWidget {
 class _TavernLibraryPageState extends State<TavernLibraryPage> {
   int _tab = 0;
   bool _importing = false;
-  Future<void> _import() async {
+  Future<void> _import({String? expectedKind}) async {
     if (_importing) return;
     setState(() => _importing = true);
     try {
@@ -30,6 +32,7 @@ class _TavernLibraryPageState extends State<TavernLibraryPage> {
       await TavernTransfer.importBytes(
         await file.xFile.readAsBytes(),
         file.xFile.name,
+        expectedKind: expectedKind,
       );
       if (mounted) context.toast(tr('已导入'));
     } catch (_) {
@@ -37,6 +40,45 @@ class _TavernLibraryPageState extends State<TavernLibraryPage> {
     } finally {
       if (mounted) setState(() => _importing = false);
     }
+  }
+
+  Future<void> _chooseImport() async {
+    await showAdaptiveSheet<void>(
+      context: context,
+      builder: (context) => SafeArea(
+        child: Wrap(
+          children: [
+            ListTile(
+              leading: const Icon(Icons.person_outline_rounded),
+              title: Text('${tr('导入')} ${tr('角色卡')}'),
+              subtitle: Text(tr('PNG 或 JSON 角色卡')),
+              onTap: () {
+                Navigator.pop(context);
+                _import(expectedKind: 'character');
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.menu_book_outlined),
+              title: Text('${tr('导入')} ${tr('世界书')}'),
+              subtitle: Text(tr('JSON 世界书')),
+              onTap: () {
+                Navigator.pop(context);
+                _import(expectedKind: 'lorebook');
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.archive_outlined),
+              title: Text('${tr('导入')} ${tr('会话')} / ${tr('备份')}'),
+              subtitle: Text(tr('本应用导出的会话或书库备份')),
+              onTap: () {
+                Navigator.pop(context);
+                _import();
+              },
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   Widget _retry() => Center(
@@ -90,7 +132,7 @@ class _TavernLibraryPageState extends State<TavernLibraryPage> {
       actions: [
         IconButton(
           tooltip: tr('导入'),
-          onPressed: _importing ? null : _import,
+          onPressed: _importing ? null : _chooseImport,
           icon: const Icon(Icons.file_open_outlined),
         ),
       ],
@@ -130,7 +172,10 @@ class _TavernLibraryPageState extends State<TavernLibraryPage> {
                         itemBuilder: (context, index) {
                           final item = items[index];
                           return ListTile(
-                            title: Text(item.title),
+                            title: TranslatedText(
+                              item.title,
+                              source: item.source,
+                            ),
                             subtitle: Text(
                               item.json['tavernKind'] == 'lorebook'
                                   ? tr('世界书')

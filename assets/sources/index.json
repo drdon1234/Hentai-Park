@@ -5,7 +5,7 @@
     {
       "key": "chub",
       "name": "Chub AI",
-      "version": "0.0.2",
+      "version": "0.0.3",
       "minAppVersion": "0.14.0",
       "type": "tavern",
       "category": "tavern",
@@ -15,12 +15,22 @@
     {
       "key": "character_tavern",
       "name": "Character Tavern",
-      "version": "0.0.2",
+      "version": "0.0.3",
       "minAppVersion": "0.14.0",
       "type": "tavern",
       "category": "tavern",
       "file": "character_tavern.js",
       "description": "角色卡"
+    },
+    {
+      "key": "risu_realm",
+      "name": "RisuRealm",
+      "version": "0.0.1",
+      "minAppVersion": "0.14.0",
+      "type": "tavern",
+      "category": "tavern",
+      "file": "risu_realm.js",
+      "description": "匿名角色卡与世界书"
     },
     {
       "key": "hentaiasmr",

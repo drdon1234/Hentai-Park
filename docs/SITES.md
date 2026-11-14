@@ -28,7 +28,7 @@
 | 直播 | Stripchat 亚洲直播 · CAM4 · SOOP · XloveCam · SinParty |
 | 创作社区 | Pixiv · 红迪 · 推特（X） · myfans.jp · pixivFANBOX · 电报 |
 | 小说 | 禁忌书屋 · 色文网 · CA情色小说 · 69成人小说网 · Literotica · Lush Stories · StoriesOnline |
-| 酒馆 | Chub AI · Character Tavern |
+| 酒馆 | Chub AI · Character Tavern · RisuRealm |
 | 游戏资源 | 鲲 Galgame · GalgameX · 次元茶馆 |
 | 在线游戏 | itch.io · Gamcore |
 
@@ -67,7 +67,7 @@ ASMRHoney 支持视频合集、嵌套合集及图片附件。在线游戏会复�
 
 ## 酒馆对话
 
-酒馆支持从 Chub AI、Character Tavern 获取角色卡与世界书，也可在“已保存与会话”导入 PNG 角色卡、JSON 角色卡、JSON 世界书及本应用导出的会话文件。“保存到本地”保留资源，“导出原文件”只导出，不自动保存。
+可从 Chub AI、Character Tavern 和 RisuRealm 取得角色卡与世界书，也可在「已保存与会话」分别导入 PNG／JSON 角色卡、JSON 世界书及本应用导出的会话文件。Character Tavern 支持排序、包含或排除标签、令牌长度、世界书和原创内容筛选；RisuRealm 使用其公开搜索页和官方访客下载接口，站点没有公开独立 NSFW 筛选，结果保留原站成人标记。
 
 配置兼容 OpenAI 的 AI 服务后，可选择开场白、设置本会话的用户名称与人格、关联世界书，编辑消息、删除此条及后续消息、从消息处分支、重新生成并切换候选回复，或续写最后一条回复。消息支持 Markdown 文本，不执行脚本或自动加载其中的图片。会话导出包含角色资源、世界书、人格与消息，不包含 API 密钥；文件未加密，应妥善保管。
 

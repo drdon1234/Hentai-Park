@@ -533,7 +533,9 @@ class _SourceSettingsPageState extends State<SourceSettingsPage> {
                 content: TextFormField(
                   initialValue: edited,
                   onChanged: (text) => edited = text,
-                  obscureText: o.type == 'password',
+                  keyboardType: TextInputType.text,
+                  autocorrect: false,
+                  enableSuggestions: false,
                   autofocus: true,
                   decoration: InputDecoration(
                     helperText: o.description.isEmpty ? null : o.description,

@@ -10,7 +10,22 @@ import 'models.dart';
 import 'store.dart';
 
 class TavernTransfer {
-  static Future<void> importBytes(Uint8List bytes, String name) async {
+  static bool _isLorebookJson(Object? value) {
+    if (value is! Map) return false;
+    if (value['entries'] is List || value['entries'] is Map) return true;
+    final data = value['data'];
+    if (data is Map && data['name'] is! String) {
+      final book = data['character_book'];
+      return book is Map && (book['entries'] is List || book['entries'] is Map);
+    }
+    return false;
+  }
+
+  static Future<void> importBytes(
+    Uint8List bytes,
+    String name, {
+    String? expectedKind,
+  }) async {
     if (bytes.isEmpty || bytes.length > 32 * 1024 * 1024) {
       throw const FormatException('酒馆资源格式无效');
     }
@@ -31,9 +46,10 @@ class TavernTransfer {
       TavernStore.instance.restored();
       return;
     }
-    final kind = !png && value is Map && value['entries'] != null
-        ? 'lorebook'
-        : 'character';
+    final kind = !png && _isLorebookJson(value) ? 'lorebook' : 'character';
+    if (expectedKind != null && expectedKind != kind) {
+      throw const FormatException('导入文件类型不匹配');
+    }
     final format = png ? 'png' : 'json';
     final resource = TavernResource.parse(kind, format, bytes);
     final item = WorkItem({

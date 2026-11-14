@@ -28,7 +28,7 @@
 | ライブ配信 | Stripchat 亚洲直播 · CAM4 · SOOP · XloveCam · SinParty |
 | クリエイターコミュニティ | Pixiv · Reddit · X / Twitter · myfans.jp · pixivFANBOX · Telegram |
 | 小説 | 禁忌書屋 · 色文網 · CA官能小説 · 69成人小説網 · Literotica · Lush Stories · StoriesOnline |
-| 酒場 | Chub AI · Character Tavern |
+| 酒場 | Chub AI · Character Tavern · RisuRealm |
 | ゲーム資料 | KUN Galgame · GalgameX · 次元茶馆 |
 | オンラインゲーム | itch.io · Gamcore |
 
@@ -67,7 +67,7 @@ ASMRHoney は動画コレクション、入れ子のコレクション、画像�
 
 ## 酒場の会話
 
-Chub AI、Character Tavern のほか、「保存済みと会話」から PNG／JSON キャラクターカード、JSON ワールドブック、本アプリが書き出した会話ファイルを読み込めます。ローカル保存はリソースを保存し、元ファイルの書き出しは保存を伴いません。
+Chub AI、Character Tavern、RisuRealm から取得したり、「保存済みと会話」から PNG／JSON カード、JSON 世界設定集、本アプリの会話ファイルを個別に読み込んだりできます。Character Tavern は並べ替え、タグの包含・除外、トークン長、ワールドブックとオリジナルコンテンツの絞り込みに対応します。RisuRealm は公開検索ページと公式のゲスト用ダウンロード API のみを使用し、独立した NSFW フィルターは公開されていないため原サイトの成人表示を保持します。
 
 OpenAI 互換の AI サービスを設定すると、挨拶、会話ごとの名前とペルソナ、ワールドブックを選べます。メッセージ編集、指定箇所以降の削除、分岐、再生成、返信候補の切り替え、最後の返信の続きに対応します。Markdown を表示しますが、スクリプトや画像の自動読み込みは実行しません。会話の書き出しにはキャラクター、ワールドブック、ペルソナとメッセージが含まれ、API キーは含まれません。ファイルは暗号化されないため、安全に保管してください。
 

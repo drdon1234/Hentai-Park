@@ -11,12 +11,17 @@ import '../../library/export_files.dart';
 import '../../library/library.dart';
 import '../../tavern/models.dart';
 import '../../tavern/store.dart';
+import '../detail/detail_actions.dart';
+import '../kit/adaptive_sheet.dart';
 import '../library/favorite_actions.dart';
 import '../nav.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
+import '../widgets/content_translation.dart';
 import '../widgets/error_view.dart';
+import '../widgets/text_translation.dart';
 import 'tavern_chat_page.dart';
+import 'tavern_lorebook_page.dart';
 
 class TavernDetailPage extends StatefulWidget {
   const TavernDetailPage({super.key, required this.item});
@@ -153,6 +158,48 @@ class _TavernDetailPageState extends State<TavernDetailPage> {
     }
   }
 
+  Future<void> _openLorebook() async {
+    final resource = _resource;
+    if (resource == null || resource.entries.isEmpty) return;
+    await Nav.push(
+      context,
+      TavernLorebookPage(
+        title: _item.title,
+        source: widget.item.source,
+        resource: resource,
+      ),
+    );
+  }
+
+  Future<void> _more() async {
+    final action = await showAdaptiveSheet<String>(
+      context: context,
+      builder: (context) => SafeArea(
+        child: Wrap(
+          children: [
+            if (!_saved)
+              ListTile(
+                leading: const Icon(Icons.bookmark_add_outlined),
+                title: Text(tr('保存到本地')),
+                onTap: () => Navigator.pop(context, 'save'),
+              ),
+            ListTile(
+              leading: const Icon(Icons.download_outlined),
+              title: Text(tr('导出原文件')),
+              onTap: () => Navigator.pop(context, 'export'),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (!mounted) return;
+    if (action == 'save') {
+      if (await _save() != null && mounted) context.toast(tr('已保存'));
+    } else if (action == 'export') {
+      await _download();
+    }
+  }
+
   Widget _section(String title, String content) => content.trim().isEmpty
       ? const SizedBox.shrink()
       : ExpansionTile(
@@ -166,7 +213,13 @@ class _TavernDetailPageState extends State<TavernDetailPage> {
           children: [
             Align(
               alignment: AlignmentDirectional.centerStart,
-              child: SelectableText(content),
+              child: TranslationSelectionArea(
+                child: ContentTranslation(
+                  text: content,
+                  source: widget.item.source,
+                  builder: (value) => SelectableText(value),
+                ),
+              ),
             ),
           ],
         );
@@ -175,7 +228,14 @@ class _TavernDetailPageState extends State<TavernDetailPage> {
   Widget build(BuildContext context) {
     final resource = _resource;
     return Scaffold(
-      appBar: PageHeader(title: _item.title),
+      appBar: PageHeader(
+        titleWidget: ContentTranslation(
+          text: _item.title,
+          source: widget.item.source,
+          builder: (value) => Text(value),
+        ),
+        actions: [TranslationControls(source: widget.item.source)],
+      ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : _error != null || resource == null
@@ -223,11 +283,15 @@ class _TavernDetailPageState extends State<TavernDetailPage> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(
-                              resource.name.isEmpty
+                            ContentTranslation(
+                              text: resource.name.isEmpty
                                   ? widget.item.title
                                   : resource.name,
-                              style: context.text.headlineSmall,
+                              source: widget.item.source,
+                              builder: (value) => Text(
+                                value,
+                                style: context.text.headlineSmall,
+                              ),
                             ),
                             const SizedBox(height: Gap.s),
                             Text(
@@ -248,44 +312,51 @@ class _TavernDetailPageState extends State<TavernDetailPage> {
                     ],
                   ),
                   const SizedBox(height: Gap.l),
-                  Wrap(
-                    spacing: Gap.s,
-                    runSpacing: Gap.s,
+                  Row(
                     children: [
+                      if (resource.kind == 'character')
+                        Expanded(
+                          child: FilledButton.icon(
+                            onPressed: _busy || _opening ? null : _chat,
+                            icon: const Icon(Icons.chat_bubble_outline_rounded),
+                            label: Text(tr('开始对话')),
+                          ),
+                        )
+                      else
+                        Expanded(
+                          child: FilledButton.icon(
+                            onPressed: _openLorebook,
+                            icon: const Icon(Icons.menu_book_outlined),
+                            label: Text(tr('查看世界书')),
+                          ),
+                        ),
+                      const SizedBox(width: Gap.s),
                       ListenableBuilder(
                         listenable: Library.instance.work(widget.item.uid),
-                        builder: (context, _) => OutlinedButton.icon(
+                        builder: (context, _) => DetailSecondaryButton(
+                          icon: Library.instance.isFavorite(widget.item.uid)
+                              ? Icons.bookmark_rounded
+                              : Icons.bookmark_border_rounded,
+                          tooltip: Library.instance.isFavorite(widget.item.uid)
+                              ? tr('取消应用内收藏')
+                              : tr('应用内收藏'),
+                          active: Library.instance.isFavorite(widget.item.uid),
                           onPressed: () => toggleFavorite(context, _item),
-                          icon: Icon(
-                            Library.instance.isFavorite(widget.item.uid)
-                                ? Icons.favorite
-                                : Icons.favorite_border,
-                          ),
-                          label: Text(
-                            Library.instance.isFavorite(widget.item.uid)
-                                ? tr('已收藏')
-                                : tr('收藏'),
-                          ),
+                          onLongPress:
+                              Library.instance.isFavorite(widget.item.uid)
+                              ? () => editFavoriteCategories(
+                                  context,
+                                  widget.item.uid,
+                                )
+                              : null,
                         ),
                       ),
-                      OutlinedButton.icon(
-                        onPressed: _busy || _exporting ? null : _download,
-                        icon: const Icon(Icons.download_outlined),
-                        label: Text(tr('导出原文件')),
+                      const SizedBox(width: Gap.s),
+                      DetailSecondaryButton(
+                        icon: Icons.more_horiz_rounded,
+                        tooltip: tr('更多'),
+                        onPressed: _busy || _exporting ? null : _more,
                       ),
-                      if (!_saved)
-                        OutlinedButton.icon(
-                          onPressed: _busy
-                              ? null
-                              : () async {
-                                  if (await _save() != null &&
-                                      context.mounted) {
-                                    context.toast(tr('已保存'));
-                                  }
-                                },
-                          icon: const Icon(Icons.bookmark_add_outlined),
-                          label: Text(tr('保存到本地')),
-                        ),
                     ],
                   ),
                   if (resource.kind == 'character') ...[
@@ -307,11 +378,6 @@ class _TavernDetailPageState extends State<TavernDetailPage> {
                             setState(() => _greeting = value ?? 0),
                       ),
                     const SizedBox(height: Gap.m),
-                    FilledButton.icon(
-                      onPressed: _busy || _opening ? null : _chat,
-                      icon: const Icon(Icons.chat_bubble_outline_rounded),
-                      label: Text(tr('开始对话')),
-                    ),
                     Text(
                       tr('开始对话需要自行配置 AI 服务。'),
                       style: context.text.bodySmall,
@@ -326,35 +392,19 @@ class _TavernDetailPageState extends State<TavernDetailPage> {
                       _section(tr('开场白'), resource.greetings[_greeting]),
                     _section(tr('示例对话'), resource.text('mes_example')),
                   ],
-                  if (resource.entries.isNotEmpty)
-                    ExpansionTile(
+                  if (resource.kind == 'character' &&
+                      resource.entries.isNotEmpty)
+                    ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: const Icon(Icons.menu_book_outlined),
                       title: Text(tr('世界书')),
                       subtitle: Text(
                         tr('{count} 条世界书词条', {
                           'count': resource.entries.length,
                         }),
                       ),
-                      children: [
-                        for (final entry in resource.entries)
-                          ExpansionTile(
-                            title: Text(
-                              entry.label.isEmpty ? tr('世界书词条') : entry.label,
-                            ),
-                            subtitle: Text(entry.keys.join(', ')),
-                            childrenPadding: const EdgeInsets.fromLTRB(
-                              Gap.page,
-                              0,
-                              Gap.page,
-                              Gap.l,
-                            ),
-                            children: [
-                              Align(
-                                alignment: AlignmentDirectional.centerStart,
-                                child: SelectableText(entry.content),
-                              ),
-                            ],
-                          ),
-                      ],
+                      trailing: const Icon(Icons.chevron_right_rounded),
+                      onTap: _openLorebook,
                     ),
                 ],
               ),

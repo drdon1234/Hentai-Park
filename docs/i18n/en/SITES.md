@@ -28,7 +28,7 @@ Update checks ask before removing withdrawn official plugins, their settings, lo
 | Live streams | Stripchat 亚洲直播 · CAM4 · SOOP · XloveCam · SinParty |
 | Creator communities | Pixiv · Reddit · X / Twitter · myfans.jp · pixivFANBOX · Telegram |
 | Novels | Cool18 · Book18 · Canovel · 69story · Literotica · Lush Stories · StoriesOnline |
-| Tavern | Chub AI · Character Tavern |
+| Tavern | Chub AI · Character Tavern · RisuRealm |
 | Game resources | KUN Galgame · GalgameX · 次元茶馆 |
 | Online games | itch.io · Gamcore |
 
@@ -67,7 +67,7 @@ Switch between JavBus and JavDB on the information page; ratings appear when sup
 
 ## Tavern conversations
 
-Browse Chub AI and Character Tavern, or import PNG/JSON character cards, JSON lorebooks and conversation files exported by this app from Saved and conversations. Save locally retains a resource; Export original file only exports it.
+Browse Chub AI, Character Tavern and RisuRealm, or separately import PNG/JSON character cards, JSON lorebooks and conversation files exported by this app from Saved and conversations. Character Tavern supports sorting, included or excluded tags, token length, lorebook and original-content filters. RisuRealm uses only its public search pages and documented guest download API; it publishes no separate NSFW filter, so original adult markers are preserved.
 
 After configuring an OpenAI-compatible AI service, choose a greeting, set a name and persona for the conversation, and attach lorebooks. Edit messages, delete a message and those after it, branch from a message, regenerate and switch reply variants, or continue the last reply. Markdown text is supported; scripts and automatic image loading are disabled. Conversation exports include character resources, lorebooks, persona and messages, but no API key. These files are unencrypted; keep them safe.
 

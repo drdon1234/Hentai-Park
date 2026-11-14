@@ -12,6 +12,7 @@ import '../../tavern/transfer.dart';
 import '../kit/kit.dart';
 import '../nav.dart';
 import '../theme.dart';
+import '../widgets/content_translation.dart';
 import 'tavern_avatar.dart';
 import 'tavern_settings_page.dart';
 
@@ -389,16 +390,21 @@ class _TavernChatPageState extends State<TavernChatPage> {
             TavernAvatar(name: _session.title, saved: _portrait),
             const SizedBox(width: Gap.m),
             Expanded(
-              child: Text(
-                _session.title,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: ParkText.serif(context.text.titleLarge),
+              child: ContentTranslation(
+                text: _session.title,
+                source: _session.resourceUid.split(':').first,
+                builder: (value) => Text(
+                  value,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: ParkText.serif(context.text.titleLarge),
+                ),
               ),
             ),
           ],
         ),
         actions: [
+          TranslationControls(source: _session.resourceUid.split(':').first),
           PopupMenuButton<String>(
             tooltip: tr('更多'),
             enabled: !_sending,

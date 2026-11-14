@@ -28,7 +28,6 @@ class _LoginPanelState extends State<LoginPanel> {
       f['key'].toString(): TextEditingController(),
   };
   bool _busy = false;
-  final _visibleSecrets = <String>{};
   late bool _web = widget.account.loginUrl.isNotEmpty;
 
   AccountDef get a => widget.account;
@@ -338,8 +337,6 @@ class _LoginPanelState extends State<LoginPanel> {
 
   Widget _field(BuildContext context, Map<String, dynamic> f) {
     final key = f['key'].toString();
-    final secret = f['secret'] == true;
-    final visible = _visibleSecrets.contains(key);
     final optional = f['optional'] == true;
     final hint = (f['hint'] ?? '').toString();
     return TextField(
@@ -348,26 +345,12 @@ class _LoginPanelState extends State<LoginPanel> {
       keyboardType: TextInputType.text,
       autocorrect: false,
       enableSuggestions: false,
-      obscureText: secret && !visible,
       autofillHints: _cookies || _session
           ? null
-          : secret
-          ? const [AutofillHints.password]
           : const [AutofillHints.username],
       style: _cookies ? ParkText.mono(context.text.bodyMedium) : null,
       textInputAction: TextInputAction.next,
       decoration: InputDecoration(
-        suffixIcon: secret
-            ? IconButton(
-                tooltip: context.tr(visible ? '隐藏凭据' : '显示凭据'),
-                icon: Icon(visible ? Icons.visibility_off : Icons.visibility),
-                onPressed: () => setState(() {
-                  visible
-                      ? _visibleSecrets.remove(key)
-                      : _visibleSecrets.add(key);
-                }),
-              )
-            : null,
         labelText: optional
             ? context.tr('{label}（可选）', {
                 'label': a.text(f['label']?.toString() ?? ''),
