@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import '../core/localization.dart';
 import '../core/models.dart';
+import '../core/public_contract.dart';
 import '../core/versions.dart';
 import 'http_service.dart';
 import 'official_repository.dart';
@@ -55,9 +56,9 @@ class SourceRepository {
   SourceRepository({Future<String> Function(String url)? read})
     : _read = read ?? _download;
 
-  static const indexUrl = '$officialRawBase/sources/index.json';
-  static const reverseSearchUrl = '$officialRawBase/reverse-search/index.json';
-  static const metadataUrl = '$officialRawBase/metadata/index.json';
+  static const indexUrl = PublicContract.sourcesRepository;
+  static const reverseSearchUrl = PublicContract.reverseSearchRepository;
+  static const metadataUrl = PublicContract.metadataRepository;
   static const supportedApiVersion = SourceCompatibility.apiVersion;
   final Future<String> Function(String url) _read;
 

@@ -1,8 +1,61 @@
-param([switch]$NoBrowser)
+﻿param([switch]$NoBrowser)
 $ErrorActionPreference = 'Stop'
 $projectRoot = Split-Path -Parent $PSScriptRoot
 Set-Location -LiteralPath $projectRoot
 $Host.UI.RawUI.WindowTitle = 'HentaiPark Web - starting'
+
+function Get-ListeningProcess([int]$port) {
+    $pids = @(Get-NetTCPConnection -LocalAddress '127.0.0.1' -LocalPort $port -State Listen -ErrorAction SilentlyContinue |
+        Select-Object -ExpandProperty OwningProcess -Unique)
+    foreach ($ownerPid in $pids) {
+        $process = Get-CimInstance Win32_Process -Filter ('ProcessId = ' + [int]$ownerPid) -ErrorAction SilentlyContinue
+        if ($process) { $process }
+        else { [pscustomobject]@{ ProcessId = [int]$ownerPid; CommandLine = '' } }
+    }
+}
+
+function Test-PortAvailable([int]$port) {
+    return $null -eq (Get-NetTCPConnection -LocalAddress '127.0.0.1' -LocalPort $port -State Listen -ErrorAction SilentlyContinue)
+}
+
+function Get-RandomAvailablePort {
+    $random = [Random]::new()
+    for ($attempt = 0; $attempt -lt 100; $attempt++) {
+        $candidate = $random.Next(49152, 65536)
+        if (Test-PortAvailable $candidate) { return $candidate }
+    }
+    throw '无法找到可用的随机端口。'
+}
+
+function Resolve-ServicePort {
+    $configuredPort = if ($env:PORT) { [int]$env:PORT } else { 8787 }
+    $listeners = @(Get-ListeningProcess $configuredPort)
+    if (!$listeners) { return $configuredPort }
+
+    $devProcesses = @($listeners | Where-Object {
+        $commandLine = [string]$_.CommandLine
+        $normalizedCommand = $commandLine.Replace([char]47, [char]92).ToLowerInvariant()
+        $isDevWeb = $normalizedCommand.Contains("scripts") -and $normalizedCommand.Contains("dev-web.mjs")
+        $isDevWeb
+    })
+    if ($devProcesses) {
+        $ids = ($devProcesses | ForEach-Object ProcessId) -join ', '
+        $answer = Read-Host ('检测到本项目 dev-web 服务（PID ' + $ids + '）正在占用 127.0.0.1:' + $configuredPort + '。是否先终止 dev-web 服务？[Y/N]')
+        if ($answer.ToLowerInvariant() -in @('y', 'yes')) {
+            foreach ($process in $devProcesses) { Stop-Process -Id ([int]$process.ProcessId) -Force -ErrorAction Stop }
+            for ($attempt = 0; $attempt -lt 50 -and !(Test-PortAvailable $configuredPort); $attempt++) { Start-Sleep -Milliseconds 100 }
+            if (Test-PortAvailable $configuredPort) { return $configuredPort }
+            throw ('dev-web 服务已请求终止，但端口仍被占用：127.0.0.1:' + $configuredPort)
+        }
+        throw '已取消启动。请先停止 dev-web 服务，或重新运行并确认终止它。'
+    }
+
+    $answer = Read-Host ('端口 127.0.0.1:' + $configuredPort + ' 已被其他服务占用。是否使用随机可用端口？[Y/N]')
+    if ($answer.ToLowerInvariant() -notin @('y', 'yes')) { throw '已取消启动。' }
+    $port = Get-RandomAvailablePort
+    Write-Host ('将使用随机可用端口：' + $port)
+    return $port
+}
 
 # The kernel closes this job when the terminal/supervisor exits, including X.
 # Only this launcher's service and its descendants belong to the job.
@@ -52,6 +105,7 @@ $stopEvent = $null
 $job = $null
 $service = $null
 $ownsMutex = $false
+$servicePort = 8787
 try {
     & node (Join-Path $PSScriptRoot 'check-env.mjs')
     if ($LASTEXITCODE -ne 0) { throw 'Environment check failed. See the error above.' }
@@ -68,6 +122,8 @@ try {
         if (!$ownsMutex) { throw 'Previous launcher did not stop. No unrelated process was terminated.' }
     }
     [void]$stopEvent.Reset()
+    $servicePort = Resolve-ServicePort
+    $env:PORT = [string]$servicePort
     & node (Join-Path $PSScriptRoot 'ensure-build.mjs')
     if ($LASTEXITCODE -ne 0) { throw 'Application build failed. See the error above.' }
     $job = [WebServiceJob]::new()

@@ -2,11 +2,12 @@ import 'package:package_info_plus/package_info_plus.dart';
 import 'package:pub_semver/pub_semver.dart';
 
 import '../core/models.dart';
+import '../core/public_contract.dart';
 import '../core/versions.dart';
 
 /// 插件与宿主之间的安装契约，版本取自当前安装包。
 abstract final class SourceCompatibility {
-  static const apiVersion = 2;
+  static const apiVersion = PublicContract.sourceApiVersion;
 
   static Future<String> currentVersion() async =>
       (await PackageInfo.fromPlatform()).version;

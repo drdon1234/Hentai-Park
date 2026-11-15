@@ -14,6 +14,6 @@ export function Button(props: ButtonHTMLAttributes<HTMLButtonElement>) {
   return <button {...props} className={`button ${props.className ?? ''}`} />;
 }
 
-export function EmptyState({ title, detail }: { title: string; detail: string }) {
-  return <div className="empty-state"><svg aria-hidden="true" className="empty-mark" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M3 7h6l2 2h10v11H3zM3 7V4h7l2 3h9v2"/></svg><h3>{title}</h3><p>{detail}</p></div>;
+export function EmptyState({ title, detail, action }: { title: string; detail: string; action?: ReactNode }) {
+  return <div className="empty-state"><svg aria-hidden="true" className="empty-mark" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M3 7h6l2 2h10v11H3zM3 7V4h7l2 3h9v2"/></svg><h3>{title}</h3><p>{detail}</p>{action ? <div className="empty-action">{action}</div> : null}</div>;
 }

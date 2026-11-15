@@ -8,3 +8,4 @@ export * from './block-rules.js';
 export * from './preferences.js';
 
 export * from './block-presets.js';
+export * from './public-contract.js';

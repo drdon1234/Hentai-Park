@@ -423,7 +423,7 @@ async resolveGameResource(workId, resourceId, channelId) {}
 - `coverAspect`（宽 / 高）让网格在图片加载前就排好版。
 - `coverImages` 是帖子内可用于封面的有序图片候选；只在原站没有标准封面且列表已提供这些图时填写。应用按首图方向自适应：横图完整对齐，竖图或方图可拼接候选图。缺图时保留 `cover` 与标准占位行为。
 - `badgeColor` 用于分类角标的颜色。
-- `mediaKind: 'comic' | 'video' | 'voice' | 'novel' | 'game' | 'article'` 描述作品本身的类型。插件只有一种类型时可以省略；混合类型时必须填写，不能凭插件的 `type` 把图片当成视频。小说、游戏和吃瓜作品总是填写，这样卸载插件后仍保留正确类型。
+- `mediaKind: 'comic' | 'video' | 'voice' | 'novel' | 'tavern' | 'game' | 'article' | 'mixed' | 'unknown'` 描述作品本身的类型。插件只有一种类型时可以省略；混合类型时必须填写，不能凭插件的 `type` 把图片当成视频。小说、游戏和吃瓜作品总是填写，这样卸载插件后仍保留正确类型。
 - 帖子类结果可以带 `presentation: 'post'`、`text`、`date`、`url` 和 `media` 数组，以帖子卡片显示；`presentation: 'media'` 用媒体网格显示，点击进入作品中的媒体。帖子正文允许没有媒体；媒体地址仍受插件声明的域名和权限约束。
 
 ### 详情：`detail`

@@ -1,5 +1,6 @@
-const officialRawBase =
-    'https://raw.githubusercontent.com/drdon1234/Hentai-Park';
+import '../core/public_contract.dart';
+
+const officialRawBase = PublicContract.officialBase;
 final _digest = RegExp(r'^[a-fA-F0-9]{64}$');
 final _commit = RegExp(r'^[a-fA-F0-9]{40}$');
 

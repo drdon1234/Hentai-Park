@@ -1,5 +1,6 @@
 import {useSyncExternalStore} from 'react';
-export const languageNames:Record<string,string>={'zh-Hans':'简体中文','zh-Hant':'繁體中文',en:'English',ja:'日本語',ko:'한국어',es:'Español',ru:'Русский',ar:'العربية'};
+import {languages} from '@hentai-park/domain-model';
+export const languageNames:Record<string,string>=Object.fromEntries(Object.entries(languages).map(([key,value])=>[key,value.name]));
 const loaders=import.meta.glob('./locales/*.json',{import:'default'});
 let language='zh-Hans';const messages=new Map<string,Record<string,string>>(),listeners=new Set<()=>void>();let generation=0;
 export function getLanguage(){return language;}

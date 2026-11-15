@@ -229,12 +229,6 @@ legacy参数仅在source-runtime单一适配器转换：metadataDetail接收(id,
 `GET /api/v1/tag-packs/available`读取固定官方索引；`POST /api/v1/tag-packs/download`只接受来源、语言、确认版本/SHA256及confirmed，不接受下载URL。资源限固定提交官方路径，拒重定向、坏SHA、超限和版本降级，失败保留旧包。
 
 备份默认包含tavernConnections/worldbookTerms，tavernConnectionSecrets必须明确选择；preview执行纯校验和目标加密准备，SQL不变，确认import才在同一事务写入。备份预览/导入专用上限128MiB，普通API上限保持16MiB。
-# 通用人工验证增补（FIX-083）
-
-`POST /api/v1/sources/:key/verify-browser` 使用已安装且启用来源的最近已确认挑战目标（无目标时使用homepage），创建人工验证会话。不接受任意客户端URL，不要求account.loginUrl。请求体仅允许requestKey；返回loginId、frameUrl、expiresAt。复用 `/api/v1/source-logins/:id/{frame,control,complete}` 和 `DELETE /api/v1/source-logins/:id`，同样受登录会话所有权、CSRF、来源权限、10分钟截止和注销撤销约束。创建请求断开会取消待创建会话。
-
-verification用途的complete只在当前允许源站文档已就绪、HTTP成功、无已知挑战/封禁且满足声明确认和Cookie条件时导入来源Cookie；返回 `{source,status:'completed',verification:'completed'}`，不伪造account登录状态。完成后客户端提示用户重试原读取，不自动重复写操作。取消不导入状态。原login-browser账号语义和声明式verify接口保持独立。详见[插件协议](../SOURCE_API.md)。
-
 
 ## 本轮 UX 数据投影与状态补充
 

@@ -335,7 +335,7 @@ async resolveGameResource(workId, resourceId, channelId) {}
 
 - `coverAspect`（幅 / 高さ）があると画像の読み込み前にグリッドを配置できます。
 - `badgeColor` は分類バッジの色です。
-- `mediaKind: 'comic' | 'video' | 'voice' | 'novel' | 'game' | 'article'` は作品自体の種類です。種類が 1 つのプラグインは省略できますが、混在するプラグインは必ず指定します。小説、ゲーム、記事は常に指定し、プラグインを削除しても種類を保持します。
+- `mediaKind: 'comic' | 'video' | 'voice' | 'novel' | 'tavern' | 'game' | 'article' | 'mixed' | 'unknown'` は作品自体の種類です。種類が 1 つのプラグインは省略できますが、混在するプラグインは必ず指定します。小説、ゲーム、記事は常に指定し、プラグインを削除しても種類を保持します。
 - 投稿形式の結果は `presentation: 'post'`、`text`、`date`、`url` と `media` 配列を持て、投稿カードとして表示されます。`presentation: 'media'` はメディアのグリッドで表示し、タップで作品内のメディアを開きます。投稿にメディアがなくてもかまいません。メディアのアドレスはプラグインが宣言したドメインと権限に従います。
 
 ### 詳細：`detail`

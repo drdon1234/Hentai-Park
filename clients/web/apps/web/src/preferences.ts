@@ -28,12 +28,14 @@ function usePreferenceState(){
    finally{running=false;if(live&&again){again=false;void reload();}}
   };
   const changed=(event:Event)=>{
-   const types=(event as CustomEvent<{eventTypes?:string[]}>).detail?.eventTypes;
+   const detail=(event as CustomEvent<{eventTypes?:string[];path?:string}>).detail;
+   if(event.type==='hp:committed'&&detail?.path!=='/api/v1/settings')return;
+   const types=detail?.eventTypes;
    if(event.type==='hp:server-update'&&Array.isArray(types)&&!types.some(type=>type==='account.updated'||type==='sync.required'))return;
    void reload();
   };
-  void reload();window.addEventListener('hp:server-update',changed);window.addEventListener('hp:invalidate',changed);
-  return()=>{live=false;window.removeEventListener('hp:server-update',changed);window.removeEventListener('hp:invalidate',changed);};
+  void reload();window.addEventListener('hp:committed',changed);window.addEventListener('hp:server-update',changed);window.addEventListener('hp:invalidate',changed);
+  return()=>{live=false;window.removeEventListener('hp:committed',changed);window.removeEventListener('hp:server-update',changed);window.removeEventListener('hp:invalidate',changed);};
  },[]);
  const save=(patch:Record<string,unknown>)=>{if(!snapshot.current)return Promise.resolve();pending.current.push(patch);setSettings(current=>({...current,...patch}));const action=queue.current.then(async()=>{if(!snapshot.current)return;saving.current=true;setBusy(true);setError('');try{const value=await api.updateSettings(patch,snapshot.current.version);snapshot.current={settings:{...snapshot.current.settings,...value.settings},version:value.version};}catch(reason){setError(errorMessage(reason));const value=await api.settings();snapshot.current=value;}finally{pending.current.shift();setSettings({...preferenceDefaults,...snapshot.current?.settings,...Object.assign({},...pending.current)});saving.current=false;setBusy(pending.current.length>0);}});queue.current=action.catch(()=>{});return queue.current;};
  return {settings,ready,error,busy,save};

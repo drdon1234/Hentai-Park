@@ -153,6 +153,7 @@ Flutter 不在 PATH 上时传入完整路径：`.\tools\check.ps1 -FlutterComman
 3. `flutter analyze lib`：静态检查，规则见 `analysis_options.yaml`。
 4. `dart format`：格式检查。手写 JS 使用两空格、多行函数与单引号；生成文件按生成器格式保留。
 5. `tools/publish_sources.mjs`：官方插件离线校验；提供 `videos` 的插件必须声明有效的 `media`，已有媒体与图片声明也会检查传输方式、来源、域名和会话范围，避免发布后才因缺少权限而无法播放。
+6. `pnpm --dir clients/web run contract:generate`：从 `assets/public-contract.json` 生成 Android 与 Web 共用的公共契约；修改枚举、默认顺序或官方仓库配置后必须重新生成。
 
 - 所有测试、复现脚本、夹具和测试产物只保存在被 `.gitignore` 忽略的本地目录，不跟踪、不提交。
 - 公开内容只使用占位符和演示数据，不提交本机配置、签名私钥、真实账号或会话、用户备份、抓包及原始日志。站点会话提取过程与逆向调试记录不作为公开协议文档。反馈使用应用导出的脱敏报告；Git 忽略规则不能替代提交和发布附件检查。若凭据已公开，先撤销或轮换，再清理文件与历史引用。

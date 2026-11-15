@@ -42,6 +42,5 @@ Linux 原生运行还需 Playwright 系统库，可使用 `playwright install --
 
 [架构](WEB_ARCHITECTURE.md)、[API](WEB_API.md)、[数据](WEB_DATA.md)、[插件宿主](WEB_PLUGIN_HOST.md)、[浏览器行为](WEB_NATIVE_BEHAVIOR.md)、[功能边界](WEB_FEATURES.md)。
 
-整合前记录仅作为历史证据，见[验收边界](ACCEPTANCE.md)。原工作区保留；旧报告本地快照位于根 `test/web-integration/source-documents`，其中提及的旧 `test/` 路径属于来源工作区，并未复制个人数据或全部验收产物。不得将旧构建 hash 或旧任务板状态当作本次代码的新鲜验收。
 
 参考阅读：已实际阅读 [JAV-Pilot README](https://github.com/drdon1234/JAV-Pilot) 和[安装说明](https://github.com/drdon1234/JAV-Pilot/blob/main/docs/guide/getting-started.md)，仅借鉴 Compose 优先、发布前本地构建、持久化与升级的文档组织。Web 的 HTTPS、实例凭据、固定非 root 用户、端口及浏览器依赖均依据本项目实现。

@@ -12,7 +12,7 @@ export default function ShortVideoPage({ source, manifest, navigate, renderReade
   const scope = JSON.stringify([source, feed, link, filters]);
   const trail = useRef<Array<{cursor?:string;work?:string}>>([]), priorScope = useRef(scope);
   if (priorScope.current !== scope) { priorScope.current = scope; trail.current = []; }
-  const list = useAsync(async signal => ({scope, cursor, page: await api.works({source, feed, link, filters, cursor, limit:24}, signal)}), [scope, cursor]);
+  const list = useAsync(async signal => ({scope, cursor, page: await api.works({source, feed, link, filters, cursor, limit:24}, signal)}), [scope, cursor], undefined, { cacheKey: 'short-video-list:' + JSON.stringify([scope, cursor]) });
   const page = list.data?.scope === scope && list.data.cursor === cursor ? list.data.page : undefined;
   const listLoading = list.loading || Boolean(list.data && !page);
   const items = page?.items ?? [];
@@ -47,6 +47,6 @@ export default function ShortVideoPage({ source, manifest, navigate, renderReade
 }
 
 function ShortVideoSlot({source,workId,active,renderReader}:{source:string;workId:string;active:boolean;renderReader:(parts:string[],active:boolean)=>ReactNode}){
- const content=useAsync(async signal=>{const work=await api.work(source,workId,signal);if(work.capabilities.metadataOnly)return undefined;const chapters=await api.chapters(source,workId,{},signal);const chapter=chapters.items.find(item=>!item.nodeType||item.nodeType==='video');if(!chapter)throw Error(t('此作品没有可播放的视频'));return {work,chapter};},[source,workId]);
+ const content=useAsync(async signal=>{const work=await api.work(source,workId,signal);if(work.capabilities.metadataOnly)return undefined;const chapters=await api.chapters(source,workId,{},signal);const chapter=chapters.items.find(item=>!item.nodeType||item.nodeType==='video');if(!chapter)throw Error(t('此作品没有可播放的视频'));return {work,chapter};},[source,workId],undefined,{cacheKey:'short-video-work:'+JSON.stringify([source,workId])});
  return <div hidden={!active} data-short-video={workId} aria-hidden={!active}><StateView loading={content.loading} error={content.error} empty={false}>{content.data&&(active||content.data.work.capabilities.videos)?<div className="short-video-stage">{renderReader([source,workId,content.data.chapter.chapterId].map(encodeURIComponent),active)}</div>:null}</StateView></div>;
 }

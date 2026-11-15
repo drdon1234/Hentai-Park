@@ -1,7 +1,7 @@
-.media-surface { position: relative; width: 100%; margin-inline: auto; background: #080b10; color: #fff; isolation: isolate; overflow: hidden; border-radius: 12px; }
-.media-picture { width: 100%; }
-.media-surface .media-picture video { display: block; width: 100%; height: auto; max-height: 76dvh; aspect-ratio: var(--media-ratio,auto); object-fit: contain; }
-.media-surface[data-portrait='true'] { max-width: min(100%,calc(76dvh * var(--media-ratio))); }
+.media-surface { position: relative; width: 100%; aspect-ratio: 16 / 9; margin-inline: auto; background: #080b10; color: #fff; isolation: isolate; overflow: hidden; border-radius: 12px; display:grid; place-items:center; }
+.media-picture { width: 100%; height:100%; display:grid; place-items:center; }
+.media-surface .media-picture video { display: block; width: 100%; height: 100%; max-height: none; aspect-ratio: var(--media-ratio,auto); object-fit: contain; }
+.media-surface[data-portrait='true'] { max-width: none; }
 .media-surface:fullscreen { max-width: none; border-radius: 0; display: grid; align-items: center; }
 .media-surface:fullscreen .media-picture video { max-height: 100dvh; }
 .media-control-layer { position: absolute; inset: auto 0 0; padding: 32px 16px max(12px,env(safe-area-inset-bottom)); background: linear-gradient(transparent,rgb(0 0 0 / 85%)); transition: opacity 160ms ease-out; }
@@ -24,7 +24,7 @@
 .media-settings > label { display: flex; gap: 12px; margin-block: 12px; }
 .media-settings > .reader-controls { margin: 0; }
 .media-boost,.media-control-error { position: absolute; top: 12px; left: 12px; background: #111d; color: #fff; padding: 8px 12px; border-radius: 8px; }
-.media-surface-audio { background: transparent; color: var(--browse-text); padding: 32px; max-width: 760px; border: 0; }
+.media-surface-audio { aspect-ratio: auto; display:block; background: transparent; color: var(--browse-text); padding: 32px; max-width: 760px; border: 0; }
 .media-surface-audio .media-picture { height: 0; overflow: hidden; }
 .audio-now-playing { display: flex; flex-direction: column; gap: 28px; align-items: center; text-align: center; padding-block: 16px 32px; }
 .audio-now-playing > div:last-child { display: grid; gap: 12px; min-width: 0; }

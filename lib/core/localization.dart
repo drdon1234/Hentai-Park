@@ -5,12 +5,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 
+import 'public_contract.dart';
+
 /// The Chinese message is the stable key; only application copy is translated.
 /// Remote titles, tags, usernames and user-authored values stay untouched.
 class AppLocalizations {
   AppLocalizations._([this.locale = const Locale('en')]);
   static final instance = AppLocalizations._();
-  static final supportedLocales = languageNames.keys
+  static final supportedLocales = PublicContract.languages
+      .where(languageNames.containsKey)
       .map((key) {
         final parts = key.split('-');
         return Locale.fromSubtags(

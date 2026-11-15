@@ -1,6 +1,7 @@
 import type { ChapterIdentity, DownloadVariant, SourceId, WorkIdentity } from './identity.js';
-export type MediaKind = 'comic' | 'article' | 'novel' | 'video' | 'voice' | 'game' | 'tavern' | 'mixed' | 'unknown';
-export type WorkCategory = 'feed' | 'article' | 'doujin' | 'gallery' | 'illustration' | 'anime' | 'aiDrama' | 'jav' | 'adult' | 'shortvideo' | 'recording' | 'live' | 'asmr' | 'novel' | 'tavern' | 'game' | 'onlineGame' | 'other';
+import type { PublicCategory, PublicMediaKind } from './public-contract.js';
+export type MediaKind = PublicMediaKind;
+export type WorkCategory = PublicCategory | 'article';
 export interface CapabilitySnapshot { readonly feed: boolean; readonly search: boolean; readonly detail: boolean; readonly chapter: boolean; readonly videos: boolean; readonly webVideo: boolean; readonly reverseSearch: boolean; readonly subscription: boolean; readonly ranking: boolean; readonly metadata: boolean; readonly comments: boolean; readonly album: boolean; readonly subscriptionUpdates: boolean; readonly postShortVideos: boolean; readonly metadataOnly: boolean; readonly reverseSearchOnly: boolean; readonly rankingOnly: boolean; readonly capturedAt: string; readonly sourceVersion?: string; }
 export interface Work extends WorkIdentity { readonly title: string; readonly cover?: string; readonly mediaKind: MediaKind; readonly category: WorkCategory; readonly sourceCategory?: string; readonly summary?: string; readonly sourceUrl: string; readonly capability: CapabilitySnapshot; readonly updatedAt: string; readonly sourceVersion?: string; readonly version: number; }
 export type ReadState = 'unread' | 'reading' | 'read';

@@ -9,7 +9,6 @@ export type SharedState = {
   collectionsReady: boolean;
   downloads: Record<string, DownloadState>;
   progress: Record<string, ProgressState>;
-  theme: 'light' | 'dark';
   incognito: boolean | undefined;
   coverBlur: boolean;
   blockedWords: string[];
@@ -19,7 +18,36 @@ export type DownloadIdentity = { source: string; workId: string; chapterId: stri
 
 const STATE_KEY = 'hp-shared-state';
 const CHANNEL_NAME = 'hentai-park-web';
-const initialState: SharedState = { collections: {}, collectionsReady: false, downloads: {}, progress: {}, theme: 'dark', incognito: undefined, coverBlur: false, blockedWords: [], notificationsEnabled: false };
+const initialState: SharedState = { collections: {}, collectionsReady: false, downloads: {}, progress: {}, incognito: undefined, coverBlur: false, blockedWords: [], notificationsEnabled: false };
+
+export type ThemeMode = 'light' | 'dark';
+function storedTheme(): ThemeMode {
+  try {
+    const value = window.localStorage.getItem('hp-theme');
+    if (value === 'light' || value === 'dark') return value;
+  } catch { /* Local storage is optional. */ }
+  return 'dark';
+}
+let theme: ThemeMode = typeof window === 'undefined' ? 'dark' : storedTheme();
+const themeListeners = new Set<() => void>();
+export function resolveThemePreference(value: unknown): ThemeMode {
+  if (value === 'light') return 'light';
+  if (value === 'dark') return 'dark';
+  return typeof matchMedia === 'function' && matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+}
+export function setThemeMode(next: ThemeMode) {
+  if (theme === next) return;
+  theme = next;
+  try { window.localStorage.setItem('hp-theme', next); } catch { /* Local storage is optional. */ }
+  themeListeners.forEach((listener) => listener());
+}
+export function useThemeMode() {
+  return useSyncExternalStore(
+    (listener) => { themeListeners.add(listener); return () => themeListeners.delete(listener); },
+    () => theme,
+    () => 'dark' as ThemeMode,
+  );
+}
 
 function normalizeState(value: unknown): SharedState {
   const parsed = value && typeof value === 'object' ? value as Partial<SharedState> : {};
@@ -30,7 +58,6 @@ function normalizeState(value: unknown): SharedState {
     collectionsReady: parsed.collectionsReady === true,
     downloads: Object.fromEntries(Object.entries(downloads).filter(([key, item]) => typeof key === 'string' && item && typeof item === 'object')) as SharedState['downloads'],
     progress: Object.fromEntries(Object.entries(progress).filter(([key, item]) => typeof key === 'string' && item && typeof item === 'object')) as SharedState['progress'],
-    theme: parsed.theme === 'light' ? 'light' : 'dark',
     incognito: typeof parsed.incognito === 'boolean' ? parsed.incognito : undefined,
     coverBlur: parsed.coverBlur === true,
     notificationsEnabled: parsed.notificationsEnabled === true,

@@ -182,11 +182,9 @@ class ComicPdf {
       final image = entry.jpeg
           ? PdfImage.jpeg(document, image: bytes)
           : PdfImage.file(document, bytes: bytes);
-      // 长图等比缩小页面坐标，避免超出 PDF 页面尺寸限制；原始像素保持完整。
-      final longest = entry.width > entry.height ? entry.width : entry.height;
-      final scale = longest > 14400 ? 14400 / longest : 1.0;
-      final width = entry.width * scale;
-      final height = entry.height * scale;
+      // 所有页面统一使用 A4 宽度，按原图比例计算高度；原始像素保持完整。
+      final width = PdfPageFormat.a4.width;
+      final height = width * entry.height / entry.width;
       PdfPage(
         document,
         pageFormat: PdfPageFormat(width, height),

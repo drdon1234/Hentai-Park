@@ -29,6 +29,7 @@ import type { EventEmitter } from 'node:events';
 import { registerEvents } from './event-stream.js';
 import { installSessions, type SessionOptions } from './session.js';
 import {registerWebPlayerRoutes} from './web-player.js';
+import {sourceContract} from '@hentai-park/source-contract';
 type Row = Record<string, unknown>;
 type Query = Record<string, unknown>;
 function canonicalJson(value:unknown):string {if(Array.isArray(value))return '['+value.map(canonicalJson).join(',')+']';if(value&&typeof value==='object')return '{'+Object.entries(value).filter(([,item])=>item!==undefined).sort(([a],[b])=>a.localeCompare(b)).map(([key,item])=>JSON.stringify(key)+':'+canonicalJson(item)).join(',')+'}';return JSON.stringify(value)??'null';}
@@ -70,16 +71,16 @@ function integer(value: unknown, field: string, min = 0, max = Number.MAX_SAFE_I
     throw bad(`${field} is invalid`); return result; }
 function requestKey(request: FastifyRequest, body: Row): string { return stringValue(body.requestKey ?? request.headers['idempotency-key'], 'requestKey', 256); }
 function queryObject(request: FastifyRequest): Query { return (request.query && typeof request.query === 'object' ? request.query : {}) as Query; }
-const CONTENT_CATEGORIES=['doujin','anime','aiDrama','jav','adult','asmr','shortvideo','recording','live','gallery','illustration','novel','tavern','game','onlineGame','feed','other'];
+const CONTENT_CATEGORIES=sourceContract.categories;
 function categoryScope(query:Query):string[]|undefined {
     let categories:string[]|undefined;
     if(query.categories!==undefined){
         if(typeof query.categories!=='string'||query.categories.length>512)throw bad('categories is invalid');
         categories=query.categories===''?[]:[...new Set(query.categories.split(','))];
-        if(categories.some(value=>!CONTENT_CATEGORIES.includes(value)))throw bad('categories is invalid');
+        if(categories.some(value=>!CONTENT_CATEGORIES.includes(value as never)))throw bad('categories is invalid');
     }
     if(query.category!==undefined){
-        const category=stringValue(query.category,'category',64);if(!CONTENT_CATEGORIES.includes(category))throw bad('category is invalid');
+        const category=stringValue(query.category,'category',64);if(!CONTENT_CATEGORIES.includes(category as never))throw bad('category is invalid');
         categories=categories===undefined?[category]:categories.filter(value=>value===category);
     }
     return categories;
@@ -211,7 +212,7 @@ export function buildApp(db = new AppDatabase(), media = new MediaProxy(), optio
         router.post('/search', async (request) => {
           const body=bodyObject(request.body); const query=body.query===''&&body.source&&body.filters&&typeof body.filters==='object'&&!Array.isArray(body.filters)&&Object.keys(body.filters).length?'':stringValue(body.query,'query',512); const source=body.source===undefined?undefined:sourceKey(body.source); const scope=body.scope ?? 'all'; if(!['all','title','summary','id','link','metadata'].includes(String(scope)))throw bad('scope is invalid');
           const limit=body.limit===undefined?50:integer(body.limit,'limit',1,200); const generation=body.requestGeneration===undefined?0:integer(body.requestGeneration,'requestGeneration'); const cursor=body.cursor===undefined?undefined:stringValue(body.cursor,'cursor',256);const filters=body.filters===undefined?undefined:bodyObject(body.filters);if(filters)jsonValue(filters,'filters',32000);
-          if(body.keywords!==undefined&&(!Array.isArray(body.keywords)||body.keywords.length<1||body.keywords.length>8||body.keywords.some(value=>typeof value!=='string'||!value.trim()||value.length>512)))throw bad('keywords is invalid');if(catalog){const selected=body.sources===undefined?undefined:Array.isArray(body.sources)&&body.sources.length<=101?body.sources.map(value=>sourceKey(value)):(()=>{throw bad('sources is invalid');})();const mediaKind=body.mediaKind===undefined?undefined:stringValue(body.mediaKind,'mediaKind',32);if(mediaKind&&!['comic','video','novel','voice','article','game','tavern','mixed','unknown'].includes(mediaKind))throw bad('mediaKind is invalid');const category=body.category===undefined?undefined:stringValue(body.category,'category',64);const input={query,scope:String(scope),source,sources:selected,mediaKind,category,cursor,limit,filters};const result=body.keywords?await catalog.searchKeywords(input,body.keywords as string[],signal(request)):await catalog.search(input,signal(request));return {...result,items:visible(result.items).map(work=>present(request,work)),requestGeneration:generation,requestId:request.id};}
+          if(body.keywords!==undefined&&(!Array.isArray(body.keywords)||body.keywords.length<1||body.keywords.length>8||body.keywords.some(value=>typeof value!=='string'||!value.trim()||value.length>512)))throw bad('keywords is invalid');if(catalog){const selected=body.sources===undefined?undefined:Array.isArray(body.sources)&&body.sources.length<=101?body.sources.map(value=>sourceKey(value)):(()=>{throw bad('sources is invalid');})();const mediaKind=body.mediaKind===undefined?undefined:stringValue(body.mediaKind,'mediaKind',32);if(mediaKind&&!sourceContract.mediaKinds.includes(mediaKind as never))throw bad('mediaKind is invalid');const category=body.category===undefined?undefined:stringValue(body.category,'category',64);const input={query,scope:String(scope),source,sources:selected,mediaKind,category,cursor,limit,filters};const result=body.keywords?await catalog.searchKeywords(input,body.keywords as string[],signal(request)):await catalog.search(input,signal(request));return {...result,items:visible(result.items).map(work=>present(request,work)),requestGeneration:generation,requestId:request.id};}
           if(filters&&Object.keys(filters).length)throw new HttpError(422,'UNSUPPORTED','Filters require source host','source');const offset=cursor===undefined?0:integer(Buffer.from(cursor,'base64url').toString('utf8'),'cursor'); const pattern='%'+query.replace(/[\\%_]/g,'\\$&')+'%';
           const fields:Record<string,string>={title:'title',summary:'summary',id:'work_id',link:'source_url'}; const column=fields[String(scope)]; const predicate=column?`${column} LIKE ? ESCAPE '\\'`:"(title LIKE ? ESCAPE '\\' OR summary LIKE ? ESCAPE '\\')";
           const rows=db.db.prepare(`SELECT * FROM works WHERE ${source?'source=? AND ':''}${predicate} ORDER BY updated_at DESC,source,work_id LIMIT ? OFFSET ?`).all(...(source?[source]:[]),...(column?[pattern]:[pattern,pattern]),limit,offset) as Row[];

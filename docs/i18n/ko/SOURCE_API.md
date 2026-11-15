@@ -324,7 +324,7 @@ async resolveGameResource(workId, resourceId, channelId) {}
 
 - `coverAspect` (너비 / 높이)가 있으면 이미지가 로드되기 전에 격자를 배치할 수 있습니다.
 - `badgeColor`는 분류 배지의 색입니다.
-- `mediaKind: 'comic' | 'video' | 'voice' | 'novel' | 'game' | 'article'`은 작품 자체의 유형입니다. 유형이 하나인 플러그인은 생략할 수 있지만 혼합 유형은 반드시 지정합니다. 소설, 게임, 기사는 항상 지정해 플러그인 제거 후에도 유형을 유지합니다.
+- `mediaKind: 'comic' | 'video' | 'voice' | 'novel' | 'tavern' | 'game' | 'article' | 'mixed' | 'unknown'`은 작품 자체의 유형입니다. 유형이 하나인 플러그인은 생략할 수 있지만 혼합 유형은 반드시 지정합니다. 소설, 게임, 기사는 항상 지정해 플러그인 제거 후에도 유형을 유지합니다.
 - 게시물 형식의 결과는 `presentation: 'post'`, `text`, `date`, `url`, `media` 배열을 가질 수 있으며 게시물 카드로 표시됩니다. `presentation: 'media'`는 미디어 격자로 표시하고 누르면 작품 안의 미디어를 엽니다. 게시물에 미디어가 없어도 됩니다. 미디어 주소는 플러그인이 선언한 도메인과 권한을 따릅니다.
 
 ### 상세: `detail`

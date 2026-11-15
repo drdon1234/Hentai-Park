@@ -859,6 +859,8 @@
   "站内关键词": "Palabras clave del sitio",
   "站内搜索与筛选": "Búsqueda y filtrado de sitios",
   "站点": "Sitios",
+  "站点顺序": "Orden de sitios",
+  "使用按钮调整首页各域中的站点顺序。": "Usa los botones para ajustar el orden de los sitios en cada categoría de inicio.",
   "站点Cookie JSON": "Cookie del sitio JSON",
   "站点Cookie（敏感）": "Cookie del sitio (sensible)",
   "站点不可用": "El sitio no está disponible",
@@ -1659,5 +1661,10 @@
   "频道类型": "Tipo de canal",
   "尚未保存频道": "Aún no hay canales guardados",
   "正在加载已保存频道": "Cargando canales guardados",
-  "收藏与下载": "Favoritos y descargas"
+  "收藏与下载": "Favoritos y descargas",
+  "没有匹配结果，可修改关键词或筛选条件后重试。": "No hay resultados coincidentes. Cambia la palabra clave o los filtros e inténtalo de nuevo.",
+  "可调整筛选条件，或返回上一级继续浏览。": "Ajusta los filtros o vuelve al nivel anterior para seguir explorando.",
+  "请确认实例已启动且当前地址可访问。": "Confirma que la instancia esté iniciada y que la dirección actual sea accesible.",
+  "退出阅读": "Salir del lector",
+  "回到顶部": "Volver arriba"
 }

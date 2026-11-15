@@ -4,10 +4,11 @@ import { EmptyState, StatusMessage } from '@hentai-park/design-system';
 import { api, allPages, ApiError } from './api.js';
 
 function message(error: unknown) { return error instanceof ApiError ? (error.code ? error.code + '：' : '') + error.message : error instanceof Error ? error.message : t("请求失败"); }
+const rankingCache = new Map<string, unknown>();
 function useRankingQuery<T>(load: (signal: AbortSignal) => Promise<T>, identity: string) {
-  const [state, setState] = useState<{ data?: T; loading: boolean; error?: unknown }>({ loading: true });
+  const [state, setState] = useState<{ data?: T; loading: boolean; error?: unknown }>(() => ({ data: rankingCache.get(identity) as T | undefined, loading: !rankingCache.has(identity) }));
   const [attempt, setAttempt] = useState(0);
-  useEffect(() => { const control = new AbortController(); setState({ loading: true }); void load(control.signal).then(data => { if (!control.signal.aborted) setState({ data, loading: false }); }).catch(error => { if (!control.signal.aborted) setState({ error, loading: false }); }); return () => control.abort(); }, [identity, attempt]);
+  useEffect(() => { const control = new AbortController(); const cached = rankingCache.get(identity) as T | undefined; setState({ data: cached, loading: cached === undefined }); void load(control.signal).then(data => { rankingCache.set(identity, data); while (rankingCache.size > 128) rankingCache.delete(rankingCache.keys().next().value!); if (!control.signal.aborted) setState({ data, loading: false }); }).catch(error => { if (!control.signal.aborted) setState(previous => ({ data: cached ?? previous.data, error, loading: false })); }); return () => control.abort(); }, [identity, attempt]);
   return { ...state, retry: () => setAttempt(value => value + 1) };
 }
 function jump(event: React.MouseEvent, href: string, navigate: (to: string) => void) { if (event.button === 0 && !event.ctrlKey && !event.metaKey && !event.shiftKey && !event.altKey) { event.preventDefault(); navigate(href); } }

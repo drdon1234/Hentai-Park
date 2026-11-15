@@ -57,10 +57,12 @@ enum MediaKind {
   novel,
   tavern,
   game,
-  article;
+  article,
+  mixed,
+  unknown;
 
   static MediaKind fromJson(Object? value) =>
-      values.firstWhere((kind) => kind.name == value, orElse: () => comic);
+      values.firstWhere((kind) => kind.name == value, orElse: () => unknown);
 }
 
 extension MediaKindLabel on MediaKind {
@@ -72,6 +74,8 @@ extension MediaKindLabel on MediaKind {
     MediaKind.tavern => '酒馆',
     MediaKind.game => '游戏',
     MediaKind.article => '吃瓜',
+    MediaKind.mixed => '混合',
+    MediaKind.unknown => '未知',
   });
 
   bool get isPlayable => this == MediaKind.video || this == MediaKind.voice;
@@ -589,7 +593,7 @@ class SourceManifest {
           ? MediaKind.novel
           : MediaKind.values.firstWhere(
               (kind) => kind.name == json['type'],
-              orElse: () => MediaKind.comic,
+              orElse: () => MediaKind.unknown,
             ),
       category = SourceCategory.fromJson(json['category']),
       color = parseHexColor(_str(json['color'])),

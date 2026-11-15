@@ -324,7 +324,7 @@ async resolveGameResource(workId, resourceId, channelId) {}
 
 - `coverAspect`（寬 / 高）讓網格在圖片載入前就排好版。
 - `badgeColor` 用於分類角標的顏色。
-- `mediaKind: 'comic' | 'video' | 'voice' | 'novel' | 'game' | 'article'` 描述作品本身的型別。外掛只有一種型別時可以省略；混合型別時必須填寫，不能憑外掛的 `type` 把圖片當成影片。小說、遊戲和吃瓜作品總是填寫，解除安裝外掛後仍保留正確型別。
+- `mediaKind: 'comic' | 'video' | 'voice' | 'novel' | 'tavern' | 'game' | 'article' | 'mixed' | 'unknown'` 描述作品本身的型別。外掛只有一種型別時可以省略；混合型別時必須填寫，不能憑外掛的 `type` 把圖片當成影片。小說、遊戲和吃瓜作品總是填寫，解除安裝外掛後仍保留正確型別。
 - 帖子類結果可以帶 `presentation: 'post'`、`text`、`date`、`url` 和 `media` 陣列，以帖子卡片顯示；`presentation: 'media'` 用媒體網格顯示，點選進入作品中的媒體。帖子正文允許沒有媒體；媒體地址仍受外掛宣告的域名和許可權約束。
 
 ### 詳情：`detail`

@@ -2,7 +2,7 @@ import {validatePreferences} from '@hentai-park/domain-model';
 import { DatabaseSync, type SQLInputValue } from 'node:sqlite';
 import { isDeepStrictEqual } from 'node:util';
 import { createHash,randomUUID } from 'node:crypto';
-import { validateManifest,isSourceKey } from '@hentai-park/source-contract';
+import { validateManifest,isSourceKey,sourceContract } from '@hentai-park/source-contract';
 import type {PluginManifest} from '@hentai-park/source-contract';
 import {normalizeConnectionEndpoint,validateConnectionSecrets} from './tavern-connections.js';
 import {validateWorldbookTermPack} from './worldbook-terms.js';
@@ -177,7 +177,7 @@ const common = { updated_at: timestamp, version: integer };
 const tables: Record<string, Table> = {
     sourceRegistry: { table: 'source_registry', key: ['source'], updated: 'updated_at', fields: { source, manifest_json: manifest, enabled: bool, updated_at: timestamp } },
     sourceSettings: { table: 'source_settings', key: ['source'], updated: 'updated_at', fields: { source, settings_json: json, updated_at: timestamp } },
-    works: { table: 'works', key: ['source', 'work_id'], updated: 'updated_at', fields: { source, work_id: identifier, title: (v, f) => text(v, f, 2048) || invalid(f), cover: nullable(stableUrl), media_kind: enumOf(['comic', 'article', 'novel', 'video', 'voice', 'game', 'tavern', 'mixed', 'unknown']), category: required, source_category: nullable(string), summary: nullable(string), source_url: stableUrl, capability_json: capabilities, source_version: nullable(string), content_updated_at:nullable(timestamp), ...common, metadata_json: json } },
+        works: { table: 'works', key: ['source', 'work_id'], updated: 'updated_at', fields: { source, work_id: identifier, title: (v, f) => text(v, f, 2048) || invalid(f), cover: nullable(stableUrl), media_kind: enumOf([...sourceContract.mediaKinds]), category: required, source_category: nullable(string), summary: nullable(string), source_url: stableUrl, capability_json: capabilities, source_version: nullable(string), content_updated_at:nullable(timestamp), ...common, metadata_json: json } },
     chapters: { table: 'chapters', key: ['source', 'work_id', 'chapter_id'], fields: {text_offset:nullable(integer),node_type:nullable(enumOf(['audio','video','subtitle','image','script','other'])),node_metadata_json:json, source, work_id: identifier, chapter_id: identifier, title: (v, f) => text(v, f, 2048) || invalid(f), sort: number, read_state: enumOf(['unread', 'reading', 'read']), page_progress: nullable(integer), video_position: nullable(number), duration: nullable(number), progress_updated_at: nullable(timestamp), version: integer } },
     categories: { table: 'categories', key: ['id'], updated: 'updated_at', fields: { id: identifier, name: required, sort:number, created_at: timestamp, ...common } },
     history: { table: 'history', key: ['scope_key'], updated: 'updated_at', fields: { source, work_id: identifier, chapter_id: nullable(identifier), chapter_title: nullable(string), page: nullable(integer), page_count: nullable(integer), position: nullable(number), updated_at: timestamp, scope_key: resource } },

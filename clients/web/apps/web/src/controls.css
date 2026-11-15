@@ -288,6 +288,9 @@ input, textarea { caret-color: var(--control-accent); }
 .reverse-search > label:has(select) { display: grid; gap: 8px; }
 .reverse-candidate-image > figcaption { margin-block: 8px 12px; }
 .post-media { margin: 20px 0; }
+.post-video-frame, .post-video-preview { width: 100%; aspect-ratio: 16 / 9; overflow: hidden; border-radius: 10px; background: #10151f; display: grid; place-items: center; }
+.post-video-frame video, .post-video-preview img { display: block; width: 100%; height: 100%; object-fit: contain; }
+.post-video-frame > .action-row { margin: 0; padding: 16px; }
 .post-media > figcaption { margin-block-start: 8px; color: var(--browse-muted); }
 .post-media > button { margin-block-start: 12px; }
 .feed-item figure[data-media-id] { margin: 20px 0; }

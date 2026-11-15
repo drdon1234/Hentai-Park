@@ -1,14 +1,15 @@
 import {parseBlockRule} from './block-rules.js';
 import {blockPresets} from './block-presets.js';
+import {domainOrder, languages, sourceProtocol} from './public-contract.js';
 /** Shared defaults and validation for editable Web preferences. */
 export const preferenceDefinitions = {
   seedColor:{default:0xFFC96442,min:0,max:0xffffffff},gridColumns:{default:0,choices:[0,2,3,4]},albumColumns:{default:3,choices:[1,2,3,4,5,6]},albumCollapsed:{default:false},
   domainOrder:{default:[] as string[]},homeCategories:{default:[] as string[]},homeExpandedDomains:{default:[] as string[]},
-  askCategoryOnFavorite:{default:false},librarySort:{default:'added',choices:['added','read','title','updated']},librarySortAsc:{default:false},libraryDisplay:{default:'grid',choices:['grid','list']},historyDisplay:{default:'list',choices:['grid','list']},downloadDisplay:{default:'list',choices:['grid','list']},libraryFilterKind:{default:'all',choices:['all','comic','video','voice','novel','game','article']},libraryFilterSources:{default:[] as string[]},libraryFilterDownloaded:{default:false},libraryFilterUnread:{default:false},badgeUnread:{default:true},badgeDownloaded:{default:true},badgeSource:{default:true},
+  askCategoryOnFavorite:{default:false},librarySort:{default:'added',choices:['added','read','title','updated']},librarySortAsc:{default:false},libraryDisplay:{default:'grid',choices:['grid','list']},historyDisplay:{default:'list',choices:['grid','list']},downloadDisplay:{default:'list',choices:['grid','list']},libraryFilterKind:{default:'all',choices:['all',...sourceProtocol.mediaKinds]},libraryFilterSources:{default:[] as string[]},libraryFilterDownloaded:{default:false},libraryFilterUnread:{default:false},badgeUnread:{default:true},badgeDownloaded:{default:true},badgeSource:{default:true},
   libraryUpdateHours:{default:0,choices:[0,6,12,24,48,168]},updateOnlyMultiChapter:{default:true},updateSkipUnread:{default:false},updateSkipNotStarted:{default:false},autoDownloadNew:{default:false},deleteAfterRead:{default:false},autoSourceUpdates:{default:true},autoBackupHours:{default:24,choices:[0,12,24,72,168]},autoBackupKeep:{default:3,choices:[1,2,3,5,10]},
   tagDownloadIgnoredSources:{default:[] as string[]},tagDownloadReminders:{default:true},aggregateExcluded:{default:[] as string[]},blockedAuthorWorks:{default:{} as Record<string,string[]>},blockedTagAliases:{default:{} as Record<string,string[]>},blockPresets:{default:{} as Record<string,unknown>},
-  autoTranslateContent:{default:false},translateTargets:{default:['zh-CN','zh-TW','ja','ko','en','es','ru','ar'] as string[]},appLockAfter:{default:0,choices:[0,60,300,900]},danmakuArea:{default:'topHalf',choices:['topQuarter','topHalf','bottomHalf','full']},
-  language:{default:'',choices:['','zh-Hans','zh-Hant','en','ja','ko','es','ru','ar']},
+  autoTranslateContent:{default:false},translateTargets:{default:Object.values(languages).map(item=>item.translationId) as string[]},appLockAfter:{default:0,choices:[0,60,300,900]},danmakuArea:{default:'topHalf',choices:['topQuarter','topHalf','bottomHalf','full']},
+  language:{default:'',choices:['',...Object.keys(languages)]},
   theme:{default:'dark',choices:['light','dark','system']},notificationsEnabled:{default:false},
   dataSavingMode:{default:'off',choices:['off','standard','super']},
   preloadPages: {default:4,min:0,max:10},
@@ -41,7 +42,7 @@ const integers=new Set(['seedColor','readerTapLayout','cacheLimitMb','pdfPagesPe
 export function validatePreferences(values:Record<string,unknown>):void {
   for(const [key,value] of Object.entries(values)) {
     const definition=preferenceDefinitions[key as PreferenceKey];if(!definition)continue;
-    if(Array.isArray(definition.default)){if(!Array.isArray(value)||value.length>1000||value.some(v=>typeof v!=='string'||!v.trim()||v.length>1024)||new Set(value).size!==value.length)throw new Error('Invalid preference: '+key);const allowed=key==='translateTargets'?['zh-CN','zh-TW','ja','ko','en','es','ru','ar']:['domainOrder','homeCategories','homeExpandedDomains'].includes(key)?['feed','gallery','illustration','doujin','anime','jav','adult','shortvideo','aiDrama','recording','live','asmr','novel','tavern','onlineGame','game','other']:undefined;if(allowed&&(value as string[]).some(v=>!allowed.includes(v)))throw new Error('Invalid preference: '+key);continue;}
+    if(Array.isArray(definition.default)){if(!Array.isArray(value)||value.length>1000||value.some(v=>typeof v!=='string'||!v.trim()||v.length>1024)||new Set(value).size!==value.length)throw new Error('Invalid preference: '+key);const allowed=key==='translateTargets'?Object.values(languages).map(item=>item.translationId):['domainOrder','homeCategories','homeExpandedDomains'].includes(key)?domainOrder:undefined;if(allowed&&(value as string[]).some(v=>!allowed.includes(v as never)))throw new Error('Invalid preference: '+key);continue;}
     if(key==='blockedTagAliases'||key==='blockPresets'||key==='blockedAuthorWorks'){
       const fail=()=>{throw new Error('Invalid preference: '+key);};const list=(v:unknown)=>{if(!Array.isArray(v)||v.length>1000||v.some(x=>typeof x!=='string'||!x.trim()||x.length>256))fail();};
       const map=(v:unknown)=>{if(!v||typeof v!=='object'||Array.isArray(v)||Object.keys(v).length>1000)fail();return v as Record<string,unknown>;};

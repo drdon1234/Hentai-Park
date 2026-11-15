@@ -1,17 +1,16 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { t } from './i18n.js';
 import type { ApiWork, DiscoveryShelf } from './api.js';
+import {domainDimension,domainMedia,domainOrder as publicDomainOrder} from '@hentai-park/domain-model';
 
 export const categoryLabels: Record<string, string> = {feed:'吃瓜',doujin:'本子',anime:'里番',aiDrama:'AI短剧',jav:'JAV',adult:'成人视频',shortvideo:'短视频',recording:'录播',gallery:'三次元美图',illustration:'二次元美图',game:'游戏资源',onlineGame:'在线游戏',other:'创作社区',live:'直播',novel:'小说',tavern:'酒馆',asmr:'音声'};
-export const domainOrder = ['feed','gallery','illustration','doujin','anime','jav','adult','shortvideo','aiDrama','recording','live','asmr','novel','tavern','onlineGame','game','other'];
+export const domainOrder = [...publicDomainOrder];
 export function categoryInScope(category:string,dimension:string,media:string) {
-  const twoD=['doujin','anime','illustration','game'];
-  const threeD=['gallery','aiDrama','jav','adult','shortvideo','recording','live','novel'];
-  const dimensionMatches=dimension==='all'||(dimension==='twoD'?!threeD.includes(category):!twoD.includes(category));
-  const kind=['doujin','gallery','illustration'].includes(category)?'image':['anime','aiDrama','jav','adult','shortvideo','recording','live'].includes(category)?'video':category==='asmr'?'voice':'other';
+  const dimensionMatches=dimension==='all'||(dimension==='twoD'&&!domainDimension.threeD.includes(category as never))||(dimension==='threeD'&&!domainDimension.twoD.includes(category as never));
+  const kind=domainMedia.image.includes(category as never)?'image':domainMedia.video.includes(category as never)?'video':domainMedia.voice.includes(category as never)?'voice':'other';
   return dimensionMatches&&(media==='all'||media===kind);
 }
-export const mediaLabels: Record<string, string> = { comic: '漫画', novel: '小说', video: '视频', voice: '音声', article: '文章', game: '游戏', tavern: '角色卡' };
+export const mediaLabels: Record<string, string> = { comic: '漫画', novel: '小说', video: '视频', voice: '音声', article: '文章', game: '游戏', tavern: '角色卡', mixed: '混合', unknown: '未知' };
 export const domainHref = (category: string) => '/domain/' + encodeURIComponent(category);
 export function shelfHref(shelf: DiscoveryShelf) {
   const base = '/source/' + encodeURIComponent(shelf.source);
@@ -64,7 +63,7 @@ export function ContentShelf({ shelf, renderItem, navigate, heading = true, loca
     {items.length ? <div className={'shelf-carousel'+(scrollable?' is-scrollable':'')}><button className="shelf-side shelf-side-start" aria-label={t('向前浏览')+' · '+shelf.title} disabled={edges.start} onClick={()=>move(-1)}><Arrow previous full /></button><div className={'shelf-track shelf-' + (items[0]?.mediaKind ?? 'comic')} ref={track} tabIndex={0} role="region" aria-label={shelf.title + ' · ' + t('横向浏览')} onKeyDown={event => { if (event.target !== event.currentTarget) return; if (event.key === 'ArrowRight' || event.key === 'ArrowLeft') { event.preventDefault(); move((event.key === 'ArrowRight' ? 1 : -1) * (getComputedStyle(event.currentTarget).direction === 'rtl' ? -1 : 1)); } }}>{items.map(work => <div className="shelf-item" key={JSON.stringify([work.source, work.workId])}>{renderItem(work)}</div>)}{onReachEnd ? <div ref={tail} className="shelf-tail" aria-hidden="true" /> : null}</div><button className="shelf-side shelf-side-end" aria-label={t('向后浏览')+' · '+shelf.title} disabled={edges.end} onClick={()=>move(1)}><Arrow full /></button></div> : <p role="status">{shelf.items.length ? t('结果已被屏蔽规则过滤。') : t('此分区暂无内容')}</p>}
   </section>;
 }
-function Arrow({ previous = false, full = false }: { previous?: boolean; full?: boolean }) { return <svg className={previous ? 'arrow previous' : 'arrow'} width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true"><path d={full ? "M5 12h14m-7-7 7 7-7 7" : "m9 5 7 7-7 7"} /></svg>; }
+export function Arrow({ previous = false, full = false }: { previous?: boolean; full?: boolean }) { return <svg className={previous ? 'arrow previous' : 'arrow'} width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true"><path d={full ? "M5 12h14m-7-7 7 7-7 7" : "m9 5 7 7-7 7"} /></svg>; }
 
 export function FeatureIcon({ name }: { name: 'rankings' | 'reverse' }) {
   return <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{name === 'rankings' ? <><path d="M4 21V11h5v10M9 21V5h6v16M15 21v-7h5v7M2 21h20"/><path d="m11 2 1-1 1 1"/></> : <><rect x="3" y="3" width="14" height="14" rx="3"/><circle cx="7.5" cy="7.5" r="1"/><path d="m4 14 4-4 3 3 2-2"/><circle cx="16" cy="16" r="4"/><path d="m19 19 3 3"/></>}</svg>;

@@ -103,7 +103,7 @@ docker compose -f clients/web/compose.yaml start
 
 ## 本机直接运行
 
-需要 Node.js 24.22.3+（24.x）及 pnpm 10.33.2，见 [Web 工程入口](../clients/web/README.md)。Windows 双击 `clients/web/start-web.bat`，保持服务终端打开；浏览器会自动打开。开发使用 `dev-web.bat` 或 `pnpm --dir clients/web dev`。
+需要 Node.js 24.22.3+（24.x）及 pnpm 10.33.2，见 [Web 工程入口](../clients/web/README.md)。Windows 双击 `clients/web/start-web.bat`，保持服务终端打开；浏览器会自动打开。若默认端口被 `dev-web` 占用，启动器会询问是否终止开发服务；若被其他程序占用，会询问是否使用随机可用端口。开发使用 `dev-web.bat` 或 `pnpm --dir clients/web dev`。
 
 默认仅监听 `http://127.0.0.1:8787`。本机模式默认不要求实例解锁，启用应用锁后使用 `clients/web/data/instance.key` 中的凭据；若设置了 `AUTH_TOKEN` 则使用该值。相对数据路径相对 `clients/web` 解释。回环 HTTP 的 Secure Cookie 依赖浏览器本机例外；WebKit/Safari 建议经受信 HTTPS 使用，不宣称已完成全部浏览器验收。
 

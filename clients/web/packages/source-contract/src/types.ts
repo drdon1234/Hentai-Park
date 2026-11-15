@@ -1,5 +1,6 @@
-export type PluginType = 'comic' | 'video' | 'voice' | 'novel' | 'tavern' | 'game' | 'article';
-export type PluginCategory = 'doujin' | 'anime' | 'aiDrama' | 'jav' | 'adult' | 'asmr' | 'shortvideo' | 'recording' | 'live' | 'gallery' | 'illustration' | 'novel' | 'tavern' | 'game' | 'onlineGame' | 'feed' | 'other';
+import type {sourceContract} from './public-contract.js';
+export type PluginType = typeof sourceContract.types[number];
+export type PluginCategory = typeof sourceContract.categories[number];
 export type BrowseLayout = 'list' | 'grid';
 export type NetworkMode = 'auto' | 'browser' | 'native';
 export type MediaMode = 'browser' | 'native';
@@ -32,7 +33,7 @@ export interface ImageDecrypt { type: 'aes-cbc'; key: string; iv: string; }
 export interface AccountField { key: string; label: string; hint?:string; secret?: boolean; optional?:boolean; }
 export interface PluginAccount { type: 'password' | 'cookies' | 'session'; title?: string; hint?: string; required?: boolean; fields?: AccountField[]; registerUrl?: string; loginUrl?: string; logoutUrl?: string; accountUrl?: string; cookieUrl?: string; requiredCookies?: string[]; localStorageKeys?: string[]; loginDomains?: string[]; managedAccount?: boolean; }
 export interface ChatPermissions { domains: string[]; }
-export type ReverseSearchCategory = 'general' | 'gallery' | 'anime' | 'jav';
+export type ReverseSearchCategory = typeof sourceContract.reverseSearchCategories[number];
 export interface StringMap { [key: string]: string; }
 export interface SubscriptionDeclaration { hint?: string; joinedTargets?: boolean; joinedCreators?: boolean; communities?: boolean; communityHint?: string; communityExample?: string; }
 export interface SubscriptionUpdatesDeclaration { dimensions?: Array<{ key: string; label: string; hint?: string }>; }

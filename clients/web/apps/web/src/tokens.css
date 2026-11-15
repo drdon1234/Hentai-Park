@@ -26,9 +26,9 @@
     --control-text: #171717;
     --control-border: #8792a2;
     --control-hover: #f3f6fb;
-    --control-accent: color-mix(in srgb, var(--user-accent, #0866df) 45%, var(--control-text));
-    --control-accent-hover: #0755bb;
-    --control-soft: #edf4ff;
+    --control-accent: color-mix(in srgb, var(--user-accent, #b86e52) 45%, var(--control-text));
+    --control-accent-hover: #98543d;
+    --control-soft: #f8ece7;
     --control-radius: 8px;
   }
   :root[data-theme='dark'] {
@@ -57,13 +57,13 @@
     --control-text: #ededed;
     --control-border: #718096;
     --control-hover: #2a3749;
-    --control-accent: color-mix(in srgb, var(--user-accent, #0866df) 45%, var(--control-text));
-    --control-accent-hover: #b1d0ff;
-    --control-soft: #1c2d48;
+    --control-accent: color-mix(in srgb, var(--user-accent, #d58b70) 45%, var(--control-text));
+    --control-accent-hover: #efb39a;
+    --control-soft: #352a28;
   }
 
 :root {
-  --action: var(--user-accent, #0866df);
+  --action: var(--user-accent, #b86e52);
   --on-action: var(--user-on-accent, #fff);
   --focus: var(--control-accent);
   --navigation-selected: var(--desktop-selected);

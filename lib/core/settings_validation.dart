@@ -1,5 +1,5 @@
 import 'block_rule.dart';
-import 'translation_options.dart';
+import 'public_contract.dart';
 import 'versions.dart';
 
 /// 所有配置入口共用当前类型与取值规则，错误发生在任何写入之前。
@@ -199,7 +199,7 @@ void validateSettings(Map<String, dynamic> values) {
     if (key == 'translateTargets') {
       valid =
           stringList(value) &&
-          (value as List).every(translateLanguages.containsKey);
+          (value as List).every(PublicContract.translationLanguages.contains);
     }
     if (key == 'searchHistories') {
       valid =

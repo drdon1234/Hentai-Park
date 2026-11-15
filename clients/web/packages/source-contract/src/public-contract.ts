@@ -1,0 +1,2 @@
+/** Generated from ../../../assets/public-contract.json. */
+export const sourceContract = {"apiVersion":2,"types":["comic","video","voice","novel","tavern","game","article"],"mediaKinds":["comic","video","voice","novel","tavern","game","article","mixed","unknown"],"categories":["feed","gallery","illustration","doujin","anime","jav","adult","shortvideo","aiDrama","recording","live","asmr","novel","tavern","onlineGame","game","other"],"reverseSearchCategories":["general","gallery","anime","jav"]} as const;

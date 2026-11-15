@@ -3,17 +3,18 @@ import {join,resolve} from 'node:path';
 import {randomUUID} from 'node:crypto';
 import {gunzipSync,inflateSync,brotliDecompressSync} from 'node:zlib';
 import {fetchPinnedResource,permissionChanges,sha256,type SourceHost,type SourceRegistryRecord} from '@hentai-park/source-host';
-import {isSourceKey,type PluginManifest} from '@hentai-park/source-contract';
+import {isSourceKey,type PluginManifest,sourceContract} from '@hentai-park/source-contract';
+import {officialRepositories} from '@hentai-park/domain-model';
 const fail=(code:string,statusCode=400)=>Object.assign(new Error('Source package '+code),{code,statusCode,publicError:true,retryable:false});
-const officialBase='https://raw.githubusercontent.com/drdon1234/Hentai-Park';
-const officialIndexes=[officialBase+'/sources/index.json',officialBase+'/reverse-search/index.json',officialBase+'/metadata/index.json'];
+const officialBase=officialRepositories.base;
+const officialIndexes=officialRepositories.channels.map(channel=>officialBase+'/'+channel+'/index.json');
 export interface RepositoryEntry {key:string;name:string;version:string;url:string;sha256:string;apiVersion:number;minAppVersion:string;rankingOnly?:boolean;reverseSearchOnly?:boolean;metadataOnly?:boolean;}
 interface Candidate {id:string;path:string;manifest:PluginManifest;sha256:string;url:string;repository?:string;official:boolean;expires:number;currentVersion:string|null;currentSha256:string|null;}
 const release=(value:unknown)=>typeof value==='string'&&/^\d+\.\d+\.\d+$/.test(value);
 function publicUrl(value:unknown){if(typeof value!=='string'||value.length>8192)throw fail('BAD_REQUEST');let url:URL;try{url=new URL(value);}catch{throw fail('BAD_REQUEST');}if(url.protocol!=='https:'||url.username||url.password||url.port||url.hash)throw fail('BLOCKED',403);return url.href;}
 function officialAsset(entry:RepositoryEntry){const url=new URL(entry.url);return url.origin==='https://raw.githubusercontent.com'&&!url.search&&new RegExp('^/drdon1234/Hentai-Park/[a-f0-9]{40}/assets/sources/'+entry.key+'\\.js$','i').test(url.pathname);}
 export function parseSourceRepository(raw:unknown,official=false):{entries:RepositoryEntry[];failures:Record<string,string>} {
-  if(!raw||typeof raw!=='object'||Array.isArray(raw)||!('apiVersion'in raw)||raw.apiVersion!==2||!('sources'in raw)||!Array.isArray(raw.sources)||raw.sources.length>2000)throw fail('INVALID_MANIFEST');
+  if(!raw||typeof raw!=='object'||Array.isArray(raw)||!('apiVersion'in raw)||raw.apiVersion!==sourceContract.apiVersion||!('sources'in raw)||!Array.isArray(raw.sources)||raw.sources.length>2000)throw fail('INVALID_MANIFEST');
   const entries=new Map<string,RepositoryEntry>(),seen=new Set<string>(),failures:Record<string,string>={};
   for(const [position,value]of raw.sources.entries()){
     const key=value&&typeof value==='object'&&typeof value.key==='string'?value.key:'#'+position;

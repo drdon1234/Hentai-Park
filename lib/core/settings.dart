@@ -7,6 +7,7 @@ import 'danmaku.dart';
 import 'diagnostic_entry.dart';
 import 'localization.dart';
 import 'models.dart';
+import 'public_contract.dart';
 import 'settings_validation.dart';
 import 'storage.dart';
 import 'translation_options.dart';
@@ -446,24 +447,9 @@ class AppSettings extends ChangeNotifier {
   set albumCollapsed(bool v) => _set('albumCollapsed', v);
 
   /// Default display order for content domains; source ranking is independent.
-  static const defaultDomainOrder = [
-    SourceCategory.feed,
-    SourceCategory.gallery,
-    SourceCategory.illustration,
-    SourceCategory.doujin,
-    SourceCategory.anime,
-    SourceCategory.jav,
-    SourceCategory.adult,
-    SourceCategory.shortvideo,
-    SourceCategory.aiDrama,
-    SourceCategory.recording,
-    SourceCategory.live,
-    SourceCategory.asmr,
-    SourceCategory.novel,
-    SourceCategory.tavern,
-    SourceCategory.onlineGame,
-    SourceCategory.game,
-    SourceCategory.other,
+  static final defaultDomainOrder = [
+    for (final name in PublicContract.domainOrder)
+      SourceCategory.values.firstWhere((category) => category.name == name),
   ];
 
   List<SourceCategory> get domainOrder {

@@ -1,10 +1,11 @@
 import {t,pluginText} from './i18n.js';
 import {useEffect,useRef,useState} from 'react';
 import {request} from './api.js';
+import {officialRepositories} from '@hentai-park/domain-model';
 type Entry={key:string;name:string;version:string;url:string;sha256:string;apiVersion:number;minAppVersion:string;reverseSearchOnly?:boolean;metadataOnly?:boolean;repositoryUrl?:string;official?:boolean};
 type Preview={candidateId:string;source:string;manifest:Record<string,unknown>;version:string;sha256:string;url:string;expiresAt:number;currentVersion:string|null;currentSha256:string|null;permissions:{added:string[];removed:string[]};official:boolean};
 const message=(error:unknown)=>error instanceof Error?error.message:t("操作未完成，请重试。");
-const defaultRepositories=['https://raw.githubusercontent.com/drdon1234/Hentai-Park/sources/index.json','https://raw.githubusercontent.com/drdon1234/Hentai-Park/reverse-search/index.json','https://raw.githubusercontent.com/drdon1234/Hentai-Park/metadata/index.json'];
+const defaultRepositories=officialRepositories.channels.map(channel=>officialRepositories.base+'/'+channel+'/index.json');
 export function SourcePackageControls({onInstalled}:{onInstalled?:()=>void}){
   const [url,setUrl]=useState(''),[digest,setDigest]=useState(''),[repository,setRepository]=useState(defaultRepositories[0]),[official,setOfficial]=useState(true),[entries,setEntries]=useState<Entry[]>([]),[failures,setFailures]=useState<Record<string,string>>({}),[preview,setPreview]=useState<Preview>(),[confirmed,setConfirmed]=useState(false),[busy,setBusy]=useState(false),[notice,setNotice]=useState('');const generation=useRef(0),previewPanel=useRef<HTMLDivElement>(null),previewTrigger=useRef<HTMLElement|null>(null);
   useEffect(()=>{if(preview){previewPanel.current?.focus();previewPanel.current?.scrollIntoView({block:'nearest'});}},[preview]);

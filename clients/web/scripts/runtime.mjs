@@ -44,7 +44,7 @@ export async function createRuntime(config={}) {
   }
   if(missingPackages.length)console.log('Bundled official plugins are ready.');
   for(const record of host.registry.list()){const saved=db.db.prepare('SELECT enabled FROM source_registry WHERE source=?').get(record.source);if(saved&&Boolean(saved.enabled)!==record.enabled)await host.setEnabled(record.source,Boolean(saved.enabled));}
-  const catalog=new SourceCatalog(db,host,browser);catalog.syncRegistry();
+  const catalog=new SourceCatalog(db,host,browser,new Map(packages.map((item,index)=>[item.source,index])));catalog.syncRegistry();
   const resolveSource=source=>{const record=host.registry.get(source);const saved=db.db.prepare('SELECT enabled FROM source_registry WHERE source=?').get(source);if(!record?.enabled||saved?.enabled===0)return undefined;return {manifest:record.manifest,artifact:record.sha256,invoke:async(method,params,options)=>{await catalog.restorePrivate(source);return host.invoke(record.manifest,record.packagePath,method,params,options);},fetchResource:(url,options)=>host.fetchResource(source,url,options),mediaContext:row=>host.mediaContext(source,row),subscriptionContext:async()=>{await catalog.restorePrivate(source);return host.subscriptionContext(source);},downloadPlan:(workId,nodeId,options)=>catalog.downloadPlan(source,workId,nodeId,options)};};
   const downloadSettings=()=>({siteConcurrency:Number(readSetting('siteConcurrency',3)),taskConcurrency:Number(readSetting('taskConcurrency',1)),pageConcurrency:Number(readSetting('pageConcurrency',3))});
   const events=new EventEmitter();events.setMaxListeners(100);let lastWorkerError;

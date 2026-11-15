@@ -335,7 +335,7 @@ Implement `searchSuggestions(keyword, context = {})` to export `capabilities.sea
 
 - `coverAspect` (width / height) lets the grid lay out before images load.
 - `badgeColor` colors the category badge.
-- `mediaKind: 'comic' | 'video' | 'voice' | 'novel' | 'game' | 'article'` is the work's own type. Plugins with a single type may omit it; mixed-type plugins must set it. Novel, game and article items always set it to retain their type after the plugin is uninstalled.
+- `mediaKind: 'comic' | 'video' | 'voice' | 'novel' | 'tavern' | 'game' | 'article' | 'mixed' | 'unknown'` is the work's own type. Plugins with a single type may omit it; mixed-type plugins must set it. Novel, game and article items always set it to retain their type after the plugin is uninstalled.
 - Post-style results may include `presentation: 'post'`, `text`, `date`, `url` and a `media` array to show as post cards; `presentation: 'media'` shows a media grid that opens the media inside the work. Posts may have no media; media URLs remain subject to the plugin's declared domains and permissions.
 
 ### Details: `detail`

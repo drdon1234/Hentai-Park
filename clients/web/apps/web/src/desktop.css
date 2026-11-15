@@ -1,5 +1,5 @@
 /* Desktop layout and spatial materials. Shared tokens live in tokens.css. */
-.desktop-navigation-toggle, .desktop-back, .shelf-side, .desktop-link-arrow, .desktop-preferences { display: none; }
+.desktop-navigation-toggle, .desktop-back, .desktop-scroll-top, .shelf-side, .desktop-link-arrow, .desktop-preferences { display: none; }
 @media (min-width: 840px) {
   html .app-shell {
     font-size: 14px;
@@ -37,10 +37,12 @@
   .main-column { margin-left: 232px; }
   html .app-shell .desktop-navigation-toggle { display: inline-flex; flex: 0 0 32px; align-items: center; justify-content: center; min-height: 32px; padding: 0; border-color: transparent; background: transparent; color: var(--browse-text); }
   html .app-shell .desktop-navigation-toggle:hover { background: var(--desktop-selected); }
-  html .app-shell .desktop-back { display: flex; margin-bottom: 12px; }
-  .desktop-back a { display: inline-flex; align-items: center; gap: 8px; min-height: 36px; padding: 4px 10px 4px 0; border-radius: 8px; color: var(--browse-muted); text-decoration: none; }
+  html .app-shell .desktop-back { position: fixed; inset: 16px auto auto 16px; z-index: 50; display: flex; margin: 0; }
+  .desktop-back a, .desktop-scroll-top { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 40px; padding: 8px 12px; border: 1px solid var(--desktop-rim); border-radius: 10px; color: var(--browse-text); background: var(--desktop-fill); box-shadow: var(--desktop-shadow); text-decoration: none; }
   .desktop-back a:hover { color: var(--browse-text); background: var(--desktop-selected); }
   .desktop-back ~ .back-link { display: none; }
+  html .app-shell .desktop-scroll-top { position: fixed; inset: auto 20px 20px auto; z-index: 50; display: inline-flex; cursor: pointer; }
+  .desktop-scroll-top:hover { background: var(--desktop-selected); }
   [dir='rtl'] .desktop-back svg { transform: rotate(180deg); }
   html .app-shell[data-navigation-collapsed='true'] .sidebar { width: 68px; padding-inline: 8px; }
   html .app-shell[data-navigation-collapsed='true'] .main-column { margin-left: 80px; }

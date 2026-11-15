@@ -859,6 +859,8 @@
   "站内关键词": "Site keywords",
   "站内搜索与筛选": "Site search and filtering",
   "站点": "Sites",
+  "站点顺序": "Site order",
+  "使用按钮调整首页各域中的站点顺序。": "Use the buttons to adjust site order within each home category.",
   "站点Cookie JSON": "Site Cookie JSON",
   "站点Cookie（敏感）": "Site Cookie (Sensitive)",
   "站点不可用": "Site is unavailable",
@@ -1659,5 +1661,10 @@
   "频道类型": "Channel type",
   "尚未保存频道": "No saved channels yet",
   "正在加载已保存频道": "Loading saved channels",
-  "收藏与下载": "Favorites & downloads"
+  "收藏与下载": "Favorites & downloads",
+  "没有匹配结果，可修改关键词或筛选条件后重试。": "No matching results. Try changing the keyword or filters.",
+  "可调整筛选条件，或返回上一级继续浏览。": "Adjust the filters or return to the previous level to keep browsing.",
+  "请确认实例已启动且当前地址可访问。": "Make sure the instance is running and the current address is reachable.",
+  "退出阅读": "Exit reader",
+  "回到顶部": "Back to top"
 }

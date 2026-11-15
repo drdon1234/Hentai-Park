@@ -335,7 +335,7 @@ Implementa `searchSuggestions(keyword, context = {})` para exportar `capabilitie
 
 - `coverAspect` (ancho / alto) permite colocar la cuadrícula antes de que carguen las imágenes.
 - `badgeColor` colorea la insignia de categoría.
-- `mediaKind: 'comic' | 'video' | 'voice' | 'novel' | 'game' | 'article'` es el tipo de la obra. Los plugins de un solo tipo pueden omitirlo; los mixtos deben indicarlo. Novelas, juegos y artículos siempre lo indican para conservar su tipo tras desinstalar el plugin.
+- `mediaKind: 'comic' | 'video' | 'voice' | 'novel' | 'tavern' | 'game' | 'article' | 'mixed' | 'unknown'` es el tipo de la obra. Los plugins de un solo tipo pueden omitirlo; los mixtos deben indicarlo. Novelas, juegos y artículos siempre lo indican para conservar su tipo tras desinstalar el plugin.
 - Los resultados tipo publicación pueden incluir `presentation: 'post'`, `text`, `date`, `url` y un array `media` para mostrarse como tarjetas; `presentation: 'media'` muestra una cuadrícula que abre los medios dentro de la obra. Una publicación puede no tener medios; sus direcciones siguen sujetas a los dominios y permisos declarados.
 
 ### Detalles: `detail`

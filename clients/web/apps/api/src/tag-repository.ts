@@ -2,10 +2,11 @@ import {createHash} from 'node:crypto';
 import {gunzipSync,inflateSync,brotliDecompressSync} from 'node:zlib';
 import type {DatabaseSync} from 'node:sqlite';
 import {fetchPinnedResource} from '@hentai-park/source-host';
+import {officialRepositories} from '@hentai-park/domain-model';
 import {isSourceKey} from '@hentai-park/source-contract';
 import {compareRelease,isReleaseVersion,tagLocales,validateTagPack,storeTagPack} from './tag-packs.js';
 type Entry={source:string;locale:string;version:string;url:string;sha256:string};
-const base='https://raw.githubusercontent.com/drdon1234/Hentai-Park';
+const base=officialRepositories.base;
 const fail=(code:string,statusCode=400)=>Object.assign(new Error('Tag repository '+code),{code,statusCode,publicError:true,retryable:false});
 export function parseTagRepository(value:unknown):Entry[]{
   if(!value||typeof value!=='object'||Array.isArray(value)||!('schema'in value)||value.schema!==1||!('packs'in value)||!Array.isArray(value.packs)||value.packs.length>10000)throw fail('INVALID_MANIFEST');

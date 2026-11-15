@@ -8,8 +8,9 @@ function ThumbnailImage({item,href,navigate}:{item:Thumbnail;href?:string;naviga
  if(grant.error||failed)return <button className="chip" onClick={()=>{setFailed(false);setAttempt(n=>n+1);}}>{t('重试图片')}</button>;
  if(!grant.token)return <span role="status">{t('正在读取图片')}</span>;
  const url=mediaUrl(grant.token),alt=t('页面预览')+(item.index===undefined?'':' '+(item.index+1));
- const image=item.width&&item.height?<svg role="img" aria-label={alt} viewBox={`${item.offsetX??0} ${item.offsetY??0} ${item.width} ${item.height}`} style={{width:'100%',aspectRatio:item.width/item.height}}><image href={url} onError={()=>setFailed(true)}/></svg>:<img src={url} alt={alt} loading="lazy" onError={()=>setFailed(true)}/>;
- return href?<a className="work-thumbnail-link" href={href} aria-label={t('阅读第')+((item.index??0)+1)+t('页')} onClick={event=>{if(navigate&&event.button===0&&!event.ctrlKey&&!event.metaKey&&!event.shiftKey&&!event.altKey){event.preventDefault();navigate(href);}}}>{image}</a>:image;
+ const image=item.width&&item.height?<svg role="img" aria-label={alt} viewBox={`${item.offsetX??0} ${item.offsetY??0} ${item.width} ${item.height}`}><image href={url} onError={()=>setFailed(true)}/></svg>:<img src={url} alt={alt} loading="lazy" onError={()=>setFailed(true)}/>;
+ const content=href?<a href={href} aria-label={t('阅读第')+((item.index??0)+1)+t('页')} onClick={event=>{if(navigate&&event.button===0&&!event.ctrlKey&&!event.metaKey&&!event.shiftKey&&!event.altKey){event.preventDefault();navigate(href);}}}>{image}</a>:image;
+ return <div className="work-thumbnail-link">{content}</div>;
 }
 export function ThumbnailPanel({source,workId,available,total,readHref,navigate,initialItems}:{initialItems:Thumbnail[];source:string;workId:string;available:boolean;total?:number;readHref?:string;navigate?:(href:string)=>void}) {
  const [items,setItems]=useState<Thumbnail[]>([]),[visible,setVisible]=useState(20),[hasNext,setHasNext]=useState(available),[page,setPage]=useState(1),[busy,setBusy]=useState(false),[error,setError]=useState(''),[attempt,setAttempt]=useState(0);const active=useRef<AbortController|undefined>(undefined);
