@@ -1,0 +1,38 @@
+.media-surface { position: relative; width: 100%; margin-inline: auto; background: #080b10; color: #fff; isolation: isolate; overflow: hidden; border-radius: 12px; }
+.media-picture { width: 100%; }
+.media-surface .media-picture video { display: block; width: 100%; height: auto; max-height: 76dvh; aspect-ratio: var(--media-ratio,auto); object-fit: contain; }
+.media-surface[data-portrait='true'] { max-width: min(100%,calc(76dvh * var(--media-ratio))); }
+.media-surface:fullscreen { max-width: none; border-radius: 0; display: grid; align-items: center; }
+.media-surface:fullscreen .media-picture video { max-height: 100dvh; }
+.media-control-layer { position: absolute; inset: auto 0 0; padding: 32px 16px max(12px,env(safe-area-inset-bottom)); background: linear-gradient(transparent,rgb(0 0 0 / 85%)); }
+.media-progress { display: flex; align-items: center; gap: 12px; font-size: 12px; font-variant-numeric: tabular-nums; }
+.media-progress > input { flex: 1; min-width: 0; }
+.media-progress > span { white-space: nowrap; }
+.media-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.media-actions button { flex-shrink: 0; white-space: nowrap; color: #fff; background: transparent; border-color: transparent; padding: 8px; }
+.media-actions button:hover { background: #ffffff26; }
+.media-surface .media-actions button:not(:disabled):hover { background: #ffffff26; color: #fff; }
+.media-volume { flex-shrink: 0; white-space: nowrap; margin-inline-end: auto; display: flex; gap: 8px; align-items: center; font-size: 12px; }
+.media-volume input { width: 72px; }
+.media-settings { position: absolute; bottom: 108px; inset-inline-end: 12px; width: min(360px,calc(100% - 24px)); max-height: calc(100% - 132px); overflow-y: auto; background: var(--browse-surface); color: var(--browse-text); padding: 16px; border: 1px solid var(--browse-border); border-radius: 12px; box-shadow: var(--desktop-shadow); }
+.media-settings header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+.media-settings > label { display: flex; gap: 12px; margin-block: 12px; }
+.media-settings > .reader-controls { margin: 0; }
+.media-boost,.media-control-error { position: absolute; top: 12px; left: 12px; background: #111d; color: #fff; padding: 8px 12px; border-radius: 8px; }
+.media-surface-audio { background: var(--browse-surface); color: var(--browse-text); padding: 32px; border: 1px solid var(--browse-border); }
+.media-surface-audio .media-picture { height: 0; overflow: hidden; }
+.audio-now-playing { display: flex; gap: 24px; align-items: center; text-align: start; padding-block: 16px 32px; }
+.audio-now-playing > div:last-child { display: grid; gap: 12px; min-width: 0; }
+.audio-artwork { flex: 0 0 min(30%,180px); aspect-ratio: 1; overflow: hidden; border-radius: 12px; }
+.audio-artwork img { width: 100%; height: 100%; object-fit: cover; }
+.audio-now-playing strong { font-size: 24px; }
+.audio-now-playing span { color: var(--browse-muted); }
+.media-surface-audio .media-control-layer { position: static; padding: 0; background: transparent; }
+.media-surface-audio .media-actions button { color: var(--browse-text); }
+.media-surface-audio .media-actions button:not(:disabled):hover { background: var(--control-hover); color: var(--browse-text); }
+.media-surface-audio .media-actions button:first-child { background: var(--action); color: var(--on-action); min-width: 80px; }
+.media-surface-audio .media-settings { inset: 8px 8px 8px auto; max-height: none; z-index: 2; }
+@media (max-width: 599px) {
+ .media-control-layer { padding-inline: 8px; } .media-volume input { width: 44px; } .media-actions { gap: 2px; } .media-surface { border-radius: 0; } .media-surface-audio { padding: 20px; }
+ .media-settings,.media-surface-audio .media-settings { position: fixed; inset: auto 12px max(12px,env(safe-area-inset-bottom)); width: auto; max-height: 70dvh; z-index: 60; }
+}

@@ -1,0 +1,1004 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://hentai-park.local/schemas/plugin-manifest.json",
+  "type": "object",
+  "required": [
+    "key",
+    "name",
+    "version",
+    "minAppVersion",
+    "type",
+    "category",
+    "homepage",
+    "domains",
+    "apiVersion"
+  ],
+  "additionalProperties": true,
+  "$comment": "additionalProperties is true for forward-compatible SOURCE_API fields; validateManifest remains the semantic and security gate.",
+  "properties": {
+    "key": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_-]{1,100}$",
+      "not": {
+        "const": "_app"
+      }
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(?:[-+][0-9A-Za-z.-]+)?$"
+    },
+    "minAppVersion": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(?:[-+][0-9A-Za-z.-]+)?$"
+    },
+    "type": {
+      "enum": [
+        "comic",
+        "video",
+        "voice",
+        "novel",
+        "tavern",
+        "game",
+        "article"
+      ]
+    },
+    "category": {
+      "enum": [
+        "doujin",
+        "anime",
+        "aiDrama",
+        "jav",
+        "adult",
+        "asmr",
+        "shortvideo",
+        "recording",
+        "live",
+        "gallery",
+        "illustration",
+        "novel",
+        "tavern",
+        "game",
+        "onlineGame",
+        "feed",
+        "other"
+      ]
+    },
+    "homepage": {
+      "type": "string",
+      "format": "uri",
+      "pattern": "^https://"
+    },
+    "domains": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 256,
+      "items": {
+        "type": "string",
+        "pattern": "^(?:\\*\\.)?(?:[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?\\.)+[A-Za-z]{2,63}$"
+      }
+    },
+    "linkPatterns": {
+      "type": "array",
+      "maxItems": 256,
+      "items": {
+        "type": "string",
+        "maxLength": 1024
+      }
+    },
+    "idPattern": {
+      "type": "string",
+      "maxLength": 1024
+    },
+    "settings": {
+      "type": "array",
+      "maxItems": 256,
+      "items": {
+        "$ref": "#/$defs/setting"
+      }
+    },
+    "i18n": {
+      "$ref": "#/$defs/i18n"
+    },
+    "imageHeaders": {
+      "$ref": "#/$defs/headers"
+    },
+    "searchHint": {
+      "type": "string",
+      "maxLength": 1024
+    },
+    "color": {
+      "type": "string",
+      "pattern": "^#[0-9A-Fa-f]{6}$"
+    },
+    "description": {
+      "type": "string",
+      "maxLength": 4096
+    },
+    "browseLayout": {
+      "enum": [
+        "list",
+        "grid"
+      ]
+    },
+    "metadataOnly": {
+      "type": "boolean"
+    },
+    "postShortVideos": {
+      "type": "boolean"
+    },
+    "rankingOnly": {
+      "type": "boolean"
+    },
+    "reverseSearchOnly": {
+      "type": "boolean"
+    },
+    "previewContent": {
+      "type": "boolean"
+    },
+    "reverseSearchCategory": {
+      "enum": [
+        "general",
+        "gallery",
+        "anime",
+        "jav"
+      ]
+    },
+    "defaultFeed": {
+      "type": "string",
+      "maxLength": 128
+    },
+    "anonymousDefaultFeed": {
+      "type": "string",
+      "maxLength": 128
+    },
+    "navigationDomains": {
+      "$ref": "#/$defs/domains"
+    },
+    "frameDomains": {
+      "$ref": "#/$defs/domains"
+    },
+    "network": {
+      "$ref": "#/$defs/network"
+    },
+    "media": {
+      "$ref": "#/$defs/media"
+    },
+    "imageNetwork": {
+      "$ref": "#/$defs/imageNetwork"
+    },
+    "imageDecrypt": {
+      "$ref": "#/$defs/imageDecrypt"
+    },
+    "account": {
+      "$ref": "#/$defs/account"
+    },
+    "subscription": {
+      "$ref": "#/$defs/subscription"
+    },
+    "updateSubscriptions": {
+      "$ref": "#/$defs/updateSubscriptions"
+    },
+    "rankings": {
+      "type": "array",
+      "maxItems": 64,
+      "items": {
+        "$ref": "#/$defs/ranking"
+      }
+    },
+    "chat": {
+      "type": "object",
+      "required": [
+        "domains"
+      ],
+      "properties": {
+        "domains": {
+          "$ref": "#/$defs/chatDomains"
+        }
+      },
+      "additionalProperties": false
+    },
+    "capabilities": {
+      "type": "object",
+      "maxProperties": 128,
+      "propertyNames": {
+        "enum": [
+          "feed",
+          "search",
+          "searchSuggestions",
+          "detail",
+          "chapter",
+          "resolveImage",
+          "thumbnails",
+          "videos",
+          "webVideo",
+          "reverseSearch",
+          "reverseSearchMore",
+          "subscription",
+          "album",
+          "subscription.media",
+          "updateSubscriptions",
+          "subscriptionUpdates",
+          "rankings",
+          "metadataSearch",
+          "metadataDetail",
+          "metadataMagnets",
+          "comments",
+          "interaction",
+          "related",
+          "resolveLink",
+          "textChapter",
+          "onlineGame",
+          "gameResources",
+          "resolveGameResource",
+          "voiceDirectory",
+          "voiceResource",
+          "liveChat",
+          "tavernAsset",
+          "searchLink",
+          "random",
+          "resolveContentLink",
+          "previewContent"
+        ]
+      },
+      "additionalProperties": {
+        "type": "boolean"
+      }
+    },
+    "feeds": {
+      "type": "array",
+      "maxItems": 256,
+      "items": {
+        "$ref": "#/$defs/feed"
+      }
+    },
+    "searchFilters": {
+      "type": "array",
+      "maxItems": 256,
+      "items": {
+        "$ref": "#/$defs/setting"
+      }
+    },
+    "searchCommonFilters": {
+      "$ref": "#/$defs/commonFilters"
+    },
+    "apiVersion": {
+      "type": "integer",
+      "const": 2
+    }
+  },
+  "$defs": {
+    "i18n": {
+      "type": "object",
+      "maxProperties": 128,
+      "propertyNames": {
+        "pattern": "^[A-Za-z]{2,8}(?:[-_][A-Za-z0-9]{2,8})?$"
+      },
+      "additionalProperties": {
+        "type": "object",
+        "maxProperties": 128,
+        "additionalProperties": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        }
+      }
+    },
+    "headers": {
+      "type": "object",
+      "maxProperties": 32,
+      "propertyNames": {
+        "pattern": "^[A-Za-z0-9!#$%&'*+.^_`|~-]{1,128}$"
+      },
+      "additionalProperties": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 4096,
+        "pattern": "^[^\\r\\n]*$"
+      }
+    },
+    "subscription": {
+      "type": "object",
+      "properties": {
+        "hint": {
+          "type": "string",
+          "maxLength": 256
+        },
+        "joinedTargets": {
+          "type": "boolean"
+        },
+        "joinedCreators": {
+          "type": "boolean"
+        },
+        "communities": {
+          "type": "boolean"
+        },
+        "communityHint": {
+          "type": "string",
+          "maxLength": 256
+        },
+        "communityExample": {
+          "type": "string",
+          "maxLength": 256
+        }
+      },
+      "additionalProperties": false
+    },
+    "updateSubscriptions": {
+      "type": "object",
+      "properties": {
+        "dimensions": {
+          "type": "array",
+          "maxItems": 32,
+          "items": {
+            "type": "object",
+            "required": [
+              "key",
+              "label"
+            ],
+            "properties": {
+              "key": {
+                "type": "string",
+                "maxLength": 128
+              },
+              "label": {
+                "type": "string",
+                "maxLength": 256
+              },
+              "hint": {
+                "type": "string",
+                "maxLength": 256
+              }
+            },
+            "additionalProperties": false
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "ranking": {
+      "type": "object",
+      "required": [
+        "key",
+        "label",
+        "category",
+        "metric"
+      ],
+      "properties": {
+        "key": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "label": {
+          "type": "string",
+          "maxLength": 256
+        },
+        "category": {
+          "enum": [
+            "doujin",
+            "anime",
+            "aiDrama",
+            "jav",
+            "adult",
+            "asmr",
+            "shortvideo",
+            "recording",
+            "live",
+            "gallery",
+            "illustration",
+            "novel",
+            "tavern",
+            "game",
+            "onlineGame",
+            "feed",
+            "other"
+          ]
+        },
+        "section": {
+          "enum": [
+            "market",
+            "site"
+          ]
+        },
+        "metric": {
+          "type": "string",
+          "maxLength": 256
+        },
+        "feed": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "kind": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "options": {
+          "type": "array",
+          "maxItems": 256,
+          "items": {
+            "$ref": "#/$defs/rankingOption"
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "domains": {
+      "type": "array",
+      "maxItems": 256,
+      "items": {
+        "type": "string",
+        "pattern": "^(?:\\*\\.)?(?:[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?\\.)+[A-Za-z]{2,63}$"
+      }
+    },
+    "chatDomains": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 256,
+      "items": {
+        "type": "string",
+        "pattern": "^(?:\\*\\.)?(?:[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?\\.)+[A-Za-z]{2,63}(?::(?:443|[1-9][0-9]{3,4}))?$"
+      }
+    },
+    "network": {
+      "type": "object",
+      "properties": {
+        "mode": {
+          "enum": [
+            "auto",
+            "browser",
+            "native"
+          ]
+        },
+        "origin": {
+          "type": "string",
+          "format": "uri",
+          "pattern": "^https://"
+        },
+        "vpnHint": {
+          "type": "boolean"
+        },
+        "confirmation": {
+          "type": "object",
+          "required": [
+            "selector"
+          ],
+          "properties": {
+            "selector": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1024
+            },
+            "readySelector": {
+              "type": "string",
+              "maxLength": 1024
+            },
+            "requiredCookies": {
+              "type": "array",
+              "maxItems": 256,
+              "items": {
+                "type": "string",
+                "maxLength": 128
+              }
+            },
+            "auto": {
+              "type": "object",
+              "required": [
+                "clickSelector"
+              ],
+              "properties": {
+                "clickSelector": {
+                  "type": "string",
+                  "maxLength": 1024
+                },
+                "checkSelector": {
+                  "type": "string",
+                  "maxLength": 1024
+                },
+                "birthDate": {
+                  "type": "object",
+                  "maxProperties": 4,
+                  "additionalProperties": {
+                    "type": "string",
+                    "maxLength": 1024
+                  }
+                },
+                "questionnaire": {
+                  "type": "object",
+                  "required": [
+                    "rowSelector",
+                    "submitSelector",
+                    "answers"
+                  ],
+                  "properties": {
+                    "rowSelector": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 1024
+                    },
+                    "submitSelector": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 1024
+                    },
+                    "answers": {
+                      "type": "array",
+                      "minItems": 1,
+                      "maxItems": 256,
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "question",
+                          "answer"
+                        ],
+                        "properties": {
+                          "question": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 1024
+                          },
+                          "answer": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 1024
+                          }
+                        },
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              },
+              "additionalProperties": false
+            },
+            "message": {
+              "type": "string",
+              "maxLength": 256
+            }
+          },
+          "additionalProperties": false
+        },
+        "headers": {
+          "$ref": "#/$defs/headers"
+        }
+      },
+      "additionalProperties": false
+    },
+    "media": {
+      "type": "object",
+      "required": [
+        "mode"
+      ],
+      "properties": {
+        "mode": {
+          "enum": [
+            "browser",
+            "native"
+          ]
+        },
+        "origin": {
+          "type": "string",
+          "format": "uri",
+          "pattern": "^https://"
+        },
+        "domains": {
+          "$ref": "#/$defs/domains"
+        },
+        "referrerDomains": {
+          "allOf": [
+            {
+              "$ref": "#/$defs/domains"
+            },
+            {
+              "maxItems": 16
+            }
+          ]
+        },
+        "requestHeaders": {
+          "type": "object",
+          "maxProperties": 8,
+          "propertyNames": {
+            "pattern": "^x-[a-z0-9-]{1,63}$"
+          },
+          "additionalProperties": {
+            "type": "object",
+            "required": [
+              "scope"
+            ],
+            "properties": {
+              "scope": {
+                "const": "playback-origin"
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "scope": {
+          "const": "session"
+        }
+      },
+      "additionalProperties": false
+    },
+    "imageNetwork": {
+      "type": "object",
+      "required": [
+        "mode"
+      ],
+      "properties": {
+        "mode": {
+          "enum": [
+            "browser",
+            "native"
+          ]
+        },
+        "origin": {
+          "type": "string",
+          "format": "uri",
+          "pattern": "^https://"
+        },
+        "domains": {
+          "$ref": "#/$defs/domains"
+        }
+      },
+      "additionalProperties": false
+    },
+    "imageDecrypt": {
+      "type": "object",
+      "required": [
+        "type",
+        "key",
+        "iv"
+      ],
+      "properties": {
+        "type": {
+          "const": "aes-cbc"
+        },
+        "key": {
+          "type": "string",
+          "minLength": 16,
+          "maxLength": 32
+        },
+        "iv": {
+          "type": "string",
+          "minLength": 16,
+          "maxLength": 16
+        }
+      },
+      "additionalProperties": false
+    },
+    "account": {
+      "type": "object",
+      "required": [
+        "type"
+      ],
+      "properties": {
+        "type": {
+          "enum": [
+            "password",
+            "cookies",
+            "session"
+          ]
+        },
+        "title": {
+          "type": "string",
+          "maxLength": 256
+        },
+        "hint": {
+          "type": "string",
+          "maxLength": 256
+        },
+        "required": {
+          "type": "boolean"
+        },
+        "fields": {
+          "type": "array",
+          "maxItems": 32,
+          "items": {
+            "type": "object",
+            "required": [
+              "key",
+              "label"
+            ],
+            "properties": {
+              "key": {
+                "type": "string",
+                "maxLength": 128
+              },
+              "label": {
+                "type": "string",
+                "maxLength": 256
+              },
+              "secret": {
+                "type": "boolean"
+              },
+              "hint": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 1024
+              },
+              "optional": {
+                "type": "boolean"
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "loginUrl": {
+          "type": "string",
+          "format": "uri",
+          "pattern": "^https://"
+        },
+        "logoutUrl": {
+          "type": "string",
+          "format": "uri",
+          "pattern": "^https://"
+        },
+        "accountUrl": {
+          "type": "string",
+          "format": "uri",
+          "pattern": "^https://"
+        },
+        "cookieUrl": {
+          "type": "string",
+          "format": "uri",
+          "pattern": "^https://"
+        },
+        "requiredCookies": {
+          "type": "array",
+          "maxItems": 256,
+          "items": {
+            "type": "string",
+            "maxLength": 128
+          }
+        },
+        "localStorageKeys": {
+          "type": "array",
+          "maxItems": 256,
+          "items": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9._:-]+$",
+            "maxLength": 128
+          }
+        },
+        "loginDomains": {
+          "$ref": "#/$defs/domains"
+        },
+        "managedAccount": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false
+    },
+    "setting": {
+      "type": "object",
+      "required": [
+        "key",
+        "label",
+        "type"
+      ],
+      "properties": {
+        "key": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "label": {
+          "type": "string",
+          "maxLength": 256
+        },
+        "type": {
+          "enum": [
+            "select",
+            "multi",
+            "number",
+            "text",
+            "password",
+            "switch"
+          ]
+        },
+        "default": {},
+        "dynamic": {
+          "type": "boolean"
+        },
+        "dependsOn": {
+          "type": "array",
+          "maxItems": 16,
+          "items": {
+            "type": "string",
+            "maxLength": 128
+          }
+        },
+        "keywordDependent": {
+          "type": "boolean"
+        },
+        "values": {
+          "$ref": "#/$defs/choices"
+        },
+        "options": {
+          "$ref": "#/$defs/choices"
+        },
+        "description": {
+          "type": "string",
+          "maxLength": 4096
+        }
+      },
+      "additionalProperties": false
+    },
+    "choices": {
+      "type": "array",
+      "maxItems": 500,
+      "items": {
+        "type": "object",
+        "required": [
+          "value",
+          "label"
+        ],
+        "properties": {
+          "value": {
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "boolean"
+              }
+            ]
+          },
+          "label": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          },
+          "color": {
+            "type": "string",
+            "pattern": "^#[0-9A-Fa-f]{6}$"
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "feed": {
+      "type": "object",
+      "required": [
+        "key",
+        "label"
+      ],
+      "properties": {
+        "key": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "label": {
+          "type": "string",
+          "maxLength": 256
+        },
+        "options": {
+          "type": "array",
+          "maxItems": 256,
+          "items": {
+            "$ref": "#/$defs/setting"
+          }
+        },
+        "commonFilters": {
+          "$ref": "#/$defs/commonFilters"
+        }
+      },
+      "additionalProperties": false
+    },
+    "commonFilters": {
+      "type": "object",
+      "maxProperties": 5,
+      "properties": {
+        "pages": {
+          "$ref": "#/$defs/filter"
+        },
+        "likes": {
+          "$ref": "#/$defs/filter"
+        },
+        "duration": {
+          "$ref": "#/$defs/filter"
+        },
+        "score": {
+          "$ref": "#/$defs/filter"
+        },
+        "favorites": {
+          "$ref": "#/$defs/filter"
+        }
+      },
+      "additionalProperties": false
+    },
+    "filter": {
+      "type": "object",
+      "properties": {
+        "range": {
+          "oneOf": [
+            {
+              "const": true
+            },
+            {
+              "type": "array",
+              "items": {
+                "enum": [
+                  "min",
+                  "max"
+                ]
+              }
+            }
+          ]
+        },
+        "sort": {
+          "oneOf": [
+            {
+              "const": true
+            },
+            {
+              "type": "array",
+              "items": {
+                "enum": [
+                  "asc",
+                  "desc"
+                ]
+              }
+            }
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "rankingOption": {
+      "type": "object",
+      "required": [
+        "key",
+        "label"
+      ],
+      "properties": {
+        "key": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "label": {
+          "type": "string",
+          "maxLength": 256
+        },
+        "type": {
+          "enum": [
+            "select",
+            "multi",
+            "number",
+            "text",
+            "password",
+            "switch"
+          ]
+        },
+        "default": {},
+        "dynamic": {
+          "type": "boolean"
+        },
+        "dependsOn": {
+          "type": "array",
+          "maxItems": 16,
+          "items": {
+            "type": "string",
+            "maxLength": 128
+          }
+        },
+        "keywordDependent": {
+          "type": "boolean"
+        },
+        "values": {
+          "$ref": "#/$defs/choices"
+        },
+        "options": {
+          "$ref": "#/$defs/choices"
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

@@ -1,0 +1,6 @@
+import {t} from './i18n.js';
+export function RuntimeSettings({settings,onChange,section}:{settings:Record<string,unknown>;onChange:(settings:Record<string,unknown>)=>void;section:'downloads'|'subscriptions'|'filter'}){
+  if(section==='downloads')return <><h2>{t('下载')}</h2>{[['siteConcurrency','同时下载站点数',3],['taskConcurrency','每站同时下载任务数',1],['pageConcurrency','每任务同时下载资源数',3]].map(([key,label,fallback])=><label key={String(key)}>{t(String(label))}<input type="number" min={1} max={8} step={1} value={Number(settings[String(key)]??fallback)} onChange={event=>onChange({...settings,[String(key)]:Number(event.target.value)})}/></label>)}</>;
+  if(section==='subscriptions')return <><label>{t('订阅检查周期（分钟）')}<input type="number" min={1} max={1440} value={Number(settings.subscriptionIntervalMs??21600000)/60000} onChange={event=>onChange({...settings,subscriptionIntervalMs:Number(event.target.value)*60000})}/></label></>;
+  return <>{[['blockedAuthors','屏蔽作者（每行一个）'],['blockedWorks','屏蔽作品（每行一个source:id）']].map(([key,label])=><label key={key}>{t(label!)}<textarea rows={3} value={Array.isArray(settings[key!])?(settings[key!] as string[]).join('\n'):''} onChange={event=>onChange({...settings,[key!]:event.target.value.split('\n').map(value=>value.trim()).filter(Boolean)})}/></label>)}<p>{t('屏蔽规则支持title、tag、author和标签命名空间前缀，通配符*和?，以及regex:表达式。列表中可临时显示被屏蔽的原始结果。')}</p></>;
+}

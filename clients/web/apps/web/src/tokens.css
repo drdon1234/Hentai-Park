@@ -1,0 +1,79 @@
+/* Shared visual language. Breakpoints only change layout and density. */
+  :root {
+    font-family: ui-sans-serif, -apple-system, BlinkMacSystemFont, 'Segoe UI Variable', 'Segoe UI', 'Noto Sans SC', 'Microsoft YaHei', sans-serif;
+    color: #171717;
+    background: #edf1f8;
+    --desktop-bg: #edf1f8;
+    --desktop-solid: #fff;
+    --desktop-fill: rgb(255 255 255 / 62%);
+    --desktop-panel: rgb(255 255 255 / 76%);
+    --desktop-rim: rgb(255 255 255 / 88%);
+    --desktop-highlight: rgb(255 255 255 / 78%);
+    --desktop-reflection: rgb(255 255 255 / 64%);
+    --desktop-selected: rgb(255 255 255 / 85%);
+    --desktop-cool: rgb(109 158 230 / 23%);
+    --desktop-warm: rgb(221 177 133 / 19%);
+    --desktop-lilac: rgb(139 148 215 / 17%);
+    --desktop-shadow: 0 2px 4px rgb(30 45 70 / 2.5%), 0 12px 32px rgb(30 45 70 / 6.5%);
+    --desktop-glass-shadow: inset 0 1px 0 var(--desktop-highlight), 0 12px 38px rgb(35 48 72 / 10%);
+    --browse-text: #171717;
+    --browse-surface: #fff;
+    --browse-muted: #555d69;
+    --browse-border: #c7ced8;
+    --browse-active: #edf4ff;
+    --browse-accent: var(--control-accent);
+    --control-surface: #fff;
+    --control-text: #171717;
+    --control-border: #8792a2;
+    --control-hover: #f3f6fb;
+    --control-accent: color-mix(in srgb, var(--user-accent, #0866df) 45%, var(--control-text));
+    --control-accent-hover: #0755bb;
+    --control-soft: #edf4ff;
+    --control-radius: 8px;
+  }
+  :root[data-theme='dark'] {
+    color: #ededed;
+    background: #0d1119;
+    --desktop-bg: #0d1119;
+    --desktop-solid: #1b212b;
+    --desktop-fill: rgb(29 35 47 / 64%);
+    --desktop-panel: rgb(27 33 43 / 86%);
+    --desktop-rim: rgb(210 226 255 / 16%);
+    --desktop-highlight: rgb(225 236 255 / 13%);
+    --desktop-reflection: rgb(184 207 242 / 13%);
+    --desktop-selected: rgb(197 215 244 / 17%);
+    --desktop-cool: rgb(65 106 163 / 25%);
+    --desktop-warm: rgb(153 116 90 / 12%);
+    --desktop-lilac: rgb(99 105 166 / 15%);
+    --desktop-shadow: 0 2px 4px rgb(0 0 0 / 12%), 0 14px 36px rgb(0 0 0 / 20%);
+    --desktop-glass-shadow: inset 0 1px 0 var(--desktop-highlight), 0 14px 42px rgb(0 0 0 / 28%);
+    --browse-text: #ededed;
+    --browse-surface: #1b212b;
+    --browse-muted: #b2bbc9;
+    --browse-border: #465365;
+    --browse-active: #1c2d48;
+    --browse-accent: var(--control-accent);
+    --control-surface: #1c2532;
+    --control-text: #ededed;
+    --control-border: #718096;
+    --control-hover: #2a3749;
+    --control-accent: color-mix(in srgb, var(--user-accent, #0866df) 45%, var(--control-text));
+    --control-accent-hover: #b1d0ff;
+    --control-soft: #1c2d48;
+  }
+
+:root {
+  --action: var(--user-accent, #0866df);
+  --on-action: var(--user-on-accent, #fff);
+  --focus: var(--control-accent);
+  --navigation-selected: var(--desktop-selected);
+  --success: #257749;
+  --warning: #8a5c10;
+  --danger: #a52840;
+}
+::selection { background: var(--control-soft); color: var(--control-text); }
+:focus-visible { outline: 3px solid var(--focus); outline-offset: 3px; }
+
+@media (forced-colors: active) {
+ :root, :root[data-theme='dark'] { color: CanvasText; background: Canvas; --browse-text: CanvasText; --browse-muted: CanvasText; --browse-surface: Canvas; --browse-border: CanvasText; --control-text: ButtonText; --control-surface: ButtonFace; --control-border: ButtonText; --focus: Highlight; --action: Highlight; --on-action: HighlightText; }
+}

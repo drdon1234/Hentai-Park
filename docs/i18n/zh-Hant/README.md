@@ -24,6 +24,8 @@
 
 [平台說明與安裝方式](../../PLATFORMS.md)
 
+[Web 部署入口](../../WEB_DEPLOYMENT.md) · `drdon1234/hentai-park`
+
 <a id="screenshots"></a>
 
 ## 產品展示
@@ -37,6 +39,27 @@ https://github.com/user-attachments/assets/165f1524-9084-4437-bebb-fa9e23ebd316
 3. 從首頁「繼續看 → 全部」接著看，在「收藏 → 更新」查看新章節。
 
 需要登入或代理的網站，可在「我的 → 站點」與「我的 → 網路」中設定。
+
+### Web 自架（Docker Compose）
+
+Web 可在桌面與手機瀏覽器使用；單使用者實例，Docker 目標為 linux/amd64。首次映像須在程式碼推送、Web Docker 工作流程成功後才能拉取；發布前請使用詳細文件中的本機建置方式。
+
+```sh
+git clone https://github.com/drdon1234/Hentai-Park.git
+cd Hentai-Park
+cp clients/web/.env.example clients/web/.env
+```
+
+複製範本後，編輯 `clients/web/.env`：將 `WEB_IMAGE` 設為 `drdon1234/hentai-park:edge`，填入隨機 `AUTH_TOKEN`（至少 16 字元）及實際 HTTPS `WEB_ALLOWED_ORIGIN`。
+
+```sh
+docker compose -f clients/web/compose.yaml pull
+docker compose -f clients/web/compose.yaml up -d --no-build
+```
+
+預設只綁定 `127.0.0.1:8787`，經 HTTPS 反向代理存取並使用 `AUTH_TOKEN` 解鎖；不需預設使用者名稱。`park-data` 命名卷保存 `/data`，下載位於 `/data/downloads`。更新執行 `pull` 與 `up -d --no-build`；停止用 `stop`，不要用 `down -v`。
+
+[詳細部署、發布前本機建置與目錄權限](../../WEB_DEPLOYMENT.md)
 
 <a id="features"></a>
 

@@ -1,0 +1,21 @@
+{
+  "name": "hentai-park-web",
+  "private": true,
+  "version": "0.1.0",
+  "packageManager": "pnpm@10.33.2",
+  "engines": {
+    "node": ">=24.22.3 <25"
+  },
+  "scripts": {
+    "typecheck": "node scripts/build.mjs --types-only",
+    "typecheck:clean": "tsc -b --clean",
+    "verify:structure": "node ./scripts/verify-structure.mjs",
+    "build": "node scripts/build.mjs",
+    "start": "node scripts/start-web.mjs",
+    "dev": "node scripts/dev-web.mjs",
+    "sources:index": "node scripts/ensure-build.mjs && node scripts/source-index.mjs"
+  },
+  "devDependencies": {
+    "typescript": "5.9.3"
+  }
+}

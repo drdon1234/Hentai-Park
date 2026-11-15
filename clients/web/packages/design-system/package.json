@@ -1,0 +1,12 @@
+{
+  "name": "@hentai-park/design-system",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": { "typecheck": "tsc -p tsconfig.json --noEmit" },
+  "dependencies": { "react": "^19.1.0" },
+  "peerDependencies": { "react": "^19.1.0" },
+  "devDependencies": { "@types/react": "^19.0.0", "@types/react-dom": "^19.0.0" }
+}

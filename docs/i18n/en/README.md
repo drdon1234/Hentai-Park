@@ -24,6 +24,8 @@
 
 [Platforms and installation](../../PLATFORMS.md)
 
+[Web deployment](../../WEB_DEPLOYMENT.md) · `drdon1234/hentai-park`
+
 <a id="screenshots"></a>
 
 ## Product demo
@@ -37,6 +39,27 @@ https://github.com/user-attachments/assets/d648927a-e4d6-48e8-b8c0-b77349ffd607
 3. Resume from Home → Continue → All, and check new chapters in Favorites → Updates.
 
 Configure sign-in under More → Sites and proxies under More → Network when needed.
+
+### Self-hosted Web (Docker Compose)
+
+Use Web from desktop or mobile browsers as a single-user instance. The Docker target is linux/amd64. The first image can be pulled only after the code is pushed and the Web Docker workflow succeeds; use the documented local build before publication.
+
+```sh
+git clone https://github.com/drdon1234/Hentai-Park.git
+cd Hentai-Park
+cp clients/web/.env.example clients/web/.env
+```
+
+After copying the template, edit `clients/web/.env`: set `WEB_IMAGE=drdon1234/hentai-park:edge`, a random `AUTH_TOKEN` (at least 16 characters), and your actual HTTPS `WEB_ALLOWED_ORIGIN`.
+
+```sh
+docker compose -f clients/web/compose.yaml pull
+docker compose -f clients/web/compose.yaml up -d --no-build
+```
+
+The default binding is `127.0.0.1:8787`. Access through an HTTPS reverse proxy and unlock with `AUTH_TOKEN`; no default username is required. The `park-data` named volume stores `/data`, including downloads in `/data/downloads`. Update with `pull` and `up -d --no-build`; stop with `stop`, never `down -v` for routine shutdown.
+
+[Deployment, local builds before publication, and directory permissions](../../WEB_DEPLOYMENT.md)
 
 <a id="features"></a>
 

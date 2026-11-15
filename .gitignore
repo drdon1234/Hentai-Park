@@ -90,3 +90,16 @@ docs/superpowers/
 .[Cc][Ll][Aa][Uu][Dd][Ee]/
 [Cc][Ll][Aa][Uu][Dd][Ee].md
 [Cc][Ll][Aa][Uu][Dd][Ee].*.md
+
+# Web dependencies, generated shared assets and private runtime data
+/clients/web/node_modules/
+/clients/web/**/node_modules/
+/clients/web/**/dist/
+/clients/web/**/*.tsbuildinfo
+/clients/web/assets/
+/clients/web/data/
+/clients/web/downloads/
+/clients/web/logs/
+/clients/web/cache/
+/clients/web/coverage/
+/clients/web/test/

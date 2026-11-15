@@ -1,0 +1,10 @@
+{
+  "name": "@hentai-park/source-contract",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "types": "./dist/index.d.ts",
+  "main": "./dist/index.js",
+  "exports": { ".": { "types": "./dist/index.d.ts", "import": "./dist/index.js", "default": "./dist/index.js" } },
+  "scripts": { "typecheck": "tsc -p tsconfig.json --noEmit" }
+}

@@ -317,3 +317,7 @@ GitHub Release 正文就是应用内“发现软件新版本”对话框里的�
   词包最小结构为 `{"schema":2,"type":"worldbook-terms","locale":"zh-Hans","version":"1.0.0","terms":{"magic":{"translation":"魔法","aliases":["magic","魔力"]}}}`；单包上限 8 MiB、术语 100000 条、每个术语译名 16 个。键只允许普通单行关键词，固定译名用于术语保护和恢复，译名别名用于触发匹配；机器翻译只补全正文，不参与搜索替换或原始世界书导出。正文翻译复用 `ContentTranslationQueue` 的去重、限流和内存缓存，按 1000 字符分段；关闭自动内容翻译时仍应用固定术语译名，机器翻译失败则保留原文。
 - 官方世界书术语包目前覆盖 `zh-Hans`、`zh-Hant`、`ja`、`ko`、`en`、`es`、`ru`、`ar`，通用术语来自 EhTagTranslation 的已审校标签，并补充公开英文世界书 Eldoria 的专有名词和常用词；生成脚本为 `tools/build_worldbook_terms.mjs`，仅纳入通用标签命名空间，排除作者、角色和社团名以避免误匹配。
 - 资源导入上限 12 MiB；会话文件上限 32 MiB，采用备份的资源与会话结构，导入先校验、再事务合并并重映射冲突。导出包含引用的角色资源、世界书及会话快照，密钥和服务配置不在文件中。Markdown 不执行 HTML／脚本，也不自动请求外部图片。
+
+## Web 客户端
+
+Web 工程位于 `clients/web`，共用根 `assets/sources` 与 `assets/runtime`，不维护第二套插件或 SDK。独立 Node/pnpm 基线、启动器、生成资产、Docker Hub 工作流与验证边界见 [Web 开发说明](web/DEVELOPMENT.md)；用户入口见 [Web 部署](WEB_DEPLOYMENT.md)。

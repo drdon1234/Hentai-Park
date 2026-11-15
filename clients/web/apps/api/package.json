@@ -1,0 +1,19 @@
+{
+  "name": "@hentai-park/api",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "fastify": "^5.12.8",
+    "@hentai-park/source-contract": "workspace:*",
+    "@hentai-park/source-host": "workspace:*",
+    "@hentai-park/browser-worker": "workspace:*",
+    "@hentai-park/domain-model": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.6"
+  }
+}

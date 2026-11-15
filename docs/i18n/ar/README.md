@@ -26,6 +26,8 @@
 
 [المنصات والتثبيت](../../PLATFORMS.md)
 
+[نشر Web](../../WEB_DEPLOYMENT.md) · `drdon1234/hentai-park`
+
 <a id="screenshots"></a>
 
 ## عرض المنتج
@@ -39,6 +41,27 @@ https://github.com/user-attachments/assets/d648927a-e4d6-48e8-b8c0-b77349ffd607
 3. تابع من الرئيسية ← متابعة ← الكل، وراجع الفصول الجديدة في المفضلة ← التحديثات.
 
 عند الحاجة، اضبط تسجيل الدخول في المزيد ← المواقع والوكيل في المزيد ← الشبكة.
+
+### استضافة Web ذاتيًا (Docker Compose)
+
+يمكن استخدام مثيل لمستخدم واحد من متصفحات الحاسوب والهاتف. منصة Docker المستهدفة هي linux/amd64. لا يمكن سحب الصورة الأولى إلا بعد رفع الشفرة ونجاح سير عمل Web Docker؛ استخدم البناء المحلي الموضح في الدليل قبل النشر.
+
+```sh
+git clone https://github.com/drdon1234/Hentai-Park.git
+cd Hentai-Park
+cp clients/web/.env.example clients/web/.env
+```
+
+بعد نسخ القالب، عدّل `clients/web/.env`: اضبط `WEB_IMAGE=drdon1234/hentai-park:edge`، وقيمة عشوائية لـ `AUTH_TOKEN` لا تقل عن 16 حرفًا، وقيمة HTTPS الفعلية لـ `WEB_ALLOWED_ORIGIN`.
+
+```sh
+docker compose -f clients/web/compose.yaml pull
+docker compose -f clients/web/compose.yaml up -d --no-build
+```
+
+الربط الافتراضي هو `127.0.0.1:8787` فقط. اتصل عبر وكيل عكسي HTTPS وافتح القفل باستخدام `AUTH_TOKEN`؛ لا يلزم اسم مستخدم افتراضي. يحفظ المجلد الدائم المسمى `park-data` البيانات في `/data` والتنزيلات في `/data/downloads`. للتحديث استخدم `pull` ثم `up -d --no-build`، وللإيقاف استخدم `stop`، ولا تستخدم `down -v` للإيقاف المعتاد.
+
+[دليل النشر والبناء المحلي قبل النشر وصلاحيات المجلدات](../../WEB_DEPLOYMENT.md)
 
 <a id="features"></a>
 

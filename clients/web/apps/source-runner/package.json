@@ -1,0 +1,21 @@
+{
+  "name": "@hentai-park/source-runner",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@hentai-park/source-contract": "workspace:*",
+    "@hentai-park/source-runtime": "workspace:*",
+    "quickjs-emscripten": "^0.31.0"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.6",
+    "core-js-pure": "^3.47.0",
+    "esbuild": "^0.25.0",
+    "fast-text-encoding": "^1.0.6",
+    "linkedom": "0.18.12"
+  }
+}

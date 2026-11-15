@@ -1,0 +1,15 @@
+{
+  "files": [],
+  "references": [
+    { "path": "./apps/web" },
+    { "path": "./apps/api" },
+    { "path": "./apps/source-runner" },
+    { "path": "./apps/task-worker" },
+    { "path": "./apps/browser-worker" },
+    { "path": "./packages/source-contract" },
+    { "path": "./packages/source-runtime" },
+    { "path": "./packages/source-host" },
+    { "path": "./packages/domain-model" },
+    { "path": "./packages/design-system" }
+  ]
+}
