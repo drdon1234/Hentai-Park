@@ -11,9 +11,9 @@
     "typecheck:clean": "tsc -b --clean",
     "verify:structure": "node ./scripts/verify-structure.mjs",
     "build": "node scripts/build.mjs",
-    "start": "node scripts/start-web.mjs",
-    "dev": "node scripts/dev-web.mjs",
-    "sources:index": "node scripts/ensure-build.mjs && node scripts/source-index.mjs"
+    "start": "node --env-file-if-exists=.env scripts/start-web.mjs",
+    "dev": "node --env-file-if-exists=.env scripts/dev-web.mjs",
+    "sources:index": "node scripts/source-index.mjs"
   },
   "devDependencies": {
     "typescript": "5.9.3"

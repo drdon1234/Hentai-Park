@@ -4,11 +4,9 @@ import { resolve,join,dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { SourceHost } from '../packages/source-host/dist/index.js';
 import { assertSupportedNode } from './node-version.mjs';
-import {prepareSharedAssets,applicationVersion} from './shared-assets.mjs';
 assertSupportedNode();
 const root=fileURLToPath(new URL('../',import.meta.url));
-await prepareSharedAssets();
-const host=new SourceHost(join(root,'apps/source-runner/dist/index.js'),await applicationVersion(),{runtimePath:join(root,'assets/runtime/park_runtime.js')});
+const host=new SourceHost(join(root,'apps/source-runner/dist/index.js'),'0.14.3',{runtimePath:join(root,'assets/runtime/park_runtime.js')});
 const entries=[],rejected=[],seen=new Set();
 try {
  for(const file of (await readdir(join(root,'assets/sources'))).filter(name=>name.endsWith('.js')).sort()){

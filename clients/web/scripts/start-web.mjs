@@ -1,6 +1,5 @@
 import { assertSupportedNode } from './node-version.mjs';
 assertSupportedNode();
-await import('./ensure-build.mjs');
 const {createRuntime}=await import('./runtime.mjs');
 const runtime=await createRuntime();
 let address;try{address=await runtime.listen();}catch(error){await runtime.close();throw error;}

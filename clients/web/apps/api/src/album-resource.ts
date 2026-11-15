@@ -28,7 +28,7 @@ export class AlbumResources {
  create(source:string,resource:Row,type:string,load:(offset:number,signal?:AbortSignal)=>Promise<unknown>,sessionId?:string):MediaAttachment {
   const size=Number(resource.size);if(!Number.isSafeInteger(size)||size<1||size>512*1024*1024||typeof resource.cacheKey!=='string')throw invalid();
   const epoch=this.sourceEpochs.get(source)??0;const key=createHash('sha256').update(JSON.stringify([source,epoch,resource.cacheKey,size])).digest('hex');this.keySources.set(key,source);
-
+  
   let session=sessionId?this.sessions.get(sessionId):undefined;if(sessionId&&!session){session={keys:new Set(),controllers:new Set()};this.sessions.set(sessionId,session);}session?.keys.add(key);
   const cache=async(signal?:AbortSignal)=>this.requests.run(key,async active=>{
    await this.serial(async()=>{await this.initialize();const existing=this.entries.get(key);if(existing?.size===size){existing.used=Date.now();return;}if(existing){await rm(join(this.directory,key),{force:true});this.entries.delete(key);}await this.evict(size,key);this.entries.set(key,{size,used:Date.now(),active:0,reserved:true});});

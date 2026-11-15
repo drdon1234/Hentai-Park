@@ -24,3 +24,4 @@ export const subscriptionResourceKey = (source: SourceId, dimension: string, tar
 export const writeIdempotencyKey = (resourceKey: string, requestKey: string): string => stableTupleKey([resourceKey, requestKey]);
 export const collectionWriteIdempotencyKey = (identity: WorkIdentity, requestKey: string): string => writeIdempotencyKey(workCollectionResourceKey(identity), requestKey);
 export const subscriptionWriteIdempotencyKey = (source: SourceId, dimension: string, target: string, requestKey: string): string => writeIdempotencyKey(subscriptionResourceKey(source, dimension, target), requestKey);
+

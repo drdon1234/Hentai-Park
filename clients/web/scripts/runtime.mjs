@@ -13,21 +13,19 @@ import { SourceHost,SourceRegistry,InstallationJournal,configureHttpProxy } from
 import { BrowserWorker,BrowserNetworkExecutor,playwrightFactory,checkPlaywrightEnvironment } from '../apps/browser-worker/dist/index.js';
 import { WorkerScheduler,SourceHostDownloadAdapter,SourceHostSubscriptionAdapter } from '../apps/task-worker/dist/index.js';
 export const root=fileURLToPath(new URL('../',import.meta.url));
-try{process.loadEnvFile(join(root,'.env'));}catch(error){if(error.code!=='ENOENT')throw error;}
-const application=JSON.parse(await readFile(join(root,'assets/application.json'),'utf8'));
 export async function createRuntime(config={}) {
   configureHttpProxy(process.env.WEB_HTTP_PROXY,{allowLocal:process.env.WEB_HTTP_PROXY_ALLOW_LOCAL==='true'});
   const mode=config.mode??process.env.WEB_SESSION_MODE??'local';if(!['local','server'].includes(mode))throw Error('WEB_SESSION_MODE must be local or server');
   const hostAddress=config.host??process.env.HOST??'127.0.0.1';const origin=config.origin??process.env.WEB_ALLOWED_ORIGIN;
   if(mode==='local'&&!['127.0.0.1','localhost','::1'].includes(hostAddress))throw Error('Local mode requires a loopback HOST; use server mode for remote access');
   if(mode==='server'&&(!(config.host??process.env.HOST)||!(config.authToken??process.env.AUTH_TOKEN)||!origin?.startsWith('https://')))throw Error('Server mode requires explicit HOST, AUTH_TOKEN and HTTPS WEB_ALLOWED_ORIGIN through a trusted reverse proxy');
-  const data=resolve(root,config.dataDir??process.env.DATA_DIR??join(root,'data'));const downloads=resolve(root,config.downloadDir??process.env.DOWNLOAD_DIR??join(data,'downloads'));
+  const data=resolve(config.dataDir??process.env.DATA_DIR??join(root,'data'));const downloads=resolve(config.downloadDir??process.env.DOWNLOAD_DIR??join(data,'downloads'));
   for(const path of [data,downloads,join(data,'plugins'),join(data,'private'),join(data,'logs'),join(data,'cache')])await mkdir(path,{recursive:true});
   const keyFile=join(data,'instance.key');try{await writeFile(keyFile,randomBytes(32).toString('base64url'),{flag:'wx',mode:0o600});}catch(error){if(error.code!=='EEXIST')throw error;}
   const secret=config.authToken??process.env.AUTH_TOKEN??(await readFile(keyFile,'utf8')).trim();if(secret.length<16)throw Error('Instance credential must contain at least 16 characters');
   const registry=new SourceRegistry(join(data,'source-registry.json'),join(data,'plugins'));const journal=new InstallationJournal(join(data,'source-installations.json'),join(data,'plugins'));await registry.load();await journal.load();
   let lastRuntimeError;
-  const host=new SourceHost(join(root,'apps/source-runner/dist/index.js'),application.version,{registry,journal,runtimePath:join(root,'assets/runtime/park_runtime.js'),pluginDirectory:join(data,'plugins'),stateDirectory:join(data,'private'),onError:()=>{lastRuntimeError={code:'SOURCE_REAP_FAILED',at:new Date().toISOString()};}});
+  const host=new SourceHost(join(root,'apps/source-runner/dist/index.js'),'0.14.3',{registry,journal,runtimePath:join(root,'assets/runtime/park_runtime.js'),pluginDirectory:join(data,'plugins'),stateDirectory:join(data,'private'),onError:()=>{lastRuntimeError={code:'SOURCE_REAP_FAILED',at:new Date().toISOString()};}});
   let browser,db,scheduler,disposed=false;
   const dispose=async()=>{if(disposed)return;disposed=true;let failure;for(const close of [()=>scheduler?.stop(),()=>browser?.close(),()=>host.dispose(),()=>db?.close()]){try{await close();}catch(error){failure??=error;}}if(failure)throw failure;};
   try {

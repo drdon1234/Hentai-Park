@@ -12,3 +12,4 @@ export const canWriteWithLease = (lease: TaskLease, context: LeaseWriteContext):
     lease.leaseGeneration === context.leaseGeneration && !lease.cancellationRequested &&
     Number.isFinite(now) && Number.isFinite(expiry) && now < expiry;
 };
+

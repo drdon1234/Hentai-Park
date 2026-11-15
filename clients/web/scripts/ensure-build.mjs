@@ -2,14 +2,13 @@ import {access,readdir} from 'node:fs/promises';
 import {fileURLToPath} from 'node:url';
 import {join} from 'node:path';
 import {spawnSync} from 'node:child_process';
-import {sharedAssetsCurrent} from './shared-assets.mjs';
 const root=fileURLToPath(new URL('../',import.meta.url));
-const projects=['packages/source-contract','packages/domain-model','packages/design-system','packages/source-runtime','packages/source-host','apps/browser-worker','apps/task-worker','apps/source-runner','apps/api'];
+const projects=['packages/source-contract','packages/domain-model','packages/source-runtime','packages/source-host','apps/browser-worker','apps/task-worker','apps/source-runner','apps/api'];
 async function missingOutputs(){
-  const expected=['apps/web/dist/index.html','assets/runtime/polyfills.js','assets/source-index.json','assets/source-rejections.json','assets/application.json'];
+  const expected=['apps/web/dist/index.html','assets/runtime/polyfills.js'];
   for(const project of projects){
     for(const file of await readdir(join(root,project,'src'),{recursive:true})){
-      if(/\.tsx?$/.test(file)&&!file.endsWith('.d.ts'))expected.push(join(project,'dist',file.replace(/\.tsx?$/,'.js')));
+      if(file.endsWith('.ts')&&!file.endsWith('.d.ts'))expected.push(join(project,'dist',file.slice(0,-3)+'.js'));
     }
   }
   const missing=[];
@@ -17,7 +16,7 @@ async function missingOutputs(){
   return missing;
 }
 const missing=await missingOutputs();
-if(missing.length||!await sharedAssetsCurrent()){
+if(missing.length){
   console.log(`Build output is incomplete (${missing.length} missing files). Building the application...`);
   const result=spawnSync(process.execPath,[join(root,'scripts/build.mjs')],{cwd:root,stdio:'inherit',windowsHide:true});
   if(result.error)throw result.error;

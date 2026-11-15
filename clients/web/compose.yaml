@@ -1,14 +1,7 @@
 services:
   web:
-    image: ${WEB_IMAGE:-drdon1234/hentai-park:latest}
-    build:
-      context: ../..
-      dockerfile: clients/web/Dockerfile
-    platform: linux/amd64
-    init: true
+    build: .
     restart: unless-stopped
-    stop_grace_period: 30s
-    shm_size: 1gb
     environment:
       WEB_SESSION_MODE: server
       HOST: 0.0.0.0
@@ -18,10 +11,10 @@ services:
       WEB_HTTP_PROXY: ${WEB_HTTP_PROXY:-}
       WEB_HTTP_PROXY_ALLOW_LOCAL: ${WEB_HTTP_PROXY_ALLOW_LOCAL:-false}
       WEB_ALLOW_LOCAL_AI: ${WEB_ALLOW_LOCAL_AI:-false}
-      AUTH_TOKEN: ${AUTH_TOKEN:?Set a strong instance credential of at least 16 characters}
+      AUTH_TOKEN: ${AUTH_TOKEN:?Set a strong instance credential}
       WEB_ALLOWED_ORIGIN: ${WEB_ALLOWED_ORIGIN:?Set the external HTTPS origin}
     ports:
-      - '127.0.0.1:${WEB_PORT:-8787}:8787'
+      - '127.0.0.1:8787:8787'
     volumes:
       - park-data:/data
 volumes:

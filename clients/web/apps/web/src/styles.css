@@ -1,4 +1,4 @@
-:root { font-synthesis: none; }
+:root { font-synthesis: none; font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI Variable', 'Segoe UI', 'Noto Sans SC', 'Microsoft YaHei', sans-serif; }
 :root[data-theme='dark'] { color-scheme: dark; }
 * { box-sizing: border-box; }
 body { margin: 0; min-width: 320px; min-height: 100vh; background: inherit; }
@@ -285,7 +285,7 @@ html[data-theme='dark'] .collection-tag { background: #193a66; color: #b9d4fa; }
 @media(min-width:840px) {
   .media-stage h1 { margin-block: 0 8px; }
   .media-stage > p { margin-block: 0 16px; }
-
+  
 }
 @media (max-width: 599px) { .reader-kind-video, .reader-kind-voice { padding: 10px; } .reader-canvas .media-stage { padding: 4px; } }
 
@@ -493,7 +493,7 @@ html input[type=checkbox],html input[type=radio] { accent-color:var(--user-accen
  .mobile-reading-shell .image-reader-viewport .comic-pages:is(.single-page,.double-page) :is(img,canvas) { max-height:calc((100dvh - 32px) * var(--reader-zoom,1)); }
 }
 
-html .nav-link.active,html .tab.active { background:var(--control-soft);color:var(--control-accent); }
+html .nav-link.active,html .tab.active { background:var(--navigation-selected);color:var(--browse-text); }
 
 .playback-source-options,.album-options { margin-block:16px 24px; }
 .playback-source-options .reader-controls { color:var(--browse-text); }
@@ -597,10 +597,10 @@ html .nav-link.active,html .tab.active { background:var(--control-soft);color:va
 .tavern-chat-header h3 { margin: 0 0 4px; }
 .tavern-chat-header span { color: var(--browse-muted); font-size: 12px; }
 .tavern-conversation .tavern-messages { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 24px; margin: 0; list-style: none; }
-.tavern-messages li { max-width: 72ch; margin-bottom: 24px; padding: 0; border: 0; background: transparent; }
-.tavern-composer { padding: 12px 20px; border-top: 1px solid var(--browse-border); background: var(--browse-surface); }
-.tavern-composer .action-row { margin: 8px 0 0; }
-.tavern-composer textarea { min-height: 72px !important; max-height: 160px; }
+.tavern-messages li { max-width: 72ch; margin-bottom: 24px; padding: 0; border: 0; background: transparent; line-height: 1.75; } .tavern-messages li[data-role="user"] { margin-inline-start: auto; max-width: 85%; padding: 12px 16px; background: var(--control-hover); border-radius: 16px 16px 4px 16px; } .tavern-messages li > strong { font-size: 12px; color: var(--browse-muted); } .tavern-messages li > p { margin: 6px 0 0; }
+.tavern-composer { flex-shrink: 0; display: grid; grid-template-columns: minmax(0,1fr) auto; align-items: end; gap: 8px; margin: 12px 20px; padding: 8px; border: 1px solid var(--browse-border); border-radius: 16px; background: var(--browse-surface); }
+.tavern-composer .action-row { margin: 0; gap: 4px; } .tavern-composer > p { grid-column: 1 / -1; font-size: 12px; margin: 4px; }
+.tavern-composer textarea { min-height: 56px !important; max-height: 160px; resize: vertical; border: 0 !important; outline-offset: 0; }
 .tavern-composer label { max-width: none !important; }
 .tavern-conversation .tavern-tools:not([hidden]) { position: absolute; inset: 72px 0 0 auto; width: min(480px,100%); overflow: auto; padding: 20px; background: var(--browse-surface); border-inline-start: 1px solid var(--browse-border); z-index: 4; box-shadow: var(--desktop-shadow); }
 .tavern-tools[hidden] { display: none; }

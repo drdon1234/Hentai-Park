@@ -19,7 +19,9 @@ export class BrowseSession {
   private failedMore = false;
   private cursors = new Set<string>();
   constructor(readonly source: string, readonly identity: string, readonly feed: string, readonly filters: string) {}
-  subscribe = (listener: () => void) => { this.listeners.add(listener); return () => { this.listeners.delete(listener); if (!this.listeners.size && this.request) { this.generation++; this.request.abort(); this.request = undefined; this.snapshot = {...this.snapshot, loading:false}; } }; };
+  // Route changes temporarily unmount discovery. Keep the request alive so the
+  // next visit can reuse the same page instead of fetching the shelf again.
+  subscribe = (listener: () => void) => { this.listeners.add(listener); return () => { this.listeners.delete(listener); } };
   getSnapshot = () => this.snapshot;
   private update(next: Snapshot) { this.snapshot = next; for (const listener of this.listeners) listener(); }
   pause() { this.generation++; this.request?.abort(); this.request = undefined; this.update({...this.snapshot,loading:false}); }

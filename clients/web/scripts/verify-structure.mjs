@@ -1,6 +1,4 @@
 import { existsSync, readFileSync } from 'node:fs';
-import {webRoot,repositoryRoot} from './shared-assets.mjs';
-import {join} from 'node:path';
 
 const required = [
   'apps/web',
@@ -15,10 +13,10 @@ const required = [
   'packages/design-system',
 ];
 
-const missing = required.filter((path) => !existsSync(join(webRoot,path)));
+const missing = required.filter((path) => !existsSync(path));
 if (missing.length > 0) {
   console.error(`缺少目录: ${missing.join(', ')}`);
   process.exit(1);
 }
 console.log(`目录结构验证通过（${required.length} 项）`);
-if(!readFileSync(join(repositoryRoot,'.gitignore'),'utf8').split(/\r?\n/).includes('/test/'))throw Error('.gitignore 必须包含 /test/');
+if(!readFileSync('.gitignore','utf8').split(/\r?\n/).includes('/test/'))throw Error('.gitignore 必须包含 /test/');

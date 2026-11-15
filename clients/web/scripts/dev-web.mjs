@@ -3,7 +3,6 @@ import { assertSupportedNode } from './node-version.mjs';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 assertSupportedNode();
-await import('./ensure-build.mjs');
 const {createRuntime,root}=await import('./runtime.mjs');
 const runtime=await createRuntime();
 const require=createRequire(new URL('../apps/web/package.json',import.meta.url));
