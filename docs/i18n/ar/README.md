@@ -44,7 +44,7 @@ https://github.com/user-attachments/assets/d648927a-e4d6-48e8-b8c0-b77349ffd607
 
 ### استضافة Web ذاتيًا (Docker Compose)
 
-يمكن استخدام مثيل لمستخدم واحد من متصفحات الحاسوب والهاتف. منصة Docker المستهدفة هي linux/amd64. لا يمكن سحب الصورة الأولى إلا بعد رفع الشفرة ونجاح سير عمل Web Docker؛ استخدم البناء المحلي الموضح في الدليل قبل النشر.
+يمكن استخدام مثيل لمستخدم واحد من متصفحات الحاسوب والهاتف. منصة Docker المستهدفة هي linux/amd64. لا يمكن سحب الصورة الأولى إلا بعد رفع الشفرة ونجاح سير عمل Release platforms؛ استخدم البناء المحلي الموضح في الدليل قبل النشر.
 
 ```sh
 git clone https://github.com/drdon1234/Hentai-Park.git
@@ -52,7 +52,7 @@ cd Hentai-Park
 cp clients/web/.env.example clients/web/.env
 ```
 
-بعد نسخ القالب، عدّل `clients/web/.env`: اضبط `WEB_IMAGE=drdon1234/hentai-park:edge`، وقيمة عشوائية لـ `AUTH_TOKEN` لا تقل عن 16 حرفًا، وقيمة HTTPS الفعلية لـ `WEB_ALLOWED_ORIGIN`.
+بعد نسخ القالب، عدّل `clients/web/.env`: اضبط `WEB_IMAGE=drdon1234/hentai-park:latest`، وقيمة عشوائية لـ `AUTH_TOKEN` لا تقل عن 16 حرفًا، وقيمة HTTPS الفعلية لـ `WEB_ALLOWED_ORIGIN`.
 
 ```sh
 docker compose -f clients/web/compose.yaml pull

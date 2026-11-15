@@ -42,7 +42,7 @@ https://github.com/user-attachments/assets/d648927a-e4d6-48e8-b8c0-b77349ffd607
 
 ### Web のセルフホスト（Docker Compose）
 
-デスクトップ・モバイルブラウザーで使える単一ユーザー用インスタンスです。Docker の対象は linux/amd64 です。初回イメージはコードのプッシュと Web Docker ワークフローの成功後に取得できます。公開前は詳細手順のローカルビルドを利用してください。
+デスクトップ・モバイルブラウザーで使える単一ユーザー用インスタンスです。Docker の対象は linux/amd64 です。初回イメージはコードのプッシュと Release platforms ワークフローの成功後に取得できます。公開前は詳細手順のローカルビルドを利用してください。
 
 ```sh
 git clone https://github.com/drdon1234/Hentai-Park.git
@@ -50,7 +50,7 @@ cd Hentai-Park
 cp clients/web/.env.example clients/web/.env
 ```
 
-テンプレートをコピー後、`clients/web/.env` を編集し、`WEB_IMAGE=drdon1234/hentai-park:edge`、ランダムな `AUTH_TOKEN`（16 文字以上）、実際の HTTPS `WEB_ALLOWED_ORIGIN` を設定します。
+テンプレートをコピー後、`clients/web/.env` を編集し、`WEB_IMAGE=drdon1234/hentai-park:latest`、ランダムな `AUTH_TOKEN`（16 文字以上）、実際の HTTPS `WEB_ALLOWED_ORIGIN` を設定します。
 
 ```sh
 docker compose -f clients/web/compose.yaml pull

@@ -42,7 +42,7 @@ https://github.com/user-attachments/assets/165f1524-9084-4437-bebb-fa9e23ebd316
 
 ### Web 自托管（Docker Compose）
 
-Web 可在桌面和手机浏览器使用；单用户实例，Docker 目标为 linux/amd64。首次镜像须在代码推送、Web Docker 工作流成功后才能拉取；发布前请使用详细文档中的本地构建方式。
+Web 可在桌面和手机浏览器使用；单用户实例，Docker 目标为 linux/amd64。首次镜像须在代码推送、Release platforms 工作流成功后才能拉取；发布前请使用详细文档中的本地构建方式。
 
 ```sh
 git clone https://github.com/drdon1234/Hentai-Park.git
@@ -50,7 +50,7 @@ cd Hentai-Park
 cp clients/web/.env.example clients/web/.env
 ```
 
-复制模板后，编辑 `clients/web/.env`：将 `WEB_IMAGE` 设为 `drdon1234/hentai-park:edge`，填写随机 `AUTH_TOKEN`（至少 16 字符）和实际 HTTPS `WEB_ALLOWED_ORIGIN`。
+复制模板后，编辑 `clients/web/.env`：将 `WEB_IMAGE` 设为 `drdon1234/hentai-park:latest`，填写随机 `AUTH_TOKEN`（至少 16 字符）和实际 HTTPS `WEB_ALLOWED_ORIGIN`。
 
 ```sh
 docker compose -f clients/web/compose.yaml pull

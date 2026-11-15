@@ -280,8 +280,8 @@ GitHub Release 正文就是应用内“发现软件新版本”对话框里的�
 ### GitHub Actions
 
 
-- check.yml：main 推送、PR、手动触发；代码、资源、工具、平台文件及许可证变动触发，普通文档变更不触发。执行生产文案/样式/分析/格式与官方插件离线校验；按变动范围决定平台矩阵。跨平台生产代码、界面翻译资源及许可证变动构建全部原生目标，单个平台宿主变动只构建对应平台；源脚本单独变动只做检查。针对性测试保留在本地忽略的 test/ 目录，不随 CI 检出。
-- release.yml：推送与 pubspec.yaml 对应的 vX.Y.Z 标签，或在 main 手动触发。手动 publish 默认 false，仅构建；启用 publish 或标签触发才创建 Release。生产检查和全部构建成功后才发布。发布前必须更新 docs/RELEASE_NOTES.md，或手动提供仓库内其他双语说明路径。
+- check.yml：仅由 release.yml 调用，执行生产文案、样式、分析、格式与官方插件离线校验；普通提交和 PR 不触发 Android 或 Docker 构建。
+- release.yml：唯一 Android/Web 构建与发布入口，推送与 pubspec.yaml 对应的 vX.Y.Z 标签，或在 main 手动触发。手动 publish 默认 false，仅构建两端；启用 publish 或标签触发才推送 Docker 镜像并创建 GitHub Release。原生检查及 Android 构建成功后执行 Web 检查和 Docker 构建，最后创建 Release。发布前更新 docs/RELEASE_NOTES.md，或手动指定仓库内双语说明路径。
 
 版本标签必须与 pubspec.yaml 一致；没有更新版本时不要重用已有发布标签。Release 正文只含中文和 English 两节，遵守 DEVELOPMENT.md 既有格式。
 

@@ -42,7 +42,7 @@ https://github.com/user-attachments/assets/d648927a-e4d6-48e8-b8c0-b77349ffd607
 
 ### Собственный Web-сервер (Docker Compose)
 
-Однопользовательский экземпляр доступен в настольных и мобильных браузерах. Целевая платформа Docker — linux/amd64. Первый образ можно скачать после отправки кода и успешного выполнения Web Docker; до публикации используйте описанную локальную сборку.
+Однопользовательский экземпляр доступен в настольных и мобильных браузерах. Целевая платформа Docker — linux/amd64. Первый образ можно скачать после отправки кода и успешного выполнения Release platforms; до публикации используйте описанную локальную сборку.
 
 ```sh
 git clone https://github.com/drdon1234/Hentai-Park.git
@@ -50,7 +50,7 @@ cd Hentai-Park
 cp clients/web/.env.example clients/web/.env
 ```
 
-После копирования шаблона измените `clients/web/.env`: задайте `WEB_IMAGE=drdon1234/hentai-park:edge`, случайный `AUTH_TOKEN` (не менее 16 символов) и фактический HTTPS `WEB_ALLOWED_ORIGIN`.
+После копирования шаблона измените `clients/web/.env`: задайте `WEB_IMAGE=drdon1234/hentai-park:latest`, случайный `AUTH_TOKEN` (не менее 16 символов) и фактический HTTPS `WEB_ALLOWED_ORIGIN`.
 
 ```sh
 docker compose -f clients/web/compose.yaml pull

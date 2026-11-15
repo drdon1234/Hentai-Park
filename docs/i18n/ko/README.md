@@ -42,7 +42,7 @@ https://github.com/user-attachments/assets/d648927a-e4d6-48e8-b8c0-b77349ffd607
 
 ### Web 자체 호스팅 (Docker Compose)
 
-데스크톱과 모바일 브라우저에서 사용하는 단일 사용자 인스턴스입니다. Docker 대상은 linux/amd64입니다. 코드를 푸시하고 Web Docker 워크플로가 성공한 후에 첫 이미지를 받을 수 있습니다. 게시 전에는 상세 문서의 로컬 빌드를 사용하세요.
+데스크톱과 모바일 브라우저에서 사용하는 단일 사용자 인스턴스입니다. Docker 대상은 linux/amd64입니다. 코드를 푸시하고 Release platforms 워크플로가 성공한 후에 첫 이미지를 받을 수 있습니다. 게시 전에는 상세 문서의 로컬 빌드를 사용하세요.
 
 ```sh
 git clone https://github.com/drdon1234/Hentai-Park.git
@@ -50,7 +50,7 @@ cd Hentai-Park
 cp clients/web/.env.example clients/web/.env
 ```
 
-템플릿을 복사한 후 `clients/web/.env`를 편집하여 `WEB_IMAGE=drdon1234/hentai-park:edge`, 무작위 `AUTH_TOKEN`(16자 이상), 실제 HTTPS `WEB_ALLOWED_ORIGIN`을 설정하세요.
+템플릿을 복사한 후 `clients/web/.env`를 편집하여 `WEB_IMAGE=drdon1234/hentai-park:latest`, 무작위 `AUTH_TOKEN`(16자 이상), 실제 HTTPS `WEB_ALLOWED_ORIGIN`을 설정하세요.
 
 ```sh
 docker compose -f clients/web/compose.yaml pull

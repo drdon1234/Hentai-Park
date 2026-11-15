@@ -4,7 +4,7 @@
 
 Web 是单用户自托管服务，可通过桌面或手机浏览器使用。Docker 镜像名为 `drdon1234/hentai-park`，当前构建目标为 **linux/amd64（x86_64）**。不要假设 ARM NAS 可原生运行。
 
-**首次发布前提：** 首次使用远端镜像前，须将代码推送并等待 Web Docker 工作流成功。首次 main 构建发布 `edge`；只有正式稳定版本发布后才有 `latest`。发布前使用下面的本地构建方式。
+**首次发布前提：** 首次使用远端镜像前，须将代码推送并等待 Release platforms 工作流成功。Android 与 Docker 只由版本发布流水线统一构建，正式稳定版本发布后提供 `latest`。普通提交不触发这两端构建。发布前使用下面的本地构建方式。
 
 ## Docker Compose
 
@@ -19,7 +19,7 @@ cp clients/web/.env.example clients/web/.env
 编辑 `clients/web/.env`：
 
 ```dotenv
-WEB_IMAGE=drdon1234/hentai-park:edge
+WEB_IMAGE=drdon1234/hentai-park:latest
 AUTH_TOKEN=replace-with-a-long-random-instance-credential
 WEB_ALLOWED_ORIGIN=https://park.example.org
 WEB_PORT=8787
@@ -96,10 +96,9 @@ docker compose -f clients/web/compose.yaml start
 
 | 镜像标签 | 含义 |
 | --- | --- |
-| `edge` | 默认分支通过检查后的最新构建，可能持续变化 |
 | `X.Y.Z` | 对应 `vX.Y.Z` 正式版本标签 |
 | `X.Y.Z-rc.1` 等 | 对应预发布标签，不更新 latest |
-| `latest` | 最近发布的正式稳定版本，不等同于 edge |
+| `latest` | 最近发布的正式稳定版本 |
 | `sha-<完整提交SHA>` | 追溯源码提交；需要固定构建时使用镜像 digest |
 
 ## 本机直接运行

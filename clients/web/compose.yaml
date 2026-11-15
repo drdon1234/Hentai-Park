@@ -1,6 +1,6 @@
 services:
   web:
-    image: ${WEB_IMAGE:-drdon1234/hentai-park:edge}
+    image: ${WEB_IMAGE:-drdon1234/hentai-park:latest}
     build:
       context: ../..
       dockerfile: clients/web/Dockerfile

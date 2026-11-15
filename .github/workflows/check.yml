@@ -1,11 +1,6 @@
-name: Checks and platform builds
+name: Release checks
 on:
-  push:
-    branches: [main]
-    paths: ['lib/**', 'assets/**', 'android/**', 'LICENSE', 'docs/licenses/**', 'pubspec.*', 'tools/**', '.github/workflows/**']
-  pull_request:
-    paths: ['lib/**', 'assets/**', 'android/**', 'LICENSE', 'docs/licenses/**', 'pubspec.*', 'tools/**', '.github/workflows/**']
-  workflow_dispatch:
+  workflow_call:
 permissions:
   contents: read
 concurrency:
@@ -15,9 +10,6 @@ jobs:
   checks:
     runs-on: ubuntu-24.04
     timeout-minutes: 20
-    outputs:
-      matrix: ${{ steps.plan.outputs.matrix }}
-      build: ${{ steps.plan.outputs.build }}
     steps:
       - uses: actions/checkout@v4
         with: {fetch-depth: 0}
@@ -28,13 +20,3 @@ jobs:
       - run: flutter pub get
       - shell: pwsh
         run: ./tools/check.ps1
-      - id: plan
-        env:
-          CHANGE_BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
-        run: node tools/platform_build.mjs plan
-  platforms:
-    needs: checks
-    if: needs.checks.outputs.build == 'true'
-    uses: ./.github/workflows/build.yml
-    with:
-      matrix: ${{ needs.checks.outputs.matrix }}

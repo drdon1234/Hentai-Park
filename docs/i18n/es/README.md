@@ -42,7 +42,7 @@ Configura el acceso en Más → Sitios y el proxy en Más → Red cuando sea nec
 
 ### Web autohospedada (Docker Compose)
 
-Accede desde navegadores de escritorio o móviles a una instancia de un solo usuario. El destino Docker es linux/amd64. La primera imagen estará disponible después de subir el código y completar correctamente el flujo Web Docker; antes de publicarla, utiliza la compilación local documentada.
+Accede desde navegadores de escritorio o móviles a una instancia de un solo usuario. El destino Docker es linux/amd64. La primera imagen estará disponible después de subir el código y completar correctamente el flujo Release platforms; antes de publicarla, utiliza la compilación local documentada.
 
 ```sh
 git clone https://github.com/drdon1234/Hentai-Park.git
@@ -50,7 +50,7 @@ cd Hentai-Park
 cp clients/web/.env.example clients/web/.env
 ```
 
-Tras copiar la plantilla, edita `clients/web/.env`: configura `WEB_IMAGE=drdon1234/hentai-park:edge`, un `AUTH_TOKEN` aleatorio (al menos 16 caracteres) y el `WEB_ALLOWED_ORIGIN` HTTPS real.
+Tras copiar la plantilla, edita `clients/web/.env`: configura `WEB_IMAGE=drdon1234/hentai-park:latest`, un `AUTH_TOKEN` aleatorio (al menos 16 caracteres) y el `WEB_ALLOWED_ORIGIN` HTTPS real.
 
 ```sh
 docker compose -f clients/web/compose.yaml pull

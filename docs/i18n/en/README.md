@@ -42,7 +42,7 @@ Configure sign-in under More → Sites and proxies under More → Network when n
 
 ### Self-hosted Web (Docker Compose)
 
-Use Web from desktop or mobile browsers as a single-user instance. The Docker target is linux/amd64. The first image can be pulled only after the code is pushed and the Web Docker workflow succeeds; use the documented local build before publication.
+Use Web from desktop or mobile browsers as a single-user instance. The Docker target is linux/amd64. The first image can be pulled only after the code is pushed and the Release platforms workflow succeeds; use the documented local build before publication.
 
 ```sh
 git clone https://github.com/drdon1234/Hentai-Park.git
@@ -50,7 +50,7 @@ cd Hentai-Park
 cp clients/web/.env.example clients/web/.env
 ```
 
-After copying the template, edit `clients/web/.env`: set `WEB_IMAGE=drdon1234/hentai-park:edge`, a random `AUTH_TOKEN` (at least 16 characters), and your actual HTTPS `WEB_ALLOWED_ORIGIN`.
+After copying the template, edit `clients/web/.env`: set `WEB_IMAGE=drdon1234/hentai-park:latest`, a random `AUTH_TOKEN` (at least 16 characters), and your actual HTTPS `WEB_ALLOWED_ORIGIN`.
 
 ```sh
 docker compose -f clients/web/compose.yaml pull

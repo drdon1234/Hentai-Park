@@ -1,31 +1,15 @@
 name: Web Docker
 on:
-  pull_request:
-    paths:
-      - 'clients/web/**'
-      - 'assets/sources/**'
-      - 'assets/runtime/**'
-      - 'pubspec.yaml'
-      - 'LICENSE'
-      - '.github/workflows/web-ci.yml'
-      - '.github/workflows/web-docker.yml'
-  push:
-    branches: [main]
-    tags: ['v*.*.*']
-    paths:
-      - 'clients/web/**'
-      - 'assets/sources/**'
-      - 'assets/runtime/**'
-      - 'pubspec.yaml'
-      - 'LICENSE'
-      - '.github/workflows/web-ci.yml'
-      - '.github/workflows/web-docker.yml'
-  workflow_dispatch:
+  workflow_call:
+    inputs:
+      publish:
+        type: boolean
+        required: true
 permissions:
   contents: read
 concurrency:
   group: web-docker-${{ github.ref }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  cancel-in-progress: false
 jobs:
   checks:
     uses: ./.github/workflows/web-ci.yml
@@ -53,6 +37,7 @@ jobs:
       - id: metadata
         env:
           DOCKERHUB_IMAGE: ${{ vars.DOCKERHUB_IMAGE }}
+          PUBLISH_IMAGE: ${{ inputs.publish }}
         run: node clients/web/scripts/docker-metadata.mjs
       - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
       - uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
@@ -72,7 +57,7 @@ jobs:
           cache-to: type=gha,mode=max,scope=web-amd64
   publish:
     needs: docker
-    if: github.event_name != 'pull_request' && needs.docker.outputs.publish == 'true'
+    if: inputs.publish && github.event_name != 'pull_request' && needs.docker.outputs.publish == 'true'
     environment: release
     runs-on: ubuntu-24.04
     timeout-minutes: 30

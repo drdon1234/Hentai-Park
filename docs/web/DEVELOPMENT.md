@@ -26,13 +26,15 @@ Linux 原生运行还需 Playwright 系统库，可使用 `playwright install --
 
 ## 发布流水线
 
-`web-docker.yml` 在 Web、共享插件/运行时、pubspec、许可证及两份 Web 工作流变动时运行；main 推送、PR、`v*.*.*` 标签和手动触发受理。标签事件不受路径筛选限制。它先调用独立的 `web-ci.yml` 完成安装、结构检查、类型检查和生产构建，再构建 `linux/amd64` 镜像。Web CI 也可独立手动执行。
+`release.yml` 是 Android 与 Docker 的唯一构建入口：推送与应用版本匹配的 `v*.*.*` 标签，或在 main 手动运行 Release platforms。普通 main 提交与 PR 不触发平台检查、Android 构建或 Docker 构建。`check.yml`、`build.yml`、`web-ci.yml`、`web-docker.yml` 仅接受 workflow_call，不提供独立自动或手动入口。插件与词包的独立发布流程保持不变。
 
-PR 使用 `pull_request`，仅 `contents: read`，不登录 Docker Hub、不推送、不传递 Secrets 给可复用检查。构建 job 不进入 release 环境；独立 publish job 仅在非 PR 且通过元数据校验的 main/版本标签上进入 `environment: release` 并登录。第三方 Actions 固定到经 GitHub API 核实的提交 SHA；现有 Android 与插件发布工作流不变。
+发布流程先校验版本与发布说明，执行原生检查和 Android 构建，成功后调用 Web 检查及 linux/amd64 Docker 构建。标签发布或手动勾选 publish 才进入 release 环境推送镜像；默认的手动 publish=false 仍构建两端，但不登录 Docker Hub、不推送镜像、不创建 GitHub Release。Docker 流程成功后才创建 Android GitHub Release。跨 GitHub/Docker Hub 的发布不是原子事务：最终 GitHub Release 上传失败时镜像可能已发布。
+
+构建 job 只有 contents:read，不进入 release 环境；镜像发布 job 单独进入 release 环境获取 Docker Hub 凭据，PR 不可调用发布入口。Web 的第三方 Actions 固定到已核实的提交 SHA，Android 与 Web 仍使用各自 Node 基线。
 
 `release` 环境 Secrets：`DOCKERHUB_USERNAME`、`DOCKERHUB_TOKEN`（Docker Hub Access Token，具有目标仓库推送权限）；仓库 Variable：`DOCKERHUB_IMAGE`（不含 tag 的 `namespace/repository`）。已有 `release/DOCKERHUB_TOKEN` 由用户配置，本次保留；用户名通过 stdin 配置。若以后通过本机终端输入 Token，必须隐藏输入并通过 stdin 上传，不进入文件或命令参数。替换现有同名值须显式授权。Secret 无法读回，现有 Token 的认证及推送权限要等线上登录步骤验证。
 
-main 相关推送或在 main 手动运行发布 `edge`；`vX.Y.Z` 标签与 `pubspec.yaml` 版本一致时发布 `X.Y.Z` 和 `latest`。`vX.Y.Z-预发布标识` 只发布对应预发布标签，不更新 latest，基础版本必须匹配 pubspec；pubspec 自身包含预发布标识时要求完整匹配。版本提交必须属于默认分支历史。其他分支不允许手动发布。没有独立 Web 版本体系，也不自动创建 Git 标签或 Release。
+正式版本发布 `X.Y.Z` 和 `latest`，每次附加提交 SHA 标签，不再维护 edge。手动发布使用 pubspec.yaml 版本，与 Android Release 一致；标签版本必须匹配 pubspec。Web 标签生成器拒绝普通 push/PR，预发布镜像不会更新 latest；整体发布入口仍遵循原项目的版本规则（目前原生发布工具仅接受稳定 vX.Y.Z）。版本提交须属于 main 历史，其他分支不允许手动发布。
 
 每次发布附加完整 `sha-<40位提交SHA>` tag 及 OCI source/version/revision/license 标签。SHA 标签表示源码提交，镜像 digest 才精确标识构建结果。线上是否可拉取以实际 workflow 运行结果为准；本地静态检查与构建不代表发布成功。
 
