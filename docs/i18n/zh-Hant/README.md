@@ -16,6 +16,12 @@
 
 > **18+** 僅限成年人在當地法律允許的範圍內使用。內容來自第三方網站；HentaiPark 不託管原站內容。
 
+<a id="screenshots"></a>
+
+## 產品展示
+
+https://github.com/user-attachments/assets/165f1524-9084-4437-bebb-fa9e23ebd316
+
 ## 下載與平台
 
 ### Android 獨立安裝包
@@ -28,13 +34,7 @@ Android 是獨立的原生安裝包，Android 與 Web 版本號獨立維護。
 
 ### Web 服務的不同執行形式
 
-Windows、Linux、Docker 與 Docker Compose 都是同一個 Web 服務的不同執行形式，不是 Android 安裝包的不同版本。Web 目前是獨立的初始版本 **0.0.1**。Windows 可在 `clients\web` 執行 `start-web.bat`；Linux 可執行 `pnpm install --frozen-lockfile`、`pnpm build`、`pnpm start`；Docker 部署請見 [Web 部署文件](../../WEB_DEPLOYMENT.md)。
-
-<a id="screenshots"></a>
-
-## 產品展示
-
-https://github.com/user-attachments/assets/165f1524-9084-4437-bebb-fa9e23ebd316
+Windows 批次啟動、Linux 直接啟動、Docker 與 Docker Compose 都是同一個 Web 服務的不同執行形式，不是 Android 安裝包的不同版本。請參閱 [Web 部署文件](../../WEB_DEPLOYMENT.md) 選擇合適方式。
 
 ## 快速上手
 
@@ -44,26 +44,7 @@ https://github.com/user-attachments/assets/165f1524-9084-4437-bebb-fa9e23ebd316
 
 需要登入或代理的網站，可在「我的 → 站點」與「我的 → 網路」中設定。
 
-### Web 自架（Docker Compose）
-
-Web 可在桌面與手機瀏覽器使用；單使用者實例，Docker 目標為 linux/amd64。首次映像須在程式碼推送、Release platforms 工作流程成功後才能拉取；發布前請使用詳細文件中的本機建置方式。
-
-```sh
-git clone https://github.com/drdon1234/Hentai-Park.git
-cd Hentai-Park
-cp clients/web/.env.example clients/web/.env
-```
-
-複製範本後，編輯 `clients/web/.env`：將 `WEB_IMAGE` 設為 `drdon1234/hentai-park:latest`，填入隨機 `AUTH_TOKEN`（至少 16 字元）及實際 HTTPS `WEB_ALLOWED_ORIGIN`。
-
-```sh
-docker compose -f clients/web/compose.yaml pull
-docker compose -f clients/web/compose.yaml up -d --no-build
-```
-
-預設只綁定 `127.0.0.1:8787`，經 HTTPS 反向代理存取並使用 `AUTH_TOKEN` 解鎖；不需預設使用者名稱。`park-data` 命名卷保存 `/data`，下載位於 `/data/downloads`。更新執行 `pull` 與 `up -d --no-build`；停止用 `stop`，不要用 `down -v`。
-
-[詳細部署、發布前本機建置與目錄權限](../../WEB_DEPLOYMENT.md)
+[Web 部署、本機建置與目錄權限](../../WEB_DEPLOYMENT.md)
 
 <a id="features"></a>
 

@@ -16,6 +16,12 @@
 
 > **18+** Adults only, where permitted by local law. Content comes from third-party sites; HentaiPark does not host it.
 
+<a id="screenshots"></a>
+
+## Product demo
+
+https://github.com/user-attachments/assets/d648927a-e4d6-48e8-b8c0-b77349ffd607
+
 ## Download and platforms
 
 ### Android standalone package
@@ -28,13 +34,7 @@ Android is a standalone native package; Android and Web versions are maintained 
 
 ### Web service runtime forms
 
-Windows direct launch, Linux direct launch, Docker, and Docker Compose are different runtime forms of the same Web service, not different Android packages. The Web service is currently the independent initial version **0.0.1**. On Windows run `start-web.bat` from `clients\web`; on Linux run `pnpm install --frozen-lockfile`, `pnpm build`, and `pnpm start`; for Docker deployment see the [Web deployment guide](../../WEB_DEPLOYMENT.md).
-
-<a id="screenshots"></a>
-
-## Product demo
-
-https://github.com/user-attachments/assets/d648927a-e4d6-48e8-b8c0-b77349ffd607
+Windows batch launch, Linux direct launch, Docker, and Docker Compose are different runtime forms of the same Web service, not different Android packages. See the [Web deployment guide](../../WEB_DEPLOYMENT.md) for the appropriate option.
 
 ## Get started
 
@@ -44,26 +44,7 @@ https://github.com/user-attachments/assets/d648927a-e4d6-48e8-b8c0-b77349ffd607
 
 Configure sign-in under More → Sites and proxies under More → Network when needed.
 
-### Self-hosted Web (Docker Compose)
-
-Use Web from desktop or mobile browsers as a single-user instance. The Docker target is linux/amd64. The first image can be pulled only after the code is pushed and the Release platforms workflow succeeds; use the documented local build before publication.
-
-```sh
-git clone https://github.com/drdon1234/Hentai-Park.git
-cd Hentai-Park
-cp clients/web/.env.example clients/web/.env
-```
-
-After copying the template, edit `clients/web/.env`: set `WEB_IMAGE=drdon1234/hentai-park:latest`, a random `AUTH_TOKEN` (at least 16 characters), and your actual HTTPS `WEB_ALLOWED_ORIGIN`.
-
-```sh
-docker compose -f clients/web/compose.yaml pull
-docker compose -f clients/web/compose.yaml up -d --no-build
-```
-
-The default binding is `127.0.0.1:8787`. Access through an HTTPS reverse proxy and unlock with `AUTH_TOKEN`; no default username is required. The `park-data` named volume stores `/data`, including downloads in `/data/downloads`. Update with `pull` and `up -d --no-build`; stop with `stop`, never `down -v` for routine shutdown.
-
-[Deployment, local builds before publication, and directory permissions](../../WEB_DEPLOYMENT.md)
+[Web deployment, local builds, and directory permissions](../../WEB_DEPLOYMENT.md)
 
 <a id="features"></a>
 
