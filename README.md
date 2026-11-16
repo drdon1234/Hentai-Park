@@ -18,13 +18,53 @@
 
 ## 下载与平台
 
-**[下载](https://github.com/drdon1234/Hentai-Park/releases/latest)**
+### Android 独立安装包
 
-支持 **Android 7.0+**。多数手机和平板选择 `arm64-v8a`。
+**[下载 Android 最新安装包](https://github.com/drdon1234/Hentai-Park/releases/latest)**
 
-[平台说明与安装方法](docs/PLATFORMS.md)
+支持 **Android 7.0+**。多数手机和平板选择 `arm64-v8a`。[平台说明与安装方法](docs/PLATFORMS.md)
 
-[Web 部署入口](docs/WEB_DEPLOYMENT.md) · `drdon1234/hentai-park`
+Android 是独立的原生安装包，Android 版本号和 Web 版本号独立维护。
+
+### Web 服务的不同运行形式
+
+以下 Windows、Linux、Docker 和 Docker Compose 方式都属于同一个 Web 服务，不是 Android 安装包的不同发行版。Web 当前为独立的初始版本 **0.0.1**，可在桌面或手机浏览器访问。
+
+#### Windows 直接运行
+
+需要 Node.js 24.x 和 pnpm 10.33.2。在仓库根目录执行：
+
+```bat
+cd clients\web
+start-web.bat
+```
+
+脚本会构建并启动生产 Web 服务，保持服务窗口打开即可。开发调试使用 `dev-web.bat`。
+
+#### Linux 直接运行
+
+需要 Node.js 24.x 和 pnpm 10.33.2：
+
+```sh
+cd clients/web
+pnpm install --frozen-lockfile
+pnpm build
+pnpm start
+```
+
+默认监听 `http://127.0.0.1:8787`。远程访问时请配置 HTTPS 反向代理、`AUTH_TOKEN` 和 `WEB_ALLOWED_ORIGIN`。
+
+#### Docker / Docker Compose
+
+Docker 适合 Linux、NAS 和已有 Docker 环境；镜像目标为 `linux/amd64`。Compose 部署方式、数据卷、代理和反向代理配置见 [Web 部署文档](docs/WEB_DEPLOYMENT.md)。
+
+```sh
+cp clients/web/.env.example clients/web/.env
+docker compose -f clients/web/compose.yaml pull
+docker compose -f clients/web/compose.yaml up -d --no-build
+```
+
+不要使用 `docker compose down -v`，否则会删除 Web 数据卷。
 
 <a id="screenshots"></a>
 

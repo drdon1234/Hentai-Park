@@ -1,17 +1,18 @@
 FROM node:24.22.3-bookworm-slim AS build
-WORKDIR /app
+WORKDIR /app/clients/web
 RUN npm install -g pnpm@10.33.2
-COPY .nvmrc package.json pnpm-lock.yaml pnpm-workspace.yaml tsconfig.json tsconfig.base.json ./
-COPY packages ./packages
-COPY apps ./apps
-COPY scripts ./scripts
-COPY assets ./assets
+COPY clients/web/.nvmrc clients/web/package.json clients/web/pnpm-lock.yaml clients/web/pnpm-workspace.yaml clients/web/tsconfig.json clients/web/tsconfig.base.json ./
+COPY clients/web/packages ./packages
+COPY clients/web/apps ./apps
+COPY clients/web/scripts ./scripts
+COPY assets /app/assets
+COPY pubspec.yaml /app/pubspec.yaml
 RUN pnpm install --frozen-lockfile
 RUN pnpm build
 
 FROM node:24.22.3-bookworm-slim AS runtime
 ENV NODE_ENV=production HOST=0.0.0.0 PORT=8787 DATA_DIR=/data DOWNLOAD_DIR=/data/downloads WEB_SESSION_MODE=server PLAYWRIGHT_BROWSERS_PATH=/opt/browsers
-WORKDIR /app
+WORKDIR /app/clients/web
 COPY --from=build /app /app
 RUN npm install -g pnpm@10.33.2
 RUN --mount=type=cache,id=hpweb-playwright,target=/browser-cache PLAYWRIGHT_BROWSERS_PATH=/browser-cache pnpm --filter @hentai-park/browser-worker exec playwright install --with-deps chromium && mkdir -p /opt/browsers && cp -a /browser-cache/. /opt/browsers/

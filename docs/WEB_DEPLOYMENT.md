@@ -4,7 +4,7 @@
 
 Web 是单用户自托管服务，可通过桌面或手机浏览器使用。Docker 镜像名为 `drdon1234/hentai-park`，当前构建目标为 **linux/amd64（x86_64）**。不要假设 ARM NAS 可原生运行。
 
-**首次发布前提：** 首次使用远端镜像前，须将代码推送并等待 Release platforms 工作流成功。Android 与 Docker 只由版本发布流水线统一构建，正式稳定版本发布后提供 `latest`。普通提交不触发这两端构建。发布前使用下面的本地构建方式。
+**版本与发布：** Android 是独立的原生安装包；Windows 直接运行、Linux 直接运行、Docker 和 Docker Compose 都是同一个 Web 服务的不同运行形式。Web 使用独立版本号，当前初始版本为 `0.0.1`，版本来源是 `clients/web/package.json`。Web 镜像由独立的 `Web Release` 工作流发布，正式稳定版本更新 `latest`；Android 版本和 Android Release 由独立的 `Android Release` 工作流管理。
 
 ## Docker Compose
 

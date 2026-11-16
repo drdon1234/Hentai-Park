@@ -18,13 +18,17 @@
 
 ## 下載與平台
 
-**[下載](https://github.com/drdon1234/Hentai-Park/releases/latest)**
+### Android 獨立安裝包
 
-**Android 7.0+**
+**[下載 Android 最新安裝包](https://github.com/drdon1234/Hentai-Park/releases/latest)**
 
-[平台說明與安裝方式](../../PLATFORMS.md)
+支援 **Android 7.0+**。多數手機和平板選擇 `arm64-v8a`。[平台說明與安裝方式](../../PLATFORMS.md)
 
-[Web 部署入口](../../WEB_DEPLOYMENT.md) · `drdon1234/hentai-park`
+Android 是獨立的原生安裝包，Android 與 Web 版本號獨立維護。
+
+### Web 服務的不同執行形式
+
+Windows、Linux、Docker 與 Docker Compose 都是同一個 Web 服務的不同執行形式，不是 Android 安裝包的不同版本。Web 目前是獨立的初始版本 **0.0.1**。Windows 可在 `clients\web` 執行 `start-web.bat`；Linux 可執行 `pnpm install --frozen-lockfile`、`pnpm build`、`pnpm start`；Docker 部署請見 [Web 部署文件](../../WEB_DEPLOYMENT.md)。
 
 <a id="screenshots"></a>
 

@@ -18,13 +18,17 @@
 
 ## Download and platforms
 
-**[Download](https://github.com/drdon1234/Hentai-Park/releases/latest)**
+### Android standalone package
 
-**Android 7.0+**
+**[Download the latest Android package](https://github.com/drdon1234/Hentai-Park/releases/latest)**
 
-[Platforms and installation](../../PLATFORMS.md)
+Supports **Android 7.0+**. Most phones and tablets should use `arm64-v8a`. See [platforms and installation](../../PLATFORMS.md).
 
-[Web deployment](../../WEB_DEPLOYMENT.md) · `drdon1234/hentai-park`
+Android is a standalone native package; Android and Web versions are maintained independently.
+
+### Web service runtime forms
+
+Windows direct launch, Linux direct launch, Docker, and Docker Compose are different runtime forms of the same Web service, not different Android packages. The Web service is currently the independent initial version **0.0.1**. On Windows run `start-web.bat` from `clients\web`; on Linux run `pnpm install --frozen-lockfile`, `pnpm build`, and `pnpm start`; for Docker deployment see the [Web deployment guide](../../WEB_DEPLOYMENT.md).
 
 <a id="screenshots"></a>
 
