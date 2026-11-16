@@ -11,7 +11,10 @@ export interface MediaFetch { status: number; headers: Headers; body: ReadableSt
 export interface MediaGrant {resolve?:(signal?:AbortSignal)=>Promise<Omit<MediaGrant,'expiresAt'|'resources'>>;}
 
 export class MediaProxy {
-  imageConcurrency=()=>6;
+  // Covers are independent, bounded image requests. Six slots made a busy
+  // homepage serialize the tail of the first visible shelves; keep a larger
+  // fixed bound while retaining back-pressure for the upstream service.
+  imageConcurrency=()=>12;
   private imageActive=0;
   private imageWaiters=new Set<()=>void>();
   private async imageSlot(signal?:AbortSignal){
@@ -30,13 +33,27 @@ export class MediaProxy {
   private readonly fetchImpl: typeof fetch;
   private readonly now: () => number;
   private readonly lookup: typeof dns.lookup;
+  // DNS validation is required both when issuing a grant and when consuming it.
+  // Keep only short-lived, policy-scoped results so the security check remains
+  // effective without making every cover pay for two DNS lookups.
+  private readonly validated = new Map<string,{url: URL; expires: number}>();
+  private readonly validationLifetime = 60_000;
+  private readonly imageCache = new Map<string,{bytes: Buffer; mime: string; expires: number; used: number}>();
+  private readonly imageCacheLifetime = 300_000;
+  private readonly imageCacheLimit = 128;
   constructor(fetchImpl: typeof fetch = fetch, now = () => Date.now(), lookup: typeof dns.lookup = dns.lookup) { this.fetchImpl = fetchImpl; this.now = now; this.lookup = lookup; }
   private async validate(input: string, domains: string[] | undefined, allowPort=false) {
     // A rejected source URL is not a malformed client authorization descriptor.
     const blocked=(reason:string)=>Object.assign(new Error('media upstream is blocked'),{statusCode:403,code:'MEDIA_SOURCE_BLOCKED',publicError:true,causeCategory:'source',retryable:false,details:{reason}});
     let u:URL;try{u=new URL(input);}catch{throw blocked('URL_INVALID');}
     if(u.protocol!=='https:'||u.username||u.password||!allowPort&&Boolean(u.port)||domains!==undefined&&!hostAllowed(u.hostname,domains))throw blocked('URL_POLICY');
-    const records=await this.lookup(u.hostname,{all:true});if(!records.length||records.some(r=>isPrivateAddress(r.address)))throw blocked('DNS_PRIVATE');return u;
+    const policy=JSON.stringify([u.protocol,u.hostname,u.port,allowPort,domains?.slice().sort()??null]);
+    const cached=this.validated.get(policy);
+    if(cached&&cached.expires>this.now())return new URL(cached.url.href);
+    const records=await this.lookup(u.hostname,{all:true});if(!records.length||records.some(r=>isPrivateAddress(r.address)))throw blocked('DNS_PRIVATE');
+    this.validated.set(policy,{url:new URL(u.href),expires:this.now()+this.validationLifetime});
+    if(this.validated.size>4096){const cutoff=this.now();for(const [key,value] of this.validated)if(value.expires<=cutoff)this.validated.delete(key);}
+    return u;
   }
   async issue(input: Omit<MediaGrant, 'expiresAt' | 'resources'> & { resources?: string[]; ttlMs?: number }) { const epoch=input.sessionId?this.sessionEpochs.get(input.sessionId)??0:0,sourceEpoch=this.sourceEpochs.get(input.source)??0;if(input.hls){if(typeof input.hls.manifest!=='string'||Buffer.byteLength(input.hls.manifest)>2_000_000||!input.hls.keys||Object.keys(input.hls.keys).length>32)throw Object.assign(new Error('invalid inline HLS'),{statusCode:400});for(const [url,key]of Object.entries(input.hls.keys)){await this.validate(url,input.scope==='session'||input.image?undefined:input.domains);if(typeof key!=='string'||Buffer.from(key,'base64').length!==16)throw Object.assign(new Error('invalid HLS key'),{statusCode:400});}} const urls = [...new Set([input.url, ...(input.resources ?? [])])]; const resources: string[] = []; for (const resource of urls) resources.push(input.attachment||input.inlineImage||input.inlineCaption!==undefined ? 'inline' : (await this.validate(resource,input.scope==='session'||input.image?undefined:input.domains,input.image===true)).toString());if(input.inlineImage&&(!['image/png','image/jpeg','image/gif','image/webp'].includes(input.inlineImage.mime)||input.inlineImage.bytes.length>512*1024))throw Object.assign(new Error('invalid inline image'),{statusCode:400}); if((this.sourceEpochs.get(input.source)??0)!==sourceEpoch||input.sessionId&&(this.sessionEpochs.get(input.sessionId)??0)!==epoch)throw Object.assign(new Error('media session was revoked'),{code:'CANCELLED',statusCode:499,publicError:true});const url = resources[0]; const token = randomBytes(32).toString('base64url'); const expiresAt = this.now() + Math.min(Math.max(input.ttlMs ?? 60_000, 1_000), 300_000); this.purgeExpired(); this.grants.set(token, { ...input, url, resources, expiresAt }); this.controllers.set(token,new AbortController()); this.resourceIds.set(token, new Map());this.playlists.set(token,new Set(input.playlist?[url]:[])); return { token, expiresAt }; }
   close(){for(const token of this.grants.keys())this.revoke(token);}
@@ -57,6 +74,7 @@ export class MediaProxy {
     if(!response.ok&&response.status!==416){await response.body?.cancel();throw Object.assign(new Error('Upstream media failed'),{statusCode:response.status,code:response.status===401||response.status===403?'AUTH':response.status===404?'NOT_FOUND':'NETWORK',causeCategory:'source',publicError:true,retryable:response.status>=500||response.status===404});}
     if(grant.image&&response.ok){const reader=response.body?.getReader();const chunks:Uint8Array[]=[];let size=0;try{if(reader)for(;;){const next=await reader.read();if(next.done)break;size+=next.value.length;if(size>20*1024*1024)throw Object.assign(new Error('image too large'),{statusCode:502});chunks.push(next.value);}}finally{await reader?.cancel().catch(()=>{});}let decoded;try{decoded=decodeImage(Buffer.concat(chunks),grant.imageDecrypt);}catch(error){throw Object.assign(error as Error,{statusCode:502,publicError:true,causeCategory:'source'});}const {bytes,mime:type}=decoded;const headers=new Headers({'content-type':type,'content-length':String(bytes.length),'cache-control':'private, no-store','accept-ranges':'bytes'});let status=200,body=bytes;
       if(range&&method!=='HEAD'){const match=/^bytes=(\d*)-(\d*)$/.exec(range);const start=match?.[1]?Number(match[1]):match?.[2]?Math.max(0,bytes.length-Number(match[2])):NaN;const end=match?.[1]&&match[2]?Math.min(bytes.length-1,Number(match[2])):bytes.length-1;if(!Number.isSafeInteger(start)||!Number.isSafeInteger(end)||start<0||start>=bytes.length||end<start){headers.set('content-range','bytes */'+bytes.length);headers.set('content-length','0');return {status:416,headers,body:null};}body=bytes.subarray(start,end+1);status=206;headers.set('content-range','bytes '+start+'-'+end+'/'+bytes.length);headers.set('content-length',String(body.length));}
+      if(bytes.length<=4*1024*1024){const cacheKey=JSON.stringify([canonical,grant.imageDecrypt??null]);this.imageCache.set(cacheKey,{bytes:Buffer.from(bytes),mime:type,expires:this.now()+this.imageCacheLifetime,used:this.now()});if(this.imageCache.size>this.imageCacheLimit){const oldest=[...this.imageCache.entries()].sort((a,b)=>a[1].used-b[1].used)[0];if(oldest)this.imageCache.delete(oldest[0]);}}
       return {status,headers,body:method==='HEAD'?null:new ReadableStream({start(controller){controller.enqueue(body);controller.close();}})};}
     const playlistBase=this.fetchImpl===fetch&&response.url?(await this.validate(response.url,grant.scope==='session'||grant.image?undefined:grant.domains)).href:canonical;
     const decodedResponse=method==='HEAD'?response:await unwrapMediaResponse(response,this.playlists.get(token)?.has(canonical)?2_000_000:32*1024*1024,Boolean(resourceId&&!this.playlists.get(token)?.has(canonical))); 

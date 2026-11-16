@@ -150,6 +150,19 @@ export function clearBrowseSessions(source?: string) {
   window.dispatchEvent(new CustomEvent('hp:browse-invalidated',{detail:{source}}));
 }
 
+export async function clearBrowserBrowseCache() {
+  for (const entry of sessions.values()) entry.reset(false);
+  const db = await openDatabase();
+  if (db) await new Promise<void>((resolve,reject)=>{
+    const transaction=db.transaction(storeName,'readwrite');
+    transaction.objectStore(storeName).clear();
+    transaction.oncomplete=()=>resolve();
+    transaction.onerror=()=>reject(transaction.error);
+    transaction.onabort=()=>reject(transaction.error);
+  });
+  window.dispatchEvent(new CustomEvent('hp:browse-invalidated',{detail:{}}));
+}
+
 // These are the application settings used by the API's isWorkBlocked projection.
 // Source network/plugin settings emit account.updated with payload.source instead.
 const contentSettings = new Set(['blockedWords','blockedWorks','blockedAuthors','hidePreviews']);

@@ -40,6 +40,7 @@ export class SourceCatalog {
   private readonly detailThumbnails=new Map<string,Row[]>();
   private readonly detailImages=new Map<string,Array<{url:string;thumbnail?:string}>>();
   private readonly sourceControllers=new Map<string,AbortController>();
+  private readonly browseInflight=new Map<string,Promise<CatalogPage>>();
   private readonly channelPostsCache=new Map<string,{source:string;post:Row;target:string;expires:number}>();
   private readonly parsedPosts=new WeakSet<object>();
   private readonly postContexts=new WeakMap<object,string>();
@@ -248,7 +249,13 @@ export class SourceCatalog {
     const feed=manifest.feeds?.find(value=>value.key===key);if(!key||(manifest.feeds?.length&&!feed))throw fail('BAD_REQUEST',400);const {filters,common}=normalizeFilters(input.filters,feed?.commonFilters);
     if(input.link){let url:URL;try{url=new URL(input.link);}catch{throw fail('BAD_REQUEST',400);}if(url.protocol!=='https:'||url.username||url.password||url.port||!manifest.domains.some(d=>url.hostname===d||url.hostname.endsWith('.'+d)))throw fail('BAD_REQUEST',400);}
     const fingerprint=createHash('sha256').update(JSON.stringify(['feed',input.link,input.source,manifest.version,this.registered(input.source).packagePath,key,filters,common,input.limit])).digest('hex');const timeout=AbortSignal.timeout(20000);const active=signal?AbortSignal.any([signal,timeout]):timeout;
-    return this.catalogPage(fingerprint,input.cursor,input.limit,(page,_offset,cursor)=>input.link?this.invoke(input.source,'searchLink',{url:input.link,page,cursor},active):this.invoke(input.source,'feed',{key,page,cursor,options:filters,...(common===undefined?{}:{common})},active),value=>{const item=this.persistWork(input.source,value,{method:input.link?'searchLink':'feed',params:input.link?{url:input.link}:{key,options:filters,...(common===undefined?{}:{common})}});return {item,identity:JSON.stringify([item.source,item.workId])};},true);
+    const load=()=>this.catalogPage(fingerprint,input.cursor,input.limit,(page,_offset,cursor)=>input.link?this.invoke(input.source,'searchLink',{url:input.link,page,cursor},active):this.invoke(input.source,'feed',{key,page,cursor,options:filters,...(common===undefined?{}:{common})},active),value=>{const item=this.persistWork(input.source,value,{method:input.link?'searchLink':'feed',params:input.link?{url:input.link}:{key,options:filters,...(common===undefined?{}:{common})}});return {item,identity:JSON.stringify([item.source,item.workId])};},true);
+    if(input.cursor!==undefined)return load();
+    const pending=this.browseInflight.get(fingerprint);
+    if(pending)return pending;
+    const shared=load().finally(()=>this.browseInflight.delete(fingerprint));
+    this.browseInflight.set(fingerprint,shared);
+    return shared;
   }
   private rankingBoard(source:string,board:string){const manifest=this.manifest(source);const declaration=manifest.rankings?.find(value=>value.key===board);if(!manifest.capabilities?.rankings||!declaration)throw fail('UNSUPPORTED',422);return {manifest,declaration};}
   async rankingOptions(source:string,board:string,signal?:AbortSignal){this.rankingBoard(source,board);const raw=await this.invoke(source,'rankings',{board,queryOptions:true},signal);if(!Array.isArray(raw)||raw.length>128)throw fail('PARSE');return {items:raw.map(value=>{const item=object(value);text(item.key,'key',128);text(item.label,'label',256);if(!Array.isArray(item.values)||item.values.length>500)throw fail('PARSE');const values=item.values.map(value=>{const option=object(value);if(typeof option.value!=='string'&&typeof option.value!=='number')throw fail('PARSE');return {value:option.value,label:text(option.label,'label',256)};});return {key:item.key,label:item.label,default:item.default,values};})};}

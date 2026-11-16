@@ -37,7 +37,7 @@
   .main-column { margin-left: 232px; }
   html .app-shell .desktop-navigation-toggle { display: inline-flex; flex: 0 0 32px; align-items: center; justify-content: center; min-height: 32px; padding: 0; border-color: transparent; background: transparent; color: var(--browse-text); }
   html .app-shell .desktop-navigation-toggle:hover { background: var(--desktop-selected); }
-  html .app-shell .desktop-back { position: fixed; inset: 16px auto auto 16px; z-index: 50; display: flex; margin: 0; }
+  html .app-shell .desktop-back { position: fixed; inset: 76px auto auto 248px; z-index: 50; display: flex; margin: 0; }
   .desktop-back a, .desktop-scroll-top { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 40px; padding: 8px 12px; border: 1px solid var(--desktop-rim); border-radius: 10px; color: var(--browse-text); background: var(--desktop-fill); box-shadow: var(--desktop-shadow); text-decoration: none; }
   .desktop-back a:hover { color: var(--browse-text); background: var(--desktop-selected); }
   .desktop-back ~ .back-link { display: none; }
@@ -160,3 +160,5 @@
  .detail-metadata .cover-image img { object-fit: contain; }
  .detail-body { margin-top: 32px; }
 }
+
+@media (min-width:840px) { html .app-shell[data-navigation-collapsed='true'] .desktop-back { inset-inline-start: 96px; } }

@@ -26,9 +26,9 @@ Linux 原生运行还需 Playwright 系统库，可使用 `playwright install --
 
 ## 发布流水线
 
-`release.yml` 是 Android 与 Docker 的唯一构建入口：推送与应用版本匹配的 `v*.*.*` 标签，或在 main 手动运行 Release platforms。普通 main 提交与 PR 不触发平台检查、Android 构建或 Docker 构建。`check.yml`、`build.yml`、`web-ci.yml`、`web-docker.yml` 仅接受 workflow_call，不提供独立自动或手动入口。插件与词包的独立发布流程保持不变。
+Android 与 Web 使用独立发布入口：`release.yml` 负责 Android，推送与应用版本匹配的 `v*.*.*` 标签或在 main 手动运行 Android Release；`web-release.yml` 负责 Web Docker，需在 main 手动运行并使用 `clients/web/package.json` 的独立 Web 版本。普通 main 提交与 PR 不触发平台检查、Android 构建或 Docker 构建。`check.yml`、`build.yml`、`web-ci.yml`、`web-docker.yml` 仅接受 workflow_call。插件与词包的独立发布流程保持不变。
 
-发布流程先校验版本与发布说明，执行原生检查和 Android 构建，成功后调用 Web 检查及 linux/amd64 Docker 构建。标签发布或手动勾选 publish 才进入 release 环境推送镜像；默认的手动 publish=false 仍构建两端，但不登录 Docker Hub、不推送镜像、不创建 GitHub Release。Docker 流程成功后才创建 Android GitHub Release。跨 GitHub/Docker Hub 的发布不是原子事务：最终 GitHub Release 上传失败时镜像可能已发布。
+Android 发布流程先校验应用版本与发布说明，执行原生检查、Android 构建并创建 GitHub Release。Web 发布流程先执行 Web 检查，再构建并按 `clients/web/package.json` 版本推送 linux/amd64 Docker 镜像，同时更新稳定版本标签和 `latest`。跨 GitHub/Docker Hub 的发布不是原子事务：一端失败时另一端可能已经发布。
 
 构建 job 只有 contents:read，不进入 release 环境；镜像发布 job 单独进入 release 环境获取 Docker Hub 凭据，PR 不可调用发布入口。Web 的第三方 Actions 固定到已核实的提交 SHA，Android 与 Web 仍使用各自 Node 基线。
 
@@ -40,7 +40,7 @@ Linux 原生运行还需 Playwright 系统库，可使用 `playwright install --
 
 ## 工程文档与证据
 
-[架构](WEB_ARCHITECTURE.md)、[API](WEB_API.md)、[数据](WEB_DATA.md)、[插件宿主](WEB_PLUGIN_HOST.md)、[浏览器行为](WEB_NATIVE_BEHAVIOR.md)、[功能边界](WEB_FEATURES.md)。
+[架构](WEB_ARCHITECTURE.md)、[API](WEB_API.md)、[数据](WEB_DATA.md)、[插件宿主](WEB_PLUGIN_HOST.md)、[浏览器行为](WEB_NATIVE_BEHAVIOR.md)、[功能边界](WEB_FEATURES.md)、[全端 UX 优化方案](WEB_UX_IMPROVEMENT_PLAN.md)。
 
 
 参考阅读：已实际阅读 [JAV-Pilot README](https://github.com/drdon1234/JAV-Pilot) 和[安装说明](https://github.com/drdon1234/JAV-Pilot/blob/main/docs/guide/getting-started.md)，仅借鉴 Compose 优先、发布前本地构建、持久化与升级的文档组织。Web 的 HTTPS、实例凭据、固定非 root 用户、端口及浏览器依赖均依据本项目实现。

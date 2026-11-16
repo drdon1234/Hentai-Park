@@ -281,10 +281,11 @@ GitHub Release 正文就是应用内“发现软件新版本”对话框里的�
 ### GitHub Actions
 
 
-- check.yml：仅由 release.yml 调用，执行生产文案、样式、分析、格式与官方插件离线校验；普通提交和 PR 不触发 Android 或 Docker 构建。
-- release.yml：唯一 Android/Web 构建与发布入口，推送与 pubspec.yaml 对应的 vX.Y.Z 标签，或在 main 手动触发。手动 publish 默认 false，仅构建两端；启用 publish 或标签触发才推送 Docker 镜像并创建 GitHub Release。原生检查及 Android 构建成功后执行 Web 检查和 Docker 构建，最后创建 Release。发布前更新 docs/RELEASE_NOTES.md，或手动指定仓库内双语说明路径。
+- check.yml：由 Android release.yml 调用，执行生产文案、样式、分析、格式与官方插件离线校验；普通提交和 PR 不触发 Android 或 Docker 构建。
+- release.yml：Android 构建与发布入口，推送与 pubspec.yaml 对应的 vX.Y.Z 标签，或在 main 手动触发。手动 publish 默认 false，仅构建 Android；启用 publish 或标签触发才创建 Android GitHub Release。发布前更新 docs/RELEASE_NOTES.md，或手动指定仓库内双语说明路径。
+- web-release.yml：独立 Web Docker 发布入口，仅允许在默认分支手动触发；版本来自 clients/web/package.json，不依赖 Android pubspec.yaml 版本。启用 publish 后推送 Web 镜像版本标签和 latest 标签。
 
-版本标签必须与 pubspec.yaml 一致；没有更新版本时不要重用已有发布标签。Release 正文只含中文和 English 两节，遵守 DEVELOPMENT.md 既有格式。
+Android 版本标签必须与 pubspec.yaml 一致；Web 版本由 clients/web/package.json 管理，当前初始版本为 0.0.1。没有更新对应平台版本时不要重用已有发布标签。Android Release 正文只含中文和 English 两节，遵守 DEVELOPMENT.md 既有格式。
 
 ### Secrets 与外部设置
 

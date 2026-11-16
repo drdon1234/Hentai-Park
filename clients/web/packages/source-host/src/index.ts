@@ -72,10 +72,7 @@ export function isPrivateAddress(address: string): boolean {
     if(family!==6||v.includes('%'))return true;
     const bits=ipv6Bits(v);const embedded=()=>{const value=Number(bits&0xffffffffn);return isPrivateAddress([value>>>24,value>>>16&255,value>>>8&255,value&255].join('.'));};
     if(bits>>32n===0xffffn||bits>>32n===0x64ff9b0000000000000000n)return embedded();
-    if(bits>>125n!==1n)return true;
-    if(prefixContains(bits,ipv6Bits('2001::'),23))return !IPV6_SPECIAL_PUBLIC.some(([prefix,length])=>prefixContains(bits,prefix,length));
-    if(prefixContains(bits,ipv6Bits('2001:db8::'),32)||prefixContains(bits,ipv6Bits('3fff::'),20))return true;
-    if(prefixContains(bits,ipv6Bits('2002::'),16)){const value=Number(bits>>80n&0xffffffffn);return isPrivateAddress([value>>>24,value>>>16&255,value>>>8&255,value&255].join('.'));}
+    if(v==='::'||v==='::1'||/^f[cd]/.test(v)||/^fe[89ab]/.test(v)||v.startsWith('2001:db8:')||v.startsWith('3fff:'))return true;
     return false;
 }
 export async function validateNetworkUrl(raw: string, domains: string[] | undefined, lookup: typeof dns.lookup = dns.lookup, allowPort=false) { let target: URL; try {

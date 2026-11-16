@@ -46,6 +46,8 @@ DATA-002 的 worker 以 `domain_events` 为不可变事件源，通过 `event_ou
 
 ## 作品、分类、能力与历史
 
+跨站迁移在一个 SQLite 写事务中合并目标收藏、分类、章节进度、历史和小说笔记。章节只按标题或章节编号在两侧都唯一时匹配；目标已有进度取较新值。任一带进度的旧章节无法无歧义匹配时保留原收藏，避免迁移造成数据丢失。
+
 `mediaKind` 只描述阅读、播放、音声、游戏或内容渲染方式，固定值包括 `comic`、`article`、`novel`、`video`、`voice`、`game`、`tavern`、`mixed`、`unknown`；它不能把 `comic` 改名为 `manga`。`category`/`sourceCategory` 描述来源分类，支持 feed、article、doujin、gallery、illustration、anime、aiDrama、jav、adult、shortvideo、recording、live、asmr、novel、tavern、game、onlineGame、other，二者不能混为一谈。`metadataOnly`、`reverseSearchOnly`、`rankingOnly` 是 `CapabilitySnapshot` 能力限制，不是普通作品分类。
 
 能力快照保存的是作品当时可用能力，并不等同于 source manifest 当前能力；缓存可能过期，API 必须在执行操作前重新校验当前 manifest。metadataOnly 内容不能被当成普通可播放作品。快照额外覆盖 ranking、metadata、comments、album、subscriptionUpdates 和 postShortVideos。

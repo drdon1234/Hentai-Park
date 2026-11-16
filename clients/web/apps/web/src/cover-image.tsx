@@ -8,10 +8,12 @@ type Listener=(reload:boolean)=>void;
 const entries=new Map<string,Entry>(),listeners=new Map<string,Set<Listener>>();
 let MEMORY_BYTES=64*1024*1024;const MEMORY_ENTRIES=128;let PERSIST_BYTES=256*1024*1024;let retain=true;
 const coverStore='hentai-park-cover-cache-cards-v1';
+const persistentLifetime=30*24*60*60*1000;
 if(typeof caches!=='undefined'){void caches.delete('hentai-park-cover-cache-v2');void caches.delete('hentai-park-cover-cache');}
 export function configureCoverCache(mb:number){retain=mb>0;const configured=Math.max(16,Math.min(512,mb||128));MEMORY_BYTES=Math.max(16,Math.min(128,configured*.5))*1024*1024;PERSIST_BYTES=configured*1024*1024;trim();}
 let bytes=0;
-const keyOf=(value:MediaTokenRequest,scope:CoverScope)=>JSON.stringify([scope,value.source,value.resourceKey,value.authorizationId]);
+// authorizationId is a short lived grant identity. The resource key is the stable image identity.
+const keyOf=(value:MediaTokenRequest,scope:CoverScope)=>JSON.stringify([scope,value.source,value.resourceKey]);
 const notify=(key:string,reload=false)=>listeners.get(key)?.forEach(fn=>fn(reload));
 function remove(key:string){const entry=entries.get(key);if(!entry)return;entry.controller?.abort();if(entry.timer)clearTimeout(entry.timer);if(entry.url)URL.revokeObjectURL(entry.url);bytes-=entry.bytes;entries.delete(key);}
 function trim(required=0){
@@ -25,6 +27,10 @@ function trim(required=0){
 export function clearCoverImages(source?:string){
   const keys=new Set([...entries.keys(),...listeners.keys()]);
   for(const key of keys){if(source!==undefined&&JSON.parse(key)[1]!==source)continue;remove(key);notify(key,true);}
+}
+export async function clearBrowserCoverCache(){
+  clearCoverImages();
+  if(typeof caches!=='undefined')await caches.delete(coverStore);
 }
 if(typeof window!=='undefined')window.addEventListener('hp:browse-invalidated',event=>clearCoverImages((event as CustomEvent<{source?:string}>).detail?.source));
 function current(key:string){const entry=entries.get(key);return entry&&(!entry.url||entry.expiresAt>Date.now())?entry:undefined;}
@@ -46,7 +52,9 @@ function load(key:string,authorization:MediaTokenRequest,scope:CoverScope){
     if(!response){
       const grant=await api.mediaToken(authorization,controller.signal);if(!valid())return;
       if(!Number.isFinite(grant.expiresAt)||grant.expiresAt<=Date.now())throw new Error(t('图片授权已过期，请重试。'));
-      expiresAt=grant.expiresAt;
+      // The token authorizes the fetch; the decoded image remains reusable after
+      // the short-lived token expires, just like the native/WebView cache.
+      expiresAt=scope==='cards'?Date.now()+persistentLifetime:grant.expiresAt;
       response=await fetch(mediaUrl(grant.token),{credentials:'include',cache:'no-store',signal:controller.signal});
     }
     if(!response.ok)throw new Error(t('图片加载失败，请重试。'));
@@ -67,5 +75,5 @@ export function CoverImage({authorization,alt,className='',retryLabel=t('重试�
   useEffect(()=>{setLost(false);const listener:Listener=reset=>{setLost(!reset&&!entries.has(key));render();if(reset)reload();};let group=listeners.get(key);if(!group){group=new Set();listeners.set(key,group);}group.add(listener);return()=>{group.delete(listener);if(!group.size){listeners.delete(key);const entry=entries.get(key);if(scope==='transient'||entry?.controller||!retain)remove(key);}};},[key,scope]);
   useEffect(()=>{if(near)load(key,authorization,scope);},[key,near,generation,scope]);
   const entry=current(key);if(entry)entry.used=Date.now();
-  return <div ref={root} className={'authorized-image '+className}>{entry?.error||lost?<div className="image-error" role="status"><span>{entry?.error??t('图片已释放，请重新加载。')}</span><button className="chip" onClick={()=>{remove(key);notify(key,true);}}>{retryLabel}</button></div>:entry?.url?<img src={entry.url} alt={alt} loading="lazy" onError={()=>{const value=entries.get(key);if(value){if(value.url)URL.revokeObjectURL(value.url);bytes-=value.bytes;value.bytes=0;value.url=undefined;value.error=t('图片加载失败，请重试。');notify(key);}}}/>:<div className="image-placeholder" aria-hidden="true">{t('图片待加载')}</div>}</div>;
+  return <div ref={root} className={'authorized-image '+className}>{entry?.error||lost?<div className="image-error" role="status"><span>{entry?.error??t('图片已释放，请重新加载。')}</span><button className="chip" onClick={()=>{remove(key);notify(key,true);}}>{retryLabel}</button></div>:entry?.url?<img src={entry.url} alt={alt} loading="lazy" onError={()=>{const value=entries.get(key);if(value){if(value.url)URL.revokeObjectURL(value.url);bytes-=value.bytes;value.bytes=0;value.url=undefined;value.error=t('图片加载失败，请重试。');notify(key);}}}/>:<div className="image-placeholder" aria-hidden="true" />}</div>;
 }

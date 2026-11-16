@@ -12,7 +12,7 @@
     --desktop-reflection: rgb(255 255 255 / 64%);
     --desktop-selected: rgb(255 255 255 / 85%);
     --desktop-cool: rgb(109 158 230 / 23%);
-    --desktop-warm: rgb(221 177 133 / 19%);
+    --desktop-warm: rgb(109 158 230 / 15%);
     --desktop-lilac: rgb(139 148 215 / 17%);
     --desktop-shadow: 0 2px 4px rgb(30 45 70 / 2.5%), 0 12px 32px rgb(30 45 70 / 6.5%);
     --desktop-glass-shadow: inset 0 1px 0 var(--desktop-highlight), 0 12px 38px rgb(35 48 72 / 10%);
@@ -26,9 +26,9 @@
     --control-text: #171717;
     --control-border: #8792a2;
     --control-hover: #f3f6fb;
-    --control-accent: color-mix(in srgb, var(--user-accent, #b86e52) 45%, var(--control-text));
-    --control-accent-hover: #98543d;
-    --control-soft: #f8ece7;
+    --control-accent: #2f6fae;
+    --control-accent-hover: #245b90;
+    --control-soft: #e8f1fb;
     --control-radius: 8px;
   }
   :root[data-theme='dark'] {
@@ -43,7 +43,7 @@
     --desktop-reflection: rgb(184 207 242 / 13%);
     --desktop-selected: rgb(197 215 244 / 17%);
     --desktop-cool: rgb(65 106 163 / 25%);
-    --desktop-warm: rgb(153 116 90 / 12%);
+    --desktop-warm: rgb(65 106 163 / 15%);
     --desktop-lilac: rgb(99 105 166 / 15%);
     --desktop-shadow: 0 2px 4px rgb(0 0 0 / 12%), 0 14px 36px rgb(0 0 0 / 20%);
     --desktop-glass-shadow: inset 0 1px 0 var(--desktop-highlight), 0 14px 42px rgb(0 0 0 / 28%);
@@ -57,13 +57,13 @@
     --control-text: #ededed;
     --control-border: #718096;
     --control-hover: #2a3749;
-    --control-accent: color-mix(in srgb, var(--user-accent, #d58b70) 45%, var(--control-text));
-    --control-accent-hover: #efb39a;
-    --control-soft: #352a28;
+    --control-accent: #8db7e6;
+    --control-accent-hover: #b4d2f1;
+    --control-soft: #21344b;
   }
 
 :root {
-  --action: var(--user-accent, #b86e52);
+  --action: var(--control-accent);
   --on-action: var(--user-on-accent, #fff);
   --focus: var(--control-accent);
   --navigation-selected: var(--desktop-selected);

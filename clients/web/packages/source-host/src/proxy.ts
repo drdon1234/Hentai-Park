@@ -24,7 +24,7 @@ export async function connectPinnedTunnel(target:URL,address:{address:string;fam
   });
   const endpoints=await dns.lookup(config.url.hostname,{all:true});
   if(!endpoints.length||!config.allowLocal&&endpoints.some(endpoint=>isPrivateAddress(endpoint.address)))throw new HostError('BLOCKED','local instance proxy requires explicit deployment permission');
-  const endpoint=endpoints[0]!,authority=(address.family===6?'['+address.address+']':address.address)+':'+Number(target.port||443);
+  const endpoint=endpoints[0]!,authority=target.hostname+':'+Number(target.port||443);
   const headers:Record<string,string>={host:authority};
   if(config.url.username||config.url.password)headers['proxy-authorization']='Basic '+Buffer.from(decodeURIComponent(config.url.username)+':'+decodeURIComponent(config.url.password)).toString('base64');
   return new Promise((resolve,reject)=>{

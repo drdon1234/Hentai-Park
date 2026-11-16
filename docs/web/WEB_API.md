@@ -83,6 +83,9 @@
 | --- | --- | --- |
 | GET | `/api/v1/library` | 收藏、分类和书架分区 |
 | POST | `/api/v1/library` | 收藏写入；body `{source, workId, favorite?, categoryIds?, requestKey}` |
+| POST | `/api/v1/library/migrate` | 跨站迁移收藏、分类、章节进度、历史和小说笔记；未匹配进度时保留原收藏 |
+| GET | `/api/v1/maintenance/storage` | 服务端数据库、已完成下载和自动备份占用统计 |
+| POST | `/api/v1/maintenance/delete-read-downloads` | 将已读章节的服务端下载加入删除队列 |
 | GET | `/api/v1/history` | 历史和继续阅读列表 |
 | PATCH | `/api/v1/history/:source/:workId/:chapterId` | 写入漫画页码、视频/音声时间点和有效进度 |
 | POST | `/api/v1/history` | 写入作品级历史；`chapterId` 可为空，仍须提供 `requestKey` |

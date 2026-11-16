@@ -33,9 +33,9 @@ button:disabled, :is(.app-shell,.session-gate) :is(.chip,.button,.primary-link,.
 .search-box { box-shadow: none; border-radius: 12px; }
 .search-box:focus-within { border-color: var(--control-accent); }
 input[type='checkbox'], input[type='radio'] { appearance: none; position: relative; display: inline-grid; place-content: center; flex: 0 0 auto; width: 20px; height: 20px; min-height: 20px; margin: 0; padding: 0; border: 1.5px solid var(--control-border); border-radius: 5px; background: var(--control-surface); vertical-align: middle; cursor: pointer; }
-input[type='checkbox']:checked { border-color: var(--action); background: var(--action); }
+input[type='checkbox']:checked { border-color: var(--control-accent); background: var(--control-accent); }
 input[type='checkbox']:checked::after { content: ''; width: 11px; height: 6px; border-left: 2px solid var(--on-action); border-bottom: 2px solid var(--on-action); transform: translateY(-1px) rotate(-45deg); }
-input[type='checkbox']:indeterminate { border-color: var(--action); background: var(--action); }
+input[type='checkbox']:indeterminate { border-color: var(--control-accent); background: var(--control-accent); }
 input[type='checkbox']:indeterminate::after { content: ''; width: 10px; height: 2px; background: #fff; }
 input[type='radio'] { border-radius: 50%; }
 input[type='radio']:checked { border-color: var(--control-accent); }
@@ -46,15 +46,15 @@ input[role='switch']:checked::after { background: #fff; transform: translateX(18
 [dir='rtl'] input[role='switch']::after { left: auto; right: 3px; }
 [dir='rtl'] input[role='switch']:checked::after { transform: translateX(-18px); }
 input:is([type='checkbox'],[type='radio']):disabled { cursor: not-allowed; opacity: .55; }
-input[type='range'] { accent-color: var(--action); min-height: 32px; cursor: pointer; }
+input[type='range'] { accent-color: var(--control-accent); min-height: 32px; cursor: pointer; }
 input[type='file'] { max-width: 100%; min-width: 0; font-size: 14px; color: var(--control-text); }
 input[type='file']::file-selector-button { font: inherit; min-height: 40px; margin-inline-end: 12px; padding: 8px 14px; color: var(--control-accent); background: var(--control-soft); border: 1px solid var(--control-border); border-radius: var(--control-radius); cursor: pointer; }
 fieldset { min-width: 0; margin: 16px 0; padding: 16px; border: 1px solid var(--browse-border); border-radius: 12px; }
 legend { padding-inline: 6px; font-weight: 600; }
-progress { appearance: none; display: block; width: min(100%,360px); height: 6px; margin-top: 12px; overflow: hidden; border: 0; border-radius: 6px; color: var(--action); background: var(--control-disabled); }
+progress { appearance: none; display: block; width: min(100%,360px); height: 6px; margin-top: 12px; overflow: hidden; border: 0; border-radius: 6px; color: var(--control-accent); background: var(--control-disabled); }
 progress::-webkit-progress-bar { background: var(--control-disabled); border-radius: 6px; }
-progress::-webkit-progress-value { background: var(--action); border-radius: 6px; }
-progress::-moz-progress-bar { background: var(--action); border-radius: 6px; }
+progress::-webkit-progress-value { background: var(--control-accent); border-radius: 6px; }
+progress::-moz-progress-bar { background: var(--control-accent); border-radius: 6px; }
 .form-row, .filter-row { gap: 16px; align-items: end; }
 .form-row > label:not(:has(input[type='checkbox'],input[type='radio'])), .filter-row > label:not(:has(input[type='checkbox'],input[type='radio'])) { display: grid; gap: 7px; font-size: 14px; min-width: 0; }
 .settings-panel > label:not(:has(input[type='checkbox'],input[type='radio'])) { display: grid; grid-template-columns: minmax(140px,1fr) minmax(120px,1.25fr); gap: 16px; align-items: center; padding-block: 10px; font-size: 14px; }

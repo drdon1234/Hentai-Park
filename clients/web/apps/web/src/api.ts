@@ -78,6 +78,14 @@ export async function request<T>(path: string, init: RequestInit = {}): Promise<
   if (response.ok && !path.startsWith('/api/v1/web-player/') && init.method && init.method !== 'GET' && !['/search', '/reverse-search', '/media/tokens', '/backup/export', '/backup/import/preview', '/filter-options', '/session/activity'].some((suffix) => path.endsWith(suffix)) && typeof window !== 'undefined') { let keys: string[] | undefined; if (path === '/api/v1/settings' && typeof init.body === 'string') { try { const parsed = JSON.parse(init.body) as { settings?: unknown }; if (parsed.settings && typeof parsed.settings === 'object' && !Array.isArray(parsed.settings)) keys = Object.keys(parsed.settings); } catch { /* The request body was already accepted by the server. */ } } window.dispatchEvent(new CustomEvent('hp:committed', { detail: { path, keys } })); }
   return body as T;
 }
+const sharedGets = new Map<string, Promise<unknown>>();
+function sharedGet<T>(path: string): Promise<T> {
+  const existing = sharedGets.get(path);
+  if (existing) return existing as Promise<T>;
+  const pending = request<T>(path).finally(() => sharedGets.delete(path));
+  sharedGets.set(path, pending);
+  return pending;
+}
 function query(params: Record<string, string | number | undefined>) { const q = new URLSearchParams(); for (const [key, value] of Object.entries(params)) if (value !== undefined && (value !== '' || key === 'categories')) q.set(key, String(value)); const text = q.toString(); return text ? '?' + text : ''; }
 export function webPlayerUrl(raw: string, resource: 'status' | 'control' | 'frames' | 'audio') { const url = new URL(raw, window.location.origin); if (url.origin !== window.location.origin || !new RegExp('^/api/v1/web-player/[^/]+/' + resource + '$').test(url.pathname) || url.search || url.hash || url.username || url.password) throw new Error(t("网页播放器资源地址无效。")); return url.pathname; }
 const enc = encodeURIComponent;
@@ -86,7 +94,7 @@ export const api = {
   activity: () => request('/api/v1/session/activity',{method:'POST'}),
   session: { get: () => request<Session>('/api/v1/session'), login: (token = '') => request<Session>('/api/v1/session/login', { method: 'POST', body: JSON.stringify({ token, requestKey: requestKey() }) }), logout: () => request<Session>('/api/v1/session/logout', { method: 'POST', body: JSON.stringify({ requestKey: requestKey() }) }) },
   discovery: (params: { limit?: number; cursor?: string; source?: string; category?: string; categories?: string } = {}, signal?: AbortSignal) => request<ApiEnvelope<ApiWork>&{shelves:DiscoveryShelf[]}>('/api/v1/discovery' + query(params), { signal }),
-  sources: (params: { limit?: number; cursor?: string } = {}) => request<ApiEnvelope<Source>>('/api/v1/sources' + query(params)),
+  sources: (params: { limit?: number; cursor?: string } = {}) => sharedGet<ApiEnvelope<Source>>('/api/v1/sources' + query(params)),
   source: (source: string, signal?:AbortSignal) => request<Source>('/api/v1/sources/' + enc(source), {signal}),
   sourceFilterOptions: (source:string,body:Record<string,unknown>,signal?:AbortSignal) => request<{items:Array<{value:string|number|boolean;label:string;color?:string}>}>('/api/v1/sources/'+enc(source)+'/filter-options',{method:'POST',body:JSON.stringify(body),signal}),
   sourceAction: (source: string, action: 'enable' | 'update' | 'login' | 'verify', body: Record<string, unknown> = {}) => request<Record<string, unknown>>('/api/v1/sources/' + enc(source) + '/' + action, { method: 'POST', body: JSON.stringify({ ...body, requestKey: requestKey() }) }),
@@ -102,6 +110,9 @@ export const api = {
   reader: (source: string, workId: string, chapterId: string, signal?: AbortSignal, showBlocked=false) => request<ReaderPayload>('/api/v1/reader/' + enc(source) + '/' + enc(workId) + '/' + enc(chapterId)+query({showBlocked:showBlocked?'true':undefined}), { signal }),
   library: (params: { cursor?: string; limit?: number } = {}) => request<ApiEnvelope<LibraryEntry>>('/api/v1/library' + query(params)),
   setLibrary: (body: { source: string; workId: string; favorite?: boolean; categoryIds?: string[]; version?: number }) => request<LibraryEntry>('/api/v1/library', { method: 'POST', body: JSON.stringify({ ...body, requestKey: requestKey() }) }),
+  migrateLibrary: (body: { fromSource: string; fromWorkId: string; toSource: string; toWorkId: string; categories: boolean; progress: boolean; removeOld: boolean }) => request<{ matched: number; unmatched: number; removed: boolean; categories: string[] }>('/api/v1/library/migrate', { method: 'POST', body: JSON.stringify({ ...body, requestKey: requestKey() }) }),
+  storage: () => request<{databaseBytes:number;downloadBytes:number;backupBytes:number;backupCount:number}>('/api/v1/maintenance/storage'),
+  deleteReadDownloads: () => request<{count:number}>('/api/v1/maintenance/delete-read-downloads', { method:'POST', body: JSON.stringify({requestKey:requestKey()}) }),
   history: (params: { cursor?: string; limit?: number; source?: string; workId?: string; resume?: boolean; categories?: string; category?: string; uniqueWorks?: boolean } = {}) => request<ApiEnvelope<HistoryEntry>>('/api/v1/history' + query({...params,resume:params.resume ? 'true' : undefined,uniqueWorks:params.uniqueWorks ? 'true' : undefined})),
   saveHistory: (source: string, workId: string, chapterId: string, body: { page?: number; pageCount?: number; position?: number; duration?: number; textOffset?:number;textLength?:number;version?: number }) => request<(HistoryEntry & { saved: true; version:number }) | { saved: false }>('/api/v1/history/' + enc(source) + '/' + enc(workId) + '/' + enc(chapterId), { method: 'PATCH', body: JSON.stringify({ ...body, requestKey: requestKey() }), keepalive: true }),
   downloads: (params: { cursor?: string; limit?: number } = {}) => request<ApiEnvelope<DownloadTask>>('/api/v1/downloads' + query(params)),
@@ -114,7 +125,7 @@ export const api = {
   deleteSubscription: (id: string, keepEvents = true) => request<Record<string, unknown>>('/api/v1/subscriptions/' + enc(id), { method: 'DELETE', body: JSON.stringify({ keepEvents, requestKey: requestKey() }) }),
   checkSubscription: (id: string) => request<Record<string, unknown>>('/api/v1/subscriptions/' + enc(id) + '/check', { method: 'POST', body: JSON.stringify({ requestKey: requestKey() }) }),
   readEvents: (eventIds: string[]) => request<Record<string, unknown>>('/api/v1/events/read', { method: 'POST', body: JSON.stringify({ eventIds, requestKey: requestKey() }) }),
-  settings: () => request<{ settings: Record<string, unknown>; version: number }>('/api/v1/settings'),
+  settings: () => sharedGet<{ settings: Record<string, unknown>; version: number }>('/api/v1/settings'),
   updateSettings: (settings: Record<string, unknown>, version?: number) => request<{ settings: Record<string, unknown>; version: number }>('/api/v1/settings', { method: 'PATCH', body: JSON.stringify({ settings, version, requestKey: requestKey() }) }),
   backupExport: async (include?: string[]) => { const { requestId: _requestId, ...backup } = await request<Record<string, unknown>>('/api/v1/backup/export', { method: 'POST', body: JSON.stringify({ include, requestKey: requestKey() }) }); return backup; },
   backupPreview: (backup: Record<string, unknown>) => request<{partitions: Record<string,{incoming:number;added:number;replaced:number;retained:number;conflicts:number}>;totals:{incoming:number;added:number;replaced:number;retained:number;conflicts:number};restoredSourcesDisabled:boolean;preview:true;canImport:true}>('/api/v1/backup/import/preview', {method:'POST',body:JSON.stringify({backup})}),

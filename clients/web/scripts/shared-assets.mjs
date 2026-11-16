@@ -5,9 +5,9 @@ export const webRoot=fileURLToPath(new URL('../',import.meta.url));
 export const repositoryRoot=fileURLToPath(new URL('../../../',import.meta.url));
 
 export async function applicationVersion(){
-  const text=await readFile(join(repositoryRoot,'pubspec.yaml'),'utf8');
-  const version=/^version:\s*(\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?)\+\d+\s*$/m.exec(text)?.[1];
-  if(!version)throw Error('pubspec.yaml must declare an application version and build number');
+  const text=await readFile(join(repositoryRoot,'clients/web/package.json'),'utf8');
+  const version=JSON.parse(text).version;
+  if(typeof version!=='string'||!/^(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)(?:-[0-9A-Za-z.-]+)?$/.test(version))throw Error('clients/web/package.json must declare a valid web version');
   return version;
 }
 export async function prepareSharedAssets(){

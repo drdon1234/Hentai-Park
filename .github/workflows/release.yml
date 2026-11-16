@@ -1,11 +1,11 @@
-name: Release platforms
+name: Android Release
 on:
   push:
     tags: ['v*.*.*']
   workflow_dispatch:
     inputs:
       publish:
-        description: '发布 Android Release 和 Docker 镜像（默认仅构建两端）'
+        description: '发布 Android Release（默认仅构建）'
         type: boolean
         default: false
       notes:
@@ -52,13 +52,8 @@ jobs:
       matrix: ${{ needs.prepare.outputs.matrix }}
       release: ${{ github.event_name == 'push' || inputs.publish }}
     secrets: inherit
-  web:
-    needs: [prepare, checks, build]
-    uses: ./.github/workflows/web-docker.yml
-    with:
-      publish: ${{ github.event_name == 'push' || inputs.publish }}
   publish:
-    needs: [prepare, build, web]
+    needs: [prepare, build]
     if: github.event_name == 'push' || inputs.publish
     runs-on: ubuntu-24.04
     environment: release

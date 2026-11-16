@@ -16,7 +16,7 @@ export function dockerMetadata({event,ref,sha,defaultBranch,image,version,publis
   const tags=[`${image}:sha-${sha}`];
   if(tag){
     const match=/^v((?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)(?:-[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?)$/.exec(tag);
-    if(!match||match[1].split('-')[0]!==version.split('-')[0]||(version.includes('-')&&match[1]!==version))throw Error('Release tag must match pubspec.yaml');
+    if(!match||match[1].split('-')[0]!==version.split('-')[0]||(version.includes('-')&&match[1]!==version))throw Error('Release tag must match clients/web/package.json');
     releaseVersion=match[1];
   }
   tags.push(`${image}:${releaseVersion}`);

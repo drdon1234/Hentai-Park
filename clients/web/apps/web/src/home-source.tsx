@@ -68,22 +68,16 @@ export function HomeSource({ source, visible, directory, hiddenWorks = false, sa
     <div className="section-header source-heading"><h2><a href={href} onClick={event => {if(event.button===0&&!event.ctrlKey&&!event.metaKey&&!event.shiftKey&&!event.altKey){event.preventDefault();navigate(href);}}}>{name}</a></h2><div className="source-heading-actions">{!directory && (manifest.capabilities as Record<string,unknown> | undefined)?.feed === true && onToggleHidden ? <button className="source-visibility" disabled={saving} aria-pressed={hiddenWorks} aria-label={t(hiddenWorks ? '显示该站点的作品并自动加载' : '隐藏该站点的作品并停止自动加载')} title={t(hiddenWorks ? '显示该站点的作品并自动加载' : '隐藏该站点的作品并停止自动加载')} onClick={onToggleHidden}><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/>{hiddenWorks?<path d="m3 3 18 18"/>:null}</svg></button>:null}<a href={href} onClick={event => {if(event.button===0&&!event.ctrlKey&&!event.metaKey&&!event.shiftKey&&!event.altKey){event.preventDefault();navigate(href);}}}>{t('进入站点')}</a></div></div>
     {canLoad ? <>
       {pages.length ? <ContentShelf shelf={shelf} heading={false} local navigate={navigate} renderItem={renderItem} onReachEnd={visible && nextCursor && !loading && !error ? loadNext : undefined} /> : null}
-      {!pages.length && (!activated || loading) ? <HomeShelfSkeleton mediaKind={manifest.isPlayable === true ? 'video' : manifest.type === 'article' ? 'article' : 'comic'} aspect={manifest.isPlayable === true || manifest.type === 'article' ? '16 / 9' : '.7 / 1'} /> : null}
+      {!pages.length && (!activated || loading) ? <HomeShelfSkeleton mediaKind={manifest.isPlayable === true ? 'video' : manifest.type === 'article' ? 'article' : 'comic'} /> : null}
       {error ? <div className="source-feed-status" role="status"><p>{errorMessage(error)}</p><button className="chip" onClick={() => void session.retry()}>{t('重试')}</button></div> : null}
     </> : !directory && !hiddenWorks && (manifest.capabilities as Record<string,unknown> | undefined)?.subscription ? <div className="source-feed-actions"><a className="chip" href={'/channel/' + encodeURIComponent(source.source)} onClick={event => {if(event.button===0&&!event.ctrlKey&&!event.metaKey&&!event.shiftKey&&!event.altKey){event.preventDefault();navigate(event.currentTarget.getAttribute('href')!);}}}>{t('打开频道')}</a><p className="muted">{t('此站点不提供公开推荐，使用上方的可用入口浏览。')}</p></div> : !directory && !hiddenWorks ? <p className="muted">{t((manifest.capabilities as Record<string,unknown> | undefined)?.reverseSearch || (manifest.capabilities as Record<string,unknown> | undefined)?.metadataSearch || manifest.rankingOnly ? '此站点不提供公开推荐，使用上方的可用入口浏览。' : '此来源不提供公开目录，可从已收藏作品或作品直达链接进入。')}</p> : null}
   </section>;
 }
 
-function HomeShelfSkeleton({aspect,mediaKind}:{aspect:string;mediaKind:'comic'|'video'|'article'}) {
+function HomeShelfSkeleton({mediaKind}:{mediaKind:'comic'|'video'|'article'}) {
   return <div className="shelf-carousel home-skeleton-carousel" role="status" aria-label={t('正在加载')}>
     <button className="shelf-side shelf-side-start" disabled aria-label={t('向前浏览')}><Arrow previous full /></button>
-    <div className={'shelf-track shelf-'+mediaKind} tabIndex={-1} aria-hidden="true">
-      {Array.from({length:6},(_,index)=><div className="shelf-item home-skeleton-card" key={index}>
-        <div className="home-skeleton-cover" style={{aspectRatio:aspect}} />
-        <div className="home-skeleton-line home-skeleton-line-title" />
-        <div className="home-skeleton-line home-skeleton-line-meta" />
-      </div>)}
-    </div>
+    <div className={'shelf-track shelf-'+mediaKind} tabIndex={-1} aria-hidden="true"><div className="home-skeleton-strip" data-media-kind={mediaKind} /></div>
     <button className="shelf-side shelf-side-end" disabled aria-label={t('向后浏览')}><Arrow full /></button>
   </div>;
 }
