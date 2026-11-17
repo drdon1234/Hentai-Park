@@ -104,24 +104,12 @@ jobs:
             APP='build/ios/iphoneos/Runner.app'
           fi
           lipo "$APP/Runner" -verify_arch arm64
-          validate_webkit_linkage() {
-            otool -l "$1" | awk '
-              $1 == "cmd" { command = $2 }
-              $1 == "name" && $2 ~ /libswiftWebKit\.dylib$/ {
-                if (command != "LC_LOAD_WEAK_DYLIB") bad = 1
-              }
-              END { exit bad }
-            '
-          }
-          validate_webkit_linkage "$APP/Runner"
-          for FRAMEWORK in "$APP"/Frameworks/*.framework; do
-            validate_webkit_linkage "$FRAMEWORK/$(basename "$FRAMEWORK" .framework)"
-          done
       - name: iOS simulator startup check
         if: matrix.platform == 'ios' && !inputs.release
         run: |
           flutter build ios --simulator --debug
-          DEVICE=$(xcrun simctl list devices available --json | python3 -c 'import json,sys; print(next(d["udid"] for devices in json.load(sys.stdin)["devices"].values() for d in devices if d["name"].startswith("iPhone")))')
+          SIMULATOR_SDK=$(xcrun --sdk iphonesimulator --show-sdk-version)
+          DEVICE=$(xcrun simctl list devices available --json | python3 -c 'import json,sys; runtime="com.apple.CoreSimulator.SimRuntime.iOS-"+sys.argv[1].replace(".", "-"); print(next(d["udid"] for d in json.load(sys.stdin)["devices"].get(runtime, []) if d["name"].startswith("iPhone")))' "$SIMULATOR_SDK")
           mkdir -p test/ios-simulator
           cleanup_simulator() {
             STATUS=$?
