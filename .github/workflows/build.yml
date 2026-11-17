@@ -109,13 +109,28 @@ jobs:
         run: |
           flutter build ios --simulator --debug
           DEVICE=$(xcrun simctl list devices available --json | python3 -c 'import json,sys; print(next(d["udid"] for devices in json.load(sys.stdin)["devices"].values() for d in devices if d["name"].startswith("iPhone")))')
+          mkdir -p test/ios-simulator
+          cleanup_simulator() {
+            STATUS=$?
+            if [ "$STATUS" -ne 0 ]; then
+              tail -n 80 test/ios-simulator/stdout.log test/ios-simulator/stderr.log 2>/dev/null || true
+            fi
+            xcrun simctl shutdown "$DEVICE" || true
+            exit "$STATUS"
+          }
+          trap cleanup_simulator EXIT
           xcrun simctl boot "$DEVICE"
           xcrun simctl bootstatus "$DEVICE" -b
           xcrun simctl install "$DEVICE" build/ios/iphonesimulator/Runner.app
-          xcrun simctl launch "$DEVICE" com.hentaipark.hentaiPark
+          APP_PID=$(xcrun simctl launch --stdout="$PWD/test/ios-simulator/stdout.log" --stderr="$PWD/test/ios-simulator/stderr.log" "$DEVICE" com.hentaipark.hentaiPark | awk -F ': ' '{print $NF}')
+          test -n "$APP_PID"
           sleep 20
-          xcrun simctl spawn "$DEVICE" launchctl list | grep -F 'com.hentaipark.hentaiPark'
-          xcrun simctl shutdown "$DEVICE"
+          # 模拟器应用使用宿主 PID；launchctl list 不保证列出 UIKit 启动的应用。
+          kill -0 "$APP_PID"
+          APP_DATA=$(xcrun simctl get_app_container "$DEVICE" com.hentaipark.hentaiPark data)
+          DATABASE=$(find "$APP_DATA/Library/Application Support" -name park.db -print -quit)
+          test -n "$DATABASE"
+          test "$(sqlite3 "$DATABASE" "SELECT count(*) FROM sqlite_master WHERE type='table' AND name='works';")" = '1'
       - run: node tools/platform_build.mjs package '${{ matrix.platform }}' '${{ matrix.arch }}'
       - uses: actions/upload-artifact@v4
         with:
