@@ -25,7 +25,7 @@ class TavernTransfer {
     return false;
   }
 
-  static Future<void> importBytes(
+  static Future<WorkItem?> importBytes(
     Uint8List bytes,
     String name, {
     String? expectedKind,
@@ -43,12 +43,15 @@ class TavernTransfer {
     if (value is Map &&
         value['resources'] is List &&
         value['sessions'] is List) {
+      if (expectedKind != null) {
+        throw const FormatException('导入文件类型不匹配');
+      }
       validateTavernBackup(value);
       await Library.instance.db.transaction(
         () => mergeTavernBackup(Library.instance.db, value),
       );
       TavernStore.instance.restored();
-      return;
+      return null;
     }
     final kind = !png && _isLorebookJson(value) ? 'lorebook' : 'character';
     if (expectedKind != null && expectedKind != kind) {
@@ -63,6 +66,7 @@ class TavernTransfer {
       'tavernKind': kind,
     }, 'tavern-local');
     await TavernStore.instance.save(item, resource, format, bytes);
+    return item;
   }
 
   static Future<Uint8List> exportSession(TavernSession session) async {

@@ -1974,5 +1974,12 @@
   "还没有消息": "No messages yet",
   "分支会话": "Branched conversation",
   "新建会话": "New conversation",
-  "继续对话": "Continue conversation"
+  "继续对话": "Continue conversation",
+  "保存后可在任意会话中关联；收藏不会保存世界书文件。": "Save locally to use in any conversation. Favoriting does not save the lorebook file.",
+  "已导入并选中，保存后关联到本会话。": "Imported and selected. Save to link it to this conversation.",
+  "在线保存世界书后，返回此页确认关联。": "Save a lorebook online, then return here to confirm linking it.",
+  "没有可用站点，请先启用或添加。": "No available sources. Enable or add one first.",
+  "选择要用于本会话的世界书。角色卡内嵌世界书会自动使用。": "Select lorebooks for this conversation. Lore embedded in the character card is used automatically.",
+  "在线浏览": "Browse online",
+  "还没有保存世界书。可导入 JSON，或在线浏览后保存到本地。": "No saved lorebooks yet. Import JSON or browse online and save locally."
 }

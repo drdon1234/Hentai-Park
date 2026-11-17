@@ -1974,5 +1974,12 @@
   "还没有消息": "Aún no hay mensajes",
   "分支会话": "Conversación derivada",
   "新建会话": "Nueva conversación",
-  "继续对话": "Continuar conversación"
+  "继续对话": "Continuar conversación",
+  "保存后可在任意会话中关联；收藏不会保存世界书文件。": "Guárdalo localmente para usarlo en cualquier conversación. Añadir a favoritos no guarda el archivo.",
+  "已导入并选中，保存后关联到本会话。": "Importado y seleccionado. Guarda para vincularlo a esta conversación.",
+  "在线保存世界书后，返回此页确认关联。": "Guarda un libro de mundo en línea y vuelve aquí para confirmar el vínculo.",
+  "没有可用站点，请先启用或添加。": "No hay fuentes disponibles. Activa o añade una primero.",
+  "选择要用于本会话的世界书。角色卡内嵌世界书会自动使用。": "Selecciona libros de mundo para esta conversación. El contenido integrado en la tarjeta se usa automáticamente.",
+  "在线浏览": "Explorar en línea",
+  "还没有保存世界书。可导入 JSON，或在线浏览后保存到本地。": "No hay libros de mundo guardados. Importa JSON o explora en línea y guarda localmente."
 }

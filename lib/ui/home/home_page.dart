@@ -175,7 +175,7 @@ class _HomePageState extends State<HomePage> {
   ) {
     final scaler = MediaQuery.textScalerOf(context);
     final logoStyle = ParkText.serif(
-      context.text.headlineMedium?.copyWith(fontWeight: FontWeight.w600),
+      context.text.headlineSmall?.copyWith(fontWeight: FontWeight.w600),
     );
     Size measure(String text, TextStyle? style) {
       final painter = TextPainter(
@@ -201,9 +201,10 @@ class _HomePageState extends State<HomePage> {
     final available =
         MediaQuery.sizeOf(context).width -
         MediaQuery.paddingOf(context).horizontal -
-        Gap.page * 2;
+        Gap.page -
+        Gap.xs;
     double buttonWidth(String label) =>
-        (measure(label, context.text.labelMedium).width + 18 + Gap.xs + Gap.m)
+        (measure(label, context.text.labelMedium).width + 18 + Gap.xs + Gap.s)
             .clamp(48.0, double.infinity);
     final toolsWidth = buttonWidth(tr('排行')) + buttonWidth(tr('搜图')) + 48;
     final stacked =
@@ -231,7 +232,7 @@ class _HomePageState extends State<HomePage> {
             foregroundColor: context.colors.onSurfaceVariant,
             textStyle: context.text.labelMedium,
             minimumSize: const Size(48, 48),
-            padding: const EdgeInsets.symmetric(horizontal: Gap.m / 2),
+            padding: const EdgeInsets.symmetric(horizontal: Gap.xs),
           ),
           onPressed: onPressed,
           child: SelectionContainer.disabled(
@@ -260,6 +261,12 @@ class _HomePageState extends State<HomePage> {
         ),
         PopupMenuButton<int>(
           tooltip: tr('更多'),
+          icon: const Icon(Icons.more_horiz_rounded),
+          padding: EdgeInsets.zero,
+          style: IconButton.styleFrom(
+            fixedSize: const Size(48, 48),
+            padding: EdgeInsets.zero,
+          ),
           popUpAnimationStyle: Motion.menu(context),
           onSelected: (value) {
             if (value == 0) {
@@ -301,21 +308,34 @@ class _HomePageState extends State<HomePage> {
         ),
       ],
     );
-    return PageHeader(
+    if (PlatformCapabilities.desktop) {
+      return PageHeader(
+        titleWidget: Text(tr('发现'), style: context.text.titleLarge),
+        actions: [tools],
+      );
+    }
+    return AppBar(
+      automaticallyImplyLeading: false,
+      centerTitle: false,
+      titleSpacing: 0,
       toolbarHeight: stacked ? logoHeight + actionHeight : logoHeight,
-      titleWidget: PlatformCapabilities.desktop
-          ? Text(tr('发现'), style: context.text.titleLarge)
-          : stacked
-          ? Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                SizedBox(height: logoHeight, child: logo),
-                Align(alignment: AlignmentDirectional.centerEnd, child: tools),
-              ],
-            )
-          : Row(children: [logo, const Spacer(), tools]),
-      actions: PlatformCapabilities.desktop ? [tools] : const [],
+      title: Padding(
+        // 图标本身距边缘仍为 Gap.page；48 dp 点击区域使用外侧空白。
+        padding: const EdgeInsetsDirectional.only(start: Gap.page, end: Gap.xs),
+        child: stacked
+            ? Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  SizedBox(height: logoHeight, child: logo),
+                  Align(
+                    alignment: AlignmentDirectional.centerEnd,
+                    child: tools,
+                  ),
+                ],
+              )
+            : Row(children: [logo, const Spacer(), tools]),
+      ),
     );
   }
 

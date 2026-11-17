@@ -64,8 +64,9 @@ class _TavernDetailPageState extends State<TavernDetailPage> {
       _error = null;
     });
     try {
+      final saved = await TavernStore.instance.get(widget.item.uid);
       _originalUrl = _validOriginalUrl(widget.item.json['url']) ?? '';
-      if (_originalUrl.isEmpty) {
+      if (_originalUrl.isEmpty && saved == null) {
         try {
           final detail = await SourceManager.instance.detail(
             widget.item.source,
@@ -77,7 +78,6 @@ class _TavernDetailPageState extends State<TavernDetailPage> {
           // A missing web URL must not prevent opening the downloadable asset.
         }
       }
-      final saved = await TavernStore.instance.get(widget.item.uid);
       if (saved != null) {
         _resource = saved.resource;
         _bytes = saved.bytes;
@@ -156,6 +156,12 @@ class _TavernDetailPageState extends State<TavernDetailPage> {
       if (mounted) context.toast(tr('导出失败，请重试'));
     } finally {
       if (mounted) setState(() => _exporting = false);
+    }
+  }
+
+  Future<void> _saveLocal() async {
+    if (await _save() != null && mounted) {
+      context.toast(tr('已保存'));
     }
   }
 
@@ -363,7 +369,68 @@ class _TavernDetailPageState extends State<TavernDetailPage> {
                     ),
                   )
           : resource.kind == 'lorebook'
-          ? TavernLorebookList(source: widget.item.source, resource: resource)
+          ? ReadableWidth(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.all(Gap.page),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          tr('{count} 条世界书词条', {
+                            'count': resource.entries.length,
+                          }),
+                          style: context.text.bodySmall,
+                        ),
+                        const SizedBox(height: Gap.s),
+                        Text(
+                          tr('保存后可在任意会话中关联；收藏不会保存世界书文件。'),
+                          style: context.text.bodyMedium,
+                        ),
+                        const SizedBox(height: Gap.m),
+                        Wrap(
+                          spacing: Gap.s,
+                          runSpacing: Gap.s,
+                          children: [
+                            FilledButton.icon(
+                              onPressed: _saved || _busy ? null : _saveLocal,
+                              icon: Icon(
+                                _saved
+                                    ? Icons.check_rounded
+                                    : Icons.bookmark_add_outlined,
+                              ),
+                              label: Text(tr(_saved ? '已保存' : '保存到本地')),
+                            ),
+                            OutlinedButton.icon(
+                              onPressed: _exporting ? null : _download,
+                              icon: const Icon(Icons.file_download_outlined),
+                              label: Text(tr('导出原文件')),
+                            ),
+                            IconButton(
+                              tooltip: tr('更多'),
+                              onPressed: _busy || _exporting ? null : _more,
+                              icon: const Icon(Icons.more_horiz_rounded),
+                            ),
+                          ],
+                        ),
+                        if (_busy || _exporting) ...[
+                          const SizedBox(height: Gap.s),
+                          const LinearProgressIndicator(),
+                        ],
+                      ],
+                    ),
+                  ),
+                  Expanded(
+                    child: TavernLorebookList(
+                      source: widget.item.source,
+                      resource: resource,
+                    ),
+                  ),
+                ],
+              ),
+            )
           : ReadableWidth(
               child: ListView(
                 padding: const EdgeInsets.fromLTRB(

@@ -1,27 +1,19 @@
 ## 中文
 
-### 新功能
-- 酒馆对话支持回滚，增强分支入口与历史预览；重新打开角色卡时可继续已有会话。
-- 酒馆 AI 配置支持系统 Prompt，默认要求使用当前界面语言回复。
-
 ### 改进
-- 酒馆自动保存输入草稿与生成中的回复，退出时可停止生成并保存；默认上下文提高至 65,536 Token，输出提高至 4,096 Token。
-- 调整发现页顶部按钮间距，搜图入口使用更简洁的名称。
-- 酒馆 AI 配置增加 API Key 示例提示，移除清除已保存密钥的开关；获取模型入口整合到模型输入栏。
+- 收紧发现页顶部工具间距和右侧留白，调整品牌标题比例，减少较宽手机上不必要的两行布局，同时保留系统大字体。
+- 酒馆关联世界书页面支持导入 JSON、在线浏览、多选和预览；导入或在线新保存的世界书自动选中，确认后关联到当前会话。
 
 ### 修复
-- 修复酒馆角色消息未参与自动内容翻译的问题。
+- 修复独立世界书详情缺少保存到本地与导出入口的问题。
+- 修复关联世界书列表为空时只有提示、无法继续添加的问题。
 
 ## English
 
-### New
-- Add Tavern conversation rollback, clearer branching and history previews, and options to resume previous conversations from a character card.
-- Add a configurable Tavern system prompt that defaults to replies in the current interface language.
-
 ### Improvements
-- Automatically save Tavern input drafts and replies during generation, save received content on exit, and raise defaults to 65,536 context tokens and 4,096 output tokens.
-- Refine discovery header spacing and use a shorter label for image search.
-- Add an API key example in Tavern AI settings, remove the saved-key clearing switch, and place model retrieval inside the model field.
+- Tighten discovery toolbar spacing and trailing padding, refine the brand title proportions, and reduce unnecessary wrapping on wider phones while respecting larger system text.
+- Add JSON import, online browsing, multiple selection and previews to Tavern lorebook selection; imported and newly saved lorebooks are selected automatically for confirmation.
 
 ### Fixes
-- Fix automatic content translation not applying to Tavern character messages.
+- Restore local saving and original-file export actions in standalone lorebook details.
+- Replace the dead-end empty lorebook prompt with ways to add and link lorebooks.

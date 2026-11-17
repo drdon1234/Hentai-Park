@@ -5,7 +5,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 
 import '../../core/localization.dart';
-import '../../core/models.dart';
 import '../../tavern/conversation.dart';
 import '../../tavern/store.dart';
 import '../../tavern/transfer.dart';
@@ -14,6 +13,7 @@ import '../nav.dart';
 import '../theme.dart';
 import '../widgets/content_translation.dart';
 import 'tavern_avatar.dart';
+import 'tavern_books_page.dart';
 import 'tavern_library_page.dart';
 import 'tavern_settings_page.dart';
 
@@ -340,60 +340,11 @@ class _TavernChatPageState extends State<TavernChatPage>
   }
 
   Future<void> _selectBooks() async {
-    late final List<WorkItem> books;
-    try {
-      books = await TavernStore.instance.resources(kind: 'lorebook');
-    } catch (_) {
-      if (mounted) context.toast(tr('读取失败，请重试'));
-      return;
-    }
-    if (!mounted) return;
-    if (books.isEmpty) {
-      context.toast(tr('请先保存世界书'));
-      return;
-    }
-    final selected = _session.books.toSet();
-    final result = await showDialog<bool>(
-      context: context,
-      builder: (context) => StatefulBuilder(
-        builder: (context, update) => AlertDialog(
-          title: Text(tr('关联世界书')),
-          content: SizedBox(
-            width: 420,
-            child: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  for (final book in books)
-                    CheckboxListTile(
-                      value: selected.contains(book.uid),
-                      title: Text(book.title),
-                      onChanged: (value) => update(() {
-                        if (value == true) {
-                          selected.add(book.uid);
-                        } else {
-                          selected.remove(book.uid);
-                        }
-                      }),
-                    ),
-                ],
-              ),
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: Text(tr('取消')),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.pop(context, true),
-              child: Text(tr('保存')),
-            ),
-          ],
-        ),
-      ),
+    final selected = await Nav.push<Set<String>>(
+      context,
+      TavernBooksPage(selected: _session.books.toSet()),
     );
-    if (result != true) return;
+    if (selected == null || !mounted) return;
     _session.books
       ..clear()
       ..addAll(selected);
