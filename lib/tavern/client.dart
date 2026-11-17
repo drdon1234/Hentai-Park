@@ -14,6 +14,106 @@ class TavernApiException implements Exception {
   final int? status;
 }
 
+/// Retrieves model identifiers from OpenAI-compatible and Anthropic APIs.
+class TavernModelCatalog {
+  Future<List<String>> fetch({
+    required String baseUrl,
+    required String apiKey,
+  }) async {
+    final base = TavernApiSettings.validateBaseUrl(baseUrl);
+    if (base.scheme == 'http' && apiKey.isNotEmpty) {
+      throw const TavernApiException('insecure_key');
+    }
+    final anthropic = _isAnthropic(base);
+    final paths = _modelPaths(base.path);
+    final client = createHttpClient(proxy: AppSettings.instance.proxy);
+    try {
+      Object? lastError;
+      for (final path in paths) {
+        try {
+          final request = await client
+              .getUrl(base.replace(path: path, query: '', fragment: ''))
+              .timeout(const Duration(seconds: 20));
+          request.followRedirects = false;
+          request.headers.set(HttpHeaders.acceptHeader, 'application/json');
+          if (apiKey.isNotEmpty) {
+            if (anthropic) {
+              request.headers.set('x-api-key', apiKey);
+              request.headers.set('anthropic-version', '2023-06-01');
+            } else {
+              request.headers.set(
+                HttpHeaders.authorizationHeader,
+                'Bearer $apiKey',
+              );
+            }
+          }
+          final response = await request.close().timeout(
+            const Duration(seconds: 20),
+          );
+          if (response.statusCode < 200 || response.statusCode >= 300) {
+            await response.drain<void>();
+            lastError = TavernApiException('http', response.statusCode);
+            continue;
+          }
+          final bytes = <int>[];
+          await for (final chunk in response.timeout(
+            const Duration(seconds: 20),
+          )) {
+            if (bytes.length + chunk.length > 2 * 1024 * 1024) {
+              throw const TavernApiException('response');
+            }
+            bytes.addAll(chunk);
+          }
+          final value = jsonDecode(utf8.decode(bytes));
+          final data = value is Map ? value['data'] : null;
+          if (data is! List) throw const TavernApiException('response');
+          final models = <String>[];
+          for (final item in data) {
+            if (item is Map) {
+              final id = item['id'] ?? item['name'];
+              if (id is String && id.trim().isNotEmpty) models.add(id.trim());
+            }
+          }
+          return models.toSet().toList()..sort();
+        } on TavernApiException catch (error) {
+          lastError = error;
+        } on FormatException catch (error) {
+          lastError = error;
+        } catch (error) {
+          lastError = error;
+        }
+      }
+      if (lastError is TavernApiException) throw lastError;
+      throw const TavernApiException('network');
+    } finally {
+      client.close(force: true);
+    }
+  }
+
+  static bool _isAnthropic(Uri base) {
+    final host = base.host.toLowerCase();
+    return host == 'api.anthropic.com' ||
+        host.endsWith('.anthropic.com') ||
+        base.path.toLowerCase().contains('anthropic');
+  }
+
+  static List<String> _modelPaths(String path) {
+    final normalized = path.replaceFirst(RegExp(r'/+$'), '');
+    final withoutV1 = normalized.replaceFirst(
+      RegExp(r'/v1$', caseSensitive: false),
+      '',
+    );
+    final candidates = <String>[
+      '$normalized/models',
+      '${withoutV1.isEmpty ? '' : withoutV1}/models',
+    ];
+    return candidates
+        .map((value) => value.isEmpty ? '/models' : value)
+        .toSet()
+        .toList(growable: false);
+  }
+}
+
 /// 独立于站点插件和 Cookie 的模型请求；取消立即关闭连接。
 class TavernGeneration {
   HttpClient? _client;

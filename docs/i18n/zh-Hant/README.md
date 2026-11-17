@@ -16,25 +16,21 @@
 
 > **18+** 僅限成年人在當地法律允許的範圍內使用。內容來自第三方網站；HentaiPark 不託管原站內容。
 
+## 下載與平台
+
+**[下載](https://github.com/drdon1234/Hentai-Park/releases/latest)**
+
+**Android 7.0+**
+
+[平台說明與安裝方式](../../PLATFORMS.md)
+
+也可[自架 Web（Beta）](../../WEB_DEPLOYMENT.md)，透過桌面或手機瀏覽器使用。Web 目前處於 Beta 階段，使用體驗仍在持續優化。每個實例供一人使用；遠端存取需要 HTTPS 與存取憑據。Web 與 Android 資料獨立，目前不支援跨端同步或互相匯入備份。
+
 <a id="screenshots"></a>
 
 ## 產品展示
 
 https://github.com/user-attachments/assets/165f1524-9084-4437-bebb-fa9e23ebd316
-
-## 下載與平台
-
-### Android 獨立安裝包
-
-**[下載 Android 最新安裝包](https://github.com/drdon1234/Hentai-Park/releases/latest)**
-
-支援 **Android 7.0+**。多數手機和平板選擇 `arm64-v8a`。[平台說明與安裝方式](../../PLATFORMS.md)
-
-Android 是獨立的原生安裝包，Android 與 Web 版本號獨立維護。
-
-### Web 服務的不同執行形式
-
-Windows 批次啟動、Linux 直接啟動、Docker 與 Docker Compose 都是同一個 Web 服務的不同執行形式，不是 Android 安裝包的不同版本。請參閱 [Web 部署文件](../../WEB_DEPLOYMENT.md) 選擇合適方式。
 
 ## 快速上手
 
@@ -43,8 +39,6 @@ Windows 批次啟動、Linux 直接啟動、Docker 與 Docker Compose 都是同�
 3. 從首頁「繼續看 → 全部」接著看，在「收藏 → 更新」查看新章節。
 
 需要登入或代理的網站，可在「我的 → 站點」與「我的 → 網路」中設定。
-
-[Web 部署、本機建置與目錄權限](../../WEB_DEPLOYMENT.md)
 
 <a id="features"></a>
 
@@ -94,6 +88,16 @@ Windows 批次啟動、Linux 直接啟動、Docker 與 Docker Compose 都是同�
 透過 Issues 提供應用程式版本、網站與重現步驟。請隱藏帳號、Cookie、Token、備份及完整簽名連結。
 
 [日誌說明](DIAGNOSTICS.md)
+
+## Star History
+
+<a href="https://www.star-history.com/#drdon1234/Hentai-Park&amp;Date">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=drdon1234/Hentai-Park&amp;type=Date&amp;theme=dark">
+    <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=drdon1234/Hentai-Park&amp;type=Date">
+    <img alt="Star 數量隨日期變化" src="https://api.star-history.com/svg?repos=drdon1234/Hentai-Park&amp;type=Date">
+  </picture>
+</a>
 
 ---
 

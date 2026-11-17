@@ -19,7 +19,6 @@ import '../subscriptions/subscriptions_page.dart';
 import '../tavern/tavern_domain_notice.dart';
 import '../theme.dart';
 import '../widgets/content_translation.dart';
-import '../widgets/result_visibility.dart';
 import 'dimension_filter.dart';
 import 'feed_sessions.dart';
 import 'feed_shelf.dart';
@@ -132,53 +131,7 @@ class _HomePageState extends State<HomePage> {
     return ListenableBuilder(
       listenable: _domainOrder,
       builder: (context, _) => Scaffold(
-        appBar: PageHeader(
-          toolbarHeight: 56,
-          titleWidget: Text(
-            PlatformCapabilities.desktop ? tr('发现') : 'HentaiPark',
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: PlatformCapabilities.desktop
-                ? context.text.titleLarge
-                : ParkText.serif(
-                    context.text.headlineMedium?.copyWith(
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-          ),
-          actions: [
-            const TranslationControls(),
-            ResultVisibility(
-              showBlocked: _showBlocked,
-              onBlocked: (v) => setState(() => _showBlocked = v),
-              hidePreviews: false,
-              onPreviews: (_) {},
-            ),
-            ToolbarActions(
-              actions: [
-                ToolbarAction(
-                  label: tr('排行榜'),
-                  icon: Icons.leaderboard_outlined,
-                  showLabel: true,
-                  shortLabel: tr('排行'),
-                  showIcon: true,
-                  onPressed: () => Nav.push(
-                    context,
-                    RankingsPage(category: selected.category),
-                  ),
-                ),
-                ToolbarAction(
-                  label: tr('图片反搜'),
-                  icon: Icons.image_search_outlined,
-                  showLabel: true,
-                  shortLabel: tr('反搜'),
-                  showIcon: true,
-                  onPressed: () => Nav.push(context, const ReverseSearchPage()),
-                ),
-              ],
-            ),
-          ],
-        ),
+        appBar: _header(context, selected),
         body: Column(
           children: [
             DimensionFilter(
@@ -213,6 +166,141 @@ class _HomePageState extends State<HomePage> {
           ],
         ),
       ),
+    );
+  }
+
+  PreferredSizeWidget _header(
+    BuildContext context,
+    DiscoveryDestination selected,
+  ) {
+    final scaler = MediaQuery.textScalerOf(context);
+    final logoStyle = ParkText.serif(
+      context.text.headlineMedium?.copyWith(fontWeight: FontWeight.w600),
+    );
+    Size measure(String text, TextStyle? style) {
+      final painter = TextPainter(
+        text: TextSpan(text: text, style: style),
+        textDirection: Directionality.of(context),
+        textScaler: scaler,
+      )..layout();
+      final size = painter.size;
+      painter.dispose();
+      return size;
+    }
+
+    final logoSize = measure('HentaiPark', logoStyle);
+    final actionHeight =
+        (measure(tr('排行'), context.text.labelMedium).height + Gap.m * 2).clamp(
+          48.0,
+          double.infinity,
+        );
+    final logoHeight = (logoSize.height + Gap.s * 2).clamp(
+      56.0,
+      double.infinity,
+    );
+    final available =
+        MediaQuery.sizeOf(context).width -
+        MediaQuery.paddingOf(context).horizontal -
+        Gap.page * 2;
+    final toolsWidth =
+        measure(tr('排行'), context.text.labelMedium).width +
+        measure(tr('反搜'), context.text.labelMedium).width +
+        2 * (18 + Gap.s + Gap.s * 2) +
+        48 +
+        Gap.xs * 2;
+    final stacked =
+        !PlatformCapabilities.desktop &&
+        logoSize.width + Gap.m + toolsWidth > available;
+    final logo = Semantics(
+      button: true,
+      label: tr('返回主页'),
+      child: InkWell(
+        borderRadius: Radii.small,
+        onTap: () => _select(const DiscoveryDestination.all()),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(minHeight: 48),
+          child: Align(
+            alignment: AlignmentDirectional.centerStart,
+            widthFactor: 1,
+            child: Text('HentaiPark', style: logoStyle, softWrap: false),
+          ),
+        ),
+      ),
+    );
+    final tools = Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        ToolbarButton.icon(
+          onPressed: () =>
+              Nav.push(context, RankingsPage(category: selected.category)),
+          icon: const Icon(Icons.leaderboard_outlined),
+          label: Text(tr('排行')),
+        ),
+        const SizedBox(width: Gap.xs),
+        ToolbarButton.icon(
+          onPressed: () => Nav.push(context, const ReverseSearchPage()),
+          icon: const Icon(Icons.image_search_outlined),
+          label: Text(tr('反搜')),
+        ),
+        const SizedBox(width: Gap.xs),
+        PopupMenuButton<int>(
+          tooltip: tr('更多'),
+          popUpAnimationStyle: Motion.menu(context),
+          onSelected: (value) {
+            if (value == 0) {
+              TranslationControls.open(context);
+            } else {
+              final next = !_showBlocked;
+              setState(() => _showBlocked = next);
+              context.toast(tr(next ? '已显示屏蔽内容' : '已隐藏屏蔽内容'));
+            }
+          },
+          itemBuilder: (context) => [
+            PopupMenuItem(
+              value: 0,
+              child: Row(
+                children: [
+                  const Icon(Icons.translate_rounded),
+                  const SizedBox(width: Gap.m),
+                  Flexible(child: Text(tr('内容翻译'))),
+                ],
+              ),
+            ),
+            PopupMenuItem(
+              value: 1,
+              child: Row(
+                children: [
+                  Icon(
+                    _showBlocked
+                        ? Icons.visibility_off_outlined
+                        : Icons.visibility_outlined,
+                  ),
+                  const SizedBox(width: Gap.m),
+                  Flexible(
+                    child: Text(tr(_showBlocked ? '隐藏已屏蔽内容' : '显示已屏蔽内容')),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+    return PageHeader(
+      toolbarHeight: stacked ? logoHeight + actionHeight : logoHeight,
+      titleWidget: PlatformCapabilities.desktop
+          ? Text(tr('发现'), style: context.text.titleLarge)
+          : stacked
+          ? Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                SizedBox(height: logoHeight, child: logo),
+                Align(alignment: AlignmentDirectional.centerEnd, child: tools),
+              ],
+            )
+          : Row(children: [logo, const Spacer(), tools]),
+      actions: PlatformCapabilities.desktop ? [tools] : const [],
     );
   }
 

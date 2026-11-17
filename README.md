@@ -16,25 +16,21 @@
 
 > **18+** 仅限成年人在当地法律允许的范围内使用。内容来自第三方站点；HentaiPark 不托管原站内容。
 
+## 下载与平台
+
+**[下载](https://github.com/drdon1234/Hentai-Park/releases/latest)**
+
+支持 **Android 7.0+**。多数手机和平板选择 `arm64-v8a`。
+
+[平台说明与安装方法](docs/PLATFORMS.md)
+
+也可[自托管 Web（Beta）](docs/WEB_DEPLOYMENT.md)，通过桌面或手机浏览器使用。Web 仍在 Beta 阶段，使用体验持续优化。每个实例供一人使用；远程访问需要 HTTPS 和访问凭据。Web 与 Android 数据独立，暂不支持跨端同步或互导备份。
+
 <a id="screenshots"></a>
 
 ## 产品演示
 
 https://github.com/user-attachments/assets/165f1524-9084-4437-bebb-fa9e23ebd316
-
-## 下载与平台
-
-### Android 独立安装包
-
-**[下载 Android 最新安装包](https://github.com/drdon1234/Hentai-Park/releases/latest)**
-
-支持 **Android 7.0+**。多数手机和平板选择 `arm64-v8a`。[平台说明与安装方法](docs/PLATFORMS.md)
-
-Android 是独立的原生安装包，Android 版本号和 Web 版本号独立维护。
-
-### Web 服务的不同运行形式
-
-以下 Windows 批处理脚本、Linux 直接启动、Docker 和 Docker Compose 都属于同一个 Web 服务的不同运行形式，不是 Android 安装包的不同版本。具体选择和部署限制见 [Web 部署文档](docs/WEB_DEPLOYMENT.md)。
 
 ## 快速上手
 
@@ -92,6 +88,16 @@ Android 是独立的原生安装包，Android 版本号和 Web 版本号独立�
 通过 Issues 提供应用版本、站点名称和复现步骤。请隐藏账号、Cookie、Token、备份文件与完整签名链接。
 
 [日志说明](docs/DIAGNOSTICS.md)
+
+## Star History
+
+<a href="https://www.star-history.com/#drdon1234/Hentai-Park&amp;Date">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=drdon1234/Hentai-Park&amp;type=Date&amp;theme=dark">
+    <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=drdon1234/Hentai-Park&amp;type=Date">
+    <img alt="Star 数量随日期变化" src="https://api.star-history.com/svg?repos=drdon1234/Hentai-Park&amp;type=Date">
+  </picture>
+</a>
 
 ---
 

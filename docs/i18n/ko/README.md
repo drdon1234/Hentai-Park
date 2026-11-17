@@ -24,7 +24,7 @@
 
 [플랫폼 및 설치 안내](../../PLATFORMS.md)
 
-[Web 배포](../../WEB_DEPLOYMENT.md) · `drdon1234/hentai-park`
+데스크톱과 모바일 브라우저에서 사용할 수 있는 [Web 자체 호스팅(Beta)](../../WEB_DEPLOYMENT.md)도 지원합니다. Web은 아직 Beta 단계이며 사용 경험을 계속 개선하고 있습니다. 각 인스턴스는 1인용이며 원격 접속에는 HTTPS와 접속 인증 정보가 필요합니다. Web과 Android 데이터는 별도로 저장되며 플랫폼 간 동기화나 백업 가져오기는 지원하지 않습니다.
 
 <a id="screenshots"></a>
 
@@ -39,27 +39,6 @@ https://github.com/user-attachments/assets/d648927a-e4d6-48e8-b8c0-b77349ffd607
 3. 홈의 「이어 보기 → 전체」에서 이어 보고 「즐겨찾기 → 업데이트」에서 새 장을 확인하세요.
 
 필요하면 「더 보기 → 사이트」에서 로그인하고 「더 보기 → 네트워크」에서 프록시를 설정하세요.
-
-### Web 자체 호스팅 (Docker Compose)
-
-데스크톱과 모바일 브라우저에서 사용하는 단일 사용자 인스턴스입니다. Docker 대상은 linux/amd64입니다. 코드를 푸시하고 Release platforms 워크플로가 성공한 후에 첫 이미지를 받을 수 있습니다. 게시 전에는 상세 문서의 로컬 빌드를 사용하세요.
-
-```sh
-git clone https://github.com/drdon1234/Hentai-Park.git
-cd Hentai-Park
-cp clients/web/.env.example clients/web/.env
-```
-
-템플릿을 복사한 후 `clients/web/.env`를 편집하여 `WEB_IMAGE=drdon1234/hentai-park:latest`, 무작위 `AUTH_TOKEN`(16자 이상), 실제 HTTPS `WEB_ALLOWED_ORIGIN`을 설정하세요.
-
-```sh
-docker compose -f clients/web/compose.yaml pull
-docker compose -f clients/web/compose.yaml up -d --no-build
-```
-
-기본 바인딩은 `127.0.0.1:8787`입니다. HTTPS 리버스 프록시로 접속하고 `AUTH_TOKEN`으로 잠금을 해제합니다. 기본 사용자 이름은 없습니다. `park-data` 명명 볼륨에 `/data`가 저장되며 다운로드는 `/data/downloads`에 있습니다. 업데이트는 `pull`과 `up -d --no-build`, 중지는 `stop`을 사용하세요. 일반 중지에 `down -v`를 사용하지 마세요.
-
-[상세 배포, 게시 전 로컬 빌드 및 디렉터리 권한](../../WEB_DEPLOYMENT.md)
 
 <a id="features"></a>
 
@@ -109,6 +88,16 @@ docker compose -f clients/web/compose.yaml up -d --no-build
 Issues에 앱 버전, 사이트와 재현 단계를 알려 주세요. 계정, Cookie, Token, 백업과 전체 서명 URL은 숨겨 주세요.
 
 [로그 안내](DIAGNOSTICS.md)
+
+## Star History
+
+<a href="https://www.star-history.com/#drdon1234/Hentai-Park&amp;Date">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=drdon1234/Hentai-Park&amp;type=Date&amp;theme=dark">
+    <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=drdon1234/Hentai-Park&amp;type=Date">
+    <img alt="날짜별 Star 수" src="https://api.star-history.com/svg?repos=drdon1234/Hentai-Park&amp;type=Date">
+  </picture>
+</a>
 
 ---
 

@@ -23,6 +23,7 @@ class DimensionFilter extends StatelessWidget {
 
   static Widget _dropdown<T>({
     required BuildContext context,
+    required bool stacked,
     required List<T> values,
     required T selected,
     required String title,
@@ -71,25 +72,12 @@ class DimensionFilter extends StatelessWidget {
                 color: colors.onSurface,
                 fontWeight: FontWeight.w600,
               );
-              double widthOf(String text, TextStyle? style) {
-                final painter = TextPainter(
-                  text: TextSpan(text: text, style: style),
-                  textDirection: Directionality.of(context),
-                  textScaler: MediaQuery.textScalerOf(context),
-                )..layout();
-                final width = painter.width;
-                painter.dispose();
-                return width;
-              }
-
-              final stacked =
-                  widthOf(title, titleStyle) +
-                      widthOf(label(selected), valueStyle) +
-                      Gap.s +
-                      Gap.xs +
-                      20 >
-                  constraints.maxWidth;
-              final heading = Text(title, style: titleStyle);
+              final heading = Text(
+                title,
+                style: titleStyle,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              );
               final value = Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
@@ -136,34 +124,67 @@ class DimensionFilter extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Padding(
     padding: const EdgeInsets.fromLTRB(Gap.page, Gap.s, Gap.page, Gap.m),
-    child: Row(
-      children: [
-        Expanded(
-          child: _dropdown(
-            context: context,
-            title: tr('内容范围'),
-            values: const [
-              ContentDimension.all,
-              ContentDimension.twoD,
-              ContentDimension.threeD,
-            ],
-            selected: dimension,
-            label: (value) => value.label,
-            onSelected: onDimension,
-          ),
-        ),
-        const SizedBox(width: Gap.s),
-        Expanded(
-          child: _dropdown(
-            context: context,
-            title: tr('媒体类型'),
-            values: ContentMedia.values,
-            selected: media,
-            label: (value) => value.label,
-            onSelected: onMedia,
-          ),
-        ),
-      ],
+    child: LayoutBuilder(
+      builder: (context, constraints) {
+        double widthOf(String text, TextStyle? style) {
+          final painter = TextPainter(
+            text: TextSpan(text: text, style: style),
+            textDirection: Directionality.of(context),
+            textScaler: MediaQuery.textScalerOf(context),
+          )..layout();
+          final width = painter.width;
+          painter.dispose();
+          return width;
+        }
+
+        final cellWidth = (constraints.maxWidth - Gap.s) / 2 - Gap.m * 2;
+        bool needsStack(String title, String value) =>
+            widthOf(title, context.text.labelMedium) +
+                widthOf(
+                  value,
+                  context.text.labelLarge?.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
+                ) +
+                Gap.s +
+                Gap.xs +
+                20 >
+            cellWidth;
+        final stacked =
+            needsStack(tr('内容范围'), dimension.label) ||
+            needsStack(tr('媒体类型'), media.label);
+        return Row(
+          children: [
+            Expanded(
+              child: _dropdown(
+                context: context,
+                stacked: stacked,
+                title: tr('内容范围'),
+                values: const [
+                  ContentDimension.all,
+                  ContentDimension.twoD,
+                  ContentDimension.threeD,
+                ],
+                selected: dimension,
+                label: (value) => value.label,
+                onSelected: onDimension,
+              ),
+            ),
+            const SizedBox(width: Gap.s),
+            Expanded(
+              child: _dropdown(
+                context: context,
+                stacked: stacked,
+                title: tr('媒体类型'),
+                values: ContentMedia.values,
+                selected: media,
+                label: (value) => value.label,
+                onSelected: onMedia,
+              ),
+            ),
+          ],
+        );
+      },
     ),
   );
 }

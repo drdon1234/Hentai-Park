@@ -16,25 +16,21 @@
 
 > **18+** Adults only, where permitted by local law. Content comes from third-party sites; HentaiPark does not host it.
 
+## Download and platforms
+
+**[Download](https://github.com/drdon1234/Hentai-Park/releases/latest)**
+
+**Android 7.0+**
+
+[Platforms and installation](../../PLATFORMS.md)
+
+You can also [self-host Web (Beta)](../../WEB_DEPLOYMENT.md) for desktop and mobile browsers. Web is still in beta and its experience is being improved. Each instance is for one user; remote access requires HTTPS and an access credential. Web and Android keep separate data, with no cross-platform sync or backup import between them.
+
 <a id="screenshots"></a>
 
 ## Product demo
 
 https://github.com/user-attachments/assets/d648927a-e4d6-48e8-b8c0-b77349ffd607
-
-## Download and platforms
-
-### Android standalone package
-
-**[Download the latest Android package](https://github.com/drdon1234/Hentai-Park/releases/latest)**
-
-Supports **Android 7.0+**. Most phones and tablets should use `arm64-v8a`. See [platforms and installation](../../PLATFORMS.md).
-
-Android is a standalone native package; Android and Web versions are maintained independently.
-
-### Web service runtime forms
-
-Windows batch launch, Linux direct launch, Docker, and Docker Compose are different runtime forms of the same Web service, not different Android packages. See the [Web deployment guide](../../WEB_DEPLOYMENT.md) for the appropriate option.
 
 ## Get started
 
@@ -43,8 +39,6 @@ Windows batch launch, Linux direct launch, Docker, and Docker Compose are differ
 3. Resume from Home → Continue → All, and check new chapters in Favorites → Updates.
 
 Configure sign-in under More → Sites and proxies under More → Network when needed.
-
-[Web deployment, local builds, and directory permissions](../../WEB_DEPLOYMENT.md)
 
 <a id="features"></a>
 
@@ -94,6 +88,16 @@ Export or restore .parkbak under More → Backup. Restore merges data and exclud
 Use Issues and include the app version, site and steps to reproduce. Redact accounts, cookies, tokens, backups and full signed URLs.
 
 [Log guide](DIAGNOSTICS.md)
+
+## Star History
+
+<a href="https://www.star-history.com/#drdon1234/Hentai-Park&amp;Date">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=drdon1234/Hentai-Park&amp;type=Date&amp;theme=dark">
+    <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=drdon1234/Hentai-Park&amp;type=Date">
+    <img alt="Stars over time" src="https://api.star-history.com/svg?repos=drdon1234/Hentai-Park&amp;type=Date">
+  </picture>
+</a>
 
 ---
 

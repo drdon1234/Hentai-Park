@@ -24,7 +24,7 @@
 
 [Платформы и установка](../../PLATFORMS.md)
 
-[Развёртывание Web](../../WEB_DEPLOYMENT.md) · `drdon1234/hentai-park`
+Можно также [развернуть Web у себя (Beta)](../../WEB_DEPLOYMENT.md) для доступа из настольных и мобильных браузеров. Web находится на стадии бета, и удобство использования продолжает улучшаться. Каждый экземпляр рассчитан на одного пользователя; для удалённого доступа нужны HTTPS и ключ доступа. Данные Web и Android хранятся отдельно, синхронизация и перенос резервных копий между ними не поддерживаются.
 
 <a id="screenshots"></a>
 
@@ -39,27 +39,6 @@ https://github.com/user-attachments/assets/d648927a-e4d6-48e8-b8c0-b77349ffd607
 3. Продолжайте через Главная → Продолжить → Все, а новые главы смотрите в Избранное → Обновления.
 
 При необходимости настройте вход в Ещё → Сайты и прокси в Ещё → Сеть.
-
-### Собственный Web-сервер (Docker Compose)
-
-Однопользовательский экземпляр доступен в настольных и мобильных браузерах. Целевая платформа Docker — linux/amd64. Первый образ можно скачать после отправки кода и успешного выполнения Release platforms; до публикации используйте описанную локальную сборку.
-
-```sh
-git clone https://github.com/drdon1234/Hentai-Park.git
-cd Hentai-Park
-cp clients/web/.env.example clients/web/.env
-```
-
-После копирования шаблона измените `clients/web/.env`: задайте `WEB_IMAGE=drdon1234/hentai-park:latest`, случайный `AUTH_TOKEN` (не менее 16 символов) и фактический HTTPS `WEB_ALLOWED_ORIGIN`.
-
-```sh
-docker compose -f clients/web/compose.yaml pull
-docker compose -f clients/web/compose.yaml up -d --no-build
-```
-
-По умолчанию порт привязан только к `127.0.0.1:8787`. Подключайтесь через обратный HTTPS-прокси и разблокируйте с помощью `AUTH_TOKEN`; имя пользователя по умолчанию не требуется. Именованный том `park-data` хранит `/data`, загрузки находятся в `/data/downloads`. Для обновления выполните `pull` и `up -d --no-build`, для остановки — `stop`. Не используйте `down -v` для обычной остановки.
-
-[Развёртывание, локальная сборка до публикации и права на каталоги](../../WEB_DEPLOYMENT.md)
 
 <a id="features"></a>
 
@@ -109,6 +88,16 @@ docker compose -f clients/web/compose.yaml up -d --no-build
 Создайте Issue с версией приложения, сайтом и шагами воспроизведения. Скройте учётные данные, Cookie, Token, резервные копии и полные подписанные ссылки.
 
 [Руководство по журналам](DIAGNOSTICS.md)
+
+## Star History
+
+<a href="https://www.star-history.com/#drdon1234/Hentai-Park&amp;Date">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=drdon1234/Hentai-Park&amp;type=Date&amp;theme=dark">
+    <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=drdon1234/Hentai-Park&amp;type=Date">
+    <img alt="Количество звёзд по датам" src="https://api.star-history.com/svg?repos=drdon1234/Hentai-Park&amp;type=Date">
+  </picture>
+</a>
 
 ---
 

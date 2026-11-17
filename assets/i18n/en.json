@@ -1948,5 +1948,16 @@
   "所选下载线路已不可用，请重新选择": "The selected download source is unavailable. Please choose again.",
   "媒体资源过多": "Too many media resources",
   "暂无内容": "No content available",
-  "选择下载线路": "Choose download source"
+  "选择下载线路": "Choose download source",
+  "获取模型": "Get models",
+  "选择模型": "Choose a model",
+  "未找到可用模型": "No available models found",
+  "获取模型失败，请检查接口地址和密钥": "Could not get models. Check the endpoint and key.",
+  "较早的消息已从本次请求中省略。": "Earlier messages were omitted from this request.",
+  "内容尚未保存。": "Changes are not saved yet.",
+  "正在生成回复…": "Generating a reply…",
+  "候选回复": "Reply variants",
+  "回到底部": "Jump to bottom",
+  "无痕模式：本会话不会保存。": "Incognito mode: this conversation is not saved.",
+  "返回主页": "Return to home"
 }

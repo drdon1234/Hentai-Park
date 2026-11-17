@@ -425,6 +425,15 @@ class TranslationControls extends StatelessWidget {
   final String? source;
   final Color? foregroundColor;
 
+  /// Opens the same page-level translation controls used by the icon button.
+  /// Keeping the sheet here lets compact headers expose the action through a
+  /// labelled overflow menu without duplicating translation behavior.
+  static void open(BuildContext context) {
+    final scope = _TranslationScope.of(context);
+    if (scope == null) return;
+    _showSheet(context, scope);
+  }
+
   @override
   Widget build(BuildContext context) {
     final scope = _TranslationScope.of(context);
@@ -439,52 +448,54 @@ class TranslationControls extends StatelessWidget {
                 ? Theme.of(context).colorScheme.primary
                 : null),
       ),
-      onPressed: () => showAdaptiveSheet<void>(
-        context: context,
-        builder: (ctx) => StatefulBuilder(
-          builder: (ctx, refresh) => SafeArea(
-            child: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  ListTile(
-                    leading: const Icon(Icons.translate),
-                    title: SelectionContainer.disabled(
-                      child: Text(tr('翻译当前页面')),
-                    ),
-                    onTap: () {
-                      scope.owner.change(() {
-                        scope.owner.manual = true;
-                        scope.owner.original = false;
-                        scope.owner.retry++;
-                      });
-                      Navigator.pop(ctx);
-                    },
+      onPressed: () => _showSheet(context, scope),
+    );
+  }
+
+  static void _showSheet(BuildContext context, _TranslationScope scope) {
+    showAdaptiveSheet<void>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, refresh) => SafeArea(
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                ListTile(
+                  leading: const Icon(Icons.translate),
+                  title: SelectionContainer.disabled(child: Text(tr('翻译当前页面'))),
+                  onTap: () {
+                    scope.owner.change(() {
+                      scope.owner.manual = true;
+                      scope.owner.original = false;
+                      scope.owner.retry++;
+                    });
+                    Navigator.pop(ctx);
+                  },
+                ),
+                SwitchListTile.adaptive(
+                  dense: true,
+                  title: SelectionContainer.disabled(
+                    child: Text(tr('自动翻译可见内容')),
                   ),
-                  SwitchListTile.adaptive(
-                    dense: true,
-                    title: SelectionContainer.disabled(
-                      child: Text(tr('自动翻译可见内容')),
-                    ),
-                    value: AppSettings.instance.autoTranslateContent,
-                    onChanged: (value) {
-                      AppSettings.instance.autoTranslateContent = value;
-                      refresh(() {});
-                    },
+                  value: AppSettings.instance.autoTranslateContent,
+                  onChanged: (value) {
+                    AppSettings.instance.autoTranslateContent = value;
+                    refresh(() {});
+                  },
+                ),
+                SwitchListTile.adaptive(
+                  dense: true,
+                  title: SelectionContainer.disabled(
+                    child: Text(tr('显示原文（仅当前页面）')),
                   ),
-                  SwitchListTile.adaptive(
-                    dense: true,
-                    title: SelectionContainer.disabled(
-                      child: Text(tr('显示原文（仅当前页面）')),
-                    ),
-                    value: scope.owner.original,
-                    onChanged: (value) {
-                      scope.owner.change(() => scope.owner.original = value);
-                      refresh(() {});
-                    },
-                  ),
-                ],
-              ),
+                  value: scope.owner.original,
+                  onChanged: (value) {
+                    scope.owner.change(() => scope.owner.original = value);
+                    refresh(() {});
+                  },
+                ),
+              ],
             ),
           ),
         ),

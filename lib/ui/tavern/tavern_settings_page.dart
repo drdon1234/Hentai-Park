@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../core/localization.dart';
+import '../../tavern/client.dart';
 import '../../tavern/store.dart';
 import '../kit/kit.dart';
 import '../theme.dart';
@@ -23,6 +24,7 @@ class _TavernSettingsPageState extends State<TavernSettingsPage> {
   bool _saving = false;
   bool _clear = false;
   bool _hasKey = false;
+  bool _fetchingModels = false;
 
   @override
   void initState() {
@@ -85,6 +87,64 @@ class _TavernSettingsPageState extends State<TavernSettingsPage> {
     }
   }
 
+  Future<void> _fetchModels() async {
+    if (_fetchingModels || _url.text.trim().isEmpty) return;
+    setState(() => _fetchingModels = true);
+    try {
+      final typedKey = _key.text.trim();
+      var key = typedKey;
+      if (key.isEmpty) {
+        final settings = TavernApiSettings.instance;
+        await settings.load();
+        final normalized = TavernApiSettings.validateBaseUrl(_url.text)
+            .toString()
+            .replaceFirst(RegExp(r'/+$'), '');
+        if (normalized == settings.config.baseUrl) {
+          key = await settings.apiKey();
+        }
+      }
+      final models = await TavernModelCatalog().fetch(
+        baseUrl: _url.text,
+        apiKey: key,
+      );
+      if (!mounted) return;
+      if (models.isEmpty) {
+        context.toast(tr('未找到可用模型'));
+        return;
+      }
+      final selected = await showDialog<String>(
+        context: context,
+        builder: (context) => SimpleDialog(
+          title: Text(tr('选择模型')),
+          children: [
+            for (final model in models)
+              SimpleDialogOption(
+                onPressed: () => Navigator.pop(context, model),
+                child: Text(model),
+              ),
+          ],
+        ),
+      );
+      if (selected != null && mounted) _model.text = selected;
+    } on TavernApiException catch (error) {
+      if (mounted) {
+        context.toast(
+          tr(
+            error.code == 'insecure_key'
+                ? 'HTTP 本机服务不能携带 API Key'
+                : '获取模型失败，请检查接口地址和密钥',
+          ),
+        );
+      }
+    } on FormatException catch (error) {
+      if (mounted) context.toast(tr(error.message));
+    } catch (_) {
+      if (mounted) context.toast(tr('获取模型失败，请检查接口地址和密钥'));
+    } finally {
+      if (mounted) setState(() => _fetchingModels = false);
+    }
+  }
+
   @override
   void dispose() {
     for (final controller in [
@@ -143,19 +203,9 @@ class _TavernSettingsPageState extends State<TavernSettingsPage> {
                           ),
                           const SizedBox(height: Gap.l),
                           TextField(
-                            controller: _model,
-                            decoration: InputDecoration(labelText: tr('模型名称')),
-                          ),
-                          const SizedBox(height: Gap.l),
-                          TextField(
                             controller: _key,
-                            keyboardType: TextInputType.text,
-                            decoration: InputDecoration(
+                            decoration: const InputDecoration(
                               labelText: 'API Key',
-                              helperMaxLines: 4,
-                              helperText: _hasKey
-                                  ? tr('留空保留已保存的密钥；更换服务地址时需重新填写。')
-                                  : tr('可留空，适用于不需要密钥的服务。'),
                             ),
                           ),
                           if (_hasKey)
@@ -166,6 +216,39 @@ class _TavernSettingsPageState extends State<TavernSettingsPage> {
                               onChanged: (value) =>
                                   setState(() => _clear = value == true),
                             ),
+                          const SizedBox(height: Gap.l),
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Expanded(
+                                child: TextField(
+                                  controller: _model,
+                                  decoration: InputDecoration(
+                                    labelText: tr('模型名称'),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: Gap.s),
+                              Padding(
+                                padding: const EdgeInsets.only(top: 8),
+                                child: IconButton.filledTonal(
+                                  tooltip: tr('获取模型'),
+                                  onPressed: _fetchingModels
+                                      ? null
+                                      : _fetchModels,
+                                  icon: _fetchingModels
+                                      ? const SizedBox(
+                                          width: 18,
+                                          height: 18,
+                                          child: CircularProgressIndicator(
+                                            strokeWidth: 2,
+                                          ),
+                                        )
+                                      : const Icon(Icons.download_rounded),
+                                ),
+                              ),
+                            ],
+                          ),
                           const SizedBox(height: Gap.l),
                         ],
                       ),

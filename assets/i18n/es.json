@@ -1948,5 +1948,16 @@
   "所选下载线路已不可用，请重新选择": "La fuente de descarga seleccionada ya no está disponible. Elige otra.",
   "媒体资源过多": "Demasiados recursos multimedia",
   "暂无内容": "No hay contenido disponible",
-  "选择下载线路": "Elegir fuente de descarga"
+  "选择下载线路": "Elegir fuente de descarga",
+  "获取模型": "Obtener modelos",
+  "选择模型": "Elegir un modelo",
+  "未找到可用模型": "No se encontraron modelos disponibles",
+  "获取模型失败，请检查接口地址和密钥": "No se pudieron obtener los modelos. Comprueba la dirección y la clave.",
+  "较早的消息已从本次请求中省略。": "Los mensajes anteriores se omitieron de esta solicitud.",
+  "内容尚未保存。": "Los cambios aún no se han guardado.",
+  "正在生成回复…": "Generando una respuesta…",
+  "候选回复": "Variantes de respuesta",
+  "回到底部": "Ir al final",
+  "无痕模式：本会话不会保存。": "Modo incógnito: esta conversación no se guardará.",
+  "返回主页": "Volver al inicio"
 }

@@ -26,7 +26,7 @@
 
 [المنصات والتثبيت](../../PLATFORMS.md)
 
-[نشر Web](../../WEB_DEPLOYMENT.md) · `drdon1234/hentai-park`
+يمكنك أيضًا [استضافة إصدار Web بنفسك (Beta)](../../WEB_DEPLOYMENT.md) لاستخدامه من متصفحات الحاسوب والهاتف. لا يزال Web في مرحلة تجريبية، ويجري تحسين تجربة الاستخدام باستمرار. كل مثيل مخصص لشخص واحد، ويتطلب الوصول عن بُعد HTTPS وبيانات اعتماد للوصول. بيانات Web وAndroid منفصلة، ولا تتوفر مزامنة أو استيراد للنسخ الاحتياطية بينهما.
 
 <a id="screenshots"></a>
 
@@ -41,27 +41,6 @@ https://github.com/user-attachments/assets/d648927a-e4d6-48e8-b8c0-b77349ffd607
 3. تابع من الرئيسية ← متابعة ← الكل، وراجع الفصول الجديدة في المفضلة ← التحديثات.
 
 عند الحاجة، اضبط تسجيل الدخول في المزيد ← المواقع والوكيل في المزيد ← الشبكة.
-
-### استضافة Web ذاتيًا (Docker Compose)
-
-يمكن استخدام مثيل لمستخدم واحد من متصفحات الحاسوب والهاتف. منصة Docker المستهدفة هي linux/amd64. لا يمكن سحب الصورة الأولى إلا بعد رفع الشفرة ونجاح سير عمل Release platforms؛ استخدم البناء المحلي الموضح في الدليل قبل النشر.
-
-```sh
-git clone https://github.com/drdon1234/Hentai-Park.git
-cd Hentai-Park
-cp clients/web/.env.example clients/web/.env
-```
-
-بعد نسخ القالب، عدّل `clients/web/.env`: اضبط `WEB_IMAGE=drdon1234/hentai-park:latest`، وقيمة عشوائية لـ `AUTH_TOKEN` لا تقل عن 16 حرفًا، وقيمة HTTPS الفعلية لـ `WEB_ALLOWED_ORIGIN`.
-
-```sh
-docker compose -f clients/web/compose.yaml pull
-docker compose -f clients/web/compose.yaml up -d --no-build
-```
-
-الربط الافتراضي هو `127.0.0.1:8787` فقط. اتصل عبر وكيل عكسي HTTPS وافتح القفل باستخدام `AUTH_TOKEN`؛ لا يلزم اسم مستخدم افتراضي. يحفظ المجلد الدائم المسمى `park-data` البيانات في `/data` والتنزيلات في `/data/downloads`. للتحديث استخدم `pull` ثم `up -d --no-build`، وللإيقاف استخدم `stop`، ولا تستخدم `down -v` للإيقاف المعتاد.
-
-[دليل النشر والبناء المحلي قبل النشر وصلاحيات المجلدات](../../WEB_DEPLOYMENT.md)
 
 <a id="features"></a>
 
@@ -111,6 +90,16 @@ docker compose -f clients/web/compose.yaml up -d --no-build
 استخدم Issues مع إصدار التطبيق والموقع وخطوات التكرار. أخفِ الحسابات وCookie وToken والنسخ الاحتياطية والروابط الموقعة الكاملة.
 
 [دليل السجلات](DIAGNOSTICS.md)
+
+## Star History
+
+<a href="https://www.star-history.com/#drdon1234/Hentai-Park&amp;Date">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=drdon1234/Hentai-Park&amp;type=Date&amp;theme=dark">
+    <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=drdon1234/Hentai-Park&amp;type=Date">
+    <img alt="عدد النجوم حسب التاريخ" src="https://api.star-history.com/svg?repos=drdon1234/Hentai-Park&amp;type=Date">
+  </picture>
+</a>
 
 ---
 

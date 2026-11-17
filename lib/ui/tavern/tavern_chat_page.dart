@@ -40,6 +40,16 @@ class _TavernChatPageState extends State<TavernChatPage> {
   SavedTavernResource? _portrait;
   TavernSession get _session => _chat.session;
   bool get _sending => _chat.busy || _editing;
+
+  void _scrollToBottom() {
+    if (!_scroll.hasClients) return;
+    _scroll.animateTo(
+      _scroll.position.maxScrollExtent,
+      duration: const Duration(milliseconds: 220),
+      curve: Curves.easeOut,
+    );
+  }
+
   @override
   void initState() {
     super.initState();
@@ -377,6 +387,137 @@ class _TavernChatPageState extends State<TavernChatPage> {
     'insecure_key' => tr('HTTP 本机服务不能携带 API Key'),
     _ => tr('AI 服务连接失败，请检查设置后重试'),
   };
+
+  Widget _statusBar(BuildContext context) {
+    final notices = <Widget>[];
+    if (_chat.ephemeral) {
+      notices.add(
+        _statusItem(Icons.visibility_off_outlined, tr('无痕模式：本会话不会保存。')),
+      );
+    }
+    if (_chat.trimmed) {
+      notices.add(_statusItem(Icons.compress_rounded, tr('较早的消息已从本次请求中省略。')));
+    }
+    if (_chat.unsupportedLore) {
+      notices.add(
+        _statusItem(Icons.menu_book_outlined, tr('部分世界书扩展尚不支持，已保留原始数据。')),
+      );
+    }
+    if (_chat.matched > 0) {
+      notices.add(
+        _statusItem(
+          Icons.auto_awesome_outlined,
+          tr('本轮匹配 {count} 条世界书', {'count': _chat.matched}),
+        ),
+      );
+    }
+    if (_chat.totalTokens != null) {
+      notices.add(
+        _statusItem(
+          Icons.data_usage_rounded,
+          tr('本轮用量 {count} Token', {'count': _chat.totalTokens!}),
+        ),
+      );
+    }
+    if (_chat.failure != null) {
+      notices.add(
+        _statusItem(Icons.error_outline_rounded, _failure(), error: true),
+      );
+    }
+    if (_chat.unsaved) {
+      notices.add(
+        Row(
+          children: [
+            Expanded(
+              child: _statusItem(Icons.cloud_off_rounded, tr('内容尚未保存。')),
+            ),
+            TextButton(onPressed: _save, child: Text(tr('重试保存'))),
+          ],
+        ),
+      );
+    }
+    if (_chat.busy) {
+      notices.add(_statusItem(Icons.auto_awesome_rounded, tr('正在生成回复…')));
+    }
+    if (notices.isEmpty) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(Gap.page, 0, Gap.page, Gap.s),
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: context.colors.surfaceContainerLow,
+          borderRadius: Radii.medium,
+        ),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(
+            horizontal: Gap.m,
+            vertical: Gap.xs,
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [for (final notice in notices) notice],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _statusItem(IconData icon, String text, {bool error = false}) =>
+      Padding(
+        padding: const EdgeInsets.symmetric(vertical: Gap.xs),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(
+              icon,
+              size: 18,
+              color: error ? context.colors.error : context.colors.primary,
+            ),
+            const SizedBox(width: Gap.s),
+            Expanded(
+              child: Text(
+                text,
+                style: context.text.bodySmall?.copyWith(
+                  color: error ? context.colors.error : null,
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+
+  Widget _messageActions(int index, bool user, bool last) {
+    if (_sending || last && !user && _chat.failure != null) {
+      return const SizedBox.shrink();
+    }
+    final alternative = _session.alternatives['$index']?.isNotEmpty == true;
+    return Wrap(
+      spacing: Gap.xs,
+      runSpacing: Gap.xs,
+      children: [
+        if (last && !user)
+          FilledButton.tonalIcon(
+            onPressed: () => _generate(continuation: true),
+            icon: const Icon(Icons.auto_awesome_rounded, size: 18),
+            label: Text(tr('续写')),
+          ),
+        if (last &&
+            (user ||
+                (index > 0 && _session.messages[index - 1]['role'] == 'user')))
+          OutlinedButton.icon(
+            onPressed: () => _generate(regenerate: !user),
+            icon: const Icon(Icons.refresh_rounded, size: 18),
+            label: Text(tr('重新生成')),
+          ),
+        if (alternative)
+          TextButton.icon(
+            onPressed: () => _alternative(index),
+            icon: const Icon(Icons.swipe_rounded, size: 18),
+            label: Text(tr('候选回复')),
+          ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) => PopScope(
     canPop: _leaving || (!_sending && !_chat.unsaved && _input.text.isEmpty),
@@ -432,15 +573,6 @@ class _TavernChatPageState extends State<TavernChatPage> {
       body: ReadableWidth(
         child: Column(
           children: [
-            Padding(
-              padding: const EdgeInsets.all(Gap.page),
-              child: Text(
-                _chat.ephemeral
-                    ? tr('无痕模式下此会话不会保存。')
-                    : tr('消息和角色设定会发送到你配置的 AI 服务。'),
-                style: context.text.bodySmall,
-              ),
-            ),
             Expanded(
               child: ListView.builder(
                 controller: _scroll,
@@ -464,21 +596,19 @@ class _TavernChatPageState extends State<TavernChatPage> {
                           ? AlignmentDirectional.centerEnd
                           : AlignmentDirectional.centerStart,
                       child: FractionallySizedBox(
-                        widthFactor: user ? 0.88 : 1,
+                        widthFactor: user ? 0.88 : 0.96,
                         child: DecoratedBox(
                           decoration: BoxDecoration(
                             color: user
                                 ? context.colors.surfaceContainerHigh
-                                : null,
+                                : context.colors.surfaceContainerLow,
                             borderRadius: Radii.medium,
                           ),
                           child: Padding(
-                            padding: user
-                                ? const EdgeInsets.symmetric(
-                                    horizontal: Gap.m,
-                                    vertical: Gap.xs,
-                                  )
-                                : EdgeInsets.zero,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: Gap.m,
+                              vertical: Gap.s,
+                            ),
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
@@ -573,29 +703,7 @@ class _TavernChatPageState extends State<TavernChatPage> {
                                     tr('回复尚未完成，可继续生成。'),
                                     style: context.text.bodySmall,
                                   ),
-                                if (!draft && !_sending)
-                                  Wrap(
-                                    spacing: Gap.s,
-                                    children: [
-                                      if (last && !user)
-                                        TextButton(
-                                          onPressed: () =>
-                                              _generate(continuation: true),
-                                          child: Text(tr('续写')),
-                                        ),
-                                      if (last &&
-                                          (user ||
-                                              (index > 0 &&
-                                                  _session.messages[index -
-                                                          1]['role'] ==
-                                                      'user')))
-                                        TextButton(
-                                          onPressed: () =>
-                                              _generate(regenerate: !user),
-                                          child: Text(tr('重新生成')),
-                                        ),
-                                    ],
-                                  ),
+                                if (!draft) _messageActions(index, user, last),
                               ],
                             ),
                           ),
@@ -606,36 +714,17 @@ class _TavernChatPageState extends State<TavernChatPage> {
                 },
               ),
             ),
-            if (_chat.trimmed)
-              Text(tr('较早的消息超出上下文，已从本次请求中省略。'), style: context.text.bodySmall),
-            if (_chat.unsupportedLore)
-              Text(tr('部分世界书扩展尚不支持，已保留原始数据。'), style: context.text.bodySmall),
-            if (_chat.matched > 0)
-              Text(
-                tr('本轮匹配 {count} 条世界书', {'count': _chat.matched}),
-                style: context.text.bodySmall,
-              ),
-            if (_chat.totalTokens != null)
-              Text(
-                tr('本轮用量 {count} Token', {'count': _chat.totalTokens!}),
-                style: context.text.bodySmall,
-              ),
-            if (_chat.failure != null)
+            _statusBar(context),
+            if (!_following && !_chat.busy)
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: Gap.page),
-                child: Text(_failure()),
-              ),
-            if (_chat.unsaved)
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: Gap.page),
-                child: Row(
-                  children: [
-                    Expanded(child: Text(tr('保存失败，请重试'))),
-                    TextButton(onPressed: _save, child: Text(tr('重试保存'))),
-                  ],
+                padding: const EdgeInsets.only(bottom: Gap.xs),
+                child: TextButton.icon(
+                  onPressed: _scrollToBottom,
+                  icon: const Icon(Icons.keyboard_double_arrow_down_rounded),
+                  label: Text(tr('回到底部')),
                 ),
               ),
-            if (_chat.busy) const LinearProgressIndicator(),
+            if (_chat.busy) const LinearProgressIndicator(minHeight: 2),
             SafeArea(
               top: false,
               child: Padding(
