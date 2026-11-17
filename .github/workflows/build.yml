@@ -104,6 +104,19 @@ jobs:
             APP='build/ios/iphoneos/Runner.app'
           fi
           lipo "$APP/Runner" -verify_arch arm64
+          validate_webkit_linkage() {
+            otool -l "$1" | awk '
+              $1 == "cmd" { command = $2 }
+              $1 == "name" && $2 ~ /libswiftWebKit\.dylib$/ {
+                if (command != "LC_LOAD_WEAK_DYLIB") bad = 1
+              }
+              END { exit bad }
+            '
+          }
+          validate_webkit_linkage "$APP/Runner"
+          for FRAMEWORK in "$APP"/Frameworks/*.framework; do
+            validate_webkit_linkage "$FRAMEWORK/$(basename "$FRAMEWORK" .framework)"
+          done
       - name: iOS simulator startup check
         if: matrix.platform == 'ios' && !inputs.release
         run: |
