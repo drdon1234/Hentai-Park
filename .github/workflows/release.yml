@@ -1,11 +1,11 @@
-name: Android Release
+name: Native Release
 on:
   push:
     tags: ['v*.*.*']
   workflow_dispatch:
     inputs:
       publish:
-        description: '发布 Android Release（默认仅构建）'
+        description: '发布 Android 与 iOS Release（默认仅构建）'
         type: boolean
         default: false
       notes:

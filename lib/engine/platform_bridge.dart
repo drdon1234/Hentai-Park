@@ -10,13 +10,15 @@ import '../core/localization.dart';
 import '../core/settings.dart';
 import 'native_notifications.dart';
 
-/// 平台原生能力：Android 设备控制、桌面全屏与系统通知。
+/// 移动平台原生能力；平台限制由实际实现和能力声明决定。
 class PlatformBridge {
   static const _channel = MethodChannel('hentai_park/platform');
+  static Future<bool> Function()? refreshSubscriptions;
+  static void Function()? cancelSubscriptionRefresh;
 
   static Future<bool> startVoicePlayback(String id) async {
     _listen();
-    if (!Platform.isAndroid) return false;
+    if (!Platform.isAndroid && !Platform.isIOS) return false;
     try {
       return await _channel.invokeMethod<bool>('startVoicePlayback', {
             'id': id,
@@ -31,7 +33,7 @@ class PlatformBridge {
   }
 
   static Future<void> stopVoicePlayback(String id) async {
-    if (!Platform.isAndroid) return;
+    if (!Platform.isAndroid && !Platform.isIOS) return;
     try {
       await _channel.invokeMethod<void>('stopVoicePlayback', id);
     } catch (_) {}
@@ -42,7 +44,7 @@ class PlatformBridge {
     bool playing, {
     required bool available,
   }) async {
-    if (!Platform.isAndroid) return;
+    if (!Platform.isAndroid && !Platform.isIOS) return;
     try {
       await _channel.invokeMethod<void>('updateVoicePlayback', {
         'id': id,
@@ -113,7 +115,7 @@ class PlatformBridge {
     return _settingsUpdates = _settingsUpdates.then((_) async {
       if (updateSecure) await applySecureScreen(secure);
       if (updateRate) await applyRefreshRate(rate);
-      if (schedule && Platform.isAndroid) {
+      if (schedule && (Platform.isAndroid || Platform.isIOS)) {
         try {
           await _channel.invokeMethod<void>('scheduleSubscriptions', hours);
         } catch (_) {
@@ -129,6 +131,10 @@ class PlatformBridge {
     NativeNotifications.instance.onTap = _taps.add;
     _channel.setMethodCallHandler((call) async {
       switch (call.method) {
+        case 'subscriptionRefresh':
+          return await refreshSubscriptions?.call() ?? false;
+        case 'cancelSubscriptionRefresh':
+          cancelSubscriptionRefresh?.call();
         case 'subscriptionWake':
           _wakes.add(null);
         case 'volumeKey':
@@ -151,9 +157,9 @@ class PlatformBridge {
     });
   }
 
-  /// Hides content in the recent-apps switcher and blocks screenshots (FLAG_SECURE).
+  /// Android 使用 FLAG_SECURE；iOS 仅遮盖任务切换器快照。
   static Future<void> applySecureScreen(bool enabled) async {
-    if (defaultTargetPlatform != TargetPlatform.android) return;
+    if (!Platform.isAndroid && !Platform.isIOS) return;
     try {
       await _channel.invokeMethod('setSecure', enabled);
     } catch (_) {}
@@ -243,7 +249,7 @@ class PlatformBridge {
   /// Window-local brightness and the media stream's volume, both normalized.
   /// The native side remembers the original window brightness until reset.
   static Future<({double brightness, double volume})?> videoLevels() async {
-    if (!Platform.isAndroid) return null;
+    if (!Platform.isAndroid && !Platform.isIOS) return null;
     await _videoBrightnessUpdates;
     try {
       final levels = await _channel.invokeMapMethod<String, num>('videoLevels');
@@ -259,7 +265,7 @@ class PlatformBridge {
 
   static Future<void> setVideoBrightness(double value) {
     return _videoBrightnessUpdates = _videoBrightnessUpdates.then((_) async {
-      if (!Platform.isAndroid) return;
+      if (!Platform.isAndroid && !Platform.isIOS) return;
       try {
         await _channel.invokeMethod(
           'setVideoBrightness',
@@ -276,7 +282,7 @@ class PlatformBridge {
   }
 
   static Future<void> setVideoVolume(double value) async {
-    if (!Platform.isAndroid) return;
+    if (!Platform.isAndroid && !Platform.isIOS) return;
     try {
       await _channel.invokeMethod('setVideoVolume', value.clamp(0.0, 1.0));
     } catch (_) {}
@@ -286,7 +292,7 @@ class PlatformBridge {
   /// Media volume remains the user's chosen system volume.
   static Future<void> resetVideoBrightness() {
     return _videoBrightnessUpdates = _videoBrightnessUpdates.then((_) async {
-      if (!Platform.isAndroid) return;
+      if (!Platform.isAndroid && !Platform.isIOS) return;
       try {
         await _channel.invokeMethod('resetVideoBrightness');
       } catch (_) {}

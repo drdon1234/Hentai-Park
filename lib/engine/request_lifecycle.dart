@@ -21,6 +21,7 @@ class RequestLifecycle extends ChangeNotifier with WidgetsBindingObserver {
   DateTime get foregroundNow =>
       DateTime.fromMicrosecondsSinceEpoch(_clock.elapsedMicroseconds);
   bool _observing = true;
+  int _backgroundLeases = 0;
   bool _background = false;
   int generation = 0;
   bool get background => _background;
@@ -32,7 +33,7 @@ class RequestLifecycle extends ChangeNotifier with WidgetsBindingObserver {
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (!_observing) return;
     AppLog.record({'event': 'lifecycle', 'action': state.name});
-    final next = _isBackground(state);
+    final next = _backgroundLeases == 0 && _isBackground(state);
     if (next == _background) return;
     _background = next;
     if (next) {
@@ -42,6 +43,22 @@ class RequestLifecycle extends ChangeNotifier with WidgetsBindingObserver {
       _clock.start();
     }
     notifyListeners();
+  }
+
+  /// 仅在原生系统持有执行时间时暂时允许后台请求，结束后恢复真实生命周期。
+  Future<T> withBackgroundExecution<T>(Future<T> Function() action) async {
+    _backgroundLeases++;
+    didChangeAppLifecycleState(
+      WidgetsBinding.instance.lifecycleState ?? AppLifecycleState.resumed,
+    );
+    try {
+      return await action();
+    } finally {
+      _backgroundLeases--;
+      didChangeAppLifecycleState(
+        WidgetsBinding.instance.lifecycleState ?? AppLifecycleState.resumed,
+      );
+    }
   }
 
   /// 无界面的订阅引擎没有可恢复的前台，保持原有有界超时与后台执行。

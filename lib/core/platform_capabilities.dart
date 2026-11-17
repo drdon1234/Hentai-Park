@@ -8,14 +8,15 @@ abstract final class PlatformCapabilities {
   static bool get volumeKeyPaging =>
       !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
 
-  static bool get screenBrightness =>
-      !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
+  static bool get screenBrightness => !kIsWeb && _mobile;
 
   static bool get desktop => false;
 
-  static bool get nativeVideo =>
-      !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
+  static bool get nativeVideo => !kIsWeb && _mobile;
 
-  static bool get photoLibrary =>
-      !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
+  static bool get photoLibrary => !kIsWeb && _mobile;
+
+  static bool get _mobile =>
+      defaultTargetPlatform == TargetPlatform.android ||
+      defaultTargetPlatform == TargetPlatform.iOS;
 }

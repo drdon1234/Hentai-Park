@@ -20,6 +20,7 @@ function output(key, value) {
 }
 const platforms = [
   { platform: 'android', os: 'ubuntu-24.04', arch: 'arm64-armv7-x64' },
+  { platform: 'ios', os: 'macos-15', arch: 'arm64' },
 ];
 const command = process.argv[2];
 if (command === 'metadata') {
@@ -35,7 +36,7 @@ if (command === 'metadata') {
     const diff = spawnSync('git', ['diff', '--name-only', base, 'HEAD'], { encoding: 'utf8' });
     if (diff.status !== 0) throw Error('无法确定变动范围');
     const paths = diff.stdout.trim().split(/\r?\n/);
-    const shared = paths.some(p => /^(lib\/|assets\/(?!sources\/)|LICENSE$|docs\/licenses\/|pubspec\.|tools\/platform_build|\.github\/workflows\/)/.test(p));
+    const shared = paths.some(p => /^(lib\/|assets\/(?!sources\/)|LICENSE$|docs\/licenses\/|pubspec\.|tools\/(?:platform_build|ios_)|\.github\/workflows\/)/.test(p));
     if (!shared) selected = platforms.filter(p => paths.some(f => f.startsWith(`${p.platform}/`)));
   }
   output('build', selected.length > 0 ? 'true' : 'false');
@@ -45,20 +46,6 @@ if (command === 'metadata') {
   const arch = process.argv[4];
   if (!platforms.some(p => p.platform === platform && p.arch === arch)) throw Error('未知构建目标');
   const prefix = `HentaiPark-${name}-${number}-${platform}-${arch}`;
-  function zip(source, target) {
-    if (!existsSync(source)) throw Error(`缺少构建产物: ${source}`);
-    const dest = join(out, target);
-    // 包内固定主目录，避免解压工具以带版本号的附件名作为安装目录。
-    const staging = mkdtempSync(resolve('test/package-android-'));
-    try {
-      const bundle = join(staging, 'HentaiPark');
-      cpSync(source, bundle, { recursive: true, preserveTimestamps: true, verbatimSymlinks: true });
-      const quote = value => `'${value.replace(/'/g, "''")}'`;
-      run('powershell.exe', ['-NoProfile', '-Command', `Compress-Archive -LiteralPath ${quote(bundle)} -DestinationPath ${quote(dest)} -Force`]);
-    } finally {
-      rmSync(staging, { recursive: true, force: true });
-    }
-  }
   if (platform === 'android') {
     // 无签名 APK 只用于编译检查，不进入分发目录。
     if (process.env.ANDROID_SIGNED === 'true') {
@@ -67,6 +54,28 @@ if (command === 'metadata') {
         copyFileSync(`build/app/outputs/flutter-apk/app-${abi}-release.apk`, join(out, `HentaiPark-${name}-${number}-android-${abi}.apk`));
       }
     } else console.log('Android 未配置发布密钥：仅完成无签名编译，不提供安装包。');
+  } else if (platform === 'ios') {
+    if (process.env.IOS_SIGNED === 'true') {
+      const directory = 'build/ios/ipa';
+      const files = existsSync(directory) ? readdirSync(directory).filter(f => f.endsWith('.ipa')) : [];
+      if (files.length !== 1) throw Error('必须存在唯一的已签名 IPA');
+      copyFileSync(join(directory, files[0]), join(out, `${prefix}.ipa`));
+    } else {
+      // 真机 Release .app 按标准 Payload 结构打包，明确标注需要重新签名。
+      const app = 'build/ios/iphoneos/Runner.app';
+      if (!existsSync(join(app, 'Info.plist')) || !existsSync(join(app, 'Runner'))) {
+        throw Error('缺少 iOS 真机 Release 构建产物');
+      }
+      const staging = mkdtempSync(resolve('test/package-ios-'));
+      try {
+        const payload = join(staging, 'Payload');
+        mkdirSync(payload);
+        cpSync(app, join(payload, 'Runner.app'), { recursive: true, preserveTimestamps: true, verbatimSymlinks: true });
+        run('ditto', ['-c', '-k', '--keepParent', payload, join(out, `${prefix}-unsigned.ipa`)]);
+      } finally {
+        rmSync(staging, { recursive: true, force: true });
+      }
+    }
   }
   for (const file of readdirSync(out).filter(f => !f.endsWith('.sha256'))) {
     const digest = createHash('sha256').update(readFileSync(join(out, file))).digest('hex');

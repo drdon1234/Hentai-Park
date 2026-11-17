@@ -76,7 +76,7 @@ Future<void> _start() async {
       );
     },
     () async {
-      if (Platform.isAndroid) {
+      if (Platform.isAndroid || Platform.isIOS) {
         await const MethodChannel('hentai_park/platform')
             .invokeMethod<void>('claimSourceEngine');
       }

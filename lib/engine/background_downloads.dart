@@ -9,7 +9,7 @@ import '../core/async_tasks.dart';
 import '../core/localization.dart';
 import '../core/models.dart';
 
-/// 正在执行的下载共用一个前台服务；不包含标题、站点或账号信息。
+/// 下载共用 Android 前台服务或 iOS 有限后台时间；不发送作品或账号信息。
 class BackgroundDownloads {
   BackgroundDownloads({
     Future<void> Function(int count)? update,
@@ -46,7 +46,7 @@ class BackgroundDownloads {
     CancelToken? cancelToken,
     bool recording = false,
   }) async {
-    if (!_listening && Platform.isAndroid) {
+    if (!_listening && (Platform.isAndroid || Platform.isIOS)) {
       _listening = true;
       _channel.setMethodCallHandler((call) async {
         if (call.method == 'interrupted') interrupt();
@@ -80,7 +80,7 @@ class BackgroundDownloads {
     return DownloadLease._(this, id, token);
   }
 
-  /// Android 的服务超时或被停止时，停止所有持有租约的网络工作。
+  /// 原生后台执行到期或被停止时，停止所有持有租约的网络工作。
   void interrupt() {
     _interrupted = true;
     for (final token in _tokens.values.toList()) {
@@ -140,12 +140,12 @@ class BackgroundDownloads {
   }
 
   static Future<void> _progressNative(double? value) async {
-    if (!Platform.isAndroid) return;
+    if (!Platform.isAndroid && !Platform.isIOS) return;
     await _channel.invokeMethod<void>('progress', {'value': value});
   }
 
   static Future<void> _updateNative(int count) async {
-    if (!Platform.isAndroid) return;
+    if (!Platform.isAndroid && !Platform.isIOS) return;
     await _channel.invokeMethod<void>('update', {
       'count': count,
       'title': tr('下载、录制与翻译'),

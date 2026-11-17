@@ -7,6 +7,7 @@ import '../core/app_log.dart';
 import '../core/localization.dart';
 import '../core/settings.dart';
 import '../engine/platform_bridge.dart';
+import '../engine/request_lifecycle.dart';
 import '../library/backup.dart';
 import '../library/updater.dart';
 import '../subscriptions/updater.dart';
@@ -89,10 +90,27 @@ class _ShellState extends State<Shell> {
       (_) => unawaited(SubscriptionUpdater.instance.run()),
     );
     SubscriptionUpdater.instance.start();
+    PlatformBridge.refreshSubscriptions = _refreshSubscriptions;
+    PlatformBridge.cancelSubscriptionRefresh =
+        SubscriptionUpdater.instance.cancel;
   }
+
+  Future<bool> _refreshSubscriptions() =>
+      RequestLifecycle.instance.withBackgroundExecution(() async {
+        final updater = SubscriptionUpdater.instance;
+        try {
+          await updater.run();
+          return !updater.cancelled && updater.failures == 0;
+        } finally {
+          // 原生到期取消只针对本次任务，不能永久停止后续前台订阅。
+          if (mounted) updater.cancelled = false;
+        }
+      });
 
   @override
   void dispose() {
+    PlatformBridge.refreshSubscriptions = null;
+    PlatformBridge.cancelSubscriptionRefresh = null;
     _discovery.dispose();
     _shelf.dispose();
     _unseenUpdates.dispose();

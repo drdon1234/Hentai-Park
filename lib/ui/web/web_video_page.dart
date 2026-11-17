@@ -208,7 +208,7 @@ class _WebVideoPageState extends State<WebVideoPage>
         );
         if (!mounted || !_visible || generation != _generation) return;
         final policy = WebPlaybackPolicy.fromJson(target);
-        if (!Platform.isAndroid) {
+        if (!Platform.isAndroid && !Platform.isIOS) {
           throw SourceError('UNSUPPORTED', '当前设备暂不支持应用内网页播放');
         }
         if (!mounted || !_visible || generation != _generation) {
@@ -251,6 +251,13 @@ class _WebVideoPageState extends State<WebVideoPage>
               ) !=
               true) {
         throw SourceError('UNSUPPORTED', '请更新 Android System WebView 后重试网页播放');
+      }
+      if (Platform.isIOS &&
+          await MethodChannel(
+                'com.pichillilorenzo/flutter_inappwebview_${controller.getViewId()}',
+              ).invokeMethod<bool>('parkPrivateVideo') !=
+              true) {
+        throw SourceError('UNSUPPORTED', '当前设备暂不支持应用内网页播放');
       }
       if (!mounted || !identical(session, _keepAlive)) return;
       _ready = true;
@@ -411,8 +418,13 @@ class _WebVideoPageState extends State<WebVideoPage>
         ''',
         );
         if (Platform.isAndroid) await controller.pause();
+        if (Platform.isIOS) {
+          await controller.setAllMediaPlaybackSuspended(suspended: true);
+        }
       } else if (Platform.isAndroid) {
         await controller.resume();
+      } else if (Platform.isIOS) {
+        await controller.setAllMediaPlaybackSuspended(suspended: false);
       }
     } catch (_) {}
   }
@@ -518,9 +530,9 @@ class _WebVideoPageState extends State<WebVideoPage>
                   key: ValueKey(session),
                   keepAlive: session,
                   webViewEnvironment: _environment,
-                  // 不设置初始 URL；Android 切换独立 Profile 后才允许联网。
+                  // 隔离校验完成后才允许联网。
                   initialUserScripts: UnmodifiableListView([
-                    if (Platform.isAndroid)
+                    if (Platform.isAndroid || Platform.isIOS)
                       UserScript(
                         source: challengeDocumentScript,
                         injectionTime:
@@ -541,6 +553,7 @@ class _WebVideoPageState extends State<WebVideoPage>
                         MixedContentMode.MIXED_CONTENT_NEVER_ALLOW,
                     useOnDownloadStart: true,
                     disableDefaultErrorPage: true,
+                    allowsInlineMediaPlayback: true,
                   ),
                   onWebViewCreated: (c) => _created(c, policy, session),
                   onCreateWindow: (_, action) async => false,

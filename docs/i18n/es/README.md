@@ -26,6 +26,8 @@
 
 También puedes [alojar tu propia versión Web (Beta)](../../WEB_DEPLOYMENT.md) para navegadores de escritorio y móviles. Web sigue en fase beta y su experiencia continúa mejorando. Cada instancia es para una persona; el acceso remoto requiere HTTPS y una credencial de acceso. Web y Android mantienen datos separados, sin sincronización ni importación de copias entre plataformas.
 
+El código para iOS 15+ y la compilación de IPA están disponibles, pendientes de validación en dispositivos. La instalación requiere firma; consulta las [diferencias entre plataformas](../../PLATFORMS.md#ios).
+
 <a id="screenshots"></a>
 
 ## Demostración

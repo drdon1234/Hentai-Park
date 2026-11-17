@@ -197,6 +197,7 @@ class SourceRuntime {
     await engine._closingRuntimes[key];
     final runtime = await engine._runtimeSource();
     if (_disposed) throw SourceError('CONFIG', '站点运行环境已关闭');
+    var initialDocumentPending = true;
     // Each runtime gets its own origin so storage APIs are not shared between sources either.
     _view = HeadlessInAppWebView(
       initialData: InAppWebViewInitialData(
@@ -215,6 +216,7 @@ class SourceRuntime {
         _registerHandlers(c);
       },
       onLoadStop: (c, _) async {
+        initialDocumentPending = false;
         if (ready.isCompleted) return;
         try {
           await _bounded(
@@ -241,8 +243,23 @@ class SourceRuntime {
         }
       },
       // loadData uses about:blank instead of honoring baseUrl.
-      shouldOverrideUrlLoading: (c, action) => NavigationActionPolicy.CANCEL,
+      shouldOverrideUrlLoading: (c, action) {
+        // WKWebView 对 loadHTMLString 的初始隔离文档也可能请求导航许可。
+        // 仅允许一次精确匹配的主文档，源脚本不能借此跳转到网络页面。
+        if (defaultTargetPlatform == TargetPlatform.iOS &&
+            initialDocumentPending &&
+            action.isForMainFrame &&
+            action.request.url?.toString() == _origin) {
+          initialDocumentPending = false;
+          return NavigationActionPolicy.ALLOW;
+        }
+        return NavigationActionPolicy.CANCEL;
+      },
       onRenderProcessGone: (c, detail) {
+        if (!_rendererGone.isCompleted) _rendererGone.complete();
+        _restart();
+      },
+      onWebContentProcessDidTerminate: (c) {
         if (!_rendererGone.isCompleted) _rendererGone.complete();
         _restart();
       },

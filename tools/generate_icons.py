@@ -1,6 +1,7 @@
 """从项目书本与播放标识生成原生平台图标。运行前安装 Pillow。"""
 
 from pathlib import Path
+import json
 
 from PIL import Image, ImageDraw
 
@@ -53,4 +54,10 @@ mono = '''<?xml version="1.0" encoding="utf-8"?>
 '''
 (ROOT / 'android/app/src/main/res/drawable/ic_launcher_mono.xml').write_text(
     mono, encoding='utf-8', newline='\n')
+catalog = ROOT / 'ios/Runner/Assets.xcassets/AppIcon.appiconset'
+if catalog.exists():
+    for entry in json.loads((catalog / 'Contents.json').read_text(encoding='utf-8'))['images']:
+        points = float(entry['size'].split('x')[0])
+        scale = float(entry['scale'].removesuffix('x'))
+        save(catalog / entry['filename'], round(points * scale))
 print('原生平台图标已生成。')

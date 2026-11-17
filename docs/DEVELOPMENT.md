@@ -39,6 +39,24 @@ flutter build apk --release --split-per-abi
 - 正式构建要求 `android/key.properties` 配置 `storeFile`、`storePassword`、`keyAlias`、`keyPassword`，缺少就失败，不回退到 debug 签名。
 - 在模拟器上验证时可以构建 profile 包：`flutter build apk --profile --target-platform android-x64`。设备上已装更高的 versionCode 时，加 `--build-number` 指定一个更大的值来覆盖安装，以保留应用数据；不要为此修改 `pubspec.yaml` 的版本。
 
+### iOS 构建
+
+`ios/` 恢复自移除提交 `1788813c` 的父提交 `18cace11`，共用当前 `lib/` 和插件，而非回退业务源码。最低 iOS 15；需要 macOS、Xcode、CocoaPods 与 Python 3。Windows 只能做 Dart 和构建脚本检查，不能验证 Swift 编译或真机表现。
+
+```sh
+flutter pub get
+flutter build ios --release --no-codesign
+node tools/platform_build.mjs package ios arm64
+```
+
+未签名包输出到 `test/distribution/`，文件名为 `HentaiPark-<版本>-<构建号>-ios-arm64-unsigned.ipa`，内部为 `Payload/Runner.app`；同时输出 SHA-256。签名导出使用 `flutter build ipa --release --export-options-plist=<导出配置>`，设置 `IOS_SIGNED=true` 后运行同一打包命令，收集唯一的已签名 IPA。应用图标由 `tools/generate_icons.py` 与 Android 资源同时生成。
+
+项目显式使用 CocoaPods；`Podfile` 调用 `tools/ios_webview.py`，仅对 `Flutter/ephemeral/ParkWebView/` 构建副本与 Pods 源引用做适配。它在 WKWebView 初始化前，用游戏作品摘要绑定 iOS 17 的独立 `WKWebsiteDataStore`；加载业务地址之前再次校验真实标识，不支持或绑定失败就拒绝加载。网页播放器使用非持久存储，同样在加载前校验；离开页面或切后台时暂停全部框架内的媒体。依赖结构变化会使构建失败，不静默降级到共享存储。Pub 缓存不变。Flash 的请求拦截仍只在 Android 实现。
+
+iOS 下载通过有限的 `beginBackgroundTask` 延长收尾时间，到期通知 Dart 取消任务并保留断点；不声明无限后台传输。订阅使用 `BGAppRefreshTask`：主引擎存在时在原生任务时限内暂时允许后台请求，等待订阅检查结束才报告完成，到期取消本次检查；无主引擎时启动 `subscriptionBackgroundMain`。前台初始化前等待后台取消、写盘和数据库关闭，避免并发写会话与配置。系统调度不保证频率；仍需真机验证冷启动、恢复、超时与强制退出行为。
+
+应用锁复用 `local_auth`，iOS 只遮盖任务快照，不宣称防截屏；系统通知使用 `flutter_local_notifications`，权限由明确用户操作请求。音声使用系统音频会话及锁屏播放控制；不向锁屏展示作品标题。权限说明包含八种界面语言，酒馆密钥通过钥匙串保存。iOS 不使用 Android 原生媒体封装，HLS 下载保留经校验的播放清单和分段。原生播放器只访问带随机令牌的本地媒体会话，ATS 的 HTTP 例外仅允许 `127.0.0.1`，远端 TLS 校验保持开启。
+
 ## 项目结构
 
 | 目录 | 内容 |
@@ -281,11 +299,12 @@ GitHub Release 正文就是应用内“发现软件新版本”对话框里的�
 ### GitHub Actions
 
 
-- check.yml：由 Android release.yml 调用，执行生产文案、样式、分析、格式与官方插件离线校验；普通提交和 PR 不触发 Android 或 Docker 构建。
-- release.yml：Android 构建与发布入口，推送与 pubspec.yaml 对应的 vX.Y.Z 标签，或在 main 手动触发。手动 publish 默认 false，仅构建 Android；启用 publish 或标签触发才创建 Android GitHub Release。发布前更新 docs/RELEASE_NOTES.md，或手动指定仓库内双语说明路径。
+- check.yml：由原生 release.yml 调用，执行生产文案、样式、分析、格式与官方插件离线校验。
+- release.yml：Android 与 iOS 共用构建和发布入口，推送与 pubspec.yaml 对应的 vX.Y.Z 标签，或在 main 手动触发。手动 publish 默认 false，仅构建；启用 publish 或标签触发才创建 GitHub Release；未配置 Apple 凭据时提供名称明确标注 unsigned 的 IPA，需要用户重新签名安装。发布前更新 docs/RELEASE_NOTES.md，或手动指定仓库内双语说明路径。
+- ios.yml：相关 PR 或手动触发，默认只做 macOS 上的真机 Release 编译与未签名 IPA 打包，不传递发布凭据。在 main 手动勾选 signed 可使用 release 环境生成已签名 IPA，缺少签名材料会失败；两种构建都不发布。release.yml 中的 iOS job 有完整签名配置时导出已签名 IPA，没有配置则提供明确标注的 unsigned IPA；部分配置缺失直接失败。
 - web-release.yml：独立 Web Docker 发布入口，仅允许在默认分支手动触发；版本来自 clients/web/package.json，不依赖 Android pubspec.yaml 版本。启用 publish 后推送 Web 镜像版本标签和 latest 标签。
 
-Android 版本标签必须与 pubspec.yaml 一致；Web 版本由 clients/web/package.json 管理，当前初始版本为 0.0.1。没有更新对应平台版本时不要重用已有发布标签。Android Release 正文只含中文和 English 两节，遵守 DEVELOPMENT.md 既有格式。
+Android 与 iOS 的版本标签必须与 pubspec.yaml 一致；Web 版本由 clients/web/package.json 管理，当前初始版本为 0.0.1。没有更新对应平台版本时不要重用已有发布标签。原生 Release 正文只含中文和 English 两节，遵守 DEVELOPMENT.md 既有格式。
 
 ### Secrets 与外部设置
 
@@ -294,6 +313,9 @@ Android 版本标签必须与 pubspec.yaml 一致；Web 版本由 clients/web/pa
 | Secrets | 用途 | 缺失时 |
 | --- | --- | --- |
 | ANDROID_KEYSTORE_BASE64、ANDROID_KEYSTORE_PASSWORD、ANDROID_KEY_ALIAS、ANDROID_KEY_PASSWORD | Android 正式签名 | 仅编译，不上传 APK |
+| IOS_CERTIFICATE_BASE64、IOS_CERTIFICATE_PASSWORD、IOS_PROVISIONING_PROFILE_BASE64 | iOS PKCS#12 证书、密码与描述文件 | 全部缺失时生成 unsigned IPA；部分缺失时失败 |
+
+iOS 签名由 `tools/ios_signing.py` 在临时钥匙串中完成，团队、Bundle ID 与导出方式从未过期且不含通配符的描述文件读取；证书必须与描述文件匹配。支持开发、已登记设备分发、企业或 App Store Connect 导出，不自动上传 Apple 服务。签名配置与材料仅写到被忽略的位置，结束时恢复钥匙串搜索列表并删除临时钥匙串、描述文件和配置。不要把这些材料或真实账号信息加入仓库。
 
 
 

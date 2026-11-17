@@ -26,6 +26,8 @@
 
 You can also [self-host Web (Beta)](../../WEB_DEPLOYMENT.md) for desktop and mobile browsers. Web is still in beta and its experience is being improved. Each instance is for one user; remote access requires HTTPS and an access credential. Web and Android keep separate data, with no cross-platform sync or backup import between them.
 
+iOS 15+ source and IPA builds are available, pending device validation. Installation requires signing; see [platform differences](../../PLATFORMS.md#ios).
+
 <a id="screenshots"></a>
 
 ## Product demo

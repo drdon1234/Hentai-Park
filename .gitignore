@@ -103,3 +103,17 @@ docs/superpowers/
 /clients/web/cache/
 /clients/web/coverage/
 /clients/web/test/
+
+# iOS generated files and local signing configuration
+/ios/Pods/
+/ios/Flutter/ephemeral/
+/ios/Flutter/Generated.xcconfig
+/ios/Flutter/flutter_export_environment.sh
+/ios/Flutter/Signing.xcconfig
+/ios/Flutter/Flutter.framework/
+/ios/Flutter/App.framework/
+/ios/Flutter/Flutter.podspec
+/ios/Runner/GeneratedPluginRegistrant.*
+/ios/Podfile.lock
+/ios/**/*.xcuserstate
+/ios/**/xcuserdata/

@@ -217,7 +217,7 @@ class _OnlineGamePageState extends State<OnlineGamePage>
     if (mounted) setState(() => _error = null);
     try {
       await closing;
-      if (!Platform.isAndroid) {
+      if (!Platform.isAndroid && !Platform.isIOS) {
         throw SourceError('UNSUPPORTED', '当前设备暂不支持在线游戏');
       }
       final raw = await widget.manager.onlineGame(
@@ -226,6 +226,10 @@ class _OnlineGamePageState extends State<OnlineGamePage>
         cancelToken: request,
       );
       final target = OnlineGameTarget.fromJson(raw, widget.work.id);
+      // WebKit 没有 Android shouldInterceptRequest，不能伪装成支持 Flash。
+      if (Platform.isIOS && target.isFlash) {
+        throw SourceError('UNSUPPORTED', '当前设备暂不支持在线游戏');
+      }
       if (!mounted || generation != _generation || request.isCancelled) {
         return;
       }
@@ -273,6 +277,15 @@ class _OnlineGamePageState extends State<OnlineGamePage>
         }
         _attached = true;
       }
+      if (Platform.isIOS) {
+        final id = controller.getViewId();
+        final isolated = await MethodChannel(
+          'com.pichillilorenzo/flutter_inappwebview_$id',
+        ).invokeMethod<bool>('parkGameProfile');
+        if (isolated != true) {
+          throw SourceError('UNSUPPORTED', '当前设备暂不支持在线游戏');
+        }
+      }
       if (!mounted || !identical(session, _session)) return;
       _navigationEnabled = true;
       await controller.loadUrl(
@@ -319,7 +332,9 @@ document.head.appendChild(script);
     _playbackUpdates = _playbackUpdates
         .then((_) async {
           if (!mounted || !identical(controller, _controller)) return;
-          if (active) {
+          if (Platform.isIOS) {
+            await controller.setAllMediaPlaybackSuspended(suspended: !active);
+          } else if (active) {
             await controller.resume();
           } else {
             await controller.pause();
@@ -395,6 +410,25 @@ document.head.appendChild(script);
               'ctrl': ctrl,
             })
             .catchError((Object _) => false),
+      );
+    } else if (Platform.isIOS) {
+      // 普通 HTML 游戏使用 DOM 按键；WebKit 不提供跨域原生按键注入。
+      unawaited(
+        controller
+            .evaluateJavascript(
+              source:
+                  '''(() => {
+const event = new KeyboardEvent(${jsonEncode(down ? 'keydown' : 'keyup')}, {
+  code: ${jsonEncode(key.code)}, key: ${jsonEncode(key.key)},
+  ctrlKey: ${jsonEncode(ctrl)}, bubbles: true, cancelable: true
+});
+Object.defineProperties(event, {
+  keyCode: {get: () => ${key.number}}, which: {get: () => ${key.number}}
+});
+(document.activeElement || document.body || document).dispatchEvent(event);
+})()''',
+            )
+            .catchError((Object _) => null),
       );
     }
   }
@@ -645,7 +679,7 @@ catch(_){try{localStorage.clear();for(const [k,v] of Object.entries(old))localSt
                         injectionTime:
                             UserScriptInjectionTime.AT_DOCUMENT_START,
                       ),
-                      if (Platform.isAndroid)
+                      if (Platform.isAndroid || Platform.isIOS)
                         UserScript(
                           groupName:
                               'park_game_${onlineGameProfileKey(widget.work.source, target.storageId)}',
@@ -670,6 +704,7 @@ catch(_){try{localStorage.clear();for(const [k,v] of Object.entries(old))localSt
                       useOnDownloadStart: true,
                       disableDefaultErrorPage: true,
                       mediaPlaybackRequiresUserGesture: false,
+                      allowsInlineMediaPlayback: true,
                     ),
                     onWebViewCreated: (c) => _created(c, session, target),
                     shouldInterceptRequest: (c, request) async {
