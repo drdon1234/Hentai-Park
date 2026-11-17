@@ -116,7 +116,10 @@ class SubscriptionUpdater extends ChangeNotifier {
     bool force = false,
     Duration budget = const Duration(minutes: 3),
   }) {
-    if (cancelled || _activeRun != null) return Future.value();
+    // 系统后台任务必须等待已有检查收尾，不能提前交还执行时间。
+    final active = _activeRun;
+    if (active != null) return active;
+    if (cancelled) return Future.value();
     return _activeRun = _run(force: force, budget: budget).whenComplete(() {
       _activeRun = null;
     });
