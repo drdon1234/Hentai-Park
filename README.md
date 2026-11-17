@@ -26,7 +26,7 @@
 
 也可[自托管 Web（Beta）](docs/WEB_DEPLOYMENT.md)，通过桌面或手机浏览器使用。Web 仍在 Beta 阶段，使用体验持续优化。每个实例供一人使用；远程访问需要 HTTPS 和访问凭据。Web 与 Android 数据独立，暂不支持跨端同步或互导备份。
 
-iOS 15+ 源码与 IPA 构建已接入，仍待真机验收；安装需要签名，功能差异见[平台说明](docs/PLATFORMS.md#ios)。
+iOS 支持 iOS 15 及以上系统，IPA 安装前需要签名，功能差异见[平台说明](docs/PLATFORMS.md#ios)。
 
 <a id="screenshots"></a>
 

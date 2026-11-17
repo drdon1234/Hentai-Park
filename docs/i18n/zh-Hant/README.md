@@ -26,7 +26,7 @@
 
 也可[自架 Web（Beta）](../../WEB_DEPLOYMENT.md)，透過桌面或手機瀏覽器使用。Web 目前處於 Beta 階段，使用體驗仍在持續優化。每個實例供一人使用；遠端存取需要 HTTPS 與存取憑據。Web 與 Android 資料獨立，目前不支援跨端同步或互相匯入備份。
 
-已接入 iOS 15+ 原始碼與 IPA 建置，仍待實機驗收；安裝需要簽署，功能差異見[平台說明](../../PLATFORMS.md#ios)。
+iOS 支援 iOS 15 及以上系統，IPA 安裝前需要簽署，功能差異見[平台說明](../../PLATFORMS.md#ios)。
 
 <a id="screenshots"></a>
 
