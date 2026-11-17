@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
@@ -19,6 +20,7 @@ class TavernConversation extends ChangeNotifier {
       ephemeral = !persist || AppSettings.instance.incognito {
     _privacy = AppSettings.instance.watch({'incognito'});
     _privacy.addListener(_privacyChanged);
+    _recoverReply();
   }
 
   final TavernSession session;
@@ -34,6 +36,56 @@ class TavernConversation extends ChangeNotifier {
   TavernGeneration? _generation;
   bool _disposed = false;
   late final Listenable _privacy;
+  Future<void> _writes = Future.value();
+  Timer? _draftSave;
+  Completer<void>? _finished;
+
+  Future<void> stopAndSave() async {
+    cancel();
+    await _finished?.future;
+    await save();
+  }
+
+  void _recoverReply() {
+    final pending = session.pendingReply;
+    if (pending == null) return;
+    final message = <String, String>{
+      'role': 'assistant',
+      'content': pending['content'] ?? '',
+      'status': 'cancelled',
+    };
+    if (message['content']!.isNotEmpty) {
+      if (pending['mode'] == 'regenerate' && session.messages.isNotEmpty) {
+        session.alternatives
+            .putIfAbsent('${session.messages.length - 1}', () => [])
+            .add(message);
+      } else if (pending['mode'] == 'continuation' &&
+          session.messages.isNotEmpty &&
+          session.messages.last['role'] == 'assistant') {
+        message['content'] =
+            '${session.messages.last['content']}${message['content']}';
+        session.messages[session.messages.length - 1] = message;
+      } else {
+        session.messages.add(message);
+      }
+    }
+    session.pendingReply = null;
+  }
+
+  void updateInput(String text) {
+    session.inputDraft = text;
+    _draftSave?.cancel();
+    _draftSave = Timer(const Duration(milliseconds: 500), checkpoint);
+  }
+
+  Future<void> checkpoint() async {
+    try {
+      await save();
+    } catch (_) {
+      // 统一通过 unsaved 状态提供重试入口。
+    }
+  }
+
   void _privacyChanged() {
     ephemeral = ephemeral || AppSettings.instance.incognito;
     if (ephemeral) unsaved = false;
@@ -44,12 +96,23 @@ class TavernConversation extends ChangeNotifier {
     if (!_disposed) notifyListeners();
   }
 
-  Future<void> save() async {
+  Future<void> save() {
+    _draftSave?.cancel();
+    final snapshot = TavernSession.fromJson(
+      jsonDecode(jsonEncode(session.toJson())) as Map,
+    );
+    final write = _writes.then((_) => _saveSnapshot(snapshot));
+    _writes = write.catchError((Object _) {});
+    return write;
+  }
+
+  Future<void> _saveSnapshot(TavernSession snapshot) async {
     // 一旦进入无痕，本页所有后续变更均不补写到原会话。
     ephemeral = ephemeral || AppSettings.instance.incognito;
     if (!ephemeral) {
       try {
-        await TavernStore.instance.putSession(session);
+        await TavernStore.instance.putSession(snapshot);
+        session.updatedAt = snapshot.updatedAt;
       } catch (_) {
         unsaved = true;
         _notify();
@@ -94,6 +157,9 @@ class TavernConversation extends ChangeNotifier {
   Future<TavernSession> branch(int index) async {
     final data = session.toJson();
     data['id'] = const Uuid().v4();
+    data['parentId'] = session.id;
+    data['inputDraft'] = '';
+    data.remove('pendingReply');
     final copy = TavernSession.fromJson(jsonDecode(jsonEncode(data)) as Map);
     copy.messages.removeRange(index + 1, copy.messages.length);
     copy.alternatives.removeWhere(
@@ -110,6 +176,7 @@ class TavernConversation extends ChangeNotifier {
   }) async {
     if (busy || unsaved) return;
     busy = true;
+    _finished = Completer<void>();
     failure = null;
     draft = '';
     trimmed = false;
@@ -117,11 +184,13 @@ class TavernConversation extends ChangeNotifier {
     final generation = _generation = TavernGeneration();
     Map<String, String>? previous;
     var started = false;
+    var lastCheckpoint = DateTime.fromMillisecondsSinceEpoch(0);
     try {
       await TavernApiSettings.instance.load();
       final config = TavernApiSettings.instance.config;
       if (!config.configured) throw const TavernApiException('configuration');
       if (text != null && text.trim().isNotEmpty) {
+        session.inputDraft = '';
         session.messages.add({
           'role': 'user',
           'content': text.trim(),
@@ -169,6 +238,19 @@ class TavernConversation extends ChangeNotifier {
         messages: prompt.messages,
       )) {
         draft += delta;
+        session.pendingReply = {
+          'content': draft,
+          'mode': regenerate
+              ? 'regenerate'
+              : continuation
+              ? 'continuation'
+              : 'reply',
+        };
+        final now = DateTime.now();
+        if (now.difference(lastCheckpoint).inSeconds >= 2) {
+          lastCheckpoint = now;
+          unawaited(checkpoint());
+        }
         _notify();
       }
     } catch (error) {
@@ -176,6 +258,7 @@ class TavernConversation extends ChangeNotifier {
           ? error
           : const TavernApiException('network');
     } finally {
+      session.pendingReply = null;
       totalTokens = generation.totalTokens;
       if (started && draft.isNotEmpty) {
         // 重生成失败保留旧回复；新消息和续写保留已经收到的文本。
@@ -198,22 +281,21 @@ class TavernConversation extends ChangeNotifier {
                 .add(previous);
           }
           session.messages.add(message);
-          try {
-            await save();
-          } catch (_) {
-            /* 页面保留未保存内容并阻止静默退出。 */
-          }
         }
       }
       draft = '';
+      if (started) await checkpoint();
       busy = false;
       _generation = null;
+      _finished?.complete();
+      _finished = null;
       _notify();
     }
   }
 
   @override
   void dispose() {
+    _draftSave?.cancel();
     _disposed = true;
     _privacy.removeListener(_privacyChanged);
     cancel();

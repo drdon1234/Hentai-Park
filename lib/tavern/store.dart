@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:uuid/uuid.dart';
 
+import '../core/localization.dart';
 import '../core/models.dart';
 import '../core/settings.dart';
 import '../core/storage.dart';
@@ -36,6 +37,9 @@ class TavernSession {
     required this.updatedAt,
     this.userName = 'User',
     this.persona = '',
+    this.inputDraft = '',
+    this.parentId,
+    this.pendingReply,
     Map<String, List<Map<String, String>>>? alternatives,
   }) : alternatives = alternatives ?? {};
   final String id;
@@ -47,6 +51,9 @@ class TavernSession {
   int updatedAt;
   String userName;
   String persona;
+  String inputDraft;
+  String? parentId;
+  Map<String, String>? pendingReply;
   final Map<String, List<Map<String, String>>> alternatives;
 
   Map<String, dynamic> toJson() => {
@@ -59,6 +66,9 @@ class TavernSession {
     'updatedAt': updatedAt,
     'userName': userName,
     'persona': persona,
+    'inputDraft': inputDraft,
+    if (parentId != null) 'parentId': parentId,
+    if (pendingReply != null) 'pendingReply': pendingReply,
     'alternatives': alternatives,
   };
 
@@ -122,6 +132,17 @@ class TavernSession {
           ? value['userName'] as String
           : 'User',
       persona: value['persona'] is String ? value['persona'] as String : '',
+      inputDraft: value['inputDraft'] is String
+          ? value['inputDraft'] as String
+          : '',
+      parentId: value['parentId'] is String
+          ? value['parentId'] as String
+          : null,
+      pendingReply:
+          value['pendingReply'] is Map &&
+              (value['pendingReply'] as Map).values.every((v) => v is String)
+          ? Map<String, String>.from(value['pendingReply'] as Map)
+          : null,
       alternatives: value['alternatives'] is Map
           ? {
               for (final entry in (value['alternatives'] as Map).entries)
@@ -320,9 +341,10 @@ class TavernApiConfig {
     this.baseUrl = '',
     this.model = '',
     this.temperature = 0.7,
-    this.maxTokens = 1024,
+    this.maxTokens = 4096,
     this.secretRef = '',
-    this.contextTokens = 32768,
+    this.contextTokens = 65536,
+    this.systemPrompt,
   });
   final String baseUrl;
   final String model;
@@ -330,6 +352,8 @@ class TavernApiConfig {
   final int maxTokens;
   final String secretRef;
   final int contextTokens;
+  final String? systemPrompt;
+  String get effectiveSystemPrompt => systemPrompt ?? tr('生成的所有内容请使用简体中文回复。');
   bool get configured => baseUrl.isNotEmpty && model.isNotEmpty;
   Map<String, dynamic> toJson() => {
     'baseUrl': baseUrl,
@@ -338,14 +362,18 @@ class TavernApiConfig {
     'maxTokens': maxTokens,
     'secretRef': secretRef,
     'contextTokens': contextTokens,
+    if (systemPrompt != null) 'systemPrompt': systemPrompt,
   };
   factory TavernApiConfig.fromJson(Map value) => TavernApiConfig(
     baseUrl: value['baseUrl'] is String ? value['baseUrl'] as String : '',
     model: value['model'] is String ? value['model'] as String : '',
     temperature: (value['temperature'] as num?)?.toDouble() ?? 0.7,
-    maxTokens: (value['maxTokens'] as num?)?.toInt() ?? 1024,
+    maxTokens: (value['maxTokens'] as num?)?.toInt() ?? 4096,
     secretRef: value['secretRef'] is String ? value['secretRef'] as String : '',
-    contextTokens: (value['contextTokens'] as num?)?.toInt() ?? 32768,
+    contextTokens: (value['contextTokens'] as num?)?.toInt() ?? 65536,
+    systemPrompt: value['systemPrompt'] is String
+        ? value['systemPrompt'] as String
+        : null,
   );
 }
 
@@ -400,12 +428,13 @@ class TavernApiSettings extends ChangeNotifier {
     required double temperature,
     required int maxTokens,
     String? newKey,
-    bool clearKey = false,
-    int contextTokens = 32768,
+    String? systemPrompt,
+    int contextTokens = 65536,
   }) async {
     await load();
     final uri = validateBaseUrl(baseUrl);
-    if (model.trim().isEmpty ||
+    if ((systemPrompt?.length ?? 0) > 32000 ||
+        model.trim().isEmpty ||
         model.length > 200 ||
         (newKey != null &&
             (newKey.length > 4096 ||
@@ -423,7 +452,7 @@ class TavernApiSettings extends ChangeNotifier {
     final old = config;
     var ref = old.secretRef;
     final normalizedBase = uri.toString().replaceFirst(RegExp(r'/+$'), '');
-    if (clearKey || (old.baseUrl.isNotEmpty && old.baseUrl != normalizedBase)) {
+    if (old.baseUrl.isNotEmpty && old.baseUrl != normalizedBase) {
       ref = '';
     }
     if (uri.scheme == 'http' &&
@@ -441,6 +470,7 @@ class TavernApiSettings extends ChangeNotifier {
       maxTokens: maxTokens,
       secretRef: ref,
       contextTokens: contextTokens,
+      systemPrompt: systemPrompt,
     );
     try {
       _store.save(next.toJson());

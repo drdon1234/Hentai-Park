@@ -394,6 +394,7 @@ TavernPrompt _buildTavernPrompt(
     world(true),
     role,
     world(false),
+    config.effectiveSystemPrompt.trim(),
   ].where((s) => s.isNotEmpty).join('\n\n');
   final tail = <Map<String, String>>[
     if (post.isNotEmpty) {'role': 'system', 'content': post},

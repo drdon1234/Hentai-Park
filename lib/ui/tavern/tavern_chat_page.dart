@@ -14,6 +14,7 @@ import '../nav.dart';
 import '../theme.dart';
 import '../widgets/content_translation.dart';
 import 'tavern_avatar.dart';
+import 'tavern_library_page.dart';
 import 'tavern_settings_page.dart';
 
 class TavernChatPage extends StatefulWidget {
@@ -30,10 +31,11 @@ class TavernChatPage extends StatefulWidget {
   State<TavernChatPage> createState() => _TavernChatPageState();
 }
 
-class _TavernChatPageState extends State<TavernChatPage> {
+class _TavernChatPageState extends State<TavernChatPage>
+    with WidgetsBindingObserver {
   final _input = TextEditingController();
   final _scroll = ScrollController();
-  late final TavernConversation _chat;
+  late TavernConversation _chat;
   bool _following = true;
   bool _leaving = false;
   bool _editing = false;
@@ -55,12 +57,21 @@ class _TavernChatPageState extends State<TavernChatPage> {
     super.initState();
     _chat = TavernConversation(widget.session, persist: widget.persist)
       ..addListener(_changed);
+    WidgetsBinding.instance.addObserver(this);
+    _input.text = _session.inputDraft;
+    unawaited(_chat.checkpoint());
+    WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToBottom());
     _scroll.addListener(() {
       final next = _scroll.position.extentAfter < 80;
       if (next != _following && mounted) setState(() => _following = next);
     });
     _portrait = widget.portrait;
     if (_portrait == null) unawaited(_loadPortrait());
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state != AppLifecycleState.resumed) unawaited(_chat.checkpoint());
   }
 
   Future<void> _loadPortrait() async {
@@ -101,7 +112,10 @@ class _TavernChatPageState extends State<TavernChatPage> {
     if (!mounted) return;
     final error = _chat.failure;
     if (error?.code == 'configuration') {
-      if (text != null) _input.text = text;
+      if (text != null) {
+        _input.text = text;
+        _chat.updateInput(text);
+      }
       context.toast(tr('请先配置 AI 服务'));
       await Nav.push(context, const TavernSettingsPage());
     }
@@ -117,16 +131,21 @@ class _TavernChatPageState extends State<TavernChatPage> {
 
   Future<void> _leave() async {
     if (_leaving || _editing) return;
-    if (!await confirmAction(
-      context,
-      title: tr('离开会话？'),
-      message: tr('未保存的内容和正在生成的回复可能丢失。'),
-      confirmLabel: tr('离开'),
-      destructive: true,
-    )) {
+    if (_chat.busy &&
+        !await confirmAction(
+          context,
+          title: tr('离开会话？'),
+          message: tr('停止生成并保存已收到的回复后离开。'),
+          confirmLabel: tr('离开'),
+        )) {
       return;
     }
-    _chat.cancel();
+    try {
+      await _chat.stopAndSave();
+    } catch (_) {
+      if (mounted) context.toast(tr('保存失败，请重试'));
+      return;
+    }
     if (mounted) {
       setState(() => _leaving = true);
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -189,6 +208,24 @@ class _TavernChatPageState extends State<TavernChatPage> {
     }
     try {
       await _chat.truncate(index);
+    } catch (_) {
+      if (mounted) context.toast(tr('保存失败，请重试'));
+    }
+  }
+
+  Future<void> _rollback(int index) async {
+    if (_sending || index >= _session.messages.length - 1) return;
+    if (!await confirmAction(
+      context,
+      title: tr('回滚到此处？'),
+      message: tr('保留此条消息，删除后续消息。若要保留原对话，请选择从此处分支。'),
+      confirmLabel: tr('回滚'),
+      destructive: true,
+    )) {
+      return;
+    }
+    try {
+      await _chat.truncate(index + 1);
     } catch (_) {
       if (mounted) context.toast(tr('保存失败，请重试'));
     }
@@ -266,6 +303,7 @@ class _TavernChatPageState extends State<TavernChatPage> {
   }
 
   Future<void> _branch(int index) async {
+    if (_sending) return;
     try {
       final branch = await _chat.branch(index);
       if (mounted) {
@@ -369,6 +407,8 @@ class _TavernChatPageState extends State<TavernChatPage> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    unawaited(_chat.checkpoint());
     _chat.removeListener(_changed);
     _chat.dispose();
     _input.dispose();
@@ -486,13 +526,13 @@ class _TavernChatPageState extends State<TavernChatPage> {
       );
 
   Widget _messageActions(int index, bool user, bool last) {
-    if (_sending || last && !user && _chat.failure != null) {
+    if (_sending) {
       return const SizedBox.shrink();
     }
     final alternative = _session.alternatives['$index']?.isNotEmpty == true;
     return Wrap(
-      spacing: Gap.xs,
-      runSpacing: Gap.xs,
+      spacing: Gap.s,
+      runSpacing: Gap.s,
       children: [
         if (last && !user)
           FilledButton.tonalIcon(
@@ -514,13 +554,19 @@ class _TavernChatPageState extends State<TavernChatPage> {
             icon: const Icon(Icons.swipe_rounded, size: 18),
             label: Text(tr('候选回复')),
           ),
+        if (last)
+          TextButton.icon(
+            onPressed: () => _branch(index),
+            icon: const Icon(Icons.fork_right_rounded, size: 18),
+            label: Text(tr('从此处分支')),
+          ),
       ],
     );
   }
 
   @override
   Widget build(BuildContext context) => PopScope(
-    canPop: _leaving || (!_sending && !_chat.unsaved && _input.text.isEmpty),
+    canPop: _leaving,
     onPopInvokedWithResult: (didPop, result) {
       if (!didPop) unawaited(_leave());
     },
@@ -528,8 +574,6 @@ class _TavernChatPageState extends State<TavernChatPage> {
       appBar: PageHeader(
         titleWidget: Row(
           children: [
-            TavernAvatar(name: _session.title, saved: _portrait),
-            const SizedBox(width: Gap.m),
             Expanded(
               child: ContentTranslation(
                 text: _session.title,
@@ -545,6 +589,35 @@ class _TavernChatPageState extends State<TavernChatPage> {
           ],
         ),
         actions: [
+          IconButton(
+            tooltip: tr('会话历史'),
+            icon: const Icon(Icons.history_rounded),
+            onPressed: _sending
+                ? null
+                : () async {
+                    await _chat.checkpoint();
+                    if (context.mounted) {
+                      final selected = await Nav.push<TavernSession>(
+                        context,
+                        const TavernLibraryPage(
+                          initialTab: 1,
+                          selectSession: true,
+                        ),
+                      );
+                      if (selected == null || !mounted) return;
+                      _chat.removeListener(_changed);
+                      _chat.dispose();
+                      _chat = TavernConversation(selected)
+                        ..addListener(_changed);
+                      _input.text = _session.inputDraft;
+                      _portrait = null;
+                      _following = true;
+                      await _chat.checkpoint();
+                      unawaited(_loadPortrait());
+                      _changed();
+                    }
+                  },
+          ),
           TranslationControls(source: _session.resourceUid.split(':').first),
           PopupMenuButton<String>(
             tooltip: tr('更多'),
@@ -573,6 +646,25 @@ class _TavernChatPageState extends State<TavernChatPage> {
       body: ReadableWidth(
         child: Column(
           children: [
+            Padding(
+              padding: const EdgeInsets.symmetric(
+                horizontal: Gap.page,
+                vertical: Gap.s,
+              ),
+              child: Align(
+                alignment: AlignmentDirectional.centerStart,
+                child: Text(
+                  _chat.ephemeral
+                      ? tr('无痕模式：本会话不会保存。')
+                      : _chat.unsaved
+                      ? tr('内容尚未保存。')
+                      : tr('自动保存到会话历史'),
+                  style: context.text.bodySmall?.copyWith(
+                    color: context.colors.onSurfaceVariant,
+                  ),
+                ),
+              ),
+            ),
             Expanded(
               child: ListView.builder(
                 controller: _scroll,
@@ -640,6 +732,8 @@ class _TavernChatPageState extends State<TavernChatPage> {
                                               _branch(index);
                                             case 'alternative':
                                               _alternative(index);
+                                            case 'rollback':
+                                              _rollback(index);
                                           }
                                         },
                                         itemBuilder: (context) => [
@@ -651,6 +745,11 @@ class _TavernChatPageState extends State<TavernChatPage> {
                                             value: 'branch',
                                             child: Text(tr('从此处分支')),
                                           ),
+                                          if (!last)
+                                            PopupMenuItem(
+                                              value: 'rollback',
+                                              child: Text(tr('回滚到此处')),
+                                            ),
                                           if (_session
                                                   .alternatives['$index']
                                                   ?.isNotEmpty ==
@@ -668,26 +767,30 @@ class _TavernChatPageState extends State<TavernChatPage> {
                                   ],
                                 ),
                                 const SizedBox(height: Gap.s),
-                                MarkdownBody(
-                                  data: message['content'] ?? '',
-                                  selectable: true,
-                                  styleSheet:
-                                      MarkdownStyleSheet.fromTheme(
-                                        Theme.of(context),
-                                      ).copyWith(
-                                        p: context.text.bodyLarge?.copyWith(
-                                          height: 1.55,
+                                ContentTranslation(
+                                  text: message['content'] ?? '',
+                                  machineTranslation: !user && !draft,
+                                  builder: (value) => MarkdownBody(
+                                    data: value,
+                                    selectable: true,
+                                    styleSheet:
+                                        MarkdownStyleSheet.fromTheme(
+                                          Theme.of(context),
+                                        ).copyWith(
+                                          p: context.text.bodyLarge?.copyWith(
+                                            height: 1.55,
+                                          ),
+                                          em: context.text.bodyLarge?.copyWith(
+                                            height: 1.55,
+                                            fontStyle: FontStyle.italic,
+                                            color:
+                                                context.colors.onSurfaceVariant,
+                                          ),
                                         ),
-                                        em: context.text.bodyLarge?.copyWith(
-                                          height: 1.55,
-                                          fontStyle: FontStyle.italic,
-                                          color:
-                                              context.colors.onSurfaceVariant,
-                                        ),
-                                      ),
-                                  // 模型输出不自动请求外部图片，不执行 HTML 或脚本。
-                                  imageBuilder: (uri, title, alt) =>
-                                      Text(alt ?? ''),
+                                    // 模型输出不自动请求外部图片，不执行 HTML 或脚本。
+                                    imageBuilder: (uri, title, alt) =>
+                                        Text(alt ?? ''),
+                                  ),
                                 ),
                                 if (message['status'] == 'length')
                                   Text(
@@ -737,7 +840,10 @@ class _TavernChatPageState extends State<TavernChatPage> {
                         controller: _input,
                         minLines: 1,
                         maxLines: 5,
-                        onChanged: (_) => setState(() {}),
+                        onChanged: (value) {
+                          _chat.updateInput(value);
+                          setState(() {});
+                        },
                         decoration: InputDecoration(hintText: tr('输入消息')),
                       ),
                     ),
@@ -746,8 +852,8 @@ class _TavernChatPageState extends State<TavernChatPage> {
                       tooltip: _chat.busy ? tr('停止生成') : tr('发送'),
                       onPressed:
                           _editing ||
-                              _chat.unsaved ||
-                              (!_chat.busy && _input.text.trim().isEmpty)
+                              (!_chat.busy &&
+                                  (_chat.unsaved || _input.text.trim().isEmpty))
                           ? null
                           : _chat.busy
                           ? _chat.cancel

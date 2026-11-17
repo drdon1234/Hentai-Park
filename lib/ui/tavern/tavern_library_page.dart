@@ -12,13 +12,19 @@ import '../widgets/content_translation.dart';
 import 'tavern_chat_page.dart';
 
 class TavernLibraryPage extends StatefulWidget {
-  const TavernLibraryPage({super.key});
+  const TavernLibraryPage({
+    super.key,
+    this.initialTab = 0,
+    this.selectSession = false,
+  });
+  final int initialTab;
+  final bool selectSession;
   @override
   State<TavernLibraryPage> createState() => _TavernLibraryPageState();
 }
 
 class _TavernLibraryPageState extends State<TavernLibraryPage> {
-  int _tab = 0;
+  late int _tab = widget.initialTab;
   bool _importing = false;
   Future<void> _import({String? expectedKind}) async {
     if (_importing) return;
@@ -211,23 +217,49 @@ class _TavernLibraryPageState extends State<TavernLibraryPage> {
                         final session = sessions[index];
                         return ListTile(
                           title: Text(session.title),
-                          subtitle: Text(
-                            tr('{count} 条消息', {
-                              'count': session.messages.length,
-                            }),
+                          subtitle: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                session.inputDraft.isNotEmpty
+                                    ? '${tr('草稿')} · ${session.inputDraft}'
+                                    : session.messages.isEmpty
+                                    ? tr('还没有消息')
+                                    : session.messages.last['content'] ?? '',
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              const SizedBox(height: Gap.xs),
+                              Text(
+                                '${tr('{count} 条消息', {'count': session.messages.length})} · ${MaterialLocalizations.of(context).formatCompactDate(DateTime.fromMillisecondsSinceEpoch(session.updatedAt))} ${MaterialLocalizations.of(context).formatTimeOfDay(TimeOfDay.fromDateTime(DateTime.fromMillisecondsSinceEpoch(session.updatedAt)))}',
+                              ),
+                              if (session.parentId != null) Text(tr('分支会话')),
+                            ],
                           ),
-                          leading: const Icon(
-                            Icons.chat_bubble_outline_rounded,
+                          leading: Icon(
+                            session.parentId == null
+                                ? Icons.chat_bubble_outline_rounded
+                                : Icons.fork_right_rounded,
                           ),
-                          onTap: () => Nav.push(
-                            context,
-                            TavernChatPage(session: session),
-                          ),
-                          trailing: IconButton(
-                            tooltip: tr('删除'),
-                            icon: const Icon(Icons.delete_outline_rounded),
-                            onPressed: () => _deleteSession(session),
-                          ),
+                          onTap: () {
+                            if (widget.selectSession) {
+                              Navigator.pop(context, session);
+                            } else {
+                              Nav.push(
+                                context,
+                                TavernChatPage(session: session),
+                              );
+                            }
+                          },
+                          trailing: widget.selectSession
+                              ? null
+                              : IconButton(
+                                  tooltip: tr('删除'),
+                                  icon: const Icon(
+                                    Icons.delete_outline_rounded,
+                                  ),
+                                  onPressed: () => _deleteSession(session),
+                                ),
                         );
                       },
                     );

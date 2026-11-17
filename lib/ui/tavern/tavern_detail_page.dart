@@ -177,6 +177,53 @@ class _TavernDetailPageState extends State<TavernDetailPage> {
               bytes: _bytes!,
             );
       if (saved == null || !mounted) return;
+      if (persist) {
+        final previous = await TavernStore.instance.sessions(
+          uid: saved.item.uid,
+        );
+        if (!mounted) return;
+        if (previous.isNotEmpty) {
+          final choice = await showAdaptiveSheet<String>(
+            context: context,
+            builder: (context) => SafeArea(
+              child: ListView(
+                shrinkWrap: true,
+                children: [
+                  ListTile(
+                    leading: const Icon(Icons.add_comment_outlined),
+                    title: Text(tr('新建会话')),
+                    onTap: () => Navigator.pop(context, 'new'),
+                  ),
+                  for (final session in previous)
+                    ListTile(
+                      leading: const Icon(Icons.history_rounded),
+                      title: Text(tr('继续对话')),
+                      subtitle: Text(
+                        session.messages.isEmpty
+                            ? session.title
+                            : session.messages.last['content'] ?? '',
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      onTap: () => Navigator.pop(context, session.id),
+                    ),
+                ],
+              ),
+            ),
+          );
+          if (choice == null || !mounted) return;
+          if (choice != 'new') {
+            await Nav.push(
+              context,
+              TavernChatPage(
+                session: previous.firstWhere((s) => s.id == choice),
+                portrait: saved,
+              ),
+            );
+            return;
+          }
+        }
+      }
       final session = await TavernStore.instance.createSession(
         saved,
         _greeting,

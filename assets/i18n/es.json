@@ -1959,5 +1959,20 @@
   "候选回复": "Variantes de respuesta",
   "回到底部": "Ir al final",
   "无痕模式：本会话不会保存。": "Modo incógnito: esta conversación no se guardará.",
-  "返回主页": "Volver al inicio"
+  "返回主页": "Volver al inicio",
+  "搜图": "Imágenes",
+  "系统 Prompt": "Prompt del sistema",
+  "生成的所有内容请使用简体中文回复。": "Responde en español en todo el contenido generado.",
+  "会话历史": "Historial de conversaciones",
+  "自动保存到会话历史": "Guardado automático en el historial",
+  "停止生成并保存已收到的回复后离开。": "Detener la generación y guardar la respuesta recibida antes de salir.",
+  "回滚到此处？": "¿Volver a este punto?",
+  "保留此条消息，删除后续消息。若要保留原对话，请选择从此处分支。": "Conservar este mensaje y eliminar los posteriores. Para conservar la conversación original, elige Crear rama desde aquí.",
+  "回滚": "Volver atrás",
+  "回滚到此处": "Volver a este punto",
+  "草稿": "Borrador",
+  "还没有消息": "Aún no hay mensajes",
+  "分支会话": "Conversación derivada",
+  "新建会话": "Nueva conversación",
+  "继续对话": "Continuar conversación"
 }

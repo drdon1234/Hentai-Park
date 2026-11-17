@@ -342,7 +342,7 @@ class _ReverseSearchPageState extends State<ReverseSearchPage> {
     return TranslationPage(
       child: Scaffold(
         appBar: AppBar(
-          title: Text(tr('图片反搜')),
+          title: Text(tr('搜图')),
           actions: [
             IconButton(
               tooltip: tr('反搜历史'),

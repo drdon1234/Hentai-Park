@@ -16,14 +16,13 @@ class _TavernSettingsPageState extends State<TavernSettingsPage> {
   final _url = TextEditingController();
   final _model = TextEditingController();
   final _key = TextEditingController();
+  final _systemPrompt = TextEditingController();
   final _temperature = TextEditingController();
   final _tokens = TextEditingController();
   final _context = TextEditingController();
   bool _loading = true;
   bool _loadFailed = false;
   bool _saving = false;
-  bool _clear = false;
-  bool _hasKey = false;
   bool _fetchingModels = false;
 
   @override
@@ -44,10 +43,10 @@ class _TavernSettingsPageState extends State<TavernSettingsPage> {
       final config = TavernApiSettings.instance.config;
       _url.text = config.baseUrl;
       _model.text = config.model;
+      _systemPrompt.text = config.effectiveSystemPrompt;
       _temperature.text = config.temperature.toString();
       _tokens.text = config.maxTokens.toString();
       _context.text = config.contextTokens.toString();
-      _hasKey = config.secretRef.isNotEmpty;
     } catch (_) {
       _loadFailed = true;
     } finally {
@@ -72,11 +71,9 @@ class _TavernSettingsPageState extends State<TavernSettingsPage> {
         maxTokens: tokens,
         contextTokens: contextTokens,
         newKey: _key.text,
-        clearKey: _clear,
+        systemPrompt: _systemPrompt.text,
       );
       _key.clear();
-      _clear = false;
-      _hasKey = TavernApiSettings.instance.config.secretRef.isNotEmpty;
       if (mounted) context.toast(tr('已保存'));
     } on FormatException catch (error) {
       if (mounted) context.toast(tr(error.message));
@@ -151,6 +148,7 @@ class _TavernSettingsPageState extends State<TavernSettingsPage> {
       _url,
       _model,
       _key,
+      _systemPrompt,
       _temperature,
       _tokens,
       _context,
@@ -206,48 +204,30 @@ class _TavernSettingsPageState extends State<TavernSettingsPage> {
                             controller: _key,
                             decoration: const InputDecoration(
                               labelText: 'API Key',
+                              hintText: 'sk-xxxx',
                             ),
                           ),
-                          if (_hasKey)
-                            CheckboxListTile(
-                              value: _clear,
-                              contentPadding: EdgeInsets.zero,
-                              title: Text(tr('清除已保存的密钥')),
-                              onChanged: (value) =>
-                                  setState(() => _clear = value == true),
-                            ),
                           const SizedBox(height: Gap.l),
-                          Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Expanded(
-                                child: TextField(
-                                  controller: _model,
-                                  decoration: InputDecoration(
-                                    labelText: tr('模型名称'),
-                                  ),
-                                ),
+                          TextField(
+                            controller: _model,
+                            decoration: InputDecoration(
+                              labelText: tr('模型名称'),
+                              suffixIcon: IconButton(
+                                tooltip: tr('获取模型'),
+                                onPressed: _fetchingModels
+                                    ? null
+                                    : _fetchModels,
+                                icon: _fetchingModels
+                                    ? const SizedBox(
+                                        width: 18,
+                                        height: 18,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                        ),
+                                      )
+                                    : const Icon(Icons.list_alt_rounded),
                               ),
-                              const SizedBox(width: Gap.s),
-                              Padding(
-                                padding: const EdgeInsets.only(top: 8),
-                                child: IconButton.filledTonal(
-                                  tooltip: tr('获取模型'),
-                                  onPressed: _fetchingModels
-                                      ? null
-                                      : _fetchModels,
-                                  icon: _fetchingModels
-                                      ? const SizedBox(
-                                          width: 18,
-                                          height: 18,
-                                          child: CircularProgressIndicator(
-                                            strokeWidth: 2,
-                                          ),
-                                        )
-                                      : const Icon(Icons.download_rounded),
-                                ),
-                              ),
-                            ],
+                            ),
                           ),
                           const SizedBox(height: Gap.l),
                         ],
@@ -263,6 +243,15 @@ class _TavernSettingsPageState extends State<TavernSettingsPage> {
                       padding: const EdgeInsets.all(Gap.page),
                       child: Column(
                         children: [
+                          TextField(
+                            controller: _systemPrompt,
+                            minLines: 3,
+                            maxLines: 6,
+                            decoration: InputDecoration(
+                              labelText: tr('系统 Prompt'),
+                            ),
+                          ),
+                          const SizedBox(height: Gap.l),
                           TextField(
                             controller: _temperature,
                             keyboardType: const TextInputType.numberWithOptions(

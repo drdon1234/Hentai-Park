@@ -202,15 +202,13 @@ class _HomePageState extends State<HomePage> {
         MediaQuery.sizeOf(context).width -
         MediaQuery.paddingOf(context).horizontal -
         Gap.page * 2;
-    final toolsWidth =
-        measure(tr('排行'), context.text.labelMedium).width +
-        measure(tr('反搜'), context.text.labelMedium).width +
-        2 * (18 + Gap.s + Gap.s * 2) +
-        48 +
-        Gap.xs * 2;
+    double buttonWidth(String label) =>
+        (measure(label, context.text.labelMedium).width + 18 + Gap.xs + Gap.m)
+            .clamp(48.0, double.infinity);
+    final toolsWidth = buttonWidth(tr('排行')) + buttonWidth(tr('搜图')) + 48;
     final stacked =
         !PlatformCapabilities.desktop &&
-        logoSize.width + Gap.m + toolsWidth > available;
+        logoSize.width + Gap.xs + toolsWidth > available;
     final logo = Semantics(
       button: true,
       label: tr('返回主页'),
@@ -227,22 +225,39 @@ class _HomePageState extends State<HomePage> {
         ),
       ),
     );
+    Widget action(IconData icon, String label, VoidCallback onPressed) =>
+        TextButton(
+          style: TextButton.styleFrom(
+            foregroundColor: context.colors.onSurfaceVariant,
+            textStyle: context.text.labelMedium,
+            minimumSize: const Size(48, 48),
+            padding: const EdgeInsets.symmetric(horizontal: Gap.m / 2),
+          ),
+          onPressed: onPressed,
+          child: SelectionContainer.disabled(
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(icon, size: 18),
+                const SizedBox(width: Gap.xs),
+                Text(label),
+              ],
+            ),
+          ),
+        );
     final tools = Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        ToolbarButton.icon(
-          onPressed: () =>
-              Nav.push(context, RankingsPage(category: selected.category)),
-          icon: const Icon(Icons.leaderboard_outlined),
-          label: Text(tr('排行')),
+        action(
+          Icons.leaderboard_outlined,
+          tr('排行'),
+          () => Nav.push(context, RankingsPage(category: selected.category)),
         ),
-        const SizedBox(width: Gap.xs),
-        ToolbarButton.icon(
-          onPressed: () => Nav.push(context, const ReverseSearchPage()),
-          icon: const Icon(Icons.image_search_outlined),
-          label: Text(tr('反搜')),
+        action(
+          Icons.image_search_outlined,
+          tr('搜图'),
+          () => Nav.push(context, const ReverseSearchPage()),
         ),
-        const SizedBox(width: Gap.xs),
         PopupMenuButton<int>(
           tooltip: tr('更多'),
           popUpAnimationStyle: Motion.menu(context),
