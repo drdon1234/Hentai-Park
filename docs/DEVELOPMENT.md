@@ -302,7 +302,7 @@ GitHub Release 正文就是应用内“发现软件新版本”对话框里的�
 - web-release.yml：独立 Web Docker 发布入口，仅允许在默认分支手动触发；版本来自 clients/web/package.json，不依赖 Android pubspec.yaml 版本。启用 publish 后推送 Web 镜像版本标签和 latest 标签。
 - windows-ci.yml / windows-release.yml：独立 Windows（WinUI 3）检查与发布入口；普通提交与 PR 不自动触发。在默认分支手动运行 `windows-release.yml` 时，`publish` 默认 `false`（仅构建便携包与安装包产物）；勾选 `publish` 后将已签名或明确标注 `unsigned` 的 Windows 安装包、便携包及 `.sha256` 上传至与 `pubspec.yaml` 对应的 `vX.Y.Z` GitHub Release。
 
-Android 与 iOS 的版本标签必须与 pubspec.yaml 一致；Web 版本由 clients/web/package.json 管理，当前初始版本为 0.0.1。没有更新对应平台版本时不要重用已有发布标签。原生 Release 正文只含中文和 English 两节，遵守 DEVELOPMENT.md 既有格式。
+Android 与 iOS 的版本标签必须与 pubspec.yaml 一致；Web 版本由 clients/web/package.json 管理。没有更新对应平台版本时不要重用已有发布标签。原生 Release 正文只含中文和 English 两节，遵守 DEVELOPMENT.md 既有格式。
 
 ### Secrets 与外部设置
 
