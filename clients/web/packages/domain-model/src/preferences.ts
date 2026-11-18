@@ -3,6 +3,7 @@ import {blockPresets} from './block-presets.js';
 import {domainOrder, languages, sourceProtocol} from './public-contract.js';
 /** Shared defaults and validation for editable Web preferences. */
 export const preferenceDefinitions = {
+  rememberedFilters: {default: {}},
   seedColor:{default:0xFFC96442,min:0,max:0xffffffff},gridColumns:{default:0,choices:[0,2,3,4]},albumColumns:{default:3,choices:[1,2,3,4,5,6]},albumCollapsed:{default:false},
   homeDimension:{default:'all',choices:['all','twoD','threeD','2d','3d']},homeMedia:{default:'all',choices:['all','image','video','voice','other']},
   domainOrder:{default:[] as string[]},homeCategories:{default:[] as string[]},homeExpandedDomains:{default:[] as string[]},
@@ -44,6 +45,13 @@ const integers=new Set(['seedColor','readerTapLayout','cacheLimitMb','pdfPagesPe
 export function validatePreferences(values:Record<string,unknown>):void {
   for(const [key,value] of Object.entries(values)) {
     const definition=preferenceDefinitions[key as PreferenceKey];if(!definition)continue;
+    if (key === 'rememberedFilters') {
+      if (!value || typeof value !== 'object' || Array.isArray(value) ||
+          Object.entries(value).some(([scope, preset]) => !scope.startsWith('[') || typeof preset !== 'string' || preset.length > 65536)) {
+        throw new Error('Invalid preference: ' + key);
+      }
+      continue;
+    }
     if(Array.isArray(definition.default)){if(!Array.isArray(value)||value.length>1000||value.some(v=>typeof v!=='string'||!v.trim()||v.length>1024)||new Set(value).size!==value.length)throw new Error('Invalid preference: '+key);const allowed=key==='translateTargets'?Object.values(languages).map(item=>item.translationId):['domainOrder','homeCategories','homeExpandedDomains'].includes(key)?domainOrder:undefined;if(allowed&&(value as string[]).some(v=>!allowed.includes(v as never)))throw new Error('Invalid preference: '+key);continue;}
     if(key==='blockedTagAliases'||key==='blockPresets'||key==='blockedAuthorWorks'){
       const fail=()=>{throw new Error('Invalid preference: '+key);};const list=(v:unknown)=>{if(!Array.isArray(v)||v.length>1000||v.some(x=>typeof x!=='string'||!x.trim()||x.length>256))fail();};

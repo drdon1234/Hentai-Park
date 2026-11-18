@@ -45,6 +45,7 @@
       const image = row.querySelector('.game_thumb img');
       return {id, title, url: detailUrl(id), subtitle: (row.querySelector('.game_text')?.textContent || '').trim(),
         cover: imageUrl(image?.getAttribute('data-lazy_src') || image?.getAttribute('src')),
+        category: (row.querySelector('.game_genre')?.textContent || '').trim(),
         authors: [(row.querySelector('.game_author')?.textContent || '').trim()].filter(Boolean),
         mediaKind: 'game', contentDomain: 'onlineGame'};
     }).filter(Boolean);
@@ -61,7 +62,7 @@
     return {items: rows, page, hasNext: next};
   }
   Park.register({
-    key: 'itchio', name: 'itch.io', version: '0.0.3', minAppVersion: '0.13.2',
+    key: 'itchio', name: 'itch.io', version: '0.0.4', minAppVersion: '0.13.2',
     type: 'game', category: 'onlineGame', color: '#FA5C5C',
     description: '独立网页游戏，支持语言和标签浏览', homepage: BASE, language: 'multi',
     domains: ['itch.io'], network: {mode: 'auto', vpnHint: true, confirmation: {
@@ -80,6 +81,13 @@
     }},
     linkPatterns: ['https?://([a-z0-9-]+\\.itch\\.io/[a-z0-9-]+)'],
     defaultFeed: 'popular', feeds: [{key: 'popular', label: '热门', options}],
+    searchFilters: [
+      {key: 'author', label: '作者', type: 'text', default: ''},
+      {key: 'genre', label: '类型', default: '', values: [
+        {value: '', label: '全部'},
+        ...['Action','Adventure','Card Game','Educational','Fighting','Interactive Fiction','Platformer','Puzzle','Rhythm','Role Playing','Racing','Shooter','Simulation','Sports','Strategy','Survival','Visual Novel'].map(value => ({value, label: value})),
+      ]},
+    ],
     searchHint: '原站搜索可能包含非成人网页作品',
     i18n: {
       'zh-Hant': {'独立网页游戏，支持语言和标签浏览': '獨立網頁遊戲，支援語言和標籤瀏覽', '原站搜索可能包含非成人网页作品': '原站搜尋可能包含非成人網頁作品'},
@@ -114,7 +122,7 @@
       if (page > 1) url.searchParams.set('page', page);
       return results(await this.document(url.href), page);
     },
-    async search({keyword, page = 1} = {}) {
+    async search({keyword, page = 1, filters = {}} = {}) {
       page = pageOf(page);
       const q = String(keyword || '').trim();
       if (!q || q.length > 200) throw Park.error('CONFIG', '访问受限');
@@ -122,7 +130,15 @@
       url.searchParams.set('q', q);
       url.searchParams.set('facets', 'p.web');
       if (page > 1) url.searchParams.set('page', page);
-      return results(await this.document(url.href), page);
+      const doc = await this.document(url.href);
+      if (!doc.querySelector('.search_page, .search_results_page, .results_column')) throw fail();
+      const result = results(doc, page);
+      const author = String(filters.author || '').trim().toLowerCase();
+      result.items = result.items.filter(work =>
+        (!author || work.authors.some(name => name.toLowerCase().includes(author))) &&
+        (!filters.genre || work.category === filters.genre));
+
+      return result;
     },
     async resolveLink(value) {
       const id = idFromUrl('https://' + String(value || ''));

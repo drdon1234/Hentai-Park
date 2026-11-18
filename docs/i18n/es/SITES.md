@@ -10,6 +10,8 @@ La lectura, reproducción, comentarios, suscripciones y descargas dependen de ca
 
 La comprobación de actualizaciones pide confirmación para eliminar plugins oficiales retirados, sus ajustes, sesiones y archivos guardados. Se conserva el contenido descargado y no se afectan los plugins personales.
 
+Activa **Recordar filtros** y aplica la selección para recuperarla al volver a la misma búsqueda de sitio o sección. El intervalo incluye ambos días y solo muestra obras con fecha reconocible. itch.io permite filtrar por autor y género. KUN Galgame permite filtrar por plataforma e idioma del recurso. Arrastra el control de puntuación mínima de E-Hentai entre 0 y 5 estrellas. El valor se actualiza con dos decimales.
+
 ## Sitios compatibles
 
 | Categoría | Sitios / servicios |

@@ -1,4 +1,5 @@
 using System.Runtime.InteropServices.WindowsRuntime;
+using System.Text.Json.Nodes;
 using Microsoft.UI.Text;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
@@ -241,6 +242,12 @@ public static class DiscoverAndSearchViews
         var currentPage = 1;
         string? currentCursor = null;
 
+        string FilterScope() => new JsonArray(sourceKey, string.IsNullOrEmpty(currentKeyword) ? currentFeed : null).ToJsonString();
+        var settings = AppSettings.Instance;
+        var preset = settings.RememberedFilters(FilterScope()) ?? new JsonObject();
+        int requestGeneration = 0;
+        bool pageLoading = false;
+
         var searchBox = new AutoSuggestBox
         {
             Text = currentKeyword,
@@ -274,8 +281,18 @@ public static class DiscoverAndSearchViews
 
         void RenderItems()
         {
-            var visible = cachedItems.Where(w => !AppHost.Instance.CurrentBlockEngine.IsBlocked(w)).ToList();
-            if (visible.Count == 0)
+            var from = preset["start"]?.ToString();
+            var to = preset["end"]?.ToString();
+            bool MatchesDate(WorkItem work)
+            {
+                if (from is null && to is null) return true;
+                if (!DateTimeOffset.TryParse(work.Uploaded, out var date)) return false;
+                var day = date.LocalDateTime.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture);
+                return (from is null || string.CompareOrdinal(day, from) >= 0) &&
+                       (to is null || string.CompareOrdinal(day, to) <= 0);
+            }
+            var visible = cachedItems.Where(w => MatchesDate(w) && !AppHost.Instance.CurrentBlockEngine.IsBlocked(w)).ToList();
+            if (visible.Count == 0 && !hasNextPage)
             {
                 resultsScroll.Content = ParkKit.EmptyState("\uE721", L.Tr("没有结果"), rec.Manifest.Name);
                 return;
@@ -307,6 +324,9 @@ public static class DiscoverAndSearchViews
 
         async Task LoadPageAsync(bool append)
         {
+            if (append && pageLoading) return;
+            pageLoading = true;
+            var generation = ++requestGeneration;
             if (!append)
             {
                 currentPage = 1;
@@ -322,8 +342,9 @@ public static class DiscoverAndSearchViews
             try
             {
                 var page = !string.IsNullOrWhiteSpace(currentKeyword)
-                    ? await AppHost.Instance.Sources.SearchSourceAsync(sourceKey, currentKeyword, currentPage, currentCursor)
-                    : await AppHost.Instance.Sources.FetchFeedAsync(sourceKey, currentFeed, currentPage, currentCursor);
+                    ? await AppHost.Instance.Sources.SearchSourceAsync(sourceKey, currentKeyword, currentPage, currentCursor, preset["filters"] as JsonObject)
+                    : await AppHost.Instance.Sources.FetchFeedAsync(sourceKey, currentFeed, currentPage, currentCursor, preset["filters"] as JsonObject);
+                if (generation != requestGeneration) return;
 
                 currentCursor = page.Cursor;
                 hasNextPage = page.HasNext;
@@ -334,19 +355,118 @@ public static class DiscoverAndSearchViews
             catch (SourceError se)
             {
                 var translated = L.TranslatePlugin(rec.Manifest.I18n, se.RawMessage, se.Params);
+                if (generation != requestGeneration) return;
                 var retryBtn = ParkKit.PrimaryButton(L.Tr("重试"), "\uE72C", () => _ = LoadPageAsync(append: false));
                 resultsScroll.Content = ParkKit.EmptyState("\uE783", translated, rec.Manifest.VpnHint ? "VPN / Proxy" : se.Code, retryBtn);
             }
             catch (Exception ex)
             {
+                if (generation != requestGeneration) return;
                 var retryBtn = ParkKit.PrimaryButton(L.Tr("重试"), "\uE72C", () => _ = LoadPageAsync(append: false));
                 resultsScroll.Content = ParkKit.EmptyState("\uE783", ex.Message, rec.Manifest.Name, retryBtn);
             }
+            finally
+            {
+                if (generation == requestGeneration) pageLoading = false;
+            }
+        }
+
+        async Task EditFiltersAsync()
+        {
+            var scope = FilterScope();
+            var filters = preset["filters"]?.DeepClone() as JsonObject ?? new JsonObject();
+            var fields = new StackPanel { Spacing = 8 };
+            var definitions = string.IsNullOrEmpty(currentKeyword)
+                ? rec.Manifest.Feeds.FirstOrDefault(f => f.Key == currentFeed)?.Options
+                : rec.Manifest.SearchFilters;
+            foreach (var option in definitions ?? [])
+            {
+                if (option.Dynamic || option.DependsOn?.Count > 0) continue;
+                var label = L.TranslatePlugin(rec.Manifest.I18n, option.Label);
+                if (option.Type == "select" && option.Values.Count > 0)
+                {
+                    var combo = new ComboBox { Header = label, HorizontalAlignment = HorizontalAlignment.Stretch };
+                    foreach (var choice in option.Values)
+                        combo.Items.Add(new ComboBoxItem { Content = L.TranslatePlugin(rec.Manifest.I18n, choice.Label), Tag = choice.Value });
+                    combo.SelectedItem = combo.Items.Cast<ComboBoxItem>().FirstOrDefault(item =>
+                        (string)item.Tag == (filters[option.Key]?.ToString() ?? option.DefaultValue));
+                    combo.SelectionChanged += (_, _) => { if (combo.SelectedItem is ComboBoxItem selected) filters[option.Key] = (string)selected.Tag; };
+                    fields.Children.Add(combo);
+                }
+                else if (option.Type == "number" && option.Minimum is double min && option.Maximum is double max && max > min && option.Step > 0)
+                {
+                    var culture = System.Globalization.CultureInfo.InvariantCulture;
+                    var slider = new Slider { Minimum = min, Maximum = max, StepFrequency = option.Step, SmallChange = option.Step };
+                    slider.Value = double.TryParse(filters[option.Key]?.ToString() ?? option.DefaultValue, culture, out var initial)
+                        ? Math.Clamp(initial, min, max) : min;
+                    var digits = option.Step.ToString(culture).Split('.').ElementAtOrDefault(1)?.Length ?? 0;
+                    var heading = new Grid();
+                    heading.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+                    heading.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+                    heading.Children.Add(new TextBlock { Text = label });
+                    var number = new TextBlock { Text = slider.Value.ToString($"F{digits}") };
+                    Grid.SetColumn(number, 1);
+                    heading.Children.Add(number);
+                    Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(slider, label);
+                    slider.ValueChanged += (_, args) => {
+                        number.Text = args.NewValue.ToString($"F{digits}");
+                        filters[option.Key] = Math.Round(args.NewValue, digits);
+                    };
+                    fields.Children.Add(heading);
+                    fields.Children.Add(slider);
+                }
+                else if (option.Type == "number")
+                {
+                    var input = new NumberBox { Header = label, Minimum = option.Minimum ?? 0,
+                        Maximum = option.Maximum ?? double.MaxValue, SmallChange = 1,
+                        SpinButtonPlacementMode = NumberBoxSpinButtonPlacementMode.Compact };
+                    if (double.TryParse(filters[option.Key]?.ToString() ?? option.DefaultValue,
+                        System.Globalization.CultureInfo.InvariantCulture, out var initial) && initial != 0) input.Value = initial;
+                    input.ValueChanged += (_, args) => {
+                        if (double.IsNaN(args.NewValue)) filters.Remove(option.Key);
+                        else filters[option.Key] = Math.Truncate(args.NewValue);
+                    };
+                    fields.Children.Add(input);
+                }
+                else if (option.Type == "text")
+                {
+                    var input = new TextBox { Header = label, Text = filters[option.Key]?.ToString() ?? option.DefaultValue };
+                    input.TextChanged += (_, _) => filters[option.Key] = input.Text;
+                    fields.Children.Add(input);
+                }
+            }
+            CalendarDatePicker DateField(string key, string label)
+            {
+                var picker = new CalendarDatePicker { Header = L.Tr(label) };
+                if (DateTimeOffset.TryParse(preset[key]?.ToString(), out var date)) picker.Date = date;
+                fields.Children.Add(picker);
+                return picker;
+            }
+            var from = DateField("start", "起始日期");
+            var to = DateField("end", "结束日期");
+            fields.Children.Add(ParkKit.TonalButton(L.Tr("清除日期"), onClick: () => { from.Date = null; to.Date = null; }));
+            var remember = new CheckBox { Content = L.Tr("记住筛选项"), IsChecked = settings.RememberedFilters(scope) is not null };
+            fields.Children.Add(remember);
+            var dialog = new ContentDialog {
+                Title = L.Tr("筛选"), XamlRoot = pageGrid.XamlRoot,
+                Content = new ScrollViewer { Content = fields },
+                PrimaryButtonText = L.Tr("应用筛选"), CloseButtonText = L.Tr("取消")
+            };
+            void Validate() => dialog.IsPrimaryButtonEnabled = from.Date is null || to.Date is null || from.Date <= to.Date;
+            from.DateChanged += (_, _) => Validate();
+            to.DateChanged += (_, _) => Validate();
+            if (await dialog.ShowAsync() != ContentDialogResult.Primary || scope != FilterScope()) return;
+            preset = new JsonObject { ["filters"] = filters, ["common"] = new JsonObject() };
+            if (from.Date is { } start) preset["start"] = start.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture);
+            if (to.Date is { } end) preset["end"] = end.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture);
+            settings.RememberFilters(scope, remember.IsChecked == true ? preset : null);
+            await LoadPageAsync(false);
         }
 
         void RebuildFeedTabs()
         {
             feedStrip.Children.Clear();
+            feedStrip.Children.Add(ParkKit.TonalButton(L.Tr("筛选"), "\uE71C", onClick: () => _ = EditFiltersAsync()));
             foreach (var f in rec.Manifest.Feeds)
             {
                 var fKey = f.Key;
@@ -359,6 +479,7 @@ public static class DiscoverAndSearchViews
                         currentKeyword = string.Empty;
                         searchBox.Text = string.Empty;
                         currentFeed = fKey;
+                        preset = settings.RememberedFilters(FilterScope()) ?? new JsonObject();
                         RebuildFeedTabs();
                         _ = LoadPageAsync(append: false);
                     }));
@@ -373,7 +494,9 @@ public static class DiscoverAndSearchViews
 
         searchBox.QuerySubmitted += (sender, e) =>
         {
+            var previousScope = FilterScope();
             currentKeyword = e.QueryText?.Trim() ?? string.Empty;
+            if (FilterScope() != previousScope) preset = settings.RememberedFilters(FilterScope()) ?? new JsonObject();
             RebuildFeedTabs();
             _ = LoadPageAsync(append: false);
         };

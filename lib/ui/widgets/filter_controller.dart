@@ -247,7 +247,11 @@ class FilterController extends ChangeNotifier {
       );
     }
     if (option.type == 'switch') return value is bool;
-    if (option.type == 'text' || option.type == 'number') return true;
+    if (option.type == 'number') {
+      final number = value is num ? value : num.tryParse(value.toString());
+      return number != null && option.acceptsNumber(number);
+    }
+    if (option.type == 'text') return value is String;
     return choices.any((choice) => choice.value == value);
   }
 

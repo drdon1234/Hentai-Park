@@ -66,14 +66,54 @@ class _SourceSearchPageState extends State<SourceSearchPage> {
   late final SourceManifest _m = _sources.manifest(widget.sourceKey)!;
   late final _text = TextEditingController(text: widget.initialKeyword);
   final _focus = FocusNode();
+  late final _preset =
+      widget.initialFilters == null &&
+          widget.initialCommon == null &&
+          widget.initialPage == null
+      ? AppSettings.instance.rememberedFilters(widget.sourceKey, null)
+      : <String, dynamic>{};
   late Map<String, Object?> _filters = {
     ..._m.defaultFilters(),
     ...?widget.initialFilters,
   };
   late Map<String, Object?> _commonFilters = Map<String, Object?>.from(
-    widget.initialCommon ?? const {},
+    widget.initialCommon ?? _preset['common'] as Map? ?? const {},
   );
   late String _filterKeyword = widget.initialKeyword.trim();
+  Future<void>? _restoring;
+  FilterController? _restoreController;
+  Future<void> _restoreOptions() async {
+    final saved = Map<String, Object?>.from(_preset['filters'] as Map? ?? {});
+    if (saved.isEmpty) return;
+    final keyword = _text.text.trim();
+    final controller = _restoreController = FilterController(
+      definitions: _m.searchFilters,
+      source: widget.sourceKey,
+      scope: 'search',
+      keyword: keyword,
+      loader: (filter, values, token) => _sources.filterOptions(
+        widget.sourceKey,
+        scope: 'search',
+        keyword: keyword,
+        filter: filter,
+        values: values,
+        cancelToken: token,
+      ),
+    );
+    try {
+      await controller.initialize(initialValues: saved);
+      if (!mounted) return;
+      setState(() => _filters = controller.values);
+      _filterKeyword = keyword;
+      _syncFilterKeyword(_text.text.trim());
+    } finally {
+      if (identical(controller, _restoreController)) {
+        controller.dispose();
+        _restoreController = null;
+      }
+    }
+  }
+
   late final PagedController _controller = PagedController(
     _load,
     source: widget.sourceKey,
@@ -124,6 +164,8 @@ class _SourceSearchPageState extends State<SourceSearchPage> {
     _focus.addListener(() {
       if (!_focus.hasFocus) _suggestions.clear();
     });
+    if (_preset.isNotEmpty) _restoring = _restoreOptions();
+    _controller.dateRange = FilterSheet.savedRange(_preset);
     _controller.showBlocked = widget.initialShowBlocked;
     _controller.hidePreviews = widget.initialHidePreviews;
     _initialPage = widget.initialPage;
@@ -143,6 +185,8 @@ class _SourceSearchPageState extends State<SourceSearchPage> {
 
   @override
   void dispose() {
+    _restoreController?.dispose();
+    _restoreController = null;
     _sources.removeListener(_configurationChanged);
     _suggestions.dispose();
     _controller.dispose();
@@ -223,7 +267,13 @@ class _SourceSearchPageState extends State<SourceSearchPage> {
     );
   }
 
-  void _search({bool keepMulti = false}) {
+  Future<void> _search({bool keepMulti = false}) async {
+    if (_restoring case final pending?) {
+      final keyword = _text.text;
+      await pending;
+      if (!mounted || _text.text != keyword) return;
+      _restoring = null;
+    }
     _suggestions.clear();
     final k = _text.text.trim();
     _syncFilterKeyword(k);
@@ -233,7 +283,7 @@ class _SourceSearchPageState extends State<SourceSearchPage> {
         .toList();
     if (refs.length == 1 && !keepMulti) {
       FocusScope.of(context).unfocus();
-      Nav.openRef(
+      await Nav.openRef(
         context,
         refs.single.source,
         refs.single.id,
@@ -271,7 +321,7 @@ class _SourceSearchPageState extends State<SourceSearchPage> {
             sourceManager: _sources,
           );
     setState(() => _started = true);
-    _controller.refresh();
+    await _controller.refresh();
   }
 
   /// Translates the keyword into the configured languages and searches all of them at once.
@@ -291,7 +341,7 @@ class _SourceSearchPageState extends State<SourceSearchPage> {
     );
     if (!mounted || multi == null) return;
     _multi = multi;
-    _search(keepMulti: true);
+    await _search(keepMulti: true);
   }
 
   int get _activeFilters {
@@ -301,10 +351,14 @@ class _SourceSearchPageState extends State<SourceSearchPage> {
       if (e.value is List && d is List) return !listEquals(e.value as List, d);
       return e.value != d && !(e.value == null && d == null);
     }).length;
-    return native + _commonFilters.length;
+    return native +
+        _commonFilters.length +
+        (_controller.dateRange == null ? 0 : 1);
   }
 
   Future<void> _openFilters() async {
+    if (_restoring case final pending?) await pending;
+    if (!mounted) return;
     final keyword = _text.text.trim();
     _syncFilterKeyword(keyword);
     final result = await showAdaptiveSheet<FilterSheetResult>(
@@ -314,16 +368,18 @@ class _SourceSearchPageState extends State<SourceSearchPage> {
         manifest: _m,
         values: _filters,
         commonValues: _commonFilters,
+        dateRange: _controller.dateRange,
         sourceManager: _sources,
         keyword: keyword,
       ),
     );
     if (mounted && result != null && _text.text.trim() == keyword) {
       setState(() {
+        _controller.dateRange = result.dateRange;
         _filters = result.filters;
         _commonFilters = result.common;
       });
-      _search(keepMulti: true);
+      await _search(keepMulti: true);
     }
   }
 
@@ -355,26 +411,29 @@ class _SourceSearchPageState extends State<SourceSearchPage> {
               hint: tr('在 {source} 中搜索', {'source': _m.name}),
               onSubmitted: (_) => _search(),
               trailing: [
+                ValueListenableBuilder<TextEditingValue>(
+                  valueListenable: _text,
+                  builder: (context, value, _) => value.text.isEmpty
+                      ? const SizedBox.shrink()
+                      : IconButton(
+                          icon: const Icon(Icons.close_rounded),
+                          tooltip: tr('清空'),
+                          onPressed: _text.clear,
+                        ),
+                ),
                 IconButton(
-                  icon: const Icon(Icons.close_rounded),
-                  tooltip: tr('清空'),
-                  onPressed: _text.clear,
+                  tooltip: tr('多语言搜索'),
+                  onPressed: _translating ? null : _searchMulti,
+                  icon: _translating
+                      ? const SizedBox.square(
+                          dimension: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.g_translate_rounded),
                 ),
               ],
             ),
-            actions: [
-              const TranslationControls(),
-              IconButton(
-                tooltip: tr('多语言搜索'),
-                onPressed: _translating ? null : _searchMulti,
-                icon: _translating
-                    ? const SizedBox.square(
-                        dimension: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Icon(Icons.g_translate_rounded),
-              ),
-            ],
+            actions: const [TranslationControls()],
           ),
           body: Column(
             children: [
@@ -432,17 +491,15 @@ class _SourceSearchPageState extends State<SourceSearchPage> {
                             () => _controller.setVisibility(previews: v),
                           ),
                         ),
-                        if (_m.searchFilters.isNotEmpty ||
-                            _m.searchCommonFilters.isNotEmpty)
-                          Badge(
-                            isLabelVisible: _activeFilters > 0,
-                            label: Text('$_activeFilters'),
-                            child: IconButton(
-                              tooltip: tr('筛选'),
-                              onPressed: _openFilters,
-                              icon: const Icon(Icons.filter_alt_outlined),
-                            ),
+                        Badge(
+                          isLabelVisible: _activeFilters > 0,
+                          label: Text('$_activeFilters'),
+                          child: IconButton(
+                            tooltip: tr('筛选'),
+                            onPressed: _openFilters,
+                            icon: const Icon(Icons.filter_alt_outlined),
                           ),
+                        ),
                       ],
                     ),
                     if (_started &&
@@ -553,6 +610,7 @@ class _SourceSearchPageState extends State<SourceSearchPage> {
                                     manifest: _m,
                                     values: _filters,
                                     commonValues: _commonFilters,
+                                    dateRange: _controller.dateRange,
                                     onTap: _openFilters,
                                   ),
                                 ),
@@ -645,12 +703,14 @@ class _ActiveFilters extends StatelessWidget {
     required this.manifest,
     required this.values,
     this.commonValues = const {},
+    this.dateRange,
     required this.onTap,
   });
   final SourceManifest manifest;
   final Map<String, Object?> values;
   final Map<String, Object?> commonValues;
   final VoidCallback onTap;
+  final DateTimeRange? dateRange;
 
   @override
   Widget build(BuildContext context) {
@@ -673,6 +733,12 @@ class _ActiveFilters extends StatelessWidget {
           (e.value as List).isNotEmpty) {
         chips.add(tr('标签：{tags}', {'tags': (e.value as List).join(tr('、'))}));
       }
+    }
+    if (dateRange case final range?) {
+      final dates = MaterialLocalizations.of(context);
+      chips.add(
+        '${dates.formatCompactDate(range.start)} – ${dates.formatCompactDate(range.end)}',
+      );
     }
     if (commonValues.isNotEmpty) chips.add(tr('通用筛选'));
     return PageGutter(
@@ -707,7 +773,17 @@ class FilterSheet extends StatefulWidget {
     required this.sourceManager,
     required this.keyword,
     this.feed,
+    this.dateRange,
   });
+  final DateTimeRange? dateRange;
+  static DateTimeRange? savedRange(Map<String, dynamic> preset) {
+    final start = DateTime.tryParse(preset['start']?.toString() ?? '');
+    final end = DateTime.tryParse(preset['end']?.toString() ?? '');
+    return start == null || end == null || start.isAfter(end)
+        ? null
+        : DateTimeRange(start: start, end: end);
+  }
+
   final FeedDef? feed;
   List<OptionDef> get definitions => feed?.options ?? manifest.searchFilters;
   List<CommonFilterDef> get commonDefinitions => feed == null
@@ -726,7 +802,12 @@ class FilterSheet extends StatefulWidget {
 }
 
 class FilterSheetResult {
-  const FilterSheetResult({required this.filters, required this.common});
+  const FilterSheetResult({
+    required this.filters,
+    required this.common,
+    this.dateRange,
+  });
+  final DateTimeRange? dateRange;
   final Map<String, Object?> filters;
   final Map<String, Object?> common;
 }
@@ -761,6 +842,33 @@ class _FilterSheetState extends State<FilterSheet> {
     ),
   );
   late Map<String, Object?> _commonValues = widget.commonValues;
+  late DateTimeRange? _range = widget.dateRange;
+  late bool _remember = AppSettings.instance
+      .rememberedFilters(widget.manifest.key, widget.feed?.key)
+      .isNotEmpty;
+  void _apply() {
+    AppSettings.instance.rememberFilters(
+      widget.manifest.key,
+      widget.feed?.key,
+      _remember
+          ? {
+              'filters': _filters.values,
+              'common': _commonValues,
+              if (_range != null) 'start': _range!.start.toIso8601String(),
+              if (_range != null) 'end': _range!.end.toIso8601String(),
+            }
+          : null,
+    );
+    Navigator.pop(
+      context,
+      FilterSheetResult(
+        filters: _filters.values,
+        common: _commonValues,
+        dateRange: _range,
+      ),
+    );
+  }
+
   bool _commonValid = true;
   bool _feedCommonValid = true;
   bool _baseCommonValid = true;
@@ -773,6 +881,7 @@ class _FilterSheetState extends State<FilterSheet> {
     _filters.reset();
     setState(() {
       _initializing = false;
+      _range = null;
       _commonValues = const {};
       _commonValid = true;
       _feedCommonValid = true;
@@ -854,6 +963,41 @@ class _FilterSheetState extends State<FilterSheet> {
                     Gap.m,
                   ),
                   children: [
+                    ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: const Icon(Icons.date_range),
+                      title: Text(tr('日期范围')),
+                      subtitle: _range == null
+                          ? null
+                          : Text(
+                              '${MaterialLocalizations.of(context).formatCompactDate(_range!.start)} – ${MaterialLocalizations.of(context).formatCompactDate(_range!.end)}',
+                            ),
+                      trailing: _range == null
+                          ? const Icon(Icons.chevron_right_rounded)
+                          : IconButton(
+                              icon: const Icon(Icons.close),
+                              tooltip: tr('清除日期'),
+                              onPressed: () => setState(() => _range = null),
+                            ),
+                      onTap: () async {
+                        final value = await showDateRangePicker(
+                          context: context,
+                          initialEntryMode:
+                              MediaQuery.sizeOf(context).width /
+                                      MediaQuery.textScalerOf(context)
+                                          .scale(1) <
+                                  340
+                              ? DatePickerEntryMode.input
+                              : DatePickerEntryMode.calendar,
+                          firstDate: DateTime(1900),
+                          lastDate: DateTime(2100, 12, 31),
+                          initialDateRange: _range,
+                        );
+                        if (mounted && value != null) {
+                          setState(() => _range = value);
+                        }
+                      },
+                    ),
                     for (final f in widget.definitions) ...[
                       IgnorePointer(
                         ignoring: _initializing || !_filters.isEnabled(f.key),
@@ -862,7 +1006,7 @@ class _FilterSheetState extends State<FilterSheet> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              if (f.type != 'switch')
+                              if (f.type != 'switch' && !f.hasSlider)
                                 Padding(
                                   padding: const EdgeInsets.only(
                                     top: 14,
@@ -875,7 +1019,14 @@ class _FilterSheetState extends State<FilterSheet> {
                                     ),
                                   ),
                                 ),
-                              if (f.type == 'number')
+                              if (f.hasSlider)
+                                _BoundedNumberFilter(
+                                  key: ValueKey((_commonRevision, f.key)),
+                                  option: f,
+                                  value: _filters.values[f.key],
+                                  onChanged: (v) => _change(f.key, v),
+                                )
+                              else if (f.type == 'number')
                                 TextFormField(
                                   key: ValueKey((_commonRevision, f.key)),
                                   initialValue:
@@ -909,19 +1060,21 @@ class _FilterSheetState extends State<FilterSheet> {
                                   onChanged: (value) => _change(f.key, value),
                                 )
                               else ...[
-                                TextField(
-                                  key: ValueKey(('choice-search', f.key)),
-                                  decoration: InputDecoration(
-                                    prefixIcon: const Icon(
-                                      Icons.search_rounded,
+                                if (_filters.choicesFor(f.key).length > 8) ...[
+                                  TextField(
+                                    key: ValueKey(('choice-search', f.key)),
+                                    decoration: InputDecoration(
+                                      prefixIcon: const Icon(
+                                        Icons.search_rounded,
+                                      ),
+                                      hintText: tr('搜索'),
                                     ),
-                                    hintText: tr('搜索'),
+                                    onChanged: (value) => setState(
+                                      () => _choiceQueries[f.key] = value,
+                                    ),
                                   ),
-                                  onChanged: (value) => setState(
-                                    () => _choiceQueries[f.key] = value,
-                                  ),
-                                ),
-                                const SizedBox(height: Gap.s),
+                                  const SizedBox(height: Gap.s),
+                                ],
                                 Wrap(
                                   spacing: 8,
                                   runSpacing: 8,
@@ -1059,7 +1212,7 @@ class _FilterSheetState extends State<FilterSheet> {
                       ),
                       const SizedBox(height: Gap.m),
                     ],
-                    const SizedBox(height: 24),
+                    const SizedBox(height: Gap.s),
                   ],
                 ),
               ),
@@ -1072,23 +1225,43 @@ class _FilterSheetState extends State<FilterSheet> {
                     Gap.page,
                     Gap.m,
                   ),
-                  child: SizedBox(
-                    width: double.infinity,
-                    child: FilledButton(
-                      onPressed:
-                          _commonValid && !_initializing && !_filters.isLoading
-                          ? () => Navigator.pop(
-                              context,
-                              FilterSheetResult(
-                                filters: _filters.values,
-                                common: _commonValues,
-                              ),
-                            )
-                          : null,
-                      child: SelectionContainer.disabled(
-                        child: Text(tr('应用筛选')),
-                      ),
-                    ),
+                  child: LayoutBuilder(
+                    builder: (context, constraints) {
+                      final remember = CheckboxListTile(
+                        contentPadding: EdgeInsets.zero,
+                        controlAffinity: ListTileControlAffinity.leading,
+                        title: Text(tr('记住筛选项')),
+                        value: _remember,
+                        onChanged: (v) =>
+                            setState(() => _remember = v ?? false),
+                      );
+                      final apply = FilledButton(
+                        onPressed:
+                            _commonValid &&
+                                !_initializing &&
+                                !_filters.isLoading
+                            ? _apply
+                            : null,
+                        child: SelectionContainer.disabled(
+                          child: Text(tr('应用筛选')),
+                        ),
+                      );
+                      if (constraints.maxWidth <
+                          300 * MediaQuery.textScalerOf(context).scale(1)) {
+                        return Column(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [remember, apply],
+                        );
+                      }
+                      return Row(
+                        children: [
+                          Expanded(child: remember),
+                          const SizedBox(width: Gap.s),
+                          Expanded(child: apply),
+                        ],
+                      );
+                    },
                   ),
                 ),
               ),
@@ -1096,6 +1269,70 @@ class _FilterSheetState extends State<FilterSheet> {
           ),
         ),
       ),
+    );
+  }
+}
+
+class _BoundedNumberFilter extends StatefulWidget {
+  const _BoundedNumberFilter({
+    super.key,
+    required this.option,
+    required this.value,
+    required this.onChanged,
+  });
+  final OptionDef option;
+  final Object? value;
+  final ValueChanged<num> onChanged;
+
+  @override
+  State<_BoundedNumberFilter> createState() => _BoundedNumberFilterState();
+}
+
+class _BoundedNumberFilterState extends State<_BoundedNumberFilter> {
+  double? _dragging;
+  @override
+  Widget build(BuildContext context) {
+    final option = widget.option;
+    final min = option.minimum!.toDouble(), max = option.maximum!.toDouble();
+    final step = option.step.toDouble();
+    final precision =
+        option.step.toString().split('.').skip(1).firstOrNull?.length ?? 0;
+    final value =
+        (_dragging ??
+                double.tryParse(
+                  (widget.value ?? option.defaultValue).toString(),
+                ) ??
+                min)
+            .clamp(min, max);
+    return Column(
+      children: [
+        Row(
+          children: [
+            Expanded(child: Text(option.label, style: context.text.titleSmall)),
+            Text(
+              value.toStringAsFixed(precision),
+              style: context.text.titleMedium?.copyWith(
+                fontFeatures: const [FontFeature.tabularFigures()],
+              ),
+            ),
+          ],
+        ),
+        Semantics(
+          label: option.label,
+          child: Slider(
+            value: value,
+            min: min,
+            max: max,
+            divisions: ((max - min) / step).round(),
+            semanticFormatterCallback: (v) => v.toStringAsFixed(precision),
+            onChanged: (v) => setState(() => _dragging = v),
+            onChangeEnd: (v) {
+              setState(() => _dragging = null);
+              widget.onChanged(num.parse(v.toStringAsFixed(precision)));
+            },
+          ),
+        ),
+      ],
     );
   }
 }

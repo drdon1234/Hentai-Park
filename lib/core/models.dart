@@ -373,6 +373,9 @@ class OptionDef {
     required this.type,
     required this.values,
     this.defaultValue,
+    this.step = 1,
+    this.minimum,
+    this.maximum,
     this.dynamicValues = false,
     this.keywordDependent = false,
     this.dependsOn = const [],
@@ -386,6 +389,16 @@ class OptionDef {
   final String type;
   final List<Choice> values;
   final Object? defaultValue;
+  final num step;
+  bool get hasSlider =>
+      type == 'number' &&
+      minimum != null &&
+      maximum != null &&
+      maximum! > minimum! &&
+      step.isFinite &&
+      step > 0 &&
+      step <= maximum! - minimum!;
+  final num? minimum, maximum;
   final bool dynamicValues;
   final bool keywordDependent;
 
@@ -410,6 +423,9 @@ class OptionDef {
             ),
           )
           .toList(),
+      step: j['step'] is num ? j['step'] as num : 1,
+      minimum: j['min'] is num ? j['min'] as num : null,
+      maximum: j['max'] is num ? j['max'] as num : null,
       dynamicValues: j['dynamic'] == true,
       keywordDependent: j['keywordDependent'] == true,
       dependsOn: _strings(j['dependsOn']),
@@ -418,6 +434,12 @@ class OptionDef {
       copy: copy,
     );
   }
+
+  bool acceptsNumber(num value) =>
+      value.isFinite &&
+      (step < 1 || value == value.truncate()) &&
+      value >= (minimum ?? 0) &&
+      (maximum == null || value <= maximum!);
 
   String labelOf(Object? value) {
     for (final c in values) {
@@ -882,6 +904,28 @@ class WorkItem {
   final String badgeColor;
   final String duration;
   final String uploaded;
+
+  DateTime? get workDate {
+    final value = json['date'];
+    if (value == null || value.toString().trim().isEmpty) {
+      if (uploaded.isEmpty) return null;
+      return DateTime.tryParse(uploaded)?.toLocal();
+    }
+    if (value is num) {
+      if (!value.isFinite) return null;
+      final number = value.toInt();
+      final milliseconds = number > -100000000000 && number < 100000000000
+          ? number * 1000
+          : number;
+      if (milliseconds < -8640000000000000 || milliseconds > 8640000000000000) {
+        return null;
+      }
+      return DateTime.fromMillisecondsSinceEpoch(milliseconds);
+    }
+    final raw = value?.toString().trim() ?? '';
+    if (raw.isEmpty) return null;
+    return DateTime.tryParse(raw)?.toLocal();
+  }
 
   /// 源提供的作者，以及浏览时从详情补充的真实作者。
   final List<String> authors;

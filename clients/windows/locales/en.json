@@ -1,4 +1,10 @@
 {
+  "清除日期": "Clear dates",
+  "筛选": "Filter",
+  "结束日期": "end date",
+  "起始日期": "Start Date",
+  "应用筛选": "Apply filters",
+  "记住筛选项": "Remember filters",
   "全局搜索、粘贴链接或输入番号 (Ctrl+K)": "Global search, paste link, or enter code (Ctrl+K)",
   "在新标签页中打开": "Open in new tab",
   "在独立窗口中打开": "Open in new window",

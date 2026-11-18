@@ -201,6 +201,28 @@ void validateSettings(Map<String, dynamic> values) {
           stringList(value) &&
           (value as List).every(PublicContract.translationLanguages.contains);
     }
+    if (key == 'rememberedFilters') {
+      valid =
+          value is Map &&
+          value.entries.every((entry) {
+            final preset = entry.value;
+            if (entry.key is! String ||
+                preset is! Map ||
+                preset['filters'] is! Map ||
+                preset['common'] is! Map) {
+              return false;
+            }
+            final start = preset['start'], end = preset['end'];
+            if (start == null && end == null) return true;
+            final from = start is String ? DateTime.tryParse(start) : null;
+            final to = end is String ? DateTime.tryParse(end) : null;
+            return from != null &&
+                to != null &&
+                from.year >= 1900 &&
+                to.year <= 2100 &&
+                !from.isAfter(to);
+          });
+    }
     if (key == 'searchHistories') {
       valid =
           value is Map &&

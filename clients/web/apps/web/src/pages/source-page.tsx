@@ -221,6 +221,9 @@ type SourceFilterDeclaration = {
   key: string;
   label: string;
   type: string;
+  step?: number;
+  min?: number;
+  max?: number;
   dynamic?: boolean;
   dependsOn?: string[];
   keywordDependent?: boolean;
@@ -322,20 +325,56 @@ function DynamicSourceFilter({
   );
 }
 
-export function SourceSearchForm({
-  source,
-  manifest,
-  navigate,
-  browse = false,
-  onApplied,
-}: {
+export function withinWorkDates(work: ApiWork, from: string, to: string) {
+  if (!from && !to) return true;
+  const uploaded = work.uploaded ?? '';
+  const date = /^\d{4}-\d{2}-\d{2}$/.test(uploaded) ? uploaded : (() => {
+    const value = new Date(uploaded);
+    if (!Number.isFinite(value.getTime())) return '';
+    return [value.getFullYear(), String(value.getMonth()+1).padStart(2,'0'), String(value.getDate()).padStart(2,'0')].join('-');
+  })();
+  return Boolean(date && (!from || date >= from) && (!to || date <= to));
+}
+
+export function SourceSearchForm(props: SourceFormProps) {
+  const params = new URLSearchParams(window.location.search);
+  const feeds = Array.isArray(props.manifest.feeds) ? props.manifest.feeds : [];
+  const [feed, setFeed] = useState(params.get('feed') ?? String(props.manifest.defaultFeed ?? feeds[0]?.key ?? ''));
+  const prefs = usePreferences();
+  if (!prefs.ready) return null;
+  return <SourceFilterFields key={JSON.stringify([props.source, feed, params.get('filters'), params.get('q'), params.get('from'), params.get('to')])}
+    {...props} feedKey={feed} setFeedKey={setFeed} />;
+}
+
+type SourceFormProps = {
   source: string;
   manifest: Record<string, unknown>;
   navigate: (to: string) => void;
   browse?: boolean;
+  results?: boolean;
   onApplied?: () => void;
-}) {
+};
+
+function SourceFilterFields({
+  source,
+  manifest,
+  navigate,
+  browse = false,
+  results = false,
+  onApplied,
+  feedKey, setFeedKey,
+}: SourceFormProps & { feedKey: string; setFeedKey: (key: string) => void }) {
   const params = new URLSearchParams(window.location.search);
+  const prefs = usePreferences();
+  const scope = JSON.stringify([source, browse ? feedKey : null]);
+  const presets = (prefs.settings.rememberedFilters ?? {}) as Record<string,string>;
+  const routeApplies = (browse && (params.get('feed') ?? String(manifest.defaultFeed ?? '')) === feedKey) || !browse && params.get('source') === source;
+  const routeFilters = routeApplies ? params.get('filters') : null;
+  const savedParams = new URLSearchParams(presets[scope]);
+  const initial = routeApplies && (routeFilters !== null || params.has('from') || params.has('to')) ? params : savedParams;
+  const [from, setFrom] = useState(initial.get('from') ?? '');
+  const [to, setTo] = useState(initial.get('to') ?? '');
+  const [remember, setRemember] = useState(Boolean(presets[scope]));
   const feeds = Array.isArray(manifest.feeds)
     ? (manifest.feeds as Array<{
         key: string;
@@ -344,13 +383,11 @@ export function SourceSearchForm({
         commonFilters?: Record<string, { range?: true | string[]; sort?: true | string[] }>;
       }>)
     : [];
-  const [feedKey, setFeedKey] = useState(params.get('feed') ?? String(manifest.defaultFeed ?? feeds[0]?.key ?? ''));
   const selectedFeed = feeds.find((item) => item.key === feedKey);
-  const [query, setQuery] = useState('');
+  const [query, setQuery] = useState(!browse && routeApplies ? params.get('q') ?? '' : '');
   const [filters, setFilters] = useState<Record<string, unknown>>(() => {
-    if (!browse) return {};
     try {
-      const value = JSON.parse(params.get('filters') ?? '{}');
+      const value = JSON.parse(initial.get('filters') ?? '{}');
       if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
       const next = { ...value };
       delete next.common;
@@ -370,9 +407,8 @@ export function SourceSearchForm({
       ? (manifest.searchCommonFilters as Record<string, { range?: true | string[]; sort?: true | string[] }>)
       : {};
   const initialCommon = (() => {
-    if (!browse) return {};
     try {
-      return JSON.parse(params.get('filters') ?? '{}').common ?? {};
+      return JSON.parse(initial.get('filters') ?? '{}').common ?? {};
     } catch {
       return {};
     }
@@ -440,7 +476,16 @@ export function SourceSearchForm({
             },
           };
         }
-        const filterQuery = Object.keys(values).length ? '&filters=' + encodeURIComponent(JSON.stringify(values)) : '';
+        const applied = new URLSearchParams();
+        if (Object.keys(values).length) applied.set('filters', JSON.stringify(values));
+        if (from) applied.set('from', from);
+        if (to) applied.set('to', to);
+        const filterQuery = applied.size ? '&' + applied.toString() : '';
+        const next = {...presets};
+        if (remember) next[scope] = applied.toString();
+        else delete next[scope];
+        if (remember || scope in presets) void prefs.save({rememberedFilters: next});
+
         onApplied?.();
         if ((event.nativeEvent as SubmitEvent).submitter?.getAttribute('value') === 'album') {
           navigate(
@@ -467,6 +512,13 @@ export function SourceSearchForm({
           );
           return;
         }
+        if (results) {
+          const destination = new URLSearchParams(params);
+          for (const key of ['cursor', 'filters', 'from', 'to']) destination.delete(key);
+          applied.forEach((value,key) => destination.set(key,value));
+          navigate('/search?' + destination.toString());
+          return;
+        }
         navigate(
           browse
             ? '/source/' + encodeURIComponent(source) + '?feed=' + encodeURIComponent(feedKey) + filterQuery
@@ -487,14 +539,7 @@ export function SourceSearchForm({
           <select
             aria-label={t('站点目录')}
             value={feedKey}
-            onChange={(event) => {
-              setFeedKey(event.target.value);
-              setFilters({});
-              setDimension('');
-              setSort('');
-              setMinimum('');
-              setMaximum('');
-            }}
+            onChange={(event) => setFeedKey(event.target.value)}
           >
             {feeds.map((item) => (
               <option key={item.key} value={item.key}>
@@ -503,7 +548,7 @@ export function SourceSearchForm({
             ))}
           </select>
         </label>
-      ) : (
+      ) : results ? null : (
         <label>
           {t('站内关键词')}
           <input aria-label={t('站内关键词')} required value={query} onChange={(event) => setQuery(event.target.value)} />
@@ -526,6 +571,16 @@ export function SourceSearchForm({
               onChange={(next) => updateValue(item.key, next)}
             />
           );
+        }
+        if (item.type === 'number' && typeof item.min === 'number' && typeof item.max === 'number' && item.max > item.min) {
+          const step = item.step ?? 1;
+          const digits = String(step).split('.')[1]?.length ?? 0;
+          const current = Math.max(item.min, Math.min(item.max, Number(value ?? item.min)));
+          return <label key={item.key}>
+            <span className="filter-slider-label">{pluginText(manifest,item.label)}<output>{current.toFixed(digits)}</output></span>
+            <input type="range" aria-label={prefix + item.label} min={item.min} max={item.max} step={step} value={current}
+              onChange={event => updateValue(item.key, event.currentTarget.valueAsNumber)} />
+          </label>;
         }
         if (item.type === 'multi') {
           const currentArr = Array.isArray(value) ? value.map((v) => JSON.stringify(v)) : [];
@@ -565,7 +620,7 @@ export function SourceSearchForm({
         return (
           <label key={item.key}>
             {item.label}
-            {item.type === 'select' ? (
+            {item.type === 'select' || (!item.type && options.length > 0) ? (
               <select
                 aria-label={prefix + item.label}
                 value={value === undefined ? '' : JSON.stringify(value)}
@@ -591,6 +646,7 @@ export function SourceSearchForm({
             ) : (
               <input
                 aria-label={prefix + item.label}
+                min={item.min} max={item.max}
                 type={item.type === 'number' ? 'number' : item.type === 'password' ? 'password' : 'text'}
                 value={typeof value === 'string' || typeof value === 'number' ? value : ''}
                 onChange={(event) =>
@@ -667,15 +723,19 @@ export function SourceSearchForm({
           ) : null}
         </>
       ) : null}
+      <label>{t('起始日期')}<input type="date" value={from} max={to || undefined} onChange={e => setFrom(e.target.value)} /></label>
+      <label>{t('结束日期')}<input type="date" value={to} min={from || undefined} onChange={e => setTo(e.target.value)} /></label>
       <div className="action-row" style={{ flexBasis: '100%', margin: 0 }}>
+        <label className="remember-filters"><input type="checkbox" checked={remember} onChange={e => setRemember(e.target.checked)} />{t('记住筛选项')}</label>
         <button className="primary-link" disabled={browse ? !feedKey : !query.trim()}>
-          {browse ? t('应用目录条件') : t('搜索此站')}
+          {results ? t('应用筛选') : browse ? t('应用目录条件') : t('搜索此站')}
         </button>
-        {browse ? (
+        {browse || results ? (
           <button
             type="button"
             className="chip"
             onClick={() => {
+              setFrom(''); setTo('');
               setFilters({});
               setDimension('');
               setSort('');
@@ -692,7 +752,7 @@ export function SourceSearchForm({
           </button>
         ) : null}
       </div>
-      {!browse ? (
+      {!browse && !results ? (
         <SearchTools
           keyword={query}
           source={source}
@@ -891,7 +951,11 @@ export function SourcePage({
   const browseCursor = browseParams.get('cursor') ?? undefined;
   const initialBrowseView = browseParams.get('view');
   const browseFeed = browseParams.get('feed') ?? undefined;
-  const browseFilters = browseParams.get('filters') ?? undefined;
+  const state = useAsync(() => api.source(source), [source, version], undefined, { cacheKey: 'source:' + source });
+  const presets = (prefs.settings.rememberedFilters ?? {}) as Record<string,string>;
+  const scope = JSON.stringify([source, browseFeed ?? state.data?.manifest?.defaultFeed ?? '']);
+  const applied = browseLink || ['filters','from','to'].some(key => browseParams.has(key)) ? browseParams : new URLSearchParams(presets[scope]);
+  const browseFilters = applied.get('filters') ?? undefined;
 
   /* Instant client-side Grid/List toggle without network re-fetching! */
   const [layoutOverride, setLayoutOverride] = useState<'grid' | 'list' | undefined>(
@@ -900,7 +964,6 @@ export function SourcePage({
   const [filterDrawerOpen, setFilterDrawerOpen] = useState(false);
   useBackDismissable(filterDrawerOpen, () => setFilterDrawerOpen(false));
 
-  const state = useAsync(() => api.source(source), [source, version], undefined, { cacheKey: 'source:' + source });
   const isShortVideoList = state.data?.manifest?.category === 'shortvideo' && (initialBrowseView === 'list' || layoutOverride === 'list');
 
   const feed = useAsync(
@@ -1102,11 +1165,12 @@ export function SourcePage({
       ?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
   }, [activeFeed]);
 
-  const sections = feed.data?.sections ?? [];
+  const matchesDate = (work: ApiWork) => withinWorkDates(work, applied.get('from') ?? '', applied.get('to') ?? '');
+  const sections = (feed.data?.sections ?? []).map(section => ({...section, items: section.items.filter(matchesDate)})).filter(section => section.items.length);
   const grouped = new Set(
     sections.flatMap((section) => section.items.map((item) => workIdentityKey({ source: item.source, id: item.workId }))),
   );
-  const allItems = [...(feed.data?.items ?? []), ...extraItems];
+  const allItems = [...(feed.data?.items ?? []), ...extraItems].filter(matchesDate);
   const ungrouped = allItems.filter((item) => !grouped.has(workIdentityKey({ source: item.source, id: item.workId })));
   const effectiveLayout = layoutOverride ?? (manifest.browseLayout === 'list' ? 'list' : 'grid');
 

@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 
 import 'block_rule.dart';
@@ -150,6 +152,7 @@ enum SettingsDomain {
     'searchHistories',
     'tagDownloadReminders',
     'tagDownloadIgnoredSources',
+    'rememberedFilters',
     'aggregateExcluded',
     'autoTranslateContent',
     'translateEngine',
@@ -952,6 +955,29 @@ class AppSettings extends ChangeNotifier {
       _saveSearchHistory(scope, searchHistoryFor(scope)..remove(keyword));
   void clearSearchHistory({required ContentScope scope}) =>
       _saveSearchHistory(scope, []);
+
+  Map<String, dynamic> rememberedFilters(String source, String? feed) {
+    final scopes = _v['rememberedFilters'];
+    final saved = scopes is Map ? scopes[jsonEncode([source, feed])] : null;
+    return saved is Map ? Map<String, dynamic>.from(saved) : {};
+  }
+
+  void rememberFilters(
+    String source,
+    String? feed,
+    Map<String, Object?>? values,
+  ) {
+    final key = jsonEncode([source, feed]);
+    final scopes = Map<String, dynamic>.from(
+      _v['rememberedFilters'] as Map? ?? {},
+    );
+    if (values == null) {
+      if (scopes.remove(key) == null) return;
+    } else {
+      scopes[key] = values;
+    }
+    _set('rememberedFilters', scopes);
+  }
 
   /// Sources excluded from aggregated search (enabled sources are included by default).
   Set<String> get aggregateExcluded =>

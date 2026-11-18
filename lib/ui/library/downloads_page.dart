@@ -38,13 +38,23 @@ import 'favorite_actions.dart';
 import 'recording_tile.dart';
 
 class DownloadsPage extends StatefulWidget {
-  const DownloadsPage({super.key});
+  const DownloadsPage({super.key, this.active = true});
+  final bool active;
 
   @override
-  State<DownloadsPage> createState() => _DownloadsPageState();
+  State<DownloadsPage> createState() => DownloadsPageState();
 }
 
-class _DownloadsPageState extends State<DownloadsPage> {
+class DownloadsPageState extends State<DownloadsPage> {
+  bool clearSelection() {
+    if (_selectedDownloads.isEmpty) return false;
+    setState(_selectedDownloads.clear);
+    return true;
+  }
+
+  late final _displayChanges = AppSettings.instance.watch(const {
+    'downloadDisplay',
+  });
   final _query = TextEditingController();
   final Set<String> _selectedDownloads = {};
   bool _importing = false;
@@ -62,11 +72,10 @@ class _DownloadsPageState extends State<DownloadsPage> {
 
   void _pruneSelection() {
     if (!mounted || _selectedDownloads.isEmpty) return;
-    final existing = DownloadManager.instance.tasks
-        .map((task) => task.uid)
-        .toSet();
     final before = _selectedDownloads.length;
-    _selectedDownloads.removeWhere((uid) => !existing.contains(uid));
+    _selectedDownloads.removeWhere(
+      (uid) => DownloadManager.instance.task(uid) == null,
+    );
     if (_selectedDownloads.length != before) setState(() {});
   }
 
@@ -157,15 +166,19 @@ class _DownloadsPageState extends State<DownloadsPage> {
         message: tr('松开以导入本地漫画'),
         onDrop: (files) => _drop(context, files),
         child: ListenableBuilder(
-          listenable: Listenable.merge([
-            dm,
-            games,
-            AppSettings.instance,
-            LiveRecordings.instance,
-            SourceManager.instance,
-            Library.instance.collection(LibraryCollection.categories),
-            Library.instance.collection(LibraryCollection.favorites),
-          ]),
+          listenable: Listenable.merge(
+            widget.active
+                ? [
+                    dm,
+                    games,
+                    _displayChanges,
+                    LiveRecordings.instance,
+                    SourceManager.instance,
+                    Library.instance.collection(LibraryCollection.categories),
+                    Library.instance.collection(LibraryCollection.favorites),
+                  ]
+                : const [],
+          ),
           builder: (context, _) {
             final tasks = dm.tasks;
             final gameTasks = games.tasks;

@@ -39,18 +39,7 @@ const browseFilters = [
         { value: 'english', label: '英文' },
       ],
     },
-    {
-      key: 'minRating',
-      label: '最低评分',
-      default: '0',
-      values: [
-        { value: '0', label: '不限' },
-        { value: '2', label: '2 星' },
-        { value: '3', label: '3 星' },
-        { value: '4', label: '4 星' },
-        { value: '5', label: '5 星' },
-      ],
-    },
+    { key: 'minRating', label: '最低评分', type: 'number', min: 0, max: 5, step: 0.01, default: 0 },
     { key: 'uploader', label: '上传者', type: 'text', default: '' },
     { key: 'torrent', label: '仅显示有种子的画廊', type: 'switch', default: false },
     { key: 'expunged', label: '搜索已删除的画廊', type: 'switch', default: false },
@@ -71,11 +60,16 @@ const browseFilters = [
   };
   // 热门和榜单只能筛选原栏目已返回的作品；搜索专用排除开关不冒充栏目能力。
   const columnFilters = browseFilters.filter(f => !['expunged', 'disableLanguage', 'disableUploader', 'disableTags'].includes(f.key));
+  function minimumRating(filters) {
+    const rating = Number(filters?.minRating || 0);
+    if (!Number.isFinite(rating) || rating < 0 || rating > 5) throw Park.error('CONFIG', '筛选参数无效');
+    return rating;
+  }
   function matchesColumn(meta, filters = {}, common = {}) {
     const categories = Array.isArray(filters.categories) ? filters.categories : [];
     if (categories.length && !categories.includes(meta.category)) return false;
     if (filters.language && !(meta.tags || []).includes('language:' + filters.language)) return false;
-    if (Number(meta.rating || 0) < Number(filters.minRating || 0)) return false;
+    if (Number(meta.rating || 0) < minimumRating(filters)) return false;
     const uploader = String(filters.uploader || '').trim().toLowerCase();
     if (uploader && String(meta.uploader || '').toLowerCase() !== uploader) return false;
     if (filters.torrent === true && Number(meta.torrentcount || 0) < 1) return false;
@@ -96,7 +90,7 @@ Park.register({
   },
   key: 'ehentai',
   name: 'E-Hentai',
-  version: '0.0.21', minAppVersion: '0.13.6',
+  version: '0.0.22', minAppVersion: '0.13.6',
   type: 'comic',
   category: 'doujin',
   color: '#9C2A2A',
@@ -457,8 +451,8 @@ Park.register({
       for (const c of cats) mask &= ~(this.CATEGORY_BITS[c] || 0);
       params.f_cats = String(mask);
     }
-    const rating = Number(f.minRating) || 0;
-    if (rating >= 2) Object.assign(params, { advsearch: '1', f_srdd: String(Math.min(rating, 5)) });
+    const rating = minimumRating(f);
+    if (rating >= 2) Object.assign(params, { advsearch: '1', f_srdd: String(Math.floor(Math.min(rating, 5))) });
     for (const [bound, param] of [['min', 'f_spf'], ['max', 'f_spt']]) {
       if (common.pages?.[bound] !== undefined) {
         params.advsearch = '1';
@@ -504,7 +498,9 @@ Park.register({
       throw Park.error('UNSUPPORTED', 'E-Hentai 只能按顺序翻页');
     }
     if (req.cursor) params.next = String(req.cursor);
-    return this.listPage(`${this.base}/`, params, page);
+    const minimum = minimumRating(req.filters);
+    const localRating = minimum > 0 && (minimum < 2 || !Number.isInteger(minimum));
+    return this.listPage(`${this.base}/`, params, page, localRating ? {minRating: minimum} : null);
   },
 
   contentUrl(value) {

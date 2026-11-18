@@ -270,7 +270,9 @@ input, textarea { caret-color: var(--control-accent); }
 .source-search-form > label, .source-search-form > div { flex: 1 1 180px; min-width: 0; }
 .source-search-form label { display: flex; flex-direction: column; align-items: stretch; text-align: start; gap: 8px; }
 .source-search-form :is(input:not([type='checkbox'],[type='radio']),select) { width: 100%; }
-.source-search-form .search-tools fieldset > label { flex-direction: row; align-items: center; gap: 8px; }
+.filter-slider-label { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+.filter-slider-label output { font-variant-numeric: tabular-nums; }
+.source-search-form .remember-filters, .source-search-form .search-tools fieldset > label { flex-direction: row; align-items: center; gap: 8px; }
 .source-search-form .search-tools input:is([type='checkbox'],[type='radio']) { flex: 0 0 20px; width: 20px; }
 .chapter-downloads + .chip, .chapter-list + .chip { margin-block-start: 16px; }
 .app-shell .chapter-row-button { display: flex; width: 100%; min-height: 44px; align-items: center; justify-content: space-between; gap: 16px; text-align: start; padding: 8px; border: 0; border-radius: 8px; background: transparent; color: inherit; }

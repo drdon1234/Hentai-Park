@@ -215,7 +215,7 @@
     {
       "key": "ehentai",
       "name": "E-Hentai",
-      "version": "0.0.21",
+      "version": "0.0.22",
       "type": "comic",
       "category": "doujin",
       "file": "ehentai.js",
@@ -883,7 +883,7 @@
     {
       "key": "itchio",
       "name": "itch.io",
-      "version": "0.0.3",
+      "version": "0.0.4",
       "type": "game",
       "category": "onlineGame",
       "file": "itchio.js",
@@ -903,7 +903,7 @@
     {
       "key": "kungal",
       "name": "鲲 Galgame",
-      "version": "0.0.10",
+      "version": "0.0.11",
       "type": "game",
       "category": "game",
       "file": "kungal.js",

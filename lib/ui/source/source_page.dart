@@ -61,9 +61,6 @@ class _SourcePageState extends State<SourcePage> {
             final index = DefaultTabController.of(context).index;
             if (index >= manifest.feeds.length) return const SizedBox.shrink();
             final feed = manifest.feeds[index];
-            if (feed.options.isEmpty && feed.commonFilters.isEmpty) {
-              return const SizedBox.shrink();
-            }
             final active =
                 _feedKeys[feed.key]?.currentState?._activeFilters ?? 0;
             return Badge(
@@ -510,7 +507,8 @@ class _FeedTabState extends State<FeedTab> with AutomaticKeepAliveClientMixin {
 
   int get _activeFilters {
     final defaults = widget.feed.defaultOptions();
-    return _common.length +
+    return (_controller.dateRange == null ? 0 : 1) +
+        _common.length +
         _options.entries.where((entry) {
           final initial = defaults[entry.key];
           return entry.value is List && initial is List
@@ -530,12 +528,14 @@ class _FeedTabState extends State<FeedTab> with AutomaticKeepAliveClientMixin {
         feed: widget.feed,
         values: _options,
         commonValues: _common,
+        dateRange: _controller.dateRange,
         sourceManager: widget.sourceManager ?? SourceManager.instance,
         keyword: '',
       ),
     );
     if (!mounted || result == null) return;
     setState(() {
+      _controller.dateRange = result.dateRange;
       _options = result.filters;
       _common = result.common;
     });
@@ -544,10 +544,19 @@ class _FeedTabState extends State<FeedTab> with AutomaticKeepAliveClientMixin {
   }
 
   Future<void> _initializeFilters() async {
-    await _initialFilters.initialize();
+    final preset = AppSettings.instance.rememberedFilters(
+      widget.source.key,
+      widget.feed.key,
+    );
+    _controller.dateRange = FilterSheet.savedRange(preset);
+    _common = Map<String, Object?>.from(preset['common'] as Map? ?? {});
+    await _initialFilters.initialize(
+      initialValues: Map<String, Object?>.from(preset['filters'] as Map? ?? {}),
+    );
     await _initialFilters.loadEnabledDynamic();
     if (!mounted) return;
     _options = _initialFilters.values;
+    if (preset.isNotEmpty) widget.onFiltersChanged?.call();
     _controller.loading = false;
     unawaited(_controller.loadMore());
   }

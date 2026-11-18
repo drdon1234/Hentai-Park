@@ -40,6 +40,7 @@ class _ShellState extends State<Shell> {
   static const _progressNotification = 1001;
   static const _resultNotification = 1002;
 
+  final _downloads = GlobalKey<DownloadsPageState>();
   int _index = 0;
   final _visited = <int>{0};
   final _discovery = ValueNotifier(const DiscoveryDestination.all());
@@ -190,6 +191,10 @@ class _ShellState extends State<Shell> {
   /// Back on another tab returns to 发现; on 发现 it needs a second press within 2 s to leave,
   /// so a stray back gesture never closes the app mid-browse.
   void _onBack() {
+    if (_index == _downloadsTab &&
+        _downloads.currentState?.clearSelection() == true) {
+      return;
+    }
     if (_index != 0) {
       _select(0);
       return;
@@ -211,7 +216,10 @@ class _ShellState extends State<Shell> {
 
   void _select(int i) {
     _lastBack = null;
-    if (i != _index) HapticFeedback.selectionClick();
+    if (i != _index) {
+      if (_index == _downloadsTab) _downloads.currentState?.clearSelection();
+      HapticFeedback.selectionClick();
+    }
     setState(() {
       _index = i;
       _visited.add(i);
@@ -258,7 +266,10 @@ class _ShellState extends State<Shell> {
       },
     ),
     _shelfTab => ShelfPage(segment: _shelf, unseenUpdates: _unseenUpdates),
-    _downloadsTab => const DownloadsPage(),
+    _downloadsTab => DownloadsPage(
+      key: _downloads,
+      active: _index == _downloadsTab,
+    ),
     _ => const SettingsPage(),
   };
 

@@ -42,6 +42,17 @@ class PagedController extends ChangeNotifier {
   final _loaded = <WorkItem>[];
   bool showBlocked = false;
   bool hidePreviews = false;
+  DateTimeRange? dateRange;
+
+  bool _matchesDate(WorkItem item) {
+    final range = dateRange;
+    if (range == null) return true;
+    final date = item.workDate;
+    if (date == null) return false;
+    final day = DateUtils.dateOnly(date);
+    return !day.isBefore(range.start) && !day.isAfter(range.end);
+  }
+
   VoiceLanguageStatus? voiceLanguage;
   VoiceMediaForm? voiceForm;
 
@@ -62,6 +73,7 @@ class PagedController extends ChangeNotifier {
   }
 
   bool _visible(WorkItem item, TagBlocklist blocklist) =>
+      _matchesDate(item) &&
       (showBlocked || blocklist.matchItem(item) == null) &&
       (!hidePreviews || !item.previewOnly) &&
       (voiceLanguage == null || item.voiceLanguageStatus == voiceLanguage) &&

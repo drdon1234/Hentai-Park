@@ -84,7 +84,7 @@ public sealed class AppSettings
             ],
             [SettingsDomain.Search] =
             [
-                "rankingSelection", "searchHistories", "tagDownloadReminders",
+                "rememberedFilters", "rankingSelection", "searchHistories", "tagDownloadReminders",
                 "tagDownloadIgnoredSources", "aggregateExcluded", "autoTranslateContent",
                 "translateEngine", "translateTargets",
             ],
@@ -152,6 +152,23 @@ public sealed class AppSettings
         {
             _values = parsed as JsonObject ?? [];
             FreshInstall = _values.Count == 0;
+        }
+    }
+
+    public JsonObject? RememberedFilters(string scope)
+    {
+        lock (_lock)
+            return (_values["rememberedFilters"] as JsonObject)?[scope]?.DeepClone() as JsonObject;
+    }
+
+    public void RememberFilters(string scope, JsonObject? preset)
+    {
+        lock (_lock)
+        {
+            var all = (_values["rememberedFilters"]?.DeepClone() as JsonObject) ?? new JsonObject();
+            if (preset is null) all.Remove(scope);
+            else all[scope] = preset.DeepClone();
+            SetNode("rememberedFilters", all);
         }
     }
 

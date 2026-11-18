@@ -26,28 +26,6 @@ class AlbumMediaEntry {
 List<Map> _media(WorkItem item) =>
     (item.json['media'] as List? ?? const []).cast<Map>();
 
-DateTime? albumDate(WorkItem item) {
-  final value = item.json['date'];
-  if (value == null || value.toString().trim().isEmpty) {
-    if (item.uploaded.isEmpty) return null;
-    return DateTime.tryParse(item.uploaded)?.toLocal();
-  }
-  if (value is num) {
-    if (!value.isFinite) return null;
-    final number = value.toInt();
-    final milliseconds = number > -100000000000 && number < 100000000000
-        ? number * 1000
-        : number;
-    if (milliseconds < -8640000000000000 || milliseconds > 8640000000000000) {
-      return null;
-    }
-    return DateTime.fromMillisecondsSinceEpoch(milliseconds);
-  }
-  final raw = value?.toString().trim() ?? '';
-  if (raw.isEmpty) return null;
-  return DateTime.tryParse(raw)?.toLocal();
-}
-
 List<AlbumMediaEntry> albumMedia(
   Iterable<WorkItem> works, {
   String type = 'all',
@@ -63,7 +41,7 @@ List<AlbumMediaEntry> albumMedia(
       ? null
       : DateTime(end.year, end.month, end.day + 1);
   for (final work in works) {
-    final date = albumDate(work);
+    final date = work.workDate;
     if ((startDay != null || afterEndDay != null) && date == null) continue;
     if (startDay != null && date!.isBefore(startDay)) continue;
     if (afterEndDay != null && !date!.isBefore(afterEndDay)) continue;

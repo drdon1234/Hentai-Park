@@ -74,7 +74,10 @@ public sealed record FilterOptionDef(
     string DefaultValue,
     IReadOnlyList<FeedChoice> Values,
     bool Dynamic = false,
-    IReadOnlyList<string>? DependsOn = null);
+    IReadOnlyList<string>? DependsOn = null,
+    double Step = 1,
+    double? Minimum = null,
+    double? Maximum = null);
 
 public sealed record FeedDefinition(
     string Key,
@@ -278,7 +281,8 @@ public sealed record SourceManifest(
                 item["default"]?.ToString() ?? string.Empty,
                 choices,
                 item["dynamic"]?.GetValue<bool>() ?? false,
-                ReadStringList(item["dependsOn"])));
+                ReadStringList(item["dependsOn"]), item["step"]?.GetValue<double>() ?? 1,
+                item["min"]?.GetValue<double>(), item["max"]?.GetValue<double>()));
         }
         return result;
     }

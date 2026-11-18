@@ -10,6 +10,8 @@ Reading, playback, comments, subscriptions and downloads vary by site. Check wha
 
 Update checks ask before removing withdrawn official plugins, their settings, login sessions and stored files. Downloaded content is retained, and personal plugins are unaffected.
 
+Enable **Remember filters** and apply your selection to reuse it the next time you open the same site search or feed. Dates include both endpoints and exclude works without a recognizable date. itch.io search can filter by author and genre. KUN Galgame search can filter by resource platform and language. Drag the E-Hentai minimum rating slider between 0 and 5 stars. The value beside it updates to two decimal places.
+
 ## Supported sites
 
 | Category | Sites / services |

@@ -9,6 +9,8 @@ import { FilePicker } from '../file-picker.js';
 import { t } from '../i18n.js';
 import { useSharedState } from '../native.js';
 import { PageHeader, StateView, errorMessage, useAsync } from '../page-ui.js';
+import { SourceSearchForm, withinWorkDates } from './source-page.js';
+import { usePreferences } from '../preferences.js';
 import { ReverseHistory } from '../reverse-history.js';
 import { SearchScope } from '../search-scope.js';
 import { ImageCropModal } from '../shared/image-crop-modal.js';
@@ -456,7 +458,7 @@ export function SearchPage({
   initialCursor,
   initialLimit,
   initialView,
-  initialFilters,
+  initialFilters: routeFilters,
   navigate,
 }: {
   selection: string;
@@ -473,6 +475,15 @@ export function SearchPage({
   const shared = useSharedState();
   const sourceCatalog = useContext(SourceCatalog);
   const sourceNames = useContext(SourceNames);
+  const dateParams = new URLSearchParams(window.location.search);
+  const prefs = usePreferences();
+  const presets = (prefs.settings.rememberedFilters ?? {}) as Record<string,string>;
+  const applied = initialSource && !['from','to','filters'].some(key => dateParams.has(key)) ?
+    new URLSearchParams(presets[JSON.stringify([initialSource,null])]) : dateParams;
+  const initialFilters = routeFilters || applied.get('filters') || '';
+  const from = applied.get('from') ?? '';
+  const to = applied.get('to') ?? '';
+  const manifest = sourceCatalog.data?.find(item => item.source === initialSource)?.manifest;
   const sourceLabel = (id: string) => sourceNames[id] ?? id;
   const searchKey = JSON.stringify([
     selection,
@@ -488,7 +499,8 @@ export function SearchPage({
   const [execution, setExecution] = useState(0);
   const [nextCursor, setNextCursor] = useState<string | null | undefined>(previous?.nextCursor);
   const [view, setView] = useState(initialView);
-  const [results, setResults] = useState<ApiWork[]>(previous?.items ?? []);
+  const [loadedResults, setResults] = useState<ApiWork[]>(previous?.items ?? []);
+  const results = from || to ? loadedResults.filter(work => withinWorkDates(work, from, to)) : loadedResults;
   const [sourceResults, setSourceResults] = useState<Array<{ source: string; status: string; code?: string }>>(
     previous?.sources ?? [],
   );
@@ -677,6 +689,7 @@ export function SearchPage({
     encodeURIComponent(scope) +
     '&source=' +
     encodeURIComponent(source) +
+    (from ? '&from=' + encodeURIComponent(from) : '') + (to ? '&to=' + encodeURIComponent(to) : '') +
     (cursor ? '&cursor=' + encodeURIComponent(cursor) : '') +
     '&limit=' +
     String(limit) +
@@ -785,6 +798,9 @@ export function SearchPage({
         />
       </PageHeader>
 
+      {initialSource && manifest ? <details className="browse-tools"><summary>{t('筛选')}</summary>
+        <SourceSearchForm source={initialSource} manifest={manifest} navigate={navigate} results />
+      </details> : null}
       <p className="search-scope-label">
         {t('搜索范围：')}
         {(initialSource ? sourceLabel(initialSource) : '') ||

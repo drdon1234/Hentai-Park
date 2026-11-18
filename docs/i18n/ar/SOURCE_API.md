@@ -145,6 +145,7 @@ Park.register({
 تستخدم `feeds[].options` و`searchFilters` و`settings` الصيغة نفسها:
 
 ```js
+{ key: 'minRating', label: '最低评分', type: 'number', min: 0, max: 5, step: 0.01, default: 0 }
 { key: 'sort', label: '排序', type: 'select', default: 'date',
   values: [{ value: 'date', label: '最新' }, { value: 'popular', label: '热门', color: '#f00' }] }
 // type: select | multi | number | text | password | switch
