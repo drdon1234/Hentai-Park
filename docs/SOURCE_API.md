@@ -463,8 +463,9 @@ WorkItem 的全部字段，再加：
 
 ### 视频：`videos`
 
-返回 `[{ quality: 1080, label: '1080P', url, headers?, format?, preferred?, hls? }]`。直链通常有时效，应用每次播放或下载前都会重新获取。
+返回 `[{ quality: 1080, label: '1080P', url, headers?, format?, preferred?, fallbackHosts?, hls? }]`。直链通常有时效，应用每次播放或下载前都会重新获取。
 
+- `format: 'hls'` 可选附带 `fallbackHosts: { 'primary.cdn.example': ['backup1.cdn.example'] }`（最多 8 组公网主机，每组最多 8 个备用主机），用于在点播分片节点故障时按顺序尝试同路径备用 CDN。
 - `format: 'hls'` 可附 `hls: {manifest, keys}`：`url` 是该分段清单的真实 HTTPS 基址，`manifest` 是已解析好的完整点播分段清单（UTF-8 最多 2 MiB），`keys` 将清单引用的绝对密钥 URL 映射为 16 字节密钥的 Base64，最多 32 项。仅支持原生媒体模式；清单、分片、密钥地址仍经过原有媒体授权及内容校验，未引用的密钥被拒绝。携带此字段的播放结果不写入磁盘缓存，密钥只用于会话内存；插件不得将其写入 store、日志、作品或游标。
 
 - 多集视频在 `detail(id).chapters` 按播放顺序返回 `[{ id, title }]`，每个 `id` 必须稳定，不能用画质或临时媒体 URL 代替。应用用同一个 ID 选集、记录进度、下载和续播，并调用 `videos(id, episodeId)` 获取该集资源。单集用 `singleChapterId`，没有时用 `'_'`。

@@ -517,27 +517,23 @@ class _TavernChatPageState extends State<TavernChatPage>
 
   @override
   Widget build(BuildContext context) => PopScope(
-    canPop: _leaving,
+    canPop: _leaving || (!_chat.busy && !_editing),
     onPopInvokedWithResult: (didPop, result) {
-      if (!didPop) unawaited(_leave());
+      if (didPop) {
+        if (!_leaving) {
+          unawaited(_chat.stopAndSave().catchError((Object _) {}));
+        }
+        return;
+      }
+      unawaited(_leave());
     },
     child: Scaffold(
-      appBar: PageHeader(
-        titleWidget: Row(
-          children: [
-            Expanded(
-              child: ContentTranslation(
-                text: _session.title,
-                source: _session.resourceUid.split(':').first,
-                builder: (value) => Text(
-                  value,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: ParkText.serif(context.text.titleLarge),
-                ),
-              ),
-            ),
-          ],
+      appBar: AppBar(
+        title: ContentTranslation(
+          text: _session.title,
+          source: _session.resourceUid.split(':').first,
+          builder: (value) =>
+              Text(value, maxLines: 1, overflow: TextOverflow.ellipsis),
         ),
         actions: [
           IconButton(

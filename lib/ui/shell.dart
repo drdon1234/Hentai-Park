@@ -7,7 +7,6 @@ import '../core/app_log.dart';
 import '../core/localization.dart';
 import '../core/settings.dart';
 import '../engine/platform_bridge.dart';
-import '../engine/request_lifecycle.dart';
 import '../library/backup.dart';
 import '../library/updater.dart';
 import '../subscriptions/updater.dart';
@@ -90,27 +89,10 @@ class _ShellState extends State<Shell> {
       (_) => unawaited(SubscriptionUpdater.instance.run()),
     );
     SubscriptionUpdater.instance.start();
-    PlatformBridge.refreshSubscriptions = _refreshSubscriptions;
-    PlatformBridge.cancelSubscriptionRefresh =
-        SubscriptionUpdater.instance.cancel;
   }
-
-  Future<bool> _refreshSubscriptions() =>
-      RequestLifecycle.instance.withBackgroundExecution(() async {
-        final updater = SubscriptionUpdater.instance;
-        try {
-          await updater.run();
-          return !updater.cancelled && updater.failures == 0;
-        } finally {
-          // 原生到期取消只针对本次任务，不能永久停止后续前台订阅。
-          if (mounted) updater.cancelled = false;
-        }
-      });
 
   @override
   void dispose() {
-    PlatformBridge.refreshSubscriptions = null;
-    PlatformBridge.cancelSubscriptionRefresh = null;
     _discovery.dispose();
     _shelf.dispose();
     _unseenUpdates.dispose();
@@ -136,20 +118,32 @@ class _ShellState extends State<Shell> {
     if (_updatesVisible) _unseenUpdates.value = 0;
   }
 
+  void _popToShellRoot() {
+    final navigator = Navigator.maybeOf(context);
+    navigator?.popUntil((route) => route.isFirst);
+  }
+
   void _openUpdates() {
     _shelf.value = ShelfSegment.updates;
     _select(_shelfTab);
+    _popToShellRoot();
   }
 
   Future<void> _openDiscovery(DiscoveryDestination destination) async {
     if (!mounted) return;
     _discovery.value = destination;
     _select(0);
+    _popToShellRoot();
   }
 
   void _onNotificationTap(String payload) {
     if (!mounted) return;
-    if (payload == 'updates') _openUpdates();
+    if (payload == 'updates') {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _openUpdates();
+      });
+      WidgetsBinding.instance.ensureVisualUpdate();
+    }
     if (payload == 'subscriptions' && mounted) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) Nav.push(context, const SubscriptionUpdatesPage());
@@ -167,7 +161,7 @@ class _ShellState extends State<Shell> {
       progress: u.done,
       max: u.total,
       channel: 'library_progress',
-      channelName: tr('书库更新进度'),
+      channelName: '书库更新进度',
     );
   }
 
@@ -353,7 +347,7 @@ class _ShellState extends State<Shell> {
               _onBack();
             }
           },
-          child: scaffold,
+          child: SystemNavBoundary(child: scaffold),
         ),
       ),
     );

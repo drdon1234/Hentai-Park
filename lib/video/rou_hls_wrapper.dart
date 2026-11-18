@@ -20,18 +20,18 @@ Uint8List unwrapRouHlsIfWrapped(
 
 Uint8List unwrapRouHls(Uint8List bytes, {int maxBytes = 32 * 1024 * 1024}) {
   if (!isRouHlsWrapped(bytes)) {
-    throw const FormatException('rou.video 媒体不是 PNG 封装');
+    throw const FormatException('媒体分片不是有效的 PNG 封装');
   }
   var offset = _pngSignature.length;
   while (offset + 12 <= bytes.length) {
     final length = _uint32(bytes, offset);
     if (length > _maxChunkBytes || offset + 12 + length > bytes.length) {
-      throw const FormatException('rou.video PNG chunk 越界');
+      throw const FormatException('PNG 媒体分片数据块越界');
     }
     final typeOffset = offset + 4;
     final dataOffset = offset + 8;
     if (_matches(bytes, typeOffset, _roUd)) {
-      if (length < 1) throw const FormatException('rou.video roUd chunk 为空');
+      if (length < 1) throw const FormatException('PNG 媒体封装数据块为空');
       final flag = bytes[dataOffset];
       if (flag & ~1 != 0) throw const FormatException('不支持的 PNG 媒体封装标志');
       final payload = Uint8List.sublistView(
@@ -50,12 +50,12 @@ Uint8List unwrapRouHls(Uint8List bytes, {int maxBytes = 32 * 1024 * 1024}) {
         input.close();
         return output.bytes.takeBytes();
       } catch (_) {
-        throw const FormatException('rou.video roUd 数据解压失败');
+        throw const FormatException('PNG 媒体封装数据解压失败');
       }
     }
     offset += 12 + length;
   }
-  throw const FormatException('rou.video PNG 缺少 roUd chunk');
+  throw const FormatException('PNG 媒体封装缺少有效数据块');
 }
 
 class _LimitedOutput implements Sink<List<int>> {

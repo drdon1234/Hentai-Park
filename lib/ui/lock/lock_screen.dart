@@ -42,13 +42,33 @@ class _LockScreen extends StatefulWidget {
   State<_LockScreen> createState() => _LockScreenState();
 }
 
-class _LockScreenState extends State<_LockScreen> {
+class _LockScreenState extends State<_LockScreen> with WidgetsBindingObserver {
+  bool _promptedOnForeground = false;
+
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback(
-      (_) => AppLock.instance.unlock(),
-    );
+    WidgetsBinding.instance.addObserver(this);
+    WidgetsBinding.instance.addPostFrameCallback((_) => _maybePromptUnlock());
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) _maybePromptUnlock();
+  }
+
+  void _maybePromptUnlock() {
+    if (!mounted || _promptedOnForeground || !AppLock.instance.locked) return;
+    final state = WidgetsBinding.instance.lifecycleState;
+    if (state != null && state != AppLifecycleState.resumed) return;
+    _promptedOnForeground = true;
+    AppLock.instance.unlock();
   }
 
   @override

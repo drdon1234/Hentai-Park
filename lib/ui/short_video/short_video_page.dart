@@ -958,9 +958,39 @@ class _ShortVideoPageState extends State<ShortVideoPage>
                                         _overscroll += n.overscroll.abs();
                                       }
                                     }
+                                    // iOS BouncingScrollPhysics 通过越界 pixels 体现拖拽距离，不派发 OverscrollNotification。
+                                    if (n is ScrollUpdateNotification &&
+                                        n.dragDetails != null &&
+                                        n.metrics.outOfRange) {
+                                      final bounceAtStart =
+                                          _feed.index == 0 &&
+                                          n.metrics.pixels <
+                                              n.metrics.minScrollExtent;
+                                      final bounceAtEnd =
+                                          _feed.index == _feed.items.length &&
+                                          !_feed.hasNext &&
+                                          n.metrics.pixels >
+                                              n.metrics.maxScrollExtent;
+                                      if (bounceAtStart) {
+                                        final pull =
+                                            n.metrics.minScrollExtent -
+                                            n.metrics.pixels;
+                                        if (pull > _overscroll) {
+                                          _overscroll = pull;
+                                        }
+                                      } else if (bounceAtEnd) {
+                                        final pull =
+                                            n.metrics.pixels -
+                                            n.metrics.maxScrollExtent;
+                                        if (pull > _overscroll) {
+                                          _overscroll = pull;
+                                        }
+                                      }
+                                    }
                                     if (n is ScrollEndNotification) {
                                       _scrolling = false;
                                       if (_overscroll >= 64) {
+                                        _overscroll = 0;
                                         unawaited(_refresh());
                                       }
                                       _sync();
@@ -1020,81 +1050,84 @@ class _ShortVideoPageState extends State<ShortVideoPage>
                                             ?.copyWith(color: Colors.white),
                                       ),
                                     ),
-                                    IconButton(
-                                      tooltip: tr(
-                                        _showBlocked ? '隐藏已屏蔽内容' : '显示已屏蔽内容',
+                                    if (_showInfo) ...[
+                                      IconButton(
+                                        tooltip: tr(
+                                          _showBlocked ? '隐藏已屏蔽内容' : '显示已屏蔽内容',
+                                        ),
+                                        icon: Icon(
+                                          _showBlocked
+                                              ? Icons.visibility_outlined
+                                              : Icons.visibility_off_outlined,
+                                          color: Colors.white,
+                                        ),
+                                        onPressed: () {
+                                          final next = !_showBlocked;
+                                          setState(() => _showBlocked = next);
+                                          _feed.refreshFilters();
+                                          context.toast(
+                                            tr(next ? '已显示屏蔽内容' : '已隐藏屏蔽内容'),
+                                          );
+                                        },
                                       ),
-                                      icon: Icon(
-                                        _showBlocked
-                                            ? Icons.visibility_outlined
-                                            : Icons.visibility_off_outlined,
-                                        color: Colors.white,
-                                      ),
-                                      onPressed: () {
-                                        setState(
-                                          () => _showBlocked = !_showBlocked,
-                                        );
-                                        _feed.refreshFilters();
-                                      },
-                                    ),
-                                    if (_showInfo)
                                       TranslationControls(
                                         source: widget.source,
                                       ),
-                                    if (_showInfo &&
-                                        manifest?.can('search') == true)
-                                      IconButton(
-                                        tooltip: tr('搜索'),
-                                        icon: const Icon(Icons.search),
-                                        onPressed: () => Nav.openSourceSearch(
-                                          context,
-                                          widget.source,
-                                        ),
-                                      ),
-                                    PopupMenuButton<String>(
-                                      icon: const Icon(
-                                        Icons.more_vert,
-                                        color: Colors.white,
-                                      ),
-                                      itemBuilder: (context) => [
-                                        PopupMenuItem(
-                                          value: 'refresh',
-                                          child: SelectionContainer.disabled(
-                                            child: Text(tr('刷新')),
-                                          ),
-                                        ),
-                                        PopupMenuItem(
-                                          value: 'playback-settings',
-                                          child: SelectionContainer.disabled(
-                                            child: Text(tr('短视频设置')),
-                                          ),
-                                        ),
-                                        PopupMenuItem(
-                                          value: 'settings',
-                                          child: SelectionContainer.disabled(
-                                            child: Text(tr('站点设置')),
-                                          ),
-                                        ),
-                                      ],
-                                      onSelected: (action) {
-                                        if (action == 'refresh') {
-                                          _refresh();
-                                        } else if (action ==
-                                            'playback-settings') {
-                                          Nav.push(
-                                            context,
-                                            const SettingsSectionPage(
-                                              SettingsSection.shortVideo,
-                                            ),
-                                          );
-                                        } else {
-                                          Nav.openSourceSettings(
+                                      if (manifest?.can('search') == true)
+                                        IconButton(
+                                          tooltip: tr('搜索'),
+                                          icon: const Icon(Icons.search),
+                                          onPressed: () => Nav.openSourceSearch(
                                             context,
                                             widget.source,
-                                          );
-                                        }
-                                      },
-                                    ),
+                                          ),
+                                        ),
+                                      PopupMenuButton<String>(
+                                        tooltip: tr('更多'),
+                                        icon: const Icon(
+                                          Icons.more_vert,
+                                          color: Colors.white,
+                                        ),
+                                        itemBuilder: (context) => [
+                                          PopupMenuItem(
+                                            value: 'refresh',
+                                            child: SelectionContainer.disabled(
+                                              child: Text(tr('刷新')),
+                                            ),
+                                          ),
+                                          PopupMenuItem(
+                                            value: 'playback-settings',
+                                            child: SelectionContainer.disabled(
+                                              child: Text(tr('短视频设置')),
+                                            ),
+                                          ),
+                                          PopupMenuItem(
+                                            value: 'settings',
+                                            child: SelectionContainer.disabled(
+                                              child: Text(tr('站点设置')),
+                                            ),
+                                          ),
+                                        ],
+                                        onSelected: (action) {
+                                          if (action == 'refresh') {
+                                            _refresh();
+                                          } else if (action ==
+                                              'playback-settings') {
+                                            Nav.push(
+                                              context,
+                                              const SettingsSectionPage(
+                                                SettingsSection.shortVideo,
+                                              ),
+                                            );
+                                          } else {
+                                            Nav.openSourceSettings(
+                                              context,
+                                              widget.source,
+                                            );
+                                          }
+                                        },
+                                      ),
+                                    ],
                                     const SizedBox(width: Gap.s),
                                   ],
                                 ),

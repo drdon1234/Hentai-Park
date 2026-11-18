@@ -24,6 +24,8 @@ class _TavernSettingsPageState extends State<TavernSettingsPage> {
   bool _loadFailed = false;
   bool _saving = false;
   bool _fetchingModels = false;
+  bool _hasStoredKey = false;
+  bool _clearStoredKey = false;
 
   @override
   void initState() {
@@ -43,10 +45,12 @@ class _TavernSettingsPageState extends State<TavernSettingsPage> {
       final config = TavernApiSettings.instance.config;
       _url.text = config.baseUrl;
       _model.text = config.model;
-      _systemPrompt.text = config.effectiveSystemPrompt;
+      _systemPrompt.text = config.systemPrompt ?? '';
       _temperature.text = config.temperature.toString();
       _tokens.text = config.maxTokens.toString();
       _context.text = config.contextTokens.toString();
+      _hasStoredKey = config.secretRef.isNotEmpty;
+      _clearStoredKey = false;
     } catch (_) {
       _loadFailed = true;
     } finally {
@@ -64,6 +68,7 @@ class _TavernSettingsPageState extends State<TavernSettingsPage> {
     }
     setState(() => _saving = true);
     try {
+      final promptText = _systemPrompt.text;
       await TavernApiSettings.instance.save(
         baseUrl: _url.text,
         model: _model.text,
@@ -71,9 +76,12 @@ class _TavernSettingsPageState extends State<TavernSettingsPage> {
         maxTokens: tokens,
         contextTokens: contextTokens,
         newKey: _key.text,
-        systemPrompt: _systemPrompt.text,
+        clearKey: _clearStoredKey && _key.text.trim().isEmpty,
+        systemPrompt: promptText.trim().isEmpty ? null : promptText,
       );
       _key.clear();
+      _hasStoredKey = TavernApiSettings.instance.config.secretRef.isNotEmpty;
+      _clearStoredKey = false;
       if (mounted) context.toast(tr('已保存'));
     } on FormatException catch (error) {
       if (mounted) context.toast(tr(error.message));
@@ -160,7 +168,7 @@ class _TavernSettingsPageState extends State<TavernSettingsPage> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    appBar: PageHeader(title: tr('AI 服务设置')),
+    appBar: AppBar(title: Text(tr('AI 服务设置'))),
     body: _loading
         ? const Center(child: CircularProgressIndicator())
         : _loadFailed
@@ -202,9 +210,21 @@ class _TavernSettingsPageState extends State<TavernSettingsPage> {
                           const SizedBox(height: Gap.l),
                           TextField(
                             controller: _key,
-                            decoration: const InputDecoration(
+                            obscureText: true,
+                            decoration: InputDecoration(
                               labelText: 'API Key',
-                              hintText: 'sk-xxxx',
+                              hintText: _hasStoredKey && !_clearStoredKey
+                                  ? '••••••••'
+                                  : 'sk-xxxx',
+                              suffixIcon: _hasStoredKey && !_clearStoredKey
+                                  ? IconButton(
+                                      tooltip: tr('清空'),
+                                      onPressed: () => setState(
+                                        () => _clearStoredKey = true,
+                                      ),
+                                      icon: const Icon(Icons.clear_rounded),
+                                    )
+                                  : null,
                             ),
                           ),
                           const SizedBox(height: Gap.l),
@@ -249,6 +269,7 @@ class _TavernSettingsPageState extends State<TavernSettingsPage> {
                             maxLines: 6,
                             decoration: InputDecoration(
                               labelText: tr('系统 Prompt'),
+                              hintText: tr('生成的所有内容请使用简体中文回复。'),
                             ),
                           ),
                           const SizedBox(height: Gap.l),

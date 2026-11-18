@@ -156,7 +156,7 @@ class _NovelReaderPageState extends _NovelReaderBase
     _speech.dispose();
     WidgetsBinding.instance.removeObserver(this);
     AppLock.instance.removeListener(_configureDevice);
-    unawaited(PlatformBridge.applyVideoFullscreen(false));
+    unawaited(PlatformBridge.setSystemBarsHidden(false));
     unawaited(PlatformBridge.resetVideoBrightness());
     _pager?.dispose();
     _focus.dispose();
@@ -197,17 +197,20 @@ class _NovelReaderPageState extends _NovelReaderBase
   }
 
   void _configureDevice() {
-    if (readerInputAvailable(context)) {
+    final active = readerInputAvailable(context);
+    if (active) {
       unawaited(
         _settings.novelBrightness < 0
             ? PlatformBridge.resetVideoBrightness()
             : PlatformBridge.setVideoBrightness(_settings.novelBrightness),
       );
+    } else {
+      unawaited(PlatformBridge.resetVideoBrightness());
     }
     _device.synchronize(
-      active: readerInputAvailable(context),
+      active: active,
       keepScreenOn: _settings.novelKeepScreenOn,
-      volumeKeys: _settings.novelVolumeKeys && readerInputAvailable(context),
+      volumeKeys: _settings.novelVolumeKeys && active,
       orientation: _settings.novelOrientation,
     );
   }
@@ -396,7 +399,7 @@ class _NovelReaderPageState extends _NovelReaderBase
   @override
   void _toggleControls() {
     setState(() => _controls = !_controls);
-    unawaited(PlatformBridge.applyVideoFullscreen(!_controls));
+    unawaited(PlatformBridge.setSystemBarsHidden(!_controls));
   }
 
   @override

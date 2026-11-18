@@ -15,6 +15,7 @@ import '../library/playback_resolver.dart';
 import 'detail/detail_page.dart';
 import 'discovery_navigation.dart';
 import 'feed/feed_article.dart';
+import 'kit/immersive.dart';
 import 'library/offline_bundle_page.dart';
 import 'metadata/metadata_page.dart';
 import 'novel/novel_reader_page.dart';
@@ -152,10 +153,15 @@ class Nav {
     final discovery = DiscoveryNavigation.of(context);
     return Navigator.of(context).push<T>(
       MaterialPageRoute(
-        builder: (_) => TranslationPage(
-          child: discovery == null
-              ? page
-              : DiscoveryNavigation(onSelect: discovery.onSelect, child: page),
+        builder: (_) => SystemNavBoundary(
+          child: TranslationPage(
+            child: discovery == null
+                ? page
+                : DiscoveryNavigation(
+                    onSelect: discovery.onSelect,
+                    child: page,
+                  ),
+          ),
         ),
       ),
     );

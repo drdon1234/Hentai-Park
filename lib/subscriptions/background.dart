@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
+import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:path/path.dart' as p;
 
 import '../core/localization.dart';
@@ -11,6 +12,7 @@ import '../data/database.dart';
 import '../engine/cookie_store.dart';
 import '../engine/http_service.dart';
 import '../engine/js_engine.dart';
+import '../engine/platform_bridge.dart';
 import '../engine/request_lifecycle.dart';
 import '../engine/source_manager.dart';
 import '../library/library.dart';
@@ -51,6 +53,11 @@ Future<void> subscriptionBackground() async {
     if (keys.isEmpty || updater.cancelled) return;
     await CookieStore.instance.init();
     HttpService.instance.init();
+    await PlatformBridge.applyWebViewProxy(AppSettings.instance.proxy);
+    try {
+      final ua = await InAppWebViewController.getDefaultUserAgent();
+      if (ua.isNotEmpty) HttpService.instance.userAgent = ua;
+    } catch (_) {}
     await SourceManager.instance.init(backgroundKeys: keys);
     if (!updater.cancelled) await updater.run();
   } catch (_) {

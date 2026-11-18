@@ -5,6 +5,7 @@ import '../../core/localization.dart';
 import '../../core/platform_capabilities.dart';
 import '../../core/settings.dart';
 import '../../core/translation_options.dart';
+import '../../engine/platform_bridge.dart';
 import '../kit/kit.dart';
 import '../nav.dart';
 import '../subscriptions/subscriptions_page.dart';
@@ -127,7 +128,16 @@ List<Widget> networkSettings(BuildContext context, AppSettings s) => [
             s.proxy,
             hint: tr('填写代理主机:端口，留空表示不使用'),
           );
-          if (v != null) s.proxy = v;
+          if (v == null) return;
+          final trimmed = v.trim();
+          if (trimmed.isNotEmpty &&
+              PlatformBridge.parseHttpProxy(trimmed) == null) {
+            if (context.mounted) {
+              context.toast(tr('代理地址格式无效，请填写主机:端口'));
+            }
+            return;
+          }
+          s.proxy = trimmed;
         },
       ),
     ],

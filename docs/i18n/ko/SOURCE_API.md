@@ -363,8 +363,9 @@ WorkItem의 모든 필드에 더해:
 
 ### 동영상: `videos`
 
-`[{ quality: 1080, label: '1080P', url, headers?, format?, preferred?, hls? }]`를 반환합니다. 직접 링크는 보통 만료되므로 앱은 재생하거나 다운로드할 때마다 다시 가져옵니다.
+`[{ quality: 1080, label: '1080P', url, headers?, format?, preferred?, fallbackHosts?, hls? }]`를 반환합니다. 직접 링크는 보통 만료되므로 앱은 재생하거나 다운로드할 때마다 다시 가져옵니다.
 
+- `format: 'hls'`에 선택적으로 `fallbackHosts: { 'primary.cdn.example': ['backup1.cdn.example'] }`(공개 호스트 최대 8개, 각 최대 8개의 대체 호스트)를 지정하여 VOD 세그먼트 호스트 장애 시 동일 경로의 대체 CDN을 순서대로 시도할 수 있습니다.
 - `format: 'hls'`에 `hls: {manifest, keys}`를 추가할 수 있습니다. `url`은 실제 HTTPS 변형 재생목록 기준 주소, `manifest`는 처리된 전체 VOD 미디어 목록(UTF-8 최대 2 MiB), `keys`는 참조된 절대 키 URL과 Base64 16바이트 키의 매핑(최대 32개)입니다. 네이티브 미디어만 지원하며 기존 주소 권한 및 콘텐츠 검증을 유지하고 참조되지 않은 키는 거부합니다. 이 필드가 있는 결과는 디스크에 캐시하지 않고 키는 세션 메모리에만 보관하며 store, 로그, 작품 또는 커서에 저장하면 안 됩니다.
 
 - 여러 회차인 동영상은 `detail(id).chapters`에 재생 순서대로 `[{ id, title }]`를 반환합니다. 각 `id`는 안정적이어야 하며 화질이나 임시 미디어 URL로 대신하면 안 됩니다. 앱은 같은 ID로 회차 선택, 진행 저장, 다운로드, 이어 보기를 하고 `videos(id, episodeId)`로 그 회차의 자료를 가져옵니다. 단일 회차는 `singleChapterId`를, 없으면 `'_'`를 씁니다.

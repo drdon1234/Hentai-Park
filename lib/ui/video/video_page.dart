@@ -151,12 +151,13 @@ class _VideoPageState extends State<VideoPage>
     });
     WidgetsBinding.instance.addObserver(this);
     AppLock.instance.addListener(_onLockChanged);
-    WakelockPlus.enable();
     _volumeSub = PlatformBridge.mediaVolumeChanges.listen((volume) {
-      if (mounted) setState(() => _volume = volume);
+      if (!mounted || !_shouldAcceptExternalVolume) return;
+      setState(() => _volume = volume);
     });
     unawaited(_readLevels());
     _session.init();
+    _syncWakelock();
     if (_isVoice && AppSettings.instance.voiceBackgroundPlayback) {
       _onVoicePreferenceChanged();
     }
@@ -263,11 +264,30 @@ class _VideoPageState extends State<VideoPage>
   @override
   void didPop() => _setRouteVisible(false);
 
+  bool _wakelockEnabled = false;
+
+  void _syncWakelock() {
+    final keepAwake =
+        _session.foreground &&
+        _session.visible &&
+        !AppLock.instance.locked &&
+        _session.wantsPlayback &&
+        _session.error == null;
+    if (_wakelockEnabled == keepAwake) return;
+    _wakelockEnabled = keepAwake;
+    unawaited(WakelockPlus.toggle(enable: keepAwake));
+  }
+
   void _setRouteVisible(bool visible) {
     unawaited(_session.setRouteVisible(visible));
     _syncLiveChat();
     if (visible) {
-      unawaited(_readLevels());
+      if (_customBrightness case final saved?) {
+        _brightness = saved;
+        unawaited(PlatformBridge.setVideoBrightness(saved));
+      } else {
+        unawaited(_readLevels());
+      }
       unawaited(_updateScreen(_displayMode));
       _scheduleHide();
     } else {
@@ -275,8 +295,10 @@ class _VideoPageState extends State<VideoPage>
       _session.savePosition();
       _cancelGesture();
       _hide?.cancel();
+      unawaited(PlatformBridge.resetVideoBrightness());
     }
     unawaited(_session.syncPlayback());
+    _syncWakelock();
   }
 
   @override
@@ -311,6 +333,7 @@ class _VideoPageState extends State<VideoPage>
     if (!mounted) return;
     _updateVoiceService();
     _syncLiveChat();
+    _syncWakelock();
     if (_session.isAudio && _fullscreen && !widget.pageHorizontally) {
       _displayMode = VideoDisplayMode.inline;
       unawaited(_updateScreen(VideoDisplayMode.inline));
@@ -332,10 +355,12 @@ class _VideoPageState extends State<VideoPage>
         }
         Navigator.of(context).pushReplacement<void, void>(
           MaterialPageRoute(
-            builder: (_) => TranslationPage(
-              child: WebVideoPage(
-                work: widget.work,
-                episodeId: _session.episode.id,
+            builder: (_) => SystemNavBoundary(
+              child: TranslationPage(
+                child: WebVideoPage(
+                  work: widget.work,
+                  episodeId: _session.episode.id,
+                ),
               ),
             ),
           ),
@@ -364,17 +389,25 @@ class _VideoPageState extends State<VideoPage>
     _session.foreground = state == AppLifecycleState.resumed;
     _syncLiveChat();
     if (state == AppLifecycleState.resumed) {
-      unawaited(_readLevels());
+      if (_session.visible && _customBrightness != null) {
+        _brightness = _customBrightness!;
+        unawaited(PlatformBridge.setVideoBrightness(_customBrightness!));
+      } else {
+        unawaited(_readLevels());
+      }
       _updateScreen(_displayMode);
     } else if (state == AppLifecycleState.paused ||
         state == AppLifecycleState.inactive) {
       _endTemporarySpeed();
       _session.savePosition();
       _cancelGesture();
-      PlatformBridge.resetVideoBrightness();
+      if (state == AppLifecycleState.paused) {
+        PlatformBridge.resetVideoBrightness();
+      }
     }
     // Queue playback after all lifecycle observers have updated the app lock.
     _session.syncPlayback();
+    _syncWakelock();
   }
 
   void _onLockChanged() {
@@ -385,6 +418,7 @@ class _VideoPageState extends State<VideoPage>
       _cancelGesture();
     }
     _session.syncPlayback();
+    _syncWakelock();
   }
 
   void _syncLiveChat() {
@@ -548,7 +582,17 @@ class _VideoPageState extends State<VideoPage>
         .then((_) async {
           if (mounted && !_session.visible) return;
           if (!mounted && mode != VideoDisplayMode.inline) return;
-          await SystemChrome.setPreferredOrientations(videoOrientations(mode));
+          if (mode == VideoDisplayMode.inline) {
+            await PlatformBridge.restoreDefaultOrientations();
+          } else if (mode == VideoDisplayMode.portrait && Platform.isIOS) {
+            await SystemChrome.setPreferredOrientations(const [
+              DeviceOrientation.portraitUp,
+            ]);
+          } else {
+            await SystemChrome.setPreferredOrientations(
+              videoOrientations(mode),
+            );
+          }
           await PlatformBridge.applyVideoFullscreen(
             mode != VideoDisplayMode.inline,
             landscape: mode == VideoDisplayMode.landscape,

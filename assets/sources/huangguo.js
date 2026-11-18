@@ -15,7 +15,7 @@ Park.register({
   },
   key: 'huangguo',
   name: '黄果短剧',
-  version: '0.0.15', minAppVersion: '0.13.6',
+  version: '0.0.16', minAppVersion: '0.13.6',
   type: 'video',
   category: 'aiDrama',
   color: '#F2AD24',
@@ -323,7 +323,7 @@ Park.register({
       headers['x-cdn-auth'] = data.cdn.authValue;
       headers['x-cdn-app'] = String(data.cdn.app);
     }
-    return [{quality: 0, label: '原画', url: target.href, headers, preferred: true, format: 'hls'}];
+    return [{quality: 0, label: '原画', url: target.href, headers, preferred: true, format: 'hls', fallbackHosts: {'mts.hhjd.mobi': ['ts.zhixunkeji.xyz', 'tx.doudou520.online']}}];
   },
 });
 

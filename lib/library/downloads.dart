@@ -219,6 +219,7 @@ class DownloadManager extends ChangeNotifier {
   final Map<DownloadTask, Future<void>> _runs = {};
   final Map<String, Future<void>> _deletions = {};
   final Set<String> _removing = {};
+  final Set<String> _interruptedTasks = {};
   final _writes = SerialExecutor();
   bool _disposed = false;
 
@@ -242,6 +243,7 @@ class DownloadManager extends ChangeNotifier {
     Library.instance.onChaptersRead.add(_onChaptersRead);
     _settingsListenable.addListener(_settingsChanged);
     DownloadScheduler.instance.addListener(_pump);
+    BackgroundDownloads.instance.addListener(_onBackgroundDownloadsChanged);
     await _watchNetwork();
     for (final task in _tasks.values.toList()) {
       if (task.deletingChapters == null) continue;
@@ -369,6 +371,7 @@ class DownloadManager extends ChangeNotifier {
     _connectivity?.cancel();
     _settingsListenable.removeListener(_settingsChanged);
     DownloadScheduler.instance.removeListener(_pump);
+    BackgroundDownloads.instance.removeListener(_onBackgroundDownloadsChanged);
     Library.instance.onChaptersRead.remove(_onChaptersRead);
     for (final t in _active.values) {
       t.status = DownloadStatus.paused;
@@ -828,8 +831,32 @@ class DownloadManager extends ChangeNotifier {
     _pump();
   }
 
+  void _onBackgroundDownloadsChanged() {
+    if (_disposed || BackgroundDownloads.instance.interrupted) return;
+    final resumed = <DownloadTask>[];
+    for (final uid in _interruptedTasks.toList()) {
+      _interruptedTasks.remove(uid);
+      final t = _tasks[uid];
+      if (t != null && t.status == DownloadStatus.paused) {
+        t
+          ..status = DownloadStatus.queued
+          ..error = null;
+        resumed.add(t);
+      }
+    }
+    if (resumed.isNotEmpty) {
+      _save(resumed);
+      notifyListeners();
+    }
+    _pump();
+  }
+
   void _pump() {
-    if (_disposed || !networkAllowed) return;
+    if (_disposed ||
+        !networkAllowed ||
+        BackgroundDownloads.instance.interrupted) {
+      return;
+    }
     for (final next
         in _tasks.values
             .where((t) => t.status == DownloadStatus.queued)
@@ -936,6 +963,7 @@ class DownloadManager extends ChangeNotifier {
       }
       if (BackgroundDownloads.interruption(token.cancelError ?? e)
           case final stopped?) {
+        _interruptedTasks.add(t.uid);
         t
           ..status = DownloadStatus.paused
           ..error = stopped.friendly;

@@ -1,8 +1,10 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/widgets.dart';
 import 'package:local_auth/local_auth.dart';
 
+import '../engine/platform_bridge.dart';
 import 'app_log.dart';
 import 'localization.dart';
 import 'settings.dart';
@@ -39,6 +41,7 @@ class AppLock extends ChangeNotifier with WidgetsBindingObserver {
   Future<bool> authenticate({String reason = '验证身份以解锁 HentaiPark'}) async {
     if (_authenticating) return false;
     _authenticating = true;
+    await PlatformBridge.setAuthenticating(true);
     try {
       return await _auth.authenticate(
         localizedReason: tr(reason),
@@ -49,6 +52,11 @@ class AppLock extends ChangeNotifier with WidgetsBindingObserver {
       return false;
     } finally {
       _authenticating = false;
+      unawaited(PlatformBridge.setAuthenticating(false));
+      final state = WidgetsBinding.instance.lifecycleState;
+      if (state == AppLifecycleState.resumed) {
+        _checkRelockOnResume();
+      }
     }
   }
 
@@ -56,6 +64,7 @@ class AppLock extends ChangeNotifier with WidgetsBindingObserver {
     if (!_locked) return;
     if (await authenticate()) {
       _locked = false;
+      _backgroundSince = null;
       notifyListeners();
     }
   }
@@ -63,7 +72,7 @@ class AppLock extends ChangeNotifier with WidgetsBindingObserver {
   /// Turning the lock on requires a successful authentication first, so users cannot lock themselves out.
   Future<bool> enable() async {
     if (!await available()) return false;
-    if (!await authenticate(reason: tr('验证身份以开启应用锁'))) return false;
+    if (!await authenticate(reason: '验证身份以开启应用锁')) return false;
     AppSettings.instance.appLock = true;
     return true;
   }
@@ -71,29 +80,34 @@ class AppLock extends ChangeNotifier with WidgetsBindingObserver {
   void disable() {
     AppSettings.instance.appLock = false;
     _locked = false;
+    _backgroundSince = null;
     notifyListeners();
+  }
+
+  void _checkRelockOnResume() {
+    if (!platformSupported || !AppSettings.instance.appLock) return;
+    final since = _backgroundSince;
+    _backgroundSince = null;
+    if (since != null &&
+        DateTime.now().difference(since).inSeconds >=
+            AppSettings.instance.appLockAfter) {
+      _locked = true;
+      notifyListeners();
+    }
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (!platformSupported ||
-        !AppSettings.instance.appLock ||
-        _authenticating) {
+    if (!platformSupported || !AppSettings.instance.appLock) {
       return;
     }
     switch (state) {
       case AppLifecycleState.hidden:
       case AppLifecycleState.paused:
+        // 即使认证弹窗正在展示，真正切入后台也必须记录时间戳，防止取消认证后绕过重锁。
         _backgroundSince ??= DateTime.now();
       case AppLifecycleState.resumed:
-        final since = _backgroundSince;
-        _backgroundSince = null;
-        if (since != null &&
-            DateTime.now().difference(since).inSeconds >=
-                AppSettings.instance.appLockAfter) {
-          _locked = true;
-          notifyListeners();
-        }
+        if (!_authenticating) _checkRelockOnResume();
       default:
         break;
     }

@@ -41,22 +41,24 @@ subprojects {
                 .digest(treeNames.toByteArray()).joinToString("") { "%02x".format(it) }
             val generated = layout.buildDirectory.dir("generated/park_webview_profile/$treeHash").get().asFile
             val replacement = """
-    // Bind an explicitly marked game view before the plugin configures it.
-    String parkGameProfile = null;
-    boolean ambiguousParkGameProfile = false;
+    // Bind an explicitly marked game or web-video view before the plugin configures it.
+    String parkIsolatedProfile = null;
+    boolean ambiguousParkIsolatedProfile = false;
     for (UserScript script : userScripts) {
       String name = script.getGroupName();
-      if (name != null && name.matches("park_game_[a-f0-9]{64}")) {
-        if (parkGameProfile != null) ambiguousParkGameProfile = true;
-        parkGameProfile = name;
+      if (name != null &&
+          (name.matches("park_game_[a-f0-9]{64}") ||
+           name.matches("park_web_video_[0-9a-f-]{36}"))) {
+        if (parkIsolatedProfile != null) ambiguousParkIsolatedProfile = true;
+        parkIsolatedProfile = name;
       }
     }
-    if (!ambiguousParkGameProfile && parkGameProfile != null &&
+    if (!ambiguousParkIsolatedProfile && parkIsolatedProfile != null &&
         WebViewFeature.isFeatureSupported(WebViewFeature.MULTI_PROFILE)) {
       try {
-        androidx.webkit.WebViewCompat.setProfile(webView, parkGameProfile);
+        androidx.webkit.WebViewCompat.setProfile(webView, parkIsolatedProfile);
       } catch (Exception ignored) {
-        // Dart refuses to load the game unless the expected profile is bound.
+        // Dart refuses to load the page unless the expected profile is bound.
       }
     }
 """ + anchor

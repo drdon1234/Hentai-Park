@@ -374,8 +374,9 @@ Todos los campos de WorkItem, más:
 
 ### Vídeo: `videos`
 
-Devuelve `[{ quality: 1080, label: '1080P', url, headers?, format?, preferred?, hls? }]`. Los enlaces directos suelen caducar, así que la app los vuelve a pedir antes de cada reproducción o descarga.
+Devuelve `[{ quality: 1080, label: '1080P', url, headers?, format?, preferred?, fallbackHosts?, hls? }]`. Los enlaces directos suelen caducar, así que la app los vuelve a pedir antes de cada reproducción o descarga.
 
+- `format: 'hls'` admite opcionalmente `fallbackHosts: { 'primary.cdn.example': ['backup1.cdn.example'] }` (hasta 8 hosts públicos, cada uno con hasta 8 hosts de respaldo) para probar CDN alternativos en la misma ruta cuando fallen los hosts de segmentos VOD.
 - `format: 'hls'` admite `hls: {manifest, keys}`: `url` es la base HTTPS real de la variante; `manifest` es una lista multimedia VOD completa ya procesada (máximo 2 MiB UTF-8); `keys` asigna las URL absolutas de claves referenciadas a claves de 16 bytes en Base64, hasta 32 entradas. Solo para medios nativos. Se mantienen la autorización de direcciones y la validación del contenido; se rechazan claves no referenciadas. Estos resultados no se guardan en la caché de disco; las claves solo permanecen en la memoria de sesión, nunca en store, registros, obras o cursores.
 
 - Los vídeos con varios episodios devuelven `[{ id, title }]` en orden de reproducción en `detail(id).chapters`; cada `id` debe ser estable, nunca una calidad ni una URL temporal. La app usa el mismo ID para elegir episodios, guardar el progreso, descargar y reanudar, y llama a `videos(id, episodeId)` para cada episodio. Los vídeos sueltos usan `singleChapterId`, o `'_'` si no existe.

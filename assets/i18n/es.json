@@ -1981,5 +1981,9 @@
   "没有可用站点，请先启用或添加。": "No hay fuentes disponibles. Activa o añade una primero.",
   "选择要用于本会话的世界书。角色卡内嵌世界书会自动使用。": "Selecciona libros de mundo para esta conversación. El contenido integrado en la tarjeta se usa automáticamente.",
   "在线浏览": "Explorar en línea",
-  "还没有保存世界书。可导入 JSON，或在线浏览后保存到本地。": "No hay libros de mundo guardados. Importa JSON o explora en línea y guarda localmente."
+  "还没有保存世界书。可导入 JSON，或在线浏览后保存到本地。": "No hay libros de mundo guardados. Importa JSON o explora en línea y guarda localmente.",
+  "需要相册权限才能保存图片": "Se necesita permiso de fototeca para guardar imágenes",
+  "需要通知权限才能发送更新提醒": "Se necesita permiso de notificaciones para enviar avisos de actualización",
+  "删除备份？": "¿Eliminar copia de seguridad?",
+  "代理地址格式无效，请填写主机:端口": "Formato de proxy no válido. Escribe host:puerto"
 }

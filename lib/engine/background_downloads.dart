@@ -3,14 +3,16 @@ import 'dart:io';
 
 import 'package:dio/dio.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter/widgets.dart';
 
 import '../core/app_log.dart';
 import '../core/async_tasks.dart';
 import '../core/localization.dart';
 import '../core/models.dart';
+import 'request_lifecycle.dart';
 
 /// 下载共用 Android 前台服务或 iOS 有限后台时间；不发送作品或账号信息。
-class BackgroundDownloads {
+class BackgroundDownloads extends ChangeNotifier with WidgetsBindingObserver {
   BackgroundDownloads({
     Future<void> Function(int count)? update,
     Future<void> Function(double? value)? progress,
@@ -27,7 +29,40 @@ class BackgroundDownloads {
   final _tokens = <Object, CancelToken>{};
   final _recordings = <Object>{};
   bool _listening = false;
+  bool _observing = false;
   bool _interrupted = false;
+  VoidCallback? _executionLease;
+
+  bool get interrupted => _interrupted;
+
+  void _ensureLifecycleObserved() {
+    if (_observing) return;
+    try {
+      WidgetsBinding.instance.addObserver(this);
+      _observing = true;
+    } catch (_) {}
+  }
+
+  void _syncExecutionLease() {
+    if (_tokens.isNotEmpty && !_interrupted) {
+      try {
+        _executionLease ??= RequestLifecycle.instance
+            .acquireBackgroundExecution();
+      } catch (_) {}
+    } else {
+      _executionLease?.call();
+      _executionLease = null;
+    }
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && _interrupted) {
+      _interrupted = false;
+      _syncExecutionLease();
+      notifyListeners();
+    }
+  }
 
   Future<T> run<T>(
     Future<T> Function(CancelToken token) action, {
@@ -46,6 +81,7 @@ class BackgroundDownloads {
     CancelToken? cancelToken,
     bool recording = false,
   }) async {
+    _ensureLifecycleObserved();
     if (!_listening && (Platform.isAndroid || Platform.isIOS)) {
       _listening = true;
       _channel.setMethodCallHandler((call) async {
@@ -62,18 +98,25 @@ class BackgroundDownloads {
     final id = Object();
     await _updates.run(() async {
       if (token.cancelError case final error?) throw error;
-      if (_interrupted && _tokens.isNotEmpty) {
-        throw SourceError('BACKGROUND', '后台下载已被系统停止，请返回应用后重试');
+      if (_interrupted) {
+        final foreground =
+            !_observing ||
+            WidgetsBinding.instance.lifecycleState == AppLifecycleState.resumed;
+        if (!foreground) {
+          throw SourceError('BACKGROUND', '后台下载已被系统停止，请返回应用后重试');
+        }
+        _interrupted = false;
       }
-      if (_tokens.isEmpty) _interrupted = false;
       _tokens[id] = token;
       if (recording) _recordings.add(id);
+      _syncExecutionLease();
       try {
         await _update(_tokens.length);
         _scheduleProgress();
       } catch (_) {
         _tokens.remove(id);
         _recordings.remove(id);
+        _syncExecutionLease();
         throw SourceError('BACKGROUND', '无法启动后台下载，请返回应用后重试');
       }
     });
@@ -83,9 +126,11 @@ class BackgroundDownloads {
   /// 原生后台执行到期或被停止时，停止所有持有租约的网络工作。
   void interrupt() {
     _interrupted = true;
+    _syncExecutionLease();
     for (final token in _tokens.values.toList()) {
       token.cancel(SourceError('BACKGROUND', '后台下载已被系统停止，请返回应用后重试'));
     }
+    notifyListeners();
   }
 
   static SourceError? interruption(Object error) {
@@ -100,6 +145,7 @@ class BackgroundDownloads {
     _progressValues.remove(id);
     _scheduleProgress();
     _recordings.remove(id);
+    _syncExecutionLease();
     try {
       await _update(_interrupted ? 0 : _tokens.length);
     } catch (error) {

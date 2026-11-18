@@ -15,6 +15,7 @@ import '../../engine/desktop_shutdown.dart';
 import '../../engine/domains.dart';
 import '../../engine/http_service.dart';
 import '../../engine/source_manager.dart';
+import '../kit/immersive.dart';
 import '../theme.dart';
 import '../widgets/error_view.dart';
 
@@ -146,10 +147,12 @@ class _WebVerifyPageState extends State<WebVerifyPage> {
           .push<bool>(
             MaterialPageRoute(
               fullscreenDialog: true,
-              builder: (_) => WebVerifyPage._(
-                source: widget.source,
-                url: widget.url,
-                windowId: action.windowId,
+              builder: (_) => SystemNavBoundary(
+                child: WebVerifyPage._(
+                  source: widget.source,
+                  url: widget.url,
+                  windowId: action.windowId,
+                ),
               ),
             ),
           )
@@ -554,7 +557,6 @@ class _WebVerifyPageState extends State<WebVerifyPage> {
                             mounted &&
                             !_sessionClosed) {
                           _logLogin('navigation', 'blocked');
-                          setState(() => _browserFailed = true);
                         }
                         return NavigationActionPolicy.CANCEL;
                       }

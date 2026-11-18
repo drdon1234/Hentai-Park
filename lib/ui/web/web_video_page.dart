@@ -7,6 +7,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
+import 'package:uuid/uuid.dart';
 
 import '../../core/app_lock.dart';
 import '../../core/localization.dart';
@@ -46,6 +47,7 @@ class _WebVideoPageState extends State<WebVideoPage>
   WebPlaybackPolicy? _policy;
   InAppWebViewController? _controller;
   InAppWebViewKeepAlive? _keepAlive;
+  String? _androidProfile;
   WebViewEnvironment? _environment;
   Directory? _profileDirectory;
   Object? _error;
@@ -185,6 +187,7 @@ class _WebVideoPageState extends State<WebVideoPage>
       final id = _controller?.getViewId();
       _controller = null;
       _keepAlive = null;
+      _androidProfile = null;
       _environment = null;
       _profileDirectory = null;
       setState(() {
@@ -220,6 +223,9 @@ class _WebVideoPageState extends State<WebVideoPage>
           _profileDirectory = profile;
           _policy = policy;
           _keepAlive = InAppWebViewKeepAlive();
+          _androidProfile = Platform.isAndroid
+              ? 'park_web_video_${const Uuid().v4()}'
+              : null;
         });
       } catch (error) {
         await _release(null, null, environment, profile);
@@ -245,10 +251,10 @@ class _WebVideoPageState extends State<WebVideoPage>
     _controller = controller;
     try {
       if (Platform.isAndroid &&
-          await _platform.invokeMethod<bool>(
-                'isolateWebVideo',
-                controller.getViewId(),
-              ) !=
+          await _platform.invokeMethod<bool>('isolateWebVideo', {
+                'id': controller.getViewId(),
+                'profile': _androidProfile,
+              }) !=
               true) {
         throw SourceError('UNSUPPORTED', '请更新 Android System WebView 后重试网页播放');
       }
@@ -327,6 +333,7 @@ class _WebVideoPageState extends State<WebVideoPage>
     final id = controller?.getViewId();
     _controller = null;
     _keepAlive = null;
+    _androidProfile = null;
     _environment = null;
     _profileDirectory = null;
     _policy = null;
@@ -482,7 +489,16 @@ class _WebVideoPageState extends State<WebVideoPage>
     value: ParkTheme.overlayStyle(
       _fullscreen ? Brightness.dark : Theme.of(context).brightness,
     ),
-    child: ImmersiveRegion(enabled: _fullscreen, child: _buildPage(context)),
+    child: ImmersiveRegion(
+      enabled: _fullscreen,
+      child: PopScope(
+        canPop: !_fullscreen,
+        onPopInvokedWithResult: (didPop, _) {
+          if (!didPop && _fullscreen) _setFullscreen(false);
+        },
+        child: _buildPage(context),
+      ),
+    ),
   );
 
   Widget _buildPage(BuildContext context) {
@@ -534,6 +550,7 @@ class _WebVideoPageState extends State<WebVideoPage>
                   initialUserScripts: UnmodifiableListView([
                     if (Platform.isAndroid || Platform.isIOS)
                       UserScript(
+                        groupName: _androidProfile,
                         source: challengeDocumentScript,
                         injectionTime:
                             UserScriptInjectionTime.AT_DOCUMENT_START,
@@ -600,12 +617,25 @@ class _WebVideoPageState extends State<WebVideoPage>
                   onProgressChanged: (c, progress) {
                     if (_active(c, session)) {
                       setState(() => _progress = progress / 100);
+                      if (progress == 100 && _routePlayback != null) {
+                        unawaited(_restoreRoutePlayback(c));
+                      }
                     }
                   },
                   onLoadStop: (c, url) {
                     if (_active(c, session)) {
                       _syncLifecycle();
                       unawaited(_restoreRoutePlayback(c));
+                      if (_routePlayback != null) {
+                        Future<void>.delayed(
+                          const Duration(milliseconds: 800),
+                          () {
+                            if (_active(c, session) && _routePlayback != null) {
+                              unawaited(_restoreRoutePlayback(c));
+                            }
+                          },
+                        );
+                      }
                       _checkAccess(c, session);
                     }
                   },

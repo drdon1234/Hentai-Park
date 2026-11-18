@@ -9,7 +9,7 @@ Park.register({
     "ru": {"高分推荐": "С высоким рейтингом", "黄豆短剧": "Короткие сериалы Huangdou"},
     "ar": {"高分推荐": "الأعلى تقييمًا", "黄豆短剧": "مسلسلات Huangdou القصيرة"},
   },
-  key: 'huangdou', name: '黄豆短剧', version: '0.0.12', minAppVersion: '0.13.6',
+  key: 'huangdou', name: '黄豆短剧', version: '0.0.13', minAppVersion: '0.13.6',
   type: 'video', category: 'aiDrama', color: '#FFC857',
   description: 'AI短剧与漫剧，支持分类、排行、搜索和分集播放',
   homepage: 'https://aihuangdou.com', domains: ['aihuangdou.com'], language: 'zh',
@@ -201,7 +201,7 @@ Park.register({
       headers['x-cdn-auth'] = data.cdn.authValue;
       headers['x-cdn-app'] = String(data.cdn.app);
     }
-    return [{quality: 0, label: '原画', url: target.href, headers, preferred: true, format: 'hls'}];
+    return [{quality: 0, label: '原画', url: target.href, headers, preferred: true, format: 'hls', fallbackHosts: {'mts.hhjd.mobi': ['ts.zhixunkeji.xyz', 'tx.doudou520.online']}}];
   },
 });
 

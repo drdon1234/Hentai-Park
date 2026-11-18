@@ -11,16 +11,27 @@ mixin _VideoGestures on State<VideoPage> {
   Duration? _previewPosition;
   VideoGestureSession? _gesture;
   double _brightness = 1;
+  double? _customBrightness;
   double _volume = 1;
   bool _nativeLevels = false;
+  DateTime? _volumeGestureEndedAt;
+
+  bool get _shouldAcceptExternalVolume {
+    if (_gesture?.action == VideoGestureAction.volume) return false;
+    final ended = _volumeGestureEndedAt;
+    return ended == null ||
+        DateTime.now().difference(ended) > const Duration(milliseconds: 350);
+  }
 
   Future<void> _readLevels() async {
     final levels = await PlatformBridge.videoLevels();
     if (!mounted || _gesture != null || levels == null) return;
     setState(() {
       _nativeLevels = true;
-      _brightness = levels.brightness;
-      _volume = levels.volume;
+      _brightness = _customBrightness ?? levels.brightness;
+      if (_shouldAcceptExternalVolume) {
+        _volume = levels.volume;
+      }
     });
   }
 
@@ -84,6 +95,7 @@ mixin _VideoGestures on State<VideoPage> {
       }
     });
     if (action == VideoGestureAction.brightness && _nativeLevels) {
+      _customBrightness = _brightness;
       PlatformBridge.setVideoBrightness(_brightness);
     }
     if (action == VideoGestureAction.volume) {
@@ -99,6 +111,9 @@ mixin _VideoGestures on State<VideoPage> {
     final gesture = _gesture;
     final c = _session.controller;
     _gesture = null;
+    if (gesture?.action == VideoGestureAction.volume) {
+      _volumeGestureEndedAt = DateTime.now();
+    }
     if (!_session.isLive &&
         gesture?.action == VideoGestureAction.seek &&
         c != null) {
@@ -109,7 +124,10 @@ mixin _VideoGestures on State<VideoPage> {
       _previewPosition = null;
       _seekHint = null;
     });
-    unawaited(_readLevels());
+    if (gesture?.action != VideoGestureAction.volume &&
+        gesture?.action != VideoGestureAction.brightness) {
+      unawaited(_readLevels());
+    }
     _scheduleHide();
   }
 

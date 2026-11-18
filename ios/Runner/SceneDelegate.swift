@@ -7,10 +7,12 @@ class SceneDelegate: FlutterSceneDelegate {
   override func sceneWillResignActive(_ scene: UIScene) {
     super.sceneWillResignActive(scene)
     guard UserDefaults.standard.bool(forKey: "parkPrivateSnapshot"),
+          !AppDelegate.authenticating,
           let window = window, privacyCover == nil else { return }
-    let cover = UIView(frame: window.bounds)
-    cover.backgroundColor = .systemBackground
+    let cover = UIVisualEffectView(effect: UIBlurEffect(style: .systemChromeMaterialDark))
+    cover.frame = window.bounds
     cover.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+    cover.isUserInteractionEnabled = false
     window.addSubview(cover)
     privacyCover = cover
   }

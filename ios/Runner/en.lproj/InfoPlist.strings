@@ -1,2 +1,3 @@
 "NSFaceIDUsageDescription" = "Authenticate to unlock HentaiPark.";
 "NSPhotoLibraryAddUsageDescription" = "Save selected images to your photo library.";
+"NSPhotoLibraryUsageDescription" = "Save selected images to the HentaiPark album in your photo library.";

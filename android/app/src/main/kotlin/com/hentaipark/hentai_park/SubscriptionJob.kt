@@ -8,6 +8,9 @@ import android.content.ComponentName
 import android.content.Context
 import android.os.Handler
 import android.os.Looper
+import androidx.webkit.WebViewCompat
+import androidx.webkit.WebViewFeature
+import com.pichillilorenzo.flutter_inappwebview_android.InAppWebViewFlutterPlugin
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.embedding.engine.dart.DartExecutor
 import io.flutter.embedding.engine.loader.FlutterLoader
@@ -38,11 +41,29 @@ class SubscriptionJob : JobService() {
         loader.ensureInitializationComplete(applicationContext, null)
         val runtime = FlutterEngine(applicationContext)
         engine = runtime
+        val browserChallengeInput = BrowserChallengeInput { id ->
+            val plugin = runtime.plugins.get(InAppWebViewFlutterPlugin::class.java) as? InAppWebViewFlutterPlugin
+            plugin?.headlessInAppWebViewManager?.webViews?.get(id)?.flutterWebView?.webView
+        }
         MethodChannel(runtime.dartExecutor.binaryMessenger, "hentai_park/platform").setMethodCallHandler { call, result ->
-            if (call.method == "notifyChecked") {
-                try { result.success(SubscriptionNotifications.send(this, call.arguments as Map<*, *>)) }
-                catch (_: Exception) { result.success(false) }
-            } else result.notImplemented()
+            when (call.method) {
+                "notifyChecked" -> {
+                    try { result.success(SubscriptionNotifications.send(this, call.arguments as Map<*, *>)) }
+                    catch (_: Exception) { result.success(false) }
+                }
+                "clickBrowserChallenge" -> browserChallengeInput.click(call.arguments as? Map<*, *>, result)
+                "setWebViewProxy" -> WebViewProxy.apply(call.arguments, result)
+                "terminateSourceRenderer" -> {
+                    val id = call.arguments as? String
+                    val plugin = runtime.plugins.get(InAppWebViewFlutterPlugin::class.java) as? InAppWebViewFlutterPlugin
+                    val view = plugin?.headlessInAppWebViewManager?.webViews?.get(id)?.flutterWebView?.webView
+                    val terminated = view != null &&
+                        WebViewFeature.isFeatureSupported(WebViewFeature.WEB_VIEW_RENDERER_TERMINATE) &&
+                        WebViewCompat.getWebViewRenderProcess(view)?.terminate() == true
+                    result.success(terminated)
+                }
+                else -> result.notImplemented()
+            }
         }
         background = MethodChannel(runtime.dartExecutor.binaryMessenger, "hentai_park/subscription_background").also {
             it.setMethodCallHandler { call, result ->
@@ -88,6 +109,12 @@ class SubscriptionJob : JobService() {
         // 给取消与原子写入一个短暂的收尾窗口；进程被杀后 SQLite 租约自动过期。
         cancelAndFinish()
         return true
+    }
+
+    override fun onDestroy() {
+        stopped = true
+        finish(false)
+        super.onDestroy()
     }
 
     companion object {

@@ -18,6 +18,7 @@ Future<void> shareContent(
   List<XFile>? files,
   String? text,
   String? subject,
+  Rect? origin,
 }) async {
   if (PlatformCapabilities.desktop) {
     if (files != null && files.isNotEmpty) {
@@ -48,16 +49,40 @@ Future<void> shareContent(
     return;
   }
   if (!context.mounted) return;
-  final box = context.findRenderObject();
-  final origin = box is RenderBox && box.hasSize
-      ? box.localToGlobal(Offset.zero) & box.size
-      : null;
+  Rect? resolvedOrigin = origin;
+  if (resolvedOrigin == null) {
+    final screen = MediaQuery.maybeSizeOf(context);
+    final box = context.findRenderObject();
+    if (box is RenderBox &&
+        box.hasSize &&
+        box.size.width > 0 &&
+        box.size.height > 0) {
+      final rect = box.localToGlobal(Offset.zero) & box.size;
+      if (screen != null &&
+          rect.width >= screen.width * 0.8 &&
+          rect.height >= screen.height * 0.8) {
+        resolvedOrigin = Rect.fromCenter(
+          center: Offset(screen.width / 2, screen.height / 2),
+          width: 1,
+          height: 1,
+        );
+      } else {
+        resolvedOrigin = rect;
+      }
+    } else if (screen != null && screen.width > 0 && screen.height > 0) {
+      resolvedOrigin = Rect.fromCenter(
+        center: Offset(screen.width / 2, screen.height / 2),
+        width: 1,
+        height: 1,
+      );
+    }
+  }
   await SharePlus.instance.share(
     ShareParams(
       files: files,
       text: text,
       subject: subject,
-      sharePositionOrigin: origin,
+      sharePositionOrigin: resolvedOrigin,
     ),
   );
 }

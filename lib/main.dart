@@ -21,6 +21,7 @@ import 'engine/cookie_store.dart';
 import 'engine/http_service.dart';
 import 'engine/native_notifications.dart';
 import 'engine/platform_bridge.dart';
+import 'engine/request_lifecycle.dart';
 import 'engine/source_manager.dart';
 import 'game/downloads.dart';
 import 'images/image_store.dart';
@@ -32,8 +33,9 @@ import 'library/restore_transaction.dart';
 import 'library/updater.dart';
 import 'novel/reading_notes.dart';
 import 'subscriptions/background.dart';
+import 'subscriptions/subscription_store.dart';
+import 'subscriptions/updater.dart';
 import 'tavern/worldbook_terms.dart';
-import 'ui/kit/immersive.dart';
 import 'ui/lock/lock_screen.dart';
 import 'ui/nav.dart';
 import 'ui/shell.dart';
@@ -125,6 +127,7 @@ Future<void> _start() async {
       LibraryUpdater.instance.onFinished.add(_autoDownload);
     },
     () async {
+      await PlatformBridge.restoreDefaultOrientations();
       if (Platform.isAndroid) {
         await InAppWebViewController.setWebContentsDebuggingEnabled(false);
         unawaited(SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge));
@@ -141,6 +144,21 @@ Future<void> _start() async {
     PlatformBridge.bindSettings,
     NativeNotifications.instance.init,
     () async {
+      PlatformBridge.refreshSubscriptions = () =>
+          RequestLifecycle.instance.withBackgroundExecution(() async {
+            await SourceManager.instance.init();
+            await SubscriptionStore.instance.load();
+            final updater = SubscriptionUpdater.instance;
+            try {
+              await updater.run();
+              return !updater.cancelled && updater.failures == 0;
+            } finally {
+              updater.cancelled = false;
+            }
+          });
+      PlatformBridge.cancelSubscriptionRefresh =
+          SubscriptionUpdater.instance.cancel;
+      await PlatformBridge.notifySubscriptionEngineReady();
       // Sources load after the first frame; the UI shows skeletons meanwhile.
       WidgetsBinding.instance.addPostFrameCallback((_) {
         unawaited(
@@ -248,59 +266,17 @@ class _LanguageRefreshState extends State<_LanguageRefresh> {
   Widget build(BuildContext context) => widget.child;
 }
 
-/// Keeps every page above a three-button / gesture navigation bar. The app draws edge-to-edge, and
-/// most pages pad their scroll views explicitly, which would otherwise leave the last items
-/// hidden behind the bar. Immersive pages (reader, fullscreen video) hide the bar, so the inset is 0.
+/// Applies the system UI overlay style at the app root without clipping the
+/// root Navigator, so modal bottom sheets and dialog scrims extend seamlessly
+/// to the physical bottom edge while each page route manages its own
+/// [SystemNavBoundary].
 class _SystemNavInset extends StatelessWidget {
   const _SystemNavInset({required this.child});
   final Widget child;
 
   @override
   Widget build(BuildContext context) {
-    final mq = MediaQuery.of(context);
-    final theme = Theme.of(context);
-    final bottom = mq.viewPadding.bottom;
-    // Transparent system bar without the contrast scrim; the strip below it uses the same
-    // color as the app's navigation bar so the two read as one surface.
-    final style = ParkTheme.overlayStyle(theme.brightness);
-    if (bottom <= 0) {
-      return AnnotatedRegion<SystemUiOverlayStyle>(value: style, child: child);
-    }
-    // 沉浸页面（阅读器、短视频）自己处理底部安全区，背景延伸到系统导航栏下方；
-    // 结构保持不变，切换时不会重建页面。
-    return ValueListenableBuilder<int>(
-      valueListenable: Immersive.depth,
-      child: child,
-      builder: (context, depth, child) {
-        final immersive = depth > 0;
-        final inset = immersive ? 0.0 : bottom;
-        return AnnotatedRegion<SystemUiOverlayStyle>(
-          value: style,
-          child: ColoredBox(
-            color: immersive
-                ? Colors.transparent
-                : ParkTheme.navigationColor(theme.colorScheme),
-            child: Padding(
-              padding: EdgeInsets.only(bottom: inset),
-              child: MediaQuery(
-                data: immersive
-                    ? mq
-                    : mq.copyWith(
-                        padding: mq.padding.copyWith(bottom: 0),
-                        viewPadding: mq.viewPadding.copyWith(bottom: 0),
-                        viewInsets: mq.viewInsets.copyWith(
-                          bottom: (mq.viewInsets.bottom - bottom).clamp(
-                            0,
-                            double.infinity,
-                          ),
-                        ),
-                      ),
-                child: child!,
-              ),
-            ),
-          ),
-        );
-      },
-    );
+    final style = ParkTheme.overlayStyle(Theme.of(context).brightness);
+    return AnnotatedRegion<SystemUiOverlayStyle>(value: style, child: child);
   }
 }

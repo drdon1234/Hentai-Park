@@ -7,6 +7,7 @@ import android.app.PendingIntent
 import android.app.Service
 import android.content.Context
 import android.content.Intent
+import android.content.pm.ServiceInfo
 import android.os.Build
 import android.os.IBinder
 import android.os.PowerManager
@@ -30,16 +31,18 @@ class VoicePlaybackService : Service() {
             return START_NOT_STICKY
         }
         launching = false
-        if (leases.isEmpty()) {
-            stopping = true
-            stopSelf()
-            finishWaiting(false)
-            return START_NOT_STICKY
-        }
         try {
             val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
             if (Build.VERSION.SDK_INT >= 26) {
                 manager.createNotificationChannel(NotificationChannel(CHANNEL, notificationText, NotificationManager.IMPORTANCE_LOW))
+            }
+            if (leases.isEmpty()) {
+                startVoiceForeground()
+                stopping = true
+                stopForeground(STOP_FOREGROUND_REMOVE)
+                stopSelf()
+                finishWaiting(false)
+                return START_NOT_STICKY
             }
             if (mediaSession == null) {
                 mediaSession = MediaSession(this, "HentaiParkVoice").apply {
@@ -56,7 +59,7 @@ class VoicePlaybackService : Service() {
                 }
             }
             updateMediaState()
-            startForeground(NOTIFICATION_ID, notification())
+            startVoiceForeground()
             current = this
             updateWakeLock()
             finishWaiting(true)
@@ -67,9 +70,19 @@ class VoicePlaybackService : Service() {
             controls.clear()
             finishWaiting(false)
             stopping = true
+            runCatching { stopForeground(STOP_FOREGROUND_REMOVE) }
             stopSelf()
         }
         return START_NOT_STICKY
+    }
+
+    private fun startVoiceForeground() {
+        val note = notification()
+        if (Build.VERSION.SDK_INT >= 29) {
+            startForeground(NOTIFICATION_ID, note, ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK)
+        } else {
+            startForeground(NOTIFICATION_ID, note)
+        }
     }
 
     override fun onDestroy() {

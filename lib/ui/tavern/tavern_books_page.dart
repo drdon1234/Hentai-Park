@@ -129,7 +129,7 @@ class _TavernBooksPageState extends State<TavernBooksPage> {
   Widget build(BuildContext context) => PopScope(
     canPop: !_working,
     child: Scaffold(
-      appBar: PageHeader(title: tr('关联世界书')),
+      appBar: AppBar(title: Text(tr('关联世界书'))),
       body: ReadableWidth(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,

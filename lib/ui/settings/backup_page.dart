@@ -215,6 +215,14 @@ class _BackupPageState extends State<BackupPage> {
       case 'share':
         await _guard(() => shareContent(context, files: [XFile(f.path)]));
       case 'delete':
+        final confirmed = await confirmAction(
+          context,
+          title: tr('删除备份？'),
+          message: p.basename(f.path),
+          confirmLabel: tr('删除'),
+          destructive: true,
+        );
+        if (!confirmed || !mounted || _unavailable) return;
         await _guard(() async {
           await f.delete();
           await _refresh();

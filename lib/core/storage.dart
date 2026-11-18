@@ -4,6 +4,7 @@ import 'dart:io';
 
 import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:uuid/uuid.dart';
@@ -52,6 +53,20 @@ class AppPaths {
         : Directory(p.join(external.path, 'downloads'));
     for (final d in [data, cache, downloads, backups, downloadRoot]) {
       await d.create(recursive: true);
+    }
+    if (Platform.isIOS) {
+      final excluded = {
+        downloads.path,
+        downloadRoot.path,
+        p.join(downloadRoot.path, 'live_recordings'),
+      }.toList();
+      for (final path in excluded) {
+        await Directory(path).create(recursive: true);
+      }
+      try {
+        await const MethodChannel('hentai_park/platform')
+            .invokeMethod<bool>('excludeFromBackup', excluded);
+      } catch (_) {}
     }
   }
 

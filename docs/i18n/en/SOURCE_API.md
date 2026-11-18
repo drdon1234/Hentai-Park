@@ -374,8 +374,9 @@ All WorkItem fields, plus:
 
 ### Video: `videos`
 
-Returns `[{ quality: 1080, label: '1080P', url, headers?, format?, preferred?, hls? }]`. Direct links usually expire, so the app fetches them again before every playback or download.
+Returns `[{ quality: 1080, label: '1080P', url, headers?, format?, preferred?, fallbackHosts?, hls? }]`. Direct links usually expire, so the app fetches them again before every playback or download.
 
+- `format: 'hls'` may include `fallbackHosts: { 'primary.cdn.example': ['backup1.cdn.example'] }` (up to 8 public hosts, each with up to 8 fallback hosts) to try mirror CDNs on the same path when VOD segment hosts fail.
 - `format: 'hls'` may include `hls: {manifest, keys}`: `url` is the real HTTPS base of the variant playlist; `manifest` is a prepared complete VOD media playlist (at most 2 MiB UTF-8); `keys` maps referenced absolute key URLs to Base64-encoded 16-byte keys, up to 32 entries. Native media only. Existing address authorization and content validation still apply; unreferenced keys are rejected. Results containing this field are never cached to disk; keys stay in session memory and must not enter store, logs, works or cursors.
 
 - Multi-episode videos return `[{ id, title }]` in play order from `detail(id).chapters`; each `id` must be stable, never a quality or temporary media URL. The app uses the same ID to pick episodes, store progress, download and resume, and calls `videos(id, episodeId)` for each episode. Single videos use `singleChapterId`, or `'_'` if absent.

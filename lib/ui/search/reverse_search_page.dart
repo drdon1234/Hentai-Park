@@ -8,7 +8,6 @@ import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/localization.dart';
-import '../../core/platform_capabilities.dart';
 import '../../core/reverse_search.dart';
 import '../../core/reverse_search_history.dart';
 import '../../engine/source_manager.dart';
@@ -235,7 +234,7 @@ class _ReverseSearchPageState extends State<ReverseSearchPage> {
       _syncSources();
     }),
     onPick: _pick,
-    onPaste: PlatformCapabilities.desktop ? _paste : null,
+    onPaste: _paste,
     onCrop: _crop,
     onRemove: () => setState(() {
       _invalidate();

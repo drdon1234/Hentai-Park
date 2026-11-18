@@ -229,10 +229,14 @@ Future<void> _editUpdatePolicy(BuildContext context) => showAdaptiveSheet<void>(
                         ),
                         selected: s.libraryUpdateHours == e.key,
                         showCheckmark: false,
-                        onSelected: (_) {
+                        onSelected: (_) async {
                           s.libraryUpdateHours = e.key;
                           if (e.key > 0) {
-                            PlatformBridge.requestNotificationPermission();
+                            final granted =
+                                await PlatformBridge.requestNotificationPermission();
+                            if (!granted && context.mounted) {
+                              context.toast(tr('需要通知权限才能发送更新提醒'));
+                            }
                           }
                         },
                       ),

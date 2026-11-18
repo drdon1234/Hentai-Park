@@ -58,6 +58,8 @@ class HlsSources {
               'label': variant.label,
               'format': 'hls',
               'headers': source.headers,
+              if (source.fallbackHosts.isNotEmpty)
+                'fallbackHosts': source.fallbackHosts,
               'preferred': source.preferred && identical(variant, preferred),
             }, audio: variant.audio),
           ),

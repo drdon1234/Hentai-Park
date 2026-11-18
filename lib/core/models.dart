@@ -1277,8 +1277,10 @@ class VideoSource {
       headers = _map(j['headers']).map((k, v) => MapEntry(k, v.toString())),
       format = _str(j['format']),
       preferred = j['preferred'] == true,
+      fallbackHosts = _parseFallbackHosts(j['fallbackHosts']),
       hls = j['hls'] == null ? null : HlsSourceData.fromJson(j['hls']) {
-    if ((hls != null || audio != null) && format != 'hls') {
+    if ((hls != null || audio != null || fallbackHosts.isNotEmpty) &&
+        format != 'hls') {
       throw SourceError('PARSE', '媒体数据无效');
     }
   }
@@ -1290,10 +1292,53 @@ class VideoSource {
   final Map<String, String> headers;
   final String format;
   final bool preferred;
+  final Map<String, List<String>> fallbackHosts;
   final HlsSourceData? hls;
 
   /// 仅由应用解析主清单得到，插件返回的数据不能设置。
   final HlsAudioVariant? audio;
+
+  static Map<String, List<String>> _parseFallbackHosts(Object? raw) {
+    if (raw == null) return const {};
+    if (raw is! Map || raw.length > 8) {
+      throw SourceError('PARSE', '媒体数据无效');
+    }
+    bool validHost(String host) =>
+        host.length <= 253 &&
+        RegExp(r'^[a-z0-9](?:[a-z0-9._-]*[a-z0-9])?\.[a-z]{2,}$')
+            .hasMatch(host) &&
+        !host
+            .split('.')
+            .any(
+              (label) =>
+                  label.isEmpty || label.startsWith('-') || label.endsWith('-'),
+            ) &&
+        host != 'localhost' &&
+        !host.endsWith('.localhost') &&
+        !host.endsWith('.local');
+    final out = <String, List<String>>{};
+    for (final entry in raw.entries) {
+      if (entry.key is! String || entry.value is! List) {
+        throw SourceError('PARSE', '媒体数据无效');
+      }
+      final primary = (entry.key as String).toLowerCase().trim();
+      final list = entry.value as List;
+      if (!validHost(primary) || list.isEmpty || list.length > 8) {
+        throw SourceError('PARSE', '媒体数据无效');
+      }
+      final candidates = <String>[];
+      for (final item in list) {
+        if (item is! String) throw SourceError('PARSE', '媒体数据无效');
+        final candidate = item.toLowerCase().trim();
+        if (!validHost(candidate) || candidate == primary) {
+          throw SourceError('PARSE', '媒体数据无效');
+        }
+        if (!candidates.contains(candidate)) candidates.add(candidate);
+      }
+      out[primary] = List.unmodifiable(candidates);
+    }
+    return Map.unmodifiable(out);
+  }
 }
 
 /// 主清单中视频与音轨分开存放的清晰度：[VideoSource.url] 是视频媒体清单。

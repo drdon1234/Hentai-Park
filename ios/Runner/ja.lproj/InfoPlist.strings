@@ -1,2 +1,3 @@
 "NSFaceIDUsageDescription" = "本人認証で HentaiPark のロックを解除します。";
 "NSPhotoLibraryAddUsageDescription" = "選択した画像を写真ライブラリに保存します。";
+"NSPhotoLibraryUsageDescription" = "選択した画像を写真ライブラリの HentaiPark アルバムに保存します。";

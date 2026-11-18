@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter/widgets.dart' show WidgetsBinding;
 
 import '../core/app_log.dart';
 import '../core/diagnostic_entry.dart';
@@ -87,7 +88,11 @@ class PlatformBridge {
   static bool? _secureScreen;
   static int? _refreshRate;
   static int? _subscriptionHours;
+  static String? _proxy;
+  static bool? _webViewProxySupported;
   static Future<void> _settingsUpdates = Future.value();
+
+  static bool? get webViewProxySupported => _webViewProxySupported;
 
   /// Apply device preferences at startup and after every change, including backup restore.
   static Future<void> bindSettings() {
@@ -99,6 +104,7 @@ class PlatformBridge {
             'appLock',
             'refreshRate',
             'subscriptionUpdateHours',
+            'proxy',
           })
           .addListener(() => unawaited(bindSettings()));
     }
@@ -106,15 +112,19 @@ class PlatformBridge {
     final secure = settings.secureScreen || settings.appLock;
     final rate = settings.refreshRate;
     final hours = settings.subscriptionUpdateHours;
+    final proxy = settings.proxy;
     final schedule = hours != _subscriptionHours;
     _subscriptionHours = hours;
     final updateSecure = secure != _secureScreen;
     final updateRate = rate != _refreshRate;
+    final updateProxy = proxy != _proxy;
     _secureScreen = secure;
     _refreshRate = rate;
+    _proxy = proxy;
     return _settingsUpdates = _settingsUpdates.then((_) async {
       if (updateSecure) await applySecureScreen(secure);
       if (updateRate) await applyRefreshRate(rate);
+      if (updateProxy) await applyWebViewProxy(proxy);
       if (schedule && (Platform.isAndroid || Platform.isIOS)) {
         try {
           await _channel.invokeMethod<void>('scheduleSubscriptions', hours);
@@ -123,6 +133,89 @@ class PlatformBridge {
         }
       }
     });
+  }
+
+  /// Parses an HTTP proxy setting into discrete endpoint fields for WebView.
+  static ({String host, int port, String username, String password})?
+  parseHttpProxy(String raw) {
+    final trimmed = raw.trim();
+    if (trimmed.isEmpty) return null;
+    final normalized =
+        RegExp(r'^https?://', caseSensitive: false).hasMatch(trimmed)
+        ? trimmed
+        : 'http://$trimmed';
+    final uri = Uri.tryParse(normalized);
+    if (uri == null ||
+        uri.host.isEmpty ||
+        !uri.hasPort ||
+        uri.port < 1 ||
+        uri.port > 65535) {
+      return null;
+    }
+    var username = '';
+    var password = '';
+    if (uri.userInfo.isNotEmpty) {
+      final sep = uri.userInfo.indexOf(':');
+      if (sep < 0) {
+        username = Uri.decodeComponent(uri.userInfo);
+      } else {
+        username = Uri.decodeComponent(uri.userInfo.substring(0, sep));
+        password = Uri.decodeComponent(uri.userInfo.substring(sep + 1));
+      }
+    }
+    return (
+      host: uri.host,
+      port: uri.port,
+      username: username,
+      password: password,
+    );
+  }
+
+  static Future<bool> applyWebViewProxy(String raw) async {
+    if (!Platform.isAndroid && !Platform.isIOS) return false;
+    final trimmed = raw.trim();
+    Map<String, Object?> payload;
+    if (trimmed.isEmpty) {
+      payload = const {'host': ''};
+    } else {
+      final parsed = parseHttpProxy(trimmed);
+      if (parsed == null) return false;
+      payload = {
+        'host': parsed.host,
+        'port': parsed.port,
+        if (parsed.username.isNotEmpty) 'username': parsed.username,
+        if (parsed.password.isNotEmpty) 'password': parsed.password,
+      };
+    }
+    try {
+      final ok = await _channel.invokeMethod<bool>('setWebViewProxy', payload);
+      _webViewProxySupported = ok;
+      return ok ?? false;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  static Future<void> notifySubscriptionEngineReady() async {
+    _listen();
+    if (!Platform.isIOS) return;
+    try {
+      await _channel.invokeMethod<void>('subscriptionEngineReady');
+    } catch (_) {}
+  }
+
+  static Future<void> setAuthenticating(bool active) async {
+    if (!Platform.isIOS) return;
+    try {
+      await _channel.invokeMethod<void>('setAuthenticating', active);
+    } catch (_) {}
+  }
+
+  static Future<void> excludeFromBackup(List<String> paths) async {
+    if (!Platform.isIOS || paths.isEmpty) return;
+    try {
+      await _channel.invokeMethod<bool>('excludeFromBackup', paths);
+    } catch (_) {}
   }
 
   static void _listen() {
@@ -246,6 +339,38 @@ class PlatformBridge {
     );
   }
 
+  /// Hides or restores system status/navigation bars for readers without
+  /// overriding or resetting the active reader orientation session.
+  static Future<void> setSystemBarsHidden(bool hidden) async {
+    if (defaultTargetPlatform == TargetPlatform.android) {
+      try {
+        await _channel.invokeMethod('setSystemBarsHidden', hidden);
+        return;
+      } catch (_) {}
+    }
+    await SystemChrome.setEnabledSystemUIMode(
+      hidden ? SystemUiMode.immersiveSticky : SystemUiMode.edgeToEdge,
+    );
+  }
+
+  /// Restores default screen orientation: portraitUp on phones (<600dp shortest
+  /// side) so exiting landscape video/game/reader actively rotates back on iOS,
+  /// and unrestricted on tablets / large screens.
+  static Future<void> restoreDefaultOrientations() async {
+    bool isPhone = true;
+    try {
+      final view = WidgetsBinding.instance.platformDispatcher.views.firstOrNull;
+      if (view != null && view.devicePixelRatio > 0) {
+        final shortestSide =
+            view.physicalSize.shortestSide / view.devicePixelRatio;
+        isPhone = shortestSide < 600;
+      }
+    } catch (_) {}
+    await SystemChrome.setPreferredOrientations(
+      isPhone ? const [DeviceOrientation.portraitUp] : const [],
+    );
+  }
+
   /// Window-local brightness and the media stream's volume, both normalized.
   /// The native side remembers the original window brightness until reset.
   static Future<({double brightness, double volume})?> videoLevels() async {
@@ -347,6 +472,8 @@ class PlatformBridge {
     String channelName = '书库更新',
   }) async {
     if (!Platform.isAndroid) {
+      // iOS 无常驻静默通知栏进度条；忽略逐项 ongoing 进度通知，仅发送完成汇总通知。
+      if (ongoing) return;
       await NativeNotifications.instance.show(
         id: id,
         title: title,

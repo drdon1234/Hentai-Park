@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import '../core/models.dart';
@@ -7,6 +8,8 @@ import '../core/models.dart';
 /// to LAN hosts, and Clash, sing-box and Surge map domains into it in fake-ip
 /// mode. The system VPN routes those connections by domain, and TLS still
 /// verifies the original host name.
+/// RFC 6052 (64:ff9b::/96) and RFC 8215 (64:ff9b:1::/48) NAT64 addresses are
+/// accepted when their embedded 32-bit IPv4 suffix is itself public.
 bool isPublicMediaAddress(InternetAddress address) {
   final bytes = address.rawAddress;
   if (bytes.length == 16) {
@@ -21,6 +24,25 @@ bool isPublicMediaAddress(InternetAddress address) {
     if (bytes.take(10).every((b) => b == 0) &&
         bytes[10] == 255 &&
         bytes[11] == 255) {
+      return isPublicMediaAddress(
+        InternetAddress.fromRawAddress(bytes.sublist(12)),
+      );
+    }
+    // NAT64 well-known prefix 64:ff9b::/96 (RFC 6052) and 64:ff9b:1::/48 (RFC 8215).
+    final isRfc6052 =
+        bytes[0] == 0x00 &&
+        bytes[1] == 0x64 &&
+        bytes[2] == 0xff &&
+        bytes[3] == 0x9b &&
+        bytes.skip(4).take(8).every((b) => b == 0);
+    final isRfc8215 =
+        bytes[0] == 0x00 &&
+        bytes[1] == 0x64 &&
+        bytes[2] == 0xff &&
+        bytes[3] == 0x9b &&
+        bytes[4] == 0x00 &&
+        bytes[5] == 0x01;
+    if (isRfc6052 || isRfc8215) {
       return isPublicMediaAddress(
         InternetAddress.fromRawAddress(bytes.sublist(12)),
       );
@@ -63,4 +85,70 @@ Future<List<InternetAddress>> publicMediaAddresses(String host) async {
     );
   }
   return addresses;
+}
+
+/// Connects to checked public media addresses with sequential fallback across
+/// resolved records (e.g. broken IPv6 falling back to IPv4) while preserving
+/// original host SNI and TLS verification.
+Future<ConnectionTask<Socket>> connectPublicMediaSocket(Uri uri) async {
+  final addresses = await publicMediaAddresses(uri.host);
+  var cancelled = false;
+  ConnectionTask<Socket>? activeTask;
+  Socket? connected;
+
+  Future<Socket> connectAny() async {
+    Object? lastError;
+    for (var i = 0; i < addresses.length; i++) {
+      if (cancelled) {
+        throw const SocketException('Media connection cancelled');
+      }
+      final isLast = i == addresses.length - 1;
+      try {
+        final task = await Socket.startConnect(addresses[i], uri.port);
+        activeTask = task;
+        if (cancelled) {
+          task.cancel();
+          throw const SocketException('Media connection cancelled');
+        }
+        final socket = isLast
+            ? await task.socket
+            : await task.socket.timeout(
+                const Duration(seconds: 4),
+                onTimeout: () {
+                  task.cancel();
+                  throw TimeoutException('Media address fallback timeout');
+                },
+              );
+        connected = socket;
+        if (cancelled) {
+          socket.destroy();
+          throw const SocketException('Media connection cancelled');
+        }
+        if (uri.scheme != 'https') return socket;
+        try {
+          final secure = await SecureSocket.secure(socket, host: uri.host);
+          connected = secure;
+          if (cancelled) {
+            secure.destroy();
+            throw const SocketException('Media connection cancelled');
+          }
+          return secure;
+        } catch (_) {
+          socket.destroy();
+          connected = null;
+          rethrow;
+        }
+      } catch (error) {
+        lastError = error;
+        if (cancelled || isLast) rethrow;
+      }
+    }
+    throw lastError ?? const SocketException('No public media address');
+  }
+
+  return ConnectionTask.fromSocket(connectAny(), () {
+    cancelled = true;
+    activeTask?.cancel();
+    connected?.destroy();
+  });
 }

@@ -16,9 +16,7 @@ mixin _ReaderInput on _ReaderBase, _ReaderNavigation {
 
   void _toggleOverlay() {
     setState(() => _overlay = !_overlay);
-    SystemChrome.setEnabledSystemUIMode(
-      _overlay ? SystemUiMode.edgeToEdge : SystemUiMode.immersiveSticky,
-    );
+    unawaited(PlatformBridge.setSystemBarsHidden(!_overlay));
   }
 
   void _onTap(TapUpDetails d, BoxConstraints c) {
@@ -107,30 +105,71 @@ mixin _ReaderInput on _ReaderBase, _ReaderNavigation {
     return _page;
   }
 
+  static String _imageExtension(Uint8List bytes) {
+    if (bytes.length >= 8 &&
+        bytes[0] == 0x89 &&
+        bytes[1] == 0x50 &&
+        bytes[2] == 0x4E &&
+        bytes[3] == 0x47) {
+      return 'png';
+    }
+    if (bytes.length >= 3 &&
+        bytes[0] == 0xFF &&
+        bytes[1] == 0xD8 &&
+        bytes[2] == 0xFF) {
+      return 'jpg';
+    }
+    if (bytes.length >= 12 &&
+        bytes[0] == 0x52 &&
+        bytes[1] == 0x49 &&
+        bytes[2] == 0x46 &&
+        bytes[3] == 0x46 &&
+        bytes[8] == 0x57 &&
+        bytes[9] == 0x45 &&
+        bytes[10] == 0x42 &&
+        bytes[11] == 0x50) {
+      return 'webp';
+    }
+    if (bytes.length >= 6 &&
+        bytes[0] == 0x47 &&
+        bytes[1] == 0x49 &&
+        bytes[2] == 0x46 &&
+        bytes[3] == 0x38) {
+      return 'gif';
+    }
+    return 'png';
+  }
+
   Future<void> _pageMenu(int index) async {
     final action = await showPageActions(context, index);
     if (action == null || !mounted) return;
     try {
       final bytes = await _provider(index).displayBytes();
+      final ext = _imageExtension(bytes);
       final name = 'hentaipark_${safeFileName(widget.work.id)}_${index + 1}';
       if (action == PageAction.save) {
         if (!PlatformCapabilities.photoLibrary) {
-          await FilePicker.saveFile(fileName: '$name.png', bytes: bytes);
+          await FilePicker.saveFile(fileName: '$name.$ext', bytes: bytes);
           return;
         }
-        if (!await Gal.hasAccess(toAlbum: true)) {
-          await Gal.requestAccess(toAlbum: true);
+        var granted = await Gal.hasAccess(toAlbum: true);
+        if (!granted) {
+          granted = await Gal.requestAccess(toAlbum: true);
+        }
+        if (!granted) {
+          if (mounted) context.toast(tr('需要相册权限才能保存图片'));
+          return;
         }
         await Gal.putImageBytes(bytes, album: 'HentaiPark', name: name);
         if (mounted) context.toast(tr('已保存到相册'));
       } else {
-        final file = File(p.join(AppPaths.cache.path, '$name.png'));
+        final file = File(p.join(AppPaths.cache.path, '$name.$ext'));
         await file.writeAsBytes(bytes);
         if (!mounted) return;
         await shareContent(context, files: [XFile(file.path)]);
       }
-    } catch (e) {
-      if (mounted) context.toast(tr('操作失败：{value0}', {'value0': e}));
+    } catch (_) {
+      if (mounted) context.toast(tr('保存失败，请重试'));
     }
   }
 }

@@ -535,7 +535,7 @@
     {
       "key": "huangdou",
       "name": "黄豆短剧",
-      "version": "0.0.12",
+      "version": "0.0.13",
       "type": "video",
       "category": "aiDrama",
       "file": "huangdou.js",
@@ -545,7 +545,7 @@
     {
       "key": "drama91",
       "name": "91短剧",
-      "version": "0.0.12",
+      "version": "0.0.13",
       "type": "video",
       "category": "aiDrama",
       "file": "drama91.js",
@@ -555,7 +555,7 @@
     {
       "key": "huangguo",
       "name": "黄果短剧",
-      "version": "0.0.15",
+      "version": "0.0.16",
       "type": "video",
       "category": "aiDrama",
       "file": "huangguo.js",

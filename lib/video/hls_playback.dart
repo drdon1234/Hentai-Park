@@ -20,11 +20,17 @@ import 'rou_hls_wrapper.dart';
 
 /// A private, finite URL registry. The player never supplies an upstream URL.
 class HlsPlayback implements Playback {
-  HlsPlayback(this.transport, {this.live = false, this.audio});
+  HlsPlayback(
+    this.transport, {
+    this.live = false,
+    this.audio,
+    this.fallbackHosts = const {},
+  });
   HlsPlayback.local(File playlist)
     : transport = LocalHlsMedia(playlist),
       live = false,
-      audio = null;
+      audio = null,
+      fallbackHosts = const {};
 
   Future<Uri> openLocal() => open(LocalHlsMedia.playlistUrl);
   final MediaTransport transport;
@@ -32,6 +38,7 @@ class HlsPlayback implements Playback {
 
   /// 视频与音轨分开存放时，本地生成只含此视频变体与默认音轨的主清单。
   final HlsAudioVariant? audio;
+  final Map<String, List<String>> fallbackHosts;
   final _cancel = CancelToken();
   final _routes = <String, HlsSegment>{};
   String? _playlistPath;
@@ -475,9 +482,8 @@ class HlsPlayback implements Playback {
     return key.host == segment.url.host ? key.replace(host: host) : key;
   }
 
-  List<String> _cdnFallbackHosts(String host) => host == 'mts.hhjd.mobi'
-      ? const ['ts.zhixunkeji.xyz', 'tx.doudou520.online']
-      : const [];
+  List<String> _cdnFallbackHosts(String host) =>
+      fallbackHosts[host.toLowerCase()] ?? const [];
 
   HlsSegment _segmentOnHost(HlsSegment segment, String host) {
     return HlsSegment(

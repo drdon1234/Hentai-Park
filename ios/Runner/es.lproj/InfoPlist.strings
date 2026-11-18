@@ -1,2 +1,3 @@
 "NSFaceIDUsageDescription" = "Verifica tu identidad para desbloquear HentaiPark.";
 "NSPhotoLibraryAddUsageDescription" = "Guarda las imágenes seleccionadas en tu fototeca.";
+"NSPhotoLibraryUsageDescription" = "Guarda las imágenes seleccionadas en el álbum HentaiPark de tu fototeca.";

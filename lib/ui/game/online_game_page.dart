@@ -378,14 +378,18 @@ document.head.appendChild(script);
     });
     return _screenUpdates = _screenUpdates
         .then((_) async {
-          await SystemChrome.setPreferredOrientations(
-            fullscreen && landscape
-                ? [
-                    DeviceOrientation.landscapeLeft,
-                    DeviceOrientation.landscapeRight,
-                  ]
-                : [],
-          );
+          if (fullscreen && landscape) {
+            await SystemChrome.setPreferredOrientations(const [
+              DeviceOrientation.landscapeLeft,
+              DeviceOrientation.landscapeRight,
+            ]);
+          } else if (fullscreen) {
+            await SystemChrome.setPreferredOrientations(const [
+              DeviceOrientation.portraitUp,
+            ]);
+          } else {
+            await PlatformBridge.restoreDefaultOrientations();
+          }
           await PlatformBridge.applyVideoFullscreen(
             fullscreen,
             landscape: landscape,

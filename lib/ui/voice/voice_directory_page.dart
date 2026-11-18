@@ -376,8 +376,12 @@ class _VoiceDirectoryPageState extends State<VoiceDirectoryPage> {
     final rows = _rows();
     final root = _folders[_rootId]!;
     return Scaffold(
-      appBar: PageHeader(
-        titleWidget: TranslatedText(widget.work.title),
+      appBar: AppBar(
+        title: TranslatedText(
+          widget.work.title,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
         actions: [
           WorkDownloadButton(item: widget.work.toItem(), detail: widget.work),
           const TranslationControls(),

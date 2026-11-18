@@ -1,2 +1,3 @@
 "NSFaceIDUsageDescription" = "تحقق من هويتك لفتح HentaiPark.";
 "NSPhotoLibraryAddUsageDescription" = "حفظ الصور المحددة في مكتبة الصور.";
+"NSPhotoLibraryUsageDescription" = "حفظ الصور المحددة في ألبوم HentaiPark داخل مكتبة الصور.";

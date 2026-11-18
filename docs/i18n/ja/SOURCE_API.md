@@ -374,8 +374,9 @@ WorkItem の全フィールドに加えて：
 
 ### 動画：`videos`
 
-`[{ quality: 1080, label: '1080P', url, headers?, format?, preferred?, hls? }]` を返します。直接リンクは通常期限があるため、アプリは再生やダウンロードのたびに取得し直します。
+`[{ quality: 1080, label: '1080P', url, headers?, format?, preferred?, fallbackHosts?, hls? }]` を返します。直接リンクは通常期限があるため、アプリは再生やダウンロードのたびに取得し直します。
 
+- `format: 'hls'` は `fallbackHosts: { 'primary.cdn.example': ['backup1.cdn.example'] }`（公開ホスト最大 8 組、各組最大 8 件の予備ホスト）を指定でき、VOD セグメントのホスト障害時に同一パスの予備 CDN を順に試行します。
 - `format: 'hls'` は `hls: {manifest, keys}` を指定できます。`url` はバリアントの実際の HTTPS ベース URL、`manifest` は処理済みの完全な VOD メディアリスト（UTF-8 最大 2 MiB）、`keys` は参照された絶対鍵 URL と Base64 の 16 バイト鍵の対応（最大 32 件）です。ネイティブメディア専用で、既存のアドレス認可と内容検証は維持され、未参照の鍵は拒否します。このフィールドを含む結果はディスクにキャッシュせず、鍵はセッションメモリのみで使用し、store、ログ、作品、カーソルには保存しません。
 
 - 複数話の動画は `detail(id).chapters` で再生順の `[{ id, title }]` を返します。各 `id` は安定している必要があり、画質や一時的なメディア URL で代用してはいけません。アプリは同じ ID でエピソード選択、進捗の保存、ダウンロード、続きからの再生を行い、`videos(id, episodeId)` でその話のリソースを取得します。単話は `singleChapterId`、なければ `'_'` です。

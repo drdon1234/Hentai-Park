@@ -148,7 +148,15 @@ class _SubscriptionsPageState extends State<SubscriptionsPage> {
                                 AppSettings.instance.subscriptionNotifications,
                             onChanged: (value) async {
                               if (value) {
-                                await PlatformBridge.requestNotificationPermission();
+                                final granted =
+                                    await PlatformBridge.requestNotificationPermission();
+                                if (!granted) {
+                                  if (context.mounted) {
+                                    context.toast(tr('需要通知权限才能发送更新提醒'));
+                                  }
+                                  if (mounted) setState(() {});
+                                  return;
+                                }
                               }
                               AppSettings.instance.subscriptionNotifications =
                                   value;

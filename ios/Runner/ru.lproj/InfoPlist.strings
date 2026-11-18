@@ -1,2 +1,3 @@
 "NSFaceIDUsageDescription" = "Подтвердите личность для разблокировки HentaiPark.";
 "NSPhotoLibraryAddUsageDescription" = "Сохранение выбранных изображений в медиатеку.";
+"NSPhotoLibraryUsageDescription" = "Сохранение выбранных изображений в альбом HentaiPark медиатеки.";

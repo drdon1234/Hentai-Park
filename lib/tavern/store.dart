@@ -428,6 +428,7 @@ class TavernApiSettings extends ChangeNotifier {
     required double temperature,
     required int maxTokens,
     String? newKey,
+    bool clearKey = false,
     String? systemPrompt,
     int contextTokens = 65536,
   }) async {
@@ -450,7 +451,7 @@ class TavernApiSettings extends ChangeNotifier {
       throw const FormatException('模型配置无效');
     }
     final old = config;
-    var ref = old.secretRef;
+    var ref = clearKey ? '' : old.secretRef;
     final normalizedBase = uri.toString().replaceFirst(RegExp(r'/+$'), '');
     if (old.baseUrl.isNotEmpty && old.baseUrl != normalizedBase) {
       ref = '';

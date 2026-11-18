@@ -1,2 +1,3 @@
 "NSFaceIDUsageDescription" = "验证身份以解锁 HentaiPark。";
 "NSPhotoLibraryAddUsageDescription" = "将选中的图片保存到相册。";
+"NSPhotoLibraryUsageDescription" = "将选中的图片保存到相册中的 HentaiPark 相簿。";

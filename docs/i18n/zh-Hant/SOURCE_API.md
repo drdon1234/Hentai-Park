@@ -363,8 +363,9 @@ WorkItem 的全部欄位，再加：
 
 ### 影片：`videos`
 
-返回 `[{ quality: 1080, label: '1080P', url, headers?, format?, preferred?, hls? }]`。直鏈通常有時效，應用每次播放或下載前都會重新獲取。
+返回 `[{ quality: 1080, label: '1080P', url, headers?, format?, preferred?, fallbackHosts?, hls? }]`。直鏈通常有時效，應用每次播放或下載前都會重新獲取。
 
+- `format: 'hls'` 可選附帶 `fallbackHosts: { 'primary.cdn.example': ['backup1.cdn.example'] }`（最多 8 組公網主機，每組最多 8 個備用主機），用於在點播分段節點故障時依序嘗試同路徑備用 CDN。
 - `format: 'hls'` 可附 `hls: {manifest, keys}`：`url` 為分段清單的真實 HTTPS 基址，`manifest` 為已解析的完整點播分段清單（UTF-8 最多 2 MiB），`keys` 將清單引用的絕對金鑰 URL 對應至 16 位元組金鑰的 Base64，最多 32 項。僅支援原生媒體；位址授權與內容驗證保持不變，拒絕未引用金鑰。含此欄位的播放結果不寫入磁碟快取，金鑰僅留在會話記憶體；不得寫入 store、日誌、作品或游標。
 
 - 多集影片在 `detail(id).chapters` 按播放順序返回 `[{ id, title }]`，每個 `id` 必須穩定，不能用畫質或臨時媒體 URL 代替。應用用同一個 ID 選集、記錄進度、下載和續播，並呼叫 `videos(id, episodeId)` 獲取該集資源。單集用 `singleChapterId`，沒有時用 `'_'`。

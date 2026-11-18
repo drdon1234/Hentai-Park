@@ -23,7 +23,7 @@ class WebVideoProfiles(private val engine: FlutterEngine) {
         if (profiles.containsKey(id)) plugin()?.inAppWebViewManager?.keepAliveWebViews?.get(id)?.webView
         else null
 
-    fun isolate(id: String): Boolean {
+    fun isolate(id: String, expectedProfile: String? = null): Boolean {
         if (!WebViewFeature.isFeatureSupported(WebViewFeature.MULTI_PROFILE)) return false
         val view = plugin()?.inAppWebViewManager?.keepAliveWebViews?.get(id)?.webView
             ?: return false
@@ -31,8 +31,25 @@ class WebVideoProfiles(private val engine: FlutterEngine) {
         val store = ProfileStore.getInstance()
         // 上次异常退出遗留的临时数据，只删除本播放器创建且当前未使用的 Profile。
         for (name in store.allProfileNames) {
-            if (name.startsWith(prefix) && !profiles.containsValue(name)) {
+            if (name.startsWith(prefix) && name != expectedProfile && !profiles.containsValue(name)) {
                 runCatching { store.deleteProfile(name) }
+            }
+        }
+        if (expectedProfile != null) {
+            if (!Regex("^park_web_video_[0-9a-f-]{36}$").matches(expectedProfile)) return false
+            return try {
+                if (WebViewCompat.getProfile(view).name != expectedProfile) {
+                    WebViewCompat.setProfile(view, expectedProfile)
+                }
+                if (WebViewCompat.getProfile(view).name != expectedProfile) {
+                    runCatching { store.deleteProfile(expectedProfile) }
+                    return false
+                }
+                profiles[id] = expectedProfile
+                true
+            } catch (_: Exception) {
+                runCatching { store.deleteProfile(expectedProfile) }
+                false
             }
         }
         val name = prefix + UUID.randomUUID().toString()

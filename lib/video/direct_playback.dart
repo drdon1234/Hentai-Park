@@ -9,6 +9,7 @@ import '../core/settings.dart';
 import '../engine/http_service.dart';
 import '../engine/media_transport.dart';
 import '../engine/network_client.dart';
+import '../engine/public_media_address.dart';
 import 'playback.dart';
 import 'playback_cache.dart';
 
@@ -22,19 +23,38 @@ class DirectPlayback implements Playback {
   }) {
     if (policy.mode != 'native') throw SourceError('CONFIG', '媒体数据无效');
     final allowedHeaders = policy.requestHeaders(headers);
+    final proxy = AppSettings.instance.proxy;
     return DirectPlayback._(
       policy,
       allowedHeaders,
-      client ?? createHttpClient(proxy: AppSettings.instance.proxy),
+      client ?? _buildClient(proxy),
+      customClient: client != null,
     );
   }
 
-  DirectPlayback._(this.policy, this.headers, this._client) {
+  DirectPlayback._(
+    this.policy,
+    this.headers,
+    this._client, {
+    required this.customClient,
+  }) {
     _client.autoUncompress = false;
+  }
+
+  static HttpClient _buildClient(String proxy) {
+    final client = createHttpClient(proxy: proxy)..autoUncompress = false;
+    client.connectionFactory = (uri, proxyHost, proxyPort) async {
+      if (proxyHost != null) {
+        return Socket.startConnect(proxyHost, proxyPort!);
+      }
+      return connectPublicMediaSocket(uri);
+    };
+    return client;
   }
 
   final MediaPolicy policy;
   final Map<String, String> headers;
+  final bool customClient;
   HttpClient _client;
   final _proxy = AppSettings.instance.proxy;
   final _requests = <HttpClientRequest>{};
@@ -91,13 +111,14 @@ class DirectPlayback implements Playback {
         return await _openOnce(method, range, disconnected, track);
       } catch (error) {
         if (attempt > 0 ||
+            customClient ||
             _closed ||
             disconnected() ||
             (error is! SocketException && error is! TimeoutException)) {
           rethrow;
         }
         final previous = _client;
-        _client = createHttpClient(proxy: _proxy)..autoUncompress = false;
+        _client = _buildClient(_proxy);
         previous.close();
       }
     }
@@ -112,6 +133,9 @@ class DirectPlayback implements Playback {
     var target = _upstream!;
     for (var hop = 0; hop < 8; hop++) {
       _validate(target);
+      if (!customClient && _proxy.isEmpty) {
+        await publicMediaAddresses(target.host);
+      }
       if (_closed || disconnected()) {
         throw SourceError('CANCELLED', '媒体会话已关闭');
       }

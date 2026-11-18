@@ -9,7 +9,7 @@ import 'public_contract.dart';
 
 /// The Chinese message is the stable key; only application copy is translated.
 /// Remote titles, tags, usernames and user-authored values stay untouched.
-class AppLocalizations {
+class AppLocalizations extends ChangeNotifier {
   AppLocalizations._([this.locale = const Locale('en')]);
   static final instance = AppLocalizations._();
   static final supportedLocales = PublicContract.languages
@@ -95,7 +95,12 @@ class AppLocalizations {
     _messages.addEntries(loaded);
   }
 
-  void setLocale(Locale value) => locale = resolveLocale(value);
+  void setLocale(Locale value) {
+    final next = resolveLocale(value);
+    if (next == locale) return;
+    locale = next;
+    notifyListeners();
+  }
 
   static final _placeholder = RegExp(r'\{([A-Za-z][A-Za-z0-9_]*)\}');
 

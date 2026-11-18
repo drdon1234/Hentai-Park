@@ -4,9 +4,12 @@ import UserNotifications
 import AVFoundation
 import MediaPlayer
 import BackgroundTasks
+import Network
+import WebKit
 
 @main
 @objc class AppDelegate: FlutterAppDelegate, FlutterImplicitEngineDelegate {
+  static var authenticating = false
   private var platform: ParkPlatform?
   private var worker: FlutterEngine?
   private var workerPlatform: ParkPlatform?
@@ -138,7 +141,16 @@ private final class ParkPlatform: NSObject {
   private var backgroundTask: UIBackgroundTaskIdentifier = .invalid
   private var activeDownloads = 0
   private var originalBrightness: CGFloat?
-  private let volumeView = MPVolumeView(frame: CGRect(x: -1000, y: -1000, width: 1, height: 1))
+  private var sessionBrightness: CGFloat?
+  private var subscriptionReady = false
+  private var pendingRefreshes: [FlutterResult] = []
+  private let volumeView: MPVolumeView = {
+    let view = MPVolumeView(frame: CGRect(x: 0, y: 0, width: 1, height: 1))
+    view.alpha = 0.01
+    view.clipsToBounds = true
+    view.isUserInteractionEnabled = false
+    return view
+  }()
   private var volumeObserver: NSKeyValueObservation?
   private var voiceID: String?
   private var remoteTargets: [(MPRemoteCommand, Any)] = []
@@ -164,6 +176,10 @@ private final class ParkPlatform: NSObject {
                                            name: UIApplication.didEnterBackgroundNotification, object: nil)
     NotificationCenter.default.addObserver(self, selector: #selector(enteredForeground),
                                            name: UIApplication.willEnterForegroundNotification, object: nil)
+    NotificationCenter.default.addObserver(self, selector: #selector(willResignActive),
+                                           name: UIApplication.willResignActiveNotification, object: nil)
+    NotificationCenter.default.addObserver(self, selector: #selector(didBecomeActive),
+                                           name: UIApplication.didBecomeActiveNotification, object: nil)
   }
 
   deinit {
@@ -175,14 +191,31 @@ private final class ParkPlatform: NSObject {
   }
 
   func refreshSubscriptions(_ result: @escaping FlutterResult) {
-    channel.invokeMethod("subscriptionRefresh", arguments: nil, result: result)
+    if subscriptionReady {
+      channel.invokeMethod("subscriptionRefresh", arguments: nil, result: result)
+    } else {
+      pendingRefreshes.append(result)
+    }
   }
 
-  func cancelRefresh() { channel.invokeMethod("cancelSubscriptionRefresh", arguments: nil) }
+  func cancelRefresh() {
+    let waiting = pendingRefreshes
+    pendingRefreshes.removeAll()
+    waiting.forEach { $0(false) }
+    channel.invokeMethod("cancelSubscriptionRefresh", arguments: nil)
+  }
 
   private func handle(_ call: FlutterMethodCall, _ result: @escaping FlutterResult) {
     switch call.method {
     case "claimSourceEngine": delegate?.claimSourceEngine(result)
+    case "subscriptionEngineReady":
+      subscriptionReady = true
+      let waiting = pendingRefreshes
+      pendingRefreshes.removeAll()
+      for pending in waiting {
+        channel.invokeMethod("subscriptionRefresh", arguments: nil, result: pending)
+      }
+      result(nil)
     case "scheduleSubscriptions":
       do {
         try delegate?.scheduleSubscriptions(call.arguments as? Int ?? 0)
@@ -192,15 +225,67 @@ private final class ParkPlatform: NSObject {
       // iOS 不支持通用防截屏；应用锁仅遮盖切后台时的任务快照。
       UserDefaults.standard.set(call.arguments as? Bool ?? false, forKey: "parkPrivateSnapshot")
       result(nil)
+    case "setAuthenticating":
+      AppDelegate.authenticating = call.arguments as? Bool ?? false
+      result(nil)
+    case "excludeFromBackup":
+      let paths: [String]
+      if let list = call.arguments as? [String] {
+        paths = list
+      } else if let single = call.arguments as? String {
+        paths = [single]
+      } else {
+        paths = []
+      }
+      var allSucceeded = true
+      for path in paths {
+        var url = URL(fileURLWithPath: path, isDirectory: true)
+        var values = URLResourceValues()
+        values.isExcludedFromBackup = true
+        do {
+          try url.setResourceValues(values)
+        } catch {
+          allSucceeded = false
+        }
+      }
+      result(allSucceeded)
+    case "setWebViewProxy":
+      if #available(iOS 17.0, *) {
+        let args = call.arguments as? [String: Any]
+        let host = (args?["host"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        if host.isEmpty {
+          WKWebsiteDataStore.default().proxyConfigurations = []
+          result(true)
+          return
+        }
+        guard let portNum = args?["port"] as? Int,
+              portNum > 0, portNum <= 65535,
+              let nwPort = NWEndpoint.Port(rawValue: UInt16(portNum)) else {
+          result(false)
+          return
+        }
+        let endpoint = NWEndpoint.hostPort(host: NWEndpoint.Host(host), port: nwPort)
+        var config = ProxyConfiguration(httpConnectProxy: endpoint)
+        if let username = args?["username"] as? String, !username.isEmpty {
+          config.applyCredential(username: username, password: args?["password"] as? String ?? "")
+        }
+        WKWebsiteDataStore.default().proxyConfigurations = [config]
+        result(true)
+      } else {
+        result(false)
+      }
     case "videoLevels":
       installVolumeControl()
       result(["brightness": Double(UIScreen.main.brightness),
               "volume": Double(AVAudioSession.sharedInstance().outputVolume)])
     case "setVideoBrightness":
       if originalBrightness == nil { originalBrightness = UIScreen.main.brightness }
-      UIScreen.main.brightness = CGFloat(min(1, max(0, (call.arguments as? NSNumber)?.doubleValue ?? 0.5)))
+      let target = CGFloat(min(1, max(0, (call.arguments as? NSNumber)?.doubleValue ?? 0.5)))
+      sessionBrightness = target
+      UIScreen.main.brightness = target
       result(nil)
     case "resetVideoBrightness":
+      sessionBrightness = nil
       if let value = originalBrightness { UIScreen.main.brightness = value }
       originalBrightness = nil
       result(nil)
@@ -285,6 +370,19 @@ private final class ParkPlatform: NSObject {
   }
 
   @objc private func enteredForeground() { endBackgroundTime() }
+
+  @objc private func willResignActive() {
+    if sessionBrightness != nil, let original = originalBrightness {
+      UIScreen.main.brightness = original
+    }
+  }
+
+  @objc private func didBecomeActive() {
+    if let target = sessionBrightness {
+      originalBrightness = UIScreen.main.brightness
+      UIScreen.main.brightness = target
+    }
+  }
 
   private func beginBackgroundTime() {
     guard backgroundTask == .invalid else { return }

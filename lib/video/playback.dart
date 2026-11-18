@@ -21,6 +21,7 @@ abstract interface class Playback {
         ),
         live: live,
         audio: source.audio,
+        fallbackHosts: source.fallbackHosts,
       );
     }
     return DirectPlayback(

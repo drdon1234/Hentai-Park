@@ -15,6 +15,7 @@ import android.provider.Settings
 import android.view.Display
 import android.view.KeyEvent
 import android.view.WindowManager
+import androidx.core.app.ActivityCompat
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
@@ -39,9 +40,11 @@ class MainActivity : FlutterFragmentActivity() {
     private var videoBrightness: Float? = null
     private var videoFullscreen = false
     private var videoKeepNavigationBar = false
+    private var readerImmersive = false
     private val videoOrientation by lazy { VideoOrientation(this) }
     private var downloadsChannel: MethodChannel? = null
     private var videoSystemUi: VideoSystemUi? = null
+    private val pendingNotificationPermission = mutableListOf<MethodChannel.Result>()
 
     private data class VideoSystemUi(val visibleTypes: Int, val behavior: Int, val lightNavigation: Boolean)
 
@@ -61,7 +64,7 @@ class MainActivity : FlutterFragmentActivity() {
     override fun onPostResume() {
         super.onPostResume()
         videoOrientation.resume()
-        if (videoFullscreen) hideVideoSystemBars()
+        if (videoFullscreen || readerImmersive) hideVideoSystemBars()
     }
 
     override fun onPause() {
@@ -74,7 +77,7 @@ class MainActivity : FlutterFragmentActivity() {
 
     override fun onWindowFocusChanged(hasFocus: Boolean) {
         super.onWindowFocusChanged(hasFocus)
-        if (hasFocus && videoFullscreen) hideVideoSystemBars()
+        if (hasFocus && (videoFullscreen || readerImmersive)) hideVideoSystemBars()
     }
 
     @Suppress("DEPRECATION")
@@ -149,8 +152,12 @@ class MainActivity : FlutterFragmentActivity() {
                         }
                     }
                     "isolateWebVideo" -> {
-                        try { result.success(webVideoProfiles.isolate(call.arguments as String)) }
-                        catch (_: Exception) { result.success(false) }
+                        try {
+                            val args = call.arguments
+                            val id = (args as? Map<*, *>)?.get("id") as? String ?: args as? String
+                            val profile = (args as? Map<*, *>)?.get("profile") as? String
+                            result.success(id != null && webVideoProfiles.isolate(id, profile))
+                        } catch (_: Exception) { result.success(false) }
                     }
                     "attachWebGame" -> {
                         val args = call.arguments as? Map<*, *>
@@ -216,6 +223,7 @@ class MainActivity : FlutterFragmentActivity() {
                         else window.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
                         result.success(null)
                     }
+                    "setWebViewProxy" -> WebViewProxy.apply(call.arguments, result)
                     "interceptVolume" -> {
                         interceptVolume = call.arguments == true
                         result.success(null)
@@ -256,13 +264,25 @@ class MainActivity : FlutterFragmentActivity() {
                             videoKeepNavigationBar = args["keepNavigationBar"] == true
                             if (videoFullscreen) videoOrientation.start(args["landscape"] == true)
                             else videoOrientation.stop()
-                            if (videoFullscreen) hideVideoSystemBars()
+                            if (videoFullscreen || readerImmersive) hideVideoSystemBars()
                             else restoreVideoSystemBars(clear = true)
                             result.success(null)
                         } catch (error: Exception) {
                             videoFullscreen = false
                             videoOrientation.stop()
-                            runCatching { restoreVideoSystemBars(clear = true) }
+                            if (!readerImmersive) runCatching { restoreVideoSystemBars(clear = true) }
+                            result.error("SYSTEM_UI", error.message, null)
+                        }
+                    }
+                    "setSystemBarsHidden" -> {
+                        try {
+                            readerImmersive = call.arguments == true
+                            if (videoFullscreen || readerImmersive) hideVideoSystemBars()
+                            else restoreVideoSystemBars(clear = true)
+                            result.success(null)
+                        } catch (error: Exception) {
+                            readerImmersive = false
+                            if (!videoFullscreen) runCatching { restoreVideoSystemBars(clear = true) }
                             result.error("SYSTEM_UI", error.message, null)
                         }
                     }
@@ -274,7 +294,7 @@ class MainActivity : FlutterFragmentActivity() {
                         manager().cancel((call.arguments as Number).toInt())
                         result.success(null)
                     }
-                    "requestNotificationPermission" -> result.success(requestNotificationPermission())
+                    "requestNotificationPermission" -> requestNotificationPermission(result)
                     "refreshRates" -> result.success(
                         sameSizeModes().map { Math.round(it.refreshRate).toInt() }.distinct().sorted()
                     )
@@ -328,7 +348,7 @@ class MainActivity : FlutterFragmentActivity() {
             videoSystemUi = VideoSystemUi(visibleTypes, controller.systemBarsBehavior, controller.isAppearanceLightNavigationBars)
         }
         controller.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
-        if (videoKeepNavigationBar) {
+        if (videoFullscreen && videoKeepNavigationBar) {
             controller.hide(WindowInsetsCompat.Type.statusBars() or WindowInsetsCompat.Type.captionBar())
             controller.isAppearanceLightNavigationBars = false
             controller.show(WindowInsetsCompat.Type.navigationBars())
@@ -349,8 +369,12 @@ class MainActivity : FlutterFragmentActivity() {
     }
 
     override fun onDestroy() {
+        val pending = pendingNotificationPermission.toList()
+        pendingNotificationPermission.clear()
+        pending.forEach { it.success(false) }
         VoicePlaybackService.stopAll(applicationContext)
         videoFullscreen = false
+        readerImmersive = false
         videoOrientation.stop()
         restoreVideoSystemBars(clear = true)
         resetVideoBrightness()
@@ -359,11 +383,32 @@ class MainActivity : FlutterFragmentActivity() {
 
     private fun manager() = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
 
-    private fun requestNotificationPermission(): Boolean {
-        if (Build.VERSION.SDK_INT < 33) return true
-        if (checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED) return true
-        requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), 7001)
-        return false
+    private fun requestNotificationPermission(result: MethodChannel.Result) {
+        if (Build.VERSION.SDK_INT < 33 ||
+            checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED) {
+            result.success(true)
+            return
+        }
+        val first = pendingNotificationPermission.isEmpty()
+        pendingNotificationPermission.add(result)
+        if (first) {
+            ActivityCompat.requestPermissions(
+                this,
+                arrayOf(Manifest.permission.POST_NOTIFICATIONS),
+                REQUEST_NOTIFICATION_PERMISSION
+            )
+        }
+    }
+
+    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode == REQUEST_NOTIFICATION_PERMISSION) {
+            val granted = Build.VERSION.SDK_INT < 33 ||
+                checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
+            val callbacks = pendingNotificationPermission.toList()
+            pendingNotificationPermission.clear()
+            callbacks.forEach { it.success(granted) }
+        }
     }
 
     private fun notify(args: Map<*, *>) {
@@ -385,6 +430,7 @@ class MainActivity : FlutterFragmentActivity() {
             .setSmallIcon(R.drawable.ic_launcher_fg)
             .setContentTitle(args["title"] as? String ?: "")
             .setContentText(args["text"] as? String ?: "")
+            .setVisibility(Notification.VISIBILITY_PRIVATE)
             .setContentIntent(pending)
             .setOngoing(args["ongoing"] == true)
             .setOnlyAlertOnce(true)
@@ -416,5 +462,6 @@ class MainActivity : FlutterFragmentActivity() {
 
     companion object {
         const val EXTRA_PAYLOAD = "park_payload"
+        private const val REQUEST_NOTIFICATION_PERMISSION = 7001
     }
 }

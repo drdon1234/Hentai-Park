@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/services.dart';
@@ -115,32 +116,55 @@ class WorldbookTerms {
 
   WorldbookTermPack? get pack => _pack;
 
-  Future<void> init() => ensureLoaded(
-    AppLocalizations.localeKey(AppLocalizations.instance.locale),
-  );
+  bool _listeningLocale = false;
+  String? _desiredLocale;
+
+  Future<void> init() {
+    if (!_listeningLocale) {
+      _listeningLocale = true;
+      AppLocalizations.instance.addListener(() {
+        unawaited(
+          ensureLoaded(
+            AppLocalizations.localeKey(AppLocalizations.instance.locale),
+          ),
+        );
+      });
+    }
+    return ensureLoaded(
+      AppLocalizations.localeKey(AppLocalizations.instance.locale),
+    );
+  }
 
   Future<void> ensureLoaded(String locale) {
-    if (_loadedLocale == locale && _pack != null) return Future.value();
+    _desiredLocale = locale;
+    if (_loadedLocale == locale && _pack != null && _loading == null) {
+      return Future.value();
+    }
     return _loading ??= () async {
-      try {
-        final text = await _readAsset('assets/worldbook_terms/$locale.json');
-        if (utf8.encode(text).length > WorldbookTermPack.maxBytes) {
-          throw const FormatException('世界书术语包过大');
-        }
-        _pack = WorldbookTermPack.parse(jsonDecode(text), locale: locale);
-        final rules = <({String alias, String translation})>[];
-        for (final entry in _pack!.terms.entries) {
-          for (final alias in {entry.key, ...entry.value.aliases}) {
-            rules.add((alias: alias, translation: entry.value.translation));
+      while (_desiredLocale != null &&
+          (_loadedLocale != _desiredLocale || _pack == null)) {
+        final current = _desiredLocale!;
+        try {
+          final text = await _readAsset('assets/worldbook_terms/$current.json');
+          if (utf8.encode(text).length > WorldbookTermPack.maxBytes) {
+            throw const FormatException('世界书术语包过大');
           }
+          _pack = WorldbookTermPack.parse(jsonDecode(text), locale: current);
+          final rules = <({String alias, String translation})>[];
+          for (final entry in _pack!.terms.entries) {
+            for (final alias in {entry.key, ...entry.value.aliases}) {
+              rules.add((alias: alias, translation: entry.value.translation));
+            }
+          }
+          rules.sort((a, b) => b.alias.length.compareTo(a.alias.length));
+          _rules = List.unmodifiable(rules);
+        } catch (_) {
+          _pack = null;
+          _rules = const [];
         }
-        rules.sort((a, b) => b.alias.length.compareTo(a.alias.length));
-        _rules = List.unmodifiable(rules);
-      } catch (_) {
-        _pack = null;
-        _rules = const [];
+        _loadedLocale = current;
+        if (_desiredLocale == current) break;
       }
-      _loadedLocale = locale;
     }().whenComplete(() => _loading = null);
   }
 

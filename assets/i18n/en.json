@@ -1981,5 +1981,9 @@
   "没有可用站点，请先启用或添加。": "No available sources. Enable or add one first.",
   "选择要用于本会话的世界书。角色卡内嵌世界书会自动使用。": "Select lorebooks for this conversation. Lore embedded in the character card is used automatically.",
   "在线浏览": "Browse online",
-  "还没有保存世界书。可导入 JSON，或在线浏览后保存到本地。": "No saved lorebooks yet. Import JSON or browse online and save locally."
+  "还没有保存世界书。可导入 JSON，或在线浏览后保存到本地。": "No saved lorebooks yet. Import JSON or browse online and save locally.",
+  "需要相册权限才能保存图片": "Photo library permission is required to save images",
+  "需要通知权限才能发送更新提醒": "Notification permission is required to send update alerts",
+  "删除备份？": "Delete backup?",
+  "代理地址格式无效，请填写主机:端口": "Invalid proxy format. Enter host:port"
 }

@@ -15,6 +15,83 @@ class NovelSpeech extends ChangeNotifier {
     await _tts.stop();
   }
 
+  static String normalizeLanguage(String raw) {
+    final trimmed = raw.trim();
+    if (trimmed.isEmpty) return 'en';
+    final lower = trimmed.toLowerCase().replaceAll('_', '-');
+    if (lower == 'zh' ||
+        lower == 'zh-hans' ||
+        lower == 'zh-cn' ||
+        lower == 'zh-sg' ||
+        lower.contains('简体') ||
+        lower == '中文' ||
+        lower == 'chinese') {
+      return 'zh-CN';
+    }
+    if (lower == 'zh-hant' ||
+        lower == 'zh-tw' ||
+        lower == 'zh-hk' ||
+        lower.contains('繁體') ||
+        lower.contains('繁体')) {
+      return 'zh-TW';
+    }
+    if (lower == 'ja' ||
+        lower.startsWith('ja-') ||
+        lower == 'japanese' ||
+        lower.contains('日')) {
+      return 'ja-JP';
+    }
+    if (lower == 'ko' ||
+        lower.startsWith('ko-') ||
+        lower == 'korean' ||
+        lower.contains('韩') ||
+        lower.contains('韓') ||
+        lower.contains('한국')) {
+      return 'ko-KR';
+    }
+    if (lower == 'en' ||
+        lower.startsWith('en-') ||
+        lower == 'english' ||
+        lower.contains('英')) {
+      return 'en-US';
+    }
+    if (lower == 'es' || lower.startsWith('es-') || lower == 'spanish') {
+      return 'es-ES';
+    }
+    if (lower == 'ru' || lower.startsWith('ru-') || lower == 'russian') {
+      return 'ru-RU';
+    }
+    if (lower == 'ar' || lower.startsWith('ar-') || lower == 'arabic') {
+      return 'ar-SA';
+    }
+    return trimmed.replaceAll('_', '-');
+  }
+
+  /// AppSettings.novelSpeechRate stores 0.2..0.8 (default 0.5).
+  /// iOS AVSpeechSynthesizer treats 0.5 as 1.0x normal speed, whereas Android
+  /// TextToSpeech treats 1.0 as 1.0x normal speed.
+  static double platformSpeechRate(double settingRate) {
+    final normalized = settingRate.clamp(0.2, 0.8);
+    if (defaultTargetPlatform == TargetPlatform.android) {
+      return (normalized * 2.0).clamp(0.4, 1.6);
+    }
+    return normalized;
+  }
+
+  Future<String?> _resolveAvailableLocale(String language) async {
+    final normalized = normalizeLanguage(language);
+    final candidates = <String>[
+      normalized,
+      if (normalized.contains('-')) normalized.split('-').first,
+    ];
+    for (final candidate in candidates) {
+      if (await _tts.isLanguageAvailable(candidate) == true) {
+        return candidate;
+      }
+    }
+    return null;
+  }
+
   Future<void> read(
     String text, {
     required int offset,
@@ -27,17 +104,29 @@ class NovelSpeech extends ChangeNotifier {
     if (!_disposed) notifyListeners();
     await _tts.stop();
     if (generation != _generation || _disposed) return;
+    if (defaultTargetPlatform == TargetPlatform.iOS) {
+      try {
+        await _tts.setIosAudioCategory(
+          IosTextToSpeechAudioCategory.playback,
+          const [
+            IosTextToSpeechAudioCategoryOptions.allowBluetooth,
+            IosTextToSpeechAudioCategoryOptions.allowBluetoothA2DP,
+          ],
+          IosTextToSpeechAudioMode.spokenAudio,
+        );
+      } catch (_) {}
+      if (generation != _generation || _disposed) return;
+    }
     await _tts.awaitSpeakCompletion(true);
     if (generation != _generation || _disposed) return;
-    final locale = language.replaceAll('_', '-');
-    final available = await _tts.isLanguageAvailable(locale);
+    final locale = await _resolveAvailableLocale(language);
     if (generation != _generation || _disposed) return;
-    if (available != true) {
+    if (locale == null) {
       throw StateError('TTS language unavailable');
     }
     await _tts.setLanguage(locale);
     if (generation != _generation || _disposed) return;
-    await _tts.setSpeechRate(rate);
+    await _tts.setSpeechRate(platformSpeechRate(rate));
     if (generation != _generation || _disposed) return;
     _playing = true;
     notifyListeners();

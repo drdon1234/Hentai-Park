@@ -126,7 +126,7 @@ class _ReaderPageState extends _ReaderBase
       final z = _zoom.value.getMaxScaleOnAxis() > 1.01;
       if (z != _zoomed) setState(() => _zoomed = z);
     });
-    SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+    unawaited(PlatformBridge.setSystemBarsHidden(true));
     _watched.addListener(_onSettings);
     // Mihon remembers the reading mode per series.
     Library.instance.readerModeOf(widget.work.uid).then((m) {
@@ -159,7 +159,7 @@ class _ReaderPageState extends _ReaderBase
     if (_desktopFullscreen) {
       unawaited(PlatformBridge.applyVideoFullscreen(false));
     }
-    SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+    unawaited(PlatformBridge.setSystemBarsHidden(false));
     _pager?.dispose();
     _zoom.dispose();
     _focus.dispose();

@@ -67,15 +67,16 @@ class ReaderDeviceSession {
       _orientation = orientation;
       _update(
         () => SystemChrome.setPreferredOrientations(switch (orientation) {
-          'portrait' => const [
-            DeviceOrientation.portraitUp,
-            DeviceOrientation.portraitDown,
-          ],
+          'portrait' => const [DeviceOrientation.portraitUp],
           'landscape' => const [
             DeviceOrientation.landscapeLeft,
             DeviceOrientation.landscapeRight,
           ],
-          _ => const [],
+          _ => const [
+            DeviceOrientation.portraitUp,
+            DeviceOrientation.landscapeLeft,
+            DeviceOrientation.landscapeRight,
+          ],
         }),
       );
     }
@@ -90,10 +91,7 @@ class ReaderDeviceSession {
     _current = null;
     _update(() => PlatformBridge.interceptVolumeKeys(false), cleanup: true);
     _update(() => WakelockPlus.disable(), cleanup: true);
-    _update(
-      () => SystemChrome.setPreferredOrientations(const []),
-      cleanup: true,
-    );
+    _update(PlatformBridge.restoreDefaultOrientations, cleanup: true);
   }
 
   void dispose() {

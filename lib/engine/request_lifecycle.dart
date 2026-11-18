@@ -46,18 +46,28 @@ class RequestLifecycle extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   /// 仅在原生系统持有执行时间时暂时允许后台请求，结束后恢复真实生命周期。
-  Future<T> withBackgroundExecution<T>(Future<T> Function() action) async {
+  VoidCallback acquireBackgroundExecution() {
     _backgroundLeases++;
     didChangeAppLifecycleState(
       WidgetsBinding.instance.lifecycleState ?? AppLifecycleState.resumed,
     );
-    try {
-      return await action();
-    } finally {
+    var released = false;
+    return () {
+      if (released) return;
+      released = true;
       _backgroundLeases--;
       didChangeAppLifecycleState(
         WidgetsBinding.instance.lifecycleState ?? AppLifecycleState.resumed,
       );
+    };
+  }
+
+  Future<T> withBackgroundExecution<T>(Future<T> Function() action) async {
+    final release = acquireBackgroundExecution();
+    try {
+      return await action();
+    } finally {
+      release();
     }
   }
 

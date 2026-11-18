@@ -390,92 +390,109 @@ class _DetailPageState extends State<DetailPage> with RouteAware {
   @override
   Widget build(BuildContext context) {
     return TranslationPage(
-      child: Scaffold(
-        body: ListenableBuilder(
-          listenable: Listenable.merge([
-            Library.instance.work(_uid),
-            DownloadManager.instance,
-            TagBlocklist.changes,
-          ]),
-          builder: (context, _) {
-            final rules = TagBlocklist.current();
-            final blocked = _detail != null
-                ? rules.matchDetail(_detail!)
-                : [?rules.matchItem(_item)];
-            final visibility = IconButton(
-              tooltip: tr(_showBlocked ? '隐藏已屏蔽内容' : '显示已屏蔽内容'),
-              icon: Icon(
-                _showBlocked
-                    ? Icons.visibility_outlined
-                    : Icons.visibility_off_outlined,
-              ),
-              onPressed: () => setState(() => _showBlocked = !_showBlocked),
-            );
-            if (blocked.isNotEmpty && !_showBlocked) {
+      child: PopScope(
+        canPop: _selected.isEmpty,
+        onPopInvokedWithResult: (didPop, _) {
+          if (!didPop && _selected.isNotEmpty) {
+            setState(_selected.clear);
+          }
+        },
+        child: Scaffold(
+          body: ListenableBuilder(
+            listenable: Listenable.merge([
+              Library.instance.work(_uid),
+              DownloadManager.instance,
+              TagBlocklist.changes,
+            ]),
+            builder: (context, _) {
+              final rules = TagBlocklist.current();
+              final blocked = _detail != null
+                  ? rules.matchDetail(_detail!)
+                  : [?rules.matchItem(_item)];
+              final visibility = IconButton(
+                tooltip: tr(_showBlocked ? '隐藏已屏蔽内容' : '显示已屏蔽内容'),
+                icon: Icon(
+                  _showBlocked
+                      ? Icons.visibility_outlined
+                      : Icons.visibility_off_outlined,
+                ),
+                onPressed: () {
+                  final next = !_showBlocked;
+                  setState(() => _showBlocked = next);
+                  context.toast(tr(next ? '已显示屏蔽内容' : '已隐藏屏蔽内容'));
+                },
+              );
+              if (blocked.isNotEmpty && !_showBlocked) {
+                return CustomScrollView(
+                  slivers: [
+                    SliverAppBar(
+                      pinned: true,
+                      title: Text(tr('已屏蔽作品')),
+                      actions: [visibility],
+                    ),
+                    SliverToBoxAdapter(
+                      child: BlockedNotice(
+                        tags: blocked,
+                        onReveal: () {
+                          setState(() => _showBlocked = true);
+                          context.toast(tr('已显示屏蔽内容'));
+                        },
+                      ),
+                    ),
+                  ],
+                );
+              }
               return CustomScrollView(
                 slivers: [
-                  SliverAppBar(
-                    pinned: true,
-                    title: Text(tr('已屏蔽作品')),
+                  DetailHeader(
+                    item: _item,
                     actions: [visibility],
-                  ),
-                  SliverToBoxAdapter(
-                    child: BlockedNotice(
-                      tags: blocked,
-                      onReveal: () => setState(() => _showBlocked = true),
-                    ),
+                    detail: _detail,
+                    manifest: _m,
+                    coverHeroTag: widget.coverHeroTag,
+                    overview: [
+                      if (_refreshing && _detail != null)
+                        const LoadingIndicator(),
+                      if (_error != null)
+                        SourceErrorView(
+                          error: _error!,
+                          source: widget.source,
+                          onRetry: _load,
+                          compact: true,
+                        ),
+                      DetailActionBar(
+                        item: _item,
+                        detail: _detail,
+                        kind: _kind,
+                        singlePage: _singlePage,
+                        allowDownload: !_isLive,
+                        onPrimary: _opensExternally && !_canOpenOriginal
+                            ? null
+                            : _continue,
+                        onDownload: () => downloadWork(
+                          context,
+                          _detail,
+                          _item,
+                          isVideo: _isVideo,
+                        ),
+                        onMore: () => _more(context),
+                      ),
+                      if (_detail != null)
+                        ..._overview(context, _detail!)
+                      else if (_error == null)
+                        DetailBodySkeleton(source: widget.source),
+                    ],
+                    body: [
+                      if (_detail != null) ..._body(context, _detail!),
+                      const SliverToBoxAdapter(
+                        child: SizedBox(height: Gap.xxl),
+                      ),
+                    ],
                   ),
                 ],
               );
-            }
-            return CustomScrollView(
-              slivers: [
-                DetailHeader(
-                  item: _item,
-                  actions: [visibility],
-                  detail: _detail,
-                  manifest: _m,
-                  coverHeroTag: widget.coverHeroTag,
-                  overview: [
-                    if (_refreshing && _detail != null)
-                      const LoadingIndicator(),
-                    if (_error != null)
-                      SourceErrorView(
-                        error: _error!,
-                        source: widget.source,
-                        onRetry: _load,
-                        compact: true,
-                      ),
-                    DetailActionBar(
-                      item: _item,
-                      detail: _detail,
-                      kind: _kind,
-                      singlePage: _singlePage,
-                      allowDownload: !_isLive,
-                      onPrimary: _opensExternally && !_canOpenOriginal
-                          ? null
-                          : _continue,
-                      onDownload: () => downloadWork(
-                        context,
-                        _detail,
-                        _item,
-                        isVideo: _isVideo,
-                      ),
-                      onMore: () => _more(context),
-                    ),
-                    if (_detail != null)
-                      ..._overview(context, _detail!)
-                    else if (_error == null)
-                      DetailBodySkeleton(source: widget.source),
-                  ],
-                  body: [
-                    if (_detail != null) ..._body(context, _detail!),
-                    const SliverToBoxAdapter(child: SizedBox(height: Gap.xxl)),
-                  ],
-                ),
-              ],
-            );
-          },
+            },
+          ),
         ),
       ),
     );

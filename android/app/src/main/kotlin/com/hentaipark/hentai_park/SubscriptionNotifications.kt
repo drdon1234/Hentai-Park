@@ -31,6 +31,7 @@ object SubscriptionNotifications {
         manager.notify(id, builder.setSmallIcon(R.drawable.ic_launcher_fg)
             .setContentTitle(args["title"] as? String ?: "")
             .setContentText(args["text"] as? String ?: "")
+            .setVisibility(Notification.VISIBILITY_PRIVATE)
             .setContentIntent(pending).setOnlyAlertOnce(true).setAutoCancel(true).build())
         return true
     }

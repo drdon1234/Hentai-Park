@@ -308,15 +308,13 @@ class Library extends ChangeNotifier {
   }
 
   Future<void> _drainWrites() async {
-    _writeFailure = null;
     while (_pendingWrites.isNotEmpty) {
+      final write = _pendingWrites.removeAt(0);
       try {
-        await _db.transaction(_pendingWrites.first);
-        _pendingWrites.removeAt(0);
+        await _db.transaction(write);
       } catch (error, stack) {
         _writeFailure = (error, stack);
         AppLog.error(error, event: 'library_write', stack: stack);
-        return;
       }
     }
   }
@@ -461,19 +459,16 @@ class Library extends ChangeNotifier {
     _favorites[item.uid] = FavoriteEntry(item, now, valid);
     _workCategories[item.uid] = valid;
     _run(() async {
-      await _db.transaction(() async {
-        await _saveWork(item);
-        await (_db.update(_db.works)..where(
-              (w) => w.source.equals(item.source) & w.id.equals(item.id),
-            ))
-            .write(
-              WorksCompanion(
-                favorite: const Value(true),
-                favoritedAt: Value(now.millisecondsSinceEpoch),
-              ),
-            );
-        await _writeCategories(item.uid, valid);
-      });
+      await _saveWork(item);
+      await (_db.update(_db.works)
+            ..where((w) => w.source.equals(item.source) & w.id.equals(item.id)))
+          .write(
+            WorksCompanion(
+              favorite: const Value(true),
+              favoritedAt: Value(now.millisecondsSinceEpoch),
+            ),
+          );
+      await _writeCategories(item.uid, valid);
     });
     _changed(const {LibraryCollection.favorites}, [item.uid]);
   }
@@ -482,16 +477,15 @@ class Library extends ChangeNotifier {
     if (_favorites.remove(uid) == null) return;
     final (source, id) = splitUid(uid);
     _run(
-      () => _db.transaction(() async {
-        await (_db.update(
-          _db.works,
-        )..where((w) => w.source.equals(source) & w.id.equals(id))).write(
-          const WorksCompanion(
-            favorite: Value(false),
-            favoritedAt: Value(null),
+      () =>
+          (_db.update(
+            _db.works,
+          )..where((w) => w.source.equals(source) & w.id.equals(id))).write(
+            const WorksCompanion(
+              favorite: Value(false),
+              favoritedAt: Value(null),
+            ),
           ),
-        );
-      }),
     );
     _changed(const {LibraryCollection.favorites}, [uid]);
   }
@@ -501,7 +495,7 @@ class Library extends ChangeNotifier {
     _workCategories[uid] = valid;
     final favorite = _favorites[uid];
     if (favorite != null) favorite.categories = valid;
-    _run(() => _db.transaction(() => _writeCategories(uid, valid)));
+    _run(() => _writeCategories(uid, valid));
     _changed(
       const {LibraryCollection.favorites, LibraryCollection.categories},
       [uid],
@@ -515,10 +509,8 @@ class Library extends ChangeNotifier {
     final favorite = _favorites[item.uid];
     if (favorite != null) favorite.categories = valid;
     _run(() async {
-      await _db.transaction(() async {
-        await _saveWork(item);
-        await _writeCategories(item.uid, valid);
-      });
+      await _saveWork(item);
+      await _writeCategories(item.uid, valid);
     });
     _changed(
       const {LibraryCollection.favorites, LibraryCollection.categories},
@@ -1121,39 +1113,37 @@ class Library extends ChangeNotifier {
     _history[item.uid] = h;
     final history = _historySnapshot(h);
     _run(() async {
-      await _db.transaction(() async {
-        await _saveWork(item);
-        await _db.into(_db.history).insertOnConflictUpdate(history);
-        await _db
-            .into(_db.chapters)
-            .insert(
-              ChaptersCompanion.insert(
-                source: item.source,
-                workId: item.id,
-                chapterId: key,
-                title: Value(episodeTitle ?? ''),
-                position: Value(position),
-                duration: Value(length),
-                positionUpdatedAt: Value(now.millisecondsSinceEpoch),
-                read: Value(finished),
-                dateRead: Value(finished ? now.millisecondsSinceEpoch : null),
+      await _saveWork(item);
+      await _db.into(_db.history).insertOnConflictUpdate(history);
+      await _db
+          .into(_db.chapters)
+          .insert(
+            ChaptersCompanion.insert(
+              source: item.source,
+              workId: item.id,
+              chapterId: key,
+              title: Value(episodeTitle ?? ''),
+              position: Value(position),
+              duration: Value(length),
+              positionUpdatedAt: Value(now.millisecondsSinceEpoch),
+              read: Value(finished),
+              dateRead: Value(finished ? now.millisecondsSinceEpoch : null),
+            ),
+            onConflict: DoUpdate(
+              (old) => ChaptersCompanion.custom(
+                position: Constant(position),
+                duration: length > 0 ? Constant(length) : old.duration,
+                positionUpdatedAt: Constant(now.millisecondsSinceEpoch),
+                read: finished ? const Constant(true) : old.read,
+                dateRead: finished
+                    ? coalesce([
+                        old.dateRead,
+                        Constant(now.millisecondsSinceEpoch),
+                      ])
+                    : old.dateRead,
               ),
-              onConflict: DoUpdate(
-                (old) => ChaptersCompanion.custom(
-                  position: Constant(position),
-                  duration: length > 0 ? Constant(length) : old.duration,
-                  positionUpdatedAt: Constant(now.millisecondsSinceEpoch),
-                  read: finished ? const Constant(true) : old.read,
-                  dateRead: finished
-                      ? coalesce([
-                          old.dateRead,
-                          Constant(now.millisecondsSinceEpoch),
-                        ])
-                      : old.dateRead,
-                ),
-              ),
-            );
-      });
+            ),
+          );
       await _loadStats(item.uid);
       _changed(
         const {LibraryCollection.history, LibraryCollection.chapters},
@@ -1179,10 +1169,8 @@ class Library extends ChangeNotifier {
     final item = h.item;
     final snapshot = _historySnapshot(h);
     _run(() async {
-      await _db.transaction(() async {
-        await _saveWork(item);
-        await _db.into(_db.history).insertOnConflictUpdate(snapshot);
-      });
+      await _saveWork(item);
+      await _db.into(_db.history).insertOnConflictUpdate(snapshot);
     });
     _trimHistory(item.source);
   }
@@ -1213,16 +1201,14 @@ class Library extends ChangeNotifier {
     for (final uid in list) {
       _history.remove(uid);
     }
-    _run(
-      () => _db.transaction(() async {
-        for (final uid in list) {
-          final (source, id) = splitUid(uid);
-          await (_db.delete(
-            _db.history,
-          )..where((t) => t.source.equals(source) & t.workId.equals(id))).go();
-        }
-      }),
-    );
+    _run(() async {
+      for (final uid in list) {
+        final (source, id) = splitUid(uid);
+        await (_db.delete(
+          _db.history,
+        )..where((t) => t.source.equals(source) & t.workId.equals(id))).go();
+      }
+    });
     _changed(const {LibraryCollection.history}, list);
   }
 
@@ -1299,6 +1285,7 @@ class Library extends ChangeNotifier {
       if (identical(pending, _writes)) break;
     }
     final failure = _writeFailure;
+    _writeFailure = null;
     if (failure != null) {
       Error.throwWithStackTrace(failure.$1, failure.$2);
     }
