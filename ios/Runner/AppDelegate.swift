@@ -265,7 +265,7 @@ private final class ParkPlatform: NSObject {
           return
         }
         let endpoint = NWEndpoint.hostPort(host: NWEndpoint.Host(host), port: nwPort)
-        var config = ProxyConfiguration(httpConnectProxy: endpoint)
+        let config = ProxyConfiguration(httpCONNECTProxy: endpoint, tlsOptions: nil)
         if let username = args?["username"] as? String, !username.isEmpty {
           config.applyCredential(username: username, password: args?["password"] as? String ?? "")
         }

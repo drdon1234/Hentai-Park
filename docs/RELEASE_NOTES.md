@@ -9,6 +9,7 @@
 - 改进移动端阅读和播放时的系统栏、屏幕方向恢复，以及 iOS 分享体验。
 
 ### 修复
+- 修复 iOS 17 及以上版本内置网页的 HTTP 代理配置。
 - Android 下载多选可通过返回键退出，切换标签时清除勾选，并减少后台下载进度引起的界面刷新。
 - 修复移动端书库写入失败后影响后续保存，以及后台下载中断影响其他任务的问题。
 
@@ -28,6 +29,7 @@
 - Improve system bars and orientation restoration during mobile reading and playback, along with sharing on iOS.
 
 ### Fixes
+- Fix HTTP proxy configuration for the built-in browser on iOS 17 and later.
 - Let Android users exit download selection with Back, clear selections when switching tabs, and reduce screen updates caused by background downloads.
 - Fix library write failures blocking later saves and interrupted background downloads affecting other tasks on mobile.
 
