@@ -6,7 +6,7 @@
 
 API经SourceCatalog/SourceOperations调用SourceHost；source-runner为独立受限Node进程，插件和共享SDK在QuickJS WASM执行。JSON-RPC不注入Node、宿主函数、文件系统、进程或原生网络对象；保留内存、栈、超时、Node permission、请求取消、池上限、空闲回收、崩溃与进程退出释放。可信安装校验SHA、版本、实际inspect manifest，使用不可变包和事务日志恢复/回滚。
 
-执行截止由宿主为每个RPC签入deadlineAt，并与宿主取消定时器使用同一预算（上限300秒）；runner校验该字段，执行与pending jobs使用最早在途请求截止，不按任意1秒片段截断合法解析。启动独立5秒、无在途请求后台任务1秒仍有界；QuickJS堆64MiB和栈512KiB限制保留。引擎实际中断事实一旦触发即锁存并回收进程，返回可重试TIMEOUT，不能被SDK捕获后变为PARSE；普通异常即使含interrupted字样也不伪装截止。stdout用增量UTF8解码，已signal终止的runner晚到close直接完成，dispose终止态不会复活。
+执行截止由宿主为每个RPC签入deadlineAt，并与宿主取消定时器使用同一预算（上限300秒）；runner校验该字段，执行与pending jobs使用最早在途请求截止，不按任意1秒片段截断合法解析。冷启动通过 `bootstrapBundled` 基于可信 `source-index.json` SHA-256 校验一次性注册内置插件，避免百余次子进程派生。QuickJS 运行时配置 256MiB 堆和 2MiB 栈上限，通过宿主 ICU 桥接完整支持 `TextDecoder` 多字符集（UTF-8、GBK、GB18030、Big5、Shift_JIS、EUC-JP 等）、原生 `atob`/`btoa` 及 `crypto.getRandomValues`/`randomUUID`，并使用安全的参数句柄传递替代字符串拼接 `evalCode`。引擎实际中断事实一旦触发即锁存并回收进程，返回可重试TIMEOUT，不能被SDK捕获后变为PARSE；取消请求通过 `abortInvocation` 即时释放槽位。
 
 网络权限分开处理：
 
@@ -29,7 +29,7 @@ network.confirmation仅执行声明的gate/ready、checkbox、成年日期与确
 
 原生请求、浏览器代理与资源传输共用transport-policy。301/302仅POST转GET，303除HEAD外转GET；转换时移除正文及内容头。307/308与保留方法的301/302不会跨origin重放正文或非GET/HEAD。同源有副作用重放必须显式followRedirects。跨origin仅保留User-Agent、Accept、Accept-Language、Accept-Encoding、Range、Cache-Control、Pragma，所有其他头移除；原生链一旦跨origin，后续跳转不再从来源Cookie罐重新注入凭据，即使目标也在domains中。直接请求授权账号域、同origin合法跳转仍保留Cookie。目标每跳重新检查HTTPS、公网DNS/IP钉扎及权限，最多5跳，取消关闭响应。
 
-浏览器使用Chromium CDP Fetch逐请求拦截，覆盖重定向、子框架及worker；普通Playwright route只拦首跳，不能充当这一安全边界。未安装拦截不能创建可用页面；浏览器原生DNS禁止绕过代理，service worker/WebSocket继续阻断。页面重导航时已关闭子target不再执行关闭操作，避免清理竞态中断新导航。
+受控浏览器会话共享 Chromium 实例与隔离 Context 池，通过本地 `browser-tunnel` 钉扎公网目标连接，完整保留 Chromium 原生 TLS（JA3/JA4）与 HTTP/2 指纹以通过 Cloudflare 等反爬校验，同时在 CDP 层校验逐跳目标域名、OAuth 受控弹窗域名及声明的 `wss://` 端点；Local 模式（或显式开启 `WEB_ALLOW_FAKE_IP=true`）兼容本地 TUN 代理网关的 Fake-IP 地址段（`198.18.0.0/15`、`2001:2::/48`）及 HTTP/SOCKS5 远端 DNS 解析。页面重导航时已关闭子target不再执行关闭操作，避免清理竞态中断新导航。
 
 原生媒体和图片均不自动读取或写入来源Cookie，不附加账号Authorization，也不自动制造Origin/Referer。显式Origin必须精确为来源声明域的HTTPS origin；仅Referer可使用media.referrerDomains的例外。图片Origin/Referer使用来源域和imageNetwork.domains，不继承原生media例外。原生专用x-*头须声明playback-origin并来自实际插件返回节点，仅初始媒体origin可接收。跨origin、授权刷新、HLS密钥/分片、Range和下载不扩大权限。来源账号网络与登录浏览器保留各自合法Cookie行为。具体兼容性取决于浏览器、部署环境和目标站点的实际要求。
 

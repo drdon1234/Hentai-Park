@@ -23,6 +23,22 @@ export class SourceOperations {
     const items=raw.map(value=>{if(!value||typeof value!=='object'||Array.isArray(value)||Object.keys(value).some(key=>!['value','label','color'].includes(key))||!(typeof value.value==='string'&&value.value.length<=512&&!/[\u0000-\u001f\u007f]/.test(value.value)||typeof value.value==='number'&&Number.isFinite(value.value)||typeof value.value==='boolean')||typeof value.label!=='string'||!value.label||value.label.length>256||/[\u0000-\u001f\u007f]/.test(value.label)||value.color!==undefined&&(typeof value.color!=='string'||!/^#[a-f0-9]{6}$/i.test(value.color))||seen.has(typeof value.value+':'+String(value.value)))throw fail('PARSE',502);seen.add(typeof value.value+':'+String(value.value));return {value:value.value as string|number|boolean,label:value.label as string,...(value.color===undefined?{}:{color:value.color as string})};});
     if(this.filterCache.size>=512)this.filterCache.delete(this.filterCache.keys().next().value!);this.filterCache.set(key,{items,expires:now+120000});return {items};
   }
+  async uninstall(source:string):Promise<Row>{
+    if(this.active.has(source))throw fail('CONFLICT',409);
+    const installed=this.host.registry.get(source);
+    if(!installed)throw fail('NOT_FOUND',404);
+    const bundled=this.packages.some(item=>item.source===source);
+    if(bundled){
+      await this.host.setEnabled(source,false);
+      return {source,status:'disabled',bundled:true};
+    }
+    const pending=(async()=>{
+      await this.host.uninstall(source);
+      return {source,status:'uninstalled',bundled:false};
+    })();
+    this.active.set(source,pending);
+    try{return await pending;}finally{this.active.delete(source);}
+  }
   async execute(source: string, operation: 'enable'|'update'|'login'|'verify'|'logout'|'managed', body: Row, signal?: AbortSignal): Promise<Row> {
     const fields=operation==='enable'?['enabled','requestKey']:operation==='update'?['action','requestKey','expectedSha256','expectedVersion','expectedCurrentVersion']:operation==='login'?['credentials','requestKey']:operation==='logout'?['requestKey']:operation==='managed'?['confirmed','enabled','requestKey']:['url','selector','requestKey'];if(Object.keys(body).some(key=>!fields.includes(key)))throw fail('BAD_REQUEST');
     if (operation === 'enable') { if(typeof body.enabled!=='boolean')throw fail('BAD_REQUEST'); await this.host.setEnabled(source,body.enabled); return {source,enabled:body.enabled,status:'completed'}; }

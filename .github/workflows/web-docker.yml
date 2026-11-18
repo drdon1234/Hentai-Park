@@ -60,11 +60,13 @@ jobs:
     if: inputs.publish && github.event_name != 'pull_request' && needs.docker.outputs.publish == 'true'
     environment: release
     runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           persist-credentials: false
+      - name: Enable ARM64 emulation
+        run: docker run --privileged --rm tonistiigi/binfmt --install arm64
       - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
       - uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
         with:
@@ -74,7 +76,7 @@ jobs:
         with:
           context: .
           file: clients/web/Dockerfile
-          platforms: linux/amd64
+          platforms: linux/amd64,linux/arm64
           push: true
           tags: ${{ needs.docker.outputs.tags }}
           labels: |
@@ -83,5 +85,5 @@ jobs:
             org.opencontainers.image.version=${{ needs.docker.outputs.version }}
             org.opencontainers.image.revision=${{ github.sha }}
             org.opencontainers.image.licenses=AGPL-3.0-only
-          cache-from: type=gha,scope=web-amd64
-          cache-to: type=gha,mode=max,scope=web-amd64
+          cache-from: type=gha,scope=web-multiarch
+          cache-to: type=gha,mode=max,scope=web-multiarch

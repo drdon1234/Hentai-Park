@@ -1,4 +1,5 @@
 import {AlbumResources,type MediaAttachment} from './album-resource.js';
+import {mkdir,readFile,writeFile} from 'node:fs/promises';
 import {dirname,join} from 'node:path';
 import {albumItem,mergeAlbum,type AlbumScope} from './album.js';
 import {articleDocument,type ArticleDocument} from './article.js';
@@ -47,16 +48,19 @@ export class SourceCatalog {
   private readonly albumCursors=new Map<string,{fingerprint:string;page:number;upstream?:string;posts:Map<string,Row>;expires:number;result?:Row}>();
   private readonly articles=new Map<string,{document:ArticleDocument;artifact:string;expires:number}>();
   private readonly covers=new Map<string,{url:string;expires:number}>();
-  private readonly voiceCursors=new Map<string,{source:string;workId:string;directoryId:string;page:number;upstream?:string;pending:Row[];hasNext:boolean;expires:number;limit:number;artifact:string;result?:Record<string,unknown>}>();
+  private readonly voiceCursors=new Map<string,{source:string;workId:string;directoryId:string;page:number;offset:number;upstream?:string;pending:Row[];hasNext:boolean;expires:number;limit:number;artifact:string;result?:Record<string,unknown>}>();
   private readonly requests=new SharedRequests<Row>();
   private readonly reverseCursors = new Map<string,{source:string;sessionId:string;artifact:string;pending:Row[];continuation?:unknown;expires:number;result?:{items:Row[];page:{limit:number;nextCursor:string|null};sources:Row[]}}>();
   private readonly restoringPrivate = new Map<string,Promise<void>>();
-  private readonly authorizations = new Map<string, { source: string; resourceKey: string; sessionId: string; artifact:string;url: string|undefined; domains: string[]; expires: number; hls?:InlineHls;mediaContext?:string;scope?:'session';playlist?:boolean;attachment?:MediaAttachment;issued?:boolean;image?:boolean;candidates?:MediaCandidate[]; refresh?: (signal?:AbortSignal) => Promise<string|{url:string;hls?:InlineHls;mediaContext?:string}> }>();
+  private readonly authorizations = new Map<string, { source: string; resourceKey: string; sessionId: string; artifact:string;url: string|undefined; domains: string[]; expires: number; hls?:InlineHls;mediaContext?:string;scope?:'session';playlist?:boolean;attachment?:MediaAttachment;issued?:boolean;image?:boolean;cachedToken?:string;cachedTokenExpires?:number;candidates?:MediaCandidate[]; refresh?: (signal?:AbortSignal) => Promise<string|{url:string;hls?:InlineHls;mediaContext?:string}> }>();
   private readonly cursors = new Map<string, Continuation>();
   private readonly catalogCursors = new Map<string,{fingerprint:string;page:number;offset:number;upstream?:string;done:boolean;pending:CatalogPending[];seen:string[];expires:number;result?:CatalogPage}>();
+  private readonly discoveryCache = new Map<string, { at: number; result: { shelves: Row[]; items: Row[]; sources: Row[] } }>();
+  private readonly tagDictCache = new Map<string, { updatedAt: string; tags: Record<string, string> }>();
+  private readonly cacheDirectory: string;
   private readonly albumResources:AlbumResources;
   readonly webPlayers?:ControlledWebPlayers;
-  constructor(private readonly db: AppDatabase, readonly host: CatalogHost,private readonly browser?:BrowserWorker,private readonly sourceOrder:ReadonlyMap<string,number>=new Map()) {this.albumResources=new AlbumResources(join(db.path===':memory:'?(process.env.DATA_DIR??'test/album-resources'):dirname(db.path),'album-cache'),()=>{const row=db.db.prepare('SELECT value_json FROM app_settings WHERE key=?').get('cacheLimitMb');return (row?Number(JSON.parse(String(row.value_json))):1024)*1024*1024;});if(browser)this.webPlayers=new ControlledWebPlayers(browser,host);}
+  constructor(private readonly db: AppDatabase, readonly host: CatalogHost,private readonly browser?:BrowserWorker,private readonly sourceOrder:ReadonlyMap<string,number>=new Map()) {const baseDir=db.path===':memory:'?(process.env.DATA_DIR??'test/album-resources'):dirname(db.path);this.cacheDirectory=join(baseDir,'cache');this.albumResources=new AlbumResources(join(baseDir,'album-cache'),()=>{const row=db.db.prepare('SELECT value_json FROM app_settings WHERE key=?').get('cacheLimitMb');return (row?Number(JSON.parse(String(row.value_json))):1024)*1024*1024;});if(browser)this.webPlayers=new ControlledWebPlayers(browser,host);}
   private registered(source: string) { const record = this.host.registry.get(source); const persisted=this.db.db.prepare('SELECT enabled FROM source_registry WHERE source=?').get(source); if (!record || !record.enabled || persisted?.enabled===0) throw fail('CONFIG', 409); return record; }
   manifest(source: string) { return this.registered(source).manifest; }
   async invoke(source: string, method: string, params?: unknown, signal?: AbortSignal) {
@@ -124,19 +128,28 @@ export class SourceCatalog {
     const root=object(this.work(source,workId).voiceRoot);const directory=directoryId??text(root.id,'voiceRoot.id',512);const artifact=this.registered(source).packagePath;
     for(const [key,value]of this.voiceCursors)if(value.expires<Date.now())this.voiceCursors.delete(key);
     const prior=cursor?this.voiceCursors.get(cursor):undefined;if(cursor&&(!prior||prior.source!==source||prior.workId!==workId||prior.directoryId!==directory||prior.limit!==limit||prior.artifact!==artifact))throw fail('BAD_REQUEST',400);if(prior?.result)return prior.result;
-    const state=prior?structuredClone(prior):{source,workId,directoryId:directory,page:1,upstream:undefined as string|undefined,pending:[] as Row[],hasNext:true,expires:Date.now()+10*60_000,limit,artifact,result:undefined as Record<string,unknown>|undefined};state.result=undefined;
+    const state=prior?structuredClone(prior):{source,workId,directoryId:directory,page:1,offset:0,upstream:undefined as string|undefined,pending:[] as Row[],hasNext:true,expires:Date.now()+10*60_000,limit,artifact,result:undefined as Record<string,unknown>|undefined};state.result=undefined;
     let rounds=0;while(state.pending.length<limit&&state.hasNext&&rounds++<20){const raw=object(await this.invoke(source,'voiceDirectory',{id:workId,directoryId:directory,page:state.page,cursor:state.upstream},signal));if(!Array.isArray(raw.items)||raw.items.length>1000)throw fail('PARSE');const seen=new Set<string>();for(const value of raw.items){const node=object(value);const id=text(node.id,'node.id',512);if(seen.has(id))throw fail('PARSE');seen.add(id);const title=text(node.name??node.title??node.id,'node.title');const nodeType=text(node.type,'node.type',32);if(!['directory','audio','video','subtitle','image','script','other'].includes(nodeType))throw fail('PARSE');if(node.subtitleIds!==undefined&&(!Array.isArray(node.subtitleIds)||node.subtitleIds.length>50||node.subtitleIds.some(value=>typeof value!=='string'||!value)))throw fail('PARSE');state.pending.push({source,workId,chapterId:id,title,nodeType,version:1,subtitleIds:node.subtitleIds,subtitleLanguage:node.subtitleLanguage});}state.page++;state.hasNext=raw.hasNext===true;state.upstream=typeof raw.cursor==='string'?raw.cursor:undefined;}
-    const items=state.pending.splice(0,limit);this.db.db.exec('BEGIN IMMEDIATE');try{for(const node of items)if(node.nodeType!=='directory')this.db.db.prepare('INSERT INTO chapters(source,work_id,chapter_id,title,sort,node_type,node_metadata_json) VALUES(?,?,?,?,?,?,?) ON CONFLICT(source,work_id,chapter_id) DO UPDATE SET title=excluded.title,node_type=excluded.node_type,node_metadata_json=excluded.node_metadata_json').run(source,workId,String(node.chapterId),String(node.title),0,String(node.nodeType),JSON.stringify({directoryId:directory,subtitleIds:node.subtitleIds??[],subtitleLanguage:node.subtitleLanguage}));this.db.db.exec('COMMIT');}catch(error){this.db.db.exec('ROLLBACK');throw error;}
+    const items=state.pending.splice(0,limit);const baseOffset=state.offset;state.offset+=items.length;this.db.db.exec('BEGIN IMMEDIATE');try{for(const [idx,node] of items.entries())if(node.nodeType!=='directory')this.db.db.prepare('INSERT INTO chapters(source,work_id,chapter_id,title,sort,node_type,node_metadata_json) VALUES(?,?,?,?,?,?,?) ON CONFLICT(source,work_id,chapter_id) DO UPDATE SET title=excluded.title,sort=excluded.sort,node_type=excluded.node_type,node_metadata_json=excluded.node_metadata_json').run(source,workId,String(node.chapterId),String(node.title),baseOffset+idx,String(node.nodeType),JSON.stringify({directoryId:directory,subtitleIds:node.subtitleIds??[],subtitleLanguage:node.subtitleLanguage}));this.db.db.exec('COMMIT');}catch(error){this.db.db.exec('ROLLBACK');throw error;}
     let nextCursor:string|null=null;if(state.pending.length||state.hasNext){if(this.voiceCursors.size>=1000)throw fail('RATE_LIMITED',429);nextCursor=randomBytes(24).toString('base64url');this.voiceCursors.set(nextCursor,state);}
-    for(const node of items){const saved=this.db.db.prepare('SELECT * FROM chapters WHERE source=? AND work_id=? AND chapter_id=?').get(source,workId,String(node.chapterId));if(saved)Object.assign(node,{version:saved.version,readState:saved.read_state,pageProgress:saved.page_progress,videoPosition:saved.video_position,duration:saved.duration});else delete node.version;}const result={items,directoryId:directory,page:{limit,nextCursor}};if(prior)prior.result=result;return result;
+    for(const node of items){const saved=this.db.db.prepare('SELECT * FROM chapters WHERE source=? AND work_id=? AND chapter_id=?').get(source,workId,String(node.chapterId));if(saved)Object.assign(node,{version:saved.version,sort:saved.sort,readState:saved.read_state,pageProgress:saved.page_progress,videoPosition:saved.video_position,duration:saved.duration});else delete node.version;}const result={items,directoryId:directory,page:{limit,nextCursor}};if(prior)prior.result=result;return result;
   }
   private async subtitles(source:string,workId:string,chapterId:string,sessionId:string,signal?:AbortSignal){const work=this.work(source,workId);const map=work.voiceSubtitles;let ids=map&&typeof map==='object'?(map as Row)[chapterId]:[];const chapter=this.db.db.prepare('SELECT title,node_metadata_json FROM chapters WHERE source=? AND work_id=? AND chapter_id=?').get(source,workId,chapterId);const metadata=JSON.parse(String(chapter?.node_metadata_json??'{}'));if(metadata.directoryId){const siblings=this.db.db.prepare("SELECT chapter_id,title,node_metadata_json FROM chapters WHERE source=? AND work_id=? AND node_type='subtitle'").all(source,workId).filter(row=>JSON.parse(String(row.node_metadata_json)).directoryId===metadata.directoryId);const base=String(chapter?.title??'').replace(/\.[^.]+$/,'');ids=siblings.filter(row=>(Array.isArray(metadata.subtitleIds)&&metadata.subtitleIds.includes(row.chapter_id))||String(row.title).replace(/\.[^.]+$/,'')===base).map(row=>row.chapter_id);}if(ids===undefined)return [];if(!Array.isArray(ids)||ids.length>50)throw fail('PARSE');return ids.map((raw,index)=>{const id=text(raw,'subtitleId',512);const refresh=async(active?:AbortSignal)=>{const resource=object(await this.invoke(source,'voiceResource',{id:workId,nodeId:id,chapterId:id},active));let url=text(resource.url,'subtitle.url',8192);const format=String(resource.format??url.split('.').pop()?.split('?')[0]??'vtt').toLowerCase();if(format==='srt'||format==='lrc'){if(!this.host.fetchResource)throw fail('UNSUPPORTED',422);const response=await this.host.fetchResource(source,url,{signal:active});if(!response.ok)throw fail('NETWORK');const reader=response.body?.getReader();const chunks:Uint8Array[]=[];let size=0;try{if(reader)for(;;){const next=await reader.read();if(next.done)break;size+=next.value.length;if(size>1_000_000)throw fail('PARSE');chunks.push(next.value);}}finally{await reader?.cancel().catch(()=>{});}const original=Buffer.concat(chunks).toString('utf8');let vtt:string;if(format==='srt')vtt='WEBVTT\n\n'+original.replace(/(\d{2}:\d{2}:\d{2}),(\d{3})/g,'$1.$2');else{const cues=[...original.matchAll(/\[(\d+):(\d{2})(?:[.:](\d{1,3}))?\]([^\r\n]*)/g)].map(match=>({time:Number(match[1])*60+Number(match[2])+Number('0.'+(match[3]??'0')),text:match[4]??''}));const stamp=(seconds:number)=>new Date(seconds*1000).toISOString().slice(11,23);vtt='WEBVTT\n\n'+cues.map((cue,index)=>stamp(cue.time)+' --> '+stamp(cues[index+1]?.time??cue.time+5)+'\n'+cue.text+'\n').join('\n');}url='data:text/vtt;base64,'+Buffer.from(vtt).toString('base64');}
       return url;};const node=this.db.db.prepare('SELECT title,node_metadata_json FROM chapters WHERE source=? AND work_id=? AND chapter_id=?').get(source,workId,id);return {label:String(node?.title??id),language:JSON.parse(String(node?.node_metadata_json??'{}')).subtitleLanguage,mediaAuthorization:this.authorization(source,'subtitle:'+JSON.stringify([source,workId,chapterId,id]),undefined,sessionId,refresh)};});}
   private getChapter(source:string,workId:string,chapterId:string,signal?:AbortSignal){return this.requests.run('chapter:'+JSON.stringify([source,workId,chapterId]),active=>this.invoke(source,'chapter',{id:workId,chapterId},active).then(object),signal);}
   private authorization(source: string, resourceKey: string, url: string|undefined, sessionId: string, refresh?: () => Promise<string|{url:string;hls?:InlineHls;mediaContext?:string}>, hls?:InlineHls,image=false,mediaContext?:string,attachment?:MediaAttachment,playlist=false,scope?:'session') {
     const manifest = this.manifest(source); const domains = [...new Set([...manifest.domains,...(manifest.media?.domains ?? []),...(manifest.imageNetwork?.domains ?? [])])];
-    for (const [key, value] of this.authorizations) if (value.expires < Date.now()) this.authorizations.delete(key);
-    const authorizationId = randomBytes(24).toString('base64url'); this.authorizations.set(authorizationId,{source,resourceKey,url,domains,sessionId,artifact:this.registered(source).packagePath,expires:Date.now()+30*60_000,refresh,hls,image,mediaContext,attachment,playlist,scope}); return { source,resourceKey,authorizationId };
+    if(this.authorizations.size>=8192){const now=Date.now();for (const [key, value] of this.authorizations) if (value.expires < now) this.authorizations.delete(key);}
+    const authorizationId = randomBytes(24).toString('base64url'); this.authorizations.set(authorizationId,{source,resourceKey,url,domains,sessionId,artifact:this.registered(source).packagePath,expires:Date.now()+60*60_000,refresh,hls,image,mediaContext,attachment,playlist,scope});
+    return { source,resourceKey,authorizationId,...(image?{directUrl:'/api/v1/media/direct/'+authorizationId}:{}) };
+  }
+  async resolveDirectImageToken(authorizationId:string,sessionId:string,issueGrant:(grant:Omit<MediaGrant,'expiresAt'|'resources'>)=>Promise<{token:string;expiresAt:number}>,signal?:AbortSignal):Promise<string>{
+    const entry=this.authorizations.get(authorizationId);if(!entry||!entry.image||entry.sessionId!==sessionId||entry.expires<=Date.now())throw fail('NOT_FOUND',404);
+    if(entry.cachedToken&&entry.cachedTokenExpires&&entry.cachedTokenExpires>Date.now()+5_000)return entry.cachedToken;
+    const grant=await this.authorize(entry.source,entry.resourceKey,authorizationId,sessionId,signal);
+    const issued=await issueGrant(grant);
+    entry.cachedToken=issued.token;entry.cachedTokenExpires=issued.expiresAt;
+    return issued.token;
   }
   async authorize(source:string,resourceKey:string,authorizationId:string,sessionId:string,signal?:AbortSignal):Promise<Omit<MediaGrant,'expiresAt'|'resources'>>{
     const entry=this.authorizations.get(authorizationId);if(!entry||entry.source!==source||entry.resourceKey!==resourceKey||entry.sessionId!==sessionId||entry.expires<=Date.now())throw fail('NOT_FOUND',404);if(this.registered(source).packagePath!==entry.artifact)throw fail('CONFIG',409);
@@ -144,7 +157,7 @@ export class SourceCatalog {
     const url=typeof refreshed==='string'?refreshed:refreshed.url,hls=typeof refreshed==='string'?entry.hls:refreshed.hls,mediaContext=typeof refreshed==='string'?entry.mediaContext:refreshed.mediaContext;
     const data=/^data:(image\/(?:png|jpeg|gif|webp)|text\/vtt);base64,([A-Za-z0-9+/]+={0,2})$/.exec(url);
     let chosen:MediaCandidate|undefined;
-    const fetchResource=this.host.fetchResource?async(target:string,options:{signal?:AbortSignal;range?:string;method?:'GET'|'HEAD'})=>{if(this.registered(source).packagePath!==entry.artifact)throw fail('CONFIG',409);const initial=target===url,candidates=initial&&entry.candidates?.length?(chosen?[chosen,...entry.candidates.filter(c=>c!==chosen)]:entry.candidates):[{url:target,mediaContext:chosen?.mediaContext??mediaContext}];let last:unknown;for(const candidate of candidates){try{const response=await this.host.fetchResource!(source,candidate.url,{...options,mediaContext:candidate.mediaContext,image:entry.image});if(!response.ok&&response.status!==416){await response.body?.cancel();last=fail(response.status===401||response.status===403?'AUTH':'NETWORK');continue;}if(initial)chosen=candidate;if(candidate.format==='hls'){const headers=new Headers(response.headers);headers.set('content-type','application/vnd.apple.mpegurl');const result=new Response(response.body,{status:response.status,headers});Object.defineProperty(result,'url',{value:response.url||candidate.url});return result;}return response;}catch(error){if(options.signal?.aborted)throw error;last=error;}}throw last??fail('NETWORK');}:undefined;
+    const fetchResource=this.host.fetchResource?async(target:string,options:{signal?:AbortSignal;range?:string;method?:'GET'|'HEAD'})=>{if(this.registered(source).packagePath!==entry.artifact)throw fail('CONFIG',409);const initial=target===url,candidates=initial&&entry.candidates?.length?(chosen?[chosen,...entry.candidates.filter(c=>c!==chosen)]:entry.candidates):[{url:target,mediaContext:chosen?.mediaContext??mediaContext}];let last:unknown;for(const candidate of candidates){try{const response=await this.host.fetchResource!(source,candidate.url,{...options,mediaContext:candidate.mediaContext,image:entry.image});if(!response.ok&&response.status!==416){await response.body?.cancel();last=response.status===404||response.status===410?fail('NOT_FOUND',404):fail(response.status===401||response.status===403?'AUTH':'NETWORK');continue;}if(initial)chosen=candidate;if(candidate.format==='hls'){const headers=new Headers(response.headers);headers.set('content-type','application/vnd.apple.mpegurl');const result=new Response(response.body,{status:response.status,headers});Object.defineProperty(result,'url',{value:response.url||candidate.url});return result;}return response;}catch(error){if(options.signal?.aborted)throw error;last=error;}}throw last??fail('NETWORK');}:undefined;
     return {source,resourceKey,url,hls,playlist:entry.playlist,attachment:entry.attachment,image:entry.image,imageDecrypt:entry.image?this.manifest(source).imageDecrypt:undefined,inlineImage:data&&data[1]!=='text/vtt'?{mime:data[1]!,bytes:Buffer.from(data[2]!,'base64')}:undefined,inlineCaption:data?.[1]==='text/vtt'?Buffer.from(data[2]!,'base64').toString('utf8'):undefined,domains:entry.domains,scope:entry.scope??this.manifest(source).media?.scope,sessionId,resolve:active=>this.authorize(source,resourceKey,authorizationId,sessionId,active),fetchResource};
   }
   revokeSession(sessionId: string) {this.webPlayers?.revoke(sessionId);void this.albumResources.closeSession(sessionId).catch(()=>{});for(const [key,value]of this.channelPostsCache)if(key.startsWith(JSON.stringify([sessionId]).slice(0,-1)+','))this.channelPostsCache.delete(key);for(const [key,value]of this.reverseCursors)if(value.sessionId===sessionId)this.reverseCursors.delete(key); for (const [key,value] of this.authorizations) if (value.sessionId === sessionId) this.authorizations.delete(key); }
@@ -152,13 +165,15 @@ export class SourceCatalog {
   async revokeSource(source:string){
     this.sourceControllers.get(source)?.abort();this.sourceControllers.set(source,new AbortController());const closing=[this.webPlayers?.revokeSource(source),this.albumResources.closeSource(source)];
     for(const [key,value]of this.authorizations)if(value.source===source)this.authorizations.delete(key);for(const [key,value]of this.channelPostsCache)if(value.source===source)this.channelPostsCache.delete(key);for(const [key,value]of this.reverseCursors)if(value.source===source)this.reverseCursors.delete(key);for(const [key,value]of this.voiceCursors)if(value.source===source)this.voiceCursors.delete(key);
-    const belongs=(key:string)=>{try{return JSON.parse(key)[0]===source;}catch{return false;}};for(const key of this.detailThumbnails.keys())if(belongs(key))this.detailThumbnails.delete(key);for(const key of this.detailImages.keys())if(belongs(key))this.detailImages.delete(key);for(const key of this.articles.keys())if(belongs(key))this.articles.delete(key);for(const key of this.covers.keys())if(belongs(key))this.covers.delete(key);for(const [key,value]of this.albumCursors)if(belongs(value.fingerprint))this.albumCursors.delete(key);this.cursors.clear();this.catalogCursors.clear();await Promise.all(closing);
+    const belongs=(key:string)=>{try{return JSON.parse(key)[0]===source;}catch{return false;}};for(const key of this.detailThumbnails.keys())if(belongs(key))this.detailThumbnails.delete(key);for(const key of this.detailImages.keys())if(belongs(key))this.detailImages.delete(key);for(const key of this.articles.keys())if(belongs(key))this.articles.delete(key);for(const key of this.covers.keys())if(belongs(key))this.covers.delete(key);for(const [key,value]of this.albumCursors)if(belongs(value.fingerprint))this.albumCursors.delete(key);for(const key of this.tagDictCache.keys())if(key.startsWith(source+':'))this.tagDictCache.delete(key);this.discoveryCache.clear();this.cursors.clear();this.catalogCursors.clear();await Promise.all(closing);
   }
   async reader(source: string, workId: string, chapterId: string, sessionId: string, signal?: AbortSignal) {
     if(!this.db.db.prepare('SELECT 1 FROM works WHERE source=? AND work_id=?').get(source,workId)||!this.db.db.prepare('SELECT 1 FROM chapters WHERE source=? AND work_id=? AND chapter_id=?').get(source,workId,chapterId))await this.detail(source,workId,signal);
     const work = this.work(source,workId); const manifest = this.manifest(source); const identity = {id:workId,chapterId,episodeId:chapterId}; const resourceKey = `chapter:${chapterIdentityKey({source,workId,chapterId})}`;
     const chapter = this.db.db.prepare('SELECT * FROM chapters WHERE source=? AND work_id=? AND chapter_id=?').get(source,workId,chapterId); if (!chapter) throw fail('NOT_FOUND',404);
-    const base = {source,workId,chapterId,title:chapter.title,workTitle:work.title,category:work.category,mediaKind:chapter.node_type==='video'?'video':chapter.node_type==='audio'?'voice':!chapter.node_type&&work.mediaKind==='voice'&&work.voiceMediaForm==='videoOnly'?'video':work.mediaKind,version:chapter.version,pageProgress:chapter.page_progress,videoPosition:chapter.video_position,duration:chapter.duration,textOffset:chapter.text_offset??0};
+    const completedDownload = this.db.db.prepare("SELECT task_id FROM download_tasks WHERE source=? AND work_id=? AND chapter_id=? AND status='completed' ORDER BY updated_at DESC LIMIT 1").get(source,workId,chapterId) as Row | undefined;
+    const partialDownload = !completedDownload ? this.db.db.prepare("SELECT task_id FROM download_tasks WHERE source=? AND work_id=? AND chapter_id=? AND status IN ('running','paused','queued') AND completed_count>0 ORDER BY updated_at DESC LIMIT 1").get(source,workId,chapterId) as Row | undefined : undefined;
+    const base = {source,workId,chapterId,title:chapter.title,workTitle:work.title,category:work.category,mediaKind:chapter.node_type==='video'?'video':chapter.node_type==='audio'?'voice':!chapter.node_type&&work.mediaKind==='voice'&&work.voiceMediaForm==='videoOnly'?'video':work.mediaKind,version:chapter.version,pageProgress:chapter.page_progress,videoPosition:chapter.video_position,duration:chapter.duration,textOffset:chapter.text_offset??0,...(completedDownload?{offlineTaskId:String(completedDownload.task_id)}:{}),...(partialDownload?{partialOfflineTaskId:String(partialDownload.task_id)}:{})};
     if (manifest.metadataOnly) throw fail('UNSUPPORTED',422);
     if(chapter.node_type==='other')throw fail('UNSUPPORTED',422);
     if(chapter.node_type&&['image','script','subtitle'].includes(String(chapter.node_type))){const resource=object(await this.invoke(source,'voiceResource',{id:workId,nodeId:chapterId,chapterId},signal));const url=text(resource.url,'resource.url',8192);if(chapter.node_type==='image')return {...base,mediaKind:'comic',pages:[{index:0,mediaAuthorization:this.authorization(source,resourceKey,url,sessionId,undefined,undefined,true)}]};if(!this.host.fetchResource)throw fail('UNSUPPORTED',422);const response=await this.host.fetchResource(source,url,{signal});if(!response.ok)throw fail('NETWORK');const reader=response.body?.getReader();const chunks:Uint8Array[]=[];let size=0;try{if(reader)for(;;){const next=await reader.read();if(next.done)break;size+=next.value.length;if(size>2_000_000)throw fail('PARSE');chunks.push(next.value);}}finally{await reader?.cancel().catch(()=>{});}return {...base,mediaKind:'article',content:Buffer.concat(chunks).toString('utf8')};}
@@ -187,7 +202,11 @@ export class SourceCatalog {
     const select=(raw:unknown,label?:unknown)=>{if(!Array.isArray(raw)||!raw.length)throw fail('PARSE');return object(raw.find(value=>label===undefined?object(value).preferred===true:object(value).label===label)??raw[0]);};
     const raw=await this.invoke(source,'videos',identity,signal),item=select(raw);const candidates=(values:unknown):MediaCandidate[]=>{if(!Array.isArray(values)||values.length>100)throw fail('PARSE');const items=values.map(object);const sorted=[...items.filter(v=>v.preferred===true),...items.filter(v=>v.preferred!==true)];return sorted.map(value=>({url:contentUrl(value.url),format:typeof value.format==='string'?value.format:undefined,hls:value.hls as InlineHls|undefined,mediaContext:this.host.mediaContext?.(source,value)}));};
     const refresh=async(active?:AbortSignal)=>{const values=await this.invoke(source,'videos',identity,active);entry.candidates=candidates(values);const selected=select(values,item.label);return {url:text(selected.url,'url',8192),hls:selected.hls as InlineHls|undefined,mediaContext:this.host.mediaContext?.(source,selected)};};
-    const authorization=this.authorization(source,resourceKey,text(item.url,'url',8192),sessionId,refresh,item.hls as InlineHls|undefined,false,this.host.mediaContext?.(source,item),undefined,item.format==='hls');const entry=this.authorizations.get(authorization.authorizationId)!;entry.candidates=candidates(raw);return {mediaAuthorization:authorization};
+    const resolvedUrl=text(item.url,'url',8192);
+    const detectedFormat=typeof item.format==='string'?item.format:/\.m3u8(?:\?|$)/i.test(resolvedUrl)?'hls':'mp4';
+    const authorization=this.authorization(source,resourceKey,resolvedUrl,sessionId,refresh,item.hls as InlineHls|undefined,false,this.host.mediaContext?.(source,item),undefined,detectedFormat==='hls');const entry=this.authorizations.get(authorization.authorizationId)!;entry.candidates=candidates(raw);
+    const inlineChoices=Array.isArray(raw)?raw.map((val,idx)=>{const opt=object(val),optUrl=contentUrl(opt.url),optFmt=typeof opt.format==='string'?opt.format:/\.m3u8(?:\?|$)/i.test(optUrl)?'hls':'mp4',choiceKey=`${resourceKey}:inline:${idx}`;const optAuth=this.authorization(source,choiceKey,optUrl,sessionId,refresh,opt.hls as InlineHls|undefined,false,this.host.mediaContext?.(source,opt),undefined,optFmt==='hls');return {id:String(idx),label:typeof opt.label==='string'&&opt.label?opt.label:opt.quality?`${opt.quality}p`:`线路 ${idx+1}`,quality:typeof opt.quality==='number'?opt.quality:undefined,format:optFmt,preferred:opt.preferred===true,mirrors:1,mediaAuthorization:optAuth};}):[];
+    return {mediaAuthorization:authorization,format:detectedFormat,mediaChoices:inlineChoices};
   }
   async articleMedia(source:string,workId:string,mediaId:string,sessionId:string,signal?:AbortSignal){
     const document=await this.article(source,workId,signal);if(!document.blocks.some(block=>block.type==='video'&&block.id===mediaId))throw fail('NOT_FOUND',404);
@@ -258,10 +277,17 @@ export class SourceCatalog {
     return shared;
   }
   private rankingBoard(source:string,board:string){const manifest=this.manifest(source);const declaration=manifest.rankings?.find(value=>value.key===board);if(!manifest.capabilities?.rankings||!declaration)throw fail('UNSUPPORTED',422);return {manifest,declaration};}
-  async rankingOptions(source:string,board:string,signal?:AbortSignal){this.rankingBoard(source,board);const raw=await this.invoke(source,'rankings',{board,queryOptions:true},signal);if(!Array.isArray(raw)||raw.length>128)throw fail('PARSE');return {items:raw.map(value=>{const item=object(value);text(item.key,'key',128);text(item.label,'label',256);if(!Array.isArray(item.values)||item.values.length>500)throw fail('PARSE');const values=item.values.map(value=>{const option=object(value);if(typeof option.value!=='string'&&typeof option.value!=='number')throw fail('PARSE');return {value:option.value,label:text(option.label,'label',256)};});return {key:item.key,label:item.label,default:item.default,values};})};}
+  async rankingOptions(source:string,board:string,signal?:AbortSignal){const {declaration}=this.rankingBoard(source,board);const declared=Array.isArray(declaration.options)?declaration.options:[];const raw=declared.some(o=>object(o).dynamic===true)?await this.invoke(source,'rankings',{board,queryOptions:true},signal):declared;if(!Array.isArray(raw)||raw.length>128)throw fail('PARSE');return {items:raw.flatMap(value=>{const item=object(value);const key=text(item.key,'key',128),label=text(item.label,'label',256);const optType=typeof item.type==='string'?item.type:'select';if(optType!=='select')return [];if(!Array.isArray(item.values)||item.values.length>500)throw fail('PARSE');const values=item.values.map(v=>{const option=object(v);if(typeof option.value!=='string'&&typeof option.value!=='number')throw fail('PARSE');return {value:option.value,label:text(option.label,'label',256)};});return [{key,label,default:item.default,values}];})};}
   async rankings(input:{source:string;board:string;options?:Record<string,unknown>;cursor?:string;limit:number},signal?:AbortSignal){const {manifest,declaration}=this.rankingBoard(input.source,input.board);const fingerprint=createHash('sha256').update(JSON.stringify(['rankings',input.source,manifest.version,this.registered(input.source).packagePath,input.board,input.options,input.limit])).digest('hex');const timeout=AbortSignal.timeout(20000);const active=signal?AbortSignal.any([signal,timeout]):timeout;
-    return this.catalogPage(fingerprint,input.cursor,input.limit,(page,offset,cursor)=>this.invoke(input.source,'rankings',{board:input.board,page,offset,cursor,options:input.options??{}},active),(raw,rank)=>{const value=object(raw);const boardKind=(declaration as unknown as Row).kind;const kind=value.kind??(boardKind==='actress'||boardKind==='seller'?boardKind:'work');if(!['work','actress','seller'].includes(String(kind)))throw fail('PARSE');const title=text(value.title??value.name??value.code,'title');const url=value.url===undefined?undefined:stableUrl(value.url);if(value.url!==undefined&&!url)throw fail('PARSE');const item:Row={source:input.source,title,kind,rank:Number.isInteger(value.rank)&&Number(value.rank)>0?value.rank:rank,...(url?{url}:{}),...(typeof value.keyword==='string'?{keyword:text(value.keyword,'keyword',512)}:{})};
+    return this.catalogPage(fingerprint,input.cursor,input.limit,(page,offset,cursor)=>this.invoke(input.source,'rankings',{board:input.board,page,offset,cursor,options:input.options??{}},active),(raw,rank)=>{const value=object(raw);const boardKind=(declaration as unknown as Row).kind;const kind=value.kind??(boardKind==='actress'||boardKind==='seller'?boardKind:'work');if(!['work','actress','seller'].includes(String(kind)))throw fail('PARSE');const title=text(value.title??value.name??value.code,'title');const url=value.url===undefined?undefined:stableUrl(value.url);if(value.url!==undefined&&!url)throw fail('PARSE');const rawCover=typeof value.cover==='string'?value.cover:typeof value.avatar==='string'?value.avatar:undefined;const cover=rawCover?contentUrl(rawCover):undefined;const subtitle=typeof value.subtitle==='string'?value.subtitle.slice(0,512):typeof value.author==='string'?value.author.slice(0,256):undefined;const item:Row={source:input.source,title,kind,rank:Number.isInteger(value.rank)&&Number(value.rank)>0?value.rank:rank,...(url?{url}:{}),...(cover?{cover}:{}),...(subtitle?{subtitle}:{}),...(typeof value.keyword==='string'?{keyword:text(value.keyword,'keyword',512)}:{})};
       if(kind==='work'){const workId=text(value.workId??value.id,'workId',512);item.workId=workId;return {item,identity:JSON.stringify([kind,input.source,workId])};}return {item,identity:JSON.stringify([kind,title,url])};});
+  }
+  presentRankingItems(source:string,items:Row[],sessionId:string):Row[]{
+    return items.map((item,idx)=>{
+      if(typeof item.cover!=='string'||!item.cover)return item;
+      const {cover,...rest}=item;
+      return {...rest,coverAuthorization:this.authorization(source,`ranking:${JSON.stringify([source,item.workId??item.title,idx,cover])}`,cover,sessionId,undefined,undefined,true)};
+    });
   }
   async search(input: {query:string;scope:string;source?:string;sources?:string[];mediaKind?:string;category?:string;cursor?:string;limit:number;filters?:Record<string,unknown>},signal?:AbortSignal) {
     return this.searchKeywords(input,[input.query],signal);
@@ -286,8 +312,28 @@ export class SourceCatalog {
     if(state.pending.length||state.sources.some(value=>!value.done)){if(this.cursors.size>=1000)throw fail('RATE_LIMITED',429);nextCursor=randomBytes(24).toString('base64url');this.cursors.set(nextCursor,{fingerprint,state,expires:Date.now()+10*60_000});}
     const result={items,page:{limit:input.limit,nextCursor},sources:statuses};if(prior)prior.result=result;return result;
   }
-  async discovery(source?:string,signal?:AbortSignal,category?:string,categories?:string[]){
+  async discovery(source?:string,signal?:AbortSignal,category?:string,categories?:string[],forceRefresh=false){
     const records=this.host.registry.list().filter(value=>value.enabled&&value.manifest.capabilities?.feed&&(!source||value.source===source)&&(!category||value.manifest.category===category)&&(categories===undefined||categories.includes(value.manifest.category))&&this.db.db.prepare('SELECT enabled FROM source_registry WHERE source=?').get(value.source)?.enabled!==0);
+    const cacheKey=JSON.stringify([source??null,category??null,categories?.slice().sort()??null,records.map(r=>[r.source,r.manifest.version]).sort()]);
+    if(!forceRefresh){
+      const mem=this.discoveryCache.get(cacheKey);
+      if(mem&&Date.now()-mem.at<10*60_000)return mem.result;
+      if(!source&&this.db.path!==':memory:'){
+        try{
+          const diskFile=join(this.cacheDirectory,'discovery-'+createHash('sha256').update(cacheKey).digest('hex').slice(0,20)+'.json');
+          const diskRaw=JSON.parse(await readFile(diskFile,'utf8')) as {at:number;result:{shelves:Row[];items:Row[];sources:Row[]}};
+          if(diskRaw&&Date.now()-diskRaw.at<30*60_000&&Array.isArray(diskRaw.result?.shelves)&&diskRaw.result.shelves.length>0){
+            for(const shelf of diskRaw.result.shelves){
+              if(typeof shelf.source==='string'&&Array.isArray(shelf.items)){
+                for(const item of shelf.items)try{this.persistWork(shelf.source,item);}catch{}
+              }
+            }
+            this.discoveryCache.set(cacheKey,diskRaw);
+            return diskRaw.result;
+          }
+        }catch{}
+      }
+    }
     const shelves:Row[]=[],statuses:Row[]=[];
     for(let start=0;start<records.length;start+=4){const results=await Promise.all(records.slice(start,start+4).map(async record=>{try{
       const timeout=AbortSignal.timeout(15000),active=signal?AbortSignal.any([signal,timeout]):timeout;
@@ -296,12 +342,29 @@ export class SourceCatalog {
       if(sections.length>100)throw fail('PARSE');return {source:record.source,shelves:sections.map((value,index)=>{const section=object(value);if(!Array.isArray(section.items)||section.items.length>10000)throw fail('PARSE');return {key:JSON.stringify([record.source,key,index]),source:record.source,sourceName:record.manifest.name,category:record.manifest.category,layout:record.manifest.browseLayout??'grid',feedKey:key,...(Array.isArray(raw.sections)?{sectionIndex:index}:{}),hasNext:raw.hasNext===true,title:typeof section.title==='string'?section.title:record.manifest.name,items:section.items.map(item=>this.persistWork(record.source,item))};})};
     }catch(error){if(signal?.aborted)throw error;return {source:record.source,error};}}));
       for(const value of results){if('error'in value){const error=toPluginError(value.error);statuses.push({source:value.source,status:'error',code:error.code,retryable:error.retryable,...(error.details?{details:error.details}:{})});}else{statuses.push({source:value.source,status:'ready'});shelves.push(...value.shelves!);}}
-    }return {shelves,items:shelves.flatMap(s=>s.items as Row[]),sources:statuses};
+    }
+    const result={shelves,items:shelves.flatMap(s=>s.items as Row[]),sources:statuses};
+    if(shelves.length>0){
+      const payload={at:Date.now(),result};
+      this.discoveryCache.set(cacheKey,payload);
+      if(!source&&this.db.path!==':memory:'){
+        const diskFile=join(this.cacheDirectory,'discovery-'+createHash('sha256').update(cacheKey).digest('hex').slice(0,20)+'.json');
+        void mkdir(this.cacheDirectory,{recursive:true}).then(()=>writeFile(diskFile,JSON.stringify(payload),'utf8')).catch(()=>{});
+      }
+    }
+    return result;
   }
   async checkLibraryUpdates(signal?:AbortSignal){
     const setting=(key:string,fallback:unknown)=>{const row=this.db.db.prepare('SELECT value_json FROM app_settings WHERE key=?').get(key);return row?JSON.parse(String(row.value_json)):fallback;};
-    const favorites=this.db.db.prepare('SELECT source,work_id FROM work_collections WHERE favorite=1 ORDER BY source,work_id').all(),items:Row[]=[];let next=0;
-    await Promise.all(Array.from({length:Math.min(4,favorites.length)},async()=>{while(next<favorites.length){const entry=favorites[next++]!,source=String(entry.source),workId=String(entry.work_id);signal?.throwIfAborted();try{
+    const favorites=this.db.db.prepare('SELECT source,work_id FROM work_collections WHERE favorite=1 ORDER BY source,work_id').all();
+    const bySource=new Map<string,Array<{source:string;workId:string}>>();
+    for(const entry of favorites){
+      const src=String(entry.source),wid=String(entry.work_id);
+      if(src==='_local')continue;
+      const list=bySource.get(src)??[];list.push({source:src,workId:wid});bySource.set(src,list);
+    }
+    const sourceGroups=[...bySource.values()],items:Row[]=[];let nextGroup=0;
+    await Promise.all(Array.from({length:Math.min(3,sourceGroups.length)},async()=>{while(nextGroup<sourceGroups.length){const group=sourceGroups[nextGroup++]!;for(let i=0;i<group.length;i++){const {source,workId}=group[i]!;signal?.throwIfAborted();if(i>0)await new Promise<void>((res,rej)=>{const t=setTimeout(res,450);signal?.addEventListener('abort',()=>{clearTimeout(t);rej(signal.reason);},{once:true});});try{
       const existing=this.db.db.prepare('SELECT chapter_id,read_state FROM chapters WHERE source=? AND work_id=?').all(source,workId);if(setting('updateOnlyMultiChapter',true)&&existing.length<=1||setting('updateSkipUnread',false)&&existing.some(row=>row.read_state!=='read')||setting('updateSkipNotStarted',false)&&!this.db.db.prepare('SELECT 1 FROM history WHERE source=? AND work_id=? LIMIT 1').get(source,workId)){items.push({source,workId,status:'skipped'});continue;}
       const before=this.work(source,workId),oldIds=new Set(this.db.db.prepare('SELECT chapter_id FROM chapters WHERE source=? AND work_id=?').all(source,workId).map(row=>String(row.chapter_id)));const work=await this.detail(source,workId,signal);let complete=work.chaptersComplete===true,baseline=before.chaptersComplete===true;
       if(work.voiceRoot&&object(work.voiceRoot).type==='directory'){
@@ -311,7 +374,7 @@ export class SourceCatalog {
         }}complete=true;const metadata=JSON.parse(String(this.db.db.prepare('SELECT metadata_json FROM works WHERE source=? AND work_id=?').get(source,workId)!.metadata_json));this.db.db.prepare('UPDATE works SET metadata_json=? WHERE source=? AND work_id=?').run(JSON.stringify({...metadata,voiceDirectoryComplete:true}),source,workId);
       }
       const current=this.db.db.prepare('SELECT chapter_id FROM chapters WHERE source=? AND work_id=?').all(source,workId),added=complete&&baseline?current.filter(row=>!oldIds.has(String(row.chapter_id))).length:0;if(added){const now=new Date().toISOString();this.db.db.prepare('UPDATE works SET content_updated_at=? WHERE source=? AND work_id=?').run(now,source,workId);if(setting('autoDownloadNew',false)&&work.category!=='live'&&work.capabilities&&['chapter','textChapter','videos','voiceResource'].some(key=>object(work.capabilities)[key]===true))for(const row of current.filter(row=>!oldIds.has(String(row.chapter_id)))){const id=downloadTaskId({source,workId,chapterId:String(row.chapter_id),variant:'original'});this.db.db.prepare('INSERT OR IGNORE INTO download_tasks(task_id,source,work_id,chapter_id,variant,resource_key,idempotency_key,status,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?)').run(id,source,workId,String(row.chapter_id),'original',id,id,'queued',now,now);}}items.push({source,workId,status:complete?'ready':'incomplete',baseline:!baseline,addedChapters:added,updated:added>0});
-    }catch(error){if(signal?.aborted)throw error;items.push({source,workId,status:'error',code:(error as {code?:string}).code??'NETWORK'});}}}));return {items,checked:items.length,updated:items.filter(item=>item.updated).length,errors:items.filter(item=>item.status==='error').length};
+    }catch(error){if(signal?.aborted)throw error;items.push({source,workId,status:'error',code:(error as {code?:string}).code??'NETWORK'});}}}}));return {items,checked:items.length,updated:items.filter(item=>item.updated).length,errors:items.filter(item=>item.status==='error').length};
   }
   contentDetails(source:string,workId:string,sessionId:string):Row {
     return {thumbnails:this.presentThumbnails(source,workId,this.detailThumbnails.get(JSON.stringify([source,workId]))??[],sessionId),images:(this.detailImages.get(JSON.stringify([source,workId]))??[]).map((image,index)=>({mediaAuthorization:this.authorization(source,'detail-image:'+JSON.stringify([source,workId,index]),image.url,sessionId,undefined,undefined,true),thumbnailAuthorization:this.authorization(source,'detail-thumbnail:'+JSON.stringify([source,workId,index]),image.thumbnail??image.url,sessionId,undefined,undefined,true)}))};
@@ -321,7 +384,77 @@ export class SourceCatalog {
   async gameResources(source:string,workId:string,signal?:AbortSignal){const raw=await this.invoke(source,'gameResources',{id:workId},signal);if(!Array.isArray(raw)||raw.length>1000)throw fail('PARSE');return {items:raw.map(value=>{const row=object(value);if(!Array.isArray(row.channels)||row.channels.length>100)throw fail('PARSE');return {id:contentText(row.id,512),title:contentText(row.title??'',2048,true),version:row.version,size:row.size,notes:contentText(row.notes??'',64000,true),platforms:gameResourceLabels(row.platforms),languages:gameResourceLabels(row.languages),status:row.status==='expired'?'expired':'valid',testStatus:['tested','untested','unknown'].includes(String(row.testStatus))?row.testStatus:'unknown',channels:row.channels.map(value=>{const channel=object(value);return {id:contentText(channel.id,512),kind:channel.kind,label:contentText(channel.label??'',2048,true),size:channel.size,requiresReply:channel.requiresReply===true,replyText:channel.replyText===undefined?undefined:contentText(channel.replyText,16000,true)};})};})};}
   async resolveGameResource(source:string,workId:string,resourceId:string,channelId:string,signal?:AbortSignal){const raw=object(await this.invoke(source,'resolveGameResource',{id:workId,resourceId,channelId},signal));if(raw.kind==='direct')return {kind:'direct',url:contentUrl(raw.url),filename:contentText(raw.filename??'game-resource',512),extractionCode:raw.extractionCode===undefined?'':contentText(raw.extractionCode,4096,true),archivePassword:raw.archivePassword===undefined?'':contentText(raw.archivePassword,4096,true)};if(raw.kind!=='external')throw fail('PARSE');const links=Array.isArray(raw.urls)?raw.urls:[raw.url];if(!links.length||links.length>100)throw fail('PARSE');const urls=links.map(value=>{const url=new URL(contentText(value,8192));if(!['http:','https:','ftp:','ftps:','magnet:','ed2k:','thunder:'].includes(url.protocol)||url.username||url.password)throw fail('PARSE');return url.href;});return {kind:'external',urls,url:urls[0],extractionCode:raw.extractionCode===undefined?'':contentText(raw.extractionCode,4096,true),extractionCodes:raw.extractionCodes===undefined?undefined:(Array.isArray(raw.extractionCodes)&&raw.extractionCodes.length===urls.length?raw.extractionCodes.map(v=>contentText(v,4096,true)):(()=>{throw fail('PARSE');})()),archivePassword:raw.archivePassword===undefined?'':contentText(raw.archivePassword,4096,true)};}
   async onlineGame(source:string,workId:string,_sessionId:string,signal?:AbortSignal){const raw=object(await this.invoke(source,'onlineGame',{id:workId},signal));if(!['html','flash'].includes(String(raw.kind)))throw fail('PARSE');const url=contentUrl(raw.url),storageId=contentText(raw.storageId??workId,512);const navigationDomains=raw.navigationDomains===undefined?[]:raw.navigationDomains;if(!Array.isArray(navigationDomains)||navigationDomains.length>32||navigationDomains.some(domain=>typeof domain!=='string'||!/^(?:[a-z0-9-]+\.)+[a-z]{2,}$/i.test(domain)))throw fail('PARSE');if(raw.kind==='flash'){const player=contentUrl(raw.player);if(new URL(player).host!==new URL(url).host)throw fail('BLOCKED',403);return {kind:'flash',url,player,storageId,navigationDomains};}return {kind:'html',url,storageId,navigationDomains};}
-  async suggestions(source:string,keyword:string,signal?:AbortSignal){const raw=await this.invoke(source,'searchSuggestions',{keyword},signal);if(!Array.isArray(raw)||raw.length>100)throw fail('PARSE');return {items:raw.map(value=>{const row=typeof value==='string'?{keyword:value,label:value}:object(value);return {keyword:contentText(row.keyword??row.label,512),label:contentText(row.label??row.keyword,512),subtitle:row.subtitle===undefined?'':contentText(row.subtitle,1024,true)};})};}
+  private getTagDictionary(source?:string):Record<string,string>{
+    const langRow=this.db.db.prepare("SELECT value_json FROM app_settings WHERE key='language'").get();
+    const locale=langRow?String(JSON.parse(String(langRow.value_json))||'zh-Hans'):'zh-Hans';
+    if(!source){
+      const rows=this.db.db.prepare('SELECT payload_json,updated_at FROM tag_translation_packs WHERE locale=? ORDER BY updated_at DESC LIMIT 8').all(locale);
+      if(!rows.length)return {};
+      const stamp=rows.map(r=>String(r.updated_at)).join('|');
+      const cacheKey=`__all__:${locale}`;
+      const cached=this.tagDictCache.get(cacheKey);
+      if(cached&&cached.updatedAt===stamp)return cached.tags;
+      const merged:Record<string,string>={};
+      for(const row of rows){
+        try{
+          const parsed=JSON.parse(String(row.payload_json)) as {tags?:Record<string,string>};
+          if(parsed.tags&&typeof parsed.tags==='object')Object.assign(merged,parsed.tags);
+        }catch{}
+      }
+      if(this.tagDictCache.size>=32)this.tagDictCache.delete(this.tagDictCache.keys().next().value!);
+      this.tagDictCache.set(cacheKey,{updatedAt:stamp,tags:merged});
+      return merged;
+    }
+    const packRow=this.db.db.prepare('SELECT payload_json,updated_at FROM tag_translation_packs WHERE source=? AND locale=?').get(source,locale)??this.db.db.prepare('SELECT payload_json,updated_at FROM tag_translation_packs WHERE source=? ORDER BY updated_at DESC LIMIT 1').get(source);
+    if(!packRow)return {};
+    const cacheKey=`${source}:${locale}`;
+    const cached=this.tagDictCache.get(cacheKey);
+    if(cached&&cached.updatedAt===String(packRow.updated_at))return cached.tags;
+    try{
+      const parsed=JSON.parse(String(packRow.payload_json)) as {tags?:Record<string,string>};
+      const tags=parsed.tags&&typeof parsed.tags==='object'?parsed.tags:{};
+      if(this.tagDictCache.size>=32)this.tagDictCache.delete(this.tagDictCache.keys().next().value!);
+      this.tagDictCache.set(cacheKey,{updatedAt:String(packRow.updated_at),tags});
+      return tags;
+    }catch{return {};}
+  }
+  globalSuggestions(keyword:string){
+    const dict=this.getTagDictionary();
+    const q=keyword.trim().toLowerCase();
+    const items:Array<{keyword:string;label:string;subtitle:string}>=[];
+    if(q){
+      for(const [rawTag,translated] of Object.entries(dict)){
+        if(rawTag.includes(q)||translated.toLowerCase().includes(q)){
+          items.push({keyword:rawTag,label:translated,subtitle:rawTag});
+          if(items.length>=20)break;
+        }
+      }
+    }
+    return {items};
+  }
+  async suggestions(source:string,keyword:string,signal?:AbortSignal){
+    const manifest=this.manifest(source);
+    const dict=this.getTagDictionary(source);
+    const q=keyword.trim().toLowerCase();
+    const localMatches:Array<{keyword:string;label:string;subtitle:string}>=[];
+    if(q){
+      for(const [rawTag,translated] of Object.entries(dict)){
+        if(rawTag.includes(q)||translated.toLowerCase().includes(q)){
+          localMatches.push({keyword:rawTag,label:translated,subtitle:rawTag});
+          if(localMatches.length>=20)break;
+        }
+      }
+    }
+    if(!manifest.capabilities?.searchSuggestions){
+      return {items:localMatches};
+    }
+    const raw=await this.invoke(source,'searchSuggestions',{keyword,...(Object.keys(dict).length?{dictionary:dict}:{})},signal);
+    if(!Array.isArray(raw)||raw.length>100)throw fail('PARSE');
+    const remote=raw.map(value=>{const row=typeof value==='string'?{keyword:value,label:value}:object(value);const kw=contentText(row.keyword??row.label,512);return {keyword:kw,label:contentText(row.label??dict[kw.toLowerCase()]??row.keyword,512),subtitle:row.subtitle===undefined?'':contentText(row.subtitle,1024,true)};});
+    const seen=new Set(remote.map(item=>item.keyword.toLowerCase()));
+    for(const item of localMatches){if(!seen.has(item.keyword.toLowerCase())&&remote.length<30){seen.add(item.keyword.toLowerCase());remote.push(item);}}
+    return {items:remote};
+  }
   async random(source:string,filters:Row,sessionId:string,signal?:AbortSignal){const manifest=this.manifest(source),normalized=normalizeFilters(filters,manifest.searchCommonFilters),raw=await this.invoke(source,'random',{filters:normalized.filters,...(normalized.common?{common:normalized.common}:{})},signal),id=contentText(typeof raw==='string'?raw:object(raw).id,512);return {source,workId:id,href:'/work/'+[source,id].map(encodeURIComponent).join('/')};}
   readingNavigation(source:string,workId:string,chapterId:string,cursor?:string){this.manifest(source);const current=this.db.db.prepare('SELECT sort,chapter_id FROM chapters WHERE source=? AND work_id=? AND chapter_id=?').get(source,workId,chapterId);if(!current)throw fail('NOT_FOUND',404);const offset=cursor===undefined?0:Number(cursor);if(!Number.isSafeInteger(offset)||offset<0||offset>100000)throw fail('BAD_REQUEST',400);const rows=this.db.db.prepare("SELECT chapter_id,title,node_type FROM chapters WHERE source=? AND work_id=? AND json_extract(node_metadata_json,'$.postMediaId') IS NULL AND COALESCE(json_extract(node_metadata_json,'$.postText'),0)=0 ORDER BY sort,chapter_id LIMIT 201 OFFSET ?").all(source,workId,offset),publicRow=(row:Row|undefined)=>row?{chapterId:row.chapter_id,title:row.title,nodeType:row.node_type}:null;return {previous:publicRow(this.db.db.prepare("SELECT chapter_id,title FROM chapters WHERE source=? AND work_id=? AND json_extract(node_metadata_json,'$.postMediaId') IS NULL AND COALESCE(json_extract(node_metadata_json,'$.postText'),0)=0 AND (sort<? OR sort=? AND chapter_id<?) ORDER BY sort DESC,chapter_id DESC LIMIT 1").get(source,workId,current.sort,current.sort,chapterId)),next:publicRow(this.db.db.prepare("SELECT chapter_id,title FROM chapters WHERE source=? AND work_id=? AND json_extract(node_metadata_json,'$.postMediaId') IS NULL AND COALESCE(json_extract(node_metadata_json,'$.postText'),0)=0 AND (sort>? OR sort=? AND chapter_id>?) ORDER BY sort,chapter_id LIMIT 1").get(source,workId,current.sort,current.sort,chapterId)),items:rows.slice(0,200).map(publicRow),page:{nextCursor:rows.length>200?String(offset+200):null}};}
   async resolveInput(input:string,source?:string,signal?:AbortSignal){
@@ -335,7 +468,7 @@ export class SourceCatalog {
   async comments(source:string,workId:string,request:Row,sessionId:string,signal?:AbortSignal){const work=this.db.db.prepare('SELECT 1 FROM works WHERE source=? AND work_id=?').get(source,workId)?this.work(source,workId):await this.detail(source,workId,signal);if(work.commentsAvailable===false)throw fail('UNSUPPORTED',422);const raw=await this.invoke(source,'comments',{id:workId,request},signal);return commentPage(raw,(url,key)=>this.authorization(source,'comments:'+JSON.stringify([workId,key]),url,sessionId,undefined,undefined,true));}
   async interact(source:string,workId:string,request:Row,signal?:AbortSignal){const result=await this.invoke(source,'interaction',{id:workId,request},signal);if(Buffer.byteLength(JSON.stringify(result))>128000)throw fail('PARSE');return {result:publicContentValue(result)};}
   async related(source:string,workId:string,request:Row,sessionId:string,signal?:AbortSignal){const raw=await this.invoke(source,'related',{id:workId,request},signal);const row=Array.isArray(raw)?{items:raw,hasNext:false}:object(raw);if(!Array.isArray(row.items)||row.items.length>1000)throw fail('PARSE');return {items:row.items.map(value=>this.presentWork(this.persistWork(source,value),sessionId)),hasNext:row.hasNext===true,cursor:row.cursor,page:row.page};}
-  private presentThumbnails(source:string,workId:string,values:Row[],sessionId:string){return values.map((item,index)=>{const {url,...data}=item;return {...data,mediaAuthorization:this.authorization(source,'thumbnail:'+createHash('sha256').update(JSON.stringify([workId,item.index??index,url,item.offsetX,item.offsetY])).digest('base64url'),String(url),sessionId,undefined,undefined,true)};});}
+  private presentThumbnails(source:string,workId:string,values:Row[],sessionId:string){const sharedByUrl=new Map<string,ReturnType<SourceCatalog['authorization']>>();return values.map(item=>{const {url,...data}=item;const urlStr=String(url);let auth=sharedByUrl.get(urlStr);if(!auth){auth=this.authorization(source,'thumbnail:'+createHash('sha256').update(JSON.stringify([workId,urlStr])).digest('base64url'),urlStr,sessionId,undefined,undefined,true);sharedByUrl.set(urlStr,auth);}return {...data,mediaAuthorization:auth};});}
   async thumbnails(source:string,workId:string,page:number,sessionId:string,signal?:AbortSignal){const raw=await this.invoke(source,'thumbnails',{id:workId,page},signal);const row=Array.isArray(raw)?{thumbnails:raw,hasNext:false}:object(raw);const values=row.thumbnails??row.items??row.images;if(!Array.isArray(values)||values.length>1000)throw fail('PARSE');return {items:this.presentThumbnails(source,workId,values.map(thumbnailValue),sessionId),hasNext:row.hasNext===true};}
   async magnets(source:string,workId:string,signal?:AbortSignal){return {items:magnetItems(await this.invoke(source,'metadataMagnets',{id:workId},signal))};}
   async channelNormalize(source:string,input:string,resolve=false,signal?:AbortSignal){const result=object(await this.invoke(source,resolve?'subscription.resolve':'subscription.normalize',{input},signal));return {id:contentText(result.id,4096),label:contentText(result.label??result.id,1024),...(result.kind?{kind:contentText(result.kind,128)}:{})};}
@@ -357,8 +490,31 @@ export class SourceCatalog {
   async channelPosts(source:string,target:string,request:Row,sessionId:string,signal?:AbortSignal){const raw=object(await this.invoke(source,'subscription.posts',{target,request},signal));if(!Array.isArray(raw.items)||raw.items.length>1000||typeof raw.hasNext!=='boolean')throw fail('PARSE');for(const [key,value]of this.channelPostsCache)if(value.expires<Date.now())this.channelPostsCache.delete(key);const items=raw.items.map(value=>{const normalized=this.normalizePost(value,source),id=String(normalized.id);this.rememberPost(source,normalized,{method:'subscription.posts',target});this.channelPostsCache.set(JSON.stringify([sessionId,source,id]),{source,post:normalized,target,expires:Date.now()+30*60000});while(this.channelPostsCache.size>2000)this.channelPostsCache.delete(this.channelPostsCache.keys().next().value!);return this.presentPost(source,normalized,sessionId);});return {items,hasNext:raw.hasNext,cursor:raw.cursor};}
   channelPost(source:string,id:string,sessionId:string){const value=this.channelPostsCache.get(JSON.stringify([sessionId,source,id]));if(!value||value.expires<Date.now())throw fail('NOT_FOUND',404);this.registered(source);return this.presentPost(source,value.post,sessionId);}
   async reloadPost(source:string,id:string,signal?:AbortSignal):Promise<Row>{
-    const locator=object(this.work(source,id).postLocator);if(!['album','subscription.posts','feed','search','searchLink'].includes(String(locator.method)))throw fail('UNSUPPORTED',422);let cursor:string|undefined;const deadline=AbortSignal.timeout(30000),active=signal?AbortSignal.any([signal,deadline]):deadline;
-    for(let page=1;page<=100;page++){active.throwIfAborted();const raw=object(await this.invoke(source,String(locator.method),locator.method==='album'?{...object(locator.scope),page,cursor}:locator.method==='subscription.posts'?{target:contentText(locator.target,4096),request:{page,cursor}}:{...object(locator.params),page,cursor},active));const entries=[...(Array.isArray(raw.items)?raw.items:[]),...(Array.isArray(raw.sections)?raw.sections.flatMap(section=>object(section).items as unknown[]):[])];if(entries.length>10000)throw fail('PARSE');const found=entries.find(item=>String(object(item).id)===id);if(found){const post=locator.method==='album'?object(found):this.normalizePost(found,source);return this.parsePost(source,post);}if(raw.hasNext!==true)break;const next=typeof raw.cursor==='string'?raw.cursor:undefined;if(next&&next===cursor)throw fail('PARSE');cursor=next;}throw fail('NOT_FOUND',404);
+    let locatorRaw:unknown;
+    try{locatorRaw=this.work(source,id).postLocator;}catch{}
+    if(!locatorRaw){
+      const subEvent=this.db.db.prepare('SELECT payload_json,post_snapshot_json FROM subscription_events WHERE content_id=? ORDER BY observed_at DESC LIMIT 1').get(id) as Row|undefined;
+      if(subEvent?.post_snapshot_json){
+        const snap=this.normalizePost(JSON.parse(String(subEvent.post_snapshot_json)),source);
+        const payload=subEvent.payload_json?JSON.parse(String(subEvent.payload_json)) as Row:{};
+        this.rememberPost(source,snap,(payload.postLocator as Row)??{method:'feed',params:{}});
+        return this.parsePost(source,snap);
+      }
+      if(subEvent?.payload_json){
+        const payload=JSON.parse(String(subEvent.payload_json)) as Row;
+        if(payload.source===source&&payload.postLocator)locatorRaw=payload.postLocator;
+      }
+    }
+    if(!locatorRaw){
+      if(this.manifest(source).capabilities?.detail){
+        await this.detail(source,id,signal);
+        const latest=this.work(source,id);
+        if(latest.postLocator)locatorRaw=latest.postLocator;
+      }
+      if(!locatorRaw)throw fail('NOT_FOUND',404);
+    }
+    const locator=object(locatorRaw);if(!['album','subscription.posts','subscriptionUpdates','feed','search','searchLink'].includes(String(locator.method)))throw fail('UNSUPPORTED',422);let cursor:string|undefined;const deadline=AbortSignal.timeout(30000),active=signal?AbortSignal.any([signal,deadline]):deadline;
+    for(let page=1;page<=100;page++){active.throwIfAborted();const raw=object(await this.invoke(source,String(locator.method),locator.method==='album'?{...object(locator.scope),page,cursor}:locator.method==='subscription.posts'?{target:contentText(locator.target,4096),request:{page,cursor}}:locator.method==='subscriptionUpdates'?{source,dimension:contentText(locator.dimension,128),target:contentText(locator.target,16384),cursor}:{...object(locator.params),page,cursor},active));const entries=[...(Array.isArray(raw.items)?raw.items:[]),...(Array.isArray(raw.sections)?raw.sections.flatMap(section=>object(section).items as unknown[]):[])];if(entries.length>10000)throw fail('PARSE');const found=entries.find(item=>String(object(item).id)===id);if(found){const post=locator.method==='album'?object(found):this.normalizePost(found,source);this.rememberPost(source,post,locator);return this.parsePost(source,post);}if(raw.hasNext!==true)break;const next=typeof raw.cursor==='string'?raw.cursor:undefined;if(next&&next===cursor)throw fail('PARSE');cursor=next;}throw fail('NOT_FOUND',404);
   }
   async freshPost(source:string,id:string,sessionId:string,signal?:AbortSignal){const cached=this.channelPostsCache.get(JSON.stringify([sessionId,source,id]));const post=cached&&cached.expires>Date.now()?cached.post:await this.reloadPost(source,id,signal);return this.presentPost(source,post,sessionId);}
   async postMedia(source:string,id:string,mediaId:string,sessionId:string,signal?:AbortSignal){const post=this.presentPost(source,await this.reloadPost(source,id,signal),sessionId),item=post.media.find(value=>value.id===mediaId);if(!item)throw fail('NOT_FOUND',404);return {...item,source,workId:id,mediaId};}

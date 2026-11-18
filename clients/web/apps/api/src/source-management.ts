@@ -20,6 +20,7 @@ export function registerSourceManagementRoutes(router:FastifyInstance,operations
   router.patch('/sources/:key/settings',async(request,reply)=>{const source=sourceKey(request),body=bodyObject(request.body);return write(request,reply,'sources.settings',body,source,()=>operations.updateSettings(source,body));});
   router.get('/sources/:key/account',async request=>{const source=sourceKey(request);await restore(source);return operations.accountStatus(source,options.signal?.(request));});
   for(const operation of ['logout','managed'] as const)router.post('/sources/:key/'+operation,async(request,reply)=>{const source=sourceKey(request),body=bodyObject(request.body??{});return write(request,reply,'sources.'+operation,body,source,()=>operations.execute(source,operation,body,options.signal?.(request)));});
+  router.delete('/sources/:key',async(request,reply)=>{const source=sourceKey(request),body=bodyObject(request.body??{});return write(request,reply,'sources.uninstall',body,source,()=>operations.uninstall(source));});
   const packages=options.packages;if(packages){
     router.addHook('onClose',()=>packages.close());
     router.post('/source-packages/preview',async request=>{const body=bodyObject(request.body);if(Object.keys(body).some(key=>!['url','sha256'].includes(key))||typeof body.url!=='string'||body.sha256!==undefined&&(typeof body.sha256!=='string'||!/^[a-f0-9]{64}$/i.test(body.sha256)))throw invalid();return packages.preview({url:body.url,sha256:body.sha256 as string|undefined},options.signal?.(request));});

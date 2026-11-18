@@ -2,4 +2,33 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { fileURLToPath, URL } from 'node:url';
 
-export default defineConfig({ plugins: [react()], server: { host: '127.0.0.1', proxy: { '/api': { target: process.env.WEB_API_PROXY ?? 'http://127.0.0.1:8787', changeOrigin: false }, '/health': { target: process.env.WEB_API_PROXY ?? 'http://127.0.0.1:8787', changeOrigin: false } } }, resolve: { alias: { '@hentai-park/design-system': fileURLToPath(new URL('../../packages/design-system/src/index.tsx', import.meta.url)) } }, build: { rollupOptions: { output: { manualChunks(id) { if (id.includes('node_modules/react') || id.includes('node_modules/react-dom') || id.includes('node_modules/scheduler')) return 'react-vendor'; if (id.includes('node_modules/hls.js') || id.includes('node_modules/@videojs')) return 'media-vendor'; if (id.includes('/src/novel-reader') || id.includes('/src/novel-speech') || id.includes('/src/image-reader-layout')) return 'reading-tools'; if (id.includes('/src/extended-pages') || id.includes('/src/tavern-') || id.includes('/src/live-chat')) return 'extended-pages'; } } } } });
+export default defineConfig({
+  plugins: [react()],
+  server: {
+    host: '127.0.0.1',
+    proxy: {
+      '/api': { target: process.env.WEB_API_PROXY ?? 'http://127.0.0.1:8787', changeOrigin: false },
+      '/health': { target: process.env.WEB_API_PROXY ?? 'http://127.0.0.1:8787', changeOrigin: false },
+    },
+  },
+  resolve: {
+    alias: {
+      '@hentai-park/design-system': fileURLToPath(new URL('../../packages/design-system/src/index.tsx', import.meta.url)),
+    },
+  },
+  build: {
+    chunkSizeWarningLimit: 650,
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (id.includes('node_modules/react') || id.includes('node_modules/react-dom') || id.includes('node_modules/scheduler')) {
+            return 'react-vendor';
+          }
+          if (id.includes('node_modules/hls.js')) {
+            return 'media-vendor';
+          }
+        },
+      },
+    },
+  },
+});

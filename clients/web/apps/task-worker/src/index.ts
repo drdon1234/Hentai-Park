@@ -210,8 +210,9 @@ export function reconcileDownloadFiles(db: DatabaseSync, downloadDir: string | u
                 exists = statSync(path).size === Number(file.bytes);
                 const checkpoint = db.prepare('SELECT checkpoint_json FROM restore_checkpoints WHERE task_id=?').get(String(file.task_id)) as Record<string, unknown> | undefined;
                 const hashes = checkpoint ? JSON.parse(String(checkpoint.checkpoint_json)).hashes as Record<string, string> | undefined : undefined;
-                if (exists && verifyHashes && hashes?.[String(file.resource_key)])
-                    exists = fileDigest(path) === hashes[String(file.resource_key)];
+                const expectedDigest = typeof file.sha256 === 'string' && file.sha256 ? file.sha256 : hashes?.[String(file.resource_key)];
+                if (exists && verifyHashes && expectedDigest)
+                    exists = fileDigest(path) === expectedDigest;
             }
             if (!exists) {
                 missing += 1;
@@ -284,13 +285,14 @@ export function deliverOnce(db: DatabaseSync, eventId: string, consumerId: strin
     const result = db.prepare('INSERT OR IGNORE INTO event_deliveries(event_id,consumer_id,delivered_at) VALUES(?,?,?)').run(eventId, consumerId, new Date().toISOString());
     return Number(result.changes) === 1;
 }
-export interface ObservedContent {contentId:string;contentVersion?:string;kind?:string;title?:string;workId?:string;chapterId?:string;}
+export interface ObservedContent {contentId:string;contentVersion?:string;kind?:string;title?:string;workId?:string;chapterId?:string;postSnapshot?:Record<string,unknown>;postLocator?:Record<string,unknown>;}
 export function checkSubscription(db: DatabaseSync, subscriptionId: string, observed: readonly ObservedContent[]) {
     db.exec('BEGIN IMMEDIATE');
     try {
         const now = new Date().toISOString();
-        const subscription = db.prepare('SELECT baseline,source,notify FROM subscriptions WHERE subscription_id=? AND enabled=1').get(subscriptionId) as {
-            baseline: string | null;source:string;notify:number;
+        const hasSnapshotCol = db.prepare('PRAGMA table_info(subscription_events)').all().some(col => (col as { name?: string }).name === 'post_snapshot_json');
+        const subscription = db.prepare('SELECT baseline,source,dimension,target,notify FROM subscriptions WHERE subscription_id=? AND enabled=1').get(subscriptionId) as {
+            baseline: string | null;source:string;dimension:string;target:string;notify:number;
         } | undefined;
         if (!subscription) {
             db.exec('COMMIT');
@@ -313,8 +315,13 @@ export function checkSubscription(db: DatabaseSync, subscriptionId: string, obse
                 const prior=db.prepare('SELECT event_id FROM subscription_events WHERE content_key=?').get(contentKey);
                 if(prior){db.prepare('INSERT OR IGNORE INTO subscription_event_targets VALUES(?,?)').run(prior.event_id,subscriptionId);if(subscription.notify===1){const existing=db.prepare('SELECT payload_json FROM subscription_events WHERE event_id=?').get(prior.event_id);const payload=JSON.parse(String(existing?.payload_json??'{}'));if(payload.notify!==true){payload.notify=true;db.prepare('UPDATE subscription_events SET payload_json=? WHERE event_id=?').run(JSON.stringify(payload),prior.event_id);recordEvent(db,'subscription.updated','subscription',subscriptionId,{...payload,eventId:prior.event_id});}}continue;}
                 const eventId = randomUUID();
-                const payload={...item,source:subscription.source,subscriptionId,notify:subscription.notify===1};
-                db.prepare('INSERT INTO subscription_events(event_id,subscription_id,content_id,observed_at,content_version,payload_json,content_key) VALUES(?,?,?,?,?,?,?)').run(eventId, subscriptionId, item.contentId, now, item.contentVersion ?? null, JSON.stringify(payload),contentKey);
+                const locator = item.postLocator ?? (item.kind === 'post' ? { method: 'subscriptionUpdates', dimension: subscription.dimension, target: subscription.target } : undefined);
+                const payload={contentId:item.contentId,contentVersion:item.contentVersion,kind:item.kind,title:item.title,workId:item.workId,chapterId:item.chapterId,...(locator?{postLocator:locator}:{}),source:subscription.source,subscriptionId,notify:subscription.notify===1};
+                if (hasSnapshotCol) {
+                    db.prepare('INSERT INTO subscription_events(event_id,subscription_id,content_id,observed_at,content_version,payload_json,content_key,post_snapshot_json) VALUES(?,?,?,?,?,?,?,?)').run(eventId, subscriptionId, item.contentId, now, item.contentVersion ?? null, JSON.stringify(payload), contentKey, item.postSnapshot ? JSON.stringify(item.postSnapshot) : null);
+                } else {
+                    db.prepare('INSERT INTO subscription_events(event_id,subscription_id,content_id,observed_at,content_version,payload_json,content_key) VALUES(?,?,?,?,?,?,?)').run(eventId, subscriptionId, item.contentId, now, item.contentVersion ?? null, JSON.stringify(payload), contentKey);
+                }
                 db.prepare('INSERT INTO subscription_event_targets VALUES(?,?)').run(eventId,subscriptionId);
                 recordEvent(db, 'subscription.updated', 'subscription', subscriptionId, payload, eventId);
             }
@@ -347,6 +354,7 @@ export interface WorkerSchedulerOptions {
     }[]>;
     subscriptionAdapter?: SubscriptionAdapter;
     publishEvent?: (event: Record<string, unknown>) => Promise<void> | void;
+    publishTelemetry?: (telemetry: Record<string, unknown>) => void;
     removeFile?: (path: string) => void;
     fileExists?: (path: string) => boolean;
     onError?: (error: unknown) => void;
@@ -420,6 +428,7 @@ export class SourceHostDownloadAdapter implements DownloadTaskAdapter {
         maxFileBytes?: number;
         pageConcurrency?:()=>number;
         recordingVolumeSegments?:number;
+        publishTelemetry?:(telemetry:Record<string,unknown>)=>void;
     };
     constructor(resolve: SourceHostResolver, options?: {
         db: DatabaseSync;
@@ -427,6 +436,7 @@ export class SourceHostDownloadAdapter implements DownloadTaskAdapter {
         maxFileBytes?: number;
         pageConcurrency?:()=>number;
         recordingVolumeSegments?:number;
+        publishTelemetry?:(telemetry:Record<string,unknown>)=>void;
     }) { this.resolve = resolve; this.options = options; }
     async execute(task: Record<string, unknown>, context: DownloadContext): Promise<DownloadResult> {
         context.assertLease();
@@ -517,15 +527,26 @@ export class SourceHostDownloadAdapter implements DownloadTaskAdapter {
         mkdirSync(this.options!.downloadDir, { recursive: true });
         safePath(this.options!.downloadDir, folder);
         await mkdir(folder, { recursive: true });
+        const hasSha256Col = db.prepare('PRAGMA table_info(download_files)').all().some(col => (col as { name?: string }).name === 'sha256');
+        const legacyHashes: Record<string, string> = checkpoint?.hashes && typeof checkpoint.hashes === 'object' ? { ...(checkpoint.hashes as Record<string, string>) } : {};
+        if (!checkpoint || checkpoint.planFingerprint !== planFingerprint) {
+            db.prepare('INSERT INTO restore_checkpoints(task_id,checkpoint_json,updated_at) VALUES(?,?,?) ON CONFLICT(task_id) DO UPDATE SET checkpoint_json=excluded.checkpoint_json,updated_at=excluded.updated_at').run(taskId, JSON.stringify({ ...(hasSha256Col ? {} : { hashes: legacyHashes }), planFingerprint }), new Date().toISOString());
+        }
         let bytes = 0;
         let count = 0;
+        let lastMilestoneEventAt = 0;
         let received=0,currentReceived=0,lastReceived=0,lastSample=performance.now();const inflight=new Map<number,number>();
         const transferAbort=new AbortController();
         const transferSignal=context.signal?AbortSignal.any([context.signal,transferAbort.signal]):transferAbort.signal;
         const sample=()=>{const at=performance.now(),elapsed=at-lastSample;if(elapsed<1000)return;const speed=Math.max(0,Math.round((received-lastReceived)*1000/elapsed));
-            db.exec('BEGIN IMMEDIATE');try{context.assertLease();aborted(transferSignal);const committed=Number((db.prepare("SELECT COALESCE(SUM(bytes),0) AS bytes FROM download_files WHERE task_id=? AND status='completed'").get(taskId) as {bytes:number}).bytes);const total=committed+currentReceived;const prior=db.prepare('SELECT bytes,speed,total_count FROM download_tasks WHERE task_id=?').get(taskId) as {bytes:number;speed:number|null;total_count:number};
-                if(prior.bytes!==total||prior.speed!==speed||prior.total_count!==entries.length){const now=new Date().toISOString();db.prepare('UPDATE download_tasks SET bytes=?,speed=?,total_count=?,updated_at=?,version=version+1 WHERE task_id=?').run(total,speed,entries.length,now,taskId);recordEvent(db,'download.statusChanged','download',taskId,{taskId,resourceKey,status:'running',bytes:total,speed,totalCount:entries.length});}db.exec('COMMIT');lastSample=at;lastReceived=received;
-            }catch(error){db.exec('ROLLBACK');throw error;}
+            context.assertLease();aborted(transferSignal);
+            const total=bytes+currentReceived;
+            const prior=db.prepare('SELECT bytes,speed,total_count FROM download_tasks WHERE task_id=?').get(taskId) as {bytes:number;speed:number|null;total_count:number}|undefined;
+            if(prior&&(prior.bytes!==total||prior.speed!==speed||prior.total_count!==entries.length)){
+                db.prepare('UPDATE download_tasks SET bytes=?,speed=?,total_count=?,updated_at=? WHERE task_id=?').run(total,speed,entries.length,new Date().toISOString(),taskId);
+                this.options?.publishTelemetry?.({eventType:'download.telemetry',taskId,resourceKey,status:'running',bytes:total,speed,completedCount:count,totalCount:entries.length});
+            }
+            lastSample=at;lastReceived=received;
         };
         const progress=setInterval(()=>{try{sample();}catch(error){transferAbort.abort(error);}},1000);
         progress.unref();
@@ -536,9 +557,9 @@ export class SourceHostDownloadAdapter implements DownloadTaskAdapter {
             aborted(context.signal);
             const entry = entries[index]!;
             const fileKey = `${resourceKey}:file:${index}`;
-            const path = canonicalDownloadPath(this.options!.downloadDir, { task_id: taskId, resource_key: resourceKey }, { resource_key: fileKey }, entry.kind === 'manifest' ? 'm3u8' : 'bin');
-            const prior = db.prepare('SELECT path,bytes,status FROM download_files WHERE resource_key=? AND task_id=?').get(fileKey, taskId) as Record<string, unknown> | undefined;
-            const priorHash=db.prepare('SELECT checkpoint_json FROM restore_checkpoints WHERE task_id=?').get(taskId);const expectedHash=priorHash?JSON.parse(String(priorHash.checkpoint_json)).hashes?.[fileKey]:undefined;
+            const path = canonicalDownloadPath(this.options!.downloadDir, { task_id: taskId, resource_key: resourceKey }, { resource_key: fileKey }, entry.kind === 'manifest' || entry.kind === 'child-manifest' ? 'm3u8' : 'bin');
+            const prior = db.prepare(hasSha256Col ? 'SELECT path,bytes,status,sha256 FROM download_files WHERE resource_key=? AND task_id=?' : 'SELECT path,bytes,status FROM download_files WHERE resource_key=? AND task_id=?').get(fileKey, taskId) as Record<string, unknown> | undefined;
+            const expectedHash = typeof prior?.sha256 === 'string' && prior.sha256 ? prior.sha256 : legacyHashes[fileKey];
             if (prior?.status === 'completed' && prior.path === path && existsSync(path) && statSync(path).size === Number(prior.bytes)&&typeof expectedHash==='string'&&fileDigest(path)===expectedHash&&(!entry.data||expectedHash===createHash('sha256').update(entry.data).digest('hex'))) {
                 bytes += Number(prior.bytes);
                 count++;
@@ -570,7 +591,7 @@ export class SourceHostDownloadAdapter implements DownloadTaskAdapter {
                     await response.body.cancel();
                     throw permanent('MEDIA_TOO_LARGE');
                 }
-                if (entry.kind === 'image') {
+                if (entry.kind === 'image' && response.headers.get('x-hp-image-decoded') !== '1') {
                     const encoded = await limitedBody(response, 20 * 1024 * 1024, transferSignal,receive);
                     let decoded: ReturnType<typeof decodeImage>;
                     try {
@@ -617,18 +638,25 @@ export class SourceHostDownloadAdapter implements DownloadTaskAdapter {
                 aborted(context.signal);
                 safePath(this.options!.downloadDir, path);
                 await rename(part, path);
+                const digest = hash.digest('hex');
+                const metaJson = JSON.stringify({kind:entry.kind,format:entry.format,transform:entry.transform,recording:entry.recording,blockIndex:entry.blockIndex,previewOnly:entry.previewOnly});
                 db.exec('BEGIN IMMEDIATE');
                 try {
                     context.assertLease();
                     const now = new Date().toISOString();
-                    db.prepare("INSERT INTO download_files(task_id,resource_key,path,status,bytes,created_at,updated_at) VALUES(?,?,?,'completed',?,?,?) ON CONFLICT(resource_key) DO UPDATE SET path=excluded.path,status='completed',bytes=excluded.bytes,updated_at=excluded.updated_at").run(taskId, fileKey, path, size, now, now);
-                    db.prepare('UPDATE download_files SET metadata_json=? WHERE task_id=? AND resource_key=?').run(JSON.stringify({kind:entry.kind,format:entry.format,transform:entry.transform,recording:entry.recording,blockIndex:entry.blockIndex,previewOnly:entry.previewOnly}),taskId,fileKey);
-                    const cp = db.prepare('SELECT checkpoint_json FROM restore_checkpoints WHERE task_id=?').get(taskId) as Record<string, unknown> | undefined;
-                    const hashes = cp ? JSON.parse(String(cp.checkpoint_json)).hashes ?? {} : {};
-                    hashes[fileKey] = hash.digest('hex');
-                    db.prepare('INSERT INTO restore_checkpoints(task_id,checkpoint_json,updated_at) VALUES(?,?,?) ON CONFLICT(task_id) DO UPDATE SET checkpoint_json=excluded.checkpoint_json,updated_at=excluded.updated_at').run(taskId, JSON.stringify({ hashes,planFingerprint }), now);
+                    if (hasSha256Col) {
+                        db.prepare("INSERT INTO download_files(task_id,resource_key,path,status,bytes,created_at,updated_at,metadata_json,sha256) VALUES(?,?,?,'completed',?,?,?,?,?) ON CONFLICT(resource_key) DO UPDATE SET path=excluded.path,status='completed',bytes=excluded.bytes,updated_at=excluded.updated_at,metadata_json=excluded.metadata_json,sha256=excluded.sha256").run(taskId, fileKey, path, size, now, now, metaJson, digest);
+                    } else {
+                        db.prepare("INSERT INTO download_files(task_id,resource_key,path,status,bytes,created_at,updated_at,metadata_json) VALUES(?,?,?,'completed',?,?,?,?) ON CONFLICT(resource_key) DO UPDATE SET path=excluded.path,status='completed',bytes=excluded.bytes,updated_at=excluded.updated_at,metadata_json=excluded.metadata_json").run(taskId, fileKey, path, size, now, now, metaJson);
+                        legacyHashes[fileKey] = digest;
+                        db.prepare('INSERT INTO restore_checkpoints(task_id,checkpoint_json,updated_at) VALUES(?,?,?) ON CONFLICT(task_id) DO UPDATE SET checkpoint_json=excluded.checkpoint_json,updated_at=excluded.updated_at').run(taskId, JSON.stringify({ hashes: legacyHashes, planFingerprint }), now);
+                    }
                     db.prepare('UPDATE download_tasks SET completed_count=?,total_count=?,bytes=?,updated_at=?,version=version+1 WHERE task_id=?').run(count + 1, entries.length, bytes + size, now, taskId);
-                    recordEvent(db, 'download.statusChanged', 'download', taskId, { taskId, resourceKey, completedCount: count + 1, totalCount: entries.length, bytes: bytes + size });
+                    const nowMs = performance.now();
+                    if (count === 0 || count + 1 >= entries.length || nowMs - lastMilestoneEventAt >= 2500) {
+                        lastMilestoneEventAt = nowMs;
+                        recordEvent(db, 'download.statusChanged', 'download', taskId, { taskId, resourceKey, completedCount: count + 1, totalCount: entries.length, bytes: bytes + size });
+                    }
                     db.exec('COMMIT');
                 }
                 catch (error) {
@@ -638,6 +666,7 @@ export class SourceHostDownloadAdapter implements DownloadTaskAdapter {
                 bytes += size;
                 inflight.delete(index);currentReceived=[...inflight.values()].reduce((a,b)=>a+b,0);
                 count++;
+                this.options?.publishTelemetry?.({eventType:'download.telemetry',taskId,resourceKey,status:'running',bytes,completedCount:count,totalCount:entries.length});
             }
             catch (error) {
                 await rm(part, { force: true });
@@ -646,7 +675,7 @@ export class SourceHostDownloadAdapter implements DownloadTaskAdapter {
         };
         try{if(recording){
             const recorded=db.prepare("SELECT * FROM download_files WHERE task_id=? ORDER BY id").all(taskId);
-            let elapsed=0;for(const file of recorded){const metadata=JSON.parse(String(file.metadata_json));if(!metadata.recording)throw permanent('INVALID_RECORDING_CHECKPOINT');canonicalDownloadPath(this.options!.downloadDir,{task_id:taskId,resource_key:resourceKey},{resource_key:String(file.resource_key),path:String(file.path)});if(metadata.kind!=='manifest'&&(file.status!=='completed'||!existsSync(String(file.path))||statSync(String(file.path)).size!==Number(file.bytes)||checkpoint?.hashes?.[String(file.resource_key)]!==fileDigest(String(file.path))))throw permanent('RECORDING_FILES_MISSING');entries.push({url:'',kind:String(metadata.kind),recording:metadata.recording});elapsed+=Number(metadata.recording.duration);if(file.status==='completed'){bytes+=Number(file.bytes);count++;}}
+            let elapsed=0;for(const file of recorded){const metadata=JSON.parse(String(file.metadata_json));if(!metadata.recording)throw permanent('INVALID_RECORDING_CHECKPOINT');canonicalDownloadPath(this.options!.downloadDir,{task_id:taskId,resource_key:resourceKey},{resource_key:String(file.resource_key),path:String(file.path)});const recordedHash=typeof file.sha256==='string'&&file.sha256?file.sha256:checkpoint?.hashes?.[String(file.resource_key)];if(metadata.kind!=='manifest'&&(file.status!=='completed'||!existsSync(String(file.path))||statSync(String(file.path)).size!==Number(file.bytes)||recordedHash!==fileDigest(String(file.path))))throw permanent('RECORDING_FILES_MISSING');entries.push({url:'',kind:String(metadata.kind),recording:metadata.recording});elapsed+=Number(metadata.recording.duration);if(file.status==='completed'){bytes+=Number(file.bytes);count++;}}
             const volumeLimit=Math.floor(this.options.recordingVolumeSegments??20000);if(volumeLimit<1||volumeLimit>20000)throw permanent('INVALID_RECORDING_LIMIT');
             const stopped=()=>Boolean(JSON.parse(String(db.prepare('SELECT recording_json FROM download_tasks WHERE task_id=?').get(taskId)?.recording_json??'{}')).stopRequested);
             const writeVolume=async(volume:number)=>{
@@ -660,12 +689,26 @@ export class SourceHostDownloadAdapter implements DownloadTaskAdapter {
             let volume=entries.reduce((max,entry)=>Math.max(max,entry.recording?.volume??0),0),volumeSegments=entries.filter(entry=>entry.kind==='segment'&&!entry.recording?.map&&entry.recording?.volume===volume).length;
             let initialization=entries.filter(entry=>entry.kind==='segment'&&!entry.recording?.map).at(-1)?.recording?.initialization,codec=entries.filter(entry=>entry.kind==='segment'&&!entry.recording?.map).at(-1)?.recording?.codec;
             let lastSequence:number|undefined,first=true,pendingBoundary=false,budgetReached=false,durationReached=false,lastAdvance=performance.now(),deadline=performance.now()+60000+Math.max(0,recording.durationSeconds-elapsed)*1000;
+            const resolveLiveStream = async () => {
+                const candidates=await host.invoke('videos',params,{signal:context.signal}) as Array<Record<string,unknown>>;
+                if(!Array.isArray(candidates))throw permanent('SOURCE_PROTOCOL_ERROR');
+                const supported=candidates.filter(value=>value?.format==='hls'),selected=supported.find(value=>value.preferred===true)??supported[0];
+                if(!selected||selected.audio!==undefined)throw permanent('UNSUPPORTED_LIVE_RECORDING_FORMAT');
+                return { url: runtimeText(selected.url,'url',16384), mediaContext: host.mediaContext?.(selected), hls: selected.hls as {manifest:string;keys:Record<string,string>}|undefined };
+            };
+            let liveStream = await resolveLiveStream();
             while(elapsed<recording.durationSeconds&&performance.now()<deadline&&!stopped()&&!budgetReached&&!durationReached){
                 context.assertLease();aborted(context.signal);
-                const candidates=await host.invoke('videos',params,{signal:context.signal}) as Array<Record<string,unknown>>;
-                if(!Array.isArray(candidates))throw permanent('SOURCE_PROTOCOL_ERROR');const supported=candidates.filter(value=>value?.format==='hls'),selected=supported.find(value=>value.preferred===true)??supported[0];if(!selected||selected.audio!==undefined)throw permanent('UNSUPPORTED_LIVE_RECORDING_FORMAT');
-                const fresh=await hlsEntries(host,runtimeText(selected.url,'url',16384),context,undefined,host.mediaContext?.(selected),selected.hls as {manifest:string;keys:Record<string,string>}|undefined,true);
+                let fresh: DownloadEntry[];
+                try {
+                    fresh = await hlsEntries(host, liveStream.url, context, undefined, liveStream.mediaContext, liveStream.hls, true);
+                } catch (err) {
+                    aborted(context.signal);
+                    liveStream = await resolveLiveStream();
+                    fresh = await hlsEntries(host, liveStream.url, context, undefined, liveStream.mediaContext, liveStream.hls, true);
+                }
                 const segments=fresh.filter(entry=>entry.recording&&!entry.recording.map);if(!segments.length)throw permanent('SOURCE_PROTOCOL_ERROR');const latest=segments.at(-1)!.recording!.sequence;
+                const targetDurationMs = Math.max(1000, Math.min(6000, Math.round((segments.at(-1)!.recording!.duration || 2) * 500)));
                 const reset=lastSequence!==undefined&&latest<lastSequence;
                 if(lastSequence===undefined||reset){lastSequence=latest;lastAdvance=performance.now();if(reset)pendingBoundary=true;}
                 const selectedSegments=reset?[]:segments.filter(entry=>entry.recording!.sequence>lastSequence!);
@@ -679,7 +722,7 @@ export class SourceHostDownloadAdapter implements DownloadTaskAdapter {
                     elapsed+=info.duration;lastSequence=info.sequence;initialization=info.initialization;codec=info.codec;volumeSegments++;lastAdvance=performance.now();pendingBoundary=false;if(first){deadline=performance.now()+Math.max(0,recording.durationSeconds-elapsed)*1000+1000;first=false;}await writeVolume(volume);
                 }
                 if(fresh.at(-1)?.data&&new TextDecoder().decode(fresh.at(-1)!.data).includes('#EXT-X-ENDLIST')||bytes>=recording.maxBytes)break;
-                if(performance.now()-lastAdvance>60000)throw retryable('LIVE_STALLED');await abortableDelay(Math.min(1000,Math.max(20,deadline-performance.now())),context.signal);
+                if(performance.now()-lastAdvance>60000)throw retryable('LIVE_STALLED');await abortableDelay(Math.min(targetDurationMs,Math.max(20,deadline-performance.now())),context.signal);
             }
             if(!entries.some(entry=>entry.kind==='segment'&&!entry.recording?.map))throw permanent('RECORDING_EMPTY');
             for(const value of new Set(entries.filter(entry=>entry.kind==='segment').map(entry=>entry.recording!.volume!)))await writeVolume(value);
@@ -711,6 +754,7 @@ export class SourceHostSubscriptionAdapter implements SubscriptionAdapter {
         const visited=new Set(saved?.context===context?saved.visited??[]:[]);
         const known=new Set(unchanged&&Array.isArray(subscription.known_ids)?subscription.known_ids as string[]:[]);
         for (let page = 0; page < 3; page++) {
+            if (page > 0) await abortableDelay(300, options.signal);
             aborted(options.signal);
             let raw: unknown;
             try {
@@ -737,7 +781,11 @@ export class SourceHostSubscriptionAdapter implements SubscriptionAdapter {
                 const identity=JSON.stringify([String(value.kind),contentId]);
                 if (!seen.has(identity)) {
                     seen.add(identity);
-                    result.push({ contentId,kind:String(value.kind),title:typeof value.title==='string'?value.title.slice(0,2048):undefined,workId:value.workId===undefined?undefined:runtimeText(value.workId,'workId'),chapterId:value.chapterId===undefined?undefined:runtimeText(value.chapterId,'chapterId'), ...(value.contentVersion === undefined ? {} : { contentVersion: runtimeText(value.contentVersion, 'contentVersion') }) });
+                    const postLocator = String(value.kind) === 'post' ? { method: 'subscriptionUpdates', dimension, target } : undefined;
+                    const postSnapshot = String(value.kind) === 'post' && (Array.isArray(value.media) || typeof value.text === 'string' || typeof value.description === 'string')
+                        ? { id: contentId, title: typeof value.title === 'string' ? value.title.slice(0, 2048) : contentId, text: typeof value.text === 'string' ? value.text.slice(0, 64000) : typeof value.description === 'string' ? value.description.slice(0, 64000) : '', date: typeof value.date === 'string' ? value.date : '', media: Array.isArray(value.media) ? value.media.slice(0, 100) : [] }
+                        : undefined;
+                    result.push({ contentId,kind:String(value.kind),title:typeof value.title==='string'?value.title.slice(0,2048):undefined,workId:value.workId===undefined?undefined:runtimeText(value.workId,'workId'),chapterId:value.chapterId===undefined?undefined:runtimeText(value.chapterId,'chapterId'), ...(postLocator ? { postLocator } : {}), ...(postSnapshot ? { postSnapshot } : {}), ...(value.contentVersion === undefined ? {} : { contentVersion: runtimeText(value.contentVersion, 'contentVersion') }) });
                 }
                 if (result.length > 20000)
                     throw permanent('SUBSCRIPTION_LIMIT');
@@ -847,14 +895,23 @@ async function hlsEntries(host: SourceHostInvoker, url: string, context: Downloa
     if (!text.startsWith('#EXTM3U'))
         throw permanent('SOURCE_PROTOCOL_ERROR');
     if (text.includes('#EXT-X-STREAM-INF:')) {
-        if (/#EXT-X-MEDIA:[^\n]*URI=/.test(text))
-            throw permanent('UNSUPPORTED_HLS_AUDIO_DOWNLOAD');
         const lines = text.split(/\r?\n/).map(line => line.trim());
+        const audioTracks = new Map<string, string>();
+        for (const line of lines) {
+            if (!line.startsWith('#EXT-X-MEDIA:') || !/TYPE=AUDIO\b/.test(line)) continue;
+            const groupId = /GROUP-ID="([^"]+)"/.exec(line)?.[1];
+            const uri = /URI="([^"]+)"/.exec(line)?.[1];
+            if (groupId && uri && (!audioTracks.has(groupId) || /DEFAULT=YES\b/.test(line))) {
+                audioTracks.set(groupId, new URL(uri, url).href);
+            }
+        }
         const choices: Array<{
             url: string;
             quality: number;
             bandwidth: number;
             codec?:string;
+            audioGroup?:string;
+            rawInf:string;
         }> = [];
         for (let i = 0; i < lines.length; i++) {
             const line = lines[i]!;
@@ -863,19 +920,40 @@ async function hlsEntries(host: SourceHostInvoker, url: string, context: Downloa
             const next = lines[i + 1];
             if (!next || next.startsWith('#'))
                 throw permanent('SOURCE_PROTOCOL_ERROR');
-            choices.push({ url: new URL(next, url).href, quality: Number(/RESOLUTION=\d+x(\d+)/.exec(line)?.[1] ?? 0), bandwidth: Number(/BANDWIDTH=(\d+)/.exec(line)?.[1] ?? 0),codec:/CODECS="([^"]+)"/.exec(line)?.[1] });
+            choices.push({ url: new URL(next, url).href, quality: Number(/RESOLUTION=\d+x(\d+)/.exec(line)?.[1] ?? 0), bandwidth: Number(/BANDWIDTH=(\d+)/.exec(line)?.[1] ?? 0),codec:/CODECS="([^"]+)"/.exec(line)?.[1],audioGroup:/AUDIO="([^"]+)"/.exec(line)?.[1],rawInf:line });
         }
         choices.sort((a, b) => b.quality - a.quality || b.bandwidth - a.bandwidth);
         const selected = quality ? choices.find(item => item.quality <= quality) ?? choices[0] : choices[0];
         if (!selected)
             throw permanent('SOURCE_PROTOCOL_ERROR');
+        const separateAudioUrl = selected.audioGroup ? audioTracks.get(selected.audioGroup) : undefined;
+        if (separateAudioUrl) {
+            if (live) throw permanent('UNSUPPORTED_HLS_AUDIO_DOWNLOAD');
+            const videoEntries = await hlsEntries(host, selected.url, context, undefined, mediaContext, inline, false, offset);
+            const videoManifestIndex = offset + videoEntries.length - 1;
+            videoEntries[videoEntries.length - 1]!.kind = 'child-manifest';
+            const audioOffset = offset + videoEntries.length;
+            const audioEntries = await hlsEntries(host, separateAudioUrl, context, undefined, mediaContext, inline, false, audioOffset);
+            const audioManifestIndex = audioOffset + audioEntries.length - 1;
+            audioEntries[audioEntries.length - 1]!.kind = 'child-manifest';
+            const videoName = `${String(videoManifestIndex).padStart(6, '0')}.m3u8`;
+            const audioName = `${String(audioManifestIndex).padStart(6, '0')}.m3u8`;
+            const masterLines = [
+                '#EXTM3U',
+                '#EXT-X-VERSION:4',
+                `#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="audio",NAME="Audio",DEFAULT=YES,AUTOSELECT=YES,URI="${audioName}"`,
+                selected.rawInf.replace(/AUDIO="[^"]+"/, 'AUDIO="audio"'),
+                videoName,
+            ];
+            return [...videoEntries, ...audioEntries, { url: '', kind: 'manifest', data: new TextEncoder().encode(masterLines.join('\n')) }];
+        }
         url = selected.url;
         codec=selected.codec===undefined?undefined:runtimeText(selected.codec,'codec',512);
         response = await host.fetchResource!(url, options);
         if (response.url) url = response.url;
         text = new TextDecoder().decode(unwrapHlsResource(await limitedBody(response, 2 * 1024 * 1024, context.signal),2*1024*1024));
     }
-    if (!text.startsWith('#EXTM3U') || !live&&!text.includes('#EXT-X-ENDLIST') || /#EXT-X-(?:STREAM-INF|MEDIA:|BYTERANGE|GAP|PART|PRELOAD-HINT)/.test(text)||!live&&/#EXT-X-DISCONTINUITY/.test(text))
+    if (!text.startsWith('#EXTM3U') || !live&&!text.includes('#EXT-X-ENDLIST') || /#EXT-X-(?:STREAM-INF|MEDIA:|BYTERANGE|GAP|PART|PRELOAD-HINT)/.test(text))
         throw permanent('UNSUPPORTED_HLS');
     const entries: DownloadEntry[] = [];
     const output: string[] = [];
@@ -978,6 +1056,7 @@ export class WorkerScheduler {
     }>();
     private tickPromise?: Promise<void>;
     private subscriptionController?: AbortController;
+    private subscriptionPromise?: Promise<void>;
     private reconciled = false;
     private readonly owner: string;
     private readonly intervalMs: number;
@@ -1018,6 +1097,7 @@ export class WorkerScheduler {
         for (const entry of this.active.values())
             entry.controller.abort(permanent('WORKER_STOPPED'));
         await this.tickPromise;
+        await this.subscriptionPromise;
         await Promise.all([...this.active.values()].map(entry => entry.promise));
         releaseLeases(this.db, this.owner);
         this.running = false;
@@ -1049,10 +1129,18 @@ export class WorkerScheduler {
         await this.processOutbox();
         const removeFile = this.options.removeFile ?? (this.options!.downloadDir ? (path: string) => rmSync(safePath(this.options!.downloadDir!, path), { force: true }) : undefined);
         reconcileDeletionIntents(this.db, this.options!.downloadDir, removeFile, taskId => !this.active.has(taskId));
-        reconcileDownloadFiles(this.db, this.options!.downloadDir, this.options.fileExists ?? existsSync, !this.reconciled);
-        this.reconciled = true;
+        if (!this.reconciled) {
+            reconcileDownloadFiles(this.db, this.options!.downloadDir, this.options.fileExists ?? existsSync, false);
+            this.reconciled = true;
+        }
         await this.processTasks();
-        await this.processSubscriptions();
+        if (!this.subscriptionPromise && !this.stopping) {
+            this.subscriptionPromise = this.processSubscriptions()
+                .catch(error => this.options.onError?.(error))
+                .finally(() => {
+                    this.subscriptionPromise = undefined;
+                });
+        }
     }
     private schedule() {
         if (!this.stopping)
@@ -1132,58 +1220,106 @@ export class WorkerScheduler {
         const poll = this.options.subscriptionAdapter?.fetch.bind(this.options.subscriptionAdapter) ?? this.options.pollSubscription;
         if (!poll)
             return;
-        const now = new Date().toISOString();
-        const rows = this.db.prepare("SELECT * FROM subscriptions WHERE enabled=1 AND (next_due IS NULL OR next_due<=?) ORDER BY updated_at LIMIT 50").all(now) as unknown as Array<Record<string, unknown>>;
+        const nowMs = Date.now();
+        const now = new Date(nowMs).toISOString();
+        const hasLeaseCol = this.db.prepare('PRAGMA table_info(subscriptions)').all().some(col => (col as { name?: string }).name === 'lease_until');
+        const rows = this.db.prepare(
+            hasLeaseCol
+                ? "SELECT * FROM subscriptions WHERE enabled=1 AND deleted_at IS NULL AND (next_due IS NULL OR next_due<=?) AND (lease_until IS NULL OR lease_until<=?) ORDER BY updated_at LIMIT 50"
+                : "SELECT * FROM subscriptions WHERE enabled=1 AND (next_due IS NULL OR next_due<=?) ORDER BY updated_at LIMIT 50"
+        ).all(...(hasLeaseCol ? [now, now] : [now])) as unknown as Array<Record<string, unknown>>;
+        if (!rows.length) return;
+
+        // Group by source: per-source serial execution, max 2 sources concurrently
+        const bySource = new Map<string, Array<Record<string, unknown>>>();
         for (const row of rows) {
-            if (this.stopping)
-                return;
-            const subscriptionId = String(row.subscription_id);
-            const controller = new AbortController();
-            this.subscriptionController = controller;
-            try {
-                const saved=this.db.prepare('SELECT state_json FROM subscription_scan_state WHERE subscription_id=?').get(subscriptionId);
-                const input={...row,known_ids:this.db.prepare('SELECT content_id FROM subscription_seen WHERE subscription_id=?').all(subscriptionId).map(item=>String(item.content_id)),scan_state:saved?JSON.parse(String(saved.state_json)):undefined};
-                const observed = await abortable<readonly ObservedContent[]|SubscriptionBatch>(() => this.options.subscriptionAdapter ? this.options.subscriptionAdapter.fetch(input, { signal: controller.signal }) : poll(row), controller, this.options.subscriptionTimeoutMs ?? 60000);
-                aborted(controller.signal);
-                const current = this.db.prepare('SELECT version FROM subscriptions WHERE subscription_id=? AND enabled=1').get(subscriptionId) as {
-                    version?: number;
-                } | undefined;
-                if (!current || current.version !== row.version)
-                    continue;
-                const batch=Array.isArray(observed)?undefined:observed as SubscriptionBatch;
-                if(batch){
-                    if(row.context_hash!==batch.context){this.db.prepare('UPDATE subscriptions SET baseline=NULL,context_hash=? WHERE subscription_id=?').run(batch.context??null,subscriptionId);this.db.prepare('DELETE FROM subscription_seen WHERE subscription_id=?').run(subscriptionId);}
-                    if(!batch.complete){this.db.prepare('INSERT INTO subscription_scan_state VALUES(?,?) ON CONFLICT(subscription_id) DO UPDATE SET state_json=excluded.state_json').run(subscriptionId,JSON.stringify({items:batch.items,cursor:batch.cursor,context:batch.context,visited:batch.visited}));this.db.prepare('UPDATE subscriptions SET next_due=? WHERE subscription_id=?').run(new Date(Date.now()+1000).toISOString(),subscriptionId);continue;}
-                    this.db.prepare('DELETE FROM subscription_scan_state WHERE subscription_id=?').run(subscriptionId);
-                    this.db.prepare('UPDATE subscriptions SET context_hash=? WHERE subscription_id=?').run(batch.context??null,subscriptionId);
+            const src = String(row.source);
+            const list = bySource.get(src) ?? [];
+            list.push(row);
+            bySource.set(src, list);
+        }
+        const queues = [...bySource.values()];
+        let nextQueue = 0;
+        const masterController = new AbortController();
+        this.subscriptionController = masterController;
+        try {
+            await Promise.all(Array.from({ length: Math.min(2, queues.length) }, async () => {
+                while (nextQueue < queues.length && !this.stopping) {
+                    const sourceRows = queues[nextQueue++]!;
+                    for (const row of sourceRows) {
+                        if (this.stopping || masterController.signal.aborted) break;
+                        const subscriptionId = String(row.subscription_id);
+                        const controller = new AbortController();
+                        const onMasterAbort = () => controller.abort(masterController.signal.reason);
+                        masterController.signal.addEventListener('abort', onMasterAbort, { once: true });
+                        try {
+                            if (hasLeaseCol) {
+                                const leaseUntil = new Date(Date.now() + 5 * 60_000).toISOString();
+                                const claimed = this.db.prepare("UPDATE subscriptions SET lease_until=? WHERE subscription_id=? AND enabled=1 AND (lease_until IS NULL OR lease_until<=?)").run(leaseUntil, subscriptionId, new Date().toISOString());
+                                if (!Number(claimed.changes)) continue;
+                            }
+                            const saved=this.db.prepare('SELECT state_json FROM subscription_scan_state WHERE subscription_id=?').get(subscriptionId);
+                            const input={...row,known_ids:this.db.prepare('SELECT content_id FROM subscription_seen WHERE subscription_id=?').all(subscriptionId).map(item=>String(item.content_id)),scan_state:saved?JSON.parse(String(saved.state_json)):undefined};
+                            const observed = await abortable<readonly ObservedContent[]|SubscriptionBatch>(() => this.options.subscriptionAdapter ? this.options.subscriptionAdapter.fetch(input, { signal: controller.signal }) : poll(row), controller, this.options.subscriptionTimeoutMs ?? 60000);
+                            aborted(controller.signal);
+                            const current = this.db.prepare('SELECT version FROM subscriptions WHERE subscription_id=? AND enabled=1').get(subscriptionId) as {
+                                version?: number;
+                            } | undefined;
+                            if (!current || current.version !== row.version)
+                                continue;
+                            const batch=Array.isArray(observed)?undefined:observed as SubscriptionBatch;
+                            if(batch){
+                                if(row.context_hash!==batch.context){this.db.prepare('UPDATE subscriptions SET baseline=NULL,context_hash=? WHERE subscription_id=?').run(batch.context??null,subscriptionId);this.db.prepare('DELETE FROM subscription_seen WHERE subscription_id=?').run(subscriptionId);}
+                                if(!batch.complete){
+                                    this.db.prepare('INSERT INTO subscription_scan_state VALUES(?,?) ON CONFLICT(subscription_id) DO UPDATE SET state_json=excluded.state_json').run(subscriptionId,JSON.stringify({items:batch.items,cursor:batch.cursor,context:batch.context,visited:batch.visited}));
+                                    if (hasLeaseCol) this.db.prepare('UPDATE subscriptions SET next_due=?,lease_until=NULL WHERE subscription_id=?').run(new Date(Date.now()+1000).toISOString(),subscriptionId);
+                                    else this.db.prepare('UPDATE subscriptions SET next_due=? WHERE subscription_id=?').run(new Date(Date.now()+1000).toISOString(),subscriptionId);
+                                    continue;
+                                }
+                                this.db.prepare('DELETE FROM subscription_scan_state WHERE subscription_id=?').run(subscriptionId);
+                                this.db.prepare('UPDATE subscriptions SET context_hash=? WHERE subscription_id=?').run(batch.context??null,subscriptionId);
+                            }
+                            checkSubscription(this.db, subscriptionId, batch?batch.items:observed as readonly ObservedContent[]);
+                            if (hasLeaseCol) {
+                                this.db.prepare('UPDATE subscriptions SET next_due=?,lease_until=NULL WHERE subscription_id=?').run(new Date(Date.now() + this.subscriptionIntervalMs).toISOString(), subscriptionId);
+                            } else {
+                                this.db.prepare('UPDATE subscriptions SET next_due=? WHERE subscription_id=?').run(new Date(Date.now() + this.subscriptionIntervalMs).toISOString(), subscriptionId);
+                            }
+                        }
+                        catch (error) {
+                            if (this.stopping || !this.db.prepare('SELECT 1 FROM subscriptions WHERE subscription_id=?').get(subscriptionId))
+                                continue;
+                            this.options.onError?.(error);
+                            const failures = Number(row.failures ?? 0) + 1;
+                            // Exponential backoff aligned with Android: 2 min * 2^(failures-1), capped at 24 hours
+                            const delay = Math.min(86_400_000, 120_000 * 2 ** Math.min(Math.max(0, failures - 1), 10));
+                            const next = new Date(Date.now() + delay).toISOString();
+                            this.db.exec('BEGIN IMMEDIATE');
+                            try {
+                                const checkedAt = new Date().toISOString();
+                                const code = errorCode(error, 'WORKER_ERROR');
+                                this.db.prepare('INSERT INTO subscription_checks(subscription_id,checked_at,success,error_code) VALUES(?,?,0,?)').run(subscriptionId, checkedAt, code);
+                                if (hasLeaseCol) {
+                                    this.db.prepare('UPDATE subscriptions SET failures=?,next_due=?,lease_until=NULL,updated_at=?,version=version+1 WHERE subscription_id=?').run(failures, next, checkedAt, subscriptionId);
+                                } else {
+                                    this.db.prepare('UPDATE subscriptions SET failures=?,next_due=?,updated_at=?,version=version+1 WHERE subscription_id=?').run(failures, next, checkedAt, subscriptionId);
+                                }
+                                recordEvent(this.db, 'subscription.updated', 'subscription', subscriptionId, { subscriptionId, kind: 'check', success: false, checkedAt, errorCode: code });
+                                this.db.exec('COMMIT');
+                            }
+                            catch (failure) {
+                                this.db.exec('ROLLBACK');
+                                throw failure;
+                            }
+                        }
+                        finally {
+                            masterController.signal.removeEventListener('abort', onMasterAbort);
+                        }
+                    }
                 }
-                checkSubscription(this.db, subscriptionId, batch?batch.items:observed as readonly ObservedContent[]);
-                this.db.prepare('UPDATE subscriptions SET next_due=? WHERE subscription_id=?').run(new Date(Date.now() + this.subscriptionIntervalMs).toISOString(), subscriptionId);
-            }
-            catch (error) {
-                if (this.stopping || !this.db.prepare('SELECT 1 FROM subscriptions WHERE subscription_id=?').get(subscriptionId))
-                    continue;
-                this.options.onError?.(error);
-                const failures = Number(row.failures ?? 0) + 1;
-                const delay = Math.min(3600000, this.subscriptionIntervalMs * 2 ** Math.min(failures, 8));
-                const next = new Date(Date.now() + delay).toISOString();
-                this.db.exec('BEGIN IMMEDIATE');
-                try {
-                    const checkedAt = new Date().toISOString();
-                    const code = errorCode(error, 'WORKER_ERROR');
-                    this.db.prepare('INSERT INTO subscription_checks(subscription_id,checked_at,success,error_code) VALUES(?,?,0,?)').run(subscriptionId, checkedAt, code);
-                    this.db.prepare('UPDATE subscriptions SET failures=?,next_due=?,updated_at=?,version=version+1 WHERE subscription_id=?').run(failures, next, checkedAt, subscriptionId);
-                    recordEvent(this.db, 'subscription.updated', 'subscription', subscriptionId, { subscriptionId, kind: 'check', success: false, checkedAt, errorCode: code });
-                    this.db.exec('COMMIT');
-                }
-                catch (failure) {
-                    this.db.exec('ROLLBACK');
-                    throw failure;
-                }
-            }
-            finally {
-                this.subscriptionController = undefined;
-            }
+            }));
+        } finally {
+            this.subscriptionController = undefined;
         }
     }
     private async runTask(task: PendingTask, lease: TaskLease, controller: AbortController) {

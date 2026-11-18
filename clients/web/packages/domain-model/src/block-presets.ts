@@ -1,107 +1,194 @@
-/** Original built-in blocking groups from tag_blocklist.dart. */
-export const blockPresets = [
+/** Built-in blocking groups synchronized with lib/core/tag_blocklist.dart. */
+export interface BlockPresetDefinition {
+  readonly id: string;
+  readonly name: string;
+  readonly entries: readonly string[];
+  readonly strongEntries: readonly string[];
+}
+
+export const blockPresets: readonly BlockPresetDefinition[] = [
   {
-    "id": "ai",
-    "name": "AI 生成",
-    "entries": [
-      "tag:ai",
-      "regex:(?<![A-Za-z0-9])ai[ _-]?(?:generated|art|cg)(?![A-Za-z0-9])",
-      "regex:AI[ _-]?(?:生成|绘画|繪畫|作画|作畫|イラスト)",
-      "ai_generated",
-      "生成AI"
+    id: 'ai',
+    name: 'AI 生成',
+    entries: [
+      'tag:ai',
+      'regex:(?<![A-Za-z0-9])ai[ _-]?(?:generated|art|cg)(?![A-Za-z0-9])',
+      'regex:AI[ _-]?(?:生成|绘画|繪畫|作画|作畫|イラスト)',
+      'ai_generated',
+      '生成AI',
     ],
-    "strongEntries": []
+    strongEntries: [],
   },
   {
-    "id": "guro",
-    "name": "重口",
-    "entries": [
-      "guro",
-      "ryona",
-      "snuff",
-      "vore",
-      "gore",
-      "regex:(?<![A-Za-z0-9])necrophili(?:a|ac)(?![A-Za-z0-9])",
-      "scat",
-      "torture",
-      "dismemberment",
-      "重口",
-      "regex:[猎獵]奇",
-      "regex:死[奸姦]",
-      "regex:肢[体體]切[断斷]",
-      "グロ",
-      "リョナ"
+    id: 'guro',
+    name: '重口',
+    entries: [
+      'guro',
+      'ryona',
+      'snuff',
+      'vore',
+      'gore',
+      'regex:(?<![A-Za-z0-9])necrophili(?:a|ac)(?![A-Za-z0-9])',
+      'scat',
+      'torture',
+      'dismemberment',
+      '重口',
+      'regex:[猎獵]奇',
+      'regex:死[奸姦]',
+      'regex:肢[体體]切[断斷]',
+      'グロ',
+      'リョナ',
     ],
-    "strongEntries": []
+    strongEntries: [],
   },
   {
-    "id": "loli",
-    "name": "未成年女孩",
-    "entries": [
-      "regex:(?<![A-Za-z0-9])loli(?:[ _-]?con)?(?![A-Za-z0-9])",
-      "toddlercon",
-      "regex:[萝蘿]莉",
-      "regex:ロリ(?:コン)?",
-      "regex:로리(?:콘)?",
-      "幼女"
+    id: 'loli',
+    name: '未成年女孩',
+    entries: [
+      'regex:(?<![A-Za-z0-9])loli(?:[ _-]?con)?(?![A-Za-z0-9])',
+      'toddlercon',
+      'regex:[萝蘿]莉',
+      'regex:ロリ(?:コン)?',
+      'regex:로리(?:콘)?',
+      '幼女',
     ],
-    "strongEntries": []
+    strongEntries: [],
   },
   {
-    "id": "shota",
-    "name": "未成年男孩",
-    "entries": [
-      "regex:(?<![A-Za-z0-9])shota(?:[ _-]?con)?(?![A-Za-z0-9])",
-      "shota",
-      "正太",
-      "regex:ショタ(?:コン)?",
-      "regex:쇼타(?:콘)?"
+    id: 'shota',
+    name: '未成年男孩',
+    entries: [
+      'regex:(?<![A-Za-z0-9])shota(?:[ _-]?con)?(?![A-Za-z0-9])',
+      'shota',
+      '正太',
+      'regex:ショタ(?:コン)?',
+      'regex:쇼타(?:콘)?',
     ],
-    "strongEntries": []
+    strongEntries: [],
   },
   {
-    "id": "futa",
-    "name": "扶她",
-    "entries": [
-      "regex:(?<![A-Za-z0-9])futa(?:nari)?(?![A-Za-z0-9])",
-      "regex:(?<![A-Za-z0-9])dick[ _-]?girl(?![A-Za-z0-9])",
-      "regex:扶[她他]",
-      "tag:regex:^扶[上下]扶?$",
-      "regex:(?:ふたなり|フタナリ)",
-      "후타나리",
-      "dickgirl"
+    id: 'futa',
+    name: '扶她',
+    entries: [
+      'regex:(?<![A-Za-z0-9])futa(?:nari)?(?![A-Za-z0-9])',
+      'regex:(?<![A-Za-z0-9])dick[ _-]?girl(?![A-Za-z0-9])',
+      'regex:扶[她他]',
+      'tag:regex:^扶[上下]扶?$',
+      'regex:(?:ふたなり|フタナリ)',
+      '후타나리',
+      'dickgirl',
     ],
-    "strongEntries": []
+    strongEntries: [],
   },
   {
-    "id": "ntr",
-    "name": "NTR",
-    "entries": [
-      "netorare",
-      "netori",
-      "ntr",
-      "cheating",
-      "regex:(?<![A-Za-z0-9])cuckold(?:ing)?(?![A-Za-z0-9])",
-      "寝取られ",
-      "寝取り",
-      "regex:牛[头頭]人",
-      "regex:[绿綠]帽",
-      "regex:出[轨軌]",
-      "regex:네토(?:라레|리)"
+    id: 'ntr',
+    name: 'NTR',
+    entries: [
+      'netorare',
+      'netori',
+      'ntr',
+      'cheating',
+      'regex:(?<![A-Za-z0-9])cuckold(?:ing)?(?![A-Za-z0-9])',
+      '寝取られ',
+      '寝取り',
+      'regex:牛[头頭]人',
+      'regex:[绿綠]帽',
+      'regex:出[轨軌]',
+      'regex:네토(?:라레|리)',
     ],
-    "strongEntries": []
+    strongEntries: [],
   },
   {
-    "id": "furry",
-    "name": "Furry",
-    "entries": [
-      "regex:(?<![A-Za-z0-9])furr(?:y|ies)(?![A-Za-z0-9])",
-      "kemono",
-      "regex:(?<![A-Za-z0-9])anthro(?:pomorphic)?(?![A-Za-z0-9])",
-      "regex:[兽獸獣][人控]",
-      "福瑞",
-      "ケモノ"
+    id: 'incest',
+    name: '乱伦',
+    entries: [
+      'regex:(?<![A-Za-z0-9])incest(?:uous)?(?![A-Za-z0-9])',
+      'inseki',
+      'regex:[乱亂][伦倫]',
+      'tag:regex:^近[亲親]$',
+      'regex:近[亲親]相[奸姦]',
+      '근친',
     ],
-    "strongEntries": []
-  }
+    strongEntries: [
+      '母子',
+      '母女',
+      '父女',
+      '父子',
+      '兄妹',
+      '姐弟',
+      '姉弟',
+      '*妈',
+      '*媽',
+      '*母',
+      '*父',
+      '父亲',
+      '父親',
+      '兄弟姐妹',
+      '母亲',
+      '母親',
+      '兄弟',
+      '姐妹',
+      '姉妹',
+      'mother',
+      'father',
+      'brother',
+      'sister',
+      'siblings',
+    ],
+  },
+  {
+    id: 'gay',
+    name: '男同性恋',
+    entries: [
+      'yaoi',
+      'gay',
+      'bara',
+      '耽美',
+      'regex:男同(?:性[恋戀])?(?![学學事])',
+      'ボーイズラブ',
+      'ホモ',
+      "regex:(?<![A-Za-z0-9])boys?['’]?[ _-]+love(?![A-Za-z0-9])",
+      '게이',
+      'tag:bl',
+      'tag:腐向',
+    ],
+    strongEntries: [
+      'regex:(?<![A-Za-z0-9])males?[ _-]+only(?![A-Za-z0-9])',
+      'title:bl',
+      'title:腐向',
+    ],
+  },
+  {
+    id: 'lesbian',
+    name: '女同性恋',
+    entries: [
+      'tag:yuri',
+      'tag:百合',
+      'lesbian',
+      'regex:女同(?:性[恋戀])?(?![学學事])',
+      'regex:レズ(?:ビアン)?',
+      'tag:regex:^蕾[丝絲]$',
+      'ガールズラブ',
+      "regex:(?<![A-Za-z0-9])girls?['’]?[ _-]+love(?![A-Za-z0-9])",
+      '레즈비언',
+    ],
+    strongEntries: [
+      'regex:(?<![A-Za-z0-9])females?[ _-]+only(?![A-Za-z0-9])',
+      'title:百合',
+      'title:yuri',
+    ],
+  },
+  {
+    id: 'furry',
+    name: 'Furry',
+    entries: [
+      'regex:(?<![A-Za-z0-9])furr(?:y|ies)(?![A-Za-z0-9])',
+      'kemono',
+      'regex:(?<![A-Za-z0-9])anthro(?:pomorphic)?(?![A-Za-z0-9])',
+      'regex:[兽獸獣][人控]',
+      '福瑞',
+      'ケモノ',
+    ],
+    strongEntries: [],
+  },
 ] as const;

@@ -3,7 +3,9 @@
 !LICENSE
 !pubspec.yaml
 !assets/
+!assets/public-contract.json
 !assets/sources/
+!assets/sources/index.json
 !assets/sources/*.js
 !assets/runtime/
 !assets/runtime/park_runtime.js
@@ -20,12 +22,15 @@
 !clients/web/apps/*/tsconfig.json
 !clients/web/apps/web/index.html
 !clients/web/apps/web/vite.config.ts
+!clients/web/apps/web/public/
+!clients/web/apps/web/public/**
 !clients/web/apps/*/src/
 !clients/web/apps/*/src/**/
 !clients/web/apps/*/src/**/*.ts
 !clients/web/apps/*/src/**/*.tsx
 !clients/web/apps/*/src/**/*.css
 !clients/web/apps/*/src/**/*.json
+!clients/web/apps/*/src/**/*.png
 !clients/web/packages/
 !clients/web/packages/*/
 !clients/web/packages/*/package.json

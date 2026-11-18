@@ -1,759 +1,1184 @@
-import {MediaSurface} from './media-surface.js';
-import {FilePicker} from './file-picker.js';
-import {PreferenceSettingsContext as PreferenceContext} from './preferences.js';
-import {MaintenanceStatus} from './maintenance-status.js';
-import {ReadingChrome} from './reading-chrome.js';
-import {TagPackReminder} from './tag-pack-reminder.js';
-import {PreferenceFields} from './preference-fields.js';
-import {PreferencesProvider,usePreferences} from './preferences.js';
-import {loadHls,playerModuleError} from './load-hls.js';
-import {CoverImage,configureCoverCache} from './cover-image.js';
-import {handleBrowseSessionEvent,clearBrowseSessions} from './browse-session-cache.js';
-import {ImageReaderLayout} from './image-reader-layout.js';
-import { HomeSource } from './home-source.js';
-import { ReaderTools } from './reader-tools.js';
-import { HomeSourcePicker, useHomePreferences } from './home-preferences.js';
-import { DesktopBack, DesktopScrollTop } from './desktop-navigation.js';
-import { SubscriptionsPage } from './subscriptions-page.js';
-import ShortVideoPage from './short-video.js';
-import { PageHeader, StateView, useAsync, errorMessage, useServerVersion } from './page-ui.js';
-import { SettingsPage, settingsSectionTitles } from './settings-page.js';
-import { ContentShelf, NavigationIcon, FeatureIcon, categoryLabels, mediaLabels, domainHref, domainOrder, categoryInScope } from './browse-ui.js';
-import {ReverseHistory} from './reverse-history.js';
-import {RecordingControls,StopRecording} from './recording-controls.js';
-import {LiveChat} from './live-chat.js';
-import {SearchScope} from './search-scope.js';
-import {SearchTools} from './search-tools.js';
-import {SourcePackageControls} from './source-packages-controls.js';
-import {OfflinePage,LibraryManagement,DownloadExtras,ImportComic} from './data-controls.js';
-import {useMediaGrant} from './media-grant.js';
-import {ChannelPage,PostPage,PostDownloads,TavernLibraryPage,GameResources,TavernSourcePanel} from './extended-pages.js';
-import {WorkDetails,WorkFacts,WorkSummary,ReaderNavigation,MediaChoices} from './content-controls.js';
-import {NovelReader} from './novel-reader.js';
-import {SourceManagement} from './source-management.js';
-import {TranslateText,TranslatedTag,SelectedTextTranslation} from './language-tools.js';
-import {t,useLanguage,setLanguage,languageNames,pluginText} from './i18n.js';
-import { AppLockGate } from './app-lock.js';
-import { chapterIdentityKey, workIdentityKey, type WorkTag } from '@hentai-park/domain-model';
-import { StrictMode, createContext, useContext, useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
+import {
+  StrictMode,
+  Suspense,
+  lazy,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type FormEvent,
+} from 'react';
 import { createRoot } from 'react-dom/client';
-import { Button, EmptyState, StatusMessage } from '@hentai-park/design-system';
+import { ConfirmProvider, StatusMessage, ToastHost, applySeedTheme } from '@hentai-park/design-system';
+import { chapterIdentityKey, workIdentityKey } from '@hentai-park/domain-model';
+import './tokens.css';
 import './styles.css';
-import appIcon from './app-icon.png';
 import './controls.css';
 import './desktop.css';
-import './tokens.css';
-import { api,request, allPages, ApiError, requestErrorMessage, mediaUrl, subscribeEvents, type AlbumItem,type MediaTokenRequest,type ApiChapter, type ApiWork, type DownloadTask, type ReaderPayload, type ReverseMatch, type Session, type Source, type Subscription } from './api.js';
-import { restoreImage } from './image-transform.js';
-import { ControlledWebPlayer } from './web-player.js';
-import { RankingsPage } from './rankings.js';
-import { CategoryEditor, ChapterDownloads } from './collection-controls.js';
-import { LibraryBatch } from './library-batch.js';
-import { LibraryMigration } from './library-migration.js';
-import { dedupeDownload, downloadKey, resolveThemePreference, setThemeMode, sharedStateStore, useMediaLifecycle, usePageLifecycle, useScrollRestoration, useSharedState, useThemeMode, type ProgressState } from './native.js';
+import './refactor-ux.css';
+import appIcon from './app-icon.png';
+import { allPages, api, request, subscribeEvents, type Session } from './api.js';
+import {
+  CategoryNames,
+  KeepAliveView,
+  SourceCatalog,
+  SourceNames,
+  currentRoute,
+  navigateClick,
+  routes,
+  type Route,
+} from './app/app-context.js';
+import { AppLockGate } from './app-lock.js';
+import { clearBrowseSessions, handleBrowseSessionEvent } from './browse-session-cache.js';
+import { NavigationIcon, categoryLabels, domainHref, domainOrder } from './browse-ui.js';
+import { configureCoverCache } from './cover-image.js';
+import { DesktopBack, DesktopScrollTop } from './desktop-navigation.js';
+import { languageNames, pluginText, setLanguage, t, useLanguage } from './i18n.js';
+import {
+  downloadKey,
+  recordInternalPush,
+  resolveThemePreference,
+  setThemeMode,
+  sharedStateStore,
+  usePageLifecycle,
+  useScrollRestoration,
+  useSharedState,
+  useThemeMode,
+} from './native.js';
+import { PageHeader, errorMessage, useAsync, useServerVersion } from './page-ui.js';
+import { DiscoverPage } from './pages/discover-page.js';
+import { OfflinePage } from './data-controls.js';
+import { DownloadsPage } from './pages/downloads-page.js';
+import { LibraryPage } from './pages/library-page.js';
+import { PreferenceSettingsContext as PreferenceContext, PreferencesProvider, usePreferences } from './preferences.js';
+import { SettingsPage, settingsSectionTitles } from './settings-page.js';
 
-const SourceCatalog = createContext<{data?:Source[];loading:boolean;error?:unknown}>({loading:true});
-const SourceNames = createContext<Record<string,string>>({});
-const CategoryNames = createContext<Record<string,string>>({});
+/* Route-level React.lazy code splitting for secondary/heavy views */
+const SearchPage = lazy(() => import('./pages/search-page.js').then((m) => ({ default: m.SearchPage })));
+const ReverseSearch = lazy(() => import('./pages/search-page.js').then((m) => ({ default: m.ReverseSearch })));
+const SourcePage = lazy(() => import('./pages/source-page.js').then((m) => ({ default: m.SourcePage })));
+const SourcesPage = lazy(() => import('./pages/source-page.js').then((m) => ({ default: m.SourcesPage })));
+const WorkPage = lazy(() => import('./pages/work-page.js').then((m) => ({ default: m.WorkPage })));
+const ReaderPage = lazy(() => import('./pages/reader-page.js').then((m) => ({ default: m.ReaderPage })));
+const AlbumPage = lazy(() => import('./pages/album-page.js').then((m) => ({ default: m.AlbumPage })));
+const RankingsPage = lazy(() => import('./rankings.js').then((m) => ({ default: m.RankingsPage })));
+const SubscriptionsPage = lazy(() => import('./subscriptions-page.js').then((m) => ({ default: m.SubscriptionsPage })));
+const ChannelPage = lazy(() => import('./extended-pages.js').then((m) => ({ default: m.ChannelPage })));
+const PostPage = lazy(() => import('./extended-pages.js').then((m) => ({ default: m.PostPage })));
+const TavernLibraryPage = lazy(() => import('./extended-pages.js').then((m) => ({ default: m.TavernLibraryPage })));
+const LogsPage = lazy(() => import('./pages/logs-and-licenses.js').then((m) => ({ default: m.LogsPage })));
+const LicensesPage = lazy(() => import('./pages/logs-and-licenses.js').then((m) => ({ default: m.LicensesPage })));
 
-type Route = { path: string; label: string; href?: string };
-const routes: Route[] = [
-  { path: '/discover', label: '发现' }, { path: '/search', label: '搜索' },
-  { path: '/library', label: '收藏' }, { path: '/downloads', label: '下载' },
-  { path: '/subscriptions', label: '订阅' }, { path: '/history', label: '历史' }, { path: '/sites', label: '内容站点' }, { path: '/settings', label: '设置' },
-  { path: '/sources', label: '站点管理' },
-];
-function searchSelectionQuery(){const params=new URLSearchParams(window.location.search),selected=new URLSearchParams();for(const name of ['sources','mediaKind','category'])for(const value of params.getAll(name))selected.append(name,value);return selected.size?'&'+selected.toString():'';}
-function currentRoute() { return window.location.pathname + window.location.search + window.location.hash; }
-function tagHref(tag: WorkTag) { return '/search?q=' + encodeURIComponent(tag.keyword ?? '') + '&scope=all&source=' + encodeURIComponent(tag.source) + (tag.filters ? '&filters=' + encodeURIComponent(JSON.stringify(tag.filters)) : ''); }
-function canSearchTag(tag: WorkTag) { return Boolean(tag.keyword || tag.filters && Object.keys(tag.filters).length); }
-function hrefFor(work: ApiWork) {
-  if(work.presentation==='post')return '/post/'+[work.source,work.workId].map(encodeURIComponent).join('/');
-  if (work.category === 'shortvideo') {
-    const path = '/source/' + encodeURIComponent(work.source);
-    const params = new URLSearchParams();
-    if (window.location.pathname === path) {
-      const current = new URLSearchParams(window.location.search);
-      for (const key of ['feed','link','filters','cursor']) { const value = current.get(key); if (value !== null) params.set(key,value); }
-    }
-    params.set('work',work.workId);
-    return path + '?' + params.toString();
-  }
-  return '/work/' + encodeURIComponent(work.source) + '/' + encodeURIComponent(work.workId);
-}
-function navigateClick(event: React.MouseEvent, navigate: (to: string) => void, href: string) { if (event.button === 0 && !event.metaKey && !event.ctrlKey && !event.shiftKey && !event.altKey) { event.preventDefault(); navigate(href); } }
 function SessionGate() {
-  const [session, setSession] = useState<Session>(); const [error, setError] = useState<string>(); const [busy, setBusy] = useState(false); const [token, setToken] = useState('');
-  const [ageConfirmed, setAgeConfirmed] = useState<boolean>(); const [initialSettings, setInitialSettings] = useState<Record<string, unknown>>();
+  const [session, setSession] = useState<Session>();
+  const [error, setError] = useState<string>();
+  const [busy, setBusy] = useState(false);
+  const [token, setToken] = useState('');
+  const [ageConfirmed, setAgeConfirmed] = useState<boolean>();
+  const [initialSettings, setInitialSettings] = useState<Record<string, unknown>>();
   const [check, setCheck] = useState(0);
-  useEffect(() => { const recheck = () => setCheck((value) => value + 1); window.addEventListener('hp:recheck-session', recheck); return () => window.removeEventListener('hp:recheck-session', recheck); }, []);
-  useEffect(() => { if (!session?.authenticated) { setAgeConfirmed(undefined); setInitialSettings(undefined); return; } let live = true; void api.settings().then(async (value) => { await setLanguage(String(value.settings.language ?? '')); if (live) { setInitialSettings(value.settings); setAgeConfirmed(value.settings.ageConfirmed === true); } }).catch((reason) => { if (live) setError(errorMessage(reason)); }); return () => { live = false; }; }, [session?.authenticated, check]);
-  useEffect(()=>{clearBrowseSessions();},[session?.sessionId,session?.authenticated]);
-  const refresh = useCallback(() => { setError(undefined); void api.session.get().then(setSession).catch((reason) => setError(errorMessage(reason))); }, []);
-  useEffect(() => { refresh(); const expire = () => setSession((value) => value ? { ...value, authenticated: false } : { sessionId: '', mode: 'server', authenticated: false }); window.addEventListener('hp:unauthorized', expire);window.addEventListener('hp:retry-read',refresh);return () => {window.removeEventListener('hp:unauthorized', expire);window.removeEventListener('hp:retry-read',refresh);}; }, [refresh]);
-  const login = async (event: React.FormEvent) => { event.preventDefault(); setBusy(true); setError(undefined); try { const value = await api.session.login(token); setToken(''); setSession(value); } catch (reason) { setError(errorMessage(reason)); } finally { setBusy(false); } };
-  if (session?.authenticated && ageConfirmed === true && initialSettings?.onboarded === false) return <WebOnboarding initial={initialSettings} onComplete={() => setInitialSettings(value => ({...(value ?? {}), onboarded: true}))} />;
-  if (session?.authenticated && ageConfirmed === true) return <PreferencesProvider key={session.sessionId}><AppLockGate><App mode={session.mode} /></AppLockGate></PreferencesProvider>;
-  if (session?.authenticated) return <main className="session-gate"><section className="session-panel"><div className="session-brand"><img src={appIcon} alt="" /><strong>HentaiPark</strong></div><h1>{ageConfirmed === false ? t("年龄与隐私确认") : t("正在读取实例设置")}</h1><p>{t("本实例包含仅供成年人浏览的内容。收藏、进度与后台任务由整个单用户实例共享；图片反搜上传仅用于本次查询。")}</p>{ageConfirmed === false ? <button className="primary-link" disabled={busy} onClick={() => { setBusy(true); void api.updateSettings({ ageConfirmed: true }).then(() => setAgeConfirmed(true)).catch((reason) => setError(errorMessage(reason))).finally(() => setBusy(false)); }}>{t("我已满18岁并继续")}</button> : null}{error ? <StatusMessage tone="danger" title={t("读取或确认失败")}>{error}<button className="chip" onClick={refresh}>{t("重试")}</button></StatusMessage> : null}</section></main>;
-  return <main className="session-gate"><section className="session-panel"><div className="session-brand"><img src={appIcon} alt="" /><strong>HentaiPark</strong></div><h1>{session ? t("登录实例") : t("正在连接实例")}</h1><p>{t("当前页面地址会保留，认证后继续。")}</p>{!session ? <p className="session-help">{t("请确认实例已启动且当前地址可访问。")}</p> : null}{session ? <form onSubmit={login}><label>{t("实例访问凭据")}<input type="password" value={token} onChange={(event) => setToken(event.target.value)} autoComplete="current-password" required={session.mode === 'server'} /></label><button className="primary-link" disabled={busy} type="submit">{busy ? t("正在登录") : t("登录")}</button></form> : null}{error ? <StatusMessage tone="danger" title={t("连接或认证失败")}>{error}</StatusMessage> : null}</section></main>;
+
+  useEffect(() => {
+    const recheck = () => setCheck((value) => value + 1);
+    window.addEventListener('hp:recheck-session', recheck);
+    return () => window.removeEventListener('hp:recheck-session', recheck);
+  }, []);
+
+  useEffect(() => {
+    if (!session?.authenticated) {
+      setAgeConfirmed(undefined);
+      setInitialSettings(undefined);
+      return;
+    }
+    let live = true;
+    void api
+      .settings()
+      .then(async (value) => {
+        await setLanguage(String(value.settings.language ?? ''));
+        if (live) {
+          setInitialSettings(value.settings);
+          setAgeConfirmed(value.settings.ageConfirmed === true);
+        }
+      })
+      .catch((reason) => {
+        if (live && session.locked !== true) setError(errorMessage(reason));
+      });
+    return () => {
+      live = false;
+    };
+  }, [session?.authenticated, session?.locked, check]);
+
+  useEffect(() => {
+    clearBrowseSessions();
+  }, [session?.sessionId, session?.authenticated]);
+
+  const refresh = useCallback(() => {
+    setError(undefined);
+    void api.session
+      .get()
+      .then(setSession)
+      .catch((reason) => setError(errorMessage(reason)));
+  }, []);
+
+  useEffect(() => {
+    refresh();
+    const expire = () =>
+      setSession((value) => (value ? { ...value, authenticated: false } : { sessionId: '', mode: 'server', authenticated: false }));
+    window.addEventListener('hp:unauthorized', expire);
+    window.addEventListener('hp:retry-read', refresh);
+    return () => {
+      window.removeEventListener('hp:unauthorized', expire);
+      window.removeEventListener('hp:retry-read', refresh);
+    };
+  }, [refresh]);
+
+  const login = async (event: FormEvent) => {
+    event.preventDefault();
+    setBusy(true);
+    setError(undefined);
+    try {
+      const value = await api.session.login(token);
+      setToken('');
+      setSession(value);
+    } catch (reason) {
+      setError(errorMessage(reason));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  if (session?.authenticated && session.locked === true) {
+    return (
+      <AppLockGate initialLocked>
+        <div style={{ minHeight: '100dvh' }} />
+      </AppLockGate>
+    );
+  }
+  if (session?.authenticated && ageConfirmed === true && initialSettings?.onboarded === false) {
+    return (
+      <WebOnboarding
+        initial={initialSettings}
+        onComplete={() => setInitialSettings((value) => ({ ...(value ?? {}), onboarded: true, onboardingCompleted: true }))}
+      />
+    );
+  }
+  if (session?.authenticated && ageConfirmed === true) {
+    return (
+      <PreferencesProvider key={session.sessionId}>
+        <AppLockGate initialLocked={session.locked === true}>
+          <App mode={session.mode} />
+        </AppLockGate>
+      </PreferencesProvider>
+    );
+  }
+  if (session?.authenticated) {
+    return (
+      <main className="session-gate">
+        <section className="session-panel">
+          <div className="session-brand">
+            <img src={appIcon} alt="" />
+            <strong>HentaiPark</strong>
+          </div>
+          <h1>{ageConfirmed === false ? t('年龄与隐私确认') : t('正在读取实例设置')}</h1>
+          <p>{t('本实例包含仅供成年人浏览的内容。收藏、进度与后台任务由整个单用户实例共享；图片反搜上传仅用于本次查询。')}</p>
+          {ageConfirmed === false ? (
+            <button
+              className="primary-link"
+              disabled={busy}
+              onClick={() => {
+                setBusy(true);
+                void api
+                  .updateSettings({ ageConfirmed: true })
+                  .then(() => setAgeConfirmed(true))
+                  .catch((reason) => setError(errorMessage(reason)))
+                  .finally(() => setBusy(false));
+              }}
+            >
+              {t('我已满18岁并继续')}
+            </button>
+          ) : null}
+          {error ? (
+            <StatusMessage tone="danger" title={t('读取或确认失败')}>
+              {error}
+              <button className="chip" onClick={refresh}>
+                {t('重试')}
+              </button>
+            </StatusMessage>
+          ) : null}
+        </section>
+      </main>
+    );
+  }
+  return (
+    <main className="session-gate">
+      <section className="session-panel">
+        <div className="session-brand">
+          <img src={appIcon} alt="" />
+          <strong>HentaiPark</strong>
+        </div>
+        <h1>{session ? t('登录实例') : t('正在连接实例')}</h1>
+        <p>{t('当前页面地址会保留，认证后继续。')}</p>
+        {!session ? <p className="session-help">{t('请确认实例已启动且当前地址可访问。')}</p> : null}
+        {session ? (
+          <form onSubmit={(e) => void login(e)}>
+            <label>
+              {t('实例访问凭据')}
+              <input
+                type="password"
+                value={token}
+                onChange={(event) => setToken(event.target.value)}
+                autoComplete="current-password"
+                required={session.mode === 'server'}
+              />
+            </label>
+            <button className="primary-link" disabled={busy} type="submit">
+              {busy ? t('正在登录') : t('登录')}
+            </button>
+          </form>
+        ) : null}
+        {error ? (
+          <StatusMessage tone="danger" title={t('连接或认证失败')}>
+            {error}
+          </StatusMessage>
+        ) : null}
+      </section>
+    </main>
+  );
 }
-function WebOnboarding({initial,onComplete}:{initial:Record<string,unknown>;onComplete:()=>void}) {
-  const [step,setStep]=useState<'privacy'|'interests'>('privacy'); const [busy,setBusy]=useState(false); const [error,setError]=useState(''); const [blur,setBlur]=useState(initial.coverBlur===true); const [lock,setLock]=useState(initial.appLockEnabled===true); const [categories,setCategories]=useState<string[]>(Array.isArray(initial.homeCategories)?initial.homeCategories.filter((item):item is string=>typeof item==='string'):[]);
-  const finish=async(nextCategories=categories)=>{setBusy(true);setError('');try{await api.updateSettings({coverBlur:blur,appLockEnabled:lock,homeCategories:nextCategories,onboarded:true});onComplete();}catch(reason){setError(errorMessage(reason));}finally{setBusy(false);}};
-  return <main className="session-gate"><section className="session-panel"><div className="session-brand"><img src={appIcon} alt=""/><strong>HentaiPark</strong></div><nav className="onboarding-steps" aria-label={t('设置分组')}><span aria-current={step==='privacy'?'step':undefined}>{t('隐私与安全')}</span><span aria-current={step==='interests'?'step':undefined}>{t('首页内容')}</span></nav>{step==='privacy'?<><h1>{t('隐私与安全')}</h1><p>{t('先确认封面和应用锁偏好，之后可在“我的”中随时修改。')}</p><label className="settings-toggle"><span>{t('模糊封面')}</span><input type="checkbox" checked={blur} onChange={event=>setBlur(event.target.checked)}/></label><label className="settings-toggle"><span>{t('启用应用锁')}</span><input type="checkbox" checked={lock} onChange={event=>setLock(event.target.checked)}/></label><button className="primary-link" onClick={()=>setStep('interests')}>{t('继续')}</button></>:<><h1>{t('首页内容')}</h1><p>{t('选择后会用于发现页的默认内容分类；也可以跳过。')}</p><div className="onboarding-interests">{domainOrder.map(category=><label className="settings-toggle" key={category}><span>{t(category)}</span><input type="checkbox" checked={categories.length===0||categories.includes(category)} onChange={event=>setCategories(current=>event.target.checked?(current.length===0?[...domainOrder]:[...new Set([...current,category])]):(current.length===0?domainOrder.filter(item=>item!==category):current.filter(item=>item!==category)))}/></label>)}</div><div className="action-row"><button className="chip" onClick={()=>setStep('privacy')}>{t('上一步')}</button><button className="chip" disabled={busy} onClick={()=>void finish([])}>{t('跳过')}</button><button className="primary-link" disabled={busy} onClick={()=>void finish()}>{busy?t('正在保存'):t('完成')}</button></div></>}{error?<StatusMessage tone="danger" title={t('操作未完成，请重试。')}>{error}<button className="chip" onClick={()=>void finish()}>{t('重试')}</button></StatusMessage>:null}</section></main>;
+
+function WebOnboarding({ initial, onComplete }: { initial: Record<string, unknown>; onComplete: () => void }) {
+  const [step, setStep] = useState<'privacy' | 'interests'>('privacy');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const [blur, setBlur] = useState(initial.coverBlur === true);
+  const [lock, setLock] = useState(initial.appLockEnabled === true);
+  const [categories, setCategories] = useState<string[]>(
+    Array.isArray(initial.homeCategories) ? initial.homeCategories.filter((item): item is string => typeof item === 'string') : [],
+  );
+
+  const finish = async (nextCategories = categories) => {
+    setBusy(true);
+    setError('');
+    try {
+      await api.updateSettings({
+        coverBlur: blur,
+        appLockEnabled: lock,
+        homeCategories: nextCategories,
+        onboarded: true,
+        onboardingCompleted: true,
+      });
+      onComplete();
+    } catch (reason) {
+      setError(errorMessage(reason));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <main className="session-gate">
+      <section className="session-panel">
+        <div className="session-brand">
+          <img src={appIcon} alt="" />
+          <strong>HentaiPark</strong>
+        </div>
+        <nav className="onboarding-steps" aria-label={t('设置分组')}>
+          <span aria-current={step === 'privacy' ? 'step' : undefined}>{t('隐私与安全')}</span>
+          <span aria-current={step === 'interests' ? 'step' : undefined}>{t('首页内容')}</span>
+        </nav>
+        {step === 'privacy' ? (
+          <>
+            <h1>{t('隐私与安全')}</h1>
+            <p>{t('先确认封面和应用锁偏好，之后可在“我的”中随时修改。')}</p>
+            <label className="settings-toggle">
+              <span>{t('模糊封面')}</span>
+              <input type="checkbox" role="switch" checked={blur} onChange={(event) => setBlur(event.target.checked)} />
+            </label>
+            <label className="settings-toggle">
+              <span>{t('启用应用锁')}</span>
+              <input type="checkbox" role="switch" checked={lock} onChange={(event) => setLock(event.target.checked)} />
+            </label>
+            <button className="primary-link" onClick={() => setStep('interests')}>
+              {t('继续')}
+            </button>
+          </>
+        ) : (
+          <>
+            <h1>{t('首页内容')}</h1>
+            <p>{t('选择后会用于发现页的默认内容分类；也可以跳过。')}</p>
+            <div className="multi-pill-group" style={{ marginBottom: 20 }}>
+              {domainOrder.map((category) => {
+                const checked = categories.length === 0 || categories.includes(category);
+                return (
+                  <button
+                    key={category}
+                    type="button"
+                    className={`chip ${checked ? 'active' : ''}`}
+                    aria-pressed={checked}
+                    onClick={() =>
+                      setCategories((current) =>
+                        checked
+                          ? current.length === 0
+                            ? domainOrder.filter((item) => item !== category)
+                            : current.filter((item) => item !== category)
+                          : [...new Set([...current, category])]
+                      )
+                    }
+                  >
+                    {t(categoryLabels[category] ?? category)}
+                  </button>
+                );
+              })}
+            </div>
+            <div className="action-row">
+              <button className="chip" onClick={() => setStep('privacy')}>
+                {t('上一步')}
+              </button>
+              <button className="chip" disabled={busy} onClick={() => void finish([])}>
+                {t('跳过')}
+              </button>
+              <button className="primary-link" disabled={busy} onClick={() => void finish()}>
+                {busy ? t('正在保存') : t('完成')}
+              </button>
+            </div>
+          </>
+        )}
+        {error ? (
+          <StatusMessage tone="danger" title={t('操作未完成，请重试。')}>
+            {error}
+            <button className="chip" onClick={() => void finish()}>
+              {t('重试')}
+            </button>
+          </StatusMessage>
+        ) : null}
+      </section>
+    </main>
+  );
 }
-function App({ mode }: { mode: Session['mode'] }) {
-  const language=useLanguage(),preferences=usePreferences();
-  const sourceNameVersion=useServerVersion(['plugin.installed']);
-  const sourceNameState=useAsync(()=>allPages(api.sources),[],undefined,{refreshKey:sourceNameVersion});
-  const sourceNames=Object.fromEntries((sourceNameState.data??[]).map(item=>[item.source,pluginText(item.manifest??{},String(item.manifest?.name??item.source))]));
-  const [categoryNames,setCategoryNames]=useState<Record<string,string>>({});
-  useEffect(()=>{let active=true;const load=()=>void request<{items:Array<{id:string;name:string}>}>('/api/v1/categories').then(value=>{if(active)setCategoryNames(Object.fromEntries(value.items.map(item=>[item.id,item.name])));}).catch(()=>{/* Keep known names; unknown categories remain editable through their advanced IDs. */});load();window.addEventListener('hp:server-update',load);return()=>{active=false;window.removeEventListener('hp:server-update',load);};},[]);
+
+function App({ mode: _mode }: { mode: Session['mode'] }) {
+  const language = useLanguage();
+  const preferences = usePreferences();
+  const sourceNameVersion = useServerVersion(['plugin.installed']);
+  const sourceNameState = useAsync(() => allPages(api.sources), [], undefined, { refreshKey: sourceNameVersion });
+  const sourceNames = Object.fromEntries(
+    (sourceNameState.data ?? []).map((item) => [
+      item.source,
+      pluginText(item.manifest ?? {}, String(item.manifest?.name ?? item.source)),
+    ]),
+  );
+  const [categoryNames, setCategoryNames] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    let active = true;
+    const load = () =>
+      void request<{ items: Array<{ id: string; name: string }> }>('/api/v1/categories')
+        .then((value) => {
+          if (active) setCategoryNames(Object.fromEntries(value.items.map((item) => [item.id, item.name])));
+        })
+        .catch(() => {});
+    load();
+    window.addEventListener('hp:server-update', load);
+    return () => {
+      active = false;
+      window.removeEventListener('hp:server-update', load);
+    };
+  }, []);
+
   const [location, setLocation] = useState(currentRoute());
   const shared = useSharedState();
   const theme = useThemeMode();
   const themePreference = useRef<unknown>(preferences.settings.theme);
   themePreference.current = preferences.settings.theme;
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [navigationCollapsed,setNavigationCollapsed]=useState(()=>{try{return localStorage.getItem('hp:desktop-navigation-collapsed')==='true';}catch{return false;}});
-  const setTheme=(next:'light'|'dark')=>{
-    const previous=theme;
+  const [navigationCollapsed, setNavigationCollapsed] = useState(() => {
+    try {
+      return localStorage.getItem('hp:desktop-navigation-collapsed') === 'true';
+    } catch {
+      return false;
+    }
+  });
+
+  const setTheme = (next: 'light' | 'dark') => {
+    const previous = theme;
     setThemeMode(next);
-    void api.updateSettings({theme:next}).then((result)=>setThemeMode(resolveThemePreference(result.settings.theme))).catch(error=>{
-      setThemeMode(previous);
-      window.dispatchEvent(new CustomEvent('hp:sync-error',{detail:errorMessage(error)}));
-    });
+    void api
+      .updateSettings({ theme: next })
+      .then((result) => setThemeMode(resolveThemePreference(result.settings.theme)))
+      .catch((error) => {
+        setThemeMode(previous);
+        window.dispatchEvent(new CustomEvent('hp:sync-error', { detail: errorMessage(error) }));
+      });
   };
-  const toggleNavigation=()=>setNavigationCollapsed(previous=>{const next=!previous;try{localStorage.setItem('hp:desktop-navigation-collapsed',String(next));}catch{}return next;});
+
+  const toggleNavigation = () =>
+    setNavigationCollapsed((previous) => {
+      const next = !previous;
+      try {
+        localStorage.setItem('hp:desktop-navigation-collapsed', String(next));
+      } catch {
+        /* ignore */
+      }
+      return next;
+    });
+
   const [syncError, setSyncError] = useState('');
   const [notice, setNotice] = useState('');
-  useEffect(() => { const handler = (event: Event) => setSyncError(String((event as CustomEvent).detail ?? t("同步失败"))); window.addEventListener('hp:sync-error', handler); return () => window.removeEventListener('hp:sync-error', handler); }, []);
-  useEffect(() => { const onKeyDown = (event: KeyboardEvent) => { if (event.key === 'Escape' && mobileOpen) { setMobileOpen(false); document.getElementById('navigation-toggle')?.focus(); } }; window.addEventListener('keydown', onKeyDown); return () => window.removeEventListener('keydown', onKeyDown); }, [mobileOpen]);
-  useEffect(() => { if(mobileOpen) document.querySelector<HTMLAnchorElement>('#mobile-navigation nav a')?.focus(); }, [mobileOpen]);
-  useScrollRestoration(location, shared.incognito, !/^\/(?:read|watch)\//.test(location));
-  usePageLifecycle(useCallback((visible: boolean) => window.dispatchEvent(new CustomEvent('hp:page-visibility', { detail: { visible } })), []));
-  useEffect(() => { const onPop = () => setLocation(currentRoute()); window.addEventListener('popstate', onPop); return () => window.removeEventListener('popstate', onPop); }, []);
+
+  useEffect(() => {
+    const handler = (event: Event) => setSyncError(String((event as CustomEvent).detail ?? t('同步失败')));
+    window.addEventListener('hp:sync-error', handler);
+    return () => window.removeEventListener('hp:sync-error', handler);
+  }, []);
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && mobileOpen) {
+        setMobileOpen(false);
+        document.getElementById('navigation-toggle')?.focus();
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [mobileOpen]);
+
+  useEffect(() => {
+    if (mobileOpen) document.querySelector<HTMLAnchorElement>('#mobile-navigation nav a')?.focus();
+  }, [mobileOpen]);
+
+  const currentPath = location.split('?')[0]!.split('#')[0]!;
+  const isConsuming = /^\/(?:read|watch)\//.test(currentPath);
+
+  useScrollRestoration(location, shared.incognito, !isConsuming);
+  usePageLifecycle(
+    useCallback((visible: boolean) => window.dispatchEvent(new CustomEvent('hp:page-visibility', { detail: { visible } })), []),
+  );
+
+  useEffect(() => {
+    const onPop = () => setLocation(currentRoute());
+    window.addEventListener('popstate', onPop);
+    return () => window.removeEventListener('popstate', onPop);
+  }, []);
+
   useLayoutEffect(() => {
     const root = document.documentElement;
     root.dataset.themeChanging = 'true';
     root.dataset.theme = theme;
     root.dataset.coverBlur = String(shared.coverBlur);
+    applySeedTheme(
+      preferences.settings.seedColor as number | string | undefined,
+      theme,
+      isConsuming ? '#080b10' : undefined,
+    );
     let secondFrame = 0;
     const firstFrame = requestAnimationFrame(() => {
-      secondFrame = requestAnimationFrame(() => { delete root.dataset.themeChanging; });
+      secondFrame = requestAnimationFrame(() => {
+        delete root.dataset.themeChanging;
+      });
     });
-    return () => { cancelAnimationFrame(firstFrame); if (secondFrame) cancelAnimationFrame(secondFrame); delete root.dataset.themeChanging; };
-  }, [theme, shared.coverBlur]);
+    return () => {
+      cancelAnimationFrame(firstFrame);
+      if (secondFrame) cancelAnimationFrame(secondFrame);
+      delete root.dataset.themeChanging;
+    };
+  }, [theme, shared.coverBlur, preferences.settings.seedColor, isConsuming]);
+
   useEffect(() => {
-    let live = true; let generation = 0; let timer: ReturnType<typeof setTimeout> | undefined; let running = false; let pending = false; const openedAt = Date.now();
-    const refresh = async () => { if (running) { pending = true; return; } running = true; const id = ++generation; try { const [library, history, downloads, settings] = await Promise.all([allPages(api.library), allPages(api.history), allPages(api.downloads), api.settings()]); if (!live || id !== generation) return;
-      void setLanguage(String(settings.settings.language??'')).catch(error=>setSyncError(errorMessage(error)));
-      configureCoverCache(Number(settings.settings.cacheLimitMb??1024));setThemeMode(resolveThemePreference(settings.settings.theme));sharedStateStore.setState({ collections: Object.fromEntries(library.map((item) => [workIdentityKey({ source: item.source, id: item.workId }), item])), collectionsReady: true, downloads: Object.fromEntries(downloads.map((item) => { const key = downloadKey(item); return [key, { key, status: item.status, updatedAt: Date.parse(item.updatedAt ?? '') || 0 }]; })), progress: Object.fromEntries(history.map((item) => [item.chapterId ? chapterIdentityKey({ source: item.source, workId: item.workId, chapterId: item.chapterId }) : workIdentityKey({ source: item.source, id: item.workId }), { position: item.position ?? 0, page: item.page ?? undefined, updatedAt: Date.parse(item.updatedAt ?? '') || 0 }])), incognito: settings.settings.incognito === true, notificationsEnabled: settings.settings.notificationsEnabled === true, blockedWords: Array.isArray(settings.settings.blockedWords) ? settings.settings.blockedWords.filter((x): x is string => typeof x === 'string') : [], coverBlur: settings.settings.coverBlur === true }, false); setSyncError('');
-    } catch (error) { if (live) window.dispatchEvent(new CustomEvent('hp:sync-error', { detail: errorMessage(error) })); } finally { running = false; if (pending && live) { pending = false; schedule(); } } };
-    const colorScheme=matchMedia('(prefers-color-scheme: dark)'),themeChanged=()=>{if(themePreference.current==='system')setThemeMode(resolveThemePreference('system'));};colorScheme.addEventListener('change',themeChanged);window.addEventListener('languagechange',themeChanged);
+    let live = true;
+    let generation = 0;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    let running = false;
+    let pending = false;
+    const openedAt = Date.now();
+    const refresh = async () => {
+      if (running) {
+        pending = true;
+        return;
+      }
+      running = true;
+      const id = ++generation;
+      try {
+        const [library, history, downloads, settings] = await Promise.all([
+          allPages(api.library),
+          allPages(api.history),
+          allPages(api.downloads),
+          api.settings(),
+        ]);
+        if (!live || id !== generation) return;
+        void setLanguage(String(settings.settings.language ?? '')).catch((error) => setSyncError(errorMessage(error)));
+        configureCoverCache(Number(settings.settings.cacheLimitMb ?? 1024));
+        setThemeMode(resolveThemePreference(settings.settings.theme));
+        sharedStateStore.setState(
+          {
+            collections: Object.fromEntries(library.map((item) => [workIdentityKey({ source: item.source, id: item.workId }), item])),
+            collectionsReady: true,
+            downloads: Object.fromEntries(
+              downloads.map((item) => {
+                const key = downloadKey(item);
+                return [key, { key, status: item.status, updatedAt: Date.parse(item.updatedAt ?? '') || 0 }];
+              }),
+            ),
+            progress: Object.fromEntries(
+              history.map((item) => [
+                item.chapterId
+                  ? chapterIdentityKey({ source: item.source, workId: item.workId, chapterId: item.chapterId })
+                  : workIdentityKey({ source: item.source, id: item.workId }),
+                { position: item.position ?? 0, page: item.page ?? undefined, updatedAt: Date.parse(item.updatedAt ?? '') || 0 },
+              ]),
+            ),
+            incognito: settings.settings.incognito === true,
+            notificationsEnabled: settings.settings.notificationsEnabled === true,
+            blockedWords: Array.isArray(settings.settings.blockedWords)
+              ? settings.settings.blockedWords.filter((x): x is string => typeof x === 'string')
+              : [],
+            coverBlur: settings.settings.coverBlur === true,
+          },
+          false,
+        );
+        setSyncError('');
+      } catch (error) {
+        if (live) window.dispatchEvent(new CustomEvent('hp:sync-error', { detail: errorMessage(error) }));
+      } finally {
+        running = false;
+        if (pending && live) {
+          pending = false;
+          schedule();
+        }
+      }
+    };
+
+    const colorScheme = matchMedia('(prefers-color-scheme: dark)');
+    const themeChanged = () => {
+      if (themePreference.current === 'system') setThemeMode(resolveThemePreference('system'));
+    };
+    colorScheme.addEventListener('change', themeChanged);
+    window.addEventListener('languagechange', themeChanged);
+
     const changedTypes = new Set<string>();
-    const schedule = (event?: Event | {eventType:string}) => { changedTypes.add(event && 'eventType' in event ? event.eventType : 'sync.required'); generation++; if (timer) clearTimeout(timer); timer = setTimeout(() => { const eventTypes=[...changedTypes]; changedTypes.clear(); window.dispatchEvent(new CustomEvent('hp:server-update',{detail:{eventTypes}})); void refresh(); }, 100); };
+    const schedule = (event?: Event | { eventType: string }) => {
+      const evtType = event && 'eventType' in event ? event.eventType : 'sync.required';
+      if (evtType === 'download.telemetry') return;
+      changedTypes.add(evtType);
+      generation++;
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(() => {
+        const eventTypes = [...changedTypes];
+        changedTypes.clear();
+        window.dispatchEvent(new CustomEvent('hp:server-update', { detail: { eventTypes } }));
+        void refresh();
+      }, 140);
+    };
+
     const invalidateBrowse = () => clearBrowseSessions();
-    window.addEventListener('hp:invalidate',invalidateBrowse);
-    const committed = (event: Event) => { const detail=(event as CustomEvent<{path?:string;keys?:unknown}>).detail; const visualSettings=['theme','seedColor','language','desktopScale']; if(detail?.path==='/api/v1/settings' && Array.isArray(detail.keys) && detail.keys.length>0 && detail.keys.every((key)=>typeof key==='string' && visualSettings.includes(key))) return; sharedStateStore.setState((value) => value); schedule(); };
-    window.addEventListener('hp:committed', committed); window.addEventListener('hp:invalidate', schedule); void refresh(); const stop = subscribeEvents((event) => { handleBrowseSessionEvent(event); if (event.eventType === 'subscription.updated' && event.payload?.contentId && event.payload?.notify!==false && Date.parse(event.createdAt ?? '') >= openedAt && sharedStateStore.getSnapshot().notificationsEnabled) setNotice(t("订阅有新内容")); schedule(event); });
-    return () => { live = false; colorScheme.removeEventListener('change',themeChanged);window.removeEventListener('languagechange',themeChanged);window.removeEventListener('hp:invalidate',invalidateBrowse); if (timer) clearTimeout(timer); stop(); window.removeEventListener('hp:committed', committed); window.removeEventListener('hp:invalidate', schedule); };
+    window.addEventListener('hp:invalidate', invalidateBrowse);
+
+    const committed = (event: Event) => {
+      const detail = (event as CustomEvent<{ path?: string; keys?: unknown }>).detail;
+      const visualSettings = ['theme', 'seedColor', 'language', 'desktopScale'];
+      if (
+        detail?.path === '/api/v1/settings' &&
+        Array.isArray(detail.keys) &&
+        detail.keys.length > 0 &&
+        detail.keys.every((key) => typeof key === 'string' && visualSettings.includes(key))
+      ) {
+        return;
+      }
+      sharedStateStore.setState((value) => value);
+      schedule();
+    };
+
+    window.addEventListener('hp:committed', committed);
+    window.addEventListener('hp:invalidate', schedule);
+    void refresh();
+    const stop = subscribeEvents((event) => {
+      handleBrowseSessionEvent(event);
+      if (
+        event.eventType === 'subscription.updated' &&
+        event.payload?.contentId &&
+        event.payload?.notify !== false &&
+        Date.parse(event.createdAt ?? '') >= openedAt &&
+        sharedStateStore.getSnapshot().notificationsEnabled
+      ) {
+        setNotice(t('订阅有新内容'));
+      }
+      schedule(event);
+    });
+
+    return () => {
+      live = false;
+      colorScheme.removeEventListener('change', themeChanged);
+      window.removeEventListener('languagechange', themeChanged);
+      window.removeEventListener('hp:invalidate', invalidateBrowse);
+      if (timer) clearTimeout(timer);
+      stop();
+      window.removeEventListener('hp:committed', committed);
+      window.removeEventListener('hp:invalidate', schedule);
+    };
   }, []);
-  const rootDestinations = useRef<Record<string,string>>({});
-  const currentPath = location.split('?')[0]!.split('#')[0]!;
-  if (currentPath==='/discover'||currentPath.startsWith('/domain/')||(currentPath==='/subscriptions'&&new URLSearchParams(window.location.search).get('view')!=='updates')) rootDestinations.current['/discover']=location;
-  if (currentPath==='/library'||currentPath==='/downloads') rootDestinations.current[currentPath]=location;
+
+  const rootDestinations = useRef<Record<string, string>>({});
+  if (
+    currentPath === '/discover' ||
+    currentPath === '/' ||
+    currentPath.startsWith('/domain/') ||
+    (currentPath === '/subscriptions' && new URLSearchParams(window.location.search).get('view') !== 'updates')
+  ) {
+    rootDestinations.current['/discover'] = location;
+  }
+  if (currentPath === '/library' || currentPath === '/downloads') {
+    rootDestinations.current[currentPath] = location;
+  }
+
   const previousPath = useRef(window.location.pathname);
-  useEffect(() => { const path = location.split('?')[0]!.split('#')[0]!; if (previousPath.current !== path) { previousPath.current = path; if (!location.includes('#')) document.getElementById('page-content')?.focus({preventScroll:true}); } }, [location]);
-  const navigate = (to: string, replace = false) => { if (to === currentRoute()) return; if(!window.dispatchEvent(new CustomEvent('hp:before-navigate',{cancelable:true})))return; if(replace)window.history.replaceState({}, '', to);else window.history.pushState({hpFrom:currentRoute()}, '', to); setLocation(to); setMobileOpen(false); };
-  const active = /^\/(tavern)(\/|$)/.test(window.location.pathname) ? '/library' : window.location.pathname.startsWith('/offline/') ? '/downloads' : window.location.pathname.startsWith('/search') ? '/search' : routes.find((route) => window.location.pathname.startsWith(route.path))?.path ?? '/discover';
-  const rootNavigation = /^\/(?:discover|domain(?:\/[^/?#]+)?|library|downloads|settings)?(?:[?#]|$)/.test(location) && !(window.location.pathname==='/settings' && new URLSearchParams(window.location.search).has('section'));
-  return <PreferenceContext.Provider value={preferences.settings}><SourceCatalog.Provider value={sourceNameState}><SourceNames.Provider value={sourceNames}><CategoryNames.Provider value={categoryNames}><div data-navigation-collapsed={navigationCollapsed} className={"app-shell" + (rootNavigation ? " has-root-navigation" : "") + (/^\/(read|watch)\//.test(currentPath) ? " is-consuming" : "")}><aside onBlur={event=>{if(mobileOpen && event.relatedTarget instanceof Node && !event.currentTarget.contains(event.relatedTarget))setMobileOpen(false);}} id="mobile-navigation" className={'sidebar ' + (mobileOpen ? 'mobile-open' : '')} aria-label={t("主导航")}>{mobileOpen ? <button className="chip nav-close" onClick={()=>{setMobileOpen(false);document.getElementById('navigation-toggle')?.focus();}}>{t("关闭导航")}</button> : null}<a className="brand" href="/discover" onClick={(event) => navigateClick(event, navigate, '/discover')}><span className="brand-mark"><img src={appIcon} alt="" /></span><span className="brand-copy"><strong>HentaiPark</strong><small>{t("内容管理工作台")}</small></span></a><nav>{[{label:'主导航',paths:['/discover','/library','/downloads','/settings']},{label:'更多',paths:['/search','/sites','/history','/subscriptions','/sources']}].map(group=><section className="navigation-group" key={group.label}><span className="nav-heading">{t(group.label)}</span>{group.paths.map(path=>{const route=routes.find(item=>item.path===path)!;return <NavLink key={path} route={route} active={active===path} navigate={navigate}/>;})}</section>)}</nav><div className="sidebar-footer desktop-preferences"><div className="desktop-theme-options" role="group" aria-label={t('主题')}>{(['light','dark'] as const).map(optionTheme=><button key={optionTheme} type="button" aria-pressed={theme===optionTheme} onClick={()=>setTheme(optionTheme)}>{t(optionTheme==='light'?'浅色':'深色')}</button>)}</div><a className="desktop-language" title={t('界面语言')} href="/settings?section=appearance" onClick={event=>navigateClick(event,navigate,'/settings?section=appearance')}>{languageNames[language]}<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true"><path d="m9 5 7 7-7 7"/></svg></a></div></aside><div className="main-column"><header className="topbar"><button type="button" className="desktop-navigation-toggle" aria-controls="mobile-navigation" aria-expanded={!navigationCollapsed} aria-label={t(navigationCollapsed?'展开':'收起')+' '+t('主导航')} title={t(navigationCollapsed?'展开':'收起')+' '+t('主导航')} onClick={toggleNavigation}><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16"/><path d={navigationCollapsed?'m13 9 3 3-3 3':'m16 9-3 3 3 3'}/></svg></button><button id="navigation-toggle" className="mobile-menu" type="button" aria-label={mobileOpen ? t("关闭导航") : t("打开导航")} aria-expanded={mobileOpen} aria-controls="mobile-navigation" onClick={() => setMobileOpen(!mobileOpen)}><svg width="20" height="20" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.6" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"/></svg></button><LocationTrail location={location} navigate={navigate}/><div className="top-actions"><a className="workspace-search" href="/search" onClick={event=>navigateClick(event,navigate,'/search')} aria-label={t("全局搜索")}><NavigationIcon name="/search" /><span>{t("搜索")}</span></a><GlobalStatus syncError={syncError} navigate={navigate}/><a className="chip top-preference" href="/settings?section=appearance" onClick={event=>navigateClick(event,navigate,'/settings?section=appearance')}>{languageNames[language]}</a><button className="icon-button top-preference" aria-label={t("切换主题")} onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}>{theme === 'light' ? t('深色') : t('浅色')}</button><a className="avatar top-preference" aria-label={t("打开设置")} href="/settings" onClick={(event) => navigateClick(event, navigate, '/settings')}>{t("设置")}</a></div></header><main id="main-content" className="content"><a className="skip-link" href="#page-content">{t("跳到页面内容")}</a>{syncError ? <StatusMessage tone="danger" title={t("状态同步失败")}>{syncError}<button className="chip" onClick={() => window.dispatchEvent(new Event('hp:invalidate'))}>{t("重试同步")}</button></StatusMessage> : null}{notice && shared.notificationsEnabled ? <StatusMessage title={notice}><a href="/subscriptions" onClick={(event) => navigateClick(event, navigate, '/subscriptions')}>{t("查看订阅更新")}</a><button className="chip" onClick={() => setNotice('')}>{t("关闭通知")}</button></StatusMessage> : null}<div id="page-content" tabIndex={-1}><DesktopBack location={location} navigate={navigate}/><Page location={location} navigate={navigate} /><DesktopScrollTop /></div></main></div>{rootNavigation ? <MobileNav destinations={rootDestinations.current} active={active === "/subscriptions" ? "/discover" : active} navigate={navigate} /> : null}</div></CategoryNames.Provider></SourceNames.Provider></SourceCatalog.Provider></PreferenceContext.Provider>;
+  useEffect(() => {
+    const path = location.split('?')[0]!.split('#')[0]!;
+    if (previousPath.current !== path) {
+      previousPath.current = path;
+      if (!location.includes('#')) document.getElementById('page-content')?.focus({ preventScroll: true });
+    }
+  }, [location]);
+
+  const navigate = useCallback((to: string, replace = false) => {
+    if (to === currentRoute()) return;
+    if (!window.dispatchEvent(new CustomEvent('hp:before-navigate', { cancelable: true }))) return;
+    if (replace) {
+      window.history.replaceState({}, '', to);
+    } else {
+      recordInternalPush();
+      window.history.pushState({ hpFrom: currentRoute() }, '', to);
+    }
+    setLocation(to);
+    setMobileOpen(false);
+  }, []);
+
+  const active = window.location.pathname.startsWith('/offline/')
+    ? '/downloads'
+    : window.location.pathname.startsWith('/search')
+      ? '/search'
+      : routes.find((route) => window.location.pathname.startsWith(route.path))?.path ?? '/discover';
+
+  const rootNavigation =
+    /^\/(?:discover|domain(?:\/[^/?#]+)?|library|downloads|settings)?(?:[?#]|$)/.test(location) &&
+    !(window.location.pathname === '/settings' && new URLSearchParams(window.location.search).has('section'));
+
+  return (
+    <PreferenceContext.Provider value={preferences.settings}>
+      <SourceCatalog.Provider value={sourceNameState}>
+        <SourceNames.Provider value={sourceNames}>
+          <CategoryNames.Provider value={categoryNames}>
+            <div
+              data-navigation-collapsed={navigationCollapsed}
+              className={'app-shell' + (rootNavigation ? ' has-root-navigation' : '') + (isConsuming ? ' is-consuming' : '')}
+            >
+              <aside
+                onBlur={(event) => {
+                  if (mobileOpen && event.relatedTarget instanceof Node && !event.currentTarget.contains(event.relatedTarget)) {
+                    setMobileOpen(false);
+                  }
+                }}
+                id="mobile-navigation"
+                className={'sidebar ' + (mobileOpen ? 'mobile-open' : '')}
+                aria-label={t('主导航')}
+              >
+                {mobileOpen ? (
+                  <button
+                    className="chip nav-close"
+                    onClick={() => {
+                      setMobileOpen(false);
+                      document.getElementById('navigation-toggle')?.focus();
+                    }}
+                  >
+                    {t('关闭导航')}
+                  </button>
+                ) : null}
+                <a className="brand" href="/discover" onClick={(event) => navigateClick(event, navigate, '/discover')}>
+                  <span className="brand-mark">
+                    <img src={appIcon} alt="" />
+                  </span>
+                  <span className="brand-copy">
+                    <strong>HentaiPark</strong>
+                    <small>{t('内容管理工作台')}</small>
+                  </span>
+                </a>
+                <nav>
+                  {[
+                    { label: '主导航', paths: ['/discover', '/library', '/downloads', '/settings'] },
+                    { label: '更多', paths: ['/search', '/tavern', '/sites', '/history', '/subscriptions', '/sources'] },
+                  ].map((group) => (
+                    <section className="navigation-group" key={group.label}>
+                      <span className="nav-heading">{t(group.label)}</span>
+                      {group.paths.map((path) => {
+                        const route = routes.find((item) => item.path === path)!;
+                        return <NavLink key={path} route={route} active={active === path} navigate={navigate} />;
+                      })}
+                    </section>
+                  ))}
+                </nav>
+                <div className="sidebar-footer desktop-preferences">
+                  <div className="desktop-theme-options" role="group" aria-label={t('主题')}>
+                    {(['light', 'dark'] as const).map((optionTheme) => (
+                      <button
+                        key={optionTheme}
+                        type="button"
+                        aria-pressed={theme === optionTheme}
+                        onClick={() => setTheme(optionTheme)}
+                      >
+                        {t(optionTheme === 'light' ? '浅色' : '深色')}
+                      </button>
+                    ))}
+                  </div>
+                  <a
+                    className="desktop-language"
+                    title={t('界面语言')}
+                    href="/settings?section=appearance"
+                    onClick={(event) => navigateClick(event, navigate, '/settings?section=appearance')}
+                  >
+                    {languageNames[language]}
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true">
+                      <path d="m9 5 7 7-7 7" />
+                    </svg>
+                  </a>
+                </div>
+              </aside>
+
+              <div className="main-column">
+                <header className="topbar">
+                  <button
+                    type="button"
+                    className="desktop-navigation-toggle"
+                    aria-controls="mobile-navigation"
+                    aria-expanded={!navigationCollapsed}
+                    aria-label={t(navigationCollapsed ? '展开' : '收起') + ' ' + t('主导航')}
+                    title={t(navigationCollapsed ? '展开' : '收起') + ' ' + t('主导航')}
+                    onClick={toggleNavigation}
+                  >
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true">
+                      <rect x="3" y="4" width="18" height="16" rx="2" />
+                      <path d="M9 4v16" />
+                      <path d={navigationCollapsed ? 'm13 9 3 3-3 3' : 'm16 9-3 3 3 3'} />
+                    </svg>
+                  </button>
+                  <button
+                    id="navigation-toggle"
+                    className="mobile-menu"
+                    type="button"
+                    aria-label={mobileOpen ? t('关闭导航') : t('打开导航')}
+                    aria-expanded={mobileOpen}
+                    aria-controls="mobile-navigation"
+                    onClick={() => setMobileOpen(!mobileOpen)}
+                  >
+                    <svg width="20" height="20" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.6" aria-hidden="true">
+                      <path d="M4 6h16M4 12h16M4 18h16" />
+                    </svg>
+                  </button>
+                  <LocationTrail location={location} navigate={navigate} />
+                  <div className="top-actions">
+                    <a
+                      className="workspace-search"
+                      href="/search"
+                      onClick={(event) => navigateClick(event, navigate, '/search')}
+                      aria-label={t('全局搜索')}
+                    >
+                      <NavigationIcon name="/search" />
+                      <span>{t('搜索')}</span>
+                    </a>
+                    <GlobalStatus syncError={syncError} navigate={navigate} />
+                    <a
+                      className="chip top-preference"
+                      href="/settings?section=appearance"
+                      onClick={(event) => navigateClick(event, navigate, '/settings?section=appearance')}
+                    >
+                      {languageNames[language]}
+                    </a>
+                    <button
+                      className="icon-button top-preference"
+                      aria-label={t('切换主题')}
+                      onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}
+                    >
+                      {theme === 'light' ? t('深色') : t('浅色')}
+                    </button>
+                    <a
+                      className="avatar top-preference"
+                      aria-label={t('打开设置')}
+                      href="/settings"
+                      onClick={(event) => navigateClick(event, navigate, '/settings')}
+                    >
+                      {t('设置')}
+                    </a>
+                  </div>
+                </header>
+
+                <main id="main-content" className="content">
+                  <a className="skip-link" href="#page-content">
+                    {t('跳到页面内容')}
+                  </a>
+                  {syncError ? (
+                    <StatusMessage tone="danger" title={t('状态同步失败')}>
+                      {syncError}
+                      <button className="chip" onClick={() => window.dispatchEvent(new Event('hp:invalidate'))}>
+                        {t('重试同步')}
+                      </button>
+                    </StatusMessage>
+                  ) : null}
+                  {notice && shared.notificationsEnabled ? (
+                    <StatusMessage title={notice}>
+                      <a href="/subscriptions?view=updates" onClick={(event) => navigateClick(event, navigate, '/subscriptions?view=updates')}>
+                        {t('查看订阅更新')}
+                      </a>
+                      <button className="chip" onClick={() => setNotice('')}>
+                        {t('关闭通知')}
+                      </button>
+                    </StatusMessage>
+                  ) : null}
+                  <div id="page-content" tabIndex={-1}>
+                    <DesktopBack location={location} navigate={navigate} />
+                    <RouterSwitch location={location} navigate={navigate} />
+                    <DesktopScrollTop />
+                  </div>
+                </main>
+              </div>
+              {rootNavigation ? (
+                <MobileNav
+                  destinations={rootDestinations.current}
+                  active={active === '/subscriptions' ? '/discover' : active}
+                  navigate={navigate}
+                />
+              ) : null}
+            </div>
+          </CategoryNames.Provider>
+        </SourceNames.Provider>
+      </SourceCatalog.Provider>
+    </PreferenceContext.Provider>
+  );
 }
+
 function LocationTrail({ location, navigate }: { location: string; navigate: (url: string) => void }) {
   const path = location.split('?')[0]!.split('#')[0]!;
   const parts = path.split('/');
-  const nested = ['source','work','read','watch','channel','post','album'].includes(parts[1] ?? '');
+  const nested = ['source', 'work', 'read', 'watch', 'channel', 'post', 'album'].includes(parts[1] ?? '');
   const source = nested ? decodeURIComponent(parts[2] ?? '') : '';
-  const state = useAsync(() => source ? api.source(source) : Promise.resolve(undefined), [source]);
+  const state = useAsync(() => (source ? api.source(source) : Promise.resolve(undefined)), [source]);
   const category = parts[1] === 'domain' ? decodeURIComponent(parts[2] ?? '') : String(state.data?.manifest?.category ?? '');
   const settingsSection = path === '/settings' ? new URLSearchParams(location.split('?')[1] ?? '').get('section') : null;
-  const settingsTitle = settingsSection && Object.hasOwn(settingsSectionTitles,settingsSection) ? settingsSectionTitles[settingsSection as keyof typeof settingsSectionTitles] : undefined;
-  const label = settingsTitle ?? routes.find(route => route.path === path)?.label ?? ({domain: categoryLabels[category] ?? category, source: String(state.data?.manifest?.name ?? source),work:'作品详情',read:'阅读',watch:'播放',rankings:'榜单',channel:'频道',post:'帖子',album:'相册',tavern:'酒馆',offline:'离线内容',sites:'全部站点',history:'历史'} as Record<string,string>)[parts[1] ?? ''] ?? '页面';
-  const link = (href: string, text: string) => <a href={href} onClick={event => navigateClick(event,navigate,href)}>{t(text)}</a>;
-  return <nav className="breadcrumbs" aria-label={t('当前位置')}>{path !== '/discover' && path !== '/' ? <span className="breadcrumb-parent">{link('/discover','发现')}<span aria-hidden="true">/</span></span> : null}{settingsTitle ? <span className="breadcrumb-parent">{link('/settings','设置')}<span aria-hidden="true">/</span></span> : null}{nested && category ? <span className="breadcrumb-parent">{link(domainHref(category),categoryLabels[category] ?? category)}<span aria-hidden="true">/</span></span> : null}{source && parts[1] !== 'source' ? <span className="breadcrumb-parent">{link('/source/'+encodeURIComponent(source),String(state.data?.manifest?.name ?? source))}<span aria-hidden="true">/</span></span> : null}<strong aria-current="page">{t(path === '/' ? '发现' : label)}</strong></nav>;
-}
-function GlobalStatus({syncError,navigate}:{syncError:string;navigate:(to:string)=>void}) {
-  const shared=useSharedState();const [online,setOnline]=useState(navigator.onLine);const updates=useAsync(()=>api.subscriptions({limit:1}),[]);const unread=Number(updates.data?.unreadCount??0);
-  useEffect(()=>{const update=()=>setOnline(navigator.onLine);window.addEventListener('online',update);window.addEventListener('offline',update);return()=>{window.removeEventListener('online',update);window.removeEventListener('offline',update);};},[]);
-  const pending=Object.values(shared.downloads).filter(task=>!['completed','cancelled'].includes(task.status)).length;
-  return <>{unread>0?<a className="chip" href="/subscriptions?view=updates" onClick={event=>navigateClick(event,navigate,'/subscriptions?view=updates')}>{t('更新')} {unread}</a>:null}{pending>0?<a className="chip" href="/downloads" onClick={event=>navigateClick(event,navigate,'/downloads')}>{t('下载')} {pending}</a>:null}{!online||syncError?<span className="instance-status" role="status">{!online?t('浏览器离线'):t('同步异常')}</span>:null}</>;
-}
-function NavLink({ route, active, navigate }: { route: Route; active: boolean; navigate: (to: string) => void }) { const href=route.href??route.path; return <a href={href} className={'nav-link ' + (active ? 'active' : '')} title={t(route.label)} aria-current={active ? 'page' : undefined} onClick={(event) => navigateClick(event, navigate, href)}><span aria-hidden="true" className="nav-icon"><NavigationIcon name={route.path}/></span><span className="nav-label">{t(route.label)}</span></a>; }
-function MobileNav({ active, navigate, destinations }: { active: string; navigate: (to: string) => void; destinations:Record<string,string> }) { return <nav className="mobile-nav" aria-label={t("移动端导航")}>{[{path:'/discover',label:'发现'},{path:'/library',label:'收藏'},{path:'/downloads',label:'下载'},{path:'/settings',label:'我的'}].map(route=><NavLink key={route.path} route={{...route,href:destinations[route.path]??route.path}} active={active===route.path} navigate={navigate}/>)}</nav>; }
-function Page({ location, navigate }: { location: string; navigate: (to: string) => void }) {
-  const [path, search] = location.split('#')[0]!.split('?'); const params = new URLSearchParams(search?.split('#')[0]); const query = params.get('q') ?? '';
-  if (path === '/sites') return <DiscoverPage sitesOnly navigate={navigate}/>;
-  if (path === '/history') return <LibraryPage view={params.get('mode')==='continue'?'continue':'history'} category="" navigate={navigate}/>;
-  if (path.startsWith('/domain/')) return <DiscoverPage key={path} category={decodeURIComponent(path.split('/')[2] ?? '')} navigate={navigate} />;
-  if (path === '/rankings') return <RankingsPage search={search ?? ''} navigate={navigate} />;
-  if (path === '/search') return <SearchPage selection={JSON.stringify({sources:params.getAll('sources'),mediaKind:params.get('mediaKind')??undefined,category:params.get('category')??undefined})} initialKeywords={params.get('keywords')??''} initialFilters={params.get('filters') ?? ''} initialQuery={query} initialScope={params.get('scope') ?? 'all'} initialSource={params.get('source') ?? ''} initialCursor={params.get('cursor') ?? ''} initialLimit={Number(params.get('limit') ?? '24')} initialView={params.get('view') === 'grouped' ? 'grouped' : params.get('view') === 'grid' ? 'grid' : params.get('view') === 'list' ? 'list' : 'grouped'} navigate={navigate} />;
-  if (path.startsWith('/album/')) return <AlbumPage key={path+'?'+(search??'')} source={decodeURIComponent(path.split('/')[2]??'')} search={search??''} navigate={navigate}/>;
-  if (path === '/sources') return <SourcesPage navigate={navigate} />;
-  if (path.startsWith('/source/')) { const source = decodeURIComponent(path.split('/')[2] ?? ''); return <SourcePage key={source} source={source} navigate={navigate} />; }
-  if (path.startsWith('/work/')) return <WorkPage key={path} parts={path.split('/').slice(2)} directory={params.get('directory') ?? undefined} navigate={navigate} />;
-  if (path.startsWith('/read/') || path.startsWith('/watch/')) return <ReaderPage key={path} mode={path.startsWith('/watch/') ? 'watch' : 'read'} parts={path.split('/').slice(2)} navigate={navigate} />;
-  if (path === '/library') return <LibraryPage navigate={navigate} view={params.get('view')==='recent'?'recent':'favorites'} category={params.get('category') ?? ''} />;
-  if (path === '/downloads') return <DownloadsPage navigate={navigate} />;
-  if (path === '/subscriptions') return <SubscriptionsPage navigate={navigate}/>;
-  if(path.startsWith('/channel/'))return <ChannelPage source={decodeURIComponent(path.split('/')[2]??'')} target={params.get('target')??undefined} kind={params.get('kind')??undefined} navigate={navigate}/>;
-  if(path.startsWith('/post/'))return <PostPage source={decodeURIComponent(path.split('/')[2]??'')} workId={decodeURIComponent(path.split('/')[3]??'')}/>;
-  if(path==='/tavern')return <TavernLibraryPage/>;
-  if(path.startsWith('/offline/'))return <OfflinePage taskId={decodeURIComponent(path.slice('/offline/'.length))}/>;
-  if (path === '/settings') return <SettingsPage navigate={navigate} />;
-  if (path === '/' || path === '/discover') return <DiscoverPage navigate={navigate} />;
-  return <><PageHeader title={t('页面不存在')} description={t('请检查链接，或返回发现继续浏览。')}/><a href='/discover' onClick={event => navigateClick(event,navigate,'/discover')}>{t('返回发现')}</a></>;
-}
-function SearchBox({ navigate, initial = '', scope = 'all', source = '', view = 'grouped', filters = '', onSearch }: { navigate: (to: string) => void; initial?: string; scope?: string; source?: string; view?: string; filters?: string; onSearch?: (query: string) => void }) {
-  const shared = useSharedState(); const [value, setValue] = useState(initial);const [composing,setComposing]=useState(false);
-  useEffect(() => { setValue(initial); }, [initial, scope, source, view]);
-  return <form className="search-box" role="search" onSubmit={(event) => { event.preventDefault(); const queryValue = value.trim(); if (shared.incognito === false) { try { sessionStorage.setItem('hp-last-search', JSON.stringify({ q: queryValue, scope, source, view, filters })); } catch { /* Optional recent-search cache is unavailable. */ } } if (onSearch) onSearch(queryValue); else navigate('/search?q=' + encodeURIComponent(queryValue) + '&scope=' + encodeURIComponent(scope) + '&source=' + encodeURIComponent(source) + '&view=' + encodeURIComponent(view)); }}><NavigationIcon name="/search"/><input value={value} onCompositionStart={()=>setComposing(true)} onCompositionEnd={()=>setComposing(false)} onChange={(event) => setValue(event.target.value)} placeholder={t("搜索作品、标签或番号")} aria-label={t("搜索关键词")} /><button className="chip" type="submit">{t("搜索")}</button><SearchTools keyword={composing?'':value} source={source||(new URLSearchParams(window.location.search).getAll('sources').length===1?new URLSearchParams(window.location.search).get('sources')??'':'')} navigate={navigate} search={(keyword,keywords)=>navigate('/search?q='+encodeURIComponent(keyword)+'&scope='+encodeURIComponent(scope)+'&source='+encodeURIComponent(source)+'&filters='+encodeURIComponent(filters)+(keywords?'&keywords='+encodeURIComponent(JSON.stringify(keywords)):'')+searchSelectionQuery())}/></form>;
-}
-function identityMatches(key:string,source:string,workId:string){try{const parts=JSON.parse(key.replace(/^download:/,''));return parts[0]===source&&parts[1]===workId;}catch{return false;}}
-function WorkCard({ work, navigate, manageCollections = false, cacheScope = 'transient', selection, openHref, compact = false, onRemove }: { work: ApiWork; navigate: (to: string) => void; manageCollections?: boolean; cacheScope?: 'cards' | 'transient'; selection?: {selected:boolean; toggle:()=>void}; openHref?: string; compact?: boolean; onRemove?: () => void }) {
-  const prefs=useContext(PreferenceContext);const href = hrefFor(work); const shared = useSharedState(); const categoryNames=useContext(CategoryNames); const sourceNames=useContext(SourceNames); const identity=workIdentityKey({ source: work.source, id: work.workId }); const collection=shared.collections[identity]; const categories = collection?.categoryIds ?? []; const favorite=collection?.favorite===true; const [favoriteBusy,setFavoriteBusy]=useState(false);
-  const toggleFavorite=()=>{setFavoriteBusy(true);void api.setLibrary({source:work.source,workId:work.workId,favorite:!favorite}).finally(()=>setFavoriteBusy(false));};
-  const coverAspect = work.mediaKind === 'video' || work.mediaKind === 'article' ? '16 / 9' : work.mediaKind === 'voice' || work.mediaKind === 'game' ? '1 / 1' : '3 / 4';
-  const actionHref=openHref??href;
-  return <article className={'work-card media-' + work.mediaKind + (compact ? ' compact-work-card' : '') + (!work.coverAuthorization ? ' without-cover' : '')}>{selection?<label className="work-select"><input type="checkbox" checked={selection.selected} onChange={selection.toggle}/><span className="sr-only">{t('选择作品')} {work.title}</span></label>:null}<div style={{aspectRatio:coverAspect}} className={'cover ' + (!work.coverAuthorization ? 'cover-empty' : '') + (work.coverBlurred ? ' source-blurred' : '')}>{work.coverAuthorization ? <CoverImage authorization={work.coverAuthorization} alt={work.title + t("封面")} className="cover-image" retryLabel={t("重试封面")} scope={cacheScope} /> : null}<a href={href} className="cover-open" aria-label={t("打开作品 ") + work.title} onClick={(event) => navigateClick(event, navigate, href)}><span>{t(work.capabilities.metadataOnly?'资料':mediaLabels[work.mediaKind] ?? work.mediaKind)}</span></a></div><div className="work-meta"><h3><a title={work.title} href={href} onClick={(event) => navigateClick(event, navigate, href)}>{work.title}</a></h3><p>{prefs.badgeSource!==false?(sourceNames[work.source]??work.source):null}{work.tags?.length?<span> · {work.tags.map((tag,index)=><span key={index}>{index?' · ':''}<TranslatedTag source={tag.source} label={tag.label} namespace={tag.namespace}/></span>)}</span>:null}</p>{prefs.badgeUnread!==false&&Number(work.unreadCount)>0?<span className="chapter-state">{work.unreadCount} {t('未读')}</span>:null}{prefs.badgeDownloaded!==false&&work.downloaded===true?<span className="chapter-state">{t('已下载')}</span>:null}<WorkSummary work={work}/>{work.summary?.trim() ? <p className="work-excerpt">{work.summary}</p> : null}{categories.length ? <div className="collection-tags" role="group" aria-label={t("分类")}>{categories.map(category => <span className="collection-tag" key={category}>{categoryNames[category]??t("已归类")}</span>)}</div> : null}<div className="work-card-actions"><a className="primary-link" href={actionHref} onClick={(event) => navigateClick(event, navigate, actionHref)}>{compact?t("继续"):t("打开作品")}</a>{compact?null:<><a className="chip" href={href+'#chapter-downloads'} onClick={(event) => navigateClick(event, navigate, href+'#chapter-downloads')}>{t("下载")}</a><button className="secondary-link" type="button" aria-pressed={favorite} disabled={favoriteBusy||!shared.collectionsReady} onClick={toggleFavorite}>{favorite?t("已收藏"):t("收藏")}</button></>}</div>{compact&&onRemove?<button className="work-card-remove chip" type="button" onClick={onRemove}>{t("移除")}</button>:null}{manageCollections ? <CategoryEditor source={work.source} workId={work.workId} title={work.title} /> : null}</div></article>;
-}
-function WorkGrid({ items, view, navigate, manageCollections = false, cacheScope = 'transient', selection }: { items: ApiWork[]; view: 'grid' | 'list'; navigate: (to: string) => void; manageCollections?: boolean; cacheScope?: 'cards' | 'transient'; selection?: {keys:string[]; toggle:(key:string)=>void} }) { const settings=useContext(PreferenceContext);const prefs={settings};const [showBlocked,setShowBlocked]=useState(false);const visible=showBlocked?items:items.filter(work=>!work.blocked);return <>{items.some(work=>work.blocked)?<button className="chip" aria-pressed={showBlocked} onClick={()=>setShowBlocked(value=>!value)}>{showBlocked?t("应用屏蔽规则"):t("临时显示原始结果")}</button>:null}<div className={'work-grid '+(view==='list'?'list-view':'')} style={view!=='list'&&Number(prefs.settings.gridColumns)>0?{gridTemplateColumns:'repeat('+prefs.settings.gridColumns+',minmax(0,1fr))'}:undefined}>{visible.length===0&&items.length>0?<p role="status">{t("结果已被屏蔽规则过滤。")}</p>:null}{visible.map(work=><WorkCard key={workIdentityKey({source:work.source,id:work.workId})} work={work} navigate={navigate} manageCollections={manageCollections} cacheScope={cacheScope} selection={selection?{selected:selection.keys.includes(workIdentityKey({source:work.source,id:work.workId})),toggle:()=>selection.toggle(workIdentityKey({source:work.source,id:work.workId}))}:undefined}/>)}</div></>;}
-
-function DiscoverPage({ navigate, category, sitesOnly = false }: { navigate: (to: string) => void; category?: string; sitesOnly?: boolean }) {
-  const homePreferences = useHomePreferences(),prefs=usePreferences();
-  const historyVersion = useServerVersion(['chapter.progressed','work.updated','account.updated']);
-  const params = new URLSearchParams(window.location.search);
-  const dimension = ['twoD','threeD'].includes(params.get('dimension') ?? '') ? params.get('dimension')! : 'all';
-  const media = ['image','video','voice','other'].includes(params.get('media') ?? '') ? params.get('media')! : 'all';
-  const ordered=Array.isArray(prefs.settings.domainOrder)?prefs.settings.domainOrder as string[]:[],selected=Array.isArray(prefs.settings.homeCategories)?prefs.settings.homeCategories as string[]:[];const categories=[...ordered.filter(value=>domainOrder.includes(value)),...domainOrder.filter(value=>!ordered.includes(value))].filter(value=>categoryInScope(value,dimension,media)&&(category||sitesOnly||!selected.length||selected.includes(String(value))));
-  const scopeCategories = !prefs.ready?[]:category ? categories.filter(value=>value===category) : categories;
-  const scope = scopeCategories.join(',');
-  const destination = (value?:string, sites=false) => {const query=new URLSearchParams();if(dimension!=='all')query.set('dimension',dimension);if(media!=='all')query.set('media',media);return (sites?'/sites':value?domainHref(value):'/discover')+(query.size?'?'+query:'');};
-  const setScope = (name:string,value:string) => {const query=new URLSearchParams(window.location.search);value==='all'?query.delete(name):query.set(name,value);const nextDimension=name==='dimension'?value:dimension,nextMedia=name==='media'?value:media;const nextCategory=category&&categoryInScope(category,nextDimension,nextMedia)?category:undefined;navigate((sitesOnly?'/sites':nextCategory?domainHref(nextCategory):'/discover')+(query.size?'?'+query:''));};
-  const [retries,setRetries]=useState(0),[expanded,setExpanded]=useState<string[]>([]),[hiddenHistory,setHiddenHistory]=useState<string[]>([]),[removingHistory,setRemovingHistory]=useState<string>();
-  useEffect(()=>{if(prefs.ready)setExpanded(Array.isArray(prefs.settings.homeExpandedDomains)?prefs.settings.homeExpandedDomains as string[]:[]);},[prefs.ready,prefs.settings.homeExpandedDomains]);
-  const continueTrack=useRef<HTMLDivElement>(null);
-  const [historyEdges,setHistoryEdges]=useState({start:true,end:true,scrollable:false});
-  const moveHistory=(direction:number)=>{const track=continueTrack.current;if(track)track.scrollBy({left:direction*(getComputedStyle(track).direction==='rtl'?-1:1)*track.clientWidth*.85,behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'instant':'smooth'});};
-  const sources=useContext(SourceCatalog);
-  const [knownSources,setKnownSources]=useState<Source[]>([]);
-  useEffect(()=>{if(sources.data)setKnownSources(sources.data);},[sources.data]);
-  const history=useAsync(async signal=>{if(sitesOnly)return [];const page=await api.history({categories:scope,limit:20,uniqueWorks:true});return Promise.all(page.items.map(async entry=>{try{return {entry,work:await api.work(entry.source,entry.workId,signal),error:''};}catch(error){if(signal.aborted)throw error;return {entry,work:undefined,error:errorMessage(error)};}}));},[scope,retries,sitesOnly],undefined,{refreshKey:historyVersion,cacheKey:'home-history:'+JSON.stringify([scope,sitesOnly])});
-  useEffect(()=>setHiddenHistory([]),[scope,sitesOnly]);
-  const removeHistory=async(key:string)=>{if(removingHistory)return;setRemovingHistory(key);try{await request('/api/v1/history',{method:'DELETE',body:JSON.stringify({scopeKeys:[key]})});setHiddenHistory(value=>[...value,key]);window.dispatchEvent(new Event('hp:invalidate'));}finally{setRemovingHistory(undefined);}};
-  useEffect(()=>{
-    const track=continueTrack.current;if(!track)return;
-    const card=track.querySelector<HTMLElement>('.continue-card');
-    const update=()=>{
-      setHistoryEdges({start:Math.abs(track.scrollLeft)<2,end:Math.abs(track.scrollLeft)+track.clientWidth>=track.scrollWidth-2,scrollable:track.scrollWidth>track.clientWidth+2});
-      if(card&&track.parentElement){const bounds=card.getBoundingClientRect();track.parentElement.style.setProperty('--shelf-control-center',`${bounds.top+bounds.height/2-track.parentElement.getBoundingClientRect().top}px`);}
-    };
-    const observer=new ResizeObserver(update);observer.observe(track);if(card)observer.observe(card);track.addEventListener('scroll',update,{passive:true});update();
-    return()=>{observer.disconnect();track.removeEventListener('scroll',update);};
-  },[history.data?.length]);
-  const sourcePositions = new Map(homePreferences.order.map((source,index)=>[source,index]));
-  const baselinePositions = new Map((sources.data??knownSources).map((source,index)=>[source.source,source.defaultOrder ?? index]));
-  const enabled=(sources.data??knownSources).filter(item=>item.installed!==false&&item.enabled).sort((a,b)=>(sourcePositions.get(a.source)??Number.MAX_SAFE_INTEGER)-(sourcePositions.get(b.source)??Number.MAX_SAFE_INTEGER)||((baselinePositions.get(a.source)??Number.MAX_SAFE_INTEGER)-(baselinePositions.get(b.source)??Number.MAX_SAFE_INTEGER)));
-  const selectedSources=enabled.filter(item=>scopeCategories.includes(String(item.manifest?.category??'other')));
-  const metadataSources=enabled.filter(item=>{const manifest=item.manifest??{},cap=manifest.capabilities as Record<string,unknown>|undefined;return (manifest.metadataOnly===true||manifest.rankingOnly===true&&cap?.metadataDetail===true)&&(scopeCategories.includes(String(manifest.category))||Array.isArray(manifest.rankings)&&manifest.rankings.some((board:{category?:string})=>scopeCategories.includes(board.category??'')));});
-  const utilitySources=selectedSources.filter(item=>item.manifest?.rankingOnly===true||item.manifest?.reverseSearchOnly===true);
-  const searchable=selectedSources.filter(item=>{const cap=item.manifest?.capabilities as Record<string,unknown>|undefined;return !item.manifest?.metadataOnly&&cap?.search===true;});
-  const search=(query:string)=>{const next=new URLSearchParams({q:query});if(category)next.set('category',category);if(dimension!=='all'||media!=='all')for(const item of searchable)next.append('sources',item.source);navigate('/search?'+next);};
-  const rankSources=selectedSources.filter(item=>Array.isArray(item.manifest?.rankings)&&item.manifest.rankings.length);
-  const reverseAvailable=enabled.some(item=>(item.manifest?.capabilities as Record<string,unknown>|undefined)?.reverseSearch===true);
-  const domainNav=<nav className="domain-nav" aria-label={t('内容领域')}>{!category?<a href="/subscriptions" onClick={event=>navigateClick(event,navigate,'/subscriptions')}>{t('订阅')}</a>:<a href={destination()} onClick={event=>navigateClick(event,navigate,destination())}>{t('全部')}</a>}{categories.map(value=><a key={value} className={category===value?'active':''} aria-current={category===value?'page':undefined} href={destination(value)} onClick={event=>navigateClick(event,navigate,destination(value))}>{t(categoryLabels[value]??value)}</a>)}{category?<a href="/subscriptions" onClick={event=>navigateClick(event,navigate,'/subscriptions')}>{t('订阅')}</a>:null}</nav>;
-  useEffect(()=>{document.querySelector<HTMLElement>('.domain-nav [aria-current="page"]')?.scrollIntoView({block:'nearest',inline:'nearest'});},[category,dimension,media]);
-  const status=(loading:boolean,error:unknown)=>loading?<p role="status">{t('正在加载')}</p>:error?<StatusMessage tone="danger" title={t('此分区暂不可用')}>{errorMessage(error)}<button className="chip" onClick={()=>{setRetries(value=>value+1);window.dispatchEvent(new Event('hp:retry-read'));}}>{t('重试')}</button></StatusMessage>:null;
-  return <>
-    <PageHeader title={sitesOnly?t('全部站点'):category?t(categoryLabels[category]??category):t('发现')} description={category?undefined:t('按内容领域发现，前往喜欢的站点继续浏览。')}>{rankSources.length?<a className="feature-entry" href={'/rankings'+(category?'?category='+encodeURIComponent(category):'')} onClick={event=>navigateClick(event,navigate,event.currentTarget.getAttribute('href')!)}><FeatureIcon name="rankings"/><span>{t('排行榜')}</span></a>:null}{reverseAvailable?<a className="feature-entry" href="/search?mode=reverse#reverse-search" onClick={event=>navigateClick(event,navigate,'/search?mode=reverse#reverse-search')}><FeatureIcon name="reverse"/><span>{t('图片反搜')}</span></a>:null}</PageHeader>
-    <div className="dimension-filter"><label>{t('内容范围')}<select aria-label={t('内容范围')} value={dimension} onChange={event=>setScope('dimension',event.target.value)}>{[['all','全部'],['twoD','二次元'],['threeD','三次元']].map(([value,label])=><option key={value} value={value}>{t(label!)}</option>)}</select></label><label>{t('媒体类型')}<select aria-label={t('媒体类型')} value={media} onChange={event=>setScope('media',event.target.value)}>{[['all','全部'],['image','图片'],['video','视频'],['voice','音声'],['other','其他']].map(([value,label])=><option key={value} value={value}>{t(label!)}</option>)}</select></label></div>
-    {category?domainNav:null}
-    {!sitesOnly&&searchable.length?<div className="discovery-search"><SearchBox navigate={navigate} onSearch={search}/><p className="muted">{category?t(categoryLabels[category]??category):t(dimension==='all'?'全部':dimension==='twoD'?'二次元':'三次元')} · {t(media==='all'?'全部媒体':media==='image'?'图片':media==='video'?'视频':media==='voice'?'音声':'其他')} · {searchable.length} {t('个站点')}</p></div>:null}
-    {status(sources.loading&&!knownSources.length,sources.error)}
-    {homePreferences.error ? <StatusMessage tone="warning" title={t('更新失败')}>{homePreferences.error}<button className="chip" onClick={()=>void homePreferences.reload().catch(()=>undefined)}>{t('重试')}</button></StatusMessage> : null}
-    {!sitesOnly&&(history.loading||history.error||Boolean(history.data?.length))?<section className="section-block"><div className="section-header"><h2>{t('继续看')}</h2>{(history.data?.length??0)>1?<div className="shelf-actions history-header-arrows"><button className="chip" onClick={()=>moveHistory(-1)} aria-label={t('向前浏览')}>{t('上一页')}</button><button className="chip" onClick={()=>moveHistory(1)} aria-label={t('向后浏览')}>{t('下一页')}</button></div>:null}<a href={'/history'+(scope!==domainOrder.join(',')?'?categories='+encodeURIComponent(scope):'')} onClick={event=>navigateClick(event,navigate,event.currentTarget.getAttribute('href')!)}>{t('全部')}</a></div>{history.error ? status(false,history.error) : null}<div className={'shelf-carousel continue-carousel'+(historyEdges.scrollable?' is-scrollable':'')}><button className="shelf-side shelf-side-start" disabled={historyEdges.start} aria-label={t('向前浏览')+' · '+t('继续看')} onClick={()=>moveHistory(-1)}><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true"><path d="M20 12H4m7-7-7 7 7 7"/></svg></button><div className="continue-track" ref={continueTrack} onKeyDown={event=>{if(event.target===event.currentTarget&&(event.key==='ArrowLeft'||event.key==='ArrowRight')){event.preventDefault();moveHistory((event.key==='ArrowRight'?1:-1)*(getComputedStyle(event.currentTarget).direction==='rtl'?-1:1));}}} tabIndex={0} role="region" aria-label={t('继续看')}>{history.loading&&!history.data?.length?<div className="continue-loading-skeleton" role="status" aria-label={t('正在加载')}/>:null}{history.data?.filter(({entry})=>!hiddenHistory.includes(entry.chapterId?chapterIdentityKey({source:entry.source,workId:entry.workId,chapterId:entry.chapterId}):workIdentityKey({source:entry.source,id:entry.workId}))).map(({entry,work,error})=>{const workHref='/work/'+[entry.source,entry.workId].map(encodeURIComponent).join('/');const play=entry.nodeType?['audio','video'].includes(entry.nodeType):work?.mediaKind==='video'||work?.mediaKind==='voice';const href=entry.chapterId&&work?(play?'/watch/':'/read/')+[entry.source,entry.workId,entry.chapterId].map(encodeURIComponent).join('/'):workHref;const historyKey=entry.chapterId?chapterIdentityKey({source:entry.source,workId:entry.workId,chapterId:entry.chapterId}):workIdentityKey({source:entry.source,id:entry.workId});return work ? <WorkCard key={historyKey} work={work} navigate={navigate} cacheScope="cards" openHref={href} compact onRemove={()=>void removeHistory(historyKey)}/> : <article className="continue-card" key={historyKey}><div className="continue-card-heading"><a href={href} onClick={event=>navigateClick(event,navigate,href)}>{entry.workId}</a><button className="chip continue-card-remove" type="button" onClick={()=>void removeHistory(historyKey)}>{t('移除')}</button></div><p>{entry.chapterTitle??entry.chapterId??t('作品')}</p><small>{entry.page!=null?t(' · 第')+(entry.page+1)+t('页'):entry.position?Math.floor(entry.position)+t('秒'):entry.source}</small>{error?<p role="status">{t('详情暂不可用：')}{error}</p>:null}</article>;})}</div><button className="shelf-side shelf-side-end" disabled={historyEdges.end} aria-label={t('向后浏览')+' · '+t('继续看')} onClick={()=>moveHistory(1)}><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true"><path d="M4 12h16m-7-7 7 7 7-7"/></svg></button></div></section>:null}
-    {!category?<>{!sitesOnly?<div className="section-header all-sites-entry"><h2><a href={destination(undefined,true)} onClick={event=>navigateClick(event,navigate,destination(undefined,true))}>{t('全部站点')}</a></h2>{!sitesOnly?<a href={destination(undefined,true)} onClick={event=>navigateClick(event,navigate,destination(undefined,true))}>{selectedSources.length} {t('个站点')}</a>:null}</div>:null}{domainNav}</>:null}
-    {(category||sitesOnly)&&metadataSources.length?<section className="source-role-section" aria-label={t('作品资料')}><div className="section-header"><h2>{t('作品资料')}</h2>{metadataSources.some(item=>(item.manifest?.capabilities as Record<string,unknown>|undefined)?.metadataSearch===true)?<a className="navigation-link" href={'/search?scope=metadata'+(category?'&category='+encodeURIComponent(category):'')} onClick={event=>navigateClick(event,navigate,event.currentTarget.getAttribute('href')!)}>{t('搜索作品资料')}</a>:null}</div><nav className="source-role-links" aria-label={t('资料站点')}>{metadataSources.map(item=><HomeSource key={item.source} source={item} visible directory navigate={navigate} renderItem={work=><WorkCard work={work} navigate={navigate} cacheScope="cards"/>}/>)}</nav></section>:null}
-    {sitesOnly&&utilitySources.length?<section className="source-role-section"><h2>{t('检索工具')}</h2><nav className="source-role-links">{utilitySources.map(item=><HomeSource key={item.source} source={item} visible directory navigate={navigate} renderItem={work=><WorkCard work={work} navigate={navigate} cacheScope="cards"/>}/>)}</nav></section>:null}
-    {scopeCategories.map(value => {
-      const domainSources = selectedSources.filter(item => {
-        if (String(item.manifest?.category ?? 'other') !== value) return false;
-        if (sitesOnly) return !item.manifest?.metadataOnly && !item.manifest?.rankingOnly && !item.manifest?.reverseSearchOnly;
-        const manifest = item.manifest ?? {}, capabilities = manifest.capabilities as Record<string,unknown> | undefined;
-        return !manifest.metadataOnly && !manifest.rankingOnly && !manifest.reverseSearchOnly && (Boolean(category) || capabilities?.feed === true || capabilities?.subscription === true);
-      });
-      if (!domainSources.length) return null;
-      const open = Boolean(category || sitesOnly || expanded.includes(value));
-      return <section className="domain-section" key={value} aria-label={t(categoryLabels[value] ?? value)}>
-        {!category ? <div className="section-header domain-heading"><h2>{t(categoryLabels[value] ?? value)}</h2><div className="domain-heading-actions">{!sitesOnly && domainSources.length > 1 ? <><HomeSourcePicker sources={domainSources} preferences={homePreferences}/><button className="domain-expand" aria-expanded={expanded.includes(value)} aria-controls={'domain-sources-'+value} disabled={!prefs.ready||prefs.busy} onClick={() => {const next=expanded.includes(value)?expanded.filter(item=>item!==value):[...expanded,value];setExpanded(next);void prefs.save({homeExpandedDomains:next});}}>{t(expanded.includes(value) ? '收起' : '展开')}</button></> : null}<a href={destination(value)} onClick={event => navigateClick(event,navigate,destination(value))}>{t('进入域')}</a></div></div> : null}
-        <div id={'domain-sources-'+value}>
-        {domainSources.map((item,index) => <HomeSource key={JSON.stringify([item.source,item.updatedAt,item.manifest,retries,sitesOnly])} source={item} visible={!homePreferences.loading && (open || index === 0)} directory={sitesOnly} hiddenWorks={homePreferences.hidden.includes(item.source)} saving={homePreferences.saving} onToggleHidden={()=>void homePreferences.toggleHidden(item.source).catch(()=>undefined)} navigate={navigate} renderItem={work => <WorkCard work={work} navigate={navigate} cacheScope="cards"/>} />)}
-        </div>
-      </section>;
-    })}
-    {!sources.loading&&!sources.error&&!selectedSources.length?<><EmptyState title={t('当前范围没有启用的站点')} detail={t('前往站点管理，安装或启用内容来源')}/><a className="primary-link" href="/sources" onClick={event=>navigateClick(event,navigate,'/sources')}>{t('管理站点')}</a></>:null}
-
-  </>;
-}
-const searchCacheStore = new Map<string,{items:ApiWork[];sources:Array<{source:string;status:string;code?:string}>;nextCursor?:string|null}>();
-function SearchPage({ selection,initialKeywords, initialQuery, initialScope, initialSource, initialCursor, initialLimit, initialView, initialFilters, navigate }: { selection:string;initialKeywords:string;initialQuery: string; initialScope: string; initialSource: string; initialCursor: string; initialLimit: number; initialView: 'grid' | 'list' | 'grouped'; initialFilters: string; navigate: (to: string) => void }) {
-  const shared = useSharedState(); const sourceNames=useContext(SourceNames); const sourceLabel=(id:string)=>sourceNames[id]??id;
-  const searchKey=JSON.stringify([selection,initialKeywords,initialQuery,initialScope,initialSource,initialCursor,initialLimit,initialFilters]);
-  const previous=searchCacheStore.get(searchKey);
-  const [execution, setExecution] = useState(0);
-  const [nextCursor, setNextCursor] = useState<string | null | undefined>(previous?.nextCursor);
-  const [view, setView] = useState(initialView);
-  const [results, setResults] = useState<ApiWork[]>(previous?.items ?? []);
-  const [sourceResults,setSourceResults]=useState<Array<{source:string;status:string;code?:string}>>(previous?.sources ?? []);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<unknown>();
-  const [cancelled, setCancelled] = useState(false);
-  const generation = useRef(0);
-  const abortRef = useRef<AbortController | null>(null);
-  useEffect(() => { setView(initialView); }, [initialView]);
-  useEffect(() => {
-    abortRef.current?.abort();
-    setCancelled(false); setNextCursor(previous?.nextCursor); setError(undefined); if (!previous) { setResults([]); setSourceResults([]); }
-    let filters: WorkTag['filters']; try { if (initialFilters) { const parsed = JSON.parse(initialFilters); if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) throw new Error(t("筛选条件必须是对象")); filters = parsed; } } catch { setError(new Error(t("URL筛选条件无效，请清除筛选后重试"))); setLoading(false); return; }
-    if (!initialQuery.trim() && (!filters || !Object.keys(filters).length)) { setLoading(false); return; }
-    const controller = new AbortController();
-    abortRef.current = controller;
-    const current = ++generation.current;
-    setLoading(true);
-    let keywords:string[]|undefined;try{if(initialKeywords){const values=JSON.parse(initialKeywords);if(!Array.isArray(values)||values.length>8||values.some(value=>typeof value!=='string'||!value||value.length>512))throw Error();keywords=values;}}catch{setError(new Error(t('多语言关键词无效')));setLoading(false);return;}
-    void api.search({ ...JSON.parse(selection),query: initialQuery, keywords, filters, scope: initialScope, source: initialSource || undefined, cursor: initialCursor || undefined, limit: initialLimit, requestGeneration: current }, controller.signal)
-      .then((value) => {
-        if (!controller.signal.aborted && current === generation.current) {
-          const items=value.items ?? [], sources=Array.isArray(value.sources)?value.sources:[];
-          searchCacheStore.set(searchKey,{items,sources,nextCursor:value.page?.nextCursor});
-          setResults(items); setNextCursor(value.page?.nextCursor);
-          setSourceResults(sources);
-        }
-      })
-      .catch((reason) => { if (!controller.signal.aborted && current === generation.current) setError(reason); })
-      .finally(() => { if (!controller.signal.aborted && current === generation.current) setLoading(false); });
-    return () => controller.abort();
-  }, [selection,initialQuery, initialKeywords, initialScope, initialSource, initialCursor, initialLimit, initialFilters, execution]);
-  const submitUrl = (queryValue: string, scope = initialScope, source = initialSource, cursor = '', limit = initialLimit, nextView = view, filters = initialFilters) => '/search?q=' + encodeURIComponent(queryValue) + '&scope=' + encodeURIComponent(scope) + '&source=' + encodeURIComponent(source) + (cursor ? '&cursor=' + encodeURIComponent(cursor) : '') + '&limit=' + String(limit) + '&view=' + encodeURIComponent(nextView) + (filters ? '&filters=' + encodeURIComponent(filters) : '')+(queryValue===initialQuery&&initialKeywords?'&keywords='+encodeURIComponent(initialKeywords):'')+searchSelectionQuery();
-  // 显式提交同一搜索也创建新的请求代次，无需伪造 URL 参数或重复历史项。
-  const executeOrNavigate = (to: string) => {
-    const params = new URL(to, window.location.origin).searchParams;
-    if (params.get('q') === initialQuery && params.get('scope') === initialScope && (params.get('source') ?? '') === initialSource && (params.get('cursor') ?? '') === initialCursor && Number(params.get('limit')) === initialLimit && params.get('view') === initialView && (params.get('filters') ?? '') === initialFilters) {
-      setExecution((value) => value + 1);
-    } else navigate(to);
-  };
-  const clear = () => {
-    abortRef.current?.abort(); setResults([]); setSourceResults([]);setNextCursor(undefined); setError(undefined); setLoading(false); setCancelled(false);
-    if (shared.incognito === false) { try { sessionStorage.removeItem('hp-last-search'); } catch { /* Optional recent-search cache is unavailable. */ } }
-    navigate(submitUrl(''));
-  };
-  const restore = () => {
-    if (shared.incognito !== false) return;
-    try {
-      const value = JSON.parse(sessionStorage.getItem('hp-last-search') ?? 'null') as { q?: string; scope?: string; source?: string; view?: string; filters?: string } | null;
-      if (value?.q) executeOrNavigate(submitUrl(value.q, value.scope ?? 'all', value.source ?? '', '', initialLimit, value.view === 'grouped' ? 'grouped' : value.view === 'grid' ? 'grid' : value.view === 'list' ? 'list' : 'grouped', value.filters ?? ''));
-    } catch { /* ignore malformed private draft */ }
-  };
-  const setViewInUrl = (next: 'grid' | 'list' | 'grouped') => { setView(next); navigate(submitUrl(initialQuery, initialScope, initialSource, initialCursor, initialLimit, next)); };
-  const scopeHref = (scope: string) => submitUrl(initialQuery, scope);
-  const nextHref = nextCursor ? submitUrl(initialQuery, initialScope, initialSource, nextCursor) : undefined;
-  const firstHref = submitUrl(initialQuery);
-  if(new URLSearchParams(window.location.search).get('mode')==='reverse')return <><PageHeader title={t("图片反搜")}><a className="navigation-link" href="/search" onClick={event=>navigateClick(event,navigate,'/search')}>{t("搜索")}</a></PageHeader><section id="reverse-search"><ReverseSearch navigate={navigate}/></section></>;
-  return <div className="search-page">
-    <PageHeader title={t("搜索")} description={t("提交关键词或选择分页后发起请求，输入草稿不会自动搜索。")}>
-      <SearchBox navigate={navigate} initial={initialQuery} scope={initialScope} source={initialSource} view={view} filters={initialFilters} onSearch={(queryValue) => executeOrNavigate(submitUrl(queryValue))} />
-    </PageHeader>
-    <p className="search-scope-label">{t("搜索范围：")}{(initialSource ? sourceLabel(initialSource) : '') || JSON.parse(selection).sources?.map(sourceLabel).join('、') || (JSON.parse(selection).category ? t(categoryLabels[JSON.parse(selection).category] ?? JSON.parse(selection).category) : t("全部已启用站点"))}</p><details className="browse-tools search-options" open={Boolean(initialFilters)||new URLSearchParams(window.location.search).get('mode')==='reverse'}><summary>{t("更多")}</summary><SearchScope navigate={navigate}/>
-    <details className="browse-tools" id="reverse-search" open={new URLSearchParams(window.location.search).get('mode')==='reverse'}><summary>{t("以图搜图")}</summary><ReverseSearch navigate={navigate} /></details>
-    <div className="filter-row">
-      <button className="chip" type="button" disabled={shared.incognito !== false} onClick={restore}>{t("恢复上次搜索")}</button>{shared.incognito === true ? <span className="filter-label">{t("无痕模式不保存或恢复最近搜索")}</span> : null}
-      <button className="chip" type="button" onClick={clear}>{t("清空结果")}</button>
-      {loading ? <button className="chip" type="button" onClick={() => { abortRef.current?.abort(); setLoading(false); setCancelled(true); }}>{t("取消搜索")}</button> : null}
-      </div><div className="filter-row" role="group" aria-label={t("范围")}>
-      {initialFilters ? <a className="chip" href={submitUrl(initialQuery, initialScope, initialSource, '', initialLimit, view, '')} onClick={(event) => navigateClick(event, navigate, submitUrl(initialQuery, initialScope, initialSource, '', initialLimit, view, ''))}>{t("清除来源筛选")}</a> : null}
-      <a href={scopeHref('all')} className={'chip ' + (initialScope === 'all' ? 'active' : '')} onClick={(event) => navigateClick(event, navigate, scopeHref('all'))}>{t("全部内容")}</a>
-      <a href={scopeHref('title')} className={'chip ' + (initialScope === 'title' ? 'active' : '')} onClick={(event) => navigateClick(event, navigate, scopeHref('title'))}>{t("标题")}</a>
-      {[['summary', t("简介")], ['id', t("编号")], ['link', t("链接")], ['metadata', t("资料")]].map(([scope, label]) => <a key={scope} className={'chip ' + (initialScope === scope ? 'active' : '')} href={scopeHref(scope!)} onClick={(event) => navigateClick(event, navigate, scopeHref(scope!))}>{label}</a>)}
-      </div></details><div className="filter-row">
-      <Button aria-pressed={view === 'grid'} onClick={() => setViewInUrl('grid')}>{t("网格")}</Button>
-      <Button aria-pressed={view === 'list'} onClick={() => setViewInUrl('list')}>{t("列表")}</Button>
-      <Button aria-pressed={view === 'grouped'} onClick={() => setViewInUrl('grouped')}>{t("站点分组")}</Button>
-    </div>
-    {cancelled ? <StatusMessage title={t("搜索已取消")}>{t("可以重新提交当前关键词。")}</StatusMessage> : null}
-    {sourceResults.filter(source=>source.status==='error').map(source=><StatusMessage key={source.source} tone="warning" title={sourceLabel(source.source)+' · '+(/AUTH|LOGIN/.test(source.code??'')?t("需要站点登录"):/VERIF|CHALLENGE|CONFIRM|CLOUDFLARE/.test(source.code??'')?t("需要站点验证"):t("站点查询失败"))}><span>{source.code??t("未知错误")}</span><a href={'/source/'+encodeURIComponent(source.source)} onClick={event=>navigateClick(event,navigate,'/source/'+encodeURIComponent(source.source))}>{t("查看站点")}</a><button className="chip" onClick={()=>setExecution(value=>value+1)}>{t("重新查询")}</button></StatusMessage>)}
-    {error ? <button className="chip" onClick={() => setExecution((value) => value + 1)}>{t("重试当前搜索")}</button> : null}
-    <StateView loading={loading} error={error} empty={!loading && !error && !cancelled && Boolean(initialQuery || initialFilters) && !results.length} emptyDetail={t("没有匹配结果，可修改关键词或筛选条件后重试。")}>
-      {view === 'grouped' ? [...new Set(results.map(work => work.source))].map(source => <section className="section-block" key={source} aria-label={sourceLabel(source)}><h2>{sourceLabel(source)}</h2><WorkGrid items={results.filter(work => work.source === source)} view="grid" navigate={navigate} /></section>) : <WorkGrid items={results} view={view} navigate={navigate} />}
-    </StateView>
-    <nav className="action-row" aria-label={t("搜索分页")}>
-      {initialCursor ? <a className="chip" href={firstHref} onClick={(event) => navigateClick(event, navigate, firstHref)}>{t("返回首页")}</a> : null}
-      {!loading && !cancelled && !error && nextHref ? <a className="chip" href={nextHref} onClick={(event) => navigateClick(event, navigate, nextHref)}>{t("下一页")}</a> : null}
+  const settingsTitle =
+    settingsSection && Object.hasOwn(settingsSectionTitles, settingsSection)
+      ? settingsSectionTitles[settingsSection as keyof typeof settingsSectionTitles]
+      : undefined;
+  const label =
+    settingsTitle ??
+    routes.find((route) => route.path === path)?.label ??
+    (
+      {
+        domain: categoryLabels[category] ?? category,
+        source: String(state.data?.manifest?.name ?? source),
+        work: '作品详情',
+        read: '阅读',
+        watch: '播放',
+        rankings: '榜单',
+        channel: '频道',
+        post: '帖子',
+        album: '相册',
+        tavern: '酒馆',
+        offline: '离线内容',
+        sites: '全部站点',
+        history: '历史',
+        'reverse-search': '图片反搜',
+        logs: '诊断日志',
+        licenses: '开源许可',
+      } as Record<string, string>
+    )[parts[1] ?? ''] ??
+    '页面';
+  const link = (href: string, text: string) => (
+    <a href={href} onClick={(event) => navigateClick(event, navigate, href)}>
+      {t(text)}
+    </a>
+  );
+  return (
+    <nav className="breadcrumbs" aria-label={t('当前位置')}>
+      {path !== '/discover' && path !== '/' ? (
+        <span className="breadcrumb-parent">
+          {link('/discover', '发现')}
+          <span aria-hidden="true">/</span>
+        </span>
+      ) : null}
+      {settingsTitle ? (
+        <span className="breadcrumb-parent">
+          {link('/settings', '设置')}
+          <span aria-hidden="true">/</span>
+        </span>
+      ) : null}
+      {nested && category ? (
+        <span className="breadcrumb-parent">
+          {link(domainHref(category), categoryLabels[category] ?? category)}
+          <span aria-hidden="true">/</span>
+        </span>
+      ) : null}
+      {source && parts[1] !== 'source' ? (
+        <span className="breadcrumb-parent">
+          {link('/source/' + encodeURIComponent(source), String(state.data?.manifest?.name ?? source))}
+          <span aria-hidden="true">/</span>
+        </span>
+      ) : null}
+      <strong aria-current="page">{t(path === '/' ? '发现' : label)}</strong>
     </nav>
-  </div>;
-}
-async function normalizeSearchImage(file: File, signal: AbortSignal) {
-  if (!['image/png', 'image/jpeg', 'image/webp', 'image/gif'].includes(file.type) || file.size > 32_000_000) throw new Error(t("请选择不超过32MB的PNG、JPEG、WebP或GIF图片"));
-  const bitmap = await createImageBitmap(file);
-  try {
-    let scale = Math.min(1, 1600 / Math.max(bitmap.width, bitmap.height));
-    for (let attempt = 0; attempt < 12; attempt++) {
-      if (signal.aborted) throw new DOMException(t("已取消"), 'AbortError');
-      const canvas = document.createElement('canvas'); canvas.width = Math.max(1, Math.round(bitmap.width * scale)); canvas.height = Math.max(1, Math.round(bitmap.height * scale)); const context = canvas.getContext('2d'); if (!context) throw new Error(t("浏览器无法处理图片")); context.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
-      const blob = await new Promise<Blob>((resolve, reject) => canvas.toBlob((value) => value ? resolve(value) : reject(new Error(t("图片编码失败"))), 'image/png'));
-      if (blob.size <= 1_800_000) { const bytes = new Uint8Array(await blob.arrayBuffer()); let encoded = ''; for (let index = 0; index < bytes.length; index += 8192) encoded += String.fromCharCode(...bytes.subarray(index, index + 8192)); return btoa(encoded); }
-      scale *= .75;
-    }
-    throw new Error(t("图片无法缩减到上传大小限制，请换一张图片"));
-  } finally { bitmap.close(); }
-}
-function ReverseImage({ image, index }: { image: NonNullable<ReverseMatch['images']>[number]; index: number }) {
-  const [expanded, setExpanded] = useState(false);
-  return <figure className={'reverse-candidate-image ' + (expanded ? 'expanded' : '')}><AuthorizedImage authorization={image.mediaAuthorization} alt={image.label ?? t("候选相关图片")} retryLabel={t("重试图片")} /><figcaption>{image.label ?? t("相关图片")}{image.similarity === undefined ? '' : ' · ' + image.similarity + '%'}</figcaption><button className="chip" aria-expanded={expanded} onClick={() => setExpanded((value) => !value)}>{expanded ? t("缩小图片") : t("放大图片")}</button></figure>;
-}
-function ReverseSearch({ navigate }: { navigate: (to: string) => void }) {
-  const sourceNames=useContext(SourceNames);
-  const services = useAsync(() => allPages(api.sources), []); const [source, setSource] = useState(new URLSearchParams(window.location.search).get('mode')==='reverse' ? new URLSearchParams(window.location.search).get('source') ?? '' : ''); const [file, setFile] = useState<File>(); const [preview, setPreview] = useState<string>(); const [busy, setBusy] = useState(false); const [message, setMessage] = useState(''); const [items, setItems] = useState<ReverseMatch[]>([]); const [cursor, setCursor] = useState<string | null>(); const [error, setError] = useState(''); const controller = useRef<AbortController | undefined>(undefined); const generation = useRef(0);
-  const [chosenSources,setChosenSources]=useState<string[]>([]);const cursors=useRef(new Map<string,string|null>());
-  const available = (services.data ?? []).filter((item) => item.installed !== false && item.enabled && (item.manifest?.capabilities as Record<string, boolean> | undefined)?.reverseSearch === true);
-  const cancel = () => { generation.current++; controller.current?.abort(); setBusy(false); };
-  useEffect(() => () => { controller.current?.abort(); generation.current++; }, []);
-  useEffect(() => { if (!file) { setPreview(undefined); return; } const url = URL.createObjectURL(file); setPreview(url); return () => URL.revokeObjectURL(url); }, [file]);
-  const prepare = async (next: File) => {
-    cancel(); const id = generation.current;
-    setItems([]); setCursor(undefined); setError(''); setMessage(''); setFile(undefined);
-    if (!['image/png', 'image/jpeg', 'image/webp', 'image/gif'].includes(next.type)) { setError(t("请选择PNG、JPEG、WebP或GIF图片")); return; }
-    try {
-      const bitmap = await createImageBitmap(next); bitmap.close();
-      if (id !== generation.current) return;
-      setFile(next); setMessage(t("图片已准备，选择服务后点击搜索才会上传。"));
-    } catch {
-      if (id === generation.current) setError(t("浏览器无法处理图片"));
-    }
-  };
-  const submit = async (more = false) => { if (!more && (!file || !source&&!chosenSources.length)) return; cancel(); const id = ++generation.current; const abort = new AbortController(); controller.current = abort; setBusy(true); setError(''); setMessage(t("正在处理本次反搜…")); if (!more) { setItems([]); setCursor(undefined); }
-    try {const selected=chosenSources.length?chosenSources:source?[source]:[];const contentBase64=await normalizeSearchImage(file!,abort.signal);if(!more)cursors.current.clear();const pending=more?selected.filter(key=>cursors.current.get(key)):selected;const settled=await Promise.allSettled(pending.map(async source=>({source,result:await api.reverseSearch(more?{cursor:cursors.current.get(source)!}:{source,contentBase64,mimeType:'image/png'},abort.signal)})));if(id!==generation.current||abort.signal.aborted)return;const fresh:ReverseMatch[]=[],failures:string[]=[];for(const [index,result]of settled.entries())if(result.status==='fulfilled'){fresh.push(...result.value.result.items);cursors.current.set(result.value.source,result.value.result.page.nextCursor);}else failures.push(pending[index]+': '+errorMessage(result.reason));setItems(value=>more?[...value,...fresh]:fresh);setCursor([...cursors.current.values()].some(Boolean)?'multiple':null);setError(failures.join(' · '));setMessage(fresh.length?t('已返回出处候选，请核对原站信息。'):t('该服务没有找到匹配候选。'));}
-    catch (reason) { if (id === generation.current && !abort.signal.aborted) { setError(errorMessage(reason)); setMessage(''); } }
-    finally { if (id === generation.current) setBusy(false); }
-  };
-  const safeUrl = (value?: string) => { try { const url = new URL(value ?? ''); return ['http:', 'https:'].includes(url.protocol) && !url.username && !url.password ? url.toString() : undefined; } catch { return undefined; } };
-  return <section className="reverse-search" tabIndex={0} aria-label={t("图片反搜")} onDragOver={(event) => event.preventDefault()} onDrop={(event) => { event.preventDefault(); const next = event.dataTransfer.files[0]; if (next) prepare(next); }} onPaste={(event) => { const next = Array.from(event.clipboardData.files).find((item) => item.type.startsWith('image/')); if (next) { event.preventDefault(); prepare(next); } }}>
-    <p>{t("候选只用于核对出处，可继续搜索或打开原站。")}</p>
-    <label>{t("反搜服务")}<select aria-label={t("反搜服务")} value={source} onChange={(event) => { cancel(); setChosenSources([]);setSource(event.target.value); setItems([]); setCursor(undefined); setMessage(t("服务已更换，请点击搜索。")); }}>{[<option key="empty" value="">{t("选择已安装的服务")}</option>, ...available.map((item) => <option key={item.source} value={item.source}>{String(item.manifest?.name ?? item.source)}</option>)]}</select></label>
-    <FilePicker label={t("选择图片")} id="reverse-search-file" accept="image/png,image/jpeg,image/webp,image/gif" onChange={(event) => { const next = event.target.files?.[0]; if (next) prepare(next); event.target.value = ''; }} />
-    {preview ? <img className="reverse-preview" src={preview} alt={t("本次反搜图片预览")} /> : null}<button className="primary-link" disabled={busy || !file || !source&&!chosenSources.length} onClick={() => void submit()}>{t("搜索图片")}</button>{busy ? <button className="chip" onClick={() => { cancel(); setMessage(t("本次反搜已取消，可重新提交。")); }}>{t("取消反搜")}</button> : null}
-<details className="browse-tools"><summary>{t('多个反搜来源')}</summary>{available.map(item=><label key={item.source}><input type="checkbox" checked={chosenSources.includes(item.source)} disabled={busy} onChange={event=>{cancel();setChosenSources(values=>event.target.checked?[...values,item.source]:values.filter(value=>value!==item.source));setItems([]);setCursor(undefined);}}/>{String(item.manifest?.name??item.source)}</label>)}</details><ReverseHistory file={file} source={source||chosenSources[0]} onLoadFile={prepare}/>
-    {services.error ? <StatusMessage tone="danger" title={t("反搜服务读取失败")}>{errorMessage(services.error)}</StatusMessage> : !services.loading && !available.length ? <StatusMessage title={t("暂无可用反搜服务")}>{t("请先在站点管理中安装并启用支持图片反搜的服务。")}</StatusMessage> : null}{message ? <p role="status">{message}</p> : null}{error ? <StatusMessage tone="danger" title={t("反搜失败")}>{error}</StatusMessage> : null}
-    {items.length ? <div className="reverse-results">{items.map((item, index) => { const href = item.keyword ? '/search?q=' + encodeURIComponent(item.keyword) + '&scope=all' : undefined; const original = safeUrl(item.url); return <article className="feed-item" key={item.source + ':' + index}><h3>{item.title}</h3><p>{sourceNames[item.source]??item.source}{item.similarity === undefined ? '' : t(" · 相似度 ") + item.similarity + '%'}{item.uncertain ? t(" · 匹配结果不确定") : ''}</p>{item.description ? <p>{item.description}</p> : null}{item.episode !== undefined ? <p>{t("集数：")}{item.episode}</p> : null}{item.from !== undefined || item.to !== undefined ? <p>{t("时间片段：")}{item.from ?? t("未知")}–{item.to ?? t("未知")}{t("秒")}</p> : null}<div className="action-row">{href ? <a className="chip" href={href} onClick={(event) => navigateClick(event, navigate, href)}>{t("继续搜索：")}{item.keyword}</a> : null}{original ? <a className="chip" href={original} target="_blank" rel="noreferrer">{t("打开原站信息")}</a> : null}</div>{item.images?.length ? <div className="reverse-candidate-images">{item.images.map((image, imageIndex) => <ReverseImage key={imageIndex} image={image} index={imageIndex} />)}</div> : null}{item.details ? <details><summary>{t("原站信息")}</summary><pre className="diagnostics" tabIndex={0} role="region" aria-label={t("详细信息")}>{JSON.stringify(item.details, null, 2)}</pre></details> : null}</article>; })}</div> : null}{cursor ? <button className="chip" disabled={busy} onClick={() => void submit(true)}>{t("查看全部结果")}</button> : null}
-  </section>;
-}
-function SourceStatus({ source, manifest }: { source: Source; manifest: Record<string, unknown> }) {
-  if (!Object.keys(manifest).length) return <StatusMessage tone="danger" title={t("站点能力缺失")}>{t("服务端未返回 manifest，暂时无法安全渲染该站点。")}</StatusMessage>;
-  if (!source.enabled) return <StatusMessage tone="warning" title={t("站点已停用")}>{t("该站点已被停用，启用后才能浏览内容。")}</StatusMessage>;
-  const status = String(source.status ?? manifest.status ?? '');
-  if (status === 'rate_limited' || status === 'limited') return <StatusMessage tone="warning" title={t("站点限流")}>{t("服务端正在限流，请稍后再试。")}</StatusMessage>;
-  if (status === 'login_required' || manifest.requiresLogin === true) return <StatusMessage tone="warning" title={t("需要登录")}>{t("请先完成站点登录。")}</StatusMessage>;
-  if (status === 'verification_required' || manifest.requiresVerification === true) return <StatusMessage tone="warning" title={t("需要验证")}>{t("请先完成站点验证。")}</StatusMessage>;
-  if (source.error) return <StatusMessage tone="danger" title={t("站点部分失败")}>{source.error}</StatusMessage>;
-  if (status === 'partial') return <StatusMessage tone="warning" title={t("部分内容不可用")}>{t("部分目录未能加载，其余内容仍可浏览。")}</StatusMessage>;
-  if (status === 'unavailable') return <StatusMessage tone="danger" title={t("站点不可用")}>{t("站点无法加载内容。")}</StatusMessage>;
-  return <StatusMessage title={t("站点已启用")}>{t("manifest 已加载；实际网络可用性以目录请求结果为准。")}</StatusMessage>;
-}
-function SourceResults({ layout, items, navigate }: { layout: string; items: ApiWork[]; navigate: (to: string) => void }) {
-  return <WorkGrid items={items} view={layout === 'list' ? 'list' : 'grid'} navigate={navigate} cacheScope="cards" />;
+  );
 }
 
-type ReviewSource = Source & { version?: string; candidate?: { manifest: Record<string, unknown>; version: string; sha256: string; permissions: { added: string[]; removed: string[] } } };
-function SourcePackageReview({ item, action, busy, onConfirm, onCancel }: { item: ReviewSource; action: 'install' | 'update'; busy: boolean; onConfirm: () => void; onCancel: () => void }) {
-  const candidate = item.candidate;
-  if (!candidate) return <StatusMessage tone="danger" title={t("没有可信候选包")}>{t("服务端未提供可审阅的安装包，无法确认安装或更新。")}</StatusMessage>;
-  return <section className="settings-panel" role="region" aria-label={t("插件权限审阅")}><h2>{action === 'install' ? t("安装前审阅") : t("更新前审阅")}</h2><p>{String(candidate.manifest.name ?? item.source)} · {item.source}</p><p>{t("当前版本：")}{item.installed ? item.version ?? String(item.manifest?.version ?? '') : t("未安装")}{t(" → 目标版本：")}{candidate.version}</p><p>{t("类型：")}{String(candidate.manifest.type ?? '')}{t(" · 分类：")}{String(candidate.manifest.category ?? '')}{t(" · 最低应用版本：")}{String(candidate.manifest.minAppVersion ?? '')}</p><p>SHA-256：<code>{candidate.sha256}</code></p><h3>{t("新增权限")}</h3>{candidate.permissions.added.length ? <ul>{candidate.permissions.added.map(value => <li key={value}>{value}</li>)}</ul> : <p>{t("无新增权限")}</p>}<h3>{t("移除权限")}</h3>{candidate.permissions.removed.length ? <ul>{candidate.permissions.removed.map(value => <li key={value}>{value}</li>)}</ul> : <p>{t("无移除权限")}</p>}<p>{action === 'install' ? t("确认后执行插件代码，并允许访问上述声明的网络与能力。") : t("更新会替换当前插件；新增权限可能扩大可访问范围。校验或安装失败时保留上一可用版本，可在站点页回滚。")}</p><div className="action-row"><button className="primary-link" disabled={busy} onClick={onConfirm}>{action === 'install' ? t("确认安装") : t("确认更新")}</button><button className="secondary-link" disabled={busy} onClick={onCancel}>{t("取消审阅")}</button></div></section>;
-}
-type SourceFilterDeclaration = { key: string; label: string; type: string; dynamic?: boolean; dependsOn?: string[]; keywordDependent?: boolean; default?: unknown; values?: Array<{ value: string | number | boolean; label: string }>; options?: Array<{ value: string | number | boolean; label: string }> };
-function DynamicSourceFilter({ source, scope, feed, item, values, keyword, value, onChange }: { source: string; scope: 'feed' | 'search'; feed?: string; item: SourceFilterDeclaration; values: Record<string, unknown>; keyword?: string; value: unknown; onChange: (value: unknown) => void }) {
-  const [options, setOptions] = useState<Array<{ value: string | number | boolean; label: string }>>([]); const [loading, setLoading] = useState(false); const [error, setError] = useState(''); const [attempt, setAttempt] = useState(0);
-  const dependencies = Object.fromEntries((item.dependsOn ?? []).map(key => [key, values[key]]));
-  const ready = Object.values(dependencies).every(value => typeof value === 'boolean' || typeof value === 'number' && Number.isFinite(value) || typeof value === 'string' && Boolean(value)) && (!item.keywordDependent || Boolean(keyword?.trim()));
-  const identity = JSON.stringify([source, scope, feed, item.key, keyword, dependencies, ready]);
-  useEffect(() => { const control = new AbortController(); setOptions([]); setError(''); if (!ready) { setLoading(false); return () => control.abort(); } setLoading(true); void api.sourceFilterOptions(source, { scope, filter: item.key, values: dependencies, ...(scope === 'feed' ? { feed } : { keyword: keyword ?? '' }) }, control.signal).then(result => { if (!control.signal.aborted) setOptions(result.items); }).catch(error => { if (!control.signal.aborted) setError(errorMessage(error)); }).finally(() => { if (!control.signal.aborted) setLoading(false); }); return () => control.abort(); }, [identity, attempt]);
-  return <div><label>{item.label}<select aria-label={(scope === 'feed' ? t("目录筛选：") : t("搜索筛选：")) + item.label} disabled={!ready || loading || Boolean(error)} value={value===undefined?'':JSON.stringify(value)} onChange={event => onChange(options.find(option => JSON.stringify(option.value) === event.target.value)?.value)}><option value="">{loading ? t("正在加载选项") : !ready ? t("请先选择上级条件或输入关键词") : t("不限制")}</option>{options.map(option => <option key={JSON.stringify(option.value)} value={JSON.stringify(option.value)}>{option.label}</option>)}</select></label>{loading ? <p role="status">{t("正在加载")}{item.label}{t("选项")}</p> : null}{error ? <StatusMessage tone="danger" title={item.label + t("选项加载失败")}>{error}<button className="chip" type="button" onClick={() => setAttempt(value => value + 1)}>{t("重试")}{item.label}{t("选项")}</button></StatusMessage> : null}{ready && !loading && !error && !options.length ? <p role="status">{item.label}{t("暂无可选项")}</p> : null}</div>;
-}
-function SourceSearchForm({ source, manifest, navigate, browse = false }: { source: string; manifest: Record<string, unknown>; navigate: (to: string) => void; browse?: boolean }) {
-  const params = new URLSearchParams(window.location.search);
-  const feeds = Array.isArray(manifest.feeds) ? manifest.feeds as Array<{ key: string; label: string; options?: SourceFilterDeclaration[]; commonFilters?: Record<string, { range?: true | string[]; sort?: true | string[] }> }> : [];
-  const [feedKey, setFeedKey] = useState(params.get('feed') ?? String(manifest.defaultFeed ?? feeds[0]?.key ?? ''));
-  const selectedFeed = feeds.find(item => item.key === feedKey);
-  const [query, setQuery] = useState('');
-  const [filters, setFilters] = useState<Record<string, unknown>>(() => { if (!browse) return {}; try { const value = JSON.parse(params.get('filters') ?? '{}'); if (!value || typeof value !== 'object' || Array.isArray(value)) return {}; const next = { ...value }; delete next.common; return next; } catch { return {}; } });
-  const declarations = browse ? selectedFeed?.options ?? [] : Array.isArray(manifest.searchFilters) ? manifest.searchFilters as SourceFilterDeclaration[] : [];
-  const common = browse ? selectedFeed?.commonFilters ?? {} : manifest.searchCommonFilters && typeof manifest.searchCommonFilters === 'object' ? manifest.searchCommonFilters as Record<string, { range?: true | string[]; sort?: true | string[] }> : {};
-  const initialCommon = (() => { if (!browse) return {}; try { return JSON.parse(params.get('filters') ?? '{}').common ?? {}; } catch { return {}; } })() as Record<string, { order?: string; min?: number; max?: number }>;
-  const initialDimension = Object.keys(initialCommon)[0] ?? '';
-  const [sort, setSort] = useState(initialCommon[initialDimension]?.order ?? ''); const [minimum, setMinimum] = useState(initialCommon[initialDimension]?.min === undefined ? '' : String(initialCommon[initialDimension]!.min)); const [maximum, setMaximum] = useState(initialCommon[initialDimension]?.max === undefined ? '' : String(initialCommon[initialDimension]!.max)); const [dimension, setDimension] = useState(initialDimension);
-  const effectiveValues = Object.fromEntries(declarations.map(item => [item.key, filters[item.key] ?? item.default]));
-  const updateValue = (key: string, value: unknown) => setFilters(current => { const next = { ...current }; if (value === undefined) delete next[key]; else next[key] = value; const pending = [key]; while (pending.length) { const parent = pending.pop()!; for (const child of declarations) if (child.dependsOn?.includes(parent)) { delete next[child.key]; pending.push(child.key); } } return next; });
-  useEffect(() => { for (const item of declarations) if (item.keywordDependent) updateValue(item.key, undefined); }, [query]);
-  const caps = (manifest.capabilities ?? {}) as Record<string, unknown>;
-  if (browse ? !feeds.length || caps.feed !== true : caps.search !== true && caps.metadataSearch !== true) return null;
-  const dimensions: Record<string, string> = { pages: t("页数"), likes: t("点赞数"), duration: t("时长"), score: t("评分"), favorites: t("收藏数") };
-  const selected = common[dimension]; const ranges = selected?.range === true ? ['min', 'max'] : selected?.range ?? []; const orders = selected?.sort === true ? ['asc', 'desc'] : selected?.sort ?? [];
-  const prefix = browse ? t("目录筛选：") : t("搜索筛选：");
-  return <form className="source-search-form" aria-label={browse ? t("目录筛选与排序") : t("站内搜索与筛选")} onSubmit={event => {
-    event.preventDefault(); const values = { ...filters };
-    for (const item of declarations) if (!item.dynamic && values[item.key] === undefined && item.default !== undefined) values[item.key] = item.default;
-    if (dimension && (sort || minimum || maximum)) values.common = { [dimension]: { ...(sort ? { order: sort } : {}), ...(minimum ? { min: Number(minimum) } : {}), ...(maximum ? { max: Number(maximum) } : {}) } };
-    const filterQuery = Object.keys(values).length ? '&filters=' + encodeURIComponent(JSON.stringify(values)) : '';
-    if((event.nativeEvent as SubmitEvent).submitter?.getAttribute('value')==='album'){navigate('/album/'+encodeURIComponent(source)+'?scope='+encodeURIComponent(JSON.stringify(browse?{feed:feedKey,options:Object.fromEntries(Object.entries(values).filter(([key])=>key!=='common')),...(values.common?{common:values.common}:{})}:{search:{keyword:query.trim(),filters:Object.fromEntries(Object.entries(values).filter(([key])=>key!=='common')),...(values.common?{common:values.common}:{})}})));return;}
-    navigate(browse ? '/source/' + encodeURIComponent(source) + '?feed=' + encodeURIComponent(feedKey) + filterQuery : '/search?q=' + encodeURIComponent(query.trim()) + '&scope=' + (caps.search === true ? 'all' : 'metadata') + '&source=' + encodeURIComponent(source) + '&view=grid' + filterQuery);
-  }}>
-    {browse ? <label>{t("站点目录")}<select aria-label={t("站点目录")} value={feedKey} onChange={event => { setFeedKey(event.target.value); setFilters({}); setDimension(''); setSort(''); setMinimum(''); setMaximum(''); }}>{feeds.map(item => <option key={item.key} value={item.key}>{item.label}</option>)}</select></label> : <label>{t("站内关键词")}<input aria-label={t("站内关键词")} required value={query} onChange={event => setQuery(event.target.value)} /></label>}
-    {declarations.map(item => {
-      const options = item.values ?? item.options ?? []; const value = filters[item.key] ?? item.default;
-      if (item.dynamic) return <DynamicSourceFilter key={item.key} source={source} scope={browse ? 'feed' : 'search'} feed={browse ? feedKey : undefined} item={item} values={effectiveValues} keyword={browse ? undefined : query} value={value} onChange={value => updateValue(item.key, value)} />;
-      return <label key={item.key}>{item.label}{item.type === 'select' ? <select aria-label={prefix + item.label} value={value===undefined?'':JSON.stringify(value)} onChange={event => updateValue(item.key, options.find(option => JSON.stringify(option.value) === event.target.value)?.value)}><option value="">{t("不限制")}</option>{options.map(option => <option key={JSON.stringify(option.value)} value={JSON.stringify(option.value)}>{option.label}</option>)}</select> : item.type === 'multi' ? <select multiple aria-label={prefix + item.label} value={Array.isArray(value)?value.map(item=>JSON.stringify(item)):[]} onChange={event => updateValue(item.key, Array.from(event.target.selectedOptions, option => options.find(candidate=>JSON.stringify(candidate.value)===option.value)?.value))}>{options.map(option => <option key={JSON.stringify(option.value)} value={JSON.stringify(option.value)}>{option.label}</option>)}</select> : item.type === 'switch' ? <input type="checkbox" aria-label={prefix + item.label} checked={value === true} onChange={event => updateValue(item.key, event.target.checked)} /> : <input aria-label={prefix + item.label} type={item.type === 'number' ? 'number' : item.type === 'password' ? 'password' : 'text'} value={typeof value === 'string' || typeof value === 'number' ? value : ''} onChange={event => updateValue(item.key, event.target.value ? item.type === 'number' ? Number(event.target.value) : event.target.value : undefined)} />}</label>;
-    })}
-    {Object.keys(common).length ? <><label>{t("筛选维度")}<select aria-label={prefix + t("维度")} value={dimension} onChange={event => { setDimension(event.target.value); setSort(''); setMinimum(''); setMaximum(''); }}><option value="">{t("来源默认")}</option>{Object.keys(common).map(key => <option key={key} value={key}>{dimensions[key] ?? key}</option>)}</select></label>{orders.length ? <label>{t("排序方向")}<select aria-label={prefix + t("排序方向")} value={sort} onChange={event => setSort(event.target.value)}><option value="">{t("来源默认")}</option>{orders.map(order => <option key={order} value={order}>{order === 'asc' ? t("升序") : t("降序")}</option>)}</select></label> : null}{ranges.includes('min') ? <label>{t("最小值")}<input aria-label={prefix + t("最小值")} type="number" min={dimension === 'score' ? undefined : 0} step={dimension === 'duration' ? 'any' : 1} value={minimum} onChange={event => setMinimum(event.target.value)} /></label> : null}{ranges.includes('max') ? <label>{t("最大值")}<input aria-label={prefix + t("最大值")} type="number" min={minimum || (dimension === 'score' ? undefined : 0)} step={dimension === 'duration' ? 'any' : 1} value={maximum} onChange={event => setMaximum(event.target.value)} /></label> : null}</> : null}
-    <button className="primary-link" disabled={browse ? !feedKey : !query.trim()}>{browse ? t("应用目录条件") : t("搜索此站")}</button>{caps.album===true?<button className="chip" value="album" disabled={browse?!feedKey:!query.trim()}>{t("浏览相册")}</button>:null}
-    {!browse?<SearchTools keyword={query} source={source} navigate={navigate} search={(keyword,keywords)=>navigate('/search?'+new URLSearchParams({q:keyword,scope:caps.search===true?'all':'metadata',source,filters:JSON.stringify({...filters,...(dimension&&(sort||minimum||maximum)?{common:{[dimension]:{...(sort?{order:sort}:{}),...(minimum?{min:Number(minimum)}:{}),...(maximum?{max:Number(maximum)}:{})}}}:{})}),...(keywords?{keywords:JSON.stringify(keywords)}:{})}))}/>:null}
-  </form>;
-}
-function SourcesPage({ navigate }: { navigate: (to: string) => void }) {
-  const version = useServerVersion(); const state = useAsync(() => allPages(api.sources), [version], undefined, { cacheKey: 'source-catalog' }); const [source, setSource] = useState(''); const [message, setMessage] = useState(''); const [busy, setBusy] = useState(false); const [review, setReview] = useState<ReviewSource>();
-  const prepare = async (event: React.FormEvent) => { event.preventDefault(); setBusy(true); setMessage(''); setReview(undefined); try { const value = await api.source(source.trim()) as ReviewSource; if (!value.candidate) throw new Error(t("服务端未提供可信候选包")); setReview(value); } catch (error) { setMessage(errorMessage(error)); } finally { setBusy(false); } };
-  const install = async () => { if (!review) return; setBusy(true); setMessage(t("正在安装…")); try { const latest = await api.source(review.source) as ReviewSource; if (JSON.stringify([latest.version, latest.candidate]) !== JSON.stringify([review.version, review.candidate])) { setReview(latest); throw new Error(t("候选包或当前版本已变化，请重新审阅后确认")); } const value = await api.sourceAction(review.source, 'update', { action: 'install', expectedSha256: review.candidate?.sha256, expectedVersion: review.candidate?.version, expectedCurrentVersion: review.version ?? null }); if (value.status !== 'completed') throw new Error(t("服务端未确认安装完成")); setMessage(t("服务端安装状态：") + String(value.status)); setReview(undefined); } catch (error) { setMessage(errorMessage(error)); } finally { setBusy(false); } };
-  return <><PageHeader title={t("站点")} description={t("安装包、权限与版本由服务端索引校验。")} /><MaintenanceStatus/><SourcePackageControls onInstalled={()=>window.dispatchEvent(new Event('hp:invalidate'))}/><details className="browse-tools"><summary>{t("安装站点标识")}</summary><form className="form-row" onSubmit={prepare}><input aria-label={t("安装站点标识")} disabled={busy} value={source} onChange={(event) => { setSource(event.target.value); setReview(undefined); }} required placeholder={t("官方索引中的站点标识")} /><button className="primary-link" disabled={busy || !source.trim()}>{t("安装站点")}</button></form></details>{review ? <SourcePackageReview item={review} action="install" busy={busy} onConfirm={() => void install()} onCancel={() => { setReview(undefined); setMessage(t("已取消安装，未提交安装请求")); }} /> : null}{message ? <p role="status">{message}</p> : null}<StateView loading={state.loading} error={state.error} empty={!state.loading && !state.error && !state.data?.length}><ul className="chapter-list">{state.data?.map((item) => { const href = '/source/' + encodeURIComponent(item.source); return <li key={item.source}><a href={href} onClick={(event) => navigateClick(event, navigate, href)}>{String(item.manifest?.name ?? item.source)}</a><span>{item.installed === false ? t("未安装") : item.enabled ? t("已启用") : t("已停用")} · {String(item.manifest?.version ?? '')}</span></li>; })}</ul></StateView></>;
-}
-function SourcePage({ source, navigate }: { source: string; navigate: (to: string) => void }) {
-  const prefs=usePreferences(),[loadRequested,setLoadRequested]=useState(false);const suppressFeed=!prefs.ready||prefs.settings.dataSavingMode==='super'&&!loadRequested;
-  useEffect(()=>setLoadRequested(false),[source]);
-  const version = useServerVersion(); const browseParams = new URLSearchParams(window.location.search); const browseLink=browseParams.get('link')??undefined; const browseCursor=browseParams.get('cursor')??undefined; const browseView=browseParams.get('view'); const browseFeed = browseParams.get('feed') ?? undefined; const browseFilters = browseParams.get('filters') ?? undefined; const state = useAsync(() => api.source(source), [source, version], undefined, { cacheKey: 'source:' + source }); const feed = useAsync(async (signal) => {
-    const sourceInfo = await api.source(source);
-    if (suppressFeed || !sourceInfo.enabled || sourceInfo.installed === false || (sourceInfo.manifest?.capabilities as Record<string,unknown> | undefined)?.feed !== true) return {items:[] as ApiWork[], sections:[] as Array<{key:string;title:string;items:ApiWork[]}>, page:{limit:24,nextCursor:null}};
-    if(sourceInfo.manifest?.category==='shortvideo' && browseView!=='list') return {items:[] as ApiWork[],sections:[],page:{limit:24,nextCursor:null}};
-    const result = await api.works({ source, link:browseLink, feed: browseFeed, filters: browseFilters, cursor:browseCursor, limit: 24 }, signal);
-    return result;
-  }, [suppressFeed,source, version, browseFeed, browseFilters,browseLink,browseCursor,browseView], undefined, { cacheKey: 'source-feed:' + JSON.stringify([source,suppressFeed,browseFeed,browseFilters,browseLink,browseCursor,browseView]) });
-  const [message, setMessage] = useState(''); const [busy, setBusy] = useState(false); const [credentials, setCredentials] = useState<Record<string, string>>({}); const [cookieDraft, setCookieDraft] = useState(''); const [cursor, setCursor] = useState<string | null>(); const [review, setReview] = useState<ReviewSource>();
-  useEffect(() => { setCursor(feed.data?.page?.nextCursor); }, [feed.data]);
-  const sourceSnapshot = useRef<Source | undefined>(undefined); if (state.data) sourceSnapshot.current = state.data; const details = state.data ?? sourceSnapshot.current;
-  const result = details ? [details, feed.data ?? { items: [] as ApiWork[] }] as const : undefined; const manifest = details?.manifest ?? {}; const capabilities = (manifest.capabilities ?? {}) as Record<string, unknown>; const account = manifest.account as { type?: string; loginUrl?: string; fields?: Array<{ key: string; label: string; hint?:string;secret?: boolean;optional?:boolean }> } | undefined; const network = manifest.network as { confirmation?: { selector?: string } } | undefined;
-  const run = async (operation: 'enable' | 'update' | 'login' | 'verify', body: Record<string, unknown>) => { setBusy(true); setMessage(t("正在提交…")); try { const value = await api.sourceAction(source, operation, body); if (value.status !== 'completed') throw new Error(t("服务端未确认操作完成")); setMessage(t("服务端状态：") + String(value.status)); if (operation === 'login') { setCredentials({}); setCookieDraft(''); } } catch (error) { setMessage(errorMessage(error)); } finally { setBusy(false); } };
-  const prepareUpdate = async () => { setBusy(true); setMessage(''); try { const value = await api.source(source) as ReviewSource; if (!value.candidate) throw new Error(t("服务端未提供可信候选包")); setReview(value); } catch (error) { setMessage(errorMessage(error)); } finally { setBusy(false); } };
-  const confirmUpdate = async () => { if (!review) return; setBusy(true); try { const latest = await api.source(source) as ReviewSource; if (JSON.stringify([latest.version, latest.candidate]) !== JSON.stringify([review.version, review.candidate])) { setReview(latest); throw new Error(t("候选包或当前版本已变化，请重新审阅后确认")); } await run('update', { action: review.installed ? 'update' : 'install', expectedSha256: review.candidate?.sha256, expectedVersion: review.candidate?.version, expectedCurrentVersion: review.version ?? null }); setReview(undefined); } catch (error) { setMessage(errorMessage(error)); } finally { setBusy(false); } };
-  const login = () => { if (account?.type !== 'cookies') { void run('login', { credentials }); return; } try { const values: unknown = JSON.parse(cookieDraft); if (!values || typeof values !== 'object' || Array.isArray(values) || Object.keys(values).length < 1 || Object.keys(values).length > 100 || Object.values(values).some(value => typeof value !== 'string')) throw new Error(t("Cookie JSON必须是1至100个名称到字符串值的对象。")); void run('login', { credentials: values }); } catch (error) { setMessage(errorMessage(error)); } };
-  const more = () => { const next = new URLSearchParams(window.location.search); if (cursor) next.set('cursor',cursor); navigate('/source/'+encodeURIComponent(source)+'?'+next.toString()); };
-  const boards = Array.isArray(manifest.rankings) ? manifest.rankings as Array<{key:string;label:string}> : [];
-  const feeds = Array.isArray(manifest.feeds) ? manifest.feeds as Array<{key:string;label:string}> : [];
-  const activeFeed = browseFeed ?? String(manifest.defaultFeed ?? feeds[0]?.key ?? '');
-  const selectedFeed = (Array.isArray(manifest.feeds)?manifest.feeds:[]).find((item:any)=>item.key===activeFeed) as {options?:unknown[];commonFilters?:Record<string,unknown>}|undefined;
-  const hasBrowseFilters = Boolean(selectedFeed?.options?.length || Object.keys(selectedFeed?.commonFilters??{}).length);
-  useEffect(()=>{document.querySelector<HTMLElement>('.feed-tabs [aria-current="page"]')?.scrollIntoView({block:"nearest",inline:"nearest"});},[activeFeed]);
-  const sections = feed.data?.sections ?? [];
-  const grouped = new Set(sections.flatMap(section=>section.items.map(item=>workIdentityKey({source:item.source,id:item.workId}))));
-  const ungrouped = (feed.data?.items ?? []).filter(item=>!grouped.has(workIdentityKey({source:item.source,id:item.workId})));
-
-
-  if (!suppressFeed && details?.enabled && manifest.category==='shortvideo' && browseView!=='list') return <ShortVideoPage source={source} manifest={manifest} navigate={navigate} renderReader={(parts,active)=><ReaderPage active={active} key={JSON.stringify(parts)} embedded mode="watch" parts={parts} navigate={navigate}/>}/>;
-  return <>{suppressFeed?<p><button className="chip" disabled={!prefs.ready} onClick={()=>setLoadRequested(true)}>{t('加载站点作品')}</button></p>:null}<div className="source-quick-actions" role="toolbar" aria-label={t('站点工具')}><button className="chip" onClick={()=>window.scrollTo({top:0,behavior:'smooth'})}>{t('回到顶部')}</button>{capabilities.search===true||capabilities.metadataSearch===true?<a className="chip" href={'/search?source='+encodeURIComponent(source)} onClick={event=>navigateClick(event,navigate,event.currentTarget.getAttribute('href')!)}>{t('站内搜索')}</a>:null}<a className="chip" href={'/source/'+encodeURIComponent(source)+'?view=list'} onClick={event=>navigateClick(event,navigate,event.currentTarget.getAttribute('href')!)}>{t('列表视图')}</a><a className="chip" href={'/source/'+encodeURIComponent(source)+'?view=grid'} onClick={event=>navigateClick(event,navigate,event.currentTarget.getAttribute('href')!)}>{t('卡片视图')}</a></div><PageHeader title={pluginText(manifest,String(manifest.name ?? source))} description={t(categoryLabels[String(manifest.category ?? '')] ?? '内容站点') + ' · ' + t(manifest.metadataOnly?'资料站点':'站点主页')}>{manifest.category==='shortvideo'&&browseView==='list'?<a className="chip" href={(()=>{const query=new URLSearchParams(window.location.search);query.delete('view');return '/source/'+encodeURIComponent(source)+(query.size?'?'+query:'');})()} onClick={event=>navigateClick(event,navigate,event.currentTarget.getAttribute('href')!)}>{t('短视频')}</a>:null}{capabilities.search===true||capabilities.metadataSearch===true?<button className="chip" onClick={()=>{const panel=document.getElementById('source-search') as HTMLDetailsElement|null;if(panel){panel.open=true;panel.querySelector<HTMLInputElement>('input')?.focus();}}}>{t('搜索')}</button>:null}<button className="chip" onClick={() => { const panel=document.getElementById('source-management') as HTMLDetailsElement|null; if(panel){panel.open=true;panel.querySelector('summary')?.focus();panel.scrollIntoView({block:'start'});} }}>{t("更多")}</button></PageHeader>{result ? <>{feeds.length ? <nav className="feed-tabs" aria-label={t('站点分区')}>{feeds.map(item=>{const href='/source/'+encodeURIComponent(source)+'?feed='+encodeURIComponent(item.key);return <a key={item.key} className={activeFeed===item.key?'active':''} aria-current={activeFeed===item.key?'page':undefined} href={href} onClick={event=>navigateClick(event,navigate,href)}>{pluginText(manifest,item.label)}</a>;})}</nav> : null}{capabilities.search === true || capabilities.metadataSearch === true ? <details id="source-search" className="browse-tools"><summary>{t("站内搜索与筛选")}</summary><SourceSearchForm key={source} source={source} manifest={manifest} navigate={navigate} /></details> : null}{hasBrowseFilters ? <details className="browse-tools" open={Boolean(browseFilters)}><summary>{t('目录筛选与排序')}</summary><SourceSearchForm key={"browse:" + source + (browseFeed ?? '') + (browseFilters ?? '')} source={source} manifest={manifest} navigate={navigate} browse /></details> : null}</> : null}{message ? <p role="status">{message}</p> : null}<StateView loading={state.loading && !details} error={state.error} empty={false}>{result ? <>{capabilities.reverseSearch === true ? <a className="primary-link" href={'/search?mode=reverse&source='+encodeURIComponent(source)+'#reverse-search'} onClick={event=>navigateClick(event,navigate,event.currentTarget.getAttribute('href')!)}>{t('以图搜图')}</a> : null}{boards.length ? <nav className="source-directory" aria-label={t('站点榜单')}>{boards.map(board=><a key={board.key} href={'/rankings?source='+encodeURIComponent(source)+'&board='+encodeURIComponent(board.key)} onClick={event=>navigateClick(event,navigate,event.currentTarget.getAttribute('href')!)}>{pluginText(manifest,board.label)}</a>)}</nav> : null}{capabilities.subscription===true?<a className="secondary-link" href={'/channel/'+encodeURIComponent(source)} onClick={event=>navigateClick(event,navigate,'/channel/'+encodeURIComponent(source))}>{t("打开频道")}</a>:null}{capabilities.album===true?<a className="secondary-link" href={'/album/'+encodeURIComponent(source)} onClick={event=>navigateClick(event,navigate,'/album/'+encodeURIComponent(source))}>{t("打开相册")}</a>:null}{capabilities.metadataSearch === true ? <a className="primary-link" href={'/search?q=&scope=metadata&source=' + encodeURIComponent(source)} onClick={(event) => navigateClick(event, navigate, '/search?q=&scope=metadata&source=' + encodeURIComponent(source))}>{t("搜索此站资料")}</a> : null}{capabilities.feed === true ? <StateView loading={feed.loading} error={feed.error} empty={!feed.loading && !feed.error && !result[1].items.length && !sections.length}>{sections.map(section=>{let sectionIndex: number|undefined;try{const [page,index]=JSON.parse(section.key);if(page===1)sectionIndex=index;}catch{}return manifest.browseLayout === 'list' ? <section key={section.key} id={sectionIndex === undefined ? undefined : 'section-'+source+'-'+sectionIndex} tabIndex={-1}><h2>{section.title}</h2><SourceResults layout="list" items={section.items} navigate={navigate}/></section> : <ContentShelf key={section.key} local shelf={{...section,source,sectionIndex}} navigate={navigate} renderItem={work=><WorkCard work={work} navigate={navigate} cacheScope="cards"/>}/>;})}{ungrouped.length ? <><h2>{pluginText(manifest,feeds.find(item=>item.key===activeFeed)?.label ?? t('内容列表'))}</h2><SourceResults layout={String(manifest.browseLayout ?? 'grid')} items={ungrouped} navigate={navigate}/></> : null}</StateView> : <p className="muted">{capabilities.subscription || capabilities.album || capabilities.reverseSearch || capabilities.search || capabilities.metadataSearch || boards.length ? t('此站点不提供公开推荐，使用上方的可用入口浏览。') : t('此来源不提供公开目录，可从已收藏作品或单条播放链接进入。')}</p>}{capabilities.feed === true ? <nav className="pagination" aria-label={t('列表分页')}>{browseCursor ? <a className="chip" href={'/source/'+encodeURIComponent(source)+'?'+new URLSearchParams([...browseParams].filter(([key])=>key!=='cursor')).toString()} onClick={event=>navigateClick(event,navigate,event.currentTarget.getAttribute('href')!)}>{t('返回第一页')}</a> : null}{cursor ? <button className="chip" disabled={busy} onClick={more}>{t('下一页')}</button> : null}</nav> : null}</> : null}</StateView>{result ? <details id="source-management" className="browse-tools source-management-tools"><summary>{t("账号与站点设置")}</summary><SourceStatus source={result[0]} manifest={manifest}/><div className="action-row"><button className="secondary-link" disabled={busy} onClick={() => void run('enable', { enabled: !result[0].enabled })}>{result[0].enabled ? t("停用站点") : t("启用站点")}</button><button className="secondary-link" disabled={busy} onClick={() => void prepareUpdate()}>{details?.installed === false ? t("安装") : t("更新")}</button><button className="secondary-link" disabled={busy || details?.installed === false} onClick={() => { if (window.confirm(t("回滚到上一可用插件版本？"))) void run('update', { action: 'rollback' }); }}>{t("回滚")}</button>{typeof manifest.homepage === 'string' ? <a className="secondary-link" href={manifest.homepage} target="_blank" rel="noreferrer">{t("打开原站")}</a> : null}{network?.confirmation ? <button className="secondary-link" disabled={busy} onClick={() => void run('verify', { url: manifest.homepage, selector: network.confirmation?.selector })}>{t("验证站点")}</button> : null}</div>{review ? <SourcePackageReview item={review} action={review.installed ? 'update' : 'install'} busy={busy} onConfirm={() => void confirmUpdate()} onCancel={() => { setReview(undefined); setMessage(t("已取消审阅，未提交安装或更新请求")); }} /> : null}{account ? <form className="settings-panel" onSubmit={(event) => { event.preventDefault(); login(); }}><h2>{t("站点登录")}</h2>{account.type === 'cookies' ? <><p>{t("Cookie属于敏感凭据。未提交内容仅保留在当前标签页内，登录成功后清空输入。")}</p><label>{t("Cookie JSON键值")}<textarea aria-label={t("站点Cookie JSON")} value={cookieDraft} onChange={(event) => setCookieDraft(event.target.value)} autoComplete="off" spellCheck={false} rows={5} required placeholder={t("{\"session_id\":\"Cookie值\"}")} /></label></> : account.fields?.map((field) => <label key={field.key}>{pluginText(manifest,field.label)}<input type={field.secret ? 'password' : 'text'} value={credentials[field.key] ?? ''} onChange={(event) => setCredentials({ ...credentials, [field.key]: event.target.value })} autoComplete="off" required={!field.optional} placeholder={field.hint?pluginText(manifest,field.hint):undefined}/></label>)}<button className="secondary-link" disabled={busy} type="submit">{t("登录站点")}</button></form> : null}<SourceManagement source={source} manifest={manifest} enabled={details?.enabled===true}/></details> : null}</>;
-}
-function WorkPage({ parts, directory, navigate }: { parts: string[]; directory?: string; navigate: (to: string) => void }) {
-  const sourceNames=useContext(SourceNames);
-  const source = decodeURIComponent(parts[0] ?? ''); const id = decodeURIComponent(parts[1] ?? '');
-  const [attempt, setAttempt] = useState(0); const state = useAsync(async (signal) => { const work = await api.work(source, id, signal); const chapters = work.capabilities.metadataOnly||['game','tavern'].includes(work.mediaKind) ? undefined : await api.chapters(source, id, { directoryId: directory }, signal); return [work, chapters] as const; }, [source, id, directory, attempt], undefined, { cacheKey: 'work:' + JSON.stringify([source,id,directory]) });
-  const historyVersion = useServerVersion();
-  const resume = useAsync(()=>api.history({source,workId:id,resume:true,limit:1}),[source,id,historyVersion]);
-  const shared = useSharedState(); const collection = shared.collections[workIdentityKey({ source, id })]; const favorite = collection?.favorite === true;
-  const [message, setMessage] = useState(''); const [busy, setBusy] = useState(false); const [extra, setExtra] = useState<ApiChapter[]>([]); const [cursor, setCursor] = useState<string | null>();
-  useEffect(() => { setExtra([]); setCursor(state.data?.[1]?.page?.nextCursor); }, [state.data]);
-  const work = state.data?.[0]; const chapters = [...(state.data?.[1]?.items ?? []), ...extra];
-  const kind = work?.mediaKind; const playback = kind === 'video' || kind === 'voice';
-  const webVideoOnly = playback && work?.capabilities.webVideo === true && work.capabilities.videos !== true;
-  const canRead = Boolean(chapters.length && work?.capabilities.metadataOnly !== true && (playback ? work?.capabilities.videos || work?.capabilities.webVideo : kind==='article' || work?.capabilities.chapter || work?.capabilities.textChapter));
-  const canDownload = Boolean(!webVideoOnly && work?.category !== 'live' && chapters.length && work?.capabilities.metadataOnly !== true && (work?.capabilities.chapter || work?.capabilities.textChapter || work?.capabilities.videos || work?.capabilities.voiceResource || kind==='article'));
-  const readable = (chapter: ApiChapter) => chapter.nodeType ? ['audio', 'video', 'subtitle', 'image', 'script'].includes(chapter.nodeType) : canRead;
-  const firstReadable = chapters.find(readable);
-  const lastRead = resume.data?.items[0];
-  const resumeChapter = lastRead?.chapterId && work && work.category!=='live' && !work.capabilities.metadataOnly && !['game','tavern'].includes(work.mediaKind) ? {chapterId:lastRead.chapterId,nodeType:lastRead.nodeType ?? undefined} : undefined;
-  const primaryChapter = resumeChapter ?? firstReadable;
-  const [temporarilyVisible, setTemporarilyVisible] = useState(false);
-  useEffect(() => setTemporarilyVisible(false), [source, id]);
-  const chapterHref = (chapter: Pick<ApiChapter,'chapterId'|'nodeType'>) => chapter.nodeType === 'directory' ? '/work/' + [source, id].map(encodeURIComponent).join('/') + '?directory=' + encodeURIComponent(chapter.chapterId) : (chapter.nodeType ? ['audio', 'video'].includes(chapter.nodeType) ? '/watch/' : '/read/' : playback ? '/watch/' : '/read/') + [source, id, chapter.chapterId].map(encodeURIComponent).join('/');
-  const operate = async (action: () => Promise<unknown>) => { setBusy(true); setMessage(t("正在提交…")); try { await action(); setMessage(t("操作已完成")); } catch (error) { setMessage(errorMessage(error)); } finally { setBusy(false); } };
-  const favoritePreferences=useContext(PreferenceContext),[categoryRequest,setCategoryRequest]=useState(0);
-  const toggleFavorite = () => {if(!favorite&&favoritePreferences.askCategoryOnFavorite){setCategoryRequest(value=>value+1);return;}void operate(async () => { await api.setLibrary({ source, workId: id, favorite: !favorite }); });};
-
-  const more = () => operate(async () => { const value = await api.chapters(source, id, { directoryId: directory, cursor: cursor ?? undefined }); setExtra((rows) => [...rows, ...value.items]); setCursor(value.page?.nextCursor); });
-  if (work && !temporarilyVisible && work.blocked) return <StatusMessage tone="warning" title={t("内容已被屏蔽")}>{t("该作品命中实例屏蔽词。")}<button className="chip" onClick={() => setTemporarilyVisible(true)}>{t("临时显示此作品")}</button></StatusMessage>;
-  if (work?.mediaKind === 'article' && !work.capabilities.metadataOnly && firstReadable) return <>
-    <div className="action-row"><a className="secondary-link navigation-link" href={'/source/'+encodeURIComponent(source)} onClick={event=>navigateClick(event,navigate,'/source/'+encodeURIComponent(source))}>{t('站点主页')}</a><button className="chip" aria-pressed={favorite} disabled={busy||!shared.collectionsReady} onClick={toggleFavorite}>{favorite?t('已收藏'):t('收藏作品')}</button>{canDownload?<button className="chip" disabled={busy} onClick={()=>void operate(()=>api.createDownload({source,workId:id,chapterId:firstReadable.chapterId,variant:'original'}))}>{t('下载')}</button>:null}</div>
-    {message?<p role="status">{message}</p>:null}
-    <ReaderPage key={source+':'+id+':'+firstReadable.chapterId} mode="read" parts={[source,id,firstReadable.chapterId].map(encodeURIComponent)} navigate={navigate} embedded/>
-    <details className="detail-secondary"><summary>{t('更多')}</summary><CategoryEditor source={source} workId={id} title={work.title}/><div className="tag-row">{(work.tags??[]).map((tag,index)=>canSearchTag(tag)?<a className="chip" key={index} href={tagHref(tag)} onClick={event=>navigateClick(event,navigate,tagHref(tag))}><TranslatedTag source={tag.source} label={tag.label} namespace={tag.namespace}/></a>:<span key={index}>{tag.label}</span>)}</div><a className="secondary-link" href={work.sourceUrl} target="_blank" rel="noopener noreferrer">{t('打开原站')}</a>{chapters.length>1?<ul className="chapter-list">{chapters.map(chapter=><li key={chapter.chapterId}><a href={chapterHref(chapter)} onClick={event=>navigateClick(event,navigate,chapterHref(chapter))}>{chapter.title}</a></li>)}</ul>:null}{cursor?<button className="chip" disabled={busy} onClick={more}>{t('加载更多章节')}</button>:null}</details><WorkDetails work={work} source={source} workId={id} navigate={navigate} readHref={kind==='comic'&&firstReadable?chapterHref(firstReadable):undefined}/>
-  </>;
-  if (state.loading && !work) return <><a className="back-link" href={'/source/' + encodeURIComponent(source)} onClick={(event) => navigateClick(event, navigate, '/source/' + encodeURIComponent(source))}>{t("返回站点")}</a><section className="detail-layout work-overview detail-skeleton" aria-busy="true" aria-label={t("正在加载")}><div className="detail-cover skeleton-block"/><div className="work-overview-content"><div className="skeleton-line skeleton-line-title"/><div className="skeleton-line skeleton-line-meta"/><div className="skeleton-actions"><span className="skeleton-button"/><span className="skeleton-button"/><span className="skeleton-button"/></div><div className="skeleton-facts"><span/><span/><span/></div></div></section></>;
-  return <><a className="back-link" href={'/source/' + encodeURIComponent(source)} onClick={(event) => navigateClick(event, navigate, '/source/' + encodeURIComponent(source))}>{t("返回站点")}</a>
-    <StateView loading={false} error={state.error} empty={false}>{work ? <><section className={'detail-layout work-overview detail-' + work.mediaKind + (work.capabilities.metadataOnly?' detail-metadata detail-category-'+work.category:'') + (!work.coverAuthorization ? ' without-cover' : '')}><div className={'detail-cover ' + (!work.coverAuthorization ? 'cover-empty' : '')}>{work.coverAuthorization ? <CoverImage authorization={work.coverAuthorization} alt={work.title + t("封面")} className="cover-image" retryLabel={t("重试封面")} /> : null}<span className="cover-kind">{t(work.capabilities.metadataOnly?'资料':mediaLabels[kind ?? ''] ?? kind ?? '')}</span></div><div className="work-overview-content"><h1>{work.title}</h1><p className="chapter-state" style={{overflowWrap:'anywhere'}}>{t("来源：")}{sourceNames[work.source]??work.source}{t(" · 编号：")}{typeof work.workCode==='string'&&work.workCode?work.workCode:work.workId}</p>{Array.isArray(work.authors)&&work.authors.length ? <p>{t("作者：")}{work.authors.map(author=>typeof author==='string'?author:typeof author?.name==='string'?author.name:typeof author?.label==='string'?author.label:t("作者资料暂不可用")).join(' · ')}</p> : null}{Array.isArray(work.actors)&&work.actors.length ? <p>{t("出演：")}{work.actors.join(' · ')}</p> : null}<div className="action-row">{work.capabilities.metadataOnly && typeof work.workCode==='string' && work.workCode ? <a className="secondary-link" href={'/search?q='+encodeURIComponent(work.workCode)+'&scope=all'} onClick={event=>navigateClick(event,navigate,'/search?q='+encodeURIComponent(work.workCode!)+'&scope=all')}>{t("用编号搜索")}</a> : null}
-    {primaryChapter ? <a className="primary-link" href={chapterHref(primaryChapter)} onClick={(event) => navigateClick(event, navigate, chapterHref(primaryChapter))}>{primaryChapter.nodeType && !['audio', 'video'].includes(primaryChapter.nodeType) ? t("查看附件") : resumeChapter ? playback ? t("继续播放") : t("继续阅读") : webVideoOnly ? t("打开网页播放器") : playback ? t("开始播放") : t("开始阅读")}</a> : null}
-    {canDownload ? <a className="secondary-link" href="#chapter-downloads">{t("选择章节下载")}</a> : null}
-    {!work.capabilities.metadataOnly ? <button className="secondary-link" aria-pressed={favorite} onClick={toggleFavorite} disabled={busy || !shared.collectionsReady}>{favorite ? t("已收藏") : t("收藏作品")}</button> : <span>{t("资料条目 · 仅供查询原站信息")}</span>}</div>{resumeChapter ? <p className="chapter-state">{lastRead?.chapterTitle ?? resumeChapter.chapterId}{lastRead?.page != null ? t(' · 第')+(lastRead.page+1)+t('页') : lastRead?.position ? ' · '+Math.floor(lastRead.position)+t('秒') : ''}</p> : null}{resume.error ? <p role="status">{t('详情暂不可用：')}{errorMessage(resume.error)}<button className="chip" onClick={()=>window.dispatchEvent(new Event('hp:retry-read'))}>{t('重试')}</button></p> : null}{message ? <p role="status">{message}</p> : null}{(work.capabilities.onlineGame||work.capabilities.gameResources)?<GameResources source={source} workId={id} online={work.capabilities.onlineGame===true}/>:null}{work.capabilities.tavernAsset?<TavernSourcePanel source={source} workId={id}/>:null}<WorkFacts work={work}/>{!work.capabilities.metadataOnly ? <CategoryEditor key={workIdentityKey({ source, id })} source={source} workId={id} title={work.title} openRequest={categoryRequest} favoriteOnSave={categoryRequest>0&&!favorite} /> : null}</div></section><section className="detail-body">{work.summary?.trim() ? <details className="detail-summary" open><summary>{t("简介")}</summary><p className="lead">{work.summary}</p><TranslateText text={work.summary}/></details> : null}<div className="tag-row">{(work.tags ?? []).map((tag, index) => canSearchTag(tag) ? <a className="chip" key={index} href={tagHref(tag)} onClick={(event) => navigateClick(event, navigate, tagHref(tag))}><TranslatedTag source={tag.source} label={tag.label} namespace={tag.namespace}/></a> : <span className="chip" key={index}>{tag.label}</span>)}</div><details className="detail-secondary"><summary>{t("更多")}</summary>{work.tags?.length?<TagPackReminder source={source}/>:null}<a className="secondary-link" href={work.sourceUrl} target="_blank" rel="noopener noreferrer">{t("打开原站")}</a></details></section>
-    {!work.capabilities.metadataOnly&&!webVideoOnly&&work.category!=='live'&&!['game','tavern'].includes(work.mediaKind) ? <section className="section-block">{work.voiceRoot ? <nav className="action-row" aria-label={t("音声目录导航")}><a href={'/work/' + [source, id].map(encodeURIComponent).join('/')} onClick={(event) => navigateClick(event, navigate, '/work/' + [source, id].map(encodeURIComponent).join('/'))}>{work.voiceRoot.name}</a>{directory ? <span>{t(" / 当前目录")}</span> : null}</nav> : null}{chapters.length ? <ChapterDownloads key={workIdentityKey({ source, id })+':'+(directory??'')} source={source} workId={id} chapters={chapters} isVideo={kind==='video'} allowDownload={canDownload} hasMore={Boolean(cursor)} renderChapter={(chapter) => readable(chapter)||chapter.nodeType==='directory' ? <a href={chapterHref(chapter)} onClick={(event) => navigateClick(event, navigate, chapterHref(chapter))}><span>{chapter.title}</span><span className="chapter-state">{t(({directory:'目录',audio:'音频',video:'视频',subtitle:'字幕',image:'图片',script:'文本',other:'文件',unread:'未读',reading:'阅读中',read:'已读',completed:'已读'} as Record<string,string>)[chapter.nodeType ?? chapter.readState] ?? '')}</span></a> : <span>{chapter.title}<small className="chapter-state">{t("当前来源能力不支持站内阅读或播放")}</small></span>} /> : <EmptyState title={t("暂无章节")} detail={t("服务端没有返回可阅读章节。")} />}{cursor ? <button className="chip" onClick={more} disabled={busy}>{t("加载更多章节")}</button> : null}</section> : null}<WorkDetails work={work} source={source} workId={id} navigate={navigate} readHref={kind==='comic'&&firstReadable?chapterHref(firstReadable):undefined}/></> : null}</StateView></>;
-}
-function ReaderPage({ mode, parts, navigate, embedded=false,active=true }: { mode: 'read' | 'watch'; parts: string[]; navigate: (to: string) => void; embedded?:boolean;active?:boolean }) {
-  const source = decodeURIComponent(parts[0] ?? ''); const workId = decodeURIComponent(parts[1] ?? ''); const chapterId = decodeURIComponent(parts[2] ?? '');
-  const [attempt, setAttempt] = useState(0); const [showBlocked,setShowBlocked]=useState(false);const state = useAsync((signal) => api.reader(source, workId, chapterId, signal,showBlocked), [source, workId, chapterId, attempt,showBlocked], (value) => { if (value.webPlayer) void api.webPlayerControl(value.webPlayer.controlUrl, { action: 'close' }, true).catch(() => undefined); });
-  useEffect(() => { const refresh = () => setAttempt((value) => value + 1); window.addEventListener('hp:session-rotated', refresh); return () => window.removeEventListener('hp:session-rotated', refresh); }, []);
-  const [media, setMedia] = useState<HTMLMediaElement | null>(null); const [token, setToken] = useState<string>(); const [tokenAttempt, setTokenAttempt] = useState(0); const [mediaError, setMediaError] = useState<string>(); const [saveError, setSaveError] = useState<string>(); const [localPage, setLocalPage] = useState<{ key: string; page: number }>();
-  const shared = useSharedState(); const progressKey = chapterIdentityKey({ source, workId, chapterId }); const initialPage = localPage?.key === progressKey ? localPage.page : Math.max(0,Math.min((state.data?.pages?.length??1)-1,Number(new URLSearchParams(window.location.search).get('page'))>0?Math.floor(Number(new URLSearchParams(window.location.search).get('page')))-1:state.data?.pageProgress??0));
-  const queue = useRef(Promise.resolve());
-  const progressVersions=useRef(new Map<string,number>());
-  useEffect(()=>{if(state.data?.version)progressVersions.current.set(progressKey,state.data.version);},[progressKey,state.data?.version]);
-  const resumePosition = useRef<number | undefined>(undefined),resumePaused=useRef<boolean|undefined>(undefined);const [playbackNotice,setPlaybackNotice]=useState('');
-  useEffect(() => { resumePosition.current = undefined; }, [source, workId, chapterId]);
-  const persist = useCallback((progress: ProgressState) => { if (progress.page === undefined) resumePosition.current = progress.position; if (!active || shared.incognito || state.data?.category === 'live') return; const identity = { source, workId, chapterId }; const data = progress.page !== undefined ? { page: progress.page, pageCount: state.data?.blocks?.length ?? state.data?.pages?.length } : { position: progress.position, duration: progress.duration };
-    queue.current = queue.current.catch(() => undefined).then(async () => { try { const saved=await api.saveHistory(identity.source, identity.workId, identity.chapterId, {...data,version:progressVersions.current.get(progressKey)});if(saved.saved)progressVersions.current.set(progressKey,saved.version);setSaveError(undefined); } catch (error) { if(error instanceof ApiError&&error.status===409&&typeof (error.details as {version?:number}|undefined)?.version==='number')progressVersions.current.set(progressKey,(error.details as {version:number}).version);setSaveError(t("进度保存失败：") + errorMessage(error)); } });
-  }, [active, source, workId, chapterId, progressKey, mode, shared.incognito, state.data?.category, state.data?.pages?.length]);
-  const pageSave=useRef<{page:number;save:()=>void}|undefined>(undefined),pageTimer=useRef<ReturnType<typeof setTimeout>|undefined>(undefined);
-  const flushPage=useCallback(()=>{if(pageTimer.current)clearTimeout(pageTimer.current);pageTimer.current=undefined;const pending=pageSave.current;pageSave.current=undefined;pending?.save();},[]);
-  const savePage = useCallback((page: number) => { setLocalPage({ key: progressKey, page }); if(pageSave.current?.page===page)return;pageSave.current={page,save:()=>persist({page,position:0,updatedAt:Date.now()})};if(pageTimer.current)clearTimeout(pageTimer.current);pageTimer.current=setTimeout(flushPage,1000); }, [persist, progressKey,flushPage]);
-  useEffect(()=>{const hidden=()=>{if(document.hidden)flushPage();};document.addEventListener('visibilitychange',hidden);window.addEventListener('pagehide',flushPage);return()=>{flushPage();document.removeEventListener('visibilitychange',hidden);window.removeEventListener('pagehide',flushPage);};},[progressKey,flushPage]);
-  useMediaLifecycle(active?media:null, progressKey, persist);
-  useEffect(()=>{if(!active)media?.pause();},[active,media]);
-  useEffect(() => { if (!media) return; const position = state.data?.category === 'live' ? undefined : resumePosition.current ?? state.data?.videoPosition; const restore = () => { if (typeof position === 'number' && Number.isFinite(position) && position > 0 && media.currentTime === 0) media.currentTime = Math.min(position, Number.isFinite(media.duration) ? media.duration : position);if(resumePaused.current===false)void media.play().then(()=>setPlaybackNotice('')).catch(()=>setPlaybackNotice(t('浏览器暂停了自动恢复，请点击播放器继续播放。'))); }; if (media.readyState >= 1) restore(); else media.addEventListener('loadedmetadata', restore, { once: true }); return () => media.removeEventListener('loadedmetadata', restore); }, [media, state.data?.videoPosition, state.data?.category, token]);
-  const [selectedMedia,setSelectedMedia]=useState<MediaTokenRequest>();
-  const preservePosition=useCallback(()=>{if(media){if(media.currentTime>0)resumePosition.current=media.currentTime;resumePaused.current=media.paused;}},[media]);
-  const grant=useMediaGrant(selectedMedia??state.data?.mediaAuthorization,tokenAttempt,preservePosition);
-  useEffect(()=>{setToken(grant.token);setMediaError(grant.error);},[grant.token,grant.error]);
-  useEffect(() => { if (!mediaError || tokenAttempt >= 2) return; const timer = setTimeout(() => { if (media && media.currentTime > 0) resumePosition.current = media.currentTime; setTokenAttempt((value) => value + 1); }, 500 * (2 ** tokenAttempt)); return () => clearTimeout(timer); }, [mediaError, tokenAttempt, media]);
-  const reader = state.data;const novelOffset=useRef(0);
-  const persistText=useCallback((offset:number)=>{novelOffset.current=offset;if(shared.incognito||!state.data)return;const key=progressKey;queue.current=queue.current.catch(()=>undefined).then(async()=>{try{const saved=await api.saveHistory(source,workId,chapterId,{textOffset:offset,textLength:state.data?.textLength,version:progressVersions.current.get(key)});if(saved.saved)progressVersions.current.set(key,saved.version);setSaveError(undefined);}catch(error){if(error instanceof ApiError&&typeof (error.details as {version?:number}|undefined)?.version==='number')progressVersions.current.set(key,(error.details as {version:number}).version);setSaveError(t("进度保存失败：")+errorMessage(error));}});},[source,workId,chapterId,progressKey,shared.incognito,state.data]);
-  const visited = useRef<string | undefined>(undefined);
-  const recordVisit = useCallback(async () => { try { const saved=await api.saveHistory(source, workId, chapterId, {version:progressVersions.current.get(progressKey)});if(saved.saved)progressVersions.current.set(progressKey,saved.version); setSaveError(undefined); } catch (error) { setSaveError(t("网页访问记录保存失败：") + errorMessage(error)); } }, [source, workId, chapterId]);
-  useEffect(() => { if (active && reader?.webPlayer && shared.incognito === false && reader.category !== 'live' && visited.current !== progressKey) { visited.current = progressKey; void recordVisit(); } }, [reader?.webPlayer?.playerId, shared.incognito, reader?.category, progressKey, recordVisit]);
-  const workHref='/work/' + [source, workId].map(encodeURIComponent).join('/');
-  return <ReadingChrome active={!embedded&&Boolean(reader&&['comic','novel'].includes(reader.mediaKind))}>{!embedded?<div className="reader-top"><a className="navigation-link" href={workHref} onClick={(event) => navigateClick(event, navigate, workHref)}>{t("作品详情")}</a><span>{shared.incognito ? t("无痕浏览，不保存进度") : ''}</span></div>:null}{saveError ? <StatusMessage tone="danger" title={t("进度尚未保存")}>{saveError}<button className="chip" onClick={() => reader?.webPlayer ? void recordVisit() : reader?.mediaKind==='novel'?persistText(novelOffset.current):persist(media ? { position: media.currentTime, duration: Number.isFinite(media.duration) ? media.duration : undefined, updatedAt: Date.now() } : { page: initialPage, position: 0, updatedAt: Date.now() })}>{t("重试保存")}</button></StatusMessage> : null}{state.error instanceof ApiError&&state.error.code==='BLOCKED'?<button className="chip" onClick={()=>setShowBlocked(true)}>{t("临时显示此章节")}</button>:null}<StateView loading={state.loading} error={state.error} empty={false}>{reader&&!reader.webPlayer&&!['video','voice'].includes(reader.mediaKind)&&!embedded?<ReaderNavigation source={source} workId={workId} chapterId={chapterId}/>:null}<section className={'reader-canvas reader-kind-' + (reader?.mediaKind ?? 'loading')}>{playbackNotice?<p role="status">{playbackNotice}</p>:null}{reader?.webPlayer ? <ControlledWebPlayer key={reader.webPlayer.playerId} player={reader.webPlayer} onRetry={() => setAttempt((value) => value + 1)} /> : reader?.mediaKind==='novel'?<NovelReader reader={reader} initialOffset={reader.textOffset??0} onOffsetChange={persistText}/>:reader?.blocks ? <ArticleContent reader={reader} initialPage={initialPage} onPageChange={savePage} navigate={navigate} showBlocked={showBlocked}/> : reader ? <ReaderContent key={chapterIdentityKey({ source, workId, chapterId })} reader={reader} mediaKind={reader.mediaKind} playbackOptions={<>{reader?.mediaAuthorization&&['video','voice'].includes(reader.mediaKind)&&(!reader.nodeType||['audio','video'].includes(reader.nodeType))?<MediaChoices audio={reader.nodeType === 'audio' || (reader.mediaKind === 'voice' && !reader.nodeType)} source={source} workId={workId} chapterId={chapterId} failed={mediaError} onSelect={authorization=>{preservePosition();setMediaError(undefined);setSelectedMedia(authorization);setTokenAttempt(0);}}/>:null}</>} token={token} mediaError={mediaError} initialPage={initialPage} retryGeneration={tokenAttempt} setMedia={setMedia} setMediaError={setMediaError} onPageChange={savePage} onRetry={() => { if (media && media.currentTime > 0) resumePosition.current = media.currentTime; setToken(undefined); setMediaError(undefined);setSelectedMedia(undefined);setTokenAttempt(0);setAttempt(value=>value+1); }} /> : null}</section>{reader&&!reader.webPlayer&&['video','voice'].includes(reader.mediaKind)&&!embedded?<ReaderNavigation source={source} workId={workId} chapterId={chapterId}/>:null}{reader?.category==='live'?<div className="live-tools">{reader?.category==='live'&&reader.mediaAuthorization?<RecordingControls source={source} workId={workId} chapterId={chapterId}/>:null}{reader?.category==='live'&&reader.liveChatAvailable?<LiveChat source={source} workId={workId}/>:null}</div>:null}</StateView></ReadingChrome>;
-}
-function AuthorizedImage({ authorization, alt, transform, width, height, retryGeneration = 0, active = true, controlled = false, className = '', retryLabel = t("重试此页") }: { authorization: NonNullable<ReaderPayload['pages']>[number]['mediaAuthorization']; alt: string; transform?: NonNullable<ReaderPayload['pages']>[number]['transform']; width?: number; height?: number; retryGeneration?: number; active?: boolean; controlled?: boolean; className?: string; retryLabel?: string }) {
-  const canvas = useRef<HTMLCanvasElement | null>(null);
-  const root = useRef<HTMLDivElement | null>(null); const [near, setNear] = useState(false); const [attempt, setAttempt] = useState(0); const [grant, setGrant] = useState<{ auth: typeof authorization; generation: number; attempt: number; token: string }>(); const [error, setError] = useState<string>(); const scrollAtRetry = useRef<number | undefined>(undefined);
-  useEffect(() => { const node = root.current; if (!node || !active) { setNear(false); return; } let visible = false; const update = () => setNear(visible && !document.hidden); const check = () => { const box = node.getBoundingClientRect(); visible = node.getClientRects().length > 0 && box.bottom > -300 && box.top < window.innerHeight + 300; update(); }; let observer: IntersectionObserver | undefined;
-    if (typeof IntersectionObserver !== 'undefined') { observer = new IntersectionObserver((entries) => { visible = entries.some((entry) => entry.isIntersecting); update(); }, { rootMargin: '300px 0px' }); observer.observe(node); } else { check(); window.addEventListener('scroll', check, { passive: true }); window.addEventListener('resize', check); }
-    document.addEventListener('visibilitychange', update); return () => { observer?.disconnect(); window.removeEventListener('scroll', check); window.removeEventListener('resize', check); document.removeEventListener('visibilitychange', update); };
-  }, [active]);
-  useEffect(() => { if ((!near&&!controlled) || !active || !authorization) return; if (grant?.auth === authorization && grant.generation === retryGeneration && grant.attempt === attempt) return; setError(undefined); setGrant(undefined); const abort = new AbortController(); let live = true;
-    void api.mediaToken(authorization, abort.signal).then((value) => { if (live) setGrant({ auth: authorization, generation: retryGeneration, attempt, token: value.token }); }).catch((reason) => { if (live && !abort.signal.aborted) setError(errorMessage(reason)); }); return () => { live = false; abort.abort(); };
-  }, [authorization, retryGeneration, attempt, near, active]);
-  const current = grant?.auth === authorization && grant.generation === retryGeneration && grant.attempt === attempt ? grant : undefined;
-  return <div ref={root} className={'authorized-image ' + className} style={width && height && width > 0 && height > 0 ? { aspectRatio: width + ' / ' + height } : undefined}>{error ? <div className="image-error" role="status"><span>{error}</span><button className="chip" onClick={() => { scrollAtRetry.current = window.scrollY; setAttempt((value) => value + 1); }}>{retryLabel}</button></div> : current ? <>{transform ? <canvas ref={canvas} role="img" aria-label={alt} width={width} height={height} /> : null}<img src={mediaUrl(current.token)} alt={transform ? '' : alt} hidden={!!transform} aria-hidden={transform ? true : undefined} loading={transform||controlled ? 'eager' : 'lazy'} onError={() => setError(t("图片加载失败，请重试。"))} onLoad={(event) => { try { if (transform && canvas.current) restoreImage(canvas.current, event.currentTarget, transform); if (scrollAtRetry.current !== undefined) { window.scrollTo({ top: scrollAtRetry.current, behavior: 'auto' }); scrollAtRetry.current = undefined; } } catch (reason) { setError(errorMessage(reason)); } }} /></> : <div className="image-placeholder" aria-hidden="true">{t("图片待加载")}</div>}</div>;
-}
-function AuthorizedTrack({ track, selected, generation, onFailure }: { track: NonNullable<ReaderPayload['subtitles']>[number]; selected: boolean; generation: number; onFailure: (message: string) => void }) {
-  const [token, setToken] = useState<string>(); const failure = useRef(onFailure); failure.current = onFailure;
-  useEffect(() => { if (!selected) return; setToken(undefined); const abort = new AbortController(); void api.mediaToken(track.mediaAuthorization, abort.signal).then((value) => setToken(value.token)).catch((error) => { if (!abort.signal.aborted) failure.current(track.label + '：' + errorMessage(error)); }); return () => abort.abort(); }, [track.mediaAuthorization, generation, selected]);
-  return <track src={token ? mediaUrl(token) : undefined} label={track.label} srcLang={track.language} kind="subtitles" default={selected} onError={() => { if (selected) failure.current(track.label + t("字幕加载失败，可重新加载字幕。")); }} />;
-}
-function ReaderContent({ reader, mediaKind, playbackOptions, token, mediaError, initialPage, retryGeneration, setMedia, setMediaError, onPageChange, onRetry }: { reader: ReaderPayload; mediaKind: string; playbackOptions?: ReactNode; token?: string; mediaError?: string; initialPage: number; retryGeneration: number; setMedia: (media: HTMLMediaElement | null) => void; setMediaError: (message: string) => void; onPageChange: (page: number) => void; onRetry: () => void }) {
-  const prefs=usePreferences();
-  useEffect(()=>{setRate(Number(prefs.settings.playbackRate));if(mediaRef.current)mediaRef.current.playbackRate=Number(prefs.settings.playbackRate);},[prefs.settings.playbackRate]);
-  useEffect(()=>{const hidden=()=>{if(document.hidden&&mediaKind==='voice'&&prefs.settings.voiceBackgroundPlayback!==true)mediaRef.current?.pause();};document.addEventListener('visibilitychange',hidden);return()=>document.removeEventListener('visibilitychange',hidden);},[mediaKind,prefs.settings.voiceBackgroundPlayback]);
-  const pages = reader.pages ?? []; const [rate,setRate]=useState(1); const mediaRef=useRef<HTMLMediaElement|null>(null);
-  const audioWork=useAsync((signal)=>mediaKind==='voice'&&reader.source&&reader.workId?api.work(reader.source,reader.workId,signal):Promise.resolve(undefined),[mediaKind,reader.source,reader.workId]);
-  const audio = mediaKind === 'voice'; const playback = audio || mediaKind === 'video'; const [controlError, setControlError] = useState(''); const canFullscreen = document.fullscreenEnabled !== false && typeof document.documentElement.requestFullscreen === 'function';
-  const displayControl = (name: string, action: () => Promise<unknown>) => { setControlError(''); const failed = (error: unknown) => setControlError(name + t("不可用：") + errorMessage(error) + (playback ? t("。普通播放器仍可继续使用。") : t("。当前阅读布局仍可继续使用。"))); try { void action().catch(failed); } catch (error) { failed(error); } };
-  const controlNotice = controlError ? <StatusMessage tone="warning" title={t("显示控制不可用")}>{controlError}<button className="chip" onClick={() => setControlError('')}>{t("关闭显示提示")}</button></StatusMessage> : null;
-  const [subtitleErrors, setSubtitleErrors] = useState<string[]>([]); const [subtitleAttempt, setSubtitleAttempt] = useState(0); const [subtitleIndex, setSubtitleIndex] = useState(Math.max(0, reader.subtitles?.findIndex((track) => track.language === 'zh') ?? 0)); const [cueText, setCueText] = useState('');
-  const subtitleFailure = useCallback((message: string) => setSubtitleErrors((value) => [...new Set([...value, message])]), []);
-  useEffect(() => { if (!audio) return; const media = mediaRef.current; if (!media) return; const observed = new Set<TextTrack>(); const cue = () => { const selected = media.textTracks[subtitleIndex]; setCueText(Array.from(selected?.activeCues ?? []).map((item) => 'text' in item ? String(item.text) : '').join('\n')); }; const configure = () => { Array.from(media.textTracks).forEach((track, index) => { track.mode = index === subtitleIndex ? 'hidden' : 'disabled'; if (!observed.has(track)) { observed.add(track); track.addEventListener('cuechange', cue); } }); cue(); }; media.textTracks.addEventListener('addtrack', configure); media.addEventListener('loadedmetadata', configure); configure(); return () => { media.textTracks.removeEventListener('addtrack', configure); media.removeEventListener('loadedmetadata', configure); observed.forEach((track) => track.removeEventListener('cuechange', cue)); }; }, [audio, token, subtitleIndex, subtitleAttempt]);
-  const subtitleTracks = (reader.subtitles ?? []).map((track, index) => <AuthorizedTrack key={track.mediaAuthorization.authorizationId} track={track} selected={index === subtitleIndex} generation={subtitleAttempt} onFailure={subtitleFailure} />);
-  const currentRate=useRef(rate);currentRate.current=rate;
-  const attachMedia = useCallback((element: HTMLMediaElement | null) => { mediaRef.current = element;if(element)element.playbackRate=currentRate.current; setMedia(element); }, [setMedia]);
-  const mediaFailure = useRef(setMediaError); mediaFailure.current = setMediaError;
-  useEffect(() => { if (!playback || !token) return; const media = mediaRef.current; if (!media) return; const abort = new AbortController(); let live = true; let destroy: (() => void) | undefined; const source = mediaUrl(token);
-    void fetch(source, { method: 'HEAD', credentials: 'include', signal: abort.signal }).then(async (response) => { if (!response.ok) throw new Error(t(response.status===401||response.status===403?"播放权限验证失败，请重新加载。":"播放内容加载失败，请重试。")); if (!live) return; if (/mpegurl/i.test(response.headers.get('content-type') ?? '') && media.canPlayType('application/vnd.apple.mpegurl') !== 'probably') { const { attachHls } = await loadHls(); if (!live) return; destroy = attachHls(media, source, (message) => mediaFailure.current(message)); } else media.src = source; }).catch((error) => { if (live && !abort.signal.aborted) mediaFailure.current(errorMessage(error)); });
-    return () => { live = false; abort.abort(); destroy?.(); media.removeAttribute('src'); media.load(); };
-  }, [playback, token]);
-  const onMediaError = () => setMediaError(t("媒体加载失败，请重试播放。"));
-  const fullscreen = () => { const target = mediaRef.current?.requestFullscreen ? mediaRef.current : document.documentElement; if (typeof target.requestFullscreen !== 'function') { setControlError(t("浏览器未提供全屏，当前内容仍可正常使用。")); return; } displayControl(t("全屏"), () => target.requestFullscreen()); };
-  if (playback) return <div className="media-stage">{prefs.error?<p role="status">{prefs.error}</p>:null}{controlNotice}<MediaSurface audio={audio} title={reader.workTitle||reader.title} subtitle={reader.title} artwork={audioWork.data?.coverAuthorization?<CoverImage authorization={audioWork.data.coverAuthorization} alt={audioWork.data.title}/>:undefined} settings={<><div className="reader-controls"><label>{t("播放速度")}<select aria-label={t("播放速度")} value={rate} onChange={(event) => { const value = Number(event.target.value); setRate(value); void prefs.save({playbackRate:value}); if (mediaRef.current) mediaRef.current.playbackRate = value; }}>{[.5, 1, 1.25, 1.5, 2].map((value) => <option key={value} value={value}>{value}×</option>)}</select></label>{!audio && token && !mediaError && document.pictureInPictureEnabled && typeof HTMLVideoElement.prototype.requestPictureInPicture === 'function' ? <button className="chip" onClick={() => { const video = mediaRef.current as HTMLVideoElement | null; if (video) displayControl(t("画中画"), () => video.requestPictureInPicture()); }}>{t("画中画")}</button> : null}</div>{playbackOptions}</>}>{mediaError ? <StatusMessage tone="danger" title={t("媒体加载失败")}>{mediaError}<button className="chip" onClick={mediaError===playerModuleError()?()=>window.location.reload():onRetry}>{mediaError===playerModuleError()?t("刷新页面"):t("重试播放")}</button></StatusMessage> : token ? audio ? <audio ref={attachMedia} controls preload="metadata" aria-label={t("作品音频播放器")} onError={onMediaError}>{subtitleTracks}</audio> : <video ref={attachMedia} controls preload="metadata" playsInline aria-label={t("作品视频播放器")} onError={onMediaError}>{subtitleTracks}</video> : <StatusMessage title={t("正在加载播放内容")}>{t("正在准备播放，请稍候。")}</StatusMessage>}</MediaSurface><div className="media-caption" hidden={audio}><h1>{reader.workTitle || (audio ? t("音声播放器") : t("视频播放器"))}</h1><p>{reader.title}</p></div>{subtitleErrors.length ? <StatusMessage tone="warning" title={t("部分字幕不可用")}>{subtitleErrors.join('；')}<button className="chip" onClick={() => { setSubtitleErrors([]); setSubtitleAttempt((value) => value + 1); }}>{t("重新加载字幕")}</button></StatusMessage> : null}{audio && reader.subtitles?.length ? <section className="audio-subtitles" aria-label={t("音声字幕")}><label>{t("字幕轨道")}<select aria-label={t("音声字幕轨道")} value={subtitleIndex} onChange={(event) => setSubtitleIndex(Number(event.target.value))}>{reader.subtitles.map((track, index) => <option key={index} value={index}>{track.label}</option>)}</select></label><p>{cueText || t("当前时间没有字幕")}</p></section> : null}</div>;
-  if (pages.length) return <ImageReaderLayout count={pages.length} title={reader.workTitle+' · '+reader.title} initialPage={initialPage} onPageChange={onPageChange} notice={controlNotice} controls={canFullscreen?<button className="chip" onClick={fullscreen}>{t("全屏")}</button>:null} renderPage={(index,active)=>{const item=pages[index]!;return <AuthorizedImage authorization={item.mediaAuthorization} transform={item.transform} width={item.width} height={item.height} alt={item.alt??t("漫画页面")} retryGeneration={retryGeneration} active={active} controlled/>;}}/>;
-  return <article className="text-reader"><h1>{reader.title ?? t("阅读内容")}</h1>{reader.content ? <p className="chapter-text">{reader.content}</p> : <StatusMessage tone="warning" title={t("没有可用内容")}>{t("来源没有返回可阅读或播放的内容。")}</StatusMessage>}</article>;
-}
-function LibraryPage({ navigate, view, category }: { navigate: (to: string) => void; view: 'favorites' | 'history' | 'continue' | 'recent'; category: string }) {
- const prefs=usePreferences(),p=prefs.settings,shared=useSharedState(),categoryNames=useContext(CategoryNames);
-  const historyCategories = new URLSearchParams(window.location.search).get('categories') ?? undefined;
-  const version = useServerVersion();const [checking,setChecking]=useState(false),[checkMessage,setCheckMessage]=useState('');const state=useAsync(async(signal)=>{const [library,history,works]=await Promise.all([allPages(api.library),allPages(params=>api.history({...params,categories:historyCategories})),request<{items:ApiWork[]}>('/api/v1/library/works',{signal})]);return {library,history,works:works.items,failures:0};},[version,historyCategories]); const sourceState=useAsync(()=>allPages(api.sources),[version]);
-  const checkUpdates=async()=>{setChecking(true);setCheckMessage('');try{const result=await request<{checked:number;updated:number;failed?:number}>('/api/v1/library/check-updates',{method:'POST',body:'{}'});setCheckMessage(t('检查完成')+' · '+JSON.stringify(result));window.dispatchEvent(new Event('hp:invalidate'));}catch(reason){setCheckMessage(errorMessage(reason));}finally{setChecking(false);}};
-  const previous = useRef<typeof state.data>(undefined); if (state.data) previous.current = state.data; const data = state.data ?? previous.current;
-  const params=new URLSearchParams(window.location.search);const display=params.get('display')??String(p[view==='history'||view==='continue'?'historyDisplay':'libraryDisplay']);const sort=params.get('sort')??String(p.librarySort);const ascending=p.librarySortAsc===true;const filter=params.get('q')??'';const requestedPage=Number(params.get('page'));const page=Number.isSafeInteger(requestedPage)&&requestedPage>0?requestedPage:1;const pageSize=24;
-  const url=(patch:Record<string,string>)=>{const next=new URLSearchParams(window.location.search);for(const [key,value]of Object.entries(patch)){if(value)next.set(key,value);else next.delete(key);}return (view==='history'||view==='continue'?'/history':'/library')+(next.size?'?'+next.toString():'');};
-  const matches=(item:{source:string;workId:string})=>!filter||[item.source,item.workId,byKey.get(workIdentityKey({source:item.source,id:item.workId}))?.title??''].join(' ').toLocaleLowerCase().includes(filter.toLocaleLowerCase());
-  const byKey = new Map((data?.works ?? []).map((work) => [workIdentityKey({ source: work.source, id: work.workId }), work]));
-  const sourceFilter=Array.isArray(p.libraryFilterSources)?p.libraryFilterSources as string[]:[];
-  const extraMatch=(item:{source:string;workId:string})=>{const work=byKey.get(workIdentityKey({source:item.source,id:item.workId})),history=(data?.history??[]).filter(row=>row.source===item.source&&row.workId===item.workId);return (!sourceFilter.length||sourceFilter.includes(item.source))&&(p.libraryFilterKind==='all'||work?.mediaKind===p.libraryFilterKind)&&(!p.libraryFilterDownloaded||Object.values(shared.downloads).some(row=>identityMatches(row.key,item.source,item.workId)&&row.status==='completed'))&&(!p.libraryFilterUnread||(work?.unreadCount!=null?work.unreadCount>0:!history.length||history.some(row=>row.readState!=='read')));};
-  const sortValue=(item:import('./api.js').LibraryEntry)=>{const work=byKey.get(workIdentityKey({source:item.source,id:item.workId}));return sort==='title'?work?.title??item.workId:sort==='read'?(data?.history??[]).find(row=>row.source===item.source&&row.workId===item.workId)?.updatedAt??'':sort==='updated'?work?.contentUpdatedAt??item.updatedAt:item.favoritedAt??item.updatedAt;};
-  const allRows=(data?.library??[]).filter(item=>category?item.categoryIds.includes(category):item.favorite).filter(matches).filter(extraMatch).filter(item=>view!=='recent'||Boolean(byKey.get(workIdentityKey({source:item.source,id:item.workId}))?.contentUpdatedAt)).sort((a,b)=>(ascending?1:-1)*sortValue(a).localeCompare(sortValue(b)));
- const rows=allRows.slice((page-1)*pageSize,page*pageSize); const works = rows.map(item => byKey.get(workIdentityKey({ source: item.source, id: item.workId }))).filter((item): item is ApiWork => Boolean(item)); const unavailable = rows.filter(item => !byKey.has(workIdentityKey({ source: item.source, id: item.workId }))); const categories = [...new Set((data?.library ?? []).flatMap(item => item.categoryIds))].sort();
-  const history=(data?.history??[]).filter(matches).filter(item=>view!=='continue'||(item.readState!=='read'&&(item.pageCount==null||item.page==null||item.page+1<item.pageCount))).sort((a,b)=>sort==='title'?(byKey.get(workIdentityKey({source:a.source,id:a.workId}))?.title??a.workId).localeCompare(byKey.get(workIdentityKey({source:b.source,id:b.workId}))?.title??b.workId,'zh-CN'):(b.updatedAt??'').localeCompare(a.updatedAt??''));const historyMode=view==='history'||view==='continue';const total=historyMode?history.length:allRows.length;
-  const [selected,setSelected]=useState<string[]>([]); const [selectionBusy,setSelectionBusy]=useState(false); const [selectionError,setSelectionError]=useState(''); const toggleSelected=(key:string)=>setSelected(value=>value.includes(key)?value.filter(item=>item!==key):[...value,key]); const removeSelected=async()=>{if(!selected.length||!window.confirm(t(historyMode?'删除选中的历史记录？':'取消收藏选中的作品？')))return;setSelectionBusy(true);setSelectionError('');try{if(historyMode){await request('/api/v1/history',{method:'DELETE',body:JSON.stringify({scopeKeys:selected})});setSelected([]);}else{const results=await Promise.allSettled(selected.map(key=>{const item=(data?.library??[]).find(row=>workIdentityKey({source:row.source,id:row.workId})===key);return item?api.setLibrary({source:item.source,workId:item.workId,favorite:false,categoryIds:item.categoryIds,version:item.version}):Promise.reject(new Error(t('内容已发生变化，请刷新后重试。')));}));const failed=selected.filter((_,index)=>results[index]?.status==='rejected');setSelected(failed);if(failed.length)setSelectionError(t('部分操作失败，失败项仍处于选中状态。'));}window.dispatchEvent(new Event('hp:invalidate'));}catch(error){setSelectionError(errorMessage(error));}finally{setSelectionBusy(false);}};
-  useEffect(()=>{setSelected([]);setSelectionError('');},[historyMode]);
-  return <>{selectionError?<StatusMessage tone="danger" title={t('操作未完成，请重试。')}>{selectionError}</StatusMessage>:null}{prefs.busy?<p role="status">{t('正在保存…')}</p>:null}{prefs.error?<p role="status">{prefs.error}</p>:null}<PageHeader title={t(historyMode?'历史':'收藏')}><a className="chip" href={historyMode?'/library':'/history'} onClick={event=>navigateClick(event,navigate,event.currentTarget.getAttribute('href')!)}>{t(historyMode?'收藏':'历史')}</a>{historyMode?<a className="chip" href="#library-management">{t('管理历史')}</a>:null}</PageHeader>{selected.length?<div className="selection-toolbar" role="toolbar"><strong>{t('已选 {value0}',{value0:selected.length})}</strong>{!historyMode?<><LibraryBatch items={(data?.library??[]).filter(item=>selected.includes(workIdentityKey({source:item.source,id:item.workId})))} categories={categoryNames} onComplete={failed=>setSelected(failed.map(item=>workIdentityKey({source:item.source,id:item.workId})))}/><LibraryMigration items={(data?.library??[]).filter(item=>selected.includes(workIdentityKey({source:item.source,id:item.workId})))} works={data?.works??[]} sources={sourceState.data??[]} categories={categoryNames} onComplete={failed=>setSelected(failed.map(item=>workIdentityKey({source:item.source,id:item.workId})))}/></>:null}<button className="chip danger-action" disabled={selectionBusy} onClick={()=>void removeSelected()}>{historyMode?t('删除历史'):t('移除收藏')}</button><button className="chip" onClick={()=>setSelected([])}>{t('取消选择')}</button></div>:null}<details className="browse-tools" open={historyMode}><summary>{t("分类与历史管理")}</summary><LibraryManagement/></details>{!historyMode?<><div className="tabs"><a className={'tab '+(view==='favorites'?'active':'')} href="/library" onClick={event=>navigateClick(event,navigate,'/library')}>{t('收藏')}</a><a className={'tab '+(view==='recent'?'active':'')} href="/library?view=recent" onClick={event=>navigateClick(event,navigate,'/library?view=recent')}>{t('更新')}</a></div><button className="chip library-refresh" disabled={checking} onClick={()=>void checkUpdates()}>{checking?t('正在检查收藏更新'):t('检查收藏更新')}</button>{checkMessage?<p role="status">{checkMessage}</p>:null}</>:<label className="history-mode-switch"><input type="checkbox" checked={view==='continue'} onChange={event=>navigate(url({mode:event.target.checked?'continue':'',page:''}))}/>{t('继续阅读')}</label>}<div className="history-toolbar"><div className="history-primary-filters"><label>{t("查找收藏")}<input aria-label={t("查找收藏")} value={filter} onChange={event=>navigate(url({q:event.target.value,page:''}))}/></label><label>{t("排序")}<select aria-label={t("收藏排序")} value={sort} onChange={event=>{const value=event.target.value;void prefs.save({librarySort:value}).then(()=>navigate(url({sort:value,page:''})));}}><option value="added">{t('收藏时间')}</option><option value="read">{t('阅读时间')}</option><option value="updated">{t("最近更新")}</option><option value="title">{t("标题")}</option></select></label><label>{t("视图")}<select aria-label={t("收藏视图")} value={display} onChange={event=>{const value=event.target.value;void prefs.save({[historyMode?'historyDisplay':'libraryDisplay']:value}).then(()=>navigate(url({display:value})));}}><option value="grid">{t("网格")}</option><option value="list">{t("列表")}</option></select></label></div><details className="history-advanced"><summary>{t('筛选与显示')}</summary><div className="history-advanced-fields"><PreferenceFields keys={['librarySortAsc','libraryFilterKind','libraryFilterDownloaded','libraryFilterUnread']} disabled={!prefs.ready} settings={p} onChange={patch=>void prefs.save(patch)}/><label>{t('站点筛选')}<select multiple value={sourceFilter} onChange={event=>void prefs.save({libraryFilterSources:Array.from(event.target.selectedOptions).map(option=>option.value)})}>{[...new Set((data?.library??[]).map(row=>row.source))].map(source=><option key={source}>{source}</option>)}</select></label></div></details></div>{!historyMode ? <div className="filter-row"><label>{t("分类筛选")}<select aria-label={t("收藏分类筛选")} value={category} onChange={event => navigate(url({category:event.target.value,page:''}))}><option value="">{t("全部收藏")}</option>{category && !categories.includes(category) ? <option value={category}>{t("分类ID：")}{category}{t("（暂无作品）")}</option> : null}{categories.map(id => <option key={id} value={id}>{categoryNames[id]??id}</option>)}</select></label>{category ? <span className="filter-label">{t("显示此分类中的作品，含已归类但未收藏的作品。")}</span> : null}</div> : null}
-    {data?.failures ? <StatusMessage tone="warning" title={t("部分作品暂不可用")}>{data.failures}{t(" 个作品详情未能加载，已有收藏和分类仍保留。")}<button className="chip" onClick={() => window.dispatchEvent(new Event('hp:invalidate'))}>{t("重试")}</button></StatusMessage> : null}{state.error && data ? <StatusMessage tone="danger" title={t("收藏同步失败")}>{errorMessage(state.error)}<button className="chip" onClick={() => window.dispatchEvent(new Event('hp:invalidate'))}>{t("重试同步")}</button></StatusMessage> : null}
-    <StateView loading={state.loading && !data} error={data ? undefined : state.error} empty={false}>{historyMode ? history.length ? <ul className={'chapter-list '+(display==='grid'?'history-grid':'')}>{history.slice((page-1)*pageSize,page*pageSize).map((entry) => { const work = byKey.get(workIdentityKey({ source: entry.source, id: entry.workId })); const workHref = '/work/' + [entry.source, entry.workId].map(encodeURIComponent).join('/'); const play = entry.nodeType ? ['audio','video'].includes(entry.nodeType) : work?.mediaKind === 'video' || work?.mediaKind === 'voice'; const href = entry.chapterId ? (play ? '/watch/' : '/read/') + [entry.source, entry.workId, entry.chapterId].map(encodeURIComponent).join('/') : workHref; return <li key={entry.chapterId ? chapterIdentityKey({ source: entry.source, workId: entry.workId, chapterId: entry.chapterId }) : workIdentityKey({ source: entry.source, id: entry.workId })}><label><input type="checkbox" checked={selected.includes(entry.chapterId ? chapterIdentityKey({ source: entry.source, workId: entry.workId, chapterId: entry.chapterId }) : workIdentityKey({ source: entry.source, id: entry.workId }))} onChange={()=>toggleSelected(entry.chapterId ? chapterIdentityKey({ source: entry.source, workId: entry.workId, chapterId: entry.chapterId }) : workIdentityKey({ source: entry.source, id: entry.workId }))}/><span><a href={workHref} onClick={(event) => navigateClick(event, navigate, workHref)}>{work?.title ?? entry.workId}</a><small className="chapter-state">{entry.chapterTitle ?? entry.chapterId ?? t("作品")}{entry.page !== null && entry.page !== undefined ? t(" · 第") + (entry.page + 1) + t("页") : ''}{entry.position ? ' · ' + Math.floor(entry.position) + t("秒") : ''}</small></span></label><a className="chip" href={href} onClick={(event) => navigateClick(event, navigate, href)}>{play ? t("继续播放") : t("继续阅读")}</a></li>; })}</ul> : <EmptyState title={t("暂无历史")} detail={t('浏览过的作品会显示在这里。')} /> : <>{works.length ? <>
-<WorkGrid selection={{keys:selected,toggle:toggleSelected}} items={works} view={display==='list'?'list':'grid'} navigate={navigate} manageCollections /></> : null}{unavailable.length ? <ul className="chapter-list">{unavailable.map(entry => <li key={workIdentityKey({source:entry.source,id:entry.workId})}><span>{entry.source} · {entry.workId}{t("（详情暂不可用）")}</span><CategoryEditor source={entry.source} workId={entry.workId} title={entry.workId} /></li>)}</ul> : null}{!rows.length ? <EmptyState title={view==='recent'?t("暂无更新"):category ? t("此分类暂无作品") : t("暂无收藏")} detail={view==='recent'?t("检查收藏更新后，新章节会显示在这里。"):t("可在作品详情中收藏或编辑分类。")} /> : null}</>}</StateView><nav className="action-row" aria-label={t("收藏分页")}><span>{total}{t(" 项 · 第 ")}{page}{t(" 页")}</span>{page>1?<a className="chip" href={url({page:String(page-1)})} onClick={event=>navigateClick(event,navigate,url({page:String(page-1)}))}>{t("上一页")}</a>:null}{page*pageSize<total?<a className="chip" href={url({page:String(page+1)})} onClick={event=>navigateClick(event,navigate,url({page:String(page+1)}))}>{t("下一页")}</a>:null}</nav></>;
+function GlobalStatus({ syncError, navigate }: { syncError: string; navigate: (to: string) => void }) {
+  const shared = useSharedState();
+  const [online, setOnline] = useState(navigator.onLine);
+  const updates = useAsync(() => api.subscriptions({ limit: 1 }), []);
+  const unread = Number(updates.data?.unreadCount ?? 0);
+  useEffect(() => {
+    const update = () => setOnline(navigator.onLine);
+    window.addEventListener('online', update);
+    window.addEventListener('offline', update);
+    return () => {
+      window.removeEventListener('online', update);
+      window.removeEventListener('offline', update);
+    };
+  }, []);
+  const pending = Object.values(shared.downloads).filter((task) => !['completed', 'cancelled'].includes(task.status)).length;
+  return (
+    <>
+      {unread > 0 ? (
+        <a
+          className="chip"
+          href="/subscriptions?view=updates"
+          onClick={(event) => navigateClick(event, navigate, '/subscriptions?view=updates')}
+        >
+          {t('更新')} {unread}
+        </a>
+      ) : null}
+      {pending > 0 ? (
+        <a className="chip" href="/downloads" onClick={(event) => navigateClick(event, navigate, '/downloads')}>
+          {t('下载')} {pending}
+        </a>
+      ) : null}
+      {!online || syncError ? (
+        <span className="instance-status" role="status">
+          {!online ? t('浏览器离线') : t('同步异常')}
+        </span>
+      ) : null}
+    </>
+  );
 }
 
-function DownloadsPage({navigate}:{navigate:(url:string)=>void}) {
- const prefs=usePreferences();
-  const version = useServerVersion(); const state = useAsync(() => allPages(api.downloads), [version], undefined, { cacheKey: 'downloads' }); const [busy, setBusy] = useState(''); const [error, setError] = useState(''); const [previous, setPrevious] = useState<DownloadTask[]>([]); const [selectedTasks,setSelectedTasks]=useState<string[]>([]); const [batchBusy,setBatchBusy]=useState(false);
-  useEffect(() => { if (state.data) setPrevious(state.data); }, [state.data]); const items = state.data ?? previous;
-  const sourceState = useAsync(() => allPages(api.sources), [version], undefined, { cacheKey: 'source-catalog' });
-  const sourceLabel = (id:string) => String(sourceState.data?.find(item=>item.source===id)?.manifest?.name ?? id);
-  const params=new URLSearchParams(window.location.search),query=params.get('q')??'',kind=params.get('kind')??'',status=params.get('status')??'',source=params.get('source')??'';
-  const filter=(name:string,value:string)=>{const next=new URLSearchParams(window.location.search);value?next.set(name,value):next.delete(name);navigate('/downloads'+(next.size?'?'+next:''));};
-  const visible=items.filter(item=>(!query||[item.workTitle,item.chapterTitle,item.workId].join(' ').toLocaleLowerCase().includes(query.toLocaleLowerCase()))&&(!kind||item.mediaKind===kind)&&(!status||item.status===status)&&(!source||item.source===source));
-  const grouped=new Map<string,DownloadTask[]>();for(const item of visible){const key=JSON.stringify([item.source,item.workId]);grouped.set(key,[...(grouped.get(key)??[]),item]);}
+function NavLink({ route, active, navigate }: { route: Route; active: boolean; navigate: (to: string) => void }) {
+  const href = route.href ?? route.path;
+  return (
+    <a
+      href={href}
+      className={'nav-link ' + (active ? 'active' : '')}
+      title={t(route.label)}
+      aria-current={active ? 'page' : undefined}
+      onClick={(event) => navigateClick(event, navigate, href)}
+    >
+      <span aria-hidden="true" className="nav-icon">
+        <NavigationIcon name={route.path === '/tavern' ? '/library' : route.path} />
+      </span>
+      <span className="nav-label">{t(route.label)}</span>
+    </a>
+  );
+}
 
-  const size = (bytes: number) => { const value = Math.max(0, Number.isFinite(bytes) ? bytes : 0); const unit = value >= 1073741824 ? 'GiB' : value >= 1048576 ? 'MiB' : value >= 1024 ? 'KiB' : 'B'; const divisor = unit === 'GiB' ? 1073741824 : unit === 'MiB' ? 1048576 : unit === 'KiB' ? 1024 : 1; return new Intl.NumberFormat('zh-CN', { maximumFractionDigits: 1 }).format(value / divisor) + ' ' + unit; };
-  const statusNames: Record<string, string> = { queued: t("等待下载"), running: t("下载中"), paused: t("已暂停"), completed: t("已完成"), failed: t("下载失败"), cancelling: t("正在取消"), cancelled: t("已取消") };
-  const run = async (item: DownloadTask, action: 'pause' | 'resume' | 'retry' | 'cancel' | 'delete') => { const id = item.taskId; if (!id) return; if (action === 'delete' && !window.confirm(t("删除任务及其本地文件？"))) return; setBusy(id); setError(''); try { if (action === 'delete') await api.deleteDownload(id); else await api.downloadAction(id, action); } catch (reason) { setError(errorMessage(reason)); } finally { setBusy(''); } };
-  const batch = async(action:'pause'|'resume'|'delete')=>{if(!selectedTasks.length)return;if(action==='delete'&&!window.confirm(t('删除所选任务及其本地文件？')))return;setBatchBusy(true);try{await Promise.all(selectedTasks.map(id=>action==='delete'?api.deleteDownload(id):api.downloadAction(id,action)));setSelectedTasks([]);window.dispatchEvent(new Event('hp:invalidate'));}catch(reason){setError(errorMessage(reason));}finally{setBatchBusy(false);}};
-  return <><PageHeader title={t("下载")} description={t('关闭页面不会取消下载。')}>{state.loading||state.error?<span className="muted" aria-label={t("下载列表同步状态")}>{state.error?t('更新失败'):t('正在同步')}</span>:null}</PageHeader>{selectedTasks.length?<div className="selection-toolbar" role="toolbar"><strong>{t('已选 {value0}',{value0:selectedTasks.length})}</strong><button className="chip" disabled={batchBusy} onClick={()=>void batch('pause')}>{t('暂停')}</button><button className="chip" disabled={batchBusy} onClick={()=>void batch('resume')}>{t('恢复')}</button><button className="chip danger-action" disabled={batchBusy} onClick={()=>void batch('delete')}>{t('删除')}</button><button className="chip" onClick={()=>setSelectedTasks([])}>{t('取消选择')}</button></div>:null}<div className="filter-row"><label>{t('搜索')}<input aria-label={t('搜索')} value={query} onChange={event=>filter('q',event.target.value)}/></label><label>{t('媒体类型')}<select aria-label={t('媒体类型')} value={kind} onChange={event=>filter('kind',event.target.value)}><option value="">{t('全部')}</option>{[...new Set(items.map(item=>item.mediaKind).filter(Boolean))].map(value=><option key={value} value={value}>{t(mediaLabels[value!]??value!)}</option>)}</select></label><label>{t('状态')}<select aria-label={t('状态')} value={status} onChange={event=>filter('status',event.target.value)}><option value="">{t('全部')}</option>{Object.entries(statusNames).map(([value,label])=><option key={value} value={value}>{label}</option>)}</select></label><label>{t('站点')}<select aria-label={t('站点')} value={source} onChange={event=>filter('source',event.target.value)}><option value="">{t('全部')}</option>{[...new Set(items.map(item=>item.source))].map(value=><option key={value} value={value}>{sourceLabel(value)}</option>)}</select></label></div><label>{t('下载视图')}<select value={String(prefs.settings.downloadDisplay)} onChange={event=>void prefs.save({downloadDisplay:event.target.value})}><option value="list">{t('列表')}</option><option value="grid">{t('网格')}</option></select></label><details className="browse-tools"><summary>{t('导入本地漫画')}</summary><ImportComic/></details>{error ? <StatusMessage tone="danger" title={t("下载操作失败")}>{error}</StatusMessage> : null}{state.error && items.length ? <StatusMessage tone="warning" title={t("下载列表刷新失败")}>{t("当前保留上次读取的进度。")}{errorMessage(state.error)}</StatusMessage> : null}<StateView loading={state.loading && !items.length} error={items.length ? undefined : state.error} empty={!state.loading && !state.error && !visible.length}>{[...grouped].map(([key,group])=><section className="download-work" key={key}><h2><a href={'/work/'+[group[0]?.source,group[0]?.workId].map(encodeURIComponent).join('/')} onClick={event=>navigateClick(event,navigate,event.currentTarget.getAttribute('href')!)}>{group[0]?.workTitle??group[0]?.workId}</a></h2><ul className={'chapter-list '+(prefs.settings.downloadDisplay==='grid'?'download-grid':'')} aria-busy={state.loading}>{group.map((item) => { const id = item.taskId; const total = item.totalCount ?? 0; const offlineHref='/offline/'+encodeURIComponent(id); return <li key={id}><div className="download-select"><input type="checkbox" aria-label={t("选择下载任务")+" "+(item.chapterTitle ?? item.chapterId)} checked={selectedTasks.includes(id)} onChange={()=>setSelectedTasks(value=>value.includes(id)?value.filter(item=>item!==id):[...value,id])}/><span>{item.status==='completed'?<a className="download-content-link" href={offlineHref} onClick={event=>navigateClick(event,navigate,offlineHref)}><strong>{item.chapterTitle ?? item.chapterId}</strong></a>:<strong>{item.chapterTitle ?? item.chapterId}</strong>}<small className="chapter-state">{t("站点：")}{sourceLabel(item.source)}{!['default','original'].includes(item.variant) ? t(" · 版本：") + item.variant : ''}</small><small className="chapter-state">{t("已接收：")}{size(item.bytes)}{item.status==='running'&&item.speed!==null?t(' · 速度：')+size(item.speed)+'/s':null}</small><small className="chapter-state">{t("已完成文件：")}{item.completedCount ?? 0}{total ? ' / ' + total : ''}{t(" · 创建于：")}<time dateTime={item.createdAt}>{new Date(item.createdAt).toLocaleString('zh-CN', { hour12: false })}</time></small>{item.failureCode ? <div className="chapter-state"><p>{requestErrorMessage(item.failureCode)}</p><details><summary>{t('查看错误详情')}</summary><code>{item.failureCode}</code></details></div> : null}{total ? <progress max={total} value={item.completedCount ?? 0} aria-label={t("下载进度")} /> : null}</span><span className="action-row"><b>{statusNames[item.status] ?? item.status}</b>{item.status === 'running' ? <button className="chip" disabled={busy === id} onClick={() => void run(item, 'pause')}>{t("暂停")}</button> : null}{item.status === 'paused' ? <button className="chip" disabled={busy === id} onClick={() => void run(item, 'resume')}>{t("恢复")}</button> : null}{item.status === 'failed' && item.recoverable !== false ? <button className="chip" disabled={busy === id} onClick={() => void run(item, 'retry')}>{t("重试")}</button> : null}{['queued', 'running', 'paused', 'failed'].includes(item.status) ? <button className="chip" disabled={busy === id} onClick={() => void run(item, 'cancel')}>{t("取消")}</button> : null}<button className="chip danger-action" disabled={busy === id} onClick={() => void run(item, 'delete')}>{t("删除")}</button></span><div className="download-extra"><StopRecording task={item}/><DownloadExtras task={item}/></div></div></li>; })}</ul></section>)}</StateView></>;
+function MobileNav({
+  active,
+  navigate,
+  destinations,
+}: {
+  active: string;
+  navigate: (to: string) => void;
+  destinations: Record<string, string>;
+}) {
+  return (
+    <nav className="mobile-nav" aria-label={t('移动端导航')}>
+      {[
+        { path: '/discover', label: '发现' },
+        { path: '/library', label: '收藏' },
+        { path: '/downloads', label: '下载' },
+        { path: '/settings', label: '我的' },
+      ].map((route) => (
+        <NavLink
+          key={route.path}
+          route={{ ...route, href: destinations[route.path] ?? route.path }}
+          active={active === route.path}
+          navigate={navigate}
+        />
+      ))}
+    </nav>
+  );
 }
-createRoot(document.getElementById('root')!).render(<StrictMode><SessionGate /></StrictMode>);
 
-function InlineMedia({load,reload,autoplay=false}:{autoplay?:boolean;load:(signal:AbortSignal)=>Promise<ReaderPayload>;reload?:(signal:AbortSignal)=>Promise<ReaderPayload>}){
- const [attempt,setAttempt]=useState(0);const state=useAsync(signal=>attempt>0&&reload?reload(signal):load(signal),[load,reload,attempt]);const [token,setToken]=useState<string>();const [error,setError]=useState<string>();const [media,setMedia]=useState<HTMLMediaElement|null>(null);
- const position=useRef(0),paused=useRef(true);const changing=useCallback(()=>{if(media){position.current=media.currentTime;paused.current=media.paused;}},[media]);const grant=useMediaGrant(state.data?.mediaAuthorization,attempt,changing);useEffect(()=>{setToken(grant.token);setError(grant.error);},[grant.token,grant.error]);useEffect(()=>{if(!media||!position.current)return;const restore=()=>{media.currentTime=position.current;if(!paused.current)void media.play().catch(()=>{});};media.addEventListener('loadedmetadata',restore,{once:true});return()=>media.removeEventListener('loadedmetadata',restore);},[media,token]);
- useEffect(()=>{if(!media||!autoplay)return;const play=()=>{void media.play().catch(()=>{});};media.addEventListener('canplay',play,{once:true});if(media.readyState>=2)play();return()=>media.removeEventListener('canplay',play);},[media,autoplay]);
- useEffect(()=>()=>{if(media){media.pause();media.removeAttribute('src');media.load();}},[media]);
- return <div className="inline-media-frame"><StateView loading={state.loading} error={state.error} empty={false}>{state.data?<ReaderContent reader={state.data} mediaKind={state.data.mediaKind} token={token} mediaError={error} initialPage={0} retryGeneration={attempt} setMedia={setMedia} setMediaError={setError} onPageChange={()=>{}} onRetry={()=>{changing();setAttempt(v=>v+1);}}/>:null}</StateView></div>;
+function RouterSwitch({ location, navigate }: { location: string; navigate: (to: string) => void }) {
+  const [path, search] = location.split('#')[0]!.split('?');
+  const params = new URLSearchParams(search?.split('#')[0]);
+  const query = params.get('q') ?? '';
+
+  const isDiscoverRoot = path === '/' || path === '/discover';
+  const isLibraryRoot = path === '/library';
+  const isDownloadsRoot = path === '/downloads';
+  const isSettingsRoot = path === '/settings';
+
+  const [mountedRoots, setMountedRoots] = useState(() => ({
+    discover: isDiscoverRoot,
+    library: isLibraryRoot,
+    downloads: isDownloadsRoot,
+    settings: isSettingsRoot,
+  }));
+
+  useEffect(() => {
+    setMountedRoots((prev) => ({
+      discover: prev.discover || isDiscoverRoot,
+      library: prev.library || isLibraryRoot,
+      downloads: prev.downloads || isDownloadsRoot,
+      settings: prev.settings || isSettingsRoot,
+    }));
+  }, [isDiscoverRoot, isLibraryRoot, isDownloadsRoot, isSettingsRoot]);
+
+  const isAnyRoot = isDiscoverRoot || isLibraryRoot || isDownloadsRoot || isSettingsRoot;
+
+  return (
+    <>
+      {mountedRoots.discover ? (
+        <KeepAliveView active={isDiscoverRoot}>
+          <DiscoverPage navigate={navigate} />
+        </KeepAliveView>
+      ) : null}
+      {mountedRoots.library ? (
+        <KeepAliveView active={isLibraryRoot}>
+          <LibraryPage
+            navigate={navigate}
+            view={params.get('view') === 'recent' ? 'recent' : 'favorites'}
+            category={params.get('category') ?? ''}
+          />
+        </KeepAliveView>
+      ) : null}
+      {mountedRoots.downloads ? (
+        <KeepAliveView active={isDownloadsRoot}>
+          <DownloadsPage navigate={navigate} />
+        </KeepAliveView>
+      ) : null}
+      {mountedRoots.settings ? (
+        <KeepAliveView active={isSettingsRoot}>
+          <SettingsPage navigate={navigate} />
+        </KeepAliveView>
+      ) : null}
+
+      {!isAnyRoot ? (
+        <Suspense fallback={<StatusMessage title={t('正在加载')} />}>
+          {path === '/sites' ? (
+            <DiscoverPage sitesOnly navigate={navigate} />
+          ) : path === '/history' ? (
+            <LibraryPage view={params.get('mode') === 'continue' ? 'continue' : 'history'} category="" navigate={navigate} />
+          ) : path.startsWith('/domain/') ? (
+            <DiscoverPage key={path} category={decodeURIComponent(path.split('/')[2] ?? '')} navigate={navigate} />
+          ) : path === '/rankings' ? (
+            <RankingsPage search={search ?? ''} navigate={navigate} />
+          ) : path === '/reverse-search' || (path === '/search' && params.get('mode') === 'reverse') ? (
+            <ReverseSearch navigate={navigate} />
+          ) : path === '/search' ? (
+            <SearchPage
+              selection={JSON.stringify({
+                sources: params.getAll('sources'),
+                mediaKind: params.get('mediaKind') ?? undefined,
+                category: params.get('category') ?? undefined,
+              })}
+              initialKeywords={params.get('keywords') ?? ''}
+              initialFilters={params.get('filters') ?? ''}
+              initialQuery={query}
+              initialScope={params.get('scope') ?? 'all'}
+              initialSource={params.get('source') ?? ''}
+              initialCursor={params.get('cursor') ?? ''}
+              initialLimit={Number(params.get('limit') ?? '24')}
+              initialView={
+                params.get('view') === 'grouped'
+                  ? 'grouped'
+                  : params.get('view') === 'grid'
+                    ? 'grid'
+                    : params.get('view') === 'list'
+                      ? 'list'
+                      : 'grouped'
+              }
+              navigate={navigate}
+            />
+          ) : path.startsWith('/album/') ? (
+            <AlbumPage key={path + '?' + (search ?? '')} source={decodeURIComponent(path.split('/')[2] ?? '')} search={search ?? ''} navigate={navigate} />
+          ) : path === '/sources' ? (
+            <SourcesPage navigate={navigate} />
+          ) : path.startsWith('/source/') ? (
+            <SourcePage
+              key={decodeURIComponent(path.split('/')[2] ?? '')}
+              source={decodeURIComponent(path.split('/')[2] ?? '')}
+              navigate={navigate}
+              renderEmbeddedReader={(parts, active) => (
+                <ReaderPage key={JSON.stringify(parts)} active={active} embedded mode="watch" parts={parts} navigate={navigate} />
+              )}
+            />
+          ) : path.startsWith('/work/') ? (
+            <WorkPage
+              key={path}
+              parts={path.split('/').slice(2)}
+              directory={params.get('directory') ?? undefined}
+              navigate={navigate}
+              renderArticleReader={(parts) => <ReaderPage key={parts.join(':')} mode="read" parts={parts} navigate={navigate} embedded />}
+            />
+          ) : path.startsWith('/read/') || path.startsWith('/watch/') ? (
+            <ReaderPage
+              key={path}
+              mode={path.startsWith('/watch/') ? 'watch' : 'read'}
+              parts={path.split('/').slice(2)}
+              navigate={navigate}
+            />
+          ) : path === '/subscriptions' ? (
+            <SubscriptionsPage navigate={navigate} />
+          ) : path.startsWith('/channel/') ? (
+            <ChannelPage
+              source={decodeURIComponent(path.split('/')[2] ?? '')}
+              target={params.get('target') ?? undefined}
+              kind={params.get('kind') ?? undefined}
+              navigate={navigate}
+            />
+          ) : path.startsWith('/post/') ? (
+            <PostPage source={decodeURIComponent(path.split('/')[2] ?? '')} workId={decodeURIComponent(path.split('/')[3] ?? '')} />
+          ) : path === '/tavern' ? (
+            <TavernLibraryPage />
+          ) : path.startsWith('/offline/') ? (
+            <OfflinePage taskId={decodeURIComponent(path.slice('/offline/'.length))} />
+          ) : path === '/logs' ? (
+            <LogsPage navigate={navigate} />
+          ) : path === '/licenses' ? (
+            <LicensesPage navigate={navigate} />
+          ) : (
+            <>
+              <PageHeader title={t('页面不存在')} description={t('请检查链接，或返回发现继续浏览。')} />
+              <a href="/discover" onClick={(event) => navigateClick(event, navigate, '/discover')}>
+                {t('返回发现')}
+              </a>
+            </>
+          )}
+        </Suspense>
+      ) : null}
+    </>
+  );
 }
-function ArticleVideo({source,workId,id,showBlocked}:{source:string;workId:string;id:string;showBlocked?:boolean}){const load=useCallback((signal:AbortSignal)=>api.articleMedia(source,workId,id,signal,showBlocked),[source,workId,id,showBlocked]);return <InlineMedia load={load} autoplay/>;}
-function ArticleContent({reader,initialPage,onPageChange,navigate,showBlocked}:{showBlocked?:boolean;reader:ReaderPayload;initialPage:number;onPageChange:(page:number)=>void;navigate:(to:string)=>void}){
- const [active,setActive]=useState<string>();const [galleryIndex,setGalleryIndex]=useState<number>();const galleryBlock=galleryIndex===undefined?undefined:reader.blocks?.[galleryIndex];const restoring=useRef(false);const elements=useRef<Array<HTMLDivElement|null>>([]);const save=useRef(onPageChange);save.current=onPageChange;
- useEffect(()=>{const target=elements.current[initialPage];restoring.current=initialPage>0;const stop=()=>{restoring.current=false;resize.disconnect();};const restore=()=>{if(restoring.current)target?.scrollIntoView({block:'start'});};const resize=new ResizeObserver(restore);if(restoring.current){for(const element of elements.current.slice(0,initialPage+1))if(element)resize.observe(element);restore();}for(const name of ['wheel','pointerdown','keydown'])window.addEventListener(name,stop,{once:true});const observer=new IntersectionObserver(entries=>{if(restoring.current)return;for(const entry of entries)if(entry.isIntersecting)save.current(Number((entry.target as HTMLElement).dataset.block));},{rootMargin:'-15% 0px -65% 0px'});for(const element of elements.current)if(element)observer.observe(element);return()=>{observer.disconnect();resize.disconnect();for(const name of ['wheel','pointerdown','keydown'])window.removeEventListener(name,stop);};},[reader]);
- useEffect(()=>{const stop=()=>setActive(undefined);window.addEventListener('pagehide',stop);return()=>window.removeEventListener('pagehide',stop);},[]);
- return <article className="article-reader" aria-label={t("文章正文")}><h1>{reader.workTitle}</h1>{reader.blocks?.map((block,index)=><div key={index} data-block={index} data-block-type={block.type} ref={element=>{elements.current[index]=element;}}>{block.type==='text'?<p className="article-text">{block.text}</p>:block.type==='image'?<button className="article-media-open" aria-label={t("查看正文图片 ")+(index+1)} onClick={()=>setGalleryIndex(index)}><AuthorizedImage authorization={block.mediaAuthorization} alt={t("正文图片 ")+(index+1)}/></button>:<section className="article-video" aria-label={t("帖内视频 ")+(index+1)}>{active===block.id?<><ArticleVideo key={block.id} source={reader.source} workId={reader.workId} id={block.id} showBlocked={showBlocked}/><button className="chip" onClick={()=>setActive(undefined)}>{t("关闭视频")}</button></>:<div className="article-video-poster">{block.previewAuthorization?<AuthorizedImage authorization={block.previewAuthorization} alt={t("视频预览")}/>:null}<button className="article-video-play" aria-label={t("播放视频 ")+(index+1)} onClick={()=>{save.current(index);setActive(block.id);}}><svg viewBox="0 0 48 48" width="56" height="56" aria-hidden="true"><circle cx="24" cy="24" r="22" fill="rgba(0,0,0,.6)"/><path d="m19 13 17 11-17 11Z" fill="white"/></svg><span>{t("播放视频")}</span></button></div>}</section>}</div>)}<nav className="tag-row" aria-label={t("文章标签")}>{reader.tagLinks?.map(tag=>{const href='/source/'+encodeURIComponent(reader.source)+'?link='+encodeURIComponent(tag.url);return <a className="chip" key={tag.url} href={href} onClick={event=>navigateClick(event,navigate,href)}>{tag.name}</a>;})}</nav><SelectedTextTranslation/>{galleryBlock?.type==='image'?<dialog open className="work-preview-dialog" aria-label={t('图片预览')}><header><h2>{t('正文图片')}</h2><button className="chip" onClick={()=>setGalleryIndex(undefined)}>{t('关闭')}</button></header><div className="work-preview-stage"><AuthorizedImage authorization={galleryBlock.mediaAuthorization} alt={t('正文图片')}/><div className="action-row"><button className="chip" disabled={!reader.blocks?.slice(0,galleryIndex!).some(block=>block.type==='image')} onClick={()=>{const indexes=(reader.blocks??[]).map((block,i)=>block.type==='image'?i:-1).filter(i=>i>=0);const pos=indexes.indexOf(galleryIndex!);if(pos>0)setGalleryIndex(indexes[pos-1]);}}>{t('上一张')}</button><button className="chip" disabled={!reader.blocks?.slice(galleryIndex!+1).some(block=>block.type==='image')} onClick={()=>{const indexes=(reader.blocks??[]).map((block,i)=>block.type==='image'?i:-1).filter(i=>i>=0);const pos=indexes.indexOf(galleryIndex!);if(pos>=0&&pos+1<indexes.length)setGalleryIndex(indexes[pos+1]);}}>{t('下一张')}</button></div></div></dialog>:null}</article>;
+
+if (
+  typeof navigator !== 'undefined' &&
+  'serviceWorker' in navigator &&
+  !((import.meta as ImportMeta & { env?: { DEV?: boolean } }).env?.DEV)
+) {
+  window.addEventListener('load', () => {
+    void navigator.serviceWorker.register('/sw.js').catch(() => {});
+  });
 }
-function AlbumVideo({authorization,source,itemId,mediaId}:{authorization:MediaTokenRequest;source:string;itemId:string;mediaId:string}){const load=useCallback(async()=>({mediaKind:'video',mediaAuthorization:authorization} as ReaderPayload),[authorization]);const reload=useCallback(async(signal:AbortSignal)=>{const result=await request<{mediaAuthorization:MediaTokenRequest}>('/api/v1/posts/'+[source,itemId].map(encodeURIComponent).join('/')+'/media/'+encodeURIComponent(mediaId),{signal});return {mediaKind:'video',mediaAuthorization:result.mediaAuthorization} as ReaderPayload;},[source,itemId,mediaId]);return <InlineMedia load={load} reload={reload}/>;}
-const albumCache = new Map<string,{items:AlbumItem[];cursor:string|null|undefined}>();
-function AlbumPage({source,search,navigate}:{source:string;search:string;navigate:(to:string)=>void}){
- const previewDialog=useRef<HTMLDialogElement>(null),previewTrigger=useRef<HTMLElement|null>(null);const [preview,setPreview]=useState<{items:MediaTokenRequest[];index:number;title:string}>();useEffect(()=>{if(preview)previewDialog.current?.showModal();},[preview]);
- const prefs=usePreferences();const params=new URLSearchParams(search);const scope=params.get('scope')??'';const cacheKey=JSON.stringify([source,scope]);const cachedAlbum=albumCache.get(cacheKey);const version=useServerVersion();const sourceState=useAsync(()=>api.source(source),[source,version],undefined,{cacheKey:'source:'+source});const [items,setItems]=useState<AlbumItem[]>(cachedAlbum?.items??[]);const [cursor,setCursor]=useState<string|null|undefined>(cachedAlbum?.cursor);const autoPages=useRef(0);const cancelled=useRef(false);const [loading,setLoading]=useState(false);const [error,setError]=useState('');const [attempt,setAttempt]=useState(0);const controller=useRef<AbortController|undefined>(undefined);const [active,setActive]=useState('');const [expanded,setExpanded]=useState<string[]>([]);const [target,setTarget]=useState('');const [kind,setKind]=useState('all');const [from,setFrom]=useState('');const [to,setTo]=useState('');
- const merge=(next:AlbumItem[])=>setItems(old=>{const map=new Map(old.map(row=>[row.id,row]));for(const row of next)map.set(row.id,row);const value=[...map.values()];albumCache.set(cacheKey,{items:value,cursor});return value;});
- const load=async(next?:string)=>{cancelled.current=false;controller.current?.abort();const c=new AbortController();controller.current=c;setLoading(true);setError('');try{const result=await api.album(source,scope,next,c.signal);if(!c.signal.aborted){merge(result.items);setCursor(result.page.nextCursor);const current=albumCache.get(cacheKey);if(current)albumCache.set(cacheKey,{...current,cursor:result.page.nextCursor});}}catch(error){if(!c.signal.aborted)setError(errorMessage(error));}finally{if(!c.signal.aborted)setLoading(false);}};
- useEffect(()=>{if(!cachedAlbum){setItems([]);setCursor(undefined);}setActive('');autoPages.current=0;cancelled.current=false;if(scope)void load(cachedAlbum?.cursor ?? undefined);return()=>controller.current?.abort();},[source,scope,attempt]);
- useEffect(()=>{const stop=()=>{controller.current?.abort();setActive('');setLoading(false);};window.addEventListener('pagehide',stop);return()=>window.removeEventListener('pagehide',stop);},[]);
- const manifest=sourceState.data?.manifest;const caps=manifest?.capabilities as Record<string,boolean>|undefined;const feeds=Array.isArray(manifest?.feeds)?manifest.feeds as Array<{key:string;label:string}>:[];
- useEffect(()=>{autoPages.current=0;},[kind,from,to]);
- const [showBlocked,setShowBlocked]=useState(false);const filtered=items.filter(row=>showBlocked||!row.blocked).filter(row=>{const date=row.date?Date.parse(row.date):NaN;return (!from||Number.isFinite(date)&&date>=Date.parse(from))&&(!to||Number.isFinite(date)&&date<Date.parse(to)+86400000);});
- useEffect(()=>{if(scope&&cursor&&!loading&&!error&&!cancelled.current&&autoPages.current<3&&!filtered.some(row=>row.media.some(m=>kind==='all'||m.type===kind))){autoPages.current++;void load(cursor);}},[scope,cursor,loading,error,items,kind,from,to]);
- return <><PageHeader title={t("相册")} description={t("按原站顺序浏览完整媒体集合，频道订阅与相册分别提供。")}><a className="navigation-link" href={'/source/'+encodeURIComponent(source)} onClick={event=>navigateClick(event,navigate,'/source/'+encodeURIComponent(source))}>{t("站点主页")}</a></PageHeader><StateView loading={sourceState.loading} error={sourceState.error} empty={false}>{caps?.album!==true?<StatusMessage title={t('此站点暂无可浏览的相册。')}>{t('此站点暂无可浏览的相册。')}</StatusMessage>:<><details className="album-options" open={!scope}><summary>{t("相册范围与筛选")}</summary><div className="action-row">{feeds.map(feed=>{const href='/album/'+encodeURIComponent(source)+'?scope='+encodeURIComponent(JSON.stringify({feed:feed.key,options:{}}));return <a className="chip" key={feed.key} href={href} onClick={event=>navigateClick(event,navigate,href)}>{feed.label}{t("相册")}</a>;})}</div>{caps.subscription?<form onSubmit={event=>{event.preventDefault();navigate('/album/'+encodeURIComponent(source)+'?scope='+encodeURIComponent(JSON.stringify({target:target.trim()})));}}><label>{t("频道或用户目标")}<input aria-label={t("相册目标")} required value={target} onChange={event=>setTarget(event.target.value)}/></label><button className="primary-link">{t("打开目标相册")}</button></form>:null}{!scope?<p role="status">{t("选择目录，或从站内搜索/筛选打开相册。")}</p>:null}<div className="reader-controls album-filters"><label>{t('每行数量')}<select value={Number(prefs.settings.albumColumns)} disabled={prefs.busy} onChange={event=>void prefs.save({albumColumns:Number(event.target.value)})}>{[1,2,3,4,5,6].map(value=><option key={value} value={value}>{value}</option>)}</select></label><label><input type="checkbox" checked={Boolean(prefs.settings.albumCollapsed)} onChange={event=>{setExpanded([]);void prefs.save({albumCollapsed:event.target.checked});}}/>{t('默认收起媒体')}</label>{prefs.error?<p role="alert">{prefs.error}</p>:null}<label>{t("媒体类型")}<select value={kind} onChange={event=>{setActive('');setKind(event.target.value);}}><option value="all">{t("全部")}</option><option value="image">{t("图片")}</option><option value="video">{t("视频")}</option></select></label><label>{t("起始日期")}<input type="date" value={from} onChange={event=>{setActive('');setFrom(event.target.value);}}/></label><label>{t("结束日期")}<input type="date" value={to} onChange={event=>{setActive('');setTo(event.target.value);}}/></label></div></details>{error?<StatusMessage tone="danger" title={t("相册加载失败")}>{error}<button className="chip" onClick={()=>void load(cursor??undefined)}>{t("重试相册")}</button><button className="chip" onClick={()=>setAttempt(v=>v+1)}>{t("重新加载相册")}</button></StatusMessage>:null}<>{items.some(row=>row.blocked||row.media.some(item=>item.hiddenByPreferences))?<button className="chip" aria-pressed={showBlocked} onClick={()=>setShowBlocked(value=>!value)}>{showBlocked?t('应用屏蔽规则'):t('临时显示原始结果')}</button>:null}</>{loading&&!filtered.length?<div className="album-media-grid album-media-skeleton" aria-busy="true" aria-label={t("正在加载相册")}>{Array.from({length:6},(_,index)=><div className="work-preview-skeleton" key={index} aria-hidden="true"/>)}</div>:null}<div className="source-feed" role="region" aria-label={t("相册结果")}>{filtered.map(row=>{const open=prefs.settings.albumCollapsed?expanded.includes(row.id):!expanded.includes(row.id);const media=row.media.filter(m=>(showBlocked||!m.hiddenByPreferences)&&(kind==='all'||m.type===kind));return <article className="feed-item" key={row.id} data-album-id={row.id}><h2>{row.presentation==='work'?<a href={'/work/'+[source,row.id].map(encodeURIComponent).join('/')} onClick={event=>navigateClick(event,navigate,'/work/'+[source,row.id].map(encodeURIComponent).join('/'))}>{row.title}</a>:row.title}</h2><p>{row.date?new Date(row.date).toLocaleString():t("日期未知")}{row.locked?t(" · 原站锁定，仅公开预览"):''}</p><button className="chip" aria-expanded={open} onClick={()=>{setActive('');setExpanded(value=>value.includes(row.id)?value.filter(id=>id!==row.id):[...value,row.id]);}}>{open?t("收起"):t("展开")}{media.length}{t("项媒体")}</button>{open?<><p className="article-text">{row.text}</p><div className="album-media-grid" style={{display:'grid',gridTemplateColumns:'repeat('+Math.min(Number(prefs.settings.albumColumns),Math.max(1,media.length))+',minmax(0,1fr))',gap:12}}>{media.map(m=>{const key=JSON.stringify([row.id,m.id]);return <figure key={m.id} data-media-id={m.id} className={m.blurred?'album-blurred':''}>{m.type==='image'?<><AuthorizedImage authorization={m.mediaAuthorization} alt={row.title+t(" 图片 ")+m.id}/><button className="chip album-image-open" onClick={event=>{previewTrigger.current=event.currentTarget;const imageMedia=media.filter(item=>item.type==="image");const imageIndex=imageMedia.findIndex(item=>item.id===m.id);setPreview({items:imageMedia.map(item=>item.mediaAuthorization),index:imageIndex,title:row.title});}}>{t("查看大图")}</button></>:<>{m.previewAuthorization&&active!==key?<AuthorizedImage authorization={m.previewAuthorization} alt={t("视频预览")}/>:null}<button className="chip" onClick={()=>setActive(value=>value===key?'':key)}>{active===key?t("关闭视频"):m.previewOnly?t("播放公开预览"):t("播放视频")}</button>{active===key?<AlbumVideo key={key} authorization={m.mediaAuthorization} source={source} itemId={row.id} mediaId={m.id}/>:null}</>}{m.previewOnly?<figcaption>{t("仅原站公开预览")}</figcaption>:null}</figure>;})}</div><details className="album-download-options"><summary>{t("下载媒体")}</summary><PostDownloads post={row}/></details></>:null}</article>;})}</div>{loading?<p role="status">{t("正在加载相册")}</p>:null}{scope&&!loading&&!items.length&&!error?<EmptyState title={t("暂无匹配媒体")} detail={t('可调整筛选，或继续加载更多内容。')}/>:null}{cursor?<button className="chip" disabled={loading} onClick={()=>void load(cursor)}>{t("加载更多相册")}</button>:null}{loading?<button className="chip" onClick={()=>{cancelled.current=true;controller.current?.abort();setLoading(false);}}>{t("取消相册加载")}</button>:null}</>}</StateView><dialog ref={previewDialog} className="work-preview-dialog" aria-label={t("图片预览")} onClose={()=>{setPreview(undefined);previewTrigger.current?.focus();}}><header><h2>{preview?.title}</h2><button className="chip" onClick={()=>previewDialog.current?.close()}>{t("关闭")}</button></header>{preview?<div className="work-preview-stage"><AuthorizedImage authorization={preview.items[preview.index]!} alt={preview.title}/><div className="action-row"><button className="chip" disabled={preview.index<=0} onClick={()=>setPreview(value=>value?{...value,index:value.index-1}:value)}>{t("上一张")}</button><span>{preview.index+1} / {preview.items.length}</span><button className="chip" disabled={preview.index+1>=preview.items.length} onClick={()=>setPreview(value=>value?{...value,index:value.index+1}:value)}>{t("下一张")}</button></div></div>:null}</dialog></>;
-}
+
+createRoot(document.getElementById('root')!).render(
+  <StrictMode>
+    <ConfirmProvider translate={t}>
+      <SessionGate />
+      <ToastHost />
+    </ConfirmProvider>
+  </StrictMode>,
+);

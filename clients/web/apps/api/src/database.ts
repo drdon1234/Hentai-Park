@@ -3,7 +3,7 @@ import { mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';
 import { workCollectionResourceKey, subscriptionResourceKey, downloadTaskId } from '@hentai-park/domain-model';
 
-export const MIGRATION_VERSION = 14;
+export const MIGRATION_VERSION = 15;
 export const schemaSql = `
 CREATE TABLE IF NOT EXISTS schema_migrations (version INTEGER PRIMARY KEY, applied_at TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS works (source TEXT NOT NULL, work_id TEXT NOT NULL, title TEXT NOT NULL, cover TEXT, media_kind TEXT NOT NULL, category TEXT NOT NULL, source_category TEXT, summary TEXT, source_url TEXT NOT NULL, capability_json TEXT NOT NULL, source_version TEXT, updated_at TEXT NOT NULL, version INTEGER NOT NULL DEFAULT 1, PRIMARY KEY(source, work_id));
@@ -130,8 +130,36 @@ export class AppDatabase {
         CREATE TABLE tavern_connections(connection_id TEXT PRIMARY KEY,endpoint TEXT NOT NULL,model TEXT NOT NULL,temperature REAL NOT NULL DEFAULT 0.8,max_tokens INTEGER NOT NULL DEFAULT 1024,context_tokens INTEGER NOT NULL DEFAULT 32768,secret_cipher TEXT NOT NULL DEFAULT '',key_endpoint TEXT NOT NULL DEFAULT '',updated_at TEXT NOT NULL,version INTEGER NOT NULL DEFAULT 1);
         CREATE TABLE worldbook_term_packs(locale TEXT PRIMARY KEY,pack_version TEXT NOT NULL,payload_json TEXT NOT NULL,updated_at TEXT NOT NULL,version INTEGER NOT NULL DEFAULT 1);
       `);this.db.prepare('INSERT OR REPLACE INTO schema_migrations(version,applied_at) VALUES(?,?)').run(14,new Date().toISOString());}
+      if(version<15){
+        const hasColumn=(table:string,column:string)=>this.db.prepare(`PRAGMA table_info(${table})`).all().some(col=>(col as {name?:string}).name===column);
+        if(!hasColumn('download_files','sha256'))this.db.exec('ALTER TABLE download_files ADD COLUMN sha256 TEXT');
+        if(!hasColumn('subscriptions','label'))this.db.exec('ALTER TABLE subscriptions ADD COLUMN label TEXT');
+        if(!hasColumn('subscriptions','lease_until'))this.db.exec('ALTER TABLE subscriptions ADD COLUMN lease_until TEXT');
+        if(!hasColumn('subscription_events','post_snapshot_json'))this.db.exec('ALTER TABLE subscription_events ADD COLUMN post_snapshot_json TEXT');
+        if(!hasColumn('tavern_connections','system_prompt'))this.db.exec("ALTER TABLE tavern_connections ADD COLUMN system_prompt TEXT NOT NULL DEFAULT ''");
+        this.db.exec(`
+          CREATE INDEX IF NOT EXISTS idx_download_files_task ON download_files(task_id, id);
+          CREATE INDEX IF NOT EXISTS idx_history_updated ON history(updated_at DESC);
+          CREATE INDEX IF NOT EXISTS idx_history_work ON history(source, work_id, updated_at DESC);
+          CREATE INDEX IF NOT EXISTS idx_work_collections_fav ON work_collections(favorite, updated_at DESC);
+          CREATE INDEX IF NOT EXISTS idx_works_updated ON works(source, updated_at DESC);
+          CREATE INDEX IF NOT EXISTS idx_works_content_updated ON works(content_updated_at DESC);
+          CREATE INDEX IF NOT EXISTS idx_subscription_events_observed ON subscription_events(observed_at DESC);
+          CREATE INDEX IF NOT EXISTS idx_subscription_event_targets_event ON subscription_event_targets(event_id);
+          CREATE INDEX IF NOT EXISTS idx_subscription_checks_sub ON subscription_checks(subscription_id, id DESC);
+        `);
+        this.db.prepare('INSERT OR REPLACE INTO schema_migrations(version,applied_at) VALUES(?,?)').run(15,new Date().toISOString());
+      }
       this.db.exec(`PRAGMA user_version=${MIGRATION_VERSION}; COMMIT`);
     } catch (error) { this.db.exec('ROLLBACK'); throw error; }
+  }
+  pruneMaintenance() {
+    const cutoff = new Date(Date.now() - 7 * 86_400_000).toISOString();
+    this.db.prepare('DELETE FROM idempotency_records WHERE created_at < ?').run(cutoff);
+    const maxSeq = Number((this.db.prepare('SELECT COALESCE(MAX(sequence),0) AS max_seq FROM domain_events').get() as { max_seq?: number })?.max_seq ?? 0);
+    if (maxSeq > 5000) {
+      this.db.prepare("DELETE FROM domain_events WHERE sequence < ? AND event_id NOT IN (SELECT event_id FROM subscription_events)").run(maxSeq - 5000);
+    }
   }
   close() { this.db.close(); }
   recoverPending() {

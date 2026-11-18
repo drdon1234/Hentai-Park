@@ -1,7 +1,8 @@
-import {validatePreferences} from '@hentai-park/domain-model';
+import {validatePreferences,workCollectionResourceKey,subscriptionResourceKey} from '@hentai-park/domain-model';
 import { DatabaseSync, type SQLInputValue } from 'node:sqlite';
 import { isDeepStrictEqual } from 'node:util';
 import { createHash,randomUUID } from 'node:crypto';
+import { gunzipSync, gzipSync } from 'node:zlib';
 import { validateManifest,isSourceKey,sourceContract } from '@hentai-park/source-contract';
 import type {PluginManifest} from '@hentai-park/source-contract';
 import {normalizeConnectionEndpoint,validateConnectionSecrets} from './tavern-connections.js';
@@ -138,8 +139,8 @@ function jsonValue(value: unknown, field: string, allowSecrets = false): string 
 const json: Validator = (value, field) => jsonValue(value, field);
 const tavernSettings:Validator=(value,field)=>{
     if(typeof value!=='string'||Buffer.byteLength(value)>128000)invalid(field);let parsed:Row;try{parsed=object(JSON.parse(value),field);}catch{invalid(field);}
-    const allowed=['userName','persona','worldbookIds','contextTokens','maxTokens','temperature'];if(Object.keys(parsed).some(key=>!allowed.includes(key)))invalid(field);
-    for(const key of ['userName','persona'])if(parsed[key]!==undefined&&(typeof parsed[key]!=='string'||String(parsed[key]).length>(key==='persona'?20000:256)||/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/.test(String(parsed[key]))))invalid(field);
+    const allowed=['userName','persona','systemPrompt','worldbookIds','contextTokens','maxTokens','temperature'];if(Object.keys(parsed).some(key=>!allowed.includes(key)))invalid(field);
+    for(const key of ['userName','persona','systemPrompt'])if(parsed[key]!==undefined&&(typeof parsed[key]!=='string'||String(parsed[key]).length>(key==='userName'?256:20000)||/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/.test(String(parsed[key]))))invalid(field);
     if(parsed.worldbookIds!==undefined&&(!Array.isArray(parsed.worldbookIds)||parsed.worldbookIds.length>100||parsed.worldbookIds.some(id=>typeof id!=='string'||!id||id.length>512)))invalid(field);
     for(const key of ['contextTokens','maxTokens'])if(parsed[key]!==undefined&&(!Number.isSafeInteger(parsed[key])||Number(parsed[key])<1||Number(parsed[key])>2000000))invalid(field);
     if(parsed.temperature!==undefined&&(typeof parsed.temperature!=='number'||!Number.isFinite(parsed.temperature)||parsed.temperature<0||parsed.temperature>2))invalid(field);
@@ -164,8 +165,10 @@ function ordinarySourceSettings(manifest:PluginManifest,value:unknown,exporting=
     return result;
 }
 const manifest: Validator = (value, field) => {
-    const parsed = object(JSON.parse(jsonValue(value, field, true)), field);
+    const encoded = text(value, field, 2000000);
+    let parsed: Row;
     try {
+        parsed = object(JSON.parse(encoded), field);
         validateManifest(parsed);
     }
     catch {
@@ -320,7 +323,13 @@ export function exportBackup(db: DatabaseSync, include: string[] = defaults, pri
                         parsed = { ...object(parsed, 'account') };
                         delete parsed.cookies;
                     }
-                    result[key] = name==='tavernConversations'&&key==='settings_json'?tavernSettings(JSON.stringify(parsed),`${name}.${key}`):name==='worldbookTerms'&&key==='payload_json'?termPayload(JSON.stringify(parsed),`${name}.${key}`):JSON.stringify(clean(parsed, `${name}.${key}`, true, name === 'accounts' || key === 'manifest_json'));
+                    result[key] = key === 'manifest_json'
+                        ? JSON.stringify(parsed)
+                        : name === 'tavernConversations' && key === 'settings_json'
+                            ? tavernSettings(JSON.stringify(parsed), `${name}.${key}`)
+                            : name === 'worldbookTerms' && key === 'payload_json'
+                                ? termPayload(JSON.stringify(parsed), `${name}.${key}`)
+                                : JSON.stringify(clean(parsed, `${name}.${key}`, true, name === 'accounts'));
                 }
                 else if (key === 'cover' && value !== null) {
                     try {
@@ -527,4 +536,363 @@ export function previewBackupImport(db:DatabaseSync,value:unknown,connectionSecr
         const totals=emptyPreview();for(const summary of Object.values(partitions))for(const key of Object.keys(totals) as Array<keyof BackupPartitionPreview>)totals[key]+=summary[key];
         return {preview:true as const,canImport:true as const,partitions,totals,restoredSourcesDisabled:result.restoredSourcesDisabled};
     }finally{scratch.close();}
+}
+
+/** Encode a Web backup into a gzip-compressed `.parkbak` compatible with both Android BackupService and Web. */
+export function encodeParkbak(webBackup: Row): Buffer {
+    const categoriesById = new Map<string, string>();
+    const rawCats = Array.isArray(webBackup.categories) ? (webBackup.categories as Row[]) : [];
+    const androidCategories = rawCats.map((cat, idx) => {
+        categoriesById.set(String(cat.id), String(cat.name));
+        return { name: String(cat.name), sort: Math.max(0, Math.round(Number(cat.sort ?? idx))) };
+    });
+
+    const collectionsByKey = new Map<string, Row>();
+    for (const col of Array.isArray(webBackup.library) ? (webBackup.library as Row[]) : []) {
+        collectionsByKey.set(`${col.source}\0${col.work_id}`, col);
+    }
+
+    const toEpochMs = (iso: unknown): number | null => {
+        if (typeof iso !== 'string') return null;
+        const ms = Date.parse(iso);
+        return Number.isFinite(ms) && ms >= 0 ? Math.round(ms) : null;
+    };
+
+    const androidWorks = (Array.isArray(webBackup.works) ? (webBackup.works as Row[]) : [])
+        .filter((w) => w.source !== '_local')
+        .map((w) => {
+            const col = collectionsByKey.get(`${w.source}\0${w.work_id}`);
+            const catIds = col?.category_ids_json ? (JSON.parse(String(col.category_ids_json)) as string[]) : [];
+            const catNames = catIds.map((id) => categoriesById.get(id)).filter((v): v is string => Boolean(v));
+            const meta = w.metadata_json ? (JSON.parse(String(w.metadata_json)) as Row) : {};
+            return {
+                item: {
+                    id: String(w.work_id),
+                    title: String(w.title),
+                    ...(w.cover ? { cover: String(w.cover) } : {}),
+                    ...(w.summary ? { summary: String(w.summary) } : {}),
+                    ...(w.source_url ? { url: String(w.source_url) } : {}),
+                    mediaKind: String(w.media_kind),
+                    category: String(w.category),
+                    ...(Array.isArray(meta.authors) ? { authors: meta.authors } : {}),
+                },
+                source: String(w.source),
+                id: String(w.work_id),
+                favorite: Boolean(col?.favorite),
+                favoritedAt: toEpochMs(col?.favorited_at),
+                readerMode: null,
+                categories: catNames,
+            };
+        })
+        .filter((w) => w.favorite || w.categories.length > 0);
+
+    const androidChapters = (Array.isArray(webBackup.chapters) ? (webBackup.chapters as Row[]) : [])
+        .filter((c) => c.source !== '_local' && (c.read_state !== 'unread' || c.progress_updated_at !== null))
+        .map((c) => ({
+            source: String(c.source),
+            workId: String(c.work_id),
+            chapterId: String(c.chapter_id),
+            title: String(c.title),
+            sort: Math.max(0, Math.round(Number(c.sort ?? 0))),
+            read: c.read_state === 'read',
+            lastPage: c.page_progress !== null && c.page_progress !== undefined ? Math.max(0, Math.round(Number(c.page_progress))) : null,
+            pageCount: null,
+            progressUpdatedAt: toEpochMs(c.progress_updated_at),
+            dateRead: c.read_state === 'read' ? toEpochMs(c.progress_updated_at) : null,
+            position: c.video_position !== null && c.video_position !== undefined ? Math.max(0, Math.round(Number(c.video_position) * 1000)) : null,
+            duration: c.duration !== null && c.duration !== undefined ? Math.max(0, Math.round(Number(c.duration) * 1000)) : null,
+            positionUpdatedAt: c.video_position !== null && c.video_position !== undefined ? toEpochMs(c.progress_updated_at) : null,
+        }));
+
+    const worksMap = new Map<string, Row>();
+    for (const w of Array.isArray(webBackup.works) ? (webBackup.works as Row[]) : []) {
+        worksMap.set(`${w.source}\0${w.work_id}`, w);
+    }
+
+    const androidHistory = (Array.isArray(webBackup.history) ? (webBackup.history as Row[]) : [])
+        .filter((h) => h.source !== '_local' && worksMap.has(`${h.source}\0${h.work_id}`))
+        .map((h) => {
+            const w = worksMap.get(`${h.source}\0${h.work_id}`)!;
+            return {
+                item: {
+                    id: String(w.work_id),
+                    title: String(w.title),
+                    ...(w.cover ? { cover: String(w.cover) } : {}),
+                    mediaKind: String(w.media_kind),
+                    category: String(w.category),
+                },
+                source: String(h.source),
+                workId: String(h.work_id),
+                time: toEpochMs(h.updated_at) ?? Date.now(),
+                chapterId: h.chapter_id ?? null,
+                chapterTitle: h.chapter_title ?? null,
+                page: h.page !== null && h.page !== undefined ? Math.max(0, Math.round(Number(h.page))) : null,
+                pageCount: h.page_count !== null && h.page_count !== undefined ? Math.max(0, Math.round(Number(h.page_count))) : null,
+                position: h.position !== null && h.position !== undefined ? Math.max(0, Math.round(Number(h.position) * 1000)) : null,
+            };
+        });
+
+    const parkbak = {
+        format: 'parkbak',
+        version: 1,
+        createdAt: Date.now(),
+        origin: 'manual',
+        library: {
+            categories: androidCategories,
+            works: androidWorks,
+            chapters: androidChapters,
+            history: androidHistory,
+        },
+        webBackup,
+    };
+    return gzipSync(Buffer.from(JSON.stringify(parkbak), 'utf8'));
+}
+
+/** Decode either a gzip `.parkbak` (Android or Web) or a JSON Web backup into a normalized Web backup object. */
+export function normalizeIncomingBackup(input: unknown, db?: DatabaseSync): Row {
+    let raw: Row;
+    if (Buffer.isBuffer(input) || input instanceof Uint8Array) {
+        const buf = Buffer.from(input);
+        const decodedBytes =
+            buf.length >= 2 && buf[0] === 0x1f && buf[1] === 0x8b
+                ? gunzipSync(buf, { maxOutputLength: 128 * 1024 * 1024 })
+                : buf;
+        try {
+            raw = object(JSON.parse(decodedBytes.toString('utf8')), 'backup');
+        } catch {
+            invalid('backup');
+        }
+    } else if (typeof input === 'string') {
+        try {
+            raw = object(JSON.parse(input), 'backup');
+        } catch {
+            invalid('backup');
+        }
+    } else {
+        raw = object(input, 'backup');
+    }
+
+    // Native Web backup or Web-originated .parkbak containing webBackup
+    if (raw.manifest && typeof raw.manifest === 'object' && (raw.manifest as Row).format === 'hentai-park-web-backup') {
+        return raw;
+    }
+    if (raw.format === 'parkbak' && raw.webBackup && typeof raw.webBackup === 'object') {
+        return object(raw.webBackup, 'webBackup');
+    }
+
+    // Android-originated .parkbak conversion -> Web backup schema!
+    if (raw.format !== 'parkbak' || raw.version !== 1) {
+        invalid('manifest');
+    }
+
+    const fromEpoch = (val: unknown, fallbackIso: string): string => {
+        if (typeof val === 'number' && Number.isFinite(val) && val > 0) {
+            return new Date(val).toISOString();
+        }
+        return fallbackIso;
+    };
+
+    const createdAtIso = fromEpoch(raw.createdAt, new Date().toISOString());
+    const lib = raw.library && typeof raw.library === 'object' ? (raw.library as Row) : {};
+
+    const categories: Row[] = [];
+    const catIdByName = new Map<string, string>();
+    // Reuse existing category IDs by name when db is supplied so category merges cleanly!
+    if (db) {
+        for (const existing of db.prepare('SELECT id, name FROM categories').all() as Row[]) {
+            catIdByName.set(String(existing.name), String(existing.id));
+        }
+    }
+    for (const [idx, c] of (Array.isArray(lib.categories) ? (lib.categories as Row[]) : []).entries()) {
+        if (!c || typeof c.name !== 'string' || !c.name.trim()) continue;
+        const name = c.name.trim().slice(0, 128);
+        const id = catIdByName.get(name) ?? `cat-${createHash('sha256').update(name).digest('hex').slice(0, 16)}`;
+        catIdByName.set(name, id);
+        categories.push({
+            id,
+            name,
+            sort: typeof c.sort === 'number' && Number.isFinite(c.sort) ? c.sort : idx,
+            created_at: createdAtIso,
+            updated_at: createdAtIso,
+            version: 1,
+        });
+    }
+
+    const worksMap = new Map<string, Row>();
+    const libraryRows: Row[] = [];
+    const chaptersMap = new Map<string, Row>();
+    const historyMap = new Map<string, Row>();
+
+    const toSafeUrl = (u: unknown, src: string, wid: string): string => {
+        if (typeof u === 'string') {
+            try {
+                return stableUrl(u, 'url');
+            } catch {
+                // Fall back to canonical https placeholder
+            }
+        }
+        return `https://${src.replace(/[^a-z0-9-]/gi, '') || 'source'}.invalid/${encodeURIComponent(wid)}`;
+    };
+
+    const ensureAndroidWork = (src: string, wid: string, itemRaw: unknown) => {
+        const key = `${src}\0${wid}`;
+        if (worksMap.has(key)) return;
+        const item = itemRaw && typeof itemRaw === 'object' ? (itemRaw as Row) : {};
+        let cover: string | null = null;
+        if (typeof item.cover === 'string') {
+            try {
+                cover = stableUrl(item.cover, 'cover');
+            } catch {
+                cover = null;
+            }
+        }
+        const mediaKind =
+            typeof item.mediaKind === 'string' && (sourceContract.mediaKinds as readonly string[]).includes(item.mediaKind)
+                ? item.mediaKind
+                : 'comic';
+        const category =
+            typeof item.category === 'string' && item.category.trim() ? item.category.trim().slice(0, 64) : 'doujin';
+        worksMap.set(key, {
+            source: src,
+            work_id: wid,
+            title: typeof item.title === 'string' && item.title.trim() ? item.title.trim().slice(0, 2048) : wid,
+            cover,
+            media_kind: mediaKind,
+            category,
+            source_category: null,
+            summary: typeof item.summary === 'string' ? item.summary.slice(0, 32000) : typeof item.description === 'string' ? item.description.slice(0, 32000) : null,
+            source_url: toSafeUrl(item.url, src, wid),
+            capability_json: JSON.stringify({ detail: true, chapter: true, capturedAt: createdAtIso }),
+            source_version: null,
+            content_updated_at: null,
+            updated_at: createdAtIso,
+            version: 1,
+            metadata_json: JSON.stringify(
+                Array.isArray(item.authors) ? { authors: item.authors.filter((a): a is string => typeof a === 'string') } : {},
+            ),
+        });
+    };
+
+    for (const w of Array.isArray(lib.works) ? (lib.works as Row[]) : []) {
+        if (!w || typeof w.source !== 'string' || !isSourceKey(w.source) || typeof w.id !== 'string' || !w.id) continue;
+        ensureAndroidWork(w.source, w.id, w.item);
+        const catNames = Array.isArray(w.categories) ? w.categories.filter((n): n is string => typeof n === 'string') : [];
+        const catIds = catNames.map((n) => catIdByName.get(n.trim())).filter((v): v is string => Boolean(v));
+        const favAt = w.favorite === true ? fromEpoch(w.favoritedAt, createdAtIso) : null;
+        libraryRows.push({
+            source: w.source,
+            work_id: w.id,
+            favorite: w.favorite === true ? 1 : 0,
+            favorited_at: favAt,
+            category_ids_json: JSON.stringify(catIds),
+            updated_at: favAt ?? createdAtIso,
+            version: 1,
+            resource_key: workCollectionResourceKey({ source: w.source, id: w.id }),
+        });
+    }
+
+    for (const h of Array.isArray(lib.history) ? (lib.history as Row[]) : []) {
+        if (!h || typeof h.source !== 'string' || !isSourceKey(h.source) || typeof h.workId !== 'string' || !h.workId) continue;
+        ensureAndroidWork(h.source, h.workId, h.item);
+        const cid = typeof h.chapterId === 'string' && h.chapterId ? h.chapterId : null;
+        if (cid) {
+            const cKey = `${h.source}\0${h.workId}\0${cid}`;
+            if (!chaptersMap.has(cKey)) {
+                chaptersMap.set(cKey, {
+                    source: h.source,
+                    work_id: h.workId,
+                    chapter_id: cid,
+                    title: typeof h.chapterTitle === 'string' && h.chapterTitle ? h.chapterTitle : cid,
+                    sort: 0,
+                    read_state: 'reading',
+                    page_progress: typeof h.page === 'number' ? Math.max(0, Math.round(h.page)) : null,
+                    video_position: typeof h.position === 'number' ? Math.max(0, h.position / 1000) : null,
+                    duration: null,
+                    text_offset: null,
+                    node_type: null,
+                    node_metadata_json: '{}',
+                    progress_updated_at: fromEpoch(h.time, createdAtIso),
+                    version: 1,
+                });
+            }
+        }
+        const scopeKey = JSON.stringify([h.source, h.workId, cid]);
+        historyMap.set(scopeKey, {
+            source: h.source,
+            work_id: h.workId,
+            chapter_id: cid,
+            chapter_title: typeof h.chapterTitle === 'string' ? h.chapterTitle : null,
+            page: typeof h.page === 'number' ? Math.max(0, Math.round(h.page)) : null,
+            page_count: typeof h.pageCount === 'number' && h.pageCount > 0 ? Math.round(h.pageCount) : null,
+            position: typeof h.position === 'number' ? Math.max(0, h.position / 1000) : null,
+            updated_at: fromEpoch(h.time, createdAtIso),
+            scope_key: scopeKey,
+        });
+    }
+
+    for (const c of Array.isArray(lib.chapters) ? (lib.chapters as Row[]) : []) {
+        if (
+            !c ||
+            typeof c.source !== 'string' ||
+            !isSourceKey(c.source) ||
+            typeof c.workId !== 'string' ||
+            !c.workId ||
+            typeof c.chapterId !== 'string' ||
+            !c.chapterId
+        ) {
+            continue;
+        }
+        ensureAndroidWork(c.source, c.workId, { id: c.workId, title: c.workId });
+        const cKey = `${c.source}\0${c.workId}\0${c.chapterId}`;
+        const updatedEpoch = Math.max(Number(c.progressUpdatedAt ?? 0), Number(c.positionUpdatedAt ?? 0), Number(c.dateRead ?? 0));
+        chaptersMap.set(cKey, {
+            source: c.source,
+            work_id: c.workId,
+            chapter_id: c.chapterId,
+            title: typeof c.title === 'string' && c.title ? c.title.slice(0, 2048) : c.chapterId,
+            sort: typeof c.sort === 'number' && Number.isFinite(c.sort) ? Math.max(0, c.sort) : 0,
+            read_state: c.read === true ? 'read' : c.lastPage !== null || c.position !== null ? 'reading' : 'unread',
+            page_progress: typeof c.lastPage === 'number' ? Math.max(0, Math.round(c.lastPage)) : null,
+            video_position: typeof c.position === 'number' ? Math.max(0, c.position / 1000) : null,
+            duration: typeof c.duration === 'number' ? Math.max(0, c.duration / 1000) : null,
+            text_offset: null,
+            node_type: null,
+            node_metadata_json: '{}',
+            progress_updated_at: updatedEpoch > 0 ? fromEpoch(updatedEpoch, createdAtIso) : null,
+            version: 1,
+        });
+    }
+
+    const settingsRows: Row[] = [];
+    if (raw.settings && typeof raw.settings === 'object' && !Array.isArray(raw.settings)) {
+        for (const [k, v] of Object.entries(raw.settings as Row)) {
+            if (k.startsWith('__') || sensitive.test(k)) continue;
+            try {
+                validatePreferences({ [k]: v });
+                settingsRows.push({
+                    key: k,
+                    value_json: JSON.stringify(clean(v, `settings.${k}`, true)),
+                    updated_at: createdAtIso,
+                });
+            } catch {
+                // Skip Android-only setting keys that are not part of Web preferences
+            }
+        }
+    }
+
+    const includesList = ['categories', 'works', 'chapters', 'library', 'history', ...(settingsRows.length ? ['settings'] : [])];
+    return {
+        manifest: {
+            format: 'hentai-park-web-backup',
+            version: 1,
+            createdAt: createdAtIso,
+            includes: includesList,
+        },
+        categories,
+        works: [...worksMap.values()],
+        chapters: [...chaptersMap.values()],
+        library: libraryRows,
+        history: [...historyMap.values()],
+        ...(settingsRows.length ? { settings: settingsRows } : {}),
+    };
 }

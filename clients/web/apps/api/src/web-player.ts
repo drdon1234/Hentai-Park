@@ -31,18 +31,20 @@ export class ControlledWebPlayers {
     const player=this.get(id,owner);if(!input||typeof input!=='object'||Array.isArray(input))throw failure('BAD_REQUEST',400);const value=input as Record<string,unknown>;
     if(typeof value.requestKey!=='string'||!value.requestKey||value.requestKey.length>256)throw failure('BAD_REQUEST',400);
     if(value.action==='close'){await this.close(id);return {closed:true};}if(player.error)throw failure(player.error);
-    if(!['play','pause','seek','rate','click','key'].includes(String(value.action)))throw failure('BAD_REQUEST',400);
+    if(!['play','pause','seek','rate','click','move','key'].includes(String(value.action)))throw failure('BAD_REQUEST',400);
     const command={action:value.action,position:value.position,rate:value.rate,x:value.x,y:value.y,key:value.key} as WebVideoCommand;const fingerprint=JSON.stringify(command);const prior=player.commands.get(value.requestKey);if(prior){if(prior.fingerprint!==fingerprint)throw failure('CONFLICT',409);return prior.result;}
     if(player.commands.size>=128)player.commands.delete(player.commands.keys().next().value!);
     const result=(async()=>{try{return await this.browser.get(player.browserId).webPlayback(command);}catch(error){const code=(error as {code?:string}).code??'NETWORK';if(code!=='BLOCKED')await this.failed(player,error);throw failure(code,code==='BLOCKED'?400:502);}})();player.commands.set(value.requestKey,{fingerprint,result});return result;
   }
   async frames(id:string,owner:string,reply:FastifyReply,valid:()=>boolean){
     const player=this.get(id,owner);if(player.framesOpen)throw failure('CONFLICT',409);if(player.error)throw failure(player.error);player.framesOpen=true;reply.hijack();const raw=reply.raw;
-    const disconnected=()=>{this.background(this.close(id));};raw.once('close',disconnected);
+    const streamAbort=new AbortController();
+    const disconnected=()=>{streamAbort.abort();};raw.once('close',disconnected);
     raw.writeHead(200,{'content-type':'multipart/x-mixed-replace; boundary=hp-frame','cache-control':'private, no-store','x-content-type-options':'nosniff'});
-    try{while(!raw.destroyed&&!player.controller.signal.aborted){if(!valid()){await this.close(id);break;}this.get(id,owner);const frame=await this.browser.get(player.browserId).webFrame(player.controller.signal);if(frame.length>4*1024*1024)throw failure('PARSE');if(!raw.write(Buffer.concat([Buffer.from('--hp-frame\r\nContent-Type: image/jpeg\r\nContent-Length: '+frame.length+'\r\n\r\n'),frame,Buffer.from('\r\n')])))await once(raw,'drain',{signal:player.controller.signal});await new Promise(resolve=>setTimeout(resolve,125));}}
-    catch(error){if(!raw.destroyed&&!player.controller.signal.aborted)await this.failed(player,error);}
-    finally{player.framesOpen=false;raw.removeListener('close',disconnected);raw.end();if(!player.error)await this.close(id);}
+    const signal=AbortSignal.any([player.controller.signal,streamAbort.signal]);
+    try{while(!raw.destroyed&&!signal.aborted){if(!valid()){await this.close(id);break;}this.get(id,owner);const started=Date.now();const frame=await this.browser.get(player.browserId).webFrame(player.controller.signal);if(frame.length>4*1024*1024)throw failure('PARSE');if(!raw.write(Buffer.concat([Buffer.from('--hp-frame\r\nContent-Type: image/jpeg\r\nContent-Length: '+frame.length+'\r\n\r\n'),frame,Buffer.from('\r\n')])))await once(raw,'drain',{signal});const wait=Math.max(16,50-(Date.now()-started));await new Promise(resolve=>setTimeout(resolve,wait));}}
+    catch(error){if(!raw.destroyed&&!signal.aborted)await this.failed(player,error);}
+    finally{player.framesOpen=false;raw.removeListener('close',disconnected);if(!raw.destroyed)raw.end();if(!player.error&&this.players.has(id)){player.expiresAt=Math.min(player.expiresAt,Date.now()+15000);player.claimTimer=setTimeout(()=>{if(!player.framesOpen)this.background(this.close(id));},15000);player.claimTimer.unref();}}
   }
   async audio(id:string,owner:string,reply:FastifyReply,valid:()=>boolean){
     const player=this.get(id,owner);if(player.error)throw failure(player.error);const generation=++player.audioGeneration;const start=player.audioQueue.then(async()=>{if(generation===player.audioGeneration)await this.browser.get(player.browserId).webAudio('start',player.controller.signal);});player.audioQueue=start.catch(()=>{});try{await start;}catch(error){await this.failed(player,error);throw failure(player.error!);}if(generation!==player.audioGeneration)throw failure('CONFLICT',409);

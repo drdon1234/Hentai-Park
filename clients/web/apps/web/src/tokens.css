@@ -1,79 +1,106 @@
+@layer reset, tokens, base, components, utilities;
+
 /* Shared visual language. Breakpoints only change layout and density. */
+@layer tokens {
   :root {
+    --safe-top: env(safe-area-inset-top, 0px);
+    --safe-bottom: env(safe-area-inset-bottom, 0px);
+    --safe-left: env(safe-area-inset-left, 0px);
+    --safe-right: env(safe-area-inset-right, 0px);
     font-family: ui-sans-serif, -apple-system, BlinkMacSystemFont, 'Segoe UI Variable', 'Segoe UI', 'Noto Sans SC', 'Microsoft YaHei', sans-serif;
     color: #171717;
     background: #edf1f8;
     --desktop-bg: #edf1f8;
-    --desktop-solid: #fff;
-    --desktop-fill: rgb(255 255 255 / 62%);
-    --desktop-panel: rgb(255 255 255 / 76%);
-    --desktop-rim: rgb(255 255 255 / 88%);
-    --desktop-highlight: rgb(255 255 255 / 78%);
-    --desktop-reflection: rgb(255 255 255 / 64%);
-    --desktop-selected: rgb(255 255 255 / 85%);
-    --desktop-cool: rgb(109 158 230 / 23%);
-    --desktop-warm: rgb(109 158 230 / 15%);
-    --desktop-lilac: rgb(139 148 215 / 17%);
-    --desktop-shadow: 0 2px 4px rgb(30 45 70 / 2.5%), 0 12px 32px rgb(30 45 70 / 6.5%);
+    --desktop-solid: #ffffff;
+    --desktop-fill: rgb(255 255 255 / 66%);
+    --desktop-panel: rgb(255 255 255 / 80%);
+    --desktop-rim: rgb(255 255 255 / 90%);
+    --desktop-highlight: rgb(255 255 255 / 82%);
+    --desktop-reflection: rgb(255 255 255 / 66%);
+    --desktop-selected: rgb(255 255 255 / 88%);
+    --desktop-cool: rgb(109 158 230 / 22%);
+    --desktop-warm: rgb(109 158 230 / 14%);
+    --desktop-lilac: rgb(139 148 215 / 16%);
+    --desktop-shadow: 0 2px 6px rgb(30 45 70 / 3%), 0 12px 32px rgb(30 45 70 / 7%);
     --desktop-glass-shadow: inset 0 1px 0 var(--desktop-highlight), 0 12px 38px rgb(35 48 72 / 10%);
     --browse-text: #171717;
-    --browse-surface: #fff;
+    --browse-surface: #ffffff;
     --browse-muted: #555d69;
-    --browse-border: #c7ced8;
+    --browse-border: rgb(15 23 42 / 9%);
     --browse-active: #edf4ff;
     --browse-accent: var(--control-accent);
-    --control-surface: #fff;
+    --control-surface: rgb(15 23 42 / 5%);
     --control-text: #171717;
-    --control-border: #8792a2;
-    --control-hover: #f3f6fb;
+    --control-border: transparent;
+    --control-input-border: rgb(15 23 42 / 14%);
+    --control-hover: rgb(15 23 42 / 9%);
     --control-accent: #2f6fae;
     --control-accent-hover: #245b90;
     --control-soft: #e8f1fb;
-    --control-radius: 8px;
+    --control-radius: 12px;
+    --pill-radius: 999px;
   }
+
   :root[data-theme='dark'] {
     color: #ededed;
     background: #0d1119;
     --desktop-bg: #0d1119;
-    --desktop-solid: #1b212b;
-    --desktop-fill: rgb(29 35 47 / 64%);
-    --desktop-panel: rgb(27 33 43 / 86%);
-    --desktop-rim: rgb(210 226 255 / 16%);
-    --desktop-highlight: rgb(225 236 255 / 13%);
-    --desktop-reflection: rgb(184 207 242 / 13%);
-    --desktop-selected: rgb(197 215 244 / 17%);
-    --desktop-cool: rgb(65 106 163 / 25%);
-    --desktop-warm: rgb(65 106 163 / 15%);
-    --desktop-lilac: rgb(99 105 166 / 15%);
-    --desktop-shadow: 0 2px 4px rgb(0 0 0 / 12%), 0 14px 36px rgb(0 0 0 / 20%);
-    --desktop-glass-shadow: inset 0 1px 0 var(--desktop-highlight), 0 14px 42px rgb(0 0 0 / 28%);
+    --desktop-solid: #161c26;
+    --desktop-fill: rgb(24 31 43 / 72%);
+    --desktop-panel: rgb(22 28 38 / 88%);
+    --desktop-rim: rgb(210 226 255 / 12%);
+    --desktop-highlight: rgb(225 236 255 / 10%);
+    --desktop-reflection: rgb(184 207 242 / 11%);
+    --desktop-selected: rgb(197 215 244 / 15%);
+    --desktop-cool: rgb(65 106 163 / 24%);
+    --desktop-warm: rgb(65 106 163 / 14%);
+    --desktop-lilac: rgb(99 105 166 / 14%);
+    --desktop-shadow: 0 2px 6px rgb(0 0 0 / 16%), 0 14px 36px rgb(0 0 0 / 24%);
+    --desktop-glass-shadow: inset 0 1px 0 var(--desktop-highlight), 0 14px 42px rgb(0 0 0 / 32%);
     --browse-text: #ededed;
-    --browse-surface: #1b212b;
-    --browse-muted: #b2bbc9;
-    --browse-border: #465365;
+    --browse-surface: #161c26;
+    --browse-muted: #a6b1c2;
+    --browse-border: rgb(226 232 240 / 10%);
     --browse-active: #1c2d48;
     --browse-accent: var(--control-accent);
-    --control-surface: #1c2532;
+    --control-surface: rgb(226 232 240 / 8%);
     --control-text: #ededed;
-    --control-border: #718096;
-    --control-hover: #2a3749;
+    --control-border: transparent;
+    --control-input-border: rgb(226 232 240 / 16%);
+    --control-hover: rgb(226 232 240 / 13%);
     --control-accent: #8db7e6;
     --control-accent-hover: #b4d2f1;
     --control-soft: #21344b;
   }
 
-:root {
-  --action: var(--control-accent);
-  --on-action: var(--user-on-accent, #fff);
-  --focus: var(--control-accent);
-  --navigation-selected: var(--desktop-selected);
-  --success: #257749;
-  --warning: #8a5c10;
-  --danger: #a52840;
+  :root {
+    --action: var(--control-accent);
+    --on-action: var(--user-on-accent, #ffffff);
+    --focus: var(--control-accent);
+    --navigation-selected: var(--desktop-selected);
+    --success: #257749;
+    --warning: #8a5c10;
+    --danger: #b43248;
+  }
 }
+
 ::selection { background: var(--control-soft); color: var(--control-text); }
-:focus-visible { outline: 3px solid var(--focus); outline-offset: 3px; }
+:focus-visible { outline: 2.5px solid var(--focus); outline-offset: 2px; }
 
 @media (forced-colors: active) {
- :root, :root[data-theme='dark'] { color: CanvasText; background: Canvas; --browse-text: CanvasText; --browse-muted: CanvasText; --browse-surface: Canvas; --browse-border: CanvasText; --control-text: ButtonText; --control-surface: ButtonFace; --control-border: ButtonText; --focus: Highlight; --action: Highlight; --on-action: HighlightText; }
+  :root, :root[data-theme='dark'] {
+    color: CanvasText;
+    background: Canvas;
+    --browse-text: CanvasText;
+    --browse-muted: CanvasText;
+    --browse-surface: Canvas;
+    --browse-border: CanvasText;
+    --control-text: ButtonText;
+    --control-surface: ButtonFace;
+    --control-border: ButtonText;
+    --control-input-border: ButtonText;
+    --focus: Highlight;
+    --action: Highlight;
+    --on-action: HighlightText;
+  }
 }

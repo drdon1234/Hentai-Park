@@ -14,6 +14,9 @@
 | GET | `/api/v1/session` | 当前实例会话和认证状态 |
 | POST | `/api/v1/session/login` | Server 模式建立会话；Local 模式返回已初始化状态 |
 | POST | `/api/v1/session/logout` | 撤销当前会话 |
+| POST | `/api/v1/session/lock` | 锁定当前会话（返回 `423 APP_LOCKED` 保护业务接口，不销毁会话 Cookie） |
+| POST | `/api/v1/session/unlock` | 使用独立应用锁 PIN 或实例凭据解除锁定 |
+| POST | `/api/v1/session/app-lock-pin` | 配置、更新或清除 scrypt 哈希存储的独立应用锁 PIN |
 | POST | `/api/v1/session/activity` | 记录当前标签页的实际用户活动，用于应用锁闲置计时 |
 
 单用户实例不携带用户、租户或角色字段。认证使用 HttpOnly、Secure、SameSite Cookie；URL 不包含 Token、Cookie 或私有验证参数。
@@ -62,8 +65,9 @@
 
 | 方法 | 路径 | 说明 |
 | --- | --- | --- |
-| POST | `/api/v1/media/tokens` | 创建最多 5 分钟的不透明媒体授权 |
-| GET/HEAD | `/api/v1/media/:token` | 代理媒体、Range、206、HEAD 和 HLS 资源 |
+| POST | `/api/v1/media/tokens` | 创建滑动续期（最长 2 小时）的不透明媒体授权 |
+| GET/HEAD | `/api/v1/media/direct/:authorizationId` | 1-RTT 会话绑定图片直取，支持内存/磁盘缓存与 `ETag` / `304 Not Modified` |
+| GET/HEAD | `/api/v1/media/:token` | 代理媒体、Range、206、HEAD 和 HLS 资源（上游 `401/403/410` 时自动透明重签刷新） |
 
 签发时校验 HTTPS、无凭据/端口、声明域名和 DNS 公网地址。授权只保存在 API 进程内存，过期或撤销返回 404。HLS 清单、分片和密钥沿用同一授权链，不向客户端暴露原始签名 URL。
 

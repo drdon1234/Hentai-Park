@@ -49,9 +49,59 @@ for await (const path of dartFiles(join(root, 'lib'))) {
     }
   }
 }
+
+const webLocalesDir = join(root, 'clients/web/apps/web/src/locales');
+const webMessages = Object.fromEntries(await Promise.all(languages.map(async (language) => [
+  language, JSON.parse(await readFile(join(webLocalesDir, `${language}.json`), 'utf8')),
+])));
+const webBase = webMessages['zh-Hans'];
+for (const [language, values] of Object.entries(webMessages)) {
+  for (const key of Object.keys(webBase)) {
+    if (typeof values[key] !== 'string' || !values[key].trim()) {
+      failures.push(`web/${language}: 缺少有效译文 ${JSON.stringify(key)}`);
+    } else if (placeholders(webBase[key]) !== placeholders(values[key])) {
+      failures.push(`web/${language}: 占位符不一致 ${JSON.stringify(key)}`);
+    }
+  }
+  for (const key of Object.keys(values)) {
+    if (!Object.hasOwn(webBase, key)) failures.push(`web/${language}: 多余键 ${JSON.stringify(key)}`);
+  }
+}
+
+async function* webTsFiles(folder) {
+  for (const entry of await readdir(folder, { withFileTypes: true })) {
+    const path = join(folder, entry.name);
+    if (entry.isDirectory()) {
+      if (entry.name === 'locales' || entry.name === 'node_modules' || entry.name === 'dist') continue;
+      yield* webTsFiles(path);
+    } else if (/\.(ts|tsx)$/.test(entry.name)) {
+      yield path;
+    }
+  }
+}
+
+const webLiterals = /\bt\(\s*(['"])((?:\\[\s\S]|(?!\1)[^\\\r\n])*)\1/g;
+for await (const path of webTsFiles(join(root, 'clients/web/apps/web/src'))) {
+  const source = await readFile(path, 'utf8');
+  for (const match of source.matchAll(webLiterals)) {
+    if (/^\s*\+/.test(source.slice(match.index + match[0].length))) continue;
+    const rawKey = match[2].replace(/\\(u\{[\da-fA-F]+\}|u[\da-fA-F]{4}|x[\da-fA-F]{2}|[\s\S])/g, (_, code) => {
+      if (code.startsWith('u{')) return String.fromCodePoint(parseInt(code.slice(2, -1), 16));
+      if (code.startsWith('u') || code.startsWith('x')) return String.fromCodePoint(parseInt(code.slice(1), 16));
+      return escapes[code] ?? code;
+    });
+    const key = rawKey.trim();
+    if (!key) continue;
+    if (!Object.hasOwn(webBase, key)) {
+      const line = source.slice(0, match.index).split('\n').length;
+      failures.push(`${path}:${line}: Web 缺少文案 ${JSON.stringify(key)}`);
+    }
+  }
+}
+
 if (failures.length) {
   console.error(failures.join('\n'));
   process.exitCode = 1;
 } else {
-  console.log(`八语言文案检查通过：${Object.keys(base).length} 个键，静态引用与占位符一致。`);
+  console.log(`八语言文案检查通过：主应用 ${Object.keys(base).length} 个键，Web 端 ${Object.keys(webBase).length} 个键，静态引用与占位符一致。`);
 }

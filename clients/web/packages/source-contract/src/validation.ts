@@ -1,100 +1,642 @@
 import type { PluginError, PluginManifest, PluginErrorDetails } from './types.js';
 import { CAPABILITY_NAMES, PLUGIN_ERROR_CODES } from './types.js';
 import { sourceContract } from './public-contract.js';
+
 const KEY = /^[A-Za-z0-9_-]{1,100}$/;
-export const isSourceKey=(value:unknown):value is string=>typeof value==='string'&&KEY.test(value)&&value!=='_app';
+export const isSourceKey = (value: unknown): value is string =>
+  typeof value === 'string' && KEY.test(value) && value !== '_app';
 const VERSION = /^\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?$/;
-const DOMAIN = /^(?:\*\.)?(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/;
-const CHAT_DOMAIN = /^(?:\*\.)?(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}(?::(?:443|[1-9][0-9]{3,4}))?$/;
-const LIMITS = { string: 4096, array: 256, object: 128 } as const;
-export class ManifestValidationError extends Error { readonly code = 'INVALID_MANIFEST' as const; constructor(message: string) { super(message); this.name = 'ManifestValidationError'; } }
-function fail(message: string): never { throw new ManifestValidationError(message); }
-function string(value: unknown, field: string, max: number = LIMITS.string): asserts value is string { if (typeof value !== 'string' || value.length === 0 || value.length > max || /[\u0000-\u001f\u007f]/.test(value)) fail(`${field} is invalid`); }
-function array(value: unknown, field: string, max: number = LIMITS.array): asserts value is unknown[] { if (!Array.isArray(value) || value.length > max) fail(`${field} must be an array of <= ${max} items`); }
-function object(value: unknown, field: string): asserts value is Record<string, unknown> { if (value === null || typeof value !== 'object' || Array.isArray(value) || Object.keys(value).length > LIMITS.object) fail(`${field} must be an object with <= ${LIMITS.object} keys`); }
-function validateShape(value: unknown, field = 'manifest', depth = 0): void { if (depth > 12) fail(`${field} is too deeply nested`); if (typeof value === 'string' && value.length > LIMITS.string) fail(`${field} exceeds string limit`); if (Array.isArray(value)) { if (value.length > LIMITS.array) fail(`${field} exceeds array limit`); value.forEach((item, index) => validateShape(item, `${field}[${index}]`, depth + 1)); } else if (value !== null && typeof value === 'object') { const entries = Object.entries(value); if (entries.length > LIMITS.object) fail(`${field} exceeds object limit`); entries.forEach(([key, item]) => validateShape(item, `${field}.${key}`, depth + 1)); } }
-function parsedUrl(value: unknown, field: string, allowPath = true): URL { string(value, field); let parsed: URL; try { parsed = new URL(value); } catch { fail(`${field} must be a valid URL`); } if (parsed.protocol !== 'https:' || parsed.username || parsed.password || parsed.hostname === 'localhost' || parsed.hostname.endsWith('.local') || parsed.hostname.includes(':') || parsed.port !== '') fail(`${field} must be public HTTPS without credentials or a port`); if (!allowPath && (parsed.search || parsed.hash || parsed.pathname !== '/')) fail(`${field} must be an origin without query or fragment`); return parsed; }
-function domain(value: unknown, field: string, allowPort = false): string { string(value, field, 255); const normalized = value.toLowerCase().replace(/\.$/, ''); if (normalized.includes('..') || normalized.startsWith('.') || normalized.endsWith('.')) fail(`${field} is invalid`); if (!(allowPort ? CHAT_DOMAIN : DOMAIN).test(normalized)) fail(`${field} is invalid`); if (allowPort && normalized.includes(':')) { const port = Number(normalized.slice(normalized.lastIndexOf(':') + 1)); if (port !== 443 && (port < 1024 || port > 65535)) fail(`${field} has an invalid port`); } if (normalized.startsWith('*.') && normalized.slice(2).includes('*.')) fail(`${field} has an invalid wildcard`); return normalized; }
-function domains(value: unknown, field: string, options: { allowEmpty?: boolean; allowPort?: boolean } = {}): string[] { array(value, field); if (!options.allowEmpty && value.length === 0) fail(`${field} must not be empty`); return value.map((item, index) => domain(item, `${field}[${index}]`, options.allowPort)); }
-function urlBelongsTo(url: URL, allowed: string[], field: string): void { const host = url.hostname.toLowerCase().replace(/\.$/, ''); if (!allowed.some((entry) => { const wildcard = entry.startsWith('*.'); const d = entry.replace(/^\*\./, ''); return wildcard ? host.endsWith(`.${d}`) && host.split('.').length === d.split('.').length + 1 : host === d || host.endsWith(`.${d}`); })) fail(`${field} host is outside declared domains`); }
-function domainsWithin(value: unknown, field: string, allowed: string[]): void { const entries = domains(value, field); for (const entry of entries) { const host = entry.replace(/^\*\./, ''); if (!allowed.some((parent) => { const base = parent.replace(/^\*\./, ''); return host === base || host.endsWith(`.${base}`); })) fail(`${field} contains a domain outside manifest domains`); } }
+// Align with lib/engine/domains.dart: allow underscores inside CDN/subdomain labels
+const DOMAIN = /^(?:\*\.)?(?:[a-z0-9](?:[a-z0-9_-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/;
+const CHAT_DOMAIN = /^(?:\*\.)?(?:[a-z0-9](?:[a-z0-9_-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}(?::(?:443|[1-9][0-9]{3,4}))?$/;
+const LIMITS = { string: 8192, array: 512, object: 512 } as const;
+
+export class ManifestValidationError extends Error {
+  readonly code = 'INVALID_MANIFEST' as const;
+  constructor(message: string) {
+    super(message);
+    this.name = 'ManifestValidationError';
+  }
+}
+
+function fail(message: string): never {
+  throw new ManifestValidationError(message);
+}
+
+function string(value: unknown, field: string, max: number = LIMITS.string): asserts value is string {
+  if (typeof value !== 'string' || value.length === 0 || value.length > max || /[\u0000-\u001f\u007f]/.test(value)) {
+    fail(`${field} is invalid`);
+  }
+}
+
+function array(value: unknown, field: string, max: number = LIMITS.array): asserts value is unknown[] {
+  if (!Array.isArray(value) || value.length > max) fail(`${field} must be an array of <= ${max} items`);
+}
+
+function object(value: unknown, field: string, maxKeys: number = LIMITS.object): asserts value is Record<string, unknown> {
+  if (value === null || typeof value !== 'object' || Array.isArray(value) || Object.keys(value).length > maxKeys) {
+    fail(`${field} must be an object with <= ${maxKeys} keys`);
+  }
+}
+
+function validateShape(value: unknown, field = 'manifest', depth = 0): void {
+  if (depth > 12) fail(`${field} is too deeply nested`);
+  if (typeof value === 'string' && value.length > LIMITS.string) fail(`${field} exceeds string limit`);
+  if (Array.isArray(value)) {
+    if (value.length > LIMITS.array) fail(`${field} exceeds array limit`);
+    value.forEach((item, index) => validateShape(item, `${field}[${index}]`, depth + 1));
+  } else if (value !== null && typeof value === 'object') {
+    const entries = Object.entries(value);
+    if (entries.length > LIMITS.object) fail(`${field} exceeds object limit`);
+    entries.forEach(([key, item]) => validateShape(item, `${field}.${key}`, depth + 1));
+  }
+}
+
+function parsedUrl(value: unknown, field: string, allowPath = true): URL {
+  string(value, field, 4096);
+  let parsed: URL;
+  try {
+    parsed = new URL(value);
+  } catch {
+    fail(`${field} must be a valid URL`);
+  }
+  if (
+    parsed.protocol !== 'https:' ||
+    parsed.username ||
+    parsed.password ||
+    parsed.hostname === 'localhost' ||
+    parsed.hostname.endsWith('.local') ||
+    parsed.hostname.includes(':') ||
+    parsed.port !== ''
+  ) {
+    fail(`${field} must be public HTTPS without credentials or a port`);
+  }
+  if (!allowPath && (parsed.search || parsed.hash || parsed.pathname !== '/')) {
+    fail(`${field} must be an origin without query or fragment`);
+  }
+  return parsed;
+}
+
+function domain(value: unknown, field: string, allowPort = false): string {
+  string(value, field, 255);
+  const normalized = value.toLowerCase().replace(/\.$/, '');
+  if (normalized.includes('..') || normalized.startsWith('.') || normalized.endsWith('.')) fail(`${field} is invalid`);
+  if (!(allowPort ? CHAT_DOMAIN : DOMAIN).test(normalized)) fail(`${field} is invalid`);
+  if (allowPort && normalized.includes(':')) {
+    const port = Number(normalized.slice(normalized.lastIndexOf(':') + 1));
+    if (port !== 443 && (port < 1024 || port > 65535)) fail(`${field} has an invalid port`);
+  }
+  if (normalized.startsWith('*.') && normalized.slice(2).includes('*.')) fail(`${field} has an invalid wildcard`);
+  return normalized;
+}
+
+function domains(value: unknown, field: string, options: { allowEmpty?: boolean; allowPort?: boolean } = {}): string[] {
+  array(value, field);
+  if (!options.allowEmpty && value.length === 0) fail(`${field} must not be empty`);
+  return value.map((item, index) => domain(item, `${field}[${index}]`, options.allowPort));
+}
+
+function urlBelongsTo(url: URL, allowed: string[], field: string): void {
+  const host = url.hostname.toLowerCase().replace(/\.$/, '');
+  if (
+    !allowed.some((entry) => {
+      const wildcard = entry.startsWith('*.');
+      const d = entry.replace(/^\*\./, '');
+      return wildcard
+        ? host.endsWith(`.${d}`) && host.split('.').length === d.split('.').length + 1
+        : host === d || host.endsWith(`.${d}`);
+    })
+  ) {
+    fail(`${field} host is outside declared domains`);
+  }
+}
+
 function validateConfirmation(value: unknown): void {
-  object(value, 'network.confirmation'); string(value.selector, 'network.confirmation.selector', 1024);
+  object(value, 'network.confirmation');
+  string(value.selector, 'network.confirmation.selector', 1024);
   if (value.readySelector !== undefined) string(value.readySelector, 'network.confirmation.readySelector', 1024);
-  if(value.registerUrl!==undefined){const u=parsedUrl(value.registerUrl,'account.registerUrl');if(u.protocol!=='https:'||u.username||u.password)fail('account.registerUrl is invalid');} if (value.requiredCookies !== undefined) names(value.requiredCookies, 'network.confirmation.requiredCookies');
+  if (value.registerUrl !== undefined) {
+    const u = parsedUrl(value.registerUrl, 'account.registerUrl');
+    if (u.protocol !== 'https:' || u.username || u.password) fail('account.registerUrl is invalid');
+  }
+  if (value.requiredCookies !== undefined) names(value.requiredCookies, 'network.confirmation.requiredCookies');
   if (value.message !== undefined) string(value.message, 'network.confirmation.message', 256);
   if (value.auto !== undefined) {
-    object(value.auto, 'network.confirmation.auto'); string(value.auto.clickSelector, 'network.confirmation.auto.clickSelector', 1024);
+    object(value.auto, 'network.confirmation.auto');
+    string(value.auto.clickSelector, 'network.confirmation.auto.clickSelector', 1024);
     if (value.auto.checkSelector !== undefined) string(value.auto.checkSelector, 'network.confirmation.auto.checkSelector', 1024);
-    if (value.auto.birthDate !== undefined) { object(value.auto.birthDate, 'network.confirmation.auto.birthDate'); for (const key of ['dateSelector','yearSelector','monthSelector','daySelector']) if (value.auto.birthDate[key] !== undefined) string(value.auto.birthDate[key], `network.confirmation.auto.birthDate.${key}`, 1024); }
+    if (value.auto.birthDate !== undefined) {
+      object(value.auto.birthDate, 'network.confirmation.auto.birthDate');
+      for (const key of ['dateSelector', 'yearSelector', 'monthSelector', 'daySelector']) {
+        if (value.auto.birthDate[key] !== undefined) string(value.auto.birthDate[key], `network.confirmation.auto.birthDate.${key}`, 1024);
+      }
+    }
     if (value.auto.questionnaire !== undefined) {
-      const quiz=value.auto.questionnaire; object(quiz,'network.confirmation.auto.questionnaire');
-      string(quiz.rowSelector,'questionnaire.rowSelector',1024); string(quiz.submitSelector,'questionnaire.submitSelector',1024);
-      array(quiz.answers,'questionnaire.answers',256); if (!quiz.answers.length) fail('questionnaire.answers must not be empty');
-      const questions=new Set<string>();
-      for (const answer of quiz.answers) { object(answer,'questionnaire.answer'); string(answer.question,'questionnaire.question',1024); string(answer.answer,'questionnaire.answer',1024); if (questions.has(answer.question)) fail('questionnaire contains duplicate questions'); questions.add(answer.question); }
+      const quiz = value.auto.questionnaire;
+      object(quiz, 'network.confirmation.auto.questionnaire');
+      string(quiz.rowSelector, 'questionnaire.rowSelector', 1024);
+      string(quiz.submitSelector, 'questionnaire.submitSelector', 1024);
+      array(quiz.answers, 'questionnaire.answers', 256);
+      if (!quiz.answers.length) fail('questionnaire.answers must not be empty');
+      const questions = new Set<string>();
+      for (const answer of quiz.answers) {
+        object(answer, 'questionnaire.answer');
+        string(answer.question, 'questionnaire.question', 1024);
+        string(answer.answer, 'questionnaire.answer', 1024);
+        if (questions.has(answer.question)) fail('questionnaire contains duplicate questions');
+        questions.add(answer.question);
+      }
     }
   }
 }
-function names(value: unknown, field: string): asserts value is string[] { array(value, field); for (const [index, item] of value.entries()) { string(item, `${field}[${index}]`, 128); if (!/^[A-Za-z0-9._-]+$/.test(item)) fail(`${field}[${index}] must be a cookie or storage name`); } }
-function validatePermissions(value: unknown, field: string, manifestDomains: string[], mode: 'network' | 'media' | 'image'): void { object(value, field); if (mode === 'network') { if(value.headers!==undefined)validateHeaders(value.headers); if (value.mode !== undefined && !['auto','browser','native'].includes(value.mode as string)) fail(`${field}.mode is invalid`); if (value.origin !== undefined) { const u = parsedUrl(value.origin, `${field}.origin`, false); urlBelongsTo(u, manifestDomains, `${field}.origin`); } if (value.vpnHint !== undefined && typeof value.vpnHint !== 'boolean') fail(`${field}.vpnHint is invalid`); if (value.confirmation !== undefined) validateConfirmation(value.confirmation); } else { if (mode === 'media' && value.scope !== undefined && value.scope !== 'session') fail(`${field}.scope is invalid`); if (!['browser','native'].includes(value.mode as string)) fail(`${field}.mode is invalid`); if (value.origin !== undefined) { const u = parsedUrl(value.origin, `${field}.origin`, false); urlBelongsTo(u, [...manifestDomains, ...(mode==='image'&&Array.isArray(value.domains) ? value.domains as string[] : [])], `${field}.origin`); } if (value.domains !== undefined) domains(value.domains, `${field}.domains`); if (mode === 'image' && (value.referrerDomains !== undefined || value.requestHeaders !== undefined)) fail('imageNetwork cannot use media-only fields'); if (mode === 'media' && value.mode !== 'native' && (value.referrerDomains !== undefined || value.requestHeaders !== undefined)) fail('media.referrerDomains and media.requestHeaders require native mode'); if (mode === 'media' && value.referrerDomains !== undefined) {array(value.referrerDomains, `${field}.referrerDomains`,16);domains(value.referrerDomains, `${field}.referrerDomains`);} if (mode === 'media' && value.requestHeaders !== undefined) { object(value.requestHeaders, `${field}.requestHeaders`); const entries = Object.entries(value.requestHeaders); if (entries.length > 8) fail(`${field}.requestHeaders has too many entries`); for (const [name, rule] of entries) { if (!/^x-[a-z0-9-]{1,63}$/.test(name) || !rule || typeof rule !== 'object' || Array.isArray(rule) || (rule as Record<string, unknown>).scope !== 'playback-origin') fail(`${field}.requestHeaders contains an invalid rule`); } } } }
-function validateAccount(value: unknown, manifestDomains: string[]): void { object(value, 'account'); if (!['password','cookies','session'].includes(value.type as string)) fail('account.type is invalid'); for (const key of ['title','hint'] as const) if (value[key] !== undefined) string(value[key], `account.${key}`, 256); if (value.required !== undefined && typeof value.required !== 'boolean') fail('account.required is invalid'); if (value.fields !== undefined) { const fields = value.fields; array(fields, 'account.fields'); for (const [index, field] of fields.entries()) { object(field, `account.fields[${index}]`); string(field.key, `account.fields[${index}].key`, 128); string(field.label, `account.fields[${index}].label`, 256); if(field.hint!==undefined)string(field.hint, `account.fields[${index}].hint`, 1024); if (field.secret !== undefined && typeof field.secret !== 'boolean') fail('account field secret is invalid'); if(field.optional!==undefined&&typeof field.optional!=='boolean')fail('account field optional is invalid'); } } for (const key of ['loginUrl','logoutUrl','accountUrl','cookieUrl'] as const) if (value[key] !== undefined) { const u = parsedUrl(value[key], `account.${key}`); urlBelongsTo(u, manifestDomains, `account.${key}`); } if(value.registerUrl!==undefined){const u=parsedUrl(value.registerUrl,'account.registerUrl');if(u.protocol!=='https:'||u.username||u.password)fail('account.registerUrl is invalid');} if (value.requiredCookies !== undefined) names(value.requiredCookies, 'account.requiredCookies'); if (value.localStorageKeys !== undefined) { const localStorageKeys = value.localStorageKeys; names(localStorageKeys, 'account.localStorageKeys'); for (const key of localStorageKeys) if (!/^[A-Za-z0-9._:-]+$/.test(key)) fail('account.localStorageKeys contains an invalid name'); } if (value.loginDomains !== undefined) { const loginDomains = domains(value.loginDomains, 'account.loginDomains'); for (const loginDomain of loginDomains) if (manifestDomains.some((d) => loginDomain === d || loginDomain.endsWith(`.${d}`))) fail('account.loginDomains must be third-party domains'); } if (value.managedAccount !== undefined && typeof value.managedAccount !== 'boolean') fail('account.managedAccount is invalid'); }
-function validateFilters(value: unknown, field: string): void { object(value, field); for (const [dimension, filter] of Object.entries(value)) { if (!['pages','likes','duration','score','favorites'].includes(dimension)) fail(`${field}.${dimension} is invalid`); object(filter, `${field}.${dimension}`); if (filter.range !== undefined && filter.range !== true && (!Array.isArray(filter.range) || filter.range.some((x: unknown) => x !== 'min' && x !== 'max'))) fail(`${field}.${dimension}.range is invalid`); if (filter.sort !== undefined && filter.sort !== true && (!Array.isArray(filter.sort) || filter.sort.some((x: unknown) => x !== 'asc' && x !== 'desc'))) fail(`${field}.${dimension}.sort is invalid`); } }
-function validateDependencies(settings: unknown, field: string): void { array(settings, field); const keys = new Set<string>(); const deps = new Map<string, string[]>(); for (const [index, item] of settings.entries()) { object(item, `${field}[${index}]`); string(item.key, `${field}[${index}].key`, 128); if (keys.has(item.key)) fail(`${field} has duplicate keys`); keys.add(item.key); if (item.dependsOn !== undefined) { if (!item.dynamic || !Array.isArray(item.dependsOn)) fail(`${field}[${index}].dependsOn requires dynamic`); deps.set(item.key, item.dependsOn as string[]); } } const visiting = new Set<string>(); const visited = new Set<string>(); const visit = (key: string): void => { if (visiting.has(key)) fail(`${field} dependency cycle`); if (visited.has(key)) return; visiting.add(key); for (const dependency of deps.get(key) ?? []) { if (!keys.has(dependency)) fail(`${field}.${key} depends on an unknown key`); visit(dependency); } visiting.delete(key); visited.add(key); }; for (const key of keys) visit(key); }
-function validateColor(value: unknown, field: string): void { string(value, field, 7); if (!/^#[0-9A-Fa-f]{6}$/.test(value)) fail(`${field} must be a six-digit hex color`); }
-function validateChoiceList(value: unknown, field: string): void { array(value, field, 500); const seen = new Set<string>(); for (const [index, choice] of value.entries()) { object(choice, `${field}[${index}]`); const choiceValue = choice.value; if (!(typeof choiceValue === 'string' || (typeof choiceValue === 'number' && Number.isFinite(choiceValue)) || typeof choiceValue === 'boolean')) fail(`${field}[${index}].value is invalid`); const identity = `${typeof choiceValue}:${String(choiceValue)}`; if (seen.has(identity)) fail(`${field} contains duplicate values`); seen.add(identity); string(choice.label, `${field}[${index}].label`, 256); if (choice.color !== undefined) validateColor(choice.color, `${field}[${index}].color`); } }
-function validateSettingList(value: unknown, field: string): void { array(value, field); const keys = new Set<string>(); for (const [index, setting] of value.entries()) { object(setting, `${field}[${index}]`); string(setting.key, `${field}[${index}].key`, 128); string(setting.label, `${field}[${index}].label`, 256); if(setting.description!==undefined)string(setting.description, `${field}[${index}].description`,4096); if (keys.has(setting.key)) fail(`${field} has duplicate keys`); keys.add(setting.key); if (!['select','multi','number','text','password','switch'].includes(setting.type as string)) fail(`${field}[${index}].type is invalid`); if (setting.dynamic !== undefined && typeof setting.dynamic !== 'boolean') fail(`${field}[${index}].dynamic is invalid`); if (setting.keywordDependent !== undefined && typeof setting.keywordDependent !== 'boolean') fail(`${field}[${index}].keywordDependent is invalid`); if (setting.dependsOn !== undefined) { array(setting.dependsOn, `${field}[${index}].dependsOn`, 16); for (const dependency of setting.dependsOn) string(dependency, `${field}[${index}].dependsOn[]`, 128); if (!setting.dynamic) fail(`${field}[${index}].dependsOn requires dynamic`); } if (setting.values !== undefined) validateChoiceList(setting.values, `${field}[${index}].values`); if (setting.options !== undefined) validateChoiceList(setting.options, `${field}[${index}].options`); if (setting.default !== undefined) { const valid = typeof setting.default === 'string' || typeof setting.default === 'boolean' || (typeof setting.default === 'number' && Number.isFinite(setting.default)) || (Array.isArray(setting.default) && setting.default.every((x: unknown) => typeof x === 'string')); if (!valid) fail(`${field}[${index}].default is invalid`); if (setting.type === 'switch' && typeof setting.default !== 'boolean') fail(`${field}[${index}].default must be boolean`); if (setting.type === 'number' && typeof setting.default !== 'number') fail(`${field}[${index}].default must be number`); } } const deps = new Map<string, string[]>(); for (const setting of value as Array<Record<string, unknown>>) if (setting.dependsOn !== undefined) deps.set(setting.key as string, setting.dependsOn as string[]); const visiting = new Set<string>(); const visited = new Set<string>(); const visit = (key: string): void => { if (visiting.has(key)) fail(`${field} dependency cycle`); if (visited.has(key)) return; visiting.add(key); for (const dependency of deps.get(key) ?? []) { if (!keys.has(dependency)) fail(`${field}.${key} depends on an unknown key`); visit(dependency); } visiting.delete(key); visited.add(key); }; for (const key of keys) visit(key); }
-function validateI18n(value: unknown): void { object(value, 'i18n'); for (const [language, messages] of Object.entries(value)) { if (!/^[A-Za-z]{2,8}(?:[-_][A-Za-z0-9]{2,8})?$/.test(language)) fail('i18n language is invalid'); object(messages, `i18n.${language}`); for (const [key, text] of Object.entries(messages)) { string(key, 'i18n key', 128); string(text, `i18n.${language}.${key}`, 4096); } } }
-function validateHeaders(value: unknown): void { object(value, 'imageHeaders'); for (const [name, headerValue] of Object.entries(value)) { if (!/^[A-Za-z0-9!#$%&'*+.^_`|~-]{1,128}$/.test(name) || /[\r\n]/.test(name)) fail('imageHeaders contains an invalid header name'); string(headerValue, `imageHeaders.${name}`, 4096); if (/[\r\n]/.test(headerValue)) fail('imageHeaders contains a newline'); } }
-function validateRegex(value: unknown, field: string, max = 1024): void { string(value, field, max); try { new RegExp(value); } catch { fail(`${field} is not a valid regular expression`); } }
+
+function names(value: unknown, field: string): asserts value is string[] {
+  array(value, field, 256);
+  for (const [index, item] of value.entries()) {
+    string(item, `${field}[${index}]`, 128);
+    if (!/^[A-Za-z0-9._-]+$/.test(item)) fail(`${field}[${index}] must be a cookie or storage name`);
+  }
+}
+
+function validatePermissions(value: unknown, field: string, manifestDomains: string[], mode: 'network' | 'media' | 'image'): void {
+  object(value, field);
+  if (mode === 'network') {
+    if (value.headers !== undefined) validateHeaders(value.headers);
+    if (value.mode !== undefined && !['auto', 'browser', 'native'].includes(value.mode as string)) fail(`${field}.mode is invalid`);
+    if (value.origin !== undefined) {
+      const u = parsedUrl(value.origin, `${field}.origin`, false);
+      urlBelongsTo(u, manifestDomains, `${field}.origin`);
+    }
+    if (value.vpnHint !== undefined && typeof value.vpnHint !== 'boolean') fail(`${field}.vpnHint is invalid`);
+    if (value.confirmation !== undefined) validateConfirmation(value.confirmation);
+  } else {
+    if (mode === 'media' && value.scope !== undefined && value.scope !== 'session') fail(`${field}.scope is invalid`);
+    if (!['browser', 'native'].includes(value.mode as string)) fail(`${field}.mode is invalid`);
+    if (value.origin !== undefined) {
+      const u = parsedUrl(value.origin, `${field}.origin`, false);
+      urlBelongsTo(
+        u,
+        [...manifestDomains, ...(mode === 'image' && Array.isArray(value.domains) ? (value.domains as string[]) : [])],
+        `${field}.origin`,
+      );
+    }
+    if (value.domains !== undefined) domains(value.domains, `${field}.domains`);
+    if (mode === 'image' && (value.referrerDomains !== undefined || value.requestHeaders !== undefined)) {
+      fail('imageNetwork cannot use media-only fields');
+    }
+    if (mode === 'media' && value.mode !== 'native' && (value.referrerDomains !== undefined || value.requestHeaders !== undefined)) {
+      fail('media.referrerDomains and media.requestHeaders require native mode');
+    }
+    if (mode === 'media' && value.referrerDomains !== undefined) {
+      array(value.referrerDomains, `${field}.referrerDomains`, 16);
+      domains(value.referrerDomains, `${field}.referrerDomains`);
+    }
+    if (mode === 'media' && value.requestHeaders !== undefined) {
+      object(value.requestHeaders, `${field}.requestHeaders`);
+      const entries = Object.entries(value.requestHeaders);
+      if (entries.length > 8) fail(`${field}.requestHeaders has too many entries`);
+      for (const [name, rule] of entries) {
+        if (
+          !/^x-[a-z0-9-]{1,63}$/.test(name) ||
+          !rule ||
+          typeof rule !== 'object' ||
+          Array.isArray(rule) ||
+          (rule as Record<string, unknown>).scope !== 'playback-origin'
+        ) {
+          fail(`${field}.requestHeaders contains an invalid rule`);
+        }
+      }
+    }
+  }
+}
+
+function validateAccount(value: unknown, manifestDomains: string[]): void {
+  object(value, 'account');
+  if (!['password', 'cookies', 'session'].includes(value.type as string)) fail('account.type is invalid');
+  for (const key of ['title', 'hint'] as const) if (value[key] !== undefined) string(value[key], `account.${key}`, 256);
+  if (value.required !== undefined && typeof value.required !== 'boolean') fail('account.required is invalid');
+  if (value.fields !== undefined) {
+    const fields = value.fields;
+    array(fields, 'account.fields');
+    for (const [index, field] of fields.entries()) {
+      object(field, `account.fields[${index}]`);
+      string(field.key, `account.fields[${index}].key`, 128);
+      string(field.label, `account.fields[${index}].label`, 256);
+      if (field.hint !== undefined) string(field.hint, `account.fields[${index}].hint`, 1024);
+      if (field.secret !== undefined && typeof field.secret !== 'boolean') fail('account field secret is invalid');
+      if (field.optional !== undefined && typeof field.optional !== 'boolean') fail('account field optional is invalid');
+    }
+  }
+  for (const key of ['loginUrl', 'logoutUrl', 'accountUrl', 'cookieUrl'] as const) {
+    if (value[key] !== undefined) {
+      const u = parsedUrl(value[key], `account.${key}`);
+      urlBelongsTo(u, manifestDomains, `account.${key}`);
+    }
+  }
+  if (value.registerUrl !== undefined) {
+    const u = parsedUrl(value.registerUrl, 'account.registerUrl');
+    if (u.protocol !== 'https:' || u.username || u.password) fail('account.registerUrl is invalid');
+  }
+  if (value.requiredCookies !== undefined) names(value.requiredCookies, 'account.requiredCookies');
+  if (value.localStorageKeys !== undefined) {
+    const localStorageKeys = value.localStorageKeys;
+    array(localStorageKeys, 'account.localStorageKeys', 128);
+    for (const [index, key] of localStorageKeys.entries()) {
+      string(key, `account.localStorageKeys[${index}]`, 128);
+      if (!/^[A-Za-z0-9._:-]+$/.test(key)) fail('account.localStorageKeys contains an invalid name');
+    }
+  }
+  if (value.loginDomains !== undefined) {
+    const loginDomains = domains(value.loginDomains, 'account.loginDomains');
+    for (const loginDomain of loginDomains) {
+      if (manifestDomains.some((d) => loginDomain === d || loginDomain.endsWith(`.${d}`))) {
+        fail('account.loginDomains must be third-party domains');
+      }
+    }
+  }
+  if (value.managedAccount !== undefined && typeof value.managedAccount !== 'boolean') fail('account.managedAccount is invalid');
+}
+
+function validateFilters(value: unknown, field: string): void {
+  object(value, field);
+  for (const [dimension, filter] of Object.entries(value)) {
+    if (!['pages', 'likes', 'duration', 'score', 'favorites'].includes(dimension)) fail(`${field}.${dimension} is invalid`);
+    object(filter, `${field}.${dimension}`);
+    if (
+      filter.range !== undefined &&
+      filter.range !== true &&
+      (!Array.isArray(filter.range) || filter.range.some((x: unknown) => x !== 'min' && x !== 'max'))
+    ) {
+      fail(`${field}.${dimension}.range is invalid`);
+    }
+    if (
+      filter.sort !== undefined &&
+      filter.sort !== true &&
+      (!Array.isArray(filter.sort) || filter.sort.some((x: unknown) => x !== 'asc' && x !== 'desc'))
+    ) {
+      fail(`${field}.${dimension}.sort is invalid`);
+    }
+  }
+}
+
+function validateColor(value: unknown, field: string): void {
+  string(value, field, 7);
+  if (!/^#[0-9A-Fa-f]{6}$/.test(value)) fail(`${field} must be a six-digit hex color`);
+}
+
+function validateChoiceList(value: unknown, field: string): void {
+  array(value, field, 500);
+  const seen = new Set<string>();
+  for (const [index, choice] of value.entries()) {
+    object(choice, `${field}[${index}]`);
+    const choiceValue = choice.value;
+    if (
+      !(
+        typeof choiceValue === 'string' ||
+        (typeof choiceValue === 'number' && Number.isFinite(choiceValue)) ||
+        typeof choiceValue === 'boolean'
+      )
+    ) {
+      fail(`${field}[${index}].value is invalid`);
+    }
+    const identity = `${typeof choiceValue}:${String(choiceValue)}`;
+    if (seen.has(identity)) fail(`${field} contains duplicate values`);
+    seen.add(identity);
+    string(choice.label, `${field}[${index}].label`, 256);
+    if (choice.color !== undefined) validateColor(choice.color, `${field}[${index}].color`);
+  }
+}
+
+function validateSettingList(value: unknown, field: string): void {
+  array(value, field);
+  const keys = new Set<string>();
+  for (const [index, setting] of value.entries()) {
+    object(setting, `${field}[${index}]`);
+    string(setting.key, `${field}[${index}].key`, 128);
+    string(setting.label, `${field}[${index}].label`, 256);
+    if (setting.description !== undefined) string(setting.description, `${field}[${index}].description`, 4096);
+    if (keys.has(setting.key)) fail(`${field} has duplicate keys`);
+    keys.add(setting.key);
+    if (!['select', 'multi', 'number', 'text', 'password', 'switch'].includes(setting.type as string)) {
+      fail(`${field}[${index}].type is invalid`);
+    }
+    if (setting.dynamic !== undefined && typeof setting.dynamic !== 'boolean') fail(`${field}[${index}].dynamic is invalid`);
+    if (setting.keywordDependent !== undefined && typeof setting.keywordDependent !== 'boolean') {
+      fail(`${field}[${index}].keywordDependent is invalid`);
+    }
+    if (setting.dependsOn !== undefined) {
+      array(setting.dependsOn, `${field}[${index}].dependsOn`, 16);
+      for (const dependency of setting.dependsOn) string(dependency, `${field}[${index}].dependsOn[]`, 128);
+      if (!setting.dynamic) fail(`${field}[${index}].dependsOn requires dynamic`);
+    }
+    if (setting.values !== undefined) validateChoiceList(setting.values, `${field}[${index}].values`);
+    if (setting.options !== undefined) validateChoiceList(setting.options, `${field}[${index}].options`);
+    if (setting.default !== undefined) {
+      const valid =
+        typeof setting.default === 'string' ||
+        typeof setting.default === 'boolean' ||
+        (typeof setting.default === 'number' && Number.isFinite(setting.default)) ||
+        (Array.isArray(setting.default) && setting.default.every((x: unknown) => typeof x === 'string'));
+      if (!valid) fail(`${field}[${index}].default is invalid`);
+      if (setting.type === 'switch' && typeof setting.default !== 'boolean') fail(`${field}[${index}].default must be boolean`);
+      if (setting.type === 'number' && typeof setting.default !== 'number') fail(`${field}[${index}].default must be number`);
+    }
+  }
+  const deps = new Map<string, string[]>();
+  for (const setting of value as Array<Record<string, unknown>>) {
+    if (setting.dependsOn !== undefined) deps.set(setting.key as string, setting.dependsOn as string[]);
+  }
+  const visiting = new Set<string>();
+  const visited = new Set<string>();
+  const visit = (key: string): void => {
+    if (visiting.has(key)) fail(`${field} dependency cycle`);
+    if (visited.has(key)) return;
+    visiting.add(key);
+    for (const dependency of deps.get(key) ?? []) {
+      if (!keys.has(dependency)) fail(`${field}.${key} depends on an unknown key`);
+      visit(dependency);
+    }
+    visiting.delete(key);
+    visited.add(key);
+  };
+  for (const key of keys) visit(key);
+}
+
+function validateI18n(value: unknown): void {
+  object(value, 'i18n', 64);
+  for (const [language, messages] of Object.entries(value)) {
+    if (!/^[A-Za-z]{2,8}(?:[-_][A-Za-z0-9]{2,8})?$/.test(language)) fail('i18n language is invalid');
+    object(messages, `i18n.${language}`, 512);
+    for (const [key, text] of Object.entries(messages)) {
+      string(key, 'i18n key', 256);
+      string(text, `i18n.${language}.${key}`, 4096);
+    }
+  }
+}
+
+function validateHeaders(value: unknown): void {
+  object(value, 'imageHeaders', 64);
+  for (const [name, headerValue] of Object.entries(value)) {
+    if (!/^[A-Za-z0-9!#$%&'*+.^_`|~-]{1,128}$/.test(name) || /[\r\n]/.test(name)) fail('imageHeaders contains an invalid header name');
+    string(headerValue, `imageHeaders.${name}`, 4096);
+    if (/[\r\n]/.test(headerValue)) fail('imageHeaders contains a newline');
+  }
+}
+
+function validateRegex(value: unknown, field: string, max = 1024): void {
+  string(value, field, max);
+  try {
+    new RegExp(value);
+  } catch {
+    fail(`${field} is not a valid regular expression`);
+  }
+}
+
 export function validateManifest(input: unknown): asserts input is PluginManifest {
-  object(input, 'manifest'); validateShape(input); if(input.apiVersion!==sourceContract.apiVersion)fail(`apiVersion must match SOURCE_API ${sourceContract.apiVersion}`); string(input.key, 'key', 100); if (!isSourceKey(input.key)) fail('key is invalid'); string(input.name, 'name', 256); string(input.version, 'version', 256); string(input.minAppVersion, 'minAppVersion', 256); if (!VERSION.test(input.version) || !VERSION.test(input.minAppVersion)) fail('version and minAppVersion must be three-part versions');
-  if (!sourceContract.types.includes(input.type as never)) fail('type is invalid'); if (!sourceContract.categories.includes(input.category as never)) fail('category is invalid'); const homepage = parsedUrl(input.homepage, 'homepage'); const manifestDomains = domains(input.domains, 'domains');
-  if (input.name !== undefined) string(input.name, 'name', 256); if (input.description !== undefined) string(input.description, 'description', 4096); if (input.searchHint !== undefined) string(input.searchHint, 'searchHint', 1024); if (input.color !== undefined) validateColor(input.color, 'color'); if (input.settings !== undefined) validateSettingList(input.settings, 'settings'); if (input.i18n !== undefined) validateI18n(input.i18n); if (input.imageHeaders !== undefined) validateHeaders(input.imageHeaders);
-  if (input.linkPatterns !== undefined) { array(input.linkPatterns, 'linkPatterns'); input.linkPatterns.forEach((x, i) => validateRegex(x, `linkPatterns[${i}]`, 1024)); } if (input.idPattern !== undefined) validateRegex(input.idPattern, 'idPattern', 1024); if (input.network !== undefined) validatePermissions(input.network, 'network', manifestDomains, 'network'); if (input.media !== undefined) validatePermissions(input.media, 'media', manifestDomains, 'media'); if (input.imageNetwork !== undefined) validatePermissions(input.imageNetwork, 'imageNetwork', manifestDomains, 'image');
-  if (input.imageDecrypt !== undefined) { object(input.imageDecrypt, 'imageDecrypt'); if (input.imageDecrypt.type !== 'aes-cbc') fail('imageDecrypt.type is invalid'); string(input.imageDecrypt.key, 'imageDecrypt.key', 32); string(input.imageDecrypt.iv, 'imageDecrypt.iv', 16); const keyBytes = new TextEncoder().encode(input.imageDecrypt.key).byteLength; if (![16,24,32].includes(keyBytes) || new TextEncoder().encode(input.imageDecrypt.iv).byteLength !== 16) fail('imageDecrypt key/iv must be AES-CBC lengths'); }
-  for (const field of ['navigationDomains','frameDomains'] as const) if (input[field] !== undefined) domains(input[field], field); if (input.account !== undefined) validateAccount(input.account, manifestDomains); if (input.chat !== undefined) { object(input.chat, 'chat'); domains(input.chat.domains, 'chat.domains', { allowPort: true }); } if (input.reverseSearchCategory !== undefined && !sourceContract.reverseSearchCategories.includes(input.reverseSearchCategory as never)) fail('reverseSearchCategory is invalid');
-  if (input.subscription !== undefined) { object(input.subscription, 'subscription'); for (const key of ['hint','communityHint','communityExample'] as const) if (input.subscription[key] !== undefined) string(input.subscription[key], `subscription.${key}`, 256); for (const key of ['joinedTargets','joinedCreators','communities'] as const) if (input.subscription[key] !== undefined && typeof input.subscription[key] !== 'boolean') fail(`subscription.${key} is invalid`); }
-  if (input.updateSubscriptions !== undefined) { object(input.updateSubscriptions, 'updateSubscriptions'); if (input.updateSubscriptions.dimensions !== undefined) { array(input.updateSubscriptions.dimensions, 'updateSubscriptions.dimensions', 32); for (const [index, dimension] of input.updateSubscriptions.dimensions.entries()) { object(dimension, `updateSubscriptions.dimensions[${index}]`); string(dimension.key, `updateSubscriptions.dimensions[${index}].key`, 128); string(dimension.label, `updateSubscriptions.dimensions[${index}].label`, 256); if (dimension.hint !== undefined) string(dimension.hint, `updateSubscriptions.dimensions[${index}].hint`, 256); } } }
-  if (input.rankings !== undefined) { array(input.rankings, 'rankings', 64); for (const [index, ranking] of input.rankings.entries()) { object(ranking, `rankings[${index}]`); string(ranking.key, `rankings[${index}].key`, 128); if(ranking.kind!==undefined)string(ranking.kind, `rankings[${index}].kind`, 128);if(ranking.options!==undefined){array(ranking.options, `rankings[${index}].options`);validateSettingList(ranking.options.map(value=>{object(value, 'ranking option');return {...value,type:value.type??'select'};}), `rankings[${index}].options`);} string(ranking.label, `rankings[${index}].label`, 256); string(ranking.metric, `rankings[${index}].metric`, 256); if (!sourceContract.categories.includes(ranking.category as never)) fail(`rankings[${index}].category is invalid`); if (ranking.section !== undefined && ranking.section !== 'market' && ranking.section !== 'site') fail(`rankings[${index}].section is invalid`); } }
-  if (input.defaultFeed !== undefined) string(input.defaultFeed, 'defaultFeed', 128); if (input.anonymousDefaultFeed !== undefined) string(input.anonymousDefaultFeed, 'anonymousDefaultFeed', 128); if (input.feeds !== undefined) { array(input.feeds, 'feeds'); const feedKeys = new Set<string>(); for (const [index, feed] of input.feeds.entries()) { object(feed, `feeds[${index}]`); string(feed.key, `feeds[${index}].key`, 128); string(feed.label, `feeds[${index}].label`, 256); if (feedKeys.has(feed.key)) fail('feeds has duplicate keys'); feedKeys.add(feed.key); if (feed.options !== undefined) validateSettingList(feed.options, `feeds[${index}].options`); if (feed.commonFilters !== undefined) validateFilters(feed.commonFilters, `feeds[${index}].commonFilters`); } } if (input.searchFilters !== undefined) validateSettingList(input.searchFilters, 'searchFilters'); if (input.searchCommonFilters !== undefined) validateFilters(input.searchCommonFilters, 'searchCommonFilters');
-  if (input.browseLayout !== undefined && input.browseLayout !== 'list' && input.browseLayout !== 'grid') fail('browseLayout is invalid'); if (input.capabilities !== undefined) { object(input.capabilities, 'capabilities'); for (const [name, value] of Object.entries(input.capabilities)) if (!(CAPABILITY_NAMES as readonly string[]).includes(name) || typeof value !== 'boolean') fail(`unknown or invalid capability: ${name}`); }
-  const c = input.capabilities ?? {}; if (input.metadataOnly === true && (c.detail || c.chapter || c.videos || c.webVideo)) fail('metadataOnly conflicts with ordinary detail or playback capabilities'); if (c.reverseSearchMore && !c.reverseSearch) fail('reverseSearchMore requires reverseSearch'); if (c.metadataMagnets && !c.metadataDetail) fail('metadataMagnets requires metadataDetail'); if (c.videos && !input.media) fail('videos requires media'); if (input.rankingOnly && (c.feed || c.search || c.detail || c.chapter || c.videos || c.webVideo)) fail('rankingOnly cannot expose ordinary content capabilities'); if (input.reverseSearchOnly && (c.feed || c.search || c.detail || c.chapter || c.videos || c.webVideo || c.subscription)) fail('reverseSearchOnly cannot expose ordinary content capabilities'); if (input.rankingOnly && input.feeds) fail('rankingOnly must not declare feeds'); if (input.reverseSearchOnly && (input.feeds || input.defaultFeed)) fail('reverseSearchOnly must not declare feeds or defaultFeed'); if (c.liveChat && !input.chat) fail('liveChat requires chat'); if (c.voiceDirectory && !c.voiceResource) fail('voiceDirectory requires voiceResource'); 
+  object(input, 'manifest');
+  validateShape(input);
+  if (input.apiVersion !== sourceContract.apiVersion) fail(`apiVersion must match SOURCE_API ${sourceContract.apiVersion}`);
+  string(input.key, 'key', 100);
+  if (!isSourceKey(input.key)) fail('key is invalid');
+  string(input.name, 'name', 256);
+  string(input.version, 'version', 256);
+  string(input.minAppVersion, 'minAppVersion', 256);
+  if (!VERSION.test(input.version) || !VERSION.test(input.minAppVersion)) fail('version and minAppVersion must be three-part versions');
+  if (!sourceContract.types.includes(input.type as never)) fail('type is invalid');
+  if (!sourceContract.categories.includes(input.category as never)) fail('category is invalid');
+  parsedUrl(input.homepage, 'homepage');
+  const manifestDomains = domains(input.domains, 'domains');
+  if (input.name !== undefined) string(input.name, 'name', 256);
+  if (input.description !== undefined) string(input.description, 'description', 4096);
+  if (input.searchHint !== undefined) string(input.searchHint, 'searchHint', 1024);
+  if (input.color !== undefined) validateColor(input.color, 'color');
+  if (input.settings !== undefined) validateSettingList(input.settings, 'settings');
+  if (input.i18n !== undefined) validateI18n(input.i18n);
+  if (input.imageHeaders !== undefined) validateHeaders(input.imageHeaders);
+  if (input.linkPatterns !== undefined) {
+    array(input.linkPatterns, 'linkPatterns');
+    input.linkPatterns.forEach((x, i) => validateRegex(x, `linkPatterns[${i}]`, 1024));
+  }
+  if (input.idPattern !== undefined) validateRegex(input.idPattern, 'idPattern', 1024);
+  if (input.network !== undefined) validatePermissions(input.network, 'network', manifestDomains, 'network');
+  if (input.media !== undefined) validatePermissions(input.media, 'media', manifestDomains, 'media');
+  if (input.imageNetwork !== undefined) validatePermissions(input.imageNetwork, 'imageNetwork', manifestDomains, 'image');
+  if (input.imageDecrypt !== undefined) {
+    object(input.imageDecrypt, 'imageDecrypt');
+    if (input.imageDecrypt.type !== 'aes-cbc') fail('imageDecrypt.type is invalid');
+    string(input.imageDecrypt.key, 'imageDecrypt.key', 32);
+    string(input.imageDecrypt.iv, 'imageDecrypt.iv', 16);
+    const keyBytes = new TextEncoder().encode(input.imageDecrypt.key).byteLength;
+    if (![16, 24, 32].includes(keyBytes) || new TextEncoder().encode(input.imageDecrypt.iv).byteLength !== 16) {
+      fail('imageDecrypt key/iv must be AES-CBC lengths');
+    }
+  }
+  for (const field of ['navigationDomains', 'frameDomains'] as const) {
+    if (input[field] !== undefined) domains(input[field], field);
+  }
+  if (input.account !== undefined) validateAccount(input.account, manifestDomains);
+  if (input.chat !== undefined) {
+    object(input.chat, 'chat');
+    domains(input.chat.domains, 'chat.domains', { allowPort: true });
+  }
+  if (input.reverseSearchCategory !== undefined && !sourceContract.reverseSearchCategories.includes(input.reverseSearchCategory as never)) {
+    fail('reverseSearchCategory is invalid');
+  }
+  if (input.subscription !== undefined) {
+    object(input.subscription, 'subscription');
+    for (const key of ['hint', 'communityHint', 'communityExample'] as const) {
+      if (input.subscription[key] !== undefined) string(input.subscription[key], `subscription.${key}`, 256);
+    }
+    for (const key of ['joinedTargets', 'joinedCreators', 'communities'] as const) {
+      if (input.subscription[key] !== undefined && typeof input.subscription[key] !== 'boolean') {
+        fail(`subscription.${key} is invalid`);
+      }
+    }
+  }
+  if (input.updateSubscriptions !== undefined) {
+    object(input.updateSubscriptions, 'updateSubscriptions');
+    if (input.updateSubscriptions.dimensions !== undefined) {
+      array(input.updateSubscriptions.dimensions, 'updateSubscriptions.dimensions', 32);
+      for (const [index, dimension] of input.updateSubscriptions.dimensions.entries()) {
+        object(dimension, `updateSubscriptions.dimensions[${index}]`);
+        string(dimension.key, `updateSubscriptions.dimensions[${index}].key`, 128);
+        string(dimension.label, `updateSubscriptions.dimensions[${index}].label`, 256);
+        if (dimension.hint !== undefined) string(dimension.hint, `updateSubscriptions.dimensions[${index}].hint`, 256);
+      }
+    }
+  }
+  if (input.rankings !== undefined) {
+    array(input.rankings, 'rankings', 64);
+    for (const [index, ranking] of input.rankings.entries()) {
+      object(ranking, `rankings[${index}]`);
+      string(ranking.key, `rankings[${index}].key`, 128);
+      if (ranking.kind !== undefined) string(ranking.kind, `rankings[${index}].kind`, 128);
+      if (ranking.options !== undefined) {
+        array(ranking.options, `rankings[${index}].options`);
+        validateSettingList(
+          ranking.options.map((value) => {
+            object(value, 'ranking option');
+            return { ...value, type: value.type ?? 'select' };
+          }),
+          `rankings[${index}].options`,
+        );
+      }
+      string(ranking.label, `rankings[${index}].label`, 256);
+      string(ranking.metric, `rankings[${index}].metric`, 256);
+      if (!sourceContract.categories.includes(ranking.category as never)) fail(`rankings[${index}].category is invalid`);
+      if (ranking.section !== undefined && ranking.section !== 'market' && ranking.section !== 'site') {
+        fail(`rankings[${index}].section is invalid`);
+      }
+    }
+  }
+  if (input.defaultFeed !== undefined) string(input.defaultFeed, 'defaultFeed', 128);
+  if (input.anonymousDefaultFeed !== undefined) string(input.anonymousDefaultFeed, 'anonymousDefaultFeed', 128);
+  if (input.feeds !== undefined) {
+    array(input.feeds, 'feeds');
+    const feedKeys = new Set<string>();
+    for (const [index, feed] of input.feeds.entries()) {
+      object(feed, `feeds[${index}]`);
+      string(feed.key, `feeds[${index}].key`, 128);
+      string(feed.label, `feeds[${index}].label`, 256);
+      if (feedKeys.has(feed.key)) fail('feeds has duplicate keys');
+      feedKeys.add(feed.key);
+      if (feed.options !== undefined) validateSettingList(feed.options, `feeds[${index}].options`);
+      if (feed.commonFilters !== undefined) validateFilters(feed.commonFilters, `feeds[${index}].commonFilters`);
+    }
+  }
+  if (input.searchFilters !== undefined) validateSettingList(input.searchFilters, 'searchFilters');
+  if (input.searchCommonFilters !== undefined) validateFilters(input.searchCommonFilters, 'searchCommonFilters');
+  if (input.browseLayout !== undefined && input.browseLayout !== 'list' && input.browseLayout !== 'grid') fail('browseLayout is invalid');
+  if (input.capabilities !== undefined) {
+    object(input.capabilities, 'capabilities');
+    for (const [name, value] of Object.entries(input.capabilities)) {
+      if (!(CAPABILITY_NAMES as readonly string[]).includes(name) || typeof value !== 'boolean') {
+        fail(`unknown or invalid capability: ${name}`);
+      }
+    }
+  }
+  const c = input.capabilities ?? {};
+  if (input.metadataOnly === true && (c.detail || c.chapter || c.videos || c.webVideo)) {
+    fail('metadataOnly conflicts with ordinary detail or playback capabilities');
+  }
+  if (c.reverseSearchMore && !c.reverseSearch) fail('reverseSearchMore requires reverseSearch');
+  if (c.metadataMagnets && !c.metadataDetail) fail('metadataMagnets requires metadataDetail');
+  if (c.videos && !input.media) fail('videos requires media');
+  if (input.rankingOnly && (c.feed || c.search || c.detail || c.chapter || c.videos || c.webVideo)) {
+    fail('rankingOnly cannot expose ordinary content capabilities');
+  }
+  if (input.reverseSearchOnly && (c.feed || c.search || c.detail || c.chapter || c.videos || c.webVideo || c.subscription)) {
+    fail('reverseSearchOnly cannot expose ordinary content capabilities');
+  }
+  if (input.rankingOnly && input.feeds) fail('rankingOnly must not declare feeds');
+  if (input.reverseSearchOnly && (input.feeds || input.defaultFeed)) fail('reverseSearchOnly must not declare feeds or defaultFeed');
+  if (c.liveChat && !input.chat) fail('liveChat requires chat');
+  if (c.voiceDirectory && !c.voiceResource) fail('voiceDirectory requires voiceResource');
 }
-export function isValidManifest(input: unknown): input is PluginManifest { try { validateManifest(input); return true; } catch { return false; } }
+
+export function isValidManifest(input: unknown): input is PluginManifest {
+  try {
+    validateManifest(input);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export function toPluginError(error: unknown): PluginError {
-  if (error instanceof ManifestValidationError) return {code:'INVALID_MANIFEST',message:'Plugin manifest is invalid',retryable:false};
-  const row=error&&typeof error==='object'?error as Record<string,unknown>:{};
-  const nested=row.cause&&typeof row.cause==='object'?row.cause as Record<string,unknown>:{};
-  const raw=typeof row.code==='string'?row.code:typeof nested.code==='string'?nested.code:'';
-  const diagnostic=row.diagnostics??row.details;
-  const input=diagnostic&&typeof diagnostic==='object'?diagnostic as Record<string,unknown>:{};
-  const reasons=['TLS_CERTIFICATE','TLS_HANDSHAKE','TLS_HANDSHAKE_TERMINATED','DNS','CONNECTION','CONNECT_TIMEOUT','RECEIVE_TIMEOUT','SEND_TIMEOUT','RESPONSE_STREAM','NETWORK','CANCELLED','PRIVATE_ADDRESS','FIREWALL_BLOCKED'];
-  let reason=typeof input.reason==='string'&&reasons.includes(input.reason)?input.reason:undefined;
-  let code:PluginError['code']=(PLUGIN_ERROR_CODES as readonly string[]).includes(raw)?raw as PluginError['code']:'PARSE';
-  if (['ENOTFOUND','EAI_AGAIN','EAI_FAIL','ENODATA'].includes(raw)) {code='NETWORK';reason='DNS';}
-  else if (/^(?:ERR_TLS_|CERT_|DEPTH_ZERO_SELF_SIGNED_CERT|SELF_SIGNED_CERT_IN_CHAIN|UNABLE_TO_(?:VERIFY|GET)_)/.test(raw)) {code='NETWORK';reason='TLS_CERTIFICATE';}
-  else if (/^ERR_SSL_/.test(raw)) {code='NETWORK';reason='TLS_HANDSHAKE';}
-  else if (['ECONNRESET','ECONNREFUSED','ECONNABORTED','EHOSTUNREACH','ENETUNREACH','EPIPE','UND_ERR_SOCKET'].includes(raw)) {code='NETWORK';reason='CONNECTION';}
-  else if (raw==='UND_ERR_CONNECT_TIMEOUT') {code='TIMEOUT';reason='CONNECT_TIMEOUT';}
-  else if (['ETIMEDOUT','ESOCKETTIMEDOUT','UND_ERR_HEADERS_TIMEOUT','UND_ERR_BODY_TIMEOUT'].includes(raw)||row.name==='TimeoutError') {code='TIMEOUT';reason??='RECEIVE_TIMEOUT';}
-  else if ((raw==='ABORT_ERR'||row.name==='AbortError')&&(nested.name==='TimeoutError'||nested.code==='TIMEOUT')) {code='TIMEOUT';reason='RECEIVE_TIMEOUT';}
-  else if (raw==='ABORT_ERR'||row.name==='AbortError') {code='CANCELLED';reason='CANCELLED';}
-  if(code==='NETWORK'&&!reason)reason='NETWORK';
-  if(code==='TIMEOUT'&&!reason)reason='RECEIVE_TIMEOUT';
-  if(code==='CANCELLED'&&!reason)reason='CANCELLED';
-  const safe:PluginErrorDetails={...(reason?{reason}:{})};
-  if(input.transport==='native'||input.transport==='browser')safe.transport=input.transport;
-  if(typeof input.host==='string'&&/^(?:[a-z0-9-]+\.)+[a-z]{2,63}$/i.test(input.host)&&input.host.length<=253)safe.host=input.host;
-  if(typeof input.status==='number'&&Number.isInteger(input.status)&&input.status>=100&&input.status<=599)safe.status=input.status;
-  const retryable=!reason?.startsWith('TLS_')&&row.retryable!==false&&['NETWORK','TIMEOUT','RATE_LIMITED'].includes(code);
-  const details=Object.keys(safe).length?safe:undefined;
-  return {code,message:'Plugin operation failed',retryable,...(details?{details,diagnostics:details}:{})};
+  if (error instanceof ManifestValidationError) {
+    return { code: 'INVALID_MANIFEST', message: 'Plugin manifest is invalid', retryable: false };
+  }
+  const row = error && typeof error === 'object' ? (error as Record<string, unknown>) : {};
+  const nested = row.cause && typeof row.cause === 'object' ? (row.cause as Record<string, unknown>) : {};
+  const raw = typeof row.code === 'string' ? row.code : typeof nested.code === 'string' ? nested.code : '';
+  const diagnostic = row.diagnostics ?? row.details;
+  const input = diagnostic && typeof diagnostic === 'object' ? (diagnostic as Record<string, unknown>) : {};
+  const reasons = [
+    'TLS_CERTIFICATE',
+    'TLS_HANDSHAKE',
+    'TLS_HANDSHAKE_TERMINATED',
+    'DNS',
+    'CONNECTION',
+    'CONNECT_TIMEOUT',
+    'RECEIVE_TIMEOUT',
+    'SEND_TIMEOUT',
+    'RESPONSE_STREAM',
+    'NETWORK',
+    'CANCELLED',
+    'PRIVATE_ADDRESS',
+    'FIREWALL_BLOCKED',
+    'SITE_CHALLENGE',
+  ];
+  let reason = typeof input.reason === 'string' && reasons.includes(input.reason) ? input.reason : undefined;
+  let code: PluginError['code'] = (PLUGIN_ERROR_CODES as readonly string[]).includes(raw)
+    ? (raw as PluginError['code'])
+    : 'PARSE';
+
+  const messageText = typeof row.message === 'string' ? row.message : '';
+  if (['ENOTFOUND', 'EAI_AGAIN', 'EAI_FAIL', 'ENODATA'].includes(raw)) {
+    code = 'NETWORK';
+    reason = 'DNS';
+  } else if (/^(?:ERR_TLS_|CERT_|DEPTH_ZERO_SELF_SIGNED_CERT|SELF_SIGNED_CERT_IN_CHAIN|UNABLE_TO_(?:VERIFY|GET)_)/.test(raw)) {
+    code = 'NETWORK';
+    reason = 'TLS_CERTIFICATE';
+  } else if (/^ERR_SSL_/.test(raw) || /Connection terminated during handshake/i.test(messageText)) {
+    code = 'NETWORK';
+    reason = /Connection terminated during handshake/i.test(messageText) ? 'TLS_HANDSHAKE_TERMINATED' : 'TLS_HANDSHAKE';
+  } else if (['ECONNRESET', 'ECONNREFUSED', 'ECONNABORTED', 'EHOSTUNREACH', 'ENETUNREACH', 'EPIPE', 'UND_ERR_SOCKET'].includes(raw)) {
+    code = 'NETWORK';
+    reason = 'CONNECTION';
+  } else if (raw === 'UND_ERR_CONNECT_TIMEOUT') {
+    code = 'TIMEOUT';
+    reason = 'CONNECT_TIMEOUT';
+  } else if (
+    ['ETIMEDOUT', 'ESOCKETTIMEDOUT', 'UND_ERR_HEADERS_TIMEOUT', 'UND_ERR_BODY_TIMEOUT'].includes(raw) ||
+    row.name === 'TimeoutError'
+  ) {
+    code = 'TIMEOUT';
+    reason ??= 'RECEIVE_TIMEOUT';
+  } else if ((raw === 'ABORT_ERR' || row.name === 'AbortError') && (nested.name === 'TimeoutError' || nested.code === 'TIMEOUT')) {
+    code = 'TIMEOUT';
+    reason = 'RECEIVE_TIMEOUT';
+  } else if (raw === 'ABORT_ERR' || row.name === 'AbortError') {
+    code = 'CANCELLED';
+    reason = 'CANCELLED';
+  }
+  if (code === 'NETWORK' && !reason) reason = 'NETWORK';
+  if (code === 'TIMEOUT' && !reason) reason = 'RECEIVE_TIMEOUT';
+  if (code === 'CANCELLED' && !reason) reason = 'CANCELLED';
+
+  const safe: PluginErrorDetails = { ...(reason ? { reason } : {}) };
+  if (input.transport === 'native' || input.transport === 'browser') safe.transport = input.transport;
+  if (typeof input.host === 'string' && /^(?:[a-z0-9_-]+\.)+[a-z]{2,63}$/i.test(input.host) && input.host.length <= 253) {
+    safe.host = input.host;
+  }
+  const rawStatus =
+    typeof input.status === 'number' ? input.status : typeof row.status === 'number' ? row.status : undefined;
+  if (rawStatus !== undefined && Number.isInteger(rawStatus) && rawStatus >= 100 && rawStatus <= 599) {
+    safe.status = rawStatus;
+  }
+
+  const retryable =
+    reason !== 'TLS_CERTIFICATE' &&
+    row.retryable !== false &&
+    ['NETWORK', 'TIMEOUT', 'RATE_LIMITED'].includes(code);
+  const details = Object.keys(safe).length ? safe : undefined;
+  return {
+    code,
+    message: 'Plugin operation failed',
+    retryable,
+    ...(safe.status !== undefined ? { status: safe.status } : {}),
+    ...(details ? { details, diagnostics: details } : {}),
+  };
 }
+
 /** Preserve an internal deadline without exposing an arbitrary abort reason. */
-export function toAbortError(signal:AbortSignal):PluginError {
-  const reason=signal.reason as {name?:unknown;code?:unknown}|undefined;
-  return toPluginError(reason?.name==='TimeoutError'||reason?.code==='TIMEOUT'
-    ?reason
-    :{code:'CANCELLED',details:{reason:'CANCELLED'}});
+export function toAbortError(signal: AbortSignal): PluginError {
+  const reason = signal.reason as { name?: unknown; code?: unknown } | undefined;
+  return toPluginError(
+    reason?.name === 'TimeoutError' || reason?.code === 'TIMEOUT'
+      ? reason
+      : { code: 'CANCELLED', details: { reason: 'CANCELLED' } },
+  );
 }

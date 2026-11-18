@@ -90,7 +90,7 @@ docker compose -f clients/web/compose.yaml start
 
 **不要删除数据卷，也不要用 `docker compose down -v` 停止或更新服务，这会删除保存的数据及下载文件。**
 
-Web 使用独立的 JSON 备份，不支持导入 Android 数据库或 `.parkbak`，也不提供 Android 与 Web 之间的自动同步。导出备份不包含下载文件；包含账号和 Cookie 的备份未加密，请勿公开或分享。
+Web 支持导出与导入兼容 Android 客户端的 `.parkbak` 压缩备份及 Web JSON 备份（不提供 Android 与 Web 之间的自动实时同步）。导出备份不包含已下载媒体文件；勾选站点账号、Cookie 或模型 API 密钥时，相关凭据以明文或压缩格式保存在备份文件中，请勿公开或分享。
 
 迁移到其他设备时，先停止服务，再完整迁移原数据卷，并保留 `.env` 配置。仅复制项目文件不能迁移个人数据。
 
@@ -98,7 +98,7 @@ Web 使用独立的 JSON 备份，不支持导入 Android 数据库或 `.parkbak
 
 不需要远程访问时，也可直接在电脑上运行，无需配置域名。先按 [本机运行说明](README.md)安装依赖并启动；Windows 可在准备完成后双击 `clients/web/start-web.bat`。
 
-浏览器访问 `http://127.0.0.1:8787`，保持服务终端打开，关闭终端会停止服务。本机模式默认无需解锁；启用应用锁后，使用 `clients/web/data/instance.key` 中的凭据（若自行设置了 `AUTH_TOKEN`，则使用该值）。默认数据保存在 `clients/web/data`，请勿删除。
+浏览器访问 `http://127.0.0.1:8787`，保持服务终端打开，关闭终端会停止服务。本机模式默认无需解锁；在“我的 → 隐私与安全”中配置独立的应用锁 PIN 后可使用该 PIN 解锁（或使用 `clients/web/data/instance.key` / `AUTH_TOKEN` 凭据）。默认数据保存在 `clients/web/data`，请勿删除。
 
 Safari 使用本机 HTTP 时可能无法保持登录，建议改用有受信证书的 HTTPS 地址。
 
@@ -128,7 +128,7 @@ docker compose -f clients/web/compose.yaml logs --tail 100 web
 
 **需要使用网络代理或本地 AI 服务？**
 
-可在 `.env` 中设置 `WEB_HTTP_PROXY`。代理位于内网时还需设置 `WEB_HTTP_PROXY_ALLOW_LOCAL=true`；连接本地 AI 服务需设置 `WEB_ALLOW_LOCAL_AI=true`。地址必须能从容器内访问，容器中的 `127.0.0.1` 不指向宿主机。
+可在 `.env` 中设置 `WEB_HTTP_PROXY`（支持 HTTP 与 SOCKS5 代理）。代理位于内网时还需设置 `WEB_HTTP_PROXY_ALLOW_LOCAL=true`；宿主机启用 TUN Fake-IP（`198.18.0.0/15`）的 Server 模式可设置 `WEB_ALLOW_FAKE_IP=true`；连接本地 AI 服务需设置 `WEB_ALLOW_LOCAL_AI=true`。地址必须能从容器内访问，容器中的 `127.0.0.1` 不指向宿主机。
 
 **自定义数据目录后提示没有写入权限？**
 

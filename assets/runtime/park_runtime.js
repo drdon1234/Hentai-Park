@@ -1279,7 +1279,11 @@
             const selected = {...request.options};
             for (const option of options) {
               const value = selected[option.key] ?? option.default;
-              if (option.values && !option.values.some(choice => choice.value === value)) {
+              if (option.type === 'multi') {
+                if (!Array.isArray(value) || (option.values && value.some(v => !option.values.some(choice => choice.value === v)))) {
+                  throw new ParkError(ErrorCode.CONFIG, '未知列表');
+                }
+              } else if (option.values && !option.values.some(choice => choice.value === value)) {
                 throw new ParkError(ErrorCode.CONFIG, '未知列表');
               }
               selected[option.key] = value;

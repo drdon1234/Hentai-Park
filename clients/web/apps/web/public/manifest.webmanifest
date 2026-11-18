@@ -1,0 +1,19 @@
+{
+  "name": "HentaiPark",
+  "short_name": "HentaiPark",
+  "description": "HentaiPark Web · 浏览、阅读与管理多站点内容",
+  "start_url": "/discover",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#0d1119",
+  "theme_color": "#0d1119",
+  "icons": [
+    {
+      "src": "/app-icon.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

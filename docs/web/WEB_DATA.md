@@ -4,7 +4,7 @@
 
 ## SQLite 实现（DATA-001）
 
-Web API 使用 Node.js `node:sqlite` 的 `DatabaseSync`。生产入口 `scripts/runtime.mjs` 以 `DATA_DIR/web.sqlite` 为默认数据库，`DATA_DIR` 默认指向仓库的 `data/`，`WEB_DB_PATH` 可显式覆盖。连接初始化固定执行 WAL、5 秒 busy timeout、foreign keys 和 synchronous=NORMAL；当前 `PRAGMA user_version` 为 14。启动时所有待执行迁移在同一个 `BEGIN IMMEDIATE` 事务中完成，失败回滚整批并关闭连接；未知高版本拒绝启动。
+Web API 使用 Node.js `node:sqlite` 的 `DatabaseSync`。生产入口 `scripts/runtime.mjs` 以 `DATA_DIR/web.sqlite` 为默认数据库，`DATA_DIR` 默认指向仓库的 `data/`，`WEB_DB_PATH` 可显式覆盖。连接初始化固定执行 WAL、5 秒 busy timeout、foreign keys 和 synchronous=NORMAL；当前 `PRAGMA user_version` 为 15。启动时所有待执行迁移在同一个 `BEGIN IMMEDIATE` 事务中完成，失败回滚整批并关闭连接；未知高版本拒绝启动。运行时每 6 小时执行 `pruneMaintenance()` 清理过期的 `domain_events`、`event_outbox`、`idempotency_records` 与 `subscription_checks`。
 
 | Schema 版本 | 变更 |
 | --- | --- |
@@ -122,9 +122,9 @@ worker 停止时先停止新扫描并取消活动调用，等待有超时与信�
 `test/int-worker.mjs`、`test/int-worker-process.mjs`、`test/int-worker-encrypted-image.mjs`、`test/int-worker-data-root.mjs` 覆盖真实 HTTP 文件字节、持久化重开、进程强杀恢复、租约、图片解密与物理根迁移；`test/int-backup.mjs` 覆盖数据库往返和导入失败回滚。这些受忽略目录保护的专项证据不能替代外部站点账号、Docker 平台及全部产品功能的最终验收，最终结论以[验收边界](ACCEPTANCE.md) 为准。
 
 
-## 迁移10至14
+## 迁移10至15
 
-迁移10新增小说UTF-16位置、小说笔记、分类排序、作品真实内容更新时间、订阅跨批扫描/内容关联及词包/酒馆持久化；将旧viewer/tab任一已读合并为eventId单事实。迁移11新增有限直播录制参数和反搜结果历史；迁移12新增用户显式保存的私有查询图，迁移13保存酒馆会话的非秘密设置；迁移14新增独立模型连接及世界书术语包。旧迁移历史保持，未知高版本仍拒绝。
+迁移10新增小说UTF-16位置、小说笔记、分类排序、作品真实内容更新时间、订阅跨批扫描/内容关联及词包/酒馆持久化；将旧viewer/tab任一已读合并为eventId单事实。迁移11新增有限直播录制参数和反搜结果历史；迁移12新增用户显式保存的私有查询图，迁移13保存酒馆会话的非秘密设置；迁移14新增独立模型连接及世界书术语包；迁移15新增 `download_files.sha256`、`subscriptions.label`、`subscription_events.post_snapshot_json` 以及高频查询复合索引。下载实时速率与字节遥测通过内存态 `download.telemetry` SSE 通道按 1Hz 推送，不写入持久化 `domain_events`。备份除原生 `hentai-park-web-backup` JSON 外，支持与 Android 客户端双向互通的 `.parkbak` Gzip 归档导出与导入。旧迁移历史保持，未知高版本仍拒绝。
 
 漫画同章节版本下合并最大页码，非法页码拒绝；视频允许有效回看；小说以服务器实际正文长度约束UTF-16偏移。作品抓取时间和contentUpdatedAt分开，首次完整目录建立基线不当作新章节更新。
 
