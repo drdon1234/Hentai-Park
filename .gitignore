@@ -104,6 +104,17 @@ docs/superpowers/
 /clients/web/coverage/
 /clients/web/test/
 
+# Windows build outputs, synced shared assets and local runtime data
+/clients/windows/**/bin/
+/clients/windows/**/obj/
+/clients/windows/.vs/
+/clients/windows/assets/
+/clients/windows/data/
+/clients/windows/downloads/
+/clients/windows/logs/
+/clients/windows/cache/
+/clients/windows/publish/
+
 # iOS generated files and local signing configuration
 /ios/Pods/
 /ios/Flutter/ephemeral/

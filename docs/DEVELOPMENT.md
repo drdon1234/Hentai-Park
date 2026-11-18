@@ -303,6 +303,7 @@ GitHub Release 正文就是应用内“发现软件新版本”对话框里的�
 - release.yml：Android 与 iOS 共用构建和发布入口，推送与 pubspec.yaml 对应的 vX.Y.Z 标签，或在 main 手动触发。手动 publish 默认 false，仅构建；启用 publish 或标签触发才创建 GitHub Release；未配置 Apple 凭据时提供名称明确标注 unsigned 的 IPA，需要用户重新签名安装。发布前更新 docs/RELEASE_NOTES.md，或手动指定仓库内双语说明路径。
 - ios.yml：相关 PR 或手动触发，默认只做 macOS 上的真机 Release 编译与未签名 IPA 打包，不传递发布凭据。在 main 手动勾选 signed 可使用 release 环境生成已签名 IPA，缺少签名材料会失败；两种构建都不发布。release.yml 中的 iOS job 有完整签名配置时导出已签名 IPA，没有配置则提供明确标注的 unsigned IPA；部分配置缺失直接失败。
 - web-release.yml：独立 Web Docker 发布入口，仅允许在默认分支手动触发；版本来自 clients/web/package.json，不依赖 Android pubspec.yaml 版本。启用 publish 后推送 Web 镜像版本标签和 latest 标签。
+- windows-ci.yml / windows-release.yml：独立 Windows（WinUI 3）检查与发布入口；普通提交与 PR 不自动触发。在默认分支手动运行 `windows-release.yml` 时，`publish` 默认 `false`（仅构建便携包与安装包产物）；勾选 `publish` 后将已签名或明确标注 `unsigned` 的 Windows 安装包、便携包及 `.sha256` 上传至与 `pubspec.yaml` 对应的 `vX.Y.Z` GitHub Release。
 
 Android 与 iOS 的版本标签必须与 pubspec.yaml 一致；Web 版本由 clients/web/package.json 管理，当前初始版本为 0.0.1。没有更新对应平台版本时不要重用已有发布标签。原生 Release 正文只含中文和 English 两节，遵守 DEVELOPMENT.md 既有格式。
 
@@ -314,6 +315,7 @@ Android 与 iOS 的版本标签必须与 pubspec.yaml 一致；Web 版本由 cli
 | --- | --- | --- |
 | ANDROID_KEYSTORE_BASE64、ANDROID_KEYSTORE_PASSWORD、ANDROID_KEY_ALIAS、ANDROID_KEY_PASSWORD | Android 正式签名 | 仅编译，不上传 APK |
 | IOS_CERTIFICATE_BASE64、IOS_CERTIFICATE_PASSWORD、IOS_PROVISIONING_PROFILE_BASE64 | iOS PKCS#12 证书、密码与描述文件 | 全部缺失时生成 unsigned IPA；部分缺失时失败 |
+| WINDOWS_PFX_BASE64、WINDOWS_PFX_PASSWORD | Windows Authenticode PKCS#12 代码签名证书与密码（可选 `vars.WINDOWS_TIMESTAMP_URL`） | 全部缺失时生成明确标注 `unsigned` 的安装包与便携包；部分缺失时失败 |
 
 iOS 签名由 `tools/ios_signing.py` 在临时钥匙串中完成，团队、Bundle ID 与导出方式从未过期且不含通配符的描述文件读取；证书必须与描述文件匹配。支持开发、已登记设备分发、企业或 App Store Connect 导出，不自动上传 Apple 服务。签名配置与材料仅写到被忽略的位置，结束时恢复钥匙串搜索列表并删除临时钥匙串、描述文件和配置。不要把这些材料或真实账号信息加入仓库。
 
@@ -345,3 +347,7 @@ iOS 签名由 `tools/ios_signing.py` 在临时钥匙串中完成，团队、Bund
 ## Web 客户端
 
 Web 工程位于 `clients/web`，共用根 `assets/sources` 与 `assets/runtime`，不维护第二套插件或 SDK。独立 Node/pnpm 基线、启动器、生成资产、Docker Hub 工作流与验证边界见 [Web 开发说明](web/DEVELOPMENT.md)；用户入口见 [Web 部署](../clients/web/DEPLOYMENT.md)。
+
+## Windows 客户端
+
+Windows 原生桌面工程（WinUI 3 / .NET）位于 `clients/windows`，同样直接复用根 `assets/sources`、`assets/runtime`、`assets/public-contract.json` 与 `assets/i18n`，并与 Android 保持 SQLite 表结构及 `.parkbak` 备份互通。构建流程、模块职责、WebView2 隔离策略与验证边界见 [Windows 开发说明](windows/DEVELOPMENT.md)；桌面视觉与交互规范见 [Windows 设计准则](design/WINDOWS.md)。

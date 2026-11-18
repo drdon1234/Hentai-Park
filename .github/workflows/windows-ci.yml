@@ -1,0 +1,31 @@
+name: Windows checks
+on:
+  workflow_call:
+permissions:
+  contents: read
+concurrency:
+  group: windows-checks-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  check:
+    runs-on: windows-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+      - name: Sync shared assets and generate contract
+        run: node 'clients/windows/scripts/sync-assets.mjs'
+      - name: Check 8-language localizations
+        run: node 'clients/windows/scripts/check-localizations.mjs'
+      - name: Build WinUI 3 Release solution
+        run: dotnet build 'clients/windows/src/Park.App/Park.App.csproj' -c Release
