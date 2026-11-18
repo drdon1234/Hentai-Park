@@ -27,10 +27,10 @@ const page1 = await call('feed', manifest.defaultFeed, { page: 1, options: {} })
 2. **第二页**：`hasNext` 为真时用 `page: 2`（游标站点传回 `cursor`），结果不能和第一页完全相同。
 3. **搜索**：用首页某个作品标题里的词搜索，有结果。没有搜索接口的站点不声明 `search`。
 4. **详情**：`detail(id, preview)` 返回标题、章节或单章 ID。
-5. **封面**：按 `manifest.imageHeaders` 下载并检查文件头（JPEG / PNG / WebP / GIF / AVIF）和尺寸；声明了 `imageDecrypt` 的域名要先按 AES-CBC 解密再检查。
+5. **封面**：按 `manifest.imageHeaders` 下载图片，对匹配 `imageDecrypt` 的响应先按声明解密，再用图像解码器读取完整像素数据，记录格式与尺寸。
 6. **内容**：
    - 漫画/图集：`chapter()` 有页面，第一页图片能解码（`token` 页先调 `resolveImage`；`transform` 表示需要还原的切条图）。
-   - 视频：`videos(id, episodeId)` 有地址；MP4 用 `Range: bytes=0-65535` 请求，确认是 `ftyp`；HLS 确认以 `#EXTM3U` 开头。`capabilities.videos === false` 的站点只在原站播放，跳过。
+   - 视频：声明 `videos` 时调用 `videos(id, episodeId)`，检查返回的媒体能否在目标播放器开始播放。若环境只能探测 MP4 文件头或 HLS 清单，分别记录探测结果和实播未验证。仅支持原站播放时检查原站入口。
    - 小说：`textChapter()` 的 `paragraphs` 非空。
    - 游戏：`gameResources()` 返回资源和渠道；不要调用 `resolveGameResource` 之外的写操作，也不要触发回复解锁。
 

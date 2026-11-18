@@ -158,7 +158,7 @@ iOS 下载通过有限的 `beginBackgroundTask` 延长收尾时间，到期通�
 
 ## 检查与验证
 
-日常检查：
+需要完整检查 Flutter 本体和官方插件时，在仓库根目录运行：
 
 ```powershell
 .\tools\check.ps1
@@ -171,17 +171,14 @@ Flutter 不在 PATH 上时传入完整路径：`.\tools\check.ps1 -FlutterComman
 3. `flutter analyze lib`：静态检查，规则见 `analysis_options.yaml`。
 4. `dart format`：格式检查。手写 JS 使用两空格、多行函数与单引号；生成文件按生成器格式保留。
 5. `tools/publish_sources.mjs`：官方插件离线校验；提供 `videos` 的插件必须声明有效的 `media`，已有媒体与图片声明也会检查传输方式、来源、域名和会话范围，避免发布后才因缺少权限而无法播放。
-6. `pnpm --dir clients/web run contract:generate`：从 `assets/public-contract.json` 生成 Android 与 Web 共用的公共契约；修改枚举、默认顺序或官方仓库配置后必须重新生成。
 
-- 所有测试、复现脚本、夹具和测试产物只保存在被 `.gitignore` 忽略的本地目录，不跟踪、不提交。
+修改公共契约 `assets/public-contract.json` 后，单独运行 `pnpm --dir clients/web run contract:generate`，同步生成 Dart 和 TypeScript 定义。
+
+- 所有测试、复现脚本、夹具和测试产物统一放在仓库根目录的 `test/`，由 `.gitignore` 排除。
 - 公开内容只使用占位符和演示数据，不提交本机配置、签名私钥、真实账号或会话、用户备份、抓包及原始日志。站点会话提取过程与逆向调试记录不作为公开协议文档。反馈使用应用导出的脱敏报告；Git 忽略规则不能替代提交和发布附件检查。若凭据已公开，先撤销或轮换，再清理文件与历史引用。
 - 默认只运行与改动相关的测试。修复要有能复现原问题的针对性验证；完成说明附上新鲜的测试或实际请求证据，并写明没有验证到的部分。
 - 界面改动按[公共设计验收要求](DESIGN.md#设计验收边界)和目标平台准则，同时记录“正常屏＋正常字体”“窄屏＋大字体”两组视觉结果，注明尺寸、字体缩放、主题和关键状态；缺少任一组时不得声明视觉验收完成。Android 的具体组合见[安卓界面验收](design/ANDROID.md#安卓界面验收)。
 - 离线校验不能代替真实请求。修改插件后用共享运行时（见 SOURCE_API.md 的“在 Node 中试跑”）真实请求首页、分页、搜索、详情、封面解码，以及漫画章节或视频分集/媒体。
-
-### Git 提交规范
-
-- 执行任何 git commit 或 git tag 时，严禁在提交信息中添加 `Co-authored-by: Claude` 或任何 AI 署名。
 
 ## 发布
 

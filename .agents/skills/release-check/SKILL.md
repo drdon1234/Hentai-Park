@@ -12,7 +12,6 @@ description: HentaiPark 发布前的检查清单（应用 APK 或官方插件）
 - `git status`：列出将要发布的改动；确认 `/test/` 仍在 `.gitignore` 中，`test/` 下没有被跟踪的文件（`git ls-files test` 应为空）。
 - 不要提交与本次发布无关的本地修改（例如 Flutter 生成的机器相关文件）。
 - 检查跟踪文件、暂存内容和待发布附件：不含真实凭据、签名私钥、用户备份、会话导出、抓包、原始日志和本机信息；确认 `.gitignore` 对这些本地产物有效。文档不附会话提取教程或逆向调试记录，截图使用演示数据。公开协议字段、功能所需的公开客户端常量与上游许可证不当作用户秘密删除；发现真实泄露凭据必须先撤销或轮换。
-- 执行任何 git commit 或 git tag 时，严禁在提交信息中添加 `Co-authored-by: Claude` 或任何 AI 署名。
 
 ## 2. 自动检查
 
@@ -26,14 +25,14 @@ description: HentaiPark 发布前的检查清单（应用 APK 或官方插件）
 
 - 每个改动过的插件：脚本 `version` 与 `assets/sources/index.json` 一致，且比上次发布更高（补丁位 +1 即可）。用 `git diff <上次发布> -- assets/sources` 找出改动过的插件。
 - 每个改动过的插件都用 `verify-source` 技能做过真实请求验证，结果写进给用户的检查报告，不写进发布正文。
-- 协议有变化时 `docs/SOURCE_API.md` 已更新；新增站点已加入 `README.md` 的站点表。
+- 依据发布范围核对文档：协议变更见 `docs/SOURCE_API.md`，新增站点或能力变更见 `docs/SITES.md`。确认相应译文已同步。
 
 ## 4. 应用
 
 - 版本号只在用户要求时修改；核对 `pubspec.yaml` 的 versionName / versionCode 递增、包名不变。
 - 正式构建需要 `android/key.properties` 与正式证书：`flutter build apk --release --split-per-abi`。
 - 在真机或模拟器上覆盖安装旧版本，确认书库、进度、Cookie 登录、下载、备份恢复都还在（旧数据完整可读）。
-- 截图有变化时更新 `docs/screenshots/` 并同步八种语言的 README。
+- 更新产品演示素材时，检查各语言 README 中的演示链接。
 
 ## 5. 发布说明
 

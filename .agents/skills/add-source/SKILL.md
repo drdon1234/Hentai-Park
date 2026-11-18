@@ -11,7 +11,7 @@ description: 新增或大改一个 HentaiPark 站点插件（assets/sources/*.js
 
 - 用真实请求摸清站点：首页有哪些入口（推荐 / 排行 / 热门 / 最新）、分页方式（页号还是游标）、搜索接口、详情结构、图片或视频地址、是否需要登录、Cloudflare 或年龄确认。
 - 必须评估是否需要项目已有的无感交互框架，并记录判断依据；结合验证页、跳转和会话要求检查，不能仅凭一次 HTTP 200 判定不需要。框架通过隐藏浏览器会话处理支持的站点验证，能力与限制见 `docs/SOURCE_API.md` 的网络章节。
-- 确定 `type`（comic / video / novel / game）和 `category`（doujin / gallery / illustration / anime / aiDrama / jav / adult / shortvideo / live / novel / game / other），分别准确声明。
+- 按内容行为选择 `type`，按站点分类选择 `category`。可用值见 `assets/public-contract.json` 的 `sourceProtocol.types` 和 `sourceProtocol.categories`。
 - `defaultFeed` 按 **推荐 > 排行榜 > 热门** 选择，真的没有才用最新或其他有效入口。不得写没有验证过的接口。
 - 中国大陆可能需要代理的站点声明 `network.vpnHint: true`。
 - `domains` 只写站点自己的可注册域名；图片 CDN、媒体域名分别放进 `imageNetwork` / `media`，不要为了省事扩大 `domains`。
@@ -28,9 +28,9 @@ description: 新增或大改一个 HentaiPark 站点插件（assets/sources/*.js
 
 ## 3. 登记
 
-- 在 `assets/sources/index.json` 中加入条目（`key`、`name`、`version: "0.0.1"`、`type`、`category`、`file`、`description`），顺序即默认排序。
+- 在 `assets/sources/index.json` 登记 `key`、`name`、`version`、`minAppVersion`、`type`、`category`、`file` 和 `description`。版本及最低本体版本与脚本声明保持一致。
 - 修改已有插件时，同时提高脚本里的 `version` 和 `index.json` 中的版本（补丁位 +1）。插件版本与应用版本分开，不要动 `pubspec.yaml`。
-- 用户可见的说明同步到 `README.md` 的“支持的站点”表（只列站点名）；协议有变化时更新 `docs/SOURCE_API.md`。
+- 新增站点或变更站点能力时，更新 `docs/SITES.md` 及其七份译文。协议有变化时同步更新 `docs/SOURCE_API.md` 及其译文。
 
 ## 4. 验证
 
