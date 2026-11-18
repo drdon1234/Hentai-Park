@@ -1,6 +1,6 @@
 # Web 工程与发布
 
-[开发说明入口](../DEVELOPMENT.md) · [部署](../WEB_DEPLOYMENT.md) · [Web 设计](../design/WEB.md) · [插件协议](../SOURCE_API.md)
+[开发说明入口](../DEVELOPMENT.md) · [部署](../../clients/web/DEPLOYMENT.md) · [Web 设计](../design/WEB.md) · [插件协议](../SOURCE_API.md)
 
 ## 构建与目录
 

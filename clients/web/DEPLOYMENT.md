@@ -1,6 +1,6 @@
 # Web 部署
 
-[返回 README](../README.md)
+[返回项目 README](../../README.md)
 
 Web 目前处于 **Beta 阶段**，使用体验仍在持续优化。将 HentaiPark 部署到自己的电脑或服务器后，即可通过桌面或手机浏览器使用。每个实例供一人使用，不提供独立的多用户账号；部分功能和站点支持可能继续调整。
 
@@ -96,7 +96,7 @@ Web 使用独立的 JSON 备份，不支持导入 Android 数据库或 `.parkbak
 
 ## 仅在本机使用
 
-不需要远程访问时，也可直接在电脑上运行，无需配置域名。先按 [本机运行说明](../clients/web/README.md)安装依赖并启动；Windows 可在准备完成后双击 `clients/web/start-web.bat`。
+不需要远程访问时，也可直接在电脑上运行，无需配置域名。先按 [本机运行说明](README.md)安装依赖并启动；Windows 可在准备完成后双击 `clients/web/start-web.bat`。
 
 浏览器访问 `http://127.0.0.1:8787`，保持服务终端打开，关闭终端会停止服务。本机模式默认无需解锁；启用应用锁后，使用 `clients/web/data/instance.key` 中的凭据（若自行设置了 `AUTH_TOKEN`，则使用该值）。默认数据保存在 `clients/web/data`，请勿删除。
 

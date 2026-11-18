@@ -344,4 +344,4 @@ iOS 签名由 `tools/ios_signing.py` 在临时钥匙串中完成，团队、Bund
 
 ## Web 客户端
 
-Web 工程位于 `clients/web`，共用根 `assets/sources` 与 `assets/runtime`，不维护第二套插件或 SDK。独立 Node/pnpm 基线、启动器、生成资产、Docker Hub 工作流与验证边界见 [Web 开发说明](web/DEVELOPMENT.md)；用户入口见 [Web 部署](WEB_DEPLOYMENT.md)。
+Web 工程位于 `clients/web`，共用根 `assets/sources` 与 `assets/runtime`，不维护第二套插件或 SDK。独立 Node/pnpm 基线、启动器、生成资产、Docker Hub 工作流与验证边界见 [Web 开发说明](web/DEVELOPMENT.md)；用户入口见 [Web 部署](../clients/web/DEPLOYMENT.md)。

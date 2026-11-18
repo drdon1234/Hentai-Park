@@ -24,7 +24,7 @@
 
 [Plataformas e instalación](../../PLATFORMS.md)
 
-También puedes [alojar tu propia versión Web (Beta)](../../WEB_DEPLOYMENT.md) para navegadores de escritorio y móviles. Web sigue en fase beta y su experiencia continúa mejorando. Cada instancia es para una persona; el acceso remoto requiere HTTPS y una credencial de acceso. Web y Android mantienen datos separados, sin sincronización ni importación de copias entre plataformas.
+También puedes [alojar tu propia versión Web (Beta)](../../../clients/web/DEPLOYMENT.md) para navegadores de escritorio y móviles. Web sigue en fase beta y su experiencia continúa mejorando. Cada instancia es para una persona; el acceso remoto requiere HTTPS y una credencial de acceso. Web y Android mantienen datos separados, sin sincronización ni importación de copias entre plataformas.
 
 iOS requiere iOS 15 o posterior. Los archivos IPA deben firmarse antes de instalarlos; consulta las [diferencias entre plataformas](../../PLATFORMS.md#ios).
 

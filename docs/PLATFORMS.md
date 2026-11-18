@@ -8,7 +8,7 @@ Android 7.0 及以上为当前支持平台。具体能力、安装限制和设�
 
 ## Web
 
-Web 目前处于 **Beta 阶段**，使用体验仍在持续优化。它通过桌面或手机浏览器使用，可在电脑上本机运行，或通过 Docker 自托管。远程访问需要 HTTPS 地址和访问凭据；当前 Docker 镜像支持 Linux x86_64（amd64）。详见 [Web 部署](WEB_DEPLOYMENT.md)。
+Web 目前处于 **Beta 阶段**，使用体验仍在持续优化。它通过桌面或手机浏览器使用，可在电脑上本机运行，或通过 Docker 自托管。远程访问需要 HTTPS 地址和访问凭据；当前 Docker 镜像支持 Linux x86_64（amd64）。详见 [Web 部署](../clients/web/DEPLOYMENT.md)。
 
 Web 为单用户实例，使用独立数据目录与 JSON 备份，不支持 Android 数据库或 `.parkbak` 导入，也不提供跨端自动同步。站点验证、播放和下载等功能可能受浏览器、设备及原站限制。
 

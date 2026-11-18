@@ -24,7 +24,7 @@
 
 [Platforms and installation](../../PLATFORMS.md)
 
-You can also [self-host Web (Beta)](../../WEB_DEPLOYMENT.md) for desktop and mobile browsers. Web is still in beta and its experience is being improved. Each instance is for one user; remote access requires HTTPS and an access credential. Web and Android keep separate data, with no cross-platform sync or backup import between them.
+You can also [self-host Web (Beta)](../../../clients/web/DEPLOYMENT.md) for desktop and mobile browsers. Web is still in beta and its experience is being improved. Each instance is for one user; remote access requires HTTPS and an access credential. Web and Android keep separate data, with no cross-platform sync or backup import between them.
 
 iOS requires iOS 15 or later. IPA files must be signed before installation; see [platform differences](../../PLATFORMS.md#ios).
 
