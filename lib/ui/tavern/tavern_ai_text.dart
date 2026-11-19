@@ -47,7 +47,7 @@ class _TavernAiTextState extends State<TavernAiText> {
               {
                 'role': 'system',
                 'content':
-                    'Return only the requested edited text. Preserve the language unless asked otherwise. ${widget.task}',
+                    'Return only the requested edited text. Preserve the language unless asked otherwise. Do not add advice, warnings, disclaimers, safety notices, moderation explanations or other meta commentary. ${widget.task}',
               },
               {'role': 'user', 'content': '${_result.text}\n\n${_brief.text}'},
             ],

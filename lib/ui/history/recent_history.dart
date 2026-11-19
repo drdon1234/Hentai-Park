@@ -6,7 +6,9 @@ import '../../core/models.dart';
 import '../../core/tag_blocklist.dart';
 import '../../engine/source_manager.dart';
 import '../../library/library.dart';
+import '../../tavern/store.dart';
 import '../nav.dart';
+import '../tavern/tavern_chat_page.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
 import '../widgets/content_translation.dart';
@@ -91,6 +93,181 @@ class RecentHistory extends StatelessWidget {
                     width: width,
                     child: _ContinueCard(entry: recent[index]),
                   ),
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+/// 酒馆会话单独存储，不伪装成普通作品历史，但在主页提供同等的继续入口。
+class RecentTavernHistory extends StatefulWidget {
+  const RecentTavernHistory({
+    super.key,
+    required this.scope,
+    this.limit = 10,
+    this.onOpenHistory,
+  });
+  final ContentScope scope;
+  final int limit;
+  final VoidCallback? onOpenHistory;
+
+  @override
+  State<RecentTavernHistory> createState() => _RecentTavernHistoryState();
+}
+
+class _RecentTavernHistoryState extends State<RecentTavernHistory> {
+  late Future<List<TavernSession>> _future = TavernStore.instance.sessions();
+
+  @override
+  void initState() {
+    super.initState();
+    TavernStore.instance.addListener(_changed);
+  }
+
+  @override
+  void didUpdateWidget(RecentTavernHistory oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.scope != widget.scope || oldWidget.limit != widget.limit) {
+      _reload();
+    }
+  }
+
+  void _changed() {
+    if (mounted) _reload();
+  }
+
+  void _reload() {
+    setState(() => _future = TavernStore.instance.sessions());
+  }
+
+  @override
+  void dispose() {
+    TavernStore.instance.removeListener(_changed);
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (!widget.scope.contains('tavern-local', SourceCategory.tavern)) {
+      return const SizedBox.shrink();
+    }
+    return FutureBuilder<List<TavernSession>>(
+      future: _future,
+      builder: (context, snapshot) {
+        if (!snapshot.hasData || snapshot.data!.isEmpty) {
+          return const SizedBox.shrink();
+        }
+        final sessions = snapshot.data!.take(widget.limit).toList();
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            SectionHeader(
+              tr('会话'),
+              titleStyle: ParkText.serif(
+                context.text.headlineSmall?.copyWith(
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              emphasizeTrailing: false,
+              trailing: widget.onOpenHistory == null
+                  ? null
+                  : TextButton(
+                      style: TextButton.styleFrom(
+                        minimumSize: const Size(48, 40),
+                        padding: EdgeInsets.zero,
+                      ),
+                      onPressed: widget.onOpenHistory,
+                      child: SelectionContainer.disabled(
+                        child: Text(
+                          tr('全部'),
+                          style: context.text.labelLarge?.copyWith(
+                            color: context.colors.primary,
+                            fontWeight: FontWeight.w400,
+                          ),
+                        ),
+                      ),
+                    ),
+            ),
+            SizedBox(
+              height: 108,
+              child: PageGutter(
+                child: ListView.separated(
+                  scrollDirection: Axis.horizontal,
+                  padding: EdgeInsets.zero,
+                  itemCount: sessions.length,
+                  separatorBuilder: (_, _) => const SizedBox(width: Gap.m),
+                  itemBuilder: (context, index) {
+                    final session = sessions[index];
+                    final preview = session.inputDraft.isNotEmpty
+                        ? session.inputDraft
+                        : session.messages.isEmpty
+                        ? tr('还没有消息')
+                        : session.messages.last['content'] ?? '';
+                    return SizedBox(
+                      width: 238,
+                      child: Material(
+                        color: context.colors.surfaceContainer,
+                        borderRadius: Radii.medium,
+                        clipBehavior: Clip.antiAlias,
+                        child: ActionInkWell(
+                          onTap: () => Nav.push(
+                            context,
+                            TavernChatPage(session: session),
+                          ),
+                          child: Padding(
+                            padding: const EdgeInsets.all(Gap.s),
+                            child: Row(
+                              children: [
+                                CircleAvatar(
+                                  radius: 24,
+                                  backgroundColor:
+                                      context.colors.secondaryContainer,
+                                  child: Icon(
+                                    Icons.chat_bubble_outline_rounded,
+                                    color: context.colors.onSecondaryContainer,
+                                  ),
+                                ),
+                                const SizedBox(width: Gap.s),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Text(
+                                        session.title,
+                                        maxLines: 2,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: ParkText.serif(
+                                          context.text.titleSmall?.copyWith(
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                        ),
+                                      ),
+                                      const SizedBox(height: Gap.xs),
+                                      Text(
+                                        preview,
+                                        maxLines: 2,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: context.text.bodySmall?.copyWith(
+                                          color:
+                                              context.colors.onSurfaceVariant,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    );
+                  },
                 ),
               ),
             ),

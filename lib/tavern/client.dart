@@ -14,6 +14,9 @@ class TavernApiException implements Exception {
   final int? status;
 }
 
+const _tavernDirectReplyInstruction =
+    '直接输出角色在当前场景中的下一条回复。不要输出建议、警告、免责声明、安全提示、规则解释、内容审查说明或其他元话语，不要在角色回复前后添加旁白。';
+
 /// Retrieves model identifiers from OpenAI-compatible and Anthropic APIs.
 class TavernModelCatalog {
   Future<List<String>> fetch({
@@ -405,9 +408,11 @@ TavernPrompt _buildTavernPrompt(
     role,
     world(false),
     config.effectiveSystemPrompt.trim(),
+    _tavernDirectReplyInstruction,
   ].where((s) => s.isNotEmpty).join('\n\n');
   final tail = <Map<String, String>>[
-    if (post.isNotEmpty) {'role': 'system', 'content': post},
+    if (post.isNotEmpty)
+      {'role': 'system', 'content': '$post\n\n$_tavernDirectReplyInstruction'},
     if (continuation)
       {
         'role': 'user',

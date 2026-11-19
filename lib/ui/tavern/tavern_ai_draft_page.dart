@@ -23,8 +23,27 @@ class TavernAiDraftPage extends StatefulWidget {
 
 class _TavernAiDraftPageState extends State<TavernAiDraftPage> {
   final _prompt = TextEditingController();
+  final _structured = {
+    for (final key in [
+      'name',
+      'creator',
+      'tags',
+      'description',
+      'personality',
+      'scenario',
+      'system_prompt',
+      'post_history_instructions',
+      'first_mes',
+      'mes_example',
+      'alternate_greetings',
+      'purpose',
+      'entries',
+    ])
+      key: TextEditingController(),
+  };
 
   String _kind = 'character';
+  String _inputMode = 'natural';
   String _draft = '';
   String _error = '';
   bool _busy = false;
@@ -33,11 +52,102 @@ class _TavernAiDraftPageState extends State<TavernAiDraftPage> {
   TavernResource? _baseline;
   final _omitted = <String>{};
   String get _instruction => _kind == 'character'
-      ? '''请根据用户描述生成一份 Character Card V2 JSON。只输出 JSON，不要 Markdown 代码围栏或解释。必须使用 spec=chara_card_v2、spec_version=2.0、data 三个顶级字段。data 包含 creator_notes、system_prompt、post_history_instructions、alternate_greetings、tags、creator、character_version、extensions，以及 name、description、personality、scenario、first_mes、mes_example 字段。可以包含 alternate_greetings、system_prompt 和 character_book。所有文本使用当前用户语言。'''
-      : '''请根据用户描述生成一份标准世界书 JSON。只输出 JSON，不要 Markdown 代码围栏或解释。必须包含 name 和 entries。entries 是数组，每项至少包含 comment、keys、content、enabled。所有文本使用当前用户语言。''';
+      ? '''请根据用户提供的内容生成一份 Character Card V2 JSON。只输出 JSON，不要 Markdown 代码围栏、解释、建议、警告、免责声明、安全提示或其他元话语。必须使用 spec=chara_card_v2、spec_version=2.0、data 三个顶级字段。data 包含 creator_notes、system_prompt、post_history_instructions、alternate_greetings、tags、creator、character_version、extensions，以及 name、description、personality、scenario、first_mes、mes_example 字段。可以包含 alternate_greetings、system_prompt 和 character_book。所有文本使用当前用户语言。'''
+      : '''请根据用户提供的内容生成一份标准世界书 JSON。只输出 JSON，不要 Markdown 代码围栏、解释、建议、警告、免责声明、安全提示或其他元话语。必须包含 name 和 entries。entries 是数组，每项至少包含 comment、keys、content、enabled。所有文本使用当前用户语言。''';
+
+  bool get _structuredMode => _inputMode == 'structured';
+
+  String get _userPrompt =>
+      _structuredMode ? _structuredPrompt() : _prompt.text.trim();
+
+  String _structuredPrompt() {
+    final fields = <String>[];
+    void add(String label, String key) {
+      final value = _structured[key]!.text.trim();
+      if (value.isNotEmpty) fields.add('$label：$value');
+    }
+
+    if (_kind == 'character') {
+      add(tr('名称'), 'name');
+      add(tr('作者'), 'creator');
+      add(tr('标签'), 'tags');
+      add(tr('描述'), 'description');
+      add(tr('性格'), 'personality');
+      add(tr('场景'), 'scenario');
+      add(tr('系统提示词'), 'system_prompt');
+      add(tr('后置指令'), 'post_history_instructions');
+      add(tr('开场白'), 'first_mes');
+      add(tr('示例对话'), 'mes_example');
+      add(tr('其他开场白'), 'alternate_greetings');
+    } else {
+      add(tr('名称'), 'name');
+      add(tr('描述'), 'purpose');
+      add(tr('世界书词条'), 'entries');
+    }
+    return fields.join('\n\n');
+  }
+
+  Widget _structuredField(
+    String key,
+    String label, {
+    int lines = 1,
+    String? helperText,
+  }) => TextField(
+    controller: _structured[key],
+    enabled: !_busy,
+    minLines: lines,
+    maxLines: lines == 1 ? 1 : 8,
+    decoration: InputDecoration(labelText: label, helperText: helperText),
+  );
+
+  Widget _structuredForm() => Column(
+    children: _kind == 'character'
+        ? [
+            _structuredField('name', tr('名称')),
+            const SizedBox(height: Gap.s),
+            _structuredField('creator', tr('作者')),
+            const SizedBox(height: Gap.s),
+            _structuredField('tags', tr('标签')),
+            const SizedBox(height: Gap.s),
+            _structuredField('description', tr('描述'), lines: 4),
+            const SizedBox(height: Gap.s),
+            _structuredField('personality', tr('性格'), lines: 3),
+            const SizedBox(height: Gap.s),
+            _structuredField('scenario', tr('场景'), lines: 3),
+            const SizedBox(height: Gap.s),
+            _structuredField('system_prompt', tr('系统提示词'), lines: 3),
+            const SizedBox(height: Gap.s),
+            _structuredField('post_history_instructions', tr('后置指令'), lines: 3),
+            const SizedBox(height: Gap.s),
+            _structuredField('first_mes', tr('开场白'), lines: 4),
+            const SizedBox(height: Gap.s),
+            _structuredField('mes_example', tr('示例对话'), lines: 4),
+            const SizedBox(height: Gap.s),
+            _structuredField('alternate_greetings', tr('其他开场白'), lines: 3),
+          ]
+        : [
+            _structuredField('name', tr('名称')),
+            const SizedBox(height: Gap.s),
+            _structuredField('purpose', tr('描述'), lines: 4),
+            const SizedBox(height: Gap.s),
+            _structuredField(
+              'entries',
+              tr('世界书词条'),
+              lines: 8,
+              helperText: tr('每行一个词条，按标题、关键词和正文填写'),
+            ),
+          ],
+  );
+
+  void _clearInput() {
+    _prompt.clear();
+    for (final field in _structured.values) {
+      field.clear();
+    }
+  }
 
   Future<void> _generate() async {
-    if (_busy || _prompt.text.trim().isEmpty) return;
+    if (_busy || _userPrompt.isEmpty) return;
     setState(() {
       _busy = true;
       _error = '';
@@ -60,7 +170,7 @@ class _TavernAiDraftPageState extends State<TavernAiDraftPage> {
           {'role': 'system', 'content': _instruction},
           if (previous != null)
             {'role': 'assistant', 'content': jsonEncode(previous.raw)},
-          {'role': 'user', 'content': _prompt.text.trim()},
+          {'role': 'user', 'content': _userPrompt},
         ],
       )) {
         buffer.write(value);
@@ -77,7 +187,7 @@ class _TavernAiDraftPageState extends State<TavernAiDraftPage> {
           _baseline = previous;
           _omitted.clear();
           _resource = resource;
-          _prompt.clear();
+          _clearInput();
         });
       }
     } on TavernApiException catch (error) {
@@ -183,12 +293,17 @@ class _TavernAiDraftPageState extends State<TavernAiDraftPage> {
     final outline = await Nav.push<String>(
       context,
       TavernAiText(
-        text: _prompt.text,
+        text: _userPrompt,
         requireGeneration: true,
         task: 'Create an editable world book outline from the brief. Group entries into batches, with a title, scope and distinct trigger keywords for each entry.',
       ),
     );
-    if (outline != null && mounted) _prompt.text = outline;
+    if (outline != null && mounted) {
+      setState(() {
+        _inputMode = 'natural';
+        _prompt.text = outline;
+      });
+    }
   }
 
   Future<void> _save() async {
@@ -277,6 +392,9 @@ class _TavernAiDraftPageState extends State<TavernAiDraftPage> {
   void dispose() {
     _generation?.cancel();
     _prompt.dispose();
+    for (final field in _structured.values) {
+      field.dispose();
+    }
 
     super.dispose();
   }
@@ -324,16 +442,40 @@ class _TavernAiDraftPageState extends State<TavernAiDraftPage> {
                   }),
           ),
           const SizedBox(height: Gap.l),
-          TextField(
-            enabled: !_busy,
-            controller: _prompt,
-            minLines: 6,
-            maxLines: 12,
-            decoration: InputDecoration(
-              labelText: tr('描述你想创作的内容'),
-              hintText: tr('例如：一个嘴硬心软、会逐渐信任用户的精灵佣兵'),
-            ),
+          Text(tr('输入方式'), style: context.text.titleSmall),
+          const SizedBox(height: Gap.s),
+          SegmentedButton<String>(
+            segments: [
+              ButtonSegment(
+                value: 'natural',
+                label: Text(tr('自然语言')),
+                icon: const Icon(Icons.notes_outlined),
+              ),
+              ButtonSegment(
+                value: 'structured',
+                label: Text(tr('结构化输入')),
+                icon: const Icon(Icons.view_list_outlined),
+              ),
+            ],
+            selected: {_inputMode},
+            onSelectionChanged: _busy
+                ? null
+                : (value) => setState(() => _inputMode = value.first),
           ),
+          const SizedBox(height: Gap.m),
+          if (_structuredMode)
+            _structuredForm()
+          else
+            TextField(
+              enabled: !_busy,
+              controller: _prompt,
+              minLines: 6,
+              maxLines: 12,
+              decoration: InputDecoration(
+                labelText: tr('描述你想创作的内容'),
+                hintText: tr('例如：一个嘴硬心软、会逐渐信任用户的精灵佣兵'),
+              ),
+            ),
           const SizedBox(height: Gap.m),
           if (_kind == 'lorebook')
             Align(
@@ -359,7 +501,7 @@ class _TavernAiDraftPageState extends State<TavernAiDraftPage> {
             const SizedBox(height: Gap.l),
             Text(tr('生成预览'), style: context.text.titleMedium),
             const SizedBox(height: Gap.s),
-            SelectableText(_draft, maxLines: 14),
+            Text(_draft),
           ],
           if (_resource != null && !_busy) ...[
             ..._proposalChoices(),

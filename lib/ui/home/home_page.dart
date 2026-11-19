@@ -17,6 +17,7 @@ import '../rankings/rankings_page.dart';
 import '../search/reverse_search_page.dart';
 import '../subscriptions/subscriptions_page.dart';
 import '../tavern/tavern_domain_notice.dart';
+import '../tavern/tavern_library_page.dart';
 import '../theme.dart';
 import '../widgets/content_translation.dart';
 import 'dimension_filter.dart';
@@ -466,6 +467,16 @@ class _HomePageState extends State<HomePage> {
                   limit: 20,
                   onOpenHistory: () => _history(scope),
                 ),
+              ),
+            ),
+          if (!dataSaver &&
+              (selected.category == null ||
+                  selected.category == SourceCategory.tavern))
+            SliverToBoxAdapter(
+              child: RecentTavernHistory(
+                scope: scope,
+                onOpenHistory: () =>
+                    Nav.push(context, const TavernLibraryPage(initialTab: 1)),
               ),
             ),
           if (selected.category == null)

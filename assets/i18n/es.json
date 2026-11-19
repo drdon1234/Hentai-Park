@@ -2059,5 +2059,10 @@
   "关键词未命中": "Sin palabra clave coincidente",
   "生成世界书大纲": "Generar esquema del libro de mundo",
   "共享关键词": "Palabras clave compartidas",
-  "丢弃编辑草稿？": "¿Descartar el borrador?"
+  "丢弃编辑草稿？": "¿Descartar el borrador?",
+  "输入方式": "Modo de entrada",
+  "自然语言": "Lenguaje natural",
+  "结构化输入": "Entrada estructurada",
+  "后置指令": "Instrucción posterior al historial",
+  "每行一个词条，按标题、关键词和正文填写": "Una entrada por línea, con título, palabras clave y contenido"
 }

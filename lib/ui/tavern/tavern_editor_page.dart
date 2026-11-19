@@ -597,10 +597,13 @@ class _TavernEditorPageState extends State<TavernEditorPage> {
                       'probability': tr('概率'),
                       'scanDepth': tr('扫描深度'),
                     }.entries)
-                      TextField(
-                        controller: numbers[field.key],
-                        keyboardType: TextInputType.number,
-                        decoration: InputDecoration(labelText: field.value),
+                      Padding(
+                        padding: const EdgeInsets.only(top: Gap.s),
+                        child: TextField(
+                          controller: numbers[field.key],
+                          keyboardType: TextInputType.number,
+                          decoration: InputDecoration(labelText: field.value),
+                        ),
                       ),
                   ],
                 ),
@@ -775,7 +778,9 @@ class _TavernEditorPageState extends State<TavernEditorPage> {
         ),
       ),
       _field(tr('名称'), _name),
+      const SizedBox(height: Gap.s),
       _field(tr('作者'), _creator),
+      const SizedBox(height: Gap.s),
       _field(tr('标签'), _tags),
       const SizedBox(height: Gap.s),
       _field(tr('描述'), _description, lines: 6),

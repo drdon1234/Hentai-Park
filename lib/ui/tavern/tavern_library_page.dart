@@ -1,17 +1,12 @@
-import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 
 import '../../core/localization.dart';
 import '../../tavern/store.dart';
-import '../../tavern/transfer.dart';
-import '../kit/adaptive_sheet.dart';
 import '../kit/kit.dart';
 import '../nav.dart';
 import '../theme.dart';
 import '../widgets/content_translation.dart';
-import 'tavern_ai_draft_page.dart';
 import 'tavern_chat_page.dart';
-import 'tavern_editor_page.dart';
 
 class TavernLibraryPage extends StatefulWidget {
   const TavernLibraryPage({
@@ -27,7 +22,6 @@ class TavernLibraryPage extends StatefulWidget {
 
 class _TavernLibraryPageState extends State<TavernLibraryPage> {
   late int _tab = widget.initialTab;
-  bool _importing = false;
   bool _tree = false;
   bool _byName = false;
   final _search = TextEditingController();
@@ -36,67 +30,6 @@ class _TavernLibraryPageState extends State<TavernLibraryPage> {
   void dispose() {
     _search.dispose();
     super.dispose();
-  }
-
-  Future<void> _import({String? expectedKind}) async {
-    if (_importing) return;
-    setState(() => _importing = true);
-    try {
-      final file = await FilePicker.pickFile();
-      if (file == null || !mounted) return;
-      if (await file.xFile.length() > 32 * 1024 * 1024) {
-        throw const FormatException();
-      }
-      await TavernTransfer.importBytes(
-        await file.xFile.readAsBytes(),
-        file.xFile.name,
-        expectedKind: expectedKind,
-      );
-      if (mounted) context.toast(tr('已导入'));
-    } catch (_) {
-      if (mounted) context.toast(tr('导入失败，请检查文件格式'));
-    } finally {
-      if (mounted) setState(() => _importing = false);
-    }
-  }
-
-  Future<void> _chooseImport() async {
-    await showAdaptiveSheet<void>(
-      context: context,
-      builder: (context) => SafeArea(
-        child: Wrap(
-          children: [
-            ListTile(
-              leading: const Icon(Icons.person_outline_rounded),
-              title: Text('${tr('导入')} ${tr('角色卡')}'),
-              subtitle: Text(tr('PNG 或 JSON 角色卡')),
-              onTap: () {
-                Navigator.pop(context);
-                _import(expectedKind: 'character');
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.menu_book_outlined),
-              title: Text('${tr('导入')} ${tr('世界书')}'),
-              subtitle: Text(tr('JSON 世界书')),
-              onTap: () {
-                Navigator.pop(context);
-                _import(expectedKind: 'lorebook');
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.archive_outlined),
-              title: Text('${tr('导入')} ${tr('会话')} / ${tr('备份')}'),
-              subtitle: Text(tr('本应用导出的会话或书库备份')),
-              onTap: () {
-                Navigator.pop(context);
-                _import();
-              },
-            ),
-          ],
-        ),
-      ),
-    );
   }
 
   List<(TavernSession, int)> _sessionRows(List<TavernSession> items) {
@@ -179,32 +112,11 @@ class _TavernLibraryPageState extends State<TavernLibraryPage> {
             icon: const Icon(Icons.account_tree_outlined),
             onPressed: () => setState(() => _tree = !_tree),
           ),
-        PopupMenuButton<String>(
-          tooltip: tr('新建'),
-          icon: const Icon(Icons.add_rounded),
-          onSelected: (kind) =>
-              Nav.push(context, TavernEditorPage.create(kind)),
-          itemBuilder: (_) => [
-            PopupMenuItem(value: 'character', child: Text(tr('角色卡'))),
-            PopupMenuItem(value: 'lorebook', child: Text(tr('世界书'))),
-          ],
-        ),
-        IconButton(
-          tooltip: tr('AI 创作'),
-          onPressed: () => Nav.push(context, const TavernAiDraftPage()),
-          icon: const Icon(Icons.auto_awesome),
-        ),
-        IconButton(
-          tooltip: tr('导入'),
-          onPressed: _importing ? null : _chooseImport,
-          icon: const Icon(Icons.file_open_outlined),
-        ),
       ],
     ),
     body: ReadableWidth(
       child: Column(
         children: [
-          if (_importing) const LinearProgressIndicator(),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: Gap.page),
             child: HeaderTabs(

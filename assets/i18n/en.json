@@ -2059,5 +2059,10 @@
   "关键词未命中": "No matching keyword",
   "生成世界书大纲": "Generate world book outline",
   "共享关键词": "Shared keywords",
-  "丢弃编辑草稿？": "Discard this editing draft?"
+  "丢弃编辑草稿？": "Discard this editing draft?",
+  "输入方式": "Input mode",
+  "自然语言": "Natural language",
+  "结构化输入": "Structured input",
+  "后置指令": "Post-history instruction",
+  "每行一个词条，按标题、关键词和正文填写": "One entry per line, with a title, keywords and content"
 }
