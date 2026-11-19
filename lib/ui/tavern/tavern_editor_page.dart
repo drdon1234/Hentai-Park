@@ -577,7 +577,7 @@ class _TavernEditorPageState extends State<TavernEditorPage> {
                       'selective': tr('次关键词'),
                       'useProbability': tr('概率'),
                     }.entries)
-                      SwitchListTile(
+                      SwitchListTile.adaptive(
                         title: Text(field.value),
                         value: field.key == 'enabled'
                             ? TavernLoreEntry(options).enabled
