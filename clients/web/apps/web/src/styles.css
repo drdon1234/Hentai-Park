@@ -660,6 +660,13 @@ html .nav-link.active,html .tab.active { background:var(--navigation-selected);c
 .tavern-composer label { max-width: none !important; }
 .tavern-conversation .tavern-tools:not([hidden]) { position: absolute; inset: 72px 0 0 auto; width: min(480px,100%); overflow: auto; padding: 20px; background: var(--browse-surface); border-inline-start: 1px solid var(--browse-border); z-index: 4; box-shadow: var(--desktop-shadow); }
 .tavern-tools[hidden] { display: none; }
+.tavern-editor { display: grid; gap: 16px; max-inline-size: 72ch; margin-inline: auto; }
+.tavern-editor .form-row { display: grid; max-width: none; gap: 6px; min-width: 0; }
+.tavern-editor input:not([type=checkbox]),.tavern-editor textarea { border: 1px solid var(--control-input-border); border-radius: 8px; background: var(--browse-surface); color: inherit; padding: 8px 10px; font: inherit; }
+.tavern-editor input[type=checkbox] { width: auto; }
+.tavern-editor h4, .tavern-editor h5 { margin: 0; }
+.tavern-entry-editor { display: grid; gap: 8px; padding: 12px 0; border-top: 1px solid var(--browse-border); }
+.tavern-editor textarea, .tavern-editor input { width: 100%; box-sizing: border-box; }
 .tavern-connection-hint { margin: 0; padding: 8px 20px; }
 .tavern-connection-hint p { margin: 0; }
 @media (max-width:839px) { .tavern-conversation { min-height: 380px; height: calc(100dvh - 190px); } .tavern-conversation .tavern-messages { padding: 16px; } .tavern-composer { padding: 12px; } }

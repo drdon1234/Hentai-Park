@@ -4,6 +4,7 @@ import { api, request, type MediaTokenRequest } from './api.js';
 import { ContentImage } from './content-controls.js';
 import { FilePicker } from './file-picker.js';
 import { t } from './i18n.js';
+import { TavernAssetEditor } from './tavern-editor.js';
 import { useMediaGrant } from './media-grant.js';
 import { TavernChat } from './tavern-chat.js';
 import { WorldbookTermPacks } from './worldbook-controls.js';
@@ -1038,7 +1039,7 @@ export function TavernSourcePanel({ source, workId }: { source: string; workId: 
           {error}
         </p>
       ) : null}
-      {asset ? <TavernAsset asset={asset} /> : null}
+      {asset ? <TavernAsset asset={asset} onSaved={setAsset} /> : null}
     </section>
   );
 }
@@ -1066,7 +1067,9 @@ function normalizeLoreEntries(entries: unknown): Array<{ id: string; keys: strin
   });
 }
 
-function TavernAsset({ asset, onDeleted }: { asset: Row; onDeleted?: () => void }) {
+function TavernAsset({ asset, onDeleted, onSaved }: { asset: Row; onDeleted?: () => void; onSaved?:(asset:Row)=>void }) {
+  const [editing, setEditing] = useState(false);
+
   const data = (asset.data ?? {}) as Row;
   const card = (data.data ?? data) as Row;
   const loreEntries = asset.kind === 'lorebook' ? normalizeLoreEntries(data.entries ?? card.entries) : [];
@@ -1118,12 +1121,14 @@ function TavernAsset({ asset, onDeleted }: { asset: Row; onDeleted?: () => void 
           <button className="chip" onClick={exportAsset}>
             {t('导出原格式文件')}
           </button>
+          {asset.assetId ? <button className="chip" onClick={() => setEditing((value) => !value)}>{editing ? t('关闭编辑') : t('编辑')}</button> : null}
           {asset.assetId ? (
             <button type="button" className="chip danger-action" onClick={() => void removeAsset()}>
               {t('删除资源')}
             </button>
           ) : null}
         </div>
+        {editing && asset.assetId ? <TavernAssetEditor asset={asset} onSaved={(value) => { onSaved?.(value); setEditing(false); }} /> : null}
         {(['description', 'personality', 'scenario', 'first_mes'] as const)
           .filter((key) => typeof card[key] === 'string' && card[key])
           .map((key) => (
@@ -1164,6 +1169,23 @@ export function TavernLibraryPage() {
   const result = usePage<{ items: Row[] }>('/api/v1/tavern/assets');
   const [selected, setSelected] = useState<Row>();
   const [error, setError] = useState('');
+  const [creating,setCreating]=useState<Row>();
+  const [query,setQuery]=useState('');
+  const [pins,setPins]=useState<string[]>(()=>{try{const value=JSON.parse(localStorage.getItem('hp:tavern-pins')??'[]');return Array.isArray(value)?value.filter(id=>typeof id==='string'):[];}catch{return [];}});
+  function togglePin(id:string){
+    const next=pins.includes(id)?pins.filter(key=>key!==id):[...pins,id];
+    setPins(next);
+    try{localStorage.setItem('hp:tavern-pins',JSON.stringify(next));}catch{/* 浏览器禁用存储时保留本次排序。 */}
+  }
+  const [sort,setSort]=useState('updated');
+  const assets=(result.data?.items??[]).filter(item=>[item.name,...(Array.isArray(item.tags)?item.tags:[])].join(' ').toLocaleLowerCase().includes(query.trim().toLocaleLowerCase()));
+  if(sort==='name') assets.sort((a,b)=>String(a.name).localeCompare(String(b.name)));
+  assets.sort((a,b)=>Number(pins.includes(String(b.assetId)))-Number(pins.includes(String(a.assetId))));
+  function create(kind:string) {
+    const data=kind==='character'?{spec:'chara_card_v2',spec_version:'2.0',data:{name:'',description:'',personality:'',scenario:'',first_mes:'',mes_example:'',creator_notes:'',system_prompt:'',post_history_instructions:'',alternate_greetings:[],tags:[],creator:'',character_version:'',extensions:{}}}:{name:'',entries:[],extensions:{}};
+    setSelected(undefined);
+    setCreating({kind,data});
+  }
   const open = (id: string) =>
     void request<Row>('/api/v1/tavern/assets/' + enc(id))
       .then(setSelected)
@@ -1187,7 +1209,7 @@ export function TavernLibraryPage() {
         } catch {
           throw Error(t('无法识别此JSON文件，请选择角色卡或世界书文件。'));
         }
-        payload = { kind: data.entries ? 'lorebook' : 'character', format: 'json', data };
+        payload = { kind: data.entries || (data.data as Row | undefined)?.entries ? 'lorebook' : 'character', format: 'json', data };
       }
       const asset = await request<Row>('/api/v1/tavern/import', { method: 'POST', body: JSON.stringify(payload) });
       setSelected(asset);
@@ -1198,6 +1220,11 @@ export function TavernLibraryPage() {
     }
   };
 
+  if(creating) return <>
+    <header className="page-header"><h1>{creating.kind==='character'?t('角色卡'):t('世界书')}</h1>
+    <button className="chip" onClick={()=>setCreating(undefined)}>{t('返回资源列表')}</button></header>
+    <TavernAssetEditor asset={creating} onSaved={value=>{setCreating(undefined);setSelected(value);result.retry();}}/>
+  </>;
   return (
     <>
       <header className="page-header">
@@ -1211,6 +1238,7 @@ export function TavernLibraryPage() {
               {t('返回资源列表')}
             </button>
           ) : null}
+          {!selected && !creating && <><button className="chip" onClick={()=>create('character')}>{t('新建')} · {t('角色卡')}</button><button className="chip" onClick={()=>create('lorebook')}>{t('新建')} · {t('世界书')}</button></>}
           <FilePicker
             label={t('导入JSON或PNG')}
             accept="application/json,image/png,.json,.png"
@@ -1236,6 +1264,7 @@ export function TavernLibraryPage() {
         <TavernAsset
           key={String(selected.assetId)}
           asset={selected}
+          onSaved={value=>{setSelected(value);result.retry();}}
           onDeleted={() => {
             setSelected(undefined);
             result.retry();
@@ -1244,13 +1273,17 @@ export function TavernLibraryPage() {
       ) : null}
       <details className="detail-secondary tavern-library-list" open={!selected}>
         <summary>{t('酒馆资源库')}</summary>
+        <label className="form-row">{t('搜索')}<input type="search" value={query} onChange={e=>setQuery(e.target.value)}/></label>
+        <label className="form-row">{t('排序')}<select value={sort} onChange={e=>setSort(e.target.value)}><option value="updated">{t('最近更新')}</option><option value="name">{t('名称')}</option></select></label>
+        {query && !assets.length && <p role="status">{t('没有匹配结果，可修改关键词或筛选条件后重试。')}</p>}
         <ul className="chapter-list tavern-asset-list">
-          {result.data?.items.map((item) => (
-            <li key={String(item.assetId)}>
+          {assets.map((item) => (
+            <li key={String(item.assetId)} style={{display:'flex',alignItems:'center'}}>
               <button className="chapter-row-button" onClick={() => open(String(item.assetId))}>
                 <strong>{String(item.name)}</strong>
                 <span className="chapter-state">{item.kind === 'lorebook' ? t('世界书') : t('角色卡')}</span>
               </button>
+              <button className="chip" aria-pressed={pins.includes(String(item.assetId))} onClick={()=>togglePin(String(item.assetId))}>{pins.includes(String(item.assetId))?t('取消置顶'):t('置顶')}</button>
             </li>
           ))}
         </ul>

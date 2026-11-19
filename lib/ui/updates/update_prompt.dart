@@ -87,7 +87,7 @@ class _UpdateItem extends StatelessWidget {
 }
 
 /// 只展示可确认的操作；检查本身不会触发下载或安装。
-Future<void> showAppUpdatePrompt(
+Future<bool> showAppUpdatePrompt(
   BuildContext context,
   AppUpdateResult result, {
   Future<bool> Function(Uri)? openRelease,
@@ -95,7 +95,7 @@ Future<void> showAppUpdatePrompt(
   Future<void> Function()? exitForUpdate,
 }) async {
   final release = result.release;
-  if (release == null || !context.mounted) return;
+  if (release == null || !context.mounted) return false;
   final service = installer ?? AppInstaller();
   final confirmed = await showDialog<bool>(
     context: context,
@@ -139,8 +139,8 @@ Future<void> showAppUpdatePrompt(
       ],
     ),
   );
-  if (confirmed != true) return;
-  if (!context.mounted) return;
+  if (confirmed != true) return false;
+  if (!context.mounted) return true;
   if (service.supported) {
     await showDialog<void>(
       context: context,
@@ -152,7 +152,7 @@ Future<void> showAppUpdatePrompt(
         exitForUpdate: exitForUpdate ?? (() async {}),
       ),
     );
-    return;
+    return true;
   }
   var opened = false;
   try {
@@ -161,6 +161,7 @@ Future<void> showAppUpdatePrompt(
   if (!opened && context.mounted) {
     _message(context, tr('无法打开下载页面，请稍后重试'));
   }
+  return true;
 }
 
 /// One line of the release notes: section headings, list items and plain text.

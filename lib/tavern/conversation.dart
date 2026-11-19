@@ -32,6 +32,7 @@ class TavernConversation extends ChangeNotifier {
   int matched = 0;
   int? totalTokens;
   String draft = '';
+  String lastPrompt = '';
   TavernApiException? failure;
   TavernGeneration? _generation;
   bool _disposed = false;
@@ -53,6 +54,7 @@ class TavernConversation extends ChangeNotifier {
       'role': 'assistant',
       'content': pending['content'] ?? '',
       'status': 'cancelled',
+      if (pending['name'] != null) 'name': pending['name']!,
     };
     if (message['content']!.isNotEmpty) {
       if (pending['mode'] == 'regenerate' && session.messages.isNotEmpty) {
@@ -184,6 +186,10 @@ class TavernConversation extends ChangeNotifier {
     final generation = _generation = TavernGeneration();
     Map<String, String>? previous;
     var started = false;
+    var speakerName = TavernResource(
+      kind: 'character',
+      raw: session.speakingCard,
+    ).name;
     var lastCheckpoint = DateTime.fromMillisecondsSinceEpoch(0);
     try {
       await TavernApiSettings.instance.load();
@@ -208,6 +214,23 @@ class TavernConversation extends ChangeNotifier {
       final promptSession = TavernSession.fromJson(
         jsonDecode(jsonEncode(session.toJson())) as Map,
       );
+      if (previous != null &&
+          previous['name'] != null &&
+          previous['name'] != speakerName) {
+        final id = session.cast.entries
+            .where(
+              (e) =>
+                  TavernResource(kind: 'character', raw: e.value).name ==
+                  previous!['name'],
+            )
+            .firstOrNull
+            ?.key;
+        promptSession.speaker = id ?? '';
+        speakerName = TavernResource(
+          kind: 'character',
+          raw: promptSession.speakingCard,
+        ).name;
+      }
       if (regenerate) promptSession.messages.removeLast();
       final books = <TavernResource>[];
       for (final uid in promptSession.books) {
@@ -228,6 +251,11 @@ class TavernConversation extends ChangeNotifier {
         config: config,
         continuation: continuation,
       );
+      lastPrompt = [
+        config.model,
+        for (final message in prompt.messages)
+          "${message['role']}\n${message['content']}",
+      ].join('\n\n');
       matched = prompt.matchedEntries;
       trimmed = prompt.trimmedHistory;
       final key = await TavernApiSettings.instance.apiKey();
@@ -240,6 +268,7 @@ class TavernConversation extends ChangeNotifier {
         draft += delta;
         session.pendingReply = {
           'content': draft,
+          'name': speakerName,
           'mode': regenerate
               ? 'regenerate'
               : continuation
@@ -268,7 +297,7 @@ class TavernConversation extends ChangeNotifier {
               : '';
           final message = <String, String>{
             'role': 'assistant',
-            'name': TavernResource(kind: 'character', raw: session.card).name,
+            'name': speakerName,
             'content': '$prefix$draft',
             'status':
                 failure?.code ??

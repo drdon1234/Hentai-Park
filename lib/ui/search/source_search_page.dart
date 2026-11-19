@@ -1290,6 +1290,79 @@ class _BoundedNumberFilter extends StatefulWidget {
 
 class _BoundedNumberFilterState extends State<_BoundedNumberFilter> {
   double? _dragging;
+
+  Future<void> _editValue(BuildContext context, double current) async {
+    final option = widget.option;
+    final min = option.minimum!.toDouble();
+    final max = option.maximum!.toDouble();
+    final step = option.step.toDouble();
+    final precision =
+        option.step.toString().split('.').skip(1).firstOrNull?.length ?? 0;
+    final rangeText =
+        '${min.toStringAsFixed(precision)}–${max.toStringAsFixed(precision)}';
+    final controller = TextEditingController(
+      text: current.toStringAsFixed(precision),
+    );
+    final value = await showDialog<double>(
+      context: context,
+      builder: (dialogContext) {
+        String? error;
+        void submit(StateSetter setDialogState) {
+          final parsed = double.tryParse(controller.text.trim());
+          if (parsed == null ||
+              !parsed.isFinite ||
+              parsed < min ||
+              parsed > max) {
+            setDialogState(() => error = tr('请输入有效的非负数'));
+            return;
+          }
+          Navigator.pop(dialogContext, parsed);
+        }
+
+        return StatefulBuilder(
+          builder: (context, setDialogState) => AlertDialog(
+            title: Text(option.label),
+            content: TextField(
+              controller: controller,
+              autofocus: true,
+              keyboardType: const TextInputType.numberWithOptions(
+                decimal: true,
+              ),
+              inputFormatters: [
+                FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
+              ],
+              decoration: InputDecoration(
+                labelText: option.label,
+                helperText: '${tr('范围')} $rangeText',
+                errorText: error,
+              ),
+              onSubmitted: (_) => submit(setDialogState),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(dialogContext),
+                child: Text(tr('取消')),
+              ),
+              FilledButton(
+                onPressed: () => submit(setDialogState),
+                child: Text(tr('确定')),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+    controller.dispose();
+    if (!mounted || value == null) return;
+    final snapped = (min + ((value - min) / step).round() * step).clamp(
+      min,
+      max,
+    );
+    final normalized = num.parse(snapped.toStringAsFixed(precision));
+    widget.onChanged(normalized);
+    setState(() => _dragging = null);
+  }
+
   @override
   Widget build(BuildContext context) {
     final option = widget.option;
@@ -1309,10 +1382,25 @@ class _BoundedNumberFilterState extends State<_BoundedNumberFilter> {
         Row(
           children: [
             Expanded(child: Text(option.label, style: context.text.titleSmall)),
-            Text(
-              value.toStringAsFixed(precision),
-              style: context.text.titleMedium?.copyWith(
-                fontFeatures: const [FontFeature.tabularFigures()],
+            Tooltip(
+              message: option.label,
+              child: Semantics(
+                button: true,
+                label: option.label,
+                child: TextButton(
+                  onPressed: () => _editValue(context, value),
+                  style: TextButton.styleFrom(
+                    minimumSize: const Size(48, 48),
+                    padding: const EdgeInsets.symmetric(horizontal: Gap.xs),
+                    tapTargetSize: MaterialTapTargetSize.padded,
+                  ),
+                  child: Text(
+                    value.toStringAsFixed(precision),
+                    style: context.text.titleMedium?.copyWith(
+                      fontFeatures: const [FontFeature.tabularFigures()],
+                    ),
+                  ),
+                ),
               ),
             ),
           ],
@@ -1327,8 +1415,9 @@ class _BoundedNumberFilterState extends State<_BoundedNumberFilter> {
             semanticFormatterCallback: (v) => v.toStringAsFixed(precision),
             onChanged: (v) => setState(() => _dragging = v),
             onChangeEnd: (v) {
-              setState(() => _dragging = null);
-              widget.onChanged(num.parse(v.toStringAsFixed(precision)));
+              final normalized = num.parse(v.toStringAsFixed(precision));
+              widget.onChanged(normalized);
+              if (mounted) setState(() => _dragging = null);
             },
           ),
         ),

@@ -5,7 +5,8 @@ const CRC=Uint32Array.from({length:256},(_,value)=>{let crc=value;for(let bit=0;
 function crc32(bytes:Uint8Array){let crc=0xffffffff;for(const byte of bytes)crc=CRC[(crc^byte)&255]^(crc>>>8);return (crc^0xffffffff)>>>0;}
 function expand(bytes:Uint8Array,max:number):Buffer{try{const result=inflateSync(bytes,{maxOutputLength:max,info:true}) as unknown as {buffer:Buffer;engine:{bytesWritten:number}};if(result.engine.bytesWritten!==bytes.byteLength)throw contentError();return result.buffer;}catch{throw contentError();}}
 /** Validate the complete PNG container and bounded image stream before reading card metadata. */
-export function readTavernPng(input:Uint8Array):unknown{
+export function readTavernPng(input:Uint8Array):unknown{return parsePng(input,true);}
+function parsePng(input:Uint8Array,requireCard:boolean):unknown{
  const bytes=Buffer.from(input);if(bytes.length>LIMIT||!bytes.subarray(0,8).equals(Buffer.from([137,80,78,71,13,10,26,10])))throw contentError();
  let width=0,height=0,depth=0,color=0,interlace=0,header=false,palette=false,idat=false,idatEnded=false,ended=false,offset=8;
  const image:Buffer[]=[],cards=new Map<string,string>();
@@ -37,9 +38,34 @@ export function readTavernPng(input:Uint8Array):unknown{
   }
   offset=end;
  }
- if(!ended||!header||!idat||!cards.size||offset!==bytes.length)throw contentError();
+ if(!ended||!header||!idat||(requireCard&&!cards.size)||offset!==bytes.length)throw contentError();
  const components:Record<number,number>={0:1,2:3,3:1,4:2,6:4},bits=components[color]*depth,passes=interlace?[[0,0,8,8],[4,0,8,8],[0,4,4,8],[2,0,4,4],[0,2,2,4],[1,0,2,2],[0,1,1,2]]:[[0,0,1,1]];
  const rows:Array<{count:number;bytes:number}>=passes.map(([x,y,dx,dy])=>({count:height>y&&width>x?Math.ceil((height-y)/dy):0,bytes:width>x?Math.ceil(Math.ceil((width-x)/dx)*bits/8):0})),expected=rows.reduce((sum,pass)=>sum+pass.count*(pass.bytes+1),0);
  if(expected<1||expected>MAX_RAW)throw contentError();const decoded=expand(Buffer.concat(image),expected);if(decoded.length!==expected)throw contentError();let index=0;for(const pass of rows)for(let row=0;row<pass.count;row++){if(decoded[index]>4)throw contentError();index+=pass.bytes+1;}
+ if(!requireCard)return;
  try{return JSON.parse(cards.get('ccv3')??cards.get('chara')!);}catch{throw contentError();}
+}
+
+export function writeTavernPng(original: Buffer, card: Record<string, unknown>): Buffer {
+  parsePng(original,false);
+  const keyword = card.spec === 'chara_card_v3' ? 'ccv3' : 'chara';
+  const metadata = Buffer.from(keyword + '\0' + Buffer.from(JSON.stringify(card)).toString('base64'), 'latin1');
+  const chunk = Buffer.alloc(metadata.length + 12);
+  chunk.writeUInt32BE(metadata.length);
+  chunk.write('tEXt', 4);
+  metadata.copy(chunk, 8);
+  chunk.writeUInt32BE(crc32(chunk.subarray(4, -4)), chunk.length - 4);
+  const parts = [original.subarray(0, 8)];
+  for (let offset = 8; offset < original.length;) {
+    const end = offset + original.readUInt32BE(offset) + 12;
+    const type = original.toString('latin1', offset + 4, offset + 8);
+    if (type === 'IEND') parts.push(chunk);
+    const text = ['tEXt', 'zTXt', 'iTXt'].includes(type);
+    const key = text ? original.toString('latin1', offset + 8, original.indexOf(0, offset + 8)) : '';
+    if (!['ccv3', 'chara'].includes(key)) parts.push(original.subarray(offset, end));
+    offset = end;
+  }
+  const result = Buffer.concat(parts);
+  readTavernPng(result);
+  return result;
 }

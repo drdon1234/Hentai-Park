@@ -139,8 +139,8 @@ function jsonValue(value: unknown, field: string, allowSecrets = false): string 
 const json: Validator = (value, field) => jsonValue(value, field);
 const tavernSettings:Validator=(value,field)=>{
     if(typeof value!=='string'||Buffer.byteLength(value)>128000)invalid(field);let parsed:Row;try{parsed=object(JSON.parse(value),field);}catch{invalid(field);}
-    const allowed=['userName','persona','systemPrompt','worldbookIds','contextTokens','maxTokens','temperature'];if(Object.keys(parsed).some(key=>!allowed.includes(key)))invalid(field);
-    for(const key of ['userName','persona','systemPrompt'])if(parsed[key]!==undefined&&(typeof parsed[key]!=='string'||String(parsed[key]).length>(key==='userName'?256:20000)||/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/.test(String(parsed[key]))))invalid(field);
+    const allowed=['userName','persona','memory','notes','tags','systemPrompt','castIds','speakerId','title','parentId','worldbookIds','contextTokens','maxTokens','temperature'];if(Object.keys(parsed).some(key=>!allowed.includes(key)))invalid(field);
+    for(const key of ['userName','persona','systemPrompt','memory'])if(parsed[key]!==undefined&&(typeof parsed[key]!=='string'||String(parsed[key]).length>(key==='userName'?256:20000)||/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/.test(String(parsed[key]))))invalid(field);
     if(parsed.worldbookIds!==undefined&&(!Array.isArray(parsed.worldbookIds)||parsed.worldbookIds.length>100||parsed.worldbookIds.some(id=>typeof id!=='string'||!id||id.length>512)))invalid(field);
     for(const key of ['contextTokens','maxTokens'])if(parsed[key]!==undefined&&(!Number.isSafeInteger(parsed[key])||Number(parsed[key])<1||Number(parsed[key])>2000000))invalid(field);
     if(parsed.temperature!==undefined&&(typeof parsed.temperature!=='number'||!Number.isFinite(parsed.temperature)||parsed.temperature<0||parsed.temperature>2))invalid(field);
@@ -186,6 +186,7 @@ const tables: Record<string, Table> = {
     history: { table: 'history', key: ['scope_key'], updated: 'updated_at', fields: { source, work_id: identifier, chapter_id: nullable(identifier), chapter_title: nullable(string), page: nullable(integer), page_count: nullable(integer), position: nullable(number), updated_at: timestamp, scope_key: resource } },
     novelNotes:{table:'novel_notes',key:['id'],updated:'updated_at',fields:{id:identifier,source,work_id:identifier,chapter_id:identifier,offset:integer,end_offset:integer,quote:string,note:string,bookmark:bool,...common}},
     tavernAssets:{table:'tavern_assets',key:['asset_id'],updated:'updated_at',fields:{asset_id:identifier,source,work_id:identifier,kind:enumOf(['character','lorebook']),format:enumOf(['json','png']),data_json:json,...common}},
+    tavernEdits:{table:'tavern_edits',key:['revision'],updated:'updated_at',fields:{revision:identifier,asset_id:identifier,updated_at:timestamp,content_json:json}},
     tavernConversations:{table:'tavern_conversations',key:['conversation_id'],updated:'updated_at',fields:{conversation_id:identifier,asset_id:identifier,messages_json:json,settings_json:tavernSettings,...common}},
     tavernConnections:{table:'tavern_connections',key:['connection_id'],updated:'updated_at',fields:{connection_id:connectionId,endpoint:connectionEndpoint,model:(value,field)=>text(value,field,200).trim()||invalid(field),temperature:bounded(0,2,false),max_tokens:bounded(1,32768),context_tokens:bounded(1024,2000000),updated_at:timestamp,version:bounded(1,Number.MAX_SAFE_INTEGER)}},
     worldbookTerms:{table:'worldbook_term_packs',key:['locale'],updated:'updated_at',fields:{locale:enumOf(['zh-Hans','zh-Hant','en','ja','ko','es','ru','ar']),pack_version:required,payload_json:termPayload,updated_at:timestamp,version:bounded(1,Number.MAX_SAFE_INTEGER)}},
@@ -200,7 +201,7 @@ const tables: Record<string, Table> = {
     accounts: { table: 'source_accounts', key: ['source'], updated: 'updated_at', fields: { source, account_json: (value, field) => jsonValue(value, field, true), updated_at: timestamp } },
     downloads: { table: 'download_tasks', key: ['task_id'], fields: { recording_json:nullable(json),task_id: resource, source, work_id: identifier, chapter_id: identifier, variant, resource_key: resource, idempotency_key: resource, status: enumOf(['queued', 'running', 'paused', 'completed', 'failed', 'cancelling', 'cancelled']), completed_count: integer, total_count: integer, bytes: integer, speed: nullable(number), failure_code: nullable(required), retry_count: integer, recoverable: bool, created_at: timestamp, ...common } },
 };
-const defaults = ['sourceRegistry', 'sourceSettings', 'works', 'chapters', 'categories', 'history', 'novelNotes', 'tavernAssets', 'tavernConversations','tavernConnections','worldbookTerms', 'library', 'subscriptions', 'subscriptionSeen', 'subscriptionEvents', 'subscriptionEventTargets', 'eventReadStates', 'settings'];
+const defaults = ['sourceRegistry', 'sourceSettings', 'works', 'chapters', 'categories', 'history', 'novelNotes', 'tavernAssets', 'tavernEdits', 'tavernConversations','tavernConnections','worldbookTerms', 'library', 'subscriptions', 'subscriptionSeen', 'subscriptionEvents', 'subscriptionEventTargets', 'eventReadStates', 'settings'];
 function includes(value: unknown): string[] {
     if (!Array.isArray(value) || value.length > 32 || value.some(item => typeof item !== 'string' || !(item in tables) && item !== 'cookies') || new Set(value).size !== value.length)
         invalid('include');
@@ -231,7 +232,7 @@ function checkReferences(db: DatabaseSync, name: string, row: Row) {
     if (['sourceSettings', 'accounts', 'subscriptions', 'cookies'].includes(name))
         require('source_registry', ['source'], [row.source]);
     if(name==='sourceSettings'){const manifest=JSON.parse(String(db.prepare('SELECT manifest_json FROM source_registry WHERE source=?').get(String(row.source))!.manifest_json));ordinarySourceSettings(manifest,JSON.parse(String(row.settings_json)));}
-    if(name==='tavernConversations')require('tavern_assets',['asset_id'],[row.asset_id]);
+    if(name==='tavernConversations'||name==='tavernEdits')require('tavern_assets',['asset_id'],[row.asset_id]);
     if(name==='tavernConnectionSecrets')require('tavern_connections',['connection_id'],[row.connection_id]);
     if(name==='worldbookTerms'){const payload=JSON.parse(String(row.payload_json));if(payload.locale!==row.locale||payload.version!==row.pack_version)invalid('worldbookTerms.identity');}
     if(name==='novelNotes')require('chapters',['source','work_id','chapter_id'],[row.source,row.work_id,row.chapter_id]);

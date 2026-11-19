@@ -3,7 +3,7 @@ import { mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';
 import { workCollectionResourceKey, subscriptionResourceKey, downloadTaskId } from '@hentai-park/domain-model';
 
-export const MIGRATION_VERSION = 15;
+export const MIGRATION_VERSION = 16;
 export const schemaSql = `
 CREATE TABLE IF NOT EXISTS schema_migrations (version INTEGER PRIMARY KEY, applied_at TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS works (source TEXT NOT NULL, work_id TEXT NOT NULL, title TEXT NOT NULL, cover TEXT, media_kind TEXT NOT NULL, category TEXT NOT NULL, source_category TEXT, summary TEXT, source_url TEXT NOT NULL, capability_json TEXT NOT NULL, source_version TEXT, updated_at TEXT NOT NULL, version INTEGER NOT NULL DEFAULT 1, PRIMARY KEY(source, work_id));
@@ -149,6 +149,19 @@ export class AppDatabase {
           CREATE INDEX IF NOT EXISTS idx_subscription_checks_sub ON subscription_checks(subscription_id, id DESC);
         `);
         this.db.prepare('INSERT OR REPLACE INTO schema_migrations(version,applied_at) VALUES(?,?)').run(15,new Date().toISOString());
+      }
+      if(version<16){
+        this.db.exec(`CREATE TABLE tavern_edits(revision TEXT PRIMARY KEY,asset_id TEXT NOT NULL REFERENCES tavern_assets(asset_id) ON DELETE CASCADE,updated_at TEXT NOT NULL,content_json TEXT NOT NULL);
+          CREATE INDEX idx_tavern_edits ON tavern_edits(asset_id,updated_at DESC);
+          CREATE TRIGGER remember_tavern_edit BEFORE UPDATE OF data_json ON tavern_assets
+          WHEN json_remove(OLD.data_json,'$.originalPng')<>json_remove(NEW.data_json,'$.originalPng') BEGIN
+            INSERT INTO tavern_edits VALUES(lower(hex(randomblob(16))),OLD.asset_id,OLD.updated_at,json_remove(OLD.data_json,'$.originalPng'));
+          END;
+          CREATE TRIGGER prune_tavern_edits AFTER INSERT ON tavern_edits BEGIN
+            DELETE FROM tavern_edits WHERE asset_id=NEW.asset_id AND revision NOT IN
+              (SELECT revision FROM tavern_edits WHERE asset_id=NEW.asset_id ORDER BY updated_at DESC,rowid DESC LIMIT 8);
+          END;`);
+        this.db.prepare('INSERT OR REPLACE INTO schema_migrations(version,applied_at) VALUES(?,?)').run(16,new Date().toISOString());
       }
       this.db.exec(`PRAGMA user_version=${MIGRATION_VERSION}; COMMIT`);
     } catch (error) { this.db.exec('ROLLBACK'); throw error; }

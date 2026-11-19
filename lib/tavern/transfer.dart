@@ -18,10 +18,6 @@ class TavernTransfer {
     if (hasEntries(value)) return true;
     final data = value['data'];
     if (hasEntries(data)) return true;
-    if (data is Map) {
-      final book = data['character_book'];
-      return hasEntries(book);
-    }
     return false;
   }
 

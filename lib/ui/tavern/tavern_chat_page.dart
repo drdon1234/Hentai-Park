@@ -6,12 +6,14 @@ import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 
 import '../../core/localization.dart';
 import '../../tavern/conversation.dart';
+import '../../tavern/models.dart';
 import '../../tavern/store.dart';
 import '../../tavern/transfer.dart';
 import '../kit/kit.dart';
 import '../nav.dart';
 import '../theme.dart';
 import '../widgets/content_translation.dart';
+import 'tavern_ai_text.dart';
 import 'tavern_avatar.dart';
 import 'tavern_books_page.dart';
 import 'tavern_library_page.dart';
@@ -285,6 +287,93 @@ class _TavernChatPageState extends State<TavernChatPage>
       description.dispose();
       if (mounted) setState(() => _editing = false);
     }
+  }
+
+  Future<void> _chooseSpeaker() async {
+    try {
+      final available = await TavernStore.instance.resources(kind: 'character');
+      if (!mounted) return;
+      final choices = <String, String>{
+        '': TavernResource(kind: 'character', raw: _session.card).name,
+        for (final e in _session.cast.entries)
+          e.key: TavernResource(kind: 'character', raw: e.value).name,
+        for (final item in available)
+          if (item.uid != _session.resourceUid) item.uid: item.title,
+      };
+      final id = await showDialog<String>(
+        context: context,
+        builder: (context) => SimpleDialog(
+          title: Text(tr('选择发言角色')),
+          children: [
+            for (final e in choices.entries)
+              SimpleDialogOption(
+                onPressed: () => Navigator.pop(context, e.key),
+                child: Text(e.value),
+              ),
+          ],
+        ),
+      );
+      if (id == null || !mounted) return;
+      if (id.isNotEmpty && !_session.cast.containsKey(id)) {
+        if (_session.cast.length >= 20) throw const FormatException();
+        final member = await TavernStore.instance.get(id);
+        if (member == null || !mounted) return;
+        _session.cast[id] = member.resource.raw;
+      }
+      _session.speaker = id;
+      await _save();
+      if (mounted) setState(() {});
+    } catch (_) {
+      if (mounted) context.toast(tr('保存失败，请重试'));
+    }
+  }
+
+  Future<void> _editSessionText(bool memory) async {
+    final text = await _editText(
+      memory ? tr('会话记忆') : tr('名称'),
+      memory ? _session.memory : _session.title,
+    );
+    if (text == null || !mounted) return;
+    if (memory) {
+      _session.memory = text;
+    } else if (text.trim().isNotEmpty) {
+      _session.title = text.trim();
+    }
+    await _save();
+    if (mounted) setState(() {});
+  }
+
+  Future<void> _editAnnotation(bool tags) async {
+    final text = await _editText(
+      tags ? tr('标签') : tr('会话笔记'),
+      tags ? _session.tags : _session.notes,
+    );
+    if (text == null || !mounted) return;
+    if (tags) {
+      _session.tags = text.trim();
+    } else {
+      _session.notes = text;
+    }
+    await _save();
+  }
+
+  Future<void> _summarize() async {
+    final selected = await Nav.push<String>(
+      context,
+      TavernAiText(
+        requireGeneration: true,
+        text: [
+          _session.memory,
+          ..._session.messages.map(
+            (m) => "${m['name'] ?? m['role']}: ${m['content']}",
+          ),
+        ].join('\n'),
+        task: 'Summarize established events, characters, relationships and unresolved goals into concise story memory. Do not invent events.',
+      ),
+    );
+    if (selected == null || !mounted) return;
+    _session.memory = selected;
+    await _save();
   }
 
   Future<void> _export() async {
@@ -571,6 +660,33 @@ class _TavernChatPageState extends State<TavernChatPage>
             enabled: !_sending,
             onSelected: (value) {
               switch (value) {
+                case 'notes':
+                case 'tags':
+                  _editAnnotation(value == 'tags');
+                case 'summary':
+                  _summarize();
+                case 'speaker':
+                  _chooseSpeaker();
+                case 'memory':
+                  _editSessionText(true);
+                case 'rename':
+                  _editSessionText(false);
+                case 'prompt':
+                  showDialog<void>(
+                    context: context,
+                    builder: (context) => AlertDialog(
+                      title: Text(tr('本轮提示词')),
+                      content: SingleChildScrollView(
+                        child: SelectableText(_chat.lastPrompt),
+                      ),
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.pop(context),
+                          child: Text(tr('关闭')),
+                        ),
+                      ],
+                    ),
+                  );
                 case 'persona':
                   _persona();
                 case 'books':
@@ -582,6 +698,15 @@ class _TavernChatPageState extends State<TavernChatPage>
               }
             },
             itemBuilder: (context) => [
+              PopupMenuItem(value: 'speaker', child: Text(tr('选择发言角色'))),
+              PopupMenuItem(value: 'rename', child: Text(tr('重命名'))),
+              PopupMenuItem(value: 'notes', child: Text(tr('会话笔记'))),
+              PopupMenuItem(value: 'tags', child: Text(tr('标签'))),
+              PopupMenuItem(value: 'memory', child: Text(tr('会话记忆'))),
+              if (_session.messages.isNotEmpty)
+                PopupMenuItem(value: 'summary', child: Text(tr('生成会话摘要'))),
+              if (_chat.lastPrompt.isNotEmpty)
+                PopupMenuItem(value: 'prompt', child: Text(tr('本轮提示词'))),
               PopupMenuItem(value: 'persona', child: Text(tr('用户人格'))),
               PopupMenuItem(value: 'books', child: Text(tr('关联世界书'))),
               PopupMenuItem(value: 'export', child: Text(tr('导出会话'))),
@@ -621,7 +746,14 @@ class _TavernChatPageState extends State<TavernChatPage>
                 itemBuilder: (context, index) {
                   final draft = index == _session.messages.length;
                   final message = draft
-                      ? {'role': 'assistant', 'content': _chat.draft}
+                      ? {
+                          'role': 'assistant',
+                          'content': _chat.draft,
+                          'name': TavernResource(
+                            kind: 'character',
+                            raw: _session.speakingCard,
+                          ).name,
+                        }
                       : _session.messages[index];
                   final last = index == _session.messages.length - 1;
                   final user = message['role'] == 'user';
@@ -656,7 +788,15 @@ class _TavernChatPageState extends State<TavernChatPage>
                                     TavernAvatar(
                                       name: name,
                                       user: user,
-                                      saved: _portrait,
+                                      saved:
+                                          _session.cast.isNotEmpty &&
+                                              name !=
+                                                  TavernResource(
+                                                    kind: 'character',
+                                                    raw: _session.card,
+                                                  ).name
+                                          ? null
+                                          : _portrait,
                                     ),
                                     const SizedBox(width: Gap.m),
                                     Expanded(

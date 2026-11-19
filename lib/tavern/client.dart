@@ -270,7 +270,7 @@ List<TavernLoreEntry> _selectTavernLore(
   List<TavernResource> books,
   TavernApiConfig config,
 ) {
-  final card = TavernResource(kind: 'character', raw: session.card);
+  final card = TavernResource(kind: 'character', raw: session.speakingCard);
   final history = session.messages.map((m) => m['content'] ?? '').toList();
   final entries = <TavernLoreEntry>[];
   for (final book in [card, ...books]) {
@@ -358,7 +358,7 @@ TavernPrompt _buildTavernPrompt(
   required List<TavernLoreEntry> entries,
   Map<TavernLoreEntry, String> translated = const {},
 }) {
-  final card = TavernResource(kind: 'character', raw: session.card);
+  final card = TavernResource(kind: 'character', raw: session.speakingCard);
   String replace(String text) => text
       .replaceAll('{{char}}', card.name)
       .replaceAll('{{user}}', session.userName);
@@ -381,6 +381,16 @@ TavernPrompt _buildTavernPrompt(
             ('Example dialogue', card.text('mes_example')),
             ('User name', session.userName),
             ('User persona', session.persona),
+            ('Story memory', session.memory),
+            if (session.cast.isNotEmpty)
+              (
+                'Other characters',
+                [
+                  for (final raw in [session.card, ...session.cast.values])
+                    if (!identical(raw, session.speakingCard))
+                      TavernResource(kind: 'character', raw: raw),
+                ].map((r) => '${r.name}: ${r.text('description')}').join('\n'),
+              ),
           ]
           .where((f) => f.$2.trim().isNotEmpty)
           .map((f) => '${f.$1}: ${replace(f.$2)}')
@@ -411,7 +421,10 @@ TavernPrompt _buildTavernPrompt(
   if (used >= budget) throw const TavernApiException('context_too_large');
   final selected = <Map<String, String>>[];
   for (final message in session.messages.reversed) {
-    final content = message['content'] ?? '';
+    final body = message['content'] ?? '';
+    final content = session.cast.isNotEmpty && message['name'] != null
+        ? '${message['name']}: $body'
+        : body;
     final cost = estimateTavernTokens(content);
     if (used + cost > budget) break;
     selected.add({'role': message['role']!, 'content': content});

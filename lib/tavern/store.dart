@@ -37,20 +37,32 @@ class TavernSession {
     required this.updatedAt,
     this.userName = 'User',
     this.persona = '',
+    this.memory = '',
+    this.notes = '',
+    this.tags = '',
+    this.speaker = '',
+    Map<String, Map<String, dynamic>>? cast,
     this.inputDraft = '',
     this.parentId,
     this.pendingReply,
     Map<String, List<Map<String, String>>>? alternatives,
-  }) : alternatives = alternatives ?? {};
+  }) : cast = cast ?? {},
+       alternatives = alternatives ?? {};
   final String id;
   final String resourceUid;
-  final String title;
+  String title;
   final Map<String, dynamic> card;
   final List<Map<String, String>> messages;
   final List<String> books;
   int updatedAt;
   String userName;
   String persona;
+  String memory;
+  String notes;
+  String tags;
+  String speaker;
+  final Map<String, Map<String, dynamic>> cast;
+  Map<String, dynamic> get speakingCard => cast[speaker] ?? card;
   String inputDraft;
   String? parentId;
   Map<String, String>? pendingReply;
@@ -66,6 +78,11 @@ class TavernSession {
     'updatedAt': updatedAt,
     'userName': userName,
     'persona': persona,
+    if (notes.isNotEmpty) 'notes': notes,
+    if (tags.isNotEmpty) 'tags': tags,
+    if (memory.isNotEmpty) 'memory': memory,
+    if (cast.isNotEmpty) 'cast': cast,
+    if (speaker.isNotEmpty) 'speaker': speaker,
     'inputDraft': inputDraft,
     if (parentId != null) 'parentId': parentId,
     if (pendingReply != null) 'pendingReply': pendingReply,
@@ -120,6 +137,21 @@ class TavernSession {
     } else if (value['alternatives'] != null) {
       throw const FormatException('酒馆会话格式无效');
     }
+    final cast = <String, Map<String, dynamic>>{};
+    final members = value['cast'];
+    if (members != null) {
+      if (members is! Map || members.length > 20) {
+        throw const FormatException('酒馆会话格式无效');
+      }
+      for (final entry in members.entries) {
+        if (entry.key is! String || entry.value is! Map) {
+          throw const FormatException('酒馆会话格式无效');
+        }
+        cast[entry.key as String] = Map<String, dynamic>.from(
+          entry.value as Map,
+        );
+      }
+    }
     return TavernSession(
       id: value['id'] as String,
       resourceUid: value['resourceUid'] as String,
@@ -131,6 +163,11 @@ class TavernSession {
       userName: value['userName'] is String
           ? value['userName'] as String
           : 'User',
+      cast: cast,
+      speaker: value['speaker'] as String? ?? '',
+      notes: value['notes'] is String ? value['notes'] as String : '',
+      tags: value['tags'] is String ? value['tags'] as String : '',
+      memory: value['memory'] is String ? value['memory'] as String : '',
       persona: value['persona'] is String ? value['persona'] as String : '',
       inputDraft: value['inputDraft'] is String
           ? value['inputDraft'] as String
@@ -161,6 +198,33 @@ class TavernStore extends ChangeNotifier {
   TavernStore._();
   static final TavernStore instance = TavernStore._();
   AppDatabase get _db => Library.instance.db;
+  Future<(Map<String, dynamic>, Uint8List?)?> readDraft(String id) async {
+    final row = await _db
+        .customSelect(
+          'SELECT content,portrait FROM tavern_drafts WHERE id=?',
+          variables: [Variable.withString(id)],
+        )
+        .getSingleOrNull();
+    return row == null
+        ? null
+        : (
+            jsonDecode(row.read<String>('content')) as Map<String, dynamic>,
+            row.readNullable<Uint8List>('portrait'),
+          );
+  }
+
+  Future<void> writeDraft(
+    String id,
+    String content,
+    Uint8List? portrait,
+  ) => _db.customStatement(
+    'INSERT OR REPLACE INTO tavern_drafts(id,content,portrait) VALUES(?,?,?)',
+    [id, content, portrait],
+  );
+
+  Future<void> clearDraft(String id) =>
+      _db.customStatement('DELETE FROM tavern_drafts WHERE id=?', [id]);
+
   void restored() => notifyListeners();
 
   Future<void> save(
@@ -190,6 +254,30 @@ class TavernStore extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// 保留卡片容器与扩展数据，重新解析成功后才写入书库。
+  Future<void> updateResource(
+    SavedTavernResource saved,
+    TavernResource resource, {
+    String? title,
+    String? draftId,
+  }) async {
+    final item = title == null || title.trim().isEmpty
+        ? saved.item
+        : WorkItem({
+            ...saved.item.json,
+            'title': title.trim(),
+            if (resource.data['tags'] is List) 'tags': resource.data['tags'],
+          }, saved.item.source);
+    final bytes = saved.format == 'png'
+        ? writeTavernPng(saved.bytes, resource.raw)
+        : Uint8List.fromList(utf8.encode(jsonEncode(resource.raw)));
+    final parsed = TavernResource.parse(resource.kind, saved.format, bytes);
+    await _db.transaction(() async {
+      await save(item, parsed, saved.format, bytes);
+      if (draftId != null) await clearDraft(draftId);
+    });
+  }
+
   Future<SavedTavernResource?> get(String uid) async {
     final rows = await _db
         .customSelect(
@@ -213,23 +301,56 @@ class TavernStore extends ChangeNotifier {
     );
   }
 
-  Future<List<WorkItem>> resources({String? kind}) async {
+  Future<List<(int, Map<String, dynamic>)>> revisions(String uid) async {
     final rows = await _db
         .customSelect(
-          kind == null
-              ? 'SELECT item_json FROM tavern_resources ORDER BY saved_at DESC'
-              : 'SELECT item_json FROM tavern_resources WHERE kind=? ORDER BY saved_at DESC',
-          variables: kind == null ? const [] : [Variable.withString(kind)],
+          'SELECT saved_at,content FROM tavern_edits WHERE uid=? ORDER BY saved_at DESC,rowid DESC LIMIT 8',
+          variables: [Variable.withString(uid)],
         )
         .get();
     return [
       for (final row in rows)
-        WorkItem.fromStored(
-          Map<String, dynamic>.from(
-            jsonDecode(row.read<String>('item_json')) as Map,
-          ),
+        (
+          row.read<int>('saved_at'),
+          jsonDecode(row.read<String>('content')) as Map<String, dynamic>,
         ),
     ];
+  }
+
+  Future<void> pinResource(String uid, bool pinned) async {
+    await _db.customStatement(
+      "UPDATE tavern_resources SET item_json=json_set(item_json,'\$.tavernPinned',?) WHERE uid=?",
+      [pinned ? 1 : 0, uid],
+    );
+    notifyListeners();
+  }
+
+  Future<List<WorkItem>> resources({String? kind}) async {
+    const columns =
+        r"SELECT item_json, CASE WHEN json_type(card_json,'$.data.tags')='array' THEN json_extract(card_json,'$.data.tags') WHEN json_type(card_json,'$.tags')='array' THEN json_extract(card_json,'$.tags') END AS card_tags FROM tavern_resources";
+    final rows = await _db
+        .customSelect(
+          kind == null
+              ? '$columns ORDER BY saved_at DESC'
+              : '$columns WHERE kind=? ORDER BY saved_at DESC',
+          variables: kind == null ? const [] : [Variable.withString(kind)],
+        )
+        .get();
+    return rows.map((row) {
+      final item = WorkItem.fromStored(
+        Map<String, dynamic>.from(
+          jsonDecode(row.read<String>('item_json')) as Map,
+        ),
+      );
+      final rawTags = row.data['card_tags'];
+      if (rawTags is! String || !rawTags.startsWith('[')) return item;
+      final tags = jsonDecode(rawTags);
+      if (tags is! List) return item;
+      return WorkItem({
+        ...item.json,
+        'tags': {...item.tags, ...tags.whereType<String>()}.toList(),
+      }, item.source);
+    }).toList();
   }
 
   Future<void> removeResource(String uid) async {

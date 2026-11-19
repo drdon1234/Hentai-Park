@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:file_picker/file_picker.dart';
@@ -23,6 +24,7 @@ import '../widgets/error_view.dart';
 import '../widgets/platform_share.dart';
 import '../widgets/text_translation.dart';
 import 'tavern_chat_page.dart';
+import 'tavern_editor_page.dart';
 import 'tavern_lorebook_page.dart';
 
 class TavernDetailPage extends StatefulWidget {
@@ -44,8 +46,9 @@ class _TavernDetailPageState extends State<TavernDetailPage> {
   String _originalUrl = '';
   Object? _error;
   int _greeting = 0;
+  WorkItem? _savedItem;
   WorkItem get _item => WorkItem({
-    ...widget.item.json,
+    ...(_savedItem ?? widget.item).json,
     if (widget.item.title.isEmpty && _resource?.name.isNotEmpty == true)
       'title': _resource!.name,
     if (_resource != null) 'tavernKind': _resource!.kind,
@@ -78,6 +81,7 @@ class _TavernDetailPageState extends State<TavernDetailPage> {
           // A missing web URL must not prevent opening the downloadable asset.
         }
       }
+      _savedItem = saved?.item;
       if (saved != null) {
         _resource = saved.resource;
         _bytes = saved.bytes;
@@ -162,6 +166,148 @@ class _TavernDetailPageState extends State<TavernDetailPage> {
   Future<void> _saveLocal() async {
     if (await _save() != null && mounted) {
       context.toast(tr('已保存'));
+    }
+  }
+
+  List<TavernRelatedResource> get _related =>
+      _resource?.relatedResources ?? const [];
+
+  Future<void> _importRelated() async {
+    final saved = await _save();
+    if (saved == null || _related.isEmpty) return;
+    try {
+      for (final related in _related) {
+        final item = WorkItem({
+          'id':
+              'related-${widget.item.source}-${widget.item.id}-${related.kind}',
+          'title': related.title,
+          'mediaKind': 'tavern',
+          'tavernKind': related.kind,
+        }, 'tavern-local');
+        final bytes = Uint8List.fromList(
+          utf8.encode(jsonEncode(related.resource.raw)),
+        );
+        await TavernStore.instance.save(item, related.resource, 'json', bytes);
+      }
+      if (mounted) context.toast(tr('已导入关联资源'));
+    } catch (_) {
+      if (mounted) context.toast(tr('关联资源导入失败，请重试'));
+    }
+  }
+
+  Future<void> _showRelated() async {
+    final related = _related;
+    if (related.isEmpty) {
+      context.toast(tr('没有关联资源'));
+      return;
+    }
+    await showAdaptiveSheet<void>(
+      context: context,
+      builder: (context) => SafeArea(
+        child: ListView(
+          shrinkWrap: true,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(Gap.page, Gap.s, Gap.page, 0),
+              child: Text(
+                tr('关联资源'),
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
+            ),
+            for (final resource in related)
+              ListTile(
+                leading: Icon(
+                  resource.kind == 'character'
+                      ? Icons.person_outline_rounded
+                      : Icons.menu_book_outlined,
+                ),
+                title: Text(resource.title),
+                subtitle: Text(
+                  resource.independent ? tr('打开资源详情') : tr('该资源没有独立详情页'),
+                ),
+                trailing: resource.independent
+                    ? const Icon(Icons.chevron_right_rounded)
+                    : null,
+                onTap: () async {
+                  if (!resource.independent ||
+                      resource.source == null ||
+                      resource.id == null) {
+                    context.toast(tr('该资源没有独立详情页'));
+                    return;
+                  }
+                  Navigator.pop(context);
+                  await Nav.openRef(
+                    this.context,
+                    resource.source!,
+                    resource.id!,
+                  );
+                },
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _chooseImport() async {
+    final action = await showAdaptiveSheet<String>(
+      context: context,
+      builder: (context) => SafeArea(
+        child: ListView(
+          shrinkWrap: true,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.download_outlined),
+              title: Text(tr('导入')),
+              subtitle: Text(tr('只导入当前资源')),
+              onTap: () => Navigator.pop(context, 'current'),
+            ),
+            ListTile(
+              leading: const Icon(Icons.library_add_outlined),
+              title: Text(tr('导入关联角色卡/世界书')),
+              subtitle: Text(
+                _related.isEmpty
+                    ? tr('当前资源没有可导入的关联资源')
+                    : tr('共 {count} 个关联资源', {'count': _related.length}),
+              ),
+              onTap: () => Navigator.pop(context, 'related'),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (!mounted) return;
+    if (action == 'current') {
+      await _saveLocal();
+    } else if (action == 'related') {
+      final relatedAction = await showAdaptiveSheet<String>(
+        context: context,
+        builder: (context) => SafeArea(
+          child: ListView(
+            shrinkWrap: true,
+            children: [
+              ListTile(
+                leading: const Icon(Icons.library_add_outlined),
+                title: Text(tr('导入关联角色卡/世界书')),
+                enabled: _related.isNotEmpty,
+                onTap: _related.isEmpty
+                    ? null
+                    : () => Navigator.pop(context, 'import'),
+              ),
+              ListTile(
+                leading: const Icon(Icons.account_tree_outlined),
+                title: Text(tr('查看关联资源')),
+                onTap: () => Navigator.pop(context, 'view'),
+              ),
+            ],
+          ),
+        ),
+      );
+      if (relatedAction == 'import') {
+        await _importRelated();
+      } else if (relatedAction == 'view' && mounted) {
+        await _showRelated();
+      }
     }
   }
 
@@ -261,6 +407,22 @@ class _TavernDetailPageState extends State<TavernDetailPage> {
     );
   }
 
+  Future<void> _editResource() async {
+    final resource = _resource;
+    if (resource == null || _bytes == null) return;
+    final saved = SavedTavernResource(
+      item: _item,
+      resource: resource,
+      format: _format,
+      bytes: _bytes!,
+    );
+    final changed = await Nav.push<bool>(
+      context,
+      TavernEditorPage(saved: saved),
+    );
+    if (changed == true && mounted) await _load();
+  }
+
   Future<void> _more() async {
     final action = await showAdaptiveSheet<String>(
       context: context,
@@ -347,7 +509,15 @@ class _TavernDetailPageState extends State<TavernDetailPage> {
           source: widget.item.source,
           builder: (value) => Text(value),
         ),
-        actions: [TranslationControls(source: widget.item.source)],
+        actions: [
+          if (_resource != null)
+            IconButton(
+              tooltip: tr('编辑'),
+              onPressed: _busy ? null : _editResource,
+              icon: const Icon(Icons.edit_outlined),
+            ),
+          TranslationControls(source: widget.item.source),
+        ],
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
@@ -395,13 +565,9 @@ class _TavernDetailPageState extends State<TavernDetailPage> {
                           runSpacing: Gap.s,
                           children: [
                             FilledButton.icon(
-                              onPressed: _saved || _busy ? null : _saveLocal,
-                              icon: Icon(
-                                _saved
-                                    ? Icons.check_rounded
-                                    : Icons.bookmark_add_outlined,
-                              ),
-                              label: Text(tr(_saved ? '已保存' : '保存到本地')),
+                              onPressed: _busy ? null : _chooseImport,
+                              icon: const Icon(Icons.download_outlined),
+                              label: Text(tr('导入')),
                             ),
                             OutlinedButton.icon(
                               onPressed: _exporting ? null : _download,
@@ -507,6 +673,12 @@ class _TavernDetailPageState extends State<TavernDetailPage> {
                           ),
                         ),
                       const SizedBox(width: Gap.s),
+                      DetailSecondaryButton(
+                        icon: Icons.download_outlined,
+                        tooltip: tr('导入'),
+                        onPressed: _busy ? null : _chooseImport,
+                      ),
+                      const SizedBox(width: Gap.s),
                       ListenableBuilder(
                         listenable: Library.instance.work(widget.item.uid),
                         builder: (context, _) => DetailSecondaryButton(
@@ -570,17 +742,30 @@ class _TavernDetailPageState extends State<TavernDetailPage> {
                   ],
                   if (resource.kind == 'character' &&
                       resource.entries.isNotEmpty)
-                    ListTile(
-                      contentPadding: EdgeInsets.zero,
-                      leading: const Icon(Icons.menu_book_outlined),
-                      title: Text(tr('世界书')),
-                      subtitle: Text(
-                        tr('{count} 条世界书词条', {
-                          'count': resource.entries.length,
-                        }),
+                    Card(
+                      child: Column(
+                        children: [
+                          ListTile(
+                            leading: const Icon(Icons.menu_book_outlined),
+                            title: Text(tr('已绑定世界书')),
+                            subtitle: Text(
+                              tr('{count} 条世界书词条', {
+                                'count': resource.entries.length,
+                              }),
+                            ),
+                            trailing: const Icon(Icons.chevron_right_rounded),
+                            onTap: _openLorebook,
+                          ),
+                          Align(
+                            alignment: AlignmentDirectional.centerEnd,
+                            child: TextButton.icon(
+                              onPressed: _showRelated,
+                              icon: const Icon(Icons.account_tree_outlined),
+                              label: Text(tr('查看关联资源')),
+                            ),
+                          ),
+                        ],
                       ),
-                      trailing: const Icon(Icons.chevron_right_rounded),
-                      onTap: _openLorebook,
                     ),
                 ],
               ),

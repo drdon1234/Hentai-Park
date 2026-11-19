@@ -25,7 +25,7 @@
     {
       "key": "risu_realm",
       "name": "RisuRealm",
-      "version": "0.0.2",
+      "version": "0.0.4",
       "minAppVersion": "0.14.0",
       "type": "tavern",
       "category": "tavern",
@@ -103,22 +103,22 @@
       "description": "真人 ASMR 视频，支持浏览和搜索"
     },
     {
-      "key": "feedmrds",
-      "name": "每日大赛",
-      "version": "0.0.10",
-      "type": "article",
-      "category": "feed",
-      "file": "feedmrds.js",
-      "description": "吃瓜图文，支持分类、标签、搜索与视频",
-      "minAppVersion": "0.13.6"
-    },
-    {
       "key": "feedheiliao",
       "name": "黑料网",
       "version": "0.0.10",
       "type": "article",
       "category": "feed",
       "file": "feedheiliao.js",
+      "description": "吃瓜图文，支持分类、标签、搜索与视频",
+      "minAppVersion": "0.13.6"
+    },
+    {
+      "key": "feedmrds",
+      "name": "每日大赛",
+      "version": "0.0.10",
+      "type": "article",
+      "category": "feed",
+      "file": "feedmrds.js",
       "description": "吃瓜图文，支持分类、标签、搜索与视频",
       "minAppVersion": "0.13.6"
     },

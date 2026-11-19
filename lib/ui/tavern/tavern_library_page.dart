@@ -9,7 +9,9 @@ import '../kit/kit.dart';
 import '../nav.dart';
 import '../theme.dart';
 import '../widgets/content_translation.dart';
+import 'tavern_ai_draft_page.dart';
 import 'tavern_chat_page.dart';
+import 'tavern_editor_page.dart';
 
 class TavernLibraryPage extends StatefulWidget {
   const TavernLibraryPage({
@@ -26,6 +28,16 @@ class TavernLibraryPage extends StatefulWidget {
 class _TavernLibraryPageState extends State<TavernLibraryPage> {
   late int _tab = widget.initialTab;
   bool _importing = false;
+  bool _tree = false;
+  bool _byName = false;
+  final _search = TextEditingController();
+  String _query = '';
+  @override
+  void dispose() {
+    _search.dispose();
+    super.dispose();
+  }
+
   Future<void> _import({String? expectedKind}) async {
     if (_importing) return;
     setState(() => _importing = true);
@@ -87,6 +99,30 @@ class _TavernLibraryPageState extends State<TavernLibraryPage> {
     );
   }
 
+  List<(TavernSession, int)> _sessionRows(List<TavernSession> items) {
+    if (!_tree) return [for (final row in items) (row, 0)];
+    final ids = items.map((row) => row.id).toSet();
+    final children = <String, List<TavernSession>>{};
+    for (final row in items) {
+      (children[row.parentId ?? ''] ??= []).add(row);
+    }
+    final roots = items.where((row) => !ids.contains(row.parentId));
+    final seen = <String>{};
+    final rows = <(TavernSession, int)>[];
+    for (final root in [...roots, ...items]) {
+      final pending = [(root, 0)];
+      while (pending.isNotEmpty) {
+        final (row, depth) = pending.removeLast();
+        if (!seen.add(row.id)) continue;
+        rows.add((row, depth));
+        for (final child in (children[row.id] ?? <TavernSession>[]).reversed) {
+          pending.add((child, depth + 1));
+        }
+      }
+    }
+    return rows;
+  }
+
   Widget _retry() => Center(
     child: Column(
       mainAxisSize: MainAxisSize.min,
@@ -136,6 +172,28 @@ class _TavernLibraryPageState extends State<TavernLibraryPage> {
     appBar: PageHeader(
       title: tr('已保存与会话'),
       actions: [
+        if (_tab == 1)
+          IconButton(
+            tooltip: tr('分支会话'),
+            isSelected: _tree,
+            icon: const Icon(Icons.account_tree_outlined),
+            onPressed: () => setState(() => _tree = !_tree),
+          ),
+        PopupMenuButton<String>(
+          tooltip: tr('新建'),
+          icon: const Icon(Icons.add_rounded),
+          onSelected: (kind) =>
+              Nav.push(context, TavernEditorPage.create(kind)),
+          itemBuilder: (_) => [
+            PopupMenuItem(value: 'character', child: Text(tr('角色卡'))),
+            PopupMenuItem(value: 'lorebook', child: Text(tr('世界书'))),
+          ],
+        ),
+        IconButton(
+          tooltip: tr('AI 创作'),
+          onPressed: () => Nav.push(context, const TavernAiDraftPage()),
+          icon: const Icon(Icons.auto_awesome),
+        ),
         IconButton(
           tooltip: tr('导入'),
           onPressed: _importing ? null : _chooseImport,
@@ -155,6 +213,45 @@ class _TavernLibraryPageState extends State<TavernLibraryPage> {
               onSelected: (value) => setState(() => _tab = value),
             ),
           ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(Gap.page, Gap.s, Gap.page, 0),
+            child: TextField(
+              controller: _search,
+              decoration: InputDecoration(
+                labelText: tr('搜索'),
+                prefixIcon: const Icon(Icons.search_rounded),
+                suffixIcon: _query.isEmpty
+                    ? (_tab == 0
+                          ? PopupMenuButton<bool>(
+                              tooltip: tr('排序'),
+                              icon: const Icon(Icons.sort_rounded),
+                              initialValue: _byName,
+                              onSelected: (value) =>
+                                  setState(() => _byName = value),
+                              itemBuilder: (_) => [
+                                PopupMenuItem(
+                                  value: false,
+                                  child: Text(tr('最近更新')),
+                                ),
+                                PopupMenuItem(
+                                  value: true,
+                                  child: Text(tr('名称')),
+                                ),
+                              ],
+                            )
+                          : null)
+                    : IconButton(
+                        tooltip: tr('清除'),
+                        onPressed: () {
+                          _search.clear();
+                          setState(() => _query = '');
+                        },
+                        icon: const Icon(Icons.clear_rounded),
+                      ),
+              ),
+              onChanged: (value) => setState(() => _query = value.trim()),
+            ),
+          ),
           Expanded(
             child: ListenableBuilder(
               listenable: TavernStore.instance,
@@ -169,9 +266,34 @@ class _TavernLibraryPageState extends State<TavernLibraryPage> {
                       if (!snapshot.hasData) {
                         return const Center(child: CircularProgressIndicator());
                       }
-                      final items = snapshot.data!;
+                      final items = snapshot.data!
+                          .where(
+                            (item) => [item.title, ...item.tags]
+                                .join(' ')
+                                .toLowerCase()
+                                .contains(_query.toLowerCase()),
+                          )
+                          .toList();
+                      if (_byName) {
+                        items.sort(
+                          (a, b) => a.title.toLowerCase().compareTo(
+                            b.title.toLowerCase(),
+                          ),
+                        );
+                      }
+                      final pinned = items
+                          .where((item) => item.json['tavernPinned'] == 1)
+                          .toList();
+                      items.removeWhere(
+                        (item) => item.json['tavernPinned'] == 1,
+                      );
+                      items.insertAll(0, pinned);
                       if (items.isEmpty) {
-                        return Center(child: Text(tr('还没有保存角色卡或世界书')));
+                        return Center(
+                          child: Text(
+                            _query.isEmpty ? tr('还没有保存角色卡或世界书') : tr('没有找到'),
+                          ),
+                        );
                       }
                       return ListView.builder(
                         itemCount: items.length,
@@ -187,7 +309,28 @@ class _TavernLibraryPageState extends State<TavernLibraryPage> {
                                   ? tr('世界书')
                                   : tr('角色卡'),
                             ),
-                            leading: const Icon(Icons.bookmark_outline_rounded),
+                            leading: IconButton(
+                              tooltip: item.json['tavernPinned'] == 1
+                                  ? tr('取消置顶')
+                                  : tr('置顶'),
+                              icon: Icon(
+                                item.json['tavernPinned'] == 1
+                                    ? Icons.push_pin
+                                    : Icons.push_pin_outlined,
+                              ),
+                              onPressed: () async {
+                                try {
+                                  await TavernStore.instance.pinResource(
+                                    item.uid,
+                                    item.json['tavernPinned'] != 1,
+                                  );
+                                } catch (_) {
+                                  if (context.mounted) {
+                                    context.toast(tr('保存失败，请重试'));
+                                  }
+                                }
+                              },
+                            ),
                             onTap: () => Nav.openWork(context, item),
                             trailing: IconButton(
                               tooltip: tr('删除'),
@@ -207,15 +350,31 @@ class _TavernLibraryPageState extends State<TavernLibraryPage> {
                     if (!snapshot.hasData) {
                       return const Center(child: CircularProgressIndicator());
                     }
-                    final sessions = snapshot.data!;
+                    final sessions = _sessionRows(
+                      snapshot.data!
+                          .where(
+                            (session) =>
+                                [session.title, session.tags, session.notes]
+                                    .join(' ')
+                                    .toLowerCase()
+                                    .contains(_query.toLowerCase()),
+                          )
+                          .toList(),
+                    );
                     if (sessions.isEmpty) {
-                      return Center(child: Text(tr('还没有会话')));
+                      return Center(
+                        child: Text(_query.isEmpty ? tr('还没有会话') : tr('没有找到')),
+                      );
                     }
                     return ListView.builder(
                       itemCount: sessions.length,
                       itemBuilder: (context, index) {
-                        final session = sessions[index];
+                        final (session, depth) = sessions[index];
                         return ListTile(
+                          contentPadding: EdgeInsetsDirectional.only(
+                            start: Gap.page + depth.clamp(0, 4) * Gap.m,
+                            end: Gap.page,
+                          ),
                           title: Text(session.title),
                           subtitle: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,

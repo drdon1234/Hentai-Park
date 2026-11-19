@@ -1,6 +1,6 @@
 import {randomBytes,randomUUID,createHash} from 'node:crypto';
-import {readTavernPng} from './tavern-png.js';
-import {buildTavernPrompt,tavernSettings} from './tavern-prompt.js';
+import {readTavernPng,writeTavernPng} from './tavern-png.js';
+import {buildTavernPrompt,buildWritingPrompt,tavernSettings,selectTavernLore} from './tavern-prompt.js';
 import {readTavernStream} from './tavern-stream.js';
 import {TavernConnections,normalizeConnectionEndpoint} from './tavern-connections.js';
 import {WorldbookTerms} from './worldbook-terms.js';
@@ -20,16 +20,29 @@ function boundedJson(value:unknown):Row{const text=JSON.stringify(value);if(Buff
 export function parseTavernAsset(input:unknown,png?:Uint8Array):{kind:string;format:string;data:Row}{const asset=contentObject(input);if(!['character','lorebook'].includes(String(asset.kind))||!['json','png'].includes(String(asset.format)))throw contentError();if(asset.format==='png'&&(asset.kind!=='character'||!png))throw contentError();const data=boundedJson(asset.format==='json'?asset.data:readTavernPng(png!));
  if(asset.kind==='character'){const card=contentObject(data.data??data),greetings=[card.first_mes,...(Array.isArray(card.alternate_greetings)?card.alternate_greetings:[])];if(typeof card.name!=='string'||!card.name.trim()||card.name.length>256||!['description','personality'].some(key=>typeof card[key]==='string'&&card[key].trim())&&!greetings.some(value=>typeof value==='string'&&value.trim()))throw contentError();}
  else{const book=data.entries?data:data.data&&typeof data.data==='object'?contentObject(data.data):data,entries=Array.isArray(book.entries)?book.entries:book.entries&&typeof book.entries==='object'?Object.values(book.entries):[];if(!entries.length||!entries.some(value=>value&&typeof value==='object'&&!Array.isArray(value)))throw contentError();}return {kind:String(asset.kind),format:String(asset.format),data};}
-function messages(input:unknown){if(!Array.isArray(input)||input.length>1000||Buffer.byteLength(JSON.stringify(input))>2_000_000)throw contentError('BAD_REQUEST',400);return input.map(value=>{const m=contentObject(value);if(!['system','user','assistant'].includes(String(m.role)))throw contentError('BAD_REQUEST',400);const result:Row={role:String(m.role),content:contentText(m.content,100000,true)};if(m.name!==undefined)result.name=contentText(m.name,256,true);if(m.status!==undefined){if(typeof m.status!=='string'||m.status.length>64)throw contentError('BAD_REQUEST',400);result.status=m.status;}if(m.alternatives!==undefined){if(!Array.isArray(m.alternatives)||m.alternatives.length>8)throw contentError('BAD_REQUEST',400);result.alternatives=m.alternatives.map(value=>{const alternative=contentObject(value);if(alternative.role!=='assistant')throw contentError('BAD_REQUEST',400);return {role:'assistant',content:contentText(alternative.content,100000,true)};});}return result;});}
+function messages(input:unknown){if(!Array.isArray(input)||input.length>1000||Buffer.byteLength(JSON.stringify(input))>2_000_000)throw contentError('BAD_REQUEST',400);return input.map(value=>{const m=contentObject(value);if(!['system','user','assistant'].includes(String(m.role)))throw contentError('BAD_REQUEST',400);const result:Row={role:String(m.role),content:contentText(m.content,100000,true)};if(m.name!==undefined)result.name=contentText(m.name,256,true);if(m.status!==undefined){if(typeof m.status!=='string'||m.status.length>64)throw contentError('BAD_REQUEST',400);result.status=m.status;}if(m.alternatives!==undefined){if(!Array.isArray(m.alternatives)||m.alternatives.length>8)throw contentError('BAD_REQUEST',400);result.alternatives=m.alternatives.map(value=>{const alternative=contentObject(value);if(alternative.role!=='assistant')throw contentError('BAD_REQUEST',400);return {role:'assistant',content:contentText(alternative.content,100000,true),...(alternative.name!==undefined?{name:contentText(alternative.name,256,true)}:{}),...(alternative.status!==undefined?{status:contentText(alternative.status,64,true)}:{})};});}return result;});}
 export class TavernLibrary {
  constructor(private readonly db:DatabaseSync,private readonly catalog:SourceCatalog,private readonly allowLoopbackAi=false,private readonly terms?:WorldbookTerms,private readonly connections?:TavernConnections){}
- list(){return this.db.prepare('SELECT asset_id,source,work_id,kind,format,updated_at,version,data_json FROM tavern_assets ORDER BY updated_at DESC').all().map(row=>{const data=JSON.parse(String(row.data_json));return {assetId:row.asset_id,source:row.source,workId:row.work_id,kind:row.kind,format:row.format,updatedAt:row.updated_at,version:row.version,name:data.data?.name??data.name??row.work_id};});}
+ list(){return this.db.prepare('SELECT asset_id,source,work_id,kind,format,updated_at,version,data_json FROM tavern_assets ORDER BY updated_at DESC').all().map(row=>{const data=JSON.parse(String(row.data_json));return {assetId:row.asset_id,source:row.source,workId:row.work_id,kind:row.kind,format:row.format,updatedAt:row.updated_at,version:row.version,name:data.data?.name??data.name??row.work_id,tags:Array.isArray((data.data??data).tags)?(data.data??data).tags.filter((tag:unknown)=>typeof tag==='string'):[]};});}
  get(id:string){const row=this.db.prepare('SELECT * FROM tavern_assets WHERE asset_id=?').get(id);if(!row)throw contentError('NOT_FOUND',404);const stored=JSON.parse(String(row.data_json)),originalPng=stored.originalPng;delete stored.originalPng;return {assetId:row.asset_id,source:row.source,workId:row.work_id,kind:row.kind,format:row.format,data:stored,originalPng,updatedAt:row.updated_at,version:row.version};}
  async acquire(source:string,workId:string,signal?:AbortSignal){const raw=contentObject(await this.catalog.invoke(source,'tavernAsset',{id:workId},signal));let bytes:Uint8Array|undefined;if(raw.format==='png')bytes=await this.catalog.readAsset(source,contentUrl(raw.url),LIMIT,signal);return {...parseTavernAsset(raw,bytes),...(bytes?{originalPng:Buffer.from(bytes).toString('base64')}:{})};}
  save(source:string,workId:string,asset:{kind:string;format:string;data:Row;originalPng?:string},version?:number){const prior=this.db.prepare('SELECT asset_id,version FROM tavern_assets WHERE source=? AND work_id=?').get(source,workId);if(prior&&version!==undefined&&Number(prior.version)!==version)throw contentError('CONFLICT',409);const id=String(prior?.asset_id??randomUUID()),now=new Date().toISOString();const data=boundedJson(asset.data);if(asset.originalPng){if(!/^[A-Za-z0-9+/]+={0,2}$/.test(asset.originalPng)||Buffer.from(asset.originalPng,'base64').length>LIMIT)throw contentError();data.originalPng=asset.originalPng;}this.db.prepare('INSERT INTO tavern_assets(asset_id,source,work_id,kind,format,data_json,updated_at,version) VALUES(?,?,?,?,?,?,?,1) ON CONFLICT(source,work_id) DO UPDATE SET kind=excluded.kind,format=excluded.format,data_json=excluded.data_json,updated_at=excluded.updated_at,version=tavern_assets.version+1').run(id,source,workId,asset.kind,asset.format,JSON.stringify(data),now);return this.get(id);}
+ update(assetId:string, data:Row, version:number,copy=false,portrait?:unknown){
+  const prior=this.get(assetId);
+  if(!Number.isSafeInteger(version)||version!==Number(prior.version))throw contentError('CONFLICT',409);
+  const parsed=parseTavernAsset({kind:prior.kind,format:'json',data});
+  const image=portrait??prior.originalPng;
+  if(image && prior.kind!=='character')throw contentError();
+  const png=image?writeTavernPng(Buffer.from(contentText(image,LIMIT*2),'base64'),parsed.data):undefined;
+  return this.save(copy?'local':String(prior.source),copy?randomUUID():String(prior.workId),{...parsed,...(png?{format:'png',originalPng:png.toString('base64')}:{})},version);
+ }
  conversations(assetId:string){this.get(assetId);return this.db.prepare('SELECT conversation_id,messages_json,settings_json,updated_at,version FROM tavern_conversations WHERE asset_id=? ORDER BY updated_at DESC').all(assetId).map(row=>({conversationId:row.conversation_id,messages:JSON.parse(String(row.messages_json)),settings:JSON.parse(String(row.settings_json??'{}')),updatedAt:row.updated_at,version:row.version}));}
  saveConversation(assetId:string,input:Row){this.get(assetId);const id=input.conversationId===undefined?randomUUID():contentText(input.conversationId,128),prior=this.db.prepare('SELECT version,asset_id,settings_json FROM tavern_conversations WHERE conversation_id=?').get(id);if(prior&&(prior.asset_id!==assetId||Number(input.version)!==Number(prior.version)))throw contentError('CONFLICT',409);const rows=messages(input.messages),settings=input.settings===undefined?JSON.parse(String(prior?.settings_json??'{}')):tavernSettings(contentObject(input.settings)),now=new Date().toISOString();this.db.prepare('INSERT INTO tavern_conversations(conversation_id,asset_id,messages_json,settings_json,updated_at,version) VALUES(?,?,?,?,?,1) ON CONFLICT(conversation_id) DO UPDATE SET messages_json=excluded.messages_json,settings_json=excluded.settings_json,updated_at=excluded.updated_at,version=tavern_conversations.version+1').run(id,assetId,JSON.stringify(rows),JSON.stringify(settings),now);return {conversationId:id,messages:rows,settings,updatedAt:now,version:Number(prior?.version??0)+1};}
- removeAsset(assetId:string,version?:number){const row=this.get(assetId);if(version!==undefined&&Number(row.version)!==version)throw contentError('CONFLICT',409);this.db.exec('SAVEPOINT tavern_asset_del');try{this.db.prepare('DELETE FROM tavern_conversations WHERE asset_id=?').run(assetId);this.db.prepare('DELETE FROM tavern_assets WHERE asset_id=?').run(assetId);this.db.exec('RELEASE tavern_asset_del');}catch(error){this.db.exec('ROLLBACK TO tavern_asset_del;RELEASE tavern_asset_del');throw error;}return {deleted:true};}
+ removeAsset(assetId:string,version?:number){const row=this.get(assetId);if(version!==undefined&&Number(row.version)!==version)throw contentError('CONFLICT',409);const used=this.db.prepare(`SELECT 1 FROM tavern_conversations c WHERE c.asset_id<>? AND (
+   EXISTS(SELECT 1 FROM json_each(c.settings_json,'$.castIds') WHERE value=?) OR
+   EXISTS(SELECT 1 FROM json_each(c.settings_json,'$.worldbookIds') WHERE value=?)) LIMIT 1`).get(assetId,assetId,assetId);
+  if(used)throw contentError('TAVERN_RESOURCE_IN_USE',409);
+  this.db.exec('SAVEPOINT tavern_asset_del');try{this.db.prepare('DELETE FROM tavern_conversations WHERE asset_id=?').run(assetId);this.db.prepare('DELETE FROM tavern_assets WHERE asset_id=?').run(assetId);this.db.exec('RELEASE tavern_asset_del');}catch(error){this.db.exec('ROLLBACK TO tavern_asset_del;RELEASE tavern_asset_del');throw error;}return {deleted:true};}
  removeConversation(assetId:string,conversationId:string,version?:number){const prior=this.db.prepare('SELECT version,asset_id FROM tavern_conversations WHERE conversation_id=?').get(conversationId);if(!prior||prior.asset_id!==assetId)throw contentError('NOT_FOUND',404);if(version!==undefined&&Number(prior.version)!==version)throw contentError('CONFLICT',409);this.db.prepare('DELETE FROM tavern_conversations WHERE conversation_id=?').run(conversationId);return {deleted:true};}
  async listModels(input:Row,signal?:AbortSignal){
   if(input.connectionId!==undefined){if(!this.connections)throw contentError('CONFIG',503);const stored=await this.connections.credentials(contentText(input.connectionId,128));input={...stored,...input,endpoint:input.endpoint??stored.endpoint,apiKey:input.apiKey||stored.apiKey};}
@@ -47,11 +60,21 @@ export class TavernLibrary {
   return {items:[...new Set(models)]};
  }
  loreEntries(assetId:string,bookIds:string[]=[]){const asset=this.get(assetId),raw=contentObject(asset.data),card=asset.kind==='character'?contentObject(raw.data??raw):raw,books:Array<{id:string;book:Row}>=[];const own=asset.kind==='lorebook'?(raw.entries?raw:contentObject(raw.data)):card.character_book;if(own&&typeof own==='object')books.push({id:assetId,book:contentObject(own)});for(const id of bookIds){const value=this.get(id);if(value.kind!=='lorebook')throw contentError('BAD_REQUEST',400);const data=contentObject(value.data);books.push({id,book:data.entries?data:contentObject(data.data)});}return books.flatMap(({id,book})=>{const entries=Array.isArray(book.entries)?book.entries:book.entries&&typeof book.entries==='object'?Object.values(book.entries):[];return entries.flatMap((value,index)=>{const entry=contentObject(value);if(typeof entry.content!=='string'||!entry.content)return [];return [{key:id+':'+index,label:String(entry.comment??entry.name??index+1),content:entry.content,keys:entry.keys??entry.key??[],enabled:entry.enabled!==false&&entry.disable!==true}];});});}
- async reply(assetId:string,input:Row,signal?:AbortSignal,onDelta?:(value:string)=>void|Promise<void>,translated?:(content:string)=>string|undefined){
+ async reply(assetId:string|undefined,input:Row,signal?:AbortSignal,onDelta?:(value:string)=>void|Promise<void>,translated?:(content:string)=>string|undefined){
   if(input.connectionId!==undefined){if(!this.connections)throw contentError('CONFIG',503);const stored=await this.connections.credentials(contentText(input.connectionId,128));input={...stored,...input,endpoint:stored.endpoint,model:stored.model,apiKey:stored.apiKey,systemPrompt:input.systemPrompt??stored.systemPrompt};}
-  const asset=this.get(assetId),url=new URL(normalizeConnectionEndpoint(input.endpoint)),local=url.protocol==='http:';if(local&&!this.allowLoopbackAi)throw contentError('LOCAL_AI_DISABLED',403);
+  const baseAsset=assetId===undefined?{kind:'character',data:{}}:this.get(assetId);
+  const actorSettings=tavernSettings(input);
+  const cast=(actorSettings.castIds as string[]??[]).map(id=>this.get(id));
+  if(cast.some(actor=>actor.kind!=='character'))throw contentError('BAD_REQUEST',400);
+  const asset=cast.find(actor=>actor.assetId===actorSettings.speakerId)??baseAsset;
+  const url=new URL(normalizeConnectionEndpoint(input.endpoint)),local=url.protocol==='http:';if(local&&!this.allowLoopbackAi)throw contentError('LOCAL_AI_DISABLED',403);
   const key=contentText(input.apiKey??'',16384,true),model=contentText(input.model,256),history=messages(input.messages) as Array<{role:string;content:string}>,settings=tavernSettings(input),books=(settings.worldbookIds as string[]??[]).map(id=>{const book=this.get(id);if(book.kind!=='lorebook')throw contentError('BAD_REQUEST',400);const data=contentObject(book.data);return data.entries?data:contentObject(data.data);}),data=contentObject(asset.data);
-  if(local&&key)throw contentError('INSECURE_KEY',400);const locale=contentText(input.locale??'zh-Hans',32),snapshot=this.terms?.snapshot(locale),aliases=(keyword:string)=>{const term=snapshot?.lookup.get(keyword.trim().toLowerCase());return term?[...new Set([keyword,...term.aliases,term.translation])]:[keyword];},prompt=buildTavernPrompt(asset.kind==='character'?data:{name:String(data.name??''),character_book:data.entries?data:data.data},history,input,books,{aliases,translated});
+  if(cast.length){
+    const others=[baseAsset,...cast].filter(actor=>actor!==asset).map(actor=>{const raw=contentObject(actor.data),card=contentObject(raw.data??raw);return String(card.name)+': '+String(card.description??'');});
+    input={...input,memory:[settings.memory,...others].filter(Boolean).join('\n')};
+    for(const message of history){const name=(message as Row).name;if(name)message.content=String(name)+': '+message.content;}
+  }
+  if(local&&key)throw contentError('INSECURE_KEY',400);const locale=contentText(input.locale??'zh-Hans',32),snapshot=this.terms?.snapshot(locale),aliases=(keyword:string)=>{const term=snapshot?.lookup.get(keyword.trim().toLowerCase());return term?[...new Set([keyword,...term.aliases,term.translation])]:[keyword];},prompt=assetId===undefined?buildWritingPrompt(history,settings):buildTavernPrompt(asset.kind==='character'?data:{name:String(data.name??''),character_book:data.entries?data:data.data},history,input,books,{aliases,translated});
   const isAnthropic=url.hostname==='api.anthropic.com'||url.pathname.endsWith('/messages');
   let response:Response;
   if(isAnthropic){
@@ -63,7 +86,7 @@ export class TavernLibrary {
    response=await requestPinnedStream(new URL(url.pathname.replace(/\/$/,'')+'/chat/completions',url.origin).href,{method:'POST',headers:{'content-type':'application/json',accept:'text/event-stream',...(key?{authorization:'Bearer '+key}:{})},body:JSON.stringify({model,messages:prompt.messages,stream:true,temperature:prompt.temperature,max_tokens:prompt.maxTokens}),followRedirects:false,allowLoopback:this.allowLoopbackAi,allowHttpsPort:true,signal});
   }
   const result=await readTavernStream(response,onDelta,signal);
-  return {...result,matchedEntries:prompt.matchedEntries,unsupportedEntries:prompt.unsupportedEntries,trimmedHistory:prompt.trimmedHistory};
+  return {...result,inspection:assetId===undefined?undefined:prompt.messages,matchedEntries:prompt.matchedEntries,unsupportedEntries:prompt.unsupportedEntries,trimmedHistory:prompt.trimmedHistory};
  }
 }
 export function registerSpecialRoutes(app:FastifyInstance,catalog:SourceCatalog,db:DatabaseSync,options:ContentRouteOptions&{dataDirectory?:string}){
@@ -96,19 +119,103 @@ export function registerSpecialRoutes(app:FastifyInstance,catalog:SourceCatalog,
  app.post('/api/v1/game-sessions/:gameId/close',async r=>{await games.closeOwned(contentText(p(r).gameId,128),options.sessionId(r));return {closed:true};});
  app.get('/api/v1/tavern/assets',async()=>({items:library.list()}));
  app.get('/api/v1/tavern/assets/:assetId',async r=>library.get(contentText(p(r).assetId,128)));
+ app.get('/api/v1/tavern/assets/:assetId/revisions',async r=>{
+  const assetId=contentText(p(r).assetId,128);
+  const rows=db.prepare('SELECT revision,updated_at,content_json FROM tavern_edits WHERE asset_id=? ORDER BY updated_at DESC,rowid DESC LIMIT 8').all(assetId);
+  return {items:rows.map(row=>({revision:row.revision,date:row.updated_at,data:JSON.parse(String(row.content_json))}))};
+ });
+ app.post('/api/v1/tavern/assets/:assetId',async r=>{
+  const input=body(r);
+  return library.update(contentText(p(r).assetId,128),contentObject(input.data),Number(input.version),input.copy===true,input.portrait);
+ });
  app.delete('/api/v1/tavern/assets/:assetId',async r=>{const input=body(r);return library.removeAsset(contentText(p(r).assetId,128),input.version===undefined?undefined:Number(input.version));});
  app.get('/api/v1/tavern/source/:source/:workId',async r=>library.acquire(source(r),work(r),sig(r)));
  app.post('/api/v1/tavern/source/:source/:workId',async r=>{const input=body(r);return library.save(source(r),work(r),await library.acquire(source(r),work(r),sig(r)),input.version===undefined?undefined:Number(input.version));});
- app.post('/api/v1/tavern/import',async r=>{const input=body(r),png=input.pngBase64?Buffer.from(contentText(input.pngBase64,LIMIT*2),'base64'):undefined,asset=parseTavernAsset(input,png);return library.save('local',contentText(input.workId??randomUUID(),512),{...asset,...(png?{originalPng:png.toString('base64')}:{})});});
+ app.post('/api/v1/tavern/import',async r=>{const input=body(r);if(input.portrait!==undefined){
+  const parsed=parseTavernAsset(input);if(parsed.kind!=='character')throw contentError();
+  const png=writeTavernPng(Buffer.from(contentText(input.portrait,LIMIT*2),'base64'),parsed.data);
+  return library.save('local',randomUUID(),{...parsed,format:'png',originalPng:png.toString('base64')});
+ }const png=input.pngBase64?Buffer.from(contentText(input.pngBase64,LIMIT*2),'base64'):undefined,asset=parseTavernAsset(input,png);return library.save('local',contentText(input.workId??randomUUID(),512),{...asset,...(png?{originalPng:png.toString('base64')}:{})});});
  app.get('/api/v1/tavern/assets/:assetId/conversations',async r=>({items:library.conversations(contentText(p(r).assetId,128))}));
  app.post('/api/v1/tavern/assets/:assetId/conversations',async r=>library.saveConversation(contentText(p(r).assetId,128),body(r)));
  app.delete('/api/v1/tavern/assets/:assetId/conversations/:conversationId',async r=>{const input=body(r);return library.removeConversation(contentText(p(r).assetId,128),contentText(p(r).conversationId,128),input.version===undefined?undefined:Number(input.version));});
+ function trackGeneration(r:FastifyRequest, raw:import('node:http').ServerResponse, connectionId:unknown){
+  const owner=options.sessionId(r),owned=generations.get(owner)??new Set<AbortController>();
+  if(owned.size>=2)throw contentError('RATE_LIMITED',429);
+  const controller=new AbortController(),closed=()=>controller.abort(),upstream=sig(r);
+  owned.add(controller);generations.set(owner,owned);
+  if(typeof connectionId==='string')generationConnections.set(controller,connectionId);
+  raw.once('close',closed);
+  return {owner,controller,signal:upstream?AbortSignal.any([controller.signal,upstream]):controller.signal,
+   release(){raw.removeListener('close',closed);controller.abort();owned.delete(controller);generationConnections.delete(controller);if(!owned.size)generations.delete(owner);}
+  };
+ }
  app.post('/api/v1/tavern/assets/:assetId/reply',async(r,reply)=>{
-  const input=body(r),owner=options.sessionId(r),controller=new AbortController(),signal=sig(r)?AbortSignal.any([controller.signal,sig(r)!]):controller.signal,raw=reply.raw,closed=()=>controller.abort();if(input.useTranslatedLore===true&&!translationEnabled())throw contentError('CONFIRM_REQUIRED',409);let owned=generations.get(owner);if(!owned){owned=new Set();generations.set(owner,owned);}if(owned.size>=2)throw contentError('RATE_LIMITED',429);owned.add(controller);if(typeof input.connectionId==='string')generationConnections.set(controller,input.connectionId);raw.once('close',closed);reply.hijack();raw.writeHead(200,{'content-type':'text/event-stream; charset=utf-8','cache-control':'private, no-store','x-content-type-options':'nosniff'});
+  const input=body(r),raw=reply.raw;
+  if(input.useTranslatedLore===true&&!translationEnabled())throw contentError('CONFIRM_REQUIRED',409);
+  const {owner,controller,signal,release}=trackGeneration(r,raw,input.connectionId);
+  reply.hijack();raw.writeHead(200,{'content-type':'text/event-stream; charset=utf-8','cache-control':'private, no-store','x-content-type-options':'nosniff'});
   const event=async(value:unknown)=>{if(controller.signal.aborted||raw.destroyed)throw contentError('CANCELLED',499);if(!raw.write('data: '+JSON.stringify(value)+'\n\n'))await once(raw,'drain',{signal});};
   try{const assetId=contentText(p(r).assetId,128),locale=contentText(input.locale??'zh-Hans',32),revision=terms.snapshot(locale)?.revision??0,translated=input.useTranslatedLore===true?(content:string)=>{const value=translations.get(translationKey(owner,assetId,locale,revision,content));return value&&value.expires>Date.now()?value.text:undefined;}:undefined,result=await library.reply(assetId,input,signal,value=>event({type:'delta',content:value}),translated);await event({type:'done',...result});}
   catch(error){if(!raw.destroyed&&!controller.signal.aborted){const value=toPluginError(error),publicInfo=error as {publicError?:boolean;code?:unknown;retryable?:boolean},own=publicInfo?.publicError===true&&typeof publicInfo.code==='string'&&/^[A-Z_]{1,64}$/.test(publicInfo.code);raw.write('data: '+JSON.stringify({type:'error',code:own?publicInfo.code:value.code,retryable:own?publicInfo.retryable===true:value.retryable,...(value.details?{details:value.details}:{})})+'\n\n');}}
-  finally{raw.removeListener('close',closed);if(!raw.destroyed)raw.end();controller.abort();owned.delete(controller);generationConnections.delete(controller);if(!owned.size)generations.delete(owner);}
+  finally{if(!raw.destroyed)raw.end();release();}
+ });
+ app.post('/api/v1/tavern/preview-lore',async r=>{
+  const input=body(r),book=boundedJson(input.book),text=contentText(input.text,20000,true),locale=contentText(input.locale,32);
+  const trace=new Map<Row,{name:string;reason:string;key?:string}>();
+  const result=selectTavernLore(book,[{role:'user',content:text}],32768,key=>terms.aliasesFor(locale,key),(entry,reason,key)=>trace.set(entry,{name:String(entry.comment??entry.name??entry.content),reason,key}));
+  return {trace:[...trace.values()],items:result.entries.map(entry=>String(entry.comment??entry.name??entry.content)),ignored:result.ignored};
+ });
+ async function writeDraft(r:FastifyRequest,raw:import('node:http').ServerResponse,connectionId:string,prompt:string){
+  const generation=trackGeneration(r,raw,connectionId);
+  try{return await library.reply(undefined,{connectionId,messages:[{role:'user',content:prompt}]},generation.signal);}
+  finally{generation.release();}
+ }
+ app.post('/api/v1/tavern/revise',async (r,reply)=>{
+  const input=body(r),connectionId=contentText(input.connectionId,128);
+  const task=input.outline===true?'Create an editable world book outline. Group entries into batches, with titles, scope and distinct trigger keywords. Preserve the language of the brief.':input.summary===true?'Summarize established events, relationships and outstanding goals.':'Revise this field according to the accompanying instructions.';
+  const prompt=task+' Return only the resulting text.\n'+contentText(input.text,100000,true)+'\n'+contentText(input.brief??'',4000,true);
+  const result=await writeDraft(r,reply.raw,connectionId,prompt);
+  if(result.finishReason==='length')throw contentError('INCOMPLETE',422);
+  return {text:result.content};
+ });
+ app.post('/api/v1/tavern/generate',async (r,reply)=>{
+  const input=body(r),kind=contentText(input.kind,32),connectionId=contentText(input.connectionId,128);
+  if(!['character','lorebook'].includes(kind))throw contentError('BAD_REQUEST',400);
+  const brief=contentText(input.prompt,20000);
+  const shape=kind==='character'?'Character Card V2 {spec:"chara_card_v2",spec_version:"2.0",data:{name,description,personality,scenario,first_mes,mes_example,creator_notes,system_prompt,post_history_instructions,alternate_greetings,tags,creator,character_version,extensions}}':'a world book {name,entries:[{comment,keys,content,enabled}]}';
+  const requestText='Return only JSON for '+shape+'. Write in '+contentText(input.locale,32)+'.\n'+brief;
+  const result=await writeDraft(r,reply.raw,connectionId,requestText);
+  if(result.finishReason==='length')throw contentError('INCOMPLETE',422);
+  let data:unknown;
+  try{data=JSON.parse(result.content.trim().replace(/^```(?:json)?\s*|\s*```$/gi,''));}catch{throw contentError('PARSE',422);}
+  const parsed=parseTavernAsset({kind,format:'json',data});
+  if(kind==='character'){
+    const fields=contentObject(parsed.data.data??parsed.data);
+    for(const key of ['name','description','personality','scenario','first_mes','mes_example','creator_notes','system_prompt','post_history_instructions','creator','character_version']){
+      fields[key]??='';
+      if(typeof fields[key]!=='string')throw contentError('PARSE',422);
+    }
+    for(const key of ['alternate_greetings','tags']){
+      fields[key]??=[];
+      if(!Array.isArray(fields[key])||fields[key].some(value=>typeof value!=='string'))throw contentError('PARSE',422);
+    }
+    fields.extensions=contentObject(fields.extensions??{});
+    parsed.data={spec:'chara_card_v2',spec_version:'2.0',data:fields};
+  }
+  const book=kind==='lorebook'?contentObject(parsed.data.entries?parsed.data:parsed.data.data):contentObject(parsed.data.data).character_book;
+  if(book!==undefined){
+    const world=contentObject(book);
+    world.extensions=contentObject(world.extensions??{});
+    if(!Array.isArray(world.entries))throw contentError('PARSE',422);
+    for(const raw of world.entries){
+      const entry=contentObject(raw);
+      if(!Array.isArray(entry.keys)||!entry.keys.every(key=>typeof key==='string')||typeof entry.content!=='string'||!entry.content.trim())throw contentError('PARSE',422);
+      entry.enabled??=true;entry.insertion_order??=100;entry.extensions=contentObject(entry.extensions??{});
+      if(typeof entry.enabled!=='boolean'||!Number.isSafeInteger(entry.insertion_order))throw contentError('PARSE',422);
+    }
+  }
+  return parsed;
  });
  return {library,games,connections,terms,async revokeSession(owner:string){for(const controller of generations.get(owner)??[])controller.abort();generations.delete(owner);for(const [id,plan]of plans)if(plan.owner===owner)plans.delete(id);for(const key of translations.keys())if(JSON.parse(key)[0]===owner)translations.delete(key);for(const [id,value]of files)if(value.owner===owner)files.delete(id);await games.revoke(owner);},async revokeSource(source:string){for(const [id,value]of files)if(value.source===source)files.delete(id);await games.revokeSource(source);}};
 }

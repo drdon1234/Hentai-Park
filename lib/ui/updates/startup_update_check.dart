@@ -9,7 +9,7 @@ import '../../engine/app_updater.dart';
 import '../../engine/source_updater.dart';
 import 'update_prompt.dart';
 
-/// 启动检查只发现更新；提示按完成顺序等待用户逐项确认。
+/// 启动检查先完成软件和插件检查，再按优先级等待用户逐项确认。
 class StartupUpdateCheck extends StatefulWidget {
   const StartupUpdateCheck({
     super.key,
@@ -52,6 +52,7 @@ class _StartupUpdateCheckState extends State<StartupUpdateCheck>
   bool _showing = false;
   bool _drainScheduled = false;
   bool _checkingSources = false;
+  bool _initialChecksComplete = false;
   int _appGeneration = 0;
   int _sourceGeneration = 0;
 
@@ -73,9 +74,17 @@ class _StartupUpdateCheckState extends State<StartupUpdateCheck>
     binding.addObserver(this);
     binding.addPostFrameCallback((_) {
       if (!mounted) return;
-      unawaited(_checkApp());
-      unawaited(_checkSources(force: true));
+      unawaited(_runInitialChecks());
     });
+  }
+
+  Future<void> _runInitialChecks() async {
+    // 软件版本是用户需要优先处理的更新，插件检查在它完成后开始。
+    await _checkApp();
+    await _checkSources(force: true);
+    if (!mounted) return;
+    _initialChecksComplete = true;
+    _scheduleDrain();
   }
 
   @override
@@ -116,7 +125,7 @@ class _StartupUpdateCheckState extends State<StartupUpdateCheck>
   }
 
   Future<void> _checkApp() async {
-    if (!_appEnabled || _appUpdater.running) return;
+    if (!_appEnabled) return;
     final generation = _appGeneration;
     try {
       final result = await _appUpdater.checkOnLaunch();
@@ -133,7 +142,6 @@ class _StartupUpdateCheckState extends State<StartupUpdateCheck>
     if (!_sourcesEnabled || _checkingSources) return;
     final updater = _sourceUpdater;
     // 手动检查或用户确认后的安装已有自己的交互，不接管其结果。
-    if (updater.running) return;
     final previousResult = updater.lastResult;
     final generation = _sourceGeneration;
     _checkingSources = true;
@@ -160,12 +168,13 @@ class _StartupUpdateCheckState extends State<StartupUpdateCheck>
     _foreground = state == AppLifecycleState.resumed;
     if (_foreground) {
       _scheduleDrain();
-      unawaited(_checkSources());
+      if (_initialChecksComplete) unawaited(_checkSources());
     }
   }
 
   bool get _canShow =>
       mounted &&
+      _initialChecksComplete &&
       _foreground &&
       (widget.canPrompt?.call() ?? !AppLock.instance.locked) &&
       (_route?.isCurrent ?? true);
@@ -245,7 +254,12 @@ class _StartupUpdateCheckState extends State<StartupUpdateCheck>
       if (!mounted) return;
       _showing = true;
       try {
-        await showAppUpdatePrompt(context, app);
+        final handled = await showAppUpdatePrompt(context, app);
+        if (!handled) {
+          _seenApps.remove(app.release!.version);
+          _pending.addFirst(pending);
+          return;
+        }
       } finally {
         _showing = false;
       }

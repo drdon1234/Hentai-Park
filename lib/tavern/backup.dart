@@ -16,6 +16,9 @@ Future<Map<String, dynamic>> exportTavernBackup(AppDatabase db) =>
       final resources = await db
           .customSelect('SELECT * FROM tavern_resources')
           .get();
+      final edits = await db
+          .customSelect('SELECT * FROM tavern_edits ORDER BY saved_at DESC')
+          .get();
       final sessions = await db
           .customSelect('SELECT data_json FROM tavern_sessions')
           .get();
@@ -28,6 +31,15 @@ Future<Map<String, dynamic>> exportTavernBackup(AppDatabase db) =>
               'format': row.read<String>('format'),
               'original': base64Encode(row.read<Uint8List>('original')),
               'savedAt': row.read<int>('saved_at'),
+            },
+        ],
+        'edits': [
+          for (final row in edits)
+            {
+              'revision': row.read<String>('revision'),
+              'uid': row.read<String>('uid'),
+              'savedAt': row.read<int>('saved_at'),
+              'content': jsonDecode(row.read<String>('content')),
             },
         ],
         'sessions': [
@@ -73,6 +85,25 @@ void validateTavernBackup(Object data) {
     } catch (_) {
       throw const FormatException('备份数据无效');
     }
+  }
+  final edits = data['edits'] ?? [];
+  if (edits is! List || edits.length > 80000) {
+    throw const FormatException('备份数据无效');
+  }
+  for (final edit in edits) {
+    if (edit is! Map ||
+        !kinds.containsKey(edit['uid']) ||
+        edit['savedAt'] is! int ||
+        edit['revision'] is! String ||
+        !RegExp(r'^[0-9a-f]{32}$').hasMatch(edit['revision'] as String) ||
+        edit['content'] is! Map) {
+      throw const FormatException('备份数据无效');
+    }
+    TavernResource.parse(
+      kinds[edit['uid']]!,
+      'json',
+      Uint8List.fromList(utf8.encode(jsonEncode(edit['content']))),
+    );
   }
   final sessionIds = <String>{};
   for (final value in data['sessions'] as List) {
@@ -145,21 +176,60 @@ Future<void> mergeTavernBackup(AppDatabase db, Object data) async {
       ],
     );
   }
+  for (final edit in backup['edits'] as List? ?? const []) {
+    await db.customStatement(
+      'INSERT OR IGNORE INTO tavern_edits(revision,uid,saved_at,content) VALUES(?,?,?,?)',
+      [
+        remap[edit['uid']] == edit['uid']
+            ? edit['revision']
+            : const Uuid().v4().replaceAll('-', ''),
+        remap[edit['uid']],
+        edit['savedAt'],
+        jsonEncode(edit['content']),
+      ],
+    );
+  }
+  final sessions = <String, Map<String, dynamic>>{};
+  final ids = <String, String>{};
+  final existingRows = await db
+      .customSelect('SELECT id,data_json FROM tavern_sessions')
+      .get();
+  final existing = {
+    for (final row in existingRows)
+      row.read<String>('id'): row.read<String>('data_json'),
+  };
   for (final value in backup['sessions'] as List) {
     final raw = Map<String, dynamic>.from(value as Map);
     final session = TavernSession.fromJson(raw);
     raw['resourceUid'] = remap[session.resourceUid];
     raw['books'] = [for (final book in session.books) remap[book]!];
-    final existing = await db
-        .customSelect(
-          'SELECT data_json FROM tavern_sessions WHERE id=?',
-          variables: [Variable.withString(session.id)],
-        )
-        .get();
-    if (existing.isNotEmpty &&
-        existing.single.read<String>('data_json') != jsonEncode(raw)) {
-      raw['id'] = const Uuid().v4();
+    sessions[session.id] = raw;
+    ids[session.id] = session.id;
+  }
+  // 若父分支因冲突需要新标识，同时重映射所有引用该分支的会话。
+  final children = <String, List<String>>{};
+  for (final entry in sessions.entries) {
+    final parent = entry.value['parentId'];
+    if (parent is String) (children[parent] ??= []).add(entry.key);
+  }
+  final pending = sessions.keys.toList();
+  while (pending.isNotEmpty) {
+    final id = pending.removeLast(), raw = sessions[id]!;
+    if (ids[id] != id || !existing.containsKey(id)) continue;
+    final parent = raw['parentId'];
+    final compare = {
+      ...raw,
+      if (ids.containsKey(parent)) 'parentId': ids[parent],
+    };
+    if (existing[id] != jsonEncode(compare)) {
+      ids[id] = const Uuid().v4();
+      pending.addAll(children[id] ?? []);
     }
+  }
+  for (final entry in sessions.entries) {
+    final raw = entry.value, parent = raw['parentId'];
+    raw['id'] = ids[entry.key];
+    if (ids.containsKey(parent)) raw['parentId'] = ids[parent];
     await db.customStatement(
       'INSERT OR IGNORE INTO tavern_sessions(id,resource_uid,data_json,updated_at) VALUES(?,?,?,?)',
       [raw['id'], raw['resourceUid'], jsonEncode(raw), raw['updatedAt']],

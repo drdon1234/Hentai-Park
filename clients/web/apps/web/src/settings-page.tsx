@@ -58,6 +58,7 @@ export function SettingsPage({ navigate }: { navigate: (url: string) => void }) 
     'eventReadStates',
     'novelNotes',
     'tavernAssets',
+    'tavernEdits',
     'tavernConversations',
     'tavernConnections',
     'worldbookTerms',
@@ -260,6 +261,7 @@ export function SettingsPage({ navigate }: { navigate: (url: string) => void }) 
     ['subscriptionEvents', t('订阅更新历史')],
     ['eventReadStates', t('事件已读状态')],
     ['novelNotes', t('小说书签与标注')],
+    ['tavernEdits', t('文本版本历史')],
     ['tavernAssets', t('酒馆资源')],
     ['tavernConversations', t('酒馆会话')],
     ['tavernConnections', t('模型连接设置')],
@@ -275,7 +277,7 @@ export function SettingsPage({ navigate }: { navigate: (url: string) => void }) 
     { title: '作品', keys: ['works', 'chapters', 'history', 'library', 'categories', 'novelNotes', 'downloads'] },
     { title: '订阅', keys: ['subscriptions', 'subscriptionSeen', 'subscriptionEvents', 'eventReadStates', 'subscriptionEventTargets'] },
     { title: '站点设置', keys: ['settings', 'sourceRegistry', 'sourceSettings'] },
-    { title: '酒馆', keys: ['tavernAssets', 'tavernConversations', 'tavernConnections', 'worldbookTerms'] },
+    { title: '酒馆', keys: ['tavernAssets','tavernEdits', 'tavernConversations', 'tavernConnections', 'worldbookTerms'] },
     { title: '隐私与安全', keys: ['tavernConnectionSecrets', 'accounts', 'cookies'] },
   ];
   const sections = [

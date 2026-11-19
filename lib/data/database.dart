@@ -127,7 +127,7 @@ class AppDatabase extends _$AppDatabase {
   factory AppDatabase.memory() => AppDatabase(NativeDatabase.memory());
 
   @override
-  int get schemaVersion => 7;
+  int get schemaVersion => 9;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -152,7 +152,7 @@ class AppDatabase extends _$AppDatabase {
       if (from < 4) await m.addColumn(chapters, chapters.progressUpdatedAt);
       if (from < 5) await m.createTable(restoreCheckpoints);
       if (from < 6) await createSubscriptionTables(this);
-      if (from < 7) await createTavernTables(this);
+      if (from < 9) await createTavernTables(this);
     },
     beforeOpen: (details) async {
       await customStatement('PRAGMA foreign_keys = ON');

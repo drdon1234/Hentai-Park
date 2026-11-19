@@ -11,6 +11,8 @@ import type {
 } from '@hentai-park/domain-model';
 import type { CapabilitySet } from '@hentai-park/source-contract';
 
+type Row = Record<string, unknown>;
+
 export const API_BASE = (
   ((import.meta as ImportMeta & { env?: Record<string, string> }).env?.VITE_API_BASE_URL) ?? ''
 ).replace(/\/$/, '');
@@ -411,6 +413,8 @@ export function requestErrorMessage(code?: string) {
       return t('内容不存在或已被移除。');
     case 'RATE_LIMITED':
       return t('请求过于频繁，请稍后重试。');
+    case 'TAVERN_RESOURCE_IN_USE':
+      return t('请先删除使用此资源的会话');
     case 'CONFLICT':
     case 'VERSION_CONFLICT':
       return t('内容已发生变化，请刷新后重试。');
@@ -900,6 +904,11 @@ export const api = {
     request<{ deleted: boolean }>('/api/v1/tavern/assets/' + enc(assetId), {
       method: 'DELETE',
       body: JSON.stringify({ ...(version !== undefined ? { version } : {}), requestKey: requestKey() }),
+    }),
+  tavernUpdateAsset: (assetId: string, body: unknown) =>
+    request<Row>('/api/v1/tavern/assets/' + enc(assetId), {
+      method: 'POST',
+      body: JSON.stringify(body),
     }),
   tavernDeleteConversation: (assetId: string, conversationId: string) =>
     request<{ deleted: boolean }>(

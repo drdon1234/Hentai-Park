@@ -5,16 +5,25 @@ import { t, useLanguage } from './i18n.js';
 import { TavernConnectionEditor, type TavernConnection } from './tavern-connections.js';
 import { TavernLoreTranslations } from './worldbook-controls.js';
 
+type ReplyVariant = {role:'assistant'; content:string; name?:string; status?:string};
+const maxReplyVariants=8;
 type Message = {
   role: string;
   content: string;
   name?: string;
   status?: string;
-  alternatives?: Array<{ role: 'assistant'; content: string }>;
+  alternatives?: ReplyVariant[];
 };
 type Settings = {
   userName: string;
   persona: string;
+  memory?: string;
+  notes?:string;
+  tags?:string;
+  speakerId?:string;
+  castIds?:string[];
+  title?:string;
+  parentId?:string;
   worldbookIds: string[];
   contextTokens: number;
   maxTokens: number;
@@ -24,6 +33,7 @@ type Conversation = { conversationId?: string; version?: number; messages?: Mess
 type Result = {
   role: string;
   content: string;
+  inspection?: Array<{role:string;content:string}>;
   matchedEntries: number;
   unsupportedEntries: number;
   trimmedHistory: boolean;
@@ -178,6 +188,8 @@ export function TavernChat({
       return '';
     }
   });
+  const [suggestedMemory,setSuggestedMemory]=useState('');
+  const [inspection,setInspection]=useState<Result['inspection']>();
   const [note, setNote] = useState('');
   const [busy, setBusy] = useState(false);
   const [connection, setConnection] = useState<TavernConnection>();
@@ -185,6 +197,25 @@ export function TavernChat({
   const [settings, setSettings] = useState<Settings>(defaults);
   const [conversation, setConversation] = useState<Conversation>({});
   const [history, setHistory] = useState<Conversation[]>([]);
+  const [characters,setCharacters]=useState<Array<{assetId:string;name:string}>>([]);
+  const [sessionQuery,setSessionQuery]=useState('');
+  const branches=new Map<string,Conversation[]>();
+  for(const item of history){
+    const parent=item.settings?.parentId;
+    if(parent){const list=branches.get(parent)??[];list.push(item);branches.set(parent,list);}
+  }
+  const ordered:{item:Conversation;depth:number}[]=[],seen=new Set<string>();
+  const ids=new Set(history.map(item=>item.conversationId));
+  for(const root of [...history.filter(item=>!ids.has(item.settings?.parentId??'')),...history]){
+    const pending=[{item:root,depth:0}];
+    while(pending.length){
+      const row=pending.pop()!,id=row.item.conversationId;
+      if(!id||seen.has(id))continue;
+      seen.add(id);
+      if(id===conversation.conversationId || [row.item.settings?.title,row.item.settings?.notes,row.item.settings?.tags].join(' ').toLowerCase().includes(sessionQuery.trim().toLowerCase()))ordered.push(row);
+      for(const item of (branches.get(id)??[]).slice().reverse())pending.push({item,depth:row.depth+1});
+    }
+  }
   const [books, setBooks] = useState<Array<{ assetId: string; name: string }>>([]);
   const [greeting, setGreeting] = useState(0);
 
@@ -215,7 +246,7 @@ export function TavernChat({
       request<{ items: Array<{ assetId: string; name: string; kind: string }> }>('/api/v1/tavern/assets', {
         signal: controller.signal,
       }).then((value) => {
-        if (!controller.signal.aborted) setBooks(value.items.filter((row) => row.kind === 'lorebook'));
+        if (!controller.signal.aborted) {setBooks(value.items.filter(row=>row.kind==='lorebook'));setCharacters(value.items.filter(row=>row.kind==='character'&&row.assetId!==assetId));}
       }),
     ]).catch((error) => {
       if (!controller.signal.aborted) setNote(String(error.message));
@@ -240,6 +271,10 @@ export function TavernChat({
 
   const start = async (continuation = false, regenerate = false) => {
     if (!continuation && !regenerate && !draft.trim()) return;
+    if (regenerate && (rows.at(-1)?.alternatives?.length??0)>=maxReplyVariants) return;
+    const lastName=rows.at(-1)?.name;
+    const replyId=(continuation||regenerate)&&lastName?characters.find(row=>row.name===lastName)?.assetId??'':settings.speakerId;
+    const replyName=characters.find(row=>row.assetId===replyId)?.name??name;
     const original = rows;
     const sent = draft;
     const next = regenerate ? rows.slice(0, -1) : continuation ? rows : [...rows, { role: 'user', content: draft }];
@@ -254,7 +289,7 @@ export function TavernChat({
     const updated = (text: string) =>
       continuation && next.at(-1)?.role === 'assistant'
         ? [...next.slice(0, -1), { ...next.at(-1)!, content: next.at(-1)!.content + text }]
-        : [...next, { role: 'assistant', name, content: text, status: 'complete' }];
+        : [...next, { role: 'assistant', name:replyName, content: text, status: 'complete' }];
     try {
       const result = await generate(
         path + '/reply',
@@ -262,6 +297,7 @@ export function TavernChat({
           connectionId: connection?.connectionId,
           messages: next,
           ...settings,
+          speakerId:replyId,
           continuation,
           stream: true,
           locale,
@@ -282,10 +318,11 @@ export function TavernChat({
       if (regenerate && prior && complete.at(-1)?.role === 'assistant') {
         complete[complete.length - 1] = {
           ...complete.at(-1)!,
-          alternatives: [...(prior.alternatives ?? []), { role: 'assistant', content: prior.content }],
+          alternatives: [...(prior.alternatives ?? []), { role: 'assistant', content: prior.content, name:prior.name, status:prior.status }],
         };
       }
       if (active.current) {
+        setInspection(result.inspection);
         setRows(complete);
         setNote(
           (result.matchedEntries ? t('匹配世界书条目：') + result.matchedEntries : '') +
@@ -349,8 +386,8 @@ export function TavernChat({
     const alts = message?.alternatives ?? [];
     if (busy || !message || !alts.length) return;
     const next = [...rows];
-    const current = { role: 'assistant' as const, content: message.content };
-    next[index] = { ...message, content: alts[0]!.content, alternatives: [...alts.slice(1), current] };
+    const current:ReplyVariant = {role:'assistant',content:message.content,name:message.name,status:message.status};
+    next[index] = { ...alts[0]!, name:alts[0]!.name??message.name, alternatives: [...alts.slice(1), current] };
     await updateMessages(next);
   };
 
@@ -361,9 +398,12 @@ export function TavernChat({
       const next = rows.slice(0, index + 1);
       const value = await request<Conversation>(path + '/conversations', {
         method: 'POST',
-        body: JSON.stringify({ messages: next, settings }),
+        body: JSON.stringify({ messages: next, settings:{...settings,parentId:conversation.conversationId} }),
       });
       setConversation(value);
+      setSuggestedMemory('');
+      setInspection(undefined);
+      setSettings({...defaults,...value.settings});
       setRows(next);
       setDraft('');
       await refresh();
@@ -386,6 +426,8 @@ export function TavernChat({
     setBusy(true);
     try {
       await api.tavernDeleteConversation(assetId, conversation.conversationId);
+      setSuggestedMemory('');
+      setInspection(undefined);
       setConversation({});
       setRows(options[greeting] ? [{ role: 'assistant', content: options[greeting]! }] : []);
       await refresh();
@@ -440,9 +482,9 @@ export function TavernChat({
               {message.role === 'assistant' && avatar ? (
                 <img src={avatar} alt="" />
               ) : (
-                <span aria-hidden="true">{(message.role === 'user' ? settings.userName : name || t('角色')).slice(0, 1)}</span>
+                <span aria-hidden="true">{(message.name || (message.role === 'user' ? settings.userName : name || t('角色'))).slice(0, 1)}</span>
               )}
-              <strong>{message.role === 'user' ? settings.userName : name || t('角色')}</strong>
+              <strong>{message.name || (message.role === 'user' ? settings.userName : name || t('角色'))}</strong>
               {message.alternatives?.length ? (
                 <small className="chapter-state">({message.alternatives.length + 1})</small>
               ) : null}
@@ -566,10 +608,10 @@ export function TavernChat({
           </button>
           <button
             className="chip"
-            disabled={busy || rows.at(-1)?.role !== 'assistant' || rows.length < 2 || !connection?.usable}
+            disabled={busy || rows.at(-1)?.role !== 'assistant' || rows.length < 2 || (rows.at(-1)?.alternatives?.length??0)>=maxReplyVariants || !connection?.usable}
             onClick={() => void start(false, true)}
           >
-            {t('重新生成')}
+            {t('重新生成')}{(rows.at(-1)?.alternatives?.length??0)>=maxReplyVariants?' (8/8)':''}
           </button>
           {busy ? (
             <button className="chip" onClick={() => abort.current?.abort()}>
@@ -678,6 +720,19 @@ export function TavernChat({
 
         <details className="detail-secondary">
           <summary>{t('角色与世界书上下文')}</summary>
+          <label className="form-row">{t('名称')}<input value={settings.title??''} onChange={e=>change('title',e.target.value)}/></label>
+          <label className="form-row">{t('选择发言角色')}<select disabled={busy} value={settings.speakerId??''} onChange={e=>{const id=e.target.value;setSettings(old=>({...old,speakerId:id,castIds:[...new Set([...(old.castIds??[]),id].filter(Boolean))]}));}}><option value="">{name}</option>{characters.map(row=><option value={row.assetId} key={row.assetId}>{row.name}</option>)}</select></label>
+          <label className="form-row">{t('标签')}<input maxLength={1024} value={settings.tags??''} onChange={e=>change('tags',e.target.value)}/></label>
+          <label className="form-row">{t('会话笔记')}<textarea maxLength={16000} value={settings.notes??''} onChange={e=>change('notes',e.target.value)}/></label>
+          <label className="form-row">{t('会话记忆')}<textarea value={settings.memory??''} onChange={e=>change('memory',e.target.value)}/></label>
+          <button className="chip" disabled={busy||!connection?.usable||!rows.length} onClick={async()=>{
+            setBusy(true);
+            const controller=new AbortController();abort.current=controller;
+            try {const result=await request<{text:string}>('/api/v1/tavern/revise',{method:'POST',signal:controller.signal,body:JSON.stringify({connectionId:connection?.connectionId,summary:true,text:[settings.memory,...rows.map(m=>(m.name??m.role)+': '+m.content)].filter(Boolean).join('\n')})});setSuggestedMemory(result.text);}
+            catch(e){if(!controller.signal.aborted)setNote(String((e as Error).message));}finally{setBusy(false);}
+          }}>{t('生成会话摘要')}</button>
+          {suggestedMemory && <div><textarea aria-label={t('生成预览')} value={suggestedMemory} onChange={e=>setSuggestedMemory(e.target.value)}/><button className="chip" onClick={()=>{change('memory',suggestedMemory);setSuggestedMemory('');}}>{t('应用')}</button></div>}
+          {inspection && <details><summary>{t('本轮提示词')}</summary>{inspection.map((m,i)=><section key={i}><strong>{m.role}</strong><p style={{whiteSpace:'pre-wrap'}}>{m.content}</p></section>)}</details>}
           <label className="form-row" style={field}>
             {t('你的名称 ')}
             <input
@@ -723,6 +778,8 @@ export function TavernChat({
             disabled={busy}
             onClick={async () => {
               if (!(await confirmSwitch())) return;
+              setSuggestedMemory('');
+      setInspection(undefined);
               setConversation({});
               setRows(options[greeting] ? [{ role: 'assistant', content: options[greeting]! }] : []);
               setDraft('');
@@ -754,6 +811,7 @@ export function TavernChat({
           ) : null}
         </div>
 
+        {history.length>1 && <label className="form-row">{t('搜索')}<input type="search" value={sessionQuery} onChange={e=>setSessionQuery(e.target.value)}/></label>}
         {history.length ? (
           <label className="form-row" style={field}>
             {t('已保存会话 ')}
@@ -763,6 +821,8 @@ export function TavernChat({
               onChange={async (e) => {
                 const item = history.find((row) => row.conversationId === e.target.value);
                 if (item && (await confirmSwitch())) {
+                  setSuggestedMemory('');
+      setInspection(undefined);
                   followTail.current = true;
                   setConversation(item);
                   setRows(item.messages ?? []);
@@ -771,10 +831,9 @@ export function TavernChat({
               }}
             >
               <option value="">{t('选择会话')}</option>
-              {history.map((item, index) => (
+              {ordered.map(({item,depth}, index) => (
                 <option key={item.conversationId} value={item.conversationId}>
-                  {t('会话 ')}
-                  {index + 1}
+                  {depth?'　'.repeat(Math.min(depth-1,4))+'↳ ':''}{item.settings?.title || (t('会话 ')+(index+1))}
                 </option>
               ))}
             </select>

@@ -22,6 +22,17 @@
     }
   }
 
+  function imageValue(image) {
+    if (!image) return '';
+    for (const attribute of ['src', 'data-src', 'data-original', 'data-lazy-src']) {
+      const value = image.getAttribute(attribute);
+      if (value) return value;
+    }
+    const srcset = image.getAttribute('srcset');
+    if (srcset) return srcset.split(',')[0].trim().split(/\s+/)[0];
+    return '';
+  }
+
   function tagsOf(card) {
     const tags = [];
     for (const link of card.querySelectorAll('a[href]')) {
@@ -67,7 +78,7 @@
       title,
       url: url.href,
       subtitle: body.slice(0, 512),
-      cover: safeImage(card.querySelector('img')?.getAttribute('src'), base),
+      cover: safeImage(imageValue(card.querySelector('img')), base),
       authors: author.replace(/^By\s+/i, '').trim() ? [author.replace(/^By\s+/i, '').trim()] : [],
       tags,
       mediaKind: 'tavern',
@@ -83,20 +94,21 @@
     return {doc: Park.html.parse(response.body), body: response.body};
   }
 
-  function searchUrl(keyword, kind) {
+  function searchUrl(keyword, kind, includeNsfw) {
     const query = [];
-    if (kind === 'lorebook') query.push('tag:lorebooks');
+    if (kind === 'lorebook') query.push('tag:lorebook');
     if (keyword) query.push(String(keyword).trim());
     const url = new URL('/', SITE);
     if (query.length) url.searchParams.set('q', query.join(' '));
+    if (includeNsfw) url.searchParams.set('nsfw', 'true');
     return url;
   }
 
-  async function list(source, keyword, kind, page) {
+  async function list(source, keyword, kind, page, includeNsfw = source.config?.nsfw === true) {
     if (!Number.isInteger(page) || page < 1 || page > 1) {
       throw Park.error('UNSUPPORTED', '该站点只公开第一页搜索结果');
     }
-    const url = searchUrl(keyword, kind);
+    const url = searchUrl(keyword, kind, includeNsfw);
     const {doc, body} = await html(source, url.href);
     const items = [];
     const seen = new Set();
@@ -124,6 +136,9 @@
     if (!title || title === 'RisuRealm') throw Park.error('PARSE', '站点返回了无效结果');
     const tags = tagsOf(doc);
     const body = Park.html.text(doc);
+    const coverCandidate = [...doc.querySelectorAll('img')]
+      .map((image) => imageValue(image))
+      .find((value) => safeImage(value, url.href));
     const isNsfw = explicit(body) || tags.includes('nsfw');
     const author = [...doc.querySelectorAll('a[href^="/creator/"]')]
       .map((link) => Park.html.text(link).replace(/^By\s+/i, '').trim())
@@ -133,7 +148,7 @@
       id: kind + ':' + entry.id,
       title,
       url: url.href,
-      cover: safeImage(doc.querySelector('img[src*="sv.risuai.xyz"]')?.getAttribute('src'), url.href),
+      cover: safeImage(coverCandidate, url.href),
       authors: author ? [author] : [],
       tags,
       mediaKind: 'tavern',
@@ -160,43 +175,43 @@
     i18n: {
       'zh-Hant': {
         '匿名角色卡与世界书': '匿名角色卡與世界書',
-        '支持官方搜索语法；站点未公开独立 NSFW 筛选，保留原站成人标记': '支援官方搜尋語法；站點未公開獨立 NSFW 篩選，保留原站成人標記',
+        '支持官方搜索语法和 NSFW 筛选，保留原站成人标记': '支援官方搜尋語法和 NSFW 篩選，保留原站成人標記', '显示 NSFW 内容': '顯示 NSFW 內容',
         '角色卡': '角色卡', '世界书': '世界書', '类型': '類型', '全部': '全部', '推荐': '推薦', '最新': '最新',
       },
       ja: {
         '匿名角色卡与世界书': '匿名のキャラクターカードと世界設定集',
-        '支持官方搜索语法；站点未公开独立 NSFW 筛选，保留原站成人标记': '公式検索構文に対応。独立した NSFW フィルターは公開されていないため、原サイトの成人表示を保持します',
+        '支持官方搜索语法和 NSFW 筛选，保留原站成人标记': '公式検索構文と NSFW フィルターに対応し、原サイトの成人表示を保持します', '显示 NSFW 内容': 'NSFW コンテンツを表示',
         '角色卡': 'キャラクターカード', '世界书': '世界設定集', '类型': '種類', '全部': 'すべて', '推荐': 'おすすめ', '最新': '最新',
       },
       ko: {
         '匿名角色卡与世界书': '익명 캐릭터 카드와 세계관 설정집',
-        '支持官方搜索语法；站点未公开独立 NSFW 筛选，保留原站成人标记': '공식 검색 문법을 지원합니다. 별도 NSFW 필터는 공개되지 않아 원 사이트의 성인 표시를 유지합니다',
+        '支持官方搜索语法和 NSFW 筛选，保留原站成人标记': '공식 검색 문법과 NSFW 필터를 지원하며 원 사이트의 성인 표시를 유지합니다', '显示 NSFW 内容': 'NSFW 콘텐츠 표시',
         '角色卡': '캐릭터 카드', '世界书': '세계관 설정집', '类型': '유형', '全部': '전체', '推荐': '추천', '最新': '최신',
       },
       en: {
         '匿名角色卡与世界书': 'Anonymous character cards and lorebooks',
-        '支持官方搜索语法；站点未公开独立 NSFW 筛选，保留原站成人标记': 'Uses the documented search syntax; no separate NSFW filter is published, so original adult markers are preserved',
+        '支持官方搜索语法和 NSFW 筛选，保留原站成人标记': 'Uses the documented search syntax and an NSFW filter while preserving original adult markers', '显示 NSFW 内容': 'Show NSFW content',
         '角色卡': 'Character cards', '世界书': 'Lorebooks', '类型': 'Type', '全部': 'All', '推荐': 'Recommended', '最新': 'Latest',
       },
       es: {
         '匿名角色卡与世界书': 'Tarjetas y libros de mundo anónimos',
-        '支持官方搜索语法；站点未公开独立 NSFW 筛选，保留原站成人标记': 'Usa la sintaxis de búsqueda documentada; no hay un filtro NSFW independiente publicado y se conservan las marcas de adultos',
+        '支持官方搜索语法和 NSFW 筛选，保留原站成人标记': 'Usa la sintaxis de búsqueda documentada y un filtro NSFW, conservando las marcas de adultos originales', '显示 NSFW 内容': 'Mostrar contenido NSFW',
         '角色卡': 'Tarjetas', '世界书': 'Libros de mundo', '类型': 'Tipo', '全部': 'Todos', '推荐': 'Recomendado', '最新': 'Último',
       },
       ru: {
         '匿名角色卡与世界书': 'Анонимные карточки персонажей и книги мира',
-        '支持官方搜索语法；站点未公开独立 NSFW 筛选，保留原站成人标记': 'Используется документированный синтаксис поиска; отдельный NSFW-фильтр не опубликован, поэтому сохраняются отметки источника',
+        '支持官方搜索语法和 NSFW 筛选，保留原站成人标记': 'Поддерживает документированный синтаксис поиска и фильтр NSFW, сохраняя исходные отметки для взрослых', '显示 NSFW 内容': 'Показывать контент NSFW',
         '角色卡': 'Карточки персонажей', '世界书': 'Книги мира', '类型': 'Тип', '全部': 'Все', '推荐': 'Рекомендуемое', '最新': 'Новое',
       },
       ar: {
         '匿名角色卡与世界书': 'بطاقات شخصيات وكتب عالم مجهولة',
-        '支持官方搜索语法；站点未公开独立 NSFW 筛选，保留原站成人标记': 'يستخدم صيغة البحث الموثقة؛ لا يوجد مرشح NSFW مستقل منشور، لذلك تُحفظ علامات المحتوى الأصلي',
+        '支持官方搜索语法和 NSFW 筛选，保留原站成人标记': 'يستخدم صيغة البحث الموثقة ومرشح NSFW مع الحفاظ على علامات المحتوى الأصلي للبالغين', '显示 NSFW 内容': 'إظهار محتوى NSFW',
         '角色卡': 'بطاقات الشخصيات', '世界书': 'كتب العالم', '类型': 'النوع', '全部': 'الكل', '推荐': 'موصى به', '最新': 'الأحدث',
       },
     },
     key: 'risu_realm',
     name: 'RisuRealm',
-    version: '0.0.2',
+    version: '0.0.4',
     minAppVersion: '0.14.0',
     type: 'tavern',
     category: 'tavern',
@@ -208,7 +223,8 @@
     linkPatterns: ['realm\\.risuai\\.net/character/([A-Fa-f0-9-]{16,100})'],
     idPattern: '^(?:(?:character|lorebook):)?[A-Fa-f0-9-]{16,100}$',
     description: '匿名角色卡与世界书',
-    searchHint: '支持官方搜索语法；站点未公开独立 NSFW 筛选，保留原站成人标记',
+    searchHint: '支持官方搜索语法和 NSFW 筛选，保留原站成人标记',
+    settings: [{key: 'nsfw', label: '显示 NSFW 内容', type: 'switch', default: true}],
     defaultFeed: 'characters',
     feeds: [
       {key: 'characters', label: '角色卡'},
