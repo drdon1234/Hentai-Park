@@ -45,7 +45,7 @@ node 'clients/windows/scripts/package-release.mjs' package x64
 ## 发布流水线
 
 - `.github/workflows/windows-ci.yml`：仅供 `workflow_call` 调用，在 `windows-latest` 执行共享资产同步、八语言文案扫描与 WinUI 3 Release 编译检查。
-- `.github/workflows/windows-release.yml`：仅支持在默认分支通过 `workflow_dispatch` 手动触发，普通提交与 PR 不触发构建或发包。`publish` 默认 `false`（仅上传 Actions 构建产物）；显式勾选 `publish` 后才进入 `release` 环境，将 `HentaiPark-<版本>-<构建号>-windows-<x64|arm64>-setup[-unsigned].exe`、`...-portable[-unsigned].zip` 及 `.sha256` 发布至 `vX.Y.Z` GitHub Release。
+- `.github/workflows/windows-release.yml` 由主发布工作流调用。推送对应版本标签后，Windows 检查通过即构建 x64 和 ARM64 安装程序、便携 ZIP 及校验文件，由主流程与移动端产物一起上传。
 - 代码签名：`release` 环境同时配置 `WINDOWS_PFX_BASE64` 与 `WINDOWS_PFX_PASSWORD` 时自动对主程序与安装包执行 SHA-256 Authenticode 签名及校验，结束后在 `always()` 步骤销毁 `test/signing/` 临时证书材料；部分缺失直接失败，完全未配置时输出带 `-unsigned` 标识的分发包。
 
 ## 运行机制与安全边界

@@ -14,6 +14,7 @@ import '../voice/voice_attachment_page.dart';
 import '../widgets/common.dart';
 import '../widgets/content_translation.dart';
 import '../widgets/error_view.dart';
+import '../widgets/gallery_zoom.dart';
 import '../widgets/platform_share.dart';
 import '../widgets/text_translation.dart';
 
@@ -131,8 +132,8 @@ class _BundleBodyState extends State<_BundleBody> {
     }
   }
 
-  Widget _entry(Map<String, dynamic> entry) => ListTile(
-    contentPadding: widget.bundle.blocks.isEmpty ? null : EdgeInsets.zero,
+  Widget _entry(Map<String, dynamic> entry, {bool inline = false}) => ListTile(
+    contentPadding: inline ? EdgeInsets.zero : null,
     leading: Icon(switch (entry['type']) {
       'directory' => Icons.folder_outlined,
       'audio' => Icons.audio_file_outlined,
@@ -152,6 +153,10 @@ class _BundleBodyState extends State<_BundleBody> {
   Widget build(BuildContext context) {
     final blocks = widget.bundle.blocks;
     final entries = widget.bundle.entries;
+    final byId = {
+      if (blocks.isNotEmpty)
+        for (final e in entries) e['id']: e,
+    };
     final content = Align(
       alignment: Alignment.topCenter,
       child: ConstrainedBox(
@@ -193,24 +198,25 @@ class _BundleBodyState extends State<_BundleBody> {
                       ),
                     );
                   }
-                  final entry = entries
-                      .where((e) => e['id'] == block['asset'])
-                      .firstOrNull;
+                  final entry = byId[block['asset']];
                   if (entry == null) return Text(tr('本地文件已被删除'));
-                  if (entry['type'] != 'image') return _entry(entry);
+                  if (entry['type'] != 'image') {
+                    return _entry(entry, inline: true);
+                  }
                   return Padding(
                     padding: const EdgeInsets.only(bottom: Gap.m),
                     child: FutureBuilder<File?>(
                       future: widget.bundle.file(entry),
                       builder: (context, state) => state.data == null
-                          ? _entry(entry)
+                          ? _entry(entry, inline: true)
                           : ActionInkWell(
                               onTap: () => _open(entry),
                               child: Image.file(
                                 state.data!,
                                 width: double.infinity,
                                 fit: BoxFit.fitWidth,
-                                errorBuilder: (_, _, _) => _entry(entry),
+                                errorBuilder: (_, _, _) =>
+                                    _entry(entry, inline: true),
                               ),
                             ),
                     ),
@@ -285,12 +291,15 @@ class _BundleGalleryState extends State<_BundleGallery> {
     appBar: PageHeader(title: widget.entries[_index]['name'] as String),
     body: PageView.builder(
       controller: _pages,
+      physics: widget.entries[_index]['type'] == 'image'
+          ? const NeverScrollableScrollPhysics()
+          : null,
       itemCount: widget.entries.length,
       onPageChanged: (index) => setState(() => _index = index),
       itemBuilder: (context, index) {
         if (index != _index) return const SizedBox.shrink();
         final entry = widget.entries[index];
-        return FutureBuilder<File?>(
+        final content = FutureBuilder<File?>(
           future: widget.bundle.file(entry),
           builder: (context, state) {
             final file = state.data;
@@ -306,8 +315,24 @@ class _BundleGalleryState extends State<_BundleGallery> {
                     downloadedOnly: true,
                     pageHorizontally: true,
                   )
-                : InteractiveViewer(child: Center(child: Image.file(file)));
+                : Center(child: Image.file(file));
           },
+        );
+        if (entry['type'] != 'image') return content;
+        return GalleryZoom(
+          key: ValueKey(entry['id']),
+          maxScale: 2.5,
+          onPage: (step) {
+            final target = index + step;
+            if (target >= 0 && target < widget.entries.length) {
+              _pages.animateToPage(
+                target,
+                duration: Motion.medium,
+                curve: Motion.curve,
+              );
+            }
+          },
+          child: content,
         );
       },
     ),

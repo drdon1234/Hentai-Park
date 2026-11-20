@@ -2,16 +2,6 @@ name: Native Release
 on:
   push:
     tags: ['v*.*.*']
-  workflow_dispatch:
-    inputs:
-      publish:
-        description: '发布 Android 与 iOS Release（默认仅构建）'
-        type: boolean
-        default: false
-      notes:
-        description: '仓库内发布说明路径，必须包含中文和 English 两节'
-        type: string
-        default: 'docs/RELEASE_NOTES.md'
 permissions:
   contents: read
 concurrency:
@@ -19,7 +9,6 @@ concurrency:
   cancel-in-progress: false
 jobs:
   prepare:
-    if: github.event_name == 'push' || github.ref == 'refs/heads/main'
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     outputs:
@@ -37,9 +26,7 @@ jobs:
         run: node tools/platform_build.mjs metadata
       - id: plan
         run: node tools/platform_build.mjs plan
-      - env:
-          NOTES: ${{ inputs.notes || 'docs/RELEASE_NOTES.md' }}
-        run: node tools/platform_build.mjs notes "$NOTES"
+      - run: node tools/platform_build.mjs notes docs/RELEASE_NOTES.md
       - uses: actions/upload-artifact@v4
         with: {name: release-notes, path: test/release-notes.md, retention-days: 7}
   checks:
@@ -50,11 +37,14 @@ jobs:
     uses: ./.github/workflows/build.yml
     with:
       matrix: ${{ needs.prepare.outputs.matrix }}
-      release: ${{ github.event_name == 'push' || inputs.publish }}
+      release: true
+    secrets: inherit
+  windows:
+    needs: prepare
+    uses: ./.github/workflows/windows-release.yml
     secrets: inherit
   publish:
-    needs: [prepare, build]
-    if: github.event_name == 'push' || inputs.publish
+    needs: [prepare, build, windows]
     runs-on: ubuntu-24.04
     environment: release
     timeout-minutes: 10

@@ -11,7 +11,9 @@ import '../engine/domains.dart';
 import '../engine/http_service.dart';
 import '../engine/source_manager.dart';
 import '../library/downloads.dart';
+import '../library/library.dart';
 import '../library/playback_resolver.dart';
+import '../tavern/store.dart';
 import 'detail/detail_page.dart';
 import 'discovery_navigation.dart';
 import 'feed/feed_article.dart';
@@ -31,6 +33,7 @@ import 'short_video/short_video_page.dart';
 import 'short_video/short_video_sequence.dart';
 import 'source/source_page.dart';
 import 'subscriptions/subscription_posts_page.dart';
+import 'tavern/tavern_chat_page.dart';
 import 'tavern/tavern_detail_page.dart';
 import 'theme.dart';
 import 'video/video_page.dart';
@@ -173,6 +176,16 @@ class Nav {
     Object? coverHeroTag,
     ShortVideoSequence? sequence,
   }) async {
+    if (item.source == TavernSession.workSource) {
+      final session = await TavernStore.instance.session(item.id);
+      if (session == null) {
+        Library.instance.removeHistory(item.uid);
+        if (context.mounted) context.toast(tr('酒馆资源加载失败'));
+      } else if (context.mounted) {
+        await push(context, TavernChatPage(session: session));
+      }
+      return;
+    }
     await _pushWork(context, item, coverHeroTag, sequence);
   }
 

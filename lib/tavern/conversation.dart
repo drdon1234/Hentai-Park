@@ -113,7 +113,7 @@ class TavernConversation extends ChangeNotifier {
     ephemeral = ephemeral || AppSettings.instance.incognito;
     if (!ephemeral) {
       try {
-        await TavernStore.instance.putSession(snapshot);
+        await TavernStore.instance.putSession(snapshot, existingOnly: true);
         session.updatedAt = snapshot.updatedAt;
       } catch (_) {
         unsaved = true;

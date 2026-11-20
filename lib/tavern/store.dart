@@ -49,6 +49,14 @@ class TavernSession {
   }) : cast = cast ?? {},
        alternatives = alternatives ?? {};
   final String id;
+  static const workSource = 'tavern-session';
+  WorkItem get work => WorkItem({
+    'id': id,
+    'title': title,
+    'contentDomain': 'tavern',
+    'mediaKind': 'tavern',
+  }, workSource);
+
   final String resourceUid;
   String title;
   final Map<String, dynamic> card;
@@ -404,7 +412,10 @@ class TavernStore extends ChangeNotifier {
     return session;
   }
 
-  Future<void> putSession(TavernSession session) async {
+  Future<void> putSession(
+    TavernSession session, {
+    bool existingOnly = false,
+  }) async {
     if (AppSettings.instance.incognito) return;
     session.updatedAt = DateTime.now().millisecondsSinceEpoch;
     await _db.transaction(() async {
@@ -420,6 +431,18 @@ class TavernStore extends ChangeNotifier {
             .get();
         if (book.isEmpty) throw StateError('关联的世界书已不存在');
       }
+      if (existingOnly) {
+        final changed = await _db.customUpdate(
+          'UPDATE tavern_sessions SET data_json=?,updated_at=? WHERE id=?',
+          variables: [
+            Variable.withString(jsonEncode(session.toJson())),
+            Variable.withInt(session.updatedAt),
+            Variable.withString(session.id),
+          ],
+        );
+        if (changed == 0) throw StateError('会话已删除');
+        return;
+      }
       await _db.customStatement(
         '''INSERT INTO tavern_sessions(id,resource_uid,data_json,updated_at) VALUES(?,?,?,?)
         ON CONFLICT(id) DO UPDATE SET data_json=excluded.data_json,updated_at=excluded.updated_at''',
@@ -431,7 +454,22 @@ class TavernStore extends ChangeNotifier {
         ],
       );
     });
+    Library.instance.recordVisit(session.work);
     notifyListeners();
+  }
+
+  Future<TavernSession?> session(String id) async {
+    final row = await _db
+        .customSelect(
+          'SELECT data_json FROM tavern_sessions WHERE id=?',
+          variables: [Variable.withString(id)],
+        )
+        .getSingleOrNull();
+    return row == null
+        ? null
+        : TavernSession.fromJson(
+            jsonDecode(row.read<String>('data_json')) as Map,
+          );
   }
 
   Future<List<TavernSession>> sessions({String? uid}) async {
@@ -452,7 +490,15 @@ class TavernStore extends ChangeNotifier {
   }
 
   Future<void> removeSession(String id) async {
-    await _db.customStatement('DELETE FROM tavern_sessions WHERE id=?', [id]);
+    await Library.instance.flush();
+    await _db.transaction(() async {
+      await _db.customStatement('DELETE FROM tavern_sessions WHERE id=?', [id]);
+      await _db.customStatement(
+        'DELETE FROM history WHERE source=? AND work_id=?',
+        [TavernSession.workSource, id],
+      );
+    });
+    Library.instance.removeHistory('${TavernSession.workSource}:$id');
     notifyListeners();
   }
 }

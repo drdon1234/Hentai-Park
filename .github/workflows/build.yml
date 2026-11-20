@@ -4,7 +4,6 @@ on:
     inputs:
       matrix: {required: true, type: string}
       release: {default: false, type: boolean}
-      require_ios_signing: {default: false, type: boolean}
     secrets:
       ANDROID_KEYSTORE_BASE64: {required: false}
       ANDROID_KEYSTORE_PASSWORD: {required: false}
@@ -81,9 +80,6 @@ jobs:
           IOS_PROVISIONING_PROFILE_BASE64: ${{ inputs.release && secrets.IOS_PROVISIONING_PROFILE_BASE64 || '' }}
         run: |
           python3 tools/ios_signing.py prepare
-      - name: Require requested iOS signing
-        if: matrix.platform == 'ios' && inputs.require_ios_signing
-        run: test "$IOS_SIGNED" = 'true'
       - name: iOS device Release build
         if: matrix.platform == 'ios'
         run: |

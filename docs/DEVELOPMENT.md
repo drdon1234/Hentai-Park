@@ -297,10 +297,10 @@ GitHub Release 正文就是应用内“发现软件新版本”对话框里的�
 
 
 - check.yml：由原生 release.yml 调用，执行生产文案、样式、分析、格式与官方插件离线校验。
-- release.yml：Android 与 iOS 共用构建和发布入口，推送与 pubspec.yaml 对应的 vX.Y.Z 标签，或在 main 手动触发。手动 publish 默认 false，仅构建；启用 publish 或标签触发才创建 GitHub Release；未配置 Apple 凭据时提供名称明确标注 unsigned 的 IPA，需要用户重新签名安装。发布前更新 docs/RELEASE_NOTES.md，或手动指定仓库内双语说明路径。
-- ios.yml：相关 PR 或手动触发，默认只做 macOS 上的真机 Release 编译与未签名 IPA 打包，不传递发布凭据。在 main 手动勾选 signed 可使用 release 环境生成已签名 IPA，缺少签名材料会失败；两种构建都不发布。release.yml 中的 iOS job 有完整签名配置时导出已签名 IPA，没有配置则提供明确标注的 unsigned IPA；部分配置缺失直接失败。
+- release.yml：推送与 pubspec.yaml 对应的 vX.Y.Z 标签后，自动构建 Android、iOS 和 Windows，全部成功后统一发布附件。发布前更新 docs/RELEASE_NOTES.md。
+- ios.yml：相关 PR 自动编译 iOS 真机 Release 并打包未签名 IPA。标签发布使用 release 环境，有完整签名配置时导出已签名 IPA，无配置时提供标注 unsigned 的 IPA，部分配置缺失时失败。
 - web-release.yml：独立 Web Docker 发布入口，仅允许在默认分支手动触发；版本来自 clients/web/package.json，不依赖 Android pubspec.yaml 版本。启用 publish 后推送 Web 镜像版本标签和 latest 标签。
-- windows-ci.yml / windows-release.yml：独立 Windows（WinUI 3）检查与发布入口；普通提交与 PR 不自动触发。在默认分支手动运行 `windows-release.yml` 时，`publish` 默认 `false`（仅构建便携包与安装包产物）；勾选 `publish` 后将已签名或明确标注 `unsigned` 的 Windows 安装包、便携包及 `.sha256` 上传至与 `pubspec.yaml` 对应的 `vX.Y.Z` GitHub Release。
+- windows-ci.yml / windows-release.yml：由主发布流程调用，检查 WinUI 3 项目并打包 x64 与 ARM64 安装程序、便携包及 SHA-256 校验文件。
 
 Android 与 iOS 的版本标签必须与 pubspec.yaml 一致；Web 版本由 clients/web/package.json 管理。没有更新对应平台版本时不要重用已有发布标签。原生 Release 正文只含中文和 English 两节，遵守 DEVELOPMENT.md 既有格式。
 

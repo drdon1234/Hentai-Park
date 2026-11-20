@@ -1,11 +1,5 @@
 name: iOS build
 on:
-  workflow_dispatch:
-    inputs:
-      signed:
-        description: '使用 release 环境的 iOS 证书导出已签名 IPA（不发布）'
-        type: boolean
-        default: false
   pull_request:
     paths:
       - 'ios/**'
@@ -23,15 +17,6 @@ concurrency:
   cancel-in-progress: true
 jobs:
   build:
-    if: github.event_name != 'workflow_dispatch' || !inputs.signed
     uses: ./.github/workflows/build.yml
     with:
       matrix: '{"include":[{"platform":"ios","os":"macos-15","arch":"arm64"}]}'
-  signed:
-    if: github.event_name == 'workflow_dispatch' && inputs.signed && github.ref == 'refs/heads/main'
-    uses: ./.github/workflows/build.yml
-    with:
-      matrix: '{"include":[{"platform":"ios","os":"macos-15","arch":"arm64"}]}'
-      release: true
-      require_ios_signing: true
-    secrets: inherit

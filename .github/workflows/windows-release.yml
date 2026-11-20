@@ -1,74 +1,23 @@
 name: Windows Release
 on:
-  workflow_dispatch:
-    inputs:
-      publish:
-        description: '发布 Windows 安装包与便携包至 GitHub Release（默认仅构建）'
-        type: boolean
-        default: false
-      arch:
-        description: '构建目标架构'
-        type: choice
-        options:
-          - all
-          - x64
-          - arm64
-        default: 'all'
-      notes:
-        description: '仓库内发布说明路径，必须包含中文和 English 两节'
-        type: string
-        default: 'docs/RELEASE_NOTES.md'
+  workflow_call:
 permissions:
   contents: read
 concurrency:
   group: windows-release-${{ github.ref }}
   cancel-in-progress: false
 jobs:
-  prepare:
-    if: github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
-    runs-on: ubuntu-24.04
-    timeout-minutes: 5
-    outputs:
-      matrix: ${{ steps.meta.outputs.matrix }}
-      version: ${{ steps.meta.outputs.version }}
-      tag: ${{ steps.meta.outputs.tag }}
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-          persist-credentials: false
-      - name: Require a main branch commit
-        env:
-          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
-        run: git merge-base --is-ancestor HEAD "origin/$DEFAULT_BRANCH"
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-      - id: meta
-        env:
-          WINDOWS_ARCH: ${{ inputs.arch || 'all' }}
-        run: node clients/windows/scripts/package-release.mjs metadata
-      - name: Validate bilingual release notes
-        env:
-          NOTES: ${{ inputs.notes || 'docs/RELEASE_NOTES.md' }}
-        run: node tools/platform_build.mjs notes "$NOTES"
-      - uses: actions/upload-artifact@v4
-        with:
-          name: windows-release-notes
-          path: test/release-notes.md
-          retention-days: 7
-
   checks:
-    needs: prepare
     uses: ./.github/workflows/windows-ci.yml
 
   build:
-    needs: [prepare, checks]
+    needs: checks
     strategy:
       fail-fast: false
-      matrix: ${{ fromJSON(needs.prepare.outputs.matrix) }}
+      matrix:
+        arch: [x64, arm64]
     runs-on: windows-latest
-    environment: ${{ inputs.publish && 'release' || 'build' }}
+    environment: release
     timeout-minutes: 35
     defaults:
       run:
@@ -92,9 +41,9 @@ jobs:
           }
       - name: Package Windows Setup EXE and Portable ZIP
         env:
-          WINDOWS_PFX_BASE64: ${{ inputs.publish && secrets.WINDOWS_PFX_BASE64 || '' }}
-          WINDOWS_PFX_PASSWORD: ${{ inputs.publish && secrets.WINDOWS_PFX_PASSWORD || '' }}
-          WINDOWS_TIMESTAMP_URL: ${{ inputs.publish && vars.WINDOWS_TIMESTAMP_URL || '' }}
+          WINDOWS_PFX_BASE64: ${{ secrets.WINDOWS_PFX_BASE64 || '' }}
+          WINDOWS_PFX_PASSWORD: ${{ secrets.WINDOWS_PFX_PASSWORD || '' }}
+          WINDOWS_TIMESTAMP_URL: ${{ vars.WINDOWS_TIMESTAMP_URL || '' }}
         run: node 'clients/windows/scripts/package-release.mjs' package '${{ matrix.arch }}'
       - uses: actions/upload-artifact@v4
         with:
@@ -108,31 +57,3 @@ jobs:
           if (Test-Path 'test/signing') {
             Remove-Item -LiteralPath 'test/signing' -Recurse -Force
           }
-
-  publish:
-    needs: [prepare, build]
-    if: inputs.publish && github.event_name == 'workflow_dispatch'
-    runs-on: ubuntu-24.04
-    environment: release
-    timeout-minutes: 10
-    permissions:
-      contents: write
-    steps:
-      - uses: actions/download-artifact@v4
-        with:
-          pattern: 'distribution-windows-*'
-          merge-multiple: true
-          path: test/release
-      - uses: actions/download-artifact@v4
-        with:
-          name: windows-release-notes
-          path: test/notes
-      - uses: softprops/action-gh-release@v2
-        with:
-          tag_name: ${{ needs.prepare.outputs.tag }}
-          target_commitish: ${{ github.sha }}
-          name: HentaiPark v${{ needs.prepare.outputs.version }}
-          body_path: test/notes/release-notes.md
-          files: test/release/*
-          fail_on_unmatched_files: true
-          make_latest: true

@@ -16,15 +16,11 @@ class TavernDomainNotice extends StatelessWidget {
   Widget build(BuildContext context) => Padding(
     padding: const EdgeInsets.fromLTRB(Gap.page, Gap.l, Gap.page, Gap.s),
     child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Text(tr('酒馆需要自行配置 AI 服务'), style: context.text.titleMedium),
-        const SizedBox(height: Gap.xs),
-        Text(tr('浏览角色卡和世界书；配置自己的接口后即可开始对话。'), style: context.text.bodyMedium),
-        const SizedBox(height: Gap.m),
-        Wrap(
-          spacing: Gap.s,
-          runSpacing: Gap.s,
+        Text(tr('创作与导入'), style: context.text.titleMedium),
+        const SizedBox(height: Gap.s),
+        _ActionGroup(
           children: [
             FilledButton.tonalIcon(
               onPressed: () => Nav.push(context, const TavernAiDraftPage()),
@@ -50,25 +46,55 @@ class TavernDomainNotice extends StatelessWidget {
             ),
           ],
         ),
-        const SizedBox(height: Gap.m),
-        Wrap(
-          alignment: WrapAlignment.spaceBetween,
-          spacing: Gap.s,
-          runSpacing: Gap.s,
+        const SizedBox(height: Gap.l),
+        Text(tr('管理'), style: context.text.titleMedium),
+        const SizedBox(height: Gap.s),
+        _ActionGroup(
           children: [
-            FilledButton.tonalIcon(
-              onPressed: () => Nav.push(context, const TavernSettingsPage()),
-              icon: const Icon(Icons.settings_outlined),
-              label: Text(tr('AI 服务设置')),
-            ),
-            OutlinedButton.icon(
+            TextButton.icon(
               onPressed: () => Nav.push(context, const TavernLibraryPage()),
               icon: const Icon(Icons.collections_bookmark_outlined),
               label: Text(tr('已保存与会话')),
+            ),
+            TextButton.icon(
+              onPressed: () => Nav.push(context, const TavernSettingsPage()),
+              icon: const Icon(Icons.settings_outlined),
+              label: Text(tr('AI 服务设置')),
             ),
           ],
         ),
       ],
     ),
+  );
+}
+
+class _ActionGroup extends StatelessWidget {
+  const _ActionGroup({required this.children});
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) => LayoutBuilder(
+    builder: (context, constraints) {
+      final minimumWidth = MediaQuery.textScalerOf(context).scale(132);
+      final columns = ((constraints.maxWidth + Gap.s) / (minimumWidth + Gap.s))
+          .floor()
+          .clamp(1, children.length);
+      final count = columns == 3 ? 2 : columns;
+      final width = (constraints.maxWidth - (count - 1) * Gap.s) / count;
+      return Wrap(
+        spacing: Gap.s,
+        runSpacing: Gap.s,
+        children: [
+          for (final child in children)
+            SizedBox(
+              width: width,
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(minHeight: 48),
+                child: child,
+              ),
+            ),
+        ],
+      );
+    },
   );
 }

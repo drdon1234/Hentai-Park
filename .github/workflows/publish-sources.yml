@@ -8,7 +8,6 @@ on:
       - 'assets/runtime/park_runtime.js'
       - 'tools/publish_sources.mjs'
       - '.github/workflows/publish-sources.yml'
-  workflow_dispatch:
 
 permissions: {}
 

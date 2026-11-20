@@ -29,6 +29,7 @@ import '../widgets/common.dart';
 import '../widgets/content_translation.dart';
 import '../widgets/cover_tile.dart';
 import '../widgets/error_view.dart';
+import '../widgets/gallery_zoom.dart';
 import '../widgets/on_visible.dart';
 import '../widgets/result_visibility.dart';
 import '../widgets/text_translation.dart';
@@ -608,6 +609,9 @@ class _SubscriptionGalleryPageState extends State<SubscriptionGalleryPage> {
     ),
     body: PageView.builder(
       controller: _pages,
+      physics: widget.post.media[_index].type == 'video'
+          ? null
+          : const NeverScrollableScrollPhysics(),
       itemCount: widget.post.media.length,
       onPageChanged: (index) => setState(() => _index = index),
       itemBuilder: (_, index) => index == _index
@@ -617,6 +621,16 @@ class _SubscriptionGalleryPageState extends State<SubscriptionGalleryPage> {
               post: widget.post,
               index: index,
               embedded: true,
+              onPage: (step) {
+                final target = index + step;
+                if (target >= 0 && target < widget.post.media.length) {
+                  _pages.animateToPage(
+                    target,
+                    duration: Motion.medium,
+                    curve: Motion.curve,
+                  );
+                }
+              },
             )
           : widget.post.media[index].type == 'video' &&
                 widget.post.media[index].preview.isEmpty
@@ -639,11 +653,13 @@ class SubscriptionMediaPage extends StatefulWidget {
     required this.post,
     required this.index,
     this.embedded = false,
+    this.onPage,
   });
   final String source;
   final SubscriptionPost post;
   final int index;
   final bool embedded;
+  final ValueChanged<int>? onPage;
   @override
   State<SubscriptionMediaPage> createState() => _SubscriptionMediaPageState();
 }
@@ -771,27 +787,24 @@ class _SubscriptionMediaPageState extends State<SubscriptionMediaPage> {
               ],
       );
     } else {
-      body = InteractiveViewer(
-        minScale: 0.5,
-        maxScale: 8,
-        child: Center(
-          child: ImageFiltered(
-            imageFilter: ImageFilter.blur(sigmaX: 6, sigmaY: 6),
-            enabled: media.json['blurred'] == true,
-            child: file != null
-                ? Image.file(
-                    file!,
-                    errorBuilder: (_, e, s) => Text(tr('媒体数据无效')),
-                  )
-                : Image(
-                    image: ParkImage.url(widget.source, media.url),
-                    errorBuilder: (_, e, s) => Text(tr('媒体数据无效')),
-                  ),
-          ),
+      body = Center(
+        child: ImageFiltered(
+          imageFilter: ImageFilter.blur(sigmaX: 6, sigmaY: 6),
+          enabled: media.json['blurred'] == true,
+          child: file != null
+              ? Image.file(file!, errorBuilder: (_, e, s) => Text(tr('媒体数据无效')))
+              : Image(
+                  image: ParkImage.url(widget.source, media.url),
+                  errorBuilder: (_, e, s) => Text(tr('媒体数据无效')),
+                ),
         ),
       );
     }
-    if (widget.embedded) return body;
+    if (widget.embedded) {
+      return media.type == 'video'
+          ? body
+          : GalleryZoom(onPage: widget.onPage!, child: body);
+    }
     return Scaffold(
       appBar: AppBar(
         title: widget.post.title.isEmpty
@@ -802,7 +815,9 @@ class _SubscriptionMediaPageState extends State<SubscriptionMediaPage> {
           if (widget.post.title.isNotEmpty) const TranslationControls(),
         ],
       ),
-      body: body,
+      body: media.type == 'video'
+          ? body
+          : InteractiveViewer(minScale: 0.5, maxScale: 8, child: body),
     );
   }
 }

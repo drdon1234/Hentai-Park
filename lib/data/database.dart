@@ -127,7 +127,7 @@ class AppDatabase extends _$AppDatabase {
   factory AppDatabase.memory() => AppDatabase(NativeDatabase.memory());
 
   @override
-  int get schemaVersion => 9;
+  int get schemaVersion => 10;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -153,6 +153,18 @@ class AppDatabase extends _$AppDatabase {
       if (from < 5) await m.createTable(restoreCheckpoints);
       if (from < 6) await createSubscriptionTables(this);
       if (from < 9) await createTavernTables(this);
+      if (from < 10) {
+        await customStatement(
+          '''INSERT OR IGNORE INTO works(source,id,title,json)
+          SELECT 'tavern-session',id,json_extract(data_json,'\$.title'),
+                 json_object('mediaKind','tavern','contentDomain','tavern')
+          FROM tavern_sessions''',
+        );
+        await customStatement(
+          '''INSERT OR IGNORE INTO history(source,work_id,time)
+          SELECT 'tavern-session',id,updated_at FROM tavern_sessions''',
+        );
+      }
     },
     beforeOpen: (details) async {
       await customStatement('PRAGMA foreign_keys = ON');

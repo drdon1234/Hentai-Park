@@ -7,7 +7,6 @@ on:
       - 'assets/tag_translations/**'
       - 'tools/publish_tag_translations.mjs'
       - '.github/workflows/publish-tag-translations.yml'
-  workflow_dispatch:
 
 permissions: {}
 concurrency:

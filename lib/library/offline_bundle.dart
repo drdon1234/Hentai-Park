@@ -14,6 +14,7 @@ import '../engine/media_transport.dart';
 import '../engine/media_transport_factory.dart';
 import '../engine/native_media.dart';
 import '../engine/source_manager.dart';
+import '../images/image_store.dart';
 import '../images/park_image.dart';
 import '../images/subscription_cache.dart';
 import '../subscriptions/models.dart';
@@ -297,16 +298,16 @@ class OfflineBundle {
           entries.any((e) => e['previewOnly'] == true),
     });
     // 首次保存前合并已有文件，中途取消仍保留后续附件的恢复信息。
+    final previousEntries = {
+      for (final entry in previous?.entries ?? <Map<String, dynamic>>[])
+        entry['id']: entry,
+    };
     for (final entry in entries) {
-      final old = previous?.entries
-          .where(
-            (e) =>
-                e['id'] == entry['id'] &&
-                e['type'] == entry['type'] &&
-                e['identity'] == entry['identity'],
-          )
-          .firstOrNull;
-      if (old != null && await previous!.file(old) != null) {
+      final old = previousEntries[entry['id']];
+      if (old != null &&
+          old['type'] == entry['type'] &&
+          old['identity'] == entry['identity'] &&
+          await previous!.file(old) != null) {
         entry.addAll({
           'file': old['file'],
           'size': old['size'],
@@ -329,6 +330,7 @@ class OfflineBundle {
         final stem = safeFileName(id);
         File output;
         String format;
+        ParkImage? networkImage;
         if (asset.media?.needsDownload == true) {
           final cached = await manager.subscriptionMediaFile(
             item.source,
@@ -443,13 +445,14 @@ class OfflineBundle {
             }
           } else {
             format = 'img';
-            data = await ParkImage.url(
+            networkImage = ParkImage.url(
               item.source,
               asset.media!.url,
               headers: (asset.media!.json['headers'] as Map?)?.map(
                 (k, v) => MapEntry(k.toString(), v.toString()),
               ),
-            ).loadBytes(cancelToken: cancelToken);
+            );
+            data = await networkImage.loadBytes(cancelToken: cancelToken);
           }
           if (data.isEmpty) throw SourceError('PARSE', '媒体数据无效');
           output = File(p.join(directory.path, '$stem.$format'));
@@ -475,6 +478,12 @@ class OfflineBundle {
               codec.dispose();
             }
           } catch (_) {
+            if (networkImage != null) {
+              await ImageStore.instance.invalidate(
+                networkImage.identity,
+                partition: item.source,
+              );
+            }
             throw SourceError('PARSE', '图片加载失败');
           }
         } else if (entry['type'] == 'subtitle') {
