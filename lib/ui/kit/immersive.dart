@@ -48,21 +48,24 @@ class _SystemNavBoundaryState extends State<SystemNavBoundary> {
     final theme = Theme.of(context);
     final bottom = mq.viewPadding.bottom;
     final scoped = _ImmersiveScope(depth: _depth, child: widget.child);
-    if (bottom <= 0) return scoped;
+    // Keep the tree shape stable when the system bar inset disappears in
+    // fullscreen. Switching between `scoped` and the wrapper would remount the
+    // page below, disposing the video page and forcing an orientation reset.
     return ValueListenableBuilder<int>(
       valueListenable: _depth,
       child: scoped,
       builder: (context, depth, child) {
         final immersive = depth > 0;
         final inset = immersive ? 0.0 : bottom;
+        final showBarColor = !immersive && bottom > 0;
         return ColoredBox(
-          color: immersive
-              ? Colors.transparent
-              : ParkTheme.navigationColor(theme.colorScheme),
+          color: showBarColor
+              ? ParkTheme.navigationColor(theme.colorScheme)
+              : Colors.transparent,
           child: Padding(
             padding: EdgeInsets.only(bottom: inset),
             child: MediaQuery(
-              data: immersive
+              data: immersive || bottom <= 0
                   ? mq
                   : mq.copyWith(
                       padding: mq.padding.copyWith(bottom: 0),
