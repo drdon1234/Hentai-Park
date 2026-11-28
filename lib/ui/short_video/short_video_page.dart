@@ -12,6 +12,7 @@ import 'package:wakelock_plus/wakelock_plus.dart';
 
 import '../../core/app_lock.dart';
 import '../../core/app_log.dart';
+import '../../core/app_visibility.dart';
 import '../../core/localization.dart';
 import '../../core/models.dart';
 import '../../core/platform_capabilities.dart';
@@ -113,6 +114,7 @@ class _ShortVideoPageState extends State<ShortVideoPage>
   @override
   void initState() {
     super.initState();
+    _foreground = isAppVisible(WidgetsBinding.instance.lifecycleState);
     WidgetsBinding.instance.addObserver(this);
     AppLock.instance.addListener(_sync);
     _playback = ShortVideoPlayback(
@@ -358,10 +360,10 @@ class _ShortVideoPageState extends State<ShortVideoPage>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    _foreground = state == AppLifecycleState.resumed;
-    if (!_foreground) _save();
-    if (_foreground) unawaited(_showSystemBars());
+    _foreground = isAppVisible(state);
     _sync();
+    if (!_foreground) _save();
+    if (state == AppLifecycleState.resumed) unawaited(_showSystemBars());
   }
 
   Future<void> _showSystemBars() {

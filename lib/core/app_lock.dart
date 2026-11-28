@@ -6,6 +6,7 @@ import 'package:local_auth/local_auth.dart';
 
 import '../engine/platform_bridge.dart';
 import 'app_log.dart';
+import 'app_visibility.dart';
 import 'localization.dart';
 import 'settings.dart';
 
@@ -54,7 +55,7 @@ class AppLock extends ChangeNotifier with WidgetsBindingObserver {
       _authenticating = false;
       unawaited(PlatformBridge.setAuthenticating(false));
       final state = WidgetsBinding.instance.lifecycleState;
-      if (state == AppLifecycleState.resumed) {
+      if (state != null && isAppVisible(state)) {
         _checkRelockOnResume();
       }
     }
@@ -107,7 +108,8 @@ class AppLock extends ChangeNotifier with WidgetsBindingObserver {
         // 即使认证弹窗正在展示，真正切入后台也必须记录时间戳，防止取消认证后绕过重锁。
         _backgroundSince ??= DateTime.now();
       case AppLifecycleState.resumed:
-        if (!_authenticating) _checkRelockOnResume();
+      case AppLifecycleState.inactive:
+        if (!_authenticating && isAppVisible(state)) _checkRelockOnResume();
       default:
         break;
     }

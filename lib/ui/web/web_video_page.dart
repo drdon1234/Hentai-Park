@@ -10,6 +10,7 @@ import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../core/app_lock.dart';
+import '../../core/app_visibility.dart';
 import '../../core/localization.dart';
 import '../../core/models.dart';
 import '../../core/settings.dart';
@@ -44,6 +45,20 @@ class WebVideoPage extends StatefulWidget {
 class _WebVideoPageState extends State<WebVideoPage>
     with WidgetsBindingObserver, RouteAware {
   static const _platform = MethodChannel('hentai_park/platform');
+  static const _pauseHiddenMedia = r'''
+    (() => {
+      document.addEventListener('visibilitychange', () => {
+        if (document.hidden) {
+          document.querySelectorAll('video,audio').forEach(media => media.pause());
+        }
+      });
+      document.addEventListener('play', event => {
+        if (document.hidden && event.target instanceof HTMLMediaElement) {
+          event.target.pause();
+        }
+      }, true);
+    })();
+  ''';
   WebPlaybackPolicy? _policy;
   InAppWebViewController? _controller;
   InAppWebViewKeepAlive? _keepAlive;
@@ -367,9 +382,15 @@ class _WebVideoPageState extends State<WebVideoPage>
     if (mounted) setState(() {});
   }
 
+  bool get _shouldPause =>
+      !_visible ||
+      _error != null ||
+      AppLock.instance.locked ||
+      !isAppVisible(WidgetsBinding.instance.lifecycleState);
+
   Future<void> _restoreRoutePlayback(InAppWebViewController controller) async {
     final state = _routePlayback;
-    if (state == null || !_visible || !identical(controller, _controller)) {
+    if (state == null || _shouldPause || !identical(controller, _controller)) {
       return;
     }
     try {
@@ -400,13 +421,9 @@ class _WebVideoPageState extends State<WebVideoPage>
     if (controller == null || !_ready) return;
     _playbackUpdates = _playbackUpdates.then((_) async {
       if (!mounted || !identical(controller, _controller) || !_ready) return;
-      final state = WidgetsBinding.instance.lifecycleState;
-      final paused =
-          !_visible ||
-          _error != null ||
-          AppLock.instance.locked ||
-          (state != null && state != AppLifecycleState.resumed);
+      final paused = _shouldPause;
       await _setPaused(controller, paused);
+      if (!paused && mounted) await _restoreRoutePlayback(controller);
     });
   }
 
@@ -414,8 +431,8 @@ class _WebVideoPageState extends State<WebVideoPage>
     InAppWebViewController controller,
     bool paused,
   ) async {
-    try {
-      if (paused) {
+    if (paused) {
+      try {
         await controller.evaluateJavascript(
           source: '''
           (() => { function pause(w) {
@@ -424,6 +441,10 @@ class _WebVideoPageState extends State<WebVideoPage>
           } pause(window); })();
         ''',
         );
+      } catch (_) {}
+    }
+    try {
+      if (paused) {
         if (Platform.isAndroid) await controller.pause();
         if (Platform.isIOS) {
           await controller.setAllMediaPlaybackSuspended(suspended: true);
@@ -548,6 +569,13 @@ class _WebVideoPageState extends State<WebVideoPage>
                   webViewEnvironment: _environment,
                   // 隔离校验完成后才允许联网。
                   initialUserScripts: UnmodifiableListView([
+                    if (Platform.isAndroid)
+                      UserScript(
+                        source: _pauseHiddenMedia,
+                        injectionTime:
+                            UserScriptInjectionTime.AT_DOCUMENT_START,
+                        forMainFrameOnly: false,
+                      ),
                     if (Platform.isAndroid || Platform.isIOS)
                       UserScript(
                         groupName: _androidProfile,

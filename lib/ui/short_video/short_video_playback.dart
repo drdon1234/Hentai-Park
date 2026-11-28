@@ -217,8 +217,8 @@ class ShortVideoPlayback extends ChangeNotifier {
                   !_wants ||
                   slot.item.uid != _current?.uid ||
                   slot.cancel.isCancelled)) {
-            slot.playing = false;
             await h.pause();
+            slot.playing = false;
           }
         } catch (_) {
           slot.error = SourceError('NETWORK', '短视频播放失败');
