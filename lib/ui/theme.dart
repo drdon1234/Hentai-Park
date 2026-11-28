@@ -602,6 +602,7 @@ class ParkTheme {
   static TextTheme _text(TextTheme base, ColorScheme scheme) {
     TextStyle? cap(TextStyle? style, FontWeight weight) =>
         style?.copyWith(fontWeight: weight);
+    if (ParkText.ios) base = ParkText.appleTracking(base);
     return base
         .copyWith(
           headlineLarge: cap(base.headlineLarge, FontWeight.w500),
@@ -640,8 +641,80 @@ abstract final class ParkText {
     _ => 'SC',
   };
 
-  static bool get _ios =>
-      !kIsWeb && defaultTargetPlatform == TargetPlatform.iOS;
+  static bool get ios => !kIsWeb && defaultTargetPlatform == TargetPlatform.iOS;
+  static bool get _ios => ios;
+
+  /// iOS 系统字体（SF Pro）随字号变化的字距（Apple 人机界面指南），替换 Material 3 的正字距，
+  /// 与原生应用一致；字号之间线性插值。
+  static const _tracking = <(double, double)>[
+    (11, .06),
+    (12, 0),
+    (13, -.08),
+    (14, -.15),
+    (15, -.23),
+    (16, -.31),
+    (17, -.43),
+    (18, -.44),
+    (19, -.45),
+    (20, -.45),
+    (21, -.36),
+    (22, -.26),
+    (24, .07),
+    (26, .22),
+    (28, .38),
+    (30, .40),
+    (32, .41),
+    (34, .40),
+    (36, .37),
+    (40, .37),
+    (48, .35),
+    (56, .33),
+    (64, .30),
+  ];
+
+  static double trackingFor(double size) {
+    if (size <= _tracking.first.$1) return _tracking.first.$2;
+    for (var i = 1; i < _tracking.length; i++) {
+      final (s1, t1) = _tracking[i];
+      if (size <= s1) {
+        final (s0, t0) = _tracking[i - 1];
+        return t0 + (t1 - t0) * (size - s0) / (s1 - s0);
+      }
+    }
+    return _tracking.last.$2;
+  }
+
+  /// 主题文字此时只有颜色与字体，字号来自之后按语言合并的 Material 3 字号几何；
+  /// 这里按同一套字号写入字距，合并时主题的字距优先于几何默认值。
+  static TextTheme appleTracking(TextTheme theme) {
+    final geometry = Typography.englishLike2021;
+    TextStyle? track(TextStyle? style, TextStyle? sized) {
+      final size = style?.fontSize ?? sized?.fontSize;
+      return size == null
+          ? style
+          : (style ?? const TextStyle()).copyWith(
+              letterSpacing: trackingFor(size),
+            );
+    }
+
+    return theme.copyWith(
+      displayLarge: track(theme.displayLarge, geometry.displayLarge),
+      displayMedium: track(theme.displayMedium, geometry.displayMedium),
+      displaySmall: track(theme.displaySmall, geometry.displaySmall),
+      headlineLarge: track(theme.headlineLarge, geometry.headlineLarge),
+      headlineMedium: track(theme.headlineMedium, geometry.headlineMedium),
+      headlineSmall: track(theme.headlineSmall, geometry.headlineSmall),
+      titleLarge: track(theme.titleLarge, geometry.titleLarge),
+      titleMedium: track(theme.titleMedium, geometry.titleMedium),
+      titleSmall: track(theme.titleSmall, geometry.titleSmall),
+      bodyLarge: track(theme.bodyLarge, geometry.bodyLarge),
+      bodyMedium: track(theme.bodyMedium, geometry.bodyMedium),
+      bodySmall: track(theme.bodySmall, geometry.bodySmall),
+      labelLarge: track(theme.labelLarge, geometry.labelLarge),
+      labelMedium: track(theme.labelMedium, geometry.labelMedium),
+      labelSmall: track(theme.labelSmall, geometry.labelSmall),
+    );
+  }
 
   /// iOS 预装的中文无衬线字体（苹方）；日文、韩文沿用各自的系统字体。
   static String? get _iosSans => switch (_script) {
@@ -747,12 +820,16 @@ abstract final class ParkText {
   static TextStyle? serif(TextStyle? style) => style?.copyWith(
     fontFamily: serifFamily,
     fontFamilyFallback: serifFallback,
+    // iOS 的系统字距只适用于 SF Pro；宋体保持字体自身字距。
+    letterSpacing: _ios ? 0 : null,
   );
 
   /// Logs, cookies and checksums.
   static TextStyle? mono(TextStyle? style) => style?.copyWith(
-    fontFamily: 'monospace',
+    // iOS 没有 monospace 通用字体名，使用系统预装的 Menlo。
+    fontFamily: _ios ? 'Menlo' : 'monospace',
     fontFamilyFallback: sansFallback,
+    letterSpacing: _ios ? 0 : null,
   );
 
   /// Novel body text; every value comes from the reader's own settings.
