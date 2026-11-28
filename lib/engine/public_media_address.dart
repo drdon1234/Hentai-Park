@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 
+import '../core/app_log.dart';
 import '../core/models.dart';
 
 /// Reject non-public addresses, including IPv4-mapped IPv6; direct connections use checked IPs.
@@ -69,11 +70,59 @@ bool isPublicMediaAddress(InternetAddress address) {
       !(a == 203 && b == 0 && bytes[2] == 113);
 }
 
+/// 被拒绝地址所属的范围类别，只记录类别、不记录地址本身。
+String _addressRange(InternetAddress address) {
+  final bytes = address.rawAddress;
+  if (bytes.length == 16) {
+    if (bytes.take(10).every((b) => b == 0) &&
+        bytes[10] == 255 &&
+        bytes[11] == 255) {
+      return _addressRange(InternetAddress.fromRawAddress(bytes.sublist(12)));
+    }
+    if (bytes.every((b) => b == 0)) return 'unspecified';
+    if (address.isLoopback) return 'loopback';
+    if ((bytes[0] & 0xfe) == 0xfc) return 'unique_local';
+    if (bytes[0] == 0xfe && (bytes[1] & 0xc0) == 0x80) return 'link_local';
+    if (bytes[0] == 0xff) return 'multicast';
+    return 'reserved';
+  }
+  final a = bytes[0], b = bytes[1];
+  if (a == 0) return 'unspecified';
+  if (a == 127) return 'loopback';
+  if (a == 10 || (a == 172 && b >= 16 && b <= 31) || (a == 192 && b == 168)) {
+    return 'private';
+  }
+  if (a == 100 && b >= 64 && b <= 127) return 'shared';
+  if (a == 169 && b == 254) return 'link_local';
+  if (a >= 224 && a < 240) return 'multicast';
+  return 'reserved';
+}
+
+final _reportedRanges = <String>{};
+
+/// 只连接公网地址。解析结果混有内网或保留地址时（如代理应用在虚拟地址之外
+/// 另给出 IPv6 本地地址），丢弃这些记录并使用其余公网地址；全部不可用才拒绝。
 Future<List<InternetAddress>> publicMediaAddresses(String host) async {
   final addresses = await InternetAddress.lookup(host)
       .timeout(const Duration(seconds: 15));
-  if (addresses.isEmpty ||
-      addresses.any((address) => !isPublicMediaAddress(address))) {
+  return filterPublicMediaAddresses(host, addresses);
+}
+
+List<InternetAddress> filterPublicMediaAddresses(
+  String host,
+  Iterable<InternetAddress> addresses,
+) {
+  final public = <InternetAddress>[];
+  final rejected = <String>{};
+  for (final address in addresses) {
+    if (isPublicMediaAddress(address)) {
+      public.add(address);
+    } else {
+      rejected.add(_addressRange(address));
+    }
+  }
+  final range = (rejected.toList()..sort()).join('+');
+  if (public.isEmpty) {
     throw SourceError(
       'CONFIG',
       '媒体主机解析到了内网或保留地址，已拒绝连接',
@@ -81,10 +130,25 @@ Future<List<InternetAddress>> publicMediaAddresses(String host) async {
         'host': host,
         'transport': 'native',
         'reason': 'PRIVATE_ADDRESS',
+        if (range.isNotEmpty) 'range': range,
       },
     );
   }
-  return addresses;
+  if (range.isNotEmpty && _reportedRanges.add('$host $range')) {
+    if (_reportedRanges.length > 128) {
+      _reportedRanges.remove(_reportedRanges.first);
+    }
+    AppLog.record({
+      'event': 'media',
+      'action': 'resolve',
+      'host': host,
+      'transport': 'native',
+      'reason': 'PRIVATE_ADDRESS',
+      'range': range,
+      'outcome': 'success',
+    });
+  }
+  return public;
 }
 
 /// Connects to checked public media addresses with sequential fallback across
