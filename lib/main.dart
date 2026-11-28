@@ -199,6 +199,8 @@ class ParkApp extends StatelessWidget {
       listenable: settings.watch(AppSettings.appearanceKeys),
       builder: (context, _) {
         final accent = Color(settings.seedColor);
+        // iOS 中文衬线字体按当前语言激活；语言切换后也在这里重新检查。
+        ParkText.activateSystemFonts();
         return MaterialApp(
           navigatorObservers: [Nav.routeObserver],
           title: 'HentaiPark',

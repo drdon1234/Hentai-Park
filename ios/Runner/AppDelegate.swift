@@ -6,6 +6,7 @@ import MediaPlayer
 import BackgroundTasks
 import Network
 import WebKit
+import CoreText
 
 @main
 @objc class AppDelegate: FlutterAppDelegate, FlutterImplicitEngineDelegate {
@@ -284,6 +285,26 @@ private final class ParkPlatform: NSObject {
       }
     case "topBarRegion":
       result(attachTopBarRegion())
+    case "activateSystemFont":
+      // iOS 预装中文字体只有苹方；宋体由系统按需下载（下载后缓存于设备），无需随应用打包。
+      guard let names = call.arguments as? [String], !names.isEmpty else { result(false); return }
+      let descriptors = names.map {
+        CTFontDescriptorCreateWithAttributes([kCTFontNameAttribute: $0] as CFDictionary)
+      } as CFArray
+      var finished = false
+      CTFontDescriptorMatchFontDescriptorsWithProgressHandler(descriptors, nil) { state, _ in
+        switch state {
+        case .didFinish, .didFailWithError:
+          guard !finished else { return true }
+          finished = true
+          let available = names.allSatisfy {
+            CTFontCopyPostScriptName(CTFontCreateWithName($0 as CFString, 12, nil)) as String == $0
+          }
+          DispatchQueue.main.async { result(available) }
+        default: break
+        }
+        return true
+      }
     case "videoLevels":
       installVolumeControl()
       result(["brightness": Double(screen?.brightness ?? 0.5),

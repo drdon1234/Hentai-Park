@@ -24,6 +24,20 @@ class PlatformBridge {
   static final topBarRegion = ValueNotifier<TopBarRegion?>(null);
   static bool _watchingTopBar = false;
 
+  /// 激活系统按需下载的字体（iOS 宋体）；已下载时立即完成。返回全部可用。
+  static Future<bool> activateSystemFont(List<String> postScriptNames) async {
+    if (kIsWeb || !Platform.isIOS) return false;
+    try {
+      return await _channel.invokeMethod<bool>(
+            'activateSystemFont',
+            postScriptNames,
+          ) ??
+          false;
+    } catch (_) {
+      return false;
+    }
+  }
+
   static Future<void> watchTopBarRegion() async {
     if (_watchingTopBar || kIsWeb || !Platform.isIOS) return;
     _watchingTopBar = true;
