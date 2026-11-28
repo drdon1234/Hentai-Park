@@ -138,7 +138,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
               header: true,
               child: Text(
                 title,
-                style: ParkText.serif(context.text.headlineMedium),
+                style: ParkText.display(context.text.headlineMedium),
               ),
             ),
             const SizedBox(height: Gap.m),

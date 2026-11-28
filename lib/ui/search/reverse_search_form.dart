@@ -68,7 +68,7 @@ class ReverseSearchForm extends StatelessWidget {
           header: true,
           child: Text(
             tr('寻找图片出处'),
-            style: ParkText.serif(context.text.headlineSmall),
+            style: ParkText.display(context.text.headlineSmall),
           ),
         ),
         const SizedBox(height: Gap.s),

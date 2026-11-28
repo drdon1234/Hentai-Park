@@ -42,12 +42,21 @@ class _VideoLayoutState extends State<VideoLayout> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [widget.header, widget.details],
       );
+      // 信息区铺到屏幕底边，底部安全区放进滚动内边距。
+      final padding = EdgeInsets.only(
+        bottom: MediaQuery.paddingOf(context).bottom,
+      );
       return PlatformCapabilities.desktop
-          ? SingleChildScrollView(child: Column(children: [stage, below]))
+          ? SingleChildScrollView(
+              padding: padding,
+              child: Column(children: [stage, below]),
+            )
           : Column(
               children: [
                 stage,
-                Expanded(child: SingleChildScrollView(child: below)),
+                Expanded(
+                  child: SingleChildScrollView(padding: padding, child: below),
+                ),
               ],
             );
     },

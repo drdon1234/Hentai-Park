@@ -271,6 +271,7 @@ class _ReverseSearchPageState extends State<ReverseSearchPage> {
     builder: (context, constraints) {
       final wide = constraints.maxWidth >= 840;
       final inset = wide ? Gap.xl : Gap.page;
+      final bottom = inset + MediaQuery.paddingOf(context).bottom;
       final siteResult = _searchController.results[_resultSource];
       final results = siteResult?.matches ?? const <ReverseSearchMatch>[];
       final more = siteResult?.hasMore == true;
@@ -287,7 +288,7 @@ class _ReverseSearchPageState extends State<ReverseSearchPage> {
             SizedBox(
               width: 360,
               child: ListView(
-                padding: EdgeInsets.all(inset),
+                padding: EdgeInsets.all(inset).copyWith(bottom: bottom),
                 children: [_form()],
               ),
             ),
@@ -297,7 +298,12 @@ class _ReverseSearchPageState extends State<ReverseSearchPage> {
             ),
             Expanded(
               child: ListView.builder(
-                padding: EdgeInsetsDirectional.fromSTEB(0, inset, inset, inset),
+                padding: EdgeInsetsDirectional.fromSTEB(
+                  0,
+                  inset,
+                  inset,
+                  bottom,
+                ),
                 itemCount: results.length + 1 + (more ? 1 : 0),
                 itemBuilder: (context, index) => index == 0
                     ? Column(
@@ -313,7 +319,7 @@ class _ReverseSearchPageState extends State<ReverseSearchPage> {
         );
       }
       return ListView.builder(
-        padding: EdgeInsets.all(inset),
+        padding: EdgeInsets.all(inset).copyWith(bottom: bottom),
         itemCount: results.length + 1 + (more ? 1 : 0),
         itemBuilder: (context, index) => index == 0
             ? Column(
@@ -371,8 +377,10 @@ class _ReverseSearchPageState extends State<ReverseSearchPage> {
         body: ImageInputRegion(
           onDrop: _drop,
           onPaste: _paste,
+          // 结果列表铺到屏幕底边，底部安全区放进各列表的滚动内边距。
           child: SafeArea(
             top: false,
+            bottom: false,
             child: LayoutBuilder(
               builder: (context, constraints) => Stack(
                 children: [

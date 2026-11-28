@@ -91,6 +91,7 @@ class Diagnostics {
     final reason = value('reason');
     final transport = value('transport');
     final host = value('host');
+    final range = value('range');
     final type = value('type')?.replaceAll(RegExp(r'[^A-Za-z0-9_]'), '');
     final library = value('library')?.replaceAll(' ', '_');
     final message = value('message');
@@ -156,6 +157,9 @@ class Diagnostics {
         'transport': transport!,
       if (host != null && host.length <= 253 && _host.hasMatch(host))
         'host': host,
+      if (range != null &&
+          RegExp(r'^[a-z_]{1,16}(?:\+[a-z_]{1,16}){0,5}$').hasMatch(range))
+        'range': range,
       if (type != null && type.isNotEmpty && type.length <= 64) 'type': type,
       if (library != null && _name.hasMatch(library)) 'library': library,
       if (exitStatus != null && exitStatus >= 0 && exitStatus <= 255)

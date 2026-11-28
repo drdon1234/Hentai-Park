@@ -55,7 +55,7 @@ class RecentHistory extends StatelessWidget {
           children: [
             SectionHeader(
               tr('继续看'),
-              titleStyle: ParkText.serif(
+              titleStyle: ParkText.display(
                 context.text.headlineSmall?.copyWith(
                   fontWeight: FontWeight.w600,
                 ),
@@ -85,7 +85,7 @@ class RecentHistory extends StatelessWidget {
               child: PageGutter(
                 child: ListView.separated(
                   scrollDirection: Axis.horizontal,
-                  padding: EdgeInsets.zero,
+                  padding: PageGutter.scrollPadding(context),
                   itemCount: recent.length,
                   separatorBuilder: (_, _) => const SizedBox(width: Gap.m),
                   itemBuilder: (context, index) => SizedBox(
@@ -142,7 +142,7 @@ class _ContinueCard extends StatelessWidget {
     return Gap.s * 2 +
         textHeight(
           entry.item.title,
-          ParkText.serif(
+          ParkText.display(
             context.text.titleSmall?.copyWith(fontWeight: FontWeight.w600),
           ),
           maxLines: 2,
@@ -195,7 +195,7 @@ class _ContinueCard extends StatelessWidget {
                       item.title,
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
-                      style: ParkText.serif(
+                      style: ParkText.display(
                         context.text.titleSmall?.copyWith(
                           fontWeight: FontWeight.w600,
                         ),

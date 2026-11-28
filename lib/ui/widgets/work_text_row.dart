@@ -35,7 +35,7 @@ class WorkTextRow extends StatelessWidget {
                 source: item.source,
                 builder: (text) => Text(
                   workDisplayTitle(item, text),
-                  style: ParkText.serif(context.text.titleMedium),
+                  style: ParkText.display(context.text.titleMedium),
                 ),
               ),
               if (item.authors.isNotEmpty) ...[

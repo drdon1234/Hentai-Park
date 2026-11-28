@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/localization.dart';
 import '../../core/models.dart';
+import '../kit/components.dart';
 import '../kit/selection_menu.dart';
 import '../kit/tokens.dart';
 import '../theme.dart';
@@ -118,6 +119,10 @@ class OptionBar extends StatelessWidget {
               )
             else if (o.type == 'select' || o.type == 'multi')
               _OptionRow(
+                margin: EdgeInsets.only(
+                  left: padding.left,
+                  right: padding.right,
+                ),
                 option: o,
                 values: values,
                 onChanged: onChanged,
@@ -138,6 +143,7 @@ class OptionBar extends StatelessWidget {
 /// down a long category list is still visible when the page opens.
 class _OptionRow extends StatefulWidget {
   const _OptionRow({
+    required this.margin,
     required this.option,
     required this.values,
     required this.onChanged,
@@ -148,6 +154,9 @@ class _OptionRow extends StatefulWidget {
     required this.error,
     required this.onRetry,
   });
+
+  /// 外层已加的页面留白；横滑行向外抵消，内容可滑入留白。
+  final EdgeInsets margin;
   final OptionDef option;
   final Map<String, Object?> values;
   final ValueChanged<Map<String, Object?>> onChanged;
@@ -224,31 +233,38 @@ class _OptionRowState extends State<_OptionRow> {
         (labelStyle?.height ?? 1.4);
     return SizedBox(
       height: (labelHeight + Gap.l).clamp(48.0, double.infinity),
-      child: ListView(
-        scrollDirection: Axis.horizontal,
-        children: [
-          if (widget.showLabel)
-            Center(
-              child: Padding(
-                padding: const EdgeInsets.only(left: 4, right: 10),
-                child: Text(
-                  o.label,
-                  style: context.text.labelLarge?.copyWith(
-                    color: context.colors.onSurfaceVariant,
+      child: PageGutter(
+        parentMargin: widget.margin,
+        child: ListView(
+          scrollDirection: Axis.horizontal,
+          padding: PageGutter.scrollPadding(
+            context,
+            parentMargin: widget.margin,
+          ),
+          children: [
+            if (widget.showLabel)
+              Center(
+                child: Padding(
+                  padding: const EdgeInsets.only(left: 4, right: 10),
+                  child: Text(
+                    o.label,
+                    style: context.text.labelLarge?.copyWith(
+                      color: context.colors.onSurfaceVariant,
+                    ),
                   ),
                 ),
               ),
-            ),
-          for (final choice in widget.choices)
-            Padding(
-              // Only the first selected chip needs a key to scroll to.
-              key: !keyed && _isSelected(choice) && (keyed = true)
-                  ? _selectedKey
-                  : null,
-              padding: const EdgeInsets.only(right: 6),
-              child: Center(child: _chip(context, o, choice)),
-            ),
-        ],
+            for (final choice in widget.choices)
+              Padding(
+                // Only the first selected chip needs a key to scroll to.
+                key: !keyed && _isSelected(choice) && (keyed = true)
+                    ? _selectedKey
+                    : null,
+                padding: const EdgeInsets.only(right: 6),
+                child: Center(child: _chip(context, o, choice)),
+              ),
+          ],
+        ),
       ),
     );
   }

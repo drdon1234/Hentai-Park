@@ -11,10 +11,57 @@ import '../core/localization.dart';
 import '../core/settings.dart';
 import 'native_notifications.dart';
 
+/// 顶部栏布局区域：距顶、左右让位与栏高。
+typedef TopBarRegion = ({double top, double left, double right, double height});
+
 /// 移动平台原生能力；平台限制由实际实现和能力声明决定。
 class PlatformBridge {
   static const _channel = MethodChannel('hentai_park/platform');
   static Future<bool> Function()? refreshSubscriptions;
+
+  /// iOS 顶部栏布局区域（逻辑像素）：状态区只占一角时（iPhone Duo 内屏）导航栏可与之同排；
+  /// 常规设备为 null，按安全区布局。
+  static final topBarRegion = ValueNotifier<TopBarRegion?>(null);
+  static bool _watchingTopBar = false;
+
+  /// 激活系统按需下载的字体（iOS 宋体）；已下载时立即完成。返回全部可用。
+  static Future<bool> activateSystemFont(List<String> postScriptNames) async {
+    if (kIsWeb || !Platform.isIOS) return false;
+    try {
+      return await _channel.invokeMethod<bool>(
+            'activateSystemFont',
+            postScriptNames,
+          ) ??
+          false;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  static Future<void> watchTopBarRegion() async {
+    if (_watchingTopBar || kIsWeb || !Platform.isIOS) return;
+    _watchingTopBar = true;
+    _listen();
+    try {
+      _setTopBarRegion(await _channel.invokeMethod<Object?>('topBarRegion'));
+    } catch (_) {}
+  }
+
+  static void _setTopBarRegion(Object? value) {
+    if (value is! Map) {
+      topBarRegion.value = null;
+      return;
+    }
+    double read(String key) => (value[key] as num?)?.toDouble() ?? 0;
+    final region = (
+      top: read('top'),
+      left: read('left'),
+      right: read('right'),
+      height: read('height'),
+    );
+    topBarRegion.value = region.height > 0 ? region : null;
+  }
+
   static void Function()? cancelSubscriptionRefresh;
 
   static Future<bool> startVoicePlayback(String id) async {
@@ -234,6 +281,8 @@ class PlatformBridge {
           _volume.add(call.arguments as int);
         case 'notificationTap':
           _taps.add(call.arguments.toString());
+        case 'topBarRegion':
+          _setTopBarRegion(call.arguments);
         case 'mediaVolume':
           _mediaVolume.add((call.arguments as num).toDouble().clamp(0.0, 1.0));
         case 'voiceControl':

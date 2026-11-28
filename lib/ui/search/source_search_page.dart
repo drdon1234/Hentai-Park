@@ -744,7 +744,8 @@ class _ActiveFilters extends StatelessWidget {
     return PageGutter(
       child: SingleChildScrollView(
         scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(vertical: Gap.s),
+        padding: PageGutter.scrollPadding(context)
+            .add(const EdgeInsets.symmetric(vertical: Gap.s)),
         child: Row(
           children: [
             for (final c in chips)

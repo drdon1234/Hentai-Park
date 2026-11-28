@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../core/platform_capabilities.dart';
 import '../theme.dart';
@@ -27,6 +28,22 @@ class PlatformNavigation extends StatelessWidget {
 
   static bool usesSidebar(BuildContext context) =>
       PlatformCapabilities.desktop || expandedSidebar(context);
+
+  /// 一侧安全区明显宽于另一侧时（如可折叠 iPhone 外屏右侧、内屏横屏右侧的状态区），导航移入该侧；
+  /// 返回导航所在一侧的宽度，另一侧为零。优先于宽屏侧边栏，避免状态区空置而另一侧再占一列。
+  /// 两侧对称（横屏刘海）或桌面端返回零。
+  static EdgeInsets insetRail(BuildContext context) {
+    if (PlatformCapabilities.desktop) return EdgeInsets.zero;
+    final padding = MediaQuery.paddingOf(context);
+    const minimum = 64.0, asymmetry = 40.0;
+    if (padding.right >= minimum && padding.right - padding.left >= asymmetry) {
+      return EdgeInsets.only(right: padding.right);
+    }
+    if (padding.left >= minimum && padding.left - padding.right >= asymmetry) {
+      return EdgeInsets.only(left: padding.left);
+    }
+    return EdgeInsets.zero;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -124,6 +141,122 @@ class PlatformNavigation extends StatelessWidget {
       onDestinationSelected: onSelected,
       labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
       destinations: destinations,
+    );
+  }
+}
+
+/// 放在侧边安全区里的悬浮胶囊导航，尺寸对齐 iPhone Duo 外屏系统侧边标签栏：
+/// 仅图标、48pt 宽、每项 52pt 高，外侧与底边各距屏幕 24pt。
+/// 胶囊之外的区域保持透明且不拦截触摸，从其下方滑过的横向内容清晰可见。
+class InsetNavigationRail extends StatelessWidget {
+  const InsetNavigationRail({
+    super.key,
+    required this.destinations,
+    required this.selectedIndex,
+    required this.onSelected,
+    required this.trailing,
+  });
+
+  final List<NavigationDestination> destinations;
+  final int selectedIndex;
+  final ValueChanged<int> onSelected;
+
+  /// 导航位于右侧安全区；否则位于左侧。
+  final bool trailing;
+
+  static const _inset = 2.0;
+  static const _edge = 24.0;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    return Align(
+      alignment: trailing ? Alignment.bottomRight : Alignment.bottomLeft,
+      child: Padding(
+        padding: EdgeInsets.only(
+          left: trailing ? 0 : _edge,
+          right: trailing ? _edge : 0,
+          bottom: _edge,
+        ),
+        child: Material(
+          color: ParkTheme.navigationColor(c),
+          elevation: 3,
+          shadowColor: c.shadow,
+          shape: StadiumBorder(
+            side: BorderSide(color: c.outlineVariant, width: .5),
+          ),
+          clipBehavior: Clip.antiAlias,
+          child: Padding(
+            padding: const EdgeInsets.all(_inset),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                for (var i = 0; i < destinations.length; i++)
+                  _InsetRailItem(
+                    destination: destinations[i],
+                    selected: i == selectedIndex,
+                    onTap: () {
+                      if (i != selectedIndex) HapticFeedback.selectionClick();
+                      onSelected(i);
+                    },
+                  ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _InsetRailItem extends StatelessWidget {
+  const _InsetRailItem({
+    required this.destination,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final NavigationDestination destination;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    final label = destination.tooltip ?? destination.label;
+    // 外屏不显示文字，长按提示与读屏仍给出名称。
+    return Tooltip(
+      message: label,
+      child: Semantics(
+        selected: selected,
+        button: true,
+        label: label,
+        excludeSemantics: true,
+        child: InkWell(
+          customBorder: const StadiumBorder(),
+          onTap: onTap,
+          child: AnimatedContainer(
+            duration: Motion.of(context, Motion.short),
+            width: 44,
+            height: 52,
+            decoration: ShapeDecoration(
+              color: selected ? c.secondaryContainer : Colors.transparent,
+              shape: const StadiumBorder(),
+            ),
+            child: IconTheme.merge(
+              data: IconThemeData(
+                size: 24,
+                color: selected ? c.onSecondaryContainer : c.onSurfaceVariant,
+              ),
+              child: Center(
+                child: selected
+                    ? destination.selectedIcon ?? destination.icon
+                    : destination.icon,
+              ),
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

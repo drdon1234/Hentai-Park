@@ -283,7 +283,7 @@ class _CoverTileState extends State<CoverTile> {
                           workDisplayTitle(item, value),
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
-                          style: ParkText.serif(
+                          style: ParkText.display(
                             context.text.bodySmall?.copyWith(
                               fontWeight: FontWeight.w500,
                               height: 1.3,
@@ -630,16 +630,19 @@ double cardTextExtent(
     return height;
   }
 
-  final title = ParkText.serif(
+  final title = ParkText.display(
     context.text.bodySmall?.copyWith(fontWeight: FontWeight.w500, height: 1.3),
   );
   final metadataStyle = context.text.labelSmall?.copyWith(
     fontWeight: FontWeight.w400,
   );
-  var metadataHeight = lineHeight(metadataStyle);
+  // 已知全部作品时只为实际有摘要的作品预留高度；全部为空则不留空行（CoverTile 不绘制空摘要）。
+  final measured = width != null && items.isNotEmpty;
+  var metadataHeight = measured ? 0.0 : lineHeight(metadataStyle);
   if (width != null) {
     for (final item in items) {
       final text = workMetadata(item, showSource: showSource).join(' · ');
+      if (text.isEmpty) continue;
       final key = (
         text,
         metadataStyle,

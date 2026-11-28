@@ -58,7 +58,7 @@ class FeedArticleTile extends StatelessWidget {
                       source: item.source,
                       builder: (text) => Text(
                         text,
-                        style: ParkText.serif(context.text.titleMedium),
+                        style: ParkText.display(context.text.titleMedium),
                       ),
                     ),
                     if (metadata.isNotEmpty) ...[
@@ -251,15 +251,19 @@ class _FeedArticlePageState extends State<FeedArticlePage> {
               source: widget.item.source,
               onRetry: _load,
             )
+          // 正文铺到屏幕底边，底部安全区放进滚动内边距。
           : SafeArea(
               top: false,
+              bottom: false,
               child: TranslationSelectionArea(
                 child: Align(
                   alignment: Alignment.topCenter,
                   child: ConstrainedBox(
                     constraints: const BoxConstraints(maxWidth: 760),
                     child: ListView.builder(
-                      padding: const EdgeInsets.all(Gap.page),
+                      padding: const EdgeInsets.all(Gap.page).copyWith(
+                        bottom: Gap.page + MediaQuery.paddingOf(context).bottom,
+                      ),
                       itemCount: 1 + blocks.length + (tagLinks.isEmpty ? 0 : 1),
                       itemBuilder: (context, position) {
                         if (position == 0) {
@@ -271,7 +275,7 @@ class _FeedArticlePageState extends State<FeedArticlePage> {
                                 source: widget.item.source,
                                 builder: (text) => Text(
                                   text,
-                                  style: ParkText.serif(
+                                  style: ParkText.display(
                                     context.text.headlineSmall,
                                   ),
                                 ),

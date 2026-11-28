@@ -292,7 +292,7 @@ class _TargetResultsState extends State<_TargetResults> {
             child: PageGutter(
               child: ListView.separated(
                 scrollDirection: Axis.horizontal,
-                padding: EdgeInsets.zero,
+                padding: PageGutter.scrollPadding(context),
                 itemCount: items.length,
                 separatorBuilder: (_, _) => const SizedBox(width: 10),
                 itemBuilder: (context, i) => SizedBox(

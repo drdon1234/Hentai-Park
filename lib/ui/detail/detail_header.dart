@@ -355,7 +355,7 @@ class _DetailHeaderState extends State<DetailHeader> {
             child: Text(
               value,
               softWrap: true,
-              style: ParkText.serif(
+              style: ParkText.display(
                 large ? context.text.headlineSmall : context.text.titleLarge,
               )?.copyWith(fontWeight: FontWeight.w600, height: 1.3),
             ),

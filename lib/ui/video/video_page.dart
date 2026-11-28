@@ -862,7 +862,8 @@ class _VideoPageState extends State<VideoPage>
           backgroundColor: Colors.black,
           body: AnnotatedRegion<SystemUiOverlayStyle>(
             value: ParkTheme.overlayStyle(Brightness.dark),
-            child: SafeArea(top: false, child: Center(child: player)),
+            // 画面铺满屏幕；顶栏与底栏控制层各自避让安全区。
+            child: Center(child: player),
           ),
         ),
       );
@@ -880,6 +881,7 @@ class _VideoPageState extends State<VideoPage>
         ],
       ),
       body: SafeArea(
+        bottom: false,
         child: VideoLayout(
           player: player,
           header: VideoDetails(

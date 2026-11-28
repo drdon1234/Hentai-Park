@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 
 import '../core/localization.dart';
 import '../core/platform_capabilities.dart';
+import '../engine/platform_bridge.dart';
 import 'kit/tokens.dart';
 
 /// 桌面只对进入的页面做短淡入，避免移动整张工作区。
@@ -596,11 +597,12 @@ class ParkTheme {
             : BorderSide.none,
       );
 
-  /// Material 3 type scale with weights capped at 600. Titles stay sans; [ParkText.serif]
-  /// is applied where the design calls for a reading voice.
+  /// Material 3 type scale with weights capped at 600. [ParkText.display] marks titles
+  /// that need to stand out.
   static TextTheme _text(TextTheme base, ColorScheme scheme) {
     TextStyle? cap(TextStyle? style, FontWeight weight) =>
         style?.copyWith(fontWeight: weight);
+    if (ParkText.ios) base = ParkText.appleTracking(base);
     return base
         .copyWith(
           headlineLarge: cap(base.headlineLarge, FontWeight.w500),
@@ -639,8 +641,125 @@ abstract final class ParkText {
     _ => 'SC',
   };
 
+  static bool get ios => !kIsWeb && defaultTargetPlatform == TargetPlatform.iOS;
+  static bool get _ios => ios;
+
+  /// iOS 系统字体（SF Pro）随字号变化的字距（Apple 人机界面指南），替换 Material 3 的正字距，
+  /// 与原生应用一致；字号之间线性插值。
+  static const _tracking = <(double, double)>[
+    (11, .06),
+    (12, 0),
+    (13, -.08),
+    (14, -.15),
+    (15, -.23),
+    (16, -.31),
+    (17, -.43),
+    (18, -.44),
+    (19, -.45),
+    (20, -.45),
+    (21, -.36),
+    (22, -.26),
+    (24, .07),
+    (26, .22),
+    (28, .38),
+    (30, .40),
+    (32, .41),
+    (34, .40),
+    (36, .37),
+    (40, .37),
+    (48, .35),
+    (56, .33),
+    (64, .30),
+  ];
+
+  static double trackingFor(double size) {
+    if (size <= _tracking.first.$1) return _tracking.first.$2;
+    for (var i = 1; i < _tracking.length; i++) {
+      final (s1, t1) = _tracking[i];
+      if (size <= s1) {
+        final (s0, t0) = _tracking[i - 1];
+        return t0 + (t1 - t0) * (size - s0) / (s1 - s0);
+      }
+    }
+    return _tracking.last.$2;
+  }
+
+  /// 主题文字此时只有颜色与字体，字号来自之后按语言合并的 Material 3 字号几何；
+  /// 这里按同一套字号写入字距，合并时主题的字距优先于几何默认值。
+  static TextTheme appleTracking(TextTheme theme) {
+    final geometry = Typography.englishLike2021;
+    TextStyle? track(TextStyle? style, TextStyle? sized) {
+      final size = style?.fontSize ?? sized?.fontSize;
+      return size == null
+          ? style
+          : (style ?? const TextStyle()).copyWith(
+              letterSpacing: trackingFor(size),
+            );
+    }
+
+    return theme.copyWith(
+      displayLarge: track(theme.displayLarge, geometry.displayLarge),
+      displayMedium: track(theme.displayMedium, geometry.displayMedium),
+      displaySmall: track(theme.displaySmall, geometry.displaySmall),
+      headlineLarge: track(theme.headlineLarge, geometry.headlineLarge),
+      headlineMedium: track(theme.headlineMedium, geometry.headlineMedium),
+      headlineSmall: track(theme.headlineSmall, geometry.headlineSmall),
+      titleLarge: track(theme.titleLarge, geometry.titleLarge),
+      titleMedium: track(theme.titleMedium, geometry.titleMedium),
+      titleSmall: track(theme.titleSmall, geometry.titleSmall),
+      bodyLarge: track(theme.bodyLarge, geometry.bodyLarge),
+      bodyMedium: track(theme.bodyMedium, geometry.bodyMedium),
+      bodySmall: track(theme.bodySmall, geometry.bodySmall),
+      labelLarge: track(theme.labelLarge, geometry.labelLarge),
+      labelMedium: track(theme.labelMedium, geometry.labelMedium),
+      labelSmall: track(theme.labelSmall, geometry.labelSmall),
+    );
+  }
+
+  /// iOS 预装的中文无衬线字体（苹方）；日文、韩文沿用各自的系统字体。
+  static String? get _iosSans => switch (_script) {
+    'SC' => 'PingFang SC',
+    'TC' => 'PingFang TC',
+    _ => null,
+  };
+
+  /// iOS 中文衬线字体（宋体）的 PostScript 名，由系统按需下载；
+  /// 日文明朝体预装，韩文沿用原有回退。
+  static List<String> get _iosSerifFaces => switch (_script) {
+    'SC' => const ['STSongti-SC-Regular', 'STSongti-SC-Bold'],
+    'TC' => const ['STSongti-TC-Regular', 'STSongti-TC-Bold'],
+    _ => const [],
+  };
+
+  /// 已激活宋体的书写系统（仅小说正文的衬线选项使用）；未激活前中文衬线整体使用苹方，不与日文明朝体逐字混排。
+  static final _activeSerif = ValueNotifier<String?>(null);
+
+  /// 按当前界面语言激活 iOS 中文宋体；已下载时立即完成，首次使用时下载后整体切换。
+  static bool _watchingLocale = false;
+
+  static Future<void> activateSystemFonts() async {
+    if (!_ios) return;
+    if (!_watchingLocale) {
+      _watchingLocale = true;
+      AppLocalizations.instance.addListener(activateSystemFonts);
+    }
+    final script = _script;
+    final faces = _iosSerifFaces;
+    if (faces.isEmpty || _activeSerif.value == script) return;
+    if (!await PlatformBridge.activateSystemFont(faces)) return;
+    if (_script != script) return;
+    _activeSerif.value = script;
+    // 衬线样式在各处构建时读取，字体就绪后整树重建一次以换用新字体（不重建状态）。
+    void rebuild(Element element) {
+      element.markNeedsBuild();
+      element.visitChildren(rebuild);
+    }
+
+    WidgetsBinding.instance.rootElement?.visitChildren(rebuild);
+  }
+
   /// 直接选择具有 CJK 字形的字体，避免拉丁字体逐字回退造成笔画混杂。
-  /// 手机保留平台原有选择。
+  /// Android 保留平台原有选择。
   static String? get sansFamily => !PlatformCapabilities.desktop
       ? null
       : switch (_script) {
@@ -651,7 +770,7 @@ abstract final class ParkText {
         };
 
   static List<String>? get sansFallback => !PlatformCapabilities.desktop
-      ? null
+      ? (_ios && _iosSans != null ? [_iosSans!] : null)
       : [
           'Noto Sans CJK $_script',
           'Noto Sans $_script',
@@ -660,7 +779,11 @@ abstract final class ParkText {
           'sans-serif',
         ];
 
-  static String get serifFamily => !PlatformCapabilities.desktop
+  static String get serifFamily => _ios && _iosSans != null
+      ? (_activeSerif.value == _script
+            ? (_script == 'TC' ? 'Songti TC' : 'Songti SC')
+            : _iosSans!)
+      : !PlatformCapabilities.desktop
       ? 'serif'
       : switch (_script) {
           'JP' => 'Yu Mincho',
@@ -669,38 +792,49 @@ abstract final class ParkText {
           _ => 'SimSun',
         };
 
-  static List<String> get serifFallback => [
-    'Noto Serif CJK $_script',
-    'Noto Serif $_script',
-    if (PlatformCapabilities.desktop) 'SimSun',
-    switch (_script) {
-      'JP' => 'Hiragino Mincho ProN',
-      'KR' => 'AppleMyungjo',
-      'TC' => 'Songti TC',
-      _ => 'Songti SC',
-    },
-    'Songti SC',
-    'Songti TC',
-    'STSong',
-    'Hiragino Mincho ProN',
-    'AppleMyungjo',
-    'Noto Serif CJK SC',
-    'Noto Serif CJK TC',
-    'Noto Serif CJK JP',
-    'Noto Serif CJK KR',
-    'Source Han Serif',
-    'serif',
-  ];
+  static List<String> get serifFallback => _ios && _iosSans != null
+      ? [_iosSans!]
+      : [
+          'Noto Serif CJK $_script',
+          'Noto Serif $_script',
+          if (PlatformCapabilities.desktop) 'SimSun',
+          switch (_script) {
+            'JP' => 'Hiragino Mincho ProN',
+            'KR' => 'AppleMyungjo',
+            'TC' => 'Songti TC',
+            _ => 'Songti SC',
+          },
+          'Songti SC',
+          'Songti TC',
+          'STSong',
+          'Hiragino Mincho ProN',
+          'AppleMyungjo',
+          'Noto Serif CJK SC',
+          'Noto Serif CJK TC',
+          'Noto Serif CJK JP',
+          'Noto Serif CJK KR',
+          'Source Han Serif',
+          'serif',
+        ];
 
-  static TextStyle? serif(TextStyle? style) => style?.copyWith(
-    fontFamily: serifFamily,
-    fontFamilyFallback: serifFallback,
-  );
+  /// 标题、作品名等需要醒目的文字：使用系统无衬线字体，标题级字号（≥ 20）至少 600 字重。
+  static TextStyle? display(TextStyle? style) {
+    if (style == null) return null;
+    final weight = style.fontWeight ?? FontWeight.w400;
+    final size = style.fontSize ?? 14;
+    return style.copyWith(
+      fontFamily: sansFamily,
+      fontFamilyFallback: sansFallback,
+      fontWeight: size >= 20 && weight.value < 600 ? FontWeight.w600 : weight,
+    );
+  }
 
   /// Logs, cookies and checksums.
   static TextStyle? mono(TextStyle? style) => style?.copyWith(
-    fontFamily: 'monospace',
+    // iOS 没有 monospace 通用字体名，使用系统预装的 Menlo。
+    fontFamily: _ios ? 'Menlo' : 'monospace',
     fontFamilyFallback: sansFallback,
+    letterSpacing: _ios ? 0 : null,
   );
 
   /// Novel body text; every value comes from the reader's own settings.

@@ -6,6 +6,7 @@ import MediaPlayer
 import BackgroundTasks
 import Network
 import WebKit
+import CoreText
 
 @main
 @objc class AppDelegate: FlutterAppDelegate, FlutterImplicitEngineDelegate {
@@ -35,7 +36,8 @@ import WebKit
   func didInitializeImplicitFlutterEngine(_ engineBridge: FlutterImplicitEngineBridge) {
     GeneratedPluginRegistrant.register(with: engineBridge.pluginRegistry)
     let registrar = engineBridge.pluginRegistry.registrar(forPlugin: "ParkPlatform")!
-    platform = ParkPlatform(messenger: registrar.messenger(), delegate: self)
+    platform = ParkPlatform(messenger: registrar.messenger(), delegate: self,
+                            viewController: { registrar.viewController })
   }
 
   func scheduleSubscriptions(_ hours: Int) throws {
@@ -92,7 +94,8 @@ import WebKit
       return
     }
     GeneratedPluginRegistrant.register(with: engine)
-    workerPlatform = ParkPlatform(messenger: engine.binaryMessenger, delegate: self)
+    workerPlatform = ParkPlatform(messenger: engine.binaryMessenger, delegate: self,
+                                  viewController: { [weak engine] in engine?.viewController })
     // 同一主线程内完成注册，Dart 首次平台消息随后处理。
     let channel = FlutterMethodChannel(name: "hentai_park/subscription_background",
                                        binaryMessenger: engine.binaryMessenger)
@@ -138,6 +141,9 @@ private final class ParkPlatform: NSObject {
   private let channel: FlutterMethodChannel
   private let downloads: FlutterMethodChannel
   private weak var delegate: AppDelegate?
+  private let viewController: () -> UIViewController?
+  /// Flutter 视图所在窗口场景的屏幕；可折叠设备与多显示器下随窗口变化。
+  private var screen: UIScreen? { viewController()?.viewIfLoaded?.window?.windowScene?.screen }
   private var backgroundTask: UIBackgroundTaskIdentifier = .invalid
   private var activeDownloads = 0
   private var originalBrightness: CGFloat?
@@ -152,11 +158,14 @@ private final class ParkPlatform: NSObject {
     return view
   }()
   private var volumeObserver: NSKeyValueObservation?
+  private var topBarView: TopBarRegionView?
   private var voiceID: String?
   private var remoteTargets: [(MPRemoteCommand, Any)] = []
 
-  init(messenger: FlutterBinaryMessenger, delegate: AppDelegate) {
+  init(messenger: FlutterBinaryMessenger, delegate: AppDelegate,
+       viewController: @escaping () -> UIViewController?) {
     self.delegate = delegate
+    self.viewController = viewController
     channel = FlutterMethodChannel(name: "hentai_park/platform", binaryMessenger: messenger)
     downloads = FlutterMethodChannel(name: "hentai_park/downloads", binaryMessenger: messenger)
     super.init()
@@ -186,7 +195,7 @@ private final class ParkPlatform: NSObject {
     NotificationCenter.default.removeObserver(self)
     remoteTargets.forEach { $0.0.removeTarget($0.1) }
     volumeView.removeFromSuperview()
-    if let brightness = originalBrightness { UIScreen.main.brightness = brightness }
+    if let brightness = originalBrightness { screen?.brightness = brightness }
     if backgroundTask != .invalid { UIApplication.shared.endBackgroundTask(backgroundTask) }
   }
 
@@ -274,19 +283,42 @@ private final class ParkPlatform: NSObject {
       } else {
         result(false)
       }
+    case "topBarRegion":
+      result(attachTopBarRegion())
+    case "activateSystemFont":
+      // iOS 预装中文字体只有苹方；宋体由系统按需下载（下载后缓存于设备），无需随应用打包。
+      guard let names = call.arguments as? [String], !names.isEmpty else { result(false); return }
+      let descriptors = names.map {
+        CTFontDescriptorCreateWithAttributes([kCTFontNameAttribute: $0] as CFDictionary)
+      } as CFArray
+      var finished = false
+      CTFontDescriptorMatchFontDescriptorsWithProgressHandler(descriptors, nil) { state, _ in
+        switch state {
+        case .didFinish, .didFailWithError:
+          guard !finished else { return true }
+          finished = true
+          let available = names.allSatisfy {
+            CTFontCopyPostScriptName(CTFontCreateWithName($0 as CFString, 12, nil)) as String == $0
+          }
+          DispatchQueue.main.async { result(available) }
+        default: break
+        }
+        return true
+      }
     case "videoLevels":
       installVolumeControl()
-      result(["brightness": Double(UIScreen.main.brightness),
+      result(["brightness": Double(screen?.brightness ?? 0.5),
               "volume": Double(AVAudioSession.sharedInstance().outputVolume)])
     case "setVideoBrightness":
-      if originalBrightness == nil { originalBrightness = UIScreen.main.brightness }
+      let currentScreen = screen
+      if originalBrightness == nil { originalBrightness = currentScreen?.brightness }
       let target = CGFloat(min(1, max(0, (call.arguments as? NSNumber)?.doubleValue ?? 0.5)))
       sessionBrightness = target
-      UIScreen.main.brightness = target
+      currentScreen?.brightness = target
       result(nil)
     case "resetVideoBrightness":
       sessionBrightness = nil
-      if let value = originalBrightness { UIScreen.main.brightness = value }
+      if let value = originalBrightness { screen?.brightness = value }
       originalBrightness = nil
       result(nil)
     case "setVideoVolume":
@@ -333,6 +365,21 @@ private final class ParkPlatform: NSObject {
     }
   }
 
+  /// 首次查询时挂上观察视图，之后布局变化（折叠、旋转、分屏）主动推送。
+  private func attachTopBarRegion() -> [String: Double]? {
+    if topBarView == nil, let view = viewController()?.viewIfLoaded {
+      let observer = TopBarRegionView(frame: view.bounds)
+      observer.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+      observer.isUserInteractionEnabled = false
+      observer.onChange = { [weak self] region in
+        self?.channel.invokeMethod("topBarRegion", arguments: region)
+      }
+      view.addSubview(observer)
+      topBarView = observer
+    }
+    return topBarView?.region
+  }
+
   private func installVolumeControl() {
     if volumeView.superview == nil {
       let scene = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first
@@ -373,14 +420,14 @@ private final class ParkPlatform: NSObject {
 
   @objc private func willResignActive() {
     if sessionBrightness != nil, let original = originalBrightness {
-      UIScreen.main.brightness = original
+      screen?.brightness = original
     }
   }
 
   @objc private func didBecomeActive() {
-    if let target = sessionBrightness {
-      originalBrightness = UIScreen.main.brightness
-      UIScreen.main.brightness = target
+    if let target = sessionBrightness, let currentScreen = screen {
+      originalBrightness = currentScreen.brightness
+      currentScreen.brightness = target
     }
   }
 
@@ -397,5 +444,48 @@ private final class ParkPlatform: NSObject {
     guard backgroundTask != .invalid else { return }
     UIApplication.shared.endBackgroundTask(backgroundTask)
     backgroundTask = .invalid
+  }
+}
+
+/// 系统给顶部栏的布局区域（UIKit bar layout region）。iPhone Duo 内屏状态区只占右上角时，
+/// 该区域比常规安全区更靠上并在右侧让出状态区，导航栏可与状态区同排；其余设备与安全区一致，返回 nil。
+private final class TopBarRegionView: UIView {
+  var onChange: (([String: Double]?) -> Void)?
+  private var reported = false
+  private var last: [String: Double]?
+
+  var region: [String: Double]? {
+    guard bounds.height > 0, #available(iOS 27.1, *) else { return nil }
+    let bar: UIEdgeInsets
+    if #available(iOS 27.2, *) {
+      bar = edgeInsets(for: .bar(onEdge: UIRectEdge.top))
+    } else {
+      bar = edgeInsets(for: .bar(onEdge: UIRectEdge.top, extent: 48))
+    }
+    guard bar.top + 1 < safeAreaInsets.top else { return nil }
+    return [
+      "top": Double(bar.top),
+      "left": Double(bar.left),
+      "right": Double(bar.right),
+      "height": Double(bounds.height - bar.top - bar.bottom),
+    ]
+  }
+
+  override func safeAreaInsetsDidChange() {
+    super.safeAreaInsetsDidChange()
+    report()
+  }
+
+  override func layoutSubviews() {
+    super.layoutSubviews()
+    report()
+  }
+
+  private func report() {
+    let current = region
+    guard !reported || current != last else { return }
+    reported = true
+    last = current
+    onChange?(current)
   }
 }
