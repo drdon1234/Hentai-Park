@@ -59,6 +59,17 @@ class Diagnostics {
     'OTHER',
   };
 
+  static const _addressRanges = {
+    'unspecified',
+    'loopback',
+    'unique_local',
+    'link_local',
+    'multicast',
+    'private',
+    'shared',
+    'reserved',
+  };
+
   static final _event = RegExp(r'^[a-z][a-z_]{0,31}$');
   static final _name = RegExp(r'^[A-Za-z][A-Za-z0-9_.-]{0,63}$');
   static final _host = RegExp(r'^(?:[a-zA-Z0-9-]+\.)*[a-zA-Z0-9-]+$');
@@ -91,6 +102,7 @@ class Diagnostics {
     final reason = value('reason');
     final transport = value('transport');
     final host = value('host');
+    final range = value('range');
     final type = value('type')?.replaceAll(RegExp(r'[^A-Za-z0-9_]'), '');
     final library = value('library')?.replaceAll(' ', '_');
     final message = value('message');
@@ -156,6 +168,11 @@ class Diagnostics {
         'transport': transport!,
       if (host != null && host.length <= 253 && _host.hasMatch(host))
         'host': host,
+      if (range != null &&
+          reason == 'PRIVATE_ADDRESS' &&
+          range.length <= 80 &&
+          range.split('+').every(_addressRanges.contains))
+        'range': range,
       if (type != null && type.isNotEmpty && type.length <= 64) 'type': type,
       if (library != null && _name.hasMatch(library)) 'library': library,
       if (exitStatus != null && exitStatus >= 0 && exitStatus <= 255)
