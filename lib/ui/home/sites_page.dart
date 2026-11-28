@@ -67,7 +67,7 @@ class SitesPage extends StatelessWidget {
                     children: [
                       SectionHeader(
                         category.label,
-                        titleStyle: ParkText.serif(
+                        titleStyle: ParkText.display(
                           context.text.titleLarge?.copyWith(
                             fontWeight: FontWeight.w600,
                           ),

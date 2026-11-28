@@ -63,7 +63,7 @@ class WorkListRow extends StatelessWidget {
                         workDisplayTitle(item, text),
                         maxLines: 3,
                         overflow: TextOverflow.ellipsis,
-                        style: ParkText.serif(context.text.titleSmall),
+                        style: ParkText.display(context.text.titleSmall),
                       ),
                     ),
                     if (item.authors.isNotEmpty) ...[

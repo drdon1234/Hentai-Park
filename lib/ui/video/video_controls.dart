@@ -597,7 +597,7 @@ class VideoDetails extends StatelessWidget {
                     source: d.source,
                     builder: (value) => SelectableText(
                       value,
-                      style: ParkText.serif(context.text.titleMedium),
+                      style: ParkText.display(context.text.titleMedium),
                     ),
                   ),
                   if (d.authors.isNotEmpty)

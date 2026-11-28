@@ -175,7 +175,7 @@ class _HomePageState extends State<HomePage> {
     DiscoveryDestination selected,
   ) {
     final scaler = MediaQuery.textScalerOf(context);
-    final logoStyle = ParkText.serif(
+    final logoStyle = ParkText.display(
       context.text.headlineSmall?.copyWith(fontWeight: FontWeight.w600),
     );
     Size measure(String text, TextStyle? style) {
@@ -542,7 +542,7 @@ class _HomePageState extends State<HomePage> {
                 Expanded(
                   child: Text(
                     tr('全部站点'),
-                    style: ParkText.serif(
+                    style: ParkText.display(
                       context.text.headlineMedium?.copyWith(
                         fontWeight: FontWeight.w600,
                       ),
@@ -728,7 +728,7 @@ class _HomePageState extends State<HomePage> {
         SectionHeader(
           domain.label,
           padding: const EdgeInsets.fromLTRB(Gap.page, Gap.l, Gap.page, Gap.xs),
-          titleStyle: ParkText.serif(
+          titleStyle: ParkText.display(
             context.text.titleLarge?.copyWith(fontWeight: FontWeight.w600),
           ),
           emphasizeTrailing: false,

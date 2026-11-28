@@ -91,7 +91,7 @@ class _LockScreenState extends State<_LockScreen> with WidgetsBindingObserver {
                 const SizedBox(height: Gap.l),
                 Text(
                   tr('HentaiPark 已锁定'),
-                  style: ParkText.serif(context.text.headlineSmall),
+                  style: ParkText.display(context.text.headlineSmall),
                 ),
                 const SizedBox(height: Gap.xl),
                 FilledButton.icon(

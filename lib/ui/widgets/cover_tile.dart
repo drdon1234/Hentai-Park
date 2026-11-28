@@ -283,7 +283,7 @@ class _CoverTileState extends State<CoverTile> {
                           workDisplayTitle(item, value),
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
-                          style: ParkText.serif(
+                          style: ParkText.display(
                             context.text.bodySmall?.copyWith(
                               fontWeight: FontWeight.w500,
                               height: 1.3,
@@ -630,7 +630,7 @@ double cardTextExtent(
     return height;
   }
 
-  final title = ParkText.serif(
+  final title = ParkText.display(
     context.text.bodySmall?.copyWith(fontWeight: FontWeight.w500, height: 1.3),
   );
   final metadataStyle = context.text.labelSmall?.copyWith(

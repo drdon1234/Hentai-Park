@@ -26,7 +26,7 @@ List<Widget> aboutSettings(BuildContext context) => [
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('HentaiPark', style: ParkText.serif(context.text.headlineSmall)),
+        Text('HentaiPark', style: ParkText.display(context.text.headlineSmall)),
         const SizedBox(height: Gap.xs),
         Text(
           tr('可插拔的多站点漫画、图集、视频、小说与游戏客户端。内容来自第三方站点，仅限成年人在合法地区使用。'),

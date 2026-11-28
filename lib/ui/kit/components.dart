@@ -214,7 +214,7 @@ class PageHeader extends StatelessWidget implements PreferredSizeWidget {
           overflow: TextOverflow.ellipsis,
           style: PlatformCapabilities.desktop
               ? context.text.titleLarge
-              : ParkText.serif(context.text.headlineSmall),
+              : ParkText.display(context.text.headlineSmall),
         ),
     actions: actions,
     bottom: bottom,
@@ -245,7 +245,7 @@ class HeaderTabs extends StatelessWidget {
     final c = context.colors;
     final style = PlatformCapabilities.desktop
         ? context.text.titleLarge
-        : ParkText.serif(context.text.headlineSmall);
+        : ParkText.display(context.text.headlineSmall);
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       child: Row(
@@ -690,7 +690,7 @@ class EmptyState extends StatelessWidget {
               title,
               style: compact
                   ? context.text.titleSmall
-                  : ParkText.serif(context.text.titleLarge),
+                  : ParkText.display(context.text.titleLarge),
               textAlign: TextAlign.center,
             ),
             if (message != null && message!.isNotEmpty) ...[

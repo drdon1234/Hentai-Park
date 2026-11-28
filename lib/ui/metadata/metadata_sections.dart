@@ -45,7 +45,7 @@ class MetadataOverview extends StatelessWidget {
           source: source,
           text: detail.title,
           builder: (value) =>
-              Text(value, style: ParkText.serif(context.text.titleLarge)),
+              Text(value, style: ParkText.display(context.text.titleLarge)),
         ),
         const SizedBox(height: Gap.m),
         Wrap(

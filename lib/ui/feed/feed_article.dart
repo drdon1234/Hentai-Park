@@ -58,7 +58,7 @@ class FeedArticleTile extends StatelessWidget {
                       source: item.source,
                       builder: (text) => Text(
                         text,
-                        style: ParkText.serif(context.text.titleMedium),
+                        style: ParkText.display(context.text.titleMedium),
                       ),
                     ),
                     if (metadata.isNotEmpty) ...[
@@ -275,7 +275,7 @@ class _FeedArticlePageState extends State<FeedArticlePage> {
                                 source: widget.item.source,
                                 builder: (text) => Text(
                                   text,
-                                  style: ParkText.serif(
+                                  style: ParkText.display(
                                     context.text.headlineSmall,
                                   ),
                                 ),

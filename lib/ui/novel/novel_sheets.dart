@@ -196,7 +196,7 @@ Future<String?> askNote(
                 quote,
                 maxLines: 5,
                 overflow: TextOverflow.ellipsis,
-                style: ParkText.serif(ctx.text.bodyMedium),
+                style: ParkText.display(ctx.text.bodyMedium),
               ),
             TextFormField(
               initialValue: initial,

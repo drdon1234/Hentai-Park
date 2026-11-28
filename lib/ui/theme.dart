@@ -597,8 +597,8 @@ class ParkTheme {
             : BorderSide.none,
       );
 
-  /// Material 3 type scale with weights capped at 600. Titles stay sans; [ParkText.serif]
-  /// is applied where the design calls for a reading voice.
+  /// Material 3 type scale with weights capped at 600. [ParkText.display] marks titles
+  /// that need to stand out.
   static TextTheme _text(TextTheme base, ColorScheme scheme) {
     TextStyle? cap(TextStyle? style, FontWeight weight) =>
         style?.copyWith(fontWeight: weight);
@@ -731,7 +731,7 @@ abstract final class ParkText {
     _ => const [],
   };
 
-  /// 已激活宋体的书写系统；未激活前中文衬线整体使用苹方，不与日文明朝体逐字混排。
+  /// 已激活宋体的书写系统（仅小说正文的衬线选项使用）；未激活前中文衬线整体使用苹方，不与日文明朝体逐字混排。
   static final _activeSerif = ValueNotifier<String?>(null);
 
   /// 按当前界面语言激活 iOS 中文宋体；已下载时立即完成，首次使用时下载后整体切换。
@@ -817,12 +817,17 @@ abstract final class ParkText {
           'serif',
         ];
 
-  static TextStyle? serif(TextStyle? style) => style?.copyWith(
-    fontFamily: serifFamily,
-    fontFamilyFallback: serifFallback,
-    // iOS 的系统字距只适用于 SF Pro；宋体保持字体自身字距。
-    letterSpacing: _ios ? 0 : null,
-  );
+  /// 标题、作品名等需要醒目的文字：使用系统无衬线字体，标题级字号（≥ 20）至少 600 字重。
+  static TextStyle? display(TextStyle? style) {
+    if (style == null) return null;
+    final weight = style.fontWeight ?? FontWeight.w400;
+    final size = style.fontSize ?? 14;
+    return style.copyWith(
+      fontFamily: sansFamily,
+      fontFamilyFallback: sansFallback,
+      fontWeight: size >= 20 && weight.value < 600 ? FontWeight.w600 : weight,
+    );
+  }
 
   /// Logs, cookies and checksums.
   static TextStyle? mono(TextStyle? style) => style?.copyWith(

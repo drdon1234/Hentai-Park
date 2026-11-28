@@ -51,7 +51,7 @@ class ReverseSearchResult extends StatelessWidget {
             _ResultText(
               text: match.title,
               source: source,
-              style: ParkText.serif(context.text.titleLarge),
+              style: ParkText.display(context.text.titleLarge),
             ),
             if (match.similarity != null ||
                 match.episode.isNotEmpty ||

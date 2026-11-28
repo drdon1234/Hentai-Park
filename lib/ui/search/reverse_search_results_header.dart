@@ -88,7 +88,7 @@ class ReverseSearchResultsHeader extends StatelessWidget {
           header: true,
           child: Text(
             tr('识别结果'),
-            style: ParkText.serif(context.text.headlineSmall),
+            style: ParkText.display(context.text.headlineSmall),
           ),
         ),
         const SizedBox(height: Gap.s),
