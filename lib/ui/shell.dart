@@ -353,26 +353,9 @@ class _ShellState extends State<Shell> {
         );
       },
     );
-    final scaffold = PlatformNavigation.usesSidebar(context)
-        ? Scaffold(
-            body: Row(
-              children: [
-                SafeArea(right: false, child: navigation),
-                const VerticalDivider(width: 1, thickness: .8),
-                Expanded(
-                  child: SafeArea(
-                    left: false,
-                    top: false,
-                    bottom: false,
-                    child: body,
-                  ),
-                ),
-              ],
-            ),
-          )
-        // 一侧安全区明显更宽（如可折叠 iPhone 外屏右侧的状态区）：导航移入该侧安全区，
+    final scaffold = rail != EdgeInsets.zero
+        // 一侧安全区明显更宽（如可折叠 iPhone 外屏右侧、内屏横屏右侧的状态区）：导航移入该侧安全区，
         // 正文避让左右安全区，横滑行可从导航下方铺到屏幕边缘。
-        : rail != EdgeInsets.zero
         ? Scaffold(
             body: Stack(
               children: [
@@ -390,6 +373,23 @@ class _ShellState extends State<Shell> {
                   right: rail.right > 0 ? 0 : null,
                   width: rail.horizontal,
                   child: navigation,
+                ),
+              ],
+            ),
+          )
+        : PlatformNavigation.usesSidebar(context)
+        ? Scaffold(
+            body: Row(
+              children: [
+                SafeArea(right: false, child: navigation),
+                const VerticalDivider(width: 1, thickness: .8),
+                Expanded(
+                  child: SafeArea(
+                    left: false,
+                    top: false,
+                    bottom: false,
+                    child: body,
+                  ),
                 ),
               ],
             ),

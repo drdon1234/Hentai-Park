@@ -29,10 +29,11 @@ class PlatformNavigation extends StatelessWidget {
   static bool usesSidebar(BuildContext context) =>
       PlatformCapabilities.desktop || expandedSidebar(context);
 
-  /// 一侧安全区明显宽于另一侧时（如可折叠 iPhone 外屏右侧的状态区），导航移入该侧；
-  /// 返回导航所在一侧的宽度，另一侧为零。两侧对称（横屏刘海）或已用侧边栏时返回零。
+  /// 一侧安全区明显宽于另一侧时（如可折叠 iPhone 外屏右侧、内屏横屏右侧的状态区），导航移入该侧；
+  /// 返回导航所在一侧的宽度，另一侧为零。优先于宽屏侧边栏，避免状态区空置而另一侧再占一列。
+  /// 两侧对称（横屏刘海）或桌面端返回零。
   static EdgeInsets insetRail(BuildContext context) {
-    if (usesSidebar(context)) return EdgeInsets.zero;
+    if (PlatformCapabilities.desktop) return EdgeInsets.zero;
     final padding = MediaQuery.paddingOf(context);
     const minimum = 64.0, asymmetry = 40.0;
     if (padding.right >= minimum && padding.right - padding.left >= asymmetry) {
