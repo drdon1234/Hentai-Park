@@ -670,9 +670,9 @@ class _ShortVideoPageState extends State<ShortVideoPage>
             ),
           ),
         Positioned(
-          left: Gap.page,
-          right: Gap.page,
-          bottom: Gap.s,
+          left: Gap.page + MediaQuery.paddingOf(context).left,
+          right: Gap.page + MediaQuery.paddingOf(context).right,
+          bottom: Gap.s + MediaQuery.paddingOf(context).bottom,
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -930,109 +930,112 @@ class _ShortVideoPageState extends State<ShortVideoPage>
               child: Builder(
                 builder: (context) => Scaffold(
                   backgroundColor: Colors.black,
-                  body: SafeArea(
-                    child: Stack(
-                      children: [
-                        Positioned.fill(
-                          child: _initialError != null
-                              ? _error(_initialError!, _resolveInitial)
-                              : _resolving
-                              ? _loading()
-                              : NotificationListener<ScrollNotification>(
-                                  onNotification: (n) {
-                                    if (n.depth != 0) return false;
-                                    if (n is ScrollStartNotification) {
-                                      _scrolling = true;
-                                      _overscroll = 0;
-                                      _sync();
+                  // 画面铺满屏幕；顶栏与底部信息各自避让安全区。
+                  body: Stack(
+                    children: [
+                      Positioned.fill(
+                        child: _initialError != null
+                            ? _error(_initialError!, _resolveInitial)
+                            : _resolving
+                            ? _loading()
+                            : NotificationListener<ScrollNotification>(
+                                onNotification: (n) {
+                                  if (n.depth != 0) return false;
+                                  if (n is ScrollStartNotification) {
+                                    _scrolling = true;
+                                    _overscroll = 0;
+                                    _sync();
+                                  }
+                                  if (n is OverscrollNotification &&
+                                      n.dragDetails != null) {
+                                    final atStart =
+                                        _feed.index == 0 && n.overscroll < 0;
+                                    final atEnd =
+                                        _feed.index == _feed.items.length &&
+                                        !_feed.hasNext &&
+                                        n.overscroll > 0;
+                                    if (atStart || atEnd) {
+                                      _overscroll += n.overscroll.abs();
                                     }
-                                    if (n is OverscrollNotification &&
-                                        n.dragDetails != null) {
-                                      final atStart =
-                                          _feed.index == 0 && n.overscroll < 0;
-                                      final atEnd =
-                                          _feed.index == _feed.items.length &&
-                                          !_feed.hasNext &&
-                                          n.overscroll > 0;
-                                      if (atStart || atEnd) {
-                                        _overscroll += n.overscroll.abs();
-                                      }
-                                    }
-                                    // iOS BouncingScrollPhysics 通过越界 pixels 体现拖拽距离，不派发 OverscrollNotification。
-                                    if (n is ScrollUpdateNotification &&
-                                        n.dragDetails != null &&
-                                        n.metrics.outOfRange) {
-                                      final bounceAtStart =
-                                          _feed.index == 0 &&
-                                          n.metrics.pixels <
-                                              n.metrics.minScrollExtent;
-                                      final bounceAtEnd =
-                                          _feed.index == _feed.items.length &&
-                                          !_feed.hasNext &&
-                                          n.metrics.pixels >
-                                              n.metrics.maxScrollExtent;
-                                      if (bounceAtStart) {
-                                        final pull =
-                                            n.metrics.minScrollExtent -
-                                            n.metrics.pixels;
-                                        if (pull > _overscroll) {
-                                          _overscroll = pull;
-                                        }
-                                      } else if (bounceAtEnd) {
-                                        final pull =
-                                            n.metrics.pixels -
+                                  }
+                                  // iOS BouncingScrollPhysics 通过越界 pixels 体现拖拽距离，不派发 OverscrollNotification。
+                                  if (n is ScrollUpdateNotification &&
+                                      n.dragDetails != null &&
+                                      n.metrics.outOfRange) {
+                                    final bounceAtStart =
+                                        _feed.index == 0 &&
+                                        n.metrics.pixels <
+                                            n.metrics.minScrollExtent;
+                                    final bounceAtEnd =
+                                        _feed.index == _feed.items.length &&
+                                        !_feed.hasNext &&
+                                        n.metrics.pixels >
                                             n.metrics.maxScrollExtent;
-                                        if (pull > _overscroll) {
-                                          _overscroll = pull;
-                                        }
+                                    if (bounceAtStart) {
+                                      final pull =
+                                          n.metrics.minScrollExtent -
+                                          n.metrics.pixels;
+                                      if (pull > _overscroll) {
+                                        _overscroll = pull;
+                                      }
+                                    } else if (bounceAtEnd) {
+                                      final pull =
+                                          n.metrics.pixels -
+                                          n.metrics.maxScrollExtent;
+                                      if (pull > _overscroll) {
+                                        _overscroll = pull;
                                       }
                                     }
-                                    if (n is ScrollEndNotification) {
-                                      _scrolling = false;
-                                      if (_overscroll >= 64) {
-                                        _overscroll = 0;
-                                        unawaited(_refresh());
-                                      }
-                                      _sync();
+                                  }
+                                  if (n is ScrollEndNotification) {
+                                    _scrolling = false;
+                                    if (_overscroll >= 64) {
+                                      _overscroll = 0;
+                                      unawaited(_refresh());
                                     }
-                                    return false;
+                                    _sync();
+                                  }
+                                  return false;
+                                },
+                                child: PageView.builder(
+                                  key: ValueKey(_feed.generation),
+                                  controller: _pages,
+                                  scrollDirection: Axis.vertical,
+                                  itemCount: _feed.items.length + 1,
+                                  onPageChanged: (i) {
+                                    _save();
+                                    _feed.select(i);
                                   },
-                                  child: PageView.builder(
-                                    key: ValueKey(_feed.generation),
-                                    controller: _pages,
-                                    scrollDirection: Axis.vertical,
-                                    itemCount: _feed.items.length + 1,
-                                    onPageChanged: (i) {
-                                      _save();
-                                      _feed.select(i);
-                                    },
-                                    itemBuilder: (context, i) =>
-                                        i == _feed.items.length
-                                        ? _tail()
-                                        : _video(
-                                            _feed.items[i],
-                                            i == _feed.index,
-                                          ),
-                                  ),
+                                  itemBuilder: (context, i) =>
+                                      i == _feed.items.length
+                                      ? _tail()
+                                      : _video(
+                                          _feed.items[i],
+                                          i == _feed.index,
+                                        ),
                                 ),
-                        ),
-                        Positioned(
-                          top: 0,
-                          left: 0,
-                          right: 0,
-                          child: DecoratedBox(
-                            decoration: const BoxDecoration(
-                              gradient: LinearGradient(
-                                begin: Alignment.topCenter,
-                                end: Alignment.bottomCenter,
-                                colors: [
-                                  Scrims.strong,
-                                  Scrims.faint,
-                                  Colors.transparent,
-                                ],
-                                stops: [0, .6, 1],
                               ),
+                      ),
+                      Positioned(
+                        top: 0,
+                        left: 0,
+                        right: 0,
+                        child: DecoratedBox(
+                          decoration: const BoxDecoration(
+                            gradient: LinearGradient(
+                              begin: Alignment.topCenter,
+                              end: Alignment.bottomCenter,
+                              colors: [
+                                Scrims.strong,
+                                Scrims.faint,
+                                Colors.transparent,
+                              ],
+                              stops: [0, .6, 1],
                             ),
+                          ),
+                          child: Padding(
+                            padding: MediaQuery.paddingOf(context)
+                                .copyWith(bottom: 0),
                             child: Column(
                               mainAxisSize: MainAxisSize.min,
                               children: [
@@ -1137,8 +1140,8 @@ class _ShortVideoPageState extends State<ShortVideoPage>
                             ),
                           ),
                         ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
                 ),
               ),
