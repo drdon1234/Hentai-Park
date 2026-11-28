@@ -15,6 +15,7 @@ Future<void> initializePlayer(
   final timer = RequestLifecycle.instance.foregroundTimer(
     const Duration(seconds: 30),
     () => deadline.cancel(TimeoutException('Video initialization timed out')),
+    playback: true,
   );
   try {
     await awaitCancelled(

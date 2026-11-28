@@ -376,7 +376,12 @@ class VideoSession extends ChangeNotifier {
                 return;
               }
               await _open(
-                VideoPlayerController.networkUrl(url),
+                VideoPlayerController.networkUrl(
+                  url,
+                  videoPlayerOptions: VideoPlayerOptions(
+                    allowBackgroundPlayback: true,
+                  ),
+                ),
                 media: media,
                 requestId: openRequest,
               );
