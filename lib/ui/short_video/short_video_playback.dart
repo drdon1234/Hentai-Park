@@ -26,9 +26,13 @@ class _Slot {
   final CancelToken cancel = CancelToken();
   final finished = Completer<void>();
   Future<void> get ready => finished.future;
-  bool started = false, playing = false;
+  bool started = false;
+  // 命令失败时原生状态未知，下一次同步重新执行当前意图。
+  bool? playing = false;
   ShortVideoHandle? handle;
-  Object? error;
+  Object? loadError;
+  SourceError? commandError;
+  Object? get error => loadError ?? commandError;
 }
 
 /// 当前视频优先，后台最多两个并发；保留最近播放的资源及其缓冲。
@@ -166,7 +170,9 @@ class ShortVideoPlayback extends ChangeNotifier {
       await slot.handle!.buffer(slot.cancel);
     } catch (e) {
       if (!slot.cancel.isCancelled && !_closed) {
-        slot.error = e is SourceError ? e : SourceError('NETWORK', '短视频播放失败');
+        slot.loadError = e is SourceError
+            ? e
+            : SourceError('NETWORK', '短视频播放失败');
       }
     } finally {
       _opening.remove(slot);
@@ -185,7 +191,7 @@ class ShortVideoPlayback extends ChangeNotifier {
       return;
     }
     // 关闭资源独立于播放命令队列，否则慢关闭会卡住新视频接管。
-    if (slot.handle case final handle? when slot.playing) {
+    if (slot.handle case final handle? when slot.playing != false) {
       slot.playing = false;
       _commands = _commands
           .then((_) => handle.pause())
@@ -203,6 +209,12 @@ class ShortVideoPlayback extends ChangeNotifier {
     _retiring.add(retiring);
   }
 
+  void _commandFailed(_Slot slot, bool failed) {
+    if ((slot.commandError != null) == failed) return;
+    slot.commandError = failed ? SourceError('NETWORK', '短视频播放失败') : null;
+    _notify();
+  }
+
   Future<void> _sync() {
     return _commands = _commands.then((_) async {
       final slots = _slots.values.toList();
@@ -210,18 +222,21 @@ class ShortVideoPlayback extends ChangeNotifier {
         final h = slot.handle;
         if (h == null) continue;
         try {
-          if (slot.playing &&
+          if (slot.playing != false &&
               (_closed ||
                   _suspended ||
                   !_enabled ||
                   !_wants ||
                   slot.item.uid != _current?.uid ||
                   slot.cancel.isCancelled)) {
-            slot.playing = false;
             await h.pause();
+            slot.playing = false;
+            _commandFailed(slot, false);
           }
         } catch (_) {
-          slot.error = SourceError('NETWORK', '短视频播放失败');
+          slot.playing = null;
+          _commandFailed(slot, true);
+          return;
         }
       }
       final slot = _slots[_current?.uid];
@@ -231,15 +246,15 @@ class ShortVideoPlayback extends ChangeNotifier {
           _wants &&
           slot != null &&
           !slot.cancel.isCancelled &&
-          !slot.playing &&
+          slot.playing != true &&
           slot.handle != null) {
         try {
           slot.playing = true;
           await slot.handle!.play();
+          _commandFailed(slot, false);
         } catch (_) {
-          slot.playing = false;
-          slot.error = SourceError('NETWORK', '短视频播放失败');
-          _notify();
+          slot.playing = null;
+          _commandFailed(slot, true);
         }
       }
     });

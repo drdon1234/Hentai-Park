@@ -85,7 +85,12 @@ class PreparedVideo {
           );
           final url = await awaitCancelled(opening.openLocal(), cancel);
           check();
-          controller = VideoPlayerController.networkUrl(url);
+          controller = VideoPlayerController.networkUrl(
+            url,
+            videoPlayerOptions: VideoPlayerOptions(
+              allowBackgroundPlayback: true,
+            ),
+          );
         } else {
           controller = VideoPlayerController.file(
             local,

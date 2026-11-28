@@ -92,7 +92,11 @@ class RetryingMedia implements MediaTransport, MediaSessionAuthority {
           });
           final delay = Duration(milliseconds: 400 * (attempt + 1));
           if (foregroundRecovery) {
-            await RequestLifecycle.instance.retryDelay(delay, token);
+            await RequestLifecycle.instance.retryDelay(
+              delay,
+              token,
+              playback: true,
+            );
           } else {
             await awaitCancelled(Future<void>.delayed(delay), token);
           }

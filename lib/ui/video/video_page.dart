@@ -9,6 +9,7 @@ import 'package:wakelock_plus/wakelock_plus.dart';
 
 import '../../core/app_lock.dart';
 import '../../core/app_log.dart';
+import '../../core/app_visibility.dart';
 import '../../core/danmaku.dart';
 import '../../core/localization.dart';
 import '../../core/models.dart';
@@ -126,7 +127,7 @@ class _VideoPageState extends State<VideoPage>
     super.initState();
     final lifecycle = WidgetsBinding.instance.lifecycleState;
     _session
-      ..foreground = lifecycle == null || lifecycle == AppLifecycleState.resumed
+      ..foreground = isAppVisible(lifecycle)
       ..onInterrupt = _onInterrupt
       ..onStarted = _scheduleHide
       ..addListener(_onSession);
@@ -386,7 +387,9 @@ class _VideoPageState extends State<VideoPage>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    _session.foreground = state == AppLifecycleState.resumed;
+    _session.foreground = isAppVisible(state);
+    // The queued command reads the app lock after lifecycle observers run.
+    _session.syncPlayback();
     _syncLiveChat();
     if (state == AppLifecycleState.resumed) {
       if (_session.visible && _customBrightness != null) {
@@ -405,8 +408,6 @@ class _VideoPageState extends State<VideoPage>
         PlatformBridge.resetVideoBrightness();
       }
     }
-    // Queue playback after all lifecycle observers have updated the app lock.
-    _session.syncPlayback();
     _syncWakelock();
   }
 

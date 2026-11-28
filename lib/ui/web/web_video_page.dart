@@ -10,6 +10,7 @@ import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../core/app_lock.dart';
+import '../../core/app_visibility.dart';
 import '../../core/localization.dart';
 import '../../core/models.dart';
 import '../../core/settings.dart';
@@ -44,6 +45,20 @@ class WebVideoPage extends StatefulWidget {
 class _WebVideoPageState extends State<WebVideoPage>
     with WidgetsBindingObserver, RouteAware {
   static const _platform = MethodChannel('hentai_park/platform');
+  static const _pauseHiddenMedia = r'''
+    (() => {
+      document.addEventListener('visibilitychange', () => {
+        if (document.hidden) {
+          document.querySelectorAll('video,audio').forEach(media => media.pause());
+        }
+      });
+      document.addEventListener('play', event => {
+        if (document.hidden && event.target instanceof HTMLMediaElement) {
+          event.target.pause();
+        }
+      }, true);
+    })();
+  ''';
   WebPlaybackPolicy? _policy;
   InAppWebViewController? _controller;
   InAppWebViewKeepAlive? _keepAlive;
@@ -58,6 +73,7 @@ class _WebVideoPageState extends State<WebVideoPage>
   bool _visible = true;
   Future<void> _routeClosing = Future.value();
   Map<String, dynamic>? _routePlayback;
+  Timer? _restoreRetry;
   CancelToken? _loadRequest;
   Future<void> _playbackUpdates = Future.value();
   int _generation = 0;
@@ -68,6 +84,7 @@ class _WebVideoPageState extends State<WebVideoPage>
   int? _httpError;
 
   void _resetAccess() {
+    _restoreRetry?.cancel();
     _documentGeneration++;
     _accessPoll?.cancel();
     _accessPoll = null;
@@ -355,7 +372,7 @@ class _WebVideoPageState extends State<WebVideoPage>
         ''',
             )
             .timeout(const Duration(seconds: 2));
-        if (value is Map) _routePlayback = value.cast<String, dynamic>();
+        if (value is Map) _routePlayback ??= value.cast<String, dynamic>();
       } catch (_) {
         // 跨域或原站自定义播放器不能读取位置时，仍必须释放网页会话。
       } finally {
@@ -367,30 +384,70 @@ class _WebVideoPageState extends State<WebVideoPage>
     if (mounted) setState(() {});
   }
 
-  Future<void> _restoreRoutePlayback(InAppWebViewController controller) async {
+  bool get _shouldPause =>
+      !_visible ||
+      _error != null ||
+      AppLock.instance.locked ||
+      !isAppVisible(WidgetsBinding.instance.lifecycleState);
+
+  Future<void> _restoreRoutePlayback(
+    InAppWebViewController controller, {
+    int missingAttempts = 0,
+  }) async {
     final state = _routePlayback;
-    if (state == null || !_visible || !identical(controller, _controller)) {
-      return;
-    }
+    final document = _documentGeneration;
+    bool current() =>
+        mounted &&
+        !_shouldPause &&
+        identical(controller, _controller) &&
+        identical(state, _routePlayback) &&
+        document == _documentGeneration;
+    if (state == null || !current()) return;
     try {
-      final restored = await controller.evaluateJavascript(
+      _restoreRetry?.cancel();
+      final result = await controller.evaluateJavascript(
         source:
             '''
-        (() => { const state = ${jsonEncode(state)};
-          function restore(w) { try {
-            const v = w.document.querySelector('video,audio');
-            if (v) {
-              const apply = () => { v.currentTime = state.position; if (state.paused) v.pause(); else v.play().catch(() => {}); };
-              if (v.readyState) apply(); else v.addEventListener('loadedmetadata', apply, {once: true});
-              return true;
+          (() => {
+            const state = ${jsonEncode(state)};
+            function restore(w) {
+              try {
+                if (w.document.hidden) return 'waiting';
+                const media = w.document.querySelector('video,audio');
+                if (media) {
+                  if (!media.readyState) return 'waiting';
+                  media.currentTime = state.position;
+                  if (state.paused) media.pause();
+                  else if (media.paused) media.play().catch(() => {});
+                  return media.paused === state.paused ? 'applied' : 'blocked';
+                }
+                for (let i = 0; i < w.frames.length; i++) {
+                  const result = restore(w.frames[i]);
+                  if (result) return result;
+                }
+              } catch (_) {}
+              return null;
             }
-            for (let i = 0; i < w.frames.length; i++) if (restore(w.frames[i])) return true;
-          } catch (_) {} return false; } return restore(window);
-        })();
-      ''',
+            return restore(window);
+          })();
+        ''',
       );
-      if (restored == true && identical(state, _routePlayback)) {
+      if (!current()) return;
+      if (result == 'applied') {
         _routePlayback = null;
+      } else if (result == 'waiting' ||
+          result == null && missingAttempts < 30) {
+        // 网页可能稍后才插入媒体；已有媒体的元数据可以更晚到达。
+        _restoreRetry = Timer(const Duration(seconds: 1), () {
+          _playbackUpdates = _playbackUpdates.then((_) async {
+            if (current()) {
+              await _restoreRoutePlayback(
+                controller,
+                missingAttempts: result == null ? missingAttempts + 1 : 0,
+              );
+            }
+          });
+        });
       }
     } catch (_) {}
   }
@@ -400,13 +457,10 @@ class _WebVideoPageState extends State<WebVideoPage>
     if (controller == null || !_ready) return;
     _playbackUpdates = _playbackUpdates.then((_) async {
       if (!mounted || !identical(controller, _controller) || !_ready) return;
-      final state = WidgetsBinding.instance.lifecycleState;
-      final paused =
-          !_visible ||
-          _error != null ||
-          AppLock.instance.locked ||
-          (state != null && state != AppLifecycleState.resumed);
+      _restoreRetry?.cancel();
+      final paused = _shouldPause;
       await _setPaused(controller, paused);
+      if (!paused && mounted) await _restoreRoutePlayback(controller);
     });
   }
 
@@ -414,8 +468,8 @@ class _WebVideoPageState extends State<WebVideoPage>
     InAppWebViewController controller,
     bool paused,
   ) async {
-    try {
-      if (paused) {
+    if (paused) {
+      try {
         await controller.evaluateJavascript(
           source: '''
           (() => { function pause(w) {
@@ -424,6 +478,10 @@ class _WebVideoPageState extends State<WebVideoPage>
           } pause(window); })();
         ''',
         );
+      } catch (_) {}
+    }
+    try {
+      if (paused) {
         if (Platform.isAndroid) await controller.pause();
         if (Platform.isIOS) {
           await controller.setAllMediaPlaybackSuspended(suspended: true);
@@ -548,6 +606,13 @@ class _WebVideoPageState extends State<WebVideoPage>
                   webViewEnvironment: _environment,
                   // 隔离校验完成后才允许联网。
                   initialUserScripts: UnmodifiableListView([
+                    if (Platform.isAndroid)
+                      UserScript(
+                        source: _pauseHiddenMedia,
+                        injectionTime:
+                            UserScriptInjectionTime.AT_DOCUMENT_START,
+                        forMainFrameOnly: false,
+                      ),
                     if (Platform.isAndroid || Platform.isIOS)
                       UserScript(
                         groupName: _androidProfile,
@@ -617,25 +682,11 @@ class _WebVideoPageState extends State<WebVideoPage>
                   onProgressChanged: (c, progress) {
                     if (_active(c, session)) {
                       setState(() => _progress = progress / 100);
-                      if (progress == 100 && _routePlayback != null) {
-                        unawaited(_restoreRoutePlayback(c));
-                      }
                     }
                   },
                   onLoadStop: (c, url) {
                     if (_active(c, session)) {
                       _syncLifecycle();
-                      unawaited(_restoreRoutePlayback(c));
-                      if (_routePlayback != null) {
-                        Future<void>.delayed(
-                          const Duration(milliseconds: 800),
-                          () {
-                            if (_active(c, session) && _routePlayback != null) {
-                              unawaited(_restoreRoutePlayback(c));
-                            }
-                          },
-                        );
-                      }
                       _checkAccess(c, session);
                     }
                   },

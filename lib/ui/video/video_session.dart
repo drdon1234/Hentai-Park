@@ -182,15 +182,18 @@ class VideoSession extends ChangeNotifier {
     }
   }
 
+  bool get _canPlay =>
+      (foreground || backgroundPlayback) &&
+      visible &&
+      !AppLock.instance.locked &&
+      _wantsPlayback;
+
   Future<void> syncPlayback() {
     final c = controller;
     return _playbackUpdates = _playbackUpdates
         .then((_) async {
           if (!_active || c == null || !identical(c, controller)) return;
-          if ((foreground || backgroundPlayback) &&
-              visible &&
-              !AppLock.instance.locked &&
-              _wantsPlayback) {
+          if (_canPlay) {
             await c.play();
           } else {
             await c.pause();
@@ -373,7 +376,12 @@ class VideoSession extends ChangeNotifier {
                 return;
               }
               await _open(
-                VideoPlayerController.networkUrl(url),
+                VideoPlayerController.networkUrl(
+                  url,
+                  videoPlayerOptions: VideoPlayerOptions(
+                    allowBackgroundPlayback: true,
+                  ),
+                ),
                 media: media,
                 requestId: openRequest,
               );
@@ -631,9 +639,8 @@ class VideoSession extends ChangeNotifier {
   void _scheduleBufferingRecovery(VideoPlayerController c) {
     if (_bufferingRecoveryTimer != null ||
         _bufferingRecoveryAttempts >= 2 ||
-        !_wantsPlayback ||
+        !_canPlay ||
         !_active ||
-        !visible ||
         _suspended) {
       return;
     }
@@ -643,8 +650,7 @@ class VideoSession extends ChangeNotifier {
       if (!_active ||
           request != _request ||
           !identical(controller, c) ||
-          !_wantsPlayback ||
-          !visible ||
+          !_canPlay ||
           _suspended ||
           !c.value.isBuffering) {
         return;
@@ -663,7 +669,7 @@ class VideoSession extends ChangeNotifier {
         final position = c.value.position;
         await c.pause();
         await c.seekTo(position);
-        await c.play();
+        if (identical(controller, c)) await syncPlayback();
       } catch (_) {
         // The normal player error callback remains responsible for reporting
         // a terminal failure.
