@@ -618,38 +618,41 @@ class _FeedTabState extends State<FeedTab> with AutomaticKeepAliveClientMixin {
         common: Map.of(_common),
       ),
       child: Scaffold(
-        floatingActionButton: ListenableBuilder(
-          listenable: _controller,
-          builder: (context, _) => Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              FloatingActionButton.small(
-                heroTag: null,
-                tooltip: tr('跳转指定页'),
-                onPressed: _controller.loading ? null : _goToPage,
-                child: const Icon(Icons.find_in_page_outlined),
-              ),
-              const SizedBox(height: Gap.s),
-              FloatingActionButton.small(
-                heroTag: null,
-                tooltip: tr('回到顶部'),
-                onPressed: () {
-                  final scroll = _scrollContext == null
-                      ? null
-                      : PrimaryScrollController.maybeOf(_scrollContext!);
-                  if (scroll != null && scroll.hasClients) {
-                    unawaited(
-                      scroll.animateTo(
-                        0,
-                        duration: const Duration(milliseconds: 250),
-                        curve: Curves.easeOut,
-                      ),
-                    );
-                  }
-                },
-                child: const Icon(Icons.vertical_align_top_rounded),
-              ),
-            ],
+        // 外屏一侧安全区较宽时移入该侧，不遮挡列表。
+        floatingActionButton: SideDockable(
+          child: ListenableBuilder(
+            listenable: _controller,
+            builder: (context, _) => Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                FloatingActionButton.small(
+                  heroTag: null,
+                  tooltip: tr('跳转指定页'),
+                  onPressed: _controller.loading ? null : _goToPage,
+                  child: const Icon(Icons.find_in_page_outlined),
+                ),
+                const SizedBox(height: Gap.s),
+                FloatingActionButton.small(
+                  heroTag: null,
+                  tooltip: tr('回到顶部'),
+                  onPressed: () {
+                    final scroll = _scrollContext == null
+                        ? null
+                        : PrimaryScrollController.maybeOf(_scrollContext!);
+                    if (scroll != null && scroll.hasClients) {
+                      unawaited(
+                        scroll.animateTo(
+                          0,
+                          duration: const Duration(milliseconds: 250),
+                          curve: Curves.easeOut,
+                        ),
+                      );
+                    }
+                  },
+                  child: const Icon(Icons.vertical_align_top_rounded),
+                ),
+              ],
+            ),
           ),
         ),
         body: Builder(

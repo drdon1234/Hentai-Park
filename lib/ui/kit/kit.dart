@@ -7,6 +7,7 @@ export 'reader_chrome.dart';
 export 'selection_chip.dart';
 export 'selection_menu.dart';
 export 'settings_body.dart';
+export 'side_dock.dart';
 export 'tokens.dart';
 export 'toolbar_actions.dart';
 export 'toolbar_button.dart';

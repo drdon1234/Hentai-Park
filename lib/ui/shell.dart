@@ -442,10 +442,13 @@ class _IncognitoBanner extends StatelessWidget {
             child: InkWell(
               onTap: () => s.incognito = false,
               child: SelectionContainer.disabled(
+                // 状态区只占右上角时，横幅与状态区同排并在右侧让出。
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: Gap.page,
-                    vertical: Gap.s,
+                  padding: EdgeInsets.fromLTRB(
+                    Gap.page,
+                    Gap.s,
+                    Gap.page + TopCorner.of(context),
+                    Gap.s,
                   ),
                   child: Row(
                     children: [

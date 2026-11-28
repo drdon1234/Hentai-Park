@@ -157,6 +157,7 @@ private final class ParkPlatform: NSObject {
     return view
   }()
   private var volumeObserver: NSKeyValueObservation?
+  private var topBarView: TopBarRegionView?
   private var voiceID: String?
   private var remoteTargets: [(MPRemoteCommand, Any)] = []
 
@@ -281,6 +282,8 @@ private final class ParkPlatform: NSObject {
       } else {
         result(false)
       }
+    case "topBarRegion":
+      result(attachTopBarRegion())
     case "videoLevels":
       installVolumeControl()
       result(["brightness": Double(screen?.brightness ?? 0.5),
@@ -339,6 +342,21 @@ private final class ParkPlatform: NSObject {
       result(nil)
     default: result(FlutterMethodNotImplemented)
     }
+  }
+
+  /// 首次查询时挂上观察视图，之后布局变化（折叠、旋转、分屏）主动推送。
+  private func attachTopBarRegion() -> [String: Double]? {
+    if topBarView == nil, let view = viewController()?.viewIfLoaded {
+      let observer = TopBarRegionView(frame: view.bounds)
+      observer.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+      observer.isUserInteractionEnabled = false
+      observer.onChange = { [weak self] region in
+        self?.channel.invokeMethod("topBarRegion", arguments: region)
+      }
+      view.addSubview(observer)
+      topBarView = observer
+    }
+    return topBarView?.region
   }
 
   private func installVolumeControl() {
@@ -405,5 +423,48 @@ private final class ParkPlatform: NSObject {
     guard backgroundTask != .invalid else { return }
     UIApplication.shared.endBackgroundTask(backgroundTask)
     backgroundTask = .invalid
+  }
+}
+
+/// 系统给顶部栏的布局区域（UIKit bar layout region）。iPhone Duo 内屏状态区只占右上角时，
+/// 该区域比常规安全区更靠上并在右侧让出状态区，导航栏可与状态区同排；其余设备与安全区一致，返回 nil。
+private final class TopBarRegionView: UIView {
+  var onChange: (([String: Double]?) -> Void)?
+  private var reported = false
+  private var last: [String: Double]?
+
+  var region: [String: Double]? {
+    guard bounds.height > 0, #available(iOS 27.1, *) else { return nil }
+    let bar: UIEdgeInsets
+    if #available(iOS 27.2, *) {
+      bar = edgeInsets(for: .bar(onEdge: UIRectEdge.top))
+    } else {
+      bar = edgeInsets(for: .bar(onEdge: UIRectEdge.top, extent: 48))
+    }
+    guard bar.top + 1 < safeAreaInsets.top else { return nil }
+    return [
+      "top": Double(bar.top),
+      "left": Double(bar.left),
+      "right": Double(bar.right),
+      "height": Double(bounds.height - bar.top - bar.bottom),
+    ]
+  }
+
+  override func safeAreaInsetsDidChange() {
+    super.safeAreaInsetsDidChange()
+    report()
+  }
+
+  override func layoutSubviews() {
+    super.layoutSubviews()
+    report()
+  }
+
+  private func report() {
+    let current = region
+    guard !reported || current != last else { return }
+    reported = true
+    last = current
+    onChange?(current)
   }
 }

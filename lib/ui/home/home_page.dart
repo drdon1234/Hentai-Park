@@ -199,11 +199,14 @@ class _HomePageState extends State<HomePage> {
       56.0,
       double.infinity,
     );
+    // 工具放在标题行内而非 actions，需自行让出右上角状态区（见 TopCorner）。
+    final corner = TopCorner.of(context);
     final available =
         MediaQuery.sizeOf(context).width -
         MediaQuery.paddingOf(context).horizontal -
         Gap.page -
-        Gap.xs;
+        Gap.xs -
+        corner;
     double buttonWidth(String label) =>
         (measure(label, context.text.labelMedium).width + 18 + Gap.xs + Gap.s)
             .clamp(48.0, double.infinity);
@@ -322,7 +325,10 @@ class _HomePageState extends State<HomePage> {
       toolbarHeight: stacked ? logoHeight + actionHeight : logoHeight,
       title: Padding(
         // 图标本身距边缘仍为 Gap.page；48 dp 点击区域使用外侧空白。
-        padding: const EdgeInsetsDirectional.only(start: Gap.page, end: Gap.xs),
+        padding: EdgeInsetsDirectional.only(
+          start: Gap.page,
+          end: Gap.xs + corner,
+        ),
         child: stacked
             ? Column(
                 mainAxisSize: MainAxisSize.min,
