@@ -35,7 +35,8 @@ import WebKit
   func didInitializeImplicitFlutterEngine(_ engineBridge: FlutterImplicitEngineBridge) {
     GeneratedPluginRegistrant.register(with: engineBridge.pluginRegistry)
     let registrar = engineBridge.pluginRegistry.registrar(forPlugin: "ParkPlatform")!
-    platform = ParkPlatform(messenger: registrar.messenger(), delegate: self)
+    platform = ParkPlatform(messenger: registrar.messenger(), delegate: self,
+                            viewController: { registrar.viewController })
   }
 
   func scheduleSubscriptions(_ hours: Int) throws {
@@ -92,7 +93,8 @@ import WebKit
       return
     }
     GeneratedPluginRegistrant.register(with: engine)
-    workerPlatform = ParkPlatform(messenger: engine.binaryMessenger, delegate: self)
+    workerPlatform = ParkPlatform(messenger: engine.binaryMessenger, delegate: self,
+                                  viewController: { [weak engine] in engine?.viewController })
     // 同一主线程内完成注册，Dart 首次平台消息随后处理。
     let channel = FlutterMethodChannel(name: "hentai_park/subscription_background",
                                        binaryMessenger: engine.binaryMessenger)
@@ -138,6 +140,9 @@ private final class ParkPlatform: NSObject {
   private let channel: FlutterMethodChannel
   private let downloads: FlutterMethodChannel
   private weak var delegate: AppDelegate?
+  private let viewController: () -> UIViewController?
+  /// Flutter 视图所在窗口场景的屏幕；可折叠设备与多显示器下随窗口变化。
+  private var screen: UIScreen? { viewController()?.viewIfLoaded?.window?.windowScene?.screen }
   private var backgroundTask: UIBackgroundTaskIdentifier = .invalid
   private var activeDownloads = 0
   private var originalBrightness: CGFloat?
@@ -155,8 +160,10 @@ private final class ParkPlatform: NSObject {
   private var voiceID: String?
   private var remoteTargets: [(MPRemoteCommand, Any)] = []
 
-  init(messenger: FlutterBinaryMessenger, delegate: AppDelegate) {
+  init(messenger: FlutterBinaryMessenger, delegate: AppDelegate,
+       viewController: @escaping () -> UIViewController?) {
     self.delegate = delegate
+    self.viewController = viewController
     channel = FlutterMethodChannel(name: "hentai_park/platform", binaryMessenger: messenger)
     downloads = FlutterMethodChannel(name: "hentai_park/downloads", binaryMessenger: messenger)
     super.init()
@@ -186,7 +193,7 @@ private final class ParkPlatform: NSObject {
     NotificationCenter.default.removeObserver(self)
     remoteTargets.forEach { $0.0.removeTarget($0.1) }
     volumeView.removeFromSuperview()
-    if let brightness = originalBrightness { UIScreen.main.brightness = brightness }
+    if let brightness = originalBrightness { screen?.brightness = brightness }
     if backgroundTask != .invalid { UIApplication.shared.endBackgroundTask(backgroundTask) }
   }
 
@@ -276,17 +283,18 @@ private final class ParkPlatform: NSObject {
       }
     case "videoLevels":
       installVolumeControl()
-      result(["brightness": Double(UIScreen.main.brightness),
+      result(["brightness": Double(screen?.brightness ?? 0.5),
               "volume": Double(AVAudioSession.sharedInstance().outputVolume)])
     case "setVideoBrightness":
-      if originalBrightness == nil { originalBrightness = UIScreen.main.brightness }
+      let currentScreen = screen
+      if originalBrightness == nil { originalBrightness = currentScreen?.brightness }
       let target = CGFloat(min(1, max(0, (call.arguments as? NSNumber)?.doubleValue ?? 0.5)))
       sessionBrightness = target
-      UIScreen.main.brightness = target
+      currentScreen?.brightness = target
       result(nil)
     case "resetVideoBrightness":
       sessionBrightness = nil
-      if let value = originalBrightness { UIScreen.main.brightness = value }
+      if let value = originalBrightness { screen?.brightness = value }
       originalBrightness = nil
       result(nil)
     case "setVideoVolume":
@@ -373,14 +381,14 @@ private final class ParkPlatform: NSObject {
 
   @objc private func willResignActive() {
     if sessionBrightness != nil, let original = originalBrightness {
-      UIScreen.main.brightness = original
+      screen?.brightness = original
     }
   }
 
   @objc private func didBecomeActive() {
-    if let target = sessionBrightness {
-      originalBrightness = UIScreen.main.brightness
-      UIScreen.main.brightness = target
+    if let target = sessionBrightness, let currentScreen = screen {
+      originalBrightness = currentScreen.brightness
+      currentScreen.brightness = target
     }
   }
 

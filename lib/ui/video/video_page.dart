@@ -880,6 +880,7 @@ class _VideoPageState extends State<VideoPage>
         ],
       ),
       body: SafeArea(
+        bottom: false,
         child: VideoLayout(
           player: player,
           header: VideoDetails(

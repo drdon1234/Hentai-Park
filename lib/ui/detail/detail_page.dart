@@ -484,8 +484,11 @@ class _DetailPageState extends State<DetailPage> with RouteAware {
                     ],
                     body: [
                       if (_detail != null) ..._body(context, _detail!),
-                      const SliverToBoxAdapter(
-                        child: SizedBox(height: Gap.xxl),
+                      SliverToBoxAdapter(
+                        child: SizedBox(
+                          height:
+                              Gap.xxl + MediaQuery.paddingOf(context).bottom,
+                        ),
                       ),
                     ],
                   ),

@@ -1,6 +1,8 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 
 import '../../core/localization.dart';
@@ -9,17 +11,172 @@ import '../theme.dart';
 import 'adaptive_sheet.dart';
 import 'tokens.dart';
 
-/// 页面横向视口的固定留白；内边距放在滚动视口外，滑动时内容也不会侵入。
+/// 页面横向滚动区：视口铺到屏幕两侧边缘，页面留白放进滚动内边距，静止时首尾项与页面内容对齐，
+/// 滑动时内容可进入两侧留白；所在区域提供 [SideBleed] 时继续延伸到侧边导航下方。
+/// 祖先已加页面留白时传 [parentMargin]，视口向外抵消该留白。子滚动视图须把 [scrollPadding]
+/// 加进自己的内边距。触屏平台隐藏横向滚动条，Web 保留供鼠标拖动。
 class PageGutter extends StatelessWidget {
-  const PageGutter({super.key, required this.child});
+  const PageGutter({
+    super.key,
+    required this.child,
+    this.parentMargin = EdgeInsets.zero,
+  });
+
+  final Widget child;
+  final EdgeInsets parentMargin;
+
+  /// 滚动内边距：页面留白（或祖先留白）加上侧边导航下方的延伸宽度。
+  static EdgeInsets scrollPadding(
+    BuildContext context, {
+    EdgeInsets parentMargin = EdgeInsets.zero,
+  }) {
+    final extent = SideBleed.of(context);
+    return EdgeInsets.only(
+      left:
+          (parentMargin.left > 0 ? parentMargin.left : Gap.page) + extent.left,
+      right:
+          (parentMargin.right > 0 ? parentMargin.right : Gap.page) +
+          extent.right,
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final extent = SideBleed.of(context);
+    final widen = EdgeInsets.only(
+      left: extent.left + parentMargin.left,
+      right: extent.right + parentMargin.right,
+    );
+    final scroller = kIsWeb
+        ? child
+        : ScrollConfiguration(
+            behavior: ScrollConfiguration.of(context)
+                .copyWith(scrollbars: false),
+            child: child,
+          );
+    // 横向滚动视图自身负责裁切。
+    return widen == EdgeInsets.zero
+        ? scroller
+        : _WidenBox(extent: widen, child: scroller);
+  }
+}
+
+/// 子组件比自身左右各宽 [extent]，高度随子组件；超出部分照常绘制，并在祖先允许时接收触摸。
+class _WidenBox extends SingleChildRenderObjectWidget {
+  const _WidenBox({required this.extent, super.child});
+
+  final EdgeInsets extent;
+
+  @override
+  RenderObject createRenderObject(BuildContext context) =>
+      _RenderWidenBox(extent);
+
+  @override
+  void updateRenderObject(BuildContext context, _RenderWidenBox renderObject) =>
+      renderObject.extent = extent;
+}
+
+class _RenderWidenBox extends RenderProxyBox {
+  _RenderWidenBox(this._extent);
+
+  EdgeInsets _extent;
+  set extent(EdgeInsets value) {
+    if (value == _extent) return;
+    _extent = value;
+    markNeedsLayout();
+  }
+
+  Offset get _offset => Offset(-_extent.left, 0);
+
+  @override
+  void performLayout() {
+    final child = this.child!;
+    final width = constraints.maxWidth + _extent.horizontal;
+    child.layout(
+      BoxConstraints(
+        minWidth: width,
+        maxWidth: width,
+        minHeight: constraints.minHeight,
+        maxHeight: constraints.maxHeight,
+      ),
+      parentUsesSize: true,
+    );
+    size = constraints.constrain(Size(constraints.maxWidth, child.size.height));
+  }
+
+  @override
+  void paint(PaintingContext context, Offset offset) =>
+      context.paintChild(child!, offset + _offset);
+
+  @override
+  bool hitTest(BoxHitTestResult result, {required Offset position}) {
+    final area = Rect.fromLTRB(
+      -_extent.left,
+      0,
+      size.width + _extent.right,
+      size.height,
+    );
+    if (!area.contains(position) ||
+        !hitTestChildren(result, position: position)) {
+      return false;
+    }
+    result.add(BoxHitTestEntry(this, position));
+    return true;
+  }
+
+  @override
+  bool hitTestChildren(BoxHitTestResult result, {required Offset position}) =>
+      result.addWithPaintOffset(
+        offset: _offset,
+        position: position,
+        hitTest: (result, transformed) =>
+            child!.hitTest(result, position: transformed),
+      );
+
+  @override
+  void applyPaintTransform(RenderBox child, Matrix4 transform) =>
+      transform.translateByDouble(_offset.dx, _offset.dy, 0, 1);
+
+  @override
+  Rect? describeApproximatePaintClip(RenderObject child) => null;
+}
+
+/// 侧边导航覆盖的安全区宽度：其下方可由横向内容铺满（仅作展示，触摸由导航接收）。
+class SideBleed extends InheritedWidget {
+  const SideBleed({super.key, required this.extent, required super.child});
+
+  final EdgeInsets extent;
+
+  static EdgeInsets of(BuildContext context) =>
+      context.dependOnInheritedWidgetOfExactType<SideBleed>()?.extent ??
+      EdgeInsets.zero;
+
+  @override
+  bool updateShouldNotify(SideBleed old) => old.extent != extent;
+}
+
+/// 纵向照常裁切，横向放出 [SideBleed] 宽度，供纵向滚动视图内的横滑行铺进侧边导航下方。
+class SideBleedClip extends StatelessWidget {
+  const SideBleedClip({super.key, required this.child});
 
   final Widget child;
 
   @override
-  Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.symmetric(horizontal: Gap.page),
-    child: ClipRect(child: child),
-  );
+  Widget build(BuildContext context) =>
+      ClipRect(clipper: _SideBleedClipper(SideBleed.of(context)), child: child);
+}
+
+class _SideBleedClipper extends CustomClipper<Rect> {
+  const _SideBleedClipper(this.extent);
+
+  final EdgeInsets extent;
+
+  @override
+  Rect getClip(Size size) =>
+      Rect.fromLTRB(-extent.left, 0, size.width + extent.right, size.height);
+
+  @override
+  bool shouldReclip(_SideBleedClipper old) => old.extent != extent;
 }
 
 /// Top-level page bar: a serif title (or [HeaderTabs]) and its actions.

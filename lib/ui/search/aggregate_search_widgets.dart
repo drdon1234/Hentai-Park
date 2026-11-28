@@ -251,7 +251,7 @@ class SourceResultsRow extends StatelessWidget {
             child: PageGutter(
               child: ListView.separated(
                 scrollDirection: Axis.horizontal,
-                padding: EdgeInsets.zero,
+                padding: PageGutter.scrollPadding(context),
                 itemCount: 5,
                 physics: const NeverScrollableScrollPhysics(),
                 separatorBuilder: (_, _) => const SizedBox(width: Gap.m),
@@ -314,7 +314,7 @@ class SourceResultsRow extends StatelessWidget {
         child: PageGutter(
           child: ListView.separated(
             scrollDirection: Axis.horizontal,
-            padding: EdgeInsets.zero,
+            padding: PageGutter.scrollPadding(context),
             itemCount: items.length,
             separatorBuilder: (_, _) => const SizedBox(width: Gap.m),
             itemBuilder: (context, i) => SizedBox(

@@ -38,6 +38,9 @@ def patch(name, source):
         }
         return nil
     }''')
+        # 全屏检测按 WebView 所在场景的尺寸比较；分屏、可折叠设备上场景小于整块屏幕。
+        source = replace_once(source, '        let screenBounds = UIScreen.main.bounds',
+                              '        let screenBounds = myWindow.windowScene?.coordinateSpace.bounds ?? myWindow.bounds')
         # 静态预配置仍按插件默认规则；实例构造在 super.init 前绑定作品。
         # 后续 setSettings 不能将已隔离的游戏切回全局存储。
         start = source.index('    public static func preWKWebViewConfiguration(')

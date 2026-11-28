@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import 'package:flutter/rendering.dart';
@@ -167,15 +168,18 @@ class _FeedShelfState extends State<FeedShelf>
             }
             return false;
           },
-          child: ScrollConfiguration(
-            behavior: ScrollConfiguration.of(context)
-                .copyWith(scrollbars: false),
-            child: Scrollbar(
-              controller: _scroll,
-              thumbVisibility: true,
-              child: child,
-            ),
-          ),
+          // 触屏横滑不显示滚动条；Web 保留常驻滚动条供鼠标拖动。
+          child: kIsWeb
+              ? ScrollConfiguration(
+                  behavior: ScrollConfiguration.of(context)
+                      .copyWith(scrollbars: false),
+                  child: Scrollbar(
+                    controller: _scroll,
+                    thumbVisibility: true,
+                    child: child,
+                  ),
+                )
+              : child,
         ),
       );
 
@@ -247,19 +251,23 @@ class _FeedShelfState extends State<FeedShelf>
       final aspect = gridAspectFor(items, manifest?.kind ?? MediaKind.comic);
       final imageOnly = manifest?.category == SourceCategory.live;
       final width = aspect > 1 ? 200.0 : 112.0;
+      // 横滑行与上下分隔线视觉等距：标题行高自带下方留白，底部内边距相应减小。
+      final inset = imageOnly
+          ? const EdgeInsets.symmetric(vertical: Gap.m)
+          : const EdgeInsets.only(top: Gap.m, bottom: Gap.s);
       body = SizedBox(
         height:
             width / aspect +
             (imageOnly
                 ? 0
                 : cardTextExtent(context, items: items, width: width)) +
-            Gap.m,
+            inset.vertical,
         child: PageGutter(
           child: _horizontal(
             ListView.separated(
               controller: _scroll,
               scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.only(bottom: Gap.m),
+              padding: PageGutter.scrollPadding(context).add(inset),
               itemCount: items.length + (more ? 1 : 0),
               separatorBuilder: (_, _) => const SizedBox(width: Gap.m),
               itemBuilder: (context, i) => i == items.length
@@ -383,12 +391,19 @@ class _ShelfSkeleton extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         SizedBox(
-          height: width / aspect + (imageOnly ? 0 : cardTextExtent(context)),
+          height:
+              width / aspect +
+              (imageOnly ? 0 : cardTextExtent(context)) +
+              (imageOnly ? Gap.m * 2 : Gap.m + Gap.s),
           child: PageGutter(
             child: ListView.separated(
               scrollDirection: Axis.horizontal,
               physics: const NeverScrollableScrollPhysics(),
-              padding: EdgeInsets.zero,
+              padding: PageGutter.scrollPadding(context).add(
+                imageOnly
+                    ? const EdgeInsets.symmetric(vertical: Gap.m)
+                    : const EdgeInsets.only(top: Gap.m, bottom: Gap.s),
+              ),
               itemCount: 6,
               separatorBuilder: (_, _) => const SizedBox(width: Gap.m),
               itemBuilder: (_, _) => SizedBox(

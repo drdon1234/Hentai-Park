@@ -8,7 +8,8 @@ class SelectableLogView extends StatelessWidget {
   final String text;
 
   @override
-  Widget build(BuildContext context) => PageGutter(
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.symmetric(horizontal: Gap.page),
     child: SingleChildScrollView(
       padding: const EdgeInsets.symmetric(vertical: Gap.m),
       child: SelectableText(

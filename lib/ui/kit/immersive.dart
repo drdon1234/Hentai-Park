@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../core/platform_capabilities.dart';
 import '../theme.dart';
 
 /// Pages that draw edge to edge (readers, fullscreen players, the short-video feed) register here while they are
@@ -25,9 +26,18 @@ class _ImmersiveScope extends InheritedWidget {
 /// of the root Navigator) keeps modal sheets and dialog scrims full-screen to
 /// the physical bottom edge, and ensures pushing a regular page over an
 /// immersive page gives the new route its own bottom inset immediately.
+///
+/// 非沉浸页面同时避让左右安全区（如可折叠 iPhone 外屏右侧的状态区、横屏刘海），
+/// 沉浸页面仍铺满屏幕。自行处理左右安全区的容器（主框架的侧边导航）传 [sideSafeArea] = false。
+/// 结构保持不变，仅调整数值，切换沉浸或折叠状态时不重建页面。
 class SystemNavBoundary extends StatefulWidget {
-  const SystemNavBoundary({super.key, required this.child});
+  const SystemNavBoundary({
+    super.key,
+    required this.child,
+    this.sideSafeArea = true,
+  });
   final Widget child;
+  final bool sideSafeArea;
 
   @override
   State<SystemNavBoundary> createState() => _SystemNavBoundaryState();
@@ -46,34 +56,44 @@ class _SystemNavBoundaryState extends State<SystemNavBoundary> {
   Widget build(BuildContext context) {
     final mq = MediaQuery.of(context);
     final theme = Theme.of(context);
-    final bottom = mq.viewPadding.bottom;
     final scoped = _ImmersiveScope(depth: _depth, child: widget.child);
-    if (bottom <= 0) return scoped;
+    final strip = PlatformCapabilities.systemNavigationStrip;
+    if (!strip && !widget.sideSafeArea) return scoped;
     return ValueListenableBuilder<int>(
       valueListenable: _depth,
       child: scoped,
       builder: (context, depth, child) {
         final immersive = depth > 0;
-        final inset = immersive ? 0.0 : bottom;
+        final bottom = !immersive && strip ? mq.viewPadding.bottom : 0.0;
+        final side = !immersive && widget.sideSafeArea;
+        final left = side ? mq.padding.left : 0.0;
+        final right = side ? mq.padding.right : 0.0;
+        final inset = EdgeInsets.only(left: left, right: right, bottom: bottom);
         return ColoredBox(
-          color: immersive
+          color: inset == EdgeInsets.zero
               ? Colors.transparent
               : ParkTheme.navigationColor(theme.colorScheme),
           child: Padding(
-            padding: EdgeInsets.only(bottom: inset),
+            padding: inset,
             child: MediaQuery(
-              data: immersive
-                  ? mq
-                  : mq.copyWith(
-                      padding: mq.padding.copyWith(bottom: 0),
-                      viewPadding: mq.viewPadding.copyWith(bottom: 0),
-                      viewInsets: mq.viewInsets.copyWith(
-                        bottom: (mq.viewInsets.bottom - bottom).clamp(
-                          0,
-                          double.infinity,
-                        ),
-                      ),
-                    ),
+              data: mq.copyWith(
+                padding: mq.padding.copyWith(
+                  left: mq.padding.left - left,
+                  right: mq.padding.right - right,
+                  bottom: bottom > 0 ? 0 : mq.padding.bottom,
+                ),
+                viewPadding: mq.viewPadding.copyWith(
+                  left: mq.viewPadding.left - left,
+                  right: mq.viewPadding.right - right,
+                  bottom: bottom > 0 ? 0 : mq.viewPadding.bottom,
+                ),
+                viewInsets: mq.viewInsets.copyWith(
+                  bottom: (mq.viewInsets.bottom - bottom).clamp(
+                    0,
+                    double.infinity,
+                  ),
+                ),
+              ),
               child: child!,
             ),
           ),

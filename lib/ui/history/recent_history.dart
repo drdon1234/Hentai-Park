@@ -85,7 +85,7 @@ class RecentHistory extends StatelessWidget {
               child: PageGutter(
                 child: ListView.separated(
                   scrollDirection: Axis.horizontal,
-                  padding: EdgeInsets.zero,
+                  padding: PageGutter.scrollPadding(context),
                   itemCount: recent.length,
                   separatorBuilder: (_, _) => const SizedBox(width: Gap.m),
                   itemBuilder: (context, index) => SizedBox(

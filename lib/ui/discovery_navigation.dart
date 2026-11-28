@@ -93,7 +93,8 @@ class DiscoveryDomainCards extends StatelessWidget {
   Widget build(BuildContext context) => PageGutter(
     child: SingleChildScrollView(
       scrollDirection: Axis.horizontal,
-      padding: const EdgeInsets.only(bottom: Gap.s),
+      padding: PageGutter.scrollPadding(context)
+          .add(const EdgeInsets.only(bottom: Gap.s)),
       child: Row(
         children: [
           for (final destination in [
@@ -130,7 +131,8 @@ class DiscoveryDomainBar extends StatelessWidget {
     child: PageGutter(
       child: SingleChildScrollView(
         scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.only(bottom: Gap.s),
+        padding: PageGutter.scrollPadding(context)
+            .add(const EdgeInsets.only(bottom: Gap.s)),
         child: Row(
           children: [
             for (final destination in discoveryDestinations) ...[

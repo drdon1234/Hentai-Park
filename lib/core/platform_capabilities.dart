@@ -12,6 +12,10 @@ abstract final class PlatformCapabilities {
 
   static bool get desktop => false;
 
+  /// Android 在系统导航栏下方保留应用底色条；iOS 的主屏幕指示条浮在内容之上，内容延伸到屏幕底边。
+  static bool get systemNavigationStrip =>
+      kIsWeb || defaultTargetPlatform != TargetPlatform.iOS;
+
   static bool get nativeVideo => !kIsWeb && _mobile;
 
   static bool get photoLibrary => !kIsWeb && _mobile;

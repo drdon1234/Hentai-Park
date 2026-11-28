@@ -145,6 +145,7 @@ class _HomePageState extends State<HomePage> {
               DiscoveryDomainBar(selected: selected, onSelected: _select),
             Expanded(
               child: IndexedStack(
+                clipBehavior: Clip.none,
                 index: _destinations.keys.toList().indexOf(selected.key),
                 children: [
                   for (final destination in _destinations.values)
@@ -352,134 +353,154 @@ class _HomePageState extends State<HomePage> {
             for (final category in SourceCategory.values)
               if (settings.homeIncludes(category)) category,
           });
-    return ParkRefresh(
-      onRefresh: () async {
-        if (!dataSaver) _feeds.refreshAll();
-      },
-      child: CustomScrollView(
-        physics: const AlwaysScrollableScrollPhysics(),
-        controller: _scrolls.putIfAbsent(selected.key, ScrollController.new),
-        slivers: [
-          if (selected.category == SourceCategory.tavern)
-            const SliverToBoxAdapter(child: TavernDomainNotice()),
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(Gap.page, Gap.s, Gap.page, 0),
-              child: ParkSearchField(
-                hint: selected.category == null
-                    ? tr('搜索作品、标签，或粘贴链接 / 车号')
-                    : tr('在{category}中搜索', {
-                        'category': selected.category!.label,
-                      }),
-                onTap: () => Nav.openAggregateSearch(context, scope: scope),
-                outlined: true,
-              ),
-            ),
-          ),
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(Gap.page, Gap.xs, Gap.page, 0),
-              child: Text(
-                _searchScopeSummary(settings),
-                style: context.text.bodySmall?.copyWith(
-                  color: context.colors.onSurfaceVariant,
-                ),
-              ),
-            ),
-          ),
-          if (selected.category != null)
-            SliverToBoxAdapter(
-              child: ListenableBuilder(
-                listenable: sm,
-                builder: (context, _) =>
-                    sm.enabled.any(
-                      (source) =>
-                          (source.manifest!.metadataOnly ||
-                              source.manifest!.rankingOnly &&
-                                  source.manifest!.can('metadataDetail')) &&
-                          (source.manifest!.category == selected.category ||
-                              source.manifest!.rankings.any(
-                                (board) => board.category == selected.category,
-                              )),
-                    )
-                    ? Padding(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: Gap.page,
-                          vertical: Gap.s,
-                        ),
-                        child: Align(
-                          alignment: AlignmentDirectional.centerStart,
-                          child: ListTile(
-                            contentPadding: EdgeInsets.zero,
-                            leading: const Icon(Icons.manage_search_rounded),
-                            title: Text(tr('搜索作品资料')),
-                            trailing: const Icon(Icons.chevron_right_rounded),
-                            onTap: () => Nav.push(
-                              context,
-                              MetadataSitesPage(category: selected.category!),
-                            ),
-                          ),
-                        ),
-                      )
-                    : const SizedBox.shrink(),
-              ),
-            ),
-          if (dataSaver)
+    // 纵向照常裁切；横滑行可铺进侧边导航下方（见 SideBleed）。
+    return SideBleedClip(
+      child: ParkRefresh(
+        onRefresh: () async {
+          if (!dataSaver) _feeds.refreshAll();
+        },
+        child: CustomScrollView(
+          clipBehavior: Clip.none,
+          physics: const AlwaysScrollableScrollPhysics(),
+          controller: _scrolls.putIfAbsent(selected.key, ScrollController.new),
+          slivers: [
+            if (selected.category == SourceCategory.tavern)
+              const SliverToBoxAdapter(child: TavernDomainNotice()),
             SliverToBoxAdapter(
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(
                   Gap.page,
-                  Gap.m,
+                  Gap.s,
                   Gap.page,
                   0,
                 ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      tr('省流量模式'),
-                      style: Theme.of(context).textTheme.labelLarge
-                          ?.copyWith(fontWeight: FontWeight.w400),
-                    ),
-                    Text(
-                      tr(
-                        AppSettings.instance.searchOnlySources
-                            ? '主页和域页仅显示站点入口；站点页不自动加载作品，只响应搜索'
-                            : '主页和域页仅显示站点入口，进入站点后再加载作品',
+                child: ParkSearchField(
+                  hint: selected.category == null
+                      ? tr('搜索作品、标签，或粘贴链接 / 车号')
+                      : tr('在{category}中搜索', {
+                          'category': selected.category!.label,
+                        }),
+                  onTap: () => Nav.openAggregateSearch(context, scope: scope),
+                  outlined: true,
+                ),
+              ),
+            ),
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(
+                  Gap.page,
+                  Gap.xs,
+                  Gap.page,
+                  0,
+                ),
+                child: Text(
+                  _searchScopeSummary(settings),
+                  style: context.text.bodySmall?.copyWith(
+                    color: context.colors.onSurfaceVariant,
+                  ),
+                ),
+              ),
+            ),
+            if (selected.category != null)
+              SliverToBoxAdapter(
+                child: ListenableBuilder(
+                  listenable: sm,
+                  builder: (context, _) =>
+                      sm.enabled.any(
+                        (source) =>
+                            (source.manifest!.metadataOnly ||
+                                source.manifest!.rankingOnly &&
+                                    source.manifest!.can('metadataDetail')) &&
+                            (source.manifest!.category == selected.category ||
+                                source.manifest!.rankings.any(
+                                  (board) =>
+                                      board.category == selected.category,
+                                )),
+                      )
+                      ? Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: Gap.page,
+                            vertical: Gap.s,
+                          ),
+                          child: Align(
+                            alignment: AlignmentDirectional.centerStart,
+                            child: ListTile(
+                              contentPadding: EdgeInsets.zero,
+                              leading: const Icon(Icons.manage_search_rounded),
+                              title: Text(tr('搜索作品资料')),
+                              trailing: const Icon(Icons.chevron_right_rounded),
+                              onTap: () => Nav.push(
+                                context,
+                                MetadataSitesPage(category: selected.category!),
+                              ),
+                            ),
+                          ),
+                        )
+                      : const SizedBox.shrink(),
+                ),
+              ),
+            if (dataSaver)
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(
+                    Gap.page,
+                    Gap.m,
+                    Gap.page,
+                    0,
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        tr('省流量模式'),
+                        style: Theme.of(context).textTheme.labelLarge
+                            ?.copyWith(fontWeight: FontWeight.w400),
                       ),
-                      style: Theme.of(context).textTheme.bodySmall,
-                    ),
-                  ],
+                      Text(
+                        tr(
+                          AppSettings.instance.searchOnlySources
+                              ? '主页和域页仅显示站点入口；站点页不自动加载作品，只响应搜索'
+                              : '主页和域页仅显示站点入口，进入站点后再加载作品',
+                        ),
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
+                    ],
+                  ),
                 ),
               ),
-            ),
-          if (!dataSaver)
-            SliverToBoxAdapter(
-              child: ListenableBuilder(
-                listenable: Listenable.merge([
-                  Library.instance.collection(LibraryCollection.history),
-                  sm,
-                ]),
-                builder: (context, _) => RecentHistory(
-                  showBlocked: _showBlocked,
-                  scope: scope,
-                  limit: 20,
-                  onOpenHistory: () => _history(scope),
+            if (!dataSaver)
+              SliverToBoxAdapter(
+                child: ListenableBuilder(
+                  listenable: Listenable.merge([
+                    Library.instance.collection(LibraryCollection.history),
+                    sm,
+                  ]),
+                  builder: (context, _) => RecentHistory(
+                    showBlocked: _showBlocked,
+                    scope: scope,
+                    limit: 20,
+                    onOpenHistory: () => _history(scope),
+                  ),
                 ),
               ),
+            if (selected.category == null)
+              SliverToBoxAdapter(child: _allSitesEntry(context)),
+            if (selected.category == null)
+              SliverToBoxAdapter(
+                child: DiscoveryDomainCards(onSelected: _select),
+              ),
+            ListenableBuilder(
+              listenable: Listenable.merge([sm, _domainOrder]),
+              builder: (context, _) => _shelves(context, selected),
             ),
-          if (selected.category == null)
-            SliverToBoxAdapter(child: _allSitesEntry(context)),
-          if (selected.category == null)
+            // 侧边导航时没有底栏承担底部安全区。
             SliverToBoxAdapter(
-              child: DiscoveryDomainCards(onSelected: _select),
+              child: SizedBox(
+                height: Gap.xl + MediaQuery.paddingOf(context).bottom,
+              ),
             ),
-          ListenableBuilder(
-            listenable: Listenable.merge([sm, _domainOrder]),
-            builder: (context, _) => _shelves(context, selected),
-          ),
-          const SliverToBoxAdapter(child: SizedBox(height: Gap.xl)),
-        ],
+          ],
+        ),
       ),
     );
   }

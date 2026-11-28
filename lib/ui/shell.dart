@@ -297,6 +297,8 @@ class _ShellState extends State<Shell> {
         Expanded(
           child: _IncognitoInset(
             child: IndexedStack(
+              // 横滑行可铺进侧边导航下方（见 SideBleed）。
+              clipBehavior: Clip.none,
               index: _index,
               children: [
                 // Hidden tabs keep their state but not their animations.
@@ -319,9 +321,24 @@ class _ShellState extends State<Shell> {
         ),
       ],
     );
+    final rail = PlatformNavigation.insetRail(context);
     final navigation = ValueListenableBuilder<int>(
       valueListenable: _unseenUpdates,
       builder: (context, unseen, _) {
+        if (rail != EdgeInsets.zero) {
+          return InsetNavigationRail(
+            trailing: rail.right > 0,
+            destinations: _destinations(unseen),
+            selectedIndex: _index,
+            onSelected: (index) {
+              if (index == 0) {
+                _openDiscovery(_discovery.value);
+              } else {
+                _select(index);
+              }
+            },
+          );
+        }
         return PlatformNavigation(
           destinations: _destinations(unseen),
           selectedIndex: _index,
@@ -342,11 +359,45 @@ class _ShellState extends State<Shell> {
               children: [
                 SafeArea(right: false, child: navigation),
                 const VerticalDivider(width: 1, thickness: .8),
-                Expanded(child: body),
+                Expanded(
+                  child: SafeArea(
+                    left: false,
+                    top: false,
+                    bottom: false,
+                    child: body,
+                  ),
+                ),
               ],
             ),
           )
-        : Scaffold(body: body, bottomNavigationBar: navigation);
+        // 一侧安全区明显更宽（如可折叠 iPhone 外屏右侧的状态区）：导航移入该侧安全区，
+        // 正文避让左右安全区，横滑行可从导航下方铺到屏幕边缘。
+        : rail != EdgeInsets.zero
+        ? Scaffold(
+            body: Stack(
+              children: [
+                Positioned.fill(
+                  child: SafeArea(
+                    top: false,
+                    bottom: false,
+                    child: SideBleed(extent: rail, child: body),
+                  ),
+                ),
+                Positioned(
+                  top: 0,
+                  bottom: 0,
+                  left: rail.left > 0 ? 0 : null,
+                  right: rail.right > 0 ? 0 : null,
+                  width: rail.horizontal,
+                  child: navigation,
+                ),
+              ],
+            ),
+          )
+        : Scaffold(
+            body: SafeArea(top: false, bottom: false, child: body),
+            bottomNavigationBar: navigation,
+          );
     return DiscoveryNavigation(
       onSelect: _openDiscovery,
       child: StartupUpdateCheck(
@@ -358,7 +409,7 @@ class _ShellState extends State<Shell> {
               _onBack();
             }
           },
-          child: SystemNavBoundary(child: scaffold),
+          child: SystemNavBoundary(sideSafeArea: false, child: scaffold),
         ),
       ),
     );

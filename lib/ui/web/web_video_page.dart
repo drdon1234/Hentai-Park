@@ -534,6 +534,7 @@ class _WebVideoPageState extends State<WebVideoPage>
             ),
       body: SafeArea(
         top: !_fullscreen,
+        bottom: _fullscreen,
         child: VideoLayout(
           fullscreen: _fullscreen,
           header: VideoDetails(work: widget.work, showRelated: false),

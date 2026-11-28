@@ -781,7 +781,7 @@ class WorkCarousel extends StatelessWidget {
           child: PageGutter(
             child: ListView.separated(
               scrollDirection: Axis.horizontal,
-              padding: EdgeInsets.zero,
+              padding: PageGutter.scrollPadding(context),
               itemCount: items.length,
               separatorBuilder: (_, _) => const SizedBox(width: Gap.m),
               itemBuilder: (context, i) {
